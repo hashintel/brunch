@@ -42,6 +42,7 @@ import {
   findPhaseOutcomeForTurn,
   updateTurn,
   getEntitiesForSpecificationByMode,
+  getOptionsForTurn,
   getTurn,
   type DB,
   type EntityProjectionMode,
@@ -568,6 +569,24 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         const finishReason = await interviewer.finishReason;
         interviewerElapsedMs = Date.now() - interviewerStartedAt;
         finalizeTurn(db, specificationId, prepared.turn.id);
+        const finalizedTurn = getTurn(db, prepared.turn.id);
+        if (finalizedTurn?.question.trim()) {
+          writer.write({
+            type: 'data-frontier-turn-ready',
+            data: {
+              turnId: finalizedTurn.id,
+              phase: finalizedTurn.phase,
+              question: finalizedTurn.question,
+              why: finalizedTurn.why,
+              impact: finalizedTurn.impact,
+              options: getOptionsForTurn(db, finalizedTurn.id).map((option) => ({
+                position: option.position,
+                content: option.content,
+                is_recommended: option.is_recommended,
+              })),
+            },
+          });
+        }
 
         const phaseOutcome = findPhaseOutcomeForTurn(db, specificationId, prepared.turn.id);
         if (phaseOutcome && phaseOutcome.status === 'proposed') {

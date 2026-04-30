@@ -9,7 +9,12 @@ import {
   useSubmitTurnResponseMutation,
 } from '@/client/mutations/interview-mutations';
 import type { ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
-import { brunchDataPartSchemas, getActivityToolLabel, summarizeAssistantActivity } from '@/shared/chat.js';
+import {
+  brunchDataPartSchemas,
+  frontierTurnReadySchema,
+  getActivityToolLabel,
+  summarizeAssistantActivity,
+} from '@/shared/chat.js';
 import type { ActivitySummary, BrunchUIMessage } from '@/shared/chat.js';
 import {
   createConfirmProposedPhaseClosureCommand,
@@ -23,6 +28,7 @@ import { type SpecificationMode, type SpecificationTurn } from '@/shared/specifi
 
 import {
   useInvalidateSpecificationQueryDomains,
+  usePromoteStreamedFrontierTurnToBundle,
   useSpecificationBundleData,
 } from '../-specification-data.js';
 import {
@@ -277,7 +283,9 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   const turns = specificationState.turns;
   const router = useRouter();
   const { invalidateSpecificationBundle, invalidateEntities } = useInvalidateSpecificationQueryDomains();
+  const promoteStreamedFrontierTurnToBundle = usePromoteStreamedFrontierTurnToBundle();
   const specificationId = specificationState.specification.id;
+  const pendingQuestionRef = useRef<PendingQuestionViewModel | null>(null);
 
   const refreshReadModel = useCallback(
     () => invalidateSpecificationBundle(),
@@ -328,11 +336,32 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   });
   const handleChatData = useCallback(
     (dataPart: { type: string; data?: unknown }) => {
+      if (dataPart.type === 'data-frontier-turn-ready') {
+        const parsed = frontierTurnReadySchema.safeParse(dataPart.data);
+        if (!parsed.success) {
+          return;
+        }
+
+        const pendingQuestion = pendingQuestionRef.current;
+        promoteStreamedFrontierTurnToBundle({
+          turnId: parsed.data.turnId,
+          phase: parsed.data.phase,
+          question: pendingQuestion ?? {
+            id: `frontier-turn-ready-${parsed.data.turnId}`,
+            question: parsed.data.question,
+            why: parsed.data.why,
+            impact: parsed.data.impact,
+            options: parsed.data.options,
+          },
+        });
+        return;
+      }
+
       runtime.handleObserverResult(dataPart, async () => {
         await Promise.all([refreshReadModel(), invalidateEntities()]);
       });
     },
-    [invalidateEntities, refreshReadModel, runtime],
+    [invalidateEntities, promoteStreamedFrontierTurnToBundle, refreshReadModel, runtime],
   );
 
   const { messages, sendMessage, status, error } = useChat<BrunchUIMessage>({
@@ -475,6 +504,11 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
       runtime.submittedTurnId,
     ],
   );
+
+  useEffect(() => {
+    pendingQuestionRef.current =
+      viewState.bottomArtifact?.kind === 'pending-question' ? viewState.bottomArtifact.pendingQuestion : null;
+  }, [viewState.bottomArtifact]);
 
   return {
     specification: viewState.specification,

@@ -176,6 +176,21 @@ export const dataPhaseSummarySchema = z.object({
   summary: z.string(),
 });
 
+export const frontierTurnReadySchema = z.object({
+  turnId: z.number().int().positive(),
+  phase: workflowPhaseSchema,
+  question: z.string().min(1),
+  why: z.string().min(1).nullable(),
+  impact: z.enum(['high', 'medium', 'low']).nullable(),
+  options: z.array(
+    z.object({
+      position: z.number().int().min(0),
+      content: z.string().min(1),
+      is_recommended: z.boolean(),
+    }),
+  ),
+});
+
 export const phaseClosureProposalSchema = z.object({
   phase: workflowPhaseSchema,
   summary: z.string().min(1),
@@ -202,6 +217,7 @@ export type ReviewItemComment = z.infer<typeof reviewItemCommentSchema>;
 export type DataTurnResponse = z.infer<typeof dataTurnResponseSchema>;
 export type { DataConfirmation };
 export type DataPhaseSummary = z.infer<typeof dataPhaseSummarySchema>;
+export type FrontierTurnReadyData = z.infer<typeof frontierTurnReadySchema>;
 export type PhaseClosureProposal = z.infer<typeof phaseClosureProposalSchema>;
 export type ProposePhaseClosureToolOutput = z.infer<typeof proposePhaseClosureToolOutputSchema>;
 
@@ -218,6 +234,7 @@ export type BrunchDataParts = {
   confirmation: DataConfirmation;
   'phase-intent': PhaseIntentRequest;
   'phase-summary': DataPhaseSummary;
+  'frontier-turn-ready': FrontierTurnReadyData;
 };
 
 export type BrunchUITools = {
@@ -352,6 +369,7 @@ export const brunchDataPartSchemas = {
   confirmation: dataConfirmationSchema,
   'phase-intent': phaseIntentRequestSchema,
   'phase-summary': dataPhaseSummarySchema,
+  'frontier-turn-ready': frontierTurnReadySchema,
 } as const;
 
 export type PersistedBrunchAssistantPart = Extract<

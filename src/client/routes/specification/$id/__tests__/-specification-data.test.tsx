@@ -19,6 +19,7 @@ vi.mock('@tanstack/react-router', async () => {
 
 import {
   primeSpecificationBundle,
+  promoteStreamedFrontierTurnToBundle,
   specificationQueryKeys,
   useInvalidateSpecificationQueryDomains,
 } from '../-specification-data.js';
@@ -155,5 +156,94 @@ describe('specification data ownership', () => {
     expect(invalidateQueries).toHaveBeenNthCalledWith(2, {
       queryKey: specificationQueryKeys.entities('42'),
     });
+  });
+
+  it('promotes an acknowledged streamed question into only the bundle query cache', () => {
+    queryClient.setQueryData(specificationQueryKeys.bundle('42'), minimalSpecificationState);
+    queryClient.setQueryData(specificationQueryKeys.entities('42'), minimalEntitiesData);
+
+    promoteStreamedFrontierTurnToBundle(queryClient, '42', {
+      turnId: 7,
+      phase: 'grounding',
+      question: {
+        id: 'assistant:tool-1',
+        question: 'Which platform should we target next?',
+        why: 'Platform shapes the first build.',
+        impact: 'high',
+        options: [
+          { position: 0, content: 'Web', is_recommended: true },
+          { position: 1, content: 'Desktop', is_recommended: false },
+        ],
+      },
+    });
+
+    const patchedBundle = queryClient.getQueryData<SpecificationState>(specificationQueryKeys.bundle('42'));
+
+    expect(queryClient.getQueryData(specificationQueryKeys.entities('42'))).toEqual(minimalEntitiesData);
+    expect(patchedBundle?.specification.active_turn_id).toBe(7);
+    expect(patchedBundle?.landing).toEqual({ kind: 'frontier-turn', phase: 'grounding', turnId: 7 });
+    expect(patchedBundle?.workflow.phases.grounding.turnId).toBe(7);
+    expect(patchedBundle?.turns).toContainEqual(
+      expect.objectContaining({
+        id: 7,
+        parent_turn_id: null,
+        phase: 'grounding',
+        question: 'Which platform should we target next?',
+        why: 'Platform shapes the first build.',
+        impact: 'high',
+        answer: null,
+        options: [
+          { id: 1, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 2, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+  });
+
+  it('lets the normal bundle fetch reconcile a streamed question cache patch', () => {
+    const authoritativeState: SpecificationState = {
+      ...minimalSpecificationState,
+      specification: {
+        ...minimalSpecificationState.specification,
+        active_turn_id: 7,
+      },
+      landing: { kind: 'frontier-turn', phase: 'grounding', turnId: 7 },
+      turns: [
+        {
+          id: 7,
+          specification_id: 42,
+          parent_turn_id: null,
+          phase: 'grounding',
+          turn_kind: 'question',
+          question: 'Which platform should we target next?',
+          why: 'Server projection wins.',
+          impact: 'medium',
+          answer: null,
+          is_resolution: false,
+          user_parts: null,
+          assistant_parts: null,
+          created_at: '2026-04-30 10:00:00',
+          options: [{ id: 22, position: 0, content: 'Web', is_recommended: false, is_selected: false }],
+          captured_items: [],
+        },
+      ],
+    };
+
+    queryClient.setQueryData(specificationQueryKeys.bundle('42'), minimalSpecificationState);
+    promoteStreamedFrontierTurnToBundle(queryClient, '42', {
+      turnId: 7,
+      phase: 'grounding',
+      question: {
+        id: 'assistant:tool-1',
+        question: 'Which platform should we target next?',
+        why: 'Client projection.',
+        impact: 'high',
+        options: [{ position: 0, content: 'Web', is_recommended: true }],
+      },
+    });
+
+    queryClient.setQueryData(specificationQueryKeys.bundle('42'), authoritativeState);
+
+    expect(queryClient.getQueryData(specificationQueryKeys.bundle('42'))).toEqual(authoritativeState);
   });
 });
