@@ -61,7 +61,7 @@ function GraphRouteComponent() {
   const entityState = useSpecificationEntitiesProjectWide();
   const bundle = useSpecificationBundleData();
   const { state } = useLocation();
-  const target = returnTarget(bundle.workflow, String(bundle.specification.id), state.fromPhase);
+  const target = returnTarget(bundle.workflow, String(bundle.specification.id), state?.fromPhase);
   const [rowsDefaultOpen, setRowsDefaultOpen] = useState(true);
   const [rowsRemountKey, setRowsRemountKey] = useState(0);
 
@@ -74,7 +74,7 @@ function GraphRouteComponent() {
   const ToggleIcon = rowsDefaultOpen ? ChevronsUp : ChevronsDown;
 
   const restoreScrollState =
-    state.fromPhase != null && state.fromScrollY != null ? { scrollY: state.fromScrollY } : undefined;
+    state?.fromPhase != null && state?.fromScrollY != null ? { scrollY: state.fromScrollY } : undefined;
 
   const backToChatLink = target ? (
     <Link to={target.to} params={target.params} state={restoreScrollState} className={BACK_LINK_CLASS}>
