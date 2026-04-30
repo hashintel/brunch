@@ -127,15 +127,19 @@ describe('StructuredListView', () => {
     expect(sectionLabels).not.toContain('Assumptions & Decisions');
   });
 
-  it('renders Links to and Linked from subsections in the relations footer when an item has edges', () => {
+  it('renders one subsection per relation type in the relations footer', () => {
     const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
     const decisionRow = container.querySelector('[data-graph-row-ref="D1"]');
     expect(decisionRow).toBeTruthy();
     if (!decisionRow) return;
 
-    expect(within(decisionRow as HTMLElement).getByText('Links to')).toBeTruthy();
-    expect(within(decisionRow as HTMLElement).getByText('Linked from')).toBeTruthy();
+    const decisionScope = within(decisionRow as HTMLElement);
+    expect(decisionScope.getByText('Refines')).toBeTruthy();
+    expect(decisionScope.getByText('Derived from')).toBeTruthy();
+    expect(decisionScope.getByText('Constrains')).toBeTruthy();
+    expect(decisionScope.queryByText('Links to')).toBeNull();
+    expect(decisionScope.queryByText('Linked from')).toBeNull();
   });
 
   it('shows relation chips with the target reference code and content snippet', () => {
@@ -176,8 +180,7 @@ describe('StructuredListView', () => {
     if (!goalRow) return;
 
     const goalScope = within(goalRow as HTMLElement);
-    // Goal is the target of 15 incoming `refines` edges, surfaced under "Linked from"
-    expect(goalScope.getByText('Linked from')).toBeTruthy();
+    expect(goalScope.getByText('Refines')).toBeTruthy();
     const visibleChips = goalScope.queryAllByTestId('relation-chip');
     expect(visibleChips.length).toBe(6);
     expect(goalScope.getByRole('button', { name: '+9 more' })).toBeTruthy();
