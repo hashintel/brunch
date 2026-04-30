@@ -162,7 +162,7 @@ function seedAcceptedIssueTrackerRequirements(db: DB, projectId: number) {
   }
 
   createConfirmedPhaseOutcome(db, {
-    projectId,
+    specificationId: projectId,
     phase: 'requirements',
     proposal_turn_id: seededRequirements.reviewTurn.id,
     confirmation_turn_id: seededRequirements.reviewTurn.id,
@@ -201,7 +201,7 @@ export function seedClosedGrounding(db: DB, projectId: number) {
   advanceHead(db, projectId, groundingProposalTurn.id);
 
   const groundingOutcome = createPhaseOutcome(db, {
-    projectId,
+    specificationId: projectId,
     phase: 'grounding',
     proposal_turn_id: groundingProposalTurn.id,
     summary: 'Goals, terms, context, and constraints are sufficiently captured.',
@@ -245,7 +245,7 @@ export function seedGroundingClosurePending(db: DB, projectId: number) {
   advanceHead(db, projectId, groundingProposalTurn.id);
 
   createPhaseOutcome(db, {
-    projectId,
+    specificationId: projectId,
     phase: 'grounding',
     proposal_turn_id: groundingProposalTurn.id,
     summary: 'Goals, terms, context, and constraints are sufficiently captured.',
@@ -272,7 +272,7 @@ export function seedRequirementsReady(db: DB, projectId: number) {
   const seededDesign = seedActiveDesign(db, projectId);
 
   const designOutcome = createPhaseOutcome(db, {
-    projectId,
+    specificationId: projectId,
     phase: 'design',
     proposal_turn_id: seededDesign.designTurn.id,
     summary: 'The main architectural commitments are captured well enough to review requirements.',
@@ -435,7 +435,7 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
   linkKnowledgeItemToTurn(db, approvedRequirement.id, reviewTurn.id, 'reviewed');
   linkKnowledgeItemToTurn(db, supportingRequirement.id, reviewTurn.id, 'reviewed');
   createConfirmedPhaseOutcome(db, {
-    projectId,
+    specificationId: projectId,
     phase: 'requirements',
     proposal_turn_id: reviewTurn.id,
     confirmation_turn_id: reviewTurn.id,
@@ -595,7 +595,7 @@ function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: numbe
   linkKnowledgeItemToTurn(db, criterion.id, criterionReviewTurn.id, 'reviewed');
   linkKnowledgeItemToTurn(db, supportingCriterion.id, criterionReviewTurn.id, 'reviewed');
   createConfirmedPhaseOutcome(db, {
-    projectId,
+    specificationId: projectId,
     phase: 'criteria',
     proposal_turn_id: criterionReviewTurn.id,
     confirmation_turn_id: criterionReviewTurn.id,
@@ -646,7 +646,7 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
   advanceHead(db, projectId, designForceCloseTurn.id);
 
   const designOutcome = createPhaseOutcome(db, {
-    projectId,
+    specificationId: projectId,
     phase: 'design',
     proposal_turn_id: designForceCloseTurn.id,
     summary: 'Elicitation closed by user without an interviewer recommendation.',
@@ -690,7 +690,7 @@ export function seedAllPhasesClosedWithLowReadinessGrounding(db: DB, projectId: 
   advanceHead(db, projectId, groundingClosureTurn.id);
 
   createConfirmedPhaseOutcome(db, {
-    projectId,
+    specificationId: projectId,
     phase: 'grounding',
     proposal_turn_id: groundingClosureTurn.id,
     confirmation_turn_id: groundingClosureTurn.id,
@@ -719,7 +719,7 @@ export function seedAllPhasesClosedWithLowReadinessGrounding(db: DB, projectId: 
   advanceHead(db, projectId, designConfirmationTurn.id);
 
   const designOutcome = createPhaseOutcome(db, {
-    projectId,
+    specificationId: projectId,
     phase: 'design',
     proposal_turn_id: designProposalTurn.id,
     summary: 'The main architectural commitments are captured well enough to review requirements.',
@@ -817,7 +817,7 @@ export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
   linkKnowledgeItemToTurn(db, criterionPermissions.id, criteriaReviewTurn.id, 'reviewed');
   linkKnowledgeItemToTurn(db, criterionPerformance.id, criteriaReviewTurn.id, 'reviewed');
   createConfirmedPhaseOutcome(db, {
-    projectId,
+    specificationId: projectId,
     phase: 'criteria',
     proposal_turn_id: criteriaReviewTurn.id,
     confirmation_turn_id: criteriaReviewTurn.id,

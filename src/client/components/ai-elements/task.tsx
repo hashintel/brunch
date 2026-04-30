@@ -83,15 +83,17 @@ export const Task = ({
   const hasEverRunRef = useRef(isRunning);
   const [hasAutoClosed, setHasAutoClosed] = useState(false);
 
+  // Auto-open when running starts (unless explicitly closed). Resetting
+  // hasAutoClosed here re-arms the auto-close one-shot for a later run cycle.
   useEffect(() => {
     if (isRunning) {
       hasEverRunRef.current = true;
-
-      if (!isOpen && !isExplicitlyClosed && !hasAutoClosed) {
+      setHasAutoClosed(false);
+      if (!isExplicitlyClosed) {
         setIsOpen(true);
       }
     }
-  }, [isExplicitlyClosed, isOpen, isRunning, setIsOpen, hasAutoClosed]);
+  }, [isRunning, isExplicitlyClosed, setIsOpen]);
 
   useEffect(() => {
     if (hasEverRunRef.current && !isRunning && isOpen && !hasAutoClosed) {

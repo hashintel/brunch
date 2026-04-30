@@ -366,7 +366,8 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   );
   const liveToolItems = useMemo(() => getLiveToolItems(phaseMessages, status), [phaseMessages, status]);
   const liveToolsRunning =
-    (liveToolItems?.length ?? 0) > 0 && (status === 'streaming' || status === 'submitted');
+    (liveToolItems?.some((item) => item.isRunning) ?? false) &&
+    (status === 'streaming' || status === 'submitted');
 
   const submitText = useCallback(
     (text: string) => {
