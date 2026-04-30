@@ -20,15 +20,26 @@ export function itemLabel(kind: KnowledgeKind, id: number) {
 
 // ── Badges ────────────────────────────────────────────────────────────
 
-const kindColor: Record<KnowledgeKind, string> = {
+export const kindColor: Record<KnowledgeKind, string> = {
   goal: 'bg-[rgba(37,99,235,0.08)] text-[#2563eb]',
   term: 'bg-wash text-sub',
-  context: 'bg-[rgba(234,88,12,0.08)] text-[#ea580c]',
+  context: 'bg-[rgba(8,145,178,0.08)] text-[#0891b2]',
   constraint: 'bg-[rgba(225,70,64,0.08)] text-[#e14640]',
   assumption: 'bg-[rgba(234,88,12,0.08)] text-[#ea580c]',
-  decision: 'bg-[rgba(37,99,235,0.08)] text-[#2563eb]',
+  decision: 'bg-[rgba(147,51,234,0.08)] text-[#9333ea]',
   requirement: 'bg-[rgba(22,163,106,0.08)] text-[#16a34a]',
   criterion: 'bg-wash text-sub',
+};
+
+export const kindTextColor: Record<KnowledgeKind, string> = {
+  goal: 'text-[#2563eb]',
+  term: 'text-sub',
+  context: 'text-[#0891b2]',
+  constraint: 'text-[#e14640]',
+  assumption: 'text-[#ea580c]',
+  decision: 'text-[#9333ea]',
+  requirement: 'text-[#16a34a]',
+  criterion: 'text-sub',
 };
 
 export function KindBadge({ kind }: { kind: KnowledgeKind }) {

@@ -2,7 +2,8 @@ import { useLocation } from '@tanstack/react-router';
 import { ArrowDownLeft, ArrowUpRight, ChevronRight, MessageCircle } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 
-import { knowledgeDisplayGroups } from '@/client/components/knowledge-display.js';
+import { kindColor, kindTextColor } from '@/client/components/knowledge-card';
+import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
 import { Badge } from '@/client/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
@@ -155,7 +156,12 @@ function KindFilterToggler({
         const isHidden = hiddenKinds.has(entry.kind);
         const count = entityState[entry.collectionKey].length;
         return (
-          <Badge key={entry.kind} variant={isHidden ? 'outline' : 'secondary'} asChild>
+          <Badge
+            key={entry.kind}
+            variant={isHidden ? 'outline' : 'secondary'}
+            className={isHidden ? kindTextColor[entry.kind] : kindColor[entry.kind]}
+            asChild
+          >
             <button
               type="button"
               data-graph-kind-toggle={entry.kind}
@@ -164,7 +170,7 @@ function KindFilterToggler({
               className="cursor-pointer"
             >
               <span>{entry.label}</span>
-              <span className="font-mono text-[10px] text-hint">{count}</span>
+              <span className="font-mono text-[10px] opacity-70">{count}</span>
             </button>
           </Badge>
         );
@@ -350,11 +356,14 @@ function ItemRow({
         data-graph-row
         data-graph-row-ref={item.referenceCode}
         data-graph-row-anchored={anchored ? 'true' : undefined}
-        className={`group/row overflow-hidden rounded-xl border bg-background shadow-[var(--shadow-card)] transition-all duration-700 ${anchored ? 'animate-in border-link/50 ring-2 ring-link/30 duration-300 fade-in' : 'border-rule'}`}
+        className={`group/row overflow-hidden rounded-xl border bg-background shadow-[var(--shadow-card)] transition-all duration-700 ${anchored ? `animate-in border-current/50 ring-2 ring-current/30 duration-300 fade-in ${kindTextColor[item.kind]}` : 'border-rule'}`}
       >
         <div className="flex items-baseline justify-between gap-2 p-3">
           <div className="flex items-baseline gap-2">
-            <span data-graph-row-reference className="shrink-0 font-mono text-xs text-hint">
+            <span
+              data-graph-row-reference
+              className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 font-mono text-xs font-medium ${kindColor[item.kind]}`}
+            >
               {item.referenceCode}
             </span>
             <p className="text-sm text-ink">{item.content}</p>
@@ -422,7 +431,7 @@ export function StructuredListView({
           <KindFilterToggler entityState={entityState} hiddenKinds={hiddenKinds} onToggle={toggleKind} />
         )}
         {totalItems > 0 &&
-          knowledgeDisplayGroups.map((group) => {
+          graphDisplayGroups.map((group) => {
             const items = collectItemsForGroup(entityState, group.kinds, itemsByKey, hiddenKinds);
             if (items.length === 0) return null;
             return (
