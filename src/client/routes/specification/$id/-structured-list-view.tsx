@@ -207,10 +207,12 @@ function DirectionalChipRow({
   const showMoreButton = !expanded && overflowCount > 0;
   const visibleEdges = expanded ? edges : edges.slice(0, CHIP_TRUNCATE_LIMIT);
   const DirectionIcon = direction === 'outgoing' ? ArrowUpRight : ArrowDownLeft;
+  const directionLabel = direction === 'outgoing' ? 'Outgoing' : 'Incoming';
 
   return (
     <div className="flex items-start gap-2">
-      <DirectionIcon className="mt-0.5 size-3.5 shrink-0 text-hint" />
+      <DirectionIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-hint" />
+      <span className="sr-only">{directionLabel}</span>
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
         {visibleEdges.map((edge) => (
           <RelationChip key={`${direction}-${edge.other.kind}-${edge.other.id}`} target={edge.other} />
@@ -304,24 +306,24 @@ function DependsOnSubsection({ outgoing, incoming }: { outgoing: DirectedEdge[];
 
 const TYPED_RELATION_ORDER: readonly EdgeRelation[] = ['derived_from', 'refines', 'constrains', 'verifies'];
 
-function renderTypedRelationSubsections(
-  edges: DirectedEdge[],
-  direction: 'outgoing' | 'incoming',
-): ReactNode[] {
-  if (edges.length === 0) return [];
-  const grouped = groupEdgesByType(edges);
+function renderTypedRelationSubsections(outgoing: DirectedEdge[], incoming: DirectedEdge[]): ReactNode[] {
+  if (outgoing.length === 0 && incoming.length === 0) return [];
+  const outgoingByType = groupEdgesByType(outgoing);
+  const incomingByType = groupEdgesByType(incoming);
   const sections: ReactNode[] = [];
   for (const type of TYPED_RELATION_ORDER) {
-    const typeEdges = grouped.get(type);
-    if (!typeEdges || typeEdges.length === 0) continue;
-    sections.push(
-      <RelationTypeSubsection
-        key={`${direction}-${type}`}
-        type={type}
-        direction={direction}
-        edges={typeEdges}
-      />,
-    );
+    for (const direction of ['outgoing', 'incoming'] as const) {
+      const typeEdges = (direction === 'outgoing' ? outgoingByType : incomingByType).get(type);
+      if (!typeEdges || typeEdges.length === 0) continue;
+      sections.push(
+        <RelationTypeSubsection
+          key={`${direction}-${type}`}
+          type={type}
+          direction={direction}
+          edges={typeEdges}
+        />,
+      );
+    }
   }
   return sections;
 }
@@ -367,8 +369,7 @@ function ItemDetailsFooter({
       {hasDependsOn && (
         <DependsOnSubsection outgoing={outgoingSplit.dependsOn} incoming={incomingSplit.dependsOn} />
       )}
-      {renderTypedRelationSubsections(outgoingSplit.others, 'outgoing')}
-      {renderTypedRelationSubsections(incomingSplit.others, 'incoming')}
+      {renderTypedRelationSubsections(outgoingSplit.others, incomingSplit.others)}
     </div>
   );
 }
