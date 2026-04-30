@@ -24,22 +24,22 @@ export const kindColor: Record<KnowledgeKind, string> = {
   goal: 'bg-[rgba(37,99,235,0.08)] text-[#2563eb]',
   term: 'bg-wash text-sub',
   context: 'bg-[rgba(8,145,178,0.08)] text-[#0891b2]',
-  constraint: 'bg-[rgba(225,70,64,0.08)] text-[#e14640]',
-  assumption: 'bg-[rgba(234,88,12,0.08)] text-[#ea580c]',
+  constraint: 'bg-[rgba(236,72,153,0.08)] text-[#ec4899]',
+  assumption: 'bg-[rgba(217,119,6,0.08)] text-[#d97706]',
   decision: 'bg-[rgba(147,51,234,0.08)] text-[#9333ea]',
   requirement: 'bg-[rgba(22,163,106,0.08)] text-[#16a34a]',
-  criterion: 'bg-wash text-sub',
+  criterion: 'bg-[rgba(34,197,94,0.08)] text-[#22c55e]',
 };
 
 export const kindTextColor: Record<KnowledgeKind, string> = {
   goal: 'text-[#2563eb]',
   term: 'text-sub',
   context: 'text-[#0891b2]',
-  constraint: 'text-[#e14640]',
-  assumption: 'text-[#ea580c]',
+  constraint: 'text-[#ec4899]',
+  assumption: 'text-[#d97706]',
   decision: 'text-[#9333ea]',
   requirement: 'text-[#16a34a]',
-  criterion: 'text-sub',
+  criterion: 'text-[#22c55e]',
 };
 
 export function KindBadge({ kind }: { kind: KnowledgeKind }) {

@@ -22,7 +22,7 @@ function readHashTargetRef(rawHash: string): string | null {
   return stripped.length > 0 ? stripped : null;
 }
 
-function useGraphHashAnchor(containerRef: RefObject<HTMLElement | null>): {
+function useGraphHashAnchor(scrollAreaRef: RefObject<HTMLElement | null>): {
   anchoredRowRef: string | null;
 } {
   const location = useLocation();
@@ -34,18 +34,23 @@ function useGraphHashAnchor(containerRef: RefObject<HTMLElement | null>): {
       setAnchoredRowRef(null);
       return;
     }
-    const row = containerRef.current?.querySelector(
+    const scrollArea = scrollAreaRef.current;
+    const row = scrollArea?.querySelector(
       `[data-graph-row-ref="${CSS.escape(targetRef)}"]`,
     ) as HTMLElement | null;
-    if (!row) {
+    if (!scrollArea || !row) {
       setAnchoredRowRef(null);
       return;
     }
-    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const areaRect = scrollArea.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const rowTopWithinArea = rowRect.top - areaRect.top + scrollArea.scrollTop;
+    const targetTop = rowTopWithinArea - scrollArea.clientHeight / 2 + row.clientHeight / 2;
+    scrollArea.scrollTo({ top: targetTop, behavior: 'smooth' });
     setAnchoredRowRef(targetRef);
     const timer = setTimeout(() => setAnchoredRowRef(null), HASH_ANCHOR_HIGHLIGHT_MS);
     return () => clearTimeout(timer);
-  }, [targetRef, containerRef]);
+  }, [targetRef, scrollAreaRef]);
 
   return { anchoredRowRef };
 }
@@ -496,8 +501,8 @@ export function StructuredListView({
   rowsRemountKey?: number;
 }) {
   const { itemsByKey, outgoingByItem, incomingByItem } = projectGraph(entityState);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { anchoredRowRef } = useGraphHashAnchor(containerRef);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const { anchoredRowRef } = useGraphHashAnchor(scrollAreaRef);
   const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
   const navigate = useNavigate();
 
@@ -541,7 +546,7 @@ export function StructuredListView({
 
   return (
     <ChipActivateProvider value={onChipActivate}>
-      <div ref={containerRef} data-graph-structured-list className="flex h-full flex-col bg-background">
+      <div data-graph-structured-list className="flex h-full flex-col bg-background">
         <div data-graph-header-bar className="flex h-16 shrink-0 items-center border-b border-rule px-6">
           <div className="mx-auto w-full max-w-3xl">{header}</div>
         </div>
@@ -556,7 +561,7 @@ export function StructuredListView({
             </div>
           </div>
         )}
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div ref={scrollAreaRef} className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-6 pb-8">
             {view === 'empty' && (
               <EmptyStateCard

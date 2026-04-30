@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 import { kindColor } from '@/client/components/knowledge-card';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/client/components/ui/hover-card';
@@ -43,8 +43,17 @@ export function RelationChipPreview({ target }: { target: RelationChipTarget }) 
 export function RelationChip({ target }: { target: RelationChipTarget }) {
   const navigate = useNavigate();
   const onActivate = useContext(ChipActivateContext);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('scroll', close, { capture: true, passive: true, once: true });
+    return () => window.removeEventListener('scroll', close, { capture: true });
+  }, [open]);
+
   return (
-    <HoverCard>
+    <HoverCard open={open} onOpenChange={setOpen}>
       <HoverCardTrigger asChild>
         <button
           type="button"

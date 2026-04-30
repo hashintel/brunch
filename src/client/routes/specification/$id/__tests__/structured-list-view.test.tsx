@@ -25,7 +25,7 @@ import { StructuredListView } from '../-structured-list-view.js';
 beforeEach(() => {
   mockNavigate.mockClear();
   mockHash = '';
-  Element.prototype.scrollIntoView = vi.fn();
+  Element.prototype.scrollTo = vi.fn();
 });
 
 afterEach(() => {
@@ -340,7 +340,7 @@ describe('StructuredListView', () => {
   it('mounting with a hash matching a row scrolls that row into view', () => {
     mockHash = '#G1';
     const scrollSpy = vi.fn();
-    Element.prototype.scrollIntoView = scrollSpy;
+    Element.prototype.scrollTo = scrollSpy;
 
     const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
@@ -352,7 +352,7 @@ describe('StructuredListView', () => {
   it('does not scroll when there is no hash', () => {
     mockHash = '';
     const scrollSpy = vi.fn();
-    Element.prototype.scrollIntoView = scrollSpy;
+    Element.prototype.scrollTo = scrollSpy;
 
     render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
@@ -362,7 +362,7 @@ describe('StructuredListView', () => {
   it('does not scroll or highlight when the hash matches no rendered row', () => {
     mockHash = '#NOPE99';
     const scrollSpy = vi.fn();
-    Element.prototype.scrollIntoView = scrollSpy;
+    Element.prototype.scrollTo = scrollSpy;
 
     const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
