@@ -317,7 +317,7 @@ export function createProposePhaseClosureTool(db: DB, turnId: number, phase: Pha
     outputSchema: proposePhaseClosureToolOutputSchema,
     execute: async (input) => {
       createPhaseOutcome(db, {
-        projectId,
+        specificationId: projectId,
         phase,
         proposal_turn_id: turnId,
         summary: input.summary,

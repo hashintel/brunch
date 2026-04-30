@@ -124,7 +124,7 @@ describe('prepareTurn', () => {
     finalizeTurn(db, project.id, proposalTurn.id);
 
     const outcome = createPhaseOutcome(db, {
-      projectId: project.id,
+      specificationId: project.id,
       phase: 'grounding',
       proposal_turn_id: proposalTurn.id,
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
@@ -165,7 +165,7 @@ describe('prepareTurn', () => {
     finalizeTurn(db, project.id, scopeProposalTurn.id);
 
     const scopeOutcome = createPhaseOutcome(db, {
-      projectId: project.id,
+      specificationId: project.id,
       phase: 'grounding',
       proposal_turn_id: scopeProposalTurn.id,
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
@@ -189,7 +189,7 @@ describe('prepareTurn', () => {
     finalizeTurn(db, project.id, designTurn.id);
 
     const designOutcome = createPhaseOutcome(db, {
-      projectId: project.id,
+      specificationId: project.id,
       phase: 'design',
       proposal_turn_id: designTurn.id,
       summary: 'The main architectural commitments are captured well enough to review requirements.',
@@ -230,7 +230,7 @@ describe('prepareTurn', () => {
     finalizeTurn(db, project.id, scopeProposalTurn.id);
 
     const scopeOutcome = createPhaseOutcome(db, {
-      projectId: project.id,
+      specificationId: project.id,
       phase: 'grounding',
       proposal_turn_id: scopeProposalTurn.id,
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
@@ -254,7 +254,7 @@ describe('prepareTurn', () => {
     finalizeTurn(db, project.id, designTurn.id);
 
     const designOutcome = createPhaseOutcome(db, {
-      projectId: project.id,
+      specificationId: project.id,
       phase: 'design',
       proposal_turn_id: designTurn.id,
       summary: 'The main architectural commitments are captured well enough to review requirements.',
@@ -286,7 +286,7 @@ describe('prepareTurn', () => {
     finalizeTurn(db, project.id, requirementsProposalTurn.id);
 
     const requirementsOutcome = createPhaseOutcome(db, {
-      projectId: project.id,
+      specificationId: project.id,
       phase: 'requirements',
       proposal_turn_id: requirementsProposalTurn.id,
       summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
@@ -327,7 +327,7 @@ describe('prepareTurn', () => {
     finalizeTurn(db, project.id, scopeProposalTurn.id);
 
     const scopeOutcome = createPhaseOutcome(db, {
-      projectId: project.id,
+      specificationId: project.id,
       phase: 'grounding',
       proposal_turn_id: scopeProposalTurn.id,
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
@@ -365,7 +365,7 @@ describe('prepareTurn', () => {
     });
 
     const designOutcome = createPhaseOutcome(db, {
-      projectId: project.id,
+      specificationId: project.id,
       phase: 'design',
       proposal_turn_id: designForceCloseTurn.id,
       summary: 'Elicitation closed by user without an interviewer recommendation.',

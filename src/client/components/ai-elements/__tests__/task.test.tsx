@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Task, TaskContent, TaskItem, TaskTrigger } from '../task.js';
@@ -49,5 +49,67 @@ describe('Task', () => {
     expect(content?.getAttribute('data-state')).toBe('closed');
     expect(trigger.hasAttribute('disabled')).toBe(true);
     expect(trigger.querySelector('svg')).toBeNull();
+  });
+
+  it('stays closed after user collapses it while work is still running', () => {
+    const rendered = render(
+      <Task isRunning>
+        <TaskTrigger showIcon={false} title="Tools: read file" />
+        <TaskContent>
+          <TaskItem>src/client/components/question-cards.tsx</TaskItem>
+        </TaskContent>
+      </Task>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Tools: read file' });
+    expect(trigger.getAttribute('data-state')).toBe('open');
+
+    act(() => {
+      fireEvent.click(trigger);
+    });
+    expect(trigger.getAttribute('data-state')).toBe('closed');
+
+    rendered.rerender(
+      <Task isRunning>
+        <TaskTrigger showIcon={false} title="Tools: read file" />
+        <TaskContent>
+          <TaskItem>src/client/components/question-cards.tsx</TaskItem>
+        </TaskContent>
+      </Task>,
+    );
+
+    expect(trigger.getAttribute('data-state')).toBe('closed');
+  });
+
+  it('auto-closes again on a second run cycle on the same instance', () => {
+    vi.useFakeTimers();
+
+    const renderTask = (isRunning: boolean) => (
+      <Task isRunning={isRunning}>
+        <TaskTrigger showIcon={false} title="Tools: read file" />
+        <TaskContent>
+          <TaskItem>src/client/components/question-cards.tsx</TaskItem>
+        </TaskContent>
+      </Task>
+    );
+
+    const rendered = render(renderTask(true));
+    const trigger = screen.getByRole('button', { name: 'Tools: read file' });
+    expect(trigger.getAttribute('data-state')).toBe('open');
+
+    rendered.rerender(renderTask(false));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(trigger.getAttribute('data-state')).toBe('closed');
+
+    rendered.rerender(renderTask(true));
+    expect(trigger.getAttribute('data-state')).toBe('open');
+
+    rendered.rerender(renderTask(false));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(trigger.getAttribute('data-state')).toBe('closed');
   });
 });
