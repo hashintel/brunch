@@ -9,12 +9,7 @@ import {
   useSubmitTurnResponseMutation,
 } from '@/client/mutations/interview-mutations';
 import type { ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
-import {
-  brunchDataPartSchemas,
-  frontierTurnReadySchema,
-  getActivityToolLabel,
-  summarizeAssistantActivity,
-} from '@/shared/chat.js';
+import { brunchDataPartSchemas, getActivityToolLabel, summarizeAssistantActivity } from '@/shared/chat.js';
 import type { ActivitySummary, BrunchUIMessage } from '@/shared/chat.js';
 import {
   createConfirmProposedPhaseClosureCommand,
@@ -278,6 +273,13 @@ function getLatestReasoningText(
   return chunks.length > 0 ? chunks.join('') : undefined;
 }
 
+function sameTurnReferences(
+  left: readonly SpecificationTurn[],
+  right: readonly SpecificationTurn[],
+): boolean {
+  return left.length === right.length && left.every((turn, index) => turn === right[index]);
+}
+
 export function useInterviewController(phase: WorkflowPhase): InterviewController {
   const specificationState = useSpecificationBundleData();
   const turns = specificationState.turns;
@@ -285,7 +287,6 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   const { invalidateSpecificationBundle, invalidateEntities } = useInvalidateSpecificationQueryDomains();
   const promoteStreamedFrontierTurnToBundle = usePromoteStreamedFrontierTurnToBundle();
   const specificationId = specificationState.specification.id;
-  const pendingQuestionRef = useRef<PendingQuestionViewModel | null>(null);
 
   const refreshReadModel = useCallback(
     () => invalidateSpecificationBundle(),
@@ -295,22 +296,24 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
 
   const phaseTurnIds = useMemo(() => buildPhaseTurnIds(turns, phase), [phase, turns]);
 
-  const [stablePhaseTurns, setStablePhaseTurns] = useState(() =>
-    turns.filter((turn) => turn.phase === phase),
-  );
+  const durablePhaseTurns = useMemo(() => turns.filter((turn) => turn.phase === phase), [phase, turns]);
+  const [stablePhaseTurns, setStablePhaseTurns] = useState(() => durablePhaseTurns);
   const stablePhaseKeyRef = useRef(`${durableSpecification.specification.id}:${phase}`);
+  const stablePhaseKey = `${durableSpecification.specification.id}:${phase}`;
+  const projectedPhaseTurns = useMemo(
+    () =>
+      stablePhaseKeyRef.current === stablePhaseKey
+        ? reconcileStablePhaseTurns(stablePhaseTurns, durablePhaseTurns)
+        : durablePhaseTurns,
+    [durablePhaseTurns, stablePhaseKey, stablePhaseTurns],
+  );
 
   useEffect(() => {
-    const phaseTurns = turns.filter((turn) => turn.phase === phase);
-    const stablePhaseKey = `${durableSpecification.specification.id}:${phase}`;
-
     setStablePhaseTurns((current) =>
-      stablePhaseKeyRef.current === stablePhaseKey
-        ? reconcileStablePhaseTurns(current, phaseTurns)
-        : phaseTurns,
+      sameTurnReferences(current, projectedPhaseTurns) ? current : projectedPhaseTurns,
     );
     stablePhaseKeyRef.current = stablePhaseKey;
-  }, [durableSpecification.specification.id, phase, turns]);
+  }, [projectedPhaseTurns, stablePhaseKey]);
 
   const transport = useMemo(
     () => new DefaultChatTransport({ api: `/api/specifications/${specificationId}/chat` }),
@@ -336,32 +339,11 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   });
   const handleChatData = useCallback(
     (dataPart: { type: string; data?: unknown }) => {
-      if (dataPart.type === 'data-frontier-turn-ready') {
-        const parsed = frontierTurnReadySchema.safeParse(dataPart.data);
-        if (!parsed.success) {
-          return;
-        }
-
-        const pendingQuestion = pendingQuestionRef.current;
-        promoteStreamedFrontierTurnToBundle({
-          turnId: parsed.data.turnId,
-          phase: parsed.data.phase,
-          question: pendingQuestion ?? {
-            id: `frontier-turn-ready-${parsed.data.turnId}`,
-            question: parsed.data.question,
-            why: parsed.data.why,
-            impact: parsed.data.impact,
-            options: parsed.data.options,
-          },
-        });
-        return;
-      }
-
       runtime.handleObserverResult(dataPart, async () => {
         await Promise.all([refreshReadModel(), invalidateEntities()]);
       });
     },
-    [invalidateEntities, promoteStreamedFrontierTurnToBundle, refreshReadModel, runtime],
+    [invalidateEntities, refreshReadModel, runtime],
   );
 
   const { messages, sendMessage, status, error } = useChat<BrunchUIMessage>({
@@ -506,14 +488,26 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   );
 
   useEffect(() => {
-    pendingQuestionRef.current =
-      viewState.bottomArtifact?.kind === 'pending-question' ? viewState.bottomArtifact.pendingQuestion : null;
-  }, [viewState.bottomArtifact]);
+    if (viewState.bottomArtifact?.kind !== 'pending-question') {
+      return;
+    }
+
+    const pendingQuestion = viewState.bottomArtifact.pendingQuestion;
+    if (!pendingQuestion.acknowledgedTurnId) {
+      return;
+    }
+
+    promoteStreamedFrontierTurnToBundle({
+      turnId: pendingQuestion.acknowledgedTurnId,
+      phase,
+      question: pendingQuestion,
+    });
+  }, [phase, promoteStreamedFrontierTurnToBundle, viewState.bottomArtifact]);
 
   return {
     specification: viewState.specification,
     workflow: viewState.workflow,
-    phaseTurns: stablePhaseTurns,
+    phaseTurns: projectedPhaseTurns,
     captureStatusByTurnId: runtime.captureStatusByTurnId,
     structuralArtifactTurnIds: specificationState.structuralArtifactTurnIds,
     chat: {

@@ -285,7 +285,7 @@ function renderWorkspaceInteractiveArtifact({
     case 'active-prefaced-question':
       return (
         <WorkspaceArtifactRow
-          key={`active-prefaced-question-${artifact.artifact.turn.id}`}
+          key={`persisted-turn-${artifact.artifact.turn.id}`}
           activity={
             artifact.artifact.liveActivity
               ? renderLiveActivity(artifact.artifact.liveActivity)

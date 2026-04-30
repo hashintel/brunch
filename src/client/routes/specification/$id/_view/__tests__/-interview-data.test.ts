@@ -620,7 +620,8 @@ describe('workspace controller core', () => {
     expect(viewState.bottomArtifact).toEqual({
       kind: 'pending-question',
       pendingQuestion: {
-        id: 'pending-question-assistant:tool-1',
+        id: 'persisted-turn-1',
+        acknowledgedTurnId: 1,
         question: 'Which platform should we target next?',
         why: 'Platform shapes the first build.',
         impact: 'high',

@@ -16,6 +16,7 @@ import {
 import { buildInterviewerContext } from './context.js';
 import type { TurnWithOptions } from './core.js';
 import {
+  advanceHead,
   createOption,
   getAcceptedRequirementEntitiesForSpecification,
   createPhaseOutcome,
@@ -195,7 +196,7 @@ function validateReviewSetSemantics(reviewSet: ReviewSetData): void {
   }
 }
 
-export function createAskQuestionTool(db: DB, turnId: number) {
+export function createAskQuestionTool(db: DB, turnId: number, specificationId: number) {
   return tool({
     description:
       'Ask the user a structured interview question with options, strategic grounding, and impact signal.',
@@ -226,6 +227,7 @@ export function createAskQuestionTool(db: DB, turnId: number) {
       }
 
       persistStructuredQuestion(db, turnId, input);
+      advanceHead(db, specificationId, turnId);
       return {
         ok: true as const,
         turnId,
@@ -293,7 +295,7 @@ export function getInterviewerTools(
 ): InterviewerTools {
   const closeability = getCurrentWorkflowState(db, projectId).phases[phase].closeability;
   return {
-    ask_question: createAskQuestionTool(db, turnId),
+    ask_question: createAskQuestionTool(db, turnId, projectId),
     ...(hasExplorationCapability(options)
       ? {
           present_preface: createPresentPrefaceTool(db, turnId),

@@ -37,6 +37,27 @@ function createPendingQuestionMessage(overrides?: { parts?: BrunchUIMessage['par
   };
 }
 
+function createUnacknowledgedQuestionMessage(): BrunchUIMessage {
+  return createPendingQuestionMessage({
+    parts: [
+      {
+        type: 'tool-ask_question',
+        toolCallId: 'tool-1',
+        state: 'input-available',
+        input: {
+          question: 'Which platform should we target next?',
+          why: 'Platform shapes the first build.',
+          impact: 'high',
+          options: [
+            { content: 'Web', is_recommended: true },
+            { content: 'Desktop', is_recommended: false },
+          ],
+        },
+      },
+    ],
+  });
+}
+
 type UseChatOptions = {
   id?: string;
   messages: BrunchUIMessage[];
@@ -590,7 +611,7 @@ describe('interview controller', () => {
     currentSpecificationState.workflow.phases.design.status = 'in_progress';
     currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
-    renderController();
+    const rendered = renderController();
 
     expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('phase-handoff');
     expect(screen.getByTestId('bottom-artifact').textContent).toBe(
@@ -1232,7 +1253,7 @@ describe('interview controller', () => {
       useChatHarness.replaceMessages?.([
         { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
         { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
-        createPendingQuestionMessage(),
+        createUnacknowledgedQuestionMessage(),
       ]);
     });
 
@@ -1252,7 +1273,7 @@ describe('interview controller', () => {
     useChatImpl = createUseChatHarness('streaming');
     invalidateSpecificationBundle.mockImplementationOnce(async () => new Promise<void>(() => {}));
 
-    renderController();
+    const rendered = renderController();
 
     await act(async () => {
       useChatHarness.replaceMessages?.([
@@ -1263,28 +1284,21 @@ describe('interview controller', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('pending-question');
-      expect(screen.getByTestId('bottom-artifact-disabled').textContent).toBe('true');
+      expect(promoteStreamedFrontierTurnToBundle).toHaveBeenCalledTimes(1);
     });
 
-    await act(async () => {
-      useChatHarness.onData?.({
-        type: 'data-frontier-turn-ready',
-        data: {
-          turnId: 2,
-          phase: 'grounding',
-          question: 'Which platform should we target next?',
-          why: 'Platform shapes the first build.',
-          impact: 'high',
-          options: [
-            { position: 0, content: 'Web', is_recommended: true },
-            { position: 1, content: 'Desktop', is_recommended: false },
-          ],
-        },
-      });
-    });
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <ControllerProbe phase="grounding" />
+      </QueryClientProvider>,
+    );
 
-    expect(promoteStreamedFrontierTurnToBundle).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('persisted-turn');
+      expect(screen.getByTestId('bottom-artifact-state').textContent).toBe('active');
+      expect(screen.getByTestId('bottom-artifact-disabled').textContent).toBe('false');
+      expect(screen.getByTestId('bottom-artifact').textContent).toBe('Which platform should we target next?');
+    });
 
     await act(async () => {
       useChatHarness.setStatus?.('ready');
@@ -1294,9 +1308,6 @@ describe('interview controller', () => {
     await waitFor(() => {
       expect(invalidateSpecificationBundle).toHaveBeenCalled();
       expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('persisted-turn');
-      expect(screen.getByTestId('bottom-artifact-state').textContent).toBe('active');
-      expect(screen.getByTestId('bottom-artifact-disabled').textContent).toBe('false');
-      expect(screen.getByTestId('bottom-artifact').textContent).toBe('Which platform should we target next?');
     });
   });
 
@@ -1313,7 +1324,7 @@ describe('interview controller', () => {
       useChatHarness.replaceMessages?.([
         { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
         { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
-        createPendingQuestionMessage(),
+        createUnacknowledgedQuestionMessage(),
       ]);
     });
 

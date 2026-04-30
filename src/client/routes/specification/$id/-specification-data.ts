@@ -137,6 +137,16 @@ export function promoteStreamedFrontierTurnToBundle(
     }
 
     const existingTurn = current.turns.find((turn) => turn.id === promotion.turnId);
+    if (
+      current.specification.active_turn_id === promotion.turnId &&
+      current.landing?.kind === 'frontier-turn' &&
+      current.landing.turnId === promotion.turnId &&
+      current.landing.phase === promotion.phase &&
+      existingTurn?.question === promotion.question.question
+    ) {
+      return current;
+    }
+
     const promotedTurn: SpecificationState['turns'][number] = {
       id: promotion.turnId,
       specification_id: current.specification.id,
