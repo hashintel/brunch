@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from '@tanstack/react-router';
 import { ArrowDownLeft, ArrowUpRight, ChevronRight, MessageCircle } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { flushSync } from 'react-dom';
 
 import { kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
@@ -511,11 +512,18 @@ export function StructuredListView({
 
   const onChipActivate = useCallback(
     (target: RelationChipTarget) => {
-      setHiddenKinds((current) => {
-        if (!current.has(target.kind)) return current;
-        const next = new Set(current);
-        next.delete(target.kind);
-        return next;
+      // Force the unhide to commit before navigate updates the hash, so the
+      // target row is mounted by the time useGraphHashAnchor's effect fires.
+      // Without flushSync, the two state updates can land in different renders
+      // (router state vs. component state) and the anchor effect — keyed only
+      // off targetRef — won't re-run once the row eventually appears.
+      flushSync(() => {
+        setHiddenKinds((current) => {
+          if (!current.has(target.kind)) return current;
+          const next = new Set(current);
+          next.delete(target.kind);
+          return next;
+        });
       });
       void navigate({ to: '.', hash: target.referenceCode });
     },
