@@ -146,4 +146,8 @@ Archived when Track A (interaction model) completed and the frontier shifted to 
 - 2026-04-23 — **Interviewer-autonomous question format with phase-aware gating** — the interviewer chooses whether to include options per question; observer capture interprets selections phase-appropriately while the client keeps grounding free-text-required and design selection-gated.
 - 2026-04-23 — **SPEC.md pruning** — retired embedded assumptions and decisions from the live register, leaving only active uncertainty, seam-defining decisions, and future-facing constraints.
 
+## 2026-04-30 Sync archive
+
+- 2026-04-24 — **Workflow ownership extraction** — workflow projector extraction, turn-response transition extraction, chat-route transition/application extraction, and phase-close / force-close write-path ownership landed behind runtime-owned seams.
+
 Use `memory/PLAN.md` for the live frontier only.
