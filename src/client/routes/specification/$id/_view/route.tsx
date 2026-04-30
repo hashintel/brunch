@@ -1,9 +1,10 @@
-import { Outlet, createFileRoute } from '@tanstack/react-router';
+import { Outlet, createFileRoute, useLocation } from '@tanstack/react-router';
 import { Suspense, lazy } from 'react';
 import { z } from 'zod';
 
 import { EntitySidebar } from '@/client/components/EntitySidebar';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/client/components/ui/resizable';
+import { workflowPhaseDescriptors } from '@/shared/phase-descriptors.js';
 
 import { primeSpecificationEntities, useSpecificationEntities } from '../-specification-data.js';
 
@@ -32,8 +33,16 @@ function GraphViewScreen() {
 function EntitySidebarPane() {
   const entitySnapshot = useSpecificationEntities();
   const { id: specificationId } = Route.useParams();
+  const { pathname } = useLocation();
+  const currentPhase = workflowPhaseDescriptors.find((d) => pathname.endsWith(`/${d.routeSegment}`))?.phase;
 
-  return <EntitySidebar entityState={entitySnapshot} specificationId={specificationId} />;
+  return (
+    <EntitySidebar
+      entityState={entitySnapshot}
+      specificationId={specificationId}
+      currentPhase={currentPhase}
+    />
+  );
 }
 
 function ViewLayout() {
