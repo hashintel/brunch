@@ -8,6 +8,7 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { agentTail } from 'agent-tail/vite';
 import { codeInspectorPlugin } from 'code-inspector-plugin';
+import type { PluginOption } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 import { getBackendProxyTarget } from './src/server/runtime-config';
@@ -32,6 +33,23 @@ const isRuntimeExternal = (moduleId: string) =>
   runtimeDependencyIds.some(
     (dependencyId) => moduleId === dependencyId || moduleId.startsWith(`${dependencyId}/`),
   );
+
+const reactScanDevPlugin = (): PluginOption => ({
+  name: 'brunch:react-scan-dev',
+  apply: 'serve',
+  transformIndexHtml() {
+    return [
+      {
+        tag: 'script',
+        attrs: {
+          crossorigin: 'anonymous',
+          src: 'https://unpkg.com/react-scan/dist/auto.global.js',
+        },
+        injectTo: 'head-prepend',
+      },
+    ];
+  },
+});
 
 export const resolveDevServerPort = (argv: string[]) => {
   const inlinePortFlag = argv.find((arg) => arg.startsWith('--port='));
@@ -70,6 +88,7 @@ export const getViteCacheDir = (command: 'build' | 'serve', argv: string[], mode
 export default defineConfig(({ command, mode }) => {
   const isServerRuntimeBuild = command === 'build' && mode === serverRuntimeBuildMode;
   const enableCodeInspector = command === 'serve' && !process.env.VITEST;
+  const enableReactScan = command === 'serve' && !process.env.VITEST;
 
   const sharedConfig = {
     cacheDir: getViteCacheDir(command, process.argv, mode),
@@ -130,6 +149,7 @@ export default defineConfig(({ command, mode }) => {
         routeFileIgnorePattern: '.*\\.test\\.(ts|tsx)$',
       }),
       react(),
+      ...(enableReactScan ? [reactScanDevPlugin()] : []),
       tailwindcss(),
       agentTail(),
       ...(enableCodeInspector ? [codeInspectorPlugin({ bundler: 'vite' })] : []),
