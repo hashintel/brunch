@@ -25,11 +25,12 @@ import { StructuredListView } from '../-structured-list-view.js';
 beforeEach(() => {
   mockNavigate.mockClear();
   mockHash = '';
-  Element.prototype.scrollTo = vi.fn();
+  vi.spyOn(Element.prototype, 'scrollTo').mockImplementation(() => {});
 });
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
 });
 
 describe('StructuredListView', () => {
@@ -339,34 +340,28 @@ describe('StructuredListView', () => {
 
   it('mounting with a hash matching a row scrolls that row into view', () => {
     mockHash = '#G1';
-    const scrollSpy = vi.fn();
-    Element.prototype.scrollTo = scrollSpy;
 
     const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
     const goalRow = container.querySelector('[data-graph-row-ref="G1"]');
     expect(goalRow).toBeTruthy();
-    expect(scrollSpy).toHaveBeenCalled();
+    expect(Element.prototype.scrollTo).toHaveBeenCalled();
   });
 
   it('does not scroll when there is no hash', () => {
     mockHash = '';
-    const scrollSpy = vi.fn();
-    Element.prototype.scrollTo = scrollSpy;
 
     render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
-    expect(scrollSpy).not.toHaveBeenCalled();
+    expect(Element.prototype.scrollTo).not.toHaveBeenCalled();
   });
 
   it('does not scroll or highlight when the hash matches no rendered row', () => {
     mockHash = '#NOPE99';
-    const scrollSpy = vi.fn();
-    Element.prototype.scrollTo = scrollSpy;
 
     const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
-    expect(scrollSpy).not.toHaveBeenCalled();
+    expect(Element.prototype.scrollTo).not.toHaveBeenCalled();
     // No row should carry the arrival highlight attribute
     expect(container.querySelectorAll('[data-graph-row-anchored]')).toHaveLength(0);
   });
