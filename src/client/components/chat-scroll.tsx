@@ -1,8 +1,9 @@
 import { ArrowDownIcon } from 'lucide-react';
 import { ScrollArea as ScrollAreaPrimitive } from 'radix-ui';
-import { useCallback, useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 import { useStickToBottom } from 'use-stick-to-bottom';
 
+import { bindChatScrollViewport } from '@/client/components/chat-scroll-bridge';
 import { Button } from '@/client/components/ui/button';
 import { ScrollBar } from '@/client/components/ui/scroll-area';
 import { cn } from '@/client/lib/utils';
@@ -18,9 +19,18 @@ export function ChatScroll({ children, className }: { children: React.ReactNode;
     (node: HTMLDivElement | null) => {
       viewportRef.current = node;
       scrollRef(node);
+      bindChatScrollViewport(node);
     },
     [scrollRef],
   );
+
+  useLayoutEffect(() => {
+    const node = viewportRef.current;
+    const historyState = window.history.state as { scrollY?: unknown } | null;
+    if (node && typeof historyState?.scrollY === 'number') {
+      node.scrollTop = historyState.scrollY;
+    }
+  }, []);
 
   const handleScrollToBottom = useCallback(() => {
     void scrollToBottom();
