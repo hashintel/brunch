@@ -19,7 +19,7 @@ vi.mock('ai', async () => {
   };
 });
 
-const { runObserver } = await import('./observer.js');
+const { observerOutputSchema, runObserver } = await import('./observer.js');
 const {
   createDb,
   createSpecification,
@@ -40,6 +40,25 @@ beforeEach(() => {
 
 afterEach(() => {
   db.$client.close();
+});
+
+describe('observerOutputSchema', () => {
+  it('defaults omitted relationships to an empty candidate set', () => {
+    expect(
+      observerOutputSchema.parse({
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      }),
+    ).toMatchObject({
+      relationships: [],
+    });
+  });
 });
 
 describe('runObserver', () => {

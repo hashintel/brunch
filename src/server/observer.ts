@@ -78,7 +78,7 @@ const observerRelationshipCandidateSchema = z.object({
 /** Schema for observer structured output. */
 export const observerOutputSchema = z.object({
   ...createKnowledgeCollectionRecord((entry) => z.array(createObserverOutputItemSchema(entry.kind))),
-  relationships: z.array(observerRelationshipCandidateSchema),
+  relationships: z.array(observerRelationshipCandidateSchema).default([]),
 });
 
 type ObserverTextItem = z.infer<typeof observerTextItemSchema>;
