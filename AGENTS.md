@@ -22,7 +22,7 @@ One branch per frontier item. `ln-scope` may thin that frontier item into smalle
 
 ### naming conventions
 
-- **Branch**: `ln/{issue-id}-{keywords}` (e.g. `ln/fe-534-walking-skeleton`)
+- **Branch**: `{prefix}/{issue-id}-{keywords}` — `{prefix}` is whatever `gt user branch-prefix` returns (set per-user via `gt user branch-prefix --set <prefix>`).
 - **PR title**: `{issue-id | upper}: {Linear issue title in sentence case}` (e.g. `FE-534: Walking skeleton SDK to SSE to React`)
 
 PR descriptions are written only when tying off a branch — not during active development.

@@ -12,7 +12,7 @@ Use **git** for local operations that don't touch the stack:
 
 Use **gt** (via `/cli-graphite`) for stack-aware operations:
 
-- `gt create ln/{issue-id}-{keywords}` — create a new stacked branch for the current frontier item
+- `gt create {prefix}/{issue-id}-{keywords}` — create a new stacked branch for the current frontier item (`{prefix}` from `gt user branch-prefix`)
 - `gt submit` — push the stack to remote and create/update PRs
 - `gt restack` — rebase the stack after changes to a parent branch
 - `gt move --onto <branch>` — reparent a branch in the stack
@@ -32,14 +32,14 @@ Use **gt** (via `/cli-graphite`) for stack-aware operations:
 
 ## Branch naming
 
-- **Format**: `ln/{issue-id}-{keywords}` (e.g. `ln/fe-534-walking-skeleton`)
+- **Format**: `{prefix}/{issue-id}-{keywords}` — `{prefix}` is whatever `gt user branch-prefix` returns (set per-user via `gt user branch-prefix --set <prefix>`).
 - **PR title**: `{issue-id | upper}: {Linear issue title in sentence case}` (e.g. `FE-534: Walking skeleton SDK to SSE to React`)
 - PR descriptions are written only when tying off a branch — not during active development.
 
 ## Typical frontier-item lifecycle
 
 ```
-gt create ln/fe-XXX-keywords     # new branch for one PLAN.md frontier item
+gt create {prefix}/fe-XXX-keywords  # new branch for one PLAN.md frontier item
 # ... implement one or more scoped sub-slices on this branch ...
 git add <files> && git commit    # plain git for commits
 npm run verify                   # gate before submit
