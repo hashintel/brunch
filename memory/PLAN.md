@@ -28,6 +28,12 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
    - Traceability: A58; D86, D87, D110, D113, D114; I24, I102.
    - Design doc: `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`
 
+## Next
+
+2. **Trigger-popover composer** — persistent workspace composer with `/` commands, `@` knowledge mentions, `#` phase refs.
+   - Why now / unlocks: depends on continuous workspace establishing a persistent composer as the canonical input seam.
+   - Traceability: A51, D89.
+
 ## Horizon
 
 ### User-facing capabilities (need design work before scoping)
@@ -35,12 +41,8 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 - **Revisit / edit mode + cascade preview** — edit knowledge items, see downstream effects, resolve through secondary thread. Has a design doc (`docs/design/REVISIT_MODULE.md`) but needs design refinement before scoping.
   - Traceability: Requirement 10; D50, D80; A48, A49.
 
-- **Trigger-popover composer** — persistent workspace composer with `/` commands, `@` knowledge mentions, `#` phase refs. Depends on continuous workspace establishing a persistent composer as the canonical input seam.
-  - Depends on: continuous workspace.
-  - Traceability: A51, D89.
-
-- **Web research as a context-gathering capability** — web search and page-fetch tools as interviewer-invoked context gathering, surfaced as preface cards. The preface lifecycle is ready; this adds new context-gathering tool implementations.
-  - Traceability: Requirements 20, 21; D112.
+- **Web research as a context-gathering capability** — web search and page-fetch tools as interviewer-invoked context gathering, surfaced as preface cards. The tool gate and preface lifecycle are ready; this adds new tool implementations.
+  - Traceability: Requirements 20, 21; D99, D112.
 
 - **Dashboard result summaries and completeness metrics** — progress visibility across specifications.
 
@@ -81,8 +83,8 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 ## Recently Completed
 
 - [2026-04-27] Runtime JSON payload hardening — Express API parsing now accepts chat-sized request bodies above the default parser ceiling and returns a JSON 413 response instead of Express HTML when a payload exceeds the app limit. Verified: `npm run verify`. Watch: if real chat requests still exceed the 5 MB limit, investigate client history / tool-result pruning rather than only raising the ceiling.
-- [2026-04-24] `release-it` publish wiring for the packaged artifact — `npm run release` now drives release-it at repo root, release hooks rebuild and `npm pack --dry-run --json` the packaged CLI/runtime artifact before `npm publish`, dry-run coverage proves the release flow stays pinned to the packaged boundary, and README release docs now make the npm-auth prerequisite explicit. Verified: `npm run verify`. Watch: CI trusted publishing is still intentionally out of scope for this seam.
-- [2026-04-24] Publishable pack artifact boundary for distribution hardening — `package.json` now declares the Node 22+ engine floor, explicit shipped files, and public scoped publish config; `npm pack` smoke coverage proves the tarball excludes repo-only source/docs state and an extracted install can still launch `brunch` against the built client artifact. Verified: `npm run verify`.
+- [2026-04-24] Distribution hardening release path — `package.json` now declares the Node 22+ engine floor, explicit shipped files, and public scoped publish config; `npm run release` drives release-it at repo root, rebuilds and dry-runs the packaged artifact, and documents npm auth prerequisites. Verified: `npm run verify`. Watch: CI trusted publishing is still intentionally out of scope.
+- [2026-04-24] Workflow ownership extraction — workflow projector extraction, turn-response transition extraction, chat-route transition/application extraction, and phase-close / force-close write-path ownership now live behind runtime-owned seams. Verified: `npm run verify`.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
@@ -95,9 +97,8 @@ graph-view-structured-list  (active)
   └──→ spatial-canvas-layout  (horizon)
 
 TRACK B — Infrastructure
-workflow-ownership-extraction  (active)
-  └──→ continuous-workspace  (next)
-        └──→ trigger-popover-composer  (horizon)
+continuous-workspace  (active)
+  └──→ trigger-popover-composer  (next)
 
 UNBLOCKED HORIZON
 revisit / edit-mode  (needs design)
