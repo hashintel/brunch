@@ -8,7 +8,7 @@
 
 ## TL;DR
 
-**The problem.** Today, Brunch saves spec edits by directly mutating per-kind tables (one for requirements, one for criteria, etc.). That works for one linear interview, but it breaks down for: side-chat patches that need to *stage* before applying, an architect agent proposing changes for review, item history, and any kind of branching ("what if we'd answered differently here?").
+**The problem.** Today, Brunch saves spec edits by mutating one shared `knowledge_item` table (rows discriminated by `kind`) in place. Provenance per turn is recorded in `turn_knowledge_item` (`captured | confirmed | edited | invalidated | reviewed | rejected`); item relationships live in `knowledge_edge`; the interview chain is linear via `turn.parent_turn_id`. That setup carries an audit trail of *which turn touched which item*, but it lacks three things: (a) **staging** — side-chat patches need to sit in a review list before applying; (b) **per-item content history** — when a turn edits an item, the prior content is overwritten; (c) **first-class branching** — `parent_turn_id` exists schematically but D80 keeps the chain linear, so edits to past turns, drill-downs, architect proposals, and revisits have no shape they can take.
 
 **The idea.** Replace direct mutation with four concepts:
 
@@ -37,7 +37,7 @@
 
 ## 1. Decisions snapshot
 
-Made during the brainstorm session 2026-05-01. (Why this design exists: the TL;DR. The substrate it replaces: `memory/SPEC.md` A71's "store-of-stores" status quo.)
+Made during the brainstorm session 2026-05-01. (Why this design exists: the TL;DR. The substrate it replaces: today's in-place mutation of `knowledge_item`, with provenance in `turn_knowledge_item` and relationships in `knowledge_edge`. A71 in `memory/SPEC.md` flagged the patch / event-stream model as the future direction; this design concretizes it.)
 
 | Decision | Choice | Rationale |
 |---|---|---|
@@ -224,10 +224,10 @@ Today's V1–V3 terms map onto the new substrate as follows.
 ```mermaid
 flowchart TB
     subgraph Today["Today's vocabulary (V1–V3)"]
-        T1["Turn<br/>row in specification_turns"]
-        T2["Observer capture<br/>delivered in-band with a turn"]
-        T3["Side-chat apply<br/>fan-out across per-store mutations"]
-        T4["Spec state<br/>latest answered turn + per-store rows"]
+        T1["Turn<br/>row in turn (chained via parent_turn_id)"]
+        T2["Observer capture<br/>writes turn_knowledge_item and knowledge_item"]
+        T3["Side-chat apply<br/>direct UPDATE/INSERT on knowledge_item<br/>+ turn_knowledge_item provenance"]
+        T4["Spec state<br/>latest answered turn + current knowledge_item rows<br/>+ knowledge_edge relations"]
     end
     subgraph V4["V4 substrate"]
         V1["EVENT (kind=turn)<br/>on the relevant branch"]
