@@ -5,12 +5,12 @@ import { flushSync } from 'react-dom';
 
 import { kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
-import { Badge } from '@/client/components/ui/badge';
 import { Button } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
 import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
 
+import { KindToggleChip } from './-kind-toggle-chip.js';
 import { ChipActivateProvider, RelationChip, type RelationChipTarget } from './-relation-chip.js';
 
 const HASH_ANCHOR_HIGHLIGHT_MS = 1500;
@@ -168,38 +168,28 @@ function getPopulatedKinds(entityState: EntitiesData): PopulatedKind[] {
 function KindFilterToggler({
   populatedKinds,
   hiddenKinds,
+  onNavigate,
   onToggle,
 }: {
   populatedKinds: PopulatedKind[];
   hiddenKinds: ReadonlySet<KnowledgeKind>;
+  onNavigate: (kind: KnowledgeKind) => void;
   onToggle: (kind: KnowledgeKind) => void;
 }) {
   if (populatedKinds.length === 0) return null;
 
   return (
-    <div data-graph-kind-filter className="flex flex-wrap gap-1.5">
-      {populatedKinds.map(({ entry, count }) => {
-        const isHidden = hiddenKinds.has(entry.kind);
-        return (
-          <Badge
-            key={entry.kind}
-            variant={isHidden ? 'outline' : 'secondary'}
-            className={isHidden ? kindTextColor[entry.kind] : kindColor[entry.kind]}
-            asChild
-          >
-            <button
-              type="button"
-              data-graph-kind-toggle={entry.kind}
-              aria-pressed={!isHidden}
-              onClick={() => onToggle(entry.kind)}
-              className="cursor-pointer"
-            >
-              <span>{entry.label}</span>
-              <span className="font-mono text-[10px] opacity-70">{count}</span>
-            </button>
-          </Badge>
-        );
-      })}
+    <div data-graph-kind-filter className="flex flex-wrap items-center gap-1.5">
+      {populatedKinds.map(({ entry, count }) => (
+        <KindToggleChip
+          key={entry.kind}
+          entry={entry}
+          count={count}
+          isHidden={hiddenKinds.has(entry.kind)}
+          onNavigate={onNavigate}
+          onToggle={onToggle}
+        />
+      ))}
     </div>
   );
 }
@@ -583,6 +573,7 @@ export function StructuredListView({
               <KindFilterToggler
                 populatedKinds={populatedKinds}
                 hiddenKinds={hiddenKinds}
+                onNavigate={unhideAndNavigate}
                 onToggle={toggleKind}
               />
             </div>

@@ -616,3 +616,12 @@ describe('RelationChipPreview', () => {
     expect(screen.getByText(/0.*incoming/i)).toBeTruthy();
   });
 });
+
+describe('KindFilterToggler integration', () => {
+  it('renders KindToggleChip for each populated kind', () => {
+    const src = readSrc('src/client/routes/specification/$id/-structured-list-view.tsx');
+    expect(src).toContain("import { KindToggleChip } from './-kind-toggle-chip.js'");
+    expect(src).toContain('<KindToggleChip');
+    expect(src).toContain('onNavigate={onNavigate}');
+  });
+});
