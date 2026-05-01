@@ -371,14 +371,12 @@ describe('StructuredListView', () => {
 
   it('mounting with a kind-{kind} hash scrolls the first row of that kind into view', () => {
     mockHash = '#kind-goal';
-    const scrollSpy = vi.fn();
-    Element.prototype.scrollIntoView = scrollSpy;
 
     const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
     const kindAnchor = container.querySelector('[data-graph-kind-anchor="goal"]');
     expect(kindAnchor).toBeTruthy();
-    expect(scrollSpy).toHaveBeenCalled();
+    expect(Element.prototype.scrollTo).toHaveBeenCalled();
   });
 
   it('does not scroll when there is no hash', () => {
