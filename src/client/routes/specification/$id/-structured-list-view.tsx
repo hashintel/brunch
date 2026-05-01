@@ -597,6 +597,12 @@ export function StructuredListView({
             data-graph-filter-bar
             className="flex w-full shrink-0 flex-col items-center gap-2 border-b border-rule bg-tint px-6 py-2 md:flex-row md:gap-3"
           >
+            <span
+              aria-hidden="true"
+              className="invisible hidden shrink-0 rounded px-2 py-0.5 text-xs md:inline-flex"
+            >
+              Show all
+            </span>
             <div className="w-full min-w-0 md:flex-1">
               <KindFilterToggler
                 populatedKinds={populatedKinds}
