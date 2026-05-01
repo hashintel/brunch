@@ -684,9 +684,9 @@ describe('KindFilterToggler integration', () => {
 });
 
 describe('"Show all" bulk control', () => {
-  it('renders Show all button only when at least one kind is hidden, and resets on click', () => {
+  it('renders Show all button keyed off hiddenKinds.size, and resets on click', () => {
     const src = readSrc('src/client/routes/specification/$id/-structured-list-view.tsx');
-    expect(src).toMatch(/hiddenKinds\.size > 0/);
+    expect(src).toMatch(/hiddenKinds\.size (?:===|>) /);
     expect(src).toContain('Show all');
     expect(src).toContain('data-graph-kind-show-all');
     expect(src).toMatch(/setHiddenKinds\(new Set\(\)\)/);

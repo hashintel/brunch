@@ -55,7 +55,13 @@ function useGraphHashAnchor(scrollAreaRef: RefObject<HTMLElement | null>): {
     const areaRect = scrollArea.getBoundingClientRect();
     const nodeRect = node.getBoundingClientRect();
     const nodeTopWithinArea = nodeRect.top - areaRect.top + scrollArea.scrollTop;
-    const targetTop = nodeTopWithinArea - scrollArea.clientHeight / 2 + node.clientHeight / 2;
+    const isKindAnchor = targetRef.startsWith(KIND_HASH_PREFIX);
+    // Kind anchors land at the top of the scroll area (just under the filter
+    // bar) so the section header is the first thing you see. Row anchors stay
+    // centered so neighbouring context is visible.
+    const targetTop = isKindAnchor
+      ? nodeTopWithinArea - 16
+      : nodeTopWithinArea - scrollArea.clientHeight / 2 + node.clientHeight / 2;
     scrollArea.scrollTo({ top: targetTop, behavior: 'smooth' });
     setAnchoredRowRef(targetRef);
     const timer = setTimeout(() => setAnchoredRowRef(null), HASH_ANCHOR_HIGHLIGHT_MS);
@@ -180,7 +186,7 @@ function KindFilterToggler({
   if (populatedKinds.length === 0) return null;
 
   return (
-    <div data-graph-kind-filter className="flex flex-nowrap items-center gap-1.5 overflow-x-auto">
+    <div data-graph-kind-filter className="flex flex-wrap items-center justify-center gap-1.5">
       {populatedKinds.map(({ entry, count }) => (
         <KindToggleChip
           key={entry.kind}
@@ -577,9 +583,9 @@ export function StructuredListView({
         {view !== 'empty' && (
           <div
             data-graph-filter-bar
-            className="relative w-full shrink-0 border-b border-rule bg-tint px-6 py-2"
+            className="flex w-full shrink-0 flex-col items-center gap-2 border-b border-rule bg-tint px-6 py-2 md:flex-row md:gap-3"
           >
-            <div className="flex justify-center">
+            <div className="w-full min-w-0 md:flex-1">
               <KindFilterToggler
                 populatedKinds={populatedKinds}
                 hiddenKinds={hiddenKinds}
@@ -587,17 +593,19 @@ export function StructuredListView({
                 onToggle={toggleKind}
               />
             </div>
-            {hiddenKinds.size > 0 && (
-              <button
-                type="button"
-                data-graph-kind-show-all
-                onClick={() => setHiddenKinds(new Set())}
-                aria-label="Show all kinds"
-                className="absolute top-1/2 right-6 -translate-y-1/2 cursor-pointer rounded bg-tint px-2 py-0.5 text-xs text-sub outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
-              >
-                Show all
-              </button>
-            )}
+            <button
+              type="button"
+              data-graph-kind-show-all
+              onClick={() => setHiddenKinds(new Set())}
+              aria-label="Show all kinds"
+              aria-hidden={hiddenKinds.size === 0}
+              tabIndex={hiddenKinds.size === 0 ? -1 : 0}
+              className={`shrink-0 cursor-pointer rounded px-2 py-0.5 text-xs text-sub outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30 ${
+                hiddenKinds.size === 0 ? 'hidden md:invisible md:inline-flex' : 'inline-flex'
+              }`}
+            >
+              Show all
+            </button>
           </div>
         )}
         <div ref={scrollAreaRef} className="min-h-0 flex-1 overflow-y-auto">
