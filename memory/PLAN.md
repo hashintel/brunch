@@ -4,7 +4,7 @@
 
 # Plan
 
-The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, and observer knowledge extraction all ship as working product. FE-531 distribution hardening is now closed through a real publishable package/release path for `npx brunch`, so the live frontier centers on **infrastructure** — workflow ownership extraction and continuous workspace — which enables the next wave of user-facing capabilities (revisit/cascade, trigger-popover composer, web tools, first-run setup, and the new post-launch interview-model expansion themes). Graph view's structured-list layout (D128, D129) ships in parallel as a peer route that is independently scopeable and prepares the seam for spatial canvas and node-launched refinement later. Manual proving of recently landed interaction-model changes (preface cards in non-grounding phases, format autonomy quality, observer coherence) continues alongside these seams.
+The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, and observer knowledge extraction all ship as working product. FE-531 distribution hardening is closed through a real publishable package/release path for `npx brunch`. The live frontier now has two parallel tracks: **infrastructure** (continuous workspace) and **user-facing** (graph view structured-list, then the staged side-chat V1→V2→V3 absorbing the prior trigger-popover composer and revisit/edit-mode horizon items). Graph view's structured-list layout (D128, D129) prepares the `chat-with` seam the side-chat activates. Manual proving of recently landed interaction-model changes (preface cards in non-grounding phases, format autonomy quality, observer coherence) continues alongside these seams.
 
 ## Active
 
@@ -24,10 +24,15 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 
 ## Next
 
-3. **Side-chat — graph-launched chat with patch-list staging** — popover-to-panel chat anchored to spec items in the structured spec view, with patch staging visible in the persistent app top-bar. Subsumes the trigger-popover composer, the revisit / edit mode flow, and the D128 chat-with seam into one user-driven mutation surface.
-   - Why now / unlocks: depends on graph view structured-list (Active Track A 2) for the `chat-with` placeholder seam. Independent of workflow ownership extraction and continuous workspace, so it can ship in parallel with Track B. V1 lands the panel + multi-pin + Explore + Annotate; V2 adds Edit / Drill-down / Propose-edge; V3 absorbs REVISIT_MODULE; V4 unlocks multi-thread + architect-loop integration once the patch / event-stream model lands.
-   - Traceability: Requirement 38; D134, D135; A74 (patch model), A75 (item versioning), A76 (architect loop). Subsumes trigger-popover composer (A51, D89) and revisit / edit mode + cascade preview (Requirement 10; D50, D80; A48, A49).
-   - Design doc: `docs/design/SIDE_CHAT.md`
+3. **Side-chat V1 — panel surface + Explore + Annotate** — popover-to-panel chat anchored to spec items in the graph view, with two entry modes (per-row `chat-with` button and text-selection floating menu), multi-item pinning, and the persistent top-bar patch summary scaffolded. V1 ships Class 1 (Explore — volatile chat) and Class 4 (Annotate — durable per-item / per-span notes). Patch list holds at most one entry (annotation-only) until V2.
+   - Why now / unlocks: depends on graph view structured-list (Active Track A 2) for the `chat-with` placeholder seam. Independent of workflow ownership extraction and continuous workspace, so it can ship in parallel with Track B. Establishes the side-chat surface, the patch-list staging seam, the comment-store extension for annotations, and the floating selection menu; subsequent versions extend the same shapes without re-doing them.
+   - Traceability: Requirement 38; D128, D134, D135. Subsumes trigger-popover composer (A51, D89) — the panel surface replaces the persistent-composer concept; the `/`/`@`/`#` command syntax stays out of V1.
+   - Design doc: `docs/design/SIDE_CHAT.md` (§§1–4, §6.1, §6.4, §11)
+
+4. **Side-chat V2 — Edit / Drill-down / Propose-edge** — extend the V1 patch list to carry `edit`, `edge`, and `drill-down` patch kinds. Edit becomes a router: open-phase anchors take the Refine path (successor turn with revision card); closed-phase anchors with `none`/`soft` impact apply directly via soft-recompute. `edit` patches with `hard` impact defer to a placeholder "feature coming" surface until V3.
+   - Why now / unlocks: depends on V1's patch-list seam. Activates the cross-surface intent emission to the existing turn machinery (Refine via successor turn, Drill-down via D127's detail-focus seam) and the typed-relation policy validator for Propose-edge (D125).
+   - Traceability: Requirement 38; D125, D127, D134. Subsumes the last user-facing piece of revisit / edit mode (Requirement 10) for the soft-impact case.
+   - Design doc: `docs/design/SIDE_CHAT.md` (§5.1–5.2, §6.2, §6.3 soft tier)
 
 ## Horizon
 
@@ -42,6 +47,11 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
   - Linear: FE-648.
   - Recommended shape: keep this as a deterministic local mutation with preview/confirmation semantics; it can ship independently, but the dashboard is the natural surface because it already explains workspace binding and first-run setup.
   - Traceability: Requirement 37; A73; D133; I107.
+
+- **Side-chat V3 — Hard edit absorbs REVISIT_MODULE** — extend V2's Edit router to handle the `hard` impact tier: cascade preview rendered inline in the side-chat panel, batch-resolution secondary-thread mode that walks affected items in groups (auto-confirm review-only, auto-edit mechanical replacements, walk substantives one-by-one). Replaces the current modal secondary-thread design from `docs/design/REVISIT_MODULE.md`.
+  - Why now / unlocks: depends on side-chat V2 (Next 4) shipping the Edit router and on REVISIT_MODULE's existing cascade lifecycle (`previewCascade`, `beginRevisit`, `openRevisitThread`, `resolveRevisitItem`, `completeRevisit`) being wired to the side-chat panel as host. Closes out the revisit / edit mode horizon item entirely.
+  - Traceability: Requirement 38; D50, D80, D134; A48, A49 retired.
+  - Design doc: `docs/design/SIDE_CHAT.md` (§5.3, §6.3 hard tier); existing `docs/design/REVISIT_MODULE.md` lifecycle stays valid as the underlying machinery.
 
 - **Architect / generator loop** — autonomous agent that iterates over the knowledge graph and proposes patches for HITL review through the same patch list as the side-chat. Symmetric to the side-chat in *what* it does (mutates the spec), inverse in *who* drives (system, not user).
   - Why now / unlocks: depends on the side-chat shipping the patch-list surface (V1+) and on the patch / event-stream data model (A74) so generated patches can be batched and applied without re-deriving state per patch.
@@ -103,8 +113,10 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 ```text
 TRACK A — User-facing
 graph-view-structured-list  (active)
-  ├──→ side-chat  (next; subsumes trigger-popover-composer + revisit/edit-mode)
-  │     └──→ architect-loop  (horizon, depends on patch-event-stream)
+  ├──→ side-chat-V1  (next; panel + Explore + Annotate)
+  │     └──→ side-chat-V2  (next; Edit + Drill-down + Propose-edge, soft tier)
+  │           └──→ side-chat-V3  (horizon; Hard edit absorbs REVISIT_MODULE)
+  │                 └──→ architect-loop  (horizon, depends on patch-event-stream)
   ├──→ active-path-filter-and-scope-toggle  (horizon, blocked on server data-layer)
   └──→ spatial-canvas-layout  (horizon)
 
