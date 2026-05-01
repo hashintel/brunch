@@ -15,6 +15,14 @@ describe('structured-list-view kind anchors', () => {
   });
 });
 
+describe('structured-list-view hash anchor resolution', () => {
+  it('reads the hash prefix used for kind anchors', () => {
+    const src = readSrc('src/client/routes/specification/$id/-structured-list-view.tsx');
+    expect(src).toMatch(/data-graph-kind-anchor=.*CSS\.escape/s);
+    expect(src).toContain("'kind-'");
+  });
+});
+
 import {
   activePathDivergence,
   crossPhaseDecisionLink,

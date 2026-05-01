@@ -35,17 +35,26 @@ function useGraphHashAnchor(scrollAreaRef: RefObject<HTMLElement | null>): {
       return;
     }
     const scrollArea = scrollAreaRef.current;
-    const row = scrollArea?.querySelector(
-      `[data-graph-row-ref="${CSS.escape(targetRef)}"]`,
-    ) as HTMLElement | null;
-    if (!scrollArea || !row) {
+    if (!scrollArea) {
       setAnchoredRowRef(null);
       return;
     }
+
+    const KIND_PREFIX = 'kind-';
+    const node = targetRef.startsWith(KIND_PREFIX)
+      ? scrollArea.querySelector(
+          `[data-graph-kind-anchor="${CSS.escape(targetRef.slice(KIND_PREFIX.length))}"]`,
+        )
+      : scrollArea.querySelector(`[data-graph-row-ref="${CSS.escape(targetRef)}"]`);
+    if (!(node instanceof HTMLElement)) {
+      setAnchoredRowRef(null);
+      return;
+    }
+
     const areaRect = scrollArea.getBoundingClientRect();
-    const rowRect = row.getBoundingClientRect();
-    const rowTopWithinArea = rowRect.top - areaRect.top + scrollArea.scrollTop;
-    const targetTop = rowTopWithinArea - scrollArea.clientHeight / 2 + row.clientHeight / 2;
+    const nodeRect = node.getBoundingClientRect();
+    const nodeTopWithinArea = nodeRect.top - areaRect.top + scrollArea.scrollTop;
+    const targetTop = nodeTopWithinArea - scrollArea.clientHeight / 2 + node.clientHeight / 2;
     scrollArea.scrollTo({ top: targetTop, behavior: 'smooth' });
     setAnchoredRowRef(targetRef);
     const timer = setTimeout(() => setAnchoredRowRef(null), HASH_ANCHOR_HIGHLIGHT_MS);
