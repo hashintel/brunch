@@ -122,20 +122,49 @@ All `no` except first-touch in unfamiliar seam (which is fine — new component,
 
 ## D — End-to-end wiring (graph view → popover → endpoint → response)
 
-**Status:** `tentative` — scope after A, B, C land
+**Status:** `done` — landed on `ka/fe-656-side-chat` (uncommitted). 6 unit tests on the SSE parser, 4 fetch+stream helper tests, 9 extended popover prop tests, and 6 router-integrated tests in `structured-list-view.test.tsx` (active button, popover mount, single-popover swap, fetch args, streaming render, finalize-and-resume). `npm run verify` green (687 tests). Build-boundary test timeout bumped from 30s → 60s — under suite load, two back-to-back real Vite builds were exceeding 30s with the new files.
 **Weight:** light
 
-### Tentative objective
+### Objective
 
-Activate the disabled `chat-with` button in `-structured-list-view.tsx:417`. On click, mount `SideChatPopover` anchored to the row, post the user's message to `/api/specifications/:id/side-chat`, and render the streaming response in the popover message list.
+Activate the disabled `chat-with` button in `-structured-list-view.tsx:399` so a user can click it on any item row, send a message in the side-chat popover, and watch the streaming response materialize in the popover's message log.
 
-### Why tentative
+### Acceptance Criteria
 
-Final shape depends on:
-- The streaming render surface produced by card C (whether the popover ingests SSE chunks via a hook, prop, or context).
-- The exact item-context shape passed into the endpoint (driven by card A's prompt structure).
+- ✓ Clicking the `chat-with` button on an item row enables the previously-disabled placeholder and mounts `SideChatPopover` with that row's `referenceCode`, `content`, and `(itemKind, itemId)` pinned as context.
+- ✓ Submitting a message (Enter or send-button click) posts `{ itemKind, itemId, message }` to `POST /api/specifications/:id/side-chat` exactly once.
+- ✓ The SSE chunks stream into the popover's message log incrementally, materializing as one assistant message; the user's submitted message also appears in the log above it.
+- ✓ While streaming is in-flight, the send button is disabled and a new submission cannot start until the previous one completes.
+- ✓ At most one popover is open at a time; clicking `chat-with` on a different row while a popover is open swaps the pinned item to the new row.
+- ✓ Dismissing the popover (X / Esc / click-outside) returns the action rail to its idle state. The next mount on the same row starts with an empty message log (V1 per-mount; persistence is Card E).
 
-Re-scope after A–C land.
+### Verification Approach
+
+- **Inner**: F1 component tests on `SideChatPopover` extended with `messages: { role, text }[]` + `pendingAssistantText: string | null` + `onSubmit(message)` props. Plus a unit test on the SSE-line parser helper.
+- **Middle**: F2 router-integrated test that mounts `StructuredListView`, mocks `fetch` with a stub `Response` whose `body` is a `ReadableStream` of side-chat SSE chunks, clicks `chat-with`, types a message, submits, and asserts the chunks render incrementally and exactly one POST to `/api/specifications/:id/side-chat` was issued.
+- **Outer**: deferred — manual smoke via the dev server suffices for D alone; F7 dramaturgical walkthrough joins after E.
+
+### Files (likely)
+
+- `src/client/components/side-chat-popover.tsx` — extend skeleton to render `messages` + `pendingAssistantText` and call `onSubmit` on Enter / send click.
+- `src/client/components/__tests__/side-chat-popover.test.tsx` — extend with prop coverage.
+- `src/client/lib/side-chat-stream.ts` (new) — SSE chunk parser plus a `streamSideChatResponse({ specificationId, itemKind, itemId, message, signal }, onChunk)` async helper using `fetch` + `ReadableStream`.
+- `src/client/lib/__tests__/side-chat-stream.test.ts` (new) — unit tests on parser + helper.
+- `src/client/routes/specification/$id/-structured-list-view.tsx` — replace the disabled placeholder with an active button. Mount `SideChatPopover` for the active row using local state inside `StructuredListView`.
+- `src/client/routes/specification/$id/__tests__/structured-list-view.test.tsx` — replace the "disabled chat-with placeholder" expectation with active-button + mounted-popover + streaming-response coverage.
+
+### Promotion checklist
+
+- [ ] Changes a requirement? — No
+- [ ] Creates / retires an assumption? — No
+- [ ] Reverses a design decision? — No (D130, D131 cover; this implements)
+- [ ] New seam-level invariant? — No (D113 zero-turns/zero-observer is preserved by Card B's route shape and is unaffected by client wiring)
+- [ ] Crosses > 2 major seams? — No (UI + existing transport seam)
+- [ ] First touch in unfamiliar seam? — No (extends A/B/C)
+
+### Open implementation note
+
+V1 panel state is per-mount: the message log resets when the popover closes. Persistence across navigation (Card E) and re-anchoring on scroll are deferred.
 
 ---
 
@@ -158,7 +187,7 @@ Persistence layer choice (route-level state vs app-shell state) and error-render
 
 ## Queue discipline
 
-- A, B, C are independent. Build in any order; parallelize if dispatching multiple agents.
-- D and E are not yet pre-scopable — re-run `/ln-scope` on each before building.
-- If any card promotes (especially B's D113-isolation invariant), stop the serial loop and update `memory/SPEC.md` before continuing.
-- Delete `memory/CARDS.md` when V1.1 is fully shipped, or when D/E need re-scoping triggers a refresh.
+- A, B, C are done. D is now scoped and ready to build.
+- E remains `tentative` — re-run `/ln-scope` on it after D lands; its persistence-layer choice and error-rendering UX still depend on D's realized event flow.
+- If D promotes (e.g., the proposed seam-level invariant about server-canonical item identity firms up under implementation), stop and update `memory/SPEC.md` before continuing.
+- Delete `memory/CARDS.md` when V1.1 is fully shipped.

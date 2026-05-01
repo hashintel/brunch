@@ -5,15 +5,29 @@ export interface SideChatPinnedItem {
   content: string;
 }
 
+export interface SideChatMessage {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
 export interface SideChatPopoverProps {
   pinnedItem: SideChatPinnedItem;
   onDismiss: () => void;
+  messages?: readonly SideChatMessage[];
+  pendingAssistantText?: string | null;
+  onSubmit?: (message: string) => void;
 }
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function SideChatPopover({ pinnedItem, onDismiss }: SideChatPopoverProps) {
+export function SideChatPopover({
+  pinnedItem,
+  onDismiss,
+  messages = [],
+  pendingAssistantText = null,
+  onSubmit,
+}: SideChatPopoverProps) {
   const [draft, setDraft] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
@@ -64,7 +78,24 @@ export function SideChatPopover({ pinnedItem, onDismiss }: SideChatPopoverProps)
     }
   }
 
-  const sendDisabled = draft.trim().length === 0;
+  const trimmedDraft = draft.trim();
+  const isStreaming = pendingAssistantText !== null;
+  const sendDisabled = trimmedDraft.length === 0 || isStreaming;
+
+  function submit() {
+    if (sendDisabled || !onSubmit) {
+      return;
+    }
+    onSubmit(trimmedDraft);
+    setDraft('');
+  }
+
+  function handleInputKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      submit();
+    }
+  }
 
   return (
     <div ref={containerRef} role="dialog" aria-label="Side-chat" onKeyDown={handleTabTrap}>
@@ -72,14 +103,26 @@ export function SideChatPopover({ pinnedItem, onDismiss }: SideChatPopoverProps)
         <span>{pinnedItem.referenceCode}</span>
         <p>{pinnedItem.content}</p>
       </header>
-      <ul role="log" aria-label="Side-chat messages" />
+      <ul role="log" aria-label="Side-chat messages">
+        {messages.map((message, index) => (
+          <li key={index} data-message-role={message.role}>
+            {message.text}
+          </li>
+        ))}
+        {isStreaming && (
+          <li data-message-role="assistant" data-message-pending="true">
+            {pendingAssistantText ?? ''}
+          </li>
+        )}
+      </ul>
       <textarea
         ref={messageInputRef}
         aria-label="Message"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={handleInputKeyDown}
       />
-      <button type="button" disabled={sendDisabled}>
+      <button type="button" disabled={sendDisabled} onClick={submit}>
         Send
       </button>
       <button type="button" aria-label="Close side-chat" onClick={onDismiss}>

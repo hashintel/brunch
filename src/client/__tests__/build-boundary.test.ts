@@ -138,5 +138,5 @@ describe('client build boundary', () => {
 
     const minifiedBuild = await buildClient({ minify: true });
     expect(statSync(minifiedBuild.entryPath).size).toBeLessThan(1_050_000);
-  }, 30_000);
+  }, 60_000);
 });

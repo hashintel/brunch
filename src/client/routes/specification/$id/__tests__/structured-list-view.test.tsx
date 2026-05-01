@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -31,13 +31,21 @@ import {
   emptySpec,
   singleItemNoEdges,
 } from '@/client/__fixtures__/graph-view.js';
+import type { SideChatStreamEvent } from '@/client/lib/side-chat-stream.js';
 
 const mockNavigate = vi.fn();
 let mockHash = '';
+const { mockStreamSideChatResponse } = vi.hoisted(() => ({
+  mockStreamSideChatResponse: vi.fn(),
+}));
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mockNavigate,
   useLocation: () => ({ hash: mockHash, pathname: '/specification/1/graph', search: '' }),
+}));
+
+vi.mock('@/client/lib/side-chat-stream.js', () => ({
+  streamSideChatResponse: mockStreamSideChatResponse,
 }));
 
 import { RelationChipPreview } from '../-relation-chip.js';
@@ -45,6 +53,7 @@ import { StructuredListView } from '../-structured-list-view.js';
 
 beforeEach(() => {
   mockNavigate.mockClear();
+  mockStreamSideChatResponse.mockReset();
   mockHash = '';
   vi.spyOn(Element.prototype, 'scrollTo').mockImplementation(() => {});
 });
@@ -418,7 +427,7 @@ describe('StructuredListView', () => {
     }
   });
 
-  it('renders an action rail with a disabled chat-with placeholder on every item row', () => {
+  it('keeps the chat-with button as a disabled placeholder when no specificationId is provided', () => {
     const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
     const rows = container.querySelectorAll('[data-graph-row]');
@@ -433,8 +442,21 @@ describe('StructuredListView', () => {
       expect(chatButton).toBeTruthy();
       if (!chatButton) continue;
       expect(chatButton.disabled).toBe(true);
-      expect(chatButton.getAttribute('title')?.toLowerCase()).toContain('coming soon');
       expect(chatButton.getAttribute('aria-label')?.toLowerCase()).toMatch(/chat/);
+    }
+  });
+
+  it('activates the chat-with button on every item row when specificationId is provided', () => {
+    const { container } = render(
+      <StructuredListView entityState={crossPhaseDecisionLink()} specificationId={42} />,
+    );
+
+    const buttons = container.querySelectorAll(
+      'button[data-graph-action="chat-with"]',
+    ) as NodeListOf<HTMLButtonElement>;
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const button of buttons) {
+      expect(button.disabled).toBe(false);
     }
   });
 
@@ -599,6 +621,147 @@ describe('StructuredListView', () => {
     // After flushSync + navigate: the anchor must be in the DOM AND mockNavigate was called with kind-goal
     expect(container.querySelector('[data-graph-kind-anchor="goal"]')).toBeTruthy();
     expect(mockNavigate).toHaveBeenCalledWith(expect.objectContaining({ hash: 'kind-goal' }));
+  });
+
+  describe('side-chat session', () => {
+    function makeManualStream() {
+      let onChunk: ((event: SideChatStreamEvent) => void) | undefined;
+      let resolveStream: () => void = () => {};
+      const promise = new Promise<void>((resolve) => {
+        resolveStream = resolve;
+      });
+      mockStreamSideChatResponse.mockImplementation(
+        (_request: unknown, chunkCallback: (event: SideChatStreamEvent) => void): Promise<void> => {
+          onChunk = chunkCallback;
+          return promise;
+        },
+      );
+      return {
+        emit(event: SideChatStreamEvent) {
+          act(() => {
+            onChunk?.(event);
+          });
+        },
+        finish() {
+          resolveStream();
+          return promise;
+        },
+      };
+    }
+
+    it('does not mount a side-chat popover before the user clicks chat-with', () => {
+      render(<StructuredListView entityState={singleItemNoEdges()} specificationId={42} />);
+      expect(screen.queryByRole('dialog', { name: /side[- ]chat/i })).toBeNull();
+    });
+
+    it('mounts a SideChatPopover pinned to the row when the chat-with button is clicked', () => {
+      const { container } = render(
+        <StructuredListView entityState={singleItemNoEdges()} specificationId={42} />,
+      );
+
+      const chatButton = container.querySelector(
+        'button[data-graph-action="chat-with"]',
+      ) as HTMLButtonElement;
+      fireEvent.click(chatButton);
+
+      const dialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
+      expect(within(dialog).getByText('Reduce signup drop-off')).toBeTruthy();
+      expect(within(dialog).getByText('G1')).toBeTruthy();
+    });
+
+    it('only mounts one popover at a time and swaps the pinned item when chat-with is clicked on a different row', () => {
+      const { container } = render(
+        <StructuredListView entityState={crossPhaseDecisionLink()} specificationId={42} />,
+      );
+
+      const chatButtons = container.querySelectorAll(
+        'button[data-graph-action="chat-with"]',
+      ) as NodeListOf<HTMLButtonElement>;
+      expect(chatButtons.length).toBeGreaterThanOrEqual(2);
+
+      fireEvent.click(chatButtons[0]);
+      const firstDialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
+      const firstPinnedRef = within(firstDialog).getByText(/^[A-Z]+\d+$/).textContent;
+      expect(firstPinnedRef).toBeTruthy();
+
+      fireEvent.click(chatButtons[1]);
+      const dialogs = screen.getAllByRole('dialog', { name: /side[- ]chat/i });
+      expect(dialogs).toHaveLength(1);
+      const secondPinnedRef = within(dialogs[0]).getByText(/^[A-Z]+\d+$/).textContent;
+      expect(secondPinnedRef).not.toBe(firstPinnedRef);
+    });
+
+    it('calls streamSideChatResponse with the row context and submitted message on send', () => {
+      makeManualStream();
+      const { container } = render(
+        <StructuredListView entityState={singleItemNoEdges()} specificationId={42} />,
+      );
+
+      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      expect(mockStreamSideChatResponse).toHaveBeenCalledTimes(1);
+      const [requestArg] = mockStreamSideChatResponse.mock.calls[0];
+      expect(requestArg).toMatchObject({
+        specificationId: 42,
+        itemKind: 'goal',
+        itemId: 1,
+        message: 'Why?',
+      });
+    });
+
+    it('renders streamed text-delta chunks incrementally as a pending assistant message', async () => {
+      const stream = makeManualStream();
+      const { container } = render(
+        <StructuredListView entityState={singleItemNoEdges()} specificationId={42} />,
+      );
+
+      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      stream.emit({ type: 'text-delta', delta: 'It ' });
+      stream.emit({ type: 'text-delta', delta: 'depends.' });
+
+      const dialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
+      const log = within(dialog).getByRole('log', { name: /side[- ]chat messages/i });
+      const messages = log.querySelectorAll('[data-message-role]');
+      expect(messages).toHaveLength(2);
+      expect(messages[0].getAttribute('data-message-role')).toBe('user');
+      expect(messages[0].textContent).toContain('Why?');
+      expect(messages[1].getAttribute('data-message-role')).toBe('assistant');
+      expect(messages[1].textContent).toContain('It depends.');
+    });
+
+    it('finalizes the assistant message and re-enables sending after the stream finishes', async () => {
+      const stream = makeManualStream();
+      const { container } = render(
+        <StructuredListView entityState={singleItemNoEdges()} specificationId={42} />,
+      );
+
+      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      stream.emit({ type: 'text-delta', delta: 'Done.' });
+      stream.emit({ type: 'done' });
+      await act(async () => {
+        await stream.finish();
+      });
+
+      const dialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
+      const log = within(dialog).getByRole('log', { name: /side[- ]chat messages/i });
+      const messages = log.querySelectorAll('[data-message-role]');
+      expect(messages).toHaveLength(2);
+      expect(messages[1].getAttribute('data-message-pending')).not.toBe('true');
+      expect(messages[1].textContent).toContain('Done.');
+
+      // Ready to send the next message once the input is non-empty.
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Again?' } });
+      const send = screen.getByRole('button', { name: /send/i }) as HTMLButtonElement;
+      expect(send.disabled).toBe(false);
+    });
   });
 });
 

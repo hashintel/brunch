@@ -121,4 +121,119 @@ describe('SideChatPopover', () => {
 
     expect(screen.getByRole('dialog', { name: /side[- ]chat/i })).toBeTruthy();
   });
+
+  describe('messages, streaming, and submit', () => {
+    it('renders user and assistant messages from the messages prop in order', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          messages={[
+            { role: 'user', text: 'Why SQLite?' },
+            { role: 'assistant', text: 'It keeps the runtime local-first.' },
+          ]}
+        />,
+      );
+
+      const log = screen.getByRole('log', { name: /side[- ]chat messages/i });
+      const items = log.querySelectorAll('[data-message-role]');
+      expect(items).toHaveLength(2);
+      expect(items[0].getAttribute('data-message-role')).toBe('user');
+      expect(items[0].textContent).toContain('Why SQLite?');
+      expect(items[1].getAttribute('data-message-role')).toBe('assistant');
+      expect(items[1].textContent).toContain('It keeps the runtime local-first.');
+    });
+
+    it('renders pendingAssistantText as an in-flight assistant message at the end of the log', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          messages={[{ role: 'user', text: 'Why?' }]}
+          pendingAssistantText="It keeps"
+        />,
+      );
+
+      const log = screen.getByRole('log', { name: /side[- ]chat messages/i });
+      const items = log.querySelectorAll('[data-message-role]');
+      expect(items).toHaveLength(2);
+      expect(items[1].getAttribute('data-message-role')).toBe('assistant');
+      expect(items[1].textContent).toContain('It keeps');
+    });
+
+    it('does not render an assistant placeholder when pendingAssistantText is null', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          messages={[{ role: 'user', text: 'Why?' }]}
+          pendingAssistantText={null}
+        />,
+      );
+
+      const log = screen.getByRole('log', { name: /side[- ]chat messages/i });
+      const items = log.querySelectorAll('[data-message-role]');
+      expect(items).toHaveLength(1);
+    });
+
+    it('calls onSubmit with the trimmed input value when the send button is clicked', () => {
+      const onSubmit = vi.fn();
+      render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} onSubmit={onSubmit} />);
+
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: '  Why SQLite?  ' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+      expect(onSubmit).toHaveBeenCalledWith('Why SQLite?');
+    });
+
+    it('calls onSubmit when Enter is pressed in the message input', () => {
+      const onSubmit = vi.fn();
+      render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} onSubmit={onSubmit} />);
+
+      const input = screen.getByLabelText('Message');
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+      expect(onSubmit).toHaveBeenCalledWith('Hello');
+    });
+
+    it('does not call onSubmit when Shift+Enter is pressed (newline allowed in textarea)', () => {
+      const onSubmit = vi.fn();
+      render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} onSubmit={onSubmit} />);
+
+      const input = screen.getByLabelText('Message');
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it('clears the message input after a successful submit', () => {
+      render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} onSubmit={() => {}} />);
+
+      const input = screen.getByLabelText('Message') as HTMLTextAreaElement;
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      expect(input.value).toBe('');
+    });
+
+    it('disables the send button while a submission is in-flight (pendingAssistantText !== null)', () => {
+      render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} pendingAssistantText="" />);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Hello' } });
+      const send = screen.getByRole('button', { name: /send/i }) as HTMLButtonElement;
+      expect(send.disabled).toBe(true);
+    });
+
+    it('does not call onSubmit when the input is empty', () => {
+      const onSubmit = vi.fn();
+      render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} onSubmit={onSubmit} />);
+
+      const send = screen.getByRole('button', { name: /send/i });
+      fireEvent.click(send);
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+  });
 });

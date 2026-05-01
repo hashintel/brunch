@@ -120,6 +120,7 @@ function GraphRouteComponent() {
       headerRight={headerRight}
       rowsDefaultOpen={rowsDefaultOpen}
       rowsRemountKey={rowsRemountKey}
+      specificationId={bundle.specification.id}
     />
   );
 }
