@@ -41,6 +41,9 @@ todo.txt
 # Claude Code worktrees
 .claude/worktrees/
 
+# Superpowers brainstorm session artifacts
+.superpowers/
+
 # tmp directory
 tmp/
 
