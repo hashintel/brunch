@@ -526,7 +526,19 @@ interface ActiveSideChat {
   itemKind: KnowledgeKind;
   itemId: number;
   messages: SideChatMessage[];
-  pendingText: string | null;
+}
+
+function replacePendingText(messages: readonly SideChatMessage[], text: string): SideChatMessage[] {
+  return messages.map((message) => (message.pending ? { ...message, text } : message));
+}
+
+function finalizePending(messages: readonly SideChatMessage[]): SideChatMessage[] {
+  return messages.flatMap((message) => {
+    if (!message.pending) {
+      return [message];
+    }
+    return message.text ? [{ role: message.role, text: message.text }] : [];
+  });
 }
 
 export function StructuredListView({
@@ -603,7 +615,6 @@ export function StructuredListView({
       itemKind: item.kind,
       itemId: item.id,
       messages: [],
-      pendingText: null,
     });
   }, []);
 
@@ -622,8 +633,11 @@ export function StructuredListView({
         }
         const next: ActiveSideChat = {
           ...current,
-          messages: [...current.messages, { role: 'user', text: message }],
-          pendingText: '',
+          messages: [
+            ...current.messages,
+            { role: 'user', text: message },
+            { role: 'assistant', text: '', pending: true },
+          ],
         };
 
         void (async () => {
@@ -639,7 +653,11 @@ export function StructuredListView({
               (event) => {
                 if (event.type === 'text-delta') {
                   buffered += event.delta;
-                  setActiveSideChat((session) => (session ? { ...session, pendingText: buffered } : session));
+                  setActiveSideChat((session) =>
+                    session
+                      ? { ...session, messages: replacePendingText(session.messages, buffered) }
+                      : session,
+                  );
                 }
               },
             );
@@ -647,15 +665,7 @@ export function StructuredListView({
             // V1: surface errors via Card E; for now drop the partial response.
           }
           setActiveSideChat((session) =>
-            session
-              ? {
-                  ...session,
-                  messages: buffered
-                    ? [...session.messages, { role: 'assistant', text: buffered }]
-                    : session.messages,
-                  pendingText: null,
-                }
-              : session,
+            session ? { ...session, messages: finalizePending(session.messages) } : session,
           );
         })();
 
@@ -793,7 +803,6 @@ export function StructuredListView({
         <SideChatPopover
           pinnedItem={activeSideChat.pinnedItem}
           messages={activeSideChat.messages}
-          pendingAssistantText={activeSideChat.pendingText}
           onDismiss={dismissSideChat}
           onSubmit={submitSideChatMessage}
         />

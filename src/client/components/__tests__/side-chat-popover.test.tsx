@@ -144,13 +144,15 @@ describe('SideChatPopover', () => {
       expect(items[1].textContent).toContain('It keeps the runtime local-first.');
     });
 
-    it('renders pendingAssistantText as an in-flight assistant message at the end of the log', () => {
+    it('marks a message with pending: true so the in-flight assistant turn renders as such', () => {
       render(
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[{ role: 'user', text: 'Why?' }]}
-          pendingAssistantText="It keeps"
+          messages={[
+            { role: 'user', text: 'Why?' },
+            { role: 'assistant', text: 'It keeps', pending: true },
+          ]}
         />,
       );
 
@@ -158,22 +160,26 @@ describe('SideChatPopover', () => {
       const items = log.querySelectorAll('[data-message-role]');
       expect(items).toHaveLength(2);
       expect(items[1].getAttribute('data-message-role')).toBe('assistant');
+      expect(items[1].getAttribute('data-message-pending')).toBe('true');
       expect(items[1].textContent).toContain('It keeps');
     });
 
-    it('does not render an assistant placeholder when pendingAssistantText is null', () => {
+    it('renders no pending row when no message carries pending: true', () => {
       render(
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[{ role: 'user', text: 'Why?' }]}
-          pendingAssistantText={null}
+          messages={[
+            { role: 'user', text: 'Why?' },
+            { role: 'assistant', text: 'It depends.' },
+          ]}
         />,
       );
 
       const log = screen.getByRole('log', { name: /side[- ]chat messages/i });
       const items = log.querySelectorAll('[data-message-role]');
-      expect(items).toHaveLength(1);
+      expect(items).toHaveLength(2);
+      expect(items[1].getAttribute('data-message-pending')).not.toBe('true');
     });
 
     it('calls onSubmit with the trimmed input value when the send button is clicked', () => {
@@ -220,8 +226,17 @@ describe('SideChatPopover', () => {
       expect(input.value).toBe('');
     });
 
-    it('disables the send button while a submission is in-flight (pendingAssistantText !== null)', () => {
-      render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} pendingAssistantText="" />);
+    it('disables the send button while a submission is in-flight (last message is pending)', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          messages={[
+            { role: 'user', text: 'Why?' },
+            { role: 'assistant', text: '', pending: true },
+          ]}
+        />,
+      );
       fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Hello' } });
       const send = screen.getByRole('button', { name: /send/i }) as HTMLButtonElement;
       expect(send.disabled).toBe(true);

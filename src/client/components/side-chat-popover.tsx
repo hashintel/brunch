@@ -8,26 +8,20 @@ export interface SideChatPinnedItem {
 export interface SideChatMessage {
   role: 'user' | 'assistant';
   text: string;
+  pending?: true;
 }
 
 export interface SideChatPopoverProps {
   pinnedItem: SideChatPinnedItem;
   onDismiss: () => void;
   messages?: readonly SideChatMessage[];
-  pendingAssistantText?: string | null;
   onSubmit?: (message: string) => void;
 }
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function SideChatPopover({
-  pinnedItem,
-  onDismiss,
-  messages = [],
-  pendingAssistantText = null,
-  onSubmit,
-}: SideChatPopoverProps) {
+export function SideChatPopover({ pinnedItem, onDismiss, messages = [], onSubmit }: SideChatPopoverProps) {
   const [draft, setDraft] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
@@ -79,7 +73,7 @@ export function SideChatPopover({
   }
 
   const trimmedDraft = draft.trim();
-  const isStreaming = pendingAssistantText !== null;
+  const isStreaming = messages.some((message) => message.pending === true);
   const sendDisabled = trimmedDraft.length === 0 || isStreaming;
 
   function submit() {
@@ -105,15 +99,14 @@ export function SideChatPopover({
       </header>
       <ul role="log" aria-label="Side-chat messages">
         {messages.map((message, index) => (
-          <li key={index} data-message-role={message.role}>
+          <li
+            key={index}
+            data-message-role={message.role}
+            data-message-pending={message.pending ? 'true' : undefined}
+          >
             {message.text}
           </li>
         ))}
-        {isStreaming && (
-          <li data-message-role="assistant" data-message-pending="true">
-            {pendingAssistantText ?? ''}
-          </li>
-        )}
       </ul>
       <textarea
         ref={messageInputRef}
