@@ -446,7 +446,7 @@ function ItemRow({
   incoming: DirectedEdge[];
   anchored: boolean;
   defaultOpen?: boolean;
-  kindAnchor?: KnowledgeKind | null;
+  kindAnchor: KnowledgeKind | null;
 }) {
   const hasExpansion = Boolean(item.rationale) || outgoing.length > 0 || incoming.length > 0;
 
