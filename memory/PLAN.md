@@ -28,18 +28,18 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
    - Traceability: A58; D86, D87, D110, D113, D114; I24, I102.
    - Design doc: `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`
 
-## Next
-
-2. **Trigger-popover composer** — persistent workspace composer with `/` commands, `@` knowledge mentions, `#` phase refs.
-   - Why now / unlocks: depends on continuous workspace establishing a persistent composer as the canonical input seam.
-   - Traceability: A51, D89.
+4. **Side-chat — graph-launched chat with patch-list staging** — popover-to-panel chat anchored to spec items in the structured spec view, with patch staging visible in the persistent app top-bar. Subsumes the trigger-popover composer, the revisit / edit mode flow, and the D128 chat-with seam into one user-driven mutation surface.
+   - Why now / unlocks: depends on graph view structured-list (Active Track A 2) for the `chat-with` placeholder seam. Independent of workflow ownership extraction and continuous workspace, so it can ship in parallel with Track B. V1 lands the panel + multi-pin + Explore + Annotate; V2 adds Edit / Drill-down / Propose-edge; V3 absorbs REVISIT_MODULE; V4 unlocks multi-thread + architect-loop integration once the patch / event-stream model lands.
+   - Traceability: Requirement 34; D130, D131; A71 (patch model), A72 (item versioning), A73 (architect loop). Subsumes trigger-popover composer (A51, D89) and revisit / edit mode + cascade preview (Requirement 10; D50, D80; A48, A49).
+   - Design doc: `docs/design/SIDE_CHAT.md`
 
 ## Horizon
 
 ### User-facing capabilities (need design work before scoping)
 
-- **Revisit / edit mode + cascade preview** — edit knowledge items, see downstream effects, resolve through secondary thread. Has a design doc (`docs/design/REVISIT_MODULE.md`) but needs design refinement before scoping.
-  - Traceability: Requirement 10; D50, D80; A48, A49.
+- **Architect / generator loop** — autonomous agent that iterates over the knowledge graph and proposes patches for HITL review through the same patch list as the side-chat. Symmetric to the side-chat in *what* it does (mutates the spec), inverse in *who* drives (system, not user).
+  - Why now / unlocks: depends on the side-chat shipping the patch-list surface (V1+) and on the patch / event-stream data model (A71) so generated patches can be batched and applied without re-deriving state per patch.
+  - Traceability: A73; depends on side-chat V1+ and A71.
 
 - **Web research as a context-gathering capability** — web search and page-fetch tools as interviewer-invoked context gathering, surfaced as preface cards. The tool gate and preface lifecycle are ready; this adds new tool implementations.
   - Traceability: Requirements 20, 21; D99, D112.
@@ -93,15 +93,16 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 ```text
 TRACK A — User-facing
 graph-view-structured-list  (active)
+  ├──→ side-chat  (next; subsumes trigger-popover-composer + revisit/edit-mode)
+  │     └──→ architect-loop  (horizon, depends on patch-event-stream)
   ├──→ active-path-filter-and-scope-toggle  (horizon, blocked on server data-layer)
   └──→ spatial-canvas-layout  (horizon)
 
 TRACK B — Infrastructure
-continuous-workspace  (active)
-  └──→ trigger-popover-composer  (next)
+workflow-ownership-extraction  (active)
+  └──→ continuous-workspace  (next)
 
 UNBLOCKED HORIZON
-revisit / edit-mode  (needs design)
 web-research tools  (gate ready, needs tool impl)
 dashboard metrics
 two-axis interview framing

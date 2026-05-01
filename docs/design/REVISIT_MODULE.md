@@ -1,8 +1,7 @@
 # Knowledge-Graph Revisit Module Design
 
 > Design exploration from 2026-04-12. Referenced by SPEC.md D80.
-> Status: **future-facing draft** — likely direction, but it needs refinement before scoping.
-> Canonicality: this is a future-facing module design note, not the live frontier authority. For what is true now and what should happen next, prefer `memory/SPEC.md` and `memory/PLAN.md`.
+> Status: **subsumed 2026-04-30** — the cascade-preview lifecycle (`previewCascade`, `beginRevisit`, `openRevisitThread`, `resolveRevisitItem`, `completeRevisit`) and the per-item walk semantics described here remain valid as the V3 hard-edit path inside the side-chat panel. The **modal secondary thread** described in this doc is replaced by the side-chat panel's secondary-thread mode (see `docs/design/SIDE_CHAT.md` §5.3 and §6.3). For the live frontier authority, prefer `memory/SPEC.md` (D80, D130) and `memory/PLAN.md`.
 
 ## Shape
 
