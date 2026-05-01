@@ -35,22 +35,9 @@
 
 **The one rule to remember.** The event log is the truth; everything else is a cache. If the cache disagrees with the log, the cache is wrong. That's what makes audit, recovery, and migration tractable.
 
-## 1. Why this exists
+## 1. Decisions snapshot
 
-Today, Brunch persists durable spec state through a "store-of-stores" pattern: per-kind tables for items (requirements, criteria, decisions, etc.), edges, comments, observer captures, all mutated through per-kind mutation calls. Turns are linear (D80: "no turn-tree branching"); durable truth is "the most recently answered turn plus per-store rows."
-
-This shape works for a single linear interview but creates friction around four near-future asks:
-
-- **Side-chat patches** (live in `docs/design/SIDE_CHAT.md`) need to *stage* before they apply. Today's stores have no concept of "proposed mutation"; the patch list lives in client memory and translates to per-store calls only at apply time.
-- **Architect / generator patches** (A73) — the system speculatively producing patches for HITL review — need the same staging concept at higher volume and with provenance ("which proposal produced this patch").
-- **Item versioning** (A72) — needed for span-anchored annotations to survive item edits, soft-edit audit trails, and revisit cascades that should produce new versions rather than invalidate old rows.
-- **Branched exploration** — drill-downs, edits to past turns, revisits of closed phases all want to *coexist* with the original chain rather than overwrite it.
-
-A71 in `memory/SPEC.md` names the target shape: *"a unified `spec → chat → turns` data model with diff-shaped patches as the persistence primitive."* This document concretizes that target into a specific data structure.
-
-## 2. Decisions snapshot
-
-Made during the brainstorm session 2026-05-01.
+Made during the brainstorm session 2026-05-01. (Why this design exists: the TL;DR. The substrate it replaces: `memory/SPEC.md` A71's "store-of-stores" status quo.)
 
 | Decision | Choice | Rationale |
 |---|---|---|
@@ -63,11 +50,11 @@ Made during the brainstorm session 2026-05-01.
 | **Materialization** | **M3 + M3c:** event log is durable truth; per-`(item_id, branch_id)` index serves as the read cache | Reads are direct lookups; bugs are recoverable by `DROP cache; REBUILD` from the log |
 | **Patch granularity** | **P3:** events are coarse units; patches are first-class rows linked to events | Preserves D113 turn-as-unit at the event layer; gives A71 the addressability it needs |
 
-## 3. Core entities
+## 2. Core entities
 
-Four tables. Read this section as a sketch, not a final schema — column types and FKs will tighten during implementation; the relationships and invariants are what matters.
+Four tables. Column types and FKs will tighten during implementation — what matters here is the relationships and invariants.
 
-### 3.1 `branches`
+### 2.1 `branches`
 
 A branch is a named line of conversation/exploration with explicit lifecycle metadata.
 
@@ -95,7 +82,7 @@ Invariants:
 - A branch's lineage is the chain `branch → parent_branch → ... → main`.
 - A spec's `current_branch_id` (on `specifications`) names the branch graph view defaults to.
 
-### 3.2 `events`
+### 2.2 `events`
 
 Append-only durable log. Every meaningful state-changing operation produces an event.
 
@@ -126,7 +113,7 @@ events (
 
 D113 invariant remains: a `turn` event is the unit of durable mutation for the interview proper. The other kinds are explicitly *not* turns — they don't advance the interview itself, even though they may emit patches that change spec state.
 
-### 3.3 `patches`
+### 2.3 `patches`
 
 A first-class row per individual mutation. One event can have N patches.
 
@@ -155,7 +142,7 @@ Two stability rules govern the FK columns:
 - **`branch_id` is set at creation and never moves.** It records *where the patch was first staged*, not *which branch it's been applied to*. Membership of a merged patch in a target branch's view is computed via the merge event's lineage in payload, not by mutating `branch_id`.
 - **`event_id` is set when the patch is first associated with a durable event and never moves after.** For side-chat patches, that's at apply (the `side-chat-apply` event becomes their `event_id`). For architect patches, that's at creation (the `architect-proposal` event is their `event_id`). When a `merge` event later references a patch by ID in its payload, it does *not* re-set the patch's `event_id` — the patch is still "introduced by" its original event.
 
-### 3.4 `item_versions`
+### 2.4 `item_versions`
 
 The M3c read cache. One row per (item, branch-where-the-version-was-created).
 
@@ -189,7 +176,7 @@ LIMIT 1
 
 If the cache is missing or invalidated, **rebuild = replay all events in lineage order, applying patches in order to compute the latest version per item.** The event log is always the durable truth; `item_versions` is reconstructible from it.
 
-### 3.5 Entity-relationship overview
+### 2.5 Entity-relationship overview
 
 The four core entities, their relationships, and the key enums on each.
 
@@ -230,9 +217,9 @@ erDiagram
     }
 ```
 
-### 3.6 Where today's vocabulary lands
+### 2.6 Where today's vocabulary lands
 
-The diagram above introduces three layers of taxonomy that didn't exist in the V1–V3 vocabulary. Today's terms map onto the new substrate as follows.
+Today's V1–V3 terms map onto the new substrate as follows.
 
 ```mermaid
 flowchart TB
@@ -259,17 +246,11 @@ flowchart TB
     class V1,V2,V3,V4n v4
 ```
 
-**The one-line shift.** *Old:* "turn = unit of durable mutation." *New:* "event = unit of durable mutation; `kind='turn'` is one event kind among seven."
+**The shift.** *Old:* "turn = unit of durable mutation." *New:* "event = unit of durable mutation; `kind='turn'` is one event kind among seven." Existing API verbs (`submitTurnResponse`, prepare/resolve/finalize, `turnId`) keep their meaning — they all operate on `kind='turn'` events. Branches, item versions, and four of the seven event kinds (`architect-proposal`, `merge`, `branch-create`, `branch-status-change`) are net-new in V4; they have no V1–V3 analogue.
 
-**What stays the same.** Every existing API verb and identifier — `submitTurnResponse`, `prepare/resolve/finalize turn flow`, `revision card stacked on a question card`, `turnId`, `turn-response`, `turn-artifacts` — keeps its meaning. In V4 they all operate on events with `kind='turn'`; the terminology shift is at the substrate layer, not at the orchestration layer.
+## 3. Branch lifecycle
 
-**What's new in V4 that has no V1–V3 analogue.** Branches as first-class entities with lifecycle metadata, events of `kind ∈ {architect-proposal, merge, branch-create, branch-status-change}`, staged patches (patches with `event_id = NULL`), item versions. Side-chat sessions and architect proposals both materialize as branches — these have no equivalent record today.
-
-**D80 / D113 in this picture.** D80's "no turn-tree branching" relaxes one level: turn events on the same branch still form a linear chain, but multiple branches can each carry their own chain (the tree lives at the branch layer, not inside a single branch's event chain). D113's "one durable workflow model" reaffirms at the event-log layer — there's one event log per spec, with `kind='turn'` events tracking the interview workflow specifically.
-
-## 4. Branch lifecycle
-
-### 4.1 Status state machine
+### 3.1 Status state machine
 
 ```mermaid
 stateDiagram-v2
@@ -288,7 +269,7 @@ stateDiagram-v2
 
 `stale` is **recoverable**: filtered out of normal views, but a user can flip the status back to `live` and the branch's events return to the cache. `discarded` is permanent (the row stays for audit, but no UI affords resurrection). `archived` is `stale`'s twin for closed-phase preservation — same filter behavior, but tagged distinctly so audit views can scope to "archived closes" specifically.
 
-### 4.2 Lifecycle policy per `origin_kind`
+### 3.2 Lifecycle policy per `origin_kind`
 
 The `origin_kind` of a new branch determines its default starting status, what happens to its parent and siblings, and what the default `Apply / Resolve` action is.
 
@@ -300,32 +281,22 @@ The `origin_kind` of a new branch determines its default starting status, what h
 | `edit` (i) | `live` | original downstream-of-fork on parent → `superseded_by_branch_id` set; events filtered from default views, recoverable via status flip | None (live merges happen organically as turns continue on the edit branch). User can resurrect superseded events to restore the original chain. |
 | `revisit` (vi) | `live` | original closed-phase chain → `archived` (events filtered from default views; preserved for audit) | Same as edit: resurrect by status flip. |
 
-### 4.3 The supersession mechanism (edit and revisit)
+### 3.3 Supersession (edit and revisit)
 
-Edit and revisit both fork from a point in the parent branch and want to *replace* the parent's chain past that point rather than coexist with it. The mechanism is `events.superseded_by_branch_id`:
+Edit and revisit fork from a point T on a parent branch and want to *replace* the parent's chain past T. At fork time, set `events.superseded_by_branch_id = newBranchId` for each parent event past T, and move `specifications.current_branch_id` to the new branch.
 
-```
-1. Insert the new branch (origin_event_id = T).
-2. For all events on the parent branch with parent_event_id chain past T,
-   UPDATE events SET superseded_by_branch_id = newBranchId.
-3. Set specifications.current_branch_id → newBranchId
-   (graph view defaults to the new fork; user can switch back).
-```
+Materialization filters out events where `superseded_by_branch_id IS NOT NULL` and the superseding branch is `live` or `speculative`. If that branch later becomes `discarded`, the original events reappear automatically. The user can also clear supersession manually to turn the fork into drill-down-shaped coexistence. Every "stale" effect in this model is a reversible filter, never a destructive update.
 
-Materialization filters out events where `superseded_by_branch_id IS NOT NULL` and the superseding branch's `status IN ('live', 'speculative')`. If the superseding branch is later `discarded`, supersession is lifted automatically (the original events become visible again). If the user resurrects the original chain manually (e.g., "actually keep both, I'll merge them later"), supersession can be cleared by setting `superseded_by_branch_id = NULL` and the original chain's events return to view alongside the edit branch — turning the edit into a drill-down-shaped coexistence.
+## 4. Materialization
 
-This is why `stale` is a recoverable state: every "stale" effect in this model is a reversible filter, never a destructive update.
-
-## 5. Materialization
-
-### 5.1 Truth vs. cache
+### 4.1 Truth vs. cache
 
 - **Durable truth:** `branches`, `events`, `patches`. These tables are the only source of truth.
 - **Cache:** `item_versions`, plus any denormalized read-side projections (e.g., per-branch active-path arrays, edge adjacency lists). These are reconstructible from the durable truth.
 
 The discipline: **the log is always right.** If `item_versions` and the event log disagree, the cache is wrong. `DROP cache; REBUILD` from the event log is always safe and produces correct state.
 
-### 5.2 When the cache rebuilds
+### 4.2 When the cache rebuilds
 
 | Trigger | Rebuild scope | Notes |
 |---|---|---|
@@ -335,51 +306,23 @@ The discipline: **the log is always right.** If `item_versions` and the event lo
 | Branch deleted (truly gone — out of scope for V4) | Affected items on parent branch | Not in V4 scope; left as a future operation |
 | Cache corruption / schema migration | Full rebuild from log | Acceptable to do in a maintenance window; replay is bounded |
 
-### 5.3 Why M3c (per-`(item_id, branch_id)` index) over alternatives
+### 4.3 Why M3c
 
-- **M1 (pure event replay):** every read folds the entire event chain. Acceptable for short specs, painful at hundreds of turns × thousands of patches. M3c stores the fold result and makes reads a single SQL query.
-- **M2 (full materialized state per branch):** stores complete denormalized item graph per branch. Disk cost ≈ N branches × spec size; stale flips are expensive to reflect. Overkill for a local-first SQLite product.
-- **M3a (full cache per branch as in M2 but explicitly cache-vs-truth):** same disk cost as M2; complexity not earned in V4.
-- **M3b (canonical cache for main + per-branch deltas):** more complex than M3c with no clear win for our scale.
-- **M3c (chosen):** one row per `(item_id, branch_id)` version; SQL filter on lineage + branch status. Cheap disk, fast reads, simple semantics.
+Pure event replay (M1) is too slow at scale — every read folds the entire chain. Per-branch full materialization (M2 / M3a) costs disk proportional to N branches × spec size with expensive stale flips. M3b's canonical-cache + delta complexity isn't earned at our scale. M3c — one row per `(item_id, branch_id)` version, SQL-filtered on lineage + branch status — is the cheapest disk, fastest reads, simplest semantics.
 
-## 6. The main branch and canonical view
+## 5. The main branch and canonical view
 
-### 6.1 `main` always exists
+Every spec has exactly one `main` branch (created at spec creation, `parent_branch_id = NULL`, `origin_kind = 'main'`); all other branches descend from it.
 
-Every spec has exactly one `main` branch, created at spec creation. `parent_branch_id = NULL`, `origin_kind = 'main'`. All other branches are descendants (directly or transitively) of `main`.
+`specifications.current_branch_id` names the branch graph view, observer, and export use as the default display. It moves only on **edit** and **revisit** forks (the user has explicitly chosen a new chain); side-chat sessions, drill-downs, and architect proposals leave it on the prior branch and surface their forks via the branch picker / Proposals tray instead.
 
-### 6.2 Default view
+The picker (planned UI; not in V1) lists `live` and `speculative` branches grouped by `origin_kind`. `stale` / `archived` / `discarded` branches are filterable on demand.
 
-`specifications.current_branch_id` points to whichever branch the spec considers "primary" for display purposes. The graph view, observer pipeline, and export all read this column to decide what to show by default.
-
-| Action | Effect on `current_branch_id` |
-|---|---|
-| Spec created | `current_branch_id = main` |
-| Side-chat session opens | unchanged (side-chat is a parallel exploration, picker shows it as a parallel tab) |
-| Drill-down forks | unchanged (drill-down is a sibling; user picks via picker) |
-| Architect proposes | unchanged (speculative branches surface in a Proposals tray, not as the default view) |
-| Edit forks | moves to the edit branch (the user has explicitly chosen the new chain) |
-| Revisit forks | moves to the revisit branch |
-| Architect proposal accepted | unchanged (the merge lands on the previous current; current stays put) |
-| User flips it manually via the branch picker | moves to the user's choice |
-
-The branch picker (planned UI surface, not in V1) lists all `live` and `speculative` branches grouped by `origin_kind`. `stale`/`archived`/`discarded` branches are filterable on demand.
-
-### 6.3 Coexistence vs. supersession
-
-Two distinct relationships between sibling branches:
-
-- **Coexistence** (drill-down, side-chat sessions, architect speculations): both siblings stay live; user picks which to view via the picker. No event is superseded.
-- **Supersession** (edit, revisit): original parent-branch events past the fork point are flagged `superseded_by_branch_id` and filtered from default views. Recoverable by clearing the flag.
-
-Coexistence is the default. Supersession is opted into by trigger type.
-
-## 7. Worked examples
+## 6. Worked examples
 
 Five walkthroughs, one per origin kind. Pseudo-SQL is illustrative.
 
-### 7.1 Side-chat apply (origin `side-chat`)
+### 6.1 Side-chat apply (origin `side-chat`)
 
 ```
 1. User opens side-chat from C1 in graph view.
@@ -409,7 +352,7 @@ Five walkthroughs, one per origin kind. Pseudo-SQL is illustrative.
 6. Graph view re-renders main; C1 shows the new value.
 ```
 
-### 7.2 Drill-down (origin `drill-down`)
+### 6.2 Drill-down (origin `drill-down`)
 
 ```
 1. User clicks "deepen this area" intent on C2 in graph view.
@@ -430,7 +373,7 @@ Five walkthroughs, one per origin kind. Pseudo-SQL is illustrative.
    b. Leave as long-running sibling: no further action; both stay live forever.
 ```
 
-### 7.3 Architect proposal (origin `architect`)
+### 6.3 Architect proposal (origin `architect`)
 
 ```
 1. Architect agent runs against main, produces 3 candidate patches against C5.
@@ -462,7 +405,7 @@ Five walkthroughs, one per origin kind. Pseudo-SQL is illustrative.
    c. Reject all → UPDATE branches SET status='discarded' WHERE id=archBranch.
 ```
 
-### 7.4 Edit a past turn (origin `edit`)
+### 6.4 Edit a past turn (origin `edit`)
 
 ```
 1. User scrolls back, clicks "edit" on turn T (10 turns ago) on main.
@@ -491,28 +434,11 @@ Five walkthroughs, one per origin kind. Pseudo-SQL is illustrative.
    (or both branches live in coexistence if the user prefers — depends on UI choice).
 ```
 
-### 7.5 Revisit a closed phase (origin `revisit`)
+### 6.5 Revisit a closed phase (origin `revisit`)
 
-Structurally identical to edit, but the original chain transitions through `archived` (filtered out by default with a distinct UI tag) rather than via supersession.
+Structurally identical to edit (§6.4) — fork at the closed-phase end-point, supersede the original chain. The only difference is a UI tag: the superseded chain shows as `archived` rather than `stale`, surfacable via a distinct "show archived" toggle.
 
-```
-1. User invokes "revisit grounding" on a closed-phase chain ending at event Z.
-   INSERT branches (origin_kind='revisit', parent=main, status='live',
-                    origin_event=Z, label='Revisit grounding')
-   UPDATE events  SET superseded_by_branch_id=revisitBranch
-                  WHERE on main and downstream of Z
-                  AND were part of the closed phase
-   -- alternatively: set events.superseded_by_branch_id but tag the *branch view*
-   -- as 'archived' rather than 'stale' for distinct audit display.
-
-2. New exploration turns land on revisitBranch. Original closed-phase chain
-   is preserved in the log, filtered from default views, surfacable through
-   "show archived" toggle.
-```
-
-The distinction between "stale" (edit) and "archived" (revisit) is purely a UI tag for the audit view; the supersession mechanism is identical.
-
-## 8. Mapping to side-chat phases
+## 7. Mapping to side-chat phases
 
 This data model lights up in V4. V1, V2, V3 stay on the current store-of-stores.
 
@@ -529,9 +455,9 @@ V4 is when:
 - Architect loop ships as a real producer (A73 graduates from "low confidence" to "shipped").
 - Item versioning surfaces in the UI: span-anchored annotations stop dangling, soft-edit audit becomes inspectable, drift handling in `SIDE_CHAT.md` §6.4 retires.
 
-## 9. Migration from the current store-of-stores
+## 8. Migration from the current store-of-stores
 
-### 9.1 Seeding `main`
+### 8.1 Seeding `main`
 
 For each existing spec:
 
@@ -544,55 +470,42 @@ The seed populates the log such that V4's reads return identical results to V3's
 - Be **retired** entirely (full migration; `item_versions` becomes the read source).
 - Be kept as a **secondary cache** alongside `item_versions` during a parallel-running window (lower-risk migration).
 
-### 9.2 Migration safety
+### 8.2 Migration safety
 
 - The seed is a **one-way** transformation; the existing per-store tables can be dropped after the parallel-running window proves the new substrate.
 - Any spec data not yet patch-shaped (older specs without rich audit) gets one synthetic seed event per turn, backfilled.
 - Event timestamps respect the original turn timestamps; the migration does not invent new history.
 
-### 9.3 Backwards compatibility for in-flight side-chat work
+### 8.3 Backwards compatibility for in-flight side-chat work
 
 - V1/V2/V3 side-chat patch lists in client memory are **not migrated** — they're transient. After migration, the next time a user opens the side-chat, it creates a real `side-chat` branch.
 - Annotations from V1 (per-item rows in the comment store) migrate to `patches` of `op='annotate'` on `main`, with `event_id` set to a synthetic `merge` event seeded at migration time. Span anchors with `selectionRange` survive intact in `meta`.
 
-## 10. Implications for `memory/SPEC.md`
+## 9. Implications for `memory/SPEC.md`
 
-### 10.1 Decisions to revise
+### 9.1 Decisions to revise
 
-- **D80 ("no turn-tree branching")** evolves to: *"turn-tree branching is allowed only via tracked `Branch` entities with explicit `origin_kind`; no ad-hoc forking. Branches have a recoverable lifecycle (`live | speculative | stale | discarded | merged | archived`) and a `current_branch_id` per spec defines the canonical view."* Spirit is preserved (no chaos), letter is updated (forks now exist).
-- **D113 ("one durable workflow model")** is reaffirmed at the event layer: the durable workflow is now expressed as the event log on `main`, with sibling branches carrying parallel workflows. The "one durable model" promise becomes "one event log per spec," which is structurally cleaner than "one row of latest-truth per store."
+- **D80 ("no turn-tree branching")** evolves to: *"turn-tree branching is allowed only via tracked `Branch` entities with explicit `origin_kind`; no ad-hoc forking. Branches have a recoverable lifecycle (`live | speculative | stale | discarded | merged | archived`) and a `current_branch_id` per spec defines the canonical view."* Spirit preserved (no chaos), letter updated (forks now exist).
+- **D113 ("one durable workflow model")** reaffirms at the event-log layer: "one event log per spec," with sibling branches carrying parallel workflows.
 
-### 10.2 Decisions reaffirmed without change
+### 9.2 Decisions reaffirmed without change
 
-- **D89 (card-owned input), D125 (typed relation policy), D127 (progressive-detail seam), D128 (graph view actionable workspace), D130 (side-chat as unified mutation surface), D131 (patch list in top-bar)** are all unaffected by this data-model shift. They describe surfaces that read/write *through* the substrate — the substrate change doesn't reshape them.
+D89, D125, D127, D128, D130, D131 describe surfaces that read/write *through* the substrate — unaffected by this design.
 
-### 10.3 Assumptions that retire (graduate to decisions)
+### 9.3 Assumptions that retire (graduate to decisions)
 
-- **A71** (patch / event-stream model) → graduates to a numbered decision once V4 ships.
-- **A72** (item versioning) → graduates; `item_versions` table is the substrate.
-- **A73** (architect / generator loop) → still graduates separately when an architect actually ships, but the substrate guarantee that "the architect deposits into the same patch list" is now structural rather than aspirational.
+- **A71** (patch / event-stream model) → graduates once V4 ships.
+- **A72** (item versioning) → graduates; `item_versions` is the substrate.
+- **A73** (architect / generator loop) → graduates separately when an architect actually ships, but "deposits into the same patch list" is now structural rather than aspirational.
 
-## 11. Open questions
+## 10. Open questions
 
-The following are deliberately not answered here; they'd be answered during V4 implementation planning.
+Deferred to V4 implementation planning.
 
-1. **Branch picker UI shape.** Tabs? Tree view? Sidebar? Affects how natural multi-branch coexistence feels. Probably grow from V1's `Old chat` tab strip.
-2. **Per-patch undo granularity.** P3 makes patches addressable, but should the user be able to undo a single patch *inside* an applied side-chat-apply event without undoing the whole event? Trade-off: convenience vs. event coherence.
-3. **Storage scaling.** `item_versions` rows grow with patches × branches. For deeply branched specs this could be substantial. Compression strategies (delta versions, periodic version-coalescing) are a V4+ topic.
-4. **Cross-branch merging beyond simple fast-forward.** The model handles linear merges (one branch's patches into another's tip) trivially. True three-way merges with conflicting edits to the same item version would need a conflict-resolution UX. V4 likely defers this — drill-down branches that diverge significantly might just stay siblings forever rather than ever merging.
-5. **Performance budget for graph view rebuilds.** The cache rebuild on stale-flip is bounded by branch size; for a long-running edit branch with hundreds of turns, this could be visible. Probably needs a perf budget and optional lazy rebuild.
-6. **How architect speculative branches surface in a "Proposals" tray vs. the main branch picker.** Possibly two distinct UI affordances; possibly one with a filter; defer to V4 design.
-7. **Whether `current_branch_id` is per-user or per-spec.** Brunch is currently single-user, so per-spec is fine. If multi-user collaboration ever lands, per-(spec, user) is needed — not a V4 concern.
-
-## 12. Recommendation summary
-
-Adopt the four-table substrate (`branches`, `events`, `patches`, `item_versions`) with M3 + M3c materialization and P3 patch granularity. Roll it out in V4 of side-chat — V1/V2/V3 ship on the current store-of-stores with the patch-list seam shaped *as if* this substrate were live, so V4 is a substrate swap rather than a redesign. Revise D80 to allow tracked branching with explicit `origin_kind`; reaffirm D113 at the event-log layer; let A71/A72/A73 graduate from assumptions to decisions as the corresponding capabilities ship.
-
-The whole design hinges on three load-bearing claims worth restating:
-
-- **Branches are first-class with lifecycle metadata** — not implicit chains. This makes the "stale/filter" idea trivially expressible and gives architect/drill-down/side-chat distinct default semantics without inventing parallel models.
-- **The event log is durable truth; everything else is cache.** This makes recovery, audit, and migration tractable. Bugs in `item_versions` are recoverable by `REBUILD`; we never have to "fix" a corrupted truth row.
-- **Patches are first-class but always belong to events.** This preserves D113 (turn-as-unit at the event layer) while giving A71 the addressability and provenance it needs.
+1. **Branch picker UI shape.** Tabs, tree view, sidebar — likely grows from V1's `Old chat` tab strip.
+2. **Per-patch undo granularity.** P3 makes patches addressable, but is per-patch undo *inside* an applied event worth the event-coherence trade-off?
+3. **Storage scaling.** `item_versions` grows with patches × branches; deeply branched specs may need delta versions or periodic coalescing.
+4. **Cross-branch merging beyond fast-forward.** Linear merges are trivial; true three-way merges with conflicting edits to the same item version need a resolution UX. Likely deferred to post-V4.
 
 ---
 
