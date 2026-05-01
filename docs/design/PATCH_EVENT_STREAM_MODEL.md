@@ -2,7 +2,7 @@
 
 > Output of brainstorm session 2026-05-01. Concretizes assumptions A71 (patch / event-stream model), A72 (item versioning), and A73 (architect loop) from `memory/SPEC.md` into a proposed data structure for branched turns, patch-staged mutations, and event-driven projections.
 >
-> Status: **proposed (future-facing)** — this is the north-star data model behind side-chat V4 and the architect loop. V1 / V2 / V3 ship on the current store-of-stores; this design describes the substrate they migrate onto in V4. Pending review before transitioning to an implementation plan.
+> Status: **proposed (future-facing)** — this is the north-star data model behind side-chat V4 and the architect loop. V1 / V2 / V3 ship on the current schema (`knowledge_item` + `turn_knowledge_item` + `knowledge_edge`); this design describes the substrate they migrate onto in V4. Pending review before transitioning to an implementation plan.
 >
 > Canonicality: `memory/SPEC.md` and `memory/PLAN.md` remain authoritative for what's true now and what's next. This is a focused design note for one specific data-model evolution and does not by itself reorder the live frontier.
 
@@ -25,12 +25,12 @@
 - **User edits an old answer?** Fork from that point; the original "what would have happened" chain is hidden but recoverable.
 - **Revisit a closed phase?** Same as edit, but the original is "archived" instead of "stale" (just a UI tag).
 
-**When does this ship?** Not in V1, V2, or V3 of side-chat — those still use today's stores. **V4** is the swap. The earlier versions are designed *as if* this substrate already existed, so V4 is a substrate change rather than a redesign.
+**When does this ship?** Not in V1, V2, or V3 of side-chat — those still write through today's `knowledge_item` schema. **V4** is the swap. The earlier versions are designed *as if* this substrate already existed, so V4 is a substrate change rather than a redesign.
 
 **What this changes in `SPEC.md`.**
 
 - D80 ("no turn branching") gets relaxed: branching is fine, but only via tracked `Branch` entities with a stated reason — no chaos.
-- D113 ("one durable workflow model") still holds, just at the event-log layer instead of the per-store layer.
+- D113 ("one durable workflow model") still holds, just at the event-log layer instead of the `knowledge_item` mutation layer.
 - A71, A72, A73 (patch model, item versioning, architect loop) graduate from "low-confidence future" assumptions to real decisions when V4 ships.
 
 **The one rule to remember.** The event log is the truth; everything else is a cache. If the cache disagrees with the log, the cache is wrong. That's what makes audit, recovery, and migration tractable.
