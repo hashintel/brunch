@@ -683,11 +683,12 @@ describe('KindFilterToggler integration', () => {
   });
 });
 
-describe('KindFilterToggler "Show all"', () => {
+describe('"Show all" bulk control', () => {
   it('renders Show all button only when at least one kind is hidden, and resets on click', () => {
     const src = readSrc('src/client/routes/specification/$id/-structured-list-view.tsx');
     expect(src).toMatch(/hiddenKinds\.size > 0/);
     expect(src).toContain('Show all');
-    expect(src).toMatch(/onShowAll[\s\S]{0,200}new Set\(\)/);
+    expect(src).toContain('data-graph-kind-show-all');
+    expect(src).toMatch(/setHiddenKinds\(new Set\(\)\)/);
   });
 });

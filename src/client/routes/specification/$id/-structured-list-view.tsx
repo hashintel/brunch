@@ -171,13 +171,11 @@ function KindFilterToggler({
   hiddenKinds,
   onNavigate,
   onToggle,
-  onShowAll,
 }: {
   populatedKinds: PopulatedKind[];
   hiddenKinds: ReadonlySet<KnowledgeKind>;
   onNavigate: (kind: KnowledgeKind) => void;
   onToggle: (kind: KnowledgeKind) => void;
-  onShowAll: () => void;
 }) {
   if (populatedKinds.length === 0) return null;
 
@@ -193,17 +191,6 @@ function KindFilterToggler({
           onToggle={onToggle}
         />
       ))}
-      {hiddenKinds.size > 0 && (
-        <button
-          type="button"
-          data-graph-kind-show-all
-          onClick={onShowAll}
-          aria-label="Show all kinds"
-          className="ml-1 shrink-0 cursor-pointer rounded px-2 py-0.5 text-xs text-sub outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
-        >
-          Show all
-        </button>
-      )}
     </div>
   );
 }
@@ -588,16 +575,29 @@ export function StructuredListView({
           {headerRight}
         </div>
         {view !== 'empty' && (
-          <div data-graph-filter-bar className="w-full shrink-0 border-b border-rule bg-tint px-6 py-2">
+          <div
+            data-graph-filter-bar
+            className="relative w-full shrink-0 border-b border-rule bg-tint px-6 py-2"
+          >
             <div className="flex justify-center">
               <KindFilterToggler
                 populatedKinds={populatedKinds}
                 hiddenKinds={hiddenKinds}
                 onNavigate={unhideAndNavigate}
                 onToggle={toggleKind}
-                onShowAll={() => setHiddenKinds(new Set())}
               />
             </div>
+            {hiddenKinds.size > 0 && (
+              <button
+                type="button"
+                data-graph-kind-show-all
+                onClick={() => setHiddenKinds(new Set())}
+                aria-label="Show all kinds"
+                className="absolute top-1/2 right-6 -translate-y-1/2 cursor-pointer rounded bg-tint px-2 py-0.5 text-xs text-sub outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+              >
+                Show all
+              </button>
+            )}
           </div>
         )}
         <div ref={scrollAreaRef} className="min-h-0 flex-1 overflow-y-auto">
