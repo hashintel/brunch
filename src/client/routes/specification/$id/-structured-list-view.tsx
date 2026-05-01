@@ -15,6 +15,7 @@ import { ChipActivateProvider, RelationChip, type RelationChipTarget } from './-
 
 const HASH_ANCHOR_HIGHLIGHT_MS = 1500;
 const CHIP_TRUNCATE_LIMIT = 6;
+export const KIND_HASH_PREFIX = 'kind-';
 
 function readHashTargetRef(rawHash: string): string | null {
   if (!rawHash) return null;
@@ -40,10 +41,9 @@ function useGraphHashAnchor(scrollAreaRef: RefObject<HTMLElement | null>): {
       return;
     }
 
-    const KIND_PREFIX = 'kind-';
-    const node = targetRef.startsWith(KIND_PREFIX)
+    const node = targetRef.startsWith(KIND_HASH_PREFIX)
       ? scrollArea.querySelector(
-          `[data-graph-kind-anchor="${CSS.escape(targetRef.slice(KIND_PREFIX.length))}"]`,
+          `[data-graph-kind-anchor="${CSS.escape(targetRef.slice(KIND_HASH_PREFIX.length))}"]`,
         )
       : scrollArea.querySelector(`[data-graph-row-ref="${CSS.escape(targetRef)}"]`);
     if (!(node instanceof HTMLElement)) {
