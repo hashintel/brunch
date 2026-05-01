@@ -52,7 +52,7 @@ A pure function `buildSideChatPrompt(item, message, specContext)` returns the An
 
 ## B — Side-chat backend endpoint (thin I/O shell)
 
-**Status:** `next` — depends on A
+**Status:** `done` — landed on `ka/fe-656-side-chat` (uncommitted). 11 supertest cases in `src/server/side-chat-route.test.ts` covering all ACs (404 spec/item, 400 validation, 200 SSE streaming, zero-turn delta, zero observer invocations). `npm run verify` green. **D113 invariant promotion not needed** — the route never enters the chat / observer paths, so zero-turns is a structural consequence rather than a new seam-level invariant on top of D113.
 **Weight:** light
 
 ### Objective
