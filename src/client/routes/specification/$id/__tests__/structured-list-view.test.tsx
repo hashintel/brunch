@@ -91,7 +91,7 @@ describe('StructuredListView', () => {
     const { container } = render(
       <StructuredListView
         entityState={singleItemNoEdges()}
-        header={<div data-testid="test-header">Header content</div>}
+        headerLeft={<div data-testid="test-header">Header content</div>}
       />,
     );
 
@@ -116,7 +116,7 @@ describe('StructuredListView', () => {
     render(
       <StructuredListView
         entityState={emptySpec()}
-        header={<div data-testid="test-header">Header content</div>}
+        headerLeft={<div data-testid="test-header">Header content</div>}
       />,
     );
     expect(screen.getByTestId('test-header')).toBeTruthy();

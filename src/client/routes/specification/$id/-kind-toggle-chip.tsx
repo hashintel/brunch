@@ -18,7 +18,7 @@ export function KindToggleChip({ entry, count, isHidden, onNavigate, onToggle }:
   const shellClass = `inline-flex h-7 items-stretch overflow-hidden rounded-full border bg-background shadow-[0_1px_2px_rgba(0,0,0,0.03)] ${
     isHidden ? 'border-rule border-dashed' : 'border-rule'
   }`;
-  const bodyClass = `flex items-center gap-1.5 px-2.5 cursor-pointer hover:bg-wash outline-none focus-visible:ring-2 focus-visible:ring-foreground/30 ${
+  const bodyClass = `flex items-center gap-1.5 px-2 cursor-pointer hover:bg-wash outline-none focus-visible:ring-2 focus-visible:ring-foreground/30 ${
     isHidden ? 'text-hint' : 'text-ink'
   }`;
   const toggleClass = `flex w-7 items-center justify-center cursor-pointer border-l border-rule hover:bg-wash outline-none focus-visible:ring-2 focus-visible:ring-foreground/30 ${
@@ -35,10 +35,11 @@ export function KindToggleChip({ entry, count, isHidden, onNavigate, onToggle }:
         className={bodyClass}
       >
         <span
-          className={`inline-flex items-center rounded px-1 py-0.5 font-mono text-[10px] font-medium ${swatchClass}`}
+          className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 font-mono text-[10px] font-medium ${swatchClass}`}
         >
-          {entry.label}
+          {entry.referenceCodePrefix}
         </span>
+        <span className="text-xs font-medium">{entry.label}</span>
         <span className="font-mono text-[10px] opacity-70">{count}</span>
       </button>
       <button

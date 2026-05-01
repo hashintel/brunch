@@ -182,7 +182,7 @@ function KindFilterToggler({
   if (populatedKinds.length === 0) return null;
 
   return (
-    <div data-graph-kind-filter className="flex flex-wrap items-center gap-1.5">
+    <div data-graph-kind-filter className="flex flex-nowrap items-center gap-1.5 overflow-x-auto">
       {populatedKinds.map(({ entry, count }) => (
         <KindToggleChip
           key={entry.kind}
@@ -199,7 +199,7 @@ function KindFilterToggler({
           data-graph-kind-show-all
           onClick={onShowAll}
           aria-label="Show all kinds"
-          className="ml-1 cursor-pointer rounded px-2 py-0.5 text-xs text-sub outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+          className="ml-1 shrink-0 cursor-pointer rounded px-2 py-0.5 text-xs text-sub outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
         >
           Show all
         </button>
@@ -506,13 +506,15 @@ function ItemRow({
 export function StructuredListView({
   entityState,
   emptyStateAction,
-  header,
+  headerLeft,
+  headerRight,
   rowsDefaultOpen = true,
   rowsRemountKey = 0,
 }: {
   entityState: EntitiesData;
   emptyStateAction?: ReactNode;
-  header?: ReactNode;
+  headerLeft?: ReactNode;
+  headerRight?: ReactNode;
   rowsDefaultOpen?: boolean;
   rowsRemountKey?: number;
 }) {
@@ -578,12 +580,16 @@ export function StructuredListView({
   return (
     <ChipActivateProvider value={onChipActivate}>
       <div data-graph-structured-list className="flex h-full flex-col bg-background">
-        <div data-graph-header-bar className="flex h-16 shrink-0 items-center border-b border-rule px-6">
-          <div className="mx-auto w-full max-w-3xl">{header}</div>
+        <div
+          data-graph-header-bar
+          className="flex h-16 w-full shrink-0 items-center justify-between border-b border-rule px-6"
+        >
+          {headerLeft}
+          {headerRight}
         </div>
         {view !== 'empty' && (
-          <div data-graph-filter-bar className="shrink-0 border-b border-rule bg-tint px-6 py-2">
-            <div className="mx-auto w-full max-w-3xl">
+          <div data-graph-filter-bar className="w-full shrink-0 border-b border-rule bg-tint px-6 py-2">
+            <div className="flex justify-center">
               <KindFilterToggler
                 populatedKinds={populatedKinds}
                 hiddenKinds={hiddenKinds}
