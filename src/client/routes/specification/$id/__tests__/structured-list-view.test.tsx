@@ -31,6 +31,7 @@ import {
   emptySpec,
   singleItemNoEdges,
 } from '@/client/__fixtures__/graph-view.js';
+import { SideChatHost } from '@/client/components/side-chat-host.js';
 import type { SideChatStreamEvent } from '@/client/lib/side-chat-stream.js';
 
 const mockNavigate = vi.fn();
@@ -427,7 +428,7 @@ describe('StructuredListView', () => {
     }
   });
 
-  it('keeps the chat-with button as a disabled placeholder when no specificationId is provided', () => {
+  it('keeps the chat-with button as a disabled placeholder when rendered without a SideChatHost ancestor', () => {
     const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
     const rows = container.querySelectorAll('[data-graph-row]');
@@ -446,9 +447,11 @@ describe('StructuredListView', () => {
     }
   });
 
-  it('activates the chat-with button on every item row when specificationId is provided', () => {
+  it('activates the chat-with button on every item row when wrapped in a SideChatHost', () => {
     const { container } = render(
-      <StructuredListView entityState={crossPhaseDecisionLink()} specificationId={42} />,
+      <SideChatHost specificationId={42}>
+        <StructuredListView entityState={crossPhaseDecisionLink()} />
+      </SideChatHost>,
     );
 
     const buttons = container.querySelectorAll(
@@ -649,15 +652,21 @@ describe('StructuredListView', () => {
       };
     }
 
+    function renderInsideHost(entityState: ReturnType<typeof singleItemNoEdges>, specificationId = 42) {
+      return render(
+        <SideChatHost specificationId={specificationId}>
+          <StructuredListView entityState={entityState} />
+        </SideChatHost>,
+      );
+    }
+
     it('does not mount a side-chat popover before the user clicks chat-with', () => {
-      render(<StructuredListView entityState={singleItemNoEdges()} specificationId={42} />);
+      renderInsideHost(singleItemNoEdges());
       expect(screen.queryByRole('dialog', { name: /side[- ]chat/i })).toBeNull();
     });
 
     it('mounts a SideChatPopover pinned to the row when the chat-with button is clicked', () => {
-      const { container } = render(
-        <StructuredListView entityState={singleItemNoEdges()} specificationId={42} />,
-      );
+      const { container } = renderInsideHost(singleItemNoEdges());
 
       const chatButton = container.querySelector(
         'button[data-graph-action="chat-with"]',
@@ -670,9 +679,7 @@ describe('StructuredListView', () => {
     });
 
     it('only mounts one popover at a time and swaps the pinned item when chat-with is clicked on a different row', () => {
-      const { container } = render(
-        <StructuredListView entityState={crossPhaseDecisionLink()} specificationId={42} />,
-      );
+      const { container } = renderInsideHost(crossPhaseDecisionLink());
 
       const chatButtons = container.querySelectorAll(
         'button[data-graph-action="chat-with"]',
@@ -693,9 +700,7 @@ describe('StructuredListView', () => {
 
     it('calls streamSideChatResponse with the row context and submitted message on send', () => {
       makeManualStream();
-      const { container } = render(
-        <StructuredListView entityState={singleItemNoEdges()} specificationId={42} />,
-      );
+      const { container } = renderInsideHost(singleItemNoEdges());
 
       fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
       fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
@@ -711,11 +716,9 @@ describe('StructuredListView', () => {
       });
     });
 
-    it('renders streamed text-delta chunks incrementally as a pending assistant message', async () => {
+    it('renders streamed text-delta chunks incrementally as a pending assistant message', () => {
       const stream = makeManualStream();
-      const { container } = render(
-        <StructuredListView entityState={singleItemNoEdges()} specificationId={42} />,
-      );
+      const { container } = renderInsideHost(singleItemNoEdges());
 
       fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
       fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
@@ -736,9 +739,7 @@ describe('StructuredListView', () => {
 
     it('finalizes the assistant message and re-enables sending after the stream finishes', async () => {
       const stream = makeManualStream();
-      const { container } = render(
-        <StructuredListView entityState={singleItemNoEdges()} specificationId={42} />,
-      );
+      const { container } = renderInsideHost(singleItemNoEdges());
 
       fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
       fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });

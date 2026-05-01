@@ -5,15 +5,10 @@ import { flushSync } from 'react-dom';
 
 import { kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
-import {
-  SideChatPopover,
-  type SideChatMessage,
-  type SideChatPinnedItem,
-} from '@/client/components/side-chat-popover.js';
+import { useSideChat } from '@/client/components/side-chat-host.js';
 import { Badge } from '@/client/components/ui/badge';
 import { Button } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
-import { streamSideChatResponse } from '@/client/lib/side-chat-stream.js';
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
 import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
 
@@ -437,8 +432,18 @@ function EmptyStateCard({
   );
 }
 
-function ItemActionRail({ onChatWith }: { onChatWith?: () => void }) {
-  const isActive = onChatWith !== undefined;
+function ItemActionRail({ item }: { item: KnowledgeItemSummary }) {
+  const sideChat = useSideChat();
+  const isActive = sideChat !== null;
+  const handleClick = isActive
+    ? () =>
+        sideChat.openFor({
+          kind: item.kind,
+          id: item.id,
+          referenceCode: item.referenceCode,
+          content: item.content,
+        })
+    : undefined;
   return (
     <div
       data-graph-action-rail
@@ -449,7 +454,7 @@ function ItemActionRail({ onChatWith }: { onChatWith?: () => void }) {
         data-graph-action="chat-with"
         disabled={!isActive}
         aria-label="Chat about this item"
-        onClick={onChatWith}
+        onClick={handleClick}
         className={
           isActive
             ? 'flex size-6 items-center justify-center rounded text-hint hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30'
@@ -469,7 +474,6 @@ function ItemRow({
   anchored,
   defaultOpen = true,
   kindAnchor = null,
-  onChatWith,
 }: {
   item: KnowledgeItemSummary;
   outgoing: DirectedEdge[];
@@ -477,7 +481,6 @@ function ItemRow({
   anchored: boolean;
   defaultOpen?: boolean;
   kindAnchor: KnowledgeKind | null;
-  onChatWith?: () => void;
 }) {
   const hasExpansion = Boolean(item.rationale) || outgoing.length > 0 || incoming.length > 0;
 
@@ -501,7 +504,7 @@ function ItemRow({
             <p className="text-sm text-ink">{item.content}</p>
           </div>
           <div className="flex items-center gap-1">
-            <ItemActionRail onChatWith={onChatWith} />
+            <ItemActionRail item={item} />
             {hasExpansion && (
               <CollapsibleTrigger
                 data-graph-row-toggle
@@ -521,26 +524,6 @@ function ItemRow({
   );
 }
 
-interface ActiveSideChat {
-  pinnedItem: SideChatPinnedItem;
-  itemKind: KnowledgeKind;
-  itemId: number;
-  messages: SideChatMessage[];
-}
-
-function replacePendingText(messages: readonly SideChatMessage[], text: string): SideChatMessage[] {
-  return messages.map((message) => (message.pending ? { ...message, text } : message));
-}
-
-function finalizePending(messages: readonly SideChatMessage[]): SideChatMessage[] {
-  return messages.flatMap((message) => {
-    if (!message.pending) {
-      return [message];
-    }
-    return message.text ? [{ role: message.role, text: message.text }] : [];
-  });
-}
-
 export function StructuredListView({
   entityState,
   emptyStateAction,
@@ -548,7 +531,6 @@ export function StructuredListView({
   headerRight,
   rowsDefaultOpen = true,
   rowsRemountKey = 0,
-  specificationId,
 }: {
   entityState: EntitiesData;
   emptyStateAction?: ReactNode;
@@ -556,14 +538,12 @@ export function StructuredListView({
   headerRight?: ReactNode;
   rowsDefaultOpen?: boolean;
   rowsRemountKey?: number;
-  specificationId?: number;
 }) {
   const { itemsByKey, outgoingByItem, incomingByItem } = projectGraph(entityState);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { anchoredRowRef } = useGraphHashAnchor(scrollAreaRef);
   const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
   const navigate = useNavigate();
-  const [activeSideChat, setActiveSideChat] = useState<ActiveSideChat | null>(null);
 
   const toggleKind = (kind: KnowledgeKind) => {
     setHiddenKinds((current) => {
@@ -608,74 +588,6 @@ export function StructuredListView({
     },
     [navigate],
   );
-
-  const openSideChatFor = useCallback((item: KnowledgeItemSummary) => {
-    setActiveSideChat({
-      pinnedItem: { referenceCode: item.referenceCode, content: item.content },
-      itemKind: item.kind,
-      itemId: item.id,
-      messages: [],
-    });
-  }, []);
-
-  const dismissSideChat = useCallback(() => {
-    setActiveSideChat(null);
-  }, []);
-
-  const submitSideChatMessage = useCallback(
-    (message: string) => {
-      if (specificationId === undefined) {
-        return;
-      }
-      setActiveSideChat((current) => {
-        if (!current) {
-          return current;
-        }
-        const next: ActiveSideChat = {
-          ...current,
-          messages: [
-            ...current.messages,
-            { role: 'user', text: message },
-            { role: 'assistant', text: '', pending: true },
-          ],
-        };
-
-        void (async () => {
-          let buffered = '';
-          try {
-            await streamSideChatResponse(
-              {
-                specificationId,
-                itemKind: next.itemKind,
-                itemId: next.itemId,
-                message,
-              },
-              (event) => {
-                if (event.type === 'text-delta') {
-                  buffered += event.delta;
-                  setActiveSideChat((session) =>
-                    session
-                      ? { ...session, messages: replacePendingText(session.messages, buffered) }
-                      : session,
-                  );
-                }
-              },
-            );
-          } catch {
-            // V1: surface errors via Card E; for now drop the partial response.
-          }
-          setActiveSideChat((session) =>
-            session ? { ...session, messages: finalizePending(session.messages) } : session,
-          );
-        })();
-
-        return next;
-      });
-    },
-    [specificationId],
-  );
-
-  const handleChatWithFor = specificationId !== undefined ? openSideChatFor : undefined;
 
   const populatedKinds = getPopulatedKinds(entityState);
   const totalItems = itemsByKey.size;
@@ -785,7 +697,6 @@ export function StructuredListView({
                                   anchored={anchoredRowRef === item.referenceCode}
                                   defaultOpen={rowsDefaultOpen}
                                   kindAnchor={isFirstOfKind ? item.kind : null}
-                                  onChatWith={handleChatWithFor ? () => handleChatWithFor(item) : undefined}
                                 />
                               );
                             });
@@ -799,14 +710,6 @@ export function StructuredListView({
           </div>
         </div>
       </div>
-      {activeSideChat && (
-        <SideChatPopover
-          pinnedItem={activeSideChat.pinnedItem}
-          messages={activeSideChat.messages}
-          onDismiss={dismissSideChat}
-          onSubmit={submitSideChatMessage}
-        />
-      )}
     </ChipActivateProvider>
   );
 }
