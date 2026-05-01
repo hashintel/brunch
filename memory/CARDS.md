@@ -15,7 +15,7 @@ The single V1.1 scope card decomposes inside-out into the queue below. Cards A, 
 
 ## A — Side-chat prompt builder (functional core)
 
-**Status:** `next`
+**Status:** `done` — landed on `ka/fe-656-side-chat` (uncommitted). Tests: 10 unit tests in `src/server/side-chat-prompt.test.ts`. `npm run verify` green.
 **Weight:** light
 
 ### Objective
