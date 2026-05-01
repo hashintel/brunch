@@ -1,7 +1,19 @@
 // @vitest-environment happy-dom
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { act, cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const readSrc = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
+
+describe('structured-list-view kind anchors', () => {
+  it('marks the first row of each kind with data-graph-kind-anchor', () => {
+    const src = readSrc('src/client/routes/specification/$id/-structured-list-view.tsx');
+    expect(src).toContain('data-graph-kind-anchor');
+  });
+});
 
 import {
   activePathDivergence,

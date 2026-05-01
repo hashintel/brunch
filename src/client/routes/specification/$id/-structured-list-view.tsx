@@ -439,12 +439,14 @@ function ItemRow({
   incoming,
   anchored,
   defaultOpen = true,
+  kindAnchor = null,
 }: {
   item: KnowledgeItemSummary;
   outgoing: DirectedEdge[];
   incoming: DirectedEdge[];
   anchored: boolean;
   defaultOpen?: boolean;
+  kindAnchor?: KnowledgeKind | null;
 }) {
   const hasExpansion = Boolean(item.rationale) || outgoing.length > 0 || incoming.length > 0;
 
@@ -453,6 +455,7 @@ function ItemRow({
       <div
         data-graph-row
         data-graph-row-ref={item.referenceCode}
+        data-graph-kind-anchor={kindAnchor ?? undefined}
         data-graph-row-anchored={anchored ? 'true' : undefined}
         className={`group/row overflow-hidden rounded-xl border bg-background shadow-[var(--shadow-card)] transition-all duration-700 ${anchored ? `animate-in border-current/50 ring-2 ring-current/30 duration-300 fade-in ${kindTextColor[item.kind]}` : 'border-rule'}`}
       >
@@ -601,19 +604,25 @@ export function StructuredListView({
                       </div>
                       <CollapsibleContent>
                         <div className="flex flex-col gap-2">
-                          {items.map((item) => {
-                            const itemKey = `${item.kind}:${item.id}`;
-                            return (
-                              <ItemRow
-                                key={`${itemKey}-v${rowsRemountKey}`}
-                                item={item}
-                                outgoing={outgoingByItem.get(itemKey) ?? []}
-                                incoming={incomingByItem.get(itemKey) ?? []}
-                                anchored={anchoredRowRef === item.referenceCode}
-                                defaultOpen={rowsDefaultOpen}
-                              />
-                            );
-                          })}
+                          {(() => {
+                            let previousKind: KnowledgeKind | null = null;
+                            return items.map((item) => {
+                              const itemKey = `${item.kind}:${item.id}`;
+                              const isFirstOfKind = previousKind !== item.kind;
+                              previousKind = item.kind;
+                              return (
+                                <ItemRow
+                                  key={`${itemKey}-v${rowsRemountKey}`}
+                                  item={item}
+                                  outgoing={outgoingByItem.get(itemKey) ?? []}
+                                  incoming={incomingByItem.get(itemKey) ?? []}
+                                  anchored={anchoredRowRef === item.referenceCode}
+                                  defaultOpen={rowsDefaultOpen}
+                                  kindAnchor={isFirstOfKind ? item.kind : null}
+                                />
+                              );
+                            });
+                          })()}
                         </div>
                       </CollapsibleContent>
                     </section>
