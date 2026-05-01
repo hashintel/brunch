@@ -191,6 +191,8 @@ If the cache is missing or invalidated, **rebuild = replay all events in lineage
 
 ### 3.5 Entity-relationship overview
 
+The four core entities, their relationships, and the key enums on each.
+
 ```mermaid
 erDiagram
     SPECIFICATION ||--o{ BRANCH : has
@@ -204,7 +206,66 @@ erDiagram
     PATCH ||--o{ ITEM_VERSION : produces
     BRANCH ||--o{ ITEM_VERSION : owns
     PATCH ||--o| PATCH : supersedes
+
+    SPECIFICATION {
+        text current_branch_id "FK to branches"
+    }
+    BRANCH {
+        text origin_kind "main | side-chat | drill-down | architect | edit | revisit"
+        text status "live | speculative | stale | discarded | merged | archived"
+    }
+    EVENT {
+        text kind "turn | side-chat-apply | architect-proposal | observer-capture | merge | branch-create | branch-status-change"
+    }
+    PATCH {
+        text op "create | update | delete | add-edge | remove-edge | annotate"
+        text kind "edit | edge | drill-down | annotate"
+        text impact_tier "none | soft | hard"
+        text event_id "NULL while staged"
+    }
+    ITEM_VERSION {
+        text item_kind
+        text item_id
+        text branch_id "version is scoped to its branch"
+    }
 ```
+
+### 3.6 Where today's vocabulary lands
+
+The diagram above introduces three layers of taxonomy that didn't exist in the V1–V3 vocabulary. Today's terms map onto the new substrate as follows.
+
+```mermaid
+flowchart TB
+    subgraph Today["Today's vocabulary (V1–V3)"]
+        T1["Turn<br/>row in specification_turns"]
+        T2["Observer capture<br/>delivered in-band with a turn"]
+        T3["Side-chat apply<br/>fan-out across per-store mutations"]
+        T4["Spec state<br/>latest answered turn + per-store rows"]
+    end
+    subgraph V4["V4 substrate"]
+        V1["EVENT (kind=turn)<br/>on the relevant branch"]
+        V2["EVENT (kind=observer-capture)<br/>parent_event_id → its turn event"]
+        V3["EVENT (kind=side-chat-apply)<br/>+ patches with event_id set"]
+        V4n["BRANCH chain → EVENTS → PATCHES<br/>materialized as ITEM_VERSIONS"]
+    end
+    T1 -.maps to.-> V1
+    T2 -.maps to.-> V2
+    T3 -.maps to.-> V3
+    T4 -.maps to.-> V4n
+
+    classDef today fill:#fef3c7,stroke:#d97706
+    classDef v4 fill:#dbeafe,stroke:#2563eb
+    class T1,T2,T3,T4 today
+    class V1,V2,V3,V4n v4
+```
+
+**The one-line shift.** *Old:* "turn = unit of durable mutation." *New:* "event = unit of durable mutation; `kind='turn'` is one event kind among seven."
+
+**What stays the same.** Every existing API verb and identifier — `submitTurnResponse`, `prepare/resolve/finalize turn flow`, `revision card stacked on a question card`, `turnId`, `turn-response`, `turn-artifacts` — keeps its meaning. In V4 they all operate on events with `kind='turn'`; the terminology shift is at the substrate layer, not at the orchestration layer.
+
+**What's new in V4 that has no V1–V3 analogue.** Branches as first-class entities with lifecycle metadata, events of `kind ∈ {architect-proposal, merge, branch-create, branch-status-change}`, staged patches (patches with `event_id = NULL`), item versions. Side-chat sessions and architect proposals both materialize as branches — these have no equivalent record today.
+
+**D80 / D113 in this picture.** D80's "no turn-tree branching" relaxes one level: turn events on the same branch still form a linear chain, but multiple branches can each carry their own chain (the tree lives at the branch layer, not inside a single branch's event chain). D113's "one durable workflow model" reaffirms at the event-log layer — there's one event log per spec, with `kind='turn'` events tracking the interview workflow specifically.
 
 ## 4. Branch lifecycle
 
