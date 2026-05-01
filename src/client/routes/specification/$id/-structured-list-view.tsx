@@ -42,7 +42,8 @@ function useGraphHashAnchor(scrollAreaRef: RefObject<HTMLElement | null>): {
       return;
     }
 
-    const node = targetRef.startsWith(KIND_HASH_PREFIX)
+    const isKindAnchor = targetRef.startsWith(KIND_HASH_PREFIX);
+    const node = isKindAnchor
       ? scrollArea.querySelector(
           `[data-graph-kind-anchor="${CSS.escape(targetRef.slice(KIND_HASH_PREFIX.length))}"]`,
         )
@@ -52,16 +53,27 @@ function useGraphHashAnchor(scrollAreaRef: RefObject<HTMLElement | null>): {
       return;
     }
 
+    // For kind anchors that are the first row of their containing section,
+    // scroll to the section element instead so the section header lands just
+    // under the filter bar (otherwise the header gets clipped above the
+    // viewport because the row is above the title).
+    let scrollTarget: HTMLElement = node;
+    if (isKindAnchor) {
+      const section = node.closest<HTMLElement>('[data-graph-section]');
+      if (section && section.querySelector('[data-graph-kind-anchor]') === node) {
+        scrollTarget = section;
+      }
+    }
+
     const areaRect = scrollArea.getBoundingClientRect();
-    const nodeRect = node.getBoundingClientRect();
-    const nodeTopWithinArea = nodeRect.top - areaRect.top + scrollArea.scrollTop;
-    const isKindAnchor = targetRef.startsWith(KIND_HASH_PREFIX);
+    const targetRect = scrollTarget.getBoundingClientRect();
+    const targetTopWithinArea = targetRect.top - areaRect.top + scrollArea.scrollTop;
     // Kind anchors land at the top of the scroll area (just under the filter
     // bar) so the section header is the first thing you see. Row anchors stay
     // centered so neighbouring context is visible.
     const targetTop = isKindAnchor
-      ? nodeTopWithinArea - 16
-      : nodeTopWithinArea - scrollArea.clientHeight / 2 + node.clientHeight / 2;
+      ? targetTopWithinArea - 16
+      : targetTopWithinArea - scrollArea.clientHeight / 2 + scrollTarget.clientHeight / 2;
     scrollArea.scrollTo({ top: targetTop, behavior: 'smooth' });
     setAnchoredRowRef(targetRef);
     const timer = setTimeout(() => setAnchoredRowRef(null), HASH_ANCHOR_HIGHLIGHT_MS);
