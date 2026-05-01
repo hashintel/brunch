@@ -89,7 +89,7 @@ A pure function `buildSideChatPrompt(item, message, specContext)` returns the An
 
 ## C — SideChatPopover component (frontend skeleton)
 
-**Status:** `next` — independent of A and B; can run in parallel
+**Status:** `done` — landed on `ka/fe-656-side-chat` (uncommitted). 13 component tests in `src/client/components/__tests__/side-chat-popover.test.tsx` covering pinned-item header, empty message log, send-button disabled state, X / Esc / click-outside dismiss, focus-on-mount, and forward / backward Tab focus trap. `npm run verify` green.
 **Weight:** light
 
 ### Objective
