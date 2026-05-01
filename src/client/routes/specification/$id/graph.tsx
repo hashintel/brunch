@@ -3,7 +3,6 @@ import { ArrowLeft, ChevronsDown, ChevronsUp } from 'lucide-react';
 import { useState } from 'react';
 
 import { KnowledgeGraphIdentity } from '@/client/components/knowledge-graph-identity';
-import { SideChatHost } from '@/client/components/side-chat-host.js';
 import type { WorkflowState } from '@/shared/api-types.js';
 import type { WorkflowPhase } from '@/shared/phase-close.js';
 import {
@@ -114,16 +113,14 @@ function GraphRouteComponent() {
   );
 
   return (
-    <SideChatHost specificationId={bundle.specification.id}>
-      <StructuredListView
-        entityState={entityState}
-        emptyStateAction={emptyStateAction}
-        headerLeft={headerLeft}
-        headerRight={headerRight}
-        rowsDefaultOpen={rowsDefaultOpen}
-        rowsRemountKey={rowsRemountKey}
-      />
-    </SideChatHost>
+    <StructuredListView
+      entityState={entityState}
+      emptyStateAction={emptyStateAction}
+      headerLeft={headerLeft}
+      headerRight={headerRight}
+      rowsDefaultOpen={rowsDefaultOpen}
+      rowsRemountKey={rowsRemountKey}
+    />
   );
 }
 

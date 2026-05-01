@@ -1,5 +1,6 @@
 import { Outlet, createFileRoute, useParams } from '@tanstack/react-router';
 
+import { SideChatHost } from '@/client/components/side-chat-host.js';
 import { Skeleton } from '@/client/components/ui/skeleton';
 
 import { PhaseNavigationSidebar } from './-phase-navigation-sidebar.js';
@@ -33,17 +34,19 @@ export const Route = createFileRoute('/specification/$id')({
     const { id: specificationId } = useParams({ from: '/specification/$id' });
 
     return (
-      <div className="flex h-full">
-        <PhaseNavigationSidebar
-          specificationId={specificationId}
-          specificationName={specificationState.specification.name}
-          workflow={specificationState.workflow}
-          turns={specificationState.turns}
-        />
-        <div className="flex-1 overflow-hidden">
-          <Outlet />
+      <SideChatHost specificationId={specificationState.specification.id}>
+        <div className="flex h-full">
+          <PhaseNavigationSidebar
+            specificationId={specificationId}
+            specificationName={specificationState.specification.name}
+            workflow={specificationState.workflow}
+            turns={specificationState.turns}
+          />
+          <div className="flex-1 overflow-hidden">
+            <Outlet />
+          </div>
         </div>
-      </div>
+      </SideChatHost>
     );
   },
 });
