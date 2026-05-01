@@ -170,11 +170,13 @@ function KindFilterToggler({
   hiddenKinds,
   onNavigate,
   onToggle,
+  onShowAll,
 }: {
   populatedKinds: PopulatedKind[];
   hiddenKinds: ReadonlySet<KnowledgeKind>;
   onNavigate: (kind: KnowledgeKind) => void;
   onToggle: (kind: KnowledgeKind) => void;
+  onShowAll: () => void;
 }) {
   if (populatedKinds.length === 0) return null;
 
@@ -190,6 +192,17 @@ function KindFilterToggler({
           onToggle={onToggle}
         />
       ))}
+      {hiddenKinds.size > 0 && (
+        <button
+          type="button"
+          data-graph-kind-show-all
+          onClick={onShowAll}
+          aria-label="Show all kinds"
+          className="ml-1 cursor-pointer rounded px-2 py-0.5 text-xs text-sub outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+        >
+          Show all
+        </button>
+      )}
     </div>
   );
 }
@@ -575,6 +588,7 @@ export function StructuredListView({
                 hiddenKinds={hiddenKinds}
                 onNavigate={unhideAndNavigate}
                 onToggle={toggleKind}
+                onShowAll={() => setHiddenKinds(new Set())}
               />
             </div>
           </div>
