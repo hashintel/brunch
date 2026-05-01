@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { act, cleanup, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const readSrc = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
@@ -542,6 +543,64 @@ describe('StructuredListView', () => {
       'D14',
       'D15',
     ]);
+  });
+
+  it('clicking a visible chip body navigates to its kind anchor', async () => {
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const goalChipBody = container.querySelector('[data-graph-kind-body="goal"]') as HTMLButtonElement | null;
+    expect(goalChipBody).toBeTruthy();
+    if (!goalChipBody) return;
+
+    await userEvent.click(goalChipBody);
+
+    expect(mockNavigate).toHaveBeenCalledWith(expect.objectContaining({ hash: 'kind-goal' }));
+  });
+
+  it('clicking the toggle hides the kind without navigating, and Show all restores it', async () => {
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    // Initially the goal anchor is rendered
+    expect(container.querySelector('[data-graph-kind-anchor="goal"]')).toBeTruthy();
+
+    // Click the goal toggle to hide it
+    const goalToggle = container.querySelector('[data-graph-kind-toggle="goal"]') as HTMLButtonElement | null;
+    expect(goalToggle).toBeTruthy();
+    if (!goalToggle) return;
+    await userEvent.click(goalToggle);
+
+    // After hide: no navigate, and the anchor is no longer in the DOM (kind hidden)
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-graph-kind-anchor="goal"]')).toBeNull();
+
+    // The Show all button should now appear
+    const showAll = container.querySelector('[data-graph-kind-show-all]') as HTMLButtonElement | null;
+    expect(showAll).toBeTruthy();
+    if (!showAll) return;
+    await userEvent.click(showAll);
+
+    // After Show all: anchor is back, still no navigate
+    expect(container.querySelector('[data-graph-kind-anchor="goal"]')).toBeTruthy();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('clicking the body of a hidden chip unhides synchronously and then navigates', async () => {
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    // Hide the goal kind first
+    const goalToggle = container.querySelector('[data-graph-kind-toggle="goal"]') as HTMLButtonElement | null;
+    if (!goalToggle) throw new Error('goal toggle not found');
+    await userEvent.click(goalToggle);
+    expect(container.querySelector('[data-graph-kind-anchor="goal"]')).toBeNull();
+
+    // Click the body of the now-hidden goal chip
+    const goalBody = container.querySelector('[data-graph-kind-body="goal"]') as HTMLButtonElement | null;
+    if (!goalBody) throw new Error('goal body not found');
+    await userEvent.click(goalBody);
+
+    // After flushSync + navigate: the anchor must be in the DOM AND mockNavigate was called with kind-goal
+    expect(container.querySelector('[data-graph-kind-anchor="goal"]')).toBeTruthy();
+    expect(mockNavigate).toHaveBeenCalledWith(expect.objectContaining({ hash: 'kind-goal' }));
   });
 });
 
