@@ -545,6 +545,14 @@ describe('StructuredListView', () => {
   });
 });
 
+describe('structured-list-view unhideAndNavigate helper', () => {
+  it('uses flushSync to commit the unhide before navigate fires', () => {
+    const src = readSrc('src/client/routes/specification/$id/-structured-list-view.tsx');
+    expect(src).toContain("import { flushSync } from 'react-dom'");
+    expect(src).toMatch(/flushSync\(\(\) => \{[\s\S]*?setHiddenKinds/);
+  });
+});
+
 describe('RelationChipPreview', () => {
   it('shows the target reference code, content, rationale, and edge counts', () => {
     render(

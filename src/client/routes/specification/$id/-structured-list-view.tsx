@@ -547,6 +547,21 @@ export function StructuredListView({
     [navigate],
   );
 
+  const unhideAndNavigate = useCallback(
+    (kind: KnowledgeKind) => {
+      flushSync(() => {
+        setHiddenKinds((current) => {
+          if (!current.has(kind)) return current;
+          const next = new Set(current);
+          next.delete(kind);
+          return next;
+        });
+      });
+      void navigate({ to: '.', hash: `${KIND_HASH_PREFIX}${kind}` });
+    },
+    [navigate],
+  );
+
   const populatedKinds = getPopulatedKinds(entityState);
   const totalItems = itemsByKey.size;
   const view: 'empty' | 'all-hidden' | 'list' =
