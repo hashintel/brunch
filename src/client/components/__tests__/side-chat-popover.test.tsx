@@ -226,6 +226,42 @@ describe('SideChatPopover', () => {
       expect(input.value).toBe('');
     });
 
+    it('renders error-flagged messages with a distinct treatment', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          messages={[
+            { role: 'user', text: 'Why?' },
+            { role: 'assistant', text: 'Something went wrong — try again.', error: true },
+          ]}
+        />,
+      );
+
+      const log = screen.getByRole('log', { name: /side[- ]chat messages/i });
+      const items = log.querySelectorAll('[data-message-role]');
+      expect(items).toHaveLength(2);
+      expect(items[1].getAttribute('data-message-error')).toBe('true');
+      expect(items[1].textContent).toContain('Something went wrong');
+    });
+
+    it('does not mark non-error messages with the error attribute', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          messages={[
+            { role: 'user', text: 'Why?' },
+            { role: 'assistant', text: 'It depends.' },
+          ]}
+        />,
+      );
+
+      const log = screen.getByRole('log', { name: /side[- ]chat messages/i });
+      const items = log.querySelectorAll('[data-message-role]');
+      expect(items[1].getAttribute('data-message-error')).not.toBe('true');
+    });
+
     it('disables the send button while a submission is in-flight (last message is pending)', () => {
       render(
         <SideChatPopover

@@ -737,6 +737,32 @@ describe('StructuredListView', () => {
       expect(messages[1].textContent).toContain('It depends.');
     });
 
+    it('renders an error message and re-enables sending when the stream rejects', async () => {
+      mockStreamSideChatResponse.mockRejectedValue(new Error('Side-chat request failed'));
+      const { container } = renderInsideHost(singleItemNoEdges());
+
+      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      const dialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
+      const log = within(dialog).getByRole('log', { name: /side[- ]chat messages/i });
+      const messages = log.querySelectorAll('[data-message-role]');
+      expect(messages).toHaveLength(2);
+      expect(messages[1].getAttribute('data-message-role')).toBe('assistant');
+      expect(messages[1].getAttribute('data-message-error')).toBe('true');
+      expect(messages[1].getAttribute('data-message-pending')).not.toBe('true');
+
+      // Send re-enables for retry.
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Try again' } });
+      const send = screen.getByRole('button', { name: /send/i }) as HTMLButtonElement;
+      expect(send.disabled).toBe(false);
+    });
+
     it('finalizes the assistant message and re-enables sending after the stream finishes', async () => {
       const stream = makeManualStream();
       const { container } = renderInsideHost(singleItemNoEdges());

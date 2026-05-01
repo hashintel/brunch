@@ -42,6 +42,23 @@ function finalizePending(messages: readonly SideChatMessage[]): SideChatMessage[
   });
 }
 
+const SIDE_CHAT_ERROR_MESSAGE = 'Something went wrong — try again.';
+
+function failPending(messages: readonly SideChatMessage[]): SideChatMessage[] {
+  let replaced = false;
+  const next = messages.map((message) => {
+    if (message.pending) {
+      replaced = true;
+      return { role: message.role, text: SIDE_CHAT_ERROR_MESSAGE, error: true } as SideChatMessage;
+    }
+    return message;
+  });
+  if (!replaced) {
+    next.push({ role: 'assistant', text: SIDE_CHAT_ERROR_MESSAGE, error: true });
+  }
+  return next;
+}
+
 export function SideChatHost({
   specificationId,
   children,
@@ -81,6 +98,7 @@ export function SideChatHost({
 
         void (async () => {
           let buffered = '';
+          let failed = false;
           try {
             await streamSideChatResponse(
               {
@@ -101,11 +119,17 @@ export function SideChatHost({
               },
             );
           } catch {
-            // V1: surface errors via Card E; for now drop the partial response.
+            failed = true;
           }
-          setActiveSideChat((session) =>
-            session ? { ...session, messages: finalizePending(session.messages) } : session,
-          );
+          setActiveSideChat((session) => {
+            if (!session) {
+              return session;
+            }
+            return {
+              ...session,
+              messages: failed ? failPending(session.messages) : finalizePending(session.messages),
+            };
+          });
         })();
 
         return next;
