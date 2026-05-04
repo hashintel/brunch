@@ -1,4 +1,13 @@
-import { ArrowUp, Mic, NotebookPen, PanelRight, PencilLine, PictureInPicture2, Plus } from 'lucide-react';
+import {
+  ArrowUp,
+  Loader2,
+  Mic,
+  NotebookPen,
+  PanelRight,
+  PencilLine,
+  PictureInPicture2,
+  Plus,
+} from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 function useTypewriter(target: string, animate: boolean, charDelayMs = 15): string {
@@ -503,12 +512,20 @@ export function SideChatPopover({
                 </div>
                 <button
                   type="button"
-                  aria-label="Send message"
+                  aria-label={isStreaming ? 'Sending…' : 'Send message'}
                   disabled={sendDisabled}
                   onClick={submit}
-                  className="inline-flex size-7 items-center justify-center rounded-md bg-[#202020] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] transition-transform duration-150 hover:enabled:scale-105 disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none"
+                  className={`inline-flex size-7 items-center justify-center rounded-md bg-[#202020] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] transition-transform duration-150 ${
+                    isStreaming
+                      ? ''
+                      : 'hover:enabled:scale-105 disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none'
+                  }`}
                 >
-                  <ArrowUp className="size-4" strokeWidth={2.5} aria-hidden />
+                  {isStreaming ? (
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <ArrowUp className="size-4" strokeWidth={2.5} aria-hidden />
+                  )}
                 </button>
               </div>
             </div>
