@@ -152,6 +152,27 @@ describe('streamSideChatResponse', () => {
     expect(events).toEqual([{ type: 'text-delta', delta: 'hello' }, { type: 'done' }]);
   });
 
+  it('throws when the response has no body to stream', async () => {
+    await expect(
+      streamSideChatResponse(
+        {
+          specificationId: 1,
+          itemKind: 'decision',
+          itemId: 1,
+          message: 'why?',
+          fetch: () =>
+            Promise.resolve(
+              new Response(null, {
+                status: 200,
+                headers: { 'Content-Type': 'text/event-stream' },
+              }),
+            ),
+        },
+        () => {},
+      ),
+    ).rejects.toThrow();
+  });
+
   it('throws when the response is not OK', async () => {
     await expect(
       streamSideChatResponse(

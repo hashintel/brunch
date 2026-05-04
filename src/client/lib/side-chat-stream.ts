@@ -76,7 +76,7 @@ export async function streamSideChatResponse(
   }
 
   if (!response.body) {
-    return;
+    throw new Error('Side-chat response had no body to stream');
   }
 
   const reader = response.body.getReader();

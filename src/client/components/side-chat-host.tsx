@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { streamSideChatResponse } from '@/client/lib/side-chat-stream.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
@@ -23,6 +23,7 @@ export function useSideChat(): SideChatContextValue | null {
 }
 
 interface ActiveSideChat {
+  sessionId: number;
   pinnedItem: SideChatPinnedItem;
   itemKind: KnowledgeKind;
   itemId: number;
@@ -67,27 +68,58 @@ export function SideChatHost({
   children: ReactNode;
 }) {
   const [activeSideChat, setActiveSideChat] = useState<ActiveSideChat | null>(null);
+  const activeRef = useRef<ActiveSideChat | null>(null);
+  const sessionCounterRef = useRef(0);
+  const streamControllerRef = useRef<AbortController | null>(null);
 
-  const openFor = useCallback((item: SideChatPinnableItem) => {
-    setActiveSideChat({
-      pinnedItem: { referenceCode: item.referenceCode, content: item.content },
-      itemKind: item.kind,
-      itemId: item.id,
-      messages: [],
-    });
+  useEffect(() => {
+    activeRef.current = activeSideChat;
+  }, [activeSideChat]);
+
+  const abortActiveStream = useCallback(() => {
+    streamControllerRef.current?.abort();
+    streamControllerRef.current = null;
   }, []);
+
+  useEffect(() => abortActiveStream, [abortActiveStream]);
+
+  const openFor = useCallback(
+    (item: SideChatPinnableItem) => {
+      abortActiveStream();
+      sessionCounterRef.current += 1;
+      setActiveSideChat({
+        sessionId: sessionCounterRef.current,
+        pinnedItem: { referenceCode: item.referenceCode, content: item.content },
+        itemKind: item.kind,
+        itemId: item.id,
+        messages: [],
+      });
+    },
+    [abortActiveStream],
+  );
 
   const dismiss = useCallback(() => {
+    abortActiveStream();
     setActiveSideChat(null);
-  }, []);
+  }, [abortActiveStream]);
 
   const submitMessage = useCallback(
     (message: string) => {
+      const session = activeRef.current;
+      if (!session) {
+        return;
+      }
+      const { sessionId } = session;
+
+      abortActiveStream();
+      const controller = new AbortController();
+      streamControllerRef.current = controller;
+
       setActiveSideChat((current) => {
-        if (!current) {
+        if (!current || current.sessionId !== sessionId) {
           return current;
         }
-        const next: ActiveSideChat = {
+        return {
           ...current,
           messages: [
             ...current.messages,
@@ -95,47 +127,55 @@ export function SideChatHost({
             { role: 'assistant', text: '', pending: true },
           ],
         };
-
-        void (async () => {
-          let buffered = '';
-          let failed = false;
-          try {
-            await streamSideChatResponse(
-              {
-                specificationId,
-                itemKind: next.itemKind,
-                itemId: next.itemId,
-                message,
-              },
-              (event) => {
-                if (event.type === 'text-delta') {
-                  buffered += event.delta;
-                  setActiveSideChat((session) =>
-                    session
-                      ? { ...session, messages: replacePendingText(session.messages, buffered) }
-                      : session,
-                  );
-                }
-              },
-            );
-          } catch {
-            failed = true;
-          }
-          setActiveSideChat((session) => {
-            if (!session) {
-              return session;
-            }
-            return {
-              ...session,
-              messages: failed ? failPending(session.messages) : finalizePending(session.messages),
-            };
-          });
-        })();
-
-        return next;
       });
+
+      void (async () => {
+        let buffered = '';
+        let failed = false;
+        try {
+          await streamSideChatResponse(
+            {
+              specificationId,
+              itemKind: session.itemKind,
+              itemId: session.itemId,
+              message,
+              signal: controller.signal,
+            },
+            (event) => {
+              if (controller.signal.aborted) {
+                return;
+              }
+              if (event.type === 'text-delta') {
+                buffered += event.delta;
+                setActiveSideChat((current) =>
+                  current && current.sessionId === sessionId
+                    ? { ...current, messages: replacePendingText(current.messages, buffered) }
+                    : current,
+                );
+              }
+            },
+          );
+        } catch {
+          failed = !controller.signal.aborted;
+        }
+        if (controller.signal.aborted) {
+          return;
+        }
+        if (streamControllerRef.current === controller) {
+          streamControllerRef.current = null;
+        }
+        setActiveSideChat((current) => {
+          if (!current || current.sessionId !== sessionId) {
+            return current;
+          }
+          return {
+            ...current,
+            messages: failed ? failPending(current.messages) : finalizePending(current.messages),
+          };
+        });
+      })();
     },
-    [specificationId],
+    [specificationId, abortActiveStream],
   );
 
   return (

@@ -1,7 +1,7 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { streamText } from 'ai';
 import type { Request, Response } from 'express';
-import { z } from 'zod';
+import * as z from 'zod/v4';
 
 import type { EntitiesData, MutationErrorResponse } from '@/shared/api-types.js';
 import { knowledgeKinds, type KnowledgeKind } from '@/shared/knowledge.js';
@@ -110,18 +110,37 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
+  const abortController = new AbortController();
+  const onClientClose = (): void => {
+    if (!res.writableEnded) {
+      abortController.abort();
+    }
+  };
+  res.on('close', onClientClose);
+
   const result = streamText({
     model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'),
     system,
     messages: messages.map((message) => ({ role: message.role, content: message.content })),
+    abortSignal: abortController.signal,
   });
 
   try {
     for await (const chunk of result.textStream) {
+      if (abortController.signal.aborted) {
+        break;
+      }
       res.write(`data: ${JSON.stringify({ type: 'text-delta', delta: chunk })}\n\n`);
     }
-    res.write('data: [DONE]\n\n');
+    if (!abortController.signal.aborted) {
+      res.write('data: [DONE]\n\n');
+    }
+  } catch {
+    // Aborted-on-disconnect or model error — close the response cleanly below.
   } finally {
-    res.end();
+    res.off('close', onClientClose);
+    if (!res.writableEnded) {
+      res.end();
+    }
   }
 }
