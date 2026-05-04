@@ -83,6 +83,8 @@ function buildHistory(messages: readonly SideChatMessage[]): SideChatPriorTurn[]
   return history;
 }
 
+const SIDE_CHAT_LAYOUT_STORAGE_KEY = 'brunch.side-chat.layout';
+
 function failPending(messages: readonly SideChatMessage[]): SideChatMessage[] {
   let replaced = false;
   const next = messages.map((message) => {
@@ -106,6 +108,14 @@ export function SideChatHost({
   children: ReactNode;
 }) {
   const [activeSideChat, setActiveSideChat] = useState<ActiveSideChat | null>(null);
+  const [layout, setLayout] = useState<'docked' | 'floating'>(() => {
+    if (typeof window === 'undefined') return 'docked';
+    return window.localStorage.getItem(SIDE_CHAT_LAYOUT_STORAGE_KEY) === 'floating' ? 'floating' : 'docked';
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(SIDE_CHAT_LAYOUT_STORAGE_KEY, layout);
+  }, [layout]);
   const activeRef = useRef<ActiveSideChat | null>(null);
   const sessionCounterRef = useRef(0);
   const streamControllerRef = useRef<AbortController | null>(null);
@@ -316,9 +326,16 @@ export function SideChatHost({
         }))
     : [];
 
+  const docksContent = activeSideChat !== null && layout === 'docked';
+
   return (
     <SideChatContext.Provider value={sideChatContextValue}>
-      {children}
+      <div
+        className="h-full transition-[padding] duration-200 ease-out"
+        style={{ paddingRight: docksContent ? 'calc(588px + 2rem)' : undefined }}
+      >
+        {children}
+      </div>
       {activeSideChat && (
         <SideChatPopover
           key={activeSideChat.sessionId}
@@ -337,6 +354,8 @@ export function SideChatHost({
           onUndo={patchList?.undo}
           onDiscardPatch={patchList?.discard}
           existingAnnotations={existingAnnotations}
+          layout={layout}
+          onLayoutChange={setLayout}
         />
       )}
     </SideChatContext.Provider>

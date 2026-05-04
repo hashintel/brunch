@@ -100,12 +100,13 @@ export interface SideChatPopoverProps {
   onDiscardPatch?: (id: string) => void;
   // ---- Existing annotations on the pinned item ----
   existingAnnotations?: readonly SideChatExistingAnnotation[];
+  // ---- Layout (docked = full-height right; floating = Gmail-style bottom-right) ----
+  layout?: 'docked' | 'floating';
+  onLayoutChange?: (layout: 'docked' | 'floating') => void;
 }
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-const LAYOUT_STORAGE_KEY = 'brunch.side-chat.layout';
 
 export function SideChatPopover({
   pinnedItem,
@@ -123,20 +124,13 @@ export function SideChatPopover({
   onUndo,
   onDiscardPatch,
   existingAnnotations = [],
+  layout = 'docked',
+  onLayoutChange,
 }: SideChatPopoverProps) {
   const [draft, setDraft] = useState('');
   const [annotateSummary, setAnnotateSummary] = useState('');
   const [annotateBody, setAnnotateBody] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
-  const [layout, setLayout] = useState<'docked' | 'floating'>(() => {
-    if (typeof window === 'undefined') return 'docked';
-    const stored = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
-    return stored === 'floating' ? 'floating' : 'docked';
-  });
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(LAYOUT_STORAGE_KEY, layout);
-  }, [layout]);
   const containerRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const annotateSummaryRef = useRef<HTMLInputElement>(null);
@@ -537,7 +531,7 @@ export function SideChatPopover({
             type="button"
             aria-label={layout === 'docked' ? 'Float side-chat' : 'Dock side-chat to right'}
             title={layout === 'docked' ? 'Float' : 'Dock to right'}
-            onClick={() => setLayout((mode) => (mode === 'docked' ? 'floating' : 'docked'))}
+            onClick={() => onLayoutChange?.(layout === 'docked' ? 'floating' : 'docked')}
             className="flex size-6 items-center justify-center rounded-md text-hint hover:bg-[rgba(0,0,0,0.04)] hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
           >
             {layout === 'docked' ? (
