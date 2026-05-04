@@ -353,7 +353,7 @@ describe('SideChatPopover', () => {
       expect(screen.getByLabelText('Annotation body')).toBeTruthy();
     });
 
-    it('Stage button is disabled until both summary and body are non-empty', () => {
+    it('Save button is disabled until both summary and body are non-empty', () => {
       render(
         <SideChatPopover
           pinnedItem={baseItem}
@@ -365,17 +365,17 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      const stageButton = screen.getByRole('button', { name: /stage/i }) as HTMLButtonElement;
-      expect(stageButton.disabled).toBe(true);
+      const saveButton = screen.getByRole('button', { name: /^save$/i }) as HTMLButtonElement;
+      expect(saveButton.disabled).toBe(true);
 
       fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sum' } });
-      expect(stageButton.disabled).toBe(true);
+      expect(saveButton.disabled).toBe(true);
 
       fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
-      expect(stageButton.disabled).toBe(false);
+      expect(saveButton.disabled).toBe(false);
     });
 
-    it('Stage submits trimmed summary + body via onAnnotateSubmit', () => {
+    it('Save submits trimmed summary + body via onAnnotateSubmit', () => {
       const onAnnotateSubmit = vi.fn();
       render(
         <SideChatPopover
@@ -390,7 +390,7 @@ describe('SideChatPopover', () => {
 
       fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: '  sum  ' } });
       fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: ' body ' } });
-      fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
 
       expect(onAnnotateSubmit).toHaveBeenCalledWith('sum', 'body');
     });
@@ -432,13 +432,47 @@ describe('SideChatPopover', () => {
     });
   });
 
-  describe('inline patch list', () => {
-    it('does not render the inline list when no patches are staged', () => {
+  describe('apply lifecycle (saving / saved / stuck)', () => {
+    it('does not render any inline status when there are no staged patches and no completed batch', () => {
       render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
+      expect(screen.queryByRole('region', { name: /staged annotations/i })).toBeNull();
+      expect(screen.queryByRole('status', { name: /annotation saved/i })).toBeNull();
+      expect(screen.queryByText(/saving annotation/i)).toBeNull();
+    });
+
+    it('shows the "Saving annotation…" status while isApplying is true (no staging panel flash)', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
+          isApplying
+        />,
+      );
+
+      expect(screen.getByText(/saving annotation/i)).toBeTruthy();
+      // Staging panel must NOT show during in-flight auto-apply.
       expect(screen.queryByRole('region', { name: /staged annotations/i })).toBeNull();
     });
 
-    it('renders one row per staged patch with summary text', () => {
+    it('shows the "✓ Annotation saved" confirmation with Undo when staged is empty and canUndo is true', () => {
+      const onUndo = vi.fn();
+      render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} canUndo onUndo={onUndo} />);
+
+      const status = screen.getByRole('status', { name: /annotation saved/i });
+      expect(status).toBeTruthy();
+      expect(status.textContent).toContain('Annotation saved');
+
+      fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
+      expect(onUndo).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not render the saved confirmation when canUndo is false', () => {
+      render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
+      expect(screen.queryByRole('status', { name: /annotation saved/i })).toBeNull();
+    });
+
+    it('renders the staging panel only when staged>0 and not currently applying (i.e., a stuck/failed batch)', () => {
       render(
         <SideChatPopover
           pinnedItem={baseItem}
@@ -452,10 +486,10 @@ describe('SideChatPopover', () => {
 
       expect(screen.getByText('first note')).toBeTruthy();
       expect(screen.getByText('second note')).toBeTruthy();
-      expect(screen.getByText('2 staged annotations')).toBeTruthy();
+      expect(screen.getByText(/2 pending annotations/i)).toBeTruthy();
     });
 
-    it('Discard button fires onDiscardPatch with the row id', () => {
+    it('Discard button on a stuck patch fires onDiscardPatch', () => {
       const onDiscardPatch = vi.fn();
       render(
         <SideChatPopover
@@ -470,7 +504,7 @@ describe('SideChatPopover', () => {
       expect(onDiscardPatch).toHaveBeenCalledWith('p1');
     });
 
-    it('Apply button fires onApply', () => {
+    it('Retry button on a stuck patch fires onApply', () => {
       const onApply = vi.fn();
       render(
         <SideChatPopover
@@ -481,59 +515,17 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^retry$/i }));
       expect(onApply).toHaveBeenCalledTimes(1);
     });
 
-    it('Apply button is disabled while isApplying', () => {
-      render(
-        <SideChatPopover
-          pinnedItem={baseItem}
-          onDismiss={() => {}}
-          stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
-          onApply={() => {}}
-          isApplying
-        />,
-      );
-
-      const apply = screen.getByRole('button', { name: /applying/i }) as HTMLButtonElement;
-      expect(apply.disabled).toBe(true);
-    });
-
-    it('renders Undo only when canUndo is true', () => {
-      const { rerender } = render(
-        <SideChatPopover
-          pinnedItem={baseItem}
-          onDismiss={() => {}}
-          stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
-          onApply={() => {}}
-          onUndo={() => {}}
-          canUndo={false}
-        />,
-      );
-      expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
-
-      rerender(
-        <SideChatPopover
-          pinnedItem={baseItem}
-          onDismiss={() => {}}
-          stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
-          onApply={() => {}}
-          onUndo={() => {}}
-          canUndo
-        />,
-      );
-      expect(screen.getByRole('button', { name: /^undo$/i })).toBeTruthy();
-    });
-
-    it('Undo fires onUndo', () => {
+    it('shows Undo in the staging panel when canUndo is true and staged is non-empty (mixed state)', () => {
       const onUndo = vi.fn();
       render(
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
           stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
-          onApply={() => {}}
           onUndo={onUndo}
           canUndo
         />,

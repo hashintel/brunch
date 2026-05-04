@@ -150,11 +150,6 @@ export function SideChatPopover({
     setAnnotateBody('');
   }
 
-  // Section is visible when there's something to do — patches to stage/discard
-  // OR a previous batch to undo. The top-bar canonical surface (D131) is the
-  // long-term home for Undo; in V1.2 we keep it in the panel so the user can
-  // reach it without leaving the side-chat.
-  const showInlinePatchList = stagedPatches.length > 0 || canUndo;
   const annotateButtonDisabled = isStreaming || annotateMode;
 
   return (
@@ -205,65 +200,82 @@ export function SideChatPopover({
         })}
       </ul>
 
-      {showInlinePatchList ? (
+      {isApplying ? (
+        <div role="status" className="text-xs text-hint">
+          Saving annotation…
+        </div>
+      ) : null}
+
+      {!isApplying && stagedPatches.length === 0 && canUndo ? (
+        <div
+          role="status"
+          aria-label="Annotation saved"
+          className="flex items-center justify-between rounded-md bg-wash/40 px-2 py-1.5 text-xs"
+        >
+          <span className="font-medium text-ink">✓ Annotation saved</span>
+          {onUndo ? (
+            <button
+              type="button"
+              onClick={onUndo}
+              className="rounded border border-rule bg-background px-2 py-0.5 text-xs text-ink hover:bg-wash"
+            >
+              Undo
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!isApplying && stagedPatches.length > 0 ? (
         <section
           aria-label="Staged annotations"
           data-staged-patch-count={stagedPatches.length}
           className="flex flex-col gap-1.5 rounded-md bg-wash/60 p-2 text-xs text-ink"
         >
-          {stagedPatches.length > 0 ? (
-            <>
-              <header className="flex items-center justify-between">
-                <span className="font-medium">
-                  {stagedPatches.length} staged annotation{stagedPatches.length === 1 ? '' : 's'}
+          <header className="flex items-center justify-between">
+            <span className="font-medium">
+              {stagedPatches.length} pending annotation{stagedPatches.length === 1 ? '' : 's'} (retry?)
+            </span>
+          </header>
+          <ul className="flex flex-col gap-1">
+            {stagedPatches.map((patch) => (
+              <li
+                key={patch.id}
+                data-staged-patch-id={patch.id}
+                className="flex items-center gap-2 rounded bg-background px-2 py-1"
+              >
+                <span className="flex-1 truncate" title={patch.summary}>
+                  {patch.summary}
                 </span>
-              </header>
-              <ul className="flex flex-col gap-1">
-                {stagedPatches.map((patch) => (
-                  <li
-                    key={patch.id}
-                    data-staged-patch-id={patch.id}
-                    className="flex items-center gap-2 rounded bg-background px-2 py-1"
+                {onDiscardPatch ? (
+                  <button
+                    type="button"
+                    aria-label={`Discard staged annotation: ${patch.summary}`}
+                    onClick={() => onDiscardPatch(patch.id)}
+                    className="text-hint hover:text-ink"
                   >
-                    <span className="flex-1 truncate" title={patch.summary}>
-                      {patch.summary}
-                    </span>
-                    {onDiscardPatch ? (
-                      <button
-                        type="button"
-                        aria-label={`Discard staged annotation: ${patch.summary}`}
-                        onClick={() => onDiscardPatch(patch.id)}
-                        className="text-hint hover:text-ink"
-                      >
-                        ×
-                      </button>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <span className="text-hint">Annotation saved.</span>
-          )}
+                    ×
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
           <div className="flex items-center justify-end gap-2 pt-1">
             {canUndo && onUndo ? (
               <button
                 type="button"
-                disabled={isApplying}
                 onClick={onUndo}
-                className="rounded border border-rule bg-background px-2 py-0.5 text-xs text-ink hover:bg-wash disabled:opacity-40"
+                className="rounded border border-rule bg-background px-2 py-0.5 text-xs text-ink hover:bg-wash"
               >
                 Undo
               </button>
             ) : null}
-            {stagedPatches.length > 0 && onApply ? (
+            {onApply ? (
               <button
                 type="button"
-                disabled={isApplying}
                 onClick={onApply}
-                className="rounded bg-foreground px-2 py-0.5 text-xs font-medium text-background disabled:opacity-40"
+                className="rounded bg-foreground px-2 py-0.5 text-xs font-medium text-background"
               >
-                {isApplying ? 'Applying…' : 'Apply'}
+                Retry
               </button>
             ) : null}
           </div>
@@ -307,7 +319,7 @@ export function SideChatPopover({
               disabled={annotateSubmitDisabled}
               className="rounded bg-foreground px-3 py-1 text-xs font-medium text-background disabled:opacity-40"
             >
-              Stage
+              Save
             </button>
           </div>
         </form>

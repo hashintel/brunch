@@ -94,7 +94,7 @@ describe('SideChatHost annotate flow', () => {
       target: { value: 'The current wording is ambiguous.' },
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
     });
     await screen.findByRole('button', { name: /^undo$/i });
 
@@ -118,7 +118,7 @@ describe('SideChatHost annotate flow', () => {
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
     });
     await screen.findByRole('button', { name: /^undo$/i });
 
@@ -144,7 +144,7 @@ describe('SideChatHost annotate flow', () => {
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
     });
     await screen.findByRole('button', { name: /^undo$/i });
 
@@ -154,9 +154,9 @@ describe('SideChatHost annotate flow', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(undoMock).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText(/staged annotation/i)).toBeNull();
+    expect(screen.queryByText(/annotation saved/i)).toBeNull();
     expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^apply$/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^retry$/i })).toBeNull();
   });
 
   it('Apply failure preserves the staged patch and leaves canUndo false', async () => {
@@ -178,14 +178,14 @@ describe('SideChatHost annotate flow', () => {
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(failingAnnotate).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('1 staged annotation')).toBeTruthy();
+    expect(screen.getByText(/1 pending annotation/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
-    expect(screen.getByRole('button', { name: /^apply$/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^retry$/i })).toBeTruthy();
   });
 
   it('Discard removes a stuck-staged patch (failed auto-apply) from the inline list', async () => {
@@ -207,15 +207,15 @@ describe('SideChatHost annotate flow', () => {
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(screen.getByText('1 staged annotation')).toBeTruthy();
+    expect(screen.getByText(/1 pending annotation/i)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /discard staged annotation/i }));
 
-    expect(screen.queryByText('1 staged annotation')).toBeNull();
+    expect(screen.queryByText(/1 pending annotation/i)).toBeNull();
   });
 
   it('inline patch list filters stuck-staged patches to the currently pinned item', async () => {
@@ -258,7 +258,7 @@ describe('SideChatHost annotate flow', () => {
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'd-sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'd-body' } });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -267,7 +267,7 @@ describe('SideChatHost annotate flow', () => {
     // Switch to G11 (different anchor); inline list should show no rows for G11.
     fireEvent.click(screen.getByText('open-goal'));
     expect(screen.queryByText('d-sum')).toBeNull();
-    expect(screen.queryByText('1 staged annotation')).toBeNull();
+    expect(screen.queryByText(/1 pending annotation/i)).toBeNull();
 
     // Switch back to D7; the staged patch reappears.
     fireEvent.click(screen.getByText('open-decision'));
