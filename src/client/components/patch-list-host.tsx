@@ -98,9 +98,16 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
     try {
       const undoHandles: Array<() => Promise<void>> = [];
       for (const patch of snapshot.staged) {
-        if (patch.kind === 'annotate') {
-          const result = await appliers.annotate(patch);
-          undoHandles.push(result.undo);
+        switch (patch.kind) {
+          case 'annotate': {
+            const result = await appliers.annotate(patch);
+            undoHandles.push(result.undo);
+            break;
+          }
+          default: {
+            const _exhaustive: never = patch.kind;
+            throw new Error(`patch-list-host: no applier for patch kind ${String(_exhaustive)}`);
+          }
         }
       }
       const batchId = newId();

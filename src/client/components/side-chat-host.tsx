@@ -258,17 +258,18 @@ export function SideChatHost({
     summary: patch.summary,
   }));
 
-  // Auto-apply user-driven annotations on stage (D131). Comparing against the
-  // previous count avoids a retry loop after apply failure.
   const prevStagedCountRef = useRef(0);
   useEffect(() => {
     const previous = prevStagedCountRef.current;
     const current = patchListState.staged.length;
     prevStagedCountRef.current = current;
     if (current > previous && !patchListState.isApplying && patchList) {
-      void patchList.apply();
+      const allAutoApplyable = patchListState.staged.every((patch) => patch.kind === 'annotate');
+      if (allAutoApplyable) {
+        void patchList.apply();
+      }
     }
-  }, [patchList, patchListState.staged.length, patchListState.isApplying]);
+  }, [patchList, patchListState.staged, patchListState.isApplying]);
 
   // Existing annotations on the pinned item — fetched on open, refetched after
   // apply/undo (canUndo flips) so the panel stays in sync without optimistic
