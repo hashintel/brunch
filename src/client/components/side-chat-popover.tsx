@@ -170,10 +170,10 @@ export function SideChatPopover({
       aria-label="Side-chat"
       data-side-chat-anchor="top-right"
       onKeyDown={handleTabTrap}
-      className="fixed top-4 right-4 z-50 flex max-h-[calc(100vh-2rem)] w-[360px] flex-col gap-3 rounded-2xl border border-rule bg-background/95 p-3 shadow-xl ring-1 ring-foreground/5 backdrop-blur-md"
+      className="fixed top-4 right-4 z-50 flex max-h-[calc(100vh-2rem)] w-[360px] flex-col gap-3 rounded-2xl border-[1.5px] border-[#5424ff]/55 bg-white/70 p-3 shadow-xl backdrop-blur-md before:pointer-events-none before:absolute before:-inset-3 before:-z-10 before:rounded-3xl before:bg-[linear-gradient(90deg,#5424ff,#fdb975,#fe5dd3,#ff00ae)] before:opacity-25 before:blur-xl before:content-['']"
     >
       <header className="flex items-start gap-2 border-b border-rule pb-2">
-        <span className="inline-flex shrink-0 items-center rounded bg-wash px-1.5 py-0.5 font-mono text-xs font-medium text-ink">
+        <span className="inline-flex shrink-0 items-center rounded-[4px] bg-[rgba(0,0,0,0.03)] px-1.5 py-0.5 font-mono text-xs font-medium text-ink">
           {pinnedItem.referenceCode}
         </span>
         <p className="flex-1 text-sm text-ink">{pinnedItem.content}</p>
@@ -183,7 +183,7 @@ export function SideChatPopover({
             aria-label="Annotate item"
             disabled={annotateButtonDisabled}
             onClick={onAnnotateRequest}
-            className="inline-flex shrink-0 items-center rounded border border-rule bg-background px-2 py-0.5 text-xs font-medium text-ink hover:bg-wash disabled:opacity-40"
+            className="inline-flex shrink-0 items-center rounded-md bg-wash px-2 py-0.5 text-xs font-medium text-[#a6a6a6] hover:text-ink disabled:opacity-40"
           >
             Annotate
           </button>
@@ -261,7 +261,7 @@ export function SideChatPopover({
             <button
               type="button"
               onClick={onUndo}
-              className="rounded border border-rule bg-background px-2 py-0.5 text-xs text-ink hover:bg-wash"
+              className="rounded-md bg-wash px-2 py-0.5 text-xs text-[#a6a6a6] hover:text-ink"
             >
               Undo
             </button>
@@ -308,7 +308,7 @@ export function SideChatPopover({
               <button
                 type="button"
                 onClick={onUndo}
-                className="rounded border border-rule bg-background px-2 py-0.5 text-xs text-ink hover:bg-wash"
+                className="rounded-md bg-wash px-2 py-0.5 text-xs text-[#a6a6a6] hover:text-ink"
               >
                 Undo
               </button>
@@ -317,7 +317,7 @@ export function SideChatPopover({
               <button
                 type="button"
                 onClick={onApply}
-                className="rounded bg-foreground px-2 py-0.5 text-xs font-medium text-background"
+                className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6]"
               >
                 Retry
               </button>
@@ -354,14 +354,14 @@ export function SideChatPopover({
             <button
               type="button"
               onClick={onAnnotateCancel}
-              className="rounded border border-rule bg-background px-3 py-1 text-xs text-ink hover:bg-wash"
+              className="rounded-md bg-wash px-3 py-1 text-xs text-[#a6a6a6] hover:text-ink"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={annotateSubmitDisabled}
-              className="rounded bg-foreground px-3 py-1 text-xs font-medium text-background disabled:opacity-40"
+              className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-3 py-1 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] disabled:opacity-40"
             >
               Save
             </button>
@@ -382,7 +382,7 @@ export function SideChatPopover({
               type="button"
               disabled={sendDisabled}
               onClick={submit}
-              className="inline-flex items-center justify-center rounded-md bg-foreground px-3 py-1 text-xs font-medium text-background disabled:opacity-40"
+              className="inline-flex items-center justify-center rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-3 py-1 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] disabled:opacity-40"
             >
               Send
             </button>
