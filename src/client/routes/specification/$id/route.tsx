@@ -1,7 +1,10 @@
 import { Outlet, createFileRoute, useParams } from '@tanstack/react-router';
+import { useMemo } from 'react';
 
+import { PatchListProvider, type PatchAppliers } from '@/client/components/patch-list-host.js';
 import { SideChatHost } from '@/client/components/side-chat-host.js';
 import { Skeleton } from '@/client/components/ui/skeleton';
+import { makeAnnotateApplier } from '@/client/lib/annotation-api.js';
 
 import { PhaseNavigationSidebar } from './-phase-navigation-sidebar.js';
 import { primeSpecificationBundle, useSpecificationBundleData } from './-specification-data.js';
@@ -33,20 +36,27 @@ export const Route = createFileRoute('/specification/$id')({
     const specificationState = useSpecificationBundleData();
     const { id: specificationId } = useParams({ from: '/specification/$id' });
 
+    const appliers = useMemo<PatchAppliers>(
+      () => ({ annotate: makeAnnotateApplier(specificationState.specification.id) }),
+      [specificationState.specification.id],
+    );
+
     return (
-      <SideChatHost specificationId={specificationState.specification.id}>
-        <div className="flex h-full">
-          <PhaseNavigationSidebar
-            specificationId={specificationId}
-            specificationName={specificationState.specification.name}
-            workflow={specificationState.workflow}
-            turns={specificationState.turns}
-          />
-          <div className="flex-1 overflow-hidden">
-            <Outlet />
+      <PatchListProvider specificationId={specificationState.specification.id} appliers={appliers}>
+        <SideChatHost specificationId={specificationState.specification.id}>
+          <div className="flex h-full">
+            <PhaseNavigationSidebar
+              specificationId={specificationId}
+              specificationName={specificationState.specification.name}
+              workflow={specificationState.workflow}
+              turns={specificationState.turns}
+            />
+            <div className="flex-1 overflow-hidden">
+              <Outlet />
+            </div>
           </div>
-        </div>
-      </SideChatHost>
+        </SideChatHost>
+      </PatchListProvider>
     );
   },
 });

@@ -12,7 +12,13 @@ import {
 import { streamSideChatResponse, type SideChatPriorTurn } from '@/client/lib/side-chat-stream.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
-import { SideChatPopover, type SideChatMessage, type SideChatPinnedItem } from './side-chat-popover.js';
+import { usePatchList, usePatchListState, useStagedPatches } from './patch-list-host.js';
+import {
+  SideChatPopover,
+  type SideChatMessage,
+  type SideChatPinnedItem,
+  type SideChatStagedPatchSummary,
+} from './side-chat-popover.js';
 
 export interface SideChatPinnableItem {
   kind: KnowledgeKind;
@@ -37,6 +43,7 @@ interface ActiveSideChat {
   itemKind: KnowledgeKind;
   itemId: number;
   messages: SideChatMessage[];
+  annotateMode: boolean;
 }
 
 function replacePendingText(messages: readonly SideChatMessage[], text: string): SideChatMessage[] {
@@ -119,6 +126,7 @@ export function SideChatHost({
         itemKind: item.kind,
         itemId: item.id,
         messages: [],
+        annotateMode: false,
       });
     },
     [abortActiveStream],
@@ -128,6 +136,14 @@ export function SideChatHost({
     abortActiveStream();
     setActiveSideChat(null);
   }, [abortActiveStream]);
+
+  const requestAnnotate = useCallback(() => {
+    setActiveSideChat((current) => (current ? { ...current, annotateMode: true } : current));
+  }, []);
+
+  const cancelAnnotate = useCallback(() => {
+    setActiveSideChat((current) => (current ? { ...current, annotateMode: false } : current));
+  }, []);
 
   const submitMessage = useCallback(
     (message: string) => {
@@ -207,6 +223,36 @@ export function SideChatHost({
   );
   const sideChatContextValue = useMemo(() => ({ openFor }), [openFor]);
 
+  const patchList = usePatchList();
+  const patchListState = usePatchListState();
+  const stagedForActive = useStagedPatches(
+    activeSideChat
+      ? { anchor: { kind: activeSideChat.itemKind, itemId: activeSideChat.itemId }, kind: 'annotate' }
+      : undefined,
+  );
+
+  const submitAnnotate = useCallback(
+    (summary: string, body: string) => {
+      if (!activeSideChat || !patchList) {
+        return;
+      }
+      patchList.stage({
+        kind: 'annotate',
+        anchor: { kind: activeSideChat.itemKind, itemId: activeSideChat.itemId },
+        summary,
+        body,
+      });
+      setActiveSideChat((current) => (current ? { ...current, annotateMode: false } : current));
+    },
+    [activeSideChat, patchList],
+  );
+
+  const stagedSummaries: readonly SideChatStagedPatchSummary[] = stagedForActive.map((patch) => ({
+    id: patch.id,
+    kind: 'annotate',
+    summary: patch.summary,
+  }));
+
   return (
     <SideChatContext.Provider value={sideChatContextValue}>
       {children}
@@ -217,6 +263,16 @@ export function SideChatHost({
           messages={activeSideChat.messages}
           onDismiss={dismiss}
           onSubmit={submitMessage}
+          annotateMode={activeSideChat.annotateMode}
+          onAnnotateRequest={patchList ? requestAnnotate : undefined}
+          onAnnotateCancel={cancelAnnotate}
+          onAnnotateSubmit={submitAnnotate}
+          stagedPatches={stagedSummaries}
+          canUndo={patchListState.canUndo}
+          isApplying={patchListState.isApplying}
+          onApply={patchList?.apply}
+          onUndo={patchList?.undo}
+          onDiscardPatch={patchList?.discard}
         />
       )}
     </SideChatContext.Provider>

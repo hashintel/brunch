@@ -287,4 +287,260 @@ describe('SideChatPopover', () => {
       expect(onSubmit).not.toHaveBeenCalled();
     });
   });
+
+  describe('annotate composer', () => {
+    it('renders the Annotate button when onAnnotateRequest is provided', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          onAnnotateRequest={() => {}}
+          onAnnotateCancel={() => {}}
+          onAnnotateSubmit={() => {}}
+        />,
+      );
+
+      expect(screen.getByRole('button', { name: /annotate item/i })).toBeTruthy();
+    });
+
+    it('does not render the Annotate button without onAnnotateRequest', () => {
+      render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
+
+      expect(screen.queryByRole('button', { name: /annotate item/i })).toBeNull();
+    });
+
+    it('clicking Annotate fires onAnnotateRequest', () => {
+      const onAnnotateRequest = vi.fn();
+      render(
+        <SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} onAnnotateRequest={onAnnotateRequest} />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+      expect(onAnnotateRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it('disables the Annotate button while a stream is in flight', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          messages={[
+            { role: 'user', text: 'Q' },
+            { role: 'assistant', text: '', pending: true },
+          ]}
+          onAnnotateRequest={() => {}}
+        />,
+      );
+
+      const button = screen.getByRole('button', { name: /annotate item/i }) as HTMLButtonElement;
+      expect(button.disabled).toBe(true);
+    });
+
+    it('annotateMode replaces the chat input with the composer form', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          annotateMode
+          onAnnotateRequest={() => {}}
+          onAnnotateCancel={() => {}}
+          onAnnotateSubmit={() => {}}
+        />,
+      );
+
+      expect(screen.queryByLabelText('Message')).toBeNull();
+      expect(screen.getByLabelText('Annotation summary')).toBeTruthy();
+      expect(screen.getByLabelText('Annotation body')).toBeTruthy();
+    });
+
+    it('Stage button is disabled until both summary and body are non-empty', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          annotateMode
+          onAnnotateRequest={() => {}}
+          onAnnotateCancel={() => {}}
+          onAnnotateSubmit={() => {}}
+        />,
+      );
+
+      const stageButton = screen.getByRole('button', { name: /stage/i }) as HTMLButtonElement;
+      expect(stageButton.disabled).toBe(true);
+
+      fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sum' } });
+      expect(stageButton.disabled).toBe(true);
+
+      fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
+      expect(stageButton.disabled).toBe(false);
+    });
+
+    it('Stage submits trimmed summary + body via onAnnotateSubmit', () => {
+      const onAnnotateSubmit = vi.fn();
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          annotateMode
+          onAnnotateRequest={() => {}}
+          onAnnotateCancel={() => {}}
+          onAnnotateSubmit={onAnnotateSubmit}
+        />,
+      );
+
+      fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: '  sum  ' } });
+      fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: ' body ' } });
+      fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
+
+      expect(onAnnotateSubmit).toHaveBeenCalledWith('sum', 'body');
+    });
+
+    it('Cancel fires onAnnotateCancel', () => {
+      const onAnnotateCancel = vi.fn();
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          annotateMode
+          onAnnotateRequest={() => {}}
+          onAnnotateCancel={onAnnotateCancel}
+          onAnnotateSubmit={() => {}}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+      expect(onAnnotateCancel).toHaveBeenCalledTimes(1);
+    });
+
+    it('Esc cancels the composer instead of dismissing the popover when annotateMode is on', () => {
+      const onDismiss = vi.fn();
+      const onAnnotateCancel = vi.fn();
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={onDismiss}
+          annotateMode
+          onAnnotateRequest={() => {}}
+          onAnnotateCancel={onAnnotateCancel}
+          onAnnotateSubmit={() => {}}
+        />,
+      );
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(onAnnotateCancel).toHaveBeenCalledTimes(1);
+      expect(onDismiss).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('inline patch list', () => {
+    it('does not render the inline list when no patches are staged', () => {
+      render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
+      expect(screen.queryByRole('region', { name: /staged annotations/i })).toBeNull();
+    });
+
+    it('renders one row per staged patch with summary text', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          stagedPatches={[
+            { id: 'p1', kind: 'annotate', summary: 'first note' },
+            { id: 'p2', kind: 'annotate', summary: 'second note' },
+          ]}
+        />,
+      );
+
+      expect(screen.getByText('first note')).toBeTruthy();
+      expect(screen.getByText('second note')).toBeTruthy();
+      expect(screen.getByText('2 staged annotations')).toBeTruthy();
+    });
+
+    it('Discard button fires onDiscardPatch with the row id', () => {
+      const onDiscardPatch = vi.fn();
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
+          onDiscardPatch={onDiscardPatch}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /discard staged annotation/i }));
+      expect(onDiscardPatch).toHaveBeenCalledWith('p1');
+    });
+
+    it('Apply button fires onApply', () => {
+      const onApply = vi.fn();
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
+          onApply={onApply}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+      expect(onApply).toHaveBeenCalledTimes(1);
+    });
+
+    it('Apply button is disabled while isApplying', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
+          onApply={() => {}}
+          isApplying
+        />,
+      );
+
+      const apply = screen.getByRole('button', { name: /applying/i }) as HTMLButtonElement;
+      expect(apply.disabled).toBe(true);
+    });
+
+    it('renders Undo only when canUndo is true', () => {
+      const { rerender } = render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
+          onApply={() => {}}
+          onUndo={() => {}}
+          canUndo={false}
+        />,
+      );
+      expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
+
+      rerender(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
+          onApply={() => {}}
+          onUndo={() => {}}
+          canUndo
+        />,
+      );
+      expect(screen.getByRole('button', { name: /^undo$/i })).toBeTruthy();
+    });
+
+    it('Undo fires onUndo', () => {
+      const onUndo = vi.fn();
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
+          onApply={() => {}}
+          onUndo={onUndo}
+          canUndo
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
+      expect(onUndo).toHaveBeenCalledTimes(1);
+    });
+  });
 });

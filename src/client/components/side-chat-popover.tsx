@@ -12,35 +12,79 @@ export interface SideChatMessage {
   error?: true;
 }
 
+export interface SideChatStagedPatchSummary {
+  id: string;
+  kind: 'annotate';
+  summary: string;
+}
+
 export interface SideChatPopoverProps {
   pinnedItem: SideChatPinnedItem;
   onDismiss: () => void;
   messages?: readonly SideChatMessage[];
   onSubmit?: (message: string) => void;
+  // ---- Annotate (Card C) ----
+  annotateMode?: boolean;
+  onAnnotateRequest?: () => void;
+  onAnnotateCancel?: () => void;
+  onAnnotateSubmit?: (summary: string, body: string) => void;
+  // ---- Inline patch list (Card C, secondary surface per design §4) ----
+  stagedPatches?: readonly SideChatStagedPatchSummary[];
+  canUndo?: boolean;
+  isApplying?: boolean;
+  onApply?: () => void;
+  onUndo?: () => void;
+  onDiscardPatch?: (id: string) => void;
 }
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function SideChatPopover({ pinnedItem, onDismiss, messages = [], onSubmit }: SideChatPopoverProps) {
+export function SideChatPopover({
+  pinnedItem,
+  onDismiss,
+  messages = [],
+  onSubmit,
+  annotateMode = false,
+  onAnnotateRequest,
+  onAnnotateCancel,
+  onAnnotateSubmit,
+  stagedPatches = [],
+  canUndo = false,
+  isApplying = false,
+  onApply,
+  onUndo,
+  onDiscardPatch,
+}: SideChatPopoverProps) {
   const [draft, setDraft] = useState('');
+  const [annotateSummary, setAnnotateSummary] = useState('');
+  const [annotateBody, setAnnotateBody] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const annotateSummaryRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    messageInputRef.current?.focus();
-  }, []);
+    if (annotateMode) {
+      annotateSummaryRef.current?.focus();
+    } else {
+      messageInputRef.current?.focus();
+    }
+  }, [annotateMode]);
 
   useEffect(() => {
     function handleEscape(event: globalThis.KeyboardEvent) {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onDismiss();
+        if (annotateMode && onAnnotateCancel) {
+          onAnnotateCancel();
+        } else {
+          onDismiss();
+        }
       }
     }
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [onDismiss]);
+  }, [annotateMode, onAnnotateCancel, onDismiss]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -77,6 +121,11 @@ export function SideChatPopover({ pinnedItem, onDismiss, messages = [], onSubmit
   const isStreaming = messages.some((message) => message.pending === true);
   const sendDisabled = trimmedDraft.length === 0 || isStreaming;
 
+  const trimmedAnnotateSummary = annotateSummary.trim();
+  const trimmedAnnotateBody = annotateBody.trim();
+  const annotateSubmitDisabled =
+    trimmedAnnotateSummary.length === 0 || trimmedAnnotateBody.length === 0 || isApplying;
+
   function submit() {
     if (sendDisabled || !onSubmit) {
       return;
@@ -92,6 +141,22 @@ export function SideChatPopover({ pinnedItem, onDismiss, messages = [], onSubmit
     }
   }
 
+  function submitAnnotate() {
+    if (annotateSubmitDisabled || !onAnnotateSubmit) {
+      return;
+    }
+    onAnnotateSubmit(trimmedAnnotateSummary, trimmedAnnotateBody);
+    setAnnotateSummary('');
+    setAnnotateBody('');
+  }
+
+  // Section is visible when there's something to do — patches to stage/discard
+  // OR a previous batch to undo. The top-bar canonical surface (D131) is the
+  // long-term home for Undo; in V1.2 we keep it in the panel so the user can
+  // reach it without leaving the side-chat.
+  const showInlinePatchList = stagedPatches.length > 0 || canUndo;
+  const annotateButtonDisabled = isStreaming || annotateMode;
+
   return (
     <div
       ref={containerRef}
@@ -101,12 +166,24 @@ export function SideChatPopover({ pinnedItem, onDismiss, messages = [], onSubmit
       onKeyDown={handleTabTrap}
       className="fixed top-4 right-4 z-50 flex max-h-[calc(100vh-2rem)] w-[360px] flex-col gap-3 rounded-2xl border border-rule bg-background/95 p-3 shadow-xl ring-1 ring-foreground/5 backdrop-blur-md"
     >
-      <header className="flex items-baseline gap-2 border-b border-rule pb-2">
+      <header className="flex items-start gap-2 border-b border-rule pb-2">
         <span className="inline-flex shrink-0 items-center rounded bg-wash px-1.5 py-0.5 font-mono text-xs font-medium text-ink">
           {pinnedItem.referenceCode}
         </span>
-        <p className="text-sm text-ink">{pinnedItem.content}</p>
+        <p className="flex-1 text-sm text-ink">{pinnedItem.content}</p>
+        {onAnnotateRequest ? (
+          <button
+            type="button"
+            aria-label="Annotate item"
+            disabled={annotateButtonDisabled}
+            onClick={onAnnotateRequest}
+            className="inline-flex shrink-0 items-center rounded border border-rule bg-background px-2 py-0.5 text-xs font-medium text-ink hover:bg-wash disabled:opacity-40"
+          >
+            Annotate
+          </button>
+        ) : null}
       </header>
+
       <ul role="log" aria-label="Side-chat messages" className="flex flex-1 flex-col gap-2 overflow-y-auto">
         {messages.map((message, index) => {
           const baseClass = message.error
@@ -127,24 +204,134 @@ export function SideChatPopover({ pinnedItem, onDismiss, messages = [], onSubmit
           );
         })}
       </ul>
-      <textarea
-        ref={messageInputRef}
-        aria-label="Message"
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={handleInputKeyDown}
-        className="min-h-12 resize-none rounded-md border border-rule bg-background px-2 py-1.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-foreground/30"
-      />
-      <div className="flex items-center justify-end gap-2">
-        <button
-          type="button"
-          disabled={sendDisabled}
-          onClick={submit}
-          className="inline-flex items-center justify-center rounded-md bg-foreground px-3 py-1 text-xs font-medium text-background disabled:opacity-40"
+
+      {showInlinePatchList ? (
+        <section
+          aria-label="Staged annotations"
+          data-staged-patch-count={stagedPatches.length}
+          className="flex flex-col gap-1.5 rounded-md bg-wash/60 p-2 text-xs text-ink"
         >
-          Send
-        </button>
-      </div>
+          {stagedPatches.length > 0 ? (
+            <>
+              <header className="flex items-center justify-between">
+                <span className="font-medium">
+                  {stagedPatches.length} staged annotation{stagedPatches.length === 1 ? '' : 's'}
+                </span>
+              </header>
+              <ul className="flex flex-col gap-1">
+                {stagedPatches.map((patch) => (
+                  <li
+                    key={patch.id}
+                    data-staged-patch-id={patch.id}
+                    className="flex items-center gap-2 rounded bg-background px-2 py-1"
+                  >
+                    <span className="flex-1 truncate" title={patch.summary}>
+                      {patch.summary}
+                    </span>
+                    {onDiscardPatch ? (
+                      <button
+                        type="button"
+                        aria-label={`Discard staged annotation: ${patch.summary}`}
+                        onClick={() => onDiscardPatch(patch.id)}
+                        className="text-hint hover:text-ink"
+                      >
+                        ×
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+          <div className="flex items-center justify-end gap-2 pt-1">
+            {canUndo && onUndo ? (
+              <button
+                type="button"
+                disabled={isApplying}
+                onClick={onUndo}
+                className="rounded border border-rule bg-background px-2 py-0.5 text-xs text-ink hover:bg-wash disabled:opacity-40"
+              >
+                Undo
+              </button>
+            ) : null}
+            {stagedPatches.length > 0 && onApply ? (
+              <button
+                type="button"
+                disabled={isApplying}
+                onClick={onApply}
+                className="rounded bg-foreground px-2 py-0.5 text-xs font-medium text-background disabled:opacity-40"
+              >
+                {isApplying ? 'Applying…' : 'Apply'}
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {annotateMode ? (
+        <form
+          aria-label="Annotation composer"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submitAnnotate();
+          }}
+          className="flex flex-col gap-2 rounded-md border border-rule p-2"
+        >
+          <input
+            ref={annotateSummaryRef}
+            aria-label="Annotation summary"
+            placeholder="Summary"
+            value={annotateSummary}
+            onChange={(event) => setAnnotateSummary(event.target.value)}
+            className="rounded-md border border-rule bg-background px-2 py-1.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-foreground/30"
+          />
+          <textarea
+            aria-label="Annotation body"
+            placeholder="Note body"
+            value={annotateBody}
+            onChange={(event) => setAnnotateBody(event.target.value)}
+            className="min-h-16 resize-none rounded-md border border-rule bg-background px-2 py-1.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-foreground/30"
+          />
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onAnnotateCancel}
+              className="rounded border border-rule bg-background px-3 py-1 text-xs text-ink hover:bg-wash"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={annotateSubmitDisabled}
+              className="rounded bg-foreground px-3 py-1 text-xs font-medium text-background disabled:opacity-40"
+            >
+              Stage
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <textarea
+            ref={messageInputRef}
+            aria-label="Message"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={handleInputKeyDown}
+            className="min-h-12 resize-none rounded-md border border-rule bg-background px-2 py-1.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-foreground/30"
+          />
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              disabled={sendDisabled}
+              onClick={submit}
+              className="inline-flex items-center justify-center rounded-md bg-foreground px-3 py-1 text-xs font-medium text-background disabled:opacity-40"
+            >
+              Send
+            </button>
+          </div>
+        </>
+      )}
+
       <button
         type="button"
         aria-label="Close side-chat"
