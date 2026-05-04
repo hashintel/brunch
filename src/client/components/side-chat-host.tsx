@@ -127,7 +127,7 @@ export function SideChatHost({
       sessionCounterRef.current += 1;
       setActiveSideChat({
         sessionId: sessionCounterRef.current,
-        pinnedItem: { referenceCode: item.referenceCode, content: item.content },
+        pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
         itemKind: item.kind,
         itemId: item.id,
         messages: [],
