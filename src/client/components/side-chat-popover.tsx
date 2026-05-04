@@ -242,7 +242,9 @@ export function SideChatPopover({
                 ))}
               </ul>
             </>
-          ) : null}
+          ) : (
+            <span className="text-hint">Annotation saved.</span>
+          )}
           <div className="flex items-center justify-end gap-2 pt-1">
             {canUndo && onUndo ? (
               <button
