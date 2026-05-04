@@ -1,4 +1,4 @@
-import { ArrowUp, NotebookPen, PencilLine } from 'lucide-react';
+import { ArrowUp, Mic, NotebookPen, PencilLine, Plus } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 function useTypewriter(target: string, animate: boolean, charDelayMs = 15): string {
@@ -431,7 +431,7 @@ export function SideChatPopover({
               </div>
             ) : null}
           </div>
-          <div className="relative rounded-2xl bg-white shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] focus-within:shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(32,112,230,0.35)]">
+          <div className="flex flex-col gap-2 rounded-md bg-white p-3 shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]">
             <textarea
               ref={messageInputRef}
               aria-label="Message"
@@ -439,17 +439,39 @@ export function SideChatPopover({
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={handleInputKeyDown}
               placeholder="Ask me anything..."
-              className="min-h-12 w-full resize-none rounded-2xl bg-transparent px-3 py-2.5 pr-12 text-sm text-ink outline-none placeholder:text-[#a6a6a6]"
+              className="min-h-10 w-full resize-none bg-transparent text-sm text-ink outline-none placeholder:text-[#a6a6a6]"
             />
-            <button
-              type="button"
-              aria-label="Send message"
-              disabled={sendDisabled}
-              onClick={submit}
-              className="absolute right-2 bottom-2 inline-flex size-8 items-center justify-center rounded-full bg-[#202020] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] transition-[opacity,transform] duration-150 hover:enabled:scale-105 disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none"
-            >
-              <ArrowUp className="size-4" strokeWidth={2.5} aria-hidden />
-            </button>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled
+                  aria-label="Attach (coming soon)"
+                  title="Attach — coming soon"
+                  className="inline-flex size-7 items-center justify-center rounded-md bg-[#f2f2f2] text-ink disabled:opacity-60"
+                >
+                  <Plus className="size-4" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  aria-label="Voice (coming soon)"
+                  title="Voice — coming soon"
+                  className="inline-flex size-7 items-center justify-center rounded-md text-[#a6a6a6] disabled:opacity-60"
+                >
+                  <Mic className="size-4" aria-hidden />
+                </button>
+              </div>
+              <button
+                type="button"
+                aria-label="Send message"
+                disabled={sendDisabled}
+                onClick={submit}
+                className="inline-flex size-7 items-center justify-center rounded-md bg-[#202020] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] transition-transform duration-150 hover:enabled:scale-105 disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none"
+              >
+                <ArrowUp className="size-4" strokeWidth={2.5} aria-hidden />
+              </button>
+            </div>
           </div>
         </>
       )}
