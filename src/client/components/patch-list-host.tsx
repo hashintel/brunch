@@ -1,0 +1,198 @@
+// Patch-list module's public surface (D132). Mirrors `SideChatHost`:
+// `<PatchListProvider>` + `useFoo()` hooks. Internal state is an event log
+// (`patch-list-reducer.ts`); the React layer is glue.
+
+import { createContext, useCallback, useContext, useMemo, useReducer, type ReactNode } from 'react';
+
+import {
+  deriveState,
+  getPendingUndoHandle,
+  initialPatchListState,
+  patchListReducer,
+  type AnnotatePatch,
+  type DerivedPatchListState,
+  type Patch,
+  type PatchAnchor,
+  type StagePatchInput,
+} from './patch-list-reducer.js';
+
+export type {
+  AnnotatePatch,
+  Patch,
+  PatchAnchor,
+  PatchSelectionRange,
+  StagePatchInput,
+} from './patch-list-reducer.js';
+
+// ---- Appliers (kind → server fan-out) ----
+
+export type ApplyPatchFn<P extends Patch> = (patch: P) => Promise<{ undo: () => Promise<void> }>;
+
+export interface PatchAppliers {
+  annotate: ApplyPatchFn<AnnotatePatch>;
+  // V2: edit, edge, drillDown — closed shape forces typecheck failure at provider mount until supplied.
+}
+
+// ---- Public action surface ----
+
+export interface PatchListActions {
+  stage: (input: StagePatchInput) => string;
+  discard: (id: string) => void;
+  editSummary: (id: string, summary: string) => void;
+  apply: () => Promise<void>;
+  undo: () => Promise<void>;
+}
+
+// ---- Context ----
+
+interface PatchListContextValue {
+  actions: PatchListActions;
+  state: DerivedPatchListState;
+}
+
+const PatchListContext = createContext<PatchListContextValue | null>(null);
+
+// ---- Provider ----
+
+export interface PatchListProviderProps {
+  specificationId: number;
+  appliers: PatchAppliers;
+  children: ReactNode;
+  /** Test-only seam; production callers rely on the default `crypto.randomUUID()`. */
+  idFactory?: () => string;
+  /** Test-only seam; production callers rely on the default `Date.now()`. */
+  now?: () => number;
+}
+
+export function PatchListProvider({ appliers, children, idFactory, now }: PatchListProviderProps) {
+  const [reducerState, dispatch] = useReducer(patchListReducer, initialPatchListState);
+  const derivedState = useMemo(() => deriveState(reducerState), [reducerState]);
+
+  const newId = useCallback(() => idFactory?.() ?? crypto.randomUUID(), [idFactory]);
+  const nowMs = useCallback(() => now?.() ?? Date.now(), [now]);
+
+  const stage = useCallback(
+    (input: StagePatchInput): string => {
+      const id = newId();
+      const patch = { ...input, id, createdAt: nowMs() } as Patch;
+      dispatch({ type: 'STAGE', patchId: id, patch });
+      return id;
+    },
+    [newId, nowMs],
+  );
+
+  const discard = useCallback((id: string): void => {
+    dispatch({ type: 'DISCARD', patchId: id });
+  }, []);
+
+  const editSummary = useCallback((id: string, summary: string): void => {
+    dispatch({ type: 'EDIT_SUMMARY', patchId: id, summary });
+  }, []);
+
+  const apply = useCallback(async (): Promise<void> => {
+    const snapshot = deriveState(reducerState);
+    if (snapshot.staged.length === 0 || snapshot.isApplying) {
+      return;
+    }
+    dispatch({ type: 'APPLY_START' });
+    try {
+      const undoHandles: Array<() => Promise<void>> = [];
+      for (const patch of snapshot.staged) {
+        if (patch.kind === 'annotate') {
+          const result = await appliers.annotate(patch);
+          undoHandles.push(result.undo);
+        }
+      }
+      const batchId = newId();
+      const undoAll = async () => {
+        for (const undo of [...undoHandles].reverse()) {
+          await undo();
+        }
+      };
+      dispatch({
+        type: 'APPLY_SUCCESS',
+        batchId,
+        patchIds: snapshot.staged.map((patch) => patch.id),
+        undoHandle: undoAll,
+      });
+    } catch {
+      dispatch({ type: 'APPLY_FAILURE' });
+    }
+  }, [reducerState, appliers, newId]);
+
+  const undo = useCallback(async (): Promise<void> => {
+    const pending = getPendingUndoHandle(reducerState);
+    if (!pending) {
+      return;
+    }
+    try {
+      await pending.undo();
+      dispatch({ type: 'UNDO_SUCCESS', batchId: pending.batchId });
+    } catch {
+      // Best-effort undo per D132. Surface failures as toasts in a later card.
+    }
+  }, [reducerState]);
+
+  const actions = useMemo<PatchListActions>(
+    () => ({ stage, discard, editSummary, apply, undo }),
+    [stage, discard, editSummary, apply, undo],
+  );
+
+  const value = useMemo<PatchListContextValue>(
+    () => ({ actions, state: derivedState }),
+    [actions, derivedState],
+  );
+
+  return <PatchListContext.Provider value={value}>{children}</PatchListContext.Provider>;
+}
+
+// ---- Hooks ----
+
+export function usePatchList(): PatchListActions | null {
+  const ctx = useContext(PatchListContext);
+  return ctx ? ctx.actions : null;
+}
+
+export interface PatchListState {
+  staged: readonly Patch[];
+  count: number;
+  canUndo: boolean;
+  isApplying: boolean;
+}
+
+export function usePatchListState(): PatchListState {
+  const ctx = useContext(PatchListContext);
+  if (!ctx) {
+    return { staged: [], count: 0, canUndo: false, isApplying: false };
+  }
+  return {
+    staged: ctx.state.staged,
+    count: ctx.state.count,
+    canUndo: ctx.state.canUndo,
+    isApplying: ctx.state.isApplying,
+  };
+}
+
+export interface StagedPatchesFilter {
+  anchor?: Pick<PatchAnchor, 'kind' | 'itemId'>;
+  kind?: Patch['kind'];
+}
+
+export function useStagedPatches(filter?: StagedPatchesFilter): readonly Patch[] {
+  const ctx = useContext(PatchListContext);
+  return useMemo(() => {
+    if (!ctx) return [];
+    let staged = ctx.state.staged;
+    if (filter?.anchor) {
+      const anchor = filter.anchor;
+      staged = staged.filter(
+        (patch) => patch.anchor.kind === anchor.kind && patch.anchor.itemId === anchor.itemId,
+      );
+    }
+    if (filter?.kind) {
+      const kind = filter.kind;
+      staged = staged.filter((patch) => patch.kind === kind);
+    }
+    return staged;
+  }, [ctx, filter?.anchor, filter?.kind]);
+}

@@ -60,7 +60,9 @@ A new durable `annotation` entity exists with REST CRUD: clients can create, lis
 
 ---
 
-## Card B — PatchListProvider client module (full scope) · status: `next`
+## Card B — PatchListProvider client module (full scope) · status: `done`
+
+> **Note on scope drift:** Mounting `<PatchListProvider>` in `route.tsx` was originally scoped under Card B but moved to Card C. Mounting requires a working annotate applier (which is `annotation-api.ts` — Card C's territory), and a placeholder-only mount adds no test value over the in-memory provider that Card B's tests already exercise. Card C now wraps `<SideChatHost>` with `<PatchListProvider>` as part of its end-to-end wiring.
 
 ### Target Behavior
 
