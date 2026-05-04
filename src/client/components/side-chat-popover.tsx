@@ -1,4 +1,4 @@
-import { ArrowUp, Mic, NotebookPen, PencilLine, Plus } from 'lucide-react';
+import { ArrowUp, Mic, NotebookPen, PanelRight, PencilLine, PictureInPicture2, Plus } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 function useTypewriter(target: string, animate: boolean, charDelayMs = 15): string {
@@ -112,6 +112,7 @@ export function SideChatPopover({
   const [annotateSummary, setAnnotateSummary] = useState('');
   const [annotateBody, setAnnotateBody] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
+  const [layout, setLayout] = useState<'docked' | 'floating'>('docked');
   const containerRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const annotateSummaryRef = useRef<HTMLInputElement>(null);
@@ -214,16 +215,25 @@ export function SideChatPopover({
       aria-label="Side-chat"
       data-side-chat-anchor="top-right"
       onKeyDown={handleTabTrap}
-      className="fixed top-4 right-4 bottom-4 z-50 flex w-[588px] flex-col gap-3 rounded-2xl border border-[#5424ff]/15 bg-white/95 p-3 backdrop-blur-[12px] before:pointer-events-none before:absolute before:-inset-[6px] before:-z-10 before:rounded-[20px] before:bg-[linear-gradient(121deg,#5424ff_3.88%,#fdb975_42.02%,#fe5dd3_74.45%,#ff00ae_116.94%)] before:opacity-20 before:blur-[28px] before:content-['']"
+      data-side-chat-layout={layout}
+      className={`fixed right-4 z-50 flex flex-col gap-3 rounded-2xl border border-[#5424ff]/15 bg-white/95 p-3 backdrop-blur-[12px] before:pointer-events-none before:absolute before:-inset-[6px] before:-z-10 before:rounded-[20px] before:bg-[linear-gradient(121deg,#5424ff_3.88%,#fdb975_42.02%,#fe5dd3_74.45%,#ff00ae_116.94%)] before:opacity-20 before:blur-[28px] before:content-[''] ${
+        layout === 'docked'
+          ? 'top-4 bottom-4 w-[588px]'
+          : 'bottom-4 h-[min(640px,calc(100vh-2rem))] w-[420px]'
+      }`}
     >
-      <header className="flex items-start gap-2 border-b border-rule pr-9 pb-2">
+      <header className="flex items-start gap-2 border-b border-rule pr-16 pb-2">
         <span className="inline-flex shrink-0 items-center rounded-[4px] bg-[rgba(0,0,0,0.03)] px-1.5 py-0.5 font-mono text-xs font-medium text-ink">
           {pinnedItem.referenceCode}
         </span>
         <p className="flex-1 text-sm text-ink">{pinnedItem.content}</p>
       </header>
 
-      <ul role="log" aria-label="Side-chat messages" className="flex flex-1 flex-col gap-2 overflow-y-auto">
+      <ul
+        role="log"
+        aria-label="Side-chat messages"
+        className="scrollbar-thin flex flex-1 flex-col gap-2 overflow-y-auto"
+      >
         {messages.map((message, index) => (
           <MessageBubble key={index} message={message} />
         ))}
@@ -397,12 +407,9 @@ export function SideChatPopover({
                 Edit
               </button>
             </div>
-            {existingAnnotations.length > 0 ? (
-              <div
-                aria-hidden={!notesOpen}
-                className={`pointer-events-none absolute right-0 bottom-full left-0 mb-2 origin-bottom transition-[opacity,transform] duration-200 ease-out ${notesOpen ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-1 opacity-0'}`}
-              >
-                <ul className="flex max-h-64 flex-col divide-y divide-[rgba(0,0,0,0.06)] overflow-y-auto rounded-md bg-white px-2 shadow-[0_8px_16px_-4px_rgba(0,0,0,0.08),0_4px_8px_-2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(0,0,0,0.08)] [&]:pointer-events-auto">
+            {notesOpen && existingAnnotations.length > 0 ? (
+              <div className="absolute right-0 bottom-full left-0 mb-2">
+                <ul className="scrollbar-thin flex max-h-64 flex-col divide-y divide-[rgba(0,0,0,0.06)] overflow-y-auto rounded-md bg-white px-2 shadow-[0_8px_16px_-4px_rgba(0,0,0,0.08),0_4px_8px_-2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(0,0,0,0.08)]">
                   {existingAnnotations.map((annotation) => {
                     const hasBody = annotation.body && annotation.body !== annotation.summary;
                     return (
@@ -476,14 +483,29 @@ export function SideChatPopover({
         </>
       )}
 
-      <button
-        type="button"
-        aria-label="Close side-chat"
-        onClick={onDismiss}
-        className="absolute top-3 right-3 flex size-6 items-center justify-center rounded-md bg-white text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-wash focus-visible:ring-2 focus-visible:ring-foreground/30"
-      >
-        ×
-      </button>
+      <div className="absolute top-3 right-3 flex items-center gap-0.5">
+        <button
+          type="button"
+          aria-label={layout === 'docked' ? 'Float side-chat' : 'Dock side-chat to right'}
+          title={layout === 'docked' ? 'Float' : 'Dock to right'}
+          onClick={() => setLayout((mode) => (mode === 'docked' ? 'floating' : 'docked'))}
+          className="flex size-6 items-center justify-center rounded-md text-hint hover:bg-[rgba(0,0,0,0.04)] hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+        >
+          {layout === 'docked' ? (
+            <PictureInPicture2 className="size-3.5" aria-hidden />
+          ) : (
+            <PanelRight className="size-3.5" aria-hidden />
+          )}
+        </button>
+        <button
+          type="button"
+          aria-label="Close side-chat"
+          onClick={onDismiss}
+          className="flex size-6 items-center justify-center rounded-md text-hint hover:bg-[rgba(0,0,0,0.04)] hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+        >
+          ×
+        </button>
+      </div>
     </div>
   );
 }
