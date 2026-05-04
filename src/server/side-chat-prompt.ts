@@ -17,6 +17,11 @@ export interface SideChatPromptMessage {
   content: string;
 }
 
+export interface SideChatPriorTurn {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
 export interface SideChatPromptPayload {
   system: string;
   messages: SideChatPromptMessage[];
@@ -50,14 +55,17 @@ export function buildSideChatPrompt(
   item: SideChatPinnedItem,
   message: string,
   specContext: SideChatSpecContext,
+  history: readonly SideChatPriorTurn[] = [],
 ): SideChatPromptPayload {
+  const turns: SideChatPriorTurn[] = [...history, { role: 'user', text: message }];
+  const messages: SideChatPromptMessage[] = turns.map((turn, index) => {
+    if (index === 0 && turn.role === 'user') {
+      return { role: 'user', content: buildUserMessageContent(item, turn.text) };
+    }
+    return { role: turn.role, content: turn.text };
+  });
   return {
     system: buildSystemPrompt(specContext),
-    messages: [
-      {
-        role: 'user',
-        content: buildUserMessageContent(item, message),
-      },
-    ],
+    messages,
   };
 }

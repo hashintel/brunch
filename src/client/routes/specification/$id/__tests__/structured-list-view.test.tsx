@@ -763,6 +763,69 @@ describe('StructuredListView', () => {
       expect(send.disabled).toBe(false);
     });
 
+    it('sends prior finalized turns as history on the second send', async () => {
+      const stream = makeManualStream();
+      const { container } = renderInsideHost(singleItemNoEdges());
+
+      // First turn
+      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      stream.emit({ type: 'text-delta', delta: 'Because reasons.' });
+      stream.emit({ type: 'done' });
+      await act(async () => {
+        await stream.finish();
+      });
+
+      // Second turn
+      const stream2 = makeManualStream();
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Tell me more.' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      expect(mockStreamSideChatResponse).toHaveBeenCalledTimes(2);
+      const [secondRequest] = mockStreamSideChatResponse.mock.calls[1];
+      expect(secondRequest).toMatchObject({
+        message: 'Tell me more.',
+        history: [
+          { role: 'user', text: 'Why?' },
+          { role: 'assistant', text: 'Because reasons.' },
+        ],
+      });
+
+      // Drain the second stream so its dangling promise doesn't leak between tests.
+      stream2.emit({ type: 'done' });
+      await act(async () => {
+        await stream2.finish();
+      });
+    });
+
+    it('does not include errored turns in history on retry', async () => {
+      mockStreamSideChatResponse.mockRejectedValueOnce(new Error('boom'));
+      const { container } = renderInsideHost(singleItemNoEdges());
+
+      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      const stream2 = makeManualStream();
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Try again' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      const [secondRequest] = mockStreamSideChatResponse.mock.calls[1];
+      // The user turn that errored is still in history (it was actually sent),
+      // but the error placeholder assistant turn must NOT be sent to the model.
+      expect(secondRequest.history).toEqual([{ role: 'user', text: 'Why?' }]);
+
+      stream2.emit({ type: 'done' });
+      await act(async () => {
+        await stream2.finish();
+      });
+    });
+
     it('finalizes the assistant message and re-enables sending after the stream finishes', async () => {
       const stream = makeManualStream();
       const { container } = renderInsideHost(singleItemNoEdges());

@@ -102,6 +102,68 @@ describe('streamSideChatResponse', () => {
     });
   });
 
+  it('includes the history array in the request body when supplied', async () => {
+    let capturedInit: RequestInit | undefined;
+    await streamSideChatResponse(
+      {
+        specificationId: 7,
+        itemKind: 'decision',
+        itemId: 1,
+        message: 'Follow-up?',
+        history: [
+          { role: 'user', text: 'First message' },
+          { role: 'assistant', text: 'First reply' },
+        ],
+        fetch: (_input, init) => {
+          capturedInit = init;
+          return Promise.resolve(
+            new Response(toReadableStream(['data: [DONE]\n\n']), {
+              status: 200,
+              headers: { 'Content-Type': 'text/event-stream' },
+            }),
+          );
+        },
+      },
+      () => {},
+    );
+
+    expect(JSON.parse(capturedInit?.body as string)).toEqual({
+      itemKind: 'decision',
+      itemId: 1,
+      message: 'Follow-up?',
+      history: [
+        { role: 'user', text: 'First message' },
+        { role: 'assistant', text: 'First reply' },
+      ],
+    });
+  });
+
+  it('omits history from the request body when empty or absent', async () => {
+    let capturedInit: RequestInit | undefined;
+    await streamSideChatResponse(
+      {
+        specificationId: 7,
+        itemKind: 'decision',
+        itemId: 1,
+        message: 'Hi',
+        history: [],
+        fetch: (_input, init) => {
+          capturedInit = init;
+          return Promise.resolve(
+            new Response(toReadableStream(['data: [DONE]\n\n']), {
+              status: 200,
+              headers: { 'Content-Type': 'text/event-stream' },
+            }),
+          );
+        },
+      },
+      () => {},
+    );
+
+    const body = JSON.parse(capturedInit?.body as string);
+    expect(body).not.toHaveProperty('history');
+  });
+
   it('forwards each parsed event through the onChunk callback in order', async () => {
     const events: SideChatStreamEvent[] = [];
     await streamSideChatResponse(

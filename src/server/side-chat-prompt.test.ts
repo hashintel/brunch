@@ -99,6 +99,38 @@ describe('buildSideChatPrompt', () => {
     expect(systemWithUndefined).toContain('Brunch');
   });
 
+  it('appends prior turns after the pinned-context user turn and ends with the new user message', () => {
+    const { messages } = buildSideChatPrompt(baseItem, 'Follow-up: what about backups?', baseSpecContext, [
+      { role: 'user', text: 'Why SQLite?' },
+      { role: 'assistant', text: 'Because it ships in-process and needs no daemon.' },
+    ]);
+
+    expect(messages).toHaveLength(3);
+    // First turn carries the pinned-item context
+    expect(messages[0].role).toBe('user');
+    expect(messages[0].content).toContain('D12');
+    expect(messages[0].content).toContain('Use SQLite for the local store.');
+    expect(messages[0].content).toContain('Why SQLite?');
+    // Middle turn is the assistant reply, plain text
+    expect(messages[1]).toEqual({
+      role: 'assistant',
+      content: 'Because it ships in-process and needs no daemon.',
+    });
+    // Final turn is the new user message, plain text (no re-injection of pinned context)
+    expect(messages[2]).toEqual({
+      role: 'user',
+      content: 'Follow-up: what about backups?',
+    });
+    expect(messages[2].content).not.toContain('D12');
+  });
+
+  it('treats an empty history the same as no history', () => {
+    const withEmpty = buildSideChatPrompt(baseItem, 'Why SQLite?', baseSpecContext, []);
+    const withNone = buildSideChatPrompt(baseItem, 'Why SQLite?', baseSpecContext);
+
+    expect(withEmpty).toEqual(withNone);
+  });
+
   it('labels the item by its kind so the model knows what it is looking at', () => {
     const { messages } = buildSideChatPrompt(
       { kind: 'requirement', referenceCode: 'R3', content: 'Users can export specs as Markdown.' },

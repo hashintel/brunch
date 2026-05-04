@@ -2,11 +2,17 @@ import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 export type SideChatStreamEvent = { type: 'text-delta'; delta: string } | { type: 'done' };
 
+export interface SideChatPriorTurn {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
 export interface SideChatStreamRequest {
   specificationId: number;
   itemKind: KnowledgeKind;
   itemId: number;
   message: string;
+  history?: readonly SideChatPriorTurn[];
   signal?: AbortSignal;
   fetch?: typeof fetch;
 }
@@ -67,6 +73,7 @@ export async function streamSideChatResponse(
       itemKind: request.itemKind,
       itemId: request.itemId,
       message: request.message,
+      ...(request.history && request.history.length > 0 ? { history: request.history } : {}),
     }),
     signal: request.signal,
   });

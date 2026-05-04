@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
-import { streamSideChatResponse } from '@/client/lib/side-chat-stream.js';
+import { streamSideChatResponse, type SideChatPriorTurn } from '@/client/lib/side-chat-stream.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import { SideChatPopover, type SideChatMessage, type SideChatPinnedItem } from './side-chat-popover.js';
@@ -44,6 +44,12 @@ function finalizePending(messages: readonly SideChatMessage[]): SideChatMessage[
 }
 
 const SIDE_CHAT_ERROR_MESSAGE = 'Something went wrong — try again.';
+
+function buildHistory(messages: readonly SideChatMessage[]): SideChatPriorTurn[] {
+  return messages
+    .filter((message) => !message.pending && !message.error && message.text.length > 0)
+    .map((message) => ({ role: message.role, text: message.text }));
+}
 
 function failPending(messages: readonly SideChatMessage[]): SideChatMessage[] {
   let replaced = false;
@@ -114,6 +120,7 @@ export function SideChatHost({
       abortActiveStream();
       const controller = new AbortController();
       streamControllerRef.current = controller;
+      const history = buildHistory(session.messages);
 
       setActiveSideChat((current) => {
         if (!current || current.sessionId !== sessionId) {
@@ -139,6 +146,7 @@ export function SideChatHost({
               itemKind: session.itemKind,
               itemId: session.itemId,
               message,
+              history,
               signal: controller.signal,
             },
             (event) => {

@@ -217,6 +217,53 @@ describe('POST /api/specifications/:id/side-chat', () => {
     expect(userMessage.content).toMatch(/R\d+/);
   });
 
+  it('forwards prior conversation turns into the LLM prompt as history', async () => {
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        message: 'What about backups then?',
+        history: [
+          { role: 'user', text: 'Why SQLite?' },
+          { role: 'assistant', text: 'In-process, zero ops.' },
+        ],
+      })
+      .expect(200);
+
+    const [callArgs] = mockStreamText.mock.calls[0];
+    expect(callArgs.messages).toHaveLength(3);
+    expect(callArgs.messages[0].role).toBe('user');
+    expect(callArgs.messages[0].content).toContain('Why SQLite?');
+    expect(callArgs.messages[1]).toEqual({
+      role: 'assistant',
+      content: 'In-process, zero ops.',
+    });
+    expect(callArgs.messages[2]).toEqual({
+      role: 'user',
+      content: 'What about backups then?',
+    });
+  });
+
+  it('rejects history entries with empty text', async () => {
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        message: 'Why?',
+        history: [{ role: 'user', text: '' }],
+      })
+      .expect(400);
+    expect(mockStreamText).not.toHaveBeenCalled();
+  });
+
   it('does not include phase-stage interviewer instructions in the prompt', async () => {
     const specId = await createSpec();
     const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');

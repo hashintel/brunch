@@ -9,10 +9,16 @@ import { knowledgeKinds, type KnowledgeKind } from '@/shared/knowledge.js';
 import { getEntitiesForSpecificationByMode, getSpecification, type DB } from './db.js';
 import { buildSideChatPrompt, type SideChatPinnedItem } from './side-chat-prompt.js';
 
+const sideChatPriorTurnSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  text: z.string().min(1),
+});
+
 const sideChatRequestSchema = z.object({
   itemKind: z.enum(knowledgeKinds),
   itemId: z.number().int().positive(),
   message: z.string().trim().min(1),
+  history: z.array(sideChatPriorTurnSchema).optional(),
 });
 
 interface ResolvedEntity {
@@ -101,10 +107,15 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
     rationale: entity.rationale,
   };
 
-  const { system, messages } = buildSideChatPrompt(item, parsed.data.message, {
-    specName: specification.name,
-    groundingSummary: null,
-  });
+  const { system, messages } = buildSideChatPrompt(
+    item,
+    parsed.data.message,
+    {
+      specName: specification.name,
+      groundingSummary: null,
+    },
+    parsed.data.history ?? [],
+  );
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
