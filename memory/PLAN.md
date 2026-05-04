@@ -8,11 +8,11 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 
 ## Active
 
-1. **Side-chat V1 — finish Annotate + multi-pin + top-bar patch summary** — V1.1 (Class 1 Explore vertical slice from graph view) is shipped on `ka/fe-656-side-chat` and pending merge. V1.2 still owes Class 4 (Annotate — durable per-item / per-span notes via comment-store extension), the floating selection menu (`💬 Chat` / `📝 Annotate`) for span-anchored entry, multi-item pinning across the panel, and the persistent top-bar patch-summary scaffold (annotation-only patch list until V2). Card E polish (cross-spec persistence, popover row anchoring, error states) for V1.1 also remains tentative.
-   - Why now / unlocks: V1.1 vertically proved the end-to-end seam (graph view → SideChatHost provider → /side-chat SSE → streaming render). V1.2 reuses the host and the existing patch-list seam shape so V2's Edit/Drill-down/Propose-edge can extend the same shapes without reshaping. The annotation comment-store extension is the durable surface; V1.1's volatile chat does not yet exercise it.
-   - Traceability: Requirement 34; D128, D130, D131. Subsumes trigger-popover composer (A51, D89).
+1. **Side-chat V1 — finish Annotate + multi-pin + top-bar patch summary** — V1.1 (Class 1 Explore vertical slice from graph view) shipped on `ka/fe-656-side-chat` (PR #81, pending merge). V1.2 work is in progress on `ka/fe-656-side-chat-v1-2` (stacked on V1.1). The current vertical-slice queue (`memory/CARDS.md`) covers Card A (annotation server seam — new durable entity per D133), Card B (PatchListProvider client module per D132), and Card C (end-to-end annotate wiring with in-panel inline list). Re-scoped after Card C lands: top-bar patch summary scaffold (D131 canonical surface), the floating selection menu (`💬 Chat` / `📝 Annotate`) for span-anchored entry, and multi-item pinning across the panel. Card E polish remnants for V1.1 (cross-spec persistence, popover row anchoring) also remain tentative; E1 (lift host to spec route) and E3 (visible error states) shipped with V1.1.
+   - Why now / unlocks: V1.1 vertically proved the end-to-end seam (graph view → SideChatHost provider → /side-chat SSE → streaming render). V1.2 establishes the durable mutation surface — the annotation entity (D133) is the first durable side-chat output, and the patch-list module (D132) is the seam V2's Edit / Drill-down / Propose-edge extend without reshaping. The earlier "comment-store extension" framing was incorrect: there is no prior comment store; V1.2's annotation table is a new entity (D133 supersedes that framing).
+   - Traceability: Requirement 34; D128, D130, D131, D132, D133. Subsumes trigger-popover composer (A51, D89).
    - Design doc: `docs/design/SIDE_CHAT.md` (§§1–4, §6.1, §6.4, §11)
-   - Branch: `ka/fe-656-side-chat`. Linear: FE-656.
+   - Branches: `ka/fe-656-side-chat` (V1.1, PR #81); `ka/fe-656-side-chat-v1-2` (V1.2, stacked). Linear: FE-656.
 
 ## Next
 
