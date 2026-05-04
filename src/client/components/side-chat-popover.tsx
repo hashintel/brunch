@@ -1,3 +1,4 @@
+import { NotebookPen, PencilLine } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 export interface SideChatPinnedItem {
@@ -68,6 +69,7 @@ export function SideChatPopover({
   const [draft, setDraft] = useState('');
   const [annotateSummary, setAnnotateSummary] = useState('');
   const [annotateBody, setAnnotateBody] = useState('');
+  const [notesOpen, setNotesOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const annotateSummaryRef = useRef<HTMLInputElement>(null);
@@ -170,58 +172,14 @@ export function SideChatPopover({
       aria-label="Side-chat"
       data-side-chat-anchor="top-right"
       onKeyDown={handleTabTrap}
-      className="fixed top-4 right-4 z-50 flex max-h-[calc(100vh-2rem)] w-[360px] flex-col gap-3 rounded-2xl border-[1.5px] border-[#5424ff]/55 bg-white/70 p-3 shadow-xl backdrop-blur-md before:pointer-events-none before:absolute before:-inset-3 before:-z-10 before:rounded-3xl before:bg-[linear-gradient(90deg,#5424ff,#fdb975,#fe5dd3,#ff00ae)] before:opacity-25 before:blur-xl before:content-['']"
+      className="fixed top-4 right-4 bottom-4 z-50 flex w-[588px] flex-col gap-3 rounded-2xl border border-[#5424ff]/15 bg-white/95 p-3 backdrop-blur-[12px] before:pointer-events-none before:absolute before:-inset-[6px] before:-z-10 before:rounded-[20px] before:bg-[linear-gradient(121deg,#5424ff_3.88%,#fdb975_42.02%,#fe5dd3_74.45%,#ff00ae_116.94%)] before:opacity-20 before:blur-[28px] before:content-['']"
     >
-      <header className="flex items-start gap-2 border-b border-rule pb-2">
+      <header className="flex items-start gap-2 border-b border-rule pr-9 pb-2">
         <span className="inline-flex shrink-0 items-center rounded-[4px] bg-[rgba(0,0,0,0.03)] px-1.5 py-0.5 font-mono text-xs font-medium text-ink">
           {pinnedItem.referenceCode}
         </span>
         <p className="flex-1 text-sm text-ink">{pinnedItem.content}</p>
-        {onAnnotateRequest ? (
-          <button
-            type="button"
-            aria-label="Annotate item"
-            disabled={annotateButtonDisabled}
-            onClick={onAnnotateRequest}
-            className="inline-flex shrink-0 items-center rounded-md bg-wash px-2 py-0.5 text-xs font-medium text-[#a6a6a6] hover:text-ink disabled:opacity-40"
-          >
-            Annotate
-          </button>
-        ) : null}
       </header>
-
-      {existingAnnotations.length > 0 ? (
-        <details aria-label="Existing notes on this item" className="group/notes" open>
-          <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-sub hover:text-ink">
-            <span className="text-hint transition-transform group-open/notes:rotate-90">›</span>
-            <span>Notes ({existingAnnotations.length})</span>
-          </summary>
-          <ul className="mt-1 flex flex-col gap-1">
-            {existingAnnotations.map((annotation) => {
-              const hasBody = annotation.body && annotation.body !== annotation.summary;
-              return (
-                <li
-                  key={annotation.id}
-                  data-annotation-id={annotation.id}
-                  className="overflow-hidden rounded bg-wash/60 text-xs text-ink"
-                >
-                  {hasBody ? (
-                    <details className="group/note">
-                      <summary className="flex cursor-pointer list-none items-center gap-1 px-2 py-1 font-medium hover:bg-wash">
-                        <span className="text-hint transition-transform group-open/note:rotate-90">›</span>
-                        <span className="flex-1">{annotation.summary}</span>
-                      </summary>
-                      <div className="border-t border-rule px-2 py-1 text-sub">{annotation.body}</div>
-                    </details>
-                  ) : (
-                    <div className="px-2 py-1 font-medium">{annotation.summary}</div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </details>
-      ) : null}
 
       <ul role="log" aria-label="Side-chat messages" className="flex flex-1 flex-col gap-2 overflow-y-auto">
         {messages.map((message, index) => {
@@ -261,7 +219,7 @@ export function SideChatPopover({
             <button
               type="button"
               onClick={onUndo}
-              className="rounded-md bg-wash px-2 py-0.5 text-xs text-[#a6a6a6] hover:text-ink"
+              className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
             >
               Undo
             </button>
@@ -308,7 +266,7 @@ export function SideChatPopover({
               <button
                 type="button"
                 onClick={onUndo}
-                className="rounded-md bg-wash px-2 py-0.5 text-xs text-[#a6a6a6] hover:text-ink"
+                className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
               >
                 Undo
               </button>
@@ -333,7 +291,7 @@ export function SideChatPopover({
             event.preventDefault();
             submitAnnotate();
           }}
-          className="flex flex-col gap-2 rounded-md border border-rule p-2"
+          className="flex flex-col gap-2 rounded-md bg-white p-2 shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]"
         >
           <input
             ref={annotateSummaryRef}
@@ -341,20 +299,20 @@ export function SideChatPopover({
             placeholder="Summary"
             value={annotateSummary}
             onChange={(event) => setAnnotateSummary(event.target.value)}
-            className="rounded-md border border-rule bg-background px-2 py-1.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-foreground/30"
+            className="rounded-md bg-[#fafafa] px-2 py-1.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
           />
           <textarea
             aria-label="Annotation body"
             placeholder="Note body"
             value={annotateBody}
             onChange={(event) => setAnnotateBody(event.target.value)}
-            className="min-h-16 resize-none rounded-md border border-rule bg-background px-2 py-1.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-foreground/30"
+            className="min-h-16 resize-none rounded-md bg-[#fafafa] px-2 py-1.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
           />
           <div className="flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onAnnotateCancel}
-              className="rounded-md bg-wash px-3 py-1 text-xs text-[#a6a6a6] hover:text-ink"
+              className="rounded-md bg-white px-3 py-1 text-xs text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
             >
               Cancel
             </button>
@@ -369,23 +327,103 @@ export function SideChatPopover({
         </form>
       ) : (
         <>
-          <textarea
-            ref={messageInputRef}
-            aria-label="Message"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={handleInputKeyDown}
-            className="min-h-12 resize-none rounded-md border border-rule bg-background px-2 py-1.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-foreground/30"
-          />
-          <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              disabled={sendDisabled}
-              onClick={submit}
-              className="inline-flex items-center justify-center rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-3 py-1 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] disabled:opacity-40"
-            >
-              Send
-            </button>
+          <div className="relative flex items-center justify-between gap-2">
+            {existingAnnotations.length > 0 ? (
+              <button
+                type="button"
+                aria-label={`${notesOpen ? 'Hide' : 'Show'} existing notes`}
+                aria-expanded={notesOpen}
+                onClick={() => setNotesOpen((open) => !open)}
+                className="inline-flex items-center gap-1 text-xs font-medium text-sub hover:text-ink"
+              >
+                <span
+                  className={`text-hint transition-transform duration-200 ${notesOpen ? 'rotate-90' : ''}`}
+                >
+                  ›
+                </span>
+                <span>Notes ({existingAnnotations.length})</span>
+              </button>
+            ) : (
+              <span aria-hidden />
+            )}
+            <div className="flex items-center gap-1">
+              {onAnnotateRequest ? (
+                <button
+                  type="button"
+                  aria-label="Annotate item"
+                  disabled={annotateButtonDisabled}
+                  onClick={onAnnotateRequest}
+                  className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa] disabled:opacity-40"
+                >
+                  <NotebookPen className="size-3.5" aria-hidden />
+                  Annotate
+                </button>
+              ) : null}
+              <button
+                type="button"
+                disabled
+                aria-label="Edit (coming in V2)"
+                title="Edit — coming in V2"
+                className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-[#a6a6a6] shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]"
+              >
+                <PencilLine className="size-3.5" aria-hidden />
+                Edit
+              </button>
+            </div>
+            {existingAnnotations.length > 0 ? (
+              <div
+                aria-hidden={!notesOpen}
+                className={`pointer-events-none absolute right-0 bottom-full left-0 mb-2 origin-bottom transition-[opacity,transform] duration-200 ease-out ${notesOpen ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-1 opacity-0'}`}
+              >
+                <ul className="flex max-h-64 flex-col divide-y divide-[rgba(0,0,0,0.06)] overflow-y-auto rounded-md bg-white px-2 shadow-[0_8px_16px_-4px_rgba(0,0,0,0.08),0_4px_8px_-2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(0,0,0,0.08)] [&]:pointer-events-auto">
+                  {existingAnnotations.map((annotation) => {
+                    const hasBody = annotation.body && annotation.body !== annotation.summary;
+                    return (
+                      <li
+                        key={annotation.id}
+                        data-annotation-id={annotation.id}
+                        className="overflow-hidden text-xs text-ink"
+                      >
+                        {hasBody ? (
+                          <details className="group/note">
+                            <summary className="flex cursor-pointer list-none items-center gap-1 py-1.5 font-medium hover:text-ink">
+                              <span className="text-hint transition-transform group-open/note:rotate-90">
+                                ›
+                              </span>
+                              <span className="flex-1">{annotation.summary}</span>
+                            </summary>
+                            <div className="pb-1.5 pl-3 text-sub">{annotation.body}</div>
+                          </details>
+                        ) : (
+                          <div className="py-1.5 font-medium">{annotation.summary}</div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+          <div className="flex flex-col gap-2 rounded-md bg-white p-2 shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]">
+            <textarea
+              ref={messageInputRef}
+              aria-label="Message"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={handleInputKeyDown}
+              placeholder="Ask me anything..."
+              className="min-h-12 resize-none rounded-md bg-[#fafafa] px-2 py-1.5 text-sm text-ink outline-none placeholder:text-[#a6a6a6] focus-visible:ring-2 focus-visible:ring-foreground/20"
+            />
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={sendDisabled}
+                onClick={submit}
+                className="inline-flex items-center justify-center rounded-md bg-[#202020] px-3 py-1 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] disabled:opacity-40"
+              >
+                Send
+              </button>
+            </div>
           </div>
         </>
       )}
@@ -394,7 +432,7 @@ export function SideChatPopover({
         type="button"
         aria-label="Close side-chat"
         onClick={onDismiss}
-        className="absolute top-2 right-2 flex size-6 items-center justify-center rounded text-hint hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+        className="absolute top-3 right-3 flex size-6 items-center justify-center rounded-md bg-white text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-wash focus-visible:ring-2 focus-visible:ring-foreground/30"
       >
         ×
       </button>
