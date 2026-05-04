@@ -88,38 +88,36 @@ function GraphRouteComponent() {
     </Link>
   ) : undefined;
 
-  const header = (
-    <header data-graph-header className="flex items-center justify-between">
-      <KnowledgeGraphIdentity entityState={entityState} />
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            data-graph-action="toggle-all-rows"
-            aria-label={toggleLabel}
-            aria-pressed={!rowsDefaultOpen}
-            title={toggleLabel}
-            onClick={toggleAllRows}
-            className={ROW_TOGGLE_CLASS}
-          >
-            <ToggleIcon className="size-3.5" />
-          </button>
-        </div>
-        {backToChatLink && (
-          <>
-            <div aria-hidden="true" className="h-4 w-px bg-rule" />
-            {backToChatLink}
-          </>
-        )}
-      </div>
-    </header>
+  const headerLeft = <KnowledgeGraphIdentity entityState={entityState} />;
+
+  const headerRight = (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        data-graph-action="toggle-all-rows"
+        aria-label={toggleLabel}
+        aria-pressed={!rowsDefaultOpen}
+        title={toggleLabel}
+        onClick={toggleAllRows}
+        className={ROW_TOGGLE_CLASS}
+      >
+        <ToggleIcon className="size-3.5" />
+      </button>
+      {backToChatLink && (
+        <>
+          <div aria-hidden="true" className="h-4 w-px bg-rule" />
+          {backToChatLink}
+        </>
+      )}
+    </div>
   );
 
   return (
     <StructuredListView
       entityState={entityState}
       emptyStateAction={emptyStateAction}
-      header={header}
+      headerLeft={headerLeft}
+      headerRight={headerRight}
       rowsDefaultOpen={rowsDefaultOpen}
       rowsRemountKey={rowsRemountKey}
     />

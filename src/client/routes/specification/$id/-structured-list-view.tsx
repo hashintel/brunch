@@ -11,10 +11,12 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/co
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
 import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
 
+import { KindToggleChip } from './-kind-toggle-chip.js';
 import { ChipActivateProvider, RelationChip, type RelationChipTarget } from './-relation-chip.js';
 
 const HASH_ANCHOR_HIGHLIGHT_MS = 1500;
 const CHIP_TRUNCATE_LIMIT = 6;
+export const KIND_HASH_PREFIX = 'kind-';
 
 function readHashTargetRef(rawHash: string): string | null {
   if (!rawHash) return null;
@@ -35,17 +37,43 @@ function useGraphHashAnchor(scrollAreaRef: RefObject<HTMLElement | null>): {
       return;
     }
     const scrollArea = scrollAreaRef.current;
-    const row = scrollArea?.querySelector(
-      `[data-graph-row-ref="${CSS.escape(targetRef)}"]`,
-    ) as HTMLElement | null;
-    if (!scrollArea || !row) {
+    if (!scrollArea) {
       setAnchoredRowRef(null);
       return;
     }
+
+    const isKindAnchor = targetRef.startsWith(KIND_HASH_PREFIX);
+    const node = isKindAnchor
+      ? scrollArea.querySelector(
+          `[data-graph-kind-anchor="${CSS.escape(targetRef.slice(KIND_HASH_PREFIX.length))}"]`,
+        )
+      : scrollArea.querySelector(`[data-graph-row-ref="${CSS.escape(targetRef)}"]`);
+    if (!(node instanceof HTMLElement)) {
+      setAnchoredRowRef(null);
+      return;
+    }
+
+    // For kind anchors that are the first row of their containing section,
+    // scroll to the section element instead so the section header lands just
+    // under the filter bar (otherwise the header gets clipped above the
+    // viewport because the row is above the title).
+    let scrollTarget: HTMLElement = node;
+    if (isKindAnchor) {
+      const section = node.closest<HTMLElement>('[data-graph-section]');
+      if (section && section.querySelector('[data-graph-kind-anchor]') === node) {
+        scrollTarget = section;
+      }
+    }
+
     const areaRect = scrollArea.getBoundingClientRect();
-    const rowRect = row.getBoundingClientRect();
-    const rowTopWithinArea = rowRect.top - areaRect.top + scrollArea.scrollTop;
-    const targetTop = rowTopWithinArea - scrollArea.clientHeight / 2 + row.clientHeight / 2;
+    const targetRect = scrollTarget.getBoundingClientRect();
+    const targetTopWithinArea = targetRect.top - areaRect.top + scrollArea.scrollTop;
+    // Kind anchors land at the top of the scroll area (just under the filter
+    // bar) so the section header is the first thing you see. Row anchors stay
+    // centered so neighbouring context is visible.
+    const targetTop = isKindAnchor
+      ? targetTopWithinArea - 16
+      : targetTopWithinArea - scrollArea.clientHeight / 2 + scrollTarget.clientHeight / 2;
     scrollArea.scrollTo({ top: targetTop, behavior: 'smooth' });
     setAnchoredRowRef(targetRef);
     const timer = setTimeout(() => setAnchoredRowRef(null), HASH_ANCHOR_HIGHLIGHT_MS);
@@ -159,38 +187,28 @@ function getPopulatedKinds(entityState: EntitiesData): PopulatedKind[] {
 function KindFilterToggler({
   populatedKinds,
   hiddenKinds,
+  onNavigate,
   onToggle,
 }: {
   populatedKinds: PopulatedKind[];
   hiddenKinds: ReadonlySet<KnowledgeKind>;
+  onNavigate: (kind: KnowledgeKind) => void;
   onToggle: (kind: KnowledgeKind) => void;
 }) {
   if (populatedKinds.length === 0) return null;
 
   return (
-    <div data-graph-kind-filter className="flex flex-wrap gap-1.5">
-      {populatedKinds.map(({ entry, count }) => {
-        const isHidden = hiddenKinds.has(entry.kind);
-        return (
-          <Badge
-            key={entry.kind}
-            variant={isHidden ? 'outline' : 'secondary'}
-            className={isHidden ? kindTextColor[entry.kind] : kindColor[entry.kind]}
-            asChild
-          >
-            <button
-              type="button"
-              data-graph-kind-toggle={entry.kind}
-              aria-pressed={!isHidden}
-              onClick={() => onToggle(entry.kind)}
-              className="cursor-pointer"
-            >
-              <span>{entry.label}</span>
-              <span className="font-mono text-[10px] opacity-70">{count}</span>
-            </button>
-          </Badge>
-        );
-      })}
+    <div data-graph-kind-filter className="flex flex-wrap items-center justify-center gap-1.5">
+      {populatedKinds.map(({ entry, count }) => (
+        <KindToggleChip
+          key={entry.kind}
+          entry={entry}
+          count={count}
+          isHidden={hiddenKinds.has(entry.kind)}
+          onNavigate={onNavigate}
+          onToggle={onToggle}
+        />
+      ))}
     </div>
   );
 }
@@ -439,12 +457,14 @@ function ItemRow({
   incoming,
   anchored,
   defaultOpen = true,
+  kindAnchor = null,
 }: {
   item: KnowledgeItemSummary;
   outgoing: DirectedEdge[];
   incoming: DirectedEdge[];
   anchored: boolean;
   defaultOpen?: boolean;
+  kindAnchor: KnowledgeKind | null;
 }) {
   const hasExpansion = Boolean(item.rationale) || outgoing.length > 0 || incoming.length > 0;
 
@@ -453,6 +473,7 @@ function ItemRow({
       <div
         data-graph-row
         data-graph-row-ref={item.referenceCode}
+        data-graph-kind-anchor={kindAnchor ?? undefined}
         data-graph-row-anchored={anchored ? 'true' : undefined}
         className={`group/row overflow-hidden rounded-xl border bg-background shadow-[var(--shadow-card)] transition-all duration-700 ${anchored ? `animate-in border-current/50 ring-2 ring-current/30 duration-300 fade-in ${kindTextColor[item.kind]}` : 'border-rule'}`}
       >
@@ -490,13 +511,15 @@ function ItemRow({
 export function StructuredListView({
   entityState,
   emptyStateAction,
-  header,
+  headerLeft,
+  headerRight,
   rowsDefaultOpen = true,
   rowsRemountKey = 0,
 }: {
   entityState: EntitiesData;
   emptyStateAction?: ReactNode;
-  header?: ReactNode;
+  headerLeft?: ReactNode;
+  headerRight?: ReactNode;
   rowsDefaultOpen?: boolean;
   rowsRemountKey?: number;
 }) {
@@ -535,6 +558,21 @@ export function StructuredListView({
     [navigate],
   );
 
+  const unhideAndNavigate = useCallback(
+    (kind: KnowledgeKind) => {
+      flushSync(() => {
+        setHiddenKinds((current) => {
+          if (!current.has(kind)) return current;
+          const next = new Set(current);
+          next.delete(kind);
+          return next;
+        });
+      });
+      void navigate({ to: '.', hash: `${KIND_HASH_PREFIX}${kind}` });
+    },
+    [navigate],
+  );
+
   const populatedKinds = getPopulatedKinds(entityState);
   const totalItems = itemsByKey.size;
   const view: 'empty' | 'all-hidden' | 'list' =
@@ -547,18 +585,45 @@ export function StructuredListView({
   return (
     <ChipActivateProvider value={onChipActivate}>
       <div data-graph-structured-list className="flex h-full flex-col bg-background">
-        <div data-graph-header-bar className="flex h-16 shrink-0 items-center border-b border-rule px-6">
-          <div className="mx-auto w-full max-w-3xl">{header}</div>
+        <div
+          data-graph-header-bar
+          className="flex h-16 w-full shrink-0 items-center justify-between border-b border-rule px-6"
+        >
+          {headerLeft}
+          {headerRight}
         </div>
         {view !== 'empty' && (
-          <div data-graph-filter-bar className="shrink-0 border-b border-rule bg-tint px-6 py-2">
-            <div className="mx-auto w-full max-w-3xl">
+          <div
+            data-graph-filter-bar
+            className="flex w-full shrink-0 flex-col items-center gap-2 border-b border-rule bg-tint px-6 py-2 md:flex-row md:gap-3"
+          >
+            <span
+              aria-hidden="true"
+              className="invisible hidden shrink-0 rounded px-2 py-0.5 text-xs md:inline-flex"
+            >
+              Show all
+            </span>
+            <div className="w-full min-w-0 md:flex-1">
               <KindFilterToggler
                 populatedKinds={populatedKinds}
                 hiddenKinds={hiddenKinds}
+                onNavigate={unhideAndNavigate}
                 onToggle={toggleKind}
               />
             </div>
+            <button
+              type="button"
+              data-graph-kind-show-all
+              onClick={() => setHiddenKinds(new Set())}
+              aria-label="Show all kinds"
+              aria-hidden={hiddenKinds.size === 0}
+              tabIndex={hiddenKinds.size === 0 ? -1 : 0}
+              className={`shrink-0 cursor-pointer rounded px-2 py-0.5 text-xs text-sub outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30 ${
+                hiddenKinds.size === 0 ? 'hidden md:invisible md:inline-flex' : 'inline-flex'
+              }`}
+            >
+              Show all
+            </button>
           </div>
         )}
         <div ref={scrollAreaRef} className="min-h-0 flex-1 overflow-y-auto">
@@ -601,19 +666,25 @@ export function StructuredListView({
                       </div>
                       <CollapsibleContent>
                         <div className="flex flex-col gap-2">
-                          {items.map((item) => {
-                            const itemKey = `${item.kind}:${item.id}`;
-                            return (
-                              <ItemRow
-                                key={`${itemKey}-v${rowsRemountKey}`}
-                                item={item}
-                                outgoing={outgoingByItem.get(itemKey) ?? []}
-                                incoming={incomingByItem.get(itemKey) ?? []}
-                                anchored={anchoredRowRef === item.referenceCode}
-                                defaultOpen={rowsDefaultOpen}
-                              />
-                            );
-                          })}
+                          {(() => {
+                            let previousKind: KnowledgeKind | null = null;
+                            return items.map((item) => {
+                              const itemKey = `${item.kind}:${item.id}`;
+                              const isFirstOfKind = previousKind !== item.kind;
+                              previousKind = item.kind;
+                              return (
+                                <ItemRow
+                                  key={`${itemKey}-v${rowsRemountKey}`}
+                                  item={item}
+                                  outgoing={outgoingByItem.get(itemKey) ?? []}
+                                  incoming={incomingByItem.get(itemKey) ?? []}
+                                  anchored={anchoredRowRef === item.referenceCode}
+                                  defaultOpen={rowsDefaultOpen}
+                                  kindAnchor={isFirstOfKind ? item.kind : null}
+                                />
+                              );
+                            });
+                          })()}
                         </div>
                       </CollapsibleContent>
                     </section>

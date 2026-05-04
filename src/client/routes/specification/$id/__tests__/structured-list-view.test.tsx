@@ -1,7 +1,28 @@
 // @vitest-environment happy-dom
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { act, cleanup, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const readSrc = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
+
+describe('structured-list-view kind anchors', () => {
+  it('marks the first row of each kind with data-graph-kind-anchor', () => {
+    const src = readSrc('src/client/routes/specification/$id/-structured-list-view.tsx');
+    expect(src).toContain('data-graph-kind-anchor');
+  });
+});
+
+describe('structured-list-view hash anchor resolution', () => {
+  it('reads the hash prefix used for kind anchors', () => {
+    const src = readSrc('src/client/routes/specification/$id/-structured-list-view.tsx');
+    expect(src).toMatch(/data-graph-kind-anchor=.*CSS\.escape/s);
+    expect(src).toContain("'kind-'");
+  });
+});
 
 import {
   activePathDivergence,
@@ -70,7 +91,7 @@ describe('StructuredListView', () => {
     const { container } = render(
       <StructuredListView
         entityState={singleItemNoEdges()}
-        header={<div data-testid="test-header">Header content</div>}
+        headerLeft={<div data-testid="test-header">Header content</div>}
       />,
     );
 
@@ -95,7 +116,7 @@ describe('StructuredListView', () => {
     render(
       <StructuredListView
         entityState={emptySpec()}
-        header={<div data-testid="test-header">Header content</div>}
+        headerLeft={<div data-testid="test-header">Header content</div>}
       />,
     );
     expect(screen.getByTestId('test-header')).toBeTruthy();
@@ -348,6 +369,16 @@ describe('StructuredListView', () => {
     expect(Element.prototype.scrollTo).toHaveBeenCalled();
   });
 
+  it('mounting with a kind-{kind} hash scrolls the first row of that kind into view', () => {
+    mockHash = '#kind-goal';
+
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const kindAnchor = container.querySelector('[data-graph-kind-anchor="goal"]');
+    expect(kindAnchor).toBeTruthy();
+    expect(Element.prototype.scrollTo).toHaveBeenCalled();
+  });
+
   it('does not scroll when there is no hash', () => {
     mockHash = '';
 
@@ -511,6 +542,72 @@ describe('StructuredListView', () => {
       'D15',
     ]);
   });
+
+  it('clicking a visible chip body navigates to its kind anchor', async () => {
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const goalChipBody = container.querySelector('[data-graph-kind-body="goal"]') as HTMLButtonElement | null;
+    expect(goalChipBody).toBeTruthy();
+    if (!goalChipBody) return;
+
+    await userEvent.click(goalChipBody);
+
+    expect(mockNavigate).toHaveBeenCalledWith(expect.objectContaining({ hash: 'kind-goal' }));
+  });
+
+  it('clicking the toggle hides the kind without navigating, and Show all restores it', async () => {
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    // Initially the goal anchor is rendered
+    expect(container.querySelector('[data-graph-kind-anchor="goal"]')).toBeTruthy();
+
+    // Click the goal toggle to hide it
+    const goalToggle = container.querySelector('[data-graph-kind-toggle="goal"]') as HTMLButtonElement | null;
+    expect(goalToggle).toBeTruthy();
+    if (!goalToggle) return;
+    await userEvent.click(goalToggle);
+
+    // After hide: no navigate, and the anchor is no longer in the DOM (kind hidden)
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-graph-kind-anchor="goal"]')).toBeNull();
+
+    // The Show all button should now appear
+    const showAll = container.querySelector('[data-graph-kind-show-all]') as HTMLButtonElement | null;
+    expect(showAll).toBeTruthy();
+    if (!showAll) return;
+    await userEvent.click(showAll);
+
+    // After Show all: anchor is back, still no navigate
+    expect(container.querySelector('[data-graph-kind-anchor="goal"]')).toBeTruthy();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('clicking the body of a hidden chip unhides synchronously and then navigates', async () => {
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    // Hide the goal kind first
+    const goalToggle = container.querySelector('[data-graph-kind-toggle="goal"]') as HTMLButtonElement | null;
+    if (!goalToggle) throw new Error('goal toggle not found');
+    await userEvent.click(goalToggle);
+    expect(container.querySelector('[data-graph-kind-anchor="goal"]')).toBeNull();
+
+    // Click the body of the now-hidden goal chip
+    const goalBody = container.querySelector('[data-graph-kind-body="goal"]') as HTMLButtonElement | null;
+    if (!goalBody) throw new Error('goal body not found');
+    await userEvent.click(goalBody);
+
+    // After flushSync + navigate: the anchor must be in the DOM AND mockNavigate was called with kind-goal
+    expect(container.querySelector('[data-graph-kind-anchor="goal"]')).toBeTruthy();
+    expect(mockNavigate).toHaveBeenCalledWith(expect.objectContaining({ hash: 'kind-goal' }));
+  });
+});
+
+describe('structured-list-view unhideAndNavigate helper', () => {
+  it('uses flushSync to commit the unhide before navigate fires', () => {
+    const src = readSrc('src/client/routes/specification/$id/-structured-list-view.tsx');
+    expect(src).toContain("import { flushSync } from 'react-dom'");
+    expect(src).toMatch(/flushSync\(\(\) => \{[\s\S]*?setHiddenKinds/);
+  });
 });
 
 describe('RelationChipPreview', () => {
@@ -574,5 +671,24 @@ describe('RelationChipPreview', () => {
 
     expect(screen.getByText(/0.*outgoing/i)).toBeTruthy();
     expect(screen.getByText(/0.*incoming/i)).toBeTruthy();
+  });
+});
+
+describe('KindFilterToggler integration', () => {
+  it('renders KindToggleChip for each populated kind', () => {
+    const src = readSrc('src/client/routes/specification/$id/-structured-list-view.tsx');
+    expect(src).toContain("import { KindToggleChip } from './-kind-toggle-chip.js'");
+    expect(src).toContain('<KindToggleChip');
+    expect(src).toContain('onNavigate={onNavigate}');
+  });
+});
+
+describe('"Show all" bulk control', () => {
+  it('renders Show all button keyed off hiddenKinds.size, and resets on click', () => {
+    const src = readSrc('src/client/routes/specification/$id/-structured-list-view.tsx');
+    expect(src).toMatch(/hiddenKinds\.size (?:===|>) /);
+    expect(src).toContain('Show all');
+    expect(src).toContain('data-graph-kind-show-all');
+    expect(src).toMatch(/setHiddenKinds\(new Set\(\)\)/);
   });
 });
