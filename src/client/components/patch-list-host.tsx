@@ -187,19 +187,20 @@ export interface StagedPatchesFilter {
 
 export function useStagedPatches(filter?: StagedPatchesFilter): readonly Patch[] {
   const ctx = useContext(PatchListContext);
+  const anchorKind = filter?.anchor?.kind;
+  const anchorItemId = filter?.anchor?.itemId;
+  const filterKind = filter?.kind;
   return useMemo(() => {
     if (!ctx) return [];
     let staged = ctx.state.staged;
-    if (filter?.anchor) {
-      const anchor = filter.anchor;
+    if (anchorKind !== undefined && anchorItemId !== undefined) {
       staged = staged.filter(
-        (patch) => patch.anchor.kind === anchor.kind && patch.anchor.itemId === anchor.itemId,
+        (patch) => patch.anchor.kind === anchorKind && patch.anchor.itemId === anchorItemId,
       );
     }
-    if (filter?.kind) {
-      const kind = filter.kind;
-      staged = staged.filter((patch) => patch.kind === kind);
+    if (filterKind !== undefined) {
+      staged = staged.filter((patch) => patch.kind === filterKind);
     }
     return staged;
-  }, [ctx, filter?.anchor, filter?.kind]);
+  }, [ctx, anchorKind, anchorItemId, filterKind]);
 }

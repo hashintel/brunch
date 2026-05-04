@@ -258,25 +258,29 @@ export function SideChatHost({
     summary: patch.summary,
   }));
 
-  const prevStagedCountRef = useRef(0);
+  const triggeredAutoApplyIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    const previous = prevStagedCountRef.current;
-    const current = patchListState.staged.length;
-    prevStagedCountRef.current = current;
-    if (current > previous && !patchListState.isApplying && patchList) {
-      const allAutoApplyable = patchListState.staged.every((patch) => patch.kind === 'annotate');
-      if (allAutoApplyable) {
-        void patchList.apply();
-      }
+    if (!patchList || patchListState.isApplying) return;
+    const triggered = triggeredAutoApplyIdsRef.current;
+    const stagedIds = new Set(patchListState.staged.map((patch) => patch.id));
+    for (const id of triggered) {
+      if (!stagedIds.has(id)) triggered.delete(id);
     }
+    const allAutoApplyable = patchListState.staged.every((patch) => patch.kind === 'annotate');
+    if (!allAutoApplyable) return;
+    const hasUntriggered = patchListState.staged.some((patch) => !triggered.has(patch.id));
+    if (!hasUntriggered) return;
+    for (const patch of patchListState.staged) {
+      triggered.add(patch.id);
+    }
+    void patchList.apply();
   }, [patchList, patchListState.staged, patchListState.isApplying]);
 
-  // Existing annotations on the pinned item — fetched on open, refetched after
-  // apply/undo (canUndo flips) so the panel stays in sync without optimistic
-  // updates.
+  const activeItemId = activeSideChat?.itemId;
+  const activeItemKind = activeSideChat?.itemKind;
   const [annotations, setAnnotations] = useState<readonly CreatedAnnotation[]>([]);
   useEffect(() => {
-    if (!activeSideChat) {
+    if (activeItemId === undefined || activeItemKind === undefined) {
       setAnnotations([]);
       return;
     }
@@ -291,7 +295,7 @@ export function SideChatHost({
     return () => {
       cancelled = true;
     };
-  }, [activeSideChat, specificationId, patchListState.canUndo, patchListState.isApplying]);
+  }, [activeItemId, activeItemKind, specificationId, patchListState.canUndo, patchListState.isApplying]);
 
   const existingAnnotations: readonly SideChatExistingAnnotation[] = activeSideChat
     ? annotations
