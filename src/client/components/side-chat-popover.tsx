@@ -189,12 +189,12 @@ export function SideChatPopover({
       </header>
 
       {existingAnnotations.length > 0 ? (
-        <section
-          aria-label="Existing notes on this item"
-          className="flex flex-col gap-1 border-b border-rule pb-2"
-        >
-          <header className="text-xs font-medium text-sub">Notes ({existingAnnotations.length})</header>
-          <ul className="flex flex-col gap-1">
+        <details aria-label="Existing notes on this item" className="group/notes" open>
+          <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-sub hover:text-ink">
+            <span className="text-hint transition-transform group-open/notes:rotate-90">›</span>
+            <span>Notes ({existingAnnotations.length})</span>
+          </summary>
+          <ul className="mt-1 flex flex-col gap-1">
             {existingAnnotations.map((annotation) => {
               const hasBody = annotation.body && annotation.body !== annotation.summary;
               return (
@@ -204,9 +204,9 @@ export function SideChatPopover({
                   className="overflow-hidden rounded bg-wash/60 text-xs text-ink"
                 >
                   {hasBody ? (
-                    <details className="group">
+                    <details className="group/note">
                       <summary className="flex cursor-pointer list-none items-center gap-1 px-2 py-1 font-medium hover:bg-wash">
-                        <span className="text-hint transition-transform group-open:rotate-90">›</span>
+                        <span className="text-hint transition-transform group-open/note:rotate-90">›</span>
                         <span className="flex-1">{annotation.summary}</span>
                       </summary>
                       <div className="border-t border-rule px-2 py-1 text-sub">{annotation.body}</div>
@@ -218,7 +218,7 @@ export function SideChatPopover({
               );
             })}
           </ul>
-        </section>
+        </details>
       ) : null}
 
       <ul role="log" aria-label="Side-chat messages" className="flex flex-1 flex-col gap-2 overflow-y-auto">
