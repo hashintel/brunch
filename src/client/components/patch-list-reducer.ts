@@ -206,18 +206,9 @@ function foldEvents(events: readonly PatchEvent[]): FoldAccumulator {
         }
         break;
       case 'BatchUndone':
+        // Terminal: undone patches don't re-stage, so the auto-apply effect (D131)
+        // doesn't immediately reapply them.
         acc.undoneBatchIds.add(event.batchId);
-        // Re-stage the patches in their original order so the user can re-apply or revise.
-        for (const batch of acc.appliedBatches) {
-          if (batch.batchId === event.batchId) {
-            for (const id of batch.patchIds) {
-              acc.appliedPatchIds.delete(id);
-              if (acc.byId.has(id) && !acc.stagedOrder.includes(id)) {
-                acc.stagedOrder.push(id);
-              }
-            }
-          }
-        }
         break;
     }
   }

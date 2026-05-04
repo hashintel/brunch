@@ -171,7 +171,7 @@ describe('deriveState — apply / undo lifecycle', () => {
     expect(derived.lastBatchId).toBe('b1');
   });
 
-  it('after undo, the patches re-appear in staged in original order; canUndo flips false', () => {
+  it('after undo, staged stays empty (terminal undo) and canUndo flips false', () => {
     let state = initialPatchListState;
     state = patchListReducer(state, { type: 'STAGE', patchId: 'a', patch: makeAnnotatePatch('a') });
     state = patchListReducer(state, { type: 'STAGE', patchId: 'b', patch: makeAnnotatePatch('b') });
@@ -185,7 +185,7 @@ describe('deriveState — apply / undo lifecycle', () => {
     state = patchListReducer(state, { type: 'UNDO_SUCCESS', batchId: 'b1' });
 
     const derived = deriveState(state);
-    expect(derived.staged.map((patch) => patch.id)).toEqual(['a', 'b']);
+    expect(derived.staged).toEqual([]);
     expect(derived.canUndo).toBe(false);
   });
 
@@ -262,7 +262,7 @@ describe('getPendingUndoHandle', () => {
 });
 
 describe('full sequence round-trip', () => {
-  it('stage → edit → stage → apply → undo restores both staged with edited summary', () => {
+  it('stage → edit → stage → apply → undo: applied patches end terminal (undone), staged empty', () => {
     let state = initialPatchListState;
 
     // Stage two
@@ -291,12 +291,12 @@ describe('full sequence round-trip', () => {
 
     expect(deriveState(state).count).toBe(0);
 
-    // Undo
+    // Undo (terminal — patches don't re-stage)
     state = patchListReducer(state, { type: 'UNDO_SUCCESS', batchId: 'B' });
 
     const derived = deriveState(state);
-    expect(derived.staged.map((patch) => patch.id)).toEqual(['a', 'b']);
-    expect(derived.staged[0]?.summary).toBe('a-edited');
+    expect(derived.staged).toEqual([]);
+    expect(derived.canUndo).toBe(false);
   });
 });
 

@@ -253,6 +253,18 @@ export function SideChatHost({
     summary: patch.summary,
   }));
 
+  // Auto-apply user-driven annotations on stage (D131). Comparing against the
+  // previous count avoids a retry loop after apply failure.
+  const prevStagedCountRef = useRef(0);
+  useEffect(() => {
+    const previous = prevStagedCountRef.current;
+    const current = patchListState.staged.length;
+    prevStagedCountRef.current = current;
+    if (current > previous && !patchListState.isApplying && patchList) {
+      void patchList.apply();
+    }
+  }, [patchList, patchListState.staged.length, patchListState.isApplying]);
+
   return (
     <SideChatContext.Provider value={sideChatContextValue}>
       {children}

@@ -277,8 +277,7 @@ describe('undo', () => {
     // Reverse order: second-staged undoes first.
     expect(undoCalls).toEqual(['id-2', 'id-1']);
     expect(refs.current.state.canUndo).toBe(false);
-    // Patches re-stage after undo per the reducer's UNDO_SUCCESS rule.
-    expect(refs.current.state.count).toBe(2);
+    expect(refs.current.state.count).toBe(0);
   });
 
   it('undo when canUndo=false is a no-op', async () => {

@@ -75,8 +75,8 @@ describe('SideChatHost annotate flow', () => {
     expect(screen.getByLabelText('Annotation body')).toBeTruthy();
   });
 
-  it('staging an annotation surfaces it in the inline patch list and exits composer mode', () => {
-    const { appliers } = makeAppliers();
+  it('staging an annotation auto-applies it (per the D131 user-driven carve-out) and surfaces Undo', async () => {
+    const { appliers, annotateMock } = makeAppliers();
     render(
       <PatchListProvider specificationId={1} appliers={appliers}>
         <SideChatHost specificationId={1}>
@@ -93,15 +93,17 @@ describe('SideChatHost annotate flow', () => {
     fireEvent.change(screen.getByLabelText('Annotation body'), {
       target: { value: 'The current wording is ambiguous.' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
+    });
+    await screen.findByRole('button', { name: /^undo$/i });
 
-    // Composer is gone, inline list shows the staged patch.
     expect(screen.queryByLabelText('Annotation summary')).toBeNull();
-    expect(screen.getByText('Tighten phrasing')).toBeTruthy();
-    expect(screen.getByText('1 staged annotation')).toBeTruthy();
+    expect(screen.queryByText('1 staged annotation')).toBeNull();
+    expect(annotateMock).toHaveBeenCalledTimes(1);
   });
 
-  it('Apply invokes the annotate applier with the staged patch and clears the inline list on success', async () => {
+  it('passes the trimmed summary + body through to the annotate applier on auto-apply', async () => {
     const { appliers, annotateMock } = makeAppliers();
     render(
       <PatchListProvider specificationId={1} appliers={appliers}>
@@ -115,10 +117,8 @@ describe('SideChatHost annotate flow', () => {
     fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
-    fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
-
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
     });
     await screen.findByRole('button', { name: /^undo$/i });
 
@@ -127,14 +127,9 @@ describe('SideChatHost annotate flow', () => {
     expect(stagedPatch.kind).toBe('annotate');
     expect(stagedPatch.summary).toBe('sum');
     expect(stagedPatch.body).toBe('body');
-
-    // Inline list disappears once staged is empty.
-    expect(screen.queryByText('1 staged annotation')).toBeNull();
-    // Undo is now available.
-    expect(screen.getByRole('button', { name: /^undo$/i })).toBeTruthy();
   });
 
-  it('Undo invokes the returned undo handle and flips canUndo off', async () => {
+  it('Undo after auto-apply invokes the returned undo handle and flips canUndo off', async () => {
     const { appliers, undoMock } = makeAppliers();
     render(
       <PatchListProvider specificationId={1} appliers={appliers}>
@@ -148,10 +143,8 @@ describe('SideChatHost annotate flow', () => {
     fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
-    fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
-
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
     });
     await screen.findByRole('button', { name: /^undo$/i });
 
@@ -161,9 +154,9 @@ describe('SideChatHost annotate flow', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(undoMock).toHaveBeenCalledTimes(1);
-    // Patches re-stage after undo per the reducer; Apply is back, Undo is gone.
-    expect(screen.getByRole('button', { name: /^apply$/i })).toBeTruthy();
+    expect(screen.queryByText(/staged annotation/i)).toBeNull();
     expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^apply$/i })).toBeNull();
   });
 
   it('Apply failure preserves the staged patch and leaves canUndo false', async () => {
@@ -184,23 +177,23 @@ describe('SideChatHost annotate flow', () => {
     fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
-    fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
-
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
     });
-    // Wait for the apply Promise to settle without polling for Undo
-    // (which would never appear on failure).
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(failingAnnotate).toHaveBeenCalledTimes(1);
-    // Patch stays staged; no Undo button.
     expect(screen.getByText('1 staged annotation')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /^apply$/i })).toBeTruthy();
   });
 
-  it('Discard removes a staged patch from the inline list', () => {
-    const { appliers } = makeAppliers();
+  it('Discard removes a stuck-staged patch (failed auto-apply) from the inline list', async () => {
+    const failingAnnotate = vi.fn(() => Promise.reject(new Error('boom')));
+    const appliers: PatchAppliers = {
+      annotate: failingAnnotate as unknown as PatchAppliers['annotate'],
+    };
+
     render(
       <PatchListProvider specificationId={1} appliers={appliers}>
         <SideChatHost specificationId={1}>
@@ -213,7 +206,10 @@ describe('SideChatHost annotate flow', () => {
     fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
-    fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(screen.getByText('1 staged annotation')).toBeTruthy();
 
@@ -222,8 +218,11 @@ describe('SideChatHost annotate flow', () => {
     expect(screen.queryByText('1 staged annotation')).toBeNull();
   });
 
-  it('inline patch list filters to the currently pinned item', () => {
-    const { appliers } = makeAppliers();
+  it('inline patch list filters stuck-staged patches to the currently pinned item', async () => {
+    const failingAnnotate = vi.fn(() => Promise.reject(new Error('boom')));
+    const appliers: PatchAppliers = {
+      annotate: failingAnnotate as unknown as PatchAppliers['annotate'],
+    };
     const otherItem: SideChatPinnableItem = {
       kind: 'goal',
       id: 11,
@@ -253,12 +252,15 @@ describe('SideChatHost annotate flow', () => {
       </PatchListProvider>,
     );
 
-    // Stage on D7
+    // Stage on D7 (auto-apply fails, patch sits in staged on D7's anchor)
     fireEvent.click(screen.getByText('open-decision'));
     fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'd-sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'd-body' } });
-    fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^stage$/i }));
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(screen.getByText('d-sum')).toBeTruthy();
 
