@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -769,7 +769,7 @@ describe('StructuredListView', () => {
       });
     });
 
-    it('renders streamed text-delta chunks incrementally as a pending assistant message', () => {
+    it('renders streamed text-delta chunks incrementally as a pending assistant message', async () => {
       const stream = makeManualStream();
       const { container } = renderInsideHost(singleItemNoEdges());
 
@@ -782,12 +782,16 @@ describe('StructuredListView', () => {
 
       const dialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
       const log = within(dialog).getByRole('log', { name: /side[- ]chat messages/i });
+      // The assistant bubble uses a typewriter reveal; wait for it to catch up.
+      await waitFor(() => {
+        const messages = log.querySelectorAll('[data-message-role]');
+        expect(messages).toHaveLength(2);
+        expect(messages[1].textContent).toContain('It depends.');
+      });
       const messages = log.querySelectorAll('[data-message-role]');
-      expect(messages).toHaveLength(2);
       expect(messages[0].getAttribute('data-message-role')).toBe('user');
       expect(messages[0].textContent).toContain('Why?');
       expect(messages[1].getAttribute('data-message-role')).toBe('assistant');
-      expect(messages[1].textContent).toContain('It depends.');
     });
 
     it('renders an error message and re-enables sending when the stream rejects', async () => {

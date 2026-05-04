@@ -1,6 +1,48 @@
 import { NotebookPen, PencilLine } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
+function useTypewriter(target: string, animate: boolean, charDelayMs = 15): string {
+  const [displayed, setDisplayed] = useState(target);
+  useEffect(() => {
+    if (!animate) {
+      if (displayed !== target) setDisplayed(target);
+      return;
+    }
+    if (displayed.length > target.length) {
+      setDisplayed(target);
+      return;
+    }
+    if (displayed.length === target.length) return;
+    const remaining = target.length - displayed.length;
+    const charsToAdd = remaining > 40 ? Math.ceil(remaining / 20) : 1;
+    const id = window.setTimeout(() => {
+      setDisplayed(target.slice(0, displayed.length + charsToAdd));
+    }, charDelayMs);
+    return () => window.clearTimeout(id);
+  }, [target, displayed, animate, charDelayMs]);
+  return displayed;
+}
+
+function MessageBubble({ message }: { message: SideChatMessage }) {
+  const animate = message.role === 'assistant' && !message.error && message.pending === true;
+  const displayed = useTypewriter(message.text, animate);
+  const baseClass = message.error
+    ? 'max-w-[85%] rounded-lg bg-red-50 px-3 py-1.5 text-sm text-red-900 ring-1 ring-red-200'
+    : message.role === 'user'
+      ? 'self-end max-w-[85%] rounded-lg bg-[rgba(0,0,0,0.03)] px-3 py-1.5 text-sm text-ink'
+      : 'max-w-[85%] rounded-lg px-3 py-1.5 text-sm whitespace-pre-wrap text-ink';
+  return (
+    <li
+      data-message-role={message.role}
+      data-message-pending={message.pending ? 'true' : undefined}
+      data-message-error={message.error ? 'true' : undefined}
+      className={baseClass}
+    >
+      {message.role === 'assistant' && !message.error ? displayed : message.text}
+    </li>
+  );
+}
+
 export interface SideChatPinnedItem {
   referenceCode: string;
   content: string;
@@ -182,33 +224,9 @@ export function SideChatPopover({
       </header>
 
       <ul role="log" aria-label="Side-chat messages" className="flex flex-1 flex-col gap-2 overflow-y-auto">
-        {messages.map((message, index) => {
-          const baseClass = message.error
-            ? 'max-w-[85%] rounded-lg bg-red-50 px-3 py-1.5 text-sm text-red-900 ring-1 ring-red-200'
-            : message.role === 'user'
-              ? 'self-end max-w-[85%] rounded-lg bg-[rgba(0,0,0,0.03)] px-3 py-1.5 text-sm text-ink'
-              : 'max-w-[85%] rounded-lg px-3 py-1.5 text-sm whitespace-pre-wrap text-ink';
-          return (
-            <li
-              key={index}
-              data-message-role={message.role}
-              data-message-pending={message.pending ? 'true' : undefined}
-              data-message-error={message.error ? 'true' : undefined}
-              className={baseClass}
-            >
-              {message.pending && !message.error
-                ? [...message.text].map((char, charIndex) => (
-                    <span
-                      key={charIndex}
-                      className="inline animate-[side-chat-stream-char_180ms_ease-out_both]"
-                    >
-                      {char}
-                    </span>
-                  ))
-                : message.text}
-            </li>
-          );
-        })}
+        {messages.map((message, index) => (
+          <MessageBubble key={index} message={message} />
+        ))}
       </ul>
 
       {isApplying ? (

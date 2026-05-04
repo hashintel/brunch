@@ -173,17 +173,6 @@ html {
   -moz-osx-font-smoothing: grayscale;
 }
 
-@keyframes side-chat-stream-char {
-  from {
-    opacity: 0;
-    filter: blur(2px);
-  }
-  to {
-    opacity: 1;
-    filter: blur(0);
-  }
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
