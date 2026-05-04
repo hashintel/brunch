@@ -186,8 +186,8 @@ export function SideChatPopover({
           const baseClass = message.error
             ? 'max-w-[85%] rounded-lg bg-red-50 px-3 py-1.5 text-sm text-red-900 ring-1 ring-red-200'
             : message.role === 'user'
-              ? 'self-end max-w-[85%] rounded-lg bg-wash px-3 py-1.5 text-sm text-ink'
-              : 'max-w-[85%] rounded-lg px-3 py-1.5 text-sm text-ink';
+              ? 'self-end max-w-[85%] rounded-lg bg-[rgba(0,0,0,0.03)] px-3 py-1.5 text-sm text-ink'
+              : 'max-w-[85%] rounded-lg px-3 py-1.5 text-sm whitespace-pre-wrap text-ink';
           return (
             <li
               key={index}
@@ -196,7 +196,16 @@ export function SideChatPopover({
               data-message-error={message.error ? 'true' : undefined}
               className={baseClass}
             >
-              {message.text}
+              {message.pending && !message.error
+                ? [...message.text].map((char, charIndex) => (
+                    <span
+                      key={charIndex}
+                      className="inline animate-[side-chat-stream-char_180ms_ease-out_both]"
+                    >
+                      {char}
+                    </span>
+                  ))
+                : message.text}
             </li>
           );
         })}
