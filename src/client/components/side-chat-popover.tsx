@@ -96,6 +96,8 @@ export interface SideChatPopoverProps {
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+const LAYOUT_STORAGE_KEY = 'brunch.side-chat.layout';
+
 export function SideChatPopover({
   pinnedItem,
   onDismiss,
@@ -117,7 +119,15 @@ export function SideChatPopover({
   const [annotateSummary, setAnnotateSummary] = useState('');
   const [annotateBody, setAnnotateBody] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
-  const [layout, setLayout] = useState<'docked' | 'floating'>('docked');
+  const [layout, setLayout] = useState<'docked' | 'floating'>(() => {
+    if (typeof window === 'undefined') return 'docked';
+    const stored = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
+    return stored === 'floating' ? 'floating' : 'docked';
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(LAYOUT_STORAGE_KEY, layout);
+  }, [layout]);
   const containerRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const annotateSummaryRef = useRef<HTMLInputElement>(null);
@@ -146,16 +156,6 @@ export function SideChatPopover({
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [annotateMode, onAnnotateCancel, onDismiss]);
-
-  useEffect(() => {
-    function handlePointerDown(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        onDismiss();
-      }
-    }
-    document.addEventListener('mousedown', handlePointerDown);
-    return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [onDismiss]);
 
   function handleTabTrap(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key !== 'Tab' || !containerRef.current) {

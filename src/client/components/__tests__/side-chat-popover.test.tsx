@@ -67,7 +67,7 @@ describe('SideChatPopover', () => {
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it('fires onDismiss when the user clicks outside the popover', () => {
+  it('does not fire onDismiss when the user clicks outside the popover', () => {
     const onDismiss = vi.fn();
     render(
       <div>
@@ -78,7 +78,7 @@ describe('SideChatPopover', () => {
 
     fireEvent.mouseDown(screen.getByText('outside'));
 
-    expect(onDismiss).toHaveBeenCalledTimes(1);
+    expect(onDismiss).not.toHaveBeenCalled();
   });
 
   it('does not fire onDismiss for clicks inside the popover', () => {
