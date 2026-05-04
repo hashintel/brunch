@@ -9,12 +9,17 @@ import {
   type ReactNode,
 } from 'react';
 
+import {
+  listAnnotationsForSpecificationRequest,
+  type CreatedAnnotation,
+} from '@/client/lib/annotation-api.js';
 import { streamSideChatResponse, type SideChatPriorTurn } from '@/client/lib/side-chat-stream.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import { usePatchList, usePatchListState, useStagedPatches } from './patch-list-host.js';
 import {
   SideChatPopover,
+  type SideChatExistingAnnotation,
   type SideChatMessage,
   type SideChatPinnedItem,
   type SideChatStagedPatchSummary,
@@ -265,6 +270,38 @@ export function SideChatHost({
     }
   }, [patchList, patchListState.staged.length, patchListState.isApplying]);
 
+  // Existing annotations on the pinned item — fetched on open, refetched after
+  // apply/undo (canUndo flips) so the panel stays in sync without optimistic
+  // updates.
+  const [annotations, setAnnotations] = useState<readonly CreatedAnnotation[]>([]);
+  useEffect(() => {
+    if (!activeSideChat) {
+      setAnnotations([]);
+      return;
+    }
+    let cancelled = false;
+    void listAnnotationsForSpecificationRequest(specificationId)
+      .then((list) => {
+        if (!cancelled) setAnnotations(list);
+      })
+      .catch(() => {
+        if (!cancelled) setAnnotations([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSideChat, specificationId, patchListState.canUndo, patchListState.isApplying]);
+
+  const existingAnnotations: readonly SideChatExistingAnnotation[] = activeSideChat
+    ? annotations
+        .filter((annotation) => annotation.knowledge_item_id === activeSideChat.itemId)
+        .map((annotation) => ({
+          id: annotation.id,
+          summary: annotation.summary,
+          body: annotation.body,
+        }))
+    : [];
+
   return (
     <SideChatContext.Provider value={sideChatContextValue}>
       {children}
@@ -285,6 +322,7 @@ export function SideChatHost({
           onApply={patchList?.apply}
           onUndo={patchList?.undo}
           onDiscardPatch={patchList?.discard}
+          existingAnnotations={existingAnnotations}
         />
       )}
     </SideChatContext.Provider>

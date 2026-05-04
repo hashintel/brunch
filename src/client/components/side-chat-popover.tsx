@@ -18,6 +18,12 @@ export interface SideChatStagedPatchSummary {
   summary: string;
 }
 
+export interface SideChatExistingAnnotation {
+  id: number;
+  summary: string;
+  body: string;
+}
+
 export interface SideChatPopoverProps {
   pinnedItem: SideChatPinnedItem;
   onDismiss: () => void;
@@ -35,6 +41,8 @@ export interface SideChatPopoverProps {
   onApply?: () => void;
   onUndo?: () => void;
   onDiscardPatch?: (id: string) => void;
+  // ---- Existing annotations on the pinned item ----
+  existingAnnotations?: readonly SideChatExistingAnnotation[];
 }
 
 const FOCUSABLE_SELECTOR =
@@ -55,6 +63,7 @@ export function SideChatPopover({
   onApply,
   onUndo,
   onDiscardPatch,
+  existingAnnotations = [],
 }: SideChatPopoverProps) {
   const [draft, setDraft] = useState('');
   const [annotateSummary, setAnnotateSummary] = useState('');
@@ -178,6 +187,39 @@ export function SideChatPopover({
           </button>
         ) : null}
       </header>
+
+      {existingAnnotations.length > 0 ? (
+        <section
+          aria-label="Existing notes on this item"
+          className="flex flex-col gap-1 border-b border-rule pb-2"
+        >
+          <header className="text-xs font-medium text-sub">Notes ({existingAnnotations.length})</header>
+          <ul className="flex flex-col gap-1">
+            {existingAnnotations.map((annotation) => {
+              const hasBody = annotation.body && annotation.body !== annotation.summary;
+              return (
+                <li
+                  key={annotation.id}
+                  data-annotation-id={annotation.id}
+                  className="overflow-hidden rounded bg-wash/60 text-xs text-ink"
+                >
+                  {hasBody ? (
+                    <details className="group">
+                      <summary className="flex cursor-pointer list-none items-center gap-1 px-2 py-1 font-medium hover:bg-wash">
+                        <span className="text-hint transition-transform group-open:rotate-90">›</span>
+                        <span className="flex-1">{annotation.summary}</span>
+                      </summary>
+                      <div className="border-t border-rule px-2 py-1 text-sub">{annotation.body}</div>
+                    </details>
+                  ) : (
+                    <div className="px-2 py-1 font-medium">{annotation.summary}</div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       <ul role="log" aria-label="Side-chat messages" className="flex flex-1 flex-col gap-2 overflow-y-auto">
         {messages.map((message, index) => {

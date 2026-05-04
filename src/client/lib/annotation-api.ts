@@ -45,6 +45,18 @@ export async function createAnnotationRequest(
   return (await response.json()) as CreatedAnnotation;
 }
 
+export async function listAnnotationsForSpecificationRequest(
+  specificationId: number,
+  options: AnnotationApiOptions = {},
+): Promise<CreatedAnnotation[]> {
+  const fetchImpl = options.fetch ?? fetch;
+  const response = await fetchImpl(`/api/specifications/${specificationId}/annotations`);
+  if (!response.ok) {
+    throw new Error(`listAnnotations failed: ${response.status} ${response.statusText}`);
+  }
+  return (await response.json()) as CreatedAnnotation[];
+}
+
 export async function deleteAnnotationRequest(
   annotationId: number,
   options: AnnotationApiOptions = {},
