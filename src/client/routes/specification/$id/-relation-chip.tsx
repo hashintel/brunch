@@ -1,4 +1,5 @@
 import { useNavigate } from '@tanstack/react-router';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 import { kindColor } from '@/client/components/knowledge-card';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/client/components/ui/hover-card';
@@ -13,6 +14,10 @@ export interface RelationChipTarget {
   outgoingCount: number;
   incomingCount: number;
 }
+
+type ChipActivateHandler = (target: RelationChipTarget) => void;
+const ChipActivateContext = createContext<ChipActivateHandler | null>(null);
+export const ChipActivateProvider = ChipActivateContext.Provider;
 
 export function RelationChipPreview({ target }: { target: RelationChipTarget }) {
   return (
@@ -37,14 +42,28 @@ export function RelationChipPreview({ target }: { target: RelationChipTarget }) 
 
 export function RelationChip({ target }: { target: RelationChipTarget }) {
   const navigate = useNavigate();
+  const onActivate = useContext(ChipActivateContext);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('scroll', close, { capture: true, passive: true, once: true });
+    return () => window.removeEventListener('scroll', close, { capture: true });
+  }, [open]);
+
   return (
-    <HoverCard>
+    <HoverCard open={open} onOpenChange={setOpen}>
       <HoverCardTrigger asChild>
         <button
           type="button"
           data-testid="relation-chip"
           onClick={() => {
-            void navigate({ to: '.', hash: target.referenceCode });
+            if (onActivate) {
+              onActivate(target);
+            } else {
+              void navigate({ to: '.', hash: target.referenceCode });
+            }
           }}
           className="inline-flex cursor-pointer items-center gap-1.5 rounded bg-wash px-1.5 py-0.5 text-xs outline-none hover:bg-rule focus-visible:ring-2 focus-visible:ring-foreground/30"
         >

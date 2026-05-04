@@ -1,9 +1,10 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useLocation } from '@tanstack/react-router';
 import { ArrowLeft, ChevronsDown, ChevronsUp } from 'lucide-react';
 import { useState } from 'react';
 
 import { KnowledgeGraphIdentity } from '@/client/components/knowledge-graph-identity';
 import type { WorkflowState } from '@/shared/api-types.js';
+import type { WorkflowPhase } from '@/shared/phase-close.js';
 import {
   areAllWorkflowPhasesClosed,
   getCurrentOpenPhase,
@@ -27,15 +28,22 @@ interface ReturnTarget {
   openLabel: string;
 }
 
-function returnTarget(workflow: WorkflowState, specificationId: string): ReturnTarget | null {
+function targetForPhase(phase: WorkflowPhase, specificationId: string): ReturnTarget {
+  return {
+    to: getPhaseRoutePath(phase) as '/specification/$id/grounding',
+    params: { id: specificationId },
+    openLabel: `Go to ${getWorkflowPhaseLabel(phase).toLowerCase()}`,
+  };
+}
+
+function returnTarget(
+  workflow: WorkflowState,
+  specificationId: string,
+  origin: WorkflowPhase | undefined,
+): ReturnTarget | null {
+  if (origin) return targetForPhase(origin, specificationId);
   const currentReachable = getCurrentOpenPhase(workflow.phases);
-  if (currentReachable) {
-    return {
-      to: getPhaseRoutePath(currentReachable) as '/specification/$id/grounding',
-      params: { id: specificationId },
-      openLabel: `Go to ${getWorkflowPhaseLabel(currentReachable).toLowerCase()}`,
-    };
-  }
+  if (currentReachable) return targetForPhase(currentReachable, specificationId);
   if (areAllWorkflowPhasesClosed(workflow.phases)) {
     return {
       to: '/specification/$id/export',
@@ -52,7 +60,8 @@ const ROW_TOGGLE_CLASS =
 function GraphRouteComponent() {
   const entityState = useSpecificationEntitiesProjectWide();
   const bundle = useSpecificationBundleData();
-  const target = returnTarget(bundle.workflow, String(bundle.specification.id));
+  const { state } = useLocation();
+  const target = returnTarget(bundle.workflow, String(bundle.specification.id), state?.fromPhase);
   const [rowsDefaultOpen, setRowsDefaultOpen] = useState(true);
   const [rowsRemountKey, setRowsRemountKey] = useState(0);
 
@@ -64,8 +73,10 @@ function GraphRouteComponent() {
   const toggleLabel = rowsDefaultOpen ? 'Collapse all' : 'Expand all';
   const ToggleIcon = rowsDefaultOpen ? ChevronsUp : ChevronsDown;
 
+  const restoreScrollState = state?.fromScrollY != null ? { scrollY: state.fromScrollY } : undefined;
+
   const backToChatLink = target ? (
-    <Link to={target.to} params={target.params} className={BACK_LINK_CLASS}>
+    <Link to={target.to} params={target.params} state={restoreScrollState} className={BACK_LINK_CLASS}>
       <ArrowLeft className="size-3" />
       <span>Back to chat</span>
     </Link>
@@ -78,7 +89,7 @@ function GraphRouteComponent() {
   ) : undefined;
 
   const header = (
-    <header data-graph-header className="flex items-center justify-between border-b border-rule pb-3">
+    <header data-graph-header className="flex items-center justify-between">
       <KnowledgeGraphIdentity entityState={entityState} />
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1">

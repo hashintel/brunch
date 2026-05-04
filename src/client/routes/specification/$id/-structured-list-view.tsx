@@ -1,15 +1,17 @@
-import { useLocation } from '@tanstack/react-router';
+import { useLocation, useNavigate } from '@tanstack/react-router';
 import { ArrowDownLeft, ArrowUpRight, ChevronRight, MessageCircle } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { flushSync } from 'react-dom';
 
 import { kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
 import { Badge } from '@/client/components/ui/badge';
+import { Button } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
 import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
 
-import { RelationChip, type RelationChipTarget } from './-relation-chip.js';
+import { ChipActivateProvider, RelationChip, type RelationChipTarget } from './-relation-chip.js';
 
 const HASH_ANCHOR_HIGHLIGHT_MS = 1500;
 const CHIP_TRUNCATE_LIMIT = 6;
@@ -20,7 +22,7 @@ function readHashTargetRef(rawHash: string): string | null {
   return stripped.length > 0 ? stripped : null;
 }
 
-function useGraphHashAnchor(containerRef: RefObject<HTMLElement | null>): {
+function useGraphHashAnchor(scrollAreaRef: RefObject<HTMLElement | null>): {
   anchoredRowRef: string | null;
 } {
   const location = useLocation();
@@ -32,18 +34,23 @@ function useGraphHashAnchor(containerRef: RefObject<HTMLElement | null>): {
       setAnchoredRowRef(null);
       return;
     }
-    const row = containerRef.current?.querySelector(
+    const scrollArea = scrollAreaRef.current;
+    const row = scrollArea?.querySelector(
       `[data-graph-row-ref="${CSS.escape(targetRef)}"]`,
     ) as HTMLElement | null;
-    if (!row) {
+    if (!scrollArea || !row) {
       setAnchoredRowRef(null);
       return;
     }
-    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const areaRect = scrollArea.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const rowTopWithinArea = rowRect.top - areaRect.top + scrollArea.scrollTop;
+    const targetTop = rowTopWithinArea - scrollArea.clientHeight / 2 + row.clientHeight / 2;
+    scrollArea.scrollTo({ top: targetTop, behavior: 'smooth' });
     setAnchoredRowRef(targetRef);
     const timer = setTimeout(() => setAnchoredRowRef(null), HASH_ANCHOR_HIGHLIGHT_MS);
     return () => clearTimeout(timer);
-  }, [targetRef, containerRef]);
+  }, [targetRef, scrollAreaRef]);
 
   return { anchoredRowRef };
 }
@@ -138,23 +145,32 @@ function collectItemsForGroup(
   return result;
 }
 
+interface PopulatedKind {
+  entry: (typeof knowledgeKindRegistry)[number];
+  count: number;
+}
+
+function getPopulatedKinds(entityState: EntitiesData): PopulatedKind[] {
+  return knowledgeKindRegistry
+    .map((entry) => ({ entry, count: entityState[entry.collectionKey].length }))
+    .filter(({ count }) => count > 0);
+}
+
 function KindFilterToggler({
-  entityState,
+  populatedKinds,
   hiddenKinds,
   onToggle,
 }: {
-  entityState: EntitiesData;
+  populatedKinds: PopulatedKind[];
   hiddenKinds: ReadonlySet<KnowledgeKind>;
   onToggle: (kind: KnowledgeKind) => void;
 }) {
-  const populated = knowledgeKindRegistry.filter((entry) => entityState[entry.collectionKey].length > 0);
-  if (populated.length === 0) return null;
+  if (populatedKinds.length === 0) return null;
 
   return (
     <div data-graph-kind-filter className="flex flex-wrap gap-1.5">
-      {populated.map((entry) => {
+      {populatedKinds.map(({ entry, count }) => {
         const isHidden = hiddenKinds.has(entry.kind);
-        const count = entityState[entry.collectionKey].length;
         return (
           <Badge
             key={entry.kind}
@@ -374,16 +390,24 @@ function ItemDetailsFooter({
   );
 }
 
-function EmptyStateCard({ action }: { action?: ReactNode }) {
+function EmptyStateCard({
+  state,
+  title,
+  description,
+  action,
+}: {
+  state: 'no-items' | 'all-kinds-hidden';
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
   return (
     <div
-      data-graph-empty-state
+      data-graph-empty-state={state}
       className="flex flex-col items-center gap-3 rounded-md border border-rule bg-tint p-8 text-center"
     >
-      <p className="text-sm font-medium text-ink">No knowledge captured yet</p>
-      <p className="max-w-md text-xs text-sub">
-        Knowledge appears here as the interview progresses. Start a turn to populate the graph.
-      </p>
+      <p className="text-sm font-medium text-ink">{title}</p>
+      <p className="max-w-md text-xs text-sub">{description}</p>
       {action && <div className="mt-2">{action}</div>}
     </div>
   );
@@ -477,9 +501,10 @@ export function StructuredListView({
   rowsRemountKey?: number;
 }) {
   const { itemsByKey, outgoingByItem, incomingByItem } = projectGraph(entityState);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { anchoredRowRef } = useGraphHashAnchor(containerRef);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const { anchoredRowRef } = useGraphHashAnchor(scrollAreaRef);
   const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
+  const navigate = useNavigate();
 
   const toggleKind = (kind: KnowledgeKind) => {
     setHiddenKinds((current) => {
@@ -490,58 +515,114 @@ export function StructuredListView({
     });
   };
 
+  const onChipActivate = useCallback(
+    (target: RelationChipTarget) => {
+      // Force the unhide to commit before navigate updates the hash, so the
+      // target row is mounted by the time useGraphHashAnchor's effect fires.
+      // Without flushSync, the two state updates can land in different renders
+      // (router state vs. component state) and the anchor effect — keyed only
+      // off targetRef — won't re-run once the row eventually appears.
+      flushSync(() => {
+        setHiddenKinds((current) => {
+          if (!current.has(target.kind)) return current;
+          const next = new Set(current);
+          next.delete(target.kind);
+          return next;
+        });
+      });
+      void navigate({ to: '.', hash: target.referenceCode });
+    },
+    [navigate],
+  );
+
+  const populatedKinds = getPopulatedKinds(entityState);
   const totalItems = itemsByKey.size;
+  const view: 'empty' | 'all-hidden' | 'list' =
+    totalItems === 0
+      ? 'empty'
+      : populatedKinds.every(({ entry }) => hiddenKinds.has(entry.kind))
+        ? 'all-hidden'
+        : 'list';
 
   return (
-    <div
-      ref={containerRef}
-      data-graph-structured-list
-      className="flex h-full flex-col overflow-y-auto bg-background"
-    >
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
-        {header}
-        {totalItems === 0 && <EmptyStateCard action={emptyStateAction} />}
-        {totalItems > 0 && (
-          <KindFilterToggler entityState={entityState} hiddenKinds={hiddenKinds} onToggle={toggleKind} />
+    <ChipActivateProvider value={onChipActivate}>
+      <div data-graph-structured-list className="flex h-full flex-col bg-background">
+        <div data-graph-header-bar className="flex h-16 shrink-0 items-center border-b border-rule px-6">
+          <div className="mx-auto w-full max-w-3xl">{header}</div>
+        </div>
+        {view !== 'empty' && (
+          <div data-graph-filter-bar className="shrink-0 border-b border-rule bg-tint px-6 py-2">
+            <div className="mx-auto w-full max-w-3xl">
+              <KindFilterToggler
+                populatedKinds={populatedKinds}
+                hiddenKinds={hiddenKinds}
+                onToggle={toggleKind}
+              />
+            </div>
+          </div>
         )}
-        {totalItems > 0 &&
-          graphDisplayGroups.map((group) => {
-            const items = collectItemsForGroup(entityState, group.kinds, itemsByKey, hiddenKinds);
-            if (items.length === 0) return null;
-            return (
-              <Collapsible key={group.label} defaultOpen asChild>
-                <section data-graph-section={group.label}>
-                  <div className="mb-2 flex w-full items-center justify-between gap-2 pr-3">
-                    <h2 className="text-sm font-medium text-sub">{group.label}</h2>
-                    <CollapsibleTrigger
-                      aria-label={`Toggle ${group.label}`}
-                      className="group flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
-                    >
-                      <ChevronRight className="size-3.5 transition-transform group-data-[state=open]:rotate-90" />
-                    </CollapsibleTrigger>
-                  </div>
-                  <CollapsibleContent>
-                    <div className="flex flex-col gap-2">
-                      {items.map((item) => {
-                        const itemKey = `${item.kind}:${item.id}`;
-                        return (
-                          <ItemRow
-                            key={`${itemKey}-v${rowsRemountKey}`}
-                            item={item}
-                            outgoing={outgoingByItem.get(itemKey) ?? []}
-                            incoming={incomingByItem.get(itemKey) ?? []}
-                            anchored={anchoredRowRef === item.referenceCode}
-                            defaultOpen={rowsDefaultOpen}
-                          />
-                        );
-                      })}
-                    </div>
-                  </CollapsibleContent>
-                </section>
-              </Collapsible>
-            );
-          })}
+        <div ref={scrollAreaRef} className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-6 pb-8">
+            {view === 'empty' && (
+              <EmptyStateCard
+                state="no-items"
+                title="No knowledge captured yet"
+                description="Knowledge appears here as the interview progresses. Start a turn to populate the graph."
+                action={emptyStateAction}
+              />
+            )}
+            {view === 'all-hidden' && (
+              <EmptyStateCard
+                state="all-kinds-hidden"
+                title="All kinds are hidden"
+                description="Show at least one kind to see your knowledge graph."
+                action={
+                  <Button size="sm" variant="secondary" onClick={() => setHiddenKinds(new Set())}>
+                    Show all kinds
+                  </Button>
+                }
+              />
+            )}
+            {view === 'list' &&
+              graphDisplayGroups.map((group) => {
+                const items = collectItemsForGroup(entityState, group.kinds, itemsByKey, hiddenKinds);
+                if (items.length === 0) return null;
+                return (
+                  <Collapsible key={group.label} defaultOpen asChild>
+                    <section data-graph-section={group.label}>
+                      <div className="mb-2 flex w-full items-center justify-between gap-2 pr-3">
+                        <h2 className="text-sm font-medium text-sub">{group.label}</h2>
+                        <CollapsibleTrigger
+                          aria-label={`Toggle ${group.label}`}
+                          className="group flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+                        >
+                          <ChevronRight className="size-3.5 transition-transform group-data-[state=open]:rotate-90" />
+                        </CollapsibleTrigger>
+                      </div>
+                      <CollapsibleContent>
+                        <div className="flex flex-col gap-2">
+                          {items.map((item) => {
+                            const itemKey = `${item.kind}:${item.id}`;
+                            return (
+                              <ItemRow
+                                key={`${itemKey}-v${rowsRemountKey}`}
+                                item={item}
+                                outgoing={outgoingByItem.get(itemKey) ?? []}
+                                incoming={incomingByItem.get(itemKey) ?? []}
+                                anchored={anchoredRowRef === item.referenceCode}
+                                defaultOpen={rowsDefaultOpen}
+                              />
+                            );
+                          })}
+                        </div>
+                      </CollapsibleContent>
+                    </section>
+                  </Collapsible>
+                );
+              })}
+          </div>
+        </div>
       </div>
-    </div>
+    </ChipActivateProvider>
   );
 }
