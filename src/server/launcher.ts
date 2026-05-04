@@ -43,7 +43,7 @@ export async function startLauncherRuntime(
   const guard = acquireRuntimeGuard(project.root, cwd);
 
   try {
-    const { app } = createApp({ dbPath: project.dbPath, projectCwd: cwd });
+    const { app } = await createApp({ dbPath: project.dbPath, projectCwd: cwd });
     mountStaticClient(app, options?.distDir ?? DIST_DIR);
 
     const runtime = await listenOnLocalhost(app, options?.port ?? resolveBackendPort(process.env, 0));

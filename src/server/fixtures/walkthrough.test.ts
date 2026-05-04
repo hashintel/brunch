@@ -9,7 +9,7 @@ import { getPersistedReviewSet } from '@/shared/specification-state.js';
 import { getSpecificationRecord } from '@/shared/specification.js';
 
 import { getSpecificationState } from '../core.js';
-import { createDb, getActivePath, getEntitiesForSpecificationOnActivePath } from '../db.js';
+import { createDb, getActivePath, getEntitiesForSpecificationOnActivePath, type DB } from '../db.js';
 import { renderExportMarkdown } from '../export.js';
 import {
   publicScenarios,
@@ -18,7 +18,7 @@ import {
   type WalkthroughScenarioMatrixEntry,
 } from './scenarios.js';
 
-function summarizeWorkflow(projectState: NonNullable<ReturnType<typeof getSpecificationState>>) {
+function summarizeWorkflow(projectState: NonNullable<Awaited<ReturnType<typeof getSpecificationState>>>) {
   return {
     grounding: projectState.workflow.phases.grounding.status,
     design: projectState.workflow.phases.design.status,
@@ -29,7 +29,7 @@ function summarizeWorkflow(projectState: NonNullable<ReturnType<typeof getSpecif
 
 async function withReopenedSeededScenario<T>(
   scenarioName: string,
-  run: (context: { db: ReturnType<typeof createDb>; projectId: number }) => Promise<T> | T,
+  run: (context: { db: DB; projectId: number }) => Promise<T> | T,
 ): Promise<T> {
   const tempDir = mkdtempSync(join(tmpdir(), 'brunch-fixture-'));
   const dbPath = join(tempDir, 'fixture.db');
@@ -39,15 +39,15 @@ async function withReopenedSeededScenario<T>(
     throw new Error(`Unknown walkthrough scenario "${scenarioName}"`);
   }
 
-  const seedDb = createDb(dbPath);
+  const seedDb = await createDb(dbPath);
   let projectId: number;
   try {
-    projectId = scenario(seedDb);
+    projectId = await scenario(seedDb);
   } finally {
     seedDb.$client.close();
   }
 
-  const reopenedDb = createDb(dbPath);
+  const reopenedDb = await createDb(dbPath);
   try {
     return await run({ db: reopenedDb, projectId });
   } finally {
@@ -58,20 +58,20 @@ async function withReopenedSeededScenario<T>(
 
 async function withReopenedWalkthroughScenario<T>(
   entry: Pick<WalkthroughScenarioMatrixEntry, 'seedScenario'>,
-  run: (context: { db: ReturnType<typeof createDb>; projectId: number }) => Promise<T> | T,
+  run: (context: { db: DB; projectId: number }) => Promise<T> | T,
 ): Promise<T> {
   const tempDir = mkdtempSync(join(tmpdir(), 'brunch-fixture-'));
   const dbPath = join(tempDir, 'fixture.db');
 
-  const seedDb = createDb(dbPath);
+  const seedDb = await createDb(dbPath);
   let projectId: number;
   try {
-    projectId = entry.seedScenario(seedDb);
+    projectId = await entry.seedScenario(seedDb);
   } finally {
     seedDb.$client.close();
   }
 
-  const reopenedDb = createDb(dbPath);
+  const reopenedDb = await createDb(dbPath);
   try {
     return await run({ db: reopenedDb, projectId });
   } finally {
@@ -81,7 +81,7 @@ async function withReopenedWalkthroughScenario<T>(
 }
 
 function collectVisibleReferenceCodes(
-  entities: ReturnType<typeof getEntitiesForSpecificationOnActivePath>,
+  entities: Awaited<ReturnType<typeof getEntitiesForSpecificationOnActivePath>>,
 ): Set<string> {
   return new Set(
     [
@@ -113,8 +113,8 @@ describe('walkthroughScenarioMatrix', () => {
 
   for (const entry of walkthroughScenarioMatrix) {
     it(`keeps ${entry.scenarioName} resumable after seeding`, async () => {
-      await withReopenedWalkthroughScenario(entry, ({ db, projectId }) => {
-        const projectState = getSpecificationState(db, projectId);
+      await withReopenedWalkthroughScenario(entry, async ({ db, projectId }) => {
+        const projectState = await getSpecificationState(db, projectId);
 
         expect(projectState).not.toBeNull();
         expect(summarizeWorkflow(projectState!)).toEqual(entry.expectedWorkflowSummary);
@@ -123,31 +123,34 @@ describe('walkthroughScenarioMatrix', () => {
   }
 
   it('seeds kickoff-ready and recovery-ready fixtures from durable authority without legacy control rows', async () => {
-    await withReopenedSeededScenario('issue-tracker-design-kickoff-ready', ({ db, projectId }) => {
-      expect(getActivePath(db, projectId).at(-1)).toMatchObject({
+    await withReopenedSeededScenario('issue-tracker-design-kickoff-ready', async ({ db, projectId }) => {
+      expect((await getActivePath(db, projectId)).at(-1)).toMatchObject({
         phase: 'grounding',
         turn_kind: 'question',
       });
     });
 
-    await withReopenedSeededScenario('issue-tracker-design-recovery', ({ db, projectId }) => {
-      expect(getActivePath(db, projectId).at(-1)).toMatchObject({ phase: 'design', turn_kind: 'question' });
+    await withReopenedSeededScenario('issue-tracker-design-recovery', async ({ db, projectId }) => {
+      expect((await getActivePath(db, projectId)).at(-1)).toMatchObject({
+        phase: 'design',
+        turn_kind: 'question',
+      });
     });
   });
 
   it('materializes the transition-frontier fixtures with the expected derived landings', async () => {
-    await withReopenedSeededScenario('issue-tracker-design-kickoff-ready', ({ db, projectId }) => {
-      const projectState = getSpecificationState(db, projectId);
+    await withReopenedSeededScenario('issue-tracker-design-kickoff-ready', async ({ db, projectId }) => {
+      const projectState = await getSpecificationState(db, projectId);
       expect(projectState?.landing).toEqual({ kind: 'kickoff', phase: 'design', mode: 'start' });
     });
 
-    await withReopenedSeededScenario('issue-tracker-design-recovery', ({ db, projectId }) => {
-      const projectState = getSpecificationState(db, projectId);
+    await withReopenedSeededScenario('issue-tracker-design-recovery', async ({ db, projectId }) => {
+      const projectState = await getSpecificationState(db, projectId);
       expect(projectState?.landing).toEqual({ kind: 'recovery', phase: 'design' });
     });
 
-    await withReopenedSeededScenario('issue-tracker-criteria-kickoff-ready', ({ db, projectId }) => {
-      const projectState = getSpecificationState(db, projectId);
+    await withReopenedSeededScenario('issue-tracker-criteria-kickoff-ready', async ({ db, projectId }) => {
+      const projectState = await getSpecificationState(db, projectId);
       const requirementsTurns = projectState?.turns.filter((turn) => turn.phase === 'requirements') ?? [];
       const requirementsTurn = requirementsTurns[0] ?? null;
 
@@ -159,8 +162,8 @@ describe('walkthroughScenarioMatrix', () => {
       expect(requirementsTurn?.user_parts).toContain('"reviewAction":"accept"');
     });
 
-    await withReopenedSeededScenario('issue-tracker-requirements-ready', ({ db, projectId }) => {
-      const projectState = getSpecificationState(db, projectId);
+    await withReopenedSeededScenario('issue-tracker-requirements-ready', async ({ db, projectId }) => {
+      const projectState = await getSpecificationState(db, projectId);
       const requirementsTurns = projectState?.turns.filter((turn) => turn.phase === 'requirements') ?? [];
       const requirementsTurn = requirementsTurns[0] ?? null;
 
@@ -174,8 +177,8 @@ describe('walkthroughScenarioMatrix', () => {
       expect(requirementsTurn?.assistant_parts).toContain('data-activity-summary');
     });
 
-    await withReopenedSeededScenario('issue-tracker-criteria-ready', ({ db, projectId }) => {
-      const projectState = getSpecificationState(db, projectId);
+    await withReopenedSeededScenario('issue-tracker-criteria-ready', async ({ db, projectId }) => {
+      const projectState = await getSpecificationState(db, projectId);
       const criteriaTurns = projectState?.turns.filter((turn) => turn.phase === 'criteria') ?? [];
       const criteriaTurn = criteriaTurns[0] ?? null;
 
@@ -191,21 +194,21 @@ describe('walkthroughScenarioMatrix', () => {
   });
 
   it('keeps pre-review walkthrough entities non-durable while review-set turns stay self-contained', async () => {
-    await withReopenedSeededScenario('issue-tracker-requirements-ready', ({ db, projectId }) => {
-      expect(getEntitiesForSpecificationOnActivePath(db, projectId).requirements).toEqual([]);
+    await withReopenedSeededScenario('issue-tracker-requirements-ready', async ({ db, projectId }) => {
+      expect((await getEntitiesForSpecificationOnActivePath(db, projectId)).requirements).toEqual([]);
     });
 
-    await withReopenedSeededScenario('issue-tracker-criteria-ready', ({ db, projectId }) => {
-      expect(getEntitiesForSpecificationOnActivePath(db, projectId).criteria).toEqual([]);
+    await withReopenedSeededScenario('issue-tracker-criteria-ready', async ({ db, projectId }) => {
+      expect((await getEntitiesForSpecificationOnActivePath(db, projectId)).criteria).toEqual([]);
     });
   });
 
   it('seeds truthful grounding inventory for review-ready walkthrough scenarios', async () => {
-    await withReopenedSeededScenario('issue-tracker-requirements-ready', ({ db, projectId }) => {
-      const projectState = getSpecificationState(db, projectId);
+    await withReopenedSeededScenario('issue-tracker-requirements-ready', async ({ db, projectId }) => {
+      const projectState = await getSpecificationState(db, projectId);
       const requirementsTurn = projectState?.turns.find((turn) => turn.phase === 'requirements');
       const reviewSet = getPersistedReviewSet(requirementsTurn);
-      const entities = getEntitiesForSpecificationOnActivePath(db, projectId);
+      const entities = await getEntitiesForSpecificationOnActivePath(db, projectId);
       const visibleCodes = collectVisibleReferenceCodes(entities);
 
       expect(reviewSet).not.toBeNull();
@@ -232,11 +235,11 @@ describe('walkthroughScenarioMatrix', () => {
       expect(entities.requirements).toEqual([]);
     });
 
-    await withReopenedSeededScenario('issue-tracker-criteria-ready', ({ db, projectId }) => {
-      const projectState = getSpecificationState(db, projectId);
+    await withReopenedSeededScenario('issue-tracker-criteria-ready', async ({ db, projectId }) => {
+      const projectState = await getSpecificationState(db, projectId);
       const criteriaTurn = projectState?.turns.find((turn) => turn.phase === 'criteria');
       const reviewSet = getPersistedReviewSet(criteriaTurn);
-      const entities = getEntitiesForSpecificationOnActivePath(db, projectId);
+      const entities = await getEntitiesForSpecificationOnActivePath(db, projectId);
       const visibleCodes = collectVisibleReferenceCodes(entities);
 
       expect(reviewSet).not.toBeNull();
@@ -260,13 +263,13 @@ describe('walkthroughScenarioMatrix', () => {
   });
 
   it('round-trips the export-ready walkthrough scenario through seed, reopen, and markdown export', async () => {
-    await withReopenedSeededScenario('issue-tracker-all-phases-closed', ({ db, projectId }) => {
-      const projectState = getSpecificationState(db, projectId);
+    await withReopenedSeededScenario('issue-tracker-all-phases-closed', async ({ db, projectId }) => {
+      const projectState = await getSpecificationState(db, projectId);
 
       expect(projectState).not.toBeNull();
       const markdown = renderExportMarkdown(
         getSpecificationRecord(projectState!).name,
-        getEntitiesForSpecificationOnActivePath(db, projectId),
+        await getEntitiesForSpecificationOnActivePath(db, projectId),
         projectState!.workflow,
       );
 
@@ -284,8 +287,8 @@ describe('walkthroughScenarioMatrix', () => {
   });
 
   it('reopens the export-ready walkthrough with self-contained persisted review metadata for both accepted review phases', async () => {
-    await withReopenedSeededScenario('issue-tracker-all-phases-closed', ({ db, projectId }) => {
-      const projectState = getSpecificationState(db, projectId);
+    await withReopenedSeededScenario('issue-tracker-all-phases-closed', async ({ db, projectId }) => {
+      const projectState = await getSpecificationState(db, projectId);
       const requirementsReviewTurn = projectState?.turns.find(
         (turn) =>
           turn.phase === 'requirements' && turn.question === 'Please review the current requirement set.',
@@ -326,8 +329,8 @@ describe('walkthroughScenarioMatrix', () => {
   });
 
   it('reopens the named brownfield grounding walkthrough with preface cards combined on question turns', async () => {
-    await withReopenedSeededScenario('brownfield-grounding-replay', ({ db, projectId }) => {
-      const projectState = getSpecificationState(db, projectId);
+    await withReopenedSeededScenario('brownfield-grounding-replay', async ({ db, projectId }) => {
+      const projectState = await getSpecificationState(db, projectId);
 
       expect(projectState ? getSpecificationRecord(projectState).mode : null).toBe('brownfield');
       expect(projectState?.turns).toHaveLength(2);

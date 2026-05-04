@@ -41,7 +41,7 @@ describe('probeObserverScenario', () => {
     for (const entry of Object.values(curatedGoldenCorpus.entries)) {
       const result = await probeObserverScenario(entry.scenario, async (input) => {
         mockGenerateText.mockResolvedValueOnce({
-          output: buildExpectedObserverOutputForTurn(
+          output: await buildExpectedObserverOutputForTurn(
             entry.scenario,
             input.turnIndex,
             input.db,

@@ -14,11 +14,15 @@ if (!existsSync(cliEntrypoint)) {
   process.exit(1);
 }
 
-const child = spawn(process.execPath, [cliEntrypoint, ...process.argv.slice(2)], {
-  stdio: 'inherit',
-  cwd: packageRoot,
-  env: { ...process.env, BRUNCH_LAUNCH_CWD: launchCwd },
-});
+const child = spawn(
+  process.execPath,
+  ['--no-warnings=ExperimentalWarning', cliEntrypoint, ...process.argv.slice(2)],
+  {
+    stdio: 'inherit',
+    cwd: packageRoot,
+    env: { ...process.env, BRUNCH_LAUNCH_CWD: launchCwd },
+  },
+);
 
 child.on('close', (code) => {
   process.exit(code ?? 1);

@@ -33,7 +33,7 @@ export interface PhaseIntentRuntimeError {
   readonly error: string;
 }
 
-function persistGroundingStrategyKickoffSelection({
+async function persistGroundingStrategyKickoffSelection({
   db,
   specificationId,
   kickoffTurn,
@@ -43,22 +43,22 @@ function persistGroundingStrategyKickoffSelection({
   specificationId: number;
   kickoffTurn: Pick<Turn, 'id'>;
   mode: 'greenfield' | 'brownfield';
-}): PhaseIntentRuntimeResult {
+}): Promise<PhaseIntentRuntimeResult> {
   const selectedPosition = getGroundingStrategyPosition(mode);
   const messageText = getGroundingStrategyTitle(mode);
   if (selectedPosition === null || !messageText) {
     throw new Error('Invalid grounding strategy selection');
   }
 
-  const options = getOptionsForTurn(db, kickoffTurn.id);
+  const options = await getOptionsForTurn(db, kickoffTurn.id);
   const selectedOption = options.find((option) => option.position === selectedPosition);
   if (!selectedOption) {
     throw new Error('Grounding strategy option not found');
   }
 
-  applyTurnResponseSelections(db, kickoffTurn.id, [selectedPosition]);
-  updateSpecificationMode(db, specificationId, mode);
-  updateTurn(db, kickoffTurn.id, {
+  await applyTurnResponseSelections(db, kickoffTurn.id, [selectedPosition]);
+  await updateSpecificationMode(db, specificationId, mode);
+  await updateTurn(db, kickoffTurn.id, {
     answer: messageText,
     user_parts: serializeParts([
       { type: 'text', text: messageText },
@@ -98,7 +98,7 @@ export function getPhaseIntentRuntimeAvailabilityError(
     : { ok: false, status: 409, error: 'Phase continue is not currently available' };
 }
 
-export function submitPhaseIntentWithRuntimeCompatibility({
+export async function submitPhaseIntentWithRuntimeCompatibility({
   db,
   specificationId,
   request,
@@ -106,8 +106,8 @@ export function submitPhaseIntentWithRuntimeCompatibility({
   db: DB;
   specificationId: number;
   request: SubmitPhaseIntentRequest;
-}): SubmitPhaseIntentResponse | PhaseIntentRuntimeError {
-  const specificationState = getSpecificationState(db, specificationId);
+}): Promise<SubmitPhaseIntentResponse | PhaseIntentRuntimeError> {
+  const specificationState = await getSpecificationState(db, specificationId);
   if (!specificationState) {
     return { ok: false, status: 404, error: 'Specification not found' };
   }
@@ -127,7 +127,7 @@ export function submitPhaseIntentWithRuntimeCompatibility({
       const activeKickoffTurn =
         activePhaseTurn && isGroundingStrategyKickoffTurn(activePhaseTurn) ? activePhaseTurn : null;
       if (activeKickoffTurn) {
-        return persistGroundingStrategyKickoffSelection({
+        return await persistGroundingStrategyKickoffSelection({
           db,
           specificationId,
           kickoffTurn: activeKickoffTurn,
@@ -140,7 +140,7 @@ export function submitPhaseIntentWithRuntimeCompatibility({
         throw new Error('Invalid grounding strategy selection');
       }
 
-      updateSpecificationMode(db, specificationId, request.mode);
+      await updateSpecificationMode(db, specificationId, request.mode);
       return { ok: true };
     }
 

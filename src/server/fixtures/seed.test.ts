@@ -23,13 +23,13 @@ describe('runSeedCli', () => {
     }
   });
 
-  it('lists only public trusted scenarios when no scenario is provided', () => {
+  it('lists only public trusted scenarios when no scenario is provided', async () => {
     const io = {
       log: vi.fn(),
       error: vi.fn(),
     };
 
-    const exitCode = runSeedCli([], io);
+    const exitCode = await runSeedCli([], io);
 
     expect(exitCode).toBe(1);
     expect(io.error).toHaveBeenCalledTimes(2);
@@ -44,13 +44,13 @@ describe('runSeedCli', () => {
     expect(listOutput).not.toContain('issue-tracker-design-active');
   });
 
-  it('rejects unknown scenarios through the public seed CLI', () => {
+  it('rejects unknown scenarios through the public seed CLI', async () => {
     const io = {
       log: vi.fn(),
       error: vi.fn(),
     };
 
-    const exitCode = runSeedCli(['not-a-scenario'], io);
+    const exitCode = await runSeedCli(['not-a-scenario'], io);
 
     expect(exitCode).toBe(1);
     expect(io.log).not.toHaveBeenCalled();
@@ -59,7 +59,7 @@ describe('runSeedCli', () => {
     expect(advertisedCatalog).toContain('low-readiness-all-phases-closed');
   });
 
-  it('defaults to the local .brunch project database when no db path is provided', () => {
+  it('defaults to the local .brunch project database when no db path is provided', async () => {
     const tempDir = createTempDir();
     const io = {
       log: vi.fn(),
@@ -67,7 +67,7 @@ describe('runSeedCli', () => {
     };
 
     try {
-      const exitCode = runSeedCli(['issue-tracker-kickoff-ready'], io, tempDir);
+      const exitCode = await runSeedCli(['issue-tracker-kickoff-ready'], io, tempDir);
 
       expect(exitCode).toBe(0);
       expect(io.error).not.toHaveBeenCalled();
@@ -78,7 +78,7 @@ describe('runSeedCli', () => {
     }
   });
 
-  it('uses BRUNCH_DB when provided and no explicit db path arg is given', () => {
+  it('uses BRUNCH_DB when provided and no explicit db path arg is given', async () => {
     const tempDir = createTempDir();
     const configuredDbPath = join(tempDir, 'scratch.db');
     const io = {
@@ -87,7 +87,7 @@ describe('runSeedCli', () => {
     };
 
     try {
-      const exitCode = runSeedCli(['issue-tracker-kickoff-ready'], io, tempDir, configuredDbPath);
+      const exitCode = await runSeedCli(['issue-tracker-kickoff-ready'], io, tempDir, configuredDbPath);
 
       expect(exitCode).toBe(0);
       expect(io.error).not.toHaveBeenCalled();

@@ -44,44 +44,44 @@ const issueTrackerCriterionPermissionsContent =
 const issueTrackerCriterionPerformanceContent =
   'Filtering 500 tickets by status or assignee returns visible results within two seconds on the seeded fixture';
 
-function seedIssueTrackerSupportingKnowledge(db: DB, projectId: number, turnId: number) {
-  const goalLifecycle = createKnowledgeItem(
+async function seedIssueTrackerSupportingKnowledge(db: DB, projectId: number, turnId: number) {
+  const goalLifecycle = await createKnowledgeItem(
     db,
     projectId,
     'goal',
     'Launch a lightweight issue tracker that covers the core ticket lifecycle for day-one teams',
   );
-  const goalRoles = createKnowledgeItem(
+  const goalRoles = await createKnowledgeItem(
     db,
     projectId,
     'goal',
     'Keep ticket visibility and role-specific actions clear for admins, developers, and viewers',
   );
-  const contextFields = createKnowledgeItem(
+  const contextFields = await createKnowledgeItem(
     db,
     projectId,
     'context',
     'Tickets move through a workflow that always includes title, description, priority, and assignee',
   );
-  const contextAudit = createKnowledgeItem(
+  const contextAudit = await createKnowledgeItem(
     db,
     projectId,
     'context',
     'The team needs a trustworthy audit trail whenever ticket status changes',
   );
-  const constraintAudit = createKnowledgeItem(
+  const constraintAudit = await createKnowledgeItem(
     db,
     projectId,
     'constraint',
     'Audit history must be retained as immutable actor-and-timestamp records',
   );
-  const constraintPermissions = createKnowledgeItem(
+  const constraintPermissions = await createKnowledgeItem(
     db,
     projectId,
     'constraint',
     'Viewer access must stay read-only and must not mutate ticket data or settings',
   );
-  const decisionWorkflow = createKnowledgeItem(
+  const decisionWorkflow = await createKnowledgeItem(
     db,
     projectId,
     'decision',
@@ -96,7 +96,7 @@ function seedIssueTrackerSupportingKnowledge(db: DB, projectId: number, turnId: 
     constraintPermissions,
     decisionWorkflow,
   ]) {
-    linkKnowledgeItemToTurn(db, item.id, turnId, 'captured');
+    await linkKnowledgeItemToTurn(db, item.id, turnId, 'captured');
   }
 
   return {
@@ -110,20 +110,20 @@ function seedIssueTrackerSupportingKnowledge(db: DB, projectId: number, turnId: 
   };
 }
 
-function seedIssueTrackerPerformanceAssumption(db: DB, projectId: number, turnId: number) {
-  const assumption = createKnowledgeItem(
+async function seedIssueTrackerPerformanceAssumption(db: DB, projectId: number, turnId: number) {
+  const assumption = await createKnowledgeItem(
     db,
     projectId,
     'assumption',
     'A seeded workspace of 500 tickets is representative enough for the first performance walkthrough',
   );
-  linkKnowledgeItemToTurn(db, assumption.id, turnId, 'captured');
+  await linkKnowledgeItemToTurn(db, assumption.id, turnId, 'captured');
   return assumption;
 }
 
-function seedAcceptedIssueTrackerRequirements(db: DB, projectId: number) {
-  const seededRequirements = seedRequirementsReviewReady(db, projectId);
-  const requirementsAcceptOption = getOptionsForTurn(db, seededRequirements.reviewTurn.id).find(
+async function seedAcceptedIssueTrackerRequirements(db: DB, projectId: number) {
+  const seededRequirements = await seedRequirementsReviewReady(db, projectId);
+  const requirementsAcceptOption = (await getOptionsForTurn(db, seededRequirements.reviewTurn.id)).find(
     (option) => option.position === 0,
   );
 
@@ -131,44 +131,44 @@ function seedAcceptedIssueTrackerRequirements(db: DB, projectId: number) {
     throw new Error('Issue-tracker requirements review seed is missing the accept option');
   }
 
-  applyTurnResponseSelections(db, seededRequirements.reviewTurn.id, [0]);
-  updateTurn(db, seededRequirements.reviewTurn.id, {
+  await applyTurnResponseSelections(db, seededRequirements.reviewTurn.id, [0]);
+  await updateTurn(db, seededRequirements.reviewTurn.id, {
     user_parts: serializeFixtureAcceptedReviewUserParts({
       turnId: seededRequirements.reviewTurn.id,
       selectedOptionIds: [requirementsAcceptOption.id],
     }),
   });
 
-  const requirementCrud = createKnowledgeItem(
+  const requirementCrud = await createKnowledgeItem(
     db,
     projectId,
     'requirement',
     issueTrackerRequirementCrudContent,
   );
-  const requirementAudit = createKnowledgeItem(
+  const requirementAudit = await createKnowledgeItem(
     db,
     projectId,
     'requirement',
     issueTrackerRequirementAuditContent,
   );
-  const requirementPermissions = createKnowledgeItem(
+  const requirementPermissions = await createKnowledgeItem(
     db,
     projectId,
     'requirement',
     issueTrackerRequirementPermissionsContent,
   );
   for (const requirement of [requirementCrud, requirementAudit, requirementPermissions]) {
-    linkKnowledgeItemToTurn(db, requirement.id, seededRequirements.reviewTurn.id, 'reviewed');
+    await linkKnowledgeItemToTurn(db, requirement.id, seededRequirements.reviewTurn.id, 'reviewed');
   }
 
-  createConfirmedPhaseOutcome(db, {
+  await createConfirmedPhaseOutcome(db, {
     specificationId: projectId,
     phase: 'requirements',
     proposal_turn_id: seededRequirements.reviewTurn.id,
     confirmation_turn_id: seededRequirements.reviewTurn.id,
     summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
   });
-  advanceHead(db, projectId, seededRequirements.reviewTurn.id);
+  await advanceHead(db, projectId, seededRequirements.reviewTurn.id);
 
   return {
     ...seededRequirements,
@@ -179,15 +179,15 @@ function seedAcceptedIssueTrackerRequirements(db: DB, projectId: number) {
   };
 }
 
-export function seedClosedGrounding(db: DB, projectId: number) {
-  const groundingTurn = createTurn(db, projectId, {
+export async function seedClosedGrounding(db: DB, projectId: number) {
+  const groundingTurn = await createTurn(db, projectId, {
     phase: 'grounding',
     question: 'What platform?',
     answer: 'Web',
   });
-  advanceHead(db, projectId, groundingTurn.id);
+  await advanceHead(db, projectId, groundingTurn.id);
 
-  const groundingProposalTurn = createTurn(db, projectId, {
+  const groundingProposalTurn = await createTurn(db, projectId, {
     phase: 'grounding',
     parent_turn_id: groundingTurn.id,
     question: '',
@@ -198,16 +198,16 @@ export function seedClosedGrounding(db: DB, projectId: number) {
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     }),
   });
-  advanceHead(db, projectId, groundingProposalTurn.id);
+  await advanceHead(db, projectId, groundingProposalTurn.id);
 
-  const groundingOutcome = createPhaseOutcome(db, {
+  const groundingOutcome = await createPhaseOutcome(db, {
     specificationId: projectId,
     phase: 'grounding',
     proposal_turn_id: groundingProposalTurn.id,
     summary: 'Goals, terms, context, and constraints are sufficiently captured.',
   });
 
-  const groundingConfirmationTurn = createTurn(db, projectId, {
+  const groundingConfirmationTurn = await createTurn(db, projectId, {
     phase: 'grounding',
     parent_turn_id: groundingProposalTurn.id,
     question: '',
@@ -217,21 +217,21 @@ export function seedClosedGrounding(db: DB, projectId: number) {
       proposalTurnId: groundingProposalTurn.id,
     }),
   });
-  confirmPhaseOutcome(db, groundingOutcome.id, groundingConfirmationTurn.id);
-  advanceHead(db, projectId, groundingConfirmationTurn.id);
+  await confirmPhaseOutcome(db, groundingOutcome.id, groundingConfirmationTurn.id);
+  await advanceHead(db, projectId, groundingConfirmationTurn.id);
 
   return { groundingTurn, groundingProposalTurn, groundingConfirmationTurn };
 }
 
-export function seedGroundingClosurePending(db: DB, projectId: number) {
-  const groundingTurn = createTurn(db, projectId, {
+export async function seedGroundingClosurePending(db: DB, projectId: number) {
+  const groundingTurn = await createTurn(db, projectId, {
     phase: 'grounding',
     question: 'What platform?',
     answer: 'Web',
   });
-  advanceHead(db, projectId, groundingTurn.id);
+  await advanceHead(db, projectId, groundingTurn.id);
 
-  const groundingProposalTurn = createTurn(db, projectId, {
+  const groundingProposalTurn = await createTurn(db, projectId, {
     phase: 'grounding',
     parent_turn_id: groundingTurn.id,
     question: '',
@@ -242,9 +242,9 @@ export function seedGroundingClosurePending(db: DB, projectId: number) {
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     }),
   });
-  advanceHead(db, projectId, groundingProposalTurn.id);
+  await advanceHead(db, projectId, groundingProposalTurn.id);
 
-  createPhaseOutcome(db, {
+  await createPhaseOutcome(db, {
     specificationId: projectId,
     phase: 'grounding',
     proposal_turn_id: groundingProposalTurn.id,
@@ -254,31 +254,31 @@ export function seedGroundingClosurePending(db: DB, projectId: number) {
   return { groundingTurn, groundingProposalTurn };
 }
 
-export function seedActiveDesign(db: DB, projectId: number) {
-  const seededGrounding = seedClosedGrounding(db, projectId);
+export async function seedActiveDesign(db: DB, projectId: number) {
+  const seededGrounding = await seedClosedGrounding(db, projectId);
 
-  const designTurn = createTurn(db, projectId, {
+  const designTurn = await createTurn(db, projectId, {
     phase: 'design',
     parent_turn_id: seededGrounding.groundingConfirmationTurn.id,
     question: 'Which tradeoff matters most?',
     answer: 'Keep the repository seam small',
   });
-  advanceHead(db, projectId, designTurn.id);
+  await advanceHead(db, projectId, designTurn.id);
 
   return { ...seededGrounding, designTurn };
 }
 
-export function seedRequirementsReady(db: DB, projectId: number) {
-  const seededDesign = seedActiveDesign(db, projectId);
+export async function seedRequirementsReady(db: DB, projectId: number) {
+  const seededDesign = await seedActiveDesign(db, projectId);
 
-  const designOutcome = createPhaseOutcome(db, {
+  const designOutcome = await createPhaseOutcome(db, {
     specificationId: projectId,
     phase: 'design',
     proposal_turn_id: seededDesign.designTurn.id,
     summary: 'The main architectural commitments are captured well enough to review requirements.',
   });
 
-  const designConfirmationTurn = createTurn(db, projectId, {
+  const designConfirmationTurn = await createTurn(db, projectId, {
     phase: 'design',
     parent_turn_id: seededDesign.designTurn.id,
     question: '',
@@ -288,20 +288,20 @@ export function seedRequirementsReady(db: DB, projectId: number) {
       proposalTurnId: seededDesign.designTurn.id,
     }),
   });
-  confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
-  advanceHead(db, projectId, designConfirmationTurn.id);
+  await confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
+  await advanceHead(db, projectId, designConfirmationTurn.id);
 
   return { ...seededDesign, designConfirmationTurn };
 }
 
-export function seedRequirementsReviewReady(db: DB, projectId: number) {
-  const seededRequirements = seedRequirementsReady(db, projectId);
-  seedIssueTrackerSupportingKnowledge(db, projectId, seededRequirements.designConfirmationTurn.id);
+export async function seedRequirementsReviewReady(db: DB, projectId: number) {
+  const seededRequirements = await seedRequirementsReady(db, projectId);
+  await seedIssueTrackerSupportingKnowledge(db, projectId, seededRequirements.designConfirmationTurn.id);
   const requirementCrudContent = issueTrackerRequirementCrudContent;
   const requirementAuditContent = issueTrackerRequirementAuditContent;
   const requirementPermissionsContent = issueTrackerRequirementPermissionsContent;
 
-  const reviewTurn = createTurn(db, projectId, {
+  const reviewTurn = await createTurn(db, projectId, {
     phase: 'requirements',
     parent_turn_id: seededRequirements.designConfirmationTurn.id,
     question: 'Please review the current requirement set.',
@@ -347,16 +347,16 @@ export function seedRequirementsReviewReady(db: DB, projectId: number) {
       }),
     }),
   });
-  createOption(db, reviewTurn.id, {
+  await createOption(db, reviewTurn.id, {
     position: 0,
     content: 'Accept review',
     is_recommended: true,
   });
-  createOption(db, reviewTurn.id, {
+  await createOption(db, reviewTurn.id, {
     position: 1,
     content: 'Request changes',
   });
-  advanceHead(db, projectId, reviewTurn.id);
+  await advanceHead(db, projectId, reviewTurn.id);
 
   return {
     ...seededRequirements,
@@ -367,21 +367,21 @@ export function seedRequirementsReviewReady(db: DB, projectId: number) {
   };
 }
 
-function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: number) {
-  const approvedRequirement = createKnowledgeItem(
+async function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: number) {
+  const approvedRequirement = await createKnowledgeItem(
     db,
     projectId,
     'requirement',
     'Resume the interview from SQLite after restart',
   );
-  const supportingRequirement = createKnowledgeItem(
+  const supportingRequirement = await createKnowledgeItem(
     db,
     projectId,
     'requirement',
     'Keep the local-first persistence seam simple for restart and resume',
   );
 
-  const reviewTurn = createTurn(db, projectId, {
+  const reviewTurn = await createTurn(db, projectId, {
     phase: 'requirements',
     parent_turn_id: parentTurnId,
     question: 'Please review the current requirement set.',
@@ -415,33 +415,33 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
       }),
     }),
   });
-  const acceptOption = createOption(db, reviewTurn.id, {
+  const acceptOption = await createOption(db, reviewTurn.id, {
     position: 0,
     content: 'Accept review',
     is_recommended: true,
   });
-  createOption(db, reviewTurn.id, {
+  await createOption(db, reviewTurn.id, {
     position: 1,
     content: 'Request changes',
     is_recommended: false,
   });
-  applyTurnResponseSelections(db, reviewTurn.id, [0]);
-  updateTurn(db, reviewTurn.id, {
+  await applyTurnResponseSelections(db, reviewTurn.id, [0]);
+  await updateTurn(db, reviewTurn.id, {
     user_parts: serializeFixtureAcceptedReviewUserParts({
       turnId: reviewTurn.id,
       selectedOptionIds: [acceptOption.id],
     }),
   });
-  linkKnowledgeItemToTurn(db, approvedRequirement.id, reviewTurn.id, 'reviewed');
-  linkKnowledgeItemToTurn(db, supportingRequirement.id, reviewTurn.id, 'reviewed');
-  createConfirmedPhaseOutcome(db, {
+  await linkKnowledgeItemToTurn(db, approvedRequirement.id, reviewTurn.id, 'reviewed');
+  await linkKnowledgeItemToTurn(db, supportingRequirement.id, reviewTurn.id, 'reviewed');
+  await createConfirmedPhaseOutcome(db, {
     specificationId: projectId,
     phase: 'requirements',
     proposal_turn_id: reviewTurn.id,
     confirmation_turn_id: reviewTurn.id,
     summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
   });
-  advanceHead(db, projectId, reviewTurn.id);
+  await advanceHead(db, projectId, reviewTurn.id);
 
   return {
     approvedRequirement,
@@ -451,9 +451,9 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
   };
 }
 
-export function seedCriteriaReady(db: DB, projectId: number) {
-  const seededRequirements = seedRequirementsReady(db, projectId);
-  const reviewedRequirements = seedClosedRequirementsReview(
+export async function seedCriteriaReady(db: DB, projectId: number) {
+  const seededRequirements = await seedRequirementsReady(db, projectId);
+  const reviewedRequirements = await seedClosedRequirementsReview(
     db,
     projectId,
     seededRequirements.designConfirmationTurn.id,
@@ -462,15 +462,15 @@ export function seedCriteriaReady(db: DB, projectId: number) {
   return { ...seededRequirements, ...reviewedRequirements };
 }
 
-export function seedCriteriaReviewReady(db: DB, projectId: number) {
-  const seededCriteria = seedAcceptedIssueTrackerRequirements(db, projectId);
-  seedIssueTrackerPerformanceAssumption(db, projectId, seededCriteria.requirementsConfirmationTurn.id);
+export async function seedCriteriaReviewReady(db: DB, projectId: number) {
+  const seededCriteria = await seedAcceptedIssueTrackerRequirements(db, projectId);
+  await seedIssueTrackerPerformanceAssumption(db, projectId, seededCriteria.requirementsConfirmationTurn.id);
 
   const criterionAuditContent = issueTrackerCriterionAuditContent;
   const criterionPermissionsContent = issueTrackerCriterionPermissionsContent;
   const criterionPerformanceContent = issueTrackerCriterionPerformanceContent;
 
-  const reviewTurn = createTurn(db, projectId, {
+  const reviewTurn = await createTurn(db, projectId, {
     phase: 'criteria',
     parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
     question: 'Please review the current criterion set.',
@@ -513,16 +513,16 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
       }),
     }),
   });
-  createOption(db, reviewTurn.id, {
+  await createOption(db, reviewTurn.id, {
     position: 0,
     content: 'Accept review',
     is_recommended: true,
   });
-  createOption(db, reviewTurn.id, {
+  await createOption(db, reviewTurn.id, {
     position: 1,
     content: 'Request changes',
   });
-  advanceHead(db, projectId, reviewTurn.id);
+  await advanceHead(db, projectId, reviewTurn.id);
 
   return {
     ...seededCriteria,
@@ -533,15 +533,15 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
   };
 }
 
-function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: number) {
-  const criterion = createKnowledgeItem(db, projectId, 'criterion', 'Verify SQLite resume');
-  const supportingCriterion = createKnowledgeItem(
+async function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: number) {
+  const criterion = await createKnowledgeItem(db, projectId, 'criterion', 'Verify SQLite resume');
+  const supportingCriterion = await createKnowledgeItem(
     db,
     projectId,
     'criterion',
     'Restarting the browser restores the active path from local persistence',
   );
-  const criterionReviewTurn = createTurn(db, projectId, {
+  const criterionReviewTurn = await createTurn(db, projectId, {
     phase: 'criteria',
     parent_turn_id: parentTurnId,
     question: 'Please review the current criterion set.',
@@ -575,33 +575,33 @@ function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: numbe
       }),
     }),
   });
-  const acceptOption = createOption(db, criterionReviewTurn.id, {
+  const acceptOption = await createOption(db, criterionReviewTurn.id, {
     position: 0,
     content: 'Accept review',
     is_recommended: true,
   });
-  createOption(db, criterionReviewTurn.id, {
+  await createOption(db, criterionReviewTurn.id, {
     position: 1,
     content: 'Request changes',
     is_recommended: false,
   });
-  applyTurnResponseSelections(db, criterionReviewTurn.id, [0]);
-  updateTurn(db, criterionReviewTurn.id, {
+  await applyTurnResponseSelections(db, criterionReviewTurn.id, [0]);
+  await updateTurn(db, criterionReviewTurn.id, {
     user_parts: serializeFixtureAcceptedReviewUserParts({
       turnId: criterionReviewTurn.id,
       selectedOptionIds: [acceptOption.id],
     }),
   });
-  linkKnowledgeItemToTurn(db, criterion.id, criterionReviewTurn.id, 'reviewed');
-  linkKnowledgeItemToTurn(db, supportingCriterion.id, criterionReviewTurn.id, 'reviewed');
-  createConfirmedPhaseOutcome(db, {
+  await linkKnowledgeItemToTurn(db, criterion.id, criterionReviewTurn.id, 'reviewed');
+  await linkKnowledgeItemToTurn(db, supportingCriterion.id, criterionReviewTurn.id, 'reviewed');
+  await createConfirmedPhaseOutcome(db, {
     specificationId: projectId,
     phase: 'criteria',
     proposal_turn_id: criterionReviewTurn.id,
     confirmation_turn_id: criterionReviewTurn.id,
     summary: 'The reviewed criteria set is accepted and the specification is ready for output.',
   });
-  advanceHead(db, projectId, criterionReviewTurn.id);
+  await advanceHead(db, projectId, criterionReviewTurn.id);
 
   return {
     criterion,
@@ -611,9 +611,9 @@ function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: numbe
   };
 }
 
-export function seedAllPhasesClosed(db: DB, projectId: number) {
-  const seededCriteria = seedCriteriaReady(db, projectId);
-  const reviewedCriteria = seedClosedCriteriaReview(
+export async function seedAllPhasesClosed(db: DB, projectId: number) {
+  const seededCriteria = await seedCriteriaReady(db, projectId);
+  const reviewedCriteria = await seedClosedCriteriaReview(
     db,
     projectId,
     seededCriteria.requirementsConfirmationTurn.id,
@@ -622,18 +622,18 @@ export function seedAllPhasesClosed(db: DB, projectId: number) {
   return { ...seededCriteria, ...reviewedCriteria };
 }
 
-export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
-  const seededGrounding = seedClosedGrounding(db, projectId);
+export async function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
+  const seededGrounding = await seedClosedGrounding(db, projectId);
 
-  const designTurn = createTurn(db, projectId, {
+  const designTurn = await createTurn(db, projectId, {
     phase: 'design',
     parent_turn_id: seededGrounding.groundingConfirmationTurn.id,
     question: 'Which tradeoff matters most?',
     answer: 'Keep the repository seam small',
   });
-  advanceHead(db, projectId, designTurn.id);
+  await advanceHead(db, projectId, designTurn.id);
 
-  const designForceCloseTurn = createTurn(db, projectId, {
+  const designForceCloseTurn = await createTurn(db, projectId, {
     phase: 'design',
     parent_turn_id: designTurn.id,
     question: '',
@@ -643,18 +643,18 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
       'Force elicitation closure',
     ),
   });
-  advanceHead(db, projectId, designForceCloseTurn.id);
+  await advanceHead(db, projectId, designForceCloseTurn.id);
 
-  const designOutcome = createPhaseOutcome(db, {
+  const designOutcome = await createPhaseOutcome(db, {
     specificationId: projectId,
     phase: 'design',
     proposal_turn_id: designForceCloseTurn.id,
     summary: 'Elicitation closed by user without an interviewer recommendation.',
   });
-  confirmPhaseOutcome(db, designOutcome.id, designForceCloseTurn.id);
+  await confirmPhaseOutcome(db, designOutcome.id, designForceCloseTurn.id);
 
-  const reviewedRequirements = seedClosedRequirementsReview(db, projectId, designForceCloseTurn.id);
-  const reviewedCriteria = seedClosedCriteriaReview(
+  const reviewedRequirements = await seedClosedRequirementsReview(db, projectId, designForceCloseTurn.id);
+  const reviewedCriteria = await seedClosedCriteriaReview(
     db,
     projectId,
     reviewedRequirements.requirementsConfirmationTurn.id,
@@ -669,15 +669,15 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
   };
 }
 
-export function seedAllPhasesClosedWithLowReadinessGrounding(db: DB, projectId: number) {
-  const designTurn = createTurn(db, projectId, {
+export async function seedAllPhasesClosedWithLowReadinessGrounding(db: DB, projectId: number) {
+  const designTurn = await createTurn(db, projectId, {
     phase: 'design',
     question: 'Which tradeoff matters most?',
     answer: 'Keep the repository seam small',
   });
-  advanceHead(db, projectId, designTurn.id);
+  await advanceHead(db, projectId, designTurn.id);
 
-  const groundingClosureTurn = createTurn(db, projectId, {
+  const groundingClosureTurn = await createTurn(db, projectId, {
     phase: 'design',
     parent_turn_id: designTurn.id,
     question: '',
@@ -687,9 +687,9 @@ export function seedAllPhasesClosedWithLowReadinessGrounding(db: DB, projectId: 
       proposalTurnId: designTurn.id,
     }),
   });
-  advanceHead(db, projectId, groundingClosureTurn.id);
+  await advanceHead(db, projectId, groundingClosureTurn.id);
 
-  createConfirmedPhaseOutcome(db, {
+  await createConfirmedPhaseOutcome(db, {
     specificationId: projectId,
     phase: 'grounding',
     proposal_turn_id: groundingClosureTurn.id,
@@ -698,15 +698,15 @@ export function seedAllPhasesClosedWithLowReadinessGrounding(db: DB, projectId: 
       'Grounding was closed from a minimal downstream checkpoint to exercise low-readiness export caveats.',
   });
 
-  const designProposalTurn = createTurn(db, projectId, {
+  const designProposalTurn = await createTurn(db, projectId, {
     phase: 'design',
     parent_turn_id: groundingClosureTurn.id,
     question: '',
     answer: 'The main architectural commitments are captured well enough to review requirements.',
   });
-  advanceHead(db, projectId, designProposalTurn.id);
+  await advanceHead(db, projectId, designProposalTurn.id);
 
-  const designConfirmationTurn = createTurn(db, projectId, {
+  const designConfirmationTurn = await createTurn(db, projectId, {
     phase: 'design',
     parent_turn_id: designProposalTurn.id,
     question: '',
@@ -716,18 +716,18 @@ export function seedAllPhasesClosedWithLowReadinessGrounding(db: DB, projectId: 
       proposalTurnId: designProposalTurn.id,
     }),
   });
-  advanceHead(db, projectId, designConfirmationTurn.id);
+  await advanceHead(db, projectId, designConfirmationTurn.id);
 
-  const designOutcome = createPhaseOutcome(db, {
+  const designOutcome = await createPhaseOutcome(db, {
     specificationId: projectId,
     phase: 'design',
     proposal_turn_id: designProposalTurn.id,
     summary: 'The main architectural commitments are captured well enough to review requirements.',
   });
-  confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
+  await confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
 
-  const reviewedRequirements = seedClosedRequirementsReview(db, projectId, designConfirmationTurn.id);
-  const reviewedCriteria = seedClosedCriteriaReview(
+  const reviewedRequirements = await seedClosedRequirementsReview(db, projectId, designConfirmationTurn.id);
+  const reviewedCriteria = await seedClosedCriteriaReview(
     db,
     projectId,
     reviewedRequirements.requirementsConfirmationTurn.id,
@@ -743,15 +743,19 @@ export function seedAllPhasesClosedWithLowReadinessGrounding(db: DB, projectId: 
   };
 }
 
-export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
-  const seededRequirements = seedAcceptedIssueTrackerRequirements(db, projectId);
-  seedIssueTrackerPerformanceAssumption(db, projectId, seededRequirements.requirementsConfirmationTurn.id);
+export async function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
+  const seededRequirements = await seedAcceptedIssueTrackerRequirements(db, projectId);
+  await seedIssueTrackerPerformanceAssumption(
+    db,
+    projectId,
+    seededRequirements.requirementsConfirmationTurn.id,
+  );
 
   const criterionAuditContent = issueTrackerCriterionAuditContent;
   const criterionPermissionsContent = issueTrackerCriterionPermissionsContent;
   const criterionPerformanceContent = issueTrackerCriterionPerformanceContent;
 
-  const criteriaReviewTurn = createTurn(db, projectId, {
+  const criteriaReviewTurn = await createTurn(db, projectId, {
     phase: 'criteria',
     parent_turn_id: seededRequirements.reviewTurn.id,
     question: 'Please review the current criterion set.',
@@ -794,36 +798,46 @@ export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
       }),
     }),
   });
-  const criteriaAcceptOption = createOption(db, criteriaReviewTurn.id, {
+  const criteriaAcceptOption = await createOption(db, criteriaReviewTurn.id, {
     position: 0,
     content: 'Accept review',
     is_recommended: true,
   });
-  createOption(db, criteriaReviewTurn.id, {
+  await createOption(db, criteriaReviewTurn.id, {
     position: 1,
     content: 'Request changes',
   });
-  applyTurnResponseSelections(db, criteriaReviewTurn.id, [0]);
-  updateTurn(db, criteriaReviewTurn.id, {
+  await applyTurnResponseSelections(db, criteriaReviewTurn.id, [0]);
+  await updateTurn(db, criteriaReviewTurn.id, {
     user_parts: serializeFixtureAcceptedReviewUserParts({
       turnId: criteriaReviewTurn.id,
       selectedOptionIds: [criteriaAcceptOption.id],
     }),
   });
-  const criterionAudit = createKnowledgeItem(db, projectId, 'criterion', criterionAuditContent);
-  const criterionPermissions = createKnowledgeItem(db, projectId, 'criterion', criterionPermissionsContent);
-  const criterionPerformance = createKnowledgeItem(db, projectId, 'criterion', criterionPerformanceContent);
-  linkKnowledgeItemToTurn(db, criterionAudit.id, criteriaReviewTurn.id, 'reviewed');
-  linkKnowledgeItemToTurn(db, criterionPermissions.id, criteriaReviewTurn.id, 'reviewed');
-  linkKnowledgeItemToTurn(db, criterionPerformance.id, criteriaReviewTurn.id, 'reviewed');
-  createConfirmedPhaseOutcome(db, {
+  const criterionAudit = await createKnowledgeItem(db, projectId, 'criterion', criterionAuditContent);
+  const criterionPermissions = await createKnowledgeItem(
+    db,
+    projectId,
+    'criterion',
+    criterionPermissionsContent,
+  );
+  const criterionPerformance = await createKnowledgeItem(
+    db,
+    projectId,
+    'criterion',
+    criterionPerformanceContent,
+  );
+  await linkKnowledgeItemToTurn(db, criterionAudit.id, criteriaReviewTurn.id, 'reviewed');
+  await linkKnowledgeItemToTurn(db, criterionPermissions.id, criteriaReviewTurn.id, 'reviewed');
+  await linkKnowledgeItemToTurn(db, criterionPerformance.id, criteriaReviewTurn.id, 'reviewed');
+  await createConfirmedPhaseOutcome(db, {
     specificationId: projectId,
     phase: 'criteria',
     proposal_turn_id: criteriaReviewTurn.id,
     confirmation_turn_id: criteriaReviewTurn.id,
     summary: 'The reviewed criteria set is accepted and the specification is ready for output.',
   });
-  advanceHead(db, projectId, criteriaReviewTurn.id);
+  await advanceHead(db, projectId, criteriaReviewTurn.id);
 
   return {
     ...seededRequirements,
@@ -836,8 +850,8 @@ export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
   };
 }
 
-export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number) {
-  const groundedQuestionTurn = createTurn(db, projectId, {
+export async function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number) {
+  const groundedQuestionTurn = await createTurn(db, projectId, {
     phase: 'grounding',
     question: 'Which seam needs another grounding pass before we keep going?',
     answer: 'The chat-runtime finalization path and replay seam.',
@@ -869,9 +883,9 @@ export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number)
       { type: 'text', text: 'The chat-runtime finalization path and replay seam.' },
     ]),
   });
-  advanceHead(db, projectId, groundedQuestionTurn.id);
+  await advanceHead(db, projectId, groundedQuestionTurn.id);
 
-  const followUpTurn = createTurn(db, projectId, {
+  const followUpTurn = await createTurn(db, projectId, {
     phase: 'grounding',
     parent_turn_id: groundedQuestionTurn.id,
     question: 'What does the finalization path need to handle for replay consistency?',
@@ -901,17 +915,17 @@ export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number)
       { type: 'text', text: 'What does the finalization path need to handle for replay consistency?' },
     ] satisfies BrunchAssistantPart[]),
   });
-  createOption(db, followUpTurn.id, {
+  await createOption(db, followUpTurn.id, {
     position: 0,
     content: 'Ordering guarantees on concurrent writes.',
     is_recommended: true,
   });
-  createOption(db, followUpTurn.id, {
+  await createOption(db, followUpTurn.id, {
     position: 1,
     content: 'Idempotent replay of partial turns.',
     is_recommended: false,
   });
-  advanceHead(db, projectId, followUpTurn.id);
+  await advanceHead(db, projectId, followUpTurn.id);
 
   return {
     groundedQuestionTurn,
@@ -919,7 +933,7 @@ export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number)
   };
 }
 
-export type ScenarioFn = (db: DB, projectName?: string) => number;
+export type ScenarioFn = (db: DB, projectName?: string) => Promise<number>;
 
 type WalkthroughWorkflowSummary = Record<
   'grounding' | 'design' | 'requirements' | 'criteria',
@@ -944,93 +958,99 @@ function createWorkflowSummary(
 }
 
 export const scenarios: Record<string, ScenarioFn> = {
-  'grounding-closed': (db, name = 'Grounding Closed') => {
-    const project = createSpecification(db, name);
-    seedClosedGrounding(db, project.id);
+  'grounding-closed': async (db, name = 'Grounding Closed') => {
+    const project = await createSpecification(db, name);
+    await seedClosedGrounding(db, project.id);
     return project.id;
   },
-  'design-active': (db, name = 'Design Active') => {
-    const project = createSpecification(db, name);
-    seedActiveDesign(db, project.id);
+  'design-active': async (db, name = 'Design Active') => {
+    const project = await createSpecification(db, name);
+    await seedActiveDesign(db, project.id);
     return project.id;
   },
-  'requirements-ready': (db, name = 'Requirements Ready') => {
-    const project = createSpecification(db, name);
-    seedRequirementsReviewReady(db, project.id);
+  'requirements-ready': async (db, name = 'Requirements Ready') => {
+    const project = await createSpecification(db, name);
+    await seedRequirementsReviewReady(db, project.id);
     return project.id;
   },
-  'criteria-ready': (db, name = 'Criteria Ready') => {
-    const project = createSpecification(db, name);
-    seedCriteriaReviewReady(db, project.id);
+  'criteria-ready': async (db, name = 'Criteria Ready') => {
+    const project = await createSpecification(db, name);
+    await seedCriteriaReviewReady(db, project.id);
     return project.id;
   },
-  'all-phases-closed': (db, name = 'All Phases Closed') => {
-    const project = createSpecification(db, name);
-    seedAllPhasesClosed(db, project.id);
+  'all-phases-closed': async (db, name = 'All Phases Closed') => {
+    const project = await createSpecification(db, name);
+    await seedAllPhasesClosed(db, project.id);
     return project.id;
   },
-  'forced-close-all-phases-closed': (db, name = 'Forced-Close All Phases Closed') => {
-    const project = createSpecification(db, name);
-    seedAllPhasesClosedWithForcedDesign(db, project.id);
+  'forced-close-all-phases-closed': async (db, name = 'Forced-Close All Phases Closed') => {
+    const project = await createSpecification(db, name);
+    await seedAllPhasesClosedWithForcedDesign(db, project.id);
     return project.id;
   },
-  'low-readiness-all-phases-closed': (db, name = 'Low-Readiness All Phases Closed') => {
-    const project = createSpecification(db, name);
-    seedAllPhasesClosedWithLowReadinessGrounding(db, project.id);
+  'low-readiness-all-phases-closed': async (db, name = 'Low-Readiness All Phases Closed') => {
+    const project = await createSpecification(db, name);
+    await seedAllPhasesClosedWithLowReadinessGrounding(db, project.id);
     return project.id;
   },
 };
 
 const phaseTransitionScenarios: Record<string, ScenarioFn> = {
-  'brownfield-grounding-replay': (db, name = 'Brownfield reusable grounding replay') => {
-    const project = createSpecification(db, name, {
+  'brownfield-grounding-replay': async (db, name = 'Brownfield reusable grounding replay') => {
+    const project = await createSpecification(db, name, {
       mode: 'brownfield',
     });
-    seedBrownfieldReusableGroundingReplay(db, project.id);
+    await seedBrownfieldReusableGroundingReplay(db, project.id);
     return project.id;
   },
-  'issue-tracker-kickoff-ready': (db, name = 'Issue Tracker (kickoff ready)') => {
-    const project = createSpecification(db, name);
+  'issue-tracker-kickoff-ready': async (db, name = 'Issue Tracker (kickoff ready)') => {
+    const project = await createSpecification(db, name);
     return project.id;
   },
-  'issue-tracker-grounding-closure-pending': (db, name = 'Issue Tracker (grounding closure pending)') => {
-    const project = createSpecification(db, name);
-    seedGroundingClosurePending(db, project.id);
+  'issue-tracker-grounding-closure-pending': async (
+    db,
+    name = 'Issue Tracker (grounding closure pending)',
+  ) => {
+    const project = await createSpecification(db, name);
+    await seedGroundingClosurePending(db, project.id);
     return project.id;
   },
-  'issue-tracker-design-kickoff-ready': (db, name = 'Issue Tracker (design kickoff ready)') => {
-    const project = createSpecification(db, name);
-    seedClosedGrounding(db, project.id);
+  'issue-tracker-design-kickoff-ready': async (db, name = 'Issue Tracker (design kickoff ready)') => {
+    const project = await createSpecification(db, name);
+    await seedClosedGrounding(db, project.id);
     return project.id;
   },
-  'issue-tracker-design-recovery': (db, name = 'Issue Tracker (design recovery)') => {
-    const project = createSpecification(db, name);
-    seedActiveDesign(db, project.id);
+  'issue-tracker-design-recovery': async (db, name = 'Issue Tracker (design recovery)') => {
+    const project = await createSpecification(db, name);
+    await seedActiveDesign(db, project.id);
     return project.id;
   },
-  'issue-tracker-requirements-kickoff-ready': (db, name = 'Issue Tracker (requirements kickoff ready)') => {
-    const project = createSpecification(db, name);
-    seedRequirementsReady(db, project.id);
+  'issue-tracker-requirements-kickoff-ready': async (
+    db,
+    name = 'Issue Tracker (requirements kickoff ready)',
+  ) => {
+    const project = await createSpecification(db, name);
+    await seedRequirementsReady(db, project.id);
     return project.id;
   },
-  'issue-tracker-criteria-kickoff-ready': (db, name = 'Issue Tracker (criteria kickoff ready)') => {
-    const project = createSpecification(db, name);
-    seedCriteriaReady(db, project.id);
+  'issue-tracker-criteria-kickoff-ready': async (db, name = 'Issue Tracker (criteria kickoff ready)') => {
+    const project = await createSpecification(db, name);
+    await seedCriteriaReady(db, project.id);
     return project.id;
   },
-  'issue-tracker-requirements-ready': (db, name = 'Issue Tracker (requirements review ready)') => {
-    const project = createSpecification(db, name);
-    seedRequirementsReviewReady(db, project.id);
+  'issue-tracker-requirements-ready': async (db, name = 'Issue Tracker (requirements review ready)') => {
+    const project = await createSpecification(db, name);
+    await seedRequirementsReviewReady(db, project.id);
     return project.id;
   },
-  'issue-tracker-criteria-ready': (db, name = 'Issue Tracker (criteria review ready)') => {
-    const project = createSpecification(db, name);
-    seedCriteriaReviewReady(db, project.id);
+  'issue-tracker-criteria-ready': async (db, name = 'Issue Tracker (criteria review ready)') => {
+    const project = await createSpecification(db, name);
+    await seedCriteriaReviewReady(db, project.id);
     return project.id;
   },
-  'issue-tracker-all-phases-closed': (db, name = 'Issue Tracker (all phases closed)') => {
-    const project = createSpecification(db, name);
-    seedIssueTrackerAllPhasesClosed(db, project.id);
+  'issue-tracker-all-phases-closed': async (db, name = 'Issue Tracker (all phases closed)') => {
+    const project = await createSpecification(db, name);
+    await seedIssueTrackerAllPhasesClosed(db, project.id);
     return project.id;
   },
 };

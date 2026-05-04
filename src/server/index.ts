@@ -14,14 +14,14 @@ const DB_PATH = process.env.BRUNCH_DB;
 const dbPath = resolveConfiguredDbPath(DB_PATH, projectCwd);
 const port = resolveBackendPort(process.env);
 
-const { app } = createApp({ dbPath, projectCwd });
-
-void listenOnLocalhost(app, port)
-  .then(({ url }) => {
+void (async () => {
+  try {
+    const { app } = await createApp({ dbPath, projectCwd });
+    const { url } = await listenOnLocalhost(app, port);
     console.log(`Brunch server listening on ${url}`);
     console.log(`Database: ${dbPath}`);
-  })
-  .catch((error) => {
+  } catch (error) {
     console.error('Failed to start brunch server:', error);
     process.exit(1);
-  });
+  }
+})();

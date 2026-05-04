@@ -21,8 +21,8 @@ import {
 
 let db: DB;
 
-beforeEach(() => {
-  db = createDb();
+beforeEach(async () => {
+  db = await createDb();
 });
 
 afterEach(() => {

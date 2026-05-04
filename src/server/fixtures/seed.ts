@@ -7,12 +7,12 @@ import { publicScenarios, publicScenarioNames } from './scenarios.js';
 
 type SeedCliIo = Pick<typeof console, 'log' | 'error'>;
 
-export function runSeedCli(
+export async function runSeedCli(
   args: string[],
   io: SeedCliIo = console,
   cwd: string = process.cwd(),
   configuredDbPath: string | undefined = process.env.BRUNCH_DB,
-): number {
+): Promise<number> {
   const scenarioName = args[0];
   const explicitDbPath = args[1]?.trim();
   const dbPath = explicitDbPath || resolveConfiguredDbPath(configuredDbPath, cwd);
@@ -24,10 +24,10 @@ export function runSeedCli(
   }
 
   if (scenarioName === '--all') {
-    const db = createDb(dbPath);
+    const db = await createDb(dbPath);
     try {
       for (const name of publicScenarioNames) {
-        const projectId = publicScenarios[name](db);
+        const projectId = await publicScenarios[name](db);
         io.log(`Seeded "${name}" → project ${projectId}`);
       }
       io.log(`\nAll ${publicScenarioNames.length} scenarios seeded in ${dbPath}`);
@@ -43,9 +43,9 @@ export function runSeedCli(
     return 1;
   }
 
-  const db = createDb(dbPath);
+  const db = await createDb(dbPath);
   try {
-    const projectId = publicScenarios[scenarioName](db);
+    const projectId = await publicScenarios[scenarioName](db);
     io.log(`Seeded "${scenarioName}" → project ${projectId} in ${dbPath}`);
     return 0;
   } finally {
@@ -57,5 +57,5 @@ const isMainModule =
   process.argv[1] != null && resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);
 
 if (isMainModule) {
-  process.exit(runSeedCli(process.argv.slice(2)));
+  void runSeedCli(process.argv.slice(2)).then((code) => process.exit(code));
 }

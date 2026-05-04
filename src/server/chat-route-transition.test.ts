@@ -20,12 +20,12 @@ import {
 describe('applyChatRouteTransition', () => {
   let db: DB;
 
-  beforeEach(() => {
-    db = createDb();
+  beforeEach(async () => {
+    db = await createDb();
   });
 
-  it('rejects missing specifications before command-specific lookup', () => {
-    const result = applyChatRouteTransition(
+  it('rejects missing specifications before command-specific lookup', async () => {
+    const result = await applyChatRouteTransition(
       { db, specificationId: 1234 },
       {
         kind: 'confirm-phase-closure',
@@ -45,9 +45,9 @@ describe('applyChatRouteTransition', () => {
     });
   });
 
-  it('prepares an interviewer successor from an already-answered structured turn', () => {
-    const specification = createSpecification(db, 'Answered structured turn');
-    const activeTurn = createTurn(db, specification.id, {
+  it('prepares an interviewer successor from an already-answered structured turn', async () => {
+    const specification = await createSpecification(db, 'Answered structured turn');
+    const activeTurn = await createTurn(db, specification.id, {
       phase: 'grounding',
       question: 'What platform should we support first?',
       answer: 'Web',
@@ -59,9 +59,9 @@ describe('applyChatRouteTransition', () => {
         },
       ] satisfies BrunchUserPart[]),
     });
-    advanceHead(db, specification.id, activeTurn.id);
+    await advanceHead(db, specification.id, activeTurn.id);
 
-    const result = applyChatRouteTransition(
+    const result = await applyChatRouteTransition(
       { db, specificationId: specification.id },
       { kind: 'continue', reply: { text: 'Web', parts: [{ type: 'text', text: 'Web' }] } },
     );
@@ -80,10 +80,10 @@ describe('applyChatRouteTransition', () => {
     expect(result.prepared.turn.answer).toBeNull();
   });
 
-  it('prepares a successor turn for a phase-intent entry path', () => {
-    const specification = createSpecification(db, 'Phase intent entry');
+  it('prepares a successor turn for a phase-intent entry path', async () => {
+    const specification = await createSpecification(db, 'Phase intent entry');
 
-    const result = applyChatRouteTransition(
+    const result = await applyChatRouteTransition(
       { db, specificationId: specification.id },
       { kind: 'phase-entry', request: { kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' } },
     );
@@ -102,22 +102,22 @@ describe('applyChatRouteTransition', () => {
     expect(result.prepared.turn.parent_turn_id).toBeNull();
   });
 
-  it('resolves a closure confirmation against the proposal turn before streaming', () => {
-    const specification = createSpecification(db, 'Closure confirmation');
-    const proposalTurn = createTurn(db, specification.id, {
+  it('resolves a closure confirmation against the proposal turn before streaming', async () => {
+    const specification = await createSpecification(db, 'Closure confirmation');
+    const proposalTurn = await createTurn(db, specification.id, {
       phase: 'grounding',
       question: '',
       answer: 'We have enough grounding context',
     });
-    advanceHead(db, specification.id, proposalTurn.id);
-    const confirmationTarget = createPhaseOutcome(db, {
+    await advanceHead(db, specification.id, proposalTurn.id);
+    const confirmationTarget = await createPhaseOutcome(db, {
       specificationId: specification.id,
       phase: 'grounding',
       proposal_turn_id: proposalTurn.id,
       summary: 'Grounding is ready to close.',
     });
 
-    const result = applyChatRouteTransition(
+    const result = await applyChatRouteTransition(
       { db, specificationId: specification.id },
       {
         kind: 'confirm-phase-closure',
@@ -141,38 +141,38 @@ describe('applyChatRouteTransition', () => {
     );
 
     expect(result).toEqual({ ok: true, kind: 'phase-closure-confirmed' });
-    expect(getTurn(db, proposalTurn.id)?.answer).toBe('Confirm grounding closure');
-    expect(findPhaseOutcomeForTurn(db, specification.id, proposalTurn.id)).toMatchObject({
+    expect((await getTurn(db, proposalTurn.id))?.answer).toBe('Confirm grounding closure');
+    expect(await findPhaseOutcomeForTurn(db, specification.id, proposalTurn.id)).toMatchObject({
       id: confirmationTarget.id,
       status: 'confirmed',
       confirmation_turn_id: proposalTurn.id,
     });
   });
 
-  it('prepares a force-close turn in the requested phase', () => {
-    const specification = createSpecification(db, 'Force close');
-    const groundingTurn = createTurn(db, specification.id, {
+  it('prepares a force-close turn in the requested phase', async () => {
+    const specification = await createSpecification(db, 'Force close');
+    const groundingTurn = await createTurn(db, specification.id, {
       phase: 'grounding',
       question: 'What are we building?',
       answer: 'A spec tool',
     });
-    advanceHead(db, specification.id, groundingTurn.id);
-    createConfirmedPhaseOutcome(db, {
+    await advanceHead(db, specification.id, groundingTurn.id);
+    await createConfirmedPhaseOutcome(db, {
       specificationId: specification.id,
       phase: 'grounding',
       proposal_turn_id: groundingTurn.id,
       confirmation_turn_id: groundingTurn.id,
       summary: 'Grounding is complete.',
     });
-    const designTurn = createTurn(db, specification.id, {
+    const designTurn = await createTurn(db, specification.id, {
       parent_turn_id: groundingTurn.id,
       phase: 'design',
       question: 'What is the primary flow?',
       answer: 'Interview-first',
     });
-    advanceHead(db, specification.id, designTurn.id);
+    await advanceHead(db, specification.id, designTurn.id);
 
-    const result = applyChatRouteTransition(
+    const result = await applyChatRouteTransition(
       { db, specificationId: specification.id },
       {
         kind: 'force-close-phase',
@@ -194,21 +194,24 @@ describe('applyChatRouteTransition', () => {
       ok: true,
       kind: 'phase-force-closed',
     });
-    const forceCloseTurn = getTurn(db, getSpecification(db, specification.id)?.active_turn_id ?? -1);
+    const forceCloseTurn = await getTurn(
+      db,
+      (await getSpecification(db, specification.id))?.active_turn_id ?? -1,
+    );
     expect(forceCloseTurn).toMatchObject({
       phase: 'design',
       answer: 'Force close the active phase',
     });
-    expect(findPhaseOutcomeForTurn(db, specification.id, forceCloseTurn?.id ?? -1)).toMatchObject({
+    expect(await findPhaseOutcomeForTurn(db, specification.id, forceCloseTurn?.id ?? -1)).toMatchObject({
       status: 'confirmed',
       closure_basis: 'user_forced',
     });
   });
 
-  it('rejects force-close commands when the target phase is not closeable', () => {
-    const specification = createSpecification(db, 'Rejected force close');
+  it('rejects force-close commands when the target phase is not closeable', async () => {
+    const specification = await createSpecification(db, 'Rejected force close');
 
-    const result = applyChatRouteTransition(
+    const result = await applyChatRouteTransition(
       { db, specificationId: specification.id },
       {
         kind: 'force-close-phase',
@@ -233,10 +236,10 @@ describe('applyChatRouteTransition', () => {
     });
   });
 
-  it('rejects unavailable phase-intent paths at the helper seam', () => {
-    const specification = createSpecification(db, 'Unavailable phase intent');
+  it('rejects unavailable phase-intent paths at the helper seam', async () => {
+    const specification = await createSpecification(db, 'Unavailable phase intent');
 
-    const result = applyChatRouteTransition(
+    const result = await applyChatRouteTransition(
       { db, specificationId: specification.id },
       { kind: 'phase-entry', request: { kind: 'phase-entry', phase: 'design' } },
     );
@@ -248,22 +251,22 @@ describe('applyChatRouteTransition', () => {
     });
   });
 
-  it('rejects superseded closure confirmations when the proposal is no longer pending', () => {
-    const specification = createSpecification(db, 'Superseded closure confirmation');
-    const proposalTurn = createTurn(db, specification.id, {
+  it('rejects superseded closure confirmations when the proposal is no longer pending', async () => {
+    const specification = await createSpecification(db, 'Superseded closure confirmation');
+    const proposalTurn = await createTurn(db, specification.id, {
       phase: 'grounding',
       question: '',
       answer: 'We have enough grounding context',
     });
-    const outcome = createPhaseOutcome(db, {
+    const outcome = await createPhaseOutcome(db, {
       specificationId: specification.id,
       phase: 'grounding',
       proposal_turn_id: proposalTurn.id,
       summary: 'Grounding is ready to close.',
     });
-    supersedePhaseOutcome(db, outcome.id);
+    await supersedePhaseOutcome(db, outcome.id);
 
-    const result = applyChatRouteTransition(
+    const result = await applyChatRouteTransition(
       { db, specificationId: specification.id },
       {
         kind: 'confirm-phase-closure',
@@ -293,21 +296,21 @@ describe('applyChatRouteTransition', () => {
     });
   });
 
-  it('rejects closure confirmations whose payload phase does not match the proposal phase', () => {
-    const specification = createSpecification(db, 'Mismatched closure confirmation');
-    const proposalTurn = createTurn(db, specification.id, {
+  it('rejects closure confirmations whose payload phase does not match the proposal phase', async () => {
+    const specification = await createSpecification(db, 'Mismatched closure confirmation');
+    const proposalTurn = await createTurn(db, specification.id, {
       phase: 'grounding',
       question: '',
       answer: 'We have enough grounding context',
     });
-    createPhaseOutcome(db, {
+    await createPhaseOutcome(db, {
       specificationId: specification.id,
       phase: 'grounding',
       proposal_turn_id: proposalTurn.id,
       summary: 'Grounding is ready to close.',
     });
 
-    const result = applyChatRouteTransition(
+    const result = await applyChatRouteTransition(
       { db, specificationId: specification.id },
       {
         kind: 'confirm-phase-closure',
@@ -337,9 +340,9 @@ describe('applyChatRouteTransition', () => {
     });
   });
 
-  it('supersedes an active proposed outcome before preparing the successor turn', () => {
-    const specification = createSpecification(db, 'Supersede active proposal');
-    const activeTurn = createTurn(db, specification.id, {
+  it('supersedes an active proposed outcome before preparing the successor turn', async () => {
+    const specification = await createSpecification(db, 'Supersede active proposal');
+    const activeTurn = await createTurn(db, specification.id, {
       phase: 'grounding',
       question: 'What platform should we support first?',
       answer: 'Web',
@@ -351,15 +354,15 @@ describe('applyChatRouteTransition', () => {
         },
       ] satisfies BrunchUserPart[]),
     });
-    advanceHead(db, specification.id, activeTurn.id);
-    createPhaseOutcome(db, {
+    await advanceHead(db, specification.id, activeTurn.id);
+    await createPhaseOutcome(db, {
       specificationId: specification.id,
       phase: 'grounding',
       proposal_turn_id: activeTurn.id,
       summary: 'Grounding is ready to close.',
     });
 
-    const result = applyChatRouteTransition(
+    const result = await applyChatRouteTransition(
       { db, specificationId: specification.id },
       { kind: 'continue', reply: { text: 'Web', parts: [{ type: 'text', text: 'Web' }] } },
     );
@@ -369,6 +372,6 @@ describe('applyChatRouteTransition', () => {
       kind: 'interviewer-turn',
       observedTurnId: activeTurn.id,
     });
-    expect(findPhaseOutcomeForTurn(db, specification.id, activeTurn.id)?.status).toBe('superseded');
+    expect((await findPhaseOutcomeForTurn(db, specification.id, activeTurn.id))?.status).toBe('superseded');
   });
 });

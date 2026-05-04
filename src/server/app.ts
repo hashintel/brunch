@@ -132,12 +132,12 @@ function getTurnResponseTransitionErrorStatus(kind: SubmitTurnResponseTransition
   return 400;
 }
 
-function appendObserverResultToTurn(
+async function appendObserverResultToTurn(
   db: DB,
   turnId: number,
   observerResult: Awaited<ReturnType<typeof runObserver>>,
-): void {
-  const turn = getTurn(db, turnId);
+): Promise<void> {
+  const turn = await getTurn(db, turnId);
   if (!turn) {
     return;
   }
@@ -152,7 +152,7 @@ function appendObserverResultToTurn(
       entityIds: observerResult.entityIds,
     },
   });
-  updateTurn(db, turnId, {
+  await updateTurn(db, turnId, {
     assistant_parts: serializeParts(assistantParts),
   });
 }
@@ -161,8 +161,10 @@ function createObserverCaptureKey(specificationId: number, turnId: number): stri
   return `${specificationId}:${turnId}`;
 }
 
-function getStructuralArtifactTurnIdSet(db: DB, specificationId: number): ReadonlySet<number> {
-  return toStructuralArtifactTurnIdSet(getSpecificationState(db, specificationId)?.structuralArtifactTurnIds);
+async function getStructuralArtifactTurnIdSet(db: DB, specificationId: number): Promise<ReadonlySet<number>> {
+  return toStructuralArtifactTurnIdSet(
+    (await getSpecificationState(db, specificationId))?.structuralArtifactTurnIds,
+  );
 }
 
 async function ensureObserverCapture({
@@ -178,12 +180,12 @@ async function ensureObserverCapture({
   turnId: number;
   projectCwd: string;
 }): Promise<'captured' | 'already-captured'> {
-  const turn = getTurn(db, turnId);
+  const turn = await getTurn(db, turnId);
   if (!turn || turn.specification_id !== specificationId) {
     throw new Error('Turn not found');
   }
 
-  const structuralTurnIds = getStructuralArtifactTurnIdSet(db, specificationId);
+  const structuralTurnIds = await getStructuralArtifactTurnIdSet(db, specificationId);
   if (!turnNeedsObserverCapture(turn, structuralTurnIds)) {
     return 'already-captured';
   }
@@ -192,15 +194,15 @@ async function ensureObserverCapture({
   const existingCapture = observerCaptureRegistry.get(captureKey);
   if (existingCapture) {
     await existingCapture;
-    const refreshedStructuralTurnIds = getStructuralArtifactTurnIdSet(db, specificationId);
-    return turnNeedsObserverCapture(getTurn(db, turnId), refreshedStructuralTurnIds)
+    const refreshedStructuralTurnIds = await getStructuralArtifactTurnIdSet(db, specificationId);
+    return turnNeedsObserverCapture(await getTurn(db, turnId), refreshedStructuralTurnIds)
       ? 'captured'
       : 'already-captured';
   }
 
   const capturePromise = (async () => {
     const observerResult = await runObserver(db, turn, specificationId, projectCwd);
-    appendObserverResultToTurn(db, turn.id, observerResult);
+    await appendObserverResultToTurn(db, turn.id, observerResult);
   })().finally(() => {
     observerCaptureRegistry.delete(captureKey);
   });
@@ -210,9 +212,9 @@ async function ensureObserverCapture({
   return 'captured';
 }
 
-export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
+export async function createApp(dbPathOrOptions?: string | AppOptions): Promise<AppServices> {
   const options = typeof dbPathOrOptions === 'string' ? { dbPath: dbPathOrOptions } : (dbPathOrOptions ?? {});
-  const db = createDb(options.dbPath);
+  const db = await createDb(options.dbPath);
   const projectCwd = options.projectCwd ?? process.cwd();
   const app = express();
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
@@ -248,12 +250,12 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   });
 
   // List all specifications
-  registerGet(specificationCollectionPaths, (_req: Request, res: Response) => {
-    res.json(listSpecifications(db) satisfies SpecificationListItem[]);
+  registerGet(specificationCollectionPaths, async (_req: Request, res: Response) => {
+    res.json((await listSpecifications(db)) satisfies SpecificationListItem[]);
   });
 
   // Create a new specification
-  registerPost(specificationCollectionPaths, (req: Request, res: Response) => {
+  registerPost(specificationCollectionPaths, async (req: Request, res: Response) => {
     const parsedRequest = createSpecificationRequestSchema.safeParse(req.body);
     if (!parsedRequest.success) {
       res.status(400).json({ error: 'Invalid specification payload' } satisfies MutationErrorResponse);
@@ -262,18 +264,18 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
     const { name } = parsedRequest.data;
     const mode = parsedRequest.data.mode === 'brownfield' ? ('brownfield' as const) : undefined;
-    const specification = createNewSpecification(db, name, mode ? { mode } : {});
+    const specification = await createNewSpecification(db, name, mode ? { mode } : {});
     res.status(201).json(specification);
   });
 
   // Get a specific specification + active path
-  registerGet(specificationResourcePaths, (req: Request, res: Response) => {
+  registerGet(specificationResourcePaths, async (req: Request, res: Response) => {
     const specificationId = Number(req.params.id);
     if (Number.isNaN(specificationId)) {
       res.status(400).json({ error: 'Invalid specification ID' } satisfies MutationErrorResponse);
       return;
     }
-    const specificationState = getSpecificationState(db, specificationId);
+    const specificationState = await getSpecificationState(db, specificationId);
     if (!specificationState) {
       res.status(404).json({ error: 'Specification not found' } satisfies MutationErrorResponse);
       return;
@@ -281,7 +283,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     res.json(specificationState satisfies SpecificationState);
   });
 
-  registerPost(specificationPhaseIntentPaths, (req: Request, res: Response) => {
+  registerPost(specificationPhaseIntentPaths, async (req: Request, res: Response) => {
     const specificationId = Number(req.params.id);
 
     if (Number.isNaN(specificationId)) {
@@ -295,7 +297,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       return;
     }
 
-    const response = submitPhaseIntentWithRuntimeCompatibility({
+    const response = await submitPhaseIntentWithRuntimeCompatibility({
       db,
       specificationId,
       request: parsedRequest.data,
@@ -309,7 +311,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   });
 
   // Submit a turn response on a turn.
-  registerPost(specificationTurnResponsePaths, (req: Request, res: Response) => {
+  registerPost(specificationTurnResponsePaths, async (req: Request, res: Response) => {
     const specificationId = Number(req.params.id);
     const turnId = Number(req.params.turnId);
 
@@ -324,7 +326,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       return;
     }
     try {
-      const response = submitTurnResponseTransition({
+      const response = await submitTurnResponseTransition({
         db,
         specificationId,
         turnId,
@@ -372,7 +374,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   });
 
   // Get entities for a specification
-  registerGet(specificationEntitiesPaths, (req: Request, res: Response) => {
+  registerGet(specificationEntitiesPaths, async (req: Request, res: Response) => {
     const specificationId = Number(req.params.id);
     if (Number.isNaN(specificationId)) {
       res.status(400).json({ error: 'Invalid specification ID' } satisfies MutationErrorResponse);
@@ -383,17 +385,17 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       res.status(400).json({ error: 'Invalid entity projection mode' } satisfies MutationErrorResponse);
       return;
     }
-    res.json(getEntitiesForSpecificationByMode(db, specificationId, mode) satisfies EntitiesData);
+    res.json((await getEntitiesForSpecificationByMode(db, specificationId, mode)) satisfies EntitiesData);
   });
 
   // Export a specification as markdown
-  registerGet(specificationExportPaths, (req: Request, res: Response) => {
+  registerGet(specificationExportPaths, async (req: Request, res: Response) => {
     const specificationId = Number(req.params.id);
     if (Number.isNaN(specificationId)) {
       res.status(400).json({ error: 'Invalid specification ID' } satisfies MutationErrorResponse);
       return;
     }
-    const specificationState = getSpecificationState(db, specificationId);
+    const specificationState = await getSpecificationState(db, specificationId);
     if (!specificationState) {
       res.status(404).json({ error: 'Specification not found' } satisfies MutationErrorResponse);
       return;
@@ -403,7 +405,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       res.json({ ready: false } satisfies ExportLoaderData);
       return;
     }
-    const entities = getEntitiesForSpecificationByMode(db, specificationId, 'active-path');
+    const entities = await getEntitiesForSpecificationByMode(db, specificationId, 'active-path');
     const markdown = renderExportMarkdown(
       getSpecificationRecord(specificationState).name,
       entities,
@@ -497,9 +499,9 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
                 kind: 'continue',
                 reply: { text: promptText, parts: persistedUserParts },
               };
-    let transition: ReturnType<typeof applyChatRouteTransition>;
+    let transition: Awaited<ReturnType<typeof applyChatRouteTransition>>;
     try {
-      transition = applyChatRouteTransition({ db, specificationId }, chatCommand);
+      transition = await applyChatRouteTransition({ db, specificationId }, chatCommand);
     } catch {
       res
         .status(500)
@@ -543,9 +545,9 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
         const finishReason = await interviewer.finishReason;
         interviewerElapsedMs = Date.now() - interviewerStartedAt;
-        finalizeTurn(db, specificationId, prepared.turn.id);
+        await finalizeTurn(db, specificationId, prepared.turn.id);
 
-        const phaseOutcome = findPhaseOutcomeForTurn(db, specificationId, prepared.turn.id);
+        const phaseOutcome = await findPhaseOutcomeForTurn(db, specificationId, prepared.turn.id);
         if (phaseOutcome && phaseOutcome.status === 'proposed') {
           writer.write({
             type: 'data-phase-summary',
@@ -558,7 +560,9 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
 
         try {
-          const observedTurn = transition.observedTurnId ? getTurn(db, transition.observedTurnId) : undefined;
+          const observedTurn = transition.observedTurnId
+            ? await getTurn(db, transition.observedTurnId)
+            : undefined;
           const shouldObserve =
             observedTurn &&
             observedTurn.answer !== null &&
@@ -577,7 +581,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
           if (shouldObserve && observedTurn) {
             const observerResult = await runObserver(db, observedTurn, specificationId, projectCwd);
-            appendObserverResultToTurn(db, observedTurn.id, observerResult);
+            await appendObserverResultToTurn(db, observedTurn.id, observerResult);
             writer.write({
               type: 'data-observer-result',
               data: {
@@ -598,13 +602,13 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
         const { prepared } = transition;
         const assistantText = extractTextFromMessage(responseMessage);
-        persistFallbackQuestionText(db, prepared.turn.id, assistantText);
+        await persistFallbackQuestionText(db, prepared.turn.id, assistantText);
         const persistedAssistantParts = materializeTurnArtifacts({
           phase: prepared.turn.phase,
           responseMessage,
           elapsedMs: interviewerElapsedMs,
         });
-        updateTurn(db, prepared.turn.id, {
+        await updateTurn(db, prepared.turn.id, {
           assistant_parts: serializeParts(persistedAssistantParts),
         });
       },

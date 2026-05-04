@@ -20,23 +20,23 @@ import { submitTurnResponseTransition } from './turn-response-transition.js';
 describe('submitTurnResponseTransition', () => {
   let db: DB;
 
-  beforeEach(() => {
-    db = createDb();
+  beforeEach(async () => {
+    db = await createDb();
   });
 
-  it('persists a normal structured turn response', () => {
-    const specification = createSpecification(db, 'Structured turn response');
-    const turn = createTurn(db, specification.id, {
+  it('persists a normal structured turn response', async () => {
+    const specification = await createSpecification(db, 'Structured turn response');
+    const turn = await createTurn(db, specification.id, {
       phase: 'grounding',
       question: 'Which platforms should we support first?',
       answer: '',
     });
-    createOption(db, turn.id, { position: 0, content: 'Web', is_recommended: true });
-    createOption(db, turn.id, { position: 1, content: 'Desktop', is_recommended: false });
+    await createOption(db, turn.id, { position: 0, content: 'Web', is_recommended: true });
+    await createOption(db, turn.id, { position: 1, content: 'Desktop', is_recommended: false });
 
     const selectedPositions = [0, 1];
 
-    const response = submitTurnResponseTransition({
+    const response = await submitTurnResponseTransition({
       db,
       specificationId: specification.id,
       turnId: turn.id,
@@ -48,20 +48,24 @@ describe('submitTurnResponseTransition', () => {
     });
 
     expect(response).toEqual({ ok: true });
-    expect(getTurn(db, turn.id)?.answer).toBe('Web, Desktop — Covers both launch paths');
-    expect(getOptionsForTurn(db, turn.id).map((option) => option.is_selected)).toEqual([true, true]);
+    expect((await getTurn(db, turn.id))?.answer).toBe('Web, Desktop — Covers both launch paths');
+    expect((await getOptionsForTurn(db, turn.id)).map((option) => option.is_selected)).toEqual([true, true]);
   });
 
-  it('updates specification mode when the turn is the grounding strategy kickoff', () => {
-    const specification = createSpecification(db, 'Grounding kickoff');
-    const turn = createTurn(db, specification.id, {
+  it('updates specification mode when the turn is the grounding strategy kickoff', async () => {
+    const specification = await createSpecification(db, 'Grounding kickoff');
+    const turn = await createTurn(db, specification.id, {
       phase: 'grounding',
       turn_kind: 'kickoff',
       question: groundingStrategyKickoffQuestion,
       answer: '',
     });
-    createOption(db, turn.id, { position: 0, content: 'New concept from scratch', is_recommended: true });
-    createOption(db, turn.id, {
+    await createOption(db, turn.id, {
+      position: 0,
+      content: 'New concept from scratch',
+      is_recommended: true,
+    });
+    await createOption(db, turn.id, {
       position: 1,
       content: 'Feature within existing codebase',
       is_recommended: false,
@@ -69,7 +73,7 @@ describe('submitTurnResponseTransition', () => {
 
     const selectedPositions = [1];
 
-    const response = submitTurnResponseTransition({
+    const response = await submitTurnResponseTransition({
       db,
       specificationId: specification.id,
       turnId: turn.id,
@@ -80,15 +84,15 @@ describe('submitTurnResponseTransition', () => {
     });
 
     expect(response).toEqual({ ok: true });
-    expect(getSpecification(db, specification.id)?.mode).toBe('brownfield');
-    expect(getTurn(db, turn.id)?.answer).toBe(getGroundingStrategyTitle('brownfield'));
+    expect((await getSpecification(db, specification.id))?.mode).toBe('brownfield');
+    expect((await getTurn(db, turn.id))?.answer).toBe(getGroundingStrategyTitle('brownfield'));
   });
 
-  it('accepts a requirements review and advances to criteria', () => {
-    const specification = createSpecification(db, 'Requirements review');
-    const seededRequirements = seedRequirementsReviewReady(db, specification.id);
+  it('accepts a requirements review and advances to criteria', async () => {
+    const specification = await createSpecification(db, 'Requirements review');
+    const seededRequirements = await seedRequirementsReviewReady(db, specification.id);
 
-    const response = submitTurnResponseTransition({
+    const response = await submitTurnResponseTransition({
       db,
       specificationId: specification.id,
       turnId: seededRequirements.reviewTurn.id,
@@ -100,15 +104,15 @@ describe('submitTurnResponseTransition', () => {
     });
 
     expect(response).toEqual({ ok: true, advancedToPhase: 'criteria' });
-    expect(getCurrentWorkflowState(db, specification.id).phases.requirements.status).toBe('closed');
-    expect(getCurrentWorkflowState(db, specification.id).phases.criteria.status).toBe('in_progress');
+    expect((await getCurrentWorkflowState(db, specification.id)).phases.requirements.status).toBe('closed');
+    expect((await getCurrentWorkflowState(db, specification.id)).phases.criteria.status).toBe('in_progress');
   });
 
-  it('accepts a criteria review and completes the workflow', () => {
-    const specification = createSpecification(db, 'Criteria review');
-    const seededCriteria = seedCriteriaReviewReady(db, specification.id);
+  it('accepts a criteria review and completes the workflow', async () => {
+    const specification = await createSpecification(db, 'Criteria review');
+    const seededCriteria = await seedCriteriaReviewReady(db, specification.id);
 
-    const response = submitTurnResponseTransition({
+    const response = await submitTurnResponseTransition({
       db,
       specificationId: specification.id,
       turnId: seededCriteria.reviewTurn.id,
@@ -120,19 +124,19 @@ describe('submitTurnResponseTransition', () => {
     });
 
     expect(response).toEqual({ ok: true, workflowCompleted: true });
-    expect(getCurrentWorkflowState(db, specification.id).phases.criteria.status).toBe('closed');
+    expect((await getCurrentWorkflowState(db, specification.id)).phases.criteria.status).toBe('closed');
   });
 
-  it('rejects responses whose selected option positions do not exist', () => {
-    const specification = createSpecification(db, 'Missing option position');
-    const turn = createTurn(db, specification.id, {
+  it('rejects responses whose selected option positions do not exist', async () => {
+    const specification = await createSpecification(db, 'Missing option position');
+    const turn = await createTurn(db, specification.id, {
       phase: 'grounding',
       question: 'Which platforms should we support first?',
       answer: '',
     });
-    createOption(db, turn.id, { position: 0, content: 'Web', is_recommended: true });
+    await createOption(db, turn.id, { position: 0, content: 'Web', is_recommended: true });
 
-    const response = submitTurnResponseTransition({
+    const response = await submitTurnResponseTransition({
       db,
       specificationId: specification.id,
       turnId: turn.id,
@@ -149,16 +153,16 @@ describe('submitTurnResponseTransition', () => {
     });
   });
 
-  it('rejects review actions on non-review turns', () => {
-    const specification = createSpecification(db, 'Unexpected review action');
-    const turn = createTurn(db, specification.id, {
+  it('rejects review actions on non-review turns', async () => {
+    const specification = await createSpecification(db, 'Unexpected review action');
+    const turn = await createTurn(db, specification.id, {
       phase: 'grounding',
       question: 'Which platforms should we support first?',
       answer: '',
     });
-    createOption(db, turn.id, { position: 0, content: 'Web', is_recommended: true });
+    await createOption(db, turn.id, { position: 0, content: 'Web', is_recommended: true });
 
-    const response = submitTurnResponseTransition({
+    const response = await submitTurnResponseTransition({
       db,
       specificationId: specification.id,
       turnId: turn.id,
@@ -176,11 +180,11 @@ describe('submitTurnResponseTransition', () => {
     });
   });
 
-  it('rejects review turns whose explicit reviewAction does not match the chosen option', () => {
-    const specification = createSpecification(db, 'Mismatched review action');
-    const seededRequirements = seedRequirementsReviewReady(db, specification.id);
+  it('rejects review turns whose explicit reviewAction does not match the chosen option', async () => {
+    const specification = await createSpecification(db, 'Mismatched review action');
+    const seededRequirements = await seedRequirementsReviewReady(db, specification.id);
 
-    const response = submitTurnResponseTransition({
+    const response = await submitTurnResponseTransition({
       db,
       specificationId: specification.id,
       turnId: seededRequirements.reviewTurn.id,
@@ -198,11 +202,11 @@ describe('submitTurnResponseTransition', () => {
     });
   });
 
-  it('persists request-changes review submissions without closing the phase', () => {
-    const specification = createSpecification(db, 'Requirements request changes');
-    const seededRequirements = seedRequirementsReviewReady(db, specification.id);
+  it('persists request-changes review submissions without closing the phase', async () => {
+    const specification = await createSpecification(db, 'Requirements request changes');
+    const seededRequirements = await seedRequirementsReviewReady(db, specification.id);
 
-    const response = submitTurnResponseTransition({
+    const response = await submitTurnResponseTransition({
       db,
       specificationId: specification.id,
       turnId: seededRequirements.reviewTurn.id,
@@ -215,7 +219,11 @@ describe('submitTurnResponseTransition', () => {
     });
 
     expect(response).toEqual({ ok: true });
-    expect(getPersistedReviewAction(getTurn(db, seededRequirements.reviewTurn.id))).toBe('request-changes');
-    expect(getCurrentWorkflowState(db, specification.id).phases.requirements.status).toBe('in_progress');
+    expect(getPersistedReviewAction(await getTurn(db, seededRequirements.reviewTurn.id))).toBe(
+      'request-changes',
+    );
+    expect((await getCurrentWorkflowState(db, specification.id)).phases.requirements.status).toBe(
+      'in_progress',
+    );
   });
 });

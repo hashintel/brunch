@@ -14,13 +14,13 @@ import {
   type Turn,
 } from '../db.js';
 
-export function createLegacyKickoffTurnForTesting(db: DB, projectId: number): Turn | null {
-  const project = getSpecification(db, projectId);
+export async function createLegacyKickoffTurnForTesting(db: DB, projectId: number): Promise<Turn | null> {
+  const project = await getSpecification(db, projectId);
   if (!project) {
     return null;
   }
 
-  const kickoffTurn = createTurn(db, projectId, {
+  const kickoffTurn = await createTurn(db, projectId, {
     parent_turn_id: project.active_turn_id ?? null,
     phase: 'grounding',
     turn_kind: 'kickoff',
@@ -31,18 +31,18 @@ export function createLegacyKickoffTurnForTesting(db: DB, projectId: number): Tu
     why: null,
   });
 
-  updateTurn(db, kickoffTurn.id, {
+  await updateTurn(db, kickoffTurn.id, {
     question: groundingStrategyKickoffQuestion,
     why: groundingStrategyKickoffDescription,
   });
   for (const choice of groundingStrategyChoices) {
-    createOption(db, kickoffTurn.id, {
+    await createOption(db, kickoffTurn.id, {
       position: choice.position,
       content: choice.title,
       is_recommended: choice.isRecommended,
     });
   }
 
-  advanceHead(db, projectId, kickoffTurn.id);
+  await advanceHead(db, projectId, kickoffTurn.id);
   return kickoffTurn;
 }

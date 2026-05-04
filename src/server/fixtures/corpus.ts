@@ -80,29 +80,32 @@ export interface GoldenCorpus {
   entries: Record<string, GoldenCorpusEntry>;
 }
 
-const seedIssueTrackerGroundingProbe: ScenarioFn = (db, projectName = 'Observer grounding probe') => {
-  const project = createSpecification(db, projectName);
-  const turn = createTurn(db, project.id, {
+const seedIssueTrackerGroundingProbe: ScenarioFn = async (db, projectName = 'Observer grounding probe') => {
+  const project = await createSpecification(db, projectName);
+  const turn = await createTurn(db, project.id, {
     phase: 'grounding',
     question: 'What is the primary goal of this issue tracker?',
     answer:
       'Replace our spreadsheet with a simple tracker that keeps ownership visible and records status-change history.',
   });
-  advanceHead(db, project.id, turn.id);
+  await advanceHead(db, project.id, turn.id);
   return project.id;
 };
 
-const seedIssueTrackerRequirementsProbe: ScenarioFn = (db, projectName = 'Observer requirements probe') => {
-  const project = createSpecification(db, projectName);
-  const { designConfirmationTurn } = seedRequirementsReady(db, project.id);
-  const turn = createTurn(db, project.id, {
+const seedIssueTrackerRequirementsProbe: ScenarioFn = async (
+  db,
+  projectName = 'Observer requirements probe',
+) => {
+  const project = await createSpecification(db, projectName);
+  const { designConfirmationTurn } = await seedRequirementsReady(db, project.id);
+  const turn = await createTurn(db, project.id, {
     phase: 'requirements',
     parent_turn_id: designConfirmationTurn.id,
     question: 'Which requirements are still missing from the first release?',
     answer:
       'Create tickets with title, description, priority, and assignee, plus preserve a visible audit trail for every status change.',
   });
-  advanceHead(db, project.id, turn.id);
+  await advanceHead(db, project.id, turn.id);
   return project.id;
 };
 
@@ -210,8 +213,8 @@ function buildExpectedTurnCapture(scenario: ObserverProbeScenario): ObservedTurn
   return normalizeObservedTurnCapture(scenario.expectedCapture);
 }
 
-function getAllEntityContentById(db: DB, projectId: number): Map<number, string> {
-  const entities = getEntitiesForSpecification(db, projectId);
+async function getAllEntityContentById(db: DB, projectId: number): Promise<Map<number, string>> {
+  const entities = await getEntitiesForSpecification(db, projectId);
   const contentById = new Map<number, string>();
 
   for (const item of entities.goals) contentById.set(item.id, item.content);
@@ -226,13 +229,13 @@ function getAllEntityContentById(db: DB, projectId: number): Map<number, string>
   return contentById;
 }
 
-function getEntityIdByKindAndContent(
+async function getEntityIdByKindAndContent(
   db: DB,
   projectId: number,
   kind: DependencyKind,
   content: string,
-): number {
-  const entities = getEntitiesForSpecification(db, projectId);
+): Promise<number> {
+  const entities = await getEntitiesForSpecification(db, projectId);
   const collection = kind === 'decision' ? entities.decisions : entities.assumptions;
   const match = collection.find((item) => item.content === content);
   if (!match) {
@@ -241,12 +244,12 @@ function getEntityIdByKindAndContent(
   return match.id;
 }
 
-export function buildExpectedObserverOutputForTurn(
+export async function buildExpectedObserverOutputForTurn(
   scenario: ObserverProbeScenario,
   turnIndex: number,
   db: DB,
   projectId: number,
-): ObserverOutput {
+): Promise<ObserverOutput> {
   if (turnIndex !== 0) {
     throw new Error(
       `Observer probe scenarios currently expose a single probe turn, received index ${turnIndex}`,
@@ -281,47 +284,57 @@ export function buildExpectedObserverOutputForTurn(
       content: item.content,
       rationale: item.rationale ?? null,
     })),
-    decisions: expectedCapture.decisions.map((item) => {
-      const dependencies = expectedCapture.dependencies.filter(
-        (dependency) => dependency.sourceKind === 'decision' && dependency.sourceContent === item.content,
-      );
-      return {
+    decisions: await Promise.all(
+      expectedCapture.decisions.map(async (item) => {
+        const dependencies = expectedCapture.dependencies.filter(
+          (dependency) => dependency.sourceKind === 'decision' && dependency.sourceContent === item.content,
+        );
+        return {
+          content: item.content,
+          rationale: item.rationale ?? null,
+          parentDecisionIds: await Promise.all(
+            dependencies
+              .filter((dependency) => dependency.targetKind === 'decision')
+              .map((dependency) =>
+                getEntityIdByKindAndContent(db, projectId, dependency.targetKind, dependency.targetContent),
+              ),
+          ),
+          parentAssumptionIds: await Promise.all(
+            dependencies
+              .filter((dependency) => dependency.targetKind === 'assumption')
+              .map((dependency) =>
+                getEntityIdByKindAndContent(db, projectId, dependency.targetKind, dependency.targetContent),
+              ),
+          ),
+        };
+      }),
+    ),
+    assumptions: await Promise.all(
+      expectedCapture.assumptions.map(async (item) => ({
         content: item.content,
-        rationale: item.rationale ?? null,
-        parentDecisionIds: dependencies
-          .filter((dependency) => dependency.targetKind === 'decision')
-          .map((dependency) =>
-            getEntityIdByKindAndContent(db, projectId, dependency.targetKind, dependency.targetContent),
-          ),
-        parentAssumptionIds: dependencies
-          .filter((dependency) => dependency.targetKind === 'assumption')
-          .map((dependency) =>
-            getEntityIdByKindAndContent(db, projectId, dependency.targetKind, dependency.targetContent),
-          ),
-      };
-    }),
-    assumptions: expectedCapture.assumptions.map((item) => ({
-      content: item.content,
-      parentAssumptionIds: expectedCapture.dependencies
-        .filter(
-          (dependency) =>
-            dependency.sourceKind === 'assumption' &&
-            dependency.sourceContent === item.content &&
-            dependency.targetKind === 'assumption',
-        )
-        .map((dependency) =>
-          getEntityIdByKindAndContent(db, projectId, dependency.targetKind, dependency.targetContent),
+        parentAssumptionIds: await Promise.all(
+          expectedCapture.dependencies
+            .filter(
+              (dependency) =>
+                dependency.sourceKind === 'assumption' &&
+                dependency.sourceContent === item.content &&
+                dependency.targetKind === 'assumption',
+            )
+            .map((dependency) =>
+              getEntityIdByKindAndContent(db, projectId, dependency.targetKind, dependency.targetContent),
+            ),
         ),
-    })),
+      })),
+    ),
   };
 }
 
-function collectObservedTurnCapture(
+async function collectObservedTurnCapture(
   db: DB,
   projectId: number,
   createdIds: Awaited<ReturnType<typeof runObserver>>,
-): ObservedTurnCapture {
-  const entities = getEntitiesForSpecification(db, projectId);
+): Promise<ObservedTurnCapture> {
+  const entities = await getEntitiesForSpecification(db, projectId);
   const createdIdSet = new Set<number>([
     ...createdIds.entityIds.goals,
     ...createdIds.entityIds.terms,
@@ -332,7 +345,7 @@ function collectObservedTurnCapture(
     ...createdIds.entityIds.decisions,
     ...createdIds.entityIds.assumptions,
   ]);
-  const contentById = getAllEntityContentById(db, projectId);
+  const contentById = await getAllEntityContentById(db, projectId);
 
   const capture = createEmptyObservedTurnCapture();
   capture.goals = entities.goals
@@ -391,19 +404,19 @@ function collectObservedTurnCapture(
 
 export async function observeTurnWithRunObserver(input: ObserveTurnInput): Promise<ObservedTurnCapture> {
   const createdIds = await runObserver(input.db, input.turn as import('../db.js').Turn, input.projectId);
-  return collectObservedTurnCapture(input.db, input.projectId, createdIds);
+  return await collectObservedTurnCapture(input.db, input.projectId, createdIds);
 }
 
 export async function probeObserverScenario(
   scenario: ObserverProbeScenario,
   observeTurn: ObserveTurnFn = observeTurnWithRunObserver,
 ): Promise<ObserverProbeResult> {
-  const probeDb = createDb();
+  const probeDb = await createDb();
 
   try {
     const turnIndex = 0;
-    const projectId = scenario.seedProject(probeDb, `Observer Probe ${scenario.phase}`);
-    const turn = loadActivePathWithOptions(probeDb, projectId).at(-1);
+    const projectId = await scenario.seedProject(probeDb, `Observer Probe ${scenario.phase}`);
+    const turn = (await loadActivePathWithOptions(probeDb, projectId)).at(-1);
     if (!turn) {
       throw new Error(`Observer probe for phase ${scenario.phase} could not load the active path turn`);
     }

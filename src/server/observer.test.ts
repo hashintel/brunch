@@ -32,9 +32,9 @@ const {
 
 let db: DB;
 
-beforeEach(() => {
+beforeEach(async () => {
   mockGenerateText.mockReset();
-  db = createDb();
+  db = await createDb();
 });
 
 afterEach(() => {
@@ -77,12 +77,12 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createSpecification(db, 'Spec');
-    const turn = createTurn(db, project.id, { phase: 'grounding', question: 'Q', answer: 'A' });
+    const project = await createSpecification(db, 'Spec');
+    const turn = await createTurn(db, project.id, { phase: 'grounding', question: 'Q', answer: 'A' });
 
     const observerResult = await runObserver(db, turn, project.id);
     const { entityIds } = observerResult;
-    const entities = getEntitiesForSpecification(db, project.id);
+    const entities = await getEntitiesForSpecification(db, project.id);
     const provenanceRows = db.$client
       .prepare('SELECT turn_id, item_id, relation FROM turn_knowledge_item ORDER BY item_id ASC')
       .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
@@ -155,13 +155,13 @@ describe('runObserver', () => {
     });
 
     const { createKnowledgeItem } = await import('./db.js');
-    const project = createSpecification(db, 'Spec');
-    createKnowledgeItem(db, project.id, 'context', 'The project starts as a fuzzy brief');
-    createKnowledgeItem(db, project.id, 'constraint', 'Avoid heavyweight setup', {
+    const project = await createSpecification(db, 'Spec');
+    await createKnowledgeItem(db, project.id, 'context', 'The project starts as a fuzzy brief');
+    await createKnowledgeItem(db, project.id, 'constraint', 'Avoid heavyweight setup', {
       subtype: 'non-goal',
       rationale: 'Onboarding should stay instant',
     });
-    const turn = createTurn(db, project.id, {
+    const turn = await createTurn(db, project.id, {
       phase: 'grounding',
       question: 'What should we avoid?',
       answer: 'We should avoid any heavyweight setup flow.',
@@ -202,8 +202,8 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createSpecification(db, 'Spec', { mode: 'brownfield' });
-    const turn = createTurn(db, project.id, {
+    const project = await createSpecification(db, 'Spec', { mode: 'brownfield' });
+    const turn = await createTurn(db, project.id, {
       phase: 'grounding',
       question: 'Which billing workflow should we focus on first?',
       answer: 'The invoice retry path.',
@@ -262,10 +262,10 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createSpecification(db, 'Spec');
-    const existingDecision = createDecision(db, project.id, 'Keep the first release browser-based');
-    const existingAssumption = createAssumption(db, project.id, 'Users can work in a browser');
-    const turn = createTurn(db, project.id, {
+    const project = await createSpecification(db, 'Spec');
+    const existingDecision = await createDecision(db, project.id, 'Keep the first release browser-based');
+    const existingAssumption = await createAssumption(db, project.id, 'Users can work in a browser');
+    const turn = await createTurn(db, project.id, {
       phase: 'design',
       question: 'Which delivery surface should we commit to first?',
       answer: 'Start with the web app and skip plugins for now.',
@@ -273,7 +273,7 @@ describe('runObserver', () => {
 
     const observerResult = await runObserver(db, turn, project.id);
     const { entityIds } = observerResult;
-    const entities = getEntitiesForSpecification(db, project.id);
+    const entities = await getEntitiesForSpecification(db, project.id);
 
     expect(entityIds.goals).toEqual([]);
     expect(entityIds.terms).toEqual([]);
@@ -362,10 +362,10 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createSpecification(db, 'Spec');
-    createDecision(db, project.id, 'Start with the web app');
-    createAssumption(db, project.id, 'Users can work in a browser');
-    const turn = createTurn(db, project.id, {
+    const project = await createSpecification(db, 'Spec');
+    await createDecision(db, project.id, 'Start with the web app');
+    await createAssumption(db, project.id, 'Users can work in a browser');
+    const turn = await createTurn(db, project.id, {
       phase: 'design',
       question: 'Which delivery surface should we commit to first?',
       answer: 'Start with the web app and skip plugins for now.',
@@ -415,15 +415,15 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createSpecification(db, 'Spec');
-    const turn = createTurn(db, project.id, {
+    const project = await createSpecification(db, 'Spec');
+    const turn = await createTurn(db, project.id, {
       phase: 'requirements',
       question: 'What must the product do before we can call it complete?',
       answer: 'It must resume an interview from SQLite after a browser restart.',
     });
 
     const observerResult = await runObserver(db, turn, project.id);
-    const entities = getEntitiesForSpecification(db, project.id);
+    const entities = await getEntitiesForSpecification(db, project.id);
     const provenanceRows = db.$client
       .prepare('SELECT turn_id, item_id, relation FROM turn_knowledge_item ORDER BY item_id ASC')
       .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
@@ -459,19 +459,19 @@ describe('runObserver', () => {
     });
 
     const { advanceHead } = await import('./db.js');
-    const project = createSpecification(db, 'Spec');
-    const priorTurn = createTurn(db, project.id, {
+    const project = await createSpecification(db, 'Spec');
+    const priorTurn = await createTurn(db, project.id, {
       phase: 'requirements',
       question: 'Which requirements are still missing?',
       answer: 'Resume interviews from SQLite',
     });
-    const turn = createTurn(db, project.id, {
+    const turn = await createTurn(db, project.id, {
       phase: 'requirements',
       parent_turn_id: priorTurn.id,
       question: 'Which requirements are still missing?',
       answer: 'We still need to preserve the active path after a restart.',
     });
-    advanceHead(db, project.id, turn.id);
+    await advanceHead(db, project.id, turn.id);
 
     await runObserver(db, turn, project.id);
 
@@ -507,8 +507,8 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createSpecification(db, 'Spec');
-    const turn = createTurn(db, project.id, {
+    const project = await createSpecification(db, 'Spec');
+    const turn = await createTurn(db, project.id, {
       phase: 'requirements',
       question: 'Which requirements are still missing?',
       answer: 'Web, Desktop — Covers both launch paths',
@@ -524,8 +524,8 @@ describe('runObserver', () => {
         },
       ]),
     });
-    createOption(db, turn.id, { position: 0, content: 'Web', is_selected: true });
-    createOption(db, turn.id, { position: 1, content: 'Desktop', is_selected: true });
+    await createOption(db, turn.id, { position: 0, content: 'Web', is_selected: true });
+    await createOption(db, turn.id, { position: 1, content: 'Desktop', is_selected: true });
 
     await runObserver(db, turn, project.id);
 
@@ -562,15 +562,15 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createSpecification(db, 'Spec');
-    const turn = createTurn(db, project.id, {
+    const project = await createSpecification(db, 'Spec');
+    const turn = await createTurn(db, project.id, {
       phase: 'criteria',
       question: 'How will we know resume is working well enough?',
       answer: 'Resuming should restore the active path without losing any work.',
     });
 
     const observerResult = await runObserver(db, turn, project.id);
-    const entities = getEntitiesForSpecification(db, project.id);
+    const entities = await getEntitiesForSpecification(db, project.id);
     const provenanceRows = db.$client
       .prepare('SELECT turn_id, item_id, relation FROM turn_knowledge_item ORDER BY item_id ASC')
       .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
@@ -606,22 +606,22 @@ describe('runObserver', () => {
     });
 
     const { advanceHead, createKnowledgeItem } = await import('./db.js');
-    const project = createSpecification(db, 'Spec');
-    createKnowledgeItem(db, project.id, 'requirement', 'Resume interviews from SQLite', {
+    const project = await createSpecification(db, 'Spec');
+    await createKnowledgeItem(db, project.id, 'requirement', 'Resume interviews from SQLite', {
       rationale: 'Users return later',
     });
-    const priorTurn = createTurn(db, project.id, {
+    const priorTurn = await createTurn(db, project.id, {
       phase: 'criteria',
       question: 'Which criteria prove the resume requirement is satisfied?',
       answer: 'Resuming restores the active path',
     });
-    const turn = createTurn(db, project.id, {
+    const turn = await createTurn(db, project.id, {
       phase: 'criteria',
       parent_turn_id: priorTurn.id,
       question: 'Which criteria prove the resume requirement is satisfied?',
       answer: 'We should prove the active path restores cleanly after a restart.',
     });
-    advanceHead(db, project.id, turn.id);
+    await advanceHead(db, project.id, turn.id);
 
     await runObserver(db, turn, project.id);
 

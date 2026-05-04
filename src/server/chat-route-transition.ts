@@ -28,7 +28,9 @@ import {
 } from './db.js';
 import { getPhaseIntentRuntimeAvailabilityError } from './phase-intent-runtime.js';
 
-type PreparedChatTurn = ReturnType<typeof prepareTurn> | ReturnType<typeof prepareSuccessorTurn>;
+type PreparedChatTurn =
+  | Awaited<ReturnType<typeof prepareTurn>>
+  | Awaited<ReturnType<typeof prepareSuccessorTurn>>;
 
 export type ChatRouteTransitionResult =
   | {
@@ -87,7 +89,7 @@ export type ChatCommand =
       readonly reply: ChatReply;
     };
 
-export function applyChatRouteTransition(
+export async function applyChatRouteTransition(
   {
     db,
     specificationId,
@@ -96,14 +98,18 @@ export function applyChatRouteTransition(
     specificationId: number;
   },
   command: ChatCommand,
-): ChatRouteTransitionResult | ChatRouteTransitionError {
-  const specificationState = getSpecificationState(db, specificationId);
+): Promise<ChatRouteTransitionResult | ChatRouteTransitionError> {
+  const specificationState = await getSpecificationState(db, specificationId);
   if (!specificationState) {
     return { ok: false, kind: 'specification-not-found', message: 'Specification not found' };
   }
 
   if (command.kind === 'confirm-phase-closure') {
-    const confirmationTarget = findProposedPhaseOutcomeByTurn(db, specificationId, command.proposalTurnId);
+    const confirmationTarget = await findProposedPhaseOutcomeByTurn(
+      db,
+      specificationId,
+      command.proposalTurnId,
+    );
     if (!confirmationTarget) {
       return {
         ok: false,
@@ -119,7 +125,7 @@ export function applyChatRouteTransition(
       };
     }
 
-    const proposalTurn = getTurn(db, confirmationTarget.proposal_turn_id);
+    const proposalTurn = await getTurn(db, confirmationTarget.proposal_turn_id);
     if (!proposalTurn || proposalTurn.specification_id !== specificationId) {
       return {
         ok: false,
@@ -128,9 +134,9 @@ export function applyChatRouteTransition(
       };
     }
 
-    resolveTurn(db, proposalTurn.id, command.reply.text, command.reply.parts);
-    confirmPhaseOutcome(db, confirmationTarget.id, proposalTurn.id);
-    finalizeTurn(db, specificationId, proposalTurn.id);
+    await resolveTurn(db, proposalTurn.id, command.reply.text, command.reply.parts);
+    await confirmPhaseOutcome(db, confirmationTarget.id, proposalTurn.id);
+    await finalizeTurn(db, specificationId, proposalTurn.id);
     return {
       ok: true,
       kind: 'phase-closure-confirmed',
@@ -139,7 +145,7 @@ export function applyChatRouteTransition(
 
   if (command.kind === 'force-close-phase') {
     const forceCloseAction = getForceClosePhaseAction(
-      getCurrentWorkflowState(db, specificationId),
+      await getCurrentWorkflowState(db, specificationId),
       command.phase,
     );
     const forceCloseError = getForceCloseActionErrorMessage(forceCloseAction);
@@ -151,15 +157,21 @@ export function applyChatRouteTransition(
       };
     }
 
-    const prepared = prepareTurn(db, specificationId, command.reply.text, command.reply.parts, command.phase);
-    createConfirmedPhaseOutcome(db, {
+    const prepared = await prepareTurn(
+      db,
+      specificationId,
+      command.reply.text,
+      command.reply.parts,
+      command.phase,
+    );
+    await createConfirmedPhaseOutcome(db, {
       specificationId,
       phase: command.phase,
       proposal_turn_id: prepared.turn.id,
       confirmation_turn_id: prepared.turn.id,
       summary: getForcedPhaseClosureSummary(command.phase),
     });
-    finalizeTurn(db, specificationId, prepared.turn.id);
+    await finalizeTurn(db, specificationId, prepared.turn.id);
 
     return {
       ok: true,
@@ -183,7 +195,7 @@ export function applyChatRouteTransition(
     return {
       ok: true,
       kind: 'interviewer-turn',
-      prepared: prepareSuccessorTurn(
+      prepared: await prepareSuccessorTurn(
         db,
         specificationId,
         command.request.phase,
@@ -195,13 +207,15 @@ export function applyChatRouteTransition(
     };
   }
 
-  const currentPhase = getCurrentPhase(db, specificationId);
+  const currentPhase = await getCurrentPhase(db, specificationId);
   const activeTurnId = getSpecificationRecord(specificationState).active_turn_id;
-  const activeTurn = activeTurnId ? getTurn(db, activeTurnId) : undefined;
+  const activeTurn = activeTurnId ? await getTurn(db, activeTurnId) : undefined;
 
-  const activeOutcome = activeTurn ? findPhaseOutcomeForTurn(db, specificationId, activeTurn.id) : undefined;
+  const activeOutcome = activeTurn
+    ? await findPhaseOutcomeForTurn(db, specificationId, activeTurn.id)
+    : undefined;
   if (activeOutcome?.status === 'proposed') {
-    supersedePhaseOutcome(db, activeOutcome.id);
+    await supersedePhaseOutcome(db, activeOutcome.id);
   }
 
   if (activeTurn) {
@@ -212,33 +226,33 @@ export function applyChatRouteTransition(
       (activeTurn.phase === 'grounding' || activeTurn.phase === 'design');
     const successorPhase = activeTurn.answer === null ? activeTurn.phase : currentPhase;
     if (activeTurn.answer === null) {
-      resolveTurn(db, activeTurn.id, command.reply.text, command.reply.parts);
+      await resolveTurn(db, activeTurn.id, command.reply.text, command.reply.parts);
     }
-    finalizeTurn(db, specificationId, activeTurn.id);
+    await finalizeTurn(db, specificationId, activeTurn.id);
 
     return {
       ok: true,
       kind: 'interviewer-turn',
-      prepared: prepareSuccessorTurn(db, specificationId, successorPhase, activeTurn.id),
+      prepared: await prepareSuccessorTurn(db, specificationId, successorPhase, activeTurn.id),
       observedTurnId: activeTurn.id,
       skipObserverForCurrentChatTurn,
       deferObserverCaptureToRuntime,
     };
   }
 
-  const answeredTurn = prepareTurn(
+  const answeredTurn = await prepareTurn(
     db,
     specificationId,
     command.reply.text,
     command.reply.parts,
     currentPhase,
   );
-  finalizeTurn(db, specificationId, answeredTurn.turn.id);
+  await finalizeTurn(db, specificationId, answeredTurn.turn.id);
 
   return {
     ok: true,
     kind: 'interviewer-turn',
-    prepared: prepareSuccessorTurn(db, specificationId, currentPhase, answeredTurn.turn.id),
+    prepared: await prepareSuccessorTurn(db, specificationId, currentPhase, answeredTurn.turn.id),
     observedTurnId: answeredTurn.turn.id,
     skipObserverForCurrentChatTurn: false,
     deferObserverCaptureToRuntime: false,

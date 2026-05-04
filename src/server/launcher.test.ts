@@ -35,7 +35,7 @@ describe('launcher integration', () => {
   it('serves API from a .brunch/ project directory', async () => {
     const cwd = makeTempDir();
     const project = resolveBrunchProject(cwd);
-    const { app } = createApp(project.dbPath);
+    const { app } = await createApp(project.dbPath);
 
     const res = await request(app).get('/api/specifications').expect(200);
     expect(Array.isArray(res.body)).toBe(true);
@@ -49,7 +49,7 @@ describe('launcher integration', () => {
     writeFileSync(join(distDir, 'app.js'), 'console.log("brunch")');
 
     const project = resolveBrunchProject(cwd);
-    const { app } = createApp(project.dbPath);
+    const { app } = await createApp(project.dbPath);
     mountStaticClient(app, distDir);
 
     await request(app)
@@ -70,7 +70,7 @@ describe('launcher integration', () => {
 
     process.chdir(unrelatedCwd);
 
-    const { app } = createApp(project.dbPath);
+    const { app } = await createApp(project.dbPath);
     await request(app).get('/api/specifications').expect(200);
   });
 

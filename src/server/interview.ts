@@ -216,14 +216,18 @@ export function canProposePhaseClosure(phase: Phase, closeability = false): bool
 /**
  * Persist structured question data from tool input to the turn and options tables.
  */
-export function persistStructuredQuestion(db: DB, turnId: number, args: StructuredQuestion): void {
-  updateTurn(db, turnId, {
+export async function persistStructuredQuestion(
+  db: DB,
+  turnId: number,
+  args: StructuredQuestion,
+): Promise<void> {
+  await updateTurn(db, turnId, {
     question: args.question,
     why: args.why,
     impact: args.impact as Impact,
   });
   for (let i = 0; i < args.options.length; i++) {
-    createOption(db, turnId, {
+    await createOption(db, turnId, {
       position: i,
       content: args.options[i].content,
       is_recommended: args.options[i].is_recommended,
@@ -262,7 +266,7 @@ export function createAskQuestionTool(db: DB, turnId: number) {
     inputSchema: structuredQuestionSchema,
     outputSchema: askQuestionToolOutputSchema,
     execute: async (input) => {
-      const turn = getTurn(db, turnId);
+      const turn = await getTurn(db, turnId);
       if (turn && turn.phase !== 'grounding' && input.options.length < 2) {
         throw new Error('Non-grounding phases require at least 2 options per question');
       }
@@ -285,7 +289,7 @@ export function createAskQuestionTool(db: DB, turnId: number) {
         validateReviewSetSemantics(input.reviewSet);
       }
 
-      persistStructuredQuestion(db, turnId, input);
+      await persistStructuredQuestion(db, turnId, input);
       return {
         ok: true as const,
         turnId,
@@ -316,7 +320,7 @@ export function createProposePhaseClosureTool(db: DB, turnId: number, phase: Pha
     inputSchema: phaseClosureProposalSchema,
     outputSchema: proposePhaseClosureToolOutputSchema,
     execute: async (input) => {
-      createPhaseOutcome(db, {
+      await createPhaseOutcome(db, {
         specificationId: projectId,
         phase,
         proposal_turn_id: turnId,
@@ -344,14 +348,14 @@ export type InterviewerTools = BaseInterviewerTools & Partial<ExplorationTools>;
 export type InterviewerAgent = ToolLoopAgent<never, InterviewerTools>;
 
 /** Build the tool set for the interviewer agent, conditionally including exploration tools when cwd is available. */
-export function getInterviewerTools(
+export async function getInterviewerTools(
   db: DB,
   turnId: number,
   phase: Phase,
   projectId: number,
   options?: InterviewerModeOptions,
-): InterviewerTools {
-  const closeability = getCurrentWorkflowState(db, projectId).phases[phase].closeability;
+): Promise<InterviewerTools> {
+  const closeability = (await getCurrentWorkflowState(db, projectId)).phases[phase].closeability;
   return {
     ask_question: createAskQuestionTool(db, turnId),
     ...(hasExplorationCapability(options)
@@ -366,14 +370,14 @@ export function getInterviewerTools(
   };
 }
 
-export function createInterviewerAgent(
+export async function createInterviewerAgent(
   db: DB,
   turnId: number,
   phase: Phase,
   projectId: number,
   options?: InterviewerModeOptions,
-): InterviewerAgent {
-  const tools = getInterviewerTools(db, turnId, phase, projectId, options);
+): Promise<InterviewerAgent> {
+  const tools = await getInterviewerTools(db, turnId, phase, projectId, options);
   const usesExploration = hasExplorationCapability(options);
   const instructions = getInterviewerInstructions(phase, options);
 
@@ -427,8 +431,8 @@ export async function streamInterviewer(
     throw new Error(`Turn ${turn.id} is missing specification identity`);
   }
 
-  const agent = createInterviewerAgent(db, turn.id, phase, specificationId, effectiveModeOptions);
-  const acceptedRequirements = getAcceptedRequirementEntitiesForSpecification(db, specificationId);
+  const agent = await createInterviewerAgent(db, turn.id, phase, specificationId, effectiveModeOptions);
+  const acceptedRequirements = await getAcceptedRequirementEntitiesForSpecification(db, specificationId);
   const fullPrompt = buildInterviewerContext(activePath, userMessage, {
     phase,
     entities:
@@ -479,8 +483,12 @@ export function buildReviewSetForPhase(
   return null;
 }
 
-export function persistFallbackQuestionText(db: DB, turnId: number, assistantText: string): void {
-  const currentTurn = getTurn(db, turnId);
+export async function persistFallbackQuestionText(
+  db: DB,
+  turnId: number,
+  assistantText: string,
+): Promise<void> {
+  const currentTurn = await getTurn(db, turnId);
   if (!assistantText || currentTurn?.question) return;
-  updateTurn(db, turnId, { question: assistantText });
+  await updateTurn(db, turnId, { question: assistantText });
 }

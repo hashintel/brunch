@@ -63,7 +63,7 @@ const emptyEntities: EntitiesData = {
 };
 
 describe('renderExportMarkdown', () => {
-  const openDbs: Array<ReturnType<typeof createDb>> = [];
+  const openDbs: Array<Awaited<ReturnType<typeof createDb>>> = [];
 
   afterEach(() => {
     while (openDbs.length > 0) {
@@ -229,39 +229,51 @@ describe('renderExportMarkdown', () => {
     expect(md).toContain('Elicitation was closed while important uncertainty still remained.');
   });
 
-  it('filters export content to knowledge linked on the active path', () => {
-    const db = createDb();
+  it('filters export content to knowledge linked on the active path', async () => {
+    const db = await createDb();
     openDbs.push(db);
-    const project = createSpecification(db, 'Branching Project');
-    const rootTurn = createTurn(db, project.id, {
+    const project = await createSpecification(db, 'Branching Project');
+    const rootTurn = await createTurn(db, project.id, {
       phase: 'grounding',
       question: 'What database?',
       answer: 'We are still deciding.',
     });
-    const abandonedBranchTurn = createTurn(db, project.id, {
+    const abandonedBranchTurn = await createTurn(db, project.id, {
       phase: 'design',
       parent_turn_id: rootTurn.id,
       question: 'Which storage option?',
       answer: 'Take the SQLite branch.',
     });
-    const activeBranchTurn = createTurn(db, project.id, {
+    const activeBranchTurn = await createTurn(db, project.id, {
       phase: 'design',
       parent_turn_id: rootTurn.id,
       question: 'Which storage option?',
       answer: 'Take the Postgres branch.',
     });
-    advanceHead(db, project.id, activeBranchTurn.id);
+    await advanceHead(db, project.id, activeBranchTurn.id);
 
-    const abandonedDecision = createKnowledgeItem(db, project.id, 'decision', 'Use SQLite for persistence', {
-      rationale: 'This belonged to the abandoned branch.',
-    });
-    const activeDecision = createKnowledgeItem(db, project.id, 'decision', 'Use Postgres for persistence', {
-      rationale: 'This belongs to the active branch.',
-    });
-    linkKnowledgeItemToTurn(db, abandonedDecision.id, abandonedBranchTurn.id);
-    linkKnowledgeItemToTurn(db, activeDecision.id, activeBranchTurn.id);
+    const abandonedDecision = await createKnowledgeItem(
+      db,
+      project.id,
+      'decision',
+      'Use SQLite for persistence',
+      {
+        rationale: 'This belonged to the abandoned branch.',
+      },
+    );
+    const activeDecision = await createKnowledgeItem(
+      db,
+      project.id,
+      'decision',
+      'Use Postgres for persistence',
+      {
+        rationale: 'This belongs to the active branch.',
+      },
+    );
+    await linkKnowledgeItemToTurn(db, abandonedDecision.id, abandonedBranchTurn.id);
+    await linkKnowledgeItemToTurn(db, activeDecision.id, activeBranchTurn.id);
 
-    expect(getEntitiesForSpecification(db, project.id).decisions).toEqual(
+    expect((await getEntitiesForSpecification(db, project.id)).decisions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ content: 'Use SQLite for persistence' }),
         expect.objectContaining({ content: 'Use Postgres for persistence' }),
@@ -270,7 +282,7 @@ describe('renderExportMarkdown', () => {
 
     const markdown = renderExportMarkdown(
       project.name,
-      getEntitiesForSpecificationOnActivePath(db, project.id),
+      await getEntitiesForSpecificationOnActivePath(db, project.id),
       createAllClosedWorkflow(),
     );
 
@@ -278,13 +290,13 @@ describe('renderExportMarkdown', () => {
     expect(markdown).not.toContain('Use SQLite for persistence');
   });
 
-  it('renders the forced-close canonical fixture with the expected export caveat', () => {
-    const db = createDb();
+  it('renders the forced-close canonical fixture with the expected export caveat', async () => {
+    const db = await createDb();
     openDbs.push(db);
-    const projectId = createSpecification(db, 'Forced-Close All Phases Closed').id;
-    seedAllPhasesClosedWithForcedDesign(db, projectId);
+    const projectId = (await createSpecification(db, 'Forced-Close All Phases Closed')).id;
+    await seedAllPhasesClosedWithForcedDesign(db, projectId);
 
-    const projectState = getSpecificationState(db, projectId);
+    const projectState = await getSpecificationState(db, projectId);
     expect(projectState).not.toBeNull();
     expect(projectState?.workflow.phases.design).toMatchObject({
       status: 'closed',
@@ -293,20 +305,20 @@ describe('renderExportMarkdown', () => {
 
     const markdown = renderExportMarkdown(
       getSpecificationRecord(projectState!).name,
-      getEntitiesForSpecificationOnActivePath(db, projectId),
+      await getEntitiesForSpecificationOnActivePath(db, projectId),
       projectState!.workflow,
     );
     expect(markdown).toContain('Elicitation was closed manually before the interviewer recommended closure.');
     expect(markdown).not.toContain('Support exporting the spec as a PDF');
   });
 
-  it('renders the low-readiness canonical fixture with the expected export caveat', () => {
-    const db = createDb();
+  it('renders the low-readiness canonical fixture with the expected export caveat', async () => {
+    const db = await createDb();
     openDbs.push(db);
-    const projectId = createSpecification(db, 'Low-Readiness All Phases Closed').id;
-    seedAllPhasesClosedWithLowReadinessGrounding(db, projectId);
+    const projectId = (await createSpecification(db, 'Low-Readiness All Phases Closed')).id;
+    await seedAllPhasesClosedWithLowReadinessGrounding(db, projectId);
 
-    const projectState = getSpecificationState(db, projectId);
+    const projectState = await getSpecificationState(db, projectId);
     expect(projectState).not.toBeNull();
     expect(projectState?.workflow.phases.grounding).toMatchObject({
       status: 'closed',
@@ -316,7 +328,7 @@ describe('renderExportMarkdown', () => {
 
     const markdown = renderExportMarkdown(
       getSpecificationRecord(projectState!).name,
-      getEntitiesForSpecificationOnActivePath(db, projectId),
+      await getEntitiesForSpecificationOnActivePath(db, projectId),
       projectState!.workflow,
     );
     expect(markdown).toContain('Grounding was closed while important uncertainty still remained.');

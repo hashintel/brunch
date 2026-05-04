@@ -46,14 +46,14 @@ function getPersistedFullSetReviewAction(
   return getPersistedReviewAction(turn);
 }
 
-function acceptRequirementsReview(
+async function acceptRequirementsReview(
   db: DB,
   specificationId: number,
   turnId: number,
-): SubmitTurnResponseResponse {
-  materializeAcceptedRequirementsReviewSet(db, specificationId, turnId);
+): Promise<SubmitTurnResponseResponse> {
+  await materializeAcceptedRequirementsReviewSet(db, specificationId, turnId);
 
-  createConfirmedPhaseOutcome(db, {
+  await createConfirmedPhaseOutcome(db, {
     specificationId,
     phase: 'requirements',
     proposal_turn_id: turnId,
@@ -64,10 +64,14 @@ function acceptRequirementsReview(
   return { ok: true, advancedToPhase: 'criteria' };
 }
 
-function acceptCriteriaReview(db: DB, specificationId: number, turnId: number): SubmitTurnResponseResponse {
-  materializeAcceptedCriteriaReviewSet(db, specificationId, turnId);
+async function acceptCriteriaReview(
+  db: DB,
+  specificationId: number,
+  turnId: number,
+): Promise<SubmitTurnResponseResponse> {
+  await materializeAcceptedCriteriaReviewSet(db, specificationId, turnId);
 
-  createConfirmedPhaseOutcome(db, {
+  await createConfirmedPhaseOutcome(db, {
     specificationId,
     phase: 'criteria',
     proposal_turn_id: turnId,
@@ -78,7 +82,7 @@ function acceptCriteriaReview(db: DB, specificationId: number, turnId: number): 
   return { ok: true, workflowCompleted: true };
 }
 
-export function submitTurnResponseTransition({
+export async function submitTurnResponseTransition({
   db,
   specificationId,
   turnId,
@@ -88,27 +92,27 @@ export function submitTurnResponseTransition({
   specificationId: number;
   turnId: number;
   request: SubmitTurnResponseRequest;
-}): SubmitTurnResponseResponse | SubmitTurnResponseTransitionError {
-  const turn = getTurn(db, turnId);
+}): Promise<SubmitTurnResponseResponse | SubmitTurnResponseTransitionError> {
+  const turn = await getTurn(db, turnId);
   if (!turn || turn.specification_id !== specificationId) {
     return { ok: false, kind: 'turn-not-found', message: 'Turn not found' };
   }
 
   const freeText = request.freeText;
   const selectedPositions = request.kind === 'select-options' ? [...new Set(request.positions)] : [];
-  const options = getOptionsForTurn(db, turnId);
+  const options = await getOptionsForTurn(db, turnId);
   const selectedOptions = options.filter((option) => selectedPositions.includes(option.position));
   if (selectedOptions.length !== selectedPositions.length) {
     return { ok: false, kind: 'selected-option-not-found', message: 'Selected option not found' };
   }
 
-  applyTurnResponseSelections(db, turnId, selectedPositions);
+  await applyTurnResponseSelections(db, turnId, selectedPositions);
 
   if (isGroundingStrategyKickoffTurn(turn)) {
     const selectedMode =
       selectedPositions.length === 1 ? getGroundingStrategyModeForPosition(selectedPositions[0]!) : null;
     if (selectedMode) {
-      updateSpecificationMode(db, specificationId, selectedMode);
+      await updateSpecificationMode(db, specificationId, selectedMode);
     }
   }
 
@@ -152,7 +156,7 @@ export function submitTurnResponseTransition({
     },
   } as const satisfies Extract<BrunchUserPart, { type: 'data-turn-response' }>;
 
-  updateTurn(db, turnId, {
+  await updateTurn(db, turnId, {
     answer: responseText,
     user_parts: serializeParts([
       ...(responseText ? ([{ type: 'text', text: responseText }] as const) : []),
@@ -160,13 +164,13 @@ export function submitTurnResponseTransition({
     ] satisfies BrunchUserPart[]),
   });
 
-  const persistedTurn = getTurn(db, turnId) ?? turn;
+  const persistedTurn = (await getTurn(db, turnId)) ?? turn;
   const fullSetReviewAction = getPersistedFullSetReviewAction(persistedTurn);
   if (fullSetReviewAction === 'accept') {
     return turn.phase === 'requirements'
-      ? acceptRequirementsReview(db, specificationId, turnId)
+      ? await acceptRequirementsReview(db, specificationId, turnId)
       : turn.phase === 'criteria'
-        ? acceptCriteriaReview(db, specificationId, turnId)
+        ? await acceptCriteriaReview(db, specificationId, turnId)
         : { ok: true };
   }
 

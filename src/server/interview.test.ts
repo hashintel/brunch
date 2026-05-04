@@ -16,8 +16,8 @@ import {
 
 let db: DB;
 
-beforeEach(() => {
-  db = createDb();
+beforeEach(async () => {
+  db = await createDb();
 });
 
 afterEach(() => {
@@ -184,9 +184,9 @@ describe('canProposePhaseClosure', () => {
 
 describe('createAskQuestionTool phase-aware options enforcement', () => {
   it('allows zero options for grounding turns', async () => {
-    const project = createSpecification(db, 'Spec');
-    const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
-    const askTool = getInterviewerTools(db, turn.id, 'grounding', project.id).ask_question;
+    const project = await createSpecification(db, 'Spec');
+    const turn = await createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
+    const askTool = (await getInterviewerTools(db, turn.id, 'grounding', project.id)).ask_question;
 
     const result = await askTool.execute!(
       {
@@ -199,13 +199,13 @@ describe('createAskQuestionTool phase-aware options enforcement', () => {
     );
 
     expect(result).toEqual({ ok: true, turnId: turn.id, optionCount: 0 });
-    expect(getOptionsForTurn(db, turn.id)).toHaveLength(0);
+    expect(await getOptionsForTurn(db, turn.id)).toHaveLength(0);
   });
 
   it('rejects zero options for design turns', async () => {
-    const project = createSpecification(db, 'Spec');
-    const turn = createTurn(db, project.id, { phase: 'design', question: '', answer: '' });
-    const askTool = getInterviewerTools(db, turn.id, 'design', project.id).ask_question;
+    const project = await createSpecification(db, 'Spec');
+    const turn = await createTurn(db, project.id, { phase: 'design', question: '', answer: '' });
+    const askTool = (await getInterviewerTools(db, turn.id, 'design', project.id)).ask_question;
 
     await expect(
       askTool.execute!(
@@ -221,9 +221,9 @@ describe('createAskQuestionTool phase-aware options enforcement', () => {
   });
 
   it('rejects requirements review items whose referenceCode repeats the internal reviewItemId', async () => {
-    const project = createSpecification(db, 'Spec');
-    const turn = createTurn(db, project.id, { phase: 'requirements', question: '', answer: '' });
-    const askTool = getInterviewerTools(db, turn.id, 'requirements', project.id).ask_question;
+    const project = await createSpecification(db, 'Spec');
+    const turn = await createTurn(db, project.id, { phase: 'requirements', question: '', answer: '' });
+    const askTool = (await getInterviewerTools(db, turn.id, 'requirements', project.id)).ask_question;
 
     await expect(
       askTool.execute!(
@@ -254,13 +254,13 @@ describe('createAskQuestionTool phase-aware options enforcement', () => {
         { toolCallId: 'tc-3', messages: [], abortSignal: new AbortController().signal },
       ),
     ).rejects.toThrow(/referenceCode/i);
-    expect(getOptionsForTurn(db, turn.id)).toEqual([]);
+    expect(await getOptionsForTurn(db, turn.id)).toEqual([]);
   });
 
   it('rejects criteria review items whose content repeats the visible reference code prefix', async () => {
-    const project = createSpecification(db, 'Spec');
-    const turn = createTurn(db, project.id, { phase: 'criteria', question: '', answer: '' });
-    const askTool = getInterviewerTools(db, turn.id, 'criteria', project.id).ask_question;
+    const project = await createSpecification(db, 'Spec');
+    const turn = await createTurn(db, project.id, { phase: 'criteria', question: '', answer: '' });
+    const askTool = (await getInterviewerTools(db, turn.id, 'criteria', project.id)).ask_question;
 
     await expect(
       askTool.execute!(
@@ -291,16 +291,16 @@ describe('createAskQuestionTool phase-aware options enforcement', () => {
         { toolCallId: 'tc-4', messages: [], abortSignal: new AbortController().signal },
       ),
     ).rejects.toThrow(/content/i);
-    expect(getOptionsForTurn(db, turn.id)).toEqual([]);
+    expect(await getOptionsForTurn(db, turn.id)).toEqual([]);
   });
 });
 
 describe('persistStructuredQuestion', () => {
-  it('stores question metadata and options on the turn', () => {
-    const project = createSpecification(db, 'Spec');
-    const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: 'hello' });
+  it('stores question metadata and options on the turn', async () => {
+    const project = await createSpecification(db, 'Spec');
+    const turn = await createTurn(db, project.id, { phase: 'grounding', question: '', answer: 'hello' });
 
-    persistStructuredQuestion(db, turn.id, {
+    await persistStructuredQuestion(db, turn.id, {
       question: 'What platform should we support first?',
       why: 'Platform determines initial architecture.',
       impact: 'high',
@@ -310,8 +310,8 @@ describe('persistStructuredQuestion', () => {
       ],
     });
 
-    const updatedTurn = getTurn(db, turn.id);
-    const options = getOptionsForTurn(db, turn.id);
+    const updatedTurn = await getTurn(db, turn.id);
+    const options = await getOptionsForTurn(db, turn.id);
 
     expect(updatedTurn?.question).toBe('What platform should we support first?');
     expect(updatedTurn?.why).toBe('Platform determines initial architecture.');
@@ -327,8 +327,8 @@ describe('createProposePhaseClosureTool', () => {
     const { createProposePhaseClosureTool } = await import('./interview.js');
     const { listPhaseOutcomesForSpecification } = await import('./db.js');
 
-    const project = createSpecification(db, 'Spec');
-    const turn = createTurn(db, project.id, { phase: 'design', question: '', answer: '' });
+    const project = await createSpecification(db, 'Spec');
+    const turn = await createTurn(db, project.id, { phase: 'design', question: '', answer: '' });
 
     const tool = createProposePhaseClosureTool(db, turn.id, 'design', project.id);
     expect(tool.execute).toBeDefined();
@@ -337,17 +337,17 @@ describe('createProposePhaseClosureTool', () => {
       { toolCallId: 'tc-1', messages: [], abortSignal: new AbortController().signal },
     );
 
-    const outcomes = listPhaseOutcomesForSpecification(db, project.id);
+    const outcomes = await listPhaseOutcomesForSpecification(db, project.id);
     expect(outcomes).toHaveLength(1);
     expect(outcomes[0].phase).toBe('design');
   });
 });
 
 describe('brownfield interviewer configuration', () => {
-  it('adds read-only exploration tools during brownfield grounding', () => {
-    const project = createSpecification(db, 'BF', { mode: 'brownfield' });
-    const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
-    const tools = getInterviewerTools(db, turn.id, 'grounding', project.id, {
+  it('adds read-only exploration tools during brownfield grounding', async () => {
+    const project = await createSpecification(db, 'BF', { mode: 'brownfield' });
+    const turn = await createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
+    const tools = await getInterviewerTools(db, turn.id, 'grounding', project.id, {
       mode: 'brownfield',
       cwd: '/tmp/repo',
     });
@@ -360,10 +360,10 @@ describe('brownfield interviewer configuration', () => {
     expect(toolNames).toContain('ask_question');
   });
 
-  it('keeps brownfield exploration tools read-only', () => {
-    const project = createSpecification(db, 'BF', { mode: 'brownfield' });
-    const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
-    const tools = getInterviewerTools(db, turn.id, 'grounding', project.id, {
+  it('keeps brownfield exploration tools read-only', async () => {
+    const project = await createSpecification(db, 'BF', { mode: 'brownfield' });
+    const turn = await createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
+    const tools = await getInterviewerTools(db, turn.id, 'grounding', project.id, {
       mode: 'brownfield',
       cwd: '/tmp/repo',
     });
@@ -374,11 +374,11 @@ describe('brownfield interviewer configuration', () => {
     expect(toolNames).not.toContain('bash');
   });
 
-  it('provides exploration tools in all phases when cwd is available', () => {
-    const project = createSpecification(db, 'BF', { mode: 'brownfield' });
+  it('provides exploration tools in all phases when cwd is available', async () => {
+    const project = await createSpecification(db, 'BF', { mode: 'brownfield' });
     for (const phase of ['design', 'requirements', 'criteria'] as const) {
-      const turn = createTurn(db, project.id, { phase, question: '', answer: '' });
-      const tools = getInterviewerTools(db, turn.id, phase, project.id, {
+      const turn = await createTurn(db, project.id, { phase, question: '', answer: '' });
+      const tools = await getInterviewerTools(db, turn.id, phase, project.id, {
         mode: 'brownfield',
         cwd: '/tmp/repo',
       });
@@ -393,10 +393,10 @@ describe('brownfield interviewer configuration', () => {
     }
   });
 
-  it('provides exploration tools in greenfield grounding when cwd is available', () => {
-    const project = createSpecification(db, 'GF');
-    const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
-    const tools = getInterviewerTools(db, turn.id, 'grounding', project.id, {
+  it('provides exploration tools in greenfield grounding when cwd is available', async () => {
+    const project = await createSpecification(db, 'GF');
+    const turn = await createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
+    const tools = await getInterviewerTools(db, turn.id, 'grounding', project.id, {
       cwd: '/tmp/repo',
     });
     const toolNames = Object.keys(tools);
@@ -406,10 +406,10 @@ describe('brownfield interviewer configuration', () => {
     expect(toolNames).toContain('ask_question');
   });
 
-  it('excludes exploration tools when no cwd is provided', () => {
-    const project = createSpecification(db, 'GF');
-    const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
-    const tools = getInterviewerTools(db, turn.id, 'grounding', project.id);
+  it('excludes exploration tools when no cwd is provided', async () => {
+    const project = await createSpecification(db, 'GF');
+    const turn = await createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
+    const tools = await getInterviewerTools(db, turn.id, 'grounding', project.id);
     const toolNames = Object.keys(tools);
     expect(toolNames).not.toContain('read_file');
     expect(toolNames).not.toContain('grep');
@@ -477,21 +477,21 @@ describe('brownfield interviewer configuration', () => {
     expect(getInterviewerInstructions('design')).toBe(getSystemPrompt('design'));
   });
 
-  it('keeps reusable read-only exploration tools available during ongoing brownfield grounding', () => {
-    const project = createSpecification(db, 'BF', { mode: 'brownfield' });
-    const priorTurn = createTurn(db, project.id, {
+  it('keeps reusable read-only exploration tools available during ongoing brownfield grounding', async () => {
+    const project = await createSpecification(db, 'BF', { mode: 'brownfield' });
+    const priorTurn = await createTurn(db, project.id, {
       phase: 'grounding',
       question: 'Which seam still needs grounding?',
       answer: 'The replay handoff.',
     });
-    const nextTurn = createTurn(db, project.id, {
+    const nextTurn = await createTurn(db, project.id, {
       parent_turn_id: priorTurn.id,
       phase: 'grounding',
       question: '',
       answer: null,
     });
 
-    const tools = getInterviewerTools(db, nextTurn.id, 'grounding', project.id, {
+    const tools = await getInterviewerTools(db, nextTurn.id, 'grounding', project.id, {
       mode: 'brownfield',
       cwd: '/tmp/repo',
     });
@@ -587,14 +587,14 @@ describe('buildReviewSetForPhase', () => {
 });
 
 describe('persistFallbackQuestionText', () => {
-  it('fills the question only when the turn does not already have one', () => {
-    const project = createSpecification(db, 'Spec');
-    const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: 'hello' });
+  it('fills the question only when the turn does not already have one', async () => {
+    const project = await createSpecification(db, 'Spec');
+    const turn = await createTurn(db, project.id, { phase: 'grounding', question: '', answer: 'hello' });
 
-    persistFallbackQuestionText(db, turn.id, 'Fallback question');
-    expect(getTurn(db, turn.id)?.question).toBe('Fallback question');
+    await persistFallbackQuestionText(db, turn.id, 'Fallback question');
+    expect((await getTurn(db, turn.id))?.question).toBe('Fallback question');
 
-    persistFallbackQuestionText(db, turn.id, 'Replacement question');
-    expect(getTurn(db, turn.id)?.question).toBe('Fallback question');
+    await persistFallbackQuestionText(db, turn.id, 'Replacement question');
+    expect((await getTurn(db, turn.id))?.question).toBe('Fallback question');
   });
 });
