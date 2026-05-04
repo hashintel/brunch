@@ -11,7 +11,7 @@ The queue covers the **vertical slice** for V1.2 — server seam, client seam, e
 
 ---
 
-## Card A — Annotation server seam (full scope) · status: `next`
+## Card A — Annotation server seam (full scope) · status: `done`
 
 ### Target Behavior
 
