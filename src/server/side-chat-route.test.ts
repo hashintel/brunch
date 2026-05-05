@@ -307,3 +307,67 @@ describe('POST /api/specifications/:id/side-chat', () => {
     expect(callArgs.system).not.toMatch(/propose_phase_closure/i);
   });
 });
+
+describe('side-chat route — context extensions', () => {
+  it('forwards activeAnnotations into the system prompt', async () => {
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    mockStreamText.mockReturnValue(makeTextStream(['ok']));
+
+    await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        message: 'tell me more',
+        activeAnnotations: [{ referenceCode: 'C1', snapshot: 'household', body: null }],
+      })
+      .expect(200);
+
+    const callArgs = mockStreamText.mock.calls.at(-1)![0] as { system: string };
+    expect(callArgs.system).toContain('User-pinned snippets');
+    expect(callArgs.system).toContain('[C1]');
+    expect(callArgs.system).toContain('household');
+  });
+
+  it('forwards spanHint into the latest user message content', async () => {
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    mockStreamText.mockReturnValue(makeTextStream(['ok']));
+
+    await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        message: 'tell me more',
+        spanHint: 'phrase',
+      })
+      .expect(200);
+
+    const callArgs = mockStreamText.mock.calls.at(-1)![0] as {
+      messages: { role: string; content: string }[];
+    };
+    const lastUser = [...callArgs.messages].reverse().find((m) => m.role === 'user')!;
+    expect(lastUser.content).toContain('About the highlighted phrase');
+    expect(lastUser.content).toContain('phrase');
+    expect(lastUser.content).toContain('tell me more');
+  });
+
+  it('rejects activeAnnotations entries with empty referenceCode', async () => {
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        message: 'm',
+        activeAnnotations: [{ referenceCode: '', snapshot: 'x', body: null }],
+      })
+      .expect(400);
+  });
+});
