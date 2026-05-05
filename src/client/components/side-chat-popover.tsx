@@ -159,14 +159,31 @@ export function SideChatPopover({
     }
   }, [annotateMode]);
 
+  // Show the saved toast only on a real apply event during this popover's lifetime.
+  // We watch for `canUndo` flipping false → true (with `stagedPatches` empty and not currently
+  // applying) — the precise moment a successful apply registers a fresh undo handle. We can't
+  // drive this off the `isApplying: true → false` transition because React 18 batches the
+  // `APPLY_START` and `APPLY_SUCCESS` dispatches in a single async chain, so the intermediate
+  // `isApplying=true` render is often skipped. Initializing the ref to the current `canUndo`
+  // also prevents the toast from flashing on mount when the patch-list still carries a stale
+  // undo handle from a prior batch on this spec (the original V1.2-E bug).
+  const prevCanUndoRef = useRef(canUndo);
+
   useEffect(() => {
-    if (!isApplying && stagedPatches.length === 0 && canUndo) {
+    const prevCanUndo = prevCanUndoRef.current;
+    prevCanUndoRef.current = canUndo;
+    if (!prevCanUndo && canUndo && !isApplying && stagedPatches.length === 0) {
       setSavedToastVisible(true);
       const id = window.setTimeout(() => setSavedToastVisible(false), 5000);
       return () => window.clearTimeout(id);
     }
-    setSavedToastVisible(false);
-  }, [isApplying, stagedPatches.length, canUndo]);
+  }, [canUndo, isApplying, stagedPatches.length]);
+
+  useEffect(() => {
+    if (!canUndo) {
+      setSavedToastVisible(false);
+    }
+  }, [canUndo]);
 
   useEffect(() => {
     function handleEscape(event: globalThis.KeyboardEvent) {
