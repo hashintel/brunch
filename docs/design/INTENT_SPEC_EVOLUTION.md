@@ -1,18 +1,36 @@
-# Intent Spec Evolution
+# Brunch Evolution Notes | @Yesterday
 
 > Synthesis started 2026-05-04 from external agent conversations about intent formalization, formal verification, and Brunch's elicitation methodology.
-> Status: working design capture, not canonical product truth.
-> Canonicality: for live authority, prefer `memory/SPEC.md` and `memory/PLAN.md`. This note collects emerging concepts before promotion into those files.
+> 
+
+<aside>
+<img src="https://www.notion.so/icons/link_purple.svg" alt="https://www.notion.so/icons/link_purple.svg" width="40px" />
+
+This document is a synthesis of multiple agent conversations (the document refers to “branches” at several points, which were branches of those conversations), thinking about Brunch after the London co-work phase and in light of ideas put forward in some  resources which were originally shared by Nora on Zulip
+
+- [From Intent to Proof: Dafny Verification for Web Apps](https://midspiral.com/blog/from-intent-to-proof-dafny-verification-for-web-apps/)
+- [Intent Formalization: A Grand Challenge for Reliable Coding in the Age of AI Agents](https://arxiv.org/pdf/2603.17150)
+</aside>
+
+<aside>
+<img src="https://www.notion.so/icons/thought-dialogue_pink.svg" alt="https://www.notion.so/icons/thought-dialogue_pink.svg" width="40px" />
+
+NOTE: there are important differences between Brunch’s live development spec (the one living in `memory/SPEC.md` in the codebase), and the specs the Brunch as a product actually produces: the former contains requirements, assumptions, decisions, invariants, criteria, provenance, confidence, staleness, and traceability; but the latter is so far less comprehensive and differentiated on those aspects
+
+Both are discussed in this document
+
+</aside>
 
 ## Why this note exists
 
-Brunch currently elicits and maintains software specifications through a structured but mostly prose-centered workflow. The live development spec already contains requirements, assumptions, decisions, invariants, criteria, provenance, confidence, staleness, and traceability, but much of that structure is carried by markdown convention and agent discipline.
-
-The conversations captured so far suggest a stronger frame:
+Brunch currently elicits and maintains software specifications through a structured but mostly prose-centered workflow.  The conversations captured so far suggest a stronger frame:
 
 > Brunch should move from eliciting planning specs toward eliciting intent specs: structured, progressively checkable claims about what correctness would mean, what remains uncertain, and how the user validated or rejected competing interpretations.
+> 
 
-This note separates the broad areas that are emerging so later excerpts can be collated against them instead of being reduced to generic summaries.
+This note separates the broad areas that are emerging so subsequent planning can be collated against them.
+
+# Themes and concepts
 
 ## 1. From Planning Specs to Intent Specs
 
@@ -32,13 +50,14 @@ An intent spec is optimized for preserving and validating meaning:
 - which claims are verified, manually judged, or explicitly unresolved
 - how generated artifacts might drift from the original intent
 
-This shift does not make planning irrelevant. It changes the source artifact that planning consumes. A plan becomes one projection from a richer intent graph rather than the primary purpose of the spec.
+This shift does not make planning irrelevant. It changes the source artifact that planning consumes. A plan becomes one projection from a richer i***ntent graph*** rather than the primary purpose of the spec. 
 
 ## 2. Progressive Checkability
 
 The cleanest product-facing phrase from the second excerpt is:
 
 > Make specs progressively checkable, not "formal" as a binary category.
+> 
 
 The useful ladder is:
 
@@ -58,7 +77,7 @@ This keeps formal verification as one endpoint on a spectrum. The tool should em
 
 The strongest modeling proposal so far is to factor requirements and acceptance criteria through a shared primitive, tentatively called `Property`.
 
-```typescript
+```tsx
 type Property = {
   id: PropertyId
   description: string
@@ -89,7 +108,7 @@ Requirements and criteria therefore should not collapse into the same item, but 
 
 The ontology branch sharpens this further: a spec can be understood as a graph of typed claims. Top-level item kinds are not merely buckets; they are modalities of claim.
 
-```text
+```
 goal         value or outcome claim
 context      descriptive claim
 constraint   boundary claim
@@ -103,7 +122,7 @@ example      concrete witness or disambiguator
 
 This distinguishes two ontologies now in play:
 
-- **Brunch-internal development ontology**: the richer `ln-*`-produced `SPEC.md` register, with assumptions, decisions, invariants, verification stance, oracle tiers, blind spots, and planning traceability.
+- **Brunch-internal development ontology**: the richer `ln-*`produced `SPEC.md` register, with assumptions, decisions, invariants, verification stance, oracle tiers, blind spots, and planning traceability.
 - **Brunch-product elicitation ontology**: the product's currently captured user-spec ontology: goals, context, constraints, assumptions, decisions, requirements, and criteria.
 
 The branch argues that the product ontology likely needs two additions:
@@ -113,7 +132,7 @@ The branch argues that the product ontology likely needs two additions:
 
 The useful distinction is:
 
-```text
+```
 Requirement:
   What the system must do.
 
@@ -130,6 +149,7 @@ Example:
 `Decision` should become narrower, not disappear:
 
 > A decision is a chosen direction among plausible alternatives, with durable consequences for future design, implementation, or interpretation.
+> 
 
 That avoids treating every user answer as a decision. A decision captures the choice; an invariant captures the rule that must keep holding after the choice.
 
@@ -148,12 +168,13 @@ That avoids treating every user answer as a decision. A decision captures the ch
 The ontology branch treats `knowledge_edge` as a critical signal, not merely graph-view infrastructure.
 
 > A planning spec can be a list. An intent spec needs a graph.
+> 
 
 Item kinds say what claims exist. Edge kinds say how claims justify, constrain, depend on, refine, and verify one another. That reasoning topology is where intent becomes inspectable.
 
 The important shift:
 
-```text
+```
 Planning-spec edge:
   Task B depends on Task A.
   Feature Y implements Requirement X.
@@ -170,17 +191,17 @@ Intent-spec edge:
 
 The current relation vocabulary already points in this direction with relations like `depends_on`, `derived_from`, `constrains`, `verifies`, and `refines`. The branch proposes organizing relation kinds into semantic families:
 
-| Family | Example relations | Purpose |
-| --- | --- | --- |
-| Justification | `derived_from`, `motivated_by`, `supports` | Explain why a claim exists |
-| Dependency | `depends_on`, `assumes`, `requires` | Explain what must remain valid |
-| Boundary | `constrains`, `excludes`, `rules_out` | Explain how one claim limits another |
-| Refinement | `refines`, `specializes`, `decomposes` | Explain how claims become more specific |
-| Verification | `verifies`, `illustrates`, `counterexample_for`, `tested_by` | Connect intent to evidence |
+| Family        | Example relations                                            | Purpose                                 |
+| ------------- | ------------------------------------------------------------ | --------------------------------------- |
+| Justification | `derived_from`, `motivated_by`, `supports`                   | Explain why a claim exists              |
+| Dependency    | `depends_on`, `assumes`, `requires`                          | Explain what must remain valid          |
+| Boundary      | `constrains`, `excludes`, `rules_out`                        | Explain how one claim limits another    |
+| Refinement    | `refines`, `specializes`, `decomposes`                       | Explain how claims become more specific |
+| Verification  | `verifies`, `illustrates`, `counterexample_for`, `tested_by` | Connect intent to evidence              |
 
 Negative edges are especially important. Intent is often clarified by ruling out plausible interpretations:
 
-```text
+```
 Counterexample CE1:
   "Rejected review item appears in export."
 
@@ -190,7 +211,7 @@ Constraint C-no-fake-closure rules_out Requirement candidate "auto-export draft 
 
 Edges also need epistemic metadata so inferred relations do not silently become false dependencies:
 
-```typescript
+```tsx
 type KnowledgeEdge = {
   sourceId: KnowledgeItemId
   targetId: KnowledgeItemId
@@ -206,7 +227,7 @@ Not every visible graph edge should drive cascade, staleness, export explanation
 
 For LLM collaboration, the most important practical change is to provide edge-local neighborhoods, not only grouped item lists:
 
-```text
+```
 R17: Each phase exposes an explicit kickoff/frontier/recovery/handoff affordance.
 
 Incoming:
@@ -222,70 +243,7 @@ Outgoing:
 
 That is a stronger context object than "all goals, all constraints, all requirements." It lets the interviewer and observer reason about consequences, gaps, and drift.
 
-## 5. Formalization Targets in Current Brunch
-
-The ontology branch also identifies the most promising formalization target in Brunch itself: not interview quality, but the workflow and stream projection model.
-
-The current product spec already has a crisp abstract model:
-
-```text
-active-path turns
-+ anchored workflow facts
-+ projected control cards
-+ activity cards
-+ phase markers
-+ phase section headers
-= workspace stream
-```
-
-And it already makes authority claims:
-
-- only conversational turns are branch-bearing
-- workflow facts are durable but non-branch-bearing
-- control cards and markers are projected
-- requirements and criteria become durable only through accepted review outputs
-- preface cards are provisional until paired with a validated user response
-- anchored facts whose turn leaves the active path must be hidden or superseded
-
-These are high-value behavioral properties hiding in prose. Candidate named properties:
-
-- `P1 Single Actionable Frontier`
-- `P2 Review Authority`
-- `P3 Provisional Preface Safety`
-- `P4 Active Path Anchoring`
-- `P5 No Second Durable Workflow Model`
-- `P6 Export Requires Accepted Reviews`
-- `P7 Observer Capture Is Turn-Owned`
-
-Each property should eventually have valid traces, invalid traces, current oracle, desired oracle, and checkability strength.
-
-Example:
-
-```text
-Claim:
-  Requirements become durable only through accepted review outputs.
-
-Valid trace:
-  review v1 -> request changes -> review v2 -> accept v2 -> export v2 items
-
-Invalid trace:
-  review v1 -> request changes -> export v1 item
-
-Current oracle:
-  app tests / project-state tests
-
-Desired oracle:
-  state-machine property test
-```
-
-This suggests a practical formalization roadmap:
-
-- first, extract named behavioral properties from current prose
-- then add examples and counterexamples as trace fixtures
-- then write property tests over a TypeScript state-machine model
-- only later consider Dafny, TLA+, or another heavier model
-
-The branch's bottom line is crisp: the whole Brunch product is too qualitative to formalize at once, but the workflow state machine and stream projection model have clear states, actions, authority boundaries, and invariants.
+## 5. ~~[removed]~~
 
 ## 6. Elicitation as Ambiguity-Targeted Disambiguation
 
@@ -309,14 +267,14 @@ The second excerpt adds an important product direction: do not elicit only freef
 
 Candidate patterns include:
 
-| Pattern | User-facing question | Artifact shape |
-| --- | --- | --- |
-| Workflow | What states can this object move between? | State machine |
-| Ownership | Who may perform this action? | Authorization predicate |
-| Containment | Can this item belong to more than one parent? | Uniqueness / membership invariant |
-| Undo / redo | What happens to redo after a new action? | History / future invariant |
-| Collaboration | What happens to stale or offline actions? | Rebase / conflict semantics |
-| Deletion | What references must disappear or remain valid? | Referential-integrity rule |
+| Pattern       | User-facing question                            | Artifact shape                    |
+| ------------- | ----------------------------------------------- | --------------------------------- |
+| Workflow      | What states can this object move between?       | State machine                     |
+| Ownership     | Who may perform this action?                    | Authorization predicate           |
+| Containment   | Can this item belong to more than one parent?   | Uniqueness / membership invariant |
+| Undo / redo   | What happens to redo after a new action?        | History / future invariant        |
+| Collaboration | What happens to stale or offline actions?       | Rebase / conflict semantics       |
+| Deletion      | What references must disappear or remain valid? | Referential-integrity rule        |
 
 This gives Brunch an intermediate surface between prose and formal methods. The interviewer can detect or propose a behavioral pattern, ask pattern-specific questions, and then generate the weakest useful checkable artifact.
 
@@ -325,6 +283,7 @@ This gives Brunch an intermediate surface between prose and formal methods. The 
 The kernel branch develops the behavioral-pattern idea into a more general interviewer architecture.
 
 > A kernel is a reusable family of questions that exposes one class of latent requirement and maps answers into progressively checkable artifacts.
+> 
 
 This is related to Midspiral's technical "kernel" concept, but shifted toward elicitation. A technical kernel is reusable state-management or proof machinery parameterized by a domain. An elicitation kernel is reusable question-and-artifact machinery parameterized by a user's feature.
 
@@ -345,23 +304,23 @@ The interviewer should therefore not ask every possible requirements question. I
 
 The v0.1 kernel ontology from the excerpt:
 
-| # | Kernel | Interview focus | Artifact shape |
-| -: | --- | --- | --- |
-| 1 | Identity & reference | What exists, how it is identified, what can point to it | Entity model, reference invariant |
-| 2 | Containment & topology | Parent / child, membership, ordering, graph constraints | Tree, list, or graph invariant |
-| 3 | Validation & normalization | Valid inputs, canonical forms, equivalence | Validator / parser contract |
-| 4 | State & lifecycle | States, transitions, terminality | State machine |
-| 5 | Temporal history | Undo, audit, monotonicity, expiration | History / timeline invariant |
-| 6 | Optimization & preference | Best valid outcome, tie-breaking | Objective or ranking relation |
-| 7 | Authority & capability | Who may do what, delegation, revocation | Authorization predicate |
-| 8 | Concurrency & collaboration | Conflicts, stale actions, merge / rebase | Conflict-resolution semantics |
-| 9 | Transactions & atomicity | All-or-nothing multi-object updates | Transaction invariant |
-| 10 | Resource accounting | Balances, quotas, conservation, capacity | Conservation / bounds invariant |
-| 11 | Derived data & views | Cache, index, projection consistency | View consistency invariant |
-| 12 | Error & recovery | Retry, rollback, compensation, degraded mode | Failure / recovery contract |
-| 13 | External effects | APIs, queues, clocks, webhooks, side effects | Boundary / adapter contract |
-| 14 | Change & migration | Compatibility, legacy data, feature evolution | Migration / refinement invariant |
-| 15 | Observability & evidence | Logs, provenance, explanations, auditability | Trace / audit invariant |
+| #   | Kernel                      | Interview focus                                         | Artifact shape                    |
+| --- | --------------------------- | ------------------------------------------------------- | --------------------------------- |
+| 1   | Identity & reference        | What exists, how it is identified, what can point to it | Entity model, reference invariant |
+| 2   | Containment & topology      | Parent / child, membership, ordering, graph constraints | Tree, list, or graph invariant    |
+| 3   | Validation & normalization  | Valid inputs, canonical forms, equivalence              | Validator / parser contract       |
+| 4   | State & lifecycle           | States, transitions, terminality                        | State machine                     |
+| 5   | Temporal history            | Undo, audit, monotonicity, expiration                   | History / timeline invariant      |
+| 6   | Optimization & preference   | Best valid outcome, tie-breaking                        | Objective or ranking relation     |
+| 7   | Authority & capability      | Who may do what, delegation, revocation                 | Authorization predicate           |
+| 8   | Concurrency & collaboration | Conflicts, stale actions, merge / rebase                | Conflict-resolution semantics     |
+| 9   | Transactions & atomicity    | All-or-nothing multi-object updates                     | Transaction invariant             |
+| 10  | Resource accounting         | Balances, quotas, conservation, capacity                | Conservation / bounds invariant   |
+| 11  | Derived data & views        | Cache, index, projection consistency                    | View consistency invariant        |
+| 12  | Error & recovery            | Retry, rollback, compensation, degraded mode            | Failure / recovery contract       |
+| 13  | External effects            | APIs, queues, clocks, webhooks, side effects            | Boundary / adapter contract       |
+| 14  | Change & migration          | Compatibility, legacy data, feature evolution           | Migration / refinement invariant  |
+| 15  | Observability & evidence    | Logs, provenance, explanations, auditability            | Trace / audit invariant           |
 
 This should be treated as a working ontology, not final truth. The test is whether each kernel produces a distinct class of high-value questions and emitted artifacts.
 
@@ -369,13 +328,13 @@ This should be treated as a working ontology, not final truth. The test is wheth
 
 The fifteen kernels can be grouped into five super-families:
 
-| Super-family | Kernels | Framing question |
-| --- | --- | --- |
-| Structural correctness | Identity & reference; containment & topology; validation & normalization | What exists? |
-| Behavioral correctness | State & lifecycle; temporal history; optimization & preference | What can happen? |
-| Multi-actor correctness | Authority & capability; concurrency & collaboration | Who or what can act? |
-| System correctness | Transactions; resource accounting; derived data & views; external effects; error & recovery | What must stay consistent operationally? |
-| Evolution & accountability | Change & migration; observability & evidence | How does this survive time, change, and scrutiny? |
+| Super-family               | Kernels                                                                                     | Framing question                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Structural correctness     | Identity & reference; containment & topology; validation & normalization                    | What exists?                                      |
+| Behavioral correctness     | State & lifecycle; temporal history; optimization & preference                              | What can happen?                                  |
+| Multi-actor correctness    | Authority & capability; concurrency & collaboration                                         | Who or what can act?                              |
+| System correctness         | Transactions; resource accounting; derived data & views; external effects; error & recovery | What must stay consistent operationally?          |
+| Evolution & accountability | Change & migration; observability & evidence                                                | How does this survive time, change, and scrutiny? |
 
 This hierarchy is useful because kernels are "orthogonal-ish" but real features compose them. The interviewer can classify a feature at the super-family level first, then activate narrower kernels.
 
@@ -385,13 +344,13 @@ Kernel questions should usually be contrastive, not open-ended.
 
 Poor shape:
 
-```text
+```
 How should permissions work?
 ```
 
 Better shape:
 
-```text
+```
 If Alice shares a folder with Bob, and then a document is added to that folder later,
 should Bob automatically get access to the new document?
 
@@ -406,7 +365,7 @@ This generalizes the TiCoder move beyond tests. The interviewer generates cases 
 
 Each kernel could become a reusable spec-interview module:
 
-```text
+```
 Kernel: Containment & Topology
 
 Detects:
@@ -448,6 +407,7 @@ The important product move is to build around question families and emitted arti
 Both source conversations converge on the same bottleneck:
 
 > There is no oracle for spec correctness other than the user.
+> 
 
 Therefore Brunch's core problem is not only generating stronger artifacts. It is validating whether generated artifacts still capture the user's intent.
 
@@ -461,7 +421,7 @@ Important drift cases:
 
 Drift should be surfaced in human terms:
 
-```text
+```
 Original intent:
   "Redo should behave like most apps."
 
@@ -487,7 +447,7 @@ The current `memory/SPEC.md` is already structured, but the structure is markdow
 
 The emerging direction is to make the development spec queryable and tool-operated, then render markdown as a view:
 
-```text
+```
 spec/
   properties.json
   requirements.json
@@ -528,7 +488,7 @@ That is powerful, but it forces every contributing LLM to repeatedly parse a lar
 
 The proposed development shape:
 
-```text
+```
 memory/spec/
   schema/
     record.schema.json
@@ -565,7 +525,7 @@ The most important generated view may be `AGENT_BRIEF.md`: a compact, redundant 
 
 Task-local slices should be generated by tag and relation traversal:
 
-```text
+```
 Feature area: graph-view
 
 Relevant requirements:
@@ -601,7 +561,7 @@ For development, a staged approach seems right:
 
 The contract:
 
-```text
+```
 Canonical records are editable files.
 The tool is the preferred mutation interface.
 The checker is the authority.
@@ -614,13 +574,13 @@ This avoids overbuilding too early while still moving housekeeping out of the LL
 
 The tool should behave less like a database and more like a compiler for spec records:
 
-```text
+```
 records -> validated graph -> rendered views / task slices / check reports
 ```
 
 Possible commands:
 
-```text
+```
 spec check
 spec render
 spec slice --tag graph
@@ -669,11 +629,11 @@ This aligns with Brunch's existing direction: chat view and graph view should be
 
 ### Turn Spine vs Patch Ledger
 
-A missing branch of the current capture concerns early-user feedback about how knowledge items are created and updated.
+A missing branch of the current capture concerns early-user feedback about how knowledge items are created and updated. The detailed proposal now lives in [Patch Ledger and Reconciliation](./PATCH_LEDGER.md); this section keeps only the architectural implication for intent-spec evolution.
 
 One original Brunch assumption was that a single primary conversation would sit at the center of the product. The current architecture reflects that: durable conversational turns are the branch-bearing lineage spine, and knowledge items are extracted from answered turns or accepted review outputs.
 
-The intent-spec direction creates pressure against that assumption. Brunch is starting to look less like a linear guided interview and more like a flexible workbench for building an intent graph:
+The intent-spec direction creates pressure against that assumption. Brunch is starting to look less like a linear guided interview and more like a flexible workbench for building an intent graph, where semantic changes can originate from many interaction surfaces:
 
 - users may add knowledge directly from graph view
 - users may edit or split existing items
@@ -683,26 +643,9 @@ The intent-spec direction creates pressure against that assumption. Brunch is st
 - verification probes may update confidence or checkability
 - downstream implementation feedback may revise upstream intent
 
-In that world, the chat turn is still valuable provenance, but it may no longer be the natural historical spine for all semantic change.
+In that world, the chat turn is still valuable provenance, but it should no longer be the natural historical spine for all semantic change.
 
-The alternative under exploration is a **semantic patch ledger**:
-
-```text
-Patch:
-  operation: add | update | split | merge | retire | link | unlink | verify | invalidate
-  target: knowledge item / relation / property / criterion / example
-  before: previous semantic state
-  after: new semantic state
-  rationale: user / agent explanation
-  provenance: turn, side-chat, graph edit, review action, import, verifier result
-  affected: downstream items marked stale or needing reconciliation
 ```
-
-This would make the intent graph itself the durable semantic surface, while patches record how it changed over time.
-
-The key difference:
-
-```text
 Turn spine:
   history is organized by conversational sequence.
 
@@ -710,64 +653,35 @@ Patch ledger:
   history is organized by semantic mutations to the intent graph.
 ```
 
-The patch-ledger idea is attractive because arbitrary upstream edits create reconciliation needs. If a goal, assumption, constraint, or invariant changes, Brunch needs to know which downstream requirements, criteria, examples, decisions, and verification artifacts may now be stale.
+The split under discussion is:
 
-A typed patch can make that explicit:
+```
+chat / turn:
+  conversational provenance and replay
 
-```text
-User updates Assumption A12.
-Patch P81 records the old and new assumption text.
-Relation policy finds dependents R4, D7, I3, K9.
-Those items become needs_reconciliation unless a validator can prove they still hold.
-The UI surfaces a reconciliation queue rather than silently leaving the graph inconsistent.
+intent graph:
+  current semantic truth
+
+patch:
+  semantic mutation history
+
+workflow state:
+  current product process state
+
+reconciliation_need:
+  semantic debt created when graph changes may affect existing truth
 ```
 
-This is closely related to `knowledge_edge` becoming intent semantics. Edges tell Brunch what might be affected; patches tell Brunch what changed.
-
-The hard question is whether a patch ledger becomes a second durable workflow model. A useful distinction:
-
-```text
-Workflow state:
-  where the user is in the interview / workbench process.
-
-Semantic history:
-  how the intent graph changed.
-```
-
-If patches are treated as workflow authority, they violate the current "no second durable workflow model" constraint. If patches are treated as semantic provenance and reconciliation input, they may complement the turn spine rather than replace it.
-
-Possible hybrid:
-
-- turns remain the user-legible conversation and interaction provenance spine
-- the intent graph becomes the semantic truth surface
-- patches become the semantic history of graph mutations
-- workflow projection still derives from durable workflow state, not from replaying arbitrary patches
-- reconciliation, staleness, audit, and export explanation can use the patch ledger
-
-This suggests a future architecture split:
-
-| Concern | Candidate spine |
-| --- | --- |
-| Conversation replay | turn spine |
-| Phase/workflow progression | workflow state anchored to turns or explicit workflow records |
-| Intent graph truth | current typed knowledge graph |
-| Semantic history | patch ledger over graph mutations |
-| Reconciliation need | edge traversal from changed patch targets |
-| Export explanation | current graph plus provenance patches |
-
-Open design tension:
-
-> Does Brunch need a patch ledger beside the turn spine to support open-ended intent-graph editing, or can typed graph records with turn provenance and status transitions cover the same need with less machinery?
-
-The answer likely depends on how central non-linear graph editing becomes. If Brunch remains primarily interview-led, turn ownership may be enough. If Brunch becomes a workbench where claims can be edited from many entry points, semantic patches become much more compelling.
+This is not a hybrid in the sense of two competing historical authorities. It is a separation of concerns: turns remain conversation history; patches become semantic history; workflow remains explicit process state; reconciliation becomes an agent-managed review flow for stale or contradictory graph truth. See [Patch Ledger and Reconciliation](./PATCH_LEDGER.md) for proposed tables, reconciliation ordering, migration phases, and open schema questions.
 
 The alternate branch makes an important persistence distinction:
 
 > Use the same ontology concepts where possible, but do not force Brunch's development registry and Brunch's runtime product state into the same storage substrate.
+> 
 
 For Brunch's development workflow:
 
-```text
+```
 file-backed canonical records
 + CLI mutation helpers
 + deterministic checker
@@ -779,7 +693,7 @@ Files are appropriate because development memory should be diffable, reviewable,
 
 For Brunch-the-product:
 
-```text
+```
 SQLite + Drizzle remain runtime truth.
 Markdown / YAML / implementation briefs are projections or interchange bundles.
 ```
@@ -802,17 +716,17 @@ Those are relational, interactive, and stateful. SQLite remains the right canoni
 
 The product should distinguish:
 
-| Layer | Contents |
-| --- | --- |
-| Spec content | goals, context, constraints, assumptions, decisions, requirements, invariants, criteria, examples, terms |
+| Layer                | Contents                                                                                                                                              |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Spec content         | goals, context, constraints, assumptions, decisions, requirements, invariants, criteria, examples, terms                                              |
 | Operational metadata | specification id, workspace path, timestamps, phase status, frontier turn id, observer status, streaming state, review version, lifecycle bookkeeping |
-| Relational structure | provenance, lineage, graph edges, patch history, review membership, accepted items, phase anchors, verification links |
+| Relational structure | provenance, lineage, graph edges, patch history, review membership, accepted items, phase anchors, verification links                                 |
 
 Relational and operational data are not "spec content," but they are part of specification state. Keeping those categories distinct prevents the persistence schema from leaking into the product ontology.
 
 A useful architecture split:
 
-```text
+```
 1. Storage model
    SQLite tables optimized for persistence, queries, provenance, and resume.
 
@@ -828,7 +742,7 @@ Drizzle can own persistence shape, while TypeScript domain schemas and relation-
 
 The convergence path is shared ontology with different adapters:
 
-```text
+```
 packages/spec-ontology/
   kinds.ts
   relations.ts
@@ -848,7 +762,7 @@ Markdown projector:
 
 The rule of thumb:
 
-```text
+```
 If humans and agents should review it in Git, use files.
 If the running app needs to mutate it interactively and resume precisely, use SQLite.
 ```
@@ -856,6 +770,7 @@ If the running app needs to mutate it interactively and resume precisely, use SQ
 The unifying principle is not files vs database. It is:
 
 > The LLM proposes semantic changes; deterministic systems own structure, integrity, and projection.
+> 
 
 ## 12. Product Implications
 
@@ -866,7 +781,7 @@ Near-term product implications:
 - detect behavioral kernels and ask pattern-specific questions
 - add `invariant` and `example` as likely product-ontology candidates
 - treat `knowledge_edge` as intent semantics, not only graph display
-- explore whether open-ended graph editing needs a semantic patch ledger beside the turn spine
+- treat open-ended graph editing as needing semantic history separate from turn history; see [Patch Ledger and Reconciliation](./PATCH_LEDGER.md)
 - preserve approved / rejected examples as durable evidence
 - distinguish human-readable claims from checkable artifacts
 - eventually tie requirements and criteria through shared property-like claims
@@ -887,12 +802,10 @@ Near-term development-methodology implications:
 - What is the right granularity for `Property` records?
 - Which claims should remain qualitative but explicitly observable-only?
 - Should Brunch-the-product expose properties directly, or keep them as an internal normalization layer?
-- Should `invariant` and `example` become durable top-level product kinds, or generated review outputs only?
+- Should `invariant` and `example` become durable top-level product kinds?
 - What relation kinds need to participate in cascade and staleness, and which should remain display-only?
 - How should weak inferred edges be reviewed without flooding users or agents?
-- Can turn provenance support arbitrary graph edits well enough, or does Brunch need a typed patch ledger for semantic history?
-- If a patch ledger exists, which operations are semantic patches and which remain workflow events?
-- How can a patch ledger drive reconciliation without becoming a second durable workflow model?
+- Which patch-ledger schema choices in [Patch Ledger and Reconciliation](./PATCH_LEDGER.md) should be promoted into implementation first?
 - Which behavioral kernels are common enough to deserve first-class elicitation support?
 - Are the fifteen kernel families distinct enough in practice, or should some merge after transcript testing?
 - What should a first kernel-card implementation include: detection signals, question templates, artifact schema, validators, or all of these?
