@@ -16,6 +16,7 @@ export interface SideChatStreamRequest {
   itemId: number;
   message: string;
   history?: readonly SideChatPriorTurn[];
+  spanHint?: string;
   signal?: AbortSignal;
   fetch?: typeof fetch;
 }
@@ -79,6 +80,7 @@ export async function streamSideChatResponse(
       itemId: request.itemId,
       message: request.message,
       ...(request.history && request.history.length > 0 ? { history: request.history } : {}),
+      ...(request.spanHint ? { spanHint: request.spanHint } : {}),
     }),
     signal: request.signal,
   });

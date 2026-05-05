@@ -3,6 +3,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 
+import { streamSideChatResponse } from '@/client/lib/side-chat-stream.js';
+
 import { PatchListProvider, type PatchAppliers } from '../patch-list-host.js';
 import { SideChatHost, useSideChat, type SideChatPinnableItem } from '../side-chat-host.js';
 
@@ -379,5 +381,83 @@ describe('SideChatHost active cards', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^dismiss$/i }));
     await screen.findByText('', { selector: '[data-testid="ids"]' });
+  });
+});
+
+describe('SideChatHost span hints', () => {
+  it('forwards openWithSpanHint and includes spanHint in the next stream request', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+
+    const { appliers } = makeAppliers();
+
+    function Probe() {
+      const sideChat = useSideChat();
+      return (
+        <button
+          type="button"
+          onClick={() => sideChat?.openWithSpanHint(samplePinnable, 'highlighted phrase')}
+        >
+          open-with-hint
+        </button>
+      );
+    }
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-with-hint'));
+    const textarea = await screen.findByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'tell me more' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    await vi.waitFor(() => {
+      expect(streamMock).toHaveBeenCalled();
+    });
+    const [requestArg] = streamMock.mock.calls[0];
+    expect(requestArg).toMatchObject({ spanHint: 'highlighted phrase' });
+  });
+
+  it('clears spanHint after the first message is sent', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+
+    const { appliers } = makeAppliers();
+
+    function Probe() {
+      const sideChat = useSideChat();
+      return (
+        <button type="button" onClick={() => sideChat?.openWithSpanHint(samplePinnable, 'first hint')}>
+          open-with-hint
+        </button>
+      );
+    }
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-with-hint'));
+    const textarea = await screen.findByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'first' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    await vi.waitFor(() => expect(streamMock).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(textarea, { target: { value: 'second' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    await vi.waitFor(() => expect(streamMock).toHaveBeenCalledTimes(2));
+    const [secondRequest] = streamMock.mock.calls[1];
+    expect(secondRequest).not.toHaveProperty('spanHint');
   });
 });
