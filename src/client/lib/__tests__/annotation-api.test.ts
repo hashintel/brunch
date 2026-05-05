@@ -86,19 +86,20 @@ describe('makeAnnotateApplier', () => {
     });
   });
 
-  it('returns the created annotation id, summary, and body under `applied`', async () => {
-    const fetchMock = makeMockFetch({ id: 42 });
+  it('returns the server-normalized id, summary, and body under `applied` (not the patch values)', async () => {
+    // The server may trim/normalize summary and body; the card surfaces what was actually persisted.
+    const fetchMock = makeMockFetch({ id: 42, summary: 'server-trimmed', body: 'server-body' });
     const applier = makeAnnotateApplier(1, { fetch: fetchMock });
     const patch: AnnotatePatch = {
       id: 'p1',
       kind: 'annotate',
       anchor: { kind: 'decision', itemId: 5 },
-      summary: 'phrase',
+      summary: '  phrase  ',
       body: 'note',
       createdAt: 0,
     };
     const result = await applier(patch);
-    expect(result.applied).toEqual({ id: 42, summary: 'phrase', body: 'note' });
+    expect(result.applied).toEqual({ id: 42, summary: 'server-trimmed', body: 'server-body' });
   });
 
   it('invokes onCreated with annotation id and patch when provided', async () => {

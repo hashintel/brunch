@@ -414,6 +414,110 @@ describe('SideChatHost thread interleaving', () => {
   });
 });
 
+describe('SideChatHost dismiss/reopen state isolation', () => {
+  it('clears active cards when the side-chat is dismissed and reopened for the same item', async () => {
+    const { appliers, annotateMock } = makeAppliers();
+    annotateMock.mockImplementation(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { id: 201, summary: 's', body: 'b' },
+      }),
+    );
+
+    function Probe() {
+      const sideChat = useSideChat();
+      return (
+        <div>
+          <span data-testid="ids">{sideChat?.activeCardIds.join(',') ?? ''}</span>
+          <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
+            open
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open'));
+    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 's' } });
+    fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'b' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    });
+
+    await screen.findByText('201', { selector: '[data-testid="ids"]' });
+
+    // Dismiss via the popover's close affordance.
+    fireEvent.click(screen.getByRole('button', { name: /close side-chat/i }));
+    await screen.findByText('', { selector: '[data-testid="ids"]' });
+
+    // Reopen for the same item; cards should remain cleared.
+    fireEvent.click(screen.getByText('open'));
+    expect(screen.getByTestId('ids').textContent).toBe('');
+  });
+
+  it('clears active cards when switching the side-chat to a different item', async () => {
+    const { appliers, annotateMock } = makeAppliers();
+    annotateMock.mockImplementation((patch) =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { id: 301, summary: patch.summary, body: patch.body },
+      }),
+    );
+
+    const otherItem: SideChatPinnableItem = {
+      kind: 'goal',
+      id: 22,
+      referenceCode: 'G22',
+      content: 'Other item content',
+    };
+
+    function Probe() {
+      const sideChat = useSideChat();
+      return (
+        <div>
+          <span data-testid="ids">{sideChat?.activeCardIds.join(',') ?? ''}</span>
+          <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
+            open-A
+          </button>
+          <button type="button" onClick={() => sideChat?.openFor(otherItem)}>
+            open-B
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-A'));
+    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'a-sum' } });
+    fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'a-body' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    });
+
+    await screen.findByText('301', { selector: '[data-testid="ids"]' });
+
+    // Switch to item B; cards from A must not leak.
+    fireEvent.click(screen.getByText('open-B'));
+    expect(screen.getByTestId('ids').textContent).toBe('');
+  });
+});
+
 describe('SideChatHost span hints', () => {
   it('forwards openWithSpanHint and includes spanHint in the next stream request', async () => {
     const streamMock = vi.mocked(streamSideChatResponse);

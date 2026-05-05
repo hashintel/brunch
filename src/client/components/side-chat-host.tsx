@@ -51,12 +51,23 @@ export function useSideChat(): SideChatContextValue | null {
   return useContext(SideChatContext);
 }
 
+// Cap on how many ActiveCards we send as `activeAnnotations` in the stream payload,
+// and how many of them we mark `inContext` in the rendered thread. Single source of truth
+// referenced from both the request builder and the threadItems derivation.
+const MAX_ACTIVE_ANNOTATIONS = 8;
+
 interface ActiveSideChat {
   sessionId: number;
   pinnedItem: SideChatPinnedItem;
   itemKind: KnowledgeKind;
   itemId: number;
   messages: SideChatMessage[];
+  // Parallel array: messageTimestamps[i] is the wall-clock time when messages[i] was first
+  // appended (or, for the streamed assistant pending message, when it started streaming).
+  // Preserved across replacePendingText / finalizePending so the timestamp is stable across
+  // streaming. Used by threadItems to chronologically interleave with ActiveCard timestamps,
+  // which also use Date.now().
+  messageTimestamps: number[];
   annotateMode: boolean;
 }
 
@@ -71,6 +82,23 @@ function finalizePending(messages: readonly SideChatMessage[]): SideChatMessage[
     }
     return message.text ? [{ role: message.role, text: message.text }] : [];
   });
+}
+
+// Mirrors finalizePending: when finalizePending drops an empty pending message, the
+// corresponding entry in messageTimestamps must drop too so the parallel arrays stay aligned.
+function finalizeTimestamps(messages: readonly SideChatMessage[], timestamps: readonly number[]): number[] {
+  const next: number[] = [];
+  messages.forEach((message, index) => {
+    const ts = timestamps[index] ?? Date.now();
+    if (!message.pending) {
+      next.push(ts);
+      return;
+    }
+    if (message.text) {
+      next.push(ts);
+    }
+  });
+  return next;
 }
 
 const SIDE_CHAT_ERROR_MESSAGE = 'Something went wrong — try again.';
@@ -112,6 +140,13 @@ function writeStoredLayout(layout: 'docked' | 'floating'): void {
   }
 }
 
+interface ActiveCard {
+  id: number;
+  summary: string;
+  body: string;
+  timestamp: number;
+}
+
 function failPending(messages: readonly SideChatMessage[]): SideChatMessage[] {
   let replaced = false;
   const next = messages.map((message) => {
@@ -136,6 +171,7 @@ export function SideChatHost({
 }) {
   const [activeSideChat, setActiveSideChat] = useState<ActiveSideChat | null>(null);
   const [pendingSpanHint, setPendingSpanHint] = useState<string | null>(null);
+  const [activeCards, setActiveCards] = useState<ActiveCard[]>([]);
   const [layout, setLayout] = useState<'docked' | 'floating'>(readStoredLayout);
   useEffect(() => {
     writeStoredLayout(layout);
@@ -159,12 +195,20 @@ export function SideChatHost({
     (item: SideChatPinnableItem) => {
       abortActiveStream();
       sessionCounterRef.current += 1;
+      // Single-pin scope: cards/hint stay only when reopening the same item. Switching to a
+      // different (kind, id) clears them so stale state doesn't leak across items.
+      const current = activeRef.current;
+      if (!current || current.itemKind !== item.kind || current.itemId !== item.id) {
+        setActiveCards([]);
+        setPendingSpanHint(null);
+      }
       setActiveSideChat({
         sessionId: sessionCounterRef.current,
         pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
         itemKind: item.kind,
         itemId: item.id,
         messages: [],
+        messageTimestamps: [],
         annotateMode: false,
       });
     },
@@ -182,6 +226,10 @@ export function SideChatHost({
   const dismiss = useCallback(() => {
     abortActiveStream();
     setActiveSideChat(null);
+    // Single-pin scope: closing the side-chat resets cards and any unsent span hint so
+    // they don't leak into the next item the user opens.
+    setActiveCards([]);
+    setPendingSpanHint(null);
   }, [abortActiveStream]);
 
   const requestAnnotate = useCallback(() => {
@@ -192,13 +240,6 @@ export function SideChatHost({
     setActiveSideChat((current) => (current ? { ...current, annotateMode: false } : current));
   }, []);
 
-  interface ActiveCard {
-    id: number;
-    summary: string;
-    body: string;
-    timestamp: number;
-  }
-  const [activeCards, setActiveCards] = useState<ActiveCard[]>([]);
   const pushActiveCard = useCallback((card: { id: number; summary: string; body: string }) => {
     setActiveCards((prev) =>
       prev.some((existing) => existing.id === card.id) ? prev : [...prev, { ...card, timestamp: Date.now() }],
@@ -234,6 +275,10 @@ export function SideChatHost({
         if (!current || current.sessionId !== sessionId) {
           return current;
         }
+        // Record one wall-clock timestamp per appended message. The pending assistant
+        // message keeps its initial timestamp through replacePendingText so it doesn't
+        // bounce around in the chronological sort as deltas arrive.
+        const now = Date.now();
         return {
           ...current,
           messages: [
@@ -241,10 +286,11 @@ export function SideChatHost({
             { role: 'user', text: message },
             { role: 'assistant', text: '', pending: true },
           ],
+          messageTimestamps: [...current.messageTimestamps, now, now],
         };
       });
 
-      const activeAnnotations = activeCards.slice(-8).map((card) => ({
+      const activeAnnotations = activeCards.slice(-MAX_ACTIVE_ANNOTATIONS).map((card) => ({
         referenceCode: session.pinnedItem.referenceCode,
         snapshot: card.summary,
         body: card.body.length > 0 ? card.body : null,
@@ -292,9 +338,20 @@ export function SideChatHost({
           if (!current || current.sessionId !== sessionId) {
             return current;
           }
+          // failPending preserves message count (in-place replace + maybe append, but the
+          // original pending always exists here), so timestamps stay aligned. finalizePending
+          // may drop an empty pending message — finalizeTimestamps mirrors that drop.
+          const nextMessages = failed ? failPending(current.messages) : finalizePending(current.messages);
+          const nextTimestamps = failed
+            ? // failPending may push a new error message when no pending was found; pad with now.
+              nextMessages.length > current.messageTimestamps.length
+              ? [...current.messageTimestamps, Date.now()]
+              : current.messageTimestamps
+            : finalizeTimestamps(current.messages, current.messageTimestamps);
           return {
             ...current,
-            messages: failed ? failPending(current.messages) : finalizePending(current.messages),
+            messages: nextMessages,
+            messageTimestamps: nextTimestamps,
           };
         });
       })();
@@ -410,15 +467,19 @@ export function SideChatHost({
 
   const threadItems: readonly SideChatThreadItem[] = activeSideChat
     ? (() => {
+        // Both messages and cards record wall-clock Date.now() timestamps, so a single
+        // chronological sort actually interleaves them correctly. Messages get their
+        // timestamp at append time and preserve it across streaming deltas; cards get
+        // theirs when promoted from a freshly-applied annotation.
         const messageItems: SideChatThreadItem[] = activeSideChat.messages.map((message, index) => ({
           kind: 'message' as const,
           id: `m-${index}`,
           message,
-          timestamp: index,
+          timestamp: activeSideChat.messageTimestamps[index] ?? 0,
         }));
         const cardItems: SideChatThreadItem[] = activeCards.map((card, idx) => {
           const indexFromEnd = activeCards.length - 1 - idx;
-          const inContext = indexFromEnd < 8;
+          const inContext = indexFromEnd < MAX_ACTIVE_ANNOTATIONS;
           return {
             kind: 'card' as const,
             id: `c-${card.id}`,
@@ -431,10 +492,6 @@ export function SideChatHost({
             timestamp: card.timestamp,
           };
         });
-        // Cards use Date.now() timestamps; messages use index. To interleave correctly
-        // for the V1 single-pin happy path (cards staged after messages), append cards
-        // after messages. Sort by timestamp anyway for any future cross-pin scenarios
-        // where both share the same time scale.
         return [...messageItems, ...cardItems].sort((a, b) => a.timestamp - b.timestamp);
       })()
     : [];
