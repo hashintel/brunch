@@ -444,9 +444,26 @@ describe('SideChatPopover', () => {
       expect(screen.queryByRole('region', { name: /staged annotations/i })).toBeNull();
     });
 
-    it('shows the "✓ Annotation saved" confirmation with Undo when staged is empty and canUndo is true', () => {
+    it('shows the "✓ Annotation saved" confirmation with Undo after isApplying transitions from true to false with canUndo true', () => {
       const onUndo = vi.fn();
-      render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} canUndo onUndo={onUndo} />);
+      const { rerender } = render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          canUndo={false}
+          isApplying
+          onUndo={onUndo}
+        />,
+      );
+      rerender(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          onUndo={onUndo}
+        />,
+      );
 
       const status = screen.getByRole('status', { name: /annotation saved/i });
       expect(status).toBeTruthy();
@@ -533,8 +550,32 @@ describe('SideChatPopover', () => {
       vi.useRealTimers();
     });
 
-    it('shows the saved toast when canUndo is true and no patches are staged', () => {
+    it('does NOT show the saved toast on mount with stale canUndo (apply happened in a prior session)', () => {
       render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          stagedPatches={[]}
+        />,
+      );
+      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+    });
+
+    it('shows the saved toast when isApplying transitions from true to false with canUndo true', () => {
+      const { rerender } = render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo={false}
+          isApplying
+          stagedPatches={[]}
+        />,
+      );
+      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+
+      rerender(
         <SideChatPopover
           pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
           onDismiss={() => {}}
@@ -546,8 +587,50 @@ describe('SideChatPopover', () => {
       expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
     });
 
+    it('hides the saved toast when canUndo flips back to false (undo)', () => {
+      const { rerender } = render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo={false}
+          isApplying
+          stagedPatches={[]}
+        />,
+      );
+      rerender(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          stagedPatches={[]}
+        />,
+      );
+      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+
+      rerender(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo={false}
+          isApplying={false}
+          stagedPatches={[]}
+        />,
+      );
+      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+    });
+
     it('auto-hides the toast after 5 seconds', () => {
-      render(
+      const { rerender } = render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo={false}
+          isApplying
+          stagedPatches={[]}
+        />,
+      );
+      rerender(
         <SideChatPopover
           pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
           onDismiss={() => {}}
@@ -564,7 +647,16 @@ describe('SideChatPopover', () => {
     });
 
     it('renders the toast as an absolute overlay inside the composer footer', () => {
-      const { container } = render(
+      const { container, rerender } = render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo={false}
+          isApplying
+          stagedPatches={[]}
+        />,
+      );
+      rerender(
         <SideChatPopover
           pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
           onDismiss={() => {}}
