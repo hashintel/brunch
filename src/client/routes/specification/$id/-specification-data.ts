@@ -26,6 +26,7 @@ export interface StreamedFrontierQuestion {
     readonly content: string;
     readonly is_recommended: boolean;
   }[];
+  readonly reviewActions?: StructuredQuestion['reviewActions'];
   readonly reviewSet?: ReviewSetData;
   readonly preface?: PrefaceData;
 }
@@ -106,6 +107,7 @@ function createPatchedAssistantParts(question: StreamedFrontierQuestion, turnId:
       content: option.content,
       is_recommended: option.is_recommended,
     })),
+    ...(question.reviewActions ? { reviewActions: question.reviewActions } : {}),
     ...(question.reviewSet ? { reviewSet: question.reviewSet } : {}),
   };
   const parts: unknown[] = [
@@ -121,6 +123,7 @@ function createPatchedAssistantParts(question: StreamedFrontierQuestion, turnId:
         optionCount: question.options.length,
       },
     },
+    ...(question.reviewSet ? [{ type: 'data-review-set', data: question.reviewSet }] : []),
   ];
 
   return JSON.stringify(parts);

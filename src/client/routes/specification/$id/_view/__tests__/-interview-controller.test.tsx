@@ -6,7 +6,7 @@ import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EntitiesData, WorkflowPhase } from '@/shared/api-types.js';
-import type { BrunchUIMessage } from '@/shared/chat.js';
+import type { BrunchUIMessage, ReviewSetData, StructuredQuestion } from '@/shared/chat.js';
 import { deriveSpecificationLanding } from '@/shared/specification-state.js';
 import type { SpecificationState } from '@/shared/specification.js';
 
@@ -90,6 +90,8 @@ type StreamedFrontierTurnPromotion = {
       content: string;
       is_recommended: boolean;
     }>;
+    reviewActions?: StructuredQuestion['reviewActions'];
+    reviewSet?: ReviewSetData;
   };
 };
 
@@ -111,7 +113,28 @@ const promoteStreamedFrontierTurnToBundle = vi.fn((promotion: StreamedFrontierTu
     answer: null,
     is_resolution: false,
     user_parts: null,
-    assistant_parts: null,
+    assistant_parts: JSON.stringify([
+      {
+        type: 'tool-ask_question',
+        toolCallId: promotion.question.id,
+        state: 'output-available',
+        input: {
+          question: promotion.question.question,
+          why: promotion.question.why,
+          impact: promotion.question.impact,
+          options: promotion.question.options.map((option) => ({
+            content: option.content,
+            is_recommended: option.is_recommended,
+          })),
+          ...(promotion.question.reviewActions ? { reviewActions: promotion.question.reviewActions } : {}),
+          ...(promotion.question.reviewSet ? { reviewSet: promotion.question.reviewSet } : {}),
+        },
+        output: { ok: true, turnId: promotion.turnId, optionCount: promotion.question.options.length },
+      },
+      ...(promotion.question.reviewSet
+        ? [{ type: 'data-review-set', data: promotion.question.reviewSet }]
+        : []),
+    ]),
     created_at: existingTurn?.created_at ?? '2026-04-30 10:00:00',
     options: promotion.question.options.map((option) => ({
       id: option.position + 1,

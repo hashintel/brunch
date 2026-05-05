@@ -50,6 +50,7 @@ export interface PendingQuestionViewModel {
   readonly why: string;
   readonly impact: StructuredQuestion['impact'];
   readonly options: readonly PendingQuestionOption[];
+  readonly reviewActions?: StructuredQuestion['reviewActions'];
   readonly reviewSet?: ReviewSetData;
   readonly preface?: PrefaceData;
 }
@@ -300,6 +301,7 @@ function findPendingQuestion(messages: readonly BrunchUIMessage[]): PendingQuest
           content: option.content,
           is_recommended: option.is_recommended,
         })),
+        ...(input.reviewActions ? { reviewActions: input.reviewActions } : {}),
         ...(input.reviewSet ? { reviewSet: input.reviewSet } : {}),
       };
     }
