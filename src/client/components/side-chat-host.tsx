@@ -192,6 +192,27 @@ export function SideChatHost({
     setActiveSideChat((current) => (current ? { ...current, annotateMode: false } : current));
   }, []);
 
+  interface ActiveCard {
+    id: number;
+    summary: string;
+    body: string;
+    timestamp: number;
+  }
+  const [activeCards, setActiveCards] = useState<ActiveCard[]>([]);
+  const pushActiveCard = useCallback((card: { id: number; summary: string; body: string }) => {
+    setActiveCards((prev) =>
+      prev.some((existing) => existing.id === card.id) ? prev : [...prev, { ...card, timestamp: Date.now() }],
+    );
+  }, []);
+  const dismissCard = useCallback((annotationId: number) => {
+    setActiveCards((prev) => prev.filter((card) => card.id !== annotationId));
+  }, []);
+  const activeCardIds: readonly number[] = activeCards.map((card) => card.id);
+  const sideChatContextValue = useMemo(
+    () => ({ openFor, openWithSpanHint, activeCardIds, dismissCard }),
+    [openFor, openWithSpanHint, activeCardIds, dismissCard],
+  );
+
   const submitMessage = useCallback(
     (message: string) => {
       const session = activeRef.current;
@@ -223,6 +244,12 @@ export function SideChatHost({
         };
       });
 
+      const activeAnnotations = activeCards.slice(-8).map((card) => ({
+        referenceCode: session.pinnedItem.referenceCode,
+        snapshot: card.summary,
+        body: card.body.length > 0 ? card.body : null,
+      }));
+
       void (async () => {
         let buffered = '';
         let failed = false;
@@ -235,6 +262,7 @@ export function SideChatHost({
               message,
               history,
               signal: controller.signal,
+              ...(activeAnnotations.length > 0 ? { activeAnnotations } : {}),
               ...(hintForThisRequest ? { spanHint: hintForThisRequest } : {}),
             },
             (event) => {
@@ -271,29 +299,8 @@ export function SideChatHost({
         });
       })();
     },
-    [specificationId, abortActiveStream, pendingSpanHint],
+    [specificationId, abortActiveStream, pendingSpanHint, activeCards],
   );
-  interface ActiveCard {
-    id: number;
-    summary: string;
-    body: string;
-    timestamp: number;
-  }
-  const [activeCards, setActiveCards] = useState<ActiveCard[]>([]);
-  const pushActiveCard = useCallback((card: { id: number; summary: string; body: string }) => {
-    setActiveCards((prev) =>
-      prev.some((existing) => existing.id === card.id) ? prev : [...prev, { ...card, timestamp: Date.now() }],
-    );
-  }, []);
-  const dismissCard = useCallback((annotationId: number) => {
-    setActiveCards((prev) => prev.filter((card) => card.id !== annotationId));
-  }, []);
-  const activeCardIds: readonly number[] = activeCards.map((card) => card.id);
-  const sideChatContextValue = useMemo(
-    () => ({ openFor, openWithSpanHint, activeCardIds, dismissCard }),
-    [openFor, openWithSpanHint, activeCardIds, dismissCard],
-  );
-
   const patchList = usePatchList();
   const patchListState = usePatchListState();
   const stagedForActive = useStagedPatches(
@@ -409,17 +416,21 @@ export function SideChatHost({
           message,
           timestamp: index,
         }));
-        const cardItems: SideChatThreadItem[] = activeCards.map((card) => ({
-          kind: 'card' as const,
-          id: `c-${card.id}`,
-          annotationId: card.id,
-          summary: card.summary,
-          body: card.body,
-          itemKind: activeSideChat.itemKind,
-          referenceCode: activeSideChat.pinnedItem.referenceCode,
-          inContext: true,
-          timestamp: card.timestamp,
-        }));
+        const cardItems: SideChatThreadItem[] = activeCards.map((card, idx) => {
+          const indexFromEnd = activeCards.length - 1 - idx;
+          const inContext = indexFromEnd < 8;
+          return {
+            kind: 'card' as const,
+            id: `c-${card.id}`,
+            annotationId: card.id,
+            summary: card.summary,
+            body: card.body,
+            itemKind: activeSideChat.itemKind,
+            referenceCode: activeSideChat.pinnedItem.referenceCode,
+            inContext,
+            timestamp: card.timestamp,
+          };
+        });
         // Cards use Date.now() timestamps; messages use index. To interleave correctly
         // for the V1 single-pin happy path (cards staged after messages), append cards
         // after messages. Sort by timestamp anyway for any future cross-pin scenarios

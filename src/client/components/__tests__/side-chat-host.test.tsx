@@ -491,3 +491,64 @@ describe('SideChatHost span hints', () => {
     expect(secondRequest).not.toHaveProperty('spanHint');
   });
 });
+
+describe('SideChatHost active annotations payload', () => {
+  it('sends only the 8 most-recent active annotations in the stream payload, with older ones marked not in context', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+
+    const { appliers, annotateMock } = makeAppliers();
+    let nextId = 1;
+    annotateMock.mockImplementation((patch) =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { id: nextId++, summary: patch.summary, body: patch.body },
+      }),
+    );
+
+    function PromoteAll() {
+      const sideChat = useSideChat();
+      const ids = sideChat?.activeCardIds ?? [];
+      return <span data-testid="card-count">{ids.length}</span>;
+    }
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenSideChatButton item={samplePinnable} />
+          <PromoteAll />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-side-chat'));
+
+    // Stage 10 annotations sequentially via the form
+    for (let i = 0; i < 10; i++) {
+      fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+      fireEvent.change(screen.getByLabelText('Annotation summary'), {
+        target: { value: `phrase ${i + 1}` },
+      });
+      fireEvent.change(screen.getByLabelText('Annotation body'), {
+        target: { value: `body ${i + 1}` },
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+      });
+    }
+
+    await screen.findByText('10', { selector: '[data-testid="card-count"]' });
+
+    // Send a chat message — the request should include exactly 8 activeAnnotations.
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'go' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    await vi.waitFor(() => expect(streamMock).toHaveBeenCalled());
+    const [requestArg] = streamMock.mock.calls.at(-1)!;
+    expect(requestArg.activeAnnotations).toHaveLength(8);
+    // Most recent 8 means phrases 3..10 (oldest 1, 2 dropped).
+    expect(requestArg.activeAnnotations![0].snapshot).toBe('phrase 3');
+    expect(requestArg.activeAnnotations![7].snapshot).toBe('phrase 10');
+  });
+});
