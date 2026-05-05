@@ -656,3 +656,72 @@ describe('SideChatHost active annotations payload', () => {
     expect(requestArg.activeAnnotations![7].snapshot).toBe('phrase 10');
   });
 });
+
+describe('SideChatHost span-hint chip', () => {
+  it('renders a span-hint chip in the panel when openWithSpanHint is called', async () => {
+    const { appliers } = makeAppliers();
+
+    function Probe() {
+      const sideChat = useSideChat();
+      return (
+        <button type="button" onClick={() => sideChat?.openWithSpanHint(samplePinnable, 'household income')}>
+          open-with-hint
+        </button>
+      );
+    }
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-with-hint'));
+    const chip = await screen.findByText(/household income/);
+    expect(chip.closest('[data-span-hint-chip]')).not.toBeNull();
+  });
+
+  it('clearing the chip removes pendingSpanHint and the next message has no spanHint in payload', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+
+    const { appliers } = makeAppliers();
+
+    function Probe() {
+      const sideChat = useSideChat();
+      return (
+        <button type="button" onClick={() => sideChat?.openWithSpanHint(samplePinnable, 'phrase')}>
+          open-with-hint
+        </button>
+      );
+    }
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-with-hint'));
+    await screen.findByText(/phrase/);
+
+    // Click the dismiss button on the chip
+    fireEvent.click(screen.getByRole('button', { name: /clear span hint/i }));
+
+    // Chip should disappear
+    expect(screen.queryByText(/«phrase»/)).toBeNull();
+
+    // Next message should not include spanHint
+    const textarea = await screen.findByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'go' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    await vi.waitFor(() => expect(streamMock).toHaveBeenCalled());
+    const [requestArg] = streamMock.mock.calls.at(-1)!;
+    expect(requestArg).not.toHaveProperty('spanHint');
+  });
+});

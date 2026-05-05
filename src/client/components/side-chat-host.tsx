@@ -43,6 +43,7 @@ interface SideChatContextValue {
   openWithSpanHint: (item: SideChatPinnableItem, hint: string) => void;
   activeCardIds: readonly number[];
   dismissCard: (annotationId: number) => void;
+  clearSpanHint: () => void;
 }
 
 const SideChatContext = createContext<SideChatContextValue | null>(null);
@@ -223,6 +224,10 @@ export function SideChatHost({
     [openFor],
   );
 
+  const clearSpanHint = useCallback(() => {
+    setPendingSpanHint(null);
+  }, []);
+
   const dismiss = useCallback(() => {
     abortActiveStream();
     setActiveSideChat(null);
@@ -250,8 +255,8 @@ export function SideChatHost({
   }, []);
   const activeCardIds: readonly number[] = activeCards.map((card) => card.id);
   const sideChatContextValue = useMemo(
-    () => ({ openFor, openWithSpanHint, activeCardIds, dismissCard }),
-    [openFor, openWithSpanHint, activeCardIds, dismissCard],
+    () => ({ openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint }),
+    [openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint],
   );
 
   const submitMessage = useCallback(
@@ -527,6 +532,8 @@ export function SideChatHost({
           existingAnnotations={existingAnnotations}
           layout={layout}
           onLayoutChange={setLayout}
+          spanHint={pendingSpanHint}
+          onClearSpanHint={clearSpanHint}
         />
       )}
     </SideChatContext.Provider>
