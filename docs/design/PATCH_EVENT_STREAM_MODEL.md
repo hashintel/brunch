@@ -1,5 +1,9 @@
 # Patch / Event-Stream Data Model
 
+> **Status: SUPERSEDED (2026-05-05).** Replaced by `docs/design/MULTI_CHAT.md` (PR [#90](https://github.com/hashintel/brunch/pull/90), FE-691). The brainstorm with Lu on 2026-05-05 redirected to a smaller substrate change first: a `chat` table + `reconciliation_edge`, deferring the full branch / event log / typed-patch ledger captured here. This branch is parked, not merging — kept for review-thread context. See the new RFC for the active proposal.
+>
+> ---
+>
 > Output of brainstorm session 2026-05-01. Concretizes assumptions A71 (patch / event-stream model), A72 (item versioning), and A73 (architect loop) from `memory/SPEC.md` into a proposed data structure for branched turns, patch-staged mutations, and event-driven projections.
 >
 > Status: **proposed (future-facing)** — this is the north-star data model behind side-chat V4 and the architect loop. V1 / V2 / V3 ship on the current schema (`knowledge_item` + `turn_knowledge_item` + `knowledge_edge`); this design describes the substrate they migrate onto in V4. Pending review before transitioning to an implementation plan.
