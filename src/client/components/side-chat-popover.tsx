@@ -76,6 +76,8 @@ export function SideChatPopover({
     if (annotateMode) {
       annotateSummaryRef.current?.focus();
     } else {
+      setAnnotateSummary('');
+      setAnnotateBody('');
       messageInputRef.current?.focus();
     }
   }, [annotateMode]);
