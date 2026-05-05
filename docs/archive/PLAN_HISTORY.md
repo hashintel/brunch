@@ -152,4 +152,10 @@ Archived when Track A (interaction model) completed and the frontier shifted to 
 
 - 2026-04-24 — **Workflow ownership extraction** — workflow projector extraction, turn-response transition extraction, chat-route transition/application extraction, and phase-close / force-close write-path ownership landed behind runtime-owned seams.
 
+## 2026-05-05 Sync Archive
+
+Archived out of `memory/PLAN.md` during design-doc reconciliation once the live frontier narrowed to continuous workspace plus only the last three completed items.
+
+- 2026-04-24 — **Distribution hardening release path** — `package.json` declares the Node 22+ engine floor, explicit shipped files, and public scoped publish config; `npm run release` drives release-it at repo root, rebuilds and dry-runs the packaged artifact, and documents npm auth prerequisites. Verified: `npm run verify`. Watch: CI trusted publishing remains intentionally out of scope.
+
 Use `memory/PLAN.md` for the live frontier only.
