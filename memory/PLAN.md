@@ -8,7 +8,7 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 
 Side-chat V1.1 is complete implementation history. The old side-chat conceptual roadmap is superseded by the multi-chat substrate, reconciliation-needs, and semantic changeset / patch-ledger direction. Future graph-anchored chat, edit, annotation, revisit, and architect-loop work should be planned through that multi-chat / reconciliation frame rather than as Side-chat V2/V3/V4.
 
-The live frontier centers on **continuous workspace**: turning phase-addressable routes into one cumulative interview surface without adding a second durable workflow model. The May 2026 intent-spec, multi-chat, and patch-ledger design notes are promoted into the canonical horizon as design pressure, not as active implementation scope. Older portability work remains a future-facing boundary map rather than a live roadmap item until a hosted, remote, or adapter-backed substrate becomes a product goal.
+The May 2026 intent-spec and patch-ledger design notes are now promoted into the canonical horizon as design pressure, not as active implementation scope. They reshape revisit / graph-edit planning around intent-graph semantics, progressive checkability, recognition-first elicitation, chat containers, reconciliation needs, and eventually semantic changesets / patches. Older portability work remains a future-facing boundary map rather than a live roadmap item until a hosted, remote, or adapter-backed substrate becomes a product goal.
 
 ## Active
 
@@ -16,14 +16,14 @@ The live frontier centers on **continuous workspace**: turning phase-addressable
 
 1. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with realized phase sections, one chat runtime per specification, sidebar section navigation, scroll/focus behavior, and the single actionable frontier preserved at the current reachable phase.
    - Why now / unlocks: workflow read/write ownership is now extracted, so the continuous workspace can adopt one chat runtime and section-addressable focus without route remounts owning lifecycle truth.
-   - Traceability: A58; D86, D87, D110, D113, D114; I24, I102, I110.
+   - Traceability: A58; D86, D87, D110, D113, D114; I24, I102, I106.
    - Design doc: `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`.
 
 ## Next
 
 2. **Multi-chat substrate + reconciliation needs scope** — scope the first persistence foundation for graph-anchored chats, revisit/cascade, and future semantic edits: durable chat containers plus reconciliation needs, while preserving turn-linked provenance during the transition.
    - Why now / unlocks: Side-chat V1.1 proved the graph-launched chat interaction, but its conceptual docs are superseded. Multi-chat containers and reconciliation needs are the next durable substrate before graph edits, patch ledger, or architect-loop work.
-   - Traceability: Requirement 10; A48, A49, A71, A72; D80, D139.
+   - Traceability: Requirement 10; A48, A49, A71, A79; D80, D135.
    - Design docs: `docs/design/PATCH_LEDGER.md`; multi-chat substrate RFC if retained in the repo.
 
 ## Horizon
@@ -31,37 +31,39 @@ The live frontier centers on **continuous workspace**: turning phase-addressable
 ### Intent graph and reconciliation
 
 - **Intent-spec ontology + progressive checkability** — move Brunch's product output from prose-centered planning specs toward intent graphs: typed claims, semantic edges, examples / counterexamples, unresolved ambiguity, user validation status, and witness strength from prose through tests / contracts / invariants / proof obligations.
-  - Recommended shape: prototype ontology additions (`invariant`, `example`) and a `Property`-like normalization layer in design probes before committing schema; keep requirements and criteria distinct as commitment vs oracle.
-  - Traceability: A77, A78, A79; D138.
+  - Recommended shape: add `invariant` and `example` as first-class durable ontology kinds, with positive / negative / edge-case / not-relevant examples represented as subtypes rather than separate top-level kinds; keep a `Property`-like normalization layer as a design candidate until the requirement / criterion mapping is clearer; update observer prompts, shared registries, API types, fixtures, and export language together.
+  - Traceability: Requirement 38; A77, A78, A80; D134, D136.
   - Design doc: `docs/design/INTENT_SPEC_EVOLUTION.md`.
 
 - **Observer ontology refinement** — narrow `decision`, enrich `constraint` subtypes, and add context-promotion rules so observer capture classifies claims by semantic modality rather than answer shape.
   - Recommended shape: update observer prompt first, then shared kind/subtype registries and fixtures; run corpus probes before schema migration.
-  - Traceability: Requirement 34; D138.
+  - Traceability: Requirement 38; D136.
 
 - **Knowledge-edge semantics policy** — decide how far intent edges should go before broadening observer extraction: relation families, support strength, visibility, cascade participation, export relevance, staleness production, and suggestion handling.
-  - Recommended shape: design relation policy and edge-local prompt context before implementing wider relation-first observer capture.
-  - Traceability: A66, A78; D125, D138.
+  - Recommended shape: design relation policy and edge-local prompt context before implementing wider relation-first observer capture. Keep negative examples as intent content, boundary edges as intent semantics, and reconciliation needs as directed process debt rather than making graph edges double as work queue state.
+  - Traceability: A81; D135, D137.
+  - Deep design sources: `docs/design/INTENT_SPEC_EVOLUTION.md` §4; `docs/design/PATCH_LEDGER.md` §Reconciliation Need.
 
 - **Chat containers + reconciliation needs** — introduce conversation containers and durable reconciliation queues before full semantic patch history. This becomes the first persistence foundation for graph edits, graph-anchored chat, and revisit/cascade.
   - Recommended shape: add `chat` and `reconciliation_need` in a phase-one slice; keep `turn.specification_id` and turn-linked provenance during the transition; create needs from semantic edge traversal first.
-  - Supersedes: the old side-chat V2/V3 conceptual roadmap and `docs/archive/design/REVISIT_MODULE.md`'s `revisit_session` table shape as preferred persistence foundations, while keeping the user-facing graph-chat and revisit/cascade capabilities.
-  - Traceability: Requirement 10; A48, A49, A71, A72; D80, D139.
+  - Supersedes: `docs/archive/design/REVISIT_MODULE.md`'s `revisit_session` table shape as the preferred persistence foundation, while keeping the user-facing revisit/cascade capability.
+  - Traceability: Requirement 10; A48, A49, A71, A79; D80, D135.
   - Design doc: `docs/design/PATCH_LEDGER.md`.
 
 - **Semantic changeset / patch ledger** — make semantic mutations first-class once non-primary surfaces can change graph truth.
   - Recommended shape: prefer the invariant "one semantic mutation set contains one or more atomic changes"; naming remains open between `changeset` / `change` and `patch` / `patch_change`.
   - Depends on: chat containers + reconciliation needs.
-  - Traceability: A72; D139.
+  - Traceability: A71; D135.
   - Design doc: `docs/design/PATCH_LEDGER.md`.
 
-- **Relation-first observer capture proving** — evaluate whether the FE-639 relation-first graph-delta seam produces useful edge density for graph view, export grounding, and future revisit/cascade work before expanding extraction rules.
-  - Recommended shape: run observer corpus probes and manual transcript review against representative greenfield/brownfield specs, inspect projected `EntitiesData.relationships` in graph/export surfaces, and decide whether the next increment should widen prompt context, add cross-turn enrichment, introduce confidence/review affordances, or leave the conservative policy unchanged.
-  - Traceability: Requirements 30, 33; A66; D50, D80, D125, D128; I109.
+- **Relation-first observer capture** — expand observer relationship extraction so graph edges are captured across the ontology when reasonably traceable, not only for decisions and assumptions.
+  - Recommended shape: keep `runObserver()` as the public turn-owned seam, but widen its internal output into a generic graph delta with server-owned provisional-reference resolution and typed relation-policy validation. The FE-639 first cut has landed; remaining work should be driven by corpus/manual proving.
+  - Depends on: knowledge-edge semantics policy.
+  - Traceability: Requirements 30, 33; A66, A81; D125, D134, D137; I109.
 
 - **Behavioral kernel cards** — detect recurring correctness patterns such as state/lifecycle, containment, authority, concurrency, transactions, migration, and evidence; ask contrastive questions and emit progressively checkable artifacts.
   - Recommended shape: prototype one or two kernels as interviewer machinery before adding visible product UI.
-  - Traceability: A79; D138.
+  - Traceability: A80; D134.
 
 - **Architect / generator loop** — autonomous agent that iterates over the intent graph and proposes semantic changes for HITL review through the same future changeset / reconciliation pathway as user-driven edits.
   - Recommended shape: keep this behind multi-chat + reconciliation + semantic changesets; run in shadow mode before user-visible proposal flows.
@@ -72,12 +74,12 @@ The live frontier centers on **continuous workspace**: turning phase-addressable
 - **First-run provider setup** — make missing LLM credentials visible on the dashboard, add a shared AI runtime provider seam for interviewer / observer model construction, support UI-entered keys through XDG-compliant user auth state, and evaluate whether OpenRouter should become the preferred onboarding provider while preserving Anthropic-specific capabilities or explicit degradation.
   - Linear: FE-633 covers the OpenRouter/default-provider part; dashboard credential UX + XDG key storage may need a sibling issue if split from provider proving.
   - Recommended shape: prove the provider resolver first with current Anthropic behavior, then spike OpenRouter against tool use, structured output, and reasoning/thinking options before making it the default. The dashboard should expose credential status without leaking secret values and offer setup before the user starts a specification.
-  - Traceability: Requirements 35, 36, 37; A74, A75; D134, D135, D136; I106.
+  - Traceability: Requirements 34, 35, 36; A74, A75; D130, D131, D132; I106.
 
 - **Workspace hygiene / `.brunch/` gitignore assist** — detect whether generated local state is already ignored and, with explicit confirmation, add an idempotent `.gitignore` entry or create `.gitignore` when absent.
   - Linear: FE-648.
   - Recommended shape: keep this as a deterministic local mutation with preview/confirmation semantics; it can ship independently, but the dashboard is the natural surface because it already explains workspace binding and first-run setup.
-  - Traceability: Requirement 38; A76; D137; I107.
+  - Traceability: Requirement 37; A76; D133; I107.
 
 - **Web research as a context-gathering capability** — web search and page-fetch tools as interviewer-invoked context gathering, surfaced as preface cards. The tool gate and preface lifecycle are ready; this adds new tool implementations.
   - Linear: FE-649.
@@ -90,9 +92,7 @@ The live frontier centers on **continuous workspace**: turning phase-addressable
   - Traceability: Requirement 29; A65; D124.
 
 - **Candidate-spec completion assist** — replace skip-only remainder handling with a `fill in the rest for me` path that generates candidate specs, implications, and tradeoffs for reaction-based refinement.
-  - Linear: FE-640.
-  - Recommended shape: a turn-owned candidate-spec set artifact plus a structured reaction loop (`accept-direction`, `refine`, `regenerate`); accepting a candidate steers the next move but does not itself close the phase.
-  - Traceability: Requirement 31; A67; D126.
+  - Traceability: Requirement 31; A67, A77, A78; D126, D134, D136.
 
 - **Progressive detail / recursive deflation** — support broad-pass interviewing with explicit next-level-of-detail actions rather than one uniform depth-first drill-down.
   - Linear: FE-637.
@@ -113,12 +113,12 @@ The live frontier centers on **continuous workspace**: turning phase-addressable
 
 - **Structured development spec registry** — prototype file-backed canonical spec records, deterministic checks, generated markdown views, and task-local slices for Brunch's own development workflow.
   - Status: design horizon, not a migration commitment.
-  - Traceability: D138.
+  - Traceability: D134.
   - Design doc: `docs/design/INTENT_SPEC_EVOLUTION.md`.
 
 - **Portability boundaries** — split durable store/read-model, interview session runtime, and workspace capability provider if Brunch targets hosted, remote, embedded, or sandbox-backed operation.
   - Status: deferred. Some enabling seams already exist (query domains, workflow projector, no persisted `cwd` on specifications), but adapter-backed portability is not on the live roadmap.
-  - Design doc: `docs/design/PORTABILITY_BOUNDARIES.md`.
+  - Deep design source: `docs/design/PORTABILITY_BOUNDARIES.md`.
 
 - Headless interview driver for scripted end-to-end probes.
 - MCP server adapter for core operations.
@@ -152,14 +152,18 @@ continuous-workspace  (active; unblocked by workflow ownership extraction)
 UNBLOCKED HORIZON
 first-run provider setup  (needs provider spike / scope)
 workspace hygiene gitignore assist  (bounded, dashboard-surface candidate)
+intent-spec ontology + progressive checkability  (needs probe)
+chat containers + reconciliation needs  (needs scope)
+relation-first observer capture  (first cut complete, needs enrichment proving)
+knowledge-edge semantics policy  (discussion/design before observer expansion)
+revisit / edit-mode  (reshaped by reconciliation needs)
 web-research tools  (gate ready, needs tool impl)
 dashboard metrics
 two-axis interview framing
-observer graph enrichment proving
 candidate-spec completion assist
 progressive detail / recursive deflation
-behavioral kernel cards
-intent-spec ontology + progressive checkability  (needs probe)
+behavioral kernels as elicitation machinery
+semantic changeset / patch ledger  (after reconciliation needs)
 structured development spec registry  (tooling experiment)
 portability boundaries  (deferred until substrate goal exists)
 ```

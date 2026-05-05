@@ -1,5 +1,8 @@
 # Brunch Evolution Notes | @Yesterday
 
+> Status: raw synthesis / ideation.
+> Canonical conclusions must be promoted into `memory/SPEC.md` through `ln-spec` and into `memory/PLAN.md` through `ln-plan` before they are treated as accepted product direction or roadmap work.
+>
 > Synthesis started 2026-05-04 from external agent conversations about intent formalization, formal verification, and Brunch's elicitation methodology.
 > 
 
