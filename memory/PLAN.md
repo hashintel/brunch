@@ -10,7 +10,7 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 
 1. **Side-chat V1 — finish Annotate + multi-pin + top-bar patch summary** — V1.1 (Class 1 Explore vertical slice from graph view) is shipped on `ka/fe-656-side-chat` and pending merge. V1.2 still owes Class 4 (Annotate — durable per-item / per-span notes via comment-store extension), the floating selection menu (`💬 Chat` / `📝 Annotate`) for span-anchored entry, multi-item pinning across the panel, and the persistent top-bar patch-summary scaffold (annotation-only patch list until V2). Card E polish (cross-spec persistence, popover row anchoring, error states) for V1.1 also remains tentative.
    - Why now / unlocks: V1.1 vertically proved the end-to-end seam (graph view → SideChatHost provider → /side-chat SSE → streaming render). V1.2 reuses the host and the existing patch-list seam shape so V2's Edit/Drill-down/Propose-edge can extend the same shapes without reshaping. The annotation comment-store extension is the durable surface; V1.1's volatile chat does not yet exercise it.
-   - Traceability: Requirement 38; D128, D134, D135. Subsumes trigger-popover composer (A51, D89).
+   - Traceability: Requirement 34; D128, D130, D131. Subsumes trigger-popover composer (A51, D89).
    - Design doc: `docs/design/SIDE_CHAT.md` (§§1–4, §6.1, §6.4, §11)
    - Branch: `ka/fe-656-side-chat`. Linear: FE-656.
 
@@ -23,7 +23,7 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 
 3. **Side-chat V2 — Edit / Drill-down / Propose-edge** — extend the V1 patch list to carry `edit`, `edge`, and `drill-down` patch kinds. Edit becomes a router: open-phase anchors take the Refine path (successor turn with revision card); closed-phase anchors with `none`/`soft` impact apply directly via soft-recompute. `edit` patches with `hard` impact defer to a placeholder "feature coming" surface until V3.
    - Why now / unlocks: depends on V1's patch-list seam shipping (Active 1, V1.2). Activates the cross-surface intent emission to the existing turn machinery (Refine via successor turn, Drill-down via D127's detail-focus seam) and the typed-relation policy validator for Propose-edge (D125).
-   - Traceability: Requirement 38; D125, D127, D134. Subsumes the last user-facing piece of revisit / edit mode (Requirement 10) for the soft-impact case.
+   - Traceability: Requirement 34; D125, D127, D130. Subsumes the last user-facing piece of revisit / edit mode (Requirement 10) for the soft-impact case.
    - Design doc: `docs/design/SIDE_CHAT.md` (§5.1–5.2, §6.2, §6.3 soft tier)
 
 ## Horizon
@@ -33,21 +33,21 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 - **First-run provider setup** — make missing LLM credentials visible on the dashboard, add a shared AI runtime provider seam for interviewer / observer model construction, support UI-entered keys through XDG-compliant user auth state, and evaluate whether OpenRouter should become the preferred onboarding provider while preserving Anthropic-specific capabilities or explicit degradation.
   - Linear: FE-633 covers the OpenRouter/default-provider part; dashboard credential UX + XDG key storage may need a sibling issue if split from provider proving.
   - Recommended shape: prove the provider resolver first with current Anthropic behavior, then spike OpenRouter against tool use, structured output, and reasoning/thinking options before making it the default. The dashboard should expose credential status without leaking secret values and offer setup before the user starts a specification.
-  - Traceability: Requirements 34, 35, 36; A71, A72; D130, D131, D132; I106.
+  - Traceability: Requirements 35, 36, 37; A74, A75; D134, D135, D136; I106.
 
 - **Workspace hygiene / `.brunch/` gitignore assist** — detect whether generated local state is already ignored and, with explicit confirmation, add an idempotent `.gitignore` entry or create `.gitignore` when absent.
   - Linear: FE-648.
   - Recommended shape: keep this as a deterministic local mutation with preview/confirmation semantics; it can ship independently, but the dashboard is the natural surface because it already explains workspace binding and first-run setup.
-  - Traceability: Requirement 37; A73; D133; I107.
+  - Traceability: Requirement 38; A76; D137; I107.
 
 - **Side-chat V3 — Hard edit absorbs REVISIT_MODULE** — extend V2's Edit router to handle the `hard` impact tier: cascade preview rendered inline in the side-chat panel, batch-resolution secondary-thread mode that walks affected items in groups (auto-confirm review-only, auto-edit mechanical replacements, walk substantives one-by-one). Replaces the current modal secondary-thread design from `docs/design/REVISIT_MODULE.md`.
   - Why now / unlocks: depends on side-chat V2 (Next 3) shipping the Edit router and on REVISIT_MODULE's existing cascade lifecycle (`previewCascade`, `beginRevisit`, `openRevisitThread`, `resolveRevisitItem`, `completeRevisit`) being wired to the side-chat panel as host. Closes out the revisit / edit mode horizon item entirely.
-  - Traceability: Requirement 38; D50, D80, D134; A48, A49 retired.
+  - Traceability: Requirement 34; D50, D80, D130; A48, A49 retired.
   - Design doc: `docs/design/SIDE_CHAT.md` (§5.3, §6.3 hard tier); existing `docs/design/REVISIT_MODULE.md` lifecycle stays valid as the underlying machinery.
 
 - **Architect / generator loop** — autonomous agent that iterates over the knowledge graph and proposes patches for HITL review through the same patch list as the side-chat. Symmetric to the side-chat in *what* it does (mutates the spec), inverse in *who* drives (system, not user).
-  - Why now / unlocks: depends on the side-chat shipping the patch-list surface (V1+) and on the patch / event-stream data model (A74) so generated patches can be batched and applied without re-deriving state per patch.
-  - Traceability: A76; depends on side-chat V1+ and A74.
+  - Why now / unlocks: depends on the side-chat shipping the patch-list surface (V1+) and on the patch / event-stream data model (A71) so generated patches can be batched and applied without re-deriving state per patch.
+  - Traceability: A73; depends on side-chat V1+ and A71.
 
 - **Web research as a context-gathering capability** — web search and page-fetch tools as interviewer-invoked context gathering, surfaced as preface cards. The tool gate and preface lifecycle are ready; this adds new tool implementations.
   - Linear: FE-649.
