@@ -26,7 +26,9 @@ export type {
 
 // ---- Appliers (kind → server fan-out) ----
 
-export type ApplyPatchFn<P extends Patch> = (patch: P) => Promise<{ undo: () => Promise<void> }>;
+export type ApplyPatchFn<P extends Patch> = (
+  patch: P,
+) => Promise<{ undo: () => Promise<void>; applied?: unknown }>;
 
 export interface PatchAppliers {
   annotate: ApplyPatchFn<AnnotatePatch>;

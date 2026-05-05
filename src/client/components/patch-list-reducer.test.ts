@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import type { ApplyPatchFn, AnnotatePatch } from './patch-list-host.js';
 import {
   deriveState,
   getPendingUndoHandle,
   initialPatchListState,
   patchListReducer,
-  type AnnotatePatch,
   type PatchListReducerState,
   type StagePatchInput,
 } from './patch-list-reducer.js';
@@ -308,3 +308,23 @@ const _stageInputCheck: StagePatchInput = {
   body: 'b',
 };
 void _stageInputCheck;
+
+describe('typings — ApplyPatchFn return shape', () => {
+  it('allows an `applied` field of arbitrary shape on the return', async () => {
+    const applier: ApplyPatchFn<AnnotatePatch> = async () => ({
+      undo: async () => {},
+      applied: { id: 1 },
+    });
+    const patch: AnnotatePatch = {
+      id: 'p1',
+      kind: 'annotate',
+      anchor: { kind: 'decision', itemId: 1 },
+      summary: 's',
+      body: 'b',
+      createdAt: 0,
+    };
+    const result = await applier(patch);
+    // Reading `result.applied` must typecheck without a cast — that's the contract Task 3 widens.
+    expect(result.applied).toEqual({ id: 1 });
+  });
+});
