@@ -563,7 +563,7 @@ describe('SideChatPopover', () => {
       expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
     });
 
-    it('renders the toast inside the composer footer between the attach and send buttons', () => {
+    it('renders the toast as an absolute overlay inside the composer footer', () => {
       const { container } = render(
         <SideChatPopover
           pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
@@ -579,9 +579,11 @@ describe('SideChatPopover', () => {
       expect(toast).not.toBeNull();
       expect(attach).not.toBeNull();
       expect(send).not.toBeNull();
-      // attach precedes toast precedes send
-      expect(attach.compareDocumentPosition(toast) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(toast.compareDocumentPosition(send) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      // All three share the same parent (the footer row).
+      expect(toast.parentElement).toBe(attach.parentElement?.parentElement);
+      expect(toast.parentElement).toBe(send.parentElement);
+      // Toast is absolutely positioned (overlay — does not contribute to flex layout).
+      expect(toast.className).toMatch(/\babsolute\b/);
     });
   });
 });
