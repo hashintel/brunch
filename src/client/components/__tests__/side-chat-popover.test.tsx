@@ -563,7 +563,7 @@ describe('SideChatPopover', () => {
       expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
     });
 
-    it('renders the toast at the top, before the message log', () => {
+    it('renders the toast inside the composer footer between the attach and send buttons', () => {
       const { container } = render(
         <SideChatPopover
           pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
@@ -573,12 +573,15 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      const toast = container.querySelector('[aria-label="Annotation saved"]');
-      const log = container.querySelector('[role="log"]');
+      const toast = container.querySelector('[aria-label="Annotation saved"]') as HTMLElement;
+      const attach = container.querySelector('[aria-label="Attach (coming soon)"]') as HTMLElement;
+      const send = container.querySelector('[aria-label="Send message"]') as HTMLElement;
       expect(toast).not.toBeNull();
-      expect(log).not.toBeNull();
-      // documentPosition: 4 = DOCUMENT_POSITION_FOLLOWING (toast precedes log)
-      expect(toast!.compareDocumentPosition(log!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(attach).not.toBeNull();
+      expect(send).not.toBeNull();
+      // attach precedes toast precedes send
+      expect(attach.compareDocumentPosition(toast) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(toast.compareDocumentPosition(send) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
   });
 });
