@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SideChatPopover, type SideChatMessage, type SideChatThreadItem } from '../side-chat-popover.js';
 
@@ -522,6 +522,63 @@ describe('SideChatPopover', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
       expect(onUndo).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('SideChatPopover — saved toast lifecycle', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('shows the saved toast when canUndo is true and no patches are staged', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          stagedPatches={[]}
+        />,
+      );
+      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+    });
+
+    it('auto-hides the toast after 5 seconds', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          stagedPatches={[]}
+        />,
+      );
+      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+    });
+
+    it('renders the toast at the top, before the message log', () => {
+      const { container } = render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          stagedPatches={[]}
+        />,
+      );
+      const toast = container.querySelector('[aria-label="Annotation saved"]');
+      const log = container.querySelector('[role="log"]');
+      expect(toast).not.toBeNull();
+      expect(log).not.toBeNull();
+      // documentPosition: 4 = DOCUMENT_POSITION_FOLLOWING (toast precedes log)
+      expect(toast!.compareDocumentPosition(log!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
   });
 });

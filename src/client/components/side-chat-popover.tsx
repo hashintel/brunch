@@ -144,6 +144,7 @@ export function SideChatPopover({
   const [annotateSummary, setAnnotateSummary] = useState('');
   const [annotateBody, setAnnotateBody] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
+  const [savedToastVisible, setSavedToastVisible] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const annotateSummaryRef = useRef<HTMLInputElement>(null);
@@ -157,6 +158,15 @@ export function SideChatPopover({
       messageInputRef.current?.focus();
     }
   }, [annotateMode]);
+
+  useEffect(() => {
+    if (!isApplying && stagedPatches.length === 0 && canUndo) {
+      setSavedToastVisible(true);
+      const id = window.setTimeout(() => setSavedToastVisible(false), 5000);
+      return () => window.clearTimeout(id);
+    }
+    setSavedToastVisible(false);
+  }, [isApplying, stagedPatches.length, canUndo]);
 
   useEffect(() => {
     function handleEscape(event: globalThis.KeyboardEvent) {
@@ -255,6 +265,25 @@ export function SideChatPopover({
           <p className="flex-1 text-sm text-ink">{pinnedItem.content}</p>
         </header>
 
+        {savedToastVisible && !isApplying && stagedPatches.length === 0 && canUndo ? (
+          <div
+            role="status"
+            aria-label="Annotation saved"
+            className="flex items-center justify-between rounded-md bg-wash/40 px-2 py-1.5 text-xs"
+          >
+            <span className="font-medium text-ink">✓ Annotation saved</span>
+            {onUndo ? (
+              <button
+                type="button"
+                onClick={onUndo}
+                className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
+              >
+                Undo
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         <ul
           role="log"
           aria-label="Side-chat messages"
@@ -281,25 +310,6 @@ export function SideChatPopover({
         {isApplying ? (
           <div role="status" className="text-xs text-hint">
             Saving annotation…
-          </div>
-        ) : null}
-
-        {!isApplying && stagedPatches.length === 0 && canUndo ? (
-          <div
-            role="status"
-            aria-label="Annotation saved"
-            className="flex items-center justify-between rounded-md bg-wash/40 px-2 py-1.5 text-xs"
-          >
-            <span className="font-medium text-ink">✓ Annotation saved</span>
-            {onUndo ? (
-              <button
-                type="button"
-                onClick={onUndo}
-                className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
-              >
-                Undo
-              </button>
-            ) : null}
           </div>
         ) : null}
 
