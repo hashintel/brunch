@@ -39,6 +39,7 @@ export interface SideChatPinnableItem {
 
 interface SideChatContextValue {
   openFor: (item: SideChatPinnableItem) => void;
+  openWithSpanHint: (item: SideChatPinnableItem, hint: string) => void;
   activeCardIds: readonly number[];
   dismissCard: (annotationId: number) => void;
 }
@@ -133,6 +134,7 @@ export function SideChatHost({
   children: ReactNode;
 }) {
   const [activeSideChat, setActiveSideChat] = useState<ActiveSideChat | null>(null);
+  const [pendingSpanHint, setPendingSpanHint] = useState<string | null>(null);
   const [layout, setLayout] = useState<'docked' | 'floating'>(readStoredLayout);
   useEffect(() => {
     writeStoredLayout(layout);
@@ -168,6 +170,14 @@ export function SideChatHost({
     [abortActiveStream],
   );
 
+  const openWithSpanHint = useCallback(
+    (item: SideChatPinnableItem, hint: string) => {
+      openFor(item);
+      setPendingSpanHint(hint);
+    },
+    [openFor],
+  );
+
   const dismiss = useCallback(() => {
     abortActiveStream();
     setActiveSideChat(null);
@@ -193,6 +203,10 @@ export function SideChatHost({
       const controller = new AbortController();
       streamControllerRef.current = controller;
       const history = buildHistory(session.messages);
+      const hintForThisRequest = pendingSpanHint;
+      if (hintForThisRequest) {
+        setPendingSpanHint(null);
+      }
 
       setActiveSideChat((current) => {
         if (!current || current.sessionId !== sessionId) {
@@ -220,6 +234,7 @@ export function SideChatHost({
               message,
               history,
               signal: controller.signal,
+              ...(hintForThisRequest ? { spanHint: hintForThisRequest } : {}),
             },
             (event) => {
               if (controller.signal.aborted) {
@@ -255,7 +270,7 @@ export function SideChatHost({
         });
       })();
     },
-    [specificationId, abortActiveStream],
+    [specificationId, abortActiveStream, pendingSpanHint],
   );
   const [activeCardIds, setActiveCardIds] = useState<number[]>([]);
   const pushActiveCard = useCallback((id: number) => {
@@ -265,8 +280,8 @@ export function SideChatHost({
     setActiveCardIds((prev) => prev.filter((id) => id !== annotationId));
   }, []);
   const sideChatContextValue = useMemo(
-    () => ({ openFor, activeCardIds, dismissCard }),
-    [openFor, activeCardIds, dismissCard],
+    () => ({ openFor, openWithSpanHint, activeCardIds, dismissCard }),
+    [openFor, openWithSpanHint, activeCardIds, dismissCard],
   );
 
   const patchList = usePatchList();
