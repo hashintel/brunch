@@ -91,12 +91,34 @@ describe('POST /api/specifications/:id/annotations', () => {
       .expect(400);
   });
 
-  it('returns 400 when body is empty or whitespace-only', async () => {
+  it('accepts whitespace-only body (trims to empty, which is now allowed)', async () => {
     const specId = await createSpec();
     const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    const res = await request(app)
+      .post(`/api/specifications/${specId}/annotations`)
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        summary: 's',
+        body: '   ',
+      })
+      .expect(201);
+
+    expect(res.body.body).toBe('');
+  });
+
+  it('rejects payloads with no body field at all', async () => {
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
     await request(app)
       .post(`/api/specifications/${specId}/annotations`)
-      .send({ itemKind: 'decision', itemId: decision.id, summary: 's', body: '   ' })
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        summary: 's',
+      })
       .expect(400);
   });
 
@@ -138,6 +160,45 @@ describe('POST /api/specifications/:id/annotations', () => {
         .send({ itemKind: item.kind, itemId: item.id, summary: 's', body: 'b' })
         .expect(201);
     }
+  });
+
+  it('persists selection_start/selection_end when provided', async () => {
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    const res = await request(app)
+      .post(`/api/specifications/${specId}/annotations`)
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        summary: 'Use SQLite.',
+        body: '',
+        selectionStart: 4,
+        selectionEnd: 10,
+      })
+      .expect(201);
+
+    expect(res.body).toMatchObject({
+      selection_start: 4,
+      selection_end: 10,
+    });
+  });
+
+  it('rejects payloads where selectionStart > selectionEnd', async () => {
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    await request(app)
+      .post(`/api/specifications/${specId}/annotations`)
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        summary: 's',
+        body: 'b',
+        selectionStart: 10,
+        selectionEnd: 4,
+      })
+      .expect(400);
   });
 });
 
