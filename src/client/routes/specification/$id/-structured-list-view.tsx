@@ -473,7 +473,7 @@ function ItemRow({
   incoming,
   anchored,
   defaultOpen = true,
-  kindAnchor = null,
+  kindAnchor,
 }: {
   item: KnowledgeItemSummary;
   outgoing: DirectedEdge[];

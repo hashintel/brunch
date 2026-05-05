@@ -75,7 +75,7 @@ export function prepareTurn(
   specificationId: number,
   userMessage: string,
   userParts: BrunchUserPart[],
-  phase: Turn['phase'] | undefined = undefined,
+  phase?: Turn['phase'],
 ) {
   const specification = getSpecification(db, specificationId);
   if (!specification) throw new Error(`Specification ${specificationId} not found`);

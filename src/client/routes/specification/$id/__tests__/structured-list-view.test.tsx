@@ -816,7 +816,7 @@ describe('StructuredListView', () => {
       fireEvent.click(screen.getByRole('button', { name: /send/i }));
 
       const [secondRequest] = mockStreamSideChatResponse.mock.calls[1];
-      expect(secondRequest.history).toBeUndefined();
+      expect(secondRequest.history).toEqual([]);
 
       stream2.emit({ type: 'done' });
       await act(async () => {
