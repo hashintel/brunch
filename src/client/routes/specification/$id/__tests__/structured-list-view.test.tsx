@@ -31,6 +31,7 @@ import {
   emptySpec,
   singleItemNoEdges,
 } from '@/client/__fixtures__/graph-view.js';
+import { PatchListProvider } from '@/client/components/patch-list-host.js';
 import { SideChatHost, useSideChat, type SideChatPinnableItem } from '@/client/components/side-chat-host.js';
 import type { SideChatStreamEvent } from '@/client/lib/side-chat-stream.js';
 
@@ -1040,5 +1041,24 @@ describe('"Show all" bulk control', () => {
     expect(src).toContain('Show all');
     expect(src).toContain('data-graph-kind-show-all');
     expect(src).toMatch(/setHiddenKinds\(new Set\(\)\)/);
+  });
+});
+
+describe('structured-list-view annotatable attributes', () => {
+  it('exposes data-annotatable on item content with item-kind and item-id on the row', () => {
+    const { container } = render(
+      <PatchListProvider specificationId={1} appliers={{ annotate: vi.fn() as never }}>
+        <SideChatHost specificationId={1}>
+          <StructuredListView entityState={singleItemNoEdges()} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+    const annotatable = container.querySelector('[data-annotatable]');
+    expect(annotatable).not.toBeNull();
+    const row = annotatable!.closest('[data-graph-row]') as HTMLElement;
+    expect(row).not.toBeNull();
+    expect(row.getAttribute('data-graph-row-ref')).toBeTruthy();
+    expect(row.getAttribute('data-item-kind')).toBeTruthy();
+    expect(row.getAttribute('data-item-id')).toBeTruthy();
   });
 });
