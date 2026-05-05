@@ -28,6 +28,7 @@ import {
   type SideChatMessage,
   type SideChatPinnedItem,
   type SideChatStagedPatchSummary,
+  type SideChatThreadItem,
 } from './side-chat-popover.js';
 
 export interface SideChatPinnableItem {
@@ -272,13 +273,22 @@ export function SideChatHost({
     },
     [specificationId, abortActiveStream, pendingSpanHint],
   );
-  const [activeCardIds, setActiveCardIds] = useState<number[]>([]);
-  const pushActiveCard = useCallback((id: number) => {
-    setActiveCardIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  interface ActiveCard {
+    id: number;
+    summary: string;
+    body: string;
+    timestamp: number;
+  }
+  const [activeCards, setActiveCards] = useState<ActiveCard[]>([]);
+  const pushActiveCard = useCallback((card: { id: number; summary: string; body: string }) => {
+    setActiveCards((prev) =>
+      prev.some((existing) => existing.id === card.id) ? prev : [...prev, { ...card, timestamp: Date.now() }],
+    );
   }, []);
   const dismissCard = useCallback((annotationId: number) => {
-    setActiveCardIds((prev) => prev.filter((id) => id !== annotationId));
+    setActiveCards((prev) => prev.filter((card) => card.id !== annotationId));
   }, []);
+  const activeCardIds: readonly number[] = activeCards.map((card) => card.id);
   const sideChatContextValue = useMemo(
     () => ({ openFor, openWithSpanHint, activeCardIds, dismissCard }),
     [openFor, openWithSpanHint, activeCardIds, dismissCard],
@@ -348,8 +358,14 @@ export function SideChatHost({
     lastSeenBatchIdRef.current = patchListState.lastBatchId;
     for (const meta of lastBatchAppliedMeta) {
       if (meta.applied && typeof meta.applied === 'object' && 'id' in meta.applied) {
-        const id = (meta.applied as { id: unknown }).id;
-        if (typeof id === 'number') pushActiveCard(id);
+        const applied = meta.applied as { id: unknown; summary?: unknown; body?: unknown };
+        if (typeof applied.id === 'number') {
+          pushActiveCard({
+            id: applied.id,
+            summary: typeof applied.summary === 'string' ? applied.summary : '',
+            body: typeof applied.body === 'string' ? applied.body : '',
+          });
+        }
       }
     }
   }, [patchListState.lastBatchId, lastBatchAppliedMeta, pushActiveCard]);
@@ -385,6 +401,33 @@ export function SideChatHost({
         }))
     : [];
 
+  const threadItems: readonly SideChatThreadItem[] = activeSideChat
+    ? (() => {
+        const messageItems: SideChatThreadItem[] = activeSideChat.messages.map((message, index) => ({
+          kind: 'message' as const,
+          id: `m-${index}`,
+          message,
+          timestamp: index,
+        }));
+        const cardItems: SideChatThreadItem[] = activeCards.map((card) => ({
+          kind: 'card' as const,
+          id: `c-${card.id}`,
+          annotationId: card.id,
+          summary: card.summary,
+          body: card.body,
+          itemKind: activeSideChat.itemKind,
+          referenceCode: activeSideChat.pinnedItem.referenceCode,
+          inContext: true,
+          timestamp: card.timestamp,
+        }));
+        // Cards use Date.now() timestamps; messages use index. To interleave correctly
+        // for the V1 single-pin happy path (cards staged after messages), append cards
+        // after messages. Sort by timestamp anyway for any future cross-pin scenarios
+        // where both share the same time scale.
+        return [...messageItems, ...cardItems].sort((a, b) => a.timestamp - b.timestamp);
+      })()
+    : [];
+
   const docksContent = activeSideChat !== null && layout === 'docked';
 
   return (
@@ -399,9 +442,10 @@ export function SideChatHost({
         <SideChatPopover
           key={activeSideChat.sessionId}
           pinnedItem={activeSideChat.pinnedItem}
-          messages={activeSideChat.messages}
+          threadItems={threadItems}
           onDismiss={dismiss}
           onSubmit={submitMessage}
+          onDismissCard={dismissCard}
           annotateMode={activeSideChat.annotateMode}
           onAnnotateRequest={patchList ? requestAnnotate : undefined}
           onAnnotateCancel={cancelAnnotate}

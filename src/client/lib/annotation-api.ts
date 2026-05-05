@@ -103,7 +103,7 @@ export function makeAnnotateApplier(
       undo: async () => {
         await deleteAnnotationRequest(created.id, options);
       },
-      applied: { id: created.id },
+      applied: { id: created.id, summary: patch.summary, body: patch.body },
     };
   };
 }

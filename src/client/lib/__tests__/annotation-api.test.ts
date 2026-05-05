@@ -86,19 +86,19 @@ describe('makeAnnotateApplier', () => {
     });
   });
 
-  it('returns the created annotation id under `applied`', async () => {
+  it('returns the created annotation id, summary, and body under `applied`', async () => {
     const fetchMock = makeMockFetch({ id: 42 });
     const applier = makeAnnotateApplier(1, { fetch: fetchMock });
     const patch: AnnotatePatch = {
       id: 'p1',
       kind: 'annotate',
       anchor: { kind: 'decision', itemId: 5 },
-      summary: 'x',
-      body: '',
+      summary: 'phrase',
+      body: 'note',
       createdAt: 0,
     };
     const result = await applier(patch);
-    expect(result.applied).toEqual({ id: 42 });
+    expect(result.applied).toEqual({ id: 42, summary: 'phrase', body: 'note' });
   });
 
   it('invokes onCreated with annotation id and patch when provided', async () => {

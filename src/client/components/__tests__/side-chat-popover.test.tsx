@@ -3,7 +3,16 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { SideChatPopover } from '../side-chat-popover.js';
+import { SideChatPopover, type SideChatMessage, type SideChatThreadItem } from '../side-chat-popover.js';
+
+function toThreadItems(messages: readonly SideChatMessage[]): readonly SideChatThreadItem[] {
+  return messages.map((message, index) => ({
+    kind: 'message' as const,
+    id: `m-${index}`,
+    message,
+    timestamp: index,
+  }));
+}
 
 afterEach(() => {
   cleanup();
@@ -103,15 +112,15 @@ describe('SideChatPopover', () => {
   });
 
   describe('messages, streaming, and submit', () => {
-    it('renders user and assistant messages from the messages prop in order', () => {
+    it('renders user and assistant messages from the threadItems prop in order', () => {
       render(
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[
+          threadItems={toThreadItems([
             { role: 'user', text: 'Why SQLite?' },
             { role: 'assistant', text: 'It keeps the runtime local-first.' },
-          ]}
+          ])}
         />,
       );
 
@@ -129,10 +138,10 @@ describe('SideChatPopover', () => {
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[
+          threadItems={toThreadItems([
             { role: 'user', text: 'Why?' },
             { role: 'assistant', text: 'It keeps', pending: true },
-          ]}
+          ])}
         />,
       );
 
@@ -149,10 +158,10 @@ describe('SideChatPopover', () => {
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[
+          threadItems={toThreadItems([
             { role: 'user', text: 'Why?' },
             { role: 'assistant', text: 'It depends.' },
-          ]}
+          ])}
         />,
       );
 
@@ -211,10 +220,10 @@ describe('SideChatPopover', () => {
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[
+          threadItems={toThreadItems([
             { role: 'user', text: 'Why?' },
             { role: 'assistant', text: 'Something went wrong — try again.', error: true },
-          ]}
+          ])}
         />,
       );
 
@@ -230,10 +239,10 @@ describe('SideChatPopover', () => {
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[
+          threadItems={toThreadItems([
             { role: 'user', text: 'Why?' },
             { role: 'assistant', text: 'It depends.' },
-          ]}
+          ])}
         />,
       );
 
@@ -247,10 +256,10 @@ describe('SideChatPopover', () => {
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[
+          threadItems={toThreadItems([
             { role: 'user', text: 'Why?' },
             { role: 'assistant', text: '', pending: true },
-          ]}
+          ])}
         />,
       );
       fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Hello' } });
@@ -304,10 +313,10 @@ describe('SideChatPopover', () => {
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[
+          threadItems={toThreadItems([
             { role: 'user', text: 'Q' },
             { role: 'assistant', text: '', pending: true },
-          ]}
+          ])}
           onAnnotateRequest={() => {}}
         />,
       );
