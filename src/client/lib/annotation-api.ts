@@ -11,6 +11,8 @@ export interface CreateAnnotationPayload {
   itemId: number;
   summary: string;
   body: string;
+  selectionStart?: number;
+  selectionEnd?: number;
 }
 
 export interface CreatedAnnotation {
@@ -26,6 +28,7 @@ export interface CreatedAnnotation {
 
 export interface AnnotationApiOptions {
   fetch?: typeof fetch;
+  onCreated?: (annotationId: number, patch: AnnotatePatch) => void;
 }
 
 export async function createAnnotationRequest(
@@ -34,10 +37,20 @@ export async function createAnnotationRequest(
   options: AnnotationApiOptions = {},
 ): Promise<CreatedAnnotation> {
   const fetchImpl = options.fetch ?? fetch;
+  const body: Record<string, unknown> = {
+    itemKind: payload.itemKind,
+    itemId: payload.itemId,
+    summary: payload.summary,
+    body: payload.body,
+  };
+  if (payload.selectionStart !== undefined && payload.selectionEnd !== undefined) {
+    body.selectionStart = payload.selectionStart;
+    body.selectionEnd = payload.selectionEnd;
+  }
   const response = await fetchImpl(`/api/specifications/${specificationId}/annotations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     throw new Error(`createAnnotation failed: ${response.status} ${response.statusText}`);
@@ -80,13 +93,17 @@ export function makeAnnotateApplier(
         itemId: patch.anchor.itemId,
         summary: patch.summary,
         body: patch.body,
+        selectionStart: patch.selectionRange?.start,
+        selectionEnd: patch.selectionRange?.end,
       },
       options,
     );
+    options.onCreated?.(created.id, patch);
     return {
       undo: async () => {
         await deleteAnnotationRequest(created.id, options);
       },
+      applied: { id: created.id },
     };
   };
 }
