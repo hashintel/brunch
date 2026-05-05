@@ -46,9 +46,20 @@ function finalizePending(messages: readonly SideChatMessage[]): SideChatMessage[
 const SIDE_CHAT_ERROR_MESSAGE = 'Something went wrong — try again.';
 
 function buildHistory(messages: readonly SideChatMessage[]): SideChatPriorTurn[] {
-  return messages
-    .filter((message) => !message.pending && !message.error && message.text.length > 0)
-    .map((message) => ({ role: message.role, text: message.text }));
+  const history: SideChatPriorTurn[] = [];
+  for (const message of messages) {
+    if (message.pending || message.error || message.text.length === 0) {
+      if (message.role === 'assistant' && history.at(-1)?.role === 'user') {
+        history.pop();
+      }
+      continue;
+    }
+    history.push({ role: message.role, text: message.text });
+  }
+  if (history.at(-1)?.role === 'user') {
+    history.pop();
+  }
+  return history;
 }
 
 function failPending(messages: readonly SideChatMessage[]): SideChatMessage[] {

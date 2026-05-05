@@ -51,13 +51,17 @@ function buildUserMessageContent(item: SideChatPinnedItem, message: string): str
   return lines.join('\n');
 }
 
+function completedHistory(history: readonly SideChatPriorTurn[]): SideChatPriorTurn[] {
+  return history.at(-1)?.role === 'user' ? history.slice(0, -1) : [...history];
+}
+
 export function buildSideChatPrompt(
   item: SideChatPinnedItem,
   message: string,
   specContext: SideChatSpecContext,
   history: readonly SideChatPriorTurn[] = [],
 ): SideChatPromptPayload {
-  const turns: SideChatPriorTurn[] = [...history, { role: 'user', text: message }];
+  const turns: SideChatPriorTurn[] = [...completedHistory(history), { role: 'user', text: message }];
   const messages: SideChatPromptMessage[] = turns.map((turn, index) => {
     if (index === 0 && turn.role === 'user') {
       return { role: 'user', content: buildUserMessageContent(item, turn.text) };

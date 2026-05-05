@@ -131,6 +131,18 @@ describe('buildSideChatPrompt', () => {
     expect(withEmpty).toEqual(withNone);
   });
 
+  it('drops a trailing history user turn before appending the new user message', () => {
+    const { messages } = buildSideChatPrompt(baseItem, 'Try again', baseSpecContext, [
+      { role: 'user', text: 'Why SQLite?' },
+    ]);
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0].role).toBe('user');
+    expect(messages[0].content).toContain('D12');
+    expect(messages[0].content).not.toContain('Why SQLite?');
+    expect(messages[0].content).toContain('Try again');
+  });
+
   it('labels the item by its kind so the model knows what it is looking at', () => {
     const { messages } = buildSideChatPrompt(
       { kind: 'requirement', referenceCode: 'R3', content: 'Users can export specs as Markdown.' },
