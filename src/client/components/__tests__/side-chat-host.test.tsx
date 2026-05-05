@@ -384,6 +384,36 @@ describe('SideChatHost active cards', () => {
   });
 });
 
+describe('SideChatHost thread interleaving', () => {
+  it('renders an active card chronologically interleaved with messages', async () => {
+    const { appliers, annotateMock } = makeAppliers();
+    annotateMock.mockImplementation(() =>
+      Promise.resolve({ undo: () => Promise.resolve(), applied: { id: 7, summary: 'phrase', body: 'note' } }),
+    );
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenSideChatButton item={samplePinnable} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-side-chat'));
+    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.change(screen.getByLabelText('Annotation summary'), {
+      target: { value: 'phrase' },
+    });
+    fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'note' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    });
+
+    // The card should land in the thread with data-thread-item="card" and contain "phrase"
+    await screen.findByText('«phrase»', { selector: '[data-thread-item="card"] *' });
+  });
+});
+
 describe('SideChatHost span hints', () => {
   it('forwards openWithSpanHint and includes spanHint in the next stream request', async () => {
     const streamMock = vi.mocked(streamSideChatResponse);

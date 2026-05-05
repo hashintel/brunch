@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
+import { ActiveCard } from './active-card.js';
 import { kindAccentHex } from './knowledge-card';
 
 function useTypewriter(target: string, animate: boolean, charDelayMs = 15): string {
@@ -72,11 +73,26 @@ export interface SideChatExistingAnnotation {
   body: string;
 }
 
+export type SideChatThreadItem =
+  | { kind: 'message'; id: string; message: SideChatMessage; timestamp: number }
+  | {
+      kind: 'card';
+      id: string;
+      annotationId: number;
+      summary: string;
+      body: string;
+      itemKind: KnowledgeKind;
+      referenceCode: string;
+      inContext: boolean;
+      timestamp: number;
+    };
+
 export interface SideChatPopoverProps {
   pinnedItem: SideChatPinnedItem;
   onDismiss: () => void;
-  messages?: readonly SideChatMessage[];
+  threadItems?: readonly SideChatThreadItem[];
   onSubmit?: (message: string) => void;
+  onDismissCard?: (annotationId: number) => void;
   // ---- Annotate (Card C) ----
   annotateMode?: boolean;
   onAnnotateRequest?: () => void;
@@ -99,8 +115,9 @@ export interface SideChatPopoverProps {
 export function SideChatPopover({
   pinnedItem,
   onDismiss,
-  messages = [],
+  threadItems = [],
   onSubmit,
+  onDismissCard,
   annotateMode = false,
   onAnnotateRequest,
   onAnnotateCancel,
@@ -115,6 +132,9 @@ export function SideChatPopover({
   layout = 'docked',
   onLayoutChange,
 }: SideChatPopoverProps) {
+  const messagesForState: readonly SideChatMessage[] = threadItems.flatMap((item) =>
+    item.kind === 'message' ? [item.message] : [],
+  );
   const [draft, setDraft] = useState('');
   const [annotateSummary, setAnnotateSummary] = useState('');
   const [annotateBody, setAnnotateBody] = useState('');
@@ -149,7 +169,7 @@ export function SideChatPopover({
   }, [annotateMode, onAnnotateCancel, onDismiss]);
 
   const trimmedDraft = draft.trim();
-  const isStreaming = messages.some((message) => message.pending === true);
+  const isStreaming = messagesForState.some((message) => message.pending === true);
   const sendDisabled = trimmedDraft.length === 0 || isStreaming;
 
   const trimmedAnnotateSummary = annotateSummary.trim();
@@ -235,9 +255,22 @@ export function SideChatPopover({
           aria-label="Side-chat messages"
           className="scrollbar-thin flex flex-1 flex-col gap-2 overflow-y-auto"
         >
-          {messages.map((message, index) => (
-            <MessageBubble key={index} message={message} />
-          ))}
+          {threadItems.map((item) =>
+            item.kind === 'message' ? (
+              <MessageBubble key={item.id} message={item.message} />
+            ) : (
+              <ActiveCard
+                key={item.id}
+                annotationId={item.annotationId}
+                referenceCode={item.referenceCode}
+                itemKind={item.itemKind}
+                summary={item.summary}
+                body={item.body}
+                inContext={item.inContext}
+                onDismiss={onDismissCard ?? (() => {})}
+              />
+            ),
+          )}
         </ul>
 
         {isApplying ? (
