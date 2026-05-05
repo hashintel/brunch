@@ -501,7 +501,7 @@ export function SideChatPopover({
                 placeholder="Ask me anything..."
                 className="min-h-10 w-full resize-none bg-transparent text-sm text-ink outline-none placeholder:text-[#a6a6a6]"
               />
-              <div className="flex items-center gap-2">
+              <div className="relative flex h-7 items-center justify-between">
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
@@ -512,26 +512,6 @@ export function SideChatPopover({
                   >
                     <Plus className="size-4" aria-hidden />
                   </button>
-                </div>
-                <div className="flex flex-1 items-center justify-center">
-                  {savedToastVisible && !isApplying && stagedPatches.length === 0 && canUndo ? (
-                    <div
-                      role="status"
-                      aria-label="Annotation saved"
-                      className="inline-flex items-center gap-2 rounded-md bg-wash/40 px-2 py-1 text-xs"
-                    >
-                      <span className="font-medium text-ink">✓ Annotation saved</span>
-                      {onUndo ? (
-                        <button
-                          type="button"
-                          onClick={onUndo}
-                          className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
-                        >
-                          Undo
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
                 </div>
                 <button
                   type="button"
@@ -550,6 +530,24 @@ export function SideChatPopover({
                     <ArrowUp className="size-4" strokeWidth={2.5} aria-hidden />
                   )}
                 </button>
+                {savedToastVisible && !isApplying && stagedPatches.length === 0 && canUndo ? (
+                  <div
+                    role="status"
+                    aria-label="Annotation saved"
+                    className="pointer-events-none absolute top-1/2 left-1/2 inline-flex h-6 -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-md bg-wash/40 px-2 text-xs"
+                  >
+                    <span className="font-medium text-ink">✓ Annotation saved</span>
+                    {onUndo ? (
+                      <button
+                        type="button"
+                        onClick={onUndo}
+                        className="pointer-events-auto rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
+                      >
+                        Undo
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
           </>
