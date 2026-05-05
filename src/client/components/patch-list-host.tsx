@@ -2,7 +2,7 @@
 // `<PatchListProvider>` + `useFoo()` hooks. Internal state is an event log
 // (`patch-list-reducer.ts`); the React layer is glue.
 
-import { createContext, useCallback, useContext, useMemo, useReducer, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useReducer, useRef, type ReactNode } from 'react';
 
 import {
   deriveState,
@@ -68,6 +68,8 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
   const [reducerState, dispatch] = useReducer(patchListReducer, initialPatchListState);
   const derivedState = useMemo(() => deriveState(reducerState), [reducerState]);
 
+  const applyInFlightRef = useRef(false);
+
   const newId = useCallback(() => idFactory?.() ?? crypto.randomUUID(), [idFactory]);
   const nowMs = useCallback(() => now?.() ?? Date.now(), [now]);
 
@@ -90,10 +92,12 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
   }, []);
 
   const apply = useCallback(async (): Promise<void> => {
+    if (applyInFlightRef.current) return;
     const snapshot = deriveState(reducerState);
     if (snapshot.staged.length === 0 || snapshot.isApplying) {
       return;
     }
+    applyInFlightRef.current = true;
     dispatch({ type: 'APPLY_START' });
     try {
       const undoHandles: Array<() => Promise<void>> = [];
@@ -124,6 +128,8 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
       });
     } catch {
       dispatch({ type: 'APPLY_FAILURE' });
+    } finally {
+      applyInFlightRef.current = false;
     }
   }, [reducerState, appliers, newId]);
 

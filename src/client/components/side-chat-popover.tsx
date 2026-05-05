@@ -277,7 +277,7 @@ export function SideChatPopover({
         >
           <header className="flex items-center justify-between">
             <span className="font-medium">
-              {stagedPatches.length} pending annotation{stagedPatches.length === 1 ? '' : 's'} (retry?)
+              {stagedPatches.length} pending annotation{stagedPatches.length === 1 ? '' : 's'}
             </span>
           </header>
           <ul className="flex flex-col gap-1">
