@@ -331,8 +331,8 @@ export function SideChatHost({
   return (
     <SideChatContext.Provider value={sideChatContextValue}>
       <div
-        className="h-full transition-[padding] duration-200 ease-out"
-        style={{ paddingRight: docksContent ? 'calc(588px + 2rem)' : undefined }}
+        className="h-full min-h-0 min-w-0 overflow-hidden transition-[padding] duration-200 ease-out"
+        style={{ paddingRight: docksContent ? 'calc(588px + 1rem)' : undefined }}
       >
         {children}
       </div>
