@@ -10,6 +10,10 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
+import type { KnowledgeKind } from '@/shared/knowledge.js';
+
+import { kindAccentHex } from './knowledge-card';
+
 function useTypewriter(target: string, animate: boolean, charDelayMs = 15): string {
   const [displayed, setDisplayed] = useState(target);
   useEffect(() => {
@@ -51,10 +55,6 @@ function MessageBubble({ message }: { message: SideChatMessage }) {
     </li>
   );
 }
-
-import type { KnowledgeKind } from '@/shared/knowledge.js';
-
-import { kindAccentHex } from './knowledge-card';
 
 export interface SideChatPinnedItem {
   referenceCode: string;
@@ -104,9 +104,6 @@ export interface SideChatPopoverProps {
   layout?: 'docked' | 'floating';
   onLayoutChange?: (layout: 'docked' | 'floating') => void;
 }
-
-const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function SideChatPopover({
   pinnedItem,
@@ -159,27 +156,6 @@ export function SideChatPopover({
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [annotateMode, onAnnotateCancel, onDismiss]);
-
-  function handleTabTrap(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key !== 'Tab' || !containerRef.current) {
-      return;
-    }
-    const focusables = containerRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
-    if (focusables.length === 0) {
-      return;
-    }
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    const active = document.activeElement;
-
-    if (event.shiftKey && active === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && active === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
 
   const trimmedDraft = draft.trim();
   const isStreaming = messages.some((message) => message.pending === true);
@@ -239,7 +215,6 @@ export function SideChatPopover({
         role="dialog"
         aria-label="Side-chat"
         data-side-chat-anchor="top-right"
-        onKeyDown={handleTabTrap}
         data-side-chat-layout={layout}
         data-kind={pinnedItem.kind ?? undefined}
         style={{

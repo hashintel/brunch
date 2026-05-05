@@ -96,26 +96,6 @@ describe('SideChatPopover', () => {
     expect(document.activeElement).toBe(screen.getByLabelText('Message'));
   });
 
-  it('traps Tab forward by wrapping focus from the last focusable to the message input', () => {
-    render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
-
-    const close = screen.getByRole('button', { name: /close side[- ]chat/i });
-    close.focus();
-    fireEvent.keyDown(close, { key: 'Tab' });
-
-    expect(document.activeElement).toBe(screen.getByLabelText('Message'));
-  });
-
-  it('traps Shift+Tab backward by wrapping focus from the message input to the last focusable', () => {
-    render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
-
-    const messageInput = screen.getByLabelText('Message');
-    messageInput.focus();
-    fireEvent.keyDown(messageInput, { key: 'Tab', shiftKey: true });
-
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: /close side[- ]chat/i }));
-  });
-
   it('exposes the popover surface as a dialog with an accessible name', () => {
     render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
 

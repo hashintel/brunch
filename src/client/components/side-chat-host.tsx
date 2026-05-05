@@ -85,6 +85,24 @@ function buildHistory(messages: readonly SideChatMessage[]): SideChatPriorTurn[]
 
 const SIDE_CHAT_LAYOUT_STORAGE_KEY = 'brunch.side-chat.layout';
 
+function readStoredLayout(): 'docked' | 'floating' {
+  if (typeof window === 'undefined') return 'docked';
+  try {
+    return window.localStorage.getItem(SIDE_CHAT_LAYOUT_STORAGE_KEY) === 'floating' ? 'floating' : 'docked';
+  } catch {
+    return 'docked';
+  }
+}
+
+function writeStoredLayout(layout: 'docked' | 'floating'): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(SIDE_CHAT_LAYOUT_STORAGE_KEY, layout);
+  } catch {
+    // Storage may be unavailable (privacy mode, sandboxed iframe, quota); ignore.
+  }
+}
+
 function failPending(messages: readonly SideChatMessage[]): SideChatMessage[] {
   let replaced = false;
   const next = messages.map((message) => {
@@ -108,13 +126,9 @@ export function SideChatHost({
   children: ReactNode;
 }) {
   const [activeSideChat, setActiveSideChat] = useState<ActiveSideChat | null>(null);
-  const [layout, setLayout] = useState<'docked' | 'floating'>(() => {
-    if (typeof window === 'undefined') return 'docked';
-    return window.localStorage.getItem(SIDE_CHAT_LAYOUT_STORAGE_KEY) === 'floating' ? 'floating' : 'docked';
-  });
+  const [layout, setLayout] = useState<'docked' | 'floating'>(readStoredLayout);
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(SIDE_CHAT_LAYOUT_STORAGE_KEY, layout);
+    writeStoredLayout(layout);
   }, [layout]);
   const activeRef = useRef<ActiveSideChat | null>(null);
   const sessionCounterRef = useRef(0);
