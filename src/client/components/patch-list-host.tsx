@@ -103,12 +103,14 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
     applyInFlightRef.current = true;
     dispatch({ type: 'APPLY_START' });
     const undoHandles: Array<() => Promise<void>> = [];
+    const appliedMeta: Array<{ patchId: string; applied: unknown }> = [];
     try {
       for (const patch of snapshot.staged) {
         switch (patch.kind) {
           case 'annotate': {
             const result = await appliers.annotate(patch);
             undoHandles.push(result.undo);
+            appliedMeta.push({ patchId: patch.id, applied: result.applied });
             break;
           }
           default: {
@@ -128,6 +130,7 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
         batchId,
         patchIds: snapshot.staged.map((patch) => patch.id),
         undoHandle: undoAll,
+        appliedMeta,
       });
     } catch {
       for (const undo of [...undoHandles].reverse()) {
@@ -210,6 +213,12 @@ export function usePatchListState(): PatchListState {
 export interface StagedPatchesFilter {
   anchor?: Pick<PatchAnchor, 'kind' | 'itemId'>;
   kind?: Patch['kind'];
+}
+
+export function useLastBatchAppliedMeta(): readonly { patchId: string; applied: unknown }[] {
+  const ctx = useContext(PatchListContext);
+  if (!ctx) return [];
+  return ctx.state.lastBatchAppliedMeta;
 }
 
 export function useStagedPatches(filter?: StagedPatchesFilter): readonly Patch[] {

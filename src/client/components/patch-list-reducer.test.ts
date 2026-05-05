@@ -74,11 +74,19 @@ describe('patchListReducer — APPLY lifecycle', () => {
     const undo = noopUndo;
     const after = patchListReducer(
       { ...initialPatchListState, isApplying: true },
-      { type: 'APPLY_SUCCESS', batchId: 'b1', patchIds: ['p1', 'p2'], undoHandle: undo },
+      {
+        type: 'APPLY_SUCCESS',
+        batchId: 'b1',
+        patchIds: ['p1', 'p2'],
+        undoHandle: undo,
+        appliedMeta: [],
+      },
     );
 
     expect(after.isApplying).toBe(false);
-    expect(after.events).toEqual([{ type: 'BatchApplied', batchId: 'b1', patchIds: ['p1', 'p2'] }]);
+    expect(after.events).toEqual([
+      { type: 'BatchApplied', batchId: 'b1', patchIds: ['p1', 'p2'], appliedMeta: [] },
+    ]);
     expect(after.pendingUndos.get('b1')).toBe(undo);
   });
 
@@ -97,7 +105,7 @@ describe('patchListReducer — APPLY lifecycle', () => {
   it('UNDO_SUCCESS appends BatchUndone and removes the undo handle', () => {
     const undo = noopUndo;
     const startState: PatchListReducerState = {
-      events: [{ type: 'BatchApplied', batchId: 'b1', patchIds: ['p1'] }],
+      events: [{ type: 'BatchApplied', batchId: 'b1', patchIds: ['p1'], appliedMeta: [] }],
       isApplying: false,
       pendingUndos: new Map([['b1', undo]]),
     };
@@ -162,6 +170,7 @@ describe('deriveState — apply / undo lifecycle', () => {
       batchId: 'b1',
       patchIds: ['p1'],
       undoHandle: noopUndo,
+      appliedMeta: [],
     });
 
     const derived = deriveState(state);
@@ -181,6 +190,7 @@ describe('deriveState — apply / undo lifecycle', () => {
       batchId: 'b1',
       patchIds: ['a', 'b'],
       undoHandle: noopUndo,
+      appliedMeta: [],
     });
     state = patchListReducer(state, { type: 'UNDO_SUCCESS', batchId: 'b1' });
 
@@ -209,6 +219,7 @@ describe('deriveState — apply / undo lifecycle', () => {
       batchId: 'b1',
       patchIds: ['p1'],
       undoHandle: noopUndo,
+      appliedMeta: [],
     });
     state = patchListReducer(state, { type: 'UNDO_SUCCESS', batchId: 'b1' });
 
@@ -230,12 +241,14 @@ describe('getPendingUndoHandle', () => {
       batchId: 'b1',
       patchIds: [],
       undoHandle: undo1,
+      appliedMeta: [],
     });
     state = patchListReducer(state, {
       type: 'APPLY_SUCCESS',
       batchId: 'b2',
       patchIds: [],
       undoHandle: undo2,
+      appliedMeta: [],
     });
 
     expect(getPendingUndoHandle(state)?.batchId).toBe('b2');
@@ -248,12 +261,14 @@ describe('getPendingUndoHandle', () => {
       batchId: 'b1',
       patchIds: [],
       undoHandle: noopUndo,
+      appliedMeta: [],
     });
     state = patchListReducer(state, {
       type: 'APPLY_SUCCESS',
       batchId: 'b2',
       patchIds: [],
       undoHandle: noopUndo,
+      appliedMeta: [],
     });
     state = patchListReducer(state, { type: 'UNDO_SUCCESS', batchId: 'b2' });
 
@@ -287,6 +302,7 @@ describe('full sequence round-trip', () => {
       batchId: 'B',
       patchIds: ['a', 'b'],
       undoHandle: noopUndo,
+      appliedMeta: [],
     });
 
     expect(deriveState(state).count).toBe(0);
@@ -326,5 +342,54 @@ describe('typings — ApplyPatchFn return shape', () => {
     const result = await applier(patch);
     // Reading `result.applied` must typecheck without a cast — that's the contract Task 3 widens.
     expect(result.applied).toEqual({ id: 1 });
+  });
+});
+
+describe('patch-list reducer — appliedMeta on BatchApplied', () => {
+  it('BatchApplied event carries appliedMeta and deriveState exposes lastBatchAppliedMeta', () => {
+    const patch: AnnotatePatch = {
+      id: 'p1',
+      kind: 'annotate',
+      anchor: { kind: 'decision', itemId: 5 },
+      summary: 's',
+      body: 'b',
+      createdAt: 1,
+    };
+    let state = patchListReducer(initialPatchListState, {
+      type: 'STAGE',
+      patchId: 'p1',
+      patch,
+    });
+    state = patchListReducer(state, {
+      type: 'APPLY_SUCCESS',
+      batchId: 'b1',
+      patchIds: ['p1'],
+      undoHandle: noopUndo,
+      appliedMeta: [{ patchId: 'p1', applied: { id: 42 } }],
+    });
+    const derived = deriveState(state);
+    expect(derived.lastBatchAppliedMeta).toEqual([{ patchId: 'p1', applied: { id: 42 } }]);
+  });
+
+  it('lastBatchAppliedMeta is empty when no batch has been applied yet', () => {
+    expect(deriveState(initialPatchListState).lastBatchAppliedMeta).toEqual([]);
+  });
+
+  it('lastBatchAppliedMeta is empty after the most recent batch is undone', () => {
+    const patch: AnnotatePatch = makeAnnotatePatch('p1');
+    let state = patchListReducer(initialPatchListState, {
+      type: 'STAGE',
+      patchId: 'p1',
+      patch,
+    });
+    state = patchListReducer(state, {
+      type: 'APPLY_SUCCESS',
+      batchId: 'b1',
+      patchIds: ['p1'],
+      undoHandle: noopUndo,
+      appliedMeta: [{ patchId: 'p1', applied: { id: 7 } }],
+    });
+    state = patchListReducer(state, { type: 'UNDO_SUCCESS', batchId: 'b1' });
+    expect(deriveState(state).lastBatchAppliedMeta).toEqual([]);
   });
 });

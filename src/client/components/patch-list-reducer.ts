@@ -55,6 +55,7 @@ export interface BatchAppliedEvent {
   type: 'BatchApplied';
   batchId: string;
   patchIds: readonly string[];
+  appliedMeta: ReadonlyArray<{ patchId: string; applied: unknown }>;
 }
 export interface BatchUndoneEvent {
   type: 'BatchUndone';
@@ -89,6 +90,7 @@ export type PatchListAction =
       batchId: string;
       patchIds: readonly string[];
       undoHandle: () => Promise<void>;
+      appliedMeta: ReadonlyArray<{ patchId: string; applied: unknown }>;
     }
   | { type: 'APPLY_FAILURE' }
   | { type: 'UNDO_SUCCESS'; batchId: string };
@@ -132,7 +134,12 @@ export function patchListReducer(
         isApplying: false,
         events: [
           ...state.events,
-          { type: 'BatchApplied', batchId: action.batchId, patchIds: action.patchIds },
+          {
+            type: 'BatchApplied',
+            batchId: action.batchId,
+            patchIds: action.patchIds,
+            appliedMeta: action.appliedMeta,
+          },
         ],
         pendingUndos: nextUndos,
       };
@@ -160,13 +167,18 @@ export interface DerivedPatchListState {
   isApplying: boolean;
   lastBatchId: string | null;
   lastBatchPatches: readonly Patch[];
+  lastBatchAppliedMeta: readonly { patchId: string; applied: unknown }[];
 }
 
 interface FoldAccumulator {
   byId: Map<string, Patch>;
   stagedOrder: string[]; // patchIds, in stage order
   appliedPatchIds: Set<string>;
-  appliedBatches: Array<{ batchId: string; patchIds: readonly string[] }>;
+  appliedBatches: Array<{
+    batchId: string;
+    patchIds: readonly string[];
+    appliedMeta: ReadonlyArray<{ patchId: string; applied: unknown }>;
+  }>;
   undoneBatchIds: Set<string>;
 }
 
@@ -199,7 +211,11 @@ function foldEvents(events: readonly PatchEvent[]): FoldAccumulator {
         break;
       }
       case 'BatchApplied':
-        acc.appliedBatches.push({ batchId: event.batchId, patchIds: event.patchIds });
+        acc.appliedBatches.push({
+          batchId: event.batchId,
+          patchIds: event.patchIds,
+          appliedMeta: event.appliedMeta,
+        });
         for (const id of event.patchIds) {
           acc.appliedPatchIds.add(id);
           const idx = acc.stagedOrder.indexOf(id);
@@ -229,6 +245,15 @@ export function deriveState(reducerState: PatchListReducerState): DerivedPatchLi
       .map((id) => acc.byId.get(id))
       .filter((patch): patch is Patch => patch !== undefined) ?? [];
 
+  // The most-recent BatchApplied (irrespective of whether it was undone) anchors
+  // `lastBatchAppliedMeta`; once undone, the meta clears so dependent listeners
+  // don't keep treating those applieds as "current".
+  const mostRecentApplied = acc.appliedBatches.at(-1);
+  const lastBatchAppliedMeta =
+    mostRecentApplied && !acc.undoneBatchIds.has(mostRecentApplied.batchId)
+      ? mostRecentApplied.appliedMeta
+      : [];
+
   return {
     staged,
     count: staged.length,
@@ -236,6 +261,7 @@ export function deriveState(reducerState: PatchListReducerState): DerivedPatchLi
     isApplying: reducerState.isApplying,
     lastBatchId: lastBatch?.batchId ?? null,
     lastBatchPatches,
+    lastBatchAppliedMeta,
   };
 }
 

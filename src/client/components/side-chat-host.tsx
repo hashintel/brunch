@@ -16,7 +16,12 @@ import {
 import { streamSideChatResponse, type SideChatPriorTurn } from '@/client/lib/side-chat-stream.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
-import { usePatchList, usePatchListState, useStagedPatches } from './patch-list-host.js';
+import {
+  useLastBatchAppliedMeta,
+  usePatchList,
+  usePatchListState,
+  useStagedPatches,
+} from './patch-list-host.js';
 import {
   SideChatPopover,
   type SideChatExistingAnnotation,
@@ -34,6 +39,8 @@ export interface SideChatPinnableItem {
 
 interface SideChatContextValue {
   openFor: (item: SideChatPinnableItem) => void;
+  activeCardIds: readonly number[];
+  dismissCard: (annotationId: number) => void;
 }
 
 const SideChatContext = createContext<SideChatContextValue | null>(null);
@@ -250,7 +257,17 @@ export function SideChatHost({
     },
     [specificationId, abortActiveStream],
   );
-  const sideChatContextValue = useMemo(() => ({ openFor }), [openFor]);
+  const [activeCardIds, setActiveCardIds] = useState<number[]>([]);
+  const pushActiveCard = useCallback((id: number) => {
+    setActiveCardIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }, []);
+  const dismissCard = useCallback((annotationId: number) => {
+    setActiveCardIds((prev) => prev.filter((id) => id !== annotationId));
+  }, []);
+  const sideChatContextValue = useMemo(
+    () => ({ openFor, activeCardIds, dismissCard }),
+    [openFor, activeCardIds, dismissCard],
+  );
 
   const patchList = usePatchList();
   const patchListState = usePatchListState();
@@ -308,6 +325,19 @@ export function SideChatHost({
     }
     void patchList.apply();
   }, [patchList, patchListState.staged, patchListState.isApplying]);
+
+  const lastBatchAppliedMeta = useLastBatchAppliedMeta();
+  const lastSeenBatchIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (patchListState.lastBatchId === lastSeenBatchIdRef.current) return;
+    lastSeenBatchIdRef.current = patchListState.lastBatchId;
+    for (const meta of lastBatchAppliedMeta) {
+      if (meta.applied && typeof meta.applied === 'object' && 'id' in meta.applied) {
+        const id = (meta.applied as { id: unknown }).id;
+        if (typeof id === 'number') pushActiveCard(id);
+      }
+    }
+  }, [patchListState.lastBatchId, lastBatchAppliedMeta, pushActiveCard]);
 
   const activeItemId = activeSideChat?.itemId;
   const activeItemKind = activeSideChat?.itemKind;

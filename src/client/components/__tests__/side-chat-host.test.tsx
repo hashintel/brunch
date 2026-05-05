@@ -38,7 +38,7 @@ interface AppliersHandle {
 
 function makeAppliers(): AppliersHandle {
   const undoMock = vi.fn(() => Promise.resolve());
-  const annotateMock = vi.fn(() => Promise.resolve({ undo: undoMock }));
+  const annotateMock = vi.fn(() => Promise.resolve({ undo: undoMock, applied: undefined }));
   return {
     annotateMock,
     undoMock,
@@ -329,5 +329,55 @@ describe('SideChatHost annotate flow', () => {
 
     fireEvent.click(screen.getByText('open-side-chat'));
     expect(screen.queryByRole('button', { name: /annotate item/i })).toBeNull();
+  });
+});
+
+describe('SideChatHost active cards', () => {
+  it('exposes activeCardIds and dismissCard via context; pushes ids on apply', async () => {
+    const { appliers, annotateMock } = makeAppliers();
+    annotateMock.mockImplementation(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { id: 101 },
+      }),
+    );
+
+    function Probe() {
+      const sideChat = useSideChat();
+      return (
+        <div>
+          <span data-testid="ids">{sideChat?.activeCardIds.join(',') ?? ''}</span>
+          <button type="button" onClick={() => sideChat?.dismissCard(101)}>
+            dismiss
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenSideChatButton item={samplePinnable} />
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-side-chat'));
+    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.change(screen.getByLabelText('Annotation summary'), {
+      target: { value: 's' },
+    });
+    fireEvent.change(screen.getByLabelText('Annotation body'), {
+      target: { value: 'b' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    });
+
+    await screen.findByText('101', { selector: '[data-testid="ids"]' });
+
+    fireEvent.click(screen.getByRole('button', { name: /^dismiss$/i }));
+    await screen.findByText('', { selector: '[data-testid="ids"]' });
   });
 });
