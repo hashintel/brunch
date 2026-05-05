@@ -110,6 +110,9 @@ export interface SideChatPopoverProps {
   // ---- Layout (docked = full-height right; floating = Gmail-style bottom-right) ----
   layout?: 'docked' | 'floating';
   onLayoutChange?: (layout: 'docked' | 'floating') => void;
+  // ---- Span hint chip (Chat path V1.2-E) ----
+  spanHint?: string | null;
+  onClearSpanHint?: () => void;
 }
 
 export function SideChatPopover({
@@ -131,6 +134,8 @@ export function SideChatPopover({
   existingAnnotations = [],
   layout = 'docked',
   onLayoutChange,
+  spanHint = null,
+  onClearSpanHint,
 }: SideChatPopoverProps) {
   const messagesForState: readonly SideChatMessage[] = threadItems.flatMap((item) =>
     item.kind === 'message' ? [item.message] : [],
@@ -472,6 +477,29 @@ export function SideChatPopover({
                 </div>
               ) : null}
             </div>
+            {!annotateMode && spanHint ? (
+              <div
+                data-span-hint-chip
+                className="inline-flex items-center gap-1.5 self-start rounded bg-[rgba(0,0,0,0.04)] px-1.5 py-1 text-xs text-ink"
+              >
+                <span className="font-mono text-hint" aria-hidden>
+                  📎
+                </span>
+                <span className="max-w-[280px] truncate" title={spanHint}>
+                  «{spanHint}»
+                </span>
+                {onClearSpanHint ? (
+                  <button
+                    type="button"
+                    aria-label="Clear span hint"
+                    onClick={onClearSpanHint}
+                    className="ml-0.5 text-hint hover:text-ink"
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             <div className="flex flex-col gap-2 rounded-md bg-white p-3 shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]">
               <textarea
                 ref={messageInputRef}
