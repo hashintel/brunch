@@ -16,6 +16,7 @@ import type {
   EntitiesData,
   EntityReference as SharedEntityReference,
   EntityRelationship as SharedEntityRelationship,
+  EdgeRelation,
   SpecificationMode,
   SpecificationStateTurn,
   ReadinessBand,
@@ -44,6 +45,7 @@ import {
 import { normalizeReviewSetForDisplay } from '@/shared/review-diffing.js';
 import { getPersistedReviewAction } from '@/shared/specification-state.js';
 
+import { supportsKnowledgeRelationship } from './knowledge-relationship-policy.js';
 import {
   safeDeserializeAssistantParts,
   safeDeserializeUserParts,
@@ -669,6 +671,12 @@ export function createKnowledgeItem(
     .get() as KnowledgeItem;
 }
 
+export function getKnowledgeItem(db: DB, itemId: number): KnowledgeItem | undefined {
+  return db.select().from(schema.knowledgeItem).where(eq(schema.knowledgeItem.id, itemId)).get() as
+    | KnowledgeItem
+    | undefined;
+}
+
 export function linkKnowledgeItemToTurn(
   db: DB,
   itemId: number,
@@ -681,21 +689,24 @@ export function linkKnowledgeItemToTurn(
     .run();
 }
 
-function addKnowledgeEdge(
+export function addKnowledgeRelationship(
   db: DB,
   fromItemId: number,
   toItemId: number,
   relation: InferSelectModel<typeof schema.knowledgeEdge>['relation'],
 ): void {
-  db.insert(schema.knowledgeEdge).values({ from_item_id: fromItemId, to_item_id: toItemId, relation }).run();
+  db.insert(schema.knowledgeEdge)
+    .values({ from_item_id: fromItemId, to_item_id: toItemId, relation })
+    .onConflictDoNothing()
+    .run();
 }
 
 export function addDecisionParentDecision(db: DB, decisionId: number, parentDecisionId: number): void {
-  addKnowledgeEdge(db, decisionId, parentDecisionId, 'depends_on');
+  addKnowledgeRelationship(db, decisionId, parentDecisionId, 'depends_on');
 }
 
 export function addDecisionParentAssumption(db: DB, decisionId: number, parentAssumptionId: number): void {
-  addKnowledgeEdge(db, decisionId, parentAssumptionId, 'depends_on');
+  addKnowledgeRelationship(db, decisionId, parentAssumptionId, 'depends_on');
 }
 
 export function addAssumptionParentAssumption(
@@ -703,7 +714,7 @@ export function addAssumptionParentAssumption(
   assumptionId: number,
   parentAssumptionId: number,
 ): void {
-  addKnowledgeEdge(db, assumptionId, parentAssumptionId, 'depends_on');
+  addKnowledgeRelationship(db, assumptionId, parentAssumptionId, 'depends_on');
 }
 
 function getKnowledgeItemsForSpecificationByKind(
@@ -718,6 +729,23 @@ function getKnowledgeItemsForSpecificationByKind(
       and(eq(schema.knowledgeItem.specification_id, specificationId), eq(schema.knowledgeItem.kind, kind)),
     )
     .all() as KnowledgeItem[];
+}
+
+function findKnowledgeItemByReferenceCode(
+  db: DB,
+  specificationId: number,
+  referenceCode: string,
+): KnowledgeItem | undefined {
+  for (const entry of knowledgeKindRegistry) {
+    const item = getKnowledgeItemsForSpecificationByKind(db, specificationId, entry.kind).find(
+      (candidate) => createKnowledgeReferenceCode(candidate.kind, candidate.kind_ordinal) === referenceCode,
+    );
+    if (item) {
+      return item;
+    }
+  }
+
+  return undefined;
 }
 
 function withReferenceCodes<T extends { id: number; kind: SharedKnowledgeKind; kind_ordinal: number }>(
@@ -822,6 +850,37 @@ function getEffectiveAcceptedReviewSetForTurn(
   return normalizedReviewSet;
 }
 
+function persistReviewSetGroundingRelationships({
+  db,
+  specificationId,
+  phase,
+  sourceItem,
+  grounding,
+}: {
+  db: DB;
+  specificationId: number;
+  phase: 'requirements' | 'criteria';
+  sourceItem: KnowledgeItem;
+  grounding: ReviewSetData['items'][number]['grounding'];
+}): void {
+  for (const ref of grounding ?? []) {
+    const targetItem = findKnowledgeItemByReferenceCode(db, specificationId, ref.code);
+    const relation: EdgeRelation =
+      phase === 'criteria' && targetItem?.kind === 'requirement' ? 'verifies' : 'derived_from';
+
+    if (
+      !targetItem ||
+      sourceItem.id === targetItem.id ||
+      sourceItem.specification_id !== targetItem.specification_id ||
+      !supportsKnowledgeRelationship(relation, sourceItem.kind, targetItem.kind)
+    ) {
+      continue;
+    }
+
+    addKnowledgeRelationship(db, sourceItem.id, targetItem.id, relation);
+  }
+}
+
 function materializeAcceptedReviewSetItems(
   db: DB,
   specificationId: number,
@@ -846,6 +905,13 @@ function materializeAcceptedReviewSetItems(
         rationale: item.rationale ?? null,
       });
     linkKnowledgeItemToTurn(db, materializedItem.id, turnId, 'reviewed');
+    persistReviewSetGroundingRelationships({
+      db,
+      specificationId,
+      phase,
+      sourceItem: materializedItem,
+      grounding: item.grounding,
+    });
     itemIds.push(materializedItem.id);
   }
 

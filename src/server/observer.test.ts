@@ -19,13 +19,14 @@ vi.mock('ai', async () => {
   };
 });
 
-const { runObserver } = await import('./observer.js');
+const { observerOutputSchema, runObserver } = await import('./observer.js');
 const {
   createDb,
   createSpecification,
   createTurn,
   createDecision,
   createAssumption,
+  createKnowledgeItem,
   createOption,
   getEntitiesForSpecification,
 } = await import('./db.js');
@@ -39,6 +40,25 @@ beforeEach(() => {
 
 afterEach(() => {
   db.$client.close();
+});
+
+describe('observerOutputSchema', () => {
+  it('defaults omitted relationships to an empty candidate set', () => {
+    expect(
+      observerOutputSchema.parse({
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      }),
+    ).toMatchObject({
+      relationships: [],
+    });
+  });
 });
 
 describe('runObserver', () => {
@@ -140,7 +160,7 @@ describe('runObserver', () => {
     ]);
   });
 
-  it('calls generateText with a grounding-biased goal/term/context/constraint prompt and existing generic context', async () => {
+  it('calls generateText with phase ontology rules and compact existing anchors', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -156,7 +176,7 @@ describe('runObserver', () => {
 
     const { createKnowledgeItem } = await import('./db.js');
     const project = createSpecification(db, 'Spec');
-    createKnowledgeItem(db, project.id, 'context', 'The project starts as a fuzzy brief');
+    const context = createKnowledgeItem(db, project.id, 'context', 'The project starts as a fuzzy brief');
     createKnowledgeItem(db, project.id, 'constraint', 'Avoid heavyweight setup', {
       subtype: 'non-goal',
       rationale: 'Onboarding should stay instant',
@@ -178,7 +198,12 @@ describe('runObserver', () => {
           parseCompleteOutput: expect.any(Function),
           parsePartialOutput: expect.any(Function),
         }),
-        prompt: expect.stringContaining('Avoid heavyweight setup'),
+        prompt: expect.stringContaining(`#${context.id} context | The project starts as a fuzzy brief`),
+      }),
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.not.stringContaining('| ID | Content |'),
       }),
     );
     expect(mockGenerateText).toHaveBeenCalledWith(
@@ -346,6 +371,133 @@ describe('runObserver', () => {
     expect(entities.constraints).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: newConstraintId })]),
     );
+  });
+
+  it('resolves same-turn provisional relationship candidates to inserted knowledge item ids', async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
+        goals: [{ content: 'Ship a trustworthy spec handoff', rationale: 'This is the desired outcome' }],
+        terms: [],
+        contexts: [
+          {
+            content: 'The first users are solo builders',
+            rationale: 'The turn clarifies the user segment',
+          },
+        ],
+        constraints: [
+          {
+            content: 'Avoid hosted accounts for V1',
+            rationale: 'The tool should stay local-first',
+            subtype: null,
+          },
+        ],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+        relationships: [
+          {
+            relation: 'derived_from',
+            source: { source: 'current_turn', kind: 'context', index: 0 },
+            target: { source: 'current_turn', kind: 'goal', index: 0 },
+          },
+          {
+            relation: 'constrains',
+            source: { source: 'current_turn', kind: 'constraint', index: 0 },
+            target: { source: 'current_turn', kind: 'goal', index: 0 },
+          },
+        ],
+      },
+    });
+
+    const project = createSpecification(db, 'Spec');
+    const turn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'Who is this for and what should stay out?',
+      answer: 'Solo builders, local-first, no hosted accounts.',
+    });
+
+    const observerResult = await runObserver(db, turn, project.id);
+    const entities = getEntitiesForSpecification(db, project.id);
+    const [goalId] = observerResult.entityIds.goals;
+    const [contextId] = observerResult.entityIds.contexts;
+    const [constraintId] = observerResult.entityIds.constraints;
+
+    expect(entities.relationships).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'derived_from',
+          source: { collection: 'knowledge_item', kind: 'context', id: contextId },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goalId },
+        },
+        {
+          type: 'constrains',
+          source: { collection: 'knowledge_item', kind: 'constraint', id: constraintId },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goalId },
+        },
+      ]),
+    );
+  });
+
+  it('ignores unresolved, invalid, self, and cross-specification relationship candidates', async () => {
+    const project = createSpecification(db, 'Spec');
+    const otherProject = createSpecification(db, 'Other Spec');
+    const sameSpecGoal = createKnowledgeItem(db, project.id, 'goal', 'Ship a trustworthy spec handoff');
+    const otherSpecGoal = createKnowledgeItem(db, otherProject.id, 'goal', 'Ship someone else spec');
+    mockGenerateText.mockResolvedValue({
+      output: {
+        goals: [],
+        terms: [],
+        contexts: [
+          {
+            content: 'The first users are solo builders',
+            rationale: 'The turn clarifies the user segment',
+          },
+        ],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+        relationships: [
+          {
+            relation: 'derived_from',
+            source: { source: 'current_turn', kind: 'context', index: 1 },
+            target: { source: 'existing', id: sameSpecGoal.id },
+          },
+          {
+            relation: 'verifies',
+            source: { source: 'existing', id: sameSpecGoal.id },
+            target: { source: 'current_turn', kind: 'context', index: 0 },
+          },
+          {
+            relation: 'derived_from',
+            source: { source: 'existing', id: sameSpecGoal.id },
+            target: { source: 'existing', id: sameSpecGoal.id },
+          },
+          {
+            relation: 'derived_from',
+            source: { source: 'existing', id: otherSpecGoal.id },
+            target: { source: 'existing', id: sameSpecGoal.id },
+          },
+          {
+            relation: 'derived_from',
+            source: { source: 'existing', id: 999_999 },
+            target: { source: 'existing', id: sameSpecGoal.id },
+          },
+        ],
+      },
+    });
+
+    const turn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'Who is this for?',
+      answer: 'Solo builders.',
+    });
+
+    await runObserver(db, turn, project.id);
+
+    expect(getEntitiesForSpecification(db, project.id).relationships).toEqual([]);
   });
 
   it('calls generateText with a design-biased prompt that prioritizes decisions/assumptions and allows grounding-kind/constraint spillover', async () => {

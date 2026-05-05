@@ -2,6 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { generateText, Output } from 'ai';
 import * as z from 'zod/v4';
 
+import { edgeRelationSchema } from '@/shared/api-types.js';
 import { type ObserverEntityIds } from '@/shared/chat.js';
 import {
   createKnowledgeCollectionRecord,
@@ -23,12 +24,16 @@ import {
   addDecisionParentDecision,
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
+  addKnowledgeRelationship,
   getEntitiesForSpecification,
+  getKnowledgeItem,
   getOptionsForTurn,
   getSpecification,
+  type KnowledgeItem,
   type DB,
   type Turn,
 } from './db.js';
+import { supportsKnowledgeRelationship } from './knowledge-relationship-policy.js';
 
 const observerTextItemSchema = z.object({
   content: z.string().min(1),
@@ -53,10 +58,28 @@ function createObserverOutputItemSchema(kind: KnowledgeKind) {
         : observerTextItemSchema;
 }
 
+const observerExistingRefSchema = z.object({
+  source: z.literal('existing'),
+  id: z.number().int().positive(),
+});
+
+const observerCurrentTurnRefSchema = z.object({
+  source: z.literal('current_turn'),
+  kind: z.enum(knowledgeKinds),
+  index: z.number().int().min(0),
+});
+
+const observerRelationshipCandidateSchema = z.object({
+  relation: edgeRelationSchema,
+  source: z.discriminatedUnion('source', [observerExistingRefSchema, observerCurrentTurnRefSchema]),
+  target: z.discriminatedUnion('source', [observerExistingRefSchema, observerCurrentTurnRefSchema]),
+});
+
 /** Schema for observer structured output. */
-export const observerOutputSchema = z.object(
-  createKnowledgeCollectionRecord((entry) => z.array(createObserverOutputItemSchema(entry.kind))),
-);
+export const observerOutputSchema = z.object({
+  ...createKnowledgeCollectionRecord((entry) => z.array(createObserverOutputItemSchema(entry.kind))),
+  relationships: z.array(observerRelationshipCandidateSchema).default([]),
+});
 
 type ObserverTextItem = z.infer<typeof observerTextItemSchema>;
 type ObserverConstraintItem = ObserverTextItem & { subtype: string | null };
@@ -68,6 +91,8 @@ type ObserverAssumptionItem = {
   content: string;
   parentAssumptionIds: number[];
 };
+type ObserverRelationshipCandidate = z.infer<typeof observerRelationshipCandidateSchema>;
+type ObserverRelationshipRef = ObserverRelationshipCandidate['source'];
 
 export interface ObserverOutput {
   goals: ObserverTextItem[];
@@ -78,6 +103,7 @@ export interface ObserverOutput {
   criteria: ObserverTextItem[];
   decisions: ObserverDecisionItem[];
   assumptions: ObserverAssumptionItem[];
+  relationships?: ObserverRelationshipCandidate[];
 }
 
 function formatKindList(kinds: readonly KnowledgeKind[]): string {
@@ -148,9 +174,16 @@ function buildObserverSystemPrompt(phase: Turn['phase']): string {
   const kindSemantics = knowledgeKindRegistry
     .map((entry, index) => `${index + 1}. **${entry.kind}** — ${knowledgeKindSemanticRoles[entry.kind]}.`)
     .join('\n');
-  const schemaShape = JSON.stringify(
-    Object.fromEntries(knowledgeKindRegistry.map((entry) => [entry.collectionKey, ['...']])),
-  );
+  const schemaShape = JSON.stringify({
+    ...Object.fromEntries(knowledgeKindRegistry.map((entry) => [entry.collectionKey, ['...']])),
+    relationships: [
+      {
+        relation: 'derived_from',
+        source: { source: 'current_turn', kind: 'context', index: 0 },
+        target: { source: 'existing', id: 1 },
+      },
+    ],
+  });
 
   return `You are an observer agent analyzing a spec elicitation interview turn.
 
@@ -160,14 +193,84 @@ ${kindSemantics}
 
 ${phaseBias}
 
-For decisions and assumptions, identify dependency edges to previously extracted entities by their IDs.
+For relationships, emit candidates only when explicit. Existing anchors use { "source": "existing", "id": knowledge_item_id }. New same-turn items use { "source": "current_turn", "kind": kind, "index": zero_based_index_in_that_kind_array }.
 
 Rules:
 - Only extract entities that are NEW in this turn — do not re-extract existing entities.
 - If no new entities are evident in this turn, return empty arrays.
-- Reference parent entity IDs only when a clear dependency exists.
+- Reference entity IDs only when a clear relationship exists.
 - Return ONLY valid JSON matching this exact schema shape: ${schemaShape}
 - Do NOT wrap the JSON in markdown code fences.`;
+}
+
+type CurrentTurnEntityIds = {
+  [K in KnowledgeKind]: number[];
+};
+
+function buildCurrentTurnEntityIds(createdEntityIds: ObserverEntityIds): CurrentTurnEntityIds {
+  return Object.fromEntries(
+    knowledgeKindRegistry.map((entry) => [entry.kind, createdEntityIds[entry.collectionKey]]),
+  ) as CurrentTurnEntityIds;
+}
+
+function resolveObserverRelationshipRef({
+  db,
+  specificationId,
+  currentTurnEntityIds,
+  ref,
+}: {
+  db: DB;
+  specificationId: number;
+  currentTurnEntityIds: CurrentTurnEntityIds;
+  ref: ObserverRelationshipRef;
+}): KnowledgeItem | null {
+  if (ref.source === 'current_turn') {
+    const id = currentTurnEntityIds[ref.kind][ref.index];
+    return id ? (getKnowledgeItem(db, id) ?? null) : null;
+  }
+
+  const item = getKnowledgeItem(db, ref.id);
+  return item?.specification_id === specificationId ? item : null;
+}
+
+function persistObserverRelationships({
+  db,
+  specificationId,
+  createdEntityIds,
+  candidates,
+}: {
+  db: DB;
+  specificationId: number;
+  createdEntityIds: ObserverEntityIds;
+  candidates: readonly ObserverRelationshipCandidate[];
+}): void {
+  const currentTurnEntityIds = buildCurrentTurnEntityIds(createdEntityIds);
+
+  for (const candidate of candidates) {
+    const source = resolveObserverRelationshipRef({
+      db,
+      specificationId,
+      currentTurnEntityIds,
+      ref: candidate.source,
+    });
+    const target = resolveObserverRelationshipRef({
+      db,
+      specificationId,
+      currentTurnEntityIds,
+      ref: candidate.target,
+    });
+
+    if (
+      !source ||
+      !target ||
+      source.id === target.id ||
+      !supportsKnowledgeRelationship(candidate.relation, source.kind, target.kind)
+    ) {
+      continue;
+    }
+
+    addKnowledgeRelationship(db, source.id, target.id, candidate.relation);
+  }
 }
 
 /**
@@ -261,6 +364,13 @@ export async function runObserver(
       addAssumptionParentAssumption(db, assumption.id, parentId);
     }
   }
+
+  persistObserverRelationships({
+    db,
+    specificationId,
+    createdEntityIds,
+    candidates: parsed.relationships ?? [],
+  });
 
   return {
     entityIds: createdEntityIds,

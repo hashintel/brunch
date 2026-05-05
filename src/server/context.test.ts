@@ -791,7 +791,7 @@ describe('observer-context-projection', () => {
     expect(result).not.toContain('Answer: Web, Desktop — Covers both launch paths');
   });
 
-  it('renders entity tables with md-pen (not hand-rolled strings)', () => {
+  it('renders existing knowledge inventory as compact bounded anchors', () => {
     const turn: Turn = {
       id: 5,
       specification_id: 1,
@@ -808,13 +808,16 @@ describe('observer-context-projection', () => {
       created_at: '2026-01-01',
     };
 
+    const longContext =
+      'The project is still being clarified with a deliberately long captured context that should be summarized as an anchor preview instead of copied wholesale into the observer prompt inventory.';
+
     const result = buildObserverContext({
       turn,
       activePathSummary: '',
       entities: {
         goals: [],
         terms: [],
-        contexts: [{ id: 3, content: 'The project is still being clarified' }],
+        contexts: [{ id: 3, content: longContext }],
         constraints: [{ id: 4, content: 'Keep setup instant' }],
         requirements: [{ id: 5, content: 'Resume the interview from SQLite' }],
         criteria: [],
@@ -823,19 +826,14 @@ describe('observer-context-projection', () => {
       },
     });
 
-    // md-pen table() produces pipe-separated markdown tables
-    expect(result).toContain('| ID | Content |');
-    expect(result).toContain('| 3 | The project is still being clarified |');
-    expect(result).toContain('| 4 | Keep setup instant |');
-    expect(result).toContain('| 5 | Resume the interview from SQLite |');
-    expect(result).toContain('| 1 | Use React |');
-    expect(result).toContain('| 2 | Users have browsers |');
-    // md-pen h3() produces ### headings
-    expect(result).toContain('### Existing Context');
-    expect(result).toContain('### Existing Constraints');
-    expect(result).toContain('### Existing Requirements');
-    expect(result).toContain('### Existing Decisions');
-    expect(result).toContain('### Existing Assumptions');
+    expect(result).toContain('Existing knowledge anchors:');
+    expect(result).toContain('#3 context | The project is still being clarified');
+    expect(result).toContain('#4 constraint | Keep setup instant');
+    expect(result).toContain('#5 requirement | Resume the interview from SQLite');
+    expect(result).toContain('#1 decision | Use React');
+    expect(result).toContain('#2 assumption | Users have browsers');
+    expect(result).not.toContain('| ID | Content |');
+    expect(result).not.toContain(longContext);
   });
 
   it('includes existing criteria alongside other generic entity sections for later-mode extraction', () => {
@@ -870,11 +868,61 @@ describe('observer-context-projection', () => {
       },
     } as never);
 
-    expect(result).toContain('### Existing Requirements');
-    expect(result).toContain('| 5 | Resume the interview from SQLite |');
-    expect(result).toContain('### Existing Criteria');
-    expect(result).toContain('| 6 | Restoring the project shows the active path |');
-    expect(result).toContain('### Existing Decisions');
-    expect(result).toContain('### Existing Assumptions');
+    expect(result).toContain('#5 requirement | Resume the interview from SQLite');
+    expect(result).toContain('#6 criterion | Restoring the project shows the active path');
+    expect(result).toContain('#1 decision | Use React');
+    expect(result).toContain('#2 assumption | Users have browsers');
+  });
+
+  it('keeps current turn preface, question, and user response untruncated for extraction', () => {
+    const longPreface =
+      'The workspace scan found an unusually specific integration seam involving signed webhooks, retry queues, and operational dashboards that needs to remain visible in full.';
+    const longQuestion =
+      'Which exact webhook retry behavior should the first release specify, including how operators inspect failures and decide whether to replay events?';
+    const longAnswer =
+      'Operators need to see every failed webhook delivery with the raw provider id, the normalized customer account, the last failure reason, and a one-click replay action after they fix the configuration.';
+    const turn: Turn = {
+      id: 7,
+      specification_id: 1,
+      parent_turn_id: 6,
+      phase: 'design',
+      turn_kind: 'question',
+      question: longQuestion,
+      answer: longAnswer,
+      why: null,
+      impact: null,
+      is_resolution: false,
+      user_parts: null,
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-preface',
+          data: {
+            observation: longPreface,
+            elaboration:
+              'The existing repository already has a delivery event table, so the next question should focus on replay authority.',
+          },
+        },
+      ]),
+      created_at: '2026-01-02',
+    };
+
+    const result = buildObserverContext({
+      turn,
+      activePathSummary: '',
+      entities: {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      },
+    });
+
+    expect(result).toContain(longPreface);
+    expect(result).toContain(longQuestion);
+    expect(result).toContain(longAnswer);
   });
 });

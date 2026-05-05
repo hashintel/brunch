@@ -90,7 +90,13 @@ function createRuntimeReviewQuestion({
   title: string;
   question: string;
   why: string;
-  items: Array<{ reviewItemId: string; content: string; rationale?: string | null; referenceCode?: string }>;
+  items: Array<{
+    reviewItemId: string;
+    content: string;
+    rationale?: string | null;
+    referenceCode?: string;
+    grounding?: Array<{ code: string }>;
+  }>;
 }): StructuredQuestion {
   return {
     question,
@@ -123,7 +129,13 @@ function createReviewSetAssistantParts({
   title: string;
   question: string;
   why: string;
-  items: Array<{ reviewItemId: string; content: string; rationale?: string | null; referenceCode?: string }>;
+  items: Array<{
+    reviewItemId: string;
+    content: string;
+    rationale?: string | null;
+    referenceCode?: string;
+    grounding?: Array<{ code: string }>;
+  }>;
 }) {
   return JSON.stringify([
     {
@@ -806,7 +818,7 @@ describe('POST /api/specifications/:id/chat', () => {
     );
   });
 
-  it('emits canonical grounding-kind observer results and persists them through the entities API', async () => {
+  it('finishes chat streaming before turn-owned observer capture persists grounding entities', async () => {
     const projectId = await createTestSpecification();
     mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
       const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
@@ -864,37 +876,23 @@ describe('POST /api/specifications/:id/chat', () => {
     const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
     const observerEvent = events.find((event) => event.type === 'data-observer-result');
 
-    expect(observerEvent).toEqual({
-      type: 'data-observer-result',
-      data: {
-        turnId: 1,
-        entityIds: {
-          goals: [1],
-          terms: [2],
-          contexts: [3],
-          constraints: [4],
-          requirements: [],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-        },
-      },
-    });
+    expect(events).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'finish' })]));
+    expect(observerEvent).toBeUndefined();
+    expect(mockRunObserver).not.toHaveBeenCalled();
 
     const { getActivePath } = await import('./db.js');
     const turns = getActivePath(db, projectId);
     expect(turns).toHaveLength(2);
     expect(JSON.parse(turns[0]!.assistant_parts ?? '[]')).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: 'data-observer-result',
-          data: expect.objectContaining({ turnId: turns[0]!.id }),
-        }),
-      ]),
+      expect.not.arrayContaining([expect.objectContaining({ type: 'data-observer-result' })]),
     );
     expect(JSON.parse(turns[1]!.assistant_parts ?? '[]')).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ type: 'data-observer-result' })]),
     );
+
+    await request(app)
+      .post(`/api/specifications/${projectId}/turns/${turns[0]!.id}/observer-capture`)
+      .expect(200, { ok: true, turnId: turns[0]!.id, status: 'captured' });
 
     const entitiesRes = await request(app).get(`/api/specifications/${projectId}/entities`).expect(200);
     expect(entitiesRes.body.goals).toEqual([
@@ -1022,6 +1020,44 @@ describe('POST /api/specifications/:id/chat', () => {
     );
   });
 
+  it('dedupes duplicate observer capture requests through the process-local registry', async () => {
+    const projectId = await createTestSpecification();
+    const { advanceHead, createTurn } = await import('./db.js');
+    const activeTurn = createTurn(db, projectId, {
+      phase: 'grounding',
+      question: 'Which interface matters most?',
+      answer: 'Terminal UI first',
+      user_parts: JSON.stringify([{ type: 'text', text: 'Terminal UI first' }]),
+    });
+    advanceHead(db, projectId, activeTurn.id);
+
+    let resolveObserver!: (result: ReturnType<typeof createMockObserverResult>) => void;
+    mockRunObserver.mockImplementation(
+      async () =>
+        await new Promise<ReturnType<typeof createMockObserverResult>>((resolve) => {
+          resolveObserver = resolve;
+        }),
+    );
+
+    const responses = Promise.all([
+      request(app).post(`/api/specifications/${projectId}/turns/${activeTurn.id}/observer-capture`),
+      request(app).post(`/api/specifications/${projectId}/turns/${activeTurn.id}/observer-capture`),
+    ]);
+
+    await vi.waitFor(() => {
+      expect(mockRunObserver).toHaveBeenCalledTimes(1);
+    });
+    resolveObserver(createMockObserverResult());
+
+    const [firstRes, secondRes] = await responses;
+    expect(firstRes.status).toBe(200);
+    expect(secondRes.status).toBe(200);
+    expect(
+      [firstRes.body.status, secondRes.body.status].sort((left, right) => left.localeCompare(right)),
+    ).toEqual(['already-captured', 'captured']);
+    expect(mockRunObserver).toHaveBeenCalledTimes(1);
+  });
+
   it('emits mixed observer results and persists generic design entities through the entities API', async () => {
     const projectId = await createTestSpecification();
     let createdIds: {
@@ -1098,23 +1134,15 @@ describe('POST /api/specifications/:id/chat', () => {
     const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
     const observerEvent = events.find((event) => event.type === 'data-observer-result');
 
+    expect(observerEvent).toBeUndefined();
+    expect(createdIds).toBeNull();
+
+    const { getActivePath } = await import('./db.js');
+    const turns = getActivePath(db, projectId);
+    await request(app)
+      .post(`/api/specifications/${projectId}/turns/${turns[0]!.id}/observer-capture`)
+      .expect(200, { ok: true, turnId: turns[0]!.id, status: 'captured' });
     expect(createdIds).not.toBeNull();
-    expect(observerEvent).toEqual({
-      type: 'data-observer-result',
-      data: {
-        turnId: 1,
-        entityIds: {
-          goals: [],
-          terms: [],
-          contexts: [createdIds!.context],
-          constraints: [createdIds!.constraint],
-          requirements: [],
-          criteria: [],
-          decisions: [createdIds!.decision],
-          assumptions: [createdIds!.assumption],
-        },
-      },
-    });
 
     const entitiesRes = await request(app).get(`/api/specifications/${projectId}/entities`).expect(200);
     expect(entitiesRes.body.contexts).toEqual([
@@ -1179,22 +1207,13 @@ describe('POST /api/specifications/:id/chat', () => {
     const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
     const observerEvent = events.find((event) => event.type === 'data-observer-result');
 
-    expect(observerEvent).toEqual({
-      type: 'data-observer-result',
-      data: {
-        turnId: 1,
-        entityIds: {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-        },
-      },
-    });
+    expect(observerEvent).toBeUndefined();
+
+    const { getActivePath } = await import('./db.js');
+    const turns = getActivePath(db, projectId);
+    await request(app)
+      .post(`/api/specifications/${projectId}/turns/${turns[0]!.id}/observer-capture`)
+      .expect(200, { ok: true, turnId: turns[0]!.id, status: 'captured' });
 
     const entitiesRes = await request(app).get(`/api/specifications/${projectId}/entities`).expect(200);
     expect(entitiesRes.body.requirements).toEqual([]);
@@ -1214,22 +1233,13 @@ describe('POST /api/specifications/:id/chat', () => {
     const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
     const observerEvent = events.find((event) => event.type === 'data-observer-result');
 
-    expect(observerEvent).toEqual({
-      type: 'data-observer-result',
-      data: {
-        turnId: 1,
-        entityIds: {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-        },
-      },
-    });
+    expect(observerEvent).toBeUndefined();
+
+    const { getActivePath } = await import('./db.js');
+    const turns = getActivePath(db, projectId);
+    await request(app)
+      .post(`/api/specifications/${projectId}/turns/${turns[0]!.id}/observer-capture`)
+      .expect(200, { ok: true, turnId: turns[0]!.id, status: 'captured' });
 
     const entitiesRes = await request(app).get(`/api/specifications/${projectId}/entities`).expect(200);
     expect(entitiesRes.body.criteria).toEqual([]);
@@ -1598,7 +1608,7 @@ describe('phase outcomes + grounding closure', () => {
     ]);
   });
 
-  it('enters design mode on the next chat turn after grounding closure and runs the observer in design phase', async () => {
+  it('enters design mode on the next chat turn after grounding closure without inline observer capture', async () => {
     const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
@@ -1666,13 +1676,7 @@ describe('phase outcomes + grounding closure', () => {
       undefined,
     );
 
-    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
-    expect(mockRunObserver).toHaveBeenLastCalledWith(
-      expect.anything(),
-      expect.objectContaining({ phase: 'grounding' }),
-      projectId,
-      expect.any(String),
-    );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount);
   });
 
   it('streams a design phase summary proposal and projects workflow state through the shared phase seam', async () => {
@@ -1921,13 +1925,7 @@ describe('phase outcomes + grounding closure', () => {
       undefined,
     );
 
-    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
-    expect(mockRunObserver).toHaveBeenLastCalledWith(
-      expect.anything(),
-      expect.objectContaining({ phase: 'design' }),
-      projectId,
-      expect.any(String),
-    );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount);
   });
 
   it('does not synthesize a replacement requirement review set through the response loop and keeps requirements not yet closeable', async () => {
@@ -2214,13 +2212,7 @@ describe('phase outcomes + grounding closure', () => {
       undefined,
     );
 
-    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
-    expect(mockRunObserver).toHaveBeenLastCalledWith(
-      expect.anything(),
-      expect.objectContaining({ phase: 'requirements' }),
-      projectId,
-      expect.any(String),
-    );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount);
 
     const refreshedProjectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(refreshedProjectRes.body.workflow.phases.requirements).toEqual(
@@ -2265,13 +2257,7 @@ describe('phase outcomes + grounding closure', () => {
       undefined,
     );
 
-    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
-    expect(mockRunObserver).toHaveBeenLastCalledWith(
-      expect.anything(),
-      expect.objectContaining({ phase: 'requirements' }),
-      projectId,
-      expect.any(String),
-    );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount);
 
     const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.criteria).toEqual(
@@ -2668,13 +2654,7 @@ describe('phase outcomes + grounding closure', () => {
       undefined,
     );
 
-    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
-    expect(mockRunObserver).toHaveBeenLastCalledWith(
-      expect.anything(),
-      expect.objectContaining({ phase: 'design' }),
-      projectId,
-      expect.any(String),
-    );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount);
   });
 
   it.each([
@@ -3727,6 +3707,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
       'requirement',
       'Export the reviewed specification as markdown',
     );
+    createKnowledgeItem(db, projectId, 'goal', 'Ship a trustworthy spec handoff');
 
     const reviewTurn = createTurn(db, projectId, {
       phase: 'requirements',
@@ -3735,27 +3716,20 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
       why: 'Review the whole requirement set before moving forward.',
       impact: 'high',
       answer: '',
-      assistant_parts: JSON.stringify([
-        {
-          type: 'tool-ask_question',
-          toolCallId: 'tool-requirements-review',
-          state: 'output-available',
-          input: {
-            question: 'Please review the current requirement set.',
-            why: 'Review the whole requirement set before moving forward.',
-            impact: 'high',
-            options: [
-              { content: 'Ship this set', is_recommended: true },
-              { content: 'Revise this set', is_recommended: false },
-            ],
-            reviewActions: [
-              { action: 'accept', optionPosition: 0 },
-              { action: 'request-changes', optionPosition: 1 },
-            ],
+      assistant_parts: createReviewSetAssistantParts({
+        phase: 'requirements',
+        title: 'Requirements',
+        question: 'Please review the current requirement set.',
+        why: 'Review the whole requirement set before moving forward.',
+        items: [
+          {
+            reviewItemId: 'requirements:1',
+            referenceCode: createKnowledgeReferenceCode('requirement', 1),
+            content: 'Export the reviewed specification as markdown',
+            grounding: [{ code: createKnowledgeReferenceCode('goal', 1) }],
           },
-          output: { ok: true, turnId: 0, optionCount: 2 },
-        },
-      ]),
+        ],
+      }),
     });
     createOption(db, reviewTurn.id, {
       position: 0,
@@ -3807,6 +3781,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
     expect(entitiesRes.body.requirements).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: requirement.id })]),
     );
+    expect(entitiesRes.body.relationships).toEqual([]);
     for (const candidateRequirement of entitiesRes.body.requirements) {
       expect(candidateRequirement).not.toHaveProperty('reviewStatus');
     }
@@ -4453,28 +4428,6 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
         id: 'turn-1-answer',
         role: 'user',
         parts: [{ type: 'text', text: 'hello' }],
-      },
-      {
-        id: 'turn-1-assistant',
-        role: 'assistant',
-        parts: [
-          {
-            type: 'data-observer-result',
-            data: {
-              turnId: 1,
-              entityIds: {
-                goals: [],
-                terms: [],
-                contexts: [],
-                constraints: [],
-                requirements: [],
-                criteria: [],
-                decisions: [],
-                assumptions: [],
-              },
-            },
-          },
-        ],
       },
       {
         id: `turn-${turn.id}-answer`,
