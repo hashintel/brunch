@@ -15,12 +15,23 @@ import {
   type DB,
 } from './db.js';
 
-const createAnnotationRequestSchema = z.object({
-  itemKind: z.enum(knowledgeKinds),
-  itemId: z.number().int().positive(),
-  summary: z.string().trim().min(1),
-  body: z.string().trim().min(1),
-});
+const createAnnotationRequestSchema = z
+  .object({
+    itemKind: z.enum(knowledgeKinds),
+    itemId: z.number().int().positive(),
+    summary: z.string().trim().min(1),
+    body: z.string().trim(),
+    selectionStart: z.number().int().nonnegative().optional(),
+    selectionEnd: z.number().int().nonnegative().optional(),
+  })
+  .refine(
+    (value) => {
+      if (value.selectionStart === undefined && value.selectionEnd === undefined) return true;
+      if (value.selectionStart === undefined || value.selectionEnd === undefined) return false;
+      return value.selectionStart <= value.selectionEnd;
+    },
+    { message: 'selectionStart and selectionEnd must both be present and ordered' },
+  );
 
 function badRequest(res: Response, error: string): void {
   res.status(400).json({ error } satisfies MutationErrorResponse);
@@ -81,6 +92,8 @@ export function handleCreateAnnotation(db: DB, req: Request, res: Response): voi
     knowledgeItemId: resolvedItemId,
     summary: parsed.data.summary,
     body: parsed.data.body,
+    selectionStart: parsed.data.selectionStart,
+    selectionEnd: parsed.data.selectionEnd,
   });
   res.status(201).json(annotation satisfies Annotation);
 }
