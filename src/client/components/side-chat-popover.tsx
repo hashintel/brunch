@@ -1,13 +1,4 @@
-import {
-  ArrowUp,
-  Loader2,
-  Mic,
-  NotebookPen,
-  PanelRight,
-  PencilLine,
-  PictureInPicture2,
-  Plus,
-} from 'lucide-react';
+import { ArrowUp, Loader2, NotebookPen, PanelRight, PencilLine, PictureInPicture2, Plus } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import type { KnowledgeKind } from '@/shared/knowledge.js';
@@ -468,15 +459,6 @@ export function SideChatPopover({
                     className="inline-flex size-7 items-center justify-center rounded-md bg-[#f2f2f2] text-ink disabled:opacity-60"
                   >
                     <Plus className="size-4" aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    disabled
-                    aria-label="Voice (coming soon)"
-                    title="Voice — coming soon"
-                    className="inline-flex size-7 items-center justify-center rounded-md text-[#a6a6a6] disabled:opacity-60"
-                  >
-                    <Mic className="size-4" aria-hidden />
                   </button>
                 </div>
                 <button
