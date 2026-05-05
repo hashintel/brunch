@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildSideChatPrompt } from './side-chat-prompt.js';
+import {
+  buildSideChatPrompt,
+  type SideChatPinnedItem,
+  type SideChatSpecContext,
+} from './side-chat-prompt.js';
 
 const baseItem = {
   kind: 'decision' as const,
@@ -152,5 +156,55 @@ describe('buildSideChatPrompt', () => {
 
     expect(messages[0].content).toMatch(/requirement/i);
     expect(messages[0].content).toContain('R3');
+  });
+});
+
+const item: SideChatPinnedItem = {
+  kind: 'decision',
+  referenceCode: 'D7',
+  content: 'Use SQLite.',
+};
+const spec: SideChatSpecContext = { specName: 'Demo' };
+
+describe('buildSideChatPrompt — activeAnnotations', () => {
+  it('appends a "User-pinned snippets" block to the system prompt when activeAnnotations are present', () => {
+    const { system } = buildSideChatPrompt(item, 'hi', spec, [], {
+      activeAnnotations: [
+        { referenceCode: 'C1', snapshot: 'household', body: null },
+        { referenceCode: 'D7', snapshot: 'Use SQLite', body: 'we considered libsql' },
+      ],
+    });
+    expect(system).toContain('User-pinned snippets');
+    expect(system).toContain('1. [C1]');
+    expect(system).toContain('household');
+    expect(system).toContain('2. [D7]');
+    expect(system).toContain('we considered libsql');
+  });
+
+  it('does not add the block when activeAnnotations is empty', () => {
+    const { system } = buildSideChatPrompt(item, 'hi', spec, [], { activeAnnotations: [] });
+    expect(system).not.toContain('User-pinned snippets');
+  });
+
+  it('does not add the block when options is omitted', () => {
+    const { system } = buildSideChatPrompt(item, 'hi', spec, []);
+    expect(system).not.toContain('User-pinned snippets');
+  });
+});
+
+describe('buildSideChatPrompt — spanHint', () => {
+  it('prepends the span hint to the latest user message', () => {
+    const { messages } = buildSideChatPrompt(item, 'tell me more', spec, [], {
+      spanHint: 'household income',
+    });
+    const lastUser = [...messages].reverse().find((message) => message.role === 'user')!;
+    expect(lastUser.content).toContain('household income');
+    expect(lastUser.content).toContain('tell me more');
+  });
+
+  it('does not modify messages when spanHint is absent', () => {
+    const { messages } = buildSideChatPrompt(item, 'tell me more', spec, []);
+    const lastUser = [...messages].reverse().find((message) => message.role === 'user')!;
+    expect(lastUser.content).not.toContain('About the highlighted phrase');
   });
 });
