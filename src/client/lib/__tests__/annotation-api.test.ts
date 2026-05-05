@@ -97,7 +97,7 @@ describe('makeAnnotateApplier', () => {
       body: '',
       createdAt: 0,
     };
-    const result = (await applier(patch)) as { undo: () => Promise<void>; applied?: unknown };
+    const result = await applier(patch);
     expect(result.applied).toEqual({ id: 42 });
   });
 
