@@ -5,10 +5,13 @@ import { flushSync } from 'react-dom';
 
 import { kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
+import { usePatchList } from '@/client/components/patch-list-host.js';
+import { SelectionMenu } from '@/client/components/selection-menu.js';
 import { useSideChat } from '@/client/components/side-chat-host.js';
 import { Badge } from '@/client/components/ui/badge';
 import { Button } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
+import { useTextSelection } from '@/client/lib/use-text-selection.js';
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
 import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
 
@@ -551,6 +554,46 @@ export function StructuredListView({
   const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
   const navigate = useNavigate();
 
+  const selection = useTextSelection('[data-annotatable]');
+  const sideChat = useSideChat();
+  const patchList = usePatchList();
+
+  const handleAnnotate = () => {
+    if (!selection || !patchList) return;
+    const item = itemsByKey.get(`${selection.anchor.kind}:${selection.anchor.itemId}`);
+    if (!item) return;
+    sideChat?.openFor({
+      kind: item.kind,
+      id: item.id,
+      referenceCode: item.referenceCode,
+      content: item.content,
+    });
+    patchList.stage({
+      kind: 'annotate',
+      anchor: { kind: item.kind, itemId: item.id },
+      summary: selection.snapshot,
+      body: '',
+      selectionRange: { start: selection.start, end: selection.end },
+    });
+    window.getSelection()?.removeAllRanges();
+  };
+
+  const handleChat = () => {
+    if (!selection || !sideChat) return;
+    const item = itemsByKey.get(`${selection.anchor.kind}:${selection.anchor.itemId}`);
+    if (!item) return;
+    sideChat.openWithSpanHint(
+      {
+        kind: item.kind,
+        id: item.id,
+        referenceCode: item.referenceCode,
+        content: item.content,
+      },
+      selection.snapshot,
+    );
+    window.getSelection()?.removeAllRanges();
+  };
+
   const toggleKind = (kind: KnowledgeKind) => {
     setHiddenKinds((current) => {
       const next = new Set(current);
@@ -606,6 +649,7 @@ export function StructuredListView({
 
   return (
     <ChipActivateProvider value={onChipActivate}>
+      <SelectionMenu rect={selection?.rect ?? null} onChat={handleChat} onAnnotate={handleAnnotate} />
       <div data-graph-structured-list className="flex h-full flex-col bg-background">
         <div
           data-graph-header-bar
