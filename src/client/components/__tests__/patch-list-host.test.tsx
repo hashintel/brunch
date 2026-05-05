@@ -37,7 +37,7 @@ function makeProbeRefs(): ProbeRefs {
   return {
     current: {
       actions: null,
-      state: { staged: [], count: 0, canUndo: false, isApplying: false },
+      state: { staged: [], count: 0, canUndo: false, isApplying: false, lastBatchId: null },
       filtered: [],
     },
   };
@@ -78,7 +78,13 @@ describe('usePatchList outside the provider', () => {
     const refs = makeProbeRefs();
     render(<Probe refs={refs} />);
     expect(refs.current.actions).toBeNull();
-    expect(refs.current.state).toEqual({ staged: [], count: 0, canUndo: false, isApplying: false });
+    expect(refs.current.state).toEqual({
+      staged: [],
+      count: 0,
+      canUndo: false,
+      isApplying: false,
+      lastBatchId: null,
+    });
   });
 });
 
@@ -192,6 +198,38 @@ describe('apply', () => {
     expect(refs.current.state.count).toBe(0);
     expect(refs.current.state.canUndo).toBe(true);
     expect(refs.current.state.isApplying).toBe(false);
+  });
+
+  it('exposes lastBatchId and changes it on each apply (mutation signal for downstream effects)', async () => {
+    const refs = makeProbeRefs();
+    const { appliers } = makeAppliers();
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+        <Probe refs={refs} />
+      </PatchListProvider>,
+    );
+
+    expect(refs.current.state.lastBatchId).toBeNull();
+
+    act(() => {
+      refs.current.actions?.stage(makeAnnotateInput({ summary: 'a' }));
+    });
+    await act(async () => {
+      await refs.current.actions?.apply();
+    });
+    const firstBatchId = refs.current.state.lastBatchId;
+    expect(firstBatchId).not.toBeNull();
+
+    act(() => {
+      refs.current.actions?.stage(makeAnnotateInput({ summary: 'b' }));
+    });
+    await act(async () => {
+      await refs.current.actions?.apply();
+    });
+    const secondBatchId = refs.current.state.lastBatchId;
+    expect(secondBatchId).not.toBeNull();
+    expect(refs.current.state.canUndo).toBe(true);
+    expect(secondBatchId).not.toBe(firstBatchId);
   });
 
   it('apply on an empty list is a no-op (no applier calls, state unchanged)', async () => {

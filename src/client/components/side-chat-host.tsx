@@ -295,7 +295,7 @@ export function SideChatHost({
     return () => {
       cancelled = true;
     };
-  }, [activeItemId, activeItemKind, specificationId, patchListState.canUndo]);
+  }, [activeItemId, activeItemKind, specificationId, patchListState.lastBatchId]);
 
   const existingAnnotations: readonly SideChatExistingAnnotation[] = activeSideChat
     ? annotations
