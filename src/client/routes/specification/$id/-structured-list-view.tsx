@@ -397,7 +397,9 @@ function ItemDetailsFooter({
     <div className="border-t border-rule bg-tint">
       {hasRationale && (
         <div className="px-3 py-2.5">
-          <p className="text-xs leading-relaxed text-sub">{rationale}</p>
+          <p className="text-xs leading-relaxed text-sub" data-annotatable>
+            {rationale}
+          </p>
         </div>
       )}
       {hasRationale && hasRelations && <div className="border-t border-rule" />}
@@ -489,6 +491,8 @@ function ItemRow({
       <div
         data-graph-row
         data-graph-row-ref={item.referenceCode}
+        data-item-kind={item.kind}
+        data-item-id={item.id}
         data-graph-kind-anchor={kindAnchor ?? undefined}
         data-graph-row-anchored={anchored ? 'true' : undefined}
         className={`group/row overflow-hidden rounded-xl border bg-background shadow-[var(--shadow-card)] transition-all duration-700 ${anchored ? `animate-in border-current/50 ring-2 ring-current/30 duration-300 fade-in ${kindTextColor[item.kind]}` : 'border-rule'}`}
@@ -501,7 +505,9 @@ function ItemRow({
             >
               {item.referenceCode}
             </span>
-            <p className="text-sm text-ink">{item.content}</p>
+            <p className="text-sm text-ink" data-annotatable>
+              {item.content}
+            </p>
           </div>
           <div className="flex items-center gap-1">
             <ItemActionRail item={item} />
