@@ -1,7 +1,7 @@
 # Workflow Ownership: projection vs transition
 
-> Clarification note for the current planning frontier.
-> Status: explanatory design note, not canonical product truth.
+> Clarification note for the workflow ownership frontier.
+> Status: archived. The read/write ownership split has been implemented; this note is historical design context, not canonical product truth.
 > For live authority, prefer `memory/SPEC.md` and `memory/PLAN.md`.
 > Related design context: `docs/design/state-machines/README.md`.
 

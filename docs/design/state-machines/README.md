@@ -17,7 +17,7 @@ suppression.
 
 For a companion clarification of **workflow projection (read path)** vs
 **workflow transition/orchestration (write path)**, see
-`docs/design/WORKFLOW_OWNERSHIP.md`.
+`docs/archive/design/WORKFLOW_OWNERSHIP.md`.
 
 ## Why State Machines
 

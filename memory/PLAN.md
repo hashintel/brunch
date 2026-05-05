@@ -6,7 +6,7 @@
 
 The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, observer knowledge extraction, workflow ownership extraction, distribution hardening, graph view's structured-list peer route, relation-first observer capture, and Side-chat V1.1's Explore vertical slice all ship as working product.
 
-Side-chat V1.1 should now be treated as complete implementation history. The old side-chat conceptual roadmap is superseded by the multi-chat substrate, reconciliation-needs, and semantic changeset / patch-ledger direction. Future graph-anchored chat, edit, annotation, revisit, and architect-loop work should be planned through that multi-chat / reconciliation frame rather than as Side-chat V2/V3/V4.
+Side-chat V1.1 is complete implementation history. The old side-chat conceptual roadmap is superseded by the multi-chat substrate, reconciliation-needs, and semantic changeset / patch-ledger direction. Future graph-anchored chat, edit, annotation, revisit, and architect-loop work should be planned through that multi-chat / reconciliation frame rather than as Side-chat V2/V3/V4.
 
 The live frontier centers on **continuous workspace**: turning phase-addressable routes into one cumulative interview surface without adding a second durable workflow model. The May 2026 intent-spec, multi-chat, and patch-ledger design notes are promoted into the canonical horizon as design pressure, not as active implementation scope. Older portability work remains a future-facing boundary map rather than a live roadmap item until a hosted, remote, or adapter-backed substrate becomes a product goal.
 
@@ -24,7 +24,7 @@ The live frontier centers on **continuous workspace**: turning phase-addressable
 2. **Multi-chat substrate + reconciliation needs scope** — scope the first persistence foundation for graph-anchored chats, revisit/cascade, and future semantic edits: durable chat containers plus reconciliation needs, while preserving turn-linked provenance during the transition.
    - Why now / unlocks: Side-chat V1.1 proved the graph-launched chat interaction, but its conceptual docs are superseded. Multi-chat containers and reconciliation needs are the next durable substrate before graph edits, patch ledger, or architect-loop work.
    - Traceability: Requirement 10; A48, A49, A71, A72; D80, D139.
-   - Design docs: `docs/design/PATCH_LEDGER.md`; `docs/design/multi-chat-substrate-rfc.md` if retained in the repo.
+   - Design docs: `docs/design/PATCH_LEDGER.md`; multi-chat substrate RFC if retained in the repo.
 
 ## Horizon
 
@@ -35,9 +35,17 @@ The live frontier centers on **continuous workspace**: turning phase-addressable
   - Traceability: A77, A78, A79; D138.
   - Design doc: `docs/design/INTENT_SPEC_EVOLUTION.md`.
 
+- **Observer ontology refinement** — narrow `decision`, enrich `constraint` subtypes, and add context-promotion rules so observer capture classifies claims by semantic modality rather than answer shape.
+  - Recommended shape: update observer prompt first, then shared kind/subtype registries and fixtures; run corpus probes before schema migration.
+  - Traceability: Requirement 34; D138.
+
+- **Knowledge-edge semantics policy** — decide how far intent edges should go before broadening observer extraction: relation families, support strength, visibility, cascade participation, export relevance, staleness production, and suggestion handling.
+  - Recommended shape: design relation policy and edge-local prompt context before implementing wider relation-first observer capture.
+  - Traceability: A66, A78; D125, D138.
+
 - **Chat containers + reconciliation needs** — introduce conversation containers and durable reconciliation queues before full semantic patch history. This becomes the first persistence foundation for graph edits, graph-anchored chat, and revisit/cascade.
   - Recommended shape: add `chat` and `reconciliation_need` in a phase-one slice; keep `turn.specification_id` and turn-linked provenance during the transition; create needs from semantic edge traversal first.
-  - Supersedes: the old side-chat V2/V3 conceptual roadmap and `docs/design/REVISIT_MODULE.md`'s `revisit_session` table shape as preferred persistence foundations, while keeping the user-facing graph-chat and revisit/cascade capabilities.
+  - Supersedes: the old side-chat V2/V3 conceptual roadmap and `docs/archive/design/REVISIT_MODULE.md`'s `revisit_session` table shape as preferred persistence foundations, while keeping the user-facing graph-chat and revisit/cascade capabilities.
   - Traceability: Requirement 10; A48, A49, A71, A72; D80, D139.
   - Design doc: `docs/design/PATCH_LEDGER.md`.
 
