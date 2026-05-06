@@ -180,6 +180,7 @@ export const specification = sqliteTable('specification', {
 ```
 
 - `primary_chat_id` names the canonical interview chat. Today this is "the chat", tomorrow it's "the rope alongside which side-chats hang". Code that wants the interview frontier reads `specification → primary_chat_id → active_turn_id`.
+- No `active_chat_id` is added in Phase 1. The only active head needed for this slice is the primary interview chat's `active_turn_id`; a separate active-chat pointer should wait until the UI has multiple simultaneously navigable chat surfaces and a clear synchronization rule.
 - `active_turn_id` on the spec remains during Phase 1. Once read/write paths are stable through `primary_chat_id → active_turn_id`, the spec-level pointer can be dropped in a later cleanup migration.
 
 ### 3.4 `reconciliation_need` (new)
@@ -222,7 +223,7 @@ export const reconciliationNeed = sqliteTable(
   - `supersedes` — the source change replaces or invalidates information the target depends on; target needs to be re-derived or marked stale.
   - `needs_confirmation` — the source change *might* affect target but the system can't decide deterministically; a human or agent has to look.
   - The enum is intentionally narrow. New kinds are added when we have a concrete reconciliation move that doesn't fit either; we don't pre-invent them.
-- **Status lifecycle.** `open` on creation; `resolved` on agent / user action. Resolved edges are kept for audit but do not participate in the reconciliation queue.
+- **Status lifecycle.** `open` on creation; `resolved` on agent / user action. Resolved needs are kept for audit but do not participate in the reconciliation queue.
 - **Multiple needs per pair.** The unique index gates only `open` needs. Two successive edits to the same source can fire two `needs_confirmation` needs, the first being closed before the second is opened; what we forbid is *two simultaneously-open issues of the same kind for the same pair*.
 - **Provenance.** Phase 1 carries `reason`, `caused_by_turn_id`, and nullable `caused_by_patch_id`. The turn pointer is useful immediately for observer / review-created needs; the patch pointer is a deliberate placeholder that stays null until the patch ledger gives every semantic mutation a stable id.
 
@@ -344,7 +345,7 @@ Manual: spin up an existing spec database (a current `.brunch/` fixture), run mi
 
 ## 9. Open questions
 
-- **`turn.specification_id` retention.** Phase 1 keeps it. The end-state cleanup should drop it unless profiling proves the denormalized field pays for itself.
+- **`turn.specification_id` retention.** Phase 1 intentionally keeps it as a softer migration: existing spec-scoped reads keep working while new writes populate `chat_id` and assertions prove both pointers agree. The end-state cleanup should drop it once hot paths and tests read ownership through `chat_id`, unless profiling proves the denormalized field pays for itself.
 - **Side-chat `chat.parent_turn_id` or anchor item.** A side-chat is started *from* a graph item. Should the `chat` row record the anchor item id? Default proposal: don't model it on `chat`; use a later `chat_focus` table when durable focus is wanted.
 - **Reconciliation `reason` shape.** Free text in V1. Once the reconciliation agent ships, `reason` may want to be structured (template id + slots). Default proposal: stay free-text until the agent design forces a shape.
 - **Reconciliation cascade-on-resolve.** When a `supersedes` need resolves, does that ever fan out into new reconciliation needs (because the resolution itself is a mutation)? Yes — and that is exactly the reentrancy point Lu flagged in the second meeting. Substrate already handles it: any mutation re-runs path 1 + path 2. The agent decides whether to bundle resolution into one review set or accept a follow-up cycle. No substrate change needed.

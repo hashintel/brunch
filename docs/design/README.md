@@ -22,4 +22,6 @@ Current live design proposals:
 - `PATCH_LEDGER.md` — deeper semantic mutation history and reconciliation design pressure after the multi-chat substrate.
 - `INTENT_SPEC_EVOLUTION.md` — broader intent-spec ontology and progressive checkability synthesis.
 
+Schema reference artifacts are intentionally kept outside this design directory. The canonical generated DBML lives at `docs/schema.dbml` and is derived from `src/server/schema.ts`; do not add parallel `schema.dbml` or `schema.dbdiagram` copies under `docs/design/`.
+
 Do not create `docs/plan/` for active roadmap state. `memory/PLAN.md` remains the single source of truth for the plan; design docs may be linked from plan items as supporting rationale.
