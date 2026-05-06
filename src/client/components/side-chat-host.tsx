@@ -212,6 +212,7 @@ export function SideChatHost({
       {children}
       {activeSideChat && (
         <SideChatPopover
+          key={activeSideChat.sessionId}
           pinnedItem={activeSideChat.pinnedItem}
           messages={activeSideChat.messages}
           onDismiss={dismiss}

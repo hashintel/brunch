@@ -734,6 +734,23 @@ describe('StructuredListView', () => {
       expect(secondPinnedRef).not.toBe(firstPinnedRef);
     });
 
+    it('clears the unsent draft when switching the pinned side-chat item', () => {
+      const { container } = renderInsideHost(crossPhaseDecisionLink());
+
+      const chatButtons = container.querySelectorAll(
+        'button[data-graph-action="chat-with"]',
+      ) as NodeListOf<HTMLButtonElement>;
+      expect(chatButtons.length).toBeGreaterThanOrEqual(2);
+
+      fireEvent.click(chatButtons[0]);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Draft for first item' } });
+      expect((screen.getByLabelText('Message') as HTMLTextAreaElement).value).toBe('Draft for first item');
+
+      fireEvent.click(chatButtons[1]);
+
+      expect((screen.getByLabelText('Message') as HTMLTextAreaElement).value).toBe('');
+    });
+
     it('calls streamSideChatResponse with the row context and submitted message on send', () => {
       makeManualStream();
       const { container } = renderInsideHost(singleItemNoEdges());
