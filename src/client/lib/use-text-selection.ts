@@ -10,8 +10,8 @@ export interface TextSelectionAnchor {
 
 export interface ActiveTextSelection {
   snapshot: string;
-  start: number;
-  end: number;
+  start: number | null;
+  end: number | null;
   rect: DOMRect;
   anchor: TextSelectionAnchor;
 }
@@ -62,11 +62,7 @@ export function useTextSelection(scopeSelector: string): ActiveTextSelection | n
       }
       const text = startHost.textContent ?? '';
       const start = text.indexOf(snapshot);
-      if (start === -1) {
-        setActive(null);
-        return;
-      }
-      const end = start + snapshot.length;
+      const end = start === -1 ? null : start + snapshot.length;
       // Look up the anchor: try the host element itself, then walk up to data-graph-row.
       const row = startHost.closest('[data-graph-row]');
       const anchor = readAnchor(startHost) ?? (row ? readAnchor(row) : null);
@@ -76,7 +72,7 @@ export function useTextSelection(scopeSelector: string): ActiveTextSelection | n
       }
       setActive({
         snapshot,
-        start,
+        start: start === -1 ? null : start,
         end,
         rect: range.getBoundingClientRect(),
         anchor,

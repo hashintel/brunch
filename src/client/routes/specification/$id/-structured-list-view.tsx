@@ -573,7 +573,9 @@ export function StructuredListView({
       anchor: { kind: item.kind, itemId: item.id },
       summary: selection.snapshot,
       body: '',
-      selectionRange: { start: selection.start, end: selection.end },
+      ...(selection.start !== null && selection.end !== null
+        ? { selectionRange: { start: selection.start, end: selection.end } }
+        : {}),
     });
     window.getSelection()?.removeAllRanges();
   };

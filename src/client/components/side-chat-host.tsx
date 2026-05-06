@@ -206,14 +206,17 @@ export function SideChatHost({
     (item: SideChatPinnableItem) => {
       const current = activeRef.current;
       if (current && current.itemKind === item.kind && current.itemId === item.id) {
-        setActiveSideChat((active) =>
-          active && active.itemKind === item.kind && active.itemId === item.id
-            ? {
-                ...active,
-                pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
-              }
-            : active,
-        );
+        setActiveSideChat((active) => {
+          const next =
+            active && active.itemKind === item.kind && active.itemId === item.id
+              ? {
+                  ...active,
+                  pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
+                }
+              : active;
+          activeRef.current = next;
+          return next;
+        });
         return;
       }
 
@@ -221,11 +224,9 @@ export function SideChatHost({
       sessionCounterRef.current += 1;
       // Single-pin scope: switching to a different (kind, id) clears cards/hint so stale
       // state doesn't leak across items. Reopening the same item focuses the existing session.
-      if (!current || current.itemKind !== item.kind || current.itemId !== item.id) {
-        setActiveCards([]);
-        setPendingSpanHint(null);
-      }
-      setActiveSideChat({
+      setActiveCards([]);
+      setPendingSpanHint(null);
+      const nextActiveSideChat = {
         sessionId: sessionCounterRef.current,
         pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
         itemKind: item.kind,
@@ -233,7 +234,9 @@ export function SideChatHost({
         messages: [],
         messageTimestamps: [],
         annotateMode: false,
-      });
+      };
+      activeRef.current = nextActiveSideChat;
+      setActiveSideChat(nextActiveSideChat);
     },
     [abortActiveStream],
   );
@@ -252,6 +255,7 @@ export function SideChatHost({
 
   const dismiss = useCallback(() => {
     abortActiveStream();
+    activeRef.current = null;
     setActiveSideChat(null);
     // Single-pin scope: closing the side-chat resets cards and any unsent span hint so
     // they don't leak into the next item the user opens.
@@ -447,12 +451,13 @@ export function SideChatHost({
     for (const meta of lastBatchAppliedMeta) {
       if (meta.applied && typeof meta.applied === 'object' && 'id' in meta.applied) {
         const applied = meta.applied as { id: unknown; summary?: unknown; body?: unknown };
-        if (typeof applied.id === 'number') {
+        const summary = typeof applied.summary === 'string' ? applied.summary.trim() : '';
+        if (typeof applied.id === 'number' && summary.length > 0) {
           pushActiveCard({
             id: applied.id,
             itemKind: activeSideChat.itemKind,
             referenceCode: activeSideChat.pinnedItem.referenceCode,
-            summary: typeof applied.summary === 'string' ? applied.summary : '',
+            summary,
             body: typeof applied.body === 'string' ? applied.body : '',
           });
         }
@@ -594,6 +599,7 @@ export function SideChatHost({
           stagedPatches={stagedSummaries}
           canUndo={canUndoForActive}
           isApplying={patchListState.isApplying}
+          applyBatchId={patchListState.lastBatchId}
           onApply={patchList?.apply}
           onUndo={patchList?.undo}
           onDiscardPatch={patchList?.discard}

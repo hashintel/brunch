@@ -355,7 +355,7 @@ describe('SideChatHost active cards', () => {
     annotateMock.mockImplementation(() =>
       Promise.resolve({
         undo: () => Promise.resolve(),
-        applied: { id: 101 },
+        applied: { id: 101, summary: 'summary', body: 'body' },
       }),
     );
 
@@ -507,6 +507,35 @@ describe('SideChatHost dismiss/reopen state isolation', () => {
     // Reopen for the same item; cards should remain cleared.
     fireEvent.click(screen.getByText('open'));
     expect(screen.getByTestId('ids').textContent).toBe('');
+  });
+
+  it('reopens the same item immediately after dismissing the side-chat', async () => {
+    const { appliers } = makeAppliers();
+
+    function Probe() {
+      const sideChat = useSideChat();
+      return (
+        <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
+          open
+        </button>
+      );
+    }
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open'));
+    await screen.findByLabelText(/^message$/i);
+
+    fireEvent.click(screen.getByRole('button', { name: /close side-chat/i }));
+    fireEvent.click(screen.getByText('open'));
+
+    expect(await screen.findByLabelText(/^message$/i)).toBeTruthy();
   });
 
   it('clears active cards when switching the side-chat to a different item', async () => {
@@ -827,6 +856,57 @@ describe('SideChatHost active annotations payload', () => {
     // Most recent 8 means phrases 3..10 (oldest 1, 2 dropped).
     expect(requestArg.activeAnnotations![0].snapshot).toBe('phrase 3');
     expect(requestArg.activeAnnotations![7].snapshot).toBe('phrase 10');
+  });
+
+  it('does not promote id-only applied annotation metadata into active chat context', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+
+    const { appliers, annotateMock } = makeAppliers();
+    annotateMock.mockImplementation(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { id: 601 },
+      }),
+    );
+
+    function Probe() {
+      const sideChat = useSideChat();
+      return (
+        <div>
+          <span data-testid="ids">{sideChat?.activeCardIds.join(',') ?? ''}</span>
+          <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
+            open
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open'));
+    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'local summary' } });
+    fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'local body' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    });
+
+    await vi.waitFor(() => expect(screen.getByTestId('ids').textContent).toBe(''));
+
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'go' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    await vi.waitFor(() => expect(streamMock).toHaveBeenCalled());
+    const [requestArg] = streamMock.mock.calls.at(-1)!;
+    expect(requestArg).not.toHaveProperty('activeAnnotations');
   });
 });
 

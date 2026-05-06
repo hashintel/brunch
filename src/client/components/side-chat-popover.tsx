@@ -112,6 +112,7 @@ export interface SideChatPopoverProps {
   stagedPatches?: readonly SideChatStagedPatchSummary[];
   canUndo?: boolean;
   isApplying?: boolean;
+  applyBatchId?: string | null;
   onApply?: () => void;
   onUndo?: () => void;
   onDiscardPatch?: (id: string) => void;
@@ -141,6 +142,7 @@ export function SideChatPopover({
   stagedPatches = [],
   canUndo = false,
   isApplying = false,
+  applyBatchId = null,
   onApply,
   onUndo,
   onDiscardPatch,
@@ -183,16 +185,25 @@ export function SideChatPopover({
   // also prevents the toast from flashing on mount when the patch-list still carries a stale
   // undo handle from a prior batch on this spec (the original V1.2-E bug).
   const prevCanUndoRef = useRef(canUndo);
+  const lastToastBatchIdRef = useRef(applyBatchId);
 
   useEffect(() => {
     const prevCanUndo = prevCanUndoRef.current;
     prevCanUndoRef.current = canUndo;
-    if (!prevCanUndo && canUndo && !isApplying && stagedPatches.length === 0) {
+    const sawNewBatch = applyBatchId !== null && applyBatchId !== lastToastBatchIdRef.current;
+    if (sawNewBatch) {
+      lastToastBatchIdRef.current = applyBatchId;
+    }
+    if (
+      ((sawNewBatch && canUndo) || (!prevCanUndo && canUndo)) &&
+      !isApplying &&
+      stagedPatches.length === 0
+    ) {
       setSavedToastVisible(true);
       const id = window.setTimeout(() => setSavedToastVisible(false), 5000);
       return () => window.clearTimeout(id);
     }
-  }, [canUndo, isApplying, stagedPatches.length]);
+  }, [applyBatchId, canUndo, isApplying, stagedPatches.length]);
 
   useEffect(() => {
     if (!canUndo) {
