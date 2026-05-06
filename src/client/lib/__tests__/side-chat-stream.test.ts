@@ -48,6 +48,12 @@ describe('parseSideChatSSEBuffer', () => {
     expect(result.remainder).toBe('');
   });
 
+  it('parses error events with a message', () => {
+    const result = parseSideChatSSEBuffer('data: {"type":"error","message":"Model rate limited"}\n\n');
+    expect(result.events).toEqual([{ type: 'error', message: 'Model rate limited' }]);
+    expect(result.remainder).toBe('');
+  });
+
   it('returns complete events plus the partial trailing remainder', () => {
     const buffer =
       'data: {"type":"text-delta","delta":"first"}\n\n' + 'data: {"type":"text-delta","delta":"sec';
@@ -212,6 +218,53 @@ describe('streamSideChatResponse', () => {
     );
 
     expect(events).toEqual([{ type: 'text-delta', delta: 'hello' }, { type: 'done' }]);
+  });
+
+  it('throws when an error event arrives after partial text', async () => {
+    const events: SideChatStreamEvent[] = [];
+    await expect(
+      streamSideChatResponse(
+        {
+          specificationId: 1,
+          itemKind: 'decision',
+          itemId: 1,
+          message: 'why?',
+          fetch: () =>
+            Promise.resolve(
+              new Response(
+                toReadableStream([
+                  'data: {"type":"text-delta","delta":"partial"}\n\n',
+                  'data: {"type":"error","message":"Model rate limited"}\n\n',
+                ]),
+              ),
+            ),
+        },
+        (event) => events.push(event),
+      ),
+    ).rejects.toThrow(/Model rate limited/);
+
+    expect(events).toEqual([{ type: 'text-delta', delta: 'partial' }]);
+  });
+
+  it('throws when the stream closes before the done sentinel arrives', async () => {
+    const events: SideChatStreamEvent[] = [];
+    await expect(
+      streamSideChatResponse(
+        {
+          specificationId: 1,
+          itemKind: 'decision',
+          itemId: 1,
+          message: 'why?',
+          fetch: () =>
+            Promise.resolve(
+              new Response(toReadableStream(['data: {"type":"text-delta","delta":"partial"}\n\n'])),
+            ),
+        },
+        (event) => events.push(event),
+      ),
+    ).rejects.toThrow(/ended before completion/i);
+
+    expect(events).toEqual([{ type: 'text-delta', delta: 'partial' }]);
   });
 
   it('throws when the response has no body to stream', async () => {

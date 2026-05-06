@@ -1,6 +1,9 @@
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
-export type SideChatStreamEvent = { type: 'text-delta'; delta: string } | { type: 'done' };
+export type SideChatStreamEvent =
+  | { type: 'text-delta'; delta: string }
+  | { type: 'done' }
+  | { type: 'error'; message: string };
 
 export interface SideChatPriorTurn {
   role: 'user' | 'assistant';
@@ -49,9 +52,11 @@ export function parseSideChatSSEBuffer(buffer: string): ParseResult {
     }
 
     try {
-      const parsed = JSON.parse(payload) as { type?: unknown; delta?: unknown };
+      const parsed = JSON.parse(payload) as { type?: unknown; delta?: unknown; message?: unknown };
       if (parsed.type === 'text-delta' && typeof parsed.delta === 'string') {
         events.push({ type: 'text-delta', delta: parsed.delta });
+      } else if (parsed.type === 'error' && typeof parsed.message === 'string') {
+        events.push({ type: 'error', message: parsed.message });
       }
     } catch {
       // Malformed line — skip it.
@@ -89,6 +94,7 @@ export async function streamSideChatResponse(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let completed = false;
 
   try {
     for (;;) {
@@ -100,8 +106,12 @@ export async function streamSideChatResponse(
       const result = parseSideChatSSEBuffer(buffer);
       buffer = result.remainder;
       for (const event of result.events) {
+        if (event.type === 'error') {
+          throw new Error(event.message);
+        }
         onChunk(event);
         if (event.type === 'done') {
+          completed = true;
           return;
         }
       }
@@ -109,7 +119,16 @@ export async function streamSideChatResponse(
     buffer += decoder.decode();
     const tail = parseSideChatSSEBuffer(buffer);
     for (const event of tail.events) {
+      if (event.type === 'error') {
+        throw new Error(event.message);
+      }
       onChunk(event);
+      if (event.type === 'done') {
+        completed = true;
+      }
+    }
+    if (!completed) {
+      throw new Error('Side-chat stream ended before completion');
     }
   } finally {
     reader.releaseLock();

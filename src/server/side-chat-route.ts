@@ -74,6 +74,15 @@ function notFound(res: Response, error: string): void {
   res.status(404).json({ error } satisfies MutationErrorResponse);
 }
 
+function writeSideChatStreamError(res: Response): void {
+  res.write(
+    `data: ${JSON.stringify({
+      type: 'error',
+      message: 'Side-chat stream failed before completion',
+    })}\n\n`,
+  );
+}
+
 export async function handleSideChatRequest(db: DB, req: Request, res: Response): Promise<void> {
   const specificationId = Number(req.params.id);
   if (Number.isNaN(specificationId)) {
@@ -147,7 +156,9 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
       res.write('data: [DONE]\n\n');
     }
   } catch {
-    // Aborted-on-disconnect or model error — close the response cleanly below.
+    if (!abortController.signal.aborted && !res.writableEnded) {
+      writeSideChatStreamError(res);
+    }
   } finally {
     res.off('close', onClientClose);
     if (!res.writableEnded) {

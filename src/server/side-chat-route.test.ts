@@ -48,6 +48,17 @@ function makeTextStream(chunks: readonly string[]) {
   };
 }
 
+function makeFailingTextStream(chunksBeforeError: readonly string[], error: Error) {
+  return {
+    textStream: (async function* () {
+      for (const chunk of chunksBeforeError) {
+        yield chunk;
+      }
+      throw error;
+    })(),
+  };
+}
+
 async function createSpec(name = 'Side-chat test spec'): Promise<number> {
   const res = await request(app).post('/api/specifications').send({ name }).expect(201);
   return res.body.id;
@@ -154,6 +165,23 @@ describe('POST /api/specifications/:id/side-chat', () => {
     expect(res.text).toContain('from ');
     expect(res.text).toContain('side-chat.');
     expect(res.text).toContain('[DONE]');
+  });
+
+  it('emits an error event instead of a done sentinel when the model fails mid-stream', async () => {
+    mockStreamText.mockReturnValueOnce(makeFailingTextStream(['Partial reply.'], new Error('rate limited')));
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.', 'Local-first.');
+
+    const res = await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({ itemKind: 'decision', itemId: decision.id, message: 'Why SQLite?' })
+      .expect(200)
+      .expect('Content-Type', /text\/event-stream/);
+
+    expect(res.text).toContain('Partial reply.');
+    expect(res.text).toContain('"type":"error"');
+    expect(res.text).toContain('"message"');
+    expect(res.text).not.toContain('[DONE]');
   });
 
   it('writes zero rows to the turn store across the full request lifecycle (D113 invariant)', async () => {
