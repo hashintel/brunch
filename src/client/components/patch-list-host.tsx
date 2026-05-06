@@ -101,8 +101,8 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
     }
     applyInFlightRef.current = true;
     dispatch({ type: 'APPLY_START' });
+    const undoHandles: Array<() => Promise<void>> = [];
     try {
-      const undoHandles: Array<() => Promise<void>> = [];
       for (const patch of snapshot.staged) {
         switch (patch.kind) {
           case 'annotate': {
@@ -129,6 +129,13 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
         undoHandle: undoAll,
       });
     } catch {
+      for (const undo of [...undoHandles].reverse()) {
+        try {
+          await undo();
+        } catch {
+          // Best-effort rollback; keep the UI in failure state for retry/discard.
+        }
+      }
       dispatch({ type: 'APPLY_FAILURE' });
     } finally {
       applyInFlightRef.current = false;

@@ -302,6 +302,37 @@ describe('apply', () => {
     expect(refs.current.state.canUndo).toBe(false);
     expect(refs.current.state.isApplying).toBe(false);
   });
+
+  it('rolls back patches already applied when a later patch fails', async () => {
+    const refs = makeProbeRefs();
+    const undoFirst = vi.fn(() => Promise.resolve());
+    const annotate = vi
+      .fn()
+      .mockResolvedValueOnce({ undo: undoFirst })
+      .mockRejectedValueOnce(new Error('second patch failed'));
+    const appliers: PatchAppliers = {
+      annotate: annotate as unknown as PatchAppliers['annotate'],
+    };
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+        <Probe refs={refs} />
+      </PatchListProvider>,
+    );
+
+    act(() => {
+      refs.current.actions?.stage(makeAnnotateInput({ summary: 'first' }));
+      refs.current.actions?.stage(makeAnnotateInput({ summary: 'second' }));
+    });
+    await act(async () => {
+      await refs.current.actions?.apply();
+    });
+
+    expect(annotate).toHaveBeenCalledTimes(2);
+    expect(undoFirst).toHaveBeenCalledTimes(1);
+    expect(refs.current.state.count).toBe(2);
+    expect(refs.current.state.canUndo).toBe(false);
+    expect(refs.current.state.isApplying).toBe(false);
+  });
 });
 
 describe('undo', () => {
