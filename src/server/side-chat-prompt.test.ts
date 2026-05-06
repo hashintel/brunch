@@ -202,6 +202,27 @@ describe('buildSideChatPrompt — spanHint', () => {
     expect(lastUser.content).toContain('tell me more');
   });
 
+  it('applies spanHint to the current user message when history exists', () => {
+    const { messages } = buildSideChatPrompt(
+      item,
+      'current question',
+      spec,
+      [
+        { role: 'user', text: 'historical question' },
+        { role: 'assistant', text: 'historical answer' },
+      ],
+      { spanHint: 'current phrase' },
+    );
+
+    expect(messages).toHaveLength(3);
+    expect(messages[0].content).toContain('historical question');
+    expect(messages[0].content).not.toContain('current phrase');
+    expect(messages[2]).toEqual({
+      role: 'user',
+      content: 'About the highlighted phrase «current phrase»: current question',
+    });
+  });
+
   it('does not modify messages when spanHint is absent', () => {
     const { messages } = buildSideChatPrompt(item, 'tell me more', spec, []);
     const lastUser = [...messages].reverse().find((message) => message.role === 'user')!;

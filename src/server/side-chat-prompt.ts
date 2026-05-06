@@ -70,9 +70,12 @@ function buildUserMessageContent(item: SideChatPinnedItem, message: string, span
   if (item.rationale) {
     lines.push('', `Rationale: ${item.rationale}`);
   }
-  const userText = spanHint ? `About the highlighted phrase «${spanHint}»: ${message}` : message;
-  lines.push('', `User message: ${userText}`);
+  lines.push('', `User message: ${buildUserText(message, spanHint)}`);
   return lines.join('\n');
+}
+
+function buildUserText(message: string, spanHint?: string): string {
+  return spanHint ? `About the highlighted phrase «${spanHint}»: ${message}` : message;
 }
 
 function completedHistory(history: readonly SideChatPriorTurn[]): SideChatPriorTurn[] {
@@ -88,11 +91,15 @@ export function buildSideChatPrompt(
 ): SideChatPromptPayload {
   const turns: SideChatPriorTurn[] = [...completedHistory(history), { role: 'user', text: message }];
   const messages: SideChatPromptMessage[] = turns.map((turn, index) => {
+    const isLatestTurn = index === turns.length - 1;
     if (index === 0 && turn.role === 'user') {
       return {
         role: 'user',
-        content: buildUserMessageContent(item, turn.text, options.spanHint),
+        content: buildUserMessageContent(item, turn.text, isLatestTurn ? options.spanHint : undefined),
       };
+    }
+    if (isLatestTurn && turn.role === 'user') {
+      return { role: 'user', content: buildUserText(turn.text, options.spanHint) };
     }
     return { role: turn.role, content: turn.text };
   });
