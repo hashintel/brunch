@@ -31,7 +31,7 @@ import {
   emptySpec,
   singleItemNoEdges,
 } from '@/client/__fixtures__/graph-view.js';
-import { SideChatHost } from '@/client/components/side-chat-host.js';
+import { SideChatHost, useSideChat, type SideChatPinnableItem } from '@/client/components/side-chat-host.js';
 import type { SideChatStreamEvent } from '@/client/lib/side-chat-stream.js';
 
 const mockNavigate = vi.fn();
@@ -659,6 +659,42 @@ describe('StructuredListView', () => {
         </SideChatHost>,
       );
     }
+
+    it('does not re-render side-chat context consumers while streaming text deltas', () => {
+      const stream = makeManualStream();
+      let renderCount = 0;
+      let openFor: ((item: SideChatPinnableItem) => void) | null = null;
+
+      function ContextConsumerProbe() {
+        renderCount += 1;
+        openFor = useSideChat()?.openFor ?? null;
+        return null;
+      }
+
+      render(
+        <SideChatHost specificationId={42}>
+          <ContextConsumerProbe />
+        </SideChatHost>,
+      );
+
+      expect(openFor).toBeTruthy();
+      act(() => {
+        openFor?.({
+          kind: 'goal',
+          id: 1,
+          referenceCode: 'G1',
+          content: 'Reduce signup drop-off',
+        });
+      });
+      const renderCountAfterOpen = renderCount;
+
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+      stream.emit({ type: 'text-delta', delta: 'It ' });
+      stream.emit({ type: 'text-delta', delta: 'depends.' });
+
+      expect(renderCount).toBe(renderCountAfterOpen);
+    });
 
     it('does not mount a side-chat popover before the user clicks chat-with', () => {
       renderInsideHost(singleItemNoEdges());

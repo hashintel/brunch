@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import { streamSideChatResponse, type SideChatPriorTurn } from '@/client/lib/side-chat-stream.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
@@ -196,9 +205,10 @@ export function SideChatHost({
     },
     [specificationId, abortActiveStream],
   );
+  const sideChatContextValue = useMemo(() => ({ openFor }), [openFor]);
 
   return (
-    <SideChatContext.Provider value={{ openFor }}>
+    <SideChatContext.Provider value={sideChatContextValue}>
       {children}
       {activeSideChat && (
         <SideChatPopover
