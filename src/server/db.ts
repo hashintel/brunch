@@ -63,6 +63,8 @@ export type Turn = Omit<PersistedTurn, 'specification_id'> & {
 };
 export type Option = InferSelectModel<typeof schema.option>;
 export type PhaseOutcome = InferSelectModel<typeof schema.phaseOutcome>;
+export type ReconciliationNeed = InferSelectModel<typeof schema.reconciliationNeed>;
+export type ReconciliationNeedKind = ReconciliationNeed['kind'];
 export type Phase = Turn['phase'];
 export type Impact = NonNullable<Turn['impact']>;
 export type PhaseOutcomeStatus = PhaseOutcome['status'];
@@ -603,6 +605,53 @@ export function updateSpecificationMode(db: DB, specificationId: number, mode: S
     .set({ mode, updated_at: sql`datetime('now')` })
     .where(eq(schema.specification.id, specificationId))
     .run();
+}
+
+// --- Reconciliation need queue ---
+
+export interface OpenReconciliationNeedInput {
+  specificationId: number;
+  sourceItemId: number;
+  targetItemId: number;
+  kind: ReconciliationNeedKind;
+  reason?: string | null;
+  causedByTurnId?: number | null;
+}
+
+export function openReconciliationNeed(db: DB, input: OpenReconciliationNeedInput): ReconciliationNeed {
+  return db
+    .insert(schema.reconciliationNeed)
+    .values({
+      specification_id: input.specificationId,
+      source_item_id: input.sourceItemId,
+      target_item_id: input.targetItemId,
+      kind: input.kind,
+      reason: input.reason ?? null,
+      caused_by_turn_id: input.causedByTurnId ?? null,
+    })
+    .returning()
+    .get() as ReconciliationNeed;
+}
+
+export function resolveReconciliationNeed(db: DB, reconciliationNeedId: number): void {
+  db.update(schema.reconciliationNeed)
+    .set({ status: 'resolved', resolved_at: sql`datetime('now')` })
+    .where(eq(schema.reconciliationNeed.id, reconciliationNeedId))
+    .run();
+}
+
+export function listOpenReconciliationNeeds(db: DB, specificationId: number): ReconciliationNeed[] {
+  return db
+    .select()
+    .from(schema.reconciliationNeed)
+    .where(
+      and(
+        eq(schema.reconciliationNeed.specification_id, specificationId),
+        eq(schema.reconciliationNeed.status, 'open'),
+      ),
+    )
+    .orderBy(schema.reconciliationNeed.id)
+    .all() as ReconciliationNeed[];
 }
 
 // --- Entity persistence (generic knowledge items + compatibility projections) ---

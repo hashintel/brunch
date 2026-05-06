@@ -157,3 +157,35 @@ export const annotation = sqliteTable('annotation', {
     .notNull()
     .default(sql`(datetime('now'))`),
 });
+
+export const reconciliationNeed = sqliteTable(
+  'reconciliation_need',
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    specification_id: integer()
+      .notNull()
+      .references(() => specification.id),
+    source_item_id: integer()
+      .notNull()
+      .references(() => knowledgeItem.id, { onDelete: 'cascade' }),
+    target_item_id: integer()
+      .notNull()
+      .references(() => knowledgeItem.id, { onDelete: 'cascade' }),
+    kind: text({ enum: ['supersedes', 'needs_confirmation'] }).notNull(),
+    status: text({ enum: ['open', 'resolved'] })
+      .notNull()
+      .default('open'),
+    reason: text(),
+    caused_by_turn_id: integer().references(() => turn.id),
+    caused_by_patch_id: integer(),
+    created_at: text()
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    resolved_at: text(),
+  },
+  (table) => [
+    uniqueIndex('reconciliation_need_open_unique')
+      .on(table.source_item_id, table.target_item_id, table.kind)
+      .where(sql`status = 'open'`),
+  ],
+);

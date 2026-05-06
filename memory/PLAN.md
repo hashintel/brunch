@@ -4,19 +4,13 @@
 
 # Plan
 
-The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, observer knowledge extraction, workflow ownership extraction, distribution hardening, graph view's structured-list peer route, and the first relation-first observer capture seam all ship as working product. The live frontier now centers on the **multi-chat substrate**: introducing chat containers and reconciliation needs as the first durable foundation for side-chats, direct graph edits, revisit/cascade, and future semantic patch history.
+The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, observer knowledge extraction, workflow ownership extraction, distribution hardening, graph view's structured-list peer route, and the first relation-first observer capture seam all ship as working product. The multi-chat substrate (chat containers + reconciliation needs) has now landed as durable foundation for side-chats, direct graph edits, revisit/cascade, and future semantic patch history; the next live frontier is **continuous workspace**, the phase-addressable interview surface that adopts one visible runtime per specification.
 
 The May 2026 intent-spec, multi-chat, and patch-ledger design notes are now reconciled into one direction. `docs/design/MULTI_CHAT.md` is the concrete phase-one substrate proposal; `docs/design/PATCH_LEDGER.md` remains deeper design pressure for semantic mutation history; `docs/design/INTENT_SPEC_EVOLUTION.md` carries broader ontology and progressive checkability implications. Older portability work remains a future-facing boundary map rather than a live roadmap item until a hosted, remote, or adapter-backed substrate becomes a product goal.
 
 ## Active
 
-### Track B — Infrastructure
-
-1. **Multi-chat substrate + reconciliation needs** — add durable `chat` containers, transitional `turn.chat_id`, `specification.primary_chat_id`, mirrored `chat.active_turn_id`, and a minimal `reconciliation_need` queue while keeping legacy spec-scoped pointers during the first slice.
-   - Why now / unlocks: side-chats, direct graph edits, revisit/cascade, and architect-style proposals all need a substrate below `specification` before a full patch ledger exists. This slice relieves the one-rope-per-spec pressure without making semantic changesets first-class yet.
-   - Recommended shape: follow `docs/design/MULTI_CHAT.md`; keep `turn.specification_id` and `specification.active_turn_id` during phase one; populate both legacy and chat pointers on new writes; add application assertions for same-spec and same-chat ancestry; create item-to-item reconciliation needs from semantic edge traversal first; carry `caused_by_turn_id` now and nullable `caused_by_patch_id` as a future placeholder.
-   - Traceability: Requirement 39; A71, A82, A83; D135, D137, D138; I111.
-   - Design doc: `docs/design/MULTI_CHAT.md`.
+_No active frontier item. Next-up candidate sits below._
 
 ## Next
 
@@ -120,7 +114,7 @@ The May 2026 intent-spec, multi-chat, and patch-ledger design notes are now reco
 
 ## Recently Completed
 
-- [2026-05-01] Side-chat V1.1 — Explore vertical slice. End-to-end graph-launched chat interaction shipped: prompt builder, POST `/side-chat` SSE endpoint, popover host, graph-view wiring, SSE consumer, and active-button activation. Follow-up refactor collapsed pending assistant text into the message list and extracted `SideChatHost` so activation is a tree-mount fact. This is complete implementation history; future conceptual work is multi-chat / reconciliation, not Side-chat V2/V3.
+- [2026-05-06] Multi-chat substrate + reconciliation needs (FE-697) — `chat` table with one interview chat per spec, nullable `turn.chat_id`, `specification.primary_chat_id`, mirrored `chat.active_turn_id`, plus the `reconciliation_need` queue with directed source/target items, narrow `kind`/`status`, partial unique index on open rows, and cascade FK to knowledge items. Spec creation now inserts spec + interview chat in one transaction; turn writes populate both legacy and chat pointers; `advanceHead` mirrors to the interview chat; parent-chat consistency is asserted at the application layer. No user-visible change. Migrations 0013–0016 backfill existing data. Verified: `npm run verify` (672 tests). Watch: legacy `turn.specification_id` and `specification.active_turn_id` remain alongside the new chat pointers — cleanup migration is deferred until callers read ownership through `chat_id`. A79 and A80 validated for the Phase 1 substrate.
 - [2026-05-04] Graph view structured-list peer route — `/specification/$id/graph` now renders project-wide entities through the structured-list layout with relationship subsections, relation chips, empty state, row controls, and a back-to-chat affordance. Follow-up active-path filtering and spatial canvas remain horizon work. Verified: `npm run verify` in the FE-643 slice family.
 - [2026-04-30] FE-639 relation-first observer capture first cut — eligible answered turns now enter one background observer-capture backlog, observer prompts use compact existing-knowledge anchors, observer output persists validated graph-delta relationship candidates, and accepted review grounding refs reuse the same conservative relation policy. Verified: `npm run verify`. Watch: A66 remains open until corpus/manual graph-review proves edge precision and density are useful.
 - [2026-04-29] Workflow ownership extraction (FE-616) — workflow projector extraction, turn-response transition extraction, chat-route transition/application extraction, and phase-close / force-close write-path ownership now live behind runtime-owned seams. Verified: `npm run verify`. Unblocks continuous workspace.
@@ -140,7 +134,7 @@ graph-view-structured-list  (completed)
               └──→ architect-loop  (horizon)
 
 TRACK B — Infrastructure
-multi-chat-substrate  (active)
+multi-chat-substrate  (completed)
   ├──→ semantic-patch-ledger  (horizon)
   ├──→ persistent-side-chat-history  (future user surface)
   └──→ continuous-workspace  (next)
