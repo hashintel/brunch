@@ -471,7 +471,7 @@ export function SideChatPopover({
               </div>
               {notesOpen && existingAnnotations.length > 0 ? (
                 <div className="absolute right-0 bottom-full left-0 mb-2">
-                  <div className="flex max-h-72 flex-col overflow-hidden rounded-md bg-white shadow-[0_8px_16px_-4px_rgba(0,0,0,0.08),0_4px_8px_-2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(0,0,0,0.08)]">
+                  <div className="overflow-hidden rounded-md bg-white shadow-[0_8px_16px_-4px_rgba(0,0,0,0.08),0_4px_8px_-2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(0,0,0,0.08)]">
                     <header className="flex items-center justify-between border-b border-[rgba(0,0,0,0.06)] bg-white/80 px-3 py-1.5 backdrop-blur">
                       <span className="text-xxs font-medium tracking-wide text-sub uppercase">
                         Notes ({existingAnnotations.length})
@@ -485,7 +485,7 @@ export function SideChatPopover({
                         ×
                       </button>
                     </header>
-                    <ul className="scrollbar-thin flex min-h-0 flex-1 flex-col divide-y divide-dotted divide-[rgba(0,0,0,0.08)] overflow-x-hidden overflow-y-auto overscroll-contain px-2">
+                    <ul className="scrollbar-thin h-72 divide-y divide-dotted divide-[rgba(0,0,0,0.08)] overflow-x-hidden overflow-y-auto overscroll-contain">
                       {existingAnnotations.map((annotation) => {
                         const hasBody = annotation.body && annotation.body !== annotation.summary;
                         const isActive = (activeAnnotationIds ?? []).includes(annotation.id);
@@ -514,7 +514,7 @@ export function SideChatPopover({
                           >
                             {hasBody ? (
                               <details className="group/note">
-                                <summary className="flex cursor-pointer list-none items-center gap-1 py-2 font-medium hover:text-ink">
+                                <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 font-medium hover:text-ink">
                                   <span className="shrink-0 text-hint transition-transform group-open/note:rotate-90">
                                     ›
                                   </span>
@@ -523,10 +523,12 @@ export function SideChatPopover({
                                   </span>
                                   {actionSlot}
                                 </summary>
-                                <div className="pb-2 pl-4 text-sub leading-relaxed">{annotation.body}</div>
+                                <div className="pt-1 pr-3 pb-3 pl-7 text-sm leading-relaxed text-sub">
+                                  {annotation.body}
+                                </div>
                               </details>
                             ) : (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1.5 px-3">
                                 <span
                                   className="min-w-0 flex-1 truncate py-2 font-medium"
                                   title={annotation.summary}
