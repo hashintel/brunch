@@ -80,6 +80,8 @@ This means:
 
 ## Proposed Concepts
 
+`docs/design/MULTI_CHAT.md` is now the concrete phase-one substrate proposal for chat containers and reconciliation needs. This document remains the deeper design pressure for future semantic mutation history, richer reconciliation targeting, ordering, and patch-backed provenance.
+
 ### Chat
 
 A `chat` is a conversation container inside a specification.
@@ -106,6 +108,8 @@ chat
   created_at
   updated_at
 ```
+
+The concrete phase-one `chat` shape is intentionally narrower in [Multi-Chat Substrate](./MULTI_CHAT.md): add `chat`, nullable `turn.chat_id`, `specification.primary_chat_id`, and mirrored `chat.active_turn_id` while keeping legacy `turn.specification_id` and `specification.active_turn_id` during transition. The richer fields above are possible later extensions, not requirements for the first slice.
 
 Suggested enums:
 
@@ -316,58 +320,46 @@ Proposed table:
 reconciliation_need
   id
   specification_id
-  basis
-  strength
+  source_item_id
+  target_item_id
+  kind
   status
-  caused_by_kind
+  reason
   caused_by_turn_id
   caused_by_patch_id
-  source_item_id
-  source_patch_id
-  affected_item_id
-  affected_relation_from_item_id
-  affected_relation_to_item_id
-  affected_relation
-  rationale
   created_at
-  updated_at
-  resolved_by_patch_id
+  resolved_at
 ```
 
 Suggested enums:
 
 ```text
-basis:
-  semantic_dependency
-  historical_descendance
-  verification_dependency
-  manual
-
-strength:
-  needs_reconciliation
-  may_need_reconciliation
+kind:
+  supersedes
+  needs_confirmation
 
 status:
   open
-  in_review
-  accepted
-  dismissed
-  superseded
   resolved
+```
 
-caused_by_kind:
-  turn
-  patch
-  direct_edit
-  review
-  verifier
-  import
-  migration
+This deliberately keeps phase one smaller than the fully expressive model. The first table should represent one directed process obligation from a changed source item to an affected target item, dedupe simultaneously open needs by `(source_item_id, target_item_id, kind)`, and carry enough nullable provenance to be patch-compatible later.
+
+Future extensions can add:
+
+```text
+basis / strength
+source_patch_id
+affected_relation_from_item_id
+affected_relation_to_item_id
+affected_relation
+resolved_by_patch_id
+structured reason payload
 ```
 
 The `affected_relation_*` fields avoid requiring a separate `knowledge_edge.id` migration before this work can start. If `knowledge_edge` later receives a surrogate `id`, `reconciliation_need` can switch to `affected_edge_id`.
 
-`resolved_at` is intentionally omitted here because it is derivable from `resolved_by_patch_id -> patch.applied_at` when resolution happens through a patch. If Brunch later supports no-op dismissal without a patch, it may need `dismissed_at` or a more general status timestamp.
+`resolved_at` exists in phase one because no-op dismissal and non-patch resolution are useful before the patch ledger exists. Once `resolved_by_patch_id` is available, the timestamp may remain denormalized convenience rather than the only resolution source of truth.
 
 ## Reconciliation Bases
 
@@ -530,7 +522,7 @@ The split is plausible because `chat` and `reconciliation_need` each relieve a c
 
 The caveat is that historical descendance is only approximate before patches exist. Brunch can detect graph-based semantic dependency in phase one. It cannot precisely answer "which later semantic mutations descend from this older state?" until patch history exists.
 
-## Phase 1: Chat and Reconciliation Need
+## Phase 1: Multi-Chat Substrate and Reconciliation Need
 
 Goal:
 
@@ -540,13 +532,15 @@ Allow multiple chats per specification and introduce durable reconciliation need
 
 Schema work:
 
+- follow [Multi-Chat Substrate](./MULTI_CHAT.md) for the concrete migration sequence
 - add `chat`
-- backfill one primary chat per existing specification
+- backfill one interview chat per existing specification
 - add nullable `turn.chat_id`
-- backfill all existing turns to the primary chat for their specification
-- update application writes so new turns always use `chat_id`
-- add `reconciliation_need`
-- optionally add `specification.active_chat_id`
+- backfill all existing turns to the interview chat for their specification
+- add `specification.primary_chat_id`
+- mirror `specification.active_turn_id` into `chat.active_turn_id`
+- update application writes so new turns populate both `specification_id` and `chat_id`
+- add minimal `reconciliation_need`
 
 Compatibility rules:
 
@@ -555,14 +549,16 @@ Compatibility rules:
 - keep `specification.active_turn_id` during phase one
 - scope `parent_turn_id` to the same chat in application logic
 - create reconciliation needs from semantic dependency traversal first
+- defer dropping legacy pointers until read/write paths are stable through chat ownership
 
 Phase-one reconciliation causes:
 
 ```text
-caused_by_kind = turn
 caused_by_turn_id = the turn whose observer capture or review action caused the need
 caused_by_patch_id = null
 ```
+
+`caused_by_kind` is intentionally omitted in the concrete phase-one schema while patches do not exist: `caused_by_turn_id` names turn-caused needs, and `caused_by_patch_id` remains null as a placeholder.
 
 Phase-one limitations:
 
@@ -576,7 +572,7 @@ This is acceptable if phase one frames reconciliation as "needs review" rather t
 Phase-one implementation slices:
 
 1. Add schema and migration for `chat`.
-2. Backfill primary chats and wire `turn.chat_id` on reads and writes.
+2. Backfill interview chats and wire `turn.chat_id` on reads and writes.
 3. Add invariants/tests for chat-scoped turn ancestry.
 4. Add `reconciliation_need` schema and shared types.
 5. Add deterministic helper to create needs from changed item plus `knowledge_edge` traversal.
@@ -676,14 +672,14 @@ affected_relation
 
 `specification.active_turn_id` can survive phase one.
 
-Later, Brunch may need:
+Phase one adds:
 
 ```text
-specification.active_chat_id
+specification.primary_chat_id
 chat.active_turn_id
 ```
 
-That should wait until the product has multiple active chat surfaces. Adding both too early may create unnecessary state synchronization work.
+`primary_chat_id` names the canonical interview chat; `chat.active_turn_id` mirrors the existing specification head before it becomes canonical. A separate `active_chat_id` should wait until the product has multiple active chat surfaces. Adding it too early may create unnecessary state synchronization work.
 
 ## Invariants
 
@@ -735,9 +731,8 @@ Then phase two becomes an upgrade of semantic provenance, not a rewrite of the r
 ## Open Questions
 
 - Should `turn.specification_id` be removed eventually, or kept as a denormalized convenience?
-- Should `specification.active_chat_id` exist in phase one, or wait until the UI exposes multiple chat surfaces?
+- Should `specification.active_turn_id` be removed as soon as `chat.active_turn_id` is stable, or kept as a temporary compatibility mirror?
 - Should `chat.kind = reconciliation` own one reconciliation review set, or can one reconciliation chat cover multiple sets?
-- Does `reconciliation_need.status = accepted` mean "accepted proposed change" or should acceptance live only on review actions?
 - Should direct user edits create proposed patches first, or applied patches with later reconciliation?
 - Should `knowledge_edge` receive a surrogate `id` before reconciliation targets relations heavily?
 - What is the first deterministic relation policy for creating reconciliation needs from `knowledge_edge` traversal?

@@ -16,4 +16,10 @@ Status language:
 - `working design proposal` — a shaped proposal that may guide planning, but still needs canonical SPEC / PLAN links.
 - `archived` — historical context only; no longer live design guidance.
 
+Current live design proposals:
+
+- `MULTI_CHAT.md` — concrete phase-one substrate for chat containers and reconciliation needs.
+- `PATCH_LEDGER.md` — deeper semantic mutation history and reconciliation design pressure after the multi-chat substrate.
+- `INTENT_SPEC_EVOLUTION.md` — broader intent-spec ontology and progressive checkability synthesis.
+
 Do not create `docs/plan/` for active roadmap state. `memory/PLAN.md` remains the single source of truth for the plan; design docs may be linked from plan items as supporting rationale.

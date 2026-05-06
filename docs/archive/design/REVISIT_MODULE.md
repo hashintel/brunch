@@ -1,7 +1,7 @@
 # Knowledge-Graph Revisit Module Design
 
 > Design exploration from 2026-04-12. Referenced historically by SPEC.md D80.
-> Status: archived. The user-facing revisit/cascade goal remains live, but the side-chat V2/V3 framing and the `revisit_session` persistence shape are superseded by the multi-chat + reconciliation-need direction in `docs/design/PATCH_LEDGER.md`.
+> Status: archived. The user-facing revisit/cascade goal remains live, but the side-chat V2/V3 framing and the `revisit_session` persistence shape are superseded by the chat + reconciliation-need substrate in `docs/design/MULTI_CHAT.md` and the later semantic mutation history in `docs/design/PATCH_LEDGER.md`.
 > Canonicality: this is a historical module design note, not the live frontier authority. For what is true now and what should happen next, prefer `memory/SPEC.md` and `memory/PLAN.md`.
 
 ## Shape

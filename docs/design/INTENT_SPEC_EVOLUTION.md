@@ -675,7 +675,7 @@ reconciliation_need:
   semantic debt created when graph changes may affect existing truth
 ```
 
-This is not a hybrid in the sense of two competing historical authorities. It is a separation of concerns: turns remain conversation history; patches become semantic history; workflow remains explicit process state; reconciliation becomes an agent-managed review flow for stale or contradictory graph truth. See [Patch Ledger and Reconciliation](./PATCH_LEDGER.md) for proposed tables, reconciliation ordering, migration phases, and open schema questions.
+This is not a hybrid in the sense of two competing historical authorities. It is a separation of concerns: turns remain conversation history; patches become semantic history; workflow remains explicit process state; reconciliation becomes an agent-managed review flow for stale or contradictory graph truth. See [Multi-Chat Substrate](./MULTI_CHAT.md) for the concrete first substrate slice, and [Patch Ledger and Reconciliation](./PATCH_LEDGER.md) for later semantic mutation history, reconciliation ordering, and open schema questions.
 
 The alternate branch makes an important persistence distinction:
 
@@ -784,7 +784,7 @@ Near-term product implications:
 - detect behavioral kernels and ask pattern-specific questions
 - add `invariant` and `example` as likely product-ontology candidates
 - treat `knowledge_edge` as intent semantics, not only graph display
-- treat open-ended graph editing as needing semantic history separate from turn history; see [Patch Ledger and Reconciliation](./PATCH_LEDGER.md)
+- treat open-ended graph editing as needing chat containers and reconciliation needs first, then semantic history separate from turn history; see [Multi-Chat Substrate](./MULTI_CHAT.md) and [Patch Ledger and Reconciliation](./PATCH_LEDGER.md)
 - preserve approved / rejected examples as durable evidence
 - distinguish human-readable claims from checkable artifacts
 - eventually tie requirements and criteria through shared property-like claims
@@ -808,7 +808,7 @@ Near-term development-methodology implications:
 - Should `invariant` and `example` become durable top-level product kinds?
 - What relation kinds need to participate in cascade and staleness, and which should remain display-only?
 - How should weak inferred edges be reviewed without flooding users or agents?
-- Which patch-ledger schema choices in [Patch Ledger and Reconciliation](./PATCH_LEDGER.md) should be promoted into implementation first?
+- Which patch-ledger schema choices in [Patch Ledger and Reconciliation](./PATCH_LEDGER.md) should be promoted after the [Multi-Chat Substrate](./MULTI_CHAT.md) slice lands?
 - Which behavioral kernels are common enough to deserve first-class elicitation support?
 - Are the fifteen kernel families distinct enough in practice, or should some merge after transcript testing?
 - What should a first kernel-card implementation include: detection signals, question templates, artifact schema, validators, or all of these?

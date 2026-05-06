@@ -4,27 +4,26 @@
 
 # Plan
 
-The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, observer knowledge extraction, workflow ownership extraction, distribution hardening, graph view's structured-list peer route, relation-first observer capture, and Side-chat V1.1's Explore vertical slice all ship as working product.
+The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, observer knowledge extraction, workflow ownership extraction, distribution hardening, graph view's structured-list peer route, and the first relation-first observer capture seam all ship as working product. The live frontier now centers on the **multi-chat substrate**: introducing chat containers and reconciliation needs as the first durable foundation for side-chats, direct graph edits, revisit/cascade, and future semantic patch history.
 
-Side-chat V1.1 is complete implementation history. The old side-chat conceptual roadmap is superseded by the multi-chat substrate, reconciliation-needs, and semantic changeset / patch-ledger direction. Future graph-anchored chat, edit, annotation, revisit, and architect-loop work should be planned through that multi-chat / reconciliation frame rather than as Side-chat V2/V3/V4.
-
-The May 2026 intent-spec and patch-ledger design notes are now promoted into the canonical horizon as design pressure, not as active implementation scope. They reshape revisit / graph-edit planning around intent-graph semantics, progressive checkability, recognition-first elicitation, chat containers, reconciliation needs, and eventually semantic changesets / patches. Older portability work remains a future-facing boundary map rather than a live roadmap item until a hosted, remote, or adapter-backed substrate becomes a product goal.
+The May 2026 intent-spec, multi-chat, and patch-ledger design notes are now reconciled into one direction. `docs/design/MULTI_CHAT.md` is the concrete phase-one substrate proposal; `docs/design/PATCH_LEDGER.md` remains deeper design pressure for semantic mutation history; `docs/design/INTENT_SPEC_EVOLUTION.md` carries broader ontology and progressive checkability implications. Older portability work remains a future-facing boundary map rather than a live roadmap item until a hosted, remote, or adapter-backed substrate becomes a product goal.
 
 ## Active
 
 ### Track B — Infrastructure
 
-1. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with realized phase sections, one chat runtime per specification, sidebar section navigation, scroll/focus behavior, and the single actionable frontier preserved at the current reachable phase.
-   - Why now / unlocks: workflow read/write ownership is now extracted, so the continuous workspace can adopt one chat runtime and section-addressable focus without route remounts owning lifecycle truth.
-   - Traceability: A58; D86, D87, D110, D113, D114; I24, I102, I106.
-   - Design doc: `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`.
+1. **Multi-chat substrate + reconciliation needs** — add durable `chat` containers, transitional `turn.chat_id`, `specification.primary_chat_id`, mirrored `chat.active_turn_id`, and a minimal `reconciliation_need` queue while keeping legacy spec-scoped pointers during the first slice.
+   - Why now / unlocks: side-chats, direct graph edits, revisit/cascade, and architect-style proposals all need a substrate below `specification` before a full patch ledger exists. This slice relieves the one-rope-per-spec pressure without making semantic changesets first-class yet.
+   - Recommended shape: follow `docs/design/MULTI_CHAT.md`; keep `turn.specification_id` and `specification.active_turn_id` during phase one; populate both legacy and chat pointers on new writes; add application assertions for same-spec and same-chat ancestry; create item-to-item reconciliation needs from semantic edge traversal first; carry `caused_by_turn_id` now and nullable `caused_by_patch_id` as a future placeholder.
+   - Traceability: Requirement 39; A71, A82, A83; D135, D137, D138; I111.
+   - Design doc: `docs/design/MULTI_CHAT.md`.
 
 ## Next
 
-2. **Multi-chat substrate + reconciliation needs scope** — scope the first persistence foundation for graph-anchored chats, revisit/cascade, and future semantic edits: durable chat containers plus reconciliation needs, while preserving turn-linked provenance during the transition.
-   - Why now / unlocks: Side-chat V1.1 proved the graph-launched chat interaction, but its conceptual docs are superseded. Multi-chat containers and reconciliation needs are the next durable substrate before graph edits, patch ledger, or architect-loop work.
-   - Traceability: Requirement 10; A48, A49, A71, A79; D80, D135.
-   - Design docs: `docs/design/PATCH_LEDGER.md`; multi-chat substrate RFC if retained in the repo.
+2. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with realized phase sections, one chat runtime per specification, sidebar section navigation, scroll/focus behavior, and the single actionable frontier preserved at the current reachable phase.
+   - Why now / unlocks: workflow read/write ownership is extracted; the multi-chat substrate clarifies the difference between conversation containers and workflow state so continuous workspace can adopt one visible runtime without smuggling in a second durable workflow model.
+   - Traceability: A58; D86, D87, D110, D113, D114; I24, I102.
+   - Design doc: `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`.
 
 ## Horizon
 
@@ -32,7 +31,7 @@ The May 2026 intent-spec and patch-ledger design notes are now promoted into the
 
 - **Intent-spec ontology + progressive checkability** — move Brunch's product output from prose-centered planning specs toward intent graphs: typed claims, semantic edges, examples / counterexamples, unresolved ambiguity, user validation status, and witness strength from prose through tests / contracts / invariants / proof obligations.
   - Recommended shape: add `invariant` and `example` as first-class durable ontology kinds, with positive / negative / edge-case / not-relevant examples represented as subtypes rather than separate top-level kinds; keep a `Property`-like normalization layer as a design candidate until the requirement / criterion mapping is clearer; update observer prompts, shared registries, API types, fixtures, and export language together.
-  - Traceability: Requirement 38; A77, A78, A80; D134, D136.
+  - Traceability: Requirement 38; A77, A81, A83; D134, D136.
   - Design doc: `docs/design/INTENT_SPEC_EVOLUTION.md`.
 
 - **Observer ontology refinement** — narrow `decision`, enrich `constraint` subtypes, and add context-promotion rules so observer capture classifies claims by semantic modality rather than answer shape.
@@ -41,19 +40,13 @@ The May 2026 intent-spec and patch-ledger design notes are now promoted into the
 
 - **Knowledge-edge semantics policy** — decide how far intent edges should go before broadening observer extraction: relation families, support strength, visibility, cascade participation, export relevance, staleness production, and suggestion handling.
   - Recommended shape: design relation policy and edge-local prompt context before implementing wider relation-first observer capture. Keep negative examples as intent content, boundary edges as intent semantics, and reconciliation needs as directed process debt rather than making graph edges double as work queue state.
-  - Traceability: A81; D135, D137.
-  - Deep design sources: `docs/design/INTENT_SPEC_EVOLUTION.md` §4; `docs/design/PATCH_LEDGER.md` §Reconciliation Need.
-
-- **Chat containers + reconciliation needs** — introduce conversation containers and durable reconciliation queues before full semantic patch history. This becomes the first persistence foundation for graph edits, graph-anchored chat, and revisit/cascade.
-  - Recommended shape: add `chat` and `reconciliation_need` in a phase-one slice; keep `turn.specification_id` and turn-linked provenance during the transition; create needs from semantic edge traversal first.
-  - Supersedes: `docs/archive/design/REVISIT_MODULE.md`'s `revisit_session` table shape as the preferred persistence foundation, while keeping the user-facing revisit/cascade capability.
-  - Traceability: Requirement 10; A48, A49, A71, A79; D80, D135.
-  - Design doc: `docs/design/PATCH_LEDGER.md`.
+  - Traceability: A81, A83; D135, D137, D138.
+  - Deep design sources: `docs/design/INTENT_SPEC_EVOLUTION.md` §4; `docs/design/PATCH_LEDGER.md` §Reconciliation Need; `docs/design/MULTI_CHAT.md` §5.
 
 - **Semantic changeset / patch ledger** — make semantic mutations first-class once non-primary surfaces can change graph truth.
   - Recommended shape: prefer the invariant "one semantic mutation set contains one or more atomic changes"; naming remains open between `changeset` / `change` and `patch` / `patch_change`.
-  - Depends on: chat containers + reconciliation needs.
-  - Traceability: A71; D135.
+  - Depends on: multi-chat substrate + reconciliation needs.
+  - Traceability: A71, A83; D135, D138.
   - Design doc: `docs/design/PATCH_LEDGER.md`.
 
 - **Relation-first observer capture** — expand observer relationship extraction so graph edges are captured across the ontology when reasonably traceable, not only for decisions and assumptions.
@@ -147,13 +140,15 @@ graph-view-structured-list  (completed)
               └──→ architect-loop  (horizon)
 
 TRACK B — Infrastructure
-continuous-workspace  (active; unblocked by workflow ownership extraction)
+multi-chat-substrate  (active)
+  ├──→ semantic-patch-ledger  (horizon)
+  ├──→ persistent-side-chat-history  (future user surface)
+  └──→ continuous-workspace  (next)
 
 UNBLOCKED HORIZON
 first-run provider setup  (needs provider spike / scope)
 workspace hygiene gitignore assist  (bounded, dashboard-surface candidate)
 intent-spec ontology + progressive checkability  (needs probe)
-chat containers + reconciliation needs  (needs scope)
 relation-first observer capture  (first cut complete, needs enrichment proving)
 knowledge-edge semantics policy  (discussion/design before observer expansion)
 revisit / edit-mode  (reshaped by reconciliation needs)
