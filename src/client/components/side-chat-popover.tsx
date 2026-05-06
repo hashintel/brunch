@@ -1,4 +1,14 @@
-import { ArrowUp, Loader2, NotebookPen, PanelRight, PencilLine, PictureInPicture2, Plus } from 'lucide-react';
+import {
+  ArrowUp,
+  Check,
+  Highlighter,
+  Loader2,
+  NotebookPen,
+  PanelRight,
+  PencilLine,
+  PictureInPicture2,
+  Plus,
+} from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import type { KnowledgeKind } from '@/shared/knowledge.js';
@@ -509,9 +519,7 @@ export function SideChatPopover({
                 data-span-hint-chip
                 className="inline-flex items-center gap-1.5 self-start rounded bg-[rgba(0,0,0,0.04)] px-1.5 py-1 text-xs text-ink"
               >
-                <span className="font-mono text-hint" aria-hidden>
-                  📎
-                </span>
+                <Highlighter className="size-3 shrink-0 text-hint" aria-hidden />
                 <span className="max-w-[280px] truncate" title={spanHint}>
                   «{spanHint}»
                 </span>
@@ -572,7 +580,10 @@ export function SideChatPopover({
                     aria-label="Annotation saved"
                     className="pointer-events-none absolute top-1/2 left-1/2 inline-flex h-6 -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-md bg-wash/40 px-2 text-xs"
                   >
-                    <span className="font-medium text-ink">✓ Annotation saved</span>
+                    <span className="inline-flex items-center gap-1 font-medium text-ink">
+                      <Check className="size-3" aria-hidden />
+                      Annotation saved
+                    </span>
                     {onUndo ? (
                       <button
                         type="button"

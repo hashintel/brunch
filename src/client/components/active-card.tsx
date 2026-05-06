@@ -1,3 +1,5 @@
+import { NotebookPen } from 'lucide-react';
+
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import { kindAccentHex } from './knowledge-card';
@@ -34,10 +36,11 @@ export function ActiveCard({
     >
       <div className="flex items-start gap-2">
         <span
-          className="inline-flex shrink-0 items-center rounded px-1 py-0.5 font-mono text-[10px] font-medium"
+          className="inline-flex shrink-0 items-center gap-1 rounded px-1 py-0.5 font-mono text-[10px] font-medium"
           style={{ backgroundColor: `${accent}14`, color: accent }}
         >
-          📝 {referenceCode}
+          <NotebookPen className="size-2.5" aria-hidden />
+          {referenceCode}
         </span>
         <span className="flex-1 text-ink italic">«{summary}»</span>
         <button

@@ -444,7 +444,7 @@ describe('SideChatPopover', () => {
       expect(screen.queryByRole('region', { name: /staged annotations/i })).toBeNull();
     });
 
-    it('shows the "✓ Annotation saved" confirmation with Undo after isApplying transitions from true to false with canUndo true', () => {
+    it('shows the "Annotation saved" confirmation with Undo after isApplying transitions from true to false with canUndo true', () => {
       const onUndo = vi.fn();
       const { rerender } = render(
         <SideChatPopover
