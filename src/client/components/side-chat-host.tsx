@@ -279,7 +279,7 @@ export function SideChatHost({
   const dismissCard = useCallback((annotationId: number) => {
     setActiveCards((prev) => prev.filter((card) => card.id !== annotationId));
   }, []);
-  const activeCardIds: readonly number[] = activeCards.map((card) => card.id);
+  const activeCardIds: readonly number[] = useMemo(() => activeCards.map((card) => card.id), [activeCards]);
 
   const submitMessage = useCallback(
     (message: string) => {
@@ -468,6 +468,10 @@ export function SideChatHost({
   const activeItemId = activeSideChat?.itemId;
   const activeItemKind = activeSideChat?.itemKind;
   const [annotations, setAnnotations] = useState<LoadedAnnotations | null>(null);
+  const annotationsRef = useRef<LoadedAnnotations | null>(null);
+  useEffect(() => {
+    annotationsRef.current = annotations;
+  }, [annotations]);
   useEffect(() => {
     if (activeItemId === undefined || activeItemKind === undefined) {
       setAnnotations(null);
@@ -517,27 +521,25 @@ export function SideChatHost({
         }))
     : [];
 
-  const promoteAnnotation = useCallback(
-    (annotationId: number) => {
-      const annotation = (annotations?.items ?? []).find((a) => a.id === annotationId);
-      if (!annotation || !activeSideChat) return;
-      setActiveCards((prev) => {
-        if (prev.some((card) => card.id === annotationId)) return prev;
-        return [
-          ...prev,
-          {
-            id: annotation.id,
-            itemKind: activeSideChat.itemKind,
-            referenceCode: activeSideChat.pinnedItem.referenceCode,
-            summary: annotation.summary,
-            body: annotation.body,
-            timestamp: Date.now(),
-          },
-        ];
-      });
-    },
-    [activeSideChat, annotations],
-  );
+  const promoteAnnotation = useCallback((annotationId: number) => {
+    const annotation = (annotationsRef.current?.items ?? []).find((a) => a.id === annotationId);
+    const active = activeRef.current;
+    if (!annotation || !active) return;
+    setActiveCards((prev) => {
+      if (prev.some((card) => card.id === annotationId)) return prev;
+      return [
+        ...prev,
+        {
+          id: annotation.id,
+          itemKind: active.itemKind,
+          referenceCode: active.pinnedItem.referenceCode,
+          summary: annotation.summary,
+          body: annotation.body,
+          timestamp: Date.now(),
+        },
+      ];
+    });
+  }, []);
   const sideChatContextValue = useMemo(
     () => ({ openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint, promoteAnnotation }),
     [openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint, promoteAnnotation],
