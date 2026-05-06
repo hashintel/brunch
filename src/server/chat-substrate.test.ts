@@ -136,6 +136,31 @@ describe('chat container — head mirroring', () => {
   });
 });
 
+describe('chat container — head mirroring atomicity', () => {
+  it('rolls back the spec head if the interview chat row is missing', () => {
+    const spec = createSpecification(db, 'Test');
+    const t1 = createTurn(db, spec.id, { phase: 'grounding', question: 'Q1' });
+    advanceHead(db, spec.id, t1.id);
+    const t2 = createTurn(db, spec.id, {
+      phase: 'grounding',
+      question: 'Q2',
+      parent_turn_id: t1.id,
+    });
+
+    const reread = getSpecification(db, spec.id) as
+      | (typeof spec & { primary_chat_id: number | null })
+      | undefined;
+    db.$client.exec('PRAGMA foreign_keys = OFF');
+    db.$client.prepare('DELETE FROM chat WHERE id = ?').run(reread?.primary_chat_id);
+    db.$client.exec('PRAGMA foreign_keys = ON');
+
+    expect(() => advanceHead(db, spec.id, t2.id)).toThrow();
+
+    const after = getSpecification(db, spec.id);
+    expect(after?.active_turn_id).toBe(t1.id);
+  });
+});
+
 describe('chat container — read-path equivalence', () => {
   it('spec.active_turn_id equals spec.primary_chat → chat.active_turn_id', () => {
     const spec = createSpecification(db, 'Test');

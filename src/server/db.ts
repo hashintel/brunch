@@ -592,11 +592,21 @@ export function applyTurnResponseSelections(db: DB, turnId: number, selectedPosi
 
 export function advanceHead(db: DB, specificationId: number, turnId: number): void {
   const chatId = getInterviewChatIdForSpecification(db, specificationId);
-  db.update(schema.specification)
-    .set({ active_turn_id: turnId, updated_at: sql`datetime('now')` })
-    .where(eq(schema.specification.id, specificationId))
-    .run();
-  db.update(schema.chat).set({ active_turn_id: turnId }).where(eq(schema.chat.id, chatId)).run();
+  db.transaction((tx) => {
+    tx.update(schema.specification)
+      .set({ active_turn_id: turnId, updated_at: sql`datetime('now')` })
+      .where(eq(schema.specification.id, specificationId))
+      .run();
+    const updatedChat = tx
+      .update(schema.chat)
+      .set({ active_turn_id: turnId })
+      .where(eq(schema.chat.id, chatId))
+      .returning({ id: schema.chat.id })
+      .get();
+    if (!updatedChat) {
+      throw new Error(`Interview chat ${chatId} for spec ${specificationId} not found; head update aborted`);
+    }
+  });
   reconcilePhaseOutcomesForSpecification(db, specificationId);
 }
 

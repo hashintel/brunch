@@ -184,6 +184,7 @@ export const reconciliationNeed = sqliteTable(
     resolved_at: text(),
   },
   (table) => [
+    // Omits specification_id because knowledge_item.id is globally unique across specs.
     uniqueIndex('reconciliation_need_open_unique')
       .on(table.source_item_id, table.target_item_id, table.kind)
       .where(sql`status = 'open'`),
