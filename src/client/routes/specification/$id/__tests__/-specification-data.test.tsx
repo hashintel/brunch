@@ -193,11 +193,140 @@ describe('specification data ownership', () => {
         impact: 'high',
         answer: null,
         options: [
-          { id: 1, position: 0, content: 'Web', is_recommended: true, is_selected: false },
-          { id: 2, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+          { id: -1, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: -2, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
         ],
       }),
     );
+  });
+
+  it('patches an existing promoted turn in place without reordering the transcript', () => {
+    const existingState: SpecificationState = {
+      ...minimalSpecificationState,
+      specification: {
+        ...minimalSpecificationState.specification,
+        active_turn_id: 5,
+      },
+      turns: [
+        {
+          id: 3,
+          specification_id: 42,
+          parent_turn_id: null,
+          phase: 'grounding',
+          turn_kind: 'question',
+          question: 'Earlier question?',
+          why: null,
+          impact: 'low',
+          answer: null,
+          is_resolution: false,
+          user_parts: null,
+          assistant_parts: null,
+          created_at: '2026-04-30 09:00:00',
+          options: [],
+          captured_items: [],
+        },
+        {
+          id: 7,
+          specification_id: 42,
+          parent_turn_id: 5,
+          phase: 'grounding',
+          turn_kind: 'question',
+          question: '',
+          why: null,
+          impact: null,
+          answer: null,
+          is_resolution: false,
+          user_parts: null,
+          assistant_parts: null,
+          created_at: '2026-04-30 10:00:00',
+          options: [],
+          captured_items: [],
+        },
+        {
+          id: 9,
+          specification_id: 42,
+          parent_turn_id: 7,
+          phase: 'grounding',
+          turn_kind: 'question',
+          question: 'Later question?',
+          why: null,
+          impact: 'medium',
+          answer: null,
+          is_resolution: false,
+          user_parts: null,
+          assistant_parts: null,
+          created_at: '2026-04-30 11:00:00',
+          options: [],
+          captured_items: [],
+        },
+      ],
+    };
+    queryClient.setQueryData(specificationQueryKeys.bundle('42'), existingState);
+
+    promoteStreamedFrontierTurnToBundle(queryClient, '42', {
+      turnId: 7,
+      phase: 'grounding',
+      question: {
+        id: 'assistant:tool-1',
+        question: 'Which platform should we target next?',
+        why: 'Platform shapes the first build.',
+        impact: 'high',
+        options: [{ position: 0, content: 'Web', is_recommended: true }],
+      },
+    });
+
+    const patchedBundle = queryClient.getQueryData<SpecificationState>(specificationQueryKeys.bundle('42'));
+
+    expect(patchedBundle?.turns.map((turn) => turn.id)).toEqual([3, 7, 9]);
+    expect(patchedBundle?.turns[1]).toEqual(
+      expect.objectContaining({
+        id: 7,
+        parent_turn_id: 5,
+        question: 'Which platform should we target next?',
+      }),
+    );
+  });
+
+  it('uses streamed question text when an existing cached turn has a null question', () => {
+    const stateWithNullQuestion = {
+      ...minimalSpecificationState,
+      turns: [
+        {
+          id: 7,
+          specification_id: 42,
+          parent_turn_id: null,
+          phase: 'grounding',
+          turn_kind: 'question',
+          question: null,
+          why: null,
+          impact: null,
+          answer: null,
+          is_resolution: false,
+          user_parts: null,
+          assistant_parts: null,
+          created_at: '2026-04-30 10:00:00',
+          options: [],
+          captured_items: [],
+        },
+      ],
+    } as unknown as SpecificationState;
+    queryClient.setQueryData(specificationQueryKeys.bundle('42'), stateWithNullQuestion);
+
+    promoteStreamedFrontierTurnToBundle(queryClient, '42', {
+      turnId: 7,
+      phase: 'grounding',
+      question: {
+        id: 'assistant:tool-1',
+        question: 'Which platform should we target next?',
+        why: null,
+        impact: null,
+        options: [],
+      },
+    });
+
+    const patchedBundle = queryClient.getQueryData<SpecificationState>(specificationQueryKeys.bundle('42'));
+
+    expect(patchedBundle?.turns[0]?.question).toBe('Which platform should we target next?');
   });
 
   it('lets the normal bundle fetch reconcile a streamed question cache patch', () => {

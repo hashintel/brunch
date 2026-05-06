@@ -27,6 +27,7 @@ const nodeBuiltinModuleIds = new Set([
   ...builtinModules.map((moduleId) => `node:${moduleId}`),
 ]);
 const runtimeDependencyIds = Object.keys(packageJson.dependencies ?? {});
+const reactScanVersion = '0.5.6';
 
 const isRuntimeExternal = (moduleId: string) =>
   nodeBuiltinModuleIds.has(moduleId) ||
@@ -43,7 +44,7 @@ const reactScanDevPlugin = (): PluginOption => ({
         tag: 'script',
         attrs: {
           crossorigin: 'anonymous',
-          src: 'https://unpkg.com/react-scan/dist/auto.global.js',
+          src: `https://unpkg.com/react-scan@${reactScanVersion}/dist/auto.global.js`,
         },
         injectTo: 'head-prepend',
       },

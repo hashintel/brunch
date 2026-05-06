@@ -129,6 +129,8 @@ function createPatchedAssistantParts(question: StreamedFrontierQuestion, turnId:
   return JSON.stringify(parts);
 }
 
+const createClientOnlyTurnOptionId = (position: number) => -(position + 1);
+
 export function promoteStreamedFrontierTurnToBundle(
   client: QueryClient,
   specificationId: string,
@@ -156,7 +158,7 @@ export function promoteStreamedFrontierTurnToBundle(
       parent_turn_id: existingTurn?.parent_turn_id ?? current.specification.active_turn_id,
       phase: promotion.phase,
       turn_kind: existingTurn?.turn_kind ?? 'question',
-      question: existingTurn?.question.trim() ? existingTurn.question : promotion.question.question,
+      question: existingTurn?.question?.trim() ? existingTurn.question : promotion.question.question,
       why: existingTurn?.why ?? promotion.question.why,
       impact: existingTurn?.impact ?? promotion.question.impact,
       answer: existingTurn?.answer ?? null,
@@ -169,7 +171,7 @@ export function promoteStreamedFrontierTurnToBundle(
         existingTurn?.options && existingTurn.options.length > 0
           ? existingTurn.options
           : promotion.question.options.map((option) => ({
-              id: option.position + 1,
+              id: createClientOnlyTurnOptionId(option.position),
               position: option.position,
               content: option.content,
               is_recommended: option.is_recommended,
@@ -200,7 +202,9 @@ export function promoteStreamedFrontierTurnToBundle(
         phase: promotion.phase,
         turnId: promotion.turnId,
       },
-      turns: [...current.turns.filter((turn) => turn.id !== promotion.turnId), promotedTurn],
+      turns: existingTurn
+        ? current.turns.map((turn) => (turn.id === promotion.turnId ? promotedTurn : turn))
+        : [...current.turns, promotedTurn],
     };
   });
 }
