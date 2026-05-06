@@ -542,6 +542,36 @@ describe('SideChatPopover', () => {
     });
   });
 
+  describe('notes drawer header', () => {
+    it('shows a sticky "Notes (N)" header inside the drawer with a close button that collapses it', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          existingAnnotations={[
+            { id: 1, summary: 'first', body: '' },
+            { id: 2, summary: 'second', body: '' },
+          ]}
+        />,
+      );
+
+      // Drawer is collapsed initially — header is not visible.
+      expect(screen.queryByRole('button', { name: /hide notes/i })).toBeNull();
+
+      // Open the drawer via the toggle button next to the action row.
+      fireEvent.click(screen.getByRole('button', { name: /show existing notes/i }));
+
+      // Sticky header inside the drawer renders "Notes (2)" plus a close button.
+      const closeButton = screen.getByRole('button', { name: /hide notes/i });
+      expect(closeButton).toBeTruthy();
+      expect(closeButton.parentElement?.textContent).toContain('Notes (2)');
+
+      // Clicking the × in the header collapses the drawer (close button disappears).
+      fireEvent.click(closeButton);
+      expect(screen.queryByRole('button', { name: /hide notes/i })).toBeNull();
+    });
+  });
+
   describe('SideChatPopover — saved toast lifecycle', () => {
     beforeEach(() => {
       vi.useFakeTimers();

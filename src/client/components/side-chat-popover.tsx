@@ -456,32 +456,51 @@ export function SideChatPopover({
               </div>
               {notesOpen && existingAnnotations.length > 0 ? (
                 <div className="absolute right-0 bottom-full left-0 mb-2">
-                  <ul className="scrollbar-thin flex max-h-64 flex-col divide-y divide-[rgba(0,0,0,0.06)] overflow-y-auto rounded-md bg-white px-2 shadow-[0_8px_16px_-4px_rgba(0,0,0,0.08),0_4px_8px_-2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(0,0,0,0.08)]">
-                    {existingAnnotations.map((annotation) => {
-                      const hasBody = annotation.body && annotation.body !== annotation.summary;
-                      return (
-                        <li
-                          key={annotation.id}
-                          data-annotation-id={annotation.id}
-                          className="overflow-hidden text-xs text-ink"
-                        >
-                          {hasBody ? (
-                            <details className="group/note">
-                              <summary className="flex cursor-pointer list-none items-center gap-1 py-1.5 font-medium hover:text-ink">
-                                <span className="text-hint transition-transform group-open/note:rotate-90">
-                                  ›
-                                </span>
-                                <span className="flex-1">{annotation.summary}</span>
-                              </summary>
-                              <div className="pb-1.5 pl-3 text-sub">{annotation.body}</div>
-                            </details>
-                          ) : (
-                            <div className="py-1.5 font-medium">{annotation.summary}</div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  <div className="flex max-h-56 flex-col overflow-hidden rounded-md bg-white shadow-[0_8px_16px_-4px_rgba(0,0,0,0.08),0_4px_8px_-2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(0,0,0,0.08)]">
+                    <header className="flex items-center justify-between border-b border-[rgba(0,0,0,0.06)] bg-white/80 px-3 py-1.5 backdrop-blur">
+                      <span className="text-xxs font-medium tracking-wide text-sub uppercase">
+                        Notes ({existingAnnotations.length})
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Hide notes"
+                        onClick={() => setNotesOpen(false)}
+                        className="text-hint hover:text-ink"
+                      >
+                        ×
+                      </button>
+                    </header>
+                    <ul className="scrollbar-thin flex flex-col divide-y divide-[rgba(0,0,0,0.06)] overflow-y-auto px-2">
+                      {existingAnnotations.map((annotation) => {
+                        const hasBody = annotation.body && annotation.body !== annotation.summary;
+                        return (
+                          <li
+                            key={annotation.id}
+                            data-annotation-id={annotation.id}
+                            className="overflow-hidden text-xs text-ink hover:bg-[rgba(0,0,0,0.02)]"
+                          >
+                            {hasBody ? (
+                              <details className="group/note">
+                                <summary className="flex cursor-pointer list-none items-center gap-1 py-1 font-medium hover:text-ink">
+                                  <span className="shrink-0 text-hint transition-transform group-open/note:rotate-90">
+                                    ›
+                                  </span>
+                                  <span className="min-w-0 flex-1 truncate" title={annotation.summary}>
+                                    {annotation.summary}
+                                  </span>
+                                </summary>
+                                <div className="pb-1.5 pl-3 text-sub">{annotation.body}</div>
+                              </details>
+                            ) : (
+                              <div className="truncate py-1 font-medium" title={annotation.summary}>
+                                {annotation.summary}
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
                 </div>
               ) : null}
             </div>
