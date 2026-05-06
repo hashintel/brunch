@@ -67,6 +67,8 @@ export interface PatchListProviderProps {
 export function PatchListProvider({ appliers, children, idFactory, now }: PatchListProviderProps) {
   const [reducerState, dispatch] = useReducer(patchListReducer, initialPatchListState);
   const derivedState = useMemo(() => deriveState(reducerState), [reducerState]);
+  const reducerStateRef = useRef(reducerState);
+  reducerStateRef.current = reducerState;
 
   const applyInFlightRef = useRef(false);
 
@@ -93,7 +95,7 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
 
   const apply = useCallback(async (): Promise<void> => {
     if (applyInFlightRef.current) return;
-    const snapshot = deriveState(reducerState);
+    const snapshot = deriveState(reducerStateRef.current);
     if (snapshot.staged.length === 0 || snapshot.isApplying) {
       return;
     }
@@ -131,10 +133,10 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
     } finally {
       applyInFlightRef.current = false;
     }
-  }, [reducerState, appliers, newId]);
+  }, [appliers, newId]);
 
   const undo = useCallback(async (): Promise<void> => {
-    const pending = getPendingUndoHandle(reducerState);
+    const pending = getPendingUndoHandle(reducerStateRef.current);
     if (!pending) {
       return;
     }
@@ -144,7 +146,7 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
     } catch {
       // Best-effort undo per D132. Surface failures as toasts in a later card.
     }
-  }, [reducerState]);
+  }, []);
 
   const actions = useMemo<PatchListActions>(
     () => ({ stage, discard, editSummary, apply, undo }),

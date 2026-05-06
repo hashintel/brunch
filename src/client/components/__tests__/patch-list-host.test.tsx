@@ -112,6 +112,35 @@ describe('PatchListProvider — basic mount', () => {
     expect(typeof refs.current.actions?.apply).toBe('function');
     expect(typeof refs.current.actions?.undo).toBe('function');
   });
+
+  it('keeps action identities stable across reducer dispatches while reading latest state', async () => {
+    const refs = makeProbeRefs();
+    const { appliers, annotateMock, undoMock } = makeAppliers();
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+        <Probe refs={refs} />
+      </PatchListProvider>,
+    );
+
+    const initialActions = refs.current.actions;
+
+    act(() => {
+      refs.current.actions?.stage(makeAnnotateInput({ summary: 'latest staged patch' }));
+    });
+    expect(refs.current.actions).toBe(initialActions);
+
+    await act(async () => {
+      await refs.current.actions?.apply();
+    });
+    expect(annotateMock.mock.calls[0]?.[0].summary).toBe('latest staged patch');
+    expect(refs.current.actions).toBe(initialActions);
+
+    await act(async () => {
+      await refs.current.actions?.undo();
+    });
+    expect(undoMock).toHaveBeenCalledTimes(1);
+    expect(refs.current.actions).toBe(initialActions);
+  });
 });
 
 describe('stage / discard / editSummary', () => {
