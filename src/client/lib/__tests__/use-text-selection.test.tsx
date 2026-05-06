@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { act, cleanup, render, renderHook } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useTextSelection } from '../use-text-selection.js';
 
@@ -95,5 +95,47 @@ describe('useTextSelection', () => {
     });
 
     expect(result.current).toBeNull();
+  });
+
+  it('keeps the selection active without offsets when exact text lookup fails', () => {
+    render(
+      <div data-graph-row data-graph-row-ref="C1" data-item-kind="constraint" data-item-id="7">
+        <span data-annotatable>The quick brown fox jumps over the lazy dog.</span>
+      </div>,
+    );
+    const span = document.querySelector('[data-annotatable]')!;
+    const textNode = span.firstChild!;
+    const originalTextContent = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent');
+    Object.defineProperty(span, 'textContent', {
+      configurable: true,
+      value: 'The quick brown fox jumps over the lazy dog.',
+    });
+
+    const { result } = renderHook(() => useTextSelection('[data-annotatable]'));
+
+    act(() => {
+      const range = document.createRange();
+      range.setStart(textNode, 4);
+      range.setEnd(textNode, 19);
+      vi.spyOn(range, 'toString').mockReturnValue('quick   brown fox');
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      document.dispatchEvent(new Event('selectionchange'));
+    });
+
+    expect(result.current).not.toBeNull();
+    expect(result.current!.snapshot).toBe('quick   brown fox');
+    expect(result.current!.start).toBeNull();
+    expect(result.current!.end).toBeNull();
+    expect(result.current!.anchor).toEqual({
+      kind: 'constraint',
+      itemId: 7,
+      referenceCode: 'C1',
+    });
+
+    if (originalTextContent) {
+      Object.defineProperty(span, 'textContent', originalTextContent);
+    }
   });
 });

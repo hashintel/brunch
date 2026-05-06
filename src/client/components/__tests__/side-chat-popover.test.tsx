@@ -728,6 +728,52 @@ describe('SideChatPopover', () => {
       expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
     });
 
+    it('shows and re-arms the saved toast for consecutive applied batches while canUndo stays true', () => {
+      const { rerender } = render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo={false}
+          isApplying
+          stagedPatches={[]}
+          applyBatchId={null}
+        />,
+      );
+
+      rerender(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          stagedPatches={[]}
+          applyBatchId="batch-1"
+        />,
+      );
+      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+
+      rerender(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          stagedPatches={[]}
+          applyBatchId="batch-2"
+        />,
+      );
+
+      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+    });
+
     it('renders the toast as an absolute overlay inside the composer footer', () => {
       const { container, rerender } = render(
         <SideChatPopover
