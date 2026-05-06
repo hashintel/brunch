@@ -151,6 +151,8 @@ function writeStoredLayout(layout: 'docked' | 'floating'): void {
 
 interface ActiveCard {
   id: number;
+  itemKind: KnowledgeKind;
+  referenceCode: string;
   summary: string;
   body: string;
   timestamp: number;
@@ -265,7 +267,7 @@ export function SideChatHost({
     setActiveSideChat((current) => (current ? { ...current, annotateMode: false } : current));
   }, []);
 
-  const pushActiveCard = useCallback((card: { id: number; summary: string; body: string }) => {
+  const pushActiveCard = useCallback((card: Omit<ActiveCard, 'timestamp'>) => {
     setActiveCards((prev) =>
       prev.some((existing) => existing.id === card.id) ? prev : [...prev, { ...card, timestamp: Date.now() }],
     );
@@ -312,7 +314,7 @@ export function SideChatHost({
       });
 
       const activeAnnotations = activeCards.slice(-MAX_ACTIVE_ANNOTATIONS).map((card) => ({
-        referenceCode: session.pinnedItem.referenceCode,
+        referenceCode: card.referenceCode,
         snapshot: card.summary,
         body: card.body.length > 0 ? card.body : null,
       }));
@@ -441,19 +443,22 @@ export function SideChatHost({
   useEffect(() => {
     if (patchListState.lastBatchId === lastSeenBatchIdRef.current) return;
     lastSeenBatchIdRef.current = patchListState.lastBatchId;
+    if (!activeSideChat) return;
     for (const meta of lastBatchAppliedMeta) {
       if (meta.applied && typeof meta.applied === 'object' && 'id' in meta.applied) {
         const applied = meta.applied as { id: unknown; summary?: unknown; body?: unknown };
         if (typeof applied.id === 'number') {
           pushActiveCard({
             id: applied.id,
+            itemKind: activeSideChat.itemKind,
+            referenceCode: activeSideChat.pinnedItem.referenceCode,
             summary: typeof applied.summary === 'string' ? applied.summary : '',
             body: typeof applied.body === 'string' ? applied.body : '',
           });
         }
       }
     }
-  }, [patchListState.lastBatchId, lastBatchAppliedMeta, pushActiveCard]);
+  }, [activeSideChat, patchListState.lastBatchId, lastBatchAppliedMeta, pushActiveCard]);
 
   const activeItemId = activeSideChat?.itemId;
   const activeItemKind = activeSideChat?.itemKind;
@@ -510,13 +515,15 @@ export function SideChatHost({
   const promoteAnnotation = useCallback(
     (annotationId: number) => {
       const annotation = (annotations?.items ?? []).find((a) => a.id === annotationId);
-      if (!annotation) return;
+      if (!annotation || !activeSideChat) return;
       setActiveCards((prev) => {
         if (prev.some((card) => card.id === annotationId)) return prev;
         return [
           ...prev,
           {
             id: annotation.id,
+            itemKind: activeSideChat.itemKind,
+            referenceCode: activeSideChat.pinnedItem.referenceCode,
             summary: annotation.summary,
             body: annotation.body,
             timestamp: Date.now(),
@@ -524,7 +531,7 @@ export function SideChatHost({
         ];
       });
     },
-    [annotations],
+    [activeSideChat, annotations],
   );
   const sideChatContextValue = useMemo(
     () => ({ openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint, promoteAnnotation }),
@@ -552,8 +559,8 @@ export function SideChatHost({
             annotationId: card.id,
             summary: card.summary,
             body: card.body,
-            itemKind: activeSideChat.itemKind,
-            referenceCode: activeSideChat.pinnedItem.referenceCode,
+            itemKind: card.itemKind,
+            referenceCode: card.referenceCode,
             inContext,
             timestamp: card.timestamp,
           };
