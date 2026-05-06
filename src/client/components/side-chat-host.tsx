@@ -44,6 +44,7 @@ interface SideChatContextValue {
   activeCardIds: readonly number[];
   dismissCard: (annotationId: number) => void;
   clearSpanHint: () => void;
+  promoteAnnotation: (annotationId: number) => void;
 }
 
 const SideChatContext = createContext<SideChatContextValue | null>(null);
@@ -70,6 +71,13 @@ interface ActiveSideChat {
   // which also use Date.now().
   messageTimestamps: number[];
   annotateMode: boolean;
+}
+
+interface LoadedAnnotations {
+  itemKind: KnowledgeKind;
+  itemId: number;
+  batchId: string | null;
+  items: readonly CreatedAnnotation[];
 }
 
 function replacePendingText(messages: readonly SideChatMessage[], text: string): SideChatMessage[] {
@@ -194,11 +202,23 @@ export function SideChatHost({
 
   const openFor = useCallback(
     (item: SideChatPinnableItem) => {
+      const current = activeRef.current;
+      if (current && current.itemKind === item.kind && current.itemId === item.id) {
+        setActiveSideChat((active) =>
+          active && active.itemKind === item.kind && active.itemId === item.id
+            ? {
+                ...active,
+                pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
+              }
+            : active,
+        );
+        return;
+      }
+
       abortActiveStream();
       sessionCounterRef.current += 1;
-      // Single-pin scope: cards/hint stay only when reopening the same item. Switching to a
-      // different (kind, id) clears them so stale state doesn't leak across items.
-      const current = activeRef.current;
+      // Single-pin scope: switching to a different (kind, id) clears cards/hint so stale
+      // state doesn't leak across items. Reopening the same item focuses the existing session.
       if (!current || current.itemKind !== item.kind || current.itemId !== item.id) {
         setActiveCards([]);
         setPendingSpanHint(null);
@@ -254,10 +274,6 @@ export function SideChatHost({
     setActiveCards((prev) => prev.filter((card) => card.id !== annotationId));
   }, []);
   const activeCardIds: readonly number[] = activeCards.map((card) => card.id);
-  const sideChatContextValue = useMemo(
-    () => ({ openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint }),
-    [openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint],
-  );
 
   const submitMessage = useCallback(
     (message: string) => {
@@ -441,27 +457,48 @@ export function SideChatHost({
 
   const activeItemId = activeSideChat?.itemId;
   const activeItemKind = activeSideChat?.itemKind;
-  const [annotations, setAnnotations] = useState<readonly CreatedAnnotation[]>([]);
+  const [annotations, setAnnotations] = useState<LoadedAnnotations | null>(null);
   useEffect(() => {
     if (activeItemId === undefined || activeItemKind === undefined) {
-      setAnnotations([]);
+      setAnnotations(null);
       return;
     }
     let cancelled = false;
+    const batchId = patchListState.lastBatchId;
+    setAnnotations(null);
     void listAnnotationsForSpecificationRequest(specificationId)
       .then((list) => {
-        if (!cancelled) setAnnotations(list);
+        if (!cancelled) {
+          setAnnotations({ itemKind: activeItemKind, itemId: activeItemId, batchId, items: list });
+        }
       })
       .catch(() => {
-        if (!cancelled) setAnnotations([]);
+        if (!cancelled) setAnnotations(null);
       });
     return () => {
       cancelled = true;
     };
   }, [activeItemId, activeItemKind, specificationId, patchListState.lastBatchId]);
 
+  useEffect(() => {
+    if (activeItemId === undefined || annotations === null) return;
+    if (
+      annotations.itemId !== activeItemId ||
+      annotations.itemKind !== activeItemKind ||
+      annotations.batchId !== patchListState.lastBatchId
+    ) {
+      return;
+    }
+    const annotationIdsForActiveItem = new Set(
+      annotations.items
+        .filter((annotation) => annotation.knowledge_item_id === activeItemId)
+        .map((annotation) => annotation.id),
+    );
+    setActiveCards((prev) => prev.filter((card) => annotationIdsForActiveItem.has(card.id)));
+  }, [activeItemId, activeItemKind, annotations, patchListState.lastBatchId]);
+
   const existingAnnotations: readonly SideChatExistingAnnotation[] = activeSideChat
-    ? annotations
+    ? (annotations?.items ?? [])
         .filter((annotation) => annotation.knowledge_item_id === activeSideChat.itemId)
         .map((annotation) => ({
           id: annotation.id,
@@ -469,6 +506,30 @@ export function SideChatHost({
           body: annotation.body,
         }))
     : [];
+
+  const promoteAnnotation = useCallback(
+    (annotationId: number) => {
+      const annotation = (annotations?.items ?? []).find((a) => a.id === annotationId);
+      if (!annotation) return;
+      setActiveCards((prev) => {
+        if (prev.some((card) => card.id === annotationId)) return prev;
+        return [
+          ...prev,
+          {
+            id: annotation.id,
+            summary: annotation.summary,
+            body: annotation.body,
+            timestamp: Date.now(),
+          },
+        ];
+      });
+    },
+    [annotations],
+  );
+  const sideChatContextValue = useMemo(
+    () => ({ openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint, promoteAnnotation }),
+    [openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint, promoteAnnotation],
+  );
 
   const threadItems: readonly SideChatThreadItem[] = activeSideChat
     ? (() => {
@@ -530,6 +591,8 @@ export function SideChatHost({
           onUndo={patchList?.undo}
           onDiscardPatch={patchList?.discard}
           existingAnnotations={existingAnnotations}
+          onPromoteAnnotation={promoteAnnotation}
+          activeAnnotationIds={activeCardIds}
           layout={layout}
           onLayoutChange={setLayout}
           spanHint={pendingSpanHint}
