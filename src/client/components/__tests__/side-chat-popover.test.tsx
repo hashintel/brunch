@@ -572,6 +572,58 @@ describe('SideChatPopover', () => {
     });
   });
 
+  describe('notes drawer promote-from-drawer affordance', () => {
+    it('clicking the + button on a drawer item fires onPromoteAnnotation with the right id', () => {
+      const onPromoteAnnotation = vi.fn();
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          existingAnnotations={[
+            { id: 11, summary: 'first', body: '' },
+            { id: 22, summary: 'second', body: '' },
+          ]}
+          onPromoteAnnotation={onPromoteAnnotation}
+        />,
+      );
+
+      // Open the drawer.
+      fireEvent.click(screen.getByRole('button', { name: /show existing notes/i }));
+
+      // Click the + button on the first item.
+      fireEvent.click(screen.getByRole('button', { name: /add first to chat context/i }));
+      expect(onPromoteAnnotation).toHaveBeenCalledTimes(1);
+      expect(onPromoteAnnotation).toHaveBeenCalledWith(11);
+    });
+
+    it('renders the in-context indicator (no + button) when activeAnnotationIds includes the id', () => {
+      const onPromoteAnnotation = vi.fn();
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          existingAnnotations={[
+            { id: 11, summary: 'first', body: '' },
+            { id: 22, summary: 'second', body: '' },
+          ]}
+          activeAnnotationIds={[11]}
+          onPromoteAnnotation={onPromoteAnnotation}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /show existing notes/i }));
+
+      // 'first' is already in context — no + button for it; the second item still has one.
+      expect(screen.queryByRole('button', { name: /add first to chat context/i })).toBeNull();
+      expect(screen.getByRole('button', { name: /add second to chat context/i })).toBeTruthy();
+
+      // The "Already in chat context" indicator appears on the first row.
+      const firstRow = screen.getByText('first').closest('[data-annotation-id]') as HTMLElement | null;
+      expect(firstRow).not.toBeNull();
+      expect(firstRow!.querySelector('[title="Already in chat context"]')).not.toBeNull();
+    });
+  });
+
   describe('SideChatPopover — saved toast lifecycle', () => {
     beforeEach(() => {
       vi.useFakeTimers();

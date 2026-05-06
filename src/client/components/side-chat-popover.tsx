@@ -117,6 +117,9 @@ export interface SideChatPopoverProps {
   onDiscardPatch?: (id: string) => void;
   // ---- Existing annotations on the pinned item ----
   existingAnnotations?: readonly SideChatExistingAnnotation[];
+  // ---- Promote-from-drawer (deferred §8 from the design spec) ----
+  onPromoteAnnotation?: (annotationId: number) => void;
+  activeAnnotationIds?: readonly number[];
   // ---- Layout (docked = full-height right; floating = Gmail-style bottom-right) ----
   layout?: 'docked' | 'floating';
   onLayoutChange?: (layout: 'docked' | 'floating') => void;
@@ -142,6 +145,8 @@ export function SideChatPopover({
   onUndo,
   onDiscardPatch,
   existingAnnotations = [],
+  onPromoteAnnotation,
+  activeAnnotationIds,
   layout = 'docked',
   onLayoutChange,
   spanHint = null,
@@ -480,14 +485,32 @@ export function SideChatPopover({
                         ×
                       </button>
                     </header>
-                    <ul className="scrollbar-thin flex flex-col divide-y divide-[rgba(0,0,0,0.06)] overflow-y-auto px-2">
+                    <ul className="scrollbar-thin flex flex-1 flex-col divide-y divide-dotted divide-[rgba(0,0,0,0.08)] overflow-x-hidden overflow-y-auto overscroll-contain px-2">
                       {existingAnnotations.map((annotation) => {
                         const hasBody = annotation.body && annotation.body !== annotation.summary;
+                        const isActive = (activeAnnotationIds ?? []).includes(annotation.id);
+                        const actionSlot = isActive ? (
+                          <span
+                            className="inline-flex shrink-0 items-center gap-0.5 text-[10px] text-hint"
+                            title="Already in chat context"
+                          >
+                            <Check className="size-3" aria-hidden />
+                          </span>
+                        ) : onPromoteAnnotation ? (
+                          <button
+                            type="button"
+                            aria-label={`Add ${annotation.summary} to chat context`}
+                            onClick={() => onPromoteAnnotation(annotation.id)}
+                            className="inline-flex size-5 shrink-0 items-center justify-center rounded text-hint opacity-0 transition-opacity group-hover/note-item:opacity-100 hover:bg-[rgba(0,0,0,0.04)] hover:text-ink focus-visible:opacity-100"
+                          >
+                            <Plus className="size-3" aria-hidden />
+                          </button>
+                        ) : null;
                         return (
                           <li
                             key={annotation.id}
                             data-annotation-id={annotation.id}
-                            className="overflow-hidden text-xs text-ink hover:bg-[rgba(0,0,0,0.02)]"
+                            className="group/note-item overflow-hidden text-xs text-ink hover:bg-[rgba(0,0,0,0.02)]"
                           >
                             {hasBody ? (
                               <details className="group/note">
@@ -498,12 +521,19 @@ export function SideChatPopover({
                                   <span className="min-w-0 flex-1 truncate" title={annotation.summary}>
                                     {annotation.summary}
                                   </span>
+                                  {actionSlot}
                                 </summary>
                                 <div className="pb-1.5 pl-3 text-sub">{annotation.body}</div>
                               </details>
                             ) : (
-                              <div className="truncate py-1 font-medium" title={annotation.summary}>
-                                {annotation.summary}
+                              <div className="flex items-center gap-1">
+                                <span
+                                  className="min-w-0 flex-1 truncate py-1 font-medium"
+                                  title={annotation.summary}
+                                >
+                                  {annotation.summary}
+                                </span>
+                                {actionSlot}
                               </div>
                             )}
                           </li>

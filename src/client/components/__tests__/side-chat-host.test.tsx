@@ -3,14 +3,27 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 
+import type { CreatedAnnotation } from '@/client/lib/annotation-api.js';
 import { streamSideChatResponse } from '@/client/lib/side-chat-stream.js';
 
 import { PatchListProvider, type PatchAppliers } from '../patch-list-host.js';
 import { SideChatHost, useSideChat, type SideChatPinnableItem } from '../side-chat-host.js';
 
+const { mockListAnnotationsForSpecificationRequest } = vi.hoisted(() => ({
+  mockListAnnotationsForSpecificationRequest: vi.fn(),
+}));
+
 vi.mock('@/client/lib/side-chat-stream.js', () => ({
   streamSideChatResponse: vi.fn(() => Promise.resolve()),
 }));
+
+vi.mock('@/client/lib/annotation-api.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/client/lib/annotation-api.js')>();
+  return {
+    ...actual,
+    listAnnotationsForSpecificationRequest: mockListAnnotationsForSpecificationRequest,
+  };
+});
 
 afterEach(() => {
   cleanup();
@@ -53,6 +66,8 @@ let consoleErrorSpy: MockInstance;
 beforeEach(() => {
   // Suppress expected error logging for promise-rejection tests below.
   consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  mockListAnnotationsForSpecificationRequest.mockReset();
+  mockListAnnotationsForSpecificationRequest.mockRejectedValue(new Error('annotation list not stubbed'));
 });
 
 afterEach(() => {
@@ -415,6 +430,37 @@ describe('SideChatHost thread interleaving', () => {
 });
 
 describe('SideChatHost dismiss/reopen state isolation', () => {
+  it('keeps the existing thread when reopening the already-active item', async () => {
+    const { appliers } = makeAppliers();
+
+    function Probe() {
+      const sideChat = useSideChat();
+      return (
+        <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
+          open
+        </button>
+      );
+    }
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open'));
+    const textarea = await screen.findByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'keep this thread' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    await screen.findByText('keep this thread');
+    fireEvent.click(screen.getByText('open'));
+
+    expect(screen.getByText('keep this thread')).toBeTruthy();
+  });
+
   it('clears active cards when the side-chat is dismissed and reopened for the same item', async () => {
     const { appliers, annotateMock } = makeAppliers();
     annotateMock.mockImplementation(() =>
@@ -597,6 +643,72 @@ describe('SideChatHost span hints', () => {
 });
 
 describe('SideChatHost active annotations payload', () => {
+  it('drops active cards after undo when the refreshed annotation list no longer contains them', async () => {
+    const createdAnnotation: CreatedAnnotation = {
+      id: 401,
+      specification_id: 1,
+      knowledge_item_id: samplePinnable.id,
+      summary: 'undo me',
+      body: 'stale body',
+      selection_start: null,
+      selection_end: null,
+      created_at: '2026-05-05T00:00:00.000Z',
+    };
+    let annotationList: CreatedAnnotation[] = [];
+    mockListAnnotationsForSpecificationRequest.mockImplementation(() => Promise.resolve(annotationList));
+
+    const { appliers, annotateMock } = makeAppliers();
+    annotateMock.mockImplementation(() => {
+      annotationList = [createdAnnotation];
+      return Promise.resolve({
+        undo: () => {
+          annotationList = [];
+          return Promise.resolve();
+        },
+        applied: {
+          id: createdAnnotation.id,
+          summary: createdAnnotation.summary,
+          body: createdAnnotation.body,
+        },
+      });
+    });
+
+    function Probe() {
+      const sideChat = useSideChat();
+      return (
+        <div>
+          <span data-testid="ids">{sideChat?.activeCardIds.join(',') ?? ''}</span>
+          <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
+            open
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open'));
+    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'undo me' } });
+    fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'stale body' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    });
+
+    await screen.findByText('401', { selector: '[data-testid="ids"]' });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
+    });
+
+    await vi.waitFor(() => expect(screen.getByTestId('ids').textContent).toBe(''));
+  });
+
   it('sends only the 8 most-recent active annotations in the stream payload, with older ones marked not in context', async () => {
     const streamMock = vi.mocked(streamSideChatResponse);
     streamMock.mockClear();
@@ -723,5 +835,59 @@ describe('SideChatHost span-hint chip', () => {
     await vi.waitFor(() => expect(streamMock).toHaveBeenCalled());
     const [requestArg] = streamMock.mock.calls.at(-1)!;
     expect(requestArg).not.toHaveProperty('spanHint');
+  });
+});
+
+describe('SideChatHost promote annotation', () => {
+  it('promoteAnnotation pushes the annotation onto activeCardIds', async () => {
+    const inertAnnotation: CreatedAnnotation = {
+      id: 555,
+      specification_id: 1,
+      knowledge_item_id: samplePinnable.id,
+      summary: 'inert summary',
+      body: 'inert body',
+      selection_start: null,
+      selection_end: null,
+      created_at: new Date().toISOString(),
+    };
+    mockListAnnotationsForSpecificationRequest.mockReset();
+    mockListAnnotationsForSpecificationRequest.mockResolvedValue([inertAnnotation]);
+
+    const { appliers } = makeAppliers();
+
+    function Probe() {
+      const sideChat = useSideChat();
+      return (
+        <div>
+          <span data-testid="ids">{sideChat?.activeCardIds.join(',') ?? ''}</span>
+          <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
+            open
+          </button>
+          <button type="button" onClick={() => sideChat?.promoteAnnotation(555)}>
+            promote
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open'));
+    // Wait for the annotations list effect to populate provider state.
+    await vi.waitFor(() =>
+      expect(screen.getByRole('button', { name: /show existing notes/i }).textContent).toContain('1'),
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('promote'));
+    });
+
+    await screen.findByText('555', { selector: '[data-testid="ids"]' });
   });
 });
