@@ -709,6 +709,67 @@ describe('SideChatHost active annotations payload', () => {
     await vi.waitFor(() => expect(screen.getByTestId('ids').textContent).toBe(''));
   });
 
+  it('uses each active card reference code instead of the current pinned item reference code', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+
+    const { appliers, annotateMock } = makeAppliers();
+    annotateMock.mockImplementation((patch) =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { id: 501, summary: patch.summary, body: patch.body },
+      }),
+    );
+
+    const renumberedPinnable: SideChatPinnableItem = {
+      ...samplePinnable,
+      referenceCode: 'D99',
+    };
+
+    function Probe() {
+      const sideChat = useSideChat();
+      return (
+        <div>
+          <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
+            open-original
+          </button>
+          <button type="button" onClick={() => sideChat?.openFor(renumberedPinnable)}>
+            open-renumbered
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-original'));
+    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sticky ref' } });
+    fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    });
+
+    await screen.findByText('«sticky ref»', { selector: '[data-thread-item="card"] *' });
+    fireEvent.click(screen.getByText('open-renumbered'));
+
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'go' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    await vi.waitFor(() => expect(streamMock).toHaveBeenCalled());
+    const [requestArg] = streamMock.mock.calls.at(-1)!;
+    expect(requestArg.activeAnnotations).toEqual([
+      { referenceCode: 'D7', snapshot: 'sticky ref', body: 'body' },
+    ]);
+  });
+
   it('sends only the 8 most-recent active annotations in the stream payload, with older ones marked not in context', async () => {
     const streamMock = vi.mocked(streamSideChatResponse);
     streamMock.mockClear();
