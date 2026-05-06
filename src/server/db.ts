@@ -116,8 +116,7 @@ export function getOrCreateSpecification(db: DB, name = 'default'): Specificatio
     .limit(1)
     .get();
   if (existing) return existing as Specification;
-  const result = db.insert(schema.specification).values({ name }).returning().get();
-  return result as Specification;
+  return insertSpecificationWithInterviewChat(db, { name });
 }
 
 export function listSpecifications(db: DB): Specification[] {
@@ -137,15 +136,43 @@ export function createSpecification(
   name: string,
   options?: CreateSpecificationOptions,
 ): Specification {
-  const result = db
-    .insert(schema.specification)
-    .values({
-      name,
-      ...(options?.mode ? { mode: options.mode } : {}),
-    })
-    .returning()
+  return insertSpecificationWithInterviewChat(db, {
+    name,
+    ...(options?.mode ? { mode: options.mode } : {}),
+  });
+}
+
+function insertSpecificationWithInterviewChat(
+  db: DB,
+  values: { name: string; mode?: SpecificationMode },
+): Specification {
+  return db.transaction((tx) => {
+    const inserted = tx.insert(schema.specification).values(values).returning().get() as Specification;
+    const chatRow = tx
+      .insert(schema.chat)
+      .values({ specification_id: inserted.id, kind: 'interview' })
+      .returning({ id: schema.chat.id })
+      .get();
+    const updated = tx
+      .update(schema.specification)
+      .set({ primary_chat_id: chatRow.id })
+      .where(eq(schema.specification.id, inserted.id))
+      .returning()
+      .get();
+    return updated as Specification;
+  });
+}
+
+function getInterviewChatIdForSpecification(db: DB, specificationId: number): number {
+  const spec = db
+    .select({ primary_chat_id: schema.specification.primary_chat_id })
+    .from(schema.specification)
+    .where(eq(schema.specification.id, specificationId))
     .get();
-  return result as Specification;
+  if (!spec?.primary_chat_id) {
+    throw new Error(`Specification ${specificationId} has no primary_chat_id; substrate invariant violated`);
+  }
+  return spec.primary_chat_id;
 }
 
 export function getSpecification(db: DB, id: number): Specification | undefined {
@@ -159,10 +186,30 @@ export function getTurn(db: DB, turnId: number): Turn | undefined {
 }
 
 export function createTurn(db: DB, specificationId: number, input: CreateTurnInput): Turn {
+  const chatId = getInterviewChatIdForSpecification(db, specificationId);
+
+  if (input.parent_turn_id != null) {
+    const parent = db
+      .select({ chat_id: schema.turn.chat_id })
+      .from(schema.turn)
+      .where(eq(schema.turn.id, input.parent_turn_id))
+      .get();
+    if (!parent) {
+      throw new Error(`Parent turn ${input.parent_turn_id} not found`);
+    }
+    if (parent.chat_id !== chatId) {
+      throw new Error(
+        `Parent turn ${input.parent_turn_id} lives in chat ${parent.chat_id}, ` +
+          `not chat ${chatId} — parent_turn_id must share chat_id with the new turn`,
+      );
+    }
+  }
+
   const result = db
     .insert(schema.turn)
     .values({
       specification_id: specificationId,
+      chat_id: chatId,
       parent_turn_id: input.parent_turn_id ?? null,
       phase: input.phase,
       turn_kind: input.turn_kind ?? 'question',
@@ -542,10 +589,12 @@ export function applyTurnResponseSelections(db: DB, turnId: number, selectedPosi
 }
 
 export function advanceHead(db: DB, specificationId: number, turnId: number): void {
+  const chatId = getInterviewChatIdForSpecification(db, specificationId);
   db.update(schema.specification)
     .set({ active_turn_id: turnId, updated_at: sql`datetime('now')` })
     .where(eq(schema.specification.id, specificationId))
     .run();
+  db.update(schema.chat).set({ active_turn_id: turnId }).where(eq(schema.chat.id, chatId)).run();
   reconcilePhaseOutcomesForSpecification(db, specificationId);
 }
 

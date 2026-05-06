@@ -10,10 +10,23 @@ export const specification = sqliteTable('specification', {
     .notNull()
     .default('greenfield'),
   active_turn_id: integer(),
+  primary_chat_id: integer().references((): any => chat.id),
   created_at: text()
     .notNull()
     .default(sql`(datetime('now'))`),
   updated_at: text()
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+export const chat = sqliteTable('chat', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  specification_id: integer()
+    .notNull()
+    .references(() => specification.id),
+  kind: text({ enum: ['interview', 'side_chat'] }).notNull(),
+  active_turn_id: integer().references((): any => turn.id),
+  created_at: text()
     .notNull()
     .default(sql`(datetime('now'))`),
 });
@@ -23,6 +36,7 @@ export const turn = sqliteTable('turn', {
   specification_id: integer()
     .notNull()
     .references(() => specification.id),
+  chat_id: integer().references((): any => chat.id),
   parent_turn_id: integer().references((): any => turn.id),
   phase: text({ enum: ['grounding', 'design', 'requirements', 'criteria'] }).notNull(),
   turn_kind: text({ enum: ['question', 'kickoff', 'recovery'] })
