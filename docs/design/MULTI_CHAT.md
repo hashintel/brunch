@@ -116,20 +116,28 @@ Two new tables, one repointed FK, one column moved, one column added on spec. Na
 ### 3.1 `chat` (new)
 
 ```ts
-export const chat = sqliteTable('chat', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  specification_id: integer()
-    .notNull()
-    .references(() => specification.id),
-  kind: text({ enum: ['interview', 'side_chat'] }).notNull(),
-  active_turn_id: integer().references((): any => turn.id),
-  created_at: text().notNull().default(sql`(datetime('now'))`),
-});
+export const chat = sqliteTable(
+  'chat',
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    specification_id: integer()
+      .notNull()
+      .references(() => specification.id),
+    kind: text({ enum: ['interview', 'side_chat'] }).notNull(),
+    active_turn_id: integer().references((): any => turn.id),
+    created_at: text().notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    uniqueIndex('chat_interview_one_per_spec')
+      .on(table.specification_id)
+      .where(sql`kind = 'interview'`),
+  ],
+);
 ```
 
 - `kind` distinguishes the canonical interview chat (one per spec, today) from side-chats (zero or more per spec). Future kinds (`architect`, `revisit`, …) extend this enum.
 - `active_turn_id` moves off `specification` and onto `chat`. Each chat has its own head.
-- A spec invariant emerges: every spec has exactly one `chat` with `kind = 'interview'`. See §3.4.
+- A spec invariant emerges: every spec has exactly one `chat` with `kind = 'interview'`. The partial unique index enforces *at most one* interview chat per spec; spec creation and migration code enforce *at least one* by creating the spec and its interview chat in one transactional unit and setting `specification.primary_chat_id`.
 
 ### 3.2 `turn` (changed)
 
@@ -202,6 +210,7 @@ export const reconciliationEdge = sqliteTable(
 ```
 
 - **Directional.** `source` is the item whose change *triggered* the issue; `target` is the item that may now need attention. The pair (`source`, `target`, `kind`) is the issue identity.
+- **Spec-local.** `specification_id`, `source_item_id`, and `target_item_id` must all point into the same spec. SQLite only enforces the direct FKs shown above, so insertion and migration code must validate `source.specification_id = target.specification_id = reconciliation_edge.specification_id` before writing.
 - **Kinds.** Two ship at Phase 1:
   - `supersedes` — the source change replaces or invalidates information the target depends on; target needs to be re-derived or marked stale.
   - `needs_confirmation` — the source change *might* affect target but the system can't decide deterministically; a human or agent has to look.
@@ -302,6 +311,8 @@ Code changes paired with migrations:
 
 Migration steps 4 and 5 use SQLite's table-recreate dance because column drops aren't direct. We can collapse these with the earlier migrations once their data has been verified in production; preserving them as separate steps keeps each migration small enough to roll back.
 
+The recreate-and-copy steps must preserve the FK graph, not just the column data. `turn.id` and `specification.id` stay stable while rebuilding the tables, and the replacement tables must recreate every surviving FK/index that references them (`turn.parent_turn_id`, `chat.active_turn_id`, `option.turn_id`, `phase_outcome.proposal_turn_id`, `phase_outcome.confirmation_turn_id`, `turn_knowledge_item.turn_id`, and `specification.primary_chat_id`). Each step runs inside a transaction with a pre/post `PRAGMA foreign_key_check` so transient FK breakage is caught before the migration commits.
+
 No data loss. Every existing turn lands inside the interview chat of its spec; every existing `specification.active_turn_id` becomes the interview chat's `active_turn_id`. `phase_outcome`, `option`, `knowledge_item`, `turn_knowledge_item`, `knowledge_edge`, `annotation` are untouched.
 
 ## 7. Out of scope (acknowledged adjacents)
@@ -321,8 +332,8 @@ Substrate change. Coverage is migration-and-FK shaped, not user-flow shaped:
 | Loop | Coverage |
 |---|---|
 | **Schema migration tests** | Forward migration produces one `chat` per spec; every existing turn has a matching `chat_id`; every spec has a matching `primary_chat_id`; chat's `active_turn_id` matches old spec's. Idempotent on re-run. |
-| **FK integrity tests** | Inserting a turn with a `chat_id` whose chat belongs to a different spec is rejected at the application layer (DB enforces only direct FK). Parent / child turns must share `chat_id` (application-layer assertion). |
-| **Reconciliation lifecycle tests** | Opening a duplicate `(source, target, kind)` while one is `open` is rejected. Resolving and re-opening with the same triple is allowed. Cascade-delete on `knowledge_item.id` removes both knowledge edges and reconciliation edges. |
+| **FK integrity tests** | Inserting a turn with a `chat_id` whose chat belongs to a different spec is rejected at the application layer (DB enforces only direct FK). Parent / child turns must share `chat_id` (application-layer assertion). SQLite table-recreate migrations preserve and revalidate all surviving turn/spec FKs. |
+| **Reconciliation lifecycle tests** | Opening a duplicate `(source, target, kind)` while one is `open` is rejected. Resolving and re-opening with the same triple is allowed. Cross-spec source/target pairs are rejected at the application layer. Cascade-delete on `knowledge_item.id` removes both knowledge edges and reconciliation edges. |
 | **Read-path regression** | `specification → primary_chat_id → active_turn_id` returns the same turn id that `specification.active_turn_id` did pre-migration on a fixture set. |
 | **Existing turn-knowledge-item provenance** | Survives migration unchanged. Every `turn_knowledge_item` row continues to point to a valid turn. |
 
