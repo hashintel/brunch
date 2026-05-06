@@ -578,7 +578,7 @@ export function SideChatPopover({
                   <div
                     role="status"
                     aria-label="Annotation saved"
-                    className="pointer-events-none absolute top-1/2 left-1/2 inline-flex h-6 -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-md bg-wash/40 px-2 text-xs"
+                    className="pointer-events-none absolute top-1/2 right-9 left-9 flex h-6 -translate-y-1/2 items-center justify-between gap-2 rounded-md bg-wash/40 px-2 text-xs"
                   >
                     <span className="inline-flex items-center gap-1 font-medium text-ink">
                       <Check className="size-3" aria-hidden />
