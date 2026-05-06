@@ -417,7 +417,7 @@ export function ActiveQuestionCard({
   const canSubmit = isFreeTextOnly
     ? hasFreeText
     : isGrounding
-      ? hasSelection || (noneOfTheAbove && hasFreeText)
+      ? hasFreeText || hasSelection
       : hasSelection || (noneOfTheAbove && hasFreeText);
   const isSubmitted = state === 'submitted';
   const isReadOnly = disabled || hasPersistedResponse || isSubmitted;

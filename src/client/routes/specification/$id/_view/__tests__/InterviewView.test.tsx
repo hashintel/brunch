@@ -4360,7 +4360,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace();
+    renderWorkspace('grounding');
 
     expect(((await screen.findByRole('button', { name: 'Submit' })) as HTMLButtonElement).disabled).toBe(
       true,
@@ -4386,6 +4386,52 @@ describe('InterviewView', () => {
     await waitFor(() => {
       expect(routerInvalidate).toHaveBeenCalledTimes(1);
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Desktop' });
+    });
+  });
+
+  it('posts grounding free-text responses when options are present', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace('grounding');
+
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'Something more bespoke' },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/specifications/1/turns/1/response',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'free-text',
+            freeText: 'Something more bespoke',
+          }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Something more bespoke' });
     });
   });
 
