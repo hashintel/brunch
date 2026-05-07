@@ -1,6 +1,15 @@
 import { useLocation, useNavigate } from '@tanstack/react-router';
-import { ArrowDownLeft, ArrowUpRight, ChevronRight, MessageCircle } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { ArrowDownLeft, ArrowUpRight, ChevronRight, MessageCircle, Pencil } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { flushSync } from 'react-dom';
 
 import { kindColor, kindTextColor } from '@/client/components/knowledge-card';
@@ -437,7 +446,15 @@ function EmptyStateCard({
   );
 }
 
-function ItemActionRail({ item }: { item: KnowledgeItemSummary }) {
+function ItemActionRail({
+  item,
+  onStartEdit,
+  editDisabled,
+}: {
+  item: KnowledgeItemSummary;
+  onStartEdit?: (() => void) | undefined;
+  editDisabled?: boolean;
+}) {
   const sideChat = useSideChat();
   const isActive = sideChat !== null;
   const handleClick = isActive
@@ -449,11 +466,26 @@ function ItemActionRail({ item }: { item: KnowledgeItemSummary }) {
           content: item.content,
         })
     : undefined;
+  const editEnabled = Boolean(onStartEdit) && !editDisabled;
   return (
     <div
       data-graph-action-rail
       className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100"
     >
+      <button
+        type="button"
+        data-graph-action="edit"
+        disabled={!editEnabled}
+        aria-label="Edit this item"
+        onClick={editEnabled ? onStartEdit : undefined}
+        className={
+          editEnabled
+            ? 'flex size-6 items-center justify-center rounded text-hint hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30'
+            : 'flex size-6 items-center justify-center rounded text-hint opacity-40'
+        }
+      >
+        <Pencil className="size-3.5" />
+      </button>
       <button
         type="button"
         data-graph-action="chat-with"
@@ -472,6 +504,68 @@ function ItemActionRail({ item }: { item: KnowledgeItemSummary }) {
   );
 }
 
+function ItemEditTextarea({
+  initialContent,
+  onSave,
+  onCancel,
+}: {
+  initialContent: string;
+  onSave: (next: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initialContent);
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const ta = ref.current;
+    if (!ta) return;
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }, []);
+
+  // Autosize: grow textarea to fit content so the row doesn't gain a scrollbar
+  // for typical single-line edits.
+  useLayoutEffect(() => {
+    const ta = ref.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = `${ta.scrollHeight}px`;
+  }, [value]);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onCancel();
+      return;
+    }
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      const trimmed = value.trim();
+      if (trimmed.length > 0 && trimmed !== initialContent) onSave(trimmed);
+      else onCancel();
+    }
+  };
+
+  const handleBlur = () => {
+    const trimmed = value.trim();
+    if (trimmed.length > 0 && trimmed !== initialContent) onSave(trimmed);
+    else onCancel();
+  };
+
+  return (
+    <textarea
+      ref={ref}
+      data-graph-row-edit-textarea
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onKeyDown={handleKeyDown}
+      onBlur={handleBlur}
+      rows={1}
+      className="w-full resize-none rounded border border-rule bg-background px-2 py-1 text-sm text-ink outline-none focus:ring-2 focus:ring-foreground/30"
+    />
+  );
+}
+
 function ItemRow({
   item,
   outgoing,
@@ -479,6 +573,11 @@ function ItemRow({
   anchored,
   defaultOpen = true,
   kindAnchor,
+  isEditing,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  editDisabled,
 }: {
   item: KnowledgeItemSummary;
   outgoing: DirectedEdge[];
@@ -486,6 +585,11 @@ function ItemRow({
   anchored: boolean;
   defaultOpen?: boolean;
   kindAnchor: KnowledgeKind | null;
+  isEditing: boolean;
+  onStartEdit: () => void;
+  onSaveEdit: (next: string) => void;
+  onCancelEdit: () => void;
+  editDisabled: boolean;
 }) {
   const hasExpansion = Boolean(item.rationale) || outgoing.length > 0 || incoming.length > 0;
 
@@ -498,22 +602,29 @@ function ItemRow({
         data-item-id={item.id}
         data-graph-kind-anchor={kindAnchor ?? undefined}
         data-graph-row-anchored={anchored ? 'true' : undefined}
+        data-graph-row-editing={isEditing ? 'true' : undefined}
         className={`group/row overflow-hidden rounded-xl border bg-background shadow-[var(--shadow-card)] transition-all duration-700 ${anchored ? `animate-in border-current/50 ring-2 ring-current/30 duration-300 fade-in ${kindTextColor[item.kind]}` : 'border-rule'}`}
       >
         <div className="flex items-baseline justify-between gap-2 p-3">
-          <div className="flex items-baseline gap-2">
+          <div className="flex min-w-0 flex-1 items-baseline gap-2">
             <span
               data-graph-row-reference
               className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 font-mono text-xs font-medium ${kindColor[item.kind]}`}
             >
               {item.referenceCode}
             </span>
-            <p className="text-sm text-ink" data-annotatable>
-              {item.content}
-            </p>
+            {isEditing ? (
+              <div className="min-w-0 flex-1">
+                <ItemEditTextarea initialContent={item.content} onSave={onSaveEdit} onCancel={onCancelEdit} />
+              </div>
+            ) : (
+              <p className="text-sm text-ink" data-annotatable>
+                {item.content}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-1">
-            <ItemActionRail item={item} />
+            <ItemActionRail item={item} onStartEdit={onStartEdit} editDisabled={editDisabled} />
             {hasExpansion && (
               <CollapsibleTrigger
                 data-graph-row-toggle
@@ -557,6 +668,36 @@ export function StructuredListView({
   const selection = useTextSelection('[data-annotatable]');
   const sideChat = useSideChat();
   const patchList = usePatchList();
+
+  // Direct-edit mode (FE-657): one row in inline edit at a time. Staging the
+  // resulting `kind: 'edit'` patch routes through the same PatchListProvider
+  // pipeline that side-chat tool-call edits use, so apply / undo / impact-tier
+  // / cascade behavior is inherited rather than rebuilt.
+  const [editingItemKey, setEditingItemKey] = useState<string | null>(null);
+
+  const handleStartEdit = useCallback((item: KnowledgeItemSummary) => {
+    setEditingItemKey(`${item.kind}:${item.id}`);
+  }, []);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingItemKey(null);
+  }, []);
+
+  const handleSaveEdit = useCallback(
+    (item: KnowledgeItemSummary, nextContent: string) => {
+      setEditingItemKey(null);
+      if (!patchList) return;
+      patchList.stage({
+        kind: 'edit',
+        anchor: { kind: item.kind, itemId: item.id },
+        anchorReferenceCode: item.referenceCode,
+        summary: `Edit ${item.referenceCode}`,
+        currentContent: item.content,
+        newContent: nextContent,
+      });
+    },
+    [patchList],
+  );
 
   const handleAnnotate = () => {
     if (!selection || !patchList) return;
@@ -740,6 +881,7 @@ export function StructuredListView({
                               const itemKey = `${item.kind}:${item.id}`;
                               const isFirstOfKind = previousKind !== item.kind;
                               previousKind = item.kind;
+                              const isEditing = editingItemKey === itemKey;
                               return (
                                 <ItemRow
                                   key={`${itemKey}-v${rowsRemountKey}`}
@@ -749,6 +891,11 @@ export function StructuredListView({
                                   anchored={anchoredRowRef === item.referenceCode}
                                   defaultOpen={rowsDefaultOpen}
                                   kindAnchor={isFirstOfKind ? item.kind : null}
+                                  isEditing={isEditing}
+                                  onStartEdit={() => handleStartEdit(item)}
+                                  onSaveEdit={(next) => handleSaveEdit(item, next)}
+                                  onCancelEdit={handleCancelEdit}
+                                  editDisabled={patchList === null || (editingItemKey !== null && !isEditing)}
                                 />
                               );
                             });
