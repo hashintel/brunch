@@ -927,3 +927,98 @@ describe('SideChatPopover — Edit-mode toggle (V2)', () => {
     expect(edit.getAttribute('aria-pressed')).toBe('false');
   });
 });
+
+describe('SideChatPopover — staged-edit diff expander (FE-665)', () => {
+  it('renders an expander on edit patches that carry currentContent and newContent', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[
+          {
+            id: 'p1',
+            kind: 'edit',
+            summary: 'Edit: rephrase',
+            currentContent: 'Use SQLite for the local store.',
+            newContent: 'Use Postgres for the local store.',
+          },
+        ]}
+      />,
+    );
+    const row = document.querySelector('[data-staged-patch-id="p1"]');
+    expect(row).not.toBeNull();
+    expect(row!.querySelector('details')).not.toBeNull();
+  });
+
+  it('expanding the row exposes removed and added diff spans', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[
+          {
+            id: 'p1',
+            kind: 'edit',
+            summary: 'Edit: rephrase',
+            currentContent: 'Use SQLite for the local store.',
+            newContent: 'Use Postgres for the local store.',
+          },
+        ]}
+      />,
+    );
+    const details = document.querySelector('[data-staged-patch-id="p1"] details') as HTMLDetailsElement;
+    details.open = true;
+    const removed = document.querySelectorAll('[data-diff-kind="removed"]');
+    const added = document.querySelectorAll('[data-diff-kind="added"]');
+    expect(removed.length).toBeGreaterThan(0);
+    expect(added.length).toBeGreaterThan(0);
+    expect(Array.from(removed).some((node) => node.textContent?.includes('SQLite'))).toBe(true);
+    expect(Array.from(added).some((node) => node.textContent?.includes('Postgres'))).toBe(true);
+  });
+
+  it('does not render an expander when the edit patch lacks currentContent or newContent', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'edit', summary: 'Edit: rephrase' }]}
+      />,
+    );
+    const row = document.querySelector('[data-staged-patch-id="p1"]');
+    expect(row).not.toBeNull();
+    expect(row!.querySelector('details')).toBeNull();
+    expect(row!.textContent).toContain('Edit: rephrase');
+  });
+
+  it('does not render an expander when before and after content are equal', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[
+          {
+            id: 'p1',
+            kind: 'edit',
+            summary: 'Edit: rephrase',
+            currentContent: 'same content',
+            newContent: 'same content',
+          },
+        ]}
+      />,
+    );
+    const row = document.querySelector('[data-staged-patch-id="p1"]');
+    expect(row!.querySelector('details')).toBeNull();
+  });
+
+  it('does not render an expander on non-edit staged patches', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'Note about C1' }]}
+      />,
+    );
+    const row = document.querySelector('[data-staged-patch-id="p1"]');
+    expect(row!.querySelector('details')).toBeNull();
+  });
+});
