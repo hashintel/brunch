@@ -11,7 +11,7 @@ import {
 
 const observerCaptureScenario: PromptScenarioDefinition = {
   scenario: 'observer-capture',
-  prompt: { id: 'observer.system' },
+  prompt: { source: 'asset', id: 'observer.system' },
   context: {
     scenario: 'observer-capture',
     rendered: 'Current turn #5:\n  Phase: grounding\n  Question: What is the goal?',
@@ -112,8 +112,13 @@ describe('prompt scenario runner', () => {
     });
     const artifact = buildPromptScenarioProbeArtifact(scenario);
 
+    expect(scenario.prompt).toMatchObject({
+      source: 'composed',
+      id: 'observer.system',
+    });
     expect(scenario.context.rendered).toContain('Existing knowledge anchors:\n#2 goal');
     expect(scenario.context.data).toBe(contextPack.data);
+    expect(artifact.prompt.asset).toBe('observer-system.md');
     expect(artifact.prompt.rendered).toContain(
       'For grounding-mode turns, prioritize **goal**, **term**, **context**, and **constraint** items.',
     );
