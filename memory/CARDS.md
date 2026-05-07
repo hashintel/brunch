@@ -11,7 +11,7 @@
 
 ## Card 1 — Packaged markdown prompt registry
 
-Status: next
+Status: done
 Weight: full scope card
 
 ### Target Behavior
