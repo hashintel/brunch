@@ -7,7 +7,12 @@ import type { EntitiesData, MutationErrorResponse } from '@/shared/api-types.js'
 import { knowledgeKinds, type KnowledgeKind } from '@/shared/knowledge.js';
 
 import { getEntitiesForSpecificationByMode, getSpecification, type DB } from './db.js';
-import { buildSideChatPrompt, getSideChatTools, type SideChatPinnedItem } from './side-chat-prompt.js';
+import {
+  buildSideChatPrompt,
+  getSideChatTools,
+  proposeEditToolName,
+  type SideChatPinnedItem,
+} from './side-chat-prompt.js';
 
 const sideChatPriorTurnSchema = z.object({
   role: z.enum(['user', 'assistant']),
@@ -165,11 +170,14 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
   });
 
   try {
-    for await (const chunk of result.textStream) {
+    for await (const part of result.fullStream) {
       if (abortController.signal.aborted) {
         break;
       }
-      res.write(`data: ${JSON.stringify({ type: 'text-delta', delta: chunk })}\n\n`);
+      const sseChunk = sideChatStreamChunkFromPart(part);
+      if (sseChunk) {
+        res.write(`data: ${JSON.stringify(sseChunk)}\n\n`);
+      }
     }
     if (!abortController.signal.aborted) {
       res.write('data: [DONE]\n\n');
@@ -184,4 +192,50 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
       res.end();
     }
   }
+}
+
+interface TextDeltaPart {
+  type: 'text-delta';
+  text: string;
+}
+
+interface ToolCallPart {
+  type: 'tool-call';
+  toolCallId: string;
+  toolName: string;
+  input: unknown;
+}
+
+type SideChatSseChunk =
+  | { type: 'text-delta'; delta: string }
+  | { type: 'patch-proposal'; toolCallId: string; toolName: typeof proposeEditToolName; input: unknown };
+
+function sideChatStreamChunkFromPart(part: unknown): SideChatSseChunk | null {
+  if (!part || typeof part !== 'object' || !('type' in part)) {
+    return null;
+  }
+  const typed = part as { type: unknown };
+  if (typed.type === 'text-delta') {
+    const delta = (part as Partial<TextDeltaPart>).text;
+    if (typeof delta !== 'string') {
+      return null;
+    }
+    return { type: 'text-delta', delta };
+  }
+  if (typed.type === 'tool-call') {
+    const call = part as Partial<ToolCallPart>;
+    if (call.toolName !== proposeEditToolName) {
+      return null;
+    }
+    if (typeof call.toolCallId !== 'string') {
+      return null;
+    }
+    return {
+      type: 'patch-proposal',
+      toolCallId: call.toolCallId,
+      toolName: proposeEditToolName,
+      input: call.input ?? null,
+    };
+  }
+  return null;
 }

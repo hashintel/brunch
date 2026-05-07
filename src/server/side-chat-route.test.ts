@@ -45,6 +45,28 @@ function makeTextStream(chunks: readonly string[]) {
         yield chunk;
       }
     })(),
+    fullStream: (async function* () {
+      for (const chunk of chunks) {
+        yield { type: 'text-delta', text: chunk };
+      }
+    })(),
+  };
+}
+
+function makeFullStream(parts: readonly Record<string, unknown>[]) {
+  return {
+    textStream: (async function* () {
+      for (const part of parts) {
+        if (part.type === 'text-delta' && typeof part.text === 'string') {
+          yield part.text;
+        }
+      }
+    })(),
+    fullStream: (async function* () {
+      for (const part of parts) {
+        yield part;
+      }
+    })(),
   };
 }
 
@@ -53,6 +75,12 @@ function makeFailingTextStream(chunksBeforeError: readonly string[], error: Erro
     textStream: (async function* () {
       for (const chunk of chunksBeforeError) {
         yield chunk;
+      }
+      throw error;
+    })(),
+    fullStream: (async function* () {
+      for (const chunk of chunksBeforeError) {
+        yield { type: 'text-delta', text: chunk };
       }
       throw error;
     })(),
@@ -219,6 +247,71 @@ describe('POST /api/specifications/:id/side-chat', () => {
     const callArgs = mockStreamText.mock.calls[0]?.[0] as { system: string };
     expect(callArgs.system).toMatch(/edit mode/i);
     expect(callArgs.system).toMatch(/propose_edit/i);
+  });
+
+  it('emits a patch-proposal SSE chunk when the model calls propose_edit in edit mode', async () => {
+    mockStreamText.mockReturnValueOnce(
+      makeFullStream([
+        { type: 'text-delta', text: "Sure, I'll propose an edit. " },
+        {
+          type: 'tool-call',
+          toolCallId: 'call-1',
+          toolName: 'propose_edit',
+          input: { newContent: 'SQLite for local persistence.', newRationale: 'Terser.' },
+        },
+      ]),
+    );
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    const res = await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        message: 'Reword terser',
+        mode: 'edit',
+      })
+      .expect(200);
+
+    expect(res.text).toContain("Sure, I'll propose an edit. ");
+    expect(res.text).toContain('"type":"patch-proposal"');
+    expect(res.text).toContain('"toolName":"propose_edit"');
+    expect(res.text).toContain('"newContent":"SQLite for local persistence."');
+    expect(res.text).toContain('"newRationale":"Terser."');
+    expect(res.text).toContain('[DONE]');
+  });
+
+  it('omits patch-proposal chunks for tool calls with names other than propose_edit', async () => {
+    // Defensive: if a future tool call slips through with an unknown toolName,
+    // the SSE stream should not echo it as a patch-proposal.
+    mockStreamText.mockReturnValueOnce(
+      makeFullStream([
+        { type: 'text-delta', text: 'reply' },
+        {
+          type: 'tool-call',
+          toolCallId: 'call-x',
+          toolName: 'unknown_tool',
+          input: { foo: 'bar' },
+        },
+      ]),
+    );
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    const res = await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        message: 'hi',
+        mode: 'edit',
+      })
+      .expect(200);
+
+    expect(res.text).toContain('reply');
+    expect(res.text).not.toContain('patch-proposal');
+    expect(res.text).not.toContain('unknown_tool');
   });
 
   it('rejects unknown mode values with 400', async () => {
