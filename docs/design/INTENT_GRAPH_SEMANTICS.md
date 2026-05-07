@@ -41,7 +41,7 @@ Nine top-level kinds. The current six exploration kinds plus the two review-mate
 | `criterion` | Oracle claim | "How will we judge that it holds?" |
 | `example` | Witness or disambiguator claim | "What concrete case would settle this?" |
 
-The framing: **a spec is a graph of typed claims.** Each kind is a *modality* of claim, not just a section bucket.
+The framing: **a spec is a graph of typed claims.** Each kind is a *modality* of claim, not just a section bucket. `term` remains a vocabulary / lexicon capture used during grounding; it is not part of this typed-claim kind set until a future lexicon model promotes terms into graph-addressable claim records.
 
 ### Notes on each kind
 
@@ -174,11 +174,11 @@ The observer should **abstain** rather than guess when classification support is
 
 ## Phase-by-phase capture mapping
 
-The phase a turn belongs to is itself a strong classification prior. The observer's allowed kinds per phase:
+The phase a turn belongs to is itself a strong classification prior. The observer's allowed captures per phase:
 
-| Phase | Allowed exploration kinds | Materialized at review acceptance |
+| Phase | Allowed captures | Materialized at review acceptance |
 | --- | --- | --- |
-| Grounding | `goal`, `term`, `context`, `constraint`, `assumption`, `example` | — |
+| Grounding | typed claims: `goal`, `context`, `constraint`, `assumption`, `example`; vocabulary capture: `term` | — |
 | Design | `decision`, `constraint`, `invariant`, requirement-candidate (held as a draft tag), `example` | — |
 | Requirements review | review proposes durable `requirement` items + paired `invariant` items | `requirement`, `invariant` materialize on accept |
 | Criteria review | review proposes `criterion` items + `example` items + verification mappings | `criterion`, `example` materialize on accept |
