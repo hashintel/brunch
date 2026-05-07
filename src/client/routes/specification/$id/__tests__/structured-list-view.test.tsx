@@ -53,11 +53,13 @@ vi.mock('@/client/lib/side-chat-stream.js', () => ({
 import { RelationChipPreview } from '../-relation-chip.js';
 import { StructuredListView } from '../-structured-list-view.js';
 
+let scrollToSpy: ReturnType<typeof vi.spyOn>;
+
 beforeEach(() => {
   mockNavigate.mockClear();
   mockStreamSideChatResponse.mockReset();
   mockHash = '';
-  vi.spyOn(Element.prototype, 'scrollTo').mockImplementation(() => {});
+  scrollToSpy = vi.spyOn(Element.prototype, 'scrollTo').mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -377,7 +379,7 @@ describe('StructuredListView', () => {
 
     const goalRow = container.querySelector('[data-graph-row-ref="G1"]');
     expect(goalRow).toBeTruthy();
-    expect(Element.prototype.scrollTo).toHaveBeenCalled();
+    expect(scrollToSpy).toHaveBeenCalled();
   });
 
   it('mounting with a kind-{kind} hash scrolls the first row of that kind into view', () => {
@@ -387,7 +389,7 @@ describe('StructuredListView', () => {
 
     const kindAnchor = container.querySelector('[data-graph-kind-anchor="goal"]');
     expect(kindAnchor).toBeTruthy();
-    expect(Element.prototype.scrollTo).toHaveBeenCalled();
+    expect(scrollToSpy).toHaveBeenCalled();
   });
 
   it('does not scroll when there is no hash', () => {
@@ -395,7 +397,7 @@ describe('StructuredListView', () => {
 
     render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
-    expect(Element.prototype.scrollTo).not.toHaveBeenCalled();
+    expect(scrollToSpy).not.toHaveBeenCalled();
   });
 
   it('does not scroll or highlight when the hash matches no rendered row', () => {
@@ -403,7 +405,7 @@ describe('StructuredListView', () => {
 
     const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
-    expect(Element.prototype.scrollTo).not.toHaveBeenCalled();
+    expect(scrollToSpy).not.toHaveBeenCalled();
     // No row should carry the arrival highlight attribute
     expect(container.querySelectorAll('[data-graph-row-anchored]')).toHaveLength(0);
   });
@@ -1047,7 +1049,14 @@ describe('"Show all" bulk control', () => {
 describe('structured-list-view annotatable attributes', () => {
   it('exposes data-annotatable on item content with item-kind and item-id on the row', () => {
     const { container } = render(
-      <PatchListProvider appliers={{ annotate: vi.fn() as never }}>
+      <PatchListProvider
+        appliers={{
+          annotate: vi.fn() as never,
+          edit: vi.fn() as never,
+          edge: vi.fn() as never,
+          drillDown: vi.fn() as never,
+        }}
+      >
         <SideChatHost specificationId={1}>
           <StructuredListView entityState={singleItemNoEdges()} />
         </SideChatHost>
@@ -1071,7 +1080,12 @@ describe('structured-list-view selection menu', () => {
         applied: { id: 1, summary: '', body: '' },
       }),
     );
-    const appliers = { annotate: annotateMock as unknown as PatchAppliers['annotate'] };
+    const appliers: PatchAppliers = {
+      annotate: annotateMock as unknown as PatchAppliers['annotate'],
+      edit: vi.fn() as never,
+      edge: vi.fn() as never,
+      drillDown: vi.fn() as never,
+    };
 
     const { container } = render(
       <PatchListProvider appliers={appliers}>
