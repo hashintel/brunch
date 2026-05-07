@@ -551,6 +551,20 @@ export function SideChatHost({
     );
   const lastBatchAppliedMeta = useLastBatchAppliedMeta();
 
+  // Derive whether the most recent applied batch was hard-impact-deferred
+  // only (V2 SIDE_CHAT.md §6.3). When true, the canonical PatchListOverlay
+  // surfaces the deferred banner, and the popover suppresses its own
+  // "Change saved" toast for the same batch to avoid double-messaging.
+  const lastBatchWasDeferredOnly = useMemo(() => {
+    if (lastBatchAppliedMeta.length === 0) return false;
+    return lastBatchAppliedMeta.every((entry) => {
+      const applied = entry.applied;
+      return (
+        !!applied && typeof applied === 'object' && (applied as { deferred?: unknown }).deferred === true
+      );
+    });
+  }, [lastBatchAppliedMeta]);
+
   const triggeredAutoApplyIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!patchList || patchListState.isApplying) return;
@@ -830,6 +844,7 @@ export function SideChatHost({
           canUndo={canUndoForActive}
           isApplying={patchListState.isApplying}
           applyBatchId={patchListState.lastBatchId}
+          lastBatchWasDeferredOnly={lastBatchWasDeferredOnly}
           onApply={patchList && stagedForActiveIds.length > 0 ? applyStagedForActive : undefined}
           onUndo={patchList ? undoForActive : undefined}
           onDiscardPatch={patchList?.discard}

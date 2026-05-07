@@ -119,6 +119,11 @@ export interface SideChatPopoverProps {
   onApply?: () => void;
   onUndo?: () => void;
   onDiscardPatch?: (id: string) => void;
+  // When the most recent applied batch was a deferred-only outcome (V2
+  // hard-impact deferral, SIDE_CHAT.md §6.3), suppress the inline
+  // "Change saved" toast here — the canonical patch-list overlay shows
+  // the deferred banner instead.
+  lastBatchWasDeferredOnly?: boolean;
   // ---- Existing annotations on the pinned item ----
   existingAnnotations?: readonly SideChatExistingAnnotation[];
   // ---- Promote-from-drawer (deferred §8 from the design spec) ----
@@ -148,6 +153,7 @@ export function SideChatPopover({
   canUndo = false,
   isApplying = false,
   applyBatchId = null,
+  lastBatchWasDeferredOnly = false,
   onApply,
   onUndo,
   onDiscardPatch,
@@ -202,13 +208,14 @@ export function SideChatPopover({
     if (
       ((sawNewBatch && canUndo) || (!prevCanUndo && canUndo)) &&
       !isApplying &&
-      stagedPatches.length === 0
+      stagedPatches.length === 0 &&
+      !lastBatchWasDeferredOnly
     ) {
       setSavedToastVisible(true);
       const id = window.setTimeout(() => setSavedToastVisible(false), 5000);
       return () => window.clearTimeout(id);
     }
-  }, [applyBatchId, canUndo, isApplying, stagedPatches.length]);
+  }, [applyBatchId, canUndo, isApplying, stagedPatches.length, lastBatchWasDeferredOnly]);
 
   useEffect(() => {
     if (!canUndo) {
