@@ -180,12 +180,20 @@ export interface PatchListState {
   canUndo: boolean;
   isApplying: boolean;
   lastBatchId: string | null;
+  lastBatchPatches: readonly Patch[];
 }
 
 export function usePatchListState(): PatchListState {
   const ctx = useContext(PatchListContext);
   if (!ctx) {
-    return { staged: [], count: 0, canUndo: false, isApplying: false, lastBatchId: null };
+    return {
+      staged: [],
+      count: 0,
+      canUndo: false,
+      isApplying: false,
+      lastBatchId: null,
+      lastBatchPatches: [],
+    };
   }
   return {
     staged: ctx.state.staged,
@@ -193,6 +201,7 @@ export function usePatchListState(): PatchListState {
     canUndo: ctx.state.canUndo,
     isApplying: ctx.state.isApplying,
     lastBatchId: ctx.state.lastBatchId,
+    lastBatchPatches: ctx.state.lastBatchPatches,
   };
 }
 

@@ -159,6 +159,7 @@ export interface DerivedPatchListState {
   canUndo: boolean;
   isApplying: boolean;
   lastBatchId: string | null;
+  lastBatchPatches: readonly Patch[];
 }
 
 interface FoldAccumulator {
@@ -223,6 +224,10 @@ export function deriveState(reducerState: PatchListReducerState): DerivedPatchLi
     .filter((patch): patch is Patch => patch !== undefined);
 
   const lastBatch = [...acc.appliedBatches].reverse().find((batch) => !acc.undoneBatchIds.has(batch.batchId));
+  const lastBatchPatches =
+    lastBatch?.patchIds
+      .map((id) => acc.byId.get(id))
+      .filter((patch): patch is Patch => patch !== undefined) ?? [];
 
   return {
     staged,
@@ -230,6 +235,7 @@ export function deriveState(reducerState: PatchListReducerState): DerivedPatchLi
     canUndo: lastBatch !== undefined && reducerState.pendingUndos.has(lastBatch.batchId),
     isApplying: reducerState.isApplying,
     lastBatchId: lastBatch?.batchId ?? null,
+    lastBatchPatches,
   };
 }
 

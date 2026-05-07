@@ -274,6 +274,52 @@ describe('SideChatHost annotate flow', () => {
     expect(screen.getByText('d-sum')).toBeTruthy();
   });
 
+  it('does not leak the saved confirmation to another pinned item', async () => {
+    const { appliers } = makeAppliers();
+    const otherItem: SideChatPinnableItem = {
+      kind: 'goal',
+      id: 11,
+      referenceCode: 'G11',
+      content: 'Ship V1.2',
+    };
+
+    function OpenButtons() {
+      const sideChat = useSideChat();
+      return (
+        <>
+          <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
+            open-decision
+          </button>
+          <button type="button" onClick={() => sideChat?.openFor(otherItem)}>
+            open-goal
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenButtons />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-decision'));
+    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'd-sum' } });
+    fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'd-body' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    });
+    await screen.findByRole('status', { name: /annotation saved/i });
+
+    fireEvent.click(screen.getByText('open-goal'));
+
+    expect(screen.queryByRole('status', { name: /annotation saved/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
+  });
+
   it('omits the Annotate button when no PatchListProvider is in scope (host degrades gracefully)', () => {
     render(
       <SideChatHost specificationId={1}>

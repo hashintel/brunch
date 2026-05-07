@@ -257,6 +257,15 @@ export function SideChatHost({
     kind: 'annotate',
     summary: patch.summary,
   }));
+  const canUndoForActive =
+    patchListState.canUndo &&
+    activeSideChat !== null &&
+    patchListState.lastBatchPatches.some(
+      (patch) =>
+        patch.kind === 'annotate' &&
+        patch.anchor.kind === activeSideChat.itemKind &&
+        patch.anchor.itemId === activeSideChat.itemId,
+    );
 
   const triggeredAutoApplyIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -322,7 +331,7 @@ export function SideChatHost({
           onAnnotateCancel={cancelAnnotate}
           onAnnotateSubmit={submitAnnotate}
           stagedPatches={stagedSummaries}
-          canUndo={patchListState.canUndo}
+          canUndo={canUndoForActive}
           isApplying={patchListState.isApplying}
           onApply={patchList?.apply}
           onUndo={patchList?.undo}

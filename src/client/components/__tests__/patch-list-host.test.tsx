@@ -37,7 +37,14 @@ function makeProbeRefs(): ProbeRefs {
   return {
     current: {
       actions: null,
-      state: { staged: [], count: 0, canUndo: false, isApplying: false, lastBatchId: null },
+      state: {
+        staged: [],
+        count: 0,
+        canUndo: false,
+        isApplying: false,
+        lastBatchId: null,
+        lastBatchPatches: [],
+      },
       filtered: [],
     },
   };
@@ -84,6 +91,7 @@ describe('usePatchList outside the provider', () => {
       canUndo: false,
       isApplying: false,
       lastBatchId: null,
+      lastBatchPatches: [],
     });
   });
 });
@@ -259,6 +267,26 @@ describe('apply', () => {
     expect(secondBatchId).not.toBeNull();
     expect(refs.current.state.canUndo).toBe(true);
     expect(secondBatchId).not.toBe(firstBatchId);
+  });
+
+  it('exposes the patches from the latest undoable batch', async () => {
+    const refs = makeProbeRefs();
+    const { appliers } = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
+        <Probe refs={refs} />
+      </PatchListProvider>,
+    );
+
+    act(() => {
+      refs.current.actions?.stage(makeAnnotateInput({ summary: 'a' }));
+    });
+    await act(async () => {
+      await refs.current.actions?.apply();
+    });
+
+    expect(refs.current.state.lastBatchPatches).toHaveLength(1);
+    expect(refs.current.state.lastBatchPatches[0]?.summary).toBe('a');
   });
 
   it('apply on an empty list is a no-op (no applier calls, state unchanged)', async () => {
