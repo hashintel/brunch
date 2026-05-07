@@ -344,13 +344,13 @@ export function SideChatPopover({
 
         {!isApplying && stagedPatches.length > 0 ? (
           <section
-            aria-label="Staged annotations"
+            aria-label="Staged changes"
             data-staged-patch-count={stagedPatches.length}
             className="flex flex-col gap-1.5 rounded-md bg-wash/60 p-2 text-xs text-ink"
           >
             <header className="flex items-center justify-between">
               <span className="font-medium">
-                {stagedPatches.length} pending annotation{stagedPatches.length === 1 ? '' : 's'} (retry?)
+                {stagedPatches.length} pending change{stagedPatches.length === 1 ? '' : 's'}
               </span>
             </header>
             <ul className="flex flex-col gap-1">
@@ -498,8 +498,8 @@ export function SideChatPopover({
                   <button
                     type="button"
                     disabled
-                    aria-label="Edit (coming in V2)"
-                    title="Edit — coming in V2"
+                    aria-label="Edit unavailable"
+                    title="Edit unavailable in this context"
                     className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-[#a6a6a6] shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]"
                   >
                     <PencilLine className="size-3.5" aria-hidden />

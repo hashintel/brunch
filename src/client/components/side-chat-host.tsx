@@ -291,7 +291,15 @@ export function SideChatHost({
   }, []);
 
   const setMode = useCallback((mode: SideChatMode) => {
-    setActiveSideChat((current) => (current ? { ...current, mode } : current));
+    const current = activeRef.current;
+    if (!current) {
+      return;
+    }
+    const nextActiveSideChat = { ...current, mode };
+    activeRef.current = nextActiveSideChat;
+    setActiveSideChat((active) =>
+      active && active.sessionId === current.sessionId ? nextActiveSideChat : active,
+    );
   }, []);
 
   // Ref to patchList so submitMessage's onChunk handler can stage patch-proposal
@@ -430,9 +438,7 @@ export function SideChatHost({
   patchListRef.current = patchList;
   const patchListState = usePatchListState();
   const stagedForActive = useStagedPatches(
-    activeSideChat
-      ? { anchor: { kind: activeSideChat.itemKind, itemId: activeSideChat.itemId }, kind: 'annotate' }
-      : undefined,
+    activeSideChat ? { anchor: { kind: activeSideChat.itemKind, itemId: activeSideChat.itemId } } : undefined,
   );
 
   const submitAnnotate = useCallback(
@@ -453,7 +459,7 @@ export function SideChatHost({
 
   const stagedSummaries: readonly SideChatStagedPatchSummary[] = stagedForActive.map((patch) => ({
     id: patch.id,
-    kind: 'annotate',
+    kind: patch.kind,
     summary: patch.summary,
   }));
   const canUndoForActive =
@@ -461,7 +467,7 @@ export function SideChatHost({
     activeSideChat !== null &&
     patchListState.lastBatchPatches.some(
       (patch) =>
-        patch.kind === 'annotate' &&
+        (patch.kind === 'annotate' || patch.kind === 'edit') &&
         patch.anchor.kind === activeSideChat.itemKind &&
         patch.anchor.itemId === activeSideChat.itemId,
     );

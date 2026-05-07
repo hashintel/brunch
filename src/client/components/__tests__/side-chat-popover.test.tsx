@@ -492,7 +492,7 @@ describe('SideChatPopover', () => {
 
       expect(screen.getByText('first note')).toBeTruthy();
       expect(screen.getByText('second note')).toBeTruthy();
-      expect(screen.getByText(/2 pending annotations/i)).toBeTruthy();
+      expect(screen.getByText(/2 pending changes/i)).toBeTruthy();
     });
 
     it('Discard button on a stuck patch fires onDiscardPatch', () => {
@@ -811,8 +811,14 @@ describe('SideChatPopover', () => {
 describe('SideChatPopover — Edit-mode toggle (V2)', () => {
   it('keeps the Edit button disabled when onModeChange is not provided', () => {
     render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
-    const edit = screen.getByRole('button', { name: /edit/i }) as HTMLButtonElement;
+    const edit = screen.getByRole('button', { name: /edit unavailable/i }) as HTMLButtonElement;
     expect(edit.disabled).toBe(true);
+  });
+
+  it('explains that disabled Edit is unavailable in the current context', () => {
+    render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
+    const edit = screen.getByRole('button', { name: /edit unavailable/i });
+    expect(edit.getAttribute('title')).toBe('Edit unavailable in this context');
   });
 
   it('enables the Edit button when onModeChange is provided', () => {

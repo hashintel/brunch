@@ -121,6 +121,31 @@ describe('SideChatHost edit-mode flow (V2)', () => {
     expect(requestArg.mode).toBe('edit');
   });
 
+  it('sends mode="edit" when the message is submitted immediately after toggling Edit', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+    const { appliers } = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenSideChatButton item={samplePinnable} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-side-chat'));
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'reword immediately' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /edit mode/i }));
+      fireEvent.keyDown(textarea, { key: 'Enter' });
+    });
+
+    await vi.waitFor(() => expect(streamMock).toHaveBeenCalled());
+    const [requestArg] = streamMock.mock.calls.at(-1)!;
+    expect(requestArg.mode).toBe('edit');
+  });
+
   it('omits mode in the stream request by default (explore)', async () => {
     const streamMock = vi.mocked(streamSideChatResponse);
     streamMock.mockClear();
@@ -331,7 +356,7 @@ describe('SideChatHost annotate flow', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(failingAnnotate).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/1 pending annotation/i)).toBeTruthy();
+    expect(screen.getByText(/1 pending change/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
     expect(screen.getByRole('button', { name: /^retry$/i })).toBeTruthy();
   });
@@ -362,11 +387,11 @@ describe('SideChatHost annotate flow', () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(screen.getByText(/1 pending annotation/i)).toBeTruthy();
+    expect(screen.getByText(/1 pending change/i)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /discard staged annotation/i }));
 
-    expect(screen.queryByText(/1 pending annotation/i)).toBeNull();
+    expect(screen.queryByText(/1 pending change/i)).toBeNull();
   });
 
   it('inline patch list filters stuck-staged patches to the currently pinned item', async () => {
@@ -421,7 +446,7 @@ describe('SideChatHost annotate flow', () => {
     // Switch to G11 (different anchor); inline list should show no rows for G11.
     fireEvent.click(screen.getByText('open-goal'));
     expect(screen.queryByText('d-sum')).toBeNull();
-    expect(screen.queryByText(/1 pending annotation/i)).toBeNull();
+    expect(screen.queryByText(/1 pending change/i)).toBeNull();
 
     // Switch back to D7; the staged patch reappears.
     fireEvent.click(screen.getByText('open-decision'));
