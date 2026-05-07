@@ -543,7 +543,7 @@ describe('V2 patch kinds — stage / discard / apply through PatchListProvider',
     const { appliers } = makeAppliers();
     appliers.edit = editMock as unknown as PatchAppliers['edit'];
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -566,7 +566,7 @@ describe('V2 patch kinds — stage / discard / apply through PatchListProvider',
     const { appliers } = makeAppliers();
     appliers.edge = edgeMock as unknown as PatchAppliers['edge'];
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -589,7 +589,7 @@ describe('V2 patch kinds — stage / discard / apply through PatchListProvider',
     const { appliers } = makeAppliers();
     appliers.drillDown = drillMock as unknown as PatchAppliers['drillDown'];
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -610,7 +610,7 @@ describe('V2 patch kinds — stage / discard / apply through PatchListProvider',
     const refs = makeProbeRefs();
     const { appliers } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -632,7 +632,7 @@ describe('V2 patch kinds — stage / discard / apply through PatchListProvider',
     const { appliers, annotateMock } = makeAppliers();
     appliers.edit = editMock as unknown as PatchAppliers['edit'];
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
