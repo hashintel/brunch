@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import type { CreatedAnnotation } from '@/client/lib/annotation-api.js';
 import { streamSideChatResponse } from '@/client/lib/side-chat-stream.js';
 
-import { PatchListProvider, type PatchAppliers } from '../patch-list-host.js';
+import { PatchListProvider, usePatchListState, type PatchAppliers } from '../patch-list-host.js';
 import { SideChatHost, useSideChat, type SideChatPinnableItem } from '../side-chat-host.js';
 
 const { mockListAnnotationsForSpecificationRequest } = vi.hoisted(() => ({
@@ -81,6 +81,125 @@ beforeEach(() => {
 
 afterEach(() => {
   consoleErrorSpy.mockRestore();
+});
+
+describe('SideChatHost edit-mode flow (V2)', () => {
+  function OpenInEditModeButton({ item }: { item: SideChatPinnableItem }) {
+    const sideChat = useSideChat();
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          sideChat?.openFor(item);
+          sideChat?.setMode('edit');
+        }}
+      >
+        open-edit
+      </button>
+    );
+  }
+
+  it('sends mode="edit" in the stream request after setMode("edit")', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+    const { appliers } = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenInEditModeButton item={samplePinnable} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-edit'));
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'reword this' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    await vi.waitFor(() => expect(streamMock).toHaveBeenCalled());
+    const [requestArg] = streamMock.mock.calls.at(-1)!;
+    expect(requestArg.mode).toBe('edit');
+  });
+
+  it('omits mode in the stream request by default (explore)', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+    const { appliers } = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenSideChatButton item={samplePinnable} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-side-chat'));
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'why?' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    await vi.waitFor(() => expect(streamMock).toHaveBeenCalled());
+    const [requestArg] = streamMock.mock.calls.at(-1)!;
+    expect(requestArg.mode).toBeUndefined();
+  });
+
+  it('stages an EditPatch when a patch-proposal event arrives during streaming', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+    streamMock.mockImplementationOnce(async (_request, onChunk) => {
+      onChunk({ type: 'text-delta', delta: "Sure, I'll propose: " });
+      onChunk({
+        type: 'patch-proposal',
+        toolCallId: 'call-1',
+        toolName: 'propose_edit',
+        input: { newContent: 'Use SQLite for local persistence.', newRationale: 'Terser.' },
+      });
+      onChunk({ type: 'done' });
+    });
+
+    function StagedEditPatchInspector() {
+      const state = usePatchListState();
+      const editPatches = state.staged.filter((patch) => patch.kind === 'edit');
+      return (
+        <div data-testid="staged-edits">
+          {editPatches.map((patch) => (
+            <div
+              key={patch.id}
+              data-testid="staged-edit-row"
+              data-anchor-kind={patch.anchor.kind}
+              data-anchor-id={patch.anchor.itemId}
+              data-new-content={patch.kind === 'edit' ? patch.newContent : ''}
+              data-new-rationale={patch.kind === 'edit' ? (patch.newRationale ?? '') : ''}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    const { appliers } = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenInEditModeButton item={samplePinnable} />
+          <StagedEditPatchInspector />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-edit'));
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'reword' } });
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'Enter' });
+    });
+
+    await vi.waitFor(() => expect(screen.queryAllByTestId('staged-edit-row')).toHaveLength(1));
+    const row = screen.getByTestId('staged-edit-row');
+    expect(row.dataset.anchorKind).toBe('decision');
+    expect(row.dataset.anchorId).toBe('7');
+    expect(row.dataset.newContent).toBe('Use SQLite for local persistence.');
+    expect(row.dataset.newRationale).toBe('Terser.');
+  });
 });
 
 describe('SideChatHost annotate flow', () => {

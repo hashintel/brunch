@@ -13,7 +13,11 @@ import {
   listAnnotationsForSpecificationRequest,
   type CreatedAnnotation,
 } from '@/client/lib/annotation-api.js';
-import { streamSideChatResponse, type SideChatPriorTurn } from '@/client/lib/side-chat-stream.js';
+import {
+  streamSideChatResponse,
+  type SideChatMode,
+  type SideChatPriorTurn,
+} from '@/client/lib/side-chat-stream.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import {
@@ -45,6 +49,7 @@ interface SideChatContextValue {
   dismissCard: (annotationId: number) => void;
   clearSpanHint: () => void;
   promoteAnnotation: (annotationId: number) => void;
+  setMode: (mode: SideChatMode) => void;
 }
 
 const SideChatContext = createContext<SideChatContextValue | null>(null);
@@ -71,6 +76,9 @@ interface ActiveSideChat {
   // which also use Date.now().
   messageTimestamps: number[];
   annotateMode: boolean;
+  // V2 chat-driven mode: 'explore' (default) keeps free-form chat; 'edit' tells the
+  // server to register the propose_edit tool so the LLM can stage edit patches.
+  mode: SideChatMode;
 }
 
 interface LoadedAnnotations {
@@ -78,6 +86,19 @@ interface LoadedAnnotations {
   itemId: number;
   batchId: string | null;
   items: readonly CreatedAnnotation[];
+}
+
+// Cap on how many characters of an edit's newContent we put into the
+// patch-list summary string. Tunes the at-a-glance label visible in the
+// top-bar `N Edits` overlay before the user clicks through.
+const EDIT_SUMMARY_PREVIEW_LIMIT = 60;
+
+function summarizeEditContent(newContent: string): string {
+  const trimmed = newContent.trim();
+  if (trimmed.length <= EDIT_SUMMARY_PREVIEW_LIMIT) {
+    return `Edit: ${trimmed}`;
+  }
+  return `Edit: ${trimmed.slice(0, EDIT_SUMMARY_PREVIEW_LIMIT - 1)}…`;
 }
 
 function replacePendingText(messages: readonly SideChatMessage[], text: string): SideChatMessage[] {
@@ -223,7 +244,7 @@ export function SideChatHost({
       // state doesn't leak across items. Reopening the same item focuses the existing session.
       setActiveCards([]);
       setPendingSpanHint(null);
-      const nextActiveSideChat = {
+      const nextActiveSideChat: ActiveSideChat = {
         sessionId: sessionCounterRef.current,
         pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
         itemKind: item.kind,
@@ -231,6 +252,7 @@ export function SideChatHost({
         messages: [],
         messageTimestamps: [],
         annotateMode: false,
+        mode: 'explore',
       };
       activeRef.current = nextActiveSideChat;
       setActiveSideChat(nextActiveSideChat);
@@ -267,6 +289,15 @@ export function SideChatHost({
   const cancelAnnotate = useCallback(() => {
     setActiveSideChat((current) => (current ? { ...current, annotateMode: false } : current));
   }, []);
+
+  const setMode = useCallback((mode: SideChatMode) => {
+    setActiveSideChat((current) => (current ? { ...current, mode } : current));
+  }, []);
+
+  // Ref to patchList so submitMessage's onChunk handler can stage patch-proposal
+  // events without taking patchList as a useCallback dep (which would re-create
+  // submitMessage and remount the popover composer on patch-list changes).
+  const patchListRef = useRef<ReturnType<typeof usePatchList>>(null);
 
   const pushActiveCard = useCallback((card: Omit<ActiveCard, 'timestamp'>) => {
     setActiveCards((prev) =>
@@ -334,6 +365,7 @@ export function SideChatHost({
               signal: controller.signal,
               ...(activeAnnotations.length > 0 ? { activeAnnotations } : {}),
               ...(hintForThisRequest ? { spanHint: hintForThisRequest } : {}),
+              ...(session.mode !== 'explore' ? { mode: session.mode } : {}),
             },
             (event) => {
               if (controller.signal.aborted) {
@@ -346,6 +378,18 @@ export function SideChatHost({
                     ? { ...current, messages: replacePendingText(current.messages, buffered) }
                     : current,
                 );
+              } else if (event.type === 'patch-proposal' && event.toolName === 'propose_edit') {
+                const patchList = patchListRef.current;
+                if (!patchList) {
+                  return;
+                }
+                patchList.stage({
+                  kind: 'edit',
+                  anchor: { kind: session.itemKind, itemId: session.itemId },
+                  summary: summarizeEditContent(event.input.newContent),
+                  newContent: event.input.newContent,
+                  ...(event.input.newRationale ? { newRationale: event.input.newRationale } : {}),
+                });
               }
             },
           );
@@ -383,6 +427,7 @@ export function SideChatHost({
     [specificationId, abortActiveStream, pendingSpanHint, activeCards],
   );
   const patchList = usePatchList();
+  patchListRef.current = patchList;
   const patchListState = usePatchListState();
   const stagedForActive = useStagedPatches(
     activeSideChat
@@ -553,8 +598,16 @@ export function SideChatHost({
     });
   }, []);
   const sideChatContextValue = useMemo(
-    () => ({ openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint, promoteAnnotation }),
-    [openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint, promoteAnnotation],
+    () => ({
+      openFor,
+      openWithSpanHint,
+      activeCardIds,
+      dismissCard,
+      clearSpanHint,
+      promoteAnnotation,
+      setMode,
+    }),
+    [openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint, promoteAnnotation, setMode],
   );
 
   const threadItems: readonly SideChatThreadItem[] = activeSideChat
