@@ -629,6 +629,17 @@ export interface OpenReconciliationNeedInput {
 }
 
 export function openReconciliationNeed(db: DB, input: OpenReconciliationNeedInput): ReconciliationNeed {
+  const sourceItem = getKnowledgeItem(db, input.sourceItemId);
+  const targetItem = getKnowledgeItem(db, input.targetItemId);
+  if (
+    !sourceItem ||
+    !targetItem ||
+    sourceItem.specification_id !== input.specificationId ||
+    targetItem.specification_id !== input.specificationId
+  ) {
+    throw new Error('Reconciliation need items must belong to specification');
+  }
+
   return db
     .insert(schema.reconciliationNeed)
     .values({

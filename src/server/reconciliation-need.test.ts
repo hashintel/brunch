@@ -168,6 +168,24 @@ describe('reconciliation_need lifecycle', () => {
     expect(listOpenReconciliationNeeds(db, spec.id)).toHaveLength(2);
   });
 
+  it('rejects source and target items outside the specification', () => {
+    const { spec, turn, source } = seedSpecWithTwoItems();
+    const otherSpec = createSpecification(db, 'Other spec');
+    const otherItem = createKnowledgeItem(db, otherSpec.id, 'decision', 'Other decision');
+
+    expect(() =>
+      openReconciliationNeed(db, {
+        specificationId: spec.id,
+        sourceItemId: source.id,
+        targetItemId: otherItem.id,
+        kind: 'needs_confirmation',
+        causedByTurnId: turn.id,
+      }),
+    ).toThrow('Reconciliation need items must belong to specification');
+
+    expect(listOpenReconciliationNeeds(db, spec.id)).toHaveLength(0);
+  });
+
   it('cascade-deletes rows when source or target knowledge_item is deleted', () => {
     const { spec, turn, source, target } = seedSpecWithTwoItems();
     openReconciliationNeed(db, {
