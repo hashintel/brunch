@@ -124,3 +124,22 @@ export const knowledgeEdge = sqliteTable(
   },
   (table) => [primaryKey({ columns: [table.from_item_id, table.to_item_id, table.relation] })],
 );
+
+// --- Side-chat annotation (durable per-item notes; D133) ---
+
+export const annotation = sqliteTable('annotation', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  specification_id: integer()
+    .notNull()
+    .references(() => specification.id),
+  knowledge_item_id: integer()
+    .notNull()
+    .references(() => knowledgeItem.id, { onDelete: 'cascade' }),
+  summary: text().notNull(),
+  body: text().notNull(),
+  selection_start: integer(),
+  selection_end: integer(),
+  created_at: text()
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});

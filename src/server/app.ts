@@ -24,6 +24,7 @@ import {
   type SpecificationState,
 } from '@/shared/specification.js';
 
+import { handleCreateAnnotation, handleDeleteAnnotation, handleListAnnotations } from './annotation-route.js';
 import {
   applyChatRouteTransition,
   type ChatCommand,
@@ -227,6 +228,8 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const specificationExportPaths = ['/api/specifications/:id/export'] as const;
   const specificationChatPaths = ['/api/specifications/:id/chat'] as const;
   const specificationSideChatPaths = ['/api/specifications/:id/side-chat'] as const;
+  const specificationAnnotationsPaths = ['/api/specifications/:id/annotations'] as const;
+  const annotationResourcePaths = ['/api/annotations/:annotationId'] as const;
 
   const registerGet = (paths: readonly string[], handler: RequestHandler) => {
     for (const path of paths) {
@@ -237,6 +240,12 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const registerPost = (paths: readonly string[], handler: RequestHandler) => {
     for (const path of paths) {
       app.post(path, handler);
+    }
+  };
+
+  const registerDelete = (paths: readonly string[], handler: RequestHandler) => {
+    for (const path of paths) {
+      app.delete(path, handler);
     }
   };
 
@@ -581,6 +590,18 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
   registerPost(specificationSideChatPaths, async (req: Request, res: Response) => {
     await handleSideChatRequest(db, req, res);
+  });
+
+  registerPost(specificationAnnotationsPaths, (req: Request, res: Response) => {
+    handleCreateAnnotation(db, req, res);
+  });
+
+  registerGet(specificationAnnotationsPaths, (req: Request, res: Response) => {
+    handleListAnnotations(db, req, res);
+  });
+
+  registerDelete(annotationResourcePaths, (req: Request, res: Response) => {
+    handleDeleteAnnotation(db, req, res);
   });
 
   return { app, db };

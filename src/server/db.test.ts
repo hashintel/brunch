@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
 import {
+  createAnnotation,
   createDb,
   getOrCreateSpecification,
   createTurn,
@@ -29,6 +30,8 @@ import {
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
   addKnowledgeRelationship,
+  getAnnotation,
+  getAnnotationsForSpecification,
   getEntitiesForSpecificationByMode,
   getEntitiesForSpecification,
   getEntitiesForSpecificationOnActivePath,
@@ -39,6 +42,7 @@ import {
   listPhaseOutcomesForSpecification,
   getCurrentWorkflowState,
   readWorkflowProjectionSnapshot,
+  deleteAnnotation,
   type DB,
 } from './db.js';
 
@@ -66,6 +70,7 @@ describe('createDb', () => {
       'knowledge_edge',
       'turn_knowledge_item',
       'phase_outcome',
+      'annotation',
     ];
     for (const table of expected) {
       expect(names).toContain(table);
@@ -2102,5 +2107,86 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
         }),
       ],
     });
+  });
+});
+
+describe('annotation persistence', () => {
+  it('round-trips a created annotation by id and by spec', () => {
+    const spec = createSpecification(db, 'Annotation spec');
+    const decision = createDecision(db, spec.id, 'Use SQLite.');
+
+    const created = createAnnotation(db, spec.id, {
+      knowledgeItemId: decision.id,
+      summary: 'Re-evaluate when scale demands.',
+      body: 'SQLite is great for V1, but...',
+    });
+
+    expect(created).toMatchObject({
+      id: expect.any(Number),
+      specification_id: spec.id,
+      knowledge_item_id: decision.id,
+      summary: 'Re-evaluate when scale demands.',
+      body: 'SQLite is great for V1, but...',
+      selection_start: null,
+      selection_end: null,
+    });
+
+    expect(getAnnotation(db, created.id)).toMatchObject({ id: created.id });
+    expect(getAnnotationsForSpecification(db, spec.id)).toHaveLength(1);
+  });
+
+  it('persists optional selection_start / selection_end when provided', () => {
+    const spec = createSpecification(db, 'Span-anchor spec');
+    const decision = createDecision(db, spec.id, 'Use SQLite.');
+
+    const created = createAnnotation(db, spec.id, {
+      knowledgeItemId: decision.id,
+      summary: 's',
+      body: 'b',
+      selectionStart: 12,
+      selectionEnd: 24,
+    });
+
+    expect(created.selection_start).toBe(12);
+    expect(created.selection_end).toBe(24);
+  });
+
+  it('lists annotations chronologically per spec, scoped to that spec', () => {
+    const specA = createSpecification(db, 'A');
+    const specB = createSpecification(db, 'B');
+    const decisionA = createDecision(db, specA.id, 'A decision');
+    const decisionB = createDecision(db, specB.id, 'B decision');
+
+    createAnnotation(db, specA.id, { knowledgeItemId: decisionA.id, summary: 'a1', body: 'a1' });
+    createAnnotation(db, specB.id, { knowledgeItemId: decisionB.id, summary: 'b1', body: 'b1' });
+    createAnnotation(db, specA.id, { knowledgeItemId: decisionA.id, summary: 'a2', body: 'a2' });
+
+    const aList = getAnnotationsForSpecification(db, specA.id);
+    const bList = getAnnotationsForSpecification(db, specB.id);
+    expect(aList).toHaveLength(2);
+    expect(bList).toHaveLength(1);
+    expect(aList.map((annotation) => annotation.summary)).toEqual(['a1', 'a2']);
+  });
+
+  it('deleteAnnotation removes the row; subsequent lookup returns undefined', () => {
+    const spec = createSpecification(db, 'spec');
+    const decision = createDecision(db, spec.id, 'd');
+    const created = createAnnotation(db, spec.id, {
+      knowledgeItemId: decision.id,
+      summary: 's',
+      body: 'b',
+    });
+
+    deleteAnnotation(db, created.id);
+    expect(getAnnotation(db, created.id)).toBeUndefined();
+  });
+
+  it('cascades on knowledge_item deletion (FK ON DELETE CASCADE)', () => {
+    const spec = createSpecification(db, 'spec');
+    const decision = createDecision(db, spec.id, 'd');
+    createAnnotation(db, spec.id, { knowledgeItemId: decision.id, summary: 's', body: 'b' });
+
+    db.$client.prepare('DELETE FROM knowledge_item WHERE id = ?').run(decision.id);
+    expect(getAnnotationsForSpecification(db, spec.id)).toEqual([]);
   });
 });

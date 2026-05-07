@@ -9,10 +9,21 @@ import {
   type ReactNode,
 } from 'react';
 
+import {
+  listAnnotationsForSpecificationRequest,
+  type CreatedAnnotation,
+} from '@/client/lib/annotation-api.js';
 import { streamSideChatResponse, type SideChatPriorTurn } from '@/client/lib/side-chat-stream.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
-import { SideChatPopover, type SideChatMessage, type SideChatPinnedItem } from './side-chat-popover.js';
+import { usePatchList, usePatchListState, useStagedPatches } from './patch-list-host.js';
+import {
+  SideChatPopover,
+  type SideChatExistingAnnotation,
+  type SideChatMessage,
+  type SideChatPinnedItem,
+  type SideChatStagedPatchSummary,
+} from './side-chat-popover.js';
 
 export interface SideChatPinnableItem {
   kind: KnowledgeKind;
@@ -37,6 +48,7 @@ interface ActiveSideChat {
   itemKind: KnowledgeKind;
   itemId: number;
   messages: SideChatMessage[];
+  annotateMode: boolean;
 }
 
 function replacePendingText(messages: readonly SideChatMessage[], text: string): SideChatMessage[] {
@@ -119,6 +131,7 @@ export function SideChatHost({
         itemKind: item.kind,
         itemId: item.id,
         messages: [],
+        annotateMode: false,
       });
     },
     [abortActiveStream],
@@ -128,6 +141,14 @@ export function SideChatHost({
     abortActiveStream();
     setActiveSideChat(null);
   }, [abortActiveStream]);
+
+  const requestAnnotate = useCallback(() => {
+    setActiveSideChat((current) => (current ? { ...current, annotateMode: true } : current));
+  }, []);
+
+  const cancelAnnotate = useCallback(() => {
+    setActiveSideChat((current) => (current ? { ...current, annotateMode: false } : current));
+  }, []);
 
   const submitMessage = useCallback(
     (message: string) => {
@@ -207,6 +228,94 @@ export function SideChatHost({
   );
   const sideChatContextValue = useMemo(() => ({ openFor }), [openFor]);
 
+  const patchList = usePatchList();
+  const patchListState = usePatchListState();
+  const stagedForActive = useStagedPatches(
+    activeSideChat
+      ? { anchor: { kind: activeSideChat.itemKind, itemId: activeSideChat.itemId }, kind: 'annotate' }
+      : undefined,
+  );
+
+  const submitAnnotate = useCallback(
+    (summary: string, body: string) => {
+      if (!activeSideChat || !patchList) {
+        return;
+      }
+      patchList.stage({
+        kind: 'annotate',
+        anchor: { kind: activeSideChat.itemKind, itemId: activeSideChat.itemId },
+        summary,
+        body,
+      });
+      setActiveSideChat((current) => (current ? { ...current, annotateMode: false } : current));
+    },
+    [activeSideChat, patchList],
+  );
+
+  const stagedSummaries: readonly SideChatStagedPatchSummary[] = stagedForActive.map((patch) => ({
+    id: patch.id,
+    kind: 'annotate',
+    summary: patch.summary,
+  }));
+  const canUndoForActive =
+    patchListState.canUndo &&
+    activeSideChat !== null &&
+    patchListState.lastBatchPatches.some(
+      (patch) =>
+        patch.kind === 'annotate' &&
+        patch.anchor.kind === activeSideChat.itemKind &&
+        patch.anchor.itemId === activeSideChat.itemId,
+    );
+
+  const triggeredAutoApplyIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!patchList || patchListState.isApplying) return;
+    const triggered = triggeredAutoApplyIdsRef.current;
+    const stagedIds = new Set(patchListState.staged.map((patch) => patch.id));
+    for (const id of triggered) {
+      if (!stagedIds.has(id)) triggered.delete(id);
+    }
+    const allAutoApplyable = patchListState.staged.every((patch) => patch.kind === 'annotate');
+    if (!allAutoApplyable) return;
+    const hasUntriggered = patchListState.staged.some((patch) => !triggered.has(patch.id));
+    if (!hasUntriggered) return;
+    for (const patch of patchListState.staged) {
+      triggered.add(patch.id);
+    }
+    void patchList.apply();
+  }, [patchList, patchListState.staged, patchListState.isApplying]);
+
+  const activeItemId = activeSideChat?.itemId;
+  const activeItemKind = activeSideChat?.itemKind;
+  const [annotations, setAnnotations] = useState<readonly CreatedAnnotation[]>([]);
+  useEffect(() => {
+    if (activeItemId === undefined || activeItemKind === undefined) {
+      setAnnotations([]);
+      return;
+    }
+    let cancelled = false;
+    void listAnnotationsForSpecificationRequest(specificationId)
+      .then((list) => {
+        if (!cancelled) setAnnotations(list);
+      })
+      .catch(() => {
+        if (!cancelled) setAnnotations([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeItemId, activeItemKind, specificationId, patchListState.lastBatchId]);
+
+  const existingAnnotations: readonly SideChatExistingAnnotation[] = activeSideChat
+    ? annotations
+        .filter((annotation) => annotation.knowledge_item_id === activeSideChat.itemId)
+        .map((annotation) => ({
+          id: annotation.id,
+          summary: annotation.summary,
+          body: annotation.body,
+        }))
+    : [];
+
   return (
     <SideChatContext.Provider value={sideChatContextValue}>
       {children}
@@ -217,6 +326,17 @@ export function SideChatHost({
           messages={activeSideChat.messages}
           onDismiss={dismiss}
           onSubmit={submitMessage}
+          annotateMode={activeSideChat.annotateMode}
+          onAnnotateRequest={patchList ? requestAnnotate : undefined}
+          onAnnotateCancel={cancelAnnotate}
+          onAnnotateSubmit={submitAnnotate}
+          stagedPatches={stagedSummaries}
+          canUndo={canUndoForActive}
+          isApplying={patchListState.isApplying}
+          onApply={patchList?.apply}
+          onUndo={patchList?.undo}
+          onDiscardPatch={patchList?.discard}
+          existingAnnotations={existingAnnotations}
         />
       )}
     </SideChatContext.Provider>
