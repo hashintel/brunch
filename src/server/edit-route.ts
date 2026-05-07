@@ -212,6 +212,11 @@ export function handleDeleteKnowledgeEdge(db: DB, req: Request, res: Response): 
     return;
   }
 
-  removeKnowledgeRelationship(db, parsed.data.fromItemId, parsed.data.toItemId, parsed.data.relation);
-  res.json({ deleted: true });
+  const deleted = removeKnowledgeRelationship(
+    db,
+    parsed.data.fromItemId,
+    parsed.data.toItemId,
+    parsed.data.relation,
+  );
+  res.json({ deleted });
 }

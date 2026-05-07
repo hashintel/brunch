@@ -1338,8 +1338,9 @@ export function removeKnowledgeRelationship(
   fromItemId: number,
   toItemId: number,
   relation: InferSelectModel<typeof schema.knowledgeEdge>['relation'],
-): void {
-  db.delete(schema.knowledgeEdge)
+): boolean {
+  const deleted = db
+    .delete(schema.knowledgeEdge)
     .where(
       and(
         eq(schema.knowledgeEdge.from_item_id, fromItemId),
@@ -1347,5 +1348,7 @@ export function removeKnowledgeRelationship(
         eq(schema.knowledgeEdge.relation, relation),
       ),
     )
-    .run();
+    .returning({ fromItemId: schema.knowledgeEdge.from_item_id })
+    .get();
+  return deleted !== undefined;
 }

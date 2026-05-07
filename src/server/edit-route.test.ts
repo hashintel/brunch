@@ -382,6 +382,19 @@ describe('DELETE /api/specifications/:id/knowledge-edges', () => {
     expect(edges).toHaveLength(0);
   });
 
+  it('reports deleted: false when a scoped edge does not exist', async () => {
+    const specId = await createSpec();
+    const criterion = createKnowledgeItem(db, specId, 'criterion', 'AC-1');
+    const requirement = createKnowledgeItem(db, specId, 'requirement', 'REQ-1');
+
+    const res = await request(app)
+      .delete(`/api/specifications/${specId}/knowledge-edges`)
+      .send({ fromItemId: criterion.id, toItemId: requirement.id, relation: 'verifies' })
+      .expect(200);
+
+    expect(res.body).toEqual({ deleted: false });
+  });
+
   it('returns 404 when specification does not exist', async () => {
     await request(app)
       .delete('/api/specifications/99999/knowledge-edges')
