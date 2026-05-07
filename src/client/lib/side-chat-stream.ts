@@ -4,6 +4,8 @@ export type SideChatMode = 'explore' | 'edit';
 
 export type EdgeRelation = 'depends_on' | 'derived_from' | 'constrains' | 'verifies' | 'refines';
 
+export type EditImpactTier = 'none' | 'soft' | 'hard';
+
 export interface ProposeEditInput {
   newContent: string;
   newRationale?: string;
@@ -24,6 +26,10 @@ export type PatchProposalEvent =
       toolCallId: string;
       toolName: 'propose_edit';
       input: ProposeEditInput;
+      // Server-classified per design §4.1 so the client can render an impact
+      // tier chip on the patch entry. Omitted only when the server couldn't
+      // pre-classify (defensive — the client still functions without it).
+      impact?: EditImpactTier;
     }
   | {
       type: 'patch-proposal';
@@ -37,6 +43,8 @@ export type PatchProposalEvent =
       toolName: 'propose_drill_down';
       input: ProposeDrillDownInput;
     };
+
+const EDIT_IMPACT_TIERS = new Set<EditImpactTier>(['none', 'soft', 'hard']);
 
 export type SideChatStreamEvent =
   | { type: 'text-delta'; delta: string }
@@ -97,6 +105,11 @@ function parsePatchProposal(parsed: Record<string, unknown>): SideChatStreamEven
     if (typeof newContent !== 'string' || newContent.length === 0) {
       return null;
     }
+    const impactRaw = parsed.impact;
+    const impact =
+      typeof impactRaw === 'string' && EDIT_IMPACT_TIERS.has(impactRaw as EditImpactTier)
+        ? (impactRaw as EditImpactTier)
+        : undefined;
     return {
       type: 'patch-proposal',
       toolCallId: parsed.toolCallId,
@@ -105,6 +118,7 @@ function parsePatchProposal(parsed: Record<string, unknown>): SideChatStreamEven
         newContent,
         ...(typeof newRationale === 'string' && newRationale.length > 0 ? { newRationale } : {}),
       },
+      ...(impact !== undefined ? { impact } : {}),
     };
   }
   if (parsed.toolName === 'propose_edge') {

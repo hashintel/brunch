@@ -38,6 +38,24 @@ function useTypewriter(target: string, animate: boolean, charDelayMs = 15): stri
   return displayed;
 }
 
+// Impact tier chip for edit patches (design §4.1). Color cues mirror the
+// patch-list overlay's deferred banner family — neutral for none, blue for
+// soft (direct apply), amber for hard (deferred to V3 cascade).
+function ImpactChip({ impact }: { impact: 'none' | 'soft' | 'hard' }) {
+  const className =
+    impact === 'hard'
+      ? 'rounded bg-[rgba(255,219,168,0.6)] px-1.5 py-0.5 text-[10px] font-medium text-ink'
+      : impact === 'soft'
+        ? 'rounded bg-[rgba(32,112,230,0.12)] px-1.5 py-0.5 text-[10px] font-medium text-[#1060d6]'
+        : 'rounded bg-wash px-1.5 py-0.5 text-[10px] font-medium text-sub';
+  const label = impact === 'hard' ? 'Hard impact — V3' : impact === 'soft' ? 'Soft impact' : 'No impact';
+  return (
+    <span className={className} aria-label={label} data-impact={impact}>
+      {label}
+    </span>
+  );
+}
+
 function MessageBubble({ message }: { message: SideChatMessage }) {
   const animate = message.role === 'assistant' && !message.error && message.pending === true;
   const displayed = useTypewriter(message.text, animate);
@@ -75,6 +93,9 @@ export interface SideChatStagedPatchSummary {
   id: string;
   kind: 'annotate' | 'edit' | 'edge' | 'drill-down';
   summary: string;
+  // For kind='edit' only: server-classified impact tier rendered as a chip
+  // on the patch entry (design §4.1).
+  impact?: 'none' | 'soft' | 'hard';
 }
 
 export interface SideChatExistingAnnotation {
@@ -370,6 +391,7 @@ export function SideChatPopover({
                   <span className="flex-1 truncate" title={patch.summary}>
                     {patch.summary}
                   </span>
+                  {patch.kind === 'edit' && patch.impact ? <ImpactChip impact={patch.impact} /> : null}
                   {onDiscardPatch ? (
                     <button
                       type="button"

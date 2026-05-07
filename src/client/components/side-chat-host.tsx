@@ -447,6 +447,7 @@ export function SideChatHost({
                   summary: summarizeEditContent(event.input.newContent),
                   newContent: event.input.newContent,
                   ...(event.input.newRationale ? { newRationale: event.input.newRationale } : {}),
+                  ...(event.impact !== undefined ? { impact: event.impact } : {}),
                 });
               } else if (event.type === 'patch-proposal' && event.toolName === 'propose_edge') {
                 const patchList = patchListRef.current;
@@ -538,6 +539,7 @@ export function SideChatHost({
     id: patch.id,
     kind: patch.kind,
     summary: patch.summary,
+    ...(patch.kind === 'edit' && patch.impact !== undefined ? { impact: patch.impact } : {}),
   }));
   const stagedForActiveIds = useMemo(() => stagedForActive.map((patch) => patch.id), [stagedForActive]);
   const canUndoForActive =

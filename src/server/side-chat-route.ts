@@ -6,7 +6,14 @@ import * as z from 'zod/v4';
 import type { EntitiesData, MutationErrorResponse } from '@/shared/api-types.js';
 import { knowledgeKinds, type KnowledgeKind } from '@/shared/knowledge.js';
 
-import { getEntitiesForSpecificationByMode, getSpecification, type DB } from './db.js';
+import {
+  getDownstreamItems,
+  getEntitiesForSpecificationByMode,
+  getSpecification,
+  isItemInActiveReviewSet,
+  type DB,
+} from './db.js';
+import { classifyEditImpact, type EditImpactTier } from './edit-impact.js';
 import {
   buildSideChatPrompt,
   getSideChatTools,
@@ -171,12 +178,31 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
     abortSignal: abortController.signal,
   });
 
+  // Pre-compute the edit-impact tier for the active item once per request so
+  // patch-proposal chunks for propose_edit can carry it through to the client
+  // (design §4.1: each edit patch shows its impact tier in the patch list).
+  // Computed lazily — only when an edit-mode request actually targets the
+  // pinned item — and reused for every propose_edit chunk in this stream.
+  const computeEditImpact = (): EditImpactTier => {
+    const downstream = getDownstreamItems(db, specificationId, parsed.data.itemId);
+    const inReviewSet =
+      isItemInActiveReviewSet(db, specificationId, parsed.data.itemId) ||
+      downstream.some((downstreamItem) => isItemInActiveReviewSet(db, specificationId, downstreamItem.id));
+    return classifyEditImpact(downstream.length, inReviewSet);
+  };
+  let cachedEditImpact: EditImpactTier | null = null;
+
   try {
     for await (const part of result.fullStream) {
       if (abortController.signal.aborted) {
         break;
       }
-      const sseChunk = sideChatStreamChunkFromPart(part);
+      const sseChunk = sideChatStreamChunkFromPart(part, () => {
+        if (cachedEditImpact === null) {
+          cachedEditImpact = computeEditImpact();
+        }
+        return cachedEditImpact;
+      });
       if (sseChunk) {
         res.write(`data: ${JSON.stringify(sseChunk)}\n\n`);
       }
@@ -215,7 +241,16 @@ type SideChatToolName =
 
 type SideChatSseChunk =
   | { type: 'text-delta'; delta: string }
-  | { type: 'patch-proposal'; toolCallId: string; toolName: SideChatToolName; input: unknown };
+  | {
+      type: 'patch-proposal';
+      toolCallId: string;
+      toolName: SideChatToolName;
+      input: unknown;
+      // Pre-classified for propose_edit only (design §4.1) so the client can
+      // render an impact tier chip on the patch entry before Apply runs.
+      // Omitted for propose_edge / propose_drill_down (no impact concept).
+      impact?: EditImpactTier;
+    };
 
 const SIDE_CHAT_TOOL_NAMES = new Set<string>([
   proposeEditToolName,
@@ -223,7 +258,10 @@ const SIDE_CHAT_TOOL_NAMES = new Set<string>([
   proposeDrillDownToolName,
 ]);
 
-function sideChatStreamChunkFromPart(part: unknown): SideChatSseChunk | null {
+function sideChatStreamChunkFromPart(
+  part: unknown,
+  getEditImpact: () => EditImpactTier,
+): SideChatSseChunk | null {
   if (!part || typeof part !== 'object' || !('type' in part)) {
     return null;
   }
@@ -243,11 +281,13 @@ function sideChatStreamChunkFromPart(part: unknown): SideChatSseChunk | null {
     if (typeof call.toolCallId !== 'string') {
       return null;
     }
+    const isEdit = call.toolName === proposeEditToolName;
     return {
       type: 'patch-proposal',
       toolCallId: call.toolCallId,
       toolName: call.toolName as SideChatToolName,
       input: call.input ?? null,
+      ...(isEdit ? { impact: getEditImpact() } : {}),
     };
   }
   return null;

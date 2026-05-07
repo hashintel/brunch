@@ -808,6 +808,67 @@ describe('SideChatPopover', () => {
   });
 });
 
+describe('SideChatPopover — impact tier chip on edit patches (V2 §4.1)', () => {
+  it('renders a Soft impact chip on staged edit patches with impact="soft"', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'edit', summary: 'Edit: rephrase', impact: 'soft' }]}
+      />,
+    );
+    const chip = screen.getByLabelText(/soft impact/i);
+    expect(chip.getAttribute('data-impact')).toBe('soft');
+    expect(chip.textContent).toMatch(/soft impact/i);
+  });
+
+  it('renders a Hard impact chip on staged edit patches with impact="hard"', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'edit', summary: 'Edit: rephrase', impact: 'hard' }]}
+      />,
+    );
+    const chip = screen.getByLabelText(/hard impact — v3/i);
+    expect(chip.getAttribute('data-impact')).toBe('hard');
+  });
+
+  it('renders a No impact chip on staged edit patches with impact="none"', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'edit', summary: 'Edit: rephrase', impact: 'none' }]}
+      />,
+    );
+    const chip = screen.getByLabelText(/no impact/i);
+    expect(chip.getAttribute('data-impact')).toBe('none');
+  });
+
+  it('does not render an impact chip when the staged patch is not an edit', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
+      />,
+    );
+    expect(screen.queryByLabelText(/impact/i)).toBeNull();
+  });
+
+  it('does not render an impact chip when impact is omitted on an edit patch', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'edit', summary: 'Edit: rephrase' }]}
+      />,
+    );
+    expect(screen.queryByLabelText(/impact/i)).toBeNull();
+  });
+});
+
 describe('SideChatPopover — Edit-mode toggle (V2)', () => {
   it('keeps the Edit button disabled when onModeChange is not provided', () => {
     render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
