@@ -6,6 +6,7 @@ import { flushSync } from 'react-dom';
 import { kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
 import { usePatchList } from '@/client/components/patch-list-host.js';
+import { PatchListOverlay } from '@/client/components/patch-list-overlay.js';
 import { SelectionMenu } from '@/client/components/selection-menu.js';
 import { useSideChat } from '@/client/components/side-chat-host.js';
 import { Badge } from '@/client/components/ui/badge';
@@ -695,6 +696,7 @@ export function StructuredListView({
           </div>
         )}
         <div ref={scrollAreaRef} className="min-h-0 flex-1 overflow-y-auto">
+          <PatchListOverlay />
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-6 pb-8">
             {view === 'empty' && (
               <EmptyStateCard
