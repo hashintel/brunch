@@ -123,6 +123,26 @@ describe('makeEditApplier', () => {
     const applier = makeEditApplier(SPEC_ID);
     await expect(applier(makeEditPatch())).rejects.toThrow();
   });
+
+  it('throws during undo when the server defers the restore edit', async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({
+          impact: 'soft',
+          affectedItems: [],
+          updated: true,
+          previousContent: 'Old content',
+          previousRationale: 'Old rationale',
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ impact: 'hard', affectedItems: [], updated: false }));
+
+    const applier = makeEditApplier(SPEC_ID);
+    const result = await applier(makeEditPatch());
+
+    await expect(result.undo()).rejects.toThrow(/undo deferred/i);
+  });
 });
 
 describe('makeEdgeApplier', () => {

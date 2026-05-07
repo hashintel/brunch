@@ -155,6 +155,20 @@ describe('PATCH /api/specifications/:id/knowledge-items/:itemId', () => {
     expect(updated?.content).toBe('New goal');
     expect(updated?.rationale).toBe('New rationale');
   });
+
+  it('preserves existing rationale when the edit omits rationale', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'A goal', { rationale: 'Keep this rationale' });
+
+    await request(app)
+      .patch(`/api/specifications/${specId}/knowledge-items/${goal.id}`)
+      .send({ content: 'New goal' })
+      .expect(200);
+
+    const updated = getKnowledgeItem(db, goal.id);
+    expect(updated?.content).toBe('New goal');
+    expect(updated?.rationale).toBe('Keep this rationale');
+  });
 });
 
 describe('POST /api/specifications/:id/knowledge-edges/validate', () => {
@@ -359,5 +373,25 @@ describe('DELETE /api/specifications/:id/knowledge-edges', () => {
       .delete('/api/specifications/99999/knowledge-edges')
       .send({ fromItemId: 1, toItemId: 2, relation: 'depends_on' })
       .expect(404);
+  });
+
+  it('does not delete an edge whose items belong to another specification', async () => {
+    const ownerSpecId = await createSpec('Owner spec');
+    const requestSpecId = await createSpec('Request spec');
+    const criterion = createKnowledgeItem(db, ownerSpecId, 'criterion', 'AC-1');
+    const requirement = createKnowledgeItem(db, ownerSpecId, 'requirement', 'REQ-1');
+    addKnowledgeRelationship(db, criterion.id, requirement.id, 'verifies');
+
+    const res = await request(app)
+      .delete(`/api/specifications/${requestSpecId}/knowledge-edges`)
+      .send({ fromItemId: criterion.id, toItemId: requirement.id, relation: 'verifies' })
+      .expect(200);
+
+    expect(res.body).toMatchObject({ deleted: false });
+
+    const edges = db.$client
+      .prepare('SELECT 1 FROM knowledge_edge WHERE from_item_id = ? AND to_item_id = ? AND relation = ?')
+      .all(criterion.id, requirement.id, 'verifies');
+    expect(edges).toHaveLength(1);
   });
 });

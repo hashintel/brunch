@@ -1296,10 +1296,6 @@ export function getDownstreamItems(db: DB, specificationId: number, itemId: numb
   `) as DownstreamItem[];
 }
 
-export function getDownstreamItemCount(db: DB, specificationId: number, itemId: number): number {
-  return getDownstreamItems(db, specificationId, itemId).length;
-}
-
 /**
  * An item is in an active review set if there is a `phase_outcome` with
  * `status = 'proposed'` for requirements or criteria, AND the item has a

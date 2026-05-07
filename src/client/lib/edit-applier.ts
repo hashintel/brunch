@@ -23,10 +23,13 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
     const previousRationale = response.previousRationale;
     return {
       undo: async () => {
-        await editKnowledgeItemRequest(specificationId, patch.anchor.itemId, {
+        const undoResponse = await editKnowledgeItemRequest(specificationId, patch.anchor.itemId, {
           content: previousContent,
-          rationale: previousRationale ?? undefined,
+          rationale: previousRationale,
         });
+        if (!undoResponse.updated) {
+          throw new Error('Edit undo deferred: hard impact detected — restore via V3 cascade preview');
+        }
       },
       applied: { impact: response.impact, previousContent, previousRationale },
     };

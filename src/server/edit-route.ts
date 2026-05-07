@@ -21,7 +21,7 @@ import { supportsKnowledgeRelationship } from './knowledge-relationship-policy.j
 
 const patchKnowledgeItemSchema = z.object({
   content: z.string().trim().min(1),
-  rationale: z.string().trim().min(1).optional(),
+  rationale: z.string().trim().min(1).nullable().optional(),
 });
 
 const validateEdgeSchema = z.object({
@@ -94,7 +94,7 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
   const previousRationale = item.rationale;
   updateKnowledgeItemContent(db, itemId, {
     content: parsed.data.content,
-    rationale: parsed.data.rationale ?? null,
+    rationale: parsed.data.rationale,
   });
 
   res.json({ impact, affectedItems, updated: true, previousContent, previousRationale });
@@ -194,6 +194,18 @@ export function handleDeleteKnowledgeEdge(db: DB, req: Request, res: Response): 
   const parsed = createEdgeSchema.safeParse(req.body);
   if (!parsed.success) {
     badRequest(res, 'Invalid payload');
+    return;
+  }
+
+  const fromItem = getKnowledgeItem(db, parsed.data.fromItemId);
+  const toItem = getKnowledgeItem(db, parsed.data.toItemId);
+
+  if (!fromItem || fromItem.specification_id !== specificationId) {
+    res.json({ deleted: false, reason: 'Source item not found' });
+    return;
+  }
+  if (!toItem || toItem.specification_id !== specificationId) {
+    res.json({ deleted: false, reason: 'Target item not found' });
     return;
   }
 

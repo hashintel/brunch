@@ -2,7 +2,7 @@
 
 export interface EditItemRequest {
   content: string;
-  rationale?: string;
+  rationale?: string | null;
 }
 
 export type EditItemResponse =
@@ -41,26 +41,6 @@ export interface EdgeMutationRequest {
   relation: string;
 }
 
-export interface ValidateEdgeResponse {
-  valid: boolean;
-  reason?: string;
-}
-
-export async function validateEdgeRequest(
-  specificationId: number,
-  body: EdgeMutationRequest,
-): Promise<ValidateEdgeResponse> {
-  const response = await fetch(`/api/specifications/${specificationId}/knowledge-edges/validate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    throw new Error(`validateEdge failed: ${response.status} ${response.statusText}`);
-  }
-  return (await response.json()) as ValidateEdgeResponse;
-}
-
 export async function createEdgeRequest(
   specificationId: number,
   body: EdgeMutationRequest,
@@ -79,7 +59,7 @@ export async function createEdgeRequest(
 export async function deleteEdgeRequest(
   specificationId: number,
   body: EdgeMutationRequest,
-): Promise<{ deleted: boolean }> {
+): Promise<{ deleted: boolean; reason?: string }> {
   const response = await fetch(`/api/specifications/${specificationId}/knowledge-edges`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
