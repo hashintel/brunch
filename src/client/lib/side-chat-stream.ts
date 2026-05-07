@@ -2,21 +2,55 @@ import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 export type SideChatMode = 'explore' | 'edit';
 
+export type EdgeRelation = 'depends_on' | 'derived_from' | 'constrains' | 'verifies' | 'refines';
+
 export interface ProposeEditInput {
   newContent: string;
   newRationale?: string;
 }
 
-export type SideChatStreamEvent =
-  | { type: 'text-delta'; delta: string }
+export interface ProposeEdgeInput {
+  targetReferenceCode: string;
+  relation: EdgeRelation;
+}
+
+export interface ProposeDrillDownInput {
+  focusArea: string;
+}
+
+export type PatchProposalEvent =
   | {
       type: 'patch-proposal';
       toolCallId: string;
       toolName: 'propose_edit';
       input: ProposeEditInput;
     }
+  | {
+      type: 'patch-proposal';
+      toolCallId: string;
+      toolName: 'propose_edge';
+      input: ProposeEdgeInput;
+    }
+  | {
+      type: 'patch-proposal';
+      toolCallId: string;
+      toolName: 'propose_drill_down';
+      input: ProposeDrillDownInput;
+    };
+
+export type SideChatStreamEvent =
+  | { type: 'text-delta'; delta: string }
+  | PatchProposalEvent
   | { type: 'done' }
   | { type: 'error'; message: string };
+
+const EDGE_RELATIONS = new Set<EdgeRelation>([
+  'depends_on',
+  'derived_from',
+  'constrains',
+  'verifies',
+  'refines',
+]);
 
 export interface SideChatPriorTurn {
   role: 'user' | 'assistant';
@@ -51,9 +85,6 @@ const EVENT_DELIMITER = '\n\n';
 const DATA_PREFIX = 'data: ';
 
 function parsePatchProposal(parsed: Record<string, unknown>): SideChatStreamEvent | null {
-  if (parsed.toolName !== 'propose_edit') {
-    return null;
-  }
   if (typeof parsed.toolCallId !== 'string') {
     return null;
   }
@@ -61,19 +92,52 @@ function parsePatchProposal(parsed: Record<string, unknown>): SideChatStreamEven
   if (!input || typeof input !== 'object') {
     return null;
   }
-  const { newContent, newRationale } = input as { newContent?: unknown; newRationale?: unknown };
-  if (typeof newContent !== 'string' || newContent.length === 0) {
-    return null;
+  if (parsed.toolName === 'propose_edit') {
+    const { newContent, newRationale } = input as { newContent?: unknown; newRationale?: unknown };
+    if (typeof newContent !== 'string' || newContent.length === 0) {
+      return null;
+    }
+    return {
+      type: 'patch-proposal',
+      toolCallId: parsed.toolCallId,
+      toolName: 'propose_edit',
+      input: {
+        newContent,
+        ...(typeof newRationale === 'string' && newRationale.length > 0 ? { newRationale } : {}),
+      },
+    };
   }
-  return {
-    type: 'patch-proposal',
-    toolCallId: parsed.toolCallId,
-    toolName: 'propose_edit',
-    input: {
-      newContent,
-      ...(typeof newRationale === 'string' && newRationale.length > 0 ? { newRationale } : {}),
-    },
-  };
+  if (parsed.toolName === 'propose_edge') {
+    const { targetReferenceCode, relation } = input as {
+      targetReferenceCode?: unknown;
+      relation?: unknown;
+    };
+    if (typeof targetReferenceCode !== 'string' || targetReferenceCode.length === 0) {
+      return null;
+    }
+    if (typeof relation !== 'string' || !EDGE_RELATIONS.has(relation as EdgeRelation)) {
+      return null;
+    }
+    return {
+      type: 'patch-proposal',
+      toolCallId: parsed.toolCallId,
+      toolName: 'propose_edge',
+      input: { targetReferenceCode, relation: relation as EdgeRelation },
+    };
+  }
+  if (parsed.toolName === 'propose_drill_down') {
+    const { focusArea } = input as { focusArea?: unknown };
+    if (typeof focusArea !== 'string' || focusArea.length === 0) {
+      return null;
+    }
+    return {
+      type: 'patch-proposal',
+      toolCallId: parsed.toolCallId,
+      toolName: 'propose_drill_down',
+      input: { focusArea },
+    };
+  }
+  return null;
 }
 
 export function parseSideChatSSEBuffer(buffer: string): ParseResult {

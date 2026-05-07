@@ -10,6 +10,8 @@ import { getEntitiesForSpecificationByMode, getSpecification, type DB } from './
 import {
   buildSideChatPrompt,
   getSideChatTools,
+  proposeDrillDownToolName,
+  proposeEdgeToolName,
   proposeEditToolName,
   type SideChatPinnedItem,
 } from './side-chat-prompt.js';
@@ -206,9 +208,20 @@ interface ToolCallPart {
   input: unknown;
 }
 
+type SideChatToolName =
+  | typeof proposeEditToolName
+  | typeof proposeEdgeToolName
+  | typeof proposeDrillDownToolName;
+
 type SideChatSseChunk =
   | { type: 'text-delta'; delta: string }
-  | { type: 'patch-proposal'; toolCallId: string; toolName: typeof proposeEditToolName; input: unknown };
+  | { type: 'patch-proposal'; toolCallId: string; toolName: SideChatToolName; input: unknown };
+
+const SIDE_CHAT_TOOL_NAMES = new Set<string>([
+  proposeEditToolName,
+  proposeEdgeToolName,
+  proposeDrillDownToolName,
+]);
 
 function sideChatStreamChunkFromPart(part: unknown): SideChatSseChunk | null {
   if (!part || typeof part !== 'object' || !('type' in part)) {
@@ -224,7 +237,7 @@ function sideChatStreamChunkFromPart(part: unknown): SideChatSseChunk | null {
   }
   if (typed.type === 'tool-call') {
     const call = part as Partial<ToolCallPart>;
-    if (call.toolName !== proposeEditToolName) {
+    if (typeof call.toolName !== 'string' || !SIDE_CHAT_TOOL_NAMES.has(call.toolName)) {
       return null;
     }
     if (typeof call.toolCallId !== 'string') {
@@ -233,7 +246,7 @@ function sideChatStreamChunkFromPart(part: unknown): SideChatSseChunk | null {
     return {
       type: 'patch-proposal',
       toolCallId: call.toolCallId,
-      toolName: proposeEditToolName,
+      toolName: call.toolName as SideChatToolName,
       input: call.input ?? null,
     };
   }

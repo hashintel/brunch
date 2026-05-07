@@ -1,6 +1,7 @@
 import { tool } from 'ai';
 import * as z from 'zod/v4';
 
+import { edgeRelationSchema } from '@/shared/api-types.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 export interface SideChatPinnedItem {
@@ -53,13 +54,19 @@ You are NOT conducting a structured interview. Do not ask multiple-choice questi
 // FE-698 migration: when the shared prompt registry lands, move
 // SIDE_CHAT_EDIT_MODE_PROMPT into that registry and replace the inline addendum
 // with a registry lookup keyed on mode.
-const SIDE_CHAT_EDIT_MODE_PROMPT = `You are now in Edit mode. The user wants to change the pinned item's content or rationale.
+const SIDE_CHAT_EDIT_MODE_PROMPT = `You are now in Edit mode. The user wants to refine the pinned item — its content, its rationale, or how it relates to other items in the spec.
 
-When the user asks for a wording change, factual correction, terser phrasing, or rationale clarification of the pinned item, call the propose_edit tool with the proposed new content (and new rationale, if applicable). The user reviews and applies the proposed edit through the patch list — do not assume the change has been applied yet.
+You have three tools available in Edit mode:
 
-If the user asks an exploration question, asks you to compare alternatives, or otherwise wants discussion rather than a concrete edit, respond conversationally without calling propose_edit.
+- propose_edit: when the user asks for a wording change, factual correction, terser phrasing, or rationale clarification of the pinned item. Call with the proposed newContent (and newRationale if applicable).
+- propose_edge: when the user asks to link the pinned item to another item by reference code (for example "G3" or "D7"). Call with targetReferenceCode + relation. Valid relations: depends_on, derived_from, constrains, verifies, refines.
+- propose_drill_down: when the user asks to deepen one specific area of the pinned item ("dig into X", "let's go deeper on Y"). Call with focusArea naming the area to deepen.
 
-Only propose edits to the currently pinned item. Do not propose edits to other items, even if the user references them.`;
+The user reviews and applies any proposed change through the patch list — do not assume changes are applied.
+
+If the user asks an exploration question, asks you to compare alternatives, or otherwise wants discussion rather than a concrete change, respond conversationally without calling any tool.
+
+Only propose changes for the currently pinned item. Do not propose changes to other items, even if the user references them.`;
 
 function formatActiveAnnotations(annotations: readonly SideChatActiveAnnotation[]): string {
   const lines = annotations.map((annotation, index) => {
@@ -103,13 +110,24 @@ function completedHistory(history: readonly SideChatPriorTurn[]): SideChatPriorT
 }
 
 // FE-698 migration: when the shared prompt registry lands, move proposeEditTool
-// (and any future propose_edge / propose_drill_down tools) into the registry's
-// tool surface and replace getSideChatTools with a registry lookup.
+// (and proposeEdgeTool / proposeDrillDownTool) into the registry's tool surface
+// and replace getSideChatTools with a registry lookup.
 export const proposeEditToolName = 'propose_edit' as const;
+export const proposeEdgeToolName = 'propose_edge' as const;
+export const proposeDrillDownToolName = 'propose_drill_down' as const;
 
 export const proposeEditInputSchema = z.object({
   newContent: z.string().trim().min(1),
   newRationale: z.string().trim().min(1).optional(),
+});
+
+export const proposeEdgeInputSchema = z.object({
+  targetReferenceCode: z.string().trim().min(1),
+  relation: edgeRelationSchema,
+});
+
+export const proposeDrillDownInputSchema = z.object({
+  focusArea: z.string().trim().min(1),
 });
 
 const proposeEditOutputSchema = z.object({
@@ -117,7 +135,18 @@ const proposeEditOutputSchema = z.object({
   newRationale: z.string().optional(),
 });
 
+const proposeEdgeOutputSchema = z.object({
+  targetReferenceCode: z.string(),
+  relation: edgeRelationSchema,
+});
+
+const proposeDrillDownOutputSchema = z.object({
+  focusArea: z.string(),
+});
+
 export type ProposeEditInput = z.infer<typeof proposeEditInputSchema>;
+export type ProposeEdgeInput = z.infer<typeof proposeEdgeInputSchema>;
+export type ProposeDrillDownInput = z.infer<typeof proposeDrillDownInputSchema>;
 
 const proposeEditTool = tool({
   description:
@@ -130,11 +159,40 @@ const proposeEditTool = tool({
   }),
 });
 
-export function getSideChatTools(mode: SideChatMode = 'explore'): {
-  [proposeEditToolName]?: typeof proposeEditTool;
-} {
+const proposeEdgeTool = tool({
+  description:
+    'Propose a graph relationship from the currently pinned knowledge item to another item identified by its reference code. Call this when the user asks to link, depend on, derive from, constrain, verify, or refine another item by code (for example "G3" or "D7"). The user reviews and applies the edge through the patch list.',
+  inputSchema: proposeEdgeInputSchema,
+  outputSchema: proposeEdgeOutputSchema,
+  execute: async (input) => ({
+    targetReferenceCode: input.targetReferenceCode,
+    relation: input.relation,
+  }),
+});
+
+const proposeDrillDownTool = tool({
+  description:
+    'Propose deepening one specific area of the currently pinned knowledge item. Call this when the user asks to "go deeper on X", "drill into Y", or otherwise wants more detailed exploration of a specific aspect. The user reviews the proposed focus area through the patch list. Note: drill-down apply is deferred to V3; staging the patch is the V2 surface.',
+  inputSchema: proposeDrillDownInputSchema,
+  outputSchema: proposeDrillDownOutputSchema,
+  execute: async (input) => ({
+    focusArea: input.focusArea,
+  }),
+});
+
+type EditModeTools = {
+  [proposeEditToolName]: typeof proposeEditTool;
+  [proposeEdgeToolName]: typeof proposeEdgeTool;
+  [proposeDrillDownToolName]: typeof proposeDrillDownTool;
+};
+
+export function getSideChatTools(mode: SideChatMode = 'explore'): Partial<EditModeTools> {
   if (mode === 'edit') {
-    return { [proposeEditToolName]: proposeEditTool };
+    return {
+      [proposeEditToolName]: proposeEditTool,
+      [proposeEdgeToolName]: proposeEdgeTool,
+      [proposeDrillDownToolName]: proposeDrillDownTool,
+    };
   }
   return {};
 }

@@ -104,6 +104,45 @@ function summarizeEditContent(newContent: string): string {
   return `Edit: ${trimmed.slice(0, EDIT_SUMMARY_PREVIEW_LIMIT - 1)}…`;
 }
 
+interface ResolvedEdgeTarget {
+  kind: KnowledgeKind;
+  itemId: number;
+  referenceCode: string;
+}
+
+// Resolve a referenceCode (e.g. "G3", "D7") to the corresponding
+// (kind, itemId) by reading the project-wide entities cache. Returns null if
+// no entity matches — propose_edge events with unresolvable references are
+// silently dropped client-side; the LLM occasionally hallucinates codes.
+function resolveEdgeTarget(specificationId: number, referenceCode: string): ResolvedEdgeTarget | null {
+  const data = queryClient.getQueryData(
+    specificationQueryKeys.entitiesProjectWide(String(specificationId)),
+  ) as EntitiesData | undefined;
+  if (!data) {
+    return null;
+  }
+  const groups: ReadonlyArray<
+    readonly [KnowledgeKind, ReadonlyArray<{ id: number; referenceCode?: string | null }>]
+  > = [
+    ['goal', data.goals],
+    ['term', data.terms],
+    ['context', data.contexts],
+    ['constraint', data.constraints],
+    ['decision', data.decisions],
+    ['assumption', data.assumptions],
+    ['requirement', data.requirements],
+    ['criterion', data.criteria],
+  ];
+  for (const [kind, items] of groups) {
+    for (const item of items) {
+      if (item.referenceCode === referenceCode) {
+        return { kind, itemId: item.id, referenceCode };
+      }
+    }
+  }
+  return null;
+}
+
 function replacePendingText(messages: readonly SideChatMessage[], text: string): SideChatMessage[] {
   return messages.map((message) => (message.pending ? { ...message, text } : message));
 }
@@ -408,6 +447,33 @@ export function SideChatHost({
                   summary: summarizeEditContent(event.input.newContent),
                   newContent: event.input.newContent,
                   ...(event.input.newRationale ? { newRationale: event.input.newRationale } : {}),
+                });
+              } else if (event.type === 'patch-proposal' && event.toolName === 'propose_edge') {
+                const patchList = patchListRef.current;
+                if (!patchList) {
+                  return;
+                }
+                const target = resolveEdgeTarget(specificationId, event.input.targetReferenceCode);
+                if (!target) {
+                  return;
+                }
+                patchList.stage({
+                  kind: 'edge',
+                  anchor: { kind: session.itemKind, itemId: session.itemId },
+                  targetAnchor: { kind: target.kind, itemId: target.itemId },
+                  relation: event.input.relation,
+                  summary: `Edge: ${session.pinnedItem.referenceCode} ${event.input.relation.replace('_', ' ')} ${target.referenceCode}`,
+                });
+              } else if (event.type === 'patch-proposal' && event.toolName === 'propose_drill_down') {
+                const patchList = patchListRef.current;
+                if (!patchList) {
+                  return;
+                }
+                patchList.stage({
+                  kind: 'drill-down',
+                  anchor: { kind: session.itemKind, itemId: session.itemId },
+                  summary: `Drill-down: ${event.input.focusArea}`,
+                  focusArea: event.input.focusArea,
                 });
               }
             },
