@@ -807,3 +807,56 @@ describe('SideChatPopover', () => {
     });
   });
 });
+
+describe('SideChatPopover — Edit-mode toggle (V2)', () => {
+  it('keeps the Edit button disabled when onModeChange is not provided', () => {
+    render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
+    const edit = screen.getByRole('button', { name: /edit/i }) as HTMLButtonElement;
+    expect(edit.disabled).toBe(true);
+  });
+
+  it('enables the Edit button when onModeChange is provided', () => {
+    render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} onModeChange={() => {}} />);
+    const edit = screen.getByRole('button', { name: /edit/i }) as HTMLButtonElement;
+    expect(edit.disabled).toBe(false);
+  });
+
+  it('clicking Edit when mode is "explore" calls onModeChange("edit")', () => {
+    const onModeChange = vi.fn();
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        mode="explore"
+        onModeChange={onModeChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }));
+    expect(onModeChange).toHaveBeenCalledWith('edit');
+  });
+
+  it('clicking Edit when mode is "edit" calls onModeChange("explore") (toggle off)', () => {
+    const onModeChange = vi.fn();
+    render(
+      <SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} mode="edit" onModeChange={onModeChange} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }));
+    expect(onModeChange).toHaveBeenCalledWith('explore');
+  });
+
+  it('marks the Edit button as pressed when mode is "edit"', () => {
+    render(
+      <SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} mode="edit" onModeChange={() => {}} />,
+    );
+    const edit = screen.getByRole('button', { name: /edit/i });
+    expect(edit.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('marks the Edit button as not pressed when mode is "explore"', () => {
+    render(
+      <SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} mode="explore" onModeChange={() => {}} />,
+    );
+    const edit = screen.getByRole('button', { name: /edit/i });
+    expect(edit.getAttribute('aria-pressed')).toBe('false');
+  });
+});

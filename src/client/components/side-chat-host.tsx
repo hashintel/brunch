@@ -663,6 +663,8 @@ export function SideChatHost({
           onAnnotateRequest={patchList ? requestAnnotate : undefined}
           onAnnotateCancel={cancelAnnotate}
           onAnnotateSubmit={submitAnnotate}
+          mode={activeSideChat.mode}
+          onModeChange={patchList ? setMode : undefined}
           stagedPatches={stagedSummaries}
           canUndo={canUndoForActive}
           isApplying={patchListState.isApplying}

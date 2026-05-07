@@ -108,6 +108,9 @@ export interface SideChatPopoverProps {
   onAnnotateRequest?: () => void;
   onAnnotateCancel?: () => void;
   onAnnotateSubmit?: (summary: string, body: string) => void;
+  // ---- Edit mode toggle (V2 chat-driven Edit) ----
+  mode?: 'explore' | 'edit';
+  onModeChange?: (mode: 'explore' | 'edit') => void;
   // ---- Inline patch list (Card C, secondary surface per design §4) ----
   stagedPatches?: readonly SideChatStagedPatchSummary[];
   canUndo?: boolean;
@@ -139,6 +142,8 @@ export function SideChatPopover({
   onAnnotateRequest,
   onAnnotateCancel,
   onAnnotateSubmit,
+  mode = 'explore',
+  onModeChange,
   stagedPatches = [],
   canUndo = false,
   isApplying = false,
@@ -469,16 +474,38 @@ export function SideChatPopover({
                     Annotate
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  disabled
-                  aria-label="Edit (coming in V2)"
-                  title="Edit — coming in V2"
-                  className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-[#a6a6a6] shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]"
-                >
-                  <PencilLine className="size-3.5" aria-hidden />
-                  Edit
-                </button>
+                {onModeChange ? (
+                  <button
+                    type="button"
+                    aria-label="Edit mode"
+                    aria-pressed={mode === 'edit'}
+                    title={
+                      mode === 'edit'
+                        ? 'Edit mode active — switch back to explore'
+                        : 'Switch to edit mode (LLM proposes edits)'
+                    }
+                    onClick={() => onModeChange(mode === 'edit' ? 'explore' : 'edit')}
+                    className={
+                      mode === 'edit'
+                        ? 'inline-flex items-center gap-1 rounded-md bg-[#2070e6] px-2 py-1 text-xs font-medium text-white shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(16,96,214,0.6)] hover:bg-[#1a5fcc]'
+                        : 'inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]'
+                    }
+                  >
+                    <PencilLine className="size-3.5" aria-hidden />
+                    Edit
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    aria-label="Edit (coming in V2)"
+                    title="Edit — coming in V2"
+                    className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-[#a6a6a6] shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]"
+                  >
+                    <PencilLine className="size-3.5" aria-hidden />
+                    Edit
+                  </button>
+                )}
               </div>
               {notesOpen && existingAnnotations.length > 0 ? (
                 <div className="absolute right-0 bottom-full left-0 mb-2">
