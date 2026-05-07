@@ -67,13 +67,11 @@ export function PatchListOverlay(): React.ReactElement | null {
   const [deferredBanner, setDeferredBanner] = useState<DeferredBanner | null>(null);
   const [savedToastVisible, setSavedToastVisible] = useState(false);
   const lastSeenBatchIdRef = useRef<string | null>(null);
-  const prevCanUndoRef = useRef(state.canUndo);
 
   // Drive transient-message state off lastBatchId transitions: a new batch
   // means a fresh apply just landed.
   useEffect(() => {
     if (state.lastBatchId === null || state.lastBatchId === lastSeenBatchIdRef.current) {
-      prevCanUndoRef.current = state.canUndo;
       return;
     }
     lastSeenBatchIdRef.current = state.lastBatchId;
@@ -85,18 +83,14 @@ export function PatchListOverlay(): React.ReactElement | null {
       setDeferredBanner(banner);
       setSavedToastVisible(false);
       const handle = window.setTimeout(() => setDeferredBanner(null), MESSAGE_DURATION_MS);
-      prevCanUndoRef.current = state.canUndo;
       return () => window.clearTimeout(handle);
     }
 
     if (hasNonDeferred && !state.isApplying && stagedCount === 0 && state.canUndo) {
       setSavedToastVisible(true);
       const handle = window.setTimeout(() => setSavedToastVisible(false), MESSAGE_DURATION_MS);
-      prevCanUndoRef.current = state.canUndo;
       return () => window.clearTimeout(handle);
     }
-
-    prevCanUndoRef.current = state.canUndo;
   }, [state.lastBatchId, state.canUndo, state.isApplying, stagedCount, lastBatchAppliedMeta]);
 
   // Hide transient post-apply messages when canUndo flips back to false (the user undid).
