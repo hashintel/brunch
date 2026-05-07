@@ -67,7 +67,7 @@ describe('SideChatPopover', () => {
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it('fires onDismiss when the user clicks outside the popover', () => {
+  it('does not fire onDismiss when the user clicks outside the popover', () => {
     const onDismiss = vi.fn();
     render(
       <div>
@@ -78,7 +78,7 @@ describe('SideChatPopover', () => {
 
     fireEvent.mouseDown(screen.getByText('outside'));
 
-    expect(onDismiss).toHaveBeenCalledTimes(1);
+    expect(onDismiss).not.toHaveBeenCalled();
   });
 
   it('does not fire onDismiss for clicks inside the popover', () => {
@@ -94,26 +94,6 @@ describe('SideChatPopover', () => {
     render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
 
     expect(document.activeElement).toBe(screen.getByLabelText('Message'));
-  });
-
-  it('traps Tab forward by wrapping focus from the last focusable to the message input', () => {
-    render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
-
-    const close = screen.getByRole('button', { name: /close side[- ]chat/i });
-    close.focus();
-    fireEvent.keyDown(close, { key: 'Tab' });
-
-    expect(document.activeElement).toBe(screen.getByLabelText('Message'));
-  });
-
-  it('traps Shift+Tab backward by wrapping focus from the message input to the last focusable', () => {
-    render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
-
-    const messageInput = screen.getByLabelText('Message');
-    messageInput.focus();
-    fireEvent.keyDown(messageInput, { key: 'Tab', shiftKey: true });
-
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: /close side[- ]chat/i }));
   });
 
   it('exposes the popover surface as a dialog with an accessible name', () => {

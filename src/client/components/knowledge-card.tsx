@@ -20,6 +20,17 @@ export function itemLabel(kind: KnowledgeKind, id: number) {
 
 // ── Badges ────────────────────────────────────────────────────────────
 
+export const kindAccentHex: Record<KnowledgeKind, string> = {
+  goal: '#2563eb',
+  term: '#5b5b5b',
+  context: '#0891b2',
+  constraint: '#ec4899',
+  assumption: '#d97706',
+  decision: '#9333ea',
+  requirement: '#16a34a',
+  criterion: '#22c55e',
+};
+
 export const kindColor: Record<KnowledgeKind, string> = {
   goal: 'bg-[rgba(37,99,235,0.08)] text-[#2563eb]',
   term: 'bg-wash text-sub',

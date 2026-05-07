@@ -83,6 +83,26 @@ function buildHistory(messages: readonly SideChatMessage[]): SideChatPriorTurn[]
   return history;
 }
 
+const SIDE_CHAT_LAYOUT_STORAGE_KEY = 'brunch.side-chat.layout';
+
+function readStoredLayout(): 'docked' | 'floating' {
+  if (typeof window === 'undefined') return 'docked';
+  try {
+    return window.localStorage.getItem(SIDE_CHAT_LAYOUT_STORAGE_KEY) === 'floating' ? 'floating' : 'docked';
+  } catch {
+    return 'docked';
+  }
+}
+
+function writeStoredLayout(layout: 'docked' | 'floating'): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(SIDE_CHAT_LAYOUT_STORAGE_KEY, layout);
+  } catch {
+    // Storage may be unavailable (privacy mode, sandboxed iframe, quota); ignore.
+  }
+}
+
 function failPending(messages: readonly SideChatMessage[]): SideChatMessage[] {
   let replaced = false;
   const next = messages.map((message) => {
@@ -106,6 +126,10 @@ export function SideChatHost({
   children: ReactNode;
 }) {
   const [activeSideChat, setActiveSideChat] = useState<ActiveSideChat | null>(null);
+  const [layout, setLayout] = useState<'docked' | 'floating'>(readStoredLayout);
+  useEffect(() => {
+    writeStoredLayout(layout);
+  }, [layout]);
   const activeRef = useRef<ActiveSideChat | null>(null);
   const sessionCounterRef = useRef(0);
   const streamControllerRef = useRef<AbortController | null>(null);
@@ -127,7 +151,7 @@ export function SideChatHost({
       sessionCounterRef.current += 1;
       setActiveSideChat({
         sessionId: sessionCounterRef.current,
-        pinnedItem: { referenceCode: item.referenceCode, content: item.content },
+        pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
         itemKind: item.kind,
         itemId: item.id,
         messages: [],
@@ -316,9 +340,16 @@ export function SideChatHost({
         }))
     : [];
 
+  const docksContent = activeSideChat !== null && layout === 'docked';
+
   return (
     <SideChatContext.Provider value={sideChatContextValue}>
-      {children}
+      <div
+        className="h-full min-h-0 min-w-0 overflow-hidden transition-[padding] duration-200 ease-out"
+        style={{ paddingRight: docksContent ? 'calc(588px + 1rem)' : undefined }}
+      >
+        {children}
+      </div>
       {activeSideChat && (
         <SideChatPopover
           key={activeSideChat.sessionId}
@@ -337,6 +368,8 @@ export function SideChatHost({
           onUndo={patchList?.undo}
           onDiscardPatch={patchList?.discard}
           existingAnnotations={existingAnnotations}
+          layout={layout}
+          onLayoutChange={setLayout}
         />
       )}
     </SideChatContext.Provider>
