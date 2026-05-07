@@ -447,6 +447,12 @@ export function SideChatHost({
                   kind: 'edit',
                   anchor: { kind: session.itemKind, itemId: session.itemId },
                   summary: summarizeEditContent(event.input.newContent),
+                  // Capture the live current content at stage time so the
+                  // canonical PatchListOverlay can render a word-level
+                  // <ContentDiff> without re-querying the entity store.
+                  // session.pinnedItem.content tracks live saved content via
+                  // the apply-time refresh effect (FE-665 follow-up).
+                  currentContent: session.pinnedItem.content,
                   newContent: event.input.newContent,
                   ...(event.input.newRationale ? { newRationale: event.input.newRationale } : {}),
                   ...(event.impact !== undefined ? { impact: event.impact } : {}),
