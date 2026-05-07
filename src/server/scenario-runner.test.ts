@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import { buildObserverCaptureContextPack, type ObserverContextPackInput } from './context-pack.js';
+import type { TurnWithOptions } from './core.js';
 import {
+  buildObserverCapturePromptScenario,
   buildPromptScenarioProbeArtifact,
   serializePromptScenarioProbeArtifact,
   type PromptScenarioDefinition,
@@ -22,6 +25,38 @@ const observerCaptureScenario: PromptScenarioDefinition = {
     temperature: 0,
   },
 };
+
+function emptyEntities(): ObserverContextPackInput['entities'] {
+  return {
+    goals: [],
+    terms: [],
+    contexts: [],
+    constraints: [],
+    requirements: [],
+    criteria: [],
+    decisions: [],
+    assumptions: [],
+  };
+}
+
+function makeTurn(overrides: Partial<TurnWithOptions> = {}): TurnWithOptions {
+  return {
+    id: 5,
+    specification_id: 1,
+    parent_turn_id: 4,
+    phase: 'grounding',
+    turn_kind: 'question',
+    question: 'What is the goal?',
+    answer: 'Make prompt probes reviewable before UI work.',
+    why: 'Goal clarity shapes the probe design.',
+    impact: 'high',
+    is_resolution: false,
+    user_parts: null,
+    assistant_parts: null,
+    created_at: '2026-01-01',
+    ...overrides,
+  };
+}
 
 describe('prompt scenario runner', () => {
   it('builds a no-provider observer-capture probe artifact from a seeded scenario', () => {
@@ -59,6 +94,31 @@ describe('prompt scenario runner', () => {
     expect(artifact.prompt.rendered).toContain(
       'You are an observer agent analyzing a spec elicitation interview turn.',
     );
+  });
+
+  it('builds an observer-capture scenario from a typed context pack and resolved production prompt', () => {
+    const contextPack = buildObserverCaptureContextPack({
+      turn: makeTurn(),
+      activePathSummary: 'Turn 1: User wants pre-UI prompt probes.',
+      entities: {
+        ...emptyEntities(),
+        goals: [{ id: 2, content: 'Review prompt behavior before product UI exists' }],
+      },
+    });
+
+    const scenario = buildObserverCapturePromptScenario({
+      contextPack,
+      model: observerCaptureScenario.model,
+    });
+    const artifact = buildPromptScenarioProbeArtifact(scenario);
+
+    expect(scenario.context.rendered).toContain('Existing knowledge anchors:\n#2 goal');
+    expect(scenario.context.data).toBe(contextPack.data);
+    expect(artifact.prompt.rendered).toContain(
+      'For grounding-mode turns, prioritize **goal**, **term**, **context**, and **constraint** items.',
+    );
+    expect(artifact.prompt.rendered).toContain('"relationships":[{"relation":"derived_from"');
+    expect(artifact.prompt.rendered).not.toContain('{{');
   });
 
   it('serializes probe artifacts deterministically for reviewable snapshots', () => {

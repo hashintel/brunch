@@ -1,3 +1,6 @@
+import type { ObserverCaptureContextPack } from './context-pack.js';
+import { renderObserverCaptureContextPack } from './context-pack.js';
+import { buildObserverSystemPrompt } from './observer.js';
 import { getPromptAssetFileName, loadPromptAsset, type PromptId } from './prompt-loader.js';
 
 export type PromptScenarioId = 'observer-capture';
@@ -12,6 +15,7 @@ export interface PromptScenarioDefinition {
   scenario: PromptScenarioId;
   prompt: {
     id: PromptId;
+    rendered?: string;
   };
   context: {
     scenario: PromptScenarioId;
@@ -54,7 +58,7 @@ export function buildPromptScenarioProbeArtifact(
     prompt: {
       id: definition.prompt.id,
       asset: getPromptAssetFileName(definition.prompt.id),
-      rendered: loadPromptAsset(definition.prompt.id),
+      rendered: definition.prompt.rendered ?? loadPromptAsset(definition.prompt.id),
     },
     context: definition.context,
     model: definition.model,
@@ -70,6 +74,28 @@ export function buildPromptScenarioProbeArtifact(
     review: {
       notes: [],
     },
+  };
+}
+
+export function buildObserverCapturePromptScenario({
+  contextPack,
+  model,
+}: {
+  contextPack: ObserverCaptureContextPack;
+  model: PromptScenarioModelSettings;
+}): PromptScenarioDefinition {
+  return {
+    scenario: 'observer-capture',
+    prompt: {
+      id: 'observer.system',
+      rendered: buildObserverSystemPrompt(contextPack.data.currentTurn.phase),
+    },
+    context: {
+      scenario: 'observer-capture',
+      rendered: renderObserverCaptureContextPack(contextPack),
+      data: contextPack.data,
+    },
+    model,
   };
 }
 

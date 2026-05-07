@@ -170,7 +170,7 @@ function buildObserverPhaseBias(phase: Turn['phase']): string {
   return lines.join(' ');
 }
 
-function buildObserverSystemPrompt(phase: Turn['phase']): string {
+export function buildObserverSystemPrompt(phase: Turn['phase']): string {
   const phaseBias = buildObserverPhaseBias(phase);
   const kindSemantics = knowledgeKindRegistry
     .map((entry, index) => `${index + 1}. **${entry.kind}** — ${knowledgeKindSemanticRoles[entry.kind]}.`)
