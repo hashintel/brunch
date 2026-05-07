@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { buildObserverCaptureContextPack, type ObserverContextPackInput } from './context-pack.js';
 import type { TurnWithOptions } from './core.js';
+import { buildObserverSystemPrompt } from './observer-prompt.js';
 import {
   buildObserverCapturePromptScenario,
   buildPromptScenarioProbeArtifact,
@@ -11,7 +12,7 @@ import {
 
 const observerCaptureScenario: PromptScenarioDefinition = {
   scenario: 'observer-capture',
-  prompt: { source: 'asset', id: 'observer.system' },
+  prompt: { source: 'composed', id: 'observer.system', rendered: buildObserverSystemPrompt('grounding') },
   context: {
     scenario: 'observer-capture',
     rendered: 'Current turn #5:\n  Phase: grounding\n  Question: What is the goal?',
@@ -124,6 +125,15 @@ describe('prompt scenario runner', () => {
     );
     expect(artifact.prompt.rendered).toContain('"relationships":[{"relation":"derived_from"');
     expect(artifact.prompt.rendered).not.toContain('{{');
+  });
+
+  it('rejects unresolved prompt asset templates before they become reviewable snapshots', () => {
+    expect(() =>
+      buildPromptScenarioProbeArtifact({
+        ...observerCaptureScenario,
+        prompt: { source: 'asset', id: 'observer.system' },
+      }),
+    ).toThrow('Prompt scenario asset source observer.system contains unresolved template variables');
   });
 
   it('serializes probe artifacts deterministically for reviewable snapshots', () => {
