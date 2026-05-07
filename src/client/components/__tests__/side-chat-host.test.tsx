@@ -324,9 +324,9 @@ describe('SideChatHost annotate flow', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(undoMock).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText(/annotation saved/i)).toBeNull();
+    expect(screen.queryByText(/change saved/i)).toBeNull();
     expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^retry$/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^apply$/i })).toBeNull();
   });
 
   it('Apply failure preserves the staged patch and leaves canUndo false', async () => {
@@ -358,7 +358,7 @@ describe('SideChatHost annotate flow', () => {
     expect(failingAnnotate).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/1 pending change/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
-    expect(screen.getByRole('button', { name: /^retry$/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^apply$/i })).toBeTruthy();
   });
 
   it('Discard removes a stuck-staged patch (failed auto-apply) from the inline list', async () => {
@@ -389,7 +389,7 @@ describe('SideChatHost annotate flow', () => {
 
     expect(screen.getByText(/1 pending change/i)).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: /discard staged annotation/i }));
+    fireEvent.click(screen.getByRole('button', { name: /discard staged change/i }));
 
     expect(screen.queryByText(/1 pending change/i)).toBeNull();
   });
@@ -491,11 +491,11 @@ describe('SideChatHost annotate flow', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
     });
-    await screen.findByRole('status', { name: /annotation saved/i });
+    await screen.findByRole('status', { name: /change saved/i });
 
     fireEvent.click(screen.getByText('open-goal'));
 
-    expect(screen.queryByRole('status', { name: /annotation saved/i })).toBeNull();
+    expect(screen.queryByRole('status', { name: /change saved/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
   });
 

@@ -425,11 +425,11 @@ describe('SideChatPopover', () => {
     it('does not render any inline status when there are no staged patches and no completed batch', () => {
       render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
       expect(screen.queryByRole('region', { name: /staged annotations/i })).toBeNull();
-      expect(screen.queryByRole('status', { name: /annotation saved/i })).toBeNull();
-      expect(screen.queryByText(/saving annotation/i)).toBeNull();
+      expect(screen.queryByRole('status', { name: /change saved/i })).toBeNull();
+      expect(screen.queryByText(/saving change/i)).toBeNull();
     });
 
-    it('shows the "Saving annotation…" status while isApplying is true (no staging panel flash)', () => {
+    it('shows the "saving change…" status while isApplying is true (no staging panel flash)', () => {
       render(
         <SideChatPopover
           pinnedItem={baseItem}
@@ -439,12 +439,12 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      expect(screen.getByText(/saving annotation/i)).toBeTruthy();
+      expect(screen.getByText(/saving change/i)).toBeTruthy();
       // Staging panel must NOT show during in-flight auto-apply.
       expect(screen.queryByRole('region', { name: /staged annotations/i })).toBeNull();
     });
 
-    it('shows the "Annotation saved" confirmation with Undo after isApplying transitions from true to false with canUndo true', () => {
+    it('shows the "change saved" confirmation with Undo after isApplying transitions from true to false with canUndo true', () => {
       const onUndo = vi.fn();
       const { rerender } = render(
         <SideChatPopover
@@ -465,9 +465,9 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      const status = screen.getByRole('status', { name: /annotation saved/i });
+      const status = screen.getByRole('status', { name: /change saved/i });
       expect(status).toBeTruthy();
-      expect(status.textContent).toContain('Annotation saved');
+      expect(status.textContent).toContain('Change saved');
 
       fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
       expect(onUndo).toHaveBeenCalledTimes(1);
@@ -475,7 +475,7 @@ describe('SideChatPopover', () => {
 
     it('does not render the saved confirmation when canUndo is false', () => {
       render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
-      expect(screen.queryByRole('status', { name: /annotation saved/i })).toBeNull();
+      expect(screen.queryByRole('status', { name: /change saved/i })).toBeNull();
     });
 
     it('renders the staging panel only when staged>0 and not currently applying (i.e., a stuck/failed batch)', () => {
@@ -506,11 +506,11 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      fireEvent.click(screen.getByRole('button', { name: /discard staged annotation/i }));
+      fireEvent.click(screen.getByRole('button', { name: /discard staged change/i }));
       expect(onDiscardPatch).toHaveBeenCalledWith('p1');
     });
 
-    it('Retry button on a stuck patch fires onApply', () => {
+    it('Apply button on a staged patch fires onApply', () => {
       const onApply = vi.fn();
       render(
         <SideChatPopover
@@ -521,7 +521,7 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      fireEvent.click(screen.getByRole('button', { name: /^retry$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
       expect(onApply).toHaveBeenCalledTimes(1);
     });
 
@@ -642,7 +642,7 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
     });
 
     it('shows the saved toast when isApplying transitions from true to false with canUndo true', () => {
@@ -655,7 +655,7 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
 
       rerender(
         <SideChatPopover
@@ -666,7 +666,7 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
     });
 
     it('hides the saved toast when canUndo flips back to false (undo)', () => {
@@ -688,7 +688,7 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
 
       rerender(
         <SideChatPopover
@@ -699,7 +699,7 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
     });
 
     it('auto-hides the toast after 5 seconds', () => {
@@ -721,11 +721,11 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
       act(() => {
         vi.advanceTimersByTime(5000);
       });
-      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
     });
 
     it('shows and re-arms the saved toast for consecutive applied batches while canUndo stays true', () => {
@@ -750,11 +750,11 @@ describe('SideChatPopover', () => {
           applyBatchId="batch-1"
         />,
       );
-      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
       act(() => {
         vi.advanceTimersByTime(5000);
       });
-      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
 
       rerender(
         <SideChatPopover
@@ -767,11 +767,11 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
       act(() => {
         vi.advanceTimersByTime(5000);
       });
-      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
     });
 
     it('renders the toast as an absolute overlay inside the composer footer', () => {
@@ -793,7 +793,7 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      const toast = container.querySelector('[aria-label="Annotation saved"]') as HTMLElement;
+      const toast = container.querySelector('[aria-label="Change saved"]') as HTMLElement;
       const attach = container.querySelector('[aria-label="Attach (coming soon)"]') as HTMLElement;
       const send = container.querySelector('[aria-label="Send message"]') as HTMLElement;
       expect(toast).not.toBeNull();

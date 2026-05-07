@@ -338,7 +338,7 @@ export function SideChatPopover({
 
         {isApplying ? (
           <div role="status" className="text-xs text-hint">
-            Saving annotation…
+            Saving change…
           </div>
         ) : null}
 
@@ -366,7 +366,7 @@ export function SideChatPopover({
                   {onDiscardPatch ? (
                     <button
                       type="button"
-                      aria-label={`Discard staged annotation: ${patch.summary}`}
+                      aria-label={`Discard staged change: ${patch.summary}`}
                       onClick={() => onDiscardPatch(patch.id)}
                       className="text-hint hover:text-ink"
                     >
@@ -392,7 +392,7 @@ export function SideChatPopover({
                   onClick={onApply}
                   className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6]"
                 >
-                  Retry
+                  Apply
                 </button>
               ) : null}
             </div>
@@ -647,12 +647,12 @@ export function SideChatPopover({
                 {savedToastVisible && !isApplying && stagedPatches.length === 0 && canUndo ? (
                   <div
                     role="status"
-                    aria-label="Annotation saved"
+                    aria-label="Change saved"
                     className="pointer-events-none absolute top-1/2 right-9 left-9 flex h-6 -translate-y-1/2 items-center justify-between gap-2 rounded-md bg-wash/40 px-2 text-xs"
                   >
                     <span className="inline-flex items-center gap-1 font-medium text-ink">
                       <Check className="size-3" aria-hidden />
-                      Annotation saved
+                      Change saved
                     </span>
                     {onUndo ? (
                       <button

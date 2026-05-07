@@ -4,8 +4,22 @@ import type {
   EdgePatch,
   EditPatch,
 } from '@/client/components/patch-list-host.js';
+import { queryClient } from '@/client/query-client.js';
+import { specificationQueryKeys } from '@/client/routes/specification/$id/-specification-data.js';
 
 import { createEdgeRequest, deleteEdgeRequest, editKnowledgeItemRequest } from './edit-api.js';
+
+// Invalidate the entity query domains so the page-visible item content
+// re-fetches after an edit applies. The route loader and structured-list
+// view subscribe to these query keys; without invalidation the displayed
+// content stays stale until the user navigates away and back.
+async function invalidateEntityQueriesAfterEdit(specificationId: number): Promise<void> {
+  const specId = String(specificationId);
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: specificationQueryKeys.entities(specId) }),
+    queryClient.invalidateQueries({ queryKey: specificationQueryKeys.entitiesProjectWide(specId) }),
+  ]);
+}
 
 export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch> {
   return async (patch) => {
@@ -21,6 +35,7 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
     }
     const previousContent = response.previousContent;
     const previousRationale = response.previousRationale;
+    await invalidateEntityQueriesAfterEdit(specificationId);
     return {
       undo: async () => {
         const undoResponse = await editKnowledgeItemRequest(specificationId, patch.anchor.itemId, {
@@ -30,6 +45,7 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
         if (!undoResponse.updated) {
           throw new Error('Edit undo deferred: hard impact detected — restore via V3 cascade preview');
         }
+        await invalidateEntityQueriesAfterEdit(specificationId);
       },
       applied: { impact: response.impact, previousContent, previousRationale },
     };
