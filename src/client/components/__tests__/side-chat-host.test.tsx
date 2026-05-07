@@ -372,7 +372,7 @@ describe('SideChatHost active cards', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <OpenSideChatButton item={samplePinnable} />
           <Probe />
@@ -397,6 +397,68 @@ describe('SideChatHost active cards', () => {
     fireEvent.click(screen.getByRole('button', { name: /^dismiss$/i }));
     await screen.findByText('', { selector: '[data-testid="ids"]' });
   });
+
+  it('does not promote an applied annotation after switching to another item before apply resolves', async () => {
+    let resolveAnnotate: ((value: { undo: () => Promise<void>; applied: unknown }) => void) | undefined;
+    const annotateMock = vi.fn(
+      () =>
+        new Promise<{ undo: () => Promise<void>; applied: unknown }>((resolve) => {
+          resolveAnnotate = resolve;
+        }),
+    );
+    const appliers: PatchAppliers = {
+      annotate: annotateMock as unknown as PatchAppliers['annotate'],
+    };
+    const otherItem: SideChatPinnableItem = {
+      kind: 'goal',
+      id: 22,
+      referenceCode: 'G22',
+      content: 'Other item content',
+    };
+
+    function Probe() {
+      const sideChat = useSideChat();
+      return (
+        <div>
+          <span data-testid="ids">{sideChat?.activeCardIds.join(',') ?? ''}</span>
+          <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
+            open-A
+          </button>
+          <button type="button" onClick={() => sideChat?.openFor(otherItem)}>
+            open-B
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-A'));
+    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'a-sum' } });
+    fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'a-body' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    });
+    await vi.waitFor(() => expect(annotateMock).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByText('open-B'));
+    await act(async () => {
+      resolveAnnotate?.({
+        undo: () => Promise.resolve(),
+        applied: { id: 909, summary: 'a-sum', body: 'a-body' },
+      });
+    });
+
+    await vi.waitFor(() => expect(screen.getByTestId('ids').textContent).toBe(''));
+    expect(screen.queryByText('«a-sum»')).toBeNull();
+  });
 });
 
 describe('SideChatHost thread interleaving', () => {
@@ -407,7 +469,7 @@ describe('SideChatHost thread interleaving', () => {
     );
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <OpenSideChatButton item={samplePinnable} />
         </SideChatHost>
@@ -443,7 +505,7 @@ describe('SideChatHost dismiss/reopen state isolation', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <Probe />
         </SideChatHost>
@@ -483,7 +545,7 @@ describe('SideChatHost dismiss/reopen state isolation', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <Probe />
         </SideChatHost>
@@ -522,7 +584,7 @@ describe('SideChatHost dismiss/reopen state isolation', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <Probe />
         </SideChatHost>
@@ -570,7 +632,7 @@ describe('SideChatHost dismiss/reopen state isolation', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <Probe />
         </SideChatHost>
@@ -613,7 +675,7 @@ describe('SideChatHost span hints', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <Probe />
         </SideChatHost>
@@ -648,7 +710,7 @@ describe('SideChatHost span hints', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <Probe />
         </SideChatHost>
@@ -715,7 +777,7 @@ describe('SideChatHost active annotations payload', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <Probe />
         </SideChatHost>
@@ -770,7 +832,7 @@ describe('SideChatHost active annotations payload', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <Probe />
         </SideChatHost>
@@ -819,7 +881,7 @@ describe('SideChatHost active annotations payload', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <OpenSideChatButton item={samplePinnable} />
           <PromoteAll />
@@ -883,7 +945,7 @@ describe('SideChatHost active annotations payload', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <Probe />
         </SideChatHost>
@@ -924,7 +986,7 @@ describe('SideChatHost span-hint chip', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <Probe />
         </SideChatHost>
@@ -952,7 +1014,7 @@ describe('SideChatHost span-hint chip', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <Probe />
         </SideChatHost>
@@ -1012,7 +1074,7 @@ describe('SideChatHost promote annotation', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <Probe />
         </SideChatHost>
