@@ -1,9 +1,18 @@
 // @vitest-environment happy-dom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { SideChatPopover } from '../side-chat-popover.js';
+import { SideChatPopover, type SideChatMessage, type SideChatThreadItem } from '../side-chat-popover.js';
+
+function toThreadItems(messages: readonly SideChatMessage[]): readonly SideChatThreadItem[] {
+  return messages.map((message, index) => ({
+    kind: 'message' as const,
+    id: `m-${index}`,
+    message,
+    timestamp: index,
+  }));
+}
 
 afterEach(() => {
   cleanup();
@@ -103,15 +112,15 @@ describe('SideChatPopover', () => {
   });
 
   describe('messages, streaming, and submit', () => {
-    it('renders user and assistant messages from the messages prop in order', () => {
+    it('renders user and assistant messages from the threadItems prop in order', () => {
       render(
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[
+          threadItems={toThreadItems([
             { role: 'user', text: 'Why SQLite?' },
             { role: 'assistant', text: 'It keeps the runtime local-first.' },
-          ]}
+          ])}
         />,
       );
 
@@ -129,10 +138,10 @@ describe('SideChatPopover', () => {
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[
+          threadItems={toThreadItems([
             { role: 'user', text: 'Why?' },
             { role: 'assistant', text: 'It keeps', pending: true },
-          ]}
+          ])}
         />,
       );
 
@@ -149,10 +158,10 @@ describe('SideChatPopover', () => {
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[
+          threadItems={toThreadItems([
             { role: 'user', text: 'Why?' },
             { role: 'assistant', text: 'It depends.' },
-          ]}
+          ])}
         />,
       );
 
@@ -211,10 +220,10 @@ describe('SideChatPopover', () => {
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[
+          threadItems={toThreadItems([
             { role: 'user', text: 'Why?' },
             { role: 'assistant', text: 'Something went wrong — try again.', error: true },
-          ]}
+          ])}
         />,
       );
 
@@ -230,10 +239,10 @@ describe('SideChatPopover', () => {
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[
+          threadItems={toThreadItems([
             { role: 'user', text: 'Why?' },
             { role: 'assistant', text: 'It depends.' },
-          ]}
+          ])}
         />,
       );
 
@@ -247,10 +256,10 @@ describe('SideChatPopover', () => {
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[
+          threadItems={toThreadItems([
             { role: 'user', text: 'Why?' },
             { role: 'assistant', text: '', pending: true },
-          ]}
+          ])}
         />,
       );
       fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Hello' } });
@@ -304,10 +313,10 @@ describe('SideChatPopover', () => {
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
-          messages={[
+          threadItems={toThreadItems([
             { role: 'user', text: 'Q' },
             { role: 'assistant', text: '', pending: true },
-          ]}
+          ])}
           onAnnotateRequest={() => {}}
         />,
       );
@@ -435,9 +444,26 @@ describe('SideChatPopover', () => {
       expect(screen.queryByRole('region', { name: /staged annotations/i })).toBeNull();
     });
 
-    it('shows the "✓ Annotation saved" confirmation with Undo when staged is empty and canUndo is true', () => {
+    it('shows the "Annotation saved" confirmation with Undo after isApplying transitions from true to false with canUndo true', () => {
       const onUndo = vi.fn();
-      render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} canUndo onUndo={onUndo} />);
+      const { rerender } = render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          canUndo={false}
+          isApplying
+          onUndo={onUndo}
+        />,
+      );
+      rerender(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          onUndo={onUndo}
+        />,
+      );
 
       const status = screen.getByRole('status', { name: /annotation saved/i });
       expect(status).toBeTruthy();
@@ -513,6 +539,271 @@ describe('SideChatPopover', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
       expect(onUndo).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('notes drawer header', () => {
+    it('shows a sticky "Notes (N)" header inside the drawer with a close button that collapses it', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          existingAnnotations={[
+            { id: 1, summary: 'first', body: '' },
+            { id: 2, summary: 'second', body: '' },
+          ]}
+        />,
+      );
+
+      // Drawer is collapsed initially — header is not visible.
+      expect(screen.queryByRole('button', { name: /hide notes/i })).toBeNull();
+
+      // Open the drawer via the toggle button next to the action row.
+      fireEvent.click(screen.getByRole('button', { name: /show existing notes/i }));
+
+      // Sticky header inside the drawer renders "Notes (2)" plus a close button.
+      const closeButton = screen.getByRole('button', { name: /hide notes/i });
+      expect(closeButton).toBeTruthy();
+      expect(closeButton.parentElement?.textContent).toContain('Notes (2)');
+
+      // Clicking the × in the header collapses the drawer (close button disappears).
+      fireEvent.click(closeButton);
+      expect(screen.queryByRole('button', { name: /hide notes/i })).toBeNull();
+    });
+  });
+
+  describe('notes drawer promote-from-drawer affordance', () => {
+    it('clicking the + button on a drawer item fires onPromoteAnnotation with the right id', () => {
+      const onPromoteAnnotation = vi.fn();
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          existingAnnotations={[
+            { id: 11, summary: 'first', body: '' },
+            { id: 22, summary: 'second', body: '' },
+          ]}
+          onPromoteAnnotation={onPromoteAnnotation}
+        />,
+      );
+
+      // Open the drawer.
+      fireEvent.click(screen.getByRole('button', { name: /show existing notes/i }));
+
+      // Click the + button on the first item.
+      fireEvent.click(screen.getByRole('button', { name: /add first to chat context/i }));
+      expect(onPromoteAnnotation).toHaveBeenCalledTimes(1);
+      expect(onPromoteAnnotation).toHaveBeenCalledWith(11);
+    });
+
+    it('renders the in-context indicator (no + button) when activeAnnotationIds includes the id', () => {
+      const onPromoteAnnotation = vi.fn();
+      render(
+        <SideChatPopover
+          pinnedItem={baseItem}
+          onDismiss={() => {}}
+          existingAnnotations={[
+            { id: 11, summary: 'first', body: '' },
+            { id: 22, summary: 'second', body: '' },
+          ]}
+          activeAnnotationIds={[11]}
+          onPromoteAnnotation={onPromoteAnnotation}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /show existing notes/i }));
+
+      // 'first' is already in context — no + button for it; the second item still has one.
+      expect(screen.queryByRole('button', { name: /add first to chat context/i })).toBeNull();
+      expect(screen.getByRole('button', { name: /add second to chat context/i })).toBeTruthy();
+
+      // The "Already in chat context" indicator appears on the first row.
+      const firstRow = screen.getByText('first').closest('[data-annotation-id]') as HTMLElement | null;
+      expect(firstRow).not.toBeNull();
+      expect(firstRow!.querySelector('[title="Already in chat context"]')).not.toBeNull();
+    });
+  });
+
+  describe('SideChatPopover — saved toast lifecycle', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('does NOT show the saved toast on mount with stale canUndo (apply happened in a prior session)', () => {
+      render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          stagedPatches={[]}
+        />,
+      );
+      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+    });
+
+    it('shows the saved toast when isApplying transitions from true to false with canUndo true', () => {
+      const { rerender } = render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo={false}
+          isApplying
+          stagedPatches={[]}
+        />,
+      );
+      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+
+      rerender(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          stagedPatches={[]}
+        />,
+      );
+      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+    });
+
+    it('hides the saved toast when canUndo flips back to false (undo)', () => {
+      const { rerender } = render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo={false}
+          isApplying
+          stagedPatches={[]}
+        />,
+      );
+      rerender(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          stagedPatches={[]}
+        />,
+      );
+      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+
+      rerender(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo={false}
+          isApplying={false}
+          stagedPatches={[]}
+        />,
+      );
+      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+    });
+
+    it('auto-hides the toast after 5 seconds', () => {
+      const { rerender } = render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo={false}
+          isApplying
+          stagedPatches={[]}
+        />,
+      );
+      rerender(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          stagedPatches={[]}
+        />,
+      );
+      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+    });
+
+    it('shows and re-arms the saved toast for consecutive applied batches while canUndo stays true', () => {
+      const { rerender } = render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo={false}
+          isApplying
+          stagedPatches={[]}
+          applyBatchId={null}
+        />,
+      );
+
+      rerender(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          stagedPatches={[]}
+          applyBatchId="batch-1"
+        />,
+      );
+      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+
+      rerender(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          stagedPatches={[]}
+          applyBatchId="batch-2"
+        />,
+      );
+
+      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+    });
+
+    it('renders the toast as an absolute overlay inside the composer footer', () => {
+      const { container, rerender } = render(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo={false}
+          isApplying
+          stagedPatches={[]}
+        />,
+      );
+      rerender(
+        <SideChatPopover
+          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
+          onDismiss={() => {}}
+          canUndo
+          isApplying={false}
+          stagedPatches={[]}
+        />,
+      );
+      const toast = container.querySelector('[aria-label="Annotation saved"]') as HTMLElement;
+      const attach = container.querySelector('[aria-label="Attach (coming soon)"]') as HTMLElement;
+      const send = container.querySelector('[aria-label="Send message"]') as HTMLElement;
+      expect(toast).not.toBeNull();
+      expect(attach).not.toBeNull();
+      expect(send).not.toBeNull();
+      // All three share the same parent (the footer row).
+      expect(toast.parentElement).toBe(attach.parentElement?.parentElement);
+      expect(toast.parentElement).toBe(send.parentElement);
+      // Toast is absolutely positioned (overlay — does not contribute to flex layout).
+      expect(toast.className).toMatch(/\babsolute\b/);
     });
   });
 });

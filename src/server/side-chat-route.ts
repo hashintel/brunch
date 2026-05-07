@@ -14,11 +14,19 @@ const sideChatPriorTurnSchema = z.object({
   text: z.string().min(1),
 });
 
+const activeAnnotationSchema = z.object({
+  referenceCode: z.string().min(1),
+  snapshot: z.string().min(1),
+  body: z.string().nullable(),
+});
+
 const sideChatRequestSchema = z.object({
   itemKind: z.enum(knowledgeKinds),
   itemId: z.number().int().positive(),
   message: z.string().trim().min(1),
   history: z.array(sideChatPriorTurnSchema).optional(),
+  activeAnnotations: z.array(activeAnnotationSchema).optional(),
+  spanHint: z.string().min(1).optional(),
 });
 
 interface ResolvedEntity {
@@ -124,6 +132,10 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
       groundingSummary: null,
     },
     parsed.data.history ?? [],
+    {
+      activeAnnotations: parsed.data.activeAnnotations,
+      spanHint: parsed.data.spanHint,
+    },
   );
 
   res.setHeader('Content-Type', 'text/event-stream');

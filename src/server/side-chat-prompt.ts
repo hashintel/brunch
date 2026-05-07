@@ -27,28 +27,55 @@ export interface SideChatPromptPayload {
   messages: SideChatPromptMessage[];
 }
 
+export interface SideChatActiveAnnotation {
+  referenceCode: string;
+  snapshot: string;
+  body: string | null;
+}
+
+export interface BuildPromptOptions {
+  activeAnnotations?: readonly SideChatActiveAnnotation[];
+  spanHint?: string;
+}
+
 const SIDE_CHAT_ROLE_PROMPT = `You are the side-chat assistant in Brunch. The user has pinned a specific knowledge item from their spec and wants to discuss it with you in place.
 
 Your job is to help the user think about the pinned item: explain it, surface its assumptions, weigh tradeoffs, suggest refinements. Stay focused on the pinned item — only widen the discussion when the user explicitly asks.
 
 You are NOT conducting a structured interview. Do not ask multiple-choice questions, do not propose closing phases, and do not follow a phase-by-phase elicitation script. Respond conversationally in plain text.`;
 
-function buildSystemPrompt(specContext: SideChatSpecContext): string {
+function formatActiveAnnotations(annotations: readonly SideChatActiveAnnotation[]): string {
+  const lines = annotations.map((annotation, index) => {
+    const head = `${index + 1}. [${annotation.referenceCode}] «${annotation.snapshot}»`;
+    return annotation.body ? `${head}\n   Note: ${annotation.body}` : head;
+  });
+  return ['User-pinned snippets:', ...lines].join('\n');
+}
+
+function buildSystemPrompt(specContext: SideChatSpecContext, options: BuildPromptOptions): string {
   const backgroundLines = [`Background context (do not treat as the primary focus):`];
   backgroundLines.push(`- Specification name: ${specContext.specName}`);
   if (specContext.groundingSummary) {
     backgroundLines.push(`- Grounding summary: ${specContext.groundingSummary}`);
   }
-  return `${SIDE_CHAT_ROLE_PROMPT}\n\n${backgroundLines.join('\n')}`;
+  const sections = [SIDE_CHAT_ROLE_PROMPT, backgroundLines.join('\n')];
+  if (options.activeAnnotations && options.activeAnnotations.length > 0) {
+    sections.push(formatActiveAnnotations(options.activeAnnotations));
+  }
+  return sections.join('\n\n');
 }
 
-function buildUserMessageContent(item: SideChatPinnedItem, message: string): string {
+function buildUserMessageContent(item: SideChatPinnedItem, message: string, spanHint?: string): string {
   const lines = [`Pinned ${item.kind} [${item.referenceCode}]:`, item.content];
   if (item.rationale) {
     lines.push('', `Rationale: ${item.rationale}`);
   }
-  lines.push('', `User message: ${message}`);
+  lines.push('', `User message: ${buildUserText(message, spanHint)}`);
   return lines.join('\n');
+}
+
+function buildUserText(message: string, spanHint?: string): string {
+  return spanHint ? `About the highlighted phrase «${spanHint}»: ${message}` : message;
 }
 
 function completedHistory(history: readonly SideChatPriorTurn[]): SideChatPriorTurn[] {
@@ -60,16 +87,24 @@ export function buildSideChatPrompt(
   message: string,
   specContext: SideChatSpecContext,
   history: readonly SideChatPriorTurn[] = [],
+  options: BuildPromptOptions = {},
 ): SideChatPromptPayload {
   const turns: SideChatPriorTurn[] = [...completedHistory(history), { role: 'user', text: message }];
   const messages: SideChatPromptMessage[] = turns.map((turn, index) => {
+    const isLatestTurn = index === turns.length - 1;
     if (index === 0 && turn.role === 'user') {
-      return { role: 'user', content: buildUserMessageContent(item, turn.text) };
+      return {
+        role: 'user',
+        content: buildUserMessageContent(item, turn.text, isLatestTurn ? options.spanHint : undefined),
+      };
+    }
+    if (isLatestTurn && turn.role === 'user') {
+      return { role: 'user', content: buildUserText(turn.text, options.spanHint) };
     }
     return { role: turn.role, content: turn.text };
   });
   return {
-    system: buildSystemPrompt(specContext),
+    system: buildSystemPrompt(specContext, options),
     messages,
   };
 }

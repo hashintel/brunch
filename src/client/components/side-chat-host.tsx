@@ -16,13 +16,19 @@ import {
 import { streamSideChatResponse, type SideChatPriorTurn } from '@/client/lib/side-chat-stream.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
-import { usePatchList, usePatchListState, useStagedPatches } from './patch-list-host.js';
+import {
+  useLastBatchAppliedMeta,
+  usePatchList,
+  usePatchListState,
+  useStagedPatches,
+} from './patch-list-host.js';
 import {
   SideChatPopover,
   type SideChatExistingAnnotation,
   type SideChatMessage,
   type SideChatPinnedItem,
   type SideChatStagedPatchSummary,
+  type SideChatThreadItem,
 } from './side-chat-popover.js';
 
 export interface SideChatPinnableItem {
@@ -34,6 +40,11 @@ export interface SideChatPinnableItem {
 
 interface SideChatContextValue {
   openFor: (item: SideChatPinnableItem) => void;
+  openWithSpanHint: (item: SideChatPinnableItem, hint: string) => void;
+  activeCardIds: readonly number[];
+  dismissCard: (annotationId: number) => void;
+  clearSpanHint: () => void;
+  promoteAnnotation: (annotationId: number) => void;
 }
 
 const SideChatContext = createContext<SideChatContextValue | null>(null);
@@ -42,13 +53,31 @@ export function useSideChat(): SideChatContextValue | null {
   return useContext(SideChatContext);
 }
 
+// Cap on how many ActiveCards we send as `activeAnnotations` in the stream payload,
+// and how many of them we mark `inContext` in the rendered thread. Single source of truth
+// referenced from both the request builder and the threadItems derivation.
+const MAX_ACTIVE_ANNOTATIONS = 8;
+
 interface ActiveSideChat {
   sessionId: number;
   pinnedItem: SideChatPinnedItem;
   itemKind: KnowledgeKind;
   itemId: number;
   messages: SideChatMessage[];
+  // Parallel array: messageTimestamps[i] is the wall-clock time when messages[i] was first
+  // appended (or, for the streamed assistant pending message, when it started streaming).
+  // Preserved across replacePendingText / finalizePending so the timestamp is stable across
+  // streaming. Used by threadItems to chronologically interleave with ActiveCard timestamps,
+  // which also use Date.now().
+  messageTimestamps: number[];
   annotateMode: boolean;
+}
+
+interface LoadedAnnotations {
+  itemKind: KnowledgeKind;
+  itemId: number;
+  batchId: string | null;
+  items: readonly CreatedAnnotation[];
 }
 
 function replacePendingText(messages: readonly SideChatMessage[], text: string): SideChatMessage[] {
@@ -62,6 +91,23 @@ function finalizePending(messages: readonly SideChatMessage[]): SideChatMessage[
     }
     return message.text ? [{ role: message.role, text: message.text }] : [];
   });
+}
+
+// Mirrors finalizePending: when finalizePending drops an empty pending message, the
+// corresponding entry in messageTimestamps must drop too so the parallel arrays stay aligned.
+function finalizeTimestamps(messages: readonly SideChatMessage[], timestamps: readonly number[]): number[] {
+  const next: number[] = [];
+  messages.forEach((message, index) => {
+    const ts = timestamps[index] ?? Date.now();
+    if (!message.pending) {
+      next.push(ts);
+      return;
+    }
+    if (message.text) {
+      next.push(ts);
+    }
+  });
+  return next;
 }
 
 const SIDE_CHAT_ERROR_MESSAGE = 'Something went wrong — try again.';
@@ -103,6 +149,15 @@ function writeStoredLayout(layout: 'docked' | 'floating'): void {
   }
 }
 
+interface ActiveCard {
+  id: number;
+  itemKind: KnowledgeKind;
+  referenceCode: string;
+  summary: string;
+  body: string;
+  timestamp: number;
+}
+
 function failPending(messages: readonly SideChatMessage[]): SideChatMessage[] {
   let replaced = false;
   const next = messages.map((message) => {
@@ -126,6 +181,8 @@ export function SideChatHost({
   children: ReactNode;
 }) {
   const [activeSideChat, setActiveSideChat] = useState<ActiveSideChat | null>(null);
+  const [pendingSpanHint, setPendingSpanHint] = useState<string | null>(null);
+  const [activeCards, setActiveCards] = useState<ActiveCard[]>([]);
   const [layout, setLayout] = useState<'docked' | 'floating'>(readStoredLayout);
   useEffect(() => {
     writeStoredLayout(layout);
@@ -147,23 +204,60 @@ export function SideChatHost({
 
   const openFor = useCallback(
     (item: SideChatPinnableItem) => {
+      const current = activeRef.current;
+      if (current && current.itemKind === item.kind && current.itemId === item.id) {
+        const nextActiveSideChat = {
+          ...current,
+          pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
+        };
+        activeRef.current = nextActiveSideChat;
+        setActiveSideChat((active) =>
+          active && active.itemKind === item.kind && active.itemId === item.id ? nextActiveSideChat : active,
+        );
+        return;
+      }
+
       abortActiveStream();
       sessionCounterRef.current += 1;
-      setActiveSideChat({
+      // Single-pin scope: switching to a different (kind, id) clears cards/hint so stale
+      // state doesn't leak across items. Reopening the same item focuses the existing session.
+      setActiveCards([]);
+      setPendingSpanHint(null);
+      const nextActiveSideChat = {
         sessionId: sessionCounterRef.current,
         pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
         itemKind: item.kind,
         itemId: item.id,
         messages: [],
+        messageTimestamps: [],
         annotateMode: false,
-      });
+      };
+      activeRef.current = nextActiveSideChat;
+      setActiveSideChat(nextActiveSideChat);
     },
     [abortActiveStream],
   );
 
+  const openWithSpanHint = useCallback(
+    (item: SideChatPinnableItem, hint: string) => {
+      openFor(item);
+      setPendingSpanHint(hint);
+    },
+    [openFor],
+  );
+
+  const clearSpanHint = useCallback(() => {
+    setPendingSpanHint(null);
+  }, []);
+
   const dismiss = useCallback(() => {
     abortActiveStream();
+    activeRef.current = null;
     setActiveSideChat(null);
+    // Single-pin scope: closing the side-chat resets cards and any unsent span hint so
+    // they don't leak into the next item the user opens.
+    setActiveCards([]);
+    setPendingSpanHint(null);
   }, [abortActiveStream]);
 
   const requestAnnotate = useCallback(() => {
@@ -173,6 +267,16 @@ export function SideChatHost({
   const cancelAnnotate = useCallback(() => {
     setActiveSideChat((current) => (current ? { ...current, annotateMode: false } : current));
   }, []);
+
+  const pushActiveCard = useCallback((card: Omit<ActiveCard, 'timestamp'>) => {
+    setActiveCards((prev) =>
+      prev.some((existing) => existing.id === card.id) ? prev : [...prev, { ...card, timestamp: Date.now() }],
+    );
+  }, []);
+  const dismissCard = useCallback((annotationId: number) => {
+    setActiveCards((prev) => prev.filter((card) => card.id !== annotationId));
+  }, []);
+  const activeCardIds: readonly number[] = useMemo(() => activeCards.map((card) => card.id), [activeCards]);
 
   const submitMessage = useCallback(
     (message: string) => {
@@ -186,11 +290,19 @@ export function SideChatHost({
       const controller = new AbortController();
       streamControllerRef.current = controller;
       const history = buildHistory(session.messages);
+      const hintForThisRequest = pendingSpanHint;
+      if (hintForThisRequest) {
+        setPendingSpanHint(null);
+      }
 
       setActiveSideChat((current) => {
         if (!current || current.sessionId !== sessionId) {
           return current;
         }
+        // Record one wall-clock timestamp per appended message. The pending assistant
+        // message keeps its initial timestamp through replacePendingText so it doesn't
+        // bounce around in the chronological sort as deltas arrive.
+        const now = Date.now();
         return {
           ...current,
           messages: [
@@ -198,8 +310,15 @@ export function SideChatHost({
             { role: 'user', text: message },
             { role: 'assistant', text: '', pending: true },
           ],
+          messageTimestamps: [...current.messageTimestamps, now, now],
         };
       });
+
+      const activeAnnotations = activeCards.slice(-MAX_ACTIVE_ANNOTATIONS).map((card) => ({
+        referenceCode: card.referenceCode,
+        snapshot: card.summary,
+        body: card.body.length > 0 ? card.body : null,
+      }));
 
       void (async () => {
         let buffered = '';
@@ -213,6 +332,8 @@ export function SideChatHost({
               message,
               history,
               signal: controller.signal,
+              ...(activeAnnotations.length > 0 ? { activeAnnotations } : {}),
+              ...(hintForThisRequest ? { spanHint: hintForThisRequest } : {}),
             },
             (event) => {
               if (controller.signal.aborted) {
@@ -241,17 +362,26 @@ export function SideChatHost({
           if (!current || current.sessionId !== sessionId) {
             return current;
           }
+          // failPending preserves message count (in-place replace + maybe append, but the
+          // original pending always exists here), so timestamps stay aligned. finalizePending
+          // may drop an empty pending message — finalizeTimestamps mirrors that drop.
+          const nextMessages = failed ? failPending(current.messages) : finalizePending(current.messages);
+          const nextTimestamps = failed
+            ? // failPending may push a new error message when no pending was found; pad with now.
+              nextMessages.length > current.messageTimestamps.length
+              ? [...current.messageTimestamps, Date.now()]
+              : current.messageTimestamps
+            : finalizeTimestamps(current.messages, current.messageTimestamps);
           return {
             ...current,
-            messages: failed ? failPending(current.messages) : finalizePending(current.messages),
+            messages: nextMessages,
+            messageTimestamps: nextTimestamps,
           };
         });
       })();
     },
-    [specificationId, abortActiveStream],
+    [specificationId, abortActiveStream, pendingSpanHint, activeCards],
   );
-  const sideChatContextValue = useMemo(() => ({ openFor }), [openFor]);
-
   const patchList = usePatchList();
   const patchListState = usePatchListState();
   const stagedForActive = useStagedPatches(
@@ -309,35 +439,153 @@ export function SideChatHost({
     void patchList.apply();
   }, [patchList, patchListState.staged, patchListState.isApplying]);
 
+  const lastBatchAppliedMeta = useLastBatchAppliedMeta();
+  const lastSeenBatchIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (patchListState.lastBatchId === lastSeenBatchIdRef.current) return;
+    lastSeenBatchIdRef.current = patchListState.lastBatchId;
+    if (!activeSideChat) return;
+    const patchesById = new Map(patchListState.lastBatchPatches.map((patch) => [patch.id, patch]));
+    for (const meta of lastBatchAppliedMeta) {
+      if (meta.applied && typeof meta.applied === 'object' && 'id' in meta.applied) {
+        const sourcePatch = patchesById.get(meta.patchId);
+        if (
+          !sourcePatch ||
+          sourcePatch.anchor.kind !== activeSideChat.itemKind ||
+          sourcePatch.anchor.itemId !== activeSideChat.itemId
+        ) {
+          continue;
+        }
+        const applied = meta.applied as { id: unknown; summary?: unknown; body?: unknown };
+        const summary = typeof applied.summary === 'string' ? applied.summary.trim() : '';
+        if (typeof applied.id === 'number' && summary.length > 0) {
+          pushActiveCard({
+            id: applied.id,
+            itemKind: activeSideChat.itemKind,
+            referenceCode: activeSideChat.pinnedItem.referenceCode,
+            summary,
+            body: typeof applied.body === 'string' ? applied.body : '',
+          });
+        }
+      }
+    }
+  }, [
+    activeSideChat,
+    patchListState.lastBatchId,
+    patchListState.lastBatchPatches,
+    lastBatchAppliedMeta,
+    pushActiveCard,
+  ]);
+
   const activeItemId = activeSideChat?.itemId;
   const activeItemKind = activeSideChat?.itemKind;
-  const [annotations, setAnnotations] = useState<readonly CreatedAnnotation[]>([]);
+  const [annotations, setAnnotations] = useState<LoadedAnnotations | null>(null);
+  const annotationsRef = useRef<LoadedAnnotations | null>(null);
+  useEffect(() => {
+    annotationsRef.current = annotations;
+  }, [annotations]);
   useEffect(() => {
     if (activeItemId === undefined || activeItemKind === undefined) {
-      setAnnotations([]);
+      setAnnotations(null);
       return;
     }
     let cancelled = false;
+    const batchId = patchListState.lastBatchId;
+    setAnnotations(null);
     void listAnnotationsForSpecificationRequest(specificationId)
       .then((list) => {
-        if (!cancelled) setAnnotations(list);
+        if (!cancelled) {
+          setAnnotations({ itemKind: activeItemKind, itemId: activeItemId, batchId, items: list });
+        }
       })
       .catch(() => {
-        if (!cancelled) setAnnotations([]);
+        if (!cancelled) setAnnotations(null);
       });
     return () => {
       cancelled = true;
     };
   }, [activeItemId, activeItemKind, specificationId, patchListState.lastBatchId]);
 
+  useEffect(() => {
+    if (activeItemId === undefined || annotations === null) return;
+    if (
+      annotations.itemId !== activeItemId ||
+      annotations.itemKind !== activeItemKind ||
+      annotations.batchId !== patchListState.lastBatchId
+    ) {
+      return;
+    }
+    const annotationIdsForActiveItem = new Set(
+      annotations.items
+        .filter((annotation) => annotation.knowledge_item_id === activeItemId)
+        .map((annotation) => annotation.id),
+    );
+    setActiveCards((prev) => prev.filter((card) => annotationIdsForActiveItem.has(card.id)));
+  }, [activeItemId, activeItemKind, annotations, patchListState.lastBatchId]);
+
   const existingAnnotations: readonly SideChatExistingAnnotation[] = activeSideChat
-    ? annotations
+    ? (annotations?.items ?? [])
         .filter((annotation) => annotation.knowledge_item_id === activeSideChat.itemId)
         .map((annotation) => ({
           id: annotation.id,
           summary: annotation.summary,
           body: annotation.body,
         }))
+    : [];
+
+  const promoteAnnotation = useCallback((annotationId: number) => {
+    const annotation = (annotationsRef.current?.items ?? []).find((a) => a.id === annotationId);
+    const active = activeRef.current;
+    if (!annotation || !active) return;
+    setActiveCards((prev) => {
+      if (prev.some((card) => card.id === annotationId)) return prev;
+      return [
+        ...prev,
+        {
+          id: annotation.id,
+          itemKind: active.itemKind,
+          referenceCode: active.pinnedItem.referenceCode,
+          summary: annotation.summary,
+          body: annotation.body,
+          timestamp: Date.now(),
+        },
+      ];
+    });
+  }, []);
+  const sideChatContextValue = useMemo(
+    () => ({ openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint, promoteAnnotation }),
+    [openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint, promoteAnnotation],
+  );
+
+  const threadItems: readonly SideChatThreadItem[] = activeSideChat
+    ? (() => {
+        // Both messages and cards record wall-clock Date.now() timestamps, so a single
+        // chronological sort actually interleaves them correctly. Messages get their
+        // timestamp at append time and preserve it across streaming deltas; cards get
+        // theirs when promoted from a freshly-applied annotation.
+        const messageItems: SideChatThreadItem[] = activeSideChat.messages.map((message, index) => ({
+          kind: 'message' as const,
+          id: `m-${index}`,
+          message,
+          timestamp: activeSideChat.messageTimestamps[index] ?? 0,
+        }));
+        const cardItems: SideChatThreadItem[] = activeCards.map((card, idx) => {
+          const indexFromEnd = activeCards.length - 1 - idx;
+          const inContext = indexFromEnd < MAX_ACTIVE_ANNOTATIONS;
+          return {
+            kind: 'card' as const,
+            id: `c-${card.id}`,
+            annotationId: card.id,
+            summary: card.summary,
+            body: card.body,
+            itemKind: card.itemKind,
+            referenceCode: card.referenceCode,
+            inContext,
+            timestamp: card.timestamp,
+          };
+        });
+        return [...messageItems, ...cardItems].sort((a, b) => a.timestamp - b.timestamp);
+      })()
     : [];
 
   const docksContent = activeSideChat !== null && layout === 'docked';
@@ -354,9 +602,10 @@ export function SideChatHost({
         <SideChatPopover
           key={activeSideChat.sessionId}
           pinnedItem={activeSideChat.pinnedItem}
-          messages={activeSideChat.messages}
+          threadItems={threadItems}
           onDismiss={dismiss}
           onSubmit={submitMessage}
+          onDismissCard={dismissCard}
           annotateMode={activeSideChat.annotateMode}
           onAnnotateRequest={patchList ? requestAnnotate : undefined}
           onAnnotateCancel={cancelAnnotate}
@@ -364,12 +613,17 @@ export function SideChatHost({
           stagedPatches={stagedSummaries}
           canUndo={canUndoForActive}
           isApplying={patchListState.isApplying}
+          applyBatchId={patchListState.lastBatchId}
           onApply={patchList?.apply}
           onUndo={patchList?.undo}
           onDiscardPatch={patchList?.discard}
           existingAnnotations={existingAnnotations}
+          onPromoteAnnotation={promoteAnnotation}
+          activeAnnotationIds={activeCardIds}
           layout={layout}
           onLayoutChange={setLayout}
+          spanHint={pendingSpanHint}
+          onClearSpanHint={clearSpanHint}
         />
       )}
     </SideChatContext.Provider>

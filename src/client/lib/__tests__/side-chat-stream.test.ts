@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   parseSideChatSSEBuffer,
@@ -307,5 +307,82 @@ describe('streamSideChatResponse', () => {
         () => {},
       ),
     ).rejects.toThrow();
+  });
+});
+
+describe('streamSideChatResponse — activeAnnotations payload', () => {
+  function makeFetchMock() {
+    return vi.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+      Promise.resolve(
+        new Response('data: [DONE]\n\n', {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      ),
+    );
+  }
+
+  it('forwards activeAnnotations when provided', async () => {
+    const fetchMock = makeFetchMock();
+    await streamSideChatResponse(
+      {
+        specificationId: 1,
+        itemKind: 'decision',
+        itemId: 5,
+        message: 'm',
+        activeAnnotations: [{ referenceCode: 'C1', snapshot: 's', body: null }],
+        fetch: fetchMock as unknown as typeof fetch,
+      },
+      () => {},
+    );
+    const firstCall = fetchMock.mock.calls[0];
+    if (!firstCall) throw new Error('fetch was not called');
+    const init = firstCall[1];
+    if (!init) throw new Error('fetch init missing');
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body.activeAnnotations).toEqual([{ referenceCode: 'C1', snapshot: 's', body: null }]);
+  });
+
+  it('omits activeAnnotations when not provided', async () => {
+    const fetchMock = makeFetchMock();
+    await streamSideChatResponse(
+      {
+        specificationId: 1,
+        itemKind: 'decision',
+        itemId: 5,
+        message: 'm',
+        fetch: fetchMock as unknown as typeof fetch,
+      },
+      () => {},
+    );
+    const firstCall = fetchMock.mock.calls[0];
+    if (!firstCall) throw new Error('fetch was not called');
+    const init = firstCall[1];
+    if (!init) throw new Error('fetch init missing');
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body).not.toHaveProperty('activeAnnotations');
+  });
+
+  it('forwards both activeAnnotations and spanHint together', async () => {
+    const fetchMock = makeFetchMock();
+    await streamSideChatResponse(
+      {
+        specificationId: 1,
+        itemKind: 'decision',
+        itemId: 5,
+        message: 'm',
+        activeAnnotations: [{ referenceCode: 'C1', snapshot: 'phrase', body: 'note' }],
+        spanHint: 'phrase',
+        fetch: fetchMock as unknown as typeof fetch,
+      },
+      () => {},
+    );
+    const firstCall = fetchMock.mock.calls[0];
+    if (!firstCall) throw new Error('fetch was not called');
+    const init = firstCall[1];
+    if (!init) throw new Error('fetch init missing');
+    const body = JSON.parse(init.body as string) as { activeAnnotations?: unknown[]; spanHint?: string };
+    expect(body.activeAnnotations).toHaveLength(1);
+    expect(body.spanHint).toBe('phrase');
   });
 });

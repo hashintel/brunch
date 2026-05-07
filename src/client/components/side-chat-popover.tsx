@@ -1,8 +1,19 @@
-import { ArrowUp, Loader2, NotebookPen, PanelRight, PencilLine, PictureInPicture2, Plus } from 'lucide-react';
+import {
+  ArrowUp,
+  Check,
+  Highlighter,
+  Loader2,
+  NotebookPen,
+  PanelRight,
+  PencilLine,
+  PictureInPicture2,
+  Plus,
+} from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
+import { ActiveCard } from './active-card.js';
 import { kindAccentHex } from './knowledge-card';
 
 function useTypewriter(target: string, animate: boolean, charDelayMs = 15): string {
@@ -72,11 +83,26 @@ export interface SideChatExistingAnnotation {
   body: string;
 }
 
+export type SideChatThreadItem =
+  | { kind: 'message'; id: string; message: SideChatMessage; timestamp: number }
+  | {
+      kind: 'card';
+      id: string;
+      annotationId: number;
+      summary: string;
+      body: string;
+      itemKind: KnowledgeKind;
+      referenceCode: string;
+      inContext: boolean;
+      timestamp: number;
+    };
+
 export interface SideChatPopoverProps {
   pinnedItem: SideChatPinnedItem;
   onDismiss: () => void;
-  messages?: readonly SideChatMessage[];
+  threadItems?: readonly SideChatThreadItem[];
   onSubmit?: (message: string) => void;
+  onDismissCard?: (annotationId: number) => void;
   // ---- Annotate (Card C) ----
   annotateMode?: boolean;
   onAnnotateRequest?: () => void;
@@ -86,21 +112,29 @@ export interface SideChatPopoverProps {
   stagedPatches?: readonly SideChatStagedPatchSummary[];
   canUndo?: boolean;
   isApplying?: boolean;
+  applyBatchId?: string | null;
   onApply?: () => void;
   onUndo?: () => void;
   onDiscardPatch?: (id: string) => void;
   // ---- Existing annotations on the pinned item ----
   existingAnnotations?: readonly SideChatExistingAnnotation[];
+  // ---- Promote-from-drawer (deferred §8 from the design spec) ----
+  onPromoteAnnotation?: (annotationId: number) => void;
+  activeAnnotationIds?: readonly number[];
   // ---- Layout (docked = full-height right; floating = Gmail-style bottom-right) ----
   layout?: 'docked' | 'floating';
   onLayoutChange?: (layout: 'docked' | 'floating') => void;
+  // ---- Span hint chip (Chat path V1.2-E) ----
+  spanHint?: string | null;
+  onClearSpanHint?: () => void;
 }
 
 export function SideChatPopover({
   pinnedItem,
   onDismiss,
-  messages = [],
+  threadItems = [],
   onSubmit,
+  onDismissCard,
   annotateMode = false,
   onAnnotateRequest,
   onAnnotateCancel,
@@ -108,17 +142,26 @@ export function SideChatPopover({
   stagedPatches = [],
   canUndo = false,
   isApplying = false,
+  applyBatchId = null,
   onApply,
   onUndo,
   onDiscardPatch,
   existingAnnotations = [],
+  onPromoteAnnotation,
+  activeAnnotationIds,
   layout = 'docked',
   onLayoutChange,
+  spanHint = null,
+  onClearSpanHint,
 }: SideChatPopoverProps) {
+  const messagesForState: readonly SideChatMessage[] = threadItems.flatMap((item) =>
+    item.kind === 'message' ? [item.message] : [],
+  );
   const [draft, setDraft] = useState('');
   const [annotateSummary, setAnnotateSummary] = useState('');
   const [annotateBody, setAnnotateBody] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
+  const [savedToastVisible, setSavedToastVisible] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const annotateSummaryRef = useRef<HTMLInputElement>(null);
@@ -132,6 +175,41 @@ export function SideChatPopover({
       messageInputRef.current?.focus();
     }
   }, [annotateMode]);
+
+  // Show the saved toast only on a real apply event during this popover's lifetime.
+  // We watch for `canUndo` flipping false → true (with `stagedPatches` empty and not currently
+  // applying) — the precise moment a successful apply registers a fresh undo handle. We can't
+  // drive this off the `isApplying: true → false` transition because React 18 batches the
+  // `APPLY_START` and `APPLY_SUCCESS` dispatches in a single async chain, so the intermediate
+  // `isApplying=true` render is often skipped. Initializing the ref to the current `canUndo`
+  // also prevents the toast from flashing on mount when the patch-list still carries a stale
+  // undo handle from a prior batch on this spec (the original V1.2-E bug).
+  const prevCanUndoRef = useRef(canUndo);
+  const lastToastBatchIdRef = useRef(applyBatchId);
+
+  useEffect(() => {
+    const prevCanUndo = prevCanUndoRef.current;
+    prevCanUndoRef.current = canUndo;
+    const sawNewBatch = applyBatchId !== null && applyBatchId !== lastToastBatchIdRef.current;
+    if (sawNewBatch) {
+      lastToastBatchIdRef.current = applyBatchId;
+    }
+    if (
+      ((sawNewBatch && canUndo) || (!prevCanUndo && canUndo)) &&
+      !isApplying &&
+      stagedPatches.length === 0
+    ) {
+      setSavedToastVisible(true);
+      const id = window.setTimeout(() => setSavedToastVisible(false), 5000);
+      return () => window.clearTimeout(id);
+    }
+  }, [applyBatchId, canUndo, isApplying, stagedPatches.length]);
+
+  useEffect(() => {
+    if (!canUndo) {
+      setSavedToastVisible(false);
+    }
+  }, [canUndo]);
 
   useEffect(() => {
     function handleEscape(event: globalThis.KeyboardEvent) {
@@ -149,7 +227,7 @@ export function SideChatPopover({
   }, [annotateMode, onAnnotateCancel, onDismiss]);
 
   const trimmedDraft = draft.trim();
-  const isStreaming = messages.some((message) => message.pending === true);
+  const isStreaming = messagesForState.some((message) => message.pending === true);
   const sendDisabled = trimmedDraft.length === 0 || isStreaming;
 
   const trimmedAnnotateSummary = annotateSummary.trim();
@@ -235,33 +313,27 @@ export function SideChatPopover({
           aria-label="Side-chat messages"
           className="scrollbar-thin flex flex-1 flex-col gap-2 overflow-y-auto"
         >
-          {messages.map((message, index) => (
-            <MessageBubble key={index} message={message} />
-          ))}
+          {threadItems.map((item) =>
+            item.kind === 'message' ? (
+              <MessageBubble key={item.id} message={item.message} />
+            ) : (
+              <ActiveCard
+                key={item.id}
+                annotationId={item.annotationId}
+                referenceCode={item.referenceCode}
+                itemKind={item.itemKind}
+                summary={item.summary}
+                body={item.body}
+                inContext={item.inContext}
+                onDismiss={onDismissCard ?? (() => {})}
+              />
+            ),
+          )}
         </ul>
 
         {isApplying ? (
           <div role="status" className="text-xs text-hint">
             Saving annotation…
-          </div>
-        ) : null}
-
-        {!isApplying && stagedPatches.length === 0 && canUndo ? (
-          <div
-            role="status"
-            aria-label="Annotation saved"
-            className="flex items-center justify-between rounded-md bg-wash/40 px-2 py-1.5 text-xs"
-          >
-            <span className="font-medium text-ink">✓ Annotation saved</span>
-            {onUndo ? (
-              <button
-                type="button"
-                onClick={onUndo}
-                className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
-              >
-                Undo
-              </button>
-            ) : null}
           </div>
         ) : null}
 
@@ -410,35 +482,102 @@ export function SideChatPopover({
               </div>
               {notesOpen && existingAnnotations.length > 0 ? (
                 <div className="absolute right-0 bottom-full left-0 mb-2">
-                  <ul className="scrollbar-thin flex max-h-64 flex-col divide-y divide-[rgba(0,0,0,0.06)] overflow-y-auto rounded-md bg-white px-2 shadow-[0_8px_16px_-4px_rgba(0,0,0,0.08),0_4px_8px_-2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(0,0,0,0.08)]">
-                    {existingAnnotations.map((annotation) => {
-                      const hasBody = annotation.body && annotation.body !== annotation.summary;
-                      return (
-                        <li
-                          key={annotation.id}
-                          data-annotation-id={annotation.id}
-                          className="overflow-hidden text-xs text-ink"
-                        >
-                          {hasBody ? (
-                            <details className="group/note">
-                              <summary className="flex cursor-pointer list-none items-center gap-1 py-1.5 font-medium hover:text-ink">
-                                <span className="text-hint transition-transform group-open/note:rotate-90">
-                                  ›
+                  <div className="overflow-hidden rounded-md bg-white shadow-[0_8px_16px_-4px_rgba(0,0,0,0.08),0_4px_8px_-2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(0,0,0,0.08)]">
+                    <header className="flex items-center justify-between border-b border-[rgba(0,0,0,0.06)] bg-white/80 px-3 py-1.5 backdrop-blur">
+                      <span className="text-xxs font-medium tracking-wide text-sub uppercase">
+                        Notes ({existingAnnotations.length})
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Hide notes"
+                        onClick={() => setNotesOpen(false)}
+                        className="text-hint hover:text-ink"
+                      >
+                        ×
+                      </button>
+                    </header>
+                    <ul className="scrollbar-thin h-72 divide-y divide-dotted divide-[rgba(0,0,0,0.08)] overflow-x-hidden overflow-y-auto overscroll-contain">
+                      {existingAnnotations.map((annotation) => {
+                        const hasBody = annotation.body && annotation.body !== annotation.summary;
+                        const isActive = (activeAnnotationIds ?? []).includes(annotation.id);
+                        const actionSlot = isActive ? (
+                          <span
+                            className="inline-flex shrink-0 items-center gap-0.5 text-[10px] text-hint"
+                            title="Already in chat context"
+                          >
+                            <Check className="size-3" aria-hidden />
+                          </span>
+                        ) : onPromoteAnnotation ? (
+                          <button
+                            type="button"
+                            aria-label={`Add ${annotation.summary} to chat context`}
+                            onClick={() => onPromoteAnnotation(annotation.id)}
+                            className="inline-flex size-5 shrink-0 items-center justify-center rounded text-hint opacity-0 transition-opacity group-hover/note-item:opacity-100 hover:bg-[rgba(0,0,0,0.04)] hover:text-ink focus-visible:opacity-100"
+                          >
+                            <Plus className="size-3" aria-hidden />
+                          </button>
+                        ) : null;
+                        return (
+                          <li
+                            key={annotation.id}
+                            data-annotation-id={annotation.id}
+                            className="group/note-item overflow-hidden text-xs text-ink hover:bg-[rgba(0,0,0,0.02)]"
+                          >
+                            {hasBody ? (
+                              <details className="group/note">
+                                <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 font-medium hover:text-ink">
+                                  <span className="shrink-0 text-hint transition-transform group-open/note:rotate-90">
+                                    ›
+                                  </span>
+                                  <span className="min-w-0 flex-1 truncate" title={annotation.summary}>
+                                    {annotation.summary}
+                                  </span>
+                                  {actionSlot}
+                                </summary>
+                                <div className="pt-1 pr-3 pb-3 pl-7 text-sm leading-relaxed text-sub">
+                                  {annotation.body}
+                                </div>
+                              </details>
+                            ) : (
+                              <div className="flex items-center gap-1.5 px-3">
+                                <span
+                                  className="min-w-0 flex-1 truncate py-2 font-medium"
+                                  title={annotation.summary}
+                                >
+                                  {annotation.summary}
                                 </span>
-                                <span className="flex-1">{annotation.summary}</span>
-                              </summary>
-                              <div className="pb-1.5 pl-3 text-sub">{annotation.body}</div>
-                            </details>
-                          ) : (
-                            <div className="py-1.5 font-medium">{annotation.summary}</div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
+                                {actionSlot}
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
                 </div>
               ) : null}
             </div>
+            {!annotateMode && spanHint ? (
+              <div
+                data-span-hint-chip
+                className="inline-flex items-center gap-1.5 self-start rounded bg-[rgba(0,0,0,0.04)] px-1.5 py-1 text-xs text-ink"
+              >
+                <Highlighter className="size-3 shrink-0 text-hint" aria-hidden />
+                <span className="max-w-[280px] truncate" title={spanHint}>
+                  «{spanHint}»
+                </span>
+                {onClearSpanHint ? (
+                  <button
+                    type="button"
+                    aria-label="Clear span hint"
+                    onClick={onClearSpanHint}
+                    className="ml-0.5 text-hint hover:text-ink"
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             <div className="flex flex-col gap-2 rounded-md bg-white p-3 shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]">
               <textarea
                 ref={messageInputRef}
@@ -449,7 +588,7 @@ export function SideChatPopover({
                 placeholder="Ask me anything..."
                 className="min-h-10 w-full resize-none bg-transparent text-sm text-ink outline-none placeholder:text-[#a6a6a6]"
               />
-              <div className="flex items-center justify-between">
+              <div className="relative flex h-7 items-center justify-between">
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
@@ -478,6 +617,27 @@ export function SideChatPopover({
                     <ArrowUp className="size-4" strokeWidth={2.5} aria-hidden />
                   )}
                 </button>
+                {savedToastVisible && !isApplying && stagedPatches.length === 0 && canUndo ? (
+                  <div
+                    role="status"
+                    aria-label="Annotation saved"
+                    className="pointer-events-none absolute top-1/2 right-9 left-9 flex h-6 -translate-y-1/2 items-center justify-between gap-2 rounded-md bg-wash/40 px-2 text-xs"
+                  >
+                    <span className="inline-flex items-center gap-1 font-medium text-ink">
+                      <Check className="size-3" aria-hidden />
+                      Annotation saved
+                    </span>
+                    {onUndo ? (
+                      <button
+                        type="button"
+                        onClick={onUndo}
+                        className="pointer-events-auto rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
+                      >
+                        Undo
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
           </>

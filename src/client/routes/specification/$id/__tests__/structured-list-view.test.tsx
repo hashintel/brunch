@@ -31,6 +31,7 @@ import {
   emptySpec,
   singleItemNoEdges,
 } from '@/client/__fixtures__/graph-view.js';
+import { PatchListProvider, type PatchAppliers } from '@/client/components/patch-list-host.js';
 import { SideChatHost, useSideChat, type SideChatPinnableItem } from '@/client/components/side-chat-host.js';
 import type { SideChatStreamEvent } from '@/client/lib/side-chat-stream.js';
 
@@ -1040,5 +1041,72 @@ describe('"Show all" bulk control', () => {
     expect(src).toContain('Show all');
     expect(src).toContain('data-graph-kind-show-all');
     expect(src).toMatch(/setHiddenKinds\(new Set\(\)\)/);
+  });
+});
+
+describe('structured-list-view annotatable attributes', () => {
+  it('exposes data-annotatable on item content with item-kind and item-id on the row', () => {
+    const { container } = render(
+      <PatchListProvider appliers={{ annotate: vi.fn() as never }}>
+        <SideChatHost specificationId={1}>
+          <StructuredListView entityState={singleItemNoEdges()} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+    const annotatable = container.querySelector('[data-annotatable]');
+    expect(annotatable).not.toBeNull();
+    const row = annotatable!.closest('[data-graph-row]') as HTMLElement;
+    expect(row).not.toBeNull();
+    expect(row.getAttribute('data-graph-row-ref')).toBeTruthy();
+    expect(row.getAttribute('data-item-kind')).toBeTruthy();
+    expect(row.getAttribute('data-item-id')).toBeTruthy();
+  });
+});
+
+describe('structured-list-view selection menu', () => {
+  it('clicking Annotate after a selection stages a patch with selectionRange', async () => {
+    const annotateMock = vi.fn((_patch: Parameters<PatchAppliers['annotate']>[0]) =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { id: 1, summary: '', body: '' },
+      }),
+    );
+    const appliers = { annotate: annotateMock as unknown as PatchAppliers['annotate'] };
+
+    const { container } = render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <StructuredListView entityState={singleItemNoEdges()} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    const annotatable = container.querySelector('[data-annotatable]') as HTMLElement;
+    expect(annotatable).not.toBeNull();
+    const textNode = annotatable.firstChild!;
+    const text = textNode.textContent ?? '';
+    const length = Math.min(5, text.length);
+    const phrase = text.slice(0, length);
+
+    act(() => {
+      const range = document.createRange();
+      range.setStart(textNode, 0);
+      range.setEnd(textNode, length);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      document.dispatchEvent(new Event('selectionchange'));
+    });
+
+    const annotateButton = await screen.findByRole('button', { name: /annotate/i });
+    await act(async () => {
+      fireEvent.click(annotateButton);
+    });
+
+    await vi.waitFor(() => expect(annotateMock).toHaveBeenCalled());
+    const patchArg = annotateMock.mock.calls[0]![0];
+    expect(patchArg.kind).toBe('annotate');
+    expect(patchArg.summary).toBe(phrase);
+    expect(patchArg.selectionRange).toEqual({ start: 0, end: length });
   });
 });

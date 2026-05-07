@@ -5,10 +5,13 @@ import { flushSync } from 'react-dom';
 
 import { kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
+import { usePatchList } from '@/client/components/patch-list-host.js';
+import { SelectionMenu } from '@/client/components/selection-menu.js';
 import { useSideChat } from '@/client/components/side-chat-host.js';
 import { Badge } from '@/client/components/ui/badge';
 import { Button } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
+import { useTextSelection } from '@/client/lib/use-text-selection.js';
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
 import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
 
@@ -397,7 +400,9 @@ function ItemDetailsFooter({
     <div className="border-t border-rule bg-tint">
       {hasRationale && (
         <div className="px-3 py-2.5">
-          <p className="text-xs leading-relaxed text-sub">{rationale}</p>
+          <p className="text-xs leading-relaxed text-sub" data-annotatable>
+            {rationale}
+          </p>
         </div>
       )}
       {hasRationale && hasRelations && <div className="border-t border-rule" />}
@@ -489,6 +494,8 @@ function ItemRow({
       <div
         data-graph-row
         data-graph-row-ref={item.referenceCode}
+        data-item-kind={item.kind}
+        data-item-id={item.id}
         data-graph-kind-anchor={kindAnchor ?? undefined}
         data-graph-row-anchored={anchored ? 'true' : undefined}
         className={`group/row overflow-hidden rounded-xl border bg-background shadow-[var(--shadow-card)] transition-all duration-700 ${anchored ? `animate-in border-current/50 ring-2 ring-current/30 duration-300 fade-in ${kindTextColor[item.kind]}` : 'border-rule'}`}
@@ -501,7 +508,9 @@ function ItemRow({
             >
               {item.referenceCode}
             </span>
-            <p className="text-sm text-ink">{item.content}</p>
+            <p className="text-sm text-ink" data-annotatable>
+              {item.content}
+            </p>
           </div>
           <div className="flex items-center gap-1">
             <ItemActionRail item={item} />
@@ -544,6 +553,48 @@ export function StructuredListView({
   const { anchoredRowRef } = useGraphHashAnchor(scrollAreaRef);
   const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
   const navigate = useNavigate();
+
+  const selection = useTextSelection('[data-annotatable]');
+  const sideChat = useSideChat();
+  const patchList = usePatchList();
+
+  const handleAnnotate = () => {
+    if (!selection || !patchList) return;
+    const item = itemsByKey.get(`${selection.anchor.kind}:${selection.anchor.itemId}`);
+    if (!item) return;
+    sideChat?.openFor({
+      kind: item.kind,
+      id: item.id,
+      referenceCode: item.referenceCode,
+      content: item.content,
+    });
+    patchList.stage({
+      kind: 'annotate',
+      anchor: { kind: item.kind, itemId: item.id },
+      summary: selection.snapshot,
+      body: '',
+      ...(selection.start !== null && selection.end !== null
+        ? { selectionRange: { start: selection.start, end: selection.end } }
+        : {}),
+    });
+    window.getSelection()?.removeAllRanges();
+  };
+
+  const handleChat = () => {
+    if (!selection || !sideChat) return;
+    const item = itemsByKey.get(`${selection.anchor.kind}:${selection.anchor.itemId}`);
+    if (!item) return;
+    sideChat.openWithSpanHint(
+      {
+        kind: item.kind,
+        id: item.id,
+        referenceCode: item.referenceCode,
+        content: item.content,
+      },
+      selection.snapshot,
+    );
+    window.getSelection()?.removeAllRanges();
+  };
 
   const toggleKind = (kind: KnowledgeKind) => {
     setHiddenKinds((current) => {
@@ -600,6 +651,7 @@ export function StructuredListView({
 
   return (
     <ChipActivateProvider value={onChipActivate}>
+      <SelectionMenu rect={selection?.rect ?? null} onChat={handleChat} onAnnotate={handleAnnotate} />
       <div data-graph-structured-list className="flex h-full flex-col bg-background">
         <div
           data-graph-header-bar
