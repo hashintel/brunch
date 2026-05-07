@@ -206,17 +206,14 @@ export function SideChatHost({
     (item: SideChatPinnableItem) => {
       const current = activeRef.current;
       if (current && current.itemKind === item.kind && current.itemId === item.id) {
-        setActiveSideChat((active) => {
-          const next =
-            active && active.itemKind === item.kind && active.itemId === item.id
-              ? {
-                  ...active,
-                  pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
-                }
-              : active;
-          activeRef.current = next;
-          return next;
-        });
+        const nextActiveSideChat = {
+          ...current,
+          pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
+        };
+        activeRef.current = nextActiveSideChat;
+        setActiveSideChat((active) =>
+          active && active.itemKind === item.kind && active.itemId === item.id ? nextActiveSideChat : active,
+        );
         return;
       }
 
@@ -448,8 +445,17 @@ export function SideChatHost({
     if (patchListState.lastBatchId === lastSeenBatchIdRef.current) return;
     lastSeenBatchIdRef.current = patchListState.lastBatchId;
     if (!activeSideChat) return;
+    const patchesById = new Map(patchListState.lastBatchPatches.map((patch) => [patch.id, patch]));
     for (const meta of lastBatchAppliedMeta) {
       if (meta.applied && typeof meta.applied === 'object' && 'id' in meta.applied) {
+        const sourcePatch = patchesById.get(meta.patchId);
+        if (
+          !sourcePatch ||
+          sourcePatch.anchor.kind !== activeSideChat.itemKind ||
+          sourcePatch.anchor.itemId !== activeSideChat.itemId
+        ) {
+          continue;
+        }
         const applied = meta.applied as { id: unknown; summary?: unknown; body?: unknown };
         const summary = typeof applied.summary === 'string' ? applied.summary.trim() : '';
         if (typeof applied.id === 'number' && summary.length > 0) {
@@ -463,7 +469,13 @@ export function SideChatHost({
         }
       }
     }
-  }, [activeSideChat, patchListState.lastBatchId, lastBatchAppliedMeta, pushActiveCard]);
+  }, [
+    activeSideChat,
+    patchListState.lastBatchId,
+    patchListState.lastBatchPatches,
+    lastBatchAppliedMeta,
+    pushActiveCard,
+  ]);
 
   const activeItemId = activeSideChat?.itemId;
   const activeItemKind = activeSideChat?.itemKind;

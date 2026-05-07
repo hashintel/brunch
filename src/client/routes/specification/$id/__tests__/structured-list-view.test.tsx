@@ -1047,7 +1047,7 @@ describe('"Show all" bulk control', () => {
 describe('structured-list-view annotatable attributes', () => {
   it('exposes data-annotatable on item content with item-kind and item-id on the row', () => {
     const { container } = render(
-      <PatchListProvider specificationId={1} appliers={{ annotate: vi.fn() as never }}>
+      <PatchListProvider appliers={{ annotate: vi.fn() as never }}>
         <SideChatHost specificationId={1}>
           <StructuredListView entityState={singleItemNoEdges()} />
         </SideChatHost>
@@ -1074,7 +1074,7 @@ describe('structured-list-view selection menu', () => {
     const appliers = { annotate: annotateMock as unknown as PatchAppliers['annotate'] };
 
     const { container } = render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <StructuredListView entityState={singleItemNoEdges()} />
         </SideChatHost>
