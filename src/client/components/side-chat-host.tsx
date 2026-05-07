@@ -520,6 +520,36 @@ export function SideChatHost({
         }
       }
     }
+    // V2 chat-driven edits: when an edit patch applied to the active pinned
+    // item, refresh the popover's pinned-item snapshot so the chat header
+    // reflects the new content. Without this, the structured-list / graph
+    // view re-fetches and updates (per makeEditApplier's cache invalidation),
+    // but the side-chat popover keeps showing the pre-edit content because
+    // pinnedItem was captured at openFor() time.
+    for (const patch of patchListState.lastBatchPatches) {
+      if (
+        patch.kind === 'edit' &&
+        patch.anchor.kind === activeSideChat.itemKind &&
+        patch.anchor.itemId === activeSideChat.itemId
+      ) {
+        const nextContent = patch.newContent;
+        setActiveSideChat((current) =>
+          current && current.itemKind === patch.anchor.kind && current.itemId === patch.anchor.itemId
+            ? { ...current, pinnedItem: { ...current.pinnedItem, content: nextContent } }
+            : current,
+        );
+        if (
+          activeRef.current &&
+          activeRef.current.itemKind === patch.anchor.kind &&
+          activeRef.current.itemId === patch.anchor.itemId
+        ) {
+          activeRef.current = {
+            ...activeRef.current,
+            pinnedItem: { ...activeRef.current.pinnedItem, content: nextContent },
+          };
+        }
+      }
+    }
   }, [
     activeSideChat,
     patchListState.lastBatchId,

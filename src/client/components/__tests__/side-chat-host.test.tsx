@@ -225,6 +225,57 @@ describe('SideChatHost edit-mode flow (V2)', () => {
     expect(row.dataset.newContent).toBe('Use SQLite for local persistence.');
     expect(row.dataset.newRationale).toBe('Terser.');
   });
+
+  it('refreshes the pinned-item content shown in the popover after an edit patch applies', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+    streamMock.mockImplementationOnce(async (_request, onChunk) => {
+      onChunk({ type: 'text-delta', delta: 'Proposing.' });
+      onChunk({
+        type: 'patch-proposal',
+        toolCallId: 'call-1',
+        toolName: 'propose_edit',
+        input: { newContent: 'Refined: SQLite for local persistence.' },
+      });
+      onChunk({ type: 'done' });
+    });
+    const { appliers } = makeAppliers();
+    // Edit applier resolves successfully so the patch transitions to applied
+    appliers.edit = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { impact: 'soft', previousContent: 'Use SQLite for local storage.' },
+      }),
+    ) as unknown as PatchAppliers['edit'];
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenInEditModeButton item={samplePinnable} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-edit'));
+    // Pinned content shows the original snapshot before any edit
+    expect(screen.getByText(/Use SQLite for local storage\./i)).toBeTruthy();
+
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'refine' } });
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'Enter' });
+    });
+
+    // Patch staged → user clicks Apply → patch applies → applier resolves
+    await screen.findByRole('button', { name: /^apply$/i });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+    });
+
+    // After apply, pinned content reflects newContent — no need to reopen
+    await screen.findByText(/Refined: SQLite for local persistence\./i);
+    expect(screen.queryByText('Use SQLite for local storage.')).toBeNull();
+  });
 });
 
 describe('SideChatHost annotate flow', () => {
