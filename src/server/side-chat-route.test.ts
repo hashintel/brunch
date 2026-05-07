@@ -167,6 +167,77 @@ describe('POST /api/specifications/:id/side-chat', () => {
     expect(res.text).toContain('[DONE]');
   });
 
+  it('does not pass tools to streamText when mode is omitted (explore default)', async () => {
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({ itemKind: 'decision', itemId: decision.id, message: 'Why SQLite?' })
+      .expect(200);
+
+    expect(mockStreamText).toHaveBeenCalled();
+    const callArgs = mockStreamText.mock.calls[0]?.[0] as { tools?: Record<string, unknown> };
+    const tools = callArgs.tools ?? {};
+    expect(Object.keys(tools)).toHaveLength(0);
+  });
+
+  it('passes the propose_edit tool to streamText when mode is "edit"', async () => {
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        message: 'Reword this terser',
+        mode: 'edit',
+      })
+      .expect(200);
+
+    expect(mockStreamText).toHaveBeenCalled();
+    const callArgs = mockStreamText.mock.calls[0]?.[0] as { tools?: Record<string, unknown> };
+    expect(callArgs.tools).toBeDefined();
+    expect(callArgs.tools).toHaveProperty('propose_edit');
+  });
+
+  it('passes the edit-mode addendum to streamText system when mode is "edit"', async () => {
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        message: 'Reword',
+        mode: 'edit',
+      })
+      .expect(200);
+
+    const callArgs = mockStreamText.mock.calls[0]?.[0] as { system: string };
+    expect(callArgs.system).toMatch(/edit mode/i);
+    expect(callArgs.system).toMatch(/propose_edit/i);
+  });
+
+  it('rejects unknown mode values with 400', async () => {
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        message: 'Why?',
+        mode: 'invalid-mode',
+      })
+      .expect(400);
+
+    expect(mockStreamText).not.toHaveBeenCalled();
+  });
+
   it('emits an error event instead of a done sentinel when the model fails mid-stream', async () => {
     mockStreamText.mockReturnValueOnce(makeFailingTextStream(['Partial reply.'], new Error('rate limited')));
     const specId = await createSpec();

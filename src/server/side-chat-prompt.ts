@@ -130,11 +130,13 @@ const proposeEditTool = tool({
   }),
 });
 
-export function getSideChatTools(mode: SideChatMode = 'explore') {
+export function getSideChatTools(mode: SideChatMode = 'explore'): {
+  [proposeEditToolName]?: typeof proposeEditTool;
+} {
   if (mode === 'edit') {
-    return { [proposeEditToolName]: proposeEditTool } as const;
+    return { [proposeEditToolName]: proposeEditTool };
   }
-  return {} as const;
+  return {};
 }
 
 export function buildSideChatPrompt(

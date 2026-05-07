@@ -7,7 +7,7 @@ import type { EntitiesData, MutationErrorResponse } from '@/shared/api-types.js'
 import { knowledgeKinds, type KnowledgeKind } from '@/shared/knowledge.js';
 
 import { getEntitiesForSpecificationByMode, getSpecification, type DB } from './db.js';
-import { buildSideChatPrompt, type SideChatPinnedItem } from './side-chat-prompt.js';
+import { buildSideChatPrompt, getSideChatTools, type SideChatPinnedItem } from './side-chat-prompt.js';
 
 const sideChatPriorTurnSchema = z.object({
   role: z.enum(['user', 'assistant']),
@@ -27,6 +27,7 @@ const sideChatRequestSchema = z.object({
   history: z.array(sideChatPriorTurnSchema).optional(),
   activeAnnotations: z.array(activeAnnotationSchema).optional(),
   spanHint: z.string().min(1).optional(),
+  mode: z.enum(['explore', 'edit']).optional(),
 });
 
 interface ResolvedEntity {
@@ -124,6 +125,8 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
     rationale: entity.rationale,
   };
 
+  const mode = parsed.data.mode ?? 'explore';
+
   const { system, messages } = buildSideChatPrompt(
     item,
     parsed.data.message,
@@ -135,8 +138,11 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
     {
       activeAnnotations: parsed.data.activeAnnotations,
       spanHint: parsed.data.spanHint,
+      mode,
     },
   );
+
+  const tools = getSideChatTools(mode);
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -154,6 +160,7 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
     model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'),
     system,
     messages: messages.map((message) => ({ role: message.role, content: message.content })),
+    tools,
     abortSignal: abortController.signal,
   });
 
