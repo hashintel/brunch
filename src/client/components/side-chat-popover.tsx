@@ -14,6 +14,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import { ActiveCard } from './active-card.js';
+import { ContentDiff } from './content-diff.js';
 import { kindAccentHex } from './knowledge-card';
 
 function useTypewriter(target: string, animate: boolean, charDelayMs = 15): string {
@@ -96,6 +97,12 @@ export interface SideChatStagedPatchSummary {
   // For kind='edit' only: server-classified impact tier rendered as a chip
   // on the patch entry (design §4.1).
   impact?: 'none' | 'soft' | 'hard';
+  // For kind='edit' only: when both are present and differ, the row exposes
+  // a "View diff" expander that renders a word-level <ContentDiff> (FE-665,
+  // design §4.1 "Detail expandable"). Both optional for back-compat with
+  // legacy stage paths and tests that don't supply them.
+  currentContent?: string;
+  newContent?: string;
 }
 
 export interface SideChatExistingAnnotation {
@@ -382,28 +389,57 @@ export function SideChatPopover({
               </span>
             </header>
             <ul className="flex flex-col gap-1">
-              {stagedPatches.map((patch) => (
-                <li
-                  key={patch.id}
-                  data-staged-patch-id={patch.id}
-                  className="flex items-center gap-2 rounded bg-background px-2 py-1"
-                >
-                  <span className="flex-1 truncate" title={patch.summary}>
-                    {patch.summary}
-                  </span>
-                  {patch.kind === 'edit' && patch.impact ? <ImpactChip impact={patch.impact} /> : null}
-                  {onDiscardPatch ? (
-                    <button
-                      type="button"
-                      aria-label={`Discard staged change: ${patch.summary}`}
-                      onClick={() => onDiscardPatch(patch.id)}
-                      className="text-hint hover:text-ink"
-                    >
-                      ×
-                    </button>
-                  ) : null}
-                </li>
-              ))}
+              {stagedPatches.map((patch) => {
+                const hasDiff =
+                  patch.kind === 'edit' &&
+                  typeof patch.currentContent === 'string' &&
+                  typeof patch.newContent === 'string' &&
+                  patch.currentContent !== patch.newContent;
+                return (
+                  <li
+                    key={patch.id}
+                    data-staged-patch-id={patch.id}
+                    className="flex flex-col gap-1 rounded bg-background px-2 py-1"
+                  >
+                    <div className="flex items-center gap-2">
+                      {hasDiff ? (
+                        <details className="group min-w-0 flex-1">
+                          <summary
+                            className="flex cursor-pointer list-none items-center gap-1.5 text-ink"
+                            title={patch.summary}
+                          >
+                            <span
+                              aria-hidden
+                              className="font-mono text-[10px] text-hint transition-transform group-open:rotate-90"
+                            >
+                              ›
+                            </span>
+                            <span className="flex-1 truncate">{patch.summary}</span>
+                          </summary>
+                          <div className="mt-1.5 ml-3 border-l border-rule pl-2">
+                            <ContentDiff before={patch.currentContent ?? ''} after={patch.newContent ?? ''} />
+                          </div>
+                        </details>
+                      ) : (
+                        <span className="flex-1 truncate" title={patch.summary}>
+                          {patch.summary}
+                        </span>
+                      )}
+                      {patch.kind === 'edit' && patch.impact ? <ImpactChip impact={patch.impact} /> : null}
+                      {onDiscardPatch ? (
+                        <button
+                          type="button"
+                          aria-label={`Discard staged change: ${patch.summary}`}
+                          onClick={() => onDiscardPatch(patch.id)}
+                          className="text-hint hover:text-ink"
+                        >
+                          ×
+                        </button>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
             <div className="flex items-center justify-end gap-2 pt-1">
               {canUndo && onUndo ? (
