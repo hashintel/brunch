@@ -15,8 +15,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { ContentDiff } from './content-diff.js';
 import { useLastBatchAppliedMeta, usePatchList, usePatchListState } from './patch-list-host.js';
 import { usePatchListOverlayBridge } from './patch-list-overlay-bridge.js';
+import type { Patch } from './patch-list-reducer.js';
 import { usePatchListUndoOverride } from './patch-list-undo-context.js';
 
 const MESSAGE_DURATION_MS = 5000;
@@ -59,6 +61,31 @@ function lastBatchHasNonDeferredApply(meta: ReadonlyArray<{ patchId: string; app
   return false;
 }
 
+function StagedPatchDetailRow({ patch }: { patch: Patch }): React.ReactElement {
+  const showDiff =
+    patch.kind === 'edit' &&
+    typeof patch.currentContent === 'string' &&
+    patch.currentContent !== patch.newContent;
+  return (
+    <li
+      data-staged-patch-id={patch.id}
+      data-staged-patch-kind={patch.kind}
+      className="flex flex-col gap-1.5 rounded-md bg-background px-3 py-2"
+    >
+      <div className="flex items-center gap-2">
+        <span className="flex-1 truncate text-ink" title={patch.summary}>
+          {patch.summary}
+        </span>
+      </div>
+      {showDiff ? (
+        <div className="border-l border-rule pl-2">
+          <ContentDiff before={patch.currentContent ?? ''} after={patch.newContent} />
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
 export function PatchListOverlay(): React.ReactElement | null {
   const patchList = usePatchList();
   const state = usePatchListState();
@@ -70,8 +97,19 @@ export function PatchListOverlay(): React.ReactElement | null {
 
   const [deferredBanner, setDeferredBanner] = useState<DeferredBanner | null>(null);
   const [savedToastVisible, setSavedToastVisible] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const lastSeenBatchIdRef = useRef<string | null>(null);
 
+  // Auto-collapse when there are no staged patches left (post-apply / undo).
+  useEffect(() => {
+    if (stagedCount === 0 && expanded) {
+      setExpanded(false);
+    }
+  }, [stagedCount, expanded]);
+
+  // Drive transient-message state off lastBatchId transitions: a new batch
+  // means a fresh apply just landed.
+  //
   // Deps are intentionally narrow: a wider dep array re-runs cleanup on
   // unrelated churn (e.g. stagedCount change), cancelling the auto-hide
   // timer and leaving the banner stuck on screen.
@@ -131,40 +169,66 @@ export function PatchListOverlay(): React.ReactElement | null {
   }
 
   if (stagedCount > 0) {
+    const countLabel = `${stagedCount} pending change${stagedCount === 1 ? '' : 's'}`;
     return (
       <div
         role="region"
         aria-label="Staged changes"
         data-staged-count={stagedCount}
-        className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-rule bg-card/95 px-4 py-1.5 text-xs backdrop-blur"
+        data-expanded={expanded ? 'true' : 'false'}
+        className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur"
       >
-        <span className="font-medium text-ink">
-          {stagedCount} pending change{stagedCount === 1 ? '' : 's'}
-        </span>
-        <div className="flex items-center gap-1.5">
-          {state.canUndo ? (
-            <button
-              type="button"
-              onClick={undo}
-              className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
-            >
-              Undo
-            </button>
-          ) : null}
+        <div className="flex items-center justify-between gap-3 px-4 py-1.5 text-xs">
           <button
             type="button"
-            disabled={state.isApplying || scopedApplyBlocked}
-            title={
-              scopedApplyBlocked
-                ? 'Pending changes are on another item — open that item in side-chat or switch context to apply them'
-                : undefined
-            }
-            onClick={() => void applyFromOverlay()}
-            className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] disabled:opacity-50"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((v) => !v)}
+            className="flex items-center gap-1.5 font-medium text-ink outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
           >
-            {state.isApplying ? 'Applying…' : 'Apply'}
+            <span
+              aria-hidden
+              className={`font-mono text-[10px] text-hint transition-transform ${expanded ? 'rotate-90' : ''}`}
+            >
+              ›
+            </span>
+            <span>{countLabel}</span>
           </button>
+          <div className="flex items-center gap-1.5">
+            {state.canUndo ? (
+              <button
+                type="button"
+                onClick={undo}
+                className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
+              >
+                Undo
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={state.isApplying || scopedApplyBlocked}
+              title={
+                scopedApplyBlocked
+                  ? 'Pending changes are on another item — open that item in side-chat or switch context to apply them'
+                  : undefined
+              }
+              onClick={() => void applyFromOverlay()}
+              className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] disabled:opacity-50"
+            >
+              {state.isApplying ? 'Applying…' : 'Apply'}
+            </button>
+          </div>
         </div>
+        {expanded ? (
+          <ul
+            role="list"
+            aria-label="Staged patch detail"
+            className="flex flex-col gap-1.5 border-t border-rule bg-wash/40 px-4 py-2"
+          >
+            {state.staged.map((patch) => (
+              <StagedPatchDetailRow key={patch.id} patch={patch} />
+            ))}
+          </ul>
+        ) : null}
       </div>
     );
   }
