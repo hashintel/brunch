@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 
 import type { CreatedAnnotation } from '@/client/lib/annotation-api.js';
@@ -12,6 +12,7 @@ import {
   usePatchListState,
   type PatchAppliers,
 } from '../patch-list-host.js';
+import { PatchListOverlay } from '../patch-list-overlay.js';
 import { SideChatHost, useSideChat, type SideChatPinnableItem } from '../side-chat-host.js';
 
 const { mockListAnnotationsForSpecificationRequest } = vi.hoisted(() => ({
@@ -46,6 +47,25 @@ function OpenSideChatButton({ item }: { item: SideChatPinnableItem }) {
   return (
     <button type="button" onClick={() => sideChat?.openFor(item)}>
       open-side-chat
+    </button>
+  );
+}
+
+function StageActiveEditPatchButton({ newContent }: { newContent: string }) {
+  const patchList = usePatchList();
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        patchList?.stage({
+          kind: 'edit',
+          anchor: { kind: samplePinnable.kind, itemId: samplePinnable.id },
+          summary: 'Edit: rephrase',
+          newContent,
+        })
+      }
+    >
+      stage-active-edit
     </button>
   );
 }
@@ -331,6 +351,83 @@ describe('SideChatHost edit-mode flow (V2)', () => {
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
+    });
+
+    await screen.findByText('Use SQLite for local storage.');
+    expect(screen.queryByText(/Refined: SQLite for local persistence\./i)).toBeNull();
+  });
+
+  it('reverts the pinned-item content when Undo is clicked from the overlay saved-toast', async () => {
+    const { appliers } = makeAppliers();
+    appliers.edit = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { impact: 'soft', previousContent: 'Use SQLite for local storage.' },
+      }),
+    ) as unknown as PatchAppliers['edit'];
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <PatchListOverlay />
+          <OpenSideChatButton item={samplePinnable} />
+          <StageActiveEditPatchButton newContent="Refined: SQLite for local persistence." />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-side-chat'));
+    fireEvent.click(screen.getByText('stage-active-edit'));
+    const stagedRegion = screen.getAllByRole('region', { name: /staged changes/i })[0]!;
+    await act(async () => {
+      fireEvent.click(within(stagedRegion).getByRole('button', { name: /^apply$/i }));
+    });
+    await screen.findByText(/Refined: SQLite for local persistence\./i);
+
+    const overlaySavedToast = screen.getAllByRole('status', { name: /change saved/i })[0]!;
+    await act(async () => {
+      fireEvent.click(within(overlaySavedToast).getByRole('button', { name: /^undo$/i }));
+    });
+
+    await screen.findByText('Use SQLite for local storage.');
+    expect(screen.queryByText(/Refined: SQLite for local persistence\./i)).toBeNull();
+  });
+
+  it('reverts the pinned-item content when Undo is clicked from the overlay staged-changes region', async () => {
+    const { appliers } = makeAppliers();
+    appliers.edit = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { impact: 'soft', previousContent: 'Use SQLite for local storage.' },
+      }),
+    ) as unknown as PatchAppliers['edit'];
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <PatchListOverlay />
+          <OpenSideChatButton item={samplePinnable} />
+          <StageActiveEditPatchButton newContent="Refined: SQLite for local persistence." />
+          <StageActiveEditPatchButton newContent="Second staged rewrite." />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-side-chat'));
+    fireEvent.click(screen.getAllByText('stage-active-edit')[0]!);
+    await act(async () => {
+      fireEvent.click(
+        within(screen.getAllByRole('region', { name: /staged changes/i })[0]!).getByRole('button', {
+          name: /^apply$/i,
+        }),
+      );
+    });
+    await screen.findByText(/Refined: SQLite for local persistence\./i);
+
+    fireEvent.click(screen.getAllByText('stage-active-edit')[1]!);
+    const stagedRegion = screen.getAllByRole('region', { name: /staged changes/i })[0]!;
+    await act(async () => {
+      fireEvent.click(within(stagedRegion).getByRole('button', { name: /^undo$/i }));
     });
 
     await screen.findByText('Use SQLite for local storage.');

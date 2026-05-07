@@ -16,6 +16,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useLastBatchAppliedMeta, usePatchList, usePatchListState } from './patch-list-host.js';
+import { usePatchListUndoOverride } from './patch-list-undo-context.js';
 
 const MESSAGE_DURATION_MS = 5000;
 
@@ -61,6 +62,7 @@ export function PatchListOverlay(): React.ReactElement | null {
   const patchList = usePatchList();
   const state = usePatchListState();
   const lastBatchAppliedMeta = useLastBatchAppliedMeta();
+  const undoOverride = usePatchListUndoOverride();
 
   const stagedCount = state.staged.length;
 
@@ -105,6 +107,8 @@ export function PatchListOverlay(): React.ReactElement | null {
     return null;
   }
 
+  const undo = undoOverride ?? (() => void patchList.undo());
+
   // Nothing to surface: no staged patches, no transient message.
   if (stagedCount === 0 && !deferredBanner && !savedToastVisible) {
     return null;
@@ -125,7 +129,7 @@ export function PatchListOverlay(): React.ReactElement | null {
           {state.canUndo ? (
             <button
               type="button"
-              onClick={() => void patchList.undo()}
+              onClick={undo}
               className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
             >
               Undo
@@ -174,7 +178,7 @@ export function PatchListOverlay(): React.ReactElement | null {
         {state.canUndo ? (
           <button
             type="button"
-            onClick={() => void patchList.undo()}
+            onClick={undo}
             className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
           >
             Undo

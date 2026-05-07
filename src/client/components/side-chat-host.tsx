@@ -29,6 +29,7 @@ import {
   usePatchListState,
   useStagedPatches,
 } from './patch-list-host.js';
+import { PatchListUndoProvider } from './patch-list-undo-context.js';
 import {
   SideChatPopover,
   type SideChatExistingAnnotation,
@@ -591,7 +592,11 @@ export function SideChatHost({
   }, [patchList, stagedForActiveIds]);
 
   const undoForActive = useCallback(() => {
-    if (!patchList || !activeSideChat) {
+    if (!patchList) {
+      return;
+    }
+    if (!activeSideChat) {
+      void patchList.undo();
       return;
     }
     const activeItemKind = activeSideChat.itemKind;
@@ -711,15 +716,21 @@ export function SideChatHost({
     }
     let cancelled = false;
     const batchId = patchListState.lastBatchId;
+    annotationsRef.current = null;
     setAnnotations(null);
     void listAnnotationsForSpecificationRequest(specificationId)
       .then((list) => {
         if (!cancelled) {
-          setAnnotations({ itemKind: activeItemKind, itemId: activeItemId, batchId, items: list });
+          const loaded = { itemKind: activeItemKind, itemId: activeItemId, batchId, items: list };
+          annotationsRef.current = loaded;
+          setAnnotations(loaded);
         }
       })
       .catch(() => {
-        if (!cancelled) setAnnotations(null);
+        if (!cancelled) {
+          annotationsRef.current = null;
+          setAnnotations(null);
+        }
       });
     return () => {
       cancelled = true;
@@ -819,44 +830,46 @@ export function SideChatHost({
   const docksContent = activeSideChat !== null && layout === 'docked';
 
   return (
-    <SideChatContext.Provider value={sideChatContextValue}>
-      <div
-        className="h-full min-h-0 min-w-0 overflow-hidden transition-[padding] duration-200 ease-out"
-        style={{ paddingRight: docksContent ? 'calc(588px + 1rem)' : undefined }}
-      >
-        {children}
-      </div>
-      {activeSideChat && (
-        <SideChatPopover
-          key={activeSideChat.sessionId}
-          pinnedItem={activeSideChat.pinnedItem}
-          threadItems={threadItems}
-          onDismiss={dismiss}
-          onSubmit={submitMessage}
-          onDismissCard={dismissCard}
-          annotateMode={activeSideChat.annotateMode}
-          onAnnotateRequest={patchList ? requestAnnotate : undefined}
-          onAnnotateCancel={cancelAnnotate}
-          onAnnotateSubmit={submitAnnotate}
-          mode={activeSideChat.mode}
-          onModeChange={patchList ? setMode : undefined}
-          stagedPatches={stagedSummaries}
-          canUndo={canUndoForActive}
-          isApplying={patchListState.isApplying}
-          applyBatchId={patchListState.lastBatchId}
-          lastBatchWasDeferredOnly={lastBatchWasDeferredOnly}
-          onApply={patchList && stagedForActiveIds.length > 0 ? applyStagedForActive : undefined}
-          onUndo={patchList ? undoForActive : undefined}
-          onDiscardPatch={patchList?.discard}
-          existingAnnotations={existingAnnotations}
-          onPromoteAnnotation={promoteAnnotation}
-          activeAnnotationIds={activeCardIds}
-          layout={layout}
-          onLayoutChange={setLayout}
-          spanHint={pendingSpanHint}
-          onClearSpanHint={clearSpanHint}
-        />
-      )}
-    </SideChatContext.Provider>
+    <PatchListUndoProvider undo={undoForActive}>
+      <SideChatContext.Provider value={sideChatContextValue}>
+        <div
+          className="h-full min-h-0 min-w-0 overflow-hidden transition-[padding] duration-200 ease-out"
+          style={{ paddingRight: docksContent ? 'calc(588px + 1rem)' : undefined }}
+        >
+          {children}
+        </div>
+        {activeSideChat && (
+          <SideChatPopover
+            key={activeSideChat.sessionId}
+            pinnedItem={activeSideChat.pinnedItem}
+            threadItems={threadItems}
+            onDismiss={dismiss}
+            onSubmit={submitMessage}
+            onDismissCard={dismissCard}
+            annotateMode={activeSideChat.annotateMode}
+            onAnnotateRequest={patchList ? requestAnnotate : undefined}
+            onAnnotateCancel={cancelAnnotate}
+            onAnnotateSubmit={submitAnnotate}
+            mode={activeSideChat.mode}
+            onModeChange={patchList ? setMode : undefined}
+            stagedPatches={stagedSummaries}
+            canUndo={canUndoForActive}
+            isApplying={patchListState.isApplying}
+            applyBatchId={patchListState.lastBatchId}
+            lastBatchWasDeferredOnly={lastBatchWasDeferredOnly}
+            onApply={patchList && stagedForActiveIds.length > 0 ? applyStagedForActive : undefined}
+            onUndo={patchList ? undoForActive : undefined}
+            onDiscardPatch={patchList?.discard}
+            existingAnnotations={existingAnnotations}
+            onPromoteAnnotation={promoteAnnotation}
+            activeAnnotationIds={activeCardIds}
+            layout={layout}
+            onLayoutChange={setLayout}
+            spanHint={pendingSpanHint}
+            onClearSpanHint={clearSpanHint}
+          />
+        )}
+      </SideChatContext.Provider>
+    </PatchListUndoProvider>
   );
 }
