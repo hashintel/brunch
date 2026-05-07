@@ -12,6 +12,12 @@ describe('prompt registry', () => {
     expect(loadPromptAsset('side-chat.role')).toContain('side-chat assistant in Brunch');
   });
 
+  it('normalizes terminal newlines from packaged prompt assets', () => {
+    expect(loadPromptAsset('interviewer.grounding')).not.toMatch(/\n$/);
+    expect(loadPromptAsset('observer.system')).not.toMatch(/\n$/);
+    expect(loadPromptAsset('side-chat.role')).not.toMatch(/\n$/);
+  });
+
   it('fails missing prompts with a clear registry error', () => {
     expect(() => loadPromptAsset(unknownPromptId)).toThrow('Unknown prompt asset: interviewer.missing');
   });

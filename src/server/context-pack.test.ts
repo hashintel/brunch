@@ -5,7 +5,6 @@ import {
   renderObserverCaptureContextPack,
   type ObserverContextPackInput,
 } from './context-pack.js';
-import { buildObserverContext } from './context.js';
 import type { TurnWithOptions } from './core.js';
 
 function emptyEntities(): ObserverContextPackInput['entities'] {
@@ -40,10 +39,8 @@ function makeTurn(overrides: Partial<TurnWithOptions> = {}): TurnWithOptions {
   };
 }
 
-function expectPackRenderPreservesObserverContext(input: ObserverContextPackInput) {
-  expect(renderObserverCaptureContextPack(buildObserverCaptureContextPack(input))).toBe(
-    buildObserverContext(input),
-  );
+function expectObserverContextPackRendering(input: ObserverContextPackInput, expected: string) {
+  expect(renderObserverCaptureContextPack(buildObserverCaptureContextPack(input))).toBe(expected);
 }
 
 describe('observer context packs', () => {
@@ -88,25 +85,44 @@ describe('observer context packs', () => {
   });
 
   it('preserves empty observer context rendering', () => {
-    expectPackRenderPreservesObserverContext({
-      turn: makeTurn(),
-      activePathSummary: '',
-      entities: emptyEntities(),
-    });
+    expectObserverContextPackRendering(
+      {
+        turn: makeTurn(),
+        activePathSummary: '',
+        entities: emptyEntities(),
+      },
+      `Current turn #5:
+  Phase: grounding
+  Question: What is the target audience?
+  Why: Audience shapes feature priorities.
+  Impact: high
+  Answer: Developers building APIs`,
+    );
   });
 
   it('preserves brownfield observer context rendering', () => {
-    expectPackRenderPreservesObserverContext({
-      turn: makeTurn({
-        question: 'Which part of the existing auth flow should we refine first?',
-        answer: 'The login callback and redirect behavior.',
-        why: 'Grounding: The repo has a dedicated auth module and callback route.',
-      }),
-      activePathSummary: '',
-      specificationMode: 'brownfield',
-      workspaceDirectory: '/tmp/repo',
-      entities: emptyEntities(),
-    });
+    expectObserverContextPackRendering(
+      {
+        turn: makeTurn({
+          question: 'Which part of the existing auth flow should we refine first?',
+          answer: 'The login callback and redirect behavior.',
+          why: 'Grounding: The repo has a dedicated auth module and callback route.',
+        }),
+        activePathSummary: '',
+        specificationMode: 'brownfield',
+        workspaceDirectory: '/tmp/repo',
+        entities: emptyEntities(),
+      },
+      `This specification is scoped to a feature or change within an existing codebase.
+Workspace directory: /tmp/repo
+
+Current turn #5:
+  Phase: grounding
+  Question: Which part of the existing auth flow should we refine first?
+  Why: Grounding: The repo has a dedicated auth module and callback route.
+  Impact: high
+  Answer: The login callback and redirect behavior.`,
+    );
   });
 
   it('preserves long-anchor observer context rendering', () => {
@@ -129,79 +145,128 @@ describe('observer context packs', () => {
     const pack = buildObserverCaptureContextPack(input);
     expect(pack.data.existingKnowledgeAnchors[0]?.preview).toContain('…');
     expect(renderObserverCaptureContextPack(pack)).not.toContain(longContext);
-    expectPackRenderPreservesObserverContext(input);
+    expectObserverContextPackRendering(
+      input,
+      `Existing knowledge anchors:
+#3 context | The project is still being clarified with a deliberately long captured context that should be summarized as an anchor preview instead of copied wholesale into…
+#4 constraint | Keep setup instant
+#5 requirement | Resume the interview from SQLite
+#1 decision | Use React
+#2 assumption | Users have browsers
+
+Current turn #5:
+  Phase: grounding
+  Question: Q5
+  Answer: A5`,
+    );
   });
 
   it('preserves preface observer context rendering', () => {
-    expectPackRenderPreservesObserverContext({
-      turn: makeTurn({
-        question: 'What is the primary user persona?',
-        answer: 'Developers building AI tools',
-        user_parts: JSON.stringify([
-          { type: 'text', text: 'Developers building AI tools' },
-          {
-            type: 'data-turn-response',
-            data: { turnId: 5, selectedOptionIds: [], freeText: 'Developers building AI tools' },
-          },
-        ]),
-        assistant_parts: JSON.stringify([
-          {
-            type: 'data-preface',
-            data: {
-              observation: 'The repo uses a React frontend with SQLite storage.',
-              elaboration: 'Provisional context from workspace analysis.',
+    expectObserverContextPackRendering(
+      {
+        turn: makeTurn({
+          question: 'What is the primary user persona?',
+          answer: 'Developers building AI tools',
+          user_parts: JSON.stringify([
+            { type: 'text', text: 'Developers building AI tools' },
+            {
+              type: 'data-turn-response',
+              data: { turnId: 5, selectedOptionIds: [], freeText: 'Developers building AI tools' },
             },
-          },
-        ]),
-      }),
-      activePathSummary: '',
-      entities: emptyEntities(),
-    });
+          ]),
+          assistant_parts: JSON.stringify([
+            {
+              type: 'data-preface',
+              data: {
+                observation: 'The repo uses a React frontend with SQLite storage.',
+                elaboration: 'Provisional context from workspace analysis.',
+              },
+            },
+          ]),
+        }),
+        activePathSummary: '',
+        entities: emptyEntities(),
+      },
+      `Current turn #5:
+  Phase: grounding
+  Preface: The repo uses a React frontend with SQLite storage.
+  Preface elaboration: Provisional context from workspace analysis.
+  Question: What is the primary user persona?
+  Why: Audience shapes feature priorities.
+  Impact: high
+Turn response:
+  Free-text response: Developers building AI tools`,
+    );
   });
 
   it('preserves structured-response observer context rendering', () => {
-    expectPackRenderPreservesObserverContext({
-      turn: makeTurn({
-        phase: 'requirements',
-        question: 'Which requirements are still missing?',
-        answer: 'Web, Desktop — Covers both launch paths',
-        user_parts: JSON.stringify([
-          { type: 'text', text: 'Web, Desktop — Covers both launch paths' },
-          {
-            type: 'data-turn-response',
-            data: {
-              turnId: 5,
-              selectedOptionIds: [11, 12],
-              freeText: 'Covers both launch paths',
+    expectObserverContextPackRendering(
+      {
+        turn: makeTurn({
+          phase: 'requirements',
+          question: 'Which requirements are still missing?',
+          answer: 'Web, Desktop — Covers both launch paths',
+          user_parts: JSON.stringify([
+            { type: 'text', text: 'Web, Desktop — Covers both launch paths' },
+            {
+              type: 'data-turn-response',
+              data: {
+                turnId: 5,
+                selectedOptionIds: [11, 12],
+                freeText: 'Covers both launch paths',
+              },
             },
-          },
-        ]),
-        options: [
-          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: true },
-          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: true },
-        ],
-      }),
-      activePathSummary: '',
-      entities: {
-        ...emptyEntities(),
-        requirements: [{ id: 3, content: 'Support both launch paths' }],
+          ]),
+          options: [
+            { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: true },
+            { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: true },
+          ],
+        }),
+        activePathSummary: '',
+        entities: {
+          ...emptyEntities(),
+          requirements: [{ id: 3, content: 'Support both launch paths' }],
+        },
       },
-    });
+      `Existing knowledge anchors:
+#3 requirement | Support both launch paths
+
+Current turn #5:
+  Phase: requirements
+  Question: Which requirements are still missing?
+  Why: Audience shapes feature priorities.
+  Impact: high
+Turn response:
+  Chosen options: Web, Desktop
+  Free-text response: Covers both launch paths`,
+    );
   });
 
   it('preserves review-turn observer context rendering', () => {
-    expectPackRenderPreservesObserverContext({
-      turn: makeTurn({
-        phase: 'criteria',
-        question: 'What would prove the resume flow is complete?',
-        answer: 'It should restore the active path after restart.',
-      }),
-      activePathSummary: '',
-      entities: {
-        ...emptyEntities(),
-        requirements: [{ id: 5, content: 'Resume the interview from SQLite' }],
-        criteria: [{ id: 6, content: 'Restoring the project shows the active path' }],
+    expectObserverContextPackRendering(
+      {
+        turn: makeTurn({
+          phase: 'criteria',
+          question: 'What would prove the resume flow is complete?',
+          answer: 'It should restore the active path after restart.',
+        }),
+        activePathSummary: '',
+        entities: {
+          ...emptyEntities(),
+          requirements: [{ id: 5, content: 'Resume the interview from SQLite' }],
+          criteria: [{ id: 6, content: 'Restoring the project shows the active path' }],
+        },
       },
-    });
+      `Existing knowledge anchors:
+#5 requirement | Resume the interview from SQLite
+#6 criterion | Restoring the project shows the active path
+
+Current turn #5:
+  Phase: criteria
+  Question: What would prove the resume flow is complete?
+  Why: Audience shapes feature priorities.
+  Impact: high
+  Answer: It should restore the active path after restart.`,
+    );
   });
 });

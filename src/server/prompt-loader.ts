@@ -38,7 +38,7 @@ export function loadPromptAsset(id: PromptId): string {
     return cached;
   }
 
-  const prompt = readFileSync(join(promptDirectory, assetFile), 'utf8');
+  const prompt = readFileSync(join(promptDirectory, assetFile), 'utf8').replace(/\n+$/, '');
   promptCache.set(id, prompt);
   return prompt;
 }
