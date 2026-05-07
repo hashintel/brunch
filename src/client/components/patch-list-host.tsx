@@ -49,7 +49,7 @@ export interface PatchListActions {
   stage: (input: StagePatchInput) => string;
   discard: (id: string) => void;
   editSummary: (id: string, summary: string) => void;
-  apply: () => Promise<void>;
+  apply: (patchIds?: readonly string[]) => Promise<void>;
   undo: () => Promise<void>;
 }
 
@@ -102,77 +102,84 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
     dispatch({ type: 'EDIT_SUMMARY', patchId: id, summary });
   }, []);
 
-  const apply = useCallback(async (): Promise<void> => {
-    if (applyInFlightRef.current) return;
-    const snapshot = deriveState(reducerStateRef.current);
-    if (snapshot.staged.length === 0 || snapshot.isApplying) {
-      return;
-    }
-    applyInFlightRef.current = true;
-    dispatch({ type: 'APPLY_START' });
-    const undoHandles: Array<() => Promise<void>> = [];
-    const appliedMeta: Array<{ patchId: string; applied: unknown }> = [];
-    try {
-      for (const patch of snapshot.staged) {
-        switch (patch.kind) {
-          case 'annotate': {
-            const result = await appliers.annotate(patch);
-            undoHandles.push(result.undo);
-            appliedMeta.push({ patchId: patch.id, applied: result.applied });
-            break;
-          }
-          case 'edit': {
-            const result = await appliers.edit(patch);
-            undoHandles.push(result.undo);
-            appliedMeta.push({ patchId: patch.id, applied: result.applied });
-            break;
-          }
-          case 'edge': {
-            const result = await appliers.edge(patch);
-            undoHandles.push(result.undo);
-            appliedMeta.push({ patchId: patch.id, applied: result.applied });
-            break;
-          }
-          case 'drill-down': {
-            const result = await appliers.drillDown(patch);
-            undoHandles.push(result.undo);
-            appliedMeta.push({ patchId: patch.id, applied: result.applied });
-            break;
-          }
-          default: {
-            const _exhaustive: never = patch;
-            throw new Error(
-              `patch-list-host: no applier for patch kind ${String((_exhaustive as Patch).kind)}`,
-            );
+  const apply = useCallback(
+    async (patchIds?: readonly string[]): Promise<void> => {
+      if (applyInFlightRef.current) return;
+      const snapshot = deriveState(reducerStateRef.current);
+      const patchIdFilter = patchIds ? new Set(patchIds) : null;
+      const patchesToApply = patchIdFilter
+        ? snapshot.staged.filter((patch) => patchIdFilter.has(patch.id))
+        : snapshot.staged;
+      if (patchesToApply.length === 0 || snapshot.isApplying) {
+        return;
+      }
+      applyInFlightRef.current = true;
+      dispatch({ type: 'APPLY_START' });
+      const undoHandles: Array<() => Promise<void>> = [];
+      const appliedMeta: Array<{ patchId: string; applied: unknown }> = [];
+      try {
+        for (const patch of patchesToApply) {
+          switch (patch.kind) {
+            case 'annotate': {
+              const result = await appliers.annotate(patch);
+              undoHandles.push(result.undo);
+              appliedMeta.push({ patchId: patch.id, applied: result.applied });
+              break;
+            }
+            case 'edit': {
+              const result = await appliers.edit(patch);
+              undoHandles.push(result.undo);
+              appliedMeta.push({ patchId: patch.id, applied: result.applied });
+              break;
+            }
+            case 'edge': {
+              const result = await appliers.edge(patch);
+              undoHandles.push(result.undo);
+              appliedMeta.push({ patchId: patch.id, applied: result.applied });
+              break;
+            }
+            case 'drill-down': {
+              const result = await appliers.drillDown(patch);
+              undoHandles.push(result.undo);
+              appliedMeta.push({ patchId: patch.id, applied: result.applied });
+              break;
+            }
+            default: {
+              const _exhaustive: never = patch;
+              throw new Error(
+                `patch-list-host: no applier for patch kind ${String((_exhaustive as Patch).kind)}`,
+              );
+            }
           }
         }
-      }
-      const batchId = newId();
-      const undoAll = async () => {
+        const batchId = newId();
+        const undoAll = async () => {
+          for (const undo of [...undoHandles].reverse()) {
+            await undo();
+          }
+        };
+        dispatch({
+          type: 'APPLY_SUCCESS',
+          batchId,
+          patchIds: patchesToApply.map((patch) => patch.id),
+          undoHandle: undoAll,
+          appliedMeta,
+        });
+      } catch {
         for (const undo of [...undoHandles].reverse()) {
-          await undo();
+          try {
+            await undo();
+          } catch {
+            // Best-effort rollback; keep the UI in failure state for retry/discard.
+          }
         }
-      };
-      dispatch({
-        type: 'APPLY_SUCCESS',
-        batchId,
-        patchIds: snapshot.staged.map((patch) => patch.id),
-        undoHandle: undoAll,
-        appliedMeta,
-      });
-    } catch {
-      for (const undo of [...undoHandles].reverse()) {
-        try {
-          await undo();
-        } catch {
-          // Best-effort rollback; keep the UI in failure state for retry/discard.
-        }
+        dispatch({ type: 'APPLY_FAILURE' });
+      } finally {
+        applyInFlightRef.current = false;
       }
-      dispatch({ type: 'APPLY_FAILURE' });
-    } finally {
-      applyInFlightRef.current = false;
-    }
-  }, [appliers, newId]);
+    },
+    [appliers, newId],
+  );
 
   const undo = useCallback(async (): Promise<void> => {
     const pending = getPendingUndoHandle(reducerStateRef.current);

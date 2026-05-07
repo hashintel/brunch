@@ -462,6 +462,7 @@ export function SideChatHost({
     kind: patch.kind,
     summary: patch.summary,
   }));
+  const stagedForActiveIds = useMemo(() => stagedForActive.map((patch) => patch.id), [stagedForActive]);
   const canUndoForActive =
     patchListState.canUndo &&
     activeSideChat !== null &&
@@ -480,15 +481,22 @@ export function SideChatHost({
     for (const id of triggered) {
       if (!stagedIds.has(id)) triggered.delete(id);
     }
-    const allAutoApplyable = patchListState.staged.every((patch) => patch.kind === 'annotate');
-    if (!allAutoApplyable) return;
-    const hasUntriggered = patchListState.staged.some((patch) => !triggered.has(patch.id));
+    const allAutoApplyable = stagedForActive.every((patch) => patch.kind === 'annotate');
+    if (stagedForActive.length === 0 || !allAutoApplyable) return;
+    const hasUntriggered = stagedForActive.some((patch) => !triggered.has(patch.id));
     if (!hasUntriggered) return;
-    for (const patch of patchListState.staged) {
+    for (const patch of stagedForActive) {
       triggered.add(patch.id);
     }
-    void patchList.apply();
-  }, [patchList, patchListState.staged, patchListState.isApplying]);
+    void patchList.apply(stagedForActiveIds);
+  }, [patchList, patchListState.staged, patchListState.isApplying, stagedForActive, stagedForActiveIds]);
+
+  const applyStagedForActive = useCallback(() => {
+    if (!patchList || stagedForActiveIds.length === 0) {
+      return;
+    }
+    void patchList.apply(stagedForActiveIds);
+  }, [patchList, stagedForActiveIds]);
 
   const lastBatchAppliedMeta = useLastBatchAppliedMeta();
   const lastSeenBatchIdRef = useRef<string | null>(null);
@@ -705,7 +713,7 @@ export function SideChatHost({
           canUndo={canUndoForActive}
           isApplying={patchListState.isApplying}
           applyBatchId={patchListState.lastBatchId}
-          onApply={patchList?.apply}
+          onApply={patchList && stagedForActiveIds.length > 0 ? applyStagedForActive : undefined}
           onUndo={patchList?.undo}
           onDiscardPatch={patchList?.discard}
           existingAnnotations={existingAnnotations}

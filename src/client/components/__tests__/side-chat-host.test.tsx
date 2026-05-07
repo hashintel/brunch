@@ -48,6 +48,7 @@ function OpenSideChatButton({ item }: { item: SideChatPinnableItem }) {
 interface AppliersHandle {
   appliers: PatchAppliers;
   annotateMock: MockInstance;
+  editMock: MockInstance;
   undoMock: MockInstance;
 }
 
@@ -58,12 +59,14 @@ function makeNoopApplier() {
 function makeAppliers(): AppliersHandle {
   const undoMock = vi.fn(() => Promise.resolve());
   const annotateMock = vi.fn(() => Promise.resolve({ undo: undoMock, applied: undefined }));
+  const editMock = makeNoopApplier();
   return {
     annotateMock,
+    editMock,
     undoMock,
     appliers: {
       annotate: annotateMock as unknown as PatchAppliers['annotate'],
-      edit: makeNoopApplier() as unknown as PatchAppliers['edit'],
+      edit: editMock as unknown as PatchAppliers['edit'],
       edge: makeNoopApplier() as unknown as PatchAppliers['edge'],
       drillDown: makeNoopApplier() as unknown as PatchAppliers['drillDown'],
     },
@@ -502,6 +505,73 @@ describe('SideChatHost annotate flow', () => {
     // Switch back to D7; the staged patch reappears.
     fireEvent.click(screen.getByText('open-decision'));
     expect(screen.getByText('d-sum')).toBeTruthy();
+  });
+
+  it('auto-applies an annotation for the active item without applying a staged edit for another item', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+    streamMock.mockImplementationOnce(async (_request, onChunk) => {
+      onChunk({
+        type: 'patch-proposal',
+        toolCallId: 'call-1',
+        toolName: 'propose_edit',
+        input: { newContent: 'Use IndexedDB for local persistence.' },
+      });
+      onChunk({ type: 'done' });
+    });
+    const { appliers, annotateMock, editMock } = makeAppliers();
+    const otherItem: SideChatPinnableItem = {
+      kind: 'goal',
+      id: 11,
+      referenceCode: 'G11',
+      content: 'Ship V1.2',
+    };
+
+    function OpenButtons() {
+      const sideChat = useSideChat();
+      return (
+        <>
+          <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
+            open-decision
+          </button>
+          <button type="button" onClick={() => sideChat?.openFor(otherItem)}>
+            open-goal
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenButtons />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-decision'));
+    fireEvent.click(screen.getByRole('button', { name: /edit mode/i }));
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'reword' } });
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'Enter' });
+    });
+    await screen.findByText('Edit: Use IndexedDB for local persistence.');
+
+    fireEvent.click(screen.getByText('open-goal'));
+    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'g-sum' } });
+    fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'g-body' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    });
+
+    await vi.waitFor(() => expect(annotateMock).toHaveBeenCalledTimes(1));
+    expect(editMock).not.toHaveBeenCalled();
+    expect(screen.queryByText(/1 pending change/i)).toBeNull();
+
+    fireEvent.click(screen.getByText('open-decision'));
+    expect(screen.getByText('Edit: Use IndexedDB for local persistence.')).toBeTruthy();
   });
 
   it('does not leak the saved confirmation to another pinned item', async () => {

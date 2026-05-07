@@ -247,6 +247,33 @@ describe('apply', () => {
     expect(refs.current.state.isApplying).toBe(false);
   });
 
+  it('can apply only the requested staged patch ids and leave the rest staged', async () => {
+    const refs = makeProbeRefs();
+    const { appliers, annotateMock } = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
+        <Probe refs={refs} />
+      </PatchListProvider>,
+    );
+
+    let firstId = '';
+    let secondId = '';
+    act(() => {
+      firstId = refs.current.actions?.stage(makeAnnotateInput({ summary: 'first' })) ?? '';
+      secondId = refs.current.actions?.stage(makeAnnotateInput({ summary: 'second' })) ?? '';
+    });
+
+    await act(async () => {
+      await refs.current.actions?.apply([firstId]);
+    });
+
+    expect(annotateMock).toHaveBeenCalledTimes(1);
+    expect(annotateMock.mock.calls[0]?.[0].summary).toBe('first');
+    expect(refs.current.state.staged.map((patch) => patch.id)).toEqual([secondId]);
+    expect(refs.current.state.lastBatchPatches.map((patch) => patch.id)).toEqual([firstId]);
+    expect(refs.current.state.canUndo).toBe(true);
+  });
+
   it('exposes lastBatchId and changes it on each apply (mutation signal for downstream effects)', async () => {
     const refs = makeProbeRefs();
     const { appliers } = makeAppliers();
