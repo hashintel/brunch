@@ -68,5 +68,5 @@ export async function deleteEdgeRequest(
   if (!response.ok) {
     throw new Error(`deleteEdge failed: ${response.status} ${response.statusText}`);
   }
-  return (await response.json()) as { deleted: boolean };
+  return (await response.json()) as { deleted: boolean; reason?: string };
 }
