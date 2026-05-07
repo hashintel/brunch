@@ -28,7 +28,22 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
       rationale: patch.newRationale,
     });
     if (!response.updated) {
-      throw new Error('Edit deferred: hard impact detected — apply via V3 cascade preview');
+      // V2 hard-impact deferral: per SIDE_CHAT.md §6.3, edits with hard impact
+      // are recognized but routed to V3's cascade-preview surface. Rather than
+      // throwing (which would leave the patch stuck in the staged list with
+      // confusing Apply/Discard controls), we return a deferred-applied marker
+      // so the patch transitions cleanly out of staged. Undo is a no-op
+      // because nothing was applied. The host detects `deferred: true` in
+      // applied metadata and surfaces a "deferred to V3" message rather than
+      // the generic "Change saved" toast.
+      return {
+        undo: async () => {},
+        applied: {
+          deferred: true,
+          impact: response.impact,
+          message: 'Hard impact — coming in V3 cascade preview',
+        },
+      };
     }
     if (response.previousContent === undefined) {
       throw new Error('Edit applier: server reported updated but did not return previousContent');

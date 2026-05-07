@@ -108,12 +108,22 @@ describe('makeEditApplier', () => {
     );
   });
 
-  it('throws on hard-impact response so the patch-list batch fails', async () => {
+  it('returns a deferred-applied marker on hard-impact response so the patch leaves staged cleanly', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
     fetchMock.mockResolvedValueOnce(jsonResponse({ impact: 'hard', affectedItems: [], updated: false }));
 
     const applier = makeEditApplier(SPEC_ID);
-    await expect(applier(makeEditPatch())).rejects.toThrow(/hard impact/i);
+    const result = await applier(makeEditPatch());
+    // Patch transitions to applied (with deferred marker) instead of throwing —
+    // V2 routes hard-impact edits to V3 cascade preview rather than stucking
+    // them in the staged list per SIDE_CHAT.md §6.3.
+    expect(result.applied).toEqual({
+      deferred: true,
+      impact: 'hard',
+      message: 'Hard impact — coming in V3 cascade preview',
+    });
+    // Undo is a no-op (nothing was applied).
+    await expect(result.undo()).resolves.toBeUndefined();
   });
 
   it('throws when the server returns updated: true without previous values', async () => {
