@@ -24,13 +24,7 @@ const patchKnowledgeItemSchema = z.object({
   rationale: z.string().trim().min(1).nullable().optional(),
 });
 
-const validateEdgeSchema = z.object({
-  fromItemId: z.number().int().positive(),
-  toItemId: z.number().int().positive(),
-  relation: edgeRelationSchema,
-});
-
-const createEdgeSchema = z.object({
+const edgeMutationSchema = z.object({
   fromItemId: z.number().int().positive(),
   toItemId: z.number().int().positive(),
   relation: edgeRelationSchema,
@@ -113,7 +107,7 @@ export function handleValidateKnowledgeEdge(db: DB, req: Request, res: Response)
     return;
   }
 
-  const parsed = validateEdgeSchema.safeParse(req.body);
+  const parsed = edgeMutationSchema.safeParse(req.body);
   if (!parsed.success) {
     badRequest(res, 'Invalid payload');
     return;
@@ -150,7 +144,7 @@ export function handleCreateKnowledgeEdge(db: DB, req: Request, res: Response): 
     return;
   }
 
-  const parsed = createEdgeSchema.safeParse(req.body);
+  const parsed = edgeMutationSchema.safeParse(req.body);
   if (!parsed.success) {
     badRequest(res, 'Invalid payload');
     return;
@@ -191,7 +185,7 @@ export function handleDeleteKnowledgeEdge(db: DB, req: Request, res: Response): 
     return;
   }
 
-  const parsed = createEdgeSchema.safeParse(req.body);
+  const parsed = edgeMutationSchema.safeParse(req.body);
   if (!parsed.success) {
     badRequest(res, 'Invalid payload');
     return;
