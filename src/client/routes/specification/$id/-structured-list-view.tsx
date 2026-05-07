@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from '@tanstack/react-router';
-import { ArrowDownLeft, ArrowUpRight, ChevronRight, MessageCircle, Pencil } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Check, ChevronRight, MessageCircle, Pencil, X } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -515,6 +515,10 @@ function ItemEditTextarea({
 }) {
   const [value, setValue] = useState(initialContent);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const trimmed = value.trim();
+  const canSave = trimmed.length > 0 && trimmed !== initialContent;
 
   useLayoutEffect(() => {
     const ta = ref.current;
@@ -524,7 +528,8 @@ function ItemEditTextarea({
   }, []);
 
   // Autosize: grow textarea to fit content so the row doesn't gain a scrollbar
-  // for typical single-line edits.
+  // for typical single-line edits. The minimum height matches the resting
+  // line-height of the row's <p> so the layout doesn't jump on edit-mode entry.
   useLayoutEffect(() => {
     const ta = ref.current;
     if (!ta) return;
@@ -540,29 +545,75 @@ function ItemEditTextarea({
     }
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
-      const trimmed = value.trim();
-      if (trimmed.length > 0 && trimmed !== initialContent) onSave(trimmed);
+      if (canSave) onSave(trimmed);
       else onCancel();
     }
   };
 
-  const handleBlur = () => {
-    const trimmed = value.trim();
-    if (trimmed.length > 0 && trimmed !== initialContent) onSave(trimmed);
-    else onCancel();
+  // Cancel when focus leaves the editor entirely (e.g. clicking elsewhere on
+  // the page). Clicking the inline Save / Cancel buttons keeps focus inside
+  // `containerRef`, so those paths run their own handlers instead.
+  const handleContainerBlur = (event: React.FocusEvent<HTMLDivElement>) => {
+    const next = event.relatedTarget;
+    if (next instanceof Node && containerRef.current?.contains(next)) return;
+    onCancel();
   };
 
   return (
-    <textarea
-      ref={ref}
-      data-graph-row-edit-textarea
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onKeyDown={handleKeyDown}
-      onBlur={handleBlur}
-      rows={1}
-      className="w-full resize-none rounded border border-rule bg-background px-2 py-1 text-sm text-ink outline-none focus:ring-2 focus:ring-foreground/30"
-    />
+    <div
+      ref={containerRef}
+      data-graph-row-edit
+      onBlur={handleContainerBlur}
+      className="flex min-w-0 flex-1 flex-col gap-1.5"
+    >
+      <textarea
+        ref={ref}
+        data-graph-row-edit-textarea
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        rows={1}
+        aria-label="Edit item content"
+        className="w-full resize-none rounded-md border border-rule bg-background px-2 py-1 text-sm leading-relaxed text-ink shadow-[var(--shadow-card)] outline-none focus:border-ring focus:ring-3 focus:ring-ring/40"
+      />
+      <div className="flex items-center justify-between gap-2 text-[11px] text-hint">
+        <span aria-hidden className="select-none">
+          <kbd className="rounded bg-wash px-1 py-0.5 font-mono text-[10px] text-sub">⌘↵</kbd> save
+          {' · '}
+          <kbd className="rounded bg-wash px-1 py-0.5 font-mono text-[10px] text-sub">esc</kbd> cancel
+        </span>
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            data-graph-row-edit-cancel
+            variant="ghost"
+            size="xs"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={onCancel}
+          >
+            <X aria-hidden />
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            data-graph-row-edit-save
+            size="xs"
+            disabled={!canSave}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              if (canSave) onSave(trimmed);
+            }}
+            // Match the patch-list-overlay Apply button — same blue gradient,
+            // same drop-shadow, since this is the same primary-action surface
+            // (stage an edit patch into the same pipeline).
+            className="bg-[linear-gradient(180deg,#3484fa,#2070e6)] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] hover:bg-[linear-gradient(180deg,#3484fa,#2070e6)]"
+          >
+            <Check aria-hidden />
+            Save
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -605,36 +656,36 @@ function ItemRow({
         data-graph-row-editing={isEditing ? 'true' : undefined}
         className={`group/row overflow-hidden rounded-xl border bg-background shadow-[var(--shadow-card)] transition-all duration-700 ${anchored ? `animate-in border-current/50 ring-2 ring-current/30 duration-300 fade-in ${kindTextColor[item.kind]}` : 'border-rule'}`}
       >
-        <div className="flex items-baseline justify-between gap-2 p-3">
-          <div className="flex min-w-0 flex-1 items-baseline gap-2">
+        <div className={`flex justify-between gap-2 p-3 ${isEditing ? 'items-start' : 'items-baseline'}`}>
+          <div className={`flex min-w-0 flex-1 gap-2 ${isEditing ? 'items-start' : 'items-baseline'}`}>
             <span
               data-graph-row-reference
-              className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 font-mono text-xs font-medium ${kindColor[item.kind]}`}
+              className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 font-mono text-xs font-medium ${isEditing ? 'mt-1' : ''} ${kindColor[item.kind]}`}
             >
               {item.referenceCode}
             </span>
             {isEditing ? (
-              <div className="min-w-0 flex-1">
-                <ItemEditTextarea initialContent={item.content} onSave={onSaveEdit} onCancel={onCancelEdit} />
-              </div>
+              <ItemEditTextarea initialContent={item.content} onSave={onSaveEdit} onCancel={onCancelEdit} />
             ) : (
               <p className="text-sm text-ink" data-annotatable>
                 {item.content}
               </p>
             )}
           </div>
-          <div className="flex items-center gap-1">
-            <ItemActionRail item={item} onStartEdit={onStartEdit} editDisabled={editDisabled} />
-            {hasExpansion && (
-              <CollapsibleTrigger
-                data-graph-row-toggle
-                aria-label="Toggle item details"
-                className="group flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
-              >
-                <ChevronRight className="size-3.5 transition-transform group-data-[state=open]:rotate-90" />
-              </CollapsibleTrigger>
-            )}
-          </div>
+          {!isEditing && (
+            <div className="flex items-center gap-1">
+              <ItemActionRail item={item} onStartEdit={onStartEdit} editDisabled={editDisabled} />
+              {hasExpansion && (
+                <CollapsibleTrigger
+                  data-graph-row-toggle
+                  aria-label="Toggle item details"
+                  className="group flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+                >
+                  <ChevronRight className="size-3.5 transition-transform group-data-[state=open]:rotate-90" />
+                </CollapsibleTrigger>
+              )}
+            </div>
+          )}
         </div>
         <CollapsibleContent>
           <ItemDetailsFooter rationale={item.rationale} outgoing={outgoing} incoming={incoming} />
