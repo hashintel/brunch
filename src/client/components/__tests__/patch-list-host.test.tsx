@@ -92,7 +92,7 @@ describe('PatchListProvider — basic mount', () => {
   it('mounts and renders children', () => {
     const { appliers } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <div data-testid="child">child-rendered</div>
       </PatchListProvider>,
     );
@@ -103,7 +103,7 @@ describe('PatchListProvider — basic mount', () => {
     const refs = makeProbeRefs();
     const { appliers } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -117,7 +117,7 @@ describe('PatchListProvider — basic mount', () => {
     const refs = makeProbeRefs();
     const { appliers, annotateMock, undoMock } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -148,7 +148,7 @@ describe('stage / discard / editSummary', () => {
     const refs = makeProbeRefs();
     const { appliers } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -165,7 +165,7 @@ describe('stage / discard / editSummary', () => {
     const refs = makeProbeRefs();
     const { appliers } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -185,7 +185,7 @@ describe('stage / discard / editSummary', () => {
     const refs = makeProbeRefs();
     const { appliers } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -207,7 +207,7 @@ describe('apply', () => {
     const refs = makeProbeRefs();
     const { appliers, annotateMock } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -233,7 +233,7 @@ describe('apply', () => {
     const refs = makeProbeRefs();
     const { appliers } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -265,7 +265,7 @@ describe('apply', () => {
     const refs = makeProbeRefs();
     const { appliers, annotateMock } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -285,7 +285,7 @@ describe('apply', () => {
       annotate: failingAnnotate as unknown as PatchAppliers['annotate'],
     };
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -314,7 +314,7 @@ describe('apply', () => {
       annotate: annotate as unknown as PatchAppliers['annotate'],
     };
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -352,7 +352,7 @@ describe('undo', () => {
     };
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -382,7 +382,7 @@ describe('undo', () => {
     const refs = makeProbeRefs();
     const { appliers, undoMock } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );
@@ -400,7 +400,7 @@ describe('useStagedPatches filter', () => {
     const refs = makeProbeRefs();
     const { appliers } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} filter={{ anchor: { kind: 'decision', itemId: 7 } }} />
       </PatchListProvider>,
     );
@@ -425,7 +425,7 @@ describe('useStagedPatches filter', () => {
     const refs = makeProbeRefs();
     const { appliers } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} filter={{ kind: 'annotate' }} />
       </PatchListProvider>,
     );
@@ -442,7 +442,7 @@ describe('useStagedPatches filter', () => {
     const refs = makeProbeRefs();
     const { appliers } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+      <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
         <Probe refs={refs} />
       </PatchListProvider>,
     );

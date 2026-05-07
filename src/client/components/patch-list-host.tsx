@@ -55,7 +55,6 @@ const PatchListContext = createContext<PatchListContextValue | null>(null);
 // ---- Provider ----
 
 export interface PatchListProviderProps {
-  specificationId: number;
   appliers: PatchAppliers;
   children: ReactNode;
   /** Test-only seam; production callers rely on the default `crypto.randomUUID()`. */

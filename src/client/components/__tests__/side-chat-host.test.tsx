@@ -61,7 +61,7 @@ describe('SideChatHost annotate flow', () => {
   it('clicking Annotate switches the popover into composer mode', () => {
     const { appliers } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <OpenSideChatButton item={samplePinnable} />
         </SideChatHost>
@@ -78,7 +78,7 @@ describe('SideChatHost annotate flow', () => {
   it('staging an annotation auto-applies it (per the D131 user-driven carve-out) and surfaces Undo', async () => {
     const { appliers, annotateMock } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <OpenSideChatButton item={samplePinnable} />
         </SideChatHost>
@@ -106,7 +106,7 @@ describe('SideChatHost annotate flow', () => {
   it('passes the trimmed summary + body through to the annotate applier on auto-apply', async () => {
     const { appliers, annotateMock } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <OpenSideChatButton item={samplePinnable} />
         </SideChatHost>
@@ -132,7 +132,7 @@ describe('SideChatHost annotate flow', () => {
   it('Undo after auto-apply invokes the returned undo handle and flips canUndo off', async () => {
     const { appliers, undoMock } = makeAppliers();
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <OpenSideChatButton item={samplePinnable} />
         </SideChatHost>
@@ -166,7 +166,7 @@ describe('SideChatHost annotate flow', () => {
     };
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <OpenSideChatButton item={samplePinnable} />
         </SideChatHost>
@@ -195,7 +195,7 @@ describe('SideChatHost annotate flow', () => {
     };
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <OpenSideChatButton item={samplePinnable} />
         </SideChatHost>
@@ -245,7 +245,7 @@ describe('SideChatHost annotate flow', () => {
     }
 
     render(
-      <PatchListProvider specificationId={1} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
           <OpenButtons />
         </SideChatHost>

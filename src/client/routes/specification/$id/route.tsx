@@ -42,7 +42,7 @@ export const Route = createFileRoute('/specification/$id')({
     );
 
     return (
-      <PatchListProvider specificationId={specificationState.specification.id} appliers={appliers}>
+      <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={specificationState.specification.id}>
           <div className="flex h-full">
             <PhaseNavigationSidebar
