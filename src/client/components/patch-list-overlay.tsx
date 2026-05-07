@@ -16,6 +16,8 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { ContentDiff } from './content-diff.js';
+import { ImpactChip } from './impact-chip.js';
+import { kindAccentHex } from './knowledge-card';
 import { useLastBatchAppliedMeta, usePatchList, usePatchListState } from './patch-list-host.js';
 import { usePatchListOverlayBridge } from './patch-list-overlay-bridge.js';
 import type { Patch } from './patch-list-reducer.js';
@@ -66,6 +68,8 @@ function StagedPatchDetailRow({ patch }: { patch: Patch }): React.ReactElement {
     patch.kind === 'edit' &&
     typeof patch.currentContent === 'string' &&
     patch.currentContent !== patch.newContent;
+  const kindAccent = kindAccentHex[patch.anchor.kind];
+  const impact = patch.kind === 'edit' ? patch.impact : undefined;
   return (
     <li
       data-staged-patch-id={patch.id}
@@ -73,9 +77,19 @@ function StagedPatchDetailRow({ patch }: { patch: Patch }): React.ReactElement {
       className="flex flex-col gap-1.5 rounded-md bg-background px-3 py-2"
     >
       <div className="flex items-center gap-2">
+        {patch.anchorReferenceCode ? (
+          <span
+            data-staged-patch-anchor={patch.anchorReferenceCode}
+            className="inline-flex shrink-0 items-center rounded-[4px] px-1.5 py-0.5 font-mono text-[11px] font-medium"
+            style={{ backgroundColor: `${kindAccent}14`, color: kindAccent }}
+          >
+            {patch.anchorReferenceCode}
+          </span>
+        ) : null}
         <span className="flex-1 truncate text-ink" title={patch.summary}>
           {patch.summary}
         </span>
+        {impact ? <ImpactChip impact={impact} /> : null}
       </div>
       {showDiff ? (
         <div className="border-l border-rule pl-2">

@@ -15,6 +15,7 @@ import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import { ActiveCard } from './active-card.js';
 import { ContentDiff } from './content-diff.js';
+import { ImpactChip } from './impact-chip.js';
 import { kindAccentHex } from './knowledge-card';
 
 function useTypewriter(target: string, animate: boolean, charDelayMs = 15): string {
@@ -37,24 +38,6 @@ function useTypewriter(target: string, animate: boolean, charDelayMs = 15): stri
     return () => window.clearTimeout(id);
   }, [target, displayed, animate, charDelayMs]);
   return displayed;
-}
-
-// Impact tier chip for edit patches (design §4.1). Color cues mirror the
-// patch-list overlay's deferred banner family — neutral for none, blue for
-// soft (direct apply), amber for hard (deferred to V3 cascade).
-function ImpactChip({ impact }: { impact: 'none' | 'soft' | 'hard' }) {
-  const className =
-    impact === 'hard'
-      ? 'rounded bg-[rgba(255,219,168,0.6)] px-1.5 py-0.5 text-[10px] font-medium text-ink'
-      : impact === 'soft'
-        ? 'rounded bg-[rgba(32,112,230,0.12)] px-1.5 py-0.5 text-[10px] font-medium text-[#1060d6]'
-        : 'rounded bg-wash px-1.5 py-0.5 text-[10px] font-medium text-sub';
-  const label = impact === 'hard' ? 'Hard impact — V3' : impact === 'soft' ? 'Soft impact' : 'No impact';
-  return (
-    <span className={className} aria-label={label} data-impact={impact}>
-      {label}
-    </span>
-  );
 }
 
 function MessageBubble({ message }: { message: SideChatMessage }) {
