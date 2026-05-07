@@ -182,6 +182,18 @@ describe('makeEdgeApplier', () => {
     const applier = makeEdgeApplier(SPEC_ID);
     await expect(applier(makeEdgePatch())).rejects.toThrow(/Relationship not allowed/);
   });
+
+  it('throws during undo when the server reports the edge was not deleted', async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ created: true }, 201))
+      .mockResolvedValueOnce(jsonResponse({ deleted: false, reason: 'Source item not found' }));
+
+    const applier = makeEdgeApplier(SPEC_ID);
+    const result = await applier(makeEdgePatch());
+
+    await expect(result.undo()).rejects.toThrow(/Source item not found/);
+  });
 });
 
 describe('makeDrillDownApplier', () => {

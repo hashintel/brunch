@@ -634,11 +634,9 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     handleCreateKnowledgeEdge(db, req, res);
   });
 
-  for (const path of specificationKnowledgeEdgesPaths) {
-    app.delete(path, (req: Request, res: Response) => {
-      handleDeleteKnowledgeEdge(db, req, res);
-    });
-  }
+  registerDelete(specificationKnowledgeEdgesPaths, (req: Request, res: Response) => {
+    handleDeleteKnowledgeEdge(db, req, res);
+  });
 
   return { app, db };
 }

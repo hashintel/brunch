@@ -48,11 +48,14 @@ export function makeEdgeApplier(specificationId: number): ApplyPatchFn<EdgePatch
     }
     return {
       undo: async () => {
-        await deleteEdgeRequest(specificationId, {
+        const undoResult = await deleteEdgeRequest(specificationId, {
           fromItemId: patch.anchor.itemId,
           toItemId: patch.targetAnchor.itemId,
           relation: patch.relation,
         });
+        if (!undoResult.deleted) {
+          throw new Error(undoResult.reason ?? 'Edge deletion failed');
+        }
       },
       applied: { created: true },
     };
