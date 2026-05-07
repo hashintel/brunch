@@ -1,0 +1,207 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  buildObserverCaptureContextPack,
+  renderObserverCaptureContextPack,
+  type ObserverContextPackInput,
+} from './context-pack.js';
+import { buildObserverContext } from './context.js';
+import type { TurnWithOptions } from './core.js';
+
+function emptyEntities(): ObserverContextPackInput['entities'] {
+  return {
+    goals: [],
+    terms: [],
+    contexts: [],
+    constraints: [],
+    requirements: [],
+    criteria: [],
+    decisions: [],
+    assumptions: [],
+  };
+}
+
+function makeTurn(overrides: Partial<TurnWithOptions> = {}): TurnWithOptions {
+  return {
+    id: 5,
+    specification_id: 1,
+    parent_turn_id: 4,
+    phase: 'grounding',
+    turn_kind: 'question',
+    question: 'What is the target audience?',
+    answer: 'Developers building APIs',
+    why: 'Audience shapes feature priorities.',
+    impact: 'high',
+    is_resolution: false,
+    user_parts: null,
+    assistant_parts: null,
+    created_at: '2026-01-01',
+    ...overrides,
+  };
+}
+
+function expectPackRenderPreservesObserverContext(input: ObserverContextPackInput) {
+  expect(renderObserverCaptureContextPack(buildObserverCaptureContextPack(input))).toBe(
+    buildObserverContext(input),
+  );
+}
+
+describe('observer context packs', () => {
+  it('builds a typed observer-capture pack with compact anchors and current-turn evidence', () => {
+    const pack = buildObserverCaptureContextPack({
+      turn: makeTurn(),
+      activePathSummary: 'Turn 1: goal defined.',
+      specificationMode: 'brownfield',
+      workspaceDirectory: '/tmp/repo',
+      entities: {
+        ...emptyEntities(),
+        contexts: [{ id: 3, content: 'The project starts from a fuzzy brief' }],
+        requirements: [{ id: 5, content: 'Users can resume their interview later' }],
+      },
+    });
+
+    expect(pack.scenario).toBe('observer-capture');
+    expect(pack.data.specification).toEqual({ mode: 'brownfield', workspaceDirectory: '/tmp/repo' });
+    expect(pack.data.activePathSummary).toBe('Turn 1: goal defined.');
+    expect(pack.data.existingKnowledgeAnchors).toEqual([
+      {
+        id: 3,
+        kind: 'context',
+        content: 'The project starts from a fuzzy brief',
+        preview: 'The project starts from a fuzzy brief',
+      },
+      {
+        id: 5,
+        kind: 'requirement',
+        content: 'Users can resume their interview later',
+        preview: 'Users can resume their interview later',
+      },
+    ]);
+    expect(pack.data.currentTurn).toEqual({
+      id: 5,
+      phase: 'grounding',
+      question: 'What is the target audience?',
+      why: 'Audience shapes feature priorities.',
+      impact: 'high',
+      response: '  Answer: Developers building APIs',
+    });
+  });
+
+  it('preserves empty observer context rendering', () => {
+    expectPackRenderPreservesObserverContext({
+      turn: makeTurn(),
+      activePathSummary: '',
+      entities: emptyEntities(),
+    });
+  });
+
+  it('preserves brownfield observer context rendering', () => {
+    expectPackRenderPreservesObserverContext({
+      turn: makeTurn({
+        question: 'Which part of the existing auth flow should we refine first?',
+        answer: 'The login callback and redirect behavior.',
+        why: 'Grounding: The repo has a dedicated auth module and callback route.',
+      }),
+      activePathSummary: '',
+      specificationMode: 'brownfield',
+      workspaceDirectory: '/tmp/repo',
+      entities: emptyEntities(),
+    });
+  });
+
+  it('preserves long-anchor observer context rendering', () => {
+    const longContext =
+      'The project is still being clarified with a deliberately long captured context that should be summarized as an anchor preview instead of copied wholesale into the observer prompt inventory.';
+
+    const input: ObserverContextPackInput = {
+      turn: makeTurn({ question: 'Q5', answer: 'A5', why: null, impact: null }),
+      activePathSummary: '',
+      entities: {
+        ...emptyEntities(),
+        contexts: [{ id: 3, content: longContext }],
+        constraints: [{ id: 4, content: 'Keep setup instant' }],
+        requirements: [{ id: 5, content: 'Resume the interview from SQLite' }],
+        decisions: [{ id: 1, content: 'Use React' }],
+        assumptions: [{ id: 2, content: 'Users have browsers' }],
+      },
+    };
+
+    const pack = buildObserverCaptureContextPack(input);
+    expect(pack.data.existingKnowledgeAnchors[0]?.preview).toContain('…');
+    expect(renderObserverCaptureContextPack(pack)).not.toContain(longContext);
+    expectPackRenderPreservesObserverContext(input);
+  });
+
+  it('preserves preface observer context rendering', () => {
+    expectPackRenderPreservesObserverContext({
+      turn: makeTurn({
+        question: 'What is the primary user persona?',
+        answer: 'Developers building AI tools',
+        user_parts: JSON.stringify([
+          { type: 'text', text: 'Developers building AI tools' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 5, selectedOptionIds: [], freeText: 'Developers building AI tools' },
+          },
+        ]),
+        assistant_parts: JSON.stringify([
+          {
+            type: 'data-preface',
+            data: {
+              observation: 'The repo uses a React frontend with SQLite storage.',
+              elaboration: 'Provisional context from workspace analysis.',
+            },
+          },
+        ]),
+      }),
+      activePathSummary: '',
+      entities: emptyEntities(),
+    });
+  });
+
+  it('preserves structured-response observer context rendering', () => {
+    expectPackRenderPreservesObserverContext({
+      turn: makeTurn({
+        phase: 'requirements',
+        question: 'Which requirements are still missing?',
+        answer: 'Web, Desktop — Covers both launch paths',
+        user_parts: JSON.stringify([
+          { type: 'text', text: 'Web, Desktop — Covers both launch paths' },
+          {
+            type: 'data-turn-response',
+            data: {
+              turnId: 5,
+              selectedOptionIds: [11, 12],
+              freeText: 'Covers both launch paths',
+            },
+          },
+        ]),
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: true },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: true },
+        ],
+      }),
+      activePathSummary: '',
+      entities: {
+        ...emptyEntities(),
+        requirements: [{ id: 3, content: 'Support both launch paths' }],
+      },
+    });
+  });
+
+  it('preserves review-turn observer context rendering', () => {
+    expectPackRenderPreservesObserverContext({
+      turn: makeTurn({
+        phase: 'criteria',
+        question: 'What would prove the resume flow is complete?',
+        answer: 'It should restore the active path after restart.',
+      }),
+      activePathSummary: '',
+      entities: {
+        ...emptyEntities(),
+        requirements: [{ id: 5, content: 'Resume the interview from SQLite' }],
+        criteria: [{ id: 6, content: 'Restoring the project shows the active path' }],
+      },
+    });
+  });
+});
