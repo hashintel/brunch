@@ -23,6 +23,12 @@ interface PatchBase {
   summary: string;
   selectionRange?: PatchSelectionRange;
   createdAt: number;
+  // Snapshot of the anchor item's reference code (e.g. "C1", "D5") at stage
+  // time. Optional — populated by callers that have it in hand (side-chat
+  // pinnedItem, future direct-edit row) so consumers like PatchListOverlay
+  // can render the kind-tinted reference badge without re-querying the
+  // entity store. When absent, consumers fall back to summary-only.
+  anchorReferenceCode?: string;
 }
 
 export interface AnnotatePatch extends PatchBase {

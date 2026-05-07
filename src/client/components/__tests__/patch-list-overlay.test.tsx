@@ -62,9 +62,11 @@ function StageEditPatchWithDiffButton() {
         patchList?.stage({
           kind: 'edit',
           anchor: { kind: 'goal', itemId: 1 },
+          anchorReferenceCode: 'G1',
           summary: 'Edit: swap database',
           currentContent: 'Use SQLite for the local store.',
           newContent: 'Use Postgres for the local store.',
+          impact: 'soft',
         })
       }
     >
@@ -497,5 +499,34 @@ describe('PatchListOverlay — expand-to-detail (FE-665 follow-up)', () => {
     const list = screen.getByRole('list', { name: /staged patch detail/i });
     expect(list.textContent).toContain('Edit: swap database');
     expect(list.textContent).toContain('Note: clarify exclusion');
+  });
+
+  it('renders the kind-tinted reference badge for patches that carry anchorReferenceCode', () => {
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchWithDiffButton />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit-with-diff'));
+    fireEvent.click(screen.getByRole('button', { name: /1 pending change/i }));
+    const badge = document.querySelector('[data-staged-patch-anchor="G1"]');
+    expect(badge).not.toBeNull();
+    expect(badge!.textContent).toBe('G1');
+  });
+
+  it('renders the impact chip for an edit patch with impact tier', () => {
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchWithDiffButton />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit-with-diff'));
+    fireEvent.click(screen.getByRole('button', { name: /1 pending change/i }));
+    const chip = screen.getByLabelText(/soft impact/i);
+    expect(chip.getAttribute('data-impact')).toBe('soft');
   });
 });
