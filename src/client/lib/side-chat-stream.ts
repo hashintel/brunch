@@ -1,7 +1,20 @@
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
+export type SideChatMode = 'explore' | 'edit';
+
+export interface ProposeEditInput {
+  newContent: string;
+  newRationale?: string;
+}
+
 export type SideChatStreamEvent =
   | { type: 'text-delta'; delta: string }
+  | {
+      type: 'patch-proposal';
+      toolCallId: string;
+      toolName: 'propose_edit';
+      input: ProposeEditInput;
+    }
   | { type: 'done' }
   | { type: 'error'; message: string };
 
@@ -24,6 +37,7 @@ export interface SideChatStreamRequest {
   history?: readonly SideChatPriorTurn[];
   activeAnnotations?: readonly SideChatActiveAnnotation[];
   spanHint?: string;
+  mode?: SideChatMode;
   signal?: AbortSignal;
   fetch?: typeof fetch;
 }
@@ -35,6 +49,32 @@ interface ParseResult {
 
 const EVENT_DELIMITER = '\n\n';
 const DATA_PREFIX = 'data: ';
+
+function parsePatchProposal(parsed: Record<string, unknown>): SideChatStreamEvent | null {
+  if (parsed.toolName !== 'propose_edit') {
+    return null;
+  }
+  if (typeof parsed.toolCallId !== 'string') {
+    return null;
+  }
+  const input = parsed.input;
+  if (!input || typeof input !== 'object') {
+    return null;
+  }
+  const { newContent, newRationale } = input as { newContent?: unknown; newRationale?: unknown };
+  if (typeof newContent !== 'string' || newContent.length === 0) {
+    return null;
+  }
+  return {
+    type: 'patch-proposal',
+    toolCallId: parsed.toolCallId,
+    toolName: 'propose_edit',
+    input: {
+      newContent,
+      ...(typeof newRationale === 'string' && newRationale.length > 0 ? { newRationale } : {}),
+    },
+  };
+}
 
 export function parseSideChatSSEBuffer(buffer: string): ParseResult {
   const events: SideChatStreamEvent[] = [];
@@ -60,11 +100,16 @@ export function parseSideChatSSEBuffer(buffer: string): ParseResult {
     }
 
     try {
-      const parsed = JSON.parse(payload) as { type?: unknown; delta?: unknown; message?: unknown };
+      const parsed = JSON.parse(payload) as Record<string, unknown>;
       if (parsed.type === 'text-delta' && typeof parsed.delta === 'string') {
         events.push({ type: 'text-delta', delta: parsed.delta });
       } else if (parsed.type === 'error' && typeof parsed.message === 'string') {
         events.push({ type: 'error', message: parsed.message });
+      } else if (parsed.type === 'patch-proposal') {
+        const proposal = parsePatchProposal(parsed);
+        if (proposal) {
+          events.push(proposal);
+        }
       }
     } catch {
       // Malformed line — skip it.
@@ -91,6 +136,7 @@ export async function streamSideChatResponse(
         ? { activeAnnotations: request.activeAnnotations }
         : {}),
       ...(request.spanHint ? { spanHint: request.spanHint } : {}),
+      ...(request.mode ? { mode: request.mode } : {}),
     }),
     signal: request.signal,
   });
