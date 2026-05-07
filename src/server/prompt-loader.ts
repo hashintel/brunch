@@ -27,11 +27,16 @@ const promptAssetFiles = {
 const promptDirectory = join(dirname(fileURLToPath(import.meta.url)), 'prompts');
 const promptCache = new Map<PromptId, string>();
 
-export function loadPromptAsset(id: PromptId): string {
+export function getPromptAssetFileName(id: PromptId): string {
   const assetFile = promptAssetFiles[id];
   if (!assetFile) {
     throw new Error(`Unknown prompt asset: ${id}`);
   }
+  return assetFile;
+}
+
+export function loadPromptAsset(id: PromptId): string {
+  const assetFile = getPromptAssetFileName(id);
 
   const cached = promptCache.get(id);
   if (cached) {
