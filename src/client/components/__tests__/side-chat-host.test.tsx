@@ -279,6 +279,55 @@ describe('SideChatHost edit-mode flow (V2)', () => {
     await screen.findByText(/Refined: SQLite for local persistence\./i);
     expect(screen.queryByText('Use SQLite for local storage.')).toBeNull();
   });
+
+  it('reverts the pinned-item content shown in the popover after undoing an edit patch', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+    streamMock.mockImplementationOnce(async (_request, onChunk) => {
+      onChunk({ type: 'text-delta', delta: 'Proposing.' });
+      onChunk({
+        type: 'patch-proposal',
+        toolCallId: 'call-1',
+        toolName: 'propose_edit',
+        input: { newContent: 'Refined: SQLite for local persistence.' },
+      });
+      onChunk({ type: 'done' });
+    });
+    const { appliers } = makeAppliers();
+    appliers.edit = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { impact: 'soft', previousContent: 'Use SQLite for local storage.' },
+      }),
+    ) as unknown as PatchAppliers['edit'];
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenInEditModeButton item={samplePinnable} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-edit'));
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'refine' } });
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'Enter' });
+    });
+    await screen.findByRole('button', { name: /^apply$/i });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+    });
+    await screen.findByText(/Refined: SQLite for local persistence\./i);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
+    });
+
+    await screen.findByText('Use SQLite for local storage.');
+    expect(screen.queryByText(/Refined: SQLite for local persistence\./i)).toBeNull();
+  });
 });
 
 describe('SideChatHost annotate flow', () => {

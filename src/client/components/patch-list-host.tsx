@@ -50,7 +50,7 @@ export interface PatchListActions {
   discard: (id: string) => void;
   editSummary: (id: string, summary: string) => void;
   apply: (patchIds?: readonly string[]) => Promise<void>;
-  undo: () => Promise<void>;
+  undo: () => Promise<boolean>;
 }
 
 // ---- Context ----
@@ -181,16 +181,18 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
     [appliers, newId],
   );
 
-  const undo = useCallback(async (): Promise<void> => {
+  const undo = useCallback(async (): Promise<boolean> => {
     const pending = getPendingUndoHandle(reducerStateRef.current);
     if (!pending) {
-      return;
+      return false;
     }
     try {
       await pending.undo();
       dispatch({ type: 'UNDO_SUCCESS', batchId: pending.batchId });
+      return true;
     } catch {
       // Best-effort undo per D132. Surface failures as toasts in a later card.
+      return false;
     }
   }, []);
 

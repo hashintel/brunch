@@ -18,6 +18,9 @@ import {
   type SideChatMode,
   type SideChatPriorTurn,
 } from '@/client/lib/side-chat-stream.js';
+import { queryClient } from '@/client/query-client.js';
+import { specificationQueryKeys } from '@/client/routes/specification/$id/-specification-data.js';
+import type { EntitiesData } from '@/shared/api-types.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import {
@@ -129,6 +132,14 @@ function finalizeTimestamps(messages: readonly SideChatMessage[], timestamps: re
     }
   });
   return next;
+}
+
+function appliedPreviousContent(applied: unknown): string | null {
+  if (!applied || typeof applied !== 'object' || !('previousContent' in applied)) {
+    return null;
+  }
+  const previousContent = (applied as { previousContent?: unknown }).previousContent;
+  return typeof previousContent === 'string' ? previousContent : null;
 }
 
 const SIDE_CHAT_ERROR_MESSAGE = 'Something went wrong — try again.';
@@ -472,6 +483,7 @@ export function SideChatHost({
         patch.anchor.kind === activeSideChat.itemKind &&
         patch.anchor.itemId === activeSideChat.itemId,
     );
+  const lastBatchAppliedMeta = useLastBatchAppliedMeta();
 
   const triggeredAutoApplyIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -498,7 +510,46 @@ export function SideChatHost({
     void patchList.apply(stagedForActiveIds);
   }, [patchList, stagedForActiveIds]);
 
-  const lastBatchAppliedMeta = useLastBatchAppliedMeta();
+  const undoForActive = useCallback(() => {
+    if (!patchList || !activeSideChat) {
+      return;
+    }
+    const activeItemKind = activeSideChat.itemKind;
+    const activeItemId = activeSideChat.itemId;
+    const appliedByPatchId = new Map(lastBatchAppliedMeta.map((meta) => [meta.patchId, meta.applied]));
+    const revertedContent = patchListState.lastBatchPatches
+      .filter(
+        (patch) =>
+          patch.kind === 'edit' &&
+          patch.anchor.kind === activeItemKind &&
+          patch.anchor.itemId === activeItemId,
+      )
+      .map((patch) => appliedPreviousContent(appliedByPatchId.get(patch.id)))
+      .find((content): content is string => content !== null);
+
+    void (async () => {
+      const undone = await patchList.undo();
+      if (!undone || revertedContent === undefined) {
+        return;
+      }
+      setActiveSideChat((current) =>
+        current && current.itemKind === activeItemKind && current.itemId === activeItemId
+          ? { ...current, pinnedItem: { ...current.pinnedItem, content: revertedContent } }
+          : current,
+      );
+      if (
+        activeRef.current &&
+        activeRef.current.itemKind === activeItemKind &&
+        activeRef.current.itemId === activeItemId
+      ) {
+        activeRef.current = {
+          ...activeRef.current,
+          pinnedItem: { ...activeRef.current.pinnedItem, content: revertedContent },
+        };
+      }
+    })();
+  }, [patchList, activeSideChat, lastBatchAppliedMeta, patchListState.lastBatchPatches]);
+
   const lastSeenBatchIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (patchListState.lastBatchId === lastSeenBatchIdRef.current) return;
@@ -714,7 +765,7 @@ export function SideChatHost({
           isApplying={patchListState.isApplying}
           applyBatchId={patchListState.lastBatchId}
           onApply={patchList && stagedForActiveIds.length > 0 ? applyStagedForActive : undefined}
-          onUndo={patchList?.undo}
+          onUndo={patchList ? undoForActive : undefined}
           onDiscardPatch={patchList?.discard}
           existingAnnotations={existingAnnotations}
           onPromoteAnnotation={promoteAnnotation}
