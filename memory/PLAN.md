@@ -4,29 +4,27 @@
 
 # Plan
 
-The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, and observer knowledge extraction all ship as working product. FE-531 distribution hardening is now closed through a real publishable package/release path for `npx brunch`, so the live frontier centers on **infrastructure** — workflow ownership extraction and continuous workspace — which enables the next wave of user-facing capabilities (revisit/cascade, trigger-popover composer, web tools, first-run setup, and the new post-launch interview-model expansion themes). Graph view's structured-list layout (D128, D129) ships in parallel as a peer route that is independently scopeable and prepares the seam for spatial canvas and node-launched refinement later. Manual proving of recently landed interaction-model changes (preface cards in non-grounding phases, format autonomy quality, observer coherence) continues alongside these seams.
+The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, and observer knowledge extraction all ship as working product. FE-531 distribution hardening is closed through a real publishable package/release path for `npx brunch`. Workflow ownership extraction landed FE-616 (2026-04-29). Graph view's first ship as a peer route with the structured-list layout landed FE-643 (2026-04-30) and activated the `chat-with` action-rail seam; the side-chat V1.1 vertical slice (Explore class) just landed on `ka/fe-656-side-chat` (2026-05-01) using that seam end-to-end. The live frontier is now a single user-facing track: finish side-chat V1 (V1.2 Annotate) on top of V1.1, then progress through V2 / V3. Continuous workspace is the next infrastructure step, unblocked by workflow ownership extraction.
 
 ## Active
 
-### Track B — Infrastructure
-
-1. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with phase section navigation, one chat runtime per specification, scroll-spy phase focus.
-   - Why now / unlocks: depends on workflow ownership extraction. Once read/write workflow ownership is explicit, a continuous workspace can adopt one chat runtime and section-addressable focus without adding new lifecycle ambiguity.
-   - Traceability: A58; D86, D87, D110, D113, D114; I24, I102.
-   - Design doc: `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`
-
-### Track A — User-facing
-
-2. **Graph view: peer route + structured-list layout** — promote graph view from `_view` placeholder to a peer route at `/specification/$id/graph` rendering knowledge items as a structured list with relations footers (Outgoing / Incoming relation chips, hover-card preview, soft-truncate at 6, action rail with disabled `chat-with` placeholder, empty state, "Back to chat" affordance). First ship of D128's actionable graph view; spatial canvas layout deferred.
-   - Why now / unlocks: independently shippable — uses today's `/entities?mode=project-wide` API, no shared state with the workspace shell, no dependency on workflow ownership extraction or continuous workspace. Parallels the infrastructure track without conflict. Surfaces relation-density gaps (A66) and prepares the projection seam for the spatial canvas and node-launched refinement flows.
-   - Traceability: Requirement 33; A66, A69, A70; D114, D128, D129; I102.
-   - Verification approach: F1 component tests + F3 a11y on the structured-list rendering; F2 router-integrated tests for chip click → URL → hash anchor → scroll chain and "Back to chat" affordance; F5 network-call counter for fetch-once + scope-toggle behavior; F6 graph-view fixture matrix (`emptySpec`, `singleItemNoEdges`, `crossPhaseDecisionLink`, `denseGoalAnchor`, `activePathDivergence`, `compareLowVsHighEdgeDensity`); F7 dramaturgical walkthrough on all six fixtures. See `memory/SPEC.md` §Verification Design.
+1. **Side-chat V1 — finish Annotate + multi-pin + top-bar patch summary** — V1.1 (Class 1 Explore vertical slice from graph view) is shipped on `ka/fe-656-side-chat` and pending merge. V1.2 still owes Class 4 (Annotate — durable per-item / per-span notes via comment-store extension), the floating selection menu (`💬 Chat` / `📝 Annotate`) for span-anchored entry, multi-item pinning across the panel, and the persistent top-bar patch-summary scaffold (annotation-only patch list until V2). Card E polish (cross-spec persistence, popover row anchoring, error states) for V1.1 also remains tentative.
+   - Why now / unlocks: V1.1 vertically proved the end-to-end seam (graph view → SideChatHost provider → /side-chat SSE → streaming render). V1.2 reuses the host and the existing patch-list seam shape so V2's Edit/Drill-down/Propose-edge can extend the same shapes without reshaping. The annotation comment-store extension is the durable surface; V1.1's volatile chat does not yet exercise it.
+   - Traceability: Requirement 34; D128, D130, D131. Subsumes trigger-popover composer (A51, D89).
+   - Design doc: `docs/design/SIDE_CHAT.md` (§§1–4, §6.1, §6.4, §11)
+   - Branch: `ka/fe-656-side-chat`. Linear: FE-656.
 
 ## Next
 
-3. **Trigger-popover composer** — persistent workspace composer with `/` commands, `@` knowledge mentions, `#` phase refs.
-   - Why now / unlocks: depends on continuous workspace establishing a persistent composer as the canonical input seam.
-   - Traceability: A51, D89.
+2. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with phase section navigation, one chat runtime per specification, scroll-spy phase focus.
+   - Why now / unlocks: workflow ownership extraction (Recently Completed 2026-04-29) made this unblocked. Continuous workspace can now adopt one chat runtime and section-addressable focus without adding new lifecycle ambiguity.
+   - Traceability: A58; D86, D87, D110, D113, D114; I24, I102.
+   - Design doc: `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`
+
+3. **Side-chat V2 — Edit / Drill-down / Propose-edge** — extend the V1 patch list to carry `edit`, `edge`, and `drill-down` patch kinds. Edit becomes a router: open-phase anchors take the Refine path (successor turn with revision card); closed-phase anchors with `none`/`soft` impact apply directly via soft-recompute. `edit` patches with `hard` impact defer to a placeholder "feature coming" surface until V3.
+   - Why now / unlocks: depends on V1's patch-list seam shipping (Active 1, V1.2). Activates the cross-surface intent emission to the existing turn machinery (Refine via successor turn, Drill-down via D127's detail-focus seam) and the typed-relation policy validator for Propose-edge (D125).
+   - Traceability: Requirement 34; D125, D127, D130. Subsumes the last user-facing piece of revisit / edit mode (Requirement 10) for the soft-impact case.
+   - Design doc: `docs/design/SIDE_CHAT.md` (§5.1–5.2, §6.2, §6.3 soft tier)
 
 ## Horizon
 
@@ -35,15 +33,21 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 - **First-run provider setup** — make missing LLM credentials visible on the dashboard, add a shared AI runtime provider seam for interviewer / observer model construction, support UI-entered keys through XDG-compliant user auth state, and evaluate whether OpenRouter should become the preferred onboarding provider while preserving Anthropic-specific capabilities or explicit degradation.
   - Linear: FE-633 covers the OpenRouter/default-provider part; dashboard credential UX + XDG key storage may need a sibling issue if split from provider proving.
   - Recommended shape: prove the provider resolver first with current Anthropic behavior, then spike OpenRouter against tool use, structured output, and reasoning/thinking options before making it the default. The dashboard should expose credential status without leaking secret values and offer setup before the user starts a specification.
-  - Traceability: Requirements 34, 35, 36; A71, A72; D130, D131, D132; I106.
+  - Traceability: Requirements 35, 36, 37; A74, A75; D134, D135, D136; I106.
 
 - **Workspace hygiene / `.brunch/` gitignore assist** — detect whether generated local state is already ignored and, with explicit confirmation, add an idempotent `.gitignore` entry or create `.gitignore` when absent.
   - Linear: FE-648.
   - Recommended shape: keep this as a deterministic local mutation with preview/confirmation semantics; it can ship independently, but the dashboard is the natural surface because it already explains workspace binding and first-run setup.
-  - Traceability: Requirement 37; A73; D133; I107.
+  - Traceability: Requirement 38; A76; D137; I107.
 
-- **Revisit / edit mode + cascade preview** — edit knowledge items, see downstream effects, resolve through secondary thread. Has a design doc (`docs/design/REVISIT_MODULE.md`) but needs design refinement before scoping.
-  - Traceability: Requirement 10; D50, D80; A48, A49.
+- **Side-chat V3 — Hard edit absorbs REVISIT_MODULE** — extend V2's Edit router to handle the `hard` impact tier: cascade preview rendered inline in the side-chat panel, batch-resolution secondary-thread mode that walks affected items in groups (auto-confirm review-only, auto-edit mechanical replacements, walk substantives one-by-one). Replaces the current modal secondary-thread design from `docs/design/REVISIT_MODULE.md`.
+  - Why now / unlocks: depends on side-chat V2 (Next 3) shipping the Edit router and on REVISIT_MODULE's existing cascade lifecycle (`previewCascade`, `beginRevisit`, `openRevisitThread`, `resolveRevisitItem`, `completeRevisit`) being wired to the side-chat panel as host. Closes out the revisit / edit mode horizon item entirely.
+  - Traceability: Requirement 34; D50, D80, D130; A48, A49 retired.
+  - Design doc: `docs/design/SIDE_CHAT.md` (§5.3, §6.3 hard tier); existing `docs/design/REVISIT_MODULE.md` lifecycle stays valid as the underlying machinery.
+
+- **Architect / generator loop** — autonomous agent that iterates over the knowledge graph and proposes patches for HITL review through the same patch list as the side-chat. Symmetric to the side-chat in *what* it does (mutates the spec), inverse in *who* drives (system, not user).
+  - Why now / unlocks: depends on the side-chat shipping the patch-list surface (V1+) and on the patch / event-stream data model (A71) so generated patches can be batched and applied without re-deriving state per patch.
+  - Traceability: A73; depends on side-chat V1+ and A71.
 
 - **Web research as a context-gathering capability** — web search and page-fetch tools as interviewer-invoked context gathering, surfaced as preface cards. The tool gate and preface lifecycle are ready; this adds new tool implementations.
   - Linear: FE-649.
@@ -73,7 +77,7 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 
 - **Spatial canvas layout for graph view** — add the spatial DAG layout as a second layout choice inside graph mode, alongside the structured-list ship. Same projection seam, same intent contract; only the layout strategy changes (e.g. `?layout=spatial`).
   - Recommended shape: a layout switch inside the existing `/specification/$id/graph` route that transforms the same `EntitiesData` projection into a spatial scene with viewport / selection / focus / path-highlighting, leaving the action-rail intent contract unchanged. First cut should optimize for `select node -> inspect -> launch refinement`.
-  - Depends on: graph view structured-list ship (Active 2). Richer node actions may benefit from revisit / edit mode.
+  - Depends on: graph view structured-list ship (Recently Completed). Richer node actions may benefit from revisit / edit mode.
   - Traceability: Requirement 33; A69; D128.
 
 - **Graph view active-path render filter + scope toggle** — render only active-path items by default in graph view, with a `Show all` toggle in the header that flips to the full whole-spec set. Both subsets project from the same in-memory `mode=project-wide` data; no second fetch.
@@ -90,6 +94,9 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 
 ## Recently Completed
 
+- [2026-05-01] Side-chat V1.1 — Explore vertical slice. End-to-end: prompt builder (A) → POST /side-chat SSE endpoint (B, D113 invariant preserved structurally) → SideChatPopover skeleton (C) → graph-view wiring + SSE consumer + active-button activation (D). Followed by a review-driven refactor: collapsed `pendingAssistantText` into a single `messages` list with per-message `pending` flag, then extracted a `SideChatHost` provider so activation is a tree-mount fact rather than a derived prop. Six commits on `ka/fe-656-side-chat` (uncommitted to main); 687 tests pass. Watch: V1.2 (Annotate + multi-pin + top-bar patch summary) and Card E polish (persistence + scroll-anchoring + error UX) still owed before the V1 frontier item closes.
+- [2026-04-30] Graph view: peer route + structured-list layout (FE-643) — promoted graph view from the `_view` placeholder to a peer route at `/specification/$id/graph` with kind-grouped item rows, relations footers (Outgoing / Incoming subsections of relation chips), hover-card previews, soft-truncate at 6, action rail with the `chat-with` placeholder, empty-state card, and `Back to chat` affordance. Last open piece (chat-with activation) closed by side-chat V1.1. Verified: `npm run verify`. Watch: spatial canvas layout deferred; active-path filter / scope toggle still horizon (server data-layer change required).
+- [2026-04-29] Workflow ownership extraction (FE-616) — workflow projector extraction, turn-response transition extraction, chat-route transition/application extraction, and phase-close / force-close write-path ownership now live behind runtime-owned seams. Verified: `npm run verify`. Unblocks continuous workspace.
 - [2026-04-30] FE-639 relation-first observer capture first cut — eligible answered turns now enter one background observer-capture backlog, observer prompts use compact existing-knowledge anchors, observer output persists validated graph-delta relationship candidates, and accepted review grounding refs reuse the same conservative relation policy. Verified: `npm run verify`. Watch: A66 remains open until corpus/manual graph-review proves edge precision and density are useful.
 - [2026-04-27] Runtime JSON payload hardening — Express API parsing now accepts chat-sized request bodies above the default parser ceiling and returns a JSON 413 response instead of Express HTML when a payload exceeds the app limit. Verified: `npm run verify`. Watch: if real chat requests still exceed the 5 MB limit, investigate client history / tool-result pruning rather than only raising the ceiling.
 - [2026-04-24] Distribution hardening release path — `package.json` now declares the Node 22+ engine floor, explicit shipped files, and public scoped publish config; `npm run release` drives release-it at repo root, rebuilds and dry-runs the packaged artifact, and documents npm auth prerequisites. Verified: `npm run verify`. Watch: CI trusted publishing is still intentionally out of scope.
@@ -100,18 +107,20 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 
 ```text
 TRACK A — User-facing
-graph-view-structured-list  (active)
-  ├──→ active-path-filter-and-scope-toggle  (horizon, blocked on server data-layer)
-  └──→ spatial-canvas-layout  (horizon)
+side-chat-V1  (active; V1.1 done, V1.2 + Card E remaining)
+  └──→ side-chat-V2  (next; Edit + Drill-down + Propose-edge, soft tier)
+        └──→ side-chat-V3  (horizon; Hard edit absorbs REVISIT_MODULE)
+              └──→ architect-loop  (horizon, depends on patch-event-stream)
 
 TRACK B — Infrastructure
-continuous-workspace  (active)
-  └──→ trigger-popover-composer  (next)
+continuous-workspace  (next; unblocked by workflow ownership extraction)
 
 UNBLOCKED HORIZON
 first-run provider setup  (needs provider spike / scope)
 workspace hygiene gitignore assist  (bounded, dashboard-surface candidate)
-revisit / edit-mode  (needs design)
+architect-loop  (depends on side-chat + patch-event-stream)
+spatial-canvas-layout  (graph-view)
+active-path-filter-and-scope-toggle  (graph-view; blocked on server data-layer)
 web-research tools  (gate ready, needs tool impl)
 dashboard metrics
 two-axis interview framing

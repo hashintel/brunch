@@ -5,6 +5,7 @@ import { flushSync } from 'react-dom';
 
 import { kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
+import { useSideChat } from '@/client/components/side-chat-host.js';
 import { Badge } from '@/client/components/ui/badge';
 import { Button } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
@@ -431,7 +432,18 @@ function EmptyStateCard({
   );
 }
 
-function ItemActionRail() {
+function ItemActionRail({ item }: { item: KnowledgeItemSummary }) {
+  const sideChat = useSideChat();
+  const isActive = sideChat !== null;
+  const handleClick = isActive
+    ? () =>
+        sideChat.openFor({
+          kind: item.kind,
+          id: item.id,
+          referenceCode: item.referenceCode,
+          content: item.content,
+        })
+    : undefined;
   return (
     <div
       data-graph-action-rail
@@ -440,10 +452,14 @@ function ItemActionRail() {
       <button
         type="button"
         data-graph-action="chat-with"
-        disabled
-        title="Chat about this item (coming soon)"
+        disabled={!isActive}
         aria-label="Chat about this item"
-        className="flex size-6 items-center justify-center rounded text-hint opacity-40"
+        onClick={handleClick}
+        className={
+          isActive
+            ? 'flex size-6 items-center justify-center rounded text-hint hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30'
+            : 'flex size-6 items-center justify-center rounded text-hint opacity-40'
+        }
       >
         <MessageCircle className="size-3.5" />
       </button>
@@ -457,7 +473,7 @@ function ItemRow({
   incoming,
   anchored,
   defaultOpen = true,
-  kindAnchor = null,
+  kindAnchor,
 }: {
   item: KnowledgeItemSummary;
   outgoing: DirectedEdge[];
@@ -488,7 +504,7 @@ function ItemRow({
             <p className="text-sm text-ink">{item.content}</p>
           </div>
           <div className="flex items-center gap-1">
-            <ItemActionRail />
+            <ItemActionRail item={item} />
             {hasExpansion && (
               <CollapsibleTrigger
                 data-graph-row-toggle

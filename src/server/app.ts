@@ -50,6 +50,7 @@ import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
 import { safeDeserializeAssistantParts, serializeParts } from './parts.js';
 import { submitPhaseIntentWithRuntimeCompatibility } from './phase-intent-runtime.js';
+import { handleSideChatRequest } from './side-chat-route.js';
 import { createCoreTools } from './tools/index.js';
 import { materializeTurnArtifacts } from './turn-artifacts.js';
 import {
@@ -225,6 +226,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const specificationEntitiesPaths = ['/api/specifications/:id/entities'] as const;
   const specificationExportPaths = ['/api/specifications/:id/export'] as const;
   const specificationChatPaths = ['/api/specifications/:id/chat'] as const;
+  const specificationSideChatPaths = ['/api/specifications/:id/side-chat'] as const;
 
   const registerGet = (paths: readonly string[], handler: RequestHandler) => {
     for (const path of paths) {
@@ -575,6 +577,10 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     });
 
     pipeUIMessageStreamToResponse({ response: res, stream });
+  });
+
+  registerPost(specificationSideChatPaths, async (req: Request, res: Response) => {
+    await handleSideChatRequest(db, req, res);
   });
 
   return { app, db };

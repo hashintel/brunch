@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -31,13 +31,22 @@ import {
   emptySpec,
   singleItemNoEdges,
 } from '@/client/__fixtures__/graph-view.js';
+import { SideChatHost, useSideChat, type SideChatPinnableItem } from '@/client/components/side-chat-host.js';
+import type { SideChatStreamEvent } from '@/client/lib/side-chat-stream.js';
 
 const mockNavigate = vi.fn();
 let mockHash = '';
+const { mockStreamSideChatResponse } = vi.hoisted(() => ({
+  mockStreamSideChatResponse: vi.fn(),
+}));
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mockNavigate,
   useLocation: () => ({ hash: mockHash, pathname: '/specification/1/graph', search: '' }),
+}));
+
+vi.mock('@/client/lib/side-chat-stream.js', () => ({
+  streamSideChatResponse: mockStreamSideChatResponse,
 }));
 
 import { RelationChipPreview } from '../-relation-chip.js';
@@ -45,6 +54,7 @@ import { StructuredListView } from '../-structured-list-view.js';
 
 beforeEach(() => {
   mockNavigate.mockClear();
+  mockStreamSideChatResponse.mockReset();
   mockHash = '';
   vi.spyOn(Element.prototype, 'scrollTo').mockImplementation(() => {});
 });
@@ -418,7 +428,7 @@ describe('StructuredListView', () => {
     }
   });
 
-  it('renders an action rail with a disabled chat-with placeholder on every item row', () => {
+  it('keeps the chat-with button as a disabled placeholder when rendered without a SideChatHost ancestor', () => {
     const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
     const rows = container.querySelectorAll('[data-graph-row]');
@@ -433,8 +443,23 @@ describe('StructuredListView', () => {
       expect(chatButton).toBeTruthy();
       if (!chatButton) continue;
       expect(chatButton.disabled).toBe(true);
-      expect(chatButton.getAttribute('title')?.toLowerCase()).toContain('coming soon');
       expect(chatButton.getAttribute('aria-label')?.toLowerCase()).toMatch(/chat/);
+    }
+  });
+
+  it('activates the chat-with button on every item row when wrapped in a SideChatHost', () => {
+    const { container } = render(
+      <SideChatHost specificationId={42}>
+        <StructuredListView entityState={crossPhaseDecisionLink()} />
+      </SideChatHost>,
+    );
+
+    const buttons = container.querySelectorAll(
+      'button[data-graph-action="chat-with"]',
+    ) as NodeListOf<HTMLButtonElement>;
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const button of buttons) {
+      expect(button.disabled).toBe(false);
     }
   });
 
@@ -599,6 +624,327 @@ describe('StructuredListView', () => {
     // After flushSync + navigate: the anchor must be in the DOM AND mockNavigate was called with kind-goal
     expect(container.querySelector('[data-graph-kind-anchor="goal"]')).toBeTruthy();
     expect(mockNavigate).toHaveBeenCalledWith(expect.objectContaining({ hash: 'kind-goal' }));
+  });
+
+  describe('side-chat session', () => {
+    function makeManualStream() {
+      let onChunk: ((event: SideChatStreamEvent) => void) | undefined;
+      let resolveStream: () => void = () => {};
+      const promise = new Promise<void>((resolve) => {
+        resolveStream = resolve;
+      });
+      mockStreamSideChatResponse.mockImplementation(
+        (_request: unknown, chunkCallback: (event: SideChatStreamEvent) => void): Promise<void> => {
+          onChunk = chunkCallback;
+          return promise;
+        },
+      );
+      return {
+        emit(event: SideChatStreamEvent) {
+          act(() => {
+            onChunk?.(event);
+          });
+        },
+        finish() {
+          resolveStream();
+          return promise;
+        },
+      };
+    }
+
+    function renderInsideHost(entityState: ReturnType<typeof singleItemNoEdges>, specificationId = 42) {
+      return render(
+        <SideChatHost specificationId={specificationId}>
+          <StructuredListView entityState={entityState} />
+        </SideChatHost>,
+      );
+    }
+
+    it('does not re-render side-chat context consumers while streaming text deltas', () => {
+      const stream = makeManualStream();
+      let renderCount = 0;
+      let openFor: ((item: SideChatPinnableItem) => void) | null = null;
+
+      function ContextConsumerProbe() {
+        renderCount += 1;
+        openFor = useSideChat()?.openFor ?? null;
+        return null;
+      }
+
+      render(
+        <SideChatHost specificationId={42}>
+          <ContextConsumerProbe />
+        </SideChatHost>,
+      );
+
+      expect(openFor).toBeTruthy();
+      act(() => {
+        openFor?.({
+          kind: 'goal',
+          id: 1,
+          referenceCode: 'G1',
+          content: 'Reduce signup drop-off',
+        });
+      });
+      const renderCountAfterOpen = renderCount;
+
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+      stream.emit({ type: 'text-delta', delta: 'It ' });
+      stream.emit({ type: 'text-delta', delta: 'depends.' });
+
+      expect(renderCount).toBe(renderCountAfterOpen);
+    });
+
+    it('does not mount a side-chat popover before the user clicks chat-with', () => {
+      renderInsideHost(singleItemNoEdges());
+      expect(screen.queryByRole('dialog', { name: /side[- ]chat/i })).toBeNull();
+    });
+
+    it('mounts a SideChatPopover pinned to the row when the chat-with button is clicked', () => {
+      const { container } = renderInsideHost(singleItemNoEdges());
+
+      const chatButton = container.querySelector(
+        'button[data-graph-action="chat-with"]',
+      ) as HTMLButtonElement;
+      fireEvent.click(chatButton);
+
+      const dialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
+      expect(within(dialog).getByText('Reduce signup drop-off')).toBeTruthy();
+      expect(within(dialog).getByText('G1')).toBeTruthy();
+    });
+
+    it('only mounts one popover at a time and swaps the pinned item when chat-with is clicked on a different row', () => {
+      const { container } = renderInsideHost(crossPhaseDecisionLink());
+
+      const chatButtons = container.querySelectorAll(
+        'button[data-graph-action="chat-with"]',
+      ) as NodeListOf<HTMLButtonElement>;
+      expect(chatButtons.length).toBeGreaterThanOrEqual(2);
+
+      fireEvent.click(chatButtons[0]);
+      const firstDialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
+      const firstPinnedRef = within(firstDialog).getByText(/^[A-Z]+\d+$/).textContent;
+      expect(firstPinnedRef).toBeTruthy();
+
+      fireEvent.click(chatButtons[1]);
+      const dialogs = screen.getAllByRole('dialog', { name: /side[- ]chat/i });
+      expect(dialogs).toHaveLength(1);
+      const secondPinnedRef = within(dialogs[0]).getByText(/^[A-Z]+\d+$/).textContent;
+      expect(secondPinnedRef).not.toBe(firstPinnedRef);
+    });
+
+    it('clears the unsent draft when switching the pinned side-chat item', () => {
+      const { container } = renderInsideHost(crossPhaseDecisionLink());
+
+      const chatButtons = container.querySelectorAll(
+        'button[data-graph-action="chat-with"]',
+      ) as NodeListOf<HTMLButtonElement>;
+      expect(chatButtons.length).toBeGreaterThanOrEqual(2);
+
+      fireEvent.click(chatButtons[0]);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Draft for first item' } });
+      expect((screen.getByLabelText('Message') as HTMLTextAreaElement).value).toBe('Draft for first item');
+
+      fireEvent.click(chatButtons[1]);
+
+      expect((screen.getByLabelText('Message') as HTMLTextAreaElement).value).toBe('');
+    });
+
+    it('calls streamSideChatResponse with the row context and submitted message on send', () => {
+      makeManualStream();
+      const { container } = renderInsideHost(singleItemNoEdges());
+
+      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      expect(mockStreamSideChatResponse).toHaveBeenCalledTimes(1);
+      const [requestArg] = mockStreamSideChatResponse.mock.calls[0];
+      expect(requestArg).toMatchObject({
+        specificationId: 42,
+        itemKind: 'goal',
+        itemId: 1,
+        message: 'Why?',
+      });
+    });
+
+    it('renders streamed text-delta chunks incrementally as a pending assistant message', () => {
+      const stream = makeManualStream();
+      const { container } = renderInsideHost(singleItemNoEdges());
+
+      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      stream.emit({ type: 'text-delta', delta: 'It ' });
+      stream.emit({ type: 'text-delta', delta: 'depends.' });
+
+      const dialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
+      const log = within(dialog).getByRole('log', { name: /side[- ]chat messages/i });
+      const messages = log.querySelectorAll('[data-message-role]');
+      expect(messages).toHaveLength(2);
+      expect(messages[0].getAttribute('data-message-role')).toBe('user');
+      expect(messages[0].textContent).toContain('Why?');
+      expect(messages[1].getAttribute('data-message-role')).toBe('assistant');
+      expect(messages[1].textContent).toContain('It depends.');
+    });
+
+    it('renders an error message and re-enables sending when the stream rejects', async () => {
+      mockStreamSideChatResponse.mockRejectedValue(new Error('Side-chat request failed'));
+      const { container } = renderInsideHost(singleItemNoEdges());
+
+      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      const dialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
+      const log = within(dialog).getByRole('log', { name: /side[- ]chat messages/i });
+      const messages = log.querySelectorAll('[data-message-role]');
+      expect(messages).toHaveLength(2);
+      expect(messages[1].getAttribute('data-message-role')).toBe('assistant');
+      expect(messages[1].getAttribute('data-message-error')).toBe('true');
+      expect(messages[1].getAttribute('data-message-pending')).not.toBe('true');
+
+      // Send re-enables for retry.
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Try again' } });
+      const send = screen.getByRole('button', { name: /send/i }) as HTMLButtonElement;
+      expect(send.disabled).toBe(false);
+    });
+
+    it('sends prior finalized turns as history on the second send', async () => {
+      const stream = makeManualStream();
+      const { container } = renderInsideHost(singleItemNoEdges());
+
+      // First turn
+      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      stream.emit({ type: 'text-delta', delta: 'Because reasons.' });
+      stream.emit({ type: 'done' });
+      await act(async () => {
+        await stream.finish();
+      });
+
+      // Second turn
+      const stream2 = makeManualStream();
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Tell me more.' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      expect(mockStreamSideChatResponse).toHaveBeenCalledTimes(2);
+      const [secondRequest] = mockStreamSideChatResponse.mock.calls[1];
+      expect(secondRequest).toMatchObject({
+        message: 'Tell me more.',
+        history: [
+          { role: 'user', text: 'Why?' },
+          { role: 'assistant', text: 'Because reasons.' },
+        ],
+      });
+
+      // Drain the second stream so its dangling promise doesn't leak between tests.
+      stream2.emit({ type: 'done' });
+      await act(async () => {
+        await stream2.finish();
+      });
+    });
+
+    it('does not include errored turns in history on retry', async () => {
+      mockStreamSideChatResponse.mockRejectedValueOnce(new Error('boom'));
+      const { container } = renderInsideHost(singleItemNoEdges());
+
+      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      const stream2 = makeManualStream();
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Try again' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      const [secondRequest] = mockStreamSideChatResponse.mock.calls[1];
+      expect(secondRequest.history).toEqual([]);
+
+      stream2.emit({ type: 'done' });
+      await act(async () => {
+        await stream2.finish();
+      });
+    });
+
+    it('keeps successful history while dropping a failed exchange on retry', async () => {
+      const stream = makeManualStream();
+      const { container } = renderInsideHost(singleItemNoEdges());
+
+      // First turn succeeds.
+      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+      stream.emit({ type: 'text-delta', delta: 'Because reasons.' });
+      stream.emit({ type: 'done' });
+      await act(async () => {
+        await stream.finish();
+      });
+
+      // Second turn fails.
+      mockStreamSideChatResponse.mockRejectedValueOnce(new Error('boom'));
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'What about backups?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Retry should keep only the successful first exchange in history.
+      const stream3 = makeManualStream();
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Try again' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      const [thirdRequest] = mockStreamSideChatResponse.mock.calls[2];
+      expect(thirdRequest).toMatchObject({
+        message: 'Try again',
+        history: [
+          { role: 'user', text: 'Why?' },
+          { role: 'assistant', text: 'Because reasons.' },
+        ],
+      });
+
+      stream3.emit({ type: 'done' });
+      await act(async () => {
+        await stream3.finish();
+      });
+    });
+
+    it('finalizes the assistant message and re-enables sending after the stream finishes', async () => {
+      const stream = makeManualStream();
+      const { container } = renderInsideHost(singleItemNoEdges());
+
+      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      stream.emit({ type: 'text-delta', delta: 'Done.' });
+      stream.emit({ type: 'done' });
+      await act(async () => {
+        await stream.finish();
+      });
+
+      const dialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
+      const log = within(dialog).getByRole('log', { name: /side[- ]chat messages/i });
+      const messages = log.querySelectorAll('[data-message-role]');
+      expect(messages).toHaveLength(2);
+      expect(messages[1].getAttribute('data-message-pending')).not.toBe('true');
+      expect(messages[1].textContent).toContain('Done.');
+
+      // Ready to send the next message once the input is non-empty.
+      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Again?' } });
+      const send = screen.getByRole('button', { name: /send/i }) as HTMLButtonElement;
+      expect(send.disabled).toBe(false);
+    });
   });
 });
 
