@@ -426,6 +426,9 @@ describe('SideChatHost active cards', () => {
     );
     const appliers: PatchAppliers = {
       annotate: annotateMock as unknown as PatchAppliers['annotate'],
+      edit: makeNoopApplier() as unknown as PatchAppliers['edit'],
+      edge: makeNoopApplier() as unknown as PatchAppliers['edge'],
+      drillDown: makeNoopApplier() as unknown as PatchAppliers['drillDown'],
     };
     const otherItem: SideChatPinnableItem = {
       kind: 'goal',
