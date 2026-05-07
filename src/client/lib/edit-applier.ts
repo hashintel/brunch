@@ -43,6 +43,12 @@ export function makeEdgeApplier(specificationId: number): ApplyPatchFn<EdgePatch
       toItemId: patch.targetAnchor.itemId,
       relation: patch.relation,
     });
+    if (result.alreadyExisted) {
+      return {
+        undo: async () => {},
+        applied: { created: false, alreadyExisted: true },
+      };
+    }
     if (!result.created) {
       throw new Error(result.reason ?? 'Edge creation failed');
     }

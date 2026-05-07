@@ -183,6 +183,19 @@ describe('makeEdgeApplier', () => {
     await expect(applier(makeEdgePatch())).rejects.toThrow(/Relationship not allowed/);
   });
 
+  it('uses a no-op undo when the edge already existed', async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockResolvedValueOnce(jsonResponse({ created: false, alreadyExisted: true }));
+
+    const applier = makeEdgeApplier(SPEC_ID);
+    const result = await applier(makeEdgePatch());
+
+    await result.undo();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.applied).toEqual({ created: false, alreadyExisted: true });
+  });
+
   it('throws during undo when the server reports the edge was not deleted', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
     fetchMock

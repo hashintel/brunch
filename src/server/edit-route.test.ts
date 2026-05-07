@@ -234,6 +234,20 @@ describe('POST /api/specifications/:id/knowledge-edges', () => {
     expect(res.body).toEqual({ created: true });
   });
 
+  it('reports an existing edge without claiming it was newly created', async () => {
+    const specId = await createSpec();
+    const criterion = createKnowledgeItem(db, specId, 'criterion', 'AC-1');
+    const requirement = createKnowledgeItem(db, specId, 'requirement', 'REQ-1');
+    addKnowledgeRelationship(db, criterion.id, requirement.id, 'verifies');
+
+    const res = await request(app)
+      .post(`/api/specifications/${specId}/knowledge-edges`)
+      .send({ fromItemId: criterion.id, toItemId: requirement.id, relation: 'verifies' })
+      .expect(200);
+
+    expect(res.body).toEqual({ created: false, alreadyExisted: true });
+  });
+
   it('returns created: false for disallowed relationship', async () => {
     const specId = await createSpec();
     const goal = createKnowledgeItem(db, specId, 'goal', 'G-1');

@@ -168,7 +168,16 @@ export function handleCreateKnowledgeEdge(db: DB, req: Request, res: Response): 
     return;
   }
 
-  addKnowledgeRelationship(db, parsed.data.fromItemId, parsed.data.toItemId, parsed.data.relation);
+  const created = addKnowledgeRelationship(
+    db,
+    parsed.data.fromItemId,
+    parsed.data.toItemId,
+    parsed.data.relation,
+  );
+  if (!created) {
+    res.json({ created: false, alreadyExisted: true });
+    return;
+  }
   res.status(201).json({ created: true });
 }
 

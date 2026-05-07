@@ -41,10 +41,15 @@ export interface EdgeMutationRequest {
   relation: string;
 }
 
+export type CreateEdgeResponse =
+  | { created: true; alreadyExisted?: false; reason?: never }
+  | { created: false; alreadyExisted: true; reason?: never }
+  | { created: false; alreadyExisted?: false; reason?: string };
+
 export async function createEdgeRequest(
   specificationId: number,
   body: EdgeMutationRequest,
-): Promise<{ created: boolean; reason?: string }> {
+): Promise<CreateEdgeResponse> {
   const response = await fetch(`/api/specifications/${specificationId}/knowledge-edges`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -53,7 +58,7 @@ export async function createEdgeRequest(
   if (!response.ok) {
     throw new Error(`createEdge failed: ${response.status} ${response.statusText}`);
   }
-  return (await response.json()) as { created: boolean; reason?: string };
+  return (await response.json()) as CreateEdgeResponse;
 }
 
 export async function deleteEdgeRequest(

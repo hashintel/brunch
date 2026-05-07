@@ -695,11 +695,14 @@ export function addKnowledgeRelationship(
   fromItemId: number,
   toItemId: number,
   relation: InferSelectModel<typeof schema.knowledgeEdge>['relation'],
-): void {
-  db.insert(schema.knowledgeEdge)
+): boolean {
+  const inserted = db
+    .insert(schema.knowledgeEdge)
     .values({ from_item_id: fromItemId, to_item_id: toItemId, relation })
     .onConflictDoNothing()
-    .run();
+    .returning({ fromItemId: schema.knowledgeEdge.from_item_id })
+    .get();
+  return inserted !== undefined;
 }
 
 export function addDecisionParentDecision(db: DB, decisionId: number, parentDecisionId: number): void {
