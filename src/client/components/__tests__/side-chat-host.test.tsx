@@ -51,13 +51,22 @@ interface AppliersHandle {
   undoMock: MockInstance;
 }
 
+function makeNoopApplier() {
+  return vi.fn(() => Promise.resolve({ undo: () => Promise.resolve() }));
+}
+
 function makeAppliers(): AppliersHandle {
   const undoMock = vi.fn(() => Promise.resolve());
   const annotateMock = vi.fn(() => Promise.resolve({ undo: undoMock, applied: undefined }));
   return {
     annotateMock,
     undoMock,
-    appliers: { annotate: annotateMock as unknown as PatchAppliers['annotate'] },
+    appliers: {
+      annotate: annotateMock as unknown as PatchAppliers['annotate'],
+      edit: makeNoopApplier() as unknown as PatchAppliers['edit'],
+      edge: makeNoopApplier() as unknown as PatchAppliers['edge'],
+      drillDown: makeNoopApplier() as unknown as PatchAppliers['drillDown'],
+    },
   };
 }
 
@@ -180,6 +189,9 @@ describe('SideChatHost annotate flow', () => {
     const failingAnnotate = vi.fn(() => Promise.reject(new Error('boom')));
     const appliers: PatchAppliers = {
       annotate: failingAnnotate as unknown as PatchAppliers['annotate'],
+      edit: makeNoopApplier() as unknown as PatchAppliers['edit'],
+      edge: makeNoopApplier() as unknown as PatchAppliers['edge'],
+      drillDown: makeNoopApplier() as unknown as PatchAppliers['drillDown'],
     };
 
     render(
@@ -209,6 +221,9 @@ describe('SideChatHost annotate flow', () => {
     const failingAnnotate = vi.fn(() => Promise.reject(new Error('boom')));
     const appliers: PatchAppliers = {
       annotate: failingAnnotate as unknown as PatchAppliers['annotate'],
+      edit: makeNoopApplier() as unknown as PatchAppliers['edit'],
+      edge: makeNoopApplier() as unknown as PatchAppliers['edge'],
+      drillDown: makeNoopApplier() as unknown as PatchAppliers['drillDown'],
     };
 
     render(
@@ -239,6 +254,9 @@ describe('SideChatHost annotate flow', () => {
     const failingAnnotate = vi.fn(() => Promise.reject(new Error('boom')));
     const appliers: PatchAppliers = {
       annotate: failingAnnotate as unknown as PatchAppliers['annotate'],
+      edit: makeNoopApplier() as unknown as PatchAppliers['edit'],
+      edge: makeNoopApplier() as unknown as PatchAppliers['edge'],
+      drillDown: makeNoopApplier() as unknown as PatchAppliers['drillDown'],
     };
     const otherItem: SideChatPinnableItem = {
       kind: 'goal',

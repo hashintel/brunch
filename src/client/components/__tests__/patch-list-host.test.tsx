@@ -10,6 +10,7 @@ import {
   usePatchListState,
   type AnnotatePatch,
   type PatchAppliers,
+  type Patch,
   type StagePatchInput,
 } from '../patch-list-host.js';
 
@@ -21,14 +22,14 @@ interface ProbeRefs {
   current: {
     actions: ReturnType<typeof usePatchList>;
     state: ReturnType<typeof usePatchListState>;
-    filtered: readonly AnnotatePatch[];
+    filtered: readonly Patch[];
   };
 }
 
 function Probe({ refs, filter }: { refs: ProbeRefs; filter?: Parameters<typeof useStagedPatches>[0] }) {
   const actions = usePatchList();
   const state = usePatchListState();
-  const filtered = useStagedPatches(filter) as readonly AnnotatePatch[];
+  const filtered = useStagedPatches(filter);
   refs.current = { actions, state, filtered };
   return null;
 }
@@ -60,6 +61,10 @@ function makeAnnotateInput(overrides: Partial<StagePatchInput> = {}): StagePatch
   } as StagePatchInput;
 }
 
+function makeNoopApplier() {
+  return vi.fn(() => Promise.resolve({ undo: () => Promise.resolve() }));
+}
+
 function makeAppliers(): {
   appliers: PatchAppliers;
   annotateMock: ReturnType<typeof vi.fn>;
@@ -70,7 +75,12 @@ function makeAppliers(): {
   return {
     annotateMock,
     undoMock,
-    appliers: { annotate: annotateMock as unknown as PatchAppliers['annotate'] },
+    appliers: {
+      annotate: annotateMock as unknown as PatchAppliers['annotate'],
+      edit: makeNoopApplier() as unknown as PatchAppliers['edit'],
+      edge: makeNoopApplier() as unknown as PatchAppliers['edge'],
+      drillDown: makeNoopApplier() as unknown as PatchAppliers['drillDown'],
+    },
   };
 }
 
@@ -311,6 +321,9 @@ describe('apply', () => {
     const failingAnnotate = vi.fn(() => Promise.reject(new Error('boom')));
     const appliers: PatchAppliers = {
       annotate: failingAnnotate as unknown as PatchAppliers['annotate'],
+      edit: makeNoopApplier() as unknown as PatchAppliers['edit'],
+      edge: makeNoopApplier() as unknown as PatchAppliers['edge'],
+      drillDown: makeNoopApplier() as unknown as PatchAppliers['drillDown'],
     };
     render(
       <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
@@ -340,6 +353,9 @@ describe('apply', () => {
       .mockRejectedValueOnce(new Error('second patch failed'));
     const appliers: PatchAppliers = {
       annotate: annotate as unknown as PatchAppliers['annotate'],
+      edit: makeNoopApplier() as unknown as PatchAppliers['edit'],
+      edge: makeNoopApplier() as unknown as PatchAppliers['edge'],
+      drillDown: makeNoopApplier() as unknown as PatchAppliers['drillDown'],
     };
     render(
       <PatchListProvider appliers={appliers} idFactory={makeIdFactory()}>
@@ -377,6 +393,9 @@ describe('undo', () => {
     );
     const appliers: PatchAppliers = {
       annotate: annotate as unknown as PatchAppliers['annotate'],
+      edit: makeNoopApplier() as unknown as PatchAppliers['edit'],
+      edge: makeNoopApplier() as unknown as PatchAppliers['edge'],
+      drillDown: makeNoopApplier() as unknown as PatchAppliers['drillDown'],
     };
 
     render(
@@ -481,5 +500,154 @@ describe('useStagedPatches filter', () => {
     });
 
     expect(refs.current.filtered.length).toBe(2);
+  });
+});
+
+// ---- V2 patch kinds through the host ----
+
+function makeEditInput(overrides: Partial<StagePatchInput> = {}): StagePatchInput {
+  return {
+    kind: 'edit',
+    anchor: { kind: 'decision', itemId: 1 },
+    summary: 'edit note',
+    newContent: 'new content',
+    ...overrides,
+  } as StagePatchInput;
+}
+
+function makeEdgeInput(overrides: Partial<StagePatchInput> = {}): StagePatchInput {
+  return {
+    kind: 'edge',
+    anchor: { kind: 'decision', itemId: 1 },
+    summary: 'edge note',
+    targetAnchor: { kind: 'goal', itemId: 2 },
+    relation: 'supports',
+    ...overrides,
+  } as StagePatchInput;
+}
+
+function makeDrillDownInput(overrides: Partial<StagePatchInput> = {}): StagePatchInput {
+  return {
+    kind: 'drill-down',
+    anchor: { kind: 'decision', itemId: 1 },
+    summary: 'drill note',
+    focusArea: 'performance',
+    ...overrides,
+  } as StagePatchInput;
+}
+
+describe('V2 patch kinds — stage / discard / apply through PatchListProvider', () => {
+  it('stages and applies an EditPatch through the edit applier', async () => {
+    const refs = makeProbeRefs();
+    const editMock = vi.fn(() => Promise.resolve({ undo: () => Promise.resolve() }));
+    const { appliers } = makeAppliers();
+    appliers.edit = editMock as unknown as PatchAppliers['edit'];
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+        <Probe refs={refs} />
+      </PatchListProvider>,
+    );
+
+    act(() => {
+      refs.current.actions?.stage(makeEditInput({ summary: 'edit-1' }));
+    });
+    expect(refs.current.state.staged[0]?.kind).toBe('edit');
+
+    await act(async () => {
+      await refs.current.actions?.apply();
+    });
+    expect(editMock).toHaveBeenCalledTimes(1);
+    expect(refs.current.state.count).toBe(0);
+  });
+
+  it('stages and applies an EdgePatch through the edge applier', async () => {
+    const refs = makeProbeRefs();
+    const edgeMock = vi.fn(() => Promise.resolve({ undo: () => Promise.resolve() }));
+    const { appliers } = makeAppliers();
+    appliers.edge = edgeMock as unknown as PatchAppliers['edge'];
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+        <Probe refs={refs} />
+      </PatchListProvider>,
+    );
+
+    act(() => {
+      refs.current.actions?.stage(makeEdgeInput({ summary: 'edge-1' }));
+    });
+    expect(refs.current.state.staged[0]?.kind).toBe('edge');
+
+    await act(async () => {
+      await refs.current.actions?.apply();
+    });
+    expect(edgeMock).toHaveBeenCalledTimes(1);
+    expect(refs.current.state.count).toBe(0);
+  });
+
+  it('stages and applies a DrillDownPatch through the drillDown applier', async () => {
+    const refs = makeProbeRefs();
+    const drillMock = vi.fn(() => Promise.resolve({ undo: () => Promise.resolve() }));
+    const { appliers } = makeAppliers();
+    appliers.drillDown = drillMock as unknown as PatchAppliers['drillDown'];
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+        <Probe refs={refs} />
+      </PatchListProvider>,
+    );
+
+    act(() => {
+      refs.current.actions?.stage(makeDrillDownInput({ summary: 'drill-1' }));
+    });
+    expect(refs.current.state.staged[0]?.kind).toBe('drill-down');
+
+    await act(async () => {
+      await refs.current.actions?.apply();
+    });
+    expect(drillMock).toHaveBeenCalledTimes(1);
+    expect(refs.current.state.count).toBe(0);
+  });
+
+  it('discards a V2 patch from the host', () => {
+    const refs = makeProbeRefs();
+    const { appliers } = makeAppliers();
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+        <Probe refs={refs} />
+      </PatchListProvider>,
+    );
+
+    let id = '';
+    act(() => {
+      id = refs.current.actions?.stage(makeEditInput()) ?? '';
+    });
+    expect(refs.current.state.count).toBe(1);
+    act(() => {
+      refs.current.actions?.discard(id);
+    });
+    expect(refs.current.state.count).toBe(0);
+  });
+
+  it('applies a mixed batch of annotate + edit patches', async () => {
+    const refs = makeProbeRefs();
+    const editMock = vi.fn(() => Promise.resolve({ undo: () => Promise.resolve() }));
+    const { appliers, annotateMock } = makeAppliers();
+    appliers.edit = editMock as unknown as PatchAppliers['edit'];
+    render(
+      <PatchListProvider specificationId={1} appliers={appliers} idFactory={makeIdFactory()}>
+        <Probe refs={refs} />
+      </PatchListProvider>,
+    );
+
+    act(() => {
+      refs.current.actions?.stage(makeAnnotateInput({ summary: 'ann' }));
+      refs.current.actions?.stage(makeEditInput({ summary: 'edt' }));
+    });
+
+    await act(async () => {
+      await refs.current.actions?.apply();
+    });
+    expect(annotateMock).toHaveBeenCalledTimes(1);
+    expect(editMock).toHaveBeenCalledTimes(1);
+    expect(refs.current.state.count).toBe(0);
+    expect(refs.current.state.canUndo).toBe(true);
   });
 });

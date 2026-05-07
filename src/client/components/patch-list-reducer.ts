@@ -30,10 +30,28 @@ export interface AnnotatePatch extends PatchBase {
   body: string;
 }
 
-export type Patch = AnnotatePatch;
-// V2: export type Patch = AnnotatePatch | EditPatch | EdgePatch | DrillDownPatch;
+export interface EditPatch extends PatchBase {
+  kind: 'edit';
+  newContent: string;
+  newRationale?: string;
+}
 
-export type StagePatchInput = Omit<Patch, 'id' | 'createdAt'>;
+export interface EdgePatch extends PatchBase {
+  kind: 'edge';
+  targetAnchor: PatchAnchor;
+  relation: string; // EdgeRelation from api-types
+}
+
+export interface DrillDownPatch extends PatchBase {
+  kind: 'drill-down';
+  focusArea: string;
+}
+
+export type Patch = AnnotatePatch | EditPatch | EdgePatch | DrillDownPatch;
+
+// Distributive Omit so that the discriminated union is preserved per-member.
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+export type StagePatchInput = DistributiveOmit<Patch, 'id' | 'createdAt'>;
 
 // ---- Events (the only writable primitive) ----
 

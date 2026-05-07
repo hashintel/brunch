@@ -73,7 +73,7 @@ export interface SideChatMessage {
 
 export interface SideChatStagedPatchSummary {
   id: string;
-  kind: 'annotate';
+  kind: 'annotate' | 'edit' | 'edge' | 'drill-down';
   summary: string;
 }
 

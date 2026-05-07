@@ -46,6 +46,12 @@ import {
   type DB,
   type EntityProjectionMode,
 } from './db.js';
+import {
+  handleCreateKnowledgeEdge,
+  handleDeleteKnowledgeEdge,
+  handlePatchKnowledgeItem,
+  handleValidateKnowledgeEdge,
+} from './edit-route.js';
 import { isExportReady, renderExportMarkdown } from './export.js';
 import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
@@ -230,6 +236,11 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const specificationSideChatPaths = ['/api/specifications/:id/side-chat'] as const;
   const specificationAnnotationsPaths = ['/api/specifications/:id/annotations'] as const;
   const annotationResourcePaths = ['/api/annotations/:annotationId'] as const;
+  const specificationKnowledgeItemPaths = ['/api/specifications/:id/knowledge-items/:itemId'] as const;
+  const specificationKnowledgeEdgesValidatePaths = [
+    '/api/specifications/:id/knowledge-edges/validate',
+  ] as const;
+  const specificationKnowledgeEdgesPaths = ['/api/specifications/:id/knowledge-edges'] as const;
 
   const registerGet = (paths: readonly string[], handler: RequestHandler) => {
     for (const path of paths) {
@@ -246,6 +257,12 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const registerDelete = (paths: readonly string[], handler: RequestHandler) => {
     for (const path of paths) {
       app.delete(path, handler);
+    }
+  };
+
+  const registerPatch = (paths: readonly string[], handler: RequestHandler) => {
+    for (const path of paths) {
+      app.patch(path, handler);
     }
   };
 
@@ -603,6 +620,25 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   registerDelete(annotationResourcePaths, (req: Request, res: Response) => {
     handleDeleteAnnotation(db, req, res);
   });
+
+  // Knowledge item editing (Side-chat V2 / FE-673)
+  registerPatch(specificationKnowledgeItemPaths, (req: Request, res: Response) => {
+    handlePatchKnowledgeItem(db, req, res);
+  });
+
+  registerPost(specificationKnowledgeEdgesValidatePaths, (req: Request, res: Response) => {
+    handleValidateKnowledgeEdge(db, req, res);
+  });
+
+  registerPost(specificationKnowledgeEdgesPaths, (req: Request, res: Response) => {
+    handleCreateKnowledgeEdge(db, req, res);
+  });
+
+  for (const path of specificationKnowledgeEdgesPaths) {
+    app.delete(path, (req: Request, res: Response) => {
+      handleDeleteKnowledgeEdge(db, req, res);
+    });
+  }
 
   return { app, db };
 }

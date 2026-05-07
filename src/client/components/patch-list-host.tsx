@@ -11,6 +11,9 @@ import {
   patchListReducer,
   type AnnotatePatch,
   type DerivedPatchListState,
+  type DrillDownPatch,
+  type EdgePatch,
+  type EditPatch,
   type Patch,
   type PatchAnchor,
   type StagePatchInput,
@@ -18,6 +21,9 @@ import {
 
 export type {
   AnnotatePatch,
+  DrillDownPatch,
+  EdgePatch,
+  EditPatch,
   Patch,
   PatchAnchor,
   PatchSelectionRange,
@@ -32,7 +38,9 @@ export type ApplyPatchFn<P extends Patch> = (
 
 export interface PatchAppliers {
   annotate: ApplyPatchFn<AnnotatePatch>;
-  // V2: edit, edge, drillDown — closed shape forces typecheck failure at provider mount until supplied.
+  edit: ApplyPatchFn<EditPatch>;
+  edge: ApplyPatchFn<EdgePatch>;
+  drillDown: ApplyPatchFn<DrillDownPatch>;
 }
 
 // ---- Public action surface ----
@@ -113,9 +121,29 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
             appliedMeta.push({ patchId: patch.id, applied: result.applied });
             break;
           }
+          case 'edit': {
+            const result = await appliers.edit(patch);
+            undoHandles.push(result.undo);
+            appliedMeta.push({ patchId: patch.id, applied: result.applied });
+            break;
+          }
+          case 'edge': {
+            const result = await appliers.edge(patch);
+            undoHandles.push(result.undo);
+            appliedMeta.push({ patchId: patch.id, applied: result.applied });
+            break;
+          }
+          case 'drill-down': {
+            const result = await appliers.drillDown(patch);
+            undoHandles.push(result.undo);
+            appliedMeta.push({ patchId: patch.id, applied: result.applied });
+            break;
+          }
           default: {
-            const _exhaustive: never = patch.kind;
-            throw new Error(`patch-list-host: no applier for patch kind ${String(_exhaustive)}`);
+            const _exhaustive: never = patch;
+            throw new Error(
+              `patch-list-host: no applier for patch kind ${String((_exhaustive as Patch).kind)}`,
+            );
           }
         }
       }

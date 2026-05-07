@@ -1274,3 +1274,79 @@ export function getAnnotation(db: DB, annotationId: number): Annotation | undefi
 export function deleteAnnotation(db: DB, annotationId: number): void {
   db.delete(schema.annotation).where(eq(schema.annotation.id, annotationId)).run();
 }
+
+// --- Edit-impact queries (Side-chat V2 / FE-673) ---
+
+export interface DownstreamItem {
+  id: number;
+  kind: string;
+  content: string;
+  kind_ordinal: number;
+}
+
+/** Direct downstream items: items whose edges point TO the given item. */
+export function getDownstreamItems(db: DB, specificationId: number, itemId: number): DownstreamItem[] {
+  return db.all(sql`
+    SELECT ki.id, ki.kind, ki.content, ki.kind_ordinal
+    FROM knowledge_edge ke
+    JOIN knowledge_item ki ON ki.id = ke.from_item_id
+    WHERE ke.to_item_id = ${itemId}
+      AND ki.specification_id = ${specificationId}
+    ORDER BY ki.id
+  `) as DownstreamItem[];
+}
+
+export function getDownstreamItemCount(db: DB, specificationId: number, itemId: number): number {
+  return getDownstreamItems(db, specificationId, itemId).length;
+}
+
+/**
+ * An item is in an active review set if there is a `phase_outcome` with
+ * `status = 'proposed'` for requirements or criteria, AND the item has a
+ * `turn_knowledge_item` row linking it to that outcome's `proposal_turn_id`
+ * with relation `'reviewed'`.
+ */
+export function isItemInActiveReviewSet(db: DB, specificationId: number, itemId: number): boolean {
+  const rows = db.all(sql`
+    SELECT 1
+    FROM phase_outcome po
+    JOIN turn_knowledge_item tki
+      ON tki.turn_id = po.proposal_turn_id
+      AND tki.item_id = ${itemId}
+      AND tki.relation = 'reviewed'
+    WHERE po.specification_id = ${specificationId}
+      AND po.status = 'proposed'
+      AND po.phase IN ('requirements', 'criteria')
+    LIMIT 1
+  `);
+  return rows.length > 0;
+}
+
+export function updateKnowledgeItemContent(
+  db: DB,
+  itemId: number,
+  updates: { content?: string; rationale?: string | null },
+): void {
+  const values: Record<string, unknown> = {};
+  if (updates.content !== undefined) values.content = updates.content;
+  if (updates.rationale !== undefined) values.rationale = updates.rationale;
+  if (Object.keys(values).length === 0) return;
+  db.update(schema.knowledgeItem).set(values).where(eq(schema.knowledgeItem.id, itemId)).run();
+}
+
+export function removeKnowledgeRelationship(
+  db: DB,
+  fromItemId: number,
+  toItemId: number,
+  relation: InferSelectModel<typeof schema.knowledgeEdge>['relation'],
+): void {
+  db.delete(schema.knowledgeEdge)
+    .where(
+      and(
+        eq(schema.knowledgeEdge.from_item_id, fromItemId),
+        eq(schema.knowledgeEdge.to_item_id, toItemId),
+        eq(schema.knowledgeEdge.relation, relation),
+      ),
+    )
+    .run();
+}

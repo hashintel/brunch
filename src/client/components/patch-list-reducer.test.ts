@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ApplyPatchFn, AnnotatePatch } from './patch-list-host.js';
+import type { AnnotatePatch, ApplyPatchFn } from './patch-list-host.js';
 import {
   deriveState,
   getPendingUndoHandle,
   initialPatchListState,
   patchListReducer,
+  type DrillDownPatch,
+  type EdgePatch,
+  type EditPatch,
   type PatchListReducerState,
   type StagePatchInput,
 } from './patch-list-reducer.js';
@@ -317,13 +320,38 @@ describe('full sequence round-trip', () => {
 });
 
 // Test helper assertion: StagePatchInput is the right shape for callers
-const _stageInputCheck: StagePatchInput = {
+const _stageInputAnnotate: StagePatchInput = {
   kind: 'annotate',
   anchor: { kind: 'decision', itemId: 1 },
   summary: 's',
   body: 'b',
 };
-void _stageInputCheck;
+void _stageInputAnnotate;
+
+const _stageInputEdit: StagePatchInput = {
+  kind: 'edit',
+  anchor: { kind: 'decision', itemId: 1 },
+  summary: 's',
+  newContent: 'new text',
+};
+void _stageInputEdit;
+
+const _stageInputEdge: StagePatchInput = {
+  kind: 'edge',
+  anchor: { kind: 'decision', itemId: 1 },
+  summary: 's',
+  targetAnchor: { kind: 'goal', itemId: 2 },
+  relation: 'supports',
+};
+void _stageInputEdge;
+
+const _stageInputDrillDown: StagePatchInput = {
+  kind: 'drill-down',
+  anchor: { kind: 'decision', itemId: 1 },
+  summary: 's',
+  focusArea: 'performance',
+};
+void _stageInputDrillDown;
 
 describe('typings — ApplyPatchFn return shape', () => {
   it('allows an `applied` field of arbitrary shape on the return', async () => {
@@ -391,5 +419,111 @@ describe('patch-list reducer — appliedMeta on BatchApplied', () => {
     });
     state = patchListReducer(state, { type: 'UNDO_SUCCESS', batchId: 'b1' });
     expect(deriveState(state).lastBatchAppliedMeta).toEqual([]);
+  });
+});
+
+// ---- V2 patch kinds: EditPatch, EdgePatch, DrillDownPatch ----
+
+function makeEditPatch(id: string, overrides: Partial<EditPatch> = {}): EditPatch {
+  return {
+    kind: 'edit',
+    id,
+    anchor: { kind: 'decision', itemId: 1 },
+    summary: `edit-${id}`,
+    newContent: 'updated content',
+    createdAt: 0,
+    ...overrides,
+  };
+}
+
+function makeEdgePatch(id: string, overrides: Partial<EdgePatch> = {}): EdgePatch {
+  return {
+    kind: 'edge',
+    id,
+    anchor: { kind: 'decision', itemId: 1 },
+    summary: `edge-${id}`,
+    targetAnchor: { kind: 'goal', itemId: 2 },
+    relation: 'supports',
+    createdAt: 0,
+    ...overrides,
+  };
+}
+
+function makeDrillDownPatch(id: string, overrides: Partial<DrillDownPatch> = {}): DrillDownPatch {
+  return {
+    kind: 'drill-down',
+    id,
+    anchor: { kind: 'decision', itemId: 1 },
+    summary: `drill-${id}`,
+    focusArea: 'performance',
+    createdAt: 0,
+    ...overrides,
+  };
+}
+
+describe('V2 patch kinds — stage / discard / derive', () => {
+  it('stages an EditPatch and reflects it in derived state', () => {
+    const patch = makeEditPatch('e1', { summary: 'edit one' });
+    const state = patchListReducer(initialPatchListState, { type: 'STAGE', patchId: 'e1', patch });
+    const derived = deriveState(state);
+    expect(derived.count).toBe(1);
+    expect(derived.staged[0]?.kind).toBe('edit');
+    expect(derived.staged[0]?.summary).toBe('edit one');
+  });
+
+  it('stages an EdgePatch and reflects it in derived state', () => {
+    const patch = makeEdgePatch('g1', { summary: 'edge one' });
+    const state = patchListReducer(initialPatchListState, { type: 'STAGE', patchId: 'g1', patch });
+    const derived = deriveState(state);
+    expect(derived.count).toBe(1);
+    expect(derived.staged[0]?.kind).toBe('edge');
+    expect(derived.staged[0]?.summary).toBe('edge one');
+  });
+
+  it('stages a DrillDownPatch and reflects it in derived state', () => {
+    const patch = makeDrillDownPatch('d1', { summary: 'drill one' });
+    const state = patchListReducer(initialPatchListState, { type: 'STAGE', patchId: 'd1', patch });
+    const derived = deriveState(state);
+    expect(derived.count).toBe(1);
+    expect(derived.staged[0]?.kind).toBe('drill-down');
+    expect(derived.staged[0]?.summary).toBe('drill one');
+  });
+
+  it('discards a V2 patch', () => {
+    const patch = makeEditPatch('e1');
+    let state = patchListReducer(initialPatchListState, { type: 'STAGE', patchId: 'e1', patch });
+    state = patchListReducer(state, { type: 'DISCARD', patchId: 'e1' });
+    expect(deriveState(state).staged).toEqual([]);
+  });
+
+  it('mixed V1+V2 patches preserve stage order', () => {
+    let state = initialPatchListState;
+    state = patchListReducer(state, { type: 'STAGE', patchId: 'a', patch: makeAnnotatePatch('a') });
+    state = patchListReducer(state, { type: 'STAGE', patchId: 'e', patch: makeEditPatch('e') });
+    state = patchListReducer(state, { type: 'STAGE', patchId: 'g', patch: makeEdgePatch('g') });
+    state = patchListReducer(state, { type: 'STAGE', patchId: 'd', patch: makeDrillDownPatch('d') });
+    const kinds = deriveState(state).staged.map((p) => p.kind);
+    expect(kinds).toEqual(['annotate', 'edit', 'edge', 'drill-down']);
+  });
+
+  it('apply/undo lifecycle works for V2 patches', () => {
+    let state = initialPatchListState;
+    state = patchListReducer(state, { type: 'STAGE', patchId: 'e1', patch: makeEditPatch('e1') });
+    state = patchListReducer(state, { type: 'APPLY_START' });
+    state = patchListReducer(state, {
+      type: 'APPLY_SUCCESS',
+      batchId: 'b1',
+      patchIds: ['e1'],
+      undoHandle: noopUndo,
+      appliedMeta: [{ patchId: 'e1', applied: { updated: true } }],
+    });
+
+    let derived = deriveState(state);
+    expect(derived.staged).toEqual([]);
+    expect(derived.canUndo).toBe(true);
+
+    state = patchListReducer(state, { type: 'UNDO_SUCCESS', batchId: 'b1' });
+    derived = deriveState(state);
+    expect(derived.canUndo).toBe(false);
   });
 });

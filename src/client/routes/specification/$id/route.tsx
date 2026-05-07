@@ -5,6 +5,7 @@ import { PatchListProvider, type PatchAppliers } from '@/client/components/patch
 import { SideChatHost } from '@/client/components/side-chat-host.js';
 import { Skeleton } from '@/client/components/ui/skeleton';
 import { makeAnnotateApplier } from '@/client/lib/annotation-api.js';
+import { makeDrillDownApplier, makeEdgeApplier, makeEditApplier } from '@/client/lib/edit-applier.js';
 
 import { PhaseNavigationSidebar } from './-phase-navigation-sidebar.js';
 import { primeSpecificationBundle, useSpecificationBundleData } from './-specification-data.js';
@@ -36,10 +37,15 @@ export const Route = createFileRoute('/specification/$id')({
     const specificationState = useSpecificationBundleData();
     const { id: specificationId } = useParams({ from: '/specification/$id' });
 
-    const appliers = useMemo<PatchAppliers>(
-      () => ({ annotate: makeAnnotateApplier(specificationState.specification.id) }),
-      [specificationState.specification.id],
-    );
+    const appliers = useMemo<PatchAppliers>(() => {
+      const specId = specificationState.specification.id;
+      return {
+        annotate: makeAnnotateApplier(specId),
+        edit: makeEditApplier(specId),
+        edge: makeEdgeApplier(specId),
+        drillDown: makeDrillDownApplier(specId),
+      };
+    }, [specificationState.specification.id]);
 
     return (
       <PatchListProvider appliers={appliers}>
