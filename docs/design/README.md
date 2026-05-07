@@ -20,7 +20,11 @@ Current live design proposals:
 
 - `MULTI_CHAT.md` — concrete phase-one substrate for chat containers and reconciliation needs.
 - `PATCH_LEDGER.md` — deeper semantic mutation history and reconciliation design pressure after the multi-chat substrate.
-- `INTENT_SPEC_EVOLUTION.md` — broader intent-spec ontology and progressive checkability synthesis.
+- `INTENT_SPEC_EVOLUTION.md` — broader intent-spec ontology and progressive checkability synthesis (raw, the source for the more focused docs below).
+- `INTENT_GRAPH_SEMANTICS.md` — product-layer ontology, edge taxonomy, relation policy, and progressive-checkability binding. Canonical reference for FE-700.
+- `BEHAVIORAL_KERNELS.md` — product-layer behavioral-kernel typology, kernel cards, signal-phrase routing, and the contrastive-question interviewer workflow. Canonical reference for FE-702 kernel probes.
+- `DEV_WORKFLOW_EVOLUTION.md` — **dev-layer** trajectory for the `ln-*` skill family, the proposed file-backed spec registry, and the long-horizon convergence between dev and product ontologies. Distinct from the product-layer docs above; not part of `memory/SPEC.md`.
+- `DEFERRED_RECONCILIATIONS.md` — interim backlog of shaped product-direction items (SPEC requirements, assumptions, PLAN horizon items, future design docs) that are ready for promotion but deliberately deferred until prerequisite work fires their triggers. Delete the file when all entries have promoted.
 
 Schema reference artifacts are intentionally kept outside this design directory. The canonical generated DBML lives at `docs/schema.dbml` and is derived from `src/server/schema.ts`; do not add parallel `schema.dbml` or `schema.dbdiagram` copies under `docs/design/`.
 

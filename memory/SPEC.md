@@ -1,7 +1,17 @@
 <!-- SPEC.md — live architecture register.
      Created by ln-spec · Read by all skills · Refreshed by ln-sync.
      Keep only active requirements, live assumptions, current decisions,
-     critical invariants, and the verification stance. -->
+     critical invariants, and the verification stance.
+
+     Layer note: this file is the dev-layer architecture register for
+     Brunch the built thing — the requirements, assumptions, decisions,
+     invariants, and verification stance that govern how we build the
+     product. It is not the product-layer ontology that Brunch users
+     produce while building their own intent graphs; that ontology
+     surfaces in `src/` schema and at runtime. The dev-workflow
+     trajectory (the `ln-*` skill family, the proposed file-backed
+     spec registry, and the long-horizon convergence between dev and
+     product ontologies) lives in `docs/design/DEV_WORKFLOW_EVOLUTION.md`. -->
 
 # Brunch v2 — Spec Elicitation Tool
 
@@ -328,6 +338,8 @@ Question card titles use arbitrary `text-[17px]` above the scale for emphasis.
 
 <!-- Pruned 2026-04-14: kept only seam-level invariants that still protect active work. -->
 
+Each row in this table is a **formalization candidate** ascending the progressive-checkability ladder: the `Invariant` column states the property in human-readable form, `Protected by` names the *current oracle* (its present rung on the ladder — typically a regression test today), and `Proves` ties the property back to the requirements or decisions it preserves. Stronger oracles (state-machine model, runtime contract, proof obligation) are deliberate future moves recorded in `docs/design/INTENT_GRAPH_SEMANTICS.md` rather than expanded inline here.
+
 | #    | Invariant | Protected by | Proves |
 | ---- | --------- | ------------ | ------ |
 | I4   | Vite proxy routing and the runtime backend-port seam stay aligned through one explicit configuration path. | `runtime-config.test.ts` | Requirement 1 |
@@ -434,6 +446,15 @@ Question card titles use arbitrary `text-[17px]` above the scale for emphasis.
 | **example** *(planned ontology kind)* | A concrete scenario, trace, input/output, edge case, approved example, rejected example, not-relevant label, or counterexample that disambiguates or witnesses intent. Expected subtypes include positive, negative / counterexample, edge-case, and not-relevant. |
 | **edge-local neighborhood** | The focused relation context around one claim: incoming and outgoing edges with nearby item summaries, support strength, and relation semantics. Used by interviewer / observer prompts and graph refinement instead of dumping all grouped knowledge. |
 | **behavioral kernel** | Reusable interviewer machinery for one class of latent correctness question, such as state/lifecycle, containment, authority, concurrency, transactionality, migration, or evidence. Kernels are not user-facing formalism by default. |
+| **intent spec** | The complementary framing to a planning spec: a specification optimized for preserving and validating meaning rather than sequencing downstream work. Carries typed claims, examples and counterexamples, witness strength, unresolved ambiguity, and validation status. The intent graph is the durable substrate; an intent spec is the human-facing projection of that graph. Contrast with `planning spec`. |
+| **planning spec** | A specification optimized for downstream work sequencing — what to build, what scope is in or out, which slices follow. Brunch's product direction is for planning to remain a useful projection from the intent graph rather than the source artifact. |
+| **checkability** | A typed field on a claim describing the strongest oracle that currently witnesses it, drawn from the progressive-checkability ladder: `human_review` / `example` / `counterexample` / `regression_test` / `runtime_contract` / `state_machine_rule` / `invariant` / `proof_obligation` / `unresolved_ambiguity`. The discipline is `progressive checkability`; the field is `checkability`. |
+| **witness strength** | The breadth of what a claim's oracle actually covers, distinct from which oracle exists. "Checked on three examples" and "proved for all reachable states" can both be `checkability: invariant`, but they have very different `strength`. The pairing forces honesty about what is actually verified. |
+| **formalization candidate** | A Brunch-internal claim that is worth promoting along the progressive-checkability ladder. Critical invariants are formalization candidates: each one states a property currently witnessed by a regression test, with stronger oracles (state-machine model, runtime contract, proof obligation) as deliberate future moves rather than implicit expectations. |
+| **disambiguating example** | An `example` whose primary purpose is to settle ambiguity between plausible interpretations of a requirement, invariant, or decision. Linked through the `disambiguates` relation. Generalizes the TiCoder move beyond test cases: the interviewer generates cases where interpretations diverge, and the user's classification settles the meaning. |
+| **spec drift** | A divergence between a claim's recorded intent and the artifact (criterion, generated requirement, candidate spec, export bundle, or downstream implementation behavior) meant to satisfy it. Surfaced in human terms — "original intent vs generated behavior vs potential mismatch" — so the user can validate meaning at the point where it could have changed, rather than after the divergence has been laundered into a final document. |
+| **relation family** | One of five semantic groupings that organize the relation kinds in the intent graph: `justification`, `dependency`, `boundary`, `refinement`, and `verification`. Distinct from the relation `kind` itself; a single kind belongs to exactly one family. Drives prompt grouping, default policy, and observer classification heuristics. |
+| **relation policy** | The per-relation, per-axis registry that decides whether each edge participates in `visible`, `cascade`, `export_trace`, `staleness`, `reconciliation`, `criteria_help`, or `weak_suggestion` capabilities. Replaces the implicit assumption that every edge is equally authoritative. Gated by edge `support` (`explicit` / `strong_inference` / `weak_candidate`) and `status` (`proposed` / `accepted` / `rejected` / `stale`). |
 | **structured list** | The first-ship graph-view layout: kind-grouped item rows with a relations footer of Outgoing / Incoming relation chips. Item-first; relationships visible inline. It currently renders the whole-spec entity set because D129 ships the whole-spec fetch first; the intended default becomes active-path items over whole-spec data once the active-path membership seam and `Show all` toggle land. |
 | **spatial canvas** | A deferred future graph-view layout where knowledge items render as nodes with visible edges in a 2D scene. Shares the projection seam and intent contract of D128 with the structured-list layout. |
 | **relation chip** | A compact UI element representing one knowledge-graph edge endpoint inside a relations footer, carrying the target item's reference code and content snippet. Hover reveals a preview card; click navigates to the target item via hash anchor. |
