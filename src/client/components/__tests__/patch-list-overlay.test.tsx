@@ -47,6 +47,15 @@ function StageEditPatchButton() {
   );
 }
 
+function UndoButton() {
+  const patchList = usePatchList();
+  return (
+    <button type="button" onClick={() => void patchList?.undo()}>
+      undo-outside-overlay
+    </button>
+  );
+}
+
 describe('PatchListOverlay', () => {
   it('renders nothing when there are no staged patches and no transient message', () => {
     const appliers = makeAppliers();
@@ -144,6 +153,34 @@ describe('PatchListOverlay', () => {
     });
     await screen.findByRole('status', { name: /hard impact deferred to v3/i });
     fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
+    expect(screen.queryByRole('status', { name: /hard impact deferred to v3/i })).toBeNull();
+  });
+
+  it('hides the deferred banner when the applied batch is undone before the timeout', async () => {
+    const editApplier = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { deferred: true, impact: 'hard', message: 'Hard impact — coming in V3 cascade preview' },
+      }),
+    );
+    const appliers = makeAppliers({ edit: editApplier as unknown as PatchAppliers['edit'] });
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchButton />
+        <UndoButton />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit'));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /apply/i }));
+    });
+    await screen.findByRole('status', { name: /hard impact deferred to v3/i });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /undo-outside-overlay/i }));
+    });
+
     expect(screen.queryByRole('status', { name: /hard impact deferred to v3/i })).toBeNull();
   });
 

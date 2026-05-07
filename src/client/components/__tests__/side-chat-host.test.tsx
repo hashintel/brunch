@@ -6,7 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import type { CreatedAnnotation } from '@/client/lib/annotation-api.js';
 import { streamSideChatResponse } from '@/client/lib/side-chat-stream.js';
 
-import { PatchListProvider, usePatchListState, type PatchAppliers } from '../patch-list-host.js';
+import {
+  PatchListProvider,
+  usePatchList,
+  usePatchListState,
+  type PatchAppliers,
+} from '../patch-list-host.js';
 import { SideChatHost, useSideChat, type SideChatPinnableItem } from '../side-chat-host.js';
 
 const { mockListAnnotationsForSpecificationRequest } = vi.hoisted(() => ({
@@ -49,6 +54,7 @@ interface AppliersHandle {
   appliers: PatchAppliers;
   annotateMock: MockInstance;
   editMock: MockInstance;
+  edgeMock: MockInstance;
   undoMock: MockInstance;
 }
 
@@ -60,14 +66,16 @@ function makeAppliers(): AppliersHandle {
   const undoMock = vi.fn(() => Promise.resolve());
   const annotateMock = vi.fn(() => Promise.resolve({ undo: undoMock, applied: undefined }));
   const editMock = makeNoopApplier();
+  const edgeMock = makeNoopApplier();
   return {
     annotateMock,
     editMock,
+    edgeMock,
     undoMock,
     appliers: {
       annotate: annotateMock as unknown as PatchAppliers['annotate'],
       edit: editMock as unknown as PatchAppliers['edit'],
-      edge: makeNoopApplier() as unknown as PatchAppliers['edge'],
+      edge: edgeMock as unknown as PatchAppliers['edge'],
       drillDown: makeNoopApplier() as unknown as PatchAppliers['drillDown'],
     },
   };
@@ -621,6 +629,56 @@ describe('SideChatHost annotate flow', () => {
 
     fireEvent.click(screen.getByText('open-decision'));
     expect(screen.getByText('Edit: Use IndexedDB for local persistence.')).toBeTruthy();
+  });
+
+  it('shows Undo after applying an edge patch for the active item', async () => {
+    const { appliers, edgeMock } = makeAppliers();
+
+    function Probe() {
+      const sideChat = useSideChat();
+      const patchList = usePatchListState();
+      const actions = usePatchList();
+      return (
+        <>
+          <span data-testid="staged-count">{patchList.staged.length}</span>
+          <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
+            open-decision
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              actions?.stage({
+                kind: 'edge',
+                anchor: { kind: 'decision', itemId: 7 },
+                targetAnchor: { kind: 'goal', itemId: 11 },
+                relation: 'depends_on',
+                summary: 'Edge: D7 depends on G11',
+              })
+            }
+          >
+            stage-edge
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-decision'));
+    fireEvent.click(screen.getByText('stage-edge'));
+    await screen.findByText('Edge: D7 depends on G11');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+    });
+
+    await vi.waitFor(() => expect(edgeMock).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('button', { name: /^undo$/i })).toBeTruthy();
   });
 
   it('does not leak the saved confirmation to another pinned item', async () => {

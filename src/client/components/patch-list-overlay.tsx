@@ -99,9 +99,10 @@ export function PatchListOverlay(): React.ReactElement | null {
     prevCanUndoRef.current = state.canUndo;
   }, [state.lastBatchId, state.canUndo, state.isApplying, stagedCount, lastBatchAppliedMeta]);
 
-  // Hide saved toast when canUndo flips back to false (the user undid).
+  // Hide transient post-apply messages when canUndo flips back to false (the user undid).
   useEffect(() => {
     if (!state.canUndo) {
+      setDeferredBanner(null);
       setSavedToastVisible(false);
     }
   }, [state.canUndo]);

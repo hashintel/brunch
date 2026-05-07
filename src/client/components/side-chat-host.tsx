@@ -547,9 +547,7 @@ export function SideChatHost({
     activeSideChat !== null &&
     patchListState.lastBatchPatches.some(
       (patch) =>
-        (patch.kind === 'annotate' || patch.kind === 'edit') &&
-        patch.anchor.kind === activeSideChat.itemKind &&
-        patch.anchor.itemId === activeSideChat.itemId,
+        patch.anchor.kind === activeSideChat.itemKind && patch.anchor.itemId === activeSideChat.itemId,
     );
   const lastBatchAppliedMeta = useLastBatchAppliedMeta();
 
