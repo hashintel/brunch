@@ -17,4 +17,11 @@ export interface ReconciliationNeedRecord {
   caused_by_patch_id: number | null;
   created_at: string;
   resolved_at: string | null;
+  // V3.1 setup (card 1): nullable source content snapshots captured by the
+  // cascade producer at open time; used by the Pending review row to render
+  // the source diff inline (card 2) and as the pre-image for the V3.1
+  // classifier (deferred). Null on legacy rows or any open path that
+  // bypasses the cascade producer.
+  source_previous_content: string | null;
+  source_current_content: string | null;
 }

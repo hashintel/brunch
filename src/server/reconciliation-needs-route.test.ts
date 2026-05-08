@@ -48,6 +48,8 @@ describe('GET /api/specifications/:id/reconciliation-needs', () => {
       sourceItemId: goal.id,
       targetItemId: r1.id,
       kind: 'needs_confirmation',
+      sourcePreviousContent: 'Central goal',
+      sourceCurrentContent: 'Central goal (revised)',
     });
     openReconciliationNeed(db, {
       specificationId: specId,
@@ -59,18 +61,43 @@ describe('GET /api/specifications/:id/reconciliation-needs', () => {
     const res = await request(app).get(`/api/specifications/${specId}/reconciliation-needs`).expect(200);
 
     expect(res.body.openNeeds).toHaveLength(2);
-    const byTarget = new Map<number, { kind: string; source_item_id: number }>(
+    const byTarget = new Map<
+      number,
+      {
+        kind: string;
+        source_item_id: number;
+        source_previous_content: string | null;
+        source_current_content: string | null;
+      }
+    >(
       (
         res.body.openNeeds as Array<{
           id: number;
           source_item_id: number;
           target_item_id: number;
           kind: string;
+          source_previous_content: string | null;
+          source_current_content: string | null;
         }>
-      ).map((n) => [n.target_item_id, { kind: n.kind, source_item_id: n.source_item_id }]),
+      ).map((n) => [
+        n.target_item_id,
+        {
+          kind: n.kind,
+          source_item_id: n.source_item_id,
+          source_previous_content: n.source_previous_content,
+          source_current_content: n.source_current_content,
+        },
+      ]),
     );
     expect(byTarget.get(r1.id)?.kind).toBe('needs_confirmation');
     expect(byTarget.get(r2.id)?.kind).toBe('supersedes');
+    // Card 1: snapshot fields are exposed on the wire so the client can
+    // render the source diff inline. Needs opened without snapshots (legacy
+    // or test seeds) round-trip as nulls.
+    expect(byTarget.get(r1.id)?.source_previous_content).toBe('Central goal');
+    expect(byTarget.get(r1.id)?.source_current_content).toBe('Central goal (revised)');
+    expect(byTarget.get(r2.id)?.source_previous_content).toBeNull();
+    expect(byTarget.get(r2.id)?.source_current_content).toBeNull();
     for (const need of res.body.openNeeds) {
       expect(need.source_item_id).toBe(goal.id);
     }
