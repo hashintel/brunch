@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { cpSync, readFileSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -90,6 +90,16 @@ export default defineConfig(({ command, mode }) => {
   if (isServerRuntimeBuild) {
     return {
       ...sharedConfig,
+      plugins: [
+        {
+          name: 'copy-server-prompt-assets',
+          closeBundle() {
+            cpSync(resolve(__dirname, 'src/server/prompts'), resolve(__dirname, 'dist/server/prompts'), {
+              recursive: true,
+            });
+          },
+        },
+      ],
       build: {
         copyPublicDir: false,
         emptyOutDir: false,

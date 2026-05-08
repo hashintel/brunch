@@ -1,5 +1,7 @@
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
+import { renderPromptAsset } from './prompt-loader.js';
+
 export interface SideChatPinnedItem {
   kind: KnowledgeKind;
   referenceCode: string;
@@ -38,11 +40,7 @@ export interface BuildPromptOptions {
   spanHint?: string;
 }
 
-const SIDE_CHAT_ROLE_PROMPT = `You are the side-chat assistant in Brunch. The user has pinned a specific knowledge item from their spec and wants to discuss it with you in place.
-
-Your job is to help the user think about the pinned item: explain it, surface its assumptions, weigh tradeoffs, suggest refinements. Stay focused on the pinned item — only widen the discussion when the user explicitly asks.
-
-You are NOT conducting a structured interview. Do not ask multiple-choice questions, do not propose closing phases, and do not follow a phase-by-phase elicitation script. Respond conversationally in plain text.`;
+const SIDE_CHAT_ROLE_PROMPT = renderPromptAsset('side-chat.role');
 
 function formatActiveAnnotations(annotations: readonly SideChatActiveAnnotation[]): string {
   const lines = annotations.map((annotation, index) => {
