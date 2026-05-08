@@ -24,4 +24,11 @@ export interface ReconciliationNeedRecord {
   // bypasses the cascade producer.
   source_previous_content: string | null;
   source_current_content: string | null;
+  // V3.1 setup (card 3): the listing endpoint joins each need against its
+  // target knowledge_item to expose the live current content. NOT a column
+  // on reconciliation_need — read-time enrichment only. Null when the
+  // target item has been deleted (FK cascade has taken care of the row in
+  // most cases, but guard for race / partial states); the Edit-target
+  // affordance is hidden in that case and the user falls back to Resolve.
+  target_current_content: string | null;
 }

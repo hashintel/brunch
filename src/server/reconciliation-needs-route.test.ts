@@ -103,6 +103,29 @@ describe('GET /api/specifications/:id/reconciliation-needs', () => {
     }
   });
 
+  // Card 3 (V3.1 setup): the listing endpoint joins each need against its
+  // target knowledge_item to surface the live current content, so the
+  // <PendingReviewSection> Edit-target inline form can pre-fill without
+  // mounting a separate items query. This is read-time enrichment, not a
+  // table column — refetch sees the latest target content.
+  it('exposes the target item current content on each open need (live join)', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'Central goal');
+    const r1 = createKnowledgeItem(db, specId, 'requirement', 'R1 current content');
+    addKnowledgeRelationship(db, r1.id, goal.id, 'depends_on');
+    openReconciliationNeed(db, {
+      specificationId: specId,
+      sourceItemId: goal.id,
+      targetItemId: r1.id,
+      kind: 'needs_confirmation',
+    });
+
+    const res = await request(app).get(`/api/specifications/${specId}/reconciliation-needs`).expect(200);
+
+    expect(res.body.openNeeds).toHaveLength(1);
+    expect(res.body.openNeeds[0].target_current_content).toBe('R1 current content');
+  });
+
   it('excludes resolved reconciliation_need rows', async () => {
     const specId = await createSpec();
     const a = createKnowledgeItem(db, specId, 'goal', 'A');
