@@ -1,10 +1,11 @@
-import { useQueryClient, useSuspenseQuery, type QueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useSuspenseQuery, type QueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useCallback } from 'react';
 
 import { queryClient } from '@/client/query-client.js';
 import type { EntitiesData, WorkflowPhase } from '@/shared/api-types.js';
 import type { PrefaceData, ReviewSetData, StructuredQuestion } from '@/shared/chat.js';
+import type { ReconciliationNeedRecord } from '@/shared/reconciliation-need.js';
 import type { SpecificationState } from '@/shared/specification.js';
 
 export const specificationQueryKeys = {
@@ -12,6 +13,8 @@ export const specificationQueryKeys = {
   entities: (specificationId: string) => ['specification', specificationId, 'entities'] as const,
   entitiesProjectWide: (specificationId: string) =>
     ['specification', specificationId, 'entities', 'project-wide'] as const,
+  reconciliationNeeds: (specificationId: string) =>
+    ['specification', specificationId, 'reconciliation-needs'] as const,
 };
 
 const inflightSpecificationStateRequests = new Map<string, Promise<SpecificationState>>();
@@ -268,4 +271,35 @@ export function useSpecificationEntitiesProjectWide(): EntitiesData {
     queryKey: specificationQueryKeys.entitiesProjectWide(specificationId),
     queryFn: () => fetchSpecificationEntitiesProjectWide(specificationId),
   }).data;
+}
+
+async function fetchOpenReconciliationNeeds(specificationId: string): Promise<ReconciliationNeedRecord[]> {
+  const response = await fetch(`/api/specifications/${specificationId}/reconciliation-needs`);
+  if (!response.ok) {
+    throw new Error('Failed to load reconciliation needs');
+  }
+  const body = (await response.json()) as { openNeeds: ReconciliationNeedRecord[] };
+  return body.openNeeds;
+}
+
+/**
+ * Open reconciliation_need rows for the current specification (V3.0 card 2).
+ * Returns [] until the producer (card 1) opens any. Non-suspending — the
+ * patch-list overlay renders without blocking on this fetch.
+ */
+export function useSpecificationOpenReconciliationNeeds(): ReconciliationNeedRecord[] {
+  const specificationId = useSpecificationId();
+
+  const { data } = useQuery({
+    queryKey: specificationQueryKeys.reconciliationNeeds(specificationId),
+    queryFn: () => fetchOpenReconciliationNeeds(specificationId),
+    initialData: [],
+  });
+  return data;
+}
+
+export async function invalidateOpenReconciliationNeeds(specificationId: number): Promise<void> {
+  await queryClient.invalidateQueries({
+    queryKey: specificationQueryKeys.reconciliationNeeds(String(specificationId)),
+  });
 }

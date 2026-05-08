@@ -21,36 +21,45 @@ async function invalidateEntityQueriesAfterEdit(specificationId: number): Promis
   ]);
 }
 
+// V3.0 card 2: refresh the Pending review section after a hard-impact apply
+// opens new reconciliation_need rows. Card 3 will also call this from
+// resolution actions.
+async function invalidateOpenReconciliationNeedsAfterApply(specificationId: number): Promise<void> {
+  await queryClient.invalidateQueries({
+    queryKey: specificationQueryKeys.reconciliationNeeds(String(specificationId)),
+  });
+}
+
 export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch> {
   return async (patch) => {
     const response = await editKnowledgeItemRequest(specificationId, patch.anchor.itemId, {
       content: patch.newContent,
       rationale: patch.newRationale,
     });
-    if (response.impact === 'hard') {
-      // V3.0 card 1: hard-impact apply now mutates the source and opens
-      // reconciliation_need rows on the server (D139, I112). The patch list
-      // overlay's Pending review surface lands in card 2; until then the
-      // deferred banner stays as the user-visible signal so the patch leaves
-      // staged cleanly. Undo is a no-op for the deferred-banner phase — card 2
-      // wires real resolution actions through the queue. Entity queries are
-      // invalidated because content did mutate.
-      await invalidateEntityQueriesAfterEdit(specificationId);
-      return {
-        undo: async () => {},
-        applied: {
-          deferred: true,
-          impact: response.impact,
-          message: 'Hard impact — cascade pending review',
-        },
-      };
-    }
     if (response.previousContent === undefined) {
       throw new Error('Edit applier: server reported updated but did not return previousContent');
     }
     const previousContent = response.previousContent;
     const previousRationale = response.previousRationale;
     await invalidateEntityQueriesAfterEdit(specificationId);
+    if (response.impact === 'hard') {
+      // V3.0 card 2 (D139, I112): hard-impact apply mutates source and opens
+      // one reconciliation_need per typed dependency edge. The Pending review
+      // section in patch-list-overlay surfaces the queue. Undo for hard
+      // applies is a no-op for the source mutation in card 2 — card 3 wires
+      // real resolution semantics (resolve openedNeedIds + restore content).
+      // Until then the user resolves through the Pending review surface.
+      await invalidateOpenReconciliationNeedsAfterApply(specificationId);
+      return {
+        undo: async () => {},
+        applied: {
+          impact: 'hard',
+          previousContent,
+          previousRationale,
+          openedNeedIds: response.openedNeedIds,
+        },
+      };
+    }
     return {
       undo: async () => {
         await editKnowledgeItemRequest(specificationId, patch.anchor.itemId, {
@@ -58,6 +67,9 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
           rationale: previousRationale,
         });
         await invalidateEntityQueriesAfterEdit(specificationId);
+        if (undoResponse.impact === 'hard') {
+          await invalidateOpenReconciliationNeedsAfterApply(specificationId);
+        }
       },
       applied: { impact: response.impact, previousContent, previousRationale },
     };

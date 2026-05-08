@@ -23,6 +23,20 @@ vi.mock('@/client/lib/side-chat-stream.js', () => ({
   streamSideChatResponse: vi.fn(() => Promise.resolve()),
 }));
 
+// V3.0 card 2: PatchListOverlay reads open reconciliation needs via this hook,
+// which depends on TanStack Router context. Stub it here so the side-chat host
+// tests can render the overlay without a full router setup.
+vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
+  useSpecificationOpenReconciliationNeeds: () => [],
+  specificationQueryKeys: {
+    bundle: (id: string) => ['specification', id, 'bundle'] as const,
+    entities: (id: string) => ['specification', id, 'entities'] as const,
+    entitiesProjectWide: (id: string) => ['specification', id, 'entities', 'project-wide'] as const,
+    reconciliationNeeds: (id: string) => ['specification', id, 'reconciliation-needs'] as const,
+  },
+  invalidateOpenReconciliationNeeds: vi.fn(),
+}));
+
 vi.mock('@/client/lib/annotation-api.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/client/lib/annotation-api.js')>();
   return {
