@@ -110,19 +110,29 @@ describe('makeEditApplier', () => {
 
   it('returns a deferred-applied marker on hard-impact response so the patch leaves staged cleanly', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
-    fetchMock.mockResolvedValueOnce(jsonResponse({ impact: 'hard', affectedItems: [], updated: false }));
+    // V3.0: hard-impact apply now mutates source content and opens reconciliation needs,
+    // but card 1 keeps the deferred banner active by detecting impact === 'hard' on the
+    // client. Card 2 will replace the banner with the Pending review surface.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        impact: 'hard',
+        affectedItems: [],
+        updated: true,
+        previousContent: 'Old content',
+        previousRationale: 'Old rationale',
+        openedNeedIds: [101, 102],
+      }),
+    );
 
     const applier = makeEditApplier(SPEC_ID);
     const result = await applier(makeEditPatch());
-    // Patch transitions to applied (with deferred marker) instead of throwing —
-    // V2 routes hard-impact edits to V3 cascade preview rather than stucking
-    // them in the staged list per SIDE_CHAT.md §6.3.
     expect(result.applied).toEqual({
       deferred: true,
       impact: 'hard',
-      message: 'Hard impact — coming in V3 cascade preview',
+      message: 'Hard impact — cascade pending review',
     });
-    // Undo is a no-op (nothing was applied).
+    // Undo is a no-op for V3.0 deferred-banner behavior; card 2 will introduce real undo
+    // semantics (resolve / re-open needs) once the patch list overlay surfaces them.
     await expect(result.undo()).resolves.toBeUndefined();
   });
 
@@ -134,7 +144,7 @@ describe('makeEditApplier', () => {
     await expect(applier(makeEditPatch())).rejects.toThrow();
   });
 
-  it('throws during undo when the server defers the restore edit', async () => {
+  it('throws during undo when the restore edit comes back as hard-impact', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
     fetchMock
       .mockResolvedValueOnce(
@@ -146,12 +156,24 @@ describe('makeEditApplier', () => {
           previousRationale: 'Old rationale',
         }),
       )
-      .mockResolvedValueOnce(jsonResponse({ impact: 'hard', affectedItems: [], updated: false }));
+      // V3.0 contract: hard impact still applies, but undo should not silently
+      // re-trigger another cascade. The applier rejects undo so the user gets
+      // a visible error rather than an unintentional second hard apply.
+      .mockResolvedValueOnce(
+        jsonResponse({
+          impact: 'hard',
+          affectedItems: [],
+          updated: true,
+          previousContent: 'New content',
+          previousRationale: 'New rationale',
+          openedNeedIds: [201],
+        }),
+      );
 
     const applier = makeEditApplier(SPEC_ID);
     const result = await applier(makeEditPatch());
 
-    await expect(result.undo()).rejects.toThrow(/undo deferred/i);
+    await expect(result.undo()).rejects.toThrow(/cascade/i);
   });
 });
 

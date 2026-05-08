@@ -654,6 +654,30 @@ export function openReconciliationNeed(db: DB, input: OpenReconciliationNeedInpu
     .get() as ReconciliationNeed;
 }
 
+/**
+ * Open a reconciliation_need only if no matching open row exists. The
+ * (source, target, kind) partial unique index guarantees idempotence; this
+ * helper exposes the no-op as `null` so callers can report newly-opened ids
+ * separately from already-open ones.
+ */
+export function openReconciliationNeedIfAbsent(
+  db: DB,
+  input: OpenReconciliationNeedInput,
+): ReconciliationNeed | null {
+  const existing = db.all(sql`
+    SELECT 1
+    FROM reconciliation_need
+    WHERE specification_id = ${input.specificationId}
+      AND source_item_id = ${input.sourceItemId}
+      AND target_item_id = ${input.targetItemId}
+      AND kind = ${input.kind}
+      AND status = 'open'
+    LIMIT 1
+  `);
+  if (existing.length > 0) return null;
+  return openReconciliationNeed(db, input);
+}
+
 export function resolveReconciliationNeed(db: DB, reconciliationNeedId: number): void {
   db.update(schema.reconciliationNeed)
     .set({ status: 'resolved', resolved_at: sql`datetime('now')` })
@@ -1416,6 +1440,29 @@ export function getDownstreamItems(db: DB, specificationId: number, itemId: numb
       AND ki.specification_id = ${specificationId}
     ORDER BY ki.id
   `) as DownstreamItem[];
+}
+
+export interface DownstreamEdge {
+  downstream_item_id: number;
+  relation: 'depends_on' | 'derived_from' | 'constrains' | 'verifies' | 'refines';
+}
+
+/**
+ * Like `getDownstreamItems` but preserves the edge relation alongside each
+ * downstream item id. V3.0 cascade enumeration uses this to map each downstream
+ * pair to a `reconciliation_need.kind`. The same (item_id, relation) tuple
+ * yields one row even if the same downstream item appears via multiple
+ * relations — the queue partial unique index dedupes by (source, target, kind).
+ */
+export function getDownstreamEdges(db: DB, specificationId: number, itemId: number): DownstreamEdge[] {
+  return db.all(sql`
+    SELECT ke.from_item_id AS downstream_item_id, ke.relation
+    FROM knowledge_edge ke
+    JOIN knowledge_item ki ON ki.id = ke.from_item_id
+    WHERE ke.to_item_id = ${itemId}
+      AND ki.specification_id = ${specificationId}
+    ORDER BY ke.from_item_id, ke.relation
+  `) as DownstreamEdge[];
 }
 
 /**

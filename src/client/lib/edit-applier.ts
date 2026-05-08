@@ -27,21 +27,21 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
       content: patch.newContent,
       rationale: patch.newRationale,
     });
-    if (!response.updated) {
-      // V2 hard-impact deferral: per SIDE_CHAT.md §6.3, edits with hard impact
-      // are recognized but routed to V3's cascade-preview surface. Rather than
-      // throwing (which would leave the patch stuck in the staged list with
-      // confusing Apply/Discard controls), we return a deferred-applied marker
-      // so the patch transitions cleanly out of staged. Undo is a no-op
-      // because nothing was applied. The host detects `deferred: true` in
-      // applied metadata and surfaces a "deferred to V3" message rather than
-      // the generic "Change saved" toast.
+    if (response.impact === 'hard') {
+      // V3.0 card 1: hard-impact apply now mutates the source and opens
+      // reconciliation_need rows on the server (D139, I112). The patch list
+      // overlay's Pending review surface lands in card 2; until then the
+      // deferred banner stays as the user-visible signal so the patch leaves
+      // staged cleanly. Undo is a no-op for the deferred-banner phase — card 2
+      // wires real resolution actions through the queue. Entity queries are
+      // invalidated because content did mutate.
+      await invalidateEntityQueriesAfterEdit(specificationId);
       return {
         undo: async () => {},
         applied: {
           deferred: true,
           impact: response.impact,
-          message: 'Hard impact — coming in V3 cascade preview',
+          message: 'Hard impact — cascade pending review',
         },
       };
     }
@@ -57,8 +57,10 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
           content: previousContent,
           rationale: previousRationale,
         });
-        if (!undoResponse.updated) {
-          throw new Error('Edit undo deferred: hard impact detected — restore via V3 cascade preview');
+        if (undoResponse.impact === 'hard') {
+          throw new Error(
+            'Edit undo blocked: restore reclassified as hard-impact cascade — resolve via patch list',
+          );
         }
         await invalidateEntityQueriesAfterEdit(specificationId);
       },
