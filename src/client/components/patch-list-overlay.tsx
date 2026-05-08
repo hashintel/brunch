@@ -88,6 +88,7 @@ export function PatchListOverlay(): React.ReactElement | null {
       return () => window.clearTimeout(handle);
     }
 
+    setDeferredBanner(null);
     if (hasNonDeferred && !state.isApplying && stagedCount === 0 && state.canUndo) {
       setSavedToastVisible(true);
       const handle = window.setTimeout(() => setSavedToastVisible(false), MESSAGE_DURATION_MS);
