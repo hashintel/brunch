@@ -2,16 +2,14 @@
 //
 // Renders sticky bars below the global app top-bar:
 //   • Staged-changes bar when there are staged patches.
-//   • <PendingReviewSection /> — open reconciliation_need rows with per-row Resolve (V3.0 cards 2–3;
-//     SIDE_CHAT.md §5.3 — listing via useSpecificationOpenReconciliationNeeds).
 //   • Saved-toast for soft / none / hard impact applies (transient post-apply).
+//
+// Pending review rows render inside the structured-list view (Card 4) rather than here.
 //
 // Lives outside the side-chat popover so it stays visible regardless of whether
 // the panel is open — V4's architect loop will deposit into the same surface.
 
 import { useEffect, useRef, useState } from 'react';
-
-import { useSpecificationOpenReconciliationNeeds } from '@/client/routes/specification/$id/-specification-data.js';
 
 import { ContentDiff } from './content-diff.js';
 import { ImpactChip } from './impact-chip.js';
@@ -20,7 +18,6 @@ import { useLastBatchAppliedMeta, usePatchList, usePatchListState } from './patc
 import { usePatchListOverlayBridge } from './patch-list-overlay-bridge.js';
 import type { Patch } from './patch-list-reducer.js';
 import { usePatchListUndoOverride } from './patch-list-undo-context.js';
-import { PendingReviewSection } from './pending-review-section.js';
 
 const MESSAGE_DURATION_MS = 5000;
 
@@ -76,10 +73,8 @@ export function PatchListOverlay(): React.ReactElement | null {
   const lastBatchAppliedMeta = useLastBatchAppliedMeta();
   const undoOverride = usePatchListUndoOverride();
   const overlayBridge = usePatchListOverlayBridge();
-  const openNeeds = useSpecificationOpenReconciliationNeeds();
 
   const stagedCount = state.staged.length;
-  const openNeedsCount = openNeeds.length;
 
   const [savedToastVisible, setSavedToastVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -97,6 +92,7 @@ export function PatchListOverlay(): React.ReactElement | null {
   // `canUndo` true→false hides the toast on undo, but must not win over a batch advance in
   // the same commit (soft-impact apply then hard-impact apply both update `lastBatchId`
   // and flip `canUndo` to false; two separate effects would batch hide-after-show).
+  // The toast Undo affordance still renders only when `canUndo` (see JSX below).
   //
   // Deps are intentionally narrow: a wider dep array re-runs cleanup on unrelated churn
   // (e.g. stagedCount change), cancelling the auto-hide timer and leaving the toast stuck.
@@ -148,8 +144,8 @@ export function PatchListOverlay(): React.ReactElement | null {
     void patchList.apply();
   };
 
-  // Nothing to surface: no staged patches, no open needs, no transient toast.
-  if (stagedCount === 0 && openNeedsCount === 0 && !savedToastVisible) {
+  // Nothing to surface: no staged patches and no transient toast.
+  if (stagedCount === 0 && !savedToastVisible) {
     return null;
   }
 
@@ -163,7 +159,7 @@ export function PatchListOverlay(): React.ReactElement | null {
           aria-label="Staged changes"
           data-staged-count={stagedCount}
           data-expanded={expanded ? 'true' : 'false'}
-          className="border-b border-rule bg-card/95 backdrop-blur"
+          className="border-b border-rule bg-card/95"
         >
           <div className="flex items-center justify-between gap-3 px-4 py-1.5 text-xs">
             <button
@@ -218,14 +214,32 @@ export function PatchListOverlay(): React.ReactElement | null {
           ) : null}
         </div>
       ) : null}
-      <PendingReviewSection />
+      {/* PendingReviewSection now renders inside the structured-list view
+          (just under the kind toggle chips) so the open-needs queue lives
+          next to the items it concerns instead of as a global top bar. */}
       {savedToastVisible ? (
         <div
           role="status"
           aria-label="Change saved"
-          className="flex items-center justify-between gap-3 border-b border-rule bg-card/95 px-4 py-1.5 text-xs backdrop-blur"
+          className="flex animate-in items-center justify-between gap-3 border-b border-rule bg-card/95 px-4 py-1.5 text-xs duration-200 fade-in slide-in-from-top-1"
         >
-          <span className="font-medium text-ink">Change saved</span>
+          <span className="inline-flex items-center gap-1.5 font-medium text-ink">
+            <span
+              aria-hidden
+              className="inline-flex size-3.5 animate-in items-center justify-center rounded-full bg-emerald-500 text-white duration-200 zoom-in"
+            >
+              <svg
+                viewBox="0 0 12 12"
+                className="size-2.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M2.5 6.5l2.25 2.25L9.5 3.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            Change saved
+          </span>
           {state.canUndo ? (
             <button
               type="button"

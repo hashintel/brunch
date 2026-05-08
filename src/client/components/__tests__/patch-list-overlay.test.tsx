@@ -223,39 +223,7 @@ describe('PatchListOverlay', () => {
     expect(editApplier).toHaveBeenCalledTimes(1);
   });
 
-  it('renders the Pending review section listing open reconciliation needs (V3.0 card 2)', () => {
-    setMockOpenNeeds([
-      makeNeed({ id: 1, source_item_id: 10, target_item_id: 20, kind: 'needs_confirmation' }),
-      makeNeed({ id: 2, source_item_id: 10, target_item_id: 21, kind: 'supersedes' }),
-    ]);
-    const appliers = makeAppliers();
-    render(
-      <PatchListProvider appliers={appliers}>
-        <PatchListOverlay />
-      </PatchListProvider>,
-    );
-    const section = screen.getByRole('region', { name: /pending review/i });
-    expect(section.getAttribute('data-open-needs-count')).toBe('2');
-    expect(section.textContent).toContain('2 pending reviews');
-    // Each need rendered with its kind chip and source→target reference
-    expect(section.querySelector('[data-need-id="1"]')?.textContent).toContain('source #10');
-    expect(section.querySelector('[data-need-id="1"]')?.textContent).toContain('target #20');
-    expect(section.querySelector('[data-need-id="1"][data-need-kind="needs_confirmation"]')).toBeTruthy();
-    expect(section.querySelector('[data-need-id="2"][data-need-kind="supersedes"]')).toBeTruthy();
-  });
-
-  it('hides the Pending review section when there are zero open needs', () => {
-    setMockOpenNeeds([]);
-    const appliers = makeAppliers();
-    render(
-      <PatchListProvider appliers={appliers}>
-        <PatchListOverlay />
-      </PatchListProvider>,
-    );
-    expect(screen.queryByRole('region', { name: /pending review/i })).toBeNull();
-  });
-
-  it('renders both staged-changes and Pending review when both exist', () => {
+  it('renders staged-changes but no longer composes Pending review (moved into structured-list view, Card 4 follow-up)', () => {
     setMockOpenNeeds([makeNeed({ id: 7 })]);
     const appliers = makeAppliers();
     render(
@@ -266,7 +234,7 @@ describe('PatchListOverlay', () => {
     );
     fireEvent.click(screen.getByText('stage-edit'));
     expect(screen.getByRole('region', { name: /staged changes/i })).toBeTruthy();
-    expect(screen.getByRole('region', { name: /pending review/i })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: /pending review/i })).toBeNull();
   });
 
   it('does not surface any "Hard impact — coming in V3" banner copy', async () => {

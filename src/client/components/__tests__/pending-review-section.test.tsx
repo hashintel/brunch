@@ -71,18 +71,32 @@ describe('PendingReviewSection', () => {
     expect(container.querySelector('[role="region"]')).toBeNull();
   });
 
-  it('lists open needs with kind chip and source/target references', () => {
+  it('lists open needs with kind chip and target reference', () => {
     setMockOpenNeeds([
-      makeNeed({ id: 1, source_item_id: 10, target_item_id: 20, kind: 'needs_confirmation' }),
-      makeNeed({ id: 2, source_item_id: 10, target_item_id: 21, kind: 'supersedes' }),
+      makeNeed({
+        id: 1,
+        source_item_id: 10,
+        target_item_id: 20,
+        kind: 'needs_confirmation',
+        target_current_content: null,
+      }),
+      makeNeed({
+        id: 2,
+        source_item_id: 10,
+        target_item_id: 21,
+        kind: 'supersedes',
+        target_current_content: null,
+      }),
     ]);
     render(<PendingReviewSection />);
     const region = screen.getByRole('region', { name: /pending review/i });
     expect(region.getAttribute('data-open-needs-count')).toBe('2');
     expect(region.textContent).toContain('2 pending reviews');
-    expect(region.querySelector('[data-need-id="1"]')?.textContent).toContain('source #10');
-    expect(region.querySelector('[data-need-id="1"]')?.textContent).toContain('target #20');
-    expect(region.querySelector('[data-need-id="1"][data-need-kind="needs_confirmation"]')).toBeTruthy();
+    // Card 4: row title now leads with the target reference (#ID · excerpt|fallback).
+    // The kind chip carries the supersedes/confirm label.
+    const row1 = region.querySelector('[data-need-id="1"]');
+    expect(row1?.textContent).toContain('#20');
+    expect(row1?.querySelector('[data-kind-chip="needs_confirmation"]')).toBeTruthy();
     expect(region.querySelector('[data-need-id="2"][data-need-kind="supersedes"]')).toBeTruthy();
   });
 
@@ -157,11 +171,12 @@ describe('PendingReviewSection', () => {
     expect(screen.queryByRole('region', { name: /pending review/i })).toBeNull();
   });
 
-  // Card 2 (V3.1 setup): each row renders a <ContentDiff> of the source
-  // item's before/after content when both snapshots are present and differ.
-  // Reuses the existing ContentDiff component (FE-665); no new diff styling.
-  describe('source diff inline (card 2)', () => {
-    it('renders the source diff when both snapshots are present and differ', () => {
+  // Card 4 polish: the source diff is no longer rendered inline. Each row
+  // exposes a "↗ view source diff" chip that opens a <DiffPopover> anchored
+  // to the chip. The chip is gated on both snapshots being present and
+  // differing — matching the prior inline-rendering condition.
+  describe('source diff popover (card 4 polish)', () => {
+    it('renders a "view source diff" chip when both snapshots are present and differ', () => {
       setMockOpenNeeds([
         makeNeed({
           id: 1,
@@ -171,26 +186,43 @@ describe('PendingReviewSection', () => {
       ]);
       render(<PendingReviewSection />);
       const row = screen.getByRole('region').querySelector('[data-need-id="1"]');
-      expect(row?.querySelector('[data-content-diff]')).toBeTruthy();
-      // Removed and added word-level segments both appear.
-      expect(row?.querySelector('[data-diff-kind="removed"]')).toBeTruthy();
-      expect(row?.querySelector('[data-diff-kind="added"]')).toBeTruthy();
+      expect(row?.querySelector('[data-view-source-diff-chip]')).toBeTruthy();
+      // The inline ContentDiff block has been removed.
+      expect(row?.querySelector('[data-content-diff]')).toBeNull();
     });
 
-    it('labels the source diff with "Source change" so it is not confused with future target diffs', () => {
+    it('clicking the chip opens the DiffPopover with removed/added spans', () => {
       setMockOpenNeeds([
         makeNeed({
           id: 1,
+          source_previous_content: 'Use SQLite',
+          source_current_content: 'Use Postgres',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      expect(document.querySelector('[data-diff-popover]')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: /view source diff for need 1/i }));
+      const popover = document.querySelector('[data-diff-popover]');
+      expect(popover).not.toBeNull();
+      expect(popover!.querySelector('[data-diff-kind="removed"]')).toBeTruthy();
+      expect(popover!.querySelector('[data-diff-kind="added"]')).toBeTruthy();
+    });
+
+    it('renders a "from #ID was edited" sub-line alongside the chip', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          source_item_id: 9,
           source_previous_content: 'Old',
           source_current_content: 'New',
         }),
       ]);
       render(<PendingReviewSection />);
       const row = screen.getByRole('region').querySelector('[data-need-id="1"]');
-      expect(row?.textContent).toMatch(/source change/i);
+      expect(row?.textContent).toContain('from #9 was edited');
     });
 
-    it('renders no diff when either snapshot is null (legacy rows)', () => {
+    it('renders no chip when either snapshot is null (legacy rows)', () => {
       setMockOpenNeeds([
         makeNeed({
           id: 1,
@@ -210,12 +242,12 @@ describe('PendingReviewSection', () => {
       ]);
       render(<PendingReviewSection />);
       const region = screen.getByRole('region');
-      expect(region.querySelectorAll('[data-content-diff]')).toHaveLength(0);
+      expect(region.querySelectorAll('[data-view-source-diff-chip]')).toHaveLength(0);
       // Rows still render, Resolve button still works.
-      expect(screen.getAllByRole('button', { name: /resolve/i })).toHaveLength(3);
+      expect(screen.getAllByRole('button', { name: /^resolve$/i })).toHaveLength(3);
     });
 
-    it('renders no diff when before === after (no actual change)', () => {
+    it('renders no chip when before === after (no actual change)', () => {
       setMockOpenNeeds([
         makeNeed({
           id: 1,
@@ -225,11 +257,7 @@ describe('PendingReviewSection', () => {
       ]);
       render(<PendingReviewSection />);
       const row = screen.getByRole('region').querySelector('[data-need-id="1"]');
-      // ContentDiff returns null when there is no change, so the diff block
-      // is absent. The "Source change" label is also absent because it is
-      // only rendered alongside a non-null diff.
-      expect(row?.querySelector('[data-content-diff]')).toBeNull();
-      expect(row?.textContent).not.toMatch(/source change/i);
+      expect(row?.querySelector('[data-view-source-diff-chip]')).toBeNull();
     });
   });
 
@@ -245,7 +273,7 @@ describe('PendingReviewSection', () => {
         makeNeed({ id: 2, target_current_content: 'B' }),
       ]);
       render(<PendingReviewSection />);
-      expect(screen.getAllByRole('button', { name: /^edit target$/i })).toHaveLength(2);
+      expect(screen.getAllByRole('button', { name: /edit target for need/i })).toHaveLength(2);
     });
 
     it('expands an inline textarea pre-filled with target_current_content', () => {
@@ -258,7 +286,7 @@ describe('PendingReviewSection', () => {
       render(<PendingReviewSection />);
       // No textarea visible until Edit target is clicked.
       expect(screen.queryByRole('textbox')).toBeNull();
-      fireEvent.click(screen.getByRole('button', { name: /^edit target$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /edit target for need 1/i }));
       const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
       expect(textarea.value).toBe('Validate email format on form submit');
     });
@@ -266,7 +294,7 @@ describe('PendingReviewSection', () => {
     it('Cancel collapses the form without calling any request', () => {
       setMockOpenNeeds([makeNeed({ id: 1, target_current_content: 'Old target' })]);
       render(<PendingReviewSection />);
-      fireEvent.click(screen.getByRole('button', { name: /^edit target$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /edit target for need 1/i }));
       expect(screen.getByRole('textbox')).toBeTruthy();
       fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
       expect(screen.queryByRole('textbox')).toBeNull();
@@ -284,7 +312,7 @@ describe('PendingReviewSection', () => {
         }),
       ]);
       render(<PendingReviewSection />);
-      fireEvent.click(screen.getByRole('button', { name: /^edit target$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /edit target for need 7/i }));
       const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
       fireEvent.change(textarea, { target: { value: 'New target content' } });
       await act(async () => {
@@ -316,7 +344,7 @@ describe('PendingReviewSection', () => {
       );
       setMockOpenNeeds([makeNeed({ id: 1, target_current_content: 'Old' })]);
       render(<PendingReviewSection />);
-      fireEvent.click(screen.getByRole('button', { name: /^edit target$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /edit target for need 1/i }));
       fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
       // Save morphs to a saving label and disables; Resolve also disables.
       expect(screen.getByRole('button', { name: /saving/i })).toHaveProperty('disabled', true);
@@ -331,8 +359,33 @@ describe('PendingReviewSection', () => {
       render(<PendingReviewSection />);
       // Without target content, there is nothing to pre-fill, so the affordance
       // is hidden — the user can still resolve via the existing Resolve button.
-      expect(screen.queryByRole('button', { name: /^edit target$/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /edit target for need 1/i })).toBeNull();
       expect(screen.getByRole('button', { name: /^resolve$/i })).toBeTruthy();
+    });
+
+    it('Save button shows a Loader2 spinner during in-flight save (Card 4)', async () => {
+      let resolveEdit: () => void = () => {};
+      mockEditKnowledgeItemRequest.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveEdit = () =>
+              resolve({
+                impact: 'soft' as const,
+                affectedItems: [],
+                updated: true as const,
+                previousContent: 'old',
+                previousRationale: null,
+              });
+          }),
+      );
+      setMockOpenNeeds([makeNeed({ id: 1, target_current_content: 'Old' })]);
+      const { container } = render(<PendingReviewSection />);
+      fireEvent.click(screen.getByRole('button', { name: /edit target for need 1/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+      expect(container.querySelector('.lucide-loader-circle')).not.toBeNull();
+      await act(async () => {
+        resolveEdit();
+      });
     });
   });
 });

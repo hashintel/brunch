@@ -108,7 +108,7 @@ Each row gets an "Edit target" button that expands an inline textarea pre-filled
 
 ---
 
-## 4 — Side-chat / pending-review polish — Figma alignment + `DiffPopover` primitive (client) — `queued`
+## 4 — Side-chat / pending-review polish — Figma alignment + `DiffPopover` primitive (client) — `done`
 
 ### Objective
 
