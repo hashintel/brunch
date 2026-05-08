@@ -1,9 +1,9 @@
 import type { SpecificationMode } from '@/shared/api-types.js';
 import type { ReviewSetData } from '@/shared/chat.js';
-import { knowledgeKindRegistry } from '@/shared/knowledge.js';
 import { getReviewItemIdentity } from '@/shared/review-diffing.js';
 import { getTurnPreface, getPersistedReviewSet } from '@/shared/specification-state.js';
 
+import { buildObserverCaptureContextPack, renderObserverCaptureContextPack } from './context-pack.js';
 import type { TurnWithOptions } from './core.js';
 import { formatProjectedTurnResponse, projectTurnResponse } from './turn-response.js';
 
@@ -184,29 +184,6 @@ export interface ObserverContextInput {
   };
 }
 
-const OBSERVER_ANCHOR_PREVIEW_MAX_LENGTH = 160;
-
-function formatObserverAnchorPreview(content: string): string {
-  const normalized = content.replace(/\s+/g, ' ').trim();
-  if (normalized.length <= OBSERVER_ANCHOR_PREVIEW_MAX_LENGTH) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, OBSERVER_ANCHOR_PREVIEW_MAX_LENGTH - 1).trimEnd()}…`;
-}
-
-function formatExistingKnowledgeAnchors(input: ObserverContextInput['entities']): string | null {
-  const lines: string[] = [];
-
-  for (const entry of knowledgeKindRegistry) {
-    for (const item of input[entry.collectionKey]) {
-      lines.push(`#${item.id} ${entry.kind} | ${formatObserverAnchorPreview(item.content)}`);
-    }
-  }
-
-  return lines.length > 0 ? `Existing knowledge anchors:\n${lines.join('\n')}` : null;
-}
-
 /**
  * Build observer context optimized for entity extraction.
  * Provides the current turn's Q&A plus existing entity graph — NOT full
@@ -214,45 +191,5 @@ function formatExistingKnowledgeAnchors(input: ObserverContextInput['entities'])
  * "given what we already know, what did *this turn* add?"
  */
 export function buildObserverContext(input: ObserverContextInput): string {
-  const sections: string[] = [];
-
-  if (input.specificationMode === 'brownfield') {
-    const specificationContextLines = [
-      'This specification is scoped to a feature or change within an existing codebase.',
-    ];
-    if (input.workspaceDirectory) {
-      specificationContextLines.push(`Workspace directory: ${input.workspaceDirectory}`);
-    }
-    sections.push(specificationContextLines.join('\n'));
-  }
-
-  const existingKnowledgeAnchors = formatExistingKnowledgeAnchors(input.entities);
-  if (existingKnowledgeAnchors) {
-    sections.push(existingKnowledgeAnchors);
-  }
-
-  if (input.activePathSummary) {
-    sections.push(`Interview summary:\n${input.activePathSummary}`);
-  }
-
-  const turnLines = [`Current turn #${input.turn.id}:`, `  Phase: ${input.turn.phase}`];
-  const preface = getTurnPreface(input.turn);
-  if (preface) {
-    turnLines.push(`  Preface: ${preface.observation}`);
-    if (preface.elaboration) {
-      turnLines.push(`  Preface elaboration: ${preface.elaboration}`);
-    }
-  }
-  if (input.turn.question) turnLines.push(`  Question: ${input.turn.question}`);
-  if (input.turn.why) turnLines.push(`  Why: ${input.turn.why}`);
-  if (input.turn.impact) turnLines.push(`  Impact: ${input.turn.impact}`);
-  const projectedResponse = projectTurnResponse(input.turn);
-  if (projectedResponse) {
-    turnLines.push(formatProjectedTurnResponse(projectedResponse));
-  } else if (input.turn.answer) {
-    turnLines.push(`  Answer: ${input.turn.answer}`);
-  }
-  sections.push(turnLines.join('\n'));
-
-  return sections.join('\n\n');
+  return renderObserverCaptureContextPack(buildObserverCaptureContextPack(input));
 }
