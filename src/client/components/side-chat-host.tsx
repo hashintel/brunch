@@ -464,7 +464,7 @@ export function SideChatHost({
                   anchor: { kind: session.itemKind, itemId: session.itemId },
                   targetAnchor: { kind: target.kind, itemId: target.itemId },
                   relation: event.input.relation,
-                  summary: `Edge: ${session.pinnedItem.referenceCode} ${event.input.relation.replace('_', ' ')} ${target.referenceCode}`,
+                  summary: `Edge: ${session.pinnedItem.referenceCode} ${event.input.relation.replaceAll('_', ' ')} ${target.referenceCode}`,
                 });
               } else if (event.type === 'patch-proposal' && event.toolName === 'propose_drill_down') {
                 const patchList = patchListRef.current;
