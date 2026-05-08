@@ -4,6 +4,8 @@ import * as z from 'zod/v4';
 import { edgeRelationSchema } from '@/shared/api-types.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
+import { renderPromptAsset } from './prompt-loader.js';
+
 export interface SideChatPinnedItem {
   kind: KnowledgeKind;
   referenceCode: string;
@@ -45,11 +47,7 @@ export interface BuildPromptOptions {
   mode?: SideChatMode;
 }
 
-const SIDE_CHAT_ROLE_PROMPT = `You are the side-chat assistant in Brunch. The user has pinned a specific knowledge item from their spec and wants to discuss it with you in place.
-
-Your job is to help the user think about the pinned item: explain it, surface its assumptions, weigh tradeoffs, suggest refinements. Stay focused on the pinned item — only widen the discussion when the user explicitly asks.
-
-You are NOT conducting a structured interview. Do not ask multiple-choice questions, do not propose closing phases, and do not follow a phase-by-phase elicitation script. Respond conversationally in plain text.`;
+const SIDE_CHAT_ROLE_PROMPT = renderPromptAsset('side-chat.role');
 
 // FE-698 migration: when the shared prompt registry lands, move
 // SIDE_CHAT_EDIT_MODE_PROMPT into that registry and replace the inline addendum

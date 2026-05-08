@@ -210,21 +210,33 @@ When a patch with kind `edit` is applied, the system routes by **two questions i
 |---|---|---|
 | **None** | `affectedCount === 0` (item is a graph leaf with no downstream edges) | Apply directly. Single-item content update; brief inline confirmation card in the panel: "Updated `[X]`." |
 | **Soft** | `1 ≤ affectedCount ≤ 2` AND no anchor or affected item is in an active review set *(active = generated and not yet accepted)* | Apply with **soft recomputing**. Patch lands directly; brief inline confirmation lists the affected items: "Updated `[X]`; recomputed `[Y]`, `[Z]`." No cascade preview. |
-| **Hard** | High downstream count, OR any anchor or affected item is in an active review set | **Cascade preview** → batch-resolution secondary-thread mode (§5.3). Current REVISIT_MODULE flow. |
+| **Hard** | High downstream count, OR any anchor or affected item is in an active review set | **Cascade preview** backed by `reconciliation_need` rows → batch-resolution mode in the side-chat panel (§5.3). The archived REVISIT_MODULE walk is superseded. |
 
 ### 5.2 Confidence model — V1
 
 V1 ships with **mechanical-only** routing: `affectedCount` and review-set membership are deterministic and trivially computable from the existing graph state. No semantic-shift detection in V1. Tuning the count thresholds (currently `0` for None, `1–2` for Soft, `3+` for Hard) is deferred until we have user-flow data on whether soft-edit feels too aggressive or too cautious.
 
-### 5.3 Hard edit — batch resolution
+### 5.3 Hard edit — cascade through the reconciliation queue
 
-Lu's batch idea reshapes the current REVISIT secondary-thread walk. Instead of "walk each affected item one at a time," the cascade preview groups affected items by predicted resolution shape:
+Hard-edit cascade is no longer a one-shot REVISIT walk. In this stack, the downstack multi-chat substrate (FE-697) provides a durable `reconciliation_need` queue: directed item-to-item rows with `kind ∈ { supersedes, needs_confirmation }`, `status ∈ { open, resolved }`, partial unique index on open rows, and `caused_by_turn_id` provenance. V3 reads from that queue after FE-697 lands.
 
-- **Auto-confirm group** — review-only affected items (no content change needed). One click confirms all.
-- **Auto-edit group** — items where the change is a mechanical text replacement (e.g. "family" → "household" in derived items). One click applies all.
-- **Substantive group** — items where the user's judgment is required. Walk these one at a time using the existing REVISIT resolution flow.
+**On hard-impact apply:**
 
-A typical 5-item cascade collapses from ~5 sequential resolutions to 2 group decisions + 1 substantive walk.
+1. The source content change lands as in V2 None/Soft.
+2. The server enumerates `knowledge_edge` rows incident on the changed item under typed relation policy (`depends_on`, `derived_from`, `constrains`, `refines`, `verifies`) — Path 1 from `docs/design/MULTI_CHAT.md` §5.1.
+3. For each affected pair, an open `reconciliation_need` row opens with the appropriate kind. Re-firing on an already-open `(source, target, kind)` is a no-op (partial unique index).
+4. Open needs surface in the patch list overlay as a `Pending review` section.
+5. The user resolves each need: accept content change to the target / edit target / dismiss. Resolution writes `status = resolved` and `resolved_at`; mutating resolutions go through the existing edit pipeline and may themselves open further needs (re-entrant cascade, intentional).
+
+**V3.0 grouping is mechanical, not agent-classified.** Needs are grouped in the overlay by `kind` (`supersedes` first, then `needs_confirmation`) and within each kind by relation type. There is no auto-confirm / auto-edit / substantive ML classification in V3.0.
+
+**V3.1 — agent-grouped resolution.** Once the reconciliation agent ships (MULTI_CHAT.md Phase 3), it reclassifies open needs into:
+
+- **Auto-confirm group** — review-only affected items where no content change is implied by the source change. One click confirms all (writes `status = resolved` per row, no target mutation).
+- **Auto-edit group** — items where the change is a mechanical text replacement (e.g. "family" → "household" in derived items). One click applies all through the standard edit pipeline.
+- **Substantive group** — items where user judgment is required. Walk these one at a time inside the side-chat panel using the existing pinned-context conversation model.
+
+A typical 5-item cascade in V3.1 collapses from ~5 sequential resolutions to 2 group decisions + 1 substantive walk; V3.0 surfaces all 5 mechanically and the user still walks each.
 
 ## 6. Class-Specific Durability Mechanics
 
@@ -270,13 +282,15 @@ Surfacing rules:
 
 ## 8. Dependency Assumptions
 
-Two upstream changes are noted as **future-work assumptions** in `memory/SPEC.md`. Neither blocks V1.
+The side-chat's substrate dependencies have shifted as the multi-chat work landed. Two assumptions are unchanged; one is partly satisfied.
 
-### A71: patch / event-stream data model
+### A71 *(partly satisfied)*: patch / event-stream data model
 
-`spec → chat → turns` with diff patches as the persistence primitive. The side-chat's patch list maps onto this model naturally. On the current store-of-stores, the V1 patch list is internally a lightweight in-memory staging area that translates to the existing per-store mutation calls at apply time.
+The original framing — `spec → chat → turns` with diff patches as the persistence primitive — is split. In this stack, the `spec → chat → turns` half is supplied by downstack FE-697: a `chat` table, nullable `turn.chat_id`, `specification.primary_chat_id`, mirrored `chat.active_turn_id`, and a `reconciliation_need` queue with placeholder `caused_by_patch_id`. The patch ledger half remains horizon work tracked in `docs/design/PATCH_LEDGER.md`.
 
-**Implication if this lands later:** the patch list's apply step becomes a single `appendPatch(spec, patch[])` call instead of a fan-out across stores. No user-facing change.
+**Implication for V3.** The cascade preview reads `reconciliation_need` rows directly (see §5.3, §13). Side-chat threads themselves stay in-memory through V3 — durable side-chat persistence is MULTI_CHAT.md Phase 2 / V4 and is **not** a V3 prerequisite.
+
+**Implication if the patch ledger lands later:** `reconciliation_need.caused_by_patch_id` becomes populated; resolutions write patches; the in-memory patch list translates to `appendPatch(spec, patch[])`. No user-facing change to V3 surfaces.
 
 ### A72: knowledge-item versioning
 
@@ -294,8 +308,9 @@ Captured in §7. The side-chat is *user-driven*; the architect is *system-driven
 |---|---|
 | **V1** | Popover-to-panel surface · multi-pin · Class 1 (Explore) · Class 4 (Annotate). Patch list surface (top-bar summary + overlay) introduced but holds at most one entry (annotation only). Single thread per spec session; tab strip rendered with `Old chat` disabled placeholder. No Edit, no Drill-down, no Propose-edge. |
 | **V2** | Edit (router) · Drill-down · Propose-edge in the patch list. **None** and **Soft** edit tiers apply directly. **Hard** edit defers to a placeholder "feature coming" message. Refine routes through normal turn machinery. |
-| **V3** | Hard edit absorbs REVISIT_MODULE — cascade preview inline, batch-resolution secondary-thread mode in the panel. REVISIT modal goes away. |
-| **V4 (later)** | Patch / event-stream data model + item versioning land. Architect loop can deposit into the same patch list. Multiple persistent chat threads per spec (`Old chat` tab activates). |
+| **V3.0** | Hard-edit apply opens `reconciliation_need` rows from existing graph edges (Path 1, deterministic). Cascade preview surfaces as a `Pending review` section inside the canonical patch-list overlay; per-row actions accept / edit-target / dismiss. The V2 `deferred: true` server response and the "Hard impact — coming in V3 cascade preview" banner are removed. Acceptance Criterion #7 satisfied mechanically. No reconciliation agent. REVISIT modal stays archived. |
+| **V3.1** | Reconciliation agent reclassifies open needs into auto-confirm / auto-edit / substantive groups. Substantive walk lands inside the side-chat panel using pinned-context conversation. Path 2 observer expansion still horizon. |
+| **V4 (later)** | Patch ledger lands. `reconciliation_need.caused_by_patch_id` populates; resolutions write typed patches; item versioning anchors annotations and soft-edit audit. Architect loop deposits into the same patch list. Multiple persistent chat threads per spec (`Old chat` tab activates). |
 
 ## 10. Verification Stance
 
@@ -383,6 +398,28 @@ Clicking the counter opens an overlay panel listing staged patches. The overlay 
 - **Patch conflict resolution.** When two staged patches modify the same anchor, what's the resolution UX? Likely: surface conflict at apply time, ask user to pick or merge. Defer detailed design to V2.
 - **Chat-runtime sharing.** Does the side-chat use the main interview's runtime (cheaper context, shared cost) or a separate scoped runtime (clean isolation)? V1 uses a separate runtime to avoid coupling; revisit if token cost becomes an issue.
 - **Patch list persistence across page reload.** Does the patch list survive a browser reload, or is it session-scoped only? V1: session-scoped, in-memory. Persist when the patch / event-stream data model lands (A71).
+
+## 13. Substrate Alignment
+
+V-versions in §9 describe the *user surface*; substrate phases in `docs/design/MULTI_CHAT.md` §10 describe the *data model*. They evolve independently. Mapping at time of writing:
+
+| User-surface version | Substrate phase requirement | Notes |
+|---|---|---|
+| V1 (Explore + Annotate) | Phase 1 not required | Shipped against in-memory patch list. |
+| V2 (Edit / Drill-down / Propose-edge, None+Soft tiers) | Phase 1 not required | Shipped against in-memory patch list; hard branch returns `deferred: true`. |
+| **V3.0** *(this design's next slice)* | **Phase 1 read side** | Hard apply writes `reconciliation_need` rows; UI reads the queue. No agent, no Phase 2 chat persistence. |
+| V3.1 | Phase 3 | Reconciliation agent reads queue and produces grouped resolutions. |
+| V4 | Phase 4 | Patch ledger; durable side-chat history; architect loop. |
+
+**Decisions and assumptions that govern V3.0:**
+
+- Decision **D135** — semantic mutation history splits from turn history; revisit/cascade product capability stays live; `revisit_session` is no longer the persistence foundation.
+- Decision **D137** — knowledge edges carry intent semantics; `reconciliation_need` is process debt. The two never merge.
+- Decision **D138** — multi-chat substrate is the first concrete persistence slice; the queue carries `caused_by_turn_id` immediately and `caused_by_patch_id` later.
+- Decision **D139** *(new in V3.0)* — hard-impact edit cascade reads from the `reconciliation_need` queue; `deferred: true` is removed from the apply contract.
+- Assumption **A71** — partly satisfied (see §8).
+- Assumption **A84** *(new in V3.0)* — Path 1 deterministic enumeration over existing `knowledge_edge` rows yields a useful cascade preview without requiring the reconciliation agent in V3.0.
+- Invariant **I112** *(new in V3.0)* — hard-impact apply opens at least one `reconciliation_need` per existing dependency edge incident on the changed item, and the apply contract no longer returns `deferred: true`.
 
 ---
 
