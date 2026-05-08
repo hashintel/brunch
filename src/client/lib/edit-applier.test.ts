@@ -108,11 +108,12 @@ describe('makeEditApplier', () => {
     );
   });
 
-  it('returns a deferred-applied marker on hard-impact response so the patch leaves staged cleanly', async () => {
+  it('returns applied state with openedNeedIds on hard-impact response (V3.0 card 2)', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
-    // V3.0: hard-impact apply now mutates source content and opens reconciliation needs,
-    // but card 1 keeps the deferred banner active by detecting impact === 'hard' on the
-    // client. Card 2 will replace the banner with the Pending review surface.
+    // V3.0 card 2: hard-impact apply has no `deferred: true` shape and no banner
+    // message. The patch transitions out of staged like any soft/none apply, and
+    // open reconciliation_need rows render in the patch-list-overlay's Pending
+    // review section (driven by a separate query).
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         impact: 'hard',
@@ -127,12 +128,14 @@ describe('makeEditApplier', () => {
     const applier = makeEditApplier(SPEC_ID);
     const result = await applier(makeEditPatch());
     expect(result.applied).toEqual({
-      deferred: true,
       impact: 'hard',
-      message: 'Hard impact — cascade pending review',
+      previousContent: 'Old content',
+      previousRationale: 'Old rationale',
+      openedNeedIds: [101, 102],
     });
-    // Undo is a no-op for V3.0 deferred-banner behavior; card 2 will introduce real undo
-    // semantics (resolve / re-open needs) once the patch list overlay surfaces them.
+    // Undo for hard-impact apply is a no-op in card 2 (source mutation
+    // persists; user resolves via the Pending review section). Card 3 wires
+    // real undo semantics once the resolve endpoint exists.
     await expect(result.undo()).resolves.toBeUndefined();
   });
 

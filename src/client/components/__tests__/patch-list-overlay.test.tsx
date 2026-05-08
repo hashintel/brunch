@@ -3,6 +3,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { ReconciliationNeedRecord } from '@/shared/reconciliation-need.js';
+
 import {
   PatchListProvider,
   usePatchList,
@@ -12,8 +14,45 @@ import {
 import { PatchListOverlayBridgeProvider } from '../patch-list-overlay-bridge.js';
 import { PatchListOverlay } from '../patch-list-overlay.js';
 
+// Inject a controllable stub for the open-needs hook so the overlay can be
+// tested without TanStack Router / QueryClientProvider scaffolding. Default
+// returns []; individual tests override via setMockOpenNeeds.
+let mockOpenNeeds: ReconciliationNeedRecord[] = [];
+function setMockOpenNeeds(needs: ReconciliationNeedRecord[]): void {
+  mockOpenNeeds = needs;
+}
+
+vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
+  useSpecificationOpenReconciliationNeeds: () => mockOpenNeeds,
+  // Stub the rest so accidental imports don't blow up.
+  specificationQueryKeys: {
+    bundle: (id: string) => ['specification', id, 'bundle'] as const,
+    entities: (id: string) => ['specification', id, 'entities'] as const,
+    entitiesProjectWide: (id: string) => ['specification', id, 'entities', 'project-wide'] as const,
+    reconciliationNeeds: (id: string) => ['specification', id, 'reconciliation-needs'] as const,
+  },
+  invalidateOpenReconciliationNeeds: vi.fn(),
+}));
+
+function makeNeed(overrides: Partial<ReconciliationNeedRecord> = {}): ReconciliationNeedRecord {
+  return {
+    id: overrides.id ?? 1,
+    specification_id: overrides.specification_id ?? 1,
+    source_item_id: overrides.source_item_id ?? 10,
+    target_item_id: overrides.target_item_id ?? 20,
+    kind: overrides.kind ?? 'needs_confirmation',
+    status: overrides.status ?? 'open',
+    reason: overrides.reason ?? null,
+    caused_by_turn_id: overrides.caused_by_turn_id ?? null,
+    caused_by_patch_id: overrides.caused_by_patch_id ?? null,
+    created_at: overrides.created_at ?? '2026-05-08T00:00:00Z',
+    resolved_at: overrides.resolved_at ?? null,
+  };
+}
+
 afterEach(() => {
   cleanup();
+  setMockOpenNeeds([]);
 });
 
 beforeEach(() => {
@@ -192,14 +231,61 @@ describe('PatchListOverlay', () => {
     expect(editApplier).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the deferred banner with the message after a hard-impact deferred apply', async () => {
+  it('renders the Pending review section listing open reconciliation needs (V3.0 card 2)', () => {
+    setMockOpenNeeds([
+      makeNeed({ id: 1, source_item_id: 10, target_item_id: 20, kind: 'needs_confirmation' }),
+      makeNeed({ id: 2, source_item_id: 10, target_item_id: 21, kind: 'supersedes' }),
+    ]);
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+      </PatchListProvider>,
+    );
+    const section = screen.getByRole('region', { name: /pending review/i });
+    expect(section.getAttribute('data-open-needs-count')).toBe('2');
+    expect(section.textContent).toContain('2 pending reviews');
+    // Each need rendered with its kind chip and source→target reference
+    expect(section.querySelector('[data-need-id="1"]')?.textContent).toContain('source #10');
+    expect(section.querySelector('[data-need-id="1"]')?.textContent).toContain('target #20');
+    expect(section.querySelector('[data-need-id="1"][data-need-kind="needs_confirmation"]')).toBeTruthy();
+    expect(section.querySelector('[data-need-id="2"][data-need-kind="supersedes"]')).toBeTruthy();
+  });
+
+  it('hides the Pending review section when there are zero open needs', () => {
+    setMockOpenNeeds([]);
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+      </PatchListProvider>,
+    );
+    expect(screen.queryByRole('region', { name: /pending review/i })).toBeNull();
+  });
+
+  it('renders both staged-changes and Pending review when both exist', () => {
+    setMockOpenNeeds([makeNeed({ id: 7 })]);
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchButton />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit'));
+    expect(screen.getByRole('region', { name: /staged changes/i })).toBeTruthy();
+    expect(screen.getByRole('region', { name: /pending review/i })).toBeTruthy();
+  });
+
+  it('does not surface any "Hard impact — coming in V3" banner copy', async () => {
     const editApplier = vi.fn(() =>
       Promise.resolve({
         undo: () => Promise.resolve(),
         applied: {
-          deferred: true,
           impact: 'hard',
-          message: 'Hard impact — coming in V3 cascade preview',
+          previousContent: 'old',
+          previousRationale: null,
+          openedNeedIds: [101],
         },
       }),
     );
@@ -214,61 +300,8 @@ describe('PatchListOverlay', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /apply/i }));
     });
-    const banner = await screen.findByRole('status', { name: /hard impact deferred to v3/i });
-    expect(banner.textContent).toContain('Hard impact — coming in V3 cascade preview');
-    expect(screen.getByRole('button', { name: /dismiss/i })).toBeTruthy();
-    // Saved-toast should NOT show in the overlay for a deferred-only batch
-    expect(screen.queryByRole('status', { name: /change saved/i })).toBeNull();
-  });
-
-  it('clicking Dismiss hides the deferred banner', async () => {
-    const editApplier = vi.fn(() =>
-      Promise.resolve({
-        undo: () => Promise.resolve(),
-        applied: { deferred: true, impact: 'hard', message: 'Hard impact — coming in V3 cascade preview' },
-      }),
-    );
-    const appliers = makeAppliers({ edit: editApplier as unknown as PatchAppliers['edit'] });
-    render(
-      <PatchListProvider appliers={appliers}>
-        <PatchListOverlay />
-        <StageEditPatchButton />
-      </PatchListProvider>,
-    );
-    fireEvent.click(screen.getByText('stage-edit'));
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /apply/i }));
-    });
-    await screen.findByRole('status', { name: /hard impact deferred to v3/i });
-    fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
-    expect(screen.queryByRole('status', { name: /hard impact deferred to v3/i })).toBeNull();
-  });
-
-  it('hides the deferred banner when the applied batch is undone before the timeout', async () => {
-    const editApplier = vi.fn(() =>
-      Promise.resolve({
-        undo: () => Promise.resolve(),
-        applied: { deferred: true, impact: 'hard', message: 'Hard impact — coming in V3 cascade preview' },
-      }),
-    );
-    const appliers = makeAppliers({ edit: editApplier as unknown as PatchAppliers['edit'] });
-    render(
-      <PatchListProvider appliers={appliers}>
-        <PatchListOverlay />
-        <StageEditPatchButton />
-        <UndoButton />
-      </PatchListProvider>,
-    );
-    fireEvent.click(screen.getByText('stage-edit'));
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /apply/i }));
-    });
-    await screen.findByRole('status', { name: /hard impact deferred to v3/i });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /undo-outside-overlay/i }));
-    });
-
+    expect(screen.queryByText(/coming in V3/i)).toBeNull();
+    expect(screen.queryByText(/cascade pending review/i)).toBeNull();
     expect(screen.queryByRole('status', { name: /hard impact deferred to v3/i })).toBeNull();
   });
 
@@ -293,69 +326,19 @@ describe('PatchListOverlay', () => {
     expect(screen.getByRole('status', { name: /change saved/i })).toBeTruthy();
   });
 
-  it('auto-hides the deferred banner after the timeout even when staging activity churns mid-window', async () => {
+  it('shows the saved-toast after a hard-impact apply (V3.0 card 2 — no deferred banner blocking)', async () => {
     const editApplier = vi.fn(() =>
       Promise.resolve({
         undo: () => Promise.resolve(),
-        applied: { deferred: true, impact: 'hard', message: 'Hard impact — coming in V3 cascade preview' },
+        applied: {
+          impact: 'hard',
+          previousContent: 'old',
+          previousRationale: null,
+          openedNeedIds: [101],
+        },
       }),
     );
     const appliers = makeAppliers({ edit: editApplier as unknown as PatchAppliers['edit'] });
-
-    function DiscardAllStaged() {
-      const patchList = usePatchList();
-      const state = usePatchListState();
-      return (
-        <button
-          type="button"
-          onClick={() => {
-            for (const patch of state.staged) {
-              patchList?.discard(patch.id);
-            }
-          }}
-        >
-          discard-all
-        </button>
-      );
-    }
-
-    render(
-      <PatchListProvider appliers={appliers}>
-        <PatchListOverlay />
-        <StageEditPatchButton />
-        <DiscardAllStaged />
-      </PatchListProvider>,
-    );
-
-    fireEvent.click(screen.getByText('stage-edit'));
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /apply/i }));
-    });
-    await screen.findByRole('status', { name: /hard impact deferred to v3/i });
-
-    fireEvent.click(screen.getByText('stage-edit'));
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5_000);
-    });
-
-    fireEvent.click(screen.getByText('discard-all'));
-
-    expect(screen.queryByRole('status', { name: /hard impact deferred to v3/i })).toBeNull();
-  });
-
-  it('replaces a deferred banner with the saved-toast after a later non-deferred apply', async () => {
-    const editApplier = vi
-      .fn()
-      .mockResolvedValueOnce({
-        undo: () => Promise.resolve(),
-        applied: { deferred: true, impact: 'hard', message: 'Hard impact — coming in V3 cascade preview' },
-      })
-      .mockResolvedValueOnce({
-        undo: () => Promise.resolve(),
-        applied: { impact: 'soft', previousContent: 'old' },
-      });
-    const appliers = makeAppliers({ edit: editApplier as unknown as PatchAppliers['edit'] });
     render(
       <PatchListProvider appliers={appliers}>
         <PatchListOverlay />
@@ -367,14 +350,7 @@ describe('PatchListOverlay', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /apply/i }));
     });
-    await screen.findByRole('status', { name: /hard impact deferred to v3/i });
 
-    fireEvent.click(screen.getByText('stage-edit'));
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /apply/i }));
-    });
-
-    expect(screen.queryByRole('status', { name: /hard impact deferred to v3/i })).toBeNull();
     expect(screen.getByRole('status', { name: /change saved/i })).toBeTruthy();
   });
 });
