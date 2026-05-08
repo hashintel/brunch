@@ -9,6 +9,7 @@ export const promptIds = [
   'interviewer.criteria',
   'observer.system',
   'side-chat.role',
+  'reconciliation.classifier',
 ] as const;
 
 export type PromptId = (typeof promptIds)[number];
@@ -22,6 +23,7 @@ const promptAssetFiles = {
   'interviewer.criteria': 'interviewer-criteria.md',
   'observer.system': 'observer-system.md',
   'side-chat.role': 'side-chat-role.md',
+  'reconciliation.classifier': 'reconciliation-classifier.md',
 } satisfies Record<PromptId, string>;
 
 const promptDirectory = join(dirname(fileURLToPath(import.meta.url)), 'prompts');

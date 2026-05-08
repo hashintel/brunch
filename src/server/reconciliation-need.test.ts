@@ -51,6 +51,11 @@ describe('reconciliation_need schema', () => {
     // load-bearing for invariants. See memory/CARDS.md card 1.
     expect(names).toContain('source_previous_content');
     expect(names).toContain('source_current_content');
+    // Slice 4 (V3.1 agent): three new nullable columns carrying the
+    // classifier lifecycle + label + textual proposal. See I114 in SPEC.md.
+    expect(names).toContain('agent_status');
+    expect(names).toContain('agent_classification');
+    expect(names).toContain('agent_proposal');
   });
 
   it('declares ON DELETE CASCADE on both knowledge_item foreign keys', () => {
@@ -109,6 +114,11 @@ describe('reconciliation_need lifecycle', () => {
     // populates them in card 1.
     expect(need.source_previous_content).toBeNull();
     expect(need.source_current_content).toBeNull();
+    // Slice 4 (V3.1 agent): agent_* columns default to null. The run-agent
+    // route walks the row through the lifecycle; nothing else writes them.
+    expect(need.agent_status).toBeNull();
+    expect(need.agent_classification).toBeNull();
+    expect(need.agent_proposal).toBeNull();
   });
 
   it('persists source content snapshots when the cascade producer supplies them', () => {

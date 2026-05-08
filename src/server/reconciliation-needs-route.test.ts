@@ -126,6 +126,36 @@ describe('GET /api/specifications/:id/reconciliation-needs', () => {
     expect(res.body.openNeeds[0].target_current_content).toBe('R1 current content');
   });
 
+  // Slice 4 (V3.1 agent): wire-shape change. The listing endpoint surfaces
+  // the three classifier columns (agent_status, agent_classification,
+  // agent_proposal) so slice 5's per-row chips and slice 6's action buttons
+  // can render without a separate query. Defaults to null on rows the
+  // run-agent route hasn't picked up yet.
+  it('exposes agent_status / agent_classification / agent_proposal on each open need', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'Central goal');
+    const r1 = createKnowledgeItem(db, specId, 'requirement', 'R1');
+    addKnowledgeRelationship(db, r1.id, goal.id, 'depends_on');
+    openReconciliationNeed(db, {
+      specificationId: specId,
+      sourceItemId: goal.id,
+      targetItemId: r1.id,
+      kind: 'needs_confirmation',
+    });
+
+    const res = await request(app).get(`/api/specifications/${specId}/reconciliation-needs`).expect(200);
+
+    expect(res.body.openNeeds).toHaveLength(1);
+    const [row] = res.body.openNeeds as Array<{
+      agent_status: string | null;
+      agent_classification: string | null;
+      agent_proposal: string | null;
+    }>;
+    expect(row.agent_status).toBeNull();
+    expect(row.agent_classification).toBeNull();
+    expect(row.agent_proposal).toBeNull();
+  });
+
   it('excludes resolved reconciliation_need rows', async () => {
     const specId = await createSpec();
     const a = createKnowledgeItem(db, specId, 'goal', 'A');
