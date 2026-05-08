@@ -401,7 +401,7 @@ export function SideChatPopover({
                     data-staged-patch-id={patch.id}
                     className="flex flex-col gap-1 rounded bg-background px-2 py-1"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-start gap-2">
                       {hasDiff ? (
                         <details className="group min-w-0 flex-1">
                           <summary
