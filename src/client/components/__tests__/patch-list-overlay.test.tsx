@@ -199,7 +199,7 @@ describe('PatchListOverlay', () => {
     expect(editApplier).toHaveBeenCalledTimes(1);
   });
 
-  it('composes both staged-changes and Pending review regions when both have content', () => {
+  it('renders staged-changes but no longer composes Pending review (moved into structured-list view, Card 4 follow-up)', () => {
     setMockOpenNeeds([makeNeed({ id: 7 })]);
     const appliers = makeAppliers();
     render(
@@ -210,7 +210,7 @@ describe('PatchListOverlay', () => {
     );
     fireEvent.click(screen.getByText('stage-edit'));
     expect(screen.getByRole('region', { name: /staged changes/i })).toBeTruthy();
-    expect(screen.getByRole('region', { name: /pending review/i })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: /pending review/i })).toBeNull();
   });
 
   it('does not surface any "Hard impact — coming in V3" banner copy', async () => {

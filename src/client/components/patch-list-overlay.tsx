@@ -13,22 +13,12 @@ import { useEffect, useRef, useState } from 'react';
 import { ContentDiff } from './content-diff.js';
 import { ImpactChip } from './impact-chip.js';
 import { kindAccentHex } from './knowledge-card';
-import { useLastBatchAppliedMeta, usePatchList, usePatchListState } from './patch-list-host.js';
+import { usePatchList, usePatchListState } from './patch-list-host.js';
 import { usePatchListOverlayBridge } from './patch-list-overlay-bridge.js';
 import type { Patch } from './patch-list-reducer.js';
 import { usePatchListUndoOverride } from './patch-list-undo-context.js';
-import { PendingReviewSection } from './pending-review-section.js';
 
 const MESSAGE_DURATION_MS = 5000;
-
-function lastBatchHasNonNullApply(meta: ReadonlyArray<{ patchId: string; applied: unknown }>): boolean {
-  for (const entry of meta) {
-    if (entry.applied) {
-      return true;
-    }
-  }
-  return false;
-}
 
 function StagedPatchDetailRow({ patch }: { patch: Patch }): React.ReactElement {
   const showDiff =
@@ -70,7 +60,6 @@ function StagedPatchDetailRow({ patch }: { patch: Patch }): React.ReactElement {
 export function PatchListOverlay(): React.ReactElement | null {
   const patchList = usePatchList();
   const state = usePatchListState();
-  const lastBatchAppliedMeta = useLastBatchAppliedMeta();
   const undoOverride = usePatchListUndoOverride();
   const overlayBridge = usePatchListOverlayBridge();
 
@@ -89,7 +78,10 @@ export function PatchListOverlay(): React.ReactElement | null {
   }, [stagedCount, expanded]);
 
   // Drive transient-message state off lastBatchId transitions: a new batch
-  // means a fresh apply just landed.
+  // means a fresh apply just landed. Fire for any successful batch (annotate,
+  // edit, edge, drill-down). The Undo button inside the toast renders
+  // conditionally on canUndo so hard-impact applies (canUndo=false) still
+  // show "Change saved" without an undo affordance.
   //
   // Deps are intentionally narrow: a wider dep array re-runs cleanup on
   // unrelated churn (e.g. stagedCount change), cancelling the auto-hide
@@ -100,13 +92,7 @@ export function PatchListOverlay(): React.ReactElement | null {
     }
     lastSeenBatchIdRef.current = state.lastBatchId;
 
-    const hasApply = lastBatchHasNonNullApply(lastBatchAppliedMeta);
-
-    // The toast should fire whenever a batch applies, including hard-impact
-    // batches that intentionally have canUndo=false. The Undo button inside
-    // the toast renders conditionally on canUndo so hard applies show "Change
-    // saved" without an undo affordance.
-    if (hasApply && !state.isApplying && stagedCount === 0) {
+    if (!state.isApplying && stagedCount === 0) {
       setSavedToastVisible(true);
       const handle = window.setTimeout(() => setSavedToastVisible(false), MESSAGE_DURATION_MS);
       return () => window.clearTimeout(handle);
@@ -148,7 +134,7 @@ export function PatchListOverlay(): React.ReactElement | null {
           aria-label="Staged changes"
           data-staged-count={stagedCount}
           data-expanded={expanded ? 'true' : 'false'}
-          className="border-b border-rule bg-card/95 backdrop-blur"
+          className="border-b border-rule bg-card/95"
         >
           <div className="flex items-center justify-between gap-3 px-4 py-1.5 text-xs">
             <button
@@ -203,14 +189,32 @@ export function PatchListOverlay(): React.ReactElement | null {
           ) : null}
         </div>
       ) : null}
-      <PendingReviewSection />
+      {/* PendingReviewSection now renders inside the structured-list view
+          (just under the kind toggle chips) so the open-needs queue lives
+          next to the items it concerns instead of as a global top bar. */}
       {savedToastVisible ? (
         <div
           role="status"
           aria-label="Change saved"
-          className="flex items-center justify-between gap-3 border-b border-rule bg-card/95 px-4 py-1.5 text-xs backdrop-blur"
+          className="flex animate-in items-center justify-between gap-3 border-b border-rule bg-card/95 px-4 py-1.5 text-xs duration-200 fade-in slide-in-from-top-1"
         >
-          <span className="font-medium text-ink">Change saved</span>
+          <span className="inline-flex items-center gap-1.5 font-medium text-ink">
+            <span
+              aria-hidden
+              className="inline-flex size-3.5 animate-in items-center justify-center rounded-full bg-emerald-500 text-white duration-200 zoom-in"
+            >
+              <svg
+                viewBox="0 0 12 12"
+                className="size-2.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M2.5 6.5l2.25 2.25L9.5 3.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            Change saved
+          </span>
           {state.canUndo ? (
             <button
               type="button"

@@ -47,6 +47,12 @@ vi.mock('@/client/lib/annotation-api.js', async (importOriginal) => {
 
 afterEach(() => {
   cleanup();
+  // Clear persisted side-chat preferences (layout, mode) so a stored 'edit'
+  // mode from one test doesn't leak into the next test's fresh session and
+  // invert the toggle behaviour assertions.
+  if (typeof window !== 'undefined') {
+    window.localStorage.clear();
+  }
 });
 
 const samplePinnable: SideChatPinnableItem = {
@@ -312,9 +318,9 @@ describe('SideChatHost edit-mode flow (V2)', () => {
     });
 
     // Patch staged → user clicks Apply → patch applies → applier resolves
-    await screen.findByRole('button', { name: /^apply$/i });
+    await screen.findByRole('button', { name: /^apply( [0-9]+ change)?$/i });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^apply( [0-9]+ change)?$/i }));
     });
 
     // After apply, pinned content reflects newContent — no need to reopen
@@ -346,6 +352,7 @@ describe('SideChatHost edit-mode flow (V2)', () => {
     render(
       <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
+          <PatchListOverlay />
           <OpenInEditModeButton item={samplePinnable} />
         </SideChatHost>
       </PatchListProvider>,
@@ -357,14 +364,21 @@ describe('SideChatHost edit-mode flow (V2)', () => {
     await act(async () => {
       fireEvent.keyDown(textarea, { key: 'Enter' });
     });
-    await screen.findByRole('button', { name: /^apply$/i });
+    // Card 4 follow-up: Apply buttons exist in both the overlay's
+    // staged-changes bar and the popover footer; click the first match.
+    await vi.waitFor(() =>
+      expect(screen.getAllByRole('button', { name: /^apply( [0-9]+ change)?$/i }).length).toBeGreaterThan(0),
+    );
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /^apply( [0-9]+ change)?$/i })[0]!);
     });
     await screen.findByText(/Refined: SQLite for local persistence\./i);
 
+    // Card 4 follow-up: Undo lives in the <PatchListOverlay /> saved-toast,
+    // not in the popover composer footer. Pick the overlay's Undo button.
+    const overlaySavedToast = screen.getAllByRole('status', { name: /change saved/i })[0]!;
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
+      fireEvent.click(within(overlaySavedToast).getByRole('button', { name: /^undo$/i }));
     });
 
     await screen.findByText('Use SQLite for local storage.');
@@ -394,7 +408,7 @@ describe('SideChatHost edit-mode flow (V2)', () => {
     fireEvent.click(screen.getByText('stage-active-edit'));
     const stagedRegion = screen.getAllByRole('region', { name: /staged changes/i })[0]!;
     await act(async () => {
-      fireEvent.click(within(stagedRegion).getByRole('button', { name: /^apply$/i }));
+      fireEvent.click(within(stagedRegion).getByRole('button', { name: /^apply( [0-9]+ change)?$/i }));
     });
     await screen.findByText(/Refined: SQLite for local persistence\./i);
 
@@ -432,7 +446,7 @@ describe('SideChatHost edit-mode flow (V2)', () => {
     await act(async () => {
       fireEvent.click(
         within(screen.getAllByRole('region', { name: /staged changes/i })[0]!).getByRole('button', {
-          name: /^apply$/i,
+          name: /^apply( [0-9]+ change)?$/i,
         }),
       );
     });
@@ -461,7 +475,7 @@ describe('SideChatHost annotate flow', () => {
     );
 
     fireEvent.click(screen.getByText('open-side-chat'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
 
     expect(screen.getByLabelText('Annotation summary')).toBeTruthy();
     expect(screen.getByLabelText('Annotation body')).toBeTruthy();
@@ -472,13 +486,14 @@ describe('SideChatHost annotate flow', () => {
     render(
       <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
+          <PatchListOverlay />
           <OpenSideChatButton item={samplePinnable} />
         </SideChatHost>
       </PatchListProvider>,
     );
 
     fireEvent.click(screen.getByText('open-side-chat'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), {
       target: { value: 'Tighten phrasing' },
     });
@@ -500,13 +515,14 @@ describe('SideChatHost annotate flow', () => {
     render(
       <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
+          <PatchListOverlay />
           <OpenSideChatButton item={samplePinnable} />
         </SideChatHost>
       </PatchListProvider>,
     );
 
     fireEvent.click(screen.getByText('open-side-chat'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
     await act(async () => {
@@ -526,13 +542,14 @@ describe('SideChatHost annotate flow', () => {
     render(
       <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
+          <PatchListOverlay />
           <OpenSideChatButton item={samplePinnable} />
         </SideChatHost>
       </PatchListProvider>,
     );
 
     fireEvent.click(screen.getByText('open-side-chat'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
     await act(async () => {
@@ -548,7 +565,7 @@ describe('SideChatHost annotate flow', () => {
     expect(undoMock).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/change saved/i)).toBeNull();
     expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^apply$/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^apply( [0-9]+ change)?$/i })).toBeNull();
   });
 
   it('Apply failure preserves the staged patch and leaves canUndo false', async () => {
@@ -569,7 +586,7 @@ describe('SideChatHost annotate flow', () => {
     );
 
     fireEvent.click(screen.getByText('open-side-chat'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
     await act(async () => {
@@ -580,7 +597,7 @@ describe('SideChatHost annotate flow', () => {
     expect(failingAnnotate).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/1 pending change/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
-    expect(screen.getByRole('button', { name: /^apply$/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^apply( [0-9]+ change)?$/i })).toBeTruthy();
   });
 
   it('Discard removes a stuck-staged patch (failed auto-apply) from the inline list', async () => {
@@ -601,7 +618,7 @@ describe('SideChatHost annotate flow', () => {
     );
 
     fireEvent.click(screen.getByText('open-side-chat'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
     await act(async () => {
@@ -655,7 +672,7 @@ describe('SideChatHost annotate flow', () => {
 
     // Stage on D7 (auto-apply fails, patch sits in staged on D7's anchor)
     fireEvent.click(screen.getByText('open-decision'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'd-sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'd-body' } });
     await act(async () => {
@@ -727,7 +744,7 @@ describe('SideChatHost annotate flow', () => {
     await screen.findByText('Edit: Use IndexedDB for local persistence.');
 
     fireEvent.click(screen.getByText('open-goal'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'g-sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'g-body' } });
     await act(async () => {
@@ -776,6 +793,7 @@ describe('SideChatHost annotate flow', () => {
     render(
       <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
+          <PatchListOverlay />
           <Probe />
         </SideChatHost>
       </PatchListProvider>,
@@ -784,59 +802,23 @@ describe('SideChatHost annotate flow', () => {
     fireEvent.click(screen.getByText('open-decision'));
     fireEvent.click(screen.getByText('stage-edge'));
     await screen.findByText('Edge: D7 depends on G11');
+    // Card 4 follow-up: Apply buttons exist in both the overlay's
+    // staged-changes bar and the popover footer; click the first match.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /^apply( [0-9]+ change)?$/i })[0]!);
     });
 
     await vi.waitFor(() => expect(edgeMock).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole('button', { name: /^undo$/i })).toBeTruthy();
+    // Undo now lives in <PatchListOverlay /> saved-toast.
+    expect(screen.getAllByRole('button', { name: /^undo$/i }).length).toBeGreaterThan(0);
   });
 
-  it('does not leak the saved confirmation to another pinned item', async () => {
-    const { appliers } = makeAppliers();
-    const otherItem: SideChatPinnableItem = {
-      kind: 'goal',
-      id: 11,
-      referenceCode: 'G11',
-      content: 'Ship V1.2',
-    };
-
-    function OpenButtons() {
-      const sideChat = useSideChat();
-      return (
-        <>
-          <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
-            open-decision
-          </button>
-          <button type="button" onClick={() => sideChat?.openFor(otherItem)}>
-            open-goal
-          </button>
-        </>
-      );
-    }
-
-    render(
-      <PatchListProvider appliers={appliers}>
-        <SideChatHost specificationId={1}>
-          <OpenButtons />
-        </SideChatHost>
-      </PatchListProvider>,
-    );
-
-    fireEvent.click(screen.getByText('open-decision'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
-    fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'd-sum' } });
-    fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'd-body' } });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
-    });
-    await screen.findByRole('status', { name: /change saved/i });
-
-    fireEvent.click(screen.getByText('open-goal'));
-
-    expect(screen.queryByRole('status', { name: /change saved/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
-  });
+  // Card 4 follow-up: the "Change saved" toast moved out of the popover
+  // (per pinned item) into the global <PatchListOverlay />. The toast no
+  // longer resets when the user pins a different item — it auto-dismisses
+  // on its own timer. The previous "does not leak the saved confirmation
+  // to another pinned item" assertion is obsolete and is intentionally
+  // omitted; toast lifecycle is exercised in patch-list-overlay.test.tsx.
 
   it('omits the Annotate button when no PatchListProvider is in scope (host degrades gracefully)', () => {
     render(
@@ -846,7 +828,7 @@ describe('SideChatHost annotate flow', () => {
     );
 
     fireEvent.click(screen.getByText('open-side-chat'));
-    expect(screen.queryByRole('button', { name: /annotate item/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /add a note/i })).toBeNull();
   });
 });
 
@@ -882,7 +864,7 @@ describe('SideChatHost active cards', () => {
     );
 
     fireEvent.click(screen.getByText('open-side-chat'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), {
       target: { value: 's' },
     });
@@ -944,7 +926,7 @@ describe('SideChatHost active cards', () => {
     );
 
     fireEvent.click(screen.getByText('open-A'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'a-sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'a-body' } });
     await act(async () => {
@@ -981,7 +963,7 @@ describe('SideChatHost thread interleaving', () => {
     );
 
     fireEvent.click(screen.getByText('open-side-chat'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), {
       target: { value: 'phrase' },
     });
@@ -1057,7 +1039,7 @@ describe('SideChatHost dismiss/reopen state isolation', () => {
     );
 
     fireEvent.click(screen.getByText('open'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 's' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'b' } });
     await act(async () => {
@@ -1144,7 +1126,7 @@ describe('SideChatHost dismiss/reopen state isolation', () => {
     );
 
     fireEvent.click(screen.getByText('open-A'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'a-sum' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'a-body' } });
     await act(async () => {
@@ -1283,13 +1265,14 @@ describe('SideChatHost active annotations payload', () => {
     render(
       <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
+          <PatchListOverlay />
           <Probe />
         </SideChatHost>
       </PatchListProvider>,
     );
 
     fireEvent.click(screen.getByText('open'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'undo me' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'stale body' } });
     await act(async () => {
@@ -1344,7 +1327,7 @@ describe('SideChatHost active annotations payload', () => {
     );
 
     fireEvent.click(screen.getByText('open-original'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'sticky ref' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'body' } });
     await act(async () => {
@@ -1397,7 +1380,7 @@ describe('SideChatHost active annotations payload', () => {
 
     // Stage 10 annotations sequentially via the form
     for (let i = 0; i < 10; i++) {
-      fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+      fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
       fireEvent.change(screen.getByLabelText('Annotation summary'), {
         target: { value: `phrase ${i + 1}` },
       });
@@ -1457,7 +1440,7 @@ describe('SideChatHost active annotations payload', () => {
     );
 
     fireEvent.click(screen.getByText('open'));
-    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
     fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'local summary' } });
     fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'local body' } });
     await act(async () => {
