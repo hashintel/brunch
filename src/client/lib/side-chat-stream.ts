@@ -1,10 +1,11 @@
+import type { EditImpactTier } from '@/client/components/patch-list-reducer.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 export type SideChatMode = 'explore' | 'edit';
 
 export type EdgeRelation = 'depends_on' | 'derived_from' | 'constrains' | 'verifies' | 'refines';
 
-export type EditImpactTier = 'none' | 'soft' | 'hard';
+export type { EditImpactTier };
 
 export interface ProposeEditInput {
   newContent: string;

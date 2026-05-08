@@ -29,6 +29,7 @@ import {
   usePatchListState,
   useStagedPatches,
 } from './patch-list-host.js';
+import { PatchListOverlayBridgeProvider } from './patch-list-overlay-bridge.js';
 import { PatchListUndoProvider } from './patch-list-undo-context.js';
 import {
   SideChatPopover,
@@ -591,6 +592,14 @@ export function SideChatHost({
     void patchList.apply(stagedForActiveIds);
   }, [patchList, stagedForActiveIds]);
 
+  const patchListOverlayBridge = useMemo(
+    () => ({
+      applyScoped: applyStagedForActive,
+      scopedPatchIds: stagedForActiveIds,
+    }),
+    [applyStagedForActive, stagedForActiveIds],
+  );
+
   const undoForActive = useCallback(() => {
     if (!patchList) {
       return;
@@ -831,45 +840,47 @@ export function SideChatHost({
 
   return (
     <PatchListUndoProvider undo={undoForActive}>
-      <SideChatContext.Provider value={sideChatContextValue}>
-        <div
-          className="h-full min-h-0 min-w-0 overflow-hidden transition-[padding] duration-200 ease-out"
-          style={{ paddingRight: docksContent ? 'calc(588px + 1rem)' : undefined }}
-        >
-          {children}
-        </div>
-        {activeSideChat && (
-          <SideChatPopover
-            key={activeSideChat.sessionId}
-            pinnedItem={activeSideChat.pinnedItem}
-            threadItems={threadItems}
-            onDismiss={dismiss}
-            onSubmit={submitMessage}
-            onDismissCard={dismissCard}
-            annotateMode={activeSideChat.annotateMode}
-            onAnnotateRequest={patchList ? requestAnnotate : undefined}
-            onAnnotateCancel={cancelAnnotate}
-            onAnnotateSubmit={submitAnnotate}
-            mode={activeSideChat.mode}
-            onModeChange={patchList ? setMode : undefined}
-            stagedPatches={stagedSummaries}
-            canUndo={canUndoForActive}
-            isApplying={patchListState.isApplying}
-            applyBatchId={patchListState.lastBatchId}
-            lastBatchWasDeferredOnly={lastBatchWasDeferredOnly}
-            onApply={patchList && stagedForActiveIds.length > 0 ? applyStagedForActive : undefined}
-            onUndo={patchList ? undoForActive : undefined}
-            onDiscardPatch={patchList?.discard}
-            existingAnnotations={existingAnnotations}
-            onPromoteAnnotation={promoteAnnotation}
-            activeAnnotationIds={activeCardIds}
-            layout={layout}
-            onLayoutChange={setLayout}
-            spanHint={pendingSpanHint}
-            onClearSpanHint={clearSpanHint}
-          />
-        )}
-      </SideChatContext.Provider>
+      <PatchListOverlayBridgeProvider value={patchListOverlayBridge}>
+        <SideChatContext.Provider value={sideChatContextValue}>
+          <div
+            className="h-full min-h-0 min-w-0 overflow-hidden transition-[padding] duration-200 ease-out"
+            style={{ paddingRight: docksContent ? 'calc(588px + 1rem)' : undefined }}
+          >
+            {children}
+          </div>
+          {activeSideChat && (
+            <SideChatPopover
+              key={activeSideChat.sessionId}
+              pinnedItem={activeSideChat.pinnedItem}
+              threadItems={threadItems}
+              onDismiss={dismiss}
+              onSubmit={submitMessage}
+              onDismissCard={dismissCard}
+              annotateMode={activeSideChat.annotateMode}
+              onAnnotateRequest={patchList ? requestAnnotate : undefined}
+              onAnnotateCancel={cancelAnnotate}
+              onAnnotateSubmit={submitAnnotate}
+              mode={activeSideChat.mode}
+              onModeChange={patchList ? setMode : undefined}
+              stagedPatches={stagedSummaries}
+              canUndo={canUndoForActive}
+              isApplying={patchListState.isApplying}
+              applyBatchId={patchListState.lastBatchId}
+              lastBatchWasDeferredOnly={lastBatchWasDeferredOnly}
+              onApply={patchList && stagedForActiveIds.length > 0 ? applyStagedForActive : undefined}
+              onUndo={patchList ? undoForActive : undefined}
+              onDiscardPatch={patchList?.discard}
+              existingAnnotations={existingAnnotations}
+              onPromoteAnnotation={promoteAnnotation}
+              activeAnnotationIds={activeCardIds}
+              layout={layout}
+              onLayoutChange={setLayout}
+              spanHint={pendingSpanHint}
+              onClearSpanHint={clearSpanHint}
+            />
+          )}
+        </SideChatContext.Provider>
+      </PatchListOverlayBridgeProvider>
     </PatchListUndoProvider>
   );
 }

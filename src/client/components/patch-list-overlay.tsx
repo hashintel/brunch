@@ -16,6 +16,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useLastBatchAppliedMeta, usePatchList, usePatchListState } from './patch-list-host.js';
+import { usePatchListOverlayBridge } from './patch-list-overlay-bridge.js';
 import { usePatchListUndoOverride } from './patch-list-undo-context.js';
 
 const MESSAGE_DURATION_MS = 5000;
@@ -63,6 +64,7 @@ export function PatchListOverlay(): React.ReactElement | null {
   const state = usePatchListState();
   const lastBatchAppliedMeta = useLastBatchAppliedMeta();
   const undoOverride = usePatchListUndoOverride();
+  const overlayBridge = usePatchListOverlayBridge();
 
   const stagedCount = state.staged.length;
 
@@ -112,6 +114,17 @@ export function PatchListOverlay(): React.ReactElement | null {
 
   const undo = undoOverride ?? (() => void patchList.undo());
 
+  const scopedApplyBlocked =
+    overlayBridge !== null && stagedCount > 0 && overlayBridge.scopedPatchIds.length === 0;
+
+  function applyFromOverlay() {
+    if (overlayBridge) {
+      overlayBridge.applyScoped();
+      return;
+    }
+    void patchList.apply();
+  }
+
   // Nothing to surface: no staged patches, no transient message.
   if (stagedCount === 0 && !deferredBanner && !savedToastVisible) {
     return null;
@@ -140,8 +153,13 @@ export function PatchListOverlay(): React.ReactElement | null {
           ) : null}
           <button
             type="button"
-            disabled={state.isApplying}
-            onClick={() => void patchList.apply()}
+            disabled={state.isApplying || scopedApplyBlocked}
+            title={
+              scopedApplyBlocked
+                ? 'Pending changes are on another item — open that item in side-chat or switch context to apply them'
+                : undefined
+            }
+            onClick={() => void applyFromOverlay()}
             className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] disabled:opacity-50"
           >
             {state.isApplying ? 'Applying…' : 'Apply'}

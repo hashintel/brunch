@@ -9,6 +9,7 @@ import {
   usePatchListState,
   type PatchAppliers,
 } from '../patch-list-host.js';
+import { PatchListOverlayBridgeProvider } from '../patch-list-overlay-bridge.js';
 import { PatchListOverlay } from '../patch-list-overlay.js';
 
 afterEach(() => {
@@ -86,6 +87,47 @@ describe('PatchListOverlay', () => {
     expect(region.getAttribute('data-staged-count')).toBe('1');
     expect(region.textContent).toMatch(/1 pending change/i);
     expect(screen.getByRole('button', { name: /apply/i })).toBeTruthy();
+  });
+
+  it('disables overlay Apply when the bridge has no scoped patches while others are staged', () => {
+    const applyScoped = vi.fn();
+    render(
+      <PatchListProvider appliers={makeAppliers()}>
+        <PatchListOverlayBridgeProvider value={{ applyScoped, scopedPatchIds: [] }}>
+          <PatchListOverlay />
+          <StageEditPatchButton />
+        </PatchListOverlayBridgeProvider>
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit'));
+    const applyBtn = screen.getByRole('button', { name: /apply/i }) as HTMLButtonElement;
+    expect(applyBtn.disabled).toBe(true);
+    expect(applyScoped).not.toHaveBeenCalled();
+  });
+
+  it('invokes bridge applyScoped instead of applying all patches when a bridge is present', async () => {
+    const applyScoped = vi.fn();
+    const editApplier = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { impact: 'soft', previousContent: 'old' },
+      }),
+    );
+    const appliers = makeAppliers({ edit: editApplier as unknown as PatchAppliers['edit'] });
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlayBridgeProvider value={{ applyScoped, scopedPatchIds: ['scoped'] }}>
+          <PatchListOverlay />
+          <StageEditPatchButton />
+        </PatchListOverlayBridgeProvider>
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit'));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /apply/i }));
+    });
+    expect(applyScoped).toHaveBeenCalledTimes(1);
+    expect(editApplier).not.toHaveBeenCalled();
   });
 
   it('clicking Apply on the overlay invokes the patch-list applier', async () => {
