@@ -16,6 +16,8 @@ import {
   useSpecificationOpenReconciliationNeeds,
 } from '@/client/routes/specification/$id/-specification-data.js';
 
+import { ContentDiff } from './content-diff.js';
+
 export function PendingReviewSection(): React.ReactElement | null {
   const openNeeds = useSpecificationOpenReconciliationNeeds();
   const [resolvingNeedIds, setResolvingNeedIds] = useState<ReadonlySet<number>>(() => new Set());
@@ -59,35 +61,51 @@ export function PendingReviewSection(): React.ReactElement | null {
       <span className="font-medium text-ink">
         {openNeeds.length} pending review{openNeeds.length === 1 ? '' : 's'}
       </span>
-      <ul className="flex flex-col gap-0.5 text-sub">
+      <ul className="flex flex-col gap-1.5 text-sub">
         {openNeeds.map((need) => {
           const isResolving = resolvingNeedIds.has(need.id);
+          // Card 2 (V3.1 setup): render the source diff inline when both
+          // snapshots are present. ContentDiff returns null when before ===
+          // after, so a no-op edit silently collapses to no diff block. The
+          // "Source change" label is gated on the same condition so it stays
+          // out of the way for legacy / no-change rows.
+          const showSourceDiff =
+            need.source_previous_content !== null && need.source_current_content !== null;
           return (
             <li
               key={need.id}
               data-need-id={need.id}
               data-need-kind={need.kind}
-              className="flex items-center justify-between gap-2"
+              className="flex flex-col gap-1"
             >
-              <span className="flex items-center gap-2">
-                <span
-                  className="rounded-sm bg-white/70 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-ink uppercase"
-                  data-kind-chip={need.kind}
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  <span
+                    className="rounded-sm bg-white/70 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-ink uppercase"
+                    data-kind-chip={need.kind}
+                  >
+                    {need.kind === 'supersedes' ? 'supersedes' : 'confirm'}
+                  </span>
+                  <span>
+                    source #{need.source_item_id} → target #{need.target_item_id}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  disabled={isResolving}
+                  onClick={() => handleResolve(need.id, need.specification_id)}
+                  className="rounded-md bg-white px-2 py-0.5 text-[11px] text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa] disabled:opacity-50"
                 >
-                  {need.kind === 'supersedes' ? 'supersedes' : 'confirm'}
-                </span>
-                <span>
-                  source #{need.source_item_id} → target #{need.target_item_id}
-                </span>
-              </span>
-              <button
-                type="button"
-                disabled={isResolving}
-                onClick={() => handleResolve(need.id, need.specification_id)}
-                className="rounded-md bg-white px-2 py-0.5 text-[11px] text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa] disabled:opacity-50"
-              >
-                {isResolving ? 'Resolving…' : 'Resolve'}
-              </button>
+                  {isResolving ? 'Resolving…' : 'Resolve'}
+                </button>
+              </div>
+              {showSourceDiff ? (
+                <ContentDiff
+                  before={need.source_previous_content ?? ''}
+                  after={need.source_current_content ?? ''}
+                  label="Source change"
+                />
+              ) : null}
             </li>
           );
         })}

@@ -134,4 +134,80 @@ describe('PendingReviewSection', () => {
     rerender(<PendingReviewSection />);
     expect(screen.queryByRole('region', { name: /pending review/i })).toBeNull();
   });
+
+  // Card 2 (V3.1 setup): each row renders a <ContentDiff> of the source
+  // item's before/after content when both snapshots are present and differ.
+  // Reuses the existing ContentDiff component (FE-665); no new diff styling.
+  describe('source diff inline (card 2)', () => {
+    it('renders the source diff when both snapshots are present and differ', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          source_previous_content: 'Reduce signup drop-off',
+          source_current_content: 'Cut signup drop-off by 30%',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      const row = screen.getByRole('region').querySelector('[data-need-id="1"]');
+      expect(row?.querySelector('[data-content-diff]')).toBeTruthy();
+      // Removed and added word-level segments both appear.
+      expect(row?.querySelector('[data-diff-kind="removed"]')).toBeTruthy();
+      expect(row?.querySelector('[data-diff-kind="added"]')).toBeTruthy();
+    });
+
+    it('labels the source diff with "Source change" so it is not confused with future target diffs', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          source_previous_content: 'Old',
+          source_current_content: 'New',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      const row = screen.getByRole('region').querySelector('[data-need-id="1"]');
+      expect(row?.textContent).toMatch(/source change/i);
+    });
+
+    it('renders no diff when either snapshot is null (legacy rows)', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          source_previous_content: null,
+          source_current_content: 'New only',
+        }),
+        makeNeed({
+          id: 2,
+          source_previous_content: 'Old only',
+          source_current_content: null,
+        }),
+        makeNeed({
+          id: 3,
+          source_previous_content: null,
+          source_current_content: null,
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      const region = screen.getByRole('region');
+      expect(region.querySelectorAll('[data-content-diff]')).toHaveLength(0);
+      // Rows still render, Resolve button still works.
+      expect(screen.getAllByRole('button', { name: /resolve/i })).toHaveLength(3);
+    });
+
+    it('renders no diff when before === after (no actual change)', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          source_previous_content: 'Same content',
+          source_current_content: 'Same content',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      const row = screen.getByRole('region').querySelector('[data-need-id="1"]');
+      // ContentDiff returns null when there is no change, so the diff block
+      // is absent. The "Source change" label is also absent because it is
+      // only rendered alongside a non-null diff.
+      expect(row?.querySelector('[data-content-diff]')).toBeNull();
+      expect(row?.textContent).not.toMatch(/source change/i);
+    });
+  });
 });
