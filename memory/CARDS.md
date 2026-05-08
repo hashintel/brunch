@@ -12,7 +12,7 @@ Cards 1-3 below are queued because all three live in settled seams and none chan
 
 ---
 
-## 1 — Source-content snapshots on `reconciliation_need` (server) — `next`
+## 1 — Source-content snapshots on `reconciliation_need` (server) — `done`
 
 ### Objective
 

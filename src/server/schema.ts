@@ -182,6 +182,15 @@ export const reconciliationNeed = sqliteTable(
       .notNull()
       .default(sql`(datetime('now'))`),
     resolved_at: text(),
+    // V3.1 setup (card 1 in memory/CARDS.md): nullable source-content
+    // snapshots captured when the cascade producer opens the need. Frozen
+    // for the need's lifetime so downstream surfaces (Pending review diff,
+    // V3.1 agent classification pre-image) don't re-derive the source delta
+    // from mutable knowledge_item history. Advisory render data only —
+    // never load-bearing for any invariant; nulls are valid for legacy rows
+    // and tests that bypass the producer.
+    source_previous_content: text(),
+    source_current_content: text(),
   },
   (table) => [
     // Omits specification_id because knowledge_item.id is globally unique across specs.

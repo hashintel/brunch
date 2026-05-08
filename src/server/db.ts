@@ -626,6 +626,11 @@ export interface OpenReconciliationNeedInput {
   kind: ReconciliationNeedKind;
   reason?: string | null;
   causedByTurnId?: number | null;
+  // V3.1 setup (card 1): nullable source content snapshots, frozen for the
+  // need's lifetime. The cascade producer (edit-route hard path) supplies
+  // both; direct callers (tests, future agent paths) may omit them.
+  sourcePreviousContent?: string | null;
+  sourceCurrentContent?: string | null;
 }
 
 export function openReconciliationNeed(db: DB, input: OpenReconciliationNeedInput): ReconciliationNeed {
@@ -649,6 +654,8 @@ export function openReconciliationNeed(db: DB, input: OpenReconciliationNeedInpu
       kind: input.kind,
       reason: input.reason ?? null,
       caused_by_turn_id: input.causedByTurnId ?? null,
+      source_previous_content: input.sourcePreviousContent ?? null,
+      source_current_content: input.sourceCurrentContent ?? null,
     })
     .returning()
     .get() as ReconciliationNeed;
