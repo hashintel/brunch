@@ -73,7 +73,7 @@ Each row in `<PendingReviewSection>` shows the source item's before/after as a `
 
 ---
 
-## 3 — "Edit target" affordance per Pending review row (client + reuse) — `next`
+## 3 — "Edit target" affordance per Pending review row (client + reuse) — `done`
 
 ### Objective
 
