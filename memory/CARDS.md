@@ -46,7 +46,7 @@ Each `reconciliation_need` row carries the source item's content snapshot from i
 
 ---
 
-## 2 — Source diff rendered inline on each Pending review row (client) — `next`
+## 2 — Source diff rendered inline on each Pending review row (client) — `done`
 
 ### Objective
 
