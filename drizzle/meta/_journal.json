@@ -134,6 +134,13 @@
       "when": 1776350000000,
       "tag": "0018_reconciliation_need_source_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1776360000000,
+      "tag": "0019_reconciliation_need_agent_columns",
+      "breakpoints": true
     }
   ]
 }

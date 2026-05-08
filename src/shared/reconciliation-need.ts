@@ -4,6 +4,14 @@
 
 export type ReconciliationNeedKind = 'supersedes' | 'needs_confirmation';
 export type ReconciliationNeedStatus = 'open' | 'resolved';
+// V3.1 slice 4: reconciliation-classifier lifecycle. The label vocabulary
+// is bounded by I114 (lifecycle + label vocabulary + structural recoverability).
+// `null` means the row has never been classified (default for both new and
+// legacy rows); `queued`/`classifying` are in-flight states; `classified`
+// pairs with a non-null `agent_classification`; `failed` pairs with a
+// `agent_proposal` that carries the parse error or thrown message.
+export type ReconciliationNeedAgentStatus = 'queued' | 'classifying' | 'classified' | 'failed';
+export type ReconciliationNeedAgentClassification = 'auto-confirm' | 'auto-edit' | 'substantive';
 
 export interface ReconciliationNeedRecord {
   id: number;
@@ -31,4 +39,12 @@ export interface ReconciliationNeedRecord {
   // most cases, but guard for race / partial states); the Edit-target
   // affordance is hidden in that case and the user falls back to Resolve.
   target_current_content: string | null;
+  // V3.1 slice 4 (memory/CARDS.md): reconciliation-classifier output. Null
+  // until the run-agent route picks the row up. See ReconciliationNeedAgentStatus
+  // for the lifecycle and ReconciliationNeedAgentClassification for the label
+  // vocabulary. agent_proposal is text-only; the client renders it as a
+  // diff for `auto-edit` and a note for `substantive`, but never auto-applies.
+  agent_status: ReconciliationNeedAgentStatus | null;
+  agent_classification: ReconciliationNeedAgentClassification | null;
+  agent_proposal: string | null;
 }
