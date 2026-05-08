@@ -210,7 +210,7 @@ When a patch with kind `edit` is applied, the system routes by **two questions i
 |---|---|---|
 | **None** | `affectedCount === 0` (item is a graph leaf with no downstream edges) | Apply directly. Single-item content update; brief inline confirmation card in the panel: "Updated `[X]`." |
 | **Soft** | `1 ≤ affectedCount ≤ 2` AND no anchor or affected item is in an active review set *(active = generated and not yet accepted)* | Apply with **soft recomputing**. Patch lands directly; brief inline confirmation lists the affected items: "Updated `[X]`; recomputed `[Y]`, `[Z]`." No cascade preview. |
-| **Hard** | High downstream count, OR any anchor or affected item is in an active review set | **Cascade preview** → batch-resolution secondary-thread mode (§5.3). Current REVISIT_MODULE flow. |
+| **Hard** | High downstream count, OR any anchor or affected item is in an active review set | **Cascade preview** backed by `reconciliation_need` rows → batch-resolution mode in the side-chat panel (§5.3). The archived REVISIT_MODULE walk is superseded. |
 
 ### 5.2 Confidence model — V1
 
@@ -218,7 +218,7 @@ V1 ships with **mechanical-only** routing: `affectedCount` and review-set member
 
 ### 5.3 Hard edit — cascade through the reconciliation queue
 
-Hard-edit cascade is no longer a one-shot REVISIT walk. The multi-chat substrate (FE-697) shipped a durable `reconciliation_need` queue: directed item-to-item rows with `kind ∈ { supersedes, needs_confirmation }`, `status ∈ { open, resolved }`, partial unique index on open rows, and `caused_by_turn_id` provenance. V3 reads from that queue.
+Hard-edit cascade is no longer a one-shot REVISIT walk. In this stack, the downstack multi-chat substrate (FE-697) provides a durable `reconciliation_need` queue: directed item-to-item rows with `kind ∈ { supersedes, needs_confirmation }`, `status ∈ { open, resolved }`, partial unique index on open rows, and `caused_by_turn_id` provenance. V3 reads from that queue after FE-697 lands.
 
 **On hard-impact apply:**
 
@@ -286,7 +286,7 @@ The side-chat's substrate dependencies have shifted as the multi-chat work lande
 
 ### A71 *(partly satisfied)*: patch / event-stream data model
 
-The original framing — `spec → chat → turns` with diff patches as the persistence primitive — is split. The `spec → chat → turns` half **shipped** in FE-697: a `chat` table, nullable `turn.chat_id`, `specification.primary_chat_id`, mirrored `chat.active_turn_id`, and a `reconciliation_need` queue with placeholder `caused_by_patch_id`. The patch ledger half remains horizon work tracked in `docs/design/PATCH_LEDGER.md`.
+The original framing — `spec → chat → turns` with diff patches as the persistence primitive — is split. In this stack, the `spec → chat → turns` half is supplied by downstack FE-697: a `chat` table, nullable `turn.chat_id`, `specification.primary_chat_id`, mirrored `chat.active_turn_id`, and a `reconciliation_need` queue with placeholder `caused_by_patch_id`. The patch ledger half remains horizon work tracked in `docs/design/PATCH_LEDGER.md`.
 
 **Implication for V3.** The cascade preview reads `reconciliation_need` rows directly (see §5.3, §13). Side-chat threads themselves stay in-memory through V3 — durable side-chat persistence is MULTI_CHAT.md Phase 2 / V4 and is **not** a V3 prerequisite.
 
