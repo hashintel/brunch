@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildCandidateSpecContextPack,
   buildObserverCaptureContextPack,
+  buildReconciliationContextPack,
   buildWebResearchContextPack,
   type ObserverContextPackInput,
 } from './context-pack.js';
@@ -12,6 +13,7 @@ import {
   buildCandidateSpecPromptScenario,
   buildObserverCapturePromptScenario,
   buildPromptScenarioProbeArtifact,
+  buildReconciliationPromptScenario,
   buildWebResearchPromptScenario,
   executeWebResearchPromptScenario,
   serializePromptScenarioProbeArtifact,
@@ -200,6 +202,58 @@ describe('prompt scenario runner', () => {
     expect(artifact.context.rendered).toContain('Requested candidate count:\n2');
     expect(artifact.capabilities).toEqual([
       expect.objectContaining({ id: 'scenario.render', authority: 'read_only' }),
+    ]);
+    expect(artifact.capabilities).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'changeset.submit' })]),
+    );
+  });
+
+  it('builds a reconciliation scenario as a no-provider proposal artifact', () => {
+    const contextPack = buildReconciliationContextPack({
+      objective: 'Plan review of hard-impact edit fallout.',
+      openNeeds: [
+        {
+          id: 11,
+          sourceItemId: 7,
+          targetItemId: 8,
+          kind: 'supersedes',
+          status: 'open',
+          reason: 'The source decision changed and may supersede the target requirement.',
+        },
+      ],
+      entities: {
+        ...emptyEntities(),
+        decisions: [{ id: 7, content: 'Use graph-launched side chats for refinement' }],
+        requirements: [{ id: 8, content: 'Users can revisit graph items through side chat' }],
+      },
+    });
+
+    const artifact = buildPromptScenarioProbeArtifact(
+      buildReconciliationPromptScenario({ contextPack, model: observerCaptureScenario.model }),
+    );
+
+    expect(artifact).toMatchObject({
+      schemaVersion: 2,
+      scenario: 'reconciliation',
+      prompt: {
+        id: 'reconciliation.system',
+        asset: 'reconciliation-system.md',
+      },
+      context: {
+        scenario: 'reconciliation',
+      },
+      execution: {
+        status: 'not-run',
+        rawOutput: null,
+      },
+    });
+    expect(artifact.prompt.rendered).toContain('reconciliation planning agent');
+    expect(artifact.prompt.rendered).not.toContain('{{');
+    expect(artifact.context.rendered).toContain('Open reconciliation needs:\n- RN#11 supersedes (open)');
+    expect(artifact.context.rendered).toContain('Proposal boundary:');
+    expect(artifact.capabilities).toEqual([
+      expect.objectContaining({ id: 'scenario.render', authority: 'read_only' }),
+      expect.objectContaining({ id: 'intentGraph.validateEdge', authority: 'read_only' }),
     ]);
     expect(artifact.capabilities).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ id: 'changeset.submit' })]),

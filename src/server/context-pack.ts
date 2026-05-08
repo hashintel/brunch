@@ -10,11 +10,15 @@ export {
   buildObserverCaptureContextPack,
   renderObserverCaptureContextPack,
 } from './context-pack/observer-capture.js';
+export {
+  buildReconciliationContextPack,
+  renderReconciliationContextPack,
+} from './context-pack/reconciliation.js';
 export { buildWebResearchContextPack, renderWebResearchContextPack } from './context-pack/web-research.js';
 export type { IntentAnchor } from './context-pack/anchors.js';
 import type { IntentAnchor } from './context-pack/anchors.js';
 
-export type ContextPackScenarioId = 'observer-capture' | 'web-research' | 'candidate-spec';
+export type ContextPackScenarioId = 'observer-capture' | 'web-research' | 'candidate-spec' | 'reconciliation';
 
 export interface ContextPack<TScenario extends ContextPackScenarioId, TData> {
   scenario: TScenario;
@@ -66,6 +70,23 @@ export interface CandidateSpecContextPackData {
 
 export type CandidateSpecContextPack = ContextPack<'candidate-spec', CandidateSpecContextPackData>;
 
+export interface ReconciliationNeedContext {
+  id: number;
+  kind: 'supersedes' | 'needs_confirmation';
+  status: 'open' | 'resolved';
+  reason?: string;
+  source: IntentAnchor;
+  target: IntentAnchor;
+}
+
+export interface ReconciliationContextPackData {
+  objective: string;
+  knownIntentAnchors: IntentAnchor[];
+  openNeeds: ReconciliationNeedContext[];
+}
+
+export type ReconciliationContextPack = ContextPack<'reconciliation', ReconciliationContextPackData>;
+
 export interface CandidateSpecContextPackInput {
   objective: string;
   requestedCandidateCount: number;
@@ -76,6 +97,19 @@ export interface WebResearchContextPackInput {
   researchObjective: string;
   triggeringQuestion?: string;
   constraints?: string[];
+  entities: ObserverContextPackInput['entities'];
+}
+
+export interface ReconciliationContextPackInput {
+  objective: string;
+  openNeeds: Array<{
+    id: number;
+    sourceItemId: number;
+    targetItemId: number;
+    kind: 'supersedes' | 'needs_confirmation';
+    status: 'open' | 'resolved';
+    reason?: string | null;
+  }>;
   entities: ObserverContextPackInput['entities'];
 }
 

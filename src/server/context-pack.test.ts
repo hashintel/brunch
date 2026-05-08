@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   buildCandidateSpecContextPack,
   buildObserverCaptureContextPack,
+  buildReconciliationContextPack,
   buildWebResearchContextPack,
   renderCandidateSpecContextPack,
   renderObserverCaptureContextPack,
+  renderReconciliationContextPack,
   renderWebResearchContextPack,
   type ObserverContextPackInput,
 } from './context-pack.js';
@@ -87,6 +89,50 @@ Generation instructions:
 - Generate proposal directions only; do not treat output as accepted graph truth.
 - For each direction, name implications, tradeoffs, likely generated knowledge, and what it rules out.
 - Prefer directions that expose unresolved assumptions or constraints for human review.`);
+  });
+});
+
+describe('reconciliation context packs', () => {
+  it('renders proposal-only queue context from open needs and graph anchors', () => {
+    const pack = buildReconciliationContextPack({
+      objective: 'Plan how to review hard-impact edit fallout without mutating graph truth.',
+      openNeeds: [
+        {
+          id: 11,
+          sourceItemId: 7,
+          targetItemId: 8,
+          kind: 'needs_confirmation',
+          status: 'open',
+          reason: 'The edited decision may no longer support the target assumption.',
+        },
+      ],
+      entities: {
+        ...emptyEntities(),
+        decisions: [{ id: 7, content: 'Use graph-launched side chats for refinement' }],
+        assumptions: [{ id: 8, content: 'Side chats can refine graph truth without splitting the spec' }],
+        constraints: [{ id: 9, content: 'Do not resolve reconciliation needs without human review' }],
+      },
+    });
+
+    expect(pack.scenario).toBe('reconciliation');
+    expect(renderReconciliationContextPack(pack)).toBe(`Reconciliation objective:
+Plan how to review hard-impact edit fallout without mutating graph truth.
+
+Open reconciliation needs:
+- RN#11 needs_confirmation (open)
+  Source: #7 decision | Use graph-launched side chats for refinement
+  Target: #8 assumption | Side chats can refine graph truth without splitting the spec
+  Reason: The edited decision may no longer support the target assumption.
+
+Known intent anchors:
+#9 constraint | Do not resolve reconciliation needs without human review
+#7 decision | Use graph-launched side chats for refinement
+#8 assumption | Side chats can refine graph truth without splitting the spec
+
+Proposal boundary:
+- Read the queue and graph context only; do not mutate durable Brunch state.
+- Propose resolution strategies for human review instead of resolving needs.
+- Preserve source/target direction and cite reconciliation need ids in any proposal.`);
   });
 });
 

@@ -10,18 +10,21 @@ import type {
   CandidateSpecContextPackData,
   ObserverCaptureContextPack,
   ObserverCaptureContextPackData,
+  ReconciliationContextPack,
+  ReconciliationContextPackData,
   WebResearchContextPack,
   WebResearchContextPackData,
 } from './context-pack.js';
 import {
   renderCandidateSpecContextPack,
   renderObserverCaptureContextPack,
+  renderReconciliationContextPack,
   renderWebResearchContextPack,
 } from './context-pack.js';
 import { buildObserverSystemPrompt } from './observer-prompt.js';
 import { getPromptAssetFileName, renderPromptAsset, type PromptId } from './prompt-loader.js';
 
-export type PromptScenarioId = 'observer-capture' | 'web-research' | 'candidate-spec';
+export type PromptScenarioId = 'observer-capture' | 'web-research' | 'candidate-spec' | 'reconciliation';
 
 export interface PromptScenarioModelSettings {
   provider: string;
@@ -76,10 +79,17 @@ export type CandidateSpecPromptScenarioDefinition = PromptScenarioDefinitionBase
   CandidateSpecContextPackData
 >;
 
+export type ReconciliationPromptScenarioDefinition = PromptScenarioDefinitionBase<
+  'reconciliation',
+  'reconciliation.system',
+  ReconciliationContextPackData
+>;
+
 export type PromptScenarioDefinition =
   | ObserverCapturePromptScenarioDefinition
   | WebResearchPromptScenarioDefinition
-  | CandidateSpecPromptScenarioDefinition;
+  | CandidateSpecPromptScenarioDefinition
+  | ReconciliationPromptScenarioDefinition;
 
 type PromptScenarioExecutionResult =
   | {
@@ -213,6 +223,8 @@ const webResearchDefaultCapabilities: CapabilityId[] = ['web.search', 'web.fetch
 
 const candidateSpecDefaultCapabilities: CapabilityId[] = ['scenario.render'];
 
+const reconciliationDefaultCapabilities: CapabilityId[] = ['scenario.render', 'intentGraph.validateEdge'];
+
 export function buildObserverCapturePromptScenario({
   contextPack,
   model,
@@ -257,6 +269,29 @@ export function buildCandidateSpecPromptScenario({
     },
     model,
     capabilities: candidateSpecDefaultCapabilities,
+  };
+}
+
+export function buildReconciliationPromptScenario({
+  contextPack,
+  model,
+}: {
+  contextPack: ReconciliationContextPack;
+  model: PromptScenarioModelSettings;
+}): ReconciliationPromptScenarioDefinition {
+  return {
+    scenario: 'reconciliation',
+    prompt: {
+      source: 'asset',
+      id: 'reconciliation.system',
+    },
+    context: {
+      scenario: 'reconciliation',
+      rendered: renderReconciliationContextPack(contextPack),
+      data: contextPack.data,
+    },
+    model,
+    capabilities: reconciliationDefaultCapabilities,
   };
 }
 
