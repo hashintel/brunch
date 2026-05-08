@@ -226,7 +226,7 @@ Hard-edit cascade is no longer a one-shot REVISIT walk. In this stack, the downs
 2. The server enumerates `knowledge_edge` rows incident on the changed item under typed relation policy (`depends_on`, `derived_from`, `constrains`, `refines`, `verifies`) — Path 1 from `docs/design/MULTI_CHAT.md` §5.1.
 3. For each affected pair, an open `reconciliation_need` row opens with the appropriate kind. Re-firing on an already-open `(source, target, kind)` is a no-op (partial unique index).
 4. Open needs surface in the patch list overlay as a `Pending review` section.
-5. The user resolves each need: accept content change to the target / edit target / dismiss. Resolution writes `status = resolved` and `resolved_at`; mutating resolutions go through the existing edit pipeline and may themselves open further needs (re-entrant cascade, intentional).
+5. The user resolves each need through a single **Resolve** action per row. The action transitions `(open, resolved_at = null) → (resolved, resolved_at = now)` idempotently and does **not** mutate any target item. Users wanting to edit a cascade target use the existing structured-list inline-edit affordance separately (which itself may open further needs — re-entrant cascade, intentional). The richer three-action design originally sketched here — `accept-on-target` / `edit-target` / `dismiss` — is V3.1 work, surfaced through the reconciliation agent's grouped resolutions below.
 
 **V3.0 grouping is mechanical, not agent-classified.** Needs are grouped in the overlay by `kind` (`supersedes` first, then `needs_confirmation`) and within each kind by relation type. There is no auto-confirm / auto-edit / substantive ML classification in V3.0.
 

@@ -270,6 +270,22 @@ function foldEvents(events: readonly PatchEvent[]): FoldAccumulator {
   return acc;
 }
 
+// V3.0 polish (FE-674): hard-impact apply marks its applied metadata with
+// `noUndo: true` because the source mutation can't be reversed without going
+// through the reconciliation queue (card 3 ships Resolve; full restore-via-
+// re-PATCH lands later). A batch where every entry is noUndo should keep the
+// Undo button hidden so the user isn't offered a click that does nothing.
+function batchHasUndoableEntry(appliedMeta: ReadonlyArray<{ patchId: string; applied: unknown }>): boolean {
+  if (appliedMeta.length === 0) {
+    return true;
+  }
+  return appliedMeta.some((entry) => {
+    if (!entry.applied || typeof entry.applied !== 'object') return true;
+    const record = entry.applied as { noUndo?: unknown };
+    return record.noUndo !== true;
+  });
+}
+
 export function deriveState(reducerState: PatchListReducerState): DerivedPatchListState {
   const acc = foldEvents(reducerState.events);
   const staged = acc.stagedOrder
@@ -294,7 +310,10 @@ export function deriveState(reducerState: PatchListReducerState): DerivedPatchLi
   return {
     staged,
     count: staged.length,
-    canUndo: lastBatch !== undefined && reducerState.pendingUndos.has(lastBatch.batchId),
+    canUndo:
+      lastBatch !== undefined &&
+      reducerState.pendingUndos.has(lastBatch.batchId) &&
+      batchHasUndoableEntry(lastBatch.appliedMeta),
     isApplying: reducerState.isApplying,
     lastBatchId: lastBatch?.batchId ?? null,
     lastBatchPatches,
