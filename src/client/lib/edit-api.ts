@@ -86,3 +86,17 @@ export async function deleteEdgeRequest(
   }
   return (await response.json()) as { deleted: boolean; reason?: string };
 }
+
+export async function resolveReconciliationNeedRequest(
+  specificationId: number,
+  needId: number,
+): Promise<{ resolved: true }> {
+  const response = await fetch(
+    `/api/specifications/${specificationId}/reconciliation-needs/${needId}/resolve`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' } },
+  );
+  if (!response.ok) {
+    throw new Error(`resolveReconciliationNeed failed: ${response.status} ${response.statusText}`);
+  }
+  return (await response.json()) as { resolved: true };
+}

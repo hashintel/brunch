@@ -14,6 +14,13 @@ import {
 import { PatchListOverlayBridgeProvider } from '../patch-list-overlay-bridge.js';
 import { PatchListOverlay } from '../patch-list-overlay.js';
 
+const mockResolveReconciliationNeedRequest = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve({ resolved: true as const })),
+);
+vi.mock('@/client/lib/edit-api.js', () => ({
+  resolveReconciliationNeedRequest: mockResolveReconciliationNeedRequest,
+}));
+
 // Inject a controllable stub for the open-needs hook so the overlay can be
 // tested without TanStack Router / QueryClientProvider scaffolding. Default
 // returns []; individual tests override via setMockOpenNeeds.
@@ -53,6 +60,8 @@ function makeNeed(overrides: Partial<ReconciliationNeedRecord> = {}): Reconcilia
 afterEach(() => {
   cleanup();
   setMockOpenNeeds([]);
+  mockResolveReconciliationNeedRequest.mockClear();
+  mockResolveReconciliationNeedRequest.mockImplementation(() => Promise.resolve({ resolved: true as const }));
 });
 
 beforeEach(() => {
@@ -275,6 +284,80 @@ describe('PatchListOverlay', () => {
     fireEvent.click(screen.getByText('stage-edit'));
     expect(screen.getByRole('region', { name: /staged changes/i })).toBeTruthy();
     expect(screen.getByRole('region', { name: /pending review/i })).toBeTruthy();
+  });
+
+  it('renders a Resolve button per open need (V3.0 card 3)', () => {
+    setMockOpenNeeds([
+      makeNeed({ id: 1, source_item_id: 10, target_item_id: 20, kind: 'needs_confirmation' }),
+      makeNeed({ id: 2, source_item_id: 10, target_item_id: 21, kind: 'supersedes' }),
+    ]);
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+      </PatchListProvider>,
+    );
+    const buttons = screen.getAllByRole('button', { name: /resolve/i });
+    expect(buttons).toHaveLength(2);
+  });
+
+  it('clicking Resolve calls resolveReconciliationNeedRequest with the need id and spec id', async () => {
+    setMockOpenNeeds([makeNeed({ id: 7, specification_id: 42 })]);
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+      </PatchListProvider>,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^resolve$/i }));
+    });
+    expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(1);
+    expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(42, 7);
+  });
+
+  it('disables the Resolve button while the mutation is pending', async () => {
+    let resolveMutation: () => void = () => {};
+    mockResolveReconciliationNeedRequest.mockImplementationOnce(
+      () =>
+        new Promise<{ resolved: true }>((resolve) => {
+          resolveMutation = () => resolve({ resolved: true });
+        }),
+    );
+    setMockOpenNeeds([makeNeed({ id: 9, specification_id: 1 })]);
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^resolve$/i }));
+    // Mid-flight: button shows "Resolving…" and is disabled
+    const button = screen.getByRole('button', { name: /resolving/i });
+    expect(button).toHaveProperty('disabled', true);
+    // Settle the mutation so the test cleanup doesn't leak.
+    await act(async () => {
+      resolveMutation();
+    });
+  });
+
+  it('hides the Pending review section when the last need is resolved (mock-driven)', async () => {
+    setMockOpenNeeds([makeNeed({ id: 11 })]);
+    const appliers = makeAppliers();
+    const { rerender } = render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+      </PatchListProvider>,
+    );
+    expect(screen.getByRole('region', { name: /pending review/i })).toBeTruthy();
+    // Simulate the queue refresh after resolve: the hook now returns [].
+    setMockOpenNeeds([]);
+    rerender(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+      </PatchListProvider>,
+    );
+    expect(screen.queryByRole('region', { name: /pending review/i })).toBeNull();
   });
 
   it('does not surface any "Hard impact — coming in V3" banner copy', async () => {

@@ -57,7 +57,10 @@ import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
 import { safeDeserializeAssistantParts, serializeParts } from './parts.js';
 import { submitPhaseIntentWithRuntimeCompatibility } from './phase-intent-runtime.js';
-import { handleListOpenReconciliationNeeds } from './reconciliation-needs-route.js';
+import {
+  handleListOpenReconciliationNeeds,
+  handleResolveReconciliationNeed,
+} from './reconciliation-needs-route.js';
 import { handleSideChatRequest } from './side-chat-route.js';
 import { createCoreTools } from './tools/index.js';
 import { materializeTurnArtifacts } from './turn-artifacts.js';
@@ -243,6 +246,9 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   ] as const;
   const specificationKnowledgeEdgesPaths = ['/api/specifications/:id/knowledge-edges'] as const;
   const specificationReconciliationNeedsPaths = ['/api/specifications/:id/reconciliation-needs'] as const;
+  const reconciliationNeedResolvePaths = [
+    '/api/specifications/:id/reconciliation-needs/:needId/resolve',
+  ] as const;
 
   const registerGet = (paths: readonly string[], handler: RequestHandler) => {
     for (const path of paths) {
@@ -643,6 +649,11 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   // V3.0 card 2: list open reconciliation_need rows for the Pending review surface
   registerGet(specificationReconciliationNeedsPaths, (req: Request, res: Response) => {
     handleListOpenReconciliationNeeds(db, req, res);
+  });
+
+  // V3.0 card 3: idempotent resolve action wired to per-row Resolve button
+  registerPost(reconciliationNeedResolvePaths, (req: Request, res: Response) => {
+    handleResolveReconciliationNeed(db, req, res);
   });
 
   return { app, db };
