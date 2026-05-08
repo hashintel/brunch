@@ -112,6 +112,45 @@ describe('PATCH /api/specifications/:id/knowledge-items/:itemId', () => {
     }
   });
 
+  it('opens one need per typed dependency edge across all five relations on a 5+-downstream graph (F6 dense-fixture oracle)', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'Dense anchor');
+    // Create one downstream item for each relation kind, plus one extra
+    // depends_on so the matrix runs >5 incident edges.
+    const dependsOn1 = createKnowledgeItem(db, specId, 'requirement', 'depends_on 1');
+    const dependsOn2 = createKnowledgeItem(db, specId, 'requirement', 'depends_on 2');
+    const derived = createKnowledgeItem(db, specId, 'requirement', 'derived_from');
+    const constrained = createKnowledgeItem(db, specId, 'requirement', 'constrains');
+    const verifier = createKnowledgeItem(db, specId, 'criterion', 'verifies');
+    const refinement = createKnowledgeItem(db, specId, 'requirement', 'refines');
+    addKnowledgeRelationship(db, dependsOn1.id, goal.id, 'depends_on');
+    addKnowledgeRelationship(db, dependsOn2.id, goal.id, 'depends_on');
+    addKnowledgeRelationship(db, derived.id, goal.id, 'derived_from');
+    addKnowledgeRelationship(db, constrained.id, goal.id, 'constrains');
+    addKnowledgeRelationship(db, verifier.id, goal.id, 'verifies');
+    addKnowledgeRelationship(db, refinement.id, goal.id, 'refines');
+
+    const res = await request(app)
+      .patch(`/api/specifications/${specId}/knowledge-items/${goal.id}`)
+      .send({ content: 'Updated dense anchor' })
+      .expect(200);
+
+    expect(res.body.impact).toBe('hard');
+    expect(res.body.openedNeedIds).toHaveLength(6);
+
+    // Every relation lands one need with the right kind per the
+    // cascade-producer table (D139, A88).
+    const openNeeds = listOpenReconciliationNeeds(db, specId);
+    expect(openNeeds).toHaveLength(6);
+    const kindByTarget = new Map(openNeeds.map((n) => [n.target_item_id, n.kind]));
+    expect(kindByTarget.get(dependsOn1.id)).toBe('needs_confirmation');
+    expect(kindByTarget.get(dependsOn2.id)).toBe('needs_confirmation');
+    expect(kindByTarget.get(derived.id)).toBe('supersedes');
+    expect(kindByTarget.get(constrained.id)).toBe('needs_confirmation');
+    expect(kindByTarget.get(verifier.id)).toBe('needs_confirmation');
+    expect(kindByTarget.get(refinement.id)).toBe('supersedes');
+  });
+
   it('applies hard-impact edit when item is in active review set and opens needs for downstream', async () => {
     const specId = await createSpec();
     const item = createKnowledgeItem(db, specId, 'requirement', 'A req');

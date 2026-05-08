@@ -1,21 +1,14 @@
 // PatchListOverlay — the canonical persistent patch-list surface (SIDE_CHAT.md §4).
 //
-// Renders sticky bars below the global app top-bar:
+// Composes three sticky bars below the global app top-bar:
 //   • Staged-changes bar when there are staged patches.
-//   • Pending-review section listing open reconciliation_need rows (V3.0 card 2,
-//     SIDE_CHAT.md §5.3 — driven by useSpecificationOpenReconciliationNeeds).
-//   • Saved-toast for soft / none / hard impact applies (transient post-apply).
+//   • <PendingReviewSection /> — open reconciliation_need rows with Resolve buttons.
+//   • Saved-toast for transient post-apply feedback.
 //
 // Lives outside the side-chat popover so it stays visible regardless of whether
 // the panel is open — V4's architect loop will deposit into the same surface.
 
 import { useEffect, useRef, useState } from 'react';
-
-import { resolveReconciliationNeedRequest } from '@/client/lib/edit-api.js';
-import {
-  invalidateOpenReconciliationNeeds,
-  useSpecificationOpenReconciliationNeeds,
-} from '@/client/routes/specification/$id/-specification-data.js';
 
 import { ContentDiff } from './content-diff.js';
 import { ImpactChip } from './impact-chip.js';
@@ -24,6 +17,7 @@ import { useLastBatchAppliedMeta, usePatchList, usePatchListState } from './patc
 import { usePatchListOverlayBridge } from './patch-list-overlay-bridge.js';
 import type { Patch } from './patch-list-reducer.js';
 import { usePatchListUndoOverride } from './patch-list-undo-context.js';
+import { PendingReviewSection } from './pending-review-section.js';
 
 const MESSAGE_DURATION_MS = 5000;
 
@@ -79,14 +73,11 @@ export function PatchListOverlay(): React.ReactElement | null {
   const lastBatchAppliedMeta = useLastBatchAppliedMeta();
   const undoOverride = usePatchListUndoOverride();
   const overlayBridge = usePatchListOverlayBridge();
-  const openNeeds = useSpecificationOpenReconciliationNeeds();
 
   const stagedCount = state.staged.length;
-  const openNeedsCount = openNeeds.length;
 
   const [savedToastVisible, setSavedToastVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [resolvingNeedIds, setResolvingNeedIds] = useState<ReadonlySet<number>>(() => new Set());
   const lastSeenBatchIdRef = useRef<string | null>(null);
 
   // Auto-collapse when there are no staged patches left (post-apply / undo).
@@ -95,28 +86,6 @@ export function PatchListOverlay(): React.ReactElement | null {
       setExpanded(false);
     }
   }, [stagedCount, expanded]);
-
-  const handleResolve = (needId: number, specificationId: number): void => {
-    setResolvingNeedIds((prev) => {
-      const next = new Set(prev);
-      next.add(needId);
-      return next;
-    });
-    void (async () => {
-      try {
-        await resolveReconciliationNeedRequest(specificationId, needId);
-        await invalidateOpenReconciliationNeeds(specificationId);
-      } catch (error) {
-        console.error(`Resolve reconciliation_need ${needId} failed`, error);
-      } finally {
-        setResolvingNeedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(needId);
-          return next;
-        });
-      }
-    })();
-  };
 
   // Drive transient-message state off lastBatchId transitions: a new batch
   // means a fresh apply just landed.
@@ -132,7 +101,11 @@ export function PatchListOverlay(): React.ReactElement | null {
 
     const hasApply = lastBatchHasNonNullApply(lastBatchAppliedMeta);
 
-    if (hasApply && !state.isApplying && stagedCount === 0 && state.canUndo) {
+    // The toast should fire whenever a batch applies, including hard-impact
+    // batches that intentionally have canUndo=false. The Undo button inside
+    // the toast renders conditionally on canUndo so hard applies show "Change
+    // saved" without an undo affordance.
+    if (hasApply && !state.isApplying && stagedCount === 0) {
       setSavedToastVisible(true);
       const handle = window.setTimeout(() => setSavedToastVisible(false), MESSAGE_DURATION_MS);
       return () => window.clearTimeout(handle);
@@ -156,18 +129,13 @@ export function PatchListOverlay(): React.ReactElement | null {
   const scopedApplyBlocked =
     overlayBridge !== null && stagedCount > 0 && overlayBridge.scopedPatchIds.length === 0;
 
-  function applyFromOverlay() {
+  const applyFromOverlay = (): void => {
     if (overlayBridge) {
       overlayBridge.applyScoped();
       return;
     }
     void patchList.apply();
-  }
-
-  // Nothing to surface: no staged patches, no open needs, no transient toast.
-  if (stagedCount === 0 && openNeedsCount === 0 && !savedToastVisible) {
-    return null;
-  }
+  };
 
   const countLabel = `${stagedCount} pending change${stagedCount === 1 ? '' : 's'}`;
 
@@ -234,51 +202,7 @@ export function PatchListOverlay(): React.ReactElement | null {
           ) : null}
         </div>
       ) : null}
-      {openNeedsCount > 0 ? (
-        <div
-          role="region"
-          aria-label="Pending review"
-          data-open-needs-count={openNeedsCount}
-          className="flex flex-col gap-1 border-b border-rule bg-[rgba(255,219,168,0.35)] px-4 py-1.5 text-xs backdrop-blur"
-        >
-          <span className="font-medium text-ink">
-            {openNeedsCount} pending review{openNeedsCount === 1 ? '' : 's'}
-          </span>
-          <ul className="text-text-sub flex flex-col gap-0.5">
-            {openNeeds.map((need) => {
-              const isResolving = resolvingNeedIds.has(need.id);
-              return (
-                <li
-                  key={need.id}
-                  data-need-id={need.id}
-                  data-need-kind={need.kind}
-                  className="flex items-center justify-between gap-2"
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="rounded-sm bg-white/70 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-ink uppercase"
-                      data-kind-chip={need.kind}
-                    >
-                      {need.kind === 'supersedes' ? 'supersedes' : 'confirm'}
-                    </span>
-                    <span>
-                      source #{need.source_item_id} → target #{need.target_item_id}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    disabled={isResolving}
-                    onClick={() => handleResolve(need.id, need.specification_id)}
-                    className="rounded-md bg-white px-2 py-0.5 text-[11px] text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa] disabled:opacity-50"
-                  >
-                    {isResolving ? 'Resolving…' : 'Resolve'}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
+      <PendingReviewSection />
       {savedToastVisible ? (
         <div
           role="status"
