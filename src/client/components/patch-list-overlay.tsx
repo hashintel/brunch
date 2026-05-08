@@ -70,8 +70,9 @@ export function PatchListOverlay(): React.ReactElement | null {
   const [savedToastVisible, setSavedToastVisible] = useState(false);
   const lastSeenBatchIdRef = useRef<string | null>(null);
 
-  // Drive transient-message state off lastBatchId transitions: a new batch
-  // means a fresh apply just landed.
+  // Deps are intentionally narrow: a wider dep array re-runs cleanup on
+  // unrelated churn (e.g. stagedCount change), cancelling the auto-hide
+  // timer and leaving the banner stuck on screen.
   useEffect(() => {
     if (state.lastBatchId === null || state.lastBatchId === lastSeenBatchIdRef.current) {
       return;
@@ -94,7 +95,8 @@ export function PatchListOverlay(): React.ReactElement | null {
       const handle = window.setTimeout(() => setSavedToastVisible(false), MESSAGE_DURATION_MS);
       return () => window.clearTimeout(handle);
     }
-  }, [state.lastBatchId, state.canUndo, state.isApplying, stagedCount, lastBatchAppliedMeta]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.lastBatchId]);
 
   // Hide transient post-apply messages when canUndo flips back to false (the user undid).
   useEffect(() => {

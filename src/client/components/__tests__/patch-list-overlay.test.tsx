@@ -3,7 +3,12 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { PatchListProvider, usePatchList, type PatchAppliers } from '../patch-list-host.js';
+import {
+  PatchListProvider,
+  usePatchList,
+  usePatchListState,
+  type PatchAppliers,
+} from '../patch-list-host.js';
 import { PatchListOverlay } from '../patch-list-overlay.js';
 
 afterEach(() => {
@@ -203,6 +208,57 @@ describe('PatchListOverlay', () => {
       fireEvent.click(screen.getByRole('button', { name: /apply/i }));
     });
     expect(screen.getByRole('status', { name: /change saved/i })).toBeTruthy();
+  });
+
+  it('auto-hides the deferred banner after the timeout even when staging activity churns mid-window', async () => {
+    const editApplier = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { deferred: true, impact: 'hard', message: 'Hard impact — coming in V3 cascade preview' },
+      }),
+    );
+    const appliers = makeAppliers({ edit: editApplier as unknown as PatchAppliers['edit'] });
+
+    function DiscardAllStaged() {
+      const patchList = usePatchList();
+      const state = usePatchListState();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            for (const patch of state.staged) {
+              patchList?.discard(patch.id);
+            }
+          }}
+        >
+          discard-all
+        </button>
+      );
+    }
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchButton />
+        <DiscardAllStaged />
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('stage-edit'));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /apply/i }));
+    });
+    await screen.findByRole('status', { name: /hard impact deferred to v3/i });
+
+    fireEvent.click(screen.getByText('stage-edit'));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    fireEvent.click(screen.getByText('discard-all'));
+
+    expect(screen.queryByRole('status', { name: /hard impact deferred to v3/i })).toBeNull();
   });
 
   it('replaces a deferred banner with the saved-toast after a later non-deferred apply', async () => {
