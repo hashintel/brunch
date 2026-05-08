@@ -4,12 +4,15 @@ import * as z from 'zod/v4';
 import { edgeRelationSchema, type MutationErrorResponse } from '@/shared/api-types.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
+import { relationToKind } from './cascade-producer.js';
 import {
   addKnowledgeRelationship,
+  getDownstreamEdges,
   getDownstreamItems,
   getKnowledgeItem,
   getSpecification,
   isItemInActiveReviewSet,
+  openReconciliationNeedIfAbsent,
   removeKnowledgeRelationship,
   updateKnowledgeItemContent,
   type DB,
@@ -22,6 +25,7 @@ import { supportsKnowledgeRelationship } from './knowledge-relationship-policy.j
 const patchKnowledgeItemSchema = z.object({
   content: z.string().trim().min(1),
   rationale: z.string().trim().min(1).nullable().optional(),
+  causedByTurnId: z.number().int().positive().optional(),
 });
 
 const edgeMutationSchema = z.object({
@@ -81,17 +85,42 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
     content: d.content,
   }));
 
-  if (impact === 'hard') {
-    res.json({ impact, affectedItems, updated: false });
-    return;
-  }
-
   const previousContent = item.content;
   const previousRationale = item.rationale;
   updateKnowledgeItemContent(db, itemId, {
     content: parsed.data.content,
     rationale: parsed.data.rationale,
   });
+
+  if (impact === 'hard') {
+    // V3.0 (D139, I112): apply the source change AND open one
+    // reconciliation_need per typed dependency edge incident on the changed
+    // item. The partial unique index on (source, target, kind) makes
+    // re-application idempotent. The patch list overlay surfaces these needs
+    // as a Pending review section in card 2; for now the V2 client banner
+    // continues to render off `impact === 'hard'`.
+    const downstreamEdges = getDownstreamEdges(db, specificationId, itemId);
+    const openedNeedIds: number[] = [];
+    for (const edge of downstreamEdges) {
+      const opened = openReconciliationNeedIfAbsent(db, {
+        specificationId,
+        sourceItemId: itemId,
+        targetItemId: edge.downstream_item_id,
+        kind: relationToKind(edge.relation),
+        causedByTurnId: parsed.data.causedByTurnId ?? null,
+      });
+      if (opened !== null) openedNeedIds.push(opened.id);
+    }
+    res.json({
+      impact,
+      affectedItems,
+      updated: true,
+      previousContent,
+      previousRationale,
+      openedNeedIds,
+    });
+    return;
+  }
 
   res.json({ impact, affectedItems, updated: true, previousContent, previousRationale });
 }
