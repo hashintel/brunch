@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildCandidateSpecContextPack,
   buildObserverCaptureContextPack,
+  buildWebResearchContextPack,
+  renderCandidateSpecContextPack,
   renderObserverCaptureContextPack,
+  renderWebResearchContextPack,
   type ObserverContextPackInput,
 } from './context-pack.js';
 import type { TurnWithOptions } from './core.js';
@@ -42,6 +46,79 @@ function makeTurn(overrides: Partial<TurnWithOptions> = {}): TurnWithOptions {
 function expectObserverContextPackRendering(input: ObserverContextPackInput, expected: string) {
   expect(renderObserverCaptureContextPack(buildObserverCaptureContextPack(input))).toBe(expected);
 }
+
+describe('candidate-spec context packs', () => {
+  it('renders a deterministic proposal brief from ranked anchors and known commitments', () => {
+    const pack = buildCandidateSpecContextPack({
+      objective: 'Synthesize plausible directions for a partial-scope Brunch feature.',
+      requestedCandidateCount: 3,
+      entities: {
+        ...emptyEntities(),
+        goals: [{ id: 1, content: 'Help users react to concrete candidate directions' }],
+        constraints: [{ id: 4, content: 'Do not close the phase automatically' }],
+        decisions: [{ id: 7, content: 'Candidate sets are turn-owned proposal artifacts' }],
+        assumptions: [{ id: 8, content: 'Reaction-first synthesis can reduce interview fatigue' }],
+      },
+    });
+
+    expect(pack.scenario).toBe('candidate-spec');
+    expect(renderCandidateSpecContextPack(pack)).toBe(`Candidate-spec objective:
+Synthesize plausible directions for a partial-scope Brunch feature.
+
+Requested candidate count:
+3
+
+Known intent anchors:
+#1 goal | Help users react to concrete candidate directions
+#4 constraint | Do not close the phase automatically
+#7 decision | Candidate sets are turn-owned proposal artifacts
+#8 assumption | Reaction-first synthesis can reduce interview fatigue
+
+Constraints:
+- #4 Do not close the phase automatically
+
+Assumptions:
+- #8 Reaction-first synthesis can reduce interview fatigue
+
+Decisions:
+- #7 Candidate sets are turn-owned proposal artifacts
+
+Generation instructions:
+- Generate proposal directions only; do not treat output as accepted graph truth.
+- For each direction, name implications, tradeoffs, likely generated knowledge, and what it rules out.
+- Prefer directions that expose unresolved assumptions or constraints for human review.`);
+  });
+});
+
+describe('web research context packs', () => {
+  it('renders a deterministic research brief from graph anchors and constraints', () => {
+    const pack = buildWebResearchContextPack({
+      researchObjective: 'Find current evidence for OpenRouter tool-call compatibility.',
+      triggeringQuestion: 'Should OpenRouter be the default onboarding provider?',
+      constraints: ['Do not call providers during this probe.', 'Prefer vendor docs over blog posts.'],
+      entities: {
+        ...emptyEntities(),
+        goals: [{ id: 1, content: 'Reduce first-run LLM setup friction' }],
+        assumptions: [{ id: 74, content: 'OpenRouter will reduce first-run friction for Brunch users' }],
+      },
+    });
+
+    expect(pack.scenario).toBe('web-research');
+    expect(renderWebResearchContextPack(pack)).toBe(`Research objective:
+Find current evidence for OpenRouter tool-call compatibility.
+
+Triggering question:
+Should OpenRouter be the default onboarding provider?
+
+Known intent anchors:
+#1 goal | Reduce first-run LLM setup friction
+#74 assumption | OpenRouter will reduce first-run friction for Brunch users
+
+Research constraints:
+- Do not call providers during this probe.
+- Prefer vendor docs over blog posts.`);
+  });
+});
 
 describe('observer context packs', () => {
   it('builds a typed observer-capture pack with compact anchors and current-turn evidence', () => {
