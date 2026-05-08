@@ -121,6 +121,32 @@ describe('PATCH /api/specifications/:id/knowledge-items/:itemId', () => {
     expect(res.body.updated).toBe(false);
   });
 
+  it('rejects edit as hard when a downstream affected item is in an active review set', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'A goal');
+    const requirement = createKnowledgeItem(db, specId, 'requirement', 'A requirement');
+    addKnowledgeRelationship(db, requirement.id, goal.id, 'depends_on');
+
+    const turn = createTurn(db, specId, { phase: 'requirements', question: 'review' });
+    createPhaseOutcome(db, {
+      specificationId: specId,
+      phase: 'requirements',
+      proposal_turn_id: turn.id,
+      summary: 'Review',
+    });
+    linkKnowledgeItemToTurn(db, requirement.id, turn.id, 'reviewed');
+
+    const res = await request(app)
+      .patch(`/api/specifications/${specId}/knowledge-items/${goal.id}`)
+      .send({ content: 'Updated goal' })
+      .expect(200);
+
+    expect(res.body.impact).toBe('hard');
+    expect(res.body.updated).toBe(false);
+    expect(res.body.affectedItems).toHaveLength(1);
+    expect(getKnowledgeItem(db, goal.id)?.content).toBe('A goal');
+  });
+
   it('returns 404 when specification does not exist', async () => {
     await request(app)
       .patch('/api/specifications/99999/knowledge-items/1')

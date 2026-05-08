@@ -99,6 +99,34 @@
       "when": 1776300000000,
       "tag": "0013_annotation",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1776310000000,
+      "tag": "0014_chat_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1776320000000,
+      "tag": "0015_turn_chat_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1776330000000,
+      "tag": "0016_specification_primary_chat",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1776340000000,
+      "tag": "0017_reconciliation_need",
+      "breakpoints": true
     }
   ]
 }

@@ -69,7 +69,9 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
   }
 
   const downstream = getDownstreamItems(db, specificationId, itemId);
-  const inReviewSet = isItemInActiveReviewSet(db, specificationId, itemId);
+  const inReviewSet =
+    isItemInActiveReviewSet(db, specificationId, itemId) ||
+    downstream.some((downstreamItem) => isItemInActiveReviewSet(db, specificationId, downstreamItem.id));
   const impact = classifyEditImpact(downstream.length, inReviewSet);
 
   const affectedItems = downstream.map((d) => ({
