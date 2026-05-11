@@ -20,6 +20,8 @@ export function makeNeed(overrides: Partial<ReconciliationNeedRecord> = {}): Rec
     source_previous_content: overrides.source_previous_content ?? null,
     source_current_content: overrides.source_current_content ?? null,
     target_current_content: overrides.target_current_content ?? null,
+    target_item_kind: overrides.target_item_kind ?? null,
+    target_reference_code: overrides.target_reference_code ?? null,
     agent_status: overrides.agent_status ?? null,
     agent_classification: overrides.agent_classification ?? null,
     agent_proposal: overrides.agent_proposal ?? null,

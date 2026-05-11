@@ -2,6 +2,8 @@
 // Mirrors the durable schema with explicit field types so the client
 // doesn't have to import server types.
 
+import type { KnowledgeKind } from './knowledge.js';
+
 export type ReconciliationNeedKind = 'supersedes' | 'needs_confirmation';
 export type ReconciliationNeedStatus = 'open' | 'resolved';
 // V3.1 slice 4: reconciliation-classifier lifecycle. The label vocabulary
@@ -39,6 +41,12 @@ export interface ReconciliationNeedRecord {
   // most cases, but guard for race / partial states); the Edit-target
   // affordance is hidden in that case and the user falls back to Resolve.
   target_current_content: string | null;
+  // V3.1 Card 7: target item's typed kind + reference code, joined at read
+  // time so the substantive Open-side-chat affordance can hand `useSideChat`
+  // a full SideChatPinnableItem without a second fetch. Closes the Card 4
+  // deferred follow-up on row left-bar / Resolve-fill kind accent.
+  target_item_kind: KnowledgeKind | null;
+  target_reference_code: string | null;
   // V3.1 slice 4 (memory/CARDS.md): reconciliation-classifier output. Null
   // until the run-agent route picks the row up. See ReconciliationNeedAgentStatus
   // for the lifecycle and ReconciliationNeedAgentClassification for the label

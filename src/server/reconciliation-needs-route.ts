@@ -18,13 +18,14 @@ import {
   type DB,
   type ReconciliationNeed,
 } from './db.js';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
-// Card 3 (V3.1 setup): the wire shape extends the persistent row with the
-// target item's live current content, so the client's Edit-target inline
-// form can pre-fill without mounting a separate items query. Read-time
-// enrichment only — never written to the table.
+import type { KnowledgeKind } from '@/shared/knowledge.js';
+
 export type ReconciliationNeedView = ReconciliationNeed & {
   target_current_content: string | null;
+  target_item_kind: KnowledgeKind | null;
+  target_reference_code: string | null;
 };
 
 export interface ListOpenReconciliationNeedsResponse {
@@ -55,7 +56,14 @@ export function handleListOpenReconciliationNeeds(db: DB, req: Request, res: Res
   const rows = listOpenReconciliationNeeds(db, specificationId);
   const openNeeds: ReconciliationNeedView[] = rows.map((row) => {
     const target = getKnowledgeItem(db, row.target_item_id);
-    return { ...row, target_current_content: target?.content ?? null };
+    return {
+      ...row,
+      target_current_content: target?.content ?? null,
+      target_item_kind: target?.kind ?? null,
+      target_reference_code: target
+        ? createKnowledgeReferenceCode(target.kind, target.kind_ordinal)
+        : null,
+    };
   });
   res.json({ openNeeds } satisfies ListOpenReconciliationNeedsResponse);
 }
