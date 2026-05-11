@@ -73,11 +73,6 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
     return;
   }
 
-  // Validate the client-supplied causedByTurnId before committing any writes
-  // — reconciliation_need.caused_by_turn_id is a real FK with foreign_keys ON,
-  // so a stale or wrong-spec turn id would otherwise throw at insert time and
-  // surface as a 500. A wrong spec is just as bad as a missing turn (the need
-  // would attribute the cascade to an unrelated chat), so check both.
   if (parsed.data.causedByTurnId != null) {
     const turn = getTurn(db, parsed.data.causedByTurnId);
     if (!turn || turn.specification_id !== specificationId) {
@@ -109,11 +104,6 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
     // re-application idempotent. The patch list overlay surfaces these needs
     // as a Pending review section in card 2; for now the V2 client banner
     // continues to render off `impact === 'hard'`.
-    //
-    // Wrap the source mutation and the per-edge need inserts in one
-    // transaction so a partial failure (e.g. an unexpected FK violation) can't
-    // leave the source mutated without its cascade needs — the caller would
-    // otherwise see the new content with no way to resolve.
     const downstreamEdges = getDownstreamEdges(db, specificationId, itemId);
     const openedNeedIds = db.transaction((tx) => {
       updateKnowledgeItemContent(tx as unknown as DB, itemId, {
