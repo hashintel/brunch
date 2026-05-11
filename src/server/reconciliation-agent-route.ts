@@ -22,6 +22,7 @@ import type { Request, Response } from 'express';
 import type { MutationErrorResponse } from '@/shared/api-types.js';
 
 import {
+  claimReconciliationNeedForClassification,
   getCascadeRelationBetween,
   getKnowledgeItem,
   getSpecification,
@@ -63,10 +64,7 @@ export async function handleRunReconciliationAgent(
   let failedCount = 0;
 
   for (const need of needs) {
-    // queued → classifying — two transitions before the LLM call so the
-    // listing endpoint can show 'queued' for any row still waiting in the
-    // serial loop on the next /reconciliation-needs poll.
-    updateReconciliationNeedAgentFields(db, need.id, { agent_status: 'queued' });
+    if (!claimReconciliationNeedForClassification(db, need.id)) continue;
 
     const sourceItem = getKnowledgeItem(db, need.source_item_id);
     const targetItem = getKnowledgeItem(db, need.target_item_id);
