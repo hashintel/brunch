@@ -56,7 +56,7 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
     }
     return {
       undo: async () => {
-        await editKnowledgeItemRequest(specificationId, patch.anchor.itemId, {
+        const undoResponse = await editKnowledgeItemRequest(specificationId, patch.anchor.itemId, {
           content: previousContent,
           rationale: previousRationale,
         });
