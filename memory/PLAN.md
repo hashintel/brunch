@@ -20,14 +20,15 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ## Next
 
-2. **Prompt/context scenario substrate (FE-698 continuation)** — continue the FE-698 substrate after the foundation slices: packaged prompt assets, the first observer context-pack path, deterministic no-provider scenario capture, and the agent mutation-surface audit are complete, but FE-698 still has live follow-up work.
-   - Linear: FE-698. Pi harness spike: FE-635.
-   - Status: partially complete, not retired. Completed foundation: prompt registry + markdown prompt loading, observer-capture and web-research context-pack composition, scenario runner capture skeleton / seeded snapshots, prompt-source explicitness, mutation-surface audit / terminology cleanup, capability registry metadata surfaced in scenario artifacts, fake-adapter web-research scenario execution capture, a probe-only Anthropic AI SDK scenario adapter, and safe scenario execution error summaries. Outstanding FE-698 follow-up: more context-pack scenarios beyond observer capture / web research, broader read-only/proposal-only harness execution probes, and/or the Pi adapter spike. OpenRouter/default-provider setup is deferred to the first-run provider setup frontier.
-   - Why now / unlocks: multi-chat removes the single transcript spine as default agent context, while ontology, observer, candidate-spec, web research, behavioral-kernel, architect, and post-spec decomposition work all need shared prompt/context machinery. This prevents every future agent feature from inventing its own prompt-context hack and lets LLM-heavy flows be tested before UI work.
-   - Recommended shape: define the next FE-698 slice around one of the remaining prompt/context seams. Likely candidates: additional context-pack scenarios for next-question, candidate-spec, web research, reconciliation, architect, or decomposition probes; a narrow execution-probe path using the existing Anthropic API key / fake adapters; or the FE-635 Pi SDK/RPC spike. Keep provider credential UX, shared production AI runtime/provider resolution, execution adapters as product truth, and durable mutating handlers out of scope. The key rule is that future agent-originated writes must go through Brunch-owned handlers rather than direct ORM access. Registry naming should follow `docs/design/AGENT_MUTATION_SURFACE.md`: product nouns plus semantic verbs, with intent-graph mutations converging on `changeset.submit` / `changeset.apply` and atomic `change` variants rather than many ad hoc mutating tools.
-   - Verification approach: inner-loop prompt-loader/context-pack unit tests plus seeded scenario snapshots; middle-loop multi-run prompt probes should be designed before judging generative quality.
-   - Traceability: Requirements 40, 41, 42; A84, A85, A86, A87; D139, D140, D141, D142, D143; I112.
-   - Design docs: `docs/design/INTENT_SPEC_EVOLUTION.md`; `docs/design/MULTI_CHAT.md`; `docs/design/AGENT_MUTATION_SURFACE.md` (agent-originated mutation audit and registry input); Pi SDK docs as spike input.
+2. **Agent capability CLI + LLM-as-user fixture probe** — introduce a local `brunch agent` JSONL capability adapter over Brunch-owned contracts, plus an external probe runner that drives the real interview flow as an LLM user to produce completed-spec fixture candidates.
+   - Linear: FE-705. Pi comparison remains FE-635 after this seam has a real Brunch use case to compare against.
+   - Work type: structural transport / harness seam.
+   - Status: new frontier split out from the now-nominally-complete FE-698 substrate foundation. FE-698 supplies prompt assets, context packs, deterministic scenario artifacts, safe model-adapter execution summaries, and capability registry metadata; this frontier turns the agent mutation-surface audit into an executable integration seam.
+   - Why now / unlocks: prompt/context probes need credible graph/transcript fixtures, but hand-authoring those fixtures is chicken-and-egg. A JSONL capability adapter lets an external agent drive the real Brunch lifecycle through the same mutation authority future agents must use, generating realistic completed specs for curation while also pressure-testing tool-call vocabulary, chat readiness, and multi-chat resource identity.
+   - Recommended shape: ship as one frontier item with several commit-sized cards if needed. First prove a minimal capability registry/dispatcher with schemas and authority metadata; add `brunch agent` as a long-lived stdin/stdout JSONL session; expose only the first real flow surface (`spec.create`, `spec.getStatus`, `spec.requestPhaseClosure`, `spec.requestExport`, `chat.getPrimary`, `chat.ensureReady`, `chat.read`, `turn.get`, `turn.submitResponse`); keep all product resource ids explicit in every call; reserve ambient state for DB/provider/in-flight runtime handles only; build the probe runner as a JSONL client that owns scenario briefs, LLM-as-user prompts, artifact bundles, and fixture curation. Keep Pi, MCP, browser automation, product UI, provider credential UX, shared production provider routing, and durable runtime-operation ledgers out of the first slice.
+   - Verification approach: inner-loop contract/dispatcher tests, JSONL protocol/session tests, import-boundary tests proving the probe runner uses only the JSONL client, and a tiny proof-of-life scenario that completes the first few turns or force-closes phases to exercise capture/export plumbing. Middle-loop oracle work should define how generated fixtures are judged before treating them as golden.
+   - Traceability: Requirement 43; A89; D143, D147; I114. Also protects Requirements 40, 41, 42 and I112 by making prompt/context and mutation-surface probes executable through a real adapter.
+   - Design docs: `docs/design/AGENT_MUTATION_SURFACE.md`; `docs/design/INTENT_SPEC_EVOLUTION.md`; `docs/design/MULTI_CHAT.md`; Pi SDK docs only for later comparison.
 
 3. **Intent graph semantics + progressive checkability foundation** — refine the ontology and relation policy so the graph can represent invariants, examples/counterexamples, constraint subtypes, narrowed decisions, witness strength, and checkability gaps as source/destination material for future generative features.
    - Linear: FE-700.
@@ -172,7 +173,10 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 ```text
 TRACK A — Agent/semantic substrate
 multi-chat-substrate + reconciliation-needs  (completed)
-  ├──→ prompt/context scenario substrate  (completed)
+  ├──→ prompt/context scenario substrate foundation  (completed)
+  │     ├──→ agent-capability-CLI + LLM-as-user fixture probe  (next, FE-698 continuation)
+  │     │     ├──→ Pi harness comparison  (future, FE-635)
+  │     │     └──→ golden completed-spec fixture curation  (future/probe output)
   │     ├──→ intent graph semantics + progressive checkability  (next)
   │     ├──→ generative prompt probes before UI  (next)
   │     │     ├──→ productized web research capability  (horizon)
