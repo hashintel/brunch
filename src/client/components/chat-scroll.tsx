@@ -1,5 +1,5 @@
+import * as ScrollAreaPrimitive from '@radix-ui/react-scroll-area';
 import { ArrowDownIcon } from 'lucide-react';
-import { ScrollArea as ScrollAreaPrimitive } from 'radix-ui';
 import { useCallback, useLayoutEffect, useRef } from 'react';
 import { useStickToBottom } from 'use-stick-to-bottom';
 
