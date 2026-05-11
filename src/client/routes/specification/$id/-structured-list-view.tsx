@@ -518,7 +518,7 @@ function ItemEditTextarea({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const trimmed = value.trim();
-  const canSave = trimmed.length > 0 && trimmed !== initialContent;
+  const canSave = trimmed.length > 0 && trimmed !== initialContent.trim();
 
   useLayoutEffect(() => {
     const ta = ref.current;
