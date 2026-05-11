@@ -687,7 +687,12 @@ export function getReconciliationNeed(db: DB, needId: number): ReconciliationNee
 export function resolveReconciliationNeed(db: DB, reconciliationNeedId: number): void {
   db.update(schema.reconciliationNeed)
     .set({ status: 'resolved', resolved_at: sql`datetime('now')` })
-    .where(eq(schema.reconciliationNeed.id, reconciliationNeedId))
+    .where(
+      and(
+        eq(schema.reconciliationNeed.id, reconciliationNeedId),
+        eq(schema.reconciliationNeed.status, 'open'),
+      ),
+    )
     .run();
 }
 
