@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { submitTurnResponseRequestSchema } from '@/shared/api-types.js';
-import { extractTextFromMessage, type BrunchUIMessage } from '@/shared/chat.js';
+import { extractTextFromMessage, structuredQuestionSchema, type BrunchUIMessage } from '@/shared/chat.js';
 
 import { getCapabilityContract, type CapabilityId } from './capability-registry.js';
 import { applyChatRouteTransition } from './chat-route-transition.js';
@@ -242,6 +242,8 @@ function getChatById(db: DB, chatId: number) {
     .get();
 }
 
+const INITIAL_INTERVIEWER_PROMPT = 'Begin the grounding interview.';
+
 function getReadyStateForTurn(turn: { question: string; answer: string | null }) {
   if (turn.answer !== null) {
     return 'answered';
@@ -271,14 +273,28 @@ async function generateAnswerableFrontierWithInterviewer({
     throw new Error(`Interviewer did not generate content for turn ${turn.id}`);
   }
 
-  const question = extractTextFromMessage(responseMessage);
   const assistantParts = materializeTurnArtifacts({
     phase: turn.phase,
     responseMessage,
     elapsedMs: Date.now() - startedAt,
   });
+  const question =
+    extractTextFromMessage(responseMessage) || extractQuestionFromAssistantParts(assistantParts);
 
   return { question, assistantParts };
+}
+
+function extractQuestionFromAssistantParts(parts: AssistantPart[]): string {
+  const askQuestionPart = parts.find(
+    (part): part is Extract<AssistantPart, { type: 'tool-ask_question' }> =>
+      part.type === 'tool-ask_question' && 'input' in part,
+  );
+  if (!askQuestionPart) {
+    return '';
+  }
+
+  const parsedInput = structuredQuestionSchema.safeParse(askQuestionPart.input);
+  return parsedInput.success ? parsedInput.data.question : '';
 }
 
 async function persistGeneratedAnswerableFrontier(
@@ -286,11 +302,14 @@ async function persistGeneratedAnswerableFrontier(
   turn: Turn,
   generated: GeneratedAnswerableFrontier,
 ): Promise<void> {
-  if (generated.question.trim() === '') {
+  const currentQuestion = getTurn(db, turn.id)?.question ?? '';
+  const question =
+    generated.question || extractQuestionFromAssistantParts(generated.assistantParts) || currentQuestion;
+  if (question.trim() === '') {
     throw new Error(`Interviewer generated an empty question for turn ${turn.id}`);
   }
 
-  persistFallbackQuestionText(db, turn.id, generated.question);
+  persistFallbackQuestionText(db, turn.id, question);
   updateTurn(db, turn.id, {
     assistant_parts: serializeParts(generated.assistantParts),
   });
@@ -418,7 +437,7 @@ async function ensureChatReadyFromCapability(
         db,
         turn: persistedActiveTurn,
         activePath: state.turns,
-        userMessage: '',
+        userMessage: INITIAL_INTERVIEWER_PROMPT,
       });
       await persistGeneratedAnswerableFrontier(db, persistedActiveTurn, generated);
 
@@ -501,7 +520,7 @@ async function ensureChatReadyFromCapability(
     db,
     turn: transition.prepared.turn,
     activePath: transition.prepared.activePath,
-    userMessage: '',
+    userMessage: INITIAL_INTERVIEWER_PROMPT,
   });
   await persistGeneratedAnswerableFrontier(db, transition.prepared.turn, generated);
 
