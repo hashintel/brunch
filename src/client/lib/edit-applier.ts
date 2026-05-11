@@ -57,11 +57,11 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
           content: previousContent,
           rationale: previousRationale,
         });
-        if (undoResponse.impact === 'hard') {
-          throw new Error(
-            'Edit undo blocked: restore reclassified as hard-impact cascade — resolve via patch list',
-          );
-        }
+        // V3.0 (D139, I112): the server always applies the content change,
+        // and hard-impact restores also open reconciliation_need rows. Don't
+        // throw here — the undo did succeed; invalidate so the page-visible
+        // content catches up. If new cascade needs were opened, card 2's
+        // Pending review surface picks them up via its own query.
         await invalidateEntityQueriesAfterEdit(specificationId);
       },
       applied: { impact: response.impact, previousContent, previousRationale },
