@@ -302,9 +302,77 @@ No spike required — both LLM seam (`generateText` via the existing AI SDK adap
 
 ---
 
-## Not yet queued (depends on slice 5 findings)
+## 6 — V3.1 agent client UI — Run agent + status chips + per-row Re-run (client + small server seam) — `next` (full scope card)
 
-6. **V3.1 agent client** — extend `useSpecificationOpenReconciliationNeeds` to expose the three new fields; "Run agent" button + thin progress strip ("Agent: 2 of 4 classified") + per-row status chips; 1-second polling while any need is `queued` / `classifying`. Per-row Re-run button. Reuses Card 4's `<DiffPopover>` and toolbar primitives — chips dock onto the polished row layout, not today's bare row.
-7. **V3.1 actions + bulk** — per-class buttons (`auto-confirm` → one-click Confirm; `auto-edit` → render `agent_proposal` inside `<DiffPopover>` + Apply / Skip; `substantive` → render note + "Open side-chat"); "Confirm all (N)" + "Apply all suggested (N)". Apply suggested edit reuses Card 3's inline-textarea machinery (with Card 4's polished toolbar contract) pre-filled by `agent_proposal`. Outer-loop walkthrough validates A88.
+### Target Behavior
 
-Re-scope each only after slice 5 ships and the schema + lifecycle hold up under one walkthrough.
+A user with open `reconciliation_need` rows can trigger the V3.1 classifier from the Pending review header, see each row's live classification state as a chip (`null` / `queued` / `classifying` / `auto-confirm` / `auto-edit` / `substantive` / `failed`), and re-run classification on any single row from its action rail — all within the existing `<PendingReviewSection>` polished surface, with no per-class action behavior yet (those land in Card 7).
+
+### Boundary Crossings
+
+```
+→ <PendingReviewSection> header                                                  (src/client/components/pending-review-section.tsx — Card 4 polished surface)
+→ <RunAgentButton>                                                               (NEW small component; lives in header next to the existing kind-counts row)
+→ POST /api/specifications/:id/reconciliation-needs/run-agent                    (existing, Card 5)
+→ useSpecificationOpenReconciliationNeeds query                                  (existing; verify it returns agent_* fields per Card 5 slice 4)
+→ conditional refetchInterval (1000ms while ANY need.agent_status ∈ {'queued','classifying'}, otherwise off)
+→ Per-row <ClassificationChip>                                                   (NEW; six variants; reuses kind-chip pattern from Card 4)
+→ Per-row [↻ Re-run] action button (visible only when agent_status ∈ {'classified','failed'})
+→ POST /api/specifications/:id/reconciliation-needs/:needId/reset-agent          (NEW minimal route; idempotent agent_status → null + immediate POST run-agent for that row)
+→ db.resetReconciliationNeedAgentFields(needId)                                  (NEW one-liner helper; clears agent_status / agent_classification / agent_proposal on one row)
+→ Optimistic chip swap on Run / Re-run click (chip flips to 'queued' immediately; polling reconciles)
+```
+
+### Risks and Assumptions
+
+- RISK: 1-second polling against the listing endpoint while several needs classify in parallel could hammer the server → MITIGATION: conditional polling — `refetchInterval: 1000` ONLY when at least one open need is `queued` or `classifying`; idle state has no polling. Single-digit need counts per spec (existing N+1 caveat from Card 3) keep this cheap. If outer-loop reveals load issues, drop to 2000ms or switch to event-stream notification (a Card 6.5 follow-up, not pre-scoped).
+- RISK: Per-row Re-run requires resetting `agent_status` before the run-agent route's `IS NULL` filter will re-process the row → MITIGATION: dedicated `POST .../:needId/reset-agent` endpoint that clears the three agent_* fields on one row in a single statement, then calls the same classifier pipeline used by the spec-level run-agent route (factor the inner loop into a shared helper if cleanest). One transaction; idempotent.
+- RISK: "Run agent" button state must reflect global agent state (running / idle / partial) and disable correctly to prevent double-runs → MITIGATION: derive button state from query data (`hasInflight = some need has agent_status ∈ {queued, classifying}`); the spec-level run-agent route is already idempotent on rows where `agent_status IS NOT NULL`, so duplicate clicks during polling are harmless but disabling avoids confusing UX.
+- ASSUMPTION: The GET listing endpoint already exposes `agent_status`, `agent_classification`, `agent_proposal` per Card 5 slice 4 [2026-05-08]. → VALIDATE: read `src/server/reconciliation-needs-route.ts` listing path before implementing; if not exposed, this is a one-line extension to the response shape and the `ReconciliationNeedRecord` shared type. → memory/SPEC.md I114 (lifecycle persistence).
+- ASSUMPTION: Six chip variants (null / queued / classifying / auto-confirm / auto-edit / substantive / failed) cover all states the user sees today; the `failed` chip carries enough information (icon + label + tooltip showing `agent_proposal` error text) for the user to decide whether to Re-run without opening a separate panel. → VALIDATE: outer-loop walkthrough on dense graphs; if `failed` rows need richer detail, add a hover-popover in Card 7 along with the auto-edit DiffPopover.
+- ASSUMPTION: Card 6 alone is enough surface to validate A88 (does grouping help legibility?). → VALIDATE: outer-loop walkthrough on a dense real spec immediately after build; the qualitative read is whether the chip vocabulary makes the queue actionable at a glance vs. the V3.0 flat list with per-row Resolve. → memory/SPEC.md A88. If A88 invalidates, route through `/ln-spec` before scoping Card 7.
+
+### Acceptance Criteria
+
+```
+✓ pending-review-section.test.tsx — Run agent button renders in the section header when ≥1 open need has agent_status=null; clicking dispatches exactly one POST .../run-agent call
+✓ pending-review-section.test.tsx — Run agent button is disabled (and tooltip explains) while any open need has agent_status ∈ {'queued','classifying'}; re-enabled when all rows reach a terminal state
+✓ pending-review-section.test.tsx — progress strip ("Agent: M of N classified") renders only while in-flight; counter derives from agent_status states; hidden at rest
+✓ pending-review-section.test.tsx — each row renders a ClassificationChip matching agent_status (seven fixtures for null / queued / classifying / auto-confirm / auto-edit / substantive / failed); failed chip shows agent_proposal tooltip on hover
+✓ pending-review-section.test.tsx — per-row Re-run button visible only when agent_status ∈ {'classified','failed'}; click sends POST .../:needId/reset-agent; resulting chip transitions queued → classifying → terminal within the polling window
+✓ specification-open-reconciliation-needs.test.tsx — refetchInterval is 1000ms when any need is queued/classifying; falsy when all needs are terminal or null (no polling at rest)
+✓ reconciliation-needs-route.test.ts — new POST .../:needId/reset-agent: 200 + classifier dispatch on valid open need; 404 on unknown need; 200 + no-op when row is already null; auth parity with existing /resolve route
+✓ classification-chip.test.tsx — pure render snapshot of all six variants; accessibility labels are present and distinguishable
+✓ npm run verify — no unrelated regressions in existing pending-review-section, reconciliation-needs-route, or query tests
+```
+
+### Verification Approach
+
+```
+- Inner: component test extensions in pending-review-section.test.tsx for the seven UI cases above; query-layer test for refetchInterval gating; route-level test for the new reset-agent endpoint; standalone ClassificationChip variant tests. `npm run verify` covers all.
+- Middle: not applicable — no LLM judgment changes; classifier prompt unchanged from Card 5. The middle-loop golden-fixture corpus seeded in Card 5 stays as-is.
+- Outer: manual walkthrough — open a spec with a dense knowledge graph (≥10 items with mixed typed edges); make a hard-impact edit that opens 4–6 needs across both `supersedes` and `needs_confirmation` kinds; click Run agent; observe chips cycle through queued → classifying → terminal within ~5s; re-run two rows manually; ASSESS A88: can the user interpret the classification pattern without coaching? Is the queue more actionable than V3.0's flat list with per-row Resolve? Capture qualitative notes — these are the A88 signal that gates Card 7 scoping.
+```
+
+### Promotion checklist
+
+- [ ] Requirement change? **No** — Requirement 10 already names the HITL contract.
+- [x] Assumption change? **Maybe** — A88's outer-loop validation lands here. Build does not change A88; the walkthrough either upholds it, refines it (e.g., "grouping helps but only with class-count summary in header"), or invalidates it (e.g., "users miss substantive needs in a mixed-chip list"). No SPEC update at scope time; route through `/ln-spec` post-walkthrough only if invalidated.
+- [x] Non-trivial design decision? **Yes** — (a) chip vocabulary (six variants + tooltip-driven failure detail), (b) per-row reset endpoint shape (`POST /reset-agent` vs. generic `PATCH /agent-status` mutation), (c) polling cadence + conditionality. All three are reversible inside the route + component contracts; document choices in the commit body. No D### needed unless walkthrough reveals a load-bearing constraint.
+- [ ] New seam-level invariant? **No** — I114 (classifier lifecycle) already established by Card 5; Card 6 surfaces it without changing it. The `agent_proposal` text-only / never-auto-applied invariant remains untouched (Card 7 will lean on it for `auto-edit` Apply).
+- [x] Crosses >2 major seams? **Yes** — listing route (verify-only), new reset-agent route, query hook, component surface, three new sub-components. Justifies full scope.
+- [ ] First touch in unfamiliar seam? **No** — same code paths as Card 4 polish + Card 5 backend.
+- [ ] Cannot name containing seam? **No** — `pending-review-section.tsx`, `useSpecificationOpenReconciliationNeeds`, `reconciliation-needs-route.ts`.
+
+→ Stays full scope on (b) + (c) + multi-seam crossing. SPEC.md unchanged at scope time; reconcile only if A88 walkthrough invalidates.
+
+---
+
+## Not yet queued (depends on Card 6 outer-loop signal)
+
+7. **V3.1 actions + bulk** — per-class buttons (`auto-confirm` → one-click Confirm; `auto-edit` → render `agent_proposal` inside `<DiffPopover>` + Apply / Skip; `substantive` → render note + "Open side-chat"); "Confirm all (N)" + "Apply all suggested (N)". Apply suggested edit reuses Card 3's inline-textarea machinery (with Card 4's polished toolbar contract) pre-filled by `agent_proposal`. Outer-loop walkthrough refines or confirms A88 against the bulk-action experience.
+
+Re-scope Card 7 only after Card 6's outer-loop walkthrough lands. Specifically, three Card-6 findings should be in hand before Card 7 scope is committed:
+- whether the chip vocabulary as-shipped is the right granularity for action buttons to bind to (e.g., does `failed` need a recovery action distinct from Re-run?);
+- whether bulk actions ("Confirm all", "Apply all") want server-side bulk endpoints or client-side iteration over the existing per-row endpoints;
+- whether `substantive` → "Open side-chat" is the right handoff or whether substantive items should stay in-place with richer inline UI.
