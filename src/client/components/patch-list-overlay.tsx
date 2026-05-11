@@ -169,30 +169,30 @@ export function PatchListOverlay(): React.ReactElement | null {
               </span>
               <span>{countLabel}</span>
             </button>
-          <div className="flex items-center gap-1.5">
-            {state.canUndo ? (
+            <div className="flex items-center gap-1.5">
+              {state.canUndo ? (
+                <button
+                  type="button"
+                  onClick={undo}
+                  className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
+                >
+                  Undo
+                </button>
+              ) : null}
               <button
                 type="button"
-                onClick={undo}
-                className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
+                disabled={state.isApplying || scopedApplyBlocked}
+                title={
+                  scopedApplyBlocked
+                    ? 'Pending changes are on another item — open that item in side-chat or switch context to apply them'
+                    : undefined
+                }
+                onClick={() => void applyFromOverlay()}
+                className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] disabled:opacity-50"
               >
-                Undo
+                {state.isApplying ? 'Applying…' : 'Apply'}
               </button>
-            ) : null}
-            <button
-              type="button"
-              disabled={state.isApplying || scopedApplyBlocked}
-              title={
-                scopedApplyBlocked
-                  ? 'Pending changes are on another item — open that item in side-chat or switch context to apply them'
-                  : undefined
-              }
-              onClick={() => void applyFromOverlay()}
-              className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] disabled:opacity-50"
-            >
-              {state.isApplying ? 'Applying…' : 'Apply'}
-            </button>
-          </div>
+            </div>
           </div>
           {expanded ? (
             <ul
@@ -217,7 +217,7 @@ export function PatchListOverlay(): React.ReactElement | null {
           <span className="font-medium text-ink">
             {openNeedsCount} pending review{openNeedsCount === 1 ? '' : 's'}
           </span>
-          <ul className="text-text-sub flex flex-col gap-0.5">
+          <ul className="flex flex-col gap-0.5 text-sub">
             {openNeeds.map((need) => (
               <li
                 key={need.id}
