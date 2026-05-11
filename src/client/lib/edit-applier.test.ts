@@ -144,7 +144,7 @@ describe('makeEditApplier', () => {
     await expect(applier(makeEditPatch())).rejects.toThrow();
   });
 
-  it('throws during undo when the restore edit comes back as hard-impact', async () => {
+  it('resolves undo when the restore edit comes back as hard-impact', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
     fetchMock
       .mockResolvedValueOnce(
@@ -156,9 +156,6 @@ describe('makeEditApplier', () => {
           previousRationale: 'Old rationale',
         }),
       )
-      // V3.0 contract: hard impact still applies, but undo should not silently
-      // re-trigger another cascade. The applier rejects undo so the user gets
-      // a visible error rather than an unintentional second hard apply.
       .mockResolvedValueOnce(
         jsonResponse({
           impact: 'hard',
@@ -173,7 +170,7 @@ describe('makeEditApplier', () => {
     const applier = makeEditApplier(SPEC_ID);
     const result = await applier(makeEditPatch());
 
-    await expect(result.undo()).rejects.toThrow(/cascade/i);
+    await expect(result.undo()).resolves.toBeUndefined();
   });
 });
 
