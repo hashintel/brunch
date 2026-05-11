@@ -6,7 +6,7 @@ import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EntitiesData, WorkflowPhase } from '@/shared/api-types.js';
-import type { BrunchUIMessage } from '@/shared/chat.js';
+import type { BrunchUIMessage, ReviewSetData, StructuredQuestion } from '@/shared/chat.js';
 import { deriveSpecificationLanding } from '@/shared/specification-state.js';
 import type { SpecificationState } from '@/shared/specification.js';
 
@@ -37,6 +37,27 @@ function createPendingQuestionMessage(overrides?: { parts?: BrunchUIMessage['par
   };
 }
 
+function createUnacknowledgedQuestionMessage(): BrunchUIMessage {
+  return createPendingQuestionMessage({
+    parts: [
+      {
+        type: 'tool-ask_question',
+        toolCallId: 'tool-1',
+        state: 'input-available',
+        input: {
+          question: 'Which platform should we target next?',
+          why: 'Platform shapes the first build.',
+          impact: 'high',
+          options: [
+            { content: 'Web', is_recommended: true },
+            { content: 'Desktop', is_recommended: false },
+          ],
+        },
+      },
+    ],
+  });
+}
+
 type UseChatOptions = {
   id?: string;
   messages: BrunchUIMessage[];
@@ -56,10 +77,96 @@ type UseChatHarness = {
   onError?: UseChatOptions['onError'];
 };
 
+type StreamedFrontierTurnPromotion = {
+  turnId: number;
+  phase: 'grounding' | 'design' | 'requirements' | 'criteria';
+  question: {
+    toolCallId: string;
+    question: string;
+    why: string;
+    impact: 'high' | 'medium' | 'low';
+    options: Array<{
+      position: number;
+      content: string;
+      is_recommended: boolean;
+    }>;
+    reviewActions?: StructuredQuestion['reviewActions'];
+    reviewSet?: ReviewSetData;
+  };
+};
+
 let currentSpecificationState: SpecificationState;
 let currentEntityState: EntitiesData;
 const invalidateSpecificationBundle = vi.fn(async () => {});
 const invalidateEntities = vi.fn(async () => {});
+const promoteStreamedFrontierTurnToBundle = vi.fn((promotion: StreamedFrontierTurnPromotion) => {
+  const existingTurn = currentSpecificationState.turns.find((turn) => turn.id === promotion.turnId);
+  const promotedTurn: SpecificationState['turns'][number] = {
+    id: promotion.turnId,
+    specification_id: currentSpecificationState.specification.id,
+    parent_turn_id: existingTurn?.parent_turn_id ?? currentSpecificationState.specification.active_turn_id,
+    phase: promotion.phase,
+    turn_kind: 'question',
+    question: promotion.question.question,
+    why: promotion.question.why,
+    impact: promotion.question.impact,
+    answer: null,
+    is_resolution: false,
+    user_parts: null,
+    assistant_parts: JSON.stringify([
+      {
+        type: 'tool-ask_question',
+        toolCallId: promotion.question.toolCallId,
+        state: 'output-available',
+        input: {
+          question: promotion.question.question,
+          why: promotion.question.why,
+          impact: promotion.question.impact,
+          options: promotion.question.options.map((option) => ({
+            content: option.content,
+            is_recommended: option.is_recommended,
+          })),
+          ...(promotion.question.reviewActions ? { reviewActions: promotion.question.reviewActions } : {}),
+          ...(promotion.question.reviewSet ? { reviewSet: promotion.question.reviewSet } : {}),
+        },
+        output: { ok: true, turnId: promotion.turnId, optionCount: promotion.question.options.length },
+      },
+      ...(promotion.question.reviewSet
+        ? [{ type: 'data-review-set', data: promotion.question.reviewSet }]
+        : []),
+    ]),
+    created_at: existingTurn?.created_at ?? '2026-04-30 10:00:00',
+    options: promotion.question.options.map((option) => ({
+      id: option.position + 1,
+      position: option.position,
+      content: option.content,
+      is_recommended: option.is_recommended,
+      is_selected: false,
+    })),
+    captured_items: [],
+  };
+
+  currentSpecificationState = {
+    ...currentSpecificationState,
+    specification: {
+      ...currentSpecificationState.specification,
+      active_turn_id: promotion.turnId,
+    },
+    workflow: {
+      ...currentSpecificationState.workflow,
+      phases: {
+        ...currentSpecificationState.workflow.phases,
+        [promotion.phase]: {
+          ...currentSpecificationState.workflow.phases[promotion.phase],
+          status: 'in_progress',
+          turnId: promotion.turnId,
+        },
+      },
+    },
+    landing: { kind: 'frontier-turn', phase: promotion.phase, turnId: promotion.turnId },
+    turns: [...currentSpecificationState.turns.filter((turn) => turn.id !== promotion.turnId), promotedTurn],
+  };
+});
 const fetchMock = vi.fn<typeof fetch>();
 const chatTransportOptions: unknown[] = [];
 let useChatImpl: (options: UseChatOptions) => {
@@ -84,6 +191,7 @@ vi.mock('../../-specification-data.js', () => ({
     invalidateSpecificationBundle,
     invalidateEntities,
   }),
+  usePromoteStreamedFrontierTurnToBundle: () => promoteStreamedFrontierTurnToBundle,
   primeSpecificationBundle: vi.fn(),
   primeSpecificationEntities: vi.fn(),
   specificationQueryKeys: {
@@ -99,6 +207,7 @@ vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
     invalidateSpecificationBundle,
     invalidateEntities,
   }),
+  usePromoteStreamedFrontierTurnToBundle: () => promoteStreamedFrontierTurnToBundle,
   primeSpecificationBundle: vi.fn(),
   primeSpecificationEntities: vi.fn(),
   specificationQueryKeys: {
@@ -483,6 +592,7 @@ beforeEach(() => {
   currentEntityState = createEntityState();
   invalidateSpecificationBundle.mockClear();
   invalidateEntities.mockClear();
+  promoteStreamedFrontierTurnToBundle.mockClear();
   routerNavigate.mockClear();
   fetchMock.mockReset();
   chatTransportOptions.length = 0;
@@ -524,7 +634,7 @@ describe('interview controller', () => {
     currentSpecificationState.workflow.phases.design.status = 'in_progress';
     currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
-    renderController();
+    const rendered = renderController();
 
     expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('phase-handoff');
     expect(screen.getByTestId('bottom-artifact').textContent).toBe(
@@ -1166,7 +1276,7 @@ describe('interview controller', () => {
       useChatHarness.replaceMessages?.([
         { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
         { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
-        createPendingQuestionMessage(),
+        createUnacknowledgedQuestionMessage(),
       ]);
     });
 
@@ -1176,6 +1286,80 @@ describe('interview controller', () => {
       expect(invalidateSpecificationBundle).not.toHaveBeenCalled();
       expect(invalidateEntities).not.toHaveBeenCalled();
     });
+  });
+
+  it('promotes a durable-ready streamed question into an active persisted turn before bundle invalidation resolves', async () => {
+    currentSpecificationState = createSpecificationState({
+      assistantText: 'Earlier question?',
+      answer: 'Earlier answer',
+    });
+    useChatImpl = createUseChatHarness('streaming');
+    invalidateSpecificationBundle.mockImplementationOnce(async () => new Promise<void>(() => {}));
+
+    const rendered = renderController();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        createPendingQuestionMessage(),
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(promoteStreamedFrontierTurnToBundle).toHaveBeenCalledTimes(1);
+    });
+
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <ControllerProbe phase="grounding" />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('persisted-turn');
+      expect(screen.getByTestId('bottom-artifact-state').textContent).toBe('active');
+      expect(screen.getByTestId('bottom-artifact-disabled').textContent).toBe('false');
+      expect(screen.getByTestId('bottom-artifact').textContent).toBe('Which platform should we target next?');
+    });
+
+    await act(async () => {
+      useChatHarness.setStatus?.('ready');
+      useChatHarness.onFinish?.();
+    });
+
+    await waitFor(() => {
+      expect(invalidateSpecificationBundle).toHaveBeenCalled();
+      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('persisted-turn');
+    });
+  });
+
+  it('keeps an unfinished streamed question disabled until durable frontier acknowledgement arrives', async () => {
+    currentSpecificationState = createSpecificationState({
+      assistantText: 'Earlier question?',
+      answer: 'Earlier answer',
+    });
+    useChatImpl = createUseChatHarness('streaming');
+
+    renderController();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        createUnacknowledgedQuestionMessage(),
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('pending-question');
+      expect(screen.getByTestId('bottom-artifact-disabled').textContent).toBe('true');
+    });
+
+    fireEvent.click(screen.getByTestId('submit-persisted-turn'));
+
+    expect(promoteStreamedFrontierTurnToBundle).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('seeds chat state from loader data while auto-continuing the current reachable recovery phase', async () => {

@@ -150,7 +150,7 @@ Archived when Track A (interaction model) completed and the frontier shifted to 
 
 ## 2026-04-30 Sync archive
 
-- 2026-04-24 — **Workflow ownership extraction** — workflow projector extraction, turn-response transition extraction, chat-route transition/application extraction, and phase-close / force-close write-path ownership landed behind runtime-owned seams.
+- 2026-04-24 — **Workflow ownership extraction** — workflow projector extraction, turn-response transition extraction, chat-route transition/application extraction, and phase-close / force-close write-path ownership now live behind runtime-owned seams. Verified: `npm run verify`.
 
 ## 2026-05-05 Sync Archive
 

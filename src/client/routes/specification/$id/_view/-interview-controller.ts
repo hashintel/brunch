@@ -23,6 +23,7 @@ import { type SpecificationMode, type SpecificationTurn } from '@/shared/specifi
 
 import {
   useInvalidateSpecificationQueryDomains,
+  usePromoteStreamedFrontierTurnToBundle,
   useSpecificationBundleData,
 } from '../-specification-data.js';
 import {
@@ -272,11 +273,19 @@ function getLatestReasoningText(
   return chunks.length > 0 ? chunks.join('') : undefined;
 }
 
+function sameTurnReferences(
+  left: readonly SpecificationTurn[],
+  right: readonly SpecificationTurn[],
+): boolean {
+  return left.length === right.length && left.every((turn, index) => turn === right[index]);
+}
+
 export function useInterviewController(phase: WorkflowPhase): InterviewController {
   const specificationState = useSpecificationBundleData();
   const turns = specificationState.turns;
   const router = useRouter();
   const { invalidateSpecificationBundle, invalidateEntities } = useInvalidateSpecificationQueryDomains();
+  const promoteStreamedFrontierTurnToBundle = usePromoteStreamedFrontierTurnToBundle();
   const specificationId = specificationState.specification.id;
 
   const refreshReadModel = useCallback(
@@ -287,22 +296,24 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
 
   const phaseTurnIds = useMemo(() => buildPhaseTurnIds(turns, phase), [phase, turns]);
 
-  const [stablePhaseTurns, setStablePhaseTurns] = useState(() =>
-    turns.filter((turn) => turn.phase === phase),
-  );
+  const durablePhaseTurns = useMemo(() => turns.filter((turn) => turn.phase === phase), [phase, turns]);
+  const [stablePhaseTurns, setStablePhaseTurns] = useState(() => durablePhaseTurns);
   const stablePhaseKeyRef = useRef(`${durableSpecification.specification.id}:${phase}`);
+  const stablePhaseKey = `${durableSpecification.specification.id}:${phase}`;
+  const projectedPhaseTurns = useMemo(
+    () =>
+      stablePhaseKeyRef.current === stablePhaseKey
+        ? reconcileStablePhaseTurns(stablePhaseTurns, durablePhaseTurns)
+        : durablePhaseTurns,
+    [durablePhaseTurns, stablePhaseKey, stablePhaseTurns],
+  );
 
   useEffect(() => {
-    const phaseTurns = turns.filter((turn) => turn.phase === phase);
-    const stablePhaseKey = `${durableSpecification.specification.id}:${phase}`;
-
     setStablePhaseTurns((current) =>
-      stablePhaseKeyRef.current === stablePhaseKey
-        ? reconcileStablePhaseTurns(current, phaseTurns)
-        : phaseTurns,
+      sameTurnReferences(current, projectedPhaseTurns) ? current : projectedPhaseTurns,
     );
     stablePhaseKeyRef.current = stablePhaseKey;
-  }, [durableSpecification.specification.id, phase, turns]);
+  }, [projectedPhaseTurns, stablePhaseKey]);
 
   const transport = useMemo(
     () => new DefaultChatTransport({ api: `/api/specifications/${specificationId}/chat` }),
@@ -476,10 +487,27 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     ],
   );
 
+  useEffect(() => {
+    if (viewState.bottomArtifact?.kind !== 'pending-question') {
+      return;
+    }
+
+    const pendingQuestion = viewState.bottomArtifact.pendingQuestion;
+    if (!pendingQuestion.acknowledgedTurnId) {
+      return;
+    }
+
+    promoteStreamedFrontierTurnToBundle({
+      turnId: pendingQuestion.acknowledgedTurnId,
+      phase,
+      question: pendingQuestion,
+    });
+  }, [phase, promoteStreamedFrontierTurnToBundle, viewState.bottomArtifact]);
+
   return {
     specification: viewState.specification,
     workflow: viewState.workflow,
-    phaseTurns: stablePhaseTurns,
+    phaseTurns: projectedPhaseTurns,
     captureStatusByTurnId: runtime.captureStatusByTurnId,
     structuralArtifactTurnIds: specificationState.structuralArtifactTurnIds,
     chat: {
