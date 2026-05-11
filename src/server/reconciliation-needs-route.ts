@@ -71,10 +71,7 @@ export function handleResolveReconciliationNeed(db: DB, req: Request, res: Respo
     return;
   }
 
-  // Idempotent: already-resolved needs return 200 with no state change.
-  if (need.status === 'open') {
-    resolveReconciliationNeed(db, needId);
-  }
+  resolveReconciliationNeed(db, needId);
 
   res.json({ resolved: true } satisfies ResolveReconciliationNeedResponse);
 }
