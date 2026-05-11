@@ -170,9 +170,12 @@ export function DiffPopover({
         width: POPOVER_MAX_WIDTH,
         borderColor: `${accent}1f`,
       }}
-      className="z-[60] flex flex-col overflow-hidden rounded-lg border bg-background shadow-[0_8px_32px_-8px_rgba(0,0,0,0.18),0_4px_8px_-2px_rgba(0,0,0,0.06)]"
+      className="z-[60] flex max-h-[min(70vh,40rem)] flex-col overflow-hidden rounded-lg border bg-background shadow-[0_8px_32px_-8px_rgba(0,0,0,0.18),0_4px_8px_-2px_rgba(0,0,0,0.06)]"
     >
-      <header className="flex items-center gap-2 px-3 py-1.5" style={{ backgroundColor: `${accent}10` }}>
+      <header
+        className="flex shrink-0 items-center gap-2 px-3 py-1.5"
+        style={{ backgroundColor: `${accent}10` }}
+      >
         {kindChip}
         <span className="min-w-0 flex-1 truncate text-xs font-medium text-ink" title={title}>
           {title}
@@ -186,7 +189,7 @@ export function DiffPopover({
           ×
         </button>
       </header>
-      <div className="px-3 py-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         <ContentDiff before={before} after={after} />
       </div>
     </div>

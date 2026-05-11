@@ -580,20 +580,14 @@ function ItemEditTextarea({
         onKeyDown={handleKeyDown}
         rows={1}
         aria-label="Edit item content"
-        // Card 4: thin kind-accent border + 2px kind-accent focus ring,
-        // dropping the heavy card shadow and ring-3.
-        style={{
-          borderColor: `${kindAccent}1f`,
-        }}
-        onFocus={(event) => {
-          (event.currentTarget as HTMLTextAreaElement).style.borderColor = `${kindAccent}33`;
-          (event.currentTarget as HTMLTextAreaElement).style.boxShadow = `0 0 0 2px ${kindAccent}33`;
-        }}
-        onBlur={(event) => {
-          (event.currentTarget as HTMLTextAreaElement).style.borderColor = `${kindAccent}1f`;
-          (event.currentTarget as HTMLTextAreaElement).style.boxShadow = 'none';
-        }}
-        className="w-full resize-none rounded-md border bg-background px-2 py-1 text-sm leading-relaxed text-ink outline-none"
+        style={
+          {
+            '--edit-ring-color': `${kindAccent}33`,
+            '--edit-ring-soft': `${kindAccent}1f`,
+            borderColor: `var(--edit-ring-soft)`,
+          } as React.CSSProperties
+        }
+        className="w-full resize-none rounded-md border bg-background px-2 py-1 text-sm leading-relaxed text-ink outline-none focus:border-[var(--edit-ring-color)] focus:shadow-[0_0_0_2px_var(--edit-ring-color)]"
       />
       <div className="flex items-center justify-between gap-2 text-[11px] text-hint">
         <span aria-hidden className="select-none">

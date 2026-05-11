@@ -179,7 +179,7 @@ export function PendingReviewSection(): React.ReactElement | null {
           const targetExcerpt =
             need.target_current_content !== null
               ? truncate(need.target_current_content, TARGET_EXCERPT_LIMIT)
-              : `target #${need.target_item_id}`;
+              : null;
           return (
             <li
               key={need.id}
@@ -203,10 +203,14 @@ export function PendingReviewSection(): React.ReactElement | null {
                       <KindIcon className="size-3" aria-hidden />
                       {kindLabel}
                     </span>
-                    <span className="min-w-0 truncate text-ink" title={targetExcerpt}>
+                    <span className="min-w-0 truncate text-ink" title={targetExcerpt ?? undefined}>
                       <span className="font-mono text-hint">#{need.target_item_id}</span>
-                      <span className="mx-1 text-hint">·</span>
-                      {targetExcerpt}
+                      {targetExcerpt !== null ? (
+                        <>
+                          <span className="mx-1 text-hint">·</span>
+                          {targetExcerpt}
+                        </>
+                      ) : null}
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -275,27 +279,22 @@ export function PendingReviewSection(): React.ReactElement | null {
                     <textarea
                       aria-label={`Edit target for need ${need.id}`}
                       value={draft}
-                      disabled={isSaving}
+                      disabled={isSaving || isResolving}
                       onChange={(event) => updateDraft(need.id, event.target.value)}
-                      className="min-h-[3.5rem] w-full resize-y rounded bg-background px-2 py-1 text-[12px] leading-relaxed text-ink outline-none disabled:opacity-50"
-                      style={{
-                        boxShadow: `inset 0 0 0 1px ${actionAccent}1f`,
-                      }}
-                      onFocus={(event) => {
-                        (event.currentTarget as HTMLTextAreaElement).style.boxShadow =
-                          `inset 0 0 0 2px ${actionAccent}33`;
-                      }}
-                      onBlur={(event) => {
-                        (event.currentTarget as HTMLTextAreaElement).style.boxShadow =
-                          `inset 0 0 0 1px ${actionAccent}1f`;
-                      }}
+                      className="min-h-[3.5rem] w-full resize-y rounded bg-background px-2 py-1 text-[12px] leading-relaxed text-ink outline-none shadow-[inset_0_0_0_1px_var(--edit-ring-color)] focus:shadow-[inset_0_0_0_2px_var(--edit-ring-strong)] disabled:opacity-50"
+                      style={
+                        {
+                          '--edit-ring-color': `${actionAccent}1f`,
+                          '--edit-ring-strong': `${actionAccent}33`,
+                        } as React.CSSProperties
+                      }
                     />
                     <div className="flex items-center justify-end gap-1.5">
                       <button
                         type="button"
                         aria-label="Cancel"
                         title="Cancel"
-                        disabled={isSaving}
+                        disabled={isSaving || isResolving}
                         onClick={() => cancelEditing(need.id)}
                         className="inline-flex size-6 items-center justify-center rounded text-hint hover:bg-[rgba(0,0,0,0.05)] hover:text-ink disabled:opacity-50"
                       >
@@ -306,7 +305,7 @@ export function PendingReviewSection(): React.ReactElement | null {
                         type="button"
                         aria-label={isSaving ? 'Saving' : 'Save'}
                         title="Save"
-                        disabled={isSaving}
+                        disabled={isSaving || isResolving}
                         onClick={() => handleSave(need.id, need.specification_id, need.target_item_id)}
                         className="inline-flex h-6 items-center gap-1 rounded px-2 text-[11px] font-medium text-white disabled:opacity-50"
                         style={{ backgroundColor: actionAccent }}
