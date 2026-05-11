@@ -745,6 +745,20 @@ export function listOpenReconciliationNeedsAwaitingClassification(
     .all() as ReconciliationNeed[];
 }
 
+export function claimReconciliationNeedForClassification(db: DB, needId: number): boolean {
+  const result = db
+    .update(schema.reconciliationNeed)
+    .set({ agent_status: 'queued' })
+    .where(
+      and(
+        eq(schema.reconciliationNeed.id, needId),
+        sql`${schema.reconciliationNeed.agent_status} IS NULL`,
+      ),
+    )
+    .run();
+  return result.changes === 1;
+}
+
 /**
  * V3.1 slice 4: partial update for the three agent_* columns. Used by the
  * classifier loop to walk a row through the lifecycle (null → queued →
