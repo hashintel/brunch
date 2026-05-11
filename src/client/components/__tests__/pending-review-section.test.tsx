@@ -36,9 +36,28 @@ const mockEditKnowledgeItemRequest = vi.hoisted(() =>
     }),
   ),
 );
+const mockRunReconciliationAgentRequest = vi.hoisted(() =>
+  vi.fn(() =>
+    Promise.resolve({ specId: 1, ranAt: '2026-05-11T00:00:00Z', classifiedCount: 0, failedCount: 0 }),
+  ),
+);
+const mockResetReconciliationNeedAgentRequest = vi.hoisted(() =>
+  vi.fn(() =>
+    Promise.resolve({
+      specId: 1,
+      needId: 1,
+      ranAt: '2026-05-11T00:00:00Z',
+      agentStatus: 'classified' as const,
+      agentClassification: 'auto-confirm' as const,
+      agentProposal: null,
+    }),
+  ),
+);
 vi.mock('@/client/lib/edit-api.js', () => ({
   resolveReconciliationNeedRequest: mockResolveReconciliationNeedRequest,
   editKnowledgeItemRequest: mockEditKnowledgeItemRequest,
+  runReconciliationAgentRequest: mockRunReconciliationAgentRequest,
+  resetReconciliationNeedAgentRequest: mockResetReconciliationNeedAgentRequest,
 }));
 
 beforeEach(() => {
@@ -61,6 +80,21 @@ afterEach(() => {
     }),
   );
   mockInvalidateOpenReconciliationNeeds.mockClear();
+  mockRunReconciliationAgentRequest.mockClear();
+  mockRunReconciliationAgentRequest.mockImplementation(() =>
+    Promise.resolve({ specId: 1, ranAt: '2026-05-11T00:00:00Z', classifiedCount: 0, failedCount: 0 }),
+  );
+  mockResetReconciliationNeedAgentRequest.mockClear();
+  mockResetReconciliationNeedAgentRequest.mockImplementation(() =>
+    Promise.resolve({
+      specId: 1,
+      needId: 1,
+      ranAt: '2026-05-11T00:00:00Z',
+      agentStatus: 'classified' as const,
+      agentClassification: 'auto-confirm' as const,
+      agentProposal: null,
+    }),
+  );
   vi.useRealTimers();
 });
 
@@ -385,6 +419,163 @@ describe('PendingReviewSection', () => {
       expect(container.querySelector('.lucide-loader-circle')).not.toBeNull();
       await act(async () => {
         resolveEdit();
+      });
+    });
+  });
+
+  describe('V3.1 agent client UI', () => {
+    it('renders the Run agent button when at least one open need has agent_status=null', () => {
+      setMockOpenNeeds([makeNeed({ id: 1, agent_status: null })]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-run-agent-button]')).not.toBeNull();
+    });
+
+    it('hides the Run agent button when every open need is already classified', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 2, agent_status: 'classified', agent_classification: 'substantive' }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-run-agent-button]')).toBeNull();
+    });
+
+    it('triggers POST .../run-agent exactly once on Run agent click', async () => {
+      setMockOpenNeeds([makeNeed({ id: 1, specification_id: 7, agent_status: null })]);
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /run agent/i }));
+      });
+      expect(mockRunReconciliationAgentRequest).toHaveBeenCalledTimes(1);
+      expect(mockRunReconciliationAgentRequest).toHaveBeenCalledWith(7);
+      expect(mockInvalidateOpenReconciliationNeeds).toHaveBeenCalledWith(7);
+    });
+
+    it('disables the Run agent button while any need is queued or classifying', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: 'queued' }),
+        makeNeed({ id: 2, agent_status: null }),
+      ]);
+      render(<PendingReviewSection />);
+      const button = screen.getByRole('button', { name: /run agent/i });
+      expect(button).toHaveProperty('disabled', true);
+    });
+
+    it('renders the progress strip while any need is in flight', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: 'classifying' }),
+        makeNeed({ id: 2, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 3, agent_status: null }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      const strip = container.querySelector('[data-agent-progress-strip]');
+      expect(strip).not.toBeNull();
+      expect(strip?.textContent).toContain('Agent: 1 of 3 classified');
+    });
+
+    it('hides the progress strip when nothing is in flight', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-agent-progress-strip]')).toBeNull();
+    });
+
+    it('renders a ClassificationChip per row matching agent_status / agent_classification', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 2, agent_status: 'classified', agent_classification: 'auto-edit' }),
+        makeNeed({ id: 3, agent_status: 'classified', agent_classification: 'substantive' }),
+        makeNeed({ id: 4, agent_status: 'classifying' }),
+        makeNeed({ id: 5, agent_status: 'queued' }),
+        makeNeed({ id: 6, agent_status: 'failed', agent_proposal: 'LLM down' }),
+        makeNeed({ id: 7, agent_status: null }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(
+        container.querySelector('[data-need-id="1"] [data-classification-chip="auto-confirm"]'),
+      ).not.toBeNull();
+      expect(
+        container.querySelector('[data-need-id="2"] [data-classification-chip="auto-edit"]'),
+      ).not.toBeNull();
+      expect(
+        container.querySelector('[data-need-id="3"] [data-classification-chip="substantive"]'),
+      ).not.toBeNull();
+      expect(
+        container.querySelector('[data-need-id="4"] [data-classification-chip="classifying"]'),
+      ).not.toBeNull();
+      expect(
+        container.querySelector('[data-need-id="5"] [data-classification-chip="queued"]'),
+      ).not.toBeNull();
+      expect(
+        container.querySelector('[data-need-id="6"] [data-classification-chip="failed"]'),
+      ).not.toBeNull();
+      expect(container.querySelector('[data-need-id="7"] [data-classification-chip]')).toBeNull();
+    });
+
+    it('shows the per-row Re-run button only on classified or failed rows', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: null }),
+        makeNeed({ id: 2, agent_status: 'queued' }),
+        makeNeed({ id: 3, agent_status: 'classifying' }),
+        makeNeed({ id: 4, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 5, agent_status: 'failed', agent_proposal: 'err' }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-rerun-agent-button="1"]')).toBeNull();
+      expect(container.querySelector('[data-rerun-agent-button="2"]')).toBeNull();
+      expect(container.querySelector('[data-rerun-agent-button="3"]')).toBeNull();
+      expect(container.querySelector('[data-rerun-agent-button="4"]')).not.toBeNull();
+      expect(container.querySelector('[data-rerun-agent-button="5"]')).not.toBeNull();
+    });
+
+    it('triggers POST .../:needId/reset-agent on Re-run click and invalidates the query', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 42,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'substantive',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /re-run agent for need 42/i }));
+      });
+      expect(mockResetReconciliationNeedAgentRequest).toHaveBeenCalledTimes(1);
+      expect(mockResetReconciliationNeedAgentRequest).toHaveBeenCalledWith(7, 42);
+      expect(mockInvalidateOpenReconciliationNeeds).toHaveBeenCalledWith(7);
+    });
+
+    it('disables Resolve while Re-run is in flight on the same row', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          agent_status: 'classified',
+          agent_classification: 'auto-confirm',
+        }),
+      ]);
+      let resolveReset: () => void;
+      mockResetReconciliationNeedAgentRequest.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveReset = () => {
+              resolve({
+                specId: 1,
+                needId: 1,
+                ranAt: '2026-05-11T00:00:00Z',
+                agentStatus: 'classified' as const,
+                agentClassification: 'auto-confirm' as const,
+                agentProposal: null,
+              });
+            };
+          }),
+      );
+      render(<PendingReviewSection />);
+      fireEvent.click(screen.getByRole('button', { name: /re-run agent for need 1/i }));
+      const resolveButton = screen.getByRole('button', { name: /^resolve$/i });
+      expect(resolveButton).toHaveProperty('disabled', true);
+      await act(async () => {
+        resolveReset();
       });
     });
   });

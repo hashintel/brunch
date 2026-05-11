@@ -16,15 +16,21 @@
 // with target_item_kind, the row left bar and Resolve fill use a neutral
 // amber as a kind-accent fallback (deferred follow-up card).
 
-import { Check, Loader2, PencilLine, Replace, X } from 'lucide-react';
+import { Check, Loader2, PencilLine, Play, Replace, RotateCw, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import { editKnowledgeItemRequest, resolveReconciliationNeedRequest } from '@/client/lib/edit-api.js';
+import {
+  editKnowledgeItemRequest,
+  resetReconciliationNeedAgentRequest,
+  resolveReconciliationNeedRequest,
+  runReconciliationAgentRequest,
+} from '@/client/lib/edit-api.js';
 import {
   invalidateOpenReconciliationNeeds,
   useSpecificationOpenReconciliationNeeds,
 } from '@/client/routes/specification/$id/-specification-data.js';
 
+import { ClassificationChip } from './classification-chip.js';
 import { DiffPopover } from './diff-popover.js';
 
 // Card 3 (V3.1 setup): per-row inline edit state. Keyed by need id so
@@ -54,9 +60,8 @@ export function PendingReviewSection(): React.ReactElement | null {
   const [resolvingNeedIds, setResolvingNeedIds] = useState<ReadonlySet<number>>(() => new Set());
   const [editDrafts, setEditDrafts] = useState<EditDraftMap>(() => new Map());
   const [savingNeedIds, setSavingNeedIds] = useState<ReadonlySet<number>>(() => new Set());
-  // Card 4 / S3: which row's source-diff popover is open, anchored to its
-  // chip. Single-popover-at-a-time is intentional — opening another row's
-  // chip closes the previous one.
+  const [resettingNeedIds, setResettingNeedIds] = useState<ReadonlySet<number>>(() => new Set());
+  const [isRunningAgent, setIsRunningAgent] = useState(false);
   const [diffPopoverNeedId, setDiffPopoverNeedId] = useState<number | null>(null);
   const diffAnchorRef = useRef<HTMLButtonElement | null>(null);
 
@@ -71,6 +76,16 @@ export function PendingReviewSection(): React.ReactElement | null {
   if (openNeeds.length === 0) {
     return null;
   }
+
+  const inflightAgentCount = openNeeds.filter(
+    (need) => need.agent_status === 'queued' || need.agent_status === 'classifying',
+  ).length;
+  const classifiedAgentCount = openNeeds.filter(
+    (need) => need.agent_status === 'classified' || need.agent_status === 'failed',
+  ).length;
+  const unclassifiedAgentCount = openNeeds.filter((need) => need.agent_status === null).length;
+  const agentInFlight = inflightAgentCount > 0;
+  const specificationId = openNeeds[0]?.specification_id ?? null;
 
   // Idempotent resolve. The button is disabled while the request is in flight
   // so a double-click can't double-fire. Errors propagate; we don't optimistically
@@ -150,6 +165,43 @@ export function PendingReviewSection(): React.ReactElement | null {
     })();
   };
 
+  const handleRunAgent = (): void => {
+    if (specificationId === null || isRunningAgent || agentInFlight) return;
+    setIsRunningAgent(true);
+    void (async () => {
+      try {
+        await runReconciliationAgentRequest(specificationId);
+        await invalidateOpenReconciliationNeeds(specificationId);
+      } catch (error) {
+        console.error('runReconciliationAgent failed', error);
+      } finally {
+        setIsRunningAgent(false);
+      }
+    })();
+  };
+
+  const handleResetAgent = (needId: number, needSpecId: number): void => {
+    setResettingNeedIds((prev) => {
+      const next = new Set(prev);
+      next.add(needId);
+      return next;
+    });
+    void (async () => {
+      try {
+        await resetReconciliationNeedAgentRequest(needSpecId, needId);
+        await invalidateOpenReconciliationNeeds(needSpecId);
+      } catch (error) {
+        console.error(`resetReconciliationNeedAgent ${needId} failed`, error);
+      } finally {
+        setResettingNeedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(needId);
+          return next;
+        });
+      }
+    })();
+  };
+
   const activePopoverNeed = diffPopoverNeedId
     ? (openNeeds.find((n) => n.id === diffPopoverNeedId) ?? null)
     : null;
@@ -161,16 +213,49 @@ export function PendingReviewSection(): React.ReactElement | null {
       data-open-needs-count={openNeeds.length}
       className="flex flex-col gap-1 border-b border-rule bg-[rgba(255,219,168,0.18)] px-6 py-2 text-xs"
     >
-      <span className="inline-flex items-center gap-1.5 font-medium text-ink">
-        <Replace className="size-3.5" style={{ color: KIND_ACCENT_AMBER }} aria-hidden />
-        {openNeeds.length} pending review{openNeeds.length === 1 ? '' : 's'}
-      </span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 font-medium text-ink">
+          <Replace className="size-3.5" style={{ color: KIND_ACCENT_AMBER }} aria-hidden />
+          {openNeeds.length} pending review{openNeeds.length === 1 ? '' : 's'}
+        </span>
+        <div className="flex items-center gap-2">
+          {agentInFlight ? (
+            <span data-agent-progress-strip className="inline-flex items-center gap-1 text-[10px] text-hint">
+              <Loader2 className="size-3 animate-spin" aria-hidden />
+              Agent: {classifiedAgentCount} of {openNeeds.length} classified
+            </span>
+          ) : null}
+          {unclassifiedAgentCount > 0 ? (
+            <button
+              type="button"
+              aria-label={isRunningAgent ? 'Running agent' : 'Run agent'}
+              title={
+                agentInFlight ? 'Agent classification in progress' : 'Classify pending reviews with the agent'
+              }
+              data-run-agent-button
+              disabled={isRunningAgent || agentInFlight || specificationId === null}
+              onClick={handleRunAgent}
+              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
+              style={{ backgroundColor: PRIMARY_ACTION_BLUE }}
+            >
+              {isRunningAgent ? (
+                <Loader2 className="size-3 animate-spin" aria-hidden />
+              ) : (
+                <Play className="size-3" aria-hidden />
+              )}
+              {isRunningAgent ? 'Running' : 'Run agent'}
+            </button>
+          ) : null}
+        </div>
+      </div>
       <ul className="flex flex-col gap-0.5 text-sub">
         {openNeeds.map((need) => {
           const isResolving = resolvingNeedIds.has(need.id);
           const isSaving = savingNeedIds.has(need.id);
+          const isResetting = resettingNeedIds.has(need.id);
           const draft = editDrafts.get(need.id);
           const isEditing = draft !== undefined;
+          const canRerunAgent = need.agent_status === 'classified' || need.agent_status === 'failed';
           const showSourceDiff =
             need.source_previous_content !== null &&
             need.source_current_content !== null &&
@@ -211,6 +296,11 @@ export function PendingReviewSection(): React.ReactElement | null {
                       <KindIcon className="size-3" aria-hidden />
                       {kindLabel}
                     </span>
+                    <ClassificationChip
+                      agentStatus={need.agent_status}
+                      agentClassification={need.agent_classification}
+                      agentProposal={need.agent_proposal}
+                    />
                     <span className="min-w-0 truncate text-ink" title={targetExcerpt ?? undefined}>
                       <span className="font-mono text-hint">#{need.target_item_id}</span>
                       {targetExcerpt !== null ? (
@@ -222,12 +312,30 @@ export function PendingReviewSection(): React.ReactElement | null {
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
+                    {canRerunAgent ? (
+                      <button
+                        type="button"
+                        aria-label={isResetting ? 'Re-running' : `Re-run agent for need ${need.id}`}
+                        title="Re-run agent"
+                        data-rerun-agent-button={need.id}
+                        disabled={isResetting || isResolving || isSaving}
+                        onClick={() => handleResetAgent(need.id, need.specification_id)}
+                        className="inline-flex size-6 items-center justify-center rounded text-hint opacity-60 group-hover/need-row:opacity-100 hover:bg-[rgba(0,0,0,0.05)] hover:text-ink hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30"
+                      >
+                        {isResetting ? (
+                          <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                        ) : (
+                          <RotateCw className="size-3.5" aria-hidden />
+                        )}
+                        <span className="sr-only">{isResetting ? 'Re-running' : 'Re-run agent'}</span>
+                      </button>
+                    ) : null}
                     {canEditTarget && !isEditing ? (
                       <button
                         type="button"
                         aria-label={`Edit target for need ${need.id}`}
                         title="Edit target"
-                        disabled={isResolving || isSaving}
+                        disabled={isResolving || isSaving || isResetting}
                         onClick={() => startEditing(need.id, need.target_current_content ?? '')}
                         className="inline-flex size-6 items-center justify-center rounded text-hint opacity-60 group-hover/need-row:opacity-100 hover:bg-[rgba(0,0,0,0.05)] hover:text-ink hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30"
                       >
@@ -239,7 +347,7 @@ export function PendingReviewSection(): React.ReactElement | null {
                       type="button"
                       aria-label={isResolving ? 'Resolving' : 'Resolve'}
                       title="Resolve"
-                      disabled={isResolving || isSaving}
+                      disabled={isResolving || isSaving || isResetting}
                       onClick={() => handleResolve(need.id, need.specification_id)}
                       className="inline-flex size-6 items-center justify-center rounded text-white opacity-80 transition-opacity group-hover/need-row:opacity-100 hover:opacity-100 focus-visible:opacity-100 disabled:opacity-50"
                       style={{ backgroundColor: actionAccent }}

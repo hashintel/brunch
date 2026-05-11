@@ -287,6 +287,11 @@ async function fetchOpenReconciliationNeeds(specificationId: string): Promise<Re
  * Returns [] until the producer (card 1) opens any. Non-suspending — the
  * patch-list overlay renders without blocking on this fetch.
  */
+function anyNeedAwaitingClassifier(needs: ReconciliationNeedRecord[] | undefined): boolean {
+  if (!needs) return false;
+  return needs.some((need) => need.agent_status === 'queued' || need.agent_status === 'classifying');
+}
+
 export function useSpecificationOpenReconciliationNeeds(): ReconciliationNeedRecord[] {
   const specificationId = useSpecificationId();
 
@@ -295,6 +300,8 @@ export function useSpecificationOpenReconciliationNeeds(): ReconciliationNeedRec
     queryFn: () => fetchOpenReconciliationNeeds(specificationId),
     initialData: [],
     initialDataUpdatedAt: 0,
+    refetchInterval: (query) =>
+      anyNeedAwaitingClassifier(query.state.data as ReconciliationNeedRecord[] | undefined) ? 1000 : false,
   });
   return data;
 }
