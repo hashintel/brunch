@@ -70,6 +70,63 @@ describe('agent JSONL session', () => {
     ]);
   });
 
+  it('creates and reads the primary chat projection over JSONL using explicit ids', async () => {
+    const responses = await runSession([
+      JSON.stringify({ id: 'create-1', capability: 'spec.create', input: { name: 'JSONL chat spec' } }),
+      JSON.stringify({ id: 'primary-1', capability: 'chat.getPrimary', input: { specId: 1 } }),
+      JSON.stringify({ id: 'chat-1', capability: 'chat.read', input: { chatId: 1 } }),
+    ]);
+
+    expect(responses).toEqual([
+      expect.objectContaining({ id: 'create-1', ok: true, output: expect.objectContaining({ specId: 1 }) }),
+      expect.objectContaining({
+        id: 'primary-1',
+        ok: true,
+        output: { specId: 1, chatId: 1, kind: 'interview', activeTurnId: null },
+      }),
+      expect.objectContaining({
+        id: 'chat-1',
+        ok: true,
+        output: expect.objectContaining({
+          specification: { id: 1, name: 'JSONL chat spec', mode: 'greenfield' },
+          chat: { id: 1, specificationId: 1, kind: 'interview', activeTurnId: null },
+          frontier: { state: 'idle_no_frontier', phase: 'grounding', turnId: null },
+          nextCommands: [{ capability: 'chat.ensureReady', input: { chatId: 1 } }],
+        }),
+      }),
+    ]);
+  });
+
+  it('returns typed chat read errors without crashing the session', async () => {
+    const responses = await runSession([
+      JSON.stringify({ id: 'missing-chat', capability: 'chat.read', input: { chatId: 999 } }),
+      JSON.stringify({ id: 'invalid-chat', capability: 'chat.read', input: { chatId: 0 } }),
+      JSON.stringify({
+        id: 'create-after-chat-errors',
+        capability: 'spec.create',
+        input: { name: 'Still works' },
+      }),
+    ]);
+
+    expect(responses).toEqual([
+      expect.objectContaining({
+        id: 'missing-chat',
+        ok: false,
+        error: expect.objectContaining({ code: 'handler_failed' }),
+      }),
+      expect.objectContaining({
+        id: 'invalid-chat',
+        ok: false,
+        error: expect.objectContaining({ code: 'invalid_input' }),
+      }),
+      expect.objectContaining({
+        id: 'create-after-chat-errors',
+        ok: true,
+        output: expect.objectContaining({ specId: 1 }),
+      }),
+    ]);
+  });
+
   it('returns typed error envelopes and keeps processing after recoverable errors', async () => {
     const responses = await runSession([
       '{not json',

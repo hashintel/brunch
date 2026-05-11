@@ -16,7 +16,9 @@ export type CapabilityId =
   | 'observer.captureTurnIntent'
   | 'changeset.submit'
   | 'spec.create'
-  | 'spec.getStatus';
+  | 'spec.getStatus'
+  | 'chat.getPrimary'
+  | 'chat.read';
 
 export interface CapabilityContract {
   id: CapabilityId;
@@ -110,6 +112,22 @@ const capabilityContracts = [
     summary: 'Read the current workflow and active-path projection for an explicit specification id.',
     inputSchema: 'spec.getStatus.input.v1',
     outputSchema: 'spec.getStatus.output.v1',
+    handler: null,
+  },
+  {
+    id: 'chat.getPrimary',
+    authority: 'read_only',
+    summary: 'Read the primary interview chat identity for an explicit specification id.',
+    inputSchema: 'chat.getPrimary.input.v1',
+    outputSchema: 'chat.getPrimary.output.v1',
+    handler: null,
+  },
+  {
+    id: 'chat.read',
+    authority: 'read_only',
+    summary: 'Read a compact agent-facing projection for an explicit chat id.',
+    inputSchema: 'chat.read.input.v1',
+    outputSchema: 'chat.read.output.v1',
     handler: null,
   },
 ] as const satisfies readonly CapabilityContract[];
