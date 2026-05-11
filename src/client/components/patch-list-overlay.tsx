@@ -79,6 +79,7 @@ export function PatchListOverlay(): React.ReactElement | null {
   const [savedToastVisible, setSavedToastVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const lastSeenBatchIdRef = useRef<string | null>(null);
+  const prevCanUndoRef = useRef<boolean>(state.canUndo);
 
   // Auto-collapse when there are no staged patches left (post-apply / undo).
   useEffect(() => {
@@ -113,11 +114,11 @@ export function PatchListOverlay(): React.ReactElement | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.lastBatchId]);
 
-  // Hide transient post-apply toast when canUndo flips back to false (the user undid).
   useEffect(() => {
-    if (!state.canUndo) {
+    if (prevCanUndoRef.current && !state.canUndo) {
       setSavedToastVisible(false);
     }
+    prevCanUndoRef.current = state.canUndo;
   }, [state.canUndo]);
 
   if (!patchList) {
