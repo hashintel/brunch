@@ -65,6 +65,12 @@ describe('capability registry', () => {
         inputSchema: 'chat.read.input.v1',
         outputSchema: 'chat.read.output.v1',
       }),
+      expect.objectContaining({
+        id: 'chat.ensureReady',
+        authority: 'runtime_replay',
+        inputSchema: 'chat.ensureReady.input.v1',
+        outputSchema: 'chat.ensureReady.output.v1',
+      }),
     ]);
   });
 

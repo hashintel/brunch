@@ -5,7 +5,15 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { dispatchCapability } from './capabilities.js';
-import { advanceHead, createDb, createTurn, listSpecifications, type DB } from './db.js';
+import {
+  advanceHead,
+  createDb,
+  createTurn,
+  getActivePath,
+  getSpecification,
+  listSpecifications,
+  type DB,
+} from './db.js';
 
 describe('agent capabilities', () => {
   const tempDirs: string[] = [];
@@ -139,12 +147,92 @@ describe('agent capabilities', () => {
     });
   });
 
+  it('dispatches chat.ensureReady by materializing a deterministic empty frontier', async () => {
+    const activeDb = createTempDb();
+    const created = await dispatchCapability({
+      db: activeDb,
+      capability: 'spec.create',
+      input: { name: 'Ready spec' },
+    });
+    const primary = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.getPrimary',
+      input: { specId: created.specId },
+    });
+
+    const result = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.ensureReady',
+      input: { chatId: primary.chatId },
+    });
+    const activePath = getActivePath(activeDb, created.specId);
+
+    expect(result).toEqual({
+      chatId: primary.chatId,
+      specId: created.specId,
+      state: 'needs_generation',
+      turnId: expect.any(Number),
+      nextCommands: [{ capability: 'chat.read', input: { chatId: primary.chatId } }],
+    });
+    expect(activePath).toHaveLength(1);
+    expect(activePath[0]).toMatchObject({
+      id: result.turnId,
+      phase: 'grounding',
+      question: '',
+      answer: null,
+    });
+    expect(getSpecification(activeDb, created.specId)?.active_turn_id).toBe(result.turnId);
+    expect(
+      await dispatchCapability({
+        db: activeDb,
+        capability: 'chat.getPrimary',
+        input: { specId: created.specId },
+      }),
+    ).toMatchObject({ activeTurnId: result.turnId });
+  });
+
+  it('keeps chat.ensureReady idempotent when a frontier already exists', async () => {
+    const activeDb = createTempDb();
+    const created = await dispatchCapability({
+      db: activeDb,
+      capability: 'spec.create',
+      input: { name: 'Idempotent readiness' },
+    });
+    const primary = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.getPrimary',
+      input: { specId: created.specId },
+    });
+
+    const first = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.ensureReady',
+      input: { chatId: primary.chatId },
+    });
+    const second = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.ensureReady',
+      input: { chatId: primary.chatId },
+    });
+
+    expect(second).toEqual(first);
+    expect(getActivePath(activeDb, created.specId)).toHaveLength(1);
+  });
+
   it('rejects unknown chat ids and schema-invalid capability input before calling handlers', async () => {
     const activeDb = createTempDb();
     await expect(
       dispatchCapability({
         db: activeDb,
         capability: 'chat.read',
+        input: { chatId: 999 },
+      }),
+    ).rejects.toThrow('Chat 999 not found');
+
+    await expect(
+      dispatchCapability({
+        db: activeDb,
+        capability: 'chat.ensureReady',
         input: { chatId: 999 },
       }),
     ).rejects.toThrow('Chat 999 not found');

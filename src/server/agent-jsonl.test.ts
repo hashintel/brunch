@@ -97,10 +97,45 @@ describe('agent JSONL session', () => {
     ]);
   });
 
+  it('ensures chat readiness and then reads the active frontier over JSONL', async () => {
+    const responses = await runSession([
+      JSON.stringify({ id: 'create-1', capability: 'spec.create', input: { name: 'JSONL ready spec' } }),
+      JSON.stringify({ id: 'primary-1', capability: 'chat.getPrimary', input: { specId: 1 } }),
+      JSON.stringify({ id: 'ready-1', capability: 'chat.ensureReady', input: { chatId: 1 } }),
+      JSON.stringify({ id: 'chat-1', capability: 'chat.read', input: { chatId: 1 } }),
+    ]);
+
+    expect(responses).toEqual([
+      expect.objectContaining({ id: 'create-1', ok: true, output: expect.objectContaining({ specId: 1 }) }),
+      expect.objectContaining({ id: 'primary-1', ok: true, output: expect.objectContaining({ chatId: 1 }) }),
+      expect.objectContaining({
+        id: 'ready-1',
+        ok: true,
+        output: expect.objectContaining({
+          chatId: 1,
+          specId: 1,
+          state: 'needs_generation',
+          turnId: 1,
+        }),
+      }),
+      expect.objectContaining({
+        id: 'chat-1',
+        ok: true,
+        output: expect.objectContaining({
+          chat: { id: 1, specificationId: 1, kind: 'interview', activeTurnId: 1 },
+          frontier: { state: 'needs_generation', phase: 'grounding', turnId: 1 },
+          turns: [expect.objectContaining({ id: 1, phase: 'grounding', question: '', answer: null })],
+          nextCommands: [{ capability: 'turn.submitResponse', input: { chatId: 1, turnId: 1 } }],
+        }),
+      }),
+    ]);
+  });
+
   it('returns typed chat read errors without crashing the session', async () => {
     const responses = await runSession([
       JSON.stringify({ id: 'missing-chat', capability: 'chat.read', input: { chatId: 999 } }),
       JSON.stringify({ id: 'invalid-chat', capability: 'chat.read', input: { chatId: 0 } }),
+      JSON.stringify({ id: 'missing-ready', capability: 'chat.ensureReady', input: { chatId: 999 } }),
       JSON.stringify({
         id: 'create-after-chat-errors',
         capability: 'spec.create',
@@ -118,6 +153,11 @@ describe('agent JSONL session', () => {
         id: 'invalid-chat',
         ok: false,
         error: expect.objectContaining({ code: 'invalid_input' }),
+      }),
+      expect.objectContaining({
+        id: 'missing-ready',
+        ok: false,
+        error: expect.objectContaining({ code: 'handler_failed' }),
       }),
       expect.objectContaining({
         id: 'create-after-chat-errors',
