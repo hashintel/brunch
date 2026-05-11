@@ -3,7 +3,11 @@ import type { Readable, Writable } from 'node:stream';
 
 import { z } from 'zod';
 
-import { CapabilityDispatchError, dispatchCapability } from './capabilities.js';
+import {
+  CapabilityDispatchError,
+  dispatchCapability,
+  type GenerateAnswerableFrontier,
+} from './capabilities.js';
 import type { DB } from './db.js';
 
 const agentJsonlRequestSchema = z.object({
@@ -16,6 +20,7 @@ export interface AgentJsonlSessionOptions {
   db: DB;
   input: Readable;
   output: Writable;
+  generateAnswerableFrontier?: GenerateAnswerableFrontier;
 }
 
 type AgentJsonlResponse =
@@ -41,7 +46,12 @@ function getRecoverableErrorCode(error: unknown): string {
   return 'handler_failed';
 }
 
-export async function runAgentJsonlSession({ db, input, output }: AgentJsonlSessionOptions): Promise<void> {
+export async function runAgentJsonlSession({
+  db,
+  input,
+  output,
+  generateAnswerableFrontier,
+}: AgentJsonlSessionOptions): Promise<void> {
   const lines = createInterface({ input, crlfDelay: Infinity });
 
   for await (const line of lines) {
@@ -73,6 +83,7 @@ export async function runAgentJsonlSession({ db, input, output }: AgentJsonlSess
         db,
         capability: parsedRequest.data.capability,
         input: parsedRequest.data.input,
+        generateAnswerableFrontier,
       });
       writeResponse(output, { id: parsedRequest.data.id, ok: true, output: result });
     } catch (error) {
