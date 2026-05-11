@@ -144,15 +144,19 @@ export function PatchListOverlay(): React.ReactElement | null {
 
   const countLabel = `${stagedCount} pending change${stagedCount === 1 ? '' : 's'}`;
 
+  // Wrap the three sections in a single sticky flex column so they stack
+  // vertically as one block — putting `sticky top-0` on each child made them
+  // fight for the same offset and overlap when more than one was visible at
+  // the same time (e.g. an open need plus the post-apply saved toast).
   return (
-    <>
+    <div className="sticky top-0 z-30 flex flex-col">
       {stagedCount > 0 ? (
         <div
           role="region"
           aria-label="Staged changes"
           data-staged-count={stagedCount}
           data-expanded={expanded ? 'true' : 'false'}
-          className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur"
+          className="border-b border-rule bg-card/95 backdrop-blur"
         >
           <div className="flex items-center justify-between gap-3 px-4 py-1.5 text-xs">
             <button
@@ -212,7 +216,7 @@ export function PatchListOverlay(): React.ReactElement | null {
           role="region"
           aria-label="Pending review"
           data-open-needs-count={openNeedsCount}
-          className="sticky top-0 z-30 flex flex-col gap-1 border-b border-rule bg-[rgba(255,219,168,0.35)] px-4 py-1.5 text-xs backdrop-blur"
+          className="flex flex-col gap-1 border-b border-rule bg-[rgba(255,219,168,0.35)] px-4 py-1.5 text-xs backdrop-blur"
         >
           <span className="font-medium text-ink">
             {openNeedsCount} pending review{openNeedsCount === 1 ? '' : 's'}
@@ -243,7 +247,7 @@ export function PatchListOverlay(): React.ReactElement | null {
         <div
           role="status"
           aria-label="Change saved"
-          className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-rule bg-card/95 px-4 py-1.5 text-xs backdrop-blur"
+          className="flex items-center justify-between gap-3 border-b border-rule bg-card/95 px-4 py-1.5 text-xs backdrop-blur"
         >
           <span className="font-medium text-ink">Change saved</span>
           {state.canUndo ? (
@@ -257,6 +261,6 @@ export function PatchListOverlay(): React.ReactElement | null {
           ) : null}
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
