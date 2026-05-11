@@ -130,7 +130,7 @@ export function PendingReviewSection(): React.ReactElement | null {
         await resolveReconciliationNeedRequest(specificationId, needId);
         await invalidateOpenReconciliationNeeds(specificationId);
       } catch (error) {
-        console.error(`Resolve reconciliation_need ${needId} failed`, error);
+        console.error('Resolve reconciliation_need %s failed', needId, error);
       } finally {
         setResolvingNeedIds((prev) => {
           const next = new Set(prev);
@@ -224,7 +224,7 @@ export function PendingReviewSection(): React.ReactElement | null {
         await resolveReconciliationNeedRequest(need.specification_id, need.id);
         await invalidateOpenReconciliationNeeds(need.specification_id);
       } catch (error) {
-        console.error(`apply proposal for need ${need.id} failed`, error);
+        console.error('apply proposal for need %s failed', need.id, error);
       } finally {
         setApplyingNeedIds((prev) => {
           const next = new Set(prev);
@@ -261,7 +261,7 @@ export function PendingReviewSection(): React.ReactElement | null {
           try {
             await resolveReconciliationNeedRequest(need.specification_id, need.id);
           } catch (error) {
-            console.error(`bulk confirm need ${need.id} failed`, error);
+            console.error('bulk confirm need %s failed', need.id, error);
           }
         }
         await invalidateOpenReconciliationNeeds(specificationId);
@@ -284,7 +284,7 @@ export function PendingReviewSection(): React.ReactElement | null {
             });
             await resolveReconciliationNeedRequest(need.specification_id, need.id);
           } catch (error) {
-            console.error(`bulk apply need ${need.id} failed`, error);
+            console.error('bulk apply need %s failed', need.id, error);
           }
         }
         await invalidateOpenReconciliationNeeds(specificationId);
@@ -305,7 +305,7 @@ export function PendingReviewSection(): React.ReactElement | null {
         await resetReconciliationNeedAgentRequest(needSpecId, needId);
         await invalidateOpenReconciliationNeeds(needSpecId);
       } catch (error) {
-        console.error(`resetReconciliationNeedAgent ${needId} failed`, error);
+        console.error('resetReconciliationNeedAgent %s failed', needId, error);
       } finally {
         setResettingNeedIds((prev) => {
           const next = new Set(prev);
