@@ -8,6 +8,8 @@
 import type { Request, Response } from 'express';
 
 import type { MutationErrorResponse } from '@/shared/api-types.js';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
+import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import {
   getKnowledgeItem,
@@ -18,9 +20,6 @@ import {
   type DB,
   type ReconciliationNeed,
 } from './db.js';
-import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
-
-import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 export type ReconciliationNeedView = ReconciliationNeed & {
   target_current_content: string | null;
@@ -60,9 +59,7 @@ export function handleListOpenReconciliationNeeds(db: DB, req: Request, res: Res
       ...row,
       target_current_content: target?.content ?? null,
       target_item_kind: target?.kind ?? null,
-      target_reference_code: target
-        ? createKnowledgeReferenceCode(target.kind, target.kind_ordinal)
-        : null,
+      target_reference_code: target ? createKnowledgeReferenceCode(target.kind, target.kind_ordinal) : null,
     };
   });
   res.json({ openNeeds } satisfies ListOpenReconciliationNeedsResponse);
