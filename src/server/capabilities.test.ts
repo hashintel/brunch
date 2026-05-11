@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { dispatchCapability } from './capabilities.js';
 import {
@@ -147,8 +147,12 @@ describe('agent capabilities', () => {
     });
   });
 
-  it('dispatches chat.ensureReady by materializing a deterministic empty frontier', async () => {
+  it('dispatches chat.ensureReady by generating an answerable frontier', async () => {
     const activeDb = createTempDb();
+    const generateAnswerableFrontier = vi.fn(async () => ({
+      question: 'What are you trying to build?',
+      assistantParts: [{ type: 'text' as const, text: 'What are you trying to build?' }],
+    }));
     const created = await dispatchCapability({
       db: activeDb,
       capability: 'spec.create',
@@ -164,35 +168,50 @@ describe('agent capabilities', () => {
       db: activeDb,
       capability: 'chat.ensureReady',
       input: { chatId: primary.chatId },
+      generateAnswerableFrontier,
     });
     const activePath = getActivePath(activeDb, created.specId);
 
     expect(result).toEqual({
       chatId: primary.chatId,
       specId: created.specId,
-      state: 'needs_generation',
+      state: 'awaiting_response',
       turnId: expect.any(Number),
       nextCommands: [{ capability: 'chat.read', input: { chatId: primary.chatId } }],
     });
+    expect(generateAnswerableFrontier).toHaveBeenCalledOnce();
     expect(activePath).toHaveLength(1);
     expect(activePath[0]).toMatchObject({
       id: result.turnId,
       phase: 'grounding',
-      question: '',
+      question: 'What are you trying to build?',
       answer: null,
     });
+    expect(activePath[0]?.assistant_parts).toBe(
+      JSON.stringify([{ type: 'text', text: 'What are you trying to build?' }]),
+    );
     expect(getSpecification(activeDb, created.specId)?.active_turn_id).toBe(result.turnId);
     expect(
       await dispatchCapability({
         db: activeDb,
-        capability: 'chat.getPrimary',
-        input: { specId: created.specId },
+        capability: 'chat.read',
+        input: { chatId: primary.chatId },
       }),
-    ).toMatchObject({ activeTurnId: result.turnId });
+    ).toMatchObject({
+      frontier: { state: 'awaiting_response', phase: 'grounding', turnId: result.turnId },
+      turns: [expect.objectContaining({ question: 'What are you trying to build?' })],
+      nextCommands: [
+        { capability: 'turn.submitResponse', input: { chatId: primary.chatId, turnId: result.turnId } },
+      ],
+    });
   });
 
-  it('keeps chat.ensureReady idempotent when a frontier already exists', async () => {
+  it('keeps chat.ensureReady idempotent when an answerable frontier already exists', async () => {
     const activeDb = createTempDb();
+    const generateAnswerableFrontier = vi.fn(async () => ({
+      question: 'What should we clarify first?',
+      assistantParts: [{ type: 'text' as const, text: 'What should we clarify first?' }],
+    }));
     const created = await dispatchCapability({
       db: activeDb,
       capability: 'spec.create',
@@ -208,14 +227,18 @@ describe('agent capabilities', () => {
       db: activeDb,
       capability: 'chat.ensureReady',
       input: { chatId: primary.chatId },
+      generateAnswerableFrontier,
     });
     const second = await dispatchCapability({
       db: activeDb,
       capability: 'chat.ensureReady',
       input: { chatId: primary.chatId },
+      generateAnswerableFrontier,
     });
 
     expect(second).toEqual(first);
+    expect(second.state).toBe('awaiting_response');
+    expect(generateAnswerableFrontier).toHaveBeenCalledOnce();
     expect(getActivePath(activeDb, created.specId)).toHaveLength(1);
   });
 

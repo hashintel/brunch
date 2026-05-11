@@ -1,11 +1,18 @@
+import { readUIMessageStream } from 'ai';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { extractTextFromMessage, type BrunchUIMessage } from '@/shared/chat.js';
+
 import { getCapabilityContract, type CapabilityId } from './capability-registry.js';
 import { applyChatRouteTransition } from './chat-route-transition.js';
-import { createNewSpecification, finalizeTurn, getSpecificationState } from './core.js';
-import type { DB } from './db.js';
+import { createNewSpecification, finalizeTurn, getSpecificationState, type TurnWithOptions } from './core.js';
+import type { DB, Turn } from './db.js';
+import { getTurn, updateTurn } from './db.js';
+import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
+import { serializeParts, type AssistantPart } from './parts.js';
 import * as schema from './schema.js';
+import { materializeTurnArtifacts } from './turn-artifacts.js';
 
 const specCreateInputSchema = z.object({
   name: z.string().trim().min(1),
@@ -46,8 +53,25 @@ export class CapabilityDispatchError extends Error {
   }
 }
 
+export interface GeneratedAnswerableFrontier {
+  question: string;
+  assistantParts: AssistantPart[];
+}
+
+export interface GenerateAnswerableFrontierInput {
+  db: DB;
+  turn: Turn;
+  activePath: TurnWithOptions[];
+  userMessage: string;
+}
+
+export type GenerateAnswerableFrontier = (
+  input: GenerateAnswerableFrontierInput,
+) => Promise<GeneratedAnswerableFrontier>;
+
 export interface CapabilityDispatchContext {
   db: DB;
+  generateAnswerableFrontier?: GenerateAnswerableFrontier;
 }
 
 export interface DispatchCapabilityInput extends CapabilityDispatchContext {
@@ -64,7 +88,7 @@ type SpecCreateOutput = ReturnType<typeof createSpecificationFromCapability>;
 type SpecGetStatusOutput = ReturnType<typeof getSpecificationStatusFromCapability>;
 type ChatGetPrimaryOutput = ReturnType<typeof getPrimaryChatFromCapability>;
 type ChatReadOutput = ReturnType<typeof readChatFromCapability>;
-type ChatEnsureReadyOutput = ReturnType<typeof ensureChatReadyFromCapability>;
+type ChatEnsureReadyOutput = Awaited<ReturnType<typeof ensureChatReadyFromCapability>>;
 
 function parseSpecCreateInput(input: unknown): SpecCreateInput {
   const parsed = specCreateInputSchema.safeParse(input);
@@ -203,6 +227,53 @@ function getReadyStateForTurn(turn: { question: string; answer: string | null })
   return turn.answer === null && turn.question.trim() === '' ? 'needs_generation' : 'awaiting_response';
 }
 
+async function generateAnswerableFrontierWithInterviewer({
+  db,
+  turn,
+  activePath,
+  userMessage,
+}: GenerateAnswerableFrontierInput): Promise<GeneratedAnswerableFrontier> {
+  const startedAt = Date.now();
+  const interviewer = await streamInterviewer(db, turn, activePath, userMessage, turn.phase);
+  const stream = interviewer.toUIMessageStream<BrunchUIMessage>({
+    sendReasoning: true,
+    sendFinish: false,
+  });
+  let responseMessage: BrunchUIMessage | null = null;
+  for await (const message of readUIMessageStream<BrunchUIMessage>({ stream })) {
+    responseMessage = message;
+  }
+  await interviewer.finishReason;
+
+  if (!responseMessage) {
+    throw new Error(`Interviewer did not generate content for turn ${turn.id}`);
+  }
+
+  const question = extractTextFromMessage(responseMessage);
+  const assistantParts = materializeTurnArtifacts({
+    phase: turn.phase,
+    responseMessage,
+    elapsedMs: Date.now() - startedAt,
+  });
+
+  return { question, assistantParts };
+}
+
+async function persistGeneratedAnswerableFrontier(
+  db: DB,
+  turn: Turn,
+  generated: GeneratedAnswerableFrontier,
+): Promise<void> {
+  if (generated.question.trim() === '') {
+    throw new Error(`Interviewer generated an empty question for turn ${turn.id}`);
+  }
+
+  persistFallbackQuestionText(db, turn.id, generated.question);
+  updateTurn(db, turn.id, {
+    assistant_parts: serializeParts(generated.assistantParts),
+  });
+}
+
 function readChatFromCapability(db: DB, input: ChatReadInput) {
   const chat = getChatById(db, input.chatId);
   if (!chat) {
@@ -250,7 +321,11 @@ function readChatFromCapability(db: DB, input: ChatReadInput) {
   };
 }
 
-function ensureChatReadyFromCapability(db: DB, input: ChatEnsureReadyInput) {
+async function ensureChatReadyFromCapability(
+  db: DB,
+  input: ChatEnsureReadyInput,
+  generateAnswerableFrontier: GenerateAnswerableFrontier = generateAnswerableFrontierWithInterviewer,
+) {
   const chat = getChatById(db, input.chatId);
   if (!chat) {
     throw new CapabilityDispatchError(`Chat ${input.chatId} not found`, 'handler_failed');
@@ -263,10 +338,25 @@ function ensureChatReadyFromCapability(db: DB, input: ChatEnsureReadyInput) {
 
   const activeTurn = state.turns.find((turn) => turn.id === chat.active_turn_id) ?? null;
   if (activeTurn) {
+    const activeState = getReadyStateForTurn(activeTurn);
+    if (activeState === 'needs_generation') {
+      const persistedActiveTurn = getTurn(db, activeTurn.id);
+      if (!persistedActiveTurn) {
+        throw new CapabilityDispatchError(`Turn ${activeTurn.id} not found`, 'handler_failed');
+      }
+      const generated = await generateAnswerableFrontier({
+        db,
+        turn: persistedActiveTurn,
+        activePath: state.turns,
+        userMessage: '',
+      });
+      await persistGeneratedAnswerableFrontier(db, persistedActiveTurn, generated);
+    }
+
     return {
       chatId: chat.id,
       specId: chat.specification_id,
-      state: getReadyStateForTurn(activeTurn),
+      state: 'awaiting_response' as const,
       turnId: activeTurn.id,
       nextCommands: [{ capability: 'chat.read', input: { chatId: chat.id } }],
     };
@@ -303,11 +393,18 @@ function ensureChatReadyFromCapability(db: DB, input: ChatEnsureReadyInput) {
   }
 
   finalizeTurn(db, chat.specification_id, transition.prepared.turn.id);
+  const generated = await generateAnswerableFrontier({
+    db,
+    turn: transition.prepared.turn,
+    activePath: transition.prepared.activePath,
+    userMessage: '',
+  });
+  await persistGeneratedAnswerableFrontier(db, transition.prepared.turn, generated);
 
   return {
     chatId: chat.id,
     specId: chat.specification_id,
-    state: 'needs_generation' as const,
+    state: 'awaiting_response' as const,
     turnId: transition.prepared.turn.id,
     nextCommands: [{ capability: 'chat.read', input: { chatId: chat.id } }],
   };
@@ -337,12 +434,14 @@ export function dispatchCapability(input: {
   db: DB;
   capability: 'chat.ensureReady';
   input: unknown;
+  generateAnswerableFrontier?: GenerateAnswerableFrontier;
 }): Promise<ChatEnsureReadyOutput>;
 export function dispatchCapability(input: DispatchCapabilityInput): Promise<unknown>;
 export async function dispatchCapability({
   db,
   capability,
   input,
+  generateAnswerableFrontier,
 }: DispatchCapabilityInput): Promise<unknown> {
   assertExecutableCapability(capability);
 
@@ -363,7 +462,7 @@ export async function dispatchCapability({
   }
 
   if (capability === 'chat.ensureReady') {
-    return ensureChatReadyFromCapability(db, parseChatEnsureReadyInput(input));
+    return ensureChatReadyFromCapability(db, parseChatEnsureReadyInput(input), generateAnswerableFrontier);
   }
 
   throw new CapabilityDispatchError('Capability has no executable handler', 'unknown_capability');

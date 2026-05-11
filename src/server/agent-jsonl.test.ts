@@ -33,7 +33,15 @@ describe('agent JSONL session', () => {
     const chunks: string[] = [];
     output.on('data', (chunk) => chunks.push(chunk.toString()));
 
-    const session = runAgentJsonlSession({ db: createTempDb(), input, output });
+    const session = runAgentJsonlSession({
+      db: createTempDb(),
+      input,
+      output,
+      generateAnswerableFrontier: async () => ({
+        question: 'What are you trying to build?',
+        assistantParts: [{ type: 'text', text: 'What are you trying to build?' }],
+      }),
+    });
     for (const line of lines) {
       input.write(`${line}\n`);
     }
@@ -114,7 +122,7 @@ describe('agent JSONL session', () => {
         output: expect.objectContaining({
           chatId: 1,
           specId: 1,
-          state: 'needs_generation',
+          state: 'awaiting_response',
           turnId: 1,
         }),
       }),
@@ -123,8 +131,15 @@ describe('agent JSONL session', () => {
         ok: true,
         output: expect.objectContaining({
           chat: { id: 1, specificationId: 1, kind: 'interview', activeTurnId: 1 },
-          frontier: { state: 'needs_generation', phase: 'grounding', turnId: 1 },
-          turns: [expect.objectContaining({ id: 1, phase: 'grounding', question: '', answer: null })],
+          frontier: { state: 'awaiting_response', phase: 'grounding', turnId: 1 },
+          turns: [
+            expect.objectContaining({
+              id: 1,
+              phase: 'grounding',
+              question: expect.stringMatching(/What are you trying to build/),
+              answer: null,
+            }),
+          ],
           nextCommands: [{ capability: 'turn.submitResponse', input: { chatId: 1, turnId: 1 } }],
         }),
       }),
