@@ -3,9 +3,9 @@ import { resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
-import { agentTail } from 'agent-tail/vite';
 import { codeInspectorPlugin } from 'code-inspector-plugin';
 import type { UserConfig } from 'vite';
+import { agentTail } from 'vite-plugin-agent-tail';
 
 import { getBackendProxyTarget } from '../src/server/runtime-config';
 import { defaultDevServerPort } from './vite-dev-server';
@@ -27,11 +27,11 @@ const createClientPlugins = ({
     generatedRouteTree: resolve(rootDir, 'src/client/routeTree.gen.ts'),
     routeFileIgnorePattern: '.*\\.test\\.(ts|tsx)$',
   }),
+  ...(enableCodeInspector ? [codeInspectorPlugin({ bundler: 'vite' })] : []),
   react(),
   ...(enableReactScan ? [reactScanDevPlugin()] : []),
   tailwindcss(),
   agentTail(),
-  ...(enableCodeInspector ? [codeInspectorPlugin({ bundler: 'vite' })] : []),
 ];
 
 export const createClientConfig = <T extends object>({
