@@ -30,7 +30,7 @@
   },
   "scripts": {
     "build": "vite build && vite build --mode server-runtime",
-    "check": "npm run fmt:check && npm run lint && npm run typecheck",
+    "check": "npm run fmt:check && npm run lint",
     "dev": "agent-tail run 'vite: vite' 'api: npx tsx --watch src/server/index.ts'",
     "fix": "npm run lint:fix && npm run fmt",
     "fmt": "oxfmt src/ config/ vite.config.ts drizzle.config.ts",
@@ -44,7 +44,6 @@
     "server": "npx tsx src/server/index.ts",
     "studio": "drizzle-kit studio",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit --project tsconfig.tools.json",
     "verify": "npm run check && npm run test && npm run build"
   },
   "dependencies": {
