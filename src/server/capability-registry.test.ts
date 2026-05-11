@@ -71,6 +71,12 @@ describe('capability registry', () => {
         inputSchema: 'chat.ensureReady.input.v1',
         outputSchema: 'chat.ensureReady.output.v1',
       }),
+      expect.objectContaining({
+        id: 'turn.submitResponse',
+        authority: 'commit_truth',
+        inputSchema: 'turn.submitResponse.input.v1',
+        outputSchema: 'turn.submitResponse.output.v1',
+      }),
     ]);
   });
 

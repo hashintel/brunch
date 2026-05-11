@@ -146,6 +146,49 @@ describe('agent JSONL session', () => {
     ]);
   });
 
+  it('submits a turn response and reads the answered turn over JSONL', async () => {
+    const responses = await runSession([
+      JSON.stringify({ id: 'create-1', capability: 'spec.create', input: { name: 'JSONL response spec' } }),
+      JSON.stringify({ id: 'primary-1', capability: 'chat.getPrimary', input: { specId: 1 } }),
+      JSON.stringify({ id: 'ready-1', capability: 'chat.ensureReady', input: { chatId: 1 } }),
+      JSON.stringify({
+        id: 'response-1',
+        capability: 'turn.submitResponse',
+        input: {
+          chatId: 1,
+          turnId: 1,
+          response: { kind: 'free-text', freeText: 'A local spec elicitation tool' },
+        },
+      }),
+      JSON.stringify({ id: 'chat-1', capability: 'chat.read', input: { chatId: 1 } }),
+    ]);
+
+    expect(responses).toEqual([
+      expect.objectContaining({ id: 'create-1', ok: true, output: expect.objectContaining({ specId: 1 }) }),
+      expect.objectContaining({ id: 'primary-1', ok: true, output: expect.objectContaining({ chatId: 1 }) }),
+      expect.objectContaining({ id: 'ready-1', ok: true, output: expect.objectContaining({ turnId: 1 }) }),
+      expect.objectContaining({
+        id: 'response-1',
+        ok: true,
+        output: expect.objectContaining({
+          chatId: 1,
+          specId: 1,
+          turnId: 1,
+          response: { ok: true },
+        }),
+      }),
+      expect.objectContaining({
+        id: 'chat-1',
+        ok: true,
+        output: expect.objectContaining({
+          frontier: { state: 'answered', phase: 'grounding', turnId: 1 },
+          turns: [expect.objectContaining({ id: 1, answer: 'A local spec elicitation tool' })],
+          nextCommands: [{ capability: 'chat.ensureReady', input: { chatId: 1 } }],
+        }),
+      }),
+    ]);
+  });
+
   it('returns typed chat read errors without crashing the session', async () => {
     const responses = await runSession([
       JSON.stringify({ id: 'missing-chat', capability: 'chat.read', input: { chatId: 999 } }),

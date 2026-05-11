@@ -2,6 +2,7 @@ import { readUIMessageStream } from 'ai';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { submitTurnResponseRequestSchema } from '@/shared/api-types.js';
 import { extractTextFromMessage, type BrunchUIMessage } from '@/shared/chat.js';
 
 import { getCapabilityContract, type CapabilityId } from './capability-registry.js';
@@ -13,6 +14,7 @@ import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { serializeParts, type AssistantPart } from './parts.js';
 import * as schema from './schema.js';
 import { materializeTurnArtifacts } from './turn-artifacts.js';
+import { submitTurnResponseTransition } from './turn-response-transition.js';
 
 const specCreateInputSchema = z.object({
   name: z.string().trim().min(1),
@@ -35,12 +37,19 @@ const chatEnsureReadyInputSchema = z.object({
   chatId: z.number().int().positive(),
 });
 
+const turnSubmitResponseInputSchema = z.object({
+  chatId: z.number().int().positive(),
+  turnId: z.number().int().positive(),
+  response: submitTurnResponseRequestSchema,
+});
+
 const capabilityInputSchemas = {
   'spec.create': specCreateInputSchema,
   'spec.getStatus': specGetStatusInputSchema,
   'chat.getPrimary': chatGetPrimaryInputSchema,
   'chat.read': chatReadInputSchema,
   'chat.ensureReady': chatEnsureReadyInputSchema,
+  'turn.submitResponse': turnSubmitResponseInputSchema,
 } as const;
 
 export class CapabilityDispatchError extends Error {
@@ -84,11 +93,13 @@ type SpecGetStatusInput = z.infer<typeof specGetStatusInputSchema>;
 type ChatGetPrimaryInput = z.infer<typeof chatGetPrimaryInputSchema>;
 type ChatReadInput = z.infer<typeof chatReadInputSchema>;
 type ChatEnsureReadyInput = z.infer<typeof chatEnsureReadyInputSchema>;
+type TurnSubmitResponseInput = z.infer<typeof turnSubmitResponseInputSchema>;
 type SpecCreateOutput = ReturnType<typeof createSpecificationFromCapability>;
 type SpecGetStatusOutput = ReturnType<typeof getSpecificationStatusFromCapability>;
 type ChatGetPrimaryOutput = ReturnType<typeof getPrimaryChatFromCapability>;
 type ChatReadOutput = ReturnType<typeof readChatFromCapability>;
 type ChatEnsureReadyOutput = Awaited<ReturnType<typeof ensureChatReadyFromCapability>>;
+type TurnSubmitResponseOutput = ReturnType<typeof submitTurnResponseFromCapability>;
 
 function parseSpecCreateInput(input: unknown): SpecCreateInput {
   const parsed = specCreateInputSchema.safeParse(input);
@@ -126,6 +137,14 @@ function parseChatEnsureReadyInput(input: unknown): ChatEnsureReadyInput {
   const parsed = chatEnsureReadyInputSchema.safeParse(input);
   if (!parsed.success) {
     throw new CapabilityDispatchError('Invalid input for capability chat.ensureReady', 'invalid_input');
+  }
+  return parsed.data;
+}
+
+function parseTurnSubmitResponseInput(input: unknown): TurnSubmitResponseInput {
+  const parsed = turnSubmitResponseInputSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new CapabilityDispatchError('Invalid input for capability turn.submitResponse', 'invalid_input');
   }
   return parsed.data;
 }
@@ -224,7 +243,10 @@ function getChatById(db: DB, chatId: number) {
 }
 
 function getReadyStateForTurn(turn: { question: string; answer: string | null }) {
-  return turn.answer === null && turn.question.trim() === '' ? 'needs_generation' : 'awaiting_response';
+  if (turn.answer !== null) {
+    return 'answered';
+  }
+  return turn.question.trim() === '' ? 'needs_generation' : 'awaiting_response';
 }
 
 async function generateAnswerableFrontierWithInterviewer({
@@ -290,9 +312,10 @@ function readChatFromCapability(db: DB, input: ChatReadInput) {
   const frontier = activeTurn
     ? { state: getReadyStateForTurn(activeTurn), phase: activeTurn.phase, turnId: activeTurn.id }
     : { state: 'idle_no_frontier' as const, phase: currentPhase, turnId: null };
-  const nextCommands = activeTurn
-    ? [{ capability: 'turn.submitResponse', input: { chatId: chat.id, turnId: activeTurn.id } }]
-    : [{ capability: 'chat.ensureReady', input: { chatId: chat.id } }];
+  const nextCommands =
+    activeTurn && frontier.state === 'awaiting_response'
+      ? [{ capability: 'turn.submitResponse', input: { chatId: chat.id, turnId: activeTurn.id } }]
+      : [{ capability: 'chat.ensureReady', input: { chatId: chat.id } }];
 
   return {
     specification: {
@@ -321,6 +344,43 @@ function readChatFromCapability(db: DB, input: ChatReadInput) {
   };
 }
 
+function submitTurnResponseFromCapability(db: DB, input: TurnSubmitResponseInput) {
+  const chat = getChatById(db, input.chatId);
+  if (!chat) {
+    throw new CapabilityDispatchError(`Chat ${input.chatId} not found`, 'handler_failed');
+  }
+
+  const turn = getTurn(db, input.turnId);
+  if (!turn) {
+    throw new CapabilityDispatchError(`Turn ${input.turnId} not found`, 'handler_failed');
+  }
+  if (turn.chat_id !== chat.id || turn.specification_id !== chat.specification_id) {
+    throw new CapabilityDispatchError(
+      `Turn ${input.turnId} does not belong to chat ${input.chatId}`,
+      'handler_failed',
+    );
+  }
+
+  const response = submitTurnResponseTransition({
+    db,
+    specificationId: chat.specification_id,
+    turnId: turn.id,
+    request: input.response,
+  });
+
+  if (!response.ok) {
+    throw new CapabilityDispatchError(response.message, 'handler_failed');
+  }
+
+  return {
+    chatId: chat.id,
+    specId: chat.specification_id,
+    turnId: turn.id,
+    response,
+    nextCommands: [{ capability: 'chat.read', input: { chatId: chat.id } }],
+  };
+}
+
 async function ensureChatReadyFromCapability(
   db: DB,
   input: ChatEnsureReadyInput,
@@ -339,6 +399,16 @@ async function ensureChatReadyFromCapability(
   const activeTurn = state.turns.find((turn) => turn.id === chat.active_turn_id) ?? null;
   if (activeTurn) {
     const activeState = getReadyStateForTurn(activeTurn);
+    if (activeState === 'awaiting_response') {
+      return {
+        chatId: chat.id,
+        specId: chat.specification_id,
+        state: 'awaiting_response' as const,
+        turnId: activeTurn.id,
+        nextCommands: [{ capability: 'chat.read', input: { chatId: chat.id } }],
+      };
+    }
+
     if (activeState === 'needs_generation') {
       const persistedActiveTurn = getTurn(db, activeTurn.id);
       if (!persistedActiveTurn) {
@@ -351,13 +421,47 @@ async function ensureChatReadyFromCapability(
         userMessage: '',
       });
       await persistGeneratedAnswerableFrontier(db, persistedActiveTurn, generated);
+
+      return {
+        chatId: chat.id,
+        specId: chat.specification_id,
+        state: 'awaiting_response' as const,
+        turnId: activeTurn.id,
+        nextCommands: [{ capability: 'chat.read', input: { chatId: chat.id } }],
+      };
     }
+
+    const answeredText = activeTurn.answer ?? '';
+    const transition = applyChatRouteTransition(
+      { db, specificationId: chat.specification_id },
+      {
+        kind: 'continue',
+        reply: { text: answeredText, parts: [] },
+      },
+    );
+    if (!transition.ok) {
+      throw new CapabilityDispatchError(transition.message, 'handler_failed');
+    }
+    if (transition.kind !== 'interviewer-turn') {
+      throw new CapabilityDispatchError(
+        `Chat ${chat.id} did not produce an interviewer frontier`,
+        'handler_failed',
+      );
+    }
+    finalizeTurn(db, chat.specification_id, transition.prepared.turn.id);
+    const generated = await generateAnswerableFrontier({
+      db,
+      turn: transition.prepared.turn,
+      activePath: transition.prepared.activePath,
+      userMessage: answeredText,
+    });
+    await persistGeneratedAnswerableFrontier(db, transition.prepared.turn, generated);
 
     return {
       chatId: chat.id,
       specId: chat.specification_id,
       state: 'awaiting_response' as const,
-      turnId: activeTurn.id,
+      turnId: transition.prepared.turn.id,
       nextCommands: [{ capability: 'chat.read', input: { chatId: chat.id } }],
     };
   }
@@ -436,6 +540,11 @@ export function dispatchCapability(input: {
   input: unknown;
   generateAnswerableFrontier?: GenerateAnswerableFrontier;
 }): Promise<ChatEnsureReadyOutput>;
+export function dispatchCapability(input: {
+  db: DB;
+  capability: 'turn.submitResponse';
+  input: unknown;
+}): Promise<TurnSubmitResponseOutput>;
 export function dispatchCapability(input: DispatchCapabilityInput): Promise<unknown>;
 export async function dispatchCapability({
   db,
@@ -463,6 +572,10 @@ export async function dispatchCapability({
 
   if (capability === 'chat.ensureReady') {
     return ensureChatReadyFromCapability(db, parseChatEnsureReadyInput(input), generateAnswerableFrontier);
+  }
+
+  if (capability === 'turn.submitResponse') {
+    return submitTurnResponseFromCapability(db, parseTurnSubmitResponseInput(input));
   }
 
   throw new CapabilityDispatchError('Capability has no executable handler', 'unknown_capability');
