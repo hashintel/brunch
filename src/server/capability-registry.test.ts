@@ -41,6 +41,18 @@ describe('capability registry', () => {
         id: 'changeset.submit',
         authority: 'proposal_only',
       }),
+      expect.objectContaining({
+        id: 'spec.create',
+        authority: 'commit_truth',
+        inputSchema: 'spec.create.input.v1',
+        outputSchema: 'spec.create.output.v1',
+      }),
+      expect.objectContaining({
+        id: 'spec.getStatus',
+        authority: 'read_only',
+        inputSchema: 'spec.getStatus.input.v1',
+        outputSchema: 'spec.getStatus.output.v1',
+      }),
     ]);
   });
 
@@ -49,6 +61,8 @@ describe('capability registry', () => {
       id: 'workspace.readFile',
       authority: 'read_only',
       summary: 'Read a file from the workspace context.',
+      inputSchema: 'workspace.readFile.input.v1',
+      outputSchema: 'workspace.readFile.output.v1',
       handler: null,
     });
   });
