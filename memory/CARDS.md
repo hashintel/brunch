@@ -368,11 +368,75 @@ A user with open `reconciliation_need` rows can trigger the V3.1 classifier from
 
 ---
 
-## Not yet queued (depends on Card 6 outer-loop signal)
+## 7 — V3.1 per-class actions + bulk (client + listing extension) — `next` (full scope card)
 
-7. **V3.1 actions + bulk** — per-class buttons (`auto-confirm` → one-click Confirm; `auto-edit` → render `agent_proposal` inside `<DiffPopover>` + Apply / Skip; `substantive` → render note + "Open side-chat"); "Confirm all (N)" + "Apply all suggested (N)". Apply suggested edit reuses Card 3's inline-textarea machinery (with Card 4's polished toolbar contract) pre-filled by `agent_proposal`. Outer-loop walkthrough refines or confirms A88 against the bulk-action experience.
+### Target Behavior
 
-Re-scope Card 7 only after Card 6's outer-loop walkthrough lands. Specifically, three Card-6 findings should be in hand before Card 7 scope is committed:
-- whether the chip vocabulary as-shipped is the right granularity for action buttons to bind to (e.g., does `failed` need a recovery action distinct from Re-run?);
-- whether bulk actions ("Confirm all", "Apply all") want server-side bulk endpoints or client-side iteration over the existing per-row endpoints;
-- whether `substantive` → "Open side-chat" is the right handoff or whether substantive items should stay in-place with richer inline UI.
+Each classified row exposes the action appropriate to its classification (`auto-confirm` → Confirm; `auto-edit` → Apply suggested / Skip with a `<DiffPopover>` preview; `substantive` → Open side-chat) and the section header exposes two bulk actions ("Confirm all (N)" and "Apply all suggested (N)") that iterate client-side over the existing per-row endpoints, closing V3.1's user-facing surface end-to-end.
+
+### Boundary Crossings
+
+```
+→ <PendingReviewSection>                                                 (src/client/components/pending-review-section.tsx — Card 6 surface)
+→ Per-row action rail (new buttons mounted next to existing Resolve / Edit / Re-run)
+  ├── auto-confirm → Confirm                                             → resolveReconciliationNeedRequest (existing)
+  ├── auto-edit → Apply                                                  → editKnowledgeItemRequest({ content: agent_proposal }) + resolveReconciliationNeedRequest
+  ├── auto-edit → Skip                                                   → resolveReconciliationNeedRequest (existing)
+  ├── auto-edit → View proposal                                          → <DiffPopover> opens with target current → agent_proposal
+  └── substantive → Open side-chat                                       → useSideChat().openFor({ kind, id, referenceCode, content })
+→ Header bulk row (next to Run agent / progress strip)
+  ├── Confirm all (N) → iterate auto-confirm rows                        → Promise.allSettled(resolveReconciliationNeedRequest…)
+  └── Apply all suggested (N) → iterate auto-edit rows with proposals    → Promise.allSettled(editKnowledgeItemRequest + resolveReconciliationNeedRequest…)
+→ GET /api/specifications/:id/reconciliation-needs listing endpoint extension
+  └── ReconciliationNeedView gains target_item_kind + target_reference_code (closes Card 4 deferred follow-up)
+→ ReconciliationNeedRecord (shared type) gains the two read-time fields
+```
+
+### Risks and Assumptions
+
+- RISK: Bulk client-side iteration can fire N concurrent PATCHes against the same spec, which may stress the server's edit-route under hard-impact cascade (one bulk Apply could open many needs) → MITIGATION: serialize bulk operations (await each request before starting the next) rather than parallelize; the user-perceived latency is dominated by network round-trips, not parallelism, and serialization keeps cascade-opening predictable. Trade-off documented in commit body.
+- RISK: Apply suggested writes the raw `agent_proposal` into the target item without giving the user a chance to edit it → MITIGATION: the View-proposal `<DiffPopover>` lets the user preview before clicking Apply; if Card 7 walkthrough surfaces that the user wants to edit-before-apply, promote that to a follow-up card (would re-use Card 3's inline-textarea machinery seeded with `agent_proposal`).
+- RISK: Substantive Open-side-chat opens an ephemeral conversation that disappears on refresh (V4a side-chat persistence isn't shipped yet) → MITIGATION: accepted for V3.1; the side-chat is anchored to the target item with its current content as pinned context, which is enough for one substantive walk. V4a persistence makes the same affordance durable without changing the entry contract.
+- RISK: The listing-endpoint extension touches a shared response shape (`ReconciliationNeedView`, `ReconciliationNeedRecord`) consumed by existing tests and component fixtures → MITIGATION: both new fields are nullable on the shared type; existing fixtures (`reconciliation-need-fixtures.ts`) default both to null, so older tests stay green. The Confirm / Apply / Open-side-chat buttons all need-check for non-null before enabling.
+- ASSUMPTION: `useSideChat()` returning `null` (no SideChatHost mounted) is the right gate to hide the Open-side-chat button. → VALIDATE: outer-loop walkthrough on a route that has SideChatHost; render unit test that asserts the button hides when the context is null.
+- ASSUMPTION: Confirm-all / Apply-all-suggested are scoped per-classification (not "everything the agent classified") because the actions are semantically distinct. → VALIDATE: outer-loop walkthrough; if users want a single "apply everything" affordance, that's a follow-up after seeing the multi-button feel.
+
+### Acceptance Criteria
+
+```
+✓ reconciliation-needs-route.test.ts — GET .../reconciliation-needs response now includes target_item_kind and target_reference_code on every row (defaults null when target item missing)
+✓ pending-review-section.test.tsx — auto-confirm row exposes Confirm button; click calls resolveReconciliationNeedRequest once
+✓ pending-review-section.test.tsx — auto-edit row exposes View-proposal + Apply + Skip; View opens the existing DiffPopover with target current vs agent_proposal; Apply calls editKnowledgeItemRequest with content=agent_proposal then resolveReconciliationNeedRequest; Skip calls resolveReconciliationNeedRequest only
+✓ pending-review-section.test.tsx — substantive row exposes Open side-chat button; click invokes useSideChat().openFor with the target item's kind / id / referenceCode / content
+✓ pending-review-section.test.tsx — substantive row hides Open-side-chat when useSideChat() returns null (no host mounted)
+✓ pending-review-section.test.tsx — header exposes "Confirm all (N)" only when ≥1 auto-confirm row exists; click resolves each auto-confirm row serially
+✓ pending-review-section.test.tsx — header exposes "Apply all suggested (N)" only when ≥1 auto-edit row with non-null agent_proposal exists; click applies each in sequence
+✓ pending-review-section.test.tsx — auto-edit rows lacking agent_proposal are excluded from "Apply all suggested" iteration but still expose Skip / Resolve individually
+✓ npm run verify — no regressions across server route tests, query tests, component tests
+```
+
+### Verification Approach
+
+```
+- Inner: pending-review-section.test.tsx for the per-class action affordances, bulk header visibility, and dispatch correctness; reconciliation-needs-route.test.ts for the listing-extension fields
+- Middle: not applicable — no LLM judgment changes; classifier output (auto-confirm / auto-edit / substantive) is the input contract, not the output
+- Outer: manual walkthrough — open a spec with mixed classifications (≥2 auto-confirm, ≥2 auto-edit, ≥1 substantive); use per-row actions on a few; use one bulk action; observe the row leaves the section atomically on each resolve. THIS is the second A88 signal: do the action affordances close the loop legibly, or do users hesitate on which button to use? Capture qualitative notes — this is where V3.1 ends.
+```
+
+### Promotion checklist
+
+- [ ] Requirement change? **No** — Requirement 10 already names the HITL contract for accept-on-target / edit-target / dismiss.
+- [x] Assumption change? **Yes** — A88 (Path 1 sufficiency without agent) gets its second outer-loop validation here; together with Card 6's walkthrough, this is the canonical signal on whether agent grouping helps. No SPEC update at scope time; route through `/ln-spec` post-walkthrough only if invalidated.
+- [x] Non-trivial design decision? **Yes** — (a) bulk semantics (serialize vs parallelize), (b) Apply path bypasses the inline-edit affordance (raw application of agent_proposal), (c) substantive handoff ships without persistence (V4a-blocked but functional). All reversible. Document in commit bodies; no D###.
+- [ ] New seam-level invariant? **No** — reuses Card 5's I114 and Card 6's polling contract.
+- [x] Crosses >2 major seams? **Yes** — listing route extension, shared type, component, side-chat context. Full scope.
+- [ ] First touch in unfamiliar seam? **No** — same code paths as Cards 3 / 5 / 6.
+- [ ] Cannot name containing seam? **No**.
+
+→ Full scope card. SPEC.md unchanged at scope time. After Card 7 + walkthrough lands, run `/ln-sync` to retire CARDS.md (frontier exhausted) and update PLAN.md's §Recently Completed.
+
+---
+
+## Not yet queued
+
+(Nothing remaining for FE-674 after Card 7. Next frontier is the V4a side-chat persistence promotion already in PLAN.md §Next item 3 — re-scope via `/ln-scope` once V3.1 closes and the §349 anchor decision is made.)
