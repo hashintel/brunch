@@ -368,7 +368,7 @@ A user with open `reconciliation_need` rows can trigger the V3.1 classifier from
 
 ---
 
-## 7 — V3.1 per-class actions + bulk (client + listing extension) — `next` (full scope card)
+## 7 — V3.1 per-class actions + bulk (client + listing extension) — `done` (full scope card)
 
 ### Target Behavior
 
