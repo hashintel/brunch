@@ -194,14 +194,14 @@ export function PendingReviewSection(): React.ReactElement | null {
                   <textarea
                     aria-label={`Edit target for need ${need.id}`}
                     value={draft}
-                    disabled={isSaving}
+                    disabled={isSaving || isResolving}
                     onChange={(event) => updateDraft(need.id, event.target.value)}
                     className="min-h-[3.5rem] w-full rounded-md border border-rule bg-white px-2 py-1 text-[11px] text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.04)] focus:border-[#3484fa] focus:outline-none disabled:opacity-50"
                   />
                   <div className="flex items-center justify-end gap-1.5">
                     <button
                       type="button"
-                      disabled={isSaving}
+                      disabled={isSaving || isResolving}
                       onClick={() => cancelEditing(need.id)}
                       className="rounded-md bg-white px-2 py-0.5 text-[11px] text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa] disabled:opacity-50"
                     >
@@ -209,7 +209,7 @@ export function PendingReviewSection(): React.ReactElement | null {
                     </button>
                     <button
                       type="button"
-                      disabled={isSaving}
+                      disabled={isSaving || isResolving}
                       onClick={() => handleSave(need.id, need.specification_id, need.target_item_id)}
                       className="rounded-md bg-[#3484fa] px-2 py-0.5 text-[11px] text-white shadow-[0_0_0_1px_rgba(52,132,250,0.3)] hover:bg-[#1f6dd6] disabled:opacity-50"
                     >
