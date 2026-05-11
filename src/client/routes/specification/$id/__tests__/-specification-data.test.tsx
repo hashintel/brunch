@@ -166,7 +166,7 @@ describe('specification data ownership', () => {
       turnId: 7,
       phase: 'grounding',
       question: {
-        id: 'assistant:tool-1',
+        toolCallId: 'tool-1',
         question: 'Which platform should we target next?',
         why: 'Platform shapes the first build.',
         impact: 'high',
@@ -183,6 +183,8 @@ describe('specification data ownership', () => {
     expect(patchedBundle?.specification.active_turn_id).toBe(7);
     expect(patchedBundle?.landing).toEqual({ kind: 'frontier-turn', phase: 'grounding', turnId: 7 });
     expect(patchedBundle?.workflow.phases.grounding.turnId).toBe(7);
+    expect(patchedBundle?.turns[0]?.assistant_parts).toContain('"toolCallId":"tool-1"');
+    expect(patchedBundle?.turns[0]?.assistant_parts).not.toContain('persisted-turn-7');
     expect(patchedBundle?.turns).toContainEqual(
       expect.objectContaining({
         id: 7,
@@ -267,7 +269,7 @@ describe('specification data ownership', () => {
       turnId: 7,
       phase: 'grounding',
       question: {
-        id: 'assistant:tool-1',
+        toolCallId: 'tool-1',
         question: 'Which platform should we target next?',
         why: 'Platform shapes the first build.',
         impact: 'high',
@@ -316,7 +318,7 @@ describe('specification data ownership', () => {
       turnId: 7,
       phase: 'grounding',
       question: {
-        id: 'assistant:tool-1',
+        toolCallId: 'tool-1',
         question: 'Which platform should we target next?',
         why: null,
         impact: null,
@@ -363,7 +365,7 @@ describe('specification data ownership', () => {
       turnId: 7,
       phase: 'grounding',
       question: {
-        id: 'assistant:tool-1',
+        toolCallId: 'tool-1',
         question: 'Which platform should we target next?',
         why: 'Client projection.',
         impact: 'high',

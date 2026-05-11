@@ -17,7 +17,7 @@ export const specificationQueryKeys = {
 const inflightSpecificationStateRequests = new Map<string, Promise<SpecificationState>>();
 
 export interface StreamedFrontierQuestion {
-  readonly id: string;
+  readonly toolCallId: string;
   readonly question: string;
   readonly why: string | null;
   readonly impact: StructuredQuestion['impact'] | null;
@@ -114,7 +114,7 @@ function createPatchedAssistantParts(question: StreamedFrontierQuestion, turnId:
     ...(question.preface ? [{ type: 'data-preface', data: question.preface }] : []),
     {
       type: 'tool-ask_question',
-      toolCallId: question.id,
+      toolCallId: question.toolCallId,
       state: 'output-available',
       input: structuredQuestion,
       output: {

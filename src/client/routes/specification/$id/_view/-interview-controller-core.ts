@@ -45,6 +45,7 @@ export interface PendingQuestionOption {
 
 export interface PendingQuestionViewModel {
   readonly id: string;
+  readonly toolCallId: string;
   readonly acknowledgedTurnId?: number;
   readonly question: string;
   readonly why: string;
@@ -292,6 +293,7 @@ function findPendingQuestion(messages: readonly BrunchUIMessage[]): PendingQuest
 
       return {
         id: acknowledgedTurnId ? `persisted-turn-${acknowledgedTurnId}` : `${message.id}:${part.toolCallId}`,
+        toolCallId: part.toolCallId,
         ...(acknowledgedTurnId ? { acknowledgedTurnId } : {}),
         question: input.question,
         why: input.why,

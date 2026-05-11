@@ -621,6 +621,7 @@ describe('workspace controller core', () => {
       kind: 'pending-question',
       pendingQuestion: {
         id: 'persisted-turn-1',
+        toolCallId: 'tool-1',
         acknowledgedTurnId: 1,
         question: 'Which platform should we target next?',
         why: 'Platform shapes the first build.',

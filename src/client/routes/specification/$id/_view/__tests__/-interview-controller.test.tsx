@@ -81,7 +81,7 @@ type StreamedFrontierTurnPromotion = {
   turnId: number;
   phase: 'grounding' | 'design' | 'requirements' | 'criteria';
   question: {
-    id: string;
+    toolCallId: string;
     question: string;
     why: string;
     impact: 'high' | 'medium' | 'low';
@@ -116,7 +116,7 @@ const promoteStreamedFrontierTurnToBundle = vi.fn((promotion: StreamedFrontierTu
     assistant_parts: JSON.stringify([
       {
         type: 'tool-ask_question',
-        toolCallId: promotion.question.id,
+        toolCallId: promotion.question.toolCallId,
         state: 'output-available',
         input: {
           question: promotion.question.question,
