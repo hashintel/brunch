@@ -11,6 +11,7 @@ import {
   getDownstreamItems,
   getKnowledgeItem,
   getSpecification,
+  getTurn,
   isItemInActiveReviewSet,
   openReconciliationNeedIfAbsent,
   removeKnowledgeRelationship,
@@ -72,6 +73,19 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
     return;
   }
 
+  // Validate the client-supplied causedByTurnId before committing any writes
+  // — reconciliation_need.caused_by_turn_id is a real FK with foreign_keys ON,
+  // so a stale or wrong-spec turn id would otherwise throw at insert time and
+  // surface as a 500. A wrong spec is just as bad as a missing turn (the need
+  // would attribute the cascade to an unrelated chat), so check both.
+  if (parsed.data.causedByTurnId != null) {
+    const turn = getTurn(db, parsed.data.causedByTurnId);
+    if (!turn || turn.specification_id !== specificationId) {
+      badRequest(res, 'Invalid causedByTurnId');
+      return;
+    }
+  }
+
   const downstream = getDownstreamItems(db, specificationId, itemId);
   const inReviewSet =
     isItemInActiveReviewSet(db, specificationId, itemId) ||
@@ -87,10 +101,6 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
 
   const previousContent = item.content;
   const previousRationale = item.rationale;
-  updateKnowledgeItemContent(db, itemId, {
-    content: parsed.data.content,
-    rationale: parsed.data.rationale,
-  });
 
   if (impact === 'hard') {
     // V3.0 (D139, I112): apply the source change AND open one
@@ -99,18 +109,30 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
     // re-application idempotent. The patch list overlay surfaces these needs
     // as a Pending review section in card 2; for now the V2 client banner
     // continues to render off `impact === 'hard'`.
+    //
+    // Wrap the source mutation and the per-edge need inserts in one
+    // transaction so a partial failure (e.g. an unexpected FK violation) can't
+    // leave the source mutated without its cascade needs — the caller would
+    // otherwise see the new content with no way to resolve.
     const downstreamEdges = getDownstreamEdges(db, specificationId, itemId);
-    const openedNeedIds: number[] = [];
-    for (const edge of downstreamEdges) {
-      const opened = openReconciliationNeedIfAbsent(db, {
-        specificationId,
-        sourceItemId: itemId,
-        targetItemId: edge.downstream_item_id,
-        kind: relationToKind(edge.relation),
-        causedByTurnId: parsed.data.causedByTurnId ?? null,
+    const openedNeedIds = db.transaction((tx) => {
+      updateKnowledgeItemContent(tx as unknown as DB, itemId, {
+        content: parsed.data.content,
+        rationale: parsed.data.rationale,
       });
-      if (opened !== null) openedNeedIds.push(opened.id);
-    }
+      const opened: number[] = [];
+      for (const edge of downstreamEdges) {
+        const need = openReconciliationNeedIfAbsent(tx as unknown as DB, {
+          specificationId,
+          sourceItemId: itemId,
+          targetItemId: edge.downstream_item_id,
+          kind: relationToKind(edge.relation),
+          causedByTurnId: parsed.data.causedByTurnId ?? null,
+        });
+        if (need !== null) opened.push(need.id);
+      }
+      return opened;
+    });
     res.json({
       impact,
       affectedItems,
@@ -122,6 +144,10 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
     return;
   }
 
+  updateKnowledgeItemContent(db, itemId, {
+    content: parsed.data.content,
+    rationale: parsed.data.rationale,
+  });
   res.json({ impact, affectedItems, updated: true, previousContent, previousRationale });
 }
 
