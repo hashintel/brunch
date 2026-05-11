@@ -60,6 +60,17 @@ vi.mock('@/client/lib/edit-api.js', () => ({
   resetReconciliationNeedAgentRequest: mockResetReconciliationNeedAgentRequest,
 }));
 
+const mockSideChatOpenFor = vi.hoisted(() => vi.fn());
+let sideChatContextValue: { openFor: typeof mockSideChatOpenFor } | null = {
+  openFor: mockSideChatOpenFor,
+};
+function setSideChatContext(value: { openFor: typeof mockSideChatOpenFor } | null): void {
+  sideChatContextValue = value;
+}
+vi.mock('../side-chat-host.js', () => ({
+  useSideChat: () => sideChatContextValue,
+}));
+
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
@@ -95,6 +106,8 @@ afterEach(() => {
       agentProposal: null,
     }),
   );
+  mockSideChatOpenFor.mockClear();
+  setSideChatContext({ openFor: mockSideChatOpenFor });
   vi.useRealTimers();
 });
 
@@ -577,6 +590,204 @@ describe('PendingReviewSection', () => {
       await act(async () => {
         resolveReset();
       });
+    });
+  });
+
+  describe('V3.1 Card 7 — per-class actions + bulk', () => {
+    it('auto-confirm row renders Confirm button that calls resolve once', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'auto-confirm',
+          target_current_content: 'target',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /confirm need 1/i }));
+      });
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(1);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 1);
+    });
+
+    it('auto-edit row renders Apply / Skip / View buttons; Apply calls edit then resolve', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          specification_id: 7,
+          target_item_id: 33,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: 'new content',
+          target_current_content: 'old content',
+        }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-view-proposal-button="1"]')).not.toBeNull();
+      expect(container.querySelector('[data-apply-button="1"]')).not.toBeNull();
+      expect(container.querySelector('[data-skip-button="1"]')).not.toBeNull();
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /apply proposal for need 1/i }));
+      });
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledTimes(1);
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledWith(7, 33, { content: 'new content' });
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(1);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 1);
+    });
+
+    it('auto-edit Skip calls resolve only (no edit)', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: 'new content',
+          target_current_content: 'old content',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /skip proposal for need 1/i }));
+      });
+      expect(mockEditKnowledgeItemRequest).not.toHaveBeenCalled();
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it('substantive row renders Open side-chat button that invokes useSideChat().openFor', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          specification_id: 7,
+          target_item_id: 99,
+          agent_status: 'classified',
+          agent_classification: 'substantive',
+          target_item_kind: 'requirement',
+          target_reference_code: 'R3',
+          target_current_content: 'substantive content',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /open side-chat for need 1/i }));
+      });
+      expect(mockSideChatOpenFor).toHaveBeenCalledTimes(1);
+      expect(mockSideChatOpenFor).toHaveBeenCalledWith({
+        kind: 'requirement',
+        id: 99,
+        referenceCode: 'R3',
+        content: 'substantive content',
+      });
+    });
+
+    it('substantive row hides Open side-chat when useSideChat returns null', () => {
+      setSideChatContext(null);
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          agent_status: 'classified',
+          agent_classification: 'substantive',
+          target_item_kind: 'requirement',
+          target_reference_code: 'R3',
+          target_current_content: 'substantive',
+        }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-open-side-chat-button]')).toBeNull();
+    });
+
+    it('header exposes "Confirm all (N)" only when auto-confirm rows exist', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 2, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 3, agent_status: 'classified', agent_classification: 'substantive' }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      const button = container.querySelector('[data-bulk-confirm-button]');
+      expect(button).not.toBeNull();
+      expect(button?.textContent).toContain('Confirm all (2)');
+    });
+
+    it('Confirm all serially resolves every auto-confirm row', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'auto-confirm',
+        }),
+        makeNeed({
+          id: 2,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'auto-confirm',
+        }),
+        makeNeed({
+          id: 3,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'substantive',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /confirm all 2 auto-confirm rows/i }));
+      });
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(2);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 1);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 2);
+    });
+
+    it('header exposes "Apply all suggested (N)" only when auto-edit rows with non-null proposals exist', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: 'p1',
+        }),
+        makeNeed({
+          id: 2,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: null,
+        }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      const button = container.querySelector('[data-bulk-apply-button]');
+      expect(button).not.toBeNull();
+      expect(button?.textContent).toContain('Apply all suggested (1)');
+    });
+
+    it('Apply all suggested serially applies each auto-edit proposal then resolves', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          specification_id: 7,
+          target_item_id: 100,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: 'proposal A',
+        }),
+        makeNeed({
+          id: 2,
+          specification_id: 7,
+          target_item_id: 101,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: 'proposal B',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /apply all 2 suggested edits/i }));
+      });
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledTimes(2);
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledWith(7, 100, { content: 'proposal A' });
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledWith(7, 101, { content: 'proposal B' });
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(2);
     });
   });
 });

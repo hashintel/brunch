@@ -16,7 +16,19 @@
 // with target_item_kind, the row left bar and Resolve fill use a neutral
 // amber as a kind-accent fallback (deferred follow-up card).
 
-import { Check, Loader2, PencilLine, Play, Replace, RotateCw, X } from 'lucide-react';
+import {
+  Check,
+  CheckCheck,
+  Forward,
+  Loader2,
+  MessageSquare,
+  PencilLine,
+  Play,
+  Replace,
+  RotateCw,
+  Wand2,
+  X,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import {
@@ -29,9 +41,11 @@ import {
   invalidateOpenReconciliationNeeds,
   useSpecificationOpenReconciliationNeeds,
 } from '@/client/routes/specification/$id/-specification-data.js';
+import type { ReconciliationNeedRecord } from '@/shared/reconciliation-need.js';
 
 import { ClassificationChip } from './classification-chip.js';
 import { DiffPopover } from './diff-popover.js';
+import { useSideChat } from './side-chat-host.js';
 
 // Card 3 (V3.1 setup): per-row inline edit state. Keyed by need id so
 // expanding one row's edit form doesn't perturb other rows. Draft text is
@@ -61,9 +75,15 @@ export function PendingReviewSection(): React.ReactElement | null {
   const [editDrafts, setEditDrafts] = useState<EditDraftMap>(() => new Map());
   const [savingNeedIds, setSavingNeedIds] = useState<ReadonlySet<number>>(() => new Set());
   const [resettingNeedIds, setResettingNeedIds] = useState<ReadonlySet<number>>(() => new Set());
+  const [applyingNeedIds, setApplyingNeedIds] = useState<ReadonlySet<number>>(() => new Set());
   const [isRunningAgent, setIsRunningAgent] = useState(false);
-  const [diffPopoverNeedId, setDiffPopoverNeedId] = useState<number | null>(null);
+  const [isBulkRunning, setIsBulkRunning] = useState(false);
+  const [diffPopoverNeedId, setDiffPopoverNeedId] = useState<{
+    needId: number;
+    mode: 'source-diff' | 'agent-proposal';
+  } | null>(null);
   const diffAnchorRef = useRef<HTMLButtonElement | null>(null);
+  const sideChat = useSideChat();
 
   useEffect(() => {
     if (diffPopoverNeedId === null) return;
@@ -86,6 +106,15 @@ export function PendingReviewSection(): React.ReactElement | null {
   const unclassifiedAgentCount = openNeeds.filter((need) => need.agent_status === null).length;
   const agentInFlight = inflightAgentCount > 0;
   const specificationId = openNeeds[0]?.specification_id ?? null;
+  const autoConfirmRows = openNeeds.filter(
+    (need) => need.agent_status === 'classified' && need.agent_classification === 'auto-confirm',
+  );
+  const autoEditRows = openNeeds.filter(
+    (need) =>
+      need.agent_status === 'classified' &&
+      need.agent_classification === 'auto-edit' &&
+      need.agent_proposal !== null,
+  );
 
   // Idempotent resolve. The button is disabled while the request is in flight
   // so a double-click can't double-fire. Errors propagate; we don't optimistically
@@ -180,6 +209,91 @@ export function PendingReviewSection(): React.ReactElement | null {
     })();
   };
 
+  const handleApplyProposal = (need: ReconciliationNeedRecord): void => {
+    if (need.agent_proposal === null) return;
+    setApplyingNeedIds((prev) => {
+      const next = new Set(prev);
+      next.add(need.id);
+      return next;
+    });
+    void (async () => {
+      try {
+        await editKnowledgeItemRequest(need.specification_id, need.target_item_id, {
+          content: need.agent_proposal ?? '',
+        });
+        await resolveReconciliationNeedRequest(need.specification_id, need.id);
+        await invalidateOpenReconciliationNeeds(need.specification_id);
+      } catch (error) {
+        console.error(`apply proposal for need ${need.id} failed`, error);
+      } finally {
+        setApplyingNeedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(need.id);
+          return next;
+        });
+      }
+    })();
+  };
+
+  const handleOpenSideChat = (need: ReconciliationNeedRecord): void => {
+    if (
+      sideChat === null ||
+      need.target_item_kind === null ||
+      need.target_reference_code === null ||
+      need.target_current_content === null
+    ) {
+      return;
+    }
+    sideChat.openFor({
+      kind: need.target_item_kind,
+      id: need.target_item_id,
+      referenceCode: need.target_reference_code,
+      content: need.target_current_content,
+    });
+  };
+
+  const handleConfirmAll = (): void => {
+    if (specificationId === null || isBulkRunning || autoConfirmRows.length === 0) return;
+    setIsBulkRunning(true);
+    void (async () => {
+      try {
+        for (const need of autoConfirmRows) {
+          try {
+            await resolveReconciliationNeedRequest(need.specification_id, need.id);
+          } catch (error) {
+            console.error(`bulk confirm need ${need.id} failed`, error);
+          }
+        }
+        await invalidateOpenReconciliationNeeds(specificationId);
+      } finally {
+        setIsBulkRunning(false);
+      }
+    })();
+  };
+
+  const handleApplyAllSuggested = (): void => {
+    if (specificationId === null || isBulkRunning || autoEditRows.length === 0) return;
+    setIsBulkRunning(true);
+    void (async () => {
+      try {
+        for (const need of autoEditRows) {
+          if (need.agent_proposal === null) continue;
+          try {
+            await editKnowledgeItemRequest(need.specification_id, need.target_item_id, {
+              content: need.agent_proposal,
+            });
+            await resolveReconciliationNeedRequest(need.specification_id, need.id);
+          } catch (error) {
+            console.error(`bulk apply need ${need.id} failed`, error);
+          }
+        }
+        await invalidateOpenReconciliationNeeds(specificationId);
+      } finally {
+        setIsBulkRunning(false);
+      }
+    })();
+  };
+
   const handleResetAgent = (needId: number, needSpecId: number): void => {
     setResettingNeedIds((prev) => {
       const next = new Set(prev);
@@ -203,8 +317,9 @@ export function PendingReviewSection(): React.ReactElement | null {
   };
 
   const activePopoverNeed = diffPopoverNeedId
-    ? (openNeeds.find((n) => n.id === diffPopoverNeedId) ?? null)
+    ? (openNeeds.find((n) => n.id === diffPopoverNeedId.needId) ?? null)
     : null;
+  const activePopoverMode = diffPopoverNeedId?.mode ?? null;
 
   return (
     <div
@@ -224,6 +339,44 @@ export function PendingReviewSection(): React.ReactElement | null {
               <Loader2 className="size-3 animate-spin" aria-hidden />
               Agent: {classifiedAgentCount} of {openNeeds.length} classified
             </span>
+          ) : null}
+          {autoConfirmRows.length > 0 ? (
+            <button
+              type="button"
+              aria-label={`Confirm all ${autoConfirmRows.length} auto-confirm rows`}
+              title="Resolve every auto-confirm row in one pass"
+              data-bulk-confirm-button
+              disabled={isBulkRunning || agentInFlight}
+              onClick={handleConfirmAll}
+              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
+              style={{ backgroundColor: '#16a34a' }}
+            >
+              {isBulkRunning ? (
+                <Loader2 className="size-3 animate-spin" aria-hidden />
+              ) : (
+                <CheckCheck className="size-3" aria-hidden />
+              )}
+              Confirm all ({autoConfirmRows.length})
+            </button>
+          ) : null}
+          {autoEditRows.length > 0 ? (
+            <button
+              type="button"
+              aria-label={`Apply all ${autoEditRows.length} suggested edits`}
+              title="Apply every auto-edit row's proposal and resolve it"
+              data-bulk-apply-button
+              disabled={isBulkRunning || agentInFlight}
+              onClick={handleApplyAllSuggested}
+              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
+              style={{ backgroundColor: '#ea580c' }}
+            >
+              {isBulkRunning ? (
+                <Loader2 className="size-3 animate-spin" aria-hidden />
+              ) : (
+                <Wand2 className="size-3" aria-hidden />
+              )}
+              Apply all suggested ({autoEditRows.length})
+            </button>
           ) : null}
           {unclassifiedAgentCount > 0 ? (
             <button
@@ -253,9 +406,24 @@ export function PendingReviewSection(): React.ReactElement | null {
           const isResolving = resolvingNeedIds.has(need.id);
           const isSaving = savingNeedIds.has(need.id);
           const isResetting = resettingNeedIds.has(need.id);
+          const isApplying = applyingNeedIds.has(need.id);
           const draft = editDrafts.get(need.id);
           const isEditing = draft !== undefined;
           const canRerunAgent = need.agent_status === 'classified' || need.agent_status === 'failed';
+          const showAutoConfirmButton =
+            need.agent_status === 'classified' && need.agent_classification === 'auto-confirm';
+          const showAutoEditButtons =
+            need.agent_status === 'classified' &&
+            need.agent_classification === 'auto-edit' &&
+            need.agent_proposal !== null;
+          const showOpenSideChatButton =
+            need.agent_status === 'classified' &&
+            need.agent_classification === 'substantive' &&
+            sideChat !== null &&
+            need.target_item_kind !== null &&
+            need.target_reference_code !== null &&
+            need.target_current_content !== null;
+          const rowDisabled = isResolving || isSaving || isResetting || isApplying;
           const showSourceDiff =
             need.source_previous_content !== null &&
             need.source_current_content !== null &&
@@ -312,13 +480,92 @@ export function PendingReviewSection(): React.ReactElement | null {
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
+                    {showAutoConfirmButton ? (
+                      <button
+                        type="button"
+                        aria-label={`Confirm need ${need.id}`}
+                        title="Confirm — resolve this auto-confirm row"
+                        data-confirm-button={need.id}
+                        disabled={rowDisabled}
+                        onClick={() => handleResolve(need.id, need.specification_id)}
+                        className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
+                        style={{ backgroundColor: '#16a34a' }}
+                      >
+                        {isResolving ? (
+                          <Loader2 className="size-3 animate-spin" aria-hidden />
+                        ) : (
+                          <CheckCheck className="size-3" aria-hidden />
+                        )}
+                        Confirm
+                      </button>
+                    ) : null}
+                    {showAutoEditButtons ? (
+                      <>
+                        <button
+                          type="button"
+                          aria-label={`View proposal for need ${need.id}`}
+                          data-view-proposal-button={need.id}
+                          onClick={(event) => {
+                            diffAnchorRef.current = event.currentTarget;
+                            setDiffPopoverNeedId({ needId: need.id, mode: 'agent-proposal' });
+                          }}
+                          className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-hint hover:bg-[rgba(0,0,0,0.04)] hover:text-ink"
+                        >
+                          View
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={isApplying ? 'Applying' : `Apply proposal for need ${need.id}`}
+                          title="Apply suggested edit and resolve this row"
+                          data-apply-button={need.id}
+                          disabled={rowDisabled}
+                          onClick={() => handleApplyProposal(need)}
+                          className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
+                          style={{ backgroundColor: '#ea580c' }}
+                        >
+                          {isApplying ? (
+                            <Loader2 className="size-3 animate-spin" aria-hidden />
+                          ) : (
+                            <Wand2 className="size-3" aria-hidden />
+                          )}
+                          Apply
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Skip proposal for need ${need.id}`}
+                          title="Resolve without applying the proposal"
+                          data-skip-button={need.id}
+                          disabled={rowDisabled}
+                          onClick={() => handleResolve(need.id, need.specification_id)}
+                          className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-hint hover:bg-[rgba(0,0,0,0.05)] hover:text-ink disabled:opacity-30"
+                        >
+                          <Forward className="size-3" aria-hidden />
+                          Skip
+                        </button>
+                      </>
+                    ) : null}
+                    {showOpenSideChatButton ? (
+                      <button
+                        type="button"
+                        aria-label={`Open side-chat for need ${need.id}`}
+                        title="Open side-chat anchored to this row's target"
+                        data-open-side-chat-button={need.id}
+                        disabled={rowDisabled}
+                        onClick={() => handleOpenSideChat(need)}
+                        className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
+                        style={{ backgroundColor: '#a16207' }}
+                      >
+                        <MessageSquare className="size-3" aria-hidden />
+                        Open side-chat
+                      </button>
+                    ) : null}
                     {canRerunAgent ? (
                       <button
                         type="button"
                         aria-label={isResetting ? 'Re-running' : `Re-run agent for need ${need.id}`}
                         title="Re-run agent"
                         data-rerun-agent-button={need.id}
-                        disabled={isResetting || isResolving || isSaving}
+                        disabled={rowDisabled}
                         onClick={() => handleResetAgent(need.id, need.specification_id)}
                         className="inline-flex size-6 items-center justify-center rounded text-hint opacity-60 group-hover/need-row:opacity-100 hover:bg-[rgba(0,0,0,0.05)] hover:text-ink hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30"
                       >
@@ -335,7 +582,7 @@ export function PendingReviewSection(): React.ReactElement | null {
                         type="button"
                         aria-label={`Edit target for need ${need.id}`}
                         title="Edit target"
-                        disabled={isResolving || isSaving || isResetting}
+                        disabled={rowDisabled}
                         onClick={() => startEditing(need.id, need.target_current_content ?? '')}
                         className="inline-flex size-6 items-center justify-center rounded text-hint opacity-60 group-hover/need-row:opacity-100 hover:bg-[rgba(0,0,0,0.05)] hover:text-ink hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30"
                       >
@@ -347,7 +594,7 @@ export function PendingReviewSection(): React.ReactElement | null {
                       type="button"
                       aria-label={isResolving ? 'Resolving' : 'Resolve'}
                       title="Resolve"
-                      disabled={isResolving || isSaving || isResetting}
+                      disabled={rowDisabled}
                       onClick={() => handleResolve(need.id, need.specification_id)}
                       className="inline-flex size-6 items-center justify-center rounded text-white opacity-80 transition-opacity group-hover/need-row:opacity-100 hover:opacity-100 focus-visible:opacity-100 disabled:opacity-50"
                       style={{ backgroundColor: actionAccent }}
@@ -370,11 +617,11 @@ export function PendingReviewSection(): React.ReactElement | null {
                       data-view-source-diff-chip
                       onClick={(event) => {
                         diffAnchorRef.current = event.currentTarget;
-                        setDiffPopoverNeedId(need.id);
+                        setDiffPopoverNeedId({ needId: need.id, mode: 'source-diff' });
                       }}
                       className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium hover:bg-[rgba(0,0,0,0.04)] hover:text-ink"
                       style={
-                        diffPopoverNeedId === need.id
+                        diffPopoverNeedId?.needId === need.id && diffPopoverNeedId.mode === 'source-diff'
                           ? { backgroundColor: `${kindAccent}14`, color: kindAccent }
                           : undefined
                       }
@@ -442,6 +689,7 @@ export function PendingReviewSection(): React.ReactElement | null {
         })}
       </ul>
       {activePopoverNeed &&
+      activePopoverMode === 'source-diff' &&
       activePopoverNeed.source_previous_content !== null &&
       activePopoverNeed.source_current_content !== null ? (
         <DiffPopover
@@ -455,6 +703,23 @@ export function PendingReviewSection(): React.ReactElement | null {
           after={activePopoverNeed.source_current_content}
           title={`Source change · #${activePopoverNeed.source_item_id}`}
           kindAccent={KIND_ACCENT_AMBER}
+        />
+      ) : null}
+      {activePopoverNeed &&
+      activePopoverMode === 'agent-proposal' &&
+      activePopoverNeed.target_current_content !== null &&
+      activePopoverNeed.agent_proposal !== null ? (
+        <DiffPopover
+          open
+          onClose={() => {
+            setDiffPopoverNeedId(null);
+            diffAnchorRef.current = null;
+          }}
+          anchor={diffAnchorRef.current}
+          before={activePopoverNeed.target_current_content}
+          after={activePopoverNeed.agent_proposal}
+          title={`Proposed edit · #${activePopoverNeed.target_item_id}`}
+          kindAccent="#ea580c"
         />
       ) : null}
     </div>
