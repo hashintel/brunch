@@ -97,8 +97,10 @@ export function PatchListOverlay(): React.ReactElement | null {
   }, [stagedCount, expanded]);
 
   // V3.0 card 3: idempotent resolve. The button is disabled while the request
-  // is in flight so a double-click can't double-fire. Errors propagate; we
-  // don't optimistically remove the row before the server confirms.
+  // is in flight so a double-click can't double-fire. The row stays in the
+  // list on error (no optimistic removal) — the user can retry. Failures are
+  // logged because there's no toast surface yet; without an explicit catch
+  // the request rejection would land as an unhandled promise rejection.
   const handleResolve = (needId: number, specificationId: number): void => {
     setResolvingNeedIds((prev) => {
       const next = new Set(prev);
@@ -109,6 +111,8 @@ export function PatchListOverlay(): React.ReactElement | null {
       try {
         await resolveReconciliationNeedRequest(specificationId, needId);
         await invalidateOpenReconciliationNeeds(specificationId);
+      } catch (error) {
+        console.error(`Resolve reconciliation_need ${needId} failed`, error);
       } finally {
         setResolvingNeedIds((prev) => {
           const next = new Set(prev);
