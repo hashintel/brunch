@@ -13,6 +13,7 @@ describe('generated route runtime ownership', () => {
       devDependencies?: Record<string, string>;
     };
     const viteConfigSource = readRepoFile('vite.config.ts');
+    const viteClientConfigSource = readRepoFile('config/vite-client.ts');
     const oxlintConfig = JSON.parse(readRepoFile('.oxlintrc.json')) as {
       ignorePatterns?: string[];
     };
@@ -24,19 +25,21 @@ describe('generated route runtime ownership', () => {
 
     expect(packageJson.devDependencies?.['@tanstack/router-plugin']).toBeTruthy();
 
-    expect(viteConfigSource).toContain("from '@tanstack/router-plugin/vite'");
-    expect(viteConfigSource).toContain('autoCodeSplitting: true');
-    expect(viteConfigSource).toContain("routesDirectory: resolve(__dirname, 'src/client/routes')");
-    expect(viteConfigSource).toContain(
-      "generatedRouteTree: resolve(__dirname, 'src/client/routeTree.gen.ts')",
+    expect(viteClientConfigSource).toContain("from '@tanstack/router-plugin/vite'");
+    expect(viteClientConfigSource).toContain('autoCodeSplitting: true');
+    expect(viteClientConfigSource).toContain("routesDirectory: resolve(rootDir, 'src/client/routes')");
+    expect(viteClientConfigSource).toContain(
+      "generatedRouteTree: resolve(rootDir, 'src/client/routeTree.gen.ts')",
     );
-    expect(viteConfigSource).toContain("routeFileIgnorePattern: '.*\\\\.test\\\\.(ts|tsx)$'");
-    expect(viteConfigSource).toContain("target: 'react'");
+    expect(viteClientConfigSource).toContain("routeFileIgnorePattern: '.*\\\\.test\\\\.(ts|tsx)$'");
+    expect(viteClientConfigSource).toContain("target: 'react'");
     expect(viteConfigSource).toContain('cacheDir: getViteCacheDir(command, process.argv, mode)');
-    expect(viteConfigSource).toContain('port: defaultDevServerPort');
-    expect(viteConfigSource).toContain('strictPort: true');
-    expect(viteConfigSource.indexOf('tanstackRouter(')).toBeGreaterThan(-1);
-    expect(viteConfigSource.indexOf('tanstackRouter(')).toBeLessThan(viteConfigSource.indexOf('react()'));
+    expect(viteClientConfigSource).toContain('port: defaultDevServerPort');
+    expect(viteClientConfigSource).toContain('strictPort: true');
+    expect(viteClientConfigSource.indexOf('tanstackRouter(')).toBeGreaterThan(-1);
+    expect(viteClientConfigSource.indexOf('tanstackRouter(')).toBeLessThan(
+      viteClientConfigSource.indexOf('react()'),
+    );
 
     expect(oxlintConfig.ignorePatterns).toContain('src/client/routeTree.gen.ts');
     expect(oxfmtConfig.ignorePatterns).toContain('src/client/routeTree.gen.ts');
