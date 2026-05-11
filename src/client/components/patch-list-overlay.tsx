@@ -144,10 +144,6 @@ export function PatchListOverlay(): React.ReactElement | null {
 
   const countLabel = `${stagedCount} pending change${stagedCount === 1 ? '' : 's'}`;
 
-  // Wrap the three sections in a single sticky flex column so they stack
-  // vertically as one block — putting `sticky top-0` on each child made them
-  // fight for the same offset and overlap when more than one was visible at
-  // the same time (e.g. an open need plus the post-apply saved toast).
   return (
     <div className="sticky top-0 z-30 flex flex-col">
       {stagedCount > 0 ? (
