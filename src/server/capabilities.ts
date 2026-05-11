@@ -2,7 +2,8 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { getCapabilityContract, type CapabilityId } from './capability-registry.js';
-import { createNewSpecification, getSpecificationState } from './core.js';
+import { applyChatRouteTransition } from './chat-route-transition.js';
+import { createNewSpecification, finalizeTurn, getSpecificationState } from './core.js';
 import type { DB } from './db.js';
 import * as schema from './schema.js';
 
@@ -23,11 +24,16 @@ const chatReadInputSchema = z.object({
   chatId: z.number().int().positive(),
 });
 
+const chatEnsureReadyInputSchema = z.object({
+  chatId: z.number().int().positive(),
+});
+
 const capabilityInputSchemas = {
   'spec.create': specCreateInputSchema,
   'spec.getStatus': specGetStatusInputSchema,
   'chat.getPrimary': chatGetPrimaryInputSchema,
   'chat.read': chatReadInputSchema,
+  'chat.ensureReady': chatEnsureReadyInputSchema,
 } as const;
 
 export class CapabilityDispatchError extends Error {
@@ -53,10 +59,12 @@ type SpecCreateInput = z.infer<typeof specCreateInputSchema>;
 type SpecGetStatusInput = z.infer<typeof specGetStatusInputSchema>;
 type ChatGetPrimaryInput = z.infer<typeof chatGetPrimaryInputSchema>;
 type ChatReadInput = z.infer<typeof chatReadInputSchema>;
+type ChatEnsureReadyInput = z.infer<typeof chatEnsureReadyInputSchema>;
 type SpecCreateOutput = ReturnType<typeof createSpecificationFromCapability>;
 type SpecGetStatusOutput = ReturnType<typeof getSpecificationStatusFromCapability>;
 type ChatGetPrimaryOutput = ReturnType<typeof getPrimaryChatFromCapability>;
 type ChatReadOutput = ReturnType<typeof readChatFromCapability>;
+type ChatEnsureReadyOutput = ReturnType<typeof ensureChatReadyFromCapability>;
 
 function parseSpecCreateInput(input: unknown): SpecCreateInput {
   const parsed = specCreateInputSchema.safeParse(input);
@@ -86,6 +94,14 @@ function parseChatReadInput(input: unknown): ChatReadInput {
   const parsed = chatReadInputSchema.safeParse(input);
   if (!parsed.success) {
     throw new CapabilityDispatchError('Invalid input for capability chat.read', 'invalid_input');
+  }
+  return parsed.data;
+}
+
+function parseChatEnsureReadyInput(input: unknown): ChatEnsureReadyInput {
+  const parsed = chatEnsureReadyInputSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new CapabilityDispatchError('Invalid input for capability chat.ensureReady', 'invalid_input');
   }
   return parsed.data;
 }
@@ -183,6 +199,10 @@ function getChatById(db: DB, chatId: number) {
     .get();
 }
 
+function getReadyStateForTurn(turn: { question: string; answer: string | null }) {
+  return turn.answer === null && turn.question.trim() === '' ? 'needs_generation' : 'awaiting_response';
+}
+
 function readChatFromCapability(db: DB, input: ChatReadInput) {
   const chat = getChatById(db, input.chatId);
   if (!chat) {
@@ -197,7 +217,7 @@ function readChatFromCapability(db: DB, input: ChatReadInput) {
   const currentPhase = state.workflow.phases.grounding.status === 'closed' ? 'design' : 'grounding';
   const activeTurn = state.turns.find((turn) => turn.id === chat.active_turn_id) ?? null;
   const frontier = activeTurn
-    ? { state: 'awaiting_response' as const, phase: activeTurn.phase, turnId: activeTurn.id }
+    ? { state: getReadyStateForTurn(activeTurn), phase: activeTurn.phase, turnId: activeTurn.id }
     : { state: 'idle_no_frontier' as const, phase: currentPhase, turnId: null };
   const nextCommands = activeTurn
     ? [{ capability: 'turn.submitResponse', input: { chatId: chat.id, turnId: activeTurn.id } }]
@@ -230,6 +250,69 @@ function readChatFromCapability(db: DB, input: ChatReadInput) {
   };
 }
 
+function ensureChatReadyFromCapability(db: DB, input: ChatEnsureReadyInput) {
+  const chat = getChatById(db, input.chatId);
+  if (!chat) {
+    throw new CapabilityDispatchError(`Chat ${input.chatId} not found`, 'handler_failed');
+  }
+
+  const state = getSpecificationState(db, chat.specification_id);
+  if (!state) {
+    throw new CapabilityDispatchError(`Specification ${chat.specification_id} not found`, 'handler_failed');
+  }
+
+  const activeTurn = state.turns.find((turn) => turn.id === chat.active_turn_id) ?? null;
+  if (activeTurn) {
+    return {
+      chatId: chat.id,
+      specId: chat.specification_id,
+      state: getReadyStateForTurn(activeTurn),
+      turnId: activeTurn.id,
+      nextCommands: [{ capability: 'chat.read', input: { chatId: chat.id } }],
+    };
+  }
+
+  const landing = state.landing;
+  if (!landing || landing.kind === 'frontier-turn') {
+    throw new CapabilityDispatchError(
+      `Chat ${chat.id} is not ready for deterministic entry`,
+      'handler_failed',
+    );
+  }
+
+  const request =
+    landing.kind === 'kickoff'
+      ? { kind: 'phase-entry' as const, phase: landing.phase }
+      : { kind: 'phase-continue' as const, phase: landing.phase };
+  const transition = applyChatRouteTransition(
+    { db, specificationId: chat.specification_id },
+    {
+      kind: 'phase-entry',
+      request,
+    },
+  );
+
+  if (!transition.ok) {
+    throw new CapabilityDispatchError(transition.message, 'handler_failed');
+  }
+  if (transition.kind !== 'interviewer-turn') {
+    throw new CapabilityDispatchError(
+      `Chat ${chat.id} did not produce an interviewer frontier`,
+      'handler_failed',
+    );
+  }
+
+  finalizeTurn(db, chat.specification_id, transition.prepared.turn.id);
+
+  return {
+    chatId: chat.id,
+    specId: chat.specification_id,
+    state: 'needs_generation' as const,
+    turnId: transition.prepared.turn.id,
+    nextCommands: [{ capability: 'chat.read', input: { chatId: chat.id } }],
+  };
+}
+
 export function dispatchCapability(input: {
   db: DB;
   capability: 'spec.create';
@@ -250,6 +333,11 @@ export function dispatchCapability(input: {
   capability: 'chat.read';
   input: unknown;
 }): Promise<ChatReadOutput>;
+export function dispatchCapability(input: {
+  db: DB;
+  capability: 'chat.ensureReady';
+  input: unknown;
+}): Promise<ChatEnsureReadyOutput>;
 export function dispatchCapability(input: DispatchCapabilityInput): Promise<unknown>;
 export async function dispatchCapability({
   db,
@@ -272,6 +360,10 @@ export async function dispatchCapability({
 
   if (capability === 'chat.read') {
     return readChatFromCapability(db, parseChatReadInput(input));
+  }
+
+  if (capability === 'chat.ensureReady') {
+    return ensureChatReadyFromCapability(db, parseChatEnsureReadyInput(input));
   }
 
   throw new CapabilityDispatchError('Capability has no executable handler', 'unknown_capability');

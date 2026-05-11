@@ -18,7 +18,8 @@ export type CapabilityId =
   | 'spec.create'
   | 'spec.getStatus'
   | 'chat.getPrimary'
-  | 'chat.read';
+  | 'chat.read'
+  | 'chat.ensureReady';
 
 export interface CapabilityContract {
   id: CapabilityId;
@@ -128,6 +129,14 @@ const capabilityContracts = [
     summary: 'Read a compact agent-facing projection for an explicit chat id.',
     inputSchema: 'chat.read.input.v1',
     outputSchema: 'chat.read.output.v1',
+    handler: null,
+  },
+  {
+    id: 'chat.ensureReady',
+    authority: 'runtime_replay',
+    summary: 'Materialize deterministic chat readiness for an explicit chat id without generation.',
+    inputSchema: 'chat.ensureReady.input.v1',
+    outputSchema: 'chat.ensureReady.output.v1',
     handler: null,
   },
 ] as const satisfies readonly CapabilityContract[];
