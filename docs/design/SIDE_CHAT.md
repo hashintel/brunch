@@ -230,13 +230,15 @@ Hard-edit cascade is no longer a one-shot REVISIT walk. In this stack, the downs
 
 **V3.0 grouping is mechanical, not agent-classified.** Needs are grouped in the overlay by `kind` (`supersedes` first, then `needs_confirmation`) and within each kind by relation type. There is no auto-confirm / auto-edit / substantive ML classification in V3.0.
 
-**V3.1 — agent-grouped resolution.** Once the reconciliation agent ships (MULTI_CHAT.md Phase 3), it reclassifies open needs into:
+**V3.1 — agent-grouped resolution (shipped, FE-674 PR #124).** The reconciliation classifier (server `POST /reconciliation-needs/run-agent`) walks every open need through the lifecycle `null → queued → classifying → classified | failed` (I114) and persists exactly one of:
 
-- **Auto-confirm group** — review-only affected items where no content change is implied by the source change. One click confirms all (writes `status = resolved` per row, no target mutation).
-- **Auto-edit group** — items where the change is a mechanical text replacement (e.g. "family" → "household" in derived items). One click applies all through the standard edit pipeline.
-- **Substantive group** — items where user judgment is required. Walk these one at a time inside the side-chat panel using the existing pinned-context conversation model.
+- **`auto-confirm`** — review-only affected items where no content change is implied by the source change. One-click Confirm resolves without mutating the target. Bulk "Confirm all (N)" iterates serially over auto-confirm rows.
+- **`auto-edit`** — items where the change is a mechanical text replacement. `agent_proposal` carries the suggested new content; the user previews via the `<DiffPopover>` (View) and then Apply (edit + resolve) or Skip (resolve only). Bulk "Apply all suggested (N)" iterates serially.
+- **`substantive`** — items where user judgment is required. "Open side-chat" hands `useSideChat().openFor` the target's kind + reference code + content; the conversation walks the substantive case (currently ephemeral until V4a persistence ships).
 
-A typical 5-item cascade in V3.1 collapses from ~5 sequential resolutions to 2 group decisions + 1 substantive walk; V3.0 surfaces all 5 mechanically and the user still walks each.
+`failed` rows are recoverable via per-row Re-run (`POST /reconciliation-needs/:needId/reset-agent`), which resets `agent_status` to null and re-dispatches the classifier on that row.
+
+A typical 5-item cascade in V3.1 collapses from ~5 sequential resolutions to 2 group decisions + 1 substantive walk; V3.0 surfaced all 5 mechanically. A88 outer-loop walkthrough is the qualitative validation that grouping helps legibility vs the flat V3.0 list.
 
 ## 6. Class-Specific Durability Mechanics
 
@@ -407,9 +409,10 @@ V-versions in §9 describe the *user surface*; substrate phases in `docs/design/
 |---|---|---|
 | V1 (Explore + Annotate) | Phase 1 not required | Shipped against in-memory patch list. |
 | V2 (Edit / Drill-down / Propose-edge, None+Soft tiers) | Phase 1 not required | Shipped against in-memory patch list; hard branch returns `deferred: true`. |
-| **V3.0** *(this design's next slice)* | **Phase 1 read side** | Hard apply writes `reconciliation_need` rows; UI reads the queue. No agent, no Phase 2 chat persistence. |
-| V3.1 | Phase 3 | Reconciliation agent reads queue and produces grouped resolutions. |
-| V4 | Phase 4 | Patch ledger; durable side-chat history; architect loop. |
+| V3.0 *(shipped, FE-674 PRs #115-#118)* | Phase 1 read side | Hard apply writes `reconciliation_need` rows; UI reads the queue. Per-row Resolve / Edit-target / View-source-diff. No agent. |
+| V3.1 *(shipped, FE-674 PRs #119-#124)* | Phase 3 | Reconciliation classifier writes `agent_status` / `agent_classification` / `agent_proposal` per row. Pending review surface renders `<ClassificationChip>` (six variants), Run-agent button with conditional 1s polling, per-row Re-run on classified/failed rows, per-class actions (`auto-confirm` → Confirm, `auto-edit` → View / Apply / Skip, `substantive` → Open side-chat via `useSideChat().openFor`), bulk Confirm-all (N) and Apply-all-suggested (N) iterating serially. |
+| V4a *(next, FE-675 V4a half)* | Phase 2 | Side-chat client persists turns into `chat` / `turn` with `chat.kind='side_chat'`; "Old chats" tab strip activates. §349 anchor decision still open. |
+| V4b *(horizon, FE-675 V4b half)* | Phase 4 | Patch ledger (FE-701); item versioning; branched exploration; architect loop. |
 
 **Decisions and assumptions that govern V3.0:**
 

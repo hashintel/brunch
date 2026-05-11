@@ -4,26 +4,25 @@
 
 # Plan
 
-The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, observer knowledge extraction, workflow ownership extraction, distribution hardening, graph view's structured-list peer route, and the first relation-first observer capture seam all ship as working product. In this stack, downstack FE-697 supplies the multi-chat substrate (chat containers + `reconciliation_need` queue), and FE-698 supplies the prompt/context scenario substrate from `main`. Side-chat V2 plumbing — `edit` / `edge` / `drill-down` patch kinds with server route, reducer, and undo-capable appliers — is branch-complete on FE-673 (PR #97) but ships without its user-facing Edit-mode trigger, and the V2 hard-impact branch returns a `deferred: true` placeholder banner. The live frontier is **side-chat V3.0**, which removes that placeholder by routing hard-impact apply through the new `reconciliation_need` queue.
+The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, observer knowledge extraction, workflow ownership extraction, distribution hardening, graph view's structured-list peer route, the first relation-first observer capture seam, the multi-chat substrate (chat containers + `reconciliation_need` queue), **side-chat V3.0 — hard-impact cascade through `reconciliation_need`**, and **side-chat V3.1 — agent-grouped reconciliation resolution** all ship as working product. V3.1 closes the V3.x arc: the reconciliation classifier writes `auto-confirm` / `auto-edit` / `substantive` per row and the Pending review surface renders chips + per-class actions + bulk Confirm-all / Apply-all-suggested. The live frontier is now **continuous workspace**, the phase-addressable interview surface that adopts one visible runtime per specification.
 
-The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agent-mutation design notes are reconciled into one direction. `docs/design/MULTI_CHAT.md` is the downstack phase-one substrate for this stack. `docs/design/SIDE_CHAT.md` describes side-chat V1 / V2 / V3.0 / V3.1 / V4 phasing on top of that substrate, with §13 mapping each user-surface version onto a substrate phase. `docs/design/PATCH_LEDGER.md` remains historical deeper design pressure for semantic mutation history, but canonical future-facing vocabulary is `changeset` / `change`; `docs/design/INTENT_SPEC_EVOLUTION.md` carries the broader synthesis. The product-layer ontology trajectory is split out as `docs/design/INTENT_GRAPH_SEMANTICS.md` (canonical reference for the FE-700 frontier) and `docs/design/BEHAVIORAL_KERNELS.md` (canonical reference for the FE-702 kernel probes). The dev-layer self-tooling trajectory — the `ln-*` skill family, the proposed file-backed spec registry, and the long-horizon convergence between dev and product ontologies — lives in `docs/design/DEV_WORKFLOW_EVOLUTION.md`. Older portability work remains a future-facing boundary map rather than a live roadmap item until a hosted, remote, or adapter-backed substrate becomes a product goal.
+The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agent-mutation design notes are reconciled into one direction. `docs/design/MULTI_CHAT.md` is the substrate document. `docs/design/SIDE_CHAT.md` describes side-chat V1 / V2 / V3.0 / V3.1 / V4 phasing on top of that substrate, with §13 mapping each user-surface version onto a substrate phase. `docs/design/PATCH_LEDGER.md` remains historical deeper design pressure for semantic mutation history, but canonical future-facing vocabulary is `changeset` / `change`; `docs/design/INTENT_SPEC_EVOLUTION.md` carries the broader synthesis. The product-layer ontology trajectory is split out as `docs/design/INTENT_GRAPH_SEMANTICS.md` (canonical reference for the FE-700 frontier) and `docs/design/BEHAVIORAL_KERNELS.md` (canonical reference for the FE-702 kernel probes). The dev-layer self-tooling trajectory — the `ln-*` skill family, the proposed file-backed spec registry, and the long-horizon convergence between dev and product ontologies — lives in `docs/design/DEV_WORKFLOW_EVOLUTION.md`. Older portability work remains a future-facing boundary map rather than a live roadmap item until a hosted, remote, or adapter-backed substrate becomes a product goal.
 
 
 ## Active
 
-1. **Side-chat V3.0 — hard-impact edit cascade through `reconciliation_need`** — drop the V2 deferred banner; on hard-impact `propose_edit` apply, server enumerates incident `knowledge_edge` rows under typed relation policy (Path 1 from MULTI_CHAT.md §5.1) and opens one `reconciliation_need` per affected pair; client surfaces those rows as a `Pending review` section in `patch-list-overlay.tsx` with per-row accept-on-target / edit-target / dismiss actions. V3.0 groups needs mechanically (by `kind` and relation type); agent-grouped resolution is V3.1 horizon work.
-   - Why now / unlocks: downstack FE-697 supplies the queue table for this stack; the FE-674 planning sync (PR #110) reconciled SIDE_CHAT.md §5.3 / §8 / §9 / §13 and SPEC.md (Acceptance Criterion 7, A88, D139, I113) against the substrate; the V2 deferred banner is the highest-visibility user gap. Without V3.0, FE-697's queue has no reader and V2 hard-impact stays an empty promise.
-   - Recommended shape: ship as a small queue of scope cards inside this one frontier item (track in `memory/CARDS.md` if needed). Suggested order — (a) un-stub `SideChatPopover` Edit-mode button so V2 plumbing is reachable from the UI at all; (b) server `openReconciliationNeedsForItemChange()` + lifecycle endpoint for resolution; (c) `edit-applier` rewrite to drop the `deferred: true` shape and surface needs into side-chat state; (d) overlay `Pending review` section + per-row resolution actions; (e) verification — `edit-applier.test.ts`, `reconciliation-need.test.ts`, `patch-list-overlay.test.tsx`, F6 fixture matrix (leaf, 2-downstream, 5+-downstream, in-active-review-set, mixed kinds).
-   - Linear: FE-674.
-   - Traceability: Acceptance Criterion 7; Requirement 10; A48, A71, A83, A88; D80, D135, D137, D138, D139; I111, I113.
-   - Design doc: `docs/design/SIDE_CHAT.md` §5.3, §9, §13; `docs/design/MULTI_CHAT.md` §5.
+1. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with realized phase sections, one chat runtime per specification, sidebar section navigation, scroll/focus behavior, and the single actionable frontier preserved at the current reachable phase.
+   - Why now / unlocks: workflow read/write ownership is extracted (FE-616); the multi-chat substrate ships chat containers below the specification, so continuous workspace can adopt one visible runtime without smuggling in a second durable workflow model. Side-chat V3.0 + V3.1 just closed, so the cascade surface is stable; no remaining V2/V3 placeholder blocks the workspace work.
+   - Traceability: A58; D86, D87, D110, D113, D114; I24, I102.
+   - Design doc: `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`.
 
 ## Next
 
-2. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with realized phase sections, one chat runtime per specification, sidebar section navigation, scroll/focus behavior, and the single actionable frontier preserved at the current reachable phase.
-   - Why now / unlocks: workflow read/write ownership is extracted (FE-616); the multi-chat substrate (FE-697) ships chat containers below the specification, so continuous workspace can adopt one visible runtime without smuggling in a second durable workflow model. Bumped behind V3.0 because V3.0 closes a visible V2 gap and pays off the substrate immediately, while continuous workspace is independent of either.
-   - Traceability: A58; D86, D87, D110, D113, D114; I24, I102.
-   - Design doc: `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`.
+2. **Side-chat persistence — V4a (multi-chat Phase 2 substrate)** — side-chat client persists its turns into the existing `chat` / `turn` tables with `chat.kind='side_chat'`, loads prior side-chat sessions on remount, and surfaces an "Old chats" affordance per pinned item / spec. Phase 1 substrate (FE-697, [2026-05-06]) already shipped the `chat` table, nullable `turn.chat_id`, and `specification.primary_chat_id`; nothing schema-side blocks this — only the client write path and a per-spec session listing remain. This is the V4a half of FE-675; V4b (item versioning + branched exploration) stays in Horizon, gated on FE-701.
+   - Why later: side-chat threads stay in-memory through V3 by design (SIDE_CHAT.md §5.3); applied patches and `reconciliation_need` rows already persist independently. With V3.1 closed and the cascade surface settled, V4a becomes the next user-facing surface to light up — but Card 1 (server-side persistence) and Cards 2+ both depend on MULTI_CHAT.md §349's open question (anchor field on `chat` row vs deferred `chat_focus` table); route through `/ln-spec` or `/ln-spike` before scoping Cards 2+.
+   - Linear: FE-675 (umbrella; per-substrate phase note on FE-675 rather than a new sub-ticket).
+   - Traceability: Requirement 39; A82, A83; D138.
+   - Design doc: `docs/design/MULTI_CHAT.md` §10 Phase 2; `docs/design/SIDE_CHAT.md` §9 V4 row (V4a half only).
 
 
 ## Horizon
@@ -46,11 +45,10 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
   - Recommended shape: keep productized architect proposals behind multi-chat + reconciliation + semantic changesets; use the scenario substrate for shadow/proposal-only probes first.
   - Traceability: A73, A85, A87; D139, D141; depends on chat containers + reconciliation needs and semantic changeset ledger.
 
-- **Side-chat V3.1 — agent-grouped reconciliation resolution** — once V3.0 ships, a reconciliation agent reads the `reconciliation_need` queue and reclassifies open needs into auto-confirm (review-only items, one-click resolve), auto-edit (mechanical text replacements applied through the standard edit pipeline), and substantive (judgment required, walk inside the side-chat panel using pinned-context conversation). Maps onto MULTI_CHAT.md Phase 3.
-  - Why later: V3.0 satisfies Acceptance Criterion 7 mechanically; agent grouping is value-add, not gap-closing. Hold until V3.0's mechanical grouping reveals whether substantive items get lost in a flat list (A88 validation).
-  - Depends on: V3.0 ship; reconciliation agent prompt + grouping policy.
-  - Traceability: Requirement 10; A48, A88; D135, D137, D138, D139.
-  - Design doc: `docs/design/SIDE_CHAT.md` §5.3 (V3.1), §9.
+- **Side-chat V4b — item versioning + branched exploration** — once the patch ledger lands, item versioning unblocks dangling-annotation repair and soft-edit audit; branched exploration lets drill-downs / past-turn edits / revisits coexist with the original chain. FE-675 V4b half.
+  - Depends on: FE-701 patch ledger; V4a side-chat persistence (Next item 2).
+  - Traceability: A72, A73, A85; D139, D141.
+  - Design doc: `docs/design/SIDE_CHAT.md` §9 V4 row (V4b half).
 
 ### User-facing capabilities
 
@@ -112,12 +110,9 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ## Recently Completed
 
-- [2026-05-08] FE-674 planning sync — reconciled `docs/design/SIDE_CHAT.md` §5.3 / §8 / §9 / §13 against the downstack FE-697 substrate; SPEC.md adds A88 (Path 1 sufficiency without agent), D139 (cascade routes through `reconciliation_need`, `deferred: true` apply contract removed at V3.0 ship), I113 (apply opens at least one need per typed dependency edge), and rewrites Acceptance Criterion 7. Doc-only, no `src/` touched. PR #110 stacked on FE-704.
-- [2026-05-07] FE-698 prompt/context scenario substrate — Packaged markdown prompt registry + observer context-pack foundation + scenario runner capture skeleton/composition + agent mutation-surface audit. Server interviewer, observer, and side-chat role prompts now load from markdown assets through a typed prompt registry, observer capture renders its existing prompt context through the first typed scenario-specific context pack, and seeded observer-capture prompt scenarios now compose the production observer prompt with typed context-pack output into deterministic no-provider probe artifacts. Review fixes moved observer prompt composition into a pure module and made prompt scenario prompt sources explicit. The agent mutation-surface audit inventories current and projected agent-originated write paths as input to the registry/handler slices. Verified: `npm run verify` for code slices; audit verified by code-search/document consistency. Watch: next FE-698 slices still need the capability registry skeleton, broader context-pack scenarios, real provider/harness execution probes, and/or Pi adapter spike work.
-- [2026-05-07] Side-chat V2 — Edit / Drill-down / Propose-edge plumbing (FE-673, PR #97) — added `edit`, `edge`, and `drill-down` patch kinds. Server `classifyEditImpact` returns `none | soft | hard`; soft applies directly with undo, hard returns `deferred: true` placeholder. Client: patch-list reducer + three applier factories with real undo handlers. Verified: `npm run verify` (935 tests, 19 new). Watch: `SideChatPopover` Edit button stays `disabled` and hard-impact deferred banner is live until V3.0 lands.
-- [2026-05-06] Multi-chat substrate + reconciliation needs (FE-697) — `chat` table with one interview chat per spec, nullable `turn.chat_id`, `specification.primary_chat_id`, mirrored `chat.active_turn_id`, plus the `reconciliation_need` queue with directed source/target items, narrow `kind`/`status`, partial unique index on open rows, cascade FK. Spec creation inserts spec + interview chat in one transaction; `advanceHead` is transactional. No user-visible change. Verified: `npm run verify` (673 tests) plus manual fixture playback (39 specs / 81 turns / dual-pointer equivalence). A82 / A83 validated for Phase 1.
-- [2026-05-01] Side-chat V1.1 — Explore vertical slice. End-to-end graph-launched chat interaction shipped: prompt builder, POST `/side-chat` SSE endpoint, popover host, graph-view wiring, SSE consumer, and active-button activation. Follow-up refactor collapsed pending assistant text into the message list and extracted `SideChatHost` so activation is a tree-mount fact.
-- [2026-05-04] Graph view structured-list peer route — `/specification/$id/graph` now renders project-wide entities through the structured-list layout with relationship subsections, relation chips, empty state, row controls, and a back-to-chat affordance. Follow-up active-path filtering and spatial canvas remain horizon work. Verified: `npm run verify` in the FE-643 slice family.
+- [2026-05-11] **Side-chat V3.1 — agent-grouped reconciliation resolution** (FE-674, PR #124 + downstack) — closes the V3.x arc end-to-end. Server: `POST /reconciliation-needs/run-agent` (spec-level classifier loop) and `POST /reconciliation-needs/:needId/reset-agent` (per-row Re-run) walk every awaiting open need through I114's `null → queued → classifying → classified | failed` lifecycle; agent_classification persists one of `auto-confirm` / `auto-edit` / `substantive`; agent_proposal carries an optional text suggestion. Client: `<ClassificationChip>` renders six visual variants per row; `<RunAgentButton>` in the Pending review header with conditional 1s polling while any need is in flight; per-row Re-run on classified/failed rows; per-class action buttons (`auto-confirm` → Confirm, `auto-edit` → View proposal + Apply + Skip, `substantive` → Open side-chat via `useSideChat().openFor`); bulk Confirm-all (N) and Apply-all-suggested (N) iterate serially over existing per-row endpoints. Listing endpoint extended with `target_item_kind` + `target_reference_code` to feed the Open-side-chat handoff. Verified: `npm run verify` 1178 / 1179 pass (one unrelated `side-chat-route` flake). **Watch**: A88 outer-loop walkthrough has not yet happened — empirical signal on whether agent grouping helps legibility vs V3.0's flat list remains open; capture qualitative notes during the next manual walkthrough on a dense spec.
+- [2026-05-08] **Side-chat V3.0 — hard-impact cascade through `reconciliation_need`** (FE-674, PRs #115–#118) — three-card stack closes V3.0. Card 1 (#115): server `cascade-producer` + `getDownstreamEdges` + `openReconciliationNeedIfAbsent`; hard-impact apply mutates the source and opens one need per typed dependency edge; response shape adds `openedNeedIds`; partial-unique-index dedupe. Card 2 (#116): drop deferred banner; `GET /api/specifications/:id/reconciliation-needs` endpoint + `useSpecificationOpenReconciliationNeeds` query; Pending review section renders open needs with kind chip + source/target references. Card 3 (#117): idempotent `POST /reconciliation-needs/:needId/resolve` + per-row Resolve button. Polish (#118): extracted PendingReviewSection, suppressed Undo for hard, oracle assertions. Verified: `npm run verify` 1063 tests. Watch: V3.1 (agent-grouped resolution) cleared this watch on 2026-05-11.
+- [2026-05-06] Multi-chat substrate + reconciliation needs (FE-697) — `chat` table with one interview chat per spec, nullable `turn.chat_id`, `specification.primary_chat_id`, mirrored `chat.active_turn_id`, plus the `reconciliation_need` queue. No user-visible change. A82 / A83 validated for Phase 1.
 
 
 Older history: `docs/archive/PLAN_HISTORY.md`
@@ -133,7 +128,7 @@ multi-chat-substrate + reconciliation-needs  (completed)
   │     │     ├──→ productized web research capability  (horizon)
   │     │     ├──→ productized candidate-spec completion assist  (horizon)
   │     │     └──→ post-spec oracle/decomposition frontier  (probe/future product)
-  │     └──→ continuous-workspace  (next, independent UI track but graph-context aware)
+  │     └──→ continuous-workspace  (active, independent UI track but graph-context aware)
   └──→ semantic-changeset ledger  (horizon)
         ├──→ relation-first observer enrichment  (horizon, after ontology/policy probes)
         └──→ architect-loop  (horizon, proposal-only until changeset/reconciliation path)
@@ -144,15 +139,16 @@ graph-view-structured-list  (completed)
   ├──→ spatial-canvas-layout  (horizon)
   └──→ multi-chat-substrate + reconciliation-needs  (completed)
         ├──→ side-chat-V2-plumbing  (completed, FE-673 PR #97)
-        │     └──→ side-chat-V3.0-cascade-through-reconciliation_need  (active, FE-674; absorbs V2 UI trigger as scope card)
-        │           └──→ side-chat-V3.1-agent-grouped-resolution  (horizon)
-        ├──→ persistent-side-chat-history  (future user surface)
+        │     └──→ side-chat-V3.0-cascade-through-reconciliation_need  (completed, FE-674)
+        │           └──→ side-chat-V3.1-agent-grouped-resolution  (completed, FE-674 PR #124)
+        │                 └──→ side-chat-persistence-V4a  (next, FE-675 V4a half)
         └──→ semantic-changeset ledger  (horizon)
+              └──→ side-chat-V4b-item-versioning-+-branched-exploration  (horizon, FE-675 V4b half)
 
 TRACK B — Infrastructure
 multi-chat-substrate  (completed)
   ├──→ semantic-changeset ledger  (horizon)
-  └──→ continuous-workspace  (next)
+  └──→ continuous-workspace  (active)
 
 
 
@@ -170,4 +166,3 @@ revisit / edit-mode  (reshaped by reconciliation needs + changeset ledger)
 structured development spec registry  (tooling experiment)
 portability boundaries  (deferred until substrate goal exists)
 ```
-
