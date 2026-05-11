@@ -11,6 +11,7 @@ import {
   createTurn,
   getActivePath,
   getSpecification,
+  getTurn,
   listSpecifications,
   type DB,
 } from './db.js';
@@ -242,6 +243,106 @@ describe('agent capabilities', () => {
     expect(getActivePath(activeDb, created.specId)).toHaveLength(1);
   });
 
+  it('dispatches turn.submitResponse through the existing turn-response transition', async () => {
+    const activeDb = createTempDb();
+    const created = await dispatchCapability({
+      db: activeDb,
+      capability: 'spec.create',
+      input: { name: 'Respondable spec' },
+    });
+    const primary = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.getPrimary',
+      input: { specId: created.specId },
+    });
+    const ready = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.ensureReady',
+      input: { chatId: primary.chatId },
+      generateAnswerableFrontier: async () => ({
+        question: 'What are you trying to build?',
+        assistantParts: [{ type: 'text' as const, text: 'What are you trying to build?' }],
+      }),
+    });
+
+    const result = await dispatchCapability({
+      db: activeDb,
+      capability: 'turn.submitResponse',
+      input: {
+        chatId: primary.chatId,
+        turnId: ready.turnId,
+        response: { kind: 'free-text', freeText: 'A local spec elicitation tool' },
+      },
+    });
+
+    expect(result).toEqual({
+      chatId: primary.chatId,
+      specId: created.specId,
+      turnId: ready.turnId,
+      response: { ok: true },
+      nextCommands: [{ capability: 'chat.read', input: { chatId: primary.chatId } }],
+    });
+    expect(getTurn(activeDb, ready.turnId)?.answer).toBe('A local spec elicitation tool');
+    expect(getTurn(activeDb, ready.turnId)?.user_parts).toContain('data-turn-response');
+    await expect(
+      dispatchCapability({
+        db: activeDb,
+        capability: 'chat.read',
+        input: { chatId: primary.chatId },
+      }),
+    ).resolves.toMatchObject({
+      frontier: { state: 'answered', phase: 'grounding', turnId: ready.turnId },
+      turns: [expect.objectContaining({ id: ready.turnId, answer: 'A local spec elicitation tool' })],
+      nextCommands: [{ capability: 'chat.ensureReady', input: { chatId: primary.chatId } }],
+    });
+  });
+
+  it('rejects turn.submitResponse for turns outside the explicit chat', async () => {
+    const activeDb = createTempDb();
+    const first = await dispatchCapability({
+      db: activeDb,
+      capability: 'spec.create',
+      input: { name: 'First spec' },
+    });
+    const second = await dispatchCapability({
+      db: activeDb,
+      capability: 'spec.create',
+      input: { name: 'Second spec' },
+    });
+    const firstChat = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.getPrimary',
+      input: { specId: first.specId },
+    });
+    const secondChat = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.getPrimary',
+      input: { specId: second.specId },
+    });
+    const secondReady = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.ensureReady',
+      input: { chatId: secondChat.chatId },
+      generateAnswerableFrontier: async () => ({
+        question: 'What are you trying to build?',
+        assistantParts: [{ type: 'text' as const, text: 'What are you trying to build?' }],
+      }),
+    });
+
+    await expect(
+      dispatchCapability({
+        db: activeDb,
+        capability: 'turn.submitResponse',
+        input: {
+          chatId: firstChat.chatId,
+          turnId: secondReady.turnId,
+          response: { kind: 'free-text', freeText: 'Wrong owner' },
+        },
+      }),
+    ).rejects.toThrow(`Turn ${secondReady.turnId} does not belong to chat ${firstChat.chatId}`);
+    expect(getTurn(activeDb, secondReady.turnId)?.answer).toBeNull();
+  });
+
   it('rejects unknown chat ids and schema-invalid capability input before calling handlers', async () => {
     const activeDb = createTempDb();
     await expect(
@@ -259,6 +360,14 @@ describe('agent capabilities', () => {
         input: { chatId: 999 },
       }),
     ).rejects.toThrow('Chat 999 not found');
+
+    await expect(
+      dispatchCapability({
+        db: activeDb,
+        capability: 'turn.submitResponse',
+        input: { chatId: 1, turnId: 1, response: { kind: 'free-text', freeText: '' } },
+      }),
+    ).rejects.toThrow('Invalid input for capability turn.submitResponse');
 
     await expect(
       dispatchCapability({

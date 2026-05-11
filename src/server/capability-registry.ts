@@ -19,7 +19,8 @@ export type CapabilityId =
   | 'spec.getStatus'
   | 'chat.getPrimary'
   | 'chat.read'
-  | 'chat.ensureReady';
+  | 'chat.ensureReady'
+  | 'turn.submitResponse';
 
 export interface CapabilityContract {
   id: CapabilityId;
@@ -134,9 +135,17 @@ const capabilityContracts = [
   {
     id: 'chat.ensureReady',
     authority: 'runtime_replay',
-    summary: 'Materialize deterministic chat readiness for an explicit chat id without generation.',
+    summary: 'Ensure an explicit chat has an answerable generated frontier.',
     inputSchema: 'chat.ensureReady.input.v1',
     outputSchema: 'chat.ensureReady.output.v1',
+    handler: null,
+  },
+  {
+    id: 'turn.submitResponse',
+    authority: 'commit_truth',
+    summary: 'Submit a structured response to an explicit chat turn.',
+    inputSchema: 'turn.submitResponse.input.v1',
+    outputSchema: 'turn.submitResponse.output.v1',
     handler: null,
   },
 ] as const satisfies readonly CapabilityContract[];
