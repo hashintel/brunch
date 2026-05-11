@@ -151,8 +151,21 @@ describe('agent capabilities', () => {
   it('dispatches chat.ensureReady by generating an answerable frontier', async () => {
     const activeDb = createTempDb();
     const generateAnswerableFrontier = vi.fn(async () => ({
-      question: 'What are you trying to build?',
-      assistantParts: [{ type: 'text' as const, text: 'What are you trying to build?' }],
+      question: '',
+      assistantParts: [
+        {
+          type: 'tool-ask_question' as const,
+          toolCallId: 'question-1',
+          state: 'output-available' as const,
+          input: {
+            question: 'What are you trying to build?',
+            why: 'Grounding starts with the user goal.',
+            impact: 'high' as const,
+            options: [],
+          },
+          output: { ok: true as const, turnId: 1, optionCount: 0 },
+        },
+      ],
     }));
     const created = await dispatchCapability({
       db: activeDb,
@@ -181,6 +194,9 @@ describe('agent capabilities', () => {
       nextCommands: [{ capability: 'chat.read', input: { chatId: primary.chatId } }],
     });
     expect(generateAnswerableFrontier).toHaveBeenCalledOnce();
+    expect(generateAnswerableFrontier).toHaveBeenCalledWith(
+      expect.objectContaining({ userMessage: 'Begin the grounding interview.' }),
+    );
     expect(activePath).toHaveLength(1);
     expect(activePath[0]).toMatchObject({
       id: result.turnId,
@@ -188,9 +204,7 @@ describe('agent capabilities', () => {
       question: 'What are you trying to build?',
       answer: null,
     });
-    expect(activePath[0]?.assistant_parts).toBe(
-      JSON.stringify([{ type: 'text', text: 'What are you trying to build?' }]),
-    );
+    expect(activePath[0]?.assistant_parts).toContain('tool-ask_question');
     expect(getSpecification(activeDb, created.specId)?.active_turn_id).toBe(result.turnId);
     expect(
       await dispatchCapability({
