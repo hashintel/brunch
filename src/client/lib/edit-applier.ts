@@ -53,7 +53,7 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
     await invalidateEntityQueriesAfterEdit(specificationId);
     return {
       undo: async () => {
-        const undoResponse = await editKnowledgeItemRequest(specificationId, patch.anchor.itemId, {
+        await editKnowledgeItemRequest(specificationId, patch.anchor.itemId, {
           content: previousContent,
           rationale: previousRationale,
         });
