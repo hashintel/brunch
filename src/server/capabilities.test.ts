@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { dispatchCapability } from './capabilities.js';
-import { createDb, listSpecifications, type DB } from './db.js';
+import { advanceHead, createDb, createTurn, listSpecifications, type DB } from './db.js';
 
 describe('agent capabilities', () => {
   const tempDirs: string[] = [];
@@ -62,10 +62,96 @@ describe('agent capabilities', () => {
     });
   });
 
-  it('rejects schema-invalid capability input before calling handlers', async () => {
+  it('dispatches chat.getPrimary for an explicit spec id', async () => {
+    const activeDb = createTempDb();
+    const created = await dispatchCapability({
+      db: activeDb,
+      capability: 'spec.create',
+      input: { name: 'Chat owner' },
+    });
+
+    const result = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.getPrimary',
+      input: { specId: created.specId },
+    });
+
+    expect(result).toEqual({
+      specId: created.specId,
+      chatId: expect.any(Number),
+      kind: 'interview',
+      activeTurnId: null,
+    });
+  });
+
+  it('dispatches chat.read as a compact agent-facing projection with next-command hints', async () => {
+    const activeDb = createTempDb();
+    const created = await dispatchCapability({
+      db: activeDb,
+      capability: 'spec.create',
+      input: { name: 'Chat readable' },
+    });
+    const turn = createTurn(activeDb, created.specId, {
+      parent_turn_id: null,
+      phase: 'grounding',
+      question: 'What are you trying to build?',
+      answer: null,
+      assistant_parts: null,
+      user_parts: null,
+    });
+    advanceHead(activeDb, created.specId, turn.id);
+    const primary = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.getPrimary',
+      input: { specId: created.specId },
+    });
+
+    const result = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.read',
+      input: { chatId: primary.chatId },
+    });
+
+    expect(result).toEqual({
+      specification: { id: created.specId, name: 'Chat readable', mode: 'greenfield' },
+      chat: {
+        id: primary.chatId,
+        specificationId: created.specId,
+        kind: 'interview',
+        activeTurnId: turn.id,
+      },
+      frontier: { state: 'awaiting_response', phase: 'grounding', turnId: turn.id },
+      turns: [
+        {
+          id: turn.id,
+          phase: 'grounding',
+          kind: 'question',
+          question: 'What are you trying to build?',
+          answer: null,
+          isResolution: false,
+          options: [],
+          capturedItems: [],
+        },
+      ],
+      nextCommands: [
+        { capability: 'turn.submitResponse', input: { chatId: primary.chatId, turnId: turn.id } },
+      ],
+    });
+  });
+
+  it('rejects unknown chat ids and schema-invalid capability input before calling handlers', async () => {
+    const activeDb = createTempDb();
     await expect(
       dispatchCapability({
-        db: createTempDb(),
+        db: activeDb,
+        capability: 'chat.read',
+        input: { chatId: 999 },
+      }),
+    ).rejects.toThrow('Chat 999 not found');
+
+    await expect(
+      dispatchCapability({
+        db: activeDb,
         capability: 'spec.create',
         input: { name: '' },
       }),

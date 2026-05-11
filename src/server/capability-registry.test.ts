@@ -53,6 +53,18 @@ describe('capability registry', () => {
         inputSchema: 'spec.getStatus.input.v1',
         outputSchema: 'spec.getStatus.output.v1',
       }),
+      expect.objectContaining({
+        id: 'chat.getPrimary',
+        authority: 'read_only',
+        inputSchema: 'chat.getPrimary.input.v1',
+        outputSchema: 'chat.getPrimary.output.v1',
+      }),
+      expect.objectContaining({
+        id: 'chat.read',
+        authority: 'read_only',
+        inputSchema: 'chat.read.input.v1',
+        outputSchema: 'chat.read.output.v1',
+      }),
     ]);
   });
 
