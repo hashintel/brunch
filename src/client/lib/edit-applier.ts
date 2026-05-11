@@ -12,11 +12,12 @@ import {
 
 import { createEdgeRequest, deleteEdgeRequest, editKnowledgeItemRequest } from './edit-api.js';
 
-// Invalidate the entity query domains so the page-visible item content
-// re-fetches after an edit applies. The route loader and structured-list
-// view subscribe to these query keys; without invalidation the displayed
-// content stays stale until the user navigates away and back.
-async function invalidateEntityQueriesAfterEdit(specificationId: number): Promise<void> {
+// Invalidate the entity query domains so the page-visible item content and
+// relationships re-fetch after a patch applies. The route loader and
+// structured-list / graph views subscribe to these query keys; without
+// invalidation the displayed content (and edges) stay stale until the user
+// navigates away and back.
+async function invalidateEntityQueries(specificationId: number): Promise<void> {
   const specId = String(specificationId);
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: specificationQueryKeys.entities(specId) }),
@@ -35,7 +36,7 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
     }
     const previousContent = response.previousContent;
     const previousRationale = response.previousRationale;
-    await invalidateEntityQueriesAfterEdit(specificationId);
+    await invalidateEntityQueries(specificationId);
     if (response.impact === 'hard') {
       // V3.0 card 2–3 (D139, I112): hard-impact apply mutates source and opens
       // reconciliation_need rows; Pending review surfaces the queue with per-row
@@ -60,7 +61,7 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
           content: previousContent,
           rationale: previousRationale,
         });
-        await invalidateEntityQueriesAfterEdit(specificationId);
+        await invalidateEntityQueries(specificationId);
         if (undoResponse.impact === 'hard') {
           await invalidateOpenReconciliationNeeds(specificationId);
         }
@@ -78,6 +79,7 @@ export function makeEdgeApplier(specificationId: number): ApplyPatchFn<EdgePatch
       relation: patch.relation,
     });
     if (result.alreadyExisted) {
+      await invalidateEntityQueries(specificationId);
       return {
         undo: async () => {},
         applied: { created: false, alreadyExisted: true },
@@ -86,6 +88,7 @@ export function makeEdgeApplier(specificationId: number): ApplyPatchFn<EdgePatch
     if (!result.created) {
       throw new Error(result.reason ?? 'Edge creation failed');
     }
+    await invalidateEntityQueries(specificationId);
     return {
       undo: async () => {
         const undoResult = await deleteEdgeRequest(specificationId, {
@@ -96,6 +99,7 @@ export function makeEdgeApplier(specificationId: number): ApplyPatchFn<EdgePatch
         if (!undoResult.deleted) {
           throw new Error(undoResult.reason ?? 'Edge deletion failed');
         }
+        await invalidateEntityQueries(specificationId);
       },
       applied: { created: true },
     };
