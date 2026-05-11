@@ -5,7 +5,10 @@ import type {
   EditPatch,
 } from '@/client/components/patch-list-host.js';
 import { queryClient } from '@/client/query-client.js';
-import { specificationQueryKeys } from '@/client/routes/specification/$id/-specification-data.js';
+import {
+  invalidateOpenReconciliationNeeds,
+  specificationQueryKeys,
+} from '@/client/routes/specification/$id/-specification-data.js';
 
 import { createEdgeRequest, deleteEdgeRequest, editKnowledgeItemRequest } from './edit-api.js';
 
@@ -19,15 +22,6 @@ async function invalidateEntityQueriesAfterEdit(specificationId: number): Promis
     queryClient.invalidateQueries({ queryKey: specificationQueryKeys.entities(specId) }),
     queryClient.invalidateQueries({ queryKey: specificationQueryKeys.entitiesProjectWide(specId) }),
   ]);
-}
-
-// V3.0 card 2: refresh the Pending review section after a hard-impact apply
-// opens new reconciliation_need rows. Card 3 will also call this from
-// resolution actions.
-async function invalidateOpenReconciliationNeedsAfterApply(specificationId: number): Promise<void> {
-  await queryClient.invalidateQueries({
-    queryKey: specificationQueryKeys.reconciliationNeeds(String(specificationId)),
-  });
 }
 
 export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch> {
@@ -49,7 +43,7 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
       // applies is a no-op for the source mutation in card 2 — card 3 wires
       // real resolution semantics (resolve openedNeedIds + restore content).
       // Until then the user resolves through the Pending review surface.
-      await invalidateOpenReconciliationNeedsAfterApply(specificationId);
+      await invalidateOpenReconciliationNeeds(specificationId);
       return {
         undo: async () => {},
         applied: {
@@ -68,7 +62,7 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
         });
         await invalidateEntityQueriesAfterEdit(specificationId);
         if (undoResponse.impact === 'hard') {
-          await invalidateOpenReconciliationNeedsAfterApply(specificationId);
+          await invalidateOpenReconciliationNeeds(specificationId);
         }
       },
       applied: { impact: response.impact, previousContent, previousRationale },
