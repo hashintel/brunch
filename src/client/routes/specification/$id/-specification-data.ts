@@ -150,6 +150,7 @@ export function useSpecificationOpenReconciliationNeeds(): ReconciliationNeedRec
     queryKey: specificationQueryKeys.reconciliationNeeds(specificationId),
     queryFn: () => fetchOpenReconciliationNeeds(specificationId),
     initialData: [],
+    initialDataUpdatedAt: 0,
   });
   return data;
 }
