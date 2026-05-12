@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -68,6 +68,32 @@ describe('fixture candidate checkpoint', () => {
       path: join(dir, 'workspace-state'),
     });
     expect(report.errors).toContain('workspace-state is missing');
+  });
+
+  it('rejects parseable artifacts with invalid structure or inconsistent duplicated fields', () => {
+    const dir = makeTempDir('brunch-fixture-invalid-');
+    writeCandidate(dir, { includeWorkspaceState: false });
+    const bundlePath = join(dir, 'artifact-bundle.json');
+    const bundle = JSON.parse(readFileSync(bundlePath, 'utf8')) as Record<string, unknown>;
+    bundle.schemaVersion = 2;
+    bundle.summary = { turnsAnswered: 'two' };
+    bundle.finalChat = null;
+    bundle.rawJsonlTranscript = [];
+    delete bundle.commandSequence;
+    writeFileSync(bundlePath, `${JSON.stringify(bundle, null, 2)}\n`);
+
+    const report = inspectFixtureCandidate(dir);
+
+    expect(report.ready).toBe(false);
+    expect(report.errors).toEqual(
+      expect.arrayContaining([
+        'artifact-bundle.json schemaVersion must be 1',
+        'artifact-bundle.json commandSequence must be an array',
+        'artifact-bundle.summary does not match summary.json',
+        'artifact-bundle.finalChat does not match final-chat.json',
+        'artifact-bundle.rawJsonlTranscript does not match raw-jsonl.ndjson',
+      ]),
+    );
   });
 
   it('accepts an error-run candidate while reporting failure status and normalization debt', () => {
