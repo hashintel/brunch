@@ -15,17 +15,6 @@ import { usePatchListUndoOverride } from './patch-list-undo-context.js';
 
 const MESSAGE_DURATION_MS = 5000;
 
-function lastBatchHasNonNullApply(meta: ReadonlyArray<{ patchId: string; applied: unknown }>): boolean {
-  if (meta.length === 0) {
-    return false;
-  }
-  if (meta.some((entry) => entry.applied)) {
-    return true;
-  }
-  // Annotate (and some legacy mocks) omit `applied` while still committing a batch.
-  return meta.some((entry) => entry.applied == null);
-}
-
 function StagedPatchDetailRow({ patch }: { patch: Patch }): React.ReactElement {
   const showDiff =
     patch.kind === 'edit' &&
@@ -90,8 +79,8 @@ export function PatchListOverlay(): React.ReactElement | null {
       lastSeenBatchIdRef.current = state.lastBatchId;
     }
 
-    const hasApply = lastBatchHasNonNullApply(lastBatchAppliedMeta);
-    const showFromBatch = batchAdvanced && hasApply && !state.isApplying && state.staged.length === 0;
+    const hasAppliedMeta = lastBatchAppliedMeta.length > 0;
+    const showFromBatch = batchAdvanced && hasAppliedMeta && !state.isApplying && state.staged.length === 0;
 
     const canUndoDropped = prevCanUndoRef.current && !state.canUndo;
     prevCanUndoRef.current = state.canUndo;
