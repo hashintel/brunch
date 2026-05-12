@@ -20,11 +20,9 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import { ActiveCard } from './active-card.js';
-import { DiffPopover } from './diff-popover.js';
+import { DEFAULT_ACCENT, DiffPopover } from './diff-popover.js';
 import { ImpactChip } from './impact-chip.js';
 import { kindAccentHex } from './knowledge-card';
-
-const DEFAULT_ACCENT = '#5424ff';
 
 type StagedPatchKind = 'annotate' | 'edit' | 'edge' | 'drill-down';
 

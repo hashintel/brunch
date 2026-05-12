@@ -16,7 +16,7 @@ import { createPortal } from 'react-dom';
 
 import { ContentDiff } from './content-diff.js';
 
-const DEFAULT_ACCENT = '#5424ff';
+export const DEFAULT_ACCENT = '#5424ff';
 
 export interface DiffPopoverProps {
   open: boolean;
