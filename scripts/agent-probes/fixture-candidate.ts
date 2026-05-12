@@ -38,6 +38,9 @@ export function inspectFixtureCandidate(
 
   const summary = readJson(join(artifactDir, 'summary.json'));
   const bundle = readJson(join(artifactDir, 'artifact-bundle.json'));
+  const finalChat = readJson(join(artifactDir, 'final-chat.json'));
+  const rawJsonlTranscript = readNdjson(join(artifactDir, 'raw-jsonl.ndjson'));
+  validateCandidateStructure({ bundle, summary, finalChat, rawJsonlTranscript, errors });
   const runStatus = getRunStatus(summary);
   const normalizationDebt = collectNormalizationDebt({
     bundle,
@@ -100,6 +103,125 @@ function readJson(path: string): unknown {
   } catch {
     return null;
   }
+}
+
+function readNdjson(path: string): unknown[] | null {
+  if (!existsSync(path)) {
+    return null;
+  }
+  try {
+    return readFileSync(path, 'utf8')
+      .split('\n')
+      .filter((line) => line.trim() !== '')
+      .map((line) => JSON.parse(line) as unknown);
+  } catch {
+    return null;
+  }
+}
+
+function validateCandidateStructure({
+  bundle,
+  summary,
+  finalChat,
+  rawJsonlTranscript,
+  errors,
+}: {
+  bundle: unknown;
+  summary: unknown;
+  finalChat: unknown;
+  rawJsonlTranscript: unknown[] | null;
+  errors: string[];
+}): void {
+  validateSummaryStructure(summary, errors);
+  validateBundleStructure(bundle, errors);
+
+  if (isRecord(bundle)) {
+    if (!deepEqual(bundle.summary, summary)) {
+      errors.push('artifact-bundle.summary does not match summary.json');
+    }
+    if (!deepEqual(bundle.finalChat, finalChat)) {
+      errors.push('artifact-bundle.finalChat does not match final-chat.json');
+    }
+    if (!Array.isArray(rawJsonlTranscript) || !deepEqual(bundle.rawJsonlTranscript, rawJsonlTranscript)) {
+      errors.push('artifact-bundle.rawJsonlTranscript does not match raw-jsonl.ndjson');
+    }
+  }
+}
+
+function validateSummaryStructure(summary: unknown, errors: string[]): void {
+  if (!isRecord(summary)) {
+    errors.push('summary.json is not an object');
+    return;
+  }
+
+  requireField(summary, 'turnsAnswered', 'number', 'summary.json', errors);
+  if (typeof summary.finalFrontierState !== 'string' && summary.finalFrontierState !== null) {
+    errors.push('summary.json finalFrontierState must be a string or null');
+  }
+  requireField(summary, 'durationMs', 'number', 'summary.json', errors);
+  requireArrayField(summary, 'questionAnswers', 'summary.json', errors);
+  requireArrayField(summary, 'errors', 'summary.json', errors);
+}
+
+function validateBundleStructure(bundle: unknown, errors: string[]): void {
+  if (!isRecord(bundle)) {
+    errors.push('artifact-bundle.json is not an object');
+    return;
+  }
+
+  if (bundle.schemaVersion !== 1) {
+    errors.push('artifact-bundle.json schemaVersion must be 1');
+  }
+  requireRecordField(bundle, 'scenario', 'artifact-bundle.json', errors);
+  requireRecordField(bundle, 'workspace', 'artifact-bundle.json', errors);
+  requireArrayField(bundle, 'commandSequence', 'artifact-bundle.json', errors);
+  requireArrayField(bundle, 'rawJsonlTranscript', 'artifact-bundle.json', errors);
+  requireArrayField(bundle, 'parsedEvents', 'artifact-bundle.json', errors);
+  if (!('finalChat' in bundle)) {
+    errors.push('artifact-bundle.json finalChat is missing');
+  }
+  requireRecordField(bundle, 'summary', 'artifact-bundle.json', errors);
+  requireArrayField(bundle, 'errors', 'artifact-bundle.json', errors);
+  requireArrayField(bundle, 'simulatedUserEvents', 'artifact-bundle.json', errors);
+  requireRecordField(bundle, 'environment', 'artifact-bundle.json', errors);
+}
+
+function requireField(
+  record: Record<string, unknown>,
+  field: string,
+  type: 'number' | 'string',
+  label: string,
+  errors: string[],
+): void {
+  if (typeof record[field] !== type) {
+    errors.push(`${label} ${field} must be a ${type}`);
+  }
+}
+
+function requireArrayField(
+  record: Record<string, unknown>,
+  field: string,
+  label: string,
+  errors: string[],
+): void {
+  if (!Array.isArray(record[field])) {
+    errors.push(`${label} ${field} must be an array`);
+  }
+}
+
+function requireRecordField(
+  record: Record<string, unknown>,
+  field: string,
+  label: string,
+  errors: string[],
+): void {
+  if (!isRecord(record[field])) {
+    errors.push(`${label} ${field} must be an object`);
+  }
+}
+
+function deepEqual(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function getRunStatus(summary: unknown): FixtureCandidateReport['runStatus'] {
