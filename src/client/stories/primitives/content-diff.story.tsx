@@ -28,10 +28,11 @@ export const ContentDiffStory = () => {
       <div className="mx-auto max-w-5xl p-8">
         <h1 className="text-[22px] leading-none font-medium tracking-[-0.015em] text-ink">Content Diff</h1>
         <p className="mt-2.5 text-sm leading-relaxed text-sub">
-          Word-level before-vs-after diff used by the side-chat staged-patch row (FE-665) and intended for
-          reuse in the canonical PatchListOverlay detail and the future direct-edit row preview. Tints come
-          from the existing wash / accent palette — warm for removed, cool blue for added — never saturated
-          GitHub red/green.
+          Word-level before-vs-after diff. Currently powers two consumers — the side-chat staged-patch row's{' '}
+          <code>&lt;details&gt;</code> expander and the canonical <code>PatchListOverlay</code>
+          expand-to-detail list (top of the spec workspace) — with the future direct-edit row preview as the
+          next consumer. Tints come from the existing wash / accent palette: warm for removed, cool blue for
+          added. Never saturated GitHub red/green.
         </p>
 
         <Separator className="my-8" />

@@ -446,7 +446,14 @@ export function SideChatHost({
                 patchList.stage({
                   kind: 'edit',
                   anchor: { kind: session.itemKind, itemId: session.itemId },
+                  anchorReferenceCode: session.pinnedItem.referenceCode,
                   summary: summarizeEditContent(event.input.newContent),
+                  // Capture the live current content at stage time so the
+                  // canonical PatchListOverlay can render a word-level
+                  // <ContentDiff> without re-querying the entity store.
+                  // session.pinnedItem.content tracks live saved content via
+                  // the apply-time refresh effect (FE-665 follow-up).
+                  currentContent: session.pinnedItem.content,
                   newContent: event.input.newContent,
                   ...(event.input.newRationale ? { newRationale: event.input.newRationale } : {}),
                   ...(event.impact !== undefined ? { impact: event.impact } : {}),
@@ -463,6 +470,7 @@ export function SideChatHost({
                 patchList.stage({
                   kind: 'edge',
                   anchor: { kind: session.itemKind, itemId: session.itemId },
+                  anchorReferenceCode: session.pinnedItem.referenceCode,
                   targetAnchor: { kind: target.kind, itemId: target.itemId },
                   relation: event.input.relation,
                   summary: `Edge: ${session.pinnedItem.referenceCode} ${event.input.relation.replaceAll('_', ' ')} ${target.referenceCode}`,
@@ -475,6 +483,7 @@ export function SideChatHost({
                 patchList.stage({
                   kind: 'drill-down',
                   anchor: { kind: session.itemKind, itemId: session.itemId },
+                  anchorReferenceCode: session.pinnedItem.referenceCode,
                   summary: `Drill-down: ${event.input.focusArea}`,
                   focusArea: event.input.focusArea,
                 });
@@ -529,6 +538,7 @@ export function SideChatHost({
       patchList.stage({
         kind: 'annotate',
         anchor: { kind: activeSideChat.itemKind, itemId: activeSideChat.itemId },
+        anchorReferenceCode: activeSideChat.pinnedItem.referenceCode,
         summary,
         body,
       });

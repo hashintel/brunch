@@ -53,6 +53,47 @@ function StageEditPatchButton() {
   );
 }
 
+function StageEditPatchWithDiffButton() {
+  const patchList = usePatchList();
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        patchList?.stage({
+          kind: 'edit',
+          anchor: { kind: 'goal', itemId: 1 },
+          anchorReferenceCode: 'G1',
+          summary: 'Edit: swap database',
+          currentContent: 'Use SQLite for the local store.',
+          newContent: 'Use Postgres for the local store.',
+          impact: 'soft',
+        })
+      }
+    >
+      stage-edit-with-diff
+    </button>
+  );
+}
+
+function StageAnnotatePatchButton() {
+  const patchList = usePatchList();
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        patchList?.stage({
+          kind: 'annotate',
+          anchor: { kind: 'goal', itemId: 2 },
+          summary: 'Note: clarify exclusion',
+          body: 'The exclusion clause should be moved up.',
+        })
+      }
+    >
+      stage-annotate
+    </button>
+  );
+}
+
 function UndoButton() {
   const patchList = usePatchList();
   return (
@@ -335,5 +376,157 @@ describe('PatchListOverlay', () => {
 
     expect(screen.queryByRole('status', { name: /hard impact deferred to v3/i })).toBeNull();
     expect(screen.getByRole('status', { name: /change saved/i })).toBeTruthy();
+  });
+});
+
+describe('PatchListOverlay — expand-to-detail (FE-665 follow-up)', () => {
+  it('renders the N pending changes label as a toggle button', () => {
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchWithDiffButton />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit-with-diff'));
+    const toggle = screen.getByRole('button', { name: /1 pending change/i });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('does not render the per-patch list by default (collapsed)', () => {
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchWithDiffButton />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit-with-diff'));
+    expect(screen.queryByRole('list', { name: /staged patch detail/i })).toBeNull();
+  });
+
+  it('clicking the toggle expands the per-patch list and flips aria-expanded', () => {
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchWithDiffButton />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit-with-diff'));
+    const toggle = screen.getByRole('button', { name: /1 pending change/i });
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('list', { name: /staged patch detail/i })).toBeTruthy();
+  });
+
+  it('expanded list renders ContentDiff for an edit patch with currentContent + newContent', () => {
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchWithDiffButton />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit-with-diff'));
+    fireEvent.click(screen.getByRole('button', { name: /1 pending change/i }));
+    const removed = document.querySelectorAll('[data-diff-kind="removed"]');
+    const added = document.querySelectorAll('[data-diff-kind="added"]');
+    expect(removed.length).toBeGreaterThan(0);
+    expect(added.length).toBeGreaterThan(0);
+    expect(Array.from(removed).some((node) => node.textContent?.includes('SQLite'))).toBe(true);
+    expect(Array.from(added).some((node) => node.textContent?.includes('Postgres'))).toBe(true);
+  });
+
+  it('expanded list falls back to summary-only when an edit patch lacks currentContent', () => {
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchButton />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit'));
+    fireEvent.click(screen.getByRole('button', { name: /1 pending change/i }));
+    const list = screen.getByRole('list', { name: /staged patch detail/i });
+    expect(list.textContent).toContain('Edit: rephrase');
+    expect(document.querySelectorAll('[data-diff-kind]').length).toBe(0);
+  });
+
+  it('expanded list renders summary-only for non-edit patches', () => {
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageAnnotatePatchButton />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-annotate'));
+    fireEvent.click(screen.getByRole('button', { name: /1 pending change/i }));
+    const list = screen.getByRole('list', { name: /staged patch detail/i });
+    expect(list.textContent).toContain('Note: clarify exclusion');
+    expect(document.querySelectorAll('[data-diff-kind]').length).toBe(0);
+  });
+
+  it('clicking the toggle a second time collapses the list', () => {
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchWithDiffButton />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit-with-diff'));
+    const toggle = screen.getByRole('button', { name: /1 pending change/i });
+    fireEvent.click(toggle);
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('list', { name: /staged patch detail/i })).toBeNull();
+  });
+
+  it('expanded list shows multiple staged patches at once', () => {
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchWithDiffButton />
+        <StageAnnotatePatchButton />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit-with-diff'));
+    fireEvent.click(screen.getByText('stage-annotate'));
+    fireEvent.click(screen.getByRole('button', { name: /2 pending changes/i }));
+    const list = screen.getByRole('list', { name: /staged patch detail/i });
+    expect(list.textContent).toContain('Edit: swap database');
+    expect(list.textContent).toContain('Note: clarify exclusion');
+  });
+
+  it('renders the kind-tinted reference badge for patches that carry anchorReferenceCode', () => {
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchWithDiffButton />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit-with-diff'));
+    fireEvent.click(screen.getByRole('button', { name: /1 pending change/i }));
+    const badge = document.querySelector('[data-staged-patch-anchor="G1"]');
+    expect(badge).not.toBeNull();
+    expect(badge!.textContent).toBe('G1');
+  });
+
+  it('renders the impact chip for an edit patch with impact tier', () => {
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchWithDiffButton />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit-with-diff'));
+    fireEvent.click(screen.getByRole('button', { name: /1 pending change/i }));
+    const chip = screen.getByLabelText(/soft impact/i);
+    expect(chip.getAttribute('data-impact')).toBe('soft');
   });
 });

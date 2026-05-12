@@ -23,6 +23,12 @@ interface PatchBase {
   summary: string;
   selectionRange?: PatchSelectionRange;
   createdAt: number;
+  // Snapshot of the anchor item's reference code (e.g. "C1", "D5") at stage
+  // time. Optional — populated by callers that have it in hand (side-chat
+  // pinnedItem, future direct-edit row) so consumers like PatchListOverlay
+  // can render the kind-tinted reference badge without re-querying the
+  // entity store. When absent, consumers fall back to summary-only.
+  anchorReferenceCode?: string;
 }
 
 export interface AnnotatePatch extends PatchBase {
@@ -41,6 +47,12 @@ export interface EditPatch extends PatchBase {
   // Optional because legacy paths (annotate auto-apply, manually-staged tests)
   // may stage without server pre-classification.
   impact?: EditImpactTier;
+  // Snapshot of the anchor item's current content at stage time. Populated
+  // by callers that have it in hand (e.g. side-chat-host with pinnedItem)
+  // so consumers like PatchListOverlay can render a word-level <ContentDiff>
+  // without re-querying the entity store. Optional — when absent, consumers
+  // fall back to summary-only display (FE-665 follow-up).
+  currentContent?: string;
 }
 
 export interface EdgePatch extends PatchBase {
