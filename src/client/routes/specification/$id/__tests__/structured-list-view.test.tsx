@@ -1130,3 +1130,218 @@ describe('structured-list-view selection menu', () => {
     expect(patchArg.selectionRange).toEqual({ start: 0, end: length });
   });
 });
+
+describe('structured-list-view direct edit (FE-657)', () => {
+  function makeAppliers(editMock?: PatchAppliers['edit']): PatchAppliers {
+    return {
+      annotate: vi.fn() as never,
+      edit: (editMock ?? (vi.fn() as never)) as PatchAppliers['edit'],
+      edge: vi.fn() as never,
+      drillDown: vi.fn() as never,
+    };
+  }
+
+  it('renders an Edit button on each row that opens an inline textarea seeded with current content', async () => {
+    const { container } = render(
+      <PatchListProvider appliers={makeAppliers()}>
+        <SideChatHost specificationId={1}>
+          <StructuredListView entityState={singleItemNoEdges()} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement | null;
+    expect(editButton).not.toBeNull();
+    expect(editButton!.disabled).toBe(false);
+
+    await act(async () => {
+      fireEvent.click(editButton!);
+    });
+
+    const textarea = container.querySelector('[data-graph-row-edit-textarea]') as HTMLTextAreaElement | null;
+    expect(textarea).not.toBeNull();
+    expect(textarea!.value).toBe('Reduce signup drop-off');
+    // While editing, the static <p data-annotatable> for that row is replaced
+    // by the textarea so the user types over the same content.
+    const annotatableInRow = container.querySelector('[data-graph-row-editing="true"] [data-annotatable]');
+    expect(annotatableInRow).toBeNull();
+  });
+
+  it('stages an edit patch with currentContent / newContent when the user types and presses Cmd+Enter', async () => {
+    const editMock = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { impact: 'none', previousContent: 'Reduce signup drop-off' },
+      }),
+    );
+    const appliers = makeAppliers(editMock as unknown as PatchAppliers['edit']);
+
+    const { container } = render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <StructuredListView entityState={singleItemNoEdges()} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    const textarea = container.querySelector('[data-graph-row-edit-textarea]') as HTMLTextAreaElement;
+
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'Reduce signup drop-off by 20%' } });
+    });
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true });
+    });
+
+    // Patch is staged synchronously into the patch list overlay; the apply
+    // (and thus editMock) only fires after the user clicks Apply, so we just
+    // assert the staged patch surfaced via the overlay.
+    expect(container.querySelector('[data-graph-row-edit-textarea]')).toBeNull();
+    // Overlay's count attribute reflects the newly staged edit patch.
+    await waitFor(() => {
+      const overlay = container.querySelector('[data-staged-count]');
+      expect(overlay).not.toBeNull();
+      expect(overlay!.getAttribute('data-staged-count')).toBe('1');
+    });
+    // Expanding the overlay reveals the summary + the anchor reference badge
+    // generated from the row's referenceCode.
+    const overlayToggle = container.querySelector(
+      '[aria-label="Staged changes"] button[aria-expanded="false"]',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(overlayToggle);
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/Edit G1/)).toBeTruthy();
+    });
+    expect(container.querySelector('[data-staged-patch-anchor="G1"]')).not.toBeNull();
+    expect(container.querySelector('[data-staged-patch-kind="edit"]')).not.toBeNull();
+  });
+
+  it('cancels the edit on Escape without staging anything', async () => {
+    const appliers = makeAppliers();
+
+    const { container } = render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <StructuredListView entityState={singleItemNoEdges()} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    const textarea = container.querySelector('[data-graph-row-edit-textarea]') as HTMLTextAreaElement;
+
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'something else entirely' } });
+    });
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'Escape' });
+    });
+
+    expect(container.querySelector('[data-graph-row-edit-textarea]')).toBeNull();
+    // No edit patch staged → overlay (which only renders when staged > 0) absent.
+    expect(container.querySelector('[data-staged-count]')).toBeNull();
+  });
+
+  it('Save button stages the patch; Save is disabled while content is unchanged or empty', async () => {
+    const appliers = makeAppliers();
+
+    const { container } = render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <StructuredListView entityState={singleItemNoEdges()} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    const saveButton = container.querySelector('[data-graph-row-edit-save]') as HTMLButtonElement;
+    expect(saveButton).not.toBeNull();
+    // Save is disabled at the initial value because no real change has been
+    // made yet (avoids staging no-op edits).
+    expect(saveButton.disabled).toBe(true);
+
+    const textarea = container.querySelector('[data-graph-row-edit-textarea]') as HTMLTextAreaElement;
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'Reduce checkout drop-off' } });
+    });
+    expect(saveButton.disabled).toBe(false);
+
+    // Empty / whitespace-only content also disables Save.
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: '   ' } });
+    });
+    expect(saveButton.disabled).toBe(true);
+
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'Reduce checkout drop-off' } });
+    });
+    await act(async () => {
+      fireEvent.click(saveButton);
+    });
+
+    expect(container.querySelector('[data-graph-row-edit-textarea]')).toBeNull();
+    await waitFor(() => {
+      const overlay = container.querySelector('[data-staged-count]');
+      expect(overlay).not.toBeNull();
+      expect(overlay!.getAttribute('data-staged-count')).toBe('1');
+    });
+  });
+
+  it('Cancel button exits edit mode without staging anything', async () => {
+    const appliers = makeAppliers();
+
+    const { container } = render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <StructuredListView entityState={singleItemNoEdges()} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    const textarea = container.querySelector('[data-graph-row-edit-textarea]') as HTMLTextAreaElement;
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'a different draft' } });
+    });
+
+    const cancelButton = container.querySelector('[data-graph-row-edit-cancel]') as HTMLButtonElement;
+    expect(cancelButton).not.toBeNull();
+    await act(async () => {
+      fireEvent.click(cancelButton);
+    });
+
+    expect(container.querySelector('[data-graph-row-edit-textarea]')).toBeNull();
+    expect(container.querySelector('[data-staged-count]')).toBeNull();
+  });
+
+  it('disables the Edit button when no PatchListProvider is mounted', () => {
+    const { container } = render(
+      <SideChatHost specificationId={1}>
+        <StructuredListView entityState={singleItemNoEdges()} />
+      </SideChatHost>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement | null;
+    expect(editButton).not.toBeNull();
+    expect(editButton!.disabled).toBe(true);
+  });
+});
