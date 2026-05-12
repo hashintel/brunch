@@ -1,14 +1,3 @@
-// PatchListOverlay — the canonical persistent patch-list surface (SIDE_CHAT.md §4).
-//
-// Renders sticky bars below the global app top-bar:
-//   • Staged-changes bar when there are staged patches.
-//   • Saved-toast for soft / none / hard impact applies (transient post-apply).
-//
-// Pending review rows render inside the structured-list view (Card 4) rather than here.
-//
-// Lives outside the side-chat popover so it stays visible regardless of whether
-// the panel is open — V4's architect loop will deposit into the same surface.
-
 import { useEffect, useRef, useState } from 'react';
 
 import { ContentDiff } from './content-diff.js';
@@ -86,21 +75,12 @@ export function PatchListOverlay(): React.ReactElement | null {
   const lastSeenBatchIdRef = usePatchListSavedToastLastAckBatchIdRef();
   const prevCanUndoRef = useRef<boolean>(state.canUndo);
 
-  // Auto-collapse when there are no staged patches left (post-apply / undo).
   useEffect(() => {
     if (stagedCount === 0 && expanded) {
       setExpanded(false);
     }
   }, [stagedCount, expanded]);
 
-  // Saved toast: a new `lastBatchId` means a fresh apply — show (with auto-hide timer).
-  // `canUndo` true→false hides the toast on undo, but must not win over a batch advance in
-  // the same commit (soft-impact apply then hard-impact apply both update `lastBatchId`
-  // and flip `canUndo` to false; two separate effects would batch hide-after-show).
-  // The toast Undo affordance still renders only when `canUndo` (see JSX below).
-  //
-  // Deps are intentionally narrow: a wider dep array re-runs cleanup on unrelated churn
-  // (e.g. stagedCount change), cancelling the auto-hide timer and leaving the toast stuck.
   useEffect(() => {
     const batchAdvanced = state.lastBatchId !== null && state.lastBatchId !== lastSeenBatchIdRef.current;
 
@@ -113,8 +93,6 @@ export function PatchListOverlay(): React.ReactElement | null {
       batchAdvanced &&
       hasApply &&
       !state.isApplying &&
-      // Intentionally omit `state.staged` from deps: re-running on unrelated staging churn
-      // clears the auto-hide timer and leaves the toast stuck (FE-665 regression).
       state.staged.length === 0;
 
     const canUndoDropped = prevCanUndoRef.current && !state.canUndo;
@@ -149,7 +127,6 @@ export function PatchListOverlay(): React.ReactElement | null {
     void patchList.apply();
   };
 
-  // Nothing to surface: no staged patches and no transient toast.
   if (stagedCount === 0 && !savedToastVisible) {
     return null;
   }
@@ -219,9 +196,6 @@ export function PatchListOverlay(): React.ReactElement | null {
           ) : null}
         </div>
       ) : null}
-      {/* PendingReviewSection now renders inside the structured-list view
-          (just under the kind toggle chips) so the open-needs queue lives
-          next to the items it concerns instead of as a global top bar. */}
       {savedToastVisible ? (
         <div
           role="status"

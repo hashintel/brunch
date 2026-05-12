@@ -1,16 +1,3 @@
-// DiffPopover — anchored, viewport-aware popover that renders a <ContentDiff>
-// (Card 4 / Figma alignment). Used by:
-//
-//   - side-chat-popover.tsx staged-patches strip → "↗ view diff" chip per row.
-//   - pending-review-section.tsx → "↗ view source diff" chip per row.
-//
-// Renders into a portal on document.body so the popover escapes the side-chat
-// dialog's transformed/clipped ancestors. Anchors near the chip: prefers BELOW
-// the anchor (so the chip stays in view) and only flips ABOVE when there isn't
-// room. Horizontally aligns the popover's right edge with the anchor's right
-// edge so the chip-to-popover relationship reads as one element. Click-outside
-// and ESC close. v1 is read-only; slice 7 can extend with a `footer?` slot.
-
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -45,8 +32,6 @@ function computePosition(anchor: HTMLElement, popoverHeight: number): ComputedPo
   const viewportWidth = window.innerWidth;
   const spaceBelow = viewportHeight - rect.bottom;
   const spaceAbove = rect.top;
-  // Prefer below: keeps the chip visible while reading. Flip above only when
-  // below truly doesn't fit and above does.
   const fitsBelow = spaceBelow >= popoverHeight + POPOVER_GAP + VIEWPORT_MARGIN;
   const fitsAbove = spaceAbove >= popoverHeight + POPOVER_GAP + VIEWPORT_MARGIN;
   const placement: 'above' | 'below' = fitsBelow || !fitsAbove ? 'below' : 'above';
@@ -54,7 +39,6 @@ function computePosition(anchor: HTMLElement, popoverHeight: number): ComputedPo
     placement === 'below'
       ? Math.min(viewportHeight - popoverHeight - VIEWPORT_MARGIN, rect.bottom + POPOVER_GAP)
       : Math.max(VIEWPORT_MARGIN, rect.top - popoverHeight - POPOVER_GAP);
-  // Right-align with the anchor; clamp into viewport on either side.
   const idealLeft = rect.right - POPOVER_MAX_WIDTH;
   const left = Math.max(
     VIEWPORT_MARGIN,
@@ -81,9 +65,6 @@ export function DiffPopover({
     setMounted(true);
   }, []);
 
-  // Initial measurement uses an estimated height. The layout effect below
-  // re-measures once the popover is in the DOM with real content and updates
-  // the position before the user can perceive a flash.
   useEffect(() => {
     if (!open || !anchor) {
       setPosition(null);
@@ -92,9 +73,6 @@ export function DiffPopover({
     setPosition(computePosition(anchor, 160));
   }, [open, anchor]);
 
-  // Include `position` so we re-run after the first estimated `position` lands and
-  // `popoverRef` attaches — deps stayed identical across the null→estimate transition
-  // otherwise, so layout never re-measured on initial open (cursor[bot]).
   useLayoutEffect(() => {
     if (!open || !anchor || !popoverRef.current) return;
     const measured = popoverRef.current.getBoundingClientRect();
@@ -138,8 +116,6 @@ export function DiffPopover({
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [open, onClose, anchor]);
 
-  // Reposition on window resize/scroll while open so the popover follows the
-  // anchor instead of drifting offscreen when the user scrolls the side-chat.
   useEffect(() => {
     if (!open || !anchor) return;
     function reposition() {
@@ -209,7 +185,5 @@ export function DiffPopover({
     </div>
   );
 
-  // Render into the body so ancestor transforms/filters/clips on the side-chat
-  // dialog don't capture the fixed positioning context.
   return createPortal(popoverNode, document.body);
 }
