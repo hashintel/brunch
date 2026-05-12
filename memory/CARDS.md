@@ -104,7 +104,7 @@ Result: stays light. This preserves evidence inside the already-established exte
 
 ## Card 13 — User-simulator policy interface
 
-**Status:** next
+**Status:** done
 
 ### Objective
 
