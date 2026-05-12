@@ -5,18 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ReconciliationNeedRecord } from '@/shared/reconciliation-need.js';
 
-import {
-  PatchListProvider,
-  usePatchList,
-  usePatchListState,
-  type PatchAppliers,
-} from '../patch-list-host.js';
+import { PatchListProvider, usePatchList, type PatchAppliers } from '../patch-list-host.js';
 import { PatchListOverlayBridgeProvider } from '../patch-list-overlay-bridge.js';
 import { PatchListOverlay } from '../patch-list-overlay.js';
+import { makeNeed } from './reconciliation-need-fixtures.js';
 
-// Inject a controllable stub for the open-needs hook so the overlay can be
-// tested without TanStack Router / QueryClientProvider scaffolding. Default
-// returns []; individual tests override via setMockOpenNeeds.
 let mockOpenNeeds: ReconciliationNeedRecord[] = [];
 function setMockOpenNeeds(needs: ReconciliationNeedRecord[]): void {
   mockOpenNeeds = needs;
@@ -24,7 +17,6 @@ function setMockOpenNeeds(needs: ReconciliationNeedRecord[]): void {
 
 vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
   useSpecificationOpenReconciliationNeeds: () => mockOpenNeeds,
-  // Stub the rest so accidental imports don't blow up.
   specificationQueryKeys: {
     bundle: (id: string) => ['specification', id, 'bundle'] as const,
     entities: (id: string) => ['specification', id, 'entities'] as const,
@@ -34,21 +26,9 @@ vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
   invalidateOpenReconciliationNeeds: vi.fn(),
 }));
 
-function makeNeed(overrides: Partial<ReconciliationNeedRecord> = {}): ReconciliationNeedRecord {
-  return {
-    id: overrides.id ?? 1,
-    specification_id: overrides.specification_id ?? 1,
-    source_item_id: overrides.source_item_id ?? 10,
-    target_item_id: overrides.target_item_id ?? 20,
-    kind: overrides.kind ?? 'needs_confirmation',
-    status: overrides.status ?? 'open',
-    reason: overrides.reason ?? null,
-    caused_by_turn_id: overrides.caused_by_turn_id ?? null,
-    caused_by_patch_id: overrides.caused_by_patch_id ?? null,
-    created_at: overrides.created_at ?? '2026-05-08T00:00:00Z',
-    resolved_at: overrides.resolved_at ?? null,
-  };
-}
+vi.mock('@/client/lib/edit-api.js', () => ({
+  resolveReconciliationNeedRequest: vi.fn(() => Promise.resolve({ resolved: true as const })),
+}));
 
 afterEach(() => {
   cleanup();
@@ -133,11 +113,23 @@ function StageAnnotatePatchButton() {
   );
 }
 
-function UndoButton() {
+function StageHardEditButton() {
   const patchList = usePatchList();
   return (
-    <button type="button" onClick={() => void patchList?.undo()}>
-      undo-outside-overlay
+    <button
+      type="button"
+      onClick={() =>
+        patchList?.stage({
+          kind: 'edit',
+          anchor: { kind: 'goal', itemId: 3 },
+          summary: 'Hard: restructure',
+          currentContent: 'before',
+          newContent: 'after',
+          impact: 'hard',
+        })
+      }
+    >
+      stage-hard-edit
     </button>
   );
 }
@@ -283,6 +275,7 @@ describe('PatchListOverlay', () => {
         undo: () => Promise.resolve(),
         applied: {
           impact: 'hard',
+          noUndo: true,
           previousContent: 'old',
           previousRationale: null,
           openedNeedIds: [101],
@@ -332,6 +325,7 @@ describe('PatchListOverlay', () => {
         undo: () => Promise.resolve(),
         applied: {
           impact: 'hard',
+          noUndo: true,
           previousContent: 'old',
           previousRationale: null,
           openedNeedIds: [101],
@@ -351,6 +345,109 @@ describe('PatchListOverlay', () => {
       fireEvent.click(screen.getByRole('button', { name: /apply/i }));
     });
 
+    expect(screen.getByRole('status', { name: /change saved/i })).toBeTruthy();
+  });
+
+  it('hides the Undo button after a hard-impact-only apply (V3.0 polish — noUndo)', async () => {
+    const editApplier = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: {
+          impact: 'hard',
+          noUndo: true,
+          previousContent: 'old',
+          previousRationale: null,
+          openedNeedIds: [101],
+        },
+      }),
+    );
+    const appliers = makeAppliers({ edit: editApplier as unknown as PatchAppliers['edit'] });
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchButton />
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('stage-edit'));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /apply/i }));
+    });
+
+    const toast = screen.getByRole('status', { name: /change saved/i });
+    expect(toast).toBeTruthy();
+    expect(toast.querySelector('button')).toBeNull();
+  });
+
+  it('still shows the Undo button after a soft-impact apply', async () => {
+    const editApplier = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { impact: 'soft', previousContent: 'old' },
+      }),
+    );
+    const appliers = makeAppliers({ edit: editApplier as unknown as PatchAppliers['edit'] });
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchButton />
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('stage-edit'));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /apply/i }));
+    });
+
+    const toast = screen.getByRole('status', { name: /change saved/i });
+    expect(toast.querySelector('button')).not.toBeNull();
+  });
+
+  it('shows the saved toast after a hard apply that immediately follows a soft apply', async () => {
+    let calls = 0;
+    const editApplier = vi.fn(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.resolve({
+          undo: () => Promise.resolve(),
+          applied: { impact: 'soft', previousContent: 'old' },
+        });
+      }
+      return Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: {
+          impact: 'hard',
+          noUndo: true,
+          previousContent: 'old',
+          previousRationale: null,
+          openedNeedIds: [101],
+        },
+      });
+    });
+    const appliers = makeAppliers({ edit: editApplier as unknown as PatchAppliers['edit'] });
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchWithDiffButton />
+        <StageHardEditButton />
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('stage-edit-with-diff'));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /apply/i }));
+    });
+    expect(screen.getByRole('status', { name: /change saved/i })).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000);
+    });
+    expect(screen.queryByRole('status', { name: /change saved/i })).toBeNull();
+
+    fireEvent.click(screen.getByText('stage-hard-edit'));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /apply/i }));
+    });
     expect(screen.getByRole('status', { name: /change saved/i })).toBeTruthy();
   });
 });

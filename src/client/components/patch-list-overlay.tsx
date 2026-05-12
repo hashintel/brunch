@@ -2,8 +2,8 @@
 //
 // Renders sticky bars below the global app top-bar:
 //   • Staged-changes bar when there are staged patches.
-//   • Pending-review section listing open reconciliation_need rows (V3.0 card 2,
-//     SIDE_CHAT.md §5.3 — driven by useSpecificationOpenReconciliationNeeds).
+//   • <PendingReviewSection /> — open reconciliation_need rows with per-row Resolve (V3.0 cards 2–3;
+//     SIDE_CHAT.md §5.3 — listing via useSpecificationOpenReconciliationNeeds).
 //   • Saved-toast for soft / none / hard impact applies (transient post-apply).
 //
 // Lives outside the side-chat popover so it stays visible regardless of whether
@@ -20,6 +20,7 @@ import { useLastBatchAppliedMeta, usePatchList, usePatchListState } from './patc
 import { usePatchListOverlayBridge } from './patch-list-overlay-bridge.js';
 import type { Patch } from './patch-list-reducer.js';
 import { usePatchListUndoOverride } from './patch-list-undo-context.js';
+import { PendingReviewSection } from './pending-review-section.js';
 
 const MESSAGE_DURATION_MS = 5000;
 
@@ -83,6 +84,7 @@ export function PatchListOverlay(): React.ReactElement | null {
   const [savedToastVisible, setSavedToastVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const lastSeenBatchIdRef = useRef<string | null>(null);
+  const prevCanUndoRef = useRef<boolean>(state.canUndo);
 
   // Auto-collapse when there are no staged patches left (post-apply / undo).
   useEffect(() => {
@@ -91,34 +93,43 @@ export function PatchListOverlay(): React.ReactElement | null {
     }
   }, [stagedCount, expanded]);
 
-  // Drive transient-message state off lastBatchId transitions: a new batch
-  // means a fresh apply just landed.
+  // Saved toast: a new `lastBatchId` means a fresh apply — show (with auto-hide timer).
+  // `canUndo` true→false hides the toast on undo, but must not win over a batch advance in
+  // the same commit (soft-impact apply then hard-impact apply both update `lastBatchId`
+  // and flip `canUndo` to false; two separate effects would batch hide-after-show).
   //
-  // Deps are intentionally narrow: a wider dep array re-runs cleanup on
-  // unrelated churn (e.g. stagedCount change), cancelling the auto-hide
-  // timer and leaving the toast stuck on screen.
+  // Deps are intentionally narrow: a wider dep array re-runs cleanup on unrelated churn
+  // (e.g. stagedCount change), cancelling the auto-hide timer and leaving the toast stuck.
   useEffect(() => {
-    if (state.lastBatchId === null || state.lastBatchId === lastSeenBatchIdRef.current) {
-      return;
+    const batchAdvanced = state.lastBatchId !== null && state.lastBatchId !== lastSeenBatchIdRef.current;
+
+    if (batchAdvanced) {
+      lastSeenBatchIdRef.current = state.lastBatchId;
     }
-    lastSeenBatchIdRef.current = state.lastBatchId;
 
     const hasApply = lastBatchHasNonNullApply(lastBatchAppliedMeta);
+    const showFromBatch =
+      batchAdvanced &&
+      hasApply &&
+      !state.isApplying &&
+      // Intentionally omit `state.staged` from deps: re-running on unrelated staging churn
+      // clears the auto-hide timer and leaves the toast stuck (FE-665 regression).
+      state.staged.length === 0;
 
-    if (hasApply && !state.isApplying && stagedCount === 0 && state.canUndo) {
+    const canUndoDropped = prevCanUndoRef.current && !state.canUndo;
+    prevCanUndoRef.current = state.canUndo;
+
+    if (showFromBatch) {
       setSavedToastVisible(true);
       const handle = window.setTimeout(() => setSavedToastVisible(false), MESSAGE_DURATION_MS);
       return () => window.clearTimeout(handle);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.lastBatchId]);
 
-  // Hide transient post-apply toast when canUndo flips back to false (the user undid).
-  useEffect(() => {
-    if (!state.canUndo) {
+    if (canUndoDropped && !batchAdvanced) {
       setSavedToastVisible(false);
     }
-  }, [state.canUndo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- staged length read only with batch/canUndo transitions that follow apply; omitting `state.staged` avoids timer churn on stage
+  }, [state.lastBatchId, state.canUndo, state.isApplying, lastBatchAppliedMeta]);
 
   if (!patchList) {
     return null;
@@ -129,13 +140,13 @@ export function PatchListOverlay(): React.ReactElement | null {
   const scopedApplyBlocked =
     overlayBridge !== null && stagedCount > 0 && overlayBridge.scopedPatchIds.length === 0;
 
-  function applyFromOverlay() {
+  const applyFromOverlay = (): void => {
     if (overlayBridge) {
       overlayBridge.applyScoped();
       return;
     }
     void patchList.apply();
-  }
+  };
 
   // Nothing to surface: no staged patches, no open needs, no transient toast.
   if (stagedCount === 0 && openNeedsCount === 0 && !savedToastVisible) {
@@ -187,7 +198,7 @@ export function PatchListOverlay(): React.ReactElement | null {
                     ? 'Pending changes are on another item — open that item in side-chat or switch context to apply them'
                     : undefined
                 }
-                onClick={() => void applyFromOverlay()}
+                onClick={() => applyFromOverlay()}
                 className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] disabled:opacity-50"
               >
                 {state.isApplying ? 'Applying…' : 'Apply'}
@@ -207,38 +218,7 @@ export function PatchListOverlay(): React.ReactElement | null {
           ) : null}
         </div>
       ) : null}
-      {openNeedsCount > 0 ? (
-        <div
-          role="region"
-          aria-label="Pending review"
-          data-open-needs-count={openNeedsCount}
-          className="flex flex-col gap-1 border-b border-rule bg-[rgba(255,219,168,0.35)] px-4 py-1.5 text-xs backdrop-blur"
-        >
-          <span className="font-medium text-ink">
-            {openNeedsCount} pending review{openNeedsCount === 1 ? '' : 's'}
-          </span>
-          <ul className="flex flex-col gap-0.5 text-sub">
-            {openNeeds.map((need) => (
-              <li
-                key={need.id}
-                data-need-id={need.id}
-                data-need-kind={need.kind}
-                className="flex items-center gap-2"
-              >
-                <span
-                  className="rounded-sm bg-white/70 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-ink uppercase"
-                  data-kind-chip={need.kind}
-                >
-                  {need.kind === 'supersedes' ? 'supersedes' : 'confirm'}
-                </span>
-                <span>
-                  source #{need.source_item_id} → target #{need.target_item_id}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <PendingReviewSection />
       {savedToastVisible ? (
         <div
           role="status"

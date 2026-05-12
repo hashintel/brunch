@@ -129,6 +129,7 @@ describe('makeEditApplier', () => {
     const result = await applier(makeEditPatch());
     expect(result.applied).toEqual({
       impact: 'hard',
+      noUndo: true,
       previousContent: 'Old content',
       previousRationale: 'Old rationale',
       openedNeedIds: [101, 102],

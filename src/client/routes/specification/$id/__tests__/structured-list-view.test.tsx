@@ -32,6 +32,7 @@ import {
   singleItemNoEdges,
 } from '@/client/__fixtures__/graph-view.js';
 import { PatchListProvider, type PatchAppliers } from '@/client/components/patch-list-host.js';
+import { PatchListOverlay } from '@/client/components/patch-list-overlay.js';
 import { SideChatHost, useSideChat, type SideChatPinnableItem } from '@/client/components/side-chat-host.js';
 import type { SideChatStreamEvent } from '@/client/lib/side-chat-stream.js';
 
@@ -45,7 +46,18 @@ const { mockListAnnotationsForSpecificationRequest, mockStreamSideChatResponse }
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mockNavigate,
   useLocation: () => ({ hash: mockHash, pathname: '/specification/1/graph', search: '' }),
+  useParams: () => ({ id: '1' }),
 }));
+
+vi.mock('@/client/routes/specification/$id/-specification-data.js', async (importOriginal) => {
+  const mod =
+    await importOriginal<typeof import('@/client/routes/specification/$id/-specification-data.js')>();
+  return {
+    ...mod,
+    useSpecificationOpenReconciliationNeeds: () => [],
+    invalidateOpenReconciliationNeeds: vi.fn(),
+  };
+});
 
 vi.mock('@/client/lib/side-chat-stream.js', () => ({
   streamSideChatResponse: mockStreamSideChatResponse,
@@ -1145,6 +1157,7 @@ describe('structured-list-view direct edit (FE-657)', () => {
     const { container } = render(
       <PatchListProvider appliers={makeAppliers()}>
         <SideChatHost specificationId={1}>
+          <PatchListOverlay />
           <StructuredListView entityState={singleItemNoEdges()} />
         </SideChatHost>
       </PatchListProvider>,
@@ -1179,6 +1192,7 @@ describe('structured-list-view direct edit (FE-657)', () => {
     const { container } = render(
       <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
+          <PatchListOverlay />
           <StructuredListView entityState={singleItemNoEdges()} />
         </SideChatHost>
       </PatchListProvider>,
@@ -1229,6 +1243,7 @@ describe('structured-list-view direct edit (FE-657)', () => {
     const { container } = render(
       <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
+          <PatchListOverlay />
           <StructuredListView entityState={singleItemNoEdges()} />
         </SideChatHost>
       </PatchListProvider>,
@@ -1259,6 +1274,7 @@ describe('structured-list-view direct edit (FE-657)', () => {
     const { container } = render(
       <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
+          <PatchListOverlay />
           <StructuredListView entityState={singleItemNoEdges()} />
         </SideChatHost>
       </PatchListProvider>,
@@ -1308,6 +1324,7 @@ describe('structured-list-view direct edit (FE-657)', () => {
     const { container } = render(
       <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={1}>
+          <PatchListOverlay />
           <StructuredListView entityState={singleItemNoEdges()} />
         </SideChatHost>
       </PatchListProvider>,
