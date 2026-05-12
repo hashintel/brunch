@@ -8,11 +8,10 @@ import type { ReconciliationNeedRecord } from '@/shared/reconciliation-need.js';
 import { PatchListProvider, usePatchList, type PatchAppliers } from '../patch-list-host.js';
 import { PatchListOverlayBridgeProvider } from '../patch-list-overlay-bridge.js';
 import { PatchListOverlay } from '../patch-list-overlay.js';
-import { makeNeed } from './reconciliation-need-fixtures.js';
 
-// PendingReviewSection (composed by the overlay) reads open needs through this
-// hook; stub it so the overlay can render without TanStack Router context.
-// Resolution-action tests live in pending-review-section.test.tsx.
+// Inject a controllable stub for the open-needs hook so the overlay can be
+// tested without TanStack Router / QueryClientProvider scaffolding. Default
+// returns []; individual tests override via setMockOpenNeeds.
 let mockOpenNeeds: ReconciliationNeedRecord[] = [];
 function setMockOpenNeeds(needs: ReconciliationNeedRecord[]): void {
   mockOpenNeeds = needs;
@@ -20,12 +19,35 @@ function setMockOpenNeeds(needs: ReconciliationNeedRecord[]): void {
 
 vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
   useSpecificationOpenReconciliationNeeds: () => mockOpenNeeds,
+  // Stub the rest so accidental imports don't blow up.
+  specificationQueryKeys: {
+    bundle: (id: string) => ['specification', id, 'bundle'] as const,
+    entities: (id: string) => ['specification', id, 'entities'] as const,
+    entitiesProjectWide: (id: string) => ['specification', id, 'entities', 'project-wide'] as const,
+    reconciliationNeeds: (id: string) => ['specification', id, 'reconciliation-needs'] as const,
+  },
   invalidateOpenReconciliationNeeds: vi.fn(),
 }));
 
 vi.mock('@/client/lib/edit-api.js', () => ({
   resolveReconciliationNeedRequest: vi.fn(() => Promise.resolve({ resolved: true as const })),
 }));
+
+function makeNeed(overrides: Partial<ReconciliationNeedRecord> = {}): ReconciliationNeedRecord {
+  return {
+    id: overrides.id ?? 1,
+    specification_id: overrides.specification_id ?? 1,
+    source_item_id: overrides.source_item_id ?? 10,
+    target_item_id: overrides.target_item_id ?? 20,
+    kind: overrides.kind ?? 'needs_confirmation',
+    status: overrides.status ?? 'open',
+    reason: overrides.reason ?? null,
+    caused_by_turn_id: overrides.caused_by_turn_id ?? null,
+    caused_by_patch_id: overrides.caused_by_patch_id ?? null,
+    created_at: overrides.created_at ?? '2026-05-08T00:00:00Z',
+    resolved_at: overrides.resolved_at ?? null,
+  };
+}
 
 afterEach(() => {
   cleanup();
@@ -220,7 +242,39 @@ describe('PatchListOverlay', () => {
     expect(editApplier).toHaveBeenCalledTimes(1);
   });
 
-  it('composes both staged-changes and Pending review regions when both have content', () => {
+  it('renders the Pending review section listing open reconciliation needs (V3.0 card 2)', () => {
+    setMockOpenNeeds([
+      makeNeed({ id: 1, source_item_id: 10, target_item_id: 20, kind: 'needs_confirmation' }),
+      makeNeed({ id: 2, source_item_id: 10, target_item_id: 21, kind: 'supersedes' }),
+    ]);
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+      </PatchListProvider>,
+    );
+    const section = screen.getByRole('region', { name: /pending review/i });
+    expect(section.getAttribute('data-open-needs-count')).toBe('2');
+    expect(section.textContent).toContain('2 pending reviews');
+    // Each need rendered with its kind chip and source→target reference
+    expect(section.querySelector('[data-need-id="1"]')?.textContent).toContain('source #10');
+    expect(section.querySelector('[data-need-id="1"]')?.textContent).toContain('target #20');
+    expect(section.querySelector('[data-need-id="1"][data-need-kind="needs_confirmation"]')).toBeTruthy();
+    expect(section.querySelector('[data-need-id="2"][data-need-kind="supersedes"]')).toBeTruthy();
+  });
+
+  it('hides the Pending review section when there are zero open needs', () => {
+    setMockOpenNeeds([]);
+    const appliers = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+      </PatchListProvider>,
+    );
+    expect(screen.queryByRole('region', { name: /pending review/i })).toBeNull();
+  });
+
+  it('renders both staged-changes and Pending review when both exist', () => {
     setMockOpenNeeds([makeNeed({ id: 7 })]);
     const appliers = makeAppliers();
     render(
@@ -240,6 +294,7 @@ describe('PatchListOverlay', () => {
         undo: () => Promise.resolve(),
         applied: {
           impact: 'hard',
+          noUndo: true,
           previousContent: 'old',
           previousRationale: null,
           openedNeedIds: [101],
@@ -283,7 +338,7 @@ describe('PatchListOverlay', () => {
     expect(screen.getByRole('status', { name: /change saved/i })).toBeTruthy();
   });
 
-  it('shows the saved-toast after a hard-impact apply (no deferred banner blocking)', async () => {
+  it('shows the saved-toast after a hard-impact apply (V3.0 card 2 — no deferred banner blocking)', async () => {
     const editApplier = vi.fn(() =>
       Promise.resolve({
         undo: () => Promise.resolve(),
@@ -338,7 +393,6 @@ describe('PatchListOverlay', () => {
       fireEvent.click(screen.getByRole('button', { name: /apply/i }));
     });
 
-    // Saved-toast renders; the Undo button inside it should NOT.
     const toast = screen.getByRole('status', { name: /change saved/i });
     expect(toast).toBeTruthy();
     expect(toast.querySelector('button')).toBeNull();

@@ -37,14 +37,11 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
     const previousRationale = response.previousRationale;
     await invalidateEntityQueriesAfterEdit(specificationId);
     if (response.impact === 'hard') {
-      // V3.0 (D139, I112): hard-impact apply mutates source and opens one
-      // reconciliation_need per typed dependency edge. The Pending review
-      // section in patch-list-overlay surfaces the queue and exposes per-row
-      // Resolve. Undo for hard applies is intentionally not wired — the
-      // source mutation can't be reversed without going through the
-      // reconciliation queue. `noUndo: true` tells the patch-list reducer to
-      // keep canUndo false for batches that contain only hard applies, so the
-      // Undo button doesn't mislead the user.
+      // V3.0 card 2–3 (D139, I112): hard-impact apply mutates source and opens
+      // reconciliation_need rows; Pending review surfaces the queue with per-row
+      // Resolve. Undo for the source mutation is not wired — the user resolves
+      // through the queue. `noUndo: true` keeps canUndo false so the Undo button
+      // does not mislead.
       await invalidateOpenReconciliationNeeds(specificationId);
       return {
         undo: async () => {},

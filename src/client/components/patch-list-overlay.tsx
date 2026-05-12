@@ -1,14 +1,17 @@
 // PatchListOverlay — the canonical persistent patch-list surface (SIDE_CHAT.md §4).
 //
-// Composes three sticky bars below the global app top-bar:
+// Renders sticky bars below the global app top-bar:
 //   • Staged-changes bar when there are staged patches.
-//   • <PendingReviewSection /> — open reconciliation_need rows with Resolve buttons.
-//   • Saved-toast for transient post-apply feedback.
+//   • <PendingReviewSection /> — open reconciliation_need rows with per-row Resolve (V3.0 cards 2–3;
+//     SIDE_CHAT.md §5.3 — listing via useSpecificationOpenReconciliationNeeds).
+//   • Saved-toast for soft / none / hard impact applies (transient post-apply).
 //
 // Lives outside the side-chat popover so it stays visible regardless of whether
 // the panel is open — V4's architect loop will deposit into the same surface.
 
 import { useEffect, useRef, useState } from 'react';
+
+import { useSpecificationOpenReconciliationNeeds } from '@/client/routes/specification/$id/-specification-data.js';
 
 import { ContentDiff } from './content-diff.js';
 import { ImpactChip } from './impact-chip.js';
@@ -73,8 +76,10 @@ export function PatchListOverlay(): React.ReactElement | null {
   const lastBatchAppliedMeta = useLastBatchAppliedMeta();
   const undoOverride = usePatchListUndoOverride();
   const overlayBridge = usePatchListOverlayBridge();
+  const openNeeds = useSpecificationOpenReconciliationNeeds();
 
   const stagedCount = state.staged.length;
+  const openNeedsCount = openNeeds.length;
 
   const [savedToastVisible, setSavedToastVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -92,6 +97,9 @@ export function PatchListOverlay(): React.ReactElement | null {
   // `canUndo` true→false hides the toast on undo, but must not win over a batch advance in
   // the same commit (soft-impact apply then hard-impact apply both update `lastBatchId`
   // and flip `canUndo` to false; two separate effects would batch hide-after-show).
+  //
+  // Deps are intentionally narrow: a wider dep array re-runs cleanup on unrelated churn
+  // (e.g. stagedCount change), cancelling the auto-hide timer and leaving the toast stuck.
   useEffect(() => {
     const batchAdvanced = state.lastBatchId !== null && state.lastBatchId !== lastSeenBatchIdRef.current;
 
@@ -140,6 +148,11 @@ export function PatchListOverlay(): React.ReactElement | null {
     void patchList.apply();
   };
 
+  // Nothing to surface: no staged patches, no open needs, no transient toast.
+  if (stagedCount === 0 && openNeedsCount === 0 && !savedToastVisible) {
+    return null;
+  }
+
   const countLabel = `${stagedCount} pending change${stagedCount === 1 ? '' : 's'}`;
 
   return (
@@ -185,9 +198,7 @@ export function PatchListOverlay(): React.ReactElement | null {
                     ? 'Pending changes are on another item — open that item in side-chat or switch context to apply them'
                     : undefined
                 }
-                onClick={() => {
-                  applyFromOverlay();
-                }}
+                onClick={() => applyFromOverlay()}
                 className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] disabled:opacity-50"
               >
                 {state.isApplying ? 'Applying…' : 'Apply'}
