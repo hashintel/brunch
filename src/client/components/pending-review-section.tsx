@@ -54,7 +54,7 @@ export function PendingReviewSection(): React.ReactElement | null {
       role="region"
       aria-label="Pending review"
       data-open-needs-count={openNeeds.length}
-      className="sticky top-0 z-30 flex flex-col gap-1 border-b border-rule bg-[rgba(255,219,168,0.35)] px-4 py-1.5 text-xs backdrop-blur"
+      className="flex flex-col gap-1 border-b border-rule bg-[rgba(255,219,168,0.35)] px-4 py-1.5 text-xs backdrop-blur"
     >
       <span className="font-medium text-ink">
         {openNeeds.length} pending review{openNeeds.length === 1 ? '' : 's'}

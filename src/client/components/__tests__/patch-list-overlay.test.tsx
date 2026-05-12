@@ -8,10 +8,8 @@ import type { ReconciliationNeedRecord } from '@/shared/reconciliation-need.js';
 import { PatchListProvider, usePatchList, type PatchAppliers } from '../patch-list-host.js';
 import { PatchListOverlayBridgeProvider } from '../patch-list-overlay-bridge.js';
 import { PatchListOverlay } from '../patch-list-overlay.js';
+import { makeNeed } from './reconciliation-need-fixtures.js';
 
-// Inject a controllable stub for the open-needs hook so the overlay can be
-// tested without TanStack Router / QueryClientProvider scaffolding. Default
-// returns []; individual tests override via setMockOpenNeeds.
 let mockOpenNeeds: ReconciliationNeedRecord[] = [];
 function setMockOpenNeeds(needs: ReconciliationNeedRecord[]): void {
   mockOpenNeeds = needs;
@@ -19,7 +17,6 @@ function setMockOpenNeeds(needs: ReconciliationNeedRecord[]): void {
 
 vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
   useSpecificationOpenReconciliationNeeds: () => mockOpenNeeds,
-  // Stub the rest so accidental imports don't blow up.
   specificationQueryKeys: {
     bundle: (id: string) => ['specification', id, 'bundle'] as const,
     entities: (id: string) => ['specification', id, 'entities'] as const,
@@ -32,22 +29,6 @@ vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
 vi.mock('@/client/lib/edit-api.js', () => ({
   resolveReconciliationNeedRequest: vi.fn(() => Promise.resolve({ resolved: true as const })),
 }));
-
-function makeNeed(overrides: Partial<ReconciliationNeedRecord> = {}): ReconciliationNeedRecord {
-  return {
-    id: overrides.id ?? 1,
-    specification_id: overrides.specification_id ?? 1,
-    source_item_id: overrides.source_item_id ?? 10,
-    target_item_id: overrides.target_item_id ?? 20,
-    kind: overrides.kind ?? 'needs_confirmation',
-    status: overrides.status ?? 'open',
-    reason: overrides.reason ?? null,
-    caused_by_turn_id: overrides.caused_by_turn_id ?? null,
-    caused_by_patch_id: overrides.caused_by_patch_id ?? null,
-    created_at: overrides.created_at ?? '2026-05-08T00:00:00Z',
-    resolved_at: overrides.resolved_at ?? null,
-  };
-}
 
 afterEach(() => {
   cleanup();
