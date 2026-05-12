@@ -44,7 +44,7 @@ export default defineConfig(({ command, mode }) => {
       dedupe: ['react', 'react-dom'],
     },
     test: {
-      include: ['src/**/*.test.{js,ts,jsx,tsx}'],
+      include: ['src/**/*.test.{js,ts,jsx,tsx}', 'scripts/**/*.test.{js,ts,jsx,tsx}'],
     },
   };
 

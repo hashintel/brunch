@@ -282,18 +282,25 @@ describe('probe runner', () => {
   it('guards the probe-runner import boundary from server mutation authority modules', () => {
     const source = readFileSync(new URL('./probe-runner.ts', import.meta.url), 'utf8');
     const forbiddenImports = [
-      './db.js',
-      './capabilities.js',
-      './capability-registry.js',
-      './schema.js',
-      './core.js',
-      './chat-route-transition.js',
-      './turn-response-transition.js',
+      '@/server/db',
+      '@/server/capabilities',
+      '@/server/capability-registry',
+      '@/server/schema',
+      '@/server/core',
+      '@/server/chat-route-transition',
+      '@/server/turn-response-transition',
+      '../../src/server/db',
+      '../../src/server/capabilities',
+      '../../src/server/capability-registry',
+      '../../src/server/schema',
+      '../../src/server/core',
+      '../../src/server/chat-route-transition',
+      '../../src/server/turn-response-transition',
     ];
 
     for (const forbiddenImport of forbiddenImports) {
-      expect(source).not.toContain(`from '${forbiddenImport}'`);
-      expect(source).not.toContain(`from "${forbiddenImport}"`);
+      expect(source).not.toContain(`from '${forbiddenImport}`);
+      expect(source).not.toContain(`from "${forbiddenImport}`);
     }
   });
 
