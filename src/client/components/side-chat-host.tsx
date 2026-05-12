@@ -542,6 +542,17 @@ export function SideChatHost({
     kind: patch.kind,
     summary: patch.summary,
     ...(patch.kind === 'edit' && patch.impact !== undefined ? { impact: patch.impact } : {}),
+    // FE-665: when an edit patch targets the currently-pinned item, surface
+    // the before/after pair so the staged-patch row can render a word-level
+    // <ContentDiff> in its expander. pinnedItem.content tracks the live
+    // saved content via the apply-time refresh effect below, so this stays
+    // an honest "current vs proposed" view.
+    ...(patch.kind === 'edit' &&
+    activeSideChat &&
+    patch.anchor.kind === activeSideChat.itemKind &&
+    patch.anchor.itemId === activeSideChat.itemId
+      ? { currentContent: activeSideChat.pinnedItem.content, newContent: patch.newContent }
+      : {}),
   }));
   const stagedForActiveIds = useMemo(() => stagedForActive.map((patch) => patch.id), [stagedForActive]);
   const canUndoForActive =
