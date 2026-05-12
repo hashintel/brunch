@@ -1,3 +1,8 @@
+import { spawn } from 'node:child_process';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+
 export interface ProbeJsonlRequest {
   id: string;
   capability: string;
@@ -11,6 +16,23 @@ export type ProbeJsonlResponse =
 export interface JsonlTransport {
   send(request: ProbeJsonlRequest): Promise<ProbeJsonlResponse>;
 }
+
+export interface SpawnedJsonlProcess {
+  writeStdin(line: string): void;
+  endStdin(): void;
+  onStdoutData(listener: (chunk: string) => void): void;
+  onStderrData?(listener: (chunk: string) => void): void;
+  onExit?(listener: (code: number | null) => void): void;
+}
+
+export interface ProbeProcessSpawnOptions {
+  cwd: string;
+  command: string;
+  args: string[];
+  env: NodeJS.ProcessEnv;
+}
+
+export type ProbeProcessSpawner = (options: ProbeProcessSpawnOptions) => SpawnedJsonlProcess;
 
 export interface ScriptedProbeScenario {
   name: string;
@@ -73,6 +95,69 @@ interface RunScriptedProbeOptions {
   transport: JsonlTransport;
   scenario: ScriptedProbeScenario;
   scriptedAnswers: string[];
+}
+
+export interface ProcessBackedProbeOptions {
+  scenario: ScriptedProbeScenario;
+  scriptedAnswers: string[];
+  outputDir: string;
+  spawnProcess?: ProbeProcessSpawner;
+  command?: string;
+  args?: string[];
+  env?: NodeJS.ProcessEnv;
+}
+
+export async function runProcessBackedProbe({
+  scenario,
+  scriptedAnswers,
+  outputDir,
+  spawnProcess = spawnBrunchAgentProcess,
+  command = process.execPath,
+  args = [resolve('bin/brunch.js'), 'agent'],
+  env = process.env,
+}: ProcessBackedProbeOptions): Promise<ProbeRunResult> {
+  const workspaceCwd = mkdtempSync(join(tmpdir(), 'brunch-probe-workspace-'));
+  const spawned = spawnProcess({ cwd: workspaceCwd, command, args, env });
+  const transport = createProcessJsonlTransport(spawned);
+
+  try {
+    const result = await runScriptedProbe({ transport, scenario, scriptedAnswers });
+    writeProbeArtifacts(outputDir, result);
+    return result;
+  } finally {
+    spawned.endStdin();
+  }
+}
+
+export function createProcessJsonlTransport(process: SpawnedJsonlProcess): JsonlTransport {
+  let buffer = '';
+  const pending = new Map<string, (response: ProbeJsonlResponse) => void>();
+
+  process.onStdoutData((chunk) => {
+    buffer += chunk;
+    let newlineIndex = buffer.indexOf('\n');
+    while (newlineIndex >= 0) {
+      const line = buffer.slice(0, newlineIndex).trim();
+      buffer = buffer.slice(newlineIndex + 1);
+      if (line !== '') {
+        const response = JSON.parse(line) as ProbeJsonlResponse;
+        if (response.id) {
+          pending.get(response.id)?.(response);
+          pending.delete(response.id);
+        }
+      }
+      newlineIndex = buffer.indexOf('\n');
+    }
+  });
+
+  return {
+    send(request) {
+      return new Promise<ProbeJsonlResponse>((resolveResponse) => {
+        pending.set(request.id, resolveResponse);
+        process.writeStdin(JSON.stringify(request));
+      });
+    },
+  };
 }
 
 export async function runScriptedProbe({
@@ -206,5 +291,41 @@ function buildScriptedResponse(turn: AgentChatTurn, scriptedAnswer: string | und
   return {
     kind: 'free-text' as const,
     freeText: scriptedAnswer?.trim() || `Scripted response to: ${turn.question}`,
+  };
+}
+
+function writeProbeArtifacts(outputDir: string, result: ProbeRunResult): void {
+  mkdirSync(outputDir, { recursive: true });
+  const rawJsonl = result.requests
+    .flatMap((request, index) => [
+      { direction: 'request', payload: request },
+      { direction: 'response', payload: result.responses[index] ?? null },
+    ])
+    .map((entry) => JSON.stringify(entry))
+    .join('\n');
+
+  writeFileSync(join(outputDir, 'raw-jsonl.ndjson'), `${rawJsonl}\n`);
+  writeFileSync(join(outputDir, 'final-chat.json'), `${JSON.stringify(result.finalChat, null, 2)}\n`);
+  writeFileSync(join(outputDir, 'summary.json'), `${JSON.stringify(result.summary, null, 2)}\n`);
+}
+
+function spawnBrunchAgentProcess({ cwd, command, args, env }: ProbeProcessSpawnOptions): SpawnedJsonlProcess {
+  const child = spawn(command, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });
+  return {
+    writeStdin(line) {
+      child.stdin.write(`${line}\n`);
+    },
+    endStdin() {
+      child.stdin.end();
+    },
+    onStdoutData(listener) {
+      child.stdout.on('data', (chunk) => listener(chunk.toString()));
+    },
+    onStderrData(listener) {
+      child.stderr.on('data', (chunk) => listener(chunk.toString()));
+    },
+    onExit(listener) {
+      child.on('exit', listener);
+    },
   };
 }
