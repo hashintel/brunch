@@ -160,6 +160,13 @@ export async function handleResetReconciliationNeedAgent(
     return;
   }
 
+  if (need.status !== 'open') {
+    res.status(409).json({
+      error: 'Reconciliation need is not open; reset-agent applies only to open rows.',
+    } satisfies MutationErrorResponse);
+    return;
+  }
+
   const ranAt = new Date().toISOString();
 
   updateReconciliationNeedAgentFields(db, need.id, {

@@ -27,6 +27,7 @@ const {
   createKnowledgeItem,
   getReconciliationNeed,
   openReconciliationNeed,
+  resolveReconciliationNeed,
   updateReconciliationNeedAgentFields,
 } = await import('./db.js');
 
@@ -378,6 +379,36 @@ describe('POST /api/specifications/:id/reconciliation-needs/:needId/reset-agent'
       .post(`/api/specifications/${specB}/reconciliation-needs/${need.id}/reset-agent`)
       .expect(404);
     expect(mockGenerateText).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when the reconciliation need is not open', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'G');
+    const r1 = createKnowledgeItem(db, specId, 'requirement', 'R1');
+    addKnowledgeRelationship(db, r1.id, goal.id, 'depends_on');
+    const need = openReconciliationNeed(db, {
+      specificationId: specId,
+      sourceItemId: goal.id,
+      targetItemId: r1.id,
+      kind: 'needs_confirmation',
+    });
+    updateReconciliationNeedAgentFields(db, need.id, {
+      agent_status: 'classified',
+      agent_classification: 'auto-confirm',
+      agent_proposal: null,
+    });
+    resolveReconciliationNeed(db, need.id);
+
+    await request(app)
+      .post(`/api/specifications/${specId}/reconciliation-needs/${need.id}/reset-agent`)
+      .expect(409);
+
+    expect(mockGenerateText).not.toHaveBeenCalled();
+
+    const after = getReconciliationNeed(db, need.id);
+    expect(after?.status).toBe('resolved');
+    expect(after?.agent_status).toBe('classified');
+    expect(after?.agent_classification).toBe('auto-confirm');
   });
 
   it('returns 400 when ids are non-numeric', async () => {
