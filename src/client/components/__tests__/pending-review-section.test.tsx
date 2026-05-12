@@ -25,8 +25,20 @@ vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
 const mockResolveReconciliationNeedRequest = vi.hoisted(() =>
   vi.fn(() => Promise.resolve({ resolved: true as const })),
 );
+const mockEditKnowledgeItemRequest = vi.hoisted(() =>
+  vi.fn(() =>
+    Promise.resolve({
+      impact: 'soft' as const,
+      affectedItems: [],
+      updated: true as const,
+      previousContent: 'old',
+      previousRationale: null,
+    }),
+  ),
+);
 vi.mock('@/client/lib/edit-api.js', () => ({
   resolveReconciliationNeedRequest: mockResolveReconciliationNeedRequest,
+  editKnowledgeItemRequest: mockEditKnowledgeItemRequest,
 }));
 
 beforeEach(() => {
@@ -38,6 +50,16 @@ afterEach(() => {
   setMockOpenNeeds([]);
   mockResolveReconciliationNeedRequest.mockClear();
   mockResolveReconciliationNeedRequest.mockImplementation(() => Promise.resolve({ resolved: true as const }));
+  mockEditKnowledgeItemRequest.mockClear();
+  mockEditKnowledgeItemRequest.mockImplementation(() =>
+    Promise.resolve({
+      impact: 'soft' as const,
+      affectedItems: [],
+      updated: true as const,
+      previousContent: 'old',
+      previousRationale: null,
+    }),
+  );
   mockInvalidateOpenReconciliationNeeds.mockClear();
   vi.useRealTimers();
 });
@@ -133,5 +155,184 @@ describe('PendingReviewSection', () => {
     setMockOpenNeeds([]);
     rerender(<PendingReviewSection />);
     expect(screen.queryByRole('region', { name: /pending review/i })).toBeNull();
+  });
+
+  // Card 2 (V3.1 setup): each row renders a <ContentDiff> of the source
+  // item's before/after content when both snapshots are present and differ.
+  // Reuses the existing ContentDiff component (FE-665); no new diff styling.
+  describe('source diff inline (card 2)', () => {
+    it('renders the source diff when both snapshots are present and differ', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          source_previous_content: 'Reduce signup drop-off',
+          source_current_content: 'Cut signup drop-off by 30%',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      const row = screen.getByRole('region').querySelector('[data-need-id="1"]');
+      expect(row?.querySelector('[data-content-diff]')).toBeTruthy();
+      // Removed and added word-level segments both appear.
+      expect(row?.querySelector('[data-diff-kind="removed"]')).toBeTruthy();
+      expect(row?.querySelector('[data-diff-kind="added"]')).toBeTruthy();
+    });
+
+    it('labels the source diff with "Source change" so it is not confused with future target diffs', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          source_previous_content: 'Old',
+          source_current_content: 'New',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      const row = screen.getByRole('region').querySelector('[data-need-id="1"]');
+      expect(row?.textContent).toMatch(/source change/i);
+    });
+
+    it('renders no diff when either snapshot is null (legacy rows)', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          source_previous_content: null,
+          source_current_content: 'New only',
+        }),
+        makeNeed({
+          id: 2,
+          source_previous_content: 'Old only',
+          source_current_content: null,
+        }),
+        makeNeed({
+          id: 3,
+          source_previous_content: null,
+          source_current_content: null,
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      const region = screen.getByRole('region');
+      expect(region.querySelectorAll('[data-content-diff]')).toHaveLength(0);
+      // Rows still render, Resolve button still works.
+      expect(screen.getAllByRole('button', { name: /resolve/i })).toHaveLength(3);
+    });
+
+    it('renders no diff when before === after (no actual change)', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          source_previous_content: 'Same content',
+          source_current_content: 'Same content',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      const row = screen.getByRole('region').querySelector('[data-need-id="1"]');
+      // ContentDiff returns null when there is no change, so the diff block
+      // is absent. The "Source change" label is also absent because it is
+      // only rendered alongside a non-null diff.
+      expect(row?.querySelector('[data-content-diff]')).toBeNull();
+      expect(row?.textContent).not.toMatch(/source change/i);
+    });
+  });
+
+  // Card 3 (V3.1 setup): Edit-target inline form per row. Saving runs the
+  // standard edit pipeline (editKnowledgeItemRequest) then resolves the
+  // need (resolveReconciliationNeedRequest) and refetches. The target's
+  // current content is read from the row's target_current_content field
+  // (live-joined by the listing endpoint).
+  describe('Edit-target inline form (card 3)', () => {
+    it('renders an Edit target button per row when target_current_content is present', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, target_current_content: 'A' }),
+        makeNeed({ id: 2, target_current_content: 'B' }),
+      ]);
+      render(<PendingReviewSection />);
+      expect(screen.getAllByRole('button', { name: /^edit target$/i })).toHaveLength(2);
+    });
+
+    it('expands an inline textarea pre-filled with target_current_content', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          target_current_content: 'Validate email format on form submit',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      // No textarea visible until Edit target is clicked.
+      expect(screen.queryByRole('textbox')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: /^edit target$/i }));
+      const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
+      expect(textarea.value).toBe('Validate email format on form submit');
+    });
+
+    it('Cancel collapses the form without calling any request', () => {
+      setMockOpenNeeds([makeNeed({ id: 1, target_current_content: 'Old target' })]);
+      render(<PendingReviewSection />);
+      fireEvent.click(screen.getByRole('button', { name: /^edit target$/i }));
+      expect(screen.getByRole('textbox')).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+      expect(screen.queryByRole('textbox')).toBeNull();
+      expect(mockEditKnowledgeItemRequest).not.toHaveBeenCalled();
+      expect(mockResolveReconciliationNeedRequest).not.toHaveBeenCalled();
+    });
+
+    it('Save calls editKnowledgeItemRequest then resolveReconciliationNeedRequest then invalidates', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 7,
+          specification_id: 42,
+          target_item_id: 99,
+          target_current_content: 'Old target content',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      fireEvent.click(screen.getByRole('button', { name: /^edit target$/i }));
+      const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
+      fireEvent.change(textarea, { target: { value: 'New target content' } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+      });
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledTimes(1);
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledWith(42, 99, {
+        content: 'New target content',
+      });
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(1);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(42, 7);
+      expect(mockInvalidateOpenReconciliationNeeds).toHaveBeenCalledWith(42);
+    });
+
+    it('disables Save and Resolve while the edit is in flight', async () => {
+      let resolveEdit: () => void = () => {};
+      mockEditKnowledgeItemRequest.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveEdit = () =>
+              resolve({
+                impact: 'soft' as const,
+                affectedItems: [],
+                updated: true as const,
+                previousContent: 'old',
+                previousRationale: null,
+              });
+          }),
+      );
+      setMockOpenNeeds([makeNeed({ id: 1, target_current_content: 'Old' })]);
+      render(<PendingReviewSection />);
+      fireEvent.click(screen.getByRole('button', { name: /^edit target$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+      // Save morphs to a saving label and disables; Resolve also disables.
+      expect(screen.getByRole('button', { name: /saving/i })).toHaveProperty('disabled', true);
+      expect(screen.getByRole('button', { name: /^resolve$/i })).toHaveProperty('disabled', true);
+      await act(async () => {
+        resolveEdit();
+      });
+    });
+
+    it('Edit target button does not appear when target_current_content is null', () => {
+      setMockOpenNeeds([makeNeed({ id: 1, target_current_content: null })]);
+      render(<PendingReviewSection />);
+      // Without target content, there is nothing to pre-fill, so the affordance
+      // is hidden — the user can still resolve via the existing Resolve button.
+      expect(screen.queryByRole('button', { name: /^edit target$/i })).toBeNull();
+      expect(screen.getByRole('button', { name: /^resolve$/i })).toBeTruthy();
+    });
   });
 });
