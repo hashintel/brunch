@@ -59,7 +59,7 @@ export function PendingReviewSection(): React.ReactElement | null {
       <span className="font-medium text-ink">
         {openNeeds.length} pending review{openNeeds.length === 1 ? '' : 's'}
       </span>
-      <ul className="text-text-sub flex flex-col gap-0.5">
+      <ul className="flex flex-col gap-0.5 text-sub">
         {openNeeds.map((need) => {
           const isResolving = resolvingNeedIds.has(need.id);
           return (

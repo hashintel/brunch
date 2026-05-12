@@ -88,38 +88,40 @@ export function PatchListOverlay(): React.ReactElement | null {
     }
   }, [stagedCount, expanded]);
 
-  // Drive transient-message state off lastBatchId transitions: a new batch
-  // means a fresh apply just landed.
-  //
-  // Deps are intentionally narrow: a wider dep array re-runs cleanup on
-  // unrelated churn (e.g. stagedCount change), cancelling the auto-hide
-  // timer and leaving the toast stuck on screen.
+  // Saved toast: a new `lastBatchId` means a fresh apply — show (with auto-hide timer).
+  // `canUndo` true→false hides the toast on undo, but must not win over a batch advance in
+  // the same commit (soft-impact apply then hard-impact apply both update `lastBatchId`
+  // and flip `canUndo` to false; two separate effects would batch hide-after-show).
   useEffect(() => {
-    if (state.lastBatchId === null || state.lastBatchId === lastSeenBatchIdRef.current) {
-      return;
+    const batchAdvanced = state.lastBatchId !== null && state.lastBatchId !== lastSeenBatchIdRef.current;
+
+    if (batchAdvanced) {
+      lastSeenBatchIdRef.current = state.lastBatchId;
     }
-    lastSeenBatchIdRef.current = state.lastBatchId;
 
     const hasApply = lastBatchHasNonNullApply(lastBatchAppliedMeta);
+    const showFromBatch =
+      batchAdvanced &&
+      hasApply &&
+      !state.isApplying &&
+      // Intentionally omit `state.staged` from deps: re-running on unrelated staging churn
+      // clears the auto-hide timer and leaves the toast stuck (FE-665 regression).
+      state.staged.length === 0;
 
-    // The toast should fire whenever a batch applies, including hard-impact
-    // batches that intentionally have canUndo=false. The Undo button inside
-    // the toast renders conditionally on canUndo so hard applies show "Change
-    // saved" without an undo affordance.
-    if (hasApply && !state.isApplying && stagedCount === 0) {
+    const canUndoDropped = prevCanUndoRef.current && !state.canUndo;
+    prevCanUndoRef.current = state.canUndo;
+
+    if (showFromBatch) {
       setSavedToastVisible(true);
       const handle = window.setTimeout(() => setSavedToastVisible(false), MESSAGE_DURATION_MS);
       return () => window.clearTimeout(handle);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.lastBatchId]);
 
-  useEffect(() => {
-    if (prevCanUndoRef.current && !state.canUndo) {
+    if (canUndoDropped && !batchAdvanced) {
       setSavedToastVisible(false);
     }
-    prevCanUndoRef.current = state.canUndo;
-  }, [state.canUndo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- staged length read only with batch/canUndo transitions that follow apply; omitting `state.staged` avoids timer churn on stage
+  }, [state.lastBatchId, state.canUndo, state.isApplying, lastBatchAppliedMeta]);
 
   if (!patchList) {
     return null;

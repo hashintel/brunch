@@ -110,6 +110,27 @@ function StageAnnotatePatchButton() {
   );
 }
 
+function StageHardEditButton() {
+  const patchList = usePatchList();
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        patchList?.stage({
+          kind: 'edit',
+          anchor: { kind: 'goal', itemId: 3 },
+          summary: 'Hard: restructure',
+          currentContent: 'before',
+          newContent: 'after',
+          impact: 'hard',
+        })
+      }
+    >
+      stage-hard-edit
+    </button>
+  );
+}
+
 describe('PatchListOverlay', () => {
   it('renders nothing when there are no staged patches and no transient message', () => {
     const appliers = makeAppliers();
@@ -345,6 +366,54 @@ describe('PatchListOverlay', () => {
 
     const toast = screen.getByRole('status', { name: /change saved/i });
     expect(toast.querySelector('button')).not.toBeNull();
+  });
+
+  it('shows the saved toast after a hard apply that immediately follows a soft apply', async () => {
+    let calls = 0;
+    const editApplier = vi.fn(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.resolve({
+          undo: () => Promise.resolve(),
+          applied: { impact: 'soft', previousContent: 'old' },
+        });
+      }
+      return Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: {
+          impact: 'hard',
+          noUndo: true,
+          previousContent: 'old',
+          previousRationale: null,
+          openedNeedIds: [101],
+        },
+      });
+    });
+    const appliers = makeAppliers({ edit: editApplier as unknown as PatchAppliers['edit'] });
+    render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StageEditPatchWithDiffButton />
+        <StageHardEditButton />
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('stage-edit-with-diff'));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /apply/i }));
+    });
+    expect(screen.getByRole('status', { name: /change saved/i })).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000);
+    });
+    expect(screen.queryByRole('status', { name: /change saved/i })).toBeNull();
+
+    fireEvent.click(screen.getByText('stage-hard-edit'));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /apply/i }));
+    });
+    expect(screen.getByRole('status', { name: /change saved/i })).toBeTruthy();
   });
 });
 
