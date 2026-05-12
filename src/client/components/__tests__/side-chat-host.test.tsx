@@ -1,12 +1,18 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 
 import type { CreatedAnnotation } from '@/client/lib/annotation-api.js';
 import { streamSideChatResponse } from '@/client/lib/side-chat-stream.js';
 
-import { PatchListProvider, type PatchAppliers } from '../patch-list-host.js';
+import {
+  PatchListProvider,
+  usePatchList,
+  usePatchListState,
+  type PatchAppliers,
+} from '../patch-list-host.js';
+import { PatchListOverlay } from '../patch-list-overlay.js';
 import { SideChatHost, useSideChat, type SideChatPinnableItem } from '../side-chat-host.js';
 
 const { mockListAnnotationsForSpecificationRequest } = vi.hoisted(() => ({
@@ -15,6 +21,20 @@ const { mockListAnnotationsForSpecificationRequest } = vi.hoisted(() => ({
 
 vi.mock('@/client/lib/side-chat-stream.js', () => ({
   streamSideChatResponse: vi.fn(() => Promise.resolve()),
+}));
+
+// V3.0 card 2: PatchListOverlay reads open reconciliation needs via this hook,
+// which depends on TanStack Router context. Stub it here so the side-chat host
+// tests can render the overlay without a full router setup.
+vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
+  useSpecificationOpenReconciliationNeeds: () => [],
+  specificationQueryKeys: {
+    bundle: (id: string) => ['specification', id, 'bundle'] as const,
+    entities: (id: string) => ['specification', id, 'entities'] as const,
+    entitiesProjectWide: (id: string) => ['specification', id, 'entities', 'project-wide'] as const,
+    reconciliationNeeds: (id: string) => ['specification', id, 'reconciliation-needs'] as const,
+  },
+  invalidateOpenReconciliationNeeds: vi.fn(),
 }));
 
 vi.mock('@/client/lib/annotation-api.js', async (importOriginal) => {
@@ -45,9 +65,30 @@ function OpenSideChatButton({ item }: { item: SideChatPinnableItem }) {
   );
 }
 
+function StageActiveEditPatchButton({ newContent }: { newContent: string }) {
+  const patchList = usePatchList();
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        patchList?.stage({
+          kind: 'edit',
+          anchor: { kind: samplePinnable.kind, itemId: samplePinnable.id },
+          summary: 'Edit: rephrase',
+          newContent,
+        })
+      }
+    >
+      stage-active-edit
+    </button>
+  );
+}
+
 interface AppliersHandle {
   appliers: PatchAppliers;
   annotateMock: MockInstance;
+  editMock: MockInstance;
+  edgeMock: MockInstance;
   undoMock: MockInstance;
 }
 
@@ -58,13 +99,17 @@ function makeNoopApplier() {
 function makeAppliers(): AppliersHandle {
   const undoMock = vi.fn(() => Promise.resolve());
   const annotateMock = vi.fn(() => Promise.resolve({ undo: undoMock, applied: undefined }));
+  const editMock = makeNoopApplier();
+  const edgeMock = makeNoopApplier();
   return {
     annotateMock,
+    editMock,
+    edgeMock,
     undoMock,
     appliers: {
       annotate: annotateMock as unknown as PatchAppliers['annotate'],
-      edit: makeNoopApplier() as unknown as PatchAppliers['edit'],
-      edge: makeNoopApplier() as unknown as PatchAppliers['edge'],
+      edit: editMock as unknown as PatchAppliers['edit'],
+      edge: edgeMock as unknown as PatchAppliers['edge'],
       drillDown: makeNoopApplier() as unknown as PatchAppliers['drillDown'],
     },
   };
@@ -81,6 +126,327 @@ beforeEach(() => {
 
 afterEach(() => {
   consoleErrorSpy.mockRestore();
+});
+
+describe('SideChatHost edit-mode flow (V2)', () => {
+  function OpenInEditModeButton({ item }: { item: SideChatPinnableItem }) {
+    const sideChat = useSideChat();
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          sideChat?.openFor(item);
+          sideChat?.setMode('edit');
+        }}
+      >
+        open-edit
+      </button>
+    );
+  }
+
+  it('sends mode="edit" in the stream request after setMode("edit")', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+    const { appliers } = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenInEditModeButton item={samplePinnable} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-edit'));
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'reword this' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    await vi.waitFor(() => expect(streamMock).toHaveBeenCalled());
+    const [requestArg] = streamMock.mock.calls.at(-1)!;
+    expect(requestArg.mode).toBe('edit');
+  });
+
+  it('sends mode="edit" when the message is submitted immediately after toggling Edit', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+    const { appliers } = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenSideChatButton item={samplePinnable} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-side-chat'));
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'reword immediately' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /edit mode/i }));
+      fireEvent.keyDown(textarea, { key: 'Enter' });
+    });
+
+    await vi.waitFor(() => expect(streamMock).toHaveBeenCalled());
+    const [requestArg] = streamMock.mock.calls.at(-1)!;
+    expect(requestArg.mode).toBe('edit');
+  });
+
+  it('omits mode in the stream request by default (explore)', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+    const { appliers } = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenSideChatButton item={samplePinnable} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-side-chat'));
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'why?' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    await vi.waitFor(() => expect(streamMock).toHaveBeenCalled());
+    const [requestArg] = streamMock.mock.calls.at(-1)!;
+    expect(requestArg.mode).toBeUndefined();
+  });
+
+  it('stages an EditPatch when a patch-proposal event arrives during streaming', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+    streamMock.mockImplementationOnce(async (_request, onChunk) => {
+      onChunk({ type: 'text-delta', delta: "Sure, I'll propose: " });
+      onChunk({
+        type: 'patch-proposal',
+        toolCallId: 'call-1',
+        toolName: 'propose_edit',
+        input: { newContent: 'Use SQLite for local persistence.', newRationale: 'Terser.' },
+      });
+      onChunk({ type: 'done' });
+    });
+
+    function StagedEditPatchInspector() {
+      const state = usePatchListState();
+      const editPatches = state.staged.filter((patch) => patch.kind === 'edit');
+      return (
+        <div data-testid="staged-edits">
+          {editPatches.map((patch) => (
+            <div
+              key={patch.id}
+              data-testid="staged-edit-row"
+              data-anchor-kind={patch.anchor.kind}
+              data-anchor-id={patch.anchor.itemId}
+              data-new-content={patch.kind === 'edit' ? patch.newContent : ''}
+              data-new-rationale={patch.kind === 'edit' ? (patch.newRationale ?? '') : ''}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    const { appliers } = makeAppliers();
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenInEditModeButton item={samplePinnable} />
+          <StagedEditPatchInspector />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-edit'));
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'reword' } });
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'Enter' });
+    });
+
+    await vi.waitFor(() => expect(screen.queryAllByTestId('staged-edit-row')).toHaveLength(1));
+    const row = screen.getByTestId('staged-edit-row');
+    expect(row.dataset.anchorKind).toBe('decision');
+    expect(row.dataset.anchorId).toBe('7');
+    expect(row.dataset.newContent).toBe('Use SQLite for local persistence.');
+    expect(row.dataset.newRationale).toBe('Terser.');
+  });
+
+  it('refreshes the pinned-item content shown in the popover after an edit patch applies', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+    streamMock.mockImplementationOnce(async (_request, onChunk) => {
+      onChunk({ type: 'text-delta', delta: 'Proposing.' });
+      onChunk({
+        type: 'patch-proposal',
+        toolCallId: 'call-1',
+        toolName: 'propose_edit',
+        input: { newContent: 'Refined: SQLite for local persistence.' },
+      });
+      onChunk({ type: 'done' });
+    });
+    const { appliers } = makeAppliers();
+    // Edit applier resolves successfully so the patch transitions to applied
+    appliers.edit = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { impact: 'soft', previousContent: 'Use SQLite for local storage.' },
+      }),
+    ) as unknown as PatchAppliers['edit'];
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenInEditModeButton item={samplePinnable} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-edit'));
+    // Pinned content shows the original snapshot before any edit
+    expect(screen.getByText(/Use SQLite for local storage\./i)).toBeTruthy();
+
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'refine' } });
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'Enter' });
+    });
+
+    // Patch staged → user clicks Apply → patch applies → applier resolves
+    await screen.findByRole('button', { name: /^apply$/i });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+    });
+
+    // After apply, pinned content reflects newContent — no need to reopen
+    await screen.findByText(/Refined: SQLite for local persistence\./i);
+    expect(screen.queryByText('Use SQLite for local storage.')).toBeNull();
+  });
+
+  it('reverts the pinned-item content shown in the popover after undoing an edit patch', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+    streamMock.mockImplementationOnce(async (_request, onChunk) => {
+      onChunk({ type: 'text-delta', delta: 'Proposing.' });
+      onChunk({
+        type: 'patch-proposal',
+        toolCallId: 'call-1',
+        toolName: 'propose_edit',
+        input: { newContent: 'Refined: SQLite for local persistence.' },
+      });
+      onChunk({ type: 'done' });
+    });
+    const { appliers } = makeAppliers();
+    appliers.edit = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { impact: 'soft', previousContent: 'Use SQLite for local storage.' },
+      }),
+    ) as unknown as PatchAppliers['edit'];
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenInEditModeButton item={samplePinnable} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-edit'));
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'refine' } });
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'Enter' });
+    });
+    await screen.findByRole('button', { name: /^apply$/i });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+    });
+    await screen.findByText(/Refined: SQLite for local persistence\./i);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
+    });
+
+    await screen.findByText('Use SQLite for local storage.');
+    expect(screen.queryByText(/Refined: SQLite for local persistence\./i)).toBeNull();
+  });
+
+  it('reverts the pinned-item content when Undo is clicked from the overlay saved-toast', async () => {
+    const { appliers } = makeAppliers();
+    appliers.edit = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { impact: 'soft', previousContent: 'Use SQLite for local storage.' },
+      }),
+    ) as unknown as PatchAppliers['edit'];
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <PatchListOverlay />
+          <OpenSideChatButton item={samplePinnable} />
+          <StageActiveEditPatchButton newContent="Refined: SQLite for local persistence." />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-side-chat'));
+    fireEvent.click(screen.getByText('stage-active-edit'));
+    const stagedRegion = screen.getAllByRole('region', { name: /staged changes/i })[0]!;
+    await act(async () => {
+      fireEvent.click(within(stagedRegion).getByRole('button', { name: /^apply$/i }));
+    });
+    await screen.findByText(/Refined: SQLite for local persistence\./i);
+
+    const overlaySavedToast = screen.getAllByRole('status', { name: /change saved/i })[0]!;
+    await act(async () => {
+      fireEvent.click(within(overlaySavedToast).getByRole('button', { name: /^undo$/i }));
+    });
+
+    await screen.findByText('Use SQLite for local storage.');
+    expect(screen.queryByText(/Refined: SQLite for local persistence\./i)).toBeNull();
+  });
+
+  it('reverts the pinned-item content when Undo is clicked from the overlay staged-changes region', async () => {
+    const { appliers } = makeAppliers();
+    appliers.edit = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { impact: 'soft', previousContent: 'Use SQLite for local storage.' },
+      }),
+    ) as unknown as PatchAppliers['edit'];
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <PatchListOverlay />
+          <OpenSideChatButton item={samplePinnable} />
+          <StageActiveEditPatchButton newContent="Refined: SQLite for local persistence." />
+          <StageActiveEditPatchButton newContent="Second staged rewrite." />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-side-chat'));
+    fireEvent.click(screen.getAllByText('stage-active-edit')[0]!);
+    await act(async () => {
+      fireEvent.click(
+        within(screen.getAllByRole('region', { name: /staged changes/i })[0]!).getByRole('button', {
+          name: /^apply$/i,
+        }),
+      );
+    });
+    await screen.findByText(/Refined: SQLite for local persistence\./i);
+
+    fireEvent.click(screen.getAllByText('stage-active-edit')[1]!);
+    const stagedRegion = screen.getAllByRole('region', { name: /staged changes/i })[0]!;
+    await act(async () => {
+      fireEvent.click(within(stagedRegion).getByRole('button', { name: /^undo$/i }));
+    });
+
+    await screen.findByText('Use SQLite for local storage.');
+    expect(screen.queryByText(/Refined: SQLite for local persistence\./i)).toBeNull();
+  });
 });
 
 describe('SideChatHost annotate flow', () => {
@@ -180,9 +546,9 @@ describe('SideChatHost annotate flow', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(undoMock).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText(/annotation saved/i)).toBeNull();
+    expect(screen.queryByText(/change saved/i)).toBeNull();
     expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^retry$/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^apply$/i })).toBeNull();
   });
 
   it('Apply failure preserves the staged patch and leaves canUndo false', async () => {
@@ -212,9 +578,9 @@ describe('SideChatHost annotate flow', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(failingAnnotate).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/1 pending annotation/i)).toBeTruthy();
+    expect(screen.getByText(/1 pending change/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
-    expect(screen.getByRole('button', { name: /^retry$/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^apply$/i })).toBeTruthy();
   });
 
   it('Discard removes a stuck-staged patch (failed auto-apply) from the inline list', async () => {
@@ -243,11 +609,11 @@ describe('SideChatHost annotate flow', () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(screen.getByText(/1 pending annotation/i)).toBeTruthy();
+    expect(screen.getByText(/1 pending change/i)).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: /discard staged annotation/i }));
+    fireEvent.click(screen.getByRole('button', { name: /discard staged change/i }));
 
-    expect(screen.queryByText(/1 pending annotation/i)).toBeNull();
+    expect(screen.queryByText(/1 pending change/i)).toBeNull();
   });
 
   it('inline patch list filters stuck-staged patches to the currently pinned item', async () => {
@@ -302,11 +668,128 @@ describe('SideChatHost annotate flow', () => {
     // Switch to G11 (different anchor); inline list should show no rows for G11.
     fireEvent.click(screen.getByText('open-goal'));
     expect(screen.queryByText('d-sum')).toBeNull();
-    expect(screen.queryByText(/1 pending annotation/i)).toBeNull();
+    expect(screen.queryByText(/1 pending change/i)).toBeNull();
 
     // Switch back to D7; the staged patch reappears.
     fireEvent.click(screen.getByText('open-decision'));
     expect(screen.getByText('d-sum')).toBeTruthy();
+  });
+
+  it('auto-applies an annotation for the active item without applying a staged edit for another item', async () => {
+    const streamMock = vi.mocked(streamSideChatResponse);
+    streamMock.mockClear();
+    streamMock.mockImplementationOnce(async (_request, onChunk) => {
+      onChunk({
+        type: 'patch-proposal',
+        toolCallId: 'call-1',
+        toolName: 'propose_edit',
+        input: { newContent: 'Use IndexedDB for local persistence.' },
+      });
+      onChunk({ type: 'done' });
+    });
+    const { appliers, annotateMock, editMock } = makeAppliers();
+    const otherItem: SideChatPinnableItem = {
+      kind: 'goal',
+      id: 11,
+      referenceCode: 'G11',
+      content: 'Ship V1.2',
+    };
+
+    function OpenButtons() {
+      const sideChat = useSideChat();
+      return (
+        <>
+          <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
+            open-decision
+          </button>
+          <button type="button" onClick={() => sideChat?.openFor(otherItem)}>
+            open-goal
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <OpenButtons />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-decision'));
+    fireEvent.click(screen.getByRole('button', { name: /edit mode/i }));
+    const textarea = screen.getByLabelText(/^message$/i);
+    fireEvent.change(textarea, { target: { value: 'reword' } });
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'Enter' });
+    });
+    await screen.findByText('Edit: Use IndexedDB for local persistence.');
+
+    fireEvent.click(screen.getByText('open-goal'));
+    fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+    fireEvent.change(screen.getByLabelText('Annotation summary'), { target: { value: 'g-sum' } });
+    fireEvent.change(screen.getByLabelText('Annotation body'), { target: { value: 'g-body' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    });
+
+    await vi.waitFor(() => expect(annotateMock).toHaveBeenCalledTimes(1));
+    expect(editMock).not.toHaveBeenCalled();
+    expect(screen.queryByText(/1 pending change/i)).toBeNull();
+
+    fireEvent.click(screen.getByText('open-decision'));
+    expect(screen.getByText('Edit: Use IndexedDB for local persistence.')).toBeTruthy();
+  });
+
+  it('shows Undo after applying an edge patch for the active item', async () => {
+    const { appliers, edgeMock } = makeAppliers();
+
+    function Probe() {
+      const sideChat = useSideChat();
+      const patchList = usePatchListState();
+      const actions = usePatchList();
+      return (
+        <>
+          <span data-testid="staged-count">{patchList.staged.length}</span>
+          <button type="button" onClick={() => sideChat?.openFor(samplePinnable)}>
+            open-decision
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              actions?.stage({
+                kind: 'edge',
+                anchor: { kind: 'decision', itemId: 7 },
+                targetAnchor: { kind: 'goal', itemId: 11 },
+                relation: 'depends_on',
+                summary: 'Edge: D7 depends on G11',
+              })
+            }
+          >
+            stage-edge
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <PatchListProvider appliers={appliers}>
+        <SideChatHost specificationId={1}>
+          <Probe />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    fireEvent.click(screen.getByText('open-decision'));
+    fireEvent.click(screen.getByText('stage-edge'));
+    await screen.findByText('Edge: D7 depends on G11');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+    });
+
+    await vi.waitFor(() => expect(edgeMock).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('button', { name: /^undo$/i })).toBeTruthy();
   });
 
   it('does not leak the saved confirmation to another pinned item', async () => {
@@ -347,11 +830,11 @@ describe('SideChatHost annotate flow', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
     });
-    await screen.findByRole('status', { name: /annotation saved/i });
+    await screen.findByRole('status', { name: /change saved/i });
 
     fireEvent.click(screen.getByText('open-goal'));
 
-    expect(screen.queryByRole('status', { name: /annotation saved/i })).toBeNull();
+    expect(screen.queryByRole('status', { name: /change saved/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull();
   });
 

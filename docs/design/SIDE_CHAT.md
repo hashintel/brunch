@@ -209,7 +209,7 @@ When a patch with kind `edit` is applied, the system routes by **two questions i
 | Tier | Trigger | Path |
 |---|---|---|
 | **None** | `affectedCount === 0` (item is a graph leaf with no downstream edges) | Apply directly. Single-item content update; brief inline confirmation card in the panel: "Updated `[X]`." |
-| **Soft** | `1 ≤ affectedCount ≤ 2` AND no anchor or affected item is in an active review set *(active = generated and not yet accepted)* | Apply with **soft recomputing**. Patch lands directly; brief inline confirmation lists the affected items: "Updated `[X]`; recomputed `[Y]`, `[Z]`." No cascade preview. |
+| **Soft** | `1 ≤ affectedCount ≤ 2` AND no anchor or affected item is in an active review set *(active = generated and not yet accepted)* | Apply directly with affected-item context. Patch lands directly; brief inline confirmation lists the affected items: "Updated `[X]`; `[Y]`, `[Z]` may need a refresh." No cascade preview or durable `reconciliation_need` rows. |
 | **Hard** | High downstream count, OR any anchor or affected item is in an active review set | **Cascade preview** backed by `reconciliation_need` rows → batch-resolution mode in the side-chat panel (§5.3). The archived REVISIT_MODULE walk is superseded. |
 
 ### 5.2 Confidence model — V1
@@ -226,17 +226,17 @@ Hard-edit cascade is no longer a one-shot REVISIT walk. In this stack, the downs
 2. The server enumerates `knowledge_edge` rows incident on the changed item under typed relation policy (`depends_on`, `derived_from`, `constrains`, `refines`, `verifies`) — Path 1 from `docs/design/MULTI_CHAT.md` §5.1.
 3. For each affected pair, an open `reconciliation_need` row opens with the appropriate kind. Re-firing on an already-open `(source, target, kind)` is a no-op (partial unique index).
 4. Open needs surface in the patch list overlay as a `Pending review` section.
-5. The user resolves each need: accept content change to the target / edit target / dismiss. Resolution writes `status = resolved` and `resolved_at`; mutating resolutions go through the existing edit pipeline and may themselves open further needs (re-entrant cascade, intentional).
+5. The user resolves each need through a single **Resolve** action per row. The action transitions `(open, resolved_at = null) → (resolved, resolved_at = now)` idempotently and does **not** mutate any target item. Users wanting to edit a cascade target use the existing structured-list inline-edit affordance separately (which itself may open further needs — re-entrant cascade, intentional). The richer three-action design originally sketched here — `accept-on-target` / `edit-target` / `dismiss` — is V3.1 work, surfaced through the reconciliation agent's grouped resolutions below.
 
 **V3.0 grouping is mechanical, not agent-classified.** Needs are grouped in the overlay by `kind` (`supersedes` first, then `needs_confirmation`) and within each kind by relation type. There is no auto-confirm / auto-edit / substantive ML classification in V3.0.
 
-**V3.1 — agent-grouped resolution (shipped, FE-674 PR #124).** The reconciliation classifier (server `POST /reconciliation-needs/run-agent`) walks every open need through the lifecycle `null → queued → classifying → classified | failed` (I114) and persists exactly one of:
+**V3.1 — agent-grouped resolution (shipped, FE-674 PR #124).** The reconciliation classifier (server `POST /api/specifications/:id/reconciliation-needs/run-agent`) walks every open need through the lifecycle `null → queued → classifying → classified | failed` (I114) and persists exactly one of:
 
 - **`auto-confirm`** — review-only affected items where no content change is implied by the source change. One-click Confirm resolves without mutating the target. Bulk "Confirm all (N)" iterates serially over auto-confirm rows.
 - **`auto-edit`** — items where the change is a mechanical text replacement. `agent_proposal` carries the suggested new content; the user previews via the `<DiffPopover>` (View) and then Apply (edit + resolve) or Skip (resolve only). Bulk "Apply all suggested (N)" iterates serially.
 - **`substantive`** — items where user judgment is required. "Open side-chat" hands `useSideChat().openFor` the target's kind + reference code + content; the conversation walks the substantive case (currently ephemeral until V4a persistence ships).
 
-`failed` rows are recoverable via per-row Re-run (`POST /reconciliation-needs/:needId/reset-agent`), which resets `agent_status` to null and re-dispatches the classifier on that row.
+`failed` rows are recoverable via per-row Re-run (`POST /api/specifications/:id/reconciliation-needs/:needId/reset-agent`), which resets `agent_status` to null and re-dispatches the classifier on that row.
 
 A typical 5-item cascade in V3.1 collapses from ~5 sequential resolutions to 2 group decisions + 1 substantive walk; V3.0 surfaced all 5 mechanically. A88 outer-loop walkthrough is the qualitative validation that grouping helps legibility vs the flat V3.0 list.
 
@@ -310,9 +310,10 @@ Captured in §7. The side-chat is *user-driven*; the architect is *system-driven
 |---|---|
 | **V1** | Popover-to-panel surface · multi-pin · Class 1 (Explore) · Class 4 (Annotate). Patch list surface (top-bar summary + overlay) introduced but holds at most one entry (annotation only). Single thread per spec session; tab strip rendered with `Old chat` disabled placeholder. No Edit, no Drill-down, no Propose-edge. |
 | **V2** | Edit (router) · Drill-down · Propose-edge in the patch list. **None** and **Soft** edit tiers apply directly. **Hard** edit defers to a placeholder "feature coming" message. Refine routes through normal turn machinery. |
-| **V3.0** | Hard-edit apply opens `reconciliation_need` rows from existing graph edges (Path 1, deterministic). Cascade preview surfaces as a `Pending review` section inside the canonical patch-list overlay; per-row actions accept / edit-target / dismiss. The V2 `deferred: true` server response and the "Hard impact — coming in V3 cascade preview" banner are removed. Acceptance Criterion #7 satisfied mechanically. No reconciliation agent. REVISIT modal stays archived. |
-| **V3.1** | Reconciliation agent reclassifies open needs into auto-confirm / auto-edit / substantive groups. Substantive walk lands inside the side-chat panel using pinned-context conversation. Path 2 observer expansion still horizon. |
-| **V4 (later)** | Patch ledger lands. `reconciliation_need.caused_by_patch_id` populates; resolutions write typed patches; item versioning anchors annotations and soft-edit audit. Architect loop deposits into the same patch list. Multiple persistent chat threads per spec (`Old chat` tab activates). |
+| **V3.0** | Hard-edit apply opens `reconciliation_need` rows from existing graph edges (Path 1, deterministic). Cascade preview surfaces as a `Pending review` section inside the canonical patch-list overlay; **single per-row Resolve action** that idempotently transitions `open → resolved`. The V2 `deferred: true` server response and the "Hard impact — coming in V3 cascade preview" banner are removed. Acceptance Criterion #7 satisfied mechanically. No reconciliation agent. REVISIT modal stays archived. (Note: the original three-action design — `accept-on-target / edit-target / dismiss` — is collapsed to a single Resolve in V3.0 because the open→resolved transition is the same regardless of intent label; V3.1 reintroduces richer kinds via the agent.) |
+| **V3.1** *(shipped, FE-674 PRs #119–#124)* | Reconciliation classifier writes `agent_status` / `agent_classification` / `agent_proposal` per row. Pending review surface renders chips, Run-agent + polling, per-row Re-run, per-class actions, and bulk Confirm-all / Apply-all-suggested. Substantive walk lands inside the side-chat panel using pinned-context conversation. Path 2 observer expansion still horizon. |
+| **V4a** *(next, FE-675 V4a half)* | Side-chat client persists turns into `chat` / `turn` with `chat.kind='side_chat'`; "Old chats" tab strip activates. |
+| **V4b** *(horizon, FE-675 V4b half + FE-701)* | Patch ledger lands. `reconciliation_need.caused_by_patch_id` populates; resolutions write typed patches; item versioning anchors annotations and soft-edit audit. Architect loop deposits into the same patch list. |
 
 ## 10. Verification Stance
 

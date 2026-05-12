@@ -13,7 +13,14 @@ import {
   listAnnotationsForSpecificationRequest,
   type CreatedAnnotation,
 } from '@/client/lib/annotation-api.js';
-import { streamSideChatResponse, type SideChatPriorTurn } from '@/client/lib/side-chat-stream.js';
+import {
+  streamSideChatResponse,
+  type SideChatMode,
+  type SideChatPriorTurn,
+} from '@/client/lib/side-chat-stream.js';
+import { queryClient } from '@/client/query-client.js';
+import { specificationQueryKeys } from '@/client/routes/specification/$id/-specification-data.js';
+import type { EntitiesData } from '@/shared/api-types.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import {
@@ -22,6 +29,8 @@ import {
   usePatchListState,
   useStagedPatches,
 } from './patch-list-host.js';
+import { PatchListOverlayBridgeProvider } from './patch-list-overlay-bridge.js';
+import { PatchListUndoProvider } from './patch-list-undo-context.js';
 import {
   SideChatPopover,
   type SideChatExistingAnnotation,
@@ -45,6 +54,7 @@ interface SideChatContextValue {
   dismissCard: (annotationId: number) => void;
   clearSpanHint: () => void;
   promoteAnnotation: (annotationId: number) => void;
+  setMode: (mode: SideChatMode) => void;
 }
 
 const SideChatContext = createContext<SideChatContextValue | null>(null);
@@ -71,6 +81,9 @@ interface ActiveSideChat {
   // which also use Date.now().
   messageTimestamps: number[];
   annotateMode: boolean;
+  // V2 chat-driven mode: 'explore' (default) keeps free-form chat; 'edit' tells the
+  // server to register the propose_edit tool so the LLM can stage edit patches.
+  mode: SideChatMode;
 }
 
 interface LoadedAnnotations {
@@ -78,6 +91,58 @@ interface LoadedAnnotations {
   itemId: number;
   batchId: string | null;
   items: readonly CreatedAnnotation[];
+}
+
+// Cap on how many characters of an edit's newContent we put into the
+// patch-list summary string. Tunes the at-a-glance label visible in the
+// top-bar `N Edits` overlay before the user clicks through.
+const EDIT_SUMMARY_PREVIEW_LIMIT = 60;
+
+function summarizeEditContent(newContent: string): string {
+  const trimmed = newContent.trim();
+  if (trimmed.length <= EDIT_SUMMARY_PREVIEW_LIMIT) {
+    return `Edit: ${trimmed}`;
+  }
+  return `Edit: ${trimmed.slice(0, EDIT_SUMMARY_PREVIEW_LIMIT - 1)}…`;
+}
+
+interface ResolvedEdgeTarget {
+  kind: KnowledgeKind;
+  itemId: number;
+  referenceCode: string;
+}
+
+// Resolve a referenceCode (e.g. "G3", "D7") to the corresponding
+// (kind, itemId) by reading the project-wide entities cache. Returns null if
+// no entity matches — propose_edge events with unresolvable references are
+// silently dropped client-side; the LLM occasionally hallucinates codes.
+function resolveEdgeTarget(specificationId: number, referenceCode: string): ResolvedEdgeTarget | null {
+  const data = queryClient.getQueryData(
+    specificationQueryKeys.entitiesProjectWide(String(specificationId)),
+  ) as EntitiesData | undefined;
+  if (!data) {
+    return null;
+  }
+  const groups: ReadonlyArray<
+    readonly [KnowledgeKind, ReadonlyArray<{ id: number; referenceCode?: string | null }>]
+  > = [
+    ['goal', data.goals],
+    ['term', data.terms],
+    ['context', data.contexts],
+    ['constraint', data.constraints],
+    ['decision', data.decisions],
+    ['assumption', data.assumptions],
+    ['requirement', data.requirements],
+    ['criterion', data.criteria],
+  ];
+  for (const [kind, items] of groups) {
+    for (const item of items) {
+      if (item.referenceCode === referenceCode) {
+        return { kind, itemId: item.id, referenceCode };
+      }
+    }
+  }
+  return null;
 }
 
 function replacePendingText(messages: readonly SideChatMessage[], text: string): SideChatMessage[] {
@@ -108,6 +173,14 @@ function finalizeTimestamps(messages: readonly SideChatMessage[], timestamps: re
     }
   });
   return next;
+}
+
+function appliedPreviousContent(applied: unknown): string | null {
+  if (!applied || typeof applied !== 'object' || !('previousContent' in applied)) {
+    return null;
+  }
+  const previousContent = (applied as { previousContent?: unknown }).previousContent;
+  return typeof previousContent === 'string' ? previousContent : null;
 }
 
 const SIDE_CHAT_ERROR_MESSAGE = 'Something went wrong — try again.';
@@ -223,7 +296,7 @@ export function SideChatHost({
       // state doesn't leak across items. Reopening the same item focuses the existing session.
       setActiveCards([]);
       setPendingSpanHint(null);
-      const nextActiveSideChat = {
+      const nextActiveSideChat: ActiveSideChat = {
         sessionId: sessionCounterRef.current,
         pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
         itemKind: item.kind,
@@ -231,6 +304,7 @@ export function SideChatHost({
         messages: [],
         messageTimestamps: [],
         annotateMode: false,
+        mode: 'explore',
       };
       activeRef.current = nextActiveSideChat;
       setActiveSideChat(nextActiveSideChat);
@@ -267,6 +341,23 @@ export function SideChatHost({
   const cancelAnnotate = useCallback(() => {
     setActiveSideChat((current) => (current ? { ...current, annotateMode: false } : current));
   }, []);
+
+  const setMode = useCallback((mode: SideChatMode) => {
+    const current = activeRef.current;
+    if (!current) {
+      return;
+    }
+    const nextActiveSideChat = { ...current, mode };
+    activeRef.current = nextActiveSideChat;
+    setActiveSideChat((active) =>
+      active && active.sessionId === current.sessionId ? nextActiveSideChat : active,
+    );
+  }, []);
+
+  // Ref to patchList so submitMessage's onChunk handler can stage patch-proposal
+  // events without taking patchList as a useCallback dep (which would re-create
+  // submitMessage and remount the popover composer on patch-list changes).
+  const patchListRef = useRef<ReturnType<typeof usePatchList>>(null);
 
   const pushActiveCard = useCallback((card: Omit<ActiveCard, 'timestamp'>) => {
     setActiveCards((prev) =>
@@ -334,6 +425,7 @@ export function SideChatHost({
               signal: controller.signal,
               ...(activeAnnotations.length > 0 ? { activeAnnotations } : {}),
               ...(hintForThisRequest ? { spanHint: hintForThisRequest } : {}),
+              ...(session.mode !== 'explore' ? { mode: session.mode } : {}),
             },
             (event) => {
               if (controller.signal.aborted) {
@@ -346,6 +438,55 @@ export function SideChatHost({
                     ? { ...current, messages: replacePendingText(current.messages, buffered) }
                     : current,
                 );
+              } else if (event.type === 'patch-proposal' && event.toolName === 'propose_edit') {
+                const patchList = patchListRef.current;
+                if (!patchList) {
+                  return;
+                }
+                patchList.stage({
+                  kind: 'edit',
+                  anchor: { kind: session.itemKind, itemId: session.itemId },
+                  anchorReferenceCode: session.pinnedItem.referenceCode,
+                  summary: summarizeEditContent(event.input.newContent),
+                  // Capture the live current content at stage time so the
+                  // canonical PatchListOverlay can render a word-level
+                  // <ContentDiff> without re-querying the entity store.
+                  // session.pinnedItem.content tracks live saved content via
+                  // the apply-time refresh effect (FE-665 follow-up).
+                  currentContent: session.pinnedItem.content,
+                  newContent: event.input.newContent,
+                  ...(event.input.newRationale ? { newRationale: event.input.newRationale } : {}),
+                  ...(event.impact !== undefined ? { impact: event.impact } : {}),
+                });
+              } else if (event.type === 'patch-proposal' && event.toolName === 'propose_edge') {
+                const patchList = patchListRef.current;
+                if (!patchList) {
+                  return;
+                }
+                const target = resolveEdgeTarget(specificationId, event.input.targetReferenceCode);
+                if (!target) {
+                  return;
+                }
+                patchList.stage({
+                  kind: 'edge',
+                  anchor: { kind: session.itemKind, itemId: session.itemId },
+                  anchorReferenceCode: session.pinnedItem.referenceCode,
+                  targetAnchor: { kind: target.kind, itemId: target.itemId },
+                  relation: event.input.relation,
+                  summary: `Edge: ${session.pinnedItem.referenceCode} ${event.input.relation.replaceAll('_', ' ')} ${target.referenceCode}`,
+                });
+              } else if (event.type === 'patch-proposal' && event.toolName === 'propose_drill_down') {
+                const patchList = patchListRef.current;
+                if (!patchList) {
+                  return;
+                }
+                patchList.stage({
+                  kind: 'drill-down',
+                  anchor: { kind: session.itemKind, itemId: session.itemId },
+                  anchorReferenceCode: session.pinnedItem.referenceCode,
+                  summary: `Drill-down: ${event.input.focusArea}`,
+                  focusArea: event.input.focusArea,
+                });
               }
             },
           );
@@ -383,11 +524,10 @@ export function SideChatHost({
     [specificationId, abortActiveStream, pendingSpanHint, activeCards],
   );
   const patchList = usePatchList();
+  patchListRef.current = patchList;
   const patchListState = usePatchListState();
   const stagedForActive = useStagedPatches(
-    activeSideChat
-      ? { anchor: { kind: activeSideChat.itemKind, itemId: activeSideChat.itemId }, kind: 'annotate' }
-      : undefined,
+    activeSideChat ? { anchor: { kind: activeSideChat.itemKind, itemId: activeSideChat.itemId } } : undefined,
   );
 
   const submitAnnotate = useCallback(
@@ -398,6 +538,7 @@ export function SideChatHost({
       patchList.stage({
         kind: 'annotate',
         anchor: { kind: activeSideChat.itemKind, itemId: activeSideChat.itemId },
+        anchorReferenceCode: activeSideChat.pinnedItem.referenceCode,
         summary,
         body,
       });
@@ -408,18 +549,44 @@ export function SideChatHost({
 
   const stagedSummaries: readonly SideChatStagedPatchSummary[] = stagedForActive.map((patch) => ({
     id: patch.id,
-    kind: 'annotate',
+    kind: patch.kind,
     summary: patch.summary,
+    ...(patch.kind === 'edit' && patch.impact !== undefined ? { impact: patch.impact } : {}),
+    // FE-665: when an edit patch targets the currently-pinned item, surface
+    // the before/after pair so the staged-patch row can render a word-level
+    // <ContentDiff> in its expander. pinnedItem.content tracks the live
+    // saved content via the apply-time refresh effect below, so this stays
+    // an honest "current vs proposed" view.
+    ...(patch.kind === 'edit' &&
+    activeSideChat &&
+    patch.anchor.kind === activeSideChat.itemKind &&
+    patch.anchor.itemId === activeSideChat.itemId
+      ? { currentContent: activeSideChat.pinnedItem.content, newContent: patch.newContent }
+      : {}),
   }));
+  const stagedForActiveIds = useMemo(() => stagedForActive.map((patch) => patch.id), [stagedForActive]);
   const canUndoForActive =
     patchListState.canUndo &&
     activeSideChat !== null &&
     patchListState.lastBatchPatches.some(
       (patch) =>
-        patch.kind === 'annotate' &&
-        patch.anchor.kind === activeSideChat.itemKind &&
-        patch.anchor.itemId === activeSideChat.itemId,
+        patch.anchor.kind === activeSideChat.itemKind && patch.anchor.itemId === activeSideChat.itemId,
     );
+  const lastBatchAppliedMeta = useLastBatchAppliedMeta();
+
+  // Derive whether the most recent applied batch was hard-impact-deferred
+  // only (V2 SIDE_CHAT.md §6.3). When true, the canonical PatchListOverlay
+  // surfaces the deferred banner, and the popover suppresses its own
+  // "Change saved" toast for the same batch to avoid double-messaging.
+  const lastBatchWasDeferredOnly = useMemo(() => {
+    if (lastBatchAppliedMeta.length === 0) return false;
+    return lastBatchAppliedMeta.every((entry) => {
+      const applied = entry.applied;
+      return (
+        !!applied && typeof applied === 'object' && (applied as { deferred?: unknown }).deferred === true
+      );
+    });
+  }, [lastBatchAppliedMeta]);
 
   const triggeredAutoApplyIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -429,17 +596,75 @@ export function SideChatHost({
     for (const id of triggered) {
       if (!stagedIds.has(id)) triggered.delete(id);
     }
-    const allAutoApplyable = patchListState.staged.every((patch) => patch.kind === 'annotate');
-    if (!allAutoApplyable) return;
-    const hasUntriggered = patchListState.staged.some((patch) => !triggered.has(patch.id));
+    const allAutoApplyable = stagedForActive.every((patch) => patch.kind === 'annotate');
+    if (stagedForActive.length === 0 || !allAutoApplyable) return;
+    const hasUntriggered = stagedForActive.some((patch) => !triggered.has(patch.id));
     if (!hasUntriggered) return;
-    for (const patch of patchListState.staged) {
+    for (const patch of stagedForActive) {
       triggered.add(patch.id);
     }
-    void patchList.apply();
-  }, [patchList, patchListState.staged, patchListState.isApplying]);
+    void patchList.apply(stagedForActiveIds);
+  }, [patchList, patchListState.staged, patchListState.isApplying, stagedForActive, stagedForActiveIds]);
 
-  const lastBatchAppliedMeta = useLastBatchAppliedMeta();
+  const applyStagedForActive = useCallback(() => {
+    if (!patchList || stagedForActiveIds.length === 0) {
+      return;
+    }
+    void patchList.apply(stagedForActiveIds);
+  }, [patchList, stagedForActiveIds]);
+
+  const patchListOverlayBridge = useMemo(
+    () => ({
+      applyScoped: applyStagedForActive,
+      scopedPatchIds: stagedForActiveIds,
+    }),
+    [applyStagedForActive, stagedForActiveIds],
+  );
+
+  const undoForActive = useCallback(() => {
+    if (!patchList) {
+      return;
+    }
+    if (!activeSideChat) {
+      void patchList.undo();
+      return;
+    }
+    const activeItemKind = activeSideChat.itemKind;
+    const activeItemId = activeSideChat.itemId;
+    const appliedByPatchId = new Map(lastBatchAppliedMeta.map((meta) => [meta.patchId, meta.applied]));
+    const revertedContent = patchListState.lastBatchPatches
+      .filter(
+        (patch) =>
+          patch.kind === 'edit' &&
+          patch.anchor.kind === activeItemKind &&
+          patch.anchor.itemId === activeItemId,
+      )
+      .map((patch) => appliedPreviousContent(appliedByPatchId.get(patch.id)))
+      .find((content): content is string => content !== null);
+
+    void (async () => {
+      const undone = await patchList.undo();
+      if (!undone || revertedContent === undefined) {
+        return;
+      }
+      setActiveSideChat((current) =>
+        current && current.itemKind === activeItemKind && current.itemId === activeItemId
+          ? { ...current, pinnedItem: { ...current.pinnedItem, content: revertedContent } }
+          : current,
+      );
+      if (
+        activeRef.current &&
+        activeRef.current.itemKind === activeItemKind &&
+        activeRef.current.itemId === activeItemId
+      ) {
+        activeRef.current = {
+          ...activeRef.current,
+          pinnedItem: { ...activeRef.current.pinnedItem, content: revertedContent },
+        };
+      }
+    })();
+  }, [patchList, activeSideChat, lastBatchAppliedMeta, patchListState.lastBatchPatches]);
+
   const lastSeenBatchIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (patchListState.lastBatchId === lastSeenBatchIdRef.current) return;
@@ -469,6 +694,45 @@ export function SideChatHost({
         }
       }
     }
+    // V2 chat-driven edits: when an edit patch applied to the active pinned
+    // item, refresh the popover's pinned-item snapshot so the chat header
+    // reflects the new content. Without this, the structured-list / graph
+    // view re-fetches and updates (per makeEditApplier's cache invalidation),
+    // but the side-chat popover keeps showing the pre-edit content because
+    // pinnedItem was captured at openFor() time.
+    const appliedByPatchIdForRefresh = new Map(
+      lastBatchAppliedMeta.map((meta) => [meta.patchId, meta.applied]),
+    );
+    for (const patch of patchListState.lastBatchPatches) {
+      if (
+        patch.kind === 'edit' &&
+        patch.anchor.kind === activeSideChat.itemKind &&
+        patch.anchor.itemId === activeSideChat.itemId
+      ) {
+        const applied = appliedByPatchIdForRefresh.get(patch.id);
+        const isDeferred =
+          !!applied &&
+          typeof applied === 'object' &&
+          (applied as { deferred?: unknown }).deferred === true;
+        if (isDeferred) continue;
+        const nextContent = patch.newContent;
+        setActiveSideChat((current) =>
+          current && current.itemKind === patch.anchor.kind && current.itemId === patch.anchor.itemId
+            ? { ...current, pinnedItem: { ...current.pinnedItem, content: nextContent } }
+            : current,
+        );
+        if (
+          activeRef.current &&
+          activeRef.current.itemKind === patch.anchor.kind &&
+          activeRef.current.itemId === patch.anchor.itemId
+        ) {
+          activeRef.current = {
+            ...activeRef.current,
+            pinnedItem: { ...activeRef.current.pinnedItem, content: nextContent },
+          };
+        }
+      }
+    }
   }, [
     activeSideChat,
     patchListState.lastBatchId,
@@ -491,15 +755,21 @@ export function SideChatHost({
     }
     let cancelled = false;
     const batchId = patchListState.lastBatchId;
+    annotationsRef.current = null;
     setAnnotations(null);
     void listAnnotationsForSpecificationRequest(specificationId)
       .then((list) => {
         if (!cancelled) {
-          setAnnotations({ itemKind: activeItemKind, itemId: activeItemId, batchId, items: list });
+          const loaded = { itemKind: activeItemKind, itemId: activeItemId, batchId, items: list };
+          annotationsRef.current = loaded;
+          setAnnotations(loaded);
         }
       })
       .catch(() => {
-        if (!cancelled) setAnnotations(null);
+        if (!cancelled) {
+          annotationsRef.current = null;
+          setAnnotations(null);
+        }
       });
     return () => {
       cancelled = true;
@@ -553,8 +823,16 @@ export function SideChatHost({
     });
   }, []);
   const sideChatContextValue = useMemo(
-    () => ({ openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint, promoteAnnotation }),
-    [openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint, promoteAnnotation],
+    () => ({
+      openFor,
+      openWithSpanHint,
+      activeCardIds,
+      dismissCard,
+      clearSpanHint,
+      promoteAnnotation,
+      setMode,
+    }),
+    [openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint, promoteAnnotation, setMode],
   );
 
   const threadItems: readonly SideChatThreadItem[] = activeSideChat
@@ -591,41 +869,48 @@ export function SideChatHost({
   const docksContent = activeSideChat !== null && layout === 'docked';
 
   return (
-    <SideChatContext.Provider value={sideChatContextValue}>
-      <div
-        className="h-full min-h-0 min-w-0 overflow-hidden transition-[padding] duration-200 ease-out"
-        style={{ paddingRight: docksContent ? 'calc(588px + 1rem)' : undefined }}
-      >
-        {children}
-      </div>
-      {activeSideChat && (
-        <SideChatPopover
-          key={activeSideChat.sessionId}
-          pinnedItem={activeSideChat.pinnedItem}
-          threadItems={threadItems}
-          onDismiss={dismiss}
-          onSubmit={submitMessage}
-          onDismissCard={dismissCard}
-          annotateMode={activeSideChat.annotateMode}
-          onAnnotateRequest={patchList ? requestAnnotate : undefined}
-          onAnnotateCancel={cancelAnnotate}
-          onAnnotateSubmit={submitAnnotate}
-          stagedPatches={stagedSummaries}
-          canUndo={canUndoForActive}
-          isApplying={patchListState.isApplying}
-          applyBatchId={patchListState.lastBatchId}
-          onApply={patchList?.apply}
-          onUndo={patchList?.undo}
-          onDiscardPatch={patchList?.discard}
-          existingAnnotations={existingAnnotations}
-          onPromoteAnnotation={promoteAnnotation}
-          activeAnnotationIds={activeCardIds}
-          layout={layout}
-          onLayoutChange={setLayout}
-          spanHint={pendingSpanHint}
-          onClearSpanHint={clearSpanHint}
-        />
-      )}
-    </SideChatContext.Provider>
+    <PatchListUndoProvider undo={undoForActive}>
+      <PatchListOverlayBridgeProvider value={patchListOverlayBridge}>
+        <SideChatContext.Provider value={sideChatContextValue}>
+          <div
+            className="h-full min-h-0 min-w-0 overflow-hidden transition-[padding] duration-200 ease-out"
+            style={{ paddingRight: docksContent ? 'calc(588px + 1rem)' : undefined }}
+          >
+            {children}
+          </div>
+          {activeSideChat && (
+            <SideChatPopover
+              key={activeSideChat.sessionId}
+              pinnedItem={activeSideChat.pinnedItem}
+              threadItems={threadItems}
+              onDismiss={dismiss}
+              onSubmit={submitMessage}
+              onDismissCard={dismissCard}
+              annotateMode={activeSideChat.annotateMode}
+              onAnnotateRequest={patchList ? requestAnnotate : undefined}
+              onAnnotateCancel={cancelAnnotate}
+              onAnnotateSubmit={submitAnnotate}
+              mode={activeSideChat.mode}
+              onModeChange={patchList ? setMode : undefined}
+              stagedPatches={stagedSummaries}
+              canUndo={canUndoForActive}
+              isApplying={patchListState.isApplying}
+              applyBatchId={patchListState.lastBatchId}
+              lastBatchWasDeferredOnly={lastBatchWasDeferredOnly}
+              onApply={patchList && stagedForActiveIds.length > 0 ? applyStagedForActive : undefined}
+              onUndo={patchList ? undoForActive : undefined}
+              onDiscardPatch={patchList?.discard}
+              existingAnnotations={existingAnnotations}
+              onPromoteAnnotation={promoteAnnotation}
+              activeAnnotationIds={activeCardIds}
+              layout={layout}
+              onLayoutChange={setLayout}
+              spanHint={pendingSpanHint}
+              onClearSpanHint={clearSpanHint}
+            />
+          )}
+        </SideChatContext.Provider>
+      </PatchListOverlayBridgeProvider>
+    </PatchListUndoProvider>
   );
 }

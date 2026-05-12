@@ -108,12 +108,36 @@ describe('makeEditApplier', () => {
     );
   });
 
-  it('throws on hard-impact response so the patch-list batch fails', async () => {
+  it('returns applied state with openedNeedIds on hard-impact response (V3.0 card 2)', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
-    fetchMock.mockResolvedValueOnce(jsonResponse({ impact: 'hard', affectedItems: [], updated: false }));
+    // V3.0 card 2: hard-impact apply has no `deferred: true` shape and no banner
+    // message. The patch transitions out of staged like any soft/none apply, and
+    // open reconciliation_need rows render in the patch-list-overlay's Pending
+    // review section (driven by a separate query).
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        impact: 'hard',
+        affectedItems: [],
+        updated: true,
+        previousContent: 'Old content',
+        previousRationale: 'Old rationale',
+        openedNeedIds: [101, 102],
+      }),
+    );
 
     const applier = makeEditApplier(SPEC_ID);
-    await expect(applier(makeEditPatch())).rejects.toThrow(/hard impact/i);
+    const result = await applier(makeEditPatch());
+    expect(result.applied).toEqual({
+      impact: 'hard',
+      noUndo: true,
+      previousContent: 'Old content',
+      previousRationale: 'Old rationale',
+      openedNeedIds: [101, 102],
+    });
+    // Undo for hard-impact apply is a no-op in card 2 (source mutation
+    // persists; user resolves via the Pending review section). Card 3 wires
+    // real undo semantics once the resolve endpoint exists.
+    await expect(result.undo()).resolves.toBeUndefined();
   });
 
   it('throws when the server returns updated: true without previous values', async () => {
@@ -124,7 +148,7 @@ describe('makeEditApplier', () => {
     await expect(applier(makeEditPatch())).rejects.toThrow();
   });
 
-  it('throws during undo when the server defers the restore edit', async () => {
+  it('resolves undo when the restore edit comes back as hard-impact', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
     fetchMock
       .mockResolvedValueOnce(
@@ -136,12 +160,21 @@ describe('makeEditApplier', () => {
           previousRationale: 'Old rationale',
         }),
       )
-      .mockResolvedValueOnce(jsonResponse({ impact: 'hard', affectedItems: [], updated: false }));
+      .mockResolvedValueOnce(
+        jsonResponse({
+          impact: 'hard',
+          affectedItems: [],
+          updated: true,
+          previousContent: 'New content',
+          previousRationale: 'New rationale',
+          openedNeedIds: [201],
+        }),
+      );
 
     const applier = makeEditApplier(SPEC_ID);
     const result = await applier(makeEditPatch());
 
-    await expect(result.undo()).rejects.toThrow(/undo deferred/i);
+    await expect(result.undo()).resolves.toBeUndefined();
   });
 });
 

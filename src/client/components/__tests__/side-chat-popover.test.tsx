@@ -425,11 +425,11 @@ describe('SideChatPopover', () => {
     it('does not render any inline status when there are no staged patches and no completed batch', () => {
       render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
       expect(screen.queryByRole('region', { name: /staged annotations/i })).toBeNull();
-      expect(screen.queryByRole('status', { name: /annotation saved/i })).toBeNull();
-      expect(screen.queryByText(/saving annotation/i)).toBeNull();
+      expect(screen.queryByRole('status', { name: /change saved/i })).toBeNull();
+      expect(screen.queryByText(/saving change/i)).toBeNull();
     });
 
-    it('shows the "Saving annotation…" status while isApplying is true (no staging panel flash)', () => {
+    it('shows the "saving change…" status while isApplying is true (no staging panel flash)', () => {
       render(
         <SideChatPopover
           pinnedItem={baseItem}
@@ -439,12 +439,12 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      expect(screen.getByText(/saving annotation/i)).toBeTruthy();
+      expect(screen.getByText(/saving change/i)).toBeTruthy();
       // Staging panel must NOT show during in-flight auto-apply.
       expect(screen.queryByRole('region', { name: /staged annotations/i })).toBeNull();
     });
 
-    it('shows the "Annotation saved" confirmation with Undo after isApplying transitions from true to false with canUndo true', () => {
+    it('shows the "change saved" confirmation with Undo after isApplying transitions from true to false with canUndo true', () => {
       const onUndo = vi.fn();
       const { rerender } = render(
         <SideChatPopover
@@ -465,9 +465,9 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      const status = screen.getByRole('status', { name: /annotation saved/i });
+      const status = screen.getByRole('status', { name: /change saved/i });
       expect(status).toBeTruthy();
-      expect(status.textContent).toContain('Annotation saved');
+      expect(status.textContent).toContain('Change saved');
 
       fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
       expect(onUndo).toHaveBeenCalledTimes(1);
@@ -475,7 +475,7 @@ describe('SideChatPopover', () => {
 
     it('does not render the saved confirmation when canUndo is false', () => {
       render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
-      expect(screen.queryByRole('status', { name: /annotation saved/i })).toBeNull();
+      expect(screen.queryByRole('status', { name: /change saved/i })).toBeNull();
     });
 
     it('renders the staging panel only when staged>0 and not currently applying (i.e., a stuck/failed batch)', () => {
@@ -492,7 +492,7 @@ describe('SideChatPopover', () => {
 
       expect(screen.getByText('first note')).toBeTruthy();
       expect(screen.getByText('second note')).toBeTruthy();
-      expect(screen.getByText(/2 pending annotations/i)).toBeTruthy();
+      expect(screen.getByText(/2 pending changes/i)).toBeTruthy();
     });
 
     it('Discard button on a stuck patch fires onDiscardPatch', () => {
@@ -506,11 +506,11 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      fireEvent.click(screen.getByRole('button', { name: /discard staged annotation/i }));
+      fireEvent.click(screen.getByRole('button', { name: /discard staged change/i }));
       expect(onDiscardPatch).toHaveBeenCalledWith('p1');
     });
 
-    it('Retry button on a stuck patch fires onApply', () => {
+    it('Apply button on a staged patch fires onApply', () => {
       const onApply = vi.fn();
       render(
         <SideChatPopover
@@ -521,7 +521,7 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      fireEvent.click(screen.getByRole('button', { name: /^retry$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
       expect(onApply).toHaveBeenCalledTimes(1);
     });
 
@@ -642,7 +642,7 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
     });
 
     it('shows the saved toast when isApplying transitions from true to false with canUndo true', () => {
@@ -655,7 +655,7 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
 
       rerender(
         <SideChatPopover
@@ -666,7 +666,7 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
     });
 
     it('hides the saved toast when canUndo flips back to false (undo)', () => {
@@ -688,7 +688,7 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
 
       rerender(
         <SideChatPopover
@@ -699,7 +699,7 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
     });
 
     it('auto-hides the toast after 5 seconds', () => {
@@ -721,11 +721,11 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
       act(() => {
         vi.advanceTimersByTime(5000);
       });
-      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
     });
 
     it('shows and re-arms the saved toast for consecutive applied batches while canUndo stays true', () => {
@@ -750,11 +750,11 @@ describe('SideChatPopover', () => {
           applyBatchId="batch-1"
         />,
       );
-      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
       act(() => {
         vi.advanceTimersByTime(5000);
       });
-      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
 
       rerender(
         <SideChatPopover
@@ -767,11 +767,11 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      expect(screen.getByLabelText(/annotation saved/i)).toBeTruthy();
+      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
       act(() => {
         vi.advanceTimersByTime(5000);
       });
-      expect(screen.queryByLabelText(/annotation saved/i)).toBeNull();
+      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
     });
 
     it('renders the toast as an absolute overlay inside the composer footer', () => {
@@ -793,7 +793,7 @@ describe('SideChatPopover', () => {
           stagedPatches={[]}
         />,
       );
-      const toast = container.querySelector('[aria-label="Annotation saved"]') as HTMLElement;
+      const toast = container.querySelector('[aria-label="Change saved"]') as HTMLElement;
       const attach = container.querySelector('[aria-label="Attach (coming soon)"]') as HTMLElement;
       const send = container.querySelector('[aria-label="Send message"]') as HTMLElement;
       expect(toast).not.toBeNull();
@@ -805,5 +805,220 @@ describe('SideChatPopover', () => {
       // Toast is absolutely positioned (overlay — does not contribute to flex layout).
       expect(toast.className).toMatch(/\babsolute\b/);
     });
+  });
+});
+
+describe('SideChatPopover — impact tier chip on edit patches (V2 §4.1)', () => {
+  it('renders a Soft impact chip on staged edit patches with impact="soft"', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'edit', summary: 'Edit: rephrase', impact: 'soft' }]}
+      />,
+    );
+    const chip = screen.getByLabelText(/soft impact/i);
+    expect(chip.getAttribute('data-impact')).toBe('soft');
+    expect(chip.textContent).toMatch(/soft impact/i);
+  });
+
+  it('renders a Hard impact chip on staged edit patches with impact="hard"', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'edit', summary: 'Edit: rephrase', impact: 'hard' }]}
+      />,
+    );
+    const chip = screen.getByLabelText(/hard impact — v3/i);
+    expect(chip.getAttribute('data-impact')).toBe('hard');
+  });
+
+  it('renders a No impact chip on staged edit patches with impact="none"', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'edit', summary: 'Edit: rephrase', impact: 'none' }]}
+      />,
+    );
+    const chip = screen.getByLabelText(/no impact/i);
+    expect(chip.getAttribute('data-impact')).toBe('none');
+  });
+
+  it('does not render an impact chip when the staged patch is not an edit', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
+      />,
+    );
+    expect(screen.queryByLabelText(/impact/i)).toBeNull();
+  });
+
+  it('does not render an impact chip when impact is omitted on an edit patch', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'edit', summary: 'Edit: rephrase' }]}
+      />,
+    );
+    expect(screen.queryByLabelText(/impact/i)).toBeNull();
+  });
+});
+
+describe('SideChatPopover — Edit-mode toggle (V2)', () => {
+  it('keeps the Edit button disabled when onModeChange is not provided', () => {
+    render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
+    const edit = screen.getByRole('button', { name: /edit unavailable/i }) as HTMLButtonElement;
+    expect(edit.disabled).toBe(true);
+  });
+
+  it('explains that disabled Edit is unavailable in the current context', () => {
+    render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
+    const edit = screen.getByRole('button', { name: /edit unavailable/i });
+    expect(edit.getAttribute('title')).toBe('Edit unavailable in this context');
+  });
+
+  it('enables the Edit button when onModeChange is provided', () => {
+    render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} onModeChange={() => {}} />);
+    const edit = screen.getByRole('button', { name: /edit/i }) as HTMLButtonElement;
+    expect(edit.disabled).toBe(false);
+  });
+
+  it('clicking Edit when mode is "explore" calls onModeChange("edit")', () => {
+    const onModeChange = vi.fn();
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        mode="explore"
+        onModeChange={onModeChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }));
+    expect(onModeChange).toHaveBeenCalledWith('edit');
+  });
+
+  it('clicking Edit when mode is "edit" calls onModeChange("explore") (toggle off)', () => {
+    const onModeChange = vi.fn();
+    render(
+      <SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} mode="edit" onModeChange={onModeChange} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }));
+    expect(onModeChange).toHaveBeenCalledWith('explore');
+  });
+
+  it('marks the Edit button as pressed when mode is "edit"', () => {
+    render(
+      <SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} mode="edit" onModeChange={() => {}} />,
+    );
+    const edit = screen.getByRole('button', { name: /edit/i });
+    expect(edit.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('marks the Edit button as not pressed when mode is "explore"', () => {
+    render(
+      <SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} mode="explore" onModeChange={() => {}} />,
+    );
+    const edit = screen.getByRole('button', { name: /edit/i });
+    expect(edit.getAttribute('aria-pressed')).toBe('false');
+  });
+});
+
+describe('SideChatPopover — staged-edit diff expander (FE-665)', () => {
+  it('renders an expander on edit patches that carry currentContent and newContent', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[
+          {
+            id: 'p1',
+            kind: 'edit',
+            summary: 'Edit: rephrase',
+            currentContent: 'Use SQLite for the local store.',
+            newContent: 'Use Postgres for the local store.',
+          },
+        ]}
+      />,
+    );
+    const row = document.querySelector('[data-staged-patch-id="p1"]');
+    expect(row).not.toBeNull();
+    expect(row!.querySelector('details')).not.toBeNull();
+  });
+
+  it('expanding the row exposes removed and added diff spans', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[
+          {
+            id: 'p1',
+            kind: 'edit',
+            summary: 'Edit: rephrase',
+            currentContent: 'Use SQLite for the local store.',
+            newContent: 'Use Postgres for the local store.',
+          },
+        ]}
+      />,
+    );
+    const details = document.querySelector('[data-staged-patch-id="p1"] details') as HTMLDetailsElement;
+    details.open = true;
+    const removed = document.querySelectorAll('[data-diff-kind="removed"]');
+    const added = document.querySelectorAll('[data-diff-kind="added"]');
+    expect(removed.length).toBeGreaterThan(0);
+    expect(added.length).toBeGreaterThan(0);
+    expect(Array.from(removed).some((node) => node.textContent?.includes('SQLite'))).toBe(true);
+    expect(Array.from(added).some((node) => node.textContent?.includes('Postgres'))).toBe(true);
+  });
+
+  it('does not render an expander when the edit patch lacks currentContent or newContent', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'edit', summary: 'Edit: rephrase' }]}
+      />,
+    );
+    const row = document.querySelector('[data-staged-patch-id="p1"]');
+    expect(row).not.toBeNull();
+    expect(row!.querySelector('details')).toBeNull();
+    expect(row!.textContent).toContain('Edit: rephrase');
+  });
+
+  it('does not render an expander when before and after content are equal', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[
+          {
+            id: 'p1',
+            kind: 'edit',
+            summary: 'Edit: rephrase',
+            currentContent: 'same content',
+            newContent: 'same content',
+          },
+        ]}
+      />,
+    );
+    const row = document.querySelector('[data-staged-patch-id="p1"]');
+    expect(row!.querySelector('details')).toBeNull();
+  });
+
+  it('does not render an expander on non-edit staged patches', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'Note about C1' }]}
+      />,
+    );
+    const row = document.querySelector('[data-staged-patch-id="p1"]');
+    expect(row!.querySelector('details')).toBeNull();
   });
 });

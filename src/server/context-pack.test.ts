@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildCandidateSpecContextPack,
   buildObserverCaptureContextPack,
+  buildReconciliationContextPack,
+  buildWebResearchContextPack,
+  renderCandidateSpecContextPack,
   renderObserverCaptureContextPack,
+  renderReconciliationContextPack,
+  renderWebResearchContextPack,
   type ObserverContextPackInput,
 } from './context-pack.js';
 import type { TurnWithOptions } from './core.js';
@@ -42,6 +48,123 @@ function makeTurn(overrides: Partial<TurnWithOptions> = {}): TurnWithOptions {
 function expectObserverContextPackRendering(input: ObserverContextPackInput, expected: string) {
   expect(renderObserverCaptureContextPack(buildObserverCaptureContextPack(input))).toBe(expected);
 }
+
+describe('candidate-spec context packs', () => {
+  it('renders a deterministic proposal brief from ranked anchors and known commitments', () => {
+    const pack = buildCandidateSpecContextPack({
+      objective: 'Synthesize plausible directions for a partial-scope Brunch feature.',
+      requestedCandidateCount: 3,
+      entities: {
+        ...emptyEntities(),
+        goals: [{ id: 1, content: 'Help users react to concrete candidate directions' }],
+        constraints: [{ id: 4, content: 'Do not close the phase automatically' }],
+        decisions: [{ id: 7, content: 'Candidate sets are turn-owned proposal artifacts' }],
+        assumptions: [{ id: 8, content: 'Reaction-first synthesis can reduce interview fatigue' }],
+      },
+    });
+
+    expect(pack.scenario).toBe('candidate-spec');
+    expect(renderCandidateSpecContextPack(pack)).toBe(`Candidate-spec objective:
+Synthesize plausible directions for a partial-scope Brunch feature.
+
+Requested candidate count:
+3
+
+Known intent anchors:
+#1 goal | Help users react to concrete candidate directions
+#4 constraint | Do not close the phase automatically
+#7 decision | Candidate sets are turn-owned proposal artifacts
+#8 assumption | Reaction-first synthesis can reduce interview fatigue
+
+Constraints:
+- #4 Do not close the phase automatically
+
+Assumptions:
+- #8 Reaction-first synthesis can reduce interview fatigue
+
+Decisions:
+- #7 Candidate sets are turn-owned proposal artifacts
+
+Generation instructions:
+- Generate proposal directions only; do not treat output as accepted graph truth.
+- For each direction, name implications, tradeoffs, likely generated knowledge, and what it rules out.
+- Prefer directions that expose unresolved assumptions or constraints for human review.`);
+  });
+});
+
+describe('reconciliation context packs', () => {
+  it('renders proposal-only queue context from open needs and graph anchors', () => {
+    const pack = buildReconciliationContextPack({
+      objective: 'Plan how to review hard-impact edit fallout without mutating graph truth.',
+      openNeeds: [
+        {
+          id: 11,
+          sourceItemId: 7,
+          targetItemId: 8,
+          kind: 'needs_confirmation',
+          status: 'open',
+          reason: 'The edited decision may no longer support the target assumption.',
+        },
+      ],
+      entities: {
+        ...emptyEntities(),
+        decisions: [{ id: 7, content: 'Use graph-launched side chats for refinement' }],
+        assumptions: [{ id: 8, content: 'Side chats can refine graph truth without splitting the spec' }],
+        constraints: [{ id: 9, content: 'Do not resolve reconciliation needs without human review' }],
+      },
+    });
+
+    expect(pack.scenario).toBe('reconciliation');
+    expect(renderReconciliationContextPack(pack)).toBe(`Reconciliation objective:
+Plan how to review hard-impact edit fallout without mutating graph truth.
+
+Open reconciliation needs:
+- RN#11 needs_confirmation (open)
+  Source: #7 decision | Use graph-launched side chats for refinement
+  Target: #8 assumption | Side chats can refine graph truth without splitting the spec
+  Reason: The edited decision may no longer support the target assumption.
+
+Known intent anchors:
+#9 constraint | Do not resolve reconciliation needs without human review
+#7 decision | Use graph-launched side chats for refinement
+#8 assumption | Side chats can refine graph truth without splitting the spec
+
+Proposal boundary:
+- Read the queue and graph context only; do not mutate durable Brunch state.
+- Propose resolution strategies for human review instead of resolving needs.
+- Preserve source/target direction and cite reconciliation need ids in any proposal.`);
+  });
+});
+
+describe('web research context packs', () => {
+  it('renders a deterministic research brief from graph anchors and constraints', () => {
+    const pack = buildWebResearchContextPack({
+      researchObjective: 'Find current evidence for OpenRouter tool-call compatibility.',
+      triggeringQuestion: 'Should OpenRouter be the default onboarding provider?',
+      constraints: ['Do not call providers during this probe.', 'Prefer vendor docs over blog posts.'],
+      entities: {
+        ...emptyEntities(),
+        goals: [{ id: 1, content: 'Reduce first-run LLM setup friction' }],
+        assumptions: [{ id: 74, content: 'OpenRouter will reduce first-run friction for Brunch users' }],
+      },
+    });
+
+    expect(pack.scenario).toBe('web-research');
+    expect(renderWebResearchContextPack(pack)).toBe(`Research objective:
+Find current evidence for OpenRouter tool-call compatibility.
+
+Triggering question:
+Should OpenRouter be the default onboarding provider?
+
+Known intent anchors:
+#1 goal | Reduce first-run LLM setup friction
+#74 assumption | OpenRouter will reduce first-run friction for Brunch users
+
+Research constraints:
+- Do not call providers during this probe.
+- Prefer vendor docs over blog posts.`);
+  });
+});
 
 describe('observer context packs', () => {
   it('builds a typed observer-capture pack with compact anchors and current-turn evidence', () => {

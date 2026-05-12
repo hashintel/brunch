@@ -9,6 +9,9 @@ export const promptIds = [
   'interviewer.criteria',
   'observer.system',
   'side-chat.role',
+  'web-research.system',
+  'candidate-spec.system',
+  'reconciliation.system',
 ] as const;
 
 export type PromptId = (typeof promptIds)[number];
@@ -22,6 +25,9 @@ const promptAssetFiles = {
   'interviewer.criteria': 'interviewer-criteria.md',
   'observer.system': 'observer-system.md',
   'side-chat.role': 'side-chat-role.md',
+  'web-research.system': 'web-research-system.md',
+  'candidate-spec.system': 'candidate-spec-system.md',
+  'reconciliation.system': 'reconciliation-system.md',
 } satisfies Record<PromptId, string>;
 
 const promptDirectory = join(dirname(fileURLToPath(import.meta.url)), 'prompts');
@@ -39,7 +45,7 @@ export function loadPromptAsset(id: PromptId): string {
   const assetFile = getPromptAssetFileName(id);
 
   const cached = promptCache.get(id);
-  if (cached) {
+  if (cached !== undefined) {
     return cached;
   }
 

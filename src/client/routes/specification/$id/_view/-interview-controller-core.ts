@@ -45,10 +45,13 @@ export interface PendingQuestionOption {
 
 export interface PendingQuestionViewModel {
   readonly id: string;
+  readonly toolCallId: string;
+  readonly acknowledgedTurnId?: number;
   readonly question: string;
   readonly why: string;
   readonly impact: StructuredQuestion['impact'];
   readonly options: readonly PendingQuestionOption[];
+  readonly reviewActions?: StructuredQuestion['reviewActions'];
   readonly reviewSet?: ReviewSetData;
   readonly preface?: PrefaceData;
 }
@@ -283,9 +286,15 @@ function findPendingQuestion(messages: readonly BrunchUIMessage[]): PendingQuest
       if (!input) {
         continue;
       }
+      const acknowledgedTurnId =
+        part.state === 'output-available' && part.output?.ok && typeof part.output.turnId === 'number'
+          ? part.output.turnId
+          : null;
 
       return {
-        id: `${message.id}:${part.toolCallId}`,
+        id: acknowledgedTurnId ? `persisted-turn-${acknowledgedTurnId}` : `${message.id}:${part.toolCallId}`,
+        toolCallId: part.toolCallId,
+        ...(acknowledgedTurnId ? { acknowledgedTurnId } : {}),
         question: input.question,
         why: input.why,
         impact: input.impact,
@@ -294,6 +303,7 @@ function findPendingQuestion(messages: readonly BrunchUIMessage[]): PendingQuest
           content: option.content,
           is_recommended: option.is_recommended,
         })),
+        ...(input.reviewActions ? { reviewActions: input.reviewActions } : {}),
         ...(input.reviewSet ? { reviewSet: input.reviewSet } : {}),
       };
     }
@@ -427,6 +437,8 @@ export function createInterviewControllerViewState(
     pendingQuestionBase && pendingPreface
       ? { ...pendingQuestionBase, preface: pendingPreface }
       : pendingQuestionBase;
+  const pendingQuestionAcknowledgesPhaseTurn =
+    pendingQuestion?.acknowledgedTurnId !== undefined && pendingQuestion.acknowledgedTurnId === phaseTurn?.id;
   const latestPhaseSummary = findPhaseSummary(messages);
   const phaseSummary =
     latestPhaseSummary &&
@@ -436,25 +448,25 @@ export function createInterviewControllerViewState(
   const showPersistedTurn =
     (landing?.kind === 'frontier-turn' ? showTurnCard : showSubmittedTurnCard) &&
     phaseTurn !== null &&
-    (!isLoading || isSubmittedTurn) &&
+    (!isLoading || isSubmittedTurn || pendingQuestionAcknowledgesPhaseTurn) &&
     (!turnHasCompletedAnswer(phaseTurn) || isSubmittedTurn);
   const showRecovery =
     !isLoading &&
     !isAutoSubmittingPhaseIntent &&
     !phaseSummary &&
-    !pendingQuestion &&
+    (!pendingQuestion || pendingQuestionAcknowledgesPhaseTurn) &&
     !showPersistedTurn &&
     landing?.kind === 'recovery';
   const showKickoff =
     !isLoading &&
     !isAutoSubmittingPhaseIntent &&
     !phaseSummary &&
-    !pendingQuestion &&
+    (!pendingQuestion || pendingQuestionAcknowledgesPhaseTurn) &&
     !showPersistedTurn &&
     landing?.kind === 'kickoff';
   const bottomArtifact: InterviewBottomArtifactViewModel | null = phaseSummary
     ? { kind: 'phase-summary', phaseSummary }
-    : pendingQuestion
+    : pendingQuestion && !pendingQuestionAcknowledgesPhaseTurn
       ? { kind: 'pending-question', pendingQuestion }
       : showPersistedTurn && phaseTurn
         ? {

@@ -3,6 +3,9 @@
 export interface EditItemRequest {
   content: string;
   rationale?: string | null;
+  /** V3.0 (D139): side-chat turn id that triggered this edit, attached to any
+   * reconciliation_need rows opened by a hard-impact apply. */
+  causedByTurnId?: number;
 }
 
 export type EditItemResponse =
@@ -14,9 +17,17 @@ export type EditItemResponse =
       previousRationale: string | null;
     }
   | {
+      // V3.0: hard-impact apply mutates the source AND opens reconciliation_need
+      // rows (one per typed dependency edge incident on the changed item).
+      // `openedNeedIds` lists rows newly opened by this apply; re-applying the
+      // same edit is idempotent (partial unique index on (source, target, kind)
+      // — already-open rows are reported as []).
       impact: 'hard';
       affectedItems: Array<{ id: number; kind: string; referenceCode: string; content: string }>;
-      updated: false;
+      updated: true;
+      previousContent: string;
+      previousRationale: string | null;
+      openedNeedIds: number[];
     };
 
 export async function editKnowledgeItemRequest(
@@ -74,4 +85,18 @@ export async function deleteEdgeRequest(
     throw new Error(`deleteEdge failed: ${response.status} ${response.statusText}`);
   }
   return (await response.json()) as { deleted: boolean; reason?: string };
+}
+
+export async function resolveReconciliationNeedRequest(
+  specificationId: number,
+  needId: number,
+): Promise<{ resolved: true }> {
+  const response = await fetch(
+    `/api/specifications/${specificationId}/reconciliation-needs/${needId}/resolve`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' } },
+  );
+  if (!response.ok) {
+    throw new Error(`resolveReconciliationNeed failed: ${response.status} ${response.statusText}`);
+  }
+  return (await response.json()) as { resolved: true };
 }
