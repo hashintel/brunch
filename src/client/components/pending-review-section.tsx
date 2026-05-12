@@ -77,7 +77,7 @@ export function PendingReviewSection(): React.ReactElement | null {
   const [resettingNeedIds, setResettingNeedIds] = useState<ReadonlySet<number>>(() => new Set());
   const [applyingNeedIds, setApplyingNeedIds] = useState<ReadonlySet<number>>(() => new Set());
   const [isRunningAgent, setIsRunningAgent] = useState(false);
-  const [isBulkRunning, setIsBulkRunning] = useState(false);
+  const [bulkOperation, setBulkOperation] = useState<null | 'confirm' | 'apply'>(null);
   const [diffPopoverNeedId, setDiffPopoverNeedId] = useState<{
     needId: number;
     mode: 'source-diff' | 'agent-proposal';
@@ -100,9 +100,8 @@ export function PendingReviewSection(): React.ReactElement | null {
   const inflightAgentCount = openNeeds.filter(
     (need) => need.agent_status === 'queued' || need.agent_status === 'classifying',
   ).length;
-  const classifiedAgentCount = openNeeds.filter(
-    (need) => need.agent_status === 'classified' || need.agent_status === 'failed',
-  ).length;
+  const agentClassifiedSuccessCount = openNeeds.filter((need) => need.agent_status === 'classified').length;
+  const agentFailedCount = openNeeds.filter((need) => need.agent_status === 'failed').length;
   const unclassifiedAgentCount = openNeeds.filter((need) => need.agent_status === null).length;
   const agentInFlight = inflightAgentCount > 0;
   const specificationId = openNeeds[0]?.specification_id ?? null;
@@ -254,8 +253,8 @@ export function PendingReviewSection(): React.ReactElement | null {
   };
 
   const handleConfirmAll = (): void => {
-    if (specificationId === null || isBulkRunning || autoConfirmRows.length === 0) return;
-    setIsBulkRunning(true);
+    if (specificationId === null || bulkOperation !== null || autoConfirmRows.length === 0) return;
+    setBulkOperation('confirm');
     void (async () => {
       try {
         for (const need of autoConfirmRows) {
@@ -267,14 +266,14 @@ export function PendingReviewSection(): React.ReactElement | null {
         }
         await invalidateOpenReconciliationNeeds(specificationId);
       } finally {
-        setIsBulkRunning(false);
+        setBulkOperation(null);
       }
     })();
   };
 
   const handleApplyAllSuggested = (): void => {
-    if (specificationId === null || isBulkRunning || autoEditRows.length === 0) return;
-    setIsBulkRunning(true);
+    if (specificationId === null || bulkOperation !== null || autoEditRows.length === 0) return;
+    setBulkOperation('apply');
     void (async () => {
       try {
         for (const need of autoEditRows) {
@@ -290,7 +289,7 @@ export function PendingReviewSection(): React.ReactElement | null {
         }
         await invalidateOpenReconciliationNeeds(specificationId);
       } finally {
-        setIsBulkRunning(false);
+        setBulkOperation(null);
       }
     })();
   };
@@ -338,7 +337,16 @@ export function PendingReviewSection(): React.ReactElement | null {
           {agentInFlight ? (
             <span data-agent-progress-strip className="inline-flex items-center gap-1 text-[10px] text-hint">
               <Loader2 className="size-3 animate-spin" aria-hidden />
-              Agent: {classifiedAgentCount} of {openNeeds.length} classified
+              {agentFailedCount === 0 ? (
+                <>
+                  Agent: {agentClassifiedSuccessCount} of {openNeeds.length} classified
+                </>
+              ) : (
+                <>
+                  Agent: {agentClassifiedSuccessCount} classified · {agentFailedCount} failed (
+                  {agentClassifiedSuccessCount + agentFailedCount}/{openNeeds.length})
+                </>
+              )}
             </span>
           ) : null}
           {autoConfirmRows.length > 0 ? (
@@ -347,12 +355,12 @@ export function PendingReviewSection(): React.ReactElement | null {
               aria-label={`Confirm all ${autoConfirmRows.length} auto-confirm rows`}
               title="Resolve every auto-confirm row in one pass"
               data-bulk-confirm-button
-              disabled={isBulkRunning || agentInFlight}
+              disabled={bulkOperation !== null || agentInFlight}
               onClick={handleConfirmAll}
               className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
               style={{ backgroundColor: '#16a34a' }}
             >
-              {isBulkRunning ? (
+              {bulkOperation === 'confirm' ? (
                 <Loader2 className="size-3 animate-spin" aria-hidden />
               ) : (
                 <CheckCheck className="size-3" aria-hidden />
@@ -366,12 +374,12 @@ export function PendingReviewSection(): React.ReactElement | null {
               aria-label={`Apply all ${autoEditRows.length} suggested edits`}
               title="Apply every auto-edit row's proposal and resolve it"
               data-bulk-apply-button
-              disabled={isBulkRunning || agentInFlight}
+              disabled={bulkOperation !== null || agentInFlight}
               onClick={handleApplyAllSuggested}
               className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
               style={{ backgroundColor: '#ea580c' }}
             >
-              {isBulkRunning ? (
+              {bulkOperation === 'apply' ? (
                 <Loader2 className="size-3 animate-spin" aria-hidden />
               ) : (
                 <Wand2 className="size-3" aria-hidden />
@@ -425,7 +433,7 @@ export function PendingReviewSection(): React.ReactElement | null {
             need.target_item_kind !== null &&
             need.target_reference_code !== null &&
             need.target_current_content !== null;
-          const rowDisabled = isResolving || isSaving || isResetting || isApplying || isBulkRunning;
+          const rowDisabled = isResolving || isSaving || isResetting || isApplying || bulkOperation !== null;
           const showSourceDiff =
             need.source_previous_content !== null &&
             need.source_current_content !== null &&

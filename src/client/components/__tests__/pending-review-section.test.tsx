@@ -485,6 +485,21 @@ describe('PendingReviewSection', () => {
       expect(strip?.textContent).toContain('Agent: 1 of 3 classified');
     });
 
+    it('progress strip separates failed rows from the classified count', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: 'classifying' }),
+        makeNeed({ id: 2, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 3, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 4, agent_status: 'failed', agent_proposal: 'LLM down' }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      const strip = container.querySelector('[data-agent-progress-strip]');
+      expect(strip?.textContent).toContain('2 classified');
+      expect(strip?.textContent).toContain('1 failed');
+      expect(strip?.textContent).toContain('(3/4)');
+      expect(strip?.textContent).not.toContain('3 of 4 classified');
+    });
+
     it('hides the progress strip when nothing is in flight', () => {
       setMockOpenNeeds([
         makeNeed({ id: 1, agent_status: 'classified', agent_classification: 'auto-confirm' }),
@@ -754,6 +769,58 @@ describe('PendingReviewSection', () => {
       expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(2);
       expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 1);
       expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 2);
+    });
+
+    it('spins only the Confirm all bulk button while confirm is in flight (Apply all keeps its icon)', async () => {
+      let releaseFirst: (() => void) | undefined;
+      const firstHang = new Promise<{ resolved: true }>((resolve) => {
+        releaseFirst = () => resolve({ resolved: true as const });
+      });
+      let callCount = 0;
+      mockResolveReconciliationNeedRequest.mockImplementation(() => {
+        callCount += 1;
+        if (callCount === 1) return firstHang;
+        return Promise.resolve({ resolved: true as const });
+      });
+
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'auto-confirm',
+        }),
+        makeNeed({
+          id: 2,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'auto-confirm',
+        }),
+        makeNeed({
+          id: 3,
+          specification_id: 7,
+          target_item_id: 50,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: 'p',
+          target_current_content: 'c',
+        }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      fireEvent.click(screen.getByRole('button', { name: /confirm all 2 auto-confirm rows/i }));
+
+      await waitFor(() => {
+        const confirmBtn = container.querySelector('[data-bulk-confirm-button]');
+        const applyBtn = container.querySelector('[data-bulk-apply-button]');
+        expect(confirmBtn?.querySelector('.lucide-loader-circle')).not.toBeNull();
+        expect(applyBtn?.querySelector('.lucide-wand-sparkles')).not.toBeNull();
+        expect(applyBtn?.querySelector('.lucide-loader-circle')).toBeNull();
+      });
+
+      releaseFirst?.();
+      await act(async () => {
+        await vi.runOnlyPendingTimersAsync();
+      });
     });
 
     it('disables per-row actions while bulk confirm awaits the first resolve', async () => {
