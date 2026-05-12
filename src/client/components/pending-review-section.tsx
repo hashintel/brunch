@@ -268,14 +268,16 @@ export function PendingReviewSection(): React.ReactElement | null {
     setBulkOperation('confirm');
     const specId = specificationId;
     void (async () => {
+      const failedNeedIds = new Set<number>();
       try {
         for (let step = 0; step < MAX_BULK_OPEN_NEED_STEPS; step++) {
           const fresh = await refetchOpenReconciliationNeedsData(specId);
-          const next = fresh.find(isAutoConfirmNeed);
+          const next = fresh.filter(isAutoConfirmNeed).find((need) => !failedNeedIds.has(need.id));
           if (next === undefined) break;
           try {
             await resolveReconciliationNeedRequest(next.specification_id, next.id);
           } catch (error) {
+            failedNeedIds.add(next.id);
             console.error('bulk confirm need %s failed', next.id, error);
           }
         }
@@ -290,10 +292,11 @@ export function PendingReviewSection(): React.ReactElement | null {
     setBulkOperation('apply');
     const specId = specificationId;
     void (async () => {
+      const failedNeedIds = new Set<number>();
       try {
         for (let step = 0; step < MAX_BULK_OPEN_NEED_STEPS; step++) {
           const fresh = await refetchOpenReconciliationNeedsData(specId);
-          const next = fresh.find(isAutoEditNeed);
+          const next = fresh.filter(isAutoEditNeed).find((need) => !failedNeedIds.has(need.id));
           if (next === undefined) break;
           try {
             await editKnowledgeItemRequest(next.specification_id, next.target_item_id, {
@@ -301,6 +304,7 @@ export function PendingReviewSection(): React.ReactElement | null {
             });
             await resolveReconciliationNeedRequest(next.specification_id, next.id);
           } catch (error) {
+            failedNeedIds.add(next.id);
             console.error('bulk apply need %s failed', next.id, error);
           }
         }

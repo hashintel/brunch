@@ -904,6 +904,98 @@ describe('PendingReviewSection', () => {
       expect(button?.textContent).toContain('Apply all suggested (1)');
     });
 
+    it('Confirm all skips a need whose resolve fails and continues with the next eligible row', async () => {
+      const failing = makeNeed({
+        id: 1,
+        specification_id: 7,
+        agent_status: 'classified',
+        agent_classification: 'auto-confirm',
+      });
+      const healthy = makeNeed({
+        id: 2,
+        specification_id: 7,
+        agent_status: 'classified',
+        agent_classification: 'auto-confirm',
+      });
+      setMockOpenNeeds([failing, healthy]);
+      let refetchCalls = 0;
+      mockRefetchOpenReconciliationNeedsData.mockImplementation(async () => {
+        await mockInvalidateOpenReconciliationNeeds();
+        refetchCalls += 1;
+        if (refetchCalls <= 2) return [failing, healthy];
+        return [failing];
+      });
+      let resolveCalls = 0;
+      mockResolveReconciliationNeedRequest.mockImplementation(() => {
+        resolveCalls += 1;
+        if (resolveCalls === 1) return Promise.reject(new Error('500 transient'));
+        return Promise.resolve({ resolved: true as const });
+      });
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /confirm all 2 auto-confirm rows/i }));
+      });
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(2);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 1);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 2);
+      expect(mockRefetchOpenReconciliationNeedsData).toHaveBeenCalledTimes(3);
+      consoleError.mockRestore();
+    });
+
+    it('Apply all skips a need whose edit fails and continues with the next eligible row', async () => {
+      const failing = makeNeed({
+        id: 1,
+        specification_id: 7,
+        target_item_id: 100,
+        agent_status: 'classified',
+        agent_classification: 'auto-edit',
+        agent_proposal: 'proposal A',
+        target_current_content: 'old A',
+      });
+      const healthy = makeNeed({
+        id: 2,
+        specification_id: 7,
+        target_item_id: 101,
+        agent_status: 'classified',
+        agent_classification: 'auto-edit',
+        agent_proposal: 'proposal B',
+        target_current_content: 'old B',
+      });
+      setMockOpenNeeds([failing, healthy]);
+      let refetchCalls = 0;
+      mockRefetchOpenReconciliationNeedsData.mockImplementation(async () => {
+        await mockInvalidateOpenReconciliationNeeds();
+        refetchCalls += 1;
+        if (refetchCalls <= 2) return [failing, healthy];
+        return [failing];
+      });
+      let editCalls = 0;
+      mockEditKnowledgeItemRequest.mockImplementation(() => {
+        editCalls += 1;
+        if (editCalls === 1) return Promise.reject(new Error('500 transient'));
+        return Promise.resolve({
+          impact: 'soft' as const,
+          affectedItems: [],
+          updated: true as const,
+          previousContent: 'old',
+          previousRationale: null,
+        });
+      });
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /apply all 2 suggested edits/i }));
+      });
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledTimes(2);
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledWith(7, 100, { content: 'proposal A' });
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledWith(7, 101, { content: 'proposal B' });
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(1);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 2);
+      expect(mockRefetchOpenReconciliationNeedsData).toHaveBeenCalledTimes(3);
+      consoleError.mockRestore();
+    });
+
     it('Apply all suggested serially applies each auto-edit proposal then resolves', async () => {
       const n1 = makeNeed({
         id: 1,
