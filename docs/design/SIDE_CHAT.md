@@ -209,7 +209,7 @@ When a patch with kind `edit` is applied, the system routes by **two questions i
 | Tier | Trigger | Path |
 |---|---|---|
 | **None** | `affectedCount === 0` (item is a graph leaf with no downstream edges) | Apply directly. Single-item content update; brief inline confirmation card in the panel: "Updated `[X]`." |
-| **Soft** | `1 ≤ affectedCount ≤ 2` AND no anchor or affected item is in an active review set *(active = generated and not yet accepted)* | Apply with **soft recomputing**. Patch lands directly; brief inline confirmation lists the affected items: "Updated `[X]`; recomputed `[Y]`, `[Z]`." No cascade preview. |
+| **Soft** | `1 ≤ affectedCount ≤ 2` AND no anchor or affected item is in an active review set *(active = generated and not yet accepted)* | Apply directly with affected-item context. Patch lands directly; brief inline confirmation lists the affected items: "Updated `[X]`; `[Y]`, `[Z]` may need a refresh." No cascade preview or durable `reconciliation_need` rows. |
 | **Hard** | High downstream count, OR any anchor or affected item is in an active review set | **Cascade preview** backed by `reconciliation_need` rows → batch-resolution mode in the side-chat panel (§5.3). The archived REVISIT_MODULE walk is superseded. |
 
 ### 5.2 Confidence model — V1

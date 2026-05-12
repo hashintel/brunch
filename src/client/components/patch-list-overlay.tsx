@@ -1,19 +1,17 @@
 // PatchListOverlay — the canonical persistent patch-list surface (SIDE_CHAT.md §4).
 //
-// Renders a sticky bar below the global app top-bar whenever there are staged
-// patches or a transient post-apply message to surface. Lives outside the
-// side-chat popover so it stays visible regardless of whether the panel is open
-// — this is the surface V4's architect loop will eventually deposit into too.
+// Renders sticky bars below the global app top-bar:
+//   • Staged-changes bar when there are staged patches.
+//   • Pending-review section listing open reconciliation_need rows (V3.0 card 2,
+//     SIDE_CHAT.md §5.3 — driven by useSpecificationOpenReconciliationNeeds).
+//   • Saved-toast for soft / none / hard impact applies (transient post-apply).
 //
-// Two transient-message cases share this overlay:
-//   • saved-toast for soft / none impact applies (mirrors the popover's
-//     existing "Change saved" toast but works even with the panel closed)
-//   • deferred-banner for V2 hard-impact applies (per SIDE_CHAT.md §6.3:
-//     "Hard impact — coming in V3 cascade preview"). The deferred-applied
-//     marker carried in lastBatchAppliedMeta drives this; the popover's
-//     saved-toast is suppressed for deferred-only batches via prop.
+// Lives outside the side-chat popover so it stays visible regardless of whether
+// the panel is open — V4's architect loop will deposit into the same surface.
 
 import { useEffect, useRef, useState } from 'react';
+
+import { useSpecificationOpenReconciliationNeeds } from '@/client/routes/specification/$id/-specification-data.js';
 
 import { ContentDiff } from './content-diff.js';
 import { ImpactChip } from './impact-chip.js';
@@ -25,38 +23,9 @@ import { usePatchListUndoOverride } from './patch-list-undo-context.js';
 
 const MESSAGE_DURATION_MS = 5000;
 
-interface DeferredBanner {
-  message: string;
-}
-
-function readDeferredFromAppliedMeta(applied: unknown): DeferredBanner | null {
-  if (!applied || typeof applied !== 'object') {
-    return null;
-  }
-  const record = applied as { deferred?: unknown; message?: unknown };
-  if (record.deferred !== true) {
-    return null;
-  }
-  const message =
-    typeof record.message === 'string' ? record.message : 'Hard impact — coming in V3 cascade preview';
-  return { message };
-}
-
-function lastBatchHasDeferred(
-  meta: ReadonlyArray<{ patchId: string; applied: unknown }>,
-): DeferredBanner | null {
+function lastBatchHasNonNullApply(meta: ReadonlyArray<{ patchId: string; applied: unknown }>): boolean {
   for (const entry of meta) {
-    const banner = readDeferredFromAppliedMeta(entry.applied);
-    if (banner) {
-      return banner;
-    }
-  }
-  return null;
-}
-
-function lastBatchHasNonDeferredApply(meta: ReadonlyArray<{ patchId: string; applied: unknown }>): boolean {
-  for (const entry of meta) {
-    if (readDeferredFromAppliedMeta(entry.applied) === null && entry.applied) {
+    if (entry.applied) {
       return true;
     }
   }
@@ -106,10 +75,11 @@ export function PatchListOverlay(): React.ReactElement | null {
   const lastBatchAppliedMeta = useLastBatchAppliedMeta();
   const undoOverride = usePatchListUndoOverride();
   const overlayBridge = usePatchListOverlayBridge();
+  const openNeeds = useSpecificationOpenReconciliationNeeds();
 
   const stagedCount = state.staged.length;
+  const openNeedsCount = openNeeds.length;
 
-  const [deferredBanner, setDeferredBanner] = useState<DeferredBanner | null>(null);
   const [savedToastVisible, setSavedToastVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const lastSeenBatchIdRef = useRef<string | null>(null);
@@ -126,25 +96,16 @@ export function PatchListOverlay(): React.ReactElement | null {
   //
   // Deps are intentionally narrow: a wider dep array re-runs cleanup on
   // unrelated churn (e.g. stagedCount change), cancelling the auto-hide
-  // timer and leaving the banner stuck on screen.
+  // timer and leaving the toast stuck on screen.
   useEffect(() => {
     if (state.lastBatchId === null || state.lastBatchId === lastSeenBatchIdRef.current) {
       return;
     }
     lastSeenBatchIdRef.current = state.lastBatchId;
 
-    const banner = lastBatchHasDeferred(lastBatchAppliedMeta);
-    const hasNonDeferred = lastBatchHasNonDeferredApply(lastBatchAppliedMeta);
+    const hasApply = lastBatchHasNonNullApply(lastBatchAppliedMeta);
 
-    if (banner) {
-      setDeferredBanner(banner);
-      setSavedToastVisible(false);
-      const handle = window.setTimeout(() => setDeferredBanner(null), MESSAGE_DURATION_MS);
-      return () => window.clearTimeout(handle);
-    }
-
-    setDeferredBanner(null);
-    if (hasNonDeferred && !state.isApplying && stagedCount === 0 && state.canUndo) {
+    if (hasApply && !state.isApplying && stagedCount === 0 && state.canUndo) {
       setSavedToastVisible(true);
       const handle = window.setTimeout(() => setSavedToastVisible(false), MESSAGE_DURATION_MS);
       return () => window.clearTimeout(handle);
@@ -152,10 +113,9 @@ export function PatchListOverlay(): React.ReactElement | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.lastBatchId]);
 
-  // Hide transient post-apply messages when canUndo flips back to false (the user undid).
+  // Hide transient post-apply toast when canUndo flips back to false (the user undid).
   useEffect(() => {
     if (!state.canUndo) {
-      setDeferredBanner(null);
       setSavedToastVisible(false);
     }
   }, [state.canUndo]);
@@ -177,115 +137,126 @@ export function PatchListOverlay(): React.ReactElement | null {
     void patchList.apply();
   }
 
-  // Nothing to surface: no staged patches, no transient message.
-  if (stagedCount === 0 && !deferredBanner && !savedToastVisible) {
+  // Nothing to surface: no staged patches, no open needs, no transient toast.
+  if (stagedCount === 0 && openNeedsCount === 0 && !savedToastVisible) {
     return null;
   }
 
-  if (stagedCount > 0) {
-    const countLabel = `${stagedCount} pending change${stagedCount === 1 ? '' : 's'}`;
-    return (
-      <div
-        role="region"
-        aria-label="Staged changes"
-        data-staged-count={stagedCount}
-        data-expanded={expanded ? 'true' : 'false'}
-        className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur"
-      >
-        <div className="flex items-center justify-between gap-3 px-4 py-1.5 text-xs">
-          <button
-            type="button"
-            aria-expanded={expanded}
-            onClick={() => setExpanded((v) => !v)}
-            className="flex items-center gap-1.5 font-medium text-ink outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
-          >
-            <span
-              aria-hidden
-              className={`font-mono text-[10px] text-hint transition-transform ${expanded ? 'rotate-90' : ''}`}
-            >
-              ›
-            </span>
-            <span>{countLabel}</span>
-          </button>
-          <div className="flex items-center gap-1.5">
-            {state.canUndo ? (
-              <button
-                type="button"
-                onClick={undo}
-                className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
-              >
-                Undo
-              </button>
-            ) : null}
+  const countLabel = `${stagedCount} pending change${stagedCount === 1 ? '' : 's'}`;
+
+  return (
+    <div className="sticky top-0 z-30 flex flex-col">
+      {stagedCount > 0 ? (
+        <div
+          role="region"
+          aria-label="Staged changes"
+          data-staged-count={stagedCount}
+          data-expanded={expanded ? 'true' : 'false'}
+          className="border-b border-rule bg-card/95 backdrop-blur"
+        >
+          <div className="flex items-center justify-between gap-3 px-4 py-1.5 text-xs">
             <button
               type="button"
-              disabled={state.isApplying || scopedApplyBlocked}
-              title={
-                scopedApplyBlocked
-                  ? 'Pending changes are on another item — open that item in side-chat or switch context to apply them'
-                  : undefined
-              }
-              onClick={() => void applyFromOverlay()}
-              className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] disabled:opacity-50"
+              aria-expanded={expanded}
+              onClick={() => setExpanded((v) => !v)}
+              className="flex items-center gap-1.5 font-medium text-ink outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
             >
-              {state.isApplying ? 'Applying…' : 'Apply'}
+              <span
+                aria-hidden
+                className={`font-mono text-[10px] text-hint transition-transform ${expanded ? 'rotate-90' : ''}`}
+              >
+                ›
+              </span>
+              <span>{countLabel}</span>
             </button>
+            <div className="flex items-center gap-1.5">
+              {state.canUndo ? (
+                <button
+                  type="button"
+                  onClick={undo}
+                  className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
+                >
+                  Undo
+                </button>
+              ) : null}
+              <button
+                type="button"
+                disabled={state.isApplying || scopedApplyBlocked}
+                title={
+                  scopedApplyBlocked
+                    ? 'Pending changes are on another item — open that item in side-chat or switch context to apply them'
+                    : undefined
+                }
+                onClick={() => void applyFromOverlay()}
+                className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] disabled:opacity-50"
+              >
+                {state.isApplying ? 'Applying…' : 'Apply'}
+              </button>
+            </div>
           </div>
+          {expanded ? (
+            <ul
+              role="list"
+              aria-label="Staged patch detail"
+              className="flex flex-col gap-1.5 border-t border-rule bg-wash/40 px-4 py-2"
+            >
+              {state.staged.map((patch) => (
+                <StagedPatchDetailRow key={patch.id} patch={patch} />
+              ))}
+            </ul>
+          ) : null}
         </div>
-        {expanded ? (
-          <ul
-            role="list"
-            aria-label="Staged patch detail"
-            className="flex flex-col gap-1.5 border-t border-rule bg-wash/40 px-4 py-2"
-          >
-            {state.staged.map((patch) => (
-              <StagedPatchDetailRow key={patch.id} patch={patch} />
+      ) : null}
+      {openNeedsCount > 0 ? (
+        <div
+          role="region"
+          aria-label="Pending review"
+          data-open-needs-count={openNeedsCount}
+          className="flex flex-col gap-1 border-b border-rule bg-[rgba(255,219,168,0.35)] px-4 py-1.5 text-xs backdrop-blur"
+        >
+          <span className="font-medium text-ink">
+            {openNeedsCount} pending review{openNeedsCount === 1 ? '' : 's'}
+          </span>
+          <ul className="flex flex-col gap-0.5 text-sub">
+            {openNeeds.map((need) => (
+              <li
+                key={need.id}
+                data-need-id={need.id}
+                data-need-kind={need.kind}
+                className="flex items-center gap-2"
+              >
+                <span
+                  className="rounded-sm bg-white/70 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-ink uppercase"
+                  data-kind-chip={need.kind}
+                >
+                  {need.kind === 'supersedes' ? 'supersedes' : 'confirm'}
+                </span>
+                <span>
+                  source #{need.source_item_id} → target #{need.target_item_id}
+                </span>
+              </li>
             ))}
           </ul>
-        ) : null}
-      </div>
-    );
-  }
-
-  if (deferredBanner) {
-    return (
-      <div
-        role="status"
-        aria-label="Hard impact deferred to V3"
-        className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-rule bg-[rgba(255,219,168,0.5)] px-4 py-1.5 text-xs backdrop-blur"
-      >
-        <span className="font-medium text-ink">{deferredBanner.message}</span>
-        <button
-          type="button"
-          onClick={() => setDeferredBanner(null)}
-          className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
+        </div>
+      ) : null}
+      {savedToastVisible ? (
+        <div
+          role="status"
+          aria-label="Change saved"
+          className="flex items-center justify-between gap-3 border-b border-rule bg-card/95 px-4 py-1.5 text-xs backdrop-blur"
         >
-          Dismiss
-        </button>
-      </div>
-    );
-  }
-
-  if (savedToastVisible) {
-    return (
-      <div
-        role="status"
-        aria-label="Change saved"
-        className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-rule bg-card/95 px-4 py-1.5 text-xs backdrop-blur"
-      >
-        <span className="font-medium text-ink">Change saved</span>
-        {state.canUndo ? (
-          <button
-            type="button"
-            onClick={undo}
-            className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
-          >
-            Undo
-          </button>
-        ) : null}
-      </div>
-    );
-  }
-
-  return null;
+          <span className="font-medium text-ink">Change saved</span>
+          {state.canUndo ? (
+            <button
+              type="button"
+              onClick={undo}
+              className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
+            >
+              Undo
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
 }
