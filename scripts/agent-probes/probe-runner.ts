@@ -162,6 +162,8 @@ export interface ProcessBackedProbeOptions {
   args?: string[];
   env?: NodeJS.ProcessEnv;
   preserveWorkspaceState?: boolean;
+  responsePolicy?: ProbeResponsePolicy;
+  simulatedUserEvents?: SimulatedUserEvent[];
 }
 
 export async function runProcessBackedProbe({
@@ -173,13 +175,21 @@ export async function runProcessBackedProbe({
   args = [resolve('bin/brunch.js'), 'agent'],
   env = process.env,
   preserveWorkspaceState = false,
+  responsePolicy,
+  simulatedUserEvents,
 }: ProcessBackedProbeOptions): Promise<ProbeRunResult> {
   const workspaceCwd = mkdtempSync(join(tmpdir(), 'brunch-probe-workspace-'));
   const spawned = spawnProcess({ cwd: workspaceCwd, command, args, env });
   const transport = createProcessJsonlTransport(spawned);
 
   try {
-    const result = await runScriptedProbe({ transport, scenario, scriptedAnswers });
+    const result = await runScriptedProbe({
+      transport,
+      scenario,
+      scriptedAnswers,
+      responsePolicy,
+      simulatedUserEvents,
+    });
     result.workspaceCwd = workspaceCwd;
     if (preserveWorkspaceState) {
       result.preservedWorkspaceStatePath = copyWorkspaceState({ workspaceCwd, outputDir });

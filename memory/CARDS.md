@@ -173,7 +173,7 @@ A model-backed user-simulator policy can answer one probe turn from the current 
 
 ## Card 15 — Opt-in LLM-as-user packaged-boundary smoke
 
-**Status:** next
+**Status:** done
 
 ### Objective
 
@@ -205,7 +205,7 @@ Result: stays light if implemented as an opt-in/manual proof wrapper over the ex
 
 ## Card 16 — Fixture-candidate normalization checkpoint
 
-**Status:** queued
+**Status:** next
 
 ### Objective
 
