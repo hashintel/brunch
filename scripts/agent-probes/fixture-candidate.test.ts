@@ -21,13 +21,14 @@ describe('fixture candidate checkpoint', () => {
     return dir;
   }
 
-  it('reports a complete artifact directory as ready with normalization debt', () => {
+  it('reports a complete artifact directory as parse-ready and structure-ready with normalization debt', () => {
     const dir = makeTempDir('brunch-fixture-complete-');
     writeCandidate(dir, { includeWorkspaceState: true });
 
     const report = inspectFixtureCandidate(dir, { expectWorkspaceState: true });
 
-    expect(report.ready).toBe(true);
+    expect(report.parseReady).toBe(true);
+    expect(report.structureReady).toBe(true);
     expect(report.files).toMatchObject({
       'artifact-bundle.json': { present: true, validJson: true },
       'summary.json': { present: true, validJson: true },
@@ -61,7 +62,8 @@ describe('fixture candidate checkpoint', () => {
 
     const report = inspectFixtureCandidate(dir, { expectWorkspaceState: true });
 
-    expect(report.ready).toBe(false);
+    expect(report.parseReady).toBe(true);
+    expect(report.structureReady).toBe(false);
     expect(report.workspaceState).toEqual({
       expected: true,
       present: false,
@@ -84,7 +86,8 @@ describe('fixture candidate checkpoint', () => {
 
     const report = inspectFixtureCandidate(dir);
 
-    expect(report.ready).toBe(false);
+    expect(report.parseReady).toBe(true);
+    expect(report.structureReady).toBe(false);
     expect(report.errors).toEqual(
       expect.arrayContaining([
         'artifact-bundle.json schemaVersion must be 1',
@@ -102,7 +105,8 @@ describe('fixture candidate checkpoint', () => {
 
     const report = inspectFixtureCandidate(dir, { expectWorkspaceState: false });
 
-    expect(report.ready).toBe(true);
+    expect(report.parseReady).toBe(true);
+    expect(report.structureReady).toBe(true);
     expect(report.runStatus).toEqual({ kind: 'error-run', turnsAnswered: 0, errorCount: 1 });
     expect(report.workspaceState).toEqual({
       expected: false,
