@@ -214,11 +214,69 @@ describe('probe runner', () => {
     const rawJsonl = readFileSync(join(outputDir, 'raw-jsonl.ndjson'), 'utf8');
     const finalChat = JSON.parse(readFileSync(join(outputDir, 'final-chat.json'), 'utf8')) as unknown;
     const summary = JSON.parse(readFileSync(join(outputDir, 'summary.json'), 'utf8')) as unknown;
+    const bundle = JSON.parse(readFileSync(join(outputDir, 'artifact-bundle.json'), 'utf8')) as unknown;
 
     expect(rawJsonl).toContain('"direction":"request"');
     expect(rawJsonl).toContain('"direction":"response"');
     expect(finalChat).toMatchObject({ frontier: { state: 'answered' } });
-    expect(summary).toMatchObject({ turnsAnswered: 2, finalFrontierState: 'answered' });
+    expect(summary).toMatchObject({
+      turnsAnswered: 2,
+      finalFrontierState: 'answered',
+      questionAnswers: [
+        { question: 'What are you building?', answer: 'A temp-workspace probe' },
+        { question: 'What should be specified first?', answer: 'Acceptance criteria' },
+      ],
+    });
+    expect(bundle).toMatchObject({
+      schemaVersion: 1,
+      scenario: { name: 'process-proof', brief: null },
+      commandSequence: expect.arrayContaining(['spec.create', 'chat.getPrimary', 'chat.ensureReady']),
+      environment: { platform: process.platform, arch: process.arch },
+    });
+  });
+
+  it('redacts secret-like failure summaries without provider stack dumps', async () => {
+    const transport: JsonlTransport = {
+      async send(request) {
+        if (request.capability === 'spec.create') {
+          return { id: request.id, ok: true, output: { specId: 1 } };
+        }
+        return {
+          id: request.id,
+          ok: false,
+          error: {
+            code: 'handler_failed',
+            message:
+              'Provider failed with ANTHROPIC_API_KEY=sk-ant-secret-value\n    at internal/provider.ts:1',
+          },
+        };
+      },
+    };
+
+    const result = await runScriptedProbe({
+      transport,
+      scenario: { name: 'redaction', specName: 'Redaction proof', brief: 'check safe artifacts' },
+      scriptedAnswers: [],
+    });
+
+    expect(result.errors).toEqual([
+      {
+        requestId: 'primary',
+        capability: 'chat.getPrimary',
+        code: 'handler_failed',
+        message: 'Provider failed with ANTHROPIC_API_KEY=[redacted]',
+      },
+    ]);
+    expect(result.summary).toMatchObject({
+      errors: [
+        {
+          requestId: 'primary',
+          capability: 'chat.getPrimary',
+          code: 'handler_failed',
+          message: 'Provider failed with ANTHROPIC_API_KEY=[redacted]',
+        },
+      ],
+    });
   });
 
   it('returns structured errors from failed JSONL responses', async () => {

@@ -37,6 +37,7 @@ export type ProbeProcessSpawner = (options: ProbeProcessSpawnOptions) => Spawned
 export interface ScriptedProbeScenario {
   name: string;
   specName: string;
+  brief?: string;
 }
 
 export interface ProbeRunError {
@@ -46,9 +47,32 @@ export interface ProbeRunError {
   message: string;
 }
 
+export interface ProbeQuestionAnswer {
+  question: string;
+  answer: string;
+}
+
 export interface ProbeRunSummary {
   turnsAnswered: number;
   finalFrontierState: string | null;
+  durationMs: number;
+  questionAnswers: ProbeQuestionAnswer[];
+  errors: ProbeRunError[];
+}
+
+export interface ProbeArtifactBundle {
+  schemaVersion: 1;
+  scenario: { name: string; brief: string | null; specName: string };
+  commandSequence: string[];
+  rawJsonlTranscript: Array<{
+    direction: 'request' | 'response';
+    payload: ProbeJsonlRequest | ProbeJsonlResponse | null;
+  }>;
+  parsedEvents: Array<{ index: number; request: ProbeJsonlRequest; response: ProbeJsonlResponse | null }>;
+  finalChat: AgentChatReadProjection | null;
+  summary: ProbeRunSummary;
+  errors: ProbeRunError[];
+  environment: { nodeVersion: string; platform: NodeJS.Platform; arch: string };
 }
 
 export interface ProbeRunResult {
@@ -165,12 +189,13 @@ export async function runScriptedProbe({
   scenario,
   scriptedAnswers,
 }: RunScriptedProbeOptions): Promise<ProbeRunResult> {
+  const startedAt = Date.now();
   const state: ProbeRunResult = {
     scenario,
     requests: [],
     responses: [],
     finalChat: null,
-    summary: { turnsAnswered: 0, finalFrontierState: null },
+    summary: { turnsAnswered: 0, finalFrontierState: null, durationMs: 0, questionAnswers: [], errors: [] },
     errors: [],
   };
 
@@ -180,7 +205,7 @@ export async function runScriptedProbe({
     input: { name: scenario.specName },
   });
   if (!created) {
-    return state;
+    return finishRun(state, startedAt);
   }
 
   const primary = await sendExpectingOutput<ChatGetPrimaryOutput>(state, transport, {
@@ -189,7 +214,7 @@ export async function runScriptedProbe({
     input: { specId: created.specId },
   });
   if (!primary) {
-    return state;
+    return finishRun(state, startedAt);
   }
 
   for (let turnIndex = 0; turnIndex < 2; turnIndex += 1) {
@@ -199,7 +224,7 @@ export async function runScriptedProbe({
       input: { chatId: primary.chatId },
     });
     if (!ready) {
-      return state;
+      return finishRun(state, startedAt);
     }
 
     const readyRead = await sendExpectingOutput<AgentChatReadProjection>(state, transport, {
@@ -208,7 +233,7 @@ export async function runScriptedProbe({
       input: { chatId: primary.chatId },
     });
     if (!readyRead) {
-      return state;
+      return finishRun(state, startedAt);
     }
     state.finalChat = readyRead;
     state.summary.finalFrontierState = readyRead.frontier.state;
@@ -221,7 +246,7 @@ export async function runScriptedProbe({
         code: 'no_answerable_turn',
         message: 'chat.read did not expose an awaiting-response frontier turn',
       });
-      return state;
+      return finishRun(state, startedAt);
     }
 
     const submit = await sendExpectingOutput<unknown>(state, transport, {
@@ -234,7 +259,7 @@ export async function runScriptedProbe({
       },
     });
     if (!submit) {
-      return state;
+      return finishRun(state, startedAt);
     }
     state.summary.turnsAnswered += 1;
 
@@ -244,13 +269,13 @@ export async function runScriptedProbe({
       input: { chatId: primary.chatId },
     });
     if (!afterAnswerRead) {
-      return state;
+      return finishRun(state, startedAt);
     }
     state.finalChat = afterAnswerRead;
     state.summary.finalFrontierState = afterAnswerRead.frontier.state;
   }
 
-  return state;
+  return finishRun(state, startedAt);
 }
 
 async function sendExpectingOutput<T>(
@@ -267,7 +292,7 @@ async function sendExpectingOutput<T>(
       requestId: request.id,
       capability: request.capability,
       code: response.error.code,
-      message: response.error.message,
+      message: sanitizeProbeErrorMessage(response.error.message),
     });
     return null;
   }
@@ -294,19 +319,66 @@ function buildScriptedResponse(turn: AgentChatTurn, scriptedAnswer: string | und
   };
 }
 
+function finishRun(state: ProbeRunResult, startedAt: number): ProbeRunResult {
+  state.summary.durationMs = Date.now() - startedAt;
+  state.summary.errors = state.errors;
+  state.summary.questionAnswers = extractQuestionAnswers(state.finalChat);
+  return state;
+}
+
+function extractQuestionAnswers(finalChat: AgentChatReadProjection | null): ProbeQuestionAnswer[] {
+  return (
+    finalChat?.turns
+      .filter((turn) => turn.answer !== null)
+      .map((turn) => ({ question: turn.question, answer: turn.answer ?? '' })) ?? []
+  );
+}
+
+function sanitizeProbeErrorMessage(message: string): string {
+  return message
+    .split('\n')[0]
+    .replace(/(ANTHROPIC_API_KEY=)[^\s]+/gi, '$1[redacted]')
+    .replace(/(OPENAI_API_KEY=)[^\s]+/gi, '$1[redacted]')
+    .replace(/sk-[a-z0-9_-]+/gi, '[redacted]')
+    .slice(0, 300);
+}
+
+export function buildProbeArtifactBundle(result: ProbeRunResult): ProbeArtifactBundle {
+  const rawJsonlTranscript = result.requests.flatMap((request, index) => [
+    { direction: 'request' as const, payload: request },
+    { direction: 'response' as const, payload: result.responses[index] ?? null },
+  ]);
+
+  return {
+    schemaVersion: 1,
+    scenario: {
+      name: result.scenario.name,
+      brief: result.scenario.brief ?? null,
+      specName: result.scenario.specName,
+    },
+    commandSequence: result.requests.map((request) => request.capability),
+    rawJsonlTranscript,
+    parsedEvents: result.requests.map((request, index) => ({
+      index,
+      request,
+      response: result.responses[index] ?? null,
+    })),
+    finalChat: result.finalChat,
+    summary: result.summary,
+    errors: result.errors,
+    environment: { nodeVersion: process.version, platform: process.platform, arch: process.arch },
+  };
+}
+
 function writeProbeArtifacts(outputDir: string, result: ProbeRunResult): void {
   mkdirSync(outputDir, { recursive: true });
-  const rawJsonl = result.requests
-    .flatMap((request, index) => [
-      { direction: 'request', payload: request },
-      { direction: 'response', payload: result.responses[index] ?? null },
-    ])
-    .map((entry) => JSON.stringify(entry))
-    .join('\n');
+  const bundle = buildProbeArtifactBundle(result);
+  const rawJsonl = bundle.rawJsonlTranscript.map((entry) => JSON.stringify(entry)).join('\n');
 
+  writeFileSync(join(outputDir, 'artifact-bundle.json'), `${JSON.stringify(bundle, null, 2)}\n`);
   writeFileSync(join(outputDir, 'raw-jsonl.ndjson'), `${rawJsonl}\n`);
-  writeFileSync(join(outputDir, 'final-chat.json'), `${JSON.stringify(result.finalChat, null, 2)}\n`);
-  writeFileSync(join(outputDir, 'summary.json'), `${JSON.stringify(result.summary, null, 2)}\n`);
+  writeFileSync(join(outputDir, 'final-chat.json'), `${JSON.stringify(bundle.finalChat, null, 2)}\n`);
+  writeFileSync(join(outputDir, 'summary.json'), `${JSON.stringify(bundle.summary, null, 2)}\n`);
 }
 
 function spawnBrunchAgentProcess({ cwd, command, args, env }: ProbeProcessSpawnOptions): SpawnedJsonlProcess {

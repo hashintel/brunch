@@ -81,7 +81,7 @@ A local probe runner can launch the packaged `brunch agent` process in an isolat
 
 ## Card 9 — Probe artifact schema and safe summaries
 
-**Status:** queued
+**Status:** done
 
 ### Objective
 
