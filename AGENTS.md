@@ -78,6 +78,6 @@ Read these before the relevant activity:
 
 - **Dev server**: `npm run dev` starts both Vite (`:5173`) and Express API (`:3000`) via `agent-tail`. Logs are written to `tmp/logs/` under the workspace root — see `docs/praxis/dev-server-logs.md` for details.
 - **Fixture seeding**: Use `npm run seed <scenario>` to populate `.brunch/brunch.db`. Wipe first with `rm -f .brunch/brunch.db*` for a clean state. See `CONTRIBUTING.md § Fixture Scenarios` for available scenarios.
-- **ANTHROPIC_API_KEY**: Required to exercise AI chat turns. Without it the server starts and serves seeded data, but chat requests will fail. Set it in `.env` or as an environment secret.
+- **ANTHROPIC_API_KEY**: Required to exercise AI chat turns. Without it the server starts and serves seeded data, but chat requests will fail. Pass it when starting the dev server (e.g. `ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY npm run dev`) or create a `.env` file in the workspace root.
 - **Blank-page recovery**: If the SPA shows a blank page with `504 Outdated Optimize Dep` in the browser console, kill dev-server listeners, run `rm -rf node_modules/.vite-*`, and restart `npm run dev` (documented in `CONTRIBUTING.md`).
 - **Verification commands**: See the `## verification` section above — `npm run fix` (inner loop), `npm run check` (CI gate), `npm run verify` (full gate including tests and build).
