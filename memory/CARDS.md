@@ -45,7 +45,7 @@ A probe-runner core can drive the first two interview responses through an injec
 
 ## Card 8 — Process-backed temp-workspace proof runner
 
-**Status:** queued
+**Status:** done
 
 ### Target Behavior
 
@@ -72,6 +72,7 @@ A local probe runner can launch the packaged `brunch agent` process in an isolat
 ✓ `probe-runner.test.ts` — process-backed runner uses an injected spawn/process adapter to write JSONL requests and parse JSONL responses.
 ✓ `probe-runner.test.ts` — a run creates an isolated workspace cwd and writes raw request/response JSONL, final `chat.read` projection, and run summary outside `.brunch/`.
 ✓ opt-in smoke command/documented invocation — when provider credentials and built package output are available, the runner reaches a second answerable frontier through `bin/brunch.js agent`.
+  - Manual invocation shape for a future smoke wrapper: build first, then call `runProcessBackedProbe()` with the default command (`node bin/brunch.js agent`), an explicit `outputDir`, and a temp workspace created by the runner; this is intentionally not a CI command until provider credentials are controlled.
 
 ### Verification Approach
 
