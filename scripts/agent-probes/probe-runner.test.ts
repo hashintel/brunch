@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -207,6 +207,7 @@ describe('probe runner', () => {
     });
 
     expect(result.summary).toMatchObject({ turnsAnswered: 2, finalFrontierState: 'answered' });
+    expect(result.workspaceCwd).toBe(spawnedCwds[0]);
     expect(spawnedCwds).toHaveLength(1);
     expect(spawnedCwds[0]).toContain('brunch-probe-workspace-');
     expect(outputDir).not.toContain(`${spawnedCwds[0]}/.brunch`);
@@ -232,6 +233,41 @@ describe('probe runner', () => {
       scenario: { name: 'process-proof', brief: null },
       commandSequence: expect.arrayContaining(['spec.create', 'chat.getPrimary', 'chat.ensureReady']),
       environment: { platform: process.platform, arch: process.arch },
+      workspace: { cwd: spawnedCwds[0], preservedStatePath: null },
+    });
+    expect(existsSync(join(outputDir, 'workspace-state'))).toBe(false);
+  });
+
+  it('can preserve the temp workspace .brunch state into the artifact directory', async () => {
+    const outputDir = makeTempDir('brunch-probe-output-');
+    let liveWorkspaceDbPath: string | null = null;
+
+    const result = await runProcessBackedProbe({
+      scenario: { name: 'preserve-fixture', specName: 'Preserve fixture proof' },
+      scriptedAnswers: ['A fixture candidate'],
+      outputDir,
+      preserveWorkspaceState: true,
+      spawnProcess({ cwd }) {
+        const brunchDir = join(cwd, '.brunch');
+        mkdirSync(brunchDir);
+        liveWorkspaceDbPath = join(brunchDir, 'brunch.db');
+        writeFileSync(liveWorkspaceDbPath, 'sqlite fixture bytes');
+        return createFakeAgentProcess();
+      },
+    });
+
+    const preservedDbPath = join(outputDir, 'workspace-state', '.brunch', 'brunch.db');
+    const bundle = JSON.parse(readFileSync(join(outputDir, 'artifact-bundle.json'), 'utf8')) as unknown;
+
+    expect(result.workspaceCwd).not.toBeNull();
+    expect(result.workspaceCwd).not.toContain(outputDir);
+    expect(result.preservedWorkspaceStatePath).toBe(join(outputDir, 'workspace-state'));
+    expect(preservedDbPath).not.toBe(liveWorkspaceDbPath);
+    expect(readFileSync(preservedDbPath, 'utf8')).toBe('sqlite fixture bytes');
+    rmSync(result.workspaceCwd ?? '', { recursive: true, force: true });
+    expect(readFileSync(preservedDbPath, 'utf8')).toBe('sqlite fixture bytes');
+    expect(bundle).toMatchObject({
+      workspace: { cwd: result.workspaceCwd, preservedStatePath: join(outputDir, 'workspace-state') },
     });
   });
 
