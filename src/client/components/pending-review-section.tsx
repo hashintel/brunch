@@ -39,6 +39,7 @@ import {
 } from '@/client/lib/edit-api.js';
 import {
   invalidateOpenReconciliationNeeds,
+  refetchOpenReconciliationNeedsData,
   useSpecificationOpenReconciliationNeeds,
 } from '@/client/routes/specification/$id/-specification-data.js';
 import type { ReconciliationNeedRecord } from '@/shared/reconciliation-need.js';
@@ -64,9 +65,27 @@ const PRIMARY_ACTION_BLUE = '#3484fa';
 
 const TARGET_EXCERPT_LIMIT = 80;
 
+/** Avoids an infinite loop if the open-needs list never converges during bulk work. */
+const MAX_BULK_OPEN_NEED_STEPS = 500;
+
 function truncate(text: string, limit: number): string {
   if (text.length <= limit) return text;
   return `${text.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
+}
+
+function isAutoConfirmNeed(need: ReconciliationNeedRecord): boolean {
+  return need.agent_status === 'classified' && need.agent_classification === 'auto-confirm';
+}
+
+function isAutoEditNeed(
+  need: ReconciliationNeedRecord,
+): need is ReconciliationNeedRecord & { agent_proposal: string; target_current_content: string } {
+  return (
+    need.agent_status === 'classified' &&
+    need.agent_classification === 'auto-edit' &&
+    need.agent_proposal !== null &&
+    need.target_current_content !== null
+  );
 }
 
 export function PendingReviewSection(): React.ReactElement | null {
@@ -105,16 +124,8 @@ export function PendingReviewSection(): React.ReactElement | null {
   const unclassifiedAgentCount = openNeeds.filter((need) => need.agent_status === null).length;
   const agentInFlight = inflightAgentCount > 0;
   const specificationId = openNeeds[0]?.specification_id ?? null;
-  const autoConfirmRows = openNeeds.filter(
-    (need) => need.agent_status === 'classified' && need.agent_classification === 'auto-confirm',
-  );
-  const autoEditRows = openNeeds.filter(
-    (need) =>
-      need.agent_status === 'classified' &&
-      need.agent_classification === 'auto-edit' &&
-      need.agent_proposal !== null &&
-      need.target_current_content !== null,
-  );
+  const autoConfirmRows = openNeeds.filter(isAutoConfirmNeed);
+  const autoEditRows = openNeeds.filter(isAutoEditNeed);
 
   // Idempotent resolve. The button is disabled while the request is in flight
   // so a double-click can't double-fire. Errors propagate; we don't optimistically
@@ -255,16 +266,19 @@ export function PendingReviewSection(): React.ReactElement | null {
   const handleConfirmAll = (): void => {
     if (specificationId === null || bulkOperation !== null || autoConfirmRows.length === 0) return;
     setBulkOperation('confirm');
+    const specId = specificationId;
     void (async () => {
       try {
-        for (const need of autoConfirmRows) {
+        for (let step = 0; step < MAX_BULK_OPEN_NEED_STEPS; step++) {
+          const fresh = await refetchOpenReconciliationNeedsData(specId);
+          const next = fresh.find(isAutoConfirmNeed);
+          if (next === undefined) break;
           try {
-            await resolveReconciliationNeedRequest(need.specification_id, need.id);
+            await resolveReconciliationNeedRequest(next.specification_id, next.id);
           } catch (error) {
-            console.error('bulk confirm need %s failed', need.id, error);
+            console.error('bulk confirm need %s failed', next.id, error);
           }
         }
-        await invalidateOpenReconciliationNeeds(specificationId);
       } finally {
         setBulkOperation(null);
       }
@@ -274,20 +288,22 @@ export function PendingReviewSection(): React.ReactElement | null {
   const handleApplyAllSuggested = (): void => {
     if (specificationId === null || bulkOperation !== null || autoEditRows.length === 0) return;
     setBulkOperation('apply');
+    const specId = specificationId;
     void (async () => {
       try {
-        for (const need of autoEditRows) {
-          if (need.agent_proposal === null) continue;
+        for (let step = 0; step < MAX_BULK_OPEN_NEED_STEPS; step++) {
+          const fresh = await refetchOpenReconciliationNeedsData(specId);
+          const next = fresh.find(isAutoEditNeed);
+          if (next === undefined) break;
           try {
-            await editKnowledgeItemRequest(need.specification_id, need.target_item_id, {
-              content: need.agent_proposal,
+            await editKnowledgeItemRequest(next.specification_id, next.target_item_id, {
+              content: next.agent_proposal,
             });
-            await resolveReconciliationNeedRequest(need.specification_id, need.id);
+            await resolveReconciliationNeedRequest(next.specification_id, next.id);
           } catch (error) {
-            console.error('bulk apply need %s failed', need.id, error);
+            console.error('bulk apply need %s failed', next.id, error);
           }
         }
-        await invalidateOpenReconciliationNeeds(specificationId);
       } finally {
         setBulkOperation(null);
       }

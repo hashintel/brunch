@@ -311,3 +311,21 @@ export async function invalidateOpenReconciliationNeeds(specificationId: number)
     queryKey: specificationQueryKeys.reconciliationNeeds(String(specificationId)),
   });
 }
+
+/**
+ * Refetches open reconciliation needs from the server and writes the result
+ * into the query cache. Used by bulk handlers that must not iterate a stale
+ * snapshot across cascade-affecting edits.
+ */
+export async function refetchOpenReconciliationNeedsData(
+  specificationId: number,
+): Promise<ReconciliationNeedRecord[]> {
+  const key = String(specificationId);
+  await queryClient.invalidateQueries({
+    queryKey: specificationQueryKeys.reconciliationNeeds(key),
+  });
+  return await queryClient.fetchQuery({
+    queryKey: specificationQueryKeys.reconciliationNeeds(key),
+    queryFn: () => fetchOpenReconciliationNeeds(key),
+  });
+}

@@ -17,9 +17,16 @@ function setMockOpenNeeds(needs: ReconciliationNeedRecord[]): void {
 }
 
 const mockInvalidateOpenReconciliationNeeds = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const mockRefetchOpenReconciliationNeedsData = vi.hoisted(() =>
+  vi.fn(async (): Promise<ReconciliationNeedRecord[]> => {
+    await mockInvalidateOpenReconciliationNeeds();
+    return mockOpenNeeds;
+  }),
+);
 vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
   useSpecificationOpenReconciliationNeeds: () => mockOpenNeeds,
   invalidateOpenReconciliationNeeds: mockInvalidateOpenReconciliationNeeds,
+  refetchOpenReconciliationNeedsData: mockRefetchOpenReconciliationNeedsData,
 }));
 
 const mockResolveReconciliationNeedRequest = vi.hoisted(() =>
@@ -91,6 +98,11 @@ afterEach(() => {
     }),
   );
   mockInvalidateOpenReconciliationNeeds.mockClear();
+  mockRefetchOpenReconciliationNeedsData.mockClear();
+  mockRefetchOpenReconciliationNeedsData.mockImplementation(async () => {
+    await mockInvalidateOpenReconciliationNeeds();
+    return mockOpenNeeds;
+  });
   mockRunReconciliationAgentRequest.mockClear();
   mockRunReconciliationAgentRequest.mockImplementation(() =>
     Promise.resolve({ specId: 1, ranAt: '2026-05-11T00:00:00Z', classifiedCount: 0, failedCount: 0 }),
@@ -742,26 +754,33 @@ describe('PendingReviewSection', () => {
     });
 
     it('Confirm all serially resolves every auto-confirm row', async () => {
-      setMockOpenNeeds([
-        makeNeed({
-          id: 1,
-          specification_id: 7,
-          agent_status: 'classified',
-          agent_classification: 'auto-confirm',
-        }),
-        makeNeed({
-          id: 2,
-          specification_id: 7,
-          agent_status: 'classified',
-          agent_classification: 'auto-confirm',
-        }),
-        makeNeed({
-          id: 3,
-          specification_id: 7,
-          agent_status: 'classified',
-          agent_classification: 'substantive',
-        }),
-      ]);
+      const need1 = makeNeed({
+        id: 1,
+        specification_id: 7,
+        agent_status: 'classified',
+        agent_classification: 'auto-confirm',
+      });
+      const need2 = makeNeed({
+        id: 2,
+        specification_id: 7,
+        agent_status: 'classified',
+        agent_classification: 'auto-confirm',
+      });
+      const need3 = makeNeed({
+        id: 3,
+        specification_id: 7,
+        agent_status: 'classified',
+        agent_classification: 'substantive',
+      });
+      setMockOpenNeeds([need1, need2, need3]);
+      let refetchWave = 0;
+      mockRefetchOpenReconciliationNeedsData.mockImplementation(async () => {
+        await mockInvalidateOpenReconciliationNeeds();
+        refetchWave += 1;
+        if (refetchWave === 1) return [need1, need2, need3];
+        if (refetchWave === 2) return [need2, need3];
+        return [need3];
+      });
       render(<PendingReviewSection />);
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /confirm all 2 auto-confirm rows/i }));
@@ -886,26 +905,33 @@ describe('PendingReviewSection', () => {
     });
 
     it('Apply all suggested serially applies each auto-edit proposal then resolves', async () => {
-      setMockOpenNeeds([
-        makeNeed({
-          id: 1,
-          specification_id: 7,
-          target_item_id: 100,
-          agent_status: 'classified',
-          agent_classification: 'auto-edit',
-          agent_proposal: 'proposal A',
-          target_current_content: 'old A',
-        }),
-        makeNeed({
-          id: 2,
-          specification_id: 7,
-          target_item_id: 101,
-          agent_status: 'classified',
-          agent_classification: 'auto-edit',
-          agent_proposal: 'proposal B',
-          target_current_content: 'old B',
-        }),
-      ]);
+      const n1 = makeNeed({
+        id: 1,
+        specification_id: 7,
+        target_item_id: 100,
+        agent_status: 'classified',
+        agent_classification: 'auto-edit',
+        agent_proposal: 'proposal A',
+        target_current_content: 'old A',
+      });
+      const n2 = makeNeed({
+        id: 2,
+        specification_id: 7,
+        target_item_id: 101,
+        agent_status: 'classified',
+        agent_classification: 'auto-edit',
+        agent_proposal: 'proposal B',
+        target_current_content: 'old B',
+      });
+      setMockOpenNeeds([n1, n2]);
+      let refetchWave = 0;
+      mockRefetchOpenReconciliationNeedsData.mockImplementation(async () => {
+        await mockInvalidateOpenReconciliationNeeds();
+        refetchWave += 1;
+        if (refetchWave === 1) return [n1, n2];
+        if (refetchWave === 2) return [n2];
+        return [];
+      });
       render(<PendingReviewSection />);
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /apply all 2 suggested edits/i }));
