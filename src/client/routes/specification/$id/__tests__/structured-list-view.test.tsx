@@ -48,10 +48,11 @@ vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: '1' }),
 }));
 
-// PatchListOverlay pulls in PendingReviewSection which queries open
-// reconciliation needs via -specification-data. Stub the hook so tests
-// don't need a TanStack Query provider; rendering the empty section is a
-// no-op (PendingReviewSection returns null when openNeeds is empty).
+// PendingReviewSection queries open reconciliation needs via -specification-data.
+// Stub the hook so tests don't need a TanStack Query provider; rendering the
+// empty section is a no-op (PendingReviewSection returns null when openNeeds
+// is empty). Tests mount <PatchListOverlay /> alongside the view to mirror the
+// specification layout route.
 vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
   useSpecificationOpenReconciliationNeeds: () => [],
   invalidateOpenReconciliationNeeds: () => Promise.resolve(),

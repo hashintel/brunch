@@ -58,6 +58,8 @@ export interface PatchListActions {
 interface PatchListContextValue {
   actions: PatchListActions;
   state: DerivedPatchListState;
+  /** Survives <PatchListOverlay /> remounts so the saved toast does not re-fire on route changes. */
+  savedToastLastAckBatchIdRef: { current: string | null };
 }
 
 const PatchListContext = createContext<PatchListContextValue | null>(null);
@@ -80,6 +82,7 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
   reducerStateRef.current = reducerState;
 
   const applyInFlightRef = useRef(false);
+  const savedToastLastAckBatchIdRef = useRef<string | null>(null);
 
   const newId = useCallback(() => idFactory?.() ?? crypto.randomUUID(), [idFactory]);
   const nowMs = useCallback(() => now?.() ?? Date.now(), [now]);
@@ -202,7 +205,7 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
   );
 
   const value = useMemo<PatchListContextValue>(
-    () => ({ actions, state: derivedState }),
+    () => ({ actions, state: derivedState, savedToastLastAckBatchIdRef }),
     [actions, derivedState],
   );
 
@@ -214,6 +217,13 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
 export function usePatchList(): PatchListActions | null {
   const ctx = useContext(PatchListContext);
   return ctx ? ctx.actions : null;
+}
+
+/** Stable across PatchListOverlay mount cycles; avoids duplicate "Change saved" toasts on route churn. */
+export function usePatchListSavedToastLastAckBatchIdRef(): { current: string | null } {
+  const ctx = useContext(PatchListContext);
+  const fallback = useRef<string | null>(null);
+  return ctx?.savedToastLastAckBatchIdRef ?? fallback;
 }
 
 export interface PatchListState {

@@ -429,26 +429,27 @@ describe('SideChatPopover', () => {
       expect(screen.queryByText(/saving change/i)).toBeNull();
     });
 
-    it('shows the "saving change…" status while isApplying is true (no staging panel flash)', () => {
+    it('shows the "saving change…" status inline while isApplying with staged patches (Apply disabled)', () => {
       render(
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
           stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
           isApplying
+          onApply={() => {}}
         />,
       );
 
       expect(screen.getByText(/saving change/i)).toBeTruthy();
-      // Staging panel must NOT show during in-flight auto-apply.
-      expect(screen.queryByRole('region', { name: /staged annotations/i })).toBeNull();
+      expect(screen.getByRole('region', { name: /staged changes/i })).toBeTruthy();
+      const applyBtn = screen.getByRole('button', { name: /apply 1 change/i }) as HTMLButtonElement;
+      expect(applyBtn.disabled).toBe(true);
     });
 
     // Card 4 follow-up: "Change saved" toast moved out of the side-chat
-    // composer into <PatchListOverlay /> (rendered in the structured-list
-    // view above PendingReviewSection), so the popover no longer surfaces
-    // the saved confirmation. Toast lifecycle is exercised in
-    // patch-list-overlay.test.tsx.
+    // composer into <PatchListOverlay /> (mounted in the specification layout
+    // route), so the popover no longer surfaces the saved confirmation. Toast
+    // lifecycle is exercised in patch-list-overlay.test.tsx.
 
     it('renders the staging panel only when staged>0 and not currently applying (i.e., a stuck/failed batch)', () => {
       render(

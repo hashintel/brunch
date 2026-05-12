@@ -364,7 +364,7 @@ export function SideChatPopover({
           )}
         </ul>
 
-        {!isApplying && stagedPatches.length > 0 ? (
+        {stagedPatches.length > 0 ? (
           <section
             aria-label="Staged changes"
             data-staged-patch-count={stagedPatches.length}
@@ -465,10 +465,11 @@ export function SideChatPopover({
               {onApply ? (
                 <button
                   type="button"
+                  disabled={isApplying}
                   onClick={onApply}
                   aria-label={`Apply ${stagedPatches.length} change${stagedPatches.length === 1 ? '' : 's'}`}
                   title="Apply"
-                  className="inline-flex size-7 items-center justify-center rounded-md text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-transform hover:scale-105"
+                  className="inline-flex size-7 items-center justify-center rounded-md text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-transform hover:scale-105 disabled:pointer-events-none disabled:opacity-50"
                   style={{ backgroundColor: accent }}
                 >
                   <Check className="size-3.5" aria-hidden strokeWidth={2.5} />
