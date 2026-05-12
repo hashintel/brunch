@@ -59,6 +59,7 @@ export function DiffPopover({
 }: DiffPopoverProps): React.ReactElement | null {
   const popoverRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<ComputedPosition | null>(null);
+  const [measureEpoch, setMeasureEpoch] = useState(0);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -71,6 +72,7 @@ export function DiffPopover({
       return;
     }
     setPosition(computePosition(anchor, 160));
+    setMeasureEpoch((e) => e + 1);
   }, [open, anchor]);
 
   useLayoutEffect(() => {
@@ -88,7 +90,7 @@ export function DiffPopover({
       }
       return next;
     });
-  }, [open, anchor, before, after, title, position]);
+  }, [open, anchor, before, after, title, measureEpoch]);
 
   useEffect(() => {
     if (!open) return;
