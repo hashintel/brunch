@@ -37,7 +37,8 @@ import type { SideChatStreamEvent } from '@/client/lib/side-chat-stream.js';
 
 const mockNavigate = vi.fn();
 let mockHash = '';
-const { mockStreamSideChatResponse } = vi.hoisted(() => ({
+const { mockListAnnotationsForSpecificationRequest, mockStreamSideChatResponse } = vi.hoisted(() => ({
+  mockListAnnotationsForSpecificationRequest: vi.fn(),
   mockStreamSideChatResponse: vi.fn(),
 }));
 
@@ -50,6 +51,10 @@ vi.mock('@/client/lib/side-chat-stream.js', () => ({
   streamSideChatResponse: mockStreamSideChatResponse,
 }));
 
+vi.mock('@/client/lib/annotation-api.js', () => ({
+  listAnnotationsForSpecificationRequest: mockListAnnotationsForSpecificationRequest,
+}));
+
 import { RelationChipPreview } from '../-relation-chip.js';
 import { StructuredListView } from '../-structured-list-view.js';
 
@@ -57,6 +62,7 @@ let scrollToSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   mockNavigate.mockClear();
+  mockListAnnotationsForSpecificationRequest.mockResolvedValue([]);
   mockStreamSideChatResponse.mockReset();
   mockHash = '';
   scrollToSpy = vi.spyOn(Element.prototype, 'scrollTo').mockImplementation(() => {});

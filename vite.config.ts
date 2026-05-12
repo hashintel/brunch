@@ -11,7 +11,11 @@ import {
   resolveDevServerPort,
   serverRuntimeBuildMode,
 } from './config/vite-dev-server';
-import { createServerRuntimeConfig, isServerRuntimeBuild } from './config/vite-server-runtime';
+import {
+  copyServerPromptAssets,
+  createServerRuntimeConfig,
+  isServerRuntimeBuild,
+} from './config/vite-server-runtime';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as {
@@ -19,7 +23,7 @@ const packageJson = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 
   version?: string;
 };
 
-export { defaultDevServerPort, resolveDevServerPort, serverRuntimeBuildMode };
+export { copyServerPromptAssets, defaultDevServerPort, resolveDevServerPort, serverRuntimeBuildMode };
 
 export const getViteCacheDir = (command: 'build' | 'serve', argv: string[], mode?: string) =>
   getViteCacheDirForRoot(__dirname, command, argv, mode);
