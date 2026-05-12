@@ -72,7 +72,7 @@ Result: stays light. This aligns file placement with the existing FE-705 decisio
 
 ## Card 12 — Preserve probe workspace state for fixture candidates
 
-**Status:** next
+**Status:** done
 
 ### Objective
 
@@ -104,7 +104,7 @@ Result: stays light. This preserves evidence inside the already-established exte
 
 ## Card 13 — User-simulator policy interface
 
-**Status:** queued
+**Status:** next
 
 ### Objective
 

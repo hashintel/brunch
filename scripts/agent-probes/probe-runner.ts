@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -63,6 +63,7 @@ export interface ProbeRunSummary {
 export interface ProbeArtifactBundle {
   schemaVersion: 1;
   scenario: { name: string; brief: string | null; specName: string };
+  workspace: { cwd: string | null; preservedStatePath: string | null };
   commandSequence: string[];
   rawJsonlTranscript: Array<{
     direction: 'request' | 'response';
@@ -77,6 +78,8 @@ export interface ProbeArtifactBundle {
 
 export interface ProbeRunResult {
   scenario: ScriptedProbeScenario;
+  workspaceCwd: string | null;
+  preservedWorkspaceStatePath: string | null;
   requests: ProbeJsonlRequest[];
   responses: ProbeJsonlResponse[];
   finalChat: AgentChatReadProjection | null;
@@ -129,6 +132,7 @@ export interface ProcessBackedProbeOptions {
   command?: string;
   args?: string[];
   env?: NodeJS.ProcessEnv;
+  preserveWorkspaceState?: boolean;
 }
 
 export async function runProcessBackedProbe({
@@ -139,6 +143,7 @@ export async function runProcessBackedProbe({
   command = process.execPath,
   args = [resolve('bin/brunch.js'), 'agent'],
   env = process.env,
+  preserveWorkspaceState = false,
 }: ProcessBackedProbeOptions): Promise<ProbeRunResult> {
   const workspaceCwd = mkdtempSync(join(tmpdir(), 'brunch-probe-workspace-'));
   const spawned = spawnProcess({ cwd: workspaceCwd, command, args, env });
@@ -146,6 +151,10 @@ export async function runProcessBackedProbe({
 
   try {
     const result = await runScriptedProbe({ transport, scenario, scriptedAnswers });
+    result.workspaceCwd = workspaceCwd;
+    if (preserveWorkspaceState) {
+      result.preservedWorkspaceStatePath = copyWorkspaceState({ workspaceCwd, outputDir });
+    }
     writeProbeArtifacts(outputDir, result);
     return result;
   } finally {
@@ -192,6 +201,8 @@ export async function runScriptedProbe({
   const startedAt = Date.now();
   const state: ProbeRunResult = {
     scenario,
+    workspaceCwd: null,
+    preservedWorkspaceStatePath: null,
     requests: [],
     responses: [],
     finalChat: null,
@@ -356,6 +367,10 @@ export function buildProbeArtifactBundle(result: ProbeRunResult): ProbeArtifactB
       brief: result.scenario.brief ?? null,
       specName: result.scenario.specName,
     },
+    workspace: {
+      cwd: result.workspaceCwd,
+      preservedStatePath: result.preservedWorkspaceStatePath,
+    },
     commandSequence: result.requests.map((request) => request.capability),
     rawJsonlTranscript,
     parsedEvents: result.requests.map((request, index) => ({
@@ -379,6 +394,24 @@ function writeProbeArtifacts(outputDir: string, result: ProbeRunResult): void {
   writeFileSync(join(outputDir, 'raw-jsonl.ndjson'), `${rawJsonl}\n`);
   writeFileSync(join(outputDir, 'final-chat.json'), `${JSON.stringify(bundle.finalChat, null, 2)}\n`);
   writeFileSync(join(outputDir, 'summary.json'), `${JSON.stringify(bundle.summary, null, 2)}\n`);
+}
+
+function copyWorkspaceState({
+  workspaceCwd,
+  outputDir,
+}: {
+  workspaceCwd: string;
+  outputDir: string;
+}): string {
+  const source = join(workspaceCwd, '.brunch');
+  const destination = join(outputDir, 'workspace-state');
+  mkdirSync(destination, { recursive: true });
+
+  if (existsSync(source)) {
+    cpSync(source, join(destination, '.brunch'), { recursive: true });
+  }
+
+  return destination;
 }
 
 function spawnBrunchAgentProcess({ cwd, command, args, env }: ProbeProcessSpawnOptions): SpawnedJsonlProcess {
