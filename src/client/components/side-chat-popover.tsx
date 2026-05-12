@@ -38,6 +38,24 @@ function useTypewriter(target: string, animate: boolean, charDelayMs = 15): stri
   return displayed;
 }
 
+// Impact tier chip for edit patches (design §4.1). Color cues mirror the
+// patch-list overlay's deferred banner family — neutral for none, blue for
+// soft (direct apply), amber for hard (deferred to V3 cascade).
+function ImpactChip({ impact }: { impact: 'none' | 'soft' | 'hard' }) {
+  const className =
+    impact === 'hard'
+      ? 'rounded bg-[rgba(255,219,168,0.6)] px-1.5 py-0.5 text-[10px] font-medium text-ink'
+      : impact === 'soft'
+        ? 'rounded bg-[rgba(32,112,230,0.12)] px-1.5 py-0.5 text-[10px] font-medium text-[#1060d6]'
+        : 'rounded bg-wash px-1.5 py-0.5 text-[10px] font-medium text-sub';
+  const label = impact === 'hard' ? 'Hard impact — V3' : impact === 'soft' ? 'Soft impact' : 'No impact';
+  return (
+    <span className={className} aria-label={label} data-impact={impact}>
+      {label}
+    </span>
+  );
+}
+
 function MessageBubble({ message }: { message: SideChatMessage }) {
   const animate = message.role === 'assistant' && !message.error && message.pending === true;
   const displayed = useTypewriter(message.text, animate);
@@ -75,6 +93,9 @@ export interface SideChatStagedPatchSummary {
   id: string;
   kind: 'annotate' | 'edit' | 'edge' | 'drill-down';
   summary: string;
+  // For kind='edit' only: server-classified impact tier rendered as a chip
+  // on the patch entry (design §4.1).
+  impact?: 'none' | 'soft' | 'hard';
 }
 
 export interface SideChatExistingAnnotation {
@@ -108,6 +129,9 @@ export interface SideChatPopoverProps {
   onAnnotateRequest?: () => void;
   onAnnotateCancel?: () => void;
   onAnnotateSubmit?: (summary: string, body: string) => void;
+  // ---- Edit mode toggle (V2 chat-driven Edit) ----
+  mode?: 'explore' | 'edit';
+  onModeChange?: (mode: 'explore' | 'edit') => void;
   // ---- Inline patch list (Card C, secondary surface per design §4) ----
   stagedPatches?: readonly SideChatStagedPatchSummary[];
   canUndo?: boolean;
@@ -116,6 +140,11 @@ export interface SideChatPopoverProps {
   onApply?: () => void;
   onUndo?: () => void;
   onDiscardPatch?: (id: string) => void;
+  // When the most recent applied batch was a deferred-only outcome (V2
+  // hard-impact deferral, SIDE_CHAT.md §6.3), suppress the inline
+  // "Change saved" toast here — the canonical patch-list overlay shows
+  // the deferred banner instead.
+  lastBatchWasDeferredOnly?: boolean;
   // ---- Existing annotations on the pinned item ----
   existingAnnotations?: readonly SideChatExistingAnnotation[];
   // ---- Promote-from-drawer (deferred §8 from the design spec) ----
@@ -139,10 +168,13 @@ export function SideChatPopover({
   onAnnotateRequest,
   onAnnotateCancel,
   onAnnotateSubmit,
+  mode = 'explore',
+  onModeChange,
   stagedPatches = [],
   canUndo = false,
   isApplying = false,
   applyBatchId = null,
+  lastBatchWasDeferredOnly = false,
   onApply,
   onUndo,
   onDiscardPatch,
@@ -197,13 +229,14 @@ export function SideChatPopover({
     if (
       ((sawNewBatch && canUndo) || (!prevCanUndo && canUndo)) &&
       !isApplying &&
-      stagedPatches.length === 0
+      stagedPatches.length === 0 &&
+      !lastBatchWasDeferredOnly
     ) {
       setSavedToastVisible(true);
       const id = window.setTimeout(() => setSavedToastVisible(false), 5000);
       return () => window.clearTimeout(id);
     }
-  }, [applyBatchId, canUndo, isApplying, stagedPatches.length]);
+  }, [applyBatchId, canUndo, isApplying, stagedPatches.length, lastBatchWasDeferredOnly]);
 
   useEffect(() => {
     if (!canUndo) {
@@ -333,19 +366,19 @@ export function SideChatPopover({
 
         {isApplying ? (
           <div role="status" className="text-xs text-hint">
-            Saving annotation…
+            Saving change…
           </div>
         ) : null}
 
         {!isApplying && stagedPatches.length > 0 ? (
           <section
-            aria-label="Staged annotations"
+            aria-label="Staged changes"
             data-staged-patch-count={stagedPatches.length}
             className="flex flex-col gap-1.5 rounded-md bg-wash/60 p-2 text-xs text-ink"
           >
             <header className="flex items-center justify-between">
               <span className="font-medium">
-                {stagedPatches.length} pending annotation{stagedPatches.length === 1 ? '' : 's'} (retry?)
+                {stagedPatches.length} pending change{stagedPatches.length === 1 ? '' : 's'}
               </span>
             </header>
             <ul className="flex flex-col gap-1">
@@ -358,10 +391,11 @@ export function SideChatPopover({
                   <span className="flex-1 truncate" title={patch.summary}>
                     {patch.summary}
                   </span>
+                  {patch.kind === 'edit' && patch.impact ? <ImpactChip impact={patch.impact} /> : null}
                   {onDiscardPatch ? (
                     <button
                       type="button"
-                      aria-label={`Discard staged annotation: ${patch.summary}`}
+                      aria-label={`Discard staged change: ${patch.summary}`}
                       onClick={() => onDiscardPatch(patch.id)}
                       className="text-hint hover:text-ink"
                     >
@@ -387,7 +421,7 @@ export function SideChatPopover({
                   onClick={onApply}
                   className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6]"
                 >
-                  Retry
+                  Apply
                 </button>
               ) : null}
             </div>
@@ -469,16 +503,38 @@ export function SideChatPopover({
                     Annotate
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  disabled
-                  aria-label="Edit (coming in V2)"
-                  title="Edit — coming in V2"
-                  className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-[#a6a6a6] shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]"
-                >
-                  <PencilLine className="size-3.5" aria-hidden />
-                  Edit
-                </button>
+                {onModeChange ? (
+                  <button
+                    type="button"
+                    aria-label="Edit mode"
+                    aria-pressed={mode === 'edit'}
+                    title={
+                      mode === 'edit'
+                        ? 'Edit mode active — switch back to explore'
+                        : 'Switch to edit mode (LLM proposes edits)'
+                    }
+                    onClick={() => onModeChange(mode === 'edit' ? 'explore' : 'edit')}
+                    className={
+                      mode === 'edit'
+                        ? 'inline-flex items-center gap-1 rounded-md bg-[#2070e6] px-2 py-1 text-xs font-medium text-white shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(16,96,214,0.6)] hover:bg-[#1a5fcc]'
+                        : 'inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]'
+                    }
+                  >
+                    <PencilLine className="size-3.5" aria-hidden />
+                    Edit
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    aria-label="Edit unavailable"
+                    title="Edit unavailable in this context"
+                    className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-[#a6a6a6] shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]"
+                  >
+                    <PencilLine className="size-3.5" aria-hidden />
+                    Edit
+                  </button>
+                )}
               </div>
               {notesOpen && existingAnnotations.length > 0 ? (
                 <div className="absolute right-0 bottom-full left-0 mb-2">
@@ -620,12 +676,12 @@ export function SideChatPopover({
                 {savedToastVisible && !isApplying && stagedPatches.length === 0 && canUndo ? (
                   <div
                     role="status"
-                    aria-label="Annotation saved"
+                    aria-label="Change saved"
                     className="pointer-events-none absolute top-1/2 right-9 left-9 flex h-6 -translate-y-1/2 items-center justify-between gap-2 rounded-md bg-wash/40 px-2 text-xs"
                   >
                     <span className="inline-flex items-center gap-1 font-medium text-ink">
                       <Check className="size-3" aria-hidden />
-                      Annotation saved
+                      Change saved
                     </span>
                     {onUndo ? (
                       <button

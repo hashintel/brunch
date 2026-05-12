@@ -4,8 +4,22 @@ import type {
   EdgePatch,
   EditPatch,
 } from '@/client/components/patch-list-host.js';
+import { queryClient } from '@/client/query-client.js';
+import { specificationQueryKeys } from '@/client/routes/specification/$id/-specification-data.js';
 
 import { createEdgeRequest, deleteEdgeRequest, editKnowledgeItemRequest } from './edit-api.js';
+
+// Invalidate the entity query domains so the page-visible item content
+// re-fetches after an edit applies. The route loader and structured-list
+// view subscribe to these query keys; without invalidation the displayed
+// content stays stale until the user navigates away and back.
+async function invalidateEntityQueriesAfterEdit(specificationId: number): Promise<void> {
+  const specId = String(specificationId);
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: specificationQueryKeys.entities(specId) }),
+    queryClient.invalidateQueries({ queryKey: specificationQueryKeys.entitiesProjectWide(specId) }),
+  ]);
+}
 
 export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch> {
   return async (patch) => {
@@ -14,13 +28,29 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
       rationale: patch.newRationale,
     });
     if (!response.updated) {
-      throw new Error('Edit deferred: hard impact detected — apply via V3 cascade preview');
+      // V2 hard-impact deferral: per SIDE_CHAT.md §6.3, edits with hard impact
+      // are recognized but routed to V3's cascade-preview surface. Rather than
+      // throwing (which would leave the patch stuck in the staged list with
+      // confusing Apply/Discard controls), we return a deferred-applied marker
+      // so the patch transitions cleanly out of staged. Undo is a no-op
+      // because nothing was applied. The host detects `deferred: true` in
+      // applied metadata and surfaces a "deferred to V3" message rather than
+      // the generic "Change saved" toast.
+      return {
+        undo: async () => {},
+        applied: {
+          deferred: true,
+          impact: response.impact,
+          message: 'Hard impact — coming in V3 cascade preview',
+        },
+      };
     }
     if (response.previousContent === undefined) {
       throw new Error('Edit applier: server reported updated but did not return previousContent');
     }
     const previousContent = response.previousContent;
     const previousRationale = response.previousRationale;
+    await invalidateEntityQueriesAfterEdit(specificationId);
     return {
       undo: async () => {
         const undoResponse = await editKnowledgeItemRequest(specificationId, patch.anchor.itemId, {
@@ -30,6 +60,7 @@ export function makeEditApplier(specificationId: number): ApplyPatchFn<EditPatch
         if (!undoResponse.updated) {
           throw new Error('Edit undo deferred: hard impact detected — restore via V3 cascade preview');
         }
+        await invalidateEntityQueriesAfterEdit(specificationId);
       },
       applied: { impact: response.impact, previousContent, previousRationale },
     };

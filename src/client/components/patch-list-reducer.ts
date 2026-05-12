@@ -30,10 +30,17 @@ export interface AnnotatePatch extends PatchBase {
   body: string;
 }
 
+export type EditImpactTier = 'none' | 'soft' | 'hard';
+
 export interface EditPatch extends PatchBase {
   kind: 'edit';
   newContent: string;
   newRationale?: string;
+  // Server-pre-classified at proposal time (design §4.1); rendered as a tier
+  // chip on the patch entry so users see soft / hard before clicking Apply.
+  // Optional because legacy paths (annotate auto-apply, manually-staged tests)
+  // may stage without server pre-classification.
+  impact?: EditImpactTier;
 }
 
 export interface EdgePatch extends PatchBase {
