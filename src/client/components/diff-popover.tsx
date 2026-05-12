@@ -60,11 +60,6 @@ export function DiffPopover({
   const popoverRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<ComputedPosition | null>(null);
   const [measureEpoch, setMeasureEpoch] = useState(0);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!open || !anchor) {
@@ -144,7 +139,7 @@ export function DiffPopover({
     };
   }, [open, anchor]);
 
-  if (!open || !anchor || !position || !mounted) return null;
+  if (!open || !anchor || !position) return null;
 
   const accent = kindAccent ?? DEFAULT_ACCENT;
 

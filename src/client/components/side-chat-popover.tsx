@@ -215,6 +215,15 @@ export function SideChatPopover({
   // currently open and the chip element it's anchored to.
   const [diffPopoverPatchId, setDiffPopoverPatchId] = useState<string | null>(null);
   const diffAnchorRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (diffPopoverPatchId === null) return;
+    if (!stagedPatches.some((patch) => patch.id === diffPopoverPatchId)) {
+      setDiffPopoverPatchId(null);
+      diffAnchorRef.current = null;
+    }
+  }, [stagedPatches, diffPopoverPatchId]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const annotateSummaryRef = useRef<HTMLInputElement>(null);

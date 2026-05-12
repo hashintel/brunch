@@ -17,7 +17,7 @@
 // amber as a kind-accent fallback (deferred follow-up card).
 
 import { Check, Loader2, PencilLine, Replace, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { editKnowledgeItemRequest, resolveReconciliationNeedRequest } from '@/client/lib/edit-api.js';
 import {
@@ -59,6 +59,14 @@ export function PendingReviewSection(): React.ReactElement | null {
   // chip closes the previous one.
   const [diffPopoverNeedId, setDiffPopoverNeedId] = useState<number | null>(null);
   const diffAnchorRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (diffPopoverNeedId === null) return;
+    if (!openNeeds.some((need) => need.id === diffPopoverNeedId)) {
+      setDiffPopoverNeedId(null);
+      diffAnchorRef.current = null;
+    }
+  }, [openNeeds, diffPopoverNeedId]);
 
   if (openNeeds.length === 0) {
     return null;
