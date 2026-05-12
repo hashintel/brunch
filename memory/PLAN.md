@@ -18,11 +18,16 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ## Next
 
-2. **Side-chat V3.1 — agent-grouped reconciliation resolution** — once V3.0 has corpus signal, a reconciliation agent reads the `reconciliation_need` queue and reclassifies open needs into auto-confirm / auto-edit / substantive groups; substantive walk lands inside the side-chat panel using pinned-context conversation. Maps onto MULTI_CHAT.md Phase 3.
-   - Why later: V3.0 satisfies Acceptance Criterion 7 mechanically with a single Resolve action; agent grouping is value-add. Hold until V3.0 walkthroughs reveal whether the flat list with per-row Resolve feels actionable or whether substantive items get lost (A88 validation).
-   - Linear: FE-674 follow-up issue (or new issue when scoped).
-   - Traceability: Requirement 10; A48, A88; D135, D137, D138, D139.
+2. **Side-chat V3.1 — agent-grouped reconciliation resolution** — once V3.0 has corpus signal, a reconciliation agent reads the `reconciliation_need` queue and reclassifies open needs into auto-confirm / auto-edit / substantive groups; substantive walk lands inside the side-chat panel using pinned-context conversation. Maps onto MULTI_CHAT.md Phase 3. The MVP also folds in two adjacent improvements that complete node editing on the cascade surface: source-content snapshots rendered as inline diffs (Card 1+2 in `memory/CARDS.md`) and an Edit-target affordance per need (Card 3) — these compose against V3.0 and ship before the agent itself.
+   - Why later: V3.0 satisfies Acceptance Criterion 7 mechanically with a single Resolve action; agent grouping is value-add. Hold until V3.0 walkthroughs reveal whether the flat list with per-row Resolve feels actionable or whether substantive items get lost (A88 validation). User has elected to proceed without that signal on branch `ka/fe-674-cascade-edit-and-agent`.
+   - Linear: FE-674 (per user direction; same issue, separate stacked branch on top of `ka/fe-674-cascade-polish`).
+   - Traceability: Requirement 10; A48, A80, A88; D135, D137, D138, D139.
    - Design doc: `docs/design/SIDE_CHAT.md` §5.3 (V3.1), §9.
+   - **Verification approach** — three rings, each catching a different failure class (see SPEC.md §Verification Design):
+     - Inner: deterministic state-machine tests over `agent_status` transitions with a stubbed classifier (queue lifecycle + label-vocabulary enforcement). `agent_status` is a **separate V3.1 field** from the durable `status` (`open`/`resolved`) shipped in V3.0 — V3.0's `status` continues to drive Pending review presence, while `agent_status` drives the upcoming agent-grouped surface. Also: structural unit tests for the new schema columns and `classifyNeed()` pure function; extension of existing `pending-review-section`, `edit-route`, and `reconciliation-needs-route` tests for Cards 1-3.
+     - Middle: golden-fixture corpus of `(source change, target content, relation kind) → expected classification` tuples, run against the classifier behind a recorded-or-live model adapter — regressable across prompt revisions.
+     - Outer: manual cascade walkthroughs on dense, real specifications comparing agent-grouped vs flat-list resolution; this is the only ring that validates A88 ("does grouping help"). Treat substantive notes as the qualitative legibility surface.
+   - Build order: Cards 1-3 in `memory/CARDS.md` ship first (all inner-loop only); after Card 3, re-run `ln-scope` for the V3.1 agent backend slice with the oracle strategy above already in place.
 
 3. **Prompt/context scenario substrate (FE-698 continuation)** — continue the FE-698 substrate after the foundation slices: packaged prompt assets, the first observer context-pack path, deterministic no-provider scenario capture, and the agent mutation-surface audit are complete, but FE-698 still has live follow-up work.
    - Linear: FE-698. Pi harness spike: FE-635.
