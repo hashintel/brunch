@@ -168,7 +168,13 @@ export async function handleResetReconciliationNeedAgent(
     agent_proposal: null,
   });
 
-  claimReconciliationNeedForClassification(db, need.id);
+  if (!claimReconciliationNeedForClassification(db, need.id)) {
+    res.status(409).json({
+      error: 'Could not claim this need for classification; it may already be queued elsewhere.',
+    } satisfies MutationErrorResponse);
+    return;
+  }
+
   const refreshed = getReconciliationNeed(db, need.id);
   if (!refreshed) {
     res.status(404).json({ error: 'Reconciliation need not found' } satisfies MutationErrorResponse);

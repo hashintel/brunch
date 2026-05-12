@@ -113,7 +113,8 @@ export function PendingReviewSection(): React.ReactElement | null {
     (need) =>
       need.agent_status === 'classified' &&
       need.agent_classification === 'auto-edit' &&
-      need.agent_proposal !== null,
+      need.agent_proposal !== null &&
+      need.target_current_content !== null,
   );
 
   // Idempotent resolve. The button is disabled while the request is in flight
@@ -210,7 +211,7 @@ export function PendingReviewSection(): React.ReactElement | null {
   };
 
   const handleApplyProposal = (need: ReconciliationNeedRecord): void => {
-    if (need.agent_proposal === null) return;
+    if (need.agent_proposal === null || need.target_current_content === null) return;
     setApplyingNeedIds((prev) => {
       const next = new Set(prev);
       next.add(need.id);
@@ -412,10 +413,11 @@ export function PendingReviewSection(): React.ReactElement | null {
           const canRerunAgent = need.agent_status === 'classified' || need.agent_status === 'failed';
           const showAutoConfirmButton =
             need.agent_status === 'classified' && need.agent_classification === 'auto-confirm';
-          const showAutoEditButtons =
+          const showAutoEditChrome =
             need.agent_status === 'classified' &&
             need.agent_classification === 'auto-edit' &&
             need.agent_proposal !== null;
+          const canViewOrApplyAutoEditProposal = need.target_current_content !== null;
           const showOpenSideChatButton =
             need.agent_status === 'classified' &&
             need.agent_classification === 'substantive' &&
@@ -423,7 +425,7 @@ export function PendingReviewSection(): React.ReactElement | null {
             need.target_item_kind !== null &&
             need.target_reference_code !== null &&
             need.target_current_content !== null;
-          const rowDisabled = isResolving || isSaving || isResetting || isApplying;
+          const rowDisabled = isResolving || isSaving || isResetting || isApplying || isBulkRunning;
           const showSourceDiff =
             need.source_previous_content !== null &&
             need.source_current_content !== null &&
@@ -499,37 +501,41 @@ export function PendingReviewSection(): React.ReactElement | null {
                         Confirm
                       </button>
                     ) : null}
-                    {showAutoEditButtons ? (
+                    {showAutoEditChrome ? (
                       <>
-                        <button
-                          type="button"
-                          aria-label={`View proposal for need ${need.id}`}
-                          data-view-proposal-button={need.id}
-                          onClick={(event) => {
-                            diffAnchorRef.current = event.currentTarget;
-                            setDiffPopoverNeedId({ needId: need.id, mode: 'agent-proposal' });
-                          }}
-                          className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-hint hover:bg-[rgba(0,0,0,0.04)] hover:text-ink"
-                        >
-                          View
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={isApplying ? 'Applying' : `Apply proposal for need ${need.id}`}
-                          title="Apply suggested edit and resolve this row"
-                          data-apply-button={need.id}
-                          disabled={rowDisabled}
-                          onClick={() => handleApplyProposal(need)}
-                          className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
-                          style={{ backgroundColor: '#ea580c' }}
-                        >
-                          {isApplying ? (
-                            <Loader2 className="size-3 animate-spin" aria-hidden />
-                          ) : (
-                            <Wand2 className="size-3" aria-hidden />
-                          )}
-                          Apply
-                        </button>
+                        {canViewOrApplyAutoEditProposal ? (
+                          <>
+                            <button
+                              type="button"
+                              aria-label={`View proposal for need ${need.id}`}
+                              data-view-proposal-button={need.id}
+                              onClick={(event) => {
+                                diffAnchorRef.current = event.currentTarget;
+                                setDiffPopoverNeedId({ needId: need.id, mode: 'agent-proposal' });
+                              }}
+                              className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-hint hover:bg-[rgba(0,0,0,0.04)] hover:text-ink"
+                            >
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={isApplying ? 'Applying' : `Apply proposal for need ${need.id}`}
+                              title="Apply suggested edit and resolve this row"
+                              data-apply-button={need.id}
+                              disabled={rowDisabled}
+                              onClick={() => handleApplyProposal(need)}
+                              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
+                              style={{ backgroundColor: '#ea580c' }}
+                            >
+                              {isApplying ? (
+                                <Loader2 className="size-3 animate-spin" aria-hidden />
+                              ) : (
+                                <Wand2 className="size-3" aria-hidden />
+                              )}
+                              Apply
+                            </button>
+                          </>
+                        ) : null}
                         <button
                           type="button"
                           aria-label={`Skip proposal for need ${need.id}`}

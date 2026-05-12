@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ReconciliationNeedRecord } from '@/shared/reconciliation-need.js';
@@ -656,6 +656,22 @@ describe('PendingReviewSection', () => {
       expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(1);
     });
 
+    it('auto-edit row with null target content shows Skip only (no View / Apply)', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: 'orphan proposal',
+          target_current_content: null,
+        }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-view-proposal-button="1"]')).toBeNull();
+      expect(container.querySelector('[data-apply-button="1"]')).toBeNull();
+      expect(container.querySelector('[data-skip-button="1"]')).not.toBeNull();
+    });
+
     it('substantive row renders Open side-chat button that invokes useSideChat().openFor', async () => {
       setMockOpenNeeds([
         makeNeed({
@@ -740,6 +756,46 @@ describe('PendingReviewSection', () => {
       expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 2);
     });
 
+    it('disables per-row actions while bulk confirm awaits the first resolve', async () => {
+      let releaseFirst: (() => void) | undefined;
+      const firstHang = new Promise<{ resolved: true }>((resolve) => {
+        releaseFirst = () => resolve({ resolved: true as const });
+      });
+      let callCount = 0;
+      mockResolveReconciliationNeedRequest.mockImplementation(() => {
+        callCount += 1;
+        if (callCount === 1) return firstHang;
+        return Promise.resolve({ resolved: true as const });
+      });
+
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'auto-confirm',
+        }),
+        makeNeed({
+          id: 2,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'auto-confirm',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      fireEvent.click(screen.getByRole('button', { name: /confirm all 2 auto-confirm rows/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /confirm need 1/i })).toHaveProperty('disabled', true);
+        expect(screen.getByRole('button', { name: /confirm need 2/i })).toHaveProperty('disabled', true);
+      });
+
+      releaseFirst?.();
+      await act(async () => {
+        await vi.runOnlyPendingTimersAsync();
+      });
+    });
+
     it('header exposes "Apply all suggested (N)" only when auto-edit rows with non-null proposals exist', () => {
       setMockOpenNeeds([
         makeNeed({
@@ -747,6 +803,7 @@ describe('PendingReviewSection', () => {
           agent_status: 'classified',
           agent_classification: 'auto-edit',
           agent_proposal: 'p1',
+          target_current_content: 'current',
         }),
         makeNeed({
           id: 2,
@@ -770,6 +827,7 @@ describe('PendingReviewSection', () => {
           agent_status: 'classified',
           agent_classification: 'auto-edit',
           agent_proposal: 'proposal A',
+          target_current_content: 'old A',
         }),
         makeNeed({
           id: 2,
@@ -778,6 +836,7 @@ describe('PendingReviewSection', () => {
           agent_status: 'classified',
           agent_classification: 'auto-edit',
           agent_proposal: 'proposal B',
+          target_current_content: 'old B',
         }),
       ]);
       render(<PendingReviewSection />);

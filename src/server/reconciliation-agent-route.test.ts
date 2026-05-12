@@ -1,6 +1,8 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import * as dbModule from './db.js';
+
 const { mockGenerateText, mockAnthropic } = vi.hoisted(() => ({
   mockGenerateText: vi.fn(),
   mockAnthropic: vi.fn(() => 'mock-model'),
@@ -19,6 +21,7 @@ vi.mock('ai', async () => {
 });
 
 const { createApp } = await import('./app.js');
+
 const {
   addKnowledgeRelationship,
   createKnowledgeItem,
@@ -380,5 +383,39 @@ describe('POST /api/specifications/:id/reconciliation-needs/:needId/reset-agent'
   it('returns 400 when ids are non-numeric', async () => {
     await request(app).post('/api/specifications/abc/reconciliation-needs/xyz/reset-agent').expect(400);
     expect(mockGenerateText).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when the need cannot be claimed for classification', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'G');
+    const r1 = createKnowledgeItem(db, specId, 'requirement', 'R1');
+    addKnowledgeRelationship(db, r1.id, goal.id, 'depends_on');
+    const need = openReconciliationNeed(db, {
+      specificationId: specId,
+      sourceItemId: goal.id,
+      targetItemId: r1.id,
+      kind: 'needs_confirmation',
+    });
+    updateReconciliationNeedAgentFields(db, need.id, {
+      agent_status: 'classified',
+      agent_classification: 'auto-confirm',
+      agent_proposal: null,
+    });
+
+    const spy = vi.spyOn(dbModule, 'claimReconciliationNeedForClassification').mockReturnValue(false);
+    try {
+      await request(app)
+        .post(`/api/specifications/${specId}/reconciliation-needs/${need.id}/reset-agent`)
+        .expect(409);
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(mockGenerateText).not.toHaveBeenCalled();
+
+    const after = getReconciliationNeed(db, need.id);
+    expect(after?.agent_status).toBeNull();
+    expect(after?.agent_classification).toBeNull();
+    expect(after?.agent_proposal).toBeNull();
   });
 });
