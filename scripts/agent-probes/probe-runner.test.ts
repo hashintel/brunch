@@ -10,6 +10,7 @@ import {
   runScriptedProbe,
   type JsonlTransport,
   type ProbeJsonlRequest,
+  type ProbeJsonlResponse,
   type SpawnedJsonlProcess,
 } from './probe-runner.js';
 
@@ -160,6 +161,57 @@ describe('probe runner', () => {
     });
     expect(result.summary).toMatchObject({ turnsAnswered: 2, finalFrontierState: 'answered' });
     expect(result.errors).toEqual([]);
+  });
+
+  it('can answer turns through an injected response policy', async () => {
+    const policyInputs: Array<{ activeTurnId: number; priorAnswerCount: number; brief: string | undefined }> =
+      [];
+    const transport = createScriptedSuccessTransport();
+
+    const result = await runScriptedProbe({
+      transport,
+      scenario: { name: 'policy-proof', specName: 'Policy proof', brief: 'answer like a user' },
+      scriptedAnswers: [],
+      responsePolicy(input) {
+        policyInputs.push({
+          activeTurnId: input.activeTurn.id,
+          priorAnswerCount: input.priorAnsweredTurns.length,
+          brief: input.scenario.brief,
+        });
+        if (input.activeTurn.options?.[0]) {
+          return { kind: 'select-options', positions: [input.activeTurn.options[0].position] };
+        }
+        return { kind: 'free-text', freeText: `Policy response to ${input.activeTurn.question}` };
+      },
+    });
+
+    expect(policyInputs).toEqual([
+      { activeTurnId: 100, priorAnswerCount: 0, brief: 'answer like a user' },
+      { activeTurnId: 101, priorAnswerCount: 1, brief: 'answer like a user' },
+    ]);
+    expect(result.summary).toMatchObject({ turnsAnswered: 2, finalFrontierState: 'answered' });
+    expect(result.errors).toEqual([]);
+  });
+
+  it('returns structured probe errors when the response policy fails', async () => {
+    const result = await runScriptedProbe({
+      transport: createScriptedSuccessTransport(),
+      scenario: { name: 'policy-failure', specName: 'Policy failure proof' },
+      scriptedAnswers: [],
+      responsePolicy() {
+        throw new Error('Simulated user could not answer\nwith stack details');
+      },
+    });
+
+    expect(result.summary.turnsAnswered).toBe(0);
+    expect(result.errors).toEqual([
+      {
+        requestId: 'policy-1',
+        capability: 'probe.responsePolicy',
+        code: 'policy_failed',
+        message: 'Simulated user could not answer',
+      },
+    ]);
   });
 
   it('uses a process JSONL transport to write requests and parse responses', async () => {
@@ -372,6 +424,14 @@ describe('probe runner', () => {
   });
 });
 
+function createScriptedSuccessTransport(): JsonlTransport {
+  return {
+    async send(request) {
+      return getFakeAgentResponse(request);
+    },
+  };
+}
+
 function createFakeAgentProcess(): SpawnedJsonlProcess {
   let onStdoutData: ((chunk: string) => void) | null = null;
 
@@ -388,7 +448,7 @@ function createFakeAgentProcess(): SpawnedJsonlProcess {
   };
 }
 
-function getFakeAgentResponse(request: ProbeJsonlRequest) {
+function getFakeAgentResponse(request: ProbeJsonlRequest): ProbeJsonlResponse {
   if (request.capability === 'spec.create') {
     return { id: request.id, ok: true, output: { specId: 1 } };
   }

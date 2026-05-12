@@ -95,33 +95,50 @@ interface ChatGetPrimaryOutput {
   chatId: number;
 }
 
-interface AgentChatReadProjection {
+export interface AgentChatReadProjection {
   frontier: { state: string; turnId: number | null };
   turns: AgentChatTurn[];
   nextCommands?: AgentNextCommand[];
 }
 
-interface AgentChatTurn {
+export interface AgentChatTurn {
   id: number;
   question: string;
   answer: string | null;
   options?: AgentTurnOption[];
 }
 
-interface AgentTurnOption {
+export interface AgentTurnOption {
   position: number;
   content: string;
 }
 
-interface AgentNextCommand {
+export interface AgentNextCommand {
   capability: string;
   input?: unknown;
 }
+
+export type ProbeTurnResponse =
+  | { kind: 'free-text'; freeText: string }
+  | { kind: 'select-options'; positions: number[] };
+
+export interface ProbeResponsePolicyInput {
+  scenario: ScriptedProbeScenario;
+  chat: AgentChatReadProjection;
+  activeTurn: AgentChatTurn;
+  priorAnsweredTurns: AgentChatTurn[];
+  turnIndex: number;
+}
+
+export type ProbeResponsePolicy = (
+  input: ProbeResponsePolicyInput,
+) => ProbeTurnResponse | Promise<ProbeTurnResponse>;
 
 interface RunScriptedProbeOptions {
   transport: JsonlTransport;
   scenario: ScriptedProbeScenario;
   scriptedAnswers: string[];
+  responsePolicy?: ProbeResponsePolicy;
 }
 
 export interface ProcessBackedProbeOptions {
@@ -197,6 +214,7 @@ export async function runScriptedProbe({
   transport,
   scenario,
   scriptedAnswers,
+  responsePolicy = createScriptedResponsePolicy(scriptedAnswers),
 }: RunScriptedProbeOptions): Promise<ProbeRunResult> {
   const startedAt = Date.now();
   const state: ProbeRunResult = {
@@ -260,13 +278,24 @@ export async function runScriptedProbe({
       return finishRun(state, startedAt);
     }
 
+    const policyResponse = await getPolicyResponse(state, responsePolicy, {
+      scenario,
+      chat: readyRead,
+      activeTurn,
+      priorAnsweredTurns: readyRead.turns.filter((turn) => turn.answer !== null),
+      turnIndex,
+    });
+    if (!policyResponse) {
+      return finishRun(state, startedAt);
+    }
+
     const submit = await sendExpectingOutput<unknown>(state, transport, {
       id: `answer-${turnIndex + 1}`,
       capability: 'turn.submitResponse',
       input: {
         chatId: primary.chatId,
         turnId: activeTurn.id,
-        response: buildScriptedResponse(activeTurn, scriptedAnswers[turnIndex]),
+        response: policyResponse,
       },
     });
     if (!submit) {
@@ -318,16 +347,38 @@ function getActiveTurn(read: AgentChatReadProjection): AgentChatTurn | null {
   return read.turns.find((turn) => turn.id === read.frontier.turnId) ?? null;
 }
 
-function buildScriptedResponse(turn: AgentChatTurn, scriptedAnswer: string | undefined) {
+function createScriptedResponsePolicy(scriptedAnswers: string[]): ProbeResponsePolicy {
+  return ({ activeTurn, turnIndex }) => buildScriptedResponse(activeTurn, scriptedAnswers[turnIndex]);
+}
+
+function buildScriptedResponse(turn: AgentChatTurn, scriptedAnswer: string | undefined): ProbeTurnResponse {
   const firstOption = turn.options?.[0];
   if (firstOption) {
-    return { kind: 'select-options' as const, positions: [firstOption.position] };
+    return { kind: 'select-options', positions: [firstOption.position] };
   }
 
   return {
-    kind: 'free-text' as const,
+    kind: 'free-text',
     freeText: scriptedAnswer?.trim() || `Scripted response to: ${turn.question}`,
   };
+}
+
+async function getPolicyResponse(
+  state: ProbeRunResult,
+  responsePolicy: ProbeResponsePolicy,
+  input: ProbeResponsePolicyInput,
+): Promise<ProbeTurnResponse | null> {
+  try {
+    return await responsePolicy(input);
+  } catch (error) {
+    state.errors.push({
+      requestId: `policy-${input.turnIndex + 1}`,
+      capability: 'probe.responsePolicy',
+      code: 'policy_failed',
+      message: sanitizeProbeErrorMessage(error instanceof Error ? error.message : String(error)),
+    });
+    return null;
+  }
 }
 
 function finishRun(state: ProbeRunResult, startedAt: number): ProbeRunResult {
