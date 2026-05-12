@@ -92,6 +92,9 @@ export function DiffPopover({
     setPosition(computePosition(anchor, 160));
   }, [open, anchor]);
 
+  // Include `position` so we re-run after the first estimated `position` lands and
+  // `popoverRef` attaches — deps stayed identical across the null→estimate transition
+  // otherwise, so layout never re-measured on initial open (cursor[bot]).
   useLayoutEffect(() => {
     if (!open || !anchor || !popoverRef.current) return;
     const measured = popoverRef.current.getBoundingClientRect();
@@ -107,7 +110,7 @@ export function DiffPopover({
       }
       return next;
     });
-  }, [open, anchor, before, after, title]);
+  }, [open, anchor, before, after, title, position]);
 
   useEffect(() => {
     if (!open) return;
@@ -142,7 +145,18 @@ export function DiffPopover({
     function reposition() {
       if (!popoverRef.current || !anchor) return;
       const measured = popoverRef.current.getBoundingClientRect();
-      setPosition(computePosition(anchor, measured.height));
+      const next = computePosition(anchor, measured.height);
+      setPosition((prev) => {
+        if (
+          prev &&
+          Math.abs(prev.top - next.top) < 0.5 &&
+          Math.abs(prev.left - next.left) < 0.5 &&
+          prev.placement === next.placement
+        ) {
+          return prev;
+        }
+        return next;
+      });
     }
     window.addEventListener('resize', reposition);
     window.addEventListener('scroll', reposition, true);
