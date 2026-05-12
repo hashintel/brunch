@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -367,8 +375,10 @@ describe('probe runner', () => {
     });
   });
 
-  it('guards the probe-runner import boundary from server mutation authority modules', () => {
-    const source = readFileSync(new URL('./probe-runner.ts', import.meta.url), 'utf8');
+  it('guards the agent-probes import boundary from server mutation authority modules', () => {
+    const sources = readdirSync(new URL('.', import.meta.url))
+      .filter((fileName) => fileName.endsWith('.ts') && !fileName.endsWith('.test.ts'))
+      .map((fileName) => readFileSync(new URL(`./${fileName}`, import.meta.url), 'utf8'));
     const forbiddenImports = [
       '@/server/db',
       '@/server/capabilities',
@@ -386,9 +396,11 @@ describe('probe runner', () => {
       '../../src/server/turn-response-transition',
     ];
 
-    for (const forbiddenImport of forbiddenImports) {
-      expect(source).not.toContain(`from '${forbiddenImport}`);
-      expect(source).not.toContain(`from "${forbiddenImport}`);
+    for (const source of sources) {
+      for (const forbiddenImport of forbiddenImports) {
+        expect(source).not.toContain(`from '${forbiddenImport}`);
+        expect(source).not.toContain(`from "${forbiddenImport}`);
+      }
     }
   });
 

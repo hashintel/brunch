@@ -60,6 +60,15 @@ export interface ProbeRunSummary {
   errors: ProbeRunError[];
 }
 
+export interface SimulatedUserEvent {
+  turnId: number;
+  prompt: string;
+  rawModelOutput: string;
+  parsedResponse: ProbeTurnResponse | null;
+  status: 'parsed' | 'failed';
+  error: string | null;
+}
+
 export interface ProbeArtifactBundle {
   schemaVersion: 1;
   scenario: { name: string; brief: string | null; specName: string };
@@ -73,6 +82,7 @@ export interface ProbeArtifactBundle {
   finalChat: AgentChatReadProjection | null;
   summary: ProbeRunSummary;
   errors: ProbeRunError[];
+  simulatedUserEvents: SimulatedUserEvent[];
   environment: { nodeVersion: string; platform: NodeJS.Platform; arch: string };
 }
 
@@ -85,6 +95,7 @@ export interface ProbeRunResult {
   finalChat: AgentChatReadProjection | null;
   summary: ProbeRunSummary;
   errors: ProbeRunError[];
+  simulatedUserEvents: SimulatedUserEvent[];
 }
 
 interface SpecCreateOutput {
@@ -139,6 +150,7 @@ interface RunScriptedProbeOptions {
   scenario: ScriptedProbeScenario;
   scriptedAnswers: string[];
   responsePolicy?: ProbeResponsePolicy;
+  simulatedUserEvents?: SimulatedUserEvent[];
 }
 
 export interface ProcessBackedProbeOptions {
@@ -215,6 +227,7 @@ export async function runScriptedProbe({
   scenario,
   scriptedAnswers,
   responsePolicy = createScriptedResponsePolicy(scriptedAnswers),
+  simulatedUserEvents = [],
 }: RunScriptedProbeOptions): Promise<ProbeRunResult> {
   const startedAt = Date.now();
   const state: ProbeRunResult = {
@@ -226,6 +239,7 @@ export async function runScriptedProbe({
     finalChat: null,
     summary: { turnsAnswered: 0, finalFrontierState: null, durationMs: 0, questionAnswers: [], errors: [] },
     errors: [],
+    simulatedUserEvents,
   };
 
   const created = await sendExpectingOutput<SpecCreateOutput>(state, transport, {
@@ -432,6 +446,7 @@ export function buildProbeArtifactBundle(result: ProbeRunResult): ProbeArtifactB
     finalChat: result.finalChat,
     summary: result.summary,
     errors: result.errors,
+    simulatedUserEvents: result.simulatedUserEvents,
     environment: { nodeVersion: process.version, platform: process.platform, arch: process.arch },
   };
 }

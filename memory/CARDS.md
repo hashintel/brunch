@@ -136,7 +136,7 @@ Result: stays light. This is a local extension point inside the external runner,
 
 ## Card 14 — Model-backed LLM-as-user policy with prompt artifacts
 
-**Status:** queued
+**Status:** done
 
 ### Target Behavior
 
@@ -173,7 +173,7 @@ A model-backed user-simulator policy can answer one probe turn from the current 
 
 ## Card 15 — Opt-in LLM-as-user packaged-boundary smoke
 
-**Status:** queued
+**Status:** next
 
 ### Objective
 
