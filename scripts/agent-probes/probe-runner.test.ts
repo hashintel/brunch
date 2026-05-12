@@ -171,6 +171,32 @@ describe('probe runner', () => {
     expect(result.errors).toEqual([]);
   });
 
+  it('stops scripted probing after an explicit one-turn budget', async () => {
+    const requests: ProbeJsonlRequest[] = [];
+
+    const result = await runScriptedProbe({
+      transport: {
+        async send(request) {
+          requests.push(request);
+          return getFakeAgentResponse(request);
+        },
+      },
+      scenario: { name: 'one-turn', specName: 'One turn proof' },
+      scriptedAnswers: ['A one-turn answer'],
+      turnBudget: 1,
+    });
+
+    expect(result.summary).toMatchObject({ turnsAnswered: 1, finalFrontierState: 'answered' });
+    expect(requests.map((request) => request.id)).toEqual([
+      'create',
+      'primary',
+      'ready-1',
+      'read-1',
+      'answer-1',
+      'read-2',
+    ]);
+  });
+
   it('can answer turns through an injected response policy', async () => {
     const policyInputs: Array<{ activeTurnId: number; priorAnswerCount: number; brief: string | undefined }> =
       [];
@@ -352,6 +378,36 @@ describe('probe runner', () => {
       id: 'create',
       ok: false,
       error: { code: 'request_timeout', message: 'JSONL child process did not respond within 1ms' },
+    });
+  });
+
+  it('passes an explicit one-turn budget through process-backed probes', async () => {
+    const outputDir = makeTempDir('brunch-probe-output-');
+
+    const result = await runProcessBackedProbe({
+      scenario: { name: 'process-one-turn', specName: 'Process one turn' },
+      scriptedAnswers: ['A one-turn process probe'],
+      outputDir,
+      turnBudget: 1,
+      spawnProcess() {
+        return createFakeAgentProcess();
+      },
+    });
+
+    const summary = JSON.parse(readFileSync(join(outputDir, 'summary.json'), 'utf8')) as unknown;
+    const bundle = JSON.parse(readFileSync(join(outputDir, 'artifact-bundle.json'), 'utf8')) as unknown;
+
+    expect(result.summary).toMatchObject({ turnsAnswered: 1, finalFrontierState: 'answered' });
+    expect(summary).toMatchObject({ turnsAnswered: 1, finalFrontierState: 'answered' });
+    expect(bundle).toMatchObject({
+      commandSequence: [
+        'spec.create',
+        'chat.getPrimary',
+        'chat.ensureReady',
+        'chat.read',
+        'turn.submitResponse',
+        'chat.read',
+      ],
     });
   });
 
