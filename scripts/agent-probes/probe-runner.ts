@@ -151,6 +151,7 @@ interface RunScriptedProbeOptions {
   scriptedAnswers: string[];
   responsePolicy?: ProbeResponsePolicy;
   simulatedUserEvents?: SimulatedUserEvent[];
+  turnBudget?: number;
 }
 
 export interface ProcessBackedProbeOptions {
@@ -164,6 +165,7 @@ export interface ProcessBackedProbeOptions {
   preserveWorkspaceState?: boolean;
   responsePolicy?: ProbeResponsePolicy;
   simulatedUserEvents?: SimulatedUserEvent[];
+  turnBudget?: number;
 }
 
 export async function runProcessBackedProbe({
@@ -177,6 +179,7 @@ export async function runProcessBackedProbe({
   preserveWorkspaceState = false,
   responsePolicy,
   simulatedUserEvents,
+  turnBudget,
 }: ProcessBackedProbeOptions): Promise<ProbeRunResult> {
   const workspaceCwd = mkdtempSync(join(tmpdir(), 'brunch-probe-workspace-'));
   const spawned = spawnProcess({ cwd: workspaceCwd, command, args, env });
@@ -189,6 +192,7 @@ export async function runProcessBackedProbe({
       scriptedAnswers,
       responsePolicy,
       simulatedUserEvents,
+      turnBudget,
     });
     result.workspaceCwd = workspaceCwd;
     if (preserveWorkspaceState) {
@@ -302,6 +306,7 @@ export async function runScriptedProbe({
   scriptedAnswers,
   responsePolicy = createScriptedResponsePolicy(scriptedAnswers),
   simulatedUserEvents = [],
+  turnBudget = 2,
 }: RunScriptedProbeOptions): Promise<ProbeRunResult> {
   const startedAt = Date.now();
   const state: ProbeRunResult = {
@@ -334,7 +339,7 @@ export async function runScriptedProbe({
     return finishRun(state, startedAt);
   }
 
-  for (let turnIndex = 0; turnIndex < 2; turnIndex += 1) {
+  for (let turnIndex = 0; turnIndex < turnBudget; turnIndex += 1) {
     const ready = await sendExpectingOutput<unknown>(state, transport, {
       id: `ready-${turnIndex + 1}`,
       capability: 'chat.ensureReady',
