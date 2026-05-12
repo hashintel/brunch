@@ -401,6 +401,72 @@ describe('probe runner', () => {
     expect(existsSync(join(outputDir, 'workspace-state'))).toBe(false);
   });
 
+  it('writes sanitized process-backed failure artifacts when JSONL protocol interaction fails', async () => {
+    const outputDir = makeTempDir('brunch-probe-output-');
+
+    const result = await runProcessBackedProbe({
+      scenario: { name: 'process-protocol-failure', specName: 'Process protocol failure' },
+      scriptedAnswers: [],
+      outputDir,
+      spawnProcess() {
+        let onStdoutData: ((chunk: string) => void) | null = null;
+        return {
+          writeStdin() {
+            onStdoutData?.(
+              `${JSON.stringify({
+                id: null,
+                ok: false,
+                error: { code: 'bad_request', message: 'ANTHROPIC_API_KEY=sk-secret bad envelope' },
+              })}\n`,
+            );
+          },
+          endStdin() {},
+          onStdoutData(listener) {
+            onStdoutData = listener;
+          },
+        };
+      },
+    });
+
+    const summary = JSON.parse(readFileSync(join(outputDir, 'summary.json'), 'utf8')) as unknown;
+    const bundle = JSON.parse(readFileSync(join(outputDir, 'artifact-bundle.json'), 'utf8')) as unknown;
+    const rawJsonl = readFileSync(join(outputDir, 'raw-jsonl.ndjson'), 'utf8');
+
+    expect(result.summary.turnsAnswered).toBe(0);
+    expect(result.errors).toEqual([
+      {
+        requestId: 'create',
+        capability: 'spec.create',
+        code: 'protocol_error',
+        message: 'Unmatched id:null response: ANTHROPIC_API_KEY=[redacted] bad envelope',
+      },
+    ]);
+    expect(summary).toMatchObject({
+      turnsAnswered: 0,
+      errors: [
+        {
+          requestId: 'create',
+          capability: 'spec.create',
+          code: 'protocol_error',
+          message: 'Unmatched id:null response: ANTHROPIC_API_KEY=[redacted] bad envelope',
+        },
+      ],
+    });
+    expect(bundle).toMatchObject({
+      commandSequence: ['spec.create'],
+      errors: [
+        {
+          requestId: 'create',
+          capability: 'spec.create',
+          code: 'protocol_error',
+          message: 'Unmatched id:null response: ANTHROPIC_API_KEY=[redacted] bad envelope',
+        },
+      ],
+    });
+    expect(rawJsonl).toContain('"direction":"request"');
+    expect(rawJsonl).toContain('"direction":"response"');
+  });
+
   it('can preserve the temp workspace .brunch state into the artifact directory', async () => {
     const outputDir = makeTempDir('brunch-probe-output-');
     let liveWorkspaceDbPath: string | null = null;
