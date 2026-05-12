@@ -7,7 +7,8 @@ export interface FixtureCandidateFileReport {
 }
 
 export interface FixtureCandidateReport {
-  ready: boolean;
+  parseReady: boolean;
+  structureReady: boolean;
   files: Record<string, FixtureCandidateFileReport>;
   workspaceState: { expected: boolean; present: boolean; path: string };
   runStatus: { kind: 'completed' | 'error-run'; turnsAnswered: number; errorCount: number } | null;
@@ -36,6 +37,7 @@ export function inspectFixtureCandidate(
     errors.push('workspace-state is missing');
   }
 
+  const parseReady = Object.values(files).every((file) => file.present && file.validJson !== false);
   const summary = readJson(join(artifactDir, 'summary.json'));
   const bundle = readJson(join(artifactDir, 'artifact-bundle.json'));
   const finalChat = readJson(join(artifactDir, 'final-chat.json'));
@@ -49,8 +51,8 @@ export function inspectFixtureCandidate(
   });
 
   return {
-    ready:
-      Object.values(files).every((file) => file.present && file.validJson !== false) && errors.length === 0,
+    parseReady,
+    structureReady: parseReady && errors.length === 0,
     files,
     workspaceState,
     runStatus,
