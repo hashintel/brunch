@@ -201,9 +201,31 @@ export async function runProcessBackedProbe({
   }
 }
 
-export function createProcessJsonlTransport(process: SpawnedJsonlProcess): JsonlTransport {
+export function createProcessJsonlTransport(
+  process: SpawnedJsonlProcess,
+  { requestTimeoutMs = 30_000 }: { requestTimeoutMs?: number } = {},
+): JsonlTransport {
   let buffer = '';
-  const pending = new Map<string, (response: ProbeJsonlResponse) => void>();
+  const pending = new Map<
+    string,
+    { resolveResponse: (response: ProbeJsonlResponse) => void; timeout: ReturnType<typeof setTimeout> }
+  >();
+
+  function settle(requestId: string, response: ProbeJsonlResponse): void {
+    const pendingRequest = pending.get(requestId);
+    if (!pendingRequest) {
+      return;
+    }
+    clearTimeout(pendingRequest.timeout);
+    pending.delete(requestId);
+    pendingRequest.resolveResponse(response);
+  }
+
+  function settleAll(error: { code: string; message: string }): void {
+    for (const requestId of Array.from(pending.keys())) {
+      settle(requestId, { id: requestId, ok: false, error });
+    }
+  }
 
   process.onStdoutData((chunk) => {
     buffer += chunk;
@@ -212,21 +234,63 @@ export function createProcessJsonlTransport(process: SpawnedJsonlProcess): Jsonl
       const line = buffer.slice(0, newlineIndex).trim();
       buffer = buffer.slice(newlineIndex + 1);
       if (line !== '') {
-        const response = JSON.parse(line) as ProbeJsonlResponse;
-        if (response.id) {
-          pending.get(response.id)?.(response);
-          pending.delete(response.id);
+        let response: ProbeJsonlResponse;
+        try {
+          response = JSON.parse(line) as ProbeJsonlResponse;
+        } catch {
+          settleAll({ code: 'malformed_json', message: 'Malformed JSONL response from child process' });
+          newlineIndex = buffer.indexOf('\n');
+          continue;
+        }
+
+        if (response.id === null) {
+          const message = response.ok
+            ? 'Unmatched id:null response'
+            : `Unmatched id:null response: ${response.error.message}`;
+          settleAll({ code: 'protocol_error', message });
+        } else {
+          settle(response.id, response);
         }
       }
       newlineIndex = buffer.indexOf('\n');
     }
   });
 
+  process.onStderrData?.((chunk) => {
+    const message = chunk.trim().split('\n')[0] || 'JSONL child process wrote to stderr';
+    settleAll({ code: 'process_stderr', message });
+  });
+
+  process.onExit?.((code) => {
+    settleAll({ code: 'process_exit', message: `JSONL child process exited with code ${code ?? 'null'}` });
+  });
+
   return {
     send(request) {
       return new Promise<ProbeJsonlResponse>((resolveResponse) => {
-        pending.set(request.id, resolveResponse);
-        process.writeStdin(JSON.stringify(request));
+        const timeout = setTimeout(() => {
+          settle(request.id, {
+            id: request.id,
+            ok: false,
+            error: {
+              code: 'request_timeout',
+              message: `JSONL child process did not respond within ${requestTimeoutMs}ms`,
+            },
+          });
+        }, requestTimeoutMs);
+        pending.set(request.id, { resolveResponse, timeout });
+        try {
+          process.writeStdin(JSON.stringify(request));
+        } catch (error) {
+          settle(request.id, {
+            id: request.id,
+            ok: false,
+            error: {
+              code: 'stdin_write_failed',
+              message: error instanceof Error ? error.message : String(error),
+            },
+          });
+        }
       });
     },
   };

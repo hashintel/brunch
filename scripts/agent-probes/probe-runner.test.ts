@@ -252,6 +252,109 @@ describe('probe runner', () => {
     expect(response).toEqual({ id: 'create', ok: true, output: { echoed: 'spec.create' } });
   });
 
+  it('settles a pending process JSONL request when the child emits an id:null protocol error', async () => {
+    let onStdoutData: ((chunk: string) => void) | null = null;
+    const process: SpawnedJsonlProcess = {
+      writeStdin() {
+        onStdoutData?.(
+          `${JSON.stringify({
+            id: null,
+            ok: false,
+            error: { code: 'bad_request', message: 'Malformed request envelope' },
+          })}\n`,
+        );
+      },
+      endStdin() {},
+      onStdoutData(listener) {
+        onStdoutData = listener;
+      },
+    };
+
+    const transport = createProcessJsonlTransport(process);
+    const response = await expectSettledJsonlResponse(
+      transport.send({ id: 'create', capability: 'spec.create', input: { name: 'Probe' } }),
+    );
+
+    expect(response).toEqual({
+      id: 'create',
+      ok: false,
+      error: { code: 'protocol_error', message: 'Unmatched id:null response: Malformed request envelope' },
+    });
+  });
+
+  it('settles a pending process JSONL request when the child emits malformed JSON', async () => {
+    let onStdoutData: ((chunk: string) => void) | null = null;
+    const process: SpawnedJsonlProcess = {
+      writeStdin() {
+        onStdoutData?.('{not-json}\n');
+      },
+      endStdin() {},
+      onStdoutData(listener) {
+        onStdoutData = listener;
+      },
+    };
+
+    const transport = createProcessJsonlTransport(process);
+    const response = await expectSettledJsonlResponse(
+      transport.send({ id: 'create', capability: 'spec.create', input: { name: 'Probe' } }),
+    );
+
+    expect(response).toEqual({
+      id: 'create',
+      ok: false,
+      error: { code: 'malformed_json', message: 'Malformed JSONL response from child process' },
+    });
+  });
+
+  it('settles pending process JSONL requests when the child process exits', async () => {
+    let onExit: ((code: number | null) => void) | null = null;
+    const process: SpawnedJsonlProcess = {
+      writeStdin() {
+        onExit?.(17);
+      },
+      endStdin() {},
+      onStdoutData() {},
+      onExit(listener) {
+        onExit = listener;
+      },
+    };
+
+    const transport = createProcessJsonlTransport(process);
+    const response = await expectSettledJsonlResponse(
+      transport.send({ id: 'create', capability: 'spec.create', input: { name: 'Probe' } }),
+    );
+
+    expect(response).toEqual({
+      id: 'create',
+      ok: false,
+      error: { code: 'process_exit', message: 'JSONL child process exited with code 17' },
+    });
+  });
+
+  it('settles pending process JSONL requests when the child never responds before timeout', async () => {
+    const process: SpawnedJsonlProcess = {
+      writeStdin() {},
+      endStdin() {},
+      onStdoutData() {},
+    };
+    const transportFactory = createProcessJsonlTransport as (
+      process: SpawnedJsonlProcess,
+      options: { requestTimeoutMs: number },
+    ) => JsonlTransport;
+
+    const transport = transportFactory(process, { requestTimeoutMs: 1 });
+    const response = await expectSettledJsonlResponse(
+      transport.send({ id: 'create', capability: 'spec.create', input: { name: 'Probe' } }),
+      50,
+    );
+
+    expect(response).toEqual({
+      id: 'create',
+      ok: false,
+      error: { code: 'request_timeout', message: 'JSONL child process did not respond within 1ms' },
+    });
+  });
+
   it('creates an isolated workspace and writes minimal probe artifacts outside .brunch', async () => {
     const outputDir = makeTempDir('brunch-probe-output-');
     const spawnedCwds: string[] = [];
@@ -435,6 +538,19 @@ describe('probe runner', () => {
     ]);
   });
 });
+
+async function expectSettledJsonlResponse(
+  response: Promise<ProbeJsonlResponse>,
+  timeoutMs = 20,
+): Promise<ProbeJsonlResponse> {
+  const timeout = new Promise<{ timedOut: true }>((resolve) => {
+    setTimeout(() => resolve({ timedOut: true }), timeoutMs);
+  });
+  const settled = await Promise.race([response, timeout]);
+
+  expect(settled).not.toEqual({ timedOut: true });
+  return settled as ProbeJsonlResponse;
+}
 
 function createScriptedSuccessTransport(): JsonlTransport {
   return {
