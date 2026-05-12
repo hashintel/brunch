@@ -49,6 +49,8 @@ vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: '1' }),
 }));
 
+// PendingReviewSection queries -specification-data; preserve the real module and
+// only stub open-needs + invalidation so tests stay isolated from TanStack Query.
 vi.mock('@/client/routes/specification/$id/-specification-data.js', async (importOriginal) => {
   const mod =
     await importOriginal<typeof import('@/client/routes/specification/$id/-specification-data.js')>();

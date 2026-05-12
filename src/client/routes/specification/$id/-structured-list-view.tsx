@@ -15,7 +15,6 @@ import { flushSync } from 'react-dom';
 import { kindAccentHex, kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
 import { usePatchList } from '@/client/components/patch-list-host.js';
-import { PatchListOverlay } from '@/client/components/patch-list-overlay.js';
 import { PendingReviewSection } from '@/client/components/pending-review-section.js';
 import { SelectionMenu } from '@/client/components/selection-menu.js';
 import { useSideChat } from '@/client/components/side-chat-host.js';
@@ -906,11 +905,10 @@ export function StructuredListView({
             </button>
           </div>
         )}
-        {/* Card 4 follow-up: staged-changes / saved-toast and the
-            pending-review queue both live just under the kind filter chips
-            so the patch surfaces sit next to the items they concern instead
-            of riding the page-level top bar above the structured list. */}
-        <PatchListOverlay />
+        {/* Pending review queue sits under the kind filter chips next to the
+            graph list. Staged patches + saved toast mount in specification
+            layout (<PatchListOverlay /> in route.tsx) so they persist across
+            phase routes and sibling navigations. */}
         <PendingReviewSection />
         <div ref={scrollAreaRef} className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-6 pb-8">

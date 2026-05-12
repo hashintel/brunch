@@ -281,7 +281,7 @@ export function PendingReviewSection(): React.ReactElement | null {
                       value={draft}
                       disabled={isSaving || isResolving}
                       onChange={(event) => updateDraft(need.id, event.target.value)}
-                      className="min-h-[3.5rem] w-full resize-y rounded bg-background px-2 py-1 text-[12px] leading-relaxed text-ink outline-none shadow-[inset_0_0_0_1px_var(--edit-ring-color)] focus:shadow-[inset_0_0_0_2px_var(--edit-ring-strong)] disabled:opacity-50"
+                      className="min-h-[3.5rem] w-full resize-y rounded bg-background px-2 py-1 text-[12px] leading-relaxed text-ink shadow-[inset_0_0_0_1px_var(--edit-ring-color)] outline-none focus:shadow-[inset_0_0_0_2px_var(--edit-ring-strong)] disabled:opacity-50"
                       style={
                         {
                           '--edit-ring-color': `${actionAccent}1f`,

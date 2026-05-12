@@ -2,6 +2,7 @@ import { Outlet, createFileRoute, useParams } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
 import { PatchListProvider, type PatchAppliers } from '@/client/components/patch-list-host.js';
+import { PatchListOverlay } from '@/client/components/patch-list-overlay.js';
 import { SideChatHost } from '@/client/components/side-chat-host.js';
 import { Skeleton } from '@/client/components/ui/skeleton';
 import { makeAnnotateApplier } from '@/client/lib/annotation-api.js';
@@ -58,8 +59,11 @@ export const Route = createFileRoute('/specification/$id')({
                 workflow={specificationState.workflow}
                 turns={specificationState.turns}
               />
-              <div className="flex-1 overflow-hidden">
-                <Outlet />
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <PatchListOverlay />
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  <Outlet />
+                </div>
               </div>
             </div>
           </div>

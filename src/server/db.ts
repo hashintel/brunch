@@ -750,10 +750,7 @@ export function claimReconciliationNeedForClassification(db: DB, needId: number)
     .update(schema.reconciliationNeed)
     .set({ agent_status: 'queued' })
     .where(
-      and(
-        eq(schema.reconciliationNeed.id, needId),
-        sql`${schema.reconciliationNeed.agent_status} IS NULL`,
-      ),
+      and(eq(schema.reconciliationNeed.id, needId), sql`${schema.reconciliationNeed.agent_status} IS NULL`),
     )
     .run();
   return result.changes === 1;

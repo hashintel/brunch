@@ -14,7 +14,12 @@ import { useEffect, useRef, useState } from 'react';
 import { ContentDiff } from './content-diff.js';
 import { ImpactChip } from './impact-chip.js';
 import { kindAccentHex } from './knowledge-card';
-import { useLastBatchAppliedMeta, usePatchList, usePatchListState } from './patch-list-host.js';
+import {
+  useLastBatchAppliedMeta,
+  usePatchList,
+  usePatchListSavedToastLastAckBatchIdRef,
+  usePatchListState,
+} from './patch-list-host.js';
 import { usePatchListOverlayBridge } from './patch-list-overlay-bridge.js';
 import type { Patch } from './patch-list-reducer.js';
 import { usePatchListUndoOverride } from './patch-list-undo-context.js';
@@ -78,7 +83,7 @@ export function PatchListOverlay(): React.ReactElement | null {
 
   const [savedToastVisible, setSavedToastVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const lastSeenBatchIdRef = useRef<string | null>(null);
+  const lastSeenBatchIdRef = usePatchListSavedToastLastAckBatchIdRef();
   const prevCanUndoRef = useRef<boolean>(state.canUndo);
 
   // Auto-collapse when there are no staged patches left (post-apply / undo).

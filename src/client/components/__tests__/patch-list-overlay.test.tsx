@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ReconciliationNeedRecord } from '@/shared/reconciliation-need.js';
@@ -287,7 +288,47 @@ describe('PatchListOverlay', () => {
     expect(screen.getByRole('status', { name: /change saved/i })).toBeTruthy();
   });
 
-  it('shows the saved-toast after a hard-impact apply (V3.0 card 2 — no deferred banner blocking)', async () => {
+  it('does not re-show saved toast when overlay remounts with the same lastBatchId', async () => {
+    const editApplier = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { impact: 'soft', previousContent: 'old' },
+      }),
+    );
+    const appliers = makeAppliers({ edit: editApplier as unknown as PatchAppliers['edit'] });
+    function ToggleOverlay() {
+      const [show, setShow] = useState(true);
+      return (
+        <>
+          <button type="button" onClick={() => setShow((s) => !s)}>
+            toggle-overlay
+          </button>
+          {show ? <PatchListOverlay /> : null}
+          <StageEditPatchButton />
+        </>
+      );
+    }
+    render(
+      <PatchListProvider appliers={appliers}>
+        <ToggleOverlay />
+      </PatchListProvider>,
+    );
+    fireEvent.click(screen.getByText('stage-edit'));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /apply/i }));
+    });
+    expect(screen.getByRole('status', { name: /change saved/i })).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByText('toggle-overlay'));
+    });
+    expect(screen.queryByRole('status', { name: /change saved/i })).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByText('toggle-overlay'));
+    });
+    expect(screen.queryByRole('status', { name: /change saved/i })).toBeNull();
+  });
+
+  it('shows the saved-toast after a hard-impact apply (no deferred banner blocking)', async () => {
     const editApplier = vi.fn(() =>
       Promise.resolve({
         undo: () => Promise.resolve(),

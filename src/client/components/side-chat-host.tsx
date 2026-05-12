@@ -725,9 +725,7 @@ export function SideChatHost({
       ) {
         const applied = appliedByPatchIdForRefresh.get(patch.id);
         const isDeferred =
-          !!applied &&
-          typeof applied === 'object' &&
-          (applied as { deferred?: unknown }).deferred === true;
+          !!applied && typeof applied === 'object' && (applied as { deferred?: unknown }).deferred === true;
         if (isDeferred) continue;
         const nextContent = patch.newContent;
         setActiveSideChat((current) =>
