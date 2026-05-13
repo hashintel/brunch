@@ -106,7 +106,7 @@ export function PendingReviewSection(): React.ReactElement | null {
 
   useEffect(() => {
     if (diffPopoverNeedId === null) return;
-    if (!openNeeds.some((need) => need.id === diffPopoverNeedId)) {
+    if (!openNeeds.some((need) => need.id === diffPopoverNeedId.needId)) {
       setDiffPopoverNeedId(null);
       diffAnchorRef.current = null;
     }

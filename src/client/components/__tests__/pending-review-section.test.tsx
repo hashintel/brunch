@@ -664,6 +664,26 @@ describe('PendingReviewSection', () => {
       expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 1);
     });
 
+    it('auto-edit View opens the proposed edit popover', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          target_item_id: 33,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: 'new content',
+          target_current_content: 'old content',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      fireEvent.click(screen.getByRole('button', { name: /view proposal for need 1/i }));
+      const popover = document.querySelector('[data-diff-popover]');
+      expect(popover).not.toBeNull();
+      expect(popover?.textContent).toContain('Proposed edit · #33');
+      expect(popover!.querySelector('[data-diff-kind="removed"]')).toBeTruthy();
+      expect(popover!.querySelector('[data-diff-kind="added"]')).toBeTruthy();
+    });
+
     it('auto-edit Skip calls resolve only (no edit)', async () => {
       setMockOpenNeeds([
         makeNeed({
