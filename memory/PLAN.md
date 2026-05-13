@@ -80,7 +80,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Why now / unlocks:** Prompt/context and graph-review probes need realistic graph/transcript fixtures, but hand-authoring those fixtures is chicken-and-egg. A JSONL capability adapter lets an external LLM-as-user drive the real lifecycle through the same mutation authority future agents must use, pressure-testing tool-call vocabulary, chat readiness, resource identity, fixture curation, and import-boundary discipline. Pi comparison remains FE-635 after this seam has a real Brunch use case to compare against.
 - **Acceptance:** Server-owned capability contracts and JSONL protocol/session code are integrated; the probe runner uses only the JSONL client/process boundary; fixture-candidate artifacts preserve scenario briefs, model policy, generated transcripts, and workspace-state inspection without becoming Brunch authority.
 - **Verification:** Contract/dispatcher tests, JSONL protocol/session tests, import-boundary tests, fake process tests, opt-in real-provider smoke, and fixture-candidate structure/readiness checks.
-- **Traceability:** Requirement 43; A89; D143, D147; I114. Also protects Requirements 40, 41, 42 by making prompt/context and mutation-surface probes executable through a real adapter.
+- **Traceability:** Requirement 43; A89; D143, D147; I115. Also protects Requirements 40, 41, 42 by making prompt/context and mutation-surface probes executable through a real adapter.
 - **Design docs:** `docs/design/AGENT_MUTATION_SURFACE.md`; `docs/archive/design/INTENT_SPEC_EVOLUTION.md`; FE-705 branch artifacts until rebased.
 
 ### intent-graph-semantics
@@ -171,7 +171,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Why now / unlocks:** Extends the same phase-agnostic preface-card model to external research, but should wait for prompt/context scenario substrate proof so web research does not become an ad hoc tool surface.
 - **Acceptance:** Research tools are invoked through interviewer context gathering, outputs render as provisional preface cards paired with questions, and observer capture treats the validated full turn as atomic.
 - **Verification:** Prompt/context scenario probes for query framing and tool-output summarization, plus manual review of provisional-context handling.
-- **Traceability:** Requirements 20, 21, 40, 41; D99, D112, D139, D142.
+- **Traceability:** Requirements 20, 21, 40, 41; D125, D139, D140, D142.
 - **Design docs:** FE-698 prompt/context scenario substrate references; future productized research notes if needed.
 
 ### relation-first-observer-enrichment
@@ -223,7 +223,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Why now / unlocks:** Deprioritized below continuous workspace and semantic/generative substrate. Phase 1 substrate already ships schema support; the remaining decision is the anchor model (`chat` row anchor fields vs deferred `chat_focus` table).
 - **Acceptance:** Side-chat sessions survive remount/reload and remain coherent with graph truth without introducing a second workflow model.
 - **Verification:** Persistence/reload tests and manual side-chat walkthroughs.
-- **Traceability:** Requirement 39; A82, A83; D138.
+- **Traceability:** Requirement 39; D138; I111.
 - **Design docs:** `docs/design/MULTI_CHAT.md` §10 Phase 2; `docs/design/SIDE_CHAT.md` §9 V4 row.
 
 ### side-chat-v4b-item-versioning
