@@ -30,35 +30,54 @@ The feature or problem: $ARGUMENTS
 
 Write or update `memory/SPEC.md` following the [spec template](assets/spec-template.md). If the file already exists, read it first — preserve existing content, evolve sections that need change.
 
+### SPEC shape
+
+Use the mature SPEC shape unless the existing project clearly predates it and the user only asked for a narrow patch:
+
+- **Product Contract** — concept, constraints / non-goals, grouped capability requirements.
+- **Live Architecture Register** — open assumptions, active decisions, critical invariants.
+- **Future Direction Register** — directional bets that shape sequencing but are not current product contract.
+- Compact model / architecture sections only when they still serve as SPEC authority.
+- Lexicon and Verification Design.
+
+SPEC is a live register, not an archive. Keep stable product contract separate from live architectural uncertainty and future direction. Prefer short guardrails plus links to PLAN/design docs over long design-doc-scale prose.
+
 ### Verification Design boundary
 
 ln-spec owns the **inner loop** of verification design: verification commands, verification policy, and inner-loop oracle items (type checks, fast unit tests, linting). Middle and outer loop oracle strategy, diagnostic assessment, and blind spots are owned by `ln-oracles`. Not every scoped slice requires a full oracle-design pass, but frontier items or slices involving LLM behavior, visual rendering, or compositional/system-level claims should route through `ln-oracles` before implementation. When writing or updating §Verification Design, preserve any content written by ln-oracles (§Verification Stance, §Diagnostic Assessment, §Oracle Strategy middle/outer tiers, §Design notes, §Acknowledged Blind Spots).
 
 ### Traceability
 
-If `memory/PLAN.md` exists, verify that changed assumptions and decisions still align with affected frontier items. If it does not exist yet, close the reference chain as far as current artifacts allow: assumptions should still name dependent decisions and validation approaches, and frontier links can be added later by `ln-plan`.
+If `memory/PLAN.md` exists, verify that changed requirements, assumptions, decisions, and invariants still align with affected frontier items. If it does not exist yet, close the reference chain as far as current artifacts allow: assumptions should still name dependent decisions and validation approaches, and frontier links can be added later by `ln-plan`.
 
 ### Weight management
 
-Use the same unit-of-record rules as `ln-build` §Same-item tests. Before adding a row, compare against nearby items in the same feature area. Prefer **update** or **merge** over **add** when the seam is the same.
+Use the same unit-of-record rules as `ln-build` §Same-item tests. Before adding a row, compare against nearby items in the same feature area. Prefer **update**, **merge**, or **omit** over **add** when the seam is the same.
 
 **Units of record:**
 
-- **Assumption** = one unresolved question at one seam
-- **Decision** = one committed choice between alternatives at one seam
-- **Invariant** = one seam-level structural property protected by tests
+- **Requirement** = stable product capability or externally observable contract.
+- **Assumption** = one unresolved question at one seam that still shapes work.
+- **Decision** = one committed spine choice between alternatives at one seam.
+- **Invariant** = one seam-level structural property protected by tests or an explicit planned oracle.
+- **Future direction** = a directional bet that influences sequencing but is not yet product contract.
 
-**These are not new rows** — they are updates or merges to existing rows:
+**Validated assumptions retire by default.** If evidence settles an assumption, do not leave it live just as history. Either remove it during `ln-sync`, or promote the durable residue into Product Contract, Active Decisions, Critical Invariants, Lexicon, or PLAN traceability if it still constrains active work.
+
+**These are not new rows** — they are updates, merges, links, or no-ops:
 - confidence changes, validation narratives, added evidence
 - helper names, file layout, or implementation mechanics
 - one more branch/state/kind/phase/action example of an existing rule
 - one implementation step under an already-recorded decision
+- detailed rationale better held by a design doc
+- future acceptance criteria better held by PLAN until the work is active
 
 **Smell checks before adding:**
 - The sentence starts with "for this slice" or names a temporary cutover step → probably an update, not a new item
 - The difference is only approve/reject, confirm/force-close, or kind/phase/state variants of one shared rule → merge into the seam-level row
-- The item would stop making sense once the code ships and no alternative remains live → probably a decision that should not be tracked
+- The item would stop making sense once the code ships and no alternative remains live → probably not a tracked decision
 - The item is an implementation mechanic inside an already-chosen boundary → no-op
+- The row mainly names test files or records implementation history → probably belongs in code/tests or should merge into a broader invariant
 
 Large cleanup is `ln-sync` work. When writing or patching, keep the touched area coherent; do not attempt a risky whole-document consolidation.
 
@@ -66,9 +85,11 @@ Large cleanup is `ln-sync` work. When writing or patching, keep the touched area
 
 Every amendment must close its reference chain as far as the current lifecycle stage allows. After editing, verify:
 
-- **New assumption** → has: dependent decision(s), validation approach, and implicated frontier item(s) in `memory/PLAN.md` **if `memory/PLAN.md` already exists**
-- **New decision** → has: dependent assumption(s), supersession note
-- **New invariant** → has: establishing frontier item in `memory/PLAN.md` **if known** (or scoped slice if already defined), protecting test (or `manual (outer loop)`), proved decision
+- **New requirement** → has: product capability area and PLAN/frontier references if it changes upcoming work
+- **New assumption** → has: dependent decision(s) or invariant(s), validation approach, and implicated frontier item(s) in `memory/PLAN.md` **if `memory/PLAN.md` already exists**
+- **New decision** → has: dependent assumption(s) where relevant, supersession note, and enough rationale to identify the chosen seam
+- **New invariant** → has: establishing frontier item in `memory/PLAN.md` **if known** (or scoped slice if already defined), protecting test/oracle (or `planned` / `manual (outer loop)`), proved decision or requirement
+- **New future direction** → has: PLAN frontier/horizon pointer or design-doc pointer; not full acceptance detail unless already active
 - **New constraint** → has: rationale for exclusion
 - **New inner-loop oracle item** → names the invariant(s) it protects
 
