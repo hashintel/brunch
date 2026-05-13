@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/client/components/app-shell';
 import { ChatScroll } from '@/client/components/chat-scroll';
@@ -14,62 +14,22 @@ import {
 } from '@/client/components/ui/dialog';
 import { cn } from '@/client/lib/utils';
 import type { WorkflowPhase } from '@/shared/api-types.js';
-import type { ActivitySummary, BrunchUIMessage } from '@/shared/chat.js';
-import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
+import type { ActivitySummary } from '@/shared/chat.js';
+import { getForceClosePhaseAction } from '@/shared/phase-close.js';
 import {
-  getCurrentOpenPhase,
   getNextActivePhase,
   getPhaseRoutePath,
   getWorkflowPhaseLabel,
   phaseOrder,
 } from '@/shared/phase-descriptors.js';
-import { getPhaseIntentMarkerLabel } from '@/shared/phase-intents.js';
 import { getPersistedActivitySummary } from '@/shared/specification-state.js';
 import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
-import { useSpecificationBundleData } from '../-specification-data.js';
-import { useInterviewController } from './-interview-controller.js';
-import {
-  specificationWorkspaceStream,
-  type WorkspaceStreamArtifact,
-  type WorkspaceStreamMarker,
-} from './-workspace-stream-projector.js';
+import { useContinuousWorkspaceController } from './-continuous-workspace-controller.js';
 import { WorkspaceTranscriptArtifacts } from './-workspace-transcript-artifacts.js';
 
 function canForceClosePhase(workflow: SpecificationState['workflow'], phase: SpecificationTurn['phase']) {
   return getForceClosePhaseAction(workflow, phase).available;
-}
-
-function getControlMarkerLabel(message: BrunchUIMessage): string | null {
-  const phaseIntent = message.parts?.find(
-    (part): part is Extract<NonNullable<BrunchUIMessage['parts']>[number], { type: 'data-phase-intent' }> =>
-      part.type === 'data-phase-intent',
-  );
-  if (phaseIntent) {
-    return getPhaseIntentMarkerLabel(phaseIntent.data);
-  }
-
-  const phaseConfirmation = message.parts?.find(
-    (part): part is Extract<NonNullable<BrunchUIMessage['parts']>[number], { type: 'data-confirmation' }> =>
-      part.type === 'data-confirmation',
-  );
-  return phaseConfirmation ? getPhaseClosureCommandText(phaseConfirmation.data) : null;
-}
-
-function projectLiveControlMarkers(messages: readonly BrunchUIMessage[]): WorkspaceStreamMarker[] {
-  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
-    const message = messages[messageIndex];
-    if (!message || /^turn-\d+-/.test(message.id) || message.role !== 'user') {
-      continue;
-    }
-
-    const label = getControlMarkerLabel(message);
-    if (label) {
-      return [{ label }];
-    }
-  }
-
-  return [];
 }
 
 function renderActivitySummary(activitySummary: ActivitySummary | null | undefined) {
@@ -88,63 +48,11 @@ function getReadinessLabel(readiness: SpecificationState['workflow']['phases'][W
   return readiness[0]!.toUpperCase() + readiness.slice(1);
 }
 
-interface PhaseSection {
-  readonly phase: WorkflowPhase;
-  readonly artifacts: readonly WorkspaceStreamArtifact[];
-  readonly phaseTurns: readonly SpecificationTurn[];
-  readonly isActive: boolean;
-}
-
 export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: WorkflowPhase }) {
   const [isClosePhaseModalOpen, setIsClosePhaseModalOpen] = useState(false);
-  const specificationState = useSpecificationBundleData();
-  const currentReachablePhase = getCurrentOpenPhase(specificationState.workflow.phases);
-  const activePhase = currentReachablePhase ?? phaseOrder[phaseOrder.length - 1]!;
 
-  const controller = useInterviewController(activePhase);
-  const { specification, workflow, captureStatusByTurnId, structuralArtifactTurnIds } = controller;
-
-  const sections = useMemo((): readonly PhaseSection[] => {
-    const result: PhaseSection[] = [];
-
-    for (const phase of phaseOrder) {
-      const phaseState = workflow.phases[phase];
-
-      if (phaseState.status === 'unstarted' && phase !== activePhase) {
-        continue;
-      }
-
-      if (phase === activePhase) {
-        const controlMarkers = projectLiveControlMarkers(controller.chat.messages);
-        const { streamArtifacts } = specificationWorkspaceStream({
-          phase,
-          phaseTurns: controller.phaseTurns,
-          phaseState,
-          bottomArtifact: controller.bottomArtifact,
-          controlMarkers,
-          structuralArtifactTurnIds,
-        });
-        result.push({
-          phase,
-          artifacts: streamArtifacts,
-          phaseTurns: controller.phaseTurns,
-          isActive: true,
-        });
-      } else {
-        const phaseTurns = specificationState.turns.filter((t) => t.phase === phase);
-        const { streamArtifacts } = specificationWorkspaceStream({
-          phase,
-          phaseTurns,
-          phaseState,
-          bottomArtifact: null,
-          structuralArtifactTurnIds: specificationState.structuralArtifactTurnIds,
-        });
-        result.push({ phase, artifacts: streamArtifacts, phaseTurns, isActive: false });
-      }
-    }
-
-    return result;
-  }, [activePhase, controller, specificationState, structuralArtifactTurnIds, workflow.phases]);
+  const { specification, workflow, sections, activePhase, captureStatusByTurnId, chat } =
+    useContinuousWorkspaceController();
 
   // Scroll to the initial phase section on mount
   const sectionRefs = useRef<Map<WorkflowPhase, HTMLDivElement>>(new Map());
@@ -171,13 +79,14 @@ export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: Workfl
   const showAdvanceAction = activePhaseState.status === 'closed' && Boolean(nextPhase);
   const showExportAction = activePhaseState.status === 'closed' && !nextPhase;
   const readinessLabel = getReadinessLabel(activePhaseState.readiness);
-  const activePhaseTurns = controller.phaseTurns;
+  const activeSection = sections.find((s) => s.isActive);
+  const activePhaseTurns = activeSection?.phaseTurns ?? [];
   const turnCountLabel = `${activePhaseTurns.length} ${activePhaseTurns.length === 1 ? 'turn' : 'turns'}`;
   const confirmCloseLabel = `Confirm ${getWorkflowPhaseLabel(activePhase).toLowerCase()} closure`;
 
   const handleConfirmClosePhase = () => {
     setIsClosePhaseModalOpen(false);
-    controller.chat.forcePhaseClosure(activePhase);
+    chat.forcePhaseClosure(activePhase);
   };
 
   return (
@@ -262,7 +171,7 @@ export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: Workfl
             <Button
               variant="outline"
               onClick={() => setIsClosePhaseModalOpen(true)}
-              disabled={controller.chat.isLoading}
+              disabled={chat.isLoading}
             >
               Close Phase
             </Button>
@@ -295,7 +204,7 @@ export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: Workfl
             <Button variant="ghost" onClick={() => setIsClosePhaseModalOpen(false)}>
               Keep phase open
             </Button>
-            <Button variant="primary" onClick={handleConfirmClosePhase} disabled={controller.chat.isLoading}>
+            <Button variant="primary" onClick={handleConfirmClosePhase} disabled={chat.isLoading}>
               {confirmCloseLabel}
             </Button>
           </DialogFooter>
