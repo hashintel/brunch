@@ -79,7 +79,7 @@ Top-down from the surface the user sees to the substrate underneath. Each layer 
 
 The spec route renders a continuous workspace, not a stack of independent views. Phase sections, sidebar navigation, and scroll/focus behavior belong here. The chat runtime mounts inside the shell.
 
-This is the [CONTINUOUS_WORKSPACE_HYBRID.md](./CONTINUOUS_WORKSPACE_HYBRID.md) frontier already in PLAN.md §Active. That doc owns the shape choice (route-alias / workspace controller / chart-backed supervisor). This umbrella commits to: **the workspace shell is the first sub-track to ship**, because the chat runtime needs a stable host before it can absorb side-chat / pending-review surfaces. Structured-list view and graph view become workspace-aware peers, not standalone routes.
+This is the [CONTINUOUS_WORKSPACE_HYBRID.md](./CONTINUOUS_WORKSPACE_HYBRID.md) frontier already in PLAN.md §Active. That doc owns the shape choice (route-alias / workspace controller / chart-backed supervisor). This umbrella names the workspace shell as a **structural prerequisite** for the chat runtime: the runtime needs a stable host before it can absorb side-chat / pending-review surfaces. That is a dependency constraint, not a ship-order commitment — `/ln-plan` decides actual sequencing (see the dependency arrows in §5). Structured-list view and graph view become workspace-aware peers, not standalone routes.
 
 ### 3.2 Chat runtime — unified surface, threads as primitive
 
@@ -94,7 +94,7 @@ One main chat per spec is visible. Threads, sub-runs, and side conversations are
   - **(r) Pure UI-rendering** — chats stay sibling-of-spec; UI renders one chat's children inline. Substrate unchanged.
 
   This umbrella does **not** pick yet. A follow-up RFC (sub-track 2 in §5) decides based on what the in-stream rendering and # mention substrate actually need.
-- **Thread kinds** — `interview` (the spine), `side` (item-anchored), `reconciliation` (target-grouped), `qa` (explicit-set, user-initiated). Kind determines context-spec defaults (§3.5) and turn-zero behavior. Kinds are metadata, not hard constraints on what happens inside.
+- **Thread kinds** — `interview` (the spine), `side` (item-anchored), `reconciliation` (target-grouped), `qa` (explicit-set, user-initiated). Kind determines context-spec defaults (§3.5) and turn-zero behavior. Kinds are metadata, not hard constraints on what happens inside. These thread kinds are **conceptually distinct from the existing `chat.kind` enum** (currently `interview | side_chat` per MULTI_CHAT.md §3) — how they're persisted (a new `thread.kind` column, an extension of `chat.kind`, or UI-only metadata) is part of the substrate choice deferred below.
 - **Turn-zero** — every thread starts with an `assistant` turn that prompts the user with kind-appropriate options. Existing `turn_kind = 'kickoff'` is the seam.
 
 **What retires when this lands**
