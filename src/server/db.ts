@@ -55,6 +55,14 @@ import * as schema from './schema.js';
 import { projectWorkflowState, type WorkflowProjectionSnapshot } from './workflow-projector.js';
 
 export {
+  createAnnotation,
+  deleteAnnotation,
+  getAnnotation,
+  getAnnotationsForSpecification,
+} from './db/annotation-store.js';
+export type { Annotation, CreateAnnotationInput } from './db/annotation-store.js';
+
+export {
   claimReconciliationNeedForClassification,
   getCascadeRelationBetween,
   getReconciliationNeed,
@@ -75,7 +83,6 @@ export type {
 
 export type DB = ReturnType<typeof drizzle<typeof schema>>;
 export type Specification = InferSelectModel<typeof schema.specification>;
-export type Annotation = InferSelectModel<typeof schema.annotation>;
 type PersistedTurn = InferSelectModel<typeof schema.turn>;
 export type Turn = Omit<PersistedTurn, 'specification_id'> & {
   specification_id: number;
@@ -1310,50 +1317,6 @@ export function getCapturedItemsForTurns(
   }
 
   return capturedItemsByTurn;
-}
-
-// --- Side-chat annotations (D133) ---
-
-export interface CreateAnnotationInput {
-  knowledgeItemId: number;
-  summary: string;
-  body: string;
-  selectionStart?: number | null;
-  selectionEnd?: number | null;
-}
-
-export function createAnnotation(db: DB, specificationId: number, input: CreateAnnotationInput): Annotation {
-  return db
-    .insert(schema.annotation)
-    .values({
-      specification_id: specificationId,
-      knowledge_item_id: input.knowledgeItemId,
-      summary: input.summary,
-      body: input.body,
-      selection_start: input.selectionStart ?? null,
-      selection_end: input.selectionEnd ?? null,
-    })
-    .returning()
-    .get() as Annotation;
-}
-
-export function getAnnotationsForSpecification(db: DB, specificationId: number): Annotation[] {
-  return db
-    .select()
-    .from(schema.annotation)
-    .where(eq(schema.annotation.specification_id, specificationId))
-    .orderBy(schema.annotation.created_at, schema.annotation.id)
-    .all() as Annotation[];
-}
-
-export function getAnnotation(db: DB, annotationId: number): Annotation | undefined {
-  return db.select().from(schema.annotation).where(eq(schema.annotation.id, annotationId)).get() as
-    | Annotation
-    | undefined;
-}
-
-export function deleteAnnotation(db: DB, annotationId: number): void {
-  db.delete(schema.annotation).where(eq(schema.annotation.id, annotationId)).run();
 }
 
 // --- Edit-impact queries (Side-chat V2 / FE-673) ---

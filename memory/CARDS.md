@@ -41,7 +41,7 @@ Status: done / uncommitted
 
 ## Card 2 — Annotation store extraction
 
-Status: next
+Status: done
 
 ### Target Behavior
 
@@ -76,7 +76,7 @@ Status: next
 
 ## Card 3 — Edit-impact query extraction
 
-Status: queued
+Status: next
 
 ### Target Behavior
 
