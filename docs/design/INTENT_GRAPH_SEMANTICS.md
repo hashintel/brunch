@@ -8,7 +8,7 @@
 >
 > Source synthesis: [`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md) §3, §4, §6, §11. Where this document overlaps, it supersedes the synthesis as the structured reference; the synthesis remains the broader narrative.
 >
-> Layer note: this is the **product layer**. It describes what Brunch users build. The dev-layer ontology is a parallel-but-not-yet-converged register described in [`DEV_WORKFLOW_EVOLUTION.md`](./DEV_WORKFLOW_EVOLUTION.md).
+> Layer note: this is the **product layer**. It describes what Brunch users build. The dev-layer ontology is a parallel-but-not-yet-converged register described in [`ln-skills/EVOLUTION.md`](./ln-skills/EVOLUTION.md).
 
 ## Why this note exists
 

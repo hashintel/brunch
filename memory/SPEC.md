@@ -11,7 +11,7 @@
      surfaces in `src/` schema and at runtime. The dev-workflow
      trajectory (the `ln-*` skill family, the proposed file-backed
      spec registry, and the long-horizon convergence between dev and
-     product ontologies) lives in `docs/design/DEV_WORKFLOW_EVOLUTION.md`. -->
+     product ontologies) lives in `docs/design/ln-skills/EVOLUTION.md`. -->
 
 # Brunch v2 — Spec Elicitation Tool
 

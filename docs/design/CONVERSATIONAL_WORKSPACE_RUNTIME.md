@@ -291,7 +291,7 @@ This synthesis has to respect parallel design work that happened outside the run
 | [SPEC_EVOLUTION_STRATEGIES.md](./SPEC_EVOLUTION_STRATEGIES.md) | Strategy is chat-local process state. Scenario options, graph-review findings, and reconciliation suggestions are proposal turns until accepted; accepted candidate bundles become coherent changesets, not loose item-by-item mutations. |
 | [AGENT_MUTATION_SURFACE.md](./AGENT_MUTATION_SURFACE.md) | Agent-originated writes must enter through Brunch-owned capability/handler contracts. The runtime may host agent runs, but those runs do not get direct ORM or route-wrapper mutation authority. |
 | [BEHAVIORAL_KERNELS.md](./BEHAVIORAL_KERNELS.md) | Kernel-driven questions produce typed artifacts that the intent graph stores; the runtime provides thread/context affordances but should not invent a separate artifact ontology. |
-| [DEV_WORKFLOW_EVOLUTION.md](./DEV_WORKFLOW_EVOLUTION.md) | Dev-layer file-backed registry ideas are separate from product runtime persistence. Do not mix product `changeset` tables with the future `memory/` registry experiment. |
+| [ln-skills/EVOLUTION.md](./ln-skills/EVOLUTION.md) | Dev-layer file-backed registry ideas are separate from product runtime persistence. Do not mix product `changeset` tables with the future `memory/` registry experiment. |
 
 Audit result: the runtime concept stays coherent if it treats `chat`/thread as conversational process, `changeset`/`change` as semantic mutation history, `reconciliation_need` as process debt from a known disturbance, and graph review as a separate quality oracle. That matches the current SPEC/PLAN reconciliation.
 

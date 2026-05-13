@@ -6,13 +6,13 @@
 >
 > This document is **not** part of `memory/SPEC.md` because it does not describe Brunch the product. It is the canonical design home for the **dev layer**: how Brunch is built. Conclusions that affect product behavior should still be promoted into `memory/SPEC.md` through `ln-spec`, but most of the material here describes self-tooling rather than user-facing capability.
 >
-> Source synthesis: external agent conversations captured in [`docs/archive/design/INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md). That synthesis treats both the product layer and the dev layer in the same document; this note splits the dev-layer trajectory out so the layers stop colliding.
+> Source synthesis: external agent conversations captured in [`docs/archive/design/INTENT_SPEC_EVOLUTION.md`](../../archive/design/INTENT_SPEC_EVOLUTION.md). That synthesis treats both the product layer and the dev layer in the same document; this note splits the dev-layer trajectory out so the layers stop colliding.
 
 ## Why this note exists
 
 The intent-spec branching conversation produced two parallel trajectories:
 
-1. A **product-layer** direction — Brunch should evolve from eliciting planning specs toward eliciting intent specs, with progressive checkability, behavioral kernels, semantic edges, and graph-first context. Most of that material has now landed in `memory/SPEC.md` (Requirements 38–41, A77–A87, D125, D134–D142, I109–I112, and the Lexicon entries for `intent graph` / `progressive checkability` / `behavioral kernel` / `context pack` / `scenario runner`), focused design docs (`MULTI_CHAT.md`, `PATCH_LEDGER.md`), or the archived source synthesis (`../archive/design/INTENT_SPEC_EVOLUTION.md`).
+1. A **product-layer** direction — Brunch should evolve from eliciting planning specs toward eliciting intent specs, with progressive checkability, behavioral kernels, semantic edges, and graph-first context. Most of that material has now landed in `memory/SPEC.md` (Requirements 38–41, A77–A87, D125, D134–D142, I109–I112, and the Lexicon entries for `intent graph` / `progressive checkability` / `behavioral kernel` / `context pack` / `scenario runner`), focused design docs (`MULTI_CHAT.md`, `PATCH_LEDGER.md`), or the archived source synthesis (`../../archive/design/INTENT_SPEC_EVOLUTION.md`).
 
 2. A **dev-layer** direction — the same critique, applied recursively to Brunch's *own* spec workflow. The current `memory/SPEC.md` is doing many jobs at once and the markdown-mediated nature of the document creates real cognitive cost on contributing LLMs. The conversation proposed a file-backed canonical spec registry with deterministic checkers and generated views. None of this has landed anywhere except as a one-line horizon item in `memory/PLAN.md` ("Structured development spec registry").
 
@@ -155,7 +155,7 @@ The point is not that the current system is broken — it works, and `ln-sync` e
 
 ## Proposed dev-layer trajectory
 
-The trajectory is the one the source synthesis captures in §10–11 of [`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md), but framed here as a self-tooling experiment for *this* repo, not as a product proposal.
+The trajectory is the one the source synthesis captures in §10–11 of [`INTENT_SPEC_EVOLUTION.md`](../../archive/design/INTENT_SPEC_EVOLUTION.md), but framed here as a self-tooling experiment for *this* repo, not as a product proposal.
 
 ### Target shape
 
@@ -257,7 +257,7 @@ The structural argument for convergence is strong:
 
 The structural argument against immediate convergence is also strong:
 
-- They have different persistence needs. The dev layer is diffable, branchable, reviewable in PRs — files. The product layer is interactive, multi-user, resume-precise — SQLite. (Source: [`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md) §11.)
+- They have different persistence needs. The dev layer is diffable, branchable, reviewable in PRs — files. The product layer is interactive, multi-user, resume-precise — SQLite. (Source: [`INTENT_SPEC_EVOLUTION.md`](../../archive/design/INTENT_SPEC_EVOLUTION.md) §11.)
 - They have different mutation interfaces. The dev layer mutates through editor + CLI. The product layer mutates through interview turns, observer captures, and graph edits.
 - They have different operational metadata. The dev layer cares about test coverage and CI gates; the product layer cares about workflow phase, frontier ownership, review acceptance, and chat ownership.
 
@@ -307,7 +307,7 @@ The decision rule:
 
 ## References
 
-- [`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md) §10–11 — source synthesis for the registry trajectory and the persistence adapter split.
-- [`AGENTS.md`](../../AGENTS.md) — current operational protocols, verification harness, naming conventions.
+- [`INTENT_SPEC_EVOLUTION.md`](../../archive/design/INTENT_SPEC_EVOLUTION.md) §10–11 — source synthesis for the registry trajectory and the persistence adapter split.
+- [`AGENTS.md`](../../../AGENTS.md) — current operational protocols, verification harness, naming conventions.
 - `.agents/skills/ln-*/SKILL.md` — current implementations of the dev-workflow skills.
 - `memory/PLAN.md` horizon item "Structured development spec registry" — the one-line pointer this document expands.

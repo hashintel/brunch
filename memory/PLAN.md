@@ -17,7 +17,7 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 
 The next product arc is a **continuous conversational workspace** plus a stronger semantic/generative substrate. Continuous workspace is active in a parallel lane and gives the chat runtime a stable phase-addressable host. The FE-705 branch contributes an integration substrate — a local agent capability CLI and external LLM-as-user probe harness — that should be reconciled into main before graph-review and scenario-options work depends on generated completed-spec fixtures. After that, the highest-coordination work is intent-graph semantics and the semantic changeset ledger; lower-coordination provider, gitignore, and web-research work can proceed in parallel.
 
-The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agent-mutation design notes are reconciled into one direction. `docs/design/MULTI_CHAT.md` is the substrate document. `docs/design/SIDE_CHAT.md` describes side-chat V1 / V2 / V3.0 / V3.1 / V4 phasing on top of that substrate. `docs/design/PATCH_LEDGER.md` remains historical deeper design pressure for semantic mutation history, but canonical future-facing vocabulary is `changeset` / `change`. The product-layer ontology trajectory is split out as `docs/design/INTENT_GRAPH_SEMANTICS.md` and `docs/design/BEHAVIORAL_KERNELS.md`; broader synthesis lives in `docs/archive/design/INTENT_SPEC_EVOLUTION.md`. FE-705's branch-local strategy/proposal notes add scenario options, graph-review oracle, chat-local strategies, and concern/dependency mapping; those notes should become a canonical design doc when the branch is integrated. The dev-layer self-tooling trajectory lives in `docs/design/DEV_WORKFLOW_EVOLUTION.md`.
+The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agent-mutation design notes are reconciled into one direction. `docs/design/MULTI_CHAT.md` is the substrate document. `docs/design/SIDE_CHAT.md` describes side-chat V1 / V2 / V3.0 / V3.1 / V4 phasing on top of that substrate. `docs/design/PATCH_LEDGER.md` remains historical deeper design pressure for semantic mutation history, but canonical future-facing vocabulary is `changeset` / `change`. The product-layer ontology trajectory is split out as `docs/design/INTENT_GRAPH_SEMANTICS.md` and `docs/design/BEHAVIORAL_KERNELS.md`; broader synthesis lives in `docs/archive/design/INTENT_SPEC_EVOLUTION.md`. FE-705's branch-local strategy/proposal notes add scenario options, graph-review oracle, chat-local strategies, and concern/dependency mapping; those notes should become a canonical design doc when the branch is integrated. The dev-layer self-tooling trajectory lives in `docs/design/ln-skills/EVOLUTION.md`.
 
 ## Sequencing
 
@@ -328,7 +328,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Acceptance:** Generated views preserve current planning ergonomics while reducing merge churn and cross-reference drift.
 - **Verification:** Deterministic generation checks and branch-conflict dry runs.
 - **Traceability:** dev-layer trajectory only; not product-layer ontology.
-- **Design docs:** `docs/design/DEV_WORKFLOW_EVOLUTION.md`.
+- **Design docs:** `docs/design/ln-skills/EVOLUTION.md`.
 
 ### portability-boundaries
 

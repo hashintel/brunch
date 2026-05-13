@@ -48,7 +48,7 @@ Start with `CONVERSATIONAL_WORKSPACE_RUNTIME.md`. The other files in this cluste
 
 | Document | Role |
 | --- | --- |
-| `DEV_WORKFLOW_EVOLUTION.md` | Dev-layer trajectory for the `ln-*` skill family, `memory/` ontology, proposed file-backed spec registry, and possible dev/product ontology convergence. Not product SPEC. |
+| `ln-skills/EVOLUTION.md` | Dev-layer trajectory for the `ln-*` skill family, `memory/` ontology, proposed file-backed spec registry, and possible dev/product ontology convergence. Not product SPEC. |
 | `DEFERRED_RECONCILIATIONS.md` | Interim backlog for product impulses that are worthy but intentionally gated. Audit before promoting or retiring entries. |
 
 ### Isolated / future-facing notes
