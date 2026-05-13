@@ -8,9 +8,9 @@ import {
   useSubmitPhaseIntentMutation,
   useSubmitTurnResponseMutation,
 } from '@/client/mutations/interview-mutations';
-import type { ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
-import { brunchDataPartSchemas, getActivityToolLabel, summarizeAssistantActivity } from '@/shared/chat.js';
-import type { ActivitySummary, BrunchUIMessage } from '@/shared/chat.js';
+import type { WorkflowPhase } from '@/shared/api-types.js';
+import { brunchDataPartSchemas } from '@/shared/chat.js';
+import type { BrunchUIMessage } from '@/shared/chat.js';
 import {
   createConfirmProposedPhaseClosureCommand,
   createForceCloseActivePhaseCommand,
@@ -19,7 +19,7 @@ import {
 import type { DataConfirmation } from '@/shared/phase-close.js';
 import { getCurrentOpenPhase, getPhaseRoutePath, phaseOrder } from '@/shared/phase-descriptors.js';
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
-import { type SpecificationMode, type SpecificationTurn } from '@/shared/specification.js';
+import { type SpecificationTurn } from '@/shared/specification.js';
 
 import {
   useInvalidateSpecificationQueryDomains,
@@ -29,11 +29,18 @@ import {
 import {
   buildPhaseTurnIds,
   createInterviewControllerViewState,
-  createInterviewDurableSpecificationState,
+  enrichBottomArtifact,
   filterMessagesByPhase,
+  getLatestAssistantActivity,
+  getLatestReasoningText,
+  getLiveToolItems,
   reconcileStablePhaseTurns,
+  sameTurnReferences,
 } from './-interview-controller-core.js';
-import type { InterviewControllerBottomArtifactState } from './-interview-controller.js';
+import type {
+  InterviewControllerBottomArtifactState,
+  InterviewDurableSpecificationState,
+} from './-interview-controller-core.js';
 import { useInterviewDataAdapter } from './-interview-data.js';
 import { getSpecificationScopedChatId } from './-interview-hydration.js';
 import {
@@ -41,145 +48,6 @@ import {
   useSpecificationScopedAutoPhaseIntent,
 } from './-specification-lifecycle.js';
 import { specificationWorkspaceStream, type WorkspaceStreamArtifact } from './-workspace-stream-projector.js';
-
-const MAX_TOOL_DETAIL_LENGTH = 80;
-const HYDRATED_TURN_MESSAGE_ID_PATTERN = /^turn-\d+-/;
-
-function isLiveAssistantMessage(message: BrunchUIMessage): boolean {
-  return message.role === 'assistant' && !HYDRATED_TURN_MESSAGE_ID_PATTERN.test(message.id);
-}
-
-function getLatestLiveAssistantMessage(
-  messages: readonly BrunchUIMessage[],
-  status: ChatStatus,
-): BrunchUIMessage | undefined {
-  if (status !== 'submitted' && status !== 'streaming') {
-    return undefined;
-  }
-
-  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
-    const message = messages[messageIndex];
-    if (message && isLiveAssistantMessage(message)) {
-      return message;
-    }
-  }
-
-  return undefined;
-}
-
-function truncateToolDetail(value: string): string {
-  const sanitized = value.replace(/[\n\r]+/g, ' ').trim();
-  return sanitized.length > MAX_TOOL_DETAIL_LENGTH
-    ? `${sanitized.slice(0, MAX_TOOL_DETAIL_LENGTH - 1)}…`
-    : sanitized;
-}
-
-function getToolInputString(input: Record<string, unknown>, key: string): string | null {
-  const value = input[key];
-  return typeof value === 'string' && value.trim() ? truncateToolDetail(value) : null;
-}
-
-function extractToolDetail(input: unknown): string | null {
-  if (input === null || typeof input !== 'object') {
-    return null;
-  }
-
-  const record = input as Record<string, unknown>;
-  const command = getToolInputString(record, 'command');
-  if (command) {
-    return command;
-  }
-
-  const path = getToolInputString(record, 'path') ?? getToolInputString(record, 'workdir');
-  const pattern = getToolInputString(record, 'pattern');
-  if (pattern && path) {
-    return truncateToolDetail(`${pattern} in ${path}`);
-  }
-  if (path) {
-    return path;
-  }
-
-  for (const key of ['glob', 'query', 'url', 'requestFilePath', 'responseFilePath'] as const) {
-    const value = getToolInputString(record, key);
-    if (value) {
-      return value;
-    }
-  }
-
-  return null;
-}
-
-function getLiveToolItems(messages: readonly BrunchUIMessage[], status: ChatStatus) {
-  const liveAssistantMessage = getLatestLiveAssistantMessage(messages, status);
-  if (!liveAssistantMessage?.parts) {
-    return undefined;
-  }
-
-  const toolItems = new Map<
-    string,
-    {
-      detail?: string;
-      key: string;
-      label: string;
-    }
-  >();
-
-  for (const part of liveAssistantMessage.parts) {
-    const label = part ? getActivityToolLabel(part) : null;
-    if (!part || !label || !('input' in part) || !('state' in part) || !('toolCallId' in part)) {
-      continue;
-    }
-
-    const existing = toolItems.get(part.toolCallId);
-    const detail = extractToolDetail(part.input) ?? existing?.detail;
-
-    toolItems.set(part.toolCallId, {
-      ...(detail ? { detail } : {}),
-      key: part.toolCallId,
-      label,
-    });
-  }
-
-  return toolItems.size > 0 ? [...toolItems.values()] : undefined;
-}
-
-function getLatestAssistantActivity(
-  messages: readonly BrunchUIMessage[],
-  status: ChatStatus,
-): ActivitySummary | undefined {
-  const liveAssistantMessage = getLatestLiveAssistantMessage(messages, status);
-  if (!liveAssistantMessage?.parts) {
-    return undefined;
-  }
-
-  return summarizeAssistantActivity(liveAssistantMessage.parts) ?? undefined;
-}
-
-function getLatestReasoningText(
-  messages: readonly BrunchUIMessage[],
-  status: ChatStatus,
-): string | undefined {
-  const liveAssistantMessage = getLatestLiveAssistantMessage(messages, status);
-  if (!liveAssistantMessage?.parts) {
-    return undefined;
-  }
-
-  const chunks: string[] = [];
-  for (const part of liveAssistantMessage.parts) {
-    if (part.type === 'reasoning') {
-      chunks.push(part.text);
-    }
-  }
-
-  return chunks.length > 0 ? chunks.join('') : undefined;
-}
-
-function sameTurnReferences(
-  left: readonly SpecificationTurn[],
-  right: readonly SpecificationTurn[],
-): boolean {
-  return left.length === right.length && left.every((turn, index) => turn === right[index]);
-}
 
 export interface ContinuousWorkspaceSection {
   readonly phase: WorkflowPhase;
@@ -199,8 +67,8 @@ export interface ContinuousWorkspaceChatState {
 }
 
 export interface ContinuousWorkspaceController {
-  readonly specification: ReturnType<typeof createInterviewDurableSpecificationState>['specification'];
-  readonly workflow: ReturnType<typeof createInterviewDurableSpecificationState>['workflow'];
+  readonly specification: InterviewDurableSpecificationState['specification'];
+  readonly workflow: InterviewDurableSpecificationState['workflow'];
   readonly sections: readonly ContinuousWorkspaceSection[];
   readonly activePhase: WorkflowPhase;
   readonly captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
@@ -442,137 +310,19 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
     });
   }, [activePhase, promoteStreamedFrontierTurnToBundle, viewState.bottomArtifact]);
 
-  // Enrich the bottom artifact with callbacks (same mapping as useInterviewController)
-  const enrichedBottomArtifact: InterviewControllerBottomArtifactState | null = viewState.bottomArtifact
-    ? viewState.bottomArtifact.kind === 'persisted-turn'
-      ? {
-          kind: 'persisted-turn',
-          turn: viewState.bottomArtifact.turn,
-          state: viewState.bottomArtifact.state,
-          disabled: viewState.bottomArtifact.state === 'submitted',
-          errorMessage: submitTurnResponseMutation.errorMessage,
-          liveActivity,
-          submitTurnResponse: async (
-            positions: number[],
-            freeText?: string,
-            reviewAction?: ReviewAction,
-            itemComments?: Array<{ reviewItemId: string; comment: string }>,
-          ) => {
-            const activeTurn =
-              viewState.bottomArtifact?.kind === 'persisted-turn' ? viewState.bottomArtifact.turn : null;
-            if (activeTurn === null) {
-              return;
-            }
-
-            await runtime.submitTrackedTurnResponse(activeTurn, () =>
-              submitTurnResponseMutation.submitTurnResponse(positions, freeText, reviewAction, itemComments),
-            );
-          },
-        }
-      : viewState.bottomArtifact.kind === 'pending-question'
-        ? {
-            kind: 'pending-question',
-            pendingQuestion: viewState.bottomArtifact.pendingQuestion,
-            disabled: true,
-            liveActivity,
-          }
-        : viewState.bottomArtifact.kind === 'kickoff'
-          ? (() => {
-              const kickoff = viewState.bottomArtifact.kickoff;
-
-              return {
-                kind: 'kickoff' as const,
-                kickoff,
-                disabled: isLoading,
-                errorMessage: controlErrorMessage,
-                submitKickoff: (selectedMode?: SpecificationMode) => {
-                  if (isLoading) {
-                    return;
-                  }
-
-                  if (kickoff.phase === 'grounding' && kickoff.mode === 'start' && selectedMode) {
-                    void submitTypedPhaseIntent({
-                      kind: 'phase-entry',
-                      phase: kickoff.phase,
-                      mode: selectedMode,
-                    });
-                    return;
-                  }
-
-                  void submitTypedPhaseIntent(
-                    kickoff.mode === 'start'
-                      ? {
-                          kind: 'phase-entry',
-                          phase: kickoff.phase,
-                        }
-                      : {
-                          kind: 'phase-continue',
-                          phase: kickoff.phase,
-                        },
-                  );
-                },
-              };
-            })()
-          : viewState.bottomArtifact.kind === 'recovery'
-            ? (() => {
-                const recovery = viewState.bottomArtifact.recovery;
-
-                return {
-                  kind: 'recovery' as const,
-                  recovery,
-                  disabled: isLoading,
-                  errorMessage: controlErrorMessage,
-                  submitRecovery: () => {
-                    if (isLoading) {
-                      return;
-                    }
-
-                    void submitTypedPhaseIntent({
-                      kind: 'phase-continue',
-                      phase: recovery.phase,
-                    });
-                  },
-                };
-              })()
-            : viewState.bottomArtifact.kind === 'phase-summary'
-              ? (() => {
-                  const phaseSummary = viewState.bottomArtifact.phaseSummary;
-
-                  return {
-                    kind: 'phase-summary' as const,
-                    phaseSummary,
-                    disabled: isLoading,
-                    confirmPhaseSummary: () => confirmPhaseClosure(phaseSummary.phase, phaseSummary.turnId),
-                  };
-                })()
-              : viewState.bottomArtifact.kind === 'generating'
-                ? {
-                    kind: 'generating' as const,
-                    liveActivity,
-                    liveReasoningText,
-                    liveToolItems: liveToolItems?.map(({ detail, key, label }) => ({
-                      detail,
-                      key,
-                      label,
-                    })),
-                    liveToolsRunning,
-                    pendingPreface: viewState.bottomArtifact.pendingPreface,
-                  }
-                : viewState.bottomArtifact.kind === 'phase-handoff'
-                  ? {
-                      kind: 'phase-handoff' as const,
-                      phase: viewState.bottomArtifact.phase,
-                      nextPhase: viewState.bottomArtifact.nextPhase,
-                      summary: viewState.bottomArtifact.summary,
-                      isReviewPhase: viewState.bottomArtifact.isReviewPhase,
-                    }
-                  : {
-                      kind: 'workflow-complete' as const,
-                      phase: viewState.bottomArtifact.phase,
-                      summary: viewState.bottomArtifact.summary,
-                      isReviewPhase: viewState.bottomArtifact.isReviewPhase,
-                    }
-    : null;
+  const enrichedBottomArtifact = enrichBottomArtifact(viewState.bottomArtifact, {
+    submitTurnResponseErrorMessage: submitTurnResponseMutation.errorMessage,
+    submitTrackedTurnResponse: runtime.submitTrackedTurnResponse,
+    submitTurnResponse: submitTurnResponseMutation.submitTurnResponse,
+    liveActivity,
+    isLoading,
+    controlErrorMessage,
+    submitTypedPhaseIntent,
+    confirmPhaseClosure,
+    liveReasoningText,
+    liveToolItems,
+    liveToolsRunning,
+  });
 
   // Project sections for all realized phases
   const sections = useMemo((): readonly ContinuousWorkspaceSection[] => {
