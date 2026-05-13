@@ -34,12 +34,14 @@ Use design documents for deeper argumentation, raw synthesis, alternatives, and 
 
 ### Conversational workspace runtime cluster
 
+Start with `CONVERSATIONAL_WORKSPACE_RUNTIME.md`. The other files in this cluster are retained source/subsystem references; do not read them as independent future roadmaps.
+
 | Document | Role |
 | --- | --- |
-| `CONVERSATIONAL_WORKSPACE_RUNTIME.md` | **Active synthesis** for the continuous workspace + unified chat + reconciliation + changeset-ledger concept. Use this as the first stop for the cluster. |
-| `MULTI_CHAT.md` | Shipped substrate reference for `chat`, `turn.chat_id`, `specification.primary_chat_id`, and `reconciliation_need`. |
-| `SIDE_CHAT.md` | User-surface history and phasing for side-chat V1–V3.1, with V4 notes. Future runtime direction is folded into `CONVERSATIONAL_WORKSPACE_RUNTIME.md`. |
-| `PATCH_LEDGER.md` | Historical design pressure for semantic mutation history and reconciliation ordering. Future-facing vocabulary is `changeset` / `change`; see `CONVERSATIONAL_WORKSPACE_RUNTIME.md` and `memory/PLAN.md`. |
+| `CONVERSATIONAL_WORKSPACE_RUNTIME.md` | **Active synthesis** for the continuous workspace + unified chat + reconciliation + changeset-ledger concept. Owns the cluster supersession map and current open questions. |
+| `MULTI_CHAT.md` | Shipped substrate reference for `chat`, `turn.chat_id`, `specification.primary_chat_id`, and `reconciliation_need`. Phase 2/3/4 rows are historical staging, not current sequence authority. |
+| `SIDE_CHAT.md` | User-surface history and phasing for side-chat V1–V3.1, with V4 notes. Patch-list/top-bar and Pending review claims are bridge/history unless reaffirmed by the runtime synthesis. |
+| `PATCH_LEDGER.md` | Historical design pressure for semantic mutation history, reconciliation bases, and target ordering. Future-facing vocabulary is `changeset` / `change`; use it for algorithms, not names. |
 | `CONTINUOUS_WORKSPACE_HYBRID.md` | Workspace-shell shape exploration; owns the route-alias / workspace-controller / chart-backed-supervisor choice. |
 
 ### Dev process and deferred impulses
@@ -55,6 +57,7 @@ Use design documents for deeper argumentation, raw synthesis, alternatives, and 
 | --- | --- |
 | `PORTABILITY_BOUNDARIES.md` | Future adapter/hosting/remote-workspace boundary map. |
 | `GRAPH_KIND_CHIP_TOGGLE.md` | Standalone graph-view split-button chip proposal; audit against current horizon before implementation. |
+| `README.md` | This index and local design-doc policy. |
 
 ### Archived source
 
