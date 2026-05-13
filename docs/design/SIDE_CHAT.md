@@ -4,11 +4,23 @@
 >
 > Status: **shipped through V3.1; V4 horizon reference** — V1/V2/V3.0/V3.1 user-surface phasing has landed through FE-674. Keep this doc for shipped side-chat history, V4 notes, and UI rationale; use [CONVERSATIONAL_WORKSPACE_RUNTIME.md](./CONVERSATIONAL_WORKSPACE_RUNTIME.md) for the consolidated future runtime direction.
 
+## How to read this after V3.1
+
+This document is now a shipped-surface and horizon-reference record, not the active runtime synthesis.
+
+| Claim area | Current reading |
+|---|---|
+| Popover-to-panel side-chat, pinned context, and brand-halo UI | Shipped/near-shipped V1–V3 surface history and UI rationale. Useful when maintaining the current side-chat panel. |
+| Patch list / top-bar staging surface | Historical V1/V2 design language. The durable future is `changeset` / `change`; the long-term user surface moves into in-stream threads per `CONVERSATIONAL_WORKSPACE_RUNTIME.md`. |
+| Pending review section | Shipped V3.0/V3.1 bridge surface. Long-term reconciliation absorbs into a target-grouped reconciliation thread. |
+| V4a side-chat persistence | Still a plausible substrate step, but now understood as part of the unified chat/thread runtime rather than a standalone tab-strip roadmap. |
+| V4b patch ledger / item versioning / architect loop | Horizon. Use current vocabulary: changeset ledger, proposal turns, graph review, and architect proposals through HITL acceptance. |
+
 ## 1. Concept & Problem
 
-Today, all interaction with Brunch's spec runs through one long interview thread: a linear back-and-forth in a single phase chat. When the user opens the structured spec view (graph view) and notices something they want to discuss, edit, annotate, or refine, they have no way to act on that item *in place* — they have to navigate back to the chat and try to reintroduce the topic, often without the system understanding which item they're talking about.
+At the time this design was written, all interaction with Brunch's spec ran through one long interview thread: a linear back-and-forth in a single phase chat. When the user opened the structured spec view (graph view) and noticed something they wanted to discuss, edit, annotate, or refine, they had no way to act on that item *in place* — they had to navigate back to the chat and try to reintroduce the topic, often without the system understanding which item they meant.
 
-The side-chat adds a second interaction surface: a popover-to-panel chat that opens *from* an item in the structured spec view, with selection-aware context, and that can produce durable changes to the spec through a unified review surface called the **patch list**.
+The side-chat added a second interaction surface: a popover-to-panel chat that opens *from* an item in the structured spec view, with selection-aware context, and that can produce durable changes to the spec through the then-current review surface called the **patch list**. The long-term runtime direction now folds this surface into a unified chat/thread stream.
 
 **The side-chat subsumes three horizon items:**
 
@@ -178,7 +190,7 @@ The top-bar `Apply` button performs **bulk-apply** across all staged patches in 
 
 ### 4.4 Why this matters
 
-The patch list is **the unifying review surface for all spec mutations**. The same surface the architect loop (§7) will later use to deposit system-generated proposals for HITL review. Designing the side-chat around the patch list now means the architect loop has somewhere to deposit when it ships, with no second review UI to invent.
+Historical V1/V2 reading: the patch list was designed as **the unifying review surface for all spec mutations** so later architect-loop proposals would have somewhere to deposit. Current target reading: the review unit is still HITL and batchable, but future durable semantics should be expressed as proposal turns and accepted changesets inside the unified runtime rather than a separate long-lived patch-list surface.
 
 ## 5. Edit Patch Routing
 
@@ -288,13 +300,13 @@ Surfacing rules:
 
 The side-chat's substrate dependencies have shifted as the multi-chat work landed. Two assumptions are unchanged; one is partly satisfied.
 
-### A71 *(partly satisfied)*: patch / event-stream data model
+### A71 *(partly satisfied)*: chat substrate plus semantic mutation ledger
 
-The original framing — `spec → chat → turns` with diff patches as the persistence primitive — is split. In this stack, the `spec → chat → turns` half is supplied by downstack FE-697: a `chat` table, nullable `turn.chat_id`, `specification.primary_chat_id`, mirrored `chat.active_turn_id`, and a `reconciliation_need` queue with placeholder `caused_by_patch_id`. The patch ledger half remains horizon work tracked in `docs/design/PATCH_LEDGER.md`.
+The original framing — `spec → chat → turns` with diff patches as the persistence primitive — is split. In this stack, the `spec → chat → turns` half is supplied by downstack FE-697: a `chat` table, nullable `turn.chat_id`, `specification.primary_chat_id`, mirrored `chat.active_turn_id`, and a `reconciliation_need` queue with a future semantic-mutation cause placeholder. The changeset ledger half remains horizon work tracked historically in `docs/design/PATCH_LEDGER.md` and currently in `memory/PLAN.md` as the semantic changeset ledger.
 
 **Implication for V3.** The cascade preview reads `reconciliation_need` rows directly (see §5.3, §13). Side-chat threads themselves stay in-memory through V3 — durable side-chat persistence is MULTI_CHAT.md Phase 2 / V4 and is **not** a V3 prerequisite.
 
-**Implication if the patch ledger lands later:** `reconciliation_need.caused_by_patch_id` becomes populated; resolutions write patches; the in-memory patch list translates to `appendPatch(spec, patch[])`. No user-facing change to V3 surfaces.
+**Implication if the changeset ledger lands later:** reconciliation needs gain changeset-backed cause/resolution provenance; resolutions write changesets; the in-memory patch list either retires into proposal-turn state or translates through a compatibility layer. No user-facing change to shipped V3 surfaces is required.
 
 ### A72: knowledge-item versioning
 
@@ -304,7 +316,7 @@ History per knowledge item, preserved through edits. Anchors annotations to spec
 
 ### A73: architect / generator loop
 
-Captured in §7. The side-chat is *user-driven*; the architect is *system-driven*. Both deposit into the patch list. Designing the side-chat's patch-list surface now means the architect has a review surface ready when it ships.
+Captured in §7. The side-chat is *user-driven*; the architect is *system-driven*. Historical design routed both into the patch list; current design routes architect proposals through proposal turns and accepted changesets, with graph review as the safety oracle.
 
 ## 9. Phasing
 
@@ -314,8 +326,8 @@ Captured in §7. The side-chat is *user-driven*; the architect is *system-driven
 | **V2** | Edit (router) · Drill-down · Propose-edge in the patch list. **None** and **Soft** edit tiers apply directly. **Hard** edit defers to a placeholder "feature coming" message. Refine routes through normal turn machinery. |
 | **V3.0** | Hard-edit apply opens `reconciliation_need` rows from existing graph edges (Path 1, deterministic). Cascade preview surfaces as a `Pending review` section inside the canonical patch-list overlay; **single per-row Resolve action** that idempotently transitions `open → resolved`. The V2 `deferred: true` server response and the "Hard impact — coming in V3 cascade preview" banner are removed. Acceptance Criterion #7 satisfied mechanically. No reconciliation agent. REVISIT modal stays archived. (Note: the original three-action design — `accept-on-target / edit-target / dismiss` — is collapsed to a single Resolve in V3.0 because the open→resolved transition is the same regardless of intent label; V3.1 reintroduces richer kinds via the agent.) |
 | **V3.1** *(shipped, FE-674 PRs #119–#124)* | Reconciliation classifier writes `agent_status` / `agent_classification` / `agent_proposal` per row. Pending review surface renders chips, Run-agent + polling (`POST /api/specifications/:id/reconciliation-needs/run-agent`), per-row Re-run (`POST /api/specifications/:id/reconciliation-needs/:needId/reset-agent`), per-class actions, and bulk Confirm-all / Apply-all-suggested. Substantive walk lands inside the side-chat panel using pinned-context conversation. Path 2 observer expansion still horizon. |
-| **V4a** *(next, FE-675 V4a half)* | Side-chat client persists turns into `chat` / `turn` with `chat.kind='side_chat'`; "Old chats" tab strip activates. |
-| **V4b** *(horizon, FE-675 V4b half + FE-701)* | Patch ledger lands. `reconciliation_need.caused_by_patch_id` populates; resolutions write typed patches; item versioning anchors annotations and soft-edit audit. Architect loop deposits into the same patch list. |
+| **V4a** *(horizon / runtime-track input)* | Side-chat client persists turns into `chat` / `turn` with `chat.kind='side_chat'`; "Old chats" tab strip activates. Current runtime synthesis may instead render side conversations as in-stream threads. |
+| **V4b** *(horizon, FE-675 V4b half + FE-701)* | Changeset ledger lands. Reconciliation needs gain semantic-mutation cause/resolution provenance; item versioning anchors annotations and soft-edit audit. Architect-loop proposals use the same HITL proposal/changeset pathway rather than committing graph truth directly. |
 
 ## 10. Verification Stance
 
@@ -414,8 +426,8 @@ V-versions in §9 describe the *user surface*; substrate phases in `docs/design/
 | V2 (Edit / Drill-down / Propose-edge, None+Soft tiers) | Phase 1 not required | Shipped against in-memory patch list; hard branch returns `deferred: true`. |
 | V3.0 *(shipped, FE-674 PRs #115-#118)* | Phase 1 read side | Hard apply writes `reconciliation_need` rows; UI reads the queue. Per-row Resolve / Edit-target / View-source-diff. No agent. |
 | V3.1 *(shipped, FE-674 PRs #119-#124)* | Phase 3 | Reconciliation classifier writes `agent_status` / `agent_classification` / `agent_proposal` per row. Pending review surface renders `<ClassificationChip>` (six variants), Run-agent button with conditional 1s polling, per-row Re-run on classified/failed rows, per-class actions (`auto-confirm` → Confirm, `auto-edit` → View / Apply / Skip, `substantive` → Open side-chat via `useSideChat().openFor`), bulk Confirm-all (N) and Apply-all-suggested (N) iterating serially. **HTTP:** `POST /api/specifications/:id/reconciliation-needs/run-agent` and `POST /api/specifications/:id/reconciliation-needs/:needId/reset-agent` (§5.3). |
-| V4a *(next, FE-675 V4a half)* | Phase 2 | Side-chat client persists turns into `chat` / `turn` with `chat.kind='side_chat'`; "Old chats" tab strip activates. §349 anchor decision still open. |
-| V4b *(horizon, FE-675 V4b half)* | Phase 4 | Patch ledger (FE-701); item versioning; branched exploration; architect loop. |
+| V4a *(horizon / runtime-track input)* | Phase 2 | Side-chat client persists turns into `chat` / `turn` with `chat.kind='side_chat'`; "Old chats" tab strip activates in this document's original model. Current runtime synthesis may fold this into in-stream threads. |
+| V4b *(horizon, FE-675 V4b half)* | Phase 4 | Changeset ledger (FE-701); item versioning; branched exploration; architect loop. |
 
 **Decisions and assumptions that govern V3.0:**
 
