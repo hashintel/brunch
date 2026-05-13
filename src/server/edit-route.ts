@@ -118,6 +118,12 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
           targetItemId: edge.downstream_item_id,
           kind: relationToKind(edge.relation),
           causedByTurnId: parsed.data.causedByTurnId ?? null,
+          // Card 1 (V3.1 setup): freeze the source's before/after content on
+          // the need at open time so the Pending review row can render the
+          // diff inline and the V3.1 classifier can use it as pre-image
+          // without re-querying mutable knowledge_item history.
+          sourcePreviousContent: previousContent,
+          sourceCurrentContent: parsed.data.content,
         });
         if (need !== null) opened.push(need.id);
       }

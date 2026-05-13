@@ -12,9 +12,10 @@ import {
 } from 'react';
 import { flushSync } from 'react-dom';
 
-import { kindColor, kindTextColor } from '@/client/components/knowledge-card';
+import { kindAccentHex, kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
 import { usePatchList } from '@/client/components/patch-list-host.js';
+import { PendingReviewSection } from '@/client/components/pending-review-section.js';
 import { SelectionMenu } from '@/client/components/selection-menu.js';
 import { useSideChat } from '@/client/components/side-chat-host.js';
 import { Badge } from '@/client/components/ui/badge';
@@ -508,10 +509,14 @@ function ItemEditTextarea({
   initialContent,
   onSave,
   onCancel,
+  kindAccent,
 }: {
   initialContent: string;
   onSave: (next: string) => void;
   onCancel: () => void;
+  // Card 4: accent color drives the textarea border, focus ring, and Save fill
+  // so the inline edit form belongs to the same kind family as the row.
+  kindAccent: string;
 }) {
   const [value, setValue] = useState(initialContent);
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -574,7 +579,14 @@ function ItemEditTextarea({
         onKeyDown={handleKeyDown}
         rows={1}
         aria-label="Edit item content"
-        className="w-full resize-none rounded-md border border-rule bg-background px-2 py-1 text-sm leading-relaxed text-ink shadow-[var(--shadow-card)] outline-none focus:border-ring focus:ring-3 focus:ring-ring/40"
+        style={
+          {
+            '--edit-ring-color': `${kindAccent}33`,
+            '--edit-ring-soft': `${kindAccent}1f`,
+            borderColor: `var(--edit-ring-soft)`,
+          } as React.CSSProperties
+        }
+        className="w-full resize-none rounded-md border bg-background px-2 py-1 text-sm leading-relaxed text-ink outline-none focus:border-[var(--edit-ring-color)] focus:shadow-[0_0_0_2px_var(--edit-ring-color)]"
       />
       <div className="flex items-center justify-between gap-2 text-[11px] text-hint">
         <span aria-hidden className="select-none">
@@ -588,11 +600,12 @@ function ItemEditTextarea({
             data-graph-row-edit-cancel
             variant="ghost"
             size="xs"
+            aria-label="Cancel edit"
+            title="Cancel"
             onMouseDown={(e) => e.preventDefault()}
             onClick={onCancel}
           >
             <X aria-hidden />
-            Cancel
           </Button>
           <Button
             type="button"
@@ -603,10 +616,11 @@ function ItemEditTextarea({
             onClick={() => {
               if (canSave) onSave(trimmed);
             }}
-            // Match the patch-list-overlay Apply button — same blue gradient,
-            // same drop-shadow, since this is the same primary-action surface
-            // (stage an edit patch into the same pipeline).
-            className="bg-[linear-gradient(180deg,#3484fa,#2070e6)] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] hover:bg-[linear-gradient(180deg,#3484fa,#2070e6)]"
+            // Card 4: small kind-accent solid Save (replaces the V3 blue
+            // gradient + ring-1) — keeps the staged-patch primary-action
+            // signal but adopts the row's kind family.
+            style={canSave ? { backgroundColor: kindAccent } : undefined}
+            className="text-white disabled:opacity-40"
           >
             <Check aria-hidden />
             Save
@@ -665,7 +679,12 @@ function ItemRow({
               {item.referenceCode}
             </span>
             {isEditing ? (
-              <ItemEditTextarea initialContent={item.content} onSave={onSaveEdit} onCancel={onCancelEdit} />
+              <ItemEditTextarea
+                initialContent={item.content}
+                onSave={onSaveEdit}
+                onCancel={onCancelEdit}
+                kindAccent={kindAccentHex[item.kind]}
+              />
             ) : (
               <p className="text-sm text-ink" data-annotatable>
                 {item.content}
@@ -886,6 +905,11 @@ export function StructuredListView({
             </button>
           </div>
         )}
+        {/* Pending review queue sits under the kind filter chips next to the
+            graph list. Staged patches + saved toast mount in specification
+            layout (<PatchListOverlay /> in route.tsx) so they persist across
+            phase routes and sibling navigations. */}
+        <PendingReviewSection />
         <div ref={scrollAreaRef} className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-6 pb-8">
             {view === 'empty' && (

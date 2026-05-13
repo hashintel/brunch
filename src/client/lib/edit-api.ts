@@ -100,3 +100,46 @@ export async function resolveReconciliationNeedRequest(
   }
   return (await response.json()) as { resolved: true };
 }
+
+export interface RunReconciliationAgentBody {
+  specId: number;
+  ranAt: string;
+  classifiedCount: number;
+  failedCount: number;
+}
+
+export async function runReconciliationAgentRequest(
+  specificationId: number,
+): Promise<RunReconciliationAgentBody> {
+  const response = await fetch(`/api/specifications/${specificationId}/reconciliation-needs/run-agent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!response.ok) {
+    throw new Error(`runReconciliationAgent failed: ${response.status} ${response.statusText}`);
+  }
+  return (await response.json()) as RunReconciliationAgentBody;
+}
+
+export interface ResetReconciliationNeedAgentBody {
+  specId: number;
+  needId: number;
+  ranAt: string;
+  agentStatus: 'queued' | 'classifying' | 'classified' | 'failed' | null;
+  agentClassification: 'auto-confirm' | 'auto-edit' | 'substantive' | null;
+  agentProposal: string | null;
+}
+
+export async function resetReconciliationNeedAgentRequest(
+  specificationId: number,
+  needId: number,
+): Promise<ResetReconciliationNeedAgentBody> {
+  const response = await fetch(
+    `/api/specifications/${specificationId}/reconciliation-needs/${needId}/reset-agent`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' } },
+  );
+  if (!response.ok) {
+    throw new Error(`resetReconciliationNeedAgent failed: ${response.status} ${response.statusText}`);
+  }
+  return (await response.json()) as ResetReconciliationNeedAgentBody;
+}

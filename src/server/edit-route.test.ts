@@ -108,6 +108,11 @@ describe('PATCH /api/specifications/:id/knowledge-items/:itemId', () => {
     for (const need of openNeeds) {
       expect(need.source_item_id).toBe(goal.id);
       expect(need.specification_id).toBe(specId);
+      // Card 1: every need opened by a hard apply carries the source's
+      // before/after content snapshot for downstream surfaces (Pending review
+      // diff, V3.1 agent pre-image).
+      expect(need.source_previous_content).toBe('Central goal');
+      expect(need.source_current_content).toBe('Updated goal');
       expect(need.status).toBe('open');
     }
   });

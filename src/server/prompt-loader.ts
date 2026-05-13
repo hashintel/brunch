@@ -12,6 +12,7 @@ export const promptIds = [
   'web-research.system',
   'candidate-spec.system',
   'reconciliation.system',
+  'reconciliation.classifier',
 ] as const;
 
 export type PromptId = (typeof promptIds)[number];
@@ -28,6 +29,7 @@ const promptAssetFiles = {
   'web-research.system': 'web-research-system.md',
   'candidate-spec.system': 'candidate-spec-system.md',
   'reconciliation.system': 'reconciliation-system.md',
+  'reconciliation.classifier': 'reconciliation-classifier.md',
 } satisfies Record<PromptId, string>;
 
 const promptDirectory = join(dirname(fileURLToPath(import.meta.url)), 'prompts');

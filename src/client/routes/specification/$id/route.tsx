@@ -52,7 +52,6 @@ export const Route = createFileRoute('/specification/$id')({
       <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={specificationState.specification.id}>
           <div className="flex h-full min-h-0 flex-1 flex-col">
-            <PatchListOverlay />
             <div className="flex min-h-0 flex-1">
               <PhaseNavigationSidebar
                 specificationId={specificationId}
@@ -60,8 +59,11 @@ export const Route = createFileRoute('/specification/$id')({
                 workflow={specificationState.workflow}
                 turns={specificationState.turns}
               />
-              <div className="flex-1 overflow-hidden">
-                <Outlet />
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <PatchListOverlay />
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  <Outlet />
+                </div>
               </div>
             </div>
           </div>

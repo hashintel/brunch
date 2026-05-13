@@ -8,8 +8,11 @@
 import type { Request, Response } from 'express';
 
 import type { MutationErrorResponse } from '@/shared/api-types.js';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
+import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import {
+  getKnowledgeItem,
   getReconciliationNeed,
   getSpecification,
   listOpenReconciliationNeeds,
@@ -18,8 +21,14 @@ import {
   type ReconciliationNeed,
 } from './db.js';
 
+export type ReconciliationNeedView = ReconciliationNeed & {
+  target_current_content: string | null;
+  target_item_kind: KnowledgeKind | null;
+  target_reference_code: string | null;
+};
+
 export interface ListOpenReconciliationNeedsResponse {
-  openNeeds: ReconciliationNeed[];
+  openNeeds: ReconciliationNeedView[];
 }
 
 export interface ResolveReconciliationNeedResponse {
@@ -39,7 +48,20 @@ export function handleListOpenReconciliationNeeds(db: DB, req: Request, res: Res
     return;
   }
 
-  const openNeeds = listOpenReconciliationNeeds(db, specificationId);
+  // Per-row getKnowledgeItem keeps this simple at the cost of N+1 lookups;
+  // open-need counts are small (single-digit per spec in practice) so a
+  // join layer is premature. Promote to drizzle leftJoin if N grows or if
+  // a manual walkthrough surfaces latency.
+  const rows = listOpenReconciliationNeeds(db, specificationId);
+  const openNeeds: ReconciliationNeedView[] = rows.map((row) => {
+    const target = getKnowledgeItem(db, row.target_item_id);
+    return {
+      ...row,
+      target_current_content: target?.content ?? null,
+      target_item_kind: target?.kind ?? null,
+      target_reference_code: target ? createKnowledgeReferenceCode(target.kind, target.kind_ordinal) : null,
+    };
+  });
   res.json({ openNeeds } satisfies ListOpenReconciliationNeedsResponse);
 }
 

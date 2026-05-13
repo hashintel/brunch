@@ -1,22 +1,58 @@
 import {
   ArrowUp,
   Check,
+  ChevronRight,
+  CornerDownRight,
   Highlighter,
+  Link2,
   Loader2,
   NotebookPen,
   PanelRight,
   PencilLine,
   PictureInPicture2,
   Plus,
+  StickyNote,
+  Undo2,
+  X,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import { ActiveCard } from './active-card.js';
-import { ContentDiff } from './content-diff.js';
+import { DEFAULT_ACCENT, DiffPopover } from './diff-popover.js';
 import { ImpactChip } from './impact-chip.js';
 import { kindAccentHex } from './knowledge-card';
+
+type StagedPatchKind = 'annotate' | 'edit' | 'edge' | 'drill-down';
+
+const STAGED_KIND_LABEL: Record<StagedPatchKind, string> = {
+  annotate: 'note',
+  edit: 'edit',
+  edge: 'edge',
+  'drill-down': 'drill',
+};
+
+function StagedKindChip({ kind, accent }: { kind: StagedPatchKind; accent: string }): React.ReactElement {
+  const Icon =
+    kind === 'annotate'
+      ? StickyNote
+      : kind === 'edit'
+        ? PencilLine
+        : kind === 'edge'
+          ? Link2
+          : CornerDownRight;
+  return (
+    <span
+      data-kind-chip={kind}
+      className="inline-flex shrink-0 items-center gap-1 rounded px-1 py-0.5 font-mono text-[10px] leading-none font-medium uppercase"
+      style={{ backgroundColor: `${accent}14`, color: accent }}
+    >
+      <Icon className="size-3" aria-hidden />
+      {STAGED_KIND_LABEL[kind]}
+    </span>
+  );
+}
 
 function useTypewriter(target: string, animate: boolean, charDelayMs = 15): string {
   const [displayed, setDisplayed] = useState(target);
@@ -75,15 +111,14 @@ export interface SideChatMessage {
 
 export interface SideChatStagedPatchSummary {
   id: string;
-  kind: 'annotate' | 'edit' | 'edge' | 'drill-down';
+  kind: StagedPatchKind;
   summary: string;
   // For kind='edit' only: server-classified impact tier rendered as a chip
   // on the patch entry (design §4.1).
   impact?: 'none' | 'soft' | 'hard';
   // For kind='edit' only: when both are present and differ, the row exposes
-  // a "View diff" expander that renders a word-level <ContentDiff> (FE-665,
-  // design §4.1 "Detail expandable"). Both optional for back-compat with
-  // legacy stage paths and tests that don't supply them.
+  // a "View diff" chip that opens a <DiffPopover> with the word-level diff
+  // (Card 4, replaces the FE-665 inline <details> expander).
   currentContent?: string;
   newContent?: string;
 }
@@ -126,15 +161,9 @@ export interface SideChatPopoverProps {
   stagedPatches?: readonly SideChatStagedPatchSummary[];
   canUndo?: boolean;
   isApplying?: boolean;
-  applyBatchId?: string | null;
   onApply?: () => void;
   onUndo?: () => void;
   onDiscardPatch?: (id: string) => void;
-  // When the most recent applied batch was a deferred-only outcome (V2
-  // hard-impact deferral, SIDE_CHAT.md §6.3), suppress the inline
-  // "Change saved" toast here — the canonical patch-list overlay shows
-  // the deferred banner instead.
-  lastBatchWasDeferredOnly?: boolean;
   // ---- Existing annotations on the pinned item ----
   existingAnnotations?: readonly SideChatExistingAnnotation[];
   // ---- Promote-from-drawer (deferred §8 from the design spec) ----
@@ -163,8 +192,6 @@ export function SideChatPopover({
   stagedPatches = [],
   canUndo = false,
   isApplying = false,
-  applyBatchId = null,
-  lastBatchWasDeferredOnly = false,
   onApply,
   onUndo,
   onDiscardPatch,
@@ -183,7 +210,20 @@ export function SideChatPopover({
   const [annotateSummary, setAnnotateSummary] = useState('');
   const [annotateBody, setAnnotateBody] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
-  const [savedToastVisible, setSavedToastVisible] = useState(false);
+  // Card 4 / S2: staged-patch row diff is shown via an anchored DiffPopover
+  // triggered by the per-row "↗ view diff" chip. We track which patch id is
+  // currently open and the chip element it's anchored to.
+  const [diffPopoverPatchId, setDiffPopoverPatchId] = useState<string | null>(null);
+  const diffAnchorRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (diffPopoverPatchId === null) return;
+    if (!stagedPatches.some((patch) => patch.id === diffPopoverPatchId)) {
+      setDiffPopoverPatchId(null);
+      diffAnchorRef.current = null;
+    }
+  }, [stagedPatches, diffPopoverPatchId]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const annotateSummaryRef = useRef<HTMLInputElement>(null);
@@ -198,45 +238,16 @@ export function SideChatPopover({
     }
   }, [annotateMode]);
 
-  // Show the saved toast only on a real apply event during this popover's lifetime.
-  // We watch for `canUndo` flipping false → true (with `stagedPatches` empty and not currently
-  // applying) — the precise moment a successful apply registers a fresh undo handle. We can't
-  // drive this off the `isApplying: true → false` transition because React 18 batches the
-  // `APPLY_START` and `APPLY_SUCCESS` dispatches in a single async chain, so the intermediate
-  // `isApplying=true` render is often skipped. Initializing the ref to the current `canUndo`
-  // also prevents the toast from flashing on mount when the patch-list still carries a stale
-  // undo handle from a prior batch on this spec (the original V1.2-E bug).
-  const prevCanUndoRef = useRef(canUndo);
-  const lastToastBatchIdRef = useRef(applyBatchId);
-
-  useEffect(() => {
-    const prevCanUndo = prevCanUndoRef.current;
-    prevCanUndoRef.current = canUndo;
-    const sawNewBatch = applyBatchId !== null && applyBatchId !== lastToastBatchIdRef.current;
-    if (sawNewBatch) {
-      lastToastBatchIdRef.current = applyBatchId;
-    }
-    if (
-      ((sawNewBatch && canUndo) || (!prevCanUndo && canUndo)) &&
-      !isApplying &&
-      stagedPatches.length === 0 &&
-      !lastBatchWasDeferredOnly
-    ) {
-      setSavedToastVisible(true);
-      const id = window.setTimeout(() => setSavedToastVisible(false), 5000);
-      return () => window.clearTimeout(id);
-    }
-  }, [applyBatchId, canUndo, isApplying, stagedPatches.length, lastBatchWasDeferredOnly]);
-
-  useEffect(() => {
-    if (!canUndo) {
-      setSavedToastVisible(false);
-    }
-  }, [canUndo]);
+  // Card 4 follow-up: the "Change saved" toast moved out of the side-chat
+  // composer (where it overlapped the input row) into <PatchListOverlay /> so
+  // it sits with the staged-changes / pending-review surfaces just under the
+  // kind chips. The popover no longer tracks toast visibility.
 
   useEffect(() => {
     function handleEscape(event: globalThis.KeyboardEvent) {
       if (event.key === 'Escape') {
+        // The DiffPopover handles its own ESC at capture phase and stops
+        // propagation, so this only fires when no popover is open.
         event.preventDefault();
         if (annotateMode && onAnnotateCancel) {
           onAnnotateCancel();
@@ -284,6 +295,12 @@ export function SideChatPopover({
 
   const annotateButtonDisabled = isStreaming || annotateMode;
   const kindAccent = pinnedItem.kind ? kindAccentHex[pinnedItem.kind] : null;
+  const accent = kindAccent ?? DEFAULT_ACCENT;
+  const isEditMode = mode === 'edit';
+  const editToggleDisabled = !onModeChange;
+  const activeDiffPatch = diffPopoverPatchId
+    ? (stagedPatches.find((p) => p.id === diffPopoverPatchId) ?? null)
+    : null;
 
   return (
     <div
@@ -297,7 +314,7 @@ export function SideChatPopover({
         aria-hidden
         className="pointer-events-none absolute -inset-[6px] rounded-[20px]"
         style={{
-          background: kindAccent ?? '#5424ff',
+          background: kindAccent ?? DEFAULT_ACCENT,
           filter: 'blur(28px)',
           opacity: 0.18,
         }}
@@ -354,24 +371,22 @@ export function SideChatPopover({
           )}
         </ul>
 
-        {isApplying ? (
-          <div role="status" className="text-xs text-hint">
-            Saving change…
-          </div>
-        ) : null}
-
-        {!isApplying && stagedPatches.length > 0 ? (
+        {stagedPatches.length > 0 ? (
           <section
             aria-label="Staged changes"
             data-staged-patch-count={stagedPatches.length}
-            className="flex flex-col gap-1.5 rounded-md bg-wash/60 p-2 text-xs text-ink"
+            className="flex flex-col gap-1.5 rounded-md p-2 text-xs text-ink"
+            style={{
+              backgroundColor: `${accent}0a`,
+              boxShadow: `inset 0 0 0 1px ${accent}1f`,
+            }}
           >
-            <header className="flex items-center justify-between">
+            <header className="flex items-center justify-between px-1">
               <span className="font-medium">
                 {stagedPatches.length} pending change{stagedPatches.length === 1 ? '' : 's'}
               </span>
             </header>
-            <ul className="flex flex-col gap-1">
+            <ul className="flex flex-col gap-0.5">
               {stagedPatches.map((patch) => {
                 const hasDiff =
                   patch.kind === 'edit' &&
@@ -382,74 +397,103 @@ export function SideChatPopover({
                   <li
                     key={patch.id}
                     data-staged-patch-id={patch.id}
-                    className="flex flex-col gap-1 rounded bg-background px-2 py-1"
+                    className="group/staged-row flex items-center gap-2 rounded px-1.5 py-1 transition-colors"
+                    style={{ backgroundColor: 'transparent' }}
+                    onMouseEnter={(event) => {
+                      (event.currentTarget as HTMLLIElement).style.backgroundColor = `${accent}05`;
+                    }}
+                    onMouseLeave={(event) => {
+                      (event.currentTarget as HTMLLIElement).style.backgroundColor = 'transparent';
+                    }}
                   >
-                    <div className="flex items-start gap-2">
-                      {hasDiff ? (
-                        <details className="group min-w-0 flex-1">
-                          <summary
-                            className="flex cursor-pointer list-none items-center gap-1.5 text-ink"
-                            title={patch.summary}
-                          >
-                            <span
-                              aria-hidden
-                              className="font-mono text-[10px] text-hint transition-transform group-open:rotate-90"
-                            >
-                              ›
-                            </span>
-                            <span className="flex-1 truncate">{patch.summary}</span>
-                          </summary>
-                          <div className="mt-1.5 ml-3 border-l border-rule pl-2">
-                            <ContentDiff before={patch.currentContent ?? ''} after={patch.newContent ?? ''} />
-                          </div>
-                        </details>
-                      ) : (
-                        <span className="flex-1 truncate" title={patch.summary}>
-                          {patch.summary}
-                        </span>
-                      )}
-                      {patch.kind === 'edit' && patch.impact ? <ImpactChip impact={patch.impact} /> : null}
-                      {onDiscardPatch ? (
-                        <button
-                          type="button"
-                          aria-label={`Discard staged change: ${patch.summary}`}
-                          onClick={() => onDiscardPatch(patch.id)}
-                          className="text-hint hover:text-ink"
-                        >
-                          ×
-                        </button>
-                      ) : null}
-                    </div>
+                    <StagedKindChip kind={patch.kind} accent={accent} />
+                    <span className="min-w-0 flex-1 truncate text-ink" title={patch.summary}>
+                      {patch.summary}
+                    </span>
+                    {hasDiff ? (
+                      <button
+                        type="button"
+                        aria-label={`View diff for ${patch.summary}`}
+                        data-view-diff-chip
+                        onClick={(event) => {
+                          diffAnchorRef.current = event.currentTarget;
+                          setDiffPopoverPatchId(patch.id);
+                        }}
+                        className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-hint hover:bg-[rgba(0,0,0,0.04)] hover:text-ink"
+                        style={
+                          diffPopoverPatchId === patch.id
+                            ? { backgroundColor: `${accent}14`, color: accent }
+                            : undefined
+                        }
+                      >
+                        <ChevronRight className="size-3 -rotate-45" aria-hidden />
+                        view diff
+                      </button>
+                    ) : null}
+                    {patch.kind === 'edit' && patch.impact ? <ImpactChip impact={patch.impact} /> : null}
+                    {onDiscardPatch ? (
+                      <button
+                        type="button"
+                        aria-label={`Discard staged change: ${patch.summary}`}
+                        onClick={() => onDiscardPatch(patch.id)}
+                        className="inline-flex size-3.5 shrink-0 items-center justify-center rounded text-hint opacity-0 transition-opacity group-hover/staged-row:opacity-100 hover:bg-[rgba(0,0,0,0.06)] hover:text-ink focus-visible:opacity-100"
+                      >
+                        <X className="size-3" aria-hidden />
+                      </button>
+                    ) : null}
                   </li>
                 );
               })}
             </ul>
             <div className="flex items-center justify-end gap-2 pt-1">
+              {isApplying ? (
+                <span role="status" className="text-[11px] text-hint">
+                  Saving change…
+                </span>
+              ) : null}
               {canUndo && onUndo ? (
                 <button
                   type="button"
                   onClick={onUndo}
-                  className="rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
+                  aria-label="Undo last change"
+                  title="Undo"
+                  className="inline-flex size-7 items-center justify-center rounded-md text-ink transition-colors"
+                  onMouseEnter={(event) => {
+                    (event.currentTarget as HTMLButtonElement).style.backgroundColor = `${accent}14`;
+                  }}
+                  onMouseLeave={(event) => {
+                    (event.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+                  }}
                 >
-                  Undo
+                  <Undo2 className="size-3.5" aria-hidden />
+                  <span className="sr-only">Undo</span>
                 </button>
               ) : null}
               {onApply ? (
                 <button
                   type="button"
+                  disabled={isApplying}
                   onClick={onApply}
-                  className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6]"
+                  aria-label={`Apply ${stagedPatches.length} change${stagedPatches.length === 1 ? '' : 's'}`}
+                  title="Apply"
+                  className="inline-flex size-7 items-center justify-center rounded-md text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-transform hover:scale-105 disabled:pointer-events-none disabled:opacity-50"
+                  style={{ backgroundColor: accent }}
                 >
-                  Apply
+                  <Check className="size-3.5" aria-hidden strokeWidth={2.5} />
+                  <span className="sr-only">Apply</span>
                 </button>
               ) : null}
             </div>
           </section>
+        ) : isApplying ? (
+          <div role="status" className="text-xs text-hint">
+            Saving change…
+          </div>
         ) : null}
 
         {annotateMode ? (
           <form
-            aria-label="Annotation composer"
+            aria-label="Note composer"
             onSubmit={(event) => {
               event.preventDefault();
               submitAnnotate();
@@ -459,14 +503,14 @@ export function SideChatPopover({
             <input
               ref={annotateSummaryRef}
               aria-label="Annotation summary"
-              placeholder="Summary"
+              placeholder="Title"
               value={annotateSummary}
               onChange={(event) => setAnnotateSummary(event.target.value)}
               className="rounded-md bg-[#fafafa] px-2 py-1.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
             />
             <textarea
               aria-label="Annotation body"
-              placeholder="Note body"
+              placeholder="Details"
               value={annotateBody}
               onChange={(event) => setAnnotateBody(event.target.value)}
               className="min-h-16 resize-none rounded-md bg-[#fafafa] px-2 py-1.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
@@ -482,7 +526,8 @@ export function SideChatPopover({
               <button
                 type="submit"
                 disabled={annotateSubmitDisabled}
-                className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-3 py-1 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] disabled:opacity-40"
+                className="rounded-md px-3 py-1 text-xs font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)] disabled:opacity-40"
+                style={{ backgroundColor: accent }}
               >
                 Save
               </button>
@@ -490,70 +535,97 @@ export function SideChatPopover({
           </form>
         ) : (
           <>
-            <div className="relative flex items-center justify-between gap-2">
-              {existingAnnotations.length > 0 ? (
-                <button
-                  type="button"
-                  aria-label={`${notesOpen ? 'Hide' : 'Show'} existing notes`}
-                  aria-expanded={notesOpen}
-                  onClick={() => setNotesOpen((open) => !open)}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-sub hover:text-ink"
-                >
-                  <span
-                    className={`text-hint transition-transform duration-200 ${notesOpen ? 'rotate-90' : ''}`}
-                  >
-                    ›
-                  </span>
-                  <span>Notes ({existingAnnotations.length})</span>
-                </button>
-              ) : (
-                <span aria-hidden />
-              )}
-              <div className="flex items-center gap-1">
-                {onAnnotateRequest ? (
+            {spanHint ? (
+              <div
+                data-span-hint-chip
+                className="inline-flex items-center gap-1.5 self-start rounded bg-[rgba(0,0,0,0.04)] px-1.5 py-1 text-xs text-ink"
+              >
+                <Highlighter className="size-3 shrink-0 text-hint" aria-hidden />
+                <span className="max-w-[280px] truncate" title={spanHint}>
+                  «{spanHint}»
+                </span>
+                {onClearSpanHint ? (
                   <button
                     type="button"
-                    aria-label="Annotate item"
-                    disabled={annotateButtonDisabled}
-                    onClick={onAnnotateRequest}
-                    className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa] disabled:opacity-40"
+                    aria-label="Clear span hint"
+                    onClick={onClearSpanHint}
+                    className="ml-0.5 text-hint hover:text-ink"
                   >
-                    <NotebookPen className="size-3.5" aria-hidden />
-                    Annotate
+                    ×
                   </button>
                 ) : null}
-                {onModeChange ? (
-                  <button
-                    type="button"
-                    aria-label="Edit mode"
-                    aria-pressed={mode === 'edit'}
-                    title={
-                      mode === 'edit'
-                        ? 'Edit mode active — switch back to explore'
-                        : 'Switch to edit mode (LLM proposes edits)'
-                    }
-                    onClick={() => onModeChange(mode === 'edit' ? 'explore' : 'edit')}
-                    className={
-                      mode === 'edit'
-                        ? 'inline-flex items-center gap-1 rounded-md bg-[#2070e6] px-2 py-1 text-xs font-medium text-white shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(16,96,214,0.6)] hover:bg-[#1a5fcc]'
-                        : 'inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]'
-                    }
-                  >
-                    <PencilLine className="size-3.5" aria-hidden />
-                    Edit
-                  </button>
-                ) : (
+              </div>
+            ) : null}
+            <div className="relative flex flex-col gap-2 rounded-md bg-white p-3 shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]">
+              <textarea
+                ref={messageInputRef}
+                aria-label="Message"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={handleInputKeyDown}
+                placeholder={isEditMode ? 'Suggest an edit…' : 'Ask me anything...'}
+                className="min-h-10 w-full resize-none bg-transparent text-sm text-ink outline-none placeholder:text-[#a6a6a6]"
+              />
+              <div className="relative flex h-7 items-center justify-between">
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     disabled
-                    aria-label="Edit unavailable"
-                    title="Edit unavailable in this context"
-                    className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-[#a6a6a6] shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]"
+                    aria-label="Attach (coming soon)"
+                    title="Attach — coming soon"
+                    className="inline-flex size-7 items-center justify-center rounded-md bg-[#f2f2f2] text-ink disabled:opacity-60"
                   >
-                    <PencilLine className="size-3.5" aria-hidden />
-                    Edit
+                    <Plus className="size-4" aria-hidden />
                   </button>
-                )}
+                  {onAnnotateRequest ? (
+                    <button
+                      type="button"
+                      aria-label="Add a note"
+                      title="Add a note"
+                      disabled={annotateButtonDisabled}
+                      onClick={onAnnotateRequest}
+                      className="inline-flex size-6 items-center justify-center rounded-md text-hint hover:bg-[rgba(0,0,0,0.04)] hover:text-ink disabled:opacity-40"
+                    >
+                      <NotebookPen className="size-3.5" aria-hidden />
+                      <span className="sr-only">Note</span>
+                    </button>
+                  ) : null}
+                  {existingAnnotations.length > 0 ? (
+                    <button
+                      type="button"
+                      aria-label={`${notesOpen ? 'Hide' : 'Show'} existing notes`}
+                      aria-expanded={notesOpen}
+                      onClick={() => setNotesOpen((open) => !open)}
+                      className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-sub hover:bg-[rgba(0,0,0,0.04)] hover:text-ink"
+                    >
+                      <span
+                        className={`text-hint transition-transform duration-200 ${
+                          notesOpen ? 'rotate-90' : ''
+                        }`}
+                      >
+                        ›
+                      </span>
+                      Notes ({existingAnnotations.length})
+                    </button>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  aria-label={isStreaming ? 'Sending…' : 'Send message'}
+                  disabled={sendDisabled}
+                  onClick={submit}
+                  className={`inline-flex size-7 items-center justify-center rounded-md bg-[#202020] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] transition-transform duration-150 ${
+                    isStreaming
+                      ? ''
+                      : 'hover:enabled:scale-105 disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none'
+                  }`}
+                >
+                  {isStreaming ? (
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <ArrowUp className="size-4" strokeWidth={2.5} aria-hidden />
+                  )}
+                </button>
               </div>
               {notesOpen && existingAnnotations.length > 0 ? (
                 <div className="absolute right-0 bottom-full left-0 mb-2">
@@ -585,7 +657,7 @@ export function SideChatPopover({
                         ) : onPromoteAnnotation ? (
                           <button
                             type="button"
-                            aria-label={`Add ${annotation.summary} to chat context`}
+                            aria-label={`Add ${annotation.summary} to context`}
                             onClick={() => onPromoteAnnotation(annotation.id)}
                             className="inline-flex size-5 shrink-0 items-center justify-center rounded text-hint opacity-0 transition-opacity group-hover/note-item:opacity-100 hover:bg-[rgba(0,0,0,0.04)] hover:text-ink focus-visible:opacity-100"
                           >
@@ -632,88 +704,46 @@ export function SideChatPopover({
                 </div>
               ) : null}
             </div>
-            {!annotateMode && spanHint ? (
-              <div
-                data-span-hint-chip
-                className="inline-flex items-center gap-1.5 self-start rounded bg-[rgba(0,0,0,0.04)] px-1.5 py-1 text-xs text-ink"
-              >
-                <Highlighter className="size-3 shrink-0 text-hint" aria-hidden />
-                <span className="max-w-[280px] truncate" title={spanHint}>
-                  «{spanHint}»
-                </span>
-                {onClearSpanHint ? (
-                  <button
-                    type="button"
-                    aria-label="Clear span hint"
-                    onClick={onClearSpanHint}
-                    className="ml-0.5 text-hint hover:text-ink"
-                  >
-                    ×
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-            <div className="flex flex-col gap-2 rounded-md bg-white p-3 shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]">
-              <textarea
-                ref={messageInputRef}
-                aria-label="Message"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={handleInputKeyDown}
-                placeholder="Ask me anything..."
-                className="min-h-10 w-full resize-none bg-transparent text-sm text-ink outline-none placeholder:text-[#a6a6a6]"
-              />
-              <div className="relative flex h-7 items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    disabled
-                    aria-label="Attach (coming soon)"
-                    title="Attach — coming soon"
-                    className="inline-flex size-7 items-center justify-center rounded-md bg-[#f2f2f2] text-ink disabled:opacity-60"
-                  >
-                    <Plus className="size-4" aria-hidden />
-                  </button>
-                </div>
+            {/* Edit-mode strip — thin row below the input card. */}
+            <div
+              data-edit-mode-strip
+              className="flex h-7 items-center justify-between rounded-md px-2 text-xs"
+              style={
+                isEditMode
+                  ? { backgroundColor: `${accent}10`, color: accent }
+                  : { backgroundColor: 'transparent', color: 'var(--text-hint, #6b6b6b)' }
+              }
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <PencilLine className="size-3.5" aria-hidden />
+                <span className="font-medium">Edit mode</span>
+              </span>
+              {editToggleDisabled ? (
                 <button
                   type="button"
-                  aria-label={isStreaming ? 'Sending…' : 'Send message'}
-                  disabled={sendDisabled}
-                  onClick={submit}
-                  className={`inline-flex size-7 items-center justify-center rounded-md bg-[#202020] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] transition-transform duration-150 ${
-                    isStreaming
-                      ? ''
-                      : 'hover:enabled:scale-105 disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none'
-                  }`}
+                  disabled
+                  aria-label="Edit unavailable"
+                  aria-pressed="false"
+                  title="Edit unavailable in this context"
+                  className="inline-flex h-5 items-center rounded-full bg-[rgba(0,0,0,0.05)] px-2 text-[10px] font-medium text-[#a6a6a6]"
                 >
-                  {isStreaming ? (
-                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                  ) : (
-                    <ArrowUp className="size-4" strokeWidth={2.5} aria-hidden />
-                  )}
+                  Off
                 </button>
-                {savedToastVisible && !isApplying && stagedPatches.length === 0 && canUndo ? (
-                  <div
-                    role="status"
-                    aria-label="Change saved"
-                    className="pointer-events-none absolute top-1/2 right-9 left-9 flex h-6 -translate-y-1/2 items-center justify-between gap-2 rounded-md bg-wash/40 px-2 text-xs"
-                  >
-                    <span className="inline-flex items-center gap-1 font-medium text-ink">
-                      <Check className="size-3" aria-hidden />
-                      Change saved
-                    </span>
-                    {onUndo ? (
-                      <button
-                        type="button"
-                        onClick={onUndo}
-                        className="pointer-events-auto rounded-md bg-white px-2 py-0.5 text-xs text-ink shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-[#fafafa]"
-                      >
-                        Undo
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Edit mode"
+                  aria-pressed={isEditMode}
+                  title="Toggle edit mode — your messages propose changes for review"
+                  onClick={() => onModeChange?.(isEditMode ? 'explore' : 'edit')}
+                  className={`inline-flex h-5 items-center rounded-full px-2 text-[10px] font-medium transition-colors ${
+                    isEditMode ? 'text-white' : 'text-ink'
+                  }`}
+                  style={isEditMode ? { backgroundColor: accent } : { backgroundColor: 'rgba(0,0,0,0.05)' }}
+                >
+                  {isEditMode ? 'Edit on' : 'Off'}
+                </button>
+              )}
             </div>
           </>
         )}
@@ -724,23 +754,41 @@ export function SideChatPopover({
             aria-label={layout === 'docked' ? 'Float side-chat' : 'Dock side-chat to right'}
             title={layout === 'docked' ? 'Float' : 'Dock to right'}
             onClick={() => onLayoutChange?.(layout === 'docked' ? 'floating' : 'docked')}
-            className="flex size-6 items-center justify-center rounded-md text-hint hover:bg-[rgba(0,0,0,0.04)] hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+            className="flex size-5 items-center justify-center rounded-md text-hint hover:bg-[rgba(0,0,0,0.04)] hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
           >
             {layout === 'docked' ? (
-              <PictureInPicture2 className="size-3.5" aria-hidden />
+              <PictureInPicture2 className="size-3" aria-hidden />
             ) : (
-              <PanelRight className="size-3.5" aria-hidden />
+              <PanelRight className="size-3" aria-hidden />
             )}
           </button>
           <button
             type="button"
             aria-label="Close side-chat"
             onClick={onDismiss}
-            className="flex size-6 items-center justify-center rounded-md text-hint hover:bg-[rgba(0,0,0,0.04)] hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+            className="flex size-5 items-center justify-center rounded-md text-hint hover:bg-[rgba(0,0,0,0.04)] hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
           >
             ×
           </button>
         </div>
+
+        {activeDiffPatch &&
+        typeof activeDiffPatch.currentContent === 'string' &&
+        typeof activeDiffPatch.newContent === 'string' ? (
+          <DiffPopover
+            open
+            onClose={() => {
+              setDiffPopoverPatchId(null);
+              diffAnchorRef.current = null;
+            }}
+            anchor={diffAnchorRef.current}
+            before={activeDiffPatch.currentContent}
+            after={activeDiffPatch.newContent}
+            title={activeDiffPatch.summary}
+            kindAccent={accent}
+            kindChip={<StagedKindChip kind={activeDiffPatch.kind} accent={accent} />}
+          />
+        ) : null}
       </div>
     </div>
   );

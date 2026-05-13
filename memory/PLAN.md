@@ -77,7 +77,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ### User-facing capabilities
 
-- **First-run provider setup** — deferred out of FE-698. Make missing LLM credentials visible on the dashboard, add a shared AI runtime provider seam for interviewer / observer model construction, support UI-entered keys through XDG-compliant user auth state, and evaluate whether OpenRouter should become the preferred onboarding provider while preserving Anthropic-specific capabilities or explicit degradation.
+- **First-run provider setup** — make missing LLM credentials visible on the dashboard, add a shared AI runtime provider seam for interviewer / observer model construction, support UI-entered keys through XDG-compliant user auth state, and evaluate whether OpenRouter should become the preferred onboarding provider while preserving Anthropic-specific capabilities or explicit degradation.
   - Linear: FE-633 covers the OpenRouter/default-provider part; dashboard credential UX + XDG key storage may need a sibling issue if split from provider proving.
   - Recommended shape: prove the provider resolver first with current Anthropic behavior, then spike OpenRouter against tool use, structured output, and reasoning/thinking options before making it the default. The dashboard should expose credential status without leaking secret values and offer setup before the user starts a specification.
   - Traceability: Requirements 34, 35, 36; A74, A75; D130, D131, D132; I106.
@@ -119,11 +119,6 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ### Infrastructure / tooling
 
-- **Server mini-library compartmentalization** — consider renaming and organizing growing server seams into plural public roots with same-named private subtrees, especially around fixtures, context packs, prompts, scenario runner, entity APIs, and agent APIs.
-  - Status: refactor idea captured for later, not current work and not a migration commitment.
-  - Candidate shape: `fixtures.ts` + `fixtures/`, `context-packs.ts` + `context-packs/`, `prompts.ts` + `prompts/` with prompt snapshots colocated under `prompts/__snapshots__/`, `scenario-runner.ts` + `scenario-runner/`, `entity-apis.ts` + `entity-apis/*-route.ts`, and `agent-apis.ts` + `agent-apis/` containing tool/capability-registry subtrees.
-  - Rationale: make public mini-library boundaries and private implementation compartments more obvious as FE-698 prompt/context and future agent API seams grow.
-
 - **Structured development spec registry** — prototype file-backed canonical spec records, deterministic checks, generated markdown views, and task-local slices for Brunch's own development workflow (the `ln-*` skill family).
   - Status: design horizon, not a migration commitment. Self-tooling experiment for the dev layer; not part of the product roadmap.
   - Recommended shape: follow the `memory/spec/{schema,records,generated,tools}/` trajectory and the 5-step migration path (stable IDs → sidecar files → stop editing generated md → `spec:check` in the verify gate → task-local slices). First-adopter candidate: a bounded sub-area such as the multi-chat substrate's records, not the full SPEC.
@@ -133,12 +128,6 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Portability boundaries** — split durable store/read-model, interview session runtime, and workspace capability provider if Brunch targets hosted, remote, embedded, or sandbox-backed operation.
   - Status: deferred. Some enabling seams already exist (query domains, workflow projector, no persisted `cwd` on specifications), but adapter-backed portability is not on the live roadmap.
   - Deep design source: `docs/design/PORTABILITY_BOUNDARIES.md`.
-
-- **Agent-native CLI adapter** — future CLI-addressability should project the agent capability contract registry rather than wrap routes or ORM scripts by hand.
-  - Status: design input captured, not current work.
-  - Recommended shape: generate or mechanically validate commands from capability contracts; enforce conventional verbs/flags (`get`, `list`, `--json`, `--force`, `--wait`), non-interactive defaults, bounded JSON output, enumerated errors, structured `brunch agent-context` introspection, and a recoverable async job ledger. Durable writes still route through Brunch-owned mutation handlers.
-  - Traceability: A89; D143, D147.
-
 - Headless interview driver for scripted end-to-end probes.
 - MCP server adapter for core operations.
 - Git-friendly file-based persistence representation for diffable exported specs.
@@ -158,12 +147,9 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - [2026-05-07] FE-698 prompt/context foundation slices — Packaged markdown prompt registry + observer and web-research context-pack foundations + scenario runner capture skeleton/composition + agent mutation-surface audit + capability registry metadata. Server interviewer, observer, side-chat, and web-research role prompts now load from markdown assets through a typed prompt registry; observer capture and web-research probes render typed scenario-specific context packs; seeded prompt scenarios compose production prompts with typed context-pack output into deterministic no-provider probe artifacts; and scenario artifacts can declare validated Brunch capability contracts. Review fixes moved observer prompt composition into a pure module and made prompt scenario prompt sources explicit. The agent mutation-surface audit inventories current and projected agent-originated write paths as input to later handler slices. Verified: `npm run verify` for code slices; audit verified by code-search/document consistency. This is a completed foundation within FE-698, not retirement of the whole FE-698 frontier; the live continuation remains in `Next`.
 - [2026-05-07] Side-chat V2 — Edit / Drill-down / Propose-edge plumbing (FE-673, PR #97) — added `edit`, `edge`, and `drill-down` patch kinds. Server `classifyEditImpact` returns `none | soft | hard`; soft applies directly with undo, hard returns `deferred: true` placeholder (removed at V3.0 ship). Client: patch-list reducer + three applier factories with real undo handlers. Verified: `npm run verify` (935 tests, 19 new). Watch: `SideChatPopover` Edit-mode reachability and cascade UX evolve with continuous workspace; V3.0 removed the hard-impact deferred banner.
 - [2026-05-06] Multi-chat substrate + reconciliation needs (FE-697) — `chat` table with one interview chat per spec, nullable `turn.chat_id`, `specification.primary_chat_id`, mirrored `chat.active_turn_id`, plus the `reconciliation_need` queue with directed source/target items, narrow `kind`/`status`, partial unique index on open rows, cascade FK. Spec creation inserts spec + interview chat in one transaction; `advanceHead` is transactional. No user-visible change. Verified: `npm run verify` (673 tests) plus manual fixture playback (39 specs / 81 turns / dual-pointer equivalence). A82 / A83 validated for Phase 1.
-- [2026-05-01] Side-chat V1.1 — Explore vertical slice. End-to-end graph-launched chat interaction shipped: prompt builder, POST `/side-chat` SSE endpoint, popover host, graph-view wiring, SSE consumer, and active-button activation. Follow-up refactor collapsed pending assistant text into the message list and extracted `SideChatHost` so activation is a tree-mount fact. This is complete implementation history; future conceptual work is multi-chat / reconciliation, not Side-chat V2/V3.
+- [2026-05-01] Side-chat V1.1 — Explore vertical slice. End-to-end graph-launched chat interaction shipped: prompt builder, POST `/side-chat` SSE endpoint, popover host, graph-view wiring, SSE consumer, and active-button activation. Follow-up refactor collapsed pending assistant text into the message list and extracted `SideChatHost` so activation is a tree-mount fact.
 - [2026-05-04] Graph view structured-list peer route — `/specification/$id/graph` now renders project-wide entities through the structured-list layout with relationship subsections, relation chips, empty state, row controls, and a back-to-chat affordance. Follow-up active-path filtering and spatial canvas remain horizon work. Verified: `npm run verify` in the FE-643 slice family.
-- [2026-04-30] FE-650 streamed question cache promotion — `ask_question` tool execution now advances the active frontier, returns the acknowledged turn id, interviewer streams emit a post-finalize `frontier-turn-ready` event, and the client promotes that streamed question into the specification bundle query cache before refetch reconciliation. Verified: `npm run verify` plus dev-mode manual retry; the formerly visible inert-card gap is improved. Watch: if residual scroll jumps persist, inspect remaining pane-wide rerender boundaries around workspace stream projection.
-- [2026-04-30] FE-639 relation-first observer capture first cut — eligible answered turns now enter one background observer-capture backlog, observer prompts use compact existing-knowledge anchors, observer output persists validated graph-delta relationship candidates, and accepted review grounding refs reuse the same conservative relation policy. Verified: `npm run verify`. Watch: A66 remains open until corpus/manual graph-review proves edge precision and density are useful.
-- [2026-04-27] Runtime JSON payload hardening — Express API parsing now accepts chat-sized request bodies above the default parser ceiling and returns a JSON 413 response instead of Express HTML when a payload exceeds the app limit. Verified: `npm run verify`. Watch: if real chat requests still exceed the 5 MB limit, investigate client history / tool-result pruning rather than only raising the ceiling.
-- [2026-04-24] Distribution hardening release path — `package.json` now declares the Node 22+ engine floor, explicit shipped files, and public scoped publish config; `npm run release` drives release-it at repo root, rebuilds and dry-runs the packaged artifact, and documents npm auth prerequisites. Verified: `npm run verify`. Watch: CI trusted publishing is still intentionally out of scope.
+
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
@@ -198,7 +184,7 @@ graph-view-structured-list  (completed)
 TRACK B — Infrastructure
 multi-chat-substrate  (completed)
   ├──→ semantic-changeset ledger  (horizon)
-  └──→ continuous-workspace  (active)
+  └──→ continuous-workspace  (next)
 
 
 
@@ -216,3 +202,4 @@ revisit / edit-mode  (reshaped by reconciliation needs + changeset ledger)
 structured development spec registry  (tooling experiment)
 portability boundaries  (deferred until substrate goal exists)
 ```
+

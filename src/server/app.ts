@@ -58,6 +58,10 @@ import { runObserver } from './observer.js';
 import { safeDeserializeAssistantParts, serializeParts } from './parts.js';
 import { submitPhaseIntentWithRuntimeCompatibility } from './phase-intent-runtime.js';
 import {
+  handleResetReconciliationNeedAgent,
+  handleRunReconciliationAgent,
+} from './reconciliation-agent-route.js';
+import {
   handleListOpenReconciliationNeeds,
   handleResolveReconciliationNeed,
 } from './reconciliation-needs-route.js';
@@ -248,6 +252,10 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const specificationReconciliationNeedsPaths = ['/api/specifications/:id/reconciliation-needs'] as const;
   const reconciliationNeedResolvePaths = [
     '/api/specifications/:id/reconciliation-needs/:needId/resolve',
+  ] as const;
+  const reconciliationNeedRunAgentPaths = ['/api/specifications/:id/reconciliation-needs/run-agent'] as const;
+  const reconciliationNeedResetAgentPaths = [
+    '/api/specifications/:id/reconciliation-needs/:needId/reset-agent',
   ] as const;
 
   const registerGet = (paths: readonly string[], handler: RequestHandler) => {
@@ -654,6 +662,14 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   // V3.0 card 3: idempotent resolve action wired to per-row Resolve button
   registerPost(reconciliationNeedResolvePaths, (req: Request, res: Response) => {
     handleResolveReconciliationNeed(db, req, res);
+  });
+
+  registerPost(reconciliationNeedRunAgentPaths, (req: Request, res: Response) => {
+    void handleRunReconciliationAgent(db, req, res);
+  });
+
+  registerPost(reconciliationNeedResetAgentPaths, (req: Request, res: Response) => {
+    void handleResetReconciliationNeedAgent(db, req, res);
   });
 
   return { app, db };

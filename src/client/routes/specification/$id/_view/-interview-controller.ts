@@ -135,12 +135,6 @@ export interface InterviewController {
 
 const MAX_TOOL_DETAIL_LENGTH = 80;
 const HYDRATED_TURN_MESSAGE_ID_PATTERN = /^turn-\d+-/;
-const RUNNING_TOOL_STATES = new Set([
-  'approval-requested',
-  'approval-responded',
-  'input-available',
-  'input-streaming',
-]);
 
 function isLiveAssistantMessage(message: BrunchUIMessage): boolean {
   return message.role === 'assistant' && !HYDRATED_TURN_MESSAGE_ID_PATTERN.test(message.id);
@@ -216,7 +210,6 @@ function getLiveToolItems(messages: readonly BrunchUIMessage[], status: ChatStat
     string,
     {
       detail?: string;
-      isRunning: boolean;
       key: string;
       label: string;
     }
@@ -233,7 +226,6 @@ function getLiveToolItems(messages: readonly BrunchUIMessage[], status: ChatStat
 
     toolItems.set(part.toolCallId, {
       ...(detail ? { detail } : {}),
-      isRunning: RUNNING_TOOL_STATES.has(part.state),
       key: part.toolCallId,
       label,
     });
@@ -377,8 +369,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   );
   const liveToolItems = useMemo(() => getLiveToolItems(phaseMessages, status), [phaseMessages, status]);
   const liveToolsRunning =
-    (liveToolItems?.some((item) => item.isRunning) ?? false) &&
-    (status === 'streaming' || status === 'submitted');
+    (liveToolItems?.length ?? 0) > 0 && (status === 'streaming' || status === 'submitted');
 
   const submitText = useCallback(
     (text: string) => {

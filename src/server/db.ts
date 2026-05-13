@@ -65,6 +65,11 @@ export type Option = InferSelectModel<typeof schema.option>;
 export type PhaseOutcome = InferSelectModel<typeof schema.phaseOutcome>;
 export type ReconciliationNeed = InferSelectModel<typeof schema.reconciliationNeed>;
 export type ReconciliationNeedKind = ReconciliationNeed['kind'];
+// V3.1 slice 4: lifecycle and label vocabulary derive from the schema enums
+// (see I114). Re-exported here so route + agent code can stay typesafe
+// without importing the schema module directly.
+export type ReconciliationNeedAgentStatus = NonNullable<ReconciliationNeed['agent_status']>;
+export type ReconciliationNeedAgentClassification = NonNullable<ReconciliationNeed['agent_classification']>;
 export type Phase = Turn['phase'];
 export type Impact = NonNullable<Turn['impact']>;
 export type PhaseOutcomeStatus = PhaseOutcome['status'];
@@ -626,6 +631,11 @@ export interface OpenReconciliationNeedInput {
   kind: ReconciliationNeedKind;
   reason?: string | null;
   causedByTurnId?: number | null;
+  // V3.1 setup (card 1): nullable source content snapshots, frozen for the
+  // need's lifetime. The cascade producer (edit-route hard path) supplies
+  // both; direct callers (tests, future agent paths) may omit them.
+  sourcePreviousContent?: string | null;
+  sourceCurrentContent?: string | null;
 }
 
 export function openReconciliationNeed(db: DB, input: OpenReconciliationNeedInput): ReconciliationNeed {
@@ -649,6 +659,8 @@ export function openReconciliationNeed(db: DB, input: OpenReconciliationNeedInpu
       kind: input.kind,
       reason: input.reason ?? null,
       caused_by_turn_id: input.causedByTurnId ?? null,
+      source_previous_content: input.sourcePreviousContent ?? null,
+      source_current_content: input.sourceCurrentContent ?? null,
     })
     .returning()
     .get() as ReconciliationNeed;
@@ -708,6 +720,95 @@ export function listOpenReconciliationNeeds(db: DB, specificationId: number): Re
     )
     .orderBy(schema.reconciliationNeed.id)
     .all() as ReconciliationNeed[];
+}
+
+/**
+ * V3.1 slice 4: open needs that the run-agent route should pick up. Filters
+ * out anything already classified or in flight. Per-row Re-run (slice 5)
+ * resets agent_status to null so the row reappears in this query.
+ */
+export function listOpenReconciliationNeedsAwaitingClassification(
+  db: DB,
+  specificationId: number,
+): ReconciliationNeed[] {
+  return db
+    .select()
+    .from(schema.reconciliationNeed)
+    .where(
+      and(
+        eq(schema.reconciliationNeed.specification_id, specificationId),
+        eq(schema.reconciliationNeed.status, 'open'),
+        sql`${schema.reconciliationNeed.agent_status} IS NULL`,
+      ),
+    )
+    .orderBy(schema.reconciliationNeed.id)
+    .all() as ReconciliationNeed[];
+}
+
+export function claimReconciliationNeedForClassification(db: DB, needId: number): boolean {
+  const result = db
+    .update(schema.reconciliationNeed)
+    .set({ agent_status: 'queued' })
+    .where(
+      and(eq(schema.reconciliationNeed.id, needId), sql`${schema.reconciliationNeed.agent_status} IS NULL`),
+    )
+    .run();
+  return result.changes === 1;
+}
+
+/**
+ * V3.1 slice 4: partial update for the three agent_* columns. Used by the
+ * classifier loop to walk a row through the lifecycle (null → queued →
+ * classifying → classified | failed). Each call is one transition; callers
+ * are responsible for the order and for never re-classifying without first
+ * resetting agent_status to null.
+ */
+export function updateReconciliationNeedAgentFields(
+  db: DB,
+  needId: number,
+  fields: {
+    agent_status: ReconciliationNeedAgentStatus | null;
+    agent_classification?: ReconciliationNeedAgentClassification | null;
+    agent_proposal?: string | null;
+  },
+): void {
+  const setClause: Record<string, string | null> = {
+    agent_status: fields.agent_status,
+  };
+  if (Object.hasOwn(fields, 'agent_classification')) {
+    setClause.agent_classification = fields.agent_classification ?? null;
+  }
+  if (Object.hasOwn(fields, 'agent_proposal')) {
+    setClause.agent_proposal = fields.agent_proposal ?? null;
+  }
+  db.update(schema.reconciliationNeed).set(setClause).where(eq(schema.reconciliationNeed.id, needId)).run();
+}
+
+/**
+ * V3.1 slice 4: look up the typed dependency edge that caused a need's
+ * (source, target) pair. Cascade producer creates needs from edges where the
+ * target is the upstream (changed) item and the source of the edge is the
+ * downstream item; see cascade-producer.ts and getDownstreamEdges. Returns
+ * undefined for orphan needs (target deleted, edge removed) — classifier
+ * callers fall back to a relation-agnostic prompt in that case.
+ */
+export function getCascadeRelationBetween(
+  db: DB,
+  sourceItemId: number,
+  targetItemId: number,
+): InferSelectModel<typeof schema.knowledgeEdge>['relation'] | undefined {
+  const row = db
+    .select({ relation: schema.knowledgeEdge.relation })
+    .from(schema.knowledgeEdge)
+    .where(
+      and(
+        eq(schema.knowledgeEdge.from_item_id, targetItemId),
+        eq(schema.knowledgeEdge.to_item_id, sourceItemId),
+      ),
+    )
+    .limit(1)
+    .get() as { relation: InferSelectModel<typeof schema.knowledgeEdge>['relation'] } | undefined;
+  return row?.relation;
 }
 
 // --- Entity persistence (generic knowledge items + compatibility projections) ---

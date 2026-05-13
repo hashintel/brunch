@@ -49,6 +49,8 @@ vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: '1' }),
 }));
 
+// PendingReviewSection queries -specification-data; preserve the real module and
+// only stub open-needs + invalidation so tests stay isolated from TanStack Query.
 vi.mock('@/client/routes/specification/$id/-specification-data.js', async (importOriginal) => {
   const mod =
     await importOriginal<typeof import('@/client/routes/specification/$id/-specification-data.js')>();
@@ -1360,5 +1362,77 @@ describe('structured-list-view direct edit (FE-657)', () => {
     const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement | null;
     expect(editButton).not.toBeNull();
     expect(editButton!.disabled).toBe(true);
+  });
+
+  // Card 4 / S4: ItemEditTextarea polish — Cancel becomes icon-only with
+  // aria-label "Cancel edit", Save loses the blue gradient and adopts the
+  // row's kind-accent fill.
+  it('Cancel button is icon-only with an aria-label of "Cancel edit"', async () => {
+    const { container } = render(
+      <PatchListProvider appliers={makeAppliers()}>
+        <SideChatHost specificationId={1}>
+          <StructuredListView entityState={singleItemNoEdges()} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    const cancelButton = container.querySelector('[data-graph-row-edit-cancel]') as HTMLButtonElement;
+    expect(cancelButton).not.toBeNull();
+    expect(cancelButton.getAttribute('aria-label')).toBe('Cancel edit');
+    expect(cancelButton.getAttribute('title')).toBe('Cancel');
+    // Visible text should be empty — the X icon stands alone.
+    expect(cancelButton.textContent?.trim()).toBe('');
+  });
+
+  it('Save button drops the blue gradient and uses the kind-accent inline fill when enabled', async () => {
+    const { container } = render(
+      <PatchListProvider appliers={makeAppliers()}>
+        <SideChatHost specificationId={1}>
+          <StructuredListView entityState={singleItemNoEdges()} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    const textarea = container.querySelector('[data-graph-row-edit-textarea]') as HTMLTextAreaElement;
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'Reduce checkout drop-off' } });
+    });
+
+    const saveButton = container.querySelector('[data-graph-row-edit-save]') as HTMLButtonElement;
+    expect(saveButton).not.toBeNull();
+    // No more hard-coded blue gradient or ring-1 ring-[#1060d6].
+    expect(saveButton.className).not.toMatch(/linear-gradient/);
+    expect(saveButton.className).not.toMatch(/ring-\[#1060d6\]/);
+    // Inline style carries the kind-accent fill (singleItemNoEdges = goal kind → #2563eb).
+    expect(saveButton.getAttribute('style')).toMatch(/background-color/i);
+  });
+
+  it('Keyboard hint row remains rendered with ⌘↵ save · esc cancel', async () => {
+    const { container } = render(
+      <PatchListProvider appliers={makeAppliers()}>
+        <SideChatHost specificationId={1}>
+          <StructuredListView entityState={singleItemNoEdges()} />
+        </SideChatHost>
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    const editForm = container.querySelector('[data-graph-row-edit]');
+    expect(editForm?.textContent).toMatch(/⌘↵\s*save/);
+    expect(editForm?.textContent).toMatch(/esc\s*cancel/);
   });
 });
