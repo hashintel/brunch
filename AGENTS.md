@@ -31,6 +31,16 @@ PR descriptions are written only when tying off a branch — not during active d
 
 Use `git` for commits and reads (status, log, diff, add, commit). Use `gt` for stack-aware operations (create, submit, restack, move, track, checkout). Details and rationale in `docs/praxis/graphite-workflow.md`.
 
+## development phase posture
+
+Brunch is pre-release. Optimize for conceptual correctness, domain clarity, and future leverage over backward compatibility with existing local/dev data.
+
+Do not preserve old data models, fixtures, dummy data, or compatibility shims merely because they exist. If a schema or domain model is wrong, change it and regenerate fixtures/seeds/tests as needed. Migration support is required only when SPEC.md, PLAN.md, or the user explicitly says existing data must be preserved.
+
+Be rigorous about deletion. Retire stale concepts, obsolete code paths, superseded docs, unused fixtures, and compatibility scaffolding once they no longer serve the current model. Keep the lexicon tight: prefer one canonical domain/conceptual term, update callers/docs/tests to match it, and remove aliases or legacy names when they stop carrying useful history.
+
+This is not permission for unrelated rewrites: keep changes scoped to the active seam, preserve accepted invariants, and verify behavior through the normal harness.
+
 ## code organization
 
 Use a lightweight fractal sub-tree pattern when a file outgrows its current mini-library boundary. Keep the original file as the public entry point (for example, `context-pack.ts`) and place private implementation modules in a same-named folder (for example, `context-pack/observer-capture.ts`). External consumers should continue importing from the public root file; only that root file should import from its private sub-tree. Split along semantic purpose, not file shape, and avoid speculative folder scaffolding until the file has real pressure.

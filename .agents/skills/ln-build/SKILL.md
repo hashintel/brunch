@@ -70,7 +70,9 @@ Run the relevant checks. Confirm failures are meaningful. If the card is already
 
 ## Green
 
-Write the minimum code to pass. Build inside-out: functional core first, thin I/O shell second, then end-to-end wiring.
+Write the minimum coherent code to pass. Build inside-out: functional core first, thin I/O shell second, then end-to-end wiring.
+
+Honor the repo's pre-release posture: if the current schema, fixture shape, dummy data, or terminology is wrong for the model, change it and regenerate dependent artifacts rather than preserving accidental compatibility. Delete obsolete paths in the same slice when they are inside the active seam.
 
 No speculative abstractions. Only extract when two concrete cases force it. Do not anticipate later tests or build shape-only scaffolding; let the current behavioral test pull the interface into existence.
 

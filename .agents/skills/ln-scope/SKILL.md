@@ -13,6 +13,8 @@ Define **one** buildable scope card. The card always describes one slice, but it
 
 If the target behavior needs "and", split it.
 
+Apply the repo's pre-release posture while scoping: prefer correcting the model and regenerating fixtures over preserving accidental compatibility, unless live docs or the user require migration support. Include deletion/retirement work in the slice when obsolete code, data, or terminology would otherwise linger.
+
 ## Input
 
 The behavior to deliver: $ARGUMENTS

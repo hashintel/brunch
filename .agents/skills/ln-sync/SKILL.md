@@ -9,6 +9,8 @@ Audit and refresh the canonical documents so they stay lightweight enough for fa
 
 `ln-sync` is the family-wide ontology repair and garbage-collection pass. Merge equivalent facts, repair stale references, and delete exhausted derivative artifacts. Only `docs/archive/PLAN_HISTORY.md` acts as archive history.
 
+Apply the repo's pre-release posture: optimize canonical memory for the model we now believe in, not compatibility with stale docs. Retire superseded claims, delete obsolete derivative artifacts, and tighten lexicon drift instead of preserving historical aliases in active truth.
+
 ## When to run
 
 Prefer `ln-sync` at these moments:

@@ -8,6 +8,8 @@ argument-hint: "[area of codebase to review, or 'recent' for recently changed fi
 
 Explore the codebase. Surface structural improvement opportunities. Be opinionated.
 
+Use the repo's pre-release posture: reward conceptual clarity over compatibility scaffolding, and treat unnecessary preservation as review debt. Look for stale code, obsolete fixtures, legacy terms, and compatibility paths that should be deleted rather than protected.
+
 ## Input
 
 What to review: $ARGUMENTS
