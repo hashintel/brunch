@@ -145,13 +145,13 @@ Status: done
 - Inner: focused tests — `npm run test -- observer edit-route db`.
 - Gate: `npm run check`; full `npm run verify` when unrelated suite failures are resolved or acknowledged.
 
-## Card 5 — Entity projection read-model extraction
+## Card 5 — Review materialization store extraction
 
-Status: next
+Status: done
 
 ### Target Behavior
 
-`db.ts` remains the public persistence import surface while entity projection/read-model implementation lives in a private `src/server/db/entity-projection-store.ts` module.
+`db.ts` remains the public persistence import surface while accepted requirements/criteria review materialization lives in a private `src/server/db/review-materialization-store.ts` module.
 
 ### Boundary Crossings
 
@@ -165,7 +165,7 @@ Status: next
 
 ### Risks and Assumptions
 
-- RISK: active-path filtering depends on turn lineage helpers currently local to db.ts → MITIGATION: either pass the small lineage primitive into the projection store or defer this card until chat/turn store extraction; do not duplicate lineage logic.
+- RISK: active-path filtering and accepted-review visibility depend on workflow/turn helpers currently local to db.ts → MITIGATION: implement read-side SQL locally in the projection store for now; do not route through db.ts and create a cycle.
 - RISK: product lexicon says intent graph, while implementation still says knowledge → MITIGATION: prefer intent/entity naming for new private helpers where possible, while preserving public compatibility exports.
 - ASSUMPTION: read-model projection is separable from mutation helpers after Card 4 → VALIDATE: no circular import between intent graph mutation store and projection store.
 
@@ -182,9 +182,9 @@ Status: next
 - Inner: focused tests — `npm run test -- db observer context export app`.
 - Gate: `npm run check`; full `npm run verify` when unrelated suite failures are resolved or acknowledged.
 
-## Card 6 — Review materialization store extraction
+## Card 6 — Entity projection read-model extraction
 
-Status: queued
+Status: next
 
 ### Target Behavior
 
@@ -202,7 +202,7 @@ Status: queued
 
 ### Risks and Assumptions
 
-- RISK: review materialization shares too many helpers with entity projection and intent graph mutation stores → MITIGATION: run this after Cards 4–5 and import only private store helpers if a real shared seam exists; otherwise keep duplicated SQL localized rather than creating a premature common utility.
+- RISK: review materialization shares helper concepts with entity projection → MITIGATION: extract materialization first as a write-side seam; allow small local reference-code lookup duplication until the read model is extracted.
 - ASSUMPTION: accepted review materialization is a cohesive write-side seam distinct from generic intent graph mutation → VALIDATE: requirements/criteria review tests pass unchanged.
 
 ### Acceptance Criteria
