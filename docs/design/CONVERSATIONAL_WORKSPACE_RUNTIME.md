@@ -30,6 +30,20 @@ This is the **umbrella design** for what follows FE-674. It does three things:
 | [PATCH_LEDGER.md](./PATCH_LEDGER.md) | Historical design pressure for semantic mutation history and reconciliation ordering. Its target-ordering algorithm remains useful; target vocabulary is **changeset/change** going forward, per SPEC/PLAN. |
 | [CONTINUOUS_WORKSPACE_HYBRID.md](./CONTINUOUS_WORKSPACE_HYBRID.md) | Workspace-shell shape exploration. It still owns the route-alias / workspace-controller / chart-backed-supervisor choice; this doc treats that shell as the host prerequisite for runtime work. |
 
+### Runtime-cluster supersession map
+
+| Claim type | Current authority | Retained source detail | Superseded / historical |
+|---|---|---|---|
+| Runtime concept and cross-track direction | This document | Sync-call deltas captured here plus PLAN sequencing constraints | Reading MULTI_CHAT / SIDE_CHAT / PATCH_LEDGER as independent future roadmaps |
+| Phase 1 chat substrate | [MULTI_CHAT.md](./MULTI_CHAT.md) | Schema, migration, compatibility invariants, and the `reconciliation_need` primitive | Any implication that MULTI_CHAT owns future thread hierarchy or unified-chat UX |
+| Side-chat user-surface history | [SIDE_CHAT.md](./SIDE_CHAT.md) | V1–V3.1 shipped behavior, UI language, V4 persistence notes | Treating the popover, top-bar patch list, or standalone Pending review section as the long-term surface |
+| Semantic mutation history | This document + SPEC/PLAN vocabulary; [PATCH_LEDGER.md](./PATCH_LEDGER.md) for algorithmic pressure | Reconciliation bases, target grouping, topological ordering, phase-two ledger rationale | New schema/operation names using `patch` / `patch_change` instead of `changeset` / `change` |
+| Workspace shell shape | [CONTINUOUS_WORKSPACE_HYBRID.md](./CONTINUOUS_WORKSPACE_HYBRID.md) | Route-alias / workspace-controller / chart-backed-supervisor alternatives | Re-deciding shell architecture inside runtime/thread work |
+| Reconciliation vs graph review | SPEC/PLAN + this document's cross-document audit | PATCH_LEDGER reconciliation-flow mechanics; SPEC_EVOLUTION_STRATEGIES graph-review distinctions | Using `reconciliation_need` as the table for all graph quality findings |
+| Agent mutation authority | [AGENT_MUTATION_SURFACE.md](./AGENT_MUTATION_SURFACE.md) | Capability/handler boundary and changeset-centered mutation vocabulary | Agents writing directly through ORM helpers or harness-specific route wrappers |
+
+Open questions that remain live: thread substrate shape, reconciliation thread lifecycle, direct-edit thread-opening UX, `thread_context_item` ownership, `#` mention disambiguation, TOON implementation choice, async classifier scheduling, and migration of existing client patch terminology.
+
 ## 2. The shift, at a glance
 
 ```mermaid
