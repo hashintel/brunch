@@ -4,87 +4,69 @@
 
 # Plan
 
-The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, observer knowledge extraction, workflow ownership extraction, distribution hardening, graph view's structured-list peer route, the first relation-first observer capture seam, the multi-chat substrate (chat containers + `reconciliation_need` queue), **side-chat V3.0 — hard-impact cascade through `reconciliation_need`**, and **side-chat V3.1 — agent-grouped reconciliation resolution** all ship as working product. V3.1 closes the V3.x arc: the reconciliation classifier writes `auto-confirm` / `auto-edit` / `substantive` per row and the Pending review surface renders chips + per-class actions + bulk Confirm-all / Apply-all-suggested. The live frontier is now **continuous workspace**, the phase-addressable interview surface that adopts one visible runtime per specification.
+The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, observer knowledge extraction, workflow ownership extraction, distribution hardening, graph view's structured-list peer route, the first relation-first observer capture seam, the multi-chat substrate (chat containers + `reconciliation_need` queue), **side-chat V3.0 — hard-impact cascade through `reconciliation_need`**, and **side-chat V3.1 — agent-grouped reconciliation resolution** all ship as working product. V3.1 closes the V3.x arc: the reconciliation classifier writes `auto-confirm` / `auto-edit` / `substantive` per row and the Pending review surface renders chips + per-class actions + bulk Confirm-all / Apply-all-suggested.
 
-The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agent-mutation design notes are reconciled into one direction. `docs/design/MULTI_CHAT.md` is the substrate document. `docs/design/SIDE_CHAT.md` describes side-chat V1 / V2 / V3.0 / V3.1 / V4 phasing on top of that substrate, with §13 mapping each user-surface version onto a substrate phase. `docs/design/PATCH_LEDGER.md` remains historical deeper design pressure for semantic mutation history, but canonical future-facing vocabulary is `changeset` / `change`; `docs/design/INTENT_SPEC_EVOLUTION.md` carries the broader synthesis. The product-layer ontology trajectory is split out as `docs/design/INTENT_GRAPH_SEMANTICS.md` (canonical reference for the FE-700 frontier) and `docs/design/BEHAVIORAL_KERNELS.md` (canonical reference for the FE-702 kernel probes). The dev-layer self-tooling trajectory — the `ln-*` skill family, the proposed file-backed spec registry, and the long-horizon convergence between dev and product ontologies — lives in `docs/design/DEV_WORKFLOW_EVOLUTION.md`. Older portability work remains a future-facing boundary map rather than a live roadmap item until a hosted, remote, or adapter-backed substrate becomes a product goal.
+The next product arc is a **continuous conversational workspace** plus a stronger semantic/generative substrate. Continuous workspace is already active in parallel: it gives the chat runtime a stable phase-addressable host. The FE-705 branch contributes an integration substrate — a local agent capability CLI and external LLM-as-user probe harness — that should be reconciled into main before graph-review and scenario-options work depends on generated completed-spec fixtures. After that, the highest-coordination work is the intent-graph semantic model and semantic changeset ledger; lower-coordination provider, gitignore, and web-research work can proceed in parallel.
 
+The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agent-mutation design notes are reconciled into one direction. `docs/design/MULTI_CHAT.md` is the substrate document. `docs/design/SIDE_CHAT.md` describes side-chat V1 / V2 / V3.0 / V3.1 / V4 phasing on top of that substrate. `docs/design/PATCH_LEDGER.md` remains historical deeper design pressure for semantic mutation history, but canonical future-facing vocabulary is `changeset` / `change`; `docs/design/INTENT_SPEC_EVOLUTION.md` carries the broader synthesis. The product-layer ontology trajectory is split out as `docs/design/INTENT_GRAPH_SEMANTICS.md` (canonical reference for FE-700) and `docs/design/BEHAVIORAL_KERNELS.md` (kernel probes). FE-705's branch-local strategy/proposal notes add scenario options, graph-review oracle, chat-local strategies, and concern/dependency mapping; those notes should become a canonical design doc when the branch is integrated. The dev-layer self-tooling trajectory lives in `docs/design/DEV_WORKFLOW_EVOLUTION.md`.
 
 ## Active
 
 1. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with realized phase sections, one chat runtime per specification, sidebar section navigation, scroll/focus behavior, and the single actionable frontier preserved at the current reachable phase.
-   - Why now / unlocks: workflow read/write ownership is extracted (FE-616); the multi-chat substrate ships chat containers below the specification, so continuous workspace can adopt one visible runtime without smuggling in a second durable workflow model. Side-chat V3.0 + V3.1 just closed, so the cascade surface is stable; no remaining V2/V3 placeholder blocks the workspace work.
+   - Why now / unlocks: workflow read/write ownership is extracted (FE-616); the multi-chat substrate ships chat containers below the specification, so continuous workspace can adopt one visible runtime without smuggling in a second durable workflow model. Side-chat V3.0 + V3.1 just closed, so the cascade surface is stable; no remaining V2/V3 placeholder blocks the workspace work. This is being handled in parallel with the FE-705 reconciliation lane.
    - Traceability: A58; D86, D87, D110, D113, D114; I24, I102.
-   - Design doc: `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`.
+   - Design doc: `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`; umbrella synthesis in `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md`.
 
 ## Next
 
-2. **Side-chat persistence — V4a (multi-chat Phase 2 substrate)** — side-chat client persists its turns into the existing `chat` / `turn` tables with `chat.kind='side_chat'`, loads prior side-chat sessions on remount, and surfaces an "Old chats" affordance per pinned item / spec. Phase 1 substrate (FE-697, [2026-05-06]) already shipped the `chat` table, nullable `turn.chat_id`, and `specification.primary_chat_id`; nothing schema-side blocks this — only the client write path and a per-spec session listing remain. This is the V4a half of FE-675; V4b (item versioning + branched exploration) stays in Horizon, gated on FE-701.
-   - Why later: side-chat threads stay in-memory through V3 by design (SIDE_CHAT.md §5.3); applied patches and `reconciliation_need` rows already persist independently. With V3.1 closed and the cascade surface settled, V4a becomes the next user-facing surface to light up — but Card 1 (server-side persistence) and Cards 2+ both depend on MULTI_CHAT.md §349's open question (anchor field on `chat` row vs deferred `chat_focus` table); route through `/ln-spec` or `/ln-spike` before scoping Cards 2+.
-   - Linear: FE-675 (umbrella; per-substrate phase note on FE-675 rather than a new sub-ticket).
-   - Traceability: Requirement 39; A82, A83; D138.
-   - Design doc: `docs/design/MULTI_CHAT.md` §10 Phase 2; `docs/design/SIDE_CHAT.md` §9 V4 row (V4a half only).
+2. **FE-705 integration — agent capability CLI + LLM-as-user fixture probe** — integrate the branch-complete local `brunch agent` JSONL capability adapter and external probe runner so agents can drive the real Brunch interview flow through Brunch-owned contracts rather than privileged ORM access.
+   - Linear: FE-705. Pi comparison remains FE-635 after this seam has a real Brunch use case to compare against.
+   - Status: branch-complete off main; not treated as shipped in main until the FE-705 implementation is rebased and verified. Canonical plan records it as the near-term integration substrate because later graph-review/scenario-options probes need credible completed-spec fixtures.
+   - Why now / unlocks: prompt/context and graph-review probes need realistic graph/transcript fixtures, but hand-authoring those fixtures is chicken-and-egg. A JSONL capability adapter lets an external LLM-as-user drive the real lifecycle through the same mutation authority future agents must use, pressure-testing tool-call vocabulary, chat readiness, resource identity, fixture curation, and import-boundary discipline.
+   - Recommended shape: preserve the branch's split between server-owned capability contracts and script-side probe harness. The adapter exposes explicit resource-id calls (`spec.create`, `chat.getPrimary`, `chat.ensureReady`, `chat.read`, `turn.submitResponse`, and follow-on lifecycle/export operations as scoped); the probe runner owns scenario briefs, model-backed simulated-user policy, artifact bundles, fixture-candidate inspection, and workspace-state preservation. Keep browser automation, product UI, provider credential UX, shared production provider routing, and durable runtime-operation ledgers out of the integration slice.
+   - Verification approach: contract/dispatcher tests, JSONL protocol/session tests, import-boundary tests proving the probe runner uses only the JSONL client/process boundary, fake process tests, opt-in real-provider smoke, and fixture-candidate structure/readiness checks.
+   - Traceability: Requirement 43; A89; D143, D147; I114. Also protects Requirements 40, 41, 42 by making prompt/context and mutation-surface probes executable through a real adapter.
+   - Design docs: `docs/design/AGENT_MUTATION_SURFACE.md`; `docs/design/INTENT_SPEC_EVOLUTION.md`; FE-705 branch artifacts until rebased.
 
-3. **Prompt/context scenario substrate (FE-698 continuation)** — continue the FE-698 substrate after the foundation slices: packaged prompt assets, the first observer context-pack path, deterministic no-provider scenario capture, and the agent mutation-surface audit are complete, but FE-698 still has live follow-up work.
-   - Linear: FE-698. Pi harness spike: FE-635.
-   - Status: partially complete, not retired. Completed foundation: prompt registry + markdown prompt loading, observer-capture and web-research context-pack composition, scenario runner capture skeleton / seeded snapshots, prompt-source explicitness, mutation-surface audit / terminology cleanup, capability registry metadata surfaced in scenario artifacts, fake-adapter web-research scenario execution capture, a probe-only Anthropic AI SDK scenario adapter, and safe scenario execution error summaries. Outstanding FE-698 follow-up: more context-pack scenarios beyond observer capture / web research, broader read-only/proposal-only harness execution probes, and/or the Pi adapter spike. OpenRouter/default-provider setup is deferred to the first-run provider setup frontier.
-   - Why now / unlocks: multi-chat removes the single transcript spine as default agent context, while ontology, observer, candidate-spec, web research, behavioral-kernel, architect, and post-spec decomposition work all need shared prompt/context machinery. This prevents every future agent feature from inventing its own prompt-context hack and lets LLM-heavy flows be tested before UI work.
-   - Recommended shape: define the next FE-698 slice around one of the remaining prompt/context seams. Likely candidates: additional context-pack scenarios for next-question, candidate-spec, web research, reconciliation, architect, or decomposition probes; a narrow execution-probe path using the existing Anthropic API key / fake adapters; or the FE-635 Pi SDK/RPC spike. Keep provider credential UX, shared production AI runtime/provider resolution, execution adapters as product truth, and durable mutating handlers out of scope. The key rule is that future agent-originated writes must go through Brunch-owned handlers rather than direct ORM access. Registry naming should follow `docs/design/AGENT_MUTATION_SURFACE.md`: product nouns plus semantic verbs, with intent-graph mutations converging on `changeset.submit` / `changeset.apply` and atomic `change` variants rather than many ad hoc mutating tools.
-   - Verification approach: inner-loop prompt-loader/context-pack unit tests plus seeded scenario snapshots; middle-loop multi-run prompt probes should be designed before judging generative quality.
-   - Traceability: Requirements 40, 41, 42; A84, A85, A86, A87; D139, D140, D141, D142, D143; I112.
-   - Design docs: `docs/design/INTENT_SPEC_EVOLUTION.md`; `docs/design/MULTI_CHAT.md`; `docs/design/AGENT_MUTATION_SURFACE.md` (agent-originated mutation audit and registry input); Pi SDK docs as spike input.
-
-4. **Intent graph semantics + progressive checkability foundation** — refine the ontology and relation policy so the graph can represent invariants, examples/counterexamples, constraint subtypes, narrowed decisions, witness strength, and checkability gaps as source/destination material for future generative features.
+3. **Intent graph semantics + relation-policy directionality foundation** — refine the ontology and relation policy so the graph can represent invariants, examples/counterexamples, constraint subtypes, narrowed decisions, witness strength, checkability gaps, and operational edge behavior as source/destination material for future generative features.
    - Linear: FE-700.
-   - Why now / unlocks: candidate generation, behavioral kernels, architect proposals, and downstream verification-aware decomposition need a sharper semantic target than the current exploration/review ontology.
-   - Recommended shape: add `invariant` and `example` as first-class durable kinds; subtype examples (positive / negative / edge-case / trace / not-relevant); narrow `decision` per the decision-capture criteria; enrich `constraint` subtypes (non_goal / scope / technical / policy / resource / compatibility / environmental); add `criterion` subtypes (acceptance / test / manual_review / runtime_check / proof / observability) and `invariant` subtypes (state / transition / authority / provenance / consistency / security / data_integrity); add `checkability` and `witness strength` fields on intent items per the progressive-checkability ladder; introduce the five-family relation taxonomy (justification / dependency / boundary / refinement / verification) plus first-class negative relations (`rules_out`, `counterexample_for`); add edge epistemic metadata (`support`, `status`, `provenanceTurnId`, `rationale`); land a relation-policy registry whose axes distinguish `visible`, `cascade`, `export_trace`, `staleness`, `reconciliation`, `criteria_help`, and `weak_suggestion` participation. Full enumerations and worked examples in `docs/design/INTENT_GRAPH_SEMANTICS.md`.
-   - Verification approach: corpus/fixture observer probes comparing old vs refined ontology; graph-review manual assessment for precision/noise; context-pack probe outputs must show authority and witness labels.
+   - Why now / unlocks: candidate generation, behavioral kernels, graph review, scenario-options acceleration, architect proposals, direct-edit cascade, and downstream verification-aware decomposition all need a sharper semantic target than the current exploration/review ontology. This is the semantic-layer lane most likely to collide with parallel work, so it should land before broadening observer enrichment or committing generated candidate bundles.
+   - Recommended shape: add `invariant` and `example` as first-class durable kinds; subtype examples; narrow `decision`; enrich `constraint`, `criterion`, and `invariant` subtypes; add `checkability` and witness strength; introduce the five-family relation taxonomy and negative relations; add edge epistemic metadata; and make relation-policy directionality explicit (`canonicalSentence`, `inverseSentence`, source-change behavior, target-change behavior) rather than inferring cascade from raw edge direction. Leave room for contrastive-kernel artifacts such as `alternative`, `question`, `ambiguity`, and `candidate`, but keep them proposal-local unless probes prove they need durable top-level kinds.
+   - Verification approach: corpus/fixture observer probes comparing old vs refined ontology; relation-policy unit tests for mixed-direction relations; graph-review manual assessment for precision/noise; context-pack probe outputs must show authority, witness, relation support, and directionality labels.
    - Traceability: Requirement 38; A77, A78, A80, A81, A84; D134, D136, D137, D139, D140.
-   - Design docs: `docs/design/INTENT_GRAPH_SEMANTICS.md` (canonical reference); `docs/design/INTENT_SPEC_EVOLUTION.md` (broader synthesis context).
+   - Design docs: `docs/design/INTENT_GRAPH_SEMANTICS.md`; `docs/design/INTENT_SPEC_EVOLUTION.md`; FE-705 strategy/proposal notes for relation directionality.
 
-5. **Generative prompt probes before UI** — use the scenario substrate to prototype web research, behavioral kernels, candidate-spec completion, and post-spec design/oracle/decomposition flows against intent-graph fixtures before committing product surfaces.
-   - Linear: FE-702 for post-spec decomposition probes; FE-649 and FE-640 are productization children under FE-698.
-   - Why now / unlocks: proves whether progressive checkability and graph-first context can be taught to agents, and de-risks the next generation of UI features.
-   - Recommended shape: start with one web-research context/query scenario, the first three behavioral kernels (`state & lifecycle`, `containment & topology`, `authority & capability`) per the v0.1 kernel ontology, candidate-spec set generation, and exploratory oracle/decomposition scenarios inspired by `.agents/skills/ln-design/` and `.agents/skills/ln-oracles/`. Each kernel probe should follow the kernel-card structure (detection signals, contrastive question templates, artifact schema, validators) and emit typed intent items / intent edges per `docs/design/INTENT_GRAPH_SEMANTICS.md`. Outputs remain probe artifacts or proposal-only structures, not committed graph mutations.
-   - Verification approach: scenario-runner fixtures, raw output review, structured parse validation, and qualitative scorecards before product UI.
-   - Traceability: Requirements 20, 21, 31, 32, 40, 41; A67, A68, A80, A85, A87; D126, D127, D139, D141.
-   - Design docs: `docs/design/BEHAVIORAL_KERNELS.md` (kernel ontology + cards); `docs/design/INTENT_GRAPH_SEMANTICS.md` (artifact target).
+4. **Semantic changeset ledger + proposal-turn staleness** — introduce the semantic history spine that separates graph mutation history from conversational turn ancestry.
+   - Linear: FE-701.
+   - Status: not complete in main. Current code has `reconciliation_need`, side-chat apply behavior, and the V3.1 classifier lifecycle, but no first-class `changeset` / `change` ledger and no durable proposal-turn staleness semantics.
+   - Why now / unlocks: scenario bundle acceptance, direct-edit atomicity, accepted-with-issues flows, stale proposal detection, graph-review repairs, side-chat V4b item versioning, and future architect/reconciliation agents all need a durable semantic mutation boundary. Without it, productized scenario-options can stay probe-only but cannot safely commit candidate bundles.
+   - Recommended shape: add `changeset` / `change` as canonical schema and operation vocabulary; track the latest semantic changeset per specification; stamp proposal turns with base/opened changeset identity; connect `reconciliation_need.caused_by_changeset_id`; keep proposals/findings as turn-owned artifacts until accepted; ensure only `accept` applies a proposal changeset; and treat a changeset as the smallest atomic unit that preserves semantic coherence.
+   - Verification approach: DB atomicity tests for changeset + changes + reconciliation_need writes, staleness tests for open proposal turns across multi-chat changes, capability/transition tests proving non-accept actions cannot mutate graph truth.
+   - Traceability: Requirements 39, 42, 44; A71, A79; D135, D138, D143.
+   - Design doc: `docs/design/PATCH_LEDGER.md` (historical filename; future vocabulary is changeset/change); FE-705 strategy/proposal notes for semantic history and proposal turns.
 
+5. **Graph-review oracle + scenario-options probes** — build the internal critique path and artifact-only candidate bundle probes before product UI.
+   - Linear: FE-702 for graph-review / scenario probes; FE-649 and FE-640 remain productization children under FE-698 where relevant.
+   - Why now / unlocks: product wants first-turn strategy choice and mid-interview acceleration, but engineering needs graph-review critique to make generated candidate bundles credible. This lane can advance in parallel with FE-700 if it stays artifact-only and does not commit canonical graph truth.
+   - Recommended shape: define candidate graph bundle and graph-review finding artifacts; add a graph-review prompt/context pack and rubric covering coherence, fixed-premise respect, coverage, tradeoff honesty, checkability, granularity, scenario fidelity, epistemic labels, provenance, and downstream usefulness; generate 2–3 scenario options that complete the current direction from context-packed accepted graph truth; run fast gates before display and deeper async critique/refine/repair as probe artifacts; classify candidate readiness as `draft` / `reviewing` / `reviewed_clean` / `reviewed_with_issues` / `blocked`; keep broader graph-review issues turn-owned rather than adding a `graph_issue` table.
+   - Verification approach: scenario-runner fixtures, FE-705 JSONL-generated completed-spec fixtures, raw output review, structured parse validation, qualitative scorecards, and comparison against drilldown-produced graphs. Middle/outer-loop oracle design should decide when fixture candidates become golden.
+   - Traceability: Requirements 20, 21, 31, 32, 40, 41, 43, 44; A67, A68, A80, A85, A87, A89; D126, D127, D139, D141, D147.
+   - Design docs: `docs/design/BEHAVIORAL_KERNELS.md`; `docs/design/INTENT_GRAPH_SEMANTICS.md`; `docs/design/AGENT_MUTATION_SURFACE.md`; FE-705 strategy/proposal notes.
 
-## Horizon
+6. **Productized scenario-options / candidate-spec completion assist** — replace skip-only remainder handling with first-turn strategy choice and a mid-interview `speed this up` path that generates reviewed candidate graph bundles with tradeoffs, completing the current direction by default.
+   - Why later: product UI waits on graph-review probes, FE-700 semantics, and FE-701 changesets. Until then, scenario-options remain artifact/proposal-only.
+   - Scope relationship: this likely absorbs or reshapes **two-axis interview framing** and **progressive detail / recursive deflation** because first-turn strategy and speed-up paths are where those distinctions become actionable. The broader **architect / generator loop** remains related but not fully subsumed; autonomous graph mutation proposals through changeset/reconciliation stay a later capability unless deliberately narrowed into this surface.
+   - Depends on: FE-705 fixture substrate, prompt/context substrate, intent graph semantics + relation-policy directionality, graph-review oracle, and changeset ledger for canonical acceptance.
+   - Traceability: Requirements 31, 40, 44; A67, A77, A78, A85; D126, D134, D136, D139.
 
-### Intent graph and reconciliation
-
-- **Semantic changeset ledger** — make semantic mutations first-class once non-primary surfaces can change intent-graph truth.
-  - Linear: FE-701.
-  - Recommended shape: one `changeset` contains one or more atomic `change` records. Use `changeset` / `change` as canonical schema and operation vocabulary; `patch` / `patch_change` remain historical design-doc terms only. Connect `reconciliation_need.caused_by_changeset_id` once changesets exist.
-  - Depends on: multi-chat substrate + reconciliation needs; prompt/context context packs for reconciliation scenarios.
-  - Traceability: A71, A82, A83; D135, D138, D140.
-  - Design doc: `docs/design/PATCH_LEDGER.md` (historical file name; future vocabulary is changeset/change).
-
-- **Relation-first observer capture enrichment** — after the next ontology/relation-policy probes, broaden observer relationship extraction across the refined ontology where edge support and operational participation are understood.
-  - Recommended shape: keep `runObserver()` as the public turn-owned seam, but feed it scenario-specific context packs and validate output through the relation-policy registry. The FE-639 first cut has landed; remaining work should be driven by corpus/manual proving.
-  - Depends on: prompt/context substrate; intent graph semantics + progressive checkability foundation.
-  - Traceability: Requirements 30, 38, 40; A66, A81, A84; D125, D136, D137, D139, D140; I109.
-
-- **Architect / generator loop** — autonomous agent that iterates over the intent graph and proposes semantic changes for HITL review through the same future changeset / reconciliation pathway as user-driven edits.
-  - Recommended shape: keep productized architect proposals behind multi-chat + reconciliation + semantic changesets; use the scenario substrate for shadow/proposal-only probes first.
-  - Traceability: A73, A85, A87; D139, D141; depends on chat containers + reconciliation needs and semantic changeset ledger.
-
-- **Side-chat V4b — item versioning + branched exploration** — once the patch ledger lands, item versioning unblocks dangling-annotation repair and soft-edit audit; branched exploration lets drill-downs / past-turn edits / revisits coexist with the original chain. FE-675 V4b half.
-  - Depends on: FE-701 patch ledger; V4a side-chat persistence (Next item 2).
-  - Traceability: A72, A73, A85; D139, D141.
-  - Design doc: `docs/design/SIDE_CHAT.md` §9 V4 row (V4b half).
-
-### User-facing capabilities
+## Parallel / low-conflict candidates
 
 - **First-run provider setup** — make missing LLM credentials visible on the dashboard, add a shared AI runtime provider seam for interviewer / observer model construction, support UI-entered keys through XDG-compliant user auth state, and evaluate whether OpenRouter should become the preferred onboarding provider while preserving Anthropic-specific capabilities or explicit degradation.
   - Linear: FE-633 covers the OpenRouter/default-provider part; dashboard credential UX + XDG key storage may need a sibling issue if split from provider proving.
-  - Recommended shape: prove the provider resolver first with current Anthropic behavior, then spike OpenRouter against tool use, structured output, and reasoning/thinking options before making it the default. The dashboard should expose credential status without leaking secret values and offer setup before the user starts a specification.
   - Traceability: Requirements 34, 35, 36; A74, A75; D130, D131, D132; I106.
 
 - **Workspace hygiene / `.brunch/` gitignore assist** — detect whether generated local state is already ignored and, with explicit confirmation, add an idempotent `.gitignore` entry or create `.gitignore` when absent.
   - Linear: FE-648.
-  - Recommended shape: keep this as a deterministic local mutation with preview/confirmation semantics; it can ship independently, but the dashboard is the natural surface because it already explains workspace binding and first-run setup.
   - Traceability: Requirement 37; A76; D133; I107.
 
 - **Productized web research capability** — web search and page-fetch tools as interviewer-invoked context gathering, surfaced as preface cards after the scenario substrate proves query framing, tool ergonomics, and provisional-context handling.
@@ -92,114 +74,106 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
   - Depends on: prompt/context scenario substrate and web-research probe.
   - Traceability: Requirements 20, 21, 40, 41; D99, D112, D139, D142.
 
+## Horizon
+
+### Semantic and generative follow-through
+
+- **Relation-first observer capture enrichment** — the first cut is shipped; enrichment waits for FE-700 relation policy so observer output can broaden across the refined ontology without flooding the graph.
+  - Depends on: intent graph semantics + relation-policy directionality; prompt/context substrate.
+  - Traceability: Requirements 30, 38, 40; A66, A81, A84; D125, D136, D137, D139, D140; I109.
+
+- **Architect / generator loop** — autonomous agent that iterates over the intent graph and proposes semantic changes for HITL review through the same future changeset / reconciliation pathway as user-driven edits.
+  - Status: related to scenario-options but broader. Keep productized architect proposals behind multi-chat + reconciliation + semantic changesets; use the scenario substrate for shadow/proposal-only probes first.
+  - Traceability: A73, A85, A87; D139, D141.
+
+- **Server mini-library compartmentalization** — refactor growing server seams into plural public roots with same-named private subtrees where FE-698 / FE-705 pressure has made boundaries too implicit.
+  - Status: near-term refactor candidate after FE-705 integration, not product roadmap work.
+  - Candidate shape: `fixtures.ts` + `fixtures/`, `context-packs.ts` + `context-packs/`, `prompts.ts` + `prompts/`, `scenario-runner.ts` + `scenario-runner/`, `entity-apis.ts` + route submodules, and `agent-apis.ts` + capability/protocol subtrees.
+
+### Side-chat follow-on
+
+- **Side-chat persistence — V4a (multi-chat Phase 2 substrate)** — side-chat client persists its turns into the existing `chat` / `turn` tables with `chat.kind='side_chat'`, loads prior side-chat sessions on remount, and surfaces an "Old chats" affordance per pinned item / spec.
+  - Status: deprioritized below continuous workspace and semantic/generative substrate. Phase 1 substrate already ships schema support; the remaining decision is the anchor model (`chat` row anchor fields vs deferred `chat_focus` table).
+  - Linear: FE-675 (umbrella; V4a half).
+  - Traceability: Requirement 39; A82, A83; D138.
+  - Design docs: `docs/design/MULTI_CHAT.md` §10 Phase 2; `docs/design/SIDE_CHAT.md` §9 V4 row.
+
+- **Side-chat V4b — item versioning + branched exploration** — once the changeset ledger lands, item versioning unblocks dangling-annotation repair and soft-edit audit; branched exploration lets drill-downs / past-turn edits / revisits coexist with the original chain.
+  - Depends on: semantic changeset ledger; V4a side-chat persistence.
+  - Traceability: A72, A73, A85; D139, D141.
+
+### Lower-priority / unclear product surface
+
 - **Dashboard result summaries and completeness metrics** — progress visibility across specifications.
+- **Spatial canvas layout for graph view** — add the spatial DAG layout as a second layout choice inside graph mode, alongside the structured-list route.
+- **Graph view active-path render filter + scope toggle** — render only active-path items by default in graph view, with a `Show all` toggle.
+- **MCP server adapter for core operations** — future adapter over capability contracts, not direct ORM / route wrappers.
+- **Git-friendly file-based persistence representation for diffable exported specs**.
+- **Typed fixture-builder convergence for happy-path tests**.
 
-- **Two-axis interview framing** — adapt interviewer setup and questioning to the full `greenfield <> brownfield` by `end-to-end build <> incremental feature` matrix instead of treating partial-scope work as a special case.
-  - Linear: FE-638.
-  - Traceability: Requirement 29; A65; D124.
+### Meta / deferred boundaries
 
-- **Productized candidate-spec completion assist** — replace skip-only remainder handling with a `fill in the rest for me` path that generates candidate specs, implications, tradeoffs, and likely typed knowledge for reaction-based refinement after prompt probes prove useful output.
-  - Depends on: prompt/context scenario substrate; intent graph semantics + progressive checkability foundation; candidate-spec generation probe.
-  - Traceability: Requirement 31, 40; A67, A77, A78, A85; D126, D134, D136, D139.
-
-- **Progressive detail / recursive deflation** — support broad-pass interviewing with explicit next-level-of-detail actions rather than one uniform depth-first drill-down.
-  - Linear: FE-637.
-  - Recommended shape: pair ordinary grounding/design question turns with a turn-owned breadth-skeleton artifact that makes current coverage visible and exposes a structured detail reaction (`deepen this area`, `continue broad pass`, `sufficient for now`). The chosen reaction should steer the next same-phase frontier turn instead of introducing a separate detail workflow.
-  - First cut should optimize for `broad question -> choose one area to deepen next -> focused successor question -> refreshed breadth skeleton`, while keeping the same detail-focus intent reusable later from chat or graph surfaces.
-  - Traceability: Requirement 32; A67, A68; D127.
-
-- **Spatial canvas layout for graph view** — add the spatial DAG layout as a second layout choice inside graph mode, alongside the structured-list route. Same projection seam, same intent contract; only the layout strategy changes.
-  - Recommended shape: a layout switch inside the existing `/specification/$id/graph` route that transforms the same `EntitiesData` projection into a spatial scene with viewport / selection / focus / path-highlighting. First cut should optimize for `select node -> inspect -> launch refinement` through the multi-chat substrate.
-  - Depends on: graph view structured-list ship. Richer node actions depend on multi-chat / reconciliation rather than the old side-chat conceptual roadmap.
-  - Traceability: Requirement 33; A69; D128.
-
-- **Graph view active-path render filter + scope toggle** — render only active-path items by default in graph view, with a `Show all` toggle in the header that flips to the full whole-spec set. Both subsets project from the same in-memory `mode=project-wide` data; no second fetch.
-  - Depends on: server data-layer change for active-path membership exposure.
-  - Traceability: Requirement 33; D128, D129; I102.
-
-### Infrastructure / tooling
-
-- **Structured development spec registry** — prototype file-backed canonical spec records, deterministic checks, generated markdown views, and task-local slices for Brunch's own development workflow (the `ln-*` skill family).
-  - Status: design horizon, not a migration commitment. Self-tooling experiment for the dev layer; not part of the product roadmap.
-  - Recommended shape: follow the `memory/spec/{schema,records,generated,tools}/` trajectory and the 5-step migration path (stable IDs → sidecar files → stop editing generated md → `spec:check` in the verify gate → task-local slices). First-adopter candidate: a bounded sub-area such as the multi-chat substrate's records, not the full SPEC.
-  - Traceability: D134.
-  - Design doc: `docs/design/DEV_WORKFLOW_EVOLUTION.md` (canonical reference, including the three-layer framing and convergence question); `docs/design/INTENT_SPEC_EVOLUTION.md` (broader synthesis context).
+- **Structured development spec registry** — prototype file-backed canonical spec records, deterministic checks, generated markdown views, and task-local slices for Brunch's own development workflow.
+  - Meaning: self-tooling experiment for Brunch's development process, not product functionality. It would make `memory/SPEC.md` / `memory/PLAN.md` generated views over structured records to reduce drift and merge conflicts.
+  - Status: design horizon, not a migration commitment.
+  - Design doc: `docs/design/DEV_WORKFLOW_EVOLUTION.md`.
 
 - **Portability boundaries** — split durable store/read-model, interview session runtime, and workspace capability provider if Brunch targets hosted, remote, embedded, or sandbox-backed operation.
-  - Status: deferred. Some enabling seams already exist (query domains, workflow projector, no persisted `cwd` on specifications), but adapter-backed portability is not on the live roadmap.
+  - Meaning: future architecture boundary map for non-local deployments or adapter-backed execution. Deferred until hosted/remote/sandbox operation becomes a product goal.
   - Deep design source: `docs/design/PORTABILITY_BOUNDARIES.md`.
-- Headless interview driver for scripted end-to-end probes.
-- MCP server adapter for core operations.
-- Git-friendly file-based persistence representation for diffable exported specs.
-- Typed fixture-builder convergence for happy-path tests.
 
 ## Recently Completed
 
 - [2026-05-11] **Side-chat V3.1 — agent-grouped reconciliation resolution** (FE-674, PR #124 + downstack) — closes the V3.x arc end-to-end. Server: `POST /api/specifications/:id/reconciliation-needs/run-agent` (spec-level classifier loop) and `POST /api/specifications/:id/reconciliation-needs/:needId/reset-agent` (per-row Re-run) walk every awaiting open need through I114's `null → queued → classifying → classified | failed` lifecycle; agent_classification persists one of `auto-confirm` / `auto-edit` / `substantive`; agent_proposal carries an optional text suggestion. Client: `<ClassificationChip>` renders six visual variants per row; `<RunAgentButton>` in the Pending review header with conditional 1s polling while any need is in flight; per-row Re-run on classified/failed rows; per-class action buttons (`auto-confirm` → Confirm, `auto-edit` → View proposal + Apply + Skip, `substantive` → Open side-chat via `useSideChat().openFor`); bulk Confirm-all (N) and Apply-all-suggested (N) iterate serially over existing per-row endpoints. Listing endpoint extended with `target_item_kind` + `target_reference_code` to feed the Open-side-chat handoff. Verified: `npm run verify` 1178 / 1179 pass (one unrelated `side-chat-route` flake). **Watch**: A88 outer-loop walkthrough has not yet happened — empirical signal on whether agent grouping helps legibility vs V3.0's flat list remains open; capture qualitative notes during the next manual walkthrough on a dense spec.
 - [2026-05-11] FE-698 reconciliation context-pack slice — Added a proposal-only reconciliation prompt/context scenario that renders open reconciliation needs with source/target anchors, reason/status, prompt/context fingerprints, and read-only capability metadata. This is substrate-only: no FE-674 need lifecycle endpoint, overlay action, side-chat reducer, or durable mutation behavior. Verified: `npm run verify`. Watch: next FE-698 work can move to broader read-only/proposal-only probes and the Pi adapter spike without treating this pack as a resolution agent.
 - [2026-05-08] **Side-chat V3.0 — hard-impact cascade through `reconciliation_need`** (FE-674, PR #115 + #116 + #117) — three-card stack closes V3.0. Card 1 (PR #115): server `cascade-producer` + `getDownstreamEdges` + `openReconciliationNeedIfAbsent`; hard-impact apply mutates the source and opens one need per typed dependency edge; response shape adds `openedNeedIds`; partial-unique-index dedupe. Card 2 (PR #116): drop deferred banner; new `GET /api/specifications/:id/reconciliation-needs` endpoint and `useSpecificationOpenReconciliationNeeds` query; patch-list overlay renders a Pending review section listing open needs with kind chip and source/target references. Card 3 (PR #117): idempotent `POST /api/specifications/:id/reconciliation-needs/:needId/resolve` endpoint and per-row Resolve button; mutation pending state disables the button mid-flight. Verified: `npm run verify` (1063 tests, 0 lint warnings). Watch: A88 (Path 1 sufficiency without agent) is partially validated mechanically — full validation depends on outer-loop walkthrough on dense graphs. V3.1 (agent-grouped resolution) shipped 2026-05-11; richer per-row kinds beyond single Resolve are V3.1. SIDE_CHAT.md §9 updated to reflect the V3.0 single-action shape.
-- [2026-05-08] FE-674 planning sync — reconciled `docs/design/SIDE_CHAT.md` §5.3 / §8 / §9 / §13 against the downstack FE-697 substrate; SPEC.md adds A88 (Path 1 sufficiency without agent), D146 (cascade routes through `reconciliation_need`, `deferred: true` apply contract removed at V3.0 ship), I113 (apply opens at least one need per typed dependency edge), and rewrites Acceptance Criterion 7. Doc-only, no `src/` touched. PR #110 stacked on FE-704.
-- [2026-05-08] FE-698 prompt/context follow-up hardening — Candidate-spec prompt scenarios no longer advertise durable changeset submission, prompt scenario artifacts report schema version 2 for the fingerprinted shape, scenario definitions require typed context data, empty prompt assets are cached correctly, context-pack anchors use intent vocabulary, and `context-pack.ts` now remains the public entry point over private scenario-specific context-pack modules. Verified: `npm run verify`. Watch: this is still FE-698 continuation hardening; broader generative quality review and additional scenario probes remain later slices.
-- [2026-05-08] FE-698 prompt/context remediation + candidate scenario — Prompt scenario definitions are now discriminated by scenario kind, candidate-spec scenarios render deterministic no-provider proposal artifacts from typed context packs, scenario artifacts include prompt/context fingerprints, server prompt asset copying mirrors current source assets, prompt golden coverage protects production prompt text, and the build-boundary prompt test writes isolated output. Verified: `npm run verify`. Watch: full generative quality review for candidate-spec output remains a later execution/probe slice.
-- [2026-05-08] FE-698 scenario execution error hardening — Scenario execution failures now serialize safe deterministic summaries: API-key-like provider errors are redacted, non-Error rejections avoid object dumps, and ordinary errors remain reviewable. Verified: `npm run verify`.
-- [2026-05-08] FE-698 Anthropic scenario adapter — Added a probe-only Anthropic AI SDK adapter behind the existing `PromptScenarioModelAdapter` seam. Web-research prompt scenarios now map rendered prompts to AI SDK system content and rendered context packs to user prompt content under mocked tests, with unsupported providers rejected before model construction. Verified: `npm run verify`. Watch: this is not the shared AI runtime provider seam; OpenRouter/provider-neutral routing, credential UX, Pi, web tools, CLI/UI, persistence, and Brunch mutations remain out of scope.
-- [2026-05-08] FE-698 prompt scenario execution probe — Web-research prompt scenarios can now execute through an injected fakeable model adapter and serialize `succeeded` / `failed` execution results with raw output or deterministic error text, while no-provider artifacts remain deterministic `not-run` snapshots. Structured parsing is explicitly `not-applicable` for this prose-only web-research path. Verified: `npm run verify`. Watch: real provider adapters, Pi, web tools, CLI/UI, persistence, and mutating Brunch handlers remain out of scope for this foundation slice.
-- [2026-05-07] FE-698 prompt/context foundation slices — Packaged markdown prompt registry + observer and web-research context-pack foundations + scenario runner capture skeleton/composition + agent mutation-surface audit + capability registry metadata. Server interviewer, observer, side-chat, and web-research role prompts now load from markdown assets through a typed prompt registry; observer capture and web-research probes render typed scenario-specific context packs; seeded prompt scenarios compose production prompts with typed context-pack output into deterministic no-provider probe artifacts; and scenario artifacts can declare validated Brunch capability contracts. Review fixes moved observer prompt composition into a pure module and made prompt scenario prompt sources explicit. The agent mutation-surface audit inventories current and projected agent-originated write paths as input to later handler slices. Verified: `npm run verify` for code slices; audit verified by code-search/document consistency. This is a completed foundation within FE-698, not retirement of the whole FE-698 frontier; the live continuation remains in `Next`.
-- [2026-05-07] Side-chat V2 — Edit / Drill-down / Propose-edge plumbing (FE-673, PR #97) — added `edit`, `edge`, and `drill-down` patch kinds. Server `classifyEditImpact` returns `none | soft | hard`; soft applies directly with undo, hard returns `deferred: true` placeholder (removed at V3.0 ship). Client: patch-list reducer + three applier factories with real undo handlers. Verified: `npm run verify` (935 tests, 19 new). Watch: `SideChatPopover` Edit-mode reachability and cascade UX evolve with continuous workspace; V3.0 removed the hard-impact deferred banner.
-- [2026-05-06] Multi-chat substrate + reconciliation needs (FE-697) — `chat` table with one interview chat per spec, nullable `turn.chat_id`, `specification.primary_chat_id`, mirrored `chat.active_turn_id`, plus the `reconciliation_need` queue with directed source/target items, narrow `kind`/`status`, partial unique index on open rows, cascade FK. Spec creation inserts spec + interview chat in one transaction; `advanceHead` is transactional. No user-visible change. Verified: `npm run verify` (673 tests) plus manual fixture playback (39 specs / 81 turns / dual-pointer equivalence). A82 / A83 validated for Phase 1.
-- [2026-05-01] Side-chat V1.1 — Explore vertical slice. End-to-end graph-launched chat interaction shipped: prompt builder, POST `/side-chat` SSE endpoint, popover host, graph-view wiring, SSE consumer, and active-button activation. Follow-up refactor collapsed pending assistant text into the message list and extracted `SideChatHost` so activation is a tree-mount fact.
-- [2026-05-04] Graph view structured-list peer route — `/specification/$id/graph` now renders project-wide entities through the structured-list layout with relationship subsections, relation chips, empty state, row controls, and a back-to-chat affordance. Follow-up active-path filtering and spatial canvas remain horizon work. Verified: `npm run verify` in the FE-643 slice family.
-
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
 ## Dependencies
 
 ```text
-TRACK A — Agent/semantic substrate
+TRACK A — Workspace shell (parallel colleague lane)
+continuous-workspace / phase-addressable interview surface  (active)
+  ├──→ stable host for side-chat persistence and strategy chats
+  └──→ workspace-aware graph / structured-list peer routes
+
+TRACK B — Agent fixture substrate (FE-705 integration lane)
+prompt/context scenario substrate foundation  (completed)
+  └──→ agent capability CLI + LLM-as-user fixture probe  (next, branch-complete off main)
+        ├──→ generated completed-spec fixture candidates
+        ├──→ graph-review oracle + scenario-options probes
+        └──→ Pi harness comparison  (future, FE-635)
+
+TRACK C — Semantic substrate (highest coordination)
 multi-chat-substrate + reconciliation-needs  (completed)
-  ├──→ prompt/context scenario substrate  (completed)
-  │     ├──→ intent graph semantics + progressive checkability  (next)
-  │     ├──→ generative prompt probes before UI  (next)
-  │     │     ├──→ productized web research capability  (horizon)
-  │     │     ├──→ productized candidate-spec completion assist  (horizon)
-  │     │     └──→ post-spec oracle/decomposition frontier  (probe/future product)
-  │     └──→ continuous-workspace  (active, independent UI track but graph-context aware)
-  └──→ semantic-changeset ledger  (horizon)
-        ├──→ relation-first observer enrichment  (horizon, after ontology/policy probes)
-        └──→ architect-loop  (horizon, proposal-only until changeset/reconciliation path)
+  ├──→ intent graph semantics + relation-policy directionality  (next, FE-700)
+  │     ├──→ relation-first observer enrichment  (horizon, first cut already shipped)
+  │     ├──→ robust direct-edit / reconciliation cascade policy
+  │     └──→ graph-review oracle can become semantically meaningful
+  └──→ semantic changeset ledger + proposal-turn staleness  (next, FE-701)
+        ├──→ canonical scenario bundle acceptance
+        ├──→ direct-edit atomicity with caused_by_changeset_id
+        ├──→ stale open proposal detection
+        └──→ architect-loop / verifier/import mutation provenance
 
-TRACK B — Graph/workspace surfaces
-graph-view-structured-list  (completed)
-  ├──→ active-path-filter-and-scope-toggle  (horizon, blocked on server data-layer)
-  ├──→ spatial-canvas-layout  (horizon)
-  └──→ multi-chat-substrate + reconciliation-needs  (completed)
-        ├──→ side-chat-V2-plumbing  (completed, FE-673 PR #97)
-        │     └──→ side-chat-V3.0-cascade-through-reconciliation_need  (completed, FE-674)
-        │           └──→ side-chat-V3.1-agent-grouped-resolution  (completed, FE-674 PR #124)
-        │                 └──→ side-chat-persistence-V4a  (next, FE-675 V4a half)
-        └──→ semantic-changeset ledger  (horizon)
-              └──→ side-chat-V4b-item-versioning-+-branched-exploration  (horizon, FE-675 V4b half)
+TRACK D — Strategy probes and product acceleration
+FE-705 fixtures + FE-700 semantics
+  └──→ graph-review oracle + scenario-options probes  (next, artifact-only)
+        └──→ productized scenario-options / candidate-spec completion assist  (after changesets)
+              ├──→ absorbs / reshapes two-axis interview framing
+              └──→ absorbs / reshapes progressive detail / recursive deflation
 
-TRACK B — Infrastructure
-multi-chat-substrate  (completed)
-  ├──→ semantic-changeset ledger  (horizon)
-  └──→ continuous-workspace  (next)
+TRACK E — Low-conflict parallel work
+first-run provider setup
+workspace hygiene gitignore assist
+productized web research capability
 
-
-
-UNBLOCKED HORIZON
-first-run provider setup  (needs provider spike / scope)
-workspace hygiene gitignore assist  (bounded, dashboard-surface candidate)
-intent-spec ontology + progressive checkability  (needs probe)
-relation-first observer capture  (first cut complete, needs enrichment proving)
-knowledge-edge semantics policy  (discussion/design before observer expansion)
-web-research tools  (gate ready, needs tool impl)
+LOWER-PRIORITY / DEFERRED
+side-chat persistence V4a / V4b
+spatial graph layout + active-path filter
 dashboard metrics
-two-axis interview framing
-progressive detail / recursive deflation
-revisit / edit-mode  (reshaped by reconciliation needs + changeset ledger)
-structured development spec registry  (tooling experiment)
-portability boundaries  (deferred until substrate goal exists)
+MCP adapter / file-based persistence / typed fixture builders
+structured development spec registry
+portability boundaries
 ```
-
