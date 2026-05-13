@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/client/components/app-shell';
 import { ChatScroll } from '@/client/components/chat-scroll';
@@ -61,6 +61,7 @@ export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: Workfl
   // Scroll to the initial phase section on mount
   const sectionRefs = useRef<Map<WorkflowPhase, HTMLDivElement>>(new Map());
   const hasScrolledRef = useRef(false);
+  const sectionPhaseKey = useMemo(() => sections.map((section) => section.phase).join('|'), [sections]);
 
   useEffect(() => {
     return () => setFocusedPhase?.(null);
@@ -78,7 +79,7 @@ export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: Workfl
     }
   }, [initialPhase, activePhase, sections]);
 
-  // Scroll-spy: observe which section is most visible and update focusedPhase
+  // Scroll-spy only cares which phase sections exist; artifact updates should not rebuild the observer.
   useEffect(() => {
     if (!setFocusedPhase) return;
 
@@ -117,7 +118,7 @@ export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: Workfl
     }
 
     return () => observer.disconnect();
-  }, [sections, setFocusedPhase]);
+  }, [sectionPhaseKey, setFocusedPhase]);
 
   const activePhaseState = workflow.phases[activePhase];
   const nextPhase = getNextActivePhase(workflow.phases, activePhase);

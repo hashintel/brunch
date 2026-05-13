@@ -1,5 +1,3 @@
-import { useCallback, useMemo } from 'react';
-
 import { useInvalidateSpecificationQueryDomains } from '@/client/routes/specification/$id/-specification-data.js';
 import type {
   ReviewAction,
@@ -47,57 +45,42 @@ export function useSubmitPhaseIntentMutation({
   specificationId: number;
 }): SubmitPhaseIntentMutationState {
   const { invalidateSpecificationBundle } = useInvalidateSpecificationQueryDomains();
-  const { clearError, errorMessage, isPending, run } = useClientMutation(
-    (request: SubmitPhaseIntentRequest) =>
-      postJsonMutation<SubmitPhaseIntentResponse, SubmitPhaseIntentRequest>(
-        `/api/specifications/${specificationId}/phase-intent`,
-        request,
-        'Failed to submit phase intent',
-      ),
+  const mutation = useClientMutation((request: SubmitPhaseIntentRequest) =>
+    postJsonMutation<SubmitPhaseIntentResponse, SubmitPhaseIntentRequest>(
+      `/api/specifications/${specificationId}/phase-intent`,
+      request,
+      'Failed to submit phase intent',
+    ),
   );
 
-  const submitIntent = useCallback(
-    async (request: SubmitPhaseIntentRequest): Promise<SubmitPhaseIntentResponse | null> => {
-      try {
-        const response = await run(request);
-        await invalidateSpecificationBundle();
-        return response;
-      } catch {
-        return null;
-      }
-    },
-    [invalidateSpecificationBundle, run],
-  );
+  const submitIntent = async (
+    request: SubmitPhaseIntentRequest,
+  ): Promise<SubmitPhaseIntentResponse | null> => {
+    try {
+      const response = await mutation.run(request);
+      await invalidateSpecificationBundle();
+      return response;
+    } catch {
+      return null;
+    }
+  };
 
-  const submitPhaseEntry = useCallback(
-    (phase: WorkflowPhase, options?: { mode?: SpecificationMode }) =>
+  return {
+    submitPhaseEntry: (phase: WorkflowPhase, options?: { mode?: SpecificationMode }) =>
       submitIntent({
         kind: 'phase-entry',
         phase,
         ...(options?.mode ? { mode: options.mode } : {}),
       }),
-    [submitIntent],
-  );
-
-  const submitPhaseContinue = useCallback(
-    (phase: WorkflowPhase) =>
+    submitPhaseContinue: (phase: WorkflowPhase) =>
       submitIntent({
         kind: 'phase-continue',
         phase,
       }),
-    [submitIntent],
-  );
-
-  return useMemo(
-    () => ({
-      submitPhaseEntry,
-      submitPhaseContinue,
-      isPending,
-      errorMessage,
-      clearError,
-    }),
-    [clearError, errorMessage, isPending, submitPhaseContinue, submitPhaseEntry],
-  );
+    isPending: mutation.isPending,
+    errorMessage: mutation.errorMessage,
+    clearError: mutation.clearError,
+  };
 }
 
 export function useSubmitTurnResponseMutation({
@@ -110,17 +93,16 @@ export function useSubmitTurnResponseMutation({
   sendMessage: (message: { text: string }) => Promise<void> | void;
 }): SubmitTurnResponseMutationState {
   const { invalidateSpecificationBundle } = useInvalidateSpecificationQueryDomains();
-  const { clearError, errorMessage, isPending, run } = useClientMutation(
-    (variables: { turnId: number; response: SubmitTurnResponseRequest }) =>
-      postJsonMutation<SubmitTurnResponseResponse, SubmitTurnResponseRequest>(
-        `/api/specifications/${specificationId}/turns/${variables.turnId}/response`,
-        variables.response,
-        'Failed to save response',
-      ),
+  const mutation = useClientMutation((variables: { turnId: number; response: SubmitTurnResponseRequest }) =>
+    postJsonMutation<SubmitTurnResponseResponse, SubmitTurnResponseRequest>(
+      `/api/specifications/${specificationId}/turns/${variables.turnId}/response`,
+      variables.response,
+      'Failed to save response',
+    ),
   );
 
-  const submitTurnResponse = useCallback(
-    async (
+  return {
+    submitTurnResponse: async (
       positions: number[] = [],
       freeText?: string,
       reviewActionOverride?: ReviewAction,
@@ -159,7 +141,7 @@ export function useSubmitTurnResponseMutation({
             };
 
       try {
-        const result = await run({
+        const result = await mutation.run({
           turnId: turn.id,
           response,
         });
@@ -174,16 +156,8 @@ export function useSubmitTurnResponseMutation({
         return false;
       }
     },
-    [invalidateSpecificationBundle, run, sendMessage, turn],
-  );
-
-  return useMemo(
-    () => ({
-      submitTurnResponse,
-      isPending,
-      errorMessage,
-      clearError,
-    }),
-    [clearError, errorMessage, isPending, submitTurnResponse],
-  );
+    isPending: mutation.isPending,
+    errorMessage: mutation.errorMessage,
+    clearError: mutation.clearError,
+  };
 }

@@ -11,6 +11,8 @@ import { ContinuousWorkspaceView } from '../-continuous-workspace-view.js';
 import { WorkspaceFocusProvider, useWorkspaceFocus } from '../../-workspace-focus.js';
 
 const controller = vi.fn<() => ContinuousWorkspaceController>();
+let observerConstructionCount = 0;
+let observerDisconnectCount = 0;
 
 vi.mock('../-continuous-workspace-controller.js', () => ({
   useContinuousWorkspaceController: () => controller(),
@@ -72,6 +74,7 @@ class ImmediateIntersectionObserver {
   readonly callback: IntersectionObserverCallback;
 
   constructor(callback: IntersectionObserverCallback) {
+    observerConstructionCount += 1;
     this.callback = callback;
   }
 
@@ -87,7 +90,9 @@ class ImmediateIntersectionObserver {
     );
   }
 
-  disconnect() {}
+  disconnect() {
+    observerDisconnectCount += 1;
+  }
 
   takeRecords(): IntersectionObserverEntry[] {
     return [];
@@ -104,11 +109,16 @@ function FocusProbe() {
 
 function WorkspaceHarness() {
   const [mounted, setMounted] = useState(true);
+  const [rerenderCount, setRerenderCount] = useState(0);
 
   return (
     <WorkspaceFocusProvider>
+      <div data-testid="workspace-rerender-count">{rerenderCount}</div>
       <FocusProbe />
       {mounted ? <ContinuousWorkspaceView initialPhase="grounding" /> : null}
+      <button type="button" onClick={() => setRerenderCount((current) => current + 1)}>
+        Rerender workspace
+      </button>
       <button type="button" onClick={() => setMounted(false)}>
         Leave workspace
       </button>
@@ -117,6 +127,8 @@ function WorkspaceHarness() {
 }
 
 beforeEach(() => {
+  observerConstructionCount = 0;
+  observerDisconnectCount = 0;
   controller.mockReturnValue(createController());
   vi.stubGlobal('IntersectionObserver', ImmediateIntersectionObserver);
   Element.prototype.scrollIntoView = vi.fn();
@@ -140,5 +152,23 @@ describe('ContinuousWorkspaceView', () => {
     await waitFor(() => {
       expect(screen.getByTestId('focused-phase').textContent).toBe('none');
     });
+  });
+
+  it('does not rebuild the scroll-spy observer when section content changes without phase changes', async () => {
+    controller.mockImplementation(() => createController());
+
+    render(<WorkspaceHarness />);
+
+    await waitFor(() => {
+      expect(observerConstructionCount).toBe(1);
+    });
+
+    screen.getByRole('button', { name: 'Rerender workspace' }).click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace-rerender-count').textContent).toBe('1');
+    });
+    expect(observerConstructionCount).toBe(1);
+    expect(observerDisconnectCount).toBe(0);
   });
 });

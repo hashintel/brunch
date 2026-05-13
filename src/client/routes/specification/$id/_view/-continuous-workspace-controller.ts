@@ -10,7 +10,7 @@ import {
 } from '@/client/mutations/interview-mutations';
 import type { WorkflowPhase } from '@/shared/api-types.js';
 import { brunchDataPartSchemas } from '@/shared/chat.js';
-import type { ActivitySummary, BrunchUIMessage } from '@/shared/chat.js';
+import type { BrunchUIMessage } from '@/shared/chat.js';
 import {
   createConfirmProposedPhaseClosureCommand,
   createForceCloseActivePhaseCommand,
@@ -38,7 +38,6 @@ import {
   sameTurnReferences,
 } from './-interview-controller-core.js';
 import type {
-  InterviewBottomArtifactViewModel,
   InterviewControllerBottomArtifactState,
   InterviewDurableSpecificationState,
 } from './-interview-controller-core.js';
@@ -75,162 +74,6 @@ export interface ContinuousWorkspaceController {
   readonly captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
   readonly chat: ContinuousWorkspaceChatState;
   readonly bottomArtifact: InterviewControllerBottomArtifactState | null;
-}
-
-function useLatestCallback<Args extends readonly unknown[], Return>(
-  callback: (...args: Args) => Return,
-): (...args: Args) => Return {
-  const callbackRef = useRef(callback);
-  callbackRef.current = callback;
-
-  return useCallback((...args: Args) => callbackRef.current(...args), []);
-}
-
-function sameBottomArtifact(
-  left: InterviewBottomArtifactViewModel | null,
-  right: InterviewBottomArtifactViewModel | null,
-) {
-  if (left === right) return true;
-  if (!left || !right || left.kind !== right.kind) return false;
-
-  switch (left.kind) {
-    case 'persisted-turn':
-      return right.kind === 'persisted-turn' && left.turn === right.turn && left.state === right.state;
-    case 'pending-question':
-      return right.kind === 'pending-question' && left.pendingQuestion === right.pendingQuestion;
-    case 'kickoff':
-      return (
-        right.kind === 'kickoff' &&
-        left.kickoff.phase === right.kickoff.phase &&
-        left.kickoff.mode === right.kickoff.mode
-      );
-    case 'recovery':
-      return right.kind === 'recovery' && left.recovery.phase === right.recovery.phase;
-    case 'phase-summary':
-      return (
-        right.kind === 'phase-summary' &&
-        left.phaseSummary.turnId === right.phaseSummary.turnId &&
-        left.phaseSummary.phase === right.phaseSummary.phase &&
-        left.phaseSummary.summary === right.phaseSummary.summary
-      );
-    case 'generating':
-      return right.kind === 'generating' && left.pendingPreface === right.pendingPreface;
-    case 'phase-handoff':
-      return (
-        right.kind === 'phase-handoff' &&
-        left.phase === right.phase &&
-        left.nextPhase === right.nextPhase &&
-        left.summary === right.summary &&
-        left.isReviewPhase === right.isReviewPhase
-      );
-    case 'workflow-complete':
-      return (
-        right.kind === 'workflow-complete' &&
-        left.phase === right.phase &&
-        left.summary === right.summary &&
-        left.isReviewPhase === right.isReviewPhase
-      );
-  }
-}
-
-function useStableBottomArtifact(bottomArtifact: InterviewBottomArtifactViewModel | null) {
-  const stableRef = useRef(bottomArtifact);
-  if (!sameBottomArtifact(stableRef.current, bottomArtifact)) {
-    stableRef.current = bottomArtifact;
-  }
-  return stableRef.current;
-}
-
-function sameStringArray(left: readonly string[], right: readonly string[]) {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function sameActivitySummary(left: ActivitySummary | undefined, right: ActivitySummary | undefined) {
-  if (left === right) return true;
-  if (!left || !right) return false;
-  return left.seconds === right.seconds && sameStringArray(left.tools, right.tools);
-}
-
-function sameEnrichedBottomArtifact(
-  left: InterviewControllerBottomArtifactState | null,
-  right: InterviewControllerBottomArtifactState | null,
-) {
-  if (left === right) return true;
-  if (!left || !right || left.kind !== right.kind) return false;
-
-  switch (left.kind) {
-    case 'persisted-turn':
-      return (
-        right.kind === 'persisted-turn' &&
-        left.turn === right.turn &&
-        left.state === right.state &&
-        left.disabled === right.disabled &&
-        left.errorMessage === right.errorMessage &&
-        sameActivitySummary(left.liveActivity, right.liveActivity)
-      );
-    case 'pending-question':
-      return (
-        right.kind === 'pending-question' &&
-        left.pendingQuestion === right.pendingQuestion &&
-        left.disabled === right.disabled &&
-        sameActivitySummary(left.liveActivity, right.liveActivity)
-      );
-    case 'kickoff':
-      return (
-        right.kind === 'kickoff' &&
-        left.kickoff.phase === right.kickoff.phase &&
-        left.kickoff.mode === right.kickoff.mode &&
-        left.disabled === right.disabled &&
-        left.errorMessage === right.errorMessage
-      );
-    case 'recovery':
-      return (
-        right.kind === 'recovery' &&
-        left.recovery.phase === right.recovery.phase &&
-        left.disabled === right.disabled &&
-        left.errorMessage === right.errorMessage
-      );
-    case 'phase-summary':
-      return (
-        right.kind === 'phase-summary' &&
-        left.phaseSummary.turnId === right.phaseSummary.turnId &&
-        left.phaseSummary.phase === right.phaseSummary.phase &&
-        left.phaseSummary.summary === right.phaseSummary.summary &&
-        left.disabled === right.disabled
-      );
-    case 'generating':
-      return (
-        right.kind === 'generating' &&
-        left.pendingPreface === right.pendingPreface &&
-        left.liveReasoningText === right.liveReasoningText &&
-        left.liveToolsRunning === right.liveToolsRunning &&
-        sameActivitySummary(left.liveActivity, right.liveActivity) &&
-        JSON.stringify(left.liveToolItems ?? null) === JSON.stringify(right.liveToolItems ?? null)
-      );
-    case 'phase-handoff':
-      return (
-        right.kind === 'phase-handoff' &&
-        left.phase === right.phase &&
-        left.nextPhase === right.nextPhase &&
-        left.summary === right.summary &&
-        left.isReviewPhase === right.isReviewPhase
-      );
-    case 'workflow-complete':
-      return (
-        right.kind === 'workflow-complete' &&
-        left.phase === right.phase &&
-        left.summary === right.summary &&
-        left.isReviewPhase === right.isReviewPhase
-      );
-  }
-}
-
-function useStableEnrichedBottomArtifact(bottomArtifact: InterviewControllerBottomArtifactState | null) {
-  const stableRef = useRef(bottomArtifact);
-  if (!sameEnrichedBottomArtifact(stableRef.current, bottomArtifact)) {
-    stableRef.current = bottomArtifact;
-  }
-  return stableRef.current;
 }
 
 export function useContinuousWorkspaceController(): ContinuousWorkspaceController {
@@ -305,27 +148,22 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
     },
     [invalidateEntities, refreshReadModel, runtime],
   );
-  const seedMessages = useMemo(() => [...ephemeralChat.seedMessages], [ephemeralChat.seedMessages]);
 
   const { messages, sendMessage, status, error } = useChat<BrunchUIMessage>({
     id: getSpecificationScopedChatId(durableSpecification.specification.id),
     transport,
-    messages: seedMessages,
+    messages: [...ephemeralChat.seedMessages],
     dataPartSchemas: brunchDataPartSchemas,
     onData: handleChatData,
     onFinish: runtime.handleChatFinish,
   });
-  const { errorMessage: submitTurnResponseErrorMessage, submitTurnResponse } = useSubmitTurnResponseMutation({
+  const submitTurnResponseMutation = useSubmitTurnResponseMutation({
     specificationId,
     turn: durableSpecification.lastTurn,
     sendMessage,
   });
-  const {
-    errorMessage: submitPhaseIntentErrorMessage,
-    submitPhaseContinue,
-    submitPhaseEntry,
-  } = useSubmitPhaseIntentMutation({ specificationId });
-  const controlErrorMessage = submitPhaseIntentErrorMessage ?? error?.message ?? null;
+  const submitPhaseIntentMutation = useSubmitPhaseIntentMutation({ specificationId });
+  const controlErrorMessage = submitPhaseIntentMutation.errorMessage ?? error?.message ?? null;
   const isLoading = status === 'submitted' || status === 'streaming';
 
   // Active-phase messages (phase-filtered for view state + live activity)
@@ -385,8 +223,11 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
 
       const result =
         intent.kind === 'phase-entry'
-          ? await submitPhaseEntry(intent.phase, intent.mode ? { mode: intent.mode } : undefined)
-          : await submitPhaseContinue(intent.phase);
+          ? await submitPhaseIntentMutation.submitPhaseEntry(
+              intent.phase,
+              intent.mode ? { mode: intent.mode } : undefined,
+            )
+          : await submitPhaseIntentMutation.submitPhaseContinue(intent.phase);
       if (!result) {
         return false;
       }
@@ -403,7 +244,7 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
       );
       return true;
     },
-    [isLoading, sendMessage, submitPhaseContinue, submitPhaseEntry],
+    [isLoading, sendMessage, submitPhaseIntentMutation],
   );
 
   const confirmPhaseClosure = useCallback(
@@ -419,10 +260,6 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
     },
     [submitPhaseClosureCommand],
   );
-  const stableSubmitTrackedTurnResponse = useLatestCallback(runtime.submitTrackedTurnResponse);
-  const stableSubmitTurnResponse = useLatestCallback(submitTurnResponse);
-  const stableSubmitTypedPhaseIntent = useLatestCallback(submitTypedPhaseIntent);
-  const stableConfirmPhaseClosure = useLatestCallback(confirmPhaseClosure);
 
   const isAutoSubmittingPhaseIntent = useSpecificationScopedAutoPhaseIntent({
     specificationId,
@@ -471,39 +308,20 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
       question: pendingQuestion,
     });
   }, [activePhase, promoteStreamedFrontierTurnToBundle, viewState.bottomArtifact]);
-  const stableBottomArtifact = useStableBottomArtifact(viewState.bottomArtifact);
 
-  const rawEnrichedBottomArtifact = useMemo(
-    () =>
-      enrichBottomArtifact(stableBottomArtifact, {
-        submitTurnResponseErrorMessage,
-        submitTrackedTurnResponse: stableSubmitTrackedTurnResponse,
-        submitTurnResponse: stableSubmitTurnResponse,
-        liveActivity,
-        isLoading,
-        controlErrorMessage,
-        submitTypedPhaseIntent: stableSubmitTypedPhaseIntent,
-        confirmPhaseClosure: stableConfirmPhaseClosure,
-        liveReasoningText,
-        liveToolItems,
-        liveToolsRunning,
-      }),
-    [
-      controlErrorMessage,
-      isLoading,
-      liveActivity,
-      liveReasoningText,
-      liveToolItems,
-      liveToolsRunning,
-      stableConfirmPhaseClosure,
-      stableSubmitTrackedTurnResponse,
-      stableSubmitTurnResponse,
-      stableSubmitTypedPhaseIntent,
-      stableBottomArtifact,
-      submitTurnResponseErrorMessage,
-    ],
-  );
-  const enrichedBottomArtifact = useStableEnrichedBottomArtifact(rawEnrichedBottomArtifact);
+  const enrichedBottomArtifact = enrichBottomArtifact(viewState.bottomArtifact, {
+    submitTurnResponseErrorMessage: submitTurnResponseMutation.errorMessage,
+    submitTrackedTurnResponse: runtime.submitTrackedTurnResponse,
+    submitTurnResponse: submitTurnResponseMutation.submitTurnResponse,
+    liveActivity,
+    isLoading,
+    controlErrorMessage,
+    submitTypedPhaseIntent,
+    confirmPhaseClosure,
+    liveReasoningText,
+    liveToolItems,
+    liveToolsRunning,
+  });
 
   // Project sections for all realized phases
   const sections = useMemo((): readonly ContinuousWorkspaceSection[] => {

@@ -1,5 +1,4 @@
 import { useMutation } from '@tanstack/react-query';
-import { useCallback, useMemo, useRef } from 'react';
 
 import type { MutationErrorResponse } from '@/shared/api-types.js';
 
@@ -65,26 +64,14 @@ export function useClientMutation<TResponse, TVariables>(
   mutationFn: (variables: TVariables) => Promise<TResponse>,
 ): ClientMutationState<TResponse, TVariables> {
   const mutation = useMutation<TResponse, ClientMutationError, TVariables>({ mutationFn });
-  const { error, isPending, mutateAsync, reset } = mutation;
-  const mutateAsyncRef = useRef(mutateAsync);
-  const resetRef = useRef(reset);
 
-  mutateAsyncRef.current = mutateAsync;
-  resetRef.current = reset;
-
-  const run = useCallback(async (variables: TVariables) => {
-    resetRef.current();
-    return mutateAsyncRef.current(variables);
-  }, []);
-  const clearError = useCallback(() => resetRef.current(), []);
-
-  return useMemo(
-    () => ({
-      run,
-      isPending,
-      errorMessage: error?.message ?? null,
-      clearError,
-    }),
-    [clearError, error?.message, isPending, run],
-  );
+  return {
+    run: async (variables: TVariables) => {
+      mutation.reset();
+      return mutation.mutateAsync(variables);
+    },
+    isPending: mutation.isPending,
+    errorMessage: mutation.error?.message ?? null,
+    clearError: mutation.reset,
+  };
 }
