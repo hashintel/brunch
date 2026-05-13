@@ -6,7 +6,9 @@ argument-hint: "[module or API boundary to explore]"
 
 # Ln Design
 
-Apply Ousterhout's "Design It Twice": generate **3+ radically different module shapes**, compare on depth, and synthesize. The goal is deep modules — small API surfaces hiding significant complexity. Do not implement; this is purely about the shape of the boundary.
+Apply Ousterhout's "Design It Twice": generate **3+ radically different module shapes**, compare on depth, and synthesize. The goal is deep modules — small interfaces hiding significant complexity. Do not implement; this is purely about the shape of the seam.
+
+Use `ln-design` as the deepening pathway from `ln-review`: when review surfaces a shallow module or weak seam, explore alternative deepened module shapes here before routing to `ln-scope` or `ln-refactor`.
 
 ## Input
 
@@ -16,7 +18,9 @@ The module or API boundary: $ARGUMENTS
 
 ### 1. Gather requirements
 
-Understand the problem, the callers, the key operations, constraints, and — crucially — what complexity should be hidden inside vs exposed. Skip steps you already know the answer to.
+Understand the problem, the callers, the key operations, constraints, and — crucially — what complexity should be hidden inside vs exposed. If this design follows an `ln-review` deepening candidate, start from that candidate's files, problem, possible direction, and benefits. Skip steps you already know the answer to.
+
+Read `memory/SPEC.md` first when it exists. Use its lexicon for domain terms and respect its live assumptions, decisions, and invariants. Read `memory/PLAN.md` when the seam touches active or near-horizon work.
 
 ### 2. Generate designs (parallel sub-agents)
 
@@ -27,13 +31,15 @@ Spawn 3+ sub-agents simultaneously. Each must produce a **radically different** 
 - "Optimize for the most common case"
 - "Take inspiration from [specific paradigm or library]"
 
-Each agent returns: **API signature** (types, methods, params), **usage example**, **what it hides**, and **trade-offs**.
+Each agent returns: **interface** (types, methods, params, invariants, ordering constraints, error modes, required configuration, and performance characteristics), **usage example**, **what it hides**, **seam / adapter strategy** where relevant, and **trade-offs**.
 
 ### 3. Present and compare
 
 Show each design sequentially, then compare in prose on:
 
-- **Depth** (Ousterhout's depth test): small surface hiding significant complexity (good) vs large surface with thin implementation (bad)
+- **Depth** (Ousterhout's depth test): small interface hiding significant complexity (good) vs large interface with thin implementation (bad)
+- **Locality**: whether change, bugs, knowledge, and verification concentrate behind the seam
+- **Leverage**: what callers get per fact they must learn about the interface
 - **Ease of correct use** vs ease of misuse
 - **General-purpose vs specialized**: flexibility vs focus
 - **Implementation efficiency**: does the shape allow efficient internals?
