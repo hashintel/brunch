@@ -25,6 +25,7 @@ import {
 import { getPersistedActivitySummary } from '@/shared/specification-state.js';
 import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
+import { useWorkspaceFocus } from '../-workspace-focus.js';
 import { useContinuousWorkspaceController } from './-continuous-workspace-controller.js';
 import { WorkspaceTranscriptArtifacts } from './-workspace-transcript-artifacts.js';
 
@@ -54,6 +55,8 @@ export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: Workfl
   const { specification, workflow, sections, activePhase, captureStatusByTurnId, chat } =
     useContinuousWorkspaceController();
 
+  const workspaceFocus = useWorkspaceFocus();
+
   // Scroll to the initial phase section on mount
   const sectionRefs = useRef<Map<WorkflowPhase, HTMLDivElement>>(new Map());
   const hasScrolledRef = useRef(false);
@@ -69,6 +72,47 @@ export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: Workfl
       hasScrolledRef.current = true;
     }
   }, [initialPhase, activePhase, sections]);
+
+  // Scroll-spy: observe which section is most visible and update focusedPhase
+  useEffect(() => {
+    if (!workspaceFocus) return;
+
+    const elements = Array.from(sectionRefs.current.entries());
+    if (elements.length === 0) return;
+
+    const visibilityMap = new Map<WorkflowPhase, number>();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const phase = (entry.target as HTMLElement).dataset.phaseSection as WorkflowPhase | undefined;
+          if (phase) {
+            visibilityMap.set(phase, entry.intersectionRatio);
+          }
+        }
+
+        let bestPhase: WorkflowPhase | null = null;
+        let bestRatio = 0;
+        for (const [phase, ratio] of visibilityMap) {
+          if (ratio > bestRatio) {
+            bestRatio = ratio;
+            bestPhase = phase;
+          }
+        }
+
+        if (bestPhase) {
+          workspaceFocus.setFocusedPhase(bestPhase);
+        }
+      },
+      { threshold: [0, 0.25, 0.5, 0.75, 1] },
+    );
+
+    for (const [, element] of elements) {
+      observer.observe(element);
+    }
+
+    return () => observer.disconnect();
+  }, [workspaceFocus, sections]);
 
   const activePhaseState = workflow.phases[activePhase];
   const nextPhase = getNextActivePhase(workflow.phases, activePhase);
