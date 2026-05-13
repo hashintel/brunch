@@ -69,7 +69,7 @@ flowchart LR
 - The `chat` table stays the durable primitive; the umbrella adds a substrate seam for threads (one of three shapes — see §3.2 / §7).
 - `reconciliation_need.caused_by_changeset_id` becomes real once changesets land (§3.4). The `caused_by_*` placeholders already in MULTI_CHAT.md §3.4 are the seam.
 - The `changeset` / `change` records (PATCH_LEDGER.md Phase 2) become first-class. The transient client-side "patch" list in the V3.1 side-chat surface goes away with the popover.
-- Context-provision becomes a typed thread-scoped concern with TUNE notation, # mention as a substrate-level mutation, and turn-zero seeding (§3.5).
+- Context-provision becomes a typed thread-scoped concern with TOON notation, # mention as a substrate-level mutation, and turn-zero seeding (§3.5).
 
 ## 3. Architecture layers
 
@@ -166,7 +166,7 @@ Threads carry a **context spec** at inception. Established via turn-zero. Mutate
 **Format**
 
 - Item *content* serializes as markdown.
-- Graph *structure* (items + typed edges) serializes as **TUNE notation** — the token-efficient compact format named in the architecture review. Established as the canonical format primitive for graph-shaped context.
+- Graph *structure* (items + typed edges) serializes as **TOON notation** — the token-efficient compact format named in the architecture review. Established as the canonical format primitive for graph-shaped context. [toonformat.dev](https://toonformat.dev/) is one candidate implementation.
 - `reconciliation_need` rows serialize as a compact list with kind, source, target, and `agent_classification` if present.
 
 **`#` mention as a substrate mutation**
@@ -246,7 +246,7 @@ Track 4: Changeset ledger
 
 Track 5: Context provision
   ├─ thread_context_item join (or equivalent — depends on Track 2's substrate choice)
-  ├─ TUNE notation serializer
+  ├─ TOON notation serializer
   ├─ Per-kind context-spec defaults in the prompt assembler
   ├─ # mention parser + resolver + UI affordance
   └─ Turn-zero kickoff prompt assembly per kind
@@ -284,7 +284,7 @@ Dependencies
 - **Direct-edit thread-opening UX** — when a direct edit on the structured-list view triggers hard-impact cascade, does the system open (a) a fresh side thread anchored to the edited item, (b) append to the active reconciliation thread, or (c) both, contextually? Deferred to Track 3 / Track 4 design.
 - **`thread_context_item` join shape** — depends on §3.2. If threads are child `chat` rows, this join hangs off `chat`. If threads are a new table, off `thread`. If UI-only, the join is per-`chat`. Settled with Track 2.
 - **# mention disambiguation** — what does `#requirement-foo` resolve to when multiple items share a reference fragment? Track 5 design.
-- **TUNE notation library** — adopt an external implementation or write a minimal serializer? Track 5 spike. The choice affects token budget and test coverage but not architecture.
+- **TOON notation library** — adopt an external implementation ([toonformat.dev](https://toonformat.dev/) is one candidate) or write a minimal serializer? Track 5 spike. The choice affects token budget and test coverage but not architecture.
 - **Async-classifier scheduling primitive** — in-process loop / BullMQ-style queue / pg-boss / inline scheduler. PATCH_LEDGER.md and CARDS.md Card 5 both punt this to "promote to a queue substrate only if outer-loop walkthroughs surface user-visible blocking." Stays deferred under Track 3.
 - **Reconciliation thread lifecycle** — is there one persistent reconciliation thread per spec (always exists, always reflects current queue state), or one per Reconcile Now invocation (transient, archived when resolved)? Track 3 design.
 - **Cursor-style sub-agent runs in the interview chat** — does the chat runtime own a generic "spawn a sub-agent run" affordance, or is reconciliation thread the only sub-run kind for V1? Track 2 design.
