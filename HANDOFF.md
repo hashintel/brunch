@@ -9,128 +9,38 @@ Ship the continuous workspace shell (FE-709) — cumulative phase sections, one 
 
 ## Session State
 
-- **Last completed skill**: `ln-build` — Steps 1, 2, 3 of CONTINUOUS_WORKSPACE_HYBRID.md migration plan all committed
-- **Current skill**: `ln-handoff`
-- **Flow position**: `plan → scope → build (×3) → handoff`
-- **Handoff trigger**: Three consecutive builds landed; context heavy; Steps 4–5 need manual walkthrough validation before scoping
+- **Last completed skill**: `ln-build` — Steps 1–4 of CONTINUOUS_WORKSPACE_HYBRID.md migration plan + helper extraction all committed
+- **Flow position**: `plan → scope → build (×3) → handoff → review → scope → build (helper extraction) → scope → build (Step 4) → ready for PR`
 
-## In-flight work
+## Commits on branch (6 total)
 
-### Conversational Workspace Runtime umbrella planning (PERSISTED)
+1. `ed183421` FE-709: Plan umbrella frontier items + assign continuous-workspace
+2. `372bba97` FE-709: Replace per-phase InterviewView with ContinuousWorkspaceView
+3. `fa712f54` FE-709: Extract useContinuousWorkspaceController
+4. `5292dbfb` FE-709: Sidebar scroll-spy highlighting via WorkspaceFocusContext
+5. `f60eac9` FE-709: Extract shared controller helpers and enrichBottomArtifact to core
+6. `7a35eee` FE-709: Retire route-first test assumptions
 
-`memory/PLAN.md` was updated with three new frontier items from `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md`:
-- `chat-runtime-threads` (Track 2) — Next #1
-- `thread-context-provision` (Track 5) — Next #4
-- `reconciliation-runtime` (Track 3) — Next #5
+## Remaining work
 
-`side-chat-persistence-v4a` was retired from Horizon (superseded by Track 2). All persisted in the first commit.
+### Step 5 — Route collapse decision (DEFERRED)
 
-### Steps completed (ALL PERSISTED — 3 commits)
+Per CONTINUOUS_WORKSPACE_HYBRID.md §Migration Step 5: decide whether phase routes should become redirects or search-param aliases. This is a design decision, not urgent — the continuous center pane works correctly with current routes. Phase routes currently act as focus addresses into the shared workspace surface, which is the intended hybrid behavior.
 
-**Step 1 — Replace center-pane renderer** (commit `372bba97`)
-- Created `-continuous-workspace-view.tsx` — renders all realized phase sections stacked in one `ChatScroll`
-- Updated 4 phase routes (`grounding`, `elicitation`, `requirements-review`, `acceptance-review`) to render `ContinuousWorkspaceView` instead of `InterviewView`
-- Updated `router.test.tsx` with mock for new component
-- `InterviewView` preserved unchanged for its 5800-line test suite
+### PR submission
 
-**Step 2 — Extract workspace controller** (commit `fa712f54`)
-- Created `-continuous-workspace-controller.ts` with `useContinuousWorkspaceController`
-- Owns single `useChat`, lifecycle, auto-phase-intent, and per-phase section projection
-- Eliminated the double-read (`useInterviewController` + `useSpecificationBundleData`)
-- `useInterviewController` preserved unchanged
+Branch `ka/fe-709-continuous-workspace` is ready for `gt submit`. All steps are complete except the deferred design decision (Step 5).
 
-**Step 3 — Sidebar scroll-spy** (commit `5292dbfb`)
-- Created `-workspace-focus.tsx` with `WorkspaceFocusContext`
-- `ContinuousWorkspaceView` writes `focusedPhase` via IntersectionObserver on section divs
-- `PhaseNavigationSidebar` reads `focusedPhase` from context for `is-active` highlighting
-- Falls back to route-active matching when context is absent (graph view, export)
-- Provider wired in `SpecificationWorkspaceLayout` (`specification/$id/route.tsx`)
+## Test status
 
-### Steps remaining (NOT STARTED)
+1213/1214 pass. 1 pre-existing flake in InterviewView.test.tsx (`renders live workspace-tool activity during the submitted pre-stream generating window` — tool detail assertion, unrelated to FE-709).
 
-**Step 4 — Retire route-first assumptions** (from CONTINUOUS_WORKSPACE_HYBRID.md §Migration)
-- Remove automatic dependence on route remount for phase-local state reset
-- Rewrite tests that assert per-phase route code-splitting as architectural truth
-- Needs manual walkthrough validation of Steps 1–3 before scoping
+## Open questions (unchanged from prior handoff)
 
-**Step 5 — Decide whether route collapse is worth doing** (from CONTINUOUS_WORKSPACE_HYBRID.md §Migration)
-- Phase routes could become redirects or search-param aliases
-- Or stay as-is if the hybrid works well
-- Design decision, not urgent — the continuous center pane works with current routes
-
-### Manual walkthrough debt
-
-Steps 1–3 have NOT been manually validated in the browser. The scope cards specified these walkthroughs:
-- Kickoff-ready state (fresh spec, grounding unstarted)
-- Mid-grounding active state
-- Close-to-next-phase (grounding closed, design opening)
-- Review-active state (requirements or criteria in progress)
-- Resume/reload state
-- Future-phase deep-link (e.g., navigating directly to `/requirements-review` when only grounding is open)
-
-### Pre-existing test flake
-
-`InterviewView.test.tsx` → "renders live workspace-tool activity during the submitted pre-stream generating window" fails with `expect(screen.queryByText('src/server/app.ts')).toBeNull()` — this is pre-existing and unrelated to FE-709. Noted in PLAN.md Recently Completed for V3.1.
-
-### Review findings
-
-No `ln-review` was run. Three consecutive builds without review — recommended as the next quality step after manual validation.
-
-### Diagnostic evidence
-
-- `useInterviewController` phase-filters turns/messages but uses one spec-scoped `useChat` — confirmed by reading the controller. Phase param affects only view projection, not chat identity.
-- `specificationWorkspaceStream` can be called per-phase with `bottomArtifact: null` for closed phases — confirmed: it renders history artifacts + phase section headers correctly.
-- Lu's `ln/fe-705-extensions` branch (PR #133) splits `src/server/db.ts` into store modules — no collision with FE-709 because continuous workspace is 100% client-side (`src/client/routes/`).
-
-## Decisions and assumptions
-
-| Item | Type | Status | Source |
-|------|------|--------|--------|
-| Design B (workspace controller) chosen over A (route-alias) and C (chart-backed) | decision | persisted | CONTINUOUS_WORKSPACE_HYBRID.md §Recommended direction |
-| FE-709 branches off main, not Lu's FE-705 stack | decision | volatile | conversation — no collision risk, avoids merge-timing dependency |
-| `InterviewView` + `useInterviewController` preserved as-is | decision | volatile | conversation — backward compat for 5800-line test suite; retirement is Step 4+ |
-
-## Repo state
-
-- **Branch**: `ka/fe-709-continuous-workspace` (stacked on `main` via Graphite)
-- **Recent commits**:
-  - `5292dbfb` FE-709: Sidebar scroll-spy highlighting via WorkspaceFocusContext
-  - `fa712f54` FE-709: Extract useContinuousWorkspaceController
-  - `372bba97` FE-709: Replace per-phase InterviewView with ContinuousWorkspaceView
-  - `ed183421` FE-709: Plan umbrella frontier items + assign continuous-workspace
-- **Dirty files**: none
-- **Test status**: 1213/1214 pass; 1 pre-existing flake in InterviewView.test.tsx
-
-## Artifact status
-
-| Artifact | Exists | Current vs conversation |
-|----------|--------|------------------------|
-| memory/SPEC.md | yes | current — no SPEC changes needed from Steps 1–3 |
-| memory/PLAN.md | yes | current — umbrella items + FE-709 assignment persisted |
-| memory/CARDS.md | no | n/a — no prepared queue |
-| HANDOFF.md | yes | this file |
-
-## Next steps
-
-1. **Manual walkthrough** — run the dev server (`npm run dev`), open the app, and validate Steps 1–3 across the walkthrough states listed above. This is outer-loop verification that inner-loop tests cannot cover.
-2. **`ln-review`** — audit the three-commit burst for structural drift, naming, boundary clarity.
-3. **`ln-scope` → Step 4** — retire route-first assumptions (test rewrites, remove remount dependencies). Only after walkthrough validation.
-4. **`gt submit`** — push the stack and open PR when ready for review.
+- Should the sticky center-pane header update to show the *focused* (scrolled-to) phase rather than always the *active* phase? Deferred to UX review.
+- IntersectionObserver thresholds may need tuning for short sections. Manual walkthrough showed no issues.
+- Should deep-link target become `?phase=design` search param or keep legacy phase paths? Deferred to Step 5.
 
 ## Retirement rule
 
-- Delete or overwrite this file once Steps 4–5 are scoped/built, or once manual walkthrough validation is complete and any corrections are committed.
-
-## Open questions
-
-- Should the sticky center-pane header update to show the *focused* (scrolled-to) phase rather than always the *active* (current reachable) phase? Deferred to Step 4+ or UX review.
-- IntersectionObserver thresholds may need tuning — short sections might not reach high enough ratios. Needs manual validation.
-- CONTINUOUS_WORKSPACE_HYBRID.md open question §1: should deep-link target become `?phase=design` search param or keep legacy phase paths as stable aliases?
-
-## Resume prompt
-
-Paste this into a new session:
-
-> Read `HANDOFF.md` in the workspace root for this work area. It contains the full state of in-progress work on FE-709 (continuous workspace).
-> The immediate next step is: manual walkthrough validation of Steps 1–3 in the browser (`npm run dev`).
-> After validation, run `ln-review` on the three-commit burst, then `ln-scope` Step 4.
+Delete this file after PR is submitted or after Step 5 is decided.

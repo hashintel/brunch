@@ -93,7 +93,7 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
   );
   const { durableSpecification, ephemeralChat } = useInterviewDataAdapter(specificationState);
 
-  // Active-phase turn stabilization (lifted from useInterviewController)
+  // Active-phase turn stabilization
   const phaseTurnIds = useMemo(() => buildPhaseTurnIds(turns, activePhase), [activePhase, turns]);
   const durablePhaseTurns = useMemo(
     () => turns.filter((turn) => turn.phase === activePhase),
