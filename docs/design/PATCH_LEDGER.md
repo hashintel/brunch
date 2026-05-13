@@ -1,6 +1,6 @@
 # Patch Ledger and Reconciliation
 
-> Status: working design proposal.
+> Status: **historical design pressure** — retained for semantic mutation history, reconciliation bases, target ordering, and phase-two ledger rationale. Future-facing schema and operation vocabulary is **changeset/change**, not patch/patch_change; the consolidated runtime concept lives in [CONVERSATIONAL_WORKSPACE_RUNTIME.md](./CONVERSATIONAL_WORKSPACE_RUNTIME.md).
 > Date: 2026-05-05.
 > Scope: Brunch runtime product persistence, not the file-backed development registry explored elsewhere.
 
@@ -18,13 +18,13 @@ Brunch is moving from a single interview transcript toward an intent-graph works
 
 The current persistence model still treats `turn` as the main historical spine: turns belong directly to a `specification`, and knowledge items are linked back to turns through `turn_knowledge_item`.
 
-That works for an interview-led product, but it becomes strained once semantic changes can originate outside the primary conversation. The proposal here is to separate three authorities:
+That works for an interview-led product, but it becomes strained once semantic changes can originate outside the primary conversation. The proposal here is to separate three authorities. The original wording used `patch`; current canonical vocabulary uses `changeset` / `change` for that middle authority:
 
 ```text
 chat / turn:
   conversational provenance and replay
 
-patch:
+changeset / change:
   semantic mutation history for the intent graph
 
 reconciliation_need:

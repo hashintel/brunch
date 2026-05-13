@@ -1,10 +1,10 @@
 # Multi-Chat Substrate — Design Spec
 
-> Output of brainstorm session 2026-05-05 with Lu. First phase of the larger intent-graph evolution now captured in `memory/SPEC.md` as the split between conversational turn history, current intent-graph truth, reconciliation needs, and future semantic changesets / patches. Substrate-only: data model, relationships, migrations. Reconciliation-agent loop, side-chat UI changes, and the full patch ledger are deliberately out of scope.
+> Output of brainstorm session 2026-05-05 with Lu. First phase of the larger intent-graph evolution now captured in `memory/SPEC.md` as the split between conversational turn history, current intent-graph truth, reconciliation needs, and future semantic changesets / changes. Substrate-only: data model, relationships, migrations. Reconciliation-agent loop, side-chat UI changes, and the full changeset ledger are deliberately out of scope.
 >
-> Status: **proposed** — pending review before transitioning to an implementation plan.
+> Status: **shipped substrate reference** — the Phase 1 `chat` / `turn.chat_id` / `specification.primary_chat_id` / `reconciliation_need` substrate has landed. Use this document for schema rationale and migration invariants; use [CONVERSATIONAL_WORKSPACE_RUNTIME.md](./CONVERSATIONAL_WORKSPACE_RUNTIME.md) for the consolidated future runtime concept.
 >
-> Relationship to side-chat design: this document supersedes older side-chat substrate assumptions. The side-chat UI may still stage proposed changes in an in-memory patch list, but durable multi-chat and reconciliation storage should follow this RFC rather than earlier patch/event-stream assumptions.
+> Relationship to side-chat/runtime design: this document superseded older side-chat substrate assumptions for Phase 1. Future thread hierarchy, persistent side-chat history, and reconciliation-in-stream decisions are folded into the conversational workspace runtime synthesis.
 
 ## 1. Concept & problem
 

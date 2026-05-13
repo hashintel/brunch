@@ -10,21 +10,57 @@ Canonical project memory lives in:
 
 Use design documents for deeper argumentation, raw synthesis, alternatives, and qualifying principles that are too large for `memory/SPEC.md` or `memory/PLAN.md`. Promote conclusions into canonical memory through the `ln-spec` and `ln-plan` workflows before treating them as roadmap commitments.
 
-Status language:
+## Status language
 
-- `raw synthesis / ideation` — broad source material; requires grilling before promotion.
+- `source archive / raw synthesis` — broad source material preserved for provenance; active docs may cite it, but it is not live guidance.
 - `working design proposal` — a shaped proposal that may guide planning, but still needs canonical SPEC / PLAN links.
+- `active synthesis` — the current cross-document concept map for a cluster; subsystem/source docs remain useful for details, but this doc owns the combined direction.
+- `shipped substrate reference` — an RFC whose first implementation has landed; use it for invariants, migrations, and historical rationale, but check `memory/SPEC.md` / `memory/PLAN.md` for current status.
+- `historical design pressure` — still valuable for unresolved questions or algorithms, but terminology or product shape has been superseded.
+- `interim backlog` — shaped impulses that are deliberately not in the plan until their triggers fire.
+- `future-facing draft` — intentionally deferred architecture map.
 - `archived` — historical context only; no longer live design guidance.
 
-Current live design proposals:
+## Live index
 
-- `MULTI_CHAT.md` — concrete phase-one substrate for chat containers and reconciliation needs.
-- `PATCH_LEDGER.md` — deeper semantic mutation history and reconciliation design pressure after the multi-chat substrate.
-- `INTENT_SPEC_EVOLUTION.md` — broader intent-spec ontology and progressive checkability synthesis (raw, the source for the more focused docs below).
-- `INTENT_GRAPH_SEMANTICS.md` — product-layer ontology, edge taxonomy, relation policy, and progressive-checkability binding. Canonical reference for FE-700.
-- `BEHAVIORAL_KERNELS.md` — product-layer behavioral-kernel typology, kernel cards, signal-phrase routing, and the contrastive-question interviewer workflow. Canonical reference for FE-702 kernel probes.
-- `DEV_WORKFLOW_EVOLUTION.md` — **dev-layer** trajectory for the `ln-*` skill family, the proposed file-backed spec registry, and the long-horizon convergence between dev and product ontologies. Distinct from the product-layer docs above; not part of `memory/SPEC.md`.
-- `DEFERRED_RECONCILIATIONS.md` — interim backlog of shaped product-direction items (SPEC requirements, assumptions, PLAN horizon items, future design docs) that are ready for promotion but deliberately deferred until prerequisite work fires their triggers. Delete the file when all entries have promoted.
+### Product ontology and strategy
+
+| Document | Role |
+| --- | --- |
+| `INTENT_GRAPH_SEMANTICS.md` | Product-layer ontology, edge taxonomy, relation policy, and progressive-checkability binding. Canonical design reference for FE-700. |
+| `BEHAVIORAL_KERNELS.md` | Behavioral-kernel typology, kernel cards, signal-phrase routing, and contrastive-question workflow. Canonical design reference for kernel probes. |
+| `SPEC_EVOLUTION_STRATEGIES.md` | FE-705-era synthesis for chat-local strategies, scenario options, graph review, proposal turns, relation directionality, and candidate bundles. Graduated into `memory/SPEC.md` / `memory/PLAN.md`; keep as rationale. |
+| `AGENT_MUTATION_SURFACE.md` | Audit of agent-originated/adjoining mutation paths and the capability/changeset boundary needed before agents write durable truth. |
+
+### Conversational workspace runtime cluster
+
+| Document | Role |
+| --- | --- |
+| `CONVERSATIONAL_WORKSPACE_RUNTIME.md` | **Active synthesis** for the continuous workspace + unified chat + reconciliation + changeset-ledger concept. Use this as the first stop for the cluster. |
+| `MULTI_CHAT.md` | Shipped substrate reference for `chat`, `turn.chat_id`, `specification.primary_chat_id`, and `reconciliation_need`. |
+| `SIDE_CHAT.md` | User-surface history and phasing for side-chat V1–V3.1, with V4 notes. Future runtime direction is folded into `CONVERSATIONAL_WORKSPACE_RUNTIME.md`. |
+| `PATCH_LEDGER.md` | Historical design pressure for semantic mutation history and reconciliation ordering. Future-facing vocabulary is `changeset` / `change`; see `CONVERSATIONAL_WORKSPACE_RUNTIME.md` and `memory/PLAN.md`. |
+| `CONTINUOUS_WORKSPACE_HYBRID.md` | Workspace-shell shape exploration; owns the route-alias / workspace-controller / chart-backed-supervisor choice. |
+
+### Dev process and deferred impulses
+
+| Document | Role |
+| --- | --- |
+| `DEV_WORKFLOW_EVOLUTION.md` | Dev-layer trajectory for the `ln-*` skill family, `memory/` ontology, proposed file-backed spec registry, and possible dev/product ontology convergence. Not product SPEC. |
+| `DEFERRED_RECONCILIATIONS.md` | Interim backlog for product impulses that are worthy but intentionally gated. Audit before promoting or retiring entries. |
+
+### Isolated / future-facing notes
+
+| Document | Role |
+| --- | --- |
+| `PORTABILITY_BOUNDARIES.md` | Future adapter/hosting/remote-workspace boundary map. |
+| `GRAPH_KIND_CHIP_TOGGLE.md` | Standalone graph-view split-button chip proposal; audit against current horizon before implementation. |
+
+### Archived source
+
+| Document | Role |
+| --- | --- |
+| `../archive/design/INTENT_SPEC_EVOLUTION.md` | Raw synthesis / ideation source for the May 2026 intent-spec evolution work. Active docs above supersede its conclusions. |
 
 Schema reference artifacts are intentionally kept outside this design directory. The canonical generated DBML lives at `docs/schema.dbml` and is derived from `src/server/schema.ts`; do not add parallel `schema.dbml` or `schema.dbdiagram` copies under `docs/design/`.
 

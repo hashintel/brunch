@@ -1,18 +1,18 @@
 # Deferred Reconciliations — Pending Promotions to SPEC / PLAN
 
-> Status: **interim backlog**.
+> Status: **interim backlog, audited 2026-05-13**.
 > Date: 2026-05-07.
-> Scope: shaped product-direction items derived from the intent-spec synthesis ([`INTENT_SPEC_EVOLUTION.md`](./INTENT_SPEC_EVOLUTION.md)) that are *ready* for promotion but deliberately *deferred* until prerequisite work lands.
+> Scope: shaped product-direction items derived from the archived intent-spec synthesis ([`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md)) that are *worthy but gated*: either partially captured in `memory/SPEC.md` / `memory/PLAN.md`, or deliberately deferred until prerequisite work lands.
 >
 > Each entry below has a clear destination (a `memory/SPEC.md` requirement / assumption / decision, a `memory/PLAN.md` item, or a new design doc) and a clear **trigger condition**. When the trigger fires, promote the entry through the appropriate `ln-*` skill and remove the entry from this file. When the file is empty it can be deleted.
 >
-> This file exists because the items below would otherwise be lost or buried in the synthesis source. They are not on the active plan and they should not appear in agent task slices yet — but they should not have to be re-discovered when their triggers fire either.
+> Audit result: none of the product impulses below should be promoted immediately. Edge metadata and topology-driven ranking are now represented in the FE-700/FE-702 frontier direction, but implementation evidence has not landed. Spec drift has a lexicon entry and remains a plausible product surface, but still lacks the typed-claim substrate that would make it actionable.
 
 ## How to use this doc
 
 1. Before opening a new frontier item, check whether any deferred entries below have triggers that have now fired.
 2. When promoting an entry, route through the canonical skill: `ln-spec` for SPEC.md changes, `ln-plan` for PLAN.md changes. Do not hand-edit canonical memory.
-3. Delete promoted entries from this file. The synthesis source remains in [`INTENT_SPEC_EVOLUTION.md`](./INTENT_SPEC_EVOLUTION.md) for context, but this backlog is the single live tracking place.
+3. Delete promoted entries from this file. The synthesis source remains in [`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md) for context, but this backlog is the single live tracking place.
 4. If a trigger never fires, decide explicitly whether the entry is still relevant or should be retired with a note in the synthesis source.
 
 ---
@@ -25,7 +25,7 @@
 When a generated artifact (criterion, requirement, candidate-spec direction, export bundle, or downstream implementation behavior) diverges from its source claim, Brunch surfaces the divergence in human terms — "original intent vs generated behavior vs potential mismatch" — so the user can validate meaning at the point where it could have changed, rather than after the divergence has been laundered into a final document.
 - **Trigger:** FE-700 lands the `checkability` field and `claimMetadata` so drift can actually be detected at the typed-claim level.
 - **Promotes through:** `ln-spec` patch.
-- **Cross-refs once promoted:** new design doc `docs/design/SPEC_DRIFT.md` (entry C3 below); links to existing Requirement 38 (invariant + example as kinds) and the `spec drift` Lexicon entry that already exists.
+- **Cross-refs once promoted:** proposed design doc `docs/design/SPEC_DRIFT.md` (entry C3 below; not yet created); links to existing Requirement 38 (invariant + example as kinds) and the `spec drift` Lexicon entry that already exists.
 
 **REQ-D2. Disambiguation probes from graph topology.**
 The interviewer can issue contrastive A/B/C disambiguation questions when the typed graph contains a high-fanout assumption, an unwitnessed requirement, an unverified invariant, a decision without rejected alternatives, a goal without derived requirements, or a conflicting constraint. The TiCoder-style move is generalized beyond test cases: the interviewer generates cases where plausible interpretations diverge, then asks the user to classify them; the classifications emit typed claims and edges per [`INTENT_GRAPH_SEMANTICS.md`](./INTENT_GRAPH_SEMANTICS.md).
@@ -67,7 +67,7 @@ After the typed claim metadata lands (FE-700) and the scenario substrate has pro
 - **Trigger:** REQ-D1 promotion + scenario-substrate drift probe complete.
 - **Depends on:** intent graph semantics + progressive checkability (FE-700 → next-3); scenario substrate (FE-698 → next-2); generative prompt probes (FE-702 → next-4).
 - **Promotes through:** `ln-plan` patch.
-- **Once promoted:** point at the new design doc `docs/design/SPEC_DRIFT.md` (entry C3 below).
+- **Once promoted:** point at the proposed design doc `docs/design/SPEC_DRIFT.md` (entry C3 below; not yet created).
 
 **PLAN-D2. Topology-driven next-question ranking interviewer behavior.**
 Refactor the interviewer's next-question selection to consult typed-graph topology (high-fanout low-confidence assumptions, requirements without `verifies` incoming, criteria without targets, decisions without rejected alternatives, conflicting `constrains` edges, goals without derived requirements). Distinct from kernel-driven questions: kernels suggest *what kind* of question; topology heuristics suggest *which item* to ask about.
@@ -80,8 +80,8 @@ Refactor the interviewer's next-question selection to consult typed-graph topolo
 
 ## Pending design docs (1)
 
-**C3. `docs/design/SPEC_DRIFT.md`.**
-Canonical reference for spec-drift detection as a product surface. Layer 4 of the source synthesis's four-layer architecture (intent capture / ambiguity discovery / spec artifact generation / spec drift detection). Should specify:
+**C3. Proposed `docs/design/SPEC_DRIFT.md`.**
+Canonical reference for spec-drift detection as a product surface. This file does not exist yet; create it only if REQ-D1 is promoted. Layer 4 of the source synthesis's four-layer architecture (intent capture / ambiguity discovery / spec artifact generation / spec drift detection). Should specify:
 - What counts as drift (intent ↔ artifact ↔ implementation divergence cases)
 - How drift is detected per artifact type (criterion divergence, candidate-spec divergence, export divergence, implementation behavior divergence)
 - How drift is surfaced in the workspace stream (UI shape, when it interrupts, when it stays passive)
@@ -96,13 +96,13 @@ Canonical reference for spec-drift detection as a product surface. Layer 4 of th
 
 ## When everything has promoted
 
-When this file's three sections (SPEC, PLAN, design docs) are all empty, delete the file. The synthesis source remains in [`INTENT_SPEC_EVOLUTION.md`](./INTENT_SPEC_EVOLUTION.md) and the canonical references stand on their own.
+When this file's three sections (SPEC, PLAN, design docs) are all empty, delete the file. The synthesis source remains in [`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md) and the canonical references stand on their own.
 
 If items remain unpromoted past their triggers (e.g., FE-700 ships but REQ-D1 still hasn't promoted three months later), reopen this file's relevant entry with a note explaining why — either retire it with reasoning, or escalate it to active triage through `ln-consult`.
 
 ## References
 
-- [`INTENT_SPEC_EVOLUTION.md`](./INTENT_SPEC_EVOLUTION.md) — synthesis source for every entry above.
+- [`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md) — synthesis source for every entry above.
 - [`INTENT_GRAPH_SEMANTICS.md`](./INTENT_GRAPH_SEMANTICS.md) — typed-graph reference; entries above all assume this lands first.
 - [`BEHAVIORAL_KERNELS.md`](./BEHAVIORAL_KERNELS.md) — kernel-driven question reference; complementary to topology-driven ranking.
-- `memory/PLAN.md` items 3 (FE-700) and 4 (FE-702) — the active items whose completion will fire most triggers above.
+- `memory/PLAN.md` Next items for FE-700 intent graph semantics and FE-702 graph-review / scenario probes — the frontier items whose completion will fire most triggers above.

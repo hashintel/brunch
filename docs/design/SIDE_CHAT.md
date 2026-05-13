@@ -1,8 +1,8 @@
 # Side-Chat — Design Spec
 
-> Output of brainstorm session 2026-04-30. Subsumes three previously-separate horizon items in `memory/PLAN.md`: graph-launched refinement (D128), trigger-popover composer, and revisit/edit mode (`docs/design/REVISIT_MODULE.md`).
+> Output of brainstorm session 2026-04-30. Subsumes three previously-separate horizon items in `memory/PLAN.md`: graph-launched refinement (D128), trigger-popover composer, and revisit/edit mode (the archived revisit-module concept).
 >
-> Status: **proposed** — pending review before transitioning to implementation plan.
+> Status: **shipped through V3.1; V4 horizon reference** — V1/V2/V3.0/V3.1 user-surface phasing has landed through FE-674. Keep this doc for shipped side-chat history, V4 notes, and UI rationale; use [CONVERSATIONAL_WORKSPACE_RUNTIME.md](./CONVERSATIONAL_WORKSPACE_RUNTIME.md) for the consolidated future runtime direction.
 
 ## 1. Concept & Problem
 
@@ -14,7 +14,7 @@ The side-chat adds a second interaction surface: a popover-to-panel chat that op
 
 - **D128 graph-launched refinement** — the disabled `chat-with` placeholder on each row in `-structured-list-view.tsx` is the seam this design activates.
 - **Trigger-popover composer** (`/` commands, `@` knowledge mentions, `#` phase refs) — folded into the side-chat surface as in-chat affordances.
-- **Revisit/edit mode + cascade preview** (`docs/design/REVISIT_MODULE.md`) — the side-chat panel hosts the cascade preview and the secondary-thread walk, replacing the modal in the current REVISIT design.
+- **Revisit/edit mode + cascade preview** — the side-chat panel hosts the cascade preview and the secondary-thread walk, replacing the older revisit-module/modal design.
 
 ### At a glance — user flow
 
@@ -210,7 +210,7 @@ When a patch with kind `edit` is applied, the system routes by **two questions i
 |---|---|---|
 | **None** | `affectedCount === 0` (item is a graph leaf with no downstream edges) | Apply directly. Single-item content update; brief inline confirmation card in the panel: "Updated `[X]`." |
 | **Soft** | `1 ≤ affectedCount ≤ 2` AND no anchor or affected item is in an active review set *(active = generated and not yet accepted)* | Apply directly with affected-item context. Patch lands directly; brief inline confirmation lists the affected items: "Updated `[X]`; `[Y]`, `[Z]` may need a refresh." No cascade preview or durable `reconciliation_need` rows. |
-| **Hard** | High downstream count, OR any anchor or affected item is in an active review set | **Cascade preview** backed by `reconciliation_need` rows → batch-resolution mode in the side-chat panel (§5.3). The archived REVISIT_MODULE walk is superseded. |
+| **Hard** | High downstream count, OR any anchor or affected item is in an active review set | **Cascade preview** backed by `reconciliation_need` rows → batch-resolution mode in the side-chat panel (§5.3). The archived [REVISIT_MODULE](../archive/design/REVISIT_MODULE.md) walk is superseded. |
 
 ### 5.2 Confidence model — V1
 
@@ -431,7 +431,7 @@ V-versions in §9 describe the *user surface*; substrate phases in `docs/design/
 
 ## Traceability
 
-- **Replaces** PLAN.md horizon items: graph-launched refinement (under D128), trigger-popover composer, revisit / edit mode + cascade preview (`docs/design/REVISIT_MODULE.md` becomes a sub-document of this design).
+- **Replaces** PLAN.md horizon items: graph-launched refinement (under D128), trigger-popover composer, revisit / edit mode + cascade preview (the older revisit-module/modal concept is subsumed by this design).
 - **Reuses** D125 (typed relation policy), D127 (progressive-detail seam), D128 (graph view actionable workspace mode), Requirement 25 (revision card pattern).
 - **Adds** future assumptions A71 (patch/event-stream model), A72 (item versioning), A73 (architect loop).
 - **Bounded by** D80 (no turn-tree branching), D89 (card-owned input), D113 (no second durable workflow model), D66 (user authorizes).
