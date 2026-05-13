@@ -220,7 +220,7 @@ Status: done
 
 ## Card 7 — Workflow and phase outcome store extraction
 
-Status: next
+Status: done
 
 ### Target Behavior
 
@@ -258,7 +258,7 @@ Status: next
 
 ## Card 8 — Specification/chat/turn store extraction
 
-Status: queued
+Status: next
 
 ### Target Behavior
 

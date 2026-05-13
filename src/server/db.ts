@@ -9,24 +9,10 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_FOLDER = join(__dirname, '..', '..', 'drizzle');
 
-import type {
-  SpecificationMode,
-  ReadinessBand,
-  TurnKind,
-  WorkflowPhaseState as SharedWorkflowPhaseState,
-  WorkflowPhaseStatus,
-  WorkflowState as SharedWorkflowState,
-} from '@/shared/api-types.js';
+import type { SpecificationMode, TurnKind } from '@/shared/api-types.js';
 import {} from '@/shared/knowledge.js';
-import {
-  parsePhaseClosureCommand,
-  workflowPhaseOrder,
-  type PhaseClosureBasis,
-} from '@/shared/phase-close.js';
 
-import { safeDeserializeUserParts, type DataConfirmationPart } from './parts.js';
 import * as schema from './schema.js';
-import { projectWorkflowState, type WorkflowProjectionSnapshot } from './workflow-projector.js';
 
 export {
   createAnnotation,
@@ -67,7 +53,6 @@ export {
   materializeAcceptedRequirementsReviewSet,
 } from './db/review-materialization-store.js';
 
-import { countAcceptedKnowledgeItemsForPhase } from './db/entity-projection-store.js';
 export {
   getAcceptedCriterionEntitiesForSpecification,
   getAcceptedKnowledgeItemIdsForPhase,
@@ -87,6 +72,31 @@ export type {
   EntityRelationship,
   RequirementEntity,
 } from './db/entity-projection-store.js';
+
+import { reconcilePhaseOutcomesForSpecification } from './db/workflow-store.js';
+export {
+  confirmPhaseOutcome,
+  createConfirmedPhaseOutcome,
+  createPhaseOutcome,
+  findPhaseOutcomeForTurn,
+  findProposedPhaseOutcomeByTurn,
+  getCurrentPhase,
+  getCurrentWorkflowState,
+  getStructuralArtifactTurnIds,
+  listPhaseOutcomesForSpecification,
+  readWorkflowProjectionSnapshot,
+  supersedePhaseOutcome,
+} from './db/workflow-store.js';
+export type {
+  ClosureBasis,
+  CreatePhaseOutcomeInput,
+  PhaseOutcome,
+  PhaseOutcomeStatus,
+  ReadinessBand,
+  WorkflowPhaseState,
+  WorkflowPhaseStatus,
+  WorkflowState,
+} from './db/workflow-store.js';
 
 export {
   claimReconciliationNeedForClassification,
@@ -114,23 +124,8 @@ export type Turn = Omit<PersistedTurn, 'specification_id'> & {
   specification_id: number;
 };
 export type Option = InferSelectModel<typeof schema.option>;
-export type PhaseOutcome = InferSelectModel<typeof schema.phaseOutcome>;
 export type Phase = Turn['phase'];
 export type Impact = NonNullable<Turn['impact']>;
-export type PhaseOutcomeStatus = PhaseOutcome['status'];
-export type { WorkflowPhaseStatus, ReadinessBand };
-export type ClosureBasis = PhaseClosureBasis | null;
-
-export type WorkflowPhaseState = SharedWorkflowPhaseState;
-export type WorkflowState = SharedWorkflowState;
-
-export interface CreatePhaseOutcomeInput {
-  specificationId?: number;
-  phase: Phase;
-  proposal_turn_id: number;
-  summary: string;
-}
-
 export interface CreateTurnInput {
   parent_turn_id?: number | null;
   phase: Phase;
@@ -340,219 +335,6 @@ export function getActivePath(db: DB, specificationId: number): Turn[] {
 		SELECT * FROM path ORDER BY id ASC
 	`);
   return rows as Turn[];
-}
-
-export function listPhaseOutcomesForSpecification(db: DB, specificationId: number): PhaseOutcome[] {
-  return db
-    .select()
-    .from(schema.phaseOutcome)
-    .where(eq(schema.phaseOutcome.specification_id, specificationId))
-    .orderBy(desc(schema.phaseOutcome.id))
-    .all() as PhaseOutcome[];
-}
-
-function reconcilePhaseOutcomesForSpecification(db: DB, specificationId: number): void {
-  const activeTurnIds = new Set(getActivePath(db, specificationId).map((turn) => turn.id));
-  const outcomesToSupersede = listPhaseOutcomesForSpecification(db, specificationId).filter(
-    (outcome) =>
-      (outcome.status === 'proposed' || outcome.status === 'confirmed') &&
-      !activeTurnIds.has(outcome.proposal_turn_id),
-  );
-
-  for (const outcome of outcomesToSupersede) {
-    db.update(schema.phaseOutcome)
-      .set({
-        status: 'superseded',
-        superseded_at: sql`datetime('now')`,
-      })
-      .where(eq(schema.phaseOutcome.id, outcome.id))
-      .run();
-  }
-}
-
-export function createPhaseOutcome(db: DB, input: CreatePhaseOutcomeInput): PhaseOutcome {
-  const { specificationId } = input;
-  if (!specificationId) {
-    throw new Error('createPhaseOutcome requires specificationId');
-  }
-
-  const result = db
-    .insert(schema.phaseOutcome)
-    .values({
-      specification_id: specificationId,
-      phase: input.phase,
-      proposal_turn_id: input.proposal_turn_id,
-      summary: input.summary,
-      status: 'proposed',
-    })
-    .returning()
-    .get();
-  return result as PhaseOutcome;
-}
-
-function getClosureBasisForConfirmationTurn(db: DB, confirmationTurnId: number): PhaseClosureBasis {
-  const confirmationTurn = getTurn(db, confirmationTurnId);
-  const confirmationPart = safeDeserializeUserParts(confirmationTurn?.user_parts).find(
-    (part): part is DataConfirmationPart => part.type === 'data-confirmation',
-  );
-  const phaseClosureCommand = confirmationPart ? parsePhaseClosureCommand(confirmationPart.data) : null;
-
-  return phaseClosureCommand?.closureBasis ?? 'interviewer_recommended';
-}
-
-export function confirmPhaseOutcome(db: DB, phaseOutcomeId: number, confirmationTurnId: number): void {
-  db.update(schema.phaseOutcome)
-    .set({
-      status: 'confirmed',
-      closure_basis: getClosureBasisForConfirmationTurn(db, confirmationTurnId),
-      confirmation_turn_id: confirmationTurnId,
-      confirmed_at: sql`datetime('now')`,
-    })
-    .where(eq(schema.phaseOutcome.id, phaseOutcomeId))
-    .run();
-}
-
-export function supersedePhaseOutcome(db: DB, phaseOutcomeId: number): void {
-  db.update(schema.phaseOutcome)
-    .set({
-      status: 'superseded',
-      superseded_at: sql`datetime('now')`,
-    })
-    .where(eq(schema.phaseOutcome.id, phaseOutcomeId))
-    .run();
-}
-
-export function createConfirmedPhaseOutcome(
-  db: DB,
-  input: CreatePhaseOutcomeInput & { confirmation_turn_id: number },
-): PhaseOutcome {
-  const { specificationId } = input;
-  if (!specificationId) {
-    throw new Error('createConfirmedPhaseOutcome requires specificationId');
-  }
-
-  const result = db
-    .insert(schema.phaseOutcome)
-    .values({
-      specification_id: specificationId,
-      phase: input.phase,
-      proposal_turn_id: input.proposal_turn_id,
-      summary: input.summary,
-      status: 'confirmed',
-      closure_basis: getClosureBasisForConfirmationTurn(db, input.confirmation_turn_id),
-      confirmation_turn_id: input.confirmation_turn_id,
-      confirmed_at: sql`datetime('now')`,
-    })
-    .returning()
-    .get();
-  return result as PhaseOutcome;
-}
-
-export function findProposedPhaseOutcomeByTurn(
-  db: DB,
-  specificationId: number,
-  proposalTurnId: number,
-): PhaseOutcome | undefined {
-  return db
-    .select()
-    .from(schema.phaseOutcome)
-    .where(
-      and(
-        eq(schema.phaseOutcome.specification_id, specificationId),
-        eq(schema.phaseOutcome.proposal_turn_id, proposalTurnId),
-        eq(schema.phaseOutcome.status, 'proposed'),
-      ),
-    )
-    .orderBy(desc(schema.phaseOutcome.id))
-    .get() as PhaseOutcome | undefined;
-}
-
-export function findPhaseOutcomeForTurn(
-  db: DB,
-  specificationId: number,
-  proposalTurnId: number,
-): PhaseOutcome | undefined {
-  return db
-    .select()
-    .from(schema.phaseOutcome)
-    .where(
-      and(
-        eq(schema.phaseOutcome.specification_id, specificationId),
-        eq(schema.phaseOutcome.proposal_turn_id, proposalTurnId),
-      ),
-    )
-    .orderBy(desc(schema.phaseOutcome.id))
-    .get() as PhaseOutcome | undefined;
-}
-
-function getClosureBasisForOutcome(outcome: PhaseOutcome | undefined): ClosureBasis {
-  if (!outcome || outcome.status !== 'confirmed' || !outcome.confirmation_turn_id) {
-    return null;
-  }
-
-  return outcome.closure_basis ?? null;
-}
-
-export function readWorkflowProjectionSnapshot(db: DB, specificationId: number): WorkflowProjectionSnapshot {
-  const activePath = getActivePath(db, specificationId);
-  const activeTurnIds = new Set(activePath.map((turn) => turn.id));
-  const turns = activePath.map((turn) => ({
-    phase: turn.phase,
-    question: turn.question,
-    answer: turn.answer,
-    optionCount: getOptionsForTurn(db, turn.id).length,
-  })) satisfies WorkflowProjectionSnapshot['turns'];
-  const phaseOutcomes = listPhaseOutcomesForSpecification(db, specificationId).map((outcome) => ({
-    phase: outcome.phase,
-    status: outcome.status,
-    proposalTurnId: outcome.proposal_turn_id,
-    summary: outcome.summary,
-    closureBasis: getClosureBasisForOutcome(outcome),
-    onActivePath: activeTurnIds.has(outcome.proposal_turn_id),
-  })) satisfies WorkflowProjectionSnapshot['phaseOutcomes'];
-
-  return {
-    turns,
-    phaseOutcomes,
-    acceptedReviewItemCounts: {
-      requirements: countAcceptedKnowledgeItemsForPhase(db, specificationId, 'requirements', 'requirement'),
-      criteria: countAcceptedKnowledgeItemsForPhase(db, specificationId, 'criteria', 'criterion'),
-    },
-  };
-}
-
-export function getCurrentWorkflowState(db: DB, specificationId: number): WorkflowState {
-  return projectWorkflowState(readWorkflowProjectionSnapshot(db, specificationId));
-}
-
-export function getStructuralArtifactTurnIds(db: DB, specificationId: number): number[] {
-  const activePath = getActivePath(db, specificationId);
-  const activeTurnIds = new Set(activePath.map((turn) => turn.id));
-  const ids = new Set<number>();
-
-  // Phase outcome anchors: proposal and confirmation turns
-  for (const outcome of listPhaseOutcomesForSpecification(db, specificationId)) {
-    if (activeTurnIds.has(outcome.proposal_turn_id)) {
-      ids.add(outcome.proposal_turn_id);
-    }
-    if (outcome.confirmation_turn_id && activeTurnIds.has(outcome.confirmation_turn_id)) {
-      ids.add(outcome.confirmation_turn_id);
-    }
-  }
-
-  // Legacy transitional: kickoff/recovery turn rows (D95 marks these as transitional)
-  for (const turn of activePath) {
-    if (turn.turn_kind === 'kickoff' || turn.turn_kind === 'recovery' || turn.is_resolution) {
-      ids.add(turn.id);
-    }
-  }
-
-  return [...ids];
-}
-
-export function getCurrentPhase(db: DB, specificationId: number): Phase {
-  const workflow = getCurrentWorkflowState(db, specificationId);
-  return workflowPhaseOrder.find((phase) => workflow.phases[phase].status !== 'closed') ?? 'criteria';
 }
 
 export function getOptionsForTurn(db: DB, turnId: number): Option[] {
