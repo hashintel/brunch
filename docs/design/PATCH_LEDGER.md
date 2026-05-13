@@ -4,6 +4,20 @@
 > Date: 2026-05-05.
 > Scope: Brunch runtime product persistence, not the file-backed development registry explored elsewhere.
 
+## How to read this after the changeset vocabulary shift
+
+This document predates the final vocabulary choice. Treat it as an algorithm and rationale source, not as a naming authority.
+
+| Historical wording here | Current wording / authority |
+|---|---|
+| `patch` | `changeset` — one atomic semantic mutation bundle. |
+| `patch_change` | `change` — one atomic operation inside a changeset. |
+| `caused_by_patch_id`, `resolved_by_patch_id` | Future changeset-backed cause/resolution fields; final column names should be chosen by the FE-701 changeset-ledger design. |
+| Patch list / reconciliation review set | Historical review-surface framing. Current runtime synthesis routes proposals through proposal turns and accepted changesets. |
+| Target ordering and reconciliation bases | Still useful algorithmic pressure. Preserve these concepts when implementing reconciliation threads or graph-review repairs. |
+
+Do not introduce new schema, capability contracts, or operation ids with `patch` / `patch_change` unless deliberately referring to this historical design.
+
 ## Why this note exists
 
 Brunch is moving from a single interview transcript toward an intent-graph workspace. A specification can now plausibly include:
@@ -31,7 +45,7 @@ reconciliation_need:
   semantic debt created when a change may affect existing graph truth
 ```
 
-The intent graph remains the current semantic truth. The patch ledger records how that truth changed. Reconciliation records what may now need renewed judgment.
+The intent graph remains the current semantic truth. The changeset ledger records how that truth changed. Reconciliation records what may now need renewed judgment.
 
 ## Current Shape
 
@@ -80,7 +94,7 @@ This means:
 
 ## Proposed Concepts
 
-`docs/design/MULTI_CHAT.md` is now the concrete phase-one substrate proposal for chat containers and reconciliation needs. This document remains the deeper design pressure for future semantic mutation history, richer reconciliation targeting, ordering, and patch-backed provenance.
+`docs/design/MULTI_CHAT.md` is now the concrete phase-one substrate reference for chat containers and reconciliation needs. This document remains the deeper design pressure for future semantic mutation history, richer reconciliation targeting, ordering, and changeset-backed provenance.
 
 ### Chat
 
@@ -132,11 +146,11 @@ The schema should support a primary chat, but should not require the product mod
 
 Focus fields should be deferred. A chat may eventually focus on one item, one relation, several reconciliation needs, or a graph neighborhood. That likely wants a later `chat_focus` table rather than early nullable columns on `chat`.
 
-### Turn Patch Anchor
+### Turn semantic-state anchor
 
-A turn should know the semantic state that preceded it.
+A turn should know the semantic state that preceded it. Historical examples below say `patch`; current implementations should read this as a changeset or semantic-revision anchor.
 
-Proposed addition:
+Proposed addition, in this document's historical vocabulary:
 
 ```text
 turn
@@ -144,25 +158,25 @@ turn
   preceding_patch_id
 ```
 
-`preceding_patch_id` points to the latest applied patch known to the chat at the moment the turn was created. This gives Brunch a durable historical anchor for reviving old chat threads.
+Read `preceding_patch_id` as `preceding_changeset_id` if the FE-701 schema adopts changeset naming. The field points to the latest applied semantic mutation bundle known to the chat at the moment the turn was created. This gives Brunch a durable historical anchor for reviving old chat threads.
 
 Example:
 
 ```text
-Chat C7 last had a turn after Patch P12.
-Elsewhere, P13-P18 changed the intent graph.
+Chat C7 last had a turn after Changeset C12.
+Elsewhere, C13-C18 changed the intent graph.
 The user returns to C7.
 The new turn can inject context:
   "Since the last turn in this chat, these semantic changes happened elsewhere..."
 ```
 
-This is especially important once multiple chats can mutate one specification. Without a patch anchor, a dormant side chat can accidentally continue from an obsolete semantic worldview.
+This is especially important once multiple chats can mutate one specification. Without a semantic-state anchor, a dormant side chat can accidentally continue from an obsolete semantic worldview.
 
-If the patch ledger is deferred, this field should also be deferred unless Brunch introduces a lightweight semantic revision/checkpoint first. Avoid adding a dangling nullable patch pointer before there is a real patch or revision concept to point at.
+If the changeset ledger is deferred, this field should also be deferred unless Brunch introduces a lightweight semantic revision/checkpoint first. Avoid adding a dangling nullable semantic-history pointer before there is a real changeset or revision concept to point at.
 
-### Patch
+### Patch *(historical name; now changeset)*
 
-A `patch` is a semantic mutation set against the intent graph.
+A `patch` in this document means what current docs call a `changeset`: a semantic mutation set against the intent graph.
 
 It is not a workflow event and should not answer questions like "what phase is the user in?" It answers questions like:
 
@@ -172,10 +186,10 @@ It is not a workflow event and should not answer questions like "what phase is t
 - what previous semantic state did it replace?
 - what downstream graph truth may now be stale?
 
-Proposed table:
+Proposed table, in historical naming:
 
 ```text
-patch
+patch                # current name: changeset
   id
   specification_id
   provenance_json
@@ -201,7 +215,7 @@ status:
 Provenance may want to be a discriminated JSON value rather than only an enum plus nullable foreign keys:
 
 ```typescript
-type PatchProvenance =
+type ChangesetProvenance = // historical draft name: PatchProvenance
   | { kind: 'turn'; turn_id: number; chat_id: number; capture_kind?: 'observer_capture' | 'review_acceptance' }
   | { kind: 'user_direct_edit'; chat_id?: number; actor_id?: string }
   | { kind: 'reconciliation_acceptance'; chat_id?: number; review_set_id?: number }
@@ -212,9 +226,9 @@ type PatchProvenance =
 
 This keeps provenance extensible without adding nullable columns for every initiator shape. The relational columns `initiator_chat_id` and `initiator_turn_id` may still be useful as indexed convenience fields, but they should mirror `provenance_json`, not become a second provenance truth.
 
-`observer_capture` is usually initiated by a chat turn, but patch provenance should not collapse to "chat turn." A turn can initiate a patch; it is not the patch.
+`observer_capture` is usually initiated by a chat turn, but changeset provenance should not collapse to "chat turn." A turn can initiate a changeset; it is not the changeset.
 
-### Patch vs Change Naming
+### Patch vs Change Naming *(resolved)*
 
 The proposed model has two levels:
 
@@ -226,7 +240,7 @@ atomic mutation:
   one add/update/link/unlink/retire operation inside that unit
 ```
 
-Those can be named either way:
+The naming choice was still open when this document was written:
 
 ```text
 Option A:
@@ -238,7 +252,7 @@ Option B:
   change
 ```
 
-`changeset` / `change` may be the clearer database naming because it avoids overloading "patch" with source-control connotations and because "change" naturally names the atomic unit. Under that naming:
+That choice is now resolved in favor of `changeset` / `change` because it avoids overloading "patch" with source-control connotations and because "change" naturally names the atomic unit. Under that naming:
 
 ```text
 changeset:
@@ -248,18 +262,18 @@ change:
   id, changeset_id, operation, target_kind, target_id, before_json, after_json
 ```
 
-The design question is not the word. The invariant is that Brunch needs an atomic semantic mutation set containing one or more atomic changes.
+The design question is not the word. The invariant is that Brunch needs an atomic semantic mutation set containing one or more atomic changes. The current canonical naming is `changeset` / `change`.
 
-### Patch Change
+### Patch Change *(historical name; now change)*
 
-A `patch_change` is one operation inside a patch.
+A `patch_change` in this document means what current docs call a `change`: one operation inside a changeset.
 
-Proposed table:
+Proposed table, in historical naming:
 
 ```text
-patch_change
+patch_change         # current name: change
   id
-  patch_id
+  patch_id           # current name: changeset_id
   operation
   target_kind
   target_id
@@ -310,7 +324,7 @@ decision D constrains requirement R
 
 ```text
 item B changed, so item A may need review
-patch P changed an older premise, so later descendants may need coherence review
+changeset C changed an older premise, so later descendants may need coherence review
 verifier V invalidated criterion C, so requirement R may need review
 ```
 
@@ -326,7 +340,7 @@ reconciliation_need
   status
   reason
   caused_by_turn_id
-  caused_by_patch_id
+  caused_by_patch_id    # historical placeholder; current concept: caused_by_changeset_id
   created_at
   resolved_at
 ```
@@ -343,23 +357,23 @@ status:
   resolved
 ```
 
-This deliberately keeps phase one smaller than the fully expressive model. The first table should represent one directed process obligation from a changed source item to an affected target item, dedupe simultaneously open needs by `(source_item_id, target_item_id, kind)`, and carry enough nullable provenance to be patch-compatible later.
+This deliberately keeps phase one smaller than the fully expressive model. The first table should represent one directed process obligation from a changed source item to an affected target item, dedupe simultaneously open needs by `(source_item_id, target_item_id, kind)`, and carry enough nullable provenance to be changeset-compatible later.
 
 Future extensions can add:
 
 ```text
 basis / strength
-source_patch_id
+source_patch_id        # current concept: source_changeset_id
 affected_relation_from_item_id
 affected_relation_to_item_id
 affected_relation
-resolved_by_patch_id
+resolved_by_patch_id    # current concept: resolved_by_changeset_id
 structured reason payload
 ```
 
 The `affected_relation_*` fields avoid requiring a separate `knowledge_edge.id` migration before this work can start. If `knowledge_edge` later receives a surrogate `id`, `reconciliation_need` can switch to `affected_edge_id`.
 
-`resolved_at` exists in phase one because no-op dismissal and non-patch resolution are useful before the patch ledger exists. Once `resolved_by_patch_id` is available, the timestamp may remain denormalized convenience rather than the only resolution source of truth.
+`resolved_at` exists in phase one because no-op dismissal and non-changeset resolution are useful before the changeset ledger exists. Once changeset-backed resolution is available, the timestamp may remain denormalized convenience rather than the only resolution source of truth.
 
 ## Reconciliation Bases
 
@@ -391,8 +405,8 @@ Example:
 
 ```text
 The user directly edits Knowledge Item K4.
-K4 was last updated by Patch P12.
-Later patches P13-P31 created or updated nearby items from a context that may no longer hold.
+K4 was last updated by Changeset C12.
+Later changesets C13-C31 created or updated nearby items from a context that may no longer hold.
 Those later descendants receive soft reconciliation needs.
 ```
 
@@ -433,7 +447,7 @@ agent attempts reconciliation
   -> present a reviewable set of reconciliation changes
   -> user accepts or comments / requests changes
   -> agent revises and presents the set again
-  -> accepted changes are applied as a patch
+  -> accepted changes are applied as a changeset
 ```
 
 The important difference from ordinary review sets is the agent's first move. Reconciliation should not immediately push every stale item to the user. The agent should attempt to repair, dismiss, or consolidate needs itself when the graph context is sufficient.
@@ -466,8 +480,8 @@ Proposed flow:
    - add clarifying edge or example
    - ask the user a disambiguating question
 9. The user accepts or requests changes.
-10. Accepted reconciliation emits a new patch.
-11. The accepted patch resolves, dismisses, or supersedes the needs.
+10. Accepted reconciliation emits a new changeset.
+11. The accepted changeset resolves, dismisses, or supersedes the needs.
 ```
 
 This mirrors review-set ergonomics without pretending reconciliation is the same as requirements or criteria review.
@@ -479,7 +493,7 @@ reconciliation review set v1
   -> user requests changes with comments
   -> agent creates revised review set v2
   -> user accepts
-  -> accepted reconciliation patch is applied
+  -> accepted reconciliation changeset is applied
 ```
 
 Rejected or superseded reconciliation proposals should remain explainable provenance, but only accepted reconciliation should mutate the intent graph.
@@ -496,7 +510,7 @@ group by affected target
 sort needs within target by:
   1. strength
   2. basis
-  3. source item / source patch
+  3. source item / source changeset
   4. creation time
 build an affected-target graph from semantic relations
 collapse cycles into strongly connected components
@@ -508,26 +522,26 @@ Direction matters. If `Requirement R` depends on `Assumption A`, and `A` changes
 
 Cycles should not block reconciliation. They should be collapsed into a single unit and presented as a coupled coherence problem.
 
-If an accepted reconciliation patch changes an upstream target, downstream needs may become superseded or may need to be regenerated from the new patch. The reconciliation loop should therefore treat topological ordering as a work plan, not as a guarantee that one pass resolves every downstream target.
+If an accepted reconciliation changeset changes an upstream target, downstream needs may become superseded or may need to be regenerated from the new changeset. The reconciliation loop should therefore treat topological ordering as a work plan, not as a guarantee that one pass resolves every downstream target.
 
 ## Can This Be Split Into Two Phases?
 
-Yes, with one caveat: phase one should make `reconciliation_need` future-compatible with patches even if the `patch` table does not exist yet.
+Yes, with one caveat: phase one should make `reconciliation_need` future-compatible with changesets even if the `changeset` table does not exist yet.
 
 The split is plausible because `chat` and `reconciliation_need` each relieve a current architectural pressure independently:
 
 - `chat` creates the missing conversation container below `specification`
 - `reconciliation_need` creates a product-visible place for staleness and coherence work
-- `patch` later upgrades provenance from turn-centered or event-centered records into a true semantic mutation ledger
+- `changeset` later upgrades provenance from turn-centered or event-centered records into a true semantic mutation ledger
 
-The caveat is that historical descendance is only approximate before patches exist. Brunch can detect graph-based semantic dependency in phase one. It cannot precisely answer "which later semantic mutations descend from this older state?" until patch history exists.
+The caveat is that historical descendance is only approximate before changesets exist. Brunch can detect graph-based semantic dependency in phase one. It cannot precisely answer "which later semantic mutations descend from this older state?" until changeset history exists.
 
 ## Phase 1: Multi-Chat Substrate and Reconciliation Need
 
 Goal:
 
 ```text
-Allow multiple chats per specification and introduce durable reconciliation needs without requiring the full patch ledger.
+Allow multiple chats per specification and introduce durable reconciliation needs without requiring the full changeset ledger.
 ```
 
 Schema work:
@@ -555,15 +569,15 @@ Phase-one reconciliation causes:
 
 ```text
 caused_by_turn_id = the turn whose observer capture or review action caused the need
-caused_by_patch_id = null
+caused_by_patch_id = null  # historical placeholder for future changeset-backed provenance
 ```
 
-`caused_by_kind` is intentionally omitted in the concrete phase-one schema while patches do not exist: `caused_by_turn_id` names turn-caused needs, and `caused_by_patch_id` remains null as a placeholder.
+`caused_by_kind` is intentionally omitted in the concrete phase-one schema while changesets do not exist: `caused_by_turn_id` names turn-caused needs, and the historical `caused_by_patch_id` placeholder should be read as future changeset-backed provenance.
 
 Phase-one limitations:
 
 - no exact before / after semantic diff
-- no exact patch chronology
+- no exact changeset chronology
 - no reliable historical descendance beyond turn-linked provenance heuristics
 - reconciliation can identify affected items, but cannot yet provide a full mutation audit
 
@@ -578,50 +592,50 @@ Phase-one implementation slices:
 5. Add deterministic helper to create needs from changed item plus `knowledge_edge` traversal.
 6. Surface a minimal reconciliation queue in data loaders or development fixtures.
 
-## Phase 2: Patch Ledger
+## Phase 2: Changeset Ledger *(formerly Patch Ledger)*
 
 Goal:
 
 ```text
-Make semantic mutations first-class and use patches as the source of reconciliation cause, audit, and historical descendance.
+Make semantic mutations first-class and use changesets as the source of reconciliation cause, audit, and historical descendance.
 ```
 
-Schema work:
+Schema work, translated to current vocabulary:
 
-- add `patch`
-- add `patch_change`
-- add `caused_by_patch_id` and `resolved_by_patch_id` foreign keys if they were not enforced in phase one
-- optionally add `knowledge_item.last_patch_id`
-- optionally add `knowledge_edge.last_patch_id` or give edges surrogate ids
+- add `changeset`
+- add `change`
+- add changeset-backed cause/resolution foreign keys if they were not enforced in phase one
+- optionally add `knowledge_item.last_changeset_id`
+- optionally add `knowledge_edge.last_changeset_id` or give edges surrogate ids
 
 Application work:
 
-- route observer capture through patch creation
-- route accepted review outputs through patch creation
-- route direct user edits through patch creation
-- route reconciliation acceptance through patch creation
+- route observer capture through changeset creation
+- route accepted review outputs through changeset creation
+- route direct user edits through changeset creation
+- route reconciliation acceptance through changeset creation
 - derive `turn_knowledge_item` as provenance compatibility or keep it as a secondary projection
-- use patch chronology for historical descendance
+- use changeset chronology for historical descendance
 
-Patch application invariant:
+Changeset application invariant:
 
 ```text
-Every semantic change to knowledge graph truth is represented by exactly one applied patch_change inside one applied patch.
+Every semantic change to knowledge graph truth is represented by exactly one applied change inside one applied changeset.
 ```
 
 That invariant should eventually replace "every knowledge item traces to a turn" as the semantic-history rule.
 
-Patch history should make revision counts and previous values straightforward:
+Changeset history should make revision counts and previous values straightforward:
 
 ```text
 revision count for item K:
-  count applied patch_change rows where target_kind = knowledge_item and target_id = K
+  count applied change rows where target_kind = knowledge_item and target_id = K
 
 change history for item K:
-  applied patch_change rows for K ordered by patch.applied_at, including before_json and after_json
+  applied change rows for K ordered by changeset.applied_at, including before_json and after_json
 ```
 
-The same should hold for knowledge relations. That creates an important schema pressure: `knowledge_edge` needs stable identity if edge revision history is first-class. A composite key can identify the current relation, but it is awkward for history when a relation's source, target, or type changes. Before patch history becomes authoritative for edges, Brunch should either:
+The same should hold for knowledge relations. That creates an important schema pressure: `knowledge_edge` needs stable identity if edge revision history is first-class. A composite key can identify the current relation, but it is awkward for history when a relation's source, target, or type changes. Before changeset history becomes authoritative for edges, Brunch should either:
 
 - add a surrogate `knowledge_edge.id`
 - or replace `knowledge_edge` with a stable relation record table
@@ -646,15 +660,15 @@ The existing `turn.parent_turn_id` chain remains valid if all current turns in a
 
 In phase one, keep `turn_knowledge_item` unchanged.
 
-In phase two, create migration patches only if the audit value is worth the complexity. A low-risk path is:
+In phase two, create migration changesets only if the audit value is worth the complexity. A low-risk path is:
 
 ```text
-one migration patch per specification:
-  provenance_json = { kind: "migration", migration_id: "patch-ledger-backfill" }
-  summary = "Backfilled existing knowledge graph before patch ledger introduction"
+one migration changeset per specification:
+  provenance_json = { kind: "migration", migration_id: "changeset-ledger-backfill" }
+  summary = "Backfilled existing knowledge graph before changeset ledger introduction"
 ```
 
-This avoids inventing fake historical patches for every old observer capture.
+This avoids inventing fake historical changesets for every old observer capture.
 
 ### Existing Knowledge Edges
 
@@ -692,30 +706,30 @@ Phase one invariants:
 - every reconciliation need belongs to one specification
 - a reconciliation need's affected item or affected relation belongs to the same specification
 - `caused_by_turn_id`, when present, points to a turn in the same specification
-- `caused_by_patch_id` remains null until patch tables exist
+- the changeset-backed cause field remains null until changeset tables exist
 
 Phase two invariants:
 
-- every semantic graph mutation is represented by an applied patch change
-- every patch belongs to one specification
-- every patch change belongs to one patch
-- every patch target belongs to the same specification as the patch
-- every patch has exactly one provenance kind
-- a patch may have chat or turn provenance, but does not require it
+- every semantic graph mutation is represented by an applied change
+- every changeset belongs to one specification
+- every change belongs to one changeset
+- every changeset target belongs to the same specification as the changeset
+- every changeset has exactly one provenance kind
+- a changeset may have chat or turn provenance, but does not require it
 - hard reconciliation needs must name a concrete affected item or relation
-- resolved reconciliation needs should name the patch that resolved or dismissed them when resolution changes graph state
+- resolved reconciliation needs should name the changeset that resolved or dismissed them when resolution changes graph state
 
 ## Practical Recommendation
 
 Do phase one first.
 
-The split is worthwhile because `chat` is a clear foundation for multi-conversation workspaces, and `reconciliation_need` is a useful product concept even before full semantic patch history exists.
+The split is worthwhile because `chat` is a clear foundation for multi-conversation workspaces, and `reconciliation_need` is a useful product concept even before full semantic changeset history exists.
 
 But phase one should be honest about its limits:
 
 - it can support graph-based reconciliation well
 - it can support soft, heuristic coherence review
-- it cannot fully support historical descendance until patches exist
+- it cannot fully support historical descendance until changesets exist
 - it should not imply a complete audit trail
 
 The safest phase-one framing is:
@@ -723,7 +737,7 @@ The safest phase-one framing is:
 ```text
 Introduce chat containers and reconciliation queues.
 Keep turn-centered provenance for now.
-Design reconciliation causes so patch-backed provenance can replace turn-backed provenance later.
+Design reconciliation causes so changeset-backed provenance can replace turn-backed provenance later.
 ```
 
 Then phase two becomes an upgrade of semantic provenance, not a rewrite of the reconciliation product model.
@@ -733,7 +747,7 @@ Then phase two becomes an upgrade of semantic provenance, not a rewrite of the r
 - Should `turn.specification_id` be removed eventually, or kept as a denormalized convenience?
 - Should `specification.active_turn_id` be removed as soon as `chat.active_turn_id` is stable, or kept as a temporary compatibility mirror?
 - Should `chat.kind = reconciliation` own one reconciliation review set, or can one reconciliation chat cover multiple sets?
-- Should direct user edits create proposed patches first, or applied patches with later reconciliation?
+- Should direct user edits create proposed changesets first, or applied changesets with later reconciliation?
 - Should `knowledge_edge` receive a surrogate `id` before reconciliation targets relations heavily?
 - What is the first deterministic relation policy for creating reconciliation needs from `knowledge_edge` traversal?
-- How noisy is historical descendance in realistic workspaces, and should it be grouped by patch rather than item?
+- How noisy is historical descendance in realistic workspaces, and should it be grouped by changeset rather than item?
