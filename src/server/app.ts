@@ -57,7 +57,10 @@ import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
 import { safeDeserializeAssistantParts, serializeParts } from './parts.js';
 import { submitPhaseIntentWithRuntimeCompatibility } from './phase-intent-runtime.js';
-import { handleRunReconciliationAgent } from './reconciliation-agent-route.js';
+import {
+  handleResetReconciliationNeedAgent,
+  handleRunReconciliationAgent,
+} from './reconciliation-agent-route.js';
 import {
   handleListOpenReconciliationNeeds,
   handleResolveReconciliationNeed,
@@ -250,9 +253,10 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const reconciliationNeedResolvePaths = [
     '/api/specifications/:id/reconciliation-needs/:needId/resolve',
   ] as const;
-  // V3.1 slice 4: run-agent endpoint walks every awaiting-classification
-  // open need through the classifier in one in-process loop.
   const reconciliationNeedRunAgentPaths = ['/api/specifications/:id/reconciliation-needs/run-agent'] as const;
+  const reconciliationNeedResetAgentPaths = [
+    '/api/specifications/:id/reconciliation-needs/:needId/reset-agent',
+  ] as const;
 
   const registerGet = (paths: readonly string[], handler: RequestHandler) => {
     for (const path of paths) {
@@ -660,11 +664,12 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     handleResolveReconciliationNeed(db, req, res);
   });
 
-  // V3.1 slice 4: classifier loop. Default LLM seam wires through the AI SDK
-  // adapter inside reconciliation-agent.ts; tests import the handler directly
-  // with a stub runModel.
   registerPost(reconciliationNeedRunAgentPaths, (req: Request, res: Response) => {
     void handleRunReconciliationAgent(db, req, res);
+  });
+
+  registerPost(reconciliationNeedResetAgentPaths, (req: Request, res: Response) => {
+    void handleResetReconciliationNeedAgent(db, req, res);
   });
 
   return { app, db };

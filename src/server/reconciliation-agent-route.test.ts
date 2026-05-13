@@ -1,6 +1,8 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import * as dbModule from './db.js';
+
 const { mockGenerateText, mockAnthropic } = vi.hoisted(() => ({
   mockGenerateText: vi.fn(),
   mockAnthropic: vi.fn(() => 'mock-model'),
@@ -19,11 +21,13 @@ vi.mock('ai', async () => {
 });
 
 const { createApp } = await import('./app.js');
+
 const {
   addKnowledgeRelationship,
   createKnowledgeItem,
   getReconciliationNeed,
   openReconciliationNeed,
+  resolveReconciliationNeed,
   updateReconciliationNeedAgentFields,
 } = await import('./db.js');
 
@@ -217,5 +221,232 @@ describe('POST /api/specifications/:id/reconciliation-needs/run-agent', () => {
   it('returns 400 when the specification id is non-numeric', async () => {
     await request(app).post('/api/specifications/abc/reconciliation-needs/run-agent').expect(400);
     expect(mockGenerateText).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/specifications/:id/reconciliation-needs/:needId/reset-agent', () => {
+  it('resets agent_status and reclassifies one classified row through the lifecycle', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'G');
+    const r1 = createKnowledgeItem(db, specId, 'requirement', 'R1');
+    addKnowledgeRelationship(db, r1.id, goal.id, 'depends_on');
+    const need = openReconciliationNeed(db, {
+      specificationId: specId,
+      sourceItemId: goal.id,
+      targetItemId: r1.id,
+      kind: 'needs_confirmation',
+    });
+    updateReconciliationNeedAgentFields(db, need.id, {
+      agent_status: 'classified',
+      agent_classification: 'substantive',
+      agent_proposal: 'old proposal',
+    });
+
+    mockGenerateText.mockResolvedValueOnce({
+      output: { classification: 'auto-confirm', proposal: null },
+    });
+
+    const res = await request(app)
+      .post(`/api/specifications/${specId}/reconciliation-needs/${need.id}/reset-agent`)
+      .expect(200);
+
+    expect(res.body.specId).toBe(specId);
+    expect(res.body.needId).toBe(need.id);
+    expect(typeof res.body.ranAt).toBe('string');
+    expect(res.body.agentStatus).toBe('classified');
+    expect(res.body.agentClassification).toBe('auto-confirm');
+    expect(res.body.agentProposal).toBeNull();
+    expect(mockGenerateText).toHaveBeenCalledTimes(1);
+
+    const after = getReconciliationNeed(db, need.id);
+    expect(after?.agent_status).toBe('classified');
+    expect(after?.agent_classification).toBe('auto-confirm');
+    expect(after?.agent_proposal).toBeNull();
+  });
+
+  it('reclassifies a failed row and records the new outcome', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'G');
+    const r1 = createKnowledgeItem(db, specId, 'requirement', 'R1');
+    addKnowledgeRelationship(db, r1.id, goal.id, 'derived_from');
+    const need = openReconciliationNeed(db, {
+      specificationId: specId,
+      sourceItemId: goal.id,
+      targetItemId: r1.id,
+      kind: 'supersedes',
+    });
+    updateReconciliationNeedAgentFields(db, need.id, {
+      agent_status: 'failed',
+      agent_classification: null,
+      agent_proposal: 'previous failure',
+    });
+
+    mockGenerateText.mockResolvedValueOnce({
+      output: { classification: 'auto-edit', proposal: 'Replace foo with bar' },
+    });
+
+    const res = await request(app)
+      .post(`/api/specifications/${specId}/reconciliation-needs/${need.id}/reset-agent`)
+      .expect(200);
+
+    expect(res.body.agentStatus).toBe('classified');
+    expect(res.body.agentClassification).toBe('auto-edit');
+    expect(res.body.agentProposal).toBe('Replace foo with bar');
+
+    const after = getReconciliationNeed(db, need.id);
+    expect(after?.agent_proposal).toBe('Replace foo with bar');
+  });
+
+  it('records a failed outcome when the model throws on the re-run', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'G');
+    const r1 = createKnowledgeItem(db, specId, 'requirement', 'R1');
+    addKnowledgeRelationship(db, r1.id, goal.id, 'depends_on');
+    const need = openReconciliationNeed(db, {
+      specificationId: specId,
+      sourceItemId: goal.id,
+      targetItemId: r1.id,
+      kind: 'needs_confirmation',
+    });
+    updateReconciliationNeedAgentFields(db, need.id, {
+      agent_status: 'classified',
+      agent_classification: 'auto-confirm',
+      agent_proposal: null,
+    });
+
+    mockGenerateText.mockRejectedValueOnce(new Error('LLM unavailable'));
+
+    const res = await request(app)
+      .post(`/api/specifications/${specId}/reconciliation-needs/${need.id}/reset-agent`)
+      .expect(200);
+
+    expect(res.body.agentStatus).toBe('failed');
+    expect(res.body.agentClassification).toBeNull();
+    expect(res.body.agentProposal).toBe('LLM unavailable');
+  });
+
+  it('works on a row whose agent_status is already null (idempotent reset, then classify)', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'G');
+    const r1 = createKnowledgeItem(db, specId, 'requirement', 'R1');
+    addKnowledgeRelationship(db, r1.id, goal.id, 'depends_on');
+    const need = openReconciliationNeed(db, {
+      specificationId: specId,
+      sourceItemId: goal.id,
+      targetItemId: r1.id,
+      kind: 'needs_confirmation',
+    });
+
+    mockGenerateText.mockResolvedValueOnce({
+      output: { classification: 'substantive', proposal: null },
+    });
+
+    const res = await request(app)
+      .post(`/api/specifications/${specId}/reconciliation-needs/${need.id}/reset-agent`)
+      .expect(200);
+
+    expect(res.body.agentStatus).toBe('classified');
+    expect(res.body.agentClassification).toBe('substantive');
+  });
+
+  it('returns 404 when the specification does not exist', async () => {
+    await request(app).post('/api/specifications/99999/reconciliation-needs/1/reset-agent').expect(404);
+    expect(mockGenerateText).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the need does not exist', async () => {
+    const specId = await createSpec();
+    await request(app)
+      .post(`/api/specifications/${specId}/reconciliation-needs/99999/reset-agent`)
+      .expect(404);
+    expect(mockGenerateText).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the need belongs to a different specification', async () => {
+    const specA = await createSpec('A');
+    const specB = await createSpec('B');
+    const goal = createKnowledgeItem(db, specA, 'goal', 'G');
+    const r1 = createKnowledgeItem(db, specA, 'requirement', 'R1');
+    addKnowledgeRelationship(db, r1.id, goal.id, 'depends_on');
+    const need = openReconciliationNeed(db, {
+      specificationId: specA,
+      sourceItemId: goal.id,
+      targetItemId: r1.id,
+      kind: 'needs_confirmation',
+    });
+
+    await request(app)
+      .post(`/api/specifications/${specB}/reconciliation-needs/${need.id}/reset-agent`)
+      .expect(404);
+    expect(mockGenerateText).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when the reconciliation need is not open', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'G');
+    const r1 = createKnowledgeItem(db, specId, 'requirement', 'R1');
+    addKnowledgeRelationship(db, r1.id, goal.id, 'depends_on');
+    const need = openReconciliationNeed(db, {
+      specificationId: specId,
+      sourceItemId: goal.id,
+      targetItemId: r1.id,
+      kind: 'needs_confirmation',
+    });
+    updateReconciliationNeedAgentFields(db, need.id, {
+      agent_status: 'classified',
+      agent_classification: 'auto-confirm',
+      agent_proposal: null,
+    });
+    resolveReconciliationNeed(db, need.id);
+
+    await request(app)
+      .post(`/api/specifications/${specId}/reconciliation-needs/${need.id}/reset-agent`)
+      .expect(409);
+
+    expect(mockGenerateText).not.toHaveBeenCalled();
+
+    const after = getReconciliationNeed(db, need.id);
+    expect(after?.status).toBe('resolved');
+    expect(after?.agent_status).toBe('classified');
+    expect(after?.agent_classification).toBe('auto-confirm');
+  });
+
+  it('returns 400 when ids are non-numeric', async () => {
+    await request(app).post('/api/specifications/abc/reconciliation-needs/xyz/reset-agent').expect(400);
+    expect(mockGenerateText).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when the need cannot be claimed for classification', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'G');
+    const r1 = createKnowledgeItem(db, specId, 'requirement', 'R1');
+    addKnowledgeRelationship(db, r1.id, goal.id, 'depends_on');
+    const need = openReconciliationNeed(db, {
+      specificationId: specId,
+      sourceItemId: goal.id,
+      targetItemId: r1.id,
+      kind: 'needs_confirmation',
+    });
+    updateReconciliationNeedAgentFields(db, need.id, {
+      agent_status: 'classified',
+      agent_classification: 'auto-confirm',
+      agent_proposal: null,
+    });
+
+    const spy = vi.spyOn(dbModule, 'claimReconciliationNeedForClassification').mockReturnValue(false);
+    try {
+      await request(app)
+        .post(`/api/specifications/${specId}/reconciliation-needs/${need.id}/reset-agent`)
+        .expect(409);
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(mockGenerateText).not.toHaveBeenCalled();
+
+    const after = getReconciliationNeed(db, need.id);
+    expect(after?.agent_status).toBeNull();
+    expect(after?.agent_classification).toBeNull();
+    expect(after?.agent_proposal).toBeNull();
   });
 });

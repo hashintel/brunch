@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ReconciliationNeedRecord } from '@/shared/reconciliation-need.js';
@@ -17,9 +17,16 @@ function setMockOpenNeeds(needs: ReconciliationNeedRecord[]): void {
 }
 
 const mockInvalidateOpenReconciliationNeeds = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const mockRefetchOpenReconciliationNeedsData = vi.hoisted(() =>
+  vi.fn(async (): Promise<ReconciliationNeedRecord[]> => {
+    await mockInvalidateOpenReconciliationNeeds();
+    return mockOpenNeeds;
+  }),
+);
 vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
   useSpecificationOpenReconciliationNeeds: () => mockOpenNeeds,
   invalidateOpenReconciliationNeeds: mockInvalidateOpenReconciliationNeeds,
+  refetchOpenReconciliationNeedsData: mockRefetchOpenReconciliationNeedsData,
 }));
 
 const mockResolveReconciliationNeedRequest = vi.hoisted(() =>
@@ -36,9 +43,39 @@ const mockEditKnowledgeItemRequest = vi.hoisted(() =>
     }),
   ),
 );
+const mockRunReconciliationAgentRequest = vi.hoisted(() =>
+  vi.fn(() =>
+    Promise.resolve({ specId: 1, ranAt: '2026-05-11T00:00:00Z', classifiedCount: 0, failedCount: 0 }),
+  ),
+);
+const mockResetReconciliationNeedAgentRequest = vi.hoisted(() =>
+  vi.fn(() =>
+    Promise.resolve({
+      specId: 1,
+      needId: 1,
+      ranAt: '2026-05-11T00:00:00Z',
+      agentStatus: 'classified' as const,
+      agentClassification: 'auto-confirm' as const,
+      agentProposal: null,
+    }),
+  ),
+);
 vi.mock('@/client/lib/edit-api.js', () => ({
   resolveReconciliationNeedRequest: mockResolveReconciliationNeedRequest,
   editKnowledgeItemRequest: mockEditKnowledgeItemRequest,
+  runReconciliationAgentRequest: mockRunReconciliationAgentRequest,
+  resetReconciliationNeedAgentRequest: mockResetReconciliationNeedAgentRequest,
+}));
+
+const mockSideChatOpenFor = vi.hoisted(() => vi.fn());
+let sideChatContextValue: { openFor: typeof mockSideChatOpenFor } | null = {
+  openFor: mockSideChatOpenFor,
+};
+function setSideChatContext(value: { openFor: typeof mockSideChatOpenFor } | null): void {
+  sideChatContextValue = value;
+}
+vi.mock('../side-chat-host.js', () => ({
+  useSideChat: () => sideChatContextValue,
 }));
 
 beforeEach(() => {
@@ -61,6 +98,28 @@ afterEach(() => {
     }),
   );
   mockInvalidateOpenReconciliationNeeds.mockClear();
+  mockRefetchOpenReconciliationNeedsData.mockClear();
+  mockRefetchOpenReconciliationNeedsData.mockImplementation(async () => {
+    await mockInvalidateOpenReconciliationNeeds();
+    return mockOpenNeeds;
+  });
+  mockRunReconciliationAgentRequest.mockClear();
+  mockRunReconciliationAgentRequest.mockImplementation(() =>
+    Promise.resolve({ specId: 1, ranAt: '2026-05-11T00:00:00Z', classifiedCount: 0, failedCount: 0 }),
+  );
+  mockResetReconciliationNeedAgentRequest.mockClear();
+  mockResetReconciliationNeedAgentRequest.mockImplementation(() =>
+    Promise.resolve({
+      specId: 1,
+      needId: 1,
+      ranAt: '2026-05-11T00:00:00Z',
+      agentStatus: 'classified' as const,
+      agentClassification: 'auto-confirm' as const,
+      agentProposal: null,
+    }),
+  );
+  mockSideChatOpenFor.mockClear();
+  setSideChatContext({ openFor: mockSideChatOpenFor });
   vi.useRealTimers();
 });
 
@@ -386,6 +445,613 @@ describe('PendingReviewSection', () => {
       await act(async () => {
         resolveEdit();
       });
+    });
+  });
+
+  describe('V3.1 agent client UI', () => {
+    it('renders the Run agent button when at least one open need has agent_status=null', () => {
+      setMockOpenNeeds([makeNeed({ id: 1, agent_status: null })]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-run-agent-button]')).not.toBeNull();
+    });
+
+    it('hides the Run agent button when every open need is already classified', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 2, agent_status: 'classified', agent_classification: 'substantive' }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-run-agent-button]')).toBeNull();
+    });
+
+    it('triggers POST .../run-agent exactly once on Run agent click', async () => {
+      setMockOpenNeeds([makeNeed({ id: 1, specification_id: 7, agent_status: null })]);
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /run agent/i }));
+      });
+      expect(mockRunReconciliationAgentRequest).toHaveBeenCalledTimes(1);
+      expect(mockRunReconciliationAgentRequest).toHaveBeenCalledWith(7);
+      expect(mockInvalidateOpenReconciliationNeeds).toHaveBeenCalledWith(7);
+    });
+
+    it('disables the Run agent button while any need is queued or classifying', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: 'queued' }),
+        makeNeed({ id: 2, agent_status: null }),
+      ]);
+      render(<PendingReviewSection />);
+      const button = screen.getByRole('button', { name: /run agent/i });
+      expect(button).toHaveProperty('disabled', true);
+    });
+
+    it('renders the progress strip while any need is in flight', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: 'classifying' }),
+        makeNeed({ id: 2, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 3, agent_status: null }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      const strip = container.querySelector('[data-agent-progress-strip]');
+      expect(strip).not.toBeNull();
+      expect(strip?.textContent).toContain('Agent: 1 of 3 classified');
+    });
+
+    it('progress strip separates failed rows from the classified count', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: 'classifying' }),
+        makeNeed({ id: 2, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 3, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 4, agent_status: 'failed', agent_proposal: 'LLM down' }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      const strip = container.querySelector('[data-agent-progress-strip]');
+      expect(strip?.textContent).toContain('2 classified');
+      expect(strip?.textContent).toContain('1 failed');
+      expect(strip?.textContent).toContain('(3/4)');
+      expect(strip?.textContent).not.toContain('3 of 4 classified');
+    });
+
+    it('hides the progress strip when nothing is in flight', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-agent-progress-strip]')).toBeNull();
+    });
+
+    it('renders a ClassificationChip per row matching agent_status / agent_classification', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 2, agent_status: 'classified', agent_classification: 'auto-edit' }),
+        makeNeed({ id: 3, agent_status: 'classified', agent_classification: 'substantive' }),
+        makeNeed({ id: 4, agent_status: 'classifying' }),
+        makeNeed({ id: 5, agent_status: 'queued' }),
+        makeNeed({ id: 6, agent_status: 'failed', agent_proposal: 'LLM down' }),
+        makeNeed({ id: 7, agent_status: null }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(
+        container.querySelector('[data-need-id="1"] [data-classification-chip="auto-confirm"]'),
+      ).not.toBeNull();
+      expect(
+        container.querySelector('[data-need-id="2"] [data-classification-chip="auto-edit"]'),
+      ).not.toBeNull();
+      expect(
+        container.querySelector('[data-need-id="3"] [data-classification-chip="substantive"]'),
+      ).not.toBeNull();
+      expect(
+        container.querySelector('[data-need-id="4"] [data-classification-chip="classifying"]'),
+      ).not.toBeNull();
+      expect(
+        container.querySelector('[data-need-id="5"] [data-classification-chip="queued"]'),
+      ).not.toBeNull();
+      expect(
+        container.querySelector('[data-need-id="6"] [data-classification-chip="failed"]'),
+      ).not.toBeNull();
+      expect(container.querySelector('[data-need-id="7"] [data-classification-chip]')).toBeNull();
+    });
+
+    it('shows the per-row Re-run button only on classified or failed rows', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: null }),
+        makeNeed({ id: 2, agent_status: 'queued' }),
+        makeNeed({ id: 3, agent_status: 'classifying' }),
+        makeNeed({ id: 4, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 5, agent_status: 'failed', agent_proposal: 'err' }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-rerun-agent-button="1"]')).toBeNull();
+      expect(container.querySelector('[data-rerun-agent-button="2"]')).toBeNull();
+      expect(container.querySelector('[data-rerun-agent-button="3"]')).toBeNull();
+      expect(container.querySelector('[data-rerun-agent-button="4"]')).not.toBeNull();
+      expect(container.querySelector('[data-rerun-agent-button="5"]')).not.toBeNull();
+    });
+
+    it('triggers POST .../:needId/reset-agent on Re-run click and invalidates the query', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 42,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'substantive',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /re-run agent for need 42/i }));
+      });
+      expect(mockResetReconciliationNeedAgentRequest).toHaveBeenCalledTimes(1);
+      expect(mockResetReconciliationNeedAgentRequest).toHaveBeenCalledWith(7, 42);
+      expect(mockInvalidateOpenReconciliationNeeds).toHaveBeenCalledWith(7);
+    });
+
+    it('disables Resolve while Re-run is in flight on the same row', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          agent_status: 'classified',
+          agent_classification: 'auto-confirm',
+        }),
+      ]);
+      let resolveReset: () => void;
+      mockResetReconciliationNeedAgentRequest.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveReset = () => {
+              resolve({
+                specId: 1,
+                needId: 1,
+                ranAt: '2026-05-11T00:00:00Z',
+                agentStatus: 'classified' as const,
+                agentClassification: 'auto-confirm' as const,
+                agentProposal: null,
+              });
+            };
+          }),
+      );
+      render(<PendingReviewSection />);
+      fireEvent.click(screen.getByRole('button', { name: /re-run agent for need 1/i }));
+      const resolveButton = screen.getByRole('button', { name: /^resolve$/i });
+      expect(resolveButton).toHaveProperty('disabled', true);
+      await act(async () => {
+        resolveReset();
+      });
+    });
+  });
+
+  describe('V3.1 Card 7 — per-class actions + bulk', () => {
+    it('auto-confirm row renders Confirm button that calls resolve once', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'auto-confirm',
+          target_current_content: 'target',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /confirm need 1/i }));
+      });
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(1);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 1);
+    });
+
+    it('auto-edit row renders Apply / Skip / View buttons; Apply calls edit then resolve', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          specification_id: 7,
+          target_item_id: 33,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: 'new content',
+          target_current_content: 'old content',
+        }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-view-proposal-button="1"]')).not.toBeNull();
+      expect(container.querySelector('[data-apply-button="1"]')).not.toBeNull();
+      expect(container.querySelector('[data-skip-button="1"]')).not.toBeNull();
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /apply proposal for need 1/i }));
+      });
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledTimes(1);
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledWith(7, 33, { content: 'new content' });
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(1);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 1);
+    });
+
+    it('auto-edit View opens the proposed edit popover', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          target_item_id: 33,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: 'new content',
+          target_current_content: 'old content',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      fireEvent.click(screen.getByRole('button', { name: /view proposal for need 1/i }));
+      const popover = document.querySelector('[data-diff-popover]');
+      expect(popover).not.toBeNull();
+      expect(popover?.textContent).toContain('Proposed edit · #33');
+      expect(popover!.querySelector('[data-diff-kind="removed"]')).toBeTruthy();
+      expect(popover!.querySelector('[data-diff-kind="added"]')).toBeTruthy();
+    });
+
+    it('auto-edit Skip calls resolve only (no edit)', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: 'new content',
+          target_current_content: 'old content',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /skip proposal for need 1/i }));
+      });
+      expect(mockEditKnowledgeItemRequest).not.toHaveBeenCalled();
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it('auto-edit row with null target content shows Skip only (no View / Apply)', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: 'orphan proposal',
+          target_current_content: null,
+        }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-view-proposal-button="1"]')).toBeNull();
+      expect(container.querySelector('[data-apply-button="1"]')).toBeNull();
+      expect(container.querySelector('[data-skip-button="1"]')).not.toBeNull();
+    });
+
+    it('substantive row renders Open side-chat button that invokes useSideChat().openFor', async () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          specification_id: 7,
+          target_item_id: 99,
+          agent_status: 'classified',
+          agent_classification: 'substantive',
+          target_item_kind: 'requirement',
+          target_reference_code: 'R3',
+          target_current_content: 'substantive content',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /open side-chat for need 1/i }));
+      });
+      expect(mockSideChatOpenFor).toHaveBeenCalledTimes(1);
+      expect(mockSideChatOpenFor).toHaveBeenCalledWith({
+        kind: 'requirement',
+        id: 99,
+        referenceCode: 'R3',
+        content: 'substantive content',
+      });
+    });
+
+    it('substantive row hides Open side-chat when useSideChat returns null', () => {
+      setSideChatContext(null);
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          agent_status: 'classified',
+          agent_classification: 'substantive',
+          target_item_kind: 'requirement',
+          target_reference_code: 'R3',
+          target_current_content: 'substantive',
+        }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-open-side-chat-button]')).toBeNull();
+    });
+
+    it('header exposes "Confirm all (N)" only when auto-confirm rows exist', () => {
+      setMockOpenNeeds([
+        makeNeed({ id: 1, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 2, agent_status: 'classified', agent_classification: 'auto-confirm' }),
+        makeNeed({ id: 3, agent_status: 'classified', agent_classification: 'substantive' }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      const button = container.querySelector('[data-bulk-confirm-button]');
+      expect(button).not.toBeNull();
+      expect(button?.textContent).toContain('Confirm all (2)');
+    });
+
+    it('Confirm all serially resolves every auto-confirm row', async () => {
+      const need1 = makeNeed({
+        id: 1,
+        specification_id: 7,
+        agent_status: 'classified',
+        agent_classification: 'auto-confirm',
+      });
+      const need2 = makeNeed({
+        id: 2,
+        specification_id: 7,
+        agent_status: 'classified',
+        agent_classification: 'auto-confirm',
+      });
+      const need3 = makeNeed({
+        id: 3,
+        specification_id: 7,
+        agent_status: 'classified',
+        agent_classification: 'substantive',
+      });
+      setMockOpenNeeds([need1, need2, need3]);
+      let refetchWave = 0;
+      mockRefetchOpenReconciliationNeedsData.mockImplementation(async () => {
+        await mockInvalidateOpenReconciliationNeeds();
+        refetchWave += 1;
+        if (refetchWave === 1) return [need1, need2, need3];
+        if (refetchWave === 2) return [need2, need3];
+        return [need3];
+      });
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /confirm all 2 auto-confirm rows/i }));
+      });
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(2);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 1);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 2);
+    });
+
+    it('spins only the Confirm all bulk button while confirm is in flight (Apply all keeps its icon)', async () => {
+      let releaseFirst: (() => void) | undefined;
+      const firstHang = new Promise<{ resolved: true }>((resolve) => {
+        releaseFirst = () => resolve({ resolved: true as const });
+      });
+      let callCount = 0;
+      mockResolveReconciliationNeedRequest.mockImplementation(() => {
+        callCount += 1;
+        if (callCount === 1) return firstHang;
+        return Promise.resolve({ resolved: true as const });
+      });
+
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'auto-confirm',
+        }),
+        makeNeed({
+          id: 2,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'auto-confirm',
+        }),
+        makeNeed({
+          id: 3,
+          specification_id: 7,
+          target_item_id: 50,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: 'p',
+          target_current_content: 'c',
+        }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      fireEvent.click(screen.getByRole('button', { name: /confirm all 2 auto-confirm rows/i }));
+
+      await waitFor(() => {
+        const confirmBtn = container.querySelector('[data-bulk-confirm-button]');
+        const applyBtn = container.querySelector('[data-bulk-apply-button]');
+        expect(confirmBtn?.querySelector('.lucide-loader-circle')).not.toBeNull();
+        expect(applyBtn?.querySelector('.lucide-wand-sparkles')).not.toBeNull();
+        expect(applyBtn?.querySelector('.lucide-loader-circle')).toBeNull();
+      });
+
+      releaseFirst?.();
+      await act(async () => {
+        await vi.runOnlyPendingTimersAsync();
+      });
+    });
+
+    it('disables per-row actions while bulk confirm awaits the first resolve', async () => {
+      let releaseFirst: (() => void) | undefined;
+      const firstHang = new Promise<{ resolved: true }>((resolve) => {
+        releaseFirst = () => resolve({ resolved: true as const });
+      });
+      let callCount = 0;
+      mockResolveReconciliationNeedRequest.mockImplementation(() => {
+        callCount += 1;
+        if (callCount === 1) return firstHang;
+        return Promise.resolve({ resolved: true as const });
+      });
+
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'auto-confirm',
+        }),
+        makeNeed({
+          id: 2,
+          specification_id: 7,
+          agent_status: 'classified',
+          agent_classification: 'auto-confirm',
+        }),
+      ]);
+      render(<PendingReviewSection />);
+      fireEvent.click(screen.getByRole('button', { name: /confirm all 2 auto-confirm rows/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /confirm need 1/i })).toHaveProperty('disabled', true);
+        expect(screen.getByRole('button', { name: /confirm need 2/i })).toHaveProperty('disabled', true);
+      });
+
+      releaseFirst?.();
+      await act(async () => {
+        await vi.runOnlyPendingTimersAsync();
+      });
+    });
+
+    it('header exposes "Apply all suggested (N)" only when auto-edit rows with non-null proposals exist', () => {
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: 'p1',
+          target_current_content: 'current',
+        }),
+        makeNeed({
+          id: 2,
+          agent_status: 'classified',
+          agent_classification: 'auto-edit',
+          agent_proposal: null,
+        }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      const button = container.querySelector('[data-bulk-apply-button]');
+      expect(button).not.toBeNull();
+      expect(button?.textContent).toContain('Apply all suggested (1)');
+    });
+
+    it('Confirm all skips a need whose resolve fails and continues with the next eligible row', async () => {
+      const failing = makeNeed({
+        id: 1,
+        specification_id: 7,
+        agent_status: 'classified',
+        agent_classification: 'auto-confirm',
+      });
+      const healthy = makeNeed({
+        id: 2,
+        specification_id: 7,
+        agent_status: 'classified',
+        agent_classification: 'auto-confirm',
+      });
+      setMockOpenNeeds([failing, healthy]);
+      let refetchCalls = 0;
+      mockRefetchOpenReconciliationNeedsData.mockImplementation(async () => {
+        await mockInvalidateOpenReconciliationNeeds();
+        refetchCalls += 1;
+        if (refetchCalls <= 2) return [failing, healthy];
+        return [failing];
+      });
+      let resolveCalls = 0;
+      mockResolveReconciliationNeedRequest.mockImplementation(() => {
+        resolveCalls += 1;
+        if (resolveCalls === 1) return Promise.reject(new Error('500 transient'));
+        return Promise.resolve({ resolved: true as const });
+      });
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /confirm all 2 auto-confirm rows/i }));
+      });
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(2);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 1);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 2);
+      expect(mockRefetchOpenReconciliationNeedsData).toHaveBeenCalledTimes(3);
+      consoleError.mockRestore();
+    });
+
+    it('Apply all skips a need whose edit fails and continues with the next eligible row', async () => {
+      const failing = makeNeed({
+        id: 1,
+        specification_id: 7,
+        target_item_id: 100,
+        agent_status: 'classified',
+        agent_classification: 'auto-edit',
+        agent_proposal: 'proposal A',
+        target_current_content: 'old A',
+      });
+      const healthy = makeNeed({
+        id: 2,
+        specification_id: 7,
+        target_item_id: 101,
+        agent_status: 'classified',
+        agent_classification: 'auto-edit',
+        agent_proposal: 'proposal B',
+        target_current_content: 'old B',
+      });
+      setMockOpenNeeds([failing, healthy]);
+      let refetchCalls = 0;
+      mockRefetchOpenReconciliationNeedsData.mockImplementation(async () => {
+        await mockInvalidateOpenReconciliationNeeds();
+        refetchCalls += 1;
+        if (refetchCalls <= 2) return [failing, healthy];
+        return [failing];
+      });
+      let editCalls = 0;
+      mockEditKnowledgeItemRequest.mockImplementation(() => {
+        editCalls += 1;
+        if (editCalls === 1) return Promise.reject(new Error('500 transient'));
+        return Promise.resolve({
+          impact: 'soft' as const,
+          affectedItems: [],
+          updated: true as const,
+          previousContent: 'old',
+          previousRationale: null,
+        });
+      });
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /apply all 2 suggested edits/i }));
+      });
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledTimes(2);
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledWith(7, 100, { content: 'proposal A' });
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledWith(7, 101, { content: 'proposal B' });
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(1);
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(7, 2);
+      expect(mockRefetchOpenReconciliationNeedsData).toHaveBeenCalledTimes(3);
+      consoleError.mockRestore();
+    });
+
+    it('Apply all suggested serially applies each auto-edit proposal then resolves', async () => {
+      const n1 = makeNeed({
+        id: 1,
+        specification_id: 7,
+        target_item_id: 100,
+        agent_status: 'classified',
+        agent_classification: 'auto-edit',
+        agent_proposal: 'proposal A',
+        target_current_content: 'old A',
+      });
+      const n2 = makeNeed({
+        id: 2,
+        specification_id: 7,
+        target_item_id: 101,
+        agent_status: 'classified',
+        agent_classification: 'auto-edit',
+        agent_proposal: 'proposal B',
+        target_current_content: 'old B',
+      });
+      setMockOpenNeeds([n1, n2]);
+      let refetchWave = 0;
+      mockRefetchOpenReconciliationNeedsData.mockImplementation(async () => {
+        await mockInvalidateOpenReconciliationNeeds();
+        refetchWave += 1;
+        if (refetchWave === 1) return [n1, n2];
+        if (refetchWave === 2) return [n2];
+        return [];
+      });
+      render(<PendingReviewSection />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /apply all 2 suggested edits/i }));
+      });
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledTimes(2);
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledWith(7, 100, { content: 'proposal A' });
+      expect(mockEditKnowledgeItemRequest).toHaveBeenCalledWith(7, 101, { content: 'proposal B' });
+      expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(2);
     });
   });
 });

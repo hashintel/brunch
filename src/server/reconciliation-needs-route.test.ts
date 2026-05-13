@@ -126,6 +126,25 @@ describe('GET /api/specifications/:id/reconciliation-needs', () => {
     expect(res.body.openNeeds[0].target_current_content).toBe('R1 current content');
   });
 
+  it('exposes target_item_kind and target_reference_code on each open need', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'Central goal');
+    const r1 = createKnowledgeItem(db, specId, 'requirement', 'R1');
+    addKnowledgeRelationship(db, r1.id, goal.id, 'depends_on');
+    openReconciliationNeed(db, {
+      specificationId: specId,
+      sourceItemId: goal.id,
+      targetItemId: r1.id,
+      kind: 'needs_confirmation',
+    });
+
+    const res = await request(app).get(`/api/specifications/${specId}/reconciliation-needs`).expect(200);
+
+    expect(res.body.openNeeds[0].target_item_kind).toBe('requirement');
+    expect(typeof res.body.openNeeds[0].target_reference_code).toBe('string');
+    expect(res.body.openNeeds[0].target_reference_code).toMatch(/^R\d+$/);
+  });
+
   // Slice 4 (V3.1 agent): wire-shape change. The listing endpoint surfaces
   // the three classifier columns (agent_status, agent_classification,
   // agent_proposal) so slice 5's per-row chips and slice 6's action buttons
