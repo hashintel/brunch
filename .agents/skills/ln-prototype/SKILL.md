@@ -1,12 +1,14 @@
 ---
 name: ln-prototype
-description: "Build a clearly throwaway prototype to answer a design question before committing to production work. Use when the user wants to prototype, sanity-check a state model, try a few UI designs, make something playable, or explore logic/UI affordances before ln-spec/ln-plan/ln-scope."
+description: "Throwaway design probe for logic, state models, UI variations, and affordances before production work. Use when the user wants to prototype, sanity-check a model, make something playable, compare UI directions, or explore a design before ln-spec/ln-plan/ln-scope."
 argument-hint: "[prototype question or design uncertainty]"
 ---
 
 # Ln Prototype
 
-A prototype is throwaway code that answers one question. The question determines the artifact. Do not let prototype code silently become production code.
+A prototype is a disposable answer to one design question. Keep the verdict, not the artifact.
+
+Use `ln-prototype` when the question needs feel, play, or comparison. Use `ln-spike` when the question is technical feasibility or unknown API behavior.
 
 ## Input
 
@@ -14,64 +16,47 @@ Prototype question or design uncertainty: $ARGUMENTS
 
 Orient first:
 
-1. Read `memory/SPEC.md` if present and use its lexicon / live invariants.
-2. Read `memory/PLAN.md` if present and identify whether the prototype serves an existing frontier item.
-3. Read `HANDOFF.md` if present for volatile design context.
+1. Read `memory/SPEC.md` if present; use its lexicon and live invariants.
+2. Read `memory/PLAN.md` if present; identify whether the prototype serves an existing frontier item.
+3. Read `HANDOFF.md` if present.
 4. Inspect nearby code only enough to place the prototype where it is understandable and runnable.
 
-Write a 2-4 bullet orientation note naming the question, prototype branch, nearest seam/page/module, and how the answer will be captured.
+Write a 2-4 bullet orientation note: question, prototype branch, nearest seam/page/module, answer-capture path.
 
-## Choose the branch
+## Choose one branch
 
-Pick exactly one branch. Ask the user if ambiguous and they are present; otherwise state the assumption.
+Ask if ambiguous and the user is present; otherwise state the assumption.
 
 ### Logic prototype
 
-Use when the question is:
+Use for state, transition, reducer, parser, planner, or workflow questions. Build a tiny interactive terminal app or CLI harness around a portable logic module.
 
-- Does this state model feel right?
-- Which transitions/actions are legal?
-- Does this reducer, parser, planner, or workflow rule behave coherently across examples?
-- Can a human play through edge cases faster than reading a spec?
-
-Build a tiny interactive terminal app or CLI harness around a portable logic module.
-
-Prefer one of these shapes:
+Good shapes:
 
 - pure reducer: `(state, action) => state`
-- explicit state machine with named states and transitions
-- small set of pure functions over plain data
-- state-owning module/class only when ongoing internal state is the question
+- explicit state machine with named states and legal transitions
+- small pure functions over plain data
+- state-owning module/class only when internal ongoing state is the question
 
-Keep the shell thin. The logic should not know about prompts, terminal escape codes, stdout, or UI widgets.
+Keep the shell thin. The logic must not know about prompts, terminal escape codes, stdout, or UI widgets.
 
 ### UI prototype
 
-Use when the question is:
+Use for layout, interaction, navigation, approval/recovery, inspection, or comparison questions.
 
-- What should this look or feel like?
-- Which layout/interaction pattern communicates the concept?
-- How should a user navigate, compare, approve, recover, or inspect?
+Generate several meaningfully different variants in one local route/page/screen, switchable by URL search param or floating switcher. Prefer adapting an existing page over inventing a playground. Variants should differ by design bet, not skin: name the bet each variant tests.
 
-Generate several meaningfully different variants in one local route/page/screen, switchable by URL search param or a small floating switcher. Prefer adapting an existing page/route over inventing a new top-level playground.
+## Prototype discipline
 
-Variants should differ in concept, not just color. Name each variant by its design bet.
+1. **Throwaway from day one.** Name files/routes with `prototype`, `scratch`, or equivalent. Add: `PROTOTYPE — delete or absorb after verdict`.
+2. **Near the real seam.** Keep context obvious; avoid public exports unless needed to run it.
+3. **One command to run.** Use the repo's task runner and record the exact command.
+4. **No persistence by default.** Use memory. If persistence is the question, use clearly wipeable scratch storage.
+5. **No production polish.** Skip comprehensive tests, abstractions, analytics, and hardening beyond safe evaluation.
+6. **Surface state.** After each logic action or UI variant switch, show relevant inputs, outputs, and state.
+7. **One question only.** New questions become follow-up prototypes, spikes, or scope cards.
 
-## Rules for both branches
-
-1. **Throwaway from day one.** Name files/routes with `prototype`, `scratch`, or equivalent. Add a short comment at the entry point: `PROTOTYPE — delete or absorb after verdict`.
-2. **Place it near the real seam.** Keep context obvious, but do not pollute public exports unless needed to run it.
-3. **One command to run.** Use the repo's task runner and document the exact command in the final report or `HANDOFF.md`.
-4. **No persistence by default.** Use memory. If persistence is the question, use scratch storage clearly marked as wipeable.
-5. **Skip production polish.** No comprehensive tests, error handling, abstractions, analytics, or accessibility hardening beyond what is needed to evaluate the question safely.
-6. **Surface state.** After every logic action or UI variant switch, show the relevant state/inputs/outputs so the design can be judged.
-7. **Do not widen scope.** A prototype answers one question; new questions become follow-up prototypes, spikes, or scope cards.
-
-## Capture the answer
-
-The answer is the only durable artifact. When the prototype has served its purpose, either delete it or explicitly keep it only as live volatile support.
-
-Capture:
+## Capture the verdict
 
 ```md
 ## Prototype Verdict: [question]
@@ -84,22 +69,22 @@ Capture:
 **Delete:** [prototype files/routes/storage to remove]
 ```
 
-Durability rule:
+Durability routing:
 
-- Decision changes requirements, assumptions, invariants, or lexicon → route to `ln-spec`.
-- Decision changes sequencing/frontier → route to `ln-plan`.
-- Decision makes one implementation slice obvious → route to `ln-scope`.
-- Prototype still needs human judgment later → record volatile state in `HANDOFF.md`.
+- Requirements, assumptions, invariants, or lexicon changed → `ln-spec`.
+- Sequencing or frontier changed → `ln-plan`.
+- One implementation slice is now obvious → `ln-scope`.
+- Human judgment remains pending → record volatile state in `HANDOFF.md`.
 
-Do not create `CONTEXT.md`, ADRs, or alternate planning documents. This project's canonical docs are `memory/SPEC.md` and `memory/PLAN.md`.
+Do not create `CONTEXT.md`, ADRs, or alternate planning docs. Canonical docs are `memory/SPEC.md` and `memory/PLAN.md`.
 
 ## Cleanup
 
-Before finishing, state one of:
+Finish by stating one of:
 
 - deleted prototype files
-- kept prototype temporarily, with exact reason and deletion trigger
-- absorbed prototype into production code through a scoped build
+- kept prototype temporarily, with reason and deletion trigger
+- absorbed prototype into production through a scoped build
 
 If prototype files remain, they must be visibly non-production and easy to find.
 
@@ -118,4 +103,4 @@ After the verdict, present these options to the user (use `tool-ask-question`):
 Recommended: **3** when the prototype produced a concrete build direction; **1** when it changed the model.
 
 ---
-*Adapted from [mattpocock/skills/engineering/prototype](https://github.com/mattpocock/skills/tree/main/skills/engineering/prototype).* 
+*Adapted from [mattpocock/skills/engineering/prototype](https://github.com/mattpocock/skills/tree/main/skills/engineering/prototype).*

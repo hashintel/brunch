@@ -1,12 +1,12 @@
 ---
 name: ln-diagnose
-description: "Disciplined debugging for hard bugs and regressions. Use when something is broken, failing, throwing, flaky, slow, or when the user says diagnose/debug this. Builds a feedback loop, reproduces, hypothesizes, instruments, fixes, regression-tests, then routes back into ln-* canonical planning."
+description: "Scientific debugging for bugs, flakes, failures, and performance regressions. Use when something is broken, throwing, failing, slow, nondeterministic, or when the user says diagnose/debug this. Builds a trusted repro loop, tests falsifiable hypotheses, installs a regression oracle, and routes durable findings back into ln-* planning."
 argument-hint: "[bug report, failing command, error, or regression description]"
 ---
 
 # Ln Diagnose
 
-Diagnose one bug or regression before implementing the fix. The core deliverable is a trusted feedback loop plus a falsified/confirmed causal explanation. Do not jump straight to code changes unless the cause is already proven.
+Debug by scientific method: trusted repro loop, falsifiable hypotheses, one-variable probes, regression oracle. Do not fix by inspection unless the cause is already proven.
 
 ## Input
 
@@ -14,116 +14,104 @@ Bug, failure, flake, or regression to diagnose: $ARGUMENTS
 
 Orient first:
 
-1. Read `memory/SPEC.md` if present and use its lexicon / live invariants.
-2. Read `memory/PLAN.md` if present and identify the containing frontier item if one exists.
-3. Read `HANDOFF.md` if present for volatile context.
+1. Read `memory/SPEC.md` if present; use its lexicon and live invariants.
+2. Read `memory/PLAN.md` if present; identify the containing frontier item if one exists.
+3. Read `HANDOFF.md` if present.
 4. For runtime/UI failures, read the relevant project praxis doc before inspecting logs or driving browsers.
 
-Write a 2-4 bullet orientation note naming the observed symptom, suspected seam, current feedback loop (if any), and what would count as proof.
+Write a 2-4 bullet orientation note: symptom, suspected seam, current feedback loop, proof standard.
 
-## Phase 1 — Build a feedback loop
+## 1. Build the repro loop
 
-This is the skill. A fast deterministic loop turns debugging into hypothesis testing. If no loop exists, build one before reasoning deeply.
+This is the skill. A fast deterministic pass/fail loop makes the rest mechanical. No loop, no diagnosis.
 
 Try, in rough order:
 
 1. failing unit/integration/e2e test at the seam that reaches the bug
-2. CLI or script with fixture input and asserted output
+2. CLI/script with fixture input and asserted output
 3. HTTP/curl script against a running server
-4. headless browser or browser-automation script asserting DOM/console/network
-5. replayed captured artifact: request payload, trace, event log, fixture, HAR
+4. browser automation asserting DOM, console, or network
+5. replayed artifact: request, trace, event log, fixture, HAR
 6. throwaway harness around the smallest subsystem that exercises the path
 7. property/fuzz loop for intermittent wrong output
 8. bisection/differential loop across commits, versions, datasets, or configs
-9. structured HITL loop only when a human must observe/click
+9. structured HITL loop only when a human must observe or click
 
-Improve the loop before moving on:
+Improve the loop before moving on: faster, sharper assertion, less flake. Pin time, randomness, network, filesystem, and concurrency. For nondeterministic bugs, raise reproduction rate with repetition/stress until it is debuggable.
 
-- make it faster
-- make the assertion sharper than "did not crash"
-- remove flake by pinning time, randomness, network, filesystem, or concurrency
-- for nondeterministic bugs, raise reproduction rate with repetition/stress until it is debuggable
+If no loop can be built, stop. Report what you tried and ask for access, logs, traces, fixtures, timestamped recordings, or permission for temporary instrumentation.
 
-If no loop can be built, stop and report exactly what was tried. Ask for access, logs, traces, fixtures, screen recordings with timestamps, or permission to add temporary instrumentation. Do not continue with vibe-based diagnosis.
+## 2. Reproduce the user's bug
 
-## Phase 2 — Reproduce
-
-Run the loop and confirm it demonstrates the user's bug, not a nearby failure.
+Run the loop. Confirm it demonstrates the reported bug, not a nearby failure.
 
 Capture:
 
-- exact command/script/test used
+- command/script/test used
 - exact symptom: error, diff, timing, screenshot, console/network evidence
 - reproduction rate for flakes
-- any fixture or artifact saved for replay
+- saved replay artifact, if any
 
-Do not proceed until the bug reproduces, or until lack of reproduction is the explicit diagnosis result.
+Lack of reproduction is allowed only as an explicit diagnosis result.
 
-## Phase 3 — Hypothesize
+## 3. Rank falsifiable hypotheses
 
-Generate 3-5 ranked hypotheses before testing any one of them. Each must be falsifiable:
+Generate 3-5 hypotheses before testing any one of them. Each hypothesis must predict an observation:
 
 ```md
 If [cause] is true, then [probe/change] will make [specific observation] happen.
 ```
 
-Prefer hypotheses that distinguish seams or invariants from `memory/SPEC.md`. Show the ranked list to the user if they are present; proceed with the best available ranking if they are AFK.
+Prefer hypotheses that distinguish seams or invariants from `memory/SPEC.md`. Show the ranking to the user when they are present; proceed if they are AFK.
 
-## Phase 4 — Instrument
+## 4. Probe one variable at a time
 
-Probe one hypothesis at a time. Every probe must map to a prediction.
+Every probe maps to one prediction. Prefer debugger/REPL inspection, then targeted boundary logs, then temporary assertions/counters.
 
-Tool preference:
+Tag temporary instrumentation with a unique prefix like `[DEBUG-a4f2]`. Cleanup must be grep-able. Never "log everything and grep".
 
-1. debugger/REPL inspection when available
-2. targeted boundary logs
-3. minimal temporary assertions or counters
+Performance branch: measure first. Establish a baseline timing/profiler/query-plan signal, then bisect or compare. Do not optimize before the measurement identifies the seam.
 
-Tag every temporary log or probe with a unique prefix like `[DEBUG-a4f2]` so cleanup is grep-able. Avoid "log everything and grep".
+## 5. Choose the fix route
 
-For performance regressions: measure first. Establish baseline timing/profiler/query-plan evidence, then bisect or compare. Do not optimize before the measurement identifies the seam.
+Before coding, choose the route:
 
-## Phase 5 — Fix path and regression test
+- **Direct fix / `ln-build`** — cause is proven and the change stays inside a settled seam.
+- **`ln-scope` or `ln-spec`** — the fix changes a seam, invariant, requirement, assumption, or frontier shape.
+- **`ln-spike` or `ln-design`** — diagnosis answered one question but the fix shape remains uncertain.
+- **`ln-review` / `ln-refactor`** — no correct regression seam exists, or architecture contributed to the bug.
 
-Before coding the fix, decide the correct route:
+Install the regression oracle before the fix when a correct seam exists. A correct seam reproduces the real bug pattern as it occurs at the call site. Shallow tests that cannot fail for the original bug are false confidence.
 
-- If the fix is trivial and already inside a settled seam, continue directly into `ln-build` style red-green-refactor in this session.
-- If the fix changes a seam, invariant, requirement, assumption, or frontier shape, route to `ln-scope` or `ln-spec` first.
-- If the diagnosis answered a hard question but the fix is non-obvious, route to `ln-spike` or `ln-design`.
-
-Write the regression test before the fix when there is a correct seam. A correct seam exercises the real bug pattern as it occurs at the call site; shallow tests that cannot fail for the original bug create false confidence.
-
-If no correct seam exists, that is an architectural finding. Record it and route to `ln-review` or `ln-refactor` after the immediate fix decision.
-
-## Phase 6 — Cleanup and postmortem
+## 6. Cleanup and postmortem
 
 Before declaring done:
 
-- [ ] original repro loop no longer reproduces the bug, or the non-repro diagnosis is explicit
-- [ ] regression test exists and passes, or absence of a correct seam is documented
+- [ ] original repro loop no longer reproduces the bug, or non-repro is the diagnosis
+- [ ] regression oracle exists and passes, or absence of a correct seam is documented
 - [ ] all `[DEBUG-...]` instrumentation is removed
-- [ ] throwaway harnesses are deleted or clearly marked and still needed
-- [ ] causal hypothesis is stated in the final report / commit message
+- [ ] throwaway harnesses are deleted or visibly temporary
+- [ ] confirmed causal hypothesis is stated in the report / commit message
 
-Ask: what would have prevented this bug? If the answer is a missing invariant, unclear seam, weak oracle, or bad module shape, route it into the appropriate `ln-*` skill rather than burying it in the diagnosis.
+Ask: what would have prevented this bug? Route missing invariants, unclear seams, weak oracles, and bad module shapes into the appropriate `ln-*` skill.
 
 ## Canonical reconciliation
 
-After diagnosis, reconcile only durable truth:
+Reconcile only durable truth:
 
 - New/retired assumption → update `memory/SPEC.md` §Assumptions.
-- New seam-level invariant or oracle gap → update `memory/SPEC.md` and/or route to `ln-oracles`.
-- Frontier status changed because the bug blocks/unblocks work → update `memory/PLAN.md`.
-- Pure local bug with no durable design implication → no canonical update required beyond any tracked PLAN status.
+- New seam-level invariant or oracle gap → update `memory/SPEC.md` or route to `ln-oracles`.
+- Frontier status changed → update `memory/PLAN.md`.
+- Local bug with no durable implication → no canonical update beyond tracked PLAN status.
 
-Do not create `CONTEXT.md`, ADRs, or alternate planning documents. This project's canonical docs are `memory/SPEC.md` and `memory/PLAN.md`.
+Do not create `CONTEXT.md`, ADRs, or alternate planning docs. Canonical docs are `memory/SPEC.md` and `memory/PLAN.md`.
 
 ## Output
 
 ```md
 ## Diagnosis: [symptom]
 
-**Feedback loop:** [command/script/test and reproduction rate]
+**Repro loop:** [command/script/test and reproduction rate]
 **Confirmed cause:** [one sentence]
 **Evidence:** [key observations]
 **Fix route:** [direct fix | ln-scope | ln-build | ln-spike | ln-review | ln-refactor]
@@ -135,15 +123,15 @@ Do not create `CONTEXT.md`, ADRs, or alternate planning documents. This project'
 
 After diagnosis, present these options to the user (use `tool-ask-question`):
 
-| #   | Label            | Target        | Why |
-| --- | ---------------- | ------------- | --- |
-| 1   | Scope the fix    | `ln-scope`    | The fix needs a buildable card or durable seam update |
-| 2   | Build the fix    | `ln-build`    | The fix is settled and ready for red-green-refactor |
-| 3   | Spike deeper     | `ln-spike`    | A hard question remains after reproduction |
-| 4   | Review structure | `ln-review`   | No good seam/regression oracle exists or architecture contributed |
-| 5   | Back to triage   | `ln-consult`  | Diagnosis changed priority or scope |
+| #   | Label            | Target       | Why |
+| --- | ---------------- | ------------ | --- |
+| 1   | Scope the fix    | `ln-scope`   | The fix needs a buildable card or durable seam update |
+| 2   | Build the fix    | `ln-build`   | The fix is settled and ready for red-green-refactor |
+| 3   | Spike deeper     | `ln-spike`   | A hard question remains after reproduction |
+| 4   | Review structure | `ln-review`  | No good seam/regression oracle exists or architecture contributed |
+| 5   | Back to triage   | `ln-consult` | Diagnosis changed priority or scope |
 
-Recommended: **2** only when the cause and seam are proven; otherwise **1**.
+Recommended: **2** only when cause and seam are proven; otherwise **1**.
 
 ---
-*Adapted from [mattpocock/skills/engineering/diagnose](https://github.com/mattpocock/skills/tree/main/skills/engineering/diagnose).* 
+*Adapted from [mattpocock/skills/engineering/diagnose](https://github.com/mattpocock/skills/tree/main/skills/engineering/diagnose).*
