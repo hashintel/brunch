@@ -77,7 +77,7 @@ Each row in `<PendingReviewSection>` shows the source item's before/after as a `
 
 ### Objective
 
-Each row gets an "Edit target" button that expands an inline textarea pre-filled with the target item's current content; saving runs through the existing edit pipeline (`PATCH /knowledge-items/:id`) and then resolves the need (`POST /reconciliation-needs/:needId/resolve`).
+Each row gets an "Edit target" button that expands an inline textarea pre-filled with the target item's current content; saving runs through the existing edit pipeline (`PATCH /knowledge-items/:id`) and then resolves the need (`POST /api/specifications/:id/reconciliation-needs/:needId/resolve`).
 
 ### Acceptance Criteria
 
