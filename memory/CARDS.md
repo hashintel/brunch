@@ -76,7 +76,7 @@ Status: done
 
 ## Card 3 — Edit-impact query extraction
 
-Status: next
+Status: done
 
 ### Target Behavior
 
@@ -111,7 +111,7 @@ Status: next
 
 ## Card 4 — Intent graph mutation store extraction
 
-Status: queued
+Status: next
 
 ### Target Behavior
 
