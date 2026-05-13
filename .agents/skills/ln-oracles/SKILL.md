@@ -1,7 +1,7 @@
 ---
 name: ln-oracles
-description: "Design verification strategy: diagnose observability, select oracle families, map to loop tiers, surface blind spots. Use after ln-plan when slices need oracle design — especially for LLM, visual, or compositional work — or when verification coverage has drifted."
-argument-hint: "[slices to design oracles for, or 'all' for full reassessment]"
+description: "Design verification strategy: diagnose observability, select oracle families, map to loop tiers, surface blind spots. Use after ln-plan when frontier items or scoped slices need oracle design — especially for LLM, visual, or compositional work — or when verification coverage has drifted."
+argument-hint: "[frontier items or scoped slices to design oracles for, or 'all' for full reassessment]"
 ---
 
 # Ln Oracles
@@ -18,9 +18,9 @@ Read the [diagnostic framework](assets/diagnostic-framework.md) and [oracle taxo
 
 ## Input
 
-The slices to design oracles for: $ARGUMENTS
+The frontier items or scoped slices to design oracles for: $ARGUMENTS
 
-Read `memory/SPEC.md` (invariants, assumptions, decisions, verification design) and `memory/PLAN.md` (slices, acceptance criteria). If `memory/SPEC.md` already has a §Verification Design section, this is an update -- read it as prior state to evolve, not preserve uncritically.
+Read `memory/SPEC.md` (invariants, assumptions, decisions, verification design) and `memory/PLAN.md` (frontier definitions, sequencing, acceptance criteria). If `memory/SPEC.md` already has a §Verification Design section, this is an update -- read it as prior state to evolve, not preserve uncritically.
 
 ## Procedure
 
@@ -34,7 +34,7 @@ Score **Observability**, **Reproducibility**, and **Controllability** (see the [
 
 ### 2. Extract verification claims
 
-From `memory/SPEC.md` invariant bundles, acceptance criteria, and `memory/PLAN.md` slice definitions -- list what must be proved. Distinguish:
+From `memory/SPEC.md` invariant bundles, acceptance criteria, `memory/PLAN.md` frontier definitions, and any in-hand scope-card slices -- list what must be proved. Distinguish:
 
 - **Structural claims** (schema conformance, DB round-trips, type safety) -- oracle-able programmatically
 - **Behavioral claims** (LLM output quality, UX judgment) -- require human assessment or statistical thresholds
@@ -56,9 +56,9 @@ Assign each selected oracle to inner (ms, agent-autonomous), middle (seconds-min
 
 **Grill**: For middle-loop oracles that require external resources (API calls, fixtures), ask: how will fixtures be created? What bootstraps ground truth? Is single-shot measurement sufficient or do we need multi-run variance?
 
-### 5. Design per-slice verification approach
+### 5. Design per-frontier / per-slice verification approach
 
-For each in-scope slice in `memory/PLAN.md`, specify: which oracles apply, what they prove, and which loop tier they belong to. This becomes the `**Verification approach**` annotation on each slice.
+For each in-scope frontier item in `memory/PLAN.md`, specify: which oracles apply, what they prove, and which loop tier they belong to. This becomes the `Verification` annotation in the frontier definition. If a scope-card slice is already available, add slice-level oracle notes there without promoting detailed card history into `memory/PLAN.md`.
 
 **Grill**: For each slice, ask: does this oracle strategy cover the slice's acceptance criteria? What's the gap between "oracle says pass" and "slice is actually correct"?
 
@@ -78,15 +78,16 @@ Update `memory/SPEC.md` §Verification Design:
 - **Design notes** -- project-specific oracle design decisions (e.g. observer history projection, fixture bootstrapping strategy)
 - **Acknowledged Blind Spots** -- table with blind spot, reason, mitigation, and revisit trigger
 
-Update `memory/PLAN.md` per-slice annotations:
+Update `memory/PLAN.md` frontier annotations:
 
-- Add `**Verification approach**` line to each in-scope slice with oracle family, loop tier, and cross-reference to `memory/SPEC.md` sections
+- Add or refresh the `Verification` line in each in-scope frontier definition with oracle family, loop tier, and cross-reference to `memory/SPEC.md` sections
+- Keep slice-level oracle detail in the current `ln-scope` card or `memory/CARDS.md` queue unless it changes the frontier definition
 
 ### Cross-reference integrity
 
 After writing, verify:
 - Every `memory/SPEC.md` invariant has at least one oracle assigned (inner, middle, or outer)
-- Every in-scope `memory/PLAN.md` slice has a verification approach annotation
+- Every in-scope `memory/PLAN.md` frontier definition has a verification approach annotation
 - The blind spots section is non-empty
 - Middle/outer loop oracles cross-reference the invariants or assumptions they prove
 

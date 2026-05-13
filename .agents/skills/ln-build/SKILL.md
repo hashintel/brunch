@@ -14,7 +14,7 @@ A full or light scope card from `ln-scope`, the next ready card in `memory/CARDS
 
 Extract: target behavior / objective, acceptance criteria, and verification approach.
 
-Treat the scope card as the next implementation step inside its containing `memory/PLAN.md` frontier item. The frontier item is the plan-level work item; the scope card is just the current execution step inside it. Unless `ln-plan` has already split the frontier into separate items, do **not** infer a new Linear issue or Graphite branch from scope-card granularity; multiple consecutive scope cards may land on the same branch.
+Treat the scope card as the next implementation slice inside its containing `memory/PLAN.md` frontier item. The frontier item is the plan-level work item and Linear/branch unit; the scope-card slice is just the current execution step inside it. Unless `ln-plan` has already split the frontier into separate items, do **not** infer a new Linear issue or Graphite branch from scope-card granularity; multiple consecutive slices may land on the same branch.
 
 If `memory/CARDS.md` exists, treat it as a derivative execution queue, not canonical planning state. Start with the next card marked `next` or the first unfinished card in that file. If that card is already satisfied on the current branch, do **not** manufacture a no-op build commit; verify the acceptance criteria, mark the card `done` or `dropped` as appropriate, reconcile the queue, and either continue to the next honest build target or route back to `ln-scope` if no build remains.
 
@@ -35,7 +35,7 @@ Do not invent new planning docs, scratch histories, or alternate memory location
 
 ## Serial execution mode
 
-When several prepared cards already exist for one settled frontier item, `ln-build` may execute them in sequence instead of routing back through the user after every commit.
+When several prepared slice cards already exist for one settled frontier item, `ln-build` may execute them in sequence instead of routing back through the user after every commit.
 
 Loop shape:
 
@@ -99,10 +99,10 @@ After the build lands and verification passes, ask:
 
 ### If all answers are no
 
-- Mark the work done in `memory/PLAN.md` **if it was tracked there**
+- Mark the containing frontier done in `memory/PLAN.md` **if the build completed the frontier item**, usually by updating `Sequencing` / frontier status rather than moving definition blocks
 - Update `Recently Completed` if the plan uses it
-- Do **not** add new SPEC/PLAN bookkeeping just because work happened
-- If the work was non-trivial, required manual verification, or leaves residual risk, record `Done / Verified / Watch` in `memory/PLAN.md` `Recently Completed` when that watch matters beyond the current session
+- Do **not** add new SPEC/PLAN bookkeeping just because a slice happened
+- If the slice was non-trivial, required manual verification, or leaves residual risk that matters beyond the current session, record it in the containing frontier definition or a terse `Recently Completed` entry only when it affects frontier-level re-entry
 
 ### If any answer is yes
 
@@ -117,8 +117,9 @@ Update only the touched traceability items.
 #### Update rules
 
 1. **PLAN**
-   - Mark the item done if it was tracked
-   - If the change closes or unblocks a frontier item, reflect that in `Active`, `Next`, or `Recently Completed`
+   - Mark the frontier item done if this slice completed it
+   - If the change closes, blocks, or unblocks a frontier item, reflect that in `Sequencing`, the affected `Frontier Definitions` entry, or `Recently Completed`
+   - Do not mirror detailed slice/card history into `memory/PLAN.md`; keep active execution queues in `memory/CARDS.md`
 
 2. **Assumptions**
    - evidence answered it → update to `validated` or `invalidated`

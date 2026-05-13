@@ -2,39 +2,62 @@
      Created by ln-plan · Read by all skills · Updated by ln-build, ln-sync, and ln-spike.
      Authority: active frontier, near-horizon ordering, and dependencies that still matter.
 
+     Frontier item = canonical plan/Linear/branch unit.
+     Slice = scoped execution unit from ln-scope/ln-build, often inside one frontier.
+
      Keep this file light. Archive older completed work to docs/archive/PLAN_HISTORY.md.
-     Only Active / Next items should usually carry detailed traceability.
+     Edit Sequencing for ordering/status churn; keep Frontier Definitions relatively stable.
      Do not spread retired work history across handoff files, refactor plans, or ad hoc status notes. -->
 
 # Plan
 
-## Active
+## Context
 
-1. **[Item name]** — [structural | bounded feature | hardening | bugfix] `[status: not-started|in-progress]`
-   - Objective: [what this work changes]
-   - Why now / unlocks: [why this is on the frontier now]
-   - Acceptance: [observable outcome]
-   - Verification: [inner / middle / outer summary]
-   - Traceability: [→ SPEC.md requirement / assumption / decision / invariant if needed]
+[Short rolling narrative for fresh-thread re-entry: where the product/initiative stands, which arc is active, and what the next coordination bottleneck is.]
 
-## Next
+## Sequencing
 
-1. **[Item name]** — [why it follows the active work]
-   - Why now / unlocks: [what this prepares or depends on]
+### Active
 
-## Horizon
+1. `[frontier-id]` — [status: not-started|in-progress|branch-complete|blocked] — [one-line current state]
 
-- [Future item, intentionally loose]
+### Next
+
+1. `[frontier-id]` — [why it follows the active work]
+
+### Parallel / Low-conflict
+
+- `[frontier-id]` — [why it can proceed independently]
+
+### Horizon
+
+- `[frontier-id]` — [future item, intentionally loose]
+
+## Frontier Definitions
+
+### frontier-id
+
+- **Name:** [Human-readable frontier name]
+- **Linear:** [FE-XXX if known, or `unassigned`]
+- **Kind:** [structural | bounded feature | hardening | bugfix | refactor]
+- **Status:** [not-started | in-progress | branch-complete | blocked | done]
+- **Objective:** [what this frontier changes]
+- **Why now / unlocks:** [why this belongs on the frontier and what it unlocks]
+- **Acceptance:** [observable frontier-level outcome]
+- **Verification:** [inner / middle / outer summary]
+- **Traceability:** [→ SPEC.md requirement / assumption / decision / invariant if needed]
+- **Design docs:** [links if relevant]
+- **Current execution pointer:** [optional: `memory/CARDS.md` or next intended scope card; omit when not needed]
 
 ## Recently Completed
 
-- [YYYY-MM-DD] [item] — Done: [shipped outcome]. Verified: [command / manual step]. Watch: [residual risk or none].
-- [YYYY-MM-DD] [item] — Done: [shipped outcome]. Verified: [command / manual step]. Watch: [residual risk or none].
+- [YYYY-MM-DD] `[frontier-id]` — Done: [shipped outcome]. Verified: [command / manual step]. Watch: [residual risk or none].
+- [YYYY-MM-DD] `[frontier-id]` — Done: [shipped outcome]. Verified: [command / manual step]. Watch: [residual risk or none].
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
 ## Dependencies
 
-```
-[ASCII diagram of blocking relationships among Active / Next items]
+```text
+[ASCII diagram of blocking relationships among Active / Next frontier ids]
 ```
