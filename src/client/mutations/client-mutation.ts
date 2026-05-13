@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import type { MutationErrorResponse } from '@/shared/api-types.js';
 
@@ -69,10 +69,8 @@ export function useClientMutation<TResponse, TVariables>(
   const mutateAsyncRef = useRef(mutateAsync);
   const resetRef = useRef(reset);
 
-  useEffect(() => {
-    mutateAsyncRef.current = mutateAsync;
-    resetRef.current = reset;
-  }, [mutateAsync, reset]);
+  mutateAsyncRef.current = mutateAsync;
+  resetRef.current = reset;
 
   const run = useCallback(async (variables: TVariables) => {
     resetRef.current();
