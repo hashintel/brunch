@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EntitiesData, WorkflowPhase } from '@/shared/api-types.js';
@@ -10,6 +10,7 @@ import type { BrunchUIMessage, ReviewSetData, StructuredQuestion } from '@/share
 import { deriveSpecificationLanding } from '@/shared/specification-state.js';
 import type { SpecificationState } from '@/shared/specification.js';
 
+import { useContinuousWorkspaceController } from '../-continuous-workspace-controller.js';
 import { useInterviewController } from '../-interview-controller.js';
 import { resetSpecificationLifecycleRegistryForTesting } from '../-specification-lifecycle.js';
 
@@ -576,11 +577,59 @@ function ControllerProbe({
   );
 }
 
+function ContinuousControllerProbe({ tick }: { tick: number }) {
+  const workspace = useContinuousWorkspaceController();
+  const previousSectionsRef = useRef(workspace.sections);
+  const previousBottomArtifactRef = useRef(workspace.bottomArtifact);
+  const [comparison, setComparison] = useState('settling');
+
+  useEffect(() => {
+    if (tick > 0) {
+      setComparison(previousSectionsRef.current === workspace.sections ? 'stable' : 'changed');
+    }
+
+    previousSectionsRef.current = workspace.sections;
+    previousBottomArtifactRef.current = workspace.bottomArtifact;
+  }, [tick, workspace.sections]);
+
+  return (
+    <div>
+      <div data-testid="continuous-rerender-tick">{tick}</div>
+      <div data-testid="continuous-bottom-kind">{workspace.bottomArtifact?.kind ?? 'none'}</div>
+      <div data-testid="continuous-sections-stable">{comparison}</div>
+    </div>
+  );
+}
+
+function ContinuousControllerRerenderHarness() {
+  const [tick, setTick] = useState(0);
+
+  return (
+    <div>
+      <ContinuousControllerProbe tick={tick} />
+      <button type="button" onClick={() => setTick((current) => current + 1)}>
+        Rerender
+      </button>
+    </div>
+  );
+}
+
 function renderController(phase: 'grounding' | 'design' | 'requirements' | 'criteria' = 'grounding') {
   const queryClient = createQueryClient();
   const rendered = render(
     <QueryClientProvider client={queryClient}>
       <ControllerProbe phase={phase} />
+    </QueryClientProvider>,
+  );
+
+  return { ...rendered, queryClient };
+}
+
+function renderContinuousController() {
+  const queryClient = createQueryClient();
+  const rendered = render(
+    <QueryClientProvider client={queryClient}>
+      <ContinuousControllerRerenderHarness />
     </QueryClientProvider>,
   );
 
@@ -607,6 +656,21 @@ afterEach(() => {
 });
 
 describe('interview controller', () => {
+  it('keeps continuous workspace sections stable across unrelated rerenders', async () => {
+    renderContinuousController();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('continuous-bottom-kind').textContent).toBe('recovery');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rerender' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('continuous-rerender-tick').textContent).toBe('1');
+    });
+    expect(screen.getByTestId('continuous-sections-stable').textContent).toBe('stable');
+  });
+
   it('projects a kickoff turn card when an open phase has no active frontier turn yet', async () => {
     currentSpecificationState = createSpecificationState({ assistantText: '', answer: '' });
     currentSpecificationState.specification!.active_turn_id = null;

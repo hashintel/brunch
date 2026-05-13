@@ -56,10 +56,15 @@ export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: Workfl
     useContinuousWorkspaceController();
 
   const workspaceFocus = useWorkspaceFocus();
+  const setFocusedPhase = workspaceFocus?.setFocusedPhase;
 
   // Scroll to the initial phase section on mount
   const sectionRefs = useRef<Map<WorkflowPhase, HTMLDivElement>>(new Map());
   const hasScrolledRef = useRef(false);
+
+  useEffect(() => {
+    return () => setFocusedPhase?.(null);
+  }, [setFocusedPhase]);
 
   useEffect(() => {
     if (hasScrolledRef.current) return;
@@ -75,7 +80,7 @@ export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: Workfl
 
   // Scroll-spy: observe which section is most visible and update focusedPhase
   useEffect(() => {
-    if (!workspaceFocus) return;
+    if (!setFocusedPhase) return;
 
     const elements = Array.from(sectionRefs.current.entries());
     if (elements.length === 0) return;
@@ -101,7 +106,7 @@ export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: Workfl
         }
 
         if (bestPhase) {
-          workspaceFocus.setFocusedPhase(bestPhase);
+          setFocusedPhase?.(bestPhase);
         }
       },
       { threshold: [0, 0.25, 0.5, 0.75, 1] },
@@ -112,7 +117,7 @@ export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: Workfl
     }
 
     return () => observer.disconnect();
-  }, [workspaceFocus, sections]);
+  }, [sections, setFocusedPhase]);
 
   const activePhaseState = workflow.phases[activePhase];
   const nextPhase = getNextActivePhase(workflow.phases, activePhase);
