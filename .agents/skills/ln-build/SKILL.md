@@ -62,17 +62,23 @@ Stop the serial loop immediately when any of these becomes true:
 
 Translate acceptance criteria into failing tests when the change benefits from them. For bugfixes or subtle seam changes, prefer one high-leverage regression test. For trivial maintenance or doc-only work, tests may be unnecessary.
 
+Test behavior through public interfaces, not implementation details. A good test describes what capability exists and would survive internal refactoring. Avoid tests that mock internal collaborators, assert private call order, or inspect storage directly when the public interface can prove the behavior.
+
+Do not horizontal-slice TDD. Never write a batch of imagined tests first and then a batch of implementation. Use tracer bullets: one failing behavioral test → minimum code to pass → next failing behavioral test. Each new test should respond to what the previous cycle taught you.
+
 Run the relevant checks. Confirm failures are meaningful. If the card is already green before any code change, treat that as evidence the queue item is already satisfied or stale — not as permission to create a ceremonial red/green cycle.
 
 ## Green
 
 Write the minimum code to pass. Build inside-out: functional core first, thin I/O shell second, then end-to-end wiring.
 
-No speculative abstractions. Only extract when two concrete cases force it.
+No speculative abstractions. Only extract when two concrete cases force it. Do not anticipate later tests or build shape-only scaffolding; let the current behavioral test pull the interface into existence.
 
 ## Refactor
 
 With tests green, improve names, boundaries, and obvious local structure. Do not widen scope.
+
+Refactor only while green. Keep the tests pinned to the public behavior so they protect the slice while allowing internals to move. If refactoring reveals that the test is coupled to implementation, fix the test seam before trusting it.
 
 ## Verify and commit
 

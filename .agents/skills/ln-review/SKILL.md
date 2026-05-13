@@ -18,6 +18,12 @@ If "recent" or unspecified, focus on recently modified files.
 
 Apply Ousterhout's depth test: modules should have small interfaces hiding significant complexity. Modules that move together should live together — clusters of small files always used in concert are a single deep module waiting to be extracted.
 
+Use the deletion test for suspected shallow modules: if deleting the module makes complexity vanish, it was pass-through structure; if the same complexity reappears across multiple callers, the module was earning its keep. Prefer depth as leverage/locality, not line-count ratio.
+
+Treat the interface as the test surface. If callers or tests must reach past the interface to verify important behavior, the module shape is probably wrong. A good seam lets tests and callers cross the same public boundary.
+
+Apply seam discipline: one adapter usually means a hypothetical seam; two adapters make a real seam. Flag indirection introduced only for imagined future variation, especially when it spreads configuration, mocks, or ordering knowledge into callers.
+
 Check the functional core / imperative shell boundary (Gary Bernhardt, "Boundaries"). Pure functions should stay pure. Flag when a pure function has acquired side effects or a growing parameter list — it has drifted into shell territory.
 
 Make invalid states unrepresentable (Yaron Minsky). Split optional fields into distinct types. Use branded types for domain-distinct values.
@@ -51,7 +57,7 @@ Present findings as numbered candidates:
 ```md
 ## Review: [area]
 
-1. **[Description]** — [category: depth|naming|model|coupling] — [impact: low|medium|high]
+1. **[Description]** — [category: depth|naming|model|coupling|seam|oracle-coverage] — [impact: low|medium|high]
    [1-2 sentence explanation and suggested action]
 
 2. ...
