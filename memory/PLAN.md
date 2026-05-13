@@ -15,7 +15,7 @@
 
 The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, observer knowledge extraction, workflow ownership extraction, distribution hardening, graph view's structured-list peer route, the first relation-first observer capture seam, the multi-chat substrate, side-chat V3.0 hard-impact cascade, and side-chat V3.1 agent-grouped reconciliation resolution all ship as working product.
 
-The next product arc is a **continuous conversational workspace** plus a stronger semantic/generative substrate. Continuous workspace is active in a parallel lane and gives the chat runtime a stable phase-addressable host. The FE-705 branch contributes an integration substrate — a local agent capability CLI and external LLM-as-user probe harness — that should be reconciled into main before graph-review and scenario-options work depends on generated completed-spec fixtures. After that, the highest-coordination work is intent-graph semantics and the semantic changeset ledger; FE-701 should follow soon after the FE-705 reconciliation because the current schema already carries transitional multi-chat / reconciliation placeholders that only become coherent once `changeset` / `change` owns semantic mutation history. Lower-coordination provider, gitignore, and web-research work can proceed in parallel.
+The next product arc is the **Conversational Workspace Runtime** umbrella (`docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md`) plus a stronger semantic/generative substrate. The umbrella synthesizes MULTI_CHAT, SIDE_CHAT, PATCH_LEDGER, and CONTINUOUS_WORKSPACE_HYBRID into five sub-tracks: workspace shell (Track 1, shipped as `continuous-workspace` / FE-709), chat runtime with thread substrate (`chat-runtime-threads`), reconciliation runtime absorption (`reconciliation-runtime`), changeset ledger (`changeset-ledger`), and thread context provision (`thread-context-provision`). The shell is now the stable host; the chat runtime is the critical unblocker for reconciliation absorption and context provision; the changeset ledger runs in parallel. The umbrella supersedes the independent side-chat V4a persistence horizon — persistent side-chat history becomes the main chat stream where threads stay collapsed. The FE-705 branch contributes an integration substrate — a local agent capability CLI and external LLM-as-user probe harness — that should be reconciled into main before graph-review and scenario-options work depends on generated completed-spec fixtures. After that, the highest-coordination work is intent-graph semantics and the semantic changeset ledger; FE-701 should follow soon after the FE-705 reconciliation because the current schema already carries transitional multi-chat / reconciliation placeholders that only become coherent once `changeset` / `change` owns semantic mutation history. Lower-coordination provider, gitignore, and web-research work can proceed in parallel.
 
 The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agent-mutation design notes are reconciled into one direction. `docs/design/MULTI_CHAT.md` is the substrate document. `docs/design/SIDE_CHAT.md` describes side-chat V1 / V2 / V3.0 / V3.1 / V4 phasing on top of that substrate. `docs/design/PATCH_LEDGER.md` remains historical deeper design pressure for semantic mutation history, but canonical future-facing vocabulary is `changeset` / `change`. The product-layer ontology trajectory is split out as `docs/design/INTENT_GRAPH_SEMANTICS.md` and `docs/design/BEHAVIORAL_KERNELS.md`; broader synthesis lives in `docs/archive/design/INTENT_SPEC_EVOLUTION.md`. FE-705's branch-local strategy/proposal notes add scenario options, graph-review oracle, chat-local strategies, and concern/dependency mapping; those notes should become a canonical design doc when the branch is integrated. Coordination uses a substrate-strangler posture: keep existing frontend REST/SSE contracts stable while route adapters and capability adapters converge on shared server-owned handlers, then cut over UI flows only after parity and changeset-backed authority exist. The dev-layer self-tooling trajectory lives in `docs/design/ln-skills/EVOLUTION.md`.
 
@@ -23,15 +23,17 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ### Active
 
-1. `continuous-workspace` — in progress in parallel lane — stable phase-addressable host for the chat runtime.
-2. `agent-fixture-substrate` — branch-complete off main, reconciling — FE-705 integration substrate for JSONL agent capability CLI and LLM-as-user probes.
+1. `agent-fixture-substrate` — branch-complete off main, reconciling — FE-705 integration substrate for JSONL agent capability CLI and LLM-as-user probes.
 
 ### Next
 
-1. `intent-graph-semantics` — highest-coordination semantic substrate after FE-705 reconciliation.
-2. `changeset-ledger` — schedule soon after FE-705 reconciliation; semantic history spine needed before canonical proposal acceptance, direct-edit atomicity, and productized scenario options.
-3. `graph-review-scenario-options` — artifact-only critique/probe lane; can advance in parallel with FE-700 if it does not commit canonical graph truth.
-4. `productized-scenario-options` — user-facing acceleration surface after FE-700 semantics, FE-701 changesets, and graph-review probes.
+1. `chat-runtime-threads` — Track 2 of the runtime umbrella; immediate successor to continuous-workspace, unblocker for Tracks 3 and 5. First slice should be a sub-RFC on the thread substrate shape (p / q / r).
+2. `intent-graph-semantics` — highest-coordination semantic substrate after FE-705 reconciliation.
+3. `changeset-ledger` — Track 4 of the runtime umbrella; parallel with Track 2; semantic history spine needed before canonical proposal acceptance, direct-edit atomicity, and productized scenario options.
+4. `thread-context-provision` — Track 5 of the runtime umbrella; after Track 2 lands the thread substrate.
+5. `reconciliation-runtime` — Track 3 of the runtime umbrella; after Track 2 + Track 4 provide thread substrate and durable attribution.
+6. `graph-review-scenario-options` — artifact-only critique/probe lane; can advance in parallel with FE-700 if it does not commit canonical graph truth.
+7. `productized-scenario-options` — user-facing acceleration surface after FE-700 semantics, FE-701 changesets, and graph-review probes.
 
 ### Parallel / Low-conflict
 
@@ -44,8 +46,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - `relation-first-observer-enrichment`
 - `architect-generator-loop`
 - `server-mini-library-compartmentalization`
-- `side-chat-persistence-v4a`
-- `side-chat-v4b-item-versioning`
+- `side-chat-v4b-item-versioning` (depends on `changeset-ledger`)
 - `dashboard-summaries`
 - `spatial-graph-layout`
 - `graph-view-active-path-filter`
@@ -59,16 +60,55 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ### continuous-workspace
 
-- **Name:** Continuous workspace / phase-addressable interview surface
-- **Linear:** unassigned in this plan snapshot
+- **Name:** Continuous workspace / phase-addressable interview surface (Conversational Workspace Runtime — Track 1)
+- **Linear:** FE-709
 - **Kind:** structural
-- **Status:** in-progress
+- **Status:** done
 - **Objective:** Replace per-phase rendering boundaries with a cumulative center pane, realized phase sections, one chat runtime per specification, sidebar section navigation, scroll/focus behavior, and preservation of the single actionable frontier at the current reachable phase.
 - **Why now / unlocks:** Workflow read/write ownership is extracted, the multi-chat substrate ships chat containers below the specification, and side-chat V3.0/V3.1 closed the cascade surface. This gives future side-chat persistence, strategy chats, and graph/workspace routes a stable host without introducing a second durable workflow model.
 - **Acceptance:** Realized phase sections remain legible, future sections stay unreachable until valid, navigation is focus/scroll state only, and the current phase retains exactly one actionable frontier/recovery/handoff/completion affordance.
 - **Verification:** Manual workspace walkthroughs across kickoff-ready, active, review-active, recovery, close-to-next-phase, resume/reload, and future-phase deep-link states; regression tests around route/workflow state where available.
 - **Traceability:** A58; D86, D87, D110, D113, D114; I24, I102.
-- **Design docs:** `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`; umbrella synthesis in `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md`.
+- **Design docs:** `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`; umbrella synthesis in `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` (Track 1).
+
+### chat-runtime-threads
+
+- **Name:** Chat runtime — thread substrate + in-stream rendering (Conversational Workspace Runtime — Track 2)
+- **Linear:** unassigned in this plan snapshot
+- **Kind:** structural
+- **Status:** not-started
+- **Objective:** Add a thread primitive to the chat substrate, render threads inline as collapsibles in the main chat surface (Cursor-style), and retire the SideChatPopover and transient staged-patches strip. Decide the thread substrate shape via a sub-RFC: (p) `parent_chat_id` on `chat`, (q) new `thread` table, or (r) UI-only rendering.
+- **Why now / unlocks:** Track 1 (workspace shell) ships, providing the stable host. Threads are the critical unblocker for reconciliation absorption into the chat surface (Track 3), `#` mention / turn-zero / context provision (Track 5), and the retirement of the V3.1 popover and staged-patches surfaces. Supersedes the prior side-chat V4a persistence horizon — persistent side-chat history becomes the main chat stream where threads stay collapsed.
+- **Acceptance:** Thread kinds (`interview`, `side`, `reconciliation`, `qa`) are representable in the substrate; threads render inline as collapsibles in the unified chat surface; SideChatPopover retires as cutover; transient staged-patches strip retires (replaced by in-thread mutation state); turn-zero (`turn_kind='kickoff'`) becomes the universal thread entry.
+- **Verification:** Thread substrate schema/migration tests, in-stream collapsible rendering tests, manual walkthroughs for thread creation/display/collapse per kind, regression on existing interview flow.
+- **Traceability:** A82, A83, A88; D86, D87, D110, D114, D138, D146; I111, I113.
+- **Design docs:** `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.2 + §5 Track 2; `docs/design/MULTI_CHAT.md`; `docs/design/SIDE_CHAT.md`.
+
+### reconciliation-runtime
+
+- **Name:** Reconciliation runtime — async-by-default with in-stream thread (Conversational Workspace Runtime — Track 3)
+- **Linear:** unassigned in this plan snapshot
+- **Kind:** structural
+- **Status:** not-started
+- **Objective:** Absorb reconciliation into the unified chat surface as a target-grouped thread with async-by-default classifier scheduling and a "Reconcile Now" user trigger. Retire the standalone PendingReviewSection. Auto-confirmed rows resolve invisibly; only `auto-edit` (one-click apply) and `substantive` (judgment affordances) reach the user.
+- **Why now / unlocks:** Tracks 2 (chat runtime) and 4 (changeset ledger) provide the thread substrate and durable attribution. The reconciliation thread replaces the V3.1 Pending review section and the side-chat popover's reconciliation surface with a conversational target-grouped thread inside the main chat.
+- **Acceptance:** Reconciliation thread renders target-grouped (topologically sorted upstream-first per PATCH_LEDGER target ordering); async classifier runs in background; auto-confirmed never surfaces; auto-edit has one-click apply; substantive has judgment affordances; "Reconcile Now" trigger in workspace shell; standalone PendingReviewSection retired as cutover.
+- **Verification:** Reconciliation thread rendering tests, classifier scheduling tests, target-ordering tests, manual walkthroughs for async classification + Reconcile Now trigger, regression on existing reconciliation flow.
+- **Traceability:** A82, A88; D135, D137, D138, D146; I111, I113, I114.
+- **Design docs:** `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.3 + §5 Track 3; `docs/design/MULTI_CHAT.md` §5; `docs/design/PATCH_LEDGER.md` §Target Ordering, §Reconciliation Flow.
+
+### thread-context-provision
+
+- **Name:** Thread context provision — TOON, `#` mention, turn-zero (Conversational Workspace Runtime — Track 5)
+- **Linear:** unassigned in this plan snapshot
+- **Kind:** structural
+- **Status:** not-started
+- **Objective:** Implement thread-scoped context specs (scope, root anchors, include rules), per-kind defaults (`full-graph` for interview, `explicit-set` for reconciliation, `neighborhood` for side, `explicit-set` for QA), TOON notation serializer for graph-structured context, `#` mention parser/resolver as a substrate mutation with durable `thread_context_item` rows, and turn-zero kickoff prompt assembly per thread kind.
+- **Why now / unlocks:** Track 2 (chat runtime) provides the thread substrate. Context provision makes threads conversationally useful by giving each thread kind appropriate context framing, durable mention tracking, and assistant-led turn-zero kickoffs instead of a blank textarea.
+- **Acceptance:** Thread context specs are persisted and replayable; `#` mention resolves to durable join rows and triggers context-spec change visible to the next turn's prompt assembler; TOON notation serializes graph structure for prompt context; turn-zero kickoff prompts are kind-appropriate; per-kind context-spec defaults apply correctly; mentions are revocable.
+- **Verification:** Context-spec persistence tests, `#` mention resolution/disambiguation tests, TOON serializer tests, turn-zero prompt assembly tests per kind, manual walkthroughs for each thread kind's context provision.
+- **Traceability:** A80, A81, A84, A85; D136, D137, D139, D140; I112.
+- **Design docs:** `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.5 + §5 Track 5.
 
 ### agent-fixture-substrate
 
@@ -347,6 +387,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ## Recently Completed
 
+- [2026-05-13] `continuous-workspace` — Done: FE-709 / PR #134. Replaced per-phase InterviewView with ContinuousWorkspaceView (cumulative center pane), extracted `useContinuousWorkspaceController`, added sidebar scroll-spy via WorkspaceFocusContext, extracted shared controller helpers to core, retired route-first test assumptions. Verified: `npm run verify` 1213 / 1214 pass (1 pre-existing flake). Watch: Step 5 route-collapse decision deferred — hybrid works as intended.
 - [2026-05-11] `side-chat-v3-1-agent-grouped-reconciliation` — Done: FE-674 / PR #124 + downstack closed the V3.x arc end-to-end with spec-level classifier route, per-row reset route, agent classification lifecycle, chips, per-class actions, and bulk Confirm-all / Apply-all-suggested. Verified: `npm run verify` 1178 / 1179 pass with one unrelated `side-chat-route` flake. Watch: A88 outer-loop walkthrough on a dense spec remains open to assess legibility vs V3.0's flat list.
 - [2026-05-11] `fe-698-reconciliation-context-pack` — Done: added proposal-only reconciliation prompt/context scenario rendering open reconciliation needs with source/target anchors, reason/status, prompt/context fingerprints, and read-only capability metadata. Verified: `npm run verify`. Watch: next FE-698 work can broaden read-only/proposal-only probes and Pi adapter spike without treating this pack as a resolution agent.
 - [2026-05-08] `side-chat-v3-0-hard-impact-cascade` — Done: FE-674 / PR #115 + #116 + #117 shipped hard-impact cascade through `reconciliation_need`, Pending review listing, and idempotent resolve. Verified: `npm run verify` (1063 tests, 0 lint warnings). Watch: A88 mechanical grouping remains only partially validated until outer-loop walkthrough on dense graphs.
@@ -356,10 +397,14 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 ## Dependencies
 
 ```text
-TRACK A — Workspace shell (parallel colleague lane)
-continuous-workspace
-  ├──→ stable host for side-chat-persistence-v4a
-  └──→ workspace-aware graph / structured-list peer routes
+TRACK A — Conversational Workspace Runtime umbrella
+continuous-workspace (Track 1, done — FE-709)
+  └──→ chat-runtime-threads (Track 2)
+        ├──→ reconciliation-runtime (Track 3, also needs Track 4)
+        └──→ thread-context-provision (Track 5)
+changeset-ledger (Track 4, parallel with Track 2)
+  └──→ richer attribution in reconciliation-runtime (Track 3)
+        + unlocks architect-generator-loop and side-chat-v4b-item-versioning
 
 TRACK B — Agent fixture substrate / strangler handler seam
 prompt/context scenario substrate foundation (completed)
@@ -395,10 +440,13 @@ workspace-gitignore-assist
 productized-web-research
 
 LOWER-PRIORITY / DEFERRED
-side-chat-persistence-v4a / side-chat-v4b-item-versioning
+side-chat-v4b-item-versioning (depends on changeset-ledger)
 spatial-graph-layout + graph-view-active-path-filter
 dashboard-summaries
 mcp-adapter / file-based-persistence / typed-fixture-builder-convergence
 structured-development-spec-registry
 portability-boundaries
+
+RETIRED
+side-chat-persistence-v4a — superseded by chat-runtime-threads (Track 2)
 ```
