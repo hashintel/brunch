@@ -105,6 +105,21 @@ vi.mock('../routes/specification/$id/_view/-interview-view.js', () => ({
   },
 }));
 
+vi.mock('../routes/specification/$id/_view/-continuous-workspace-view.js', () => ({
+  ContinuousWorkspaceView: () => {
+    interviewViewRenderCount += 1;
+
+    useEffect(() => {
+      interviewViewMountCount += 1;
+      return () => {
+        interviewViewUnmountCount += 1;
+      };
+    }, []);
+
+    return <h1>Interview screen</h1>;
+  },
+}));
+
 vi.mock('../routes/specification/$id/-export-preview.js', () => ({
   ExportPreview: () => <h1>Export screen</h1>,
 }));
