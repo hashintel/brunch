@@ -184,7 +184,7 @@ Status: done
 
 ## Card 6 — Entity projection read-model extraction
 
-Status: next
+Status: done
 
 ### Target Behavior
 
@@ -220,7 +220,7 @@ Status: next
 
 ## Card 7 — Workflow and phase outcome store extraction
 
-Status: queued
+Status: next
 
 ### Target Behavior
 
