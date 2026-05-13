@@ -15,9 +15,9 @@
 
 The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, observer knowledge extraction, workflow ownership extraction, distribution hardening, graph view's structured-list peer route, the first relation-first observer capture seam, the multi-chat substrate, side-chat V3.0 hard-impact cascade, and side-chat V3.1 agent-grouped reconciliation resolution all ship as working product.
 
-The next product arc is a **continuous conversational workspace** plus a stronger semantic/generative substrate. Continuous workspace is active in a parallel lane and gives the chat runtime a stable phase-addressable host. The FE-705 branch contributes an integration substrate — a local agent capability CLI and external LLM-as-user probe harness — that should be reconciled into main before graph-review and scenario-options work depends on generated completed-spec fixtures. After that, the highest-coordination work is intent-graph semantics and the semantic changeset ledger; lower-coordination provider, gitignore, and web-research work can proceed in parallel.
+The next product arc is a **continuous conversational workspace** plus a stronger semantic/generative substrate. Continuous workspace is active in a parallel lane and gives the chat runtime a stable phase-addressable host. The FE-705 branch contributes an integration substrate — a local agent capability CLI and external LLM-as-user probe harness — that should be reconciled into main before graph-review and scenario-options work depends on generated completed-spec fixtures. After that, the highest-coordination work is intent-graph semantics and the semantic changeset ledger; FE-701 should follow soon after the FE-705 reconciliation because the current schema already carries transitional multi-chat / reconciliation placeholders that only become coherent once `changeset` / `change` owns semantic mutation history. Lower-coordination provider, gitignore, and web-research work can proceed in parallel.
 
-The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agent-mutation design notes are reconciled into one direction. `docs/design/MULTI_CHAT.md` is the substrate document. `docs/design/SIDE_CHAT.md` describes side-chat V1 / V2 / V3.0 / V3.1 / V4 phasing on top of that substrate. `docs/design/PATCH_LEDGER.md` remains historical deeper design pressure for semantic mutation history, but canonical future-facing vocabulary is `changeset` / `change`. The product-layer ontology trajectory is split out as `docs/design/INTENT_GRAPH_SEMANTICS.md` and `docs/design/BEHAVIORAL_KERNELS.md`; broader synthesis lives in `docs/archive/design/INTENT_SPEC_EVOLUTION.md`. FE-705's branch-local strategy/proposal notes add scenario options, graph-review oracle, chat-local strategies, and concern/dependency mapping; those notes should become a canonical design doc when the branch is integrated. The dev-layer self-tooling trajectory lives in `docs/design/ln-skills/EVOLUTION.md`.
+The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agent-mutation design notes are reconciled into one direction. `docs/design/MULTI_CHAT.md` is the substrate document. `docs/design/SIDE_CHAT.md` describes side-chat V1 / V2 / V3.0 / V3.1 / V4 phasing on top of that substrate. `docs/design/PATCH_LEDGER.md` remains historical deeper design pressure for semantic mutation history, but canonical future-facing vocabulary is `changeset` / `change`. The product-layer ontology trajectory is split out as `docs/design/INTENT_GRAPH_SEMANTICS.md` and `docs/design/BEHAVIORAL_KERNELS.md`; broader synthesis lives in `docs/archive/design/INTENT_SPEC_EVOLUTION.md`. FE-705's branch-local strategy/proposal notes add scenario options, graph-review oracle, chat-local strategies, and concern/dependency mapping; those notes should become a canonical design doc when the branch is integrated. Coordination uses a substrate-strangler posture: keep existing frontend REST/SSE contracts stable while route adapters and capability adapters converge on shared server-owned handlers, then cut over UI flows only after parity and changeset-backed authority exist. The dev-layer self-tooling trajectory lives in `docs/design/ln-skills/EVOLUTION.md`.
 
 ## Sequencing
 
@@ -29,7 +29,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 ### Next
 
 1. `intent-graph-semantics` — highest-coordination semantic substrate after FE-705 reconciliation.
-2. `changeset-ledger` — semantic history spine needed before canonical proposal acceptance and productized scenario options.
+2. `changeset-ledger` — schedule soon after FE-705 reconciliation; semantic history spine needed before canonical proposal acceptance, direct-edit atomicity, and productized scenario options.
 3. `graph-review-scenario-options` — artifact-only critique/probe lane; can advance in parallel with FE-700 if it does not commit canonical graph truth.
 4. `productized-scenario-options` — user-facing acceleration surface after FE-700 semantics, FE-701 changesets, and graph-review probes.
 
@@ -81,7 +81,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Acceptance:** Server-owned capability contracts and JSONL protocol/session code are integrated; the probe runner uses only the JSONL client/process boundary; fixture-candidate artifacts preserve scenario briefs, model policy, generated transcripts, and workspace-state inspection without becoming Brunch authority.
 - **Verification:** Contract/dispatcher tests, JSONL protocol/session tests, import-boundary tests, fake process tests, opt-in real-provider smoke, and fixture-candidate structure/readiness checks.
 - **Traceability:** Requirement 43; A89; D143, D147; I115. Also protects Requirements 40, 41, 42 by making prompt/context and mutation-surface probes executable through a real adapter.
-- **Design docs:** `docs/design/AGENT_MUTATION_SURFACE.md`; `docs/archive/design/INTENT_SPEC_EVOLUTION.md`; FE-705 branch artifacts until rebased.
+- **Design docs:** `docs/design/AGENT_MUTATION_SURFACE.md`; `docs/design/SUBSTRATE_STRANGLER_COORDINATION.md`; `docs/archive/design/INTENT_SPEC_EVOLUTION.md`; FE-705 branch artifacts until rebased.
 
 ### intent-graph-semantics
 
@@ -103,11 +103,13 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Kind:** structural
 - **Status:** not-started
 - **Objective:** Introduce the semantic history spine that separates graph mutation history from conversational turn ancestry.
-- **Why now / unlocks:** Scenario bundle acceptance, direct-edit atomicity, accepted-with-issues flows, stale proposal detection, graph-review repairs, side-chat V4b item versioning, and future architect/reconciliation agents all need a durable semantic mutation boundary. Without it, productized scenario-options can stay probe-only but cannot safely commit candidate bundles.
-- **Acceptance:** Schema and operation vocabulary use `changeset` / `change`; specifications track latest semantic changeset; proposal turns carry base/opened changeset identity; `reconciliation_need.caused_by_changeset_id` is connected; non-accept proposal actions cannot mutate graph truth; a changeset is the smallest atomic unit preserving semantic coherence.
-- **Verification:** DB atomicity tests for changeset + changes + reconciliation_need writes, staleness tests for open proposal turns across multi-chat changes, and capability/transition tests proving non-accept actions cannot mutate graph truth.
+- **Why now / unlocks:** Scenario bundle acceptance, direct-edit atomicity, accepted-with-issues flows, stale proposal detection, graph-review repairs, side-chat V4b item versioning, and future architect/reconciliation agents all need a durable semantic mutation boundary. Without it, productized scenario-options can stay probe-only but cannot safely commit candidate bundles. The current DB substrate is already halfway there: `chat` and `reconciliation_need` exist, `specification.active_turn_id` / `chat.active_turn_id` are deliberately duplicated during the multi-chat transition, and `reconciliation_need.caused_by_patch_id` is a historical placeholder that should become changeset-backed provenance rather than be deleted as ordinary cruft.
+- **Current schema observations:** Legacy dedicated knowledge tables (`decision`, `assumption`, `requirement`, `criterion`, and old join/parent tables) are retired in migration `0010`; current semantic truth is `knowledge_item` + `knowledge_edge` + `turn_knowledge_item`. `annotation` and `reconciliation_need` are active process/read-model tables even when empty in local DBs. `turn.turn_kind` / `turn.is_resolution` remain transitional structural-artifact markers until continuous workspace and multi-chat proposal semantics replace that projection. `docs/schema.dbml` is stale relative to `src/server/schema.ts` and should be regenerated or deleted when FE-701 touches schema docs.
+- **Migration watch:** Live local `.brunch/brunch.db` was observed with only 18 applied migrations, stopping at `0017_reconciliation_need`; it lacked `0018` source snapshot columns and `0019` reconciliation-agent columns even though `src/server/schema.ts` defines them. There is no explicit `npm run migrate`; app/server `createDb()` runs Drizzle migrations automatically. Before FE-701 schema work, verify the target DB by inspecting `__drizzle_migrations` and `PRAGMA table_info(reconciliation_need)` so drift is not misread as product intent.
+- **Acceptance:** Schema and operation vocabulary use `changeset` / `change`; specifications track latest semantic changeset; proposal turns carry base/opened changeset identity; `reconciliation_need.caused_by_changeset_id` replaces/connects the historical patch placeholder; non-accept proposal actions cannot mutate graph truth; a changeset is the smallest atomic unit preserving semantic coherence.
+- **Verification:** DB atomicity tests for changeset + changes + reconciliation_need writes, staleness tests for open proposal turns across multi-chat changes, migration/drift checks against an actual SQLite DB, and capability/transition tests proving non-accept actions cannot mutate graph truth.
 - **Traceability:** Requirements 39, 42, 44; A71, A79; D135, D138, D143.
-- **Design docs:** `docs/design/PATCH_LEDGER.md` (historical filename; future vocabulary is changeset/change); FE-705 strategy/proposal notes for semantic history and proposal turns.
+- **Design docs:** `docs/design/PATCH_LEDGER.md` (historical filename; future vocabulary is changeset/change); `docs/design/SUBSTRATE_STRANGLER_COORDINATION.md`; FE-705 strategy/proposal notes for semantic history and proposal turns.
 
 ### graph-review-scenario-options
 
@@ -359,9 +361,10 @@ continuous-workspace
   ├──→ stable host for side-chat-persistence-v4a
   └──→ workspace-aware graph / structured-list peer routes
 
-TRACK B — Agent fixture substrate
+TRACK B — Agent fixture substrate / strangler handler seam
 prompt/context scenario substrate foundation (completed)
   └──→ agent-fixture-substrate
+        ├──→ shared route/capability handler seam without frontend DTO cutover
         ├──→ generated completed-spec fixture candidates
         ├──→ graph-review-scenario-options
         └──→ Pi harness comparison (future, FE-635)
@@ -378,9 +381,10 @@ multi-chat-substrate + reconciliation-needs (completed)
         ├──→ stale open proposal detection
         └──→ architect-generator-loop / verifier/import mutation provenance
 
-TRACK D — Strategy probes and product acceleration
+TRACK D — Strategy probes, frontend artifacts, and product acceleration
 agent-fixture-substrate + intent-graph-semantics
   └──→ graph-review-scenario-options
+        ├──→ fixture-backed candidate / graph-review UI artifacts can proceed without canonical mutation
         └──→ productized-scenario-options
               ├──→ absorbs / reshapes two-axis interview framing
               └──→ absorbs / reshapes progressive detail / recursive deflation
