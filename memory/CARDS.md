@@ -111,7 +111,7 @@ Status: done
 
 ## Card 4 — Intent graph mutation store extraction
 
-Status: next
+Status: done
 
 ### Target Behavior
 
@@ -147,7 +147,7 @@ Status: next
 
 ## Card 5 — Entity projection read-model extraction
 
-Status: queued
+Status: next
 
 ### Target Behavior
 
