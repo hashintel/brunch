@@ -18,13 +18,17 @@ If "recent" or unspecified, focus on recently modified files.
 
 ## What to look for
 
+Read `memory/SPEC.md` first when it exists. Use its lexicon for domain terms, and treat the live architecture register as the current decision record. Read `memory/PLAN.md` for active frontier context when the reviewed area touches active or near-horizon work. If ADRs or design docs exist in the touched area, respect them as supporting context, but do not introduce ADRs or sidecar decision logs by default; durable updates reconcile through `memory/SPEC.md` / `memory/PLAN.md`.
+
 Apply Ousterhout's depth test: modules should have small interfaces hiding significant complexity. Modules that move together should live together — clusters of small files always used in concert are a single deep module waiting to be extracted.
 
 Use the deletion test for suspected shallow modules: if deleting the module makes complexity vanish, it was pass-through structure; if the same complexity reappears across multiple callers, the module was earning its keep. Prefer depth as leverage/locality, not line-count ratio.
 
-Treat the interface as the test surface. If callers or tests must reach past the interface to verify important behavior, the module shape is probably wrong. A good seam lets tests and callers cross the same public boundary.
+Treat the interface as the test surface. The interface is everything callers must know to use the module correctly: types, invariants, ordering constraints, error modes, required configuration, and performance characteristics. If callers or tests must reach past the interface to verify important behavior, the module shape is probably wrong. A good seam lets tests and callers cross the same public boundary.
 
 Apply seam discipline: one adapter usually means a hypothetical seam; two adapters make a real seam. Flag indirection introduced only for imagined future variation, especially when it spreads configuration, mocks, or ordering knowledge into callers.
+
+When a finding is a deepening opportunity, present it as a candidate rather than a detailed design. Name the current shallow module shape, the deepened module that might replace it, what complexity would move behind the seam, and why that would improve locality, leverage, and the test surface. Do **not** propose detailed interfaces in `ln-review`; route selected deepening candidates to `ln-design` before scoping or refactoring.
 
 Check the functional core / imperative shell boundary (Gary Bernhardt, "Boundaries"). Pure functions should stay pure. Flag when a pure function has acquired side effects or a growing parameter list — it has drifted into shell territory.
 
@@ -54,7 +58,7 @@ Collect misalignments as numbered findings (category: `naming`) with the canonic
 
 ## Output
 
-Present findings as numbered candidates:
+Present findings as numbered candidates. Use the compact form for ordinary findings:
 
 ```md
 ## Review: [area]
@@ -65,19 +69,30 @@ Present findings as numbered candidates:
 2. ...
 ```
 
+Use the deepening form when the finding is a shallow-module or weak-seam opportunity:
+
+```md
+1. **[Deepening candidate]** — [category: depth|seam|coupling|testability] — [impact: low|medium|high]
+   **Files** — [modules/files involved]
+   **Problem** — [why the current module shape causes friction]
+   **Possible direction** — [plain English target shape; no detailed interface yet]
+   **Benefits** — [locality, leverage, and test-surface improvement]
+```
+
 Recommend the highest-impact improvement.
 
 ## Routing
 
 After presenting findings, present these options to the user (use `tool-ask-question`):
 
-| #   | Label           | Target        | Why                                              |
-| --- | --------------- | ------------- | ------------------------------------------------ |
-| 1   | Scope a fix     | `ln-scope`    | A finding warrants a planned slice               |
-| 2   | Plan a refactor | `ln-refactor` | Multiple findings need coordinated restructuring |
-| 3   | Back to triage  | `ln-consult`  | Review complete, no immediate action needed      |
+| #   | Label                      | Target        | Why                                              |
+| --- | -------------------------- | ------------- | ------------------------------------------------ |
+| 1   | Scope a fix                | `ln-scope`    | A finding warrants a planned slice               |
+| 2   | Explore a deepening design | `ln-design`   | A selected candidate needs seam/interface design before scoping or refactoring |
+| 3   | Plan a refactor            | `ln-refactor` | Multiple findings need coordinated restructuring |
+| 4   | Back to triage             | `ln-consult`  | Review complete, no immediate action needed      |
 
-Recommended: **1** if high-impact findings exist, **3** otherwise.
+Recommended: **2** if the highest-impact finding is a deepening candidate, **1** if high-impact findings are concrete fixes, **4** otherwise.
 
 ---
 *Draws from [mattpocock/skills/improve-codebase-architecture](https://github.com/mattpocock/skills/tree/main/improve-codebase-architecture) and [theswerd/aicode/skills/self-documenting-code](https://github.com/theswerd/aicode/blob/main/skills/self-documenting-code/SKILL.md).*
