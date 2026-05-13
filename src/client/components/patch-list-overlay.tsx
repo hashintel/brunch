@@ -1,37 +1,19 @@
-// PatchListOverlay — the canonical persistent patch-list surface (SIDE_CHAT.md §4).
-//
-// Renders sticky bars below the global app top-bar:
-//   • Staged-changes bar when there are staged patches.
-//   • <PendingReviewSection /> — open reconciliation_need rows with per-row Resolve (V3.0 cards 2–3;
-//     SIDE_CHAT.md §5.3 — listing via useSpecificationOpenReconciliationNeeds).
-//   • Saved-toast for soft / none / hard impact applies (transient post-apply).
-//
-// Lives outside the side-chat popover so it stays visible regardless of whether
-// the panel is open — V4's architect loop will deposit into the same surface.
-
 import { useEffect, useRef, useState } from 'react';
-
-import { useSpecificationOpenReconciliationNeeds } from '@/client/routes/specification/$id/-specification-data.js';
 
 import { ContentDiff } from './content-diff.js';
 import { ImpactChip } from './impact-chip.js';
 import { kindAccentHex } from './knowledge-card';
-import { useLastBatchAppliedMeta, usePatchList, usePatchListState } from './patch-list-host.js';
+import {
+  useLastBatchAppliedMeta,
+  usePatchList,
+  usePatchListSavedToastLastAckBatchIdRef,
+  usePatchListState,
+} from './patch-list-host.js';
 import { usePatchListOverlayBridge } from './patch-list-overlay-bridge.js';
 import type { Patch } from './patch-list-reducer.js';
 import { usePatchListUndoOverride } from './patch-list-undo-context.js';
-import { PendingReviewSection } from './pending-review-section.js';
 
 const MESSAGE_DURATION_MS = 5000;
-
-function lastBatchHasNonNullApply(meta: ReadonlyArray<{ patchId: string; applied: unknown }>): boolean {
-  for (const entry of meta) {
-    if (entry.applied) {
-      return true;
-    }
-  }
-  return false;
-}
 
 function StagedPatchDetailRow({ patch }: { patch: Patch }): React.ReactElement {
   const showDiff =
@@ -76,30 +58,20 @@ export function PatchListOverlay(): React.ReactElement | null {
   const lastBatchAppliedMeta = useLastBatchAppliedMeta();
   const undoOverride = usePatchListUndoOverride();
   const overlayBridge = usePatchListOverlayBridge();
-  const openNeeds = useSpecificationOpenReconciliationNeeds();
 
   const stagedCount = state.staged.length;
-  const openNeedsCount = openNeeds.length;
 
   const [savedToastVisible, setSavedToastVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const lastSeenBatchIdRef = useRef<string | null>(null);
+  const lastSeenBatchIdRef = usePatchListSavedToastLastAckBatchIdRef();
   const prevCanUndoRef = useRef<boolean>(state.canUndo);
 
-  // Auto-collapse when there are no staged patches left (post-apply / undo).
   useEffect(() => {
     if (stagedCount === 0 && expanded) {
       setExpanded(false);
     }
   }, [stagedCount, expanded]);
 
-  // Saved toast: a new `lastBatchId` means a fresh apply — show (with auto-hide timer).
-  // `canUndo` true→false hides the toast on undo, but must not win over a batch advance in
-  // the same commit (soft-impact apply then hard-impact apply both update `lastBatchId`
-  // and flip `canUndo` to false; two separate effects would batch hide-after-show).
-  //
-  // Deps are intentionally narrow: a wider dep array re-runs cleanup on unrelated churn
-  // (e.g. stagedCount change), cancelling the auto-hide timer and leaving the toast stuck.
   useEffect(() => {
     const batchAdvanced = state.lastBatchId !== null && state.lastBatchId !== lastSeenBatchIdRef.current;
 
@@ -107,14 +79,8 @@ export function PatchListOverlay(): React.ReactElement | null {
       lastSeenBatchIdRef.current = state.lastBatchId;
     }
 
-    const hasApply = lastBatchHasNonNullApply(lastBatchAppliedMeta);
-    const showFromBatch =
-      batchAdvanced &&
-      hasApply &&
-      !state.isApplying &&
-      // Intentionally omit `state.staged` from deps: re-running on unrelated staging churn
-      // clears the auto-hide timer and leaves the toast stuck (FE-665 regression).
-      state.staged.length === 0;
+    const hasAppliedMeta = lastBatchAppliedMeta.length > 0;
+    const showFromBatch = batchAdvanced && hasAppliedMeta && !state.isApplying && state.staged.length === 0;
 
     const canUndoDropped = prevCanUndoRef.current && !state.canUndo;
     prevCanUndoRef.current = state.canUndo;
@@ -148,8 +114,7 @@ export function PatchListOverlay(): React.ReactElement | null {
     void patchList.apply();
   };
 
-  // Nothing to surface: no staged patches, no open needs, no transient toast.
-  if (stagedCount === 0 && openNeedsCount === 0 && !savedToastVisible) {
+  if (stagedCount === 0 && !savedToastVisible) {
     return null;
   }
 
@@ -163,7 +128,7 @@ export function PatchListOverlay(): React.ReactElement | null {
           aria-label="Staged changes"
           data-staged-count={stagedCount}
           data-expanded={expanded ? 'true' : 'false'}
-          className="border-b border-rule bg-card/95 backdrop-blur"
+          className="border-b border-rule bg-card/95"
         >
           <div className="flex items-center justify-between gap-3 px-4 py-1.5 text-xs">
             <button
@@ -218,14 +183,29 @@ export function PatchListOverlay(): React.ReactElement | null {
           ) : null}
         </div>
       ) : null}
-      <PendingReviewSection />
       {savedToastVisible ? (
         <div
           role="status"
           aria-label="Change saved"
-          className="flex items-center justify-between gap-3 border-b border-rule bg-card/95 px-4 py-1.5 text-xs backdrop-blur"
+          className="flex animate-in items-center justify-between gap-3 border-b border-rule bg-card/95 px-4 py-1.5 text-xs duration-200 fade-in slide-in-from-top-1"
         >
-          <span className="font-medium text-ink">Change saved</span>
+          <span className="inline-flex items-center gap-1.5 font-medium text-ink">
+            <span
+              aria-hidden
+              className="inline-flex size-3.5 animate-in items-center justify-center rounded-full bg-emerald-500 text-white duration-200 zoom-in"
+            >
+              <svg
+                viewBox="0 0 12 12"
+                className="size-2.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M2.5 6.5l2.25 2.25L9.5 3.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            Change saved
+          </span>
           {state.canUndo ? (
             <button
               type="button"

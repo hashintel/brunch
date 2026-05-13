@@ -203,6 +203,7 @@ function buildHistory(messages: readonly SideChatMessage[]): SideChatPriorTurn[]
 }
 
 const SIDE_CHAT_LAYOUT_STORAGE_KEY = 'brunch.side-chat.layout';
+const SIDE_CHAT_MODE_STORAGE_KEY = 'brunch.side-chat.mode';
 
 function readStoredLayout(): 'docked' | 'floating' {
   if (typeof window === 'undefined') return 'docked';
@@ -219,6 +220,27 @@ function writeStoredLayout(layout: 'docked' | 'floating'): void {
     window.localStorage.setItem(SIDE_CHAT_LAYOUT_STORAGE_KEY, layout);
   } catch {
     // Storage may be unavailable (privacy mode, sandboxed iframe, quota); ignore.
+  }
+}
+
+// Card 4 follow-up: Edit-mode toggle persists across sessions and pinned items
+// so the user's last preference survives reload. A new pinned item adopts the
+// stored mode rather than always falling back to 'explore'.
+function readStoredMode(): SideChatMode {
+  if (typeof window === 'undefined') return 'explore';
+  try {
+    return window.localStorage.getItem(SIDE_CHAT_MODE_STORAGE_KEY) === 'edit' ? 'edit' : 'explore';
+  } catch {
+    return 'explore';
+  }
+}
+
+function writeStoredMode(mode: SideChatMode): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(SIDE_CHAT_MODE_STORAGE_KEY, mode);
+  } catch {
+    // Storage may be unavailable; ignore.
   }
 }
 
@@ -304,7 +326,9 @@ export function SideChatHost({
         messages: [],
         messageTimestamps: [],
         annotateMode: false,
-        mode: 'explore',
+        // Card 4 follow-up: adopt the persisted mode so reopening the side-chat
+        // (or pinning a new item) inherits the user's last toggle state.
+        mode: readStoredMode(),
       };
       activeRef.current = nextActiveSideChat;
       setActiveSideChat(nextActiveSideChat);
@@ -343,6 +367,10 @@ export function SideChatHost({
   }, []);
 
   const setMode = useCallback((mode: SideChatMode) => {
+    // Persist before mutating in-memory state so a later reload (or a fresh
+    // pin via openFor) sees the latest preference even if the active session
+    // is dismissed before the next render commits.
+    writeStoredMode(mode);
     const current = activeRef.current;
     if (!current) {
       return;
@@ -574,20 +602,6 @@ export function SideChatHost({
     );
   const lastBatchAppliedMeta = useLastBatchAppliedMeta();
 
-  // Derive whether the most recent applied batch was hard-impact-deferred
-  // only (V2 SIDE_CHAT.md §6.3). When true, the canonical PatchListOverlay
-  // surfaces the deferred banner, and the popover suppresses its own
-  // "Change saved" toast for the same batch to avoid double-messaging.
-  const lastBatchWasDeferredOnly = useMemo(() => {
-    if (lastBatchAppliedMeta.length === 0) return false;
-    return lastBatchAppliedMeta.every((entry) => {
-      const applied = entry.applied;
-      return (
-        !!applied && typeof applied === 'object' && (applied as { deferred?: unknown }).deferred === true
-      );
-    });
-  }, [lastBatchAppliedMeta]);
-
   const triggeredAutoApplyIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!patchList || patchListState.isApplying) return;
@@ -711,9 +725,7 @@ export function SideChatHost({
       ) {
         const applied = appliedByPatchIdForRefresh.get(patch.id);
         const isDeferred =
-          !!applied &&
-          typeof applied === 'object' &&
-          (applied as { deferred?: unknown }).deferred === true;
+          !!applied && typeof applied === 'object' && (applied as { deferred?: unknown }).deferred === true;
         if (isDeferred) continue;
         const nextContent = patch.newContent;
         setActiveSideChat((current) =>
@@ -895,8 +907,6 @@ export function SideChatHost({
               stagedPatches={stagedSummaries}
               canUndo={canUndoForActive}
               isApplying={patchListState.isApplying}
-              applyBatchId={patchListState.lastBatchId}
-              lastBatchWasDeferredOnly={lastBatchWasDeferredOnly}
               onApply={patchList && stagedForActiveIds.length > 0 ? applyStagedForActive : undefined}
               onUndo={patchList ? undoForActive : undefined}
               onDiscardPatch={patchList?.discard}

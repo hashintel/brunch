@@ -47,7 +47,7 @@ export function loadPromptAsset(id: PromptId): string {
   const assetFile = getPromptAssetFileName(id);
 
   const cached = promptCache.get(id);
-  if (cached) {
+  if (cached !== undefined) {
     return cached;
   }
 

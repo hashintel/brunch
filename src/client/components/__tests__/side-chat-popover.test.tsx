@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SideChatPopover, type SideChatMessage, type SideChatThreadItem } from '../side-chat-popover.js';
 
@@ -278,7 +278,7 @@ describe('SideChatPopover', () => {
   });
 
   describe('annotate composer', () => {
-    it('renders the Annotate button when onAnnotateRequest is provided', () => {
+    it('renders the Note button when onAnnotateRequest is provided', () => {
       render(
         <SideChatPopover
           pinnedItem={baseItem}
@@ -289,26 +289,26 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      expect(screen.getByRole('button', { name: /annotate item/i })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /add a note/i })).toBeTruthy();
     });
 
-    it('does not render the Annotate button without onAnnotateRequest', () => {
+    it('does not render the Note button without onAnnotateRequest', () => {
       render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
 
-      expect(screen.queryByRole('button', { name: /annotate item/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /add a note/i })).toBeNull();
     });
 
-    it('clicking Annotate fires onAnnotateRequest', () => {
+    it('clicking Note fires onAnnotateRequest', () => {
       const onAnnotateRequest = vi.fn();
       render(
         <SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} onAnnotateRequest={onAnnotateRequest} />,
       );
 
-      fireEvent.click(screen.getByRole('button', { name: /annotate item/i }));
+      fireEvent.click(screen.getByRole('button', { name: /add a note/i }));
       expect(onAnnotateRequest).toHaveBeenCalledTimes(1);
     });
 
-    it('disables the Annotate button while a stream is in flight', () => {
+    it('disables the Note button while a stream is in flight', () => {
       render(
         <SideChatPopover
           pinnedItem={baseItem}
@@ -321,7 +321,7 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      const button = screen.getByRole('button', { name: /annotate item/i }) as HTMLButtonElement;
+      const button = screen.getByRole('button', { name: /add a note/i }) as HTMLButtonElement;
       expect(button.disabled).toBe(true);
     });
 
@@ -429,54 +429,27 @@ describe('SideChatPopover', () => {
       expect(screen.queryByText(/saving change/i)).toBeNull();
     });
 
-    it('shows the "saving change…" status while isApplying is true (no staging panel flash)', () => {
+    it('shows the "saving change…" status inline while isApplying with staged patches (Apply disabled)', () => {
       render(
         <SideChatPopover
           pinnedItem={baseItem}
           onDismiss={() => {}}
           stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
           isApplying
+          onApply={() => {}}
         />,
       );
 
       expect(screen.getByText(/saving change/i)).toBeTruthy();
-      // Staging panel must NOT show during in-flight auto-apply.
-      expect(screen.queryByRole('region', { name: /staged annotations/i })).toBeNull();
+      expect(screen.getByRole('region', { name: /staged changes/i })).toBeTruthy();
+      const applyBtn = screen.getByRole('button', { name: /apply 1 change/i }) as HTMLButtonElement;
+      expect(applyBtn.disabled).toBe(true);
     });
 
-    it('shows the "change saved" confirmation with Undo after isApplying transitions from true to false with canUndo true', () => {
-      const onUndo = vi.fn();
-      const { rerender } = render(
-        <SideChatPopover
-          pinnedItem={baseItem}
-          onDismiss={() => {}}
-          canUndo={false}
-          isApplying
-          onUndo={onUndo}
-        />,
-      );
-      rerender(
-        <SideChatPopover
-          pinnedItem={baseItem}
-          onDismiss={() => {}}
-          canUndo
-          isApplying={false}
-          onUndo={onUndo}
-        />,
-      );
-
-      const status = screen.getByRole('status', { name: /change saved/i });
-      expect(status).toBeTruthy();
-      expect(status.textContent).toContain('Change saved');
-
-      fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
-      expect(onUndo).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not render the saved confirmation when canUndo is false', () => {
-      render(<SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} />);
-      expect(screen.queryByRole('status', { name: /change saved/i })).toBeNull();
-    });
+    // Card 4 follow-up: "Change saved" toast moved out of the side-chat
+    // composer into <PatchListOverlay /> (mounted in the specification layout
+    // route), so the popover no longer surfaces the saved confirmation. Toast
+    // lifecycle is exercised in patch-list-overlay.test.tsx.
 
     it('renders the staging panel only when staged>0 and not currently applying (i.e., a stuck/failed batch)', () => {
       render(
@@ -521,7 +494,7 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /apply 1 change/i }));
       expect(onApply).toHaveBeenCalledTimes(1);
     });
 
@@ -537,7 +510,7 @@ describe('SideChatPopover', () => {
         />,
       );
 
-      fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /undo last change/i }));
       expect(onUndo).toHaveBeenCalledTimes(1);
     });
   });
@@ -591,7 +564,7 @@ describe('SideChatPopover', () => {
       fireEvent.click(screen.getByRole('button', { name: /show existing notes/i }));
 
       // Click the + button on the first item.
-      fireEvent.click(screen.getByRole('button', { name: /add first to chat context/i }));
+      fireEvent.click(screen.getByRole('button', { name: /add first to context/i }));
       expect(onPromoteAnnotation).toHaveBeenCalledTimes(1);
       expect(onPromoteAnnotation).toHaveBeenCalledWith(11);
     });
@@ -614,8 +587,8 @@ describe('SideChatPopover', () => {
       fireEvent.click(screen.getByRole('button', { name: /show existing notes/i }));
 
       // 'first' is already in context — no + button for it; the second item still has one.
-      expect(screen.queryByRole('button', { name: /add first to chat context/i })).toBeNull();
-      expect(screen.getByRole('button', { name: /add second to chat context/i })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /add first to context/i })).toBeNull();
+      expect(screen.getByRole('button', { name: /add second to context/i })).toBeTruthy();
 
       // The "Already in chat context" indicator appears on the first row.
       const firstRow = screen.getByText('first').closest('[data-annotation-id]') as HTMLElement | null;
@@ -624,188 +597,8 @@ describe('SideChatPopover', () => {
     });
   });
 
-  describe('SideChatPopover — saved toast lifecycle', () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-    });
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
-    it('does NOT show the saved toast on mount with stale canUndo (apply happened in a prior session)', () => {
-      render(
-        <SideChatPopover
-          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
-          onDismiss={() => {}}
-          canUndo
-          isApplying={false}
-          stagedPatches={[]}
-        />,
-      );
-      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
-    });
-
-    it('shows the saved toast when isApplying transitions from true to false with canUndo true', () => {
-      const { rerender } = render(
-        <SideChatPopover
-          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
-          onDismiss={() => {}}
-          canUndo={false}
-          isApplying
-          stagedPatches={[]}
-        />,
-      );
-      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
-
-      rerender(
-        <SideChatPopover
-          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
-          onDismiss={() => {}}
-          canUndo
-          isApplying={false}
-          stagedPatches={[]}
-        />,
-      );
-      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
-    });
-
-    it('hides the saved toast when canUndo flips back to false (undo)', () => {
-      const { rerender } = render(
-        <SideChatPopover
-          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
-          onDismiss={() => {}}
-          canUndo={false}
-          isApplying
-          stagedPatches={[]}
-        />,
-      );
-      rerender(
-        <SideChatPopover
-          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
-          onDismiss={() => {}}
-          canUndo
-          isApplying={false}
-          stagedPatches={[]}
-        />,
-      );
-      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
-
-      rerender(
-        <SideChatPopover
-          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
-          onDismiss={() => {}}
-          canUndo={false}
-          isApplying={false}
-          stagedPatches={[]}
-        />,
-      );
-      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
-    });
-
-    it('auto-hides the toast after 5 seconds', () => {
-      const { rerender } = render(
-        <SideChatPopover
-          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
-          onDismiss={() => {}}
-          canUndo={false}
-          isApplying
-          stagedPatches={[]}
-        />,
-      );
-      rerender(
-        <SideChatPopover
-          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
-          onDismiss={() => {}}
-          canUndo
-          isApplying={false}
-          stagedPatches={[]}
-        />,
-      );
-      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
-      act(() => {
-        vi.advanceTimersByTime(5000);
-      });
-      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
-    });
-
-    it('shows and re-arms the saved toast for consecutive applied batches while canUndo stays true', () => {
-      const { rerender } = render(
-        <SideChatPopover
-          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
-          onDismiss={() => {}}
-          canUndo={false}
-          isApplying
-          stagedPatches={[]}
-          applyBatchId={null}
-        />,
-      );
-
-      rerender(
-        <SideChatPopover
-          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
-          onDismiss={() => {}}
-          canUndo
-          isApplying={false}
-          stagedPatches={[]}
-          applyBatchId="batch-1"
-        />,
-      );
-      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
-      act(() => {
-        vi.advanceTimersByTime(5000);
-      });
-      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
-
-      rerender(
-        <SideChatPopover
-          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
-          onDismiss={() => {}}
-          canUndo
-          isApplying={false}
-          stagedPatches={[]}
-          applyBatchId="batch-2"
-        />,
-      );
-
-      expect(screen.getByLabelText(/change saved/i)).toBeTruthy();
-      act(() => {
-        vi.advanceTimersByTime(5000);
-      });
-      expect(screen.queryByLabelText(/change saved/i)).toBeNull();
-    });
-
-    it('renders the toast as an absolute overlay inside the composer footer', () => {
-      const { container, rerender } = render(
-        <SideChatPopover
-          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
-          onDismiss={() => {}}
-          canUndo={false}
-          isApplying
-          stagedPatches={[]}
-        />,
-      );
-      rerender(
-        <SideChatPopover
-          pinnedItem={{ referenceCode: 'C1', content: 'item', kind: 'constraint' }}
-          onDismiss={() => {}}
-          canUndo
-          isApplying={false}
-          stagedPatches={[]}
-        />,
-      );
-      const toast = container.querySelector('[aria-label="Change saved"]') as HTMLElement;
-      const attach = container.querySelector('[aria-label="Attach (coming soon)"]') as HTMLElement;
-      const send = container.querySelector('[aria-label="Send message"]') as HTMLElement;
-      expect(toast).not.toBeNull();
-      expect(attach).not.toBeNull();
-      expect(send).not.toBeNull();
-      // All three share the same parent (the footer row).
-      expect(toast.parentElement).toBe(attach.parentElement?.parentElement);
-      expect(toast.parentElement).toBe(send.parentElement);
-      // Toast is absolutely positioned (overlay — does not contribute to flex layout).
-      expect(toast.className).toMatch(/\babsolute\b/);
-    });
-  });
+  // Card 4 follow-up: saved-toast lifecycle moved to <PatchListOverlay />.
+  // See patch-list-overlay.test.tsx for the canonical lifecycle suite.
 });
 
 describe('SideChatPopover — impact tier chip on edit patches (V2 §4.1)', () => {
@@ -928,8 +721,8 @@ describe('SideChatPopover — Edit-mode toggle (V2)', () => {
   });
 });
 
-describe('SideChatPopover — staged-edit diff expander (FE-665)', () => {
-  it('renders an expander on edit patches that carry currentContent and newContent', () => {
+describe('SideChatPopover — staged-edit diff popover (Card 4 polish)', () => {
+  it('renders a "view diff" chip on edit patches that carry currentContent and newContent', () => {
     render(
       <SideChatPopover
         pinnedItem={baseItem}
@@ -947,10 +740,12 @@ describe('SideChatPopover — staged-edit diff expander (FE-665)', () => {
     );
     const row = document.querySelector('[data-staged-patch-id="p1"]');
     expect(row).not.toBeNull();
-    expect(row!.querySelector('details')).not.toBeNull();
+    expect(row!.querySelector('[data-view-diff-chip]')).not.toBeNull();
+    // The inline <details> expander has been removed.
+    expect(row!.querySelector('details')).toBeNull();
   });
 
-  it('expanding the row exposes removed and added diff spans', () => {
+  it('clicking the "view diff" chip opens the DiffPopover with removed/added spans', () => {
     render(
       <SideChatPopover
         pinnedItem={baseItem}
@@ -966,17 +761,20 @@ describe('SideChatPopover — staged-edit diff expander (FE-665)', () => {
         ]}
       />,
     );
-    const details = document.querySelector('[data-staged-patch-id="p1"] details') as HTMLDetailsElement;
-    details.open = true;
-    const removed = document.querySelectorAll('[data-diff-kind="removed"]');
-    const added = document.querySelectorAll('[data-diff-kind="added"]');
+    // Popover starts closed.
+    expect(document.querySelector('[data-diff-popover]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /view diff for edit: rephrase/i }));
+    const popover = document.querySelector('[data-diff-popover]');
+    expect(popover).not.toBeNull();
+    const removed = popover!.querySelectorAll('[data-diff-kind="removed"]');
+    const added = popover!.querySelectorAll('[data-diff-kind="added"]');
     expect(removed.length).toBeGreaterThan(0);
     expect(added.length).toBeGreaterThan(0);
     expect(Array.from(removed).some((node) => node.textContent?.includes('SQLite'))).toBe(true);
     expect(Array.from(added).some((node) => node.textContent?.includes('Postgres'))).toBe(true);
   });
 
-  it('does not render an expander when the edit patch lacks currentContent or newContent', () => {
+  it('does not render a view-diff chip when the edit patch lacks currentContent or newContent', () => {
     render(
       <SideChatPopover
         pinnedItem={baseItem}
@@ -986,11 +784,11 @@ describe('SideChatPopover — staged-edit diff expander (FE-665)', () => {
     );
     const row = document.querySelector('[data-staged-patch-id="p1"]');
     expect(row).not.toBeNull();
-    expect(row!.querySelector('details')).toBeNull();
+    expect(row!.querySelector('[data-view-diff-chip]')).toBeNull();
     expect(row!.textContent).toContain('Edit: rephrase');
   });
 
-  it('does not render an expander when before and after content are equal', () => {
+  it('does not render a view-diff chip when before and after content are equal', () => {
     render(
       <SideChatPopover
         pinnedItem={baseItem}
@@ -1007,10 +805,10 @@ describe('SideChatPopover — staged-edit diff expander (FE-665)', () => {
       />,
     );
     const row = document.querySelector('[data-staged-patch-id="p1"]');
-    expect(row!.querySelector('details')).toBeNull();
+    expect(row!.querySelector('[data-view-diff-chip]')).toBeNull();
   });
 
-  it('does not render an expander on non-edit staged patches', () => {
+  it('does not render a view-diff chip on non-edit staged patches', () => {
     render(
       <SideChatPopover
         pinnedItem={baseItem}
@@ -1019,6 +817,101 @@ describe('SideChatPopover — staged-edit diff expander (FE-665)', () => {
       />,
     );
     const row = document.querySelector('[data-staged-patch-id="p1"]');
-    expect(row!.querySelector('details')).toBeNull();
+    expect(row!.querySelector('[data-view-diff-chip]')).toBeNull();
+  });
+
+  it('renders a kind chip on every staged patch row regardless of kind', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[
+          { id: 'a', kind: 'annotate', summary: 'note' },
+          { id: 'b', kind: 'edit', summary: 'edit' },
+          { id: 'c', kind: 'edge', summary: 'edge' },
+          { id: 'd', kind: 'drill-down', summary: 'drill' },
+        ]}
+      />,
+    );
+    expect(document.querySelector('[data-staged-patch-id="a"] [data-kind-chip="annotate"]')).not.toBeNull();
+    expect(document.querySelector('[data-staged-patch-id="b"] [data-kind-chip="edit"]')).not.toBeNull();
+    expect(document.querySelector('[data-staged-patch-id="c"] [data-kind-chip="edge"]')).not.toBeNull();
+    expect(document.querySelector('[data-staged-patch-id="d"] [data-kind-chip="drill-down"]')).not.toBeNull();
+  });
+});
+
+describe('SideChatPopover — Card 4 vocabulary + chrome polish', () => {
+  it('moves the Note button into the input card next to the attach button', () => {
+    const { container } = render(
+      <SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} onAnnotateRequest={() => {}} />,
+    );
+    const note = container.querySelector('[aria-label="Add a note"]') as HTMLElement;
+    const attach = container.querySelector('[aria-label="Attach (coming soon)"]') as HTMLElement;
+    expect(note).not.toBeNull();
+    expect(attach).not.toBeNull();
+    // Both share the same parent (the input-card left action row).
+    expect(note.parentElement).toBe(attach.parentElement);
+  });
+
+  it('renders the Edit-mode strip below the input card with an Off / Edit on toggle pill', () => {
+    const { container, rerender } = render(
+      <SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} mode="explore" onModeChange={() => {}} />,
+    );
+    const strip = container.querySelector('[data-edit-mode-strip]');
+    expect(strip).not.toBeNull();
+    expect(strip!.textContent).toContain('Edit mode');
+    expect(strip!.textContent).toContain('Off');
+
+    rerender(
+      <SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} mode="edit" onModeChange={() => {}} />,
+    );
+    const stripActive = container.querySelector('[data-edit-mode-strip]');
+    expect(stripActive!.textContent).toContain('Edit on');
+  });
+
+  it('input placeholder swaps to "Suggest an edit…" when mode is "edit"', () => {
+    const { rerender } = render(
+      <SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} mode="explore" onModeChange={() => {}} />,
+    );
+    const explore = screen.getByLabelText('Message') as HTMLTextAreaElement;
+    expect(explore.placeholder).toMatch(/ask me anything/i);
+    rerender(
+      <SideChatPopover pinnedItem={baseItem} onDismiss={() => {}} mode="edit" onModeChange={() => {}} />,
+    );
+    const edit = screen.getByLabelText('Message') as HTMLTextAreaElement;
+    expect(edit.placeholder).toMatch(/suggest an edit/i);
+  });
+
+  it('annotate composer placeholders read "Title" and "Details"', () => {
+    render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        annotateMode
+        onAnnotateRequest={() => {}}
+        onAnnotateCancel={() => {}}
+        onAnnotateSubmit={() => {}}
+      />,
+    );
+    const summary = screen.getByLabelText('Annotation summary') as HTMLInputElement;
+    const body = screen.getByLabelText('Annotation body') as HTMLTextAreaElement;
+    expect(summary.placeholder).toBe('Title');
+    expect(body.placeholder).toBe('Details');
+  });
+
+  it('staged-patch discard button uses the X icon and is hidden until row hover/focus', () => {
+    const { container } = render(
+      <SideChatPopover
+        pinnedItem={baseItem}
+        onDismiss={() => {}}
+        stagedPatches={[{ id: 'p1', kind: 'annotate', summary: 'note' }]}
+        onDiscardPatch={() => {}}
+      />,
+    );
+    const discard = container.querySelector('[aria-label^="Discard staged change"]') as HTMLButtonElement;
+    expect(discard).not.toBeNull();
+    // Hidden by default, revealed on group hover/focus-within.
+    expect(discard.className).toMatch(/opacity-0/);
+    expect(discard.className).toMatch(/group-hover\/staged-row:opacity-100/);
   });
 });
