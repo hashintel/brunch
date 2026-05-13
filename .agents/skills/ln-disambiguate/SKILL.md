@@ -1,73 +1,47 @@
 ---
 name: ln-disambiguate
-description: "Collapse meaningful ambiguity by generating concrete divergent interpretations and asking the user to classify examples, counterexamples, edge cases, or candidate outcomes. Use when a plan/design has several plausible meanings, requirements feel vague, examples would clarify intent faster than open-ended grilling, or the user asks to disambiguate, find ambiguity, use behavioral kernels, or ask contrastive questions."
+description: "Collapse meaningful ambiguity with contrastive examples. Use when a plan/design has several plausible meanings, requirements feel vague, examples would clarify intent faster than grilling, or the user asks to disambiguate, find ambiguity, use behavioral kernels, or ask contrastive questions."
 ---
 
 # Ln Disambiguate
 
-Collapse ambiguity by asking the smallest concrete question whose answer separates plausible interpretations.
+Generate cases where plausible interpretations diverge; ask the user to classify the case.
 
-Users are often better at recognizing intent in examples than authoring abstract predicates. Do not start with “what are the requirements?” if a concrete classification would answer faster. Generate cases where plausible meanings diverge, ask the user to classify the case, and translate the answer into candidate durable conclusions.
+Users recognize intent in concrete examples faster than they author abstract predicates. Use the TiCoder move generalized beyond tests: produce examples, counterexamples, edge cases, and candidate outcomes that separate meanings. Then translate the answer into typed conclusions.
 
-This is an alternative entry point to `ln-grill`: use `ln-grill` when the idea needs broad Socratic pressure; use `ln-disambiguate` when the work already has enough shape that the useful move is resolving ambiguous meanings, behaviors, boundaries, or examples.
+Use this instead of `ln-grill` when the work has enough shape that ambiguity collapse is the next move. Use `ln-grill` when the idea still needs broad Socratic pressure.
 
-Do not create or edit planning artifacts here. Durable conclusions promote into `memory/SPEC.md` or `memory/PLAN.md` through the next routed skill.
-
-## Grounding
-
-If local context can resolve the ambiguity, inspect it instead of asking. Otherwise read only what helps you form precise contrasts:
-
-1. `memory/SPEC.md` if present — lexicon, live requirements, assumptions, decisions, invariants, and verification stance.
-2. `memory/PLAN.md` if the ambiguity concerns sequencing or frontier scope.
-3. Relevant design docs when `memory/SPEC.md` points to them.
-
-Use the current lexicon. If ambiguous language reveals a missing or overloaded term, name the competing meanings explicitly.
-
-## Method
+If local context can answer the question, inspect it instead of asking. Read only the context needed to form precise contrasts: `memory/SPEC.md`, `memory/PLAN.md`, and files they explicitly point to. Use the current lexicon; when terms are overloaded, name the competing meanings.
 
 For each ambiguity:
 
-1. **Name the ambiguous claim** — the term, behavior, boundary, decision, requirement, invariant, or criterion that has multiple plausible meanings.
-2. **Generate competing interpretations** — usually 2–4. Include the boring/default interpretation, the stricter interpretation, and any interpretation likely to cause a bug if implemented silently.
-3. **Find the divergence point** — the smallest concrete scenario where those interpretations produce different outcomes.
-4. **Ask a contrastive question** — have the user classify the scenario or choose the expected outcome.
-5. **Translate the answer** into candidate durable conclusions:
-   - `decision` — a chosen option over named alternatives, with rationale.
-   - `invariant` — a preservation rule that must keep holding.
-   - `constraint` — a boundary or non-goal that rules out interpretations.
-   - `assumption` — a material belief that remains unvalidated.
-   - `example` — a concrete positive, edge-case, trace, or not-relevant case.
-   - `counterexample` — a rejected case or outcome that rules out an interpretation.
-   - `criterion` — an observation, test shape, or manual review that would witness the claim.
-   - `unresolved ambiguity` — a named ambiguity intentionally deferred.
-6. **Repeat only while it buys clarity** — stop when the remaining ambiguity is either collapsed, explicitly deferred, or ready for `ln-spec`.
+1. Name the ambiguous claim.
+2. Generate 2–4 competing interpretations.
+3. Find the smallest scenario where they produce different outcomes.
+4. Ask one contrastive classification question.
+5. Translate the answer into candidate durable conclusions:
+   - `decision`
+   - `invariant`
+   - `constraint`
+   - `assumption`
+   - `example`
+   - `counterexample`
+   - `criterion`
+   - `unresolved ambiguity`
 
-Prefer one high-yield question at a time. Multiple-choice is good when options are real; forced-choice is bad when it hides a likely fifth answer. Always allow “other / depends — explain.”
+Prefer one high-yield question at a time. Multiple choice is useful when options are real; forced choice is harmful when it hides the likely fifth answer. Always allow “other / depends — explain.”
 
-## Good question shapes
-
-Prefer concrete classification:
+Ask questions like:
 
 - “In this exact case, which outcome is correct?”
 - “Is this inside or outside the commitment?”
 - “Would this count as a bug?”
 - “Which option should be rejected?”
 - “Does this example witness the rule, contradict it, or sit outside scope?”
-- “If we implemented interpretation A, what important case would break?”
 
-Avoid broad prompts unless no contrastive case is available:
+Include your recommended answer when you have enough context, and explain why.
 
-- “How should permissions work?”
-- “What are all the requirements?”
-- “Tell me more about edge cases.”
-
-When asking, include your recommended answer if you have enough context, and say why. The user should be able to accept, reject, or refine your classification quickly.
-
-## Behavioral kernels
-
-Use kernels as hidden interviewer machinery for generating high-yield contrasts. Do not make the user learn the kernel taxonomy unless it helps them reason.
-
-Activate at most the top 2–3 relevant kernels from language and context:
+Use behavioral kernels as hidden interviewer machinery. Activate at most the top 2–3 relevant kernels:
 
 | Kernel | Looks for | Typical artifact |
 | --- | --- | --- |
@@ -87,15 +61,7 @@ Activate at most the top 2–3 relevant kernels from language and context:
 | Change & migration | legacy, compatibility, upgrade | migration / refinement invariant |
 | Observability & evidence | logs, traces, explanations, audit | trace / provenance invariant |
 
-Kernel move: generate a concrete scenario where plausible policies diverge, then ask the user to classify it. The answer should become a weaker-but-useful checkable artifact: example, counterexample, invariant, criterion, or explicit ambiguity.
-
-## Example
-
-Instead of asking:
-
-> How should project deletion work?
-
-Ask:
+Example:
 
 > A project is deleted while it still has tasks. Which behavior is correct?
 >
@@ -107,7 +73,7 @@ Ask:
 >
 > My recommendation is B if historical traceability matters more than cleanup, because it preserves references and gives us a clear data-integrity invariant.
 
-Then translate the answer, for example:
+Translate the answer:
 
 - decision: “Deleted projects archive their tasks rather than deleting or reassigning them.”
 - invariant: “Archived tasks retain a tombstone reference to the deleted project.”
@@ -115,14 +81,9 @@ Then translate the answer, for example:
 - counterexample: “Tasks silently disappearing after project deletion is rejected.”
 - criterion: “A deletion test verifies task archival and readable tombstone references.”
 
-## Stop conditions
+Stop when the ambiguity is collapsed, explicitly deferred, or ready for `ln-spec`.
 
-Stop when one of these is true:
-
-- The user selected an interpretation and the durable consequences are clear.
-- The ambiguity is explicitly deferred and named.
-- More questioning would be generic grilling rather than ambiguity collapse.
-- The next correct step is to record, plan, or scope.
+Do not create or edit planning artifacts here. Durable conclusions promote into `memory/SPEC.md` or `memory/PLAN.md` through the next routed skill.
 
 ## Routing
 
@@ -136,9 +97,3 @@ When the ambiguity pass is complete, present these options to the user. If `tool
 | 4 | Grill further | `ln-grill` | The ambiguity pass exposed broader design uncertainty |
 
 Recommended: choose `ln-spec` when decisions, invariants, assumptions, lexicon, examples, or criteria changed.
-
-## References
-
-- `docs/design/INTENT_GRAPH_SEMANTICS.md` — typed claims, examples/counterexamples, negative edges, progressive checkability.
-- `docs/design/BEHAVIORAL_KERNELS.md` — kernel taxonomy and contrastive question patterns.
-- `docs/archive/design/INTENT_SPEC_EVOLUTION.md` §6 — ambiguity-targeted disambiguation.
