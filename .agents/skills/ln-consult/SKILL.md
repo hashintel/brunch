@@ -53,7 +53,7 @@ Presume **structural** on a fresh thread when the work touches workflow closure,
 
 Default rule:
 
-`ln-grill → ln-spec → ln-plan → [ln-design] → [ln-oracles] → ln-scope → [ln-spike] → ln-build → ln-review → [ln-refactor] → [ln-sync]`
+`ln-grill` or `ln-disambiguate` → `ln-spec` → `ln-plan` → optional `ln-design` / `ln-oracles` → `ln-scope` → optional `ln-spike` → `ln-build` → `ln-review` → optional `ln-refactor` / `ln-sync`
 
 Bounded exception:
 
@@ -80,6 +80,7 @@ Only recommend the bounded serial exception when those same conditions hold and 
 | Situation | Work type | Suggest |
 | --- | --- | --- |
 | Idea is vague, needs fleshing out | structural | `ln-grill` |
+| Plausible interpretations diverge; examples would clarify faster than open-ended questioning | structural | `ln-disambiguate` |
 | Understanding exists, needs a written spec | structural | `ln-spec` |
 | Spec exists, needs work sequencing | structural | `ln-plan` |
 | Verification strategy is the main uncertainty | structural | `ln-oracles` |
