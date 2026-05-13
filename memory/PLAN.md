@@ -205,11 +205,11 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Name:** Server mini-library compartmentalization
 - **Linear:** unassigned in this plan snapshot
 - **Kind:** refactor
-- **Status:** horizon
+- **Status:** in-progress opportunistically on FE-705 lane; `db.ts` persistence facade extraction complete, broader server roots remain horizon.
 - **Objective:** Refactor growing server seams into plural public roots with same-named private subtrees where FE-698 / FE-705 pressure has made boundaries too implicit.
-- **Why now / unlocks:** Near-term refactor candidate after FE-705 integration, not product roadmap work.
-- **Acceptance:** Candidate seams such as `fixtures.ts`, `context-packs.ts`, `prompts.ts`, `scenario-runner.ts`, `entity-apis.ts`, and `agent-apis.ts` hide private implementation subtrees behind stable public roots where real pressure exists.
-- **Verification:** Existing test suite plus import-boundary review.
+- **Why now / unlocks:** Near-term refactor candidate after FE-705 integration, not product roadmap work. The persistence facade now proves the pattern: `db.ts` owns connection setup and curated public exports while private `src/server/db/*-store.ts` modules own cohesive persistence implementation.
+- **Acceptance:** Candidate seams such as `db.ts`, `fixtures.ts`, `context-packs.ts`, `prompts.ts`, `scenario-runner.ts`, `entity-apis.ts`, and `agent-apis.ts` hide private implementation subtrees behind stable public roots where real pressure exists.
+- **Verification:** Existing test suite plus import-boundary review; for the completed `db.ts` slice, focused store/route/workflow tests, `npm run check`, and `npm run build` pass.
 - **Traceability:** code organization convention in `AGENTS.md`.
 - **Design docs:** none.
 
