@@ -698,3 +698,65 @@ describe('specificationWorkspaceStream', () => {
     ]);
   });
 });
+
+describe('thread collapsible interleaving', () => {
+  it('inserts thread collapsibles after the invoking turn', () => {
+    const turns = [createTurn({ id: 1 }), createTurn({ id: 2, parent_turn_id: 1 })];
+    const threads = [
+      {
+        id: 10,
+        chat_id: 1,
+        kind: 'side' as const,
+        target_item_id: null,
+        invoked_in_turn_id: 1,
+        active_turn_id: null,
+        status: 'open' as const,
+        turn_count: 3,
+        created_at: '2026-05-14',
+      },
+    ];
+
+    const { streamArtifacts } = specificationWorkspaceStream({
+      phase: 'grounding',
+      phaseTurns: turns,
+      phaseState: createPhaseState(),
+      bottomArtifact: null,
+      threads,
+    });
+
+    const kinds = streamArtifacts.map((a) => a.kind);
+    expect(kinds).toContain('thread-collapsible');
+    const threadIndex = kinds.indexOf('thread-collapsible');
+    const turn1Index = streamArtifacts.findIndex((a) => a.kind === 'answered-turn' && a.turn.id === 1);
+    expect(threadIndex).toBeGreaterThan(turn1Index);
+    const turn2Index = streamArtifacts.findIndex((a) => a.kind === 'answered-turn' && a.turn.id === 2);
+    expect(threadIndex).toBeLessThan(turn2Index);
+  });
+
+  it('does not insert collapsibles for interview threads', () => {
+    const turns = [createTurn({ id: 1 })];
+    const threads = [
+      {
+        id: 10,
+        chat_id: 1,
+        kind: 'interview' as const,
+        target_item_id: null,
+        invoked_in_turn_id: 1,
+        active_turn_id: null,
+        status: 'open' as const,
+        turn_count: 5,
+        created_at: '2026-05-14',
+      },
+    ];
+
+    const { streamArtifacts } = specificationWorkspaceStream({
+      phase: 'grounding',
+      phaseTurns: turns,
+      phaseState: createPhaseState(),
+      bottomArtifact: null,
+      threads,
+    });
+
+    expect(streamArtifacts.map((a) => a.kind)).not.toContain('thread-collapsible');
+  });
+});

@@ -20,6 +20,7 @@ import {
   getCurrentWorkflowState,
   getOptionsForTurn,
   getSpecification,
+  listThreadsForChat,
   getTurn,
   listSpecifications as listPersistedSpecifications,
   updateTurn,
@@ -132,12 +133,36 @@ export function readSpecificationStateProjection(db: DB, specificationId: number
   const turns = loadActivePathWithOptions(db, specificationId);
   const workflow = getCurrentWorkflowState(db, specificationId);
   const structuralArtifactTurnIds = getStructuralArtifactTurnIds(db, specificationId);
+
+  let threads: SpecificationState['threads'];
+  if (specification.primary_chat_id) {
+    const rawThreads = listThreadsForChat(db, specification.primary_chat_id);
+    const threadTurnCounts = (db as any).$client
+      .prepare('SELECT thread_id, COUNT(*) as count FROM turn GROUP BY thread_id')
+      .all() as Array<{ thread_id: number; count: number }>;
+    const turnCountMap = new Map(
+      threadTurnCounts.map((r: { thread_id: number; count: number }) => [r.thread_id, r.count]),
+    );
+    threads = rawThreads.map((t) => ({
+      id: t.id,
+      chat_id: t.chat_id,
+      kind: t.kind,
+      target_item_id: t.target_item_id,
+      invoked_in_turn_id: t.invoked_in_turn_id,
+      active_turn_id: t.active_turn_id,
+      status: t.status,
+      turn_count: turnCountMap.get(t.id) ?? 0,
+      created_at: t.created_at,
+    }));
+  }
+
   return {
     specification: toSpecification(specification),
     workflow,
     landing: deriveSpecificationLanding({ workflow, turns, structuralArtifactTurnIds }),
     turns,
     structuralArtifactTurnIds,
+    threads,
   };
 }
 

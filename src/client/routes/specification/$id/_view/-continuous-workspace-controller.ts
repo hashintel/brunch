@@ -342,6 +342,7 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
           phaseState,
           bottomArtifact: enrichedBottomArtifact,
           structuralArtifactTurnIds: specificationState.structuralArtifactTurnIds,
+          threads: specificationState.threads,
         });
         result.push({
           phase,
@@ -357,6 +358,7 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
           phaseState,
           bottomArtifact: null,
           structuralArtifactTurnIds: specificationState.structuralArtifactTurnIds,
+          threads: specificationState.threads,
         });
         result.push({ phase, artifacts: streamArtifacts, phaseTurns: closedPhaseTurns, isActive: false });
       }

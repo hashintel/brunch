@@ -130,6 +130,7 @@ export {
 export type {
   CreateOptionInput,
   CreateSpecificationOptions,
+  CreateThreadInput,
   CreateTurnInput,
   Impact,
   Option,
@@ -138,6 +139,8 @@ export type {
   Turn,
   UpdateTurnInput,
 } from './db/specification-store.js';
+
+export { createThread, listThreadsForChat } from './db/specification-store.js';
 
 export type DB = ReturnType<typeof drizzle<typeof schema>>;
 export function createDb(path: string = ':memory:'): DB {

@@ -118,12 +118,28 @@ export const specificationListItemSchema = specificationSchema.extend({
 
 export const specificationListItemsSchema = z.array(specificationListItemSchema);
 
+export const threadKindSchema = z.enum(['interview', 'side', 'reconciliation', 'qa', 'agent_run']);
+export const threadStatusSchema = z.enum(['open', 'closed']);
+
+export const threadSchema = z.object({
+  id: z.number().int().positive(),
+  chat_id: z.number().int().positive(),
+  kind: threadKindSchema,
+  target_item_id: z.number().int().positive().nullable(),
+  invoked_in_turn_id: z.number().int().positive().nullable(),
+  active_turn_id: z.number().int().positive().nullable(),
+  status: threadStatusSchema,
+  turn_count: z.number().int().min(0),
+  created_at: z.string(),
+});
+
 export const specificationStateSchema = z.object({
   specification: specificationSchema,
   workflow: workflowStateSchema,
   landing: specificationLandingSchema.nullable().optional(),
   turns: z.array(specificationStateTurnSchema),
   structuralArtifactTurnIds: z.array(z.number().int().positive()).optional(),
+  threads: z.array(threadSchema).optional(),
 });
 
 const knowledgeItemKindSchema = z.enum(knowledgeKinds);
@@ -285,3 +301,5 @@ export type SubmitTurnResponseSelectionRequest = z.infer<typeof submitTurnRespon
 export type SubmitTurnResponseFreeTextRequest = z.infer<typeof submitTurnResponseFreeTextRequestSchema>;
 export type SubmitTurnResponseRequest = z.infer<typeof submitTurnResponseRequestSchema>;
 export type SubmitTurnResponseResponse = z.infer<typeof submitTurnResponseResponseSchema>;
+export type Thread = z.infer<typeof threadSchema>;
+export type ThreadKind = z.infer<typeof threadKindSchema>;

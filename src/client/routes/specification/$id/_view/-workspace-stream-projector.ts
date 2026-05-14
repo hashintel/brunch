@@ -1,4 +1,4 @@
-import type { WorkflowPhase } from '@/shared/api-types.js';
+import type { Thread, WorkflowPhase } from '@/shared/api-types.js';
 import { computeReviewSetChangeSummary, type ReviewSetChangeSummary } from '@/shared/review-diffing.js';
 import {
   getAcceptedClosureReplay,
@@ -112,6 +112,10 @@ export type WorkspaceStreamArtifact =
   | {
       readonly kind: 'workflow-complete';
       readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'workflow-complete' }>;
+    }
+  | {
+      readonly kind: 'thread-collapsible';
+      readonly thread: Thread;
     };
 
 export interface WorkspaceStreamProjection {
@@ -409,6 +413,7 @@ export function specificationWorkspaceStream({
   bottomArtifact,
   controlMarkers = [],
   structuralArtifactTurnIds: rawStructuralIds,
+  threads = [],
 }: {
   phase: WorkflowPhase;
   phaseTurns: readonly SpecificationTurn[];
@@ -416,6 +421,7 @@ export function specificationWorkspaceStream({
   bottomArtifact: InterviewControllerBottomArtifactState | null;
   controlMarkers?: readonly WorkspaceStreamMarker[];
   structuralArtifactTurnIds?: readonly number[];
+  threads?: readonly Thread[];
 }): WorkspaceStreamProjection {
   const structuralArtifactTurnIds = toStructuralArtifactTurnIdSet(rawStructuralIds);
   const renderedPersistedTurnId = getRenderedPersistedTurnId(bottomArtifact);
@@ -425,7 +431,11 @@ export function specificationWorkspaceStream({
     renderedPersistedTurnId,
     structuralArtifactTurnIds,
   });
-  const answeredTurnCount = historyArtifacts.filter(
+
+  // Interleave non-interview thread collapsibles after their invoking turn
+  const interleavedHistory = interleaveThreadCollapsibles(historyArtifacts, threads);
+
+  const answeredTurnCount = interleavedHistory.filter(
     (artifact) => artifact.kind === 'answered-turn' || artifact.kind === 'prefaced-question',
   ).length;
   const projectedBottomArtifact = projectBottomArtifact(bottomArtifact, answeredTurnCount, phase);
@@ -438,17 +448,56 @@ export function specificationWorkspaceStream({
 
   return {
     streamArtifacts: shouldInsertDivider({
-      historyArtifacts,
+      historyArtifacts: interleavedHistory,
       controlArtifacts,
       bottomArtifact: projectedBottomArtifact,
     })
       ? [
           ...phaseSectionHeaders,
           ...phaseMarkers,
-          ...historyArtifacts,
+          ...interleavedHistory,
           { kind: 'divider' as const },
           ...tailArtifacts,
         ]
-      : [...phaseSectionHeaders, ...phaseMarkers, ...historyArtifacts, ...tailArtifacts],
+      : [...phaseSectionHeaders, ...phaseMarkers, ...interleavedHistory, ...tailArtifacts],
   };
+}
+
+function interleaveThreadCollapsibles(
+  historyArtifacts: WorkspaceStreamArtifact[],
+  threads: readonly Thread[],
+): WorkspaceStreamArtifact[] {
+  const nonInterviewThreads = threads.filter((t) => t.kind !== 'interview');
+  if (nonInterviewThreads.length === 0) return historyArtifacts;
+
+  // Group threads by invoking turn id
+  const threadsByTurnId = new Map<number, Thread[]>();
+  for (const thread of nonInterviewThreads) {
+    if (thread.invoked_in_turn_id == null) continue;
+    const existing = threadsByTurnId.get(thread.invoked_in_turn_id);
+    if (existing) {
+      existing.push(thread);
+    } else {
+      threadsByTurnId.set(thread.invoked_in_turn_id, [thread]);
+    }
+  }
+
+  if (threadsByTurnId.size === 0) return historyArtifacts;
+
+  const result: WorkspaceStreamArtifact[] = [];
+  for (const artifact of historyArtifacts) {
+    result.push(artifact);
+    // Insert thread collapsibles after the turn that invoked them
+    const turnId = 'turn' in artifact ? (artifact.turn as SpecificationTurn)?.id : undefined;
+    if (turnId != null) {
+      const attachedThreads = threadsByTurnId.get(turnId);
+      if (attachedThreads) {
+        for (const thread of attachedThreads) {
+          result.push({ kind: 'thread-collapsible', thread });
+        }
+      }
+    }
+  }
+
+  return result;
 }

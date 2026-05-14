@@ -282,3 +282,36 @@ export function updateSpecificationMode(db: DB, specificationId: number, mode: S
     .where(eq(schema.specification.id, specificationId))
     .run();
 }
+
+export interface CreateThreadInput {
+  chatId: number;
+  kind: 'side' | 'reconciliation' | 'qa' | 'agent_run';
+  target_item_id?: number | null;
+  invoked_in_turn_id?: number | null;
+  kickoff_turn_id?: number | null;
+  context_spec?: string | null;
+}
+
+export function createThread(db: DB, input: CreateThreadInput) {
+  return db
+    .insert(schema.thread)
+    .values({
+      chat_id: input.chatId,
+      kind: input.kind,
+      target_item_id: input.target_item_id ?? null,
+      invoked_in_turn_id: input.invoked_in_turn_id ?? null,
+      kickoff_turn_id: input.kickoff_turn_id ?? null,
+      context_spec: input.context_spec ?? null,
+    })
+    .returning()
+    .get();
+}
+
+export function listThreadsForChat(db: DB, chatId: number) {
+  return db
+    .select()
+    .from(schema.thread)
+    .where(eq(schema.thread.chat_id, chatId))
+    .orderBy(schema.thread.created_at)
+    .all();
+}

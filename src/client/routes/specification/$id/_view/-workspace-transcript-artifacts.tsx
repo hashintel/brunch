@@ -17,6 +17,7 @@ import {
   RevisionCard,
 } from '@/client/components/question-cards';
 import { ReviewPhaseCompletionCard } from '@/client/components/review-set-card';
+import { ThreadCollapsible } from '@/client/components/thread-collapsible';
 import type { ActivitySummary } from '@/shared/chat.js';
 import { getPhaseRoutePath, getWorkflowPhaseLabel } from '@/shared/phase-descriptors.js';
 import { getReviewRevisionNumber, normalizeReviewSetForDisplay } from '@/shared/review-diffing.js';
@@ -540,6 +541,16 @@ export function WorkspaceTranscriptArtifacts({
         case 'phase-handoff':
         case 'workflow-complete':
           return renderWorkspaceTransitionArtifact({ artifact, specificationId });
+        case 'thread-collapsible':
+          return (
+            <ThreadCollapsible
+              key={`thread-${artifact.thread.id}`}
+              kind={artifact.thread.kind}
+              turnCount={artifact.thread.turn_count}
+              status={artifact.thread.status}
+              threadId={artifact.thread.id}
+            />
+          );
       }
     })();
 
