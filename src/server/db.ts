@@ -140,7 +140,12 @@ export type {
   UpdateTurnInput,
 } from './db/specification-store.js';
 
-export { createThread, listThreadsForChat } from './db/specification-store.js';
+export {
+  countTurnsPerThread,
+  createThread,
+  getInterviewThread,
+  listThreadsForChat,
+} from './db/specification-store.js';
 
 export type DB = ReturnType<typeof drizzle<typeof schema>>;
 export function createDb(path: string = ':memory:'): DB {

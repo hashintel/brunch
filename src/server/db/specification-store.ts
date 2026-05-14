@@ -315,3 +315,33 @@ export function listThreadsForChat(db: DB, chatId: number) {
     .orderBy(schema.thread.created_at)
     .all();
 }
+
+export function getInterviewThread(
+  db: DB,
+  chatId: number,
+): { id: number; kind: string; active_turn_id: number | null } {
+  const row = db
+    .select({
+      id: schema.thread.id,
+      kind: schema.thread.kind,
+      active_turn_id: schema.thread.active_turn_id,
+    })
+    .from(schema.thread)
+    .where(and(eq(schema.thread.chat_id, chatId), eq(schema.thread.kind, 'interview')))
+    .get();
+  if (!row) {
+    throw new Error(`Chat ${chatId} has no interview thread; substrate invariant violated`);
+  }
+  return row;
+}
+
+export function countTurnsPerThread(db: DB, threadIds: number[]): Map<number, number> {
+  if (threadIds.length === 0) return new Map();
+  const placeholders = threadIds.map(() => '?').join(',');
+  const rows = db.$client
+    .prepare(
+      `SELECT thread_id, COUNT(*) as count FROM turn WHERE thread_id IN (${placeholders}) GROUP BY thread_id`,
+    )
+    .all(...threadIds) as Array<{ thread_id: number; count: number }>;
+  return new Map(rows.map((r) => [r.thread_id, r.count]));
+}

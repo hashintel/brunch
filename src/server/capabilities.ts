@@ -1,5 +1,5 @@
 import { readUIMessageStream } from 'ai';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { submitTurnResponseRequestSchema } from '@/shared/api-types.js';
@@ -10,7 +10,7 @@ import { getCapabilityContract, type CapabilityId } from './capability-registry.
 import { applyChatRouteTransition } from './chat-route-transition.js';
 import { createNewSpecification, finalizeTurn, getSpecificationState, type TurnWithOptions } from './core.js';
 import type { DB, Turn } from './db.js';
-import { getTurn, updateTurn } from './db.js';
+import { getInterviewThread, getTurn, updateTurn } from './db.js';
 import { persistFallbackQuestionText, streamInterviewer, type InterviewerModeOptions } from './interview.js';
 import { serializeParts, type AssistantPart } from './parts.js';
 import * as schema from './schema.js';
@@ -234,18 +234,7 @@ function getChatById(db: DB, chatId: number) {
     .get();
   if (!chatRow) return undefined;
 
-  const interviewThread = db
-    .select({
-      kind: schema.thread.kind,
-      active_turn_id: schema.thread.active_turn_id,
-    })
-    .from(schema.thread)
-    .where(and(eq(schema.thread.chat_id, chatId), eq(schema.thread.kind, 'interview')))
-    .get();
-
-  if (!interviewThread) {
-    throw new Error(`Chat ${chatId} has no interview thread; substrate invariant violated`);
-  }
+  const interviewThread = getInterviewThread(db, chatId);
 
   return {
     ...chatRow,

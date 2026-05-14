@@ -20,6 +20,7 @@ import {
   getCurrentWorkflowState,
   getOptionsForTurn,
   getSpecification,
+  countTurnsPerThread,
   listThreadsForChat,
   getTurn,
   listSpecifications as listPersistedSpecifications,
@@ -137,11 +138,9 @@ export function readSpecificationStateProjection(db: DB, specificationId: number
   let threads: SpecificationState['threads'];
   if (specification.primary_chat_id) {
     const rawThreads = listThreadsForChat(db, specification.primary_chat_id);
-    const threadTurnCounts = (db as any).$client
-      .prepare('SELECT thread_id, COUNT(*) as count FROM turn GROUP BY thread_id')
-      .all() as Array<{ thread_id: number; count: number }>;
-    const turnCountMap = new Map(
-      threadTurnCounts.map((r: { thread_id: number; count: number }) => [r.thread_id, r.count]),
+    const turnCountMap = countTurnsPerThread(
+      db,
+      rawThreads.map((t) => t.id),
     );
     threads = rawThreads.map((t) => ({
       id: t.id,
