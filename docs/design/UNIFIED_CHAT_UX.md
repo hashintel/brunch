@@ -10,17 +10,19 @@ Design the visual and interaction layer for **threads** rendered inline in the u
 
 ## 2. Modes (Shift+Tab)
 
-The chat composer carries a **mode chip**. **Shift+Tab** cycles modes. The mode at submit time determines which `thread.kind` is created.
+The chat composer carries a **mode chip**. **Shift+Tab** toggles between two user modes. The mode at submit time determines which `thread.kind` is created.
 
 | Mode (visible label) | `thread.kind` | When |
 | --- | --- | --- |
-| **Ask** | `qa` | Open-ended question scoped to mentioned items. |
-| **Edit** | `side` | Refine, tighten, or annotate a specific item; cascades resolve in-thread. |
-| **Reconcile** | `reconciliation` | Clear open reconciliation needs against a target item. |
-| *(no user mode)* | `agent_run` | Assistant-spawned only. Nested inline via `thread.invoked_in_turn_id`. |
+| **Ask** | `qa` | Open-ended question scoped to mentioned items; assistant is read-only (no `propose_*` tools). |
+| **Edit** | `side` | Refine, tighten, or annotate a specific item; assistant can `propose_edit` / `propose_annotate` / `propose_drill_down` / `propose_edge`; cascades resolve in-thread. |
+| *(batch-surfaced, no user mode)* | `reconciliation` | Reaches users through **"Reconcile Now"** (§7 dec 10) or auto-surfacing when needs accumulate. Not a composer mode — users don't *author* a reconcile, the system *surfaces* one. |
+| *(assistant-spawned, no user mode)* | `agent_run` | Spawned by the assistant from inside any other thread; rendered inline via `thread.invoked_in_turn_id`. |
 | *(implicit)* | `interview` | The chat's spine; not user-selectable. |
 
 **Persistence:** the mode at submit time is the thread's kind **forever**. Reopening a thread shows the kind chip; switching modes mid-thread is not allowed — open a new thread instead.
+
+**Implementation note:** the existing code uses internal mode state values `explore` (= Ask) and `edit` (= Edit) per slice 8 (`401f4037`). The composer label and `<ThreadModeChip>` text use the brief's *Ask* / *Edit* register; the internal state name can stay `explore/edit` or rename to `ask/edit` in a later refactor.
 
 **Suggestions on turn-zero:** fresh threads show a `<Suggestions>` row (ai-elements) with 3 mode-appropriate prompts. Replaced by a normal composer once the user types.
 
@@ -58,7 +60,7 @@ Each becomes one Ladle story in the prototype.
 | # | Scene | What it shows |
 | --- | --- | --- |
 | 1 | **Reference — side-docked** | Spine + collapsed side thread + open reconciliation thread + collapsed agent run. The hero. |
-| 2 | **Mode toggle in composer** | Mode chip cycles Ask → Edit → Reconcile via Shift+Tab; suggestions row updates per mode. |
+| 2 | **Mode toggle in composer** | Mode chip toggles Ask ↔ Edit via Shift+Tab; suggestions row updates per mode. |
 | 3 | **Side thread — first open** | `Edit` submit on `'<item>'` with impact > soft; kickoff card + suggestions visible. |
 | 4 | **Reconciliation thread — batch surfaced** | Target-grouped, topo-sorted upstream-first; classifier states visible (auto-edit one-click apply chip, substantive judgment affordance); auto-confirm rows never visible. |
 | 5 | **QA thread — with mentions** | User-initiated; one `#A12` chip (knowledge item, refcode-prefixed + kind-tinted), one `!selection` chip (workspace artifact), one `$thread` chip (linking another thread); mention autocomplete shown in a parallel state. |
@@ -77,10 +79,11 @@ Simple, declarative, second-person where conversational. Modeled on the existing
 - **Kickoff:** "Editing **'<item>'**. **<N>** related items may need updating."
 - **Suggestions:** *Refine the wording* · *Tighten the constraint* · *Add a counterexample*
 
-### Reconciliation (Reconcile)
+### Reconciliation (batch-surfaced or "Reconcile Now")
 
 - **Kickoff:** "**<N>** reconciliations on **'<target>'**. **<X>** auto-edit, **<Y>** need review."
 - **Suggestions:** *Apply auto-edits* · *Show only substantive* · *Skip for now*
+- *Note:* not a user composer mode; the thread is surfaced when the classifier accumulates needs against a target, or when the user clicks **Reconcile Now** (§7 dec 10).
 
 ### QA (Ask)
 
