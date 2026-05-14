@@ -83,7 +83,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Verification:** Thread substrate schema/migration tests, in-stream collapsible rendering tests, manual walkthroughs for thread creation/display/collapse per kind, regression on existing interview flow.
 - **Traceability:** Requirements 39 (updated), 45; A88, A94; D86, D87, D110, D114, D138, D146, D153, D154; I111 (extended), I113.
 - **Design docs:** `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.2 + §5 Track 2; `docs/design/MULTI_CHAT.md`; `docs/design/SIDE_CHAT.md`.
-- **Current execution pointer:** popover fully retired and dead code deleted (slices 5–10, net -3200 LOC). `turn.thread_id` and `chat` simplification were already done in earlier slices. Remaining: turn-zero kickoff as universal thread entry; agent runs render inline via `invoked_in_turn_id` (visual treatment). Both are lower-priority now that the main thread substrate + popover cutover arc is complete.
+- **Current execution pointer:** all acceptance criteria met (slices 1–11). Thread substrate, inline streaming + edit mode, popover retirement + dead-code deletion (-3200 LOC), turn-zero kickoff, agent runs inline. Frontier ready to close.
 
 ### reconciliation-runtime
 
