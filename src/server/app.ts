@@ -3,6 +3,7 @@ import os from 'node:os';
 import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessages } from 'ai';
 import express from 'express';
 import type { ErrorRequestHandler, Express, Request, RequestHandler, Response } from 'express';
+import * as z from 'zod/v4';
 
 import { submitPhaseIntentRequestSchema, submitTurnResponseRequestSchema } from '@/shared/api-types.js';
 import type {
@@ -39,10 +40,12 @@ import {
 } from './core.js';
 import {
   createDb,
+  findOrCreateSideChatThread,
   findPhaseOutcomeForTurn,
-  updateTurn,
   getEntitiesForSpecificationByMode,
+  getSpecification,
   getTurn,
+  updateTurn,
   type DB,
   type EntityProjectionMode,
   type InterviewTurn,
@@ -243,6 +246,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const specificationExportPaths = ['/api/specifications/:id/export'] as const;
   const specificationChatPaths = ['/api/specifications/:id/chat'] as const;
   const specificationSideChatPaths = ['/api/specifications/:id/side-chat'] as const;
+  const specificationThreadsPaths = ['/api/specifications/:id/threads'] as const;
   const specificationAnnotationsPaths = ['/api/specifications/:id/annotations'] as const;
   const annotationResourcePaths = ['/api/annotations/:annotationId'] as const;
   const specificationKnowledgeItemPaths = ['/api/specifications/:id/knowledge-items/:itemId'] as const;
@@ -624,6 +628,39 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
   registerPost(specificationSideChatPaths, async (req: Request, res: Response) => {
     await handleSideChatRequest(db, req, res);
+  });
+
+  registerPost(specificationThreadsPaths, (req: Request, res: Response) => {
+    const specificationId = Number(req.params.id);
+    if (!Number.isFinite(specificationId)) {
+      res.status(400).json({ error: 'Invalid specification ID' } satisfies MutationErrorResponse);
+      return;
+    }
+
+    const parsed = z.object({ targetItemId: z.number().int().positive() }).safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid payload' } satisfies MutationErrorResponse);
+      return;
+    }
+
+    const specification = getSpecification(db, specificationId);
+    if (!specification) {
+      res.status(404).json({ error: 'Specification not found' } satisfies MutationErrorResponse);
+      return;
+    }
+
+    if (specification.primary_chat_id == null) {
+      res.status(404).json({ error: 'Specification has no primary chat' } satisfies MutationErrorResponse);
+      return;
+    }
+
+    const thread = findOrCreateSideChatThread(
+      db,
+      specification.primary_chat_id,
+      parsed.data.targetItemId,
+      specification.active_turn_id,
+    );
+    res.json({ ok: true, threadId: thread.id });
   });
 
   registerPost(specificationAnnotationsPaths, (req: Request, res: Response) => {

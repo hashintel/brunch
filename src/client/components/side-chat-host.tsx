@@ -308,8 +308,8 @@ export function SideChatHost({
   const openFor = useCallback(
     (item: SideChatPinnableItem) => {
       // Check if an inline side-chat thread already exists for this item in the
-      // spec state cache. If so, route the action to the inline ThreadCollapsible
-      // instead of opening the popover — first step of the popover retirement.
+      // spec state cache. If so, route to the inline ThreadCollapsible instead
+      // of opening the popover (progressive popover retirement).
       const specState = queryClient.getQueryData(specificationQueryKeys.bundle(String(specificationId))) as
         | SpecificationState
         | undefined;
@@ -329,6 +329,11 @@ export function SideChatHost({
         return;
       }
 
+      // No thread yet — fall back to the popover, which still owns edit mode,
+      // patch staging, and annotation features the inline thread doesn't have.
+      // The popover's first message will create the thread server-side; next
+      // time the user clicks "Chat" on this item, the thread exists and we
+      // route inline above.
       const current = activeRef.current;
       if (current && current.itemKind === item.kind && current.itemId === item.id) {
         const nextActiveSideChat = {
@@ -344,8 +349,6 @@ export function SideChatHost({
 
       abortActiveStream();
       sessionCounterRef.current += 1;
-      // Single-pin scope: switching to a different (kind, id) clears cards/hint so stale
-      // state doesn't leak across items. Reopening the same item focuses the existing session.
       setActiveCards([]);
       setPendingSpanHint(null);
       const nextActiveSideChat: ActiveSideChat = {
@@ -356,8 +359,6 @@ export function SideChatHost({
         messages: [],
         messageTimestamps: [],
         annotateMode: false,
-        // Card 4 follow-up: adopt the persisted mode so reopening the side-chat
-        // (or pinning a new item) inherits the user's last toggle state.
         mode: readStoredMode(),
       };
       activeRef.current = nextActiveSideChat;
