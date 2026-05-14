@@ -1,4 +1,5 @@
 import {
+  Check,
   ChevronRight,
   HelpCircle,
   Loader2,
@@ -7,7 +8,7 @@ import {
   SendHorizonal,
   Sparkles,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type ComponentType, type SVGProps } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type SVGProps } from 'react';
 
 import { useSideChat } from '@/client/components/side-chat-host.js';
 import {
@@ -20,6 +21,8 @@ import { queryClient } from '@/client/query-client.js';
 import { specificationQueryKeys } from '@/client/routes/specification/$id/-specification-data.js';
 import type { EntitiesData, ThreadTurn } from '@/shared/api-types.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
+
+import { usePatchList, usePatchListState, useStagedPatches } from './patch-list-host.js';
 
 type NonInterviewThreadKind = 'side' | 'reconciliation' | 'qa' | 'agent_run';
 
@@ -54,16 +57,24 @@ function isKnownThreadKind(kind: string): kind is NonInterviewThreadKind {
 }
 
 // ---------------------------------------------------------------------------
-// Item-kind resolution from entities cache
+// Target-item resolution from entities cache
 // ---------------------------------------------------------------------------
 
-function resolveItemKindFromCache(specificationId: number, itemId: number): KnowledgeKind | null {
+interface ResolvedTargetItem {
+  kind: KnowledgeKind;
+  referenceCode: string;
+  content: string;
+}
+
+function resolveTargetItemFromCache(specificationId: number, itemId: number): ResolvedTargetItem | null {
   const data = queryClient.getQueryData(
     specificationQueryKeys.entitiesProjectWide(String(specificationId)),
   ) as EntitiesData | undefined;
   if (!data) return null;
 
-  const groups: ReadonlyArray<readonly [KnowledgeKind, ReadonlyArray<{ id: number }>]> = [
+  const groups: ReadonlyArray<
+    readonly [KnowledgeKind, ReadonlyArray<{ id: number; referenceCode?: string | null; content: string }>]
+  > = [
     ['goal', data.goals],
     ['term', data.terms],
     ['context', data.contexts],
@@ -74,8 +85,42 @@ function resolveItemKindFromCache(specificationId: number, itemId: number): Know
     ['criterion', data.criteria],
   ];
   for (const [kind, items] of groups) {
-    if (items.some((item) => item.id === itemId)) {
-      return kind;
+    for (const item of items) {
+      if (item.id === itemId && item.referenceCode) {
+        return { kind, referenceCode: item.referenceCode, content: item.content };
+      }
+    }
+  }
+  return null;
+}
+
+// Edge-target resolution (for propose_edge) — same as side-chat-host.tsx.
+function resolveEdgeTargetFromCache(
+  specificationId: number,
+  referenceCode: string,
+): { kind: KnowledgeKind; itemId: number; referenceCode: string } | null {
+  const data = queryClient.getQueryData(
+    specificationQueryKeys.entitiesProjectWide(String(specificationId)),
+  ) as EntitiesData | undefined;
+  if (!data) return null;
+
+  const groups: ReadonlyArray<
+    readonly [KnowledgeKind, ReadonlyArray<{ id: number; referenceCode?: string | null }>]
+  > = [
+    ['goal', data.goals],
+    ['term', data.terms],
+    ['context', data.contexts],
+    ['constraint', data.constraints],
+    ['decision', data.decisions],
+    ['assumption', data.assumptions],
+    ['requirement', data.requirements],
+    ['criterion', data.criteria],
+  ];
+  for (const [kind, items] of groups) {
+    for (const item of items) {
+      if (item.referenceCode === referenceCode) {
+        return { kind, itemId: item.id, referenceCode };
+      }
     }
   }
   return null;
@@ -127,6 +172,46 @@ function buildHistoryFromTurns(
 }
 
 // ---------------------------------------------------------------------------
+// Mode persistence — shares key with SideChatPopover for consistency
+// ---------------------------------------------------------------------------
+
+const SIDE_CHAT_MODE_STORAGE_KEY = 'brunch.side-chat.mode';
+
+type SideChatMode = 'explore' | 'edit';
+
+function readStoredMode(): SideChatMode {
+  if (typeof window === 'undefined') return 'explore';
+  try {
+    return window.localStorage.getItem(SIDE_CHAT_MODE_STORAGE_KEY) === 'edit' ? 'edit' : 'explore';
+  } catch {
+    return 'explore';
+  }
+}
+
+function writeStoredMode(mode: SideChatMode): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(SIDE_CHAT_MODE_STORAGE_KEY, mode);
+  } catch {
+    // Storage may be unavailable; ignore.
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Edit-content summary — mirrors summarizeEditContent in side-chat-host.tsx
+// ---------------------------------------------------------------------------
+
+const EDIT_SUMMARY_PREVIEW_LIMIT = 60;
+
+function summarizeEditContent(newContent: string): string {
+  const trimmed = newContent.trim();
+  if (trimmed.length <= EDIT_SUMMARY_PREVIEW_LIMIT) {
+    return `Edit: ${trimmed}`;
+  }
+  return `Edit: ${trimmed.slice(0, EDIT_SUMMARY_PREVIEW_LIMIT - 1)}…`;
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -161,8 +246,18 @@ export function ThreadCollapsible({
   const canStream = kind === 'side' && specificationId != null && targetItemId != null;
   const [localMessages, setLocalMessages] = useState<LocalMessage[]>([]);
   const [inputText, setInputText] = useState('');
+  const [mode, setMode] = useState<SideChatMode>(readStoredMode);
   const streamControllerRef = useRef<AbortController | null>(null);
   const isStreaming = localMessages.some((m) => m.pending);
+
+  // --- Patch list integration ---
+  const patchList = usePatchList();
+  const patchListState = usePatchListState();
+  const resolvedItem = canStream ? resolveTargetItemFromCache(specificationId!, targetItemId!) : null;
+  const activeStagedPatches = useStagedPatches(
+    resolvedItem ? { anchor: { kind: resolvedItem.kind, itemId: targetItemId! } } : undefined,
+  );
+  const stagedPatchIds = useMemo(() => activeStagedPatches.map((p) => p.id), [activeStagedPatches]);
 
   // --- Focus routing from SideChatContext ---
   const sideChat = useSideChat();
@@ -202,12 +297,23 @@ export function ThreadCollapsible({
     };
   }, []);
 
+  const toggleMode = useCallback(() => {
+    const next: SideChatMode = mode === 'explore' ? 'edit' : 'explore';
+    setMode(next);
+    writeStoredMode(next);
+  }, [mode]);
+
+  const handleApply = useCallback(() => {
+    if (!patchList || stagedPatchIds.length === 0) return;
+    void patchList.apply(stagedPatchIds);
+  }, [patchList, stagedPatchIds]);
+
   const handleSubmit = useCallback(() => {
     const trimmed = inputText.trim();
     if (!trimmed || isStreaming || !canStream) return;
 
-    const itemKind = resolveItemKindFromCache(specificationId!, targetItemId!);
-    if (!itemKind) return;
+    const resolved = resolveTargetItemFromCache(specificationId!, targetItemId!);
+    if (!resolved) return;
 
     const message = trimmed;
     setInputText('');
@@ -234,11 +340,12 @@ export function ThreadCollapsible({
         await streamSideChatResponse(
           {
             specificationId: specificationId!,
-            itemKind,
+            itemKind: resolved.kind,
             itemId: targetItemId!,
             message,
             history: history.length > 0 ? history : undefined,
             signal: controller.signal,
+            ...(mode !== 'explore' ? { mode } : {}),
           },
           (event: SideChatStreamEvent) => {
             if (controller.signal.aborted) return;
@@ -246,8 +353,40 @@ export function ThreadCollapsible({
               buffered += event.delta;
               const snapshot = buffered;
               setLocalMessages((prev) => prev.map((m) => (m.pending ? { ...m, text: snapshot } : m)));
+            } else if (event.type === 'patch-proposal' && patchList) {
+              if (event.toolName === 'propose_edit') {
+                patchList.stage({
+                  kind: 'edit',
+                  anchor: { kind: resolved.kind, itemId: targetItemId! },
+                  anchorReferenceCode: resolved.referenceCode,
+                  summary: summarizeEditContent(event.input.newContent),
+                  currentContent: resolved.content,
+                  newContent: event.input.newContent,
+                  ...(event.input.newRationale ? { newRationale: event.input.newRationale } : {}),
+                  ...(event.impact !== undefined ? { impact: event.impact } : {}),
+                });
+              } else if (event.toolName === 'propose_edge') {
+                const target = resolveEdgeTargetFromCache(specificationId!, event.input.targetReferenceCode);
+                if (target) {
+                  patchList.stage({
+                    kind: 'edge',
+                    anchor: { kind: resolved.kind, itemId: targetItemId! },
+                    anchorReferenceCode: resolved.referenceCode,
+                    targetAnchor: { kind: target.kind, itemId: target.itemId },
+                    relation: event.input.relation,
+                    summary: `Edge: ${resolved.referenceCode} ${event.input.relation.replaceAll('_', ' ')} ${target.referenceCode}`,
+                  });
+                }
+              } else if (event.toolName === 'propose_drill_down') {
+                patchList.stage({
+                  kind: 'drill-down',
+                  anchor: { kind: resolved.kind, itemId: targetItemId! },
+                  anchorReferenceCode: resolved.referenceCode,
+                  summary: `Drill-down: ${event.input.focusArea}`,
+                  focusArea: event.input.focusArea,
+                });
+              }
             }
-            // Ignore patch-proposal events for this slice
           },
         );
       } catch {
@@ -271,7 +410,17 @@ export function ThreadCollapsible({
         });
       });
     })();
-  }, [inputText, isStreaming, canStream, specificationId, targetItemId, turns, localMessages]);
+  }, [
+    inputText,
+    isStreaming,
+    canStream,
+    specificationId,
+    targetItemId,
+    turns,
+    localMessages,
+    mode,
+    patchList,
+  ]);
 
   // Combined display: persisted turns + optimistic local messages
   const displayedTurnCount = (turns?.length ?? 0) + localMessages.filter((m) => !m.pending || m.text).length;
@@ -353,38 +502,90 @@ export function ThreadCollapsible({
             )}
           </div>
 
+          {/* Staged patches indicator */}
+          {canStream && activeStagedPatches.length > 0 && (
+            <div
+              data-testid={`thread-staged-patches-${threadId}`}
+              className="mt-2 flex items-center justify-between rounded-md border border-rule px-2.5 py-1.5 text-[12px]"
+            >
+              <span className="text-sub">
+                {activeStagedPatches.length} {activeStagedPatches.length === 1 ? 'edit' : 'edits'} staged
+              </span>
+              <button
+                type="button"
+                disabled={patchListState.isApplying}
+                onClick={handleApply}
+                className="inline-flex items-center gap-1 rounded bg-blue-600 px-2 py-0.5 text-[11px] font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-40"
+              >
+                <Check aria-hidden="true" className="size-3" />
+                Apply
+              </button>
+            </div>
+          )}
+
           {/* Inline input — side-chat threads only, when not closed */}
           {canStream && status !== 'closed' && (
-            <form
-              data-testid={`thread-input-${threadId}`}
-              className="mt-3 flex items-center gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSubmit();
-              }}
-            >
-              <input
-                ref={inputRef}
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder="Reply…"
-                disabled={isStreaming}
-                className="min-w-0 flex-1 rounded-md border border-rule bg-transparent px-2.5 py-1.5 text-[13px] text-foreground placeholder:text-hint focus:border-blue-400 focus:outline-none disabled:opacity-50"
-              />
-              <button
-                type="submit"
-                disabled={isStreaming || !inputText.trim()}
-                aria-label="Send message"
-                className="inline-flex shrink-0 items-center justify-center rounded-md bg-blue-600 p-1.5 text-white transition-colors hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600"
+            <>
+              <form
+                data-testid={`thread-input-${threadId}`}
+                className="mt-3 flex items-center gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSubmit();
+                }}
               >
-                {isStreaming ? (
-                  <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
-                ) : (
-                  <SendHorizonal aria-hidden="true" className="size-3.5" />
-                )}
-              </button>
-            </form>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder={mode === 'edit' ? 'Propose an edit…' : 'Reply…'}
+                  disabled={isStreaming}
+                  className="min-w-0 flex-1 rounded-md border border-rule bg-transparent px-2.5 py-1.5 text-[13px] text-foreground placeholder:text-hint focus:border-blue-400 focus:outline-none disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={isStreaming || !inputText.trim()}
+                  aria-label="Send message"
+                  className="inline-flex shrink-0 items-center justify-center rounded-md bg-blue-600 p-1.5 text-white transition-colors hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600"
+                >
+                  {isStreaming ? (
+                    <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
+                  ) : (
+                    <SendHorizonal aria-hidden="true" className="size-3.5" />
+                  )}
+                </button>
+              </form>
+
+              {/* Edit-mode toggle */}
+              {patchList && (
+                <div className="mt-1.5 flex h-6 items-center justify-between px-0.5 text-[11px]">
+                  <span
+                    className="inline-flex items-center gap-1"
+                    style={{ color: mode === 'edit' ? accent : 'var(--text-hint, #6b6b6b)' }}
+                  >
+                    <PencilLine className="size-3" aria-hidden />
+                    <span className="font-medium">Edit mode</span>
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Edit mode"
+                    aria-pressed={mode === 'edit'}
+                    title="Toggle edit mode — your messages propose changes for review"
+                    onClick={toggleMode}
+                    className={cn(
+                      'inline-flex h-[18px] items-center rounded-full px-2 text-[10px] font-medium transition-colors',
+                      mode === 'edit' ? 'text-white' : 'text-ink',
+                    )}
+                    style={
+                      mode === 'edit' ? { backgroundColor: accent } : { backgroundColor: 'rgba(0,0,0,0.05)' }
+                    }
+                  >
+                    {mode === 'edit' ? 'Edit on' : 'Off'}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       ) : null}
