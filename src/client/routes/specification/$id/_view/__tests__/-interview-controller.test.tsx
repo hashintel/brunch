@@ -1261,6 +1261,40 @@ describe('interview controller', () => {
     });
   });
 
+  it('keeps live tool targets running during the submitted pre-stream window', async () => {
+    currentSpecificationState = createSpecificationState({
+      assistantText: 'Earlier question?',
+      answer: 'Earlier answer',
+    });
+    useChatImpl = createUseChatHarness('submitted');
+
+    renderController();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        {
+          id: 'live-assistant',
+          role: 'assistant',
+          parts: [
+            {
+              type: 'tool-read_file',
+              toolCallId: 'tool-read-file',
+              state: 'input-available',
+              input: { path: 'src/client/components/question-cards.tsx' },
+            } as never,
+          ],
+        },
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('generating');
+      expect(screen.getByTestId('bottom-artifact-live-tools-running').textContent).toBe('true');
+    });
+  });
+
   it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {
     currentSpecificationState = createSpecificationState({
       assistantText: 'Earlier question?',

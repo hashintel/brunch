@@ -180,7 +180,8 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
     [phaseMessages, status],
   );
   const liveToolItems = useMemo(() => getLiveToolItems(phaseMessages, status), [phaseMessages, status]);
-  const liveToolsRunning = (liveToolItems?.length ?? 0) > 0 && status === 'streaming';
+  const liveToolsRunning =
+    (liveToolItems?.length ?? 0) > 0 && (status === 'submitted' || status === 'streaming');
 
   // Chat actions
   const submitText = useCallback(
