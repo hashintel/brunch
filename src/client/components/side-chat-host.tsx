@@ -40,7 +40,6 @@ export function SideChatHost({
 
   const openFor = useCallback(
     (item: SideChatPinnableItem) => {
-      // Check if an inline side-chat thread already exists for this item.
       const specState = queryClient.getQueryData(specificationQueryKeys.bundle(String(specificationId))) as
         | SpecificationState
         | undefined;
@@ -52,8 +51,7 @@ export function SideChatHost({
         return;
       }
 
-      // No thread yet — create one eagerly so the ThreadCollapsible appears
-      // in the transcript immediately.
+      // No thread yet — create one eagerly.
       void (async () => {
         try {
           const res = await fetch(`/api/specifications/${specificationId}/threads`, {
@@ -67,7 +65,7 @@ export function SideChatHost({
           });
           setFocusedThreadItemId(item.id);
         } catch {
-          // Network error — silently degrade; the user can retry.
+          // Network error — silently degrade.
         }
       })();
     },

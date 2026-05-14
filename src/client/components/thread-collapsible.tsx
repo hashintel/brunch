@@ -7,6 +7,7 @@ import {
   RefreshCw,
   SendHorizonal,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type SVGProps } from 'react';
 
@@ -225,6 +226,10 @@ export interface ThreadCollapsibleProps {
   readonly specificationId?: number;
   /** The target knowledge-item ID for the thread. */
   readonly targetItemId?: number | null;
+  /** Start expanded (used by the floating panel). */
+  readonly defaultExpanded?: boolean;
+  /** Dismiss callback (used by the floating panel). */
+  readonly onDismiss?: () => void;
 }
 
 export function ThreadCollapsible({
@@ -235,8 +240,10 @@ export function ThreadCollapsible({
   turns,
   specificationId,
   targetItemId,
+  defaultExpanded = false,
+  onDismiss,
 }: ThreadCollapsibleProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const known = isKnownThreadKind(kind);
   const label = known ? THREAD_KIND_LABEL[kind] : kind;
   const accent = known ? THREAD_KIND_ACCENT_HEX[kind] : '#5b5b5b';
@@ -453,6 +460,19 @@ export function ThreadCollapsible({
           {(displayedTurnCount > 0 ? displayedTurnCount : turnCount) === 1 ? 'turn' : 'turns'}
         </span>
         {status === 'closed' && <span className="ml-auto text-[11px] text-hint">closed</span>}
+        {onDismiss && (
+          <button
+            type="button"
+            aria-label="Close chat"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDismiss();
+            }}
+            className="ml-auto flex size-5 items-center justify-center rounded text-hint hover:bg-wash hover:text-ink"
+          >
+            <X className="size-3" />
+          </button>
+        )}
       </button>
       {isExpanded ? (
         <div className="border-t border-rule px-3 py-3 text-sm">

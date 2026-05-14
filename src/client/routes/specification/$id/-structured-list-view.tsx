@@ -1,4 +1,4 @@
-import { useLocation, useNavigate, useParams } from '@tanstack/react-router';
+import { useLocation, useNavigate } from '@tanstack/react-router';
 import { ArrowDownLeft, ArrowUpRight, Check, ChevronRight, MessageCircle, Pencil, X } from 'lucide-react';
 import {
   useCallback,
@@ -457,24 +457,15 @@ function ItemActionRail({
   editDisabled?: boolean;
 }) {
   const sideChat = useSideChat();
-  const navigate = useNavigate();
-  const { id: specificationId } = useParams({ strict: false });
   const isActive = sideChat !== null;
   const handleClick = isActive
-    ? () => {
+    ? () =>
         sideChat.openFor({
           kind: item.kind,
           id: item.id,
           referenceCode: item.referenceCode,
           content: item.content,
-        });
-        // Navigate to the chat view so the thread is visible. The index
-        // route redirects to the current active phase. The focusedThreadItemId
-        // mechanism handles scroll + focus once the ThreadCollapsible renders.
-        if (specificationId) {
-          void navigate({ to: '/specification/$id', params: { id: specificationId } });
-        }
-      }
+        })
     : undefined;
   const editEnabled = Boolean(onStartEdit) && !editDisabled;
   return (
