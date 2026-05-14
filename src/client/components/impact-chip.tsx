@@ -6,7 +6,7 @@
 //   - soft → cool blue (matches the Apply button)
 //   - hard → warm amber (matches the deferred banner)
 //
-// Shared by `side-chat-popover.tsx` (popover staged-patch row) and
+// Shared by `thread-collapsible.tsx` (staged-patch indicator) and
 // `patch-list-overlay.tsx` (canonical overlay expanded list) so both
 // surfaces speak the same visual language.
 

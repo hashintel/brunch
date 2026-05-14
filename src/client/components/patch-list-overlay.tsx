@@ -9,9 +9,7 @@ import {
   usePatchListSavedToastLastAckBatchIdRef,
   usePatchListState,
 } from './patch-list-host.js';
-import { usePatchListOverlayBridge } from './patch-list-overlay-bridge.js';
 import type { Patch } from './patch-list-reducer.js';
-import { usePatchListUndoOverride } from './patch-list-undo-context.js';
 
 const MESSAGE_DURATION_MS = 5000;
 
@@ -56,8 +54,6 @@ export function PatchListOverlay(): React.ReactElement | null {
   const patchList = usePatchList();
   const state = usePatchListState();
   const lastBatchAppliedMeta = useLastBatchAppliedMeta();
-  const undoOverride = usePatchListUndoOverride();
-  const overlayBridge = usePatchListOverlayBridge();
 
   const stagedCount = state.staged.length;
 
@@ -101,16 +97,9 @@ export function PatchListOverlay(): React.ReactElement | null {
     return null;
   }
 
-  const undo = undoOverride ?? (() => void patchList.undo());
-
-  const scopedApplyBlocked =
-    overlayBridge !== null && stagedCount > 0 && overlayBridge.scopedPatchIds.length === 0;
+  const undo = () => void patchList.undo();
 
   const applyFromOverlay = (): void => {
-    if (overlayBridge) {
-      overlayBridge.applyScoped();
-      return;
-    }
     void patchList.apply();
   };
 
@@ -157,12 +146,7 @@ export function PatchListOverlay(): React.ReactElement | null {
               ) : null}
               <button
                 type="button"
-                disabled={state.isApplying || scopedApplyBlocked}
-                title={
-                  scopedApplyBlocked
-                    ? 'Pending changes are on another item — open that item in side-chat or switch context to apply them'
-                    : undefined
-                }
+                disabled={state.isApplying}
                 onClick={() => applyFromOverlay()}
                 className="rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6] disabled:opacity-50"
               >

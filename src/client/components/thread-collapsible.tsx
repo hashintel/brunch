@@ -172,7 +172,7 @@ function buildHistoryFromTurns(
 }
 
 // ---------------------------------------------------------------------------
-// Mode persistence — shares key with SideChatPopover for consistency
+// Mode persistence — shares key with side-chat-host for consistency
 // ---------------------------------------------------------------------------
 
 const SIDE_CHAT_MODE_STORAGE_KEY = 'brunch.side-chat.mode';

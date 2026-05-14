@@ -795,15 +795,12 @@ export function StructuredListView({
     if (!selection || !sideChat) return;
     const item = itemsByKey.get(`${selection.anchor.kind}:${selection.anchor.itemId}`);
     if (!item) return;
-    sideChat.openWithSpanHint(
-      {
-        kind: item.kind,
-        id: item.id,
-        referenceCode: item.referenceCode,
-        content: item.content,
-      },
-      selection.snapshot,
-    );
+    sideChat.openFor({
+      kind: item.kind,
+      id: item.id,
+      referenceCode: item.referenceCode,
+      content: item.content,
+    });
     window.getSelection()?.removeAllRanges();
   };
 
