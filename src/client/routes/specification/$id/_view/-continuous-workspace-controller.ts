@@ -371,6 +371,7 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
     enrichedBottomArtifact,
     projectedPhaseTurns,
     specificationState.structuralArtifactTurnIds,
+    specificationState.threads,
     turns,
   ]);
 

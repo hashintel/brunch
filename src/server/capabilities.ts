@@ -243,10 +243,14 @@ function getChatById(db: DB, chatId: number) {
     .where(and(eq(schema.thread.chat_id, chatId), eq(schema.thread.kind, 'interview')))
     .get();
 
+  if (!interviewThread) {
+    throw new Error(`Chat ${chatId} has no interview thread; substrate invariant violated`);
+  }
+
   return {
     ...chatRow,
-    kind: interviewThread?.kind ?? ('interview' as const),
-    active_turn_id: interviewThread?.active_turn_id ?? null,
+    kind: interviewThread.kind,
+    active_turn_id: interviewThread.active_turn_id,
   };
 }
 
