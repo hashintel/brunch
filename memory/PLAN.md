@@ -24,7 +24,6 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 ### Active
 
 1. `agent-fixture-substrate` — branch-complete off main, reconciling — FE-705 integration substrate for JSONL agent capability CLI and LLM-as-user probes.
-2. `chat-runtime-threads` — FE-710; Track 2 of the runtime umbrella; substrate sub-RFC settled on option (q) new `thread` table; first slice lands the substrate without UI cutover.
 
 ### Next
 
@@ -76,10 +75,10 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Name:** Chat runtime — thread substrate + in-stream rendering (Conversational Workspace Runtime — Track 2)
 - **Linear:** FE-710
 - **Kind:** structural
-- **Status:** in-progress
-- **Objective:** Add a `thread` primitive between chat and turn, render threads inline as collapsibles in the main chat surface (Cursor-style), and retire `SideChatPopover` and the transient staged-patches strip. Substrate sub-RFC settled: option (q) new `thread` table; chat collapses to a pure container; flat threads with `thread.invoked_in_turn_id` for inline agent runs (no nested threads in V1).
+- **Status:** done
+- **Objective:** Add a `thread` primitive between chat and turn, render threads inline as collapsibles in the main chat surface (Cursor-style), and retire `SideChatPopover`. Substrate sub-RFC settled: option (q) new `thread` table; chat collapses to a pure container; flat threads with `thread.invoked_in_turn_id` for inline agent runs (no nested threads in V1).
 - **Why now / unlocks:** Track 1 (workspace shell) shipped, providing the stable host. Threads are the critical unblocker for reconciliation absorption into the chat surface (Track 3), `#` mention / turn-zero / context provision (Track 5), changeset attribution (Track 4), and the retirement of the V3.1 popover and staged-patches surfaces. Supersedes the prior side-chat V4a persistence horizon — persistent side-chat history becomes the main chat stream where threads stay collapsed.
-- **Acceptance:** `thread` table exists with kinds (`interview`, `side`, `reconciliation`, `qa`, `agent_run`); `turn.thread_id` replaces `turn.chat_id`; `chat.kind` and `chat.active_turn_id` retire; threads render inline as collapsibles in the unified chat surface; `SideChatPopover` retires as cutover; transient staged-patches strip retires (replaced by in-thread mutation state); turn-zero (`turn_kind='kickoff'`) becomes the universal thread entry; agent runs render inline via `thread.invoked_in_turn_id`.
+- **Acceptance:** `thread` table exists with kinds (`interview`, `side`, `reconciliation`, `qa`, `agent_run`); `turn.thread_id` replaces `turn.chat_id`; `chat.kind` and `chat.active_turn_id` retire; threads render inline as collapsibles in the unified chat surface; `SideChatPopover` retires as cutover; each thread carries its own in-thread mutation state (edit mode + patch staging via ThreadCollapsible) — the global `PatchListOverlay` strip remains as a deliberate cross-thread summary surface; turn-zero (`turn_kind='kickoff'`) becomes the universal thread entry; agent runs render inline via `thread.invoked_in_turn_id`. `PendingReviewSection` retirement deferred to `reconciliation-runtime` (Track 3).
 - **Verification:** Thread substrate schema/migration tests, in-stream collapsible rendering tests, manual walkthroughs for thread creation/display/collapse per kind, regression on existing interview flow.
 - **Traceability:** Requirements 39 (updated), 45; A88, A94; D86, D87, D110, D114, D138, D146, D153, D154; I111 (extended), I113.
 - **Design docs:** `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.2 + §5 Track 2; `docs/design/MULTI_CHAT.md`; `docs/design/SIDE_CHAT.md`.
@@ -388,6 +387,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ## Recently Completed
 
+- [2026-05-15] `chat-runtime-threads` — Done: FE-710 / PR #138. Thread substrate (new `thread` table, `turn.thread_id`, chat simplified to pure container), inline ThreadCollapsible with streaming + edit mode + patch staging, SideChatPopover fully retired and deleted (-3200 LOC), turn-zero kickoff, agent runs inline via `invoked_in_turn_id`. Global `PatchListOverlay` strip remains as deliberate cross-thread summary. `PendingReviewSection` retirement deferred to `reconciliation-runtime` (Track 3). Verified: `npm run verify` 1157 pass / 15 skipped (retirement debt). Watch: 15 skipped tests cover retired popover bridge/undo modules and annotate auto-apply — delete when replacement coverage exists.
 - [2026-05-13] `continuous-workspace` — Done: FE-709 / PR #134. Replaced per-phase InterviewView with ContinuousWorkspaceView (cumulative center pane), extracted `useContinuousWorkspaceController`, added sidebar scroll-spy via WorkspaceFocusContext, extracted shared controller helpers to core, retired route-first test assumptions. Verified: `npm run verify` 1213 / 1214 pass (1 pre-existing flake). Watch: Step 5 route-collapse decision deferred — hybrid works as intended.
 - [2026-05-11] `side-chat-v3-1-agent-grouped-reconciliation` — Done: FE-674 / PR #124 + downstack closed the V3.x arc end-to-end with spec-level classifier route, per-row reset route, agent classification lifecycle, chips, per-class actions, and bulk Confirm-all / Apply-all-suggested. Verified: `npm run verify` 1178 / 1179 pass with one unrelated `side-chat-route` flake. Watch: A88 outer-loop walkthrough on a dense spec remains open to assess legibility vs V3.0's flat list.
 - [2026-05-11] `fe-698-reconciliation-context-pack` — Done: added proposal-only reconciliation prompt/context scenario rendering open reconciliation needs with source/target anchors, reason/status, prompt/context fingerprints, and read-only capability metadata. Verified: `npm run verify`. Watch: next FE-698 work can broaden read-only/proposal-only probes and Pi adapter spike without treating this pack as a resolution agent.
