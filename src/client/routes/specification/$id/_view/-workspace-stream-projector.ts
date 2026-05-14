@@ -470,10 +470,14 @@ function interleaveThreadCollapsibles(
   const nonInterviewThreads = threads.filter((t) => t.kind !== 'interview');
   if (nonInterviewThreads.length === 0) return historyArtifacts;
 
-  // Group threads by invoking turn id
+  // Group threads by invoking turn id; collect free-floating ones separately.
   const threadsByTurnId = new Map<number, Thread[]>();
+  const freeFloating: Thread[] = [];
   for (const thread of nonInterviewThreads) {
-    if (thread.invoked_in_turn_id == null) continue;
+    if (thread.invoked_in_turn_id == null) {
+      freeFloating.push(thread);
+      continue;
+    }
     const existing = threadsByTurnId.get(thread.invoked_in_turn_id);
     if (existing) {
       existing.push(thread);
@@ -482,7 +486,7 @@ function interleaveThreadCollapsibles(
     }
   }
 
-  if (threadsByTurnId.size === 0) return historyArtifacts;
+  if (threadsByTurnId.size === 0 && freeFloating.length === 0) return historyArtifacts;
 
   const result: WorkspaceStreamArtifact[] = [];
   for (const artifact of historyArtifacts) {
@@ -497,6 +501,12 @@ function interleaveThreadCollapsibles(
         }
       }
     }
+  }
+
+  // Append free-floating threads (e.g. eagerly created from structured-list
+  // with no active turn) at the end of the transcript.
+  for (const thread of freeFloating) {
+    result.push({ kind: 'thread-collapsible', thread });
   }
 
   return result;
