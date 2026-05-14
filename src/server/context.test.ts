@@ -541,7 +541,7 @@ describe('observer-context-projection', () => {
     const turn: Turn = {
       id: 5,
       specification_id: 1,
-      chat_id: null,
+      thread_id: 0,
       parent_turn_id: 4,
       phase: 'grounding',
       turn_kind: 'question',
@@ -578,7 +578,7 @@ describe('observer-context-projection', () => {
     const turn: Turn = {
       id: 5,
       specification_id: 1,
-      chat_id: null,
+      thread_id: 0,
       parent_turn_id: 4,
       phase: 'grounding',
       turn_kind: 'question',
@@ -670,7 +670,7 @@ describe('observer-context-projection', () => {
     const turn: Turn = {
       id: 5,
       specification_id: 1,
-      chat_id: null,
+      thread_id: 0,
       parent_turn_id: 4,
       phase: 'grounding',
       turn_kind: 'question',
@@ -710,7 +710,7 @@ describe('observer-context-projection', () => {
     const turn: Turn = {
       id: 5,
       specification_id: 1,
-      chat_id: null,
+      thread_id: 0,
       parent_turn_id: 4,
       phase: 'grounding',
       turn_kind: 'question',
@@ -799,7 +799,7 @@ describe('observer-context-projection', () => {
     const turn: Turn = {
       id: 5,
       specification_id: 1,
-      chat_id: null,
+      thread_id: 0,
       parent_turn_id: 4,
       phase: 'grounding',
       turn_kind: 'question',
@@ -845,7 +845,7 @@ describe('observer-context-projection', () => {
     const turn: Turn = {
       id: 6,
       specification_id: 1,
-      chat_id: null,
+      thread_id: 0,
       parent_turn_id: 5,
       phase: 'criteria',
       turn_kind: 'question',
@@ -890,7 +890,7 @@ describe('observer-context-projection', () => {
     const turn: Turn = {
       id: 7,
       specification_id: 1,
-      chat_id: null,
+      thread_id: 0,
       parent_turn_id: 6,
       phase: 'design',
       turn_kind: 'question',

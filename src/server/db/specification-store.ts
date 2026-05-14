@@ -77,9 +77,10 @@ function insertSpecificationWithInterviewChat(
     const inserted = tx.insert(schema.specification).values(values).returning().get() as Specification;
     const chatRow = tx
       .insert(schema.chat)
-      .values({ specification_id: inserted.id, kind: 'interview' })
+      .values({ specification_id: inserted.id })
       .returning({ id: schema.chat.id })
       .get();
+    tx.insert(schema.thread).values({ chat_id: chatRow.id, kind: 'interview' }).run();
     const updated = tx
       .update(schema.specification)
       .set({ primary_chat_id: chatRow.id })
@@ -102,6 +103,19 @@ function getInterviewChatIdForSpecification(db: DB, specificationId: number): nu
   return spec.primary_chat_id;
 }
 
+function getInterviewThreadIdForSpecification(db: DB, specificationId: number): number {
+  const chatId = getInterviewChatIdForSpecification(db, specificationId);
+  const threadRow = db
+    .select({ id: schema.thread.id })
+    .from(schema.thread)
+    .where(and(eq(schema.thread.chat_id, chatId), eq(schema.thread.kind, 'interview')))
+    .get();
+  if (!threadRow) {
+    throw new Error(`Specification ${specificationId} has no interview thread; substrate invariant violated`);
+  }
+  return threadRow.id;
+}
+
 export function getSpecification(db: DB, id: number): Specification | undefined {
   return db.select().from(schema.specification).where(eq(schema.specification.id, id)).get() as
     | Specification
@@ -113,21 +127,21 @@ export function getTurn(db: DB, turnId: number): Turn | undefined {
 }
 
 export function createTurn(db: DB, specificationId: number, input: CreateTurnInput): Turn {
-  const chatId = getInterviewChatIdForSpecification(db, specificationId);
+  const threadId = getInterviewThreadIdForSpecification(db, specificationId);
 
   if (input.parent_turn_id != null) {
     const parent = db
-      .select({ chat_id: schema.turn.chat_id })
+      .select({ thread_id: schema.turn.thread_id })
       .from(schema.turn)
       .where(eq(schema.turn.id, input.parent_turn_id))
       .get();
     if (!parent) {
       throw new Error(`Parent turn ${input.parent_turn_id} not found`);
     }
-    if (parent.chat_id !== chatId) {
+    if (parent.thread_id !== threadId) {
       throw new Error(
-        `Parent turn ${input.parent_turn_id} lives in chat ${parent.chat_id}, ` +
-          `not chat ${chatId} — parent_turn_id must share chat_id with the new turn`,
+        `Parent turn ${input.parent_turn_id} lives in thread ${parent.thread_id}, ` +
+          `not thread ${threadId} — parent_turn_id must share thread with the new turn`,
       );
     }
   }
@@ -136,7 +150,7 @@ export function createTurn(db: DB, specificationId: number, input: CreateTurnInp
     .insert(schema.turn)
     .values({
       specification_id: specificationId,
-      chat_id: chatId,
+      thread_id: threadId,
       parent_turn_id: input.parent_turn_id ?? null,
       phase: input.phase,
       turn_kind: input.turn_kind ?? 'question',
@@ -241,20 +255,22 @@ export function applyTurnResponseSelections(db: DB, turnId: number, selectedPosi
 }
 
 export function advanceHead(db: DB, specificationId: number, turnId: number): void {
-  const chatId = getInterviewChatIdForSpecification(db, specificationId);
+  const threadId = getInterviewThreadIdForSpecification(db, specificationId);
   db.transaction((tx) => {
     tx.update(schema.specification)
       .set({ active_turn_id: turnId, updated_at: sql`datetime('now')` })
       .where(eq(schema.specification.id, specificationId))
       .run();
-    const updatedChat = tx
-      .update(schema.chat)
+    const updatedThread = tx
+      .update(schema.thread)
       .set({ active_turn_id: turnId })
-      .where(eq(schema.chat.id, chatId))
-      .returning({ id: schema.chat.id })
+      .where(eq(schema.thread.id, threadId))
+      .returning({ id: schema.thread.id })
       .get();
-    if (!updatedChat) {
-      throw new Error(`Interview chat ${chatId} for spec ${specificationId} not found; head update aborted`);
+    if (!updatedThread) {
+      throw new Error(
+        `Interview thread ${threadId} for spec ${specificationId} not found; head update aborted`,
+      );
     }
   });
   reconcilePhaseOutcomesForSpecification(db, specificationId);

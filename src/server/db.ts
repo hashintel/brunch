@@ -143,8 +143,12 @@ export type DB = ReturnType<typeof drizzle<typeof schema>>;
 export function createDb(path: string = ':memory:'): DB {
   const sqlite = new Database(path);
   sqlite.pragma('journal_mode = WAL');
-  sqlite.pragma('foreign_keys = ON');
+  // Foreign keys OFF during migration so table-recreation migrations
+  // (DROP TABLE + rename) don't hit FK constraint errors. The PRAGMA
+  // is a no-op inside a transaction, so it must be set before migrate().
+  sqlite.pragma('foreign_keys = OFF');
   const db = drizzle(sqlite, { schema });
   migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+  sqlite.pragma('foreign_keys = ON');
   return db;
 }

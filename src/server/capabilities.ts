@@ -1,5 +1,5 @@
 import { readUIMessageStream } from 'ai';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { submitTurnResponseRequestSchema } from '@/shared/api-types.js';
@@ -206,16 +206,7 @@ function getPrimaryChatFromCapability(db: DB, input: ChatGetPrimaryInput) {
     throw new CapabilityDispatchError(`Specification ${input.specId} has no primary chat`, 'handler_failed');
   }
 
-  const chat = db
-    .select({
-      id: schema.chat.id,
-      specification_id: schema.chat.specification_id,
-      kind: schema.chat.kind,
-      active_turn_id: schema.chat.active_turn_id,
-    })
-    .from(schema.chat)
-    .where(eq(schema.chat.id, specification.primary_chat_id))
-    .get();
+  const chat = getChatById(db, specification.primary_chat_id);
 
   if (!chat || chat.specification_id !== input.specId) {
     throw new CapabilityDispatchError(
@@ -233,16 +224,30 @@ function getPrimaryChatFromCapability(db: DB, input: ChatGetPrimaryInput) {
 }
 
 function getChatById(db: DB, chatId: number) {
-  return db
+  const chatRow = db
     .select({
       id: schema.chat.id,
       specification_id: schema.chat.specification_id,
-      kind: schema.chat.kind,
-      active_turn_id: schema.chat.active_turn_id,
     })
     .from(schema.chat)
     .where(eq(schema.chat.id, chatId))
     .get();
+  if (!chatRow) return undefined;
+
+  const interviewThread = db
+    .select({
+      kind: schema.thread.kind,
+      active_turn_id: schema.thread.active_turn_id,
+    })
+    .from(schema.thread)
+    .where(and(eq(schema.thread.chat_id, chatId), eq(schema.thread.kind, 'interview')))
+    .get();
+
+  return {
+    ...chatRow,
+    kind: interviewThread?.kind ?? ('interview' as const),
+    active_turn_id: interviewThread?.active_turn_id ?? null,
+  };
 }
 
 const INITIAL_INTERVIEWER_PROMPT = 'Begin the grounding interview.';

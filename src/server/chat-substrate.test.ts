@@ -12,23 +12,40 @@ afterEach(() => {
   db.$client.close();
 });
 
-describe('chat container schema', () => {
-  it('chat table exists with expected columns', () => {
+describe('thread substrate schema', () => {
+  it('thread table exists with expected columns', () => {
+    const columns = db.$client.prepare("PRAGMA table_info('thread')").all() as Array<{ name: string }>;
+    const names = columns.map((c) => c.name);
+    expect(names).toContain('id');
+    expect(names).toContain('chat_id');
+    expect(names).toContain('kind');
+    expect(names).toContain('target_item_id');
+    expect(names).toContain('context_spec');
+    expect(names).toContain('kickoff_turn_id');
+    expect(names).toContain('invoked_in_turn_id');
+    expect(names).toContain('active_turn_id');
+    expect(names).toContain('status');
+    expect(names).toContain('created_at');
+  });
+
+  it('chat table has no kind or active_turn_id column', () => {
     const columns = db.$client.prepare("PRAGMA table_info('chat')").all() as Array<{ name: string }>;
     const names = columns.map((c) => c.name);
     expect(names).toContain('id');
     expect(names).toContain('specification_id');
-    expect(names).toContain('kind');
-    expect(names).toContain('active_turn_id');
     expect(names).toContain('created_at');
+    expect(names).not.toContain('kind');
+    expect(names).not.toContain('active_turn_id');
   });
 
-  it('turn table has chat_id column', () => {
+  it('turn table has thread_id, not chat_id', () => {
     const columns = db.$client.prepare("PRAGMA table_info('turn')").all() as Array<{ name: string }>;
-    expect(columns.map((c) => c.name)).toContain('chat_id');
+    const names = columns.map((c) => c.name);
+    expect(names).toContain('thread_id');
+    expect(names).not.toContain('chat_id');
   });
 
-  it('specification table has primary_chat_id column', () => {
+  it('specification table still has primary_chat_id', () => {
     const columns = db.$client.prepare("PRAGMA table_info('specification')").all() as Array<{
       name: string;
     }>;
@@ -36,62 +53,84 @@ describe('chat container schema', () => {
   });
 });
 
-describe('chat container — spec creation transactional', () => {
-  it('createSpecification inserts spec + interview chat in one transaction', () => {
+describe('thread substrate — spec creation atomic quad', () => {
+  it('createSpecification inserts spec + chat + interview thread in one transaction', () => {
     const spec = createSpecification(db, 'Test');
     const chats = db.$client
-      .prepare('SELECT id, specification_id, kind, active_turn_id FROM chat WHERE specification_id = ?')
-      .all(spec.id) as Array<{
+      .prepare('SELECT id, specification_id FROM chat WHERE specification_id = ?')
+      .all(spec.id) as Array<{ id: number; specification_id: number }>;
+    expect(chats).toHaveLength(1);
+    expect(chats[0].specification_id).toBe(spec.id);
+
+    const threads = db.$client
+      .prepare('SELECT id, chat_id, kind, active_turn_id, status FROM thread WHERE chat_id = ?')
+      .all(chats[0].id) as Array<{
       id: number;
-      specification_id: number;
+      chat_id: number;
       kind: string;
       active_turn_id: number | null;
+      status: string;
     }>;
-    expect(chats).toHaveLength(1);
-    expect(chats[0].kind).toBe('interview');
-    expect(chats[0].specification_id).toBe(spec.id);
-    expect(chats[0].active_turn_id).toBeNull();
+    expect(threads).toHaveLength(1);
+    expect(threads[0].kind).toBe('interview');
+    expect(threads[0].active_turn_id).toBeNull();
+    expect(threads[0].status).toBe('open');
   });
 
-  it('spec.primary_chat_id points to the interview chat', () => {
+  it('spec.primary_chat_id points to the chat that owns the interview thread', () => {
     const spec = createSpecification(db, 'Test');
     const reread = getSpecification(db, spec.id) as
       | (typeof spec & { primary_chat_id: number | null })
       | undefined;
     expect(reread).toBeDefined();
-    const interviewChat = db.$client
-      .prepare("SELECT id FROM chat WHERE specification_id = ? AND kind = 'interview'")
-      .get(spec.id) as { id: number };
-    expect(reread?.primary_chat_id).toBe(interviewChat.id);
+    const interviewThread = db.$client
+      .prepare("SELECT chat_id FROM thread WHERE chat_id = ? AND kind = 'interview'")
+      .get(reread!.primary_chat_id) as { chat_id: number } | undefined;
+    expect(interviewThread).toBeDefined();
+    expect(interviewThread!.chat_id).toBe(reread!.primary_chat_id);
   });
 
-  it('every spec has exactly one interview chat', () => {
+  it('every spec has exactly one interview thread per chat', () => {
     createSpecification(db, 'Alpha');
     createSpecification(db, 'Beta');
     const counts = db.$client
-      .prepare(
-        "SELECT specification_id, COUNT(*) AS n FROM chat WHERE kind = 'interview' GROUP BY specification_id",
-      )
-      .all() as Array<{ specification_id: number; n: number }>;
+      .prepare("SELECT chat_id, COUNT(*) AS n FROM thread WHERE kind = 'interview' GROUP BY chat_id")
+      .all() as Array<{ chat_id: number; n: number }>;
     expect(counts).toHaveLength(2);
     for (const row of counts) expect(row.n).toBe(1);
   });
-});
 
-describe('chat container — turn writes', () => {
-  it('createTurn populates chat_id from spec primary chat', () => {
+  it('partial unique index prevents a second interview thread on the same chat', () => {
     const spec = createSpecification(db, 'Test');
-    const turn = createTurn(db, spec.id, { phase: 'grounding', question: 'Q1' });
-    const row = db.$client.prepare('SELECT chat_id FROM turn WHERE id = ?').get(turn.id) as {
-      chat_id: number;
-    };
     const reread = getSpecification(db, spec.id) as
       | (typeof spec & { primary_chat_id: number | null })
       | undefined;
-    expect(row.chat_id).toBe(reread?.primary_chat_id);
+    expect(() => {
+      db.$client
+        .prepare("INSERT INTO thread (chat_id, kind, status) VALUES (?, 'interview', 'open')")
+        .run(reread!.primary_chat_id);
+    }).toThrow();
+  });
+});
+
+describe('thread substrate — turn writes', () => {
+  it('createTurn populates thread_id from the interview thread', () => {
+    const spec = createSpecification(db, 'Test');
+    const turn = createTurn(db, spec.id, { phase: 'grounding', question: 'Q1' });
+    const row = db.$client.prepare('SELECT thread_id FROM turn WHERE id = ?').get(turn.id) as {
+      thread_id: number;
+    };
+    const interviewThread = db.$client
+      .prepare(
+        `SELECT t.id FROM thread t
+         JOIN chat c ON c.id = t.chat_id
+         WHERE c.specification_id = ? AND t.kind = 'interview'`,
+      )
+      .get(spec.id) as { id: number };
+    expect(row.thread_id).toBe(interviewThread.id);
   });
 
-  it('createTurn rejects parent that lives in a different chat', () => {
+  it('createTurn rejects parent that lives in a different thread', () => {
     const spec = createSpecification(db, 'Test');
     const otherSpec = createSpecification(db, 'Other');
     const otherTurn = createTurn(db, otherSpec.id, { phase: 'grounding', question: 'Other Q' });
@@ -105,18 +144,22 @@ describe('chat container — turn writes', () => {
   });
 });
 
-describe('chat container — head mirroring', () => {
-  it('advanceHead mirrors active_turn_id to the interview chat', () => {
+describe('thread substrate — head mirroring', () => {
+  it('advanceHead mirrors active_turn_id to the interview thread', () => {
     const spec = createSpecification(db, 'Test');
     const turn = createTurn(db, spec.id, { phase: 'grounding', question: 'Q1' });
     advanceHead(db, spec.id, turn.id);
     const row = db.$client
-      .prepare("SELECT active_turn_id FROM chat WHERE specification_id = ? AND kind = 'interview'")
+      .prepare(
+        `SELECT t.active_turn_id FROM thread t
+         JOIN chat c ON c.id = t.chat_id
+         WHERE c.specification_id = ? AND t.kind = 'interview'`,
+      )
       .get(spec.id) as { active_turn_id: number };
     expect(row.active_turn_id).toBe(turn.id);
   });
 
-  it('spec.active_turn_id and interview chat.active_turn_id stay in sync across advances', () => {
+  it('spec.active_turn_id and interview thread.active_turn_id stay in sync across advances', () => {
     const spec = createSpecification(db, 'Test');
     const t1 = createTurn(db, spec.id, { phase: 'grounding', question: 'Q1' });
     advanceHead(db, spec.id, t1.id);
@@ -128,16 +171,20 @@ describe('chat container — head mirroring', () => {
     advanceHead(db, spec.id, t2.id);
 
     const reread = getSpecification(db, spec.id);
-    const chatHead = db.$client
-      .prepare("SELECT active_turn_id FROM chat WHERE specification_id = ? AND kind = 'interview'")
+    const threadHead = db.$client
+      .prepare(
+        `SELECT t.active_turn_id FROM thread t
+         JOIN chat c ON c.id = t.chat_id
+         WHERE c.specification_id = ? AND t.kind = 'interview'`,
+      )
       .get(spec.id) as { active_turn_id: number };
     expect(reread?.active_turn_id).toBe(t2.id);
-    expect(chatHead.active_turn_id).toBe(reread?.active_turn_id ?? null);
+    expect(threadHead.active_turn_id).toBe(reread?.active_turn_id ?? null);
   });
 });
 
-describe('chat container — head mirroring atomicity', () => {
-  it('rolls back the spec head if the interview chat row is missing', () => {
+describe('thread substrate — head mirroring atomicity', () => {
+  it('rolls back the spec head if the interview thread row is missing', () => {
     const spec = createSpecification(db, 'Test');
     const t1 = createTurn(db, spec.id, { phase: 'grounding', question: 'Q1' });
     advanceHead(db, spec.id, t1.id);
@@ -147,11 +194,16 @@ describe('chat container — head mirroring atomicity', () => {
       parent_turn_id: t1.id,
     });
 
-    const reread = getSpecification(db, spec.id) as
-      | (typeof spec & { primary_chat_id: number | null })
-      | undefined;
+    // Delete the interview thread to simulate corruption
+    const interviewThread = db.$client
+      .prepare(
+        `SELECT t.id FROM thread t
+         JOIN chat c ON c.id = t.chat_id
+         WHERE c.specification_id = ? AND t.kind = 'interview'`,
+      )
+      .get(spec.id) as { id: number };
     db.$client.exec('PRAGMA foreign_keys = OFF');
-    db.$client.prepare('DELETE FROM chat WHERE id = ?').run(reread?.primary_chat_id);
+    db.$client.prepare('DELETE FROM thread WHERE id = ?').run(interviewThread.id);
     db.$client.exec('PRAGMA foreign_keys = ON');
 
     expect(() => advanceHead(db, spec.id, t2.id)).toThrow();
@@ -161,21 +213,22 @@ describe('chat container — head mirroring atomicity', () => {
   });
 });
 
-describe('chat container — read-path equivalence', () => {
-  it('spec.active_turn_id equals spec.primary_chat → chat.active_turn_id', () => {
+describe('thread substrate — read-path equivalence', () => {
+  it('spec.active_turn_id equals interview thread.active_turn_id', () => {
     const spec = createSpecification(db, 'Test');
     const t1 = createTurn(db, spec.id, { phase: 'grounding', question: 'Q1' });
     advanceHead(db, spec.id, t1.id);
 
     const row = db.$client
       .prepare(
-        `SELECT s.active_turn_id AS legacy, c.active_turn_id AS chat
+        `SELECT s.active_turn_id AS spec_head, t.active_turn_id AS thread_head
          FROM specification s
          JOIN chat c ON c.id = s.primary_chat_id
+         JOIN thread t ON t.chat_id = c.id AND t.kind = 'interview'
          WHERE s.id = ?`,
       )
-      .get(spec.id) as { legacy: number; chat: number };
-    expect(row.legacy).toBe(t1.id);
-    expect(row.chat).toBe(row.legacy);
+      .get(spec.id) as { spec_head: number; thread_head: number };
+    expect(row.spec_head).toBe(t1.id);
+    expect(row.thread_head).toBe(row.spec_head);
   });
 });

@@ -24,19 +24,46 @@ export const chat = sqliteTable('chat', {
   specification_id: integer()
     .notNull()
     .references(() => specification.id),
-  kind: text({ enum: ['interview', 'side_chat'] }).notNull(),
-  active_turn_id: integer().references((): any => turn.id),
   created_at: text()
     .notNull()
     .default(sql`(datetime('now'))`),
 });
+
+export const thread = sqliteTable(
+  'thread',
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    chat_id: integer()
+      .notNull()
+      .references(() => chat.id),
+    kind: text({ enum: ['interview', 'side', 'reconciliation', 'qa', 'agent_run'] }).notNull(),
+    target_item_id: integer().references(() => knowledgeItem.id),
+    context_spec: text(),
+    kickoff_turn_id: integer().references((): any => turn.id),
+    invoked_in_turn_id: integer().references((): any => turn.id),
+    active_turn_id: integer().references((): any => turn.id),
+    status: text({ enum: ['open', 'closed'] })
+      .notNull()
+      .default('open'),
+    created_at: text()
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    uniqueIndex('thread_interview_unique')
+      .on(table.chat_id)
+      .where(sql`kind = 'interview'`),
+  ],
+);
 
 export const turn = sqliteTable('turn', {
   id: integer().primaryKey({ autoIncrement: true }),
   specification_id: integer()
     .notNull()
     .references(() => specification.id),
-  chat_id: integer().references((): any => chat.id),
+  thread_id: integer()
+    .notNull()
+    .references(() => thread.id),
   parent_turn_id: integer().references((): any => turn.id),
   phase: text({ enum: ['grounding', 'design', 'requirements', 'criteria'] }).notNull(),
   turn_kind: text({ enum: ['question', 'kickoff', 'recovery'] })
