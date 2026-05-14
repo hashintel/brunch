@@ -11,8 +11,10 @@ type PersistedTurn = InferSelectModel<typeof schema.turn>;
 export type Turn = Omit<PersistedTurn, 'specification_id'> & {
   specification_id: number;
 };
+/** A turn that belongs to an interview thread — phase is always set. */
+export type InterviewTurn = Turn & { phase: Phase };
 export type Option = InferSelectModel<typeof schema.option>;
-export type Phase = Turn['phase'];
+export type Phase = NonNullable<Turn['phase']>;
 export type Impact = NonNullable<Turn['impact']>;
 
 export interface CreateTurnInput {
@@ -126,7 +128,7 @@ export function getTurn(db: DB, turnId: number): Turn | undefined {
   return db.select().from(schema.turn).where(eq(schema.turn.id, turnId)).get() as Turn | undefined;
 }
 
-export function createTurn(db: DB, specificationId: number, input: CreateTurnInput): Turn {
+export function createTurn(db: DB, specificationId: number, input: CreateTurnInput): InterviewTurn {
   const threadId = getInterviewThreadIdForSpecification(db, specificationId);
 
   if (input.parent_turn_id != null) {
@@ -164,7 +166,7 @@ export function createTurn(db: DB, specificationId: number, input: CreateTurnInp
     })
     .returning()
     .get();
-  return result as Turn;
+  return result as InterviewTurn;
 }
 
 export interface UpdateTurnInput {
@@ -211,7 +213,7 @@ export function createOption(db: DB, turnId: number, input: CreateOptionInput): 
   return result as Option;
 }
 
-export function getActivePath(db: DB, specificationId: number): Turn[] {
+export function getActivePath(db: DB, specificationId: number): InterviewTurn[] {
   const project = db
     .select({ active_turn_id: schema.specification.active_turn_id })
     .from(schema.specification)
@@ -227,7 +229,7 @@ export function getActivePath(db: DB, specificationId: number): Turn[] {
     )
     SELECT * FROM path ORDER BY id ASC
   `);
-  return rows as Turn[];
+  return rows as InterviewTurn[];
 }
 
 export function getOptionsForTurn(db: DB, turnId: number): Option[] {
@@ -333,6 +335,78 @@ export function getInterviewThread(
     throw new Error(`Chat ${chatId} has no interview thread; substrate invariant violated`);
   }
   return row;
+}
+
+export interface CreateTurnForThreadInput {
+  parent_turn_id?: number | null;
+  user_parts?: string | null;
+  assistant_parts?: string | null;
+  answer?: string | null;
+  question?: string;
+}
+
+/** Find an existing open side-chat thread for the given item, or create one. */
+export function findOrCreateSideChatThread(
+  db: DB,
+  chatId: number,
+  targetItemId: number,
+  invokedInTurnId?: number | null,
+) {
+  const existing = db
+    .select()
+    .from(schema.thread)
+    .where(
+      and(
+        eq(schema.thread.chat_id, chatId),
+        eq(schema.thread.kind, 'side'),
+        eq(schema.thread.target_item_id, targetItemId),
+        eq(schema.thread.status, 'open'),
+      ),
+    )
+    .get();
+  if (existing) return existing;
+  return db
+    .insert(schema.thread)
+    .values({
+      chat_id: chatId,
+      kind: 'side',
+      target_item_id: targetItemId,
+      invoked_in_turn_id: invokedInTurnId ?? null,
+    })
+    .returning()
+    .get();
+}
+
+/** Create a turn directly on a thread (not restricted to interview threads). */
+export function createTurnForThread(
+  db: DB,
+  specificationId: number,
+  threadId: number,
+  input: CreateTurnForThreadInput,
+): Turn {
+  return db
+    .insert(schema.turn)
+    .values({
+      specification_id: specificationId,
+      thread_id: threadId,
+      parent_turn_id: input.parent_turn_id ?? null,
+      phase: null,
+      question: input.question ?? '',
+      answer: input.answer ?? null,
+      user_parts: input.user_parts ?? null,
+      assistant_parts: input.assistant_parts ?? null,
+    })
+    .returning()
+    .get() as Turn;
+}
+
+export function getTurnsForThread(db: DB, threadId: number): Turn[] {
+  return db
+    .select()
+    .from(schema.turn)
+    .where(eq(schema.turn.thread_id, threadId))
+    .orderBy(schema.turn.created_at)
+    .all() as Turn[];
 }
 
 export function countTurnsPerThread(db: DB, threadIds: number[]): Map<number, number> {

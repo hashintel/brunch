@@ -133,6 +133,7 @@ export type {
   CreateThreadInput,
   CreateTurnInput,
   Impact,
+  InterviewTurn,
   Option,
   Phase,
   Specification,
@@ -143,9 +144,13 @@ export type {
 export {
   countTurnsPerThread,
   createThread,
+  createTurnForThread,
+  findOrCreateSideChatThread,
   getInterviewThread,
+  getTurnsForThread,
   listThreadsForChat,
 } from './db/specification-store.js';
+export type { CreateTurnForThreadInput } from './db/specification-store.js';
 
 export type DB = ReturnType<typeof drizzle<typeof schema>>;
 export function createDb(path: string = ':memory:'): DB {

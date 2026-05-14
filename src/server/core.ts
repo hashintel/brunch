@@ -21,6 +21,7 @@ import {
   getOptionsForTurn,
   getSpecification,
   countTurnsPerThread,
+  getTurnsForThread,
   listThreadsForChat,
   getTurn,
   listSpecifications as listPersistedSpecifications,
@@ -28,9 +29,26 @@ import {
   type CreateSpecificationOptions,
   type DB,
   type Specification as PersistedSpecification,
+  type InterviewTurn,
+  type Phase,
   type Turn,
 } from './db.js';
 import { serializeParts } from './parts.js';
+
+/** Extract display text from a non-interview thread turn's parts JSON. */
+function extractThreadTurnText(turn: Turn): string {
+  const raw = turn.user_parts ?? turn.assistant_parts;
+  if (!raw) return '';
+  try {
+    const parts = JSON.parse(raw) as Array<{ type: string; text?: string }>;
+    return parts
+      .filter((p) => p.type === 'text' && typeof p.text === 'string')
+      .map((p) => p.text!)
+      .join('');
+  } catch {
+    return raw;
+  }
+}
 
 /** Extract user text from the last UI message. */
 export function extractPrompt(messages: BrunchUIMessage[]): string {
@@ -42,7 +60,7 @@ export function extractPrompt(messages: BrunchUIMessage[]): string {
 /** Turn with optional options for richer history formatting. */
 export type TurnWithOptions = SpecificationTurn;
 
-type ActivePathTurn = Turn & {
+type ActivePathTurn = InterviewTurn & {
   options: ReturnType<typeof getOptionsForTurn>;
   captured_items: NonNullable<SpecificationTurn['captured_items']>;
 };
@@ -77,7 +95,7 @@ export function prepareTurn(
   specificationId: number,
   userMessage: string,
   userParts: BrunchUserPart[],
-  phase?: Turn['phase'],
+  phase?: Phase,
 ) {
   const specification = getSpecification(db, specificationId);
   if (!specification) throw new Error(`Specification ${specificationId} not found`);
@@ -95,7 +113,7 @@ export function prepareTurn(
 export function prepareSuccessorTurn(
   db: DB,
   specificationId: number,
-  phase: Turn['phase'],
+  phase: Phase,
   parentTurnId: number | null,
 ) {
   const specification = getSpecification(db, specificationId);
@@ -142,17 +160,31 @@ export function readSpecificationStateProjection(db: DB, specificationId: number
       db,
       rawThreads.map((t) => t.id),
     );
-    threads = rawThreads.map((t) => ({
-      id: t.id,
-      chat_id: t.chat_id,
-      kind: t.kind,
-      target_item_id: t.target_item_id,
-      invoked_in_turn_id: t.invoked_in_turn_id,
-      active_turn_id: t.active_turn_id,
-      status: t.status,
-      turn_count: turnCountMap.get(t.id) ?? 0,
-      created_at: t.created_at,
-    }));
+    threads = rawThreads.map((t) => {
+      const turnCount = turnCountMap.get(t.id) ?? 0;
+      // Include turns for non-interview threads so the client can render them
+      const threadTurns =
+        t.kind !== 'interview' && turnCount > 0
+          ? getTurnsForThread(db, t.id).map((turn) => ({
+              id: turn.id,
+              role: turn.user_parts != null ? ('user' as const) : ('assistant' as const),
+              text: extractThreadTurnText(turn),
+              created_at: turn.created_at,
+            }))
+          : undefined;
+      return {
+        id: t.id,
+        chat_id: t.chat_id,
+        kind: t.kind,
+        target_item_id: t.target_item_id,
+        invoked_in_turn_id: t.invoked_in_turn_id,
+        active_turn_id: t.active_turn_id,
+        status: t.status,
+        turn_count: turnCount,
+        created_at: t.created_at,
+        turns: threadTurns,
+      };
+    });
   }
 
   return {

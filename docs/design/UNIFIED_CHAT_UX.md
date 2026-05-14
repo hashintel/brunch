@@ -149,7 +149,7 @@ Non-negotiable in this layer (dark mode deferred).
   - **⌘/Ctrl+Enter** submits.
   - **Esc** collapses an open thread (or steps the layout state down by one tier).
   - **↑/↓** within the suggestions row.
-- **Focus management:** on thread expand, focus the kickoff card; on collapse, return focus to the invoking turn.
+- **Focus management:** on thread creation, autofocus the new thread's composer; on expand, focus the kickoff card; on collapse, return focus to the invoking turn.
 - **ARIA:** `role="region"` on thread collapsibles with `aria-label` = kind + target; `aria-expanded` on the toggle.
 - **Live regions:** streaming progress narration uses `aria-live="polite"`.
 - **Color is never the sole carrier** of kind information — icons + labels (and refcode prefix for `#`) accompany every chip.
@@ -168,6 +168,7 @@ New typed parts likely needed (substrate-allowing): `thread.kickoff`, `thread.su
 - Each active thread mounts its own `useChat<BrunchUIMessage>` (working assumption per HANDOFF; confirm at S2).
 - Layout shells unchanged: `AppLayout` / `SpecificationWorkspaceLayout` / `ViewLayout` (SPEC §Layout Architecture).
 - Existing routed interview surface preserves SPEC I24.
+- **Suggestion content must respect relation-policy validity** (SPEC D137 / I118). No suggestion may propose an edge, item, or action that violates relation directionality or kind constraints. Applies to static-per-mode V1 and any future LLM-generated variant.
 
 ### Non-goals
 
@@ -187,19 +188,9 @@ The prototype lives at `.ladle/` (existing harness, `npm run ladle`). One story 
 
 Deliverable: a Ladle build that renders all ten canonical scenes from §5 with mock data and the recommended decisions. Iterate visually; promote stabilized components into S2/S3 of FE-710 when the substrate-landing slice merges.
 
-## 14. Locked decisions and remaining prototype questions
+## 14. Prototype-settle questions
 
-Resolved at brief-lock (reproduced for traceability):
-
-- **✓ Modes via Shift+Tab** — Ask / Edit / Reconcile; agent_run = assistant-only; mode persists per thread.
-- **✓ Symbol mapping** — `#` knowledge items (refcode prefix + `kindAccentHex` tint); `$` threads; `!` annotations / untyped artifacts; `@` reserved for code references; `-` omitted.
-- **✓ Suggestion source** — static per mode in V1.
-- **✓ Layout states** — Compact / Side-docked / Maximize / Full.
-- **✓ Icon family** — `lucide-react`; one icon per kind.
-- **✓ Dark mode** — deferred.
-- **✓ Accessibility** — keyboard, ARIA, focus management required.
-
-Still open for the prototype to settle:
+Decisions the Ladle prototype will resolve in code; not blocking the brief.
 
 - **Compact-state composer affordances** — in the smallest layout, suggestions probably can't fit. Cut to one suggestion? Hide entirely until input has focus?
 - **Mode chip placement** — leading edge of composer (with the icon) vs trailing edge (next to send)?

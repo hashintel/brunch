@@ -29,7 +29,7 @@ import {
   getSpecification,
   type KnowledgeItem,
   type DB,
-  type Turn,
+  type InterviewTurn,
 } from './db.js';
 import { supportsKnowledgeRelationship } from './knowledge-relationship-policy.js';
 import { buildObserverSystemPrompt } from './observer-prompt.js';
@@ -181,7 +181,7 @@ function persistObserverRelationships({
  */
 export async function runObserver(
   db: DB,
-  turn: Turn,
+  turn: InterviewTurn,
   specificationId: number,
   workspaceDirectory?: string,
 ): Promise<{ entityIds: ObserverEntityIds }> {

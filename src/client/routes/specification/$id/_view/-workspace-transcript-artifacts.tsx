@@ -549,6 +549,9 @@ export function WorkspaceTranscriptArtifacts({
               turnCount={artifact.thread.turn_count}
               status={artifact.thread.status}
               threadId={artifact.thread.id}
+              turns={artifact.thread.turns}
+              specificationId={Number(specificationId)}
+              targetItemId={artifact.thread.target_item_id}
             />
           );
       }

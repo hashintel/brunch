@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { buildInterviewerContext, buildObserverContext } from './context.js';
 import type { TurnWithOptions } from './core.js';
-import type { Turn } from './db.js';
+import type { InterviewTurn } from './db.js';
 
 // --- Interviewer context (I19) ---
 
@@ -538,7 +538,7 @@ describe('buildInterviewerContext', () => {
 
 describe('observer-context-projection', () => {
   it('includes current turn question and answer', () => {
-    const turn: Turn = {
+    const turn: InterviewTurn = {
       id: 5,
       specification_id: 1,
       thread_id: 0,
@@ -575,7 +575,7 @@ describe('observer-context-projection', () => {
   });
 
   it('includes brownfield project context when kickoff is grounded in an existing repo', () => {
-    const turn: Turn = {
+    const turn: InterviewTurn = {
       id: 5,
       specification_id: 1,
       thread_id: 0,
@@ -667,7 +667,7 @@ describe('observer-context-projection', () => {
   });
 
   it('includes existing entity graph', () => {
-    const turn: Turn = {
+    const turn: InterviewTurn = {
       id: 5,
       specification_id: 1,
       thread_id: 0,
@@ -707,7 +707,7 @@ describe('observer-context-projection', () => {
   });
 
   it('omits full conversational history padding', () => {
-    const turn: Turn = {
+    const turn: InterviewTurn = {
       id: 5,
       specification_id: 1,
       thread_id: 0,
@@ -796,7 +796,7 @@ describe('observer-context-projection', () => {
   });
 
   it('renders existing knowledge inventory as compact bounded anchors', () => {
-    const turn: Turn = {
+    const turn: InterviewTurn = {
       id: 5,
       specification_id: 1,
       thread_id: 0,
@@ -842,7 +842,7 @@ describe('observer-context-projection', () => {
   });
 
   it('includes existing criteria alongside other generic entity sections for later-mode extraction', () => {
-    const turn: Turn = {
+    const turn: InterviewTurn = {
       id: 6,
       specification_id: 1,
       thread_id: 0,
@@ -887,7 +887,7 @@ describe('observer-context-projection', () => {
       'Which exact webhook retry behavior should the first release specify, including how operators inspect failures and decide whether to replay events?';
     const longAnswer =
       'Operators need to see every failed webhook delivery with the raw provider id, the normalized customer account, the last failure reason, and a one-click replay action after they fix the configuration.';
-    const turn: Turn = {
+    const turn: InterviewTurn = {
       id: 7,
       specification_id: 1,
       thread_id: 0,

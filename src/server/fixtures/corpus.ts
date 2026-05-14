@@ -390,7 +390,11 @@ function collectObservedTurnCapture(
 }
 
 export async function observeTurnWithRunObserver(input: ObserveTurnInput): Promise<ObservedTurnCapture> {
-  const createdIds = await runObserver(input.db, input.turn as import('../db.js').Turn, input.projectId);
+  const createdIds = await runObserver(
+    input.db,
+    input.turn as import('../db.js').InterviewTurn,
+    input.projectId,
+  );
   return collectObservedTurnCapture(input.db, input.projectId, createdIds);
 }
 

@@ -25,6 +25,7 @@ import {
   getTurn,
   supersedePhaseOutcome,
   type DB,
+  type InterviewTurn,
 } from './db.js';
 import { getPhaseIntentRuntimeAvailabilityError } from './phase-intent-runtime.js';
 
@@ -197,7 +198,7 @@ export function applyChatRouteTransition(
 
   const currentPhase = getCurrentPhase(db, specificationId);
   const activeTurnId = getSpecificationRecord(specificationState).active_turn_id;
-  const activeTurn = activeTurnId ? getTurn(db, activeTurnId) : undefined;
+  const activeTurn = activeTurnId ? (getTurn(db, activeTurnId) as InterviewTurn | undefined) : undefined;
 
   const activeOutcome = activeTurn ? findPhaseOutcomeForTurn(db, specificationId, activeTurn.id) : undefined;
   if (activeOutcome?.status === 'proposed') {

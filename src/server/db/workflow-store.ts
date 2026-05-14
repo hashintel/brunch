@@ -22,7 +22,7 @@ type PersistedTurn = InferSelectModel<typeof schema.turn>;
 type Turn = Omit<PersistedTurn, 'specification_id'> & {
   specification_id: number;
 };
-export type Phase = Turn['phase'];
+export type Phase = NonNullable<Turn['phase']>;
 export type PhaseOutcome = InferSelectModel<typeof schema.phaseOutcome>;
 export type PhaseOutcomeStatus = PhaseOutcome['status'];
 export type { WorkflowPhaseStatus, ReadinessBand };
@@ -219,7 +219,7 @@ export function readWorkflowProjectionSnapshot(db: DB, specificationId: number):
   const activePath = getActivePath(db, specificationId);
   const activeTurnIds = new Set(activePath.map((turn) => turn.id));
   const turns = activePath.map((turn) => ({
-    phase: turn.phase,
+    phase: turn.phase!,
     question: turn.question,
     answer: turn.answer,
     optionCount: getOptionsForTurn(db, turn.id).length,

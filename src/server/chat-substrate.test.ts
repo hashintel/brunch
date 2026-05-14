@@ -1,6 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { advanceHead, createDb, createSpecification, createTurn, getSpecification, type DB } from './db.js';
+import {
+  advanceHead,
+  createDb,
+  createKnowledgeItem,
+  createSpecification,
+  createThread,
+  createTurn,
+  createTurnForThread,
+  findOrCreateSideChatThread,
+  getSpecification,
+  type DB,
+} from './db.js';
 
 let db: DB;
 
@@ -230,5 +241,51 @@ describe('thread substrate — read-path equivalence', () => {
       .get(spec.id) as { spec_head: number; thread_head: number };
     expect(row.spec_head).toBe(t1.id);
     expect(row.thread_head).toBe(row.spec_head);
+  });
+});
+
+describe('side-chat thread lifecycle', () => {
+  it('findOrCreateSideChatThread creates a side-chat thread for a knowledge item', () => {
+    const spec = createSpecification(db, 'Test');
+    const item = createKnowledgeItem(db, spec.id, 'decision', 'Use SQLite');
+    const thread = findOrCreateSideChatThread(db, spec.primary_chat_id!, item.id);
+    expect(thread.kind).toBe('side');
+    expect(thread.target_item_id).toBe(item.id);
+    expect(thread.chat_id).toBe(spec.primary_chat_id);
+    expect(thread.status).toBe('open');
+  });
+
+  it('findOrCreateSideChatThread reuses an existing open thread for the same item', () => {
+    const spec = createSpecification(db, 'Test');
+    const item = createKnowledgeItem(db, spec.id, 'decision', 'Use SQLite');
+    const first = findOrCreateSideChatThread(db, spec.primary_chat_id!, item.id);
+    const second = findOrCreateSideChatThread(db, spec.primary_chat_id!, item.id);
+    expect(second.id).toBe(first.id);
+  });
+
+  it('turn.phase is nullable — side-chat turns can have null phase', () => {
+    const spec = createSpecification(db, 'Test');
+    const item = createKnowledgeItem(db, spec.id, 'decision', 'Use SQLite');
+    const thread = createThread(db, { chatId: spec.primary_chat_id!, kind: 'side', target_item_id: item.id });
+    // Insert a turn with null phase directly via raw SQL to prove the schema allows it
+    db.$client
+      .prepare(`INSERT INTO turn (specification_id, thread_id, phase, question) VALUES (?, ?, NULL, '')`)
+      .run(spec.id, thread.id);
+    const row = db.$client.prepare('SELECT phase FROM turn WHERE thread_id = ?').get(thread.id) as {
+      phase: string | null;
+    };
+    expect(row.phase).toBeNull();
+  });
+
+  it('createTurnForThread creates a turn with null phase on a side-chat thread', () => {
+    const spec = createSpecification(db, 'Test');
+    const item = createKnowledgeItem(db, spec.id, 'decision', 'Use SQLite');
+    const thread = createThread(db, { chatId: spec.primary_chat_id!, kind: 'side', target_item_id: item.id });
+    const turn = createTurnForThread(db, spec.id, thread.id, {
+      user_parts: JSON.stringify([{ type: 'text', text: 'Why SQLite?' }]),
+    });
+    expect(turn.thread_id).toBe(thread.id);
+    expect(turn.specification_id).toBe(spec.id);
+    expect(turn.phase).toBeNull();
   });
 });

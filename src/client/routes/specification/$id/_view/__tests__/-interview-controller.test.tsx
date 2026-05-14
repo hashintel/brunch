@@ -634,7 +634,7 @@ describe('interview controller', () => {
     currentSpecificationState.workflow.phases.design.status = 'in_progress';
     currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
-    const rendered = renderController();
+    renderController();
 
     expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('phase-handoff');
     expect(screen.getByTestId('bottom-artifact').textContent).toBe(

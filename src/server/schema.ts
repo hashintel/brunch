@@ -65,7 +65,7 @@ export const turn = sqliteTable('turn', {
     .notNull()
     .references(() => thread.id),
   parent_turn_id: integer().references((): any => turn.id),
-  phase: text({ enum: ['grounding', 'design', 'requirements', 'criteria'] }).notNull(),
+  phase: text({ enum: ['grounding', 'design', 'requirements', 'criteria'] }),
   turn_kind: text({ enum: ['question', 'kickoff', 'recovery'] })
     .notNull()
     .default('question'),

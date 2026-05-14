@@ -348,7 +348,7 @@ describe('POST /api/specifications/:id/side-chat', () => {
     expect(res.text).not.toContain('[DONE]');
   });
 
-  it('writes zero rows to the turn store across the full request lifecycle (D113 invariant)', async () => {
+  it('does not affect the interview active path (D113 invariant)', async () => {
     const specId = await createSpec();
     const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
 
@@ -361,6 +361,62 @@ describe('POST /api/specifications/:id/side-chat', () => {
 
     const turnsAfter = dbModule.getActivePath(db, specId).length;
     expect(turnsAfter - turnsBefore).toBe(0);
+  });
+
+  it('creates a side-chat thread and persists user + assistant turns', async () => {
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({ itemKind: 'decision', itemId: decision.id, message: 'Why SQLite?' })
+      .expect(200);
+
+    // Verify thread was created
+    const spec = dbModule.getSpecification(db, specId)!;
+    const threads = dbModule.listThreadsForChat(db, spec.primary_chat_id!);
+    const sideThreads = threads.filter((t) => t.kind === 'side');
+    expect(sideThreads).toHaveLength(1);
+    expect(sideThreads[0].target_item_id).toBe(decision.id);
+    // Anchored at the spec's active_turn_id at creation time
+    expect(sideThreads[0].invoked_in_turn_id).toBe(spec.active_turn_id);
+
+    // Verify user + assistant turns persisted
+    const turnCounts = dbModule.countTurnsPerThread(db, [sideThreads[0].id]);
+    expect(turnCounts.get(sideThreads[0].id)).toBe(2); // 1 user + 1 assistant
+  });
+
+  it('reuses the same side-chat thread across multiple messages to the same item', async () => {
+    mockStreamText.mockReturnValue(makeTextStream(['First ', 'reply.']));
+    const specId = await createSpec();
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use SQLite.');
+
+    await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({ itemKind: 'decision', itemId: decision.id, message: 'Why SQLite?' })
+      .expect(200);
+
+    mockStreamText.mockReturnValue(makeTextStream(['Second ', 'reply.']));
+    await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({
+        itemKind: 'decision',
+        itemId: decision.id,
+        message: 'What about backups?',
+        history: [
+          { role: 'user', text: 'Why SQLite?' },
+          { role: 'assistant', text: 'Hello from side-chat.' },
+        ],
+      })
+      .expect(200);
+
+    const spec = dbModule.getSpecification(db, specId)!;
+    const threads = dbModule.listThreadsForChat(db, spec.primary_chat_id!);
+    const sideThreads = threads.filter((t) => t.kind === 'side');
+    expect(sideThreads).toHaveLength(1); // reused, not duplicated
+
+    const turnCounts = dbModule.countTurnsPerThread(db, [sideThreads[0].id]);
+    expect(turnCounts.get(sideThreads[0].id)).toBe(4); // 2 user + 2 assistant
   });
 
   it('does not invoke the observer across the full request lifecycle (D113 invariant)', async () => {

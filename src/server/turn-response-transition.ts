@@ -20,6 +20,7 @@ import {
   updateSpecificationMode,
   updateTurn,
   type DB,
+  type InterviewTurn,
   type Turn,
 } from './db.js';
 import { serializeParts } from './parts.js';
@@ -89,7 +90,7 @@ export function submitTurnResponseTransition({
   turnId: number;
   request: SubmitTurnResponseRequest;
 }): SubmitTurnResponseResponse | SubmitTurnResponseTransitionError {
-  const turn = getTurn(db, turnId);
+  const turn = getTurn(db, turnId) as InterviewTurn | undefined;
   if (!turn || turn.specification_id !== specificationId) {
     return { ok: false, kind: 'turn-not-found', message: 'Turn not found' };
   }

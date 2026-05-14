@@ -6,7 +6,7 @@ import {
   type KnowledgeKind,
 } from '@/shared/knowledge.js';
 
-import type { Turn } from './db.js';
+import type { Phase } from './db.js';
 import { renderPromptAsset } from './prompt-loader.js';
 
 function formatKindList(kinds: readonly KnowledgeKind[]): string {
@@ -15,7 +15,7 @@ function formatKindList(kinds: readonly KnowledgeKind[]): string {
   return labels.length < 3 ? labels.join(' and ') : `${labels.slice(0, -1).join(', ')}, and ${labels.at(-1)}`;
 }
 
-function buildObserverPhaseBias(phase: Turn['phase']): string {
+function buildObserverPhaseBias(phase: Phase): string {
   const policy = observerPhaseOntologyPolicies[phase];
   const allowedKinds = policy.allowedKinds as readonly KnowledgeKind[];
   const correctionKindList = policy.correctionKinds as readonly KnowledgeKind[];
@@ -72,7 +72,7 @@ function buildObserverPhaseBias(phase: Turn['phase']): string {
   return lines.join(' ');
 }
 
-export function buildObserverSystemPrompt(phase: Turn['phase']): string {
+export function buildObserverSystemPrompt(phase: Phase): string {
   const phaseBias = buildObserverPhaseBias(phase);
   const kindSemantics = knowledgeKindRegistry
     .map((entry, index) => `${index + 1}. **${entry.kind}** — ${knowledgeKindSemanticRoles[entry.kind]}.`)

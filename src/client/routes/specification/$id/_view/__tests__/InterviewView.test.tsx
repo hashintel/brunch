@@ -738,7 +738,7 @@ afterEach(() => {
 
 describe('InterviewView', () => {
   it('keeps entity-query subscription out of the transcript-owning interview view', async () => {
-    const rendered = renderWorkspace();
+    renderWorkspace();
 
     await screen.findByText('What should we build first?');
 
@@ -1119,7 +1119,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    const rendered = renderWorkspace();
+    renderWorkspace();
 
     expect(screen.getByText('Phase 1/4 – Grounding')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Close Phase' })).toBeNull();
@@ -1136,7 +1136,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    const rendered = renderWorkspace();
+    renderWorkspace();
 
     expect(screen.queryByRole('button', { name: 'Close Phase' })).toBeNull();
     expect(screen.queryByRole('link', { name: /advance to/i })).toBeNull();
@@ -1152,7 +1152,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    const rendered = renderWorkspace();
+    renderWorkspace();
 
     expect(screen.getByRole('button', { name: 'Close Phase' })).toBeTruthy();
   });
@@ -1183,7 +1183,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    const rendered = renderWorkspace();
+    renderWorkspace();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close Phase' }));
 

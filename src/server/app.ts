@@ -45,6 +45,7 @@ import {
   getTurn,
   type DB,
   type EntityProjectionMode,
+  type InterviewTurn,
 } from './db.js';
 import {
   handleCreateKnowledgeEdge,
@@ -211,7 +212,7 @@ async function ensureObserverCapture({
   }
 
   const capturePromise = (async () => {
-    const observerResult = await runObserver(db, turn, specificationId, projectCwd);
+    const observerResult = await runObserver(db, turn as InterviewTurn, specificationId, projectCwd);
     appendObserverResultToTurn(db, turn.id, observerResult);
   })().finally(() => {
     observerCaptureRegistry.delete(captureKey);

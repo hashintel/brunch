@@ -83,7 +83,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Verification:** Thread substrate schema/migration tests, in-stream collapsible rendering tests, manual walkthroughs for thread creation/display/collapse per kind, regression on existing interview flow.
 - **Traceability:** Requirements 39 (updated), 45; A88, A94; D86, D87, D110, D114, D138, D146, D153, D154; I111 (extended), I113.
 - **Design docs:** `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.2 + §5 Track 2; `docs/design/MULTI_CHAT.md`; `docs/design/SIDE_CHAT.md`.
-- **Current execution pointer:** substrate-landing slice landed (migration 0020, schema/store/test rewrite). Next slice: in-stream collapsible UI for non-interview thread kinds, `SideChatPopover` retirement cutover.
+- **Current execution pointer:** side-chat threads visible in transcript (invoked_in_turn_id anchoring, ThreadCollapsible renders persisted turns, Thread API includes turns for non-interview threads). Next slice: `SideChatPopover` retirement cutover — route side-chat interactions through the inline ThreadCollapsible instead of the popover.
 
 ### reconciliation-runtime
 

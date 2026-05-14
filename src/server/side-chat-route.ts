@@ -7,6 +7,8 @@ import type { EntitiesData, MutationErrorResponse } from '@/shared/api-types.js'
 import { knowledgeKinds, type KnowledgeKind } from '@/shared/knowledge.js';
 
 import {
+  createTurnForThread,
+  findOrCreateSideChatThread,
   getDownstreamItems,
   getEntitiesForSpecificationByMode,
   getSpecification,
@@ -141,6 +143,19 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
 
   const mode = parsed.data.mode ?? 'explore';
 
+  // --- Thread + user turn persistence ---
+  const chatId = specification.primary_chat_id;
+  let sideChatThreadId: number | null = null;
+  let userTurnId: number | null = null;
+  if (chatId) {
+    const thread = findOrCreateSideChatThread(db, chatId, parsed.data.itemId, specification.active_turn_id);
+    sideChatThreadId = thread.id;
+    const userTurn = createTurnForThread(db, specificationId, thread.id, {
+      user_parts: JSON.stringify([{ type: 'text', text: parsed.data.message }]),
+    });
+    userTurnId = userTurn.id;
+  }
+
   const { system, messages } = buildSideChatPrompt(
     item,
     parsed.data.message,
@@ -191,6 +206,7 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
     return classifyEditImpact(downstream.length, inReviewSet);
   };
   let cachedEditImpact: EditImpactTier | null = null;
+  const assistantTextChunks: string[] = [];
 
   try {
     for await (const part of result.fullStream) {
@@ -204,7 +220,20 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
         return cachedEditImpact;
       });
       if (sseChunk) {
+        if (sseChunk.type === 'text-delta') {
+          assistantTextChunks.push(sseChunk.delta);
+        }
         res.write(`data: ${JSON.stringify(sseChunk)}\n\n`);
+      }
+    }
+    // Persist assistant turn after successful stream completion
+    if (!abortController.signal.aborted && sideChatThreadId != null) {
+      const assistantText = assistantTextChunks.join('');
+      if (assistantText.length > 0) {
+        createTurnForThread(db, specificationId, sideChatThreadId, {
+          parent_turn_id: userTurnId,
+          assistant_parts: JSON.stringify([{ type: 'text', text: assistantText }]),
+        });
       }
     }
     if (!abortController.signal.aborted) {

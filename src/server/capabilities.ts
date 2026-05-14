@@ -9,7 +9,7 @@ import { getCurrentWorkflowPhase } from '@/shared/phase-close.js';
 import { getCapabilityContract, type CapabilityId } from './capability-registry.js';
 import { applyChatRouteTransition } from './chat-route-transition.js';
 import { createNewSpecification, finalizeTurn, getSpecificationState, type TurnWithOptions } from './core.js';
-import type { DB, Turn } from './db.js';
+import type { DB, InterviewTurn, Turn } from './db.js';
 import { getInterviewThread, getTurn, updateTurn } from './db.js';
 import { persistFallbackQuestionText, streamInterviewer, type InterviewerModeOptions } from './interview.js';
 import { serializeParts, type AssistantPart } from './parts.js';
@@ -70,7 +70,7 @@ export interface GeneratedAnswerableFrontier {
 
 export interface GenerateAnswerableFrontierInput {
   db: DB;
-  turn: Turn;
+  turn: InterviewTurn;
   activePath: TurnWithOptions[];
   userMessage: string;
   modeOptions?: InterviewerModeOptions;
@@ -440,7 +440,7 @@ async function ensureChatReadyFromCapability(
     }
 
     if (activeState === 'needs_generation') {
-      const persistedActiveTurn = getTurn(db, activeTurn.id);
+      const persistedActiveTurn = getTurn(db, activeTurn.id) as InterviewTurn | undefined;
       if (!persistedActiveTurn) {
         throw new CapabilityDispatchError(`Turn ${activeTurn.id} not found`, 'handler_failed');
       }

@@ -121,6 +121,15 @@ export const specificationListItemsSchema = z.array(specificationListItemSchema)
 export const threadKindSchema = z.enum(['interview', 'side', 'reconciliation', 'qa', 'agent_run']);
 export const threadStatusSchema = z.enum(['open', 'closed']);
 
+export const threadTurnSchema = z.object({
+  id: z.number().int().positive(),
+  role: z.enum(['user', 'assistant']),
+  text: z.string(),
+  created_at: z.string(),
+});
+
+export type ThreadTurn = z.infer<typeof threadTurnSchema>;
+
 export const threadSchema = z.object({
   id: z.number().int().positive(),
   chat_id: z.number().int().positive(),
@@ -131,6 +140,7 @@ export const threadSchema = z.object({
   status: threadStatusSchema,
   turn_count: z.number().int().min(0),
   created_at: z.string(),
+  turns: z.array(threadTurnSchema).optional(),
 });
 
 export const specificationStateSchema = z.object({
