@@ -83,7 +83,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Verification:** Thread substrate schema/migration tests, in-stream collapsible rendering tests, manual walkthroughs for thread creation/display/collapse per kind, regression on existing interview flow.
 - **Traceability:** Requirements 39 (updated), 45; A88, A94; D86, D87, D110, D114, D138, D146, D153, D154; I111 (extended), I113.
 - **Design docs:** `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.2 + §5 Track 2; `docs/design/MULTI_CHAT.md`; `docs/design/SIDE_CHAT.md`.
-- **Current execution pointer:** inline streaming + inline-first routing landed (ThreadCollapsible streams responses; "Chat" action routes to inline thread when one exists, popover fallback for first chat). Thread creation endpoint ready for eager creation. Next: in-thread edit mode + patch staging to unblock full popover retirement, or structural schema changes (`turn.thread_id` replaces `turn.chat_id`).
+- **Current execution pointer:** popover retirement cutover complete — openFor always routes to inline ThreadCollapsible via eager thread creation (slices 5–9). Edit mode + patch staging in ThreadCollapsible. 46 popover tests skipped as retirement debt. Next: popover dead-code cleanup, or structural schema changes (`turn.thread_id` replaces `turn.chat_id`).
 
 ### reconciliation-runtime
 
