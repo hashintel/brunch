@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ComponentType, type SVGProps } from 'react';
 
+import { useSideChat } from '@/client/components/side-chat-host.js';
 import {
   streamSideChatResponse,
   type SideChatPriorTurn,
@@ -163,6 +164,26 @@ export function ThreadCollapsible({
   const streamControllerRef = useRef<AbortController | null>(null);
   const isStreaming = localMessages.some((m) => m.pending);
 
+  // --- Focus routing from SideChatContext ---
+  const sideChat = useSideChat();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!sideChat || sideChat.focusedThreadItemId == null || targetItemId == null) return;
+    if (sideChat.focusedThreadItemId !== targetItemId) return;
+
+    // This ThreadCollapsible is the target — expand, scroll, and focus.
+    setIsExpanded(true);
+    sideChat.clearFocusedThread();
+
+    // Defer scroll + focus to next frame so the expanded content is rendered.
+    requestAnimationFrame(() => {
+      containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      inputRef.current?.focus();
+    });
+  }, [sideChat, targetItemId]);
+
   // Reconciliation: when persisted turns grow (server confirmed our messages),
   // clear local messages since they're now in props.turns.
   const prevPersistedCountRef = useRef(turns?.length ?? 0);
@@ -257,6 +278,7 @@ export function ThreadCollapsible({
 
   return (
     <div
+      ref={containerRef}
       data-testid={`thread-collapsible-${threadId}`}
       className="my-1 rounded-lg border border-rule bg-white shadow-[0_4px_4px_-2px_rgba(0,0,0,0.02),0_2px_2px_-1px_rgba(0,0,0,0.02),0_0_0_1px_rgba(0,0,0,0.08)]"
     >
@@ -342,6 +364,7 @@ export function ThreadCollapsible({
               }}
             >
               <input
+                ref={inputRef}
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}

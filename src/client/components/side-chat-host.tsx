@@ -20,7 +20,7 @@ import {
 } from '@/client/lib/side-chat-stream.js';
 import { queryClient } from '@/client/query-client.js';
 import { specificationQueryKeys } from '@/client/routes/specification/$id/-specification-data.js';
-import type { EntitiesData } from '@/shared/api-types.js';
+import type { EntitiesData, SpecificationState } from '@/shared/api-types.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import {
@@ -55,6 +55,9 @@ interface SideChatContextValue {
   clearSpanHint: () => void;
   promoteAnnotation: (annotationId: number) => void;
   setMode: (mode: SideChatMode) => void;
+  /** When set, the ThreadCollapsible for this item should expand, scroll into view, and focus its input. */
+  focusedThreadItemId: number | null;
+  clearFocusedThread: () => void;
 }
 
 const SideChatContext = createContext<SideChatContextValue | null>(null);
@@ -279,6 +282,7 @@ export function SideChatHost({
   const [pendingSpanHint, setPendingSpanHint] = useState<string | null>(null);
   const [activeCards, setActiveCards] = useState<ActiveCard[]>([]);
   const [layout, setLayout] = useState<'docked' | 'floating'>(readStoredLayout);
+  const [focusedThreadItemId, setFocusedThreadItemId] = useState<number | null>(null);
   useEffect(() => {
     writeStoredLayout(layout);
   }, [layout]);
@@ -297,8 +301,34 @@ export function SideChatHost({
 
   useEffect(() => abortActiveStream, [abortActiveStream]);
 
+  const clearFocusedThread = useCallback(() => {
+    setFocusedThreadItemId(null);
+  }, []);
+
   const openFor = useCallback(
     (item: SideChatPinnableItem) => {
+      // Check if an inline side-chat thread already exists for this item in the
+      // spec state cache. If so, route the action to the inline ThreadCollapsible
+      // instead of opening the popover — first step of the popover retirement.
+      const specState = queryClient.getQueryData(specificationQueryKeys.bundle(String(specificationId))) as
+        | SpecificationState
+        | undefined;
+      const existingThread = specState?.threads?.find(
+        (t) => t.kind === 'side' && t.target_item_id === item.id && t.status === 'open',
+      );
+      if (existingThread) {
+        // Dismiss any open popover — the inline thread is primary.
+        if (activeRef.current) {
+          abortActiveStream();
+          activeRef.current = null;
+          setActiveSideChat(null);
+          setActiveCards([]);
+          setPendingSpanHint(null);
+        }
+        setFocusedThreadItemId(item.id);
+        return;
+      }
+
       const current = activeRef.current;
       if (current && current.itemKind === item.kind && current.itemId === item.id) {
         const nextActiveSideChat = {
@@ -333,7 +363,7 @@ export function SideChatHost({
       activeRef.current = nextActiveSideChat;
       setActiveSideChat(nextActiveSideChat);
     },
-    [abortActiveStream],
+    [abortActiveStream, specificationId],
   );
 
   const openWithSpanHint = useCallback(
@@ -843,8 +873,20 @@ export function SideChatHost({
       clearSpanHint,
       promoteAnnotation,
       setMode,
+      focusedThreadItemId,
+      clearFocusedThread,
     }),
-    [openFor, openWithSpanHint, activeCardIds, dismissCard, clearSpanHint, promoteAnnotation, setMode],
+    [
+      openFor,
+      openWithSpanHint,
+      activeCardIds,
+      dismissCard,
+      clearSpanHint,
+      promoteAnnotation,
+      setMode,
+      focusedThreadItemId,
+      clearFocusedThread,
+    ],
   );
 
   const threadItems: readonly SideChatThreadItem[] = activeSideChat
