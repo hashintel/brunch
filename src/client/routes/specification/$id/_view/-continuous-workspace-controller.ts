@@ -34,6 +34,7 @@ import {
   getLatestAssistantActivity,
   getLatestReasoningText,
   getLiveToolItems,
+  hasRunningLiveTool,
   reconcileStablePhaseTurns,
   sameTurnReferences,
 } from './-interview-controller-core.js';
@@ -180,8 +181,7 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
     [phaseMessages, status],
   );
   const liveToolItems = useMemo(() => getLiveToolItems(phaseMessages, status), [phaseMessages, status]);
-  const liveToolsRunning =
-    (liveToolItems?.length ?? 0) > 0 && (status === 'submitted' || status === 'streaming');
+  const liveToolsRunning = useMemo(() => hasRunningLiveTool(phaseMessages, status), [phaseMessages, status]);
 
   // Chat actions
   const submitText = useCallback(

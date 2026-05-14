@@ -4283,9 +4283,8 @@ describe('InterviewView', () => {
             {
               type: 'tool-read_file',
               toolCallId: 'tool-lookup',
-              state: 'output-available',
+              state: 'input-available',
               input: { path: 'src/server/app.ts' },
-              output: { ok: true },
             } as never,
           ],
         },

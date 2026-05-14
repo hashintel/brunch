@@ -643,12 +643,11 @@ function extractToolDetail(input: unknown): string | null {
   return null;
 }
 
-export function getLiveToolItems(messages: readonly BrunchUIMessage[], status: ChatStatus) {
-  const liveAssistantMessage = getLatestLiveAssistantMessage(messages, status);
-  if (!liveAssistantMessage?.parts) {
-    return undefined;
-  }
+function getLiveToolParts(messages: readonly BrunchUIMessage[], status: ChatStatus) {
+  return getLatestLiveAssistantMessage(messages, status)?.parts ?? [];
+}
 
+export function getLiveToolItems(messages: readonly BrunchUIMessage[], status: ChatStatus) {
   const toolItems = new Map<
     string,
     {
@@ -658,7 +657,7 @@ export function getLiveToolItems(messages: readonly BrunchUIMessage[], status: C
     }
   >();
 
-  for (const part of liveAssistantMessage.parts) {
+  for (const part of getLiveToolParts(messages, status)) {
     const label = part ? getActivityToolLabel(part) : null;
     if (!part || !label || !('input' in part) || !('state' in part) || !('toolCallId' in part)) {
       continue;
@@ -675,6 +674,12 @@ export function getLiveToolItems(messages: readonly BrunchUIMessage[], status: C
   }
 
   return toolItems.size > 0 ? [...toolItems.values()] : undefined;
+}
+
+export function hasRunningLiveTool(messages: readonly BrunchUIMessage[], status: ChatStatus): boolean {
+  return getLiveToolParts(messages, status).some(
+    (part) => part && 'state' in part && part.state !== 'output-available',
+  );
 }
 
 export function getLatestAssistantActivity(
