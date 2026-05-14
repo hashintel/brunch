@@ -40,12 +40,12 @@ Autocomplete pops on `#`, `$`, or `!` press via Radix `Combobox` / `cmdk` (alrea
 
 ## 4. Layout presentations
 
-Four states, user-toggleable from a header control on the chat. State persists per workspace (localStorage).
+Four states, user-toggleable from a header control on the chat. State persists per workspace (localStorage). **Default: Side-docked** — matches today's two-pane workspace shell.
 
 | State | Footprint | Use |
 | --- | --- | --- |
 | **Compact** | small floating dock, ~360–420 px wide | quick check; minimal surface; suggestions condensed or hidden |
-| **Side-docked** | right rail, ~50% width | Notion-style; two-task — spec on left, chat on right |
+| **Side-docked** *(default)* | right rail, ~50% width | Notion-style; two-task — spec on left, chat on right |
 | **Maximize** | wide center, ~70% with rails | Linear-style; chat focus, spec view still visible |
 | **Full** | 100% workspace | chat-only; spec recedes; deep dialog or agent-run inspection |
 
@@ -187,6 +187,15 @@ New typed parts likely needed (substrate-allowing): `thread.kickoff`, `thread.su
 The prototype lives at `.ladle/` (existing harness, `npm run ladle`). One story per canonical scene from §5, composed from `ai-elements/*` + new `src/client/components/threads/*` shells. The prototype confirms or revises every §7 / §8 / §10 decision in code; this brief is the starting frame, not the verdict.
 
 Deliverable: a Ladle build that renders all ten canonical scenes from §5 with mock data and the recommended decisions. Iterate visually; promote stabilized components into S2/S3 of FE-710 when the substrate-landing slice merges.
+
+### Build order
+
+Four phases; each one ends in a reviewable commit on the FE-710 branch.
+
+- **Phase A** — Scene 1 (reference side-docked hero) + Scene 4 (reconciliation thread). Covers multi-kind rendering and the most distinct thread shape in one go.
+- **Phase B** — Scene 2 (mode toggle) + Scene 3 (side first-open) + Scene 5 (QA with mentions). Interactive composer + mention-chip work.
+- **Phase C** — Scene 6 (agent run) + Scenes 7 / 8 (structured-list & graph view chips).
+- **Phase D** — Scene 9 (compact) + Scene 10 (full). Layout-state coverage.
 
 ## 14. Prototype-settle questions
 

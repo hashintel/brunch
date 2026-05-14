@@ -226,18 +226,6 @@ function writeStoredLayout(layout: 'docked' | 'floating'): void {
   }
 }
 
-// Card 4 follow-up: Edit-mode toggle persists across sessions and pinned items
-// so the user's last preference survives reload. A new pinned item adopts the
-// stored mode rather than always falling back to 'explore'.
-function readStoredMode(): SideChatMode {
-  if (typeof window === 'undefined') return 'explore';
-  try {
-    return window.localStorage.getItem(SIDE_CHAT_MODE_STORAGE_KEY) === 'edit' ? 'edit' : 'explore';
-  } catch {
-    return 'explore';
-  }
-}
-
 function writeStoredMode(mode: SideChatMode): void {
   if (typeof window === 'undefined') return;
   try {
@@ -287,7 +275,6 @@ export function SideChatHost({
     writeStoredLayout(layout);
   }, [layout]);
   const activeRef = useRef<ActiveSideChat | null>(null);
-  const sessionCounterRef = useRef(0);
   const streamControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -307,9 +294,17 @@ export function SideChatHost({
 
   const openFor = useCallback(
     (item: SideChatPinnableItem) => {
-      // Check if an inline side-chat thread already exists for this item in the
-      // spec state cache. If so, route to the inline ThreadCollapsible instead
-      // of opening the popover (progressive popover retirement).
+      // Dismiss any open popover — the inline ThreadCollapsible is now the
+      // primary surface for all side-chat interactions (explore + edit).
+      if (activeRef.current) {
+        abortActiveStream();
+        activeRef.current = null;
+        setActiveSideChat(null);
+        setActiveCards([]);
+        setPendingSpanHint(null);
+      }
+
+      // Check if an inline side-chat thread already exists for this item.
       const specState = queryClient.getQueryData(specificationQueryKeys.bundle(String(specificationId))) as
         | SpecificationState
         | undefined;
@@ -317,52 +312,28 @@ export function SideChatHost({
         (t) => t.kind === 'side' && t.target_item_id === item.id && t.status === 'open',
       );
       if (existingThread) {
-        // Dismiss any open popover — the inline thread is primary.
-        if (activeRef.current) {
-          abortActiveStream();
-          activeRef.current = null;
-          setActiveSideChat(null);
-          setActiveCards([]);
-          setPendingSpanHint(null);
-        }
         setFocusedThreadItemId(item.id);
         return;
       }
 
-      // No thread yet — fall back to the popover, which still owns edit mode,
-      // patch staging, and annotation features the inline thread doesn't have.
-      // The popover's first message will create the thread server-side; next
-      // time the user clicks "Chat" on this item, the thread exists and we
-      // route inline above.
-      const current = activeRef.current;
-      if (current && current.itemKind === item.kind && current.itemId === item.id) {
-        const nextActiveSideChat = {
-          ...current,
-          pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
-        };
-        activeRef.current = nextActiveSideChat;
-        setActiveSideChat((active) =>
-          active && active.itemKind === item.kind && active.itemId === item.id ? nextActiveSideChat : active,
-        );
-        return;
-      }
-
-      abortActiveStream();
-      sessionCounterRef.current += 1;
-      setActiveCards([]);
-      setPendingSpanHint(null);
-      const nextActiveSideChat: ActiveSideChat = {
-        sessionId: sessionCounterRef.current,
-        pinnedItem: { referenceCode: item.referenceCode, content: item.content, kind: item.kind },
-        itemKind: item.kind,
-        itemId: item.id,
-        messages: [],
-        messageTimestamps: [],
-        annotateMode: false,
-        mode: readStoredMode(),
-      };
-      activeRef.current = nextActiveSideChat;
-      setActiveSideChat(nextActiveSideChat);
+      // No thread yet — create one eagerly so the ThreadCollapsible appears
+      // in the transcript immediately.
+      void (async () => {
+        try {
+          const res = await fetch(`/api/specifications/${specificationId}/threads`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetItemId: item.id }),
+          });
+          if (!res.ok) return;
+          await queryClient.invalidateQueries({
+            queryKey: specificationQueryKeys.bundle(String(specificationId)),
+          });
+          setFocusedThreadItemId(item.id);
+        } catch {
+          // Network error — silently degrade; the user can retry.
+        }
+      })();
     },
     [abortActiveStream, specificationId],
   );

@@ -649,7 +649,10 @@ describe('StructuredListView', () => {
     expect(mockNavigate).toHaveBeenCalledWith(expect.objectContaining({ hash: 'kind-goal' }));
   });
 
-  describe('side-chat session', () => {
+  // side-chat session tests are skipped: openFor() now creates threads eagerly
+  // and routes to inline ThreadCollapsibles (FE-710 slice 9). These tests
+  // verified the retired popover-based flow.
+  describe.skip('side-chat session', () => {
     function makeManualStream() {
       let onChunk: ((event: SideChatStreamEvent) => void) | undefined;
       let resolveStream: () => void = () => {};

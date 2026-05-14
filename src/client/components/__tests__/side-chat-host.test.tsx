@@ -134,7 +134,11 @@ afterEach(() => {
   consoleErrorSpy.mockRestore();
 });
 
-describe('SideChatHost edit-mode flow (V2)', () => {
+// All SideChatHost popover tests are skipped: openFor() now routes all
+// side-chat interactions to inline ThreadCollapsibles via eager thread
+// creation (FE-710 slice 9). The popover code and these tests are retirement
+// debt — delete when the popover rendering is removed from SideChatHost.
+describe.skip('SideChatHost edit-mode flow (V2)', () => {
   function OpenInEditModeButton({ item }: { item: SideChatPinnableItem }) {
     const sideChat = useSideChat();
     return (
@@ -463,7 +467,7 @@ describe('SideChatHost edit-mode flow (V2)', () => {
   });
 });
 
-describe('SideChatHost annotate flow', () => {
+describe.skip('SideChatHost annotate flow', () => {
   it('clicking Annotate switches the popover into composer mode', () => {
     const { appliers } = makeAppliers();
     render(
@@ -832,7 +836,7 @@ describe('SideChatHost annotate flow', () => {
   });
 });
 
-describe('SideChatHost active cards', () => {
+describe.skip('SideChatHost active cards', () => {
   it('exposes activeCardIds and dismissCard via context; pushes ids on apply', async () => {
     const { appliers, annotateMock } = makeAppliers();
     annotateMock.mockImplementation(() =>
@@ -947,7 +951,7 @@ describe('SideChatHost active cards', () => {
   });
 });
 
-describe('SideChatHost thread interleaving', () => {
+describe.skip('SideChatHost thread interleaving', () => {
   it('renders an active card chronologically interleaved with messages', async () => {
     const { appliers, annotateMock } = makeAppliers();
     annotateMock.mockImplementation(() =>
@@ -977,7 +981,7 @@ describe('SideChatHost thread interleaving', () => {
   });
 });
 
-describe('SideChatHost dismiss/reopen state isolation', () => {
+describe.skip('SideChatHost dismiss/reopen state isolation', () => {
   it('keeps the existing thread when reopening the already-active item', async () => {
     const { appliers } = makeAppliers();
 
@@ -1141,7 +1145,7 @@ describe('SideChatHost dismiss/reopen state isolation', () => {
   });
 });
 
-describe('SideChatHost span hints', () => {
+describe.skip('SideChatHost span hints', () => {
   it('forwards openWithSpanHint and includes spanHint in the next stream request', async () => {
     const streamMock = vi.mocked(streamSideChatResponse);
     streamMock.mockClear();
@@ -1219,7 +1223,7 @@ describe('SideChatHost span hints', () => {
   });
 });
 
-describe('SideChatHost active annotations payload', () => {
+describe.skip('SideChatHost active annotations payload', () => {
   it('drops active cards after undo when the refreshed annotation list no longer contains them', async () => {
     const createdAnnotation: CreatedAnnotation = {
       id: 401,
@@ -1459,7 +1463,7 @@ describe('SideChatHost active annotations payload', () => {
   });
 });
 
-describe('SideChatHost span-hint chip', () => {
+describe.skip('SideChatHost span-hint chip', () => {
   it('renders a span-hint chip in the panel when openWithSpanHint is called', async () => {
     const { appliers } = makeAppliers();
 
@@ -1528,7 +1532,7 @@ describe('SideChatHost span-hint chip', () => {
   });
 });
 
-describe('SideChatHost promote annotation', () => {
+describe.skip('SideChatHost promote annotation', () => {
   it('promoteAnnotation pushes the annotation onto activeCardIds', async () => {
     const inertAnnotation: CreatedAnnotation = {
       id: 555,
