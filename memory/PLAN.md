@@ -24,16 +24,16 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 ### Active
 
 1. `agent-fixture-substrate` — branch-complete off main, reconciling — FE-705 integration substrate for JSONL agent capability CLI and LLM-as-user probes.
+2. `chat-runtime-threads` — FE-710; Track 2 of the runtime umbrella; substrate sub-RFC settled on option (q) new `thread` table; first slice lands the substrate without UI cutover.
 
 ### Next
 
-1. `chat-runtime-threads` — Track 2 of the runtime umbrella; immediate successor to continuous-workspace, unblocker for Tracks 3 and 5. First slice should be a sub-RFC on the thread substrate shape (p / q / r).
-2. `intent-graph-semantics` — highest-coordination semantic substrate after FE-705 reconciliation.
-3. `changeset-ledger` — Track 4 of the runtime umbrella; parallel with Track 2; semantic history spine needed before canonical proposal acceptance, direct-edit atomicity, and productized scenario options.
-4. `thread-context-provision` — Track 5 of the runtime umbrella; after Track 2 lands the thread substrate.
-5. `reconciliation-runtime` — Track 3 of the runtime umbrella; after Track 2 + Track 4 provide thread substrate and durable attribution.
-6. `graph-review-scenario-options` — artifact-only critique/probe lane; can advance in parallel with FE-700 if it does not commit canonical graph truth.
-7. `productized-scenario-options` — user-facing acceleration surface after FE-700 semantics, FE-701 changesets, and graph-review probes.
+1. `intent-graph-semantics` — highest-coordination semantic substrate after FE-705 reconciliation.
+2. `changeset-ledger` — Track 4 of the runtime umbrella; parallel with Track 2; semantic history spine needed before canonical proposal acceptance, direct-edit atomicity, and productized scenario options.
+3. `thread-context-provision` — Track 5 of the runtime umbrella; after Track 2 lands the thread substrate.
+4. `reconciliation-runtime` — Track 3 of the runtime umbrella; after Track 2 + Track 4 provide thread substrate and durable attribution.
+5. `graph-review-scenario-options` — artifact-only critique/probe lane; can advance in parallel with FE-700 if it does not commit canonical graph truth.
+6. `productized-scenario-options` — user-facing acceleration surface after FE-700 semantics, FE-701 changesets, and graph-review probes.
 
 ### Parallel / Low-conflict
 
@@ -74,15 +74,16 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 ### chat-runtime-threads
 
 - **Name:** Chat runtime — thread substrate + in-stream rendering (Conversational Workspace Runtime — Track 2)
-- **Linear:** unassigned in this plan snapshot
+- **Linear:** FE-710
 - **Kind:** structural
-- **Status:** not-started
-- **Objective:** Add a thread primitive to the chat substrate, render threads inline as collapsibles in the main chat surface (Cursor-style), and retire the SideChatPopover and transient staged-patches strip. Decide the thread substrate shape via a sub-RFC: (p) `parent_chat_id` on `chat`, (q) new `thread` table, or (r) UI-only rendering.
-- **Why now / unlocks:** Track 1 (workspace shell) ships, providing the stable host. Threads are the critical unblocker for reconciliation absorption into the chat surface (Track 3), `#` mention / turn-zero / context provision (Track 5), and the retirement of the V3.1 popover and staged-patches surfaces. Supersedes the prior side-chat V4a persistence horizon — persistent side-chat history becomes the main chat stream where threads stay collapsed.
-- **Acceptance:** Thread kinds (`interview`, `side`, `reconciliation`, `qa`) are representable in the substrate; threads render inline as collapsibles in the unified chat surface; SideChatPopover retires as cutover; transient staged-patches strip retires (replaced by in-thread mutation state); turn-zero (`turn_kind='kickoff'`) becomes the universal thread entry.
+- **Status:** in-progress
+- **Objective:** Add a `thread` primitive between chat and turn, render threads inline as collapsibles in the main chat surface (Cursor-style), and retire `SideChatPopover` and the transient staged-patches strip. Substrate sub-RFC settled: option (q) new `thread` table; chat collapses to a pure container; flat threads with `thread.invoked_in_turn_id` for inline agent runs (no nested threads in V1).
+- **Why now / unlocks:** Track 1 (workspace shell) shipped, providing the stable host. Threads are the critical unblocker for reconciliation absorption into the chat surface (Track 3), `#` mention / turn-zero / context provision (Track 5), changeset attribution (Track 4), and the retirement of the V3.1 popover and staged-patches surfaces. Supersedes the prior side-chat V4a persistence horizon — persistent side-chat history becomes the main chat stream where threads stay collapsed.
+- **Acceptance:** `thread` table exists with kinds (`interview`, `side`, `reconciliation`, `qa`, `agent_run`); `turn.thread_id` replaces `turn.chat_id`; `chat.kind` and `chat.active_turn_id` retire; threads render inline as collapsibles in the unified chat surface; `SideChatPopover` retires as cutover; transient staged-patches strip retires (replaced by in-thread mutation state); turn-zero (`turn_kind='kickoff'`) becomes the universal thread entry; agent runs render inline via `thread.invoked_in_turn_id`.
 - **Verification:** Thread substrate schema/migration tests, in-stream collapsible rendering tests, manual walkthroughs for thread creation/display/collapse per kind, regression on existing interview flow.
-- **Traceability:** A82, A83, A88; D86, D87, D110, D114, D138, D146; I111, I113.
+- **Traceability:** Requirements 39 (updated), 45; A88, A94; D86, D87, D110, D114, D138, D146, D153, D154; I111 (extended), I113.
 - **Design docs:** `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.2 + §5 Track 2; `docs/design/MULTI_CHAT.md`; `docs/design/SIDE_CHAT.md`.
+- **Current execution pointer:** substrate-landing slice — introduce `thread` table, auto-create main interview thread, migrate `turn.chat_id` → `thread_id`, retire `chat.kind` / `chat.active_turn_id`. No UI cutover.
 
 ### reconciliation-runtime
 

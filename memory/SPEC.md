@@ -72,6 +72,7 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 31. Users can request a turn-owned candidate-spec set during grounding or design; accepting a direction may steer the next interview move and materialize intent items, but does not itself close the phase.
 32. Interview detail can proceed as a progressive broad-pass-to-detail flow with explicit `next level of detail` actions.
 44. Specifications can evolve through multiple chat-local strategies rather than one global interviewer mode. Each active/resumable chat has at most one open assistant/system-first frontier turn waiting for user completion. Proposal turns use normalized completion semantics; only proposal acceptance may apply semantic changes.
+45. The chat surface hosts inline collapsible **threads** as the conversational-scope primitive between chat and turn. Each thread has a kind (`interview`, `side`, `reconciliation`, `qa`, `agent_run`), an optional target anchor, a context scope, an immutable kickoff turn, and an open/closed lifecycle. The interview thread is the chat's spine; other threads render inline as collapsibles invoked from a turn in the spine.
 
 #### Knowledge / intent graph
 
@@ -82,7 +83,7 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 23. The knowledge/intent ontology is defined once and projected consistently through schema, shared registries, observer prompts, API types, fixtures, and UI copy.
 30. Observer extraction treats typed relationships as first-class across the ontology and records them when reasonably supported while abstaining when support is weak.
 38. The product ontology should expand beyond current exploration + review kinds to support `invariant` and `example` as first-class durable knowledge kinds.
-39. Specifications can own multiple durable chat containers below the specification, with turns moving toward chat ownership while preserving temporary spec-scoped compatibility. Reconciliation needs remain process debt, separate from semantic intent edges.
+39. Specifications own exactly one chat container that scopes conversational work; the chat hosts one or more durable threads (the conversational-scope primitives). Reconciliation needs remain process debt, separate from semantic intent edges.
 
 #### Review & export
 
@@ -144,6 +145,7 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 | A91 | Graph-review critique can make scenario-generated candidate bundles safe enough for product use if readiness states and follow-on review work are explicit. | medium | open | D151, D152, Requirement 44 | Run candidate bundle probes with graph-review scoring and human review. |
 | A92 | A conservative global staleness rule for open proposal turns is acceptable before neighborhood-level staleness calculation exists. | medium | open | D149, I117 | Exercise multi-chat proposal flows where another chat applies a changeset while a proposal remains open. |
 | A93 | Relation-policy directionality lookup is safer than forcing all useful intent-edge verbs into one dependency direction. | medium | open | D137, D150 | Define canonical/inverse sentences and source/target change behavior for each relation. |
+| A94 | Flat threads with `invoked_in_turn_id` are sufficient for inline agent runs in V1; nested threads (`parent_thread_id`) are not needed before downstream pressure proves otherwise. | medium | open | D154 | Prototype agent-run threads invoked from interview and side surfaces; revisit if multi-level nesting becomes a UX or substrate need. |
 
 ### Active Decisions
 
@@ -184,6 +186,8 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 150. **Relation policy owns operational directionality for intent edges** — cascade/reconciliation behavior is declared per relation, not inferred from raw source/target edge direction.
 151. **Scenario-options acceleration is product-facing, but graph review is its safety oracle** — generated candidate bundles may become the user-facing alternative to long drilldown only with fixed-premise, tradeoff, checkability, provenance, and graph-review safeguards.
 152. **Graph review and reconciliation are separate graph operations** — reconciliation repairs known disturbance debt; graph review critiques graph quality and starts as turn-owned structured artifacts unless independent lifecycle needs emerge.
+153. **Thread is the conversational-scope primitive between chat and turn** — `chat` is a pure container (one per specification, no `kind`, no head pointer); a `thread` table owns `kind` (`interview` / `side` / `reconciliation` / `qa` / `agent_run`), `target_item_id`, `context_spec`, immutable `kickoff_turn_id`, `active_turn_id`, and `status`; `turn.chat_id` retires in favor of `turn.thread_id`; every chat has exactly one `kind='interview'` thread as its spine; `specification.active_turn_id` mirrors that thread's head. Decision settles the chat-runtime-threads sub-RFC ((p) `parent_chat_id`, (q) new `thread` table, (r) UI-only) on option (q).
+154. **Threads stay flat below chats in V1** — agent-run and other sub-runs tag their originating turn via `thread.invoked_in_turn_id` rather than nesting (`parent_thread_id`); the UI handles visual nesting through the invoking-turn pointer. Pressure for true nested threads relaxes this decision by adding `parent_thread_id`; no V1 schema rework needed.
 
 #### Provider, prompt/context, and agent substrate
 
@@ -221,7 +225,7 @@ Each invariant is a formalization candidate: the property is stated in human lan
 | I108 | Observer capture does not block chat stream completion for eligible answered turns; backlog state is re-derived from durable turns and persists results to the originating turn. | planned: app/controller tests | D22, D113 |
 | I109 | Observer prompts remain compact as relation extraction widens; candidates resolve only through validated existing ids or same-turn provisional references, and accepted reviews reuse relation policy. | `context.test.ts`, `observer.test.ts`, `db.test.ts`, `app.test.ts` | Requirement 30; D50, D125 |
 | I110 | Workflow read truth and write truth stay behind named seams instead of transport handlers owning workflow semantics. | workflow projector / transition / phase-close tests | D110, D113 |
-| I111 | Multi-chat substrate preserves primary-chat active-head equivalence during transition, same-spec/chat ancestry, and reconciliation-need dedupe without conflating process debt with semantic edges. | `chat-substrate.test.ts`, `reconciliation-need.test.ts`, `db.test.ts` | Requirement 39; D137, D138 |
+| I111 | Conversational substrate keeps `chat` as a pure container (one per spec, no kind, no head), every turn FK'd to exactly one `thread`, one `kind='interview'` thread per chat as the spine, `specification.active_turn_id` mirrored to that thread's `active_turn_id`, same-spec/chat/thread ancestry on turn writes, and reconciliation-need dedupe without conflating process debt with semantic edges. | `chat-substrate.test.ts`, `reconciliation-need.test.ts`, `db.test.ts` | Requirements 39, 45; D137, D138, D153, D154 |
 | I112 | Prompt/context scenarios render from packaged markdown prompts and typed context-pack builders, with deterministic fingerprints and reviewable golden coverage. | prompt loader/build/golden, context-pack, scenario-runner tests | Requirements 40, 41; D139, D140 |
 | I113 | Hard-impact direct edit opens reconciliation needs for affected relation-policy endpoints, records provenance, deduplicates idempotently, and no longer returns deferred placeholder responses. | planned: edit-applier/reconciliation/overlay/app tests | Requirement 10; A88; D146, D150 |
 | I114 | The reconciliation classifier lifecycle is explicit and recoverable; labels are constrained, failures persist parser/thrown errors, and proposals are never auto-applied. | reconciliation-agent tests | Requirement 10; A88; D139 |
@@ -287,8 +291,9 @@ Detailed card styling, typography tokens, and legacy layout minutiae are impleme
 | **reconciliation need** | Durable process debt saying existing intent truth may require renewed judgment because related truth changed. Not an intent edge. |
 | **changeset** | Future canonical term for one submitted semantic mutation bundle against the intent graph. Supersedes patch. |
 | **change** | One atomic semantic mutation inside a changeset. Supersedes patch_change. |
-| **chat** | A conversation container inside one specification; primary interview, side-chats, reconciliation chats, and review discussions may own turns without owning semantic truth directly. |
-| **turn** | One persisted authored conversational interaction with typed offer/reply parts and parent linkage. |
+| **chat** | A pure conversation container inside one specification; one per specification. The chat owns durable threads (the conversational-scope primitives) and does not itself carry kind, head pointer, or scope metadata. |
+| **thread** | A durable kickoff-anchored sub-run inside one chat, carrying kind (`interview` / `side` / `reconciliation` / `qa` / `agent_run`), optional target anchor, context spec, immutable kickoff turn, and open/closed lifecycle. The interview thread is the chat's spine; other threads render inline as collapsibles invoked from a turn. |
+| **turn** | One persisted authored conversational interaction with typed offer/reply parts and parent linkage; every turn belongs to exactly one thread. |
 | **frontier turn** | The single actionable durable conversational turn currently awaiting user completion. |
 | **proposal turn** | An assistant/system-first frontier turn offering a candidate bundle, graph-review finding, reconciliation suggestion, or other proposed action. It is not semantic truth until accepted. |
 | **workspace stream** | The merged center-column read model composed from active-path turns, anchored workflow facts, projected controls, phase markers, and activity cards. |
