@@ -351,6 +351,7 @@ export function findOrCreateSideChatThread(
   chatId: number,
   targetItemId: number,
   invokedInTurnId?: number | null,
+  specificationId?: number,
 ) {
   const existing = db
     .select()
@@ -365,7 +366,8 @@ export function findOrCreateSideChatThread(
     )
     .get();
   if (existing) return existing;
-  return db
+
+  const thread = db
     .insert(schema.thread)
     .values({
       chat_id: chatId,
@@ -375,6 +377,30 @@ export function findOrCreateSideChatThread(
     })
     .returning()
     .get();
+
+  if (specificationId != null) {
+    const kickoffTurn = db
+      .insert(schema.turn)
+      .values({
+        specification_id: specificationId,
+        thread_id: thread.id,
+        phase: null,
+        turn_kind: 'kickoff',
+        question: '',
+        answer: null,
+        user_parts: null,
+        assistant_parts: null,
+      })
+      .returning()
+      .get();
+
+    db.update(schema.thread)
+      .set({ kickoff_turn_id: kickoffTurn.id })
+      .where(eq(schema.thread.id, thread.id))
+      .run();
+  }
+
+  return thread;
 }
 
 /** Create a turn directly on a thread (not restricted to interview threads). */

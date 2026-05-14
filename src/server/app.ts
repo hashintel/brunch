@@ -659,6 +659,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       specification.primary_chat_id,
       parsed.data.targetItemId,
       specification.active_turn_id,
+      specificationId,
     );
     res.json({ ok: true, threadId: thread.id });
   });

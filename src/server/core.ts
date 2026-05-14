@@ -165,12 +165,14 @@ export function readSpecificationStateProjection(db: DB, specificationId: number
       // Include turns for non-interview threads so the client can render them
       const threadTurns =
         t.kind !== 'interview' && turnCount > 0
-          ? getTurnsForThread(db, t.id).map((turn) => ({
-              id: turn.id,
-              role: turn.user_parts != null ? ('user' as const) : ('assistant' as const),
-              text: extractThreadTurnText(turn),
-              created_at: turn.created_at,
-            }))
+          ? getTurnsForThread(db, t.id)
+              .filter((turn) => turn.turn_kind !== 'kickoff')
+              .map((turn) => ({
+                id: turn.id,
+                role: turn.user_parts != null ? ('user' as const) : ('assistant' as const),
+                text: extractThreadTurnText(turn),
+                created_at: turn.created_at,
+              }))
           : undefined;
       return {
         id: t.id,

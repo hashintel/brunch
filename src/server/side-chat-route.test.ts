@@ -381,9 +381,9 @@ describe('POST /api/specifications/:id/side-chat', () => {
     // Anchored at the spec's active_turn_id at creation time
     expect(sideThreads[0].invoked_in_turn_id).toBe(spec.active_turn_id);
 
-    // Verify user + assistant turns persisted
+    // Verify kickoff + user + assistant turns persisted
     const turnCounts = dbModule.countTurnsPerThread(db, [sideThreads[0].id]);
-    expect(turnCounts.get(sideThreads[0].id)).toBe(2); // 1 user + 1 assistant
+    expect(turnCounts.get(sideThreads[0].id)).toBe(3); // 1 kickoff + 1 user + 1 assistant
   });
 
   it('reuses the same side-chat thread across multiple messages to the same item', async () => {
@@ -416,7 +416,7 @@ describe('POST /api/specifications/:id/side-chat', () => {
     expect(sideThreads).toHaveLength(1); // reused, not duplicated
 
     const turnCounts = dbModule.countTurnsPerThread(db, [sideThreads[0].id]);
-    expect(turnCounts.get(sideThreads[0].id)).toBe(4); // 2 user + 2 assistant
+    expect(turnCounts.get(sideThreads[0].id)).toBe(5); // 1 kickoff + 2 user + 2 assistant
   });
 
   it('does not invoke the observer across the full request lifecycle (D113 invariant)', async () => {

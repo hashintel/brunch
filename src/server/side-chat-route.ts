@@ -148,7 +148,13 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
   let sideChatThreadId: number | null = null;
   let userTurnId: number | null = null;
   if (chatId) {
-    const thread = findOrCreateSideChatThread(db, chatId, parsed.data.itemId, specification.active_turn_id);
+    const thread = findOrCreateSideChatThread(
+      db,
+      chatId,
+      parsed.data.itemId,
+      specification.active_turn_id,
+      specificationId,
+    );
     sideChatThreadId = thread.id;
     const userTurn = createTurnForThread(db, specificationId, thread.id, {
       user_parts: JSON.stringify([{ type: 'text', text: parsed.data.message }]),
