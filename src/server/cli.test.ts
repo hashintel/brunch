@@ -62,12 +62,13 @@ function runCommand(
   args: string[],
   cwd: string,
   env: NodeJS.ProcessEnv = process.env,
+  input?: string,
 ): Promise<CommandResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
       env,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
     });
 
     let stdout = '';
@@ -79,6 +80,9 @@ function runCommand(
     child.stderr?.on('data', (chunk) => {
       stderr += chunk.toString();
     });
+    if (input !== undefined) {
+      child.stdin?.end(input);
+    }
     child.once('error', reject);
     child.once('close', (code) => {
       resolve({ code, stdout, stderr });
@@ -117,8 +121,13 @@ async function packBuiltPackage(): Promise<{ filePaths: string[]; installedRoot:
   };
 }
 
-function runCli(args: string[], cwd: string, env: NodeJS.ProcessEnv = process.env): Promise<CommandResult> {
-  return runCommand(process.execPath, [getInstalledBinEntrypoint(), ...args], cwd, env);
+function runCli(
+  args: string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv = process.env,
+  input?: string,
+): Promise<CommandResult> {
+  return runCommand(process.execPath, [getInstalledBinEntrypoint(), ...args], cwd, env, input);
 }
 
 describe('published CLI entrypoint', () => {
@@ -181,6 +190,35 @@ describe('published CLI entrypoint', () => {
     expect(result.code).toBe(0);
     expect(result.stderr).toBe('');
     expect(result.stdout).toContain('Usage: brunch');
+  });
+
+  it('runs the packaged agent JSONL session without launching the web UI', async () => {
+    const workspaceCwd = makeTempDir('brunch-agent-workspace-');
+    const input = `${JSON.stringify({
+      id: 'create-1',
+      capability: 'spec.create',
+      input: { name: 'Packaged agent spec' },
+    })}\n${JSON.stringify({ id: 'read-1', capability: 'spec.getStatus', input: { specId: 1 } })}\n`;
+
+    const result = await runCli(['agent'], workspaceCwd, process.env, input);
+    const responses = result.stdout
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as unknown);
+
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(responses).toEqual([
+      expect.objectContaining({ id: 'create-1', ok: true, output: expect.objectContaining({ specId: 1 }) }),
+      expect.objectContaining({
+        id: 'read-1',
+        ok: true,
+        output: expect.objectContaining({
+          specification: expect.objectContaining({ id: 1, name: 'Packaged agent spec' }),
+        }),
+      }),
+    ]);
   });
 
   it('dry-runs the release flow against the packaged npm artifact seam', async () => {

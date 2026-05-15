@@ -14,7 +14,7 @@ A full or light scope card from `ln-scope`, the next ready card in `memory/CARDS
 
 Extract: target behavior / objective, acceptance criteria, and verification approach.
 
-Treat the scope card as the next implementation step inside its containing `memory/PLAN.md` frontier item. The frontier item is the plan-level work item; the scope card is just the current execution step inside it. Unless `ln-plan` has already split the frontier into separate items, do **not** infer a new Linear issue or Graphite branch from scope-card granularity; multiple consecutive scope cards may land on the same branch.
+Treat the scope card as the next implementation slice inside its containing `memory/PLAN.md` frontier item. The frontier item is the plan-level work item and Linear/branch unit; the scope-card slice is just the current execution step inside it. Unless `ln-plan` has already split the frontier into separate items, do **not** infer a new Linear issue or Graphite branch from scope-card granularity; multiple consecutive slices may land on the same branch.
 
 If `memory/CARDS.md` exists, treat it as a derivative execution queue, not canonical planning state. Start with the next card marked `next` or the first unfinished card in that file. If that card is already satisfied on the current branch, do **not** manufacture a no-op build commit; verify the acceptance criteria, mark the card `done` or `dropped` as appropriate, reconcile the queue, and either continue to the next honest build target or route back to `ln-scope` if no build remains.
 
@@ -35,7 +35,7 @@ Do not invent new planning docs, scratch histories, or alternate memory location
 
 ## Serial execution mode
 
-When several prepared cards already exist for one settled frontier item, `ln-build` may execute them in sequence instead of routing back through the user after every commit.
+When several prepared slice cards already exist for one settled frontier item, `ln-build` may execute them in sequence instead of routing back through the user after every commit.
 
 Loop shape:
 
@@ -62,17 +62,25 @@ Stop the serial loop immediately when any of these becomes true:
 
 Translate acceptance criteria into failing tests when the change benefits from them. For bugfixes or subtle seam changes, prefer one high-leverage regression test. For trivial maintenance or doc-only work, tests may be unnecessary.
 
+Test behavior through public interfaces, not implementation details. A good test describes what capability exists and would survive internal refactoring. Avoid tests that mock internal collaborators, assert private call order, or inspect storage directly when the public interface can prove the behavior.
+
+Do not horizontal-slice TDD. Never write a batch of imagined tests first and then a batch of implementation. Use tracer bullets: one failing behavioral test → minimum code to pass → next failing behavioral test. Each new test should respond to what the previous cycle taught you.
+
 Run the relevant checks. Confirm failures are meaningful. If the card is already green before any code change, treat that as evidence the queue item is already satisfied or stale — not as permission to create a ceremonial red/green cycle.
 
 ## Green
 
-Write the minimum code to pass. Build inside-out: functional core first, thin I/O shell second, then end-to-end wiring.
+Write the minimum coherent code to pass. Build inside-out: functional core first, thin I/O shell second, then end-to-end wiring.
 
-No speculative abstractions. Only extract when two concrete cases force it.
+Honor the repo's pre-release posture: if the current schema, fixture shape, dummy data, or terminology is wrong for the model, change it and regenerate dependent artifacts rather than preserving accidental compatibility. Delete obsolete paths in the same slice when they are inside the active seam.
+
+No speculative abstractions. Only extract when two concrete cases force it. Do not anticipate later tests or build shape-only scaffolding; let the current behavioral test pull the interface into existence.
 
 ## Refactor
 
 With tests green, improve names, boundaries, and obvious local structure. Do not widen scope.
+
+Refactor only while green. Keep the tests pinned to the public behavior so they protect the slice while allowing internals to move. If refactoring reveals that the test is coupled to implementation, fix the test seam before trusting it.
 
 ## Verify and commit
 
@@ -93,10 +101,10 @@ After the build lands and verification passes, ask:
 
 ### If all answers are no
 
-- Mark the work done in `memory/PLAN.md` **if it was tracked there**
+- Mark the containing frontier done in `memory/PLAN.md` **if the build completed the frontier item**, usually by updating `Sequencing` / frontier status rather than moving definition blocks
 - Update `Recently Completed` if the plan uses it
-- Do **not** add new SPEC/PLAN bookkeeping just because work happened
-- If the work was non-trivial, required manual verification, or leaves residual risk, record `Done / Verified / Watch` in `memory/PLAN.md` `Recently Completed` when that watch matters beyond the current session
+- Do **not** add new SPEC/PLAN bookkeeping just because a slice happened
+- If the slice was non-trivial, required manual verification, or leaves residual risk that matters beyond the current session, record it in the containing frontier definition or a terse `Recently Completed` entry only when it affects frontier-level re-entry
 
 ### If any answer is yes
 
@@ -111,8 +119,9 @@ Update only the touched traceability items.
 #### Update rules
 
 1. **PLAN**
-   - Mark the item done if it was tracked
-   - If the change closes or unblocks a frontier item, reflect that in `Active`, `Next`, or `Recently Completed`
+   - Mark the frontier item done if this slice completed it
+   - If the change closes, blocks, or unblocks a frontier item, reflect that in `Sequencing`, the affected `Frontier Definitions` entry, or `Recently Completed`
+   - Do not mirror detailed slice/card history into `memory/PLAN.md`; keep active execution queues in `memory/CARDS.md`
 
 2. **Assumptions**
    - evidence answered it → update to `validated` or `invalidated`

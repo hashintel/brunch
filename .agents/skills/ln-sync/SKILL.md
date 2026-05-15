@@ -9,6 +9,8 @@ Audit and refresh the canonical documents so they stay lightweight enough for fa
 
 `ln-sync` is the family-wide ontology repair and garbage-collection pass. Merge equivalent facts, repair stale references, and delete exhausted derivative artifacts. Only `docs/archive/PLAN_HISTORY.md` acts as archive history.
 
+Apply the repo's pre-release posture: optimize canonical memory for the model we now believe in, not compatibility with stale docs. Retire superseded claims, delete obsolete derivative artifacts, and tighten lexicon drift instead of preserving historical aliases in active truth.
+
 ## When to run
 
 Prefer `ln-sync` at these moments:
@@ -23,7 +25,7 @@ Prefer `ln-sync` at these moments:
 | File | Authority | Keep live |
 | --- | --- | --- |
 | `memory/SPEC.md` | what and why | active assumptions, current decisions, critical invariants, live constraints |
-| `memory/PLAN.md` | what's next | active frontier, near-horizon items, recent completions |
+| `memory/PLAN.md` | what's next | sequencing, frontier definitions, near-horizon items, recent completions |
 | `docs/archive/PLAN_HISTORY.md` | historical ledger | older completed phases and retired plan history |
 | `HANDOFF.md` | derivative volatile transfer | only unfinished chat state not yet reconciled |
 | `memory/CARDS.md` | derivative execution queue | only unfinished prepared scope cards inside one frontier item |
@@ -78,20 +80,28 @@ When pruning, leave concise HTML comments naming removed IDs when useful. Do not
 
 ### 4. PLAN pass — restore the rolling frontier
 
-Reshape `memory/PLAN.md` to:
+Prefer the conflict-resistant mature shape:
 
-- `Active`
-- `Next`
-- `Horizon`
+- `Context`
+- `Sequencing`
+  - `Active`
+  - `Next`
+  - `Parallel / Low-conflict`
+  - `Horizon`
+- `Frontier Definitions`
 - `Recently Completed`
 - `Dependencies`
 
 Rules:
 
+- treat **frontier items** as the canonical plan/Linear/branch units
+- treat **slices** as scoped execution units from `ln-scope` / `ln-build`, usually inside one frontier item
+- edit `Sequencing` for ordering/status churn; do not move or rewrite `Frontier Definitions` merely to reorder work
+- keep detailed scope-card queues out of `memory/PLAN.md`; use `memory/CARDS.md` for temporary slice execution queues and at most a lightweight pointer from the frontier definition
 - move older completed items to `docs/archive/PLAN_HISTORY.md`
 - keep only the last 2-3 completed items live
-- only active / next items need detailed acceptance or traceability
-- keep dependency diagrams limited to active / next work
+- only active / next frontier definitions need detailed acceptance or traceability
+- keep dependency diagrams limited to active / next frontier ids
 - keep enough `Why now / unlocks` context that a fresh thread can understand frontier ordering without reading the full archive
 - do not archive handoffs, refactor plans, or sync reports
 
@@ -101,7 +111,7 @@ Scan recent code / commits for:
 
 - new domain concepts not reflected in the lexicon
 - durable decisions not reflected in `memory/SPEC.md`
-- active work not represented in `memory/PLAN.md`
+- active work not represented in `memory/PLAN.md` sequencing or frontier definitions
 - stale references between `memory/PLAN.md` and `memory/SPEC.md`
 - equivalent facts that should merge instead of coexisting
 - prepared cards in `memory/CARDS.md` that should be retired, re-scoped, or reconciled into the next thread's live state

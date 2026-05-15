@@ -3,7 +3,7 @@
      Authority: requirements, constraints, assumptions, decisions, invariants, domain language, verification strategy.
 
      When re-running ln-spec: read this file first, preserve existing content, evolve sections that need change.
-     Cross-referenced by PLAN.md slices and spikes via §-prefixed section links.
+     Cross-referenced by PLAN.md frontier items and scoped slices via §-prefixed section links.
      Together with PLAN.md, this is the only canonical planning state; do not create sidecar spec ledgers without explicit permission. -->
 
 # [Project Name]
@@ -19,7 +19,7 @@
 ## Requirements
 
 <!-- What the system must do. Extensive — cover all aspects.
-     Each numbered for cross-reference from PLAN.md slices. -->
+     Each numbered for cross-reference from PLAN.md frontier items / scoped slices. -->
 
 1. [Requirement]
 2. ...
@@ -28,15 +28,15 @@
 
 <!-- Falsifiable beliefs accepted as true but not yet verified.
      Low-confidence assumptions are spike candidates during planning.
-     Each links to the decisions it supports and the slices it implicates.
+     Each links to the decisions it supports and the frontier items / scoped slices it implicates.
      Confidence tracks how strongly we believe it today: low | medium | high.
      Status tracks validation state: open | validated | invalidated.
      When validated: promote to §Lexicon or §Decisions via ln-sync.
-     When invalidated: record in §Decisions, flag implicated slices in PLAN.md. -->
+     When invalidated: record in §Decisions, flag implicated frontier items in PLAN.md. -->
 
-| #   | Assumption   | Confidence      | Status                     | Dependent decisions | Implicated slices | Validation approach |
+| #   | Assumption   | Confidence      | Status                     | Dependent decisions | Implicated frontier items | Validation approach |
 | --- | ------------ | --------------- | -------------------------- | ------------------- | ----------------- | ------------------- |
-| A1  | [hypothesis] | low/medium/high | open/validated/invalidated | [→ §Decisions #N]   | [→ PLAN.md slice] | [how to falsify]    |
+| A1  | [hypothesis] | low/medium/high | open/validated/invalidated | [→ §Decisions #N]   | [→ PLAN.md frontier id] | [how to falsify]    |
 
 ## Decisions
 
@@ -52,7 +52,7 @@
      Once established, must not regress.
      Each links to the decision it proves and the tests that protect it.
      Established by ln-build/ln-spike traceability.
-     Referenced by PLAN.md slices (to establish / to respect). -->
+     Referenced by PLAN.md frontier items or scoped slices (to establish / to respect). -->
 
 | #   | Invariant      | Established by | Protected by | Proves            |
 | --- | -------------- | -------------- | ------------ | ----------------- |
@@ -66,13 +66,13 @@
 
 | Term            | Definition                                                                                    |
 | --------------- | --------------------------------------------------------------------------------------------- |
-| **assumption**  | A falsifiable belief accepted as true; tracked with confidence and status, linked to decisions and slices |
+| **assumption**  | A falsifiable belief accepted as true; tracked with confidence and status, linked to decisions and frontier items / scoped slices |
 | **decision**    | A recorded choice that resolves a question; ordered, with supersession chain                  |
 | **invariant**   | A structural property proven by implementation and protected by tests; must not regress       |
 | **requirement** | A capability the system must provide                                                          |
 | **slice**       | A thin end-to-end tracer-bullet path through all integration layers                          |
 | **spike**       | A time-boxed throwaway investigation to answer one hard question                             |
-| **phase**       | A temporal grouping of slices and spikes in PLAN.md                                          |
+| **phase**       | A temporal grouping of frontier items / scoped slices and spikes in PLAN.md                  |
 | **[Term]**      | [Definition]                                                                                 |
 
 ## Verification Design
@@ -94,7 +94,7 @@
 
 ### Verification Policy
 
-<!-- General verification policy — e.g. "slices must be user-testable." -->
+<!-- General verification policy — e.g. "scoped slices must be user-testable." -->
 
 <!-- === Sections below are written by ln-oracles, not ln-spec ===
      When running ln-spec, preserve these sections if they exist.

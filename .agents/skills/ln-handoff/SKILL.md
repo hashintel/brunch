@@ -38,7 +38,7 @@ This is the critical step. Scan the conversation for volatile artifacts — info
 - **Queued scope cards** already persisted in `memory/CARDS.md` — capture only what is still volatile about them: which card is next, whether the queue is still valid, and any card-level corrections that have not been written back yet
 - **Plan drafts** from `ln-plan` — slice lists, ordering decisions, dependency reasoning not yet in `memory/PLAN.md`
 - **Design outputs** from `ln-design` — alternative module shapes considered, the chosen shape, and rejected tradeoffs
-- **Oracle design outputs** from `ln-oracles` — O/R/C assessment, selected oracle families, per-slice verification approaches, acknowledged blind spots, and whether slice verification design is complete / pending / stale relative to the code
+- **Oracle design outputs** from `ln-oracles` — O/R/C assessment, selected oracle families, per-frontier or per-slice verification approaches, acknowledged blind spots, and whether verification design is complete / pending / stale relative to the code
 - **Spike state** from `ln-spike` — the question, what was tried, partial findings, verdict if reached
 - **Review findings** from `ln-review` — **ALL findings, not just the one being acted on.** Review debt is critical context. Name every finding, its status (addressed / in-progress / deferred), and any remaining implications. A fresh thread that only knows about the active finding will lose track of deferred review debt.
 - **Refactor state** from `ln-refactor` — commit sequence, target structure, and any constraints on safe ordering

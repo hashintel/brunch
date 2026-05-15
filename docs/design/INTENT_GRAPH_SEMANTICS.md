@@ -6,9 +6,9 @@
 >
 > This document is the canonical reference for the FE-700 frontier item ("Intent graph semantics + progressive checkability foundation") in `memory/PLAN.md`. It expands the `Recommended shape:` of that item with the full ontology and policy detail that is too long to live inside the plan.
 >
-> Source synthesis: [`INTENT_SPEC_EVOLUTION.md`](./INTENT_SPEC_EVOLUTION.md) §3, §4, §6, §11. Where this document overlaps, it supersedes the synthesis as the structured reference; the synthesis remains the broader narrative.
+> Source synthesis: [`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md) §3, §4, §6, §11. Where this document overlaps, it supersedes the synthesis as the structured reference; the synthesis remains the broader narrative.
 >
-> Layer note: this is the **product layer**. It describes what Brunch users build. The dev-layer ontology is a parallel-but-not-yet-converged register described in [`DEV_WORKFLOW_EVOLUTION.md`](./DEV_WORKFLOW_EVOLUTION.md).
+> Layer note: this is the **product layer**. It describes what Brunch users build. The dev-layer ontology is a parallel-but-not-yet-converged register described in [`ln-skills/EVOLUTION.md`](./ln-skills/EVOLUTION.md).
 
 ## Why this note exists
 
@@ -402,7 +402,7 @@ This ontology is the substrate for several near-term capabilities:
 
 ## References
 
-- [`INTENT_SPEC_EVOLUTION.md`](./INTENT_SPEC_EVOLUTION.md) §3 (shared claims), §4 (knowledge edges), §6 (ambiguity-targeted disambiguation), §11 (persistence model).
+- [`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md) §3 (shared claims), §4 (knowledge edges), §6 (ambiguity-targeted disambiguation), §11 (persistence model).
 - [`BEHAVIORAL_KERNELS.md`](./BEHAVIORAL_KERNELS.md) — kernels generate the questions; this document defines what their answers become.
 - `memory/SPEC.md` Requirement 38 (invariant + example as kinds), Requirement 30 (relation-first observer), I109 (compact existing-knowledge anchors), Lexicon entries for `intent graph`, `progressive checkability`, `behavioral kernel`, `edge-local neighborhood`, `property *(candidate)*`, `invariant *(planned)*`, `example *(planned)*`.
 - `memory/PLAN.md` item 3 (FE-700) — the active frontier item this document expands.

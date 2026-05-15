@@ -8,6 +8,8 @@ argument-hint: "[area of codebase to review, or 'recent' for recently changed fi
 
 Explore the codebase. Surface structural improvement opportunities. Be opinionated.
 
+Use the repo's pre-release posture: reward conceptual clarity over compatibility scaffolding, and treat unnecessary preservation as review debt. Look for stale code, obsolete fixtures, legacy terms, and compatibility paths that should be deleted rather than protected.
+
 ## Input
 
 What to review: $ARGUMENTS
@@ -18,13 +20,19 @@ If "recent" or unspecified, focus on recently modified files.
 
 Apply Ousterhout's depth test: modules should have small interfaces hiding significant complexity. Modules that move together should live together — clusters of small files always used in concert are a single deep module waiting to be extracted.
 
+Use the deletion test for suspected shallow modules: if deleting the module makes complexity vanish, it was pass-through structure; if the same complexity reappears across multiple callers, the module was earning its keep. Prefer depth as leverage/locality, not line-count ratio.
+
+Treat the interface as the test surface. If callers or tests must reach past the interface to verify important behavior, the module shape is probably wrong. A good seam lets tests and callers cross the same public boundary.
+
+Apply seam discipline: one adapter usually means a hypothetical seam; two adapters make a real seam. Flag indirection introduced only for imagined future variation, especially when it spreads configuration, mocks, or ordering knowledge into callers.
+
 Check the functional core / imperative shell boundary (Gary Bernhardt, "Boundaries"). Pure functions should stay pure. Flag when a pure function has acquired side effects or a growing parameter list — it has drifted into shell territory.
 
 Make invalid states unrepresentable (Yaron Minsky). Split optional fields into distinct types. Use branded types for domain-distinct values.
 
 ### Oracle coverage
 
-If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, check whether recent slices implemented the oracles their persisted `memory/PLAN.md` verification approaches declare. If a full or light scope card is available in session context, use it as a higher-resolution supplement, not the primary source of truth. Look for:
+If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, check whether recent work implemented the oracles declared by the relevant `memory/PLAN.md` frontier definition. If a full or light scope card is available in session context, use it as a higher-resolution slice supplement, not the primary source of truth. Look for:
 
 - Scope card promised schema validation → is there a Zod parse in the test?
 - Scope card promised differential oracle → are there golden master fixtures?
@@ -51,7 +59,7 @@ Present findings as numbered candidates:
 ```md
 ## Review: [area]
 
-1. **[Description]** — [category: depth|naming|model|coupling] — [impact: low|medium|high]
+1. **[Description]** — [category: depth|naming|model|coupling|seam|oracle-coverage] — [impact: low|medium|high]
    [1-2 sentence explanation and suggested action]
 
 2. ...

@@ -4,17 +4,16 @@
 // a per-row Resolve button. Driven by useSpecificationOpenReconciliationNeeds;
 // returns null when the queue is empty so the parent overlay can skip rendering.
 //
-// V3.1 will add agent grouping (auto-confirm / auto-edit / substantive) and a
-// substantive-walk surface; that work expands inside this component without
-// affecting the patch-list-overlay's other regions.
+// V3.1 adds agent grouping (auto-confirm / auto-edit / substantive),
+// per-row agent actions, and bulk resolution while preserving the
+// patch-list-overlay's surrounding staged-change regions.
 //
 // Card 4 polish: source diff is no longer rendered inline. Each row shows a
 // "↗ view source diff" chip that opens a <DiffPopover>. Action buttons shrink
 // to icon-only ghost (Edit) + small kind-accent solid (Resolve). The inline
 // edit form reuses the same toolbar contract as ItemEditTextarea (icon-only
-// Cancel + small kind-accent Save). Until the listing endpoint is enriched
-// with target_item_kind, the row left bar and Resolve fill use a neutral
-// amber as a kind-accent fallback (deferred follow-up card).
+// Cancel + small kind-accent Save). Rows use target_item_kind when present,
+// with neutral amber as the nullable-kind fallback.
 
 import {
   Check,

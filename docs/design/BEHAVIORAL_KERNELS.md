@@ -6,7 +6,7 @@
 >
 > This document is the canonical reference for the FE-702 frontier item ("Generative prompt probes before UI") in `memory/PLAN.md` insofar as that item names behavioral kernels as one probe target. It expands the `Recommended shape:` of that item with the full kernel taxonomy that is too long to live inside the plan.
 >
-> Source synthesis: [`INTENT_SPEC_EVOLUTION.md`](./INTENT_SPEC_EVOLUTION.md) §7–8. Where this document overlaps, it supersedes the synthesis as the structured reference.
+> Source synthesis: [`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md) §7–8. Where this document overlaps, it supersedes the synthesis as the structured reference.
 >
 > Companion: [`INTENT_GRAPH_SEMANTICS.md`](./INTENT_GRAPH_SEMANTICS.md). Kernels suggest *what kind* of question to ask; the intent graph defines *what their answers become*. Kernels emit the typed claims and edges that the intent graph stores.
 >
@@ -385,7 +385,7 @@ The three are complementary, not competing. Template-driven keeps the conversati
 
 These three cover most of what a first interviewer prototype would need to demonstrate the kernel approach. The remaining twelve can be added incrementally as scenarios warrant.
 
-For each probe, the scenario substrate ([`INTENT_SPEC_EVOLUTION.md`](./INTENT_SPEC_EVOLUTION.md) §Persistence; `memory/SPEC.md` Requirements 40, 41) should capture: rendered prompt, kernel context pack, model/provider settings, raw output, structured parse status, and qualitative review notes — the same artifact shape FE-698 already captures.
+For each probe, the scenario substrate ([`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md) §Persistence; `memory/SPEC.md` Requirements 40, 41) should capture: rendered prompt, kernel context pack, model/provider settings, raw output, structured parse status, and qualitative review notes — the same artifact shape FE-698 already captures.
 
 ## Open questions
 
@@ -399,7 +399,7 @@ For each probe, the scenario substrate ([`INTENT_SPEC_EVOLUTION.md`](./INTENT_SP
 
 ## References
 
-- [`INTENT_SPEC_EVOLUTION.md`](./INTENT_SPEC_EVOLUTION.md) §7 (Behavioral pattern elicitation) and §8 (Kernel typology) — source synthesis.
+- [`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md) §7 (Behavioral pattern elicitation) and §8 (Kernel typology) — source synthesis.
 - [`INTENT_GRAPH_SEMANTICS.md`](./INTENT_GRAPH_SEMANTICS.md) — the typed graph that kernel artifacts populate.
 - `memory/SPEC.md` Requirement 40 (prompt/context engineering names "behavioral kernels" as a context-pack consumer); Lexicon entries for `behavioral kernel`, `progressive checkability`, `context pack`.
 - `memory/PLAN.md` item 4 (FE-702) — the active probe item this document expands.

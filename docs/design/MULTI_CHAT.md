@@ -1,10 +1,23 @@
 # Multi-Chat Substrate — Design Spec
 
-> Output of brainstorm session 2026-05-05 with Lu. First phase of the larger intent-graph evolution now captured in `memory/SPEC.md` as the split between conversational turn history, current intent-graph truth, reconciliation needs, and future semantic changesets / patches. Substrate-only: data model, relationships, migrations. Reconciliation-agent loop, side-chat UI changes, and the full patch ledger are deliberately out of scope.
+> Output of brainstorm session 2026-05-05 with Lu. First phase of the larger intent-graph evolution now captured in `memory/SPEC.md` as the split between conversational turn history, current intent-graph truth, reconciliation needs, and future semantic changesets / changes. Substrate-only: data model, relationships, migrations. Reconciliation-agent loop, side-chat UI changes, and the full changeset ledger are deliberately out of scope.
 >
-> Status: **proposed** — pending review before transitioning to an implementation plan.
+> Status: **shipped substrate reference** — the Phase 1 `chat` / `turn.chat_id` / `specification.primary_chat_id` / `reconciliation_need` substrate has landed. Use this document for schema rationale and migration invariants; use [CONVERSATIONAL_WORKSPACE_RUNTIME.md](./CONVERSATIONAL_WORKSPACE_RUNTIME.md) for the consolidated future runtime concept.
 >
-> Relationship to side-chat design: this document supersedes older side-chat substrate assumptions. The side-chat UI may still stage proposed changes in an in-memory patch list, but durable multi-chat and reconciliation storage should follow this RFC rather than earlier patch/event-stream assumptions.
+> Relationship to side-chat/runtime design: this document superseded older side-chat substrate assumptions for Phase 1. Future thread hierarchy, persistent side-chat history, and reconciliation-in-stream decisions are folded into the conversational workspace runtime synthesis.
+
+## How to read this after Phase 1 shipped
+
+This document is now a substrate reference. It owns Phase 1 schema rationale and compatibility invariants, not the future runtime UX.
+
+| Claim area | Current reading |
+|---|---|
+| `chat`, nullable `turn.chat_id`, `specification.primary_chat_id`, mirrored `chat.active_turn_id` | Shipped Phase 1 substrate and migration rationale. |
+| `reconciliation_need` | Shipped process-debt primitive. Future cause/resolution provenance should use changeset vocabulary, not patch vocabulary. |
+| Side-chat persistence / Phase 2 | Historical substrate option. Current runtime synthesis may persist side conversations as child chats, a new thread table, or UI-rendered threads. |
+| Reconciliation agent / Phase 3 | Historical staging description. Current target is a reconciliation runtime/thread that uses V3.1 classifier outputs and future changeset attribution. |
+| Patch ledger / Phase 4 | Historical name. Current plan calls this the semantic changeset ledger. |
+| Context model for new chats | Still useful principle: new chats consume current graph state, not transcript snapshots. Thread-scoped context details now belong to `CONVERSATIONAL_WORKSPACE_RUNTIME.md`. |
 
 ## 1. Concept & problem
 
@@ -16,13 +29,13 @@ Today every turn anchors directly to a `specification`, and a single linear turn
 
 This was correct when there was one interview thread per spec. It is no longer correct:
 
-- **Side-chat** needs a parallel conversation surface anchored to graph items, not to the interview frontier. Early UI slices can ship this as an in-memory patch-list surface because the current durable substrate does not accommodate a second thread.
+- **Side-chat** needs a parallel conversation surface anchored to graph items, not to the interview frontier. Early UI slices shipped this through an in-memory patch-list surface; the substrate now supports separate chats while the future runtime decides thread shape.
 - **Direct user edits** from graph view (and, later, the architect loop) produce mutations that don't originate from any turn at all — they need a place to live and a way to advertise their downstream impact.
 - **Reconciliation** of those mutations needs a typed signal: "this item changed, that item now needs confirmation". `knowledge_edge` carries semantic relations between items; it is the wrong place to record an open question between them.
 
-This RFC introduces the smallest substrate change that unblocks both: a `chat` table that turns can relate to, and a `reconciliation_need` table that records directed open issues between graph targets.
+This RFC introduced the smallest substrate change that unblocked both: a `chat` table that turns can relate to, and a `reconciliation_need` table that records directed open issues between graph targets.
 
-It is **Phase 1** of the substrate evolution leading toward the patch ledger and ontology sharpening discussed in `memory/SPEC.md` decisions D134-D138. Subsequent substrate phases are listed in §10. Adjacent moves not part of this evolution — phase-route de-emphasis, typed patches with `prev_value` provenance, ontology additions (`invariant`, `example`) — are tracked separately.
+It is **Phase 1** of the substrate evolution leading toward the changeset ledger and ontology sharpening discussed in `memory/SPEC.md` decisions D134-D138. Subsequent substrate phases in §10 are historical staging, not current sequencing authority. Adjacent moves not part of this evolution — phase-route de-emphasis, changesets with `before_json` / `after_json` provenance, ontology additions (`invariant`, `example`) — are tracked separately.
 
 ### At a glance — the relational shift
 
@@ -203,7 +216,7 @@ export const reconciliationNeed = sqliteTable(
     status: text({ enum: ['open', 'resolved'] }).notNull().default('open'),
     reason: text(),
     caused_by_turn_id: integer().references(() => turn.id),
-    caused_by_patch_id: integer(), // nullable placeholder until patch ledger exists
+    caused_by_patch_id: integer(), // historical placeholder; current concept is caused_by_changeset_id
     created_at: text().notNull().default(sql`(datetime('now'))`),
     resolved_at: text(),
   },
@@ -225,7 +238,7 @@ export const reconciliationNeed = sqliteTable(
   - The enum is intentionally narrow. New kinds are added when we have a concrete reconciliation move that doesn't fit either; we don't pre-invent them.
 - **Status lifecycle.** `open` on creation; `resolved` on agent / user action. Resolved needs are kept for audit but do not participate in the reconciliation queue.
 - **Multiple needs per pair.** The unique index gates only `open` needs. Two successive edits to the same source can fire two `needs_confirmation` needs, the first being closed before the second is opened; what we forbid is *two simultaneously-open issues of the same kind for the same pair*.
-- **Provenance.** Phase 1 carries `reason`, `caused_by_turn_id`, and nullable `caused_by_patch_id`. The turn pointer is useful immediately for observer / review-created needs; the patch pointer is a deliberate placeholder that stays null until the patch ledger gives every semantic mutation a stable id.
+- **Provenance.** Phase 1 carries `reason`, `caused_by_turn_id`, and nullable historical `caused_by_patch_id`. The turn pointer is useful immediately for observer / review-created needs; the semantic-mutation pointer is a deliberate placeholder that stays null until the changeset ledger gives every semantic mutation a stable id.
 
 ### 3.5 Everything else
 
@@ -249,17 +262,17 @@ A side-chat (or any non-interview chat) is created with:
 
 This is the second meeting's explicit decision: *new chats take in the current knowledge graph rather than previous conversation turns*. The interview transcript is provenance, not context.
 
-How that gets formatted into a prompt and which agent owns the assembly is a follow-up RFC.
+How that gets formatted into a prompt and which agent owns the assembly is now part of the runtime/context-provision track in [CONVERSATIONAL_WORKSPACE_RUNTIME.md](./CONVERSATIONAL_WORKSPACE_RUNTIME.md).
 
 ## 5. Reconciliation primitive
 
-Substrate-only note: this RFC describes the **edge model and lifecycle**. The reconciliation agent (which reads the queue, decides severity, presents review sets) is a follow-up RFC.
+Substrate-only note: this RFC describes the **edge model and lifecycle**. The reconciliation runtime that reads the queue, classifies severity, presents threads/review affordances, and applies changeset-backed resolutions is owned by [CONVERSATIONAL_WORKSPACE_RUNTIME.md](./CONVERSATIONAL_WORKSPACE_RUNTIME.md).
 
 ### 5.1 Two production paths
 
 ```mermaid
 flowchart TD
-    M[Knowledge item changes<br/>(direct edit, patch apply,<br/>review acceptance)] --> P1[Path 1: deterministic]
+    M[Knowledge item changes<br/>(direct edit, changeset apply,<br/>review acceptance)] --> P1[Path 1: deterministic]
     M --> P2[Path 2: observer pass]
     P1 --> KE[Look up existing<br/>knowledge_edges<br/>(depends_on, derived_from,<br/>constrains, refines, verifies)]
     KE --> RE1[Insert reconciliation_need<br/>per affected pair<br/>kind = 'supersedes' / 'needs_confirmation']
@@ -280,13 +293,13 @@ flowchart TD
 
 ### 5.2 Resolution
 
-When the queue is resolved (by user, agent, or both), the matching `reconciliation_need` rows transition `open → resolved` and pick up a `resolved_at` timestamp. The actual resolution moves — accept a proposed change set, edit the target item, mark the issue irrelevant — produce knowledge-item mutations and (in time) patches. Those are not modelled here; they go through the same paths everything else does.
+When the queue is resolved (by user, agent, or both), the matching `reconciliation_need` rows transition `open → resolved` and pick up a `resolved_at` timestamp. The actual resolution moves — accept a proposed changeset, edit the target item, mark the issue irrelevant — produce knowledge-item mutations and, once FE-701 lands, changesets. Those are not modelled here; they go through the same paths everything else does.
 
 ### 5.3 What this is *not*
 
 - Not a workflow state. Reconciliation is a graph signal, not a phase. `phase_outcome` is the workflow state primitive and is unchanged.
-- Not a patch. `reconciliation_need` records *that* an issue exists; it does not describe *what* should change. The proposed change is a separate artefact: today in-memory in the patch-list UI, durable in the patch ledger when it lands.
-- Not an audit log of edits. `turn_knowledge_item` and (later) the patch ledger own that.
+- Not a changeset. `reconciliation_need` records *that* an issue exists; it does not describe *what* should change. The proposed change is a separate artifact: historically in-memory in the patch-list UI, durably in the changeset ledger when it lands.
+- Not an audit log of edits. `turn_knowledge_item` and (later) the changeset ledger own that.
 
 ## 6. Migration
 
@@ -304,7 +317,7 @@ Drizzle / SQLite. One ordered migration, columns added before the dependent colu
    - Backfill: for each spec, set `primary_chat_id` to the interview chat created in step 1.
 4. **0017_reconciliation_need.sql**
    - Create `reconciliation_need` table with the partial unique index from §3.4.
-   - Include `caused_by_turn_id` now and nullable `caused_by_patch_id` as a patch-ledger placeholder.
+   - Include `caused_by_turn_id` now and nullable historical `caused_by_patch_id` as a future changeset-ledger placeholder.
 
 Code changes paired with migrations:
 
@@ -321,13 +334,13 @@ No data loss. Every existing turn lands inside the interview chat of its spec; e
 
 ## 7. Out of scope (acknowledged adjacents)
 
-- **Patch ledger.** Typed semantic patches with `prev_value` / `value` and explicit provenance, replacing the in-memory patch-list model. This RFC creates room for the ledger by separating chat from spec, but does not introduce the ledger itself.
+- **Changeset ledger.** Typed semantic changesets with before/after values and explicit provenance, replacing the in-memory patch-list model. This RFC creates room for the ledger by separating chat from spec, but does not introduce the ledger itself.
 - **Phase routes / phase as primary UI concept.** The second meeting agreed phase should de-emphasise as UI but stay as a background signal for prompting. UI work is its own RFC; the data model here keeps `turn.phase` exactly as-is.
 - **Ontology sharpening (`invariant`, `example` as `knowledge_item.kind`).** Discussed in `memory/SPEC.md` D134 and D136. Pure ontology change; no impact on the chat / reconciliation substrate.
-- **Decision shape rework.** The meeting concluded a decision should capture both *chosen* and *not chosen*, and that the `option` table can probably go away in favour of in-turn data. Both moves belong with the patch-ledger work; today's `option` table stays.
+- **Decision shape rework.** The meeting concluded a decision should capture both *chosen* and *not chosen*, and that the `option` table can probably go away in favour of in-turn data. Both moves belong with changeset-ledger / decision-shape work; today's `option` table stays.
 - **Phase outcome enum redesign.** The meeting flagged the `proposed | confirmed | superseded` enum as "find a better idea". Out of scope; `phase_outcome` is unchanged.
-- **Reconciliation agent loop.** Who reads `reconciliation_need` rows, in what order, how it presents review sets. Substrate is ready; the agent design is a separate RFC.
-- **Side-chat UI changes for multi-thread.** Today may ship a single side-chat-per-spec through an in-memory patch-list surface; the `chat` table accommodates many but the UI can continue to render one until persistent side-chat UX catches up. User-surface version labels from older UI design docs are independent of substrate Phase 1 / 2 / 3 / 4 — see §10 for the mapping.
+- **Reconciliation runtime.** Who reads `reconciliation_need` rows, in what order, how it presents review affordances, and how accepted resolutions become changesets. Substrate is ready; the runtime design is in `CONVERSATIONAL_WORKSPACE_RUNTIME.md`.
+- **Side-chat UI changes for multi-thread.** Historical UI could ship a single side-chat-per-spec through an in-memory patch-list surface; the `chat` table accommodates many but the future user surface may be child chats, a thread table, or UI-rendered in-stream threads. User-surface version labels from older UI design docs are independent of substrate Phase 1 / 2 / 3 / 4 — see §10 for the historical mapping.
 
 ## 8. Verification stance
 
@@ -346,10 +359,10 @@ Manual: spin up an existing spec database (a current `.brunch/` fixture), run mi
 ## 9. Open questions
 
 - **`turn.specification_id` retention.** Phase 1 intentionally keeps it as a softer migration: existing spec-scoped reads keep working while new writes populate `chat_id` and assertions prove both pointers agree. The end-state cleanup should drop it once hot paths and tests read ownership through `chat_id`, unless profiling proves the denormalized field pays for itself.
-- **Side-chat `chat.parent_turn_id` or anchor item.** A side-chat is started *from* a graph item. Should the `chat` row record the anchor item id? Default proposal: don't model it on `chat`; use a later `chat_focus` table when durable focus is wanted.
+- **Side-chat/thread focus.** A side conversation is started *from* a graph item. Should focus live on `chat`, a later `chat_focus` table, a new thread table, or thread-context rows? Historical default: don't model it on `chat`; current runtime synthesis leaves this to the thread/context substrate decision.
 - **Reconciliation `reason` shape.** Free text in V1. Once the reconciliation agent ships, `reason` may want to be structured (template id + slots). Default proposal: stay free-text until the agent design forces a shape.
 - **Reconciliation cascade-on-resolve.** When a `supersedes` need resolves, does that ever fan out into new reconciliation needs (because the resolution itself is a mutation)? Yes — and that is exactly the reentrancy point Lu flagged in the second meeting. Substrate already handles it: any mutation re-runs path 1 + path 2. The agent decides whether to bundle resolution into one review set or accept a follow-up cycle. No substrate change needed.
-- **`option` table fate.** Meeting tentatively concluded the table can go away in favour of in-turn data. Out of scope here; tracked alongside the patch-ledger / decision-shape work.
+- **`option` table fate.** Meeting tentatively concluded the table can go away in favour of in-turn data. Out of scope here; tracked alongside changeset-ledger / decision-shape work.
 - **`phase_outcome` enum redesign.** Tracked alongside the de-emphasise-phase-as-UI RFC.
 - **Multiple `reconciliation_need.kind`s for one pair.** The partial unique index gates only same-kind same-direction. A single source change could legitimately produce both `supersedes` *and* `needs_confirmation` against the same target; allowed by design. Confirm this is intended.
 
@@ -359,15 +372,15 @@ Manual: spin up an existing spec database (a current `.brunch/` fixture), run mi
 
 | Phase | Substrate state | Enables (user-surface mapping) |
 |---|---|---|
-| **Phase 1** *(this RFC)* | `chat` table; nullable `turn.chat_id`; `specification.primary_chat_id`; mirrored `chat.active_turn_id`; `reconciliation_need` table with lightweight provenance placeholders. Backfill migrations. New writes populate both legacy and chat pointers. No user-visible change: still one chat per spec, still one rope per chat, side-chat can continue to use an in-memory patch-list surface. | Foundation. Existing side-chat / graph-edit surfaces can ship against today's mutation paths regardless of order. Hard-edit cascade gets a clean reshape once it reads from `reconciliation_need` rather than ad-hoc REVISIT state. Persistent multi-thread side-chat and the architect loop become shippable without waiting on the full patch ledger. |
-| **Phase 2** | Side-chat persistence: side-chat threads write `chat` rows with `kind = 'side_chat'` and persist their turns. Multiple side-chats per spec become possible at the data layer. | Persistent side-chat history and old-thread UI can activate. |
-| **Phase 3** | Reconciliation agent loop reads `reconciliation_need` queue, presents review sets through the same patch list as the side-chat. | Side-chat V3 hard-edit cascade ships against the reconciliation agent (replaces the REVISIT modal). Architect loop's review surface inherits the same machinery. |
-| **Phase 4** *(later)* | Patch ledger lands. `reconciliation_need.caused_by_patch_id` becomes populated for patch-caused needs. Decision-shape rework, option-table removal, and phase-outcome enum redesign happen here. | Architect loop's typed-patch version. Item versioning. Cross-surface undo / time-travel. |
+| **Phase 1** *(this RFC; shipped)* | `chat` table; nullable `turn.chat_id`; `specification.primary_chat_id`; mirrored `chat.active_turn_id`; `reconciliation_need` table with lightweight provenance placeholders. Backfill migrations. New writes populate both legacy and chat pointers. No user-visible change: still one chat per spec, still one rope per chat, side-chat can continue to use an in-memory patch-list surface. | Foundation. Existing side-chat / graph-edit surfaces can ship against today's mutation paths regardless of order. Hard-edit cascade gets a clean reshape once it reads from `reconciliation_need` rather than ad-hoc REVISIT state. Persistent multi-thread side-chat and the architect loop become shippable without waiting on the full changeset ledger. |
+| **Phase 2** *(historical substrate option)* | Side-chat persistence: side-chat threads write `chat` rows with `kind = 'side_chat'` and persist their turns. Multiple side-chats per spec become possible at the data layer. | Persistent side-chat history and old-thread UI could activate, unless the runtime track chooses child chats, a separate thread table, or UI-rendered threads. |
+| **Phase 3** *(historical staging)* | Reconciliation agent loop reads `reconciliation_need` queue, presents review sets through the same patch-list-style surface as the side-chat. | V3.1 has shipped classifier output in the Pending review bridge surface; the future target is a reconciliation thread in the unified runtime. |
+| **Phase 4** *(later; current name FE-701 changeset ledger)* | Changeset ledger lands. Reconciliation needs gain changeset-backed cause/resolution provenance. Decision-shape rework, option-table removal, and phase-outcome enum redesign may happen here or in adjacent slices. | Architect-loop proposals, item versioning, and cross-surface undo / time-travel become possible through changeset history. |
 
 ## 11. Traceability
 
 - **Replaces** the implicit "one rope per spec" assumption baked into `turn.specification_id` and `specification.active_turn_id`.
-- **Unblocks** the patch ledger, the architect / generator loop horizon item, and persistent multi-chat side-chat history.
+- **Unblocks** the changeset ledger, the architect / generator loop horizon item, and persistent multi-chat / thread history.
 - **Bounded by** D113 (no second durable workflow model — `chat` is *not* workflow state, it is a conversation-thread substrate; workflow state stays on `phase_outcome`).
 - **Reuses** existing `knowledge_item`, `knowledge_edge`, `turn_knowledge_item`, `option`, `phase_outcome`, `annotation` schemas as-is.
-- **References** `memory/SPEC.md` decisions D135, D137, and D138 plus `docs/design/PATCH_LEDGER.md` for the deeper semantic mutation ledger. Supersedes older side-chat substrate assumptions while remaining compatible with the user-facing side-chat surface.
+- **References** `memory/SPEC.md` decisions D135, D137, and D138 plus `docs/design/PATCH_LEDGER.md` for deeper semantic mutation history pressure. Supersedes older side-chat substrate assumptions while remaining compatible with the user-facing side-chat surface.

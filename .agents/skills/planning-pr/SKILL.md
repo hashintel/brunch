@@ -1,73 +1,82 @@
 ---
 name: planning-pr
-description: Use when about to edit `memory/PLAN.md` or `memory/SPEC.md` beyond a one-line status tick, when the user asks where a planning edit should be committed, when a rewrite would touch SPEC.md tracked-ID rows (Assumptions / Decisions / Requirements / Invariants), or after `/ln-sync` produces substantive doc changes. Encodes the convention that paragraph-level planning rewrites and any change to sequentially-numbered SPEC.md rows go on a separate planning PR off `main`, scoped to `memory/*` files only, while small in-place edits stay on the feature branch.
+description: "Advisory checkpoint for deciding whether planning-document edits should be split into a separate planning branch/PR. Use only when the user explicitly asks where to commit `memory/SPEC.md` or `memory/PLAN.md` changes, mentions planning-doc merge conflicts, asks for a planning PR, or instructs you to prepare/submit one. Do not trigger for ordinary ln-* planning edits, one-line status updates, or routine canonical reconciliation."
 ---
 
 # Planning PR
 
-`memory/PLAN.md` and `memory/SPEC.md` are single narrative documents that every active branch can rewrite. To prevent merge conflicts across parallel feature work, paragraph-level rewrites and any change to SPEC.md tracked-ID rows go on a **planning PR** off `main`, separate from feature work. Small in-place edits stay on the feature branch.
+This is a **commit-placement advisor**, not part of the normal `ln-*` execution path.
 
-A planning PR is a deliberate serialization point: it lands on `main` first, scoped to `memory/*` files only, so downstream feature branches rebase onto a shared planning baseline rather than fighting over the same paragraphs.
+Most `memory/SPEC.md` and `memory/PLAN.md` edits stay on the active feature branch. A separate planning PR is useful only when planning docs become a shared serialization point for multiple branches.
 
-## Decision rule
+## Default stance
 
-Threshold:
+Stay on the current feature branch for:
 
-- **One line; marking an item done; typo fix** → feature branch.
-- **Reorder or rewrite paragraphs** → planning PR.
-- **Touch SPEC.md tracked-ID rows** (Assumptions `A##`, Decisions `D###`, Requirements `Requirement N`, Invariants `I###`) → planning PR. **Hard rule.** Sequential IDs collide on rebase across parallel branches. No exceptions.
+- one-line status ticks or typo fixes
+- marking the active frontier item done
+- routine `ln-build` / `ln-scope` canonical reconciliation
+- small SPEC/PLAN edits needed to explain the current code change
+- local planning edits that do not affect other active branches
 
-| Change | Goes on |
+Do not invoke Linear, Graphite, or branch creation just because a planning file is touched.
+
+## When to recommend a planning PR
+
+Recommend, but do not create, a separate planning PR when one or more is true:
+
+- the user explicitly asks for a planning PR or asks where planning edits should land
+- active branches are already conflicting on `memory/SPEC.md` or `memory/PLAN.md`
+- an `ln-sync` or planning pass rewrites shared narrative sections, reorders frontier items, or rotates substantial history
+- edits to SPEC tracked rows (`A##`, `D###`, `Requirement N`, `I###`) are likely to collide with other active branches adding adjacent IDs
+- the edit establishes a planning baseline that several implementation branches should rebase onto before continuing
+
+Phrase it as a recommendation:
+
+```md
+This looks like a planning-PR candidate because [reason].
+Do you want me to split it onto a separate planning branch off main, or keep it on the current feature branch?
+```
+
+Ask before creating issues, branches, commits, or PRs.
+
+## Decision table
+
+| Change | Default placement |
 | --- | --- |
-| One line; marking an item done; typo fix | feature branch ✓ |
-| Reorder or rewrite paragraphs in PLAN.md | planning PR ⚠ |
-| Add or rewrite Recently Completed entries beyond one line | planning PR ⚠ |
-| Edit dependency diagram, narrative, Active / Next sections | planning PR ⚠ |
-| Rotate items into `docs/archive/PLAN_HISTORY.md` | planning PR ⚠ (alongside the related PLAN.md edits) |
-| Touch SPEC.md Assumptions / Decisions / Requirements / Invariants | **planning PR — hard rule** |
+| One-line status tick / typo | Current feature branch |
+| Mark current frontier item done | Current feature branch |
+| Small canonical reconciliation for current slice | Current feature branch |
+| Paragraph rewrite that affects only current work | Current feature branch, unless user wants separation |
+| Large PLAN rewrite / Sequencing reshuffle / Frontier Definitions migration | Recommend planning PR |
+| Substantive `ln-sync` across SPEC + PLAN | Recommend planning PR |
+| SPEC tracked-ID changes with parallel branch risk | Recommend planning PR |
+| Known merge conflicts in planning docs | Recommend planning PR |
 
-When in doubt, default to a planning PR. The cost of one is low; the cost of a tangled rebase across the stack is not.
+When uncertain, ask. Do not silently escalate to process work.
 
-## Workflow
+## Planning PR workflow
 
-1. **Linear issue** — `/cli-linear`. Team `Frontend (FE)`, project `brunch`. Title frames the planning intent, not a feature. No parent issue unless explicitly named.
-2. **Branch off `main`** — `/cli-graphite`. Name `<prefix>/fe-XXX-<slug>` where `<prefix>` is whatever `gt user branch-prefix` returns. Base must be `main` — **not** stacked on feature branches.
-3. **Edit `memory/*` only** — `memory/PLAN.md`, `memory/SPEC.md`, optionally `memory/CARDS.md` or `memory/REFACTOR.md`, plus `docs/archive/PLAN_HISTORY.md` for rotating completions. No code, no test, no config.
-4. **Verify** — `npm run verify`. For memory-only edits this is a no-op gate; it catches accidental code drift.
-5. **PR** — `gh pr create --base main`. Title format `FE-XXX: <Sentence-case planning frame>`. Body has three sections:
-   - `## Summary` — one paragraph naming the planning intent.
-   - `## What changed` — bulleted file-level changes.
-   - `## Intent` — state explicitly that this is a planning/scope merge point so downstream stacks rebase onto it.
-6. **Merge to `main` first** — before stacking implementation branches on top. The convention's whole purpose is that downstream branches rebase onto a clean planning baseline rather than fight over the same paragraphs.
-7. **Restack downstream** — `gt restack` open feature branches onto the new `main` baseline. Conflicts should be near-zero because the planning PR already absorbed the narrative reconciliation.
+Only after user approval:
+
+1. Create a Linear issue in the **Frontend (FE)** team and **brunch** project via `/cli-linear`. Title frames the planning intent, not a feature. No parent unless explicitly named.
+2. Create a Graphite branch off `main` via `/cli-graphite` after reading `docs/praxis/graphite-workflow.md`. Name it using the project branch convention.
+3. Move only planning files onto the branch: normally `memory/PLAN.md`, `memory/SPEC.md`, and related archive/history files. No code, tests, config, or unrelated docs.
+4. Run `npm run verify` before submission unless the user explicitly accepts a lighter check.
+5. Submit a PR titled `FE-XXX: <Sentence-case planning frame>`.
+6. State in the PR body that this is a planning baseline / serialization point for downstream branches.
+7. After merge, restack downstream feature branches onto the new main baseline.
 
 ## Anti-patterns
 
-- **Editing SPEC.md tracked rows on a feature branch.** Sequential IDs are unforgiving on rebase. Hard rule, no exceptions.
-- **Bundling planning rewrites into a feature PR.** Drifts reviewer scope; rebase friction propagates downstream. The only acceptable bleed is a one-line "marking FE-XXX done" entry for the work that branch ships.
-- **Stacking the planning PR on top of the feature stack.** Inverts the convention. Planning PR must land first so others rebase onto it.
-- **Mixing code edits with planning edits in one commit on the planning branch.** Keep planning PRs trivially reviewable: only `memory/*` and `docs/archive/PLAN_HISTORY.md`.
-- **Skipping the Linear issue because "it's just doc work".** Planning PRs are tracked work — they show up as the merge points downstream branches depend on.
-
-## Common entry points
-
-- After `/ln-sync` produces substantive edits — route here before committing them.
-- The user asks "where do I put this?" / "should this be its own PR?" while editing `memory/*`.
-- The user mentions merge conflicts on `memory/PLAN.md` or `memory/SPEC.md`.
-- About to add a new `D###` decision, `A##` assumption, `Requirement N`, or `I###` invariant.
-- The user is about to start a new major frontier area whose shape needs SPEC.md / PLAN.md updates before implementation begins — the planning PR establishes that baseline before any implementation branches stack on it.
-
-## Applying the threshold (worked example)
-
-A `/ln-sync` produces: narrative rewrite + Active promotion + two new Next items + two new Recently Completed entries + dependency-diagram fix + three archived completions. SPEC.md unchanged.
-
-- Volume crosses the "reorder paragraphs" threshold → planning PR.
-- SPEC.md unchanged → no hard-rule trigger, but the volume alone is enough.
-- Action: separate branch off `main`, scoped to `memory/PLAN.md` + `docs/archive/PLAN_HISTORY.md`. Open feature branches keep their code diffs and gain only a one-line Recently-Completed bleed if appropriate.
+- Treating this skill as a mandatory gate for every `memory/*` edit.
+- Creating Linear issues or branches without explicit user approval.
+- Bundling code changes into a planning PR.
+- Splitting tiny status updates away from the feature branch that produced them.
+- Stacking a planning PR on top of an implementation branch when the goal is a shared baseline.
 
 ## Relationship to other skills
 
-- `/ln-sync` produces the edits; `planning-pr` handles where they get committed.
-- `/cli-linear` creates the tracking issue.
-- `/cli-graphite` creates the branch and submits the PR.
-- Per `CLAUDE.md`, regular frontier-item branches follow the same Linear + Graphite flow but stack on each other; planning PRs deliberately do not stack — they sit off `main`.
+- `ln-spec`, `ln-plan`, `ln-sync`, `ln-scope`, and `ln-build` decide what the planning docs should say.
+- `planning-pr` only advises where substantive planning edits should be committed.
+- `/cli-linear` and `/cli-graphite` perform the tracker/branch work after the user approves the split.
