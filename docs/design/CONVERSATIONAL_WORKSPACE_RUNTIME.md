@@ -13,7 +13,7 @@ The **Conversational Workspace Runtime** is the architectural umbrella for turni
 1. The workspace hosts a primary interview chat plus inline/collapsible **secondary chats** for side, reconciliation, QA, and strategy work.
 2. Existing `chat` + `turn` persistence is the near-term runtime primitive. A schema-level `thread` table is explicitly deferred until chat/turn proves insufficient.
 3. Reconciliation, proposal turns, and future agent-mediated work stay conversationally visible while semantic mutations remain server-authoritative through changesets.
-4. Prompt context is **transcript-first**: extra graph/workspace context enters the transcript as explicit context snapshot artifacts and refreshed graph-item handles, not as a hidden persisted context-spec table.
+4. Prompt context is **transcript-first**: extra graph/workspace context enters the transcript as explicit context snapshot artifacts stored on turns. Graph-item handles track explicit anchors/mentions, but freshness waits for real item versions from the changeset ledger; context is not a hidden persisted context-spec table.
 
 ### What this doc is not
 
@@ -29,6 +29,8 @@ The **Conversational Workspace Runtime** is the architectural umbrella for turni
 | [SIDE_CHAT.md](./SIDE_CHAT.md) | User-surface history and V1–V3.1 behavior. Its V4 persistent-history direction is superseded by durable secondary chats rendered inline in the workspace. |
 | [PATCH_LEDGER.md](./PATCH_LEDGER.md) | Historical design pressure for semantic mutation history and reconciliation ordering. Future-facing vocabulary is `changeset` / `change`; target-ordering mechanics remain useful. |
 | [CONTINUOUS_WORKSPACE_HYBRID.md](./CONTINUOUS_WORKSPACE_HYBRID.md) | Source note for the shipped Track 1 workspace shell and deferred route-collapse question. Runtime work builds on FE-709 rather than re-deciding the shell. |
+| [INTENT_GRAPH_SEMANTICS.md](./INTENT_GRAPH_SEMANTICS.md) | Authority for relation-policy directionality, endpoint-relative labels, and neighborhood snapshot modes used by context provision and reconciliation impact. |
+| [SUBSTRATE_STRANGLER_COORDINATION.md](./SUBSTRATE_STRANGLER_COORDINATION.md) | Coordination forecast for what backend/server functions and capability contracts frontend work should expect as FE-700/FE-701/Track 5 land. |
 
 ### Supersession map
 
@@ -38,11 +40,11 @@ The **Conversational Workspace Runtime** is the architectural umbrella for turni
 | Secondary conversation persistence | `chat` + `turn` substrate, with secondary chats as product/runtime usage | Treating a `thread` table, `turn.thread_id`, or `thread_context_item` as accepted near-term schema. |
 | Side-chat user surface | Inline/collapsible secondary chats in the workspace | `SideChatPopover`, top-bar staged patch list, and standalone Pending review as long-term surfaces. |
 | Semantic mutation history | Changeset/change ledger | New durable schema or operation names using `patch` / `patch_change`. |
-| Prompt context | Transcript-first snapshots and handles derived by prompt/context pack builders | Hidden persisted context-spec records as the default context authority. |
+| Prompt context | Transcript-first snapshots stored as turn artifacts; item handles are lightweight anchor/mention references refreshed only with real item versions | Hidden persisted context-spec records as the default context authority; temporary content fingerprints as a durable refresh oracle. |
 | Reconciliation vs graph review | Reconciliation needs are process debt from known disturbances; graph-review findings are critique artifacts | Using `reconciliation_need` as the table for all graph quality findings. |
 | Agent mutation authority | Brunch-owned capability/handler contracts | Agents writing directly through ORM helpers or harness-specific route wrappers. |
 
-Live open questions are now narrower: secondary-chat lifecycle/rendering shape over chat/turn, reconciliation chat lifecycle, direct-edit chat-opening UX, `#` mention disambiguation, context-handle storage/expiry, compact snapshot serialization, async classifier scheduling, and migration of existing client patch terminology.
+Live open questions are now narrower: secondary-chat lifecycle/rendering shape over chat/turn, reconciliation chat lifecycle, direct-edit chat-opening UX, `#` mention disambiguation, context-handle storage/expiry, compact snapshot serialization, async classifier scheduling, endpoint-relative relation-label UI affordances, and migration of existing client patch terminology.
 
 ## 2. The shift, at a glance
 
@@ -81,7 +83,7 @@ flowchart LR
 - The `chat` table stays the durable conversational primitive; turns remain chat-owned.
 - Secondary chat kinds (`side`, `reconciliation`, `qa`, `strategy`) are represented through chat metadata / strategy state over chat+turn unless a later RFC proves a `thread` table is necessary.
 - Changeset/change records become the semantic mutation spine; existing client “patch” state is transitional.
-- Context provision becomes explicit transcript content: context snapshots are inserted into turns, and context handles track referenced graph items so stale subjects can be refreshed before future assistant turns.
+- Context provision becomes explicit transcript content: context snapshots are inserted into turns, and context handles track explicitly referenced graph items. Stale-handle refresh waits for changeset-backed item versions rather than a temporary content fingerprint.
 
 ## 3. Architecture layers
 
@@ -100,7 +102,7 @@ Track 2 implements inline/collapsible secondary chats using existing `chat` + `t
 - `chat` — durable conversation container inside one specification. One primary interview chat exists; secondary chats are additional chat rows for side, reconciliation, QA, or strategy work.
 - `turn` — chat-owned conversational event or assistant/system-first proposal/kickoff. Each active/resumable chat has at most one open assistant/system-first frontier turn.
 - `chat.kind` / chat-local strategy metadata — distinguishes `side`, `reconciliation`, `qa`, and `strategy` behavior without creating semantic truth.
-- **Turn-zero** — an assistant/system kickoff turn that seeds a secondary chat with explicit context snapshots and options before the user responds.
+- **Turn-zero** — an assistant/system kickoff turn that seeds a secondary chat with explicit context snapshots and options before the user responds. The first Track 2 version can render snapshots supplied by server fixtures/builders without owning the full Track 5 refresh lifecycle.
 
 **Explicit deferral**
 
@@ -162,21 +164,35 @@ Track 5 provides prompt context for primary and secondary chats without a hidden
 
 - A chat primarily uses its own transcript as prompt context.
 - Extra graph/workspace context is inserted into the transcript as explicit **context snapshot** artifacts.
-- A **context handle** records that a chat is tracking a graph subject across turns. Before new assistant turns, stale handles can trigger fresh snapshots when the subject’s version/fingerprint has advanced.
+- A **context handle** records that a chat is tracking explicit graph subjects across turns, usually because a chat was anchored on an item or the user mentioned one with `#`. Before new assistant turns, stale handles can trigger fresh snapshots when the subject's changeset-backed item version has advanced. Do not bless temporary content fingerprints as the durable freshness oracle.
 - Snapshots are historical: they do not mutate when source truth changes.
 
 **Turn-zero**
 
-Secondary chats begin with a kickoff turn that inserts kind-appropriate snapshots and offers options. Example defaults:
+Secondary chats begin with a kickoff turn that inserts kind-appropriate snapshots and offers options. Track 2 can create/render turn-zero artifacts before Track 5 fully lands, but the snapshots should already follow the transcript-first artifact model. Example defaults:
 
-- `side` — anchor item snapshot plus relation neighborhood and open needs against the anchor.
+- `side` — anchor item snapshot plus relation-policy-rendered neighborhood and open needs against the anchor.
 - `reconciliation` — target group snapshots plus relevant needs and relation-policy context.
 - `qa` — user-selected / `#`-mentioned items and enough graph metadata to answer safely.
 - `strategy` — current phase/workflow state plus the fixed premise and proposal constraints.
 
+**Snapshot builder family**
+
+The server-side context layer should expose reusable builders; frontend runtime code should consume their artifacts rather than reconstruct graph meaning locally:
+
+| Builder shape | Purpose |
+| --- | --- |
+| `buildIntentItemContextSnapshot({ specificationId, itemIds })` | Explicit item inclusion and `#` mention context. |
+| `buildIntentNeighborhoodContextSnapshot({ specificationId, anchorItemIds, mode })` | Side-chat, QA, edit-impact, and reconciliation context around anchors. Initial modes: `immediate`, `dependencies`, `dependents`, `evidence`, `reconciliation`. |
+| `buildEconomicIntentGraphContextSnapshot({ specificationId, budget })` | Compact whole-graph briefing for unanchored chats in existing specifications. |
+| `buildHistoricalIntentNeighborhoodSnapshot({ itemId, basis })` | Later, once changesets can identify original-capture and last-update surroundings. |
+| `resolveIntentItemReferences({ specificationId, refs })` | Server-owned `#` reference-code/name resolution scoped to one specification. |
+
+Neighborhood labels and buckets (`dependencies`, `dependents`, `evidence`, etc.) come from relation policy endpoint-relative labels. They are not string reversals of `knowledge_edge.from_item_id` / `to_item_id`.
+
 **`#` mention**
 
-A mention such as `#AS-12` resolves against intent items. Resolution inserts a context snapshot and activates or refreshes a handle for the mentioned subject. Ambiguity, revocation, expiry, and storage shape are Track 5 design details, but the transcript remains the durable replay surface.
+A mention such as `#AS-12` resolves against intent items through a server-owned resolver scoped to the specification. Resolution inserts a context snapshot and, once real item versions exist, activates or refreshes a handle for the mentioned subject. Ambiguity should produce an explicit disambiguation/recovery artifact rather than silently omitting context. Revocation, expiry, and storage shape are Track 5 design details, but the transcript remains the durable replay surface.
 
 **Serialization**
 
@@ -190,7 +206,8 @@ Context-pack builders own compact rendering. TOON or another compact graph seria
 - `secondary chat` — non-primary chat rendered inline/collapsible in the workspace; product/runtime use of `chat`, not a separate thread table.
 - `turn-zero` — kickoff turn that seeds a secondary chat.
 - `context snapshot` — explicit turn artifact recording inserted graph/workspace context at a point in time.
-- `context handle` — active reference causing future freshness checks and new snapshots when tracked graph subjects change.
+- `neighborhood snapshot` — context snapshot centered on one or more intent items, with relation-policy-selected modes such as immediate, dependencies, dependents/impact, evidence, reconciliation, and later historical.
+- `context handle` — lightweight active reference to explicit graph subjects, causing future freshness checks and new snapshots only when changeset-backed item versions advance.
 - `changeset` / `change` — durable semantic mutation vocabulary.
 - “Thread” — historical or generic UI language only in this doc. It is not target schema vocabulary.
 - “Patch” — historical/transitional client vocabulary only.
@@ -244,10 +261,11 @@ Track 4: Changeset ledger
 
 Track 5: Chat context provision
   ├─ Context snapshot turn artifacts
-  ├─ Active graph-item handles and stale-handle refresh
+  ├─ Active graph-item handles and stale-handle refresh after real item versions exist
   ├─ # mention parser/resolver/disambiguation
+  ├─ Item, neighborhood-mode, economic graph, and later historical snapshot builders
   ├─ Turn-zero prompt assembly per chat kind/strategy
-  └─ Context-pack rendering/goldens for snapshots
+  └─ Structured assertions + selected golden renderings for snapshots
 
 Dependencies
   Track 1 (shell) —enables→ Track 2 (secondary chats)
@@ -255,6 +273,7 @@ Dependencies
   Track 2 —enables→ Track 5 (turn-zero, mentions, handles)
   Track 4 (changeset) —parallel with→ Track 2
   Track 4 —enables→ richer attribution in Track 3
+  Track 4 —enables→ real item versions and historical neighborhoods in Track 5
 ```
 
 **Why this order**
@@ -268,14 +287,15 @@ Dependencies
 
 | Parallel design | Implication for the runtime cluster |
 | --- | --- |
-| [INTENT_GRAPH_SEMANTICS.md](./INTENT_GRAPH_SEMANTICS.md) | Reconciliation and direct-edit cascade must consult relation-policy directionality and edge support/status. Runtime code cannot infer affected endpoints from raw edge direction. |
+| [INTENT_GRAPH_SEMANTICS.md](./INTENT_GRAPH_SEMANTICS.md) | Reconciliation, direct-edit cascade, and context snapshots must consult relation-policy directionality, endpoint-relative labels, and edge support/status. Runtime code cannot infer affected endpoints or dependency/dependent labels from raw edge direction. |
 | [SPEC_EVOLUTION_STRATEGIES.md](./SPEC_EVOLUTION_STRATEGIES.md) | Strategy is chat-local process state. Scenario options, graph-review findings, and reconciliation suggestions are proposal turns until accepted; accepted bundles become coherent changesets. |
 | [AGENT_MUTATION_SURFACE.md](./AGENT_MUTATION_SURFACE.md) | Agent-originated writes enter through Brunch-owned capability/handler contracts, not direct ORM or route-wrapper mutation authority. |
-| Prompt/context substrate (SPEC D139/D140, A84/A85/A95) | Chat context provision consumes prompt/context-pack policy. Snapshots/handles make context replayable; they do not replace context-pack builders. |
+| [SUBSTRATE_STRANGLER_COORDINATION.md](./SUBSTRATE_STRANGLER_COORDINATION.md) | Existing frontend REST/SSE contracts remain stable while backend work produces shared handlers, relation-policy functions, context snapshot builders, and capability tools. |
+| Prompt/context substrate (SPEC D139/D140/D154, A84/A85/A95) | Chat context provision consumes prompt/context-pack policy. Snapshots are built by context-pack builders and stored on turns; handles organize refresh once changeset-backed item versions exist. |
 | [BEHAVIORAL_KERNELS.md](./BEHAVIORAL_KERNELS.md) | Kernel-driven questions produce typed intent artifacts; the runtime provides chat/context affordances but not a separate artifact ontology. |
 | [ln-skills/EVOLUTION.md](./ln-skills/EVOLUTION.md) | Dev-layer file-backed registry ideas are separate from product runtime persistence. |
 
-Audit result: the runtime is coherent when `chat` is conversational process, chat-local strategy remains turn/proposal state, prompt/context packs assemble context snapshots, changesets own semantic mutation history, reconciliation needs represent process debt, and graph review remains a separate quality oracle.
+Audit result: the runtime is coherent when `chat` is conversational process, chat-local strategy remains turn/proposal state, prompt/context packs assemble context snapshots, relation policy owns endpoint-relative labels and impact direction, changesets own semantic mutation history and item versions, reconciliation needs represent process debt, and graph review remains a separate quality oracle.
 
 ## 7. Out of scope / explicit deferrals
 
@@ -283,6 +303,7 @@ Audit result: the runtime is coherent when `chat` is conversational process, cha
 - Demo-bound prioritization; PLAN sequencing owns frontier order.
 - Schema-level `thread` tables or `turn.thread_id`; deferred until chat/turn insufficiency is proven.
 - Hidden persisted context-spec tables; deferred unless transcript-first snapshots/handles fail.
+- Temporary content/edge fingerprints as the durable context-handle freshness oracle; handle freshness waits for changeset-backed item versions.
 - Continuous-workspace route collapse; FE-709 hybrid shell remains the host.
 - Architect/generator loop; horizon until changesets and reconciliation surfaces stabilize.
 - Provider setup, gitignore assist, and productized web research; separate PLAN frontiers.
@@ -291,9 +312,9 @@ Audit result: the runtime is coherent when `chat` is conversational process, cha
 
 - **Secondary-chat lifecycle** — when to create, refocus, collapse, archive, or resume side/reconciliation/qa/strategy chats.
 - **Direct-edit attention UX** — when hard-impact direct edits focus an item side chat, a reconciliation chat, both, or neither.
-- **Context-handle storage and expiry** — whether handles are explicit rows, turn-derived state, or both; how revocation and expiry are represented.
+- **Context-handle storage and expiry** — whether handles are explicit rows, turn-derived state, or both; how revocation and expiry are represented once real item versions exist.
 - **`#` mention disambiguation** — reference-code/name matching and ambiguous-result UX.
-- **Compact snapshot serialization** — TOON vs a minimal internal serializer.
+- **Compact snapshot serialization** — TOON vs a minimal internal serializer; structured assertions plus selected golden renderings are the oracle, not exact prose everywhere.
 - **Async-classifier scheduling** — in-process loop vs queue substrate; promote only if outer-loop behavior needs it.
 - **Reconciliation chat lifecycle** — one persistent reconciliation chat per spec vs batch/invocation chats.
 - **Generic sub-agent runs** — whether Track 2 owns a general sub-agent affordance or only the named secondary chat kinds for now.
@@ -315,7 +336,8 @@ Audit result: the runtime is coherent when `chat` is conversational process, cha
 - Reconciliation chat lifecycle.
 - Changeset migration sequence.
 - Direct-edit attention/focus policy.
-- Context-handle persistence/expiry policy.
+- Context-handle persistence/expiry policy after changeset-backed item versions exist.
+- Snapshot-builder API and artifact schema boundaries for item, neighborhood, economic graph, and historical neighborhoods.
 
 **Cross-references**
 
@@ -325,3 +347,5 @@ Audit result: the runtime is coherent when `chat` is conversational process, cha
 - [CONTINUOUS_WORKSPACE_HYBRID.md](./CONTINUOUS_WORKSPACE_HYBRID.md) §Recommended direction
 - [memory/SPEC.md](../../memory/SPEC.md) Future Direction Register and Lexicon
 - [memory/PLAN.md](../../memory/PLAN.md) Sequencing, Dependencies, and runtime frontier definitions
+- [SUBSTRATE_STRANGLER_COORDINATION.md](./SUBSTRATE_STRANGLER_COORDINATION.md) §Upcoming substrate waves and expected interfaces
+- [INTENT_GRAPH_SEMANTICS.md](./INTENT_GRAPH_SEMANTICS.md) §Relation-policy registry and endpoint-relative labels
