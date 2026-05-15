@@ -4643,3 +4643,100 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
       .expect(400);
   });
 });
+
+describe('POST /api/specifications/:id/secondary-chats', () => {
+  async function setupItem(specificationId: number) {
+    const { createKnowledgeItem } = await import('./db.js');
+    return createKnowledgeItem(db, specificationId, 'goal', 'Reach product-market fit');
+  }
+
+  async function getParentChatId(specificationId: number): Promise<number> {
+    const { getSpecification } = await import('./db.js');
+    return getSpecification(db, specificationId)!.primary_chat_id!;
+  }
+
+  it('creates a secondary chat with kickoff turn anchored to the item', async () => {
+    const specificationId = await createTestSpecification('FE-716 route');
+    const item = await setupItem(specificationId);
+    const parentChatId = await getParentChatId(specificationId);
+    const { createTurn } = await import('./db.js');
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+
+    const res = await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+      })
+      .expect(200);
+
+    expect(res.body.chatId).toBeGreaterThan(0);
+    expect(res.body.kickoffTurnId).toBeGreaterThan(0);
+
+    const snapshot = await getSpecificationSnapshot(specificationId);
+    const secondary = snapshot.secondaryChats?.find((row) => row.chat.id === res.body.chatId);
+    expect(secondary).toBeTruthy();
+    expect(secondary?.chat.parent_chat_id).toBe(parentChatId);
+    expect(secondary?.chat.invoked_in_turn_id).toBe(parentTurn.id);
+    expect(secondary?.chat.pinned_item_id).toBe(item.id);
+    expect(secondary?.kickoffTurn?.id).toBe(res.body.kickoffTurnId);
+    expect(secondary?.kickoffTurn?.assistant_parts).toBeTruthy();
+  });
+
+  it('persists pinned_span_hint when provided', async () => {
+    const specificationId = await createTestSpecification('FE-716 span hint');
+    const item = await setupItem(specificationId);
+    const parentChatId = await getParentChatId(specificationId);
+    const { createTurn } = await import('./db.js');
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+
+    const res = await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+        spanHint: 'product-market fit',
+      })
+      .expect(200);
+
+    const snapshot = await getSpecificationSnapshot(specificationId);
+    const secondary = snapshot.secondaryChats?.find((row) => row.chat.id === res.body.chatId);
+    expect(secondary?.chat.pinned_span_hint).toBe('product-market fit');
+  });
+
+  it('rejects malformed bodies with 400', async () => {
+    const specificationId = await createTestSpecification('FE-716 bad body');
+    await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({ parentChatId: 'not-a-number' })
+      .expect(400);
+  });
+
+  it('returns 404 when the specification does not exist', async () => {
+    await request(app)
+      .post('/api/specifications/999999/secondary-chats')
+      .send({ parentChatId: 1, invokedInTurnId: 1, itemKind: 'goal', itemId: 1 })
+      .expect(404);
+  });
+
+  it('returns 404 when the pinned item does not exist in the specification', async () => {
+    const specificationId = await createTestSpecification('FE-716 missing item');
+    const parentChatId = await getParentChatId(specificationId);
+    const { createTurn } = await import('./db.js');
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+
+    await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: 999999,
+      })
+      .expect(404);
+  });
+});

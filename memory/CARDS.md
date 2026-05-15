@@ -63,11 +63,23 @@ C3 has been split into three sub-cards (C3a / C3b / C3c) for verifiable thin sli
 - **Verification:** `npm run verify` — 101 test files / 1287 tests pass. New tests in `src/client/components/__tests__/secondary-chat-collapsible.test.tsx` cover header presence, collapsed-by-default, expand-on-click reveals content, and empty-body fallback for missing kickoff.
 - **Scope adjustment from original C3b:** mounting in `-continuous-workspace-view.tsx` deferred to C3c. Reason: `WorkspaceTranscriptArtifacts` (556 LOC) is the actual turn-render seam; threading the collapsible through it is invasive enough to merit landing alongside the trigger that creates the rows in the first place. Building mounting now without a creation flow would require fixture-seeding side-channels.
 
-#### C3c — Wire: POST route + client trigger + view mounting (next)
+#### C3c-route — Server: `POST /api/specifications/:id/secondary-chats`
 
-- **What:** `POST /api/specifications/:id/secondary-chats` body `{ parentChatId, invokedInTurnId, itemKind, itemId, spanHint? }` → resolves item via `resolveEntity`, calls `createSecondaryChat` + `createKickoffTurn` with a templated kickoff string (UNIFIED_CHAT_UX.md §6 register), returns `{ chatId, kickoffTurnId }`. Client trigger gains a "create durable secondary chat" path; bundle is invalidated; `WorkspaceTranscriptArtifacts` accepts a `secondaryChatsByInvokedTurnId` map prop and mounts `<SecondaryChatCollapsible>` after each matching turn artifact.
-- **Acceptance:** POST creates a chat + kickoff turn; client trigger calls the endpoint; the new collapsible appears in the view after refetch under the correct parent turn.
-- **Verification:** route test + integration test.
+- **Status:** **done** (2026-05-15) — route + handler landed; client wiring + view mounting deferred to C3c-mount and C3c-wire.
+- **What:** New `src/server/secondary-chat-route.ts` exports `handleCreateSecondaryChatRequest(db, req, res)`. Body schema: `{ parentChatId, invokedInTurnId, itemKind, itemId, spanHint? }`. Validates spec exists, validates body shape, resolves the item via `getKnowledgeItem` (rejects if missing or wrong kind/spec), calls `createSecondaryChat` + `createKickoffTurn`, returns `{ chatId, kickoffTurnId }`. Kickoff content templated as `Anchored to '<item-content-snippet>'.` (with `, focused on '<spanHint>'` when provided) — minimal V1 wording; richer per-mode templates from UNIFIED_CHAT_UX.md §6 land alongside C4 (Ask/Edit toggle).
+- **Verification:** `npm run verify` — 101 test files / 1292 tests pass. New tests in `src/server/app.test.ts` cover happy path with bundle round-trip, span-hint persistence, 400 on bad body, 404 on missing spec, and 404 on missing item.
+
+#### C3c-mount — View: thread `secondaryChats` through to `<SecondaryChatCollapsible>` mounting (next)
+
+- **What:** `WorkspaceTranscriptArtifacts` accepts a `secondaryChatsByInvokedTurnId` map prop and renders `<SecondaryChatCollapsible>` after each turn artifact whose id matches a key. `-continuous-workspace-controller.ts` projects `specificationState.secondaryChats` into the map and threads it through; `-continuous-workspace-view.tsx` passes it to the artifacts renderer.
+- **Acceptance:** fixture-seeded secondary chat appears under the right turn; collapsed by default; no orphan render when the parent turn is unrendered.
+- **Verification:** vitest render tests in `-continuous-workspace-view.test.tsx`.
+
+#### C3c-wire — Client: trigger that calls the C3c-route POST + invalidates bundle (next)
+
+- **What:** New `useCreateSecondaryChat` mutation hook (or extension of an existing trigger) that POSTs to the C3c-route endpoint and invalidates the bundle query so C3c-mount picks up the new row. Initial trigger source TBD: simplest is a new "Open inline chat" button on the structured-list item row alongside (not replacing) the existing popover trigger, since SideChatPopover deletion is C8.
+- **Acceptance:** clicking the new trigger creates a secondary chat and reveals an inline collapsible without disturbing the existing popover path.
+- **Verification:** integration test + manual walkthrough.
 
 ### C4 — Ask / Edit mode toggle on secondary chats
 
