@@ -103,10 +103,10 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Linear:** unassigned in this plan snapshot
 - **Kind:** structural
 - **Status:** not-started
-- **Objective:** Implement transcript-first context provision for chats: turn-zero inserts explicit context snapshots derived from chat kind/strategy/anchors; `#` mention resolves to an inserted context snapshot plus an active context handle; before new assistant turns, stale handles detect newer graph item versions/fingerprints and insert fresh snapshots. Do not persist a hidden context-spec table by default. TOON or another compact graph serializer may format inserted snapshots/context packs.
+- **Objective:** Implement transcript-first context provision for chats: turn-zero inserts explicit context snapshots stored on turns and derived from chat kind/strategy/anchors; `#` mention resolves to item ids, an inserted context snapshot, and an active chat handle; before new assistant turns, stale handles detect newer graph item versions/fingerprints and insert fresh snapshots only for changed subjects. Do not persist a hidden context-spec table by default. TOON or another compact graph serializer may format inserted snapshots/context packs.
 - **Why now / unlocks:** Secondary chats and strategy chats need stable, replayable prompt context that survives multi-chat edits without ambient graph rehydration. Transcript-first snapshots let prompt/context engineering remain the authority while preserving replay and audit.
-- **Acceptance:** Chat prompts use transcript context first; initial anchors and mentions insert visible/replayable context snapshot artifacts; active handles refresh changed graph subjects by inserting new snapshots before the next assistant turn; snapshots preserve old versions rather than mutating; context builders can render snapshots via typed context packs; handles are revocable or expire by explicit transcript event/policy.
-- **Verification:** Context snapshot artifact tests, stale-handle refresh tests across changes from another chat, `#` mention resolution/disambiguation tests, prompt/context-pack golden tests, turn-zero prompt assembly tests per chat kind/strategy, and manual walkthroughs for side/qa/strategy chat context.
+- **Acceptance:** Chat prompts use transcript context first; initial anchors and mentions insert visible/replayable context snapshot artifacts on turns; active chat handles store referenced item ids plus last-snapshotted version/fingerprint and refresh changed graph subjects by inserting new snapshots before the next assistant turn; unchanged handles do not duplicate snapshots; snapshots preserve old versions rather than mutating; context builders can render one-or-more item snapshots, item-neighborhood snapshots, and economic whole-graph snapshots via typed context packs; neighborhood modes cover immediate adjacency, dependencies, dependents/impact, evidence, and reconciliation, with changeset-historical neighborhoods added once the ledger can identify original-capture and last-update surroundings; handles are revocable or expire by explicit transcript event/policy.
+- **Verification:** Context snapshot artifact tests; changeset-backed stale-handle refresh tests across changes from another chat; no-refresh tests for unchanged item versions; `#` mention resolution/disambiguation tests; structured JSON assertions plus selected golden renderings for item-list, neighborhood-mode, and economic-graph context builders; historical-neighborhood tests once changesets can identify original capture / last update context; turn-zero prompt assembly tests per chat kind/strategy; and manual walkthroughs for side/qa/strategy chat context. Handle freshness waits on real item versions from `changeset-ledger` rather than temporary fingerprints.
 - **Traceability:** Requirement 45; A80, A81, A84, A85, A95; D136, D137, D139, D140, D154; I112, I120.
 - **Design docs:** `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.5 + §5 Track 5; `docs/design/SPEC_EVOLUTION_STRATEGIES.md`; prompt/context pack docs.
 
@@ -131,8 +131,8 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Status:** not-started
 - **Objective:** Refine the ontology and relation policy so the graph can represent invariants, examples/counterexamples, constraint subtypes, narrowed decisions, witness strength, checkability gaps, and operational edge behavior as source/destination material for future generative features.
 - **Why now / unlocks:** Candidate generation, behavioral kernels, graph review, scenario-options acceleration, architect proposals, direct-edit cascade, and downstream verification-aware decomposition all need a sharper semantic target than the current exploration/review ontology. This semantic-layer lane is most likely to collide with parallel work, so it should land before broad observer enrichment or canonical candidate-bundle acceptance.
-- **Acceptance:** `invariant` and `example` are first-class durable kinds; examples are subtyped; `decision` is narrowed; `constraint`, `criterion`, and `invariant` semantics are enriched; `checkability` and witness strength are represented; relation families, negative relations, edge epistemic metadata, and relation-policy directionality are explicit.
-- **Verification:** Corpus/fixture observer probes comparing old vs refined ontology; relation-policy unit tests for mixed-direction relations; graph-review manual assessment for precision/noise; context-pack probe outputs show authority, witness, relation support, and directionality labels.
+- **Acceptance:** `invariant` and `example` are first-class durable kinds; examples are subtyped; `decision` is narrowed; `constraint`, `criterion`, and `invariant` semantics are enriched; `checkability` and witness strength are represented; relation families, negative relations, edge epistemic metadata, relation-policy directionality, and endpoint-relative display labels for dependency/dependent context snapshots are explicit.
+- **Verification:** Corpus/fixture observer probes comparing old vs refined ontology; relation-policy unit tests for mixed-direction relations and endpoint-relative labels; graph-review manual assessment for precision/noise; context-pack probe outputs show authority, witness, relation support, dependency/dependent grouping, and directionality labels.
 - **Traceability:** Requirement 38; A77, A78, A80, A81, A84; D134, D136, D137, D139, D140.
 - **Design docs:** `docs/design/INTENT_GRAPH_SEMANTICS.md`; `docs/archive/design/INTENT_SPEC_EVOLUTION.md`; FE-705 strategy/proposal notes for relation directionality.
 
@@ -388,8 +388,10 @@ continuous-workspace (Track 1, done — FE-709)
         ├──→ reconciliation-runtime (Track 3, also needs Track 4)
         └──→ chat-context-provision (Track 5; transcript-first snapshots/handles)
 changeset-ledger (Track 4, parallel with Track 2)
-  └──→ richer attribution in reconciliation-runtime (Track 3)
-        + unlocks architect-generator-loop and side-chat-v4b-item-versioning
+  ├──→ richer attribution in reconciliation-runtime (Track 3)
+  ├──→ real item versions for chat-context-provision handle freshness (Track 5)
+  ├──→ original-capture / last-update historical neighborhoods for context snapshots (Track 5)
+  └──→ unlocks architect-generator-loop and side-chat-v4b-item-versioning
 
 TRACK B — Agent fixture substrate / strangler handler seam
 prompt/context scenario substrate foundation (completed)
