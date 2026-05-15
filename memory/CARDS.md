@@ -20,10 +20,11 @@ Vocabulary: **secondary chat** (matches PR #139's lexicon). The `chat.parent_cha
 
 ### C0 — Bring forward `UNIFIED_CHAT_UX.md` design brief
 
-- **What:** Copy `docs/design/UNIFIED_CHAT_UX.md` verbatim from PR #138 onto this branch. Reconcile vocabulary in-doc: `thread` → `secondary chat`. Do not edit semantic content; this stays the canonical brief for future tracks.
+- **Status:** **done** (2026-05-15) — Option B chosen (verbatim body + prepended `<!-- Reading note (FE-716) -->` translation header mapping `thread` → `secondary chat` and noting D153 substrate deferral).
+- **What:** Copy `docs/design/UNIFIED_CHAT_UX.md` verbatim from PR #138 onto this branch. Body preserved unedited; reading-note header added for current readers. Brief stays the canonical UX ceiling for future tracks.
 - **Why first:** Zero substrate dependency; gives downstream cards a single in-tree reference. Cheap to land alone.
 - **Scope:** doc-only.
-- **Done when:** file exists on branch; vocabulary reconciled to "secondary chat"; referenced from PLAN.md frontier definition.
+- **Verification:** `npm run check` — 0 errors (6 pre-existing warnings unrelated). Body matches PR #138 commit `cd48b49a` byte-for-byte.
 
 ### C1 — Substrate migration: four columns on `chat`, zero enum changes
 
