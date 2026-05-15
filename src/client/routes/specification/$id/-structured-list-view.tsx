@@ -1,5 +1,14 @@
 import { useLocation, useNavigate } from '@tanstack/react-router';
-import { ArrowDownLeft, ArrowUpRight, Check, ChevronRight, MessageCircle, Pencil, X } from 'lucide-react';
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Check,
+  ChevronRight,
+  MessageCircle,
+  MessagesSquare,
+  Pencil,
+  X,
+} from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -16,6 +25,7 @@ import { kindAccentHex, kindColor, kindTextColor } from '@/client/components/kno
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
 import { usePatchList } from '@/client/components/patch-list-host.js';
 import { PendingReviewSection } from '@/client/components/pending-review-section.js';
+import { useSecondaryChatTrigger } from '@/client/components/secondary-chat-trigger.js';
 import { SelectionMenu } from '@/client/components/selection-menu.js';
 import { useSideChat } from '@/client/components/side-chat-host.js';
 import { Badge } from '@/client/components/ui/badge';
@@ -468,6 +478,15 @@ function ItemActionRail({
         })
     : undefined;
   const editEnabled = Boolean(onStartEdit) && !editDisabled;
+
+  const secondaryChatTrigger = useSecondaryChatTrigger();
+  const secondaryChatEnabled = Boolean(secondaryChatTrigger?.canCreate) && !secondaryChatTrigger?.isPending;
+  const handleOpenInlineChat = secondaryChatEnabled
+    ? () => {
+        void secondaryChatTrigger?.create({ kind: item.kind, id: item.id });
+      }
+    : undefined;
+
   return (
     <div
       data-graph-action-rail
@@ -500,6 +519,20 @@ function ItemActionRail({
         }
       >
         <MessageCircle className="size-3.5" />
+      </button>
+      <button
+        type="button"
+        data-graph-action="open-inline-chat"
+        disabled={!secondaryChatEnabled}
+        aria-label="Open inline chat about this item"
+        onClick={handleOpenInlineChat}
+        className={
+          secondaryChatEnabled
+            ? 'flex size-6 items-center justify-center rounded text-hint hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30'
+            : 'flex size-6 items-center justify-center rounded text-hint opacity-40'
+        }
+      >
+        <MessagesSquare className="size-3.5" />
       </button>
     </div>
   );

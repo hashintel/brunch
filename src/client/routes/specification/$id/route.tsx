@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 
 import { PatchListProvider, type PatchAppliers } from '@/client/components/patch-list-host.js';
 import { PatchListOverlay } from '@/client/components/patch-list-overlay.js';
+import { SecondaryChatTriggerProvider } from '@/client/components/secondary-chat-trigger.js';
 import { SideChatHost } from '@/client/components/side-chat-host.js';
 import { Skeleton } from '@/client/components/ui/skeleton';
 import { makeAnnotateApplier } from '@/client/lib/annotation-api.js';
@@ -52,24 +53,26 @@ export const Route = createFileRoute('/specification/$id')({
     return (
       <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={specificationState.specification.id}>
-          <WorkspaceFocusProvider>
-            <div className="flex h-full min-h-0 flex-1 flex-col">
-              <div className="flex min-h-0 flex-1">
-                <PhaseNavigationSidebar
-                  specificationId={specificationId}
-                  specificationName={specificationState.specification.name}
-                  workflow={specificationState.workflow}
-                  turns={specificationState.turns}
-                />
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                  <PatchListOverlay />
-                  <div className="min-h-0 flex-1 overflow-hidden">
-                    <Outlet />
+          <SecondaryChatTriggerProvider>
+            <WorkspaceFocusProvider>
+              <div className="flex h-full min-h-0 flex-1 flex-col">
+                <div className="flex min-h-0 flex-1">
+                  <PhaseNavigationSidebar
+                    specificationId={specificationId}
+                    specificationName={specificationState.specification.name}
+                    workflow={specificationState.workflow}
+                    turns={specificationState.turns}
+                  />
+                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                    <PatchListOverlay />
+                    <div className="min-h-0 flex-1 overflow-hidden">
+                      <Outlet />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </WorkspaceFocusProvider>
+            </WorkspaceFocusProvider>
+          </SecondaryChatTriggerProvider>
         </SideChatHost>
       </PatchListProvider>
     );

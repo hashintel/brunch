@@ -20,6 +20,7 @@ export const specificationSchema = z.object({
   name: z.string(),
   mode: specificationModeSchema,
   active_turn_id: z.number().int().positive().nullable(),
+  primary_chat_id: z.number().int().positive().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
 });
