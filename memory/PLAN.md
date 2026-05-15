@@ -27,7 +27,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ### Next
 
-1. `chat-runtime-threads` — Track 2 of the runtime umbrella; immediate successor to continuous-workspace, unblocker for Tracks 3 and 5. First slice should be a sub-RFC on the thread substrate shape (p / q / r).
+1. `chat-runtime-threads` — Track 2 of the runtime umbrella; immediate successor to continuous-workspace, unblocker for Tracks 3 and 5. First slice is a coordination sub-RFC on the thread substrate shape (p / q / r) that must reconcile chat/thread/turn responsibilities with chat-local strategies and prompt/context-pack ownership before any schema commitment.
 2. `intent-graph-semantics` — highest-coordination semantic substrate after FE-705 reconciliation.
 3. `changeset-ledger` — Track 4 of the runtime umbrella; parallel with Track 2; semantic history spine needed before canonical proposal acceptance, direct-edit atomicity, and productized scenario options.
 4. `thread-context-provision` — Track 5 of the runtime umbrella; after Track 2 lands the thread substrate.
@@ -80,7 +80,12 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Objective:** Add a thread primitive to the chat substrate, render threads inline as collapsibles in the main chat surface (Cursor-style), and retire the SideChatPopover and transient staged-patches strip. Decide the thread substrate shape via a sub-RFC: (p) `parent_chat_id` on `chat`, (q) new `thread` table, or (r) UI-only rendering.
 - **Why now / unlocks:** Track 1 (workspace shell) ships, providing the stable host. Threads are the critical unblocker for reconciliation absorption into the chat surface (Track 3), `#` mention / turn-zero / context provision (Track 5), and the retirement of the V3.1 popover and staged-patches surfaces. Supersedes the prior side-chat V4a persistence horizon — persistent side-chat history becomes the main chat stream where threads stay collapsed.
 - **Acceptance:** Thread kinds (`interview`, `side`, `reconciliation`, `qa`) are representable in the substrate; threads render inline as collapsibles in the unified chat surface; SideChatPopover retires as cutover; transient staged-patches strip retires (replaced by in-thread mutation state); turn-zero (`turn_kind='kickoff'`) becomes the universal thread entry.
+- **Status:** not-started
+- **Objective:** Add a thread primitive to the chat substrate, render threads inline as collapsibles in the main chat surface (Cursor-style), and retire the SideChatPopover and transient staged-patches strip. Decide the thread substrate shape via a sub-RFC: (p) `parent_chat_id` on `chat`, (q) new `thread` table, or (r) UI-only rendering.
+- **Why now / unlocks:** Track 1 (workspace shell) ships, providing the stable host. Threads are the critical unblocker for reconciliation absorption into the chat surface (Track 3), `#` mention / turn-zero / context provision (Track 5), and the retirement of the V3.1 popover and staged-patches surfaces. Supersedes the prior side-chat V4a persistence horizon — persistent side-chat history becomes the main chat stream where threads stay collapsed.
+- **Acceptance:** Thread kinds (`interview`, `side`, `reconciliation`, `qa`) are representable in the substrate; threads render inline as collapsibles in the unified chat surface; SideChatPopover retires as cutover; transient staged-patches strip retires (replaced by in-thread mutation state); turn-zero (`turn_kind='kickoff'`) becomes the universal thread entry.
 - **Verification:** Thread substrate schema/migration tests, in-stream collapsible rendering tests, manual walkthroughs for thread creation/display/collapse per kind, regression on existing interview flow.
+- **Traceability:** A82, A83, A88; D86, D87, D110, D114, D138, D146; I111, I113.
 - **Traceability:** A82, A83, A88; D86, D87, D110, D114, D138, D146; I111, I113.
 - **Design docs:** `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.2 + §5 Track 2; `docs/design/MULTI_CHAT.md`; `docs/design/SIDE_CHAT.md`.
 
@@ -94,7 +99,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Why now / unlocks:** Tracks 2 (chat runtime) and 4 (changeset ledger) provide the thread substrate and durable attribution. The reconciliation thread replaces the V3.1 Pending review section and the side-chat popover's reconciliation surface with a conversational target-grouped thread inside the main chat.
 - **Acceptance:** Reconciliation thread renders target-grouped (topologically sorted upstream-first per PATCH_LEDGER target ordering); async classifier runs in background; auto-confirmed never surfaces; auto-edit has one-click apply; substantive has judgment affordances; "Reconcile Now" trigger in workspace shell; standalone PendingReviewSection retired as cutover.
 - **Verification:** Reconciliation thread rendering tests, classifier scheduling tests, target-ordering tests, manual walkthroughs for async classification + Reconcile Now trigger, regression on existing reconciliation flow.
-- **Traceability:** A82, A88; D135, D137, D138, D146; I111, I113, I114.
+- **Traceability:** Requirement 45; A49, A88, A96; D135, D137, D138, D146, D153; I111, I113, I114, I120.
 - **Design docs:** `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.3 + §5 Track 3; `docs/design/MULTI_CHAT.md` §5; `docs/design/PATCH_LEDGER.md` §Target Ordering, §Reconciliation Flow.
 
 ### thread-context-provision
@@ -107,7 +112,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Why now / unlocks:** Track 2 (chat runtime) provides the thread substrate. Context provision makes threads conversationally useful by giving each thread kind appropriate context framing, durable mention tracking, and assistant-led turn-zero kickoffs instead of a blank textarea.
 - **Acceptance:** Thread context specs are persisted and replayable; `#` mention resolves to durable join rows and triggers context-spec change visible to the next turn's prompt assembler; TOON notation serializes graph structure for prompt context; turn-zero kickoff prompts are kind-appropriate; per-kind context-spec defaults apply correctly; mentions are revocable.
 - **Verification:** Context-spec persistence tests, `#` mention resolution/disambiguation tests, TOON serializer tests, turn-zero prompt assembly tests per kind, manual walkthroughs for each thread kind's context provision.
-- **Traceability:** A80, A81, A84, A85; D136, D137, D139, D140; I112.
+- **Traceability:** Requirement 45; A80, A81, A84, A85, A95; D136, D137, D139, D140, D153; I112, I120.
 - **Design docs:** `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.5 + §5 Track 5.
 
 ### agent-fixture-substrate
@@ -254,19 +259,6 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Verification:** Existing test suite plus import-boundary review; for the completed `db.ts` slice, focused store/route/workflow tests, `npm run check`, and `npm run build` pass.
 - **Traceability:** code organization convention in `AGENTS.md`.
 - **Design docs:** none.
-
-### side-chat-persistence-v4a
-
-- **Name:** Side-chat persistence — V4a (multi-chat Phase 2 substrate)
-- **Linear:** FE-675 umbrella, V4a half
-- **Kind:** structural
-- **Status:** horizon
-- **Objective:** Persist side-chat client turns into the existing `chat` / `turn` tables with `chat.kind='side_chat'`, load prior side-chat sessions on remount, and surface an "Old chats" affordance per pinned item/spec.
-- **Why now / unlocks:** Deprioritized below continuous workspace and semantic/generative substrate. Phase 1 substrate already ships schema support; the remaining decision is the anchor model (`chat` row anchor fields vs deferred `chat_focus` table).
-- **Acceptance:** Side-chat sessions survive remount/reload and remain coherent with graph truth without introducing a second workflow model.
-- **Verification:** Persistence/reload tests and manual side-chat walkthroughs.
-- **Traceability:** Requirement 39; D138; I111.
-- **Design docs:** `docs/design/MULTI_CHAT.md` §10 Phase 2; `docs/design/SIDE_CHAT.md` §9 V4 row.
 
 ### side-chat-v4b-item-versioning
 
