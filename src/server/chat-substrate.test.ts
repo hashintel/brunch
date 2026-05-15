@@ -1,6 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { advanceHead, createDb, createSpecification, createTurn, getSpecification, type DB } from './db.js';
+import {
+  advanceHead,
+  createDb,
+  createKickoffTurn,
+  createKnowledgeItem,
+  createSecondaryChat,
+  createSpecification,
+  createTurn,
+  getSpecification,
+  type DB,
+} from './db.js';
 
 let db: DB;
 
@@ -270,6 +280,70 @@ describe('chat container — secondary-chat columns', () => {
       name: string;
     }>;
     expect(columns.map((c) => c.name)).toContain('active_turn_id');
+  });
+});
+
+describe('createSecondaryChat', () => {
+  it('inserts a chat with kind=side_chat and the parent_chat_id pointer', () => {
+    const spec = createSpecification(db, 'Test');
+    const reread = getSpecification(db, spec.id);
+    const parentChatId = reread?.primary_chat_id;
+    expect(parentChatId).toBeTruthy();
+
+    const child = createSecondaryChat(db, spec.id, { parent_chat_id: parentChatId! });
+
+    expect(child.kind).toBe('side_chat');
+    expect(child.specification_id).toBe(spec.id);
+    expect(child.parent_chat_id).toBe(parentChatId);
+    expect(child.invoked_in_turn_id).toBeNull();
+    expect(child.pinned_item_id).toBeNull();
+    expect(child.pinned_span_hint).toBeNull();
+  });
+
+  it('persists invoked_in_turn_id, pinned_item_id, and pinned_span_hint when provided', () => {
+    const spec = createSpecification(db, 'Test');
+    const parentChatId = getSpecification(db, spec.id)!.primary_chat_id!;
+    const turn = createTurn(db, spec.id, { phase: 'grounding', question: 'Q' });
+    const item = createKnowledgeItem(db, spec.id, 'goal', 'Pinned goal');
+
+    const child = createSecondaryChat(db, spec.id, {
+      parent_chat_id: parentChatId,
+      invoked_in_turn_id: turn.id,
+      pinned_item_id: item.id,
+      pinned_span_hint: 'highlighted phrase',
+    });
+
+    expect(child.invoked_in_turn_id).toBe(turn.id);
+    expect(child.pinned_item_id).toBe(item.id);
+    expect(child.pinned_span_hint).toBe('highlighted phrase');
+  });
+
+  it('throws when parent_chat_id references a missing chat', () => {
+    const spec = createSpecification(db, 'Test');
+    expect(() => createSecondaryChat(db, spec.id, { parent_chat_id: 999999 })).toThrow(/FOREIGN KEY/i);
+  });
+});
+
+describe('createKickoffTurn', () => {
+  it('inserts a turn with turn_kind=kickoff in the given chat', () => {
+    const spec = createSpecification(db, 'Test');
+    const parentChatId = getSpecification(db, spec.id)!.primary_chat_id!;
+    const child = createSecondaryChat(db, spec.id, { parent_chat_id: parentChatId });
+
+    const kickoff = createKickoffTurn(db, child.id, {
+      phase: 'grounding',
+      content: "Editing 'item'. 3 related items may need updating.",
+    });
+
+    expect(kickoff.turn_kind).toBe('kickoff');
+    expect(kickoff.chat_id).toBe(child.id);
+    expect(kickoff.assistant_parts).toBe("Editing 'item'. 3 related items may need updating.");
+    expect(kickoff.specification_id).toBe(spec.id);
+    expect(kickoff.phase).toBe('grounding');
+  });
+
+  it('throws when the chat does not exist', () => {
+    expect(() => createKickoffTurn(db, 999999, { phase: 'grounding', content: 'x' })).toThrow();
   });
 });
 

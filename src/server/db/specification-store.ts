@@ -11,6 +11,7 @@ type PersistedTurn = InferSelectModel<typeof schema.turn>;
 export type Turn = Omit<PersistedTurn, 'specification_id'> & {
   specification_id: number;
 };
+export type Chat = InferSelectModel<typeof schema.chat>;
 export type Option = InferSelectModel<typeof schema.option>;
 export type Phase = Turn['phase'];
 export type Impact = NonNullable<Turn['impact']>;
@@ -151,6 +152,58 @@ export function createTurn(db: DB, specificationId: number, input: CreateTurnInp
     .returning()
     .get();
   return result as Turn;
+}
+
+export interface CreateSecondaryChatInput {
+  parent_chat_id: number;
+  invoked_in_turn_id?: number | null;
+  pinned_item_id?: number | null;
+  pinned_span_hint?: string | null;
+}
+
+export function createSecondaryChat(db: DB, specificationId: number, input: CreateSecondaryChatInput): Chat {
+  return db
+    .insert(schema.chat)
+    .values({
+      specification_id: specificationId,
+      kind: 'side_chat',
+      parent_chat_id: input.parent_chat_id,
+      invoked_in_turn_id: input.invoked_in_turn_id ?? null,
+      pinned_item_id: input.pinned_item_id ?? null,
+      pinned_span_hint: input.pinned_span_hint ?? null,
+    })
+    .returning()
+    .get() as Chat;
+}
+
+export interface CreateKickoffTurnInput {
+  phase: Phase;
+  content: string;
+}
+
+export function createKickoffTurn(db: DB, chatId: number, input: CreateKickoffTurnInput): Turn {
+  const chat = db
+    .select({ specification_id: schema.chat.specification_id })
+    .from(schema.chat)
+    .where(eq(schema.chat.id, chatId))
+    .get();
+  if (!chat) {
+    throw new Error(`Chat ${chatId} not found`);
+  }
+
+  return db
+    .insert(schema.turn)
+    .values({
+      specification_id: chat.specification_id,
+      chat_id: chatId,
+      parent_turn_id: null,
+      phase: input.phase,
+      turn_kind: 'kickoff',
+      question: '',
+      assistant_parts: input.content,
+    })
+    .returning()
+    .get() as Turn;
 }
 
 export interface UpdateTurnInput {

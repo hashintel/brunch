@@ -33,12 +33,15 @@ Vocabulary: **secondary chat** (matches PR #139's lexicon). The `chat.parent_cha
 - **Verification:** `npm run verify` — 100 test files / 1272 tests pass; build clean. New tests in `src/server/chat-substrate.test.ts` cover column shape, index presence, FK integrity (parent_chat_id, pinned_item_id, invoked_in_turn_id all reject missing targets), nullable inserts, and `chat.active_turn_id` preservation.
 - **Out of scope:** any new enum value; the `thread` table; `turn.thread_id`; `thread_context_item`.
 
-### C2 — Server: chat-creation surface for secondary chats + turn-zero kickoff
+### C2 — Server: `createSecondaryChat` + `createKickoffTurn` helpers
 
-- **What:** Either rename/repurpose the existing side-chat creation route or add a `POST /api/specifications/:id/chats` (TBD during the card; #138's `POST /api/specifications/:id/threads` is the harvest reference) that accepts `parent_chat_id`, `invoked_in_turn_id`, `pinned_item_id`, `pinned_span_hint`, `kind='side_chat'`, and creates the chat plus a turn-zero `turn` with `turn_kind='kickoff'` and an assistant-authored intro that includes server-supplied context snapshots (V1: anchor item snapshot derived inline; full Track 5 snapshot builder lifecycle deferred).
-- **Why third:** Once substrate exists, we need durable persistence on the create path before any UI rebuild.
-- **Verification:** route tests for create + persistence + reload; one-open-frontier-per-chat invariant test; kickoff turn rendered with snapshot payload.
-- **Harvest:** `src/server/side-chat-route.ts`, `src/server/side-chat-prompt.ts`, #138's threads endpoint.
+- **Status:** **done** (2026-05-15) — helpers + tests landed; route deferred to C3 to avoid speculative scaffolding (no consumer until UI wires up).
+- **What:** Two new public DB helpers exported from [src/server/db.ts](file:///Users/kostandin/Projects/hashdev/brunch/src/server/db.ts):
+  - `createSecondaryChat(db, specId, { parent_chat_id, invoked_in_turn_id?, pinned_item_id?, pinned_span_hint? })` — inserts a `chat` row with `kind='side_chat'` and the four C1 columns; returns `Chat`.
+  - `createKickoffTurn(db, chatId, { phase, content })` — inserts a `turn` with `turn_kind='kickoff'`, `chat_id=chatId`, and `assistant_parts=content`; resolves the chat's `specification_id` automatically; returns `Turn`.
+- **Verification:** `npm run verify` — 100 test files / 1277 tests pass. New tests in [src/server/chat-substrate.test.ts](file:///Users/kostandin/Projects/hashdev/brunch/src/server/chat-substrate.test.ts) cover happy-path persistence, optional column population, FK rejection, kickoff turn metadata, and error on missing chat.
+- **Out of scope (moved to C3):** `POST /api/specifications/:id/secondary-chats` route. Building it without a consumer is speculative; C3 will define the route alongside the UI client that calls it.
+- **Harvest reference:** `src/server/side-chat-route.ts`, `src/server/side-chat-prompt.ts`, PR #138's threads endpoint.
 
 ### C3 — Client: `secondary-chat-collapsible` inline component
 

@@ -115,7 +115,9 @@ export type {
 export {
   advanceHead,
   applyTurnResponseSelections,
+  createKickoffTurn,
   createOption,
+  createSecondaryChat,
   createSpecification,
   createTurn,
   getActivePath,
@@ -128,7 +130,10 @@ export {
   updateTurn,
 } from './db/specification-store.js';
 export type {
+  Chat,
+  CreateKickoffTurnInput,
   CreateOptionInput,
+  CreateSecondaryChatInput,
   CreateSpecificationOptions,
   CreateTurnInput,
   Impact,
