@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql, type InferSelectModel } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, sql, type InferSelectModel } from 'drizzle-orm';
 
 import type { SpecificationMode, TurnKind } from '@/shared/api-types.js';
 
@@ -179,6 +179,34 @@ export function createSecondaryChat(db: DB, specificationId: number, input: Crea
 export interface CreateKickoffTurnInput {
   phase: Phase;
   content: string;
+}
+
+export interface SecondaryChatWithKickoff {
+  chat: Chat;
+  kickoffTurn: Turn | null;
+}
+
+export function listSecondaryChatsForSpecification(
+  db: DB,
+  specificationId: number,
+): SecondaryChatWithKickoff[] {
+  const chats = db
+    .select()
+    .from(schema.chat)
+    .where(and(eq(schema.chat.specification_id, specificationId), isNotNull(schema.chat.parent_chat_id)))
+    .orderBy(asc(schema.chat.id))
+    .all() as Chat[];
+
+  return chats.map((chat) => {
+    const kickoffTurn = (db
+      .select()
+      .from(schema.turn)
+      .where(and(eq(schema.turn.chat_id, chat.id), eq(schema.turn.turn_kind, 'kickoff')))
+      .orderBy(asc(schema.turn.id))
+      .limit(1)
+      .get() ?? null) as Turn | null;
+    return { chat, kickoffTurn };
+  });
 }
 
 export function createKickoffTurn(db: DB, chatId: number, input: CreateKickoffTurnInput): Turn {

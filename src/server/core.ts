@@ -21,6 +21,7 @@ import {
   getOptionsForTurn,
   getSpecification,
   getTurn,
+  listSecondaryChatsForSpecification,
   listSpecifications as listPersistedSpecifications,
   updateTurn,
   type CreateSpecificationOptions,
@@ -132,12 +133,29 @@ export function readSpecificationStateProjection(db: DB, specificationId: number
   const turns = loadActivePathWithOptions(db, specificationId);
   const workflow = getCurrentWorkflowState(db, specificationId);
   const structuralArtifactTurnIds = getStructuralArtifactTurnIds(db, specificationId);
+  const secondaryChats = listSecondaryChatsForSpecification(db, specificationId).map(
+    ({ chat, kickoffTurn }) => ({
+      chat: {
+        id: chat.id,
+        specification_id: chat.specification_id,
+        kind: chat.kind,
+        parent_chat_id: chat.parent_chat_id,
+        invoked_in_turn_id: chat.invoked_in_turn_id,
+        pinned_item_id: chat.pinned_item_id,
+        pinned_span_hint: chat.pinned_span_hint,
+      },
+      kickoffTurn: kickoffTurn
+        ? toSpecificationTurn({ ...kickoffTurn, options: [], captured_items: [] })
+        : null,
+    }),
+  );
   return {
     specification: toSpecification(specification),
     workflow,
     landing: deriveSpecificationLanding({ workflow, turns, structuralArtifactTurnIds }),
     turns,
     structuralArtifactTurnIds,
+    secondaryChats,
   };
 }
 

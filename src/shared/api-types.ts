@@ -118,12 +118,26 @@ export const specificationListItemSchema = specificationSchema.extend({
 
 export const specificationListItemsSchema = z.array(specificationListItemSchema);
 
+export const secondaryChatStateSchema = z.object({
+  chat: z.object({
+    id: z.number().int().positive(),
+    specification_id: z.number().int().positive(),
+    kind: z.string(),
+    parent_chat_id: z.number().int().positive().nullable(),
+    invoked_in_turn_id: z.number().int().positive().nullable(),
+    pinned_item_id: z.number().int().positive().nullable(),
+    pinned_span_hint: z.string().nullable(),
+  }),
+  kickoffTurn: specificationStateTurnSchema.nullable(),
+});
+
 export const specificationStateSchema = z.object({
   specification: specificationSchema,
   workflow: workflowStateSchema,
   landing: specificationLandingSchema.nullable().optional(),
   turns: z.array(specificationStateTurnSchema),
   structuralArtifactTurnIds: z.array(z.number().int().positive()).optional(),
+  secondaryChats: z.array(secondaryChatStateSchema).optional(),
 });
 
 const knowledgeItemKindSchema = z.enum(knowledgeKinds);

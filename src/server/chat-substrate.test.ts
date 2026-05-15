@@ -9,6 +9,7 @@ import {
   createSpecification,
   createTurn,
   getSpecification,
+  listSecondaryChatsForSpecification,
   type DB,
 } from './db.js';
 
@@ -344,6 +345,90 @@ describe('createKickoffTurn', () => {
 
   it('throws when the chat does not exist', () => {
     expect(() => createKickoffTurn(db, 999999, { phase: 'grounding', content: 'x' })).toThrow();
+  });
+});
+
+describe('listSecondaryChatsForSpecification', () => {
+  it('returns empty array when no secondary chats exist', () => {
+    const spec = createSpecification(db, 'Test');
+    const rows = listSecondaryChatsForSpecification(db, spec.id);
+    expect(rows).toEqual([]);
+  });
+
+  it('returns each secondary chat with its kickoff turn populated', () => {
+    const spec = createSpecification(db, 'Test');
+    const parentChatId = getSpecification(db, spec.id)!.primary_chat_id!;
+    const parentTurn = createTurn(db, spec.id, { phase: 'grounding', question: 'Q' });
+
+    const child = createSecondaryChat(db, spec.id, {
+      parent_chat_id: parentChatId,
+      invoked_in_turn_id: parentTurn.id,
+    });
+    const kickoff = createKickoffTurn(db, child.id, {
+      phase: 'grounding',
+      content: 'kickoff body',
+    });
+
+    const rows = listSecondaryChatsForSpecification(db, spec.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].chat.id).toBe(child.id);
+    expect(rows[0].chat.parent_chat_id).toBe(parentChatId);
+    expect(rows[0].chat.invoked_in_turn_id).toBe(parentTurn.id);
+    expect(rows[0].kickoffTurn?.id).toBe(kickoff.id);
+    expect(rows[0].kickoffTurn?.assistant_parts).toBe('kickoff body');
+  });
+
+  it('returns kickoffTurn=null for a secondary chat without a kickoff turn', () => {
+    const spec = createSpecification(db, 'Test');
+    const parentChatId = getSpecification(db, spec.id)!.primary_chat_id!;
+    const child = createSecondaryChat(db, spec.id, { parent_chat_id: parentChatId });
+
+    const rows = listSecondaryChatsForSpecification(db, spec.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].chat.id).toBe(child.id);
+    expect(rows[0].kickoffTurn).toBeNull();
+  });
+
+  it('does not return the primary interview chat', () => {
+    const spec = createSpecification(db, 'Test');
+    const rows = listSecondaryChatsForSpecification(db, spec.id);
+    expect(rows).toEqual([]);
+  });
+
+  it('scopes results to the given specification', () => {
+    const specA = createSpecification(db, 'A');
+    const specB = createSpecification(db, 'B');
+    const parentA = getSpecification(db, specA.id)!.primary_chat_id!;
+    const parentB = getSpecification(db, specB.id)!.primary_chat_id!;
+    createSecondaryChat(db, specA.id, { parent_chat_id: parentA });
+    createSecondaryChat(db, specB.id, { parent_chat_id: parentB });
+
+    const rowsA = listSecondaryChatsForSpecification(db, specA.id);
+    const rowsB = listSecondaryChatsForSpecification(db, specB.id);
+    expect(rowsA).toHaveLength(1);
+    expect(rowsB).toHaveLength(1);
+    expect(rowsA[0].chat.specification_id).toBe(specA.id);
+    expect(rowsB[0].chat.specification_id).toBe(specB.id);
+  });
+});
+
+describe('SpecificationState bundle', () => {
+  it('includes secondaryChats in getSpecificationState response', async () => {
+    const { getSpecificationState } = await import('./core.js');
+    const spec = createSpecification(db, 'Test');
+    const parentChatId = getSpecification(db, spec.id)!.primary_chat_id!;
+    const parentTurn = createTurn(db, spec.id, { phase: 'grounding', question: 'Q' });
+    const child = createSecondaryChat(db, spec.id, {
+      parent_chat_id: parentChatId,
+      invoked_in_turn_id: parentTurn.id,
+    });
+    createKickoffTurn(db, child.id, { phase: 'grounding', content: 'hi' });
+
+    const state = getSpecificationState(db, spec.id);
+    expect(state).toBeTruthy();
+    expect(state?.secondaryChats).toHaveLength(1);
+    expect(state?.secondaryChats?.[0].chat.id).toBe(child.id);
+    expect(state?.secondaryChats?.[0].kickoffTurn?.assistant_parts).toBe('hi');
   });
 });
 

@@ -45,11 +45,28 @@ Vocabulary: **secondary chat** (matches PR #139's lexicon). The `chat.parent_cha
 
 ### C3 — Client: `secondary-chat-collapsible` inline component
 
-- **What:** Build the inline collapsible UI for `chat.parent_chat_id IS NOT NULL` chats, anchored under their `invoked_in_turn_id` in the parent transcript. Driven entirely by the projection rule — no flavor enum needed. Replace `SideChatHost`'s popover plumbing with inline rendering inside `ContinuousWorkspaceView`.
-- **Why fourth:** First user-visible artifact; depends on C1 + C2.
-- **Verification:** rendering tests for inline placement and collapse/expand state; reload preserves expand/collapse; one-open-frontier-per-chat reflected in UI; manual walkthrough of side-chat creation through the new surface.
-- **Harvest:** `thread-collapsible.tsx` from #138 (rename to `secondary-chat-collapsible.tsx`); `src/client/components/side-chat-host.tsx` shrinkage pattern (940 → 95 LOC in #138).
-- **Out of scope:** popover deletion (C8), Ask/Edit toggle (C4), patch staging (C5), `#` injection (C6).
+C3 has been split into three sub-cards (C3a / C3b / C3c) for verifiable thin slices. Original "What" preserved below for reference.
+
+- **C3 original What:** Build the inline collapsible UI for `chat.parent_chat_id IS NOT NULL` chats, anchored under their `invoked_in_turn_id` in the parent transcript. Driven entirely by the projection rule — no flavor enum needed. Replace `SideChatHost`'s popover plumbing with inline rendering inside `ContinuousWorkspaceView`.
+- **Out of scope (across all sub-cards):** popover deletion (C8), Ask/Edit toggle (C4), patch staging (C5), `#` injection (C6).
+
+#### C3a — Server: `listSecondaryChatsForSpecification` + bundle field
+
+- **Status:** **done** (2026-05-15) — list helper, `SecondaryChatWithKickoff` type, bundle `secondaryChats` field, and Zod schema all landed.
+- **What:** New helper `listSecondaryChatsForSpecification(db, specId) → SecondaryChatWithKickoff[]` returns secondary chats (rows with `parent_chat_id IS NOT NULL`) with each chat's first kickoff turn (or null). `readSpecificationStateProjection` includes the projected `secondaryChats` field; `specificationStateSchema` extended with `secondaryChatStateSchema`.
+- **Verification:** `npm run verify` — 100 test files / 1283 tests pass. New tests cover empty/single/multi-spec scoping, kickoff turn population, missing-kickoff null fallback, primary-chat exclusion, and bundle inclusion via `getSpecificationState`.
+
+#### C3b — Render: `<SecondaryChatCollapsible>` mounted in workspace view (next)
+
+- **What:** New `secondary-chat-collapsible.tsx` component renders the kickoff turn's `assistant_parts`, collapsed by default. `-continuous-workspace-view.tsx` mounts it under the matching `invoked_in_turn_id` turn, dropping it silently if the parent turn isn't rendered.
+- **Acceptance:** fixture-seeded secondary chat appears under the right turn; collapsed by default; expand reveals kickoff content; no orphan render.
+- **Verification:** vitest render tests in `-continuous-workspace-view.test.tsx`.
+
+#### C3c — Wire: POST route + client trigger + bundle refetch (next)
+
+- **What:** `POST /api/specifications/:id/secondary-chats` body `{ parentChatId, invokedInTurnId, itemKind, itemId, spanHint? }` → resolves item via `resolveEntity`, calls `createSecondaryChat` + `createKickoffTurn` with a templated kickoff string (UNIFIED_CHAT_UX.md §6 register), returns `{ chatId, kickoffTurnId }`. Client trigger gains a "create durable secondary chat" path; bundle is invalidated so C3b's render path picks up the new row.
+- **Acceptance:** POST creates a chat + kickoff turn; client trigger calls the endpoint; the new collapsible appears in the view after refetch.
+- **Verification:** route test + integration test.
 
 ### C4 — Ask / Edit mode toggle on secondary chats
 
