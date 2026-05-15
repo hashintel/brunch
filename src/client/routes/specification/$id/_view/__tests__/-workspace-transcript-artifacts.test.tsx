@@ -7,13 +7,12 @@ import { z } from 'zod/v4';
 import { secondaryChatStateSchema } from '@/shared/api-types.js';
 import type { SpecificationTurn } from '@/shared/specification.js';
 
-vi.mock('@/client/components/secondary-chat-trigger', () => ({
-  useSetSecondaryChatModeMutation: () => ({
-    setMode: vi.fn(),
-    isPending: false,
-    errorMessage: null,
-    clearError: vi.fn(),
-  }),
+vi.mock('@/client/components/secondary-chat-host', () => ({
+  // Test renders this stub so mounting position can be asserted without
+  // pulling in router context, mode mutations, or the streaming pipeline.
+  SecondaryChatHost: ({ secondaryChat }: { secondaryChat: { chat: { id: number } } }) => (
+    <div data-testid="secondary-chat-collapsible" data-secondary-chat-id={secondaryChat.chat.id} />
+  ),
 }));
 
 import type { WorkspaceStreamArtifact } from '../-workspace-stream-projector.js';

@@ -161,3 +161,88 @@ describe('SecondaryChatCollapsible', () => {
     expect(screen.getByTestId('secondary-chat-mode-edit').hasAttribute('disabled')).toBe(true);
   });
 });
+
+describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
+  function makeUserTurn(id: number, text: string): SecondaryChat['turns'][number] {
+    return {
+      id,
+      specification_id: 1,
+      parent_turn_id: null,
+      phase: 'grounding',
+      turn_kind: 'question',
+      question: '',
+      why: null,
+      impact: null,
+      answer: null,
+      is_resolution: false,
+      user_parts: text,
+      assistant_parts: null,
+      created_at: '',
+    };
+  }
+
+  function makeAssistantTurn(id: number, text: string): SecondaryChat['turns'][number] {
+    return {
+      id,
+      specification_id: 1,
+      parent_turn_id: null,
+      phase: 'grounding',
+      turn_kind: 'question',
+      question: '',
+      why: null,
+      impact: null,
+      answer: null,
+      is_resolution: false,
+      user_parts: null,
+      assistant_parts: text,
+      created_at: '',
+    };
+  }
+
+  it('renders persisted user/assistant turns under the kickoff body when expanded', () => {
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [makeUserTurn(10, 'why?'), makeAssistantTurn(11, 'because.')],
+    };
+    render(<SecondaryChatCollapsible secondaryChat={chat} />);
+    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    expect(screen.getByText('why?')).toBeTruthy();
+    expect(screen.getByText('because.')).toBeTruthy();
+  });
+
+  it('renders the composer when onSubmitMessage is provided and submits trimmed text', () => {
+    const onSubmitMessage = vi.fn();
+    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [] };
+    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={onSubmitMessage} />);
+    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    const input = screen.getByTestId('secondary-chat-composer-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '  hello  ' } });
+    fireEvent.click(screen.getByTestId('secondary-chat-composer-send'));
+    expect(onSubmitMessage).toHaveBeenCalledWith('hello');
+    expect(input.value).toBe('');
+  });
+
+  it('does not render the composer when onSubmitMessage is omitted', () => {
+    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [] };
+    render(<SecondaryChatCollapsible secondaryChat={chat} />);
+    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    expect(screen.queryByTestId('secondary-chat-composer')).toBeNull();
+  });
+
+  it('renders streaming assistant text and disables the composer while isStreaming is true', () => {
+    const onSubmitMessage = vi.fn();
+    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [] };
+    render(
+      <SecondaryChatCollapsible
+        secondaryChat={chat}
+        onSubmitMessage={onSubmitMessage}
+        streamingAssistantText="streaming reply..."
+        isStreaming
+      />,
+    );
+    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    expect(screen.getByTestId('secondary-chat-streaming-assistant').textContent).toBe('streaming reply...');
+    expect((screen.getByTestId('secondary-chat-composer-input') as HTMLInputElement).disabled).toBe(true);
+  });
+});

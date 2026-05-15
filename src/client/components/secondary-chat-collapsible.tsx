@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { z } from 'zod/v4';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
@@ -7,6 +8,7 @@ import type { secondaryChatStateSchema } from '@/shared/api-types.js';
 import type { SecondaryChatMode } from './secondary-chat-trigger.js';
 
 type SecondaryChat = z.infer<typeof secondaryChatStateSchema>;
+type SecondaryChatTurn = SecondaryChat['turns'][number];
 
 export interface SecondaryChatCollapsibleProps {
   secondaryChat: SecondaryChat;
@@ -16,12 +18,28 @@ export interface SecondaryChatCollapsibleProps {
    */
   onSetMode?: (mode: SecondaryChatMode) => void;
   isModeUpdating?: boolean;
+  /**
+   * Optional composer hook. When provided, a single-line composer is rendered
+   * below the persisted turns; submitting calls `onSubmitMessage` with the
+   * trimmed input. The host (`SecondaryChatHost`) wires this to the C5a route.
+   */
+  onSubmitMessage?: (message: string) => void;
+  /**
+   * Optional in-flight assistant text to render after persisted turns while a
+   * stream is mid-flight. Disappears when the bundle invalidates and the
+   * persisted assistant turn replaces it.
+   */
+  streamingAssistantText?: string;
+  isStreaming?: boolean;
 }
 
 export function SecondaryChatCollapsible({
   secondaryChat,
   onSetMode,
   isModeUpdating,
+  onSubmitMessage,
+  streamingAssistantText,
+  isStreaming,
 }: SecondaryChatCollapsibleProps) {
   const kickoffContent = secondaryChat.kickoffTurn?.assistant_parts ?? '';
   const mode = secondaryChat.chat.mode ?? 'explore';
@@ -46,11 +64,82 @@ export function SecondaryChatCollapsible({
       </div>
       <CollapsibleContent
         data-testid="secondary-chat-collapsible-body"
-        className="pt-2 whitespace-pre-wrap text-foreground"
+        className="flex flex-col gap-2 pt-2 text-foreground"
       >
-        {kickoffContent}
+        {kickoffContent && <div className="whitespace-pre-wrap">{kickoffContent}</div>}
+        {secondaryChat.turns.map((turn) => (
+          <SecondaryChatTurnRow key={turn.id} turn={turn} />
+        ))}
+        {isStreaming && streamingAssistantText !== undefined && (
+          <div data-testid="secondary-chat-streaming-assistant" className="whitespace-pre-wrap text-sub">
+            {streamingAssistantText}
+          </div>
+        )}
+        {onSubmitMessage && (
+          <SecondaryChatComposer onSubmitMessage={onSubmitMessage} disabled={isStreaming} />
+        )}
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+function SecondaryChatTurnRow({ turn }: { turn: SecondaryChatTurn }) {
+  if (turn.user_parts !== null && turn.user_parts !== undefined) {
+    return (
+      <div data-testid="secondary-chat-user-turn" className="whitespace-pre-wrap text-foreground">
+        {turn.user_parts}
+      </div>
+    );
+  }
+  if (turn.assistant_parts !== null && turn.assistant_parts !== undefined) {
+    return (
+      <div data-testid="secondary-chat-assistant-turn" className="whitespace-pre-wrap text-sub">
+        {turn.assistant_parts}
+      </div>
+    );
+  }
+  return null;
+}
+
+function SecondaryChatComposer({
+  onSubmitMessage,
+  disabled,
+}: {
+  onSubmitMessage: (message: string) => void;
+  disabled?: boolean;
+}) {
+  const [draft, setDraft] = useState('');
+
+  return (
+    <form
+      data-testid="secondary-chat-composer"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const trimmed = draft.trim();
+        if (trimmed.length === 0 || disabled) return;
+        onSubmitMessage(trimmed);
+        setDraft('');
+      }}
+      className="flex items-center gap-2 pt-1"
+    >
+      <input
+        data-testid="secondary-chat-composer-input"
+        type="text"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        disabled={disabled}
+        placeholder="Ask a follow-up…"
+        className="flex-1 rounded border border-rule bg-background px-2 py-1 text-sm focus:ring-1 focus:ring-rule focus:outline-none"
+      />
+      <button
+        type="submit"
+        data-testid="secondary-chat-composer-send"
+        disabled={disabled || draft.trim().length === 0}
+        className="rounded border border-rule bg-tint px-2 py-1 text-xs text-ink disabled:opacity-50"
+      >
+        Send
+      </button>
+    </form>
   );
 }
 
