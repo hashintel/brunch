@@ -28,11 +28,10 @@ Vocabulary: **secondary chat** (matches PR #139's lexicon). The `chat.parent_cha
 
 ### C1 — Substrate migration: four columns on `chat`, zero enum changes
 
-- **What:** Drizzle migration adding `parent_chat_id UUID NULL REFERENCES chat(id)`, `invoked_in_turn_id UUID NULL REFERENCES turn(id)`, `pinned_item_id UUID NULL REFERENCES knowledge_item(id)`, `pinned_span_hint TEXT NULL`. Update `src/server/schema.ts` to match. **Do not** change `chat.kind` enum (stays `interview` + `side_chat`). **Do not** retire `chat.active_turn_id` (#138's retirement reverses).
-- **Why second:** Substrate-first lets every later card build on durable rows instead of ephemeral wiring.
-- **Verification:** `npm run verify`; migration applies cleanly to a fresh `.brunch/brunch.db` and to a DB seeded with V3.1 side-chats; column constraints assert nullability and FK integrity.
-- **Out of scope:** any new enum value (`reconciliation`, `qa`, `strategy`, `agent_run`); the `thread` table; `turn.thread_id`; `thread_context_item`.
-- **Open question this card resolves:** none — agent-run kind decision is deferred to C7.
+- **Status:** **done** (2026-05-15) — `drizzle/0020_chat_secondary_chat_columns.sql` adds the four nullable integer/text columns + two non-unique indexes; `src/server/schema.ts` chat table promoted to `(table) => […])` form to declare the indexes. Real schema uses `integer` ids (HANDOFF's UUID was illustrative). Resolved: `invoked_in_turn_id` kept (denormalized anchor); `pinned_reconciliation_need_id` deferred; per-turn span-hint not in V1; `parent_chat_id` + `invoked_in_turn_id` indexed.
+- **What:** Drizzle migration adding `parent_chat_id integer NULL REFERENCES chat(id)`, `invoked_in_turn_id integer NULL REFERENCES turn(id)`, `pinned_item_id integer NULL REFERENCES knowledge_item(id)`, `pinned_span_hint text NULL` + indexes `chat_parent_chat_id_idx` and `chat_invoked_in_turn_id_idx`. `chat.kind` enum unchanged; `chat.active_turn_id` preserved.
+- **Verification:** `npm run verify` — 100 test files / 1272 tests pass; build clean. New tests in `src/server/chat-substrate.test.ts` cover column shape, index presence, FK integrity (parent_chat_id, pinned_item_id, invoked_in_turn_id all reject missing targets), nullable inserts, and `chat.active_turn_id` preservation.
+- **Out of scope:** any new enum value; the `thread` table; `turn.thread_id`; `thread_context_item`.
 
 ### C2 — Server: chat-creation surface for secondary chats + turn-zero kickoff
 

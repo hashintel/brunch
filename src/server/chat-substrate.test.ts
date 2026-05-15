@@ -161,6 +161,118 @@ describe('chat container — head mirroring atomicity', () => {
   });
 });
 
+describe('chat container — secondary-chat columns', () => {
+  it('chat table has the four new secondary-chat columns', () => {
+    const columns = db.$client.prepare("PRAGMA table_info('chat')").all() as Array<{
+      name: string;
+      type: string;
+      notnull: number;
+    }>;
+    const byName = new Map(columns.map((c) => [c.name, c]));
+
+    const parent = byName.get('parent_chat_id');
+    expect(parent).toBeDefined();
+    expect(parent?.type.toUpperCase()).toBe('INTEGER');
+    expect(parent?.notnull).toBe(0);
+
+    const invoked = byName.get('invoked_in_turn_id');
+    expect(invoked).toBeDefined();
+    expect(invoked?.type.toUpperCase()).toBe('INTEGER');
+    expect(invoked?.notnull).toBe(0);
+
+    const pinnedItem = byName.get('pinned_item_id');
+    expect(pinnedItem).toBeDefined();
+    expect(pinnedItem?.type.toUpperCase()).toBe('INTEGER');
+    expect(pinnedItem?.notnull).toBe(0);
+
+    const pinnedSpan = byName.get('pinned_span_hint');
+    expect(pinnedSpan).toBeDefined();
+    expect(pinnedSpan?.type.toUpperCase()).toBe('TEXT');
+    expect(pinnedSpan?.notnull).toBe(0);
+  });
+
+  it('chat table has indexes on parent_chat_id and invoked_in_turn_id', () => {
+    const indexes = db.$client.prepare("PRAGMA index_list('chat')").all() as Array<{
+      name: string;
+    }>;
+    const indexedColumns = new Set<string>();
+    for (const ix of indexes) {
+      const cols = db.$client.prepare(`PRAGMA index_info('${ix.name}')`).all() as Array<{
+        name: string;
+      }>;
+      for (const c of cols) indexedColumns.add(c.name);
+    }
+    expect(indexedColumns).toContain('parent_chat_id');
+    expect(indexedColumns).toContain('invoked_in_turn_id');
+  });
+
+  it('chat row insert with all four new columns null succeeds', () => {
+    const spec = createSpecification(db, 'Test');
+    const result = db.$client
+      .prepare(
+        `INSERT INTO chat (specification_id, kind, parent_chat_id, invoked_in_turn_id, pinned_item_id, pinned_span_hint)
+         VALUES (?, 'side_chat', NULL, NULL, NULL, NULL)`,
+      )
+      .run(spec.id);
+    expect(result.changes).toBe(1);
+  });
+
+  it('chat row with parent_chat_id pointing to another chat in the same spec succeeds', () => {
+    const spec = createSpecification(db, 'Test');
+    const parentRow = db.$client
+      .prepare("SELECT id FROM chat WHERE specification_id = ? AND kind = 'interview'")
+      .get(spec.id) as { id: number };
+
+    const child = db.$client
+      .prepare(
+        `INSERT INTO chat (specification_id, kind, parent_chat_id) VALUES (?, 'side_chat', ?) RETURNING id`,
+      )
+      .get(spec.id, parentRow.id) as { id: number };
+    expect(child.id).toBeGreaterThan(0);
+
+    const reread = db.$client.prepare('SELECT parent_chat_id FROM chat WHERE id = ?').get(child.id) as {
+      parent_chat_id: number;
+    };
+    expect(reread.parent_chat_id).toBe(parentRow.id);
+  });
+
+  it('chat row with parent_chat_id pointing to a missing chat is rejected by FK', () => {
+    const spec = createSpecification(db, 'Test');
+    expect(() =>
+      db.$client
+        .prepare(`INSERT INTO chat (specification_id, kind, parent_chat_id) VALUES (?, 'side_chat', 999999)`)
+        .run(spec.id),
+    ).toThrow(/FOREIGN KEY/i);
+  });
+
+  it('chat row with pinned_item_id pointing to a missing knowledge_item is rejected by FK', () => {
+    const spec = createSpecification(db, 'Test');
+    expect(() =>
+      db.$client
+        .prepare(`INSERT INTO chat (specification_id, kind, pinned_item_id) VALUES (?, 'side_chat', 999999)`)
+        .run(spec.id),
+    ).toThrow(/FOREIGN KEY/i);
+  });
+
+  it('chat row with invoked_in_turn_id pointing to a missing turn is rejected by FK', () => {
+    const spec = createSpecification(db, 'Test');
+    expect(() =>
+      db.$client
+        .prepare(
+          `INSERT INTO chat (specification_id, kind, invoked_in_turn_id) VALUES (?, 'side_chat', 999999)`,
+        )
+        .run(spec.id),
+    ).toThrow(/FOREIGN KEY/i);
+  });
+
+  it('chat.active_turn_id column is preserved (not retired)', () => {
+    const columns = db.$client.prepare("PRAGMA table_info('chat')").all() as Array<{
+      name: string;
+    }>;
+    expect(columns.map((c) => c.name)).toContain('active_turn_id');
+  });
+});
+
 describe('chat container — read-path equivalence', () => {
   it('spec.active_turn_id equals spec.primary_chat → chat.active_turn_id', () => {
     const spec = createSpecification(db, 'Test');
