@@ -1,54 +1,54 @@
 # Conversational Workspace Runtime — Umbrella Design
 
-> Status: **active synthesis** — consolidated runtime-cluster concept. Output of brainstorm 2026-05-12, anchored on the two sync calls of 2026-05-11 (UX review of V3.1 side-chat) and 2026-05-12 (architecture review, post-V3.1 direction); audited during FE-705 reconciliation cleanup on 2026-05-13 and after Track 1 shipped in FE-709.
+> Status: **active synthesis** — reconciled with `memory/SPEC.md` / `memory/PLAN.md` on 2026-05-15 after Track 1 shipped in FE-709.
 >
-> Scope: the next major architectural arc after FE-674's V3.1 closes. Synthesizes [MULTI_CHAT.md](./MULTI_CHAT.md), [SIDE_CHAT.md](./SIDE_CHAT.md), [PATCH_LEDGER.md](./PATCH_LEDGER.md), and [CONTINUOUS_WORKSPACE_HYBRID.md](./CONTINUOUS_WORKSPACE_HYBRID.md) into a single concept for the conversational workspace runtime.
+> Scope: the runtime-cluster architecture following FE-674/V3.1 and FE-709. This doc synthesizes [MULTI_CHAT.md](./MULTI_CHAT.md), [SIDE_CHAT.md](./SIDE_CHAT.md), [PATCH_LEDGER.md](./PATCH_LEDGER.md), and [CONTINUOUS_WORKSPACE_HYBRID.md](./CONTINUOUS_WORKSPACE_HYBRID.md) into the current **chat/turn-first** Conversational Workspace Runtime.
 >
-> Authority: this doc owns the cross-subsystem synthesis. The sibling docs remain subsystem/source references for shipped substrate details, user-surface history, algorithms, and open questions. Build slices fall out of this map via `/ln-plan`; this doc deliberately does **not** sequence implementation.
+> Authority: this doc owns cross-subsystem synthesis. `memory/SPEC.md` owns product/architecture truth; `memory/PLAN.md` owns frontier sequencing. Sibling docs remain subsystem/source references for shipped substrate details, UI history, algorithms, and design pressure.
 
 ## 1. Purpose and positioning
 
-This is the **umbrella design** for what follows FE-674. It does three things:
+The **Conversational Workspace Runtime** is the architectural umbrella for turning the shipped continuous workspace shell into a durable multi-chat workspace:
 
-1. Names the umbrella as **Conversational Workspace Runtime** — the user-visible workspace shell hosts a single unified chat surface; threads and sub-runs are reified data rendered inline; reconciliation and changesets attribute conversationally to that surface.
-2. Resolves cross-subsystem decisions that the four sibling docs left open, captured deltas from the 2026-05-11 (UX review) and 2026-05-12 (architecture review) calls.
-3. Names the umbrella's **sub-tracks** so the umbrella Linear issue is legible without prescribing slice sequence.
+1. The workspace hosts a primary interview chat plus inline/collapsible **secondary chats** for side, reconciliation, QA, and strategy work.
+2. Existing `chat` + `turn` persistence is the near-term runtime primitive. A schema-level `thread` table is explicitly deferred until chat/turn proves insufficient.
+3. Reconciliation, proposal turns, and future agent-mediated work stay conversationally visible while semantic mutations remain server-authoritative through changesets.
+4. Prompt context is **transcript-first**: extra graph/workspace context enters the transcript as explicit context snapshot artifacts and refreshed graph-item handles, not as a hidden persisted context-spec table.
 
-### What this doc is *not*
+### What this doc is not
 
-- Not an implementation plan. The sub-tracks in §5 each enter `/ln-plan` separately when picked up.
-- Not a re-derivation of the sibling docs. Where MULTI_CHAT / SIDE_CHAT / PATCH_LEDGER / CONTINUOUS_WORKSPACE_HYBRID already settle a question, this doc points there.
-- Not a UX spec. The shipped V3.1 surface, the UX review feedback, and any subsequent design pass own that.
-- Not the FE-674 polish backlog (raised in UX review). Those flow into the existing branch sequence; see §7.
+- Not an implementation plan. The sub-tracks in §5 enter `/ln-plan` as frontier items.
+- Not a UX spec. It names runtime ownership and cutover targets, not final visual design.
+- Not a new authority for product ontology, changeset semantics, or prompt/context pack policy; those live in SPEC/PLAN and the relevant sibling docs.
 
-### Relationship to the sibling docs
+### Relationship to sibling docs
 
 | Sibling doc | Role going forward |
-|---|---|
-| [MULTI_CHAT.md](./MULTI_CHAT.md) | Shipped Phase 1 substrate reference; the `chat` table and `reconciliation_need` queue it introduced are primitives this synthesis inherits. Its schema/migration details remain useful, but future thread and reconciliation product shape is governed here. |
-| [SIDE_CHAT.md](./SIDE_CHAT.md) | User-surface history and phasing for V1 / V2 / V3.0 / V3.1, plus V4 notes. Future persistent side-chat history is folded into the unified chat/thread runtime here. |
-| [PATCH_LEDGER.md](./PATCH_LEDGER.md) | Historical design pressure for semantic mutation history and reconciliation ordering. Its target-ordering algorithm remains useful; target vocabulary is **changeset/change** going forward, per SPEC/PLAN. |
-| [CONTINUOUS_WORKSPACE_HYBRID.md](./CONTINUOUS_WORKSPACE_HYBRID.md) | Workspace-shell shape exploration. It still owns the route-alias / workspace-controller / chart-backed-supervisor choice; this doc treats that shell as the host prerequisite for runtime work. |
+| --- | --- |
+| [MULTI_CHAT.md](./MULTI_CHAT.md) | Shipped substrate reference for `chat`, chat-owned turns, primary-chat transition invariants, and `reconciliation_need`. Future runtime work builds on that substrate rather than adding schema-level threads by default. |
+| [SIDE_CHAT.md](./SIDE_CHAT.md) | User-surface history and V1–V3.1 behavior. Its V4 persistent-history direction is superseded by durable secondary chats rendered inline in the workspace. |
+| [PATCH_LEDGER.md](./PATCH_LEDGER.md) | Historical design pressure for semantic mutation history and reconciliation ordering. Future-facing vocabulary is `changeset` / `change`; target-ordering mechanics remain useful. |
+| [CONTINUOUS_WORKSPACE_HYBRID.md](./CONTINUOUS_WORKSPACE_HYBRID.md) | Source note for the shipped Track 1 workspace shell and deferred route-collapse question. Runtime work builds on FE-709 rather than re-deciding the shell. |
 
-### Runtime-cluster supersession map
+### Supersession map
 
-| Claim type | Current authority | Retained source detail | Superseded / historical |
-|---|---|---|---|
-| Runtime concept and cross-track direction | This document | Sync-call deltas captured here plus PLAN sequencing constraints | Reading MULTI_CHAT / SIDE_CHAT / PATCH_LEDGER as independent future roadmaps |
-| Phase 1 chat substrate | [MULTI_CHAT.md](./MULTI_CHAT.md) | Schema, migration, compatibility invariants, and the `reconciliation_need` primitive | Any implication that MULTI_CHAT owns future thread hierarchy or unified-chat UX |
-| Side-chat user-surface history | [SIDE_CHAT.md](./SIDE_CHAT.md) | V1–V3.1 shipped behavior, UI language, V4 persistence notes | Treating the popover, top-bar patch list, or standalone Pending review section as the long-term surface |
-| Semantic mutation history | This document + SPEC/PLAN vocabulary; [PATCH_LEDGER.md](./PATCH_LEDGER.md) for algorithmic pressure | Reconciliation bases, target grouping, topological ordering, phase-two ledger rationale | New schema/operation names using `patch` / `patch_change` instead of `changeset` / `change` |
-| Workspace shell shape | [CONTINUOUS_WORKSPACE_HYBRID.md](./CONTINUOUS_WORKSPACE_HYBRID.md) | Route-alias / workspace-controller / chart-backed-supervisor alternatives | Re-deciding shell architecture inside runtime/thread work |
-| Reconciliation vs graph review | SPEC/PLAN + this document's cross-document audit | PATCH_LEDGER reconciliation-flow mechanics; SPEC_EVOLUTION_STRATEGIES graph-review distinctions | Using `reconciliation_need` as the table for all graph quality findings |
-| Agent mutation authority | [AGENT_MUTATION_SURFACE.md](./AGENT_MUTATION_SURFACE.md) | Capability/handler boundary and changeset-centered mutation vocabulary | Agents writing directly through ORM helpers or harness-specific route wrappers |
+| Claim type | Current authority | Superseded / historical |
+| --- | --- | --- |
+| Runtime concept and cross-track direction | This document + SPEC/PLAN | Reading MULTI_CHAT / SIDE_CHAT / PATCH_LEDGER as independent future roadmaps. |
+| Secondary conversation persistence | `chat` + `turn` substrate, with secondary chats as product/runtime usage | Treating a `thread` table, `turn.thread_id`, or `thread_context_item` as accepted near-term schema. |
+| Side-chat user surface | Inline/collapsible secondary chats in the workspace | `SideChatPopover`, top-bar staged patch list, and standalone Pending review as long-term surfaces. |
+| Semantic mutation history | Changeset/change ledger | New durable schema or operation names using `patch` / `patch_change`. |
+| Prompt context | Transcript-first snapshots and handles derived by prompt/context pack builders | Hidden persisted context-spec records as the default context authority. |
+| Reconciliation vs graph review | Reconciliation needs are process debt from known disturbances; graph-review findings are critique artifacts | Using `reconciliation_need` as the table for all graph quality findings. |
+| Agent mutation authority | Brunch-owned capability/handler contracts | Agents writing directly through ORM helpers or harness-specific route wrappers. |
 
-Open questions that remain live: thread substrate shape, reconciliation thread lifecycle, direct-edit thread-opening UX, `thread_context_item` ownership, `#` mention disambiguation, TOON implementation choice, async classifier scheduling, and migration of existing client patch terminology.
+Live open questions are now narrower: secondary-chat lifecycle/rendering shape over chat/turn, reconciliation chat lifecycle, direct-edit chat-opening UX, `#` mention disambiguation, context-handle storage/expiry, compact snapshot serialization, async classifier scheduling, and migration of existing client patch terminology.
 
 ## 2. The shift, at a glance
 
 ```mermaid
 flowchart LR
-    subgraph Today
+    subgraph Previous
         S1[spec route] --> SLV[structured-list view]
         S1 --> GV[graph view]
         SC1[side-chat popover<br/>anchored per item] -.-> SLV
@@ -57,14 +57,12 @@ flowchart LR
     end
 
     subgraph Target
-        WS[continuous workspace shell] --> CR[unified chat surface]
-        CR --> IT[interview thread<br/>main spine]
-        CR --> ST[side threads<br/>item-anchored]
-        CR --> RT[reconciliation thread<br/>target-grouped]
-        CR --> QT[Q&A threads<br/>explicit-set]
-        IT -.-> ST
-        IT -.-> RT
-        IT -.-> QT
+        WS[continuous workspace shell] --> PS[primary interview chat]
+        WS --> SS[inline secondary chats]
+        SS --> SIDE[side chat<br/>item anchored]
+        SS --> REC[reconciliation chat<br/>target grouped]
+        SS --> QA[QA chat<br/>explicit context]
+        SS --> STR[strategy chat<br/>proposal turns]
         SLV2[structured-list view] --> WS
         GV2[graph view] --> WS
     end
@@ -72,276 +70,258 @@ flowchart LR
 
 **What changes for the user**
 
-- One main chat surface per spec, not many popovers. Threads / sub-runs render inline as collapsibles.
-- Reconciliation absorbs into the chat surface as a target-grouped thread, not a separate review section.
-- The side-chat popover and the Pending review section both retire into in-stream threads over the umbrella's lifetime.
-- Direct edits stay fast-path. They open a thread automatically only when impact exceeds `soft`.
-- Auto-confirmed reconciliation never surfaces. Only `auto-edit` and `substantive` reach the user.
+- One workspace surface can show the primary interview and secondary chats inline, usually collapsed until relevant.
+- Reconciliation becomes an in-stream secondary chat, not a separate review section.
+- The side-chat popover and Pending review section retire after parity exists over durable secondary chats.
+- Direct edits stay fast-path. Hard-impact edits create reconciliation needs and may focus a side/reconciliation chat depending on context.
+- Auto-confirmed reconciliation never surfaces. Only `auto-edit` and `substantive` need user attention.
 
 **What changes for the substrate**
 
-- The `chat` table stays the durable primitive; the umbrella adds a substrate seam for threads (one of three shapes — see §3.2 / §8).
-- `reconciliation_need.caused_by_changeset_id` becomes real once changesets land (§3.4). The `caused_by_*` placeholders already in MULTI_CHAT.md §3.4 are the seam.
-- The `changeset` / `change` records (PATCH_LEDGER.md Phase 2) become first-class. The transient client-side "patch" list in the V3.1 side-chat surface goes away with the popover.
-- Context-provision becomes a typed thread-scoped concern with TOON notation, # mention as a substrate-level mutation, and turn-zero seeding (§3.5).
+- The `chat` table stays the durable conversational primitive; turns remain chat-owned.
+- Secondary chat kinds (`side`, `reconciliation`, `qa`, `strategy`) are represented through chat metadata / strategy state over chat+turn unless a later RFC proves a `thread` table is necessary.
+- Changeset/change records become the semantic mutation spine; existing client “patch” state is transitional.
+- Context provision becomes explicit transcript content: context snapshots are inserted into turns, and context handles track referenced graph items so stale subjects can be refreshed before future assistant turns.
 
 ## 3. Architecture layers
 
-Top-down from the surface the user sees to the substrate underneath. Each layer is one sub-track in §5.
+### 3.1 Workspace shell — Track 1, shipped
 
-### 3.1 Workspace shell
+The spec route renders a continuous workspace: realized phase sections, sidebar navigation, scroll/focus behavior, primary chat, projected controls, graph/sidebar affordances, and future inline secondary chats. This shipped in FE-709 as `continuous-workspace`.
 
-The spec route renders a continuous workspace, not a stack of independent views. Phase sections, sidebar navigation, and scroll/focus behavior belong here. The chat runtime mounts inside the shell.
+The shell is the structural prerequisite for absorbing side-chat and pending-review surfaces. Runtime work should build on the shipped hybrid shell and preserve phase addressability, single actionable frontier semantics, and workspace/read-model authority.
 
-This is Track 1 of the umbrella and shipped in FE-709 as the continuous workspace shell. [CONTINUOUS_WORKSPACE_HYBRID.md](./CONTINUOUS_WORKSPACE_HYBRID.md) remains the source note for the selected hybrid shape and deferred route-collapse question. The workspace shell is now the **structural prerequisite** that lets the chat runtime absorb side-chat / pending-review surfaces. Structured-list view and graph view become workspace-aware peers, not standalone routes.
+### 3.2 Chat runtime — inline secondary chats over chat/turn
 
-### 3.2 Chat runtime — unified surface, threads as primitive
-
-One main chat per spec is visible. Threads, sub-runs, and side conversations are reified data rendered inline as collapsibles (Cursor-style). This is the user-visible commitment from Q3 of the brainstorm.
+Track 2 implements inline/collapsible secondary chats using existing `chat` + `turn` persistence.
 
 **Primitives**
 
-- `chat` — already shipped per MULTI_CHAT.md. One interview chat per spec, addressable via `specification.primary_chat_id`.
-- **Thread** — a sub-run inside the interview chat. **Substrate shape is an open question** (§8). Three plausible options:
-  - **(p) `parent_chat_id` on `chat`** — a thread is just a child `chat` row. Smallest delta from MULTI_CHAT.md; the chat table absorbs hierarchy.
-  - **(q) New `thread` table** — chats own threads; threads own turns. Spec → chat → thread → turn. Most expressive, biggest schema delta.
-  - **(r) Pure UI-rendering** — chats stay sibling-of-spec; UI renders one chat's children inline. Substrate unchanged.
+- `chat` — durable conversation container inside one specification. One primary interview chat exists; secondary chats are additional chat rows for side, reconciliation, QA, or strategy work.
+- `turn` — chat-owned conversational event or assistant/system-first proposal/kickoff. Each active/resumable chat has at most one open assistant/system-first frontier turn.
+- `chat.kind` / chat-local strategy metadata — distinguishes `side`, `reconciliation`, `qa`, and `strategy` behavior without creating semantic truth.
+- **Turn-zero** — an assistant/system kickoff turn that seeds a secondary chat with explicit context snapshots and options before the user responds.
 
-  This umbrella does **not** pick yet. A follow-up RFC (sub-track 2 in §5) decides based on what the in-stream rendering, chat-local strategy state, one-open-frontier semantics, prompt/context-pack ownership, and # mention substrate actually need. A separate `thread` table is an option, not an accepted architecture.
-- **Thread kinds** — `interview` (the spine), `side` (item-anchored), `reconciliation` (target-grouped), `qa` (explicit-set, user-initiated). Kind determines context-spec defaults (§3.5) and turn-zero behavior. Kinds are metadata, not hard constraints on what happens inside. These thread kinds are **conceptually distinct from the existing `chat.kind` enum** (currently `interview | side_chat` per MULTI_CHAT.md §3) — how they're persisted (a new `thread.kind` column, an extension of `chat.kind`, or UI-only metadata) is part of the substrate choice deferred below.
-- **Turn-zero** — every thread starts with an `assistant` turn that prompts the user with kind-appropriate options. Existing `turn_kind = 'kickoff'` is the seam.
+**Explicit deferral**
 
-**What retires when this lands**
+Do not add a `thread` table, `turn.thread_id`, or schema-level thread hierarchy in Track 2. The follow-up question is not “which thread schema?” but “what, if anything, can chat/turn not express after secondary-chat rendering, one-open-frontier semantics, strategy state, and context snapshots are implemented?”
 
-- The `SideChatPopover` UI surface (per-item floating popover) retires. Side threads render inline in the main chat.
-- The transient client-side "patch list" / staged-patches strip retires. Staged-but-unapplied changes become a property of an in-flight thread, not a separate surface.
-- The standalone `PendingReviewSection` retires. Its content surfaces as the reconciliation thread (§3.3).
+**Cutover targets**
 
-### 3.3 Reconciliation runtime
+- Retire `SideChatPopover` as the long-term side-chat surface after durable inline secondary chats reach parity.
+- Retire the transient staged-patches strip as a semantic source of truth. In-flight proposals may remain turn artifacts, but accepted mutations flow through changesets.
+- Preserve existing primary interview behavior during the transition.
 
-Reconciliation is **async-by-default with an explicit "Reconcile Now" trigger** (Q5 of the brainstorm).
+### 3.3 Reconciliation runtime — in-stream secondary chat
+
+Track 3 absorbs reconciliation into the workspace as a target-grouped secondary chat.
 
 **Trigger model**
 
-- **Async (observer-like)** — when `reconciliation_need` rows enter the queue (Path 1 deterministic, Path 2 observer; see MULTI_CHAT.md §5.1), a background runner processes `agent_status = null` rows through the V3.1 classifier. Auto-confirmed rows resolve invisibly. Auto-edit rows queue with a proposal awaiting one-click apply. Substantive rows accumulate, surfaced as badge state.
-- **User trigger** — "Reconcile Now" in the workspace shell. Materializes (or refocuses) the current reconciliation thread. Useful when the user wants to batch-review accumulated substantive rows, retry failed rows, or force-classify a backlog.
+- **Async by default** — when `reconciliation_need` rows enter the queue, a background runner/classifier processes unclassified rows. Auto-confirmed rows resolve invisibly. Auto-edit rows queue one-click suggestions. Substantive rows accumulate for judgment.
+- **User trigger** — “Reconcile Now” materializes or refocuses the reconciliation chat so the user can batch-review, retry, or force classification.
 
-**Reconciliation thread shape**
+**Chat shape**
 
-One thread per outstanding reconciliation batch (current shape: open and unresolved). Grouped by target — topologically sorted upstream-first, per PATCH_LEDGER.md §Target Ordering. The V3.1 classifier output (`auto-confirm` / `auto-edit` / `substantive`) is metadata shown on each need within its target node, **not** the primary grouping axis. Auto-confirmed never surfaces; the user sees only `auto-edit` (with one-click apply) and `substantive` (with judgment affordances).
+A reconciliation chat is a durable secondary `chat`, grouped by target and sorted upstream-first using the PATCH_LEDGER target-ordering pressure. Classifier labels (`auto-confirm`, `auto-edit`, `substantive`) are metadata on needs inside target groups, not the primary grouping axis.
 
-The thread is a real `chat` (or `thread`, pending §3.2's choice) — durable, replayable, and able to host a conversation if the user wants to discuss a substantive need rather than just resolve it.
+The reconciliation chat can host a conversation about substantive needs, but it does not own semantic truth. Accepted resolutions route through Brunch-owned handlers and, once Track 4 lands, durable changesets.
 
-**Subtle surfacing rules**
+**Surfacing rules**
 
-- Items in the structured-list and graph views carry a small badge when they have open non-auto-confirmed needs against them. Badge is informational, never blocking.
-- The workspace shell exposes the active reconciliation thread's count and a "Reconcile Now" affordance, but does not steal focus.
+- Auto-confirmed rows do not surface.
+- Open non-auto-confirmed needs may show subtle badges on structured-list / graph items.
+- The workspace shell may show an active reconciliation count and Reconcile Now affordance without stealing focus.
 
-### 3.4 Changeset ledger
+### 3.4 Changeset ledger — semantic mutation spine
 
-Changesets become a first-class durable record of semantic mutation. This is PATCH_LEDGER.md Phase 2 reified.
+Track 4 introduces durable semantic mutation history.
 
-**Vocabulary** — canonical going forward: `changeset` (a durable record bundling 1+ atomic changes) and `change` (a single mutation). "Patch" is historical: it survives in the existing client-state code for transient staged-changes-in-side-chat, and in PATCH_LEDGER.md as historical text, but is **not** part of the target architecture.
+**Vocabulary**
+
+- `changeset` — one coherent submitted semantic mutation bundle.
+- `change` — one atomic mutation inside a changeset.
+- “Patch” is historical/transitional. It may remain in legacy client code until migrated, but it is not target vocabulary.
 
 **Attribution**
 
-- Every `change` is attributed to its originating `changeset`.
-- Every `changeset` carries provenance: the originating `turn_id` (when produced inside a thread), the originating `chat_id` / thread (always), the `caused_by_action` (user-direct-edit / chat-mediated / agent-proposed / reconciliation-resolution).
-- `reconciliation_need.caused_by_changeset_id` becomes real. Each need points back to the changeset whose change opened it. The MULTI_CHAT.md §3.4 placeholder gets typed.
+- Every change belongs to one changeset.
+- Every changeset records provenance: originating turn/chat where applicable, action source, actor, and base semantic state.
+- `reconciliation_need.caused_by_changeset_id` replaces/connects the historical patch placeholder.
+- Proposal turns are not mutations until accepted.
 
-**Direct edits in the target state**
+**Direct edits**
 
-A direct edit on a knowledge item from the structured-list view writes a `changeset` with one `change`. Path 1 deterministic reconciliation runs as today. If impact > `soft`, the system either:
-- opens (or appends to) a side thread anchored to the edited item, surfacing the cascade conversationally, or
-- adds rows to the active reconciliation thread's queue.
+A direct graph/list edit writes a changeset and then opens/deduplicates reconciliation needs according to relation policy. The UX may focus an item-anchored side chat, append to a reconciliation chat, or remain in-place; that is a Track 3/4 interaction decision, not a semantic-history decision.
 
-Which of these depends on the user's recent context (was the edit invoked from chat, or from the spec view alone?). This is a UX decision deferred to per-track design; the changeset's substrate position is unaffected.
+### 3.5 Context provision — transcript-first snapshots and handles
 
-### 3.5 Context provision
+Track 5 provides prompt context for primary and secondary chats without a hidden persisted context-spec table.
 
-Threads carry a **context spec** at inception. Established via turn-zero. Mutated through `# mention` and explicit add-to-context affordances.
+**Model**
 
-**Context spec record (per thread)**
-
-- `scope` — `full-graph` | `neighborhood` | `explicit-set`
-- `root_anchors` — knowledge item ids anchoring the context
-- `include_edges` — boolean (always true for `full-graph` and `neighborhood`)
-- `include_open_needs` — boolean
-- `include_phase_outcomes` — boolean
-- `spec_metadata` — always true
-
-**Kind-defaults**
-
-- **`interview`** — `full-graph` + open needs + phase outcomes. The spine sees everything.
-- **`reconciliation`** — `explicit-set` seeded with the needs-batch's targets and their 1-hop neighborhoods. Open needs scoped to those targets.
-- **`side`** (item-anchored) — `neighborhood` rooted at the anchor item; 1-hop typed edges and connected items; open needs against the anchor.
-- **`qa`** — `explicit-set` seeded by the user's first message and any `#` mentions; expandable through further mentions.
-
-**Format**
-
-- Item *content* serializes as markdown.
-- Graph *structure* (items + typed edges) serializes as **TOON notation** — the token-efficient compact format named in the architecture review. Established as the canonical format primitive for graph-shaped context. [toonformat.dev](https://toonformat.dev/) is one candidate implementation.
-- `reconciliation_need` rows serialize as a compact list with kind, source, target, and `agent_classification` if present.
-
-**`#` mention as a substrate mutation**
-
-In any thread, the user types `#AS-12` or `#requirement-foo`. This:
-1. Resolves the reference code or name against the spec's `knowledge_item` rows.
-2. Inserts a durable row into the thread's context-item join (working name: `thread_context_item`).
-3. Triggers a context-spec change visible to the next turn's prompt assembler.
-
-Mentions are not just text. They are durable, replayable, and contribute to the thread's effective context across turns. The user can revoke a mention from the thread.
+- A chat primarily uses its own transcript as prompt context.
+- Extra graph/workspace context is inserted into the transcript as explicit **context snapshot** artifacts.
+- A **context handle** records that a chat is tracking a graph subject across turns. Before new assistant turns, stale handles can trigger fresh snapshots when the subject’s version/fingerprint has advanced.
+- Snapshots are historical: they do not mutate when source truth changes.
 
 **Turn-zero**
 
-Every thread starts with an `assistant` turn (existing `turn_kind = 'kickoff'`) that prompts the user with kind-appropriate options. The prompt assembler reads the context spec and renders the kickoff question accordingly. The user replies; the conversation proceeds. This pattern is explicit because today the user starts most chat surfaces with a blank textarea, and the architecture review called this out as backwards for an assistant-led tool.
+Secondary chats begin with a kickoff turn that inserts kind-appropriate snapshots and offers options. Example defaults:
+
+- `side` — anchor item snapshot plus relation neighborhood and open needs against the anchor.
+- `reconciliation` — target group snapshots plus relevant needs and relation-policy context.
+- `qa` — user-selected / `#`-mentioned items and enough graph metadata to answer safely.
+- `strategy` — current phase/workflow state plus the fixed premise and proposal constraints.
+
+**`#` mention**
+
+A mention such as `#AS-12` resolves against intent items. Resolution inserts a context snapshot and activates or refreshes a handle for the mentioned subject. Ambiguity, revocation, expiry, and storage shape are Track 5 design details, but the transcript remains the durable replay surface.
+
+**Serialization**
+
+Context-pack builders own compact rendering. TOON or another compact graph serializer may format inserted snapshots, but the serializer is an implementation choice, not an authority boundary.
 
 ## 4. Cross-cutting decisions
 
-Decisions that don't fit any single layer.
-
 ### 4.1 Vocabulary
 
-- `changeset` / `change` — canonical (durable mutation records).
-- `chat` — substrate primitive (already shipped). One per spec at minimum; many over the umbrella's lifetime.
-- `thread` — user-visible primitive for sub-runs in the unified chat surface. Substrate shape TBD (§3.2).
-- `reconciliation_need` — unchanged from MULTI_CHAT.md.
-- `Annotate` → `Note` and `Edit mode` (FE-only vocabulary, already shipped in Card 4 of CARDS.md). No type renames.
-- "Patch" — historical only. Not part of target architecture.
+- `chat` — durable conversation container inside a specification.
+- `secondary chat` — non-primary chat rendered inline/collapsible in the workspace; product/runtime use of `chat`, not a separate thread table.
+- `turn-zero` — kickoff turn that seeds a secondary chat.
+- `context snapshot` — explicit turn artifact recording inserted graph/workspace context at a point in time.
+- `context handle` — active reference causing future freshness checks and new snapshots when tracked graph subjects change.
+- `changeset` / `change` — durable semantic mutation vocabulary.
+- “Thread” — historical or generic UI language only in this doc. It is not target schema vocabulary.
+- “Patch” — historical/transitional client vocabulary only.
 
 ### 4.2 What never surfaces to the user
 
-- Auto-confirmed reconciliation rows. Resolved invisibly.
-- Async classifier runs that succeed without producing substantive output. Status is visible if asked (via the chip), but no notification, no focus steal.
-- Successful `changeset` writes from agent-driven reconciliation resolution. The user sees the resulting state, not the bookkeeping.
+- Auto-confirmed reconciliation rows.
+- Successful classifier runs that produce no user-relevant work.
+- Changeset bookkeeping as a separate user-facing object when the resulting semantic state is enough.
 
 ### 4.3 What surfaces subtly
 
-- Open non-auto-confirmed needs against an item. Small badge in the structured-list / graph views, with count.
-- Active reconciliation thread count in the workspace shell. Visible, not blocking.
-- Failed classifier rows. Visible as a state, not a notification.
+- Open non-auto-confirmed reconciliation needs against an item.
+- Active reconciliation chat count / Reconcile Now affordance.
+- Failed classifier rows as recoverable state.
 
 ### 4.4 What surfaces actively
 
-- Substantive reconciliation items. The thread surfaces them with judgment affordances.
-- Hard-impact direct edits that opened a thread. Thread becomes the active focus.
-- Cursor-style sub-agent runs invoked by the interview chat (e.g. "summarize what's open"). Inline in the main stream, collapsed by default once complete.
+- Substantive reconciliation needs with judgment affordances.
+- Hard-impact direct edits when user attention is needed.
+- Assistant/system-first proposal turns in strategy, graph-review, or reconciliation chats.
 
 ## 5. Umbrella structure — sub-tracks
 
-The umbrella Linear issue contains the following sub-tracks. Each is a candidate frontier item; ordering and slicing are for `/ln-plan` to settle. The dependency arrows below are the only ordering constraints baked in.
-
 ```text
-Track 1: Workspace shell
-  ├─ Decide shape (CONTINUOUS_WORKSPACE_HYBRID Design A/B/C)
-  ├─ Mount center pane as cumulative phase sections
+Track 1: Workspace shell — shipped FE-709
+  ├─ Cumulative phase sections
   ├─ Sidebar section-active behavior
-  └─ Structured-list and graph views become workspace-aware peers
+  └─ Structured-list and graph views as workspace-aware peers
 
-Track 2: Chat runtime — thread substrate + in-stream rendering
-  ├─ Decide thread substrate (parent_chat_id / new table / UI-only)
-  ├─ Render threads inline as collapsibles in the main chat
-  ├─ Retire SideChatPopover (cutover, not immediate)
-  └─ Retire transient staged-patches strip (replaced by in-thread mutation state)
+Track 2: Chat runtime — inline secondary chats
+  ├─ Represent side/reconciliation/qa/strategy chats over chat+turn
+  ├─ Render secondary chats inline/collapsible in the workspace
+  ├─ Preserve one open assistant/system-first frontier turn per active chat
+  ├─ Seed secondary chats with turn-zero kickoff + context snapshots
+  └─ Retire SideChatPopover after parity
 
 Track 3: Reconciliation runtime
-  ├─ Reconciliation thread (target-grouped, topo-sorted)
-  ├─ Async-by-default classifier scheduling (background runner)
-  ├─ "Reconcile Now" trigger in workspace shell
-  ├─ Retire standalone PendingReviewSection (cutover)
-  └─ Auto-edit one-click apply + substantive judgment affordances inside the thread
+  ├─ Target-grouped reconciliation chat
+  ├─ Async-by-default classifier scheduling
+  ├─ Reconcile Now trigger in workspace shell
+  ├─ Retire standalone PendingReviewSection after parity
+  └─ Auto-edit one-click apply + substantive judgment affordances
 
 Track 4: Changeset ledger
-  ├─ changeset / change tables (PATCH_LEDGER Phase 2 schema)
+  ├─ changeset / change tables and mutation handlers
+  ├─ latest/base changeset identity for proposal staleness
   ├─ reconciliation_need.caused_by_changeset_id wiring
-  ├─ Direct-edit path writes a changeset
-  ├─ Agent-resolution path writes a changeset
-  └─ Migration of existing in-memory "patch" client state to durable changesets
+  ├─ Direct-edit and agent-resolution paths write changesets
+  └─ Migrate existing client patch vocabulary/state
 
-Track 5: Context provision
-  ├─ thread_context_item join (or equivalent — depends on Track 2's substrate choice)
-  ├─ TOON notation serializer
-  ├─ Per-kind context-spec defaults in the prompt assembler
-  ├─ # mention parser + resolver + UI affordance
-  └─ Turn-zero kickoff prompt assembly per kind
+Track 5: Chat context provision
+  ├─ Context snapshot turn artifacts
+  ├─ Active graph-item handles and stale-handle refresh
+  ├─ # mention parser/resolver/disambiguation
+  ├─ Turn-zero prompt assembly per chat kind/strategy
+  └─ Context-pack rendering/goldens for snapshots
 
 Dependencies
-  Track 1 (shell)       —enables→ Track 2 (chat runtime)
-  Track 2 (chat runtime) —enables→ Track 3 (reconciliation in-stream)
-  Track 2 (chat runtime) —enables→ Track 5 (# mention, turn-zero)
-  Track 4 (changeset)   ←—needs→ existing reconciliation_need (already shipped)
-  Track 4 (changeset)   —enables→ richer attribution in Track 3
-  Track 5 (context)     ←—needs→ Track 2 (thread substrate)
+  Track 1 (shell) —enables→ Track 2 (secondary chats)
+  Track 2 —enables→ Track 3 (in-stream reconciliation)
+  Track 2 —enables→ Track 5 (turn-zero, mentions, handles)
+  Track 4 (changeset) —parallel with→ Track 2
+  Track 4 —enables→ richer attribution in Track 3
 ```
 
 **Why this order**
 
-- The shell came first because the chat runtime needs a stable host; FE-709 now provides that host.
-- The chat runtime is the unblocker for both reconciliation absorption and # mention / context-provision.
-- The changeset ledger can run in parallel with the chat runtime once the shell exists; it has its own scope independent of in-stream rendering.
-- Context provision and reconciliation in-stream both ride on the chat runtime substrate; they parallelize once Track 2 has its first cut.
+- The shell came first because secondary chats need a stable host.
+- The chat runtime is the unblocker for reconciliation absorption and transcript-first context provision.
+- The changeset ledger can run in parallel because semantic history is independent of inline rendering.
+- Context provision and reconciliation in-stream parallelize once Track 2 settles the initiating chat/anchor shape.
 
 ## 6. Cross-document audit
 
-This synthesis has to respect parallel design work that happened outside the runtime cluster.
-
 | Parallel design | Implication for the runtime cluster |
-|---|---|
-| [INTENT_GRAPH_SEMANTICS.md](./INTENT_GRAPH_SEMANTICS.md) | Reconciliation and direct-edit cascade must consult relation-policy directionality and edge support/status. The runtime cannot infer affected endpoints from raw `knowledge_edge` source/target direction. |
-| [SPEC_EVOLUTION_STRATEGIES.md](./SPEC_EVOLUTION_STRATEGIES.md) | Strategy is chat-local process state. Scenario options, graph-review findings, and reconciliation suggestions are proposal turns until accepted; accepted candidate bundles become coherent changesets, not loose item-by-item mutations. Track 2 must not choose a thread schema that creates a competing strategy owner or bypasses one-open-frontier semantics. |
-| [AGENT_MUTATION_SURFACE.md](./AGENT_MUTATION_SURFACE.md) | Agent-originated writes must enter through Brunch-owned capability/handler contracts. The runtime may host agent runs, but those runs do not get direct ORM or route-wrapper mutation authority. |
-| Prompt/context substrate (`memory/SPEC.md` D139/D140, A84/A85) | Thread context specs are consumers of prompt/context-pack policy, not replacements for it. Track 2/5 must name exactly which layer derives context, formats it, and stamps/replays mention-derived context items. |
-| [BEHAVIORAL_KERNELS.md](./BEHAVIORAL_KERNELS.md) | Kernel-driven questions produce typed artifacts that the intent graph stores; the runtime provides thread/context affordances but should not invent a separate artifact ontology. |
-| [ln-skills/EVOLUTION.md](./ln-skills/EVOLUTION.md) | Dev-layer file-backed registry ideas are separate from product runtime persistence. Do not mix product `changeset` tables with the future `memory/` registry experiment. |
+| --- | --- |
+| [INTENT_GRAPH_SEMANTICS.md](./INTENT_GRAPH_SEMANTICS.md) | Reconciliation and direct-edit cascade must consult relation-policy directionality and edge support/status. Runtime code cannot infer affected endpoints from raw edge direction. |
+| [SPEC_EVOLUTION_STRATEGIES.md](./SPEC_EVOLUTION_STRATEGIES.md) | Strategy is chat-local process state. Scenario options, graph-review findings, and reconciliation suggestions are proposal turns until accepted; accepted bundles become coherent changesets. |
+| [AGENT_MUTATION_SURFACE.md](./AGENT_MUTATION_SURFACE.md) | Agent-originated writes enter through Brunch-owned capability/handler contracts, not direct ORM or route-wrapper mutation authority. |
+| Prompt/context substrate (SPEC D139/D140, A84/A85/A95) | Chat context provision consumes prompt/context-pack policy. Snapshots/handles make context replayable; they do not replace context-pack builders. |
+| [BEHAVIORAL_KERNELS.md](./BEHAVIORAL_KERNELS.md) | Kernel-driven questions produce typed intent artifacts; the runtime provides chat/context affordances but not a separate artifact ontology. |
+| [ln-skills/EVOLUTION.md](./ln-skills/EVOLUTION.md) | Dev-layer file-backed registry ideas are separate from product runtime persistence. |
 
-Audit result: the runtime concept stays coherent if it treats `chat`/thread as conversational process, chat-local strategy as turn/proposal policy, prompt/context packs as the context-assembly substrate, `changeset`/`change` as semantic mutation history, `reconciliation_need` as process debt from a known disturbance, and graph review as a separate quality oracle. That matches the current SPEC/PLAN reconciliation. The unresolved risk is authority overlap: Track 2 must settle ownership boundaries before choosing a `thread` table or equivalent schema.
+Audit result: the runtime is coherent when `chat` is conversational process, chat-local strategy remains turn/proposal state, prompt/context packs assemble context snapshots, changesets own semantic mutation history, reconciliation needs represent process debt, and graph review remains a separate quality oracle.
 
 ## 7. Out of scope / explicit deferrals
 
-- **FE-674 polish** (raised in UX review) — tactical V3.1 surface improvements that flow into the existing FE-674 branch sequence; not absorbed into this umbrella. They make the V3.1 surface more demo-legible but are tactical, not architectural.
-- **Designer consultation** (UX review) — visual UX directions for the new in-stream surfaces are out of scope until the design discussion lands. This doc commits to architecture, not pixel-level UI patterns.
-- **Demo-bound prioritization** (architecture review) — orthogonal. The umbrella's sub-tracks may be re-ordered for demo readiness, but the architectural map doesn't change.
-- **Thread substrate shape** (§3.2) — explicitly deferred to a coordination sub-RFC under Track 2. Three options remain on the table; a new `thread` table is not accepted until strategy/context ownership is reconciled.
-- **Continuous workspace shape** (CONTINUOUS_WORKSPACE_HYBRID Design A / B / C) — owned by that doc; not re-decided here.
-- **Architect / generator loop** (PLAN.md Horizon) — autonomous agent over the intent graph. Still horizon; depends on changeset ledger landing first via Track 4.
-- **Persistent side-chat history (SIDE_CHAT V4)** — superseded by Track 2. The user-visible "history" of side-chats is the main chat stream itself, where threads stay collapsed.
-- **Two-axis interview framing, progressive detail, candidate-spec completion assist, first-run provider setup, workspace hygiene gitignore assist, productized web research** — all PLAN.md Horizon items unrelated to the umbrella. Unaffected.
+- Pixel-level secondary-chat UX and designer consultation.
+- Demo-bound prioritization; PLAN sequencing owns frontier order.
+- Schema-level `thread` tables or `turn.thread_id`; deferred until chat/turn insufficiency is proven.
+- Hidden persisted context-spec tables; deferred unless transcript-first snapshots/handles fail.
+- Continuous-workspace route collapse; FE-709 hybrid shell remains the host.
+- Architect/generator loop; horizon until changesets and reconciliation surfaces stabilize.
+- Provider setup, gitignore assist, and productized web research; separate PLAN frontiers.
 
 ## 8. Open questions
 
-- **Thread substrate** — (p) `parent_chat_id`, (q) new `thread` table, (r) UI-only rendering. To be decided by a Track 2 coordination sub-RFC that includes prompt/context and strategy ownership.
-- **Direct-edit thread-opening UX** — when a direct edit on the structured-list view triggers hard-impact cascade, does the system open (a) a fresh side thread anchored to the edited item, (b) append to the active reconciliation thread, or (c) both, contextually? Deferred to Track 3 / Track 4 design.
-- **`thread_context_item` join shape** — depends on §3.2. If threads are child `chat` rows, this join hangs off `chat`. If threads are a new table, off `thread`. If UI-only, the join is per-`chat`. Settled with Track 2.
-- **# mention disambiguation** — what does `#requirement-foo` resolve to when multiple items share a reference fragment? Track 5 design.
-- **TOON notation library** — adopt an external implementation ([toonformat.dev](https://toonformat.dev/) is one candidate) or write a minimal serializer? Track 5 spike. The choice affects token budget and test coverage but not architecture.
-- **Async-classifier scheduling primitive** — in-process loop / BullMQ-style queue / pg-boss / inline scheduler. PATCH_LEDGER.md and CARDS.md Card 5 both punt this to "promote to a queue substrate only if outer-loop walkthroughs surface user-visible blocking." Stays deferred under Track 3.
-- **Reconciliation thread lifecycle** — is there one persistent reconciliation thread per spec (always exists, always reflects current queue state), or one per Reconcile Now invocation (transient, archived when resolved)? Track 3 design.
-- **Cursor-style sub-agent runs in the interview chat** — does the chat runtime own a generic "spawn a sub-agent run" affordance, or is reconciliation thread the only sub-run kind for V1? Track 2 design.
-- **Continuous-workspace route-collapse follow-up** — FE-709 selected the hybrid shell and deferred deeper route collapse while the hybrid proves itself. Track 2 should build on the shipped shell rather than re-decide it.
-- **Migration of existing client `patch` state** — the V3.1 transient staged-patches surface still uses "patch" terminology in code. Track 4 includes renaming the client state to `changeset` / `change` and folding it into durable storage, but the transition needs a stepwise plan.
+- **Secondary-chat lifecycle** — when to create, refocus, collapse, archive, or resume side/reconciliation/qa/strategy chats.
+- **Direct-edit attention UX** — when hard-impact direct edits focus an item side chat, a reconciliation chat, both, or neither.
+- **Context-handle storage and expiry** — whether handles are explicit rows, turn-derived state, or both; how revocation and expiry are represented.
+- **`#` mention disambiguation** — reference-code/name matching and ambiguous-result UX.
+- **Compact snapshot serialization** — TOON vs a minimal internal serializer.
+- **Async-classifier scheduling** — in-process loop vs queue substrate; promote only if outer-loop behavior needs it.
+- **Reconciliation chat lifecycle** — one persistent reconciliation chat per spec vs batch/invocation chats.
+- **Generic sub-agent runs** — whether Track 2 owns a general sub-agent affordance or only the named secondary chat kinds for now.
+- **Client patch-state migration** — stepwise renaming/folding into durable changesets.
 
 ## 9. Traceability
 
-SPEC.md anchors that this umbrella inherits or extends. Identifiers are listed pending the next `/ln-sync` pass.
+**Anchors**
 
-**Inherits / anchors**
+- Requirements 10, 39, 42, 44, 45.
+- Assumptions A49, A88, A94, A95, A96.
+- Decisions D135, D137, D138, D139, D140, D143, D146, D148, D149, D153, D154.
+- Invariants I111, I112, I113, I114, I116, I117, I118, I120.
+- PLAN frontier items: `chat-runtime-secondary-chats`, `reconciliation-runtime`, `changeset-ledger`, `chat-context-provision`.
 
-- A49, A88, A94, A95, A96 — chat-shaped secondary resolution, hard-impact cascade sufficiency, thread-substrate absorption, context-provision, and async reconciliation assumptions.
-- D86, D87, D110, D113, D114, D153, D154 — route/workspace projection plus the runtime umbrella's supersession of independent side-chat persistence and the requirement to reconcile thread substrate with strategy/context ownership before schema commitment.
-- D135, D137, D138, D139, D140, D141, D146 — cascade through `reconciliation_need`, multi-chat substrate phase one, prompt/context substrate, semantic changeset ledger horizon, and hard-impact edit cascade.
-- I102, I111, I112, I113, I114, I120 — active path, multi-chat substrate, prompt/context scenarios, cascade, classifier lifecycle, and thread-process boundary.
-- Requirements 10 and 45 — HITL reconciliation contract plus unified inline thread runtime.
+**Likely future decisions when Tracks 2–5 are scoped**
 
-**Likely to introduce (when `/ln-plan` slices Tracks 2–5)**
-
-- New decisions: thread substrate shape; reconciliation thread lifecycle; changeset migration sequence; direct-edit thread-opening UX.
-- New invariants: changeset attribution coverage; auto-confirmed never reaches the user; thread context spec is replayable.
+- Secondary-chat lifecycle and anchor policy.
+- Reconciliation chat lifecycle.
+- Changeset migration sequence.
+- Direct-edit attention/focus policy.
+- Context-handle persistence/expiry policy.
 
 **Cross-references**
 
 - [MULTI_CHAT.md](./MULTI_CHAT.md) §3 substrate, §4 context model, §5 reconciliation primitive
 - [SIDE_CHAT.md](./SIDE_CHAT.md) §5 edit-patch routing, §13 substrate alignment
-- [PATCH_LEDGER.md](./PATCH_LEDGER.md) §Proposed Concepts (historical patch/patch_change vocabulary), §Reconciliation Flow, §Target Ordering, §Phase 2 Patch Ledger
-- [CONTINUOUS_WORKSPACE_HYBRID.md](./CONTINUOUS_WORKSPACE_HYBRID.md) §Design A/B/C, §Recommended direction
-- [memory/PLAN.md](../../memory/PLAN.md) §Recently Completed (continuous workspace), §Next (runtime tracks and semantic substrate), §Horizon (architect loop)
-- [memory/PLAN.md](../../memory/PLAN.md) Recently Completed — FE-674 V3.1 closing note; provides the shipped V3.1 surface that this umbrella will absorb
+- [PATCH_LEDGER.md](./PATCH_LEDGER.md) §Reconciliation Flow, §Target Ordering, §Phase 2 Patch Ledger
+- [CONTINUOUS_WORKSPACE_HYBRID.md](./CONTINUOUS_WORKSPACE_HYBRID.md) §Recommended direction
+- [memory/SPEC.md](../../memory/SPEC.md) Future Direction Register and Lexicon
+- [memory/PLAN.md](../../memory/PLAN.md) Sequencing, Dependencies, and runtime frontier definitions
