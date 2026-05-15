@@ -24,11 +24,11 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 ### Active
 
 1. `agent-fixture-substrate` — branch-complete off main, reconciling — FE-705 integration substrate for JSONL agent capability CLI and LLM-as-user probes.
-2. `intent-graph-semantics` — FE-700 relation-policy foundation ready for PR review; remaining ontology expansion candidates need fresh scoping before more build work.
+2. `chat-runtime-secondary-chats` — FE-716; branch `ka/fe-716-chat-runtime-unified-secondary-chats` stacked on `ln/fe-709-reconciliations` (PR #139). V1 narrowing in effect; current slice queue in `memory/CARDS.md`.
 
 ### Next
 
-1. `chat-runtime-secondary-chats` — Track 2 of the runtime umbrella; immediate successor to continuous-workspace. Implement inline/collapsible secondary chats over existing chat/turn; explicitly defer a `thread` table.
+1. `intent-graph-semantics` — highest-coordination semantic substrate after FE-705 reconciliation.
 2. `changeset-ledger` — Track 4 of the runtime umbrella; parallel with Track 2; semantic history spine needed before canonical proposal acceptance, direct-edit atomicity, and productized scenario options.
 3. `chat-context-provision` — Track 5 of the runtime umbrella recast as transcript-first context; can proceed against chat/turn once secondary-chat entry/anchor shape is settled.
 4. `reconciliation-runtime` — Track 3 of the runtime umbrella; after Track 2 + Track 4 provide the secondary-chat surface and durable attribution.
@@ -74,15 +74,17 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 ### chat-runtime-secondary-chats
 
 - **Name:** Chat runtime — inline secondary chats (Conversational Workspace Runtime — Track 2)
-- **Linear:** FE-710 if retitled; otherwise unassigned in this plan snapshot
+- **Linear:** FE-716
 - **Kind:** structural
-- **Status:** not-started / replanned
+- **Status:** active — V1 narrowing in effect; current card queue in `memory/CARDS.md`
 - **Objective:** Render side, reconciliation, qa, and strategy chats inline as collapsible secondary chats in the workspace using the existing chat/turn substrate. Defer schema-level `thread`; do not add `thread` / `turn.thread_id` unless a later RFC proves chat/turn insufficient. Retire the SideChatPopover as a UI surface only after parity exists over durable secondary chats.
+- **V1 narrowing (FE-716 scope):** Frame V1 as "every behavior the current side-chat (V3.1) supports today, surfaced through the elevated unified-workspace shape." Build only what that framing requires: substrate columns on `chat` (`parent_chat_id`, `invoked_in_turn_id`, `pinned_item_id`, `pinned_span_hint`) without enum changes; durable secondary-chat persistence; inline collapsible rendering; turn-zero kickoff with server-supplied snapshots; Ask/Edit modes; `#` knowledge-item symbol injection only; lightweight reconciliation-element view (full reconciliation runtime stays Track 3); agent-run inline rendering; SideChatPopover deletion. Explicitly defer to follow-up frontiers: `$` secondary-chat mention symbol, full reconciliation target-grouped UX, QA composer refinements, strategy sub-chat UI, layout-state header control, mention autocomplete, snapshot builders, item-version-gated refresh. Design brief `docs/design/UNIFIED_CHAT_UX.md` is the canonical reference for the broader ceiling and stays unedited.
 - **Why now / unlocks:** Track 1 (workspace shell) ships, providing the stable host. Inline secondary chats are the critical unblocker for reconciliation absorption (Track 3) and give chat-context provision (Track 5) stable initiating anchors without creating a competing strategy/context substrate. Supersedes the prior side-chat V4a persistence horizon — persistent side-chat history becomes durable secondary chats rendered inline.
-- **Acceptance:** Secondary chat kinds (`side`, `reconciliation`, `qa`, `strategy`) are representable with chat/turn; each active/resumable chat preserves one open assistant/system-first frontier turn; secondary chats render inline/collapsible in the unified workspace; SideChatPopover retires as cutover; transient staged-patches strip does not become a new source of semantic truth; turn-zero (`turn_kind='kickoff'`) seeds secondary chats with explicit context snapshots.
+- **Acceptance:** Secondary chat kinds (`side`, `reconciliation`, `qa`, `strategy`) are representable with chat/turn; each active/resumable chat preserves one open assistant/system-first frontier turn; secondary chats render inline/collapsible in the unified workspace; SideChatPopover retires as cutover; transient staged-patches strip does not become a new source of semantic truth; turn-zero (`turn_kind='kickoff'`) seeds secondary chats with explicit context snapshots (full snapshot lifecycle deferred to Track 5).
 - **Verification:** Chat/turn persistence and reload tests, inline secondary-chat rendering tests, one-open-frontier-per-chat tests, manual walkthroughs for side/qa/strategy chat creation/display/collapse, and regression on existing interview flow.
+- **Open question (resolve in Card 1 / Card 6):** Agent-run inline rendering — fifth `chat.kind` enum value, system-authored sub-chat reusing an existing kind, or a derived projection over `first_turn_role`. HANDOFF flagged for explicit decision; default posture is to keep the enum at `interview` + `side_chat` and project agent-run from `first_turn_role='system'` unless substrate behavior justifies promotion.
 - **Traceability:** Requirement 45; A49, A94; D86, D87, D110, D114, D138, D153; I111, I116, I120.
-- **Design docs:** `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.2 + §5 Track 2; `docs/design/MULTI_CHAT.md`; `docs/design/SIDE_CHAT.md`; `docs/design/SPEC_EVOLUTION_STRATEGIES.md`.
+- **Design docs:** `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.2 + §5 Track 2; `docs/design/MULTI_CHAT.md`; `docs/design/SIDE_CHAT.md`; `docs/design/SPEC_EVOLUTION_STRATEGIES.md`; design brief `docs/design/UNIFIED_CHAT_UX.md` (to be brought forward verbatim from PR #138 in Card 0; do not edit).
 
 ### reconciliation-runtime
 
@@ -128,7 +130,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Name:** Intent graph semantics + relation-policy directionality foundation
 - **Linear:** FE-700
 - **Kind:** structural
-- **Status:** ready for PR review — relation-policy registry, read-only intent neighborhood snapshots, policy-driven cascade impact, and side-chat/apply impact parity are done; invariant/example ontology expansion candidates are deferred until freshly scoped.
+- **Status:** not-started
 - **Objective:** Refine the ontology and relation policy so the graph can represent invariants, examples/counterexamples, constraint subtypes, narrowed decisions, witness strength, checkability gaps, and operational edge behavior as source/destination material for future generative features.
 - **Why now / unlocks:** Candidate generation, behavioral kernels, graph review, scenario-options acceleration, architect proposals, direct-edit cascade, and downstream verification-aware decomposition all need a sharper semantic target than the current exploration/review ontology. This semantic-layer lane is most likely to collide with parallel work, so it should land before broad observer enrichment or canonical candidate-bundle acceptance.
 - **Acceptance:** `invariant` and `example` are first-class durable kinds; examples are subtyped; `decision` is narrowed; `constraint`, `criterion`, and `invariant` semantics are enriched; `checkability` and witness strength are represented; relation families, negative relations, edge epistemic metadata, relation-policy directionality, and endpoint-relative display labels for dependency/dependent context snapshots are explicit.

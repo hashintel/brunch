@@ -1,0 +1,112 @@
+<!-- CARDS.md — derivative scope-card queue for the active frontier branch.
+     Authority: execution sequencing inside ONE frontier item. Not canonical planning state.
+     PLAN.md owns frontier items; CARDS.md owns the slice queue inside the active frontier.
+     Cards live on the same Linear issue + Graphite branch by default; promote to a new
+     frontier in PLAN.md only if the card itself reveals a durable seam/branch boundary. -->
+
+# Cards — `chat-runtime-secondary-chats` (FE-716)
+
+Branch: `ka/fe-716-chat-runtime-unified-secondary-chats`
+Linear: [FE-716](https://linear.app/hash/issue/FE-716)
+Stacked on: `ln/fe-709-reconciliations` (PR #139, awaiting merge to main)
+
+## V1 framing
+
+V1 = "every behavior the current side-chat (V3.1) ships today, surfaced through the elevated unified-workspace shape from `docs/design/UNIFIED_CHAT_UX.md`." Build only what that framing requires; defer the rest of the brief to follow-up frontiers. See PLAN.md `chat-runtime-secondary-chats` § V1 narrowing for the explicit defer list.
+
+Vocabulary: **secondary chat** (matches PR #139's lexicon). The `chat.parent_chat_id IS NOT NULL` projection is the sole driver of "render inline as a secondary chat under parent."
+
+## Card queue
+
+### C0 — Bring forward `UNIFIED_CHAT_UX.md` design brief
+
+- **What:** Copy `docs/design/UNIFIED_CHAT_UX.md` verbatim from PR #138 onto this branch. Reconcile vocabulary in-doc: `thread` → `secondary chat`. Do not edit semantic content; this stays the canonical brief for future tracks.
+- **Why first:** Zero substrate dependency; gives downstream cards a single in-tree reference. Cheap to land alone.
+- **Scope:** doc-only.
+- **Done when:** file exists on branch; vocabulary reconciled to "secondary chat"; referenced from PLAN.md frontier definition.
+
+### C1 — Substrate migration: four columns on `chat`, zero enum changes
+
+- **What:** Drizzle migration adding `parent_chat_id UUID NULL REFERENCES chat(id)`, `invoked_in_turn_id UUID NULL REFERENCES turn(id)`, `pinned_item_id UUID NULL REFERENCES knowledge_item(id)`, `pinned_span_hint TEXT NULL`. Update `src/server/schema.ts` to match. **Do not** change `chat.kind` enum (stays `interview` + `side_chat`). **Do not** retire `chat.active_turn_id` (#138's retirement reverses).
+- **Why second:** Substrate-first lets every later card build on durable rows instead of ephemeral wiring.
+- **Verification:** `npm run verify`; migration applies cleanly to a fresh `.brunch/brunch.db` and to a DB seeded with V3.1 side-chats; column constraints assert nullability and FK integrity.
+- **Out of scope:** any new enum value (`reconciliation`, `qa`, `strategy`, `agent_run`); the `thread` table; `turn.thread_id`; `thread_context_item`.
+- **Open question this card resolves:** none — agent-run kind decision is deferred to C7.
+
+### C2 — Server: chat-creation surface for secondary chats + turn-zero kickoff
+
+- **What:** Either rename/repurpose the existing side-chat creation route or add a `POST /api/specifications/:id/chats` (TBD during the card; #138's `POST /api/specifications/:id/threads` is the harvest reference) that accepts `parent_chat_id`, `invoked_in_turn_id`, `pinned_item_id`, `pinned_span_hint`, `kind='side_chat'`, and creates the chat plus a turn-zero `turn` with `turn_kind='kickoff'` and an assistant-authored intro that includes server-supplied context snapshots (V1: anchor item snapshot derived inline; full Track 5 snapshot builder lifecycle deferred).
+- **Why third:** Once substrate exists, we need durable persistence on the create path before any UI rebuild.
+- **Verification:** route tests for create + persistence + reload; one-open-frontier-per-chat invariant test; kickoff turn rendered with snapshot payload.
+- **Harvest:** `src/server/side-chat-route.ts`, `src/server/side-chat-prompt.ts`, #138's threads endpoint.
+
+### C3 — Client: `secondary-chat-collapsible` inline component
+
+- **What:** Build the inline collapsible UI for `chat.parent_chat_id IS NOT NULL` chats, anchored under their `invoked_in_turn_id` in the parent transcript. Driven entirely by the projection rule — no flavor enum needed. Replace `SideChatHost`'s popover plumbing with inline rendering inside `ContinuousWorkspaceView`.
+- **Why fourth:** First user-visible artifact; depends on C1 + C2.
+- **Verification:** rendering tests for inline placement and collapse/expand state; reload preserves expand/collapse; one-open-frontier-per-chat reflected in UI; manual walkthrough of side-chat creation through the new surface.
+- **Harvest:** `thread-collapsible.tsx` from #138 (rename to `secondary-chat-collapsible.tsx`); `src/client/components/side-chat-host.tsx` shrinkage pattern (940 → 95 LOC in #138).
+- **Out of scope:** popover deletion (C8), Ask/Edit toggle (C4), patch staging (C5), `#` injection (C6).
+
+### C4 — Ask / Edit mode toggle on secondary chats
+
+- **What:** Mode toggle (Ask = `explore`, Edit = `edit`) with per-mode tool sets via `getSideChatTools(mode)`; persist mode on the chat (column or `chat_strategy_state`-style metadata — decide during card; smallest viable storage).
+- **Why fifth:** Re-establishes V3.1 functional parity for side-chat editing.
+- **Verification:** mode toggle persistence test; tool-set selection test per mode; manual walkthrough for both modes.
+- **Harvest:** `getSideChatTools(mode)`, V3.1 mode plumbing.
+
+### C5 — In-thread patch staging on secondary chats
+
+- **What:** Port #138's in-thread staged-patches strip onto the chat substrate. Patches stay turn artifacts; accepted mutations still flow through Brunch-owned handlers (no new source of semantic truth).
+- **Why sixth:** Closes the Edit-mode loop end-to-end.
+- **Verification:** staging/apply/cancel tests on a secondary chat; regression on the V3.1 side-chat edit flow.
+- **Harvest:** #138's in-thread staging UI; `pendingPatches` plumbing.
+
+### C6 — `#` knowledge-item symbol injection (V1 surface only)
+
+- **What:** Implement `#REF-CODE` resolution in the secondary-chat composer that inserts an item context snapshot artifact into the next turn. **No** autocomplete chip; **no** `$` secondary-chat mention symbol; **no** snapshot builder lifecycle (those are Track 5 / `chat-context-provision`). Use a server-owned resolver scoped to the specification per `CONVERSATIONAL_WORKSPACE_RUNTIME.md` §3.5.
+- **Why seventh:** Provides the V1 structured way to add item context, replacing the ad-hoc V3.1 anchoring path for in-flight mentions.
+- **Verification:** resolver unit tests for valid/missing/ambiguous codes; turn-snapshot insertion test; manual walkthrough.
+
+### C7 — Agent-run inline rendering + `chat.kind` decision
+
+- **What:** Decide and implement: (a) keep enum at `interview` + `side_chat` and project `agent_run` flavor from `first_turn_role='system'`; (b) add a fifth `chat.kind='agent_run'` enum value. Default posture per HANDOFF: (a). Render agent-run secondary chats inline using the same component from C3. If (b) is chosen, this card carries a follow-up substrate migration.
+- **Why eighth:** Agent-run inline is in V1 scope per HANDOFF; deferring to last lets the substrate decision settle after C1–C6 reveal whether projection-only is sufficient.
+- **Verification:** agent-run secondary chat renders inline; system-first frontier turn invariant holds; if (b), enum migration applies cleanly.
+
+### C8 — `SideChatPopover` retirement + `side-chat-host` shrinkage
+
+- **What:** Delete `SideChatPopover`; shrink `side-chat-host` to its minimal post-popover form (target ~95 LOC per #138's harvest). Remove popover-only routes/state.
+- **Why ninth:** Retire only after C3–C7 reach parity over durable secondary chats.
+- **Verification:** `npm run verify`; manual regression on side-chat entry from substantive reconciliation rows; ensure no popover code paths remain reachable.
+
+### C9 — Lightweight reconciliation-element view
+
+- **What:** When a secondary chat is opened with a reconciliation context (entry bridge from a substantive reconciliation row), render a minimal "elements being reconciled" panel inside the secondary chat surface. **Not** the full target-grouped / classifier-state UX from the brief — that's Track 3 (`reconciliation-runtime`). `PendingReviewSection` retirement stays Track 3's job.
+- **Why tenth:** Lightweight scope addition beyond pure side-chat parity per HANDOFF V1 list.
+- **Verification:** rendering test with a reconciliation-need entry; regression on the V3.1 substantive-reconciliation → side-chat bridge.
+
+### C10 — V1 closure: verification + manual walkthrough + frontier closeout
+
+- **What:** Full `npm run verify`; outer-loop walkthrough of the side-chat V3.1 capability matrix on the new substrate; confirm SPEC.md A94 is satisfied (durable secondary chats over chat/turn without a `thread` table); update PLAN.md frontier status; draft PR description.
+- **Why last:** Frontier-level closure gate.
+- **Verification:** verify passes; walkthrough notes captured; A94 satisfied; PR ready for stack submission.
+
+## Deferred — explicitly NOT in V1 (parking lot)
+
+These belong to follow-up frontiers and should not be slipped into FE-716:
+
+- `$` secondary-chat mention symbol → future `chat-context-provision` slice
+- Mention autocomplete chip + per-kind prompt context builders → `chat-context-provision` (Track 5)
+- Snapshot builder family (`buildIntentItemContextSnapshot`, neighborhood, economic-graph, historical) → `chat-context-provision` (Track 5)
+- Item-version-gated handle refresh → `chat-context-provision` (Track 5; needs `changeset-ledger`)
+- Full reconciliation runtime UX (target-grouped, async classifier states, "Reconcile Now") → `reconciliation-runtime` (Track 3)
+- `PendingReviewSection` retirement → `reconciliation-runtime` (Track 3)
+- QA composer refinements → follow-up frontier
+- Strategy secondary-chat UI → follow-up frontier (substrate may already represent it)
+- Layout-state header control (Compact / Side-docked / Maximize / Full) → follow-up frontier
+
+## Open coordination items
+
+- **Lexicon reconciliation:** none — branch adopts PR #139's "secondary chat" vocabulary throughout.
+- **PR #139 dependency:** stack submits only after #139 merges (or per Lu's signal). Restack on `main` once #139 lands.
