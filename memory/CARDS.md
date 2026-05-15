@@ -99,10 +99,86 @@ C3 has been split into three sub-cards (C3a / C3b / C3c) for verifiable thin sli
 
 ### C5 — In-thread patch staging on secondary chats
 
-- **What:** Port #138's in-thread staged-patches strip onto the chat substrate. Patches stay turn artifacts; accepted mutations still flow through Brunch-owned handlers (no new source of semantic truth).
+C5 has been split into three sub-cards (C5a / C5b / C5c) for verifiable thin slices. Original "What" preserved below for reference.
+
+- **C5 original What:** Port #138's in-thread staged-patches strip onto the chat substrate. Patches stay turn artifacts; accepted mutations still flow through Brunch-owned handlers (no new source of semantic truth).
 - **Why sixth:** Closes the Edit-mode loop end-to-end.
-- **Verification:** staging/apply/cancel tests on a secondary chat; regression on the V3.1 side-chat edit flow.
-- **Harvest:** #138's in-thread staging UI; `pendingPatches` plumbing.
+- **Verification (umbrella):** staging/apply/cancel tests on a secondary chat; regression on the V3.1 side-chat edit flow; `npm run verify` green at C5c.
+- **Harvest:** [side-chat-route.ts](file:///Users/kostandin/Projects/hashdev/brunch/src/server/side-chat-route.ts), [side-chat-prompt.ts](file:///Users/kostandin/Projects/hashdev/brunch/src/server/side-chat-prompt.ts), [side-chat-stream.ts](file:///Users/kostandin/Projects/hashdev/brunch/src/client/lib/side-chat-stream.ts), [side-chat-host.tsx](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/side-chat-host.tsx) (staging strip render), [patch-list-host.tsx](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/patch-list-host.tsx) + [patch-list-reducer.ts](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/patch-list-reducer.ts) (`pendingPatches` plumbing).
+
+#### Cross-cutting design decision (Shape A — patch-list partition seam)
+
+C5c needs `PatchListProvider` to keep one global event log while letting each secondary chat see *only its own* staged patches. **Decision (this thread):** add `producerChatId: number | null` to `PatchBase` and expose a new `usePatchListForChat(chatId)` hook that filters the staged slice and scopes apply/discard/editSummary to that chat's patch ids. Existing `usePatchList()` keeps current behavior (popover sees all patches; safe during transition). Reducer logic is unchanged; the partition lives at the selector layer. C8 (popover retirement) deletes the legacy `producerChatId === null` branch.
+
+Considered alternatives and rejected:
+- **Shape B (one provider per chat):** N reducers + N applier injections; popover and inline use disjoint logs.
+- **Shape C (`Map<Scope, PatchList>` reducer):** principled but over-engineered for V1's "popover + N inline" reality; large reducer churn.
+- **Shape D (no shared abstraction):** inline duplicates the popover machinery until C8.
+
+Shape A wins on Ousterhout's depth test (one new field + one new hook hides the partitioning concern) and is forward-compatible with A71's future server `appendPatch(spec, patch[])` signature.
+
+#### C5a — Server: secondary-chat streaming endpoint + edit-tool registration
+
+- **Status:** **next**
+- **What:** New server seam `POST /api/specifications/:id/secondary-chats/:chatId/messages` (or equivalent — confirm naming during build) that resolves the chat by id, validates `chat.parent_chat_id IS NOT NULL`, calls `getSideChatTools(chat.mode)` to gate `propose_edit` / `propose_edge` / `propose_drill_down` on Edit mode, streams an assistant turn under the secondary chat using the existing SSE shape from `side-chat-route.ts`, and persists user/assistant turns under the secondary chat's `chat_id`. Reuse `side-chat-prompt.ts` for system instructions; per-mode kickoff template enrichment (deferred from C4) lands here as a side-effect of touching the prompt path.
+- **Boundary crossings:** HTTP route → spec/chat lookup → `getSideChatTools(mode)` → AI SDK stream → `appendTurn(chat_id, role, parts)`. Same shape as `side-chat-route.ts`, scoped to secondary chats.
+- **Risks/assumptions:**
+  - RISK: `side-chat-route.ts` may have popover-specific assumptions baked in (e.g. anchor item lookup from request body) → MITIGATION: read it once before mirroring; lift only the streaming/tools shell, not the request envelope.
+  - ASSUMPTION: secondary chats stream into `assistant_parts` of a freshly-created turn under the secondary chat (mirrors interview chat shape) → VALIDATE: round-trip oracle (POST a message, GET the bundle, see the new turn under `secondaryChats[i].turns`). May require extending the `SecondaryChatState` bundle to include turns beyond the kickoff — confirm during build.
+- **Acceptance:**
+  - ✓ POST with mode=`explore` streams an assistant turn; bundle round-trip surfaces the new turn under the secondary chat.
+  - ✓ POST with mode=`edit` registers edit tools; SSE event for `propose_edit` is emitted.
+  - ✓ POST against a primary chat returns 404 (refuses non-secondary chats — same invariant as PATCH mode route).
+  - ✓ POST against a missing chat returns 404.
+  - ✓ Existing `POST /side-chat` (popover) regression unaffected.
+- **Verification:** Inner — Vitest integration tests in `app.test.ts` covering happy paths + 404 invariants + tool gating. Middle — round-trip oracle (POST → GET bundle → assert turn presence). No outer-loop verification at this slice.
+- **Out of scope:** client composer (C5b); staging strip (C5c); per-chat patch list partition (C5c).
+
+#### C5b — Client: composer + stream consumer for inline secondary chats
+
+- **Status:** **next** (after C5a)
+- **What:**
+  1. Promote a `<SecondaryChatHost chatId>` component (per the C0–C4 review finding #1) that owns *all* per-chat mutation/streaming hooks and renders `<SecondaryChatCollapsible>` with the wired props. Replaces the current `SecondaryChatCollapsibleWithMode` wrapper. Wires:
+     - `useSetSecondaryChatModeMutation(chatId)` (existing)
+     - `useSecondaryChatStream(chatId)` (new — wraps the C5a SSE response into staged turns + activity)
+  2. Add a small composer (text input + Send) inside the collapsible body, posting to C5a and reusing `side-chat-stream.ts` parser.
+  3. Render the chat's existing turns under the collapsible body (kickoff first, then user/assistant pairs).
+- **Boundary crossings:** `<SecondaryChatHost>` → `useSecondaryChatStream` → `fetch` POST → SSE parser → derived turn list → `<SecondaryChatCollapsible>` body.
+- **Risks/assumptions:**
+  - RISK: `SecondaryChatState` bundle currently exposes only `chat` + `kickoffTurn`; rendering subsequent turns needs either a per-chat `turns: Turn[]` field on the bundle or a separate `useSecondaryChatTurns(chatId)` query → MITIGATION: extend the bundle if cheap (preferred), else add a per-chat turn-list query.
+  - ASSUMPTION: Existing `side-chat-stream.ts` parser is generic enough to consume the C5a response without forking → VALIDATE: read the parser once during build; fork only if the SSE event vocabulary diverges.
+- **Acceptance:**
+  - ✓ Typing in the composer + Send POSTs to C5a and renders the streaming assistant turn live in the collapsible body.
+  - ✓ After stream completes, bundle invalidation reveals the persisted turn unchanged on next mount.
+  - ✓ `<SecondaryChatHost>` replaces `SecondaryChatCollapsibleWithMode` in `-workspace-transcript-artifacts.tsx` with no regression in the C4 mode-toggle tests.
+  - ✓ Multiple secondary chats can be composed against in parallel without state cross-talk (no shared in-flight ref).
+- **Verification:** Inner — happy-dom Vitest covering composer → POST → stream consumption → derived turn list. Middle — bundle round-trip after stream ends. Reuse `secondary-chat-collapsible.test.tsx` patterns for harness.
+- **Out of scope:** patch staging strip (C5c); patch list partition (C5c); typing-while-streaming queue.
+
+#### C5c — Per-chat patch staging strip + partition seam
+
+- **Status:** **next** (after C5b)
+- **What:** Land the Shape A partition seam (above) and surface the staged-patches strip *inside* `<SecondaryChatHost>`'s collapsible body, scoped to the host's chat id.
+  1. **Reducer change:** add `producerChatId: number | null` to `PatchBase` and `StagePatchInput`. Existing call sites (popover, manual tests) pass `null`.
+  2. **Provider change:** new `usePatchListForChat(chatId)` hook that returns the filtered staged slice + scoped actions (apply/discard/editSummary auto-filter by chat id; apply uses `patchIds` derived from the slice).
+  3. **Stream wire-up:** C5b's `useSecondaryChatStream(chatId)` translates `propose_*` SSE tool calls into `actions.stage({ ...patch, producerChatId: chatId })`.
+  4. **UI:** harvest `SideChatPopover`'s staged-patches strip render shape (`stagedPatches`, `onApply`, `onUndo`, `<ContentDiff>` for `edit` patches, `<ImpactChip>`) into a `<SecondaryChatStagingStrip chatId>` component mounted inside `<SecondaryChatHost>`'s collapsible body.
+- **Boundary crossings:** SSE stream → `usePatchListForChat(chatId).actions.stage` → reducer event log → `usePatchListForChat(chatId).staged` → strip UI → `actions.apply()` → existing `makeEditApplier` (unchanged).
+- **Risks/assumptions:**
+  - RISK: existing call sites (popover, side-chat-host derived state at lines 578–602) need `producerChatId: null` threaded through without semantic change → MITIGATION: type the field as required-but-nullable on `PatchBase`; let the type system surface every site.
+  - RISK: undo currently reverses the last apply batch globally; per-chat undo could cross chats if a popover apply followed an inline apply → MITIGATION: for V1 ship per-`apply()`-batch undo (chat scope is implicit because each chat's apply only touches its own patch ids); document the invariant in the reducer header.
+  - ASSUMPTION: `<ImpactChip>` and `<ContentDiff>` are reusable as-is outside the popover → VALIDATE: read both during build; lift to a shared location if needed (no new abstraction unless the second caller forces it).
+- **Acceptance:**
+  - ✓ Staging an `edit` proposal during streaming surfaces it in the host's strip; popover does NOT see it via `usePatchList()` (filter excludes per-chat patches by default — adjust if popover-during-transition wants the full union view).
+  - ✓ Apply on the strip mutates the anchor item via `makeEditApplier`; undo reverses it; bundle round-trip reflects the change.
+  - ✓ Popover staging path (V3.1) is unaffected: existing side-chat tests pass with `producerChatId: null`.
+  - ✓ Two open inline secondary chats can stage edits in parallel; each strip shows only its own patches.
+- **Verification:** Inner — reducer/state unit tests for `producerChatId` filtering; per-chat hook unit tests; popover regression in `side-chat-host.test.tsx`. Middle — round-trip: stage → apply → bundle reflects mutation. Outer — manual: open two inline secondary chats, stage edits in each, apply one, verify the other strip is untouched. (Capture in the C10 walkthrough.)
+- **Out of scope:** rendering staged patches as turn artifacts (deferred — patches stay UI state, not turn-persisted, until a future card promotes them); cross-chat undo; deletion of `usePatchList()` (waits for C8).
+
+##### Order discipline
+
+C5a (server) → C5b (client composer + host) → C5c (partition + strip). Sequential because C5b consumes C5a's response shape; C5c's stream wire-up plugs into C5b's host. None of C5b's interface should change based on C5a build findings beyond response-shape details (those are absorbed in `useSecondaryChatStream`); C5c's interface is independent of either earlier slice.
 
 ### C6 — `#` knowledge-item symbol injection (V1 surface only)
 
