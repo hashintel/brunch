@@ -288,6 +288,67 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
     expect(mockStreamInterviewer).not.toHaveBeenCalled();
     expect(mockRunObserver).not.toHaveBeenCalled();
   });
+
+  it('resolves `#REF-CODE` mentions into the prompt and persists the snapshot on the user turn (FE-716 C6)', async () => {
+    const fixture = await createSecondaryChatFixture('FE-716 mention resolution');
+    const requirement = dbModule.createKnowledgeItem(
+      db,
+      fixture.specId,
+      'requirement',
+      'Export the spec as markdown',
+    );
+    const requirementCode = `R${requirement.kind_ordinal}`;
+
+    await request(app)
+      .post(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/messages`)
+      .send({ message: `Why does ${`#${requirementCode}`} matter? Also #G99 should be skipped.` })
+      .expect(200);
+
+    // Prompt: system block carries the resolved snapshot so the model sees it.
+    const callArgs = mockStreamText.mock.calls.at(-1)?.[0] as { system: string };
+    expect(callArgs.system).toContain('Mentioned items');
+    expect(callArgs.system).toContain(`[${requirementCode}]`);
+    expect(callArgs.system).toContain('Export the spec as markdown');
+    expect(callArgs.system).not.toContain('[G99]');
+
+    // Persistence: the user turn captures the snapshot inline so replay/audit
+    // sees the same context the assistant saw, even after the source item changes.
+    const snapshotRes = await request(app).get(`/api/specifications/${fixture.specId}`).expect(200);
+    const snapshot = snapshotRes.body as {
+      secondaryChats?: Array<{
+        chat: { id: number };
+        turns: Array<{ user_parts: string | null; assistant_parts: string | null }>;
+      }>;
+    };
+    const row = snapshot.secondaryChats?.find((r) => r.chat.id === fixture.chatId);
+    const userTurn = row?.turns.find((turn) => turn.user_parts !== null);
+    expect(userTurn?.user_parts).toContain(`#${requirementCode}`);
+    expect(userTurn?.user_parts).toContain('Mentioned items');
+    expect(userTurn?.user_parts).toContain('Export the spec as markdown');
+  });
+
+  it('leaves the user turn untouched when no `#` mentions resolve (FE-716 C6)', async () => {
+    const fixture = await createSecondaryChatFixture('FE-716 mention no-op');
+
+    await request(app)
+      .post(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/messages`)
+      .send({ message: 'a plain question with no mentions' })
+      .expect(200);
+
+    const callArgs = mockStreamText.mock.calls.at(-1)?.[0] as { system: string };
+    expect(callArgs.system).not.toContain('Mentioned items');
+
+    const snapshotRes = await request(app).get(`/api/specifications/${fixture.specId}`).expect(200);
+    const snapshot = snapshotRes.body as {
+      secondaryChats?: Array<{
+        chat: { id: number };
+        turns: Array<{ user_parts: string | null }>;
+      }>;
+    };
+    const row = snapshot.secondaryChats?.find((r) => r.chat.id === fixture.chatId);
+    const userTurn = row?.turns.find((turn) => turn.user_parts !== null);
+    expect(userTurn?.user_parts).toBe('a plain question with no mentions');
+  });
 });
 
 describe('POST /api/specifications/:id/secondary-chats — kickoff template enrichment', () => {

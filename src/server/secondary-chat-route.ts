@@ -19,6 +19,11 @@ import {
   type DB,
 } from './db.js';
 import { classifyEditImpact, type EditImpactTier } from './edit-impact.js';
+import {
+  formatMentionedItemsContextBlock,
+  parseIntentItemReferences,
+  resolveIntentItemReferences,
+} from './intent-item-resolver.js';
 import * as schema from './schema.js';
 import {
   buildSideChatPrompt,
@@ -311,11 +316,24 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
 
   const history = loadPriorTurns(db, chatId);
 
+  // FE-716 C6: resolve `#REF-CODE` mentions server-side and capture them as a
+  // snapshot artifact on the user turn. Persisting the snapshot inline in
+  // user_parts keeps replay/audit faithful without requiring a separate turn
+  // artifact column (Track 5 / chat-context-provision will formalise the
+  // snapshot lifecycle). Codes that don't resolve are silently dropped — the
+  // user message itself still carries the literal `#R1` token.
+  const parsedReferences = parseIntentItemReferences(parsed.data.message);
+  const { matched } = resolveIntentItemReferences(db, specificationId, parsedReferences);
+  const mentionedItemsContextBlock = formatMentionedItemsContextBlock(matched);
+  const persistedUserContent = mentionedItemsContextBlock
+    ? `${parsed.data.message}\n\n${mentionedItemsContextBlock}`
+    : parsed.data.message;
+
   // Persist the user turn before streaming so a mid-stream disconnect still
   // leaves a recoverable transcript on the secondary chat.
-  appendSecondaryChatTurn(db, chatId, { role: 'user', content: parsed.data.message });
+  appendSecondaryChatTurn(db, chatId, { role: 'user', content: persistedUserContent });
 
-  const { system, messages } = buildSideChatPrompt(
+  const { system: baseSystem, messages } = buildSideChatPrompt(
     pinnedItem,
     parsed.data.message,
     {
@@ -328,6 +346,7 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
       mode,
     },
   );
+  const system = mentionedItemsContextBlock ? `${baseSystem}\n\n${mentionedItemsContextBlock}` : baseSystem;
 
   const tools = getSideChatTools(mode);
 
