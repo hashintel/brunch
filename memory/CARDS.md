@@ -56,16 +56,17 @@ C3 has been split into three sub-cards (C3a / C3b / C3c) for verifiable thin sli
 - **What:** New helper `listSecondaryChatsForSpecification(db, specId) → SecondaryChatWithKickoff[]` returns secondary chats (rows with `parent_chat_id IS NOT NULL`) with each chat's first kickoff turn (or null). `readSpecificationStateProjection` includes the projected `secondaryChats` field; `specificationStateSchema` extended with `secondaryChatStateSchema`.
 - **Verification:** `npm run verify` — 100 test files / 1283 tests pass. New tests cover empty/single/multi-spec scoping, kickoff turn population, missing-kickoff null fallback, primary-chat exclusion, and bundle inclusion via `getSpecificationState`.
 
-#### C3b — Render: `<SecondaryChatCollapsible>` mounted in workspace view (next)
+#### C3b — `<SecondaryChatCollapsible>` standalone component
 
-- **What:** New `secondary-chat-collapsible.tsx` component renders the kickoff turn's `assistant_parts`, collapsed by default. `-continuous-workspace-view.tsx` mounts it under the matching `invoked_in_turn_id` turn, dropping it silently if the parent turn isn't rendered.
-- **Acceptance:** fixture-seeded secondary chat appears under the right turn; collapsed by default; expand reveals kickoff content; no orphan render.
-- **Verification:** vitest render tests in `-continuous-workspace-view.test.tsx`.
+- **Status:** **done** (2026-05-15) — component + tests landed; mounting deferred to C3c (where there's a real consumer to drive it).
+- **What:** New `src/client/components/secondary-chat-collapsible.tsx` renders a Radix-`Collapsible`-backed secondary chat surface. Header always renders; body shows the kickoff turn's `assistant_parts` and is collapsed by default. Supports `kickoffTurn=null` (renders an empty body when expanded).
+- **Verification:** `npm run verify` — 101 test files / 1287 tests pass. New tests in `src/client/components/__tests__/secondary-chat-collapsible.test.tsx` cover header presence, collapsed-by-default, expand-on-click reveals content, and empty-body fallback for missing kickoff.
+- **Scope adjustment from original C3b:** mounting in `-continuous-workspace-view.tsx` deferred to C3c. Reason: `WorkspaceTranscriptArtifacts` (556 LOC) is the actual turn-render seam; threading the collapsible through it is invasive enough to merit landing alongside the trigger that creates the rows in the first place. Building mounting now without a creation flow would require fixture-seeding side-channels.
 
-#### C3c — Wire: POST route + client trigger + bundle refetch (next)
+#### C3c — Wire: POST route + client trigger + view mounting (next)
 
-- **What:** `POST /api/specifications/:id/secondary-chats` body `{ parentChatId, invokedInTurnId, itemKind, itemId, spanHint? }` → resolves item via `resolveEntity`, calls `createSecondaryChat` + `createKickoffTurn` with a templated kickoff string (UNIFIED_CHAT_UX.md §6 register), returns `{ chatId, kickoffTurnId }`. Client trigger gains a "create durable secondary chat" path; bundle is invalidated so C3b's render path picks up the new row.
-- **Acceptance:** POST creates a chat + kickoff turn; client trigger calls the endpoint; the new collapsible appears in the view after refetch.
+- **What:** `POST /api/specifications/:id/secondary-chats` body `{ parentChatId, invokedInTurnId, itemKind, itemId, spanHint? }` → resolves item via `resolveEntity`, calls `createSecondaryChat` + `createKickoffTurn` with a templated kickoff string (UNIFIED_CHAT_UX.md §6 register), returns `{ chatId, kickoffTurnId }`. Client trigger gains a "create durable secondary chat" path; bundle is invalidated; `WorkspaceTranscriptArtifacts` accepts a `secondaryChatsByInvokedTurnId` map prop and mounts `<SecondaryChatCollapsible>` after each matching turn artifact.
+- **Acceptance:** POST creates a chat + kickoff turn; client trigger calls the endpoint; the new collapsible appears in the view after refetch under the correct parent turn.
 - **Verification:** route test + integration test.
 
 ### C4 — Ask / Edit mode toggle on secondary chats
