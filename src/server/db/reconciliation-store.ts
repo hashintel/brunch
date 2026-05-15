@@ -1,4 +1,4 @@
-import { and, eq, sql, type InferSelectModel } from 'drizzle-orm';
+import { and, eq, or, sql, type InferSelectModel } from 'drizzle-orm';
 
 import type { DB } from '../db.js';
 import * as schema from '../schema.js';
@@ -182,12 +182,11 @@ export function updateReconciliationNeedAgentFields(
 }
 
 /**
- * V3.1 slice 4: look up the typed dependency edge that caused a need's
- * (source, target) pair. Cascade producer creates needs from edges where the
- * target is the upstream (changed) item and the source of the edge is the
- * downstream item; see cascade-producer.ts and getDownstreamEdges. Returns
- * undefined for orphan needs (target deleted, edge removed) — classifier
- * callers fall back to a relation-agnostic prompt in that case.
+ * Look up the typed intent edge that caused a reconciliation need's
+ * (changed item, affected item) pair. The changed item may be either the raw
+ * edge source or target; relation policy decides affected endpoints. Returns
+ * undefined for orphan needs (edge removed) so classifier callers can fall back
+ * to a relation-agnostic prompt.
  */
 export function getCascadeRelationBetween(
   db: DB,
@@ -199,8 +198,16 @@ export function getCascadeRelationBetween(
     .from(schema.knowledgeEdge)
     .where(
       and(
-        eq(schema.knowledgeEdge.from_item_id, targetItemId),
-        eq(schema.knowledgeEdge.to_item_id, sourceItemId),
+        or(
+          and(
+            eq(schema.knowledgeEdge.from_item_id, sourceItemId),
+            eq(schema.knowledgeEdge.to_item_id, targetItemId),
+          ),
+          and(
+            eq(schema.knowledgeEdge.from_item_id, targetItemId),
+            eq(schema.knowledgeEdge.to_item_id, sourceItemId),
+          ),
+        ),
       ),
     )
     .limit(1)

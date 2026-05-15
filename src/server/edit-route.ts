@@ -2,23 +2,18 @@ import type { Request, Response } from 'express';
 import * as z from 'zod/v4';
 
 import { edgeRelationSchema, type MutationErrorResponse } from '@/shared/api-types.js';
-import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
-import { relationToKind } from './cascade-producer.js';
 import {
   addKnowledgeRelationship,
-  getDownstreamEdges,
-  getDownstreamItems,
   getKnowledgeItem,
   getSpecification,
   getTurn,
-  isItemInActiveReviewSet,
   openReconciliationNeedIfAbsent,
   removeKnowledgeRelationship,
   updateKnowledgeItemContent,
   type DB,
 } from './db.js';
-import { classifyEditImpact } from './edit-impact.js';
+import { buildKnowledgeItemEditImpactProjection } from './edit-impact-projection.js';
 import { supportsKnowledgeRelationship } from './knowledge-relationship-policy.js';
 
 // --- Schemas ---
@@ -81,42 +76,28 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
     }
   }
 
-  const downstream = getDownstreamItems(db, specificationId, itemId);
-  const inReviewSet =
-    isItemInActiveReviewSet(db, specificationId, itemId) ||
-    downstream.some((downstreamItem) => isItemInActiveReviewSet(db, specificationId, downstreamItem.id));
-  const impact = classifyEditImpact(downstream.length, inReviewSet);
-
-  const affectedItems = downstream.map((d) => ({
-    id: d.id,
-    kind: d.kind,
-    referenceCode: createKnowledgeReferenceCode(d.kind as any, d.kind_ordinal),
-    content: d.content,
-  }));
+  const impactProjection = buildKnowledgeItemEditImpactProjection(db, specificationId, itemId);
+  const { affectedItems, impact } = impactProjection;
 
   const previousContent = item.content;
   const previousRationale = item.rationale;
 
   if (impact === 'hard') {
-    // V3.0 (D139, I112): apply the source change AND open one
-    // reconciliation_need per typed dependency edge incident on the changed
-    // item. The partial unique index on (source, target, kind) makes
-    // re-application idempotent. The patch list overlay surfaces these needs
-    // as a Pending review section in card 2; for now the V2 client banner
-    // continues to render off `impact === 'hard'`.
-    const downstreamEdges = getDownstreamEdges(db, specificationId, itemId);
+    // Apply the changed item and open one reconciliation_need per
+    // relation-policy affected endpoint. The partial unique index on
+    // (source, target, kind) makes re-application idempotent.
     const openedNeedIds = db.transaction((tx) => {
       updateKnowledgeItemContent(tx as unknown as DB, itemId, {
         content: parsed.data.content,
         rationale: parsed.data.rationale,
       });
       const opened: number[] = [];
-      for (const edge of downstreamEdges) {
+      for (const cascadeImpact of impactProjection.cascadeNeeds) {
         const need = openReconciliationNeedIfAbsent(tx as unknown as DB, {
           specificationId,
           sourceItemId: itemId,
-          targetItemId: edge.downstream_item_id,
-          kind: relationToKind(edge.relation),
+          targetItemId: cascadeImpact.affectedItemId,
+          kind: cascadeImpact.kind,
           causedByTurnId: parsed.data.causedByTurnId ?? null,
           // Card 1 (V3.1 setup): freeze the source's before/after content on
           // the need at open time so the Pending review row can render the
