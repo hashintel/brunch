@@ -67,7 +67,7 @@ describe('capability registry', () => {
       }),
       expect.objectContaining({
         id: 'chat.ensureReady',
-        authority: 'runtime_replay',
+        authority: 'commit_truth',
         inputSchema: 'chat.ensureReady.input.v1',
         outputSchema: 'chat.ensureReady.output.v1',
       }),

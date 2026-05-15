@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -182,10 +182,11 @@ export async function runProcessBackedProbe({
   turnBudget,
 }: ProcessBackedProbeOptions): Promise<ProbeRunResult> {
   const workspaceCwd = mkdtempSync(join(tmpdir(), 'brunch-probe-workspace-'));
-  const spawned = spawnProcess({ cwd: workspaceCwd, command, args, env });
-  const transport = createProcessJsonlTransport(spawned);
+  let spawned: SpawnedJsonlProcess | null = null;
 
   try {
+    spawned = spawnProcess({ cwd: workspaceCwd, command, args, env });
+    const transport = createProcessJsonlTransport(spawned);
     const result = await runScriptedProbe({
       transport,
       scenario,
@@ -201,7 +202,8 @@ export async function runProcessBackedProbe({
     writeProbeArtifacts(outputDir, result);
     return result;
   } finally {
-    spawned.endStdin();
+    spawned?.endStdin();
+    rmSync(workspaceCwd, { recursive: true, force: true });
   }
 }
 
@@ -417,7 +419,7 @@ async function sendExpectingOutput<T>(
   request: ProbeJsonlRequest,
 ): Promise<T | null> {
   state.requests.push(request);
-  const response = await transport.send(request);
+  const response = sanitizeProbeJsonlResponse(await transport.send(request));
   state.responses.push(response);
 
   if (!response.ok) {
@@ -501,7 +503,7 @@ function sanitizeProbeErrorMessage(message: string): string {
 export function buildProbeArtifactBundle(result: ProbeRunResult): ProbeArtifactBundle {
   const rawJsonlTranscript = result.requests.flatMap((request, index) => [
     { direction: 'request' as const, payload: request },
-    { direction: 'response' as const, payload: result.responses[index] ?? null },
+    { direction: 'response' as const, payload: sanitizeJsonlResponse(result.responses[index] ?? null) },
   ]);
 
   return {
@@ -520,7 +522,7 @@ export function buildProbeArtifactBundle(result: ProbeRunResult): ProbeArtifactB
     parsedEvents: result.requests.map((request, index) => ({
       index,
       request,
-      response: result.responses[index] ?? null,
+      response: sanitizeJsonlResponse(result.responses[index] ?? null),
     })),
     finalChat: result.finalChat,
     summary: result.summary,
@@ -528,6 +530,24 @@ export function buildProbeArtifactBundle(result: ProbeRunResult): ProbeArtifactB
     simulatedUserEvents: result.simulatedUserEvents,
     environment: { nodeVersion: process.version, platform: process.platform, arch: process.arch },
   };
+}
+
+function sanitizeProbeJsonlResponse(response: ProbeJsonlResponse): ProbeJsonlResponse {
+  if (response.ok) {
+    return response;
+  }
+
+  return {
+    ...response,
+    error: {
+      ...response.error,
+      message: sanitizeProbeErrorMessage(response.error.message),
+    },
+  };
+}
+
+function sanitizeJsonlResponse(response: ProbeJsonlResponse | null): ProbeJsonlResponse | null {
+  return response ? sanitizeProbeJsonlResponse(response) : null;
 }
 
 function writeProbeArtifacts(outputDir: string, result: ProbeRunResult): void {

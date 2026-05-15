@@ -455,6 +455,27 @@ describe('probe runner', () => {
       workspace: { cwd: spawnedCwds[0], preservedStatePath: null },
     });
     expect(existsSync(join(outputDir, 'workspace-state'))).toBe(false);
+    expect(existsSync(result.workspaceCwd ?? '')).toBe(false);
+  });
+
+  it('cleans up the temp workspace when process startup fails', async () => {
+    const outputDir = makeTempDir('brunch-probe-output-');
+    let workspaceCwd: string | null = null;
+
+    await expect(
+      runProcessBackedProbe({
+        scenario: { name: 'startup-failure', specName: 'Startup failure' },
+        scriptedAnswers: [],
+        outputDir,
+        spawnProcess({ cwd }) {
+          workspaceCwd = cwd;
+          throw new Error('spawn failed');
+        },
+      }),
+    ).rejects.toThrow('spawn failed');
+
+    expect(workspaceCwd).toContain('brunch-probe-workspace-');
+    expect(existsSync(workspaceCwd ?? '')).toBe(false);
   });
 
   it('writes sanitized process-backed failure artifacts when JSONL protocol interaction fails', async () => {
@@ -485,10 +506,21 @@ describe('probe runner', () => {
     });
 
     const summary = JSON.parse(readFileSync(join(outputDir, 'summary.json'), 'utf8')) as unknown;
-    const bundle = JSON.parse(readFileSync(join(outputDir, 'artifact-bundle.json'), 'utf8')) as unknown;
+    const artifactBundle = readFileSync(join(outputDir, 'artifact-bundle.json'), 'utf8');
+    const bundle = JSON.parse(artifactBundle) as unknown;
     const rawJsonl = readFileSync(join(outputDir, 'raw-jsonl.ndjson'), 'utf8');
 
     expect(result.summary.turnsAnswered).toBe(0);
+    expect(result.responses).toEqual([
+      {
+        id: 'create',
+        ok: false,
+        error: {
+          code: 'protocol_error',
+          message: 'Unmatched id:null response: ANTHROPIC_API_KEY=[redacted] bad envelope',
+        },
+      },
+    ]);
     expect(result.errors).toEqual([
       {
         requestId: 'create',
@@ -521,6 +553,8 @@ describe('probe runner', () => {
     });
     expect(rawJsonl).toContain('"direction":"request"');
     expect(rawJsonl).toContain('"direction":"response"');
+    expect(rawJsonl).not.toContain('sk-secret');
+    expect(artifactBundle).not.toContain('sk-secret');
   });
 
   it('can preserve the temp workspace .brunch state into the artifact directory', async () => {

@@ -2,11 +2,13 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { dispatchCapability } from './capabilities.js';
 import {
   advanceHead,
+  createConfirmedPhaseOutcome,
   createDb,
   createTurn,
   getActivePath,
@@ -15,6 +17,7 @@ import {
   listSpecifications,
   type DB,
 } from './db.js';
+import * as schema from './schema.js';
 
 describe('agent capabilities', () => {
   const tempDirs: string[] = [];
@@ -145,6 +148,63 @@ describe('agent capabilities', () => {
       nextCommands: [
         { capability: 'turn.submitResponse', input: { chatId: primary.chatId, turnId: turn.id } },
       ],
+    });
+  });
+
+  it('reports the first open workflow phase when a chat has no active frontier', async () => {
+    const activeDb = createTempDb();
+    const created = await dispatchCapability({
+      db: activeDb,
+      capability: 'spec.create',
+      input: { name: 'Idle requirements spec' },
+    });
+    const groundingTurn = createTurn(activeDb, created.specId, {
+      parent_turn_id: null,
+      phase: 'grounding',
+      question: 'What are you trying to build?',
+      answer: 'A product planning tool',
+    });
+    advanceHead(activeDb, created.specId, groundingTurn.id);
+    createConfirmedPhaseOutcome(activeDb, {
+      specificationId: created.specId,
+      phase: 'grounding',
+      proposal_turn_id: groundingTurn.id,
+      confirmation_turn_id: groundingTurn.id,
+      summary: 'Grounding closed.',
+    });
+    const designTurn = createTurn(activeDb, created.specId, {
+      parent_turn_id: groundingTurn.id,
+      phase: 'design',
+      question: 'What should the design emphasize?',
+      answer: 'Agent-facing workflow affordances',
+    });
+    advanceHead(activeDb, created.specId, designTurn.id);
+    createConfirmedPhaseOutcome(activeDb, {
+      specificationId: created.specId,
+      phase: 'design',
+      proposal_turn_id: designTurn.id,
+      confirmation_turn_id: designTurn.id,
+      summary: 'Design closed.',
+    });
+    const primary = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.getPrimary',
+      input: { specId: created.specId },
+    });
+    activeDb
+      .update(schema.chat)
+      .set({ active_turn_id: null })
+      .where(eq(schema.chat.id, primary.chatId))
+      .run();
+
+    await expect(
+      dispatchCapability({
+        db: activeDb,
+        capability: 'chat.read',
+        input: { chatId: primary.chatId },
+      }),
+    ).resolves.toMatchObject({
+      frontier: { state: 'idle_no_frontier', phase: 'requirements', turnId: null },
     });
   });
 
@@ -309,6 +369,41 @@ describe('agent capabilities', () => {
       turns: [expect.objectContaining({ id: ready.turnId, answer: 'A local spec elicitation tool' })],
       nextCommands: [{ capability: 'chat.ensureReady', input: { chatId: primary.chatId } }],
     });
+  });
+
+  it('accepts legacy spec-owned turns that predate chat id backfill', async () => {
+    const activeDb = createTempDb();
+    const created = await dispatchCapability({
+      db: activeDb,
+      capability: 'spec.create',
+      input: { name: 'Legacy turn owner' },
+    });
+    const primary = await dispatchCapability({
+      db: activeDb,
+      capability: 'chat.getPrimary',
+      input: { specId: created.specId },
+    });
+    const turn = createTurn(activeDb, created.specId, {
+      parent_turn_id: null,
+      phase: 'grounding',
+      question: 'What are you trying to build?',
+      answer: null,
+    });
+    advanceHead(activeDb, created.specId, turn.id);
+    activeDb.update(schema.turn).set({ chat_id: null }).where(eq(schema.turn.id, turn.id)).run();
+
+    await expect(
+      dispatchCapability({
+        db: activeDb,
+        capability: 'turn.submitResponse',
+        input: {
+          chatId: primary.chatId,
+          turnId: turn.id,
+          response: { kind: 'free-text', freeText: 'A migrated pre-chat turn' },
+        },
+      }),
+    ).resolves.toMatchObject({ response: { ok: true } });
+    expect(getTurn(activeDb, turn.id)?.answer).toBe('A migrated pre-chat turn');
   });
 
   it('rejects turn.submitResponse for turns outside the explicit chat', async () => {

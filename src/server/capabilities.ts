@@ -4,13 +4,14 @@ import { z } from 'zod';
 
 import { submitTurnResponseRequestSchema } from '@/shared/api-types.js';
 import { extractTextFromMessage, structuredQuestionSchema, type BrunchUIMessage } from '@/shared/chat.js';
+import { getCurrentWorkflowPhase } from '@/shared/phase-close.js';
 
 import { getCapabilityContract, type CapabilityId } from './capability-registry.js';
 import { applyChatRouteTransition } from './chat-route-transition.js';
 import { createNewSpecification, finalizeTurn, getSpecificationState, type TurnWithOptions } from './core.js';
 import type { DB, Turn } from './db.js';
 import { getTurn, updateTurn } from './db.js';
-import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
+import { persistFallbackQuestionText, streamInterviewer, type InterviewerModeOptions } from './interview.js';
 import { serializeParts, type AssistantPart } from './parts.js';
 import * as schema from './schema.js';
 import { materializeTurnArtifacts } from './turn-artifacts.js';
@@ -72,6 +73,7 @@ export interface GenerateAnswerableFrontierInput {
   turn: Turn;
   activePath: TurnWithOptions[];
   userMessage: string;
+  modeOptions?: InterviewerModeOptions;
 }
 
 export type GenerateAnswerableFrontier = (
@@ -81,6 +83,7 @@ export type GenerateAnswerableFrontier = (
 export interface CapabilityDispatchContext {
   db: DB;
   generateAnswerableFrontier?: GenerateAnswerableFrontier;
+  projectCwd?: string;
 }
 
 export interface DispatchCapabilityInput extends CapabilityDispatchContext {
@@ -256,9 +259,10 @@ async function generateAnswerableFrontierWithInterviewer({
   turn,
   activePath,
   userMessage,
+  modeOptions,
 }: GenerateAnswerableFrontierInput): Promise<GeneratedAnswerableFrontier> {
   const startedAt = Date.now();
-  const interviewer = await streamInterviewer(db, turn, activePath, userMessage, turn.phase);
+  const interviewer = await streamInterviewer(db, turn, activePath, userMessage, turn.phase, modeOptions);
   const stream = interviewer.toUIMessageStream<BrunchUIMessage>({
     sendReasoning: true,
     sendFinish: false,
@@ -326,7 +330,7 @@ function readChatFromCapability(db: DB, input: ChatReadInput) {
     throw new CapabilityDispatchError(`Specification ${chat.specification_id} not found`, 'handler_failed');
   }
 
-  const currentPhase = state.workflow.phases.grounding.status === 'closed' ? 'design' : 'grounding';
+  const currentPhase = getCurrentWorkflowPhase(state.workflow);
   const activeTurn = state.turns.find((turn) => turn.id === chat.active_turn_id) ?? null;
   const frontier = activeTurn
     ? { state: getReadyStateForTurn(activeTurn), phase: activeTurn.phase, turnId: activeTurn.id }
@@ -373,7 +377,9 @@ function submitTurnResponseFromCapability(db: DB, input: TurnSubmitResponseInput
   if (!turn) {
     throw new CapabilityDispatchError(`Turn ${input.turnId} not found`, 'handler_failed');
   }
-  if (turn.chat_id !== chat.id || turn.specification_id !== chat.specification_id) {
+  const belongsToChat = turn.chat_id === chat.id;
+  const belongsToLegacySpecChat = turn.chat_id === null && turn.specification_id === chat.specification_id;
+  if ((!belongsToChat && !belongsToLegacySpecChat) || turn.specification_id !== chat.specification_id) {
     throw new CapabilityDispatchError(
       `Turn ${input.turnId} does not belong to chat ${input.chatId}`,
       'handler_failed',
@@ -403,7 +409,10 @@ function submitTurnResponseFromCapability(db: DB, input: TurnSubmitResponseInput
 async function ensureChatReadyFromCapability(
   db: DB,
   input: ChatEnsureReadyInput,
-  generateAnswerableFrontier: GenerateAnswerableFrontier = generateAnswerableFrontierWithInterviewer,
+  {
+    generateAnswerableFrontier = generateAnswerableFrontierWithInterviewer,
+    projectCwd,
+  }: Pick<CapabilityDispatchContext, 'generateAnswerableFrontier' | 'projectCwd'> = {},
 ) {
   const chat = getChatById(db, input.chatId);
   if (!chat) {
@@ -415,6 +424,10 @@ async function ensureChatReadyFromCapability(
     throw new CapabilityDispatchError(`Specification ${chat.specification_id} not found`, 'handler_failed');
   }
 
+  const modeOptions =
+    state.specification.mode === 'brownfield' && projectCwd
+      ? { mode: 'brownfield' as const, cwd: projectCwd }
+      : undefined;
   const activeTurn = state.turns.find((turn) => turn.id === chat.active_turn_id) ?? null;
   if (activeTurn) {
     const activeState = getReadyStateForTurn(activeTurn);
@@ -438,6 +451,7 @@ async function ensureChatReadyFromCapability(
         turn: persistedActiveTurn,
         activePath: state.turns,
         userMessage: INITIAL_INTERVIEWER_PROMPT,
+        modeOptions,
       });
       await persistGeneratedAnswerableFrontier(db, persistedActiveTurn, generated);
 
@@ -473,6 +487,7 @@ async function ensureChatReadyFromCapability(
       turn: transition.prepared.turn,
       activePath: transition.prepared.activePath,
       userMessage: answeredText,
+      modeOptions,
     });
     await persistGeneratedAnswerableFrontier(db, transition.prepared.turn, generated);
 
@@ -521,6 +536,7 @@ async function ensureChatReadyFromCapability(
     turn: transition.prepared.turn,
     activePath: transition.prepared.activePath,
     userMessage: INITIAL_INTERVIEWER_PROMPT,
+    modeOptions,
   });
   await persistGeneratedAnswerableFrontier(db, transition.prepared.turn, generated);
 
@@ -558,6 +574,7 @@ export function dispatchCapability(input: {
   capability: 'chat.ensureReady';
   input: unknown;
   generateAnswerableFrontier?: GenerateAnswerableFrontier;
+  projectCwd?: string;
 }): Promise<ChatEnsureReadyOutput>;
 export function dispatchCapability(input: {
   db: DB;
@@ -570,6 +587,7 @@ export async function dispatchCapability({
   capability,
   input,
   generateAnswerableFrontier,
+  projectCwd,
 }: DispatchCapabilityInput): Promise<unknown> {
   assertExecutableCapability(capability);
 
@@ -590,7 +608,10 @@ export async function dispatchCapability({
   }
 
   if (capability === 'chat.ensureReady') {
-    return ensureChatReadyFromCapability(db, parseChatEnsureReadyInput(input), generateAnswerableFrontier);
+    return ensureChatReadyFromCapability(db, parseChatEnsureReadyInput(input), {
+      generateAnswerableFrontier,
+      projectCwd,
+    });
   }
 
   if (capability === 'turn.submitResponse') {

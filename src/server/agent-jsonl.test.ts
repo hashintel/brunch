@@ -27,7 +27,12 @@ describe('agent JSONL session', () => {
     return db;
   }
 
-  async function runSession(lines: string[]) {
+  async function runSession(
+    lines: string[],
+    options: Partial<
+      Pick<Parameters<typeof runAgentJsonlSession>[0], 'generateAnswerableFrontier' | 'projectCwd'>
+    > = {},
+  ) {
     const input = new PassThrough();
     const output = new PassThrough();
     const chunks: string[] = [];
@@ -37,10 +42,13 @@ describe('agent JSONL session', () => {
       db: createTempDb(),
       input,
       output,
-      generateAnswerableFrontier: async () => ({
-        question: 'What are you trying to build?',
-        assistantParts: [{ type: 'text', text: 'What are you trying to build?' }],
-      }),
+      generateAnswerableFrontier:
+        options.generateAnswerableFrontier ??
+        (async () => ({
+          question: 'What are you trying to build?',
+          assistantParts: [{ type: 'text', text: 'What are you trying to build?' }],
+        })),
+      projectCwd: options.projectCwd,
     });
     for (const line of lines) {
       input.write(`${line}\n`);
@@ -144,6 +152,33 @@ describe('agent JSONL session', () => {
         }),
       }),
     ]);
+  });
+
+  it('passes project cwd into brownfield chat readiness generation', async () => {
+    const generationInputs: Array<{ modeOptions?: unknown }> = [];
+
+    await runSession(
+      [
+        JSON.stringify({
+          id: 'create-1',
+          capability: 'spec.create',
+          input: { name: 'JSONL brownfield spec', mode: 'brownfield' },
+        }),
+        JSON.stringify({ id: 'ready-1', capability: 'chat.ensureReady', input: { chatId: 1 } }),
+      ],
+      {
+        projectCwd: '/workspace/brunch',
+        generateAnswerableFrontier: async (input) => {
+          generationInputs.push({ modeOptions: input.modeOptions });
+          return {
+            question: 'What are you trying to understand?',
+            assistantParts: [{ type: 'text', text: 'What are you trying to understand?' }],
+          };
+        },
+      },
+    );
+
+    expect(generationInputs).toEqual([{ modeOptions: { mode: 'brownfield', cwd: '/workspace/brunch' } }]);
   });
 
   it('submits a turn response and reads the answered turn over JSONL', async () => {

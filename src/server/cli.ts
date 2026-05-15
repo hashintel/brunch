@@ -25,7 +25,7 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
 if (rawArgs[0] === 'agent') {
   const project = resolveBrunchProject(launchCwd);
   const db = createDb(project.dbPath);
-  runAgentJsonlSession({ db, input: process.stdin, output: process.stdout })
+  runAgentJsonlSession({ db, input: process.stdin, output: process.stdout, projectCwd: project.cwd })
     .then(() => {
       db.$client.close();
     })

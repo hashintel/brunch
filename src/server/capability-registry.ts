@@ -134,7 +134,7 @@ const capabilityContracts = [
   },
   {
     id: 'chat.ensureReady',
-    authority: 'runtime_replay',
+    authority: 'commit_truth',
     summary: 'Ensure an explicit chat has an answerable generated frontier.',
     inputSchema: 'chat.ensureReady.input.v1',
     outputSchema: 'chat.ensureReady.output.v1',

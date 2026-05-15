@@ -21,6 +21,7 @@ export interface AgentJsonlSessionOptions {
   input: Readable;
   output: Writable;
   generateAnswerableFrontier?: GenerateAnswerableFrontier;
+  projectCwd?: string;
 }
 
 type AgentJsonlResponse =
@@ -51,6 +52,7 @@ export async function runAgentJsonlSession({
   input,
   output,
   generateAnswerableFrontier,
+  projectCwd,
 }: AgentJsonlSessionOptions): Promise<void> {
   const lines = createInterface({ input, crlfDelay: Infinity });
 
@@ -84,6 +86,7 @@ export async function runAgentJsonlSession({
         capability: parsedRequest.data.capability,
         input: parsedRequest.data.input,
         generateAnswerableFrontier,
+        projectCwd,
       });
       writeResponse(output, { id: parsedRequest.data.id, ok: true, output: result });
     } catch (error) {
