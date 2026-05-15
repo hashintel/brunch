@@ -70,6 +70,7 @@ function createSecondaryChat(overrides: Partial<SecondaryChatState['chat']> = {}
       assistant_parts: 'Editing this item.',
       created_at: '2026-04-03T10:01:00.000Z',
     },
+    turns: [],
   };
 }
 

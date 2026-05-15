@@ -133,6 +133,13 @@ export const secondaryChatStateSchema = z.object({
     mode: secondaryChatModeSchema.nullable(),
   }),
   kickoffTurn: specificationStateTurnSchema.nullable(),
+  /**
+   * Post-kickoff user/assistant round-trip turns under this secondary chat,
+   * ordered by id ascending. Each turn carries either `user_parts` or
+   * `assistant_parts` populated (never both). Empty for chats that haven't
+   * exchanged any messages yet.
+   */
+  turns: z.array(specificationStateTurnSchema),
 });
 
 export const specificationStateSchema = z.object({

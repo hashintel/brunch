@@ -178,6 +178,7 @@ describe('ContinuousWorkspaceView', () => {
               mode: 'explore' as const,
             },
             kickoffTurn: null,
+            turns: [],
           },
         ],
       ],

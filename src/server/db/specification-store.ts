@@ -201,6 +201,12 @@ export interface CreateKickoffTurnInput {
 export interface SecondaryChatWithKickoff {
   chat: Chat;
   kickoffTurn: Turn | null;
+  /**
+   * Post-kickoff turns under this secondary chat, ordered by id ascending.
+   * Each turn carries either `user_parts` (role='user') or `assistant_parts`
+   * (role='assistant') populated by `appendSecondaryChatTurn`.
+   */
+  turns: Turn[];
 }
 
 export function listSecondaryChatsForSpecification(
@@ -222,7 +228,13 @@ export function listSecondaryChatsForSpecification(
       .orderBy(asc(schema.turn.id))
       .limit(1)
       .get() ?? null) as Turn | null;
-    return { chat, kickoffTurn };
+    const turns = db
+      .select()
+      .from(schema.turn)
+      .where(and(eq(schema.turn.chat_id, chat.id), eq(schema.turn.turn_kind, 'question')))
+      .orderBy(asc(schema.turn.id))
+      .all() as Turn[];
+    return { chat, kickoffTurn, turns };
   });
 }
 
@@ -246,6 +258,54 @@ export function createKickoffTurn(db: DB, chatId: number, input: CreateKickoffTu
       turn_kind: 'kickoff',
       question: '',
       assistant_parts: input.content,
+    })
+    .returning()
+    .get() as Turn;
+}
+
+export type SecondaryChatTurnRole = 'user' | 'assistant';
+
+export interface AppendSecondaryChatTurnInput {
+  role: SecondaryChatTurnRole;
+  content: string;
+}
+
+/**
+ * Appends a single user or assistant turn under a secondary chat.
+ *
+ * Refuses to write to a primary (interview) chat — secondary-chat round-trips
+ * must live under a chat with `parent_chat_id IS NOT NULL`. Models the chat
+ * substrate where each turn row represents one role's contribution; pair
+ * `appendSecondaryChatTurn(chatId, { role: 'user' })` with a follow-up
+ * `appendSecondaryChatTurn(chatId, { role: 'assistant' })` per round-trip.
+ */
+export function appendSecondaryChatTurn(db: DB, chatId: number, input: AppendSecondaryChatTurnInput): Turn {
+  const chat = db
+    .select({
+      specification_id: schema.chat.specification_id,
+      parent_chat_id: schema.chat.parent_chat_id,
+    })
+    .from(schema.chat)
+    .where(eq(schema.chat.id, chatId))
+    .get();
+  if (!chat) {
+    throw new Error(`Chat ${chatId} not found`);
+  }
+  if (chat.parent_chat_id === null) {
+    throw new Error(`Chat ${chatId} is not a secondary chat (parent_chat_id is null)`);
+  }
+
+  return db
+    .insert(schema.turn)
+    .values({
+      specification_id: chat.specification_id,
+      chat_id: chatId,
+      parent_turn_id: null,
+      phase: 'grounding',
+      turn_kind: 'question',
+      question: '',
+      user_parts: input.role === 'user' ? input.content : null,
+      assistant_parts: input.role === 'assistant' ? input.content : null,
     })
     .returning()
     .get() as Turn;

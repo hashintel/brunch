@@ -42,6 +42,7 @@ describe('SecondaryChatCollapsible', () => {
         assistant_parts: 'Editing this item.',
         created_at: '',
       },
+      turns: [],
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -68,6 +69,7 @@ describe('SecondaryChatCollapsible', () => {
         assistant_parts: 'Editing this item.',
         created_at: '',
       },
+      turns: [],
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -93,6 +95,7 @@ describe('SecondaryChatCollapsible', () => {
         assistant_parts: 'Editing this item.',
         created_at: '',
       },
+      turns: [],
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -102,7 +105,7 @@ describe('SecondaryChatCollapsible', () => {
   });
 
   it('renders an empty body when no kickoff turn exists', () => {
-    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null };
+    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [] };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
@@ -112,7 +115,7 @@ describe('SecondaryChatCollapsible', () => {
   });
 
   it('renders the mode toggle reflecting the persisted mode', () => {
-    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'edit' }, kickoffTurn: null };
+    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'edit' }, kickoffTurn: null, turns: [] };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     const toggle = screen.getByTestId('secondary-chat-mode-toggle');
     expect(toggle.dataset.mode).toBe('edit');
@@ -121,7 +124,7 @@ describe('SecondaryChatCollapsible', () => {
   });
 
   it('falls back to explore mode when chat.mode is null', () => {
-    const chat: SecondaryChat = { chat: { ...baseChat, mode: null }, kickoffTurn: null };
+    const chat: SecondaryChat = { chat: { ...baseChat, mode: null }, kickoffTurn: null, turns: [] };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     const toggle = screen.getByTestId('secondary-chat-mode-toggle');
     expect(toggle.dataset.mode).toBe('explore');
@@ -129,7 +132,7 @@ describe('SecondaryChatCollapsible', () => {
 
   it('invokes onSetMode when the user clicks a different mode', () => {
     const onSetMode = vi.fn();
-    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null };
+    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null, turns: [] };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} />);
     fireEvent.click(screen.getByTestId('secondary-chat-mode-edit'));
     expect(onSetMode).toHaveBeenCalledWith('edit');
@@ -137,7 +140,7 @@ describe('SecondaryChatCollapsible', () => {
 
   it('does not invoke onSetMode when clicking the already-active mode', () => {
     const onSetMode = vi.fn();
-    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null };
+    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null, turns: [] };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} />);
     fireEvent.click(screen.getByTestId('secondary-chat-mode-ask'));
     expect(onSetMode).not.toHaveBeenCalled();
@@ -145,7 +148,7 @@ describe('SecondaryChatCollapsible', () => {
 
   it('disables the toggle while a mode update is in flight', () => {
     const onSetMode = vi.fn();
-    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null };
+    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null, turns: [] };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} isModeUpdating />);
     expect(screen.getByTestId('secondary-chat-mode-edit').hasAttribute('disabled')).toBe(true);
     fireEvent.click(screen.getByTestId('secondary-chat-mode-edit'));
@@ -153,7 +156,7 @@ describe('SecondaryChatCollapsible', () => {
   });
 
   it('disables the toggle when no onSetMode handler is provided (read-only display)', () => {
-    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null };
+    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null, turns: [] };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     expect(screen.getByTestId('secondary-chat-mode-edit').hasAttribute('disabled')).toBe(true);
   });

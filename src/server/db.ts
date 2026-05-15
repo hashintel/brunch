@@ -114,6 +114,7 @@ export type {
 
 export {
   advanceHead,
+  appendSecondaryChatTurn,
   applyTurnResponseSelections,
   createKickoffTurn,
   createOption,
@@ -132,6 +133,7 @@ export {
   updateTurn,
 } from './db/specification-store.js';
 export type {
+  AppendSecondaryChatTurnInput,
   Chat,
   CreateKickoffTurnInput,
   CreateOptionInput,
@@ -142,6 +144,7 @@ export type {
   Option,
   Phase,
   SecondaryChatMode,
+  SecondaryChatTurnRole,
   SecondaryChatWithKickoff,
   Specification,
   Turn,
