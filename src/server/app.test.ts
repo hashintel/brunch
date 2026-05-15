@@ -4740,3 +4740,70 @@ describe('POST /api/specifications/:id/secondary-chats', () => {
       .expect(404);
   });
 });
+
+describe('PATCH /api/specifications/:id/secondary-chats/:chatId/mode', () => {
+  async function createSecondaryChatForSpec(specificationId: number): Promise<number> {
+    const { createKnowledgeItem, createTurn, getSpecification } = await import('./db.js');
+    const item = createKnowledgeItem(db, specificationId, 'goal', 'Mode test goal');
+    const parentChatId = getSpecification(db, specificationId)!.primary_chat_id!;
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+    const res = await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+      })
+      .expect(200);
+    return res.body.chatId as number;
+  }
+
+  it("toggles a secondary chat's mode and reflects the new mode in the bundle", async () => {
+    const specificationId = await createTestSpecification('FE-716 mode toggle');
+    const chatId = await createSecondaryChatForSpec(specificationId);
+
+    const before = await getSpecificationSnapshot(specificationId);
+    const beforeRow = before.secondaryChats?.find((row) => row.chat.id === chatId);
+    expect(beforeRow?.chat.mode).toBe('explore');
+
+    const res = await request(app)
+      .patch(`/api/specifications/${specificationId}/secondary-chats/${chatId}/mode`)
+      .send({ mode: 'edit' })
+      .expect(200);
+    expect(res.body).toEqual({ chatId, mode: 'edit' });
+
+    const after = await getSpecificationSnapshot(specificationId);
+    const afterRow = after.secondaryChats?.find((row) => row.chat.id === chatId);
+    expect(afterRow?.chat.mode).toBe('edit');
+  });
+
+  it('rejects an invalid mode with 400', async () => {
+    const specificationId = await createTestSpecification('FE-716 mode invalid');
+    const chatId = await createSecondaryChatForSpec(specificationId);
+    await request(app)
+      .patch(`/api/specifications/${specificationId}/secondary-chats/${chatId}/mode`)
+      .send({ mode: 'bogus' })
+      .expect(400);
+  });
+
+  it('returns 404 when chat does not belong to the specification', async () => {
+    const specificationId = await createTestSpecification('FE-716 mode wrong spec');
+    const otherSpec = await createTestSpecification('FE-716 mode owner');
+    const chatId = await createSecondaryChatForSpec(otherSpec);
+    await request(app)
+      .patch(`/api/specifications/${specificationId}/secondary-chats/${chatId}/mode`)
+      .send({ mode: 'edit' })
+      .expect(404);
+  });
+
+  it('returns 404 when chat is the interview (primary) chat', async () => {
+    const specificationId = await createTestSpecification('FE-716 mode primary');
+    const { getSpecification } = await import('./db.js');
+    const interviewChatId = getSpecification(db, specificationId)!.primary_chat_id!;
+    await request(app)
+      .patch(`/api/specifications/${specificationId}/secondary-chats/${interviewChatId}/mode`)
+      .send({ mode: 'edit' })
+      .expect(404);
+  });
+});

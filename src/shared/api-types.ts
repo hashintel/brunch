@@ -119,6 +119,8 @@ export const specificationListItemSchema = specificationSchema.extend({
 
 export const specificationListItemsSchema = z.array(specificationListItemSchema);
 
+export const secondaryChatModeSchema = z.enum(['explore', 'edit']);
+
 export const secondaryChatStateSchema = z.object({
   chat: z.object({
     id: z.number().int().positive(),
@@ -128,6 +130,7 @@ export const secondaryChatStateSchema = z.object({
     invoked_in_turn_id: z.number().int().positive().nullable(),
     pinned_item_id: z.number().int().positive().nullable(),
     pinned_span_hint: z.string().nullable(),
+    mode: secondaryChatModeSchema.nullable(),
   }),
   kickoffTurn: specificationStateTurnSchema.nullable(),
 });

@@ -10,6 +10,7 @@ import {
   createTurn,
   getSpecification,
   listSecondaryChatsForSpecification,
+  setSecondaryChatMode,
   type DB,
 } from './db.js';
 
@@ -322,6 +323,45 @@ describe('createSecondaryChat', () => {
   it('throws when parent_chat_id references a missing chat', () => {
     const spec = createSpecification(db, 'Test');
     expect(() => createSecondaryChat(db, spec.id, { parent_chat_id: 999999 })).toThrow(/FOREIGN KEY/i);
+  });
+
+  it("defaults mode to 'explore' when not provided", () => {
+    const spec = createSpecification(db, 'Test');
+    const parentChatId = getSpecification(db, spec.id)!.primary_chat_id!;
+    const child = createSecondaryChat(db, spec.id, { parent_chat_id: parentChatId });
+    expect(child.mode).toBe('explore');
+  });
+
+  it("persists mode='edit' when explicitly provided", () => {
+    const spec = createSpecification(db, 'Test');
+    const parentChatId = getSpecification(db, spec.id)!.primary_chat_id!;
+    const child = createSecondaryChat(db, spec.id, { parent_chat_id: parentChatId, mode: 'edit' });
+    expect(child.mode).toBe('edit');
+  });
+});
+
+describe('setSecondaryChatMode', () => {
+  it('updates the mode of an existing secondary chat', () => {
+    const spec = createSpecification(db, 'Test');
+    const parentChatId = getSpecification(db, spec.id)!.primary_chat_id!;
+    const child = createSecondaryChat(db, spec.id, { parent_chat_id: parentChatId });
+    expect(child.mode).toBe('explore');
+
+    const updated = setSecondaryChatMode(db, child.id, 'edit');
+    expect(updated.mode).toBe('edit');
+
+    const reread = listSecondaryChatsForSpecification(db, spec.id).find((row) => row.chat.id === child.id);
+    expect(reread?.chat.mode).toBe('edit');
+  });
+
+  it('throws when chat is not a secondary chat (parent_chat_id is null)', () => {
+    const spec = createSpecification(db, 'Test');
+    const interviewChatId = getSpecification(db, spec.id)!.primary_chat_id!;
+    expect(() => setSecondaryChatMode(db, interviewChatId, 'edit')).toThrow(/not found/i);
+  });
+
+  it('throws when chat does not exist', () => {
+    expect(() => setSecondaryChatMode(db, 999999, 'edit')).toThrow(/not found/i);
   });
 });
 

@@ -1,10 +1,19 @@
+import { eq } from 'drizzle-orm';
 import type { Request, Response } from 'express';
 import * as z from 'zod/v4';
 
-import type { MutationErrorResponse } from '@/shared/api-types.js';
+import { secondaryChatModeSchema, type MutationErrorResponse } from '@/shared/api-types.js';
 import { knowledgeKinds } from '@/shared/knowledge.js';
 
-import { createKickoffTurn, createSecondaryChat, getKnowledgeItem, getSpecification, type DB } from './db.js';
+import {
+  createKickoffTurn,
+  createSecondaryChat,
+  getKnowledgeItem,
+  getSpecification,
+  setSecondaryChatMode,
+  type DB,
+} from './db.js';
+import * as schema from './schema.js';
 
 const secondaryChatRequestSchema = z.object({
   parentChatId: z.number().int().positive(),
@@ -68,4 +77,40 @@ export function handleCreateSecondaryChatRequest(db: DB, req: Request, res: Resp
   });
 
   res.json({ chatId: chat.id, kickoffTurnId: kickoffTurn.id });
+}
+
+const setSecondaryChatModeRequestSchema = z.object({
+  mode: secondaryChatModeSchema,
+});
+
+export function handleSetSecondaryChatModeRequest(db: DB, req: Request, res: Response): void {
+  const specificationId = Number(req.params.id);
+  const chatId = Number(req.params.chatId);
+  if (Number.isNaN(specificationId) || Number.isNaN(chatId)) {
+    badRequest(res, 'Invalid specification or chat ID');
+    return;
+  }
+
+  const parsed = setSecondaryChatModeRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    badRequest(res, 'Invalid mode payload');
+    return;
+  }
+
+  const chatRow = db
+    .select({
+      id: schema.chat.id,
+      specification_id: schema.chat.specification_id,
+      parent_chat_id: schema.chat.parent_chat_id,
+    })
+    .from(schema.chat)
+    .where(eq(schema.chat.id, chatId))
+    .get();
+  if (!chatRow || chatRow.specification_id !== specificationId || chatRow.parent_chat_id === null) {
+    notFound(res, 'Secondary chat not found');
+    return;
+  }
+
+  const updated = setSecondaryChatMode(db, chatId, parsed.data.mode);
+  res.json({ chatId: updated.id, mode: updated.mode });
 }

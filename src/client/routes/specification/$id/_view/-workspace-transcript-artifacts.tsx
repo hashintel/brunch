@@ -20,6 +20,7 @@ import {
 } from '@/client/components/question-cards';
 import { ReviewPhaseCompletionCard } from '@/client/components/review-set-card';
 import { SecondaryChatCollapsible } from '@/client/components/secondary-chat-collapsible';
+import { useSetSecondaryChatModeMutation } from '@/client/components/secondary-chat-trigger';
 import type { secondaryChatStateSchema } from '@/shared/api-types.js';
 import type { ActivitySummary } from '@/shared/chat.js';
 import { getPhaseRoutePath, getWorkflowPhaseLabel } from '@/shared/phase-descriptors.js';
@@ -42,6 +43,22 @@ import {
 import type { WorkspaceStreamArtifact } from './-workspace-stream-projector.js';
 
 type SecondaryChatState = z.infer<typeof secondaryChatStateSchema>;
+
+function SecondaryChatCollapsibleWithMode({ secondaryChat }: { secondaryChat: SecondaryChatState }) {
+  const modeMutation = useSetSecondaryChatModeMutation(
+    secondaryChat.chat.specification_id,
+    secondaryChat.chat.id,
+  );
+  return (
+    <SecondaryChatCollapsible
+      secondaryChat={secondaryChat}
+      onSetMode={(next) => {
+        void modeMutation.setMode(next);
+      }}
+      isModeUpdating={modeMutation.isPending}
+    />
+  );
+}
 
 function getArtifactAnchorTurnId(artifact: WorkspaceStreamArtifact): number | null {
   switch (artifact.kind) {
@@ -585,7 +602,7 @@ export function WorkspaceTranscriptArtifacts({
         {inlineSecondaryChats && inlineSecondaryChats.length > 0 ? (
           <div className="mt-2 flex flex-col gap-2" data-testid={`secondary-chats-for-turn-${anchorTurnId}`}>
             {inlineSecondaryChats.map((secondaryChat) => (
-              <SecondaryChatCollapsible key={secondaryChat.chat.id} secondaryChat={secondaryChat} />
+              <SecondaryChatCollapsibleWithMode key={secondaryChat.chat.id} secondaryChat={secondaryChat} />
             ))}
           </div>
         ) : null}

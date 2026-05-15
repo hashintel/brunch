@@ -127,6 +127,7 @@ export {
   getTurn,
   listSecondaryChatsForSpecification,
   listSpecifications,
+  setSecondaryChatMode,
   updateSpecificationMode,
   updateTurn,
 } from './db/specification-store.js';
@@ -140,6 +141,7 @@ export type {
   Impact,
   Option,
   Phase,
+  SecondaryChatMode,
   SecondaryChatWithKickoff,
   Specification,
   Turn,

@@ -154,11 +154,14 @@ export function createTurn(db: DB, specificationId: number, input: CreateTurnInp
   return result as Turn;
 }
 
+export type SecondaryChatMode = 'explore' | 'edit';
+
 export interface CreateSecondaryChatInput {
   parent_chat_id: number;
   invoked_in_turn_id?: number | null;
   pinned_item_id?: number | null;
   pinned_span_hint?: string | null;
+  mode?: SecondaryChatMode;
 }
 
 export function createSecondaryChat(db: DB, specificationId: number, input: CreateSecondaryChatInput): Chat {
@@ -171,9 +174,23 @@ export function createSecondaryChat(db: DB, specificationId: number, input: Crea
       invoked_in_turn_id: input.invoked_in_turn_id ?? null,
       pinned_item_id: input.pinned_item_id ?? null,
       pinned_span_hint: input.pinned_span_hint ?? null,
+      mode: input.mode ?? 'explore',
     })
     .returning()
     .get() as Chat;
+}
+
+export function setSecondaryChatMode(db: DB, chatId: number, mode: SecondaryChatMode): Chat {
+  const updated = db
+    .update(schema.chat)
+    .set({ mode })
+    .where(and(eq(schema.chat.id, chatId), isNotNull(schema.chat.parent_chat_id)))
+    .returning()
+    .get() as Chat | undefined;
+  if (!updated) {
+    throw new Error(`Secondary chat ${chatId} not found`);
+  }
+  return updated;
 }
 
 export interface CreateKickoffTurnInput {

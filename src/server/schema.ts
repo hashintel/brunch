@@ -32,6 +32,7 @@ export const chat = sqliteTable(
     invoked_in_turn_id: integer().references((): any => turn.id),
     pinned_item_id: integer().references(() => knowledgeItem.id),
     pinned_span_hint: text(),
+    mode: text({ enum: ['explore', 'edit'] }),
     created_at: text()
       .notNull()
       .default(sql`(datetime('now'))`),

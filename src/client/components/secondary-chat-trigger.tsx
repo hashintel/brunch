@@ -1,11 +1,52 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
 
-import { postJsonMutation, useClientMutation } from '@/client/mutations/client-mutation.js';
+import {
+  ClientMutationError,
+  postJsonMutation,
+  useClientMutation,
+} from '@/client/mutations/client-mutation.js';
 import {
   useInvalidateSpecificationQueryDomains,
   useSpecificationBundleData,
 } from '@/client/routes/specification/$id/-specification-data.js';
+import type { MutationErrorResponse } from '@/shared/api-types.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
+
+export type SecondaryChatMode = 'explore' | 'edit';
+
+async function patchJsonMutation<TResponse, TRequest>(
+  url: string,
+  body: TRequest,
+  fallbackMessage: string,
+): Promise<TResponse> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ClientMutationError(fallbackMessage);
+  }
+  if (!response.ok) {
+    let message = fallbackMessage;
+    try {
+      const payload = (await response.json()) as MutationErrorResponse;
+      if (typeof payload.error === 'string' && payload.error.trim().length > 0) {
+        message = payload.error;
+      }
+    } catch {
+      // ignore
+    }
+    throw new ClientMutationError(message, response.status);
+  }
+  try {
+    return (await response.json()) as TResponse;
+  } catch {
+    throw new ClientMutationError(fallbackMessage, response.status);
+  }
+}
 
 export interface CreateSecondaryChatRequest {
   parentChatId: number;
@@ -105,4 +146,44 @@ export function SecondaryChatTriggerProvider({ children }: { children: ReactNode
   return (
     <SecondaryChatTriggerContext.Provider value={value}>{children}</SecondaryChatTriggerContext.Provider>
   );
+}
+
+export interface SetSecondaryChatModeRequest {
+  mode: SecondaryChatMode;
+}
+
+export interface SetSecondaryChatModeResponse {
+  chatId: number;
+  mode: SecondaryChatMode;
+}
+
+export function useSetSecondaryChatModeMutation(specificationId: number, chatId: number) {
+  const { invalidateSpecificationBundle } = useInvalidateSpecificationQueryDomains();
+  const mutation = useClientMutation((request: SetSecondaryChatModeRequest) =>
+    patchJsonMutation<SetSecondaryChatModeResponse, SetSecondaryChatModeRequest>(
+      `/api/specifications/${specificationId}/secondary-chats/${chatId}/mode`,
+      request,
+      'Failed to update secondary chat mode',
+    ),
+  );
+
+  const setMode = useCallback(
+    async (mode: SecondaryChatMode): Promise<SetSecondaryChatModeResponse | null> => {
+      try {
+        const response = await mutation.run({ mode });
+        await invalidateSpecificationBundle();
+        return response;
+      } catch {
+        return null;
+      }
+    },
+    [invalidateSpecificationBundle, mutation],
+  );
+
+  return {
+    setMode,
+    isPending: mutation.isPending,
+    errorMessage: mutation.errorMessage,
+    clearError: mutation.clearError,
+  };
 }

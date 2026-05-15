@@ -143,6 +143,7 @@ export function readSpecificationStateProjection(db: DB, specificationId: number
         invoked_in_turn_id: chat.invoked_in_turn_id,
         pinned_item_id: chat.pinned_item_id,
         pinned_span_hint: chat.pinned_span_hint,
+        mode: chat.mode,
       },
       kickoffTurn: kickoffTurn
         ? toSpecificationTurn({ ...kickoffTurn, options: [], captured_items: [] })

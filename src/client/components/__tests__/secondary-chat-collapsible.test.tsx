@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod/v4';
 
 import { secondaryChatStateSchema } from '@/shared/api-types.js';
@@ -18,6 +18,7 @@ const baseChat: SecondaryChat['chat'] = {
   invoked_in_turn_id: 3,
   pinned_item_id: null,
   pinned_span_hint: null,
+  mode: 'explore',
 };
 
 afterEach(() => cleanup());
@@ -108,5 +109,52 @@ describe('SecondaryChatCollapsible', () => {
 
     const body = screen.getByTestId('secondary-chat-collapsible-body');
     expect(body.textContent?.trim()).toBe('');
+  });
+
+  it('renders the mode toggle reflecting the persisted mode', () => {
+    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'edit' }, kickoffTurn: null };
+    render(<SecondaryChatCollapsible secondaryChat={chat} />);
+    const toggle = screen.getByTestId('secondary-chat-mode-toggle');
+    expect(toggle.dataset.mode).toBe('edit');
+    expect(screen.getByTestId('secondary-chat-mode-edit').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('secondary-chat-mode-ask').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('falls back to explore mode when chat.mode is null', () => {
+    const chat: SecondaryChat = { chat: { ...baseChat, mode: null }, kickoffTurn: null };
+    render(<SecondaryChatCollapsible secondaryChat={chat} />);
+    const toggle = screen.getByTestId('secondary-chat-mode-toggle');
+    expect(toggle.dataset.mode).toBe('explore');
+  });
+
+  it('invokes onSetMode when the user clicks a different mode', () => {
+    const onSetMode = vi.fn();
+    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null };
+    render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} />);
+    fireEvent.click(screen.getByTestId('secondary-chat-mode-edit'));
+    expect(onSetMode).toHaveBeenCalledWith('edit');
+  });
+
+  it('does not invoke onSetMode when clicking the already-active mode', () => {
+    const onSetMode = vi.fn();
+    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null };
+    render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} />);
+    fireEvent.click(screen.getByTestId('secondary-chat-mode-ask'));
+    expect(onSetMode).not.toHaveBeenCalled();
+  });
+
+  it('disables the toggle while a mode update is in flight', () => {
+    const onSetMode = vi.fn();
+    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null };
+    render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} isModeUpdating />);
+    expect(screen.getByTestId('secondary-chat-mode-edit').hasAttribute('disabled')).toBe(true);
+    fireEvent.click(screen.getByTestId('secondary-chat-mode-edit'));
+    expect(onSetMode).not.toHaveBeenCalled();
+  });
+
+  it('disables the toggle when no onSetMode handler is provided (read-only display)', () => {
+    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null };
+    render(<SecondaryChatCollapsible secondaryChat={chat} />);
+    expect(screen.getByTestId('secondary-chat-mode-edit').hasAttribute('disabled')).toBe(true);
   });
 });
