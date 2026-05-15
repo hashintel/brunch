@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { z } from 'zod/v4';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
@@ -31,6 +31,14 @@ export interface SecondaryChatCollapsibleProps {
    */
   streamingAssistantText?: string;
   isStreaming?: boolean;
+  /**
+   * Optional slot rendered inside the collapsible body, after persisted turns
+   * and any in-flight assistant text but before the composer. Used by
+   * `<SecondaryChatHost>` to mount the per-chat staging strip
+   * (`<SecondaryChatStagingStrip />`) without coupling the presentational
+   * collapsible to the patch-list module.
+   */
+  bodyExtras?: ReactNode;
 }
 
 export function SecondaryChatCollapsible({
@@ -40,6 +48,7 @@ export function SecondaryChatCollapsible({
   onSubmitMessage,
   streamingAssistantText,
   isStreaming,
+  bodyExtras,
 }: SecondaryChatCollapsibleProps) {
   const kickoffContent = secondaryChat.kickoffTurn?.assistant_parts ?? '';
   const mode = secondaryChat.chat.mode ?? 'explore';
@@ -75,6 +84,7 @@ export function SecondaryChatCollapsible({
             {streamingAssistantText}
           </div>
         )}
+        {bodyExtras}
         {onSubmitMessage && (
           <SecondaryChatComposer onSubmitMessage={onSubmitMessage} disabled={isStreaming} />
         )}

@@ -62,6 +62,7 @@ function StageEditPatchButton() {
       onClick={() =>
         patchList?.stage({
           kind: 'edit',
+          producerChatId: null,
           anchor: { kind: 'goal', itemId: 1 },
           summary: 'Edit: rephrase',
           newContent: 'rephrased content',
@@ -81,6 +82,7 @@ function StageEditPatchWithDiffButton() {
       onClick={() =>
         patchList?.stage({
           kind: 'edit',
+          producerChatId: null,
           anchor: { kind: 'goal', itemId: 1 },
           anchorReferenceCode: 'G1',
           summary: 'Edit: swap database',
@@ -103,6 +105,7 @@ function StageAnnotatePatchButton() {
       onClick={() =>
         patchList?.stage({
           kind: 'annotate',
+          producerChatId: null,
           anchor: { kind: 'goal', itemId: 2 },
           summary: 'Note: clarify exclusion',
           body: 'The exclusion clause should be moved up.',
@@ -122,6 +125,7 @@ function StageHardEditButton() {
       onClick={() =>
         patchList?.stage({
           kind: 'edit',
+          producerChatId: null,
           anchor: { kind: 'goal', itemId: 3 },
           summary: 'Hard: restructure',
           currentContent: 'before',

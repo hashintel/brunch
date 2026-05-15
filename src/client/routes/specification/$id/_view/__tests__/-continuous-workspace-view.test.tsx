@@ -179,6 +179,7 @@ describe('ContinuousWorkspaceView', () => {
             },
             kickoffTurn: null,
             turns: [],
+            pinnedItemKind: null,
           },
         ],
       ],

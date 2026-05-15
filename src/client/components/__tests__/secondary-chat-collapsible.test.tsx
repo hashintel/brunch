@@ -43,6 +43,7 @@ describe('SecondaryChatCollapsible', () => {
         created_at: '',
       },
       turns: [],
+      pinnedItemKind: null,
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -70,6 +71,7 @@ describe('SecondaryChatCollapsible', () => {
         created_at: '',
       },
       turns: [],
+      pinnedItemKind: null,
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -96,6 +98,7 @@ describe('SecondaryChatCollapsible', () => {
         created_at: '',
       },
       turns: [],
+      pinnedItemKind: null,
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -105,7 +108,7 @@ describe('SecondaryChatCollapsible', () => {
   });
 
   it('renders an empty body when no kickoff turn exists', () => {
-    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [] };
+    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [], pinnedItemKind: null };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
@@ -115,7 +118,12 @@ describe('SecondaryChatCollapsible', () => {
   });
 
   it('renders the mode toggle reflecting the persisted mode', () => {
-    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'edit' }, kickoffTurn: null, turns: [] };
+    const chat: SecondaryChat = {
+      chat: { ...baseChat, mode: 'edit' },
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+    };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     const toggle = screen.getByTestId('secondary-chat-mode-toggle');
     expect(toggle.dataset.mode).toBe('edit');
@@ -124,7 +132,12 @@ describe('SecondaryChatCollapsible', () => {
   });
 
   it('falls back to explore mode when chat.mode is null', () => {
-    const chat: SecondaryChat = { chat: { ...baseChat, mode: null }, kickoffTurn: null, turns: [] };
+    const chat: SecondaryChat = {
+      chat: { ...baseChat, mode: null },
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+    };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     const toggle = screen.getByTestId('secondary-chat-mode-toggle');
     expect(toggle.dataset.mode).toBe('explore');
@@ -132,7 +145,12 @@ describe('SecondaryChatCollapsible', () => {
 
   it('invokes onSetMode when the user clicks a different mode', () => {
     const onSetMode = vi.fn();
-    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null, turns: [] };
+    const chat: SecondaryChat = {
+      chat: { ...baseChat, mode: 'explore' },
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+    };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} />);
     fireEvent.click(screen.getByTestId('secondary-chat-mode-edit'));
     expect(onSetMode).toHaveBeenCalledWith('edit');
@@ -140,7 +158,12 @@ describe('SecondaryChatCollapsible', () => {
 
   it('does not invoke onSetMode when clicking the already-active mode', () => {
     const onSetMode = vi.fn();
-    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null, turns: [] };
+    const chat: SecondaryChat = {
+      chat: { ...baseChat, mode: 'explore' },
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+    };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} />);
     fireEvent.click(screen.getByTestId('secondary-chat-mode-ask'));
     expect(onSetMode).not.toHaveBeenCalled();
@@ -148,7 +171,12 @@ describe('SecondaryChatCollapsible', () => {
 
   it('disables the toggle while a mode update is in flight', () => {
     const onSetMode = vi.fn();
-    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null, turns: [] };
+    const chat: SecondaryChat = {
+      chat: { ...baseChat, mode: 'explore' },
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+    };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} isModeUpdating />);
     expect(screen.getByTestId('secondary-chat-mode-edit').hasAttribute('disabled')).toBe(true);
     fireEvent.click(screen.getByTestId('secondary-chat-mode-edit'));
@@ -156,7 +184,12 @@ describe('SecondaryChatCollapsible', () => {
   });
 
   it('disables the toggle when no onSetMode handler is provided (read-only display)', () => {
-    const chat: SecondaryChat = { chat: { ...baseChat, mode: 'explore' }, kickoffTurn: null, turns: [] };
+    const chat: SecondaryChat = {
+      chat: { ...baseChat, mode: 'explore' },
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+    };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     expect(screen.getByTestId('secondary-chat-mode-edit').hasAttribute('disabled')).toBe(true);
   });
@@ -204,6 +237,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       chat: baseChat,
       kickoffTurn: null,
       turns: [makeUserTurn(10, 'why?'), makeAssistantTurn(11, 'because.')],
+      pinnedItemKind: null,
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
@@ -213,7 +247,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
 
   it('renders the composer when onSubmitMessage is provided and submits trimmed text', () => {
     const onSubmitMessage = vi.fn();
-    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [] };
+    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [], pinnedItemKind: null };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={onSubmitMessage} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     const input = screen.getByTestId('secondary-chat-composer-input') as HTMLInputElement;
@@ -224,7 +258,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
   });
 
   it('does not render the composer when onSubmitMessage is omitted', () => {
-    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [] };
+    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [], pinnedItemKind: null };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     expect(screen.queryByTestId('secondary-chat-composer')).toBeNull();
@@ -232,7 +266,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
 
   it('renders streaming assistant text and disables the composer while isStreaming is true', () => {
     const onSubmitMessage = vi.fn();
-    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [] };
+    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [], pinnedItemKind: null };
     render(
       <SecondaryChatCollapsible
         secondaryChat={chat}

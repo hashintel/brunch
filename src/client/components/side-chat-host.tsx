@@ -473,6 +473,9 @@ export function SideChatHost({
                 }
                 patchList.stage({
                   kind: 'edit',
+                  // Popover origin: null scope so usePatchList() (the global
+                  // overlay) sees it; usePatchListForChat(chatId) does not.
+                  producerChatId: null,
                   anchor: { kind: session.itemKind, itemId: session.itemId },
                   anchorReferenceCode: session.pinnedItem.referenceCode,
                   summary: summarizeEditContent(event.input.newContent),
@@ -497,6 +500,7 @@ export function SideChatHost({
                 }
                 patchList.stage({
                   kind: 'edge',
+                  producerChatId: null,
                   anchor: { kind: session.itemKind, itemId: session.itemId },
                   anchorReferenceCode: session.pinnedItem.referenceCode,
                   targetAnchor: { kind: target.kind, itemId: target.itemId },
@@ -510,6 +514,7 @@ export function SideChatHost({
                 }
                 patchList.stage({
                   kind: 'drill-down',
+                  producerChatId: null,
                   anchor: { kind: session.itemKind, itemId: session.itemId },
                   anchorReferenceCode: session.pinnedItem.referenceCode,
                   summary: `Drill-down: ${event.input.focusArea}`,
@@ -565,6 +570,7 @@ export function SideChatHost({
       }
       patchList.stage({
         kind: 'annotate',
+        producerChatId: null,
         anchor: { kind: activeSideChat.itemKind, itemId: activeSideChat.itemId },
         anchorReferenceCode: activeSideChat.pinnedItem.referenceCode,
         summary,

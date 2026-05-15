@@ -140,6 +140,13 @@ export const secondaryChatStateSchema = z.object({
    * exchanged any messages yet.
    */
   turns: z.array(specificationStateTurnSchema),
+  /**
+   * Resolved kind of the chat's `pinned_item_id` (or null when the chat
+   * isn't pinned). Surfaced so `SecondaryChatHost` can build patch anchors
+   * for staged proposals (FE-716 C5c) without a second knowledge-item
+   * fetch round-trip.
+   */
+  pinnedItemKind: z.enum(knowledgeKinds).nullable(),
 });
 
 export const specificationStateSchema = z.object({

@@ -70,6 +70,7 @@ function createSecondaryChat(overrides: Partial<SecondaryChatState['chat']> = {}
       created_at: '2026-04-03T10:01:00.000Z',
     },
     turns: [],
+    pinnedItemKind: null,
   };
 }
 

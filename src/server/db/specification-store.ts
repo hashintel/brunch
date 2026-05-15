@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, isNotNull, sql, type InferSelectModel } from 'drizzle-orm';
 
 import type { SpecificationMode, TurnKind } from '@/shared/api-types.js';
+import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import type { DB } from '../db.js';
 import * as schema from '../schema.js';
@@ -207,6 +208,12 @@ export interface SecondaryChatWithKickoff {
    * (role='assistant') populated by `appendSecondaryChatTurn`.
    */
   turns: Turn[];
+  /**
+   * Resolved kind of the chat's pinned knowledge item (or null when the chat
+   * isn't pinned). Surfaced so the client can build patch anchors for staged
+   * proposals (FE-716 C5c) without a second knowledge-item fetch round-trip.
+   */
+  pinnedItemKind: KnowledgeKind | null;
 }
 
 export function listSecondaryChatsForSpecification(
@@ -234,7 +241,20 @@ export function listSecondaryChatsForSpecification(
       .where(and(eq(schema.turn.chat_id, chat.id), eq(schema.turn.turn_kind, 'question')))
       .orderBy(asc(schema.turn.id))
       .all() as Turn[];
-    return { chat, kickoffTurn, turns };
+    const pinnedItemRow =
+      chat.pinned_item_id === null
+        ? null
+        : db
+            .select({ kind: schema.knowledgeItem.kind })
+            .from(schema.knowledgeItem)
+            .where(eq(schema.knowledgeItem.id, chat.pinned_item_id))
+            .get();
+    return {
+      chat,
+      kickoffTurn,
+      turns,
+      pinnedItemKind: (pinnedItemRow?.kind ?? null) as KnowledgeKind | null,
+    };
   });
 }
 

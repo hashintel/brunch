@@ -792,6 +792,7 @@ export function StructuredListView({
       if (!patchList) return;
       patchList.stage({
         kind: 'edit',
+        producerChatId: null,
         anchor: { kind: item.kind, itemId: item.id },
         anchorReferenceCode: item.referenceCode,
         summary: `Edit ${item.referenceCode}`,
@@ -814,6 +815,7 @@ export function StructuredListView({
     });
     patchList.stage({
       kind: 'annotate',
+      producerChatId: null,
       anchor: { kind: item.kind, itemId: item.id },
       summary: selection.snapshot,
       body: '',

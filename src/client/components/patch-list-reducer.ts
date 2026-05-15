@@ -2,6 +2,16 @@
 // Events are the internal primitive — append-only — shaped to match A71's
 // future server-side `appendPatch(spec, patch[])` so migration is a reducer
 // swap, not a public-API rewrite. Public surface is `patch-list-host.tsx`.
+//
+// Per-chat scoping (FE-716 C5c, Shape A): each patch carries
+// `producerChatId: number | null`. A null value means "popover / global
+// origin"; a numeric value scopes the patch to one secondary chat. The
+// reducer itself stays oblivious to the scope — partitioning is enforced
+// at the selector layer (`usePatchListForChat`). Apply batches honour the
+// per-chat scope implicitly because each chat's apply only ever passes
+// `patchIds` derived from its own staged slice; cross-chat undo is not
+// supported in V1 (per-`apply()`-batch undo only — chat scope is implicit
+// in the patch ids of the batch).
 
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
@@ -23,6 +33,14 @@ interface PatchBase {
   summary: string;
   selectionRange?: PatchSelectionRange;
   createdAt: number;
+  /**
+   * Origin scope of the patch. `null` = popover / global (legacy default,
+   * what `usePatchList()` sees). A numeric value names the secondary chat
+   * that produced the patch; only `usePatchListForChat(chatId)` surfaces it.
+   * Required-but-nullable so the type system surfaces every stage call site
+   * (Shape A from FE-716 C5c planning).
+   */
+  producerChatId: number | null;
   // Snapshot of the anchor item's reference code (e.g. "C1", "D5") at stage
   // time. Optional — populated by callers that have it in hand (side-chat
   // pinnedItem, future direct-edit row) so consumers like PatchListOverlay

@@ -287,3 +287,52 @@ export function useStagedPatches(filter?: StagedPatchesFilter): readonly Patch[]
     return staged;
   }, [ctx, anchorKind, anchorItemId, filterKind]);
 }
+
+// ---- Per-chat selector seam (FE-716 C5c, Shape A) ----
+
+/**
+ * Per-chat view of the patch list scoped to one secondary chat. Returns the
+ * filtered staged slice (only patches whose `producerChatId === chatId`) plus
+ * scoped actions: `apply()` automatically targets the chat's patch ids,
+ * `discard`/`editSummary` reject ids that don't belong to the chat (they
+ * wouldn't surface in `staged` anyway, but the guard keeps the public seam
+ * tight). Sharing one provider keeps the apply pipeline + undo handles in
+ * one place; the partition lives at this selector layer per the C5c
+ * "Shape A" decision in CARDS.md.
+ */
+export interface PatchListForChat {
+  staged: readonly Patch[];
+  count: number;
+  isApplying: boolean;
+  canUndo: boolean;
+  stage: (input: StagePatchInput) => string;
+  discard: (id: string) => void;
+  editSummary: (id: string, summary: string) => void;
+  apply: () => Promise<void>;
+  undo: () => Promise<boolean>;
+}
+
+export function usePatchListForChat(chatId: number): PatchListForChat | null {
+  const ctx = useContext(PatchListContext);
+  return useMemo<PatchListForChat | null>(() => {
+    if (!ctx) return null;
+    const staged = ctx.state.staged.filter((patch) => patch.producerChatId === chatId);
+    const stagedIds = new Set(staged.map((patch) => patch.id));
+    const lastBatchTouchesChat = ctx.state.lastBatchPatches.some((patch) => patch.producerChatId === chatId);
+    return {
+      staged,
+      count: staged.length,
+      isApplying: ctx.state.isApplying,
+      canUndo: ctx.state.canUndo && lastBatchTouchesChat,
+      stage: ctx.actions.stage,
+      discard: (id: string) => {
+        if (stagedIds.has(id)) ctx.actions.discard(id);
+      },
+      editSummary: (id: string, summary: string) => {
+        if (stagedIds.has(id)) ctx.actions.editSummary(id, summary);
+      },
+      apply: () => ctx.actions.apply(staged.map((patch) => patch.id)),
+      undo: () => ctx.actions.undo(),
+    };
+  }, [ctx, chatId]);
+}

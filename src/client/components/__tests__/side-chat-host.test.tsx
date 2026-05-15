@@ -79,6 +79,7 @@ function StageActiveEditPatchButton({ newContent }: { newContent: string }) {
       onClick={() =>
         patchList?.stage({
           kind: 'edit',
+          producerChatId: null,
           anchor: { kind: samplePinnable.kind, itemId: samplePinnable.id },
           summary: 'Edit: rephrase',
           newContent,
@@ -777,6 +778,7 @@ describe('SideChatHost annotate flow', () => {
             onClick={() =>
               actions?.stage({
                 kind: 'edge',
+                producerChatId: null,
                 anchor: { kind: 'decision', itemId: 7 },
                 targetAnchor: { kind: 'goal', itemId: 11 },
                 relation: 'depends_on',
