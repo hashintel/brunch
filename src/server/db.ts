@@ -8,8 +8,6 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_FOLDER = join(__dirname, '..', '..', 'drizzle');
 
-import {} from '@/shared/knowledge.js';
-
 import * as schema from './schema.js';
 
 export {

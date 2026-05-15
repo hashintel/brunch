@@ -31,7 +31,7 @@ export type WorkflowState = SharedWorkflowState;
 export type ClosureBasis = PhaseClosureBasis | null;
 
 export interface CreatePhaseOutcomeInput {
-  specificationId?: number;
+  specificationId: number;
   phase: Phase;
   proposal_turn_id: number;
   summary: string;
@@ -98,10 +98,9 @@ export function reconcilePhaseOutcomesForSpecification(db: DB, specificationId: 
 }
 
 export function createPhaseOutcome(db: DB, input: CreatePhaseOutcomeInput): PhaseOutcome {
-  const turn = getTurn(db, input.proposal_turn_id);
-  const specificationId = input.specificationId ?? turn?.specification_id;
+  const { specificationId } = input;
   if (!specificationId) {
-    throw new Error('Cannot create phase outcome without a specification id');
+    throw new Error('createPhaseOutcome requires specificationId');
   }
 
   return db
@@ -150,10 +149,9 @@ export function createConfirmedPhaseOutcome(
   db: DB,
   input: CreatePhaseOutcomeInput & { confirmation_turn_id: number },
 ): PhaseOutcome {
-  const turn = getTurn(db, input.proposal_turn_id);
-  const specificationId = input.specificationId ?? turn?.specification_id;
+  const { specificationId } = input;
   if (!specificationId) {
-    throw new Error('Cannot create phase outcome without a specification id');
+    throw new Error('createConfirmedPhaseOutcome requires specificationId');
   }
 
   return db
