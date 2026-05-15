@@ -46,7 +46,7 @@
 
 | # | Assumption | Confidence | Status | Depends on | Validation approach |
 | --- | --- | --- | --- | --- | --- |
-| A1 | [hypothesis] | low/medium/high | open | [D# / I# / Requirement #] | [how to falsify] |
+| A1-U | [hypothesis] | low/medium/high | open | [D#-U / I#-U / Requirement #] | [how to falsify] |
 
 ### Active Decisions
 
@@ -56,7 +56,7 @@
      live in code/design docs or be omitted. Group decisions by subsystem when useful.
      Leave concise retirement comments for removed ID ranges when helpful. -->
 
-1. **[Decision]** — [rationale]. Depends on: [A1]. Supersedes: [—|D#].
+- **D1-U — [Decision]** — [rationale]. Depends on: [A1-U]. Supersedes: [—|D#-U].
 
 ### Critical Invariants
 
@@ -67,7 +67,7 @@
 
 | # | Invariant | Protected by | Proves |
 | --- | --- | --- | --- |
-| I1 | [property] | [test/manual oracle/planned oracle] | [Requirement # / D#] |
+| I1-U | [property] | [test/manual oracle/planned oracle] | [Requirement # / D#-U] |
 
 ## Future Direction Register
 
