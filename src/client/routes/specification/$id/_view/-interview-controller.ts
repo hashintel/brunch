@@ -200,12 +200,11 @@ function extractToolDetail(input: unknown): string | null {
   return null;
 }
 
-function getLiveToolItems(messages: readonly BrunchUIMessage[], status: ChatStatus) {
-  const liveAssistantMessage = getLatestLiveAssistantMessage(messages, status);
-  if (!liveAssistantMessage?.parts) {
-    return undefined;
-  }
+function getLiveToolParts(messages: readonly BrunchUIMessage[], status: ChatStatus) {
+  return getLatestLiveAssistantMessage(messages, status)?.parts ?? [];
+}
 
+function getLiveToolItems(messages: readonly BrunchUIMessage[], status: ChatStatus) {
   const toolItems = new Map<
     string,
     {
@@ -215,7 +214,7 @@ function getLiveToolItems(messages: readonly BrunchUIMessage[], status: ChatStat
     }
   >();
 
-  for (const part of liveAssistantMessage.parts) {
+  for (const part of getLiveToolParts(messages, status)) {
     const label = part ? getActivityToolLabel(part) : null;
     if (!part || !label || !('input' in part) || !('state' in part) || !('toolCallId' in part)) {
       continue;
@@ -232,6 +231,12 @@ function getLiveToolItems(messages: readonly BrunchUIMessage[], status: ChatStat
   }
 
   return toolItems.size > 0 ? [...toolItems.values()] : undefined;
+}
+
+function hasRunningLiveTool(messages: readonly BrunchUIMessage[], status: ChatStatus): boolean {
+  return getLiveToolParts(messages, status).some(
+    (part) => part && 'state' in part && part.state !== 'output-available',
+  );
 }
 
 function getLatestAssistantActivity(
@@ -368,8 +373,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     [phaseMessages, status],
   );
   const liveToolItems = useMemo(() => getLiveToolItems(phaseMessages, status), [phaseMessages, status]);
-  const liveToolsRunning =
-    (liveToolItems?.length ?? 0) > 0 && (status === 'streaming' || status === 'submitted');
+  const liveToolsRunning = useMemo(() => hasRunningLiveTool(phaseMessages, status), [phaseMessages, status]);
 
   const submitText = useCallback(
     (text: string) => {

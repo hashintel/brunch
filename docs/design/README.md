@@ -31,6 +31,7 @@ Use design documents for deeper argumentation, raw synthesis, alternatives, and 
 | `BEHAVIORAL_KERNELS.md` | Behavioral-kernel typology, kernel cards, signal-phrase routing, and contrastive-question workflow. Canonical design reference for kernel probes. |
 | `SPEC_EVOLUTION_STRATEGIES.md` | FE-705-era synthesis for chat-local strategies, scenario options, graph review, proposal turns, relation directionality, and candidate bundles. Graduated into `memory/SPEC.md` / `memory/PLAN.md`; keep as rationale. |
 | `AGENT_MUTATION_SURFACE.md` | Audit of agent-originated/adjoining mutation paths and the capability/changeset boundary needed before agents write durable truth. |
+| `SUBSTRATE_STRANGLER_COORDINATION.md` | Working coordination note for moving routes, capabilities, and changesets toward shared handlers while keeping frontend work stable and parallelizable. |
 
 ### Conversational workspace runtime cluster
 

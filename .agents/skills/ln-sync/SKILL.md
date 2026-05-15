@@ -24,7 +24,7 @@ Prefer `ln-sync` at these moments:
 
 | File | Authority | Keep live |
 | --- | --- | --- |
-| `memory/SPEC.md` | what and why | active assumptions, current decisions, critical invariants, live constraints |
+| `memory/SPEC.md` | what and why | product contract, live architecture register, future direction pointers, lexicon, verification stance |
 | `memory/PLAN.md` | what's next | sequencing, frontier definitions, near-horizon items, recent completions |
 | `docs/archive/PLAN_HISTORY.md` | historical ledger | older completed phases and retired plan history |
 | `HANDOFF.md` | derivative volatile transfer | only unfinished chat state not yet reconciled |
@@ -41,27 +41,39 @@ If either `memory/SPEC.md` or `memory/PLAN.md` is missing, route to `ln-spec` or
 
 Ask whether each file is still serving re-entry.
 
-- If `memory/SPEC.md` is carrying embedded truths, old implementation detail, or closed historical debates, prune it.
+- If `memory/SPEC.md` is carrying embedded truths, old implementation detail, closed historical debates, or validated assumptions that no longer shape frontier work, prune it.
 - If `memory/PLAN.md` is mostly completed history, collapse it to a rolling frontier and archive the rest.
 - If `HANDOFF.md`, `memory/CARDS.md`, or `memory/REFACTOR.md` no longer carry live temporary state, delete them.
 
 ### 3. SPEC pass — keep only live architecture
 
+Use the mature SPEC shape as the target unless the project has an explicit alternate shape:
+
+- **Product Contract** — concept, constraints / non-goals, grouped capability requirements.
+- **Live Architecture Register** — open assumptions, active decisions, critical invariants.
+- **Future Direction Register** — directional bets with PLAN/design-doc pointers.
+- Compact model / architecture sections only while they still serve as SPEC authority.
+- Lexicon and Verification Design.
+
 For each item in `memory/SPEC.md`, choose one:
 
-- **keep** — still unresolved or still constrains future work
+- **keep live** — still unresolved or still constrains future work
 - **update** — wording / evidence / scope changed
-- **remove** — embedded, moot, superseded, or redundant
+- **compress / merge** — overlaps another live row or carries too much rationale
+- **retire embedded** — fully shipped and now protected by code/tests/design docs
+- **move rationale** — valuable context, but too detailed for SPEC; keep a short guardrail and link to a design doc
+- **future direction** — not current product contract; move under Future Direction Register or ensure PLAN owns it
+- **remove** — moot, superseded, redundant, or implementation diary
 
 #### Keep in SPEC
 
-- concept and goal
+- stable product contract
 - constraints and non-goals
-- requirements
-- live assumptions only
-- current decisions only
-- durable seam-defining decisions even when implemented
+- capability requirements
+- open assumptions only
+- current spine decisions and durable seam-defining decisions
 - critical seam-level invariants only
+- future direction pointers that shape sequencing
 - lexicon
 - verification stance / commands / blind spots
 
@@ -69,8 +81,12 @@ For each item in `memory/SPEC.md`, choose one:
 
 - implementation diary entries
 - historical completion notes already reflected in code or tests
-- micro-variant decisions / invariants that are now embedded in a larger seam
+- micro-variant decisions / invariants that are embedded in a larger seam
 - validated assumptions that no longer change future work
+- detailed design-doc prose, card styling minutiae, or exhaustive test inventories
+- future acceptance criteria that PLAN should own until the work is active
+
+Validated assumptions retire by default. Promote the durable residue only when it still constrains active work: product facts go to Product Contract, architectural authority goes to Active Decisions / Critical Invariants, vocabulary goes to Lexicon, and sequencing implications go to PLAN.
 
 Do **not** remove durable seam rationale merely because code and tests now exist. Prune micro-decisions, not the architectural spine.
 
@@ -112,7 +128,7 @@ Scan recent code / commits for:
 - new domain concepts not reflected in the lexicon
 - durable decisions not reflected in `memory/SPEC.md`
 - active work not represented in `memory/PLAN.md` sequencing or frontier definitions
-- stale references between `memory/PLAN.md` and `memory/SPEC.md`
+- stale references between `memory/PLAN.md` and `memory/SPEC.md`, especially PLAN links to retired assumptions / decisions / invariants
 - equivalent facts that should merge instead of coexisting
 - prepared cards in `memory/CARDS.md` that should be retired, re-scoped, or reconciled into the next thread's live state
 - stale derivative artifacts that should be deleted after reconciliation
@@ -134,7 +150,7 @@ Produce a concise sync report and make the edits.
 ## Sync Report
 
 ### Pruned
-- [items removed and why]
+- [items removed, merged, or moved and why]
 
 ### Archived
 - [history moved to PLAN_HISTORY.md]
@@ -143,7 +159,10 @@ Produce a concise sync report and make the edits.
 - [temporary artifacts deleted and why]
 
 ### Drift fixed
-- [concept / decision / frontier updates made]
+- [concept / decision / frontier / traceability updates made]
+
+### Retirement assessment
+- [whether embedded items were sufficiently retired, or whether a stronger protocol / follow-up frontier is needed]
 
 ### Remaining live items
 - [important assumptions or frontier work that still matter]

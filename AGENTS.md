@@ -56,9 +56,9 @@ Traceability: assumptions in SPEC.md link to decisions and frontier items in PLA
 
 ### skills
 
-The `/ln-*` skills at `.agents/skills/` follow this flow:
+The `/ln-*` skills at `.agents/skills/` follow this flow. See `docs/praxis/ln-skills.md` for the colleague-facing reference, discretionary tools, and chooser table.
 
-- **Knowledge**: /ln-grill → /ln-spec → /ln-plan → /ln-oracles
+- **Knowledge**: /ln-grill or /ln-disambiguate → /ln-spec → /ln-plan → /ln-oracles
 - **Execution**: /ln-scope → /ln-spike (optional) → /ln-build
 - **Quality**: /ln-review → /ln-refactor (optional) → /ln-sync
 - **Process**: /ln-consult (triage), /ln-handoff (state capture), /ln-design (interface exploration)
