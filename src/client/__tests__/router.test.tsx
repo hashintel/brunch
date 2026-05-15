@@ -13,9 +13,9 @@ import type { SpecificationState } from '@/shared/specification.js';
 import { queryClient } from '../query-client.js';
 
 const fetchMock = vi.fn<typeof fetch>();
-let interviewViewRenderCount = 0;
-let interviewViewMountCount = 0;
-let interviewViewUnmountCount = 0;
+let workspaceViewRenderCount = 0;
+let workspaceViewMountCount = 0;
+let workspaceViewUnmountCount = 0;
 
 const minimalSpecificationState: SpecificationState = {
   specification: {
@@ -86,18 +86,14 @@ vi.mock('../routes/-project-list.js', () => ({
   fetchSpecificationListLoaderData: vi.fn(async () => []),
 }));
 
-vi.mock('../routes/specification/$id/_view/-interview-controller', () => ({
-  useInterviewController: () => ({ __brand: 'interview-controller' }),
-}));
-
-vi.mock('../routes/specification/$id/_view/-interview-view.js', () => ({
-  InterviewView: () => {
-    interviewViewRenderCount += 1;
+vi.mock('../routes/specification/$id/_view/-continuous-workspace-view.js', () => ({
+  ContinuousWorkspaceView: () => {
+    workspaceViewRenderCount += 1;
 
     useEffect(() => {
-      interviewViewMountCount += 1;
+      workspaceViewMountCount += 1;
       return () => {
-        interviewViewUnmountCount += 1;
+        workspaceViewUnmountCount += 1;
       };
     }, []);
 
@@ -171,9 +167,9 @@ async function renderRouteAt(pathname: string) {
 beforeEach(() => {
   queryClient.clear();
   fetchMock.mockReset();
-  interviewViewRenderCount = 0;
-  interviewViewMountCount = 0;
-  interviewViewUnmountCount = 0;
+  workspaceViewRenderCount = 0;
+  workspaceViewMountCount = 0;
+  workspaceViewUnmountCount = 0;
   fetchMock.mockImplementation(async (input) => defaultFetchHandler(input));
   vi.stubGlobal('fetch', fetchMock);
 });
@@ -303,9 +299,9 @@ describe('generated routeTree', () => {
     await renderRouteAt('/specification/42/grounding');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
-    expect(interviewViewRenderCount).toBe(1);
-    expect(interviewViewMountCount).toBe(1);
-    expect(interviewViewUnmountCount).toBe(0);
+    expect(workspaceViewRenderCount).toBe(1);
+    expect(workspaceViewMountCount).toBe(1);
+    expect(workspaceViewUnmountCount).toBe(0);
 
     await act(async () => {
       await queryClient.invalidateQueries({ queryKey: ['specification', '42', 'entities'] });
@@ -324,17 +320,17 @@ describe('generated routeTree', () => {
       return url === '/api/specifications/42';
     });
     expect(specificationFetches).toHaveLength(1);
-    expect(interviewViewRenderCount).toBe(1);
-    expect(interviewViewMountCount).toBe(1);
-    expect(interviewViewUnmountCount).toBe(0);
+    expect(workspaceViewRenderCount).toBe(1);
+    expect(workspaceViewMountCount).toBe(1);
+    expect(workspaceViewUnmountCount).toBe(0);
   });
 
   it('refreshes the specification bundle without remounting the interview route for mutation-owned invalidation', async () => {
     await renderRouteAt('/specification/42/grounding');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
-    expect(interviewViewMountCount).toBe(1);
-    expect(interviewViewUnmountCount).toBe(0);
+    expect(workspaceViewMountCount).toBe(1);
+    expect(workspaceViewUnmountCount).toBe(0);
 
     await act(async () => {
       await queryClient.invalidateQueries({ queryKey: ['specification', '42', 'bundle'] });
@@ -353,8 +349,8 @@ describe('generated routeTree', () => {
       return url === '/api/specifications/42/entities?mode=active-path';
     });
     expect(entityFetches).toHaveLength(1);
-    expect(interviewViewMountCount).toBe(1);
-    expect(interviewViewUnmountCount).toBe(0);
+    expect(workspaceViewMountCount).toBe(1);
+    expect(workspaceViewUnmountCount).toBe(0);
   });
 
   it('redirects a completed specification index to the output route through one authoritative bundle fetch path', async () => {

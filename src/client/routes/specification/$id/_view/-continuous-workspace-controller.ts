@@ -17,7 +17,7 @@ import {
   getPhaseClosureCommandText,
 } from '@/shared/phase-close.js';
 import type { DataConfirmation } from '@/shared/phase-close.js';
-import { getPhaseRoutePath } from '@/shared/phase-descriptors.js';
+import { getCurrentOpenPhase, getPhaseRoutePath, phaseOrder } from '@/shared/phase-descriptors.js';
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
 import { type SpecificationTurn } from '@/shared/specification.js';
 
@@ -48,8 +48,16 @@ import {
   useSpecificationRuntimeLifecycle,
   useSpecificationScopedAutoPhaseIntent,
 } from './-specification-lifecycle.js';
+import { specificationWorkspaceStream, type WorkspaceStreamArtifact } from './-workspace-stream-projector.js';
 
-export interface InterviewControllerChatState {
+export interface ContinuousWorkspaceSection {
+  readonly phase: WorkflowPhase;
+  readonly artifacts: readonly WorkspaceStreamArtifact[];
+  readonly phaseTurns: readonly SpecificationTurn[];
+  readonly isActive: boolean;
+}
+
+export interface ContinuousWorkspaceChatState {
   readonly messages: readonly BrunchUIMessage[];
   readonly status: ChatStatus;
   readonly isLoading: boolean;
@@ -59,20 +67,17 @@ export interface InterviewControllerChatState {
   readonly forcePhaseClosure: (phase: SpecificationTurn['phase']) => void;
 }
 
-// Re-export from core — the type moved there to enable shared enrichment logic
-export type { InterviewControllerBottomArtifactState } from './-interview-controller-core.js';
-
-export interface InterviewController {
+export interface ContinuousWorkspaceController {
   readonly specification: InterviewDurableSpecificationState['specification'];
   readonly workflow: InterviewDurableSpecificationState['workflow'];
-  readonly phaseTurns: readonly SpecificationTurn[];
+  readonly sections: readonly ContinuousWorkspaceSection[];
+  readonly activePhase: WorkflowPhase;
   readonly captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
-  readonly chat: InterviewControllerChatState;
+  readonly chat: ContinuousWorkspaceChatState;
   readonly bottomArtifact: InterviewControllerBottomArtifactState | null;
-  readonly structuralArtifactTurnIds: readonly number[] | undefined;
 }
 
-export function useInterviewController(phase: WorkflowPhase): InterviewController {
+export function useContinuousWorkspaceController(): ContinuousWorkspaceController {
   const specificationState = useSpecificationBundleData();
   const turns = specificationState.turns;
   const router = useRouter();
@@ -80,18 +85,24 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   const promoteStreamedFrontierTurnToBundle = usePromoteStreamedFrontierTurnToBundle();
   const specificationId = specificationState.specification.id;
 
+  const currentReachablePhase = getCurrentOpenPhase(specificationState.workflow.phases);
+  const activePhase = currentReachablePhase ?? phaseOrder[phaseOrder.length - 1]!;
+
   const refreshReadModel = useCallback(
     () => invalidateSpecificationBundle(),
     [invalidateSpecificationBundle],
   );
   const { durableSpecification, ephemeralChat } = useInterviewDataAdapter(specificationState);
 
-  const phaseTurnIds = useMemo(() => buildPhaseTurnIds(turns, phase), [phase, turns]);
-
-  const durablePhaseTurns = useMemo(() => turns.filter((turn) => turn.phase === phase), [phase, turns]);
+  // Active-phase turn stabilization
+  const phaseTurnIds = useMemo(() => buildPhaseTurnIds(turns, activePhase), [activePhase, turns]);
+  const durablePhaseTurns = useMemo(
+    () => turns.filter((turn) => turn.phase === activePhase),
+    [activePhase, turns],
+  );
   const [stablePhaseTurns, setStablePhaseTurns] = useState(() => durablePhaseTurns);
-  const stablePhaseKeyRef = useRef(`${durableSpecification.specification.id}:${phase}`);
-  const stablePhaseKey = `${durableSpecification.specification.id}:${phase}`;
+  const stablePhaseKeyRef = useRef(`${durableSpecification.specification.id}:${activePhase}`);
+  const stablePhaseKey = `${durableSpecification.specification.id}:${activePhase}`;
   const projectedPhaseTurns = useMemo(
     () =>
       stablePhaseKeyRef.current === stablePhaseKey
@@ -107,6 +118,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     stablePhaseKeyRef.current = stablePhaseKey;
   }, [projectedPhaseTurns, stablePhaseKey]);
 
+  // Chat transport + lifecycle (spec-scoped, not phase-scoped)
   const transport = useMemo(
     () => new DefaultChatTransport({ api: `/api/specifications/${specificationId}/chat` }),
     [specificationId],
@@ -121,7 +133,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   );
   const runtime = useSpecificationRuntimeLifecycle({
     specificationId,
-    phase,
+    phase: activePhase,
     workflow: durableSpecification.workflow,
     turns,
     structuralArtifactTurnIds: specificationState.structuralArtifactTurnIds,
@@ -155,6 +167,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   const controlErrorMessage = submitPhaseIntentMutation.errorMessage ?? error?.message ?? null;
   const isLoading = status === 'submitted' || status === 'streaming';
 
+  // Active-phase messages (phase-filtered for view state + live activity)
   const phaseMessages = useMemo(
     () => filterMessagesByPhase(messages, phaseTurnIds),
     [messages, phaseTurnIds],
@@ -170,6 +183,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   const liveToolItems = useMemo(() => getLiveToolItems(phaseMessages, status), [phaseMessages, status]);
   const liveToolsRunning = useMemo(() => hasRunningLiveTool(phaseMessages, status), [phaseMessages, status]);
 
+  // Chat actions
   const submitText = useCallback(
     (text: string) => {
       if (!text.trim() || isLoading) {
@@ -250,18 +264,19 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
 
   const isAutoSubmittingPhaseIntent = useSpecificationScopedAutoPhaseIntent({
     specificationId,
-    phase,
+    phase: activePhase,
     workflow: durableSpecification.workflow,
     landing: durableSpecification.landing,
     chatStatus: status,
     submitPhaseIntent: submitTypedPhaseIntent,
   });
 
+  // Active-phase view state (bottom artifact)
   const viewState = useMemo(
     () =>
       createInterviewControllerViewState(
         durableSpecification,
-        phase,
+        activePhase,
         phaseMessages,
         isLoading,
         runtime.submittedTurnId,
@@ -271,12 +286,13 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
       durableSpecification,
       isAutoSubmittingPhaseIntent,
       isLoading,
-      phase,
+      activePhase,
       phaseMessages,
       runtime.submittedTurnId,
     ],
   );
 
+  // Promote streamed frontier turn
   useEffect(() => {
     if (viewState.bottomArtifact?.kind !== 'pending-question') {
       return;
@@ -289,17 +305,79 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
 
     promoteStreamedFrontierTurnToBundle({
       turnId: pendingQuestion.acknowledgedTurnId,
-      phase,
+      phase: activePhase,
       question: pendingQuestion,
     });
-  }, [phase, promoteStreamedFrontierTurnToBundle, viewState.bottomArtifact]);
+  }, [activePhase, promoteStreamedFrontierTurnToBundle, viewState.bottomArtifact]);
+
+  const enrichedBottomArtifact = enrichBottomArtifact(viewState.bottomArtifact, {
+    submitTurnResponseErrorMessage: submitTurnResponseMutation.errorMessage,
+    submitTrackedTurnResponse: runtime.submitTrackedTurnResponse,
+    submitTurnResponse: submitTurnResponseMutation.submitTurnResponse,
+    liveActivity,
+    isLoading,
+    controlErrorMessage,
+    submitTypedPhaseIntent,
+    confirmPhaseClosure,
+    liveReasoningText,
+    liveToolItems,
+    liveToolsRunning,
+  });
+
+  // Project sections for all realized phases
+  const sections = useMemo((): readonly ContinuousWorkspaceSection[] => {
+    const result: ContinuousWorkspaceSection[] = [];
+
+    for (const phase of phaseOrder) {
+      const phaseState = durableSpecification.workflow.phases[phase];
+
+      if (phaseState.status === 'unstarted' && phase !== activePhase) {
+        continue;
+      }
+
+      if (phase === activePhase) {
+        const { streamArtifacts } = specificationWorkspaceStream({
+          phase,
+          phaseTurns: projectedPhaseTurns,
+          phaseState,
+          bottomArtifact: enrichedBottomArtifact,
+          structuralArtifactTurnIds: specificationState.structuralArtifactTurnIds,
+        });
+        result.push({
+          phase,
+          artifacts: streamArtifacts,
+          phaseTurns: projectedPhaseTurns,
+          isActive: true,
+        });
+      } else {
+        const closedPhaseTurns = turns.filter((t) => t.phase === phase);
+        const { streamArtifacts } = specificationWorkspaceStream({
+          phase,
+          phaseTurns: closedPhaseTurns,
+          phaseState,
+          bottomArtifact: null,
+          structuralArtifactTurnIds: specificationState.structuralArtifactTurnIds,
+        });
+        result.push({ phase, artifacts: streamArtifacts, phaseTurns: closedPhaseTurns, isActive: false });
+      }
+    }
+
+    return result;
+  }, [
+    activePhase,
+    durableSpecification.workflow.phases,
+    enrichedBottomArtifact,
+    projectedPhaseTurns,
+    specificationState.structuralArtifactTurnIds,
+    turns,
+  ]);
 
   return {
     specification: viewState.specification,
     workflow: viewState.workflow,
-    phaseTurns: projectedPhaseTurns,
+    sections,
+    activePhase,
     captureStatusByTurnId: runtime.captureStatusByTurnId,
-    structuralArtifactTurnIds: specificationState.structuralArtifactTurnIds,
     chat: {
       messages: phaseMessages,
       status,
@@ -309,18 +387,6 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
       confirmPhaseClosure,
       forcePhaseClosure,
     },
-    bottomArtifact: enrichBottomArtifact(viewState.bottomArtifact, {
-      submitTurnResponseErrorMessage: submitTurnResponseMutation.errorMessage,
-      submitTrackedTurnResponse: runtime.submitTrackedTurnResponse,
-      submitTurnResponse: submitTurnResponseMutation.submitTurnResponse,
-      liveActivity,
-      isLoading,
-      controlErrorMessage,
-      submitTypedPhaseIntent,
-      confirmPhaseClosure,
-      liveReasoningText,
-      liveToolItems,
-      liveToolsRunning,
-    }),
+    bottomArtifact: enrichedBottomArtifact,
   };
 }

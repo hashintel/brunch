@@ -13,6 +13,8 @@ import {
 } from '@/shared/phase-descriptors.js';
 import type { SpecificationTurn } from '@/shared/specification.js';
 
+import { useWorkspaceFocus } from './-workspace-focus.js';
+
 function formatStatus(status: WorkflowPhaseState['status']): string {
   switch (status) {
     case 'closed':
@@ -96,6 +98,8 @@ export function PhaseNavigationSidebar({
   const currentReachablePhase = getCurrentReachablePhase(workflow);
   const phaseTurnCounts = getPhaseTurnCounts(turns);
   const outputAvailable = allWorkflowPhasesClosed(workflow);
+  const workspaceFocus = useWorkspaceFocus();
+  const focusedPhase = workspaceFocus?.focusedPhase ?? null;
 
   return (
     <aside
@@ -185,8 +189,11 @@ export function PhaseNavigationSidebar({
                     <Link
                       to={getPhaseRoutePath(phase) as '/specification/$id/grounding'}
                       params={{ id: specificationId }}
-                      activeProps={{ className: 'is-active' }}
-                      className="group/phase block min-w-0 text-left transition-colors"
+                      activeProps={focusedPhase ? undefined : { className: 'is-active' }}
+                      className={cn(
+                        'group/phase block min-w-0 text-left transition-colors',
+                        focusedPhase === phase && 'is-active',
+                      )}
                     >
                       {body}
                     </Link>

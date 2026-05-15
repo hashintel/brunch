@@ -10,6 +10,7 @@ import { makeDrillDownApplier, makeEdgeApplier, makeEditApplier } from '@/client
 
 import { PhaseNavigationSidebar } from './-phase-navigation-sidebar.js';
 import { primeSpecificationBundle, useSpecificationBundleData } from './-specification-data.js';
+import { WorkspaceFocusProvider } from './-workspace-focus.js';
 
 function SpecificationWorkspaceSkeleton() {
   return (
@@ -51,22 +52,24 @@ export const Route = createFileRoute('/specification/$id')({
     return (
       <PatchListProvider appliers={appliers}>
         <SideChatHost specificationId={specificationState.specification.id}>
-          <div className="flex h-full min-h-0 flex-1 flex-col">
-            <div className="flex min-h-0 flex-1">
-              <PhaseNavigationSidebar
-                specificationId={specificationId}
-                specificationName={specificationState.specification.name}
-                workflow={specificationState.workflow}
-                turns={specificationState.turns}
-              />
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <PatchListOverlay />
-                <div className="min-h-0 flex-1 overflow-hidden">
-                  <Outlet />
+          <WorkspaceFocusProvider>
+            <div className="flex h-full min-h-0 flex-1 flex-col">
+              <div className="flex min-h-0 flex-1">
+                <PhaseNavigationSidebar
+                  specificationId={specificationId}
+                  specificationName={specificationState.specification.name}
+                  workflow={specificationState.workflow}
+                  turns={specificationState.turns}
+                />
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                  <PatchListOverlay />
+                  <div className="min-h-0 flex-1 overflow-hidden">
+                    <Outlet />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </WorkspaceFocusProvider>
         </SideChatHost>
       </PatchListProvider>
     );
