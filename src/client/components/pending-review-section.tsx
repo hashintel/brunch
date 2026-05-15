@@ -45,7 +45,7 @@ import type { ReconciliationNeedRecord } from '@/shared/reconciliation-need.js';
 
 import { ClassificationChip } from './classification-chip.js';
 import { DiffPopover } from './diff-popover.js';
-import { useSideChat } from './side-chat-host.js';
+import { useSecondaryChatTrigger } from './secondary-chat-trigger.js';
 
 // Card 3 (V3.1 setup): per-row inline edit state. Keyed by need id so
 // expanding one row's edit form doesn't perturb other rows. Draft text is
@@ -101,7 +101,7 @@ export function PendingReviewSection(): React.ReactElement | null {
     mode: 'source-diff' | 'agent-proposal';
   } | null>(null);
   const diffAnchorRef = useRef<HTMLButtonElement | null>(null);
-  const sideChat = useSideChat();
+  const secondaryChatTrigger = useSecondaryChatTrigger();
 
   useEffect(() => {
     if (diffPopoverNeedId === null) return;
@@ -247,18 +247,16 @@ export function PendingReviewSection(): React.ReactElement | null {
 
   const handleOpenSideChat = (need: ReconciliationNeedRecord): void => {
     if (
-      sideChat === null ||
-      need.target_item_kind === null ||
-      need.target_reference_code === null ||
-      need.target_current_content === null
+      secondaryChatTrigger === null ||
+      !secondaryChatTrigger.canCreate ||
+      secondaryChatTrigger.isPending ||
+      need.target_item_kind === null
     ) {
       return;
     }
-    sideChat.openFor({
+    void secondaryChatTrigger.create({
       kind: need.target_item_kind,
       id: need.target_item_id,
-      referenceCode: need.target_reference_code,
-      content: need.target_current_content,
     });
   };
 
@@ -448,10 +446,9 @@ export function PendingReviewSection(): React.ReactElement | null {
           const showOpenSideChatButton =
             need.agent_status === 'classified' &&
             need.agent_classification === 'substantive' &&
-            sideChat !== null &&
-            need.target_item_kind !== null &&
-            need.target_reference_code !== null &&
-            need.target_current_content !== null;
+            secondaryChatTrigger !== null &&
+            secondaryChatTrigger.canCreate &&
+            need.target_item_kind !== null;
           const rowDisabled = isResolving || isSaving || isResetting || isApplying || bulkOperation !== null;
           const showSourceDiff =
             need.source_previous_content !== null &&

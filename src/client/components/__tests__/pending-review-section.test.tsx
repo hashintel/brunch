@@ -67,15 +67,22 @@ vi.mock('@/client/lib/edit-api.js', () => ({
   resetReconciliationNeedAgentRequest: mockResetReconciliationNeedAgentRequest,
 }));
 
-const mockSideChatOpenFor = vi.hoisted(() => vi.fn());
-let sideChatContextValue: { openFor: typeof mockSideChatOpenFor } | null = {
-  openFor: mockSideChatOpenFor,
-};
-function setSideChatContext(value: { openFor: typeof mockSideChatOpenFor } | null): void {
-  sideChatContextValue = value;
+const mockSecondaryChatCreate = vi.hoisted(() => vi.fn());
+interface SecondaryChatTriggerStub {
+  canCreate: boolean;
+  isPending: boolean;
+  create: typeof mockSecondaryChatCreate;
 }
-vi.mock('../side-chat-host.js', () => ({
-  useSideChat: () => sideChatContextValue,
+let secondaryChatTriggerValue: SecondaryChatTriggerStub | null = {
+  canCreate: true,
+  isPending: false,
+  create: mockSecondaryChatCreate,
+};
+function setSecondaryChatTrigger(value: SecondaryChatTriggerStub | null): void {
+  secondaryChatTriggerValue = value;
+}
+vi.mock('../secondary-chat-trigger.js', () => ({
+  useSecondaryChatTrigger: () => secondaryChatTriggerValue,
 }));
 
 beforeEach(() => {
@@ -118,8 +125,9 @@ afterEach(() => {
       agentProposal: null,
     }),
   );
-  mockSideChatOpenFor.mockClear();
-  setSideChatContext({ openFor: mockSideChatOpenFor });
+  mockSecondaryChatCreate.mockClear();
+  mockSecondaryChatCreate.mockImplementation(() => Promise.resolve(null));
+  setSecondaryChatTrigger({ canCreate: true, isPending: false, create: mockSecondaryChatCreate });
   vi.useRealTimers();
 });
 
@@ -719,7 +727,7 @@ describe('PendingReviewSection', () => {
       expect(container.querySelector('[data-skip-button="1"]')).not.toBeNull();
     });
 
-    it('substantive row renders Open side-chat button that invokes useSideChat().openFor', async () => {
+    it('substantive row renders Open side-chat button that invokes the secondary-chat trigger', async () => {
       setMockOpenNeeds([
         makeNeed({
           id: 1,
@@ -736,17 +744,31 @@ describe('PendingReviewSection', () => {
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /open side-chat for need 1/i }));
       });
-      expect(mockSideChatOpenFor).toHaveBeenCalledTimes(1);
-      expect(mockSideChatOpenFor).toHaveBeenCalledWith({
+      expect(mockSecondaryChatCreate).toHaveBeenCalledTimes(1);
+      expect(mockSecondaryChatCreate).toHaveBeenCalledWith({
         kind: 'requirement',
         id: 99,
-        referenceCode: 'R3',
-        content: 'substantive content',
       });
     });
 
-    it('substantive row hides Open side-chat when useSideChat returns null', () => {
-      setSideChatContext(null);
+    it('substantive row hides Open side-chat when the secondary-chat trigger is unavailable', () => {
+      setSecondaryChatTrigger(null);
+      setMockOpenNeeds([
+        makeNeed({
+          id: 1,
+          agent_status: 'classified',
+          agent_classification: 'substantive',
+          target_item_kind: 'requirement',
+          target_reference_code: 'R3',
+          target_current_content: 'substantive',
+        }),
+      ]);
+      const { container } = render(<PendingReviewSection />);
+      expect(container.querySelector('[data-open-side-chat-button]')).toBeNull();
+    });
+
+    it('substantive row hides Open side-chat when the trigger reports it cannot create yet', () => {
+      setSecondaryChatTrigger({ canCreate: false, isPending: false, create: mockSecondaryChatCreate });
       setMockOpenNeeds([
         makeNeed({
           id: 1,
