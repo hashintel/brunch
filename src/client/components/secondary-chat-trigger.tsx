@@ -11,6 +11,11 @@ import {
 } from '@/client/routes/specification/$id/-specification-data.js';
 import type { MutationErrorResponse } from '@/shared/api-types.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
+import {
+  getCurrentOpenPhase,
+  getPhaseRoutePath,
+  groundingWorkflowPhase,
+} from '@/shared/phase-descriptors.js';
 
 export type SecondaryChatMode = 'explore' | 'edit';
 
@@ -95,12 +100,34 @@ export function useCreateSecondaryChatMutation(specificationId: number) {
 export interface SecondaryChatTriggerItem {
   kind: KnowledgeKind;
   id: number;
+  /**
+   * Optional highlighted span from the source row — when present, the server
+   * persists it as `pinned_span_hint` on the new chat so the kickoff turn can
+   * focus the conversation on that excerpt (mirrors the legacy
+   * `useSideChat().openWithSpanHint` path).
+   */
+  spanHint?: string;
+}
+
+export interface InlineChatRoute {
+  /** TanStack-Router `to` path for the route that renders inline chats. */
+  readonly to: string;
+  /** Route params required for `to` (currently just the specification id). */
+  readonly params: { readonly id: string };
 }
 
 export interface SecondaryChatTriggerValue {
   readonly canCreate: boolean;
   readonly isPending: boolean;
   readonly create: (item: SecondaryChatTriggerItem) => Promise<CreateSecondaryChatResponse | null>;
+  /**
+   * Route descriptor that surfaces the newly-created inline chat. Callers that
+   * render outside the transcript view (e.g. the graph / structured list) should
+   * navigate here after a successful `create`, since only the transcript view
+   * renders `SecondaryChatCollapsible`. Always set, even when `canCreate` is
+   * false — that way callers can compute it once during render.
+   */
+  readonly inlineChatRoute: InlineChatRoute;
 }
 
 const SecondaryChatTriggerContext = createContext<SecondaryChatTriggerValue | null>(null);
@@ -133,14 +160,23 @@ export function SecondaryChatTriggerProvider({ children }: { children: ReactNode
         invokedInTurnId: activeTurnId,
         itemKind: item.kind,
         itemId: item.id,
+        ...(item.spanHint ? { spanHint: item.spanHint } : {}),
       });
     },
     [activeTurnId, mutation, parentChatId],
   );
 
+  const inlineChatRoute = useMemo<InlineChatRoute>(() => {
+    const activePhase = getCurrentOpenPhase(specificationState.workflow.phases) ?? groundingWorkflowPhase;
+    return {
+      to: getPhaseRoutePath(activePhase),
+      params: { id: String(specificationId) },
+    };
+  }, [specificationId, specificationState.workflow.phases]);
+
   const value = useMemo<SecondaryChatTriggerValue>(
-    () => ({ canCreate, isPending: mutation.isPending, create }),
-    [canCreate, create, mutation.isPending],
+    () => ({ canCreate, isPending: mutation.isPending, create, inlineChatRoute }),
+    [canCreate, create, inlineChatRoute, mutation.isPending],
   );
 
   return (

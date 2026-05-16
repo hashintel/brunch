@@ -1,14 +1,5 @@
 import { useLocation, useNavigate } from '@tanstack/react-router';
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  Check,
-  ChevronRight,
-  MessageCircle,
-  MessagesSquare,
-  Pencil,
-  X,
-} from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Check, ChevronRight, MessagesSquare, Pencil, X } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -27,7 +18,6 @@ import { usePatchList } from '@/client/components/patch-list-host.js';
 import { PendingReviewSection } from '@/client/components/pending-review-section.js';
 import { useSecondaryChatTrigger } from '@/client/components/secondary-chat-trigger.js';
 import { SelectionMenu } from '@/client/components/selection-menu.js';
-import { useSideChat } from '@/client/components/side-chat-host.js';
 import { Badge } from '@/client/components/ui/badge';
 import { Button } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
@@ -466,26 +456,24 @@ function ItemActionRail({
   onStartEdit?: (() => void) | undefined;
   editDisabled?: boolean;
 }) {
-  const sideChat = useSideChat();
-  const isActive = sideChat !== null;
-  const handleClick = isActive
-    ? () =>
-        sideChat.openFor({
-          kind: item.kind,
-          id: item.id,
-          referenceCode: item.referenceCode,
-          content: item.content,
-        })
-    : undefined;
   const editEnabled = Boolean(onStartEdit) && !editDisabled;
 
   const secondaryChatTrigger = useSecondaryChatTrigger();
+  const navigate = useNavigate();
   const secondaryChatEnabled = Boolean(secondaryChatTrigger?.canCreate) && !secondaryChatTrigger?.isPending;
-  const handleOpenInlineChat = secondaryChatEnabled
-    ? () => {
-        void secondaryChatTrigger?.create({ kind: item.kind, id: item.id });
-      }
-    : undefined;
+  // The graph view doesn't render inline secondary chats — they live under the
+  // transcript view. After a successful create we navigate the user to the
+  // route exposed by the trigger so the new collapsible is visible (FE-716 C8b).
+  const handleOpenInlineChat =
+    secondaryChatEnabled && secondaryChatTrigger
+      ? () => {
+          void (async () => {
+            const result = await secondaryChatTrigger.create({ kind: item.kind, id: item.id });
+            if (!result) return;
+            await navigate(secondaryChatTrigger.inlineChatRoute);
+          })();
+        }
+      : undefined;
 
   return (
     <div
@@ -505,20 +493,6 @@ function ItemActionRail({
         }
       >
         <Pencil className="size-3.5" />
-      </button>
-      <button
-        type="button"
-        data-graph-action="chat-with"
-        disabled={!isActive}
-        aria-label="Chat about this item"
-        onClick={handleClick}
-        className={
-          isActive
-            ? 'flex size-6 items-center justify-center rounded text-hint hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30'
-            : 'flex size-6 items-center justify-center rounded text-hint opacity-40'
-        }
-      >
-        <MessageCircle className="size-3.5" />
       </button>
       <button
         type="button"
@@ -769,7 +743,7 @@ export function StructuredListView({
   const navigate = useNavigate();
 
   const selection = useTextSelection('[data-annotatable]');
-  const sideChat = useSideChat();
+  const secondaryChatTrigger = useSecondaryChatTrigger();
   const patchList = usePatchList();
 
   // Direct-edit mode (FE-657): one row in inline edit at a time. Staging the
@@ -807,12 +781,9 @@ export function StructuredListView({
     if (!selection || !patchList) return;
     const item = itemsByKey.get(`${selection.anchor.kind}:${selection.anchor.itemId}`);
     if (!item) return;
-    sideChat?.openFor({
-      kind: item.kind,
-      id: item.id,
-      referenceCode: item.referenceCode,
-      content: item.content,
-    });
+    // Annotation lands directly in the patch list overlay (where the user can
+    // apply / edit / discard it) — the legacy popover open-on-annotate side
+    // effect retired with SideChatPopover (FE-716 C8).
     patchList.stage({
       kind: 'annotate',
       producerChatId: null,
@@ -827,18 +798,20 @@ export function StructuredListView({
   };
 
   const handleChat = () => {
-    if (!selection || !sideChat) return;
+    if (!selection || !secondaryChatTrigger || !secondaryChatTrigger.canCreate) return;
     const item = itemsByKey.get(`${selection.anchor.kind}:${selection.anchor.itemId}`);
     if (!item) return;
-    sideChat.openWithSpanHint(
-      {
+    void (async () => {
+      const result = await secondaryChatTrigger.create({
         kind: item.kind,
         id: item.id,
-        referenceCode: item.referenceCode,
-        content: item.content,
-      },
-      selection.snapshot,
-    );
+        spanHint: selection.snapshot,
+      });
+      if (!result) return;
+      // The graph view doesn't render inline secondary chats — navigate to the
+      // trigger's inlineChatRoute so the new collapsible is visible (FE-716 C8b).
+      await navigate(secondaryChatTrigger.inlineChatRoute);
+    })();
     window.getSelection()?.removeAllRanges();
   };
 
