@@ -66,10 +66,11 @@ export interface EditPatch extends PatchBase {
   // may stage without server pre-classification.
   impact?: EditImpactTier;
   // Snapshot of the anchor item's current content at stage time. Populated
-  // by callers that have it in hand (e.g. side-chat-host with pinnedItem)
-  // so consumers like PatchListOverlay can render a word-level <ContentDiff>
-  // without re-querying the entity store. Optional — when absent, consumers
-  // fall back to summary-only display (FE-665 follow-up).
+  // by callers that have it in hand (e.g. structured-list direct-edit, or
+  // inline secondary-chat patch staging) so consumers like PatchListOverlay
+  // can render a word-level <ContentDiff> without re-querying the entity
+  // store. Optional — when absent, consumers fall back to summary-only
+  // display (FE-665 follow-up).
   currentContent?: string;
 }
 

@@ -33,14 +33,9 @@ import {
 } from '@/client/__fixtures__/graph-view.js';
 import { PatchListProvider, type PatchAppliers } from '@/client/components/patch-list-host.js';
 import { PatchListOverlay } from '@/client/components/patch-list-overlay.js';
-import { SideChatHost } from '@/client/components/side-chat-host.js';
 
 const mockNavigate = vi.fn();
 let mockHash = '';
-const { mockListAnnotationsForSpecificationRequest, mockStreamSideChatResponse } = vi.hoisted(() => ({
-  mockListAnnotationsForSpecificationRequest: vi.fn(),
-  mockStreamSideChatResponse: vi.fn(),
-}));
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mockNavigate,
@@ -60,14 +55,6 @@ vi.mock('@/client/routes/specification/$id/-specification-data.js', async (impor
   };
 });
 
-vi.mock('@/client/lib/side-chat-stream.js', () => ({
-  streamSideChatResponse: mockStreamSideChatResponse,
-}));
-
-vi.mock('@/client/lib/annotation-api.js', () => ({
-  listAnnotationsForSpecificationRequest: mockListAnnotationsForSpecificationRequest,
-}));
-
 import { RelationChipPreview } from '../-relation-chip.js';
 import { StructuredListView } from '../-structured-list-view.js';
 
@@ -75,8 +62,6 @@ let scrollToSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   mockNavigate.mockClear();
-  mockListAnnotationsForSpecificationRequest.mockResolvedValue([]);
-  mockStreamSideChatResponse.mockReset();
   mockHash = '';
   scrollToSpy = vi.spyOn(Element.prototype, 'scrollTo').mockImplementation(() => {});
 });
@@ -716,9 +701,7 @@ describe('structured-list-view annotatable attributes', () => {
           drillDown: vi.fn() as never,
         }}
       >
-        <SideChatHost specificationId={1}>
-          <StructuredListView entityState={singleItemNoEdges()} />
-        </SideChatHost>
+        <StructuredListView entityState={singleItemNoEdges()} />
       </PatchListProvider>,
     );
     const annotatable = container.querySelector('[data-annotatable]');
@@ -748,9 +731,7 @@ describe('structured-list-view selection menu', () => {
 
     const { container } = render(
       <PatchListProvider appliers={appliers}>
-        <SideChatHost specificationId={1}>
-          <StructuredListView entityState={singleItemNoEdges()} />
-        </SideChatHost>
+        <StructuredListView entityState={singleItemNoEdges()} />
       </PatchListProvider>,
     );
 
@@ -797,10 +778,8 @@ describe('structured-list-view direct edit (FE-657)', () => {
   it('renders an Edit button on each row that opens an inline textarea seeded with current content', async () => {
     const { container } = render(
       <PatchListProvider appliers={makeAppliers()}>
-        <SideChatHost specificationId={1}>
-          <PatchListOverlay />
-          <StructuredListView entityState={singleItemNoEdges()} />
-        </SideChatHost>
+        <PatchListOverlay />
+        <StructuredListView entityState={singleItemNoEdges()} />
       </PatchListProvider>,
     );
 
@@ -832,10 +811,8 @@ describe('structured-list-view direct edit (FE-657)', () => {
 
     const { container } = render(
       <PatchListProvider appliers={appliers}>
-        <SideChatHost specificationId={1}>
-          <PatchListOverlay />
-          <StructuredListView entityState={singleItemNoEdges()} />
-        </SideChatHost>
+        <PatchListOverlay />
+        <StructuredListView entityState={singleItemNoEdges()} />
       </PatchListProvider>,
     );
 
@@ -883,10 +860,8 @@ describe('structured-list-view direct edit (FE-657)', () => {
 
     const { container } = render(
       <PatchListProvider appliers={appliers}>
-        <SideChatHost specificationId={1}>
-          <PatchListOverlay />
-          <StructuredListView entityState={singleItemNoEdges()} />
-        </SideChatHost>
+        <PatchListOverlay />
+        <StructuredListView entityState={singleItemNoEdges()} />
       </PatchListProvider>,
     );
 
@@ -914,10 +889,8 @@ describe('structured-list-view direct edit (FE-657)', () => {
 
     const { container } = render(
       <PatchListProvider appliers={appliers}>
-        <SideChatHost specificationId={1}>
-          <PatchListOverlay />
-          <StructuredListView entityState={singleItemNoEdges()} />
-        </SideChatHost>
+        <PatchListOverlay />
+        <StructuredListView entityState={singleItemNoEdges()} />
       </PatchListProvider>,
     );
 
@@ -964,10 +937,8 @@ describe('structured-list-view direct edit (FE-657)', () => {
 
     const { container } = render(
       <PatchListProvider appliers={appliers}>
-        <SideChatHost specificationId={1}>
-          <PatchListOverlay />
-          <StructuredListView entityState={singleItemNoEdges()} />
-        </SideChatHost>
+        <PatchListOverlay />
+        <StructuredListView entityState={singleItemNoEdges()} />
       </PatchListProvider>,
     );
 
@@ -992,11 +963,7 @@ describe('structured-list-view direct edit (FE-657)', () => {
   });
 
   it('disables the Edit button when no PatchListProvider is mounted', () => {
-    const { container } = render(
-      <SideChatHost specificationId={1}>
-        <StructuredListView entityState={singleItemNoEdges()} />
-      </SideChatHost>,
-    );
+    const { container } = render(<StructuredListView entityState={singleItemNoEdges()} />);
 
     const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement | null;
     expect(editButton).not.toBeNull();
@@ -1009,9 +976,7 @@ describe('structured-list-view direct edit (FE-657)', () => {
   it('Cancel button is icon-only with an aria-label of "Cancel edit"', async () => {
     const { container } = render(
       <PatchListProvider appliers={makeAppliers()}>
-        <SideChatHost specificationId={1}>
-          <StructuredListView entityState={singleItemNoEdges()} />
-        </SideChatHost>
+        <StructuredListView entityState={singleItemNoEdges()} />
       </PatchListProvider>,
     );
 
@@ -1031,9 +996,7 @@ describe('structured-list-view direct edit (FE-657)', () => {
   it('Save button drops the blue gradient and uses the kind-accent inline fill when enabled', async () => {
     const { container } = render(
       <PatchListProvider appliers={makeAppliers()}>
-        <SideChatHost specificationId={1}>
-          <StructuredListView entityState={singleItemNoEdges()} />
-        </SideChatHost>
+        <StructuredListView entityState={singleItemNoEdges()} />
       </PatchListProvider>,
     );
 
@@ -1059,9 +1022,7 @@ describe('structured-list-view direct edit (FE-657)', () => {
   it('Keyboard hint row remains rendered with ⌘↵ save · esc cancel', async () => {
     const { container } = render(
       <PatchListProvider appliers={makeAppliers()}>
-        <SideChatHost specificationId={1}>
-          <StructuredListView entityState={singleItemNoEdges()} />
-        </SideChatHost>
+        <StructuredListView entityState={singleItemNoEdges()} />
       </PatchListProvider>,
     );
 

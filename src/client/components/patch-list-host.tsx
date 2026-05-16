@@ -1,6 +1,6 @@
-// Patch-list module's public surface (D132). Mirrors `SideChatHost`:
-// `<PatchListProvider>` + `useFoo()` hooks. Internal state is an event log
-// (`patch-list-reducer.ts`); the React layer is glue.
+// Patch-list module's public surface (D132). `<PatchListProvider>` plus
+// `useFoo()` hooks. Internal state is an event log (`patch-list-reducer.ts`);
+// the React layer is glue.
 
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, type ReactNode } from 'react';
 

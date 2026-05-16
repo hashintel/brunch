@@ -14,7 +14,7 @@ import { flushSync } from 'react-dom';
 
 import { kindAccentHex, kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
-import { usePatchList } from '@/client/components/patch-list-host.js';
+import { usePatchList, useStagedPatches } from '@/client/components/patch-list-host.js';
 import { PendingReviewSection } from '@/client/components/pending-review-section.js';
 import { useSecondaryChatTrigger } from '@/client/components/secondary-chat-trigger.js';
 import { SelectionMenu } from '@/client/components/selection-menu.js';
@@ -746,6 +746,28 @@ export function StructuredListView({
   const secondaryChatTrigger = useSecondaryChatTrigger();
   const patchList = usePatchList();
 
+  // Auto-apply staged annotate patches. Annotations are user-confirmed at the
+  // moment the user clicks "Annotate"; staging them is a single-step write that
+  // should land in the saved overlay immediately with the standard "Change
+  // saved" toast (FE-716 C8 — preserves the prior SideChatHost behaviour after
+  // SideChatHost was retired).
+  const stagedAnnotatePatches = useStagedPatches({ kind: 'annotate' });
+  const triggeredAutoApplyIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!patchList || stagedAnnotatePatches.length === 0) return;
+    const triggered = triggeredAutoApplyIdsRef.current;
+    const stagedIds = new Set(stagedAnnotatePatches.map((patch) => patch.id));
+    for (const id of triggered) {
+      if (!stagedIds.has(id)) triggered.delete(id);
+    }
+    const untriggered = stagedAnnotatePatches.filter((patch) => !triggered.has(patch.id));
+    if (untriggered.length === 0) return;
+    for (const patch of untriggered) {
+      triggered.add(patch.id);
+    }
+    void patchList.apply(untriggered.map((patch) => patch.id));
+  }, [patchList, stagedAnnotatePatches]);
+
   // Direct-edit mode (FE-657): one row in inline edit at a time. Staging the
   // resulting `kind: 'edit'` patch routes through the same PatchListProvider
   // pipeline that side-chat tool-call edits use, so apply / undo / impact-tier
@@ -781,9 +803,8 @@ export function StructuredListView({
     if (!selection || !patchList) return;
     const item = itemsByKey.get(`${selection.anchor.kind}:${selection.anchor.itemId}`);
     if (!item) return;
-    // Annotation lands directly in the patch list overlay (where the user can
-    // apply / edit / discard it) — the legacy popover open-on-annotate side
-    // effect retired with SideChatPopover (FE-716 C8).
+    // Stage only — the auto-apply effect above will pick the new annotate up on
+    // the next render and route it through patchList.apply().
     patchList.stage({
       kind: 'annotate',
       producerChatId: null,

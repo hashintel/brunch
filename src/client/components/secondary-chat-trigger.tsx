@@ -103,8 +103,7 @@ export interface SecondaryChatTriggerItem {
   /**
    * Optional highlighted span from the source row — when present, the server
    * persists it as `pinned_span_hint` on the new chat so the kickoff turn can
-   * focus the conversation on that excerpt (mirrors the legacy
-   * `useSideChat().openWithSpanHint` path).
+   * focus the conversation on that excerpt.
    */
   spanHint?: string;
 }

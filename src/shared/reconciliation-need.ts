@@ -42,9 +42,10 @@ export interface ReconciliationNeedRecord {
   // affordance is hidden in that case and the user falls back to Resolve.
   target_current_content: string | null;
   // V3.1 Card 7: target item's typed kind + reference code, joined at read
-  // time so the substantive Open-side-chat affordance can hand `useSideChat`
-  // a full SideChatPinnableItem without a second fetch. Closes the Card 4
-  // deferred follow-up on row left-bar / Resolve-fill kind accent.
+  // time so the substantive "Open inline chat" affordance can hand the
+  // secondary-chat trigger a full item descriptor without a second fetch.
+  // Closes the Card 4 deferred follow-up on row left-bar / Resolve-fill
+  // kind accent.
   target_item_kind: KnowledgeKind | null;
   target_reference_code: string | null;
   // V3.1 slice 4 (memory/CARDS.md): reconciliation-classifier output. Null

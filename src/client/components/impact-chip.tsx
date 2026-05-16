@@ -6,8 +6,8 @@
 //   - soft → cool blue (matches the Apply button)
 //   - hard → warm amber (matches the deferred banner)
 //
-// Shared by `side-chat-popover.tsx` (popover staged-patch row) and
-// `patch-list-overlay.tsx` (canonical overlay expanded list) so both
+// Shared by `patch-list-overlay.tsx` (canonical overlay expanded list) and
+// `secondary-chat-staging-strip.tsx` (per-chat inline staging strip) so both
 // surfaces speak the same visual language.
 
 import type { EditImpactTier } from './patch-list-reducer.js';
