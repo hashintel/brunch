@@ -24,7 +24,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 ### Active
 
 1. `agent-fixture-substrate` — branch-complete off main, reconciling — FE-705 integration substrate for JSONL agent capability CLI and LLM-as-user probes.
-2. `chat-runtime-secondary-chats` — FE-716; branch `ka/fe-716-chat-runtime-unified-secondary-chats` stacked on `ln/fe-709-reconciliations` (PR #139). V1 narrowing in effect; current slice queue in `memory/CARDS.md`.
+2. `chat-runtime-secondary-chats` — FE-716; branch `ka/fe-716-chat-runtime-unified-secondary-chats` stacked on `ln/fe-709-reconciliations` (PR #139). **V1 implementation complete (C0–C9 landed; C7 agent-run inline deferred); awaiting PR review + #139 merge.** Card queue in `memory/CARDS.md` retained as a closeout reference until the PR merges; delete on `/ln-sync` thereafter.
 
 ### Next
 
@@ -76,7 +76,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Name:** Chat runtime — inline secondary chats (Conversational Workspace Runtime — Track 2)
 - **Linear:** FE-716
 - **Kind:** structural
-- **Status:** active — V1 narrowing in effect; current card queue in `memory/CARDS.md`
+- **Status:** V1 done (awaiting PR review + #139 merge) — substrate ships durable inline secondary chats over chat/turn, SideChatPopover is retired, lightweight reconciliation panel renders inline. Agent-run inline rendering (C7) deferred until an agent-run producer exists; full reconciliation runtime UX, `$` mention symbol, snapshot builder family, item-version-gated refresh, qa composer refinements, strategy sub-chat UI, and layout-state header control all moved to follow-up frontiers per the V1 parking lot in `memory/CARDS.md`.
 - **Objective:** Render side, reconciliation, qa, and strategy chats inline as collapsible secondary chats in the workspace using the existing chat/turn substrate. Defer schema-level `thread`; do not add `thread` / `turn.thread_id` unless a later RFC proves chat/turn insufficient. Retire the SideChatPopover as a UI surface only after parity exists over durable secondary chats.
 - **V1 narrowing (FE-716 scope):** Frame V1 as "every behavior the current side-chat (V3.1) supports today, surfaced through the elevated unified-workspace shape." Build only what that framing requires: substrate columns on `chat` (`parent_chat_id`, `invoked_in_turn_id`, `pinned_item_id`, `pinned_span_hint`) without enum changes; durable secondary-chat persistence; inline collapsible rendering; turn-zero kickoff with server-supplied snapshots; Ask/Edit modes; `#` knowledge-item symbol injection only; lightweight reconciliation-element view (full reconciliation runtime stays Track 3); agent-run inline rendering; SideChatPopover deletion. Explicitly defer to follow-up frontiers: `$` secondary-chat mention symbol, full reconciliation target-grouped UX, QA composer refinements, strategy sub-chat UI, layout-state header control, mention autocomplete, snapshot builders, item-version-gated refresh. Design brief `docs/design/UNIFIED_CHAT_UX.md` is the canonical reference for the broader ceiling and stays unedited.
 - **Why now / unlocks:** Track 1 (workspace shell) ships, providing the stable host. Inline secondary chats are the critical unblocker for reconciliation absorption (Track 3) and give chat-context provision (Track 5) stable initiating anchors without creating a competing strategy/context substrate. Supersedes the prior side-chat V4a persistence horizon — persistent side-chat history becomes durable secondary chats rendered inline.

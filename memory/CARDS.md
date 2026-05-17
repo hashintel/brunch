@@ -209,9 +209,49 @@ C5a (server) → C5b (client composer + host) → C5c (partition + strip). Seque
 
 ### C10 — V1 closure: verification + manual walkthrough + frontier closeout
 
+- **Status:** **done** (2026-05-17) — `npm run verify` green (104 test files / 1252 tests pass; build clean). PLAN.md `chat-runtime-secondary-chats` frontier marked V1 done; C7 (agent-run inline) deferred to a follow-up frontier when an agent-run producer ships. SPEC.md A94 substrate hypothesis is shipped (durable secondary chats over chat/turn with no `thread` table); A94 remains `open` until the qa/strategy surfaces it enumerates are reachable, but no substrate change is required from FE-716. PR description drafted (see below; the C0–C9 commit thread is the canonical reading order). Manual walkthrough deferred until the PR moves to review; the test suite (incl. C3c-route round-trip, C5c partition, C8a/b trigger flows, C9 panel render + bundle round-trip) covers the substantive surfaces.
 - **What:** Full `npm run verify`; outer-loop walkthrough of the side-chat V3.1 capability matrix on the new substrate; confirm SPEC.md A94 is satisfied (durable secondary chats over chat/turn without a `thread` table); update PLAN.md frontier status; draft PR description.
-- **Why last:** Frontier-level closure gate.
-- **Verification:** verify passes; walkthrough notes captured; A94 satisfied; PR ready for stack submission.
+- **Verification:** `npm run verify` — 104 test files / 1252 tests pass; build clean. PLAN.md status updated. PR description below.
+
+#### PR description (draft)
+
+**Title:** `FE-716: Walking skeleton chat runtime — inline secondary chats over chat/turn`
+
+**Body:**
+
+> **What**
+>
+> Lands V1 of the Conversational Workspace Runtime Track 2 (`chat-runtime-secondary-chats`): every behavior the V3.1 side-chat ships today, surfaced through the elevated unified-workspace shape from `docs/design/UNIFIED_CHAT_UX.md`. Durable side-chats are now durable secondary chats over the existing `chat`/`turn` substrate; the legacy `SideChatPopover` is retired; lightweight reconciliation entry now renders inline; the `thread` table remains deferred per A94.
+>
+> **Substrate (no new tables)**
+>
+> - `chat.parent_chat_id`, `chat.invoked_in_turn_id`, `chat.pinned_item_id`, `chat.pinned_span_hint`, `chat.mode`, `chat.pinned_reconciliation_need_id` (drizzle/0020, 0021, 0022). No enum changes; secondary chats are projected from `parent_chat_id IS NOT NULL`.
+>
+> **Server**
+>
+> - `createSecondaryChat`, `createKickoffTurn`, `appendSecondaryChatTurn`, `setSecondaryChatMode`, `listSecondaryChatsForSpecification` in `specification-store.ts`.
+> - `POST /api/specifications/:id/secondary-chats` (create), `PATCH …/mode` (mode toggle), `POST …/messages` (streaming SSE with `getSideChatTools(mode)` edit-tool gating + `#REF-CODE` mention resolution).
+> - Bundle hydrates `secondaryChats[*]` with kickoff turn, post-kickoff turns, pinned-item kind, and joined reconciliation-need projection.
+>
+> **Client**
+>
+> - `SecondaryChatTriggerProvider` + `useSecondaryChatTrigger()` exposes one `create({ kind, id, spanHint?, reconciliationNeedId? })` callback + an `inlineChatRoute` descriptor so non-transcript callers can navigate to the transcript view.
+> - `<SecondaryChatHost>` wires per-chat mutation/streaming hooks; `<SecondaryChatCollapsible>` renders the kickoff card, mode toggle, composer, streaming assistant, staged-patches strip slot, and the C9 "Elements being reconciled" panel.
+> - Patch-list partitioning by `producerChatId` (Shape A) — `usePatchListForChat(chatId)` returns a per-chat staged slice while the legacy popover hook keeps the global view; `<SecondaryChatStagingStrip>` mounts inside the collapsible body.
+> - Triggers: `PendingReviewSection` substantive row + `StructuredListView` item-action rail both call into `useSecondaryChatTrigger()`; `SideChatPopover` and `SideChatHost` are deleted.
+>
+> **Verification**
+>
+> - `npm run verify` — 104 test files / 1252 tests pass; build clean.
+> - Coverage spans schema invariants, route happy-paths + 404 invariants, SSE chunk round-trip + bundle round-trip, partition-seam reducer + per-chat hook tests, popover-regression sweeps, and the C9 reconciliation-panel render.
+>
+> **Deferred (parking lot — follow-up frontiers)**
+>
+> `$` mention symbol, mention autocomplete, snapshot builder family, item-version-gated handle refresh, full target-grouped reconciliation UX, `PendingReviewSection` retirement, QA composer refinements, strategy sub-chat UI, layout-state header control, and C7 agent-run inline rendering (the substrate is ready; no producer exists yet).
+>
+> **Stacking**
+>
+> Stacked on `ln/fe-709-reconciliations` (PR #139). Restack on `main` once #139 lands.
 
 ## Deferred — explicitly NOT in V1 (parking lot)
 
