@@ -34,6 +34,7 @@ const baseChat: SecondaryChat['chat'] = {
   invoked_in_turn_id: 3,
   pinned_item_id: 5,
   pinned_span_hint: null,
+  pinned_reconciliation_need_id: null,
   mode: 'explore',
 };
 
@@ -117,7 +118,13 @@ afterEach(() => {
 describe('SecondaryChatHost — composer wiring (C5b)', () => {
   it('submits the composer message to streamSecondaryChatMessage with the right ids', async () => {
     mockStream.mockResolvedValue(undefined);
-    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [], pinnedItemKind: null };
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+    };
     const { Wrapper } = createHarness();
 
     render(
@@ -149,7 +156,13 @@ describe('SecondaryChatHost — composer wiring (C5b)', () => {
         onChunk({ type: 'text-delta', delta: 'world.' });
       },
     );
-    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [], pinnedItemKind: null };
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+    };
     const { queryClient, Wrapper } = createHarness();
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
 
@@ -188,12 +201,14 @@ describe('SecondaryChatHost — composer wiring (C5b)', () => {
       kickoffTurn: null,
       turns: [],
       pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
     };
     const chatB: SecondaryChat = {
       chat: { ...baseChat, id: 8 },
       kickoffTurn: null,
       turns: [],
       pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
     };
     const { Wrapper } = createHarness();
 

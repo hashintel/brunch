@@ -9,6 +9,12 @@ import type { SecondaryChatMode } from './secondary-chat-trigger.js';
 
 type SecondaryChat = z.infer<typeof secondaryChatStateSchema>;
 type SecondaryChatTurn = SecondaryChat['turns'][number];
+type SecondaryChatPinnedReconciliationNeed = NonNullable<SecondaryChat['pinnedReconciliationNeed']>;
+
+const RECONCILIATION_KIND_LABEL: Record<SecondaryChatPinnedReconciliationNeed['kind'], string> = {
+  supersedes: 'Supersedes',
+  needs_confirmation: 'Needs confirmation',
+};
 
 export interface SecondaryChatCollapsibleProps {
   secondaryChat: SecondaryChat;
@@ -75,6 +81,9 @@ export function SecondaryChatCollapsible({
         data-testid="secondary-chat-collapsible-body"
         className="flex flex-col gap-2 pt-2 text-foreground"
       >
+        {secondaryChat.pinnedReconciliationNeed && (
+          <SecondaryChatReconciliationPanel need={secondaryChat.pinnedReconciliationNeed} />
+        )}
         {kickoffContent && <div className="whitespace-pre-wrap">{kickoffContent}</div>}
         {secondaryChat.turns.map((turn) => (
           <SecondaryChatTurnRow key={turn.id} turn={turn} />
@@ -90,6 +99,64 @@ export function SecondaryChatCollapsible({
         )}
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+function SecondaryChatReconciliationPanel({ need }: { need: SecondaryChatPinnedReconciliationNeed }) {
+  return (
+    <div
+      data-testid="secondary-chat-reconciliation-panel"
+      data-reconciliation-need-id={need.needId}
+      data-reconciliation-kind={need.kind}
+      className="flex flex-col gap-1 rounded border border-rule/60 bg-background/70 px-2 py-1.5 text-xs"
+    >
+      <div className="flex items-center gap-2">
+        <span className="rounded bg-tint px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-ink uppercase">
+          {RECONCILIATION_KIND_LABEL[need.kind]}
+        </span>
+        <span className="text-hint">Elements being reconciled</span>
+      </div>
+      <SecondaryChatReconciliationEndpoint
+        role="source"
+        refCode={need.sourceRefCode}
+        excerpt={need.sourceExcerpt}
+        fallbackId={need.sourceItemId}
+      />
+      <SecondaryChatReconciliationEndpoint
+        role="target"
+        refCode={need.targetRefCode}
+        excerpt={need.targetExcerpt}
+        fallbackId={need.targetItemId}
+      />
+    </div>
+  );
+}
+
+function SecondaryChatReconciliationEndpoint({
+  role,
+  refCode,
+  excerpt,
+  fallbackId,
+}: {
+  role: 'source' | 'target';
+  refCode: string | null;
+  excerpt: string | null;
+  fallbackId: number;
+}) {
+  return (
+    <div
+      data-testid={`secondary-chat-reconciliation-${role}`}
+      className="flex items-baseline gap-1 text-foreground"
+    >
+      <span className="font-mono text-[10px] text-hint uppercase">{role}</span>
+      <span className="font-mono text-hint">{refCode ?? `#${fallbackId}`}</span>
+      {excerpt !== null && excerpt.length > 0 && (
+        <>
+          <span className="text-hint">·</span>
+          <span className="min-w-0 truncate">{excerpt}</span>
+        </>
+      )}
+    </div>
   );
 }
 

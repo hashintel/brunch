@@ -748,6 +748,7 @@ describe('PendingReviewSection', () => {
       expect(mockSecondaryChatCreate).toHaveBeenCalledWith({
         kind: 'requirement',
         id: 99,
+        reconciliationNeedId: 1,
       });
     });
 

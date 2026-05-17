@@ -121,6 +121,25 @@ export const specificationListItemsSchema = z.array(specificationListItemSchema)
 
 export const secondaryChatModeSchema = z.enum(['explore', 'edit']);
 
+export const secondaryChatReconciliationNeedKindSchema = z.enum(['supersedes', 'needs_confirmation']);
+
+/**
+ * FE-716 C9: read-time projection of the `reconciliation_need` row anchored
+ * to the secondary chat. The bundle hydrates this when the chat carries a
+ * `pinned_reconciliation_need_id`; `SecondaryChatCollapsible` renders the
+ * "elements being reconciled" panel from these fields.
+ */
+export const secondaryChatPinnedReconciliationNeedSchema = z.object({
+  needId: z.number().int().positive(),
+  kind: secondaryChatReconciliationNeedKindSchema,
+  sourceItemId: z.number().int().positive(),
+  sourceRefCode: z.string().nullable(),
+  sourceExcerpt: z.string().nullable(),
+  targetItemId: z.number().int().positive(),
+  targetRefCode: z.string().nullable(),
+  targetExcerpt: z.string().nullable(),
+});
+
 export const secondaryChatStateSchema = z.object({
   chat: z.object({
     id: z.number().int().positive(),
@@ -130,6 +149,7 @@ export const secondaryChatStateSchema = z.object({
     invoked_in_turn_id: z.number().int().positive().nullable(),
     pinned_item_id: z.number().int().positive().nullable(),
     pinned_span_hint: z.string().nullable(),
+    pinned_reconciliation_need_id: z.number().int().positive().nullable(),
     mode: secondaryChatModeSchema.nullable(),
   }),
   kickoffTurn: specificationStateTurnSchema.nullable(),
@@ -147,6 +167,11 @@ export const secondaryChatStateSchema = z.object({
    * fetch round-trip.
    */
   pinnedItemKind: z.enum(knowledgeKinds).nullable(),
+  /**
+   * Joined `reconciliation_need` projection when the chat was opened from a
+   * substantive reconciliation row (FE-716 C9). Null otherwise.
+   */
+  pinnedReconciliationNeed: secondaryChatPinnedReconciliationNeedSchema.nullable(),
 });
 
 export const specificationStateSchema = z.object({

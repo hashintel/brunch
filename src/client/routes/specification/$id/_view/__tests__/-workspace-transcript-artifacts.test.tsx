@@ -51,6 +51,7 @@ function createSecondaryChat(overrides: Partial<SecondaryChatState['chat']> = {}
       invoked_in_turn_id: 7,
       pinned_item_id: null,
       pinned_span_hint: null,
+      pinned_reconciliation_need_id: null,
       mode: 'explore',
       ...overrides,
     },
@@ -71,6 +72,7 @@ function createSecondaryChat(overrides: Partial<SecondaryChatState['chat']> = {}
     },
     turns: [],
     pinnedItemKind: null,
+    pinnedReconciliationNeed: null,
   };
 }
 

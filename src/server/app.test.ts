@@ -4708,6 +4708,71 @@ describe('POST /api/specifications/:id/secondary-chats', () => {
     expect(secondary?.chat.pinned_span_hint).toBe('product-market fit');
   });
 
+  it('persists pinned_reconciliation_need_id and hydrates pinnedReconciliationNeed in the bundle (FE-716 C9)', async () => {
+    const specificationId = await createTestSpecification('FE-716 C9 need');
+    const item = await setupItem(specificationId);
+    const parentChatId = await getParentChatId(specificationId);
+    const { createTurn, createKnowledgeItem, openReconciliationNeed } = await import('./db.js');
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+    const source = createKnowledgeItem(db, specificationId, 'goal', 'Source goal text');
+    const need = openReconciliationNeed(db, {
+      specificationId,
+      sourceItemId: source.id,
+      targetItemId: item.id,
+      kind: 'supersedes',
+    });
+
+    const res = await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+        reconciliationNeedId: need.id,
+      })
+      .expect(200);
+
+    const snapshot = await getSpecificationSnapshot(specificationId);
+    const secondary = snapshot.secondaryChats?.find((row) => row.chat.id === res.body.chatId);
+    expect(secondary?.chat.pinned_reconciliation_need_id).toBe(need.id);
+    expect(secondary?.pinnedReconciliationNeed).toBeTruthy();
+    expect(secondary?.pinnedReconciliationNeed?.needId).toBe(need.id);
+    expect(secondary?.pinnedReconciliationNeed?.kind).toBe('supersedes');
+    expect(secondary?.pinnedReconciliationNeed?.sourceItemId).toBe(source.id);
+    expect(secondary?.pinnedReconciliationNeed?.targetItemId).toBe(item.id);
+    expect(secondary?.pinnedReconciliationNeed?.sourceExcerpt).toContain('Source goal text');
+    expect(secondary?.pinnedReconciliationNeed?.targetExcerpt).toContain('Reach product-market fit');
+  });
+
+  it('returns 404 when reconciliationNeedId belongs to a different specification (FE-716 C9)', async () => {
+    const specificationId = await createTestSpecification('FE-716 C9 cross-spec');
+    const otherSpecId = await createTestSpecification('FE-716 C9 other');
+    const item = await setupItem(specificationId);
+    const parentChatId = await getParentChatId(specificationId);
+    const { createTurn, createKnowledgeItem, openReconciliationNeed } = await import('./db.js');
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+    const otherSource = createKnowledgeItem(db, otherSpecId, 'goal', 'foreign goal');
+    const otherTarget = createKnowledgeItem(db, otherSpecId, 'goal', 'foreign target');
+    const foreignNeed = openReconciliationNeed(db, {
+      specificationId: otherSpecId,
+      sourceItemId: otherSource.id,
+      targetItemId: otherTarget.id,
+      kind: 'supersedes',
+    });
+
+    await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+        reconciliationNeedId: foreignNeed.id,
+      })
+      .expect(404);
+  });
+
   it('rejects malformed bodies with 400', async () => {
     const specificationId = await createTestSpecification('FE-716 bad body');
     await request(app)

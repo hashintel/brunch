@@ -257,6 +257,7 @@ export function PendingReviewSection(): React.ReactElement | null {
     void secondaryChatTrigger.create({
       kind: need.target_item_kind,
       id: need.target_item_id,
+      reconciliationNeedId: need.id,
     });
   };
 

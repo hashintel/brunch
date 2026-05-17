@@ -1,7 +1,8 @@
 import { and, asc, desc, eq, inArray, isNotNull, sql, type InferSelectModel } from 'drizzle-orm';
 
 import type { SpecificationMode, TurnKind } from '@/shared/api-types.js';
-import type { KnowledgeKind } from '@/shared/knowledge.js';
+import { createKnowledgeReferenceCode, type KnowledgeKind } from '@/shared/knowledge.js';
+import type { ReconciliationNeedKind } from '@/shared/reconciliation-need.js';
 
 import type { DB } from '../db.js';
 import * as schema from '../schema.js';
@@ -162,6 +163,13 @@ export interface CreateSecondaryChatInput {
   invoked_in_turn_id?: number | null;
   pinned_item_id?: number | null;
   pinned_span_hint?: string | null;
+  /**
+   * Optional anchor to a substantive `reconciliation_need` row. When set, the
+   * bundle hydration joins the row so `SecondaryChatCollapsible` can render the
+   * lightweight "elements being reconciled" panel (FE-716 C9). Null for chats
+   * opened from non-reconciliation entry points.
+   */
+  pinned_reconciliation_need_id?: number | null;
   mode?: SecondaryChatMode;
 }
 
@@ -175,6 +183,7 @@ export function createSecondaryChat(db: DB, specificationId: number, input: Crea
       invoked_in_turn_id: input.invoked_in_turn_id ?? null,
       pinned_item_id: input.pinned_item_id ?? null,
       pinned_span_hint: input.pinned_span_hint ?? null,
+      pinned_reconciliation_need_id: input.pinned_reconciliation_need_id ?? null,
       mode: input.mode ?? 'explore',
     })
     .returning()
@@ -199,6 +208,24 @@ export interface CreateKickoffTurnInput {
   content: string;
 }
 
+/**
+ * Read-time projection of the chat's anchored `reconciliation_need` row
+ * (FE-716 C9). Joins both endpoints of the need to surface ref codes + content
+ * excerpts so the client can render the "elements being reconciled" panel
+ * inside `SecondaryChatCollapsible` without a second fetch. Null when the chat
+ * doesn't carry `pinned_reconciliation_need_id`.
+ */
+export interface SecondaryChatPinnedReconciliationNeed {
+  needId: number;
+  kind: ReconciliationNeedKind;
+  sourceItemId: number;
+  sourceRefCode: string | null;
+  sourceExcerpt: string | null;
+  targetItemId: number;
+  targetRefCode: string | null;
+  targetExcerpt: string | null;
+}
+
 export interface SecondaryChatWithKickoff {
   chat: Chat;
   kickoffTurn: Turn | null;
@@ -214,6 +241,12 @@ export interface SecondaryChatWithKickoff {
    * proposals (FE-716 C5c) without a second knowledge-item fetch round-trip.
    */
   pinnedItemKind: KnowledgeKind | null;
+  /**
+   * Joined projection of the anchored `reconciliation_need` row when the chat
+   * was opened from a substantive reconciliation entry (FE-716 C9). Null when
+   * the chat carries no `pinned_reconciliation_need_id`.
+   */
+  pinnedReconciliationNeed: SecondaryChatPinnedReconciliationNeed | null;
 }
 
 export function listSecondaryChatsForSpecification(
@@ -249,13 +282,71 @@ export function listSecondaryChatsForSpecification(
             .from(schema.knowledgeItem)
             .where(eq(schema.knowledgeItem.id, chat.pinned_item_id))
             .get();
+    const pinnedReconciliationNeed = resolvePinnedReconciliationNeed(db, chat.pinned_reconciliation_need_id);
     return {
       chat,
       kickoffTurn,
       turns,
       pinnedItemKind: (pinnedItemRow?.kind ?? null) as KnowledgeKind | null,
+      pinnedReconciliationNeed,
     };
   });
+}
+
+const RECONCILIATION_EXCERPT_LIMIT = 80;
+
+function truncateExcerpt(text: string | null): string | null {
+  if (text === null) return null;
+  if (text.length <= RECONCILIATION_EXCERPT_LIMIT) return text;
+  return `${text.slice(0, RECONCILIATION_EXCERPT_LIMIT - 1).trimEnd()}…`;
+}
+
+function resolvePinnedReconciliationNeed(
+  db: DB,
+  needId: number | null,
+): SecondaryChatPinnedReconciliationNeed | null {
+  if (needId === null) return null;
+  const need = db
+    .select({
+      id: schema.reconciliationNeed.id,
+      kind: schema.reconciliationNeed.kind,
+      source_item_id: schema.reconciliationNeed.source_item_id,
+      target_item_id: schema.reconciliationNeed.target_item_id,
+      source_current_content: schema.reconciliationNeed.source_current_content,
+    })
+    .from(schema.reconciliationNeed)
+    .where(eq(schema.reconciliationNeed.id, needId))
+    .get();
+  if (!need) return null;
+
+  const itemRows = db
+    .select({
+      id: schema.knowledgeItem.id,
+      kind: schema.knowledgeItem.kind,
+      kind_ordinal: schema.knowledgeItem.kind_ordinal,
+      content: schema.knowledgeItem.content,
+    })
+    .from(schema.knowledgeItem)
+    .where(inArray(schema.knowledgeItem.id, [need.source_item_id, need.target_item_id]))
+    .all();
+  const sourceItem = itemRows.find((row) => row.id === need.source_item_id) ?? null;
+  const targetItem = itemRows.find((row) => row.id === need.target_item_id) ?? null;
+
+  const sourceContent = need.source_current_content ?? sourceItem?.content ?? null;
+  return {
+    needId: need.id,
+    kind: need.kind,
+    sourceItemId: need.source_item_id,
+    sourceRefCode: sourceItem
+      ? createKnowledgeReferenceCode(sourceItem.kind as KnowledgeKind, sourceItem.kind_ordinal)
+      : null,
+    sourceExcerpt: truncateExcerpt(sourceContent),
+    targetItemId: need.target_item_id,
+    targetRefCode: targetItem
+      ? createKnowledgeReferenceCode(targetItem.kind as KnowledgeKind, targetItem.kind_ordinal)
+      : null,
+    targetExcerpt: truncateExcerpt(targetItem?.content ?? null),
+  };
 }
 
 export function createKickoffTurn(db: DB, chatId: number, input: CreateKickoffTurnInput): Turn {

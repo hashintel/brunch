@@ -47,6 +47,10 @@ const secondaryChatRequestSchema = z.object({
   itemKind: z.enum(knowledgeKinds),
   itemId: z.number().int().positive(),
   spanHint: z.string().min(1).optional(),
+  // FE-716 C9: optional anchor to a substantive `reconciliation_need` row.
+  // When set, the bundle hydration joins the row so the inline collapsible can
+  // render the "elements being reconciled" panel.
+  reconciliationNeedId: z.number().int().positive().optional(),
   mode: secondaryChatModeSchema.optional(),
 });
 
@@ -95,6 +99,21 @@ export function handleCreateSecondaryChatRequest(db: DB, req: Request, res: Resp
     return;
   }
 
+  if (parsed.data.reconciliationNeedId !== undefined) {
+    const need = db
+      .select({
+        id: schema.reconciliationNeed.id,
+        specification_id: schema.reconciliationNeed.specification_id,
+      })
+      .from(schema.reconciliationNeed)
+      .where(eq(schema.reconciliationNeed.id, parsed.data.reconciliationNeedId))
+      .get();
+    if (!need || need.specification_id !== specificationId) {
+      notFound(res, 'Reconciliation need not found in specification');
+      return;
+    }
+  }
+
   const mode: SideChatMode = parsed.data.mode ?? 'explore';
 
   const chat = createSecondaryChat(db, specificationId, {
@@ -102,6 +121,7 @@ export function handleCreateSecondaryChatRequest(db: DB, req: Request, res: Resp
     invoked_in_turn_id: parsed.data.invokedInTurnId,
     pinned_item_id: parsed.data.itemId,
     pinned_span_hint: parsed.data.spanHint ?? null,
+    pinned_reconciliation_need_id: parsed.data.reconciliationNeedId ?? null,
     mode,
   });
 

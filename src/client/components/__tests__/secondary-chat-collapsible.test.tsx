@@ -18,6 +18,7 @@ const baseChat: SecondaryChat['chat'] = {
   invoked_in_turn_id: 3,
   pinned_item_id: null,
   pinned_span_hint: null,
+  pinned_reconciliation_need_id: null,
   mode: 'explore',
 };
 
@@ -44,6 +45,7 @@ describe('SecondaryChatCollapsible', () => {
       },
       turns: [],
       pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -72,6 +74,7 @@ describe('SecondaryChatCollapsible', () => {
       },
       turns: [],
       pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -99,6 +102,7 @@ describe('SecondaryChatCollapsible', () => {
       },
       turns: [],
       pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -108,7 +112,13 @@ describe('SecondaryChatCollapsible', () => {
   });
 
   it('renders an empty body when no kickoff turn exists', () => {
-    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [], pinnedItemKind: null };
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+    };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
@@ -123,6 +133,7 @@ describe('SecondaryChatCollapsible', () => {
       kickoffTurn: null,
       turns: [],
       pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     const toggle = screen.getByTestId('secondary-chat-mode-toggle');
@@ -137,6 +148,7 @@ describe('SecondaryChatCollapsible', () => {
       kickoffTurn: null,
       turns: [],
       pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     const toggle = screen.getByTestId('secondary-chat-mode-toggle');
@@ -150,6 +162,7 @@ describe('SecondaryChatCollapsible', () => {
       kickoffTurn: null,
       turns: [],
       pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} />);
     fireEvent.click(screen.getByTestId('secondary-chat-mode-edit'));
@@ -163,6 +176,7 @@ describe('SecondaryChatCollapsible', () => {
       kickoffTurn: null,
       turns: [],
       pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} />);
     fireEvent.click(screen.getByTestId('secondary-chat-mode-ask'));
@@ -176,6 +190,7 @@ describe('SecondaryChatCollapsible', () => {
       kickoffTurn: null,
       turns: [],
       pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} isModeUpdating />);
     expect(screen.getByTestId('secondary-chat-mode-edit').hasAttribute('disabled')).toBe(true);
@@ -189,6 +204,7 @@ describe('SecondaryChatCollapsible', () => {
       kickoffTurn: null,
       turns: [],
       pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     expect(screen.getByTestId('secondary-chat-mode-edit').hasAttribute('disabled')).toBe(true);
@@ -238,6 +254,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       kickoffTurn: null,
       turns: [makeUserTurn(10, 'why?'), makeAssistantTurn(11, 'because.')],
       pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
@@ -247,7 +264,13 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
 
   it('renders the composer when onSubmitMessage is provided and submits trimmed text', () => {
     const onSubmitMessage = vi.fn();
-    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [], pinnedItemKind: null };
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+    };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={onSubmitMessage} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     const input = screen.getByTestId('secondary-chat-composer-input') as HTMLInputElement;
@@ -258,7 +281,13 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
   });
 
   it('does not render the composer when onSubmitMessage is omitted', () => {
-    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [], pinnedItemKind: null };
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+    };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     expect(screen.queryByTestId('secondary-chat-composer')).toBeNull();
@@ -266,7 +295,13 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
 
   it('renders streaming assistant text and disables the composer while isStreaming is true', () => {
     const onSubmitMessage = vi.fn();
-    const chat: SecondaryChat = { chat: baseChat, kickoffTurn: null, turns: [], pinnedItemKind: null };
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+    };
     render(
       <SecondaryChatCollapsible
         secondaryChat={chat}
@@ -278,5 +313,49 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     expect(screen.getByTestId('secondary-chat-streaming-assistant').textContent).toBe('streaming reply...');
     expect((screen.getByTestId('secondary-chat-composer-input') as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it('renders the reconciliation panel when pinnedReconciliationNeed is set', () => {
+    const chat: SecondaryChat = {
+      chat: { ...baseChat, pinned_reconciliation_need_id: 42 },
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: {
+        needId: 42,
+        kind: 'supersedes',
+        sourceItemId: 10,
+        sourceRefCode: 'G2',
+        sourceExcerpt: 'updated goal text',
+        targetItemId: 20,
+        targetRefCode: 'R5',
+        targetExcerpt: 'existing requirement text',
+      },
+    };
+    render(<SecondaryChatCollapsible secondaryChat={chat} />);
+    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    const panel = screen.getByTestId('secondary-chat-reconciliation-panel');
+    expect(panel.getAttribute('data-reconciliation-need-id')).toBe('42');
+    expect(panel.getAttribute('data-reconciliation-kind')).toBe('supersedes');
+    expect(panel.textContent).toContain('Supersedes');
+    const source = screen.getByTestId('secondary-chat-reconciliation-source');
+    expect(source.textContent).toContain('G2');
+    expect(source.textContent).toContain('updated goal text');
+    const target = screen.getByTestId('secondary-chat-reconciliation-target');
+    expect(target.textContent).toContain('R5');
+    expect(target.textContent).toContain('existing requirement text');
+  });
+
+  it('does not render the reconciliation panel when pinnedReconciliationNeed is null', () => {
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+    };
+    render(<SecondaryChatCollapsible secondaryChat={chat} />);
+    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    expect(screen.queryByTestId('secondary-chat-reconciliation-panel')).toBeNull();
   });
 });

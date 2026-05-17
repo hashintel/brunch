@@ -59,6 +59,12 @@ export interface CreateSecondaryChatRequest {
   itemKind: KnowledgeKind;
   itemId: number;
   spanHint?: string;
+  /**
+   * FE-716 C9: when the chat is opened from a substantive `reconciliation_need`
+   * row, pass the need id so the server persists `pinned_reconciliation_need_id`
+   * and the inline collapsible can render the "elements being reconciled" panel.
+   */
+  reconciliationNeedId?: number;
 }
 
 export interface CreateSecondaryChatResponse {
@@ -106,6 +112,12 @@ export interface SecondaryChatTriggerItem {
    * focus the conversation on that excerpt.
    */
   spanHint?: string;
+  /**
+   * Optional `reconciliation_need.id` when the trigger fires from a substantive
+   * reconciliation row (FE-716 C9). Persisted as `pinned_reconciliation_need_id`
+   * so the inline collapsible renders the "elements being reconciled" panel.
+   */
+  reconciliationNeedId?: number;
 }
 
 export interface InlineChatRoute {
@@ -160,6 +172,9 @@ export function SecondaryChatTriggerProvider({ children }: { children: ReactNode
         itemKind: item.kind,
         itemId: item.id,
         ...(item.spanHint ? { spanHint: item.spanHint } : {}),
+        ...(item.reconciliationNeedId !== undefined
+          ? { reconciliationNeedId: item.reconciliationNeedId }
+          : {}),
       });
     },
     [activeTurnId, mutation, parentChatId],

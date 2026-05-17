@@ -155,6 +155,13 @@
       "when": 1779120000000,
       "tag": "0021_chat_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1779206400000,
+      "tag": "0022_chat_pinned_reconciliation_need",
+      "breakpoints": true
     }
   ]
 }
