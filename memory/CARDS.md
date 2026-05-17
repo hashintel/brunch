@@ -200,9 +200,12 @@ C5a (server) → C5b (client composer + host) → C5c (partition + strip). Seque
 
 ### C9 — Lightweight reconciliation-element view
 
+- **Status:** **done** (2026-05-17) — `drizzle/0022_chat_pinned_reconciliation_need.sql` adds the nullable FK column on `chat`; `createSecondaryChat` + the `POST /api/specifications/:id/secondary-chats` payload accept an optional `reconciliationNeedId` (server rejects cross-spec needs with 404); `listSecondaryChatsForSpecification` joins the need + both knowledge items at read time and surfaces a `pinnedReconciliationNeed: { needId, kind, sourceItemId/RefCode/Excerpt, targetItemId/RefCode/Excerpt }` projection on each `SecondaryChat`; `SecondaryChatTriggerItem.reconciliationNeedId` is threaded through `useCreateSecondaryChatMutation`; `PendingReviewSection.handleOpenSideChat` passes `need.id` alongside `target_item_kind`/`target_item_id`; `SecondaryChatCollapsible` renders a small `data-testid="secondary-chat-reconciliation-panel"` band (kind label + per-endpoint ref code + truncated excerpt) when the field is populated. Other trigger paths (StructuredListView, etc.) are unchanged and continue to omit `reconciliationNeedId`.
 - **What:** When a secondary chat is opened with a reconciliation context (entry bridge from a substantive reconciliation row), render a minimal "elements being reconciled" panel inside the secondary chat surface. **Not** the full target-grouped / classifier-state UX from the brief — that's Track 3 (`reconciliation-runtime`). `PendingReviewSection` retirement stays Track 3's job.
-- **Why tenth:** Lightweight scope addition beyond pure side-chat parity per HANDOFF V1 list.
-- **Verification:** rendering test with a reconciliation-need entry; regression on the V3.1 substantive-reconciliation → side-chat bridge.
+- **Verification:** `npm run verify` — 104 test files / 1252 tests pass; build clean. New tests:
+  - [`app.test.ts`](file:///Users/kostandin/Projects/hashdev/brunch/src/server/app.test.ts) — POST persists `pinned_reconciliation_need_id`, bundle round-trip surfaces `pinnedReconciliationNeed` with `kind` + source/target ref-code & excerpt joins; cross-spec need id returns 404.
+  - [`secondary-chat-collapsible.test.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/__tests__/secondary-chat-collapsible.test.tsx) — panel renders kind label + source/target ref codes & excerpts when populated; no panel when `pinnedReconciliationNeed` is null.
+  - [`pending-review-section.test.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/__tests__/pending-review-section.test.tsx) — assertion updated to include `reconciliationNeedId: need.id` in the substantive `Open side-chat` trigger payload.
 
 ### C10 — V1 closure: verification + manual walkthrough + frontier closeout
 
