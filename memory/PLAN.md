@@ -24,16 +24,16 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 ### Active
 
 1. `agent-fixture-substrate` — branch-complete off main, reconciling — FE-705 integration substrate for JSONL agent capability CLI and LLM-as-user probes.
+2. `intent-graph-semantics` — FE-700 relation-policy foundation ready for PR review; remaining ontology expansion candidates need fresh scoping before more build work.
 
 ### Next
 
 1. `chat-runtime-secondary-chats` — Track 2 of the runtime umbrella; immediate successor to continuous-workspace. Implement inline/collapsible secondary chats over existing chat/turn; explicitly defer a `thread` table.
-2. `intent-graph-semantics` — highest-coordination semantic substrate after FE-705 reconciliation.
-3. `changeset-ledger` — Track 4 of the runtime umbrella; parallel with Track 2; semantic history spine needed before canonical proposal acceptance, direct-edit atomicity, and productized scenario options.
-4. `chat-context-provision` — Track 5 of the runtime umbrella recast as transcript-first context; can proceed against chat/turn once secondary-chat entry/anchor shape is settled.
-5. `reconciliation-runtime` — Track 3 of the runtime umbrella; after Track 2 + Track 4 provide the secondary-chat surface and durable attribution.
-6. `graph-review-scenario-options` — artifact-only critique/probe lane; can advance in parallel with FE-700 if it does not commit canonical graph truth.
-7. `productized-scenario-options` — user-facing acceleration surface after FE-700 semantics, FE-701 changesets, and graph-review probes.
+2. `changeset-ledger` — Track 4 of the runtime umbrella; parallel with Track 2; semantic history spine needed before canonical proposal acceptance, direct-edit atomicity, and productized scenario options.
+3. `chat-context-provision` — Track 5 of the runtime umbrella recast as transcript-first context; can proceed against chat/turn once secondary-chat entry/anchor shape is settled.
+4. `reconciliation-runtime` — Track 3 of the runtime umbrella; after Track 2 + Track 4 provide the secondary-chat surface and durable attribution.
+5. `graph-review-scenario-options` — artifact-only critique/probe lane; can advance in parallel with FE-700 if it does not commit canonical graph truth.
+6. `productized-scenario-options` — user-facing acceleration surface after FE-700 semantics, FE-701 changesets, and graph-review probes.
 
 ### Parallel / Low-conflict
 
@@ -128,7 +128,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Name:** Intent graph semantics + relation-policy directionality foundation
 - **Linear:** FE-700
 - **Kind:** structural
-- **Status:** in-progress — relation-policy registry, read-only intent neighborhood snapshots, and cascade-impact policy slices are done; later ontology expansion candidates need fresh scoping.
+- **Status:** ready for PR review — relation-policy registry, read-only intent neighborhood snapshots, policy-driven cascade impact, and side-chat/apply impact parity are done; invariant/example ontology expansion candidates are deferred until freshly scoped.
 - **Objective:** Refine the ontology and relation policy so the graph can represent invariants, examples/counterexamples, constraint subtypes, narrowed decisions, witness strength, checkability gaps, and operational edge behavior as source/destination material for future generative features.
 - **Why now / unlocks:** Candidate generation, behavioral kernels, graph review, scenario-options acceleration, architect proposals, direct-edit cascade, and downstream verification-aware decomposition all need a sharper semantic target than the current exploration/review ontology. This semantic-layer lane is most likely to collide with parallel work, so it should land before broad observer enrichment or canonical candidate-bundle acceptance.
 - **Acceptance:** `invariant` and `example` are first-class durable kinds; examples are subtyped; `decision` is narrowed; `constraint`, `criterion`, and `invariant` semantics are enriched; `checkability` and witness strength are represented; relation families, negative relations, edge epistemic metadata, relation-policy directionality, and endpoint-relative display labels for dependency/dependent context snapshots are explicit.
