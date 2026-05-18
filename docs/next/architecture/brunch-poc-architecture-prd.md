@@ -58,7 +58,7 @@ The POC may start intent-first, but storage, transport, and naming should not lo
 
 The transcript store should be treated as a first-class architectural decision, not as an accidental side effect of whichever pi default happens to be present.
 
-The session export in [docs/next/session-re-extending-sessions.jsonl](file:///Users/lunelson/Code/hashintel/brunch/docs/next/session-re-extending-sessions.jsonl) sharpens the near-term posture:
+The session export in [docs/next/architecture/artifacts/session-re-extending-sessions.jsonl](file:///Users/lunelson/Code/hashintel/brunch/docs/next/architecture/artifacts/session-re-extending-sessions.jsonl) sharpens the near-term posture:
 
 - pi JSONL sessions are richer than a flat append log
 - they already support tree structure, branch summaries, compaction entries, labels, model/thinking changes, `custom` entries, and `custom_message` entries
