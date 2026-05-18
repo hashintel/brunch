@@ -37,6 +37,24 @@ import { PatchListOverlay } from '@/client/components/patch-list-overlay.js';
 const mockNavigate = vi.fn();
 let mockHash = '';
 
+// FE-716 C19/C27: mutable bundle stub so individual tests can vary the
+// active secondary chat (and its `pinned_item_id` / `anchoredItemIds`).
+// `setMockSecondaryChats(...)` is called inside `beforeEach` and the C19
+// row-anchor tests below.
+type MockSecondaryChat = {
+  chat: { id: number; pinned_item_id: number | null; pinned_reconciliation_need_id: number | null };
+  pinnedItemKind: string | null;
+  anchoredItemIds: number[];
+};
+let mockSecondaryChats: MockSecondaryChat[] = [];
+let mockFocusedChatId: number | null = null;
+function setMockSecondaryChats(chats: MockSecondaryChat[]): void {
+  mockSecondaryChats = chats;
+}
+function setMockFocusedChatId(id: number | null): void {
+  mockFocusedChatId = id;
+}
+
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mockNavigate,
   useLocation: () => ({ hash: mockHash, pathname: '/specification/1/graph', search: '' }),
@@ -55,7 +73,29 @@ vi.mock('@/client/routes/specification/$id/-specification-data.js', async (impor
     ...mod,
     useSpecificationOpenReconciliationNeeds: () => [],
     invalidateOpenReconciliationNeeds: vi.fn(),
-    useSpecificationBundleData: () => ({ secondaryChats: [] }),
+    useSpecificationBundleData: () => ({ secondaryChats: mockSecondaryChats }),
+  };
+});
+
+// FE-716 C19: stub `useChatShellPresence` so tests can name a "focused
+// chat id" without mounting the full presence provider. Default null
+// presence leaves rows unselected (matches no-shell-context behavior).
+vi.mock('@/client/components/chat-shell-presence.js', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/client/components/chat-shell-presence.js')>();
+  return {
+    ...mod,
+    useChatShellPresence: () => ({
+      appearance: 'expanded' as const,
+      isCollapsed: false,
+      collapse: vi.fn(),
+      minimize: vi.fn(),
+      close: vi.fn(),
+      expand: vi.fn(),
+      focusedChatId: mockFocusedChatId,
+      focusChat: vi.fn(),
+      clearFocus: vi.fn(),
+      jumpToAnchor: vi.fn(),
+    }),
   };
 });
 
@@ -67,6 +107,8 @@ let scrollToSpy: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   mockNavigate.mockClear();
   mockHash = '';
+  mockSecondaryChats = [];
+  mockFocusedChatId = null;
   scrollToSpy = vi.spyOn(Element.prototype, 'scrollTo').mockImplementation(() => {});
 });
 
@@ -1038,5 +1080,103 @@ describe('structured-list-view direct edit (FE-657)', () => {
     const editForm = container.querySelector('[data-graph-row-edit]');
     expect(editForm?.textContent).toMatch(/⌘↵\s*save/);
     expect(editForm?.textContent).toMatch(/esc\s*cancel/);
+  });
+});
+
+describe('structured-list-view C19 chat-anchored row selection', () => {
+  it('renders rows without chat-anchor styling when no chat is focused', () => {
+    setMockSecondaryChats([]);
+    setMockFocusedChatId(null);
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const rows = container.querySelectorAll('[data-graph-row]');
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.getAttribute('data-graph-row-chat-anchored')).toBeNull();
+    }
+  });
+
+  it('marks a row chat-anchored when the active chat pinned to it; styles use the row item kindAccentHex', () => {
+    // crossPhaseDecisionLink: goal id=10, constraint id=20, decision id=30.
+    setMockSecondaryChats([
+      {
+        chat: { id: 1, pinned_item_id: 20, pinned_reconciliation_need_id: null },
+        pinnedItemKind: 'constraint',
+        anchoredItemIds: [],
+      },
+    ]);
+    setMockFocusedChatId(1);
+
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const constraintRow = container.querySelector(
+      '[data-graph-row][data-item-kind="constraint"][data-item-id="20"]',
+    ) as HTMLElement;
+    expect(constraintRow.getAttribute('data-graph-row-chat-anchored')).toBe('true');
+    expect(constraintRow.style.borderLeftWidth).toBe('2px');
+    // C19: tint + border both use the item's kind accent (kindAccentHex.constraint = #ec4899).
+    expect(constraintRow.style.borderLeftColor).not.toBe('');
+    expect(constraintRow.style.backgroundColor).not.toBe('');
+
+    const goalRow = container.querySelector(
+      '[data-graph-row][data-item-kind="goal"][data-item-id="10"]',
+    ) as HTMLElement;
+    expect(goalRow.getAttribute('data-graph-row-chat-anchored')).toBeNull();
+    expect(goalRow.style.borderLeftWidth).toBe('');
+  });
+
+  it("also marks rows whose ids appear in the active chat's anchoredItemIds", () => {
+    setMockSecondaryChats([
+      {
+        chat: { id: 1, pinned_item_id: 10, pinned_reconciliation_need_id: null },
+        pinnedItemKind: 'goal',
+        anchoredItemIds: [30],
+      },
+    ]);
+    setMockFocusedChatId(1);
+
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const goalRow = container.querySelector(
+      '[data-graph-row][data-item-kind="goal"][data-item-id="10"]',
+    ) as HTMLElement;
+    expect(goalRow.getAttribute('data-graph-row-chat-anchored')).toBe('true');
+
+    const decisionRow = container.querySelector(
+      '[data-graph-row][data-item-kind="decision"][data-item-id="30"]',
+    ) as HTMLElement;
+    expect(decisionRow.getAttribute('data-graph-row-chat-anchored')).toBe('true');
+
+    const constraintRow = container.querySelector(
+      '[data-graph-row][data-item-kind="constraint"][data-item-id="20"]',
+    ) as HTMLElement;
+    expect(constraintRow.getAttribute('data-graph-row-chat-anchored')).toBeNull();
+  });
+
+  it('flips the open-inline-chat trigger aria-label between Anchored ↔ Open when the row is chat-anchored', () => {
+    setMockSecondaryChats([
+      {
+        chat: { id: 1, pinned_item_id: 20, pinned_reconciliation_need_id: null },
+        pinnedItemKind: 'constraint',
+        anchoredItemIds: [],
+      },
+    ]);
+    setMockFocusedChatId(1);
+
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const anchoredTrigger = container.querySelector(
+      '[data-item-id="20"] [data-graph-action="open-inline-chat"]',
+    ) as HTMLButtonElement;
+    expect(anchoredTrigger.getAttribute('data-chat-anchored')).toBe('true');
+    expect(anchoredTrigger.getAttribute('aria-label')).toBe('Anchored to active chat');
+    expect(anchoredTrigger.getAttribute('aria-pressed')).toBe('true');
+
+    const unanchoredTrigger = container.querySelector(
+      '[data-item-id="10"] [data-graph-action="open-inline-chat"]',
+    ) as HTMLButtonElement;
+    expect(unanchoredTrigger.getAttribute('data-chat-anchored')).toBeNull();
+    expect(unanchoredTrigger.getAttribute('aria-label')).toBe('Open inline chat about this item');
+    expect(unanchoredTrigger.getAttribute('aria-pressed')).toBeNull();
   });
 });

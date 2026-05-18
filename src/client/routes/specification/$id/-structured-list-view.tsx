@@ -453,10 +453,17 @@ function ItemActionRail({
   item,
   onStartEdit,
   editDisabled,
+  chatAnchored,
 }: {
   item: KnowledgeItemSummary;
   onStartEdit?: (() => void) | undefined;
   editDisabled?: boolean;
+  // FE-716 C19: when true, the active secondary chat is already anchored
+  // to this item. Flips the chat trigger's aria-label so AT/keyboard users
+  // can tell "open a new chat about this" from "this is the active chat's
+  // anchor". The click handler stays the same — per C26's per-item dedupe,
+  // re-triggering returns the existing chatId (server-side idempotent).
+  chatAnchored?: boolean;
 }) {
   const editEnabled = Boolean(onStartEdit) && !editDisabled;
 
@@ -468,6 +475,7 @@ function ItemActionRail({
           void secondaryChatTrigger.create({ kind: item.kind, id: item.id });
         }
       : undefined;
+  const chatTriggerLabel = chatAnchored ? 'Anchored to active chat' : 'Open inline chat about this item';
 
   return (
     <div
@@ -491,8 +499,11 @@ function ItemActionRail({
       <button
         type="button"
         data-graph-action="open-inline-chat"
+        data-chat-anchored={chatAnchored ? 'true' : undefined}
         disabled={!secondaryChatEnabled}
-        aria-label="Open inline chat about this item"
+        aria-label={chatTriggerLabel}
+        aria-pressed={chatAnchored ? true : undefined}
+        title={chatTriggerLabel}
         onClick={handleOpenInlineChat}
         className={
           secondaryChatEnabled
@@ -645,7 +656,6 @@ function ItemRow({
   onCancelEdit,
   editDisabled,
   chatAnchored,
-  chatAnchorAccentHex,
 }: {
   item: KnowledgeItemSummary;
   outgoing: DirectedEdge[];
@@ -658,18 +668,23 @@ function ItemRow({
   onSaveEdit: (next: string) => void;
   onCancelEdit: () => void;
   editDisabled: boolean;
-  // FE-716 C27: when true, the row is pinned or anchored by the active
-  // secondary chat. Renders a 2px left-border in the chat's `kindAccentHex`
-  // so the workspace mirrors the shell's selection without overhauling
-  // existing styling.
+  // FE-716 C27/C19: when true, the row is pinned or anchored by the active
+  // secondary chat (its id appears in the chat's `pinned_item_id` or
+  // `anchored_item_ids`). C19 promotes C27's left-border foundation to a
+  // full selection state — left-border + subtle background tint, both in
+  // the item's own `kindAccentHex`. C19 explicitly specifies "matching the
+  // item's kind" (not the chat's), so the prop signature carries only the
+  // boolean selection state; the accent color is resolved from `item.kind`.
   chatAnchored: boolean;
-  chatAnchorAccentHex: string | null;
 }) {
   const hasExpansion = Boolean(item.rationale) || outgoing.length > 0 || incoming.length > 0;
-  const chatAnchorStyle =
-    chatAnchored && chatAnchorAccentHex
-      ? { borderLeftColor: chatAnchorAccentHex, borderLeftWidth: 2 }
-      : undefined;
+  const itemAccentHex = kindAccentHex[item.kind];
+  // ~10% alpha (hex `1A`) on top of the bg keeps the tint readable in
+  // both light + dark themes; pairs with the solid 2px left-border so the
+  // selected state is legible without overwhelming the surface.
+  const chatAnchorStyle = chatAnchored
+    ? { borderLeftColor: itemAccentHex, borderLeftWidth: 2, backgroundColor: `${itemAccentHex}1A` }
+    : undefined;
 
   return (
     <Collapsible defaultOpen={defaultOpen} asChild>
@@ -708,7 +723,12 @@ function ItemRow({
           </div>
           {!isEditing && (
             <div className="flex items-center gap-1">
-              <ItemActionRail item={item} onStartEdit={onStartEdit} editDisabled={editDisabled} />
+              <ItemActionRail
+                item={item}
+                onStartEdit={onStartEdit}
+                editDisabled={editDisabled}
+                chatAnchored={chatAnchored}
+              />
               {hasExpansion && (
                 <CollapsibleTrigger
                   data-graph-row-toggle
@@ -750,10 +770,12 @@ export function StructuredListView({
   const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
   const navigate = useNavigate();
 
-  // FE-716 C27: foundation slice — when a chat is focused in the shell,
-  // highlight rows it has pinned/anchored with a 2px left-border in the
-  // chat's `kindAccentHex`. Read-only against the bundle + presence; a
-  // null presence (no provider in the tree) leaves rows untouched.
+  // FE-716 C19 (built on C27 foundation): when a secondary chat is focused
+  // in the shell, the rows it has pinned or anchored render as selected —
+  // 2px left-border + ~10% kind-accent background tint (kindAccentHex
+  // resolved per row in ItemRow against `item.kind`, per C19's "matching
+  // the item's kind" directive). Read-only against the bundle + presence;
+  // a null presence (no provider in the tree) leaves rows untouched.
   const bundle = useSpecificationBundleData();
   const presence = useChatShellPresence();
   const itemChats = (bundle.secondaryChats ?? []).filter(
@@ -761,8 +783,6 @@ export function StructuredListView({
   );
   const activeChat =
     itemChats.find((c) => c.chat.id === presence?.focusedChatId) ?? itemChats[itemChats.length - 1] ?? null;
-  const activeChatAccentHex =
-    activeChat && activeChat.pinnedItemKind ? kindAccentHex[activeChat.pinnedItemKind] : null;
   const activeChatAnchoredItemIds = new Set<number>();
   if (activeChat) {
     if (activeChat.chat.pinned_item_id !== null) {
@@ -1026,7 +1046,6 @@ export function StructuredListView({
                                   onCancelEdit={handleCancelEdit}
                                   editDisabled={patchList === null || (editingItemKey !== null && !isEditing)}
                                   chatAnchored={activeChatAnchoredItemIds.has(item.id)}
-                                  chatAnchorAccentHex={activeChatAccentHex}
                                 />
                               );
                             });
