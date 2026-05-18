@@ -2,25 +2,6 @@ import { sql } from 'drizzle-orm';
 
 import type { DB } from '../db.js';
 
-export interface DownstreamItem {
-  id: number;
-  kind: string;
-  content: string;
-  kind_ordinal: number;
-}
-
-/** Direct downstream items: items whose edges point TO the given item. */
-export function getDownstreamItems(db: DB, specificationId: number, itemId: number): DownstreamItem[] {
-  return db.all(sql`
-    SELECT ki.id, ki.kind, ki.content, ki.kind_ordinal
-    FROM knowledge_edge ke
-    JOIN knowledge_item ki ON ki.id = ke.from_item_id
-    WHERE ke.to_item_id = ${itemId}
-      AND ki.specification_id = ${specificationId}
-    ORDER BY ki.id
-  `) as DownstreamItem[];
-}
-
 export interface CascadeIncidentEdge {
   source_item_id: number;
   target_item_id: number;

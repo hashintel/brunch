@@ -2,22 +2,18 @@ import type { Request, Response } from 'express';
 import * as z from 'zod/v4';
 
 import { edgeRelationSchema, type MutationErrorResponse } from '@/shared/api-types.js';
-import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
-import { getCascadeChangeImpact } from './cascade-producer.js';
 import {
   addKnowledgeRelationship,
-  getCascadeIncidentEdges,
   getKnowledgeItem,
   getSpecification,
   getTurn,
-  isItemInActiveReviewSet,
   openReconciliationNeedIfAbsent,
   removeKnowledgeRelationship,
   updateKnowledgeItemContent,
   type DB,
 } from './db.js';
-import { classifyEditImpact } from './edit-impact.js';
+import { buildKnowledgeItemEditImpactProjection } from './edit-impact-projection.js';
 import { supportsKnowledgeRelationship } from './knowledge-relationship-policy.js';
 
 // --- Schemas ---
@@ -80,49 +76,23 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
     }
   }
 
-  const incidentEdges = getCascadeIncidentEdges(db, specificationId, itemId);
-  const cascadeImpacts = incidentEdges.flatMap((edge) => {
-    const impact = getCascadeChangeImpact(edge.relation, edge.changed_endpoint);
-    if (impact.affectedEndpoint === null || impact.kind === null) return [];
-    const affectedItemId = impact.affectedEndpoint === 'source' ? edge.source_item_id : edge.target_item_id;
-    if (affectedItemId === itemId) return [];
-    return [{ affectedItemId, kind: impact.kind }];
-  });
-  const affectedItemIds = [...new Set(cascadeImpacts.map((impact) => impact.affectedItemId))];
-  const affectedItems = affectedItemIds.flatMap((affectedItemId) => {
-    const affectedItem = getKnowledgeItem(db, affectedItemId);
-    if (!affectedItem || affectedItem.specification_id !== specificationId) return [];
-    return [
-      {
-        id: affectedItem.id,
-        kind: affectedItem.kind,
-        referenceCode: createKnowledgeReferenceCode(affectedItem.kind, affectedItem.kind_ordinal),
-        content: affectedItem.content,
-      },
-    ];
-  });
-  const inReviewSet =
-    isItemInActiveReviewSet(db, specificationId, itemId) ||
-    affectedItems.some((affectedItem) => isItemInActiveReviewSet(db, specificationId, affectedItem.id));
-  const impact = classifyEditImpact(affectedItems.length, inReviewSet);
+  const impactProjection = buildKnowledgeItemEditImpactProjection(db, specificationId, itemId);
+  const { affectedItems, impact } = impactProjection;
 
   const previousContent = item.content;
   const previousRationale = item.rationale;
 
   if (impact === 'hard') {
-    // V3.0 (D139, I112): apply the source change AND open one
-    // reconciliation_need per typed dependency edge incident on the changed
-    // item. The partial unique index on (source, target, kind) makes
-    // re-application idempotent. The patch list overlay surfaces these needs
-    // as a Pending review section in card 2; for now the V2 client banner
-    // continues to render off `impact === 'hard'`.
+    // Apply the changed item and open one reconciliation_need per
+    // relation-policy affected endpoint. The partial unique index on
+    // (source, target, kind) makes re-application idempotent.
     const openedNeedIds = db.transaction((tx) => {
       updateKnowledgeItemContent(tx as unknown as DB, itemId, {
         content: parsed.data.content,
         rationale: parsed.data.rationale,
       });
       const opened: number[] = [];
-      for (const cascadeImpact of cascadeImpacts) {
+      for (const cascadeImpact of impactProjection.cascadeNeeds) {
         const need = openReconciliationNeedIfAbsent(tx as unknown as DB, {
           specificationId,
           sourceItemId: itemId,

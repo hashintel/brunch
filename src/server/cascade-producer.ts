@@ -27,11 +27,3 @@ export function getCascadeChangeImpact(
 ): CascadeChangeImpact {
   return getKnowledgeRelationshipChangeImpact(relation, changedEndpoint);
 }
-
-export function relationToKind(relation: CascadeRelation): ReconciliationNeedKind {
-  const impact = getCascadeChangeImpact(relation, 'target');
-  if (impact.kind === null) {
-    throw new Error(`Relation ${relation} has no target-change cascade kind`);
-  }
-  return impact.kind;
-}
