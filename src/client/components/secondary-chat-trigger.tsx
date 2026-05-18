@@ -17,6 +17,8 @@ import {
   groundingWorkflowPhase,
 } from '@/shared/phase-descriptors.js';
 
+import { useChatShellPresence } from './chat-shell-presence.js';
+
 export type SecondaryChatMode = 'explore' | 'edit';
 
 async function patchJsonMutation<TResponse, TRequest>(
@@ -158,6 +160,9 @@ export function SecondaryChatTriggerProvider({ children }: { children: ReactNode
   const parentChatId = specificationState.specification.primary_chat_id ?? null;
   const activeTurnId = specificationState.specification.active_turn_id;
   const mutation = useCreateSecondaryChatMutation(specificationId);
+  // FE-716 C14: when a trigger successfully creates a new chat, expand the
+  // shell and focus the new chat so its collapsible auto-opens.
+  const presence = useChatShellPresence();
 
   const canCreate = parentChatId !== null && activeTurnId !== null;
 
@@ -166,7 +171,7 @@ export function SecondaryChatTriggerProvider({ children }: { children: ReactNode
       if (parentChatId === null || activeTurnId === null) {
         return null;
       }
-      return mutation.create({
+      const response = await mutation.create({
         parentChatId,
         invokedInTurnId: activeTurnId,
         itemKind: item.kind,
@@ -176,8 +181,12 @@ export function SecondaryChatTriggerProvider({ children }: { children: ReactNode
           ? { reconciliationNeedId: item.reconciliationNeedId }
           : {}),
       });
+      if (response && presence) {
+        presence.focusChat(response.chatId);
+      }
+      return response;
     },
-    [activeTurnId, mutation, parentChatId],
+    [activeTurnId, mutation, parentChatId, presence],
   );
 
   const inlineChatRoute = useMemo<InlineChatRoute>(() => {

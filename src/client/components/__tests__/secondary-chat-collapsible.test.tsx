@@ -52,6 +52,40 @@ describe('SecondaryChatCollapsible', () => {
 
     expect(screen.getByTestId('secondary-chat-collapsible')).toBeTruthy();
     expect(screen.getByTestId('secondary-chat-collapsible-trigger')).toBeTruthy();
+    // The header no longer uses the "Secondary chat" label — only the kind chip.
+    expect(screen.queryByText('Secondary chat')).toBeNull();
+  });
+
+  it('renders the Ask kind chip when mode is explore', () => {
+    const chat: SecondaryChat = {
+      chat: { ...baseChat, mode: 'explore' },
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+    };
+
+    render(<SecondaryChatCollapsible secondaryChat={chat} />);
+
+    const chip = screen.getByTestId('secondary-chat-kind-chip');
+    expect(chip.dataset.kind).toBe('ask');
+    expect(chip.textContent).toContain('Ask');
+  });
+
+  it('renders the Edit kind chip when mode is edit', () => {
+    const chat: SecondaryChat = {
+      chat: { ...baseChat, mode: 'edit' },
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+    };
+
+    render(<SecondaryChatCollapsible secondaryChat={chat} />);
+
+    const chip = screen.getByTestId('secondary-chat-kind-chip');
+    expect(chip.dataset.kind).toBe('edit');
+    expect(chip.textContent).toContain('Edit');
   });
 
   it('starts collapsed — body content is not visible', () => {

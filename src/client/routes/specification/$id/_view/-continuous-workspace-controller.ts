@@ -3,13 +3,12 @@ import { useRouter } from '@tanstack/react-router';
 import { DefaultChatTransport } from 'ai';
 import type { ChatStatus } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { z } from 'zod/v4';
 
 import {
   useSubmitPhaseIntentMutation,
   useSubmitTurnResponseMutation,
 } from '@/client/mutations/interview-mutations';
-import type { WorkflowPhase, secondaryChatStateSchema } from '@/shared/api-types.js';
+import type { WorkflowPhase } from '@/shared/api-types.js';
 import { brunchDataPartSchemas } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import {
@@ -68,8 +67,6 @@ export interface ContinuousWorkspaceChatState {
   readonly forcePhaseClosure: (phase: SpecificationTurn['phase']) => void;
 }
 
-export type SecondaryChatState = z.infer<typeof secondaryChatStateSchema>;
-
 export interface ContinuousWorkspaceController {
   readonly specification: InterviewDurableSpecificationState['specification'];
   readonly workflow: InterviewDurableSpecificationState['workflow'];
@@ -78,7 +75,6 @@ export interface ContinuousWorkspaceController {
   readonly captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
   readonly chat: ContinuousWorkspaceChatState;
   readonly bottomArtifact: InterviewControllerBottomArtifactState | null;
-  readonly secondaryChatsByInvokedTurnId: ReadonlyMap<number, readonly SecondaryChatState[]>;
 }
 
 export function useContinuousWorkspaceController(): ContinuousWorkspaceController {
@@ -376,21 +372,6 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
     turns,
   ]);
 
-  const secondaryChatsByInvokedTurnId = useMemo((): ReadonlyMap<number, readonly SecondaryChatState[]> => {
-    const map = new Map<number, SecondaryChatState[]>();
-    for (const secondaryChat of specificationState.secondaryChats ?? []) {
-      const invokedInTurnId = secondaryChat.chat.invoked_in_turn_id;
-      if (invokedInTurnId === null) continue;
-      const list = map.get(invokedInTurnId);
-      if (list) {
-        list.push(secondaryChat);
-      } else {
-        map.set(invokedInTurnId, [secondaryChat]);
-      }
-    }
-    return map;
-  }, [specificationState.secondaryChats]);
-
   return {
     specification: viewState.specification,
     workflow: viewState.workflow,
@@ -407,6 +388,5 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
       forcePhaseClosure,
     },
     bottomArtifact: enrichedBottomArtifact,
-    secondaryChatsByInvokedTurnId,
   };
 }

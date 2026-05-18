@@ -52,15 +52,8 @@ function getReadinessLabel(readiness: SpecificationState['workflow']['phases'][W
 export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: WorkflowPhase }) {
   const [isClosePhaseModalOpen, setIsClosePhaseModalOpen] = useState(false);
 
-  const {
-    specification,
-    workflow,
-    sections,
-    activePhase,
-    captureStatusByTurnId,
-    chat,
-    secondaryChatsByInvokedTurnId,
-  } = useContinuousWorkspaceController();
+  const { specification, workflow, sections, activePhase, captureStatusByTurnId, chat } =
+    useContinuousWorkspaceController();
 
   const workspaceFocus = useWorkspaceFocus();
   const setFocusedPhase = workspaceFocus?.setFocusedPhase;
@@ -216,7 +209,6 @@ export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: Workfl
                   showLockedState={false}
                   renderPersistedActivity={renderPersistedActivity}
                   renderLiveActivity={renderActivitySummary}
-                  secondaryChatsByInvokedTurnId={secondaryChatsByInvokedTurnId}
                 />
               </div>
             ))}

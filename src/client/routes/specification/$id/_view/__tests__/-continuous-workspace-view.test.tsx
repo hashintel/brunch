@@ -18,13 +18,8 @@ vi.mock('../-continuous-workspace-controller.js', () => ({
   useContinuousWorkspaceController: () => controller(),
 }));
 
-const transcriptArtifactsProps = vi.fn<(props: unknown) => void>();
-
 vi.mock('../-workspace-transcript-artifacts.js', () => ({
-  WorkspaceTranscriptArtifacts: (props: unknown) => {
-    transcriptArtifactsProps(props);
-    return <div data-testid="workspace-artifacts" />;
-  },
+  WorkspaceTranscriptArtifacts: () => <div data-testid="workspace-artifacts" />,
 }));
 
 function createWorkflow(): WorkflowState {
@@ -72,7 +67,6 @@ function createController(): ContinuousWorkspaceController {
       forcePhaseClosure: vi.fn(),
     },
     bottomArtifact: null,
-    secondaryChatsByInvokedTurnId: new Map(),
   };
 }
 
@@ -135,7 +129,6 @@ function WorkspaceHarness() {
 beforeEach(() => {
   observerConstructionCount = 0;
   observerDisconnectCount = 0;
-  transcriptArtifactsProps.mockClear();
   controller.mockReturnValue(createController());
   vi.stubGlobal('IntersectionObserver', ImmediateIntersectionObserver);
   Element.prototype.scrollIntoView = vi.fn();
@@ -159,47 +152,6 @@ describe('ContinuousWorkspaceView', () => {
     await waitFor(() => {
       expect(screen.getByTestId('focused-phase').textContent).toBe('none');
     });
-  });
-
-  it('threads secondaryChatsByInvokedTurnId from the controller through to WorkspaceTranscriptArtifacts', async () => {
-    const secondaryChatMap = new Map([
-      [
-        7,
-        [
-          {
-            chat: {
-              id: 99,
-              specification_id: 42,
-              kind: 'side_chat',
-              parent_chat_id: 1,
-              invoked_in_turn_id: 7,
-              pinned_item_id: null,
-              pinned_span_hint: null,
-              pinned_reconciliation_need_id: null,
-              mode: 'explore' as const,
-            },
-            kickoffTurn: null,
-            turns: [],
-            pinnedItemKind: null,
-            pinnedReconciliationNeed: null,
-          },
-        ],
-      ],
-    ]);
-    const baseController = createController();
-    controller.mockReturnValue({ ...baseController, secondaryChatsByInvokedTurnId: secondaryChatMap });
-
-    render(<WorkspaceHarness />);
-
-    await waitFor(() => {
-      expect(transcriptArtifactsProps).toHaveBeenCalled();
-    });
-
-    const props = transcriptArtifactsProps.mock.calls.at(-1)?.[0] as {
-      secondaryChatsByInvokedTurnId: ReadonlyMap<number, unknown>;
-    };
-    expect(props.secondaryChatsByInvokedTurnId).toBe(secondaryChatMap);
-    expect(props.secondaryChatsByInvokedTurnId.get(7)).toBeDefined();
   });
 
   it('does not rebuild the scroll-spy observer when section content changes without phase changes', async () => {

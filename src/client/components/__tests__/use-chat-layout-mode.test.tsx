@@ -1,0 +1,118 @@
+// @vitest-environment happy-dom
+
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import type { ChatLayoutMode } from '../unified-chat-shell.js';
+import {
+  CHAT_LAYOUT_MODE_ORDER,
+  chatLayoutModeStorageKey,
+  decrementChatLayoutMode,
+  useChatLayoutMode,
+} from '../use-chat-layout-mode.js';
+
+function Harness({ specificationId }: { specificationId: string }) {
+  const { layoutMode, setLayoutMode } = useChatLayoutMode(specificationId);
+  return (
+    <div>
+      <output data-testid="mode">{layoutMode}</output>
+      {(['compact', 'side-docked', 'maximize', 'full'] as ChatLayoutMode[]).map((mode) => (
+        <button key={mode} data-testid={`set-${mode}`} onClick={() => setLayoutMode(mode)}>
+          set {mode}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+beforeEach(() => {
+  window.localStorage.clear();
+});
+
+afterEach(() => {
+  cleanup();
+});
+
+describe('decrementChatLayoutMode', () => {
+  it('walks the order tier-by-tier and stops at compact', () => {
+    expect(decrementChatLayoutMode('full')).toBe('maximize');
+    expect(decrementChatLayoutMode('maximize')).toBe('side-docked');
+    expect(decrementChatLayoutMode('side-docked')).toBe('compact');
+    expect(decrementChatLayoutMode('compact')).toBe('compact');
+  });
+
+  it('publishes the canonical tier order', () => {
+    expect(CHAT_LAYOUT_MODE_ORDER).toEqual(['compact', 'side-docked', 'maximize', 'full']);
+  });
+});
+
+describe('useChatLayoutMode — C13', () => {
+  it('defaults to side-docked when localStorage is empty', () => {
+    render(<Harness specificationId="42" />);
+    expect(screen.getByTestId('mode').textContent).toBe('side-docked');
+  });
+
+  it('persists the chosen mode to localStorage under a per-spec key', () => {
+    render(<Harness specificationId="42" />);
+    fireEvent.click(screen.getByTestId('set-maximize'));
+    expect(screen.getByTestId('mode').textContent).toBe('maximize');
+    expect(window.localStorage.getItem(chatLayoutModeStorageKey('42'))).toBe('maximize');
+  });
+
+  it('rehydrates the persisted mode on first mount', () => {
+    window.localStorage.setItem(chatLayoutModeStorageKey('99'), 'full');
+    render(<Harness specificationId="99" />);
+    expect(screen.getByTestId('mode').textContent).toBe('full');
+  });
+
+  it('ignores junk values in localStorage and falls back to the default', () => {
+    window.localStorage.setItem(chatLayoutModeStorageKey('99'), 'not-a-mode');
+    render(<Harness specificationId="99" />);
+    expect(screen.getByTestId('mode').textContent).toBe('side-docked');
+  });
+
+  it('decrements one tier on Escape (full → maximize → side-docked → compact, then stays)', () => {
+    window.localStorage.setItem(chatLayoutModeStorageKey('1'), 'full');
+    render(<Harness specificationId="1" />);
+    expect(screen.getByTestId('mode').textContent).toBe('full');
+
+    const press = () => {
+      act(() => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      });
+    };
+
+    press();
+    expect(screen.getByTestId('mode').textContent).toBe('maximize');
+    press();
+    expect(screen.getByTestId('mode').textContent).toBe('side-docked');
+    press();
+    expect(screen.getByTestId('mode').textContent).toBe('compact');
+    press();
+    expect(screen.getByTestId('mode').textContent).toBe('compact');
+  });
+
+  it('skips Esc handling when the event has already been defaultPrevented', () => {
+    render(<Harness specificationId="1" />);
+    fireEvent.click(screen.getByTestId('set-full'));
+    expect(screen.getByTestId('mode').textContent).toBe('full');
+
+    act(() => {
+      const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+      event.preventDefault();
+      window.dispatchEvent(event);
+    });
+    expect(screen.getByTestId('mode').textContent).toBe('full');
+  });
+
+  it('switches the persisted slot when the specification id changes', () => {
+    window.localStorage.setItem(chatLayoutModeStorageKey('a'), 'maximize');
+    window.localStorage.setItem(chatLayoutModeStorageKey('b'), 'compact');
+
+    const { rerender } = render(<Harness specificationId="a" />);
+    expect(screen.getByTestId('mode').textContent).toBe('maximize');
+
+    rerender(<Harness specificationId="b" />);
+    expect(screen.getByTestId('mode').textContent).toBe('compact');
+  });
+});

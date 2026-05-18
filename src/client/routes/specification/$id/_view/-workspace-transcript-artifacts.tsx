@@ -1,5 +1,3 @@
-import type { z } from 'zod/v4';
-
 import {
   AcceptedClosureCard,
   KickoffControlCard,
@@ -19,8 +17,6 @@ import {
   RevisionCard,
 } from '@/client/components/question-cards';
 import { ReviewPhaseCompletionCard } from '@/client/components/review-set-card';
-import { SecondaryChatHost } from '@/client/components/secondary-chat-host';
-import type { secondaryChatStateSchema } from '@/shared/api-types.js';
 import type { ActivitySummary } from '@/shared/chat.js';
 import { getPhaseRoutePath, getWorkflowPhaseLabel } from '@/shared/phase-descriptors.js';
 import { getReviewRevisionNumber, normalizeReviewSetForDisplay } from '@/shared/review-diffing.js';
@@ -40,28 +36,6 @@ import {
   WorkspaceWorkflowCompleteCard,
 } from './-workspace-artifact-primitives.js';
 import type { WorkspaceStreamArtifact } from './-workspace-stream-projector.js';
-
-type SecondaryChatState = z.infer<typeof secondaryChatStateSchema>;
-
-function getArtifactAnchorTurnId(artifact: WorkspaceStreamArtifact): number | null {
-  switch (artifact.kind) {
-    case 'answered-turn':
-    case 'prefaced-question':
-    case 'answered-review-turn':
-    case 'answered-revision-review':
-    case 'collapsed-review-turn':
-      return artifact.turn.id;
-    case 'accepted-closure':
-      return artifact.acceptedClosure.turnId;
-    case 'persisted-turn':
-    case 'active-prefaced-question':
-      return artifact.artifact.turn.id;
-    case 'phase-summary':
-      return artifact.artifact.phaseSummary.turnId;
-    default:
-      return null;
-  }
-}
 
 function getReviewPhaseCompletionDescription(
   phase: SpecificationTurn['phase'],
@@ -144,6 +118,7 @@ function renderWorkspaceHistoryArtifact({
         <WorkspaceArtifactRow
           key={`answered-turn-${artifact.turn.id}`}
           activity={renderPersistedActivity(artifact.turn)}
+          anchorTurnId={artifact.turn.id}
         >
           <AnsweredQuestionCard
             turn={artifact.turn}
@@ -157,6 +132,7 @@ function renderWorkspaceHistoryArtifact({
         <WorkspaceArtifactRow
           key={`prefaced-question-${artifact.turn.id}`}
           activity={renderPersistedActivity(artifact.turn)}
+          anchorTurnId={artifact.turn.id}
         >
           <PrefaceCard preface={artifact.preface} />
           <AnsweredQuestionCard
@@ -171,6 +147,7 @@ function renderWorkspaceHistoryArtifact({
         <WorkspaceArtifactRow
           key={`answered-review-turn-${artifact.turn.id}`}
           activity={renderPersistedActivity(artifact.turn)}
+          anchorTurnId={artifact.turn.id}
         >
           <AnsweredReviewSetCard
             turn={artifact.turn}
@@ -187,6 +164,7 @@ function renderWorkspaceHistoryArtifact({
         <WorkspaceArtifactRow
           key={`answered-revision-review-${artifact.turn.id}`}
           activity={renderPersistedActivity(artifact.turn)}
+          anchorTurnId={artifact.turn.id}
         >
           <RevisionCard revisionNumber={artifact.revisionNumber} changeSummary={artifact.changeSummary} />
           <AnsweredReviewSetCard
@@ -214,6 +192,7 @@ function renderWorkspaceHistoryArtifact({
           key={`accepted-closure-${artifact.acceptedClosure.turnId}`}
           activity={renderPersistedActivity(artifact.turn)}
           testId="accepted-closure-card"
+          anchorTurnId={artifact.acceptedClosure.turnId}
         >
           <AcceptedClosureCard
             phase={artifact.acceptedClosure.phase}
@@ -261,6 +240,7 @@ function renderWorkspaceInteractiveArtifact({
               : renderPersistedActivity(artifact.artifact.turn)
           }
           errorMessage={artifact.artifact.errorMessage}
+          anchorTurnId={artifact.artifact.turn.id}
         >
           {reviewSet ? (
             <ActiveReviewSetCard
@@ -318,6 +298,7 @@ function renderWorkspaceInteractiveArtifact({
               : renderPersistedActivity(artifact.artifact.turn)
           }
           errorMessage={artifact.artifact.errorMessage}
+          anchorTurnId={artifact.artifact.turn.id}
         >
           <PrefaceCard preface={artifact.preface} />
           <ActiveQuestionCard
@@ -521,7 +502,6 @@ export function WorkspaceTranscriptArtifacts({
   showLockedState,
   renderPersistedActivity,
   renderLiveActivity,
-  secondaryChatsByInvokedTurnId,
 }: {
   streamArtifacts: readonly WorkspaceStreamArtifact[];
   specificationId: string;
@@ -530,7 +510,6 @@ export function WorkspaceTranscriptArtifacts({
   showLockedState: boolean;
   renderPersistedActivity: (turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined) => React.ReactNode;
   renderLiveActivity: (activitySummary: ActivitySummary | null | undefined) => React.ReactNode;
-  secondaryChatsByInvokedTurnId?: ReadonlyMap<number, readonly SecondaryChatState[]>;
 }) {
   return streamArtifacts.map((artifact, index) => {
     const artifactNode = (() => {
@@ -571,10 +550,6 @@ export function WorkspaceTranscriptArtifacts({
       }
     })();
 
-    const anchorTurnId = getArtifactAnchorTurnId(artifact);
-    const inlineSecondaryChats =
-      anchorTurnId !== null ? secondaryChatsByInvokedTurnId?.get(anchorTurnId) : undefined;
-
     if (artifact.kind === 'divider') {
       return <div key={`${artifact.kind}-${index}`}>{artifactNode}</div>;
     }
@@ -582,13 +557,6 @@ export function WorkspaceTranscriptArtifacts({
     return (
       <div key={`${artifact.kind}-${index}`} className="mx-auto w-full max-w-2xl">
         {artifactNode}
-        {inlineSecondaryChats && inlineSecondaryChats.length > 0 ? (
-          <div className="mt-2 flex flex-col gap-2" data-testid={`secondary-chats-for-turn-${anchorTurnId}`}>
-            {inlineSecondaryChats.map((secondaryChat) => (
-              <SecondaryChatHost key={secondaryChat.chat.id} secondaryChat={secondaryChat} />
-            ))}
-          </div>
-        ) : null}
       </div>
     );
   });

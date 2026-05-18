@@ -207,11 +207,11 @@ C5a (server) → C5b (client composer + host) → C5c (partition + strip). Seque
   - [`secondary-chat-collapsible.test.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/__tests__/secondary-chat-collapsible.test.tsx) — panel renders kind label + source/target ref codes & excerpts when populated; no panel when `pinnedReconciliationNeed` is null.
   - [`pending-review-section.test.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/__tests__/pending-review-section.test.tsx) — assertion updated to include `reconciliationNeedId: need.id` in the substantive `Open side-chat` trigger payload.
 
-### C10 — V1 closure: verification + manual walkthrough + frontier closeout
+### C10 — Substrate verification + initial PR draft
 
-- **Status:** **done** (2026-05-17) — `npm run verify` green (104 test files / 1252 tests pass; build clean). PLAN.md `chat-runtime-secondary-chats` frontier marked V1 done; C7 (agent-run inline) deferred to a follow-up frontier when an agent-run producer ships. SPEC.md A94 substrate hypothesis is shipped (durable secondary chats over chat/turn with no `thread` table); A94 remains `open` until the qa/strategy surfaces it enumerates are reachable, but no substrate change is required from FE-716. PR description drafted (see below; the C0–C9 commit thread is the canonical reading order). Manual walkthrough deferred until the PR moves to review; the test suite (incl. C3c-route round-trip, C5c partition, C8a/b trigger flows, C9 panel render + bundle round-trip) covers the substantive surfaces.
-- **What:** Full `npm run verify`; outer-loop walkthrough of the side-chat V3.1 capability matrix on the new substrate; confirm SPEC.md A94 is satisfied (durable secondary chats over chat/turn without a `thread` table); update PLAN.md frontier status; draft PR description.
-- **Verification:** `npm run verify` — 104 test files / 1252 tests pass; build clean. PLAN.md status updated. PR description below.
+- **Status:** **done** (2026-05-17). `npm run verify` green at 4dc1083d (104 test files / 1252 tests pass; build clean). The substrate hypothesis behind SPEC.md A94 (durable secondary chats over chat/turn with no `thread` table) is satisfied. PR description drafted (below).
+- **Note (2026-05-18):** V1 closure has since been re-scoped to include the unified chat shell (C11–C16); the PLAN.md `V1 done` status set by this card was rolled back. **The verification snapshot and the SPEC.md A94 evidence stay valid** — only the "this closes V1" framing moves to C16, which also rewrites the PR description below.
+- **What:** Full `npm run verify`; outer-loop walkthrough of the side-chat V3.1 capability matrix on the new substrate; confirm SPEC.md A94 is satisfied; update PLAN.md frontier status; draft PR description.
 
 #### PR description (draft)
 
@@ -253,6 +253,114 @@ C5a (server) → C5b (client composer + host) → C5c (partition + strip). Seque
 >
 > Stacked on `ln/fe-709-reconciliations` (PR #139). Restack on `main` once #139 lands.
 
+### C11 — Strip inline-under-turn rendering + retire "Secondary chat" label
+
+- **Status:** **done** (2026-05-18) — controller no longer projects `secondaryChatsByInvokedTurnId`; `WorkspaceTranscriptArtifacts` drops the projection prop, `getArtifactAnchorTurnId` helper, and `<SecondaryChatHost>` mounting (no chat surface beneath turn artifacts); `SecondaryChatCollapsible` header renders `<SecondaryChatKindChip>` (PencilLine + "Edit" / MessageCircleQuestion + "Ask", `data-testid="secondary-chat-kind-chip"`, `data-kind="edit" | "ask"`) instead of the literal "Secondary chat" label. Tests updated as planned.
+- **What:** Tear out the inline-under-turn mounting so the unified shell (C12) can host secondary chats instead:
+  - Remove the `secondaryChatsByInvokedTurnId` projection from [-continuous-workspace-controller.ts](file:///Users/kostandin/Projects/hashdev/brunch/src/client/routes/specification/$id/_view/-continuous-workspace-controller.ts) and stop threading it through [-continuous-workspace-view.tsx](file:///Users/kostandin/Projects/hashdev/brunch/src/client/routes/specification/$id/_view/-continuous-workspace-view.tsx).
+  - Remove `<SecondaryChatHost>` rendering and the `getArtifactAnchorTurnId` helper from [-workspace-transcript-artifacts.tsx](file:///Users/kostandin/Projects/hashdev/brunch/src/client/routes/specification/$id/_view/-workspace-transcript-artifacts.tsx); the artifacts renderer drops the `secondaryChatsByInvokedTurnId` prop.
+  - Replace the literal `"Secondary chat"` header label in `<SecondaryChatCollapsible>` with a kind chip per `UNIFIED_CHAT_UX.md` §8 (`PencilLine` for Edit, `MessageCircleQuestion` for Ask) — neutral chrome + subtle accent only on the kind chip per §7 dec 3.
+- **Tests:** delete `inline rendering after the matching turn` / `no-orphan` / `multiple chats per turn` cases from `-workspace-transcript-artifacts.test.tsx`; drop the controller projection test for the map; update `secondary-chat-collapsible.test.tsx` to assert the kind chip in the header instead of the "Secondary chat" string.
+- **Out of scope:** the unified shell itself (C12); layout modes (C13); trigger wire-up (C14); motion (C15).
+- **Verification:** `npm run verify` green; no orphan calls into the removed projection; the workspace transcript no longer renders any chat surface beneath turn artifacts.
+
+### C12 — `<UnifiedChatShell>` skeleton (Side-docked default)
+
+- **Status:** **done** (2026-05-18) — `src/client/components/unified-chat-shell.tsx` lands as a peer of `<ContinuousWorkspaceView>` inside [_view/route.tsx](file:///Users/kostandin/Projects/hashdev/brunch/src/client/routes/specification/$id/_view/route.tsx); the shell reads `useSpecificationBundleData()`, renders a header (spec name spine label + four layout-mode buttons + close affordance) and a body listing every active `secondaryChats[*]` (already returned in `chat.id` ascending order from `listSecondaryChatsForSpecification`) as `<SecondaryChatHost>` collapsibles. The shell defaults to side-docked at ~50% width; the workspace center (existing Outlet + EntitySidebar) reflows into the left 50%. Spine resolution: the shell is a *lightweight spine indicator + secondary-chats slot*, not a re-mounted transcript — the workspace center remains the canonical transcript + composer surface. Tests in [`unified-chat-shell.test.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/__tests__/unified-chat-shell.test.tsx) cover header presence, default mode, empty-state, host order, close↔expand round-trip, and layout-mode callback forwarding.
+- **What:** New `src/client/components/unified-chat-shell.tsx` mounted in the specification route as a peer to `<ContinuousWorkspaceView>`. The shell renders:
+  - The **interview spine** (the primary chat's transcript) as its always-visible body — sourced from the same bundle the workspace center already reads.
+  - **Active secondary chats** for the spec as inline collapsibles inside the shell body (ordered by `chat.created_at` ascending — confirm during build), using the existing `<SecondaryChatHost>` per chat. No "Secondary chat" label; kind chip from C11.
+  - A **header strip** with a layout-mode toggle (buttons present but inert until C13) and a close affordance that switches the shell to a collapsed bar.
+- **Mounting:** default layout state **Side-docked** (~50% width right rail per `UNIFIED_CHAT_UX.md` §4). Workspace center reflows to remaining width. The shell is a sibling of `<ContinuousWorkspaceView>` inside `route.tsx`'s layout, not a child of it.
+- **Out of scope:** localStorage persistence (C13); width/mode transitions (C13); trigger auto-expand (C14); motion (C15).
+- **Verification:** shell renders the interview spine + lists all active secondary chats; nothing renders under turn artifacts; existing transcript scrolls in the workspace center pane; build + test green.
+
+### C13 — Layout modes + header control + localStorage
+
+- **Status:** **done** (2026-05-18) — new `useChatLayoutMode(specificationId)` hook in [`use-chat-layout-mode.ts`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/use-chat-layout-mode.ts) persists the chosen mode under per-spec localStorage key `brunch:chat-layout-mode:{id}`, defaulting to `side-docked`; document-level Esc keydown decrements one tier via the exported `decrementChatLayoutMode` helper (Full → Maximize → Side-docked → Compact, no-op below). [_view/route.tsx](file:///Users/kostandin/Projects/hashdev/brunch/src/client/routes/specification/$id/_view/route.tsx) gains three layout components: `ResizableLayout` (50/50 for Side-docked, 30/70 for Maximize; `key={mode}` remounts the ResizablePanelGroup on mode change for clean defaultSizes), `CompactLayout` (floating dock 360–420 px bottom-right, workspace center fills), `FullLayout` (chat at 100%, center hidden). 9-test suite in [`use-chat-layout-mode.test.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/__tests__/use-chat-layout-mode.test.tsx) covers default, persistence, rehydration, junk rejection, Esc tier walk, defaultPrevented skip, and per-spec switching. **Open question kept open:** default stays Side-docked; revisit Compact-as-default only if walkthrough surfaces friction.
+- **What:** Implement the four layout states from `UNIFIED_CHAT_UX.md` §4:
+  - **Compact** — small floating dock, ~360–420 px.
+  - **Side-docked** *(default)* — right rail, ~50% width.
+  - **Maximize** — wide center, ~70% with rails.
+  - **Full** — 100% workspace.
+- New `useChatLayoutMode(specificationId)` hook backed by `localStorage` (key per workspace; default Side-docked). Header strip in the shell renders four mode buttons; current mode highlighted. **Esc** decrements one tier per §10.
+- **Out of scope:** motion (C15); mode chip on the composer (deferred); suggestions row (deferred).
+- **Verification:** four modes render at correct footprints; workspace center reflows correctly; toggle persists across reload; Esc steps the mode down.
+- **Open question (resolve in build):** brief defaults to Side-docked, but Compact is closer to the retired V3.1 popover footprint. Keep Side-docked unless walkthrough surfaces friction — revisit in C16.
+
+### C14 — Trigger wire-up: open shell + auto-expand new chat
+
+- **Status:** **done** (2026-05-18) — new `ChatShellPresenceProvider` ([`chat-shell-presence.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/chat-shell-presence.tsx)) supplies `{ isCollapsed, expand, collapse, focusedChatId, focusChat, clearFocus, jumpToAnchor }`; mounted in [parent route.tsx](file:///Users/kostandin/Projects/hashdev/brunch/src/client/routes/specification/$id/route.tsx) above `<SecondaryChatTriggerProvider>` so the trigger can `focusChat(response.chatId)` after a successful create (expands shell + sets focused id). `SecondaryChatCollapsible` gained controlled `open`/`onOpenChange` props plus an `onJumpToAnchor` handler that renders a `Crosshair`-iconed "Jump" button (data-testid `secondary-chat-jump-to-anchor`) when the chat carries an `invoked_in_turn_id`. `SecondaryChatHost` watches `focusedChatId === chatId` and auto-opens its collapsible via the controlled open prop. `WorkspaceArtifactRow` accepts `anchorTurnId` and exposes `data-anchor-turn-id`; threaded through `answered-turn`, `prefaced-question`, `answered-review-turn`, `answered-revision-review`, `accepted-closure`, `persisted-turn`, `active-prefaced-question`. `jumpToAnchor` does `document.querySelector('[data-anchor-turn-id="X"]')?.scrollIntoView({ behavior: 'smooth' })` plus a 1.5 s ring highlight. Tests in [`chat-shell-presence.test.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/__tests__/chat-shell-presence.test.tsx) cover trigger → expand + focus, Jump button rendering and scroll dispatch, absence when `invoked_in_turn_id` is null, and auto-open on focus.
+- **What:** Extend `useSecondaryChatTrigger().create()` (or add a sibling effect inside the shell) so that creating a secondary chat:
+  1. Ensures the shell is visible (if user collapsed it to a bar, expand to its last layout mode).
+  2. Auto-expands the newly-created chat's collapsible inside the shell.
+  3. Adds a "Jump to anchor" link in the collapsible header that scrolls the workspace center pane to `invoked_in_turn_id` (highlight briefly).
+- Trigger sites (`PendingReviewSection`, `StructuredListView`) are unchanged externally.
+- **Verification:** clicking the trigger from either site opens the shell with the new chat expanded; reconciliation-pinned chats still render the C9 panel inside; jump-to-anchor scrolls correctly; reload keeps the persisted chat (no regression on substrate); per-chat collapse state stays component-local.
+
+### C15 — Motion + spring transitions
+
+- **Status:** **done** (2026-05-18) — `motion` v12.38.0 was already a dep; no new install required. New [`use-prefers-reduced-motion.ts`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/use-prefers-reduced-motion.ts) hook + exported `CHAT_SHELL_SPRING` constant (mass 0.6, stiffness 220, damping 30 per §7 dec 5). `SecondaryChatCollapsible` wraps the streaming-assistant text in a `motion.div` that pulses opacity at ~1.4s (per §8 live-state); pulse collapses to `opacity: 1` when reduced-motion is requested. `UnifiedChatShell` switches its root containers to `motion.div` with spring fade-ins and uses `<AnimatePresence>` with `layout` per secondary-chat-host wrapper for smooth add/remove transitions; all transitions short-circuit to `{ duration: 0 }` under reduced-motion. Tests in [`use-prefers-reduced-motion.test.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/__tests__/use-prefers-reduced-motion.test.tsx) cover canonical spring config, matchMedia true/false branches, and missing-matchMedia fallback.
+- **What:** Wire `motion` (Framer Motion) per `UNIFIED_CHAT_UX.md` §7 dec 5 / §8:
+  - Spring on collapsible expand/collapse: mass 0.6, stiffness 220, damping 30, ~250 ms.
+  - Animate shell width across layout-mode changes.
+  - Streaming live-state pulse on the kickoff card.
+- Confirm `framer-motion` dep state before adding; honor `prefers-reduced-motion` to disable springs.
+- **Verification:** transitions feel smooth across all four modes; no layout thrash during workspace reflow; reduced-motion preference disables springs.
+
+### C16 — V1 closure (unified shell) + verification + PR description rewrite
+
+- **Status:** **done** (2026-05-18) — supersedes C10 as the V1 closeout. `npm run verify` green: 108 test files / 1273 tests pass; build clean; only the 6 pre-existing `rendered is declared but never used` warnings in `InterviewView.test.tsx` (not introduced here). `memory/PLAN.md` frontier `chat-runtime-secondary-chats` status updated to **V1 done** in both the Sequencing list and the Frontier Definition. PR description draft rewritten below to reflect the full V1 surface (substrate + unified shell). PR submits once #139 merges or per Lu's signal.
+- **Outer-loop walkthrough (deferred to operator):** the mechanical four-mode walkthrough across Compact ↔ Side-docked ↔ Maximize ↔ Full, with one open secondary chat from each trigger site (`PendingReviewSection` substantive row + `StructuredListView` item-action rail), localStorage round-trip across reload, reconciliation panel rendering inside the C9 band, and staging strip scoped per chat — performed by the human operator before clicking "Ready for review". The unit/integration coverage above asserts each mechanism in isolation; the outer-loop run confirms the integrated UX.
+
+#### PR description (final draft, supersedes C10)
+
+**Title:** `FE-716: Walking skeleton chat runtime — durable secondary chats + unified chat shell`
+
+**Body:**
+
+> **What**
+>
+> Lands V1 of Conversational Workspace Runtime Track 2 (`chat-runtime-secondary-chats`): every behavior the V3.1 side-chat shipped, now surfaced through the layoutable unified chat shell from `docs/design/UNIFIED_CHAT_UX.md`. Durable side-chats become durable secondary chats over the existing `chat`/`turn` substrate; the legacy `SideChatPopover` is retired; the inline-under-turn rendering from the earlier substrate slice is replaced by a peer chat surface with Compact / Side-docked / Maximize / Full layout modes. The `thread` table stays deferred per A94.
+>
+> **Substrate (no new tables)**
+>
+> - `chat.parent_chat_id`, `chat.invoked_in_turn_id`, `chat.pinned_item_id`, `chat.pinned_span_hint`, `chat.mode`, `chat.pinned_reconciliation_need_id` (drizzle/0020, 0021, 0022). No enum changes; secondary chats are projected from `parent_chat_id IS NOT NULL`.
+>
+> **Server**
+>
+> - `createSecondaryChat`, `createKickoffTurn`, `appendSecondaryChatTurn`, `setSecondaryChatMode`, `listSecondaryChatsForSpecification` in `specification-store.ts`.
+> - `POST /api/specifications/:id/secondary-chats` (create), `PATCH …/mode` (mode toggle), `POST …/messages` (streaming SSE with `getSideChatTools(mode)` edit-tool gating + `#REF-CODE` mention resolution).
+> - Bundle hydrates `secondaryChats[*]` with kickoff turn, post-kickoff turns, pinned-item kind, and joined reconciliation-need projection.
+>
+> **Client — substrate (C0–C9)**
+>
+> - `SecondaryChatTriggerProvider` + `useSecondaryChatTrigger()` exposes one `create({ kind, id, spanHint?, reconciliationNeedId? })` callback + an `inlineChatRoute` descriptor.
+> - `<SecondaryChatHost>` wires per-chat mutation/streaming hooks; `<SecondaryChatCollapsible>` renders the kickoff card, mode toggle, composer, streaming assistant, staged-patches strip slot, and the C9 reconciliation panel.
+> - Patch-list partitioning by `producerChatId` (Shape A) — `usePatchListForChat(chatId)` returns a per-chat staged slice; `<SecondaryChatStagingStrip>` mounts inside the collapsible body.
+> - Triggers: `PendingReviewSection` substantive row + `StructuredListView` item-action rail both call `useSecondaryChatTrigger()`; `SideChatPopover` and `SideChatHost` are deleted.
+>
+> **Client — unified shell (C11–C15)**
+>
+> - C11 — Inline-under-turn rendering retired. `WorkspaceTranscriptArtifacts` no longer mounts secondary chats; the controller no longer projects `secondaryChatsByInvokedTurnId`. `SecondaryChatCollapsible` renders a kind chip (`PencilLine` = Edit, `MessageCircleQuestion` = Ask) instead of the literal "Secondary chat" label.
+> - C12 — `<UnifiedChatShell>` mounts in `_view/route.tsx` as a peer of `<ContinuousWorkspaceView>`. Header (spec-name spine indicator + four layout-mode buttons + close affordance) + body (active secondary chats as `<SecondaryChatHost>` collapsibles, id-ascending order). The workspace center remains the canonical transcript+composer surface; the shell is the spine indicator + secondary-chats slot.
+> - C13 — `useChatLayoutMode(specificationId)` persists Compact / Side-docked / Maximize / Full under per-spec localStorage; default Side-docked. Esc decrements one tier (Full → Maximize → Side-docked → Compact, no-op below) per §10. Each mode has its own layout component: ResizableLayout (50/50 or 30/70), CompactLayout (floating dock 360–420 px), FullLayout (100%).
+> - C14 — `<ChatShellPresenceProvider>` provides `expand`/`focusChat`/`jumpToAnchor`. The trigger calls `focusChat(response.chatId)` on successful create so the shell expands and the new chat auto-opens. `<SecondaryChatCollapsible>` renders a Jump-to-anchor button when `invoked_in_turn_id` is set; `WorkspaceArtifactRow` exposes `data-anchor-turn-id` on rendered turn rows so jumps scroll into view with a brief highlight ring.
+> - C15 — `motion` springs (mass 0.6 / stiffness 220 / damping 30 per §7 dec 5); streaming live-state pulse on the secondary-chat streaming text per §8; AnimatePresence on the chat list for smooth add/remove. `usePrefersReducedMotion` short-circuits every animation to a duration-0 step per §10.
+>
+> **Verification**
+>
+> - `npm run verify` — 108 test files / 1273 tests pass; build clean.
+> - Coverage spans schema invariants, route happy-paths + 404 invariants, SSE chunk round-trip + bundle round-trip, partition-seam reducer + per-chat hook tests, popover-regression sweeps, the C9 reconciliation panel render, the unified shell skeleton + layout-mode persistence + Esc decrement + presence-focused auto-expand + jump-to-anchor scroll dispatch, and the prefers-reduced-motion hook.
+>
+> **Deferred (parking lot — follow-up frontiers)**
+>
+> `$` mention symbol, mention autocomplete, snapshot builder family, item-version-gated handle refresh, full target-grouped reconciliation UX, `PendingReviewSection` retirement, QA composer refinements, strategy sub-chat UI, mode chip + Shift+Tab toggle on the composer, suggestions row per mode, per-kind kickoff copy variations, item-anchored badge in structured-list / graph view, Ladle prototype, C7 agent-run inline rendering (the substrate is ready; no producer exists yet).
+>
+> **Stacking**
+>
+> Stacked on `ln/fe-709-reconciliations` (PR #139). Restack on `main` once #139 lands.
+
 ## Deferred — explicitly NOT in V1 (parking lot)
 
 These belong to follow-up frontiers and should not be slipped into FE-716:
@@ -265,9 +373,13 @@ These belong to follow-up frontiers and should not be slipped into FE-716:
 - `PendingReviewSection` retirement → `reconciliation-runtime` (Track 3)
 - QA composer refinements → follow-up frontier
 - Strategy secondary-chat UI → follow-up frontier (substrate may already represent it)
-- Layout-state header control (Compact / Side-docked / Maximize / Full) → follow-up frontier
+- Mode chip on composer + Shift+Tab toggle (`UNIFIED_CHAT_UX.md` §2) → follow-up frontier (Ask/Edit toggle in the collapsible header is the V1 affordance)
+- Suggestions row per mode (§2) and per-kind kickoff copy variations (§6) → follow-up frontier
+- Mention autocomplete chip UI for `#` (§3) → follow-up frontier (server-side resolution shipped in C6; only the UI affordance is deferred)
+- Item-anchored badge in structured-list / graph view (§7 dec 6) → follow-up frontier
+- Ladle prototype (§13) → follow-up frontier
 
 ## Open coordination items
 
-- **Lexicon reconciliation:** none — branch adopts PR #139's "secondary chat" vocabulary throughout.
+- **Lexicon reconciliation:** "secondary chat" stays as the *internal* substrate/code vocabulary (column names, types, helpers, hooks) per PR #139. After C11 it is no longer a user-facing label — the UI uses the kind chip (Edit / Ask) and the unified shell branding only.
 - **PR #139 dependency:** stack submits only after #139 merges (or per Lu's signal). Restack on `main` once #139 lands.

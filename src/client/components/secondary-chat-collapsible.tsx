@@ -1,3 +1,5 @@
+import { Crosshair, MessageCircleQuestion, PencilLine } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useState, type ReactNode } from 'react';
 import type { z } from 'zod/v4';
 
@@ -6,6 +8,7 @@ import { cn } from '@/client/lib/utils';
 import type { secondaryChatStateSchema } from '@/shared/api-types.js';
 
 import type { SecondaryChatMode } from './secondary-chat-trigger.js';
+import { usePrefersReducedMotion } from './use-prefers-reduced-motion.js';
 
 type SecondaryChat = z.infer<typeof secondaryChatStateSchema>;
 type SecondaryChatTurn = SecondaryChat['turns'][number];
@@ -45,6 +48,20 @@ export interface SecondaryChatCollapsibleProps {
    * collapsible to the patch-list module.
    */
   bodyExtras?: ReactNode;
+  /**
+   * Optional controlled open state (FE-716 C14). When provided, the
+   * collapsible delegates open/close to the parent via `onOpenChange`; the
+   * `SecondaryChatHost` uses this to auto-expand the focused chat after a
+   * trigger creates a new chat.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /**
+   * Optional jump-to-anchor handler (FE-716 C14). When supplied AND the
+   * chat has a non-null `invoked_in_turn_id`, the header renders a small
+   * "Jump to anchor" affordance that scrolls the workspace center pane.
+   */
+  onJumpToAnchor?: (turnId: number) => void;
 }
 
 export function SecondaryChatCollapsible({
@@ -55,26 +72,53 @@ export function SecondaryChatCollapsible({
   streamingAssistantText,
   isStreaming,
   bodyExtras,
+  open,
+  onOpenChange,
+  onJumpToAnchor,
 }: SecondaryChatCollapsibleProps) {
   const kickoffContent = secondaryChat.kickoffTurn?.assistant_parts ?? '';
   const mode = secondaryChat.chat.mode ?? 'explore';
+  const invokedInTurnId = secondaryChat.chat.invoked_in_turn_id;
+  const collapsibleProps = open !== undefined ? { open, ...(onOpenChange ? { onOpenChange } : {}) } : {};
+  // FE-716 C15: streaming live-state pulse per UNIFIED_CHAT_UX.md §8.
+  // Honors `prefers-reduced-motion` by holding opacity steady at 1.
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const streamingPulseAnimate = prefersReducedMotion ? { opacity: 1 } : { opacity: [0.5, 1, 0.5] };
+  const streamingPulseTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 1.4, repeat: Infinity, ease: 'easeInOut' as const };
 
   return (
     <Collapsible
       data-testid="secondary-chat-collapsible"
       data-secondary-chat-id={secondaryChat.chat.id}
       className={cn('rounded-md border border-rule bg-tint/50 px-3 py-2 text-sm')}
+      {...collapsibleProps}
     >
       <div className="flex w-full items-center justify-between gap-2">
         <CollapsibleTrigger
           data-testid="secondary-chat-collapsible-trigger"
           className="flex flex-1 items-center justify-between text-left text-sub"
         >
-          <span>Secondary chat</span>
+          <SecondaryChatKindChip mode={mode} />
           <span aria-hidden className="text-hint">
             ▾
           </span>
         </CollapsibleTrigger>
+        {onJumpToAnchor && invokedInTurnId !== null && (
+          <button
+            type="button"
+            data-testid="secondary-chat-jump-to-anchor"
+            data-anchor-turn-id={invokedInTurnId}
+            onClick={() => onJumpToAnchor(invokedInTurnId)}
+            title="Jump to anchor"
+            aria-label="Jump to anchor turn"
+            className="inline-flex items-center gap-1 rounded border border-rule/60 bg-background px-1.5 py-0.5 text-xs text-hint hover:text-ink"
+          >
+            <Crosshair aria-hidden className="size-3" />
+            <span>Jump</span>
+          </button>
+        )}
         <SecondaryChatModeToggle mode={mode} onSetMode={onSetMode} disabled={isModeUpdating} />
       </div>
       <CollapsibleContent
@@ -89,9 +133,14 @@ export function SecondaryChatCollapsible({
           <SecondaryChatTurnRow key={turn.id} turn={turn} />
         ))}
         {isStreaming && streamingAssistantText !== undefined && (
-          <div data-testid="secondary-chat-streaming-assistant" className="whitespace-pre-wrap text-sub">
+          <motion.div
+            data-testid="secondary-chat-streaming-assistant"
+            className="whitespace-pre-wrap text-sub"
+            animate={streamingPulseAnimate}
+            transition={streamingPulseTransition}
+          >
             {streamingAssistantText}
-          </div>
+          </motion.div>
         )}
         {bodyExtras}
         {onSubmitMessage && (
@@ -99,6 +148,22 @@ export function SecondaryChatCollapsible({
         )}
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+function SecondaryChatKindChip({ mode }: { mode: SecondaryChatMode }) {
+  const isEdit = mode === 'edit';
+  const Icon = isEdit ? PencilLine : MessageCircleQuestion;
+  const label = isEdit ? 'Edit' : 'Ask';
+  return (
+    <span
+      data-testid="secondary-chat-kind-chip"
+      data-kind={isEdit ? 'edit' : 'ask'}
+      className="inline-flex items-center gap-1 rounded border border-rule/60 bg-background px-1.5 py-0.5 text-xs text-ink"
+    >
+      <Icon aria-hidden className="size-3" />
+      <span>{label}</span>
+    </span>
   );
 }
 

@@ -1,10 +1,11 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { z } from 'zod/v4';
 
 import { streamSecondaryChatMessage } from '@/client/lib/secondary-chat-stream.js';
 import { useInvalidateSpecificationQueryDomains } from '@/client/routes/specification/$id/-specification-data.js';
 import type { secondaryChatStateSchema } from '@/shared/api-types.js';
 
+import { useChatShellPresence } from './chat-shell-presence.js';
 import { usePatchListForChat, type PatchListForChat } from './patch-list-host.js';
 import { SecondaryChatCollapsible } from './secondary-chat-collapsible.js';
 import { SecondaryChatStagingStrip } from './secondary-chat-staging-strip.js';
@@ -142,6 +143,19 @@ export function SecondaryChatHost({ secondaryChat }: SecondaryChatHostProps) {
   const modeMutation = useSetSecondaryChatModeMutation(specificationId, chatId);
   const patchList = usePatchListForChat(chatId);
   const stream = useSecondaryChatStream(secondaryChat, patchList);
+  // FE-716 C14: the host watches the chat-shell presence context for two
+  // signals: (1) `focusedChatId === chatId` auto-opens this collapsible
+  // when a trigger creates this chat, (2) `jumpToAnchor` is forwarded to
+  // the collapsible header so users can jump to the chat's
+  // `invoked_in_turn_id` in the workspace center.
+  const presence = useChatShellPresence();
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (presence?.focusedChatId === chatId) {
+      setIsOpen(true);
+    }
+  }, [chatId, presence?.focusedChatId]);
 
   return (
     <SecondaryChatCollapsible
@@ -156,6 +170,9 @@ export function SecondaryChatHost({ secondaryChat }: SecondaryChatHostProps) {
       streamingAssistantText={stream.assistantText}
       isStreaming={stream.isStreaming}
       bodyExtras={<SecondaryChatStagingStrip chatId={chatId} />}
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      {...(presence?.jumpToAnchor ? { onJumpToAnchor: presence.jumpToAnchor } : {})}
     />
   );
 }
