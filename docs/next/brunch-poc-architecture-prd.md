@@ -14,6 +14,7 @@ The transcript changed its mind in several important places. This PRD adopts the
 4. The product should converge on one primary command surface over JSON-RPC with subscriptions, rather than splitting core product behavior between RPC and REST.
 5. Structured graph mutations should flow through typed commands and shared mutation handlers, not through generic CRUD as the semantic surface.
 6. Cross-session continuity should be handled at the turn boundary through graph-revision detection, session interest sets, and injected world updates, not through ambient mid-turn mutation.
+7. The browser stack should be a native Brunch React app built around TanStack Router and TanStack Query, not an adoption of `pi-web-ui`.
 
 ## Product Thesis
 
@@ -24,6 +25,20 @@ Brunch should be able to run as an opinionated local product layered on top of p
 - local auth and settings state scoped to the product
 
 The user and the agent co-author a project specification as an intent graph. The graph must remain structurally legal at write time and semantically inspectable as a first-class coherence state. The same local Brunch host must expose that system through TUI, web, RPC, and print modes without inventing separate data planes or mutation authorities for each mode.
+
+## Delivery Posture
+
+This POC should be treated as a likely architectural re-foundation rather than an incremental extension of the current trunk. If adopted, it should probably live on a separate long-running branch or alternate trunk such as `next`.
+
+The reason is not just implementation volume. This architecture changes too many foundations at once to pretend it is a routine feature branch:
+
+- local host and mode topology
+- graph storage and mutation authority
+- session continuity rules
+- browser data plane
+- web chat/UI composition model
+
+The POC should therefore optimize for coherence within the new line rather than backward-compatible staging against the current trunk at every step.
 
 ## Goals
 
@@ -40,7 +55,7 @@ The user and the agent co-author a project specification as an intent graph. The
 2. Making REST the primary product API.
 3. Supporting cloud-hosted, multi-machine, or organization-wide deployment in the POC.
 4. Solving mid-turn distributed consistency beyond a clean turn-boundary policy.
-5. Treating `pi-web-ui` reuse as mandatory before the protocol and host architecture are proven.
+5. Reusing `pi-web-ui` for the browser product surface in the POC.
 
 ## Product Shape
 
@@ -232,7 +247,15 @@ This layer should use pi's seams, but Brunch should remain the authority over po
 
 ### Web client
 
-The web client should be a React app over a single WebSocket-backed RPC client. It should not invent a second mutation model. `pi-web-ui` should be considered optional reuse later, not a required starting dependency, because its current shape assumes an in-process `Agent` instance.
+The web client should be a native Brunch React app over a single WebSocket-backed RPC client. It should not invent a second mutation model, and it should not be built on `pi-web-ui`.
+
+The browser stack direction for the POC should be:
+
+- TanStack Router for route structure, loaders, and code-splitting
+- TanStack Query for query, subscription cache, optimistic mutation, and invalidation ownership
+- chat/message UI primitives built for Brunch on top of the Vercel AI SDK UI layer or TanStack AI-style primitives, rather than pi's browser package
+
+This keeps the browser aligned with Brunch's existing React direction and avoids forcing a remote-agent compatibility layer around a package that assumes an in-process browser `Agent`.
 
 ## Prompt, Context, and Agent Integration
 
@@ -315,10 +338,12 @@ The web app needs three client primitives over one connection:
 
 The transcript's recommendation should carry into the POC:
 
+- TanStack Router for route modeling, preload, and code-splitting
 - one singleton `RpcClient`
 - one WebSocket connection
 - React hooks layered over the RPC client
 - TanStack Query for cache ownership, deduplication, optimistic updates, and re-render scheduling
+- AI-SDK-oriented chat UI components or thin Brunch-owned wrappers over them for messages, streaming state, and input composition
 
 Graph views should generally be subscription-first rather than GET-first. If an initial HTML seed is needed later, it should hydrate the same cache entries rather than define a second read path.
 
@@ -406,13 +431,14 @@ What this proves:
 
 ### Proof 4: Web mode can be a thin remote head over the same host
 
-Add `--mode web` as a local HTTP server plus WebSocket RPC client, without inventing a separate backend API.
+Add `--mode web` as a local HTTP server plus WebSocket RPC client, implemented as a native Brunch React app with TanStack Router and TanStack Query, without inventing a separate backend API.
 
 What this proves:
 
 - the browser can remain a view over the same Brunch host
 - TUI and web can share one session and one graph authority
 - Brunch does not need a second product architecture for the browser
+- Brunch does not need `pi-web-ui` to get a credible web surface
 
 ### Proof 5: Subscription-first React data loading is enough
 
@@ -471,10 +497,11 @@ The POC is successful if it demonstrates all of the following:
 3. The browser does not require a second primary data plane.
 4. Cross-session graph changes are surfaced to the agent coherently at turn boundaries.
 5. Coherence is explicit product state, not an implicit hope.
+6. The `next`-line browser implementation is coherent with Brunch's TanStack React stack rather than anchored to `pi-web-ui` reuse.
 
 ## Open Questions Deferred Beyond The POC
 
-1. Whether enough of `pi-web-ui` is worth adapting through a remote-agent proxy after the core host protocol is proven.
+1. Whether the chat UI should lean more heavily on Vercel AI SDK primitives, TanStack AI primitives, or a thin Brunch-owned abstraction spanning both ideas.
 2. Whether the eventual graph command surface should remain generic `records.*` or evolve toward more domain-specific method families.
 3. Whether transcript storage should remain JSONL long-term or eventually move into SQLite once the graph architecture stabilizes.
 4. How much neighborhood expansion or dependency tracking is needed before interest-set filtering becomes trustworthy for larger graphs.
