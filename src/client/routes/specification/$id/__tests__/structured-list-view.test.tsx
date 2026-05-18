@@ -37,10 +37,6 @@ import { PatchListOverlay } from '@/client/components/patch-list-overlay.js';
 const mockNavigate = vi.fn();
 let mockHash = '';
 
-// FE-716 C19/C27: mutable bundle stub so individual tests can vary the
-// active secondary chat (and its `pinned_item_id` / `anchoredItemIds`).
-// `setMockSecondaryChats(...)` is called inside `beforeEach` and the C19
-// row-anchor tests below.
 type MockSecondaryChat = {
   chat: { id: number; pinned_item_id: number | null; pinned_reconciliation_need_id: number | null };
   pinnedItemKind: string | null;
@@ -63,9 +59,8 @@ vi.mock('@tanstack/react-router', () => ({
 
 // PendingReviewSection queries -specification-data; preserve the real module and
 // only stub open-needs + invalidation so tests stay isolated from TanStack Query.
-// FE-716 C27: also stub `useSpecificationBundleData` so the structured-list's
-// active-chat anchor lookup runs without a QueryClient harness — these tests
-// don't exercise the shell/presence wiring.
+// Also stub `useSpecificationBundleData` so the structured-list's active-chat
+// anchor lookup runs without a QueryClient harness.
 vi.mock('@/client/routes/specification/$id/-specification-data.js', async (importOriginal) => {
   const mod =
     await importOriginal<typeof import('@/client/routes/specification/$id/-specification-data.js')>();
@@ -77,9 +72,6 @@ vi.mock('@/client/routes/specification/$id/-specification-data.js', async (impor
   };
 });
 
-// FE-716 C19: stub `useChatShellPresence` so tests can name a "focused
-// chat id" without mounting the full presence provider. Default null
-// presence leaves rows unselected (matches no-shell-context behavior).
 vi.mock('@/client/components/chat-shell-presence.js', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@/client/components/chat-shell-presence.js')>();
   return {
@@ -1113,9 +1105,6 @@ describe('structured-list-view C19 chat-anchored row selection', () => {
       '[data-graph-row][data-item-kind="constraint"][data-item-id="20"]',
     ) as HTMLElement;
     expect(constraintRow.getAttribute('data-graph-row-chat-anchored')).toBe('true');
-    // Revised C19 schema (post-walkthrough): accent border only — the
-    // background tint was dropped because the graph view already has
-    // dense kind-colored chips and an extra row tint reads as noisy.
     expect(constraintRow.style.borderColor).not.toBe('');
     expect(constraintRow.style.backgroundColor).toBe('');
 

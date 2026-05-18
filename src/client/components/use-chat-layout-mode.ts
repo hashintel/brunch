@@ -4,7 +4,6 @@ import type { ChatLayoutMode } from './unified-chat-shell.js';
 
 // `'full'` is hidden in the UI; reads and writes are clamped to `'maximize'`
 // so older persisted values still resolve cleanly.
-
 export const CHAT_LAYOUT_MODE_ORDER: ReadonlyArray<ChatLayoutMode> = [
   'compact',
   'side-docked',
@@ -59,7 +58,7 @@ function writePersistedMode(specificationId: number | string, mode: ChatLayoutMo
 
 /**
  * Decrement the mode one tier (Full → Maximize → Side-docked → Compact).
- * Returns the same mode when already at the smallest tier (Compact).
+ * Returns the same mode when already at the smallest tier.
  */
 export function decrementChatLayoutMode(mode: ChatLayoutMode): ChatLayoutMode {
   const index = CHAT_LAYOUT_MODE_ORDER.indexOf(mode);
@@ -90,9 +89,9 @@ export function useChatLayoutMode(specificationId: number | string): UseChatLayo
     [specificationId],
   );
 
-  // Esc decrements one tier (§10). Bound at document level so any focused
-  // element (composer, button) still gets Esc first via stopPropagation if it
-  // wants to handle Esc itself (e.g. Radix collapsibles do not).
+  // Esc decrements one tier. Bound at document level so any focused element
+  // (composer, button) still gets Esc first via stopPropagation if it wants
+  // to handle Esc itself (e.g. Radix collapsibles do not).
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onKeyDown = (event: KeyboardEvent) => {

@@ -13,7 +13,6 @@ function Probe() {
 const originalMatchMedia = window.matchMedia;
 
 beforeEach(() => {
-  // Reset between tests.
   (window as { matchMedia?: typeof window.matchMedia }).matchMedia = originalMatchMedia;
 });
 

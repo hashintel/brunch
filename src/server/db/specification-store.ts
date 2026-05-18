@@ -163,12 +163,6 @@ export interface CreateSecondaryChatInput {
   invoked_in_turn_id?: number | null;
   pinned_item_id?: number | null;
   pinned_span_hint?: string | null;
-  /**
-   * Optional anchor to a substantive `reconciliation_need` row. When set, the
-   * bundle hydration joins the row so `SecondaryChatCollapsible` can render the
-   * lightweight "elements being reconciled" panel (FE-716 C9). Null for chats
-   * opened from non-reconciliation entry points.
-   */
   pinned_reconciliation_need_id?: number | null;
   mode?: SecondaryChatMode;
 }
@@ -255,7 +249,7 @@ function findItemSecondaryChat(
 /**
  * Find-or-create the per-item secondary chat for a (parent, item) pair.
  * Dedupes by `(parent_chat_id, pinned_item_id)` with `pinned_reconciliation_need_id IS NULL`
- * — clicking the same item twice re-opens the existing chat rather than
+ * so clicking the same item twice re-opens the existing chat rather than
  * creating a duplicate. Reconciliation chats use a separate path.
  *
  * Returns `kickoffTurnId = null` when reusing an existing chat (no new
@@ -288,8 +282,6 @@ export function getOrCreateItemSecondaryChat(
     ...(input.mode ? { mode: input.mode } : {}),
   });
 
-  // anchored_item_ids stays as a single-element array per chat for
-  // forward-compat with C19 selection styling that reads from this column.
   const persistedChat = db
     .update(schema.chat)
     .set({ anchored_item_ids: JSON.stringify([input.itemId]) })
@@ -312,13 +304,6 @@ export interface CreateKickoffTurnInput {
   content: string;
 }
 
-/**
- * Read-time projection of the chat's anchored `reconciliation_need` row
- * (FE-716 C9). Joins both endpoints of the need to surface ref codes + content
- * excerpts so the client can render the "elements being reconciled" panel
- * inside `SecondaryChatCollapsible` without a second fetch. Null when the chat
- * doesn't carry `pinned_reconciliation_need_id`.
- */
 export interface SecondaryChatPinnedReconciliationNeed {
   needId: number;
   kind: ReconciliationNeedKind;
@@ -334,28 +319,13 @@ export interface SecondaryChatWithKickoff {
   chat: Chat;
   kickoffTurn: Turn | null;
   /**
-   * Post-kickoff turns under this secondary chat, ordered by id ascending.
-   * Each turn carries either `user_parts` (role='user') or `assistant_parts`
-   * (role='assistant') populated by `appendSecondaryChatTurn`.
+   * Post-kickoff turns ordered by id ascending. Each turn carries either
+   * `user_parts` (role='user') or `assistant_parts` (role='assistant'),
+   * never both.
    */
   turns: Turn[];
-  /**
-   * Resolved kind of the chat's pinned knowledge item (or null when the chat
-   * isn't pinned). Surfaced so the client can build patch anchors for staged
-   * proposals (FE-716 C5c) without a second knowledge-item fetch round-trip.
-   */
   pinnedItemKind: KnowledgeKind | null;
-  /**
-   * Joined projection of the anchored `reconciliation_need` row when the chat
-   * was opened from a substantive reconciliation entry (FE-716 C9). Null when
-   * the chat carries no `pinned_reconciliation_need_id`.
-   */
   pinnedReconciliationNeed: SecondaryChatPinnedReconciliationNeed | null;
-  /**
-   * Knowledge-item ids that this chat is anchored to (FE-716 C26: typically a
-   * single-element array matching `pinned_item_id`; preserved as a list for
-   * forward-compat with future enrichment).
-   */
   anchoredItemIds: number[];
 }
 
@@ -493,13 +463,9 @@ export interface AppendSecondaryChatTurnInput {
 }
 
 /**
- * Appends a single user or assistant turn under a secondary chat.
- *
- * Refuses to write to a primary (interview) chat — secondary-chat round-trips
- * must live under a chat with `parent_chat_id IS NOT NULL`. Models the chat
- * substrate where each turn row represents one role's contribution; pair
- * `appendSecondaryChatTurn(chatId, { role: 'user' })` with a follow-up
- * `appendSecondaryChatTurn(chatId, { role: 'assistant' })` per round-trip.
+ * Appends a single user or assistant turn under a secondary chat. Throws when
+ * `chatId` resolves to a primary (interview) chat — secondary-chat round-trips
+ * must live under a chat with `parent_chat_id IS NOT NULL`.
  */
 export function appendSecondaryChatTurn(db: DB, chatId: number, input: AppendSecondaryChatTurnInput): Turn {
   const chat = db

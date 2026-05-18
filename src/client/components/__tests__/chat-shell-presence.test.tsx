@@ -14,9 +14,8 @@ vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: '1' }),
 }));
 
-// FE-716 C24c: SecondaryChatHost mounts useChat<BrunchUIMessage>; mock at the
-// @ai-sdk/react boundary so happy-dom doesn't try to instantiate a real
-// transport/streaming pipeline.
+// Mock at the @ai-sdk/react boundary so happy-dom doesn't try to instantiate a
+// real transport/streaming pipeline.
 vi.mock('@ai-sdk/react', () => ({
   useChat: () => ({
     messages: [],
@@ -160,7 +159,6 @@ function makeHarness(secondaryChats: SecondaryChat[]): {
 } {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   queryClient.setQueryData(specificationQueryKeys.bundle('1'), buildSpec(secondaryChats));
-  // FE-716 C25: seed empty entities for the host's mention popup query.
   queryClient.setQueryData(specificationQueryKeys.entities('1'), {
     goals: [],
     terms: [],
@@ -207,7 +205,7 @@ function TriggerButton({ chatId = 0 }: { chatId?: number }) {
   );
 }
 
-describe('FE-716 C14 — chat shell presence + trigger integration', () => {
+describe('chat shell presence + trigger integration', () => {
   it('expands the shell and focuses the new chat after a successful create', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ chatId: 42, kickoffTurnId: 100 }), { status: 200 }),
@@ -215,7 +213,6 @@ describe('FE-716 C14 — chat shell presence + trigger integration', () => {
 
     const { Wrapper, queryClient } = makeHarness([]);
 
-    // Simulate the server returning the new chat in the next bundle fetch.
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(buildSpec([makeChat(42)])), { status: 200 }));
 
     render(
@@ -225,18 +222,15 @@ describe('FE-716 C14 — chat shell presence + trigger integration', () => {
       </Wrapper>,
     );
 
-    // Minimize the shell first to verify expand-on-create.
     fireEvent.click(screen.getByTestId('unified-chat-shell-minimize'));
     expect(screen.getByTestId('unified-chat-shell-minimized')).not.toBeNull();
 
     fireEvent.click(screen.getByTestId('trigger'));
 
     await waitFor(() => {
-      // Bundle invalidation re-fetches and the new chat surfaces.
       expect(queryClient.getQueryData(specificationQueryKeys.bundle('1'))).toBeDefined();
     });
 
-    // Shell is now expanded again (was minimized before trigger).
     await waitFor(() => {
       expect(screen.queryByTestId('unified-chat-shell-minimized')).toBeNull();
       expect(screen.getByTestId('unified-chat-shell')).not.toBeNull();
@@ -247,7 +241,6 @@ describe('FE-716 C14 — chat shell presence + trigger integration', () => {
     const chat = makeChat(7, 9);
     const { Wrapper } = makeHarness([chat]);
 
-    // Anchor target stub in the DOM.
     document.body.innerHTML = '<div data-anchor-turn-id="9" id="anchor-9"></div>';
     const target = document.querySelector<HTMLElement>('[data-anchor-turn-id="9"]')!;
     const scrollSpy = vi.spyOn(target, 'scrollIntoView').mockImplementation(() => {});
@@ -294,7 +287,6 @@ describe('FE-716 C14 — chat shell presence + trigger integration', () => {
       </Wrapper>,
     );
 
-    // Before trigger, collapsible is closed by default (data-state="closed").
     const before = screen.getByTestId('secondary-chat-collapsible');
     expect(before.getAttribute('data-state')).toBe('closed');
 

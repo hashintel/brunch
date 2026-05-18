@@ -1,7 +1,3 @@
-// Patch-list module's public surface (D132). `<PatchListProvider>` plus
-// `useFoo()` hooks. Internal state is an event log (`patch-list-reducer.ts`);
-// the React layer is glue.
-
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, type ReactNode } from 'react';
 
 import {
@@ -30,8 +26,6 @@ export type {
   StagePatchInput,
 } from './patch-list-reducer.js';
 
-// ---- Appliers (kind → server fan-out) ----
-
 export type ApplyPatchFn<P extends Patch> = (
   patch: P,
 ) => Promise<{ undo: () => Promise<void>; applied?: unknown }>;
@@ -43,8 +37,6 @@ export interface PatchAppliers {
   drillDown: ApplyPatchFn<DrillDownPatch>;
 }
 
-// ---- Public action surface ----
-
 export interface PatchListActions {
   stage: (input: StagePatchInput) => string;
   discard: (id: string) => void;
@@ -52,8 +44,6 @@ export interface PatchListActions {
   apply: (patchIds?: readonly string[]) => Promise<void>;
   undo: () => Promise<boolean>;
 }
-
-// ---- Context ----
 
 interface PatchListContextValue {
   actions: PatchListActions;
@@ -63,8 +53,6 @@ interface PatchListContextValue {
 }
 
 const PatchListContext = createContext<PatchListContextValue | null>(null);
-
-// ---- Provider ----
 
 export interface PatchListProviderProps {
   appliers: PatchAppliers;
@@ -194,7 +182,7 @@ export function PatchListProvider({ appliers, children, idFactory, now }: PatchL
       dispatch({ type: 'UNDO_SUCCESS', batchId: pending.batchId });
       return true;
     } catch {
-      // Best-effort undo per D132. Surface failures as toasts in a later card.
+      // Best-effort undo. Surface failures as toasts in a later iteration.
       return false;
     }
   }, []);
@@ -288,8 +276,6 @@ export function useStagedPatches(filter?: StagedPatchesFilter): readonly Patch[]
   }, [ctx, anchorKind, anchorItemId, filterKind]);
 }
 
-// ---- Per-chat selector seam (FE-716 C5c, Shape A) ----
-
 /**
  * Per-chat view of the patch list scoped to one secondary chat. Returns the
  * filtered staged slice (only patches whose `producerChatId === chatId`) plus
@@ -297,8 +283,7 @@ export function useStagedPatches(filter?: StagedPatchesFilter): readonly Patch[]
  * `discard`/`editSummary` reject ids that don't belong to the chat (they
  * wouldn't surface in `staged` anyway, but the guard keeps the public seam
  * tight). Sharing one provider keeps the apply pipeline + undo handles in
- * one place; the partition lives at this selector layer per the C5c
- * "Shape A" decision in CARDS.md.
+ * one place; the partition lives at this selector layer.
  */
 export interface PatchListForChat {
   staged: readonly Patch[];

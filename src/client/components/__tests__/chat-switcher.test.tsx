@@ -35,7 +35,7 @@ afterEach(() => {
   cleanup();
 });
 
-describe('ChatSwitcher — C27 selective kind-accent tinting', () => {
+describe('ChatSwitcher — selective kind-accent tinting', () => {
   it('renders nothing when no chats are provided', () => {
     const { container } = render(<ChatSwitcher chats={[]} activeChatId={null} onSelect={vi.fn()} />);
     expect(container.firstChild).toBeNull();
@@ -47,7 +47,6 @@ describe('ChatSwitcher — C27 selective kind-accent tinting', () => {
 
     const trigger = screen.getByTestId('chat-switcher-trigger') as HTMLButtonElement;
     expect(trigger.getAttribute('data-accent-hex')).toBe(kindAccentHex.constraint);
-    // Chip schema: tinted bg + accent text + ~20% border alpha.
     expect(trigger.style.backgroundColor).not.toBe('');
     expect(trigger.style.color).not.toBe('');
     expect(trigger.style.borderColor).not.toBe('');

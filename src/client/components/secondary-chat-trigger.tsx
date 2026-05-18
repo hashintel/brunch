@@ -62,9 +62,9 @@ export interface CreateSecondaryChatRequest {
   itemId: number;
   spanHint?: string;
   /**
-   * FE-716 C9: when the chat is opened from a substantive `reconciliation_need`
-   * row, pass the need id so the server persists `pinned_reconciliation_need_id`
-   * and the inline collapsible can render the "elements being reconciled" panel.
+   * When the chat is opened from a substantive `reconciliation_need` row, pass
+   * the need id so the server persists `pinned_reconciliation_need_id` and the
+   * inline collapsible can render the "elements being reconciled" panel.
    */
   reconciliationNeedId?: number;
 }
@@ -115,9 +115,9 @@ export interface SecondaryChatTriggerItem {
    */
   spanHint?: string;
   /**
-   * Optional `reconciliation_need.id` when the trigger fires from a substantive
-   * reconciliation row (FE-716 C9). Persisted as `pinned_reconciliation_need_id`
-   * so the inline collapsible renders the "elements being reconciled" panel.
+   * `reconciliation_need.id` when the trigger fires from a substantive
+   * reconciliation row. Persisted as `pinned_reconciliation_need_id` so the
+   * inline collapsible renders the "elements being reconciled" panel.
    */
   reconciliationNeedId?: number;
 }
@@ -160,8 +160,8 @@ export function SecondaryChatTriggerProvider({ children }: { children: ReactNode
   const parentChatId = specificationState.specification.primary_chat_id ?? null;
   const activeTurnId = specificationState.specification.active_turn_id;
   const mutation = useCreateSecondaryChatMutation(specificationId);
-  // FE-716 C14: when a trigger successfully creates a new chat, expand the
-  // shell and focus the new chat so its collapsible auto-opens.
+  // When a trigger successfully creates a new chat, expand the shell and
+  // focus the new chat so its collapsible auto-opens.
   const presence = useChatShellPresence();
 
   const canCreate = parentChatId !== null && activeTurnId !== null;

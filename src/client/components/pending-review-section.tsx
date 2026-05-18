@@ -1,20 +1,3 @@
-// PendingReviewSection — V3.0 cascade resolution surface (SIDE_CHAT.md §5.3).
-//
-// Renders open `reconciliation_need` rows for the current specification with
-// a per-row Resolve button. Driven by useSpecificationOpenReconciliationNeeds;
-// returns null when the queue is empty so the parent overlay can skip rendering.
-//
-// V3.1 adds agent grouping (auto-confirm / auto-edit / substantive),
-// per-row agent actions, and bulk resolution while preserving the
-// patch-list-overlay's surrounding staged-change regions.
-//
-// Card 4 polish: source diff is no longer rendered inline. Each row shows a
-// "↗ view source diff" chip that opens a <DiffPopover>. Action buttons shrink
-// to icon-only ghost (Edit) + small kind-accent solid (Resolve). The inline
-// edit form reuses the same toolbar contract as ItemEditTextarea (icon-only
-// Cancel + small kind-accent Save). Rows use target_item_kind when present,
-// with neutral amber as the nullable-kind fallback.
-
 import {
   Check,
   CheckCheck,
@@ -47,18 +30,16 @@ import { ClassificationChip } from './classification-chip.js';
 import { DiffPopover } from './diff-popover.js';
 import { useSecondaryChatTrigger } from './secondary-chat-trigger.js';
 
-// Card 3 (V3.1 setup): per-row inline edit state. Keyed by need id so
-// expanding one row's edit form doesn't perturb other rows. Draft text is
-// the current textarea value; absence from the map means the row is not
+// Per-row inline edit state. Keyed by need id so expanding one row's edit
+// form doesn't perturb other rows. Absence from the map means the row is not
 // in edit mode. Saving runs editKnowledgeItemRequest then the existing
 // resolve endpoint, so re-entrant cascades (a hard apply opening new needs)
 // surface in the same Pending review section after the next refetch.
 type EditDraftMap = ReadonlyMap<number, string>;
 
-// Card 4 follow-up: only the kind-relevant chips/bar carry an amber tint
-// (they signal supersedes/confirm semantics). Action buttons (Resolve, Edit,
-// Save) use the product's primary blue so non-kind affordances don't bleed
-// into the amber row family.
+// Only the kind-relevant chips/bar carry an amber tint (they signal
+// supersedes/confirm semantics). Action buttons use the product's primary
+// blue so non-kind affordances don't bleed into the amber row family.
 const KIND_ACCENT_AMBER = '#d97706';
 const PRIMARY_ACTION_BLUE = '#3484fa';
 
@@ -456,10 +437,6 @@ export function PendingReviewSection(): React.ReactElement | null {
             need.source_current_content !== null &&
             need.source_previous_content !== need.source_current_content;
           const canEditTarget = need.target_current_content !== null;
-          // Kind chip + left bar carry amber (the kind-relevant signal).
-          // Action buttons (Resolve, Save) and the inline edit form border
-          // use the product's primary blue so non-kind chrome doesn't bleed
-          // amber into action affordances.
           const kindAccent = KIND_ACCENT_AMBER;
           const actionAccent = PRIMARY_ACTION_BLUE;
           const KindIcon = need.kind === 'supersedes' ? Replace : Check;

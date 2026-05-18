@@ -16,9 +16,9 @@ export function WorkspaceArtifactRow({
   className?: string;
   testId?: string;
   /**
-   * FE-716 C14: when set, the row exposes `data-anchor-turn-id` so the
-   * unified-chat-shell's per-chat "Jump to anchor" affordance can scroll
-   * the workspace center pane to the artifact bearing this turn id.
+   * When set, the row exposes `data-anchor-turn-id` so the unified-chat-shell's
+   * per-chat "Jump to anchor" affordance can scroll the workspace center pane
+   * to the artifact bearing this turn id.
    */
   anchorTurnId?: number;
 }) {

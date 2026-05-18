@@ -46,10 +46,10 @@ vi.mock('@/client/components/ai-elements/message.js', () => ({
   MessageResponse: ({ children }: { children: string }) => <div>{children}</div>,
 }));
 
-// FE-716 C24c: useChat is mocked at the @ai-sdk/react boundary. The harness
-// records each call so tests can assert per-chat isolation (each
-// SecondaryChatHost instance gets its own useChat mount) and so the test
-// can drive sendMessage + onFinish synchronously.
+// useChat is mocked at the @ai-sdk/react boundary. The harness records each
+// call so tests can assert per-chat isolation (each SecondaryChatHost instance
+// gets its own useChat mount) and can drive sendMessage + onFinish
+// synchronously.
 interface UseChatCallRecord {
   id: string | undefined;
   sendMessage: ReturnType<typeof vi.fn>;
@@ -169,8 +169,6 @@ function createHarness(): {
 } {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   queryClient.setQueryData(specificationQueryKeys.bundle('1'), buildSpec());
-  // FE-716 C25: SecondaryChatHost consumes useSpecificationEntities for the
-  // `#` mention popup; seed empty entities so the suspense query resolves.
   queryClient.setQueryData(specificationQueryKeys.entities('1'), {
     goals: [],
     terms: [],
@@ -198,7 +196,7 @@ afterEach(() => {
   cleanup();
 });
 
-describe('SecondaryChatHost — useChat refit (FE-716 C24c)', () => {
+describe('SecondaryChatHost — useChat refit', () => {
   it('mounts useChat with a chat-scoped id keyed to the secondary chat', () => {
     const chat: SecondaryChat = {
       chat: baseChat,
@@ -308,7 +306,6 @@ describe('SecondaryChatHost — useChat refit (FE-716 C24c)', () => {
     const ids = useChatCalls.map((c) => c.id);
     expect(ids).toContain('secondary-chat-7');
     expect(ids).toContain('secondary-chat-8');
-    // Distinct sendMessage spies per chat — chatA's mount cannot call chatB's.
     const callA = useChatCalls.find((c) => c.id === 'secondary-chat-7')!;
     const callB = useChatCalls.find((c) => c.id === 'secondary-chat-8')!;
     expect(callA.sendMessage).not.toBe(callB.sendMessage);

@@ -11,18 +11,18 @@ const LAYOUT_MODE_SHELL_PERCENT: Record<'side-docked' | 'maximize', number> = {
 };
 
 export interface ChatShellLayoutProps {
-  /** Specification id, used to key the persisted layout-mode storage. */
+  /** Keys the persisted layout-mode storage. */
   readonly specificationId: number | string;
-  /** The center pane content (workspace transcript, graph view, etc.). */
+  /** Workspace transcript, graph view, etc. */
   readonly center: ReactNode;
 }
 
 /**
- * Wraps `center` with the FE-716 unified chat shell. Reads presence
- * (minimized / closed / expanded) and the persisted layout mode to dispatch
- * between resizable / compact / full / collapsed shapes. The shell is
- * mounted once per route consumer so closing it on the chat route doesn't
- * affect the graph route's local presence (and vice versa).
+ * Wraps `center` with the unified chat shell. Reads presence (minimized /
+ * closed / expanded) and the persisted layout mode to dispatch between
+ * resizable / compact / full / collapsed shapes. The shell is mounted once
+ * per route consumer so closing it on the chat route doesn't affect the
+ * graph route's local presence (and vice versa).
  */
 export function ChatShellLayout({ specificationId, center }: ChatShellLayoutProps) {
   const { layoutMode, setLayoutMode } = useChatLayoutMode(specificationId);

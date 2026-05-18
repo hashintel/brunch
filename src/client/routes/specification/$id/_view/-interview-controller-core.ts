@@ -572,10 +572,6 @@ export function createInterviewControllerViewState(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Shared pure helpers (used by both interview and continuous-workspace controllers)
-// ---------------------------------------------------------------------------
-
 const MAX_TOOL_DETAIL_LENGTH = 80;
 const HYDRATED_TURN_MESSAGE_ID_PATTERN = /^turn-\d+-/;
 
@@ -719,10 +715,6 @@ export function sameTurnReferences(
 ): boolean {
   return left.length === right.length && left.every((turn, index) => turn === right[index]);
 }
-
-// ---------------------------------------------------------------------------
-// Shared bottom-artifact enrichment
-// ---------------------------------------------------------------------------
 
 export interface BottomArtifactEnrichmentDeps {
   readonly submitTurnResponseErrorMessage: string | null;
@@ -880,7 +872,6 @@ export function enrichBottomArtifact(
     };
   }
 
-  // workflow-complete
   return {
     kind: 'workflow-complete',
     phase: bottomArtifact.phase,

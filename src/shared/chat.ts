@@ -5,12 +5,9 @@ import { createKnowledgeCollectionRecord } from './knowledge.js';
 import { dataConfirmationSchema, workflowPhaseSchema, type DataConfirmation } from './phase-close.js';
 import { phaseIntentRequestSchema, type PhaseIntentRequest } from './phase-intents.js';
 
-// FE-716 C24a: secondary-chat tool inputs live here so the shared chat-types
-// substrate stays self-contained. `src/server/side-chat-prompt.ts` re-exports
-// these as the canonical schemas for the server-side `tool({...})` defs and
-// for `getSideChatTools(mode)`. `api-types.ts` imports from `chat.ts`, so we
-// can't reach back for `edgeRelationSchema` without a cycle — duplicate the
-// 5-value enum here; if it ever diverges, lift both to a tiny shared module.
+// `api-types.ts` imports from `chat.ts`, so reaching back for
+// `edgeRelationSchema` there would create a cycle — the 5-value enum is
+// duplicated here. If it ever diverges, lift both to a tiny shared module.
 const sideChatEdgeRelationSchema = z.enum([
   'depends_on',
   'derived_from',
@@ -54,11 +51,9 @@ export type ProposeEditOutput = z.infer<typeof proposeEditOutputSchema>;
 export type ProposeEdgeOutput = z.infer<typeof proposeEdgeOutputSchema>;
 export type ProposeDrillDownOutput = z.infer<typeof proposeDrillDownOutputSchema>;
 
-// FE-716 C24a: edit-impact tier surfaces as a sibling data part keyed by
-// `toolCallId` so the client can join it back to the corresponding
-// `tool-propose_edit` part once C24b emits both. Mirrors today's bespoke
-// `patch-proposal` chunk's `impact` field; tier values match `EditImpactTier`
-// in `src/server/edit-impact.ts`.
+// Edit-impact tier surfaces as a sibling data part keyed by `toolCallId` so
+// the client can join it back to the corresponding `tool-propose_edit` part.
+// Tier values must match `EditImpactTier` in `src/server/edit-impact.ts`.
 export const editImpactTierSchema = z.enum(['none', 'soft', 'hard']);
 export const editImpactDataSchema = z.object({
   toolCallId: z.string().min(1),
@@ -280,8 +275,6 @@ export type BrunchDataParts = {
   confirmation: DataConfirmation;
   'phase-intent': PhaseIntentRequest;
   'phase-summary': DataPhaseSummary;
-  // FE-716 C24a: emitted by the secondary-chat route alongside the
-  // corresponding tool-propose_edit part; joined client-side by toolCallId.
   'edit-impact': EditImpactData;
 };
 
@@ -298,10 +291,9 @@ export type BrunchUITools = {
     input: PhaseClosureProposal;
     output: ProposePhaseClosureToolOutput;
   };
-  // FE-716 C24a: secondary-chat tools share the same UIMessage registry as
-  // the interview spine. Interview-side exhaustive switches treat these as
-  // no-ops; the secondary-chat host (C24c) walks them into
-  // `patchList.stage(...)`.
+  // Secondary-chat tools share the same UIMessage registry as the interview
+  // spine; interview-side exhaustive switches treat them as no-ops while the
+  // secondary-chat host walks them into the staging strip.
   propose_edit: {
     input: ProposeEditInput;
     output: ProposeEditOutput;
@@ -354,9 +346,8 @@ const persistedAssistantPartSchema = z.discriminatedUnion('type', [
   z
     .object({ type: z.literal('tool-propose_phase_closure'), input: phaseClosureProposalSchema.optional() })
     .loose(),
-  // FE-716 C24a: admit secondary-chat tool-call parts for forward-compat.
-  // Secondary chats persist assistant turns as plain text today (C24b keeps
-  // that contract); decoding still has to accept these shapes so a future
+  // Forward-compat: secondary chats persist assistant turns as plain text
+  // today, but decoding must still accept these tool-call shapes so a future
   // writer doesn't silently lose data.
   z.object({ type: z.literal('tool-propose_edit'), input: proposeEditInputSchema.optional() }).loose(),
   z.object({ type: z.literal('tool-propose_edge'), input: proposeEdgeInputSchema.optional() }).loose(),
@@ -432,10 +423,10 @@ export const proposePhaseClosureValidationTool = tool({
   outputSchema: proposePhaseClosureToolOutputSchema,
 });
 
-// FE-716 C24a: validation tools for secondary-chat propose_* surfaces so
-// `validateUIMessages<BrunchUIMessage>` in the C24b route accepts echoed
-// tool-call parts. Output schemas mirror inputs (the server-side
-// `execute` echo today; client-side staged patches reuse the input shape).
+// Validation tools for secondary-chat propose_* surfaces so
+// `validateUIMessages<BrunchUIMessage>` accepts echoed tool-call parts.
+// Output schemas intentionally mirror inputs — the server echoes inputs and
+// client-side staged patches reuse the input shape.
 export const proposeEditValidationTool = tool({
   description:
     'Propose an edit to the currently pinned knowledge item. The user reviews and applies the edit through the patch list.',
@@ -511,8 +502,8 @@ const INTERNAL_TOOL_PART_TYPES: ReadonlySet<InternalToolPartType> = new Set<Inte
   'tool-ask_question',
   'tool-present_preface',
   'tool-propose_phase_closure',
-  // FE-716 C24a: secondary-chat propose_* tool parts are internal — they
-  // route into the staging strip, not into the activity-summary tool list.
+  // Secondary-chat propose_* parts route into the staging strip, not into
+  // the activity-summary tool list.
   'tool-propose_edit',
   'tool-propose_edge',
   'tool-propose_drill_down',

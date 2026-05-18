@@ -23,8 +23,6 @@ export interface ChatSwitcherProps {
 
 function getChatLabel(chat: SecondaryChat): string {
   const kickoff = chat.kickoffTurn?.assistant_parts ?? '';
-  // Kickoff format: "Anchored to '<excerpt>'." or "Editing '<excerpt>'.".
-  // Strip the leading verb so the dropdown row reads as the item excerpt.
   const match = kickoff.match(/'([^']+)'/);
   if (match?.[1]) return match[1];
   return kickoff || `Chat #${chat.chat.id}`;
@@ -41,10 +39,6 @@ export function ChatSwitcher({ chats, activeChatId, onSelect }: ChatSwitcherProp
   if (!active) return null;
 
   const activeAccent = active.pinnedItemKind ? kindAccentHex[active.pinnedItemKind] : null;
-  // FE-716 C27 (revised post-walkthrough): use the side-chat chip schema —
-  // tinted background at ~8% alpha (`${accent}14`) + accent-coloured text —
-  // instead of a solid 3px left-border. Matches `kindColor` from the
-  // structured-list rows and the legacy SideChatPopover staged-kind chip.
   const triggerStyle: CSSProperties | undefined = activeAccent
     ? { backgroundColor: `${activeAccent}14`, color: activeAccent, borderColor: `${activeAccent}33` }
     : undefined;
@@ -68,9 +62,6 @@ export function ChatSwitcher({ chats, activeChatId, onSelect }: ChatSwitcherProp
         {chats.map((chat) => {
           const isActive = chat.chat.id === active.chat.id;
           const accent = chat.pinnedItemKind ? kindAccentHex[chat.pinnedItemKind] : null;
-          // Active row uses the same chip schema as the trigger so the
-          // dropdown reads as a coherent kind-accented control. Inactive
-          // rows stay neutral.
           const rowStyle: CSSProperties | undefined =
             isActive && accent ? { backgroundColor: `${accent}14`, color: accent } : undefined;
           return (

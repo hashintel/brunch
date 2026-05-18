@@ -38,12 +38,6 @@ const dbModule = await import('./db.js');
 let app: ReturnType<typeof createApp>['app'];
 let db: ReturnType<typeof createApp>['db'];
 
-/**
- * Build a fake `streamText` result that mirrors the slice of the real API
- * the C24b route consumes: `toUIMessageStream()` (writer.merge source),
- * `finishReason` (awaited before we write data-edit-impact), and `toolCalls`
- * (joined back to staged patches by toolCallId on the client).
- */
 interface FakeStreamTextOptions {
   text?: string;
   toolCalls?: ReadonlyArray<{ toolCallId: string; toolName: string; input?: unknown }>;
@@ -90,11 +84,6 @@ function makeStreamTextResult(options: FakeStreamTextOptions = {}) {
   };
 }
 
-/**
- * Helper: build a single-user-message UIMessage envelope for the
- * `{ messages: BrunchUIMessage[] }` request body. Matches the shape the
- * client `useChat<BrunchUIMessage>` mount would send.
- */
 function userMessagePayload(text: string): { messages: unknown[] } {
   return {
     messages: [
@@ -169,12 +158,9 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
       .send(userMessagePayload('Why product-market fit?'))
       .expect(200);
 
-    // UIMessage stream protocol surfaces text via `text-delta` chunks; the
-    // text content appears in the `delta` field literally.
     expect(res.text).toContain('"type":"text-delta"');
     expect(res.text).toContain('Hello from secondary-chat.');
 
-    // Bundle round-trip surfaces user + assistant turns under the secondary chat.
     const snapshotRes = await request(app).get(`/api/specifications/${fixture.specId}`).expect(200);
     const snapshot = snapshotRes.body as {
       secondaryChats?: Array<{
@@ -215,10 +201,8 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
       .send(userMessagePayload('Make this terser.'))
       .expect(200);
 
-    // tool-* part written by the merged stream.
     expect(res.text).toContain('"type":"tool-input-available"');
     expect(res.text).toContain('"toolName":"propose_edit"');
-    // sibling data-edit-impact written after finishReason, keyed by toolCallId.
     expect(res.text).toContain('"type":"data-edit-impact"');
     expect(res.text).toContain('"toolCallId":"call-1"');
   });

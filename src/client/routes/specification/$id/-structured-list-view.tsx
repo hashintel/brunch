@@ -458,11 +458,6 @@ function ItemActionRail({
   item: KnowledgeItemSummary;
   onStartEdit?: (() => void) | undefined;
   editDisabled?: boolean;
-  // FE-716 C19: when true, the active secondary chat is already anchored
-  // to this item. Flips the chat trigger's aria-label so AT/keyboard users
-  // can tell "open a new chat about this" from "this is the active chat's
-  // anchor". The click handler stays the same — per C26's per-item dedupe,
-  // re-triggering returns the existing chatId (server-side idempotent).
   chatAnchored?: boolean;
 }) {
   const editEnabled = Boolean(onStartEdit) && !editDisabled;
@@ -668,23 +663,10 @@ function ItemRow({
   onSaveEdit: (next: string) => void;
   onCancelEdit: () => void;
   editDisabled: boolean;
-  // FE-716 C27/C19: when true, the row is pinned or anchored by the active
-  // secondary chat (its id appears in the chat's `pinned_item_id` or
-  // `anchored_item_ids`). C19 promotes C27's left-border foundation to a
-  // full selection state — left-border + subtle background tint, both in
-  // the item's own `kindAccentHex`. C19 explicitly specifies "matching the
-  // item's kind" (not the chat's), so the prop signature carries only the
-  // boolean selection state; the accent color is resolved from `item.kind`.
   chatAnchored: boolean;
 }) {
   const hasExpansion = Boolean(item.rationale) || outgoing.length > 0 || incoming.length > 0;
   const itemAccentHex = kindAccentHex[item.kind];
-  // FE-716 C27/C19 (revised post-walkthrough): align the chat-anchored row
-  // styling with the side-chat color schema — accent border at `${accent}33`
-  // (~20% alpha, full 1px) only. The background tint was tried but the
-  // graph view already has dense kind-colored chips, so layering an
-  // accented row background reads as visually noisy — drop the tint and
-  // keep only the border-accent as the selected affordance.
   const chatAnchorStyle = chatAnchored ? { borderColor: `${itemAccentHex}33` } : undefined;
 
   return (
@@ -771,12 +753,6 @@ export function StructuredListView({
   const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
   const navigate = useNavigate();
 
-  // FE-716 C19 (built on C27 foundation): when a secondary chat is focused
-  // in the shell, the rows it has pinned or anchored render as selected —
-  // 2px left-border + ~10% kind-accent background tint (kindAccentHex
-  // resolved per row in ItemRow against `item.kind`, per C19's "matching
-  // the item's kind" directive). Read-only against the bundle + presence;
-  // a null presence (no provider in the tree) leaves rows untouched.
   const bundle = useSpecificationBundleData();
   const presence = useChatShellPresence();
   const itemChats = (bundle.secondaryChats ?? []).filter(
@@ -801,8 +777,7 @@ export function StructuredListView({
   // Auto-apply staged annotate patches. Annotations are user-confirmed at the
   // moment the user clicks "Annotate"; staging them is a single-step write that
   // should land in the saved overlay immediately with the standard "Change
-  // saved" toast (FE-716 C8 — preserves the prior SideChatHost behaviour after
-  // SideChatHost was retired).
+  // saved" toast.
   const stagedAnnotatePatches = useStagedPatches({ kind: 'annotate' });
   const triggeredAutoApplyIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {

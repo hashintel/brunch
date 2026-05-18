@@ -459,12 +459,6 @@ function SecondaryChatComposer({
   );
 }
 
-// FE-716 C27 (revised post-walkthrough): the mode toggle ships as two
-// chip-shaped buttons — Chat (explore) and Agent (edit) — each with a
-// lucide icon, hover tooltip, and an accent-blue filled active state so
-// the current mode is unambiguous on toggle. The underlying mode values
-// (`explore`, `edit`) and testids stay unchanged so the server contract
-// + existing tests keep working — only the visible labels + visuals change.
 const MODE_HOVER_COPY: Record<SecondaryChatMode, string> = {
   explore: 'Chat — discuss the item, get analysis, no changes to the spec',
   edit: 'Agent — proposes structured changes you can review and apply',

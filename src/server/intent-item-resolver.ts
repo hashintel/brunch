@@ -1,9 +1,3 @@
-// FE-716 C6 — Server-owned `#REF-CODE` resolution scoped to one specification.
-// Implements the V1 surface of the §3.5 resolver from
-// `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md`: a pure parser plus a DB
-// query that maps reference codes to their pinned `knowledge_item` rows. No
-// autocomplete, no `$` mention, no snapshot builder lifecycle (Track 5).
-
 import { and, eq, inArray } from 'drizzle-orm';
 
 import {

@@ -2,11 +2,6 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { brunchDataPartSchemas, brunchValidationTools, type BrunchUITools } from './chat.js';
 
-// FE-716 C24a: the shared chat-types substrate admits secondary-chat tool
-// calls (propose_edit / propose_edge / propose_drill_down) and an
-// edit-impact data part. Persistence shape is intentionally unchanged at
-// this slice; only typed-UIMessage-protocol surfaces gain the new entries.
-
 describe('C24a — secondary-chat tools in BrunchUITools', () => {
   it('registers propose_edit / propose_edge / propose_drill_down alongside interview tools', () => {
     expectTypeOf<BrunchUITools>().toHaveProperty('ask_question');

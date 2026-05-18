@@ -228,7 +228,7 @@ describe('PatchListOverlay', () => {
     expect(editApplier).toHaveBeenCalledTimes(1);
   });
 
-  it('renders staged-changes but no longer composes Pending review (moved into structured-list view, Card 4 follow-up)', () => {
+  it('renders staged-changes but no longer composes Pending review (moved into structured-list view)', () => {
     setMockOpenNeeds([makeNeed({ id: 7 })]);
     const appliers = makeAppliers();
     render(
@@ -361,7 +361,7 @@ describe('PatchListOverlay', () => {
     expect(screen.getByRole('status', { name: /change saved/i })).toBeTruthy();
   });
 
-  it('hides the Undo button after a hard-impact-only apply (V3.0 polish — noUndo)', async () => {
+  it('hides the Undo button after a hard-impact-only apply (noUndo)', async () => {
     const editApplier = vi.fn(() =>
       Promise.resolve({
         undo: () => Promise.resolve(),
@@ -465,7 +465,7 @@ describe('PatchListOverlay', () => {
   });
 });
 
-describe('PatchListOverlay — expand-to-detail (FE-665 follow-up)', () => {
+describe('PatchListOverlay — expand-to-detail', () => {
   it('renders the N pending changes label as a toggle button', () => {
     const appliers = makeAppliers();
     render(

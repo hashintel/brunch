@@ -47,9 +47,6 @@ vi.mock('@/client/components/ai-elements/message.js', () => ({
     <div className={className}>{children}</div>
   ),
   MessageResponse: ({ children }: { children: string }) => {
-    // Lightweight markdown shim: render **bold** as <strong> so the
-    // markdown-rendering acceptance test can assert real markdown behavior
-    // without pulling the heavy rich renderer into happy-dom.
     const html = (children ?? '').replaceAll(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     // oxlint-disable-next-line react/no-danger
     return <div dangerouslySetInnerHTML={{ __html: html }} />;
@@ -103,7 +100,6 @@ describe('SecondaryChatCollapsible', () => {
 
     expect(screen.getByTestId('secondary-chat-collapsible')).toBeTruthy();
     expect(screen.getByTestId('secondary-chat-collapsible-trigger')).toBeTruthy();
-    // The header no longer uses the "Secondary chat" label — only the kind chip.
     expect(screen.queryByText('Secondary chat')).toBeNull();
   });
 
@@ -328,14 +324,12 @@ describe('SecondaryChatCollapsible', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    // No onSubmitMessage = no composer rendered = no mode toggle anywhere.
     render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={vi.fn()} />);
     expect(screen.queryByTestId('secondary-chat-mode-toggle')).toBeNull();
-    // Kind chip still rendered (in header) so collapsed state shows kind.
     expect(screen.getByTestId('secondary-chat-kind-chip')).toBeTruthy();
   });
 
-  it('toggles Ask↔Edit when Shift+Tab is pressed inside the composer textarea (FE-716 C21)', () => {
+  it('toggles Ask↔Edit when Shift+Tab is pressed inside the composer textarea', () => {
     const onSetMode = vi.fn();
     const chat: SecondaryChat = {
       chat: { ...baseChat, mode: 'explore' },
@@ -420,8 +414,8 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     const input = screen.getByTestId('secondary-chat-composer-input') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: '  hello  ' } });
     fireEvent.submit(screen.getByTestId('secondary-chat-composer'));
-    // PromptInput awaits Promise.all([]) before invoking onSubmit; wait for
-    // the callback to fire and for the cleared draft to be reflected.
+    // PromptInput awaits Promise.all([]) before invoking onSubmit; wait for the
+    // callback to fire and for the cleared draft to be reflected.
     await waitFor(() => {
       expect(onSubmitMessage).toHaveBeenCalledWith('hello');
     });
@@ -465,13 +459,11 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     const streaming = screen.getByTestId('secondary-chat-streaming-assistant');
     expect(streaming.textContent).toContain('streaming reply...');
-    // FE-716 C22: streaming-assistant now uses `<Reasoning isStreaming>` (the
-    // mock surfaces `isStreaming` via data-is-streaming).
     expect(streaming.getAttribute('data-is-streaming')).toBe('true');
     expect((screen.getByTestId('secondary-chat-composer-input') as HTMLTextAreaElement).disabled).toBe(true);
   });
 
-  it('renders the streaming pulse as a static text block under prefers-reduced-motion (FE-716 C22)', () => {
+  it('renders the streaming pulse as a static text block under prefers-reduced-motion', () => {
     const matchMediaMock = (query: string) => ({
       matches: query.includes('reduce'),
       media: query,
@@ -507,8 +499,6 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       );
       fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
       const streaming = screen.getByTestId('secondary-chat-streaming-assistant');
-      // Reduced-motion path = plain div (no Reasoning wrapper). The Reasoning
-      // mock would set data-is-streaming; absence proves we took the static path.
       expect(streaming.getAttribute('data-is-streaming')).toBeNull();
       expect(streaming.textContent).toBe('streaming reply...');
     } finally {
@@ -570,7 +560,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     expect(turn.textContent).not.toContain('**');
   });
 
-  it('renders 3 turn-zero suggestions for mode=explore and hides them after a user turn (FE-716 C23)', () => {
+  it('renders 3 turn-zero suggestions for mode=explore and hides them after a user turn', () => {
     const chat: SecondaryChat = {
       chat: { ...baseChat, mode: 'explore' },
       kickoffTurn: null,
@@ -599,7 +589,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     expect(screen.queryByTestId('secondary-chat-suggestions')).toBeNull();
   });
 
-  it('changes the suggestion set with the mode (FE-716 C23)', () => {
+  it('changes the suggestion set with the mode', () => {
     const chatEdit: SecondaryChat = {
       chat: { ...baseChat, mode: 'edit' },
       kickoffTurn: null,
@@ -615,7 +605,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     expect(row.dataset.reconciliationKind).toBe('none');
   });
 
-  it('routes reconciliation-kind into the suggestion set (FE-716 C23)', () => {
+  it('routes reconciliation-kind into the suggestion set', () => {
     const chat: SecondaryChat = {
       chat: { ...baseChat, mode: 'explore', pinned_reconciliation_need_id: 7 },
       kickoffTurn: null,
@@ -638,7 +628,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     expect(screen.getByTestId('secondary-chat-suggestions').dataset.reconciliationKind).toBe('supersedes');
   });
 
-  it('clicking a suggestion populates the composer draft (FE-716 C23)', () => {
+  it('clicking a suggestion populates the composer draft', () => {
     const chat: SecondaryChat = {
       chat: { ...baseChat, mode: 'explore' },
       kickoffTurn: null,
@@ -656,7 +646,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     expect(input.value).toBe(text);
   });
 
-  it('opens the mention popup when the user types # (FE-716 C25)', () => {
+  it('opens the mention popup when the user types #', () => {
     const chat: SecondaryChat = {
       chat: baseChat,
       kickoffTurn: null,
@@ -683,7 +673,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     expect(screen.getAllByTestId('secondary-chat-mention-item').length).toBeGreaterThanOrEqual(3);
   });
 
-  it('filters the mention popup by query prefix (FE-716 C25)', () => {
+  it('filters the mention popup by query prefix', () => {
     const chat: SecondaryChat = {
       chat: baseChat,
       kickoffTurn: null,
@@ -712,7 +702,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     expect(items.map((el) => el.getAttribute('data-ref-code'))).toEqual(['R1', 'R2']);
   });
 
-  it('Escape dismisses the mention popup without inserting (FE-716 C25)', () => {
+  it('Escape dismisses the mention popup without inserting', () => {
     const chat: SecondaryChat = {
       chat: baseChat,
       kickoffTurn: null,
@@ -737,7 +727,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     expect(input.value).toBe('#R');
   });
 
-  it('Enter on the mention popup inserts #REF-CODE and closes the popup (FE-716 C25)', () => {
+  it('Enter on the mention popup inserts #REF-CODE and closes the popup', () => {
     const chat: SecondaryChat = {
       chat: baseChat,
       kickoffTurn: null,
@@ -764,7 +754,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     expect(input.value).toBe('#R1 ');
   });
 
-  it('does not render the mention popup when no mention is active (FE-716 C25)', () => {
+  it('does not render the mention popup when no mention is active', () => {
     const chat: SecondaryChat = {
       chat: baseChat,
       kickoffTurn: null,

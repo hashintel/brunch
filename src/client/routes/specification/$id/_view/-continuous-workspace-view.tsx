@@ -58,7 +58,6 @@ export function ContinuousWorkspaceView({ initialPhase }: { initialPhase: Workfl
   const workspaceFocus = useWorkspaceFocus();
   const setFocusedPhase = workspaceFocus?.setFocusedPhase;
 
-  // Scroll to the initial phase section on mount
   const sectionRefs = useRef<Map<WorkflowPhase, HTMLDivElement>>(new Map());
   const hasScrolledRef = useRef(false);
   const sectionPhaseKey = useMemo(() => sections.map((section) => section.phase).join('|'), [sections]);

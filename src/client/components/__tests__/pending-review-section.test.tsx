@@ -159,8 +159,6 @@ describe('PendingReviewSection', () => {
     const region = screen.getByRole('region', { name: /pending review/i });
     expect(region.getAttribute('data-open-needs-count')).toBe('2');
     expect(region.textContent).toContain('2 pending reviews');
-    // Card 4: row title now leads with the target reference (#ID · excerpt|fallback).
-    // The kind chip carries the supersedes/confirm label.
     const row1 = region.querySelector('[data-need-id="1"]');
     expect(row1?.textContent).toContain('#20');
     expect(row1?.querySelector('[data-kind-chip="needs_confirmation"]')).toBeTruthy();
@@ -183,14 +181,13 @@ describe('PendingReviewSection', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^resolve$/i }));
     });
-    // F5: Resolve fires exactly one POST and one section refresh.
     expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(1);
     expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledWith(42, 7);
     expect(mockInvalidateOpenReconciliationNeeds).toHaveBeenCalledTimes(1);
     expect(mockInvalidateOpenReconciliationNeeds).toHaveBeenCalledWith(42);
   });
 
-  it('rapid double-click on Resolve does not double-fire the request (F5 oracle)', () => {
+  it('rapid double-click on Resolve does not double-fire the request', () => {
     let resolveMutation: () => void = () => {};
     mockResolveReconciliationNeedRequest.mockImplementationOnce(
       () =>
@@ -200,14 +197,10 @@ describe('PendingReviewSection', () => {
     );
     setMockOpenNeeds([makeNeed({ id: 9, specification_id: 1 })]);
     render(<PendingReviewSection />);
-    // First click starts the mutation; the button re-renders disabled.
     fireEvent.click(screen.getByRole('button', { name: /^resolve$/i }));
-    // Subsequent clicks on the now-disabled button are noops in the DOM, but
-    // we explicitly assert no extra request fires regardless.
     fireEvent.click(screen.getByRole('button', { name: /resolving/i }));
     fireEvent.click(screen.getByRole('button', { name: /resolving/i }));
     expect(mockResolveReconciliationNeedRequest).toHaveBeenCalledTimes(1);
-    // Settle the mutation so test cleanup doesn't leak.
     resolveMutation();
   });
 
@@ -238,11 +231,7 @@ describe('PendingReviewSection', () => {
     expect(screen.queryByRole('region', { name: /pending review/i })).toBeNull();
   });
 
-  // Card 4 polish: the source diff is no longer rendered inline. Each row
-  // exposes a "↗ view source diff" chip that opens a <DiffPopover> anchored
-  // to the chip. The chip is gated on both snapshots being present and
-  // differing — matching the prior inline-rendering condition.
-  describe('source diff popover (card 4 polish)', () => {
+  describe('source diff popover', () => {
     it('renders a "view source diff" chip when both snapshots are present and differ', () => {
       setMockOpenNeeds([
         makeNeed({
@@ -254,7 +243,6 @@ describe('PendingReviewSection', () => {
       render(<PendingReviewSection />);
       const row = screen.getByRole('region').querySelector('[data-need-id="1"]');
       expect(row?.querySelector('[data-view-source-diff-chip]')).toBeTruthy();
-      // The inline ContentDiff block has been removed.
       expect(row?.querySelector('[data-content-diff]')).toBeNull();
     });
 
@@ -310,7 +298,6 @@ describe('PendingReviewSection', () => {
       render(<PendingReviewSection />);
       const region = screen.getByRole('region');
       expect(region.querySelectorAll('[data-view-source-diff-chip]')).toHaveLength(0);
-      // Rows still render, Resolve button still works.
       expect(screen.getAllByRole('button', { name: /^resolve$/i })).toHaveLength(3);
     });
 
@@ -328,12 +315,7 @@ describe('PendingReviewSection', () => {
     });
   });
 
-  // Card 3 (V3.1 setup): Edit-target inline form per row. Saving runs the
-  // standard edit pipeline (editKnowledgeItemRequest) then resolves the
-  // need (resolveReconciliationNeedRequest) and refetches. The target's
-  // current content is read from the row's target_current_content field
-  // (live-joined by the listing endpoint).
-  describe('Edit-target inline form (card 3)', () => {
+  describe('Edit-target inline form', () => {
     it('renders an Edit target button per row when target_current_content is present', () => {
       setMockOpenNeeds([
         makeNeed({ id: 1, target_current_content: 'A' }),
@@ -351,7 +333,6 @@ describe('PendingReviewSection', () => {
         }),
       ]);
       render(<PendingReviewSection />);
-      // No textarea visible until Edit target is clicked.
       expect(screen.queryByRole('textbox')).toBeNull();
       fireEvent.click(screen.getByRole('button', { name: /edit target for need 1/i }));
       const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
@@ -413,7 +394,6 @@ describe('PendingReviewSection', () => {
       render(<PendingReviewSection />);
       fireEvent.click(screen.getByRole('button', { name: /edit target for need 1/i }));
       fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
-      // Save morphs to a saving label and disables; Resolve also disables.
       expect(screen.getByRole('button', { name: /saving/i })).toHaveProperty('disabled', true);
       expect(screen.getByRole('button', { name: /^resolve$/i })).toHaveProperty('disabled', true);
       await act(async () => {
@@ -424,13 +404,11 @@ describe('PendingReviewSection', () => {
     it('Edit target button does not appear when target_current_content is null', () => {
       setMockOpenNeeds([makeNeed({ id: 1, target_current_content: null })]);
       render(<PendingReviewSection />);
-      // Without target content, there is nothing to pre-fill, so the affordance
-      // is hidden — the user can still resolve via the existing Resolve button.
       expect(screen.queryByRole('button', { name: /edit target for need 1/i })).toBeNull();
       expect(screen.getByRole('button', { name: /^resolve$/i })).toBeTruthy();
     });
 
-    it('Save button shows a Loader2 spinner during in-flight save (Card 4)', async () => {
+    it('Save button shows a Loader2 spinner during in-flight save', async () => {
       let resolveEdit: () => void = () => {};
       mockEditKnowledgeItemRequest.mockImplementationOnce(
         () =>
@@ -456,7 +434,7 @@ describe('PendingReviewSection', () => {
     });
   });
 
-  describe('V3.1 agent client UI', () => {
+  describe('agent client UI', () => {
     it('renders the Run agent button when at least one open need has agent_status=null', () => {
       setMockOpenNeeds([makeNeed({ id: 1, agent_status: null })]);
       const { container } = render(<PendingReviewSection />);
@@ -628,7 +606,7 @@ describe('PendingReviewSection', () => {
     });
   });
 
-  describe('V3.1 Card 7 — per-class actions + bulk', () => {
+  describe('per-class actions + bulk', () => {
     it('auto-confirm row renders Confirm button that calls resolve once', async () => {
       setMockOpenNeeds([
         makeNeed({

@@ -4,16 +4,6 @@ import type { SecondaryChatMode } from './secondary-chat-trigger.js';
 
 type ReconciliationKind = 'supersedes' | 'needs_confirmation';
 
-/**
- * Static turn-zero suggestions keyed by (mode, optional reconciliation kind).
- * FE-716 C23: surfaces a row of 3 prompts when the secondary chat has only
- * its kickoff turn and no user-authored turn yet. Per UNIFIED_CHAT_UX.md §2
- * the suggestions replace the empty composer to give the user a starting
- * point. LLM-generated suggestions stay deferred to a follow-up frontier.
- *
- * The lists are intentionally short and editable in-line — once a real
- * second caller appears the lookup can move into its own module.
- */
 const ASK_SUGGESTIONS = [
   'What does this item mean?',
   'How does this affect adjacent items?',

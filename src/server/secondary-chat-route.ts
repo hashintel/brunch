@@ -52,9 +52,6 @@ const secondaryChatRequestSchema = z.object({
   itemKind: z.enum(knowledgeKinds),
   itemId: z.number().int().positive(),
   spanHint: z.string().min(1).optional(),
-  // FE-716 C9: optional anchor to a substantive `reconciliation_need` row.
-  // When set, the bundle hydration joins the row so the inline collapsible can
-  // render the "elements being reconciled" panel.
   reconciliationNeedId: z.number().int().positive().optional(),
   mode: secondaryChatModeSchema.optional(),
 });
@@ -69,9 +66,6 @@ function notFound(res: Response, error: string): void {
 
 function buildKickoffContent(itemContent: string, spanHint: string | undefined, mode: SideChatMode): string {
   const snippet = itemContent.length > 80 ? `${itemContent.slice(0, 77)}…` : itemContent;
-  // Per UNIFIED_CHAT_UX.md §6: explore mode anchors, edit mode signals editing.
-  // Span-hint suffix preserved across modes for the V1 minimal wording; the
-  // richer "<N> related items may need updating" suffix is deferred.
   const verb = mode === 'edit' ? 'Editing' : 'Anchored to';
   if (spanHint) {
     return `${verb} '${snippet}', focused on '${spanHint}'.`;
@@ -121,8 +115,8 @@ export function handleCreateSecondaryChatRequest(db: DB, req: Request, res: Resp
 
   const mode: SideChatMode = parsed.data.mode ?? 'explore';
 
-  // Reconciliation entries (FE-716 C9) create their own dedicated chats —
-  // they carry the `reconciliation_need` pin used by the C9 panel.
+  // Reconciliation entries get their own dedicated chats carrying the
+  // `reconciliation_need` pin, separate from the per-item dedupe path below.
   if (parsed.data.reconciliationNeedId !== undefined) {
     const chat = createSecondaryChat(db, specificationId, {
       parent_chat_id: parsed.data.parentChatId,
@@ -246,9 +240,9 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
     return;
   }
   if (chatRow.pinned_item_id === null) {
-    // Secondary chats created via the C3c-route always set pinned_item_id; a
-    // null here indicates a malformed substrate row that shouldn't reach this
-    // path. Treat as not found rather than 500 to keep the boundary tight.
+    // Defensive: every chat reaching this route is created with a
+    // pinned_item_id; a null indicates a malformed substrate row. Return 404
+    // rather than 500 to keep the boundary tight.
     notFound(res, 'Secondary chat is not pinned to an item');
     return;
   }
@@ -261,10 +255,9 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
     return;
   }
 
-  // FE-716 C24b: validate the inbound UIMessage envelope. The client sends
-  // the full conversation prefix per `useChat<BrunchUIMessage>` convention;
-  // we only need the latest user turn for the prompt + persistence — history
-  // is reloaded server-side from the secondary chat's persisted turns.
+  // The client sends the full UIMessage conversation prefix, but only the
+  // latest user turn is needed: history is reloaded server-side from the
+  // chat's persisted turns to keep the source of truth on the server.
   let validatedMessages: BrunchUIMessage[];
   try {
     validatedMessages = await validateUIMessages<BrunchUIMessage>({
@@ -299,11 +292,10 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
 
   const history = loadPriorTurns(db, chatId);
 
-  // FE-716 C6: resolve `#REF-CODE` mentions server-side and capture them as a
-  // snapshot artifact on the user turn. Persisting the snapshot inline in
-  // user_parts keeps replay/audit faithful without requiring a separate turn
-  // artifact column. Codes that don't resolve are silently dropped — the user
-  // message itself still carries the literal `#R1` token.
+  // Persist the resolved-mentions snapshot inline in user_parts so replay
+  // stays faithful without a separate turn-artifact column. Codes that fail
+  // to resolve are silently dropped; the literal `#R1` token stays in the
+  // user message.
   const parsedReferences = parseIntentItemReferences(userText);
   const { matched } = resolveIntentItemReferences(db, specificationId, parsedReferences);
   const mentionedItemsContextBlock = formatMentionedItemsContextBlock(matched);

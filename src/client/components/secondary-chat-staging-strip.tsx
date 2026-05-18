@@ -6,21 +6,6 @@ import { ContentDiff } from './content-diff.js';
 import { ImpactChip } from './impact-chip.js';
 import { usePatchListForChat } from './patch-list-host.js';
 
-/**
- * Per-secondary-chat staged-patches strip.
- *
- * Subscribes to `usePatchListForChat(chatId)` (Shape A partition seam from
- * FE-716 C5c) so it sees only patches whose `producerChatId === chatId`.
- * Renders a compact list of staged patches with apply/undo/discard controls
- * and an inline `<ContentDiff>` for `edit` patches whose before/after pair is
- * available. Mounted inside `<SecondaryChatHost>`'s collapsible body.
- *
- * Intentionally minimal — the popover's full visual treatment (accent
- * tinting, hover affordances, "view diff" popover) is not harvested wholesale
- * for V1; the inline surface needs only the apply/undo loop. Forks can lift
- * `<ImpactChip>` / `<ContentDiff>` to a shared location if a third caller
- * appears.
- */
 export interface SecondaryChatStagingStripProps {
   chatId: number;
 }

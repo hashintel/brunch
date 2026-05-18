@@ -1,15 +1,3 @@
-// ImpactChip — small color-coded pill rendering a staged edit patch's
-// pre-classified impact tier (design §4.1 / SIDE_CHAT.md).
-//
-// Color cues mirror the patch-list overlay's deferred banner family:
-//   - none → neutral wash
-//   - soft → cool blue (matches the Apply button)
-//   - hard → warm amber (matches the deferred banner)
-//
-// Shared by `patch-list-overlay.tsx` (canonical overlay expanded list) and
-// `secondary-chat-staging-strip.tsx` (per-chat inline staging strip) so both
-// surfaces speak the same visual language.
-
 import type { EditImpactTier } from './patch-list-reducer.js';
 
 export interface ImpactChipProps {

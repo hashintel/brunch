@@ -94,7 +94,6 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
   );
   const { durableSpecification, ephemeralChat } = useInterviewDataAdapter(specificationState);
 
-  // Active-phase turn stabilization
   const phaseTurnIds = useMemo(() => buildPhaseTurnIds(turns, activePhase), [activePhase, turns]);
   const durablePhaseTurns = useMemo(
     () => turns.filter((turn) => turn.phase === activePhase),
@@ -118,7 +117,8 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
     stablePhaseKeyRef.current = stablePhaseKey;
   }, [projectedPhaseTurns, stablePhaseKey]);
 
-  // Chat transport + lifecycle (spec-scoped, not phase-scoped)
+  // Transport + lifecycle are spec-scoped (not phase-scoped) so a single chat
+  // session spans every phase rendered in the continuous workspace.
   const transport = useMemo(
     () => new DefaultChatTransport({ api: `/api/specifications/${specificationId}/chat` }),
     [specificationId],
@@ -167,7 +167,6 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
   const controlErrorMessage = submitPhaseIntentMutation.errorMessage ?? error?.message ?? null;
   const isLoading = status === 'submitted' || status === 'streaming';
 
-  // Active-phase messages (phase-filtered for view state + live activity)
   const phaseMessages = useMemo(
     () => filterMessagesByPhase(messages, phaseTurnIds),
     [messages, phaseTurnIds],
@@ -183,7 +182,6 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
   const liveToolItems = useMemo(() => getLiveToolItems(phaseMessages, status), [phaseMessages, status]);
   const liveToolsRunning = useMemo(() => hasRunningLiveTool(phaseMessages, status), [phaseMessages, status]);
 
-  // Chat actions
   const submitText = useCallback(
     (text: string) => {
       if (!text.trim() || isLoading) {
@@ -271,7 +269,6 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
     submitPhaseIntent: submitTypedPhaseIntent,
   });
 
-  // Active-phase view state (bottom artifact)
   const viewState = useMemo(
     () =>
       createInterviewControllerViewState(
@@ -292,7 +289,6 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
     ],
   );
 
-  // Promote streamed frontier turn
   useEffect(() => {
     if (viewState.bottomArtifact?.kind !== 'pending-question') {
       return;
@@ -324,7 +320,6 @@ export function useContinuousWorkspaceController(): ContinuousWorkspaceControlle
     liveToolsRunning,
   });
 
-  // Project sections for all realized phases
   const sections = useMemo((): readonly ContinuousWorkspaceSection[] => {
     const result: ContinuousWorkspaceSection[] = [];
 

@@ -123,12 +123,6 @@ export const secondaryChatModeSchema = z.enum(['explore', 'edit']);
 
 export const secondaryChatReconciliationNeedKindSchema = z.enum(['supersedes', 'needs_confirmation']);
 
-/**
- * FE-716 C9: read-time projection of the `reconciliation_need` row anchored
- * to the secondary chat. The bundle hydrates this when the chat carries a
- * `pinned_reconciliation_need_id`; `SecondaryChatCollapsible` renders the
- * "elements being reconciled" panel from these fields.
- */
 export const secondaryChatPinnedReconciliationNeedSchema = z.object({
   needId: z.number().int().positive(),
   kind: secondaryChatReconciliationNeedKindSchema,
@@ -154,30 +148,12 @@ export const secondaryChatStateSchema = z.object({
   }),
   kickoffTurn: specificationStateTurnSchema.nullable(),
   /**
-   * Post-kickoff user/assistant round-trip turns under this secondary chat,
-   * ordered by id ascending. Each turn carries either `user_parts` or
-   * `assistant_parts` populated (never both). Empty for chats that haven't
-   * exchanged any messages yet.
+   * Post-kickoff turns ordered by id ascending. Each turn carries either
+   * `user_parts` or `assistant_parts` populated, never both.
    */
   turns: z.array(specificationStateTurnSchema),
-  /**
-   * Resolved kind of the chat's `pinned_item_id` (or null when the chat
-   * isn't pinned). Surfaced so `SecondaryChatHost` can build patch anchors
-   * for staged proposals (FE-716 C5c) without a second knowledge-item
-   * fetch round-trip.
-   */
   pinnedItemKind: z.enum(knowledgeKinds).nullable(),
-  /**
-   * Joined `reconciliation_need` projection when the chat was opened from a
-   * substantive reconciliation row (FE-716 C9). Null otherwise.
-   */
   pinnedReconciliationNeed: secondaryChatPinnedReconciliationNeedSchema.nullable(),
-  /**
-   * Ordered list of knowledge-item ids that have been anchored to this chat
-   * (FE-716 C18). The scratch chat (`pinned_reconciliation_need_id === null`)
-   * accumulates anchors over time as the user clicks item action-rail icons;
-   * reconciliation chats stay empty.
-   */
   anchoredItemIds: z.array(z.number().int().positive()),
 });
 
