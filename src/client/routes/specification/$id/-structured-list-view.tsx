@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { flushSync } from 'react-dom';
 
+import { useChatShellPresence } from '@/client/components/chat-shell-presence.js';
 import { kindAccentHex, kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
 import { usePatchList, useStagedPatches } from '@/client/components/patch-list-host.js';
@@ -27,6 +28,7 @@ import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js
 
 import { KindToggleChip } from './-kind-toggle-chip.js';
 import { ChipActivateProvider, RelationChip, type RelationChipTarget } from './-relation-chip.js';
+import { useSpecificationBundleData } from './-specification-data.js';
 
 const HASH_ANCHOR_HIGHLIGHT_MS = 1500;
 const CHIP_TRUNCATE_LIMIT = 6;
@@ -642,6 +644,8 @@ function ItemRow({
   onSaveEdit,
   onCancelEdit,
   editDisabled,
+  chatAnchored,
+  chatAnchorAccentHex,
 }: {
   item: KnowledgeItemSummary;
   outgoing: DirectedEdge[];
@@ -654,8 +658,18 @@ function ItemRow({
   onSaveEdit: (next: string) => void;
   onCancelEdit: () => void;
   editDisabled: boolean;
+  // FE-716 C27: when true, the row is pinned or anchored by the active
+  // secondary chat. Renders a 2px left-border in the chat's `kindAccentHex`
+  // so the workspace mirrors the shell's selection without overhauling
+  // existing styling.
+  chatAnchored: boolean;
+  chatAnchorAccentHex: string | null;
 }) {
   const hasExpansion = Boolean(item.rationale) || outgoing.length > 0 || incoming.length > 0;
+  const chatAnchorStyle =
+    chatAnchored && chatAnchorAccentHex
+      ? { borderLeftColor: chatAnchorAccentHex, borderLeftWidth: 2 }
+      : undefined;
 
   return (
     <Collapsible defaultOpen={defaultOpen} asChild>
@@ -666,7 +680,9 @@ function ItemRow({
         data-item-id={item.id}
         data-graph-kind-anchor={kindAnchor ?? undefined}
         data-graph-row-anchored={anchored ? 'true' : undefined}
+        data-graph-row-chat-anchored={chatAnchored ? 'true' : undefined}
         data-graph-row-editing={isEditing ? 'true' : undefined}
+        style={chatAnchorStyle}
         className={`group/row overflow-hidden rounded-xl border bg-background shadow-[var(--shadow-card)] transition-all duration-700 ${anchored ? `animate-in border-current/50 ring-2 ring-current/30 duration-300 fade-in ${kindTextColor[item.kind]}` : 'border-rule'}`}
       >
         <div className={`flex justify-between gap-2 p-3 ${isEditing ? 'items-start' : 'items-baseline'}`}>
@@ -733,6 +749,29 @@ export function StructuredListView({
   const { anchoredRowRef } = useGraphHashAnchor(scrollAreaRef);
   const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
   const navigate = useNavigate();
+
+  // FE-716 C27: foundation slice — when a chat is focused in the shell,
+  // highlight rows it has pinned/anchored with a 2px left-border in the
+  // chat's `kindAccentHex`. Read-only against the bundle + presence; a
+  // null presence (no provider in the tree) leaves rows untouched.
+  const bundle = useSpecificationBundleData();
+  const presence = useChatShellPresence();
+  const itemChats = (bundle.secondaryChats ?? []).filter(
+    (s) => s.chat.pinned_reconciliation_need_id === null,
+  );
+  const activeChat =
+    itemChats.find((c) => c.chat.id === presence?.focusedChatId) ?? itemChats[itemChats.length - 1] ?? null;
+  const activeChatAccentHex =
+    activeChat && activeChat.pinnedItemKind ? kindAccentHex[activeChat.pinnedItemKind] : null;
+  const activeChatAnchoredItemIds = new Set<number>();
+  if (activeChat) {
+    if (activeChat.chat.pinned_item_id !== null) {
+      activeChatAnchoredItemIds.add(activeChat.chat.pinned_item_id);
+    }
+    for (const id of activeChat.anchoredItemIds) {
+      activeChatAnchoredItemIds.add(id);
+    }
+  }
 
   const selection = useTextSelection('[data-annotatable]');
   const secondaryChatTrigger = useSecondaryChatTrigger();
@@ -986,6 +1025,8 @@ export function StructuredListView({
                                   onSaveEdit={(next) => handleSaveEdit(item, next)}
                                   onCancelEdit={handleCancelEdit}
                                   editDisabled={patchList === null || (editingItemKey !== null && !isEditing)}
+                                  chatAnchored={activeChatAnchoredItemIds.has(item.id)}
+                                  chatAnchorAccentHex={activeChatAccentHex}
                                 />
                               );
                             });

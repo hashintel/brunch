@@ -17,6 +17,7 @@ import {
   PromptInputTools,
 } from './ai-elements/prompt-input.js';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from './ai-elements/reasoning.js';
+import { kindAccentHex } from './knowledge-card.js';
 import {
   computeMentionQuery,
   handleMentionPopupKey,
@@ -118,6 +119,12 @@ export function SecondaryChatCollapsible({
   // bundle invalidates, hiding the suggestions row.
   const isTurnZero = secondaryChat.turns.length === 0;
   const reconciliationKind = secondaryChat.pinnedReconciliationNeed?.kind ?? null;
+  // FE-716 C27: selective kind-accent tinting. The chat panel gets a subtle
+  // ~2px left strip in `kindAccentHex`, and the collapsible trigger's focus
+  // ring borrows the same colour at ~30% opacity so accent communicates the
+  // anchored item's kind without overwhelming the surface background.
+  const pinnedAccent = secondaryChat.pinnedItemKind ? kindAccentHex[secondaryChat.pinnedItemKind] : null;
+  const accentStripStyle = pinnedAccent ? { borderLeftColor: pinnedAccent, borderLeftWidth: 2 } : undefined;
 
   // FE-716 C28: autoscroll the chat surface to the latest message as turns
   // arrive or streaming text grows. The scroll ancestor is the shell body
@@ -133,13 +140,16 @@ export function SecondaryChatCollapsible({
     <Collapsible
       data-testid="secondary-chat-collapsible"
       data-secondary-chat-id={secondaryChat.chat.id}
-      className={cn('rounded-md border border-rule bg-tint/50 px-3 py-2 text-sm')}
+      data-accent-hex={pinnedAccent ?? undefined}
+      style={accentStripStyle}
+      className={cn('rounded-lg border border-rule bg-tint/50 px-3 py-2 text-sm')}
       {...collapsibleProps}
     >
       <div className="flex w-full items-center justify-between gap-2">
         <CollapsibleTrigger
           data-testid="secondary-chat-collapsible-trigger"
-          className="flex flex-1 items-center justify-between text-left text-sub"
+          style={pinnedAccent ? { ['--tw-ring-color' as never]: `${pinnedAccent}4D` } : undefined}
+          className="flex flex-1 items-center justify-between rounded text-left text-sub outline-none focus-visible:ring-2"
         >
           <SecondaryChatKindChip mode={mode} />
           <span aria-hidden className="text-hint">
@@ -274,7 +284,7 @@ function SecondaryChatReconciliationPanel({ need }: { need: SecondaryChatPinnedR
       data-testid="secondary-chat-reconciliation-panel"
       data-reconciliation-need-id={need.needId}
       data-reconciliation-kind={need.kind}
-      className="flex flex-col gap-1 rounded border border-rule/60 bg-background/70 px-2 py-1.5 text-xs"
+      className="flex flex-col gap-1 rounded-lg border border-rule/60 bg-background/70 px-2 py-1.5 text-xs"
     >
       <div className="flex items-center gap-2">
         <span className="rounded bg-tint px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-ink uppercase">
@@ -441,13 +451,18 @@ function SecondaryChatComposer({
             const cursor = event.currentTarget.selectionStart ?? next.length;
             setMentionQuery(computeMentionQuery(next, cursor));
           }}
+          className="rounded-full px-4"
         />
       </PromptInputBody>
       <PromptInputFooter>
         <PromptInputTools>
           <SecondaryChatModeToggle mode={mode} onSetMode={onSetMode} disabled={isModeUpdating} />
         </PromptInputTools>
-        <PromptInputSubmit data-testid="secondary-chat-composer-send" disabled={disabled} />
+        <PromptInputSubmit
+          data-testid="secondary-chat-composer-send"
+          disabled={disabled}
+          className="rounded-full bg-ink text-background hover:bg-ink/90"
+        />
       </PromptInputFooter>
       {mentionQuery !== null && mentionableItems.length > 0 && (
         <SecondaryChatMentionPopup

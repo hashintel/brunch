@@ -82,10 +82,9 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
     >
       <header
         data-testid="unified-chat-shell-header"
-        className="flex items-center justify-between gap-2 border-b border-rule px-3 py-2"
+        className="flex h-8 items-center justify-between gap-2 border-b border-rule px-3"
       >
         <div data-testid="unified-chat-shell-spine-label" className="flex min-w-0 items-center gap-2">
-          <span className="text-xs tracking-wide text-hint uppercase">Chat</span>
           <span className="min-w-0 truncate text-sm text-ink">{specName}</span>
           {itemChats.length > 1 && (
             <ChatSwitcher

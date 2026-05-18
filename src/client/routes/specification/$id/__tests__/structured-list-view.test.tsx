@@ -45,6 +45,9 @@ vi.mock('@tanstack/react-router', () => ({
 
 // PendingReviewSection queries -specification-data; preserve the real module and
 // only stub open-needs + invalidation so tests stay isolated from TanStack Query.
+// FE-716 C27: also stub `useSpecificationBundleData` so the structured-list's
+// active-chat anchor lookup runs without a QueryClient harness — these tests
+// don't exercise the shell/presence wiring.
 vi.mock('@/client/routes/specification/$id/-specification-data.js', async (importOriginal) => {
   const mod =
     await importOriginal<typeof import('@/client/routes/specification/$id/-specification-data.js')>();
@@ -52,6 +55,7 @@ vi.mock('@/client/routes/specification/$id/-specification-data.js', async (impor
     ...mod,
     useSpecificationOpenReconciliationNeeds: () => [],
     invalidateOpenReconciliationNeeds: vi.fn(),
+    useSpecificationBundleData: () => ({ secondaryChats: [] }),
   };
 });
 

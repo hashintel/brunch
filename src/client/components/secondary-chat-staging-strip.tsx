@@ -37,7 +37,7 @@ export function SecondaryChatStagingStrip({ chatId }: SecondaryChatStagingStripP
       data-chat-id={chatId}
       data-staged-patch-count={patchList.staged.length}
       aria-label="Staged changes"
-      className="flex flex-col gap-1.5 rounded-md border border-rule bg-tint/30 p-2 text-xs"
+      className="flex flex-col gap-1.5 rounded-lg border border-rule bg-tint/30 p-2 text-xs"
     >
       <header className="flex items-center justify-between px-1 text-sub">
         <span>

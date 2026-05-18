@@ -1,4 +1,5 @@
 import { ChevronDown, MessageCircleQuestion, PencilLine } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import type { z } from 'zod/v4';
 
 import { cn } from '@/client/lib/utils.js';
@@ -39,12 +40,22 @@ export function ChatSwitcher({ chats, activeChatId, onSelect }: ChatSwitcherProp
   const active = chats.find((c) => c.chat.id === activeChatId) ?? chats[0];
   if (!active) return null;
 
+  const activeAccent = active.pinnedItemKind ? kindAccentHex[active.pinnedItemKind] : null;
+  // FE-716 C27: leading-edge accent on the trigger button picks up the
+  // active chat's `kindAccentHex` so the switcher header signals which kind
+  // of item is currently anchored without a flat background fill.
+  const triggerStyle: CSSProperties | undefined = activeAccent
+    ? { borderLeftColor: activeAccent, borderLeftWidth: 3 }
+    : undefined;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
           data-testid="chat-switcher-trigger"
+          data-accent-hex={activeAccent ?? undefined}
+          style={triggerStyle}
           className="inline-flex max-w-[220px] items-center gap-1.5 rounded border border-rule bg-tint/30 px-2 py-1 text-xs text-ink hover:bg-tint"
         >
           <ChatKindIcon chat={active} className="size-3.5 shrink-0" />
@@ -55,13 +66,21 @@ export function ChatSwitcher({ chats, activeChatId, onSelect }: ChatSwitcherProp
       <DropdownMenuContent data-testid="chat-switcher-menu" align="start" className="w-[280px] max-w-[320px]">
         {chats.map((chat) => {
           const isActive = chat.chat.id === active.chat.id;
+          const accent = chat.pinnedItemKind ? kindAccentHex[chat.pinnedItemKind] : null;
+          // FE-716 C27: replace the active row's flat `bg-tint/60` fill with a
+          // ~3px left-border in the chat's `kindAccentHex`. Keeps the row
+          // background neutral while the accent communicates kind.
+          const rowStyle: CSSProperties | undefined =
+            isActive && accent ? { borderLeftColor: accent, borderLeftWidth: 3 } : undefined;
           return (
             <DropdownMenuItem
               key={chat.chat.id}
               data-testid={`chat-switcher-item-${chat.chat.id}`}
               data-active={isActive}
+              data-accent-hex={isActive ? (accent ?? undefined) : undefined}
+              style={rowStyle}
               onSelect={() => onSelect(chat.chat.id)}
-              className={cn('flex items-start gap-2 text-xs', isActive && 'bg-tint/60 font-medium text-ink')}
+              className={cn('flex items-start gap-2 text-xs', isActive && 'font-medium text-ink')}
             >
               <ChatKindIcon chat={chat} className="mt-0.5 size-3.5 shrink-0" />
               <span className="min-w-0 truncate">{getChatLabel(chat)}</span>
