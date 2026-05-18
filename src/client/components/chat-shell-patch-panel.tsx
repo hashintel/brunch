@@ -56,7 +56,11 @@ export function ChatShellPatchPanel({
       data-staged-count={count}
       isRunning={isStreaming}
       defaultOpen
-      className="rounded-lg border border-rule bg-tint/40 px-2 py-1.5 text-xs"
+      // The sticky wrapper in <UnifiedChatShell> owns the iOS-style glass
+      // surface (edge-to-edge); this panel renders as a subtle inset card on
+      // top of it — just border + faint tint to read as a discrete row
+      // without double-blurring the content behind.
+      className="rounded-lg border border-rule/60 bg-background/30 px-2 py-1.5 text-xs"
     >
       <div className="flex items-center justify-between gap-2">
         <TaskTrigger title={title} collapsible={count > 0} className="w-auto flex-1" />
@@ -69,7 +73,7 @@ export function ChatShellPatchPanel({
                 void actions.undo();
               }}
               aria-label="Undo last applied change"
-              className="inline-flex items-center gap-1 rounded-md border border-rule bg-background px-1.5 py-0.5 text-xs text-hint hover:bg-tint hover:text-ink"
+              className="inline-flex items-center gap-1 rounded-md border border-rule bg-background px-2 py-1 text-xs text-sub transition-[transform,background-color,color] duration-150 hover:bg-tint hover:text-ink active:scale-95"
             >
               <Undo2 aria-hidden className="size-3" />
               <span>Undo</span>
@@ -85,7 +89,7 @@ export function ChatShellPatchPanel({
               }}
               aria-label={`Apply all ${count} change${count === 1 ? '' : 's'}`}
               className={cn(
-                'inline-flex items-center rounded-md bg-[#202020] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] hover:enabled:bg-[#000] disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none',
+                'inline-flex items-center rounded-md bg-ink px-2 py-1 text-xs font-medium text-background transition-[transform,background-color] duration-150 hover:enabled:bg-foreground active:enabled:scale-95 disabled:bg-tint disabled:text-hint',
               )}
             >
               {state.isApplying ? 'Applying…' : 'Apply all'}
@@ -140,7 +144,7 @@ function ChatShellPatchRow({ patch, onDiscard }: { patch: Patch; onDiscard: () =
           data-testid="chat-shell-patch-discard"
           onClick={onDiscard}
           aria-label={`Discard staged change: ${patch.summary}`}
-          className="inline-flex size-4 shrink-0 items-center justify-center rounded text-hint hover:bg-tint hover:text-ink"
+          className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-sub transition-[transform,background-color,color] duration-150 hover:bg-tint hover:text-ink active:scale-95"
         >
           <X aria-hidden className="size-3" />
         </button>

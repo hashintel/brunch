@@ -157,7 +157,7 @@ afterEach(() => {
 });
 
 describe('UnifiedChatShell', () => {
-  it('renders the header strip with spec name, minimize + side-docked + toggle buttons, and close affordance', () => {
+  it('renders the header strip with minimize + side-docked + toggle buttons, and close affordance', () => {
     const { Wrapper } = createHarness([]);
 
     render(
@@ -167,7 +167,9 @@ describe('UnifiedChatShell', () => {
     );
 
     expect(screen.getByTestId('unified-chat-shell')).not.toBeNull();
-    expect(screen.getByTestId('unified-chat-shell-spine-label').textContent).toContain('Test spec');
+    // The spec name was removed from the header — only structural affordances
+    // (chat switcher when applicable + layout/minimize/close buttons) live here.
+    expect(screen.getByTestId('unified-chat-shell-spine-label').textContent).not.toContain('Test spec');
     expect(screen.getByTestId('unified-chat-shell-minimize')).not.toBeNull();
     expect(screen.getByTestId('unified-chat-shell-layout-side-docked')).not.toBeNull();
     expect(screen.getByTestId('unified-chat-shell-layout-toggle')).not.toBeNull();
@@ -234,7 +236,10 @@ describe('UnifiedChatShell', () => {
     expect(screen.getByTestId('chat-switcher-trigger')).not.toBeNull();
   });
 
-  it('close button removes the shell entirely (no bar, no pill); presence-driven expand brings it back', () => {
+  it('close button collapses the shell to the "Ask Brunch" pill (same as minimize); presence-driven expand brings it back', () => {
+    // "Ask Brunch" is a persistent affordance: the X button can't make the
+    // chat entry point disappear entirely — closing collapses to the same
+    // bottom-right pill as minimize so the user can always return.
     const { Wrapper } = createHarness([makeChat(7)]);
 
     render(
@@ -246,7 +251,27 @@ describe('UnifiedChatShell', () => {
     fireEvent.click(screen.getByTestId('unified-chat-shell-close'));
     expect(screen.queryByTestId('unified-chat-shell')).toBeNull();
     expect(screen.queryByTestId('unified-chat-shell-collapsed')).toBeNull();
+    const pill = screen.getByTestId('unified-chat-shell-minimized');
+    expect(pill.textContent).toContain('Ask Brunch');
+
+    fireEvent.click(pill);
+    expect(screen.getByTestId('unified-chat-shell')).not.toBeNull();
     expect(screen.queryByTestId('unified-chat-shell-minimized')).toBeNull();
+  });
+
+  it('minimized pill shows a badge with the number of open per-item subchats', () => {
+    const { Wrapper } = createHarness([makeChat(7), makeChat(11)]);
+
+    render(
+      <Wrapper>
+        <UnifiedChatShell />
+      </Wrapper>,
+    );
+
+    fireEvent.click(screen.getByTestId('unified-chat-shell-minimize'));
+    const pill = screen.getByTestId('unified-chat-shell-minimized');
+    expect(pill.getAttribute('data-open-chat-count')).toBe('2');
+    expect(screen.getByTestId('unified-chat-shell-minimized-count').textContent).toBe('2');
   });
 
   it('minimize button collapses to a bottom-right "Ask Brunch" pill; clicking it restores', () => {
@@ -269,7 +294,12 @@ describe('UnifiedChatShell', () => {
     expect(screen.queryByTestId('unified-chat-shell-minimized')).toBeNull();
   });
 
-  it('side-docked button forwards "side-docked" on click; pressed when current mode matches', () => {
+  it('dock button toggles between "side-docked" and "compact"; pressed while in either', () => {
+    // The single dock-vs-compact button is a toggle. In side-docked, it
+    // shows the picture-in-picture icon and switches to compact. In compact,
+    // it shows the panel-right icon and switches back to side-docked. In
+    // either state, `data-active` is `true` (it represents "the chat is
+    // currently in one of the two docked shapes").
     const { Wrapper } = createHarness([]);
     const onLayoutModeChange = vi.fn();
 
@@ -278,14 +308,34 @@ describe('UnifiedChatShell', () => {
         <UnifiedChatShell layoutMode="side-docked" onLayoutModeChange={onLayoutModeChange} />
       </Wrapper>,
     );
+    const dockBtn = screen.getByTestId('unified-chat-shell-layout-side-docked');
+    expect(dockBtn.getAttribute('data-active')).toBe('true');
+    expect(dockBtn.getAttribute('data-mode-target')).toBe('compact');
+    expect(dockBtn.getAttribute('aria-label')).toBe('Compact');
+    fireEvent.click(dockBtn);
+    expect(onLayoutModeChange).toHaveBeenLastCalledWith('compact');
 
-    const sideDocked = screen.getByTestId('unified-chat-shell-layout-side-docked');
-    expect(sideDocked.getAttribute('data-active')).toBe('true');
-    fireEvent.click(sideDocked);
-    expect(onLayoutModeChange).toHaveBeenCalledWith('side-docked');
+    cleanup();
+    onLayoutModeChange.mockClear();
+    const next = createHarness([]);
+    render(
+      <next.Wrapper>
+        <UnifiedChatShell layoutMode="compact" onLayoutModeChange={onLayoutModeChange} />
+      </next.Wrapper>,
+    );
+    const dockBtn2 = screen.getByTestId('unified-chat-shell-layout-side-docked');
+    expect(dockBtn2.getAttribute('data-active')).toBe('true');
+    expect(dockBtn2.getAttribute('data-mode-target')).toBe('side-docked');
+    expect(dockBtn2.getAttribute('aria-label')).toBe('Dock to side');
+    fireEvent.click(dockBtn2);
+    expect(onLayoutModeChange).toHaveBeenLastCalledWith('side-docked');
   });
 
-  it('compact↔maximize toggle flips its icon + target based on the current mode', () => {
+  it('maximize toggle flips between "full" and the default "side-docked" based on the current mode', () => {
+    // The header's Maximize button now renders the chat full-screen
+    // (`'full'` hides the center workspace). Restoring from full goes back
+    // to the default `'side-docked'` split. Compact has its own dock-toggle
+    // button now, so the maximize-toggle only treats `'full'` as pressed.
     const onLayoutModeChange = vi.fn();
 
     let harness = createHarness([]);
@@ -295,11 +345,11 @@ describe('UnifiedChatShell', () => {
       </harness.Wrapper>,
     );
     let toggle = screen.getByTestId('unified-chat-shell-layout-toggle');
-    expect(toggle.getAttribute('data-mode-target')).toBe('maximize');
+    expect(toggle.getAttribute('data-mode-target')).toBe('full');
     expect(toggle.getAttribute('aria-label')).toBe('Maximize');
     expect(toggle.getAttribute('data-active')).toBe('false');
     fireEvent.click(toggle);
-    expect(onLayoutModeChange).toHaveBeenLastCalledWith('maximize');
+    expect(onLayoutModeChange).toHaveBeenLastCalledWith('full');
 
     cleanup();
     onLayoutModeChange.mockClear();
@@ -310,26 +360,28 @@ describe('UnifiedChatShell', () => {
       </harness.Wrapper>,
     );
     toggle = screen.getByTestId('unified-chat-shell-layout-toggle');
-    expect(toggle.getAttribute('data-mode-target')).toBe('maximize');
+    expect(toggle.getAttribute('data-mode-target')).toBe('full');
     expect(toggle.getAttribute('aria-label')).toBe('Maximize');
-    expect(toggle.getAttribute('data-active')).toBe('true');
+    // Compact is not pressed on the maximize-toggle anymore — that affordance
+    // is owned by the dock-vs-compact button.
+    expect(toggle.getAttribute('data-active')).toBe('false');
     fireEvent.click(toggle);
-    expect(onLayoutModeChange).toHaveBeenLastCalledWith('maximize');
+    expect(onLayoutModeChange).toHaveBeenLastCalledWith('full');
 
     cleanup();
     onLayoutModeChange.mockClear();
     harness = createHarness([]);
     render(
       <harness.Wrapper>
-        <UnifiedChatShell layoutMode="maximize" onLayoutModeChange={onLayoutModeChange} />
+        <UnifiedChatShell layoutMode="full" onLayoutModeChange={onLayoutModeChange} />
       </harness.Wrapper>,
     );
     toggle = screen.getByTestId('unified-chat-shell-layout-toggle');
-    expect(toggle.getAttribute('data-mode-target')).toBe('compact');
-    expect(toggle.getAttribute('aria-label')).toBe('Compact');
+    expect(toggle.getAttribute('data-mode-target')).toBe('side-docked');
+    expect(toggle.getAttribute('aria-label')).toBe('Restore');
     expect(toggle.getAttribute('data-active')).toBe('true');
     fireEvent.click(toggle);
-    expect(onLayoutModeChange).toHaveBeenLastCalledWith('compact');
+    expect(onLayoutModeChange).toHaveBeenLastCalledWith('side-docked');
   });
 
   it('both layout buttons are disabled when no onLayoutModeChange is supplied', () => {

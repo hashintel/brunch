@@ -17,13 +17,16 @@ describe('ClassificationChip', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('renders a queued chip when agent_status is queued', () => {
+  it('renders a queued chip when agent_status is queued (icon-only, label in tooltip/aria-label)', () => {
     const { container } = render(
       <ClassificationChip agentStatus="queued" agentClassification={null} agentProposal={null} />,
     );
     const chip = container.querySelector('[data-classification-chip]');
     expect(chip?.getAttribute('data-classification-chip')).toBe('queued');
-    expect(chip?.textContent).toContain('queued');
+    expect(chip?.getAttribute('aria-label')).toBe('Queued');
+    expect(chip?.getAttribute('title')).toBe('Queued');
+    // Visible row chrome is icon-only — no rendered label text inside.
+    expect(chip?.textContent ?? '').not.toMatch(/queued/i);
   });
 
   it('renders a classifying chip when agent_status is classifying', () => {
@@ -39,7 +42,7 @@ describe('ClassificationChip', () => {
     );
     const chip = container.querySelector('[data-classification-chip]');
     expect(chip?.getAttribute('data-classification-chip')).toBe('auto-confirm');
-    expect(chip?.textContent).toContain('auto-confirm');
+    expect(chip?.getAttribute('aria-label')).toBe('Auto-confirm');
   });
 
   it('renders an auto-edit chip on classified + auto-edit', () => {
@@ -60,12 +63,13 @@ describe('ClassificationChip', () => {
     expect(container.querySelector('[data-classification-chip="substantive"]')).not.toBeNull();
   });
 
-  it('renders a failed chip on failed status and shows agent_proposal as tooltip', () => {
+  it('renders a failed chip on failed status and shows agent_proposal as the tooltip body', () => {
     const { container } = render(
       <ClassificationChip agentStatus="failed" agentClassification={null} agentProposal="LLM unavailable" />,
     );
     const chip = container.querySelector('[data-classification-chip="failed"]');
     expect(chip).not.toBeNull();
+    // `title` mirrors the tooltip body so native + Radix tooltips agree.
     expect(chip?.getAttribute('title')).toBe('LLM unavailable');
   });
 
@@ -74,7 +78,7 @@ describe('ClassificationChip', () => {
       <ClassificationChip agentStatus="failed" agentClassification={null} agentProposal={null} />,
     );
     expect(container.querySelector('[data-classification-chip="failed"]')?.getAttribute('title')).toBe(
-      'failed',
+      'Failed',
     );
   });
 });

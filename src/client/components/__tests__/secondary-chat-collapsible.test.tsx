@@ -103,24 +103,11 @@ describe('SecondaryChatCollapsible', () => {
     expect(screen.queryByText('Secondary chat')).toBeNull();
   });
 
-  it('renders the Ask kind chip when mode is explore', () => {
-    const chat: SecondaryChat = {
-      chat: { ...baseChat, mode: 'explore' },
-      kickoffTurn: null,
-      turns: [],
-      pinnedItemKind: null,
-      pinnedReconciliationNeed: null,
-      anchoredItemIds: [],
-    };
-
-    render(<SecondaryChatCollapsible secondaryChat={chat} />);
-
-    const chip = screen.getByTestId('secondary-chat-kind-chip');
-    expect(chip.dataset.kind).toBe('ask');
-    expect(chip.textContent).toContain('Ask');
-  });
-
-  it('renders the Edit kind chip when mode is edit', () => {
+  it('does not render a chat-mode icon in the title (redundant with ChatSwitcher tabs and composer toggle)', () => {
+    // The title chip used to show MessageSquare/Sparkles for mode, but
+    // ChatSwitcher tabs already carry per-chat icons and the composer's
+    // segmented toggle visualises mode at the bottom — so the title chip
+    // was duplicate signal and is gone.
     const chat: SecondaryChat = {
       chat: { ...baseChat, mode: 'edit' },
       kickoffTurn: null,
@@ -129,12 +116,8 @@ describe('SecondaryChatCollapsible', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
-
-    const chip = screen.getByTestId('secondary-chat-kind-chip');
-    expect(chip.dataset.kind).toBe('edit');
-    expect(chip.textContent).toContain('Edit');
+    expect(screen.queryByTestId('secondary-chat-kind-chip')).toBeNull();
   });
 
   it('starts collapsed — body content is not visible', () => {
@@ -315,7 +298,9 @@ describe('SecondaryChatCollapsible', () => {
     expect(screen.getByTestId('secondary-chat-mode-edit').hasAttribute('disabled')).toBe(true);
   });
 
-  it('does not render the mode toggle in the header (kind chip remains)', () => {
+  it('does not render the mode toggle in the header (no composer mounted → no toggle)', () => {
+    // Without `onSubmitMessage` the composer (which hosts the mode toggle)
+    // is not mounted, so the toggle is absent from the entire surface.
     const chat: SecondaryChat = {
       chat: { ...baseChat, mode: 'edit' },
       kickoffTurn: null,
@@ -326,7 +311,6 @@ describe('SecondaryChatCollapsible', () => {
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={vi.fn()} />);
     expect(screen.queryByTestId('secondary-chat-mode-toggle')).toBeNull();
-    expect(screen.getByTestId('secondary-chat-kind-chip')).toBeTruthy();
   });
 
   it('toggles Ask↔Edit when Shift+Tab is pressed inside the composer textarea', () => {
@@ -790,5 +774,78 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     expect(screen.queryByTestId('secondary-chat-reconciliation-panel')).toBeNull();
+  });
+
+  it('does not render the pinned item as a chip in the composer — the title already shows it', () => {
+    const chat: SecondaryChat = {
+      chat: { ...baseChat, pinned_item_id: 42 },
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: 'requirement',
+      pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
+    };
+    render(
+      <SecondaryChatCollapsible
+        secondaryChat={chat}
+        onSubmitMessage={vi.fn()}
+        pinnedItemSummary={{ refCode: 'R42', content: 'The system must do X' }}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    // Title still shows the pinned item.
+    expect(screen.getByTestId('secondary-chat-pinned-code').getAttribute('data-ref-code')).toBe('R42');
+    // Composer anchor chip is absent (no mentions in draft, no span hint).
+    expect(screen.queryByTestId('secondary-chat-composer-anchor-chip')).toBeNull();
+  });
+
+  it('renders each #REF-CODE in the draft as a chip above the composer', () => {
+    const chat: SecondaryChat = {
+      chat: { ...baseChat, pinned_item_id: 42 },
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: 'requirement',
+      pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
+    };
+    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    const input = screen.getByTestId('secondary-chat-composer-input') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: 'About #R1 and also #G2 — and #R1 again' } });
+    const chips = screen.getAllByTestId('secondary-chat-composer-mention-chip');
+    // Distinct mentions only — R1 appears twice in the draft but produces one chip.
+    expect(chips).toHaveLength(2);
+    expect(chips[0]?.getAttribute('data-ref-code')).toBe('R1');
+    expect(chips[1]?.getAttribute('data-ref-code')).toBe('G2');
+  });
+
+  it('renders the span hint as a chip above the composer when pinned_span_hint is set', () => {
+    const chat: SecondaryChat = {
+      chat: { ...baseChat, pinned_item_id: 42, pinned_span_hint: 'highlighted excerpt' },
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: 'requirement',
+      pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
+    };
+    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    const span = screen.getByTestId('secondary-chat-composer-anchor-span');
+    expect(span.textContent).toContain('highlighted excerpt');
+    expect(span.getAttribute('title')).toBe('highlighted excerpt');
+  });
+
+  it('does not render the composer anchor chip when the draft has no mentions and no span hint', () => {
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
+    };
+    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    expect(screen.queryByTestId('secondary-chat-composer-anchor-chip')).toBeNull();
   });
 });

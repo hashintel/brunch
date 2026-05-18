@@ -1,4 +1,4 @@
-import { ChevronDown, MessageCircleQuestion, PencilLine } from 'lucide-react';
+import { ChevronDown, MessageSquare, Sparkles } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { z } from 'zod/v4';
 
@@ -28,10 +28,15 @@ function getChatLabel(chat: SecondaryChat): string {
   return kickoff || `Chat #${chat.chat.id}`;
 }
 
+// Mode icon mirrors the composer's segmented toggle:
+// `MessageSquare` for explore/chat, `Sparkles` for edit/agent. The icon
+// inherits `currentColor` so it stays neutral in dropdown rows and only
+// picks up the accent when the parent (active tab / active row) is itself
+// accent-colored — a Linear-style restraint where chrome stays quiet and
+// state is signalled through one element, not stacked color cues.
 function ChatKindIcon({ chat, className }: { chat: SecondaryChat; className?: string }) {
-  const Icon = (chat.chat.mode ?? 'explore') === 'edit' ? PencilLine : MessageCircleQuestion;
-  const color = chat.pinnedItemKind ? kindAccentHex[chat.pinnedItemKind] : undefined;
-  return <Icon aria-hidden className={className} style={color ? { color } : undefined} />;
+  const Icon = (chat.chat.mode ?? 'explore') === 'edit' ? Sparkles : MessageSquare;
+  return <Icon aria-hidden className={className} />;
 }
 
 export function ChatSwitcher({ chats, activeChatId, onSelect }: ChatSwitcherProps) {
@@ -53,9 +58,9 @@ export function ChatSwitcher({ chats, activeChatId, onSelect }: ChatSwitcherProp
           style={triggerStyle}
           className="inline-flex max-w-[220px] items-center gap-1.5 rounded border border-rule bg-tint/30 px-2 py-1 text-xs text-ink hover:opacity-90"
         >
-          <ChatKindIcon chat={active} className="size-3.5 shrink-0" />
+          <ChatKindIcon chat={active} className="size-3 shrink-0" />
           <span className="min-w-0 truncate">{getChatLabel(active)}</span>
-          <ChevronDown aria-hidden className="size-3 shrink-0 opacity-70" />
+          <ChevronDown aria-hidden className="size-3 shrink-0 opacity-60" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent data-testid="chat-switcher-menu" align="start" className="w-[280px] max-w-[320px]">
@@ -74,7 +79,7 @@ export function ChatSwitcher({ chats, activeChatId, onSelect }: ChatSwitcherProp
               onSelect={() => onSelect(chat.chat.id)}
               className={cn('flex items-start gap-2 text-xs', isActive && 'font-medium')}
             >
-              <ChatKindIcon chat={chat} className="mt-0.5 size-3.5 shrink-0" />
+              <ChatKindIcon chat={chat} className="mt-0.5 size-3 shrink-0" />
               <span className="min-w-0 truncate">{getChatLabel(chat)}</span>
             </DropdownMenuItem>
           );

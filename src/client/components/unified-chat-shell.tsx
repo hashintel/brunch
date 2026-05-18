@@ -1,4 +1,4 @@
-import { Maximize2, Minimize2, Minus, PanelRight, Send, X } from 'lucide-react';
+import { Maximize2, Minimize2, Minus, PanelRight, PictureInPicture2, Send, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState } from 'react';
 
@@ -45,29 +45,46 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
   const activeChat: (typeof itemChats)[number] | null =
     itemChats.find((c) => c.chat.id === presence?.focusedChatId) ??
     (itemChats.length > 0 ? (itemChats[itemChats.length - 1] ?? null) : null);
-  const specName = specificationState.specification.name;
   const prefersReducedMotion = usePrefersReducedMotion();
   const fadeSpring = prefersReducedMotion ? { duration: 0 } : CHAT_SHELL_SPRING;
 
-  if (appearance === 'closed') {
-    return null;
-  }
-
-  if (appearance === 'minimized') {
+  // "Ask Brunch" is a persistent affordance: the X button collapses the
+  // shell into the same compact pill the minimize button produces, so users
+  // never lose the entry point to the chat. The pill carries a small badge
+  // with the number of open per-item subchats so the user can tell at a
+  // glance whether there are conversations to return to.
+  if (appearance === 'closed' || appearance === 'minimized') {
+    const openChatCount = itemChats.length;
     return (
       <motion.button
         key="minimized"
         type="button"
         data-testid="unified-chat-shell-minimized"
+        data-open-chat-count={openChatCount}
         onClick={() => setAppearance('expanded')}
-        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        // Fade-in only — no entry slide. Hover lives on the `<Send>` icon.
+        initial={prefersReducedMotion ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
         transition={fadeSpring}
-        aria-label="Expand chat"
-        className="fixed right-4 bottom-4 z-30 inline-flex items-center gap-2 rounded-full border border-rule bg-background px-3 py-1.5 text-xs text-ink shadow-md hover:bg-tint"
+        aria-label={
+          openChatCount > 0
+            ? `Expand chat — ${openChatCount} open ${openChatCount === 1 ? 'conversation' : 'conversations'}`
+            : 'Expand chat'
+        }
+        // Pill stays still; only the `<Send>` icon rotates on hover.
+        className="group fixed right-4 bottom-4 z-30 inline-flex items-center gap-2 rounded-full border border-rule bg-background px-3 py-1.5 text-xs text-ink shadow-md transition-[box-shadow,background-color] duration-200 hover:bg-tint hover:shadow-lg"
       >
-        <Send aria-hidden className="size-3.5" />
+        <Send aria-hidden className="size-3.5 transition-transform duration-200 group-hover:rotate-[-8deg]" />
         <span>Ask Brunch</span>
+        {openChatCount > 0 && (
+          <span
+            data-testid="unified-chat-shell-minimized-count"
+            aria-hidden
+            className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-tint px-1.5 py-0.5 font-mono text-[10px] leading-none text-hint"
+          >
+            {openChatCount}
+          </span>
+        )}
       </motion.button>
     );
   }
@@ -82,12 +99,18 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
       transition={fadeSpring}
       className="flex h-full min-h-0 flex-col border-l border-rule bg-background"
     >
+      {/* Chat controls strip. Its `border-b` is the only separator between
+          the controls and the sticky pending-review/patch overlays below. */}
       <header
         data-testid="unified-chat-shell-header"
-        className="flex h-8 items-center justify-between gap-2 border-b border-rule px-3"
+        className={cn(
+          'flex h-8 items-center justify-between gap-2 border-b border-rule',
+          // Tighter horizontal padding in the floating compact dock so the
+          // narrow column doesn't waste rail space on chrome.
+          layoutMode === 'compact' ? 'px-1.5' : 'px-3',
+        )}
       >
         <div data-testid="unified-chat-shell-spine-label" className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 truncate text-sm text-ink">{specName}</span>
           {itemChats.length > 1 && (
             <ChatSwitcher
               chats={itemChats}
@@ -96,98 +119,128 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
             />
           )}
         </div>
-        <div className="flex items-center gap-1">
-          <div
-            data-testid="unified-chat-shell-layout-buttons"
-            role="group"
-            aria-label="Chat layout"
-            className="inline-flex items-center gap-0.5 rounded border border-rule bg-tint/40 p-0.5"
-          >
-            {(() => {
-              const interactive = Boolean(onLayoutModeChange);
-              const sideDockedActive = layoutMode === 'side-docked';
-              const toggleIsMaxed = layoutMode === 'maximize';
-              const toggleNext: ChatLayoutMode = toggleIsMaxed ? 'compact' : 'maximize';
-              const toggleLabel = toggleIsMaxed ? 'Compact' : 'Maximize';
-              const ToggleIcon = toggleIsMaxed ? Minimize2 : Maximize2;
-              const togglePressed = layoutMode === 'compact' || layoutMode === 'maximize';
-              return (
-                <>
-                  <button
-                    type="button"
-                    data-testid="unified-chat-shell-minimize"
-                    aria-label="Minimize chat"
-                    title="Minimize"
-                    onClick={() => setAppearance('minimized')}
-                    className="rounded px-1.5 py-1 text-xs text-hint transition-colors hover:bg-background hover:text-ink"
-                  >
-                    <Minus aria-hidden className="size-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="unified-chat-shell-layout-side-docked"
-                    data-active={sideDockedActive}
-                    aria-pressed={sideDockedActive}
-                    aria-label="Side-docked"
-                    title="Side-docked"
-                    disabled={!interactive}
-                    onClick={() => onLayoutModeChange?.('side-docked')}
-                    className={cn(
-                      'rounded px-1.5 py-1 text-xs transition-colors',
-                      sideDockedActive
-                        ? 'bg-background text-ink shadow-sm'
-                        : 'text-hint hover:bg-background hover:text-ink',
-                      !interactive && 'opacity-60',
-                    )}
-                  >
-                    <PanelRight aria-hidden className="size-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="unified-chat-shell-layout-toggle"
-                    data-active={togglePressed}
-                    data-mode-target={toggleNext}
-                    aria-pressed={togglePressed}
-                    aria-label={toggleLabel}
-                    title={toggleLabel}
-                    disabled={!interactive}
-                    onClick={() => onLayoutModeChange?.(toggleNext)}
-                    className={cn(
-                      'rounded px-1.5 py-1 text-xs transition-colors',
-                      togglePressed
-                        ? 'bg-background text-ink shadow-sm'
-                        : 'text-hint hover:bg-background hover:text-ink',
-                      !interactive && 'opacity-60',
-                    )}
-                  >
-                    <ToggleIcon aria-hidden className="size-3.5" />
-                  </button>
-                </>
-              );
-            })()}
-          </div>
-          <button
-            type="button"
-            data-testid="unified-chat-shell-close"
-            onClick={() => setAppearance('closed')}
-            aria-label="Collapse chat"
-            className="rounded p-1 text-hint hover:bg-tint hover:text-ink"
-          >
-            <X aria-hidden className="size-3.5" />
-          </button>
+        {/*
+          Header controls. Linear-style minimalism:
+          - flat icon buttons sharing one shape, no segmented-pill container;
+          - rest state has zero chrome (no border, no fill), only the icon at
+            a quiet `text-hint`;
+          - hover lifts to `text-ink` with a soft `bg-tint` and a tactile
+            `active:scale-95` press;
+          - active/pressed state (the current layout mode) flips to `text-ink`
+            with `bg-tint` so the affordance reads without adding shadow or
+            ring chrome.
+          Close is grouped with a thin separator so its destructive intent
+          stays distinguishable from the layout cluster.
+        */}
+        <div
+          data-testid="unified-chat-shell-layout-buttons"
+          role="group"
+          aria-label="Chat controls"
+          className="flex items-center"
+        >
+          {(() => {
+            const interactive = Boolean(onLayoutModeChange);
+            // Dock ↔ Compact toggle:
+            // - In compact, the button shows the dock icon and switches to
+            //   `'side-docked'` (the default split).
+            // - In any other mode, it shows the picture-in-picture icon and
+            //   switches to `'compact'` (the floating bottom-right dock).
+            const dockIsCompact = layoutMode === 'compact';
+            const dockNext: ChatLayoutMode = dockIsCompact ? 'side-docked' : 'compact';
+            const DockIcon = dockIsCompact ? PanelRight : PictureInPicture2;
+            const dockLabel = dockIsCompact ? 'Dock to side' : 'Compact';
+            const dockActive = layoutMode === 'side-docked' || layoutMode === 'compact';
+            // Maximize → renders the chat full-screen (`'full'` hides the
+            // center workspace, so the chat owns the whole viewport).
+            // Restore-from-full goes back to the default `'side-docked'`
+            // split.
+            const toggleIsMaxed = layoutMode === 'full';
+            const toggleNext: ChatLayoutMode = toggleIsMaxed ? 'side-docked' : 'full';
+            const toggleLabel = toggleIsMaxed ? 'Restore' : 'Maximize';
+            const ToggleIcon = toggleIsMaxed ? Minimize2 : Maximize2;
+            const togglePressed = layoutMode === 'full';
+            const buttonBase =
+              'inline-flex size-6 items-center justify-center rounded text-hint transition-[transform,color,background-color] duration-150 hover:bg-tint hover:text-ink active:scale-95 disabled:cursor-not-allowed disabled:opacity-50';
+            const activeClass = 'bg-tint text-ink';
+            return (
+              <>
+                <button
+                  type="button"
+                  data-testid="unified-chat-shell-minimize"
+                  aria-label="Minimize chat"
+                  title="Minimize"
+                  onClick={() => setAppearance('minimized')}
+                  className={buttonBase}
+                >
+                  <Minus aria-hidden className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  data-testid="unified-chat-shell-layout-side-docked"
+                  data-active={dockActive}
+                  data-mode-target={dockNext}
+                  aria-pressed={dockActive}
+                  aria-label={dockLabel}
+                  title={dockLabel}
+                  disabled={!interactive}
+                  onClick={() => onLayoutModeChange?.(dockNext)}
+                  className={cn(buttonBase, dockActive && activeClass)}
+                >
+                  <DockIcon aria-hidden className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  data-testid="unified-chat-shell-layout-toggle"
+                  data-active={togglePressed}
+                  data-mode-target={toggleNext}
+                  aria-pressed={togglePressed}
+                  aria-label={toggleLabel}
+                  title={toggleLabel}
+                  disabled={!interactive}
+                  onClick={() => onLayoutModeChange?.(toggleNext)}
+                  className={cn(buttonBase, togglePressed && activeClass)}
+                >
+                  <ToggleIcon aria-hidden className="size-3.5" />
+                </button>
+                <span aria-hidden className="mx-1 h-3.5 w-px bg-rule" />
+                <button
+                  type="button"
+                  data-testid="unified-chat-shell-close"
+                  onClick={() => setAppearance('closed')}
+                  aria-label="Collapse chat"
+                  className={buttonBase}
+                >
+                  <X aria-hidden className="size-3.5" />
+                </button>
+              </>
+            );
+          })()}
         </div>
       </header>
       <div
         data-testid="unified-chat-shell-body"
-        className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-3"
+        // `pt-0` keeps the sticky overlays flush under the controls strip.
+        // Compact dock uses tighter gutters so the narrow column doesn't
+        // burn space on padding.
+        className={cn(
+          'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pt-0',
+          layoutMode === 'compact' ? 'px-1.5 pb-2' : 'px-3 pb-3',
+        )}
       >
-        {/* FE-716 C30: reconciliation needs surface integrates inside the chat
-            shell — restore the workspace mount in -structured-list-view.tsx to
-            revert. Pending reviews sit above staged patches so the conversational
-            input (needs → side-chat triggers) is visually upstream of the
-            output (proposed edits). */}
-        <PendingReviewSection />
-        <ChatShellPatchPanel />
+        {/* Sticky pending-review + patch stack. Each child renders null when
+            empty so the overlay collapses cleanly. Edge-to-edge iOS-style
+            glass surface — the negative margin matches the body's gutter so
+            scrolled content stays blurred across the full width. */}
+        <div
+          data-testid="chat-shell-sticky-overlays"
+          className={cn(
+            'sticky top-0 z-20 flex flex-col gap-2 border-b border-rule/40 bg-background/70 shadow-sm backdrop-blur-md backdrop-saturate-150 supports-[backdrop-filter]:bg-background/55',
+            layoutMode === 'compact' ? '-mx-1.5 px-1.5 py-1.5' : '-mx-3 px-3 py-2',
+          )}
+        >
+          <PendingReviewSection />
+          <ChatShellPatchPanel />
+        </div>
         {activeChat === null ? (
           <p data-testid="unified-chat-shell-empty" className="text-xs text-hint">
             Open one from a knowledge item to start a conversation.

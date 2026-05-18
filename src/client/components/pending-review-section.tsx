@@ -1,6 +1,8 @@
 import {
   Check,
   CheckCheck,
+  ChevronDown,
+  ChevronUp,
   Forward,
   Loader2,
   MessageSquare,
@@ -41,12 +43,16 @@ type EditDraftMap = ReadonlyMap<number, string>;
 // One dark primary-action shape (composer-send pedigree) + neutral hint/ink
 // icon affordances. ClassificationChip (its own component) still carries its
 // per-variant chrome — those tints encode semantic state, not decoration.
+//
+// Microinteractions: primary buttons get a tactile `active:scale-95` press
+// feedback; disabled state uses semantic `bg-tint` / `text-hint` tokens so
+// the icon stays legible (instead of a washed grey-on-grey).
 const PRIMARY_BUTTON_CLASS =
-  'inline-flex items-center gap-1 rounded-md bg-[#202020] px-2 py-0.5 text-[10px] font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] hover:enabled:bg-[#000] disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none';
+  'inline-flex items-center gap-1 rounded-md bg-ink px-2 py-1 text-[10px] font-medium text-background transition-[transform,background-color] duration-150 hover:enabled:bg-foreground active:enabled:scale-95 disabled:bg-tint disabled:text-hint';
 const ICON_BUTTON_CLASS =
-  'inline-flex size-6 items-center justify-center rounded text-hint opacity-60 transition-opacity group-hover/need-row:opacity-100 hover:bg-tint hover:text-ink hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30';
+  'inline-flex size-7 items-center justify-center rounded-md text-sub transition-[transform,background-color,color] duration-150 hover:bg-tint hover:text-ink active:scale-95 disabled:text-hint disabled:hover:bg-transparent';
 const PRIMARY_ICON_BUTTON_CLASS =
-  'inline-flex size-6 items-center justify-center rounded-md bg-[#202020] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] hover:enabled:bg-[#000] disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none';
+  'inline-flex size-7 items-center justify-center rounded-md bg-ink text-background transition-[transform,background-color] duration-150 hover:enabled:bg-foreground active:enabled:scale-95 disabled:bg-tint disabled:text-hint';
 
 const TARGET_EXCERPT_LIMIT = 80;
 
@@ -86,6 +92,10 @@ export function PendingReviewSection(): React.ReactElement | null {
     needId: number;
     mode: 'source-diff' | 'agent-proposal';
   } | null>(null);
+  // Minimized = header-only mode. Bulk actions remain visible (so the user
+  // can still take action without expanding), but the per-row list collapses
+  // to save vertical space in long chats.
+  const [isMinimized, setIsMinimized] = useState(false);
   const diffAnchorRef = useRef<HTMLButtonElement | null>(null);
   const secondaryChatTrigger = useSecondaryChatTrigger();
 
@@ -330,13 +340,43 @@ export function PendingReviewSection(): React.ReactElement | null {
       role="region"
       aria-label="Pending review"
       data-open-needs-count={openNeeds.length}
-      className="flex flex-col gap-1 rounded-lg border border-rule bg-tint/40 px-2 py-1.5 text-xs"
+      data-minimized={isMinimized ? 'true' : undefined}
+      // Subtle inset card. Glass surface comes from the sticky wrapper in
+      // <UnifiedChatShell>; this panel only adds border + faint tint.
+      className="flex flex-col gap-1 rounded-lg border border-rule/60 bg-background/30 px-2 py-1.5 text-xs"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 font-medium text-ink">
+        <button
+          type="button"
+          data-testid="pending-review-minimize-toggle"
+          aria-expanded={!isMinimized}
+          aria-label={isMinimized ? 'Expand pending review' : 'Minimize pending review'}
+          title={isMinimized ? 'Expand pending review' : 'Minimize pending review'}
+          onClick={() => {
+            setIsMinimized((prev) => {
+              const next = !prev;
+              // Close any open diff popover when collapsing — its anchor row
+              // is about to disappear from the DOM, which would leave the
+              // popover orphaned.
+              if (next) {
+                setDiffPopoverNeedId(null);
+                diffAnchorRef.current = null;
+              }
+              return next;
+            });
+          }}
+          className="inline-flex items-center gap-1.5 rounded font-medium text-ink hover:text-ink/90 focus-visible:outline-2 focus-visible:outline-ink/40"
+        >
           <Replace className="size-3.5 text-hint" aria-hidden />
-          {openNeeds.length} pending review{openNeeds.length === 1 ? '' : 's'}
-        </span>
+          <span>
+            {openNeeds.length} pending review{openNeeds.length === 1 ? '' : 's'}
+          </span>
+          {isMinimized ? (
+            <ChevronDown className="size-3.5 text-hint" aria-hidden />
+          ) : (
+            <ChevronUp className="size-3.5 text-hint" aria-hidden />
+          )}
+        </button>
         <div className="flex items-center gap-1.5">
           {agentInFlight ? (
             <span data-agent-progress-strip className="inline-flex items-center gap-1 text-[10px] text-hint">
@@ -411,7 +451,7 @@ export function PendingReviewSection(): React.ReactElement | null {
           ) : null}
         </div>
       </div>
-      <ul className="flex flex-col gap-0.5 text-sub">
+      <ul hidden={isMinimized} className="flex flex-col gap-0.5 text-sub">
         {openNeeds.map((need) => {
           const isResolving = resolvingNeedIds.has(need.id);
           const isSaving = savingNeedIds.has(need.id);
@@ -477,7 +517,7 @@ export function PendingReviewSection(): React.ReactElement | null {
                     ) : null}
                   </span>
                 </div>
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-1">
                   {showAutoConfirmButton ? (
                     <button
                       type="button"

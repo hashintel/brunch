@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 
 import type { ChatLayoutMode } from './unified-chat-shell.js';
 
-// `'full'` is hidden in the UI; reads and writes are clamped to `'maximize'`
-// so older persisted values still resolve cleanly.
+// `'full'` is now reachable from the header toggle (renders the chat over
+// the entire viewport, hiding the center workspace). Older persisted values
+// resolve directly — no clamping.
 export const CHAT_LAYOUT_MODE_ORDER: ReadonlyArray<ChatLayoutMode> = [
   'compact',
   'side-docked',
@@ -17,10 +18,6 @@ function isChatLayoutMode(value: unknown): value is ChatLayoutMode {
   return typeof value === 'string' && (CHAT_LAYOUT_MODE_ORDER as readonly string[]).includes(value);
 }
 
-function clampDisabledMode(mode: ChatLayoutMode): ChatLayoutMode {
-  return mode === 'full' ? 'maximize' : mode;
-}
-
 export function chatLayoutModeStorageKey(specificationId: number | string): string {
   return `brunch:chat-layout-mode:${specificationId}`;
 }
@@ -30,15 +27,7 @@ function readPersistedMode(specificationId: number | string): ChatLayoutMode {
   try {
     const stored = window.localStorage.getItem(chatLayoutModeStorageKey(specificationId));
     if (isChatLayoutMode(stored)) {
-      const clamped = clampDisabledMode(stored);
-      if (clamped !== stored) {
-        try {
-          window.localStorage.setItem(chatLayoutModeStorageKey(specificationId), clamped);
-        } catch {
-          // ignore
-        }
-      }
-      return clamped;
+      return stored;
     }
   } catch {
     // ignore
@@ -48,9 +37,8 @@ function readPersistedMode(specificationId: number | string): ChatLayoutMode {
 
 function writePersistedMode(specificationId: number | string, mode: ChatLayoutMode): void {
   if (typeof window === 'undefined') return;
-  const effective = clampDisabledMode(mode);
   try {
-    window.localStorage.setItem(chatLayoutModeStorageKey(specificationId), effective);
+    window.localStorage.setItem(chatLayoutModeStorageKey(specificationId), mode);
   } catch {
     // ignore
   }
@@ -82,9 +70,8 @@ export function useChatLayoutMode(specificationId: number | string): UseChatLayo
 
   const setLayoutMode = useCallback(
     (mode: ChatLayoutMode) => {
-      const effective = clampDisabledMode(mode);
-      setLayoutModeState(effective);
-      writePersistedMode(specificationId, effective);
+      setLayoutModeState(mode);
+      writePersistedMode(specificationId, mode);
     },
     [specificationId],
   );

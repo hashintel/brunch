@@ -1,4 +1,4 @@
-import { Crosshair, MessageCircleQuestion, MessageSquare, PencilLine, Sparkles } from 'lucide-react';
+import { ArrowUp, Highlighter, MessageSquare, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { z } from 'zod/v4';
 
@@ -18,6 +18,7 @@ import {
   PromptInputTools,
 } from './ai-elements/prompt-input.js';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from './ai-elements/reasoning.js';
+import { Shimmer } from './ai-elements/shimmer.js';
 import { kindAccentHex } from './knowledge-card.js';
 import {
   computeMentionQuery,
@@ -66,17 +67,20 @@ export interface SecondaryChatCollapsibleProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   /**
-   * When supplied AND the chat has a non-null `invoked_in_turn_id`, the header
-   * renders a small "Jump to anchor" affordance that scrolls the workspace
-   * center pane.
-   */
-  onJumpToAnchor?: (turnId: number) => void;
-  /**
    * Mention-able knowledge items. When non-empty AND the composer is mounted,
    * typing `#` opens an autocomplete popup. Server-side resolution of
    * `#REF-CODE` lives elsewhere — this prop only powers the UI affordance.
    */
   mentionableItems?: readonly MentionItem[];
+  /**
+   * Optional summary of the card this chat is pinned to. When provided, the
+   * header shows `[Action] [REF-CODE] trimmed name…` — so the user sees at a
+   * glance which artifact the chat is anchored on.
+   */
+  pinnedItemSummary?: {
+    refCode: string;
+    content: string;
+  } | null;
 }
 
 export function SecondaryChatCollapsible({
@@ -89,12 +93,11 @@ export function SecondaryChatCollapsible({
   bodyExtras,
   open,
   onOpenChange,
-  onJumpToAnchor,
   mentionableItems,
+  pinnedItemSummary,
 }: SecondaryChatCollapsibleProps) {
   const kickoffContent = secondaryChat.kickoffTurn?.assistant_parts ?? '';
   const mode = secondaryChat.chat.mode ?? 'explore';
-  const invokedInTurnId = secondaryChat.chat.invoked_in_turn_id;
   const collapsibleProps = open !== undefined ? { open, ...(onOpenChange ? { onOpenChange } : {}) } : {};
   const prefersReducedMotion = usePrefersReducedMotion();
   // Lifted composer draft so the turn-zero suggestion row can populate it.
@@ -138,27 +141,17 @@ export function SecondaryChatCollapsible({
         <CollapsibleTrigger
           data-testid="secondary-chat-collapsible-trigger"
           style={pinnedAccent ? { ['--tw-ring-color' as never]: `${pinnedAccent}4D` } : undefined}
-          className="flex flex-1 items-center justify-between rounded text-left text-sub outline-none focus-visible:ring-2"
+          className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded text-left text-sub outline-none focus-visible:ring-2"
         >
-          <SecondaryChatKindChip mode={mode} />
-          <span aria-hidden className="text-hint">
+          <SecondaryChatTitle
+            mode={mode}
+            pinnedItemSummary={pinnedItemSummary ?? null}
+            pinnedAccent={pinnedAccent}
+          />
+          <span aria-hidden className="shrink-0 text-hint">
             ▾
           </span>
         </CollapsibleTrigger>
-        {onJumpToAnchor && invokedInTurnId !== null && (
-          <button
-            type="button"
-            data-testid="secondary-chat-jump-to-anchor"
-            data-anchor-turn-id={invokedInTurnId}
-            onClick={() => onJumpToAnchor(invokedInTurnId)}
-            title="Jump to anchor"
-            aria-label="Jump to anchor turn"
-            className="inline-flex items-center gap-1 rounded border border-rule/60 bg-background px-1.5 py-0.5 text-xs text-hint hover:text-ink"
-          >
-            <Crosshair aria-hidden className="size-3" />
-            <span>Jump</span>
-          </button>
-        )}
       </div>
       <CollapsibleContent
         data-testid="secondary-chat-collapsible-body"
@@ -171,7 +164,7 @@ export function SecondaryChatCollapsible({
         <Conversation className="relative flex max-h-none flex-1 flex-col overflow-visible">
           <ConversationContent className="flex flex-col gap-2 p-0">
             {secondaryChat.turns.map((turn) => (
-              <SecondaryChatTurnRow key={turn.id} turn={turn} />
+              <SecondaryChatTurnRow key={turn.id} turn={turn} pinnedAccent={pinnedAccent} />
             ))}
             {isStreaming && streamingAssistantText !== undefined && (
               <SecondaryChatStreamingAssistant
@@ -217,6 +210,8 @@ export function SecondaryChatCollapsible({
               draft={draft}
               setDraft={setDraft}
               mentionableItems={mentionableItems ?? []}
+              pinnedAccent={pinnedAccent}
+              pinnedSpanHint={secondaryChat.chat.pinned_span_hint}
             />
           </div>
         )}
@@ -234,6 +229,25 @@ function SecondaryChatStreamingAssistant({
   isStreaming: boolean;
   prefersReducedMotion: boolean;
 }) {
+  // Before the first token arrives we show a "Thinking…" shimmer so the
+  // user has immediate feedback that the request is in-flight, matching
+  // the ai-elements shimmer pattern used elsewhere for pre-stream affordance.
+  // Reduced-motion users get a static label so they don't see the running
+  // gradient animation.
+  const hasText = text.length > 0;
+  if (!hasText && isStreaming) {
+    return (
+      <div data-testid="secondary-chat-streaming-thinking" className="text-sub italic">
+        {prefersReducedMotion ? (
+          <span className="text-hint">Thinking…</span>
+        ) : (
+          <Shimmer as="span" className="text-xs">
+            Thinking…
+          </Shimmer>
+        )}
+      </div>
+    );
+  }
   if (prefersReducedMotion) {
     return (
       <div data-testid="secondary-chat-streaming-assistant" className="whitespace-pre-wrap text-sub">
@@ -254,18 +268,57 @@ function SecondaryChatStreamingAssistant({
   );
 }
 
-function SecondaryChatKindChip({ mode }: { mode: SecondaryChatMode }) {
-  const isEdit = mode === 'edit';
-  const Icon = isEdit ? PencilLine : MessageCircleQuestion;
-  const label = isEdit ? 'Edit' : 'Ask';
+// Cap the pinned item's content shown in the header so long requirements
+// don't blow up the trigger row. The full content is still available once
+// the user expands the chat and views the underlying card.
+const PINNED_NAME_MAX_LEN = 48;
+
+function trimPinnedName(content: string): string {
+  const collapsed = content.replace(/\s+/g, ' ').trim();
+  if (collapsed.length <= PINNED_NAME_MAX_LEN) return collapsed;
+  return `${collapsed.slice(0, PINNED_NAME_MAX_LEN - 1).trimEnd()}…`;
+}
+
+function SecondaryChatTitle({
+  pinnedItemSummary,
+  pinnedAccent,
+}: {
+  mode: SecondaryChatMode;
+  pinnedItemSummary: { refCode: string; content: string } | null;
+  pinnedAccent: string | null;
+}) {
+  // The mode (Chat/Agent) icon lives in the composer's segmented toggle and
+  // in the ChatSwitcher tabs, so the title only carries the pinned-item
+  // identity (refCode + trimmed name). The refCode chip color mirrors the
+  // pinned-card accent when available so the header reads as a single
+  // composition with the rest of the chat surface.
+  const codeStyle = pinnedAccent
+    ? { color: pinnedAccent, borderColor: `${pinnedAccent}40`, backgroundColor: `${pinnedAccent}14` }
+    : undefined;
   return (
-    <span
-      data-testid="secondary-chat-kind-chip"
-      data-kind={isEdit ? 'edit' : 'ask'}
-      className="inline-flex items-center gap-1 rounded border border-rule/60 bg-background px-1.5 py-0.5 text-xs text-ink"
-    >
-      <Icon aria-hidden className="size-3" />
-      <span>{label}</span>
+    <span className="flex min-w-0 items-center gap-1.5">
+      {pinnedItemSummary && (
+        <>
+          <span
+            data-testid="secondary-chat-pinned-code"
+            data-ref-code={pinnedItemSummary.refCode}
+            className={cn(
+              'inline-flex shrink-0 items-center rounded-md border px-1 font-mono text-[11px] leading-[1.35] font-medium',
+              pinnedAccent ? '' : 'border-rule/60 bg-background text-ink',
+            )}
+            style={codeStyle}
+          >
+            {pinnedItemSummary.refCode}
+          </span>
+          <span
+            data-testid="secondary-chat-pinned-name"
+            className="min-w-0 truncate text-xs text-ink"
+            title={pinnedItemSummary.content}
+          >
+            {trimPinnedName(pinnedItemSummary.content)}
+          </span>
+        </>
+      )}
     </span>
   );
 }
@@ -374,11 +427,25 @@ const REF_PREFIX_TO_ACCENT_HEX: Record<string, string> = (() => {
   return out;
 })();
 
-function SecondaryChatTurnRow({ turn }: { turn: SecondaryChatTurn }) {
+function SecondaryChatTurnRow({
+  turn,
+  pinnedAccent,
+}: {
+  turn: SecondaryChatTurn;
+  pinnedAccent: string | null;
+}) {
   if (turn.user_parts !== null && turn.user_parts !== undefined) {
+    // User bubble carries a slight wash of the chat's pinned-item accent
+    // (~8% alpha + a faint border at ~25%) so the message column stays in
+    // the same color family as the title chip, the focus ring, and the
+    // submit button. Falls back to the default `bg-secondary` from
+    // <MessageContent> when there's no accent.
+    const userBubbleStyle = pinnedAccent
+      ? { backgroundColor: `${pinnedAccent}14`, borderColor: `${pinnedAccent}40`, borderWidth: 1 }
+      : undefined;
     return (
       <Message data-testid="secondary-chat-user-turn" from="user">
-        <MessageContent className="text-foreground">
+        <MessageContent className="text-foreground" style={userBubbleStyle}>
           {/* Wrap in a single span so the chips stay inline. MessageContent
               is `flex flex-col`, which would otherwise stretch each direct
               child to full width. */}
@@ -399,6 +466,96 @@ function SecondaryChatTurnRow({ turn }: { turn: SecondaryChatTurn }) {
   return null;
 }
 
+// Trim the span hint shown in the composer chip — long highlights would
+// otherwise blow up the row; the full text is in the `title` attribute on
+// hover.
+const SPAN_HINT_PREVIEW_LEN = 80;
+
+function previewSpanHint(text: string): string {
+  const collapsed = text.replace(/\s+/g, ' ').trim();
+  if (collapsed.length <= SPAN_HINT_PREVIEW_LEN) return collapsed;
+  return `${collapsed.slice(0, SPAN_HINT_PREVIEW_LEN - 1).trimEnd()}…`;
+}
+
+/**
+ * Extract every distinct `#REF-CODE` mention from the draft, in first-seen
+ * order. The kind prefix is captured so the chip can be retinted to the
+ * matching knowledge-kind accent.
+ */
+function extractMentionRefs(draft: string): readonly { refCode: string; prefix: string }[] {
+  const seen = new Set<string>();
+  const out: { refCode: string; prefix: string }[] = [];
+  REF_CODE_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = REF_CODE_PATTERN.exec(draft)) !== null) {
+    const [whole, prefix] = match;
+    const refCode = whole.slice(1);
+    if (seen.has(refCode)) continue;
+    seen.add(refCode);
+    out.push({ refCode, prefix });
+  }
+  return out;
+}
+
+/**
+ * "Anchor chip" row rendered above the composer textarea. Surfaces the
+ * volatile, message-scoped context the user is composing against:
+ *
+ * - Inserted `#REF-CODE` mentions from the draft appear as colored chips so
+ *   the user can see at a glance which items they've cited — adapted from
+ *   the side-chat injection pattern.
+ * - The highlighted span (`pinned_span_hint`) from the trigger surfaces as
+ *   a separate chip when present.
+ *
+ * The chat's *pinned* item is intentionally NOT shown here — that identity
+ * already lives in the collapsible title, so duplicating it in the composer
+ * was redundant.
+ */
+function ComposerAnchorChip({ draft, spanHint }: { draft: string; spanHint: string | null }) {
+  const mentions = useMemo(() => extractMentionRefs(draft), [draft]);
+  if (mentions.length === 0 && !spanHint) return null;
+  return (
+    <div
+      data-testid="secondary-chat-composer-anchor-chip"
+      className="mb-1.5 flex max-w-full flex-wrap items-center gap-1.5 text-xs text-sub"
+    >
+      {mentions.map(({ refCode, prefix }) => {
+        const accent = REF_PREFIX_TO_ACCENT_HEX[prefix] ?? null;
+        return (
+          <span
+            key={refCode}
+            data-testid="secondary-chat-composer-mention-chip"
+            data-ref-code={refCode}
+            className={cn(
+              'inline-flex items-center rounded-md border bg-background/60 px-1.5 py-0.5 font-mono text-[11px] leading-none font-medium',
+              accent ? '' : 'border-rule/60 text-ink',
+            )}
+            style={
+              accent
+                ? { color: accent, borderColor: `${accent}40`, backgroundColor: `${accent}14` }
+                : undefined
+            }
+          >
+            #{refCode}
+          </span>
+        );
+      })}
+      {spanHint && spanHint.length > 0 && (
+        <span
+          data-testid="secondary-chat-composer-anchor-span"
+          className="inline-flex min-w-0 items-center gap-1 rounded-md border border-rule/60 bg-wash/60 px-1.5 py-0.5"
+          title={spanHint}
+        >
+          <Highlighter aria-hidden className="size-3 shrink-0 text-hint" />
+          <span className="min-w-0 truncate text-[11px] leading-none text-sub italic">
+            «{previewSpanHint(spanHint)}»
+          </span>
+        </span>
+      )}
+    </div>
+  );
+}
+
 /**
  * Composer built on `<PromptInput>`. `Shift+Tab` inside the textarea flips
  * Ask↔Edit so keyboard-only flows can change mode without leaving the input.
@@ -412,6 +569,8 @@ function SecondaryChatComposer({
   draft,
   setDraft,
   mentionableItems,
+  pinnedAccent,
+  pinnedSpanHint,
 }: {
   mode: SecondaryChatMode;
   onSubmitMessage: (message: string) => void;
@@ -421,6 +580,8 @@ function SecondaryChatComposer({
   draft: string;
   setDraft: (draft: string) => void;
   mentionableItems: readonly MentionItem[];
+  pinnedAccent?: string | null;
+  pinnedSpanHint?: string | null;
 }) {
   // `mentionQuery === null` means inactive; empty string means the user just
   // typed `#` (show all candidates).
@@ -489,7 +650,16 @@ function SecondaryChatComposer({
     // PromptInput form. The PromptInput renders an InputGroup with
     // `overflow-hidden` internally, which would otherwise clip an absolutely
     // positioned popup placed inside it.
-    <div className="relative text-sm">
+    //
+    // Overriding `--ring` on this wrapper retints the InputGroup's
+    // focus-visible border + ring (which read `ring-ring/50` / `border-ring`)
+    // so the composer's focused outline matches the chat's pinned-item
+    // accent — same family as the submit button and the title chip.
+    <div
+      className="relative text-sm"
+      style={pinnedAccent ? { ['--ring' as never]: pinnedAccent } : undefined}
+    >
+      <ComposerAnchorChip draft={draft} spanHint={pinnedSpanHint ?? null} />
       <PromptInput
         data-testid="secondary-chat-composer"
         onSubmit={(message) => {
@@ -514,19 +684,60 @@ function SecondaryChatComposer({
               const cursor = event.currentTarget.selectionStart ?? next.length;
               setMentionQuery(computeMentionQuery(next, cursor));
             }}
-            className="rounded-full px-4"
+            // `selection:` retints native text highlight to the pinned-item
+            // accent (falls back to a neutral wash so unpinned chats still
+            // get a soft selection color instead of the OS default).
+            style={pinnedAccent ? { ['--selection-bg' as never]: `${pinnedAccent}40` } : undefined}
+            className={cn(
+              'rounded-full px-4',
+              pinnedAccent
+                ? 'selection:bg-(--selection-bg) selection:text-ink'
+                : 'selection:bg-foreground/15 selection:text-ink',
+            )}
           />
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
-            <SecondaryChatModeToggle mode={mode} onSetMode={onSetMode} disabled={isModeUpdating} />
+            <SecondaryChatModeToggle
+              mode={mode}
+              onSetMode={onSetMode}
+              disabled={isModeUpdating}
+              pinnedAccent={pinnedAccent ?? null}
+            />
           </PromptInputTools>
           <PromptInputSubmit
             data-testid="secondary-chat-composer-send"
             disabled={disabled}
             title="Send message"
-            className="rounded-md bg-[#202020] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] hover:enabled:bg-[#000] disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none"
-          />
+            // Inline backgroundColor overrides Tailwind's `disabled:bg-*`,
+            // so we only apply the accent fill when the button is actually
+            // enabled. When disabled, the inline style drops and the
+            // Tailwind tokens take over — the icon then reads against a
+            // neutral tint instead of looking like a washed-out icon over
+            // a colored background.
+            style={pinnedAccent && !disabled ? { backgroundColor: pinnedAccent } : undefined}
+            className={cn(
+              // Fully circular send button with an upward arrow — reads as
+              // a classic "send / submit" affordance shared with most modern
+              // chat UIs (iMessage, ChatGPT, etc.). No hard outline: a soft
+              // drop shadow + subtle inset top highlight give the button
+              // depth without the heavy black 1-px ring.
+              //
+              // Microinteractions: on hover the shadow grows and the button
+              // lifts a hair (scale 1.05); on press it sinks to scale 0.92.
+              // The arrow icon nudges up `-translate-y-0.5` on hover so the
+              // "send" intent reads with a tiny kinetic cue.
+              'group/send relative rounded-full text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_2px_6px_-1px_rgba(0,0,0,0.25)] transition-[transform,background-color,box-shadow] duration-200 hover:enabled:scale-105 hover:enabled:shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_4px_10px_-2px_rgba(0,0,0,0.3)] active:enabled:scale-95 active:enabled:duration-100',
+              'disabled:bg-tint disabled:text-hint disabled:shadow-none',
+              pinnedAccent ? 'hover:enabled:brightness-105' : 'bg-[#202020] hover:enabled:bg-[#000]',
+            )}
+          >
+            <ArrowUp
+              className="size-4 transition-transform duration-200 group-hover/send:-translate-y-0.5"
+              strokeWidth={2.5}
+              aria-hidden
+            />
+          </PromptInputSubmit>
         </PromptInputFooter>
       </PromptInput>
       {mentionQuery !== null && mentionableItems.length > 0 && (
@@ -534,6 +745,7 @@ function SecondaryChatComposer({
           query={mentionQuery}
           items={mentionableItems}
           activeRefCode={activeMention?.refCode ?? null}
+          anchorRef={textareaRef}
           onPick={pickMention}
           onDismiss={dismissMention}
         />
@@ -543,23 +755,30 @@ function SecondaryChatComposer({
 }
 
 const MODE_HOVER_COPY: Record<SecondaryChatMode, string> = {
-  explore: 'Chat — discuss the item, get analysis, no changes to the spec',
+  explore: 'Ask — discuss the item, get analysis, no changes to the spec',
   edit: 'Agent — proposes structured changes you can review and apply',
 };
 
 const MODE_LABEL: Record<SecondaryChatMode, string> = {
-  explore: 'Chat',
+  explore: 'Ask',
   edit: 'Agent',
 };
+
+// Fallback gray when the chat isn't pinned to a known knowledge-item kind.
+// Mid-gray reads as a neutral active state against white text on the segmented
+// pill, and matches the muted palette used elsewhere in the shell.
+const DEFAULT_TOGGLE_ACCENT_HEX = '#525252';
 
 function SecondaryChatModeToggle({
   mode,
   onSetMode,
   disabled,
+  pinnedAccent,
 }: {
   mode: SecondaryChatMode;
   onSetMode?: (mode: SecondaryChatMode) => void;
   disabled?: boolean;
+  pinnedAccent?: string | null;
 }) {
   const interactive = Boolean(onSetMode);
   const handleClick = (next: SecondaryChatMode) => () => {
@@ -568,14 +787,16 @@ function SecondaryChatModeToggle({
   };
 
   // Segmented pill toggle: one rounded-full container holds both halves;
-  // only the active half is filled with the blue accent so toggling reads
-  // as a single switch flipping sides (rather than two independent chips).
-  // Inactive halves stay transparent + text-hint with a hover affordance.
+  // only the active half is filled — color mirrors the chat's pinned-item
+  // accent so the active state stays in the same family as the title chip
+  // and submit button; falls back to a neutral gray when the chat has no
+  // matching knowledge-item kind.
+  const accent = pinnedAccent ?? DEFAULT_TOGGLE_ACCENT_HEX;
   const segmentBase = cn(
     'inline-flex items-center gap-1 rounded-full px-2 py-0.5 transition-colors',
     (!interactive || disabled) && 'opacity-60',
   );
-  const activeClass = 'bg-[#2563eb] text-white';
+  const activeStyle = { backgroundColor: accent };
   const inactiveClass = 'text-hint hover:text-ink';
 
   return (
@@ -593,7 +814,8 @@ function SecondaryChatModeToggle({
         disabled={!interactive || disabled}
         onClick={handleClick('explore')}
         title={MODE_HOVER_COPY.explore}
-        className={cn(segmentBase, mode === 'explore' ? activeClass : inactiveClass)}
+        className={cn(segmentBase, mode === 'explore' ? 'text-white' : inactiveClass)}
+        style={mode === 'explore' ? activeStyle : undefined}
       >
         <MessageSquare aria-hidden className="size-3" />
         <span>{MODE_LABEL.explore}</span>
@@ -605,7 +827,8 @@ function SecondaryChatModeToggle({
         disabled={!interactive || disabled}
         onClick={handleClick('edit')}
         title={MODE_HOVER_COPY.edit}
-        className={cn(segmentBase, mode === 'edit' ? activeClass : inactiveClass)}
+        className={cn(segmentBase, mode === 'edit' ? 'text-white' : inactiveClass)}
+        style={mode === 'edit' ? activeStyle : undefined}
       >
         <Sparkles aria-hidden className="size-3" />
         <span>{MODE_LABEL.edit}</span>

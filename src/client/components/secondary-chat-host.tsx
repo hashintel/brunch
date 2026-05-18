@@ -238,6 +238,36 @@ export function flattenEntitiesToMentionItems(entities: EntitiesData): MentionIt
   return out;
 }
 
+/**
+ * Resolve the pinned card's refCode + content from the spec's entity bundle.
+ * Returns null when the chat is not pinned to a knowledge item, or when the
+ * item can't be located (e.g. it was deleted) or has no reference code yet.
+ */
+function resolvePinnedItemSummary(
+  entities: EntitiesData,
+  pinnedItemKind: SecondaryChat['pinnedItemKind'],
+  pinnedItemId: number | null,
+): { refCode: string; content: string } | null {
+  if (pinnedItemKind === null || pinnedItemId === null) return null;
+  const collections: Record<
+    NonNullable<SecondaryChat['pinnedItemKind']>,
+    ReadonlyArray<{ id: number; content: string; referenceCode?: string }>
+  > = {
+    goal: entities.goals,
+    term: entities.terms,
+    context: entities.contexts,
+    constraint: entities.constraints,
+    requirement: entities.requirements,
+    criterion: entities.criteria,
+    decision: entities.decisions,
+    assumption: entities.assumptions,
+  };
+  const bucket = collections[pinnedItemKind];
+  const item = bucket.find((entry) => entry.id === pinnedItemId);
+  if (!item || !item.referenceCode) return null;
+  return { refCode: item.referenceCode, content: item.content };
+}
+
 export function SecondaryChatHost({ secondaryChat }: SecondaryChatHostProps) {
   const specificationId = secondaryChat.chat.specification_id;
   const chatId = secondaryChat.chat.id;
@@ -246,9 +276,12 @@ export function SecondaryChatHost({ secondaryChat }: SecondaryChatHostProps) {
   const stream = useSecondaryChatStream(secondaryChat, patchList);
   const entities = useSpecificationEntities();
   const mentionableItems = useMemo(() => flattenEntitiesToMentionItems(entities), [entities]);
+  const pinnedItemSummary = useMemo(
+    () => resolvePinnedItemSummary(entities, secondaryChat.pinnedItemKind, secondaryChat.chat.pinned_item_id),
+    [entities, secondaryChat.pinnedItemKind, secondaryChat.chat.pinned_item_id],
+  );
   // Watch presence: `focusedChatId === chatId` auto-opens this collapsible
-  // when a trigger creates this chat; `jumpToAnchor` is forwarded to the
-  // header so users can jump to the chat's `invoked_in_turn_id`.
+  // when a trigger creates this chat.
   const presence = useChatShellPresence();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -273,7 +306,7 @@ export function SecondaryChatHost({ secondaryChat }: SecondaryChatHostProps) {
       open={isOpen}
       onOpenChange={setIsOpen}
       mentionableItems={mentionableItems}
-      {...(presence?.jumpToAnchor ? { onJumpToAnchor: presence.jumpToAnchor } : {})}
+      pinnedItemSummary={pinnedItemSummary}
     />
   );
 }
