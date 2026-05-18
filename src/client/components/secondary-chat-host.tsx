@@ -19,7 +19,9 @@ import { useChatShellPresence } from './chat-shell-presence.js';
 import { usePatchListForChat, type PatchListForChat } from './patch-list-host.js';
 import { SecondaryChatCollapsible } from './secondary-chat-collapsible.js';
 import type { MentionItem } from './secondary-chat-mention-popup.js';
-import { SecondaryChatStagingStrip } from './secondary-chat-staging-strip.js';
+// FE-716 C29: per-chat staging strip retired in favor of <ChatShellPatchPanel> in the shell body.
+// The `producerChatId` partition seam in patch-list-reducer.ts + usePatchListForChat() stay,
+// so the staging-strip component (and its file) can be restored later if Track 3 wants a per-chat slice.
 import { useSetSecondaryChatModeMutation } from './secondary-chat-trigger.js';
 
 type SecondaryChat = z.infer<typeof secondaryChatStateSchema>;
@@ -60,19 +62,6 @@ function extractAssistantText(message: BrunchUIMessage | undefined): string {
   return out;
 }
 
-/**
- * Per-chat hook owning the streaming lifecycle for one secondary chat via
- * `useChat<BrunchUIMessage>` (FE-716 C24c). Mounts a transport pointed at
- * the C24b route, derives streaming text from the in-flight assistant
- * message, translates `tool-propose_*` UIMessage parts into chat-scoped
- * staged patches (joined with `data-edit-impact` parts via `toolCallId`),
- * and invalidates the bundle on stream completion so the persisted
- * user/assistant turns replace the in-flight `messages` on next render.
- *
- * Each `useChat` instance is keyed by `id: secondary-chat-${chatId}` so
- * multiple secondary chats can stream in parallel without state cross-talk.
- * The C5c partition seam (`producerChatId`) is preserved unchanged.
- */
 function useSecondaryChatStream(
   secondaryChat: SecondaryChat,
   patchList: PatchListForChat | null,
@@ -91,10 +80,10 @@ function useSecondaryChatStream(
     [chatId, specificationId],
   );
 
-  // FE-716 C24b: edit-impact arrives as a sibling `data-edit-impact` part
-  // after the corresponding `tool-propose_edit` part finalizes. Capture the
-  // tier in state so the message-walking effect can stage the patch with
-  // the right `impact` once both parts have arrived for a given toolCallId.
+  // Edit-impact arrives as a sibling `data-edit-impact` part after the
+  // corresponding `tool-propose_edit` part finalizes. Capture the tier so the
+  // message-walking effect can stage the patch with the right `impact` once
+  // both parts have arrived for a given toolCallId.
   const [editImpactByToolCallId, setEditImpactByToolCallId] = useState<ReadonlyMap<string, EditImpactTier>>(
     new Map(),
   );
@@ -131,7 +120,6 @@ function useSecondaryChatStream(
   // call. The effect walks `messages` every render; without this set, an edit
   // would re-stage on every text-delta arrival.
   const consumedToolCallIds = useRef<Set<string>>(new Set());
-  // Reset the consumed set when chat id changes so a remount starts fresh.
   useEffect(() => {
     consumedToolCallIds.current = new Set();
   }, [chatId]);
@@ -173,9 +161,9 @@ function useSecondaryChatStream(
             producerChatId: chatId,
             anchor,
             // Resolving targetReferenceCode → (kind, itemId) requires an entity
-            // lookup not threaded through the secondary-chat bundle for V1;
+            // lookup not threaded through the secondary-chat bundle yet;
             // mirror the anchor item as a placeholder so the staged row renders
-            // with a correct relation label. PR follow-up: target-resolver hook.
+            // with a correct relation label. Follow-up: target-resolver hook.
             targetAnchor: anchor,
             relation: input.relation,
             summary: `Edge: ${input.targetReferenceCode} (${input.relation})`,
@@ -212,8 +200,8 @@ export interface SecondaryChatHostProps {
 
 /**
  * Flatten the spec's entity bundle into the `MentionItem[]` shape consumed by
- * the composer's `#` autocomplete (FE-716 C25). Items without a `referenceCode`
- * are filtered out — the server resolver keys on `#PREFIX<digits>` so an item
+ * the composer's `#` autocomplete. Items without a `referenceCode` are
+ * filtered out — the server resolver keys on `#PREFIX<digits>` so an item
  * without a refcode can't be mentioned.
  */
 export function flattenEntitiesToMentionItems(entities: EntitiesData): MentionItem[] {
@@ -250,13 +238,6 @@ export function flattenEntitiesToMentionItems(entities: EntitiesData): MentionIt
   return out;
 }
 
-/**
- * Per-chat host component that owns ALL per-chat mutation/streaming hooks for
- * one secondary chat and renders `<SecondaryChatCollapsible>` with wired
- * props. Replaces the prior `SecondaryChatCollapsibleWithMode` wrapper —
- * folding the mode mutation, the stream consumer, and the staging strip into
- * a single seam keeps the artifact-renderer one component shallower.
- */
 export function SecondaryChatHost({ secondaryChat }: SecondaryChatHostProps) {
   const specificationId = secondaryChat.chat.specification_id;
   const chatId = secondaryChat.chat.id;
@@ -265,11 +246,9 @@ export function SecondaryChatHost({ secondaryChat }: SecondaryChatHostProps) {
   const stream = useSecondaryChatStream(secondaryChat, patchList);
   const entities = useSpecificationEntities();
   const mentionableItems = useMemo(() => flattenEntitiesToMentionItems(entities), [entities]);
-  // FE-716 C14: the host watches the chat-shell presence context for two
-  // signals: (1) `focusedChatId === chatId` auto-opens this collapsible
-  // when a trigger creates this chat, (2) `jumpToAnchor` is forwarded to
-  // the collapsible header so users can jump to the chat's
-  // `invoked_in_turn_id` in the workspace center.
+  // Watch presence: `focusedChatId === chatId` auto-opens this collapsible
+  // when a trigger creates this chat; `jumpToAnchor` is forwarded to the
+  // header so users can jump to the chat's `invoked_in_turn_id`.
   const presence = useChatShellPresence();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -291,7 +270,6 @@ export function SecondaryChatHost({ secondaryChat }: SecondaryChatHostProps) {
       }}
       streamingAssistantText={stream.assistantText}
       isStreaming={stream.isStreaming}
-      bodyExtras={<SecondaryChatStagingStrip chatId={chatId} />}
       open={isOpen}
       onOpenChange={setIsOpen}
       mentionableItems={mentionableItems}

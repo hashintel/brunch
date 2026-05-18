@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { cn } from '@/client/lib/utils.js';
 import { useSpecificationBundleData } from '@/client/routes/specification/$id/-specification-data.js';
 
+import { ChatShellPatchPanel } from './chat-shell-patch-panel.js';
 import { useChatShellPresence } from './chat-shell-presence.js';
 import { ChatSwitcher } from './chat-switcher.js';
 import { SecondaryChatHost } from './secondary-chat-host.js';
@@ -35,11 +36,11 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
   };
 
   const secondaryChats = specificationState.secondaryChats ?? [];
-  // FE-716 C26: per-item secondary chats; reconciliation-pinned chats stay
-  // hidden until Track 3 defines their UX.
+  // Per-item secondary chats; reconciliation-pinned chats stay hidden until
+  // their UX is defined.
   const itemChats = secondaryChats.filter((s) => s.chat.pinned_reconciliation_need_id === null);
-  // Active chat: presence.focusedChatId, falling back to the most recent
-  // item-anchored chat (highest id). Null when there are no item chats.
+  // Falls back to the most recent item-anchored chat (highest id). Null when
+  // there are no item chats.
   const activeChat: (typeof itemChats)[number] | null =
     itemChats.find((c) => c.chat.id === presence?.focusedChatId) ??
     (itemChats.length > 0 ? (itemChats[itemChats.length - 1] ?? null) : null);
@@ -179,6 +180,7 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
         data-testid="unified-chat-shell-body"
         className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-3"
       >
+        <ChatShellPatchPanel />
         {activeChat === null ? (
           <p data-testid="unified-chat-shell-empty" className="text-xs text-hint">
             Open one from a knowledge item to start a conversation.
@@ -192,10 +194,9 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
             transition={fadeSpring}
             // Take the full body height so the collapsible inside can use
             // `flex-1` to push the composer to the bottom of the chat
-            // surface (per walkthrough feedback: "input stays always at
-            // the bottom"). Without `flex flex-1 flex-col` here the
-            // motion.div would shrink to content height and the composer
-            // would sit just below the messages.
+            // surface. Without `flex flex-1 flex-col` here the motion.div
+            // would shrink to content height and the composer would sit
+            // just below the messages.
             className="flex min-h-0 flex-1 flex-col"
           >
             <SecondaryChatHost secondaryChat={activeChat} />

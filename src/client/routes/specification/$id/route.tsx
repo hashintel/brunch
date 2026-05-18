@@ -3,7 +3,8 @@ import { useMemo } from 'react';
 
 import { ChatShellPresenceProvider } from '@/client/components/chat-shell-presence.js';
 import { PatchListProvider, type PatchAppliers } from '@/client/components/patch-list-host.js';
-import { PatchListOverlay } from '@/client/components/patch-list-overlay.js';
+// FE-716 C29: overlay hidden in favor of shell-internal patch panel; restore here to revert.
+// import { PatchListOverlay } from '@/client/components/patch-list-overlay.js';
 import { SecondaryChatTriggerProvider } from '@/client/components/secondary-chat-trigger.js';
 import { Skeleton } from '@/client/components/ui/skeleton';
 import { makeAnnotateApplier } from '@/client/lib/annotation-api.js';
@@ -64,7 +65,8 @@ export const Route = createFileRoute('/specification/$id')({
                     turns={specificationState.turns}
                   />
                   <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                    <PatchListOverlay />
+                    {/* FE-716 C29: overlay hidden in favor of shell-internal patch panel; restore here to revert. */}
+                    {/* <PatchListOverlay /> */}
                     <div className="min-h-0 flex-1 overflow-hidden">
                       <Outlet />
                     </div>

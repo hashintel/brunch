@@ -221,33 +221,35 @@ C5a (server) → C5b (client composer + host) → C5c (partition + strip). Seque
 
 > **What**
 >
-> Lands V1 of the Conversational Workspace Runtime Track 2 (`chat-runtime-secondary-chats`): every behavior the V3.1 side-chat ships today, surfaced through the elevated unified-workspace shape from `docs/design/UNIFIED_CHAT_UX.md`. Durable side-chats are now durable secondary chats over the existing `chat`/`turn` substrate; the legacy `SideChatPopover` is retired; lightweight reconciliation entry now renders inline; the `thread` table remains deferred per A94.
+> Lands V1 of the Conversational Workspace Runtime Track 2 (`chat-runtime-secondary-chats`): every behavior the V3.1 side-chat ships today, surfaced through the elevated unified-workspace shape from `docs/design/UNIFIED_CHAT_UX.md`, on the typed AI-SDK UIMessage protocol shared with the interview spine. Durable side-chats are now durable secondary chats over the existing `chat`/`turn` substrate; the legacy `SideChatPopover` is retired; lightweight reconciliation entry now renders inline; the bespoke side-chat SSE envelope is retired in favor of `useChat<BrunchUIMessage>` + `createUIMessageStream`; the `thread` table remains deferred per A94.
 >
 > **Substrate (no new tables)**
 >
 > - `chat.parent_chat_id`, `chat.invoked_in_turn_id`, `chat.pinned_item_id`, `chat.pinned_span_hint`, `chat.mode`, `chat.pinned_reconciliation_need_id` (drizzle/0020, 0021, 0022). No enum changes; secondary chats are projected from `parent_chat_id IS NOT NULL`.
+> - Shared chat types (`src/shared/chat.ts`) register `propose_edit | propose_edge | propose_drill_down` on `BrunchUITools` and an `edit-impact` data part on `BrunchDataParts` so the secondary-chat surface composes against the same typed-UIMessage substrate as the interview spine.
 >
 > **Server**
 >
 > - `createSecondaryChat`, `createKickoffTurn`, `appendSecondaryChatTurn`, `setSecondaryChatMode`, `listSecondaryChatsForSpecification` in `specification-store.ts`.
-> - `POST /api/specifications/:id/secondary-chats` (create), `PATCH …/mode` (mode toggle), `POST …/messages` (streaming SSE with `getSideChatTools(mode)` edit-tool gating + `#REF-CODE` mention resolution).
+> - `POST /api/specifications/:id/secondary-chats` (create), `PATCH …/mode` (mode toggle), `POST …/messages` (UIMessage protocol — `validateUIMessages<BrunchUIMessage>` body, `createUIMessageStream` response, `streamText(...).toUIMessageStream(...)` merged into the writer, `data-edit-impact` written after `await result.finishReason` keyed by `toolCallId`, `#REF-CODE` mention resolution preserved). `getSideChatTools(mode)` still gates edit tools.
 > - Bundle hydrates `secondaryChats[*]` with kickoff turn, post-kickoff turns, pinned-item kind, and joined reconciliation-need projection.
 >
 > **Client**
 >
 > - `SecondaryChatTriggerProvider` + `useSecondaryChatTrigger()` exposes one `create({ kind, id, spanHint?, reconciliationNeedId? })` callback + an `inlineChatRoute` descriptor so non-transcript callers can navigate to the transcript view.
-> - `<SecondaryChatHost>` wires per-chat mutation/streaming hooks; `<SecondaryChatCollapsible>` renders the kickoff card, mode toggle, composer, streaming assistant, staged-patches strip slot, and the C9 "Elements being reconciled" panel.
+> - `<SecondaryChatHost>` mounts `useChat<BrunchUIMessage>` per chat with a `DefaultChatTransport` pointed at the C24b route; walks `messages` for `tool-propose_*` parts (dedupe by `toolCallId`) and joins `data-edit-impact` via `onData` so edit proposals stage with the correct `impact` tier. The bespoke `src/client/lib/secondary-chat-stream.ts` is deleted.
+> - `<SecondaryChatCollapsible>` renders the kickoff card, ai-elements `<Conversation>` / `<Message>` / `<MessageResponse>` for turn rendering, `<Reasoning>` live-state for streaming, `<PromptInput>` composer with leading-edge mode chip, turn-zero `<SecondaryChatSuggestions>`, `#`-mention autocomplete popup via cmdk, staged-patches strip slot, and the C9 "Elements being reconciled" panel.
 > - Patch-list partitioning by `producerChatId` (Shape A) — `usePatchListForChat(chatId)` returns a per-chat staged slice while the legacy popover hook keeps the global view; `<SecondaryChatStagingStrip>` mounts inside the collapsible body.
 > - Triggers: `PendingReviewSection` substantive row + `StructuredListView` item-action rail both call into `useSecondaryChatTrigger()`; `SideChatPopover` and `SideChatHost` are deleted.
 >
 > **Verification**
 >
-> - `npm run verify` — 104 test files / 1252 tests pass; build clean.
-> - Coverage spans schema invariants, route happy-paths + 404 invariants, SSE chunk round-trip + bundle round-trip, partition-seam reducer + per-chat hook tests, popover-regression sweeps, and the C9 reconciliation-panel render.
+> - `npm run verify` — 109 test files / 1299 tests pass; build clean.
+> - Coverage spans schema invariants (including `BrunchUITools` / `brunchDataPartSchemas` admission of secondary-chat surfaces), route happy-paths + 404 invariants, UIMessage envelope round-trip + bundle round-trip, partition-seam reducer + per-chat hook tests, popover-regression sweeps, the C9 reconciliation-panel render, and `useChat`-mount isolation across parallel secondary chats.
 >
 > **Deferred (parking lot — follow-up frontiers)**
 >
-> `$` mention symbol, mention autocomplete, snapshot builder family, item-version-gated handle refresh, full target-grouped reconciliation UX, `PendingReviewSection` retirement, QA composer refinements, strategy sub-chat UI, layout-state header control, and C7 agent-run inline rendering (the substrate is ready; no producer exists yet).
+> `$` mention symbol, snapshot builder family, item-version-gated handle refresh, full target-grouped reconciliation UX, `PendingReviewSection` retirement, QA composer refinements, strategy sub-chat UI, layout-state header control, and C7 agent-run inline rendering (the substrate is ready; no producer exists yet). Persisting secondary-chat assistant turns as `parts: BrunchAssistantPart[]` (currently plain text) is also deferred — the UIMessage protocol carries the parts on the wire today but persistence stays text-only until a future frontier needs the structured shape.
 >
 > **Stacking**
 >
@@ -544,7 +546,13 @@ C24 has been split into four scope cards (C24a / C24b / C24c / C24d) via an `ln-
 
 #### C24b — Server route refit: secondary-chat `POST .../messages` → AI-SDK UIMessage protocol
 
-- **Status:** **next** (after C24a)
+- **Status:** **done** (2026-05-18) — `npm run verify` green: 109 test files / 1299 tests pass; build clean.
+  - **Route ([`src/server/secondary-chat-route.ts`](file:///Users/kostandin/Projects/hashdev/brunch/src/server/secondary-chat-route.ts)):** request body is now `{ messages: BrunchUIMessage[] }` validated via `validateUIMessages<BrunchUIMessage>({ dataSchemas: brunchDataPartSchemas, tools: brunchValidationTools })`. Response is `pipeUIMessageStreamToResponse({ response, stream })` over a `createUIMessageStream<BrunchUIMessage>` that `writer.merge(streamText(...).toUIMessageStream({ sendReasoning: false, sendFinish: false }))`. `propose_*` tool calls surface as standard `tool-*` UIMessage parts (auto-emitted by `toUIMessageStream`); edit-impact arrives as a sibling `data-edit-impact` part keyed by `toolCallId` written after `await result.finishReason` resolves. The old hand-rolled SSE envelope (`secondaryChatStreamChunkFromPart`, `writeSecondaryChatStreamError`, manual `res.write` loop) is gone — file dropped from 463 → 348 LOC.
+  - **Persistence (unchanged contract):** user turn persisted synchronously after `validateUIMessages` succeeds (preserves the mid-stream-disconnect recoverability invariant from the V3.1 route); assistant turn persisted in `createUIMessageStream`'s `onFinish` via `extractTextFromMessage(responseMessage)`. Persisted shape stays plain text — secondary chats don't yet persist tool-call parts (deferred per C24a's "out of scope" line).
+  - **`#REF-CODE` mention contract preserved:** `parseIntentItemReferences` + `resolveIntentItemReferences` + `formatMentionedItemsContextBlock` still run on the extracted user text; the snapshot is appended to both the system prompt and the persisted `user_parts` exactly as before.
+  - **404/400 invariants preserved:** primary-chat target → 404, missing chat → 404, cross-spec chat → 404, missing pinned item → 404, empty user text → 400, invalid envelope → 400.
+  - **Tests ([`secondary-chat-route.test.ts`](file:///Users/kostandin/Projects/hashdev/brunch/src/server/secondary-chat-route.test.ts)):** 15 tests rewritten against the UIMessage envelope. New helper `makeStreamTextResult({ text, toolCalls, finishReason })` returns the slice of `streamText`'s real API the route consumes (`toUIMessageStream`, `finishReason`, `toolCalls`). Helper `userMessagePayload(text)` builds the `{ messages: [{ role: 'user', parts: [{ type: 'text', text }] }] }` shape. New assertions: `expect(res.text).toContain('"type":"text-delta"')`, `'"type":"tool-input-available"'`, `'"type":"data-edit-impact"'`, `'"toolCallId":"call-1"'` — bundle round-trip assertions (`turns[0].user_parts`, `turns[1].assistant_parts`) unchanged.
+  - **Note (kickoff template tests):** the kickoff-template describe block under the create-route is unchanged; it never touched the streaming envelope.
 - **Weight:** full scope card
 - **Target Behavior:** `POST /api/specifications/:id/secondary-chats/:chatId/messages` accepts a `validateUIMessages<BrunchUIMessage>` body and emits a `createUIMessageStream<BrunchUIMessage>` response, with `propose_*` tool calls surfacing as typed `tool-*` UIMessage parts and edit-impact arriving as a `data-edit-impact` part joined by `toolCallId`.
 - **Boundary Crossings:**
@@ -582,7 +590,12 @@ C24 has been split into four scope cards (C24a / C24b / C24c / C24d) via an `ln-
 
 #### C24c — Client refit: `useChat<BrunchUIMessage>` per secondary chat + patch-list translation
 
-- **Status:** **next** (after C24b)
+- **Status:** **done** (2026-05-18) — `npm run verify` green: 109 test files / 1299 tests pass; build clean.
+  - **Host ([`src/client/components/secondary-chat-host.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/secondary-chat-host.tsx)):** `useSecondaryChatStream` now mounts `useChat<BrunchUIMessage>({ id: `secondary-chat-${chatId}`, transport: new DefaultChatTransport({ api: '/api/specifications/.../secondary-chats/.../messages' }), messages: [], dataPartSchemas: brunchDataPartSchemas, onData, onFinish })`. Streaming text derived from `messages.at(-1)`'s text parts when `status === 'submitted' | 'streaming'`. A `consumedToolCallIds: Ref<Set<string>>` dedupes tool-part translation across re-renders. `onFinish` invalidates the specification bundle; `onData` for `data-edit-impact` updates an `editImpactByToolCallId` state map so the message-walking effect can stage `propose_edit` patches with the correct `impact`.
+  - **Patch staging:** `propose_edit` waits for the matching `data-edit-impact` part before staging (so `impact` is never undefined on edit proposals); `propose_edge` and `propose_drill_down` stage immediately on `state === 'input-available'`. C5c partition seam (`producerChatId: chatId`) preserved unchanged.
+  - **Bespoke stream deleted:** `src/client/lib/secondary-chat-stream.ts` is gone; `parseSideChatSSEBuffer` now only used by `side-chat-stream.test.ts` and the popover path (`side-chat-stream.ts` itself stays).
+  - **Tests ([`secondary-chat-host.test.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/__tests__/secondary-chat-host.test.tsx)):** 4 tests rewritten against a `vi.mock('@ai-sdk/react', () => ({ useChat: (options) => ... }))` harness that records each mount's `id`, `sendMessage`, `onFinish`, `onData`. Coverage: chat-scoped id (`secondary-chat-7`), `sendMessage({ text })` payload shape, `onFinish` invalidates bundle, two parallel hosts get distinct `sendMessage` spies (partition-seam regression).
+  - **Sibling test-file updates:** `unified-chat-shell.test.tsx` and `chat-shell-presence.test.tsx` swapped their `vi.mock('@/client/lib/secondary-chat-stream.js', ...)` for `vi.mock('@ai-sdk/react', ...)` + `vi.mock('ai', ...)` (DefaultChatTransport stub) so the transitively-rendered host can mount without hitting the real chat substrate.
 - **Weight:** full scope card
 - **Target Behavior:** `<SecondaryChatHost>` mounts `useChat<BrunchUIMessage>` per chat (transport pointed at the C24b route), and `propose_*` tool parts in `messages` are translated into chat-scoped `patchList.stage(...)` calls via the existing C5c partition seam — preserving every observable behavior of today's `useSecondaryChatStream`.
 - **Boundary Crossings:**
@@ -615,7 +628,12 @@ C24 has been split into four scope cards (C24a / C24b / C24c / C24d) via an `ln-
 
 #### C24d — Outer-loop walkthrough + bespoke envelope retirement + PR description rewrite
 
-- **Status:** queued (after C24c; promote if C24b/C24c findings invalidate the persistence-shape deferral)
+- **Status:** **partially done** (2026-05-18) — three of four acceptance bullets satisfied; only the manual outer-loop walkthrough remains, which needs the user.
+  - ✓ `rg "parseSideChatSSEBuffer|streamSecondaryChatMessage|patch-proposal" src/server src/client/components/secondary*` filtered against side-chat path is empty — secondary-chat path no longer touches the bespoke envelope; popover path keeps it as designed.
+  - ✓ `npm run verify` green: 109 test files / 1299 tests pass; build clean (occasional flakiness in `app.test.ts` / `db.test.ts` / `router.test.tsx` from suite-wide parallelism, resolves on re-run; not caused by C24).
+  - ✓ PR description (C10 §PR description above) updated to name the UIMessage substrate, the typed `tool-propose_*` + `data-edit-impact` parts, the shared `BrunchUITools` registry extension, and the persistence-shape deferral.
+  - ☐ Manual walkthrough (V3.1 capability matrix + parallel-chat partition seam): typing in two secondary chats simultaneously stages edits independently, undo per-chat works, persisted turns reload identically to today. Owner: user — happy-dom can't drive the real SSE pipeline.
+- **Status (promotion check):** held light. C24b/C24c did NOT surface a persistence-shape pivot — assistant turns still persist as plain `assistant_parts: string`. The deferral noted in the C24d promotion checklist stays valid.
 - **Weight:** light scope card
 - **Objective:** Confirm the refit holds end-to-end against a real spec, retire any remaining bespoke-envelope code paths reachable from secondary chats, and refresh the FE-716 PR draft (in CARDS.md C10 §PR description) to reflect C24's UIMessage-protocol substrate.
 - **Acceptance Criteria:**
@@ -723,7 +741,7 @@ C24a (types) → C24b (server route) → C24c (client refit) → C24d (walkthrou
 
 ### C29 — Consolidate patches inside the chat shell (quick win)
 
-- **Status:** **proposed**
+- **Status:** **done** (2026-05-18) — `<ChatShellPatchPanel>` mounted in shell body; `<PatchListOverlay>` mount commented out at `route.tsx` (component file + tests untouched); per-chat `<SecondaryChatStagingStrip>` render retired from `<SecondaryChatHost>`; `producerChatId` partition seam + `usePatchListForChat()` preserved. Panel stays mounted while `canUndo` so the Undo affordance survives post-apply (mirrors the overlay's saved-toast Undo). `isStreaming` is an optional prop, defaulted off — `defaultOpen` opens the panel as soon as patches arrive. `npm run verify` green after retrying the 3 known-flaky suites in isolation (`annotation-route`, `app`, `build-boundary`).
 - **What:** Replace the workspace-wide `<PatchListOverlay>` surface with a single shell-level patch panel mounted inside `<UnifiedChatShell>`. The conversational loop and the changes it produces collapse onto one surface; bulk affordances replace per-row clicking. Independent of C20–C25; can land in parallel or before.
 - **Why now / big win:**
   - **One look, one decision.** Today: assistant proposes → user glances up at top-bar overlay → back to chat. New: assistant proposes → user sees patches appear inline in the shell → one click.

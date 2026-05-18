@@ -1,11 +1,17 @@
 // @vitest-environment happy-dom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { Suspense, type ReactElement, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { z } from 'zod/v4';
 
+import {
+  PatchListProvider,
+  usePatchList,
+  type PatchAppliers,
+  type StagePatchInput,
+} from '@/client/components/patch-list-host.js';
 import { specificationQueryKeys } from '@/client/routes/specification/$id/-specification-data.js';
 import type { secondaryChatStateSchema } from '@/shared/api-types.js';
 import type { SpecificationState } from '@/shared/specification.js';
@@ -14,9 +20,8 @@ vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: '1' }),
 }));
 
-// FE-716 C24c: SecondaryChatHost (rendered transitively by the shell) now
-// mounts useChat<BrunchUIMessage> per chat. Mock at the @ai-sdk/react boundary
-// + the `ai` DefaultChatTransport so the host can render without hitting the
+// Mock at the @ai-sdk/react boundary + the `ai` DefaultChatTransport so the
+// host (rendered transitively by the shell) can render without hitting the
 // real chat substrate from this happy-dom suite.
 vi.mock('@ai-sdk/react', () => ({
   useChat: () => ({
@@ -122,9 +127,6 @@ function createHarness(secondaryChats: SecondaryChat[]): {
 } {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   queryClient.setQueryData(specificationQueryKeys.bundle('1'), buildSpec(secondaryChats));
-  // FE-716 C25: SecondaryChatHost (rendered transitively by the shell) reads
-  // entities for the `#` mention popup; seed empty entities so the suspense
-  // query resolves immediately.
   queryClient.setQueryData(specificationQueryKeys.entities('1'), {
     goals: [],
     terms: [],
@@ -148,7 +150,7 @@ afterEach(() => {
   cleanup();
 });
 
-describe('UnifiedChatShell — C12 skeleton', () => {
+describe('UnifiedChatShell', () => {
   it('renders the header strip with spec name, minimize + side-docked + toggle buttons, and close affordance', () => {
     const { Wrapper } = createHarness([]);
 
@@ -208,7 +210,6 @@ describe('UnifiedChatShell — C12 skeleton', () => {
     const collapsibles = screen.getAllByTestId('secondary-chat-collapsible');
     expect(collapsibles).toHaveLength(1);
     expect(collapsibles[0]!.getAttribute('data-secondary-chat-id')).toBe('7');
-    // Single chat → no switcher.
     expect(screen.queryByTestId('chat-switcher-trigger')).toBeNull();
   });
 
@@ -221,11 +222,9 @@ describe('UnifiedChatShell — C12 skeleton', () => {
       </Wrapper>,
     );
 
-    // Only one host renders — the active chat (most recent fallback = highest id).
     const collapsibles = screen.getAllByTestId('secondary-chat-collapsible');
     expect(collapsibles).toHaveLength(1);
     expect(collapsibles[0]!.getAttribute('data-secondary-chat-id')).toBe('11');
-    // Switcher trigger present.
     expect(screen.getByTestId('chat-switcher-trigger')).not.toBeNull();
   });
 
@@ -280,10 +279,9 @@ describe('UnifiedChatShell — C12 skeleton', () => {
     expect(onLayoutModeChange).toHaveBeenCalledWith('side-docked');
   });
 
-  it('compact↔maximize toggle flips its icon + target based on the current mode (C17)', () => {
+  it('compact↔maximize toggle flips its icon + target based on the current mode', () => {
     const onLayoutModeChange = vi.fn();
 
-    // From side-docked: toggle targets Maximize.
     let harness = createHarness([]);
     render(
       <harness.Wrapper>
@@ -297,8 +295,6 @@ describe('UnifiedChatShell — C12 skeleton', () => {
     fireEvent.click(toggle);
     expect(onLayoutModeChange).toHaveBeenLastCalledWith('maximize');
 
-    // From compact: toggle still targets Maximize (the "expand" direction)
-    // but pressed=true because compact belongs to the toggle's mode pair.
     cleanup();
     onLayoutModeChange.mockClear();
     harness = createHarness([]);
@@ -314,7 +310,6 @@ describe('UnifiedChatShell — C12 skeleton', () => {
     fireEvent.click(toggle);
     expect(onLayoutModeChange).toHaveBeenLastCalledWith('maximize');
 
-    // From maximize: toggle flips to Compact (the "shrink" direction).
     cleanup();
     onLayoutModeChange.mockClear();
     harness = createHarness([]);
@@ -342,5 +337,67 @@ describe('UnifiedChatShell — C12 skeleton', () => {
       true,
     );
     expect((screen.getByTestId('unified-chat-shell-layout-toggle') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  describe('ChatShellPatchPanel mount', () => {
+    function makeAppliers(): PatchAppliers {
+      const noop = vi.fn(() => Promise.resolve({ undo: () => Promise.resolve() }));
+      return {
+        annotate: noop as unknown as PatchAppliers['annotate'],
+        edit: noop as unknown as PatchAppliers['edit'],
+        edge: noop as unknown as PatchAppliers['edge'],
+        drillDown: noop as unknown as PatchAppliers['drillDown'],
+      };
+    }
+
+    interface StagerRef {
+      current: { stage: ((input: StagePatchInput) => string) | null };
+    }
+
+    function Stager({ refs }: { refs: StagerRef }) {
+      const actions = usePatchList();
+      refs.current = { stage: actions ? (input) => actions.stage(input) : null };
+      return null;
+    }
+
+    it('does not render the panel when no patches are staged', () => {
+      const { Wrapper } = createHarness([makeChat(7)]);
+      render(
+        <Wrapper>
+          <PatchListProvider appliers={makeAppliers()}>
+            <UnifiedChatShell />
+          </PatchListProvider>
+        </Wrapper>,
+      );
+      expect(screen.queryByTestId('chat-shell-patch-panel')).toBeNull();
+    });
+
+    it('mounts the panel inside the shell body when staged patches exist', () => {
+      const { Wrapper } = createHarness([makeChat(7)]);
+      const refs: StagerRef = { current: { stage: null } };
+      render(
+        <Wrapper>
+          <PatchListProvider appliers={makeAppliers()}>
+            <Stager refs={refs} />
+            <UnifiedChatShell />
+          </PatchListProvider>
+        </Wrapper>,
+      );
+
+      act(() => {
+        refs.current.stage?.({
+          kind: 'annotate',
+          anchor: { kind: 'decision', itemId: 1 },
+          summary: 'note',
+          body: 'b',
+        } as StagePatchInput);
+      });
+
+      const panel = screen.getByTestId('chat-shell-patch-panel');
+      expect(panel).not.toBeNull();
+      const body = screen.getByTestId('unified-chat-shell-body');
+      // Panel lives inside the shell body (so it scrolls with body, hidden when shell is minimized/closed).
+      expect(body.contains(panel)).toBe(true);
+    });
   });
 });
