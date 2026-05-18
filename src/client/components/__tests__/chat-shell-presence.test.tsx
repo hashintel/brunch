@@ -14,8 +14,56 @@ vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: '1' }),
 }));
 
-vi.mock('@/client/lib/secondary-chat-stream.js', () => ({
-  streamSecondaryChatMessage: vi.fn(),
+// FE-716 C24c: SecondaryChatHost mounts useChat<BrunchUIMessage>; mock at the
+// @ai-sdk/react boundary so happy-dom doesn't try to instantiate a real
+// transport/streaming pipeline.
+vi.mock('@ai-sdk/react', () => ({
+  useChat: () => ({
+    messages: [],
+    sendMessage: vi.fn(async () => {}),
+    status: 'ready' as const,
+  }),
+}));
+
+vi.mock('ai', async () => {
+  const actual = await vi.importActual<typeof import('ai')>('ai');
+  return {
+    ...actual,
+    DefaultChatTransport: class DefaultChatTransport {
+      constructor(_options: unknown) {}
+    },
+  };
+});
+
+vi.mock('@/client/components/ai-elements/conversation.js', () => ({
+  Conversation: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  ConversationContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock('@/client/components/ai-elements/reasoning.js', () => ({
+  Reasoning: ({ children, 'data-testid': testId }: { children: React.ReactNode; 'data-testid'?: string }) => (
+    <div data-testid={testId}>{children}</div>
+  ),
+  ReasoningTrigger: () => null,
+  ReasoningContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock('@/client/components/ai-elements/message.js', () => ({
+  Message: ({
+    children,
+    'data-testid': testId,
+    from,
+  }: {
+    children: React.ReactNode;
+    'data-testid'?: string;
+    from?: string;
+  }) => (
+    <div data-testid={testId} data-from={from}>
+      {children}
+    </div>
+  ),
+  MessageContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  MessageResponse: ({ children }: { children: string }) => <div>{children}</div>,
 }));
 
 const fetchMock = vi.fn();
@@ -112,6 +160,18 @@ function makeHarness(secondaryChats: SecondaryChat[]): {
 } {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   queryClient.setQueryData(specificationQueryKeys.bundle('1'), buildSpec(secondaryChats));
+  // FE-716 C25: seed empty entities for the host's mention popup query.
+  queryClient.setQueryData(specificationQueryKeys.entities('1'), {
+    goals: [],
+    terms: [],
+    contexts: [],
+    constraints: [],
+    requirements: [],
+    criteria: [],
+    decisions: [],
+    assumptions: [],
+    relationships: [],
+  });
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <Suspense fallback={<div data-testid="suspense-fallback" />}>

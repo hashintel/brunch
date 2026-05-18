@@ -8,19 +8,89 @@ import type { z } from 'zod/v4';
 
 import { specificationQueryKeys } from '@/client/routes/specification/$id/-specification-data.js';
 import { secondaryChatStateSchema } from '@/shared/api-types.js';
+import type { BrunchUIMessage } from '@/shared/chat.js';
 import type { SpecificationState } from '@/shared/specification.js';
 
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: '1' }),
 }));
 
-const { mockStream } = vi.hoisted(() => ({
-  mockStream: vi.fn(),
+vi.mock('@/client/components/ai-elements/conversation.js', () => ({
+  Conversation: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  ConversationContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('@/client/lib/secondary-chat-stream.js', () => ({
-  streamSecondaryChatMessage: mockStream,
+vi.mock('@/client/components/ai-elements/reasoning.js', () => ({
+  Reasoning: ({ children, 'data-testid': testId }: { children: React.ReactNode; 'data-testid'?: string }) => (
+    <div data-testid={testId}>{children}</div>
+  ),
+  ReasoningTrigger: () => null,
+  ReasoningContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
+
+vi.mock('@/client/components/ai-elements/message.js', () => ({
+  Message: ({
+    children,
+    'data-testid': testId,
+    from,
+  }: {
+    children: React.ReactNode;
+    'data-testid'?: string;
+    from?: string;
+  }) => (
+    <div data-testid={testId} data-from={from}>
+      {children}
+    </div>
+  ),
+  MessageContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  MessageResponse: ({ children }: { children: string }) => <div>{children}</div>,
+}));
+
+// FE-716 C24c: useChat is mocked at the @ai-sdk/react boundary. The harness
+// records each call so tests can assert per-chat isolation (each
+// SecondaryChatHost instance gets its own useChat mount) and so the test
+// can drive sendMessage + onFinish synchronously.
+interface UseChatCallRecord {
+  id: string | undefined;
+  sendMessage: ReturnType<typeof vi.fn>;
+  onFinish: ((arg: { messages: BrunchUIMessage[] }) => unknown) | undefined;
+  onData: ((dataPart: { type: string; data?: unknown }) => unknown) | undefined;
+}
+
+const { useChatCalls } = vi.hoisted(() => ({
+  useChatCalls: [] as UseChatCallRecord[],
+}));
+
+vi.mock('@ai-sdk/react', () => ({
+  useChat: (options: {
+    id?: string;
+    onFinish?: (arg: { messages: BrunchUIMessage[] }) => unknown;
+    onData?: (dataPart: { type: string; data?: unknown }) => unknown;
+  }) => {
+    const record: UseChatCallRecord = {
+      id: options.id,
+      sendMessage: vi.fn(async () => {}),
+      onFinish: options.onFinish,
+      onData: options.onData,
+    };
+    useChatCalls.push(record);
+    return {
+      messages: [] as BrunchUIMessage[],
+      sendMessage: record.sendMessage,
+      status: 'ready' as const,
+    };
+  },
+}));
+
+vi.mock('ai', async () => {
+  const actual = await vi.importActual<typeof import('ai')>('ai');
+  return {
+    ...actual,
+    DefaultChatTransport: class DefaultChatTransport {
+      constructor(public options: { api: string }) {}
+    },
+  };
+});
 
 const { SecondaryChatHost } = await import('../secondary-chat-host.js');
 
@@ -99,6 +169,19 @@ function createHarness(): {
 } {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   queryClient.setQueryData(specificationQueryKeys.bundle('1'), buildSpec());
+  // FE-716 C25: SecondaryChatHost consumes useSpecificationEntities for the
+  // `#` mention popup; seed empty entities so the suspense query resolves.
+  queryClient.setQueryData(specificationQueryKeys.entities('1'), {
+    goals: [],
+    terms: [],
+    contexts: [],
+    constraints: [],
+    requirements: [],
+    criteria: [],
+    decisions: [],
+    assumptions: [],
+    relationships: [],
+  });
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <Suspense fallback={<div data-testid="suspense-fallback" />}>{children}</Suspense>
@@ -108,16 +191,36 @@ function createHarness(): {
 }
 
 beforeEach(() => {
-  mockStream.mockReset();
+  useChatCalls.length = 0;
 });
 
 afterEach(() => {
   cleanup();
 });
 
-describe('SecondaryChatHost — composer wiring (C5b)', () => {
-  it('submits the composer message to streamSecondaryChatMessage with the right ids', async () => {
-    mockStream.mockResolvedValue(undefined);
+describe('SecondaryChatHost — useChat refit (FE-716 C24c)', () => {
+  it('mounts useChat with a chat-scoped id keyed to the secondary chat', () => {
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
+    };
+    const { Wrapper } = createHarness();
+
+    render(
+      <Wrapper>
+        <SecondaryChatHost secondaryChat={chat} />
+      </Wrapper>,
+    );
+
+    expect(useChatCalls.length).toBeGreaterThanOrEqual(1);
+    expect(useChatCalls[0]!.id).toBe('secondary-chat-7');
+  });
+
+  it('submits the composer message through useChat.sendMessage with the typed text payload', async () => {
     const chat: SecondaryChat = {
       chat: baseChat,
       kickoffTurn: null,
@@ -140,23 +243,14 @@ describe('SecondaryChatHost — composer wiring (C5b)', () => {
     });
     fireEvent.click(screen.getByTestId('secondary-chat-composer-send'));
 
+    const lastCall = useChatCalls.at(-1)!;
     await waitFor(() => {
-      expect(mockStream).toHaveBeenCalled();
+      expect(lastCall.sendMessage).toHaveBeenCalled();
     });
-    const [request] = mockStream.mock.calls[0]!;
-    expect(request).toMatchObject({ specificationId: 1, chatId: 7, message: 'why?' });
+    expect(lastCall.sendMessage).toHaveBeenCalledWith({ text: 'why?' });
   });
 
-  it('renders streaming assistant text deltas live and invalidates the bundle when the stream completes', async () => {
-    mockStream.mockImplementation(
-      async (
-        _request: { specificationId: number; chatId: number; message: string },
-        onChunk: (event: { type: string; delta?: string }) => void,
-      ) => {
-        onChunk({ type: 'text-delta', delta: 'Hello ' });
-        onChunk({ type: 'text-delta', delta: 'world.' });
-      },
-    );
+  it('invalidates the specification bundle when useChat onFinish fires', async () => {
     const chat: SecondaryChat = {
       chat: baseChat,
       kickoffTurn: null,
@@ -174,15 +268,10 @@ describe('SecondaryChatHost — composer wiring (C5b)', () => {
       </Wrapper>,
     );
 
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
-    fireEvent.change(screen.getByTestId('secondary-chat-composer-input'), {
-      target: { value: 'hi' },
-    });
-    fireEvent.click(screen.getByTestId('secondary-chat-composer-send'));
+    const lastCall = useChatCalls.at(-1)!;
+    expect(lastCall.onFinish).toBeTypeOf('function');
+    await lastCall.onFinish?.({ messages: [] });
 
-    await waitFor(() => {
-      expect(invalidateSpy).toHaveBeenCalled();
-    });
     expect(
       invalidateSpy.mock.calls.some(
         ([args]) => Array.isArray(args?.queryKey) && args.queryKey[0] === 'specification',
@@ -190,14 +279,7 @@ describe('SecondaryChatHost — composer wiring (C5b)', () => {
     ).toBe(true);
   });
 
-  it('isolates in-flight state across two host instances (no cross-talk)', async () => {
-    let resolveOne = (): void => {};
-    mockStream.mockImplementationOnce(async () => {
-      await new Promise<void>((resolve) => {
-        resolveOne = resolve;
-      });
-    });
-    mockStream.mockResolvedValueOnce(undefined);
+  it('isolates useChat mounts across two host instances so parallel chats do not cross-talk', () => {
     const chatA: SecondaryChat = {
       chat: { ...baseChat, id: 7 },
       kickoffTurn: null,
@@ -223,24 +305,12 @@ describe('SecondaryChatHost — composer wiring (C5b)', () => {
       </Wrapper>,
     );
 
-    const collapsibles = screen.getAllByTestId('secondary-chat-collapsible-trigger');
-    fireEvent.click(collapsibles[0]);
-    fireEvent.click(collapsibles[1]);
-
-    const inputs = screen.getAllByTestId('secondary-chat-composer-input') as HTMLInputElement[];
-    const sends = screen.getAllByTestId('secondary-chat-composer-send');
-    fireEvent.change(inputs[0], { target: { value: 'a?' } });
-    fireEvent.change(inputs[1], { target: { value: 'b?' } });
-    fireEvent.click(sends[0]); // chat A streams, hangs
-    fireEvent.click(sends[1]); // chat B streams, resolves immediately
-
-    await waitFor(() => {
-      expect(mockStream).toHaveBeenCalledTimes(2);
-    });
-    expect(mockStream.mock.calls[0]?.[0]).toMatchObject({ chatId: 7, message: 'a?' });
-    expect(mockStream.mock.calls[1]?.[0]).toMatchObject({ chatId: 8, message: 'b?' });
-
-    // Resolve A so Vitest doesn't leak the pending stream.
-    resolveOne();
+    const ids = useChatCalls.map((c) => c.id);
+    expect(ids).toContain('secondary-chat-7');
+    expect(ids).toContain('secondary-chat-8');
+    // Distinct sendMessage spies per chat — chatA's mount cannot call chatB's.
+    const callA = useChatCalls.find((c) => c.id === 'secondary-chat-7')!;
+    const callB = useChatCalls.find((c) => c.id === 'secondary-chat-8')!;
+    expect(callA.sendMessage).not.toBe(callB.sendMessage);
   });
 });

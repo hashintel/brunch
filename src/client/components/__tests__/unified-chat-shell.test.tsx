@@ -14,9 +14,27 @@ vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: '1' }),
 }));
 
-vi.mock('@/client/lib/secondary-chat-stream.js', () => ({
-  streamSecondaryChatMessage: vi.fn(),
+// FE-716 C24c: SecondaryChatHost (rendered transitively by the shell) now
+// mounts useChat<BrunchUIMessage> per chat. Mock at the @ai-sdk/react boundary
+// + the `ai` DefaultChatTransport so the host can render without hitting the
+// real chat substrate from this happy-dom suite.
+vi.mock('@ai-sdk/react', () => ({
+  useChat: () => ({
+    messages: [],
+    sendMessage: vi.fn(async () => {}),
+    status: 'ready' as const,
+  }),
 }));
+
+vi.mock('ai', async () => {
+  const actual = await vi.importActual<typeof import('ai')>('ai');
+  return {
+    ...actual,
+    DefaultChatTransport: class DefaultChatTransport {
+      constructor(_options: unknown) {}
+    },
+  };
+});
 
 const { UnifiedChatShell } = await import('../unified-chat-shell.js');
 
@@ -104,6 +122,20 @@ function createHarness(secondaryChats: SecondaryChat[]): {
 } {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   queryClient.setQueryData(specificationQueryKeys.bundle('1'), buildSpec(secondaryChats));
+  // FE-716 C25: SecondaryChatHost (rendered transitively by the shell) reads
+  // entities for the `#` mention popup; seed empty entities so the suspense
+  // query resolves immediately.
+  queryClient.setQueryData(specificationQueryKeys.entities('1'), {
+    goals: [],
+    terms: [],
+    contexts: [],
+    constraints: [],
+    requirements: [],
+    criteria: [],
+    decisions: [],
+    assumptions: [],
+    relationships: [],
+  });
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <Suspense fallback={<div data-testid="suspense-fallback" />}>{children}</Suspense>

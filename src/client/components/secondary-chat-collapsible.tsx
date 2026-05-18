@@ -1,12 +1,30 @@
 import { Crosshair, MessageCircleQuestion, PencilLine } from 'lucide-react';
-import { motion } from 'motion/react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { z } from 'zod/v4';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import { cn } from '@/client/lib/utils';
 import type { secondaryChatStateSchema } from '@/shared/api-types.js';
 
+import { Conversation, ConversationContent } from './ai-elements/conversation.js';
+import { Message, MessageContent, MessageResponse } from './ai-elements/message.js';
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputFooter,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  PromptInputTools,
+} from './ai-elements/prompt-input.js';
+import { Reasoning, ReasoningContent, ReasoningTrigger } from './ai-elements/reasoning.js';
+import {
+  computeMentionQuery,
+  handleMentionPopupKey,
+  insertMention,
+  SecondaryChatMentionPopup,
+  type MentionItem,
+} from './secondary-chat-mention-popup.js';
+import { SecondaryChatSuggestions } from './secondary-chat-suggestions.js';
 import type { SecondaryChatMode } from './secondary-chat-trigger.js';
 import { usePrefersReducedMotion } from './use-prefers-reduced-motion.js';
 
@@ -62,6 +80,13 @@ export interface SecondaryChatCollapsibleProps {
    * "Jump to anchor" affordance that scrolls the workspace center pane.
    */
   onJumpToAnchor?: (turnId: number) => void;
+  /**
+   * Optional list of mention-able knowledge items (FE-716 C25). When non-empty
+   * AND the composer is mounted, typing `#` opens an autocomplete popup.
+   * Server-side resolution of `#REF-CODE` is owned by C6 — this prop only
+   * powers the UI affordance.
+   */
+  mentionableItems?: readonly MentionItem[];
 }
 
 export function SecondaryChatCollapsible({
@@ -75,18 +100,34 @@ export function SecondaryChatCollapsible({
   open,
   onOpenChange,
   onJumpToAnchor,
+  mentionableItems,
 }: SecondaryChatCollapsibleProps) {
   const kickoffContent = secondaryChat.kickoffTurn?.assistant_parts ?? '';
   const mode = secondaryChat.chat.mode ?? 'explore';
   const invokedInTurnId = secondaryChat.chat.invoked_in_turn_id;
   const collapsibleProps = open !== undefined ? { open, ...(onOpenChange ? { onOpenChange } : {}) } : {};
-  // FE-716 C15: streaming live-state pulse per UNIFIED_CHAT_UX.md §8.
-  // Honors `prefers-reduced-motion` by holding opacity steady at 1.
+  // FE-716 C22: streaming live-state uses ai-elements `<Reasoning>` so the
+  // typing pulse matches the interview spine. `prefers-reduced-motion` short-
+  // circuits the Reasoning shimmer to a static text block.
   const prefersReducedMotion = usePrefersReducedMotion();
-  const streamingPulseAnimate = prefersReducedMotion ? { opacity: 1 } : { opacity: [0.5, 1, 0.5] };
-  const streamingPulseTransition = prefersReducedMotion
-    ? { duration: 0 }
-    : { duration: 1.4, repeat: Infinity, ease: 'easeInOut' as const };
+  // FE-716 C23: lifted composer draft so the turn-zero suggestion row can
+  // populate it. Cleared after a successful submit.
+  const [draft, setDraft] = useState('');
+  // Turn-zero = the chat has only its kickoff turn (kickoffTurn is excluded
+  // from `turns`). First user submit drops `turns.length` above 0 once the
+  // bundle invalidates, hiding the suggestions row.
+  const isTurnZero = secondaryChat.turns.length === 0;
+  const reconciliationKind = secondaryChat.pinnedReconciliationNeed?.kind ?? null;
+
+  // FE-716 C28: autoscroll the chat surface to the latest message as turns
+  // arrive or streaming text grows. The scroll ancestor is the shell body
+  // (`unified-chat-shell-body`); `scrollIntoView` walks up to find it.
+  const bottomAnchorRef = useRef<HTMLDivElement>(null);
+  const turnCount = secondaryChat.turns.length;
+  const streamingLength = streamingAssistantText?.length ?? 0;
+  useEffect(() => {
+    bottomAnchorRef.current?.scrollIntoView({ block: 'end' });
+  }, [turnCount, streamingLength]);
 
   return (
     <Collapsible
@@ -119,7 +160,6 @@ export function SecondaryChatCollapsible({
             <span>Jump</span>
           </button>
         )}
-        <SecondaryChatModeToggle mode={mode} onSetMode={onSetMode} disabled={isModeUpdating} />
       </div>
       <CollapsibleContent
         data-testid="secondary-chat-collapsible-body"
@@ -129,25 +169,86 @@ export function SecondaryChatCollapsible({
           <SecondaryChatReconciliationPanel need={secondaryChat.pinnedReconciliationNeed} />
         )}
         {kickoffContent && <div className="whitespace-pre-wrap">{kickoffContent}</div>}
-        {secondaryChat.turns.map((turn) => (
-          <SecondaryChatTurnRow key={turn.id} turn={turn} />
-        ))}
-        {isStreaming && streamingAssistantText !== undefined && (
-          <motion.div
-            data-testid="secondary-chat-streaming-assistant"
-            className="whitespace-pre-wrap text-sub"
-            animate={streamingPulseAnimate}
-            transition={streamingPulseTransition}
-          >
-            {streamingAssistantText}
-          </motion.div>
-        )}
+        <Conversation className="relative flex max-h-none flex-1 flex-col overflow-visible">
+          <ConversationContent className="flex flex-col gap-2 p-0">
+            {secondaryChat.turns.map((turn) => (
+              <SecondaryChatTurnRow key={turn.id} turn={turn} />
+            ))}
+            {isStreaming && streamingAssistantText !== undefined && (
+              <SecondaryChatStreamingAssistant
+                text={streamingAssistantText}
+                isStreaming={isStreaming}
+                prefersReducedMotion={prefersReducedMotion}
+              />
+            )}
+          </ConversationContent>
+        </Conversation>
         {bodyExtras}
+        <div ref={bottomAnchorRef} aria-hidden data-testid="secondary-chat-bottom-anchor" className="h-px" />
         {onSubmitMessage && (
-          <SecondaryChatComposer onSubmitMessage={onSubmitMessage} disabled={isStreaming} />
+          <div
+            data-testid="secondary-chat-composer-sticky"
+            className="sticky -mx-3 mt-1 -mb-2 border-t border-rule/40 bg-background/95 px-3 pt-2 pb-2 backdrop-blur-sm"
+            style={{ bottom: 0 }}
+          >
+            {isTurnZero && (
+              <SecondaryChatSuggestions
+                mode={mode}
+                reconciliationKind={reconciliationKind}
+                onPick={(prompt) => setDraft(prompt)}
+                disabled={isStreaming}
+              />
+            )}
+            <SecondaryChatComposer
+              mode={mode}
+              onSubmitMessage={onSubmitMessage}
+              disabled={isStreaming}
+              onSetMode={onSetMode}
+              isModeUpdating={isModeUpdating}
+              draft={draft}
+              setDraft={setDraft}
+              mentionableItems={mentionableItems ?? []}
+            />
+          </div>
         )}
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+/**
+ * Streaming-assistant live state. FE-716 C22 swapped the bespoke `motion.div`
+ * pulse for ai-elements `<Reasoning>` so the typing indicator matches the
+ * interview spine (shimmer "Thinking…" header + revealed streaming text
+ * inside the collapsible body). `prefers-reduced-motion` short-circuits to
+ * a static text block.
+ */
+function SecondaryChatStreamingAssistant({
+  text,
+  isStreaming,
+  prefersReducedMotion,
+}: {
+  text: string;
+  isStreaming: boolean;
+  prefersReducedMotion: boolean;
+}) {
+  if (prefersReducedMotion) {
+    return (
+      <div data-testid="secondary-chat-streaming-assistant" className="whitespace-pre-wrap text-sub">
+        {text}
+      </div>
+    );
+  }
+  return (
+    <Reasoning
+      data-testid="secondary-chat-streaming-assistant"
+      className="mb-0"
+      isStreaming={isStreaming}
+      defaultOpen
+    >
+      <ReasoningTrigger />
+      <ReasoningContent className="mt-1">{text}</ReasoningContent>
+    </Reasoning>
   );
 }
 
@@ -228,60 +329,135 @@ function SecondaryChatReconciliationEndpoint({
 function SecondaryChatTurnRow({ turn }: { turn: SecondaryChatTurn }) {
   if (turn.user_parts !== null && turn.user_parts !== undefined) {
     return (
-      <div data-testid="secondary-chat-user-turn" className="whitespace-pre-wrap text-foreground">
-        {turn.user_parts}
-      </div>
+      <Message data-testid="secondary-chat-user-turn" from="user">
+        <MessageContent className="whitespace-pre-wrap text-foreground">{turn.user_parts}</MessageContent>
+      </Message>
     );
   }
   if (turn.assistant_parts !== null && turn.assistant_parts !== undefined) {
     return (
-      <div data-testid="secondary-chat-assistant-turn" className="whitespace-pre-wrap text-sub">
-        {turn.assistant_parts}
-      </div>
+      <Message data-testid="secondary-chat-assistant-turn" from="assistant">
+        <MessageContent className="text-sub">
+          <MessageResponse className="text-sub">{turn.assistant_parts}</MessageResponse>
+        </MessageContent>
+      </Message>
     );
   }
   return null;
 }
 
+/**
+ * Composer built on `<PromptInput>` (FE-716 C21). The mode toggle lives in
+ * the composer footer per UNIFIED_CHAT_UX.md §2; `Shift+Tab` inside the
+ * textarea flips Ask↔Edit so keyboard-only flows can change mode without
+ * leaving the input. The form root receives `data-testid="secondary-chat-composer"`
+ * via `<PromptInput>`'s `...props` spread onto the underlying `<form>`.
+ */
 function SecondaryChatComposer({
+  mode,
   onSubmitMessage,
   disabled,
+  onSetMode,
+  isModeUpdating,
+  draft,
+  setDraft,
+  mentionableItems,
 }: {
+  mode: SecondaryChatMode;
   onSubmitMessage: (message: string) => void;
   disabled?: boolean;
+  onSetMode?: (mode: SecondaryChatMode) => void;
+  isModeUpdating?: boolean;
+  draft: string;
+  setDraft: (draft: string) => void;
+  mentionableItems: readonly MentionItem[];
 }) {
-  const [draft, setDraft] = useState('');
+  // FE-716 C25: mention popup state. `mentionQuery === null` means inactive;
+  // empty string means the user just typed `#` (show all candidates).
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const filteredMentions = useMemo(() => {
+    if (mentionQuery === null) return [] as readonly MentionItem[];
+    const lowered = mentionQuery.toLowerCase();
+    return mentionableItems.filter((item) => item.refCode.toLowerCase().startsWith(lowered));
+  }, [mentionQuery, mentionableItems]);
+
+  const dismissMention = () => setMentionQuery(null);
+
+  const pickMention = (item: MentionItem) => {
+    const textarea = textareaRef.current;
+    const cursor = textarea?.selectionStart ?? draft.length;
+    const { value, cursor: nextCursor } = insertMention(draft, cursor, item.refCode);
+    setDraft(value);
+    setMentionQuery(null);
+    // Restore focus + place cursor right after the inserted refcode.
+    requestAnimationFrame(() => {
+      const t = textareaRef.current;
+      if (t) {
+        t.focus();
+        t.setSelectionRange(nextCursor, nextCursor);
+      }
+    });
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Mention popup intercepts Esc/Enter first so the user can pick / dismiss
+    // without triggering the textarea's submit-on-Enter.
+    if (handleMentionPopupKey(event, mentionQuery, filteredMentions[0], pickMention, dismissMention)) {
+      return;
+    }
+    // Shift+Tab toggles Ask↔Edit; capture before the textarea's Enter logic so
+    // we don't accidentally submit a draft when the user only meant to switch modes.
+    if (event.key === 'Tab' && event.shiftKey && onSetMode && !isModeUpdating) {
+      event.preventDefault();
+      onSetMode(mode === 'edit' ? 'explore' : 'edit');
+    }
+  };
 
   return (
-    <form
+    <PromptInput
       data-testid="secondary-chat-composer"
-      onSubmit={(event) => {
-        event.preventDefault();
-        const trimmed = draft.trim();
+      className="relative text-sm"
+      onSubmit={(message) => {
+        const trimmed = message.text.trim();
         if (trimmed.length === 0 || disabled) return;
         onSubmitMessage(trimmed);
         setDraft('');
+        setMentionQuery(null);
       }}
-      className="flex items-center gap-2 pt-1"
     >
-      <input
-        data-testid="secondary-chat-composer-input"
-        type="text"
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        disabled={disabled}
-        placeholder="Ask a follow-up…"
-        className="flex-1 rounded border border-rule bg-background px-2 py-1 text-sm focus:ring-1 focus:ring-rule focus:outline-none"
-      />
-      <button
-        type="submit"
-        data-testid="secondary-chat-composer-send"
-        disabled={disabled || draft.trim().length === 0}
-        className="rounded border border-rule bg-tint px-2 py-1 text-xs text-ink disabled:opacity-50"
-      >
-        Send
-      </button>
-    </form>
+      <PromptInputBody>
+        <PromptInputTextarea
+          ref={textareaRef}
+          data-testid="secondary-chat-composer-input"
+          placeholder="Ask a follow-up…"
+          disabled={disabled}
+          onKeyDown={handleKeyDown}
+          value={draft}
+          onChange={(event) => {
+            const next = event.currentTarget.value;
+            setDraft(next);
+            const cursor = event.currentTarget.selectionStart ?? next.length;
+            setMentionQuery(computeMentionQuery(next, cursor));
+          }}
+        />
+      </PromptInputBody>
+      <PromptInputFooter>
+        <PromptInputTools>
+          <SecondaryChatModeToggle mode={mode} onSetMode={onSetMode} disabled={isModeUpdating} />
+        </PromptInputTools>
+        <PromptInputSubmit data-testid="secondary-chat-composer-send" disabled={disabled} />
+      </PromptInputFooter>
+      {mentionQuery !== null && mentionableItems.length > 0 && (
+        <SecondaryChatMentionPopup
+          query={mentionQuery}
+          items={mentionableItems}
+          onPick={pickMention}
+          onDismiss={dismissMention}
+        />
+      )}
+    </PromptInput>
   );
 }
 

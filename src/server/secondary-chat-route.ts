@@ -1,10 +1,16 @@
 import { anthropic } from '@ai-sdk/anthropic';
-import { streamText } from 'ai';
+import { createUIMessageStream, pipeUIMessageStreamToResponse, streamText, validateUIMessages } from 'ai';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Request, Response } from 'express';
 import * as z from 'zod/v4';
 
 import { secondaryChatModeSchema, type MutationErrorResponse } from '@/shared/api-types.js';
+import {
+  brunchDataPartSchemas,
+  brunchValidationTools,
+  extractTextFromMessage,
+  type BrunchUIMessage,
+} from '@/shared/chat.js';
 import { createKnowledgeReferenceCode, knowledgeKinds } from '@/shared/knowledge.js';
 
 import {
@@ -29,8 +35,6 @@ import * as schema from './schema.js';
 import {
   buildSideChatPrompt,
   getSideChatTools,
-  proposeDrillDownToolName,
-  proposeEdgeToolName,
   proposeEditToolName,
   type SideChatMode,
   type SideChatPinnedItem,
@@ -185,87 +189,6 @@ export function handleSetSecondaryChatModeRequest(db: DB, req: Request, res: Res
   res.json({ chatId: updated.id, mode: updated.mode });
 }
 
-const secondaryChatMessageRequestSchema = z.object({
-  message: z.string().trim().min(1),
-});
-
-interface TextDeltaPart {
-  type: 'text-delta';
-  text: string;
-}
-
-interface ToolCallPart {
-  type: 'tool-call';
-  toolCallId: string;
-  toolName: string;
-  input: unknown;
-}
-
-type SecondaryChatToolName =
-  | typeof proposeEditToolName
-  | typeof proposeEdgeToolName
-  | typeof proposeDrillDownToolName;
-
-type SecondaryChatSseChunk =
-  | { type: 'text-delta'; delta: string }
-  | {
-      type: 'patch-proposal';
-      toolCallId: string;
-      toolName: SecondaryChatToolName;
-      input: unknown;
-      impact?: EditImpactTier;
-    };
-
-const SECONDARY_CHAT_TOOL_NAMES = new Set<string>([
-  proposeEditToolName,
-  proposeEdgeToolName,
-  proposeDrillDownToolName,
-]);
-
-function secondaryChatStreamChunkFromPart(
-  part: unknown,
-  getEditImpact: () => EditImpactTier,
-): SecondaryChatSseChunk | null {
-  if (!part || typeof part !== 'object' || !('type' in part)) {
-    return null;
-  }
-  const typed = part as { type: unknown };
-  if (typed.type === 'text-delta') {
-    const delta = (part as Partial<TextDeltaPart>).text;
-    if (typeof delta !== 'string') {
-      return null;
-    }
-    return { type: 'text-delta', delta };
-  }
-  if (typed.type === 'tool-call') {
-    const call = part as Partial<ToolCallPart>;
-    if (typeof call.toolName !== 'string' || !SECONDARY_CHAT_TOOL_NAMES.has(call.toolName)) {
-      return null;
-    }
-    if (typeof call.toolCallId !== 'string') {
-      return null;
-    }
-    const isEdit = call.toolName === proposeEditToolName;
-    return {
-      type: 'patch-proposal',
-      toolCallId: call.toolCallId,
-      toolName: call.toolName as SecondaryChatToolName,
-      input: call.input ?? null,
-      ...(isEdit ? { impact: getEditImpact() } : {}),
-    };
-  }
-  return null;
-}
-
-function writeSecondaryChatStreamError(res: Response): void {
-  res.write(
-    `data: ${JSON.stringify({
-      type: 'error',
-      message: 'Secondary-chat stream failed before completion',
-    })}\n\n`,
-  );
-}
-
 function loadPriorTurns(db: DB, chatId: number): SideChatPriorTurn[] {
   // Replay round-trip turns ordered by id: each row carries either user_parts
   // or assistant_parts (never both). Kickoff turns live under turn_kind='kickoff'
@@ -306,12 +229,6 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
     return;
   }
 
-  const parsed = secondaryChatMessageRequestSchema.safeParse(req.body);
-  if (!parsed.success) {
-    badRequest(res, 'Invalid secondary-chat message payload');
-    return;
-  }
-
   const chatRow = db
     .select({
       id: schema.chat.id,
@@ -336,9 +253,39 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
     return;
   }
 
-  const item = getKnowledgeItem(db, chatRow.pinned_item_id);
+  const pinnedItemId = chatRow.pinned_item_id;
+
+  const item = getKnowledgeItem(db, pinnedItemId);
   if (!item || item.specification_id !== specificationId) {
     notFound(res, 'Pinned item not found in specification');
+    return;
+  }
+
+  // FE-716 C24b: validate the inbound UIMessage envelope. The client sends
+  // the full conversation prefix per `useChat<BrunchUIMessage>` convention;
+  // we only need the latest user turn for the prompt + persistence — history
+  // is reloaded server-side from the secondary chat's persisted turns.
+  let validatedMessages: BrunchUIMessage[];
+  try {
+    validatedMessages = await validateUIMessages<BrunchUIMessage>({
+      messages: (req.body as { messages?: unknown }).messages ?? [],
+      dataSchemas: brunchDataPartSchemas,
+      tools: brunchValidationTools,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid secondary-chat message payload';
+    badRequest(res, message);
+    return;
+  }
+
+  const lastMessage = validatedMessages.at(-1);
+  if (!lastMessage || lastMessage.role !== 'user') {
+    badRequest(res, 'Last message must be from user');
+    return;
+  }
+  const userText = extractTextFromMessage(lastMessage).trim();
+  if (userText.length === 0) {
+    badRequest(res, 'message content is required');
     return;
   }
 
@@ -355,15 +302,14 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
   // FE-716 C6: resolve `#REF-CODE` mentions server-side and capture them as a
   // snapshot artifact on the user turn. Persisting the snapshot inline in
   // user_parts keeps replay/audit faithful without requiring a separate turn
-  // artifact column (Track 5 / chat-context-provision will formalise the
-  // snapshot lifecycle). Codes that don't resolve are silently dropped — the
-  // user message itself still carries the literal `#R1` token.
-  const parsedReferences = parseIntentItemReferences(parsed.data.message);
+  // artifact column. Codes that don't resolve are silently dropped — the user
+  // message itself still carries the literal `#R1` token.
+  const parsedReferences = parseIntentItemReferences(userText);
   const { matched } = resolveIntentItemReferences(db, specificationId, parsedReferences);
   const mentionedItemsContextBlock = formatMentionedItemsContextBlock(matched);
   const persistedUserContent = mentionedItemsContextBlock
-    ? `${parsed.data.message}\n\n${mentionedItemsContextBlock}`
-    : parsed.data.message;
+    ? `${userText}\n\n${mentionedItemsContextBlock}`
+    : userText;
 
   // Persist the user turn before streaming so a mid-stream disconnect still
   // leaves a recoverable transcript on the secondary chat.
@@ -371,7 +317,7 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
 
   const { system: baseSystem, messages } = buildSideChatPrompt(
     pinnedItem,
-    parsed.data.message,
+    userText,
     {
       specName: specification.name,
       groundingSummary: null,
@@ -383,81 +329,61 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
     },
   );
   const system = mentionedItemsContextBlock ? `${baseSystem}\n\n${mentionedItemsContextBlock}` : baseSystem;
-
   const tools = getSideChatTools(mode);
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-
-  const abortController = new AbortController();
-  const onClientClose = (): void => {
-    if (!res.writableEnded) {
-      abortController.abort();
-    }
-  };
-  res.on('close', onClientClose);
-
-  const result = streamText({
-    model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'),
-    system,
-    messages: messages.map((message) => ({ role: message.role, content: message.content })),
-    tools,
-    abortSignal: abortController.signal,
-  });
-
-  // Mirror side-chat-route's lazy edit-impact computation: only compute when the
-  // model actually emits an edit proposal, then cache for the rest of the stream.
+  // Mirror side-chat-route's lazy edit-impact computation: only compute when
+  // we know an edit proposal actually surfaced, then reuse for all of them.
   const computeEditImpact = (): EditImpactTier => {
-    const downstream = getDownstreamItems(db, specificationId, chatRow.pinned_item_id!);
+    const downstream = getDownstreamItems(db, specificationId, pinnedItemId);
     const inReviewSet =
-      isItemInActiveReviewSet(db, specificationId, chatRow.pinned_item_id!) ||
+      isItemInActiveReviewSet(db, specificationId, pinnedItemId) ||
       downstream.some((downstreamItem) => isItemInActiveReviewSet(db, specificationId, downstreamItem.id));
     return classifyEditImpact(downstream.length, inReviewSet);
   };
   let cachedEditImpact: EditImpactTier | null = null;
 
-  let assistantText = '';
+  const stream = createUIMessageStream<BrunchUIMessage>({
+    async execute({ writer }) {
+      const result = streamText({
+        model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'),
+        system,
+        messages: messages.map((message) => ({ role: message.role, content: message.content })),
+        tools,
+      });
 
-  try {
-    for await (const part of result.fullStream) {
-      if (abortController.signal.aborted) {
-        break;
-      }
-      const sseChunk = secondaryChatStreamChunkFromPart(part, () => {
+      writer.merge(
+        result.toUIMessageStream<BrunchUIMessage>({
+          sendReasoning: false,
+          sendFinish: false,
+        }),
+      );
+
+      // Wait for the stream to finalize before joining tool-call IDs back to
+      // edit-impact tiers. By this point every `tool-propose_*` UIMessage part
+      // has already been written to the merged writer; data-edit-impact
+      // arrives as a sibling part keyed by `toolCallId` so the client can
+      // attach the tier to the corresponding staged patch.
+      const finishReason = await result.finishReason;
+      const toolCalls = await result.toolCalls;
+      for (const toolCall of toolCalls) {
+        if (!toolCall || toolCall.toolName !== proposeEditToolName) continue;
         if (cachedEditImpact === null) {
           cachedEditImpact = computeEditImpact();
         }
-        return cachedEditImpact;
-      });
-      if (sseChunk) {
-        if (sseChunk.type === 'text-delta') {
-          assistantText += sseChunk.delta;
-        }
-        res.write(`data: ${JSON.stringify(sseChunk)}\n\n`);
+        writer.write({
+          type: 'data-edit-impact',
+          data: { toolCallId: toolCall.toolCallId, tier: cachedEditImpact },
+        });
       }
-    }
-    if (!abortController.signal.aborted) {
-      // Persist the assistant turn after the stream completes; if the client
-      // disconnected mid-stream we still capture the partial text for replay.
+      writer.write({ type: 'finish', finishReason });
+    },
+    async onFinish({ responseMessage }) {
+      const assistantText = extractTextFromMessage(responseMessage);
       if (assistantText.length > 0) {
         appendSecondaryChatTurn(db, chatId, { role: 'assistant', content: assistantText });
       }
-      res.write('data: [DONE]\n\n');
-    } else if (assistantText.length > 0) {
-      appendSecondaryChatTurn(db, chatId, { role: 'assistant', content: assistantText });
-    }
-  } catch {
-    if (assistantText.length > 0) {
-      appendSecondaryChatTurn(db, chatId, { role: 'assistant', content: assistantText });
-    }
-    if (!abortController.signal.aborted && !res.writableEnded) {
-      writeSecondaryChatStreamError(res);
-    }
-  } finally {
-    res.off('close', onClientClose);
-    if (!res.writableEnded) {
-      res.end();
-    }
-  }
+    },
+  });
+
+  pipeUIMessageStreamToResponse({ response: res, stream });
 }

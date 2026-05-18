@@ -426,7 +426,10 @@ V1 was originally "every behavior the V3.1 side-chat ships today, surfaced throu
 
 ### C20 — Adopt `<Conversation>` + `<Message>` for turn rendering
 
-- **Status:** **proposed** (after C19)
+- **Status:** **done** (2026-05-18) — `npm run verify` green: 1280 tests pass; build clean.
+  - **Client:** `secondary-chat-collapsible.tsx` now wraps persisted turns + the streaming-assistant pulse in `<Conversation>` → `<ConversationContent>`. `SecondaryChatTurnRow` renders `<Message from="user|assistant">` + `<MessageContent>`. Assistant text routes through `<MessageResponse>` (→ `MarkdownRenderer`); user text stays plain `whitespace-pre-wrap`.
+  - **Tests:** `secondary-chat-collapsible.test.tsx`, `secondary-chat-host.test.tsx`, and `chat-shell-presence.test.tsx` add `vi.mock` shims for `@/client/components/ai-elements/conversation.js` + `message.js` (matching the `InterviewView.test.tsx` pattern). New test in collapsible suite asserts that an assistant turn with `**bold**` renders `<strong>bold</strong>` (markdown shim in the mock makes it deterministic in happy-dom).
+  - **Note:** Cards described `<Conversation>` / `<Message>` / `<PromptInput>` as "already used by `question-cards.tsx` / the interview spine." Reality: those primitives were vendored but unused; only `Reasoning` + `Task` had real consumers. C20 introduces the first real consumer of `<Conversation>` + `<Message>` + `<MessageResponse>` in production code.
 - **What:** Replace the bespoke `SecondaryChatTurnRow` (in [`secondary-chat-collapsible.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/secondary-chat-collapsible.tsx) lines 228–244) with the vendored ai-elements `<Conversation>` shell and `<Message role="user|assistant">` rows already used by `question-cards.tsx` / the interview spine. Wire `streamdown` markdown rendering for assistant `assistant_parts`; user `user_parts` stay plain-text. Keep the existing kickoff-content rendering as-is for one card so the diff stays scoped.
 - **Why first:** Smallest delta from the current shape; proves the pattern is portable from interview to secondary chat without a streaming or composer refit.
 - **Boundary crossings:** `<SecondaryChatCollapsible>` body → `<Conversation>` → `<Message>` × turns. No new server work; no bundle shape change; no test-mock surface change beyond importing the ai-elements mocks already used in `InterviewView.test.tsx`.
@@ -439,7 +442,10 @@ V1 was originally "every behavior the V3.1 side-chat ships today, surfaced throu
 
 ### C21 — Replace composer with `<PromptInput>` + leading-edge mode chip
 
-- **Status:** **proposed** (after C20)
+- **Status:** **done** (2026-05-18) — `npm run verify` green: 1282 tests pass; build clean.
+  - **Client:** `SecondaryChatComposer` in `secondary-chat-collapsible.tsx` rebuilt on `<PromptInput>` + `<PromptInputBody>` + `<PromptInputTextarea>` + `<PromptInputFooter>` + `<PromptInputTools>` + `<PromptInputSubmit>`. The mode toggle moved from the collapsible header into the composer footer (leading-edge tools slot); `Shift+Tab` inside the textarea flips Ask↔Edit via the textarea's `onKeyDown` (preventDefault). The header retains a read-only `SecondaryChatKindChip` so collapsed state still surfaces kind. Testids preserved (`secondary-chat-composer`, `secondary-chat-composer-input`, `secondary-chat-composer-send`).
+  - **Tests:** `secondary-chat-collapsible.test.tsx` mode-toggle tests now expand the collapsible and pass `onSubmitMessage` so the composer (and its toggle) mounts; new tests assert (a) toggle is absent without a composer, (b) `Shift+Tab` calls `onSetMode('edit')` from `'explore'`. Submit test switched to `fireEvent.submit` on the form + microtask flush because `PromptInput.onSubmit` `await`s `Promise.all([])` before invoking the user callback.
+  - **Note:** This is the first real production consumer of `<PromptInput>` (the vendored primitives were previously unused outside `InterviewView.test.tsx` mocks).
 - **What:** Retire the hand-rolled `SecondaryChatComposer` (`<form>` + `<input>` + `<button>`, lines 246–280) in favor of ai-elements `<PromptInput>` matching the interview composer. Move the mode chip from the collapsible header into the composer's leading edge per `UNIFIED_CHAT_UX.md` §2; wire Shift+Tab to toggle Ask ↔ Edit. The collapsible header's `SecondaryChatKindChip` becomes a passive read-only badge (visible when collapsed) or retires; default posture for build: keep it as a read-only badge so collapsed-state still shows kind without expanding.
 - **Boundary crossings:** `<SecondaryChatCollapsible>` body → `<PromptInput>` with `onSubmit` → existing `onSubmitMessage` callback (unchanged signature) → `<SecondaryChatHost>` → existing `streamSecondaryChatMessage`. Mode-chip click and Shift+Tab call `setSecondaryChatMode` (existing C4 PATCH route).
 - **Risks / assumptions:**
@@ -452,7 +458,9 @@ V1 was originally "every behavior the V3.1 side-chat ships today, surfaced throu
 
 ### C22 — Adopt `<Reasoning>` live-state pattern for streaming assistant
 
-- **Status:** **proposed** (after C21)
+- **Status:** **done** (2026-05-18) — `npm run verify` green: 1284 tests pass; build clean.
+  - **Client:** the streaming-assistant pulse in `secondary-chat-collapsible.tsx` swapped its bespoke `motion.div` for ai-elements `<Reasoning isStreaming defaultOpen>` + `<ReasoningTrigger>` + `<ReasoningContent>`. New `<SecondaryChatStreamingAssistant>` helper short-circuits to a static `<div>` when `usePrefersReducedMotion()` reports true (no Reasoning/Shimmer animation). `motion` import dropped from this file. Testid `secondary-chat-streaming-assistant` preserved on the outer wrapper.
+  - **Tests:** `vi.mock` shims for `@/client/components/ai-elements/reasoning.js` added to `secondary-chat-collapsible.test.tsx`, `secondary-chat-host.test.tsx`, `chat-shell-presence.test.tsx` (matching the InterviewView pattern; the collapsible mock forwards `isStreaming` via `data-is-streaming` so the test can distinguish the Reasoning path from the reduced-motion path). New tests: (a) streaming pulse renders the `data-is-streaming="true"` Reasoning wrapper, (b) prefers-reduced-motion regression renders the static text block (no `data-is-streaming` attribute).
 - **What:** Replace the `motion.div` streaming pulse (lines 135–144) with the ai-elements `<Reasoning>` live-state pattern (`ReasoningTrigger` + `ReasoningContent`) so the streaming-assistant indicator reads as a coherent thinking/typing surface mirroring `question-cards.tsx`'s usage. Animate the kickoff card's "generating…" indicator per `UNIFIED_CHAT_UX.md` §8.
 - **Boundary crossings:** `<SecondaryChatHost>`'s streaming state → `streamingAssistantText` prop → `<Reasoning isStreaming>` inside the collapsible body.
 - **Risks / assumptions:**
@@ -464,7 +472,9 @@ V1 was originally "every behavior the V3.1 side-chat ships today, surfaced throu
 
 ### C23 — Turn-zero `<Suggestions>` row (static per mode)
 
-- **Status:** **proposed** (after C22)
+- **Status:** **done** (2026-05-18) — `npm run verify` green: 1288 tests pass; build clean.
+  - **Client:** new [`secondary-chat-suggestions.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/secondary-chat-suggestions.tsx) exports `<SecondaryChatSuggestions>` + `getSecondaryChatSuggestions(mode, reconciliationKind)`. Six static prompt arrays (3 per slot) keyed by `(mode, reconciliation-kind | null)`: Ask + Edit each have a generic set, a `supersedes` set, and a `needs_confirmation` set. `secondary-chat-collapsible.tsx` lifts the composer draft into `useState`, mounts the row above the composer iff `secondaryChat.turns.length === 0` AND `onSubmitMessage` is provided, and a suggestion click writes the prompt into the draft. Composer textarea is now controlled (`value` + `onChange`) so the lifted draft updates the input; submit clears the draft. Suggestions vendor a simple `<button>` row (no ai-elements `Suggestions` primitive is vendored in this codebase — confirmed via `ls src/client/components/ai-elements/`).
+  - **Tests:** 4 new tests in `secondary-chat-collapsible.test.tsx`: (a) 3 explore-mode suggestions at turn-zero + hidden after a user turn, (b) edit mode keys the suggestion set + `data-reconciliation-kind="none"`, (c) reconciliation-kind threads into the row's data attribute, (d) clicking a suggestion populates the composer textarea value. Existing submit test switched to `waitFor()` for the textarea-cleared assertion (the lifted controlled value requires a React commit after `setDraft('')`).
 - **What:** On turn-zero (i.e. when the secondary chat has only the kickoff turn and no user-authored turns yet), render an ai-elements `<Suggestions>` row above the composer with **three** static prompts keyed by `(chat.mode, optional reconciliation-kind)` per `UNIFIED_CHAT_UX.md` §2. Clicking a suggestion populates the composer; submitting clears the row. LLM-generated suggestions stay deferred.
 - **Why fourth:** Cheapest concrete value-add now that the composer hosts the chip + ai-elements (§2 explicitly says suggestions replace the empty composer for turn-zero).
 - **Boundary crossings:** `<SecondaryChatCollapsible>` body → `<Suggestions>` (visible iff `turns.length === 0` and no `user_parts` exist anywhere) → click handler sets composer draft state.
@@ -477,7 +487,14 @@ V1 was originally "every behavior the V3.1 side-chat ships today, surfaced throu
 
 ### C24 — `useChat<BrunchUIMessage>` refit for secondary-chat streaming
 
-- **Status:** **proposed** (after C23) — **largest single card; consider an `ln-scope` pass before build**
+C24 has been split into four scope cards (C24a / C24b / C24c / C24d) via an `ln-scope` pass (2026-05-18). Original "What" + investigation notes preserved below for reference; sub-cards live underneath.
+
+- **Status:** **superseded by C24a–C24d** (2026-05-18). Investigation during the C21–C25 serial pass confirmed the card's "largest single card; consider an `ln-scope` pass before build" framing. Concretely:
+  - **Server side** is the heavy lift, not the client. `src/server/secondary-chat-route.ts` (~460 LOC) emits a bespoke SSE envelope (`text-delta` / `patch-proposal` / `[DONE]` chunks consumed by `parseSideChatSSEBuffer` in `src/client/lib/side-chat-stream.ts`). The interview spine's `/api/specifications/:id/chat` route uses the AI-SDK protocol instead: `validateUIMessages<BrunchUIMessage>` for the request body, `createUIMessageStream<BrunchUIMessage>` + `writer.merge(streamText(...).toUIMessageStream(...))` for the response. Migrating the secondary-chat route means re-implementing the request shape, the streaming response shape, and the way `propose_edit` / `propose_edge` / `propose_drill_down` tool calls surface (today as bespoke `patch-proposal` chunks; under `useChat` they'd become `tool-*` UIMessage parts that `useSecondaryChatStream` would need to translate to chat-scoped staged patches via the existing partition seam).
+  - **Client side** then changes too: `useSecondaryChatStream` in `secondary-chat-host.tsx` (the per-chat in-flight + delta accumulator + patch-stage router) is replaced by `useChat<BrunchUIMessage>` mounted per chat with a `DefaultChatTransport` pointed at the new route. The partition-seam invariant (C5b/C5c) must survive — two parallel chats still can't cross-talk patch IDs.
+  - **Test surface** ripples: `secondary-chat-host.test.tsx`'s `mockStream` mock disappears in favor of the `useChat` mock pattern from `InterviewView.test.tsx` (lines ~339–397); `secondary-chat-route.test.ts` + `app.test.ts` route tests need to assert UIMessage-stream output instead of the bespoke envelope; per-event tool-call coverage shifts.
+- **Why stopping serial execution here:** This is the explicit "server-side SSE shape needing non-trivial revision before the client refit" stop condition from the ln-build session brief. Estimated as a multi-slice frontier-scale change (likely C24a server route refit + C24b client useChat + C24c test/route-shape coverage) — at minimum an `ln-scope` pass to define the right cuts; possibly an `ln-spike` first to validate the tool-call → staged-patch translation works under the UIMessage protocol.
+- **C25 dependency:** C25 (`#` mention chip UI) operates entirely on the composer surface and does NOT depend on the C24 refit; it can proceed independently against the current `<PromptInput>` from C21.
 - **What:** Replace `streamSecondaryChatMessage` (the bespoke SSE pump in [`secondary-chat-host.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/secondary-chat-host.tsx) line 63) with `useChat<BrunchUIMessage>` mounted per secondary chat, matching how `-interview-controller.ts` already mounts it for the spine. The server route stays — only the client transport changes — but the SSE event shape may need to align with what `useChat` expects, which could mean either (a) the route already emits a compatible shape or (b) a thin server-side adapter normalizes the events. Determine during build.
 - **Why fifth:** Establishes the typed-data-parts substrate (`BrunchUIMessage`) for secondary chats, which downstream work (typed `thread.kickoff` / `thread.suggestions` / `thread.reconciliation_summary` / `thread.agent_progress` data parts per §11) can compose against. Without it, secondary chats remain typed-data-parts-blind.
 - **Boundary crossings:** `<SecondaryChatHost>` mounts `useChat({ api: ..., id: chatId, initialMessages: ... })` per chat → `useChat` owns streaming-text + finalize → on completion, invalidate the bundle so the persisted turns reload.
@@ -490,9 +507,147 @@ V1 was originally "every behavior the V3.1 side-chat ships today, surfaced throu
 - **Out of scope:** new typed data parts (defer); migrating the popover patch-list partition seam (`producerChatId`) — stays untouched.
 - **Verification:** `npm run verify` green; manual walkthrough confirms streaming, finalize, and reload-persistence match today's behavior; partition-seam regression (C5c) still passes.
 
+#### C24a — Shared chat types: register secondary-chat tools + `edit-impact` data part
+
+- **Status:** **done** (2026-05-18) — `npm run verify` green: 109 test files / 1298 tests pass; build clean.
+  - **Shared types:** [`src/shared/chat.ts`](file:///Users/kostandin/Projects/hashdev/brunch/src/shared/chat.ts) now hosts the canonical `proposeEditInputSchema` / `proposeEdgeInputSchema` / `proposeDrillDownInputSchema` (lifted out of `side-chat-prompt.ts` to keep the substrate self-contained; `api-types.ts` imports from `chat.ts` so the 5-value `edgeRelationSchema` is duplicated as a private `sideChatEdgeRelationSchema` rather than crossed back through the cycle). New `editImpactTierSchema` + `editImpactDataSchema` carry `{ toolCallId, tier }` for the C24b sibling-data-part contract; type alias `EditImpactTier` matches the server-side enum literally.
+  - **BrunchUITools / BrunchDataParts / BrunchAssistantPart:** extended with `propose_edit | propose_edge | propose_drill_down` tool entries and the `edit-impact` data part. Extracts in `BrunchAssistantPart` updated; `INTERNAL_TOOL_PART_TYPES` now hides the propose_* tool labels from `getActivityToolLabel` so they never leak into the interview's activity summary.
+  - **brunchValidationTools / brunchDataPartSchemas:** registry now exposes `proposeEditValidationTool`, `proposeEdgeValidationTool`, `proposeDrillDownValidationTool`, and an `edit-impact` data-part schema entry. C24b's `validateUIMessages<BrunchUIMessage>` consumes them directly.
+  - **persistedAssistantPartSchema:** admits the new `tool-propose_*` and `data-edit-impact` shapes for forward-compat (decoder accepts them if any future writer emits them; C24a doesn't change today's plain-text persistence path for secondary chats).
+  - **Tests:** new [`src/shared/chat.test.ts`](file:///Users/kostandin/Projects/hashdev/brunch/src/shared/chat.test.ts) covers the type registry (`expectTypeOf<BrunchUITools>().toHaveProperty(...)` for all 6 tools), the validation-tools registry, and `brunchDataPartSchemas['edit-impact']` round-trip (parses well-formed payloads, admits all three tier values, rejects unknown tiers, rejects missing `toolCallId`).
+  - **Note:** `src/server/side-chat-prompt.ts` still owns its private `proposeEdit*`/`proposeEdge*`/`proposeDrillDown*` schemas + `tool({...})` defs because it carries the `execute: async (input) => ...` echo bodies that the AI SDK needs at the server tool boundary. The shape is identical to the new shared schemas; C24b will reconcile during the server refit (either re-export from shared or keep both, depending on whether `streamText`'s tool input type stays compatible).
+- **Weight:** full scope card
+- **Target Behavior:** `BrunchUITools` and `brunchDataPartSchemas` in [`src/shared/chat.ts`](file:///Users/kostandin/Projects/hashdev/brunch/src/shared/chat.ts) admit secondary-chat tool calls (`propose_edit`, `propose_edge`, `propose_drill_down`) and an `edit-impact` data part as typed UIMessage parts, with zero observable runtime change.
+- **Boundary Crossings:**
+  ```
+  → src/shared/chat.ts (BrunchUITools, BrunchDataParts, brunchDataPartSchemas, BrunchAssistantPart, persistedAssistantPartSchema)
+  → src/server/edit-impact.ts (re-use existing EditImpactTier; lift to shared if needed)
+  → src/client/routes/specification/$id/_view/-interview-controller-core.ts (exhaustive switch sites adopt new branches as no-ops)
+  → src/client/routes/specification/$id/_view/-interview-view.tsx (control-marker projection switches)
+  ```
+- **Risks and Assumptions:**
+  - DECISION: extend the existing `BrunchUITools` rather than introduce a sibling `BrunchSecondaryUITools` — the interview spine already filters by tool name when projecting view models, so a single registry keeps the protocol unified at the cost of one no-op branch per exhaustive call site. → MITIGATION: precise input types so interview-side switches compile-error if branches are forgotten.
+  - ASSUMPTION: `EditImpactTier` is the only side-channel field the bespoke envelope carries beyond raw tool inputs → VALIDATE: re-read [`secondary-chat-route.ts`](file:///Users/kostandin/Projects/hashdev/brunch/src/server/secondary-chat-route.ts) lines 209–258 once during build; if another field surfaces, fold it into the same `edit-impact` data part or a sibling.
+  - RISK: `persistedAssistantPartSchema` currently knows only interview tools; secondary-chat assistant turns persist as raw text (`assistant_parts` strings). → MITIGATION: keep persistence shape unchanged in C24a (server still concatenates assistant text). Persistence-shape change is **out of scope** and explicitly deferred (it would promote C24d).
+- **Acceptance Criteria:**
+  ```
+  ✓ `BrunchUITools` exports `propose_edit | propose_edge | propose_drill_down` alongside today's interview tools.
+  ✓ `brunchDataPartSchemas` includes an `edit-impact` entry keyed by `toolCallId` + `tier`.
+  ✓ `npm run check` clean; interview-side switches either compile-extend with no-op branches or compile-error and are extended.
+  ✓ No production runtime behavior change.
+  ```
+- **Verification Approach:**
+  - Inner: `npm run check` (typecheck-first); targeted schema-parse Vitest in `src/shared/chat.test.ts` or sibling.
+  - Middle: n/a (types-only).
+- **Out of scope:** server route refit (C24b); client refit (C24c); persisting tool-call parts on secondary chats; ai-elements wiring for tool rendering.
+
+#### C24b — Server route refit: secondary-chat `POST .../messages` → AI-SDK UIMessage protocol
+
+- **Status:** **next** (after C24a)
+- **Weight:** full scope card
+- **Target Behavior:** `POST /api/specifications/:id/secondary-chats/:chatId/messages` accepts a `validateUIMessages<BrunchUIMessage>` body and emits a `createUIMessageStream<BrunchUIMessage>` response, with `propose_*` tool calls surfacing as typed `tool-*` UIMessage parts and edit-impact arriving as a `data-edit-impact` part joined by `toolCallId`.
+- **Boundary Crossings:**
+  ```
+  → HTTP POST .../secondary-chats/:chatId/messages
+  → secondaryChat lookup + mode resolution (unchanged)
+  → validateUIMessages<BrunchUIMessage>(req.body.messages, dataSchemas, tools)
+  → parseIntentItemReferences + resolveIntentItemReferences (unchanged C6 contract)
+  → buildSideChatPrompt(...) (unchanged)
+  → getSideChatTools(mode) (already AI-SDK tool defs; confirm `toUIMessageStream` surfaces them)
+  → createUIMessageStream<BrunchUIMessage>({ execute: ({ writer }) => writer.merge(streamText(...).toUIMessageStream({ sendReasoning: false, sendFinish: false })) })
+  → on edit tool call: writer.write({ type: 'data-edit-impact', data: { toolCallId, tier } }) (lazy compute as today)
+  → onFinish: appendSecondaryChatTurn(user) + appendSecondaryChatTurn(assistant) using extractTextFromMessage(responseMessage)
+  → pipeUIMessageStreamToResponse(stream, res)
+  ```
+- **Risks and Assumptions:**
+  - RISK: today's user-turn persistence happens *before* the stream so mid-stream disconnects leave a recoverable transcript; under `validateUIMessages` the canonical user turn lives in the request payload. → MITIGATION: persist the user turn synchronously after `validateUIMessages` returns, before the `createUIMessageStream` `execute` runs (mirrors the interview spine's `applyChatRouteTransition`).
+  - RISK: edit-impact today rides on each `propose_edit` chunk; under UIMessage protocol the natural shape is a sibling `data-edit-impact` part keyed by `toolCallId`. Consumers (C24c patch-stage router) join by `toolCallId`. → MITIGATION: write the data part *immediately after* the tool-call surfaces; document the join contract in the route header.
+  - RISK: `appendSecondaryChatTurn(role: 'assistant', content: string)` stores plain text — UIMessage carries structured assistant parts. → MITIGATION: derive assistant text via `extractTextFromMessage(responseMessage)` in `onFinish` and persist as today. Persistence-shape change stays deferred.
+  - ASSUMPTION: `getSideChatTools(mode)` returns `streamText`-compatible tool defs such that `toUIMessageStream` surfaces them as `tool-*` parts → VALIDATE during build by reading `side-chat-prompt.ts`; add a thin adapter if not.
+- **Acceptance Criteria:**
+  ```
+  ✓ Route consumes `{ messages: BrunchUIMessage[] }` (replacing `{ message: string }`) and responds with the UIMessage stream protocol.
+  ✓ Round-trip: POST user UIMessage → response stream contains a `text` assistant part → user + assistant turns persist with same `user_parts` / `assistant_parts` text as today.
+  ✓ Edit mode: `propose_edit` surfaces as a `tool-propose_edit` part AND a subsequent `data-edit-impact` referencing the same `toolCallId`.
+  ✓ Mode invariants preserved (C5a): 404 on primary chat / missing chat / missing pinned item; 400 on invalid payload.
+  ✓ `#REF-CODE` mention block from C6 still resolves and is prepended to system + persisted in `user_parts`.
+  ✓ `secondary-chat-route.test.ts` rewritten against the new envelope (no bespoke `parseSideChatSSEBuffer`).
+  ```
+- **Verification Approach:**
+  - Inner: Vitest in `secondary-chat-route.test.ts` covering the UIMessage envelope, tool-call surfacing, edit-impact join, and the 4 error invariants.
+  - Middle: `app.test.ts` round-trip oracle: POST → GET bundle → asserted persisted turn shape matches pre-refit baseline.
+  - Outer: deferred to C24d.
+- **Out of scope:** client refit (C24c); deleting `secondary-chat-stream.ts` (C24c); popover side-chat route (unchanged — keeps `parseSideChatSSEBuffer`).
+
+#### C24c — Client refit: `useChat<BrunchUIMessage>` per secondary chat + patch-list translation
+
+- **Status:** **next** (after C24b)
+- **Weight:** full scope card
+- **Target Behavior:** `<SecondaryChatHost>` mounts `useChat<BrunchUIMessage>` per chat (transport pointed at the C24b route), and `propose_*` tool parts in `messages` are translated into chat-scoped `patchList.stage(...)` calls via the existing C5c partition seam — preserving every observable behavior of today's `useSecondaryChatStream`.
+- **Boundary Crossings:**
+  ```
+  → <SecondaryChatHost> mounts useChat<BrunchUIMessage>({ id: chatId, transport: DefaultChatTransport({ api: '/api/specifications/:specId/secondary-chats/:chatId/messages' }), messages: hydrateFromSecondaryChat(secondaryChat), dataPartSchemas: brunchDataPartSchemas, onData: handleEditImpactDataPart, onFinish: invalidateSpecificationBundle })
+  → effect that walks `messages`, locates new `tool-propose_*` parts (keyed by toolCallId, deduped by a consumed-set), calls `patchList.stage({ kind, producerChatId: chatId, anchor, ... })`
+  → pickup of `data-edit-impact` via `onData`, joined back to staged patches by toolCallId
+  → streaming-assistant text derived from the in-flight assistant message's `text` parts (no local `assistantText` state)
+  ```
+- **Risks and Assumptions:**
+  - RISK: today's `useSecondaryChatStream` owns local `assistantText` for the `<SecondaryChatStreamingAssistant>` (C22) live-state; `useChat` exposes `messages` instead. → MITIGATION: derive `streamingAssistantText` from `messages.at(-1)`'s text parts when `status === 'streaming'`.
+  - RISK: tool-part translation runs every render; staging the same patch twice corrupts the list. → MITIGATION: track a `Set<string>` of consumed `toolCallId`s inside the host; covering test sends two text deltas after a single tool call and asserts one stage event.
+  - RISK: C5c partition seam (`producerChatId`) must survive — two parallel `useChat` instances must not cross-talk patch IDs. → MITIGATION: keep `usePatchListForChat(chatId)` exactly as-is; only the *source* of staged events changes.
+  - ASSUMPTION: `DefaultChatTransport` supports a per-chat `api` URL via function callback or interpolation → VALIDATE by reading the interview controller's transport (`-interview-controller.ts` ~L110-120); fork a thin transport if not.
+  - RISK: `secondary-chat-host.test.tsx` (290 LOC) mocks `streamSecondaryChatMessage` end-to-end. → MITIGATION: copy the `useChat` mock pattern from `InterviewView.test.tsx` lines ~339–397; expect a 30–50 LOC test bump.
+- **Acceptance Criteria:**
+  ```
+  ✓ <SecondaryChatHost> no longer imports `streamSecondaryChatMessage`; `useChat<BrunchUIMessage>` mounted with chat-scoped id/transport.
+  ✓ Live-state regression: streaming text renders inside the C22 `<Reasoning>` surface during stream, resolves into a persisted `<Message>` turn on completion.
+  ✓ Patch staging regression: `propose_edit` during stream calls `patchList.stage({ kind: 'edit', producerChatId: chatId, ... })` exactly once; `data-edit-impact` join fills `impact`.
+  ✓ Partition-seam regression (C5c): two parallel `<SecondaryChatHost>` instances stage edits independently; no cross-talk.
+  ✓ `secondary-chat-host.test.tsx` rewritten against the `useChat` mock pattern; mode-toggle / Shift+Tab / mention popup / suggestions tests (C21–C25) still pass.
+  ✓ `src/client/lib/secondary-chat-stream.ts` deleted; `parseSideChatSSEBuffer` unused outside `side-chat-stream.test.ts` (popover unchanged).
+  ```
+- **Verification Approach:**
+  - Inner: Vitest with the `useChat` mock pattern from `InterviewView.test.tsx`; per-test seeded `messages` array drives the host's tool-walk and live-text derivation.
+  - Middle: existing round-trip integration (`app.test.ts`) already covers the server side via C24b; no new middle-tier work.
+  - Outer: deferred to C24d.
+- **Out of scope:** persisting tool-call parts on secondary chats; ai-elements tool-rendering surfaces for staged patches; popover refit.
+
+#### C24d — Outer-loop walkthrough + bespoke envelope retirement + PR description rewrite
+
+- **Status:** queued (after C24c; promote if C24b/C24c findings invalidate the persistence-shape deferral)
+- **Weight:** light scope card
+- **Objective:** Confirm the refit holds end-to-end against a real spec, retire any remaining bespoke-envelope code paths reachable from secondary chats, and refresh the FE-716 PR draft (in CARDS.md C10 §PR description) to reflect C24's UIMessage-protocol substrate.
+- **Acceptance Criteria:**
+  ```
+  ✓ Manual walkthrough (V3.1 capability matrix + parallel-chat partition seam): typing in two secondary chats simultaneously stages edits independently, undo per-chat works, persisted turns reload identically to today.
+  ✓ `rg "parseSideChatSSEBuffer|streamSecondaryChatMessage|patch-proposal" src/server src/client/components/secondary*` is empty (popover keeps the helper; secondary doesn't).
+  ✓ `npm run verify` green.
+  ✓ PR description (CARDS.md C10) updated to name the UIMessage substrate and the typed `tool-propose_*` + `data-edit-impact` parts; "What" + "Substrate" sections rewritten to drop the bespoke-envelope description.
+  ```
+- **Verification Approach:**
+  - Inner: `npm run verify`.
+  - Outer: manual walkthrough on a real spec (capture into the FE-716 walkthrough log).
+- **Promotion checklist:**
+  - [ ] Changes a requirement? — no, parity-only
+  - [ ] Creates/retires/invalidates an assumption? — retires "bespoke SSE envelope is the secondary-chat protocol"; document in SPEC.md A94 evidence band during `ln-sync`
+  - [ ] Makes/reverses a non-trivial design decision? — no (carries C24a–C24c decisions)
+  - [ ] Establishes a new seam-level invariant? — no
+  - [ ] Crosses more than two major seams? — no (cleanup only)
+  - [ ] First touch in unfamiliar seam from fresh thread? — no
+  - **Promote if:** C24b/C24c surface a persistence-shape decision (assistant turn persisted as `parts: BrunchAssistantPart[]` vs. `string`). That's a durable substrate change and routes through `ln-spec`/`ln-plan`.
+
+##### Order discipline
+
+C24a (types) → C24b (server route) → C24c (client refit) → C24d (walkthrough + cleanup). Sequential by necessity: types feed server feeds client. C24a and C24b interfaces are stable against the orientation findings; C24c's *target behavior* + *acceptance criteria* are implementation-independent of C24a/C24b findings (only the tool-walk implementation may shift). C24d is gated by C24c's completion and the absence of a persistence-shape pivot.
+
 ### C25 — `#` mention autocomplete chip UI on the composer
 
-- **Status:** **proposed** (after C24)
+- **Status:** **done** (2026-05-18, landed out of order ahead of C24) — `npm run verify` green: 1292 tests pass; build clean.
+  - **Client:** new [`secondary-chat-mention-popup.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/secondary-chat-mention-popup.tsx) exports `<SecondaryChatMentionPopup>`, `computeMentionQuery(value, cursor)`, `insertMention(value, cursor, refCode)`, and `handleMentionPopupKey(...)`. Popup built on cmdk (`Command` / `CommandList` / `CommandEmpty` / `CommandGroup` / `CommandItem` from `@/client/components/ui/command`) — no new dep. Position: absolute below the textarea via the composer's `relative` wrapper. `SecondaryChatComposer` in `secondary-chat-collapsible.tsx` tracks an active `mentionQuery` from textarea value + cursor on every change; renders the popup when non-null and `mentionableItems` has entries; Esc dismisses; Enter inserts `#REF-CODE ` and closes; outside-click dismisses.
+  - **Anchor rules (V1):** `#` must be at start-of-string or after whitespace (so markdown headings on a new line still trigger but `abc#R1` doesn't); whitespace inside the query closes the popup. Server-side `#REF-CODE` resolution (C6) is unchanged — the popup is a UI affordance, not a new substrate.
+  - **Host:** new exported helper `flattenEntitiesToMentionItems(entities)` in `secondary-chat-host.tsx` flattens `useSpecificationEntities()`'s 8 buckets into a `MentionItem[]` (drops items without a `referenceCode`); host threads the result into the collapsible as `mentionableItems`. Test harnesses (`secondary-chat-host.test.tsx`, `chat-shell-presence.test.tsx`, `unified-chat-shell.test.tsx`) seed an empty entities query so the suspense resolves.
+  - **Tests:** 5 new tests in `secondary-chat-collapsible.test.tsx`: (a) `#` opens popup with all items + `data-query=""`, (b) `#R` filters to refcodes starting with `R`, (c) Esc dismisses without inserting, (d) Enter inserts `#R1 ` + closes, (e) no popup when no `#` active.
+  - **Out of scope (explicitly deferred):** chip-style decorations (a real contentEditable surface) and per-kind tints — V1 stays text-based since the server resolves `#REF-CODE` strings the same either way; `$` (secondary chats) and `!` (annotations) symbols remain parked in Track 5.
 - **What:** Wire the Radix `Combobox` / `cmdk` (existing dep) popup on `#` keypress inside the `<PromptInput>` composer. Reads the spec's intent graph (refcode + kind + display label); inserts a chip with `kindAccentHex` tint matching the kind. Server-side `#REF-CODE` resolution (C6) already exists — C25 only adds the UI affordance. `$` (secondary chats) and `!` (annotations) stay parked; they need substrate work owned by Track 5.
 - **Boundary crossings:** composer input → key handler intercepts `#` → `cmdk` popup → searches `specificationState.knowledgeItems` (already on the bundle) → inserts a chip token in the draft → submit serializes chips as `#REF-CODE` strings (server resolution unchanged).
 - **Risks / assumptions:**
@@ -524,6 +679,103 @@ V1 was originally "every behavior the V3.1 side-chat ships today, surfaced throu
 - **Out of scope:** localStorage persistence of active chat (defer; on reload, fall back to most-recent); reconciliation chats in switcher (Track 3); `$` mention chips (Track 5).
 - **Verification:** `npm run verify` green; manual walkthrough: click item A → chat opens; click item B → chat opens, switcher shows both; flip via switcher; reload → falls back to most-recent.
 
+### C27 — UI polish: selective kind-accent tinting + modern shell vocabulary
+
+- **Status:** **next**
+- **What:** Targeted modernization pass on the unified chat shell + a foundation for kind-accent selection styling. **Inspiration only** from `figma.com/design/nTw9n0blCJm1j9t22Jo72d/HASH-SgAI?node-id=969-386` (HASH SgAI mock — soft warm wash on the chat panel, pill compose with dark round Send, segmented chat tabs, agent-run progress narration with timing). No full redesign and no background gradient wash in V1 — just selective `kindAccentHex` application on selected/anchored/active states and a vocabulary refresh on the chat surface chrome.
+- **Selective kind-accent tinting** (accents only — never full backgrounds):
+  - `<ChatSwitcher>` active row: a ~3px left-border in `kindAccentHex[chat.pinnedItemKind]` replaces the flat `bg-tint/60`. Trigger button picks up the same accent on its leading edge.
+  - `<SecondaryChatHost>` / `<SecondaryChatCollapsible>` body: subtle top or left accent strip in the chat's `kindAccentHex` (~2px). Background stays neutral.
+  - Focus ring on the collapsible trigger: `kindAccentHex` at ~30% opacity instead of the generic `ring-foreground/30`.
+  - `StructuredListView` rows: when an item id matches the active chat's `pinned_item_id` (or any id in `anchored_item_ids`), render the row with a 2px left-border in `kindAccentHex`. Lays the foundation that C19's full selection-styling pass can build on.
+- **Modern shell vocabulary** (chat surface only — don't touch workspace center for V1):
+  - Bump card corner radius across the shell: `rounded-md` → `rounded-xl` on the compact dock; `rounded-lg` on inner cards (collapsible body, staging strip, reconciliation panel).
+  - Compose pill: round the composer input to `rounded-full`; dark Send button (`bg-ink text-background`) also `rounded-full`. Matches the figma compose.
+  - Header strip: trim the row height (~32 px), drop the spec-name uppercase "Chat" prefix in favor of just the truncated name, align switcher trigger + layout buttons + close X on a single baseline.
+  - Replace the hover/active outline on layout buttons with a refined `data-active=true` style (subtle inset + accent dot or border-bottom marker).
+- **Out of scope** (parking lot — defer):
+  - Soft gradient wash on the chat panel background (the figma's most distinctive flourish). Defer until brand/palette work decides whether the gradient is canonical or scene-specific.
+  - "1 Queued" indicator + queued-message UX.
+  - Agent-run progress narration ("Reviewing the prompt", "Building the plan", "Generating clarifying questions") with timing — owned by `UNIFIED_CHAT_UX.md` §6 agent-run track.
+  - Tab-based chat switcher (the figma's "New chat | Old chat" tabs). Current dropdown scales better at higher counts; revisit after walkthrough.
+  - "+ New chat" explicit-create affordance (without anchoring to an item) — different mental model from the per-item dedupe shipped in C26.
+  - Mention chip styling (`#REF-CODE` autocomplete chips) — owned by C25.
+  - Knowledge-card / sidebar / structured-list deeper visual polish — workspace center stays untouched in V1.
+- **Tests:**
+  - `chat-switcher.test.tsx`: active row carries the `kindAccentHex` border (data attribute or inline-style assertion).
+  - `unified-chat-shell.test.tsx`: shell container picks up `rounded-xl`; compose Send button is `rounded-full`.
+  - No regression on existing layout / collapse / close / switcher tests.
+- **Verification:** `npm run verify` green; manual walkthrough — open chats anchored to a goal (`#2563eb`), a constraint (`#ec4899`), and a decision (`#9333ea`); confirm each chat's switcher row + header accent + (if C19 is done) workspace row reflects its kind color without overwhelming the surface.
+
+### C28 — Sticky composer + autoscroll on new content
+
+- **Status:** **next**
+- **What:** Pin the composer at the bottom of the chat surface; messages scroll above it. Auto-scroll to the latest message as new content (persisted turns + streaming text) arrives.
+- **Implementation:**
+  - In [`secondary-chat-collapsible.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/secondary-chat-collapsible.tsx), wrap the composer in a sticky-positioned container (`sticky bottom-0 bg-background/95 backdrop-blur-sm border-t border-rule/40`), spanning the full collapsible width via the negative-margin trick (`-mx-3 px-3`).
+  - Add a `bottomAnchorRef` just above the sticky composer; `useEffect` on `turns.length` and `streamingAssistantText?.length ?? 0` calls `scrollIntoView({ block: 'end' })` on the anchor.
+  - Scroll ancestor stays the shell body (`unified-chat-shell-body` — already `overflow-y-auto`); no restructure of the shell or motion wrappers needed.
+- **Pause-on-scroll-up (deferred to V2):** when the user scrolls up away from the bottom, pause autoscroll and show a "Jump to latest" button. Skipped in V1 to keep the slice small; revisit if walkthrough surfaces friction.
+- **Tests:** assert the composer wrapper carries `sticky` + `bottom-0`; assert `scrollIntoView` is invoked when `turns.length` or `streamingAssistantText` increases (spy on `HTMLElement.prototype.scrollIntoView`).
+- **Out of scope:** pause-on-scroll-up, "Jump to latest" button, scroll restoration across chat switches.
+- **Verification:** `npm run verify` green; manual: open a chat anchored to an item, type/stream messages until they exceed the visible area, confirm the composer is pinned at the bottom and the view follows the latest message.
+
+### C29 — Consolidate patches inside the chat shell (quick win)
+
+- **Status:** **proposed**
+- **What:** Replace the workspace-wide `<PatchListOverlay>` surface with a single shell-level patch panel mounted inside `<UnifiedChatShell>`. The conversational loop and the changes it produces collapse onto one surface; bulk affordances replace per-row clicking. Independent of C20–C25; can land in parallel or before.
+- **Why now / big win:**
+  - **One look, one decision.** Today: assistant proposes → user glances up at top-bar overlay → back to chat. New: assistant proposes → user sees patches appear inline in the shell → one click.
+  - **Bulk operations become natural.** "Apply all" at the chat level matches the mental unit ("this conversation's batch of changes"). Promotes Apply to header-level; demotes per-row to Discard-only — most flows drop from N clicks to 1.
+  - **Prepares Track 3.** Reconciliation chats will want changes inline; co-locating patches in chat is the natural pattern.
+  - **No code thrown away.** `<PatchListOverlay>` mount is commented out, not deleted; component + bridge + tests stay in tree. One-line revert restores it.
+- **Hide, don't remove:**
+  - Comment out `<PatchListOverlay />` at [`src/client/routes/specification/$id/route.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/routes/specification/$id/route.tsx) line 67 with a `// FE-716 C29: overlay hidden in favor of shell-internal patch panel; restore here to revert.` comment.
+  - Leave [`patch-list-overlay.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/patch-list-overlay.tsx), [`patch-list-overlay-bridge.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/patch-list-overlay-bridge.tsx), and `patch-list-overlay.test.tsx` untouched. Tests continue to pass as unit-tests of the (now unmounted) component.
+- **New `<ChatShellPatchPanel>`:**
+  - File: `src/client/components/chat-shell-patch-panel.tsx`.
+  - Subscribes to **`usePatchList()`** (global, un-partitioned hook from [`patch-list-host.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/patch-list-host.tsx)) — sees the union across all chats in the spec.
+  - Mount inside `<UnifiedChatShell>` body, **above** the `<ChatSwitcher>` row when there are 1+ staged patches; renders `null` otherwise so empty-state collapses cleanly.
+  - **ai-elements composition** (compose, don't fork — matches the brief §Constraints "Compose above `ai-elements/*`"):
+    - Outer container: ai-elements [`<Task>`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/ai-elements/task.tsx) — already a Collapsible with `isRunning` semantics; set `isRunning={isStreaming}` so the panel auto-opens while the assistant is mid-stream and auto-closes ~AUTO_CLOSE_DELAY after settle. Matches `question-cards.tsx`'s existing usage pattern.
+    - Header: `<TaskTrigger title="N pending change[s]" />` — built-in chevron + collapse affordance. Bulk-action buttons (`Apply all`, `Undo`) render as siblings inside the same header row (outside `<TaskTrigger>` to avoid nested-button warning; same pattern as the `SecondaryChatCollapsible` mode toggle in C4).
+    - Body: `<TaskContent>` wraps the list.
+    - Per-row: `<TaskItem>` for the summary line; `<TaskItemFile>` for the kind chip (it's purpose-built for inline metadata pills — reuse instead of a new chip primitive). `<ImpactChip>` (existing brunch component) stays for impact display.
+    - **`<ContentDiff>` stays** — it's purpose-built for line-level graph-item edits; ai-elements `<CodeBlock>` is too generic for the diff highlighting we need. Wrap the diff inside a `<TaskItemFile>`-styled container for visual cohesion.
+    - **Streaming pulse:** when a new patch arrives mid-stream, wrap the row's first paint in ai-elements [`<Shimmer>`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/ai-elements/shimmer.tsx) for one beat; the existing C15 `usePrefersReducedMotion` short-circuits it. Avoids a bespoke motion config.
+  - **Header band:** `N pending change[s]` (inside `<TaskTrigger>`) · **`Apply all`** (bulk-applies the entire staged slice in one batch) · `Undo` (reverses the most recent applied batch — same semantics as the overlay's existing Undo).
+  - **Per-row:** kind label via `<TaskItemFile>`, summary text via `<TaskItem>`, inline `<ContentDiff>` for `edit` patches when the before/after pair is available, `<ImpactChip>` when impact is known. Per-row action is **`Discard` only** — apply is bulk-only at the header.
+- **Retire `<SecondaryChatStagingStrip>` UI:**
+  - Remove the strip's render from `<SecondaryChatHost>` / `<SecondaryChatCollapsible>` body — the shell panel above absorbs its job.
+  - **Keep the `producerChatId` partition seam in [`patch-list-reducer.ts`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/patch-list-reducer.ts) and `usePatchListForChat()` in [`patch-list-host.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/patch-list-host.tsx).** Drop `secondary-chat-staging-strip.tsx` from the component tree only — the field, reducer, and per-chat selector stay because they encode useful semantic data ("which chat produced this patch") that the shell panel can decorate rows with later, and Track 3 reconciliation chats may want a per-chat slice again.
+  - Decoration option in scope: render a small kind chip on each row showing the producing chat's `pinnedItemKind` (subtle leading accent). Defer if it adds churn.
+- **Risks:**
+  - **Minimize / close hides patches** — when the shell is in `appearance='minimized'` (pill) or `appearance='closed'`, the panel is invisible. **Explicitly accepted V1 regression.** Hybrid Shape B (overlay → top-bar pill when shell collapsed) stays a follow-up; flagged in parking lot.
+  - **`useStablePatchListEnv` toast dedup** — the "Change saved" toast survives remounts via `useStablePatchListEnv` (see [`patch-list-host.tsx:222`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/patch-list-host.tsx)) keyed at the spec-route level. Provider mount stays at the spec route; only the *renderer* moves into the shell. Verify during build that toasts still dedupe across shell remounts (layout-mode flips, presence toggles).
+  - **Two callers, one global hook** — both the (mounted but invisible) overlay test harness and the new shell panel consume `usePatchList()`. The provider already supports multiple consumers; no churn expected.
+- **Tests:**
+  - New `src/client/components/__tests__/chat-shell-patch-panel.test.tsx`:
+    - Empty staged slice → renders `null`.
+    - One staged patch → `<TaskTrigger>` title reads "1 pending change", `<TaskItem>` row renders with kind chip + summary + `Discard`.
+    - Multiple staged patches → "N pending changes", `Apply all` fires bulk apply, `Undo` reverses the last batch.
+    - `Discard` removes the row but leaves siblings.
+    - `<ContentDiff>` renders for `edit` patches when before/after available.
+    - `isRunning=true` (streaming) auto-opens the `<Task>` panel; `isRunning=false` auto-closes after the configured delay (test via timer advance).
+  - Mock surface: `@/client/components/ai-elements/task` and `@/client/components/ai-elements/shimmer` per the existing pattern in `InterviewView.test.tsx` if isolating render is needed.
+  - Update `unified-chat-shell.test.tsx`: panel mounts above the switcher when staged patches exist; absent when empty.
+  - Update `secondary-chat-host.test.tsx` / `secondary-chat-collapsible.test.tsx`: the per-chat staging-strip render assertions retire; the partition-seam reducer tests in `patch-list-reducer.test.ts` stay green.
+  - `patch-list-overlay.test.tsx` continues to pass unchanged (unit-tests the component, not the mount).
+- **Out of scope:**
+  - Hybrid pill / minimize-state visibility (Shape B follow-up).
+  - Auto-apply heuristics, per-impact gating, classifier-state UX (Track 3).
+  - Deleting `<PatchListOverlay>`, `patch-list-overlay-bridge.tsx`, or their tests.
+  - Removing the `producerChatId` partition seam or `usePatchListForChat()` hook.
+  - Workspace-center patch surfacing (knowledge-card pending-edit chip etc.) — separate concern.
+- **Verification:** `npm run verify` green; manual walkthrough:
+  - Stage edits in two anchored chats (use `<ChatSwitcher>` to flip between them); the shell panel shows the union; `Apply all` bulk-applies both; `Undo` reverses both; per-row `Discard` removes one without touching siblings.
+  - Confirm `<PatchListOverlay>` is no longer mounted (no top-bar `N Edits` summary).
+  - Minimize the shell; confirm staged patches are hidden (accepted regression). Expand → panel returns.
+
 ## Deferred — explicitly NOT in V1 (parking lot)
 
 These belong to follow-up frontiers and should not be slipped into FE-716:
@@ -542,7 +794,7 @@ These belong to follow-up frontiers and should not be slipped into FE-716:
 - Item-anchored badge in structured-list / graph view (§7 dec 6) → follow-up frontier
 - Typed data parts (`thread.kickoff`, `thread.suggestions`, `thread.mention_resolved`, `thread.reconciliation_summary`, `thread.agent_progress` per §11) → follow-up frontier (substrate enabled by C24's `useChat<BrunchUIMessage>` refit; schemas land alongside the consumer that needs them)
 - Ladle prototype (§13) → **skipped** — C20–C25 adopt ai-elements directly against the unified shell; revisit only if visual iteration on isolated scenes proves necessary
-- Ladle prototype (§13) → follow-up frontier
+- Patch surface hybrid pill (Shape B) → follow-up — when the chat shell is minimized to the "Ask Brunch" pill or closed, surface `N pending · Apply · Undo` as a top-bar pill that opens the (still-mounted-but-hidden) `<PatchListOverlay>`. Restores the workspace-wide visibility that C29 accepts as a regression.
 
 ## Open coordination items
 

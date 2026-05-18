@@ -38,25 +38,73 @@ const dbModule = await import('./db.js');
 let app: ReturnType<typeof createApp>['app'];
 let db: ReturnType<typeof createApp>['db'];
 
-function makeFullStream(parts: readonly Record<string, unknown>[]) {
+/**
+ * Build a fake `streamText` result that mirrors the slice of the real API
+ * the C24b route consumes: `toUIMessageStream()` (writer.merge source),
+ * `finishReason` (awaited before we write data-edit-impact), and `toolCalls`
+ * (joined back to staged patches by toolCallId on the client).
+ */
+interface FakeStreamTextOptions {
+  text?: string;
+  toolCalls?: ReadonlyArray<{ toolCallId: string; toolName: string; input?: unknown }>;
+  finishReason?: string;
+}
+
+function makeStreamTextResult(options: FakeStreamTextOptions = {}) {
+  const text = options.text ?? 'Hello from secondary-chat.';
+  const toolCalls = options.toolCalls ?? [];
+  const finishReason = options.finishReason ?? 'stop';
+
   return {
-    textStream: (async function* () {
-      for (const part of parts) {
-        if (part.type === 'text-delta' && typeof part.text === 'string') {
-          yield part.text;
-        }
+    toUIMessageStream: () => {
+      const chunks: Array<Record<string, unknown>> = [
+        { type: 'start', messageId: `msg-${Date.now()}` },
+        { type: 'text-start', id: 'text-1' },
+        { type: 'text-delta', id: 'text-1', delta: text },
+        { type: 'text-end', id: 'text-1' },
+      ];
+      for (const tc of toolCalls) {
+        chunks.push({ type: 'tool-input-start', toolCallId: tc.toolCallId, toolName: tc.toolName });
+        chunks.push({
+          type: 'tool-input-available',
+          toolCallId: tc.toolCallId,
+          toolName: tc.toolName,
+          input: tc.input ?? {},
+        });
       }
-    })(),
-    fullStream: (async function* () {
-      for (const part of parts) {
-        yield part;
-      }
-    })(),
+      return new ReadableStream({
+        start(controller) {
+          for (const chunk of chunks) controller.enqueue(chunk);
+          controller.close();
+        },
+      });
+    },
+    finishReason: Promise.resolve(finishReason),
+    toolCalls: Promise.resolve(
+      toolCalls.map((tc) => ({
+        toolCallId: tc.toolCallId,
+        toolName: tc.toolName,
+        input: tc.input ?? {},
+      })),
+    ),
   };
 }
 
-function makeTextStream(chunks: readonly string[]) {
-  return makeFullStream(chunks.map((text) => ({ type: 'text-delta', text })));
+/**
+ * Helper: build a single-user-message UIMessage envelope for the
+ * `{ messages: BrunchUIMessage[] }` request body. Matches the shape the
+ * client `useChat<BrunchUIMessage>` mount would send.
+ */
+function userMessagePayload(text: string): { messages: unknown[] } {
+  return {
+    messages: [
+      {
+        id: `user-${Date.now()}-${Math.random()}`,
+        role: 'user',
+        parts: [{ type: 'text', text }],
+      },
+    ],
+  };
 }
 
 async function createSpec(name = 'Secondary-chat test spec'): Promise<number> {
@@ -101,7 +149,7 @@ beforeEach(() => {
   mockStreamInterviewer.mockReset();
   mockRunObserver.mockReset();
   mockAnthropic.mockClear();
-  mockStreamText.mockReturnValue(makeTextStream(['Hello ', 'from ', 'secondary-chat.']));
+  mockStreamText.mockReturnValue(makeStreamTextResult());
 
   const created = createApp();
   app = created.app;
@@ -118,13 +166,13 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
 
     const res = await request(app)
       .post(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/messages`)
-      .send({ message: 'Why product-market fit?' })
-      .expect(200)
-      .expect('Content-Type', /text\/event-stream/);
+      .send(userMessagePayload('Why product-market fit?'))
+      .expect(200);
 
-    expect(res.text).toContain('Hello ');
-    expect(res.text).toContain('secondary-chat.');
-    expect(res.text).toContain('[DONE]');
+    // UIMessage stream protocol surfaces text via `text-delta` chunks; the
+    // text content appears in the `delta` field literally.
+    expect(res.text).toContain('"type":"text-delta"');
+    expect(res.text).toContain('Hello from secondary-chat.');
 
     // Bundle round-trip surfaces user + assistant turns under the secondary chat.
     const snapshotRes = await request(app).get(`/api/specifications/${fixture.specId}`).expect(200);
@@ -141,7 +189,7 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
     expect(row!.turns[1].assistant_parts).toBe('Hello from secondary-chat.');
   });
 
-  it('emits a propose_edit patch-proposal SSE chunk in edit mode', async () => {
+  it('emits propose_edit as a tool-* UIMessage part AND data-edit-impact keyed by toolCallId in edit mode', async () => {
     const fixture = await createSecondaryChatFixture('FE-716 stream edit');
     await request(app)
       .patch(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/mode`)
@@ -149,25 +197,30 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
       .expect(200);
 
     mockStreamText.mockReturnValueOnce(
-      makeFullStream([
-        { type: 'text-delta', text: 'Proposing an edit.' },
-        {
-          type: 'tool-call',
-          toolCallId: 'call-1',
-          toolName: 'propose_edit',
-          input: { newContent: 'Reach PMF.' },
-        },
-      ]),
+      makeStreamTextResult({
+        text: 'Proposing an edit.',
+        toolCalls: [
+          {
+            toolCallId: 'call-1',
+            toolName: 'propose_edit',
+            input: { newContent: 'Reach PMF.' },
+          },
+        ],
+        finishReason: 'tool-calls',
+      }),
     );
 
     const res = await request(app)
       .post(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/messages`)
-      .send({ message: 'Make this terser.' })
+      .send(userMessagePayload('Make this terser.'))
       .expect(200);
 
-    expect(res.text).toContain('Proposing an edit.');
-    expect(res.text).toContain('"type":"patch-proposal"');
+    // tool-* part written by the merged stream.
+    expect(res.text).toContain('"type":"tool-input-available"');
     expect(res.text).toContain('"toolName":"propose_edit"');
+    // sibling data-edit-impact written after finishReason, keyed by toolCallId.
+    expect(res.text).toContain('"type":"data-edit-impact"');
+    expect(res.text).toContain('"toolCallId":"call-1"');
   });
 
   it('passes the edit-mode tool set to streamText when chat.mode is edit', async () => {
@@ -179,7 +232,7 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
 
     await request(app)
       .post(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/messages`)
-      .send({ message: 'Edit this.' })
+      .send(userMessagePayload('Edit this.'))
       .expect(200);
 
     const callArgs = mockStreamText.mock.calls.at(-1)?.[0] as { tools?: Record<string, unknown> };
@@ -192,7 +245,7 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
 
     await request(app)
       .post(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/messages`)
-      .send({ message: 'Tell me more.' })
+      .send(userMessagePayload('Tell me more.'))
       .expect(200);
 
     const callArgs = mockStreamText.mock.calls.at(-1)?.[0] as { tools?: Record<string, unknown> };
@@ -204,22 +257,20 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
 
     await request(app)
       .post(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/messages`)
-      .send({ message: 'first?' })
+      .send(userMessagePayload('first?'))
       .expect(200);
 
     mockStreamText.mockClear();
-    mockStreamText.mockReturnValue(makeTextStream(['second-reply']));
+    mockStreamText.mockReturnValue(makeStreamTextResult({ text: 'second-reply' }));
 
     await request(app)
       .post(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/messages`)
-      .send({ message: 'second?' })
+      .send(userMessagePayload('second?'))
       .expect(200);
 
     const callArgs = mockStreamText.mock.calls.at(-1)?.[0] as {
       messages: { role: string; content: string }[];
     };
-    // first user turn (from initial pinned-item user content), assistant reply,
-    // and the new user message — three messages minimum.
     expect(callArgs.messages.length).toBeGreaterThanOrEqual(3);
     const lastUser = [...callArgs.messages].reverse().find((m) => m.role === 'user')!;
     expect(lastUser.content).toContain('second?');
@@ -233,7 +284,7 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
 
     await request(app)
       .post(`/api/specifications/${specId}/secondary-chats/${interviewChatId}/messages`)
-      .send({ message: 'hi' })
+      .send(userMessagePayload('hi'))
       .expect(404);
     expect(mockStreamText).not.toHaveBeenCalled();
   });
@@ -243,7 +294,7 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
 
     await request(app)
       .post(`/api/specifications/${specId}/secondary-chats/999999/messages`)
-      .send({ message: 'hi' })
+      .send(userMessagePayload('hi'))
       .expect(404);
     expect(mockStreamText).not.toHaveBeenCalled();
   });
@@ -254,7 +305,7 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
 
     await request(app)
       .post(`/api/specifications/${otherSpecId}/secondary-chats/${fixture.chatId}/messages`)
-      .send({ message: 'hi' })
+      .send(userMessagePayload('hi'))
       .expect(404);
     expect(mockStreamText).not.toHaveBeenCalled();
   });
@@ -262,17 +313,17 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
   it('returns 404 when the specification does not exist', async () => {
     await request(app)
       .post('/api/specifications/999999/secondary-chats/1/messages')
-      .send({ message: 'hi' })
+      .send(userMessagePayload('hi'))
       .expect(404);
     expect(mockStreamText).not.toHaveBeenCalled();
   });
 
-  it('returns 400 when the message body is empty or whitespace', async () => {
+  it('returns 400 when the latest user message has no text content', async () => {
     const fixture = await createSecondaryChatFixture('FE-716 message empty');
 
     await request(app)
       .post(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/messages`)
-      .send({ message: '   ' })
+      .send(userMessagePayload('   '))
       .expect(400);
     expect(mockStreamText).not.toHaveBeenCalled();
   });
@@ -282,7 +333,7 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
 
     await request(app)
       .post(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/messages`)
-      .send({ message: 'hi' })
+      .send(userMessagePayload('hi'))
       .expect(200);
 
     expect(mockStreamInterviewer).not.toHaveBeenCalled();
@@ -301,18 +352,15 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
 
     await request(app)
       .post(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/messages`)
-      .send({ message: `Why does ${`#${requirementCode}`} matter? Also #G99 should be skipped.` })
+      .send(userMessagePayload(`Why does ${`#${requirementCode}`} matter? Also #G99 should be skipped.`))
       .expect(200);
 
-    // Prompt: system block carries the resolved snapshot so the model sees it.
     const callArgs = mockStreamText.mock.calls.at(-1)?.[0] as { system: string };
     expect(callArgs.system).toContain('Mentioned items');
     expect(callArgs.system).toContain(`[${requirementCode}]`);
     expect(callArgs.system).toContain('Export the spec as markdown');
     expect(callArgs.system).not.toContain('[G99]');
 
-    // Persistence: the user turn captures the snapshot inline so replay/audit
-    // sees the same context the assistant saw, even after the source item changes.
     const snapshotRes = await request(app).get(`/api/specifications/${fixture.specId}`).expect(200);
     const snapshot = snapshotRes.body as {
       secondaryChats?: Array<{
@@ -332,7 +380,7 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
 
     await request(app)
       .post(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/messages`)
-      .send({ message: 'a plain question with no mentions' })
+      .send(userMessagePayload('a plain question with no mentions'))
       .expect(200);
 
     const callArgs = mockStreamText.mock.calls.at(-1)?.[0] as { system: string };
