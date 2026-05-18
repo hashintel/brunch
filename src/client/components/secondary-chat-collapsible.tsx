@@ -1,4 +1,4 @@
-import { Crosshair, MessageCircleQuestion, PencilLine } from 'lucide-react';
+import { Crosshair, MessageCircleQuestion, MessageSquare, PencilLine, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { z } from 'zod/v4';
 
@@ -42,50 +42,38 @@ export interface SecondaryChatCollapsibleProps {
   secondaryChat: SecondaryChat;
   /**
    * Optional handler for mode toggle. When omitted, the mode chip is rendered
-   * read-only (V3.1 popover tests render the collapsible without a mutation context).
+   * read-only (some popover tests render the collapsible without a mutation
+   * context).
    */
   onSetMode?: (mode: SecondaryChatMode) => void;
   isModeUpdating?: boolean;
-  /**
-   * Optional composer hook. When provided, a single-line composer is rendered
-   * below the persisted turns; submitting calls `onSubmitMessage` with the
-   * trimmed input. The host (`SecondaryChatHost`) wires this to the C5a route.
-   */
   onSubmitMessage?: (message: string) => void;
-  /**
-   * Optional in-flight assistant text to render after persisted turns while a
-   * stream is mid-flight. Disappears when the bundle invalidates and the
-   * persisted assistant turn replaces it.
-   */
   streamingAssistantText?: string;
   isStreaming?: boolean;
   /**
-   * Optional slot rendered inside the collapsible body, after persisted turns
-   * and any in-flight assistant text but before the composer. Used by
-   * `<SecondaryChatHost>` to mount the per-chat staging strip
-   * (`<SecondaryChatStagingStrip />`) without coupling the presentational
-   * collapsible to the patch-list module.
+   * Slot rendered inside the collapsible body, after persisted turns and any
+   * in-flight assistant text but before the composer. Used to mount the
+   * per-chat staging strip without coupling the presentational collapsible
+   * to the patch-list module.
    */
   bodyExtras?: ReactNode;
   /**
-   * Optional controlled open state (FE-716 C14). When provided, the
-   * collapsible delegates open/close to the parent via `onOpenChange`; the
-   * `SecondaryChatHost` uses this to auto-expand the focused chat after a
-   * trigger creates a new chat.
+   * Controlled open state. When provided, the collapsible delegates open/close
+   * to the parent via `onOpenChange`; the host uses this to auto-expand the
+   * focused chat after a trigger creates a new chat.
    */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   /**
-   * Optional jump-to-anchor handler (FE-716 C14). When supplied AND the
-   * chat has a non-null `invoked_in_turn_id`, the header renders a small
-   * "Jump to anchor" affordance that scrolls the workspace center pane.
+   * When supplied AND the chat has a non-null `invoked_in_turn_id`, the header
+   * renders a small "Jump to anchor" affordance that scrolls the workspace
+   * center pane.
    */
   onJumpToAnchor?: (turnId: number) => void;
   /**
-   * Optional list of mention-able knowledge items (FE-716 C25). When non-empty
-   * AND the composer is mounted, typing `#` opens an autocomplete popup.
-   * Server-side resolution of `#REF-CODE` is owned by C6 — this prop only
-   * powers the UI affordance.
+   * Mention-able knowledge items. When non-empty AND the composer is mounted,
+   * typing `#` opens an autocomplete popup. Server-side resolution of
+   * `#REF-CODE` lives elsewhere — this prop only powers the UI affordance.
    */
   mentionableItems?: readonly MentionItem[];
 }
@@ -107,32 +95,22 @@ export function SecondaryChatCollapsible({
   const mode = secondaryChat.chat.mode ?? 'explore';
   const invokedInTurnId = secondaryChat.chat.invoked_in_turn_id;
   const collapsibleProps = open !== undefined ? { open, ...(onOpenChange ? { onOpenChange } : {}) } : {};
-  // FE-716 C22: streaming live-state uses ai-elements `<Reasoning>` so the
-  // typing pulse matches the interview spine. `prefers-reduced-motion` short-
-  // circuits the Reasoning shimmer to a static text block.
   const prefersReducedMotion = usePrefersReducedMotion();
-  // FE-716 C23: lifted composer draft so the turn-zero suggestion row can
-  // populate it. Cleared after a successful submit.
+  // Lifted composer draft so the turn-zero suggestion row can populate it.
+  // Cleared after a successful submit.
   const [draft, setDraft] = useState('');
   // Turn-zero = the chat has only its kickoff turn (kickoffTurn is excluded
   // from `turns`). First user submit drops `turns.length` above 0 once the
   // bundle invalidates, hiding the suggestions row.
   const isTurnZero = secondaryChat.turns.length === 0;
   const reconciliationKind = secondaryChat.pinnedReconciliationNeed?.kind ?? null;
-  // FE-716 C27 (revised post-walkthrough): selective kind-accent tinting on
-  // the chat panel, using the side-chat color schema — a soft accent-tinted
-  // background (`${accent}0a` ~4% alpha) + accent border at `${accent}33`
-  // (~20% alpha) instead of a full-saturation left strip. The focus ring
-  // borrows the accent at ~30% opacity (`${accent}4D`). This matches the
-  // chip pattern used elsewhere in the structured list / staged-patches
-  // strip and keeps the surface readable across kinds.
   const pinnedAccent = secondaryChat.pinnedItemKind ? kindAccentHex[secondaryChat.pinnedItemKind] : null;
   const accentPanelStyle = pinnedAccent
     ? { borderColor: `${pinnedAccent}33`, backgroundColor: `${pinnedAccent}0a` }
     : undefined;
 
-  // FE-716 C28: autoscroll the chat surface to the latest message as turns
-  // arrive or streaming text grows. The scroll ancestor is the shell body
+  // Autoscroll the chat surface to the latest message as turns arrive or
+  // streaming text grows. The scroll ancestor is the shell body
   // (`unified-chat-shell-body`); `scrollIntoView` walks up to find it.
   const bottomAnchorRef = useRef<HTMLDivElement>(null);
   const turnCount = secondaryChat.turns.length;
@@ -148,9 +126,7 @@ export function SecondaryChatCollapsible({
       data-accent-hex={pinnedAccent ?? undefined}
       style={accentPanelStyle}
       // `flex min-h-0 flex-col` makes the body a flex column so the composer
-      // can be pushed to the bottom of the available chat surface (per
-      // walkthrough feedback "input stays always at the bottom"). The
-      // panel is collapsible — when collapsed the flex layout still works.
+      // can be pushed to the bottom of the available chat surface.
       className={cn(
         'flex min-h-0 flex-col rounded-lg border border-rule bg-tint/50 px-3 py-2 text-sm',
         pinnedAccent ? 'bg-transparent' : undefined,
@@ -210,11 +186,10 @@ export function SecondaryChatCollapsible({
         {onSubmitMessage && (
           <div
             data-testid="secondary-chat-composer-sticky"
-            // `mt-auto` pushes the composer to the bottom of the flex
-            // column when the conversation is shorter than the available
-            // height; `sticky bottom-0` keeps it pinned when scrolling
-            // through a long transcript. Combined the composer is "always
-            // at the bottom" of the chat surface (per walkthrough feedback).
+            // `mt-auto` pushes the composer to the bottom of the flex column
+            // when the conversation is shorter than the available height;
+            // `sticky bottom-0` keeps it pinned when scrolling through a long
+            // transcript.
             className="sticky -mx-3 mt-auto -mb-2 border-t border-rule/40 bg-background/95 px-3 pt-2 pb-2 backdrop-blur-sm"
             style={{ bottom: 0 }}
           >
@@ -243,13 +218,6 @@ export function SecondaryChatCollapsible({
   );
 }
 
-/**
- * Streaming-assistant live state. FE-716 C22 swapped the bespoke `motion.div`
- * pulse for ai-elements `<Reasoning>` so the typing indicator matches the
- * interview spine (shimmer "Thinking…" header + revealed streaming text
- * inside the collapsible body). `prefers-reduced-motion` short-circuits to
- * a static text block.
- */
 function SecondaryChatStreamingAssistant({
   text,
   isStreaming,
@@ -374,11 +342,8 @@ function SecondaryChatTurnRow({ turn }: { turn: SecondaryChatTurn }) {
 }
 
 /**
- * Composer built on `<PromptInput>` (FE-716 C21). The mode toggle lives in
- * the composer footer per UNIFIED_CHAT_UX.md §2; `Shift+Tab` inside the
- * textarea flips Ask↔Edit so keyboard-only flows can change mode without
- * leaving the input. The form root receives `data-testid="secondary-chat-composer"`
- * via `<PromptInput>`'s `...props` spread onto the underlying `<form>`.
+ * Composer built on `<PromptInput>`. `Shift+Tab` inside the textarea flips
+ * Ask↔Edit so keyboard-only flows can change mode without leaving the input.
  */
 function SecondaryChatComposer({
   mode,
@@ -399,8 +364,8 @@ function SecondaryChatComposer({
   setDraft: (draft: string) => void;
   mentionableItems: readonly MentionItem[];
 }) {
-  // FE-716 C25: mention popup state. `mentionQuery === null` means inactive;
-  // empty string means the user just typed `#` (show all candidates).
+  // `mentionQuery === null` means inactive; empty string means the user just
+  // typed `#` (show all candidates).
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -479,10 +444,6 @@ function SecondaryChatComposer({
           data-testid="secondary-chat-composer-send"
           disabled={disabled}
           title="Send message"
-          // Match the side-chat color schema: dark filled rounded square
-          // (`bg-[#202020] text-white`), not the pill from the original
-          // C27 figma extrapolation. Keeps the Send affordance consistent
-          // with the legacy SideChatPopover that users are accustomed to.
           className="rounded-md bg-[#202020] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] hover:enabled:bg-[#000] disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none"
         />
       </PromptInputFooter>
@@ -498,14 +459,20 @@ function SecondaryChatComposer({
   );
 }
 
-// FE-716 C27 (revised post-walkthrough): the mode toggle is presented as
-// the "Agent" affordance — a labeled segmented control with hover tooltips
-// explaining what each mode does. The underlying mode values (`explore`,
-// `edit`) and testids stay unchanged so existing tests + server contract
-// keep working; only the visible labeling + tooltips change.
+// FE-716 C27 (revised post-walkthrough): the mode toggle ships as two
+// chip-shaped buttons — Chat (explore) and Agent (edit) — each with a
+// lucide icon, hover tooltip, and an accent-blue filled active state so
+// the current mode is unambiguous on toggle. The underlying mode values
+// (`explore`, `edit`) and testids stay unchanged so the server contract
+// + existing tests keep working — only the visible labels + visuals change.
 const MODE_HOVER_COPY: Record<SecondaryChatMode, string> = {
-  explore: 'Ask — discuss the item, get analysis, no changes to the spec',
-  edit: 'Edit — agent proposes structured changes you can review and apply',
+  explore: 'Chat — discuss the item, get analysis, no changes to the spec',
+  edit: 'Agent — proposes structured changes you can review and apply',
+};
+
+const MODE_LABEL: Record<SecondaryChatMode, string> = {
+  explore: 'Chat',
+  edit: 'Agent',
 };
 
 function SecondaryChatModeToggle({
@@ -523,16 +490,25 @@ function SecondaryChatModeToggle({
     onSetMode(next);
   };
 
+  // Segmented pill toggle: one rounded-full container holds both halves;
+  // only the active half is filled with the blue accent so toggling reads
+  // as a single switch flipping sides (rather than two independent chips).
+  // Inactive halves stay transparent + text-hint with a hover affordance.
+  const segmentBase = cn(
+    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 transition-colors',
+    (!interactive || disabled) && 'opacity-60',
+  );
+  const activeClass = 'bg-[#2563eb] text-white';
+  const inactiveClass = 'text-hint hover:text-ink';
+
   return (
     <span
       data-testid="secondary-chat-mode-toggle"
       data-mode={mode}
-      aria-label="Agent mode"
-      className="inline-flex items-center gap-1 rounded border border-rule bg-background p-0.5 text-xs"
+      role="group"
+      aria-label="Chat or Agent mode"
+      className="inline-flex items-center rounded-full border border-rule bg-background p-0.5 text-xs"
     >
-      <span aria-hidden className="px-1 font-medium text-hint">
-        Agent
-      </span>
       <button
         type="button"
         data-testid="secondary-chat-mode-ask"
@@ -540,13 +516,10 @@ function SecondaryChatModeToggle({
         disabled={!interactive || disabled}
         onClick={handleClick('explore')}
         title={MODE_HOVER_COPY.explore}
-        className={cn(
-          'rounded px-1.5 py-0.5 transition-colors',
-          mode === 'explore' ? 'bg-tint text-ink' : 'text-hint hover:bg-wash hover:text-ink',
-          (!interactive || disabled) && 'opacity-60',
-        )}
+        className={cn(segmentBase, mode === 'explore' ? activeClass : inactiveClass)}
       >
-        Ask
+        <MessageSquare aria-hidden className="size-3" />
+        <span>{MODE_LABEL.explore}</span>
       </button>
       <button
         type="button"
@@ -555,13 +528,10 @@ function SecondaryChatModeToggle({
         disabled={!interactive || disabled}
         onClick={handleClick('edit')}
         title={MODE_HOVER_COPY.edit}
-        className={cn(
-          'rounded px-1.5 py-0.5 transition-colors',
-          mode === 'edit' ? 'bg-tint text-ink' : 'text-hint hover:bg-wash hover:text-ink',
-          (!interactive || disabled) && 'opacity-60',
-        )}
+        className={cn(segmentBase, mode === 'edit' ? activeClass : inactiveClass)}
       >
-        Edit
+        <Sparkles aria-hidden className="size-3" />
+        <span>{MODE_LABEL.edit}</span>
       </button>
     </span>
   );
