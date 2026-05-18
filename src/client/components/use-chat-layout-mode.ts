@@ -2,19 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import type { ChatLayoutMode } from './unified-chat-shell.js';
 
-/**
- * Persisted chat-layout mode hook (FE-716 C13).
- *
- * Backs the unified chat shell's layout-mode toggle with localStorage so the
- * choice survives reload per `UNIFIED_CHAT_UX.md` §4. The storage key is
- * scoped per specification id; switching specifications restores that
- * specification's mode (defaulting to `side-docked`).
- *
- * Per `UNIFIED_CHAT_UX.md` §10, pressing Esc decrements the layout one tier
- * (Full → Maximize → Side-docked → Compact). Decrementing past Compact is a
- * no-op (it's the smallest mode). The Esc handler is keyed to bubble-phase
- * keydown so any focused element (composer, etc.) sees Esc first.
- */
+// `'full'` is hidden in the UI; reads and writes are clamped to `'maximize'`
+// so older persisted values still resolve cleanly.
 
 export const CHAT_LAYOUT_MODE_ORDER: ReadonlyArray<ChatLayoutMode> = [
   'compact',
@@ -29,6 +18,10 @@ function isChatLayoutMode(value: unknown): value is ChatLayoutMode {
   return typeof value === 'string' && (CHAT_LAYOUT_MODE_ORDER as readonly string[]).includes(value);
 }
 
+function clampDisabledMode(mode: ChatLayoutMode): ChatLayoutMode {
+  return mode === 'full' ? 'maximize' : mode;
+}
+
 export function chatLayoutModeStorageKey(specificationId: number | string): string {
   return `brunch:chat-layout-mode:${specificationId}`;
 }
@@ -37,19 +30,30 @@ function readPersistedMode(specificationId: number | string): ChatLayoutMode {
   if (typeof window === 'undefined') return DEFAULT_MODE;
   try {
     const stored = window.localStorage.getItem(chatLayoutModeStorageKey(specificationId));
-    if (isChatLayoutMode(stored)) return stored;
+    if (isChatLayoutMode(stored)) {
+      const clamped = clampDisabledMode(stored);
+      if (clamped !== stored) {
+        try {
+          window.localStorage.setItem(chatLayoutModeStorageKey(specificationId), clamped);
+        } catch {
+          // ignore
+        }
+      }
+      return clamped;
+    }
   } catch {
-    // localStorage may throw in restricted contexts; fall back to default
+    // ignore
   }
   return DEFAULT_MODE;
 }
 
 function writePersistedMode(specificationId: number | string, mode: ChatLayoutMode): void {
   if (typeof window === 'undefined') return;
+  const effective = clampDisabledMode(mode);
   try {
-    window.localStorage.setItem(chatLayoutModeStorageKey(specificationId), mode);
+    window.localStorage.setItem(chatLayoutModeStorageKey(specificationId), effective);
   } catch {
-    // ignore quota / SecurityError
+    // ignore
   }
 }
 
@@ -79,8 +83,9 @@ export function useChatLayoutMode(specificationId: number | string): UseChatLayo
 
   const setLayoutMode = useCallback(
     (mode: ChatLayoutMode) => {
-      setLayoutModeState(mode);
-      writePersistedMode(specificationId, mode);
+      const effective = clampDisabledMode(mode);
+      setLayoutModeState(effective);
+      writePersistedMode(specificationId, effective);
     },
     [specificationId],
   );

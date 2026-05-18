@@ -134,7 +134,7 @@ export function readSpecificationStateProjection(db: DB, specificationId: number
   const workflow = getCurrentWorkflowState(db, specificationId);
   const structuralArtifactTurnIds = getStructuralArtifactTurnIds(db, specificationId);
   const secondaryChats = listSecondaryChatsForSpecification(db, specificationId).map(
-    ({ chat, kickoffTurn, turns, pinnedItemKind, pinnedReconciliationNeed }) => ({
+    ({ chat, kickoffTurn, turns, pinnedItemKind, pinnedReconciliationNeed, anchoredItemIds }) => ({
       chat: {
         id: chat.id,
         specification_id: chat.specification_id,
@@ -152,6 +152,7 @@ export function readSpecificationStateProjection(db: DB, specificationId: number
       turns: turns.map((turn) => toSpecificationTurn({ ...turn, options: [], captured_items: [] })),
       pinnedItemKind,
       pinnedReconciliationNeed,
+      anchoredItemIds,
     }),
   );
   return {

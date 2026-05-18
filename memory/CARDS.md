@@ -361,22 +361,187 @@ C5a (server) → C5b (client composer + host) → C5c (partition + strip). Seque
 >
 > Stacked on `ln/fe-709-reconciliations` (PR #139). Restack on `main` once #139 lands.
 
+### C17 — Hide Full + Minimize/Maximize toggle + close vs minimize semantics
+
+- **Status:** **done** (2026-05-18) — four iterations on the same day per walkthrough feedback. Final shape:
+  - **Header layout-button row (left → right):** Minimize · Side-docked · Compact↔Maximize-toggle. The toggle is a single button whose icon + click target flip with state (Maximize2 when not maxed → click to Maximize; Minimize2 when maxed → click to Compact). Pressed state lights when current mode is compact or maximize.
+  - **Full mode hidden** entirely. Substrate type union + `CHAT_LAYOUT_MODE_ORDER` intact; `useChatLayoutMode` clamps any persisted `'full'` to `'maximize'` so older reloads stay safe.
+  - **Close (X) vs Minimize semantics** lifted into `ChatShellPresenceProvider` as `appearance: 'expanded' | 'minimized' | 'closed'`:
+    - `X` close (top-right of header) → `presence.close()` → shell renders `null`. The route layout drops the shell's panel slot so the workspace center fills the freed space (no empty pane).
+    - `Minimize` (first in layout-button row, `Minus` icon) → `presence.minimize()` → fixed bottom-right "Ask Brunch" pill with `Send` icon. Pill click restores via `presence.expand()`. Context persists (the chat substrate is untouched).
+    - Trigger-driven `focusChat()` always restores `appearance='expanded'` so creating a chat re-opens a closed shell.
+  - **Route layout:** `_view/route.tsx` consults `presence.isCollapsed` first. When collapsed, the workspace center renders at full width and the shell mounts at root (renders pill or null). When expanded, the layout dispatches per `layoutMode` (compact dock / resizable / full) as before.
+  - **Comments cleanup:** stripped the FE-716-C17 narrative comments and the C12/C13/C14/C15 docstring sections per "remove unnecessary comments" direction.
+- **What:** User direction (2026-05-18): three layout modes (Compact / Side-docked / Maximize) exposed as a Minimize + Side-docked + Compact↔Maximize-toggle row; X closes the shell entirely (workspace reclaims the space, no empty pane); Minimize sends the shell to a bottom-right pill while preserving chat state.
+  - [`unified-chat-shell.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/unified-chat-shell.tsx) — extend `LAYOUT_MODE_BUTTONS` entries with an optional `disabled: true` flag; mark `'full'` disabled; OR the render's `disabled` prop with the per-button flag; add a `title="Coming soon"` (or similar) hint.
+  - [`use-chat-layout-mode.ts`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/use-chat-layout-mode.ts) — clamp persisted `'full'` to `'maximize'` on read (and rewrite storage); refuse to write `'full'` (silently clamp). The type stays `'compact' | 'side-docked' | 'maximize' | 'full'` so the substrate can re-enable later without a migration.
+- **Tests:** update [`unified-chat-shell.test.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/__tests__/unified-chat-shell.test.tsx) — Full button is rendered but always `disabled`; clicking it does not fire `onLayoutModeChange`. Update [`use-chat-layout-mode.test.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/__tests__/use-chat-layout-mode.test.tsx) — persisted `'full'` reads back as `'maximize'`; `setLayoutMode('full')` clamps to `'maximize'`; Esc decrement chain stays valid mechanically but starts from `'maximize'`.
+- **Out of scope:** removing `'full'` from the union type or `CHAT_LAYOUT_MODE_ORDER`; rewriting motion transitions; re-styling Maximize.
+- **Verification:** `npm run verify` green.
+
+### C18 — Single scratch chat per spec + click-to-anchor injection
+
+- **Status:** **done** (2026-05-18) — substrate pivot landed. `npm run verify` green: 108 test files / 1278 tests pass; build clean.
+  - **Migration `0023_chat_anchored_items.sql`:** adds `chat.anchored_item_ids text NOT NULL DEFAULT '[]'` (JSON array). Schema column added; journal updated.
+  - **Server helpers:** `findScratchSecondaryChat(db, specId, parentChatId)` returns the unique per-spec scratch (one with `parent_chat_id = primary AND pinned_reconciliation_need_id IS NULL`). `appendAnchorToScratchChat(db, specId, input)` is the public entry: find-or-create the scratch (carries `invoked_in_turn_id` from the first call), parse anchored ids, no-op if itemId already present, else push id + append a mode-aware kickoff turn ("Editing '<excerpt>'." for edit-mode, "Anchored to '<excerpt>'." otherwise). Returns `{ chat, kickoffTurnId, anchoredItemIds }`.
+  - **Route repointed:** `POST /api/specifications/:id/secondary-chats` now branches — when `reconciliationNeedId` is set, falls through to the existing dedicated-chat path (preserves FE-716 C9 reconciliation chat behavior); otherwise calls `appendAnchorToScratchChat`. Response shape: `{ chatId, kickoffTurnId | null, anchoredItemIds }`.
+  - **Bundle projection:** `SecondaryChatWithKickoff.anchoredItemIds: number[]` derived from the new column; threaded through `core.ts` and the Zod `secondaryChatStateSchema`. The first kickoff turn is what `listSecondaryChatsForSpecification` already returns via `limit(1)`, so subsequent anchor kickoffs are recorded in the substrate but invisible to the UI (Option b from the open question).
+  - **Shell filter:** [unified-chat-shell.tsx](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/unified-chat-shell.tsx) picks the single scratch chat (`pinned_reconciliation_need_id === null`) from `secondaryChats` and renders one `<SecondaryChatHost>` only. Reconciliation-pinned chats stay in the bundle data but the shell hides them until Track 3 defines their UX. `AnimatePresence` dropped since only one chat renders.
+  - **Tests:** all existing fixtures gained `anchoredItemIds: []` (bulk perl insert across four test files + manual for the populated reconciliation case). The shell test that asserted "renders one host per chat" now asserts "renders only the scratch chat" with multiple secondary chats in the bundle. Server tests (`app.test.ts`, `secondary-chat-route.test.ts`) continue to pass — the `invoked_in_turn_id` invariant and mode-aware "Editing" kickoff verb both preserved by threading those through to `appendAnchorToScratchChat`.
+- **What:** Behavioral pivot away from "one secondary chat per item-click" to "one persistent scratch chat per spec, items injected as anchors over time."
+  - **Migration `drizzle/0023_chat_anchored_items.sql`** — add `chat.anchored_item_ids text NOT NULL DEFAULT '[]'` (JSON array of knowledge-item ids). Index not required at this volume.
+  - **Server:**
+    - `getOrCreateScratchSecondaryChat(db, specId, primaryChatId)` — find-or-create the unique secondary chat for the spec (uniqueness enforced at create time; identified as the one with `parent_chat_id = primary`). First-call also seeds the chat with `pinned_item_id` from the inbound itemId so the existing C9 reconciliation-pin and prompt context paths keep working unchanged.
+    - `appendAnchorToScratchChat(db, specId, primaryChatId, { itemId, itemKind, spanHint? })` — parses `anchored_item_ids`, pushes the id if absent, persists; appends a kickoff-style turn (`Anchored to '<excerpt>'.`) but the UI filters post-first kickoffs (see Open question below).
+    - Repoint `POST /api/specifications/:id/secondary-chats` from "create new chat per click" to call `appendAnchorToScratchChat`. Response shape extends to `{ chatId, kickoffTurnId, anchoredItemIds }`.
+    - Bundle: `secondaryChatStateSchema.chat.anchoredItemIds: number[]` projected from the new column.
+  - **Client:**
+    - `useSecondaryChatTrigger().create()` keeps its public signature; just hits the rebound route. Call sites (`StructuredListView`, `PendingReviewSection`) need no change.
+    - [`unified-chat-shell.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/unified-chat-shell.tsx) line 69 — filter `secondaryChats` to the scratch chat (the one whose `parent_chat_id = primary_chat_id`; substrate uniqueness guarantees ≤1). The `AnimatePresence` list renders one host max.
+    - Composer stays. Ask/Edit toggle stays. No mention chip; no expansion popout.
+- **Tests:** 
+  - Server: `chat-substrate.test.ts` — `getOrCreateScratchSecondaryChat` is idempotent; `appendAnchorToScratchChat` appends idempotently (no duplicate ids); `anchored_item_ids` survives reload.
+  - Server: `app.test.ts` — first POST creates the scratch chat + seeds anchor; second POST against a different item appends to the existing scratch chat (no new row in `chat`); response carries `anchoredItemIds`.
+  - Client: `unified-chat-shell.test.tsx` — given two secondary chats in the bundle (legacy + scratch), only the scratch chat renders.
+  - Client: existing `secondary-chat-trigger.test.tsx` — POST payload + bundle invalidation still pass (the public signature is unchanged); add an assertion that two `create` calls against different items produce one chat row.
+- **Out of scope:** workspace selection styling (C19); deleting legacy per-item chats from existing local DBs (pre-release posture per `CLAUDE.md` — operator nukes `.brunch/brunch.db`); `chat_anchor` join table (not needed for V1).
+- **Verification:** `npm run verify` green; manual probe: open spec, click dash on item A → scratch chat appears; click dash on item B → same scratch chat, both items in `anchoredItemIds`; reload → state persists.
+- **Open question (resolve in build):** does the per-anchor kickoff-style turn render in the transcript or stay hidden?
+  - **(a)** Visible — self-documenting context history; slightly noisier.
+  - **(b)** Hidden — filter out post-first kickoffs at render time; cleaner UI.
+  - **Default per user direction:** (b). Substrate still records the turns; UI just doesn't show post-first kickoffs. Easy to flip later by removing the filter.
+
+### C19 — Workspace selection styling for anchored items
+
+- **Status:** **next** (after C18)
+- **What:** Items in `StructuredListView` whose ids appear in `scratchChat.anchoredItemIds` render with a selected/anchored visual state using `kindAccentHex` from [`knowledge-card.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/knowledge-card.tsx) — subtle background tint + accent border matching the item's kind. Clicking the dash icon on an already-anchored item is idempotent.
+- **Optional polish:** a small "Anchored: A12, GOAL3" mini-band in the chat shell's header strip listing current anchor ref-codes. Defer until walkthrough surfaces a need.
+- **Tests:** `structured-list-view.test.tsx` — items not in `anchoredItemIds` render without selection class; items in it render with the kind-accented selected class; the dash button label flips between `aria-label="Anchor to chat"` and `aria-label="Anchored"` (or similar).
+- **Out of scope:** anchor-removal UX (defer until walkthrough demands it); selection in graph view (defer to a follow-up frontier per the parking lot's item-anchored badge entry).
+- **Verification:** `npm run verify` green; outer-loop walkthrough confirming the selection styling matches the chat's anchor state across click + reload + mode toggle.
+
+## V1 re-narrowing (proposed, 2026-05-18)
+
+V1 was originally "every behavior the V3.1 side-chat ships today, surfaced through the elevated unified-workspace shape." C20–C25 propose absorbing **ai-elements adoption for the secondary-chat surface** into the same frontier and PR, on the basis that the design brief (`docs/design/UNIFIED_CHAT_UX.md` §Constraints) names ai-elements composition as non-negotiable for the terminal state. The Ladle prototype phases A–D in §13 are explicitly skipped; visual decisions are tested against real workspace state instead. If accepted, V1 = "V3.1 parity through unified shell **+ ai-elements parity with the interview spine**." PLAN.md frontier description for `chat-runtime-secondary-chats` updates to match. Cards land sequentially after C18 / C19 so they target the post-scratch-chat-pivot shape.
+
+### C20 — Adopt `<Conversation>` + `<Message>` for turn rendering
+
+- **Status:** **proposed** (after C19)
+- **What:** Replace the bespoke `SecondaryChatTurnRow` (in [`secondary-chat-collapsible.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/secondary-chat-collapsible.tsx) lines 228–244) with the vendored ai-elements `<Conversation>` shell and `<Message role="user|assistant">` rows already used by `question-cards.tsx` / the interview spine. Wire `streamdown` markdown rendering for assistant `assistant_parts`; user `user_parts` stay plain-text. Keep the existing kickoff-content rendering as-is for one card so the diff stays scoped.
+- **Why first:** Smallest delta from the current shape; proves the pattern is portable from interview to secondary chat without a streaming or composer refit.
+- **Boundary crossings:** `<SecondaryChatCollapsible>` body → `<Conversation>` → `<Message>` × turns. No new server work; no bundle shape change; no test-mock surface change beyond importing the ai-elements mocks already used in `InterviewView.test.tsx`.
+- **Risks / assumptions:**
+  - ASSUMPTION: `secondary-chat-collapsible.test.tsx` can mock `@/client/components/ai-elements/*` the way `InterviewView.test.tsx` does → VALIDATE: copy the mock pattern; expect a 5–10 line bump in setup.
+  - RISK: `streamdown` may render trailing whitespace differently than the current `whitespace-pre-wrap` div → MITIGATION: validate the existing `secondary-chat-collapsible.test.tsx` expectations and adjust string assertions to `toContain` rather than `toEqual` if needed.
+- **Tests:** existing collapsible tests adapt to new harness; add one test asserting that an assistant turn with markdown (`**bold**`) renders strong instead of literal asterisks.
+- **Out of scope:** composer refit (C21); streaming live-state (C22); suggestions (C23); `useChat` (C24); mentions (C25).
+- **Verification:** `npm run verify` green; manual walkthrough confirms transcripts render identically to today on a real spec for plain-text turns, with markdown rendered for assistant turns.
+
+### C21 — Replace composer with `<PromptInput>` + leading-edge mode chip
+
+- **Status:** **proposed** (after C20)
+- **What:** Retire the hand-rolled `SecondaryChatComposer` (`<form>` + `<input>` + `<button>`, lines 246–280) in favor of ai-elements `<PromptInput>` matching the interview composer. Move the mode chip from the collapsible header into the composer's leading edge per `UNIFIED_CHAT_UX.md` §2; wire Shift+Tab to toggle Ask ↔ Edit. The collapsible header's `SecondaryChatKindChip` becomes a passive read-only badge (visible when collapsed) or retires; default posture for build: keep it as a read-only badge so collapsed-state still shows kind without expanding.
+- **Boundary crossings:** `<SecondaryChatCollapsible>` body → `<PromptInput>` with `onSubmit` → existing `onSubmitMessage` callback (unchanged signature) → `<SecondaryChatHost>` → existing `streamSecondaryChatMessage`. Mode-chip click and Shift+Tab call `setSecondaryChatMode` (existing C4 PATCH route).
+- **Risks / assumptions:**
+  - RISK: Shift+Tab is a browser-managed key combo for reverse tab order; intercepting it inside the composer is safe but the brief explicitly notes "preserves browser tab behavior outside the composer" (§10) — confirm focus boundary during build.
+  - RISK: mode-chip in composer + persisted-kind badge in header is mildly redundant — could collapse to one. Default: keep both during build; settle in C26-style polish if walkthrough flags it.
+  - ASSUMPTION: `<PromptInput>` exposes a slot for the mode chip and a submit shortcut hook → VALIDATE: read `ai-elements/prompt-input.tsx` once; fork or wrap only if the slot is missing.
+- **Tests:** update `secondary-chat-collapsible.test.tsx` composer tests to drive `<PromptInput>` instead of `<input>`; new tests for Shift+Tab toggle and mode-chip click; assert ⌘/Ctrl+Enter submits.
+- **Out of scope:** streaming live-state (C22); suggestions (C23); mentions (C25); composer mode chip styling beyond the §2 chip vocab.
+- **Verification:** `npm run verify` green; manual walkthrough confirms typing, ⌘/Ctrl+Enter submit, Shift+Tab toggle, and mode persistence across reload.
+
+### C22 — Adopt `<Reasoning>` live-state pattern for streaming assistant
+
+- **Status:** **proposed** (after C21)
+- **What:** Replace the `motion.div` streaming pulse (lines 135–144) with the ai-elements `<Reasoning>` live-state pattern (`ReasoningTrigger` + `ReasoningContent`) so the streaming-assistant indicator reads as a coherent thinking/typing surface mirroring `question-cards.tsx`'s usage. Animate the kickoff card's "generating…" indicator per `UNIFIED_CHAT_UX.md` §8.
+- **Boundary crossings:** `<SecondaryChatHost>`'s streaming state → `streamingAssistantText` prop → `<Reasoning isStreaming>` inside the collapsible body.
+- **Risks / assumptions:**
+  - ASSUMPTION: `<Reasoning>` supports an `isStreaming` mode that auto-pulses without a custom motion config → VALIDATE: read `ai-elements/reasoning.tsx` once.
+  - RISK: streaming-assistant text currently renders inline as plain text; `<Reasoning>` may wrap it in a collapsible region by default → MITIGATION: configure as always-open during stream; fall through to a `<Message>` row when stream completes.
+- **Tests:** update `secondary-chat-collapsible.test.tsx` streaming-assistant assertions; add prefers-reduced-motion regression covering `<Reasoning>` short-circuiting (re-uses `usePrefersReducedMotion` from C15).
+- **Out of scope:** sources / tool render (skip until QA-mode needs it); typed `thread.agent_progress` data parts (defer to Track 5 or follow-up).
+- **Verification:** `npm run verify` green; manual walkthrough confirms the live-state indicator visually matches the interview spine's "generating…" pulse.
+
+### C23 — Turn-zero `<Suggestions>` row (static per mode)
+
+- **Status:** **proposed** (after C22)
+- **What:** On turn-zero (i.e. when the secondary chat has only the kickoff turn and no user-authored turns yet), render an ai-elements `<Suggestions>` row above the composer with **three** static prompts keyed by `(chat.mode, optional reconciliation-kind)` per `UNIFIED_CHAT_UX.md` §2. Clicking a suggestion populates the composer; submitting clears the row. LLM-generated suggestions stay deferred.
+- **Why fourth:** Cheapest concrete value-add now that the composer hosts the chip + ai-elements (§2 explicitly says suggestions replace the empty composer for turn-zero).
+- **Boundary crossings:** `<SecondaryChatCollapsible>` body → `<Suggestions>` (visible iff `turns.length === 0` and no `user_parts` exist anywhere) → click handler sets composer draft state.
+- **Risks / assumptions:**
+  - DECISION: keep the static prompt lists in a new `src/client/components/secondary-chat-suggestions.tsx` keyed by mode + reconciliation-kind. Per-mode arrays of 3 strings; ~6–9 prompts total. Easy to swap for LLM-generated later.
+  - RISK: the V1 framing already deferred suggestions to a follow-up frontier — re-narrowing it into FE-716 is the V1-re-narrowing decision above; confirm before building.
+- **Tests:** new test asserting turn-zero renders 3 suggestions for `mode='explore'`, different set for `mode='edit'`, hidden once a user turn exists; click populates composer.
+- **Out of scope:** LLM-generated suggestions; per-kind kickoff copy variations (different concern — §6 — stays parked).
+- **Verification:** `npm run verify` green; manual walkthrough confirms suggestions show on a fresh chat, disappear after first user message, and change with the mode toggle.
+
+### C24 — `useChat<BrunchUIMessage>` refit for secondary-chat streaming
+
+- **Status:** **proposed** (after C23) — **largest single card; consider an `ln-scope` pass before build**
+- **What:** Replace `streamSecondaryChatMessage` (the bespoke SSE pump in [`secondary-chat-host.tsx`](file:///Users/kostandin/Projects/hashdev/brunch/src/client/components/secondary-chat-host.tsx) line 63) with `useChat<BrunchUIMessage>` mounted per secondary chat, matching how `-interview-controller.ts` already mounts it for the spine. The server route stays — only the client transport changes — but the SSE event shape may need to align with what `useChat` expects, which could mean either (a) the route already emits a compatible shape or (b) a thin server-side adapter normalizes the events. Determine during build.
+- **Why fifth:** Establishes the typed-data-parts substrate (`BrunchUIMessage`) for secondary chats, which downstream work (typed `thread.kickoff` / `thread.suggestions` / `thread.reconciliation_summary` / `thread.agent_progress` data parts per §11) can compose against. Without it, secondary chats remain typed-data-parts-blind.
+- **Boundary crossings:** `<SecondaryChatHost>` mounts `useChat({ api: ..., id: chatId, initialMessages: ... })` per chat → `useChat` owns streaming-text + finalize → on completion, invalidate the bundle so the persisted turns reload.
+- **Risks / assumptions:**
+  - RISK: SSE event shapes diverge between `side-chat-route.ts` and `useChat`'s expected protocol → MITIGATION: read the interview spine's route once; mirror that shape in `secondary-chat-route.ts` if needed; or fork a normalizer.
+  - RISK: per-chat `useChat` mounts mean N hooks in the shell when N secondary chats exist. C18 collapses to one chat per spec, so post-C18 this is at most 1 mount — manageable.
+  - RISK: existing `secondary-chat-host.test.tsx` mocks `streamSecondaryChatMessage` directly; the refit requires changing the mock surface to `useChat` → MITIGATION: copy `InterviewView.test.tsx`'s `useChat` mock pattern.
+  - ASSUMPTION: typed-data-parts schemas (`BrunchUIMessage`, `brunchDataPartSchemas`) can carry the secondary-chat surface without new schema entries in this card → VALIDATE during build; if a new schema entry is needed it stays minimal.
+- **Tests:** rework `secondary-chat-host.test.tsx` to assert `useChat` is mounted, message submit flows through, and bundle invalidation fires on completion; preserve the "two parallel chats don't cross-talk" invariant from C5b.
+- **Out of scope:** new typed data parts (defer); migrating the popover patch-list partition seam (`producerChatId`) — stays untouched.
+- **Verification:** `npm run verify` green; manual walkthrough confirms streaming, finalize, and reload-persistence match today's behavior; partition-seam regression (C5c) still passes.
+
+### C25 — `#` mention autocomplete chip UI on the composer
+
+- **Status:** **proposed** (after C24)
+- **What:** Wire the Radix `Combobox` / `cmdk` (existing dep) popup on `#` keypress inside the `<PromptInput>` composer. Reads the spec's intent graph (refcode + kind + display label); inserts a chip with `kindAccentHex` tint matching the kind. Server-side `#REF-CODE` resolution (C6) already exists — C25 only adds the UI affordance. `$` (secondary chats) and `!` (annotations) stay parked; they need substrate work owned by Track 5.
+- **Boundary crossings:** composer input → key handler intercepts `#` → `cmdk` popup → searches `specificationState.knowledgeItems` (already on the bundle) → inserts a chip token in the draft → submit serializes chips as `#REF-CODE` strings (server resolution unchanged).
+- **Risks / assumptions:**
+  - RISK: chips inside a plain text input require a contentEditable-style composer; ai-elements `<PromptInput>` may not support inline chips natively → MITIGATION: read the ai-elements source; if not supported, render chips as overlay decorations until submit-time and serialize back to `#REF-CODE` strings. If a real chip-token surface is needed, fall back to building a thin `<MentionInput>` shell wrapping `<PromptInput>`.
+  - RISK: refcode collisions with non-mention `#` use (e.g. markdown headings in user-typed plans) → MITIGATION: popup only appears mid-word at cursor; dismiss on Esc; do not auto-replace.
+- **Tests:** new tests: `#` opens popup, arrow keys navigate, Enter inserts, Esc dismisses, chip renders with kind tint, submit serializes to `#REF-CODE` and the server round-trip resolves the item (re-use C6 server-resolution tests as the boundary).
+- **Out of scope:** `$` (secondary chats) and `!` (annotations) — parked in Track 5; new substrate (`thread_context_item` snapshots) — parked in Track 5; mention popover for graph-view / structured-list — separate surface.
+- **Verification:** `npm run verify` green; manual walkthrough confirms typing `#GOAL` filters to goal items, Enter inserts a chip, the assistant response uses the resolved item context.
+
+### C26 — Revert C18 single-scratch + add chat switcher UI
+
+- **Status:** **done** (2026-05-18) — `npm run verify` green: 108 test files / 1279 tests pass; build clean.
+  - **Server:** `appendAnchorToScratchChat` replaced by `getOrCreateItemSecondaryChat(db, specId, input)`. Lookup by `(specification_id, parent_chat_id, pinned_item_id, pinned_reconciliation_need_id IS NULL)` → reuse existing chat (kickoffTurnId=null) or create new + kickoff. `anchored_item_ids` set to `[itemId]` on create so C19 can read it. Reconciliation path unchanged.
+  - **Route:** repointed; response `{ chatId, kickoffTurnId }` (drops `anchoredItemIds`).
+  - **Client:** new `<ChatSwitcher>` component (`chat-switcher.tsx`) built on `dropdown-menu.tsx` — renders the active chat's kind icon + truncated item excerpt (parsed from the kickoff turn's `'…'` token) + chevron; menu lists each item-anchored chat with kind icon + excerpt, active row highlighted. Click → `presence.focusChat(id)`.
+  - **Shell:** active chat = `secondaryChats.find(c => c.id === presence.focusedChatId) ?? mostRecentItemChat`. Renders only that one host. Switcher mounts in the header next to the spec name when 2+ item-anchored chats exist.
+  - **Tests:** updated the "renders only the per-spec scratch chat" test → splits into "single chat: no switcher" and "2+ chats: switcher mounts, most-recent rendered as active." Server tests pass unchanged (dedupe still satisfies `invoked_in_turn_id` + mode-aware kickoff invariants since the first POST always creates).
+- **What:** User direction (2026-05-18): revert C18's "one scratch chat per spec" behavior; each item-click gets its own chat (with dedupe by `(parent_chat_id, pinned_item_id, pinned_reconciliation_need_id IS NULL)` so clicking the same item twice re-opens rather than duplicates). The shell still shows **one chat at a time** but a dropdown switcher in the header lets the user navigate between all secondary chats for this spec. Reconciliation chats stay hidden from the switcher until Track 3 defines their UX.
+- **Server:**
+  - Replace `appendAnchorToScratchChat` with `getOrCreateItemSecondaryChat(db, specId, input)` — finds existing chat by parent+item or creates a new one; returns `{ chat, kickoffTurnId: number | null }` (null on dedupe re-open). `anchored_item_ids` is set to `[itemId]` on create for forward-compat with C19 selection styling.
+  - Route response shape becomes `{ chatId, kickoffTurnId }`; drops `anchoredItemIds` (the bundle still projects it per chat).
+  - Reconciliation path (when `reconciliationNeedId` is set) unchanged — keeps creating dedicated chats.
+- **Client / presence:** active chat = `presence.focusedChatId` (existing C14 field). Shell selects `chats.find(c => c.id === focusedChatId) ?? mostRecentNonReconciliation` and renders only that one. Trigger create auto-focuses the new chat (existing C14 behavior already does this).
+- **Shell switcher:** new `<ChatSwitcher>` component in the shell header, rendered iff there are 2+ item-anchored chats. Built on `dropdown-menu.tsx` (already vendored). Each entry: kind chip (lucide icon + `kindAccentHex` tint) + ref code + truncated item excerpt. Click → `presence.focusChat(id)`.
+- **Tests:**
+  - Server: clicking the same item twice returns the same `chatId`; clicking different items returns different `chatId`s.
+  - Shell: bundle with three item-anchored chats + `focusedChatId === second` → only the second host renders; switcher lists all three.
+  - Switcher: clicking a non-active entry calls `presence.focusChat(id)`; the rendered chat flips on next render.
+- **Out of scope:** localStorage persistence of active chat (defer; on reload, fall back to most-recent); reconciliation chats in switcher (Track 3); `$` mention chips (Track 5).
+- **Verification:** `npm run verify` green; manual walkthrough: click item A → chat opens; click item B → chat opens, switcher shows both; flip via switcher; reload → falls back to most-recent.
+
 ## Deferred — explicitly NOT in V1 (parking lot)
 
 These belong to follow-up frontiers and should not be slipped into FE-716:
 
 - `$` secondary-chat mention symbol → future `chat-context-provision` slice
-- Mention autocomplete chip + per-kind prompt context builders → `chat-context-provision` (Track 5)
+- `!` annotation / artifact mention symbol → `chat-context-provision` (Track 5)
+- Per-kind prompt context builders (snapshot composition rules per item kind) → `chat-context-provision` (Track 5)
 - Snapshot builder family (`buildIntentItemContextSnapshot`, neighborhood, economic-graph, historical) → `chat-context-provision` (Track 5)
 - Item-version-gated handle refresh → `chat-context-provision` (Track 5; needs `changeset-ledger`)
 - Full reconciliation runtime UX (target-grouped, async classifier states, "Reconcile Now") → `reconciliation-runtime` (Track 3)
 - `PendingReviewSection` retirement → `reconciliation-runtime` (Track 3)
 - QA composer refinements → follow-up frontier
 - Strategy secondary-chat UI → follow-up frontier (substrate may already represent it)
-- Mode chip on composer + Shift+Tab toggle (`UNIFIED_CHAT_UX.md` §2) → follow-up frontier (Ask/Edit toggle in the collapsible header is the V1 affordance)
-- Suggestions row per mode (§2) and per-kind kickoff copy variations (§6) → follow-up frontier
-- Mention autocomplete chip UI for `#` (§3) → follow-up frontier (server-side resolution shipped in C6; only the UI affordance is deferred)
+- LLM-generated context-aware suggestions (V1 ships static-per-mode in C23) → follow-up frontier
+- Per-kind kickoff copy variations (§6) → follow-up frontier (V1 ships one kickoff template; per-kind copy is a separate visual pass)
 - Item-anchored badge in structured-list / graph view (§7 dec 6) → follow-up frontier
+- Typed data parts (`thread.kickoff`, `thread.suggestions`, `thread.mention_resolved`, `thread.reconciliation_summary`, `thread.agent_progress` per §11) → follow-up frontier (substrate enabled by C24's `useChat<BrunchUIMessage>` refit; schemas land alongside the consumer that needs them)
+- Ladle prototype (§13) → **skipped** — C20–C25 adopt ai-elements directly against the unified shell; revisit only if visual iteration on isolated scenes proves necessary
 - Ladle prototype (§13) → follow-up frontier
 
 ## Open coordination items

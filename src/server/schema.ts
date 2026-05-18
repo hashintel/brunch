@@ -34,6 +34,7 @@ export const chat = sqliteTable(
     pinned_span_hint: text(),
     pinned_reconciliation_need_id: integer().references((): any => reconciliationNeed.id),
     mode: text({ enum: ['explore', 'edit'] }),
+    anchored_item_ids: text().notNull().default('[]'),
     created_at: text()
       .notNull()
       .default(sql`(datetime('now'))`),

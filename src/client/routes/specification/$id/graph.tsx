@@ -2,6 +2,7 @@ import { createFileRoute, Link, useLocation } from '@tanstack/react-router';
 import { ArrowLeft, ChevronsDown, ChevronsUp } from 'lucide-react';
 import { useState } from 'react';
 
+import { ChatShellLayout } from '@/client/components/chat-shell-layout';
 import { KnowledgeGraphIdentity } from '@/client/components/knowledge-graph-identity';
 import type { WorkflowState } from '@/shared/api-types.js';
 import type { WorkflowPhase } from '@/shared/phase-close.js';
@@ -113,13 +114,18 @@ function GraphRouteComponent() {
   );
 
   return (
-    <StructuredListView
-      entityState={entityState}
-      emptyStateAction={emptyStateAction}
-      headerLeft={headerLeft}
-      headerRight={headerRight}
-      rowsDefaultOpen={rowsDefaultOpen}
-      rowsRemountKey={rowsRemountKey}
+    <ChatShellLayout
+      specificationId={String(bundle.specification.id)}
+      center={
+        <StructuredListView
+          entityState={entityState}
+          emptyStateAction={emptyStateAction}
+          headerLeft={headerLeft}
+          headerRight={headerRight}
+          rowsDefaultOpen={rowsDefaultOpen}
+          rowsRemountKey={rowsRemountKey}
+        />
+      }
     />
   );
 }

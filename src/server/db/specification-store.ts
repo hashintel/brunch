@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, sql, type InferSelectModel } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type InferSelectModel } from 'drizzle-orm';
 
 import type { SpecificationMode, TurnKind } from '@/shared/api-types.js';
 import { createKnowledgeReferenceCode, type KnowledgeKind } from '@/shared/knowledge.js';
@@ -203,6 +203,110 @@ export function setSecondaryChatMode(db: DB, chatId: number, mode: SecondaryChat
   return updated;
 }
 
+export interface GetOrCreateItemSecondaryChatInput {
+  parent_chat_id: number;
+  itemId: number;
+  itemKind: KnowledgeKind;
+  invokedInTurnId?: number | null;
+  spanHint?: string | null;
+  mode?: SecondaryChatMode;
+}
+
+export interface GetOrCreateItemSecondaryChatResult {
+  chat: Chat;
+  /** Null when an existing chat was reused (dedupe path). */
+  kickoffTurnId: number | null;
+}
+
+function parseAnchoredItemIds(raw: string | null | undefined): number[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((v): v is number => typeof v === 'number' && Number.isInteger(v));
+  } catch {
+    return [];
+  }
+}
+
+function findItemSecondaryChat(
+  db: DB,
+  specificationId: number,
+  parentChatId: number,
+  itemId: number,
+): Chat | null {
+  const row = db
+    .select()
+    .from(schema.chat)
+    .where(
+      and(
+        eq(schema.chat.specification_id, specificationId),
+        eq(schema.chat.parent_chat_id, parentChatId),
+        eq(schema.chat.pinned_item_id, itemId),
+        isNull(schema.chat.pinned_reconciliation_need_id),
+      ),
+    )
+    .orderBy(asc(schema.chat.id))
+    .limit(1)
+    .get();
+  return (row as Chat | undefined) ?? null;
+}
+
+/**
+ * Find-or-create the per-item secondary chat for a (parent, item) pair.
+ * Dedupes by `(parent_chat_id, pinned_item_id)` with `pinned_reconciliation_need_id IS NULL`
+ * — clicking the same item twice re-opens the existing chat rather than
+ * creating a duplicate. Reconciliation chats use a separate path.
+ *
+ * Returns `kickoffTurnId = null` when reusing an existing chat (no new
+ * kickoff turn is appended).
+ */
+export function getOrCreateItemSecondaryChat(
+  db: DB,
+  specificationId: number,
+  input: GetOrCreateItemSecondaryChatInput,
+): GetOrCreateItemSecondaryChatResult {
+  const existing = findItemSecondaryChat(db, specificationId, input.parent_chat_id, input.itemId);
+  if (existing) {
+    return { chat: existing, kickoffTurnId: null };
+  }
+
+  const item = db
+    .select({ content: schema.knowledgeItem.content })
+    .from(schema.knowledgeItem)
+    .where(eq(schema.knowledgeItem.id, input.itemId))
+    .get();
+  if (!item) {
+    throw new Error(`Knowledge item ${input.itemId} not found`);
+  }
+
+  const chat = createSecondaryChat(db, specificationId, {
+    parent_chat_id: input.parent_chat_id,
+    invoked_in_turn_id: input.invokedInTurnId ?? null,
+    pinned_item_id: input.itemId,
+    pinned_span_hint: input.spanHint ?? null,
+    ...(input.mode ? { mode: input.mode } : {}),
+  });
+
+  // anchored_item_ids stays as a single-element array per chat for
+  // forward-compat with C19 selection styling that reads from this column.
+  const persistedChat = db
+    .update(schema.chat)
+    .set({ anchored_item_ids: JSON.stringify([input.itemId]) })
+    .where(eq(schema.chat.id, chat.id))
+    .returning()
+    .get() as Chat;
+
+  const snippet = item.content.length > 80 ? `${item.content.slice(0, 77)}…` : item.content;
+  const verb = (input.mode ?? 'explore') === 'edit' ? 'Editing' : 'Anchored to';
+  const content = input.spanHint
+    ? `${verb} '${snippet}', focused on '${input.spanHint}'.`
+    : `${verb} '${snippet}'.`;
+  const kickoff = createKickoffTurn(db, chat.id, { phase: 'grounding', content });
+
+  return { chat: persistedChat, kickoffTurnId: kickoff.id };
+}
+
 export interface CreateKickoffTurnInput {
   phase: Phase;
   content: string;
@@ -247,6 +351,12 @@ export interface SecondaryChatWithKickoff {
    * the chat carries no `pinned_reconciliation_need_id`.
    */
   pinnedReconciliationNeed: SecondaryChatPinnedReconciliationNeed | null;
+  /**
+   * Knowledge-item ids that this chat is anchored to (FE-716 C26: typically a
+   * single-element array matching `pinned_item_id`; preserved as a list for
+   * forward-compat with future enrichment).
+   */
+  anchoredItemIds: number[];
 }
 
 export function listSecondaryChatsForSpecification(
@@ -289,6 +399,7 @@ export function listSecondaryChatsForSpecification(
       turns,
       pinnedItemKind: (pinnedItemRow?.kind ?? null) as KnowledgeKind | null,
       pinnedReconciliationNeed,
+      anchoredItemIds: parseAnchoredItemIds(chat.anchored_item_ids),
     };
   });
 }

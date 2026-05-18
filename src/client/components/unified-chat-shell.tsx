@@ -1,98 +1,72 @@
-import { Maximize2, Minimize2, PanelRight, Square, X } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { Maximize2, Minimize2, Minus, PanelRight, Send, X } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useState } from 'react';
 
 import { cn } from '@/client/lib/utils.js';
 import { useSpecificationBundleData } from '@/client/routes/specification/$id/-specification-data.js';
 
 import { useChatShellPresence } from './chat-shell-presence.js';
+import { ChatSwitcher } from './chat-switcher.js';
 import { SecondaryChatHost } from './secondary-chat-host.js';
 import { CHAT_SHELL_SPRING, usePrefersReducedMotion } from './use-prefers-reduced-motion.js';
 
-/**
- * UnifiedChatShell — V1 unified chat surface per UNIFIED_CHAT_UX.md §4 + §6.
- *
- * C12 lands the skeleton:
- *  - Reads the specification bundle via `useSpecificationBundleData()`.
- *  - Header strip with the interview-spine label and four inert layout-mode
- *    buttons + a close affordance that collapses the shell to a bar.
- *  - Body lists every active secondary chat as a `<SecondaryChatHost>`,
- *    ordered by `chat.id` ascending (== creation order, since the server
- *    projection in `listSecondaryChatsForSpecification` already sorts by id).
- *
- * Layout mode persistence (C13), trigger auto-expand (C14), and motion
- * transitions (C15) land in later cards. The header buttons are inert in C12
- * but data-testids are stable for C13 to wire into.
- */
-
 export type ChatLayoutMode = 'compact' | 'side-docked' | 'maximize' | 'full';
 
-const LAYOUT_MODE_BUTTONS: ReadonlyArray<{
-  readonly mode: ChatLayoutMode;
-  readonly label: string;
-  readonly Icon: typeof Minimize2;
-}> = [
-  { mode: 'compact', label: 'Compact', Icon: Minimize2 },
-  { mode: 'side-docked', label: 'Side-docked', Icon: PanelRight },
-  { mode: 'maximize', label: 'Maximize', Icon: Maximize2 },
-  { mode: 'full', label: 'Full', Icon: Square },
-];
+type LocalAppearance = 'expanded' | 'minimized' | 'closed';
 
 export interface UnifiedChatShellProps {
-  /**
-   * Current layout mode. C12 callers can omit and default to side-docked;
-   * C13 will thread the persisted mode from `useChatLayoutMode`.
-   */
   readonly layoutMode?: ChatLayoutMode;
-  /** Invoked when a layout-mode button is clicked. Inert when omitted. */
   readonly onLayoutModeChange?: (mode: ChatLayoutMode) => void;
 }
 
 export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChange }: UnifiedChatShellProps) {
   const specificationState = useSpecificationBundleData();
-  // FE-716 C14: when mounted under <ChatShellPresenceProvider>, the
-  // collapse state lives in context so triggers / hotkeys can expand the
-  // shell. When the provider is absent (e.g. isolated tests), fall back to
-  // component-local state.
   const presence = useChatShellPresence();
-  const [localCollapsed, setLocalCollapsed] = useState(false);
-  const isCollapsed = presence ? presence.isCollapsed : localCollapsed;
-  const setCollapsed = (next: boolean) => {
+  const [localAppearance, setLocalAppearance] = useState<LocalAppearance>('expanded');
+  const appearance: LocalAppearance = presence ? presence.appearance : localAppearance;
+  const setAppearance = (next: LocalAppearance) => {
     if (presence) {
-      if (next) presence.collapse();
-      else presence.expand();
+      if (next === 'expanded') presence.expand();
+      else if (next === 'minimized') presence.minimize();
+      else presence.close();
     } else {
-      setLocalCollapsed(next);
+      setLocalAppearance(next);
     }
   };
 
   const secondaryChats = specificationState.secondaryChats ?? [];
+  // FE-716 C26: per-item secondary chats; reconciliation-pinned chats stay
+  // hidden until Track 3 defines their UX.
+  const itemChats = secondaryChats.filter((s) => s.chat.pinned_reconciliation_need_id === null);
+  // Active chat: presence.focusedChatId, falling back to the most recent
+  // item-anchored chat (highest id). Null when there are no item chats.
+  const activeChat: (typeof itemChats)[number] | null =
+    itemChats.find((c) => c.chat.id === presence?.focusedChatId) ??
+    (itemChats.length > 0 ? (itemChats[itemChats.length - 1] ?? null) : null);
   const specName = specificationState.specification.name;
-  // FE-716 C15: spring per UNIFIED_CHAT_UX.md §7 dec 5; held neutral when
-  // the user prefers reduced motion (animations resolve as instant).
   const prefersReducedMotion = usePrefersReducedMotion();
   const fadeSpring = prefersReducedMotion ? { duration: 0 } : CHAT_SHELL_SPRING;
 
-  if (isCollapsed) {
+  if (appearance === 'closed') {
+    return null;
+  }
+
+  if (appearance === 'minimized') {
     return (
-      <motion.div
-        key="collapsed"
-        data-testid="unified-chat-shell-collapsed"
-        initial={prefersReducedMotion ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
+      <motion.button
+        key="minimized"
+        type="button"
+        data-testid="unified-chat-shell-minimized"
+        onClick={() => setAppearance('expanded')}
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={fadeSpring}
-        className="flex h-full flex-col items-center justify-start border-l border-rule bg-tint/30 px-2 py-3"
+        aria-label="Expand chat"
+        className="fixed right-4 bottom-4 z-30 inline-flex items-center gap-2 rounded-full border border-rule bg-background px-3 py-1.5 text-xs text-ink shadow-md hover:bg-tint"
       >
-        <button
-          type="button"
-          data-testid="unified-chat-shell-expand"
-          onClick={() => setCollapsed(false)}
-          className="rounded border border-rule bg-background px-2 py-1 text-xs text-ink hover:bg-tint"
-          aria-label="Expand chat"
-        >
-          <PanelRight aria-hidden className="size-4" />
-        </button>
-      </motion.div>
+        <Send aria-hidden className="size-3.5" />
+        <span>Ask Brunch</span>
+      </motion.button>
     );
   }
 
@@ -113,6 +87,13 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
         <div data-testid="unified-chat-shell-spine-label" className="flex min-w-0 items-center gap-2">
           <span className="text-xs tracking-wide text-hint uppercase">Chat</span>
           <span className="min-w-0 truncate text-sm text-ink">{specName}</span>
+          {itemChats.length > 1 && (
+            <ChatSwitcher
+              chats={itemChats}
+              activeChatId={activeChat?.chat.id ?? null}
+              onSelect={(id) => presence?.focusChat(id)}
+            />
+          )}
         </div>
         <div className="flex items-center gap-1">
           <div
@@ -121,37 +102,73 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
             aria-label="Chat layout"
             className="inline-flex items-center gap-0.5 rounded border border-rule bg-tint/40 p-0.5"
           >
-            {LAYOUT_MODE_BUTTONS.map(({ mode, label, Icon }) => {
-              const active = layoutMode === mode;
+            {(() => {
               const interactive = Boolean(onLayoutModeChange);
+              const sideDockedActive = layoutMode === 'side-docked';
+              const toggleIsMaxed = layoutMode === 'maximize';
+              const toggleNext: ChatLayoutMode = toggleIsMaxed ? 'compact' : 'maximize';
+              const toggleLabel = toggleIsMaxed ? 'Compact' : 'Maximize';
+              const ToggleIcon = toggleIsMaxed ? Minimize2 : Maximize2;
+              const togglePressed = layoutMode === 'compact' || layoutMode === 'maximize';
               return (
-                <button
-                  key={mode}
-                  type="button"
-                  data-testid={`unified-chat-shell-layout-${mode}`}
-                  data-active={active}
-                  aria-pressed={active}
-                  aria-label={label}
-                  title={label}
-                  disabled={!interactive}
-                  onClick={() => onLayoutModeChange?.(mode)}
-                  className={cn(
-                    'rounded px-1.5 py-1 text-xs transition-colors',
-                    active
-                      ? 'bg-background text-ink shadow-sm'
-                      : 'text-hint hover:bg-background hover:text-ink',
-                    !interactive && 'opacity-60',
-                  )}
-                >
-                  <Icon aria-hidden className="size-3.5" />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    data-testid="unified-chat-shell-minimize"
+                    aria-label="Minimize chat"
+                    title="Minimize"
+                    onClick={() => setAppearance('minimized')}
+                    className="rounded px-1.5 py-1 text-xs text-hint transition-colors hover:bg-background hover:text-ink"
+                  >
+                    <Minus aria-hidden className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="unified-chat-shell-layout-side-docked"
+                    data-active={sideDockedActive}
+                    aria-pressed={sideDockedActive}
+                    aria-label="Side-docked"
+                    title="Side-docked"
+                    disabled={!interactive}
+                    onClick={() => onLayoutModeChange?.('side-docked')}
+                    className={cn(
+                      'rounded px-1.5 py-1 text-xs transition-colors',
+                      sideDockedActive
+                        ? 'bg-background text-ink shadow-sm'
+                        : 'text-hint hover:bg-background hover:text-ink',
+                      !interactive && 'opacity-60',
+                    )}
+                  >
+                    <PanelRight aria-hidden className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="unified-chat-shell-layout-toggle"
+                    data-active={togglePressed}
+                    data-mode-target={toggleNext}
+                    aria-pressed={togglePressed}
+                    aria-label={toggleLabel}
+                    title={toggleLabel}
+                    disabled={!interactive}
+                    onClick={() => onLayoutModeChange?.(toggleNext)}
+                    className={cn(
+                      'rounded px-1.5 py-1 text-xs transition-colors',
+                      togglePressed
+                        ? 'bg-background text-ink shadow-sm'
+                        : 'text-hint hover:bg-background hover:text-ink',
+                      !interactive && 'opacity-60',
+                    )}
+                  >
+                    <ToggleIcon aria-hidden className="size-3.5" />
+                  </button>
+                </>
               );
-            })}
+            })()}
           </div>
           <button
             type="button"
             data-testid="unified-chat-shell-close"
-            onClick={() => setCollapsed(true)}
+            onClick={() => setAppearance('closed')}
             aria-label="Collapse chat"
             className="rounded p-1 text-hint hover:bg-tint hover:text-ink"
           >
@@ -163,25 +180,20 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
         data-testid="unified-chat-shell-body"
         className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-3"
       >
-        {secondaryChats.length === 0 ? (
+        {activeChat === null ? (
           <p data-testid="unified-chat-shell-empty" className="text-xs text-hint">
-            No open chats. Open one from a knowledge item or a reconciliation row.
+            Open one from a knowledge item to start a conversation.
           </p>
         ) : (
-          <AnimatePresence initial={false}>
-            {secondaryChats.map((secondaryChat) => (
-              <motion.div
-                key={secondaryChat.chat.id}
-                layout={!prefersReducedMotion}
-                initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
-                transition={fadeSpring}
-              >
-                <SecondaryChatHost secondaryChat={secondaryChat} />
-              </motion.div>
-            ))}
-          </AnimatePresence>
+          <motion.div
+            key={activeChat.chat.id}
+            layout={!prefersReducedMotion}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={fadeSpring}
+          >
+            <SecondaryChatHost secondaryChat={activeChat} />
+          </motion.div>
         )}
       </div>
     </motion.div>

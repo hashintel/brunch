@@ -124,6 +124,7 @@ describe('SecondaryChatHost — composer wiring (C5b)', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     const { Wrapper } = createHarness();
 
@@ -162,6 +163,7 @@ describe('SecondaryChatHost — composer wiring (C5b)', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     const { queryClient, Wrapper } = createHarness();
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
@@ -202,6 +204,7 @@ describe('SecondaryChatHost — composer wiring (C5b)', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     const chatB: SecondaryChat = {
       chat: { ...baseChat, id: 8 },
@@ -209,6 +212,7 @@ describe('SecondaryChatHost — composer wiring (C5b)', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     const { Wrapper } = createHarness();
 

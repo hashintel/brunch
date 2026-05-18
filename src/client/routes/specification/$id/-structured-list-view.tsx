@@ -459,19 +459,11 @@ function ItemActionRail({
   const editEnabled = Boolean(onStartEdit) && !editDisabled;
 
   const secondaryChatTrigger = useSecondaryChatTrigger();
-  const navigate = useNavigate();
   const secondaryChatEnabled = Boolean(secondaryChatTrigger?.canCreate) && !secondaryChatTrigger?.isPending;
-  // The graph view doesn't render inline secondary chats — they live under the
-  // transcript view. After a successful create we navigate the user to the
-  // route exposed by the trigger so the new collapsible is visible (FE-716 C8b).
   const handleOpenInlineChat =
     secondaryChatEnabled && secondaryChatTrigger
       ? () => {
-          void (async () => {
-            const result = await secondaryChatTrigger.create({ kind: item.kind, id: item.id });
-            if (!result) return;
-            await navigate(secondaryChatTrigger.inlineChatRoute);
-          })();
+          void secondaryChatTrigger.create({ kind: item.kind, id: item.id });
         }
       : undefined;
 
@@ -822,17 +814,11 @@ export function StructuredListView({
     if (!selection || !secondaryChatTrigger || !secondaryChatTrigger.canCreate) return;
     const item = itemsByKey.get(`${selection.anchor.kind}:${selection.anchor.itemId}`);
     if (!item) return;
-    void (async () => {
-      const result = await secondaryChatTrigger.create({
-        kind: item.kind,
-        id: item.id,
-        spanHint: selection.snapshot,
-      });
-      if (!result) return;
-      // The graph view doesn't render inline secondary chats — navigate to the
-      // trigger's inlineChatRoute so the new collapsible is visible (FE-716 C8b).
-      await navigate(secondaryChatTrigger.inlineChatRoute);
-    })();
+    void secondaryChatTrigger.create({
+      kind: item.kind,
+      id: item.id,
+      spanHint: selection.snapshot,
+    });
     window.getSelection()?.removeAllRanges();
   };
 

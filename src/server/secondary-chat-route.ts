@@ -13,6 +13,7 @@ import {
   createSecondaryChat,
   getDownstreamItems,
   getKnowledgeItem,
+  getOrCreateItemSecondaryChat,
   getSpecification,
   isItemInActiveReviewSet,
   setSecondaryChatMode,
@@ -116,21 +117,36 @@ export function handleCreateSecondaryChatRequest(db: DB, req: Request, res: Resp
 
   const mode: SideChatMode = parsed.data.mode ?? 'explore';
 
-  const chat = createSecondaryChat(db, specificationId, {
+  // Reconciliation entries (FE-716 C9) create their own dedicated chats —
+  // they carry the `reconciliation_need` pin used by the C9 panel.
+  if (parsed.data.reconciliationNeedId !== undefined) {
+    const chat = createSecondaryChat(db, specificationId, {
+      parent_chat_id: parsed.data.parentChatId,
+      invoked_in_turn_id: parsed.data.invokedInTurnId,
+      pinned_item_id: parsed.data.itemId,
+      pinned_span_hint: parsed.data.spanHint ?? null,
+      pinned_reconciliation_need_id: parsed.data.reconciliationNeedId,
+      mode,
+    });
+    const kickoffTurn = createKickoffTurn(db, chat.id, {
+      phase: 'grounding',
+      content: buildKickoffContent(item.content, parsed.data.spanHint, mode),
+    });
+    res.json({ chatId: chat.id, kickoffTurnId: kickoffTurn.id });
+    return;
+  }
+
+  // Item action-rail entries get one chat per (parent, item) pair — clicking
+  // the same item twice re-opens the existing chat rather than duplicating.
+  const result = getOrCreateItemSecondaryChat(db, specificationId, {
     parent_chat_id: parsed.data.parentChatId,
-    invoked_in_turn_id: parsed.data.invokedInTurnId,
-    pinned_item_id: parsed.data.itemId,
-    pinned_span_hint: parsed.data.spanHint ?? null,
-    pinned_reconciliation_need_id: parsed.data.reconciliationNeedId ?? null,
+    invokedInTurnId: parsed.data.invokedInTurnId,
+    itemId: parsed.data.itemId,
+    itemKind: parsed.data.itemKind,
+    spanHint: parsed.data.spanHint ?? null,
     mode,
   });
-
-  const kickoffTurn = createKickoffTurn(db, chat.id, {
-    phase: 'grounding',
-    content: buildKickoffContent(item.content, parsed.data.spanHint, mode),
-  });
-
-  res.json({ chatId: chat.id, kickoffTurnId: kickoffTurn.id });
+  res.json({ chatId: result.chat.id, kickoffTurnId: result.kickoffTurnId });
 }
 
 const setSecondaryChatModeRequestSchema = z.object({

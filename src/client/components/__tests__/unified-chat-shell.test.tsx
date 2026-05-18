@@ -95,6 +95,7 @@ function makeChat(id: number, mode: 'explore' | 'edit' = 'explore'): SecondaryCh
     turns: [],
     pinnedItemKind: 'context',
     pinnedReconciliationNeed: null,
+    anchoredItemIds: [],
   };
 }
 
@@ -116,7 +117,7 @@ afterEach(() => {
 });
 
 describe('UnifiedChatShell — C12 skeleton', () => {
-  it('renders the header strip with spec name, four layout buttons, and a close affordance', () => {
+  it('renders the header strip with spec name, minimize + side-docked + toggle buttons, and close affordance', () => {
     const { Wrapper } = createHarness([]);
 
     render(
@@ -127,10 +128,12 @@ describe('UnifiedChatShell — C12 skeleton', () => {
 
     expect(screen.getByTestId('unified-chat-shell')).not.toBeNull();
     expect(screen.getByTestId('unified-chat-shell-spine-label').textContent).toContain('Test spec');
-    expect(screen.getByTestId('unified-chat-shell-layout-compact')).not.toBeNull();
+    expect(screen.getByTestId('unified-chat-shell-minimize')).not.toBeNull();
     expect(screen.getByTestId('unified-chat-shell-layout-side-docked')).not.toBeNull();
-    expect(screen.getByTestId('unified-chat-shell-layout-maximize')).not.toBeNull();
-    expect(screen.getByTestId('unified-chat-shell-layout-full')).not.toBeNull();
+    expect(screen.getByTestId('unified-chat-shell-layout-toggle')).not.toBeNull();
+    expect(screen.queryByTestId('unified-chat-shell-layout-compact')).toBeNull();
+    expect(screen.queryByTestId('unified-chat-shell-layout-maximize')).toBeNull();
+    expect(screen.queryByTestId('unified-chat-shell-layout-full')).toBeNull();
     expect(screen.getByTestId('unified-chat-shell-close')).not.toBeNull();
   });
 
@@ -161,8 +164,8 @@ describe('UnifiedChatShell — C12 skeleton', () => {
     expect(screen.getByTestId('unified-chat-shell-empty')).not.toBeNull();
   });
 
-  it('renders one SecondaryChatHost per active secondary chat in creation (id-ascending) order', () => {
-    const { Wrapper } = createHarness([makeChat(7), makeChat(8, 'edit'), makeChat(11)]);
+  it('renders the most-recent (highest id) item-anchored chat by default; switcher hidden for a single chat', () => {
+    const { Wrapper } = createHarness([makeChat(7)]);
 
     render(
       <Wrapper>
@@ -171,11 +174,30 @@ describe('UnifiedChatShell — C12 skeleton', () => {
     );
 
     const collapsibles = screen.getAllByTestId('secondary-chat-collapsible');
-    expect(collapsibles).toHaveLength(3);
-    expect(collapsibles.map((el) => el.getAttribute('data-secondary-chat-id'))).toEqual(['7', '8', '11']);
+    expect(collapsibles).toHaveLength(1);
+    expect(collapsibles[0]!.getAttribute('data-secondary-chat-id')).toBe('7');
+    // Single chat → no switcher.
+    expect(screen.queryByTestId('chat-switcher-trigger')).toBeNull();
   });
 
-  it('collapses to a bar when the close button is clicked, and re-expands via the expand button', () => {
+  it('mounts the switcher when 2+ item-anchored chats exist; renders the most-recent as active', () => {
+    const { Wrapper } = createHarness([makeChat(7), makeChat(8, 'edit'), makeChat(11)]);
+
+    render(
+      <Wrapper>
+        <UnifiedChatShell />
+      </Wrapper>,
+    );
+
+    // Only one host renders — the active chat (most recent fallback = highest id).
+    const collapsibles = screen.getAllByTestId('secondary-chat-collapsible');
+    expect(collapsibles).toHaveLength(1);
+    expect(collapsibles[0]!.getAttribute('data-secondary-chat-id')).toBe('11');
+    // Switcher trigger present.
+    expect(screen.getByTestId('chat-switcher-trigger')).not.toBeNull();
+  });
+
+  it('close button removes the shell entirely (no bar, no pill); presence-driven expand brings it back', () => {
     const { Wrapper } = createHarness([makeChat(7)]);
 
     render(
@@ -186,35 +208,107 @@ describe('UnifiedChatShell — C12 skeleton', () => {
 
     fireEvent.click(screen.getByTestId('unified-chat-shell-close'));
     expect(screen.queryByTestId('unified-chat-shell')).toBeNull();
-    expect(screen.getByTestId('unified-chat-shell-collapsed')).not.toBeNull();
-
-    fireEvent.click(screen.getByTestId('unified-chat-shell-expand'));
-    expect(screen.getByTestId('unified-chat-shell')).not.toBeNull();
     expect(screen.queryByTestId('unified-chat-shell-collapsed')).toBeNull();
+    expect(screen.queryByTestId('unified-chat-shell-minimized')).toBeNull();
   });
 
-  it('forwards layout-mode clicks to onLayoutModeChange when supplied (inert when omitted)', () => {
+  it('minimize button collapses to a bottom-right "Ask Brunch" pill; clicking it restores', () => {
+    const { Wrapper } = createHarness([makeChat(7)]);
+
+    render(
+      <Wrapper>
+        <UnifiedChatShell />
+      </Wrapper>,
+    );
+
+    fireEvent.click(screen.getByTestId('unified-chat-shell-minimize'));
+    expect(screen.queryByTestId('unified-chat-shell')).toBeNull();
+    expect(screen.queryByTestId('unified-chat-shell-collapsed')).toBeNull();
+    const pill = screen.getByTestId('unified-chat-shell-minimized');
+    expect(pill.textContent).toContain('Ask Brunch');
+
+    fireEvent.click(pill);
+    expect(screen.getByTestId('unified-chat-shell')).not.toBeNull();
+    expect(screen.queryByTestId('unified-chat-shell-minimized')).toBeNull();
+  });
+
+  it('side-docked button forwards "side-docked" on click; pressed when current mode matches', () => {
     const { Wrapper } = createHarness([]);
     const onLayoutModeChange = vi.fn();
 
     render(
       <Wrapper>
-        <UnifiedChatShell layoutMode="maximize" onLayoutModeChange={onLayoutModeChange} />
+        <UnifiedChatShell layoutMode="side-docked" onLayoutModeChange={onLayoutModeChange} />
       </Wrapper>,
     );
 
-    expect(screen.getByTestId('unified-chat-shell').getAttribute('data-layout-mode')).toBe('maximize');
-    fireEvent.click(screen.getByTestId('unified-chat-shell-layout-full'));
-    expect(onLayoutModeChange).toHaveBeenCalledWith('full');
+    const sideDocked = screen.getByTestId('unified-chat-shell-layout-side-docked');
+    expect(sideDocked.getAttribute('data-active')).toBe('true');
+    fireEvent.click(sideDocked);
+    expect(onLayoutModeChange).toHaveBeenCalledWith('side-docked');
+  });
 
-    cleanup();
+  it('compact↔maximize toggle flips its icon + target based on the current mode (C17)', () => {
+    const onLayoutModeChange = vi.fn();
 
-    const inert = createHarness([]);
+    // From side-docked: toggle targets Maximize.
+    let harness = createHarness([]);
     render(
-      <inert.Wrapper>
-        <UnifiedChatShell />
-      </inert.Wrapper>,
+      <harness.Wrapper>
+        <UnifiedChatShell layoutMode="side-docked" onLayoutModeChange={onLayoutModeChange} />
+      </harness.Wrapper>,
     );
-    expect((screen.getByTestId('unified-chat-shell-layout-full') as HTMLButtonElement).disabled).toBe(true);
+    let toggle = screen.getByTestId('unified-chat-shell-layout-toggle');
+    expect(toggle.getAttribute('data-mode-target')).toBe('maximize');
+    expect(toggle.getAttribute('aria-label')).toBe('Maximize');
+    expect(toggle.getAttribute('data-active')).toBe('false');
+    fireEvent.click(toggle);
+    expect(onLayoutModeChange).toHaveBeenLastCalledWith('maximize');
+
+    // From compact: toggle still targets Maximize (the "expand" direction)
+    // but pressed=true because compact belongs to the toggle's mode pair.
+    cleanup();
+    onLayoutModeChange.mockClear();
+    harness = createHarness([]);
+    render(
+      <harness.Wrapper>
+        <UnifiedChatShell layoutMode="compact" onLayoutModeChange={onLayoutModeChange} />
+      </harness.Wrapper>,
+    );
+    toggle = screen.getByTestId('unified-chat-shell-layout-toggle');
+    expect(toggle.getAttribute('data-mode-target')).toBe('maximize');
+    expect(toggle.getAttribute('aria-label')).toBe('Maximize');
+    expect(toggle.getAttribute('data-active')).toBe('true');
+    fireEvent.click(toggle);
+    expect(onLayoutModeChange).toHaveBeenLastCalledWith('maximize');
+
+    // From maximize: toggle flips to Compact (the "shrink" direction).
+    cleanup();
+    onLayoutModeChange.mockClear();
+    harness = createHarness([]);
+    render(
+      <harness.Wrapper>
+        <UnifiedChatShell layoutMode="maximize" onLayoutModeChange={onLayoutModeChange} />
+      </harness.Wrapper>,
+    );
+    toggle = screen.getByTestId('unified-chat-shell-layout-toggle');
+    expect(toggle.getAttribute('data-mode-target')).toBe('compact');
+    expect(toggle.getAttribute('aria-label')).toBe('Compact');
+    expect(toggle.getAttribute('data-active')).toBe('true');
+    fireEvent.click(toggle);
+    expect(onLayoutModeChange).toHaveBeenLastCalledWith('compact');
+  });
+
+  it('both layout buttons are disabled when no onLayoutModeChange is supplied', () => {
+    const { Wrapper } = createHarness([]);
+    render(
+      <Wrapper>
+        <UnifiedChatShell />
+      </Wrapper>,
+    );
+    expect((screen.getByTestId('unified-chat-shell-layout-side-docked') as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect((screen.getByTestId('unified-chat-shell-layout-toggle') as HTMLButtonElement).disabled).toBe(true);
   });
 });

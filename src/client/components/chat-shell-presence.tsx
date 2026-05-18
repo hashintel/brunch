@@ -26,9 +26,14 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 const HIGHLIGHT_CLASS = 'ring-2 ring-ink/40 ring-offset-2 ring-offset-background';
 const HIGHLIGHT_DURATION_MS = 1500;
 
+export type ChatShellAppearance = 'expanded' | 'minimized' | 'closed';
+
 export interface ChatShellPresenceValue {
+  readonly appearance: ChatShellAppearance;
   readonly isCollapsed: boolean;
   readonly collapse: () => void;
+  readonly minimize: () => void;
+  readonly close: () => void;
   readonly expand: () => void;
   readonly focusedChatId: number | null;
   readonly focusChat: (chatId: number) => void;
@@ -48,14 +53,16 @@ export function useChatShellPresence(): ChatShellPresenceValue | null {
 }
 
 export function ChatShellPresenceProvider({ children }: { children: ReactNode }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [appearance, setAppearance] = useState<ChatShellAppearance>('expanded');
   const [focusedChatId, setFocusedChatId] = useState<number | null>(null);
 
-  const expand = useCallback(() => setIsCollapsed(false), []);
-  const collapse = useCallback(() => setIsCollapsed(true), []);
+  const expand = useCallback(() => setAppearance('expanded'), []);
+  const minimize = useCallback(() => setAppearance('minimized'), []);
+  const close = useCallback(() => setAppearance('closed'), []);
+  const collapse = minimize;
 
   const focusChat = useCallback((chatId: number) => {
-    setIsCollapsed(false); // ensure shell visible
+    setAppearance('expanded');
     setFocusedChatId(chatId);
   }, []);
 
@@ -73,9 +80,32 @@ export function ChatShellPresenceProvider({ children }: { children: ReactNode })
     }, HIGHLIGHT_DURATION_MS);
   }, []);
 
+  const isCollapsed = appearance !== 'expanded';
   const value = useMemo<ChatShellPresenceValue>(
-    () => ({ isCollapsed, collapse, expand, focusedChatId, focusChat, clearFocus, jumpToAnchor }),
-    [clearFocus, collapse, expand, focusChat, focusedChatId, isCollapsed, jumpToAnchor],
+    () => ({
+      appearance,
+      isCollapsed,
+      collapse,
+      minimize,
+      close,
+      expand,
+      focusedChatId,
+      focusChat,
+      clearFocus,
+      jumpToAnchor,
+    }),
+    [
+      appearance,
+      clearFocus,
+      close,
+      collapse,
+      expand,
+      focusChat,
+      focusedChatId,
+      isCollapsed,
+      jumpToAnchor,
+      minimize,
+    ],
   );
 
   return <ChatShellPresenceContext.Provider value={value}>{children}</ChatShellPresenceContext.Provider>;

@@ -46,6 +46,7 @@ describe('SecondaryChatCollapsible', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -63,6 +64,7 @@ describe('SecondaryChatCollapsible', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -79,6 +81,7 @@ describe('SecondaryChatCollapsible', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -109,6 +112,7 @@ describe('SecondaryChatCollapsible', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -137,6 +141,7 @@ describe('SecondaryChatCollapsible', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -152,6 +157,7 @@ describe('SecondaryChatCollapsible', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
 
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
@@ -168,6 +174,7 @@ describe('SecondaryChatCollapsible', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     const toggle = screen.getByTestId('secondary-chat-mode-toggle');
@@ -183,6 +190,7 @@ describe('SecondaryChatCollapsible', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     const toggle = screen.getByTestId('secondary-chat-mode-toggle');
@@ -197,6 +205,7 @@ describe('SecondaryChatCollapsible', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} />);
     fireEvent.click(screen.getByTestId('secondary-chat-mode-edit'));
@@ -211,6 +220,7 @@ describe('SecondaryChatCollapsible', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} />);
     fireEvent.click(screen.getByTestId('secondary-chat-mode-ask'));
@@ -225,6 +235,7 @@ describe('SecondaryChatCollapsible', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} isModeUpdating />);
     expect(screen.getByTestId('secondary-chat-mode-edit').hasAttribute('disabled')).toBe(true);
@@ -239,6 +250,7 @@ describe('SecondaryChatCollapsible', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     expect(screen.getByTestId('secondary-chat-mode-edit').hasAttribute('disabled')).toBe(true);
@@ -289,6 +301,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       turns: [makeUserTurn(10, 'why?'), makeAssistantTurn(11, 'because.')],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
@@ -304,6 +317,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={onSubmitMessage} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
@@ -321,6 +335,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
@@ -335,6 +350,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     render(
       <SecondaryChatCollapsible
@@ -365,6 +381,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
         targetRefCode: 'R5',
         targetExcerpt: 'existing requirement text',
       },
+      anchoredItemIds: [],
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
@@ -387,6 +404,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       turns: [],
       pinnedItemKind: null,
       pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
     };
     render(<SecondaryChatCollapsible secondaryChat={chat} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));

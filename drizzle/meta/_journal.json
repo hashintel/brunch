@@ -162,6 +162,13 @@
       "when": 1779206400000,
       "tag": "0022_chat_pinned_reconciliation_need",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1779292800000,
+      "tag": "0023_chat_anchored_items",
+      "breakpoints": true
     }
   ]
 }

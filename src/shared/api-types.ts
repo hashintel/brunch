@@ -172,6 +172,13 @@ export const secondaryChatStateSchema = z.object({
    * substantive reconciliation row (FE-716 C9). Null otherwise.
    */
   pinnedReconciliationNeed: secondaryChatPinnedReconciliationNeedSchema.nullable(),
+  /**
+   * Ordered list of knowledge-item ids that have been anchored to this chat
+   * (FE-716 C18). The scratch chat (`pinned_reconciliation_need_id === null`)
+   * accumulates anchors over time as the user clicks item action-rail icons;
+   * reconciliation chats stay empty.
+   */
+  anchoredItemIds: z.array(z.number().int().positive()),
 });
 
 export const specificationStateSchema = z.object({

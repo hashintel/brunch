@@ -46,6 +46,7 @@ function makeChat(id: number, invokedInTurnId: number | null = 9): SecondaryChat
     turns: [],
     pinnedItemKind: 'context',
     pinnedReconciliationNeed: null,
+    anchoredItemIds: [],
   };
 }
 
@@ -164,9 +165,9 @@ describe('FE-716 C14 — chat shell presence + trigger integration', () => {
       </Wrapper>,
     );
 
-    // Collapse the shell first to verify expand-on-create.
-    fireEvent.click(screen.getByTestId('unified-chat-shell-close'));
-    expect(screen.getByTestId('unified-chat-shell-collapsed')).not.toBeNull();
+    // Minimize the shell first to verify expand-on-create.
+    fireEvent.click(screen.getByTestId('unified-chat-shell-minimize'));
+    expect(screen.getByTestId('unified-chat-shell-minimized')).not.toBeNull();
 
     fireEvent.click(screen.getByTestId('trigger'));
 
@@ -175,9 +176,9 @@ describe('FE-716 C14 — chat shell presence + trigger integration', () => {
       expect(queryClient.getQueryData(specificationQueryKeys.bundle('1'))).toBeDefined();
     });
 
-    // Shell is now expanded again (was collapsed before trigger).
+    // Shell is now expanded again (was minimized before trigger).
     await waitFor(() => {
-      expect(screen.queryByTestId('unified-chat-shell-collapsed')).toBeNull();
+      expect(screen.queryByTestId('unified-chat-shell-minimized')).toBeNull();
       expect(screen.getByTestId('unified-chat-shell')).not.toBeNull();
     });
   });
