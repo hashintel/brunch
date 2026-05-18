@@ -22,7 +22,7 @@ The transcript changed its mind in several important places. This PRD adopts the
 Brunch should be able to run as an opinionated local product layered on top of pi's coding-agent harness. A user runs `brunch` from a project directory. Brunch creates and owns a local `.brunch/` workspace containing:
 
 - a graph-native spec workspace store, eventually spanning intent, oracle, design, and plan graph planes
-- a Brunch-owned session / turn transcript substrate capable of holding raw assistant and user payloads plus turn-side custom data
+- transcript persistence, starting with pi JSONL sessions if they can faithfully hold the required raw payloads and custom turn-side data
 - local auth and settings state scoped to the product
 
 The user and the agent co-author a specification workspace through graph-native nodes and edges. The intent graph remains the canonical source of specification meaning. Oracle, design, and plan graphs are durable downstream work-product planes accountable to that intent graph. The graph layer must remain structurally legal at write time and semantically inspectable as a first-class coherence state. The same local Brunch host must expose that system through TUI, web, RPC, and print modes without inventing separate data planes or mutation authorities for each mode.
@@ -56,16 +56,23 @@ The POC may start intent-first, but storage, transport, and naming should not lo
 
 ### Session / Turn Transcript Substrate
 
-The transcript store should become a first-class Brunch substrate rather than remaining "whatever pi logs as JSONL".
+The transcript store should be treated as a first-class architectural decision, not as an accidental side effect of whichever pi default happens to be present.
 
-The intended target is a session / turn persistence model that can hold:
+The session export in [docs/next/session-re-extending-sessions.jsonl](file:///Users/lunelson/Code/hashintel/brunch/docs/next/session-re-extending-sessions.jsonl) sharpens the near-term posture:
+
+- pi JSONL sessions are richer than a flat append log
+- they already support tree structure, branch summaries, compaction entries, labels, model/thinking changes, `custom` entries, and `custom_message` entries
+- they can be redirected to a project-local directory through `SessionManager.create(cwd, customDir)` or equivalent configuration
+- they do not expose a supported storage-adapter seam behind `SessionManager`; persistence and session modeling are still coupled
+
+The intended near-term strategy is therefore JSONL-first, not JSONL-dismissive. Brunch should begin by proving whether pi sessions can hold:
 
 - raw assistant payloads
 - raw user payloads
 - structured turn artifacts and custom per-turn data on both sides
 - continuity metadata such as `lastSeenLsn`, interest sets, and compaction anchors
 
-Pi's JSONL session machinery can remain a transitional bridge, import/export format, or bootstrap implementation while Brunch proves the richer substrate, but it should not be treated as the architectural end state.
+If they can, JSONL remains the transcript authority for the POC. If they cannot, Brunch should introduce a richer session / turn substrate or a projection layer with explicit justification.
 
 ## Goals
 
@@ -75,7 +82,7 @@ Pi's JSONL session machinery can remain a transitional bridge, import/export for
 4. Make the browser a remote head over the same local host, not a separate application with a divergent backend contract.
 5. Preserve agent continuity when other sessions or direct user edits change the graph between turns.
 6. Make coherence visible to both the user and the agent as shared product state.
-7. Establish session / turn records as the durable transcript basis if they can faithfully hold Brunch's raw turn payloads.
+7. Prove whether pi JSONL sessions can serve as the durable transcript basis for the POC; if not, introduce a justified richer session / turn substrate.
 
 ## Non-goals
 
@@ -157,12 +164,12 @@ Brunch should be structured as a local host with shared storage, shared mutation
                 |                                                    |
                 v                                                    v
     +--------------------------------------+            +----------------------------------+
-    | Spec workspace graph store           |            | Session transcript substrate     |
-    | - intent/oracle/design/plan nodes    |            | - sessions and turns             |
+    | Spec workspace graph store           |            | Transcript persistence           |
+    | - intent/oracle/design/plan nodes    |            | - pi JSONL sessions first        |
     | - semantic edges                     |            | - raw assistant/user payloads    |
-    | - graph clock + change log           |            | - turn artifacts / custom data   |
-    | - coherence state                    |            | - lastSeenLsn / interest sets    |
-    +--------------------------------------+            | - JSONL bridge/export if needed  |
+    | - graph clock + change log           |            | - custom/custom_message entries  |
+    | - coherence state                    |            | - branch / compaction / labels   |
+    +--------------------------------------+            | - richer substrate only if needed|
                                                         +----------------------------------+
 ```
 
@@ -241,12 +248,12 @@ HTTP may still exist, but only as a thin transport shim for things HTTP is uniqu
 
 The browser should not depend on separate REST endpoints for ordinary Brunch state.
 
-### 6. Store graph truth in graph-native persistence and transcript truth in a Brunch-owned session substrate
+### 6. Store graph truth in graph-native persistence and use a JSONL-first transcript strategy
 
 The POC should keep two kinds of durability in `.brunch/`:
 
 1. SQLite-backed graph persistence for spec workspace state.
-2. A Brunch-owned session / turn substrate for transcript truth.
+2. Transcript persistence, starting with pi SessionManager-backed JSONL in `.brunch/sessions/` if it proves sufficient.
 
 Graph persistence should own:
 
@@ -256,7 +263,7 @@ Graph persistence should own:
 - change log entries
 - coherence verdicts and violations
 
-Session / turn persistence should own:
+Transcript persistence should own:
 
 - raw user and assistant turn payloads
 - structured turn artifacts and custom turn-side data
@@ -264,7 +271,13 @@ Session / turn persistence should own:
 - session interest sets
 - compaction summaries and other transcript-local state
 
-JSONL may remain as a compatibility layer while Brunch proves the richer session / turn substrate, but it should not be treated as the long-term authority by default.
+For the POC, the first attempt should be to encode these needs inside pi's existing session format using message entries, `custom` / `custom_message` entries, compaction and branch-summary details, labels, and session metadata where appropriate.
+
+What pi does not currently offer is a supported storage-backend adapter. If JSONL proves insufficient, Brunch's fallback choices are:
+
+- maintain a richer canonical substrate and project into pi-compatible JSONL when invoking pi
+- mirror JSONL into richer local records while keeping JSONL authoritative for the POC
+- modify pi itself to introduce a real session-store abstraction
 
 ## POC Component Boundaries
 
@@ -292,7 +305,7 @@ The subsystem should be forward-compatible with the spec workspace graph model i
 
 ### Session transcript subsystem
 
-The transcript subsystem should own Brunch's session and turn records.
+The transcript subsystem should own Brunch's session and turn semantics even if the first implementation still rides on pi JSONL sessions.
 
 Its responsibilities should include:
 
@@ -300,7 +313,7 @@ Its responsibilities should include:
 - durable turn storage for raw assistant and user payloads
 - custom turn artifacts and sidecar data
 - continuity metadata such as `lastSeenLsn`, interest sets, and compaction anchors
-- any JSONL import, export, or compatibility bridging needed while the richer substrate is being proven
+- JSONL encoding, import, export, or compatibility bridging as long as JSONL remains the underlying store
 
 ### pi adapter layer
 
@@ -483,7 +496,7 @@ When a session compacts, the compaction summary should preserve enough graph con
 3. Brunch must reuse pi's coding-agent harness rather than fork pi for the POC.
 4. Brunch must expose TUI, web, RPC, and print modes over the same local host authority.
 5. Brunch must store spec-workspace graph truth in SQLite-backed graph-native persistence.
-6. Brunch must provide a Brunch-owned session / turn transcript substrate rich enough for raw assistant and user payloads plus custom turn data.
+6. Brunch must prove that transcript persistence is rich enough for raw assistant and user payloads plus custom turn data, whether by using pi JSONL sessions directly or by introducing a justified fallback substrate.
 7. Brunch must route all graph mutations through one Brunch-owned command layer.
 8. Brunch must use JSON-RPC as the primary browser and RPC transport.
 9. Brunch must support subscriptions as a first-class transport primitive for both session and graph state.
@@ -511,14 +524,14 @@ Prove the mode dispatcher.
 - `--mode print` and `--mode rpc` run from the same Brunch-owned host setup.
 - all three pi-backed modes share one coherent local authority model.
 
-### M2 — Session transcript substrate
+### M2 — JSONL session viability
 
-Prove that Brunch can persist transcripts in a richer session / turn model than raw JSONL alone.
+Prove whether pi JSONL sessions are sufficient as the transcript authority for the POC.
 
-- sessions and turns have Brunch-owned identity
+- `.brunch/sessions/` is backed by pi `SessionManager` in a project-local directory
 - raw assistant and user payloads survive reload
-- custom per-turn data can be persisted without flattening it away
-- any JSONL dependency is reduced to a compatibility or bridge role
+- required Brunch-specific turn data can be represented through existing entry shapes or well-scoped conventions around them
+- if JSONL is insufficient, the missing capabilities are sharply documented and the fallback path is explicit
 
 ### M3 — Web shell over the same host
 
@@ -580,7 +593,7 @@ Prove that long-running sessions remain grounded.
 ## Demo Scenarios The POC Should Support
 
 1. A user starts `brunch` in a project directory, creates the first graph items with the agent, quits, and resumes later with all state preserved under `.brunch/`.
-2. Raw assistant and user turn payloads, plus Brunch-specific turn data, survive reload through the session / turn substrate.
+2. Raw assistant and user turn payloads, plus Brunch-specific turn data, survive reload through pi JSONL sessions or a clearly justified fallback.
 3. A user opens TUI and web mode against the same workspace, edits graph items in one surface, and sees the other surface update live through subscriptions.
 4. A second session or direct edit changes an item relevant to the first session; the next agent turn receives a `worldUpdate` and reacts coherently.
 5. A change introduces a semantic graph violation; the UI shows coherence as degraded and the agent is informed on the next turn.
@@ -596,12 +609,13 @@ The POC is successful if it demonstrates all of the following:
 4. Cross-session graph changes are surfaced to the agent coherently at turn boundaries.
 5. Coherence is explicit product state, not an implicit hope.
 6. The `next`-line browser implementation is coherent with Brunch's TanStack React stack rather than anchored to `pi-web-ui` reuse.
-7. The transcript substrate is rich enough that JSONL is no longer the assumed long-term source of chat truth.
+7. The transcript strategy is validated: pi JSONL sessions are sufficient for the POC, or their insufficiency is sharply bounded with a justified fallback.
 
 ## Open Questions Deferred Beyond The POC
 
 1. Whether the chat UI should lean more heavily on Vercel AI SDK primitives, TanStack AI primitives, or a thin Brunch-owned abstraction spanning both ideas.
 2. Whether public graph commands should remain under one `graph.*` umbrella or split earlier into `intent.*`, `oracle.*`, `design.*`, and `plan.*` namespaces.
-3. How much neighborhood expansion or dependency tracking is needed before interest-set filtering becomes trustworthy for larger graphs.
-4. Whether semantic coherence validation should remain local and synchronous enough for the POC or graduate into a more incremental validator architecture.
-5. Whether later HTTP shims for uploads, webhooks, curl-friendly reads, or permalinks are worth adding after the core RPC-first architecture is proven.
+3. Whether all required Brunch turn-side data fits cleanly inside pi's session entry types and extension entry mechanisms without warping their semantics.
+4. How much neighborhood expansion or dependency tracking is needed before interest-set filtering becomes trustworthy for larger graphs.
+5. Whether semantic coherence validation should remain local and synchronous enough for the POC or graduate into a more incremental validator architecture.
+6. Whether later HTTP shims for uploads, webhooks, curl-friendly reads, or permalinks are worth adding after the core RPC-first architecture is proven.
