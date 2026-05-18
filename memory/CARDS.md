@@ -101,7 +101,7 @@ A read-only context-snapshot builder can summarize selected intent items and the
 
 ## Card 3 — Cascade impact uses relation policy
 
-**Status:** next; independent of Card 2, but write serially unless isolated
+**Status:** done
 **Weight:** full scope card
 
 ### Target Behavior

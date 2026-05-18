@@ -4,11 +4,10 @@ import * as z from 'zod/v4';
 import { edgeRelationSchema, type MutationErrorResponse } from '@/shared/api-types.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
-import { relationToKind } from './cascade-producer.js';
+import { getCascadeChangeImpact } from './cascade-producer.js';
 import {
   addKnowledgeRelationship,
-  getDownstreamEdges,
-  getDownstreamItems,
+  getCascadeIncidentEdges,
   getKnowledgeItem,
   getSpecification,
   getTurn,
@@ -81,18 +80,31 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
     }
   }
 
-  const downstream = getDownstreamItems(db, specificationId, itemId);
+  const incidentEdges = getCascadeIncidentEdges(db, specificationId, itemId);
+  const cascadeImpacts = incidentEdges.flatMap((edge) => {
+    const impact = getCascadeChangeImpact(edge.relation, edge.changed_endpoint);
+    if (impact.affectedEndpoint === null || impact.kind === null) return [];
+    const affectedItemId = impact.affectedEndpoint === 'source' ? edge.source_item_id : edge.target_item_id;
+    if (affectedItemId === itemId) return [];
+    return [{ affectedItemId, kind: impact.kind }];
+  });
+  const affectedItemIds = [...new Set(cascadeImpacts.map((impact) => impact.affectedItemId))];
+  const affectedItems = affectedItemIds.flatMap((affectedItemId) => {
+    const affectedItem = getKnowledgeItem(db, affectedItemId);
+    if (!affectedItem || affectedItem.specification_id !== specificationId) return [];
+    return [
+      {
+        id: affectedItem.id,
+        kind: affectedItem.kind,
+        referenceCode: createKnowledgeReferenceCode(affectedItem.kind, affectedItem.kind_ordinal),
+        content: affectedItem.content,
+      },
+    ];
+  });
   const inReviewSet =
     isItemInActiveReviewSet(db, specificationId, itemId) ||
-    downstream.some((downstreamItem) => isItemInActiveReviewSet(db, specificationId, downstreamItem.id));
-  const impact = classifyEditImpact(downstream.length, inReviewSet);
-
-  const affectedItems = downstream.map((d) => ({
-    id: d.id,
-    kind: d.kind,
-    referenceCode: createKnowledgeReferenceCode(d.kind as any, d.kind_ordinal),
-    content: d.content,
-  }));
+    affectedItems.some((affectedItem) => isItemInActiveReviewSet(db, specificationId, affectedItem.id));
+  const impact = classifyEditImpact(affectedItems.length, inReviewSet);
 
   const previousContent = item.content;
   const previousRationale = item.rationale;
@@ -104,19 +116,18 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
     // re-application idempotent. The patch list overlay surfaces these needs
     // as a Pending review section in card 2; for now the V2 client banner
     // continues to render off `impact === 'hard'`.
-    const downstreamEdges = getDownstreamEdges(db, specificationId, itemId);
     const openedNeedIds = db.transaction((tx) => {
       updateKnowledgeItemContent(tx as unknown as DB, itemId, {
         content: parsed.data.content,
         rationale: parsed.data.rationale,
       });
       const opened: number[] = [];
-      for (const edge of downstreamEdges) {
+      for (const cascadeImpact of cascadeImpacts) {
         const need = openReconciliationNeedIfAbsent(tx as unknown as DB, {
           specificationId,
           sourceItemId: itemId,
-          targetItemId: edge.downstream_item_id,
-          kind: relationToKind(edge.relation),
+          targetItemId: cascadeImpact.affectedItemId,
+          kind: cascadeImpact.kind,
           causedByTurnId: parsed.data.causedByTurnId ?? null,
           // Card 1 (V3.1 setup): freeze the source's before/after content on
           // the need at open time so the Pending review row can render the

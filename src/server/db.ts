@@ -18,8 +18,12 @@ export {
 } from './db/annotation-store.js';
 export type { Annotation, CreateAnnotationInput } from './db/annotation-store.js';
 
-export { getDownstreamEdges, getDownstreamItems, isItemInActiveReviewSet } from './db/edit-impact-store.js';
-export type { DownstreamEdge, DownstreamItem } from './db/edit-impact-store.js';
+export {
+  getCascadeIncidentEdges,
+  getDownstreamItems,
+  isItemInActiveReviewSet,
+} from './db/edit-impact-store.js';
+export type { CascadeIncidentEdge, DownstreamItem } from './db/edit-impact-store.js';
 
 import {
   addKnowledgeRelationship,

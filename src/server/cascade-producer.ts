@@ -1,31 +1,37 @@
-// V3.0 hard-impact cascade — relation→kind mapping (D139, A84, I112).
+// Hard-impact cascade projection over relation policy (D146, D150, I113, I118).
 //
-// When a hard-impact `propose_edit` apply mutates an item, the server enumerates
-// edges incident on that item (Path 1 from MULTI_CHAT.md §5.1) and opens one
-// reconciliation_need per affected pair. The kind expresses what the user owes
-// against the downstream target after the source change:
-//
-//   supersedes         — target was built FROM the source (derivation/refinement);
-//                        source change invalidates target's foundation.
-//   needs_confirmation — target may still hold but the user must re-check
-//                        (dependency, constraint, verification).
-//
-// V3.0 ships this table mechanical and conservative. V3.1's reconciliation
-// agent may reclassify needs into auto-confirm / auto-edit / substantive groups
-// without changing the underlying queue rows.
+// When a hard-impact edit mutates an intent item, the server enumerates
+// incident knowledge_edge rows and asks relation policy which opposite endpoint,
+// if any, owes renewed judgment. Raw edge direction is only the coordinate system
+// for identifying source/target endpoints; it does not itself decide cascade
+// impact.
+
+import type { EdgeRelation } from '@/shared/api-types.js';
 
 import type { ReconciliationNeedKind } from './db.js';
+import {
+  getKnowledgeRelationshipChangeImpact,
+  type KnowledgeRelationshipEndpoint,
+} from './knowledge-relationship-policy.js';
 
-export type CascadeRelation = 'depends_on' | 'derived_from' | 'constrains' | 'verifies' | 'refines';
+export type CascadeRelation = EdgeRelation;
 
-const RELATION_TO_KIND: Readonly<Record<CascadeRelation, ReconciliationNeedKind>> = Object.freeze({
-  depends_on: 'needs_confirmation',
-  derived_from: 'supersedes',
-  constrains: 'needs_confirmation',
-  verifies: 'needs_confirmation',
-  refines: 'supersedes',
-});
+export interface CascadeChangeImpact {
+  affectedEndpoint: KnowledgeRelationshipEndpoint | null;
+  kind: ReconciliationNeedKind | null;
+}
+
+export function getCascadeChangeImpact(
+  relation: CascadeRelation,
+  changedEndpoint: KnowledgeRelationshipEndpoint,
+): CascadeChangeImpact {
+  return getKnowledgeRelationshipChangeImpact(relation, changedEndpoint);
+}
 
 export function relationToKind(relation: CascadeRelation): ReconciliationNeedKind {
-  return RELATION_TO_KIND[relation];
+  const impact = getCascadeChangeImpact(relation, 'target');
+  if (impact.kind === null) {
+    throw new Error(`Relation ${relation} has no target-change cascade kind`);
+  }
+  return impact.kind;
 }
