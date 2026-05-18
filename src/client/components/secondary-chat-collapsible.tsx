@@ -5,6 +5,7 @@ import type { z } from 'zod/v4';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import { cn } from '@/client/lib/utils';
 import type { secondaryChatStateSchema } from '@/shared/api-types.js';
+import { knowledgeKindReferencePrefixes } from '@/shared/knowledge.js';
 
 import { Conversation, ConversationContent } from './ai-elements/conversation.js';
 import { Message, MessageContent, MessageResponse } from './ai-elements/message.js';
@@ -190,14 +191,20 @@ export function SecondaryChatCollapsible({
             // when the conversation is shorter than the available height;
             // `sticky bottom-0` keeps it pinned when scrolling through a long
             // transcript.
-            className="sticky -mx-3 mt-auto -mb-2 border-t border-rule/40 bg-background/95 px-3 pt-2 pb-2 backdrop-blur-sm"
+            className="sticky -mx-3 mt-auto -mb-2 flex flex-col gap-2 border-t border-rule/40 bg-background/95 px-3 pt-3 pb-2 backdrop-blur-sm"
             style={{ bottom: 0 }}
           >
             {isTurnZero && (
               <SecondaryChatSuggestions
                 mode={mode}
                 reconciliationKind={reconciliationKind}
-                onPick={(prompt) => setDraft(prompt)}
+                // Picking a suggestion sends the prompt immediately so the
+                // user doesn't have to press Enter — the suggestion row is a
+                // shortcut for "I want to start with this exact prompt".
+                onPick={(prompt) => {
+                  setDraft('');
+                  onSubmitMessage(prompt);
+                }}
                 disabled={isStreaming}
               />
             )}
@@ -321,11 +328,62 @@ function SecondaryChatReconciliationEndpoint({
   );
 }
 
+// Matches inline reference codes like `#R1`, `#G2`, `#CTX3`, etc. The prefix
+// (uppercase letters) maps to a KnowledgeKind via `knowledgeKindReferencePrefixes`;
+// we render each match as a colored chip so mentions pop visually in the chat.
+const REF_CODE_PATTERN = /#([A-Z]+)(\d+)/g;
+
+function renderWithMentionChips(text: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  REF_CODE_PATTERN.lastIndex = 0;
+  while ((match = REF_CODE_PATTERN.exec(text)) !== null) {
+    const [whole, prefix] = match;
+    const start = match.index;
+    if (start > lastIndex) nodes.push(text.slice(lastIndex, start));
+    const refCode = whole.slice(1);
+    const accent = REF_PREFIX_TO_ACCENT_HEX[prefix] ?? null;
+    nodes.push(
+      <span
+        key={`${start}-${refCode}`}
+        data-testid="secondary-chat-mention-chip"
+        data-ref-code={refCode}
+        className="inline-flex items-center rounded-md border border-rule bg-wash px-1 align-baseline font-mono text-[11px] leading-[1.35] font-medium"
+        style={
+          accent ? { color: accent, borderColor: `${accent}33`, backgroundColor: `${accent}14` } : undefined
+        }
+      >
+        {whole}
+      </span>,
+    );
+    lastIndex = start + whole.length;
+  }
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+  return nodes;
+}
+
+// Reverse lookup: reference-code prefix → accent hex. Built from the project's
+// knowledge registry so chips stay in sync with badge colors elsewhere.
+const REF_PREFIX_TO_ACCENT_HEX: Record<string, string> = (() => {
+  const out: Record<string, string> = {};
+  for (const [kind, prefix] of Object.entries(knowledgeKindReferencePrefixes)) {
+    const accent = kindAccentHex[kind as keyof typeof kindAccentHex];
+    if (accent) out[prefix] = accent;
+  }
+  return out;
+})();
+
 function SecondaryChatTurnRow({ turn }: { turn: SecondaryChatTurn }) {
   if (turn.user_parts !== null && turn.user_parts !== undefined) {
     return (
       <Message data-testid="secondary-chat-user-turn" from="user">
-        <MessageContent className="whitespace-pre-wrap text-foreground">{turn.user_parts}</MessageContent>
+        <MessageContent className="text-foreground">
+          {/* Wrap in a single span so the chips stay inline. MessageContent
+              is `flex flex-col`, which would otherwise stretch each direct
+              child to full width. */}
+          <span className="whitespace-pre-wrap">{renderWithMentionChips(turn.user_parts)}</span>
+        </MessageContent>
       </Message>
     );
   }
@@ -367,12 +425,19 @@ function SecondaryChatComposer({
   // `mentionQuery === null` means inactive; empty string means the user just
   // typed `#` (show all candidates).
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const filteredMentions = useMemo(() => {
     if (mentionQuery === null) return [] as readonly MentionItem[];
     const lowered = mentionQuery.toLowerCase();
     return mentionableItems.filter((item) => item.refCode.toLowerCase().startsWith(lowered));
+  }, [mentionQuery, mentionableItems]);
+
+  // Snap the highlight back to the first item whenever the candidate set
+  // changes — so the user always starts on a real, in-range row.
+  useEffect(() => {
+    setHighlightedIndex(0);
   }, [mentionQuery, mentionableItems]);
 
   const dismissMention = () => setMentionQuery(null);
@@ -393,10 +458,22 @@ function SecondaryChatComposer({
     });
   };
 
+  const activeMention = filteredMentions[highlightedIndex] ?? filteredMentions[0] ?? null;
+
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Mention popup intercepts Esc/Enter first so the user can pick / dismiss
-    // without triggering the textarea's submit-on-Enter.
-    if (handleMentionPopupKey(event, mentionQuery, filteredMentions[0], pickMention, dismissMention)) {
+    // Mention popup intercepts arrow keys / Enter / Esc first so the user can
+    // navigate + pick + dismiss without triggering the textarea's own logic.
+    if (
+      handleMentionPopupKey(
+        event,
+        mentionQuery,
+        filteredMentions,
+        highlightedIndex,
+        setHighlightedIndex,
+        pickMention,
+        dismissMention,
+      )
+    ) {
       return;
     }
     // Shift+Tab toggles Ask↔Edit; capture before the textarea's Enter logic so
@@ -408,54 +485,60 @@ function SecondaryChatComposer({
   };
 
   return (
-    <PromptInput
-      data-testid="secondary-chat-composer"
-      className="relative text-sm"
-      onSubmit={(message) => {
-        const trimmed = message.text.trim();
-        if (trimmed.length === 0 || disabled) return;
-        onSubmitMessage(trimmed);
-        setDraft('');
-        setMentionQuery(null);
-      }}
-    >
-      <PromptInputBody>
-        <PromptInputTextarea
-          ref={textareaRef}
-          data-testid="secondary-chat-composer-input"
-          placeholder="Ask a follow-up…"
-          disabled={disabled}
-          onKeyDown={handleKeyDown}
-          value={draft}
-          onChange={(event) => {
-            const next = event.currentTarget.value;
-            setDraft(next);
-            const cursor = event.currentTarget.selectionStart ?? next.length;
-            setMentionQuery(computeMentionQuery(next, cursor));
-          }}
-          className="rounded-full px-4"
-        />
-      </PromptInputBody>
-      <PromptInputFooter>
-        <PromptInputTools>
-          <SecondaryChatModeToggle mode={mode} onSetMode={onSetMode} disabled={isModeUpdating} />
-        </PromptInputTools>
-        <PromptInputSubmit
-          data-testid="secondary-chat-composer-send"
-          disabled={disabled}
-          title="Send message"
-          className="rounded-md bg-[#202020] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] hover:enabled:bg-[#000] disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none"
-        />
-      </PromptInputFooter>
+    // Wrap in a relative div so the mention popup can be a sibling of the
+    // PromptInput form. The PromptInput renders an InputGroup with
+    // `overflow-hidden` internally, which would otherwise clip an absolutely
+    // positioned popup placed inside it.
+    <div className="relative text-sm">
+      <PromptInput
+        data-testid="secondary-chat-composer"
+        onSubmit={(message) => {
+          const trimmed = message.text.trim();
+          if (trimmed.length === 0 || disabled) return;
+          onSubmitMessage(trimmed);
+          setDraft('');
+          setMentionQuery(null);
+        }}
+      >
+        <PromptInputBody>
+          <PromptInputTextarea
+            ref={textareaRef}
+            data-testid="secondary-chat-composer-input"
+            placeholder="Ask a follow-up…"
+            disabled={disabled}
+            onKeyDown={handleKeyDown}
+            value={draft}
+            onChange={(event) => {
+              const next = event.currentTarget.value;
+              setDraft(next);
+              const cursor = event.currentTarget.selectionStart ?? next.length;
+              setMentionQuery(computeMentionQuery(next, cursor));
+            }}
+            className="rounded-full px-4"
+          />
+        </PromptInputBody>
+        <PromptInputFooter>
+          <PromptInputTools>
+            <SecondaryChatModeToggle mode={mode} onSetMode={onSetMode} disabled={isModeUpdating} />
+          </PromptInputTools>
+          <PromptInputSubmit
+            data-testid="secondary-chat-composer-send"
+            disabled={disabled}
+            title="Send message"
+            className="rounded-md bg-[#202020] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] hover:enabled:bg-[#000] disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none"
+          />
+        </PromptInputFooter>
+      </PromptInput>
       {mentionQuery !== null && mentionableItems.length > 0 && (
         <SecondaryChatMentionPopup
           query={mentionQuery}
           items={mentionableItems}
+          activeRefCode={activeMention?.refCode ?? null}
           onPick={pickMention}
           onDismiss={dismissMention}
         />
       )}
-    </PromptInput>
+    </div>
   );
 }
 

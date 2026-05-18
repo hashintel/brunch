@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
 
+import { kindColor } from '@/client/components/knowledge-card';
 import {
   Command,
   CommandEmpty,
@@ -8,12 +9,23 @@ import {
   CommandList,
 } from '@/client/components/ui/command';
 import { cn } from '@/client/lib/utils';
+import type { KnowledgeKind } from '@/shared/knowledge.js';
 
-/**
- * One mentionable knowledge item, surfaced to `<SecondaryChatMentionPopup>`.
- * Sourced from `useSpecificationEntities()` in the host; the popup itself is
- * presentational so tests can drive it with synthetic items.
- */
+const KNOWLEDGE_KIND_KEYS: ReadonlySet<KnowledgeKind> = new Set([
+  'goal',
+  'term',
+  'context',
+  'constraint',
+  'assumption',
+  'decision',
+  'requirement',
+  'criterion',
+]);
+
+function asKnowledgeKind(kind: string): KnowledgeKind | null {
+  return KNOWLEDGE_KIND_KEYS.has(kind as KnowledgeKind) ? (kind as KnowledgeKind) : null;
+}
+
 export interface MentionItem {
   refCode: string;
   kind: string;
@@ -25,7 +37,7 @@ export interface MentionItem {
  * Returns the substring between the most recent `#` before the cursor and the
  * cursor itself, or null when no mention is currently being typed.
  *
- * Rules (V1):
+ * Rules:
  * - The `#` must be preceded by start-of-string or whitespace (mid-word `#`
  *   is treated as literal text — e.g. markdown headings on a fresh line are
  *   still candidates, but `abc#R1` is not).
@@ -45,11 +57,6 @@ export function computeMentionQuery(value: string, cursor: number): string | nul
   return slice;
 }
 
-/**
- * Replaces the active `#query` with `#refCode ` in the textarea value.
- * Returns the new value + new cursor position (positioned after the inserted
- * space so the user can keep typing the next token).
- */
 export function insertMention(
   value: string,
   cursor: number,
@@ -68,15 +75,20 @@ export function insertMention(
 export interface SecondaryChatMentionPopupProps {
   query: string;
   items: readonly MentionItem[];
+  /** RefCode of the currently highlighted item — drives cmdk's data-selected. */
+  activeRefCode: string | null;
   onPick: (item: MentionItem) => void;
   onDismiss: () => void;
 }
 
-const MAX_RESULTS = 8;
+// Cap is generous so the list relies on its own scroll rather than truncating
+// silently — keeps long collections discoverable.
+const MAX_RESULTS = 50;
 
 export function SecondaryChatMentionPopup({
   query,
   items,
+  activeRefCode,
   onPick,
   onDismiss,
 }: SecondaryChatMentionPopupProps) {
@@ -87,12 +99,6 @@ export function SecondaryChatMentionPopup({
     return items.filter((item) => item.refCode.toLowerCase().startsWith(lowered)).slice(0, MAX_RESULTS);
   }, [items, query]);
 
-  // ArrowDown/ArrowUp navigation lives on the textarea via the parent
-  // composer; cmdk's `Command` listens to its own keydowns when focused, but
-  // since focus stays in the textarea we intercept here from the parent.
-  // Esc -> dismiss; click -> pick.
-
-  // Dismiss on outside click.
   useEffect(() => {
     function onDocumentMouseDown(event: MouseEvent) {
       const target = event.target as Node;
@@ -107,24 +113,59 @@ export function SecondaryChatMentionPopup({
       ref={popupRef}
       data-testid="secondary-chat-mention-popup"
       data-query={query}
-      className={cn('absolute z-50 mt-1 w-72 rounded-md border border-rule bg-background p-1 shadow-md')}
+      className={cn(
+        'absolute bottom-full z-50 mb-2 w-[22rem] overflow-hidden rounded-xl border border-rule bg-popover text-popover-foreground shadow-card-ring',
+      )}
+      // Keep the textarea focused when picking with a mouse — without this the
+      // mousedown blurs the textarea before onSelect fires, which can cause the
+      // outside-click dismiss to race the pick.
+      onMouseDown={(event) => event.preventDefault()}
     >
-      <Command shouldFilter={false}>
-        <CommandList>
-          <CommandEmpty>No matching items</CommandEmpty>
-          <CommandGroup>
-            {filtered.map((item) => (
-              <CommandItem
-                key={item.refCode}
-                data-testid="secondary-chat-mention-item"
-                data-ref-code={item.refCode}
-                value={item.refCode}
-                onSelect={() => onPick(item)}
-              >
-                <span className="font-mono text-xs text-hint">{item.refCode}</span>
-                <span className="ml-2 truncate text-foreground">{item.content}</span>
-              </CommandItem>
-            ))}
+      <div className="flex items-center justify-between border-b border-rule/70 px-3 py-1.5 text-[10px] font-medium tracking-wide text-hint uppercase">
+        <span>Mention</span>
+        <span className="font-mono tracking-normal normal-case">
+          {query.length === 0 ? '#…' : `#${query}`}
+        </span>
+      </div>
+      <Command
+        shouldFilter={false}
+        // Controlled selection — keyboard handler in the composer drives this.
+        value={activeRefCode ?? undefined}
+        className="bg-transparent p-0"
+      >
+        <CommandList className="max-h-64 overflow-y-auto overscroll-contain p-1">
+          <CommandEmpty className="px-3 py-6 text-center text-xs text-hint">No matching items</CommandEmpty>
+          <CommandGroup className="p-0">
+            {filtered.map((item) => {
+              const knownKind = asKnowledgeKind(item.kind);
+              const badgeClass = knownKind ? kindColor[knownKind] : 'bg-wash text-sub';
+              return (
+                <CommandItem
+                  key={item.refCode}
+                  data-testid="secondary-chat-mention-item"
+                  data-ref-code={item.refCode}
+                  value={item.refCode}
+                  onSelect={() => onPick(item)}
+                  // Fire on mousedown so the click registers before the textarea
+                  // blur dismiss path; pair with the wrapper's preventDefault.
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    onPick(item);
+                  }}
+                  className="cursor-pointer gap-2 rounded-md px-2 py-1.5 data-selected:bg-wash data-selected:text-ink"
+                >
+                  <span
+                    className={cn(
+                      'inline-flex h-5 min-w-[2.25rem] items-center justify-center rounded-sm px-1.5 font-mono text-[10px] leading-none font-medium tracking-wide',
+                      badgeClass,
+                    )}
+                  >
+                    {item.refCode}
+                  </span>
+                  <span className="flex-1 truncate text-sm text-ink">{item.content}</span>
+                </CommandItem>
+              );
+            })}
           </CommandGroup>
         </CommandList>
       </Command>
@@ -133,14 +174,21 @@ export function SecondaryChatMentionPopup({
 }
 
 /**
- * Convenience: intercept Esc / Enter on the textarea while the popup is open.
+ * Intercept popup-relevant keys on the textarea while the popup is open.
+ *
+ * - ArrowUp / ArrowDown move the highlight (wrapping at the ends).
+ * - Enter picks the currently highlighted item.
+ * - Escape dismisses the popup.
+ *
  * Returns true when the event was consumed (caller should not run its own
  * keydown logic).
  */
 export function handleMentionPopupKey(
   event: KeyboardEvent<HTMLTextAreaElement>,
   query: string | null,
-  filteredFirst: MentionItem | undefined,
+  filtered: readonly MentionItem[],
+  highlightedIndex: number,
+  setHighlightedIndex: (index: number) => void,
   onPick: (item: MentionItem) => void,
   onDismiss: () => void,
 ): boolean {
@@ -150,9 +198,22 @@ export function handleMentionPopupKey(
     onDismiss();
     return true;
   }
-  if (event.key === 'Enter' && filteredFirst) {
+  if (filtered.length === 0) return false;
+  if (event.key === 'ArrowDown') {
     event.preventDefault();
-    onPick(filteredFirst);
+    setHighlightedIndex((highlightedIndex + 1) % filtered.length);
+    return true;
+  }
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    setHighlightedIndex((highlightedIndex - 1 + filtered.length) % filtered.length);
+    return true;
+  }
+  if (event.key === 'Enter') {
+    const target = filtered[highlightedIndex] ?? filtered[0];
+    if (!target) return false;
+    event.preventDefault();
+    onPick(target);
     return true;
   }
   return false;

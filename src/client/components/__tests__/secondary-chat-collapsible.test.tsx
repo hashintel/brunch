@@ -628,7 +628,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     expect(screen.getByTestId('secondary-chat-suggestions').dataset.reconciliationKind).toBe('supersedes');
   });
 
-  it('clicking a suggestion populates the composer draft', () => {
+  it('clicking a suggestion submits the chat immediately without filling the draft', () => {
     const chat: SecondaryChat = {
       chat: { ...baseChat, mode: 'explore' },
       kickoffTurn: null,
@@ -637,13 +637,15 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={vi.fn()} />);
+    const onSubmitMessage = vi.fn();
+    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={onSubmitMessage} />);
     fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     const firstSuggestion = screen.getAllByTestId('secondary-chat-suggestion')[0]!;
     const text = firstSuggestion.textContent ?? '';
     fireEvent.click(firstSuggestion);
+    expect(onSubmitMessage).toHaveBeenCalledWith(text);
     const input = screen.getByTestId('secondary-chat-composer-input') as HTMLTextAreaElement;
-    expect(input.value).toBe(text);
+    expect(input.value).toBe('');
   });
 
   it('opens the mention popup when the user types #', () => {
