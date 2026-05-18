@@ -128,7 +128,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Name:** Intent graph semantics + relation-policy directionality foundation
 - **Linear:** FE-700
 - **Kind:** structural
-- **Status:** not-started
+- **Status:** in-progress — Card 1 relation-policy registry and Card 2 read-only intent neighborhood snapshots done; Card 3 cascade-impact policy is next.
 - **Objective:** Refine the ontology and relation policy so the graph can represent invariants, examples/counterexamples, constraint subtypes, narrowed decisions, witness strength, checkability gaps, and operational edge behavior as source/destination material for future generative features.
 - **Why now / unlocks:** Candidate generation, behavioral kernels, graph review, scenario-options acceleration, architect proposals, direct-edit cascade, and downstream verification-aware decomposition all need a sharper semantic target than the current exploration/review ontology. This semantic-layer lane is most likely to collide with parallel work, so it should land before broad observer enrichment or canonical candidate-bundle acceptance.
 - **Acceptance:** `invariant` and `example` are first-class durable kinds; examples are subtyped; `decision` is narrowed; `constraint`, `criterion`, and `invariant` semantics are enriched; `checkability` and witness strength are represented; relation families, negative relations, edge epistemic metadata, relation-policy directionality, and endpoint-relative display labels for dependency/dependent context snapshots are explicit.

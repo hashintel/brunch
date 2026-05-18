@@ -62,7 +62,7 @@ Existing intent-edge validation is preserved while a richer relation-policy regi
 
 ## Card 2 — Read-only intent neighborhood snapshot projection
 
-**Status:** next
+**Status:** done
 **Weight:** full scope card
 
 ### Target Behavior
@@ -101,7 +101,7 @@ A read-only context-snapshot builder can summarize selected intent items and the
 
 ## Card 3 — Cascade impact uses relation policy
 
-**Status:** queued; independent of Card 2, but write serially unless isolated
+**Status:** next; independent of Card 2, but write serially unless isolated
 **Weight:** full scope card
 
 ### Target Behavior
