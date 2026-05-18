@@ -28,6 +28,7 @@ Use design documents for deeper argumentation, raw synthesis, alternatives, and 
 | Document | Role |
 | --- | --- |
 | `INTENT_GRAPH_SEMANTICS.md` | Product-layer ontology, edge taxonomy, relation policy, and progressive-checkability binding. Canonical design reference for FE-700. |
+| `SPEC_WORKSPACE_GRAPHS.md` | Working proposal for four trace-connected graph planes — intent, oracle, design, and plan — including node kinds, semantic edges, impact index, status/provenance, and plan decomposition logic. |
 | `BEHAVIORAL_KERNELS.md` | Behavioral-kernel typology, kernel cards, signal-phrase routing, and contrastive-question workflow. Canonical design reference for kernel probes. |
 | `SPEC_EVOLUTION_STRATEGIES.md` | FE-705-era synthesis for chat-local strategies, scenario options, graph review, proposal turns, relation directionality, and candidate bundles. Graduated into `memory/SPEC.md` / `memory/PLAN.md`; keep as rationale. |
 | `AGENT_MUTATION_SURFACE.md` | Audit of agent-originated/adjoining mutation paths and the capability/changeset boundary needed before agents write durable truth. |
