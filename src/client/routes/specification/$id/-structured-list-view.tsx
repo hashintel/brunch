@@ -16,7 +16,9 @@ import { useChatShellPresence } from '@/client/components/chat-shell-presence.js
 import { kindAccentHex, kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
 import { usePatchList, useStagedPatches } from '@/client/components/patch-list-host.js';
-import { PendingReviewSection } from '@/client/components/pending-review-section.js';
+// FE-716 C30: PendingReviewSection now mounts inside <UnifiedChatShell>; keep the
+// import commented out so the revert path is a 2-line uncomment.
+// import { PendingReviewSection } from '@/client/components/pending-review-section.js';
 import { useSecondaryChatTrigger } from '@/client/components/secondary-chat-trigger.js';
 import { SelectionMenu } from '@/client/components/selection-menu.js';
 import { Badge } from '@/client/components/ui/badge';
@@ -955,11 +957,10 @@ export function StructuredListView({
             </button>
           </div>
         )}
-        {/* Pending review queue sits under the kind filter chips next to the
-            graph list. Staged patches + saved toast mount in specification
-            layout (<PatchListOverlay /> in route.tsx) so they persist across
-            phase routes and sibling navigations. */}
-        <PendingReviewSection />
+        {/* FE-716 C30: pending-review queue integrated into the chat shell body
+            (<UnifiedChatShell /> mounts <PendingReviewSection /> directly).
+            Restore this mount and revert the chat-shell mount to undo. */}
+        {/* <PendingReviewSection /> */}
         <div ref={scrollAreaRef} className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-6 pb-8">
             {view === 'empty' && (

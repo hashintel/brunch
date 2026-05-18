@@ -16,6 +16,8 @@ import { specificationQueryKeys } from '@/client/routes/specification/$id/-speci
 import type { secondaryChatStateSchema } from '@/shared/api-types.js';
 import type { SpecificationState } from '@/shared/specification.js';
 
+import { makeNeed } from './reconciliation-need-fixtures.js';
+
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: '1' }),
 }));
@@ -122,7 +124,10 @@ function makeChat(id: number, mode: 'explore' | 'edit' = 'explore'): SecondaryCh
   };
 }
 
-function createHarness(secondaryChats: SecondaryChat[]): {
+function createHarness(
+  secondaryChats: SecondaryChat[],
+  options: { openNeeds?: ReadonlyArray<ReturnType<typeof makeNeed>> } = {},
+): {
   Wrapper: ({ children }: { children: ReactNode }) => ReactElement;
 } {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -138,6 +143,7 @@ function createHarness(secondaryChats: SecondaryChat[]): {
     assumptions: [],
     relationships: [],
   });
+  queryClient.setQueryData(specificationQueryKeys.reconciliationNeeds('1'), options.openNeeds ?? []);
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <Suspense fallback={<div data-testid="suspense-fallback" />}>{children}</Suspense>
@@ -370,6 +376,33 @@ describe('UnifiedChatShell', () => {
         </Wrapper>,
       );
       expect(screen.queryByTestId('chat-shell-patch-panel')).toBeNull();
+    });
+
+    it('does not render the Pending review region when openNeeds is empty', () => {
+      const { Wrapper } = createHarness([makeChat(7)]);
+      render(
+        <Wrapper>
+          <PatchListProvider appliers={makeAppliers()}>
+            <UnifiedChatShell />
+          </PatchListProvider>
+        </Wrapper>,
+      );
+      expect(screen.queryByRole('region', { name: 'Pending review' })).toBeNull();
+    });
+
+    it('mounts <PendingReviewSection /> inside the shell body when openNeeds is non-empty', () => {
+      const need = makeNeed({ id: 12, specification_id: 1, target_item_id: 5 });
+      const { Wrapper } = createHarness([makeChat(7)], { openNeeds: [need] });
+      render(
+        <Wrapper>
+          <PatchListProvider appliers={makeAppliers()}>
+            <UnifiedChatShell />
+          </PatchListProvider>
+        </Wrapper>,
+      );
+      const region = screen.getByRole('region', { name: 'Pending review' });
+      const body = screen.getByTestId('unified-chat-shell-body');
+      expect(body.contains(region)).toBe(true);
     });
 
     it('mounts the panel inside the shell body when staged patches exist', () => {

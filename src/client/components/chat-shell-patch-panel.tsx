@@ -2,10 +2,9 @@ import { Undo2, X } from 'lucide-react';
 
 import { cn } from '@/client/lib/utils.js';
 
-import { Task, TaskContent, TaskItem, TaskItemFile, TaskTrigger } from './ai-elements/task.js';
+import { Task, TaskContent, TaskItem, TaskTrigger } from './ai-elements/task.js';
 import { ContentDiff } from './content-diff.js';
 import { ImpactChip } from './impact-chip.js';
-import { kindAccentHex } from './knowledge-card.js';
 import { usePatchList, usePatchListState } from './patch-list-host.js';
 import type { Patch } from './patch-list-reducer.js';
 
@@ -26,6 +25,13 @@ export interface ChatShellPatchPanelProps {
  * surfaces the union of every chat's staged patches. Apply is bulk-only at
  * the header; per-row action is Discard. Renders `null` when nothing is
  * staged so the empty-state collapses cleanly.
+ *
+ * Visual posture: neutral by default. Per-row kind / anchor labels render as
+ * plain hint-colored text (no per-kind accent) so the panel reads as part of
+ * the shell's monochrome vocabulary; the only chromatic accent is the
+ * `<ImpactChip>`, which is reused as-is so impact stays legible across the
+ * app. The Apply control reuses the composer-send dark button so primary
+ * actions throughout the shell share one shape.
  */
 export function ChatShellPatchPanel({
   isStreaming = false,
@@ -63,7 +69,7 @@ export function ChatShellPatchPanel({
                 void actions.undo();
               }}
               aria-label="Undo last applied change"
-              className="inline-flex items-center gap-1 rounded-md border border-rule bg-background px-1.5 py-0.5 text-xs text-ink hover:bg-tint"
+              className="inline-flex items-center gap-1 rounded-md border border-rule bg-background px-1.5 py-0.5 text-xs text-hint hover:bg-tint hover:text-ink"
             >
               <Undo2 aria-hidden className="size-3" />
               <span>Undo</span>
@@ -79,8 +85,7 @@ export function ChatShellPatchPanel({
               }}
               aria-label={`Apply all ${count} change${count === 1 ? '' : 's'}`}
               className={cn(
-                'inline-flex items-center rounded-md bg-[linear-gradient(180deg,#3484fa,#2070e6)] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-[#1060d6]',
-                state.isApplying && 'opacity-50',
+                'inline-flex items-center rounded-md bg-[#202020] px-2 py-0.5 text-xs font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] hover:enabled:bg-[#000] disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none',
               )}
             >
               {state.isApplying ? 'Applying…' : 'Apply all'}
@@ -107,7 +112,6 @@ function ChatShellPatchRow({ patch, onDiscard }: { patch: Patch; onDiscard: () =
     typeof patch.currentContent === 'string' &&
     patch.currentContent !== patch.newContent;
   const impact = patch.kind === 'edit' ? patch.impact : undefined;
-  const accent = kindAccentHex[patch.anchor.kind];
   return (
     <li
       data-testid="chat-shell-patch-row"
@@ -116,18 +120,13 @@ function ChatShellPatchRow({ patch, onDiscard }: { patch: Patch; onDiscard: () =
       className="flex flex-col gap-1 rounded-md bg-background px-2 py-1.5"
     >
       <div className="flex items-center gap-1.5">
-        <TaskItemFile
-          data-testid="chat-shell-patch-kind"
-          style={{ borderColor: `${accent}33`, color: accent }}
-          className="uppercase"
-        >
+        <span data-testid="chat-shell-patch-kind" className="font-mono text-[10px] text-hint uppercase">
           {patch.kind}
-        </TaskItemFile>
+        </span>
         {patch.anchorReferenceCode ? (
           <span
             data-staged-patch-anchor={patch.anchorReferenceCode}
-            className="inline-flex shrink-0 items-center rounded-[4px] px-1.5 py-0.5 font-mono text-[11px] font-medium"
-            style={{ backgroundColor: `${accent}14`, color: accent }}
+            className="shrink-0 font-mono text-[10px] text-hint"
           >
             {patch.anchorReferenceCode}
           </span>

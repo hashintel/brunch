@@ -37,11 +37,16 @@ import { useSecondaryChatTrigger } from './secondary-chat-trigger.js';
 // surface in the same Pending review section after the next refetch.
 type EditDraftMap = ReadonlyMap<number, string>;
 
-// Only the kind-relevant chips/bar carry an amber tint (they signal
-// supersedes/confirm semantics). Action buttons use the product's primary
-// blue so non-kind affordances don't bleed into the amber row family.
-const KIND_ACCENT_AMBER = '#d97706';
-const PRIMARY_ACTION_BLUE = '#3484fa';
+// FE-716 C30 follow-up: monochrome vocabulary matching <ChatShellPatchPanel>.
+// One dark primary-action shape (composer-send pedigree) + neutral hint/ink
+// icon affordances. ClassificationChip (its own component) still carries its
+// per-variant chrome — those tints encode semantic state, not decoration.
+const PRIMARY_BUTTON_CLASS =
+  'inline-flex items-center gap-1 rounded-md bg-[#202020] px-2 py-0.5 text-[10px] font-medium text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] hover:enabled:bg-[#000] disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none';
+const ICON_BUTTON_CLASS =
+  'inline-flex size-6 items-center justify-center rounded text-hint opacity-60 transition-opacity group-hover/need-row:opacity-100 hover:bg-tint hover:text-ink hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30';
+const PRIMARY_ICON_BUTTON_CLASS =
+  'inline-flex size-6 items-center justify-center rounded-md bg-[#202020] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] hover:enabled:bg-[#000] disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none';
 
 const TARGET_EXCERPT_LIMIT = 80;
 
@@ -325,14 +330,14 @@ export function PendingReviewSection(): React.ReactElement | null {
       role="region"
       aria-label="Pending review"
       data-open-needs-count={openNeeds.length}
-      className="flex flex-col gap-1 border-b border-rule bg-[rgba(255,219,168,0.18)] px-6 py-2 text-xs"
+      className="flex flex-col gap-1 rounded-lg border border-rule bg-tint/40 px-2 py-1.5 text-xs"
     >
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 font-medium text-ink">
-          <Replace className="size-3.5" style={{ color: KIND_ACCENT_AMBER }} aria-hidden />
+          <Replace className="size-3.5 text-hint" aria-hidden />
           {openNeeds.length} pending review{openNeeds.length === 1 ? '' : 's'}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {agentInFlight ? (
             <span data-agent-progress-strip className="inline-flex items-center gap-1 text-[10px] text-hint">
               <Loader2 className="size-3 animate-spin" aria-hidden />
@@ -356,8 +361,7 @@ export function PendingReviewSection(): React.ReactElement | null {
               data-bulk-confirm-button
               disabled={bulkOperation !== null || agentInFlight}
               onClick={handleConfirmAll}
-              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
-              style={{ backgroundColor: '#16a34a' }}
+              className={PRIMARY_BUTTON_CLASS}
             >
               {bulkOperation === 'confirm' ? (
                 <Loader2 className="size-3 animate-spin" aria-hidden />
@@ -375,8 +379,7 @@ export function PendingReviewSection(): React.ReactElement | null {
               data-bulk-apply-button
               disabled={bulkOperation !== null || agentInFlight}
               onClick={handleApplyAllSuggested}
-              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
-              style={{ backgroundColor: '#ea580c' }}
+              className={PRIMARY_BUTTON_CLASS}
             >
               {bulkOperation === 'apply' ? (
                 <Loader2 className="size-3 animate-spin" aria-hidden />
@@ -396,8 +399,7 @@ export function PendingReviewSection(): React.ReactElement | null {
               data-run-agent-button
               disabled={isRunningAgent || agentInFlight || specificationId === null}
               onClick={handleRunAgent}
-              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
-              style={{ backgroundColor: PRIMARY_ACTION_BLUE }}
+              className={PRIMARY_BUTTON_CLASS}
             >
               {isRunningAgent ? (
                 <Loader2 className="size-3 animate-spin" aria-hidden />
@@ -437,8 +439,6 @@ export function PendingReviewSection(): React.ReactElement | null {
             need.source_current_content !== null &&
             need.source_previous_content !== need.source_current_content;
           const canEditTarget = need.target_current_content !== null;
-          const kindAccent = KIND_ACCENT_AMBER;
-          const actionAccent = PRIMARY_ACTION_BLUE;
           const KindIcon = need.kind === 'supersedes' ? Replace : Check;
           const kindLabel = need.kind === 'supersedes' ? 'supersedes' : 'confirm';
           const targetExcerpt =
@@ -450,248 +450,223 @@ export function PendingReviewSection(): React.ReactElement | null {
               key={need.id}
               data-need-id={need.id}
               data-need-kind={need.kind}
-              className="group/need-row flex gap-2 rounded px-1.5 py-1"
+              className="group/need-row flex flex-col gap-0.5 rounded px-1.5 py-1 hover:bg-tint/40"
             >
-              <span
-                aria-hidden
-                className="w-0.5 shrink-0 self-stretch rounded-full"
-                style={{ backgroundColor: 'rgba(255,219,168,0.6)' }}
-              />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
-                    <span
-                      className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase"
-                      style={{ backgroundColor: `${kindAccent}14`, color: kindAccent }}
-                      data-kind-chip={need.kind}
-                    >
-                      <KindIcon className="size-3" aria-hidden />
-                      {kindLabel}
-                    </span>
-                    <ClassificationChip
-                      agentStatus={need.agent_status}
-                      agentClassification={need.agent_classification}
-                      agentProposal={need.agent_proposal}
-                    />
-                    <span className="min-w-0 truncate text-ink" title={targetExcerpt ?? undefined}>
-                      <span className="font-mono text-hint">#{need.target_item_id}</span>
-                      {targetExcerpt !== null ? (
-                        <>
-                          <span className="mx-1 text-hint">·</span>
-                          {targetExcerpt}
-                        </>
-                      ) : null}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {showAutoConfirmButton ? (
-                      <button
-                        type="button"
-                        aria-label={`Confirm need ${need.id}`}
-                        title="Confirm — resolve this auto-confirm row"
-                        data-confirm-button={need.id}
-                        disabled={rowDisabled}
-                        onClick={() => handleResolve(need.id, need.specification_id)}
-                        className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
-                        style={{ backgroundColor: '#16a34a' }}
-                      >
-                        {isResolving ? (
-                          <Loader2 className="size-3 animate-spin" aria-hidden />
-                        ) : (
-                          <CheckCheck className="size-3" aria-hidden />
-                        )}
-                        Confirm
-                      </button>
-                    ) : null}
-                    {showAutoEditChrome ? (
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                  <span
+                    className="inline-flex size-4 shrink-0 items-center justify-center text-hint"
+                    title={kindLabel}
+                    aria-label={kindLabel}
+                    data-kind-chip={need.kind}
+                  >
+                    <KindIcon className="size-3" aria-hidden />
+                  </span>
+                  <ClassificationChip
+                    agentStatus={need.agent_status}
+                    agentClassification={need.agent_classification}
+                    agentProposal={need.agent_proposal}
+                  />
+                  <span className="min-w-0 truncate text-ink" title={targetExcerpt ?? undefined}>
+                    <span className="font-mono text-hint">#{need.target_item_id}</span>
+                    {targetExcerpt !== null ? (
                       <>
-                        {canViewOrApplyAutoEditProposal ? (
-                          <>
-                            <button
-                              type="button"
-                              aria-label={`View proposal for need ${need.id}`}
-                              data-view-proposal-button={need.id}
-                              onClick={(event) => {
-                                diffAnchorRef.current = event.currentTarget;
-                                setDiffPopoverNeedId({ needId: need.id, mode: 'agent-proposal' });
-                              }}
-                              className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-hint hover:bg-[rgba(0,0,0,0.04)] hover:text-ink"
-                            >
-                              View
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={isApplying ? 'Applying' : `Apply proposal for need ${need.id}`}
-                              title="Apply suggested edit and resolve this row"
-                              data-apply-button={need.id}
-                              disabled={rowDisabled}
-                              onClick={() => handleApplyProposal(need)}
-                              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
-                              style={{ backgroundColor: '#ea580c' }}
-                            >
-                              {isApplying ? (
-                                <Loader2 className="size-3 animate-spin" aria-hidden />
-                              ) : (
-                                <Wand2 className="size-3" aria-hidden />
-                              )}
-                              Apply
-                            </button>
-                          </>
-                        ) : null}
-                        <button
-                          type="button"
-                          aria-label={`Skip proposal for need ${need.id}`}
-                          title="Resolve without applying the proposal"
-                          data-skip-button={need.id}
-                          disabled={rowDisabled}
-                          onClick={() => handleResolve(need.id, need.specification_id)}
-                          className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-hint hover:bg-[rgba(0,0,0,0.05)] hover:text-ink disabled:opacity-30"
-                        >
-                          <Forward className="size-3" aria-hidden />
-                          Skip
-                        </button>
+                        <span className="mx-1 text-hint">·</span>
+                        {targetExcerpt}
                       </>
                     ) : null}
-                    {showOpenSideChatButton ? (
-                      <button
-                        type="button"
-                        aria-label={`Open side-chat for need ${need.id}`}
-                        title="Open side-chat anchored to this row's target"
-                        data-open-side-chat-button={need.id}
-                        disabled={rowDisabled}
-                        onClick={() => handleOpenSideChat(need)}
-                        className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
-                        style={{ backgroundColor: '#a16207' }}
-                      >
-                        <MessageSquare className="size-3" aria-hidden />
-                        Open side-chat
-                      </button>
-                    ) : null}
-                    {canRerunAgent ? (
-                      <button
-                        type="button"
-                        aria-label={isResetting ? 'Re-running' : `Re-run agent for need ${need.id}`}
-                        title="Re-run agent"
-                        data-rerun-agent-button={need.id}
-                        disabled={rowDisabled}
-                        onClick={() => handleResetAgent(need.id, need.specification_id)}
-                        className="inline-flex size-6 items-center justify-center rounded text-hint opacity-60 group-hover/need-row:opacity-100 hover:bg-[rgba(0,0,0,0.05)] hover:text-ink hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30"
-                      >
-                        {isResetting ? (
-                          <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                        ) : (
-                          <RotateCw className="size-3.5" aria-hidden />
-                        )}
-                        <span className="sr-only">{isResetting ? 'Re-running' : 'Re-run agent'}</span>
-                      </button>
-                    ) : null}
-                    {canEditTarget && !isEditing ? (
-                      <button
-                        type="button"
-                        aria-label={`Edit target for need ${need.id}`}
-                        title="Edit target"
-                        disabled={rowDisabled}
-                        onClick={() => startEditing(need.id, need.target_current_content ?? '')}
-                        className="inline-flex size-6 items-center justify-center rounded text-hint opacity-60 group-hover/need-row:opacity-100 hover:bg-[rgba(0,0,0,0.05)] hover:text-ink hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30"
-                      >
-                        <PencilLine className="size-3.5" aria-hidden />
-                        <span className="sr-only">Edit target</span>
-                      </button>
-                    ) : null}
+                  </span>
+                </div>
+                <div className="flex items-center gap-0.5">
+                  {showAutoConfirmButton ? (
                     <button
                       type="button"
-                      aria-label={isResolving ? 'Resolving' : 'Resolve'}
-                      title="Resolve"
+                      aria-label={`Confirm need ${need.id}`}
+                      title="Confirm — resolve this auto-confirm row"
+                      data-confirm-button={need.id}
                       disabled={rowDisabled}
                       onClick={() => handleResolve(need.id, need.specification_id)}
-                      className="inline-flex size-6 items-center justify-center rounded text-white opacity-80 transition-opacity group-hover/need-row:opacity-100 hover:opacity-100 focus-visible:opacity-100 disabled:opacity-50"
-                      style={{ backgroundColor: actionAccent }}
+                      className={PRIMARY_ICON_BUTTON_CLASS}
                     >
                       {isResolving ? (
                         <Loader2 className="size-3.5 animate-spin" aria-hidden />
                       ) : (
-                        <Check className="size-3.5" aria-hidden strokeWidth={2.5} />
+                        <CheckCheck className="size-3.5" aria-hidden />
                       )}
-                      <span className="sr-only">{isResolving ? 'Resolving' : 'Resolve'}</span>
+                      <span className="sr-only">{isResolving ? 'Resolving' : 'Confirm'}</span>
+                    </button>
+                  ) : null}
+                  {showAutoEditChrome ? (
+                    <>
+                      {canViewOrApplyAutoEditProposal ? (
+                        <>
+                          <button
+                            type="button"
+                            aria-label={`View proposal for need ${need.id}`}
+                            title="View proposed edit"
+                            data-view-proposal-button={need.id}
+                            onClick={(event) => {
+                              diffAnchorRef.current = event.currentTarget;
+                              setDiffPopoverNeedId({ needId: need.id, mode: 'agent-proposal' });
+                            }}
+                            className={ICON_BUTTON_CLASS}
+                          >
+                            <PencilLine className="size-3.5" aria-hidden />
+                            <span className="sr-only">View</span>
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={isApplying ? 'Applying' : `Apply proposal for need ${need.id}`}
+                            title="Apply suggested edit and resolve this row"
+                            data-apply-button={need.id}
+                            disabled={rowDisabled}
+                            onClick={() => handleApplyProposal(need)}
+                            className={PRIMARY_ICON_BUTTON_CLASS}
+                          >
+                            {isApplying ? (
+                              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                            ) : (
+                              <Wand2 className="size-3.5" aria-hidden />
+                            )}
+                            <span className="sr-only">{isApplying ? 'Applying' : 'Apply'}</span>
+                          </button>
+                        </>
+                      ) : null}
+                      <button
+                        type="button"
+                        aria-label={`Skip proposal for need ${need.id}`}
+                        title="Resolve without applying the proposal"
+                        data-skip-button={need.id}
+                        disabled={rowDisabled}
+                        onClick={() => handleResolve(need.id, need.specification_id)}
+                        className={ICON_BUTTON_CLASS}
+                      >
+                        <Forward className="size-3.5" aria-hidden />
+                        <span className="sr-only">Skip</span>
+                      </button>
+                    </>
+                  ) : null}
+                  {showOpenSideChatButton ? (
+                    <button
+                      type="button"
+                      aria-label={`Open side-chat for need ${need.id}`}
+                      title="Open side-chat anchored to this row's target"
+                      data-open-side-chat-button={need.id}
+                      disabled={rowDisabled}
+                      onClick={() => handleOpenSideChat(need)}
+                      className={ICON_BUTTON_CLASS}
+                    >
+                      <MessageSquare className="size-3.5" aria-hidden />
+                      <span className="sr-only">Open side-chat</span>
+                    </button>
+                  ) : null}
+                  {canRerunAgent ? (
+                    <button
+                      type="button"
+                      aria-label={isResetting ? 'Re-running' : `Re-run agent for need ${need.id}`}
+                      title="Re-run agent"
+                      data-rerun-agent-button={need.id}
+                      disabled={rowDisabled}
+                      onClick={() => handleResetAgent(need.id, need.specification_id)}
+                      className={ICON_BUTTON_CLASS}
+                    >
+                      {isResetting ? (
+                        <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                      ) : (
+                        <RotateCw className="size-3.5" aria-hidden />
+                      )}
+                      <span className="sr-only">{isResetting ? 'Re-running' : 'Re-run agent'}</span>
+                    </button>
+                  ) : null}
+                  {canEditTarget && !isEditing ? (
+                    <button
+                      type="button"
+                      aria-label={`Edit target for need ${need.id}`}
+                      title="Edit target"
+                      disabled={rowDisabled}
+                      onClick={() => startEditing(need.id, need.target_current_content ?? '')}
+                      className={ICON_BUTTON_CLASS}
+                    >
+                      <PencilLine className="size-3.5" aria-hidden />
+                      <span className="sr-only">Edit target</span>
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    aria-label={isResolving ? 'Resolving' : 'Resolve'}
+                    title="Resolve"
+                    disabled={rowDisabled}
+                    onClick={() => handleResolve(need.id, need.specification_id)}
+                    className={PRIMARY_ICON_BUTTON_CLASS}
+                  >
+                    {isResolving ? (
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    ) : (
+                      <Check className="size-3.5" aria-hidden strokeWidth={2.5} />
+                    )}
+                    <span className="sr-only">{isResolving ? 'Resolving' : 'Resolve'}</span>
+                  </button>
+                </div>
+              </div>
+              {showSourceDiff ? (
+                <div className="flex items-center gap-1 text-[10px] text-hint">
+                  <span>from #{need.source_item_id} was edited</span>
+                  <button
+                    type="button"
+                    aria-label={`View source diff for need ${need.id}`}
+                    data-view-source-diff-chip
+                    onClick={(event) => {
+                      diffAnchorRef.current = event.currentTarget;
+                      setDiffPopoverNeedId({ needId: need.id, mode: 'source-diff' });
+                    }}
+                    className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 font-medium text-hint hover:bg-tint hover:text-ink"
+                  >
+                    ↗ view source diff
+                  </button>
+                </div>
+              ) : null}
+              {isEditing ? (
+                <div
+                  data-edit-target-form
+                  className="mt-1 flex flex-col gap-1.5 rounded-md border border-rule bg-background p-2"
+                >
+                  <textarea
+                    aria-label={`Edit target for need ${need.id}`}
+                    value={draft}
+                    disabled={isSaving || isResolving}
+                    onChange={(event) => updateDraft(need.id, event.target.value)}
+                    className="min-h-[3.5rem] w-full resize-y rounded border border-rule bg-background px-2 py-1 text-[12px] leading-relaxed text-ink outline-none focus:border-foreground/30 disabled:opacity-50"
+                  />
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button
+                      type="button"
+                      aria-label="Cancel"
+                      title="Cancel"
+                      disabled={isSaving || isResolving}
+                      onClick={() => cancelEditing(need.id)}
+                      className="inline-flex size-6 items-center justify-center rounded text-hint hover:bg-tint hover:text-ink disabled:opacity-50"
+                    >
+                      <X className="size-3.5" aria-hidden />
+                      <span className="sr-only">Cancel</span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={isSaving ? 'Saving' : 'Save'}
+                      title="Save"
+                      disabled={isSaving || isResolving}
+                      onClick={() => handleSave(need.id, need.specification_id, need.target_item_id)}
+                      className={PRIMARY_BUTTON_CLASS}
+                    >
+                      {isSaving ? (
+                        <Loader2 className="size-3 animate-spin" aria-hidden />
+                      ) : (
+                        <Check className="size-3" aria-hidden strokeWidth={2.5} />
+                      )}
+                      {isSaving ? 'Saving' : 'Save'}
                     </button>
                   </div>
                 </div>
-                {showSourceDiff ? (
-                  <div className="flex items-center gap-2 text-[11px] text-hint">
-                    <span>from #{need.source_item_id} was edited</span>
-                    <button
-                      type="button"
-                      aria-label={`View source diff for need ${need.id}`}
-                      data-view-source-diff-chip
-                      onClick={(event) => {
-                        diffAnchorRef.current = event.currentTarget;
-                        setDiffPopoverNeedId({ needId: need.id, mode: 'source-diff' });
-                      }}
-                      className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium hover:bg-[rgba(0,0,0,0.04)] hover:text-ink"
-                      style={
-                        diffPopoverNeedId?.needId === need.id && diffPopoverNeedId.mode === 'source-diff'
-                          ? { backgroundColor: `${kindAccent}14`, color: kindAccent }
-                          : undefined
-                      }
-                    >
-                      ↗ view source diff
-                    </button>
-                  </div>
-                ) : null}
-                {isEditing ? (
-                  <div
-                    data-edit-target-form
-                    className="mt-1 flex flex-col gap-1.5 rounded-md p-2"
-                    style={{
-                      backgroundColor: `${actionAccent}10`,
-                      boxShadow: `inset 0 0 0 1px ${actionAccent}1f`,
-                    }}
-                  >
-                    <textarea
-                      aria-label={`Edit target for need ${need.id}`}
-                      value={draft}
-                      disabled={isSaving || isResolving}
-                      onChange={(event) => updateDraft(need.id, event.target.value)}
-                      className="min-h-[3.5rem] w-full resize-y rounded bg-background px-2 py-1 text-[12px] leading-relaxed text-ink shadow-[inset_0_0_0_1px_var(--edit-ring-color)] outline-none focus:shadow-[inset_0_0_0_2px_var(--edit-ring-strong)] disabled:opacity-50"
-                      style={
-                        {
-                          '--edit-ring-color': `${actionAccent}1f`,
-                          '--edit-ring-strong': `${actionAccent}33`,
-                        } as React.CSSProperties
-                      }
-                    />
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        type="button"
-                        aria-label="Cancel"
-                        title="Cancel"
-                        disabled={isSaving || isResolving}
-                        onClick={() => cancelEditing(need.id)}
-                        className="inline-flex size-6 items-center justify-center rounded text-hint hover:bg-[rgba(0,0,0,0.05)] hover:text-ink disabled:opacity-50"
-                      >
-                        <X className="size-3.5" aria-hidden />
-                        <span className="sr-only">Cancel</span>
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={isSaving ? 'Saving' : 'Save'}
-                        title="Save"
-                        disabled={isSaving || isResolving}
-                        onClick={() => handleSave(need.id, need.specification_id, need.target_item_id)}
-                        className="inline-flex h-6 items-center gap-1 rounded px-2 text-[11px] font-medium text-white disabled:opacity-50"
-                        style={{ backgroundColor: actionAccent }}
-                      >
-                        {isSaving ? (
-                          <Loader2 className="size-3 animate-spin" aria-hidden />
-                        ) : (
-                          <Check className="size-3" aria-hidden strokeWidth={2.5} />
-                        )}
-                        {isSaving ? 'Saving' : 'Save'}
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
+              ) : null}
             </li>
           );
         })}
@@ -710,7 +685,6 @@ export function PendingReviewSection(): React.ReactElement | null {
           before={activePopoverNeed.source_previous_content}
           after={activePopoverNeed.source_current_content}
           title={`Source change · #${activePopoverNeed.source_item_id}`}
-          kindAccent={KIND_ACCENT_AMBER}
         />
       ) : null}
       {activePopoverNeed &&
@@ -727,7 +701,6 @@ export function PendingReviewSection(): React.ReactElement | null {
           before={activePopoverNeed.target_current_content}
           after={activePopoverNeed.agent_proposal}
           title={`Proposed edit · #${activePopoverNeed.target_item_id}`}
-          kindAccent="#ea580c"
         />
       ) : null}
     </div>

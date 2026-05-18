@@ -795,6 +795,66 @@ C24a (types) → C24b (server route) → C24c (client refit) → C24d (walkthrou
   - Confirm `<PatchListOverlay>` is no longer mounted (no top-bar `N Edits` summary).
   - Minimize the shell; confirm staged patches are hidden (accepted regression). Expand → panel returns.
 
+### C30 — Integrate `<PendingReviewSection>` inside the chat shell (quick win)
+
+- **Status:** **done** (2026-05-18) — same C29-style "hide, don't remove" pattern applied to the reconciliation-needs surface. Workspace mount at `-structured-list-view.tsx` (kind-filter row) commented out (component import + mount both behind `// FE-716 C30:` comments for a 2-line revert). `<PendingReviewSection />` now mounts inside `<UnifiedChatShell>` body above `<ChatShellPatchPanel>` so the conversational input (needs → side-chat triggers) is visually upstream of the output (proposed edits). Component file + tests untouched; renders `null` when `openNeeds === []` so the shell collapses cleanly. Same minimize/close regression as C29 — when the shell is minimized/closed, pending reviews are hidden (Shape B hybrid-pill follow-up could resurrect them).
+- **Why now:** the user reported that the pending-review surface still hovered above the workspace after C29 retired the patch overlay. Co-locating the two queue surfaces (needs + patches) inside the shell unifies the "conversation + its work" framing C29 established and keeps the workspace center clean for the structured list view.
+- **What landed:**
+  - `src/client/components/unified-chat-shell.tsx` body now renders `<PendingReviewSection />` immediately above `<ChatShellPatchPanel />`.
+  - `src/client/routes/specification/$id/-structured-list-view.tsx` mount + import commented out with revert comments pointing at the new shell mount.
+- **Tests:** `unified-chat-shell.test.tsx` adds 2 mount tests — section absent when `openNeeds === []`, section present inside `unified-chat-shell-body` when seeded with one `makeNeed()`. Existing `pending-review-section.test.tsx` (50+ tests) untouched and still green; `structured-list-view.test.tsx` (56 tests) still green (was already stubbing `useSpecificationOpenReconciliationNeeds` to `[]`).
+- **Out of scope (still Track 3 / `reconciliation-runtime`):** target-grouped grouping, async classifier-state UX, "Reconcile Now" entry point, full `PendingReviewSection` retirement / replacement.
+- **Verification:** `npm run fix` (clean — 6 pre-existing warnings, 0 errors); shell + structured-list + pending-review test suites green (116 / 116).
+
+### C31 — Master chat + tab band
+
+- **Status:** **next**
+- **What:** Introduce a per-spec master secondary chat (always-present, no anchor) and swap the C26 dropdown switcher for a tab band that lists `Master + <item-anchored chats>`. Single-host-at-a-time render stays; the tabs replace the dropdown as the focus driver. Reconciliation chats stay hidden from tabs until Track 3 defines their UX.
+- **Why now:** users want one persistent spec-scope conversation alongside the item-anchored ones; the figma's `New chat | Old chat` tab shape (C27 parking lot, line 719) is the natural place to put that selector once a master exists. Substrate is already multi-chat (C24c parallel `useChat` + C5c partition seam), so this is a UI + one-helper-server change.
+- **Substrate:** master is structurally the C18 scratch-chat shape that was retired — `parent_chat_id = primary_chat_id`, `pinned_item_id IS NULL`, `pinned_reconciliation_need_id IS NULL`. Bundle hydrates it alongside item chats; the shell discriminates via `pinned_item_id === null`. No new tables, no new columns.
+- **Server:**
+  - Add `getOrCreateMasterSecondaryChat(db, specificationId)` in [`specification-store.ts`](file:///Users/kostandin/Projects/hashdev/brunch/src/server/db/specification-store.ts) next to the existing `getOrCreateItemSecondaryChat`. Lookup by `(specification_id, parent_chat_id, pinned_item_id IS NULL, pinned_reconciliation_need_id IS NULL)` → reuse or create. `anchored_item_ids: []`, no kickoff turn (or a single generic "Ask about this spec." kickoff — see open question below).
+  - Route response shape: same `{ chatId, kickoffTurnId }`. Either expose via a new `POST /api/specifications/:id/secondary-chats/master` endpoint, or fold into the existing create route when `{ item, reconciliationNeedId }` are both absent. (Prefer the latter — one endpoint, simpler client.)
+  - Bundle hydration unchanged — master surfaces in `secondaryChats[*]` like any other; the client filter picks it up via `pinned_item_id === null`.
+- **Client / shell:**
+  - On shell first-open per spec, auto-create the master via `useCreateSecondaryChat({ scope: 'master' })` if `secondaryChats.find(c => c.chat.pinned_item_id === null && c.chat.pinned_reconciliation_need_id === null)` is missing. Idempotent — server-side dedupe is the source of truth.
+  - Active chat resolution flips: `activeChat = secondaryChats.find(c => c.chat.id === presence?.focusedChatId) ?? master`. Master is the default when nothing else is focused.
+  - Empty-state copy retires: with master always present the `"Open one from a knowledge item to start a conversation."` line goes away.
+- **Tab band component (`<ChatTabs>`):**
+  - New file: `src/client/components/chat-tabs.tsx`. Renders horizontally below the shell header, above the body.
+  - Master tab pinned first: neutral icon (e.g. `Sparkle` or `MessageSquare`), label "Master", no kind chip.
+  - Item tabs to the right in `chat.id` ascending order: kind chip (lucide icon + `kindAccentHex[chat.pinnedItemKind]` tint) + truncated item excerpt parsed from the kickoff turn's `'…'` token.
+  - Active tab styling: C27 chip schema (`${accent}14` bg + accent text + `${accent}33` border) for item tabs; the neutral master tab uses `bg-tint/60 text-ink` when active.
+  - Click → `presence.focusChat(chatId)` (same hook the dropdown calls today).
+  - Overflow: when the tab strip exceeds the shell width, the tail tabs collapse into a `"···"` trigger that opens the existing `<ChatSwitcher>` dropdown menu (repurposed as overflow only). Keeps the work the dropdown already does — no duplication.
+  - No per-tab close affordance V1 — tabs accumulate, server dedupe (`getOrCreateItemSecondaryChat`) keeps it bounded by item count. Revisit if walkthrough shows tab thrash.
+- **Suggestions (C23) for master:** new arrays in `secondary-chat-suggestions.tsx` keyed on `(mode, scope: 'master')`, six prompts total (3 Ask + 3 Edit) — e.g. Ask: "Summarize this spec", "Find conflicting requirements", "What's missing?"; Edit: "Refine the goals", "Tighten the constraints", "Decompose this requirement". Existing static-per-mode shape preserved.
+- **C19 selection styling:** master has no `pinned_item_id` / `anchoredItemIds`, so the structured-list view renders neutral when master is active. No code change in `-structured-list-view.tsx` needed — the existing `chatAnchored` lookup returns `false` for every row.
+- **Patch + needs scope:** stay global via `usePatchList()` / `useSpecificationOpenReconciliationNeeds`. The `producerChatId` seam already records origin; a future row decoration ("from Goal: latency chat") can land separately.
+- **Out of scope:**
+  - localStorage persistence of `focusedChatId` (defer; on reload, fall back to master).
+  - Per-tab close / archive affordance.
+  - Tab reordering (drag).
+  - Decorating patch / pending-review rows with the producing chat's kind chip.
+  - Reconciliation chats in tabs (Track 3).
+  - Master kickoff-turn copy variations (V1: one template or no kickoff).
+  - Renaming master → custom labels.
+- **Risks:**
+  - **Tab width thrash** — long item excerpts could blow out the strip. Mitigation: hard cap excerpt at ~18 chars + ellipsis, plus the `"···"` overflow.
+  - **Auto-create race** — two shell mounts (e.g. layout-mode flip) racing to create the master. Mitigation: server-side `getOrCreateMasterSecondaryChat` is already dedupe-by-design; client just needs to not throw on the second 200.
+  - **Suggestion-set divergence** — master suggestions are different copy from item-anchored. Keep them in the same `secondary-chat-suggestions.tsx` file so reviewers see both sets together; no new module.
+- **Tests:**
+  - Server: `getOrCreateMasterSecondaryChat` returns the same chatId on second call; cross-spec call creates a different chat.
+  - Client: `unified-chat-shell.test.tsx` — master tab present and active when `focusedChatId === null`; clicking an item tab flips the active host; tab band absent when `secondaryChats.length === 0` (pre-master-create); master auto-creates on shell mount when missing.
+  - `chat-tabs.test.tsx` (new): master tab first, kind chips on item tabs, accent-bordered active state, overflow collapses to dropdown when width-constrained.
+  - C19 regression: structured-list rows stay neutral when master is active.
+  - C26 `<ChatSwitcher>` tests reframe as overflow-menu tests (component is now only mounted via overflow).
+- **Verification:** `npm run verify` green; manual walkthrough — open a fresh spec → master tab present, no item tabs; click goal-1 from structured list → goal tab joins, becomes active; click constraint-2 → third tab; flip back to master via tab click → suggestions render, structured-list rows go neutral; reload → falls back to master.
+- **Open question:** does the master get a kickoff turn? Two shapes:
+  - **(i) No kickoff** — body opens empty, suggestions render at turn-zero, first user message starts the conversation. Cleanest substrate (kickoff turns are optional today).
+  - **(ii) Generic kickoff** — `"Ask about this spec."` (or similar). Matches the item-anchored shape (every chat has a kickoff) and gives the body a non-empty default. Persists one extra turn per spec.
+  - Lean **(i)** — keeps master visually lighter and matches the "blank canvas" affordance the suggestions row already provides.
+
 ## Deferred — explicitly NOT in V1 (parking lot)
 
 These belong to follow-up frontiers and should not be slipped into FE-716:

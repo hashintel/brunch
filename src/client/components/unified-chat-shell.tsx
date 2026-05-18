@@ -8,6 +8,7 @@ import { useSpecificationBundleData } from '@/client/routes/specification/$id/-s
 import { ChatShellPatchPanel } from './chat-shell-patch-panel.js';
 import { useChatShellPresence } from './chat-shell-presence.js';
 import { ChatSwitcher } from './chat-switcher.js';
+import { PendingReviewSection } from './pending-review-section.js';
 import { SecondaryChatHost } from './secondary-chat-host.js';
 import { CHAT_SHELL_SPRING, usePrefersReducedMotion } from './use-prefers-reduced-motion.js';
 
@@ -180,6 +181,12 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
         data-testid="unified-chat-shell-body"
         className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-3"
       >
+        {/* FE-716 C30: reconciliation needs surface integrates inside the chat
+            shell — restore the workspace mount in -structured-list-view.tsx to
+            revert. Pending reviews sit above staged patches so the conversational
+            input (needs → side-chat triggers) is visually upstream of the
+            output (proposed edits). */}
+        <PendingReviewSection />
         <ChatShellPatchPanel />
         {activeChat === null ? (
           <p data-testid="unified-chat-shell-empty" className="text-xs text-hint">

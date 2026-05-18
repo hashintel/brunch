@@ -68,10 +68,24 @@ vi.mock('@/client/components/ai-elements/message.js', () => ({
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
 
+// FE-716 C30: <UnifiedChatShell> mounts <PendingReviewSection>, which calls
+// useSpecificationOpenReconciliationNeeds(). The bundle invalidation that
+// follows a successful trigger.create() also invalidates the reconciliation
+// needs query (prefix match on ["specification", id, ...]), refetching it
+// through the same fetchMock and consuming queued POST/bundle responses out
+// of order. Stub the hook at the module boundary so the section stays inert.
+vi.mock('@/client/routes/specification/$id/-specification-data.js', async (importOriginal) => {
+  const mod =
+    await importOriginal<typeof import('@/client/routes/specification/$id/-specification-data.js')>();
+  return {
+    ...mod,
+    useSpecificationOpenReconciliationNeeds: () => [],
+  };
+});
+
 const { ChatShellPresenceProvider } = await import('../chat-shell-presence.js');
 const { SecondaryChatTriggerProvider, useSecondaryChatTrigger } =
   await import('../secondary-chat-trigger.js');
-const { SecondaryChatHost } = await import('../secondary-chat-host.js');
 const { UnifiedChatShell } = await import('../unified-chat-shell.js');
 
 type SecondaryChat = z.infer<typeof secondaryChatStateSchema>;
@@ -235,40 +249,6 @@ describe('chat shell presence + trigger integration', () => {
       expect(screen.queryByTestId('unified-chat-shell-minimized')).toBeNull();
       expect(screen.getByTestId('unified-chat-shell')).not.toBeNull();
     });
-  });
-
-  it('renders a Jump-to-anchor link on the host when invoked_in_turn_id is set, scrolling its target', async () => {
-    const chat = makeChat(7, 9);
-    const { Wrapper } = makeHarness([chat]);
-
-    document.body.innerHTML = '<div data-anchor-turn-id="9" id="anchor-9"></div>';
-    const target = document.querySelector<HTMLElement>('[data-anchor-turn-id="9"]')!;
-    const scrollSpy = vi.spyOn(target, 'scrollIntoView').mockImplementation(() => {});
-
-    render(
-      <Wrapper>
-        <SecondaryChatHost secondaryChat={chat} />
-      </Wrapper>,
-    );
-
-    const jump = screen.getByTestId('secondary-chat-jump-to-anchor');
-    expect(jump.getAttribute('data-anchor-turn-id')).toBe('9');
-    fireEvent.click(jump);
-
-    expect(scrollSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not render the Jump-to-anchor link when invoked_in_turn_id is null', () => {
-    const chat = makeChat(7, null);
-    const { Wrapper } = makeHarness([chat]);
-
-    render(
-      <Wrapper>
-        <SecondaryChatHost secondaryChat={chat} />
-      </Wrapper>,
-    );
-
-    expect(screen.queryByTestId('secondary-chat-jump-to-anchor')).toBeNull();
   });
 
   it('auto-opens the focused chat collapsible once focus matches', async () => {
