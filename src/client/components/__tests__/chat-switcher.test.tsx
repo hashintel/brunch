@@ -41,17 +41,19 @@ describe('ChatSwitcher — C27 selective kind-accent tinting', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('decorates the trigger button with a kindAccentHex left-border for the active chat', () => {
+  it('decorates the trigger button with the side-chat chip schema for the active chat', () => {
     const chats = [makeChat(7, 'goal'), makeChat(8, 'constraint')];
     render(<ChatSwitcher chats={chats} activeChatId={8} onSelect={vi.fn()} />);
 
     const trigger = screen.getByTestId('chat-switcher-trigger') as HTMLButtonElement;
     expect(trigger.getAttribute('data-accent-hex')).toBe(kindAccentHex.constraint);
-    expect(trigger.style.borderLeftColor).not.toBe('');
-    expect(trigger.style.borderLeftWidth).toBe('3px');
+    // Chip schema: tinted bg + accent text + ~20% border alpha.
+    expect(trigger.style.backgroundColor).not.toBe('');
+    expect(trigger.style.color).not.toBe('');
+    expect(trigger.style.borderColor).not.toBe('');
   });
 
-  it('marks the active dropdown row with a kindAccentHex border and forwards selection', () => {
+  it('marks the active dropdown row with the chip schema and forwards selection', () => {
     const onSelect = vi.fn();
     const chats = [makeChat(7, 'goal'), makeChat(11, 'decision')];
     render(<ChatSwitcher chats={chats} activeChatId={11} onSelect={onSelect} />);
@@ -66,11 +68,12 @@ describe('ChatSwitcher — C27 selective kind-accent tinting', () => {
     const activeRow = screen.getByTestId('chat-switcher-item-11');
     expect(activeRow.getAttribute('data-active')).toBe('true');
     expect(activeRow.getAttribute('data-accent-hex')).toBe(kindAccentHex.decision);
-    expect(activeRow.style.borderLeftWidth).toBe('3px');
+    expect(activeRow.style.backgroundColor).not.toBe('');
+    expect(activeRow.style.color).not.toBe('');
 
     const inactiveRow = screen.getByTestId('chat-switcher-item-7');
     expect(inactiveRow.getAttribute('data-active')).toBe('false');
-    expect(inactiveRow.style.borderLeftWidth).toBe('');
+    expect(inactiveRow.style.backgroundColor).toBe('');
 
     fireEvent.pointerDown(inactiveRow, { button: 0, pointerType: 'mouse' });
     fireEvent.pointerUp(inactiveRow, { button: 0, pointerType: 'mouse' });

@@ -119,12 +119,17 @@ export function SecondaryChatCollapsible({
   // bundle invalidates, hiding the suggestions row.
   const isTurnZero = secondaryChat.turns.length === 0;
   const reconciliationKind = secondaryChat.pinnedReconciliationNeed?.kind ?? null;
-  // FE-716 C27: selective kind-accent tinting. The chat panel gets a subtle
-  // ~2px left strip in `kindAccentHex`, and the collapsible trigger's focus
-  // ring borrows the same colour at ~30% opacity so accent communicates the
-  // anchored item's kind without overwhelming the surface background.
+  // FE-716 C27 (revised post-walkthrough): selective kind-accent tinting on
+  // the chat panel, using the side-chat color schema — a soft accent-tinted
+  // background (`${accent}0a` ~4% alpha) + accent border at `${accent}33`
+  // (~20% alpha) instead of a full-saturation left strip. The focus ring
+  // borrows the accent at ~30% opacity (`${accent}4D`). This matches the
+  // chip pattern used elsewhere in the structured list / staged-patches
+  // strip and keeps the surface readable across kinds.
   const pinnedAccent = secondaryChat.pinnedItemKind ? kindAccentHex[secondaryChat.pinnedItemKind] : null;
-  const accentStripStyle = pinnedAccent ? { borderLeftColor: pinnedAccent, borderLeftWidth: 2 } : undefined;
+  const accentPanelStyle = pinnedAccent
+    ? { borderColor: `${pinnedAccent}33`, backgroundColor: `${pinnedAccent}0a` }
+    : undefined;
 
   // FE-716 C28: autoscroll the chat surface to the latest message as turns
   // arrive or streaming text grows. The scroll ancestor is the shell body
@@ -141,8 +146,15 @@ export function SecondaryChatCollapsible({
       data-testid="secondary-chat-collapsible"
       data-secondary-chat-id={secondaryChat.chat.id}
       data-accent-hex={pinnedAccent ?? undefined}
-      style={accentStripStyle}
-      className={cn('rounded-lg border border-rule bg-tint/50 px-3 py-2 text-sm')}
+      style={accentPanelStyle}
+      // `flex min-h-0 flex-col` makes the body a flex column so the composer
+      // can be pushed to the bottom of the available chat surface (per
+      // walkthrough feedback "input stays always at the bottom"). The
+      // panel is collapsible — when collapsed the flex layout still works.
+      className={cn(
+        'flex min-h-0 flex-col rounded-lg border border-rule bg-tint/50 px-3 py-2 text-sm',
+        pinnedAccent ? 'bg-transparent' : undefined,
+      )}
       {...collapsibleProps}
     >
       <div className="flex w-full items-center justify-between gap-2">
@@ -173,7 +185,7 @@ export function SecondaryChatCollapsible({
       </div>
       <CollapsibleContent
         data-testid="secondary-chat-collapsible-body"
-        className="flex flex-col gap-2 pt-2 text-foreground"
+        className="flex min-h-0 flex-1 flex-col gap-2 pt-2 text-foreground"
       >
         {secondaryChat.pinnedReconciliationNeed && (
           <SecondaryChatReconciliationPanel need={secondaryChat.pinnedReconciliationNeed} />
@@ -198,7 +210,12 @@ export function SecondaryChatCollapsible({
         {onSubmitMessage && (
           <div
             data-testid="secondary-chat-composer-sticky"
-            className="sticky -mx-3 mt-1 -mb-2 border-t border-rule/40 bg-background/95 px-3 pt-2 pb-2 backdrop-blur-sm"
+            // `mt-auto` pushes the composer to the bottom of the flex
+            // column when the conversation is shorter than the available
+            // height; `sticky bottom-0` keeps it pinned when scrolling
+            // through a long transcript. Combined the composer is "always
+            // at the bottom" of the chat surface (per walkthrough feedback).
+            className="sticky -mx-3 mt-auto -mb-2 border-t border-rule/40 bg-background/95 px-3 pt-2 pb-2 backdrop-blur-sm"
             style={{ bottom: 0 }}
           >
             {isTurnZero && (
@@ -461,7 +478,12 @@ function SecondaryChatComposer({
         <PromptInputSubmit
           data-testid="secondary-chat-composer-send"
           disabled={disabled}
-          className="rounded-full bg-ink text-background hover:bg-ink/90"
+          title="Send message"
+          // Match the side-chat color schema: dark filled rounded square
+          // (`bg-[#202020] text-white`), not the pill from the original
+          // C27 figma extrapolation. Keeps the Send affordance consistent
+          // with the legacy SideChatPopover that users are accustomed to.
+          className="rounded-md bg-[#202020] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_0_1px_#101010] hover:enabled:bg-[#000] disabled:bg-[#e3e3e3] disabled:text-[#a6a6a6] disabled:shadow-none"
         />
       </PromptInputFooter>
       {mentionQuery !== null && mentionableItems.length > 0 && (
@@ -475,6 +497,16 @@ function SecondaryChatComposer({
     </PromptInput>
   );
 }
+
+// FE-716 C27 (revised post-walkthrough): the mode toggle is presented as
+// the "Agent" affordance — a labeled segmented control with hover tooltips
+// explaining what each mode does. The underlying mode values (`explore`,
+// `edit`) and testids stay unchanged so existing tests + server contract
+// keep working; only the visible labeling + tooltips change.
+const MODE_HOVER_COPY: Record<SecondaryChatMode, string> = {
+  explore: 'Ask — discuss the item, get analysis, no changes to the spec',
+  edit: 'Edit — agent proposes structured changes you can review and apply',
+};
 
 function SecondaryChatModeToggle({
   mode,
@@ -495,14 +527,19 @@ function SecondaryChatModeToggle({
     <span
       data-testid="secondary-chat-mode-toggle"
       data-mode={mode}
-      className="inline-flex items-center gap-0.5 rounded border border-rule bg-background p-0.5 text-xs"
+      aria-label="Agent mode"
+      className="inline-flex items-center gap-1 rounded border border-rule bg-background p-0.5 text-xs"
     >
+      <span aria-hidden className="px-1 font-medium text-hint">
+        Agent
+      </span>
       <button
         type="button"
         data-testid="secondary-chat-mode-ask"
         aria-pressed={mode === 'explore'}
         disabled={!interactive || disabled}
         onClick={handleClick('explore')}
+        title={MODE_HOVER_COPY.explore}
         className={cn(
           'rounded px-1.5 py-0.5 transition-colors',
           mode === 'explore' ? 'bg-tint text-ink' : 'text-hint hover:bg-wash hover:text-ink',
@@ -517,6 +554,7 @@ function SecondaryChatModeToggle({
         aria-pressed={mode === 'edit'}
         disabled={!interactive || disabled}
         onClick={handleClick('edit')}
+        title={MODE_HOVER_COPY.edit}
         className={cn(
           'rounded px-1.5 py-0.5 transition-colors',
           mode === 'edit' ? 'bg-tint text-ink' : 'text-hint hover:bg-wash hover:text-ink',

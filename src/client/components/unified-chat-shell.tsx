@@ -190,6 +190,13 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
             initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={fadeSpring}
+            // Take the full body height so the collapsible inside can use
+            // `flex-1` to push the composer to the bottom of the chat
+            // surface (per walkthrough feedback: "input stays always at
+            // the bottom"). Without `flex flex-1 flex-col` here the
+            // motion.div would shrink to content height and the composer
+            // would sit just below the messages.
+            className="flex min-h-0 flex-1 flex-col"
           >
             <SecondaryChatHost secondaryChat={activeChat} />
           </motion.div>

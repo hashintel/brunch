@@ -679,12 +679,13 @@ function ItemRow({
 }) {
   const hasExpansion = Boolean(item.rationale) || outgoing.length > 0 || incoming.length > 0;
   const itemAccentHex = kindAccentHex[item.kind];
-  // ~10% alpha (hex `1A`) on top of the bg keeps the tint readable in
-  // both light + dark themes; pairs with the solid 2px left-border so the
-  // selected state is legible without overwhelming the surface.
-  const chatAnchorStyle = chatAnchored
-    ? { borderLeftColor: itemAccentHex, borderLeftWidth: 2, backgroundColor: `${itemAccentHex}1A` }
-    : undefined;
+  // FE-716 C27/C19 (revised post-walkthrough): align the chat-anchored row
+  // styling with the side-chat color schema — accent border at `${accent}33`
+  // (~20% alpha, full 1px) only. The background tint was tried but the
+  // graph view already has dense kind-colored chips, so layering an
+  // accented row background reads as visually noisy — drop the tint and
+  // keep only the border-accent as the selected affordance.
+  const chatAnchorStyle = chatAnchored ? { borderColor: `${itemAccentHex}33` } : undefined;
 
   return (
     <Collapsible defaultOpen={defaultOpen} asChild>

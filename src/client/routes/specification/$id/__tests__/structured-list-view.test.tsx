@@ -1113,16 +1113,17 @@ describe('structured-list-view C19 chat-anchored row selection', () => {
       '[data-graph-row][data-item-kind="constraint"][data-item-id="20"]',
     ) as HTMLElement;
     expect(constraintRow.getAttribute('data-graph-row-chat-anchored')).toBe('true');
-    expect(constraintRow.style.borderLeftWidth).toBe('2px');
-    // C19: tint + border both use the item's kind accent (kindAccentHex.constraint = #ec4899).
-    expect(constraintRow.style.borderLeftColor).not.toBe('');
-    expect(constraintRow.style.backgroundColor).not.toBe('');
+    // Revised C19 schema (post-walkthrough): accent border only — the
+    // background tint was dropped because the graph view already has
+    // dense kind-colored chips and an extra row tint reads as noisy.
+    expect(constraintRow.style.borderColor).not.toBe('');
+    expect(constraintRow.style.backgroundColor).toBe('');
 
     const goalRow = container.querySelector(
       '[data-graph-row][data-item-kind="goal"][data-item-id="10"]',
     ) as HTMLElement;
     expect(goalRow.getAttribute('data-graph-row-chat-anchored')).toBeNull();
-    expect(goalRow.style.borderLeftWidth).toBe('');
+    expect(goalRow.style.borderColor).toBe('');
   });
 
   it("also marks rows whose ids appear in the active chat's anchoredItemIds", () => {
