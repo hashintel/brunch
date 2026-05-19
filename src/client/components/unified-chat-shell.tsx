@@ -103,7 +103,15 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
     const key = `${specificationId}:${parentChatId}`;
     if (masterCreateAttemptedRef.current === key) return;
     masterCreateAttemptedRef.current = key;
-    void masterMutationRef.current.create({ parentChatId });
+    void masterMutationRef.current.create({ parentChatId }).then((result) => {
+      // `create` returns null on network or server error. Releasing the
+      // latch on failure lets a subsequent render — e.g. bundle refresh,
+      // route navigation — retry instead of stranding the shell on an
+      // empty "Opening chat…" state until full remount.
+      if (result === null && masterCreateAttemptedRef.current === key) {
+        masterCreateAttemptedRef.current = null;
+      }
+    });
   }, [hasMaster, parentChatId, specificationId]);
 
   // Sticky-overlays bar collapses entirely when both feeds are empty.
@@ -271,6 +279,12 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
               onAssistantTurnArrival={handleAssistantTurnArrival}
             />
           ))}
+        </div>
+        {/* Float the post-apply Undo toast above the pill so users who
+            minimize right after Apply still have the 5s undo window. The
+            toast renders null when there's nothing undoable. */}
+        <div className="pointer-events-none fixed right-4 bottom-14 z-30 flex justify-end">
+          <ChatShellAppliedToast />
         </div>
       </>
     );
