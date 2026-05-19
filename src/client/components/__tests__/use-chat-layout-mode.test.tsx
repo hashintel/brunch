@@ -47,9 +47,9 @@ describe('decrementChatLayoutMode', () => {
 });
 
 describe('useChatLayoutMode', () => {
-  it('defaults to compact when localStorage is empty', () => {
+  it('defaults to side-docked when localStorage is empty', () => {
     render(<Harness specificationId="42" />);
-    expect(screen.getByTestId('mode').textContent).toBe('compact');
+    expect(screen.getByTestId('mode').textContent).toBe('side-docked');
   });
 
   it('persists the chosen mode to localStorage under a per-spec key', () => {
@@ -75,7 +75,7 @@ describe('useChatLayoutMode', () => {
   it('ignores junk values in localStorage and falls back to the default', () => {
     window.localStorage.setItem(chatLayoutModeStorageKey('99'), 'not-a-mode');
     render(<Harness specificationId="99" />);
-    expect(screen.getByTestId('mode').textContent).toBe('compact');
+    expect(screen.getByTestId('mode').textContent).toBe('side-docked');
   });
 
   it('decrements one tier on Escape from the reachable max (maximize → side-docked → compact, then stays)', () => {

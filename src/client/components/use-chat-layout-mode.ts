@@ -9,7 +9,10 @@ export const CHAT_LAYOUT_MODE_ORDER: ReadonlyArray<ChatLayoutMode> = [
   'full',
 ];
 
-const DEFAULT_MODE: ChatLayoutMode = 'compact';
+// FE-716 shell brief opens the chat in the split Side-docked layout so the
+// workspace and chat share the viewport on first visit. Compact / Maximize /
+// Full remain reachable via the header toggle and persist per spec.
+const DEFAULT_MODE: ChatLayoutMode = 'side-docked';
 
 function isChatLayoutMode(value: unknown): value is ChatLayoutMode {
   return typeof value === 'string' && (CHAT_LAYOUT_MODE_ORDER as readonly string[]).includes(value);

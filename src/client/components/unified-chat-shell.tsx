@@ -74,8 +74,11 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
   };
 
   const secondaryChats = specificationState.secondaryChats ?? [];
-  // Reconciliation-pinned chats stay hidden until their UX is defined.
-  const visibleChats = secondaryChats.filter((c) => c.chat.pinned_reconciliation_need_id === null);
+  // All secondary chats are renderable — including reconciliation-pinned
+  // ones. They previously were filtered out here, which silently swallowed
+  // `focusChat(reconciliationChatId)` calls (the new chat would be created
+  // but the shell stayed on the previously-active master/item chat).
+  const visibleChats = secondaryChats;
   const itemChats = visibleChats.filter(isItemChat);
   const hasMaster = visibleChats.some(isMasterChat);
 
@@ -84,14 +87,24 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
   const parentChatId = specificationState.specification.primary_chat_id ?? null;
   const specificationId = specificationState.specification.id;
   const masterMutation = useCreateMasterChatMutation(specificationId);
-  const masterCreatePending = useRef(false);
+  // `useCreateMasterChatMutation` returns a fresh object on every render, so
+  // hold it in a ref to keep the auto-create effect dependency-stable; with
+  // it in the dep array the effect could re-fire between in-flight creates
+  // and the bundle invalidation that flips `hasMaster` true, issuing
+  // duplicate `POST /secondary-chats` calls.
+  const masterMutationRef = useRef(masterMutation);
+  masterMutationRef.current = masterMutation;
+  // Hard latch keyed on `(specId, parentChatId)`: once we've kicked off a
+  // create for a given pair we never retry on the same shell mount even if
+  // the bundle is slow to refresh.
+  const masterCreateAttemptedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (hasMaster || parentChatId === null || masterCreatePending.current) return;
-    masterCreatePending.current = true;
-    void masterMutation.create({ parentChatId }).finally(() => {
-      masterCreatePending.current = false;
-    });
-  }, [hasMaster, parentChatId, masterMutation]);
+    if (hasMaster || parentChatId === null) return;
+    const key = `${specificationId}:${parentChatId}`;
+    if (masterCreateAttemptedRef.current === key) return;
+    masterCreateAttemptedRef.current = key;
+    void masterMutationRef.current.create({ parentChatId });
+  }, [hasMaster, parentChatId, specificationId]);
 
   // Sticky-overlays bar collapses entirely when both feeds are empty.
   const openReconciliationNeeds = useSpecificationOpenReconciliationNeeds();
