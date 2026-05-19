@@ -71,7 +71,12 @@ export interface CreateSecondaryChatRequest {
 
 export interface CreateSecondaryChatResponse {
   chatId: number;
-  kickoffTurnId: number;
+  /**
+   * `null` when an existing chat for the (parent, item) pair is reused — see
+   * `getOrCreateItemSecondaryChat` in `server/db/specification-store.ts`. The
+   * reconciliation-need path always returns a number.
+   */
+  kickoffTurnId: number | null;
 }
 
 export function useCreateSecondaryChatMutation(specificationId: number) {

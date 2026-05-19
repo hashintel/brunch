@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { ChatLayoutMode } from './unified-chat-shell.js';
 
@@ -62,6 +62,15 @@ export interface UseChatLayoutModeResult {
 export function useChatLayoutMode(specificationId: number | string): UseChatLayoutModeResult {
   const [layoutMode, setLayoutModeState] = useState<ChatLayoutMode>(() => readPersistedMode(specificationId));
 
+  // Mirror `layoutMode` into a ref so the Esc handler can derive the next
+  // mode without running a side effect inside `setLayoutModeState`'s updater
+  // function (React may invoke updaters more than once — e.g. Strict Mode —
+  // and `localStorage.setItem` should fire exactly once per transition).
+  const layoutModeRef = useRef(layoutMode);
+  useEffect(() => {
+    layoutModeRef.current = layoutMode;
+  }, [layoutMode]);
+
   // When the specification id changes (route navigation across specs),
   // re-hydrate from that spec's storage slot.
   useEffect(() => {
@@ -84,12 +93,12 @@ export function useChatLayoutMode(specificationId: number | string): UseChatLayo
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (event.defaultPrevented) return;
-      setLayoutModeState((current) => {
-        const next = decrementChatLayoutMode(current);
-        if (next === current) return current;
-        writePersistedMode(specificationId, next);
-        return next;
-      });
+      const current = layoutModeRef.current;
+      const next = decrementChatLayoutMode(current);
+      if (next === current) return;
+      layoutModeRef.current = next;
+      writePersistedMode(specificationId, next);
+      setLayoutModeState(next);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);

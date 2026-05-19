@@ -15,6 +15,7 @@ import {
   type BrunchUIMessagePart,
   type EditImpactTier,
 } from '@/shared/chat.js';
+import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import { usePatchListForChat, type PatchListForChat } from './patch-list-host.js';
 import { SecondaryChatCollapsible, SecondaryChatComposerPanel } from './secondary-chat-collapsible.js';
@@ -68,6 +69,12 @@ function useSecondaryChatStream(
   const pinnedAnchor = secondaryChat.chat.pinned_item_id;
   const pinnedItemKind = secondaryChat.pinnedItemKind;
   const { invalidateSpecificationBundle } = useInvalidateSpecificationQueryDomains();
+  const entities = useSpecificationEntities();
+  // `propose_edge` carries a `targetReferenceCode` (e.g. "G2"); resolving it
+  // to a real `(kind, itemId)` is required before staging — otherwise the
+  // edge applier would create a self-referencing edge against the pinned
+  // anchor and corrupt the intent graph.
+  const anchorByRefCode = useMemo(() => buildAnchorByRefCode(entities), [entities]);
 
   const transport = useMemo(
     () =>
@@ -143,11 +150,20 @@ function useSecondaryChatStream(
           consumedToolCallIds.current.add(toolCallId);
         } else if (part.type === 'tool-propose_edge') {
           const input = part.input as { targetReferenceCode: string; relation: string };
+          // Resolve the target by referenceCode; drop the proposal entirely
+          // when we can't (or when the model targeted the pinned anchor
+          // itself) so the edge applier never creates a self-referencing
+          // edge in the knowledge graph.
+          const targetAnchor = anchorByRefCode.get(input.targetReferenceCode);
+          if (!targetAnchor || (targetAnchor.kind === anchor.kind && targetAnchor.itemId === anchor.itemId)) {
+            consumedToolCallIds.current.add(toolCallId);
+            continue;
+          }
           patchList.stage({
             kind: 'edge',
             producerChatId: chatId,
             anchor,
-            targetAnchor: anchor,
+            targetAnchor,
             relation: input.relation,
             summary: `Edge: ${input.targetReferenceCode} (${input.relation})`,
           });
@@ -165,7 +181,7 @@ function useSecondaryChatStream(
         }
       }
     }
-  }, [chatId, editImpactByToolCallId, messages, patchList, pinnedAnchor, pinnedItemKind]);
+  }, [anchorByRefCode, chatId, editImpactByToolCallId, messages, patchList, pinnedAnchor, pinnedItemKind]);
 
   const send = useCallback(
     async (message: string): Promise<void> => {
@@ -223,6 +239,40 @@ export function buildRefCodeByItemId(entities: EntitiesData): Map<number, string
     for (const item of bucket) {
       if (typeof item.referenceCode === 'string' && item.referenceCode.length > 0) {
         map.set(item.id, item.referenceCode);
+      }
+    }
+  }
+  return map;
+}
+
+/**
+ * Reverse index from `referenceCode` (e.g. "G2", "D5") to the originating
+ * knowledge anchor. Used to resolve `propose_edge.targetReferenceCode` to a
+ * concrete `(kind, itemId)` target before staging the patch — without this,
+ * the edge applier would silently create self-referencing edges anchored on
+ * the chat's pinned item.
+ */
+export function buildAnchorByRefCode(
+  entities: EntitiesData,
+): Map<string, { kind: KnowledgeKind; itemId: number }> {
+  const map = new Map<string, { kind: KnowledgeKind; itemId: number }>();
+  const buckets: ReadonlyArray<{
+    kind: KnowledgeKind;
+    items: ReadonlyArray<{ id: number; referenceCode?: string }>;
+  }> = [
+    { kind: 'goal', items: entities.goals },
+    { kind: 'term', items: entities.terms },
+    { kind: 'context', items: entities.contexts },
+    { kind: 'constraint', items: entities.constraints },
+    { kind: 'requirement', items: entities.requirements },
+    { kind: 'criterion', items: entities.criteria },
+    { kind: 'decision', items: entities.decisions },
+    { kind: 'assumption', items: entities.assumptions },
+  ];
+  for (const bucket of buckets) {
+    for (const item of bucket.items) {
+      if (typeof item.referenceCode === 'string' && item.referenceCode.length > 0) {
+        map.set(item.referenceCode, { kind: bucket.kind, itemId: item.id });
       }
     }
   }

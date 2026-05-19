@@ -50,6 +50,7 @@ function makeIdFactory() {
 function makeEditInput(overrides: Partial<StagePatchInput> = {}): StagePatchInput {
   return {
     kind: 'edit',
+    producerChatId: null,
     anchor: { kind: 'decision', itemId: 1 },
     summary: 'edit summary',
     newContent: 'new',
@@ -61,6 +62,7 @@ function makeEditInput(overrides: Partial<StagePatchInput> = {}): StagePatchInpu
 function makeAnnotateInput(overrides: Partial<StagePatchInput> = {}): StagePatchInput {
   return {
     kind: 'annotate',
+    producerChatId: null,
     anchor: { kind: 'decision', itemId: 1 },
     summary: 'note',
     body: 'note body',
