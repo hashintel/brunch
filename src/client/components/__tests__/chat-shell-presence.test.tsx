@@ -243,13 +243,22 @@ function TriggerButton({ chatId = 0 }: { chatId?: number }) {
 
 describe('chat shell presence + trigger integration', () => {
   it('expands the shell and focuses the new chat after a successful create', async () => {
+    // Seed a master so `UnifiedChatShell`'s auto-create-master effect stays
+    // dormant; otherwise its POST would steal the first `fetchMock`
+    // response that the trigger create expects.
+    const master = makeMasterChat();
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ chatId: 42, kickoffTurnId: 100 }), { status: 200 }),
     );
 
-    const { Wrapper, queryClient } = makeHarness([]);
+    const { Wrapper, queryClient } = makeHarness([master]);
 
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(buildSpec([makeChat(42)])), { status: 200 }));
+    // Bundle reload after create includes both the seeded master and the
+    // new item chat so `hasMaster` stays true and the auto-create effect
+    // cannot fire again.
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify(buildSpec([master, makeChat(42)])), { status: 200 }),
+    );
 
     render(
       <Wrapper>

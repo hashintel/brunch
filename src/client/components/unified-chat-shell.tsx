@@ -205,42 +205,61 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
   if (appearance === 'closed' || appearance === 'minimized') {
     const openChatCount = itemChats.length;
     return (
-      <motion.button
-        key="minimized"
-        type="button"
-        data-testid="unified-chat-shell-minimized"
-        data-open-chat-count={openChatCount}
-        onClick={(event) => {
-          // Pill clicks must not bubble to graph/list listeners below.
-          event.stopPropagation();
-          setAppearance('expanded');
-        }}
-        initial={prefersReducedMotion ? false : { opacity: 0, y: 8, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={prefersReducedMotion ? undefined : { opacity: 0, y: 8, scale: 0.95 }}
-        transition={fadeSpring}
-        aria-label={
-          openChatCount > 0
-            ? `Expand chat — ${openChatCount} open ${openChatCount === 1 ? 'conversation' : 'conversations'}`
-            : 'Expand chat'
-        }
-        className="group fixed right-4 bottom-4 z-30 inline-flex items-center gap-2 rounded-full border border-rule/50 bg-background px-3 py-1.5 text-xs text-ink shadow-md transition-[box-shadow,background-color] duration-200 hover:bg-tint hover:shadow-lg"
-      >
-        <Send
-          aria-hidden
-          className="size-3.5 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:rotate-[-8deg] group-active:translate-y-0"
-        />
-        <span>Ask Brunch</span>
-        {openChatCount > 0 && (
-          <span
-            data-testid="unified-chat-shell-minimized-count"
+      <>
+        <motion.button
+          key="minimized"
+          type="button"
+          data-testid="unified-chat-shell-minimized"
+          data-open-chat-count={openChatCount}
+          onClick={(event) => {
+            // Pill clicks must not bubble to graph/list listeners below.
+            event.stopPropagation();
+            setAppearance('expanded');
+          }}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 8, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={prefersReducedMotion ? undefined : { opacity: 0, y: 8, scale: 0.95 }}
+          transition={fadeSpring}
+          aria-label={
+            openChatCount > 0
+              ? `Expand chat — ${openChatCount} open ${openChatCount === 1 ? 'conversation' : 'conversations'}`
+              : 'Expand chat'
+          }
+          className="group fixed right-4 bottom-4 z-30 inline-flex items-center gap-2 rounded-full border border-rule/50 bg-background px-3 py-1.5 text-xs text-ink shadow-md transition-[box-shadow,background-color] duration-200 hover:bg-tint hover:shadow-lg"
+        >
+          <Send
             aria-hidden
-            className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-tint px-1.5 py-0.5 font-mono text-[10px] leading-none text-hint"
-          >
-            {openChatCount}
-          </span>
-        )}
-      </motion.button>
+            className="size-3.5 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:rotate-[-8deg] group-active:translate-y-0"
+          />
+          <span>Ask Brunch</span>
+          {openChatCount > 0 && (
+            <span
+              data-testid="unified-chat-shell-minimized-count"
+              aria-hidden
+              className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-tint px-1.5 py-0.5 font-mono text-[10px] leading-none text-hint"
+            >
+              {openChatCount}
+            </span>
+          )}
+        </motion.button>
+        {/* Keep every chat's `useChat` mounted while the shell is minimized
+            or closed so in-flight assistant streams aren't aborted and
+            background tabs continue to fire `streaming`/`unread` callbacks.
+            Rendered hidden — no transcript, no composer — so they cost
+            nothing visually but preserve the streaming lifecycle. */}
+        <div data-testid="unified-chat-shell-minimized-hosts" hidden>
+          {visibleChats.map((chat) => (
+            <SecondaryChatHost
+              key={`min-${chat.chat.id}`}
+              secondaryChat={chat}
+              renderTranscript={false}
+              renderComposer={false}
+              onStreamingChange={handleStreamingChange}
+              onAssistantTurnArrival={handleAssistantTurnArrival}
+            />
+          ))}
+        </div>
+      </>
     );
   }
 
