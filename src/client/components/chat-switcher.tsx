@@ -87,20 +87,28 @@ export function ChatSwitcher({
                 const pinnedId = triggerChat.chat.pinned_item_id;
                 const refCode = pinnedId !== null ? (refCodeByItemId?.get(pinnedId) ?? null) : null;
                 if (refCode === null && (extraAnchorRefCodes?.length ?? 0) === 0) return null;
+                // Mode-aware glyph: MessageSquare = Ask, Sparkles = Agent
+                // (Edit). Replaces the prior bare accent dot so the active
+                // selection at the top conveys what the chat *does*, not just
+                // its anchor color.
+                const triggerMode = triggerChat.chat.mode ?? 'explore';
+                const TriggerModeIcon = triggerMode === 'edit' ? Sparkles : MessageSquare;
+                const triggerModeLabel = triggerMode === 'edit' ? 'Agent' : 'Ask';
                 return (
                   <span
                     data-testid="chat-switcher-trigger-anchor"
                     data-anchor-ref-code={refCode ?? undefined}
                     data-anchor-extra-count={(extraAnchorRefCodes?.length ?? 0) || undefined}
+                    data-mode={triggerMode}
                     className="inline-flex shrink-0 items-baseline gap-1 font-mono text-[10px] leading-none"
                   >
-                    {activeAccent && (
-                      <span
-                        aria-hidden
-                        className="inline-block size-1.5 self-center rounded-full"
-                        style={{ backgroundColor: activeAccent }}
-                      />
-                    )}
+                    <TriggerModeIcon
+                      aria-label={triggerModeLabel}
+                      data-testid="chat-switcher-trigger-mode-icon"
+                      className="size-3 shrink-0 self-center"
+                      strokeWidth={1.5}
+                      style={activeAccent ? { color: activeAccent } : undefined}
+                    />
                     {refCode !== null && <span>{refCode}</span>}
                     {extraAnchorRefCodes?.map((code) => (
                       <span
