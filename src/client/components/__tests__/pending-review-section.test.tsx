@@ -85,6 +85,11 @@ vi.mock('../secondary-chat-trigger.js', () => ({
   useSecondaryChatTrigger: () => secondaryChatTriggerValue,
 }));
 
+const mockNavigate = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => mockNavigate,
+}));
+
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
@@ -128,14 +133,57 @@ afterEach(() => {
   mockSecondaryChatCreate.mockClear();
   mockSecondaryChatCreate.mockImplementation(() => Promise.resolve(null));
   setSecondaryChatTrigger({ canCreate: true, isPending: false, create: mockSecondaryChatCreate });
+  mockNavigate.mockClear();
+  mockNavigate.mockImplementation(() => Promise.resolve());
   vi.useRealTimers();
 });
+
+function renderPendingReview() {
+  const result = render(<PendingReviewSection />);
+  const toggle = result.queryByTestId('pending-review-minimize-toggle');
+  if (toggle) {
+    fireEvent.click(toggle);
+  }
+  return result;
+}
 
 describe('PendingReviewSection', () => {
   it('renders nothing when there are zero open needs', () => {
     setMockOpenNeeds([]);
     const { container } = render(<PendingReviewSection />);
     expect(container.querySelector('[role="region"]')).toBeNull();
+  });
+
+  it('defaults to minimized so opening a tab does not expand the per-row list', () => {
+    setMockOpenNeeds([
+      makeNeed({
+        id: 1,
+        source_item_id: 10,
+        target_item_id: 20,
+        target_item_kind: 'requirement',
+        target_current_content: 'Initial requirement',
+      }),
+    ]);
+    render(<PendingReviewSection />);
+    const toggle = screen.getByTestId('pending-review-minimize-toggle');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByTestId('pending-review-pulse')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^resolve$/i })).toBeNull();
+  });
+
+  it('hides the pulse once the user expands the section', () => {
+    setMockOpenNeeds([
+      makeNeed({
+        id: 1,
+        source_item_id: 10,
+        target_item_id: 20,
+        target_item_kind: 'requirement',
+        target_current_content: 'Initial requirement',
+      }),
+    ]);
+    render(<PendingReviewSection />);
+    fireEvent.click(screen.getByTestId('pending-review-minimize-toggle'));
+    expect(screen.queryByTestId('pending-review-pulse')).toBeNull();
   });
 
   it('lists open needs with kind chip and target reference', () => {
@@ -155,7 +203,7 @@ describe('PendingReviewSection', () => {
         target_current_content: null,
       }),
     ]);
-    render(<PendingReviewSection />);
+    renderPendingReview();
     const region = screen.getByRole('region', { name: /pending review/i });
     expect(region.getAttribute('data-open-needs-count')).toBe('2');
     expect(region.textContent).toContain('2 pending reviews');
@@ -165,19 +213,51 @@ describe('PendingReviewSection', () => {
     expect(region.querySelector('[data-need-id="2"][data-need-kind="supersedes"]')).toBeTruthy();
   });
 
+  it('clicking the row meta navigates the workspace via hash to the target reference code', () => {
+    setMockOpenNeeds([
+      makeNeed({
+        id: 7,
+        specification_id: 42,
+        target_item_id: 20,
+        target_reference_code: 'G3',
+      }),
+    ]);
+    renderPendingReview();
+    const targetButton = screen.getByTestId('pending-review-row-target-7');
+    expect(targetButton.getAttribute('data-target-reference-code')).toBe('G3');
+    fireEvent.click(targetButton);
+    expect(mockNavigate).toHaveBeenCalledWith({ to: '.', hash: 'G3' });
+  });
+
+  it('disables row-meta navigation when the target has no reference code', () => {
+    setMockOpenNeeds([
+      makeNeed({
+        id: 8,
+        target_item_id: 20,
+        target_reference_code: null,
+      }),
+    ]);
+    mockNavigate.mockClear();
+    renderPendingReview();
+    const targetButton = screen.getByTestId('pending-review-row-target-8');
+    expect(targetButton).toHaveProperty('disabled', true);
+    fireEvent.click(targetButton);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
   it('renders a Resolve button per open need', () => {
     setMockOpenNeeds([
       makeNeed({ id: 1, source_item_id: 10, target_item_id: 20, kind: 'needs_confirmation' }),
       makeNeed({ id: 2, source_item_id: 10, target_item_id: 21, kind: 'supersedes' }),
     ]);
-    render(<PendingReviewSection />);
+    renderPendingReview();
     const buttons = screen.getAllByRole('button', { name: /resolve/i });
     expect(buttons).toHaveLength(2);
   });
 
   it('clicking Resolve calls resolveReconciliationNeedRequest with the need id and spec id', async () => {
     setMockOpenNeeds([makeNeed({ id: 7, specification_id: 42 })]);
-    render(<PendingReviewSection />);
+    renderPendingReview();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^resolve$/i }));
     });
@@ -196,7 +276,7 @@ describe('PendingReviewSection', () => {
         }),
     );
     setMockOpenNeeds([makeNeed({ id: 9, specification_id: 1 })]);
-    render(<PendingReviewSection />);
+    renderPendingReview();
     fireEvent.click(screen.getByRole('button', { name: /^resolve$/i }));
     fireEvent.click(screen.getByRole('button', { name: /resolving/i }));
     fireEvent.click(screen.getByRole('button', { name: /resolving/i }));
@@ -213,7 +293,7 @@ describe('PendingReviewSection', () => {
         }),
     );
     setMockOpenNeeds([makeNeed({ id: 9, specification_id: 1 })]);
-    render(<PendingReviewSection />);
+    renderPendingReview();
     fireEvent.click(screen.getByRole('button', { name: /^resolve$/i }));
     const button = screen.getByRole('button', { name: /resolving/i });
     expect(button).toHaveProperty('disabled', true);
@@ -224,7 +304,7 @@ describe('PendingReviewSection', () => {
 
   it('hides the section when the last need is resolved (mock-driven)', () => {
     setMockOpenNeeds([makeNeed({ id: 11 })]);
-    const { rerender } = render(<PendingReviewSection />);
+    const { rerender } = renderPendingReview();
     expect(screen.getByRole('region', { name: /pending review/i })).toBeTruthy();
     setMockOpenNeeds([]);
     rerender(<PendingReviewSection />);
@@ -240,7 +320,7 @@ describe('PendingReviewSection', () => {
           source_current_content: 'Cut signup drop-off by 30%',
         }),
       ]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       const row = screen.getByRole('region').querySelector('[data-need-id="1"]');
       expect(row?.querySelector('[data-view-source-diff-chip]')).toBeTruthy();
       expect(row?.querySelector('[data-content-diff]')).toBeNull();
@@ -254,7 +334,7 @@ describe('PendingReviewSection', () => {
           source_current_content: 'Use Postgres',
         }),
       ]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       expect(document.querySelector('[data-diff-popover]')).toBeNull();
       fireEvent.click(screen.getByRole('button', { name: /view source diff for need 1/i }));
       const popover = document.querySelector('[data-diff-popover]');
@@ -272,7 +352,7 @@ describe('PendingReviewSection', () => {
           source_current_content: 'New',
         }),
       ]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       const row = screen.getByRole('region').querySelector('[data-need-id="1"]');
       expect(row?.textContent).toContain('from #9 was edited');
     });
@@ -295,7 +375,7 @@ describe('PendingReviewSection', () => {
           source_current_content: null,
         }),
       ]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       const region = screen.getByRole('region');
       expect(region.querySelectorAll('[data-view-source-diff-chip]')).toHaveLength(0);
       expect(screen.getAllByRole('button', { name: /^resolve$/i })).toHaveLength(3);
@@ -309,7 +389,7 @@ describe('PendingReviewSection', () => {
           source_current_content: 'Same content',
         }),
       ]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       const row = screen.getByRole('region').querySelector('[data-need-id="1"]');
       expect(row?.querySelector('[data-view-source-diff-chip]')).toBeNull();
     });
@@ -321,7 +401,7 @@ describe('PendingReviewSection', () => {
         makeNeed({ id: 1, target_current_content: 'A' }),
         makeNeed({ id: 2, target_current_content: 'B' }),
       ]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       expect(screen.getAllByRole('button', { name: /edit target for need/i })).toHaveLength(2);
     });
 
@@ -332,7 +412,7 @@ describe('PendingReviewSection', () => {
           target_current_content: 'Validate email format on form submit',
         }),
       ]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       expect(screen.queryByRole('textbox')).toBeNull();
       fireEvent.click(screen.getByRole('button', { name: /edit target for need 1/i }));
       const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
@@ -341,7 +421,7 @@ describe('PendingReviewSection', () => {
 
     it('Cancel collapses the form without calling any request', () => {
       setMockOpenNeeds([makeNeed({ id: 1, target_current_content: 'Old target' })]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       fireEvent.click(screen.getByRole('button', { name: /edit target for need 1/i }));
       expect(screen.getByRole('textbox')).toBeTruthy();
       fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
@@ -359,7 +439,7 @@ describe('PendingReviewSection', () => {
           target_current_content: 'Old target content',
         }),
       ]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       fireEvent.click(screen.getByRole('button', { name: /edit target for need 7/i }));
       const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
       fireEvent.change(textarea, { target: { value: 'New target content' } });
@@ -391,7 +471,7 @@ describe('PendingReviewSection', () => {
           }),
       );
       setMockOpenNeeds([makeNeed({ id: 1, target_current_content: 'Old' })]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       fireEvent.click(screen.getByRole('button', { name: /edit target for need 1/i }));
       fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
       expect(screen.getByRole('button', { name: /saving/i })).toHaveProperty('disabled', true);
@@ -403,7 +483,7 @@ describe('PendingReviewSection', () => {
 
     it('Edit target button does not appear when target_current_content is null', () => {
       setMockOpenNeeds([makeNeed({ id: 1, target_current_content: null })]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       expect(screen.queryByRole('button', { name: /edit target for need 1/i })).toBeNull();
       expect(screen.getByRole('button', { name: /^resolve$/i })).toBeTruthy();
     });
@@ -424,7 +504,7 @@ describe('PendingReviewSection', () => {
           }),
       );
       setMockOpenNeeds([makeNeed({ id: 1, target_current_content: 'Old' })]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       fireEvent.click(screen.getByRole('button', { name: /edit target for need 1/i }));
       fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
       expect(container.querySelector('.lucide-loader-circle')).not.toBeNull();
@@ -437,7 +517,7 @@ describe('PendingReviewSection', () => {
   describe('agent client UI', () => {
     it('renders the Run agent button when at least one open need has agent_status=null', () => {
       setMockOpenNeeds([makeNeed({ id: 1, agent_status: null })]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       expect(container.querySelector('[data-run-agent-button]')).not.toBeNull();
     });
 
@@ -446,15 +526,15 @@ describe('PendingReviewSection', () => {
         makeNeed({ id: 1, agent_status: 'classified', agent_classification: 'auto-confirm' }),
         makeNeed({ id: 2, agent_status: 'classified', agent_classification: 'substantive' }),
       ]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       expect(container.querySelector('[data-run-agent-button]')).toBeNull();
     });
 
     it('triggers POST .../run-agent exactly once on Run agent click', async () => {
       setMockOpenNeeds([makeNeed({ id: 1, specification_id: 7, agent_status: null })]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /run agent/i }));
+        fireEvent.click(screen.getByRole('button', { name: /reconcile pending reviews/i }));
       });
       expect(mockRunReconciliationAgentRequest).toHaveBeenCalledTimes(1);
       expect(mockRunReconciliationAgentRequest).toHaveBeenCalledWith(7);
@@ -466,8 +546,8 @@ describe('PendingReviewSection', () => {
         makeNeed({ id: 1, agent_status: 'queued' }),
         makeNeed({ id: 2, agent_status: null }),
       ]);
-      render(<PendingReviewSection />);
-      const button = screen.getByRole('button', { name: /run agent/i });
+      renderPendingReview();
+      const button = screen.getByRole('button', { name: /reconcile pending reviews/i });
       expect(button).toHaveProperty('disabled', true);
     });
 
@@ -477,7 +557,7 @@ describe('PendingReviewSection', () => {
         makeNeed({ id: 2, agent_status: 'classified', agent_classification: 'auto-confirm' }),
         makeNeed({ id: 3, agent_status: null }),
       ]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       const strip = container.querySelector('[data-agent-progress-strip]');
       expect(strip).not.toBeNull();
       expect(strip?.textContent).toContain('Agent: 1 of 3 classified');
@@ -490,7 +570,7 @@ describe('PendingReviewSection', () => {
         makeNeed({ id: 3, agent_status: 'classified', agent_classification: 'auto-confirm' }),
         makeNeed({ id: 4, agent_status: 'failed', agent_proposal: 'LLM down' }),
       ]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       const strip = container.querySelector('[data-agent-progress-strip]');
       expect(strip?.textContent).toContain('2 classified');
       expect(strip?.textContent).toContain('1 failed');
@@ -502,7 +582,7 @@ describe('PendingReviewSection', () => {
       setMockOpenNeeds([
         makeNeed({ id: 1, agent_status: 'classified', agent_classification: 'auto-confirm' }),
       ]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       expect(container.querySelector('[data-agent-progress-strip]')).toBeNull();
     });
 
@@ -516,7 +596,7 @@ describe('PendingReviewSection', () => {
         makeNeed({ id: 6, agent_status: 'failed', agent_proposal: 'LLM down' }),
         makeNeed({ id: 7, agent_status: null }),
       ]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       expect(
         container.querySelector('[data-need-id="1"] [data-classification-chip="auto-confirm"]'),
       ).not.toBeNull();
@@ -546,7 +626,7 @@ describe('PendingReviewSection', () => {
         makeNeed({ id: 4, agent_status: 'classified', agent_classification: 'auto-confirm' }),
         makeNeed({ id: 5, agent_status: 'failed', agent_proposal: 'err' }),
       ]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       expect(container.querySelector('[data-rerun-agent-button="1"]')).toBeNull();
       expect(container.querySelector('[data-rerun-agent-button="2"]')).toBeNull();
       expect(container.querySelector('[data-rerun-agent-button="3"]')).toBeNull();
@@ -563,9 +643,9 @@ describe('PendingReviewSection', () => {
           agent_classification: 'substantive',
         }),
       ]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /re-run agent for need 42/i }));
+        fireEvent.click(screen.getByRole('button', { name: /reconcile pending review 42/i }));
       });
       expect(mockResetReconciliationNeedAgentRequest).toHaveBeenCalledTimes(1);
       expect(mockResetReconciliationNeedAgentRequest).toHaveBeenCalledWith(7, 42);
@@ -596,8 +676,8 @@ describe('PendingReviewSection', () => {
             };
           }),
       );
-      render(<PendingReviewSection />);
-      fireEvent.click(screen.getByRole('button', { name: /re-run agent for need 1/i }));
+      renderPendingReview();
+      fireEvent.click(screen.getByRole('button', { name: /reconcile pending review 1/i }));
       const resolveButton = screen.getByRole('button', { name: /^resolve$/i });
       expect(resolveButton).toHaveProperty('disabled', true);
       await act(async () => {
@@ -617,7 +697,7 @@ describe('PendingReviewSection', () => {
           target_current_content: 'target',
         }),
       ]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /confirm need 1/i }));
       });
@@ -637,7 +717,7 @@ describe('PendingReviewSection', () => {
           target_current_content: 'old content',
         }),
       ]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       expect(container.querySelector('[data-view-proposal-button="1"]')).not.toBeNull();
       expect(container.querySelector('[data-apply-button="1"]')).not.toBeNull();
       expect(container.querySelector('[data-skip-button="1"]')).not.toBeNull();
@@ -661,7 +741,7 @@ describe('PendingReviewSection', () => {
           target_current_content: 'old content',
         }),
       ]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       fireEvent.click(screen.getByRole('button', { name: /view proposal for need 1/i }));
       const popover = document.querySelector('[data-diff-popover]');
       expect(popover).not.toBeNull();
@@ -681,7 +761,7 @@ describe('PendingReviewSection', () => {
           target_current_content: 'old content',
         }),
       ]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /skip proposal for need 1/i }));
       });
@@ -699,7 +779,7 @@ describe('PendingReviewSection', () => {
           target_current_content: null,
         }),
       ]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       expect(container.querySelector('[data-view-proposal-button="1"]')).toBeNull();
       expect(container.querySelector('[data-apply-button="1"]')).toBeNull();
       expect(container.querySelector('[data-skip-button="1"]')).not.toBeNull();
@@ -718,7 +798,7 @@ describe('PendingReviewSection', () => {
           target_current_content: 'substantive content',
         }),
       ]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /open side-chat for need 1/i }));
       });
@@ -742,7 +822,7 @@ describe('PendingReviewSection', () => {
           target_current_content: 'substantive',
         }),
       ]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       expect(container.querySelector('[data-open-side-chat-button]')).toBeNull();
     });
 
@@ -758,7 +838,7 @@ describe('PendingReviewSection', () => {
           target_current_content: 'substantive',
         }),
       ]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       expect(container.querySelector('[data-open-side-chat-button]')).toBeNull();
     });
 
@@ -768,7 +848,7 @@ describe('PendingReviewSection', () => {
         makeNeed({ id: 2, agent_status: 'classified', agent_classification: 'auto-confirm' }),
         makeNeed({ id: 3, agent_status: 'classified', agent_classification: 'substantive' }),
       ]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       const button = container.querySelector('[data-bulk-confirm-button]');
       expect(button).not.toBeNull();
       expect(button?.textContent).toContain('Confirm all (2)');
@@ -802,7 +882,7 @@ describe('PendingReviewSection', () => {
         if (refetchWave === 2) return [need2, need3];
         return [need3];
       });
-      render(<PendingReviewSection />);
+      renderPendingReview();
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /confirm all 2 auto-confirm rows/i }));
       });
@@ -846,7 +926,7 @@ describe('PendingReviewSection', () => {
           target_current_content: 'c',
         }),
       ]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       fireEvent.click(screen.getByRole('button', { name: /confirm all 2 auto-confirm rows/i }));
 
       await waitFor(() => {
@@ -889,7 +969,7 @@ describe('PendingReviewSection', () => {
           agent_classification: 'auto-confirm',
         }),
       ]);
-      render(<PendingReviewSection />);
+      renderPendingReview();
       fireEvent.click(screen.getByRole('button', { name: /confirm all 2 auto-confirm rows/i }));
 
       await waitFor(() => {
@@ -919,7 +999,7 @@ describe('PendingReviewSection', () => {
           agent_proposal: null,
         }),
       ]);
-      const { container } = render(<PendingReviewSection />);
+      const { container } = renderPendingReview();
       const button = container.querySelector('[data-bulk-apply-button]');
       expect(button).not.toBeNull();
       expect(button?.textContent).toContain('Apply all suggested (1)');
@@ -953,7 +1033,7 @@ describe('PendingReviewSection', () => {
         return Promise.resolve({ resolved: true as const });
       });
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-      render(<PendingReviewSection />);
+      renderPendingReview();
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /confirm all 2 auto-confirm rows/i }));
       });
@@ -1004,7 +1084,7 @@ describe('PendingReviewSection', () => {
         });
       });
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-      render(<PendingReviewSection />);
+      renderPendingReview();
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /apply all 2 suggested edits/i }));
       });
@@ -1045,7 +1125,7 @@ describe('PendingReviewSection', () => {
         if (refetchWave === 2) return [n2];
         return [];
       });
-      render(<PendingReviewSection />);
+      renderPendingReview();
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /apply all 2 suggested edits/i }));
       });

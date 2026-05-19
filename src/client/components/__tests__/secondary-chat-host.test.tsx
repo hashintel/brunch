@@ -235,7 +235,6 @@ describe('SecondaryChatHost — useChat refit', () => {
       </Wrapper>,
     );
 
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     fireEvent.change(screen.getByTestId('secondary-chat-composer-input'), {
       target: { value: 'why?' },
     });
@@ -275,6 +274,52 @@ describe('SecondaryChatHost — useChat refit', () => {
         ([args]) => Array.isArray(args?.queryKey) && args.queryKey[0] === 'specification',
       ),
     ).toBe(true);
+  });
+
+  it('renders the composer as a sibling of the collapsible — collapsible owns transcript only; composer lives one level up in the host', () => {
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
+    };
+    const { Wrapper } = createHarness();
+
+    render(
+      <Wrapper>
+        <SecondaryChatHost secondaryChat={chat} />
+      </Wrapper>,
+    );
+
+    const collapsible = screen.getByTestId('secondary-chat-collapsible');
+    const composer = screen.getByTestId('secondary-chat-composer-sticky');
+    expect(collapsible.contains(composer)).toBe(false);
+  });
+
+  it('keeps the composer visible outside the expandable transcript — composer sits outside CollapsibleContent so collapsing the body does not hide it', () => {
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
+    };
+    const { Wrapper } = createHarness();
+
+    render(
+      <Wrapper>
+        <SecondaryChatHost secondaryChat={chat} />
+      </Wrapper>,
+    );
+
+    const collapsibleBody = screen.getByTestId('secondary-chat-collapsible-body');
+    const composer = screen.getByTestId('secondary-chat-composer-sticky');
+    expect(collapsibleBody.contains(composer)).toBe(false);
+
+    expect(screen.getByTestId('secondary-chat-composer-input')).not.toBeNull();
   });
 
   it('isolates useChat mounts across two host instances so parallel chats do not cross-talk', () => {

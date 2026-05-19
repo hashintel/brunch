@@ -1,6 +1,4 @@
-import { Undo2, X } from 'lucide-react';
-
-import { cn } from '@/client/lib/utils.js';
+import { ArrowDownToDot, Check, NotebookPen, Pencil, Play, Spline, X } from 'lucide-react';
 
 import { Task, TaskContent, TaskItem, TaskTrigger } from './ai-elements/task.js';
 import { ContentDiff } from './content-diff.js';
@@ -40,15 +38,17 @@ export function ChatShellPatchPanel({
   const state = usePatchListState();
 
   const count = state.staged.length;
-  // Stay mounted while Undo is reachable so post-apply users can reverse the
-  // batch — mirrors the overlay's behaviour where the saved-toast carried the
-  // Undo affordance for ~5s. The panel still renders nothing when there are
-  // no staged patches AND no batch to undo, so empty-state collapses cleanly.
-  if (!actions || (count === 0 && !state.canUndo)) {
+  if (!actions || count === 0) {
     return null;
   }
 
-  const title = count === 0 ? 'Change applied' : `${count} pending change${count === 1 ? '' : 's'}`;
+  // simpler language. Single-change titles read as the
+  // kind word alone ("1 edit", "1 connection", etc.) and the multi-change
+  // case stays as a count + plural.
+  const title =
+    count === 1
+      ? `1 ${state.staged[0]!.kind === 'edit' ? 'edit' : state.staged[0]!.kind === 'edge' ? 'connection' : state.staged[0]!.kind === 'drill-down' ? 'drill-down' : 'note'}`
+      : `${count} changes`;
 
   return (
     <Task
@@ -56,56 +56,36 @@ export function ChatShellPatchPanel({
       data-staged-count={count}
       isRunning={isStreaming}
       defaultOpen
-      // The sticky wrapper in <UnifiedChatShell> owns the iOS-style glass
-      // surface (edge-to-edge); this panel renders as a subtle inset card on
-      // top of it — just border + faint tint to read as a discrete row
-      // without double-blurring the content behind.
-      className="rounded-lg border border-rule/60 bg-background/30 px-2 py-1.5 text-xs"
+      // drop the background fill so the panel reads as a
+      // light outlined surface, not a colored block. Border alpha lifted to
+      // keep the affordance discoverable.
+      className="rounded-lg border border-rule/30 px-2 py-1.5 text-xs"
     >
       <div className="flex items-center justify-between gap-2">
-        <TaskTrigger title={title} collapsible={count > 0} className="w-auto flex-1" />
+        <TaskTrigger title={title} collapsible className="w-auto flex-1" />
         <div className="flex items-center gap-1.5">
-          {state.canUndo ? (
-            <button
-              type="button"
-              data-testid="chat-shell-patch-undo"
-              onClick={() => {
-                void actions.undo();
-              }}
-              aria-label="Undo last applied change"
-              className="inline-flex items-center gap-1 rounded-md border border-rule bg-background px-2 py-1 text-xs text-sub transition-[transform,background-color,color] duration-150 hover:bg-tint hover:text-ink active:scale-95"
-            >
-              <Undo2 aria-hidden className="size-3" />
-              <span>Undo</span>
-            </button>
-          ) : null}
-          {count > 0 ? (
-            <button
-              type="button"
-              data-testid="chat-shell-patch-apply-all"
-              disabled={state.isApplying}
-              onClick={() => {
-                void actions.apply();
-              }}
-              aria-label={`Apply all ${count} change${count === 1 ? '' : 's'}`}
-              className={cn(
-                'inline-flex items-center rounded-md bg-ink px-2 py-1 text-xs font-medium text-background transition-[transform,background-color] duration-150 hover:enabled:bg-foreground active:enabled:scale-95 disabled:bg-tint disabled:text-hint',
-              )}
-            >
-              {state.isApplying ? 'Applying…' : 'Apply all'}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            data-testid="chat-shell-patch-apply-all"
+            disabled={state.isApplying}
+            onClick={() => {
+              void actions.apply();
+            }}
+            aria-label={`Apply all ${count} change${count === 1 ? '' : 's'}`}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-sub transition-[background-color,color,transform] duration-150 hover:enabled:bg-tint hover:enabled:text-ink active:enabled:scale-95 disabled:text-hint"
+          >
+            <Check aria-hidden className="size-3" strokeWidth={1.75} />
+            {state.isApplying ? 'Applying…' : 'Apply'}
+          </button>
         </div>
       </div>
-      {count > 0 ? (
-        <TaskContent className="text-foreground">
-          <ul className="flex flex-col gap-1.5" role="list" aria-label="Staged changes">
-            {state.staged.map((patch) => (
-              <ChatShellPatchRow key={patch.id} patch={patch} onDiscard={() => actions.discard(patch.id)} />
-            ))}
-          </ul>
-        </TaskContent>
-      ) : null}
+      <TaskContent className="text-foreground">
+        <ul className="flex flex-col gap-1.5" role="list" aria-label="Staged changes">
+          {state.staged.map((patch) => (
+            <ChatShellPatchRow key={patch.id} patch={patch} onDiscard={() => actions.discard(patch.id)} />
+          ))}
+        </ul>
+      </TaskContent>
     </Task>
   );
 }
@@ -116,15 +96,35 @@ function ChatShellPatchRow({ patch, onDiscard }: { patch: Patch; onDiscard: () =
     typeof patch.currentContent === 'string' &&
     patch.currentContent !== patch.newContent;
   const impact = patch.kind === 'edit' ? patch.impact : undefined;
+  const isEdit = patch.kind === 'edit';
+  // each row now leads with a small kind icon that
+  // matches the assistant tool (Edit / Connect / Drill-down / Note) so the
+  // row instantly reads as "what kind of change". The kind label text is
+  // retained as a sr-only span for downstream consumers/tests.
+  const KindIcon =
+    patch.kind === 'edit'
+      ? Pencil
+      : patch.kind === 'edge'
+        ? Spline
+        : patch.kind === 'drill-down'
+          ? ArrowDownToDot
+          : NotebookPen;
   return (
     <li
       data-testid="chat-shell-patch-row"
       data-staged-patch-id={patch.id}
       data-staged-patch-kind={patch.kind}
-      className="flex flex-col gap-1 rounded-md bg-background px-2 py-1.5"
+      // Lighter row chrome: drop the bg fill so the row sits flush against
+      // the panel surface, separated only by its kind icon + impact chip.
+      className="flex flex-col gap-1 rounded-md px-2 py-1"
     >
       <div className="flex items-center gap-1.5">
-        <span data-testid="chat-shell-patch-kind" className="font-mono text-[10px] text-hint uppercase">
+        <KindIcon aria-hidden className="size-3 shrink-0 text-hint" strokeWidth={1.5} />
+        {impact ? <ImpactChip impact={impact} /> : null}
+        <TaskItem className="min-w-0 flex-1 truncate text-foreground" title={patch.summary}>
+          {patch.summary}
+        </TaskItem>
+        <span data-testid="chat-shell-patch-kind" className="sr-only">
           {patch.kind}
         </span>
         {patch.anchorReferenceCode ? (
@@ -135,18 +135,29 @@ function ChatShellPatchRow({ patch, onDiscard }: { patch: Patch; onDiscard: () =
             {patch.anchorReferenceCode}
           </span>
         ) : null}
-        <TaskItem className="min-w-0 flex-1 truncate text-foreground" title={patch.summary}>
-          {patch.summary}
-        </TaskItem>
-        {impact ? <ImpactChip impact={impact} /> : null}
+        {isEdit ? (
+          <button
+            type="button"
+            data-testid="chat-shell-patch-run-agent"
+            aria-label={`Run agent on: ${patch.summary}`}
+            title="Run agent"
+            onClick={() => {
+              // TODO: wire to agent rerun pipeline; affordance is here so the
+              // user can discover the action while we land the backend route.
+            }}
+            className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-hint transition-[transform,background-color,color] duration-150 hover:bg-tint/60 hover:text-ink active:scale-95"
+          >
+            <Play aria-hidden className="size-3" strokeWidth={1.5} />
+          </button>
+        ) : null}
         <button
           type="button"
           data-testid="chat-shell-patch-discard"
           onClick={onDiscard}
           aria-label={`Discard staged change: ${patch.summary}`}
-          className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-sub transition-[transform,background-color,color] duration-150 hover:bg-tint hover:text-ink active:scale-95"
+          className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-hint transition-[transform,background-color,color] duration-150 hover:bg-tint/60 hover:text-ink active:scale-95"
         >
-          <X aria-hidden className="size-3" />
+          <X aria-hidden className="size-3" strokeWidth={1.5} />
         </button>
       </div>
       {showDiff ? (

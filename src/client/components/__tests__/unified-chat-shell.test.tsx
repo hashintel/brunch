@@ -20,16 +20,19 @@ import { makeNeed } from './reconciliation-need-fixtures.js';
 
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: '1' }),
+  useNavigate: () => vi.fn(() => Promise.resolve()),
 }));
 
-// Mock at the @ai-sdk/react boundary + the `ai` DefaultChatTransport so the
-// host (rendered transitively by the shell) can render without hitting the
-// real chat substrate from this happy-dom suite.
+// Hoisted so tests can flip the host's `useChat` status synchronously.
+const { useChatStatusRef } = vi.hoisted(() => ({
+  useChatStatusRef: { current: 'ready' as 'ready' | 'submitted' | 'streaming' },
+}));
+
 vi.mock('@ai-sdk/react', () => ({
   useChat: () => ({
     messages: [],
     sendMessage: vi.fn(async () => {}),
-    status: 'ready' as const,
+    status: useChatStatusRef.current,
   }),
 }));
 
@@ -124,6 +127,27 @@ function makeChat(id: number, mode: 'explore' | 'edit' = 'explore'): SecondaryCh
   };
 }
 
+function makeMasterChat(id: number = 1): SecondaryChat {
+  return {
+    chat: {
+      id,
+      specification_id: 1,
+      kind: 'side_chat',
+      parent_chat_id: 1,
+      invoked_in_turn_id: null,
+      pinned_item_id: null,
+      pinned_span_hint: null,
+      pinned_reconciliation_need_id: null,
+      mode: 'explore',
+    },
+    kickoffTurn: null,
+    turns: [],
+    pinnedItemKind: null,
+    pinnedReconciliationNeed: null,
+    anchoredItemIds: [],
+  };
+}
+
 function createHarness(
   secondaryChats: SecondaryChat[],
   options: { openNeeds?: ReadonlyArray<ReturnType<typeof makeNeed>> } = {},
@@ -154,6 +178,7 @@ function createHarness(
 
 afterEach(() => {
   cleanup();
+  useChatStatusRef.current = 'ready';
 });
 
 describe('UnifiedChatShell', () => {
@@ -167,9 +192,7 @@ describe('UnifiedChatShell', () => {
     );
 
     expect(screen.getByTestId('unified-chat-shell')).not.toBeNull();
-    // The spec name was removed from the header — only structural affordances
-    // (chat switcher when applicable + layout/minimize/close buttons) live here.
-    expect(screen.getByTestId('unified-chat-shell-spine-label').textContent).not.toContain('Test spec');
+    expect(screen.getByTestId('unified-chat-shell-tabs').textContent).not.toContain('Test spec');
     expect(screen.getByTestId('unified-chat-shell-minimize')).not.toBeNull();
     expect(screen.getByTestId('unified-chat-shell-layout-side-docked')).not.toBeNull();
     expect(screen.getByTestId('unified-chat-shell-layout-toggle')).not.toBeNull();
@@ -206,7 +229,10 @@ describe('UnifiedChatShell', () => {
     expect(screen.getByTestId('unified-chat-shell-empty')).not.toBeNull();
   });
 
-  it('renders the most-recent (highest id) item-anchored chat by default; switcher hidden for a single chat', () => {
+  it('renders the most-recent (highest id) item-anchored chat by default when no master exists; tabs surface every chat through the dropdown', () => {
+    // C32 redirection (user feedback supersedes): the tab strip no longer
+    // shows item tabs at all. The active item is reachable only through the
+    // ChatSwitcher dropdown sibling.
     const { Wrapper } = createHarness([makeChat(7)]);
 
     render(
@@ -218,10 +244,16 @@ describe('UnifiedChatShell', () => {
     const collapsibles = screen.getAllByTestId('secondary-chat-collapsible');
     expect(collapsibles).toHaveLength(1);
     expect(collapsibles[0]!.getAttribute('data-secondary-chat-id')).toBe('7');
-    expect(screen.queryByTestId('chat-switcher-trigger')).toBeNull();
+    expect(screen.getByTestId('unified-chat-shell-tabs')).not.toBeNull();
+    expect(screen.getByTestId('chat-tabs')).not.toBeNull();
+    expect(screen.queryByTestId('chat-tabs-item-7')).toBeNull();
+    expect(screen.getByTestId('chat-switcher-trigger')).not.toBeNull();
   });
 
-  it('mounts the switcher when 2+ item-anchored chats exist; renders the most-recent as active', () => {
+  it('routes every item-anchored chat through the ChatSwitcher dropdown when no master exists (item tabs are never surfaced in the strip)', () => {
+    // C32 redirection (user feedback supersedes): the tab strip now only
+    // hosts the master tab + dropdown trigger; the active item chat is
+    // reachable solely through the dropdown.
     const { Wrapper } = createHarness([makeChat(7), makeChat(8, 'edit'), makeChat(11)]);
 
     render(
@@ -233,6 +265,10 @@ describe('UnifiedChatShell', () => {
     const collapsibles = screen.getAllByTestId('secondary-chat-collapsible');
     expect(collapsibles).toHaveLength(1);
     expect(collapsibles[0]!.getAttribute('data-secondary-chat-id')).toBe('11');
+    expect(screen.getByTestId('chat-tabs')).not.toBeNull();
+    expect(screen.queryByTestId('chat-tabs-item-7')).toBeNull();
+    expect(screen.queryByTestId('chat-tabs-item-8')).toBeNull();
+    expect(screen.queryByTestId('chat-tabs-item-11')).toBeNull();
     expect(screen.getByTestId('chat-switcher-trigger')).not.toBeNull();
   });
 
@@ -395,6 +431,312 @@ describe('UnifiedChatShell', () => {
       true,
     );
     expect((screen.getByTestId('unified-chat-shell-layout-toggle') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  describe('master chat + bottom tab band', () => {
+    it('renders the master (empty) tab first as an icon-only tab — no "Master" label — and surfaces it as the default active chat', () => {
+      // C32 redirection (user feedback supersedes the prior cap-at-1 rule):
+      // the tab strip is now master + dropdown only. Item chats are reachable
+      // through the ChatSwitcher dropdown sibling, never as a strip tab.
+      const { Wrapper } = createHarness([makeMasterChat(1), makeChat(7), makeChat(11)]);
+
+      render(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      const tabs = screen.getByTestId('chat-tabs');
+      expect(tabs).not.toBeNull();
+      const emptyTab = screen.getByTestId('chat-tabs-empty-1');
+      expect(emptyTab).not.toBeNull();
+      expect(emptyTab.getAttribute('data-active')).toBe('true');
+      expect(emptyTab.textContent ?? '').not.toMatch(/Master/i);
+
+      expect(screen.queryByTestId('chat-tabs-item-7')).toBeNull();
+      expect(screen.queryByTestId('chat-tabs-item-11')).toBeNull();
+      expect(screen.getByTestId('chat-switcher-trigger')).not.toBeNull();
+
+      const collapsibles = screen.getAllByTestId('secondary-chat-collapsible');
+      expect(collapsibles).toHaveLength(1);
+      expect(collapsibles[0]!.getAttribute('data-secondary-chat-id')).toBe('1');
+    });
+
+    it('clicking the active tab does NOT hide the transcript — content stays visible', () => {
+      // User feedback supersedes the original click-to-toggle behavior:
+      // the transcript stays mounted regardless of clicks on the active
+      // tab so context never disappears under a click.
+      const { Wrapper } = createHarness([makeMasterChat(1)]);
+
+      render(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      expect(screen.getByTestId('secondary-chat-collapsible')).not.toBeNull();
+
+      fireEvent.click(screen.getByTestId('chat-tabs-empty-1'));
+      expect(screen.getByTestId('secondary-chat-collapsible')).not.toBeNull();
+
+      fireEvent.click(screen.getByTestId('chat-tabs-empty-1'));
+      expect(screen.getByTestId('secondary-chat-collapsible')).not.toBeNull();
+    });
+
+    it('does NOT mark the active chat as unread when its assistant turn arrives — the always-visible transcript means the user already saw it', () => {
+      // User feedback supersedes the older "click to dismiss + mark unread"
+      // behavior: the active chat's transcript stays mounted, so the
+      // unread badge is reserved exclusively for background chats.
+      const { Wrapper } = createHarness([makeMasterChat(1)]);
+
+      const { rerender } = render(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      expect(screen.getByTestId('chat-tabs-empty-1').getAttribute('data-unread')).toBe('false');
+
+      act(() => {
+        useChatStatusRef.current = 'streaming';
+      });
+      rerender(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+      expect(screen.getByTestId('secondary-chat-collapsible')).not.toBeNull();
+
+      act(() => {
+        useChatStatusRef.current = 'ready';
+      });
+      rerender(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      const tab = screen.getByTestId('chat-tabs-empty-1');
+      expect(tab.getAttribute('data-unread')).toBe('false');
+      expect(tab.querySelector('[data-testid="chat-tabs-unread-dot"]')).toBeNull();
+    });
+
+    it('mounts a hidden background host for every non-active chat and aggregates streaming + unread on the ChatSwitcher trigger', () => {
+      // C32 redirection (user feedback supersedes): with item tabs no
+      // longer in the strip, the ChatSwitcher trigger is the single
+      // surface for surfacing background streaming / unread state on
+      // item chats.
+      const { Wrapper } = createHarness([makeMasterChat(1), makeChat(7), makeChat(11)]);
+
+      const { rerender } = render(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      expect(screen.getByTestId('unified-chat-shell-background-host-7')).not.toBeNull();
+      expect(screen.getByTestId('unified-chat-shell-background-host-11')).not.toBeNull();
+      expect(screen.queryByTestId('unified-chat-shell-background-host-1')).toBeNull();
+      const bg7 = screen.getByTestId('unified-chat-shell-background-host-7');
+      expect(bg7.querySelector('[data-testid="secondary-chat-collapsible"]')).toBeNull();
+      expect(bg7.querySelector('[data-testid="secondary-chat-composer-sticky"]')).toBeNull();
+
+      act(() => {
+        useChatStatusRef.current = 'streaming';
+      });
+      rerender(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      const switcher = screen.getByTestId('chat-switcher-trigger');
+      expect(switcher.getAttribute('data-streaming')).toBe('true');
+      expect(switcher.querySelector('[data-testid="chat-switcher-streaming-dot"]')).not.toBeNull();
+
+      act(() => {
+        useChatStatusRef.current = 'ready';
+      });
+      rerender(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      const switcherAfter = screen.getByTestId('chat-switcher-trigger');
+      expect(switcherAfter.getAttribute('data-streaming')).toBe('false');
+      expect(switcherAfter.getAttribute('data-unread')).toBe('true');
+      expect(switcherAfter.querySelector('[data-testid="chat-switcher-unread-dot"]')).not.toBeNull();
+    });
+
+    it('keeps the active-chat transcript mounted across streaming start/stop and active-tab clicks', () => {
+      // Replaces the older "auto-open on streaming edge" + "does not
+      // auto-reopen after dismissal" pair: with C32 the transcript is
+      // always mounted for the active chat, so the only thing left to
+      // verify is that the collapsible stays present across the full
+      // ready → streaming → ready cycle and across active-tab clicks.
+      const { Wrapper } = createHarness([makeMasterChat(1)]);
+
+      const { rerender } = render(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+      expect(screen.getByTestId('secondary-chat-collapsible')).not.toBeNull();
+
+      fireEvent.click(screen.getByTestId('chat-tabs-empty-1'));
+      expect(screen.getByTestId('secondary-chat-collapsible')).not.toBeNull();
+
+      act(() => {
+        useChatStatusRef.current = 'streaming';
+      });
+      rerender(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+      expect(screen.getByTestId('secondary-chat-collapsible')).not.toBeNull();
+
+      act(() => {
+        useChatStatusRef.current = 'ready';
+      });
+      rerender(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+      expect(screen.getByTestId('secondary-chat-collapsible')).not.toBeNull();
+    });
+
+    it('does NOT mark unread when the transcript is open during streaming (the user already sees the turn arrive)', () => {
+      const { Wrapper } = createHarness([makeMasterChat(1)]);
+
+      const { rerender } = render(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      act(() => {
+        useChatStatusRef.current = 'streaming';
+      });
+      rerender(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+      act(() => {
+        useChatStatusRef.current = 'ready';
+      });
+      rerender(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      expect(screen.getByTestId('chat-tabs-empty-1').getAttribute('data-unread')).toBe('false');
+    });
+
+    it('renders the active chat composer in the shell footer', () => {
+      const { Wrapper } = createHarness([makeMasterChat(1)]);
+
+      render(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      const footer = screen.getByTestId('unified-chat-shell-footer');
+      const composer = screen.getByTestId('secondary-chat-composer-sticky');
+      const body = screen.getByTestId('unified-chat-shell-body');
+      expect(footer.contains(composer)).toBe(true);
+      expect(body.contains(composer)).toBe(false);
+    });
+
+    it('mounts the tab strip inside the header bar alongside the layout controls', () => {
+      const { Wrapper } = createHarness([makeMasterChat(1)]);
+
+      render(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      const tabsSlot = screen.getByTestId('unified-chat-shell-tabs');
+      const header = screen.getByTestId('unified-chat-shell-header');
+      const layoutButtons = screen.getByTestId('unified-chat-shell-layout-buttons');
+      expect(tabsSlot.contains(screen.getByTestId('chat-tabs'))).toBe(true);
+      expect(header.contains(tabsSlot)).toBe(true);
+      expect(header.contains(layoutButtons)).toBe(true);
+    });
+
+    it('does NOT expose a + create-empty button in the tab strip', () => {
+      // User feedback supersedes the previous "show + create-empty" rule:
+      // the C32 tab strip is master + active item only, no inline new-chat
+      // affordance (creation flows through item triggers instead).
+      const { Wrapper } = createHarness([makeMasterChat(1)]);
+
+      render(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      expect(screen.queryByTestId('chat-tabs-create-empty')).toBeNull();
+    });
+
+    it('shows only the master tab + ChatSwitcher trigger; every item chat overflows into the dropdown', () => {
+      // C32 redirection (user feedback supersedes): the tab strip is now
+      // master + dropdown only; no item chats ever appear as strip tabs.
+      const { Wrapper } = createHarness([
+        makeMasterChat(1),
+        makeChat(7),
+        makeChat(8),
+        makeChat(9),
+        makeChat(10),
+      ]);
+
+      render(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      expect(screen.getByTestId('chat-tabs-empty-1')).not.toBeNull();
+      expect(screen.queryByTestId('chat-tabs-item-7')).toBeNull();
+      expect(screen.queryByTestId('chat-tabs-item-8')).toBeNull();
+      expect(screen.queryByTestId('chat-tabs-item-9')).toBeNull();
+      expect(screen.queryByTestId('chat-tabs-item-10')).toBeNull();
+      expect(screen.getByTestId('chat-switcher-trigger')).not.toBeNull();
+    });
+
+    it('hides the empty-state copy when a master chat is present', () => {
+      const { Wrapper } = createHarness([makeMasterChat(1)]);
+
+      render(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      expect(screen.queryByTestId('unified-chat-shell-empty')).toBeNull();
+      expect(screen.getByTestId('chat-tabs-empty-1')).not.toBeNull();
+    });
+
+    it('counts only item-anchored chats (not master/empty) in the minimized pill badge', () => {
+      const { Wrapper } = createHarness([makeMasterChat(1), makeChat(7), makeChat(11)]);
+
+      render(
+        <Wrapper>
+          <UnifiedChatShell />
+        </Wrapper>,
+      );
+
+      fireEvent.click(screen.getByTestId('unified-chat-shell-minimize'));
+      const pill = screen.getByTestId('unified-chat-shell-minimized');
+      expect(pill.getAttribute('data-open-chat-count')).toBe('2');
+      expect(screen.getByTestId('unified-chat-shell-minimized-count').textContent).toBe('2');
+    });
   });
 
   describe('ChatShellPatchPanel mount', () => {

@@ -53,9 +53,49 @@ vi.mock('@/client/components/ai-elements/message.js', () => ({
   },
 }));
 
-import { SecondaryChatCollapsible } from '../secondary-chat-collapsible.js';
+import {
+  SecondaryChatCollapsible,
+  SecondaryChatComposerPanel,
+  type SecondaryChatCollapsibleProps,
+} from '../secondary-chat-collapsible.js';
+import type { MentionItem } from '../secondary-chat-mention-popup.js';
+import type { SecondaryChatMode } from '../secondary-chat-trigger.js';
 
 type SecondaryChat = z.infer<typeof secondaryChatStateSchema>;
+
+function CollapsibleHarness({
+  secondaryChat,
+  onSubmitMessage,
+  onSetMode,
+  isModeUpdating,
+  mentionableItems,
+  ...collapsibleProps
+}: SecondaryChatCollapsibleProps & {
+  onSubmitMessage?: (message: string) => void;
+  onSetMode?: (mode: SecondaryChatMode) => void;
+  isModeUpdating?: boolean;
+  mentionableItems?: readonly MentionItem[];
+}) {
+  return (
+    <>
+      <SecondaryChatCollapsible
+        secondaryChat={secondaryChat}
+        onPickStartSuggestion={onSubmitMessage}
+        {...collapsibleProps}
+      />
+      {onSubmitMessage && (
+        <SecondaryChatComposerPanel
+          secondaryChat={secondaryChat}
+          onSubmitMessage={onSubmitMessage}
+          isStreaming={collapsibleProps.isStreaming}
+          onSetMode={onSetMode}
+          isModeUpdating={isModeUpdating}
+          mentionableItems={mentionableItems}
+        />
+      )}
+    </>
+  );
+}
 
 const baseChat: SecondaryChat['chat'] = {
   id: 7,
@@ -96,10 +136,9 @@ describe('SecondaryChatCollapsible', () => {
       anchoredItemIds: [],
     };
 
-    render(<SecondaryChatCollapsible secondaryChat={chat} />);
+    render(<CollapsibleHarness secondaryChat={chat} />);
 
     expect(screen.getByTestId('secondary-chat-collapsible')).toBeTruthy();
-    expect(screen.getByTestId('secondary-chat-collapsible-trigger')).toBeTruthy();
     expect(screen.queryByText('Secondary chat')).toBeNull();
   });
 
@@ -116,11 +155,11 @@ describe('SecondaryChatCollapsible', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} />);
+    render(<CollapsibleHarness secondaryChat={chat} />);
     expect(screen.queryByTestId('secondary-chat-kind-chip')).toBeNull();
   });
 
-  it('starts collapsed — body content is not visible', () => {
+  it('renders kickoff turn assistant_parts inline (no collapsible chrome)', () => {
     const chat: SecondaryChat = {
       chat: baseChat,
       kickoffTurn: {
@@ -144,42 +183,15 @@ describe('SecondaryChatCollapsible', () => {
       anchoredItemIds: [],
     };
 
-    render(<SecondaryChatCollapsible secondaryChat={chat} />);
-
-    expect(screen.queryByText('Editing this item.')).toBeNull();
-  });
-
-  it('expands on trigger click and reveals kickoff turn assistant_parts', () => {
-    const chat: SecondaryChat = {
-      chat: baseChat,
-      kickoffTurn: {
-        id: 99,
-        specification_id: 1,
-        parent_turn_id: null,
-        phase: 'grounding',
-        turn_kind: 'kickoff',
-        question: '',
-        why: null,
-        impact: null,
-        answer: null,
-        is_resolution: false,
-        user_parts: null,
-        assistant_parts: 'Editing this item.',
-        created_at: '',
-      },
-      turns: [],
-      pinnedItemKind: null,
-      pinnedReconciliationNeed: null,
-      anchoredItemIds: [],
-    };
-
-    render(<SecondaryChatCollapsible secondaryChat={chat} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} />);
 
     expect(screen.getByText('Editing this item.')).toBeTruthy();
   });
 
-  it('renders an empty body when no kickoff turn exists', () => {
+  it('renders the fresh-state hero ("Ask Brunch about anything" + chips) when no kickoff turn exists', () => {
+    // User feedback supersedes the previous "empty body" expectation: a
+    // brand-new chat now surfaces the centered hero with three static
+    // "How to start" chips so the surface never reads as an empty void.
     const chat: SecondaryChat = {
       chat: baseChat,
       kickoffTurn: null,
@@ -189,11 +201,12 @@ describe('SecondaryChatCollapsible', () => {
       anchoredItemIds: [],
     };
 
-    render(<SecondaryChatCollapsible secondaryChat={chat} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} />);
 
-    const body = screen.getByTestId('secondary-chat-collapsible-body');
-    expect(body.textContent?.trim()).toBe('');
+    expect(screen.getByTestId('secondary-chat-fresh-state')).not.toBeNull();
+    expect(screen.getByTestId('secondary-chat-fresh-state').textContent).toContain(
+      'Ask Brunch about anything',
+    );
   });
 
   it('renders the mode toggle (now in composer leading edge) reflecting the persisted mode', () => {
@@ -205,8 +218,7 @@ describe('SecondaryChatCollapsible', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} onSubmitMessage={vi.fn()} />);
     const toggle = screen.getByTestId('secondary-chat-mode-toggle');
     expect(toggle.dataset.mode).toBe('edit');
     expect(screen.getByTestId('secondary-chat-mode-edit').getAttribute('aria-pressed')).toBe('true');
@@ -222,8 +234,7 @@ describe('SecondaryChatCollapsible', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} onSubmitMessage={vi.fn()} />);
     const toggle = screen.getByTestId('secondary-chat-mode-toggle');
     expect(toggle.dataset.mode).toBe('explore');
   });
@@ -238,8 +249,7 @@ describe('SecondaryChatCollapsible', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} onSubmitMessage={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} onSetMode={onSetMode} onSubmitMessage={vi.fn()} />);
     fireEvent.click(screen.getByTestId('secondary-chat-mode-edit'));
     expect(onSetMode).toHaveBeenCalledWith('edit');
   });
@@ -254,8 +264,7 @@ describe('SecondaryChatCollapsible', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} onSubmitMessage={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} onSetMode={onSetMode} onSubmitMessage={vi.fn()} />);
     fireEvent.click(screen.getByTestId('secondary-chat-mode-ask'));
     expect(onSetMode).not.toHaveBeenCalled();
   });
@@ -271,14 +280,13 @@ describe('SecondaryChatCollapsible', () => {
       anchoredItemIds: [],
     };
     render(
-      <SecondaryChatCollapsible
+      <CollapsibleHarness
         secondaryChat={chat}
         onSetMode={onSetMode}
         isModeUpdating
         onSubmitMessage={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     expect(screen.getByTestId('secondary-chat-mode-edit').hasAttribute('disabled')).toBe(true);
     fireEvent.click(screen.getByTestId('secondary-chat-mode-edit'));
     expect(onSetMode).not.toHaveBeenCalled();
@@ -293,8 +301,7 @@ describe('SecondaryChatCollapsible', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} onSubmitMessage={vi.fn()} />);
     expect(screen.getByTestId('secondary-chat-mode-edit').hasAttribute('disabled')).toBe(true);
   });
 
@@ -309,7 +316,7 @@ describe('SecondaryChatCollapsible', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={vi.fn()} />);
+    render(<CollapsibleHarness secondaryChat={chat} onSetMode={vi.fn()} />);
     expect(screen.queryByTestId('secondary-chat-mode-toggle')).toBeNull();
   });
 
@@ -323,8 +330,7 @@ describe('SecondaryChatCollapsible', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSetMode={onSetMode} onSubmitMessage={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} onSetMode={onSetMode} onSubmitMessage={vi.fn()} />);
     const textarea = screen.getByTestId('secondary-chat-composer-input');
     fireEvent.keyDown(textarea, { key: 'Tab', shiftKey: true });
     expect(onSetMode).toHaveBeenCalledWith('edit');
@@ -377,8 +383,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} />);
     expect(screen.getByText('why?')).toBeTruthy();
     expect(screen.getByText('because.')).toBeTruthy();
   });
@@ -393,8 +398,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={onSubmitMessage} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} onSubmitMessage={onSubmitMessage} />);
     const input = screen.getByTestId('secondary-chat-composer-input') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: '  hello  ' } });
     fireEvent.submit(screen.getByTestId('secondary-chat-composer'));
@@ -417,8 +421,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} />);
     expect(screen.queryByTestId('secondary-chat-composer')).toBeNull();
   });
 
@@ -433,14 +436,13 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       anchoredItemIds: [],
     };
     render(
-      <SecondaryChatCollapsible
+      <CollapsibleHarness
         secondaryChat={chat}
         onSubmitMessage={onSubmitMessage}
         streamingAssistantText="streaming reply..."
         isStreaming
       />,
     );
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     const streaming = screen.getByTestId('secondary-chat-streaming-assistant');
     expect(streaming.textContent).toContain('streaming reply...');
     expect(streaming.getAttribute('data-is-streaming')).toBe('true');
@@ -474,14 +476,13 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
         anchoredItemIds: [],
       };
       render(
-        <SecondaryChatCollapsible
+        <CollapsibleHarness
           secondaryChat={chat}
           onSubmitMessage={vi.fn()}
           streamingAssistantText="streaming reply..."
           isStreaming
         />,
       );
-      fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
       const streaming = screen.getByTestId('secondary-chat-streaming-assistant');
       expect(streaming.getAttribute('data-is-streaming')).toBeNull();
       expect(streaming.textContent).toBe('streaming reply...');
@@ -512,8 +513,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       },
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} />);
     const panel = screen.getByTestId('secondary-chat-reconciliation-panel');
     expect(panel.getAttribute('data-reconciliation-need-id')).toBe('42');
     expect(panel.getAttribute('data-reconciliation-kind')).toBe('supersedes');
@@ -535,8 +535,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} />);
     const turn = screen.getByTestId('secondary-chat-assistant-turn');
     const strong = turn.querySelector('strong');
     expect(strong).toBeTruthy();
@@ -553,8 +552,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} onSubmitMessage={vi.fn()} />);
     const row = screen.getByTestId('secondary-chat-suggestions');
     expect(row.dataset.mode).toBe('explore');
     expect(screen.getAllByTestId('secondary-chat-suggestion')).toHaveLength(3);
@@ -568,8 +566,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chatAfter} onSubmitMessage={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chatAfter} onSubmitMessage={vi.fn()} />);
     expect(screen.queryByTestId('secondary-chat-suggestions')).toBeNull();
   });
 
@@ -582,8 +579,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chatEdit} onSubmitMessage={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chatEdit} onSubmitMessage={vi.fn()} />);
     const row = screen.getByTestId('secondary-chat-suggestions');
     expect(row.dataset.mode).toBe('edit');
     expect(row.dataset.reconciliationKind).toBe('none');
@@ -607,8 +603,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       },
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} onSubmitMessage={vi.fn()} />);
     expect(screen.getByTestId('secondary-chat-suggestions').dataset.reconciliationKind).toBe('supersedes');
   });
 
@@ -622,8 +617,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       anchoredItemIds: [],
     };
     const onSubmitMessage = vi.fn();
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={onSubmitMessage} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} onSubmitMessage={onSubmitMessage} />);
     const firstSuggestion = screen.getAllByTestId('secondary-chat-suggestion')[0]!;
     const text = firstSuggestion.textContent ?? '';
     fireEvent.click(firstSuggestion);
@@ -642,7 +636,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       anchoredItemIds: [],
     };
     render(
-      <SecondaryChatCollapsible
+      <CollapsibleHarness
         secondaryChat={chat}
         onSubmitMessage={vi.fn()}
         mentionableItems={[
@@ -652,7 +646,6 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
         ]}
       />,
     );
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     const input = screen.getByTestId('secondary-chat-composer-input') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: '#' } });
     expect(screen.getByTestId('secondary-chat-mention-popup').getAttribute('data-query')).toBe('');
@@ -669,7 +662,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       anchoredItemIds: [],
     };
     render(
-      <SecondaryChatCollapsible
+      <CollapsibleHarness
         secondaryChat={chat}
         onSubmitMessage={vi.fn()}
         mentionableItems={[
@@ -679,7 +672,6 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
         ]}
       />,
     );
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     const input = screen.getByTestId('secondary-chat-composer-input') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: '#R' } });
     const popup = screen.getByTestId('secondary-chat-mention-popup');
@@ -698,13 +690,12 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       anchoredItemIds: [],
     };
     render(
-      <SecondaryChatCollapsible
+      <CollapsibleHarness
         secondaryChat={chat}
         onSubmitMessage={vi.fn()}
         mentionableItems={[{ refCode: 'R1', kind: 'requirement', content: 'Auth' }]}
       />,
     );
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     const input = screen.getByTestId('secondary-chat-composer-input') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: '#R' } });
     expect(screen.getByTestId('secondary-chat-mention-popup')).toBeTruthy();
@@ -723,7 +714,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       anchoredItemIds: [],
     };
     render(
-      <SecondaryChatCollapsible
+      <CollapsibleHarness
         secondaryChat={chat}
         onSubmitMessage={vi.fn()}
         mentionableItems={[
@@ -732,7 +723,6 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
         ]}
       />,
     );
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     const input = screen.getByTestId('secondary-chat-composer-input') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: '#R' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -750,13 +740,12 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       anchoredItemIds: [],
     };
     render(
-      <SecondaryChatCollapsible
+      <CollapsibleHarness
         secondaryChat={chat}
         onSubmitMessage={vi.fn()}
         mentionableItems={[{ refCode: 'R1', kind: 'requirement', content: 'Auth' }]}
       />,
     );
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
     const input = screen.getByTestId('secondary-chat-composer-input') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: 'hello world' } });
     expect(screen.queryByTestId('secondary-chat-mention-popup')).toBeNull();
@@ -771,12 +760,11 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} />);
     expect(screen.queryByTestId('secondary-chat-reconciliation-panel')).toBeNull();
   });
 
-  it('does not render the pinned item as a chip in the composer — the title already shows it', () => {
+  it('does not render the composer anchor chip when the draft is empty and there is no span hint (pinned item rendered elsewhere)', () => {
     const chat: SecondaryChat = {
       chat: { ...baseChat, pinned_item_id: 42 },
       kickoffTurn: null,
@@ -785,17 +773,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(
-      <SecondaryChatCollapsible
-        secondaryChat={chat}
-        onSubmitMessage={vi.fn()}
-        pinnedItemSummary={{ refCode: 'R42', content: 'The system must do X' }}
-      />,
-    );
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
-    // Title still shows the pinned item.
-    expect(screen.getByTestId('secondary-chat-pinned-code').getAttribute('data-ref-code')).toBe('R42');
-    // Composer anchor chip is absent (no mentions in draft, no span hint).
+    render(<CollapsibleHarness secondaryChat={chat} onSubmitMessage={vi.fn()} />);
     expect(screen.queryByTestId('secondary-chat-composer-anchor-chip')).toBeNull();
   });
 
@@ -808,8 +786,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} onSubmitMessage={vi.fn()} />);
     const input = screen.getByTestId('secondary-chat-composer-input') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: 'About #R1 and also #G2 — and #R1 again' } });
     const chips = screen.getAllByTestId('secondary-chat-composer-mention-chip');
@@ -828,8 +805,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} onSubmitMessage={vi.fn()} />);
     const span = screen.getByTestId('secondary-chat-composer-anchor-span');
     expect(span.textContent).toContain('highlighted excerpt');
     expect(span.getAttribute('title')).toBe('highlighted excerpt');
@@ -844,8 +820,7 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
-    render(<SecondaryChatCollapsible secondaryChat={chat} onSubmitMessage={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('secondary-chat-collapsible-trigger'));
+    render(<CollapsibleHarness secondaryChat={chat} onSubmitMessage={vi.fn()} />);
     expect(screen.queryByTestId('secondary-chat-composer-anchor-chip')).toBeNull();
   });
 });

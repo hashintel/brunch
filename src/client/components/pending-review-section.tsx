@@ -1,3 +1,4 @@
+import { useNavigate } from '@tanstack/react-router';
 import {
   Check,
   CheckCheck,
@@ -7,7 +8,7 @@ import {
   Loader2,
   MessageSquare,
   PencilLine,
-  Play,
+  RefreshCw,
   Replace,
   RotateCw,
   Wand2,
@@ -49,10 +50,17 @@ type EditDraftMap = ReadonlyMap<number, string>;
 // the icon stays legible (instead of a washed grey-on-grey).
 const PRIMARY_BUTTON_CLASS =
   'inline-flex items-center gap-1 rounded-md bg-ink px-2 py-1 text-[10px] font-medium text-background transition-[transform,background-color] duration-150 hover:enabled:bg-foreground active:enabled:scale-95 disabled:bg-tint disabled:text-hint';
+// shrink the per-row icon buttons (size-7 → size-6) and
+// soften the resting color so the row reads as a thin actions bar.
 const ICON_BUTTON_CLASS =
-  'inline-flex size-7 items-center justify-center rounded-md text-sub transition-[transform,background-color,color] duration-150 hover:bg-tint hover:text-ink active:scale-95 disabled:text-hint disabled:hover:bg-transparent';
+  'inline-flex size-6 items-center justify-center rounded-md text-hint transition-[transform,background-color,color] duration-150 hover:bg-tint/60 hover:text-ink active:scale-95 disabled:text-hint disabled:hover:bg-transparent';
+// the primary-action icon button is now a subtle accented
+// affordance (text-emerald + light bg) instead of a heavy filled dark button
+// so Resolve reads at parity with the other per-row actions. The standalone
+// PRIMARY_BUTTON_CLASS (used for bulk header actions like "Confirm all") keeps
+// its weight — those are deliberate spec-wide actions.
 const PRIMARY_ICON_BUTTON_CLASS =
-  'inline-flex size-7 items-center justify-center rounded-md bg-ink text-background transition-[transform,background-color] duration-150 hover:enabled:bg-foreground active:enabled:scale-95 disabled:bg-tint disabled:text-hint';
+  'inline-flex size-6 items-center justify-center rounded-md text-emerald-600 transition-[transform,background-color,color] duration-150 hover:enabled:bg-emerald-500/10 active:enabled:scale-95 disabled:text-hint';
 
 const TARGET_EXCERPT_LIMIT = 80;
 
@@ -95,9 +103,22 @@ export function PendingReviewSection(): React.ReactElement | null {
   // Minimized = header-only mode. Bulk actions remain visible (so the user
   // can still take action without expanding), but the per-row list collapses
   // to save vertical space in long chats.
-  const [isMinimized, setIsMinimized] = useState(false);
+  // Pending review starts collapsed inside the chat shell so the surface
+  // doesn't shout for attention on every mount; the count badge in the
+  // trigger row keeps the affordance discoverable.
+  const [isMinimized, setIsMinimized] = useState(true);
   const diffAnchorRef = useRef<HTMLButtonElement | null>(null);
   const secondaryChatTrigger = useSecondaryChatTrigger();
+  const navigate = useNavigate();
+
+  // Clicking the row meta navigates the main workspace to the row's target
+  // item via the existing hash-anchor mechanism (`useGraphHashAnchor` in the
+  // structured list view), so the user can land on the item that needs
+  // review without leaving the chat shell.
+  const handleNavigateToTarget = (referenceCode: string | null): void => {
+    if (referenceCode === null) return;
+    void navigate({ to: '.', hash: referenceCode });
+  };
 
   useEffect(() => {
     if (diffPopoverNeedId === null) return;
@@ -341,9 +362,12 @@ export function PendingReviewSection(): React.ReactElement | null {
       aria-label="Pending review"
       data-open-needs-count={openNeeds.length}
       data-minimized={isMinimized ? 'true' : undefined}
-      // Subtle inset card. Glass surface comes from the sticky wrapper in
-      // <UnifiedChatShell>; this panel only adds border + faint tint.
-      className="flex flex-col gap-1 rounded-lg border border-rule/60 bg-background/30 px-2 py-1.5 text-xs"
+      // drop the background fill (was bg-background/30)
+      // so the surface reads as outlined-only, not a colored block. The
+      // sticky glass wrapper in <UnifiedChatShell> still gives the panel its
+      // floating feel. Border alpha softened so the two stacked panels
+      // (review + patch) read at parity instead of competing.
+      className="flex flex-col gap-1 rounded-lg border border-rule/30 px-2 py-1.5 text-xs"
     >
       <div className="flex items-center justify-between gap-2">
         <button
@@ -365,16 +389,26 @@ export function PendingReviewSection(): React.ReactElement | null {
               return next;
             });
           }}
-          className="inline-flex items-center gap-1.5 rounded font-medium text-ink hover:text-ink/90 focus-visible:outline-2 focus-visible:outline-ink/40"
+          // Lighter title per user feedback: text-sub instead of text-ink,
+          // smaller icons (size-3, stroke 1.5) so the header reads as a quiet
+          // section label, not a dominant chrome element.
+          className="inline-flex items-center gap-1.5 rounded text-sub hover:text-ink focus-visible:outline-2 focus-visible:outline-ink/30"
         >
-          <Replace className="size-3.5 text-hint" aria-hidden />
+          <Replace className="size-3 text-hint" strokeWidth={1.5} aria-hidden />
           <span>
             {openNeeds.length} pending review{openNeeds.length === 1 ? '' : 's'}
           </span>
+          {isMinimized && (
+            <span
+              data-testid="pending-review-pulse"
+              aria-hidden
+              className="inline-block size-1.5 animate-pulse rounded-full bg-amber-500"
+            />
+          )}
           {isMinimized ? (
-            <ChevronDown className="size-3.5 text-hint" aria-hidden />
+            <ChevronDown className="size-3 text-hint" strokeWidth={1.5} aria-hidden />
           ) : (
-            <ChevronUp className="size-3.5 text-hint" aria-hidden />
+            <ChevronUp className="size-3 text-hint" strokeWidth={1.5} aria-hidden />
           )}
         </button>
         <div className="flex items-center gap-1.5">
@@ -432,21 +466,25 @@ export function PendingReviewSection(): React.ReactElement | null {
           {unclassifiedAgentCount > 0 ? (
             <button
               type="button"
-              aria-label={isRunningAgent ? 'Running agent' : 'Run agent'}
+              aria-label={isRunningAgent ? 'Reconciling' : 'Reconcile pending reviews'}
               title={
-                agentInFlight ? 'Agent classification in progress' : 'Classify pending reviews with the agent'
+                agentInFlight ? 'Reconciliation in progress' : 'Run reconciliation across pending reviews'
               }
               data-run-agent-button
               disabled={isRunningAgent || agentInFlight || specificationId === null}
               onClick={handleRunAgent}
-              className={PRIMARY_BUTTON_CLASS}
+              // lighter, smaller, non-primary affordance —
+              // hint-toned ghost button with a small refresh icon so it
+              // reads as a quiet secondary control next to the primary
+              // bulk actions, not a competing call-to-action.
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-hint transition-[transform,background-color,color] duration-150 hover:enabled:bg-tint/60 hover:enabled:text-ink active:enabled:scale-95 disabled:opacity-50"
             >
               {isRunningAgent ? (
-                <Loader2 className="size-3 animate-spin" aria-hidden />
+                <Loader2 className="size-2.5 animate-spin" aria-hidden />
               ) : (
-                <Play className="size-3" aria-hidden />
+                <RefreshCw className="size-2.5" strokeWidth={1.75} aria-hidden />
               )}
-              {isRunningAgent ? 'Running' : 'Run agent'}
+              {isRunningAgent ? 'Reconciling' : 'Reconcile'}
             </button>
           ) : null}
         </div>
@@ -493,7 +531,19 @@ export function PendingReviewSection(): React.ReactElement | null {
               className="group/need-row flex flex-col gap-0.5 rounded px-1.5 py-1 hover:bg-tint/40"
             >
               <div className="flex items-center justify-between gap-2">
-                <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                <button
+                  type="button"
+                  data-testid={`pending-review-row-target-${need.id}`}
+                  data-target-reference-code={need.target_reference_code ?? undefined}
+                  aria-label={
+                    need.target_reference_code
+                      ? `Scroll to ${need.target_reference_code} in the workspace`
+                      : `Scroll to target item ${need.target_item_id} in the workspace`
+                  }
+                  disabled={need.target_reference_code === null}
+                  onClick={() => handleNavigateToTarget(need.target_reference_code)}
+                  className="flex min-w-0 flex-1 items-center gap-1.5 rounded text-left transition-colors duration-150 hover:enabled:text-ink disabled:cursor-default"
+                >
                   <span
                     className="inline-flex size-4 shrink-0 items-center justify-center text-hint"
                     title={kindLabel}
@@ -508,7 +558,9 @@ export function PendingReviewSection(): React.ReactElement | null {
                     agentProposal={need.agent_proposal}
                   />
                   <span className="min-w-0 truncate text-ink" title={targetExcerpt ?? undefined}>
-                    <span className="font-mono text-hint">#{need.target_item_id}</span>
+                    <span className="font-mono text-hint">
+                      {need.target_reference_code ?? `#${need.target_item_id}`}
+                    </span>
                     {targetExcerpt !== null ? (
                       <>
                         <span className="mx-1 text-hint">·</span>
@@ -516,8 +568,12 @@ export function PendingReviewSection(): React.ReactElement | null {
                       </>
                     ) : null}
                   </span>
-                </div>
-                <div className="flex items-center gap-1">
+                </button>
+                {/* on compact widths the icon cluster was
+                    crowding the row. shrink-0 keeps it on a single line and
+                    forces the meta column to truncate first; gap-0.5 packs
+                    the icons tightly without losing tap targets. */}
+                <div className="flex shrink-0 items-center gap-0.5">
                   {showAutoConfirmButton ? (
                     <button
                       type="button"
@@ -529,9 +585,9 @@ export function PendingReviewSection(): React.ReactElement | null {
                       className={PRIMARY_ICON_BUTTON_CLASS}
                     >
                       {isResolving ? (
-                        <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                        <Loader2 className="size-3 animate-spin" aria-hidden />
                       ) : (
-                        <CheckCheck className="size-3.5" aria-hidden />
+                        <CheckCheck className="size-3" aria-hidden />
                       )}
                       <span className="sr-only">{isResolving ? 'Resolving' : 'Confirm'}</span>
                     </button>
@@ -551,7 +607,7 @@ export function PendingReviewSection(): React.ReactElement | null {
                             }}
                             className={ICON_BUTTON_CLASS}
                           >
-                            <PencilLine className="size-3.5" aria-hidden />
+                            <PencilLine className="size-3" aria-hidden />
                             <span className="sr-only">View</span>
                           </button>
                           <button
@@ -564,9 +620,9 @@ export function PendingReviewSection(): React.ReactElement | null {
                             className={PRIMARY_ICON_BUTTON_CLASS}
                           >
                             {isApplying ? (
-                              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                              <Loader2 className="size-3 animate-spin" aria-hidden />
                             ) : (
-                              <Wand2 className="size-3.5" aria-hidden />
+                              <Wand2 className="size-3" aria-hidden />
                             )}
                             <span className="sr-only">{isApplying ? 'Applying' : 'Apply'}</span>
                           </button>
@@ -581,7 +637,7 @@ export function PendingReviewSection(): React.ReactElement | null {
                         onClick={() => handleResolve(need.id, need.specification_id)}
                         className={ICON_BUTTON_CLASS}
                       >
-                        <Forward className="size-3.5" aria-hidden />
+                        <Forward className="size-3" aria-hidden />
                         <span className="sr-only">Skip</span>
                       </button>
                     </>
@@ -596,24 +652,24 @@ export function PendingReviewSection(): React.ReactElement | null {
                       onClick={() => handleOpenSideChat(need)}
                       className={ICON_BUTTON_CLASS}
                     >
-                      <MessageSquare className="size-3.5" aria-hidden />
+                      <MessageSquare className="size-3" aria-hidden />
                       <span className="sr-only">Open side-chat</span>
                     </button>
                   ) : null}
                   {canRerunAgent ? (
                     <button
                       type="button"
-                      aria-label={isResetting ? 'Re-running' : `Re-run agent for need ${need.id}`}
-                      title="Re-run agent"
+                      aria-label={isResetting ? 'Re-running' : `Reconcile pending review ${need.id}`}
+                      title="Reconcile pending review"
                       data-rerun-agent-button={need.id}
                       disabled={rowDisabled}
                       onClick={() => handleResetAgent(need.id, need.specification_id)}
                       className={ICON_BUTTON_CLASS}
                     >
                       {isResetting ? (
-                        <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                        <Loader2 className="size-3 animate-spin" aria-hidden />
                       ) : (
-                        <RotateCw className="size-3.5" aria-hidden />
+                        <RotateCw className="size-3" aria-hidden />
                       )}
                       <span className="sr-only">{isResetting ? 'Re-running' : 'Re-run agent'}</span>
                     </button>
@@ -627,7 +683,7 @@ export function PendingReviewSection(): React.ReactElement | null {
                       onClick={() => startEditing(need.id, need.target_current_content ?? '')}
                       className={ICON_BUTTON_CLASS}
                     >
-                      <PencilLine className="size-3.5" aria-hidden />
+                      <PencilLine className="size-3" aria-hidden />
                       <span className="sr-only">Edit target</span>
                     </button>
                   ) : null}
@@ -640,9 +696,9 @@ export function PendingReviewSection(): React.ReactElement | null {
                     className={PRIMARY_ICON_BUTTON_CLASS}
                   >
                     {isResolving ? (
-                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                      <Loader2 className="size-3 animate-spin" aria-hidden />
                     ) : (
-                      <Check className="size-3.5" aria-hidden strokeWidth={2.5} />
+                      <Check className="size-3" aria-hidden strokeWidth={2.5} />
                     )}
                     <span className="sr-only">{isResolving ? 'Resolving' : 'Resolve'}</span>
                   </button>
@@ -686,7 +742,7 @@ export function PendingReviewSection(): React.ReactElement | null {
                       onClick={() => cancelEditing(need.id)}
                       className="inline-flex size-6 items-center justify-center rounded text-hint hover:bg-tint hover:text-ink disabled:opacity-50"
                     >
-                      <X className="size-3.5" aria-hidden />
+                      <X className="size-3" aria-hidden />
                       <span className="sr-only">Cancel</span>
                     </button>
                     <button

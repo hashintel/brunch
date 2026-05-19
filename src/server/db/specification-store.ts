@@ -184,6 +184,26 @@ export function createSecondaryChat(db: DB, specificationId: number, input: Crea
     .get() as Chat;
 }
 
+/** Refuses to delete primary chats; only `parent_chat_id IS NOT NULL` rows are removable. */
+export function deleteSecondaryChat(db: DB, specificationId: number, chatId: number): boolean {
+  const chat = db
+    .select({
+      id: schema.chat.id,
+      specification_id: schema.chat.specification_id,
+      parent_chat_id: schema.chat.parent_chat_id,
+    })
+    .from(schema.chat)
+    .where(eq(schema.chat.id, chatId))
+    .get();
+  if (!chat || chat.specification_id !== specificationId || chat.parent_chat_id === null) {
+    return false;
+  }
+  // Drop turns first to satisfy the FK.
+  db.delete(schema.turn).where(eq(schema.turn.chat_id, chatId)).run();
+  db.delete(schema.chat).where(eq(schema.chat.id, chatId)).run();
+  return true;
+}
+
 export function setSecondaryChatMode(db: DB, chatId: number, mode: SecondaryChatMode): Chat {
   const updated = db
     .update(schema.chat)
@@ -210,6 +230,54 @@ export interface GetOrCreateItemSecondaryChatResult {
   chat: Chat;
   /** Null when an existing chat was reused (dedupe path). */
   kickoffTurnId: number | null;
+}
+
+export interface GetOrCreateMasterSecondaryChatInput {
+  parent_chat_id: number;
+}
+
+export interface GetOrCreateMasterSecondaryChatResult {
+  chat: Chat;
+  kickoffTurnId: null;
+}
+
+export function createEmptySecondaryChat(
+  db: DB,
+  specificationId: number,
+  input: GetOrCreateMasterSecondaryChatInput,
+): GetOrCreateMasterSecondaryChatResult {
+  const chat = createSecondaryChat(db, specificationId, {
+    parent_chat_id: input.parent_chat_id,
+  });
+  return { chat, kickoffTurnId: null };
+}
+
+export function getOrCreateMasterSecondaryChat(
+  db: DB,
+  specificationId: number,
+  input: GetOrCreateMasterSecondaryChatInput,
+): GetOrCreateMasterSecondaryChatResult {
+  const existing = db
+    .select()
+    .from(schema.chat)
+    .where(
+      and(
+        eq(schema.chat.specification_id, specificationId),
+        eq(schema.chat.parent_chat_id, input.parent_chat_id),
+        isNull(schema.chat.pinned_item_id),
+        isNull(schema.chat.pinned_reconciliation_need_id),
+      ),
+    )
+    .orderBy(asc(schema.chat.id))
+    .limit(1)
+    .get() as Chat | undefined;
+  if (existing) {
+    return { chat: existing, kickoffTurnId: null };
+  }
+  const chat = createSecondaryChat(db, specificationId, {
+    parent_chat_id: input.parent_chat_id,
+  });
+  return { chat, kickoffTurnId: null };
 }
 
 function parseAnchoredItemIds(raw: string | null | undefined): number[] {

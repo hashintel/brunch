@@ -114,7 +114,10 @@ describe('ChatShellPatchPanel', () => {
     expect(screen.queryByTestId('chat-shell-patch-panel')).toBeNull();
   });
 
-  it('renders "1 pending change" with row and Discard button when one patch is staged', () => {
+  it('renders a kind-specific title ("1 note") when exactly one patch is staged', () => {
+    // User feedback supersedes prior titles: simpler language. Single-change
+    // panels surface as "1 <kind>" (e.g. "1 note") — dropping "ready to
+    // apply" so the header reads as the kind word alone.
     const refs = makeRefs();
     const { appliers } = makeAppliers();
     renderPanel(<ChatShellPatchPanel />, appliers, refs);
@@ -125,7 +128,7 @@ describe('ChatShellPatchPanel', () => {
 
     const panel = screen.getByTestId('chat-shell-patch-panel');
     expect(panel).not.toBeNull();
-    expect(panel.textContent).toContain('1 pending change');
+    expect(panel.textContent).toContain('1 note');
     const rows = screen.getAllByTestId('chat-shell-patch-row');
     expect(rows).toHaveLength(1);
     expect(rows[0]!.textContent).toContain('first note');
@@ -133,7 +136,11 @@ describe('ChatShellPatchPanel', () => {
     expect(screen.getByTestId('chat-shell-patch-discard')).not.toBeNull();
   });
 
-  it('renders "N pending changes" with bulk Apply all + Undo controls when multiple patches are staged', async () => {
+  it('renders "N pending changes" header and bulk Apply all; Undo is owned by the applied toast (not the panel) after apply', async () => {
+    // User-feedback supersedes the previous in-panel Undo button: the apply
+    // flow now hides the panel (count drops to 0 → panel renders null) and
+    // delegates Undo to <ChatShellAppliedToast> mounted in the shell. The
+    // reducer's canUndo flag still flips so the toast can pick it up.
     const refs = makeRefs();
     const { appliers, editMock } = makeAppliers();
     renderPanel(<ChatShellPatchPanel />, appliers, refs);
@@ -145,7 +152,8 @@ describe('ChatShellPatchPanel', () => {
     });
 
     const panel = screen.getByTestId('chat-shell-patch-panel');
-    expect(panel.textContent).toContain('3 pending changes');
+    // Simpler header per user feedback: "N changes" instead of "N pending changes".
+    expect(panel.textContent).toContain('3 changes');
 
     await act(async () => {
       fireEvent.click(screen.getByTestId('chat-shell-patch-apply-all'));
@@ -154,7 +162,7 @@ describe('ChatShellPatchPanel', () => {
     expect(editMock).toHaveBeenCalledTimes(3);
     expect(refs.current.state?.count).toBe(0);
     expect(refs.current.state?.canUndo).toBe(true);
-    expect(screen.getByTestId('chat-shell-patch-undo')).not.toBeNull();
+    expect(screen.queryByTestId('chat-shell-patch-panel')).toBeNull();
   });
 
   it('Discard removes a single row but leaves siblings staged', () => {

@@ -808,52 +808,135 @@ C24a (types) → C24b (server route) → C24c (client refit) → C24d (walkthrou
 
 ### C31 — Master chat + tab band
 
-- **Status:** **next**
-- **What:** Introduce a per-spec master secondary chat (always-present, no anchor) and swap the C26 dropdown switcher for a tab band that lists `Master + <item-anchored chats>`. Single-host-at-a-time render stays; the tabs replace the dropdown as the focus driver. Reconciliation chats stay hidden from tabs until Track 3 defines their UX.
-- **Why now:** users want one persistent spec-scope conversation alongside the item-anchored ones; the figma's `New chat | Old chat` tab shape (C27 parking lot, line 719) is the natural place to put that selector once a master exists. Substrate is already multi-chat (C24c parallel `useChat` + C5c partition seam), so this is a UI + one-helper-server change.
-- **Substrate:** master is structurally the C18 scratch-chat shape that was retired — `parent_chat_id = primary_chat_id`, `pinned_item_id IS NULL`, `pinned_reconciliation_need_id IS NULL`. Bundle hydrates it alongside item chats; the shell discriminates via `pinned_item_id === null`. No new tables, no new columns.
-- **Server:**
-  - Add `getOrCreateMasterSecondaryChat(db, specificationId)` in [`specification-store.ts`](file:///Users/kostandin/Projects/hashdev/brunch/src/server/db/specification-store.ts) next to the existing `getOrCreateItemSecondaryChat`. Lookup by `(specification_id, parent_chat_id, pinned_item_id IS NULL, pinned_reconciliation_need_id IS NULL)` → reuse or create. `anchored_item_ids: []`, no kickoff turn (or a single generic "Ask about this spec." kickoff — see open question below).
-  - Route response shape: same `{ chatId, kickoffTurnId }`. Either expose via a new `POST /api/specifications/:id/secondary-chats/master` endpoint, or fold into the existing create route when `{ item, reconciliationNeedId }` are both absent. (Prefer the latter — one endpoint, simpler client.)
-  - Bundle hydration unchanged — master surfaces in `secondaryChats[*]` like any other; the client filter picks it up via `pinned_item_id === null`.
-- **Client / shell:**
-  - On shell first-open per spec, auto-create the master via `useCreateSecondaryChat({ scope: 'master' })` if `secondaryChats.find(c => c.chat.pinned_item_id === null && c.chat.pinned_reconciliation_need_id === null)` is missing. Idempotent — server-side dedupe is the source of truth.
-  - Active chat resolution flips: `activeChat = secondaryChats.find(c => c.chat.id === presence?.focusedChatId) ?? master`. Master is the default when nothing else is focused.
-  - Empty-state copy retires: with master always present the `"Open one from a knowledge item to start a conversation."` line goes away.
-- **Tab band component (`<ChatTabs>`):**
-  - New file: `src/client/components/chat-tabs.tsx`. Renders horizontally below the shell header, above the body.
-  - Master tab pinned first: neutral icon (e.g. `Sparkle` or `MessageSquare`), label "Master", no kind chip.
-  - Item tabs to the right in `chat.id` ascending order: kind chip (lucide icon + `kindAccentHex[chat.pinnedItemKind]` tint) + truncated item excerpt parsed from the kickoff turn's `'…'` token.
-  - Active tab styling: C27 chip schema (`${accent}14` bg + accent text + `${accent}33` border) for item tabs; the neutral master tab uses `bg-tint/60 text-ink` when active.
-  - Click → `presence.focusChat(chatId)` (same hook the dropdown calls today).
-  - Overflow: when the tab strip exceeds the shell width, the tail tabs collapse into a `"···"` trigger that opens the existing `<ChatSwitcher>` dropdown menu (repurposed as overflow only). Keeps the work the dropdown already does — no duplication.
-  - No per-tab close affordance V1 — tabs accumulate, server dedupe (`getOrCreateItemSecondaryChat`) keeps it bounded by item count. Revisit if walkthrough shows tab thrash.
-- **Suggestions (C23) for master:** new arrays in `secondary-chat-suggestions.tsx` keyed on `(mode, scope: 'master')`, six prompts total (3 Ask + 3 Edit) — e.g. Ask: "Summarize this spec", "Find conflicting requirements", "What's missing?"; Edit: "Refine the goals", "Tighten the constraints", "Decompose this requirement". Existing static-per-mode shape preserved.
-- **C19 selection styling:** master has no `pinned_item_id` / `anchoredItemIds`, so the structured-list view renders neutral when master is active. No code change in `-structured-list-view.tsx` needed — the existing `chatAnchored` lookup returns `false` for every row.
-- **Patch + needs scope:** stay global via `usePatchList()` / `useSpecificationOpenReconciliationNeeds`. The `producerChatId` seam already records origin; a future row decoration ("from Goal: latency chat") can land separately.
-- **Out of scope:**
-  - localStorage persistence of `focusedChatId` (defer; on reload, fall back to master).
-  - Per-tab close / archive affordance.
-  - Tab reordering (drag).
-  - Decorating patch / pending-review rows with the producing chat's kind chip.
-  - Reconciliation chats in tabs (Track 3).
-  - Master kickoff-turn copy variations (V1: one template or no kickoff).
-  - Renaming master → custom labels.
-- **Risks:**
-  - **Tab width thrash** — long item excerpts could blow out the strip. Mitigation: hard cap excerpt at ~18 chars + ellipsis, plus the `"···"` overflow.
-  - **Auto-create race** — two shell mounts (e.g. layout-mode flip) racing to create the master. Mitigation: server-side `getOrCreateMasterSecondaryChat` is already dedupe-by-design; client just needs to not throw on the second 200.
-  - **Suggestion-set divergence** — master suggestions are different copy from item-anchored. Keep them in the same `secondary-chat-suggestions.tsx` file so reviewers see both sets together; no new module.
-- **Tests:**
-  - Server: `getOrCreateMasterSecondaryChat` returns the same chatId on second call; cross-spec call creates a different chat.
-  - Client: `unified-chat-shell.test.tsx` — master tab present and active when `focusedChatId === null`; clicking an item tab flips the active host; tab band absent when `secondaryChats.length === 0` (pre-master-create); master auto-creates on shell mount when missing.
-  - `chat-tabs.test.tsx` (new): master tab first, kind chips on item tabs, accent-bordered active state, overflow collapses to dropdown when width-constrained.
-  - C19 regression: structured-list rows stay neutral when master is active.
-  - C26 `<ChatSwitcher>` tests reframe as overflow-menu tests (component is now only mounted via overflow).
-- **Verification:** `npm run verify` green; manual walkthrough — open a fresh spec → master tab present, no item tabs; click goal-1 from structured list → goal tab joins, becomes active; click constraint-2 → third tab; flip back to master via tab click → suggestions render, structured-list rows go neutral; reload → falls back to master.
-- **Open question:** does the master get a kickoff turn? Two shapes:
-  - **(i) No kickoff** — body opens empty, suggestions render at turn-zero, first user message starts the conversation. Cleanest substrate (kickoff turns are optional today).
-  - **(ii) Generic kickoff** — `"Ask about this spec."` (or similar). Matches the item-anchored shape (every chat has a kickoff) and gives the body a non-empty default. Persists one extra turn per spec.
-  - Lean **(i)** — keeps master visually lighter and matches the "blank canvas" affordance the suggestions row already provides.
+- **Status:** **superseded** by C32 (2026-05-18). The master-chat substrate + `<ChatTabs>` primitive shipped under C31, then the expandable-shell shape it advanced was retired before C31's full scope reached build. C32 absorbs the workspace-footer-only direction. See C32 below.
+
+### S1 — Spike: is a transient popover sufficient as the only transcript surface?
+
+- **Status:** **done** (2026-05-18). Pre-C32 investigation, throwaway note.
+
+- **Question:** With composer + tabs as the only permanent chat surface in the workspace (per C31 evolution), is a transient popover anchored to the active tab a sufficient transcript surface in V1? Answer = yes/no/partially, with the affordance refinement that follows.
+
+- **Approach:** Reasoned from first principles + scanned `docs/design/UNIFIED_CHAT_UX.md` (which presupposes an expandable spine, not the tab-only shape) + existing `<SecondaryChatHost>` / `<SecondaryChatCollapsible>` behavior (composer + scroll-anchored transcript live together inside an expandable body). Tested the user-flow mental model: submit a prompt → where does the response render?
+
+- **Verdict:** **Partially.** A popover anchored to the active tab is the right shape for *read-back* — opening, scrolling history, dismissing on Esc / outside-click — but **pure click-to-open is insufficient** because the user submits via the composer and would otherwise see no streaming output. Concretely:
+  - Streaming responses must be visible without an explicit click; otherwise the composer becomes a write-only black hole and the user can't tell whether the LLM is working, errored, or finished.
+  - The tab face alone is too small to render paragraph-length assistant turns; reducing them to a snippet on the tab loses meaning fast (markdown, code blocks, tool calls).
+  - The collapsed/empty default state IS fine: when no chat is in flight and the user just sees the tabs and composer, that's a clean resting shape.
+
+- **Recommendation:** Proceed with C32, with these two refinements baked into its scope:
+  1. **Popover auto-opens on send & during streaming.** The transcript popover for the active tab opens automatically when (a) the user submits a message, or (b) the host's `status === 'streaming'`. It stays open until the user dismisses (Esc / outside-click). After dismissal during a still-streaming run, the tab carries a streaming-dot indicator and the popover can be reopened by click.
+  2. **Tab face carries minimal at-a-glance state.** Streaming dot (animated) during `status === 'streaming'`; static dot (unread badge) when the host has new assistant turns since the popover last closed. No last-turn snippet text on the tab face in V1 — adds layout thrash and competes with the kind chip + excerpt.
+
+- **Implication for C32:** Update Acceptance Criteria to include auto-open-on-send and auto-open-on-streaming. Add `unread` flag to the per-chat host state (or derive from `messages.length` snapshot at last popover close). No new substrate; no schema change.
+
+- **Traceability:** Confirms C32's ASSUMPTION-1 ("transient popover anchored to active tab is sufficient") as **validated with refinement**. No SPEC.md §Assumptions entry needed (this is UI shape, not a durable invariant). No PLAN.md frontier change.
+
+### C32 — Workspace footer chat (composer + tabs, no expandable shell)
+
+- **Status:** **in progress** — full scope card. Foundational swap that retires the expandable `<UnifiedChatShell>` and replaces it with a permanent workspace footer composed of `<ChatTabs>` + composer. Operationalizes the C31 evolution note. Incorporates S1 spike refinements (auto-open popover on send + during streaming; tab streaming/unread dots).
+
+- **Slice 1 — Composer lifted outside expandable body (2026-05-18) — done.** The first structural seed of "composer outside the expandable chat" landed inside `<SecondaryChatCollapsible>`: the composer block + suggestions row now render as siblings of `<CollapsibleContent>` (not inside it). Collapsing the transcript body now leaves the composer visible — Radix `data-state="closed"` no longer hides the input. New invariant test in `secondary-chat-host.test.tsx` asserts `collapsibleBody.contains(composer) === false`. No prop changes, no behavior changes to send/draft/mention/mode toggle. `npm run verify` green — 113 files / 1341 tests.
+
+- **Slice 2 — Composer extracted from collapsible into `<SecondaryChatHost>` (2026-05-18) — done.** Extracted `<SecondaryChatComposerPanel>` from `secondary-chat-collapsible.tsx` (new exported component, owns its own draft state, suggestion-row, mention popup, and mode toggle). `<SecondaryChatCollapsible>` shed its composer-only props (`onSubmitMessage`, `onSetMode`, `isModeUpdating`, `mentionableItems`) and now renders the transcript surface only. `<SecondaryChatHost>` mounts both as siblings inside a fragment, sharing the same per-chat `useChat` instance via `stream.send`. Composer-touching tests in `secondary-chat-collapsible.test.tsx` rebound onto a small `<CollapsibleHarness>` test helper that renders the new pair (preserves the legacy test API). New invariant test in `secondary-chat-host.test.tsx` asserts `collapsible.contains(composer) === false`. `npm run verify` green — 113 files / 1342 tests.
+
+- **Slice 3 — Composer DOM portaled to the shell footer (2026-05-18) — done.** Added `composerPortalTarget?: HTMLElement | null` prop to `<SecondaryChatHost>` — when provided, the composer panel is rendered via `react-dom` `createPortal` into that target. State ownership (per-chat `useChat`, draft, mention popup, mode toggle) stays in the host; only the DOM placement moves. `<UnifiedChatShell>` mounts a `unified-chat-shell-composer-slot` div above the tab strip in the footer and captures its element via `useState<HTMLDivElement | null>` (so the host re-renders once the slot DOM mounts). New invariant test in `unified-chat-shell.test.tsx` asserts `footer.contains(composer) === true` AND `body.contains(composer) === false`. `npm run verify` green — 113 files / 1343 tests.
+
+- **Slice 4a — Streaming dot on tabs (2026-05-18) — done.** Added `streamingChatIds?: ReadonlySet<number>` prop to `<ChatTabs>`. Tabs in the set get `data-streaming="true"` + an animated emerald dot affordance (`chat-tabs-streaming-dot`) anchored to the top-right of the button. `<SecondaryChatHost>` gained an `onStreamingChange?: (isStreaming: boolean) => void` callback fired from a useEffect on `stream.isStreaming`. `<UnifiedChatShell>` tracks `Set<number>` of streaming chat ids (currently capped at the active host since only one is mounted today) and threads them into `<ChatTabs>`. New test in `chat-tabs.test.tsx` asserts the dot renders for chats in the set and not for others. `npm run verify` green — 113 files / 1344 tests.
+
+- **Slice 4c — Unread dot on tabs (2026-05-18) — done.** Added `unreadChatIds?: ReadonlySet<number>` prop to `<ChatTabs>`; tabs in the set carry `data-unread="true"` + a static sky-blue dot (`chat-tabs-unread-dot`) with the same geometry as the streaming dot. The streaming dot takes precedence when both flags are true for the same chat — calling a still-in-flight turn "unread" is misleading. `<SecondaryChatHost>` gained `onAssistantTurnArrived?: () => void`, fired exactly once per turn on the `stream.isStreaming` true→false edge via a previous-value ref. `<UnifiedChatShell>` tracks `unreadChatIds: Set<number>` and adds to it only when `transcriptOpen === false` at the moment the host fires (otherwise the user already saw the turn arrive); a useEffect auto-clears the active chat from the set whenever the transcript is open AND the active id is in the set, so a tab swap OR a transcript toggle flushes the dot. Made the test mock's `useChat.status` mutable via a hoisted `useChatStatusRef` so the Slice 4c integration test can drive a streaming → ready transition end-to-end through the real host effect. New tests: 2 in `chat-tabs.test.tsx` (unread renders + streaming-precedence) + 2 in `unified-chat-shell.test.tsx` (full flip+clear cycle + no-mark-while-transcript-open). `npm run verify` green — 113 files / 1350 tests.
+
+- **Slice 4d — Parallel host mounting for inactive tabs (2026-05-18) — done.** Added `renderComposer?: boolean` (default `true`) to `<SecondaryChatHost>`; when false the host returns null for the composer JSX entirely, so the `SecondaryChatComposerPanel` render is skipped — `useChat` state + streaming/turn-arrived effects still run. `<UnifiedChatShell>` now mounts a hidden host (`aria-hidden`, `display:none`, `data-testid="unified-chat-shell-background-host-{id}"`) for every tab chat that isn't currently active, passing `renderTranscript={false}` + `renderComposer={false}`. The streaming/unread callback logic was lifted to two shared helpers (`handleStreamingChange(chatId, isStreaming)` and `handleAssistantTurnArrived(chatId)`) that the active host AND every background host call into. Result: streaming + unread dots now fire on **any** tab whose chat is in flight or has new turns, not just the active one — closes the gap Slice 4c flagged. New test in `unified-chat-shell.test.tsx` asserts background-host mounting + that a streaming→ready cycle on an inactive chat surfaces both the streaming dot (during) and the unread dot (after) on its tab. `npm run verify` green — 113 files / 1351 tests.
+
+- **Remaining slices (queued, will replace this list as each lands):**
+  - **Slice 4b:** Wrap the transcript in a Radix-style popover anchored to the active tab; auto-open on send + during streaming (per S1 spike).
+  - **Slice 5:** Replace `<UnifiedChatShell>` with `<ChatWorkspaceFooter>` mounted in the workspace route; retire `use-chat-layout-mode`, `appearance` triad, `open-chat-button`, `chat-shell-layout`.
+  - **Slice 6:** Patches + needs panels relocate from the (now retired) shell body to a permanent workspace strip (this is the C33 split — promote out of C32 if it gets opinionated).
+
+- **Orientation:**
+  - Containing seam: `chat-runtime-secondary-chats` (FE-716), V1 done; C29–C31 are post-V1 increments on the same branch. C32 stays inside this frontier — it reshapes the same UI substrate, no schema/server changes.
+  - Frontier-item boundary unchanged: still FE-716; this is a slice of the existing branch, no new Linear issue, no new stacked branch.
+  - HANDOFF state: none flagged.
+  - Main risk: scope creep — temptation to also pull patch/needs panels into their final home and design rich tab transcript affordances in the same pass. Both deferred to C33 / C34.
+
+- **Target Behavior:** The workspace renders a permanent footer containing the chat tab band and composer; the active tab's transcript is reachable via a transient popover anchored to the active tab; no expandable / minimizable shell exists.
+
+- **Boundary Crossings:**
+  ```
+  → workspace route (_view/route.tsx)
+  → <ChatWorkspaceFooter> (new, replaces <UnifiedChatShell> mount)
+  →   <ChatTabs> (existing, reused as-is)
+  →   <ChatTranscriptPopover> (new — transient, opens on active-tab click)
+  →     transcript body (extracted from <SecondaryChatHost>)
+  →     <ChatShellPatchPanel> (relocated as popover tail, temporary home)
+  →     <PendingReviewSection> (relocated as popover tail, temporary home)
+  →   <ChatComposer> (extracted from <SecondaryChatHost> / <SecondaryChatCollapsible>)
+  →     writes to activeChat via existing useChat per-host instance (resolved by tab focus)
+  → presence: focusChat(chatId) (unchanged) — appearance triad removed
+  → exit: server message route (unchanged)
+  ```
+
+- **Risks and Assumptions:**
+  ```
+  - RISK: per-chat composer draft loss when extracting the composer to a single workspace fixture
+    → MITIGATION: hoist drafts to a Map<chatId, string> keyed by activeChat.id, restored on tab swap; same shape per-host owned today
+  - RISK: per-chat useChat streaming state collapses if one composer instance is reused naively
+    → MITIGATION: keep parallel <SecondaryChatHost> mounts (one per chat) in a hidden container for state ownership; the visible composer is a thin controlled <textarea> that calls activeChat.host.sendMessage()
+  - RISK: patches + needs lose visibility when the shell retires (they currently live inside the shell body per C29/C30)
+    → MITIGATION: temporarily render them as a tail strip inside the transcript popover; C33 relocates them to a permanent workspace strip
+  - RISK: localStorage keys for retired layout-mode leak forever
+    → MITIGATION: leave keys orphaned (pre-release posture, no migration); delete the read/write paths only
+  - ASSUMPTION: a transient popover anchored to the active tab is sufficient for transcript review in V1, **provided** it auto-opens on send + during streaming (per S1)
+    → VALIDATED by S1 with the refinement above; walkthrough confirms streaming visibility is the load-bearing requirement, not always-visible transcript
+  - ASSUMPTION: C28's sticky-composer + autoscroll behavior can be re-anchored to the popover scroll container without regression
+    → VALIDATE: existing C28 tests rebound onto the popover transcript
+  ```
+
+- **Acceptance Criteria:**
+  ```
+  ✓ chat-workspace-footer.test.tsx — footer mounts inside _view route; tab band + composer always visible regardless of spec state
+  ✓ chat-workspace-footer.test.tsx — composer textarea writes to activeChat (master by default); tab swap re-targets composer in place
+  ✓ chat-workspace-footer.test.tsx — per-chat draft state preserved across tab swaps (Map<chatId,string>)
+  ✓ chat-transcript-popover.test.tsx — click active tab → popover opens; click outside → closes; Esc → closes
+  ✓ chat-transcript-popover.test.tsx — popover renders transcript turns from activeChat.host.messages
+  ✓ chat-transcript-popover.test.tsx — patches + pending-review still mount as popover tail strips
+  ✓ chat-transcript-popover.test.tsx — popover auto-opens on composer submit (S1 refinement)
+  ✓ chat-transcript-popover.test.tsx — popover auto-opens whenever any host transitions to status === 'streaming' AND its chat is the active tab (S1 refinement)
+  ✓ chat-transcript-popover.test.tsx — Esc / outside-click during a still-streaming run dismisses; popover does NOT auto-reopen until a new send or stream transition
+  ✓ chat-tabs.test.tsx — streaming indicator (animated dot) renders on tabs whose host has status === 'streaming' (any tab, not just active)
+  ✓ chat-tabs.test.tsx — unread indicator (static dot) renders on a tab when its host has received assistant turns since the popover last closed; clears on next popover open
+  ✓ retirement — <UnifiedChatShell>, use-chat-layout-mode, OpenChatButton, chat-shell-presence appearance triad deleted from the codebase (grep returns zero references outside their own files)
+  ✓ retirement — chat-shell-layout.tsx + related sticky-positioning helpers removed or inlined
+  ✓ C13/C17 regression suites deleted alongside use-chat-layout-mode; C28 sticky-composer tests rebound to popover scroll container; C29/C30 mount tests rebound to popover tail
+  ```
+
+- **Verification Approach:**
+  ```
+  - Inner: vitest (existing chat-shell / tabs / collapsible / host suites) — rename + rebind onto the new footer + popover shape
+  - Middle: manual walkthrough per the C31 evolution scenarios — fresh spec, item click, master flip, reload; verify composer is always visible and tab-popover gives read-back access
+  - Outer: none (no e2e harness for chat UI today)
+  ```
+
+- **Retirements bundled into this slice (pre-release posture):**
+  - `<UnifiedChatShell>` + tests
+  - `use-chat-layout-mode.ts` + tests + the per-spec localStorage key
+  - `chat-shell-presence.tsx` `appearance: 'expanded' | 'minimized' | 'closed'` triad; reduce presence to `{ focusedChatId, focusChat, isStreaming }`
+  - `open-chat-button.tsx` (C31)
+  - `chat-shell-layout.tsx` if it only served the shell's mode-driven positioning
+  - `<SecondaryChatCollapsible>` collapsible chrome (the host body is lifted into the popover; the trigger row is mooted by the tab band per C31 §Composer always at the bottom)
+  - `secondary-chat-staging-strip.tsx` if it was shell-only — confirm during build
+
+- **Out of scope (explicit follow-up cards):**
+  - **C33:** patch + needs panels move out of the transcript popover into a dedicated workspace strip (likely above the footer or as a sidebar). Scope after C32 reveals popover real estate constraints.
+  - **C34:** richer tab affordances — last-turn preview tooltip, animated streaming indicator, click-and-hold quick read, per-tab unread badge.
+  - **C35:** per-tab close affordance (still deferred from C31).
+  - Tab reordering (drag), localStorage `focusedChatId` persistence, reconciliation chats in tabs (all still parked).
+
+- **Files expected to change:**
+  - **New:** `src/client/components/chat-workspace-footer.tsx`, `src/client/components/chat-transcript-popover.tsx`, `src/client/components/chat-composer.tsx`
+  - **Modified:** `src/client/routes/specification/$id/-view/route.tsx` (swap `<UnifiedChatShell>` mount), `chat-shell-presence.tsx` (slim down), `chat-tabs.tsx` (add streaming-dot + active-click-opens-popover), `secondary-chat-host.tsx` (extract composer & transcript into separate pieces; keep one host per chat for state ownership, render hidden when not active or expose `mode: 'mount-only' | 'visible'`)
+  - **Deleted:** `unified-chat-shell.tsx`, `use-chat-layout-mode.ts`, `open-chat-button.tsx`, `chat-shell-layout.tsx` (if shell-only), `secondary-chat-collapsible.tsx` (mooted)
+
+- **Promotion checks (full card, no light-mode applicable):** changes seam-level invariant (chat surface shape), retires durable assumptions (layout-mode, appearance triad), affects > 2 boundaries (route, presence, host) — confirmed full scope.
 
 ## Deferred — explicitly NOT in V1 (parking lot)
 

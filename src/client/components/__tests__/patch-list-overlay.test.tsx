@@ -612,7 +612,7 @@ describe('PatchListOverlay — expand-to-detail', () => {
     );
     fireEvent.click(screen.getByText('stage-edit-with-diff'));
     fireEvent.click(screen.getByRole('button', { name: /1 pending change/i }));
-    const chip = screen.getByLabelText(/soft impact/i);
+    const chip = screen.getByLabelText(/^soft$/i);
     expect(chip.getAttribute('data-impact')).toBe('soft');
   });
 });

@@ -47,9 +47,9 @@ describe('decrementChatLayoutMode', () => {
 });
 
 describe('useChatLayoutMode', () => {
-  it('defaults to side-docked when localStorage is empty', () => {
+  it('defaults to compact when localStorage is empty', () => {
     render(<Harness specificationId="42" />);
-    expect(screen.getByTestId('mode').textContent).toBe('side-docked');
+    expect(screen.getByTestId('mode').textContent).toBe('compact');
   });
 
   it('persists the chosen mode to localStorage under a per-spec key', () => {
@@ -59,11 +59,11 @@ describe('useChatLayoutMode', () => {
     expect(window.localStorage.getItem(chatLayoutModeStorageKey('42'))).toBe('maximize');
   });
 
-  it('rehydrates the persisted mode on first mount, clamping the disabled Full tier to Maximize', () => {
+  it('rehydrates the persisted mode on first mount, preserving Full as a reachable tier', () => {
     window.localStorage.setItem(chatLayoutModeStorageKey('99'), 'full');
     render(<Harness specificationId="99" />);
-    expect(screen.getByTestId('mode').textContent).toBe('maximize');
-    expect(window.localStorage.getItem(chatLayoutModeStorageKey('99'))).toBe('maximize');
+    expect(screen.getByTestId('mode').textContent).toBe('full');
+    expect(window.localStorage.getItem(chatLayoutModeStorageKey('99'))).toBe('full');
   });
 
   it('rehydrates non-disabled persisted modes as-is', () => {
@@ -75,7 +75,7 @@ describe('useChatLayoutMode', () => {
   it('ignores junk values in localStorage and falls back to the default', () => {
     window.localStorage.setItem(chatLayoutModeStorageKey('99'), 'not-a-mode');
     render(<Harness specificationId="99" />);
-    expect(screen.getByTestId('mode').textContent).toBe('side-docked');
+    expect(screen.getByTestId('mode').textContent).toBe('compact');
   });
 
   it('decrements one tier on Escape from the reachable max (maximize → side-docked → compact, then stays)', () => {
@@ -97,11 +97,11 @@ describe('useChatLayoutMode', () => {
     expect(screen.getByTestId('mode').textContent).toBe('compact');
   });
 
-  it('clamps a programmatic setLayoutMode("full") to Maximize', () => {
+  it('accepts a programmatic setLayoutMode("full") as a reachable tier', () => {
     render(<Harness specificationId="1" />);
     fireEvent.click(screen.getByTestId('set-full'));
-    expect(screen.getByTestId('mode').textContent).toBe('maximize');
-    expect(window.localStorage.getItem(chatLayoutModeStorageKey('1'))).toBe('maximize');
+    expect(screen.getByTestId('mode').textContent).toBe('full');
+    expect(window.localStorage.getItem(chatLayoutModeStorageKey('1'))).toBe('full');
   });
 
   it('skips Esc handling when the event has already been defaultPrevented', () => {

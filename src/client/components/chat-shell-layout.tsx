@@ -55,7 +55,7 @@ export function ChatShellLayout({ specificationId, center }: ChatShellLayoutProp
         <div className="h-full">{center}</div>
         <div
           data-testid="unified-chat-shell-compact-dock"
-          className="pointer-events-auto absolute right-4 bottom-4 z-30 flex h-[78vh] max-h-[calc(100%-2rem)] min-h-[420px] w-[380px] max-w-[420px] min-w-[360px] flex-col overflow-hidden rounded-lg border border-rule bg-background shadow-lg"
+          className="pointer-events-auto absolute right-4 bottom-4 z-30 flex h-[78vh] max-h-[calc(100%-2rem)] min-h-[420px] w-[456px] max-w-[504px] min-w-[432px] flex-col overflow-hidden rounded-lg border border-rule bg-background shadow-lg"
         >
           <UnifiedChatShell layoutMode="compact" onLayoutModeChange={setLayoutMode} />
         </div>

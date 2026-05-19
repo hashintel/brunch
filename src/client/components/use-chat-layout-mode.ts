@@ -12,7 +12,7 @@ export const CHAT_LAYOUT_MODE_ORDER: ReadonlyArray<ChatLayoutMode> = [
   'full',
 ];
 
-const DEFAULT_MODE: ChatLayoutMode = 'side-docked';
+const DEFAULT_MODE: ChatLayoutMode = 'compact';
 
 function isChatLayoutMode(value: unknown): value is ChatLayoutMode {
   return typeof value === 'string' && (CHAT_LAYOUT_MODE_ORDER as readonly string[]).includes(value);

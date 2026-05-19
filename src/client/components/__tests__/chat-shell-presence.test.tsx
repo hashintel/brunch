@@ -111,6 +111,28 @@ function makeChat(id: number, invokedInTurnId: number | null = 9): SecondaryChat
   };
 }
 
+// Pre-seeded so the shell's auto-create-master effect is a no-op and doesn't consume a queued fetchMock response.
+function makeMasterChat(id: number = 100): SecondaryChat {
+  return {
+    chat: {
+      id,
+      specification_id: 1,
+      kind: 'side_chat',
+      parent_chat_id: 1,
+      invoked_in_turn_id: null,
+      pinned_item_id: null,
+      pinned_span_hint: null,
+      pinned_reconciliation_need_id: null,
+      mode: 'explore',
+    },
+    kickoffTurn: null,
+    turns: [],
+    pinnedItemKind: null,
+    pinnedReconciliationNeed: null,
+    anchoredItemIds: [],
+  };
+}
+
 function buildSpec(secondaryChats: SecondaryChat[]): SpecificationState {
   return {
     specification: {
@@ -251,14 +273,15 @@ describe('chat shell presence + trigger integration', () => {
     });
   });
 
-  it('auto-opens the focused chat collapsible once focus matches', async () => {
+  it('switches the active chat to the focused chat once focus matches — transcript is always inline', async () => {
+    const master = makeMasterChat();
     const chat = makeChat(7);
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ chatId: 7, kickoffTurnId: 99 }), { status: 200 }),
     );
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(buildSpec([chat])), { status: 200 }));
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(buildSpec([master, chat])), { status: 200 }));
 
-    const { Wrapper } = makeHarness([chat]);
+    const { Wrapper } = makeHarness([master, chat]);
 
     render(
       <Wrapper>
@@ -268,13 +291,13 @@ describe('chat shell presence + trigger integration', () => {
     );
 
     const before = screen.getByTestId('secondary-chat-collapsible');
-    expect(before.getAttribute('data-state')).toBe('closed');
+    expect(before.getAttribute('data-secondary-chat-id')).toBe(String(master.chat.id));
 
     fireEvent.click(screen.getByTestId('trigger'));
 
     await waitFor(() => {
       const after = screen.getByTestId('secondary-chat-collapsible');
-      expect(after.getAttribute('data-state')).toBe('open');
+      expect(after.getAttribute('data-secondary-chat-id')).toBe('7');
     });
   });
 });

@@ -67,6 +67,7 @@ import {
 } from './reconciliation-needs-route.js';
 import {
   handleCreateSecondaryChatRequest,
+  handleDeleteSecondaryChatRequest,
   handleSecondaryChatMessageRequest,
   handleSetSecondaryChatModeRequest,
 } from './secondary-chat-route.js';
@@ -248,6 +249,9 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const specificationChatPaths = ['/api/specifications/:id/chat'] as const;
   const specificationSideChatPaths = ['/api/specifications/:id/side-chat'] as const;
   const specificationSecondaryChatPaths = ['/api/specifications/:id/secondary-chats'] as const;
+  const specificationSecondaryChatResourcePaths = [
+    '/api/specifications/:id/secondary-chats/:chatId',
+  ] as const;
   const specificationSecondaryChatModePaths = [
     '/api/specifications/:id/secondary-chats/:chatId/mode',
   ] as const;
@@ -647,6 +651,10 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
   registerPatch(specificationSecondaryChatModePaths, (req: Request, res: Response) => {
     handleSetSecondaryChatModeRequest(db, req, res);
+  });
+
+  registerDelete(specificationSecondaryChatResourcePaths, (req: Request, res: Response) => {
+    handleDeleteSecondaryChatRequest(db, req, res);
   });
 
   registerPost(specificationAnnotationsPaths, (req: Request, res: Response) => {

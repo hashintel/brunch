@@ -1,6 +1,7 @@
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { z } from 'zod/v4';
 
 import {
@@ -15,13 +16,9 @@ import {
   type EditImpactTier,
 } from '@/shared/chat.js';
 
-import { useChatShellPresence } from './chat-shell-presence.js';
 import { usePatchListForChat, type PatchListForChat } from './patch-list-host.js';
-import { SecondaryChatCollapsible } from './secondary-chat-collapsible.js';
+import { SecondaryChatCollapsible, SecondaryChatComposerPanel } from './secondary-chat-collapsible.js';
 import type { MentionItem } from './secondary-chat-mention-popup.js';
-// FE-716 C29: per-chat staging strip retired in favor of <ChatShellPatchPanel> in the shell body.
-// The `producerChatId` partition seam in patch-list-reducer.ts + usePatchListForChat() stay,
-// so the staging-strip component (and its file) can be restored later if Track 3 wants a per-chat slice.
 import { useSetSecondaryChatModeMutation } from './secondary-chat-trigger.js';
 
 type SecondaryChat = z.infer<typeof secondaryChatStateSchema>;
@@ -80,10 +77,6 @@ function useSecondaryChatStream(
     [chatId, specificationId],
   );
 
-  // Edit-impact arrives as a sibling `data-edit-impact` part after the
-  // corresponding `tool-propose_edit` part finalizes. Capture the tier so the
-  // message-walking effect can stage the patch with the right `impact` once
-  // both parts have arrived for a given toolCallId.
   const [editImpactByToolCallId, setEditImpactByToolCallId] = useState<ReadonlyMap<string, EditImpactTier>>(
     new Map(),
   );
@@ -116,9 +109,6 @@ function useSecondaryChatStream(
   const isStreaming = status === 'submitted' || status === 'streaming';
   const assistantText = useMemo(() => extractAssistantText(messages.at(-1)), [messages]);
 
-  // Dedupe tool parts: each toolCallId becomes a single `patchList.stage(...)`
-  // call. The effect walks `messages` every render; without this set, an edit
-  // would re-stage on every text-delta arrival.
   const consumedToolCallIds = useRef<Set<string>>(new Set());
   useEffect(() => {
     consumedToolCallIds.current = new Set();
@@ -135,14 +125,11 @@ function useSecondaryChatStream(
         if (!part) continue;
         const toolCallId = part.toolCallId;
         if (consumedToolCallIds.current.has(toolCallId)) continue;
-        // Only stage once the tool input is available (we need the `input` field).
         if (part.state !== 'input-available' && part.state !== 'output-available') continue;
 
         if (part.type === 'tool-propose_edit') {
           const input = part.input as { newContent: string; newRationale?: string };
           const impact = editImpactByToolCallId.get(toolCallId);
-          // For edit proposals, wait for the matching edit-impact part before
-          // staging. Other tool kinds stage immediately.
           if (impact === undefined) continue;
           patchList.stage({
             kind: 'edit',
@@ -160,10 +147,6 @@ function useSecondaryChatStream(
             kind: 'edge',
             producerChatId: chatId,
             anchor,
-            // Resolving targetReferenceCode → (kind, itemId) requires an entity
-            // lookup not threaded through the secondary-chat bundle yet;
-            // mirror the anchor item as a placeholder so the staged row renders
-            // with a correct relation label. Follow-up: target-resolver hook.
             targetAnchor: anchor,
             relation: input.relation,
             summary: `Edge: ${input.targetReferenceCode} (${input.relation})`,
@@ -196,14 +179,56 @@ function useSecondaryChatStream(
 
 export interface SecondaryChatHostProps {
   secondaryChat: SecondaryChat;
+  /** Render the transcript surface. Default true. */
+  renderTranscript?: boolean;
+  /** Render the composer panel. Default true. */
+  renderComposer?: boolean;
+  /**
+   * When set, the composer is rendered via `createPortal` into this element
+   * (the shell uses this to mount the composer into a footer slot beneath the
+   * scrollable body). When null/undefined, the composer renders inline.
+   */
+  composerPortalTarget?: HTMLElement | null;
+  /** Fires on transitions of useChat status so the shell can track streaming. */
+  onStreamingChange?: (chatId: number, isStreaming: boolean) => void;
+  /**
+   * Fires when an assistant turn settles after a streaming round so the shell
+   * can flag inactive (background-mounted) tabs as unread.
+   */
+  onAssistantTurnArrival?: (chatId: number) => void;
 }
 
 /**
  * Flatten the spec's entity bundle into the `MentionItem[]` shape consumed by
- * the composer's `#` autocomplete. Items without a `referenceCode` are
- * filtered out — the server resolver keys on `#PREFIX<digits>` so an item
- * without a refcode can't be mentioned.
+ * the composer's `#` autocomplete.
  */
+/**
+ * Build a lookup from knowledge-item id → referenceCode (e.g. "G1", "D5") so
+ * the AnchorManager chip can render the human-meaningful code instead of the
+ * raw numeric id.
+ */
+export function buildRefCodeByItemId(entities: EntitiesData): Map<number, string> {
+  const map = new Map<number, string>();
+  const buckets: ReadonlyArray<ReadonlyArray<{ id: number; referenceCode?: string }>> = [
+    entities.goals,
+    entities.terms,
+    entities.contexts,
+    entities.constraints,
+    entities.requirements,
+    entities.criteria,
+    entities.decisions,
+    entities.assumptions,
+  ];
+  for (const bucket of buckets) {
+    for (const item of bucket) {
+      if (typeof item.referenceCode === 'string' && item.referenceCode.length > 0) {
+        map.set(item.id, item.referenceCode);
+      }
+    }
+  }
+  return map;
+}
+
 export function flattenEntitiesToMentionItems(entities: EntitiesData): MentionItem[] {
   const buckets: { items: ReadonlyArray<{ kind: string; content: string; referenceCode?: string }> }[] = [
     { items: entities.goals },
@@ -238,37 +263,14 @@ export function flattenEntitiesToMentionItems(entities: EntitiesData): MentionIt
   return out;
 }
 
-/**
- * Resolve the pinned card's refCode + content from the spec's entity bundle.
- * Returns null when the chat is not pinned to a knowledge item, or when the
- * item can't be located (e.g. it was deleted) or has no reference code yet.
- */
-function resolvePinnedItemSummary(
-  entities: EntitiesData,
-  pinnedItemKind: SecondaryChat['pinnedItemKind'],
-  pinnedItemId: number | null,
-): { refCode: string; content: string } | null {
-  if (pinnedItemKind === null || pinnedItemId === null) return null;
-  const collections: Record<
-    NonNullable<SecondaryChat['pinnedItemKind']>,
-    ReadonlyArray<{ id: number; content: string; referenceCode?: string }>
-  > = {
-    goal: entities.goals,
-    term: entities.terms,
-    context: entities.contexts,
-    constraint: entities.constraints,
-    requirement: entities.requirements,
-    criterion: entities.criteria,
-    decision: entities.decisions,
-    assumption: entities.assumptions,
-  };
-  const bucket = collections[pinnedItemKind];
-  const item = bucket.find((entry) => entry.id === pinnedItemId);
-  if (!item || !item.referenceCode) return null;
-  return { refCode: item.referenceCode, content: item.content };
-}
-
-export function SecondaryChatHost({ secondaryChat }: SecondaryChatHostProps) {
+export function SecondaryChatHost({
+  secondaryChat,
+  renderTranscript = true,
+  renderComposer = true,
+  composerPortalTarget,
+  onStreamingChange,
+  onAssistantTurnArrival,
+}: SecondaryChatHostProps) {
   const specificationId = secondaryChat.chat.specification_id;
   const chatId = secondaryChat.chat.id;
   const modeMutation = useSetSecondaryChatModeMutation(specificationId, chatId);
@@ -276,23 +278,25 @@ export function SecondaryChatHost({ secondaryChat }: SecondaryChatHostProps) {
   const stream = useSecondaryChatStream(secondaryChat, patchList);
   const entities = useSpecificationEntities();
   const mentionableItems = useMemo(() => flattenEntitiesToMentionItems(entities), [entities]);
-  const pinnedItemSummary = useMemo(
-    () => resolvePinnedItemSummary(entities, secondaryChat.pinnedItemKind, secondaryChat.chat.pinned_item_id),
-    [entities, secondaryChat.pinnedItemKind, secondaryChat.chat.pinned_item_id],
-  );
-  // Watch presence: `focusedChatId === chatId` auto-opens this collapsible
-  // when a trigger creates this chat.
-  const presence = useChatShellPresence();
-  const [isOpen, setIsOpen] = useState(false);
+  const refCodeByItemId = useMemo(() => buildRefCodeByItemId(entities), [entities]);
 
+  // Notify shell of streaming state transitions (and a settle event when a
+  // streaming round ends) so it can drive cross-tab streaming/unread badges.
+  const prevStreamingRef = useRef(false);
   useEffect(() => {
-    if (presence?.focusedChatId === chatId) {
-      setIsOpen(true);
+    const wasStreaming = prevStreamingRef.current;
+    const isStreaming = stream.isStreaming;
+    if (wasStreaming !== isStreaming) {
+      onStreamingChange?.(chatId, isStreaming);
     }
-  }, [chatId, presence?.focusedChatId]);
+    if (wasStreaming && !isStreaming) {
+      onAssistantTurnArrival?.(chatId);
+    }
+    prevStreamingRef.current = isStreaming;
+  }, [chatId, stream.isStreaming, onStreamingChange, onAssistantTurnArrival]);
 
-  return (
-    <SecondaryChatCollapsible
+  const composerPanel = renderComposer ? (
+    <SecondaryChatComposerPanel
       secondaryChat={secondaryChat}
       onSetMode={(next) => {
         void modeMutation.setMode(next);
@@ -301,12 +305,26 @@ export function SecondaryChatHost({ secondaryChat }: SecondaryChatHostProps) {
       onSubmitMessage={(message) => {
         void stream.send(message);
       }}
-      streamingAssistantText={stream.assistantText}
       isStreaming={stream.isStreaming}
-      open={isOpen}
-      onOpenChange={setIsOpen}
       mentionableItems={mentionableItems}
-      pinnedItemSummary={pinnedItemSummary}
+      refCodeByItemId={refCodeByItemId}
     />
+  ) : null;
+
+  return (
+    <>
+      {renderTranscript && (
+        <SecondaryChatCollapsible
+          secondaryChat={secondaryChat}
+          streamingAssistantText={stream.assistantText}
+          isStreaming={stream.isStreaming}
+          onPickStartSuggestion={(prompt) => {
+            void stream.send(prompt);
+          }}
+        />
+      )}
+      {composerPanel &&
+        (composerPortalTarget ? createPortal(composerPanel, composerPortalTarget) : composerPanel)}
+    </>
   );
 }

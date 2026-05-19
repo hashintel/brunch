@@ -68,7 +68,11 @@ vi.mock('@/client/routes/specification/$id/-specification-data.js', async (impor
     ...mod,
     useSpecificationOpenReconciliationNeeds: () => [],
     invalidateOpenReconciliationNeeds: vi.fn(),
-    useSpecificationBundleData: () => ({ secondaryChats: mockSecondaryChats }),
+    useSpecificationBundleData: () => ({
+      specification: { id: 1 },
+      secondaryChats: mockSecondaryChats,
+    }),
+    useSpecificationAnnotations: () => [],
   };
 });
 

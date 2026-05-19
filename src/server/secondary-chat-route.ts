@@ -15,11 +15,14 @@ import { createKnowledgeReferenceCode, knowledgeKinds } from '@/shared/knowledge
 
 import {
   appendSecondaryChatTurn,
+  createEmptySecondaryChat,
   createKickoffTurn,
   createSecondaryChat,
+  deleteSecondaryChat,
   getDownstreamItems,
   getKnowledgeItem,
   getOrCreateItemSecondaryChat,
+  getOrCreateMasterSecondaryChat,
   getSpecification,
   isItemInActiveReviewSet,
   setSecondaryChatMode,
@@ -46,14 +49,18 @@ import {
 // (`./side-chat-route.ts`) is stateless and never sets `parent_chat_id`,
 // so popover sessions are not double-rendered as inline secondary chats.
 
+// `itemKind` + `itemId` are optional so the master-chat path (no anchor)
+// can share this endpoint; handler enforces the pair for item-anchored flows.
 const secondaryChatRequestSchema = z.object({
   parentChatId: z.number().int().positive(),
-  invokedInTurnId: z.number().int().positive(),
-  itemKind: z.enum(knowledgeKinds),
-  itemId: z.number().int().positive(),
+  invokedInTurnId: z.number().int().positive().optional(),
+  itemKind: z.enum(knowledgeKinds).optional(),
+  itemId: z.number().int().positive().optional(),
   spanHint: z.string().min(1).optional(),
   reconciliationNeedId: z.number().int().positive().optional(),
   mode: secondaryChatModeSchema.optional(),
+  /** When true, skip master-chat dedupe and always mint a new empty chat. */
+  fresh: z.boolean().optional(),
 });
 
 function badRequest(res: Response, error: string): void {
@@ -89,6 +96,32 @@ export function handleCreateSecondaryChatRequest(db: DB, req: Request, res: Resp
   const parsed = secondaryChatRequestSchema.safeParse(req.body);
   if (!parsed.success) {
     badRequest(res, 'Invalid secondary-chat payload');
+    return;
+  }
+
+  if (
+    parsed.data.itemId === undefined &&
+    parsed.data.itemKind === undefined &&
+    parsed.data.reconciliationNeedId === undefined
+  ) {
+    const result =
+      parsed.data.fresh === true
+        ? createEmptySecondaryChat(db, specificationId, {
+            parent_chat_id: parsed.data.parentChatId,
+          })
+        : getOrCreateMasterSecondaryChat(db, specificationId, {
+            parent_chat_id: parsed.data.parentChatId,
+          });
+    res.json({ chatId: result.chat.id, kickoffTurnId: result.kickoffTurnId });
+    return;
+  }
+
+  if (parsed.data.itemId === undefined || parsed.data.itemKind === undefined) {
+    badRequest(res, 'itemKind and itemId are required for item-anchored secondary chats');
+    return;
+  }
+  if (parsed.data.invokedInTurnId === undefined) {
+    badRequest(res, 'invokedInTurnId is required for item-anchored secondary chats');
     return;
   }
 
@@ -150,6 +183,21 @@ export function handleCreateSecondaryChatRequest(db: DB, req: Request, res: Resp
 const setSecondaryChatModeRequestSchema = z.object({
   mode: secondaryChatModeSchema,
 });
+
+export function handleDeleteSecondaryChatRequest(db: DB, req: Request, res: Response): void {
+  const specificationId = Number(req.params.id);
+  const chatId = Number(req.params.chatId);
+  if (Number.isNaN(specificationId) || Number.isNaN(chatId)) {
+    badRequest(res, 'Invalid specification or chat ID');
+    return;
+  }
+  const deleted = deleteSecondaryChat(db, specificationId, chatId);
+  if (!deleted) {
+    notFound(res, 'Secondary chat not found');
+    return;
+  }
+  res.json({ chatId, deleted: true });
+}
 
 export function handleSetSecondaryChatModeRequest(db: DB, req: Request, res: Response): void {
   const specificationId = Number(req.params.id);
@@ -239,18 +287,11 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
     notFound(res, 'Secondary chat not found');
     return;
   }
-  if (chatRow.pinned_item_id === null) {
-    // Defensive: every chat reaching this route is created with a
-    // pinned_item_id; a null indicates a malformed substrate row. Return 404
-    // rather than 500 to keep the boundary tight.
-    notFound(res, 'Secondary chat is not pinned to an item');
-    return;
-  }
 
+  // Master chats have `pinned_item_id IS NULL`; only item-anchored chats must resolve a pin.
   const pinnedItemId = chatRow.pinned_item_id;
-
-  const item = getKnowledgeItem(db, pinnedItemId);
-  if (!item || item.specification_id !== specificationId) {
+  const item = pinnedItemId !== null ? getKnowledgeItem(db, pinnedItemId) : null;
+  if (pinnedItemId !== null && (!item || item.specification_id !== specificationId)) {
     notFound(res, 'Pinned item not found in specification');
     return;
   }
@@ -283,12 +324,7 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
   }
 
   const mode: SideChatMode = chatRow.mode ?? 'explore';
-  const pinnedItem: SideChatPinnedItem = {
-    kind: item.kind,
-    referenceCode: createKnowledgeReferenceCode(item.kind, item.kind_ordinal),
-    content: item.content,
-    rationale: item.rationale ?? null,
-  };
+  const isMasterChat = pinnedItemId === null;
 
   const history = loadPriorTurns(db, chatId);
 
@@ -307,25 +343,58 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
   // leaves a recoverable transcript on the secondary chat.
   appendSecondaryChatTurn(db, chatId, { role: 'user', content: persistedUserContent });
 
-  const { system: baseSystem, messages } = buildSideChatPrompt(
-    pinnedItem,
-    userText,
-    {
-      specName: specification.name,
-      groundingSummary: null,
-    },
-    history,
-    {
-      spanHint: chatRow.pinned_span_hint ?? undefined,
-      mode,
-    },
-  );
+  let baseSystem: string;
+  let messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  let tools: ReturnType<typeof getSideChatTools>;
+
+  if (isMasterChat) {
+    baseSystem = [
+      `You are a helper for the brunch specification "${specification.name}".`,
+      'The user is having an open-ended conversation about the spec as a whole.',
+      "No single knowledge item is pinned — answer the user's question by drawing on what you know about the spec and the items they mention. If you do not have enough context to answer well, say so and ask a clarifying question.",
+    ].join('\n\n');
+    const turns: Array<{ role: 'user' | 'assistant'; text: string }> =
+      history.at(-1)?.role === 'user' ? history.slice(0, -1) : [...history];
+    turns.push({ role: 'user', text: userText });
+    messages = turns.map((turn) => ({ role: turn.role, content: turn.text }));
+    tools = {};
+  } else {
+    if (!item) {
+      notFound(res, 'Pinned item not found in specification');
+      return;
+    }
+    const pinnedItem: SideChatPinnedItem = {
+      kind: item.kind,
+      referenceCode: createKnowledgeReferenceCode(item.kind, item.kind_ordinal),
+      content: item.content,
+      rationale: item.rationale ?? null,
+    };
+    const prompt = buildSideChatPrompt(
+      pinnedItem,
+      userText,
+      {
+        specName: specification.name,
+        groundingSummary: null,
+      },
+      history,
+      {
+        spanHint: chatRow.pinned_span_hint ?? undefined,
+        mode,
+      },
+    );
+    baseSystem = prompt.system;
+    messages = prompt.messages;
+    tools = getSideChatTools(mode);
+  }
+
   const system = mentionedItemsContextBlock ? `${baseSystem}\n\n${mentionedItemsContextBlock}` : baseSystem;
-  const tools = getSideChatTools(mode);
 
   // Mirror side-chat-route's lazy edit-impact computation: only compute when
   // we know an edit proposal actually surfaced, then reuse for all of them.
   const computeEditImpact = (): EditImpactTier => {
+    if (pinnedItemId === null) {
+      throw new Error('computeEditImpact called for a master chat — no pinned item');
+    }
     const downstream = getDownstreamItems(db, specificationId, pinnedItemId);
     const inReviewSet =
       isItemInActiveReviewSet(db, specificationId, pinnedItemId) ||

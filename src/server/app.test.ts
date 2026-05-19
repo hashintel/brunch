@@ -4852,6 +4852,89 @@ describe('PATCH /api/specifications/:id/secondary-chats/:chatId/mode', () => {
       .expect(400);
   });
 
+  describe('master secondary chat', () => {
+    it('creates a master secondary chat with no item, no kickoff turn, and dedupes on second call', async () => {
+      const specificationId = await createTestSpecification('FE-716 C31 master create');
+      const { getSpecification } = await import('./db.js');
+      const parentChatId = getSpecification(db, specificationId)!.primary_chat_id!;
+
+      const firstRes = await request(app)
+        .post(`/api/specifications/${specificationId}/secondary-chats`)
+        .send({ parentChatId })
+        .expect(200);
+      expect(firstRes.body.chatId).toBeGreaterThan(0);
+      expect(firstRes.body.kickoffTurnId).toBeNull();
+
+      const secondRes = await request(app)
+        .post(`/api/specifications/${specificationId}/secondary-chats`)
+        .send({ parentChatId })
+        .expect(200);
+      expect(secondRes.body.chatId).toBe(firstRes.body.chatId);
+      expect(secondRes.body.kickoffTurnId).toBeNull();
+
+      const snapshot = await getSpecificationSnapshot(specificationId);
+      const masterChats = (snapshot.secondaryChats ?? []).filter(
+        (row) => row.chat.pinned_item_id === null && row.chat.pinned_reconciliation_need_id === null,
+      );
+      expect(masterChats).toHaveLength(1);
+      expect(masterChats[0]!.chat.id).toBe(firstRes.body.chatId);
+      expect(masterChats[0]!.kickoffTurn).toBeNull();
+      expect(masterChats[0]!.turns).toHaveLength(0);
+    });
+
+    it('always creates a new empty chat when `fresh: true` is passed, even with an existing master', async () => {
+      const specificationId = await createTestSpecification('FE-716 C31 fresh empty chat');
+      const { getSpecification } = await import('./db.js');
+      const parentChatId = getSpecification(db, specificationId)!.primary_chat_id!;
+
+      const masterRes = await request(app)
+        .post(`/api/specifications/${specificationId}/secondary-chats`)
+        .send({ parentChatId })
+        .expect(200);
+      const masterId = masterRes.body.chatId as number;
+
+      const fresh1 = await request(app)
+        .post(`/api/specifications/${specificationId}/secondary-chats`)
+        .send({ parentChatId, fresh: true })
+        .expect(200);
+      const fresh2 = await request(app)
+        .post(`/api/specifications/${specificationId}/secondary-chats`)
+        .send({ parentChatId, fresh: true })
+        .expect(200);
+
+      expect(fresh1.body.chatId).not.toBe(masterId);
+      expect(fresh2.body.chatId).not.toBe(masterId);
+      expect(fresh1.body.chatId).not.toBe(fresh2.body.chatId);
+      expect(fresh1.body.kickoffTurnId).toBeNull();
+      expect(fresh2.body.kickoffTurnId).toBeNull();
+
+      const snapshot = await getSpecificationSnapshot(specificationId);
+      const emptyChats = (snapshot.secondaryChats ?? []).filter(
+        (row) => row.chat.pinned_item_id === null && row.chat.pinned_reconciliation_need_id === null,
+      );
+      expect(emptyChats).toHaveLength(3);
+    });
+
+    it('isolates master chats by specification — cross-spec call creates a different chat', async () => {
+      const specA = await createTestSpecification('FE-716 C31 master spec A');
+      const specB = await createTestSpecification('FE-716 C31 master spec B');
+      const { getSpecification } = await import('./db.js');
+      const parentA = getSpecification(db, specA)!.primary_chat_id!;
+      const parentB = getSpecification(db, specB)!.primary_chat_id!;
+
+      const resA = await request(app)
+        .post(`/api/specifications/${specA}/secondary-chats`)
+        .send({ parentChatId: parentA })
+        .expect(200);
+      const resB = await request(app)
+        .post(`/api/specifications/${specB}/secondary-chats`)
+        .send({ parentChatId: parentB })
+        .expect(200);
+
+      expect(resA.body.chatId).not.toBe(resB.body.chatId);
+    });
+  });
+
   it('returns 404 when chat does not belong to the specification', async () => {
     const specificationId = await createTestSpecification('FE-716 mode wrong spec');
     const otherSpec = await createTestSpecification('FE-716 mode owner');
