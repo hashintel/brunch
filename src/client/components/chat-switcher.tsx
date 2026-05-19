@@ -100,21 +100,25 @@ export function ChatSwitcher({
                     data-anchor-ref-code={refCode ?? undefined}
                     data-anchor-extra-count={(extraAnchorRefCodes?.length ?? 0) || undefined}
                     data-mode={triggerMode}
-                    className="inline-flex shrink-0 items-baseline gap-1 font-mono text-[10px] leading-none"
+                    // `items-center` so the mode glyph sits flush with the
+                    // refCode text optical center; the prior `items-baseline`
+                    // pinned the icon to the text baseline, making it appear
+                    // dropped relative to the cap height of "G1" etc.
+                    className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] leading-none"
                   >
                     <TriggerModeIcon
                       aria-label={triggerModeLabel}
                       data-testid="chat-switcher-trigger-mode-icon"
-                      className="size-3 shrink-0 self-center"
+                      className="size-3 shrink-0"
                       strokeWidth={1.5}
                       style={activeAccent ? { color: activeAccent } : undefined}
                     />
-                    {refCode !== null && <span>{refCode}</span>}
+                    {refCode !== null && <span className="leading-none">{refCode}</span>}
                     {extraAnchorRefCodes?.map((code) => (
                       <span
                         key={code}
                         data-testid={`chat-switcher-trigger-anchor-extra-${code}`}
-                        className="opacity-70"
+                        className="leading-none opacity-70"
                       >
                         {code}
                       </span>

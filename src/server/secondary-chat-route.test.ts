@@ -384,7 +384,7 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
 });
 
 describe('POST /api/specifications/:id/secondary-chats — kickoff template enrichment', () => {
-  it('uses an "Editing" verb when the chat is created in edit mode', async () => {
+  it('opens with a "What would you like to change about #ref" greeting in edit mode', async () => {
     const specId = await createSpec('FE-716 kickoff edit');
     const item = dbModule.createKnowledgeItem(db, specId, 'goal', 'Reach product-market fit.');
     const parentChatId = dbModule.getSpecification(db, specId)!.primary_chat_id!;
@@ -410,10 +410,10 @@ describe('POST /api/specifications/:id/secondary-chats — kickoff template enri
     };
     const row = snapshot.secondaryChats?.find((r) => r.chat.id === res.body.chatId);
     expect(row?.chat.mode).toBe('edit');
-    expect(row?.kickoffTurn?.assistant_parts).toMatch(/^Editing /);
+    expect(row?.kickoffTurn?.assistant_parts).toMatch(/^Hi! What would you like to change about \*\*#/);
   });
 
-  it('uses an "Anchored to" verb when the chat is created in explore mode (default)', async () => {
+  it('opens with a "How can I help with #ref" greeting in explore mode (default)', async () => {
     const fixture = await createSecondaryChatFixture('FE-716 kickoff explore');
 
     const snapshotRes = await request(app).get(`/api/specifications/${fixture.specId}`).expect(200);
@@ -425,6 +425,6 @@ describe('POST /api/specifications/:id/secondary-chats — kickoff template enri
     };
     const row = snapshot.secondaryChats?.find((r) => r.chat.id === fixture.chatId);
     expect(row?.chat.mode).toBe('explore');
-    expect(row?.kickoffTurn?.assistant_parts).toMatch(/^Anchored to /);
+    expect(row?.kickoffTurn?.assistant_parts).toMatch(/^Hi! How can I help with \*\*#/);
   });
 });

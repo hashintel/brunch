@@ -71,13 +71,15 @@ function notFound(res: Response, error: string): void {
   res.status(404).json({ error } satisfies MutationErrorResponse);
 }
 
-function buildKickoffContent(itemContent: string, spanHint: string | undefined, mode: SideChatMode): string {
-  const snippet = itemContent.length > 80 ? `${itemContent.slice(0, 77)}…` : itemContent;
-  const verb = mode === 'edit' ? 'Editing' : 'Anchored to';
-  if (spanHint) {
-    return `${verb} '${snippet}', focused on '${spanHint}'.`;
+// Friendly kickoff greeting for reconciliation-pinned chats. Mirrors the
+// shape used by the item-anchored path in `specification-store.ts` so both
+// kinds of secondary chat open with the same simple "Hi" + anchor-by-ref
+// frame and immediately yield to the user's first turn.
+function buildKickoffContent(refCode: string, mode: SideChatMode): string {
+  if (mode === 'edit') {
+    return `Hi! What would you like to change about **#${refCode}**?`;
   }
-  return `${verb} '${snippet}'.`;
+  return `Hi! How can I help with **#${refCode}**?`;
 }
 
 export function handleCreateSecondaryChatRequest(db: DB, req: Request, res: Response): void {
@@ -159,9 +161,10 @@ export function handleCreateSecondaryChatRequest(db: DB, req: Request, res: Resp
       pinned_reconciliation_need_id: parsed.data.reconciliationNeedId,
       mode,
     });
+    const refCode = createKnowledgeReferenceCode(item.kind, item.kind_ordinal);
     const kickoffTurn = createKickoffTurn(db, chat.id, {
       phase: 'grounding',
-      content: buildKickoffContent(item.content, parsed.data.spanHint, mode),
+      content: buildKickoffContent(refCode, mode),
     });
     res.json({ chatId: chat.id, kickoffTurnId: kickoffTurn.id });
     return;

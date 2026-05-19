@@ -315,6 +315,20 @@ function findItemSecondaryChat(
 }
 
 /**
+ * Friendly kickoff greeting rendered as the first assistant turn of every
+ * item-anchored secondary chat. Intentionally minimal — the prior wording
+ * ("Anchored to '<long snippet>'.") read as scaffolding; this version says
+ * hi, names the anchor by its reference code (e.g. `#G1`), and invites the
+ * user to take the next turn.
+ */
+function buildAnchoredKickoffContent(refCode: string, mode: SecondaryChatMode): string {
+  if (mode === 'edit') {
+    return `Hi! What would you like to change about **#${refCode}**?`;
+  }
+  return `Hi! How can I help with **#${refCode}**?`;
+}
+
+/**
  * Find-or-create the per-item secondary chat for a (parent, item) pair.
  * Dedupes by `(parent_chat_id, pinned_item_id)` with `pinned_reconciliation_need_id IS NULL`
  * so clicking the same item twice re-opens the existing chat rather than
@@ -334,7 +348,11 @@ export function getOrCreateItemSecondaryChat(
   }
 
   const item = db
-    .select({ content: schema.knowledgeItem.content })
+    .select({
+      content: schema.knowledgeItem.content,
+      kind: schema.knowledgeItem.kind,
+      kind_ordinal: schema.knowledgeItem.kind_ordinal,
+    })
     .from(schema.knowledgeItem)
     .where(eq(schema.knowledgeItem.id, input.itemId))
     .get();
@@ -357,11 +375,8 @@ export function getOrCreateItemSecondaryChat(
     .returning()
     .get() as Chat;
 
-  const snippet = item.content.length > 80 ? `${item.content.slice(0, 77)}…` : item.content;
-  const verb = (input.mode ?? 'explore') === 'edit' ? 'Editing' : 'Anchored to';
-  const content = input.spanHint
-    ? `${verb} '${snippet}', focused on '${input.spanHint}'.`
-    : `${verb} '${snippet}'.`;
+  const refCode = createKnowledgeReferenceCode(item.kind, item.kind_ordinal);
+  const content = buildAnchoredKickoffContent(refCode, input.mode ?? 'explore');
   const kickoff = createKickoffTurn(db, chat.id, { phase: 'grounding', content });
 
   return { chat: persistedChat, kickoffTurnId: kickoff.id };
