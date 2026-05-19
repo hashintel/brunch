@@ -30,6 +30,20 @@ The feature or problem: $ARGUMENTS
 
 Write or update `memory/SPEC.md` following the [spec template](assets/spec-template.md). If the file already exists, read it first — preserve existing content, evolve sections that need change.
 
+### Identifier scheme
+
+Before adding any new cross-referenceable item, derive the session's author suffix from the local user name: take `basename "$HOME"`, then uppercase its first character. Example: `/Users/lunelson` → `L`. Append this suffix to every new item identifier: `A47-L`, `D12-L`, `I47-L`, etc.
+
+When assigning the numeric part for a new item:
+
+1. Scan existing identifiers with the same prefix (`A`, `D`, `I`, requirement/oracle prefixes if present).
+2. Compute the next number from legacy unsuffixed IDs plus IDs with the same author suffix.
+3. Ignore IDs with other author suffixes for incrementing, so parallel sessions can safely produce `I47-L` and `I47-K`.
+4. Do not rename or renumber existing IDs just to add a suffix; only preserve and update them unless a deliberate cleanup is requested.
+5. Use the full suffixed ID in every cross-reference (`Depends on: D12-L`, `Proves: R3-L / D8-L`).
+
+If `$HOME` is unavailable or the basename is empty, ask the user for the suffix instead of inventing one.
+
 ### SPEC shape
 
 Use the mature SPEC shape unless the existing project clearly predates it and the user only asked for a narrow patch:
@@ -86,9 +100,9 @@ Large cleanup is `ln-sync` work. When writing or patching, keep the touched area
 Every amendment must close its reference chain as far as the current lifecycle stage allows. After editing, verify:
 
 - **New requirement** → has: product capability area and PLAN/frontier references if it changes upcoming work
-- **New assumption** → has: dependent decision(s) or invariant(s), validation approach, and implicated frontier item(s) in `memory/PLAN.md` **if `memory/PLAN.md` already exists**
-- **New decision** → has: dependent assumption(s) where relevant, supersession note, and enough rationale to identify the chosen seam
-- **New invariant** → has: establishing frontier item in `memory/PLAN.md` **if known** (or scoped slice if already defined), protecting test/oracle (or `planned` / `manual (outer loop)`), proved decision or requirement
+- **New assumption** → has: suffixed identifier, dependent decision(s) or invariant(s), validation approach, and implicated frontier item(s) in `memory/PLAN.md` **if `memory/PLAN.md` already exists**
+- **New decision** → has: suffixed identifier, dependent assumption(s) where relevant, supersession note, and enough rationale to identify the chosen seam
+- **New invariant** → has: suffixed identifier, establishing frontier item in `memory/PLAN.md` **if known** (or scoped slice if already defined), protecting test/oracle (or `planned` / `manual (outer loop)`), proved decision or requirement
 - **New future direction** → has: PLAN frontier/horizon pointer or design-doc pointer; not full acceptance detail unless already active
 - **New constraint** → has: rationale for exclusion
 - **New inner-loop oracle item** → names the invariant(s) it protects
