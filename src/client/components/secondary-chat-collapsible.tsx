@@ -157,6 +157,14 @@ export interface SecondaryChatComposerPanelProps {
   refCodeByItemId?: ReadonlyMap<number, string>;
 }
 
+function composerPlaceholder(mode: SecondaryChatMode, isTurnZero: boolean, isItemPinned: boolean): string {
+  if (isTurnZero) {
+    if (mode === 'edit') return isItemPinned ? 'Propose a change…' : 'Propose a change to your spec…';
+    return isItemPinned ? 'Ask about this item…' : 'Ask Brunch about your spec…';
+  }
+  return mode === 'edit' ? 'Propose any change…' : 'Ask a follow-up…';
+}
+
 // Sibling of <SecondaryChatCollapsible>; portalled into the shell footer.
 export function SecondaryChatComposerPanel({
   secondaryChat,
@@ -171,8 +179,10 @@ export function SecondaryChatComposerPanel({
   const [draft, setDraft] = useState('');
   const pinnedAccent = secondaryChat.pinnedItemKind ? kindAccentHex[secondaryChat.pinnedItemKind] : null;
   const isItemPinned = secondaryChat.chat.pinned_item_id !== null;
+  const isTurnZero = secondaryChat.turns.length === 0;
   // Edit mode keeps propose-change chips above the composer for step-through iteration.
-  const showProposeChangeChips = mode === 'edit' && isItemPinned;
+  // Turn-zero suppresses them so the hero suggestions stay the sole prompt affordance.
+  const showProposeChangeChips = mode === 'edit' && isItemPinned && !isTurnZero;
 
   return (
     <div
@@ -208,6 +218,8 @@ export function SecondaryChatComposerPanel({
         pinnedSpanHint={secondaryChat.chat.pinned_span_hint}
         anchoredItemIds={secondaryChat.anchoredItemIds}
         refCodeByItemId={refCodeByItemId}
+        isTurnZero={isTurnZero}
+        isItemPinned={isItemPinned}
       />
     </div>
   );
@@ -232,7 +244,7 @@ function SecondaryChatFreshStateHero({
     ? mode === 'edit'
       ? 'How would you like to change this?'
       : 'Where would you like to begin?'
-    : 'Ask Brunch about anything';
+    : 'Ask Brunch about your spec';
   return (
     <motion.div
       data-testid="secondary-chat-fresh-state"
@@ -254,23 +266,17 @@ function SecondaryChatFreshStateHero({
         initial={prefersReducedMotion ? false : { opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
-        className="flex w-full justify-center"
+        className="flex w-full flex-wrap justify-center gap-1.5"
       >
-        <SecondaryChatSuggestions
-          mode={mode}
-          reconciliationKind={reconciliationKind}
-          onPick={(prompt) => onPick?.(prompt)}
-          disabled={!onPick}
-        />
-      </motion.div>
-      {!hasPinnedContext && (
-        <motion.div
-          initial={prefersReducedMotion ? false : { opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-          className="flex w-full flex-wrap justify-center gap-1.5"
-        >
-          {FRESH_START_CHIPS.map((chip) => (
+        {hasPinnedContext ? (
+          <SecondaryChatSuggestions
+            mode={mode}
+            reconciliationKind={reconciliationKind}
+            onPick={(prompt) => onPick?.(prompt)}
+            disabled={!onPick}
+          />
+        ) : (
+          FRESH_START_CHIPS.map((chip) => (
             <button
               key={chip.label}
               type="button"
@@ -282,9 +288,9 @@ function SecondaryChatFreshStateHero({
             >
               {chip.label}
             </button>
-          ))}
-        </motion.div>
-      )}
+          ))
+        )}
+      </motion.div>
     </motion.div>
   );
 }
@@ -571,6 +577,8 @@ function SecondaryChatComposer({
   pinnedSpanHint,
   anchoredItemIds,
   refCodeByItemId,
+  isTurnZero,
+  isItemPinned,
 }: {
   mode: SecondaryChatMode;
   onSubmitMessage: (message: string) => void;
@@ -584,6 +592,8 @@ function SecondaryChatComposer({
   pinnedSpanHint?: string | null;
   anchoredItemIds?: readonly number[];
   refCodeByItemId?: ReadonlyMap<number, string>;
+  isTurnZero?: boolean;
+  isItemPinned?: boolean;
 }) {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -657,7 +667,7 @@ function SecondaryChatComposer({
           <PromptInputTextarea
             ref={textareaRef}
             data-testid="secondary-chat-composer-input"
-            placeholder={mode === 'edit' ? 'Propose any change…' : 'Ask a follow-up…'}
+            placeholder={composerPlaceholder(mode, isTurnZero ?? false, isItemPinned ?? false)}
             disabled={disabled}
             onKeyDown={handleKeyDown}
             value={draft}

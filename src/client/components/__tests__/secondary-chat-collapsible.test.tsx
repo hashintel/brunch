@@ -205,7 +205,7 @@ describe('SecondaryChatCollapsible', () => {
 
     expect(screen.getByTestId('secondary-chat-fresh-state')).not.toBeNull();
     expect(screen.getByTestId('secondary-chat-fresh-state').textContent).toContain(
-      'Ask Brunch about anything',
+      'Ask Brunch about your spec',
     );
   });
 
@@ -352,6 +352,24 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
       is_resolution: false,
       user_parts: text,
       assistant_parts: null,
+      created_at: '',
+    };
+  }
+
+  function makeKickoffTurn(id: number, text: string): NonNullable<SecondaryChat['kickoffTurn']> {
+    return {
+      id,
+      specification_id: 1,
+      parent_turn_id: null,
+      phase: 'grounding',
+      turn_kind: 'kickoff',
+      question: '',
+      why: null,
+      impact: null,
+      answer: null,
+      is_resolution: false,
+      user_parts: null,
+      assistant_parts: text,
       created_at: '',
     };
   }
@@ -545,10 +563,10 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
 
   it('renders 3 turn-zero suggestions for mode=explore and hides them after a user turn', () => {
     const chat: SecondaryChat = {
-      chat: { ...baseChat, mode: 'explore' },
-      kickoffTurn: null,
+      chat: { ...baseChat, mode: 'explore', pinned_item_id: 42 },
+      kickoffTurn: makeKickoffTurn(99, 'Anchored to item.'),
       turns: [],
-      pinnedItemKind: null,
+      pinnedItemKind: 'goal',
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
@@ -559,10 +577,10 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
 
     cleanup();
     const chatAfter: SecondaryChat = {
-      chat: { ...baseChat, mode: 'explore' },
-      kickoffTurn: null,
+      chat: { ...baseChat, mode: 'explore', pinned_item_id: 42 },
+      kickoffTurn: makeKickoffTurn(99, 'Anchored to item.'),
       turns: [makeUserTurn(1, 'first message')],
-      pinnedItemKind: null,
+      pinnedItemKind: 'goal',
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
@@ -572,10 +590,10 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
 
   it('changes the suggestion set with the mode', () => {
     const chatEdit: SecondaryChat = {
-      chat: { ...baseChat, mode: 'edit' },
-      kickoffTurn: null,
+      chat: { ...baseChat, mode: 'edit', pinned_item_id: 42 },
+      kickoffTurn: makeKickoffTurn(99, 'Editing item.'),
       turns: [],
-      pinnedItemKind: null,
+      pinnedItemKind: 'goal',
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };
@@ -609,10 +627,10 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
 
   it('clicking a suggestion submits the chat immediately without filling the draft', () => {
     const chat: SecondaryChat = {
-      chat: { ...baseChat, mode: 'explore' },
-      kickoffTurn: null,
+      chat: { ...baseChat, mode: 'explore', pinned_item_id: 42 },
+      kickoffTurn: makeKickoffTurn(99, 'Anchored to item.'),
       turns: [],
-      pinnedItemKind: null,
+      pinnedItemKind: 'goal',
       pinnedReconciliationNeed: null,
       anchoredItemIds: [],
     };

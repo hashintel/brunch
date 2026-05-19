@@ -19,6 +19,7 @@ import { kindAccentHex } from './knowledge-card.js';
 import { usePatchListState } from './patch-list-host.js';
 import { PendingReviewSection } from './pending-review-section.js';
 import { buildRefCodeByItemId, SecondaryChatHost } from './secondary-chat-host.js';
+import { useCreateMasterChatMutation } from './secondary-chat-trigger.js';
 import { CHAT_SHELL_SPRING, usePrefersReducedMotion } from './use-prefers-reduced-motion.js';
 
 export type ChatLayoutMode = 'compact' | 'side-docked' | 'maximize' | 'full';
@@ -76,6 +77,21 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
   // Reconciliation-pinned chats stay hidden until their UX is defined.
   const visibleChats = secondaryChats.filter((c) => c.chat.pinned_reconciliation_need_id === null);
   const itemChats = visibleChats.filter(isItemChat);
+  const hasMaster = visibleChats.some(isMasterChat);
+
+  // Auto-create the master (empty) chat on a fresh spec so the shell surfaces a
+  // usable composer + turn-zero suggestions instead of an empty placeholder.
+  const parentChatId = specificationState.specification.primary_chat_id ?? null;
+  const specificationId = specificationState.specification.id;
+  const masterMutation = useCreateMasterChatMutation(specificationId);
+  const masterCreatePending = useRef(false);
+  useEffect(() => {
+    if (hasMaster || parentChatId === null || masterCreatePending.current) return;
+    masterCreatePending.current = true;
+    void masterMutation.create({ parentChatId }).finally(() => {
+      masterCreatePending.current = false;
+    });
+  }, [hasMaster, parentChatId, masterMutation]);
 
   // Sticky-overlays bar collapses entirely when both feeds are empty.
   const openReconciliationNeeds = useSpecificationOpenReconciliationNeeds();
@@ -374,8 +390,8 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
           </div>
         )}
         {visibleChats.length === 0 ? (
-          <p data-testid="unified-chat-shell-empty" className="text-xs text-hint">
-            Open one from a knowledge item to start a conversation.
+          <p data-testid="unified-chat-shell-empty" className="sr-only">
+            Opening chat…
           </p>
         ) : activeChat ? (
           <motion.div

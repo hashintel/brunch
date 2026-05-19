@@ -79,6 +79,36 @@ export interface CreateSecondaryChatResponse {
   kickoffTurnId: number | null;
 }
 
+export interface CreateMasterChatRequest {
+  parentChatId: number;
+}
+
+export function useCreateMasterChatMutation(specificationId: number) {
+  const { invalidateSpecificationBundle } = useInvalidateSpecificationQueryDomains();
+  const mutation = useClientMutation((request: CreateMasterChatRequest) =>
+    postJsonMutation<CreateSecondaryChatResponse, CreateMasterChatRequest>(
+      `/api/specifications/${specificationId}/secondary-chats`,
+      request,
+      'Failed to open chat',
+    ),
+  );
+
+  const create = useCallback(
+    async (request: CreateMasterChatRequest): Promise<CreateSecondaryChatResponse | null> => {
+      try {
+        const response = await mutation.run(request);
+        await invalidateSpecificationBundle();
+        return response;
+      } catch {
+        return null;
+      }
+    },
+    [invalidateSpecificationBundle, mutation],
+  );
+
+  return { create, isPending: mutation.isPending };
+}
+
 export function useCreateSecondaryChatMutation(specificationId: number) {
   const { invalidateSpecificationBundle } = useInvalidateSpecificationQueryDomains();
   const mutation = useClientMutation((request: CreateSecondaryChatRequest) =>
