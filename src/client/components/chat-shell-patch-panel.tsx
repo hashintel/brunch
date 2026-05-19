@@ -18,18 +18,9 @@ export interface ChatShellPatchPanelProps {
 }
 
 /**
- * Shell-level patch panel. Replaces the workspace-wide `<PatchListOverlay>`
- * surface with one inline panel that lives inside `<UnifiedChatShell>` and
- * surfaces the union of every chat's staged patches. Apply is bulk-only at
- * the header; per-row action is Discard. Renders `null` when nothing is
- * staged so the empty-state collapses cleanly.
- *
- * Visual posture: neutral by default. Per-row kind / anchor labels render as
- * plain hint-colored text (no per-kind accent) so the panel reads as part of
- * the shell's monochrome vocabulary; the only chromatic accent is the
- * `<ImpactChip>`, which is reused as-is so impact stays legible across the
- * app. The Apply control reuses the composer-send dark button so primary
- * actions throughout the shell share one shape.
+ * Inline patch panel inside <UnifiedChatShell> showing the union of every chat's
+ * staged patches. Apply is bulk-only at the header; per-row action is Discard.
+ * Returns null when nothing is staged.
  */
 export function ChatShellPatchPanel({
   isStreaming = false,
@@ -42,9 +33,6 @@ export function ChatShellPatchPanel({
     return null;
   }
 
-  // simpler language. Single-change titles read as the
-  // kind word alone ("1 edit", "1 connection", etc.) and the multi-change
-  // case stays as a count + plural.
   const title =
     count === 1
       ? `1 ${state.staged[0]!.kind === 'edit' ? 'edit' : state.staged[0]!.kind === 'edge' ? 'connection' : state.staged[0]!.kind === 'drill-down' ? 'drill-down' : 'note'}`
@@ -56,9 +44,6 @@ export function ChatShellPatchPanel({
       data-staged-count={count}
       isRunning={isStreaming}
       defaultOpen
-      // drop the background fill so the panel reads as a
-      // light outlined surface, not a colored block. Border alpha lifted to
-      // keep the affordance discoverable.
       className="rounded-lg border border-rule/30 px-2 py-1.5 text-xs"
     >
       <div className="flex items-center justify-between gap-2">
@@ -97,10 +82,6 @@ function ChatShellPatchRow({ patch, onDiscard }: { patch: Patch; onDiscard: () =
     patch.currentContent !== patch.newContent;
   const impact = patch.kind === 'edit' ? patch.impact : undefined;
   const isEdit = patch.kind === 'edit';
-  // each row now leads with a small kind icon that
-  // matches the assistant tool (Edit / Connect / Drill-down / Note) so the
-  // row instantly reads as "what kind of change". The kind label text is
-  // retained as a sr-only span for downstream consumers/tests.
   const KindIcon =
     patch.kind === 'edit'
       ? Pencil
@@ -114,8 +95,6 @@ function ChatShellPatchRow({ patch, onDiscard }: { patch: Patch; onDiscard: () =
       data-testid="chat-shell-patch-row"
       data-staged-patch-id={patch.id}
       data-staged-patch-kind={patch.kind}
-      // Lighter row chrome: drop the bg fill so the row sits flush against
-      // the panel surface, separated only by its kind icon + impact chip.
       className="flex flex-col gap-1 rounded-md px-2 py-1"
     >
       <div className="flex items-center gap-1.5">

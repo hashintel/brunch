@@ -18,11 +18,9 @@ export interface ChatShellLayoutProps {
 }
 
 /**
- * Wraps `center` with the unified chat shell. Reads presence (minimized /
- * closed / expanded) and the persisted layout mode to dispatch between
- * resizable / compact / full / collapsed shapes. The shell is mounted once
- * per route consumer so closing it on the chat route doesn't affect the
- * graph route's local presence (and vice versa).
+ * Wraps `center` with the unified chat shell, dispatching between resizable /
+ * compact / full / collapsed shapes based on presence + persisted layout mode.
+ * Mounted once per route consumer so presence is route-local.
  */
 export function ChatShellLayout({ specificationId, center }: ChatShellLayoutProps) {
   const { layoutMode, setLayoutMode } = useChatLayoutMode(specificationId);

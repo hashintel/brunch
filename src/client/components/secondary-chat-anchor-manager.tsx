@@ -17,15 +17,8 @@ export interface SecondaryChatAnchorManagerProps {
 }
 
 /**
- * Compact icon-button + popover for managing the set of knowledge items
- * anchored to an Agent-mode chat. Visible only when the parent composer is
- * in Agent (edit) mode.
- *
- * Visual posture matches the pending-reviews surface: rounded panel with a
- * soft border + shadow, one row per anchored item rendered as a ref-code
- * chip (kind accent tints the chip when known), and a bottom "+" affordance
- * that — in this iteration — stubs the knowledge-item picker behind a TODO
- * so the affordance is discoverable while the picker is being designed.
+ * Icon-button + popover for managing the anchored-item set of an Agent-mode chat.
+ * Visible only when the composer is in Agent (edit) mode.
  */
 export function SecondaryChatAnchorManager({
   anchoredItemIds,
@@ -56,9 +49,6 @@ export function SecondaryChatAnchorManager({
   }, [open]);
 
   const triggerStyle = pinnedAccent ? { color: pinnedAccent } : undefined;
-  // Minimalist chip per design feedback: accent-colored text + a barely-there
-  // border (20% accent alpha) and no background fill. Reads as a tinted
-  // mono ref-code with a soft outline rather than a filled pill.
   const chipStyle = pinnedAccent
     ? {
         color: pinnedAccent,

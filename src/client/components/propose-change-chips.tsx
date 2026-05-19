@@ -15,9 +15,7 @@ interface ChipDef {
   readonly Icon: typeof Pencil;
 }
 
-// Action-shaped prompts mirror the assistant tool-call kinds (propose_edit,
-// propose_edge, propose_drill_down) so Agent-mode chips wire directly into the
-// patch-staging pipeline once the assistant returns.
+// Mirrors the assistant's propose_* tool-call kinds.
 const CHIPS: readonly ChipDef[] = [
   {
     kind: 'edit',
@@ -48,12 +46,7 @@ export interface ProposeChangeChipsProps {
   readonly pinnedAccent?: string | null;
 }
 
-/**
- * Three "propose a change" chips surfaced above the composer textarea while
- * the chat is in Agent (edit) mode on an item-pinned chat. Always visible —
- * not turn-zero gated — so the user can re-invoke a structured action at any
- * point in the conversation.
- */
+/** "Propose a change" chips above the composer while in Agent (edit) mode on an item-pinned chat. */
 export function ProposeChangeChips({ onPick, disabled, pinnedAccent }: ProposeChangeChipsProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const fadeSpring = prefersReducedMotion ? { duration: 0 } : CHAT_SHELL_SPRING;

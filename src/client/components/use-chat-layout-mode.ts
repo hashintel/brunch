@@ -2,9 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { ChatLayoutMode } from './unified-chat-shell.js';
 
-// `'full'` is now reachable from the header toggle (renders the chat over
-// the entire viewport, hiding the center workspace). Older persisted values
-// resolve directly — no clamping.
 export const CHAT_LAYOUT_MODE_ORDER: ReadonlyArray<ChatLayoutMode> = [
   'compact',
   'side-docked',
@@ -62,17 +59,13 @@ export interface UseChatLayoutModeResult {
 export function useChatLayoutMode(specificationId: number | string): UseChatLayoutModeResult {
   const [layoutMode, setLayoutModeState] = useState<ChatLayoutMode>(() => readPersistedMode(specificationId));
 
-  // Mirror `layoutMode` into a ref so the Esc handler can derive the next
-  // mode without running a side effect inside `setLayoutModeState`'s updater
-  // function (React may invoke updaters more than once — e.g. Strict Mode —
-  // and `localStorage.setItem` should fire exactly once per transition).
+  // Ref keeps Esc handler out of setState updaters so localStorage writes fire exactly once.
   const layoutModeRef = useRef(layoutMode);
   useEffect(() => {
     layoutModeRef.current = layoutMode;
   }, [layoutMode]);
 
-  // When the specification id changes (route navigation across specs),
-  // re-hydrate from that spec's storage slot.
+  // Re-hydrate from the new spec's storage slot on route navigation.
   useEffect(() => {
     setLayoutModeState(readPersistedMode(specificationId));
   }, [specificationId]);
@@ -85,9 +78,7 @@ export function useChatLayoutMode(specificationId: number | string): UseChatLayo
     [specificationId],
   );
 
-  // Esc decrements one tier. Bound at document level so any focused element
-  // (composer, button) still gets Esc first via stopPropagation if it wants
-  // to handle Esc itself (e.g. Radix collapsibles do not).
+  // Document-level Esc decrement; focused elements can stopPropagation first.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onKeyDown = (event: KeyboardEvent) => {

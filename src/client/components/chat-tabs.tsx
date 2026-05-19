@@ -86,10 +86,8 @@ export function ChatTabs({
   };
   const { empties, items } = useMemo(() => partition(chats), [chats]);
 
-  // Promote one empty (active or first) plus item tabs into the visible strip.
-  // When there are 1–2 item chats, surface them all. Once items.length ≥ 3,
-  // collapse to a single visible item slot (the active item, else the most
-  // recent by id) and route the rest through the ChatSwitcher overflow.
+  // Promote one empty + item tabs into the strip. items≤2 → all visible; items≥3
+  // → one promoted slot (active or most recent), the rest flow to ChatSwitcher.
   const { visible, overflow } = useMemo<{
     visible: readonly SecondaryChat[];
     overflow: readonly SecondaryChat[];
@@ -98,16 +96,13 @@ export function ChatTabs({
       empties.find((c) => c.chat.id === activeChatId) ?? empties[0] ?? null;
     const visibleItems: readonly SecondaryChat[] = (() => {
       if (maxVisibleItems !== undefined) {
-        // Cap of 0 hides every item tab — caller wants the dropdown to be
-        // the sole item entry point. Treat it as a hard floor without the
-        // usual active-promotion that nudges the count back to 1.
+        // Cap of 0 = dropdown is the sole item entry point.
         if (maxVisibleItems === 0) return [];
         if (items.length <= maxVisibleItems) return items;
         const head = items.slice(0, maxVisibleItems);
         const activeItem = items.find((c) => c.chat.id === activeChatId) ?? null;
         if (!activeItem || head.includes(activeItem)) return head;
-        // Active item is past the cap → swap the last visible slot for it so
-        // the user's current selection always stays visible.
+        // Keep the active item in the visible slot even when past the cap.
         return [...head.slice(0, maxVisibleItems - 1), activeItem];
       }
       if (items.length <= 2) return items;
@@ -241,8 +236,6 @@ interface ItemTabProps {
 function ItemTab({ chat, active, streaming, unread, refCode, onSelect }: ItemTabProps) {
   const accent = chat.pinnedItemKind ? kindAccentHex[chat.pinnedItemKind] : null;
   const Icon = (chat.chat.mode ?? 'explore') === 'edit' ? Sparkles : MessageSquare;
-  // Active item tabs pick up the kind accent as a soft wash + text/border tint
-  // so the user can see which knowledge item this conversation is anchored on.
   const style: CSSProperties | undefined =
     active && accent
       ? { backgroundColor: `${accent}14`, color: accent, borderColor: `${accent}33` }

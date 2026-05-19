@@ -41,12 +41,7 @@ function getChatLabel(chat: SecondaryChat): string {
   return kickoff || `Chat #${chat.chat.id}`;
 }
 
-// Mode icon mirrors the composer's segmented toggle:
-// `MessageSquare` for explore/chat, `Sparkles` for edit/agent. The icon
-// inherits `currentColor` so it stays neutral in dropdown rows and only
-// picks up the accent when the parent (active tab / active row) is itself
-// accent-colored — a Linear-style restraint where chrome stays quiet and
-// state is signalled through one element, not stacked color cues.
+// Mirrors the composer's segmented toggle: MessageSquare for explore, Sparkles for edit.
 function ChatKindIcon({ chat, className }: { chat: SecondaryChat; className?: string }) {
   const Icon = (chat.chat.mode ?? 'explore') === 'edit' ? Sparkles : MessageSquare;
   return <Icon aria-hidden className={className} />;
@@ -62,10 +57,7 @@ export function ChatSwitcher({
   extraAnchorRefCodes,
 }: ChatSwitcherProps) {
   if (chats.length === 0) return null;
-  // when the active chat is NOT in the dropdown (e.g.
-  // Home/master is selected and the dropdown holds only item chats), do
-  // NOT pretend the first item is selected. Surface a neutral grey
-  // "Open a chat" affordance instead so the user can pick deliberately.
+  // Surface a neutral "Open a chat" trigger when no dropdown item is active.
   const activeInList = chats.find((c) => c.chat.id === activeChatId) ?? null;
   const triggerChat = activeInList;
 
@@ -73,10 +65,7 @@ export function ChatSwitcher({
   const triggerStyle: CSSProperties | undefined = activeAccent
     ? { backgroundColor: `${activeAccent}14`, color: activeAccent, borderColor: `${activeAccent}33` }
     : undefined;
-  // Aggregate streaming/unread state across the dropdown's chats so the
-  // trigger pulses (or quietly dots) whenever any hidden item chat has
-  // activity — without this the user would miss background work now that
-  // item tabs no longer sit in the top strip.
+  // Aggregate streaming/unread state so the trigger surfaces hidden-chat activity.
   const aggregateStreaming = chats.some((c) => streamingChatIds?.has(c.chat.id) ?? false);
   const aggregateUnread = !aggregateStreaming && chats.some((c) => unreadChatIds?.has(c.chat.id) ?? false);
 
@@ -92,14 +81,6 @@ export function ChatSwitcher({
           style={triggerStyle}
           className="relative inline-flex max-w-[220px] items-center gap-1.5 rounded-md border border-rule/50 bg-tint/30 px-2 py-1 text-xs text-ink transition-[transform,box-shadow] duration-150 hover:opacity-90 active:scale-95"
         >
-          {/* the trigger embeds the active chat's anchor
-              refCode (and any extra anchored refCodes) inline before the
-              label so the user reads the title as
-              "{accent dot} G1 +D5 · Permutation goal: …" without needing a
-              second pill in the header. The accent dot doubles as a tiny
-              kind marker; the refCode badge takes the kind tint via the
-              parent triggerStyle. When NO item chat is active we keep the
-              neutral grey "Open a chat" affordance. */}
           {triggerChat ? (
             <>
               {(() => {
@@ -111,9 +92,6 @@ export function ChatSwitcher({
                     data-testid="chat-switcher-trigger-anchor"
                     data-anchor-ref-code={refCode ?? undefined}
                     data-anchor-extra-count={(extraAnchorRefCodes?.length ?? 0) || undefined}
-                    // no dashed underline, no leading
-                    // `+` glyphs — the refCodes read as plain mono badges
-                    // separated by spaces so the title strip stays quiet.
                     className="inline-flex shrink-0 items-baseline gap-1 font-mono text-[10px] leading-none"
                   >
                     {activeAccent && (
@@ -159,8 +137,6 @@ export function ChatSwitcher({
       </DropdownMenuTrigger>
       <DropdownMenuContent data-testid="chat-switcher-menu" align="start" className="w-[280px] max-w-[320px]">
         {chats.map((chat) => {
-          // No item is highlighted when Home/master is the active chat —
-          // that path now reads as "no selection within the dropdown".
           const isActive = triggerChat !== null && chat.chat.id === triggerChat.chat.id;
           const accent = chat.pinnedItemKind ? kindAccentHex[chat.pinnedItemKind] : null;
           const rowStyle: CSSProperties | undefined =

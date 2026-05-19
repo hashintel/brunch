@@ -36,8 +36,6 @@ function isMasterChat(chat: SecondaryChat): boolean {
 }
 
 function hexWithAlpha(hex: string, alpha: number): string {
-  // Tiny local helper so we can stamp the active-chat accent onto custom
-  // scrollbar thumbs without dragging a color util in.
   const normalized = hex.replace('#', '');
   const r = parseInt(normalized.slice(0, 2), 16);
   const g = parseInt(normalized.slice(2, 4), 16);
@@ -51,8 +49,7 @@ function isItemChat(chat: SecondaryChat): boolean {
 
 function pickDefaultActiveChat(chats: readonly SecondaryChat[]): SecondaryChat | null {
   if (chats.length === 0) return null;
-  // Master (lowest-id empty) takes precedence; otherwise the most recent
-  // item-anchored chat (highest id) wins.
+  // Master (lowest-id empty) wins; else most recent item-anchored chat.
   const masters = chats.filter(isMasterChat).sort((a, b) => a.chat.id - b.chat.id);
   if (masters.length > 0) return masters[0]!;
   const items = chats.filter(isItemChat).sort((a, b) => a.chat.id - b.chat.id);
@@ -80,9 +77,7 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
   const visibleChats = secondaryChats.filter((c) => c.chat.pinned_reconciliation_need_id === null);
   const itemChats = visibleChats.filter(isItemChat);
 
-  // The sticky-overlays bar collapses entirely when neither pending reviews
-  // nor staged patches have content — the user doesn't want an empty
-  // wrapper holding shell vertical space.
+  // Sticky-overlays bar collapses entirely when both feeds are empty.
   const openReconciliationNeeds = useSpecificationOpenReconciliationNeeds();
   const patchListState = usePatchListState();
   const hasOverlayContent = openReconciliationNeeds.length > 0 || patchListState.count > 0;
@@ -98,10 +93,7 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
   const activeChat =
     activeChatId !== null ? (visibleChats.find((c) => c.chat.id === activeChatId) ?? null) : null;
 
-  // Look up the active chat's pinned-item + any additional anchored-item
-  // reference codes (e.g. "G1", "D5") so the ChatSwitcher trigger can render
-  // them inline next to the chat title. The anchor lives in the title, not
-  // as a separate composer-footer chip strip.
+  // Anchor refCodes (e.g. "G1", "D5") for the ChatSwitcher trigger title strip.
   const entities = useSpecificationEntities();
   const refCodeByItemId = useMemo(() => buildRefCodeByItemId(entities), [entities]);
   const extraAnchorRefCodes: readonly string[] = useMemo(() => {
@@ -124,9 +116,7 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
     [presence],
   );
 
-  // Streaming + unread tracking across all mounted hosts. The shell drives
-  // ChatTabs's streaming/unread dots from these sets; hosts publish via the
-  // onStreamingChange / onAssistantTurnArrival callbacks.
+  // Streaming + unread sets drive ChatTabs dots; hosts publish via callbacks.
   const [streamingChatIds, setStreamingChatIds] = useState<ReadonlySet<number>>(new Set());
   const [unreadChatIds, setUnreadChatIds] = useState<ReadonlySet<number>>(new Set());
 
@@ -148,9 +138,7 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
 
   const handleAssistantTurnArrival = useCallback((chatId: number) => {
     const isActive = activeChatIdRef.current === chatId;
-    // Active chat now always renders the transcript, so the user always sees
-    // the turn arrive for the active chat; only background tabs accumulate
-    // unread state.
+    // Only background tabs accumulate unread state.
     if (isActive) return;
     setUnreadChatIds((prev) => {
       if (prev.has(chatId)) return prev;
@@ -160,9 +148,7 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
     });
   }, []);
 
-  // Clear unread whenever the user switches to an unread chat — the
-  // transcript is always visible, so simply being active is enough to mark
-  // the chat as read.
+  // Activating an unread chat clears its unread state.
   useEffect(() => {
     if (activeChatId === null) return;
     if (!unreadChatIds.has(activeChatId)) return;
@@ -181,9 +167,7 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
     setComposerSlot(node);
   }, []);
 
-  // Scroll-to-bottom overlay arrow. The arrow surfaces only when the user is
-  // scrolled up past ~50% of the body's scroll height (per feedback) so it
-  // stays unobtrusive during normal reading.
+  // Scroll-to-bottom arrow surfaces only past ~50% scroll distance.
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const handleBodyScroll = useCallback(() => {
@@ -211,11 +195,7 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
         data-testid="unified-chat-shell-minimized"
         data-open-chat-count={openChatCount}
         onClick={(event) => {
-          // clicking the pill on a graph view was letting
-          // the click bubble through to underlying canvas / list listeners
-          // (causing unwanted graph scrolls / item activation). Stop the
-          // propagation here — the pill's job is to expand the chat, not
-          // double-dispatch.
+          // Pill clicks must not bubble to graph/list listeners below.
           event.stopPropagation();
           setAppearance('expanded');
         }}
@@ -228,9 +208,6 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
             ? `Expand chat — ${openChatCount} open ${openChatCount === 1 ? 'conversation' : 'conversations'}`
             : 'Expand chat'
         }
-        // the pill itself no longer scales on hover/press
-        // — only the leading icon animates so the button stays anchored in
-        // place. Background tint + shadow lift still signal hover.
         className="group fixed right-4 bottom-4 z-30 inline-flex items-center gap-2 rounded-full border border-rule/50 bg-background px-3 py-1.5 text-xs text-ink shadow-md transition-[box-shadow,background-color] duration-200 hover:bg-tint hover:shadow-lg"
       >
         <Send
@@ -253,10 +230,7 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
 
   const backgroundChats = visibleChats.filter((c) => c.chat.id !== activeChatId);
 
-  // C32 tab strip (latest redirection): the strip shows ONLY the master
-  // (Home) tab — every item chat flows through the ChatSwitcher dropdown.
-  // Setting the visible-item cap to 0 keeps the dropdown as the sole item
-  // entry point so the strip never grows a second tab.
+  // Tab strip shows only the master (Home) tab; item chats route through ChatSwitcher.
   const computedMaxVisibleItems = 0;
 
   return (
@@ -267,15 +241,10 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
       initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.985 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={fadeSpring}
-      // Soft container chrome: a faint left divider + a deep low-opacity
-      // shadow so the shell reads as a floating surface, not a hard panel
-      // split against the workspace.
       className="flex h-full min-h-0 flex-col border-l border-rule/20 bg-background shadow-[-4px_0_24px_-10px_rgba(0,0,0,0.16),-1px_0_2px_-1px_rgba(0,0,0,0.04)]"
     >
       <header
         data-testid="unified-chat-shell-header"
-        // more breathing room for the top controls. Bumped
-        // from h-8 / gap-2 to h-9 / gap-3 so the strip feels uncramped.
         className={cn(
           'flex h-9 items-center justify-between gap-3 border-b border-rule/40',
           layoutMode === 'compact' ? 'px-2' : 'px-3.5',
@@ -299,9 +268,6 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
           data-testid="unified-chat-shell-layout-buttons"
           role="group"
           aria-label="Chat controls"
-          // small gap between controls (was zero) so the
-          // top-bar icons read as distinct affordances instead of a fused
-          // strip.
           className="flex items-center gap-0.5"
         >
           {(() => {
@@ -378,15 +344,10 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
         ref={bodyRef}
         onScroll={handleBodyScroll}
         data-testid="unified-chat-shell-body"
-        // Custom scrollbar: when an item chat is active, color the thumb with
-        // the item's kind accent at 50% opacity so the scrollbar quietly
-        // echoes the active context; otherwise fall back to a slightly more
-        // generous neutral gray than the browser default.
+        // Scrollbar thumb echoes the active item's kind accent at 20% opacity.
         style={
           activeChat?.pinnedItemKind
             ? ({
-                // 20% accent opacity per feedback — scrollbar should be a
-                // quiet echo of the active context, not a chromatic accent.
                 scrollbarColor: `${hexWithAlpha(kindAccentHex[activeChat.pinnedItemKind], 0.2)} transparent`,
                 scrollbarWidth: 'thin',
               } as React.CSSProperties)
@@ -397,9 +358,6 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
         }
         className={cn(
           'flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pt-0',
-          // more breathing room on the sides of the
-          // transcript in compact mode (was px-1.5 / ~6px → now px-3 / 12px)
-          // so the bubbles don't crowd the shell edges.
           layoutMode === 'compact' ? 'px-3 pb-2' : 'px-4 pb-3',
         )}
       >
@@ -462,13 +420,10 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
         ))}
         <ChatShellAppliedToast />
       </div>
-      {/* Footer slot owns no horizontal padding — the portaled composer-sticky
-          child manages its own spacing so the textarea + chips don't get
-          double-padded into a cramped column. */}
+      {/* Footer slot has no horizontal padding; the portaled composer manages its own spacing. */}
       <div
         ref={handleComposerSlotRef}
         data-testid="unified-chat-shell-footer"
-        // no divider between transcript and composer.
         className="relative flex flex-col"
       >
         {showScrollToBottom && (

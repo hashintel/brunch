@@ -70,10 +70,8 @@ function useSecondaryChatStream(
   const pinnedItemKind = secondaryChat.pinnedItemKind;
   const { invalidateSpecificationBundle } = useInvalidateSpecificationQueryDomains();
   const entities = useSpecificationEntities();
-  // `propose_edge` carries a `targetReferenceCode` (e.g. "G2"); resolving it
-  // to a real `(kind, itemId)` is required before staging — otherwise the
-  // edge applier would create a self-referencing edge against the pinned
-  // anchor and corrupt the intent graph.
+  // Resolves `propose_edge.targetReferenceCode` → `(kind, itemId)` so the edge
+  // applier never creates a self-referencing edge against the pinned anchor.
   const anchorByRefCode = useMemo(() => buildAnchorByRefCode(entities), [entities]);
 
   const transport = useMemo(
@@ -150,10 +148,7 @@ function useSecondaryChatStream(
           consumedToolCallIds.current.add(toolCallId);
         } else if (part.type === 'tool-propose_edge') {
           const input = part.input as { targetReferenceCode: string; relation: string };
-          // Resolve the target by referenceCode; drop the proposal entirely
-          // when we can't (or when the model targeted the pinned anchor
-          // itself) so the edge applier never creates a self-referencing
-          // edge in the knowledge graph.
+          // Drop proposals that target the pinned anchor or fail to resolve.
           const targetAnchor = anchorByRefCode.get(input.targetReferenceCode);
           if (!targetAnchor || (targetAnchor.kind === anchor.kind && targetAnchor.itemId === anchor.itemId)) {
             consumedToolCallIds.current.add(toolCallId);
@@ -214,15 +209,7 @@ export interface SecondaryChatHostProps {
   onAssistantTurnArrival?: (chatId: number) => void;
 }
 
-/**
- * Flatten the spec's entity bundle into the `MentionItem[]` shape consumed by
- * the composer's `#` autocomplete.
- */
-/**
- * Build a lookup from knowledge-item id → referenceCode (e.g. "G1", "D5") so
- * the AnchorManager chip can render the human-meaningful code instead of the
- * raw numeric id.
- */
+/** Lookup from knowledge-item id → referenceCode (e.g. "G1", "D5") for chip rendering. */
 export function buildRefCodeByItemId(entities: EntitiesData): Map<number, string> {
   const map = new Map<number, string>();
   const buckets: ReadonlyArray<ReadonlyArray<{ id: number; referenceCode?: string }>> = [
@@ -245,13 +232,7 @@ export function buildRefCodeByItemId(entities: EntitiesData): Map<number, string
   return map;
 }
 
-/**
- * Reverse index from `referenceCode` (e.g. "G2", "D5") to the originating
- * knowledge anchor. Used to resolve `propose_edge.targetReferenceCode` to a
- * concrete `(kind, itemId)` target before staging the patch — without this,
- * the edge applier would silently create self-referencing edges anchored on
- * the chat's pinned item.
- */
+/** Reverse index from referenceCode → originating knowledge anchor. */
 export function buildAnchorByRefCode(
   entities: EntitiesData,
 ): Map<string, { kind: KnowledgeKind; itemId: number }> {

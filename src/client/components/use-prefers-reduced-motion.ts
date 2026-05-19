@@ -1,13 +1,6 @@
 import { useEffect, useState } from 'react';
 
-/**
- * Returns true when the user has requested reduced motion via
- * `prefers-reduced-motion: reduce` (OS / browser setting). Spring / pulse
- * animations in the chat surface must be no-ops for users with this
- * preference.
- *
- * SSR-safe: returns false on the server (no `window`).
- */
+/** True when the user has set `prefers-reduced-motion: reduce`. SSR-safe (returns false on server). */
 export function usePrefersReducedMotion(): boolean {
   const [prefersReduced, setPrefersReduced] = useState<boolean>(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
@@ -25,10 +18,5 @@ export function usePrefersReducedMotion(): boolean {
   return prefersReduced;
 }
 
-/**
- * Canonical spring config for the chat surface: mass 0.6, stiffness 220,
- * damping 30 (~250ms settle time). Imported by motion-using components to
- * keep the feel consistent across the shell, collapsibles, and streaming
- * pulse.
- */
+/** Canonical spring for chat surface (~250ms settle); imported for consistent feel. */
 export const CHAT_SHELL_SPRING = { type: 'spring' as const, mass: 0.6, stiffness: 220, damping: 30 };

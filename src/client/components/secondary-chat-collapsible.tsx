@@ -54,19 +54,15 @@ export interface SecondaryChatCollapsibleProps {
   onPickStartSuggestion?: (prompt: string) => void;
 }
 
-// Static "How to start" prompts surfaced on the fresh-state hero. Kept here
-// (not behind a server fetch) per design feedback — the affordance is meant
-// to be discoverable + instant, not personalized.
+// Static "How to start" prompts — discoverable + instant, not personalized.
 const FRESH_START_CHIPS: readonly { readonly label: string; readonly prompt: string }[] = [
   { label: 'Summarize this spec', prompt: 'Summarize the current spec so I can orient myself.' },
   { label: 'What needs attention?', prompt: 'What in this spec needs the most attention right now?' },
   { label: 'Suggest next steps', prompt: 'Suggest three concrete next steps for this spec.' },
 ];
 
-// Pure transcript surface — no Radix Collapsible chrome. The composer + mode
-// toggle + suggestions live in <SecondaryChatComposerPanel>, mounted as a
-// sibling so the shell can portal the composer into its footer slot while the
-// transcript renders inside the scrolling body.
+// Transcript-only surface. Composer + mode toggle live in <SecondaryChatComposerPanel>
+// so the shell can portal the composer into its footer slot.
 export function SecondaryChatCollapsible({
   secondaryChat,
   streamingAssistantText,
@@ -79,16 +75,8 @@ export function SecondaryChatCollapsible({
   const prefersReducedMotion = usePrefersReducedMotion();
   const pinnedAccent = secondaryChat.pinnedItemKind ? kindAccentHex[secondaryChat.pinnedItemKind] : null;
 
-  // Autoscroll to the latest message as turns arrive or streaming text grows.
-  //
-  // the scroll position must stay independent of unrelated
-  // re-renders (clicking review-list rows, flipping Ask/Agent, expanding the
-  // pending-review panel, etc.). Two guards make that work:
-  //   1. Track turnCount + streamingLength as primitive deps so the effect
-  //      only fires when CONTENT actually changes — not on layout shifts.
-  //   2. Use `block: 'nearest'`, which is a no-op when the anchor is already
-  //      visible. Only when fresh content pushes the anchor out of view do we
-  //      actually scroll.
+  // Autoscroll on new content only. Primitive deps + `block: 'nearest'` keep
+  // unrelated re-renders (mode toggles, panel expansions) from re-scrolling.
   const bottomAnchorRef = useRef<HTMLDivElement>(null);
   const turnCount = secondaryChat.turns.length;
   const streamingLength = streamingAssistantText?.length ?? 0;
@@ -100,10 +88,6 @@ export function SecondaryChatCollapsible({
   const hasKickoff = Boolean(kickoffContent);
   const hasTurns = secondaryChat.turns.length > 0;
   const hasStreaming = Boolean(isStreaming) && streamingAssistantText !== undefined;
-  // Treat any pre-user-turn state as the "fresh state" so suggestions live in
-  // the centered hero (not the composer overlay). The kickoff turn + the
-  // optional reconciliation panel render above the hero so the user still
-  // sees the conversation seed alongside the centered starting prompts.
   const isTurnZero = !hasTurns && !hasStreaming;
 
   return (
@@ -111,9 +95,6 @@ export function SecondaryChatCollapsible({
       data-testid="secondary-chat-collapsible"
       data-secondary-chat-id={secondaryChat.chat.id}
       data-accent-hex={pinnedAccent ?? undefined}
-      // Transcript renders directly inside the shell body — no card chrome
-      // (border / tint background) so it reads as part of the shell rather
-      // than a separately framed section.
       className="flex min-h-0 flex-col px-1 py-1 text-sm"
     >
       <div
@@ -176,9 +157,7 @@ export interface SecondaryChatComposerPanelProps {
   refCodeByItemId?: ReadonlyMap<number, string>;
 }
 
-// Composer + suggestions + mode toggle slot. Rendered as a sibling of
-// <SecondaryChatCollapsible> so the shell can portal it into a fixed footer
-// while the transcript scrolls in the body.
+// Sibling of <SecondaryChatCollapsible>; portalled into the shell footer.
 export function SecondaryChatComposerPanel({
   secondaryChat,
   onSubmitMessage,
@@ -192,29 +171,18 @@ export function SecondaryChatComposerPanel({
   const [draft, setDraft] = useState('');
   const pinnedAccent = secondaryChat.pinnedItemKind ? kindAccentHex[secondaryChat.pinnedItemKind] : null;
   const isItemPinned = secondaryChat.chat.pinned_item_id !== null;
-  // Agent-mode "chain suggestions": the propose-change chips remain pinned to
-  // the composer overlay so the user can step through proposed actions while
-  // they iterate on the spec. Turn-zero "ask" suggestions now live in the
-  // centered hero (SecondaryChatCollapsible) instead of doubling up here.
+  // Edit mode keeps propose-change chips above the composer for step-through iteration.
   const showProposeChangeChips = mode === 'edit' && isItemPinned;
 
   return (
     <div
       data-testid="secondary-chat-composer-sticky"
-      // No top border so transcript + composer read as one continuous floor.
-      // Descendant overrides strip the InputGroup's darker focus ring so the
-      // composer stays a single quiet outline. `relative` anchors the
-      // propose-change chips overlay above the textarea without shrinking the
-      // transcript scroll area.
+      // Descendant overrides strip the InputGroup focus ring so the composer reads as one quiet outline.
       className="relative flex flex-col gap-1.5 bg-background/95 px-3 pt-2 pb-2 backdrop-blur-sm [&_[data-slot=input-group]]:!ring-0 [&_[data-slot=input-group]]:focus-within:!border-input"
     >
       {showProposeChangeChips && (
         <div
           data-testid="secondary-chat-composer-suggestions-overlay"
-          // no wrapper, no background — the three chips
-          // sit inline directly above the textarea. They stay on top of the
-          // transcript visually because the composer-sticky parent already
-          // sits above the scroll body in z-order.
           className="pointer-events-auto flex flex-wrap gap-1.5 px-1 pb-1"
         >
           <ProposeChangeChips
@@ -260,9 +228,6 @@ function SecondaryChatFreshStateHero({
   reconciliationKind: 'supersedes' | 'needs_confirmation' | null;
   hasPinnedContext: boolean;
 }) {
-  // The "where to begin" title leads the hero; suggestions sit centered below
-  // so the turn-zero affordance is a clearly framed picker, not a stray strip
-  // floating above the composer.
   const title = hasPinnedContext
     ? mode === 'edit'
       ? 'How would you like to change this?'
@@ -458,7 +423,6 @@ function renderWithMentionChips(text: string): ReactNode[] {
   return nodes;
 }
 
-// Reverse lookup: reference-code prefix → accent hex.
 const REF_PREFIX_TO_ACCENT_HEX: Record<string, string> = (() => {
   const out: Record<string, string> = {};
   for (const [kind, prefix] of Object.entries(knowledgeKindReferencePrefixes)) {
@@ -468,11 +432,7 @@ const REF_PREFIX_TO_ACCENT_HEX: Record<string, string> = (() => {
   return out;
 })();
 
-// elements rendered INSIDE a chat (user bubbles, composer
-// chips, etc.) should use the accent at 80% of full luminance — never the
-// full 100% — so the kind color reads as a soft echo, not a stamp. We
-// achieve that with a uniform alpha overlay (cc ≈ 80%) on top of the accent
-// color so consumers don't need to compute custom hex values per kind.
+// In-chat accent rule: dim to 80% (alpha cc) so kind colors read as a soft echo, not a stamp.
 const IN_CHAT_ACCENT_ALPHA = 'cc';
 
 function dimAccentForChat(accent: string | null): string | null {
@@ -488,10 +448,6 @@ function SecondaryChatTurnRow({
   pinnedAccent: string | null;
 }) {
   if (turn.user_parts !== null && turn.user_parts !== undefined) {
-    // drop the border on user bubbles so the surface
-    // reads as a quiet tinted fill, not a framed pill. The pinned-kind
-    // accent still drives the background tint at low alpha — and the
-    // accent itself is dimmed (80%) per the in-chat accent rule.
     const dimmed = dimAccentForChat(pinnedAccent);
     const userBubbleStyle = dimmed ? { backgroundColor: `${pinnedAccent}14`, color: dimmed } : undefined;
     return (
@@ -580,9 +536,6 @@ function ComposerAnchorChip({ draft, spanHint }: { draft: string; spanHint: stri
       {showSpanHint && spanHint && (
         <span
           data-testid="secondary-chat-composer-anchor-span"
-          // drop the «» wrappers — the Highlighter icon is
-          // enough of a marker. The trailing X removes the chip locally so a
-          // stale selection doesn't keep cluttering the composer.
           className="group/anchor-span inline-flex min-w-0 items-center gap-1 rounded-md border border-rule/60 bg-wash/60 px-1.5 py-0.5"
           title={spanHint}
         >
@@ -797,9 +750,6 @@ function SecondaryChatModeToggle({
   };
 
   const accent = pinnedAccent ?? DEFAULT_TOGGLE_ACCENT_HEX;
-  // Active segment springs in with a tiny scale lift to make the mode switch
-  // feel tactile; transitioning both transform + colors keeps it cheap and
-  // respects prefers-reduced-motion via the underlying CSS transitions.
   const segmentBase = cn(
     'inline-flex items-center gap-1 rounded-full px-2 py-0.5 transition-[transform,background-color,color] duration-200',
     (!interactive || disabled) && 'opacity-60',
