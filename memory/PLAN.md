@@ -114,10 +114,10 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Status:** not-started
 - **Objective:** Stand up SQLite-backed graph persistence; durable intent-plane nodes and edges; a single global LSN per commit; the change log; the reconciliation-need substrate; named homes for coherence state (verdicts and violations) — all forward-compatible with oracle, design, and plan planes.
 - **Why now / unlocks:** Pins I1-L, I6-L. Unlocks all agent ↔ graph work (M5+) and lets oracle / design / plan planes be added later without re-foundation.
-- **Acceptance:** Graph CRUD + change-log replay tests pass; reconciliation-need substrate accepts inserts/updates/resolutions with LSN invariants enforced; oracle-plane stub tables exist (Check, Validation Method, Evidence, Obligation) even if unused; the persistence layer proves the one-transaction protocol that couples version checks, LSN allocation, change-log append, and any coherence updates.
-- **Verification:** Inner gate; middle — property tests on LSN monotonicity and replay plus architectural tests that no durable mutation path bypasses the command-layer transaction. Outer — fixture property invariants on reconciliation-substrate begin running.
-- **Cross-cutting obligations:** Establish the Drizzle + `better-sqlite3` persistence shape and the no-bypass transaction rule as shared infrastructure for later direct-agent, side-task, migration, and UI-attributed writes.
-- **Traceability:** R7, R9, R13 / D3-L, D4-L, D6-L, D8-L, D9-L, D16-L / I1-L, I6-L, I7-L, I11-L / A3-L, A4-L
+- **Acceptance:** Graph CRUD + change-log replay tests pass through the `CommandExecutor` public mutation boundary; command results already include success, `needs_human`, `policy_blocked`, `version_conflict`, and `structural_illegal` shapes even if pre-M6 policy classification is minimal; reconciliation-need substrate accepts inserts/updates/resolutions with LSN invariants enforced; oracle-plane stub tables exist (Check, Validation Method, Evidence, Obligation) even if unused; the persistence layer proves the one-transaction protocol that couples authority/result classification, version checks, structural validation, LSN allocation, change-log append, and any coherence updates.
+- **Verification:** Inner gate; middle — property tests on LSN monotonicity and replay plus architectural tests that no durable mutation path bypasses the `CommandExecutor` transaction/result boundary. Outer — fixture property invariants on reconciliation-substrate begin running.
+- **Cross-cutting obligations:** Establish the Drizzle + `better-sqlite3` persistence shape, `CommandExecutor` result contract, and no-bypass transaction rule as shared infrastructure for later direct-agent, observer-job, side-task, migration, and UI-attributed writes.
+- **Traceability:** R7, R9, R13 / D3-L, D4-L, D6-L, D8-L, D9-L, D16-L, D20-L / I1-L, I6-L, I7-L, I11-L / A3-L, A4-L
 - **Design docs:** [pi-seam-extensions.md §1 Async side-chain sub-agents](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md#1-async-side-chain-sub-agents), [pi-seam-extensions.md §Graph clock, §Reconciliation-need substrate, §Oracle plane](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
 
 ### agent-graph-integration
@@ -127,10 +127,10 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Kind:** structural
 - **Status:** not-started
 - **Objective:** Brunch installs graph tools through pi's extension seams; agent graph operations and observer-extraction writes route exclusively through the Brunch-owned command layer; web, TUI, and agent all observe the same changes.
-- **Acceptance:** Agent can create / update / link intent-plane nodes via Brunch tools; an observer job can process a projected elicitation exchange and either write high-confidence graph changes or surface low-confidence suggestions/reconciliation work; an architectural test or lint rule prevents direct DB access from outside the command layer; the same change observed across TUI and (if M3 lands) web client; if the registry lands here, side-task-attributed writes follow the same command-layer path.
-- **Verification:** Inner gate; middle — command-layer contract tests plus observer-job idempotence/restart tests. Outer — kernel-card-output coverage assertions begin landing per brief and side-task/observer-attributed writes, if present, remain indistinguishable from other writes at the command-layer boundary except for attribution.
-- **Cross-cutting obligations:** Preserve the single-authority mutation rule for primary-agent, observer, and side-task flows; observer jobs are durable operational queue entries keyed to elicitation exchanges, not a revived chat/turn store or privileged write path for background work.
-- **Traceability:** R10, R13, R17 / D4-L, D13-L, D15-L, D18-L / I2-L, I11-L, I14-L / A3-L, A11-L, A13-L
+- **Acceptance:** Agent can create / update / link intent-plane nodes via Brunch tools that call the `CommandExecutor`; an observer job can process a projected elicitation exchange and either write high-confidence graph changes or surface low-confidence suggestions/reconciliation work through the same executor; an architectural test or lint rule prevents direct DB access or caller-side authority bypass outside the command layer; the same change observed across TUI and (if M3 lands) web client; if the registry lands here, side-task-attributed writes follow the same command-executor path.
+- **Verification:** Inner gate; middle — command-executor contract tests plus observer-job idempotence/restart tests. Outer — kernel-card-output coverage assertions begin landing per brief and side-task/observer-attributed writes, if present, remain indistinguishable from other writes at the command-layer boundary except for attribution.
+- **Cross-cutting obligations:** Preserve the single-authority mutation rule for primary-agent, observer, and side-task flows by making the `CommandExecutor` the only mutation entry; observer jobs are durable operational queue entries keyed to elicitation exchanges, not a revived chat/turn store or privileged write path for background work.
+- **Traceability:** R10, R13, R17 / D4-L, D13-L, D15-L, D18-L, D20-L / I2-L, I11-L, I14-L / A3-L, A11-L, A13-L
 - **Design docs:** [prd.md §M5, §Authority Model](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md), [pi-seam-extensions.md §1 Async side-chain sub-agents](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md#1-async-side-chain-sub-agents)
 
 ### authority-model
@@ -139,10 +139,10 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Linear:** unassigned
 - **Kind:** bounded feature
 - **Status:** not-started
-- **Objective:** Three-tier policy (autonomous / requires-confirmation / human-only) implemented end-to-end; headless modes fail or delegate cleanly with structured `needs_human`; attribution + optimistic concurrency shared across all callers.
-- **Acceptance:** Adversarial briefs requesting human-gated actions in print/RPC produce structured `needs_human`; an authority test matrix passes across all four modes.
+- **Objective:** Fill in the policy matrix behind the existing `CommandExecutor` result seam: three-tier policy (autonomous / requires-confirmation / human-only) implemented end-to-end; headless modes fail or delegate cleanly with structured `needs_human`; attribution + optimistic concurrency shared across all callers.
+- **Acceptance:** Adversarial briefs requesting human-gated actions in print/RPC produce structured `needs_human` through the command result contract; an authority test matrix passes across all four modes; M6 does not introduce a second policy service or caller-side authority gate.
 - **Verification:** Inner gate; middle — authority test matrix; outer — adversarial fixture for `needs_human` regression.
-- **Traceability:** R5, R6, R12 / D4-L
+- **Traceability:** R5, R6, R12 / D4-L, D20-L
 - **Design docs:** [prd.md §Authority Model](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md)
 
 ### turn-boundary-reconciliation

@@ -56,7 +56,7 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 
 #### Mutation, transport & subscriptions
 
-10. Brunch must route all graph mutations through one Brunch-owned command layer.
+10. Brunch must route all graph mutations through one Brunch-owned command layer whose public mutation entry point returns structured command results.
 11. Brunch must use JSON-RPC as the primary browser and RPC transport through named method families, not a generic data API.
 12. Brunch must support subscriptions as a first-class transport primitive for both session and graph state; live views should subscribe to projection handlers over canonical stores rather than read from a parallel view store.
 
@@ -114,6 +114,7 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 #### Authority & mutation
 
 - **D4-L — One shared mutation surface owns graph truth.** Every semantic graph mutation routes through Brunch-owned typed command handlers responsible for validation, structural legality, optimistic concurrency, event emission, audit attribution, and coherence triggering. Agents and adapters must not touch the ORM or SQLite directly. Depends on: A3-L. Supersedes: —.
+- **D20-L — Command execution owns the pre-M6 authority seam.** Callers submit product commands to a Brunch `CommandExecutor` and receive a structured result; they do not call a standalone authority service or graph persistence directly. The executor is the public mutation boundary that hides attribution, optimistic concurrency, structural validation, the minimal pre-M6 policy classifier, transaction execution, LSN allocation, change-log append, and coherence-trigger hooks. Before M6, the policy logic may be deliberately small, but the result shape must already include `needs_human`, `policy_blocked`, `version_conflict`, and `structural_illegal` so early RPC, print, agent-tool, observer-job, and side-task code cannot bake in permissive mode-specific shortcuts. Depends on: D4-L, D16-L. Supersedes: the separate optional `AuthorityGate` / generic policy-service mental model.
 
 #### Transport & client
 
@@ -126,7 +127,7 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 
 - **D6-L — JSONL-first transcript persistence in `.brunch/sessions/`; SQLite-backed graph persistence in `.brunch/`.** Two durability surfaces with distinct responsibilities. Transcript starts on pi `SessionManager` redirected to the project-local directory; graph plane is SQLite from M4. Brunch does not recreate canonical `chat` or `turn` tables while Pi JSONL remains viable. Depends on: A2-L. Supersedes: —.
 - **D15-L — Side tasks are a first-class Brunch subsystem delivered through the same transcript/event substrate.** Background sub-agents are tracked by a Brunch-owned `SideTaskRegistry`; results are never injected mid-turn and instead arrive at the next-turn boundary through the existing custom-message plus `prepareNextTurn` path. Side-task writes remain subject to the same command-layer authority as primary-agent writes. Depends on: A11-L, D4-L. Supersedes: —.
-- **D16-L — Graph persistence uses Drizzle over `better-sqlite3`, with one-LSN-per-commit and no bypass paths.** The command layer owns precondition checks, entity writes, LSN allocation, change-log append, and any coherence updates inside one transaction. This rule applies equally to migrations and maintenance code; there is no privileged write path outside the protocol. Depends on: A3-L, A4-L. Supersedes: —.
+- **D16-L — Graph persistence uses Drizzle over `better-sqlite3`, with one-LSN-per-commit and no bypass paths.** The command layer owns precondition checks, structural validation, entity writes, LSN allocation, change-log append, and any coherence updates inside one transaction. This rule applies equally to migrations and maintenance code; there is no privileged write path outside the command-executor protocol. Depends on: A3-L, A4-L. Supersedes: —.
 - **D18-L — Observer extraction is exchange-keyed durable work, not a chat/turn store.** After a user response closes an elicitation exchange, Brunch may enqueue an observer job keyed by session id plus exchange entry ids; jobs survive process restart and graph writes still route through the command layer. Routine observer jobs are operational queue state, not reconciliation needs by default; low-confidence or conflicting findings may create reconciliation needs. Depends on: A13-L, D4-L, D13-L, D16-L. Supersedes: the old DB-backed `chat` / `turn` mental model.
 
 #### Interaction & UI shape
@@ -150,7 +151,7 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 | I8-L | Spec selection persists across pi `switchSession` (i.e. `/new`); each session has exactly one `brunch.session_binding`, and a session's bound spec never changes. | planned (TUI integration + JSONL viability tests, M0–M2) | D11-L |
 | I9-L | Every `brunch.mention` payload is anchored to a stable `id`; the ledger never stores title-anchored references. | planned (M7 invariant) | D14-L |
 | I10-L | Structured elicitation prompts/responses live in the Pi transcript when structure is needed; elicitation exchanges are projected from the active branch, and no parallel canonical chat/turn table carries elicitation state. | planned (M1+ projection invariant) | D12-L, D13-L, D18-L |
-| I11-L | No durable graph mutation path — including migrations, maintenance scripts, or side-task-attributed writes — may bypass the command-layer transaction that performs version checks, allocates the commit LSN, and appends the change-log rows tagged with that LSN. | planned (M4 architectural + migration invariants) | D4-L, D15-L, D16-L |
+| I11-L | No durable graph mutation path — including migrations, maintenance scripts, observer-job writes, or side-task-attributed writes — may bypass the `CommandExecutor` path that performs authority/result classification, version checks, structural validation, transaction execution, LSN allocation, and change-log append. | planned (M4 architectural + migration invariants; M5 caller-boundary tests) | D4-L, D15-L, D16-L, D20-L |
 | I12-L | Side-task results are delivered only at turn boundaries; no side-task result may steer or mutate the active turn outside the next-turn delivery path. | planned (M7 side-task delivery invariant) | D15-L |
 | I13-L | At any idle session branch leaf, the latest unresolved interaction state is system/assistant-originated: user input is a response to an elicitation prompt, not ambient chat. | planned (M1 fixture + transcript projection tests) | D12-L |
 | I14-L | Observer jobs are keyed by session id plus elicitation-exchange entry-range ids and have durable status; replay/restart cannot enqueue duplicate observer jobs for the same exchange. | planned (M5 observer queue tests) | D18-L, D4-L |
@@ -209,7 +210,8 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 | **Change log** | The audit trail of graph mutations. Authoritative for replay, `worldUpdate` synthesis, and reconciliation-need ordering. |
 | **Reconciliation need** | First-class record of an open impasse, gap, contradiction, or process debt; carries `created_at_lsn`, optional `resolved_at_lsn`, `concerns` edges to graph nodes. Routine observer jobs are not reconciliation needs unless they surface semantic work to resolve. |
 | **Coherence verdict** | Per-spec product state (`coherent` / `incoherent`) emitted by validators and visible to both UI and agent. |
-| **Command layer** | The single Brunch-owned mutation surface. Validates, gates concurrency, audits, emits events, triggers coherence. |
+| **Command layer** | The single Brunch-owned mutation surface. Validates, gates concurrency, audits, emits events, triggers coherence. Its public mutation entry point is the `CommandExecutor`, not direct ORM calls or caller-side authority gates. |
+| **Command executor** | The deep module that accepts Brunch product commands plus execution context and returns structured command results (`ok`, `needs_human`, `policy_blocked`, `version_conflict`, `structural_illegal`). It hides attribution, minimal pre-M6 authority classification, validation, transaction, LSN, change-log, and coherence-trigger mechanics from callers. |
 | **RPC method family** | A named group of JSON-RPC methods (`session.*`, `workspace.*`, `graph.*`, `coherence.*`) that exposes product behavior through stdio, WebSocket, or in-process handler calls without creating a second API surface. |
 | **Projection handler** | A thin handler that reads or subscribes to a canonical store and returns product-shaped state for a mode/client. It is not a canonical store itself. |
 | **Subscription** | A long-lived RPC operation that delivers live updates, often with an initial snapshot, for views that must stay current with session, workspace, graph, or coherence state. |
