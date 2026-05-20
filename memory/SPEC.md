@@ -237,9 +237,27 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 
 ## Verification Design
 
+### Verification Stance
+
+Verification is first-class product work for Brunch because the POC's claims are mostly seam claims: pi harness reuse, JSONL transcript truth, one mutation authority, thin RPC/projection handlers, graph continuity, and fixture-driven elicitation. A frontier is not complete merely because the UI appears alive; durable architectural claims must be proven against canonical stores or projection handlers.
+
+Brunch uses a three-layer stance:
+
+1. **Inner loop:** fast static and unit checks prove local contracts and keep the codebase shippable.
+2. **Middle loop:** runbook oracles, round-trip/property tests, contract tests, and fixture replay prove frontier seams against durable artifacts.
+3. **Outer loop:** adversarial/generative fixtures and manual walkthroughs assess LLM elicitation quality, UX feel, and long-horizon coherence that cannot be reduced to schema checks.
+
+### Diagnostic Assessment
+
+| Dimension | Score | Notes | Raised by |
+| --- | --- | --- | --- |
+| Observability | partial, improving to high by M4/M5 | Text-native artifacts are planned (`.brunch/state.json`, Pi JSONL, command results, graph exports, coherence exports, fixture bundles). M0 TUI chrome and M3 browser UX remain partly visual unless paired with artifact/query checks. | Runbook oracles; projection handlers; graph/coherence exports. |
+| Reproducibility | partial | Fixture briefs and captured runs create a repeatable path, but M1/M2 must first prove the agent-as-user harness and JSONL projection/reload discipline. LLM runs remain variable, so deterministic postcondition checks and property assertions are required. | Deterministic runbook checks; captured-run metadata; replay/property fixtures. |
+| Controllability | partial | `npm run fix` / `npm run verify` are agent-controllable. TUI/browser/manual flows are not fully controllable yet, so early frontiers use human action plus executable postcondition checks rather than full UI automation. | Store/projection postcondition checkers; later stdio/WebSocket drivers. |
+
 ### Verification Commands
 
-Infrastructure is not yet laid (Phase 3 of POC bootstrapping). Commands below follow `AGENTS.md` conventions and will be filled in by `pragma-skeleton` / M0:
+Infrastructure is not yet fully laid (Phase 3 of POC bootstrapping). Commands follow `AGENTS.md` conventions:
 
 | Step | Check | Command |
 | --- | --- | --- |
@@ -254,10 +272,70 @@ Infrastructure is not yet laid (Phase 3 of POC bootstrapping). Commands below fo
 - **Inner loop:** run `npm run fix` after every meaningful edit. Tooling: oxlint (lint + type-aware via tsgolint), oxfmt (format), vitest (test). See AGENTS.md.
 - **Gate before commit:** `npm run verify`. All steps must pass; no override.
 - **Failure protocol:** stop on first failure; the failure becomes the must-fix task; re-run the stack from step 1; only proceed when all checks pass.
-- **Fixture architecture (pre-`ln-oracles` canonical stance):** the POC already adopts a three-layer middle/outer-loop model from [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md): replay regression (golden transcript/graph reproduction), property regression (structural invariants tolerant to model drift), and adversarial / generative probes (failure-mode discovery under brief/persona variation). This is already product architecture, not an optional later embellishment.
-- **Captured-run bundle:** fixture capture is expected to converge on `.jsonl`, `.graph.json`, `.coherence.json`, and `.meta.json` artefacts under `.brunch-fixtures/`, with transcript-first evidence arriving in M1 and graph/coherence artefacts arriving once M4 lands.
-- **Frontier-item completion** additionally requires that fixture-property assertions for the frontier's milestone pass (see [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)).
-- **Middle/outer loop verification design** (oracle strategy, diagnostic assessment, blind spots) is owned by `ln-oracles`. The fixture-strategy doc is the de-facto outer-loop oracle for the POC until `ln-oracles` runs a dedicated pass.
+- **Frontier completion:** manual smoke can prove presentation life, but any durable product claim must also have an artifact/query oracle, property/round-trip test, contract test, or fixture assertion tied to the canonical store or projection handler that owns the fact.
+- **Fixture architecture:** the POC adopts the three-layer model from [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md): replay regression, property regression, and adversarial / generative probes. Captured-run bundles converge on `.jsonl`, `.graph.json`, `.coherence.json`, and `.meta.json` artifacts under `.brunch-fixtures/`.
+
+### Oracle Strategy by Loop Tier
+
+| Loop | Oracle family | Proves | Primary claims |
+| --- | --- | --- | --- |
+| Inner | Type-aware lint, type checks, fast unit tests | Local module correctness, typed command/result shapes, projection helper behavior. | D12-L, D13-L, D20-L, D21-L. |
+| Inner | Schema/shape validation at boundaries | JSON-RPC payloads, command results, structured elicitation entries, fixture metadata, graph exports. | R8, R10, R11, R17; I3-L, I10-L, I11-L. |
+| Middle | **Runbook oracles**: prose manual actions plus executable postcondition checkers | Interactive seams leave correct durable state. Early M0 checkers may inspect stores only; once handlers exist, prefer projection-including checks. | D11-L, D21-L; I8-L, I13-L; A10-L. |
+| Middle | Round-trip tests | JSONL reload, elicitation exchange projection, compaction, graph export/import, command result serialization. | A2-L, A12-L; I3-L, I8-L, I10-L. |
+| Middle | Property-based / model-based tests | LSN monotonicity, change-log replay, reconciliation-need invariants, mention staleness, interest-set recomputation, side-task delivery ordering. | A4-L, A8-L, A9-L, A11-L; I1-L, I4-L, I5-L, I6-L, I9-L, I12-L. |
+| Middle | Contract tests | Named RPC method families and transport adapters share handler semantics; subscriptions deliver initial snapshot plus ordered updates; `CommandExecutor` hides policy/transaction details. | D5-L, D19-L, D20-L; R11, R12. |
+| Middle | Architectural boundary tests | No direct ORM/SQLite mutation outside `CommandExecutor`; no canonical chat/turn store; TUI/RPC/fixture code does not write `brunch.session_binding`. | D4-L, D6-L, D18-L, D21-L; I2-L, I10-L, I11-L. |
+| Middle | Fixture replay and property assertions | Brief-driven sessions still produce structurally valid transcript/graph/coherence artifacts despite model drift. | A5-L, A6-L, A7-L; I7-L; R20. |
+| Outer | Manual walkthrough with checklist | UX/presentation life: TUI chrome, spec selector, web shell feel, coherence visibility, elicitation usefulness. | A10-L; R4, R14, R16. |
+| Outer | Adversarial / generative fixture probes | Elicitation quality, human-gated `needs_human`, contradictory requirements, cross-session updates, long-horizon compaction. | A5-L, A8-L, A9-L, A11-L; I4-L, I6-L, I12-L, I13-L. |
+
+### Runbook Oracle Design
+
+A **runbook oracle** is the preferred bridge for seams that require human interaction but leave durable state. It has two parts:
+
+1. **Manual checklist** — what the human does or observes (for example: launch TUI, select/create spec, confirm chrome, run `/new`).
+2. **Executable postcondition checker** — what the agent/test harness inspects afterward in canonical stores or projection handlers.
+
+Runbook postconditions should be boring and product-shaped: paths exist, JSON fields match, JSONL entries are present and unique, projections reconstruct the same state, command results carry expected discriminants. Store-only checks are acceptable before projection handlers exist; projection-including checks become the default once `workspace.*`, `session.*`, `graph.*`, or `coherence.*` handlers exist.
+
+The first required runbook is M0: after manual TUI interaction, a checker proves `.brunch/` creation, `.brunch/state.json` current spec acceleration, Pi session JSONL files, exactly one `brunch.session_binding` per session, same-spec `/new`, and workspace/session reconstruction when available.
+
+### Invariant Oracle Coverage
+
+| Invariant | Assigned oracle(s) |
+| --- | --- |
+| I1-L | M4 property/model-based LSN and replay tests. |
+| I2-L | M5 architectural boundary test plus `CommandExecutor` contract tests. |
+| I3-L | M2 JSONL round-trip tests and fixture replay parity. |
+| I4-L | M7 generated LSN/change traces and paired-session fixture assertions. |
+| I5-L | M7 property tests over binding/lens transitions and interest-set recomputation. |
+| I6-L | M4/M8 reconciliation-need property tests and contradictory-requirements fixture. |
+| I7-L | M4+ schema/property tests over framing matrix plus brief fixture assertions. |
+| I8-L | M0 runbook oracle plus M2 coordinator-created JSONL reload tests. |
+| I9-L | M7 mention parser/ledger unit tests and staleness property tests. |
+| I10-L | M1/M2 exchange projection tests, JSONL fixture replay, and no chat/turn architectural test. |
+| I11-L | M4/M5 no-bypass architectural test plus command transaction integration tests. |
+| I12-L | M7 side-task delivery invariant tests and adversarial fixture when side tasks are active. |
+| I13-L | M1 fixture/projection checks for idle branch leaf state. |
+| I14-L | M5 observer-job restart/idempotence tests. |
+
+### Design Notes
+
+- **Deterministic before generative.** M1 should prefer a deterministic or tightly scripted user-agent path for the first captured run before relying on LLM persona variance. Generative/adversarial probes come after the transcript and fixture substrate is trusted.
+- **Projection handlers are oracles, not stores.** Read/subscription tests should prove handlers reconstruct truth from Pi JSONL, `.brunch/state.json`, or SQLite graph/change log; they should not introduce a canonical view-store just for testing.
+- **Behavioral quality boundary.** Inner/middle loops prove structural validity, durable state, invariants, and expected graph/property coverage. “Good interview”, “good question”, and “coherent UX feel” remain outer-loop checklist/generative-fixture judgments until enough examples justify sharper metrics.
+- **Subscriptions are scoped for the POC.** Initial subscription oracles should prove initial snapshot plus ordered live updates. Reconnect/resume semantics are acknowledged but deferred unless a frontier explicitly depends on them.
+
+### Acknowledged Blind Spots
+
+| Blind spot | Reason | Mitigation | Revisit trigger |
+| --- | --- | --- | --- |
+| Full TUI automation | Cost exceeds value before the product state seams are proven. | Manual checklist plus artifact/query runbook oracle. | Manual TUI steps become frequent/flaky or block CI confidence. |
+| LLM elicitation quality | No stable deterministic ground truth for “good interview” early in the POC. | Brief library, human-reviewed golden captures, adversarial probes, expected structural coverage. | Repeated fixture failures where structure passes but elicitation is judged poor. |
+| Subscription reconnect/resume | POC can prove snapshot + live update without hardening network recovery yet. | Contract tests for initial snapshot and ordered update sequence. | Web/RPC clients need robust reconnect semantics or long-running fixture runs expose drift. |
+| Performance and scale | Local POC graph/session sizes are small; premature budgets may distort design. | Keep exports/checkers text-native and simple; add budgets when slow tests appear. | `npm run verify` or fixture runs exceed acceptable local iteration time. |
+| Cross-platform terminal rendering | TUI chrome visuals may differ by terminal. | Test state derivation and keep manual smoke on primary dev environment. | Distribution target broadens or terminal rendering bugs recur. |
 
 ### Acceptance Criteria
 
