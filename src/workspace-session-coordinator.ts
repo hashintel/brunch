@@ -5,6 +5,7 @@ import { join, resolve } from "node:path"
 import {
   SessionManager,
   type SessionEntry,
+  type SessionHeader,
 } from "@earendil-works/pi-coding-agent"
 
 const BRUNCH_DIR = ".brunch"
@@ -399,12 +400,7 @@ async function readJsonl(file: string): Promise<unknown[]> {
     .map((line) => JSON.parse(line) as unknown)
 }
 
-interface SessionHeaderShape {
-  type: "session"
-  id: string
-}
-
-function isSessionHeader(value: unknown): value is SessionHeaderShape {
+function isSessionHeader(value: unknown): value is SessionHeader {
   return (
     typeof value === "object" &&
     value !== null &&
