@@ -32,6 +32,11 @@ captured golden runs. See the directory README for layout and conventions.
 the canonical input to the oracle-plane stub and the kernel-activation gate.
 Briefs #1–#3 in the fixture library are worked out in that document.
 
+## Horizon design notes
+
+- [`docs/design/SPEC_INITIATIVE_MODEL.md`](../design/SPEC_INITIATIVE_MODEL.md) — working design proposal for spec as initiative/problem lifecycle, claim as truth-bearing unit, projected current truth, and repo-native branching/merge implications for planning data.
+- [`docs/design/PLANNING_PERSISTENCE_MODEL.md`](../design/PLANNING_PERSISTENCE_MODEL.md) — working design proposal for repo-native canonical planning history, SQLite materialization, markdown projections, and the recommended changeset-oriented persistence posture.
+
 ## Working conventions
 
 See [`AGENTS.md`](../../AGENTS.md) at the project root for the verification
