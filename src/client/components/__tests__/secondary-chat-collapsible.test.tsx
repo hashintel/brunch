@@ -246,6 +246,34 @@ describe('SecondaryChatCollapsible', () => {
     expect(screen.getByTestId('secondary-chat-fresh-state')).not.toBeNull();
   });
 
+  it('renders an optimistic pending-user bubble during the submit → onFinish window (no missing user message)', () => {
+    // Bot round 5 (cursor#3272392796): the server persists the user
+    // turn before streaming, but the client only invalidates the bundle
+    // in onFinish, so the user's message used to vanish from the
+    // transcript until the assistant reply completed. The host now
+    // surfaces the in-flight user text from useChat as pendingUserText.
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
+    };
+
+    render(
+      <CollapsibleHarness
+        secondaryChat={chat}
+        pendingUserText="hello, are you there?"
+        isStreaming
+        streamingAssistantText=""
+      />,
+    );
+
+    const bubble = screen.getByTestId('secondary-chat-pending-user-bubble');
+    expect(bubble.textContent).toContain('hello, are you there?');
+  });
+
   it('renders the mode toggle (now in composer leading edge) reflecting the persisted mode', () => {
     const chat: SecondaryChat = {
       chat: { ...baseChat, mode: 'edit' },

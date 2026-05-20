@@ -45,6 +45,14 @@ const RECONCILIATION_KIND_LABEL: Record<SecondaryChatPinnedReconciliationNeed['k
 export interface SecondaryChatCollapsibleProps {
   secondaryChat: SecondaryChat;
   streamingAssistantText?: string;
+  /**
+   * Optimistic user-message text rendered during the submit → onFinish
+   * window so the user's message doesn't disappear from the transcript
+   * while the assistant streams. Null/undefined when there's nothing to
+   * surface; the bundle's persisted turns take over once invalidation
+   * completes.
+   */
+  pendingUserText?: string | null;
   isStreaming?: boolean;
   /**
    * Optional: when provided, the fresh-state hero shows three "How to start"
@@ -66,6 +74,7 @@ const FRESH_START_CHIPS: readonly { readonly label: string; readonly prompt: str
 export function SecondaryChatCollapsible({
   secondaryChat,
   streamingAssistantText,
+  pendingUserText,
   isStreaming,
   onPickStartSuggestion,
 }: SecondaryChatCollapsibleProps) {
@@ -124,6 +133,9 @@ export function SecondaryChatCollapsible({
                 {secondaryChat.turns.map((turn) => (
                   <SecondaryChatTurnRow key={turn.id} turn={turn} pinnedAccent={pinnedAccent} />
                 ))}
+                {pendingUserText && (
+                  <SecondaryChatPendingUserBubble text={pendingUserText} pinnedAccent={pinnedAccent} />
+                )}
                 {hasStreaming && (
                   <SecondaryChatStreamingAssistant
                     text={streamingAssistantText ?? ''}
@@ -447,6 +459,24 @@ const IN_CHAT_ACCENT_ALPHA = 'cc';
 function dimAccentForChat(accent: string | null): string | null {
   if (!accent) return null;
   return `${accent}${IN_CHAT_ACCENT_ALPHA}`;
+}
+
+function SecondaryChatPendingUserBubble({
+  text,
+  pinnedAccent,
+}: {
+  text: string;
+  pinnedAccent: string | null;
+}) {
+  const dimmed = dimAccentForChat(pinnedAccent);
+  const userBubbleStyle = dimmed ? { backgroundColor: `${pinnedAccent}14`, color: dimmed } : undefined;
+  return (
+    <Message data-testid="secondary-chat-pending-user-bubble" from="user">
+      <MessageContent className="text-foreground" style={userBubbleStyle}>
+        <span className="whitespace-pre-wrap">{renderWithMentionChips(text)}</span>
+      </MessageContent>
+    </Message>
+  );
 }
 
 function SecondaryChatTurnRow({

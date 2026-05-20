@@ -23,16 +23,42 @@ type SecondaryChat = z.infer<typeof secondaryChatStateSchema>;
 interface SecondaryChatStreamState {
   readonly isStreaming: boolean;
   readonly assistantText: string;
+  /**
+   * Text of the in-flight user message — set as soon as the user submits,
+   * cleared once the bundle re-fetch surfaces the persisted user turn.
+   * Bridges the gap between submit (server persists the user turn before
+   * streaming) and `onFinish` (when the client invalidates the bundle).
+   * Without this, the user's message would vanish from the transcript
+   * until the assistant reply completes.
+   */
+  readonly pendingUserText: string | null;
   readonly send: (message: string) => Promise<void>;
 }
 
-function extractAssistantText(message: BrunchUIMessage | undefined): string {
-  if (!message || message.role !== 'assistant') return '';
+function extractTextFromMessage(message: BrunchUIMessage | undefined, role: 'user' | 'assistant'): string {
+  if (!message || message.role !== role) return '';
   let out = '';
   for (const part of message.parts) {
     if (part.type === 'text') out += part.text;
   }
   return out;
+}
+
+function extractAssistantText(message: BrunchUIMessage | undefined): string {
+  return extractTextFromMessage(message, 'assistant');
+}
+
+/**
+ * Find the most recent user message in the useChat history. The user
+ * message arrives at the tail when only the user has spoken; once the
+ * assistant starts streaming, it slides to `at(-2)`.
+ */
+function extractPendingUserText(messages: readonly BrunchUIMessage[]): string {
+  const last = messages.at(-1);
+  if (last?.role === 'user') return extractTextFromMessage(last, 'user');
+  const prev = messages.at(-2);
+  if (prev?.role === 'user') return extractTextFromMessage(prev, 'user');
+  return '';
 }
 
 function useSecondaryChatStream(
@@ -88,6 +114,26 @@ function useSecondaryChatStream(
 
   const isStreaming = status === 'submitted' || status === 'streaming';
   const assistantText = useMemo(() => extractAssistantText(messages.at(-1)), [messages]);
+  // Surface the in-flight user message until the bundle re-fetch reflects
+  // it. The persisted bundle's `turns` is the source of truth once it
+  // arrives; this just bridges the submit → onFinish gap.
+  const lastBundleUserText = useMemo(() => {
+    for (let i = secondaryChat.turns.length - 1; i >= 0; i -= 1) {
+      const turn = secondaryChat.turns[i]!;
+      if (turn.user_parts && turn.user_parts.length > 0) return turn.user_parts;
+    }
+    return '';
+  }, [secondaryChat.turns]);
+  const pendingUserText = useMemo<string | null>(() => {
+    if (!isStreaming) return null;
+    const text = extractPendingUserText(messages);
+    if (!text) return null;
+    // Skip if the bundle already has the same text — avoids duplicate render
+    // during the brief window after invalidation completes but useChat still
+    // holds the same message.
+    if (text === lastBundleUserText) return null;
+    return text;
+  }, [isStreaming, lastBundleUserText, messages]);
 
   const consumedToolCallIds = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -123,7 +169,7 @@ function useSecondaryChatStream(
     [sendMessage],
   );
 
-  return { isStreaming, assistantText, send };
+  return { isStreaming, assistantText, pendingUserText, send };
 }
 
 export interface SecondaryChatHostProps {
@@ -302,6 +348,7 @@ export function SecondaryChatHost({
     <SecondaryChatCollapsible
       secondaryChat={secondaryChat}
       streamingAssistantText={stream.assistantText}
+      pendingUserText={stream.pendingUserText}
       isStreaming={stream.isStreaming}
       onPickStartSuggestion={(prompt) => {
         onSendMessage?.(chatId);
