@@ -1,0 +1,43 @@
+{
+	"name": "brunch",
+	"version": "0.0.0",
+	"description": "Brunch — opinionated specification-workspace product over pi-coding-agent.",
+	"private": true,
+	"type": "module",
+	"main": "./dist/brunch.js",
+	"types": "./dist/brunch.d.ts",
+	"bin": {
+		"brunch": "./bin/brunch.js"
+	},
+	"files": [
+		"dist",
+		"bin"
+	],
+	"scripts": {
+		"dev": "tsx src/brunch.ts",
+		"build": "tsc -p tsconfig.json",
+		"test": "vitest --run",
+		"test:watch": "vitest",
+		"lint": "oxlint src",
+		"lint:fix": "oxlint --fix src",
+		"fmt": "oxfmt src",
+		"fmt:check": "oxfmt --check src",
+		"fix": "npm run lint:fix && npm run fmt",
+		"check": "npm run fmt:check && npm run lint",
+		"verify": "npm run check && npm run test && npm run build"
+	},
+	"dependencies": {
+		"@earendil-works/pi-coding-agent": "^0.75.3"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.0",
+		"oxfmt": "^0.2.0",
+		"oxlint": "^0.18.0",
+		"tsx": "^4.19.0",
+		"typescript": "^5.7.0",
+		"vitest": "^2.1.0"
+	},
+	"engines": {
+		"node": ">=20"
+	}
+}
