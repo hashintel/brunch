@@ -975,6 +975,18 @@ These slices implement the three deepening designs (A / B / C) selected from the
 
 - **Status:** **queued — owned by Track 5 frontier `chat-context-provision`, not here.** Already absorbed into PLAN.md `chat-context-provision` § "V1 anchor/handle shape." Mentioned here only for traceability; do not scope under FE-716.
 
+## Track 5 pickup — ln-review (post FE-716)
+
+Scoped under `chat-context-provision`; do not slip into FE-716 after merge.
+
+| Slice | Source (Lu ln-review) | What |
+| --- | --- | --- |
+| **T5-mention-snapshot** | `secondary-chat-route.ts` `user_parts` smuggle | Literal user text on the turn; resolved `#` → context snapshot artifact; prompt reads artifacts, not synthetic user speech. |
+| **T5-transcript-regression** | `secondary-chat-collapsible.tsx` | Test: mention/snapshot context does not render as user-authored bubble text. |
+| **T5-anchor-projection** | `specification-store.ts` `anchored_item_ids` | Design C / D154: drop column; transcript `anchor_op` events; bundle projector returns anchor set. |
+
+**Landed in FE-716 merge follow-up (substrate, not Track 5):** same-spec `parentChatId` + `invokedInTurnId` validation on create; delete legacy `POST /api/specifications/:id/side-chat` + client `side-chat-stream` + server route tests.
+
 ## Deferred — explicitly NOT in V1 (parking lot)
 
 These belong to follow-up frontiers and should not be slipped into FE-716:

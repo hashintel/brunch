@@ -34,6 +34,7 @@ import {
   resolveIntentItemReferences,
 } from './intent-item-resolver.js';
 import * as schema from './schema.js';
+import { validateSecondaryChatInvokedTurn, validateSecondaryChatParent } from './secondary-chat-lineage.js';
 import {
   buildSideChatPrompt,
   getSideChatTools,
@@ -43,10 +44,7 @@ import {
   type SideChatPriorTurn,
 } from './side-chat-prompt.js';
 
-// Invariant: the secondary-chat surface only ever writes chats with
-// `parent_chat_id IS NOT NULL`. The popover side-chat endpoint
-// (`./side-chat-route.ts`) is stateless and never sets `parent_chat_id`,
-// so popover sessions are not double-rendered as inline secondary chats.
+// Invariant: secondary chats hang off the spec's primary interview chat.
 
 // `itemKind` + `itemId` are optional so the master-chat path (no anchor)
 // can share this endpoint; handler enforces the pair for item-anchored flows.
@@ -100,6 +98,16 @@ export function handleCreateSecondaryChatRequest(db: DB, req: Request, res: Resp
     return;
   }
 
+  const parentLineage = validateSecondaryChatParent(db, specification, parsed.data.parentChatId);
+  if (parentLineage) {
+    if (parentLineage.status === 404) {
+      notFound(res, parentLineage.error);
+    } else {
+      badRequest(res, parentLineage.error);
+    }
+    return;
+  }
+
   if (
     parsed.data.itemId === undefined &&
     parsed.data.itemKind === undefined &&
@@ -123,6 +131,21 @@ export function handleCreateSecondaryChatRequest(db: DB, req: Request, res: Resp
   }
   if (parsed.data.invokedInTurnId === undefined) {
     badRequest(res, 'invokedInTurnId is required for item-anchored secondary chats');
+    return;
+  }
+
+  const invokedLineage = validateSecondaryChatInvokedTurn(
+    db,
+    specificationId,
+    parsed.data.parentChatId,
+    parsed.data.invokedInTurnId,
+  );
+  if (invokedLineage) {
+    if (invokedLineage.status === 404) {
+      notFound(res, invokedLineage.error);
+    } else {
+      badRequest(res, invokedLineage.error);
+    }
     return;
   }
 
@@ -391,7 +414,7 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
 
   const system = mentionedItemsContextBlock ? `${baseSystem}\n\n${mentionedItemsContextBlock}` : baseSystem;
 
-  // Mirror side-chat-route's lazy edit-impact computation: only compute when
+  // Lazy edit-impact computation: only compute when
   // we know an edit proposal actually surfaced, then reuse for all of them.
   const computeEditImpact = (): EditImpactTier => {
     if (pinnedItemId === null) {

@@ -4685,6 +4685,77 @@ describe('POST /api/specifications/:id/secondary-chats', () => {
     expect(secondary?.kickoffTurn?.assistant_parts).toBeTruthy();
   });
 
+  it('returns 400 when parentChatId is not the specification primary chat', async () => {
+    const specificationId = await createTestSpecification('FE-716 lineage parent');
+    const otherSpecId = await createTestSpecification('FE-716 lineage other');
+    const item = await setupItem(specificationId);
+    const wrongParent = await getParentChatId(otherSpecId);
+    const { createTurn } = await import('./db.js');
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+
+    await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId: wrongParent,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+      })
+      .expect(400);
+  });
+
+  it('returns 404 when invokedInTurnId belongs to another specification', async () => {
+    const specificationId = await createTestSpecification('FE-716 lineage turn spec');
+    const otherSpecId = await createTestSpecification('FE-716 lineage turn other');
+    const item = await setupItem(specificationId);
+    const parentChatId = await getParentChatId(specificationId);
+    const { createTurn } = await import('./db.js');
+    const foreignTurn = createTurn(db, otherSpecId, { phase: 'grounding', question: 'Q' });
+
+    await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: foreignTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+      })
+      .expect(404);
+  });
+
+  it('returns 400 when invokedInTurnId is not on the parent chat', async () => {
+    const specificationId = await createTestSpecification('FE-716 lineage turn chat');
+    const item = await setupItem(specificationId);
+    const parentChatId = await getParentChatId(specificationId);
+    const { appendSecondaryChatTurn, createTurn } = await import('./db.js');
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+
+    const createRes = await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+      })
+      .expect(200);
+
+    const wrongChatTurn = appendSecondaryChatTurn(db, createRes.body.chatId as number, {
+      role: 'user',
+      content: 'turn on secondary chat',
+    });
+
+    await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: wrongChatTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+      })
+      .expect(400);
+  });
+
   it('persists pinned_span_hint when provided', async () => {
     const specificationId = await createTestSpecification('FE-716 span hint');
     const item = await setupItem(specificationId);
