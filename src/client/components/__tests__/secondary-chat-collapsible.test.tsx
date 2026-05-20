@@ -209,6 +209,43 @@ describe('SecondaryChatCollapsible', () => {
     );
   });
 
+  it('suppresses the fresh-state hero title when a server kickoff turn is present (no duplicate turn-zero prompt)', () => {
+    // Bot round 5 (cursor#3272354434): the hero rendered "Where would
+    // you like to begin?" alongside the kickoff "Hi! How can I help
+    // with #G1?", producing two competing turn-zero prompts. The hero
+    // still renders for item-anchored chats so the suggestion chips
+    // remain reachable, but its redundant title is suppressed.
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: {
+        id: 99,
+        specification_id: 1,
+        parent_turn_id: null,
+        phase: 'grounding',
+        turn_kind: 'kickoff',
+        question: '',
+        why: null,
+        impact: null,
+        answer: null,
+        is_resolution: false,
+        user_parts: null,
+        assistant_parts: 'Hi! How can I help with **#G1**?',
+        created_at: '',
+      },
+      turns: [],
+      pinnedItemKind: 'goal',
+      pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
+    };
+
+    render(<CollapsibleHarness secondaryChat={chat} />);
+
+    expect(screen.getByText('Hi! How can I help with **#G1**?')).toBeTruthy();
+    expect(screen.queryByTestId('secondary-chat-fresh-state-title')).toBeNull();
+    // Hero shell + chip row still render so the suggestions surface stays.
+    expect(screen.getByTestId('secondary-chat-fresh-state')).not.toBeNull();
+  });
+
   it('renders the mode toggle (now in composer leading edge) reflecting the persisted mode', () => {
     const chat: SecondaryChat = {
       chat: { ...baseChat, mode: 'edit' },

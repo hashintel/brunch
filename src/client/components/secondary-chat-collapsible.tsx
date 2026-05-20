@@ -160,7 +160,7 @@ export interface SecondaryChatComposerPanelProps {
 function composerPlaceholder(mode: SecondaryChatMode, isTurnZero: boolean, isItemPinned: boolean): string {
   if (isTurnZero) {
     if (mode === 'edit') return isItemPinned ? 'Propose a change…' : 'Propose a change to your spec…';
-    return isItemPinned ? 'Ask about this item…' : 'Ask Brunch about your spec…';
+    return isItemPinned ? 'Ask about this item…' : 'Ask brunch about your spec…';
   }
   return mode === 'edit' ? 'Propose any change…' : 'Ask a follow-up…';
 }
@@ -240,11 +240,12 @@ function SecondaryChatFreshStateHero({
   reconciliationKind: 'supersedes' | 'needs_confirmation' | null;
   hasPinnedContext: boolean;
 }) {
-  const title = hasPinnedContext
-    ? mode === 'edit'
-      ? 'How would you like to change this?'
-      : 'Where would you like to begin?'
-    : 'Ask Brunch about your spec';
+  // The server-rendered kickoff ("Hi! How can I help with #G1?") and the
+  // reconciliation panel already greet the user with the turn-zero prompt
+  // for pinned-context chats. Rendering a second "Where would you like to
+  // begin?" title underneath was a duplicate prompt — suppress the title
+  // when context is pinned and only keep it for the master-chat surface.
+  const title = hasPinnedContext ? null : 'Ask brunch about your spec';
   return (
     <motion.div
       data-testid="secondary-chat-fresh-state"
@@ -253,15 +254,17 @@ function SecondaryChatFreshStateHero({
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
       className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 py-6 text-center"
     >
-      <motion.div
-        initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.05 }}
-        data-testid="secondary-chat-fresh-state-title"
-        className="text-sm font-medium text-ink"
-      >
-        {title}
-      </motion.div>
+      {title !== null && (
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.05 }}
+          data-testid="secondary-chat-fresh-state-title"
+          className="text-sm font-medium text-ink"
+        >
+          {title}
+        </motion.div>
+      )}
       <motion.div
         initial={prefersReducedMotion ? false : { opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
