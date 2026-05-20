@@ -31,11 +31,19 @@ export class ProceduralOrchestrator implements Orchestrator {
     const sliceOutcomes: SliceOutcome[] = [];
     const epicOutcomes: EpicOutcome[] = [];
 
-    const epicOrder = topoSort(plan.epics, (e) => e.id, (e) => e.depends_on);
+    const epicOrder = topoSort(
+      plan.epics,
+      (e) => e.id,
+      (e) => e.depends_on,
+    );
 
     for (const epic of epicOrder) {
       const epicSlices = plan.slices.filter((s) => s.epic_id === epic.id);
-      const sliceOrder = topoSort(epicSlices, (s) => s.id, (s) => s.depends_on);
+      const sliceOrder = topoSort(
+        epicSlices,
+        (s) => s.id,
+        (s) => s.depends_on,
+      );
       let epicHalted = false;
 
       for (const slice of sliceOrder) {
@@ -178,21 +186,21 @@ export class ProceduralOrchestrator implements Orchestrator {
 // ---------------------------------------------------------------------------
 
 function topoSort<T>(items: T[], getId: (item: T) => string, getDeps: (item: T) => string[]): T[] {
-	const byId = new Map(items.map((item) => [getId(item), item]));
-	const visited = new Set<string>();
-	const result: T[] = [];
+  const byId = new Map(items.map((item) => [getId(item), item]));
+  const visited = new Set<string>();
+  const result: T[] = [];
 
-	function visit(id: string) {
-		if (visited.has(id)) return;
-		visited.add(id);
-		const item = byId.get(id);
-		if (!item) return;
-		for (const dep of getDeps(item)) {
-			visit(dep);
-		}
-		result.push(item);
-	}
+  function visit(id: string) {
+    if (visited.has(id)) return;
+    visited.add(id);
+    const item = byId.get(id);
+    if (!item) return;
+    for (const dep of getDeps(item)) {
+      visit(dep);
+    }
+    result.push(item);
+  }
 
-	for (const item of items) visit(getId(item));
-	return result;
+  for (const item of items) visit(getId(item));
+  return result;
 }

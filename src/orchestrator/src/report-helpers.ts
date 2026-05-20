@@ -1,10 +1,7 @@
 import type { ReportLine, ReportSink } from './types.js';
 
 /** Create and append a report line, returning its id. */
-export function createReport(
-  sink: ReportSink,
-  fields: Omit<ReportLine, 'id' | 'ts'>,
-): string {
+export function createReport(sink: ReportSink, fields: Omit<ReportLine, 'id' | 'ts'>): string {
   const id = `rpt-${fields.actor}-${fields.sliceId || fields.epicId}-${Date.now()}`;
   const line: ReportLine = {
     id,

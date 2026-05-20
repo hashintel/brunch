@@ -86,12 +86,12 @@ export type RunPolicy = {
 };
 
 export type OrchestratorInput = {
-	plan: Plan;
-	worktreeDir: string;
-	actions: ActionHandlers;
-	reports: ReportSink;
-	testRunner: TestRunner;
-	policy: RunPolicy;
+  plan: Plan;
+  worktreeDir: string;
+  actions: ActionHandlers;
+  reports: ReportSink;
+  testRunner: TestRunner;
+  policy: RunPolicy;
 };
 
 export type EpicOutcome = {
