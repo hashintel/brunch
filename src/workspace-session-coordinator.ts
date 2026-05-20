@@ -71,6 +71,9 @@ export interface WorkspaceSessionCoordinator {
     specTitle?: string
   }): Promise<WorkspaceSessionReadyState>
   createNewSessionForCurrentSpec(): Promise<WorkspaceSessionState>
+  bindCurrentSpecToSession(
+    manager: SessionManager,
+  ): Promise<WorkspaceSessionReadyState>
   deriveChromeState(): Promise<WorkspaceSessionChromeState>
 }
 
@@ -134,6 +137,18 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     return readyState(this.#cwd, state.currentSpec, session)
   }
 
+  async bindCurrentSpecToSession(
+    manager: SessionManager,
+  ): Promise<WorkspaceSessionReadyState> {
+    const state = await readWorkspaceState(this.#cwd)
+    if (!state) {
+      throw new Error("No current spec is selected for this workspace.")
+    }
+
+    const session = bindSessionToSpec(manager, state.currentSpec)
+    return readyState(this.#cwd, state.currentSpec, session)
+  }
+
   async deriveChromeState(): Promise<WorkspaceSessionChromeState> {
     const state = await readWorkspaceState(this.#cwd)
     return chromeState(this.#cwd, state?.currentSpec ?? null)
@@ -154,22 +169,49 @@ async function createBoundSession(
   if (!sessionFile) {
     throw new Error("Pi SessionManager did not create a persisted session file")
   }
-  manager.appendCustomEntry(SESSION_BINDING_TYPE, {
-    schemaVersion: BINDING_SCHEMA_VERSION,
-    sessionId: manager.getSessionId(),
-    specId: spec.id,
-    specTitle: spec.title,
-  } satisfies SessionBindingData)
+  return bindSessionToSpec(manager, spec)
+}
+
+function bindSessionToSpec(
+  manager: SessionManager,
+  spec: WorkspaceSpecState,
+): WorkspaceSessionReadyState["session"] {
+  const sessionFile = manager.getSessionFile()
+  if (!sessionFile) {
+    throw new Error("Pi SessionManager did not create a persisted session file")
+  }
+
+  const existingBindings = manager.getEntries().filter(isSessionBindingEntry)
+  if (existingBindings.length === 0) {
+    manager.appendCustomEntry(SESSION_BINDING_TYPE, {
+      schemaVersion: BINDING_SCHEMA_VERSION,
+      sessionId: manager.getSessionId(),
+      specId: spec.id,
+      specTitle: spec.title,
+    } satisfies SessionBindingData)
+  } else if (
+    existingBindings.length !== 1 ||
+    existingBindings[0]?.data.sessionId !== manager.getSessionId() ||
+    existingBindings[0].data.specId !== spec.id
+  ) {
+    throw new Error(
+      "Session already has an incompatible Brunch session binding",
+    )
+  }
+
   flushSessionWithoutAssistant(manager)
   return { id: manager.getSessionId(), file: sessionFile, manager }
 }
 
 interface FlushableSessionManager {
+  flushed: boolean
   _rewriteFile(): void
 }
 
 function flushSessionWithoutAssistant(manager: SessionManager): void {
-  ;(manager as unknown as FlushableSessionManager)._rewriteFile()
+  const flushable = manager as unknown as FlushableSessionManager
+  flushable._rewriteFile()
+  flushable.flushed = true
 }
 
 async function ensureWorkspaceDirs(cwd: string): Promise<void> {

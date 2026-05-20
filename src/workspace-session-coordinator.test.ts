@@ -71,6 +71,58 @@ describe("WorkspaceSessionCoordinator", () => {
     )
   })
 
+  it("does not duplicate the binding when pi later flushes the first assistant message", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+
+    const result = await coordinator.startOrCreate({
+      specTitle: "Scratch spec",
+    })
+    result.session.manager.appendMessage({
+      role: "assistant",
+      content: "hello",
+    })
+
+    const oracle = await verifyWorkspaceSessionStores({
+      cwd,
+      expectedSessionCount: 1,
+    })
+    expect(oracle.ok).toBe(true)
+    if (!oracle.ok) {
+      expect(oracle.errors).toEqual([])
+      return
+    }
+    expect(oracle.sessions[0]?.bindingCount).toBe(1)
+  })
+
+  it("binds a pi-created replacement session to the current spec", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+
+    const first = await coordinator.startOrCreate({ specTitle: "Scratch spec" })
+    const replacementFile = first.session.manager.newSession()
+    await coordinator.bindCurrentSpecToSession(first.session.manager)
+
+    expect(replacementFile).toBeDefined()
+    const oracle = await verifyWorkspaceSessionStores({
+      cwd,
+      expectedSessionCount: 2,
+    })
+    expect(oracle.ok).toBe(true)
+    if (!oracle.ok) {
+      expect(oracle.errors).toEqual([])
+      return
+    }
+    expect(
+      oracle.sessions.every(
+        (session) => session.binding.specId === first.spec.id,
+      ),
+    ).toBe(true)
+    expect(oracle.sessions.every((session) => session.bindingCount === 1)).toBe(
+      true,
+    )
+  })
+
   it("asks for spec selection when no current spec exists and creation is not allowed", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     await mkdir(join(cwd, ".brunch"), { recursive: true })

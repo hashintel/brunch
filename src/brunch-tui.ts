@@ -20,6 +20,7 @@ import {
 
 export interface BrunchTuiLaunchContext {
   workspace: WorkspaceSessionReadyState
+  coordinator: WorkspaceSessionCoordinator
 }
 
 export interface BrunchTuiOptions {
@@ -51,6 +52,7 @@ export async function runBrunchTui(
 
   await (options.launchInteractive ?? launchPiInteractive)({
     workspace: workspaceState,
+    coordinator,
   })
 }
 
@@ -90,6 +92,7 @@ async function promptForSpecTitle(): Promise<string | undefined> {
 
 async function launchPiInteractive({
   workspace,
+  coordinator,
 }: BrunchTuiLaunchContext): Promise<void> {
   const agentDir = getAgentDir()
   const createRuntime: CreateAgentSessionRuntimeFactory = async ({
@@ -119,6 +122,9 @@ async function launchPiInteractive({
     cwd: workspace.cwd,
     agentDir,
     sessionManager: workspace.session.manager,
+  })
+  runtime.setRebindSession(async (session) => {
+    await coordinator.bindCurrentSpecToSession(session.sessionManager)
   })
 
   await new InteractiveMode(runtime).run()
