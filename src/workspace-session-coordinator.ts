@@ -337,12 +337,7 @@ export async function verifyWorkspaceSessionStores(
     )
   }
 
-  const sessions: Array<{
-    file: string
-    sessionId: string
-    bindingCount: number
-    binding: SessionBindingData
-  }> = []
+  const sessions: WorkspaceStoreOracleSuccess["sessions"] = []
 
   for (const file of files) {
     const entries = await readJsonl(file)
