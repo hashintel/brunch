@@ -109,88 +109,6 @@ function createFakes(opts?: {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers — fake action handlers
-// ---------------------------------------------------------------------------
-
-let callOrder: string[] = [];
-let evalCallCount = 0;
-
-function resetFakes() {
-  callOrder = [];
-  evalCallCount = 0;
-}
-
-function fakeActions(reports: InMemoryReportSink): ActionHandlers {
-  return {
-    'evaluate-done': async (ctx: ActionContext) => {
-      evalCallCount++;
-      const done = evalCallCount >= 2; // first call: NO, second: YES
-      const id = `rpt-eval-${evalCallCount}`;
-      reports.append({
-        id,
-        ts: new Date().toISOString(),
-        epicId: ctx.epic.id,
-        sliceId: ctx.slice.id,
-        actor: 'evaluator',
-        event: 'eval-done',
-        payload: { done },
-      });
-      callOrder.push(`evaluate-done:${done ? 'YES' : 'NO'}`);
-      return id;
-    },
-    'write-tests': async (ctx: ActionContext) => {
-      const id = 'rpt-write-tests-1';
-      reports.append({
-        id,
-        ts: new Date().toISOString(),
-        epicId: ctx.epic.id,
-        sliceId: ctx.slice.id,
-        actor: 'test-writer',
-        event: 'tests-written',
-        payload: { files: ['tests/hello.test.ts'] },
-      });
-      callOrder.push('write-tests');
-      return id;
-    },
-    'write-code': async (ctx: ActionContext) => {
-      const id = 'rpt-write-code-1';
-      reports.append({
-        id,
-        ts: new Date().toISOString(),
-        epicId: ctx.epic.id,
-        sliceId: ctx.slice.id,
-        actor: 'code-writer',
-        event: 'code-written',
-        payload: { files: ['src/hello.ts'] },
-      });
-      callOrder.push('write-code');
-      return id;
-    },
-    'verify-epic': async (ctx: ActionContext) => {
-      const id = 'rpt-verify-epic-1';
-      reports.append({
-        id,
-        ts: new Date().toISOString(),
-        epicId: ctx.epic.id,
-        sliceId: '',
-        actor: 'orchestrator',
-        event: 'epic-verified',
-        payload: { passed: true },
-      });
-      callOrder.push('verify-epic');
-      return id;
-    },
-  };
-}
-
-const fakeTestRunner: TestRunner = {
-  async run(_target: string, _worktreeDir: string) {
-    callOrder.push('run-tests');
-    return { passed: true, output: '1 test passed' };
-  },
-};
-
-// ---------------------------------------------------------------------------
 // Contract test #1 — single epic, single slice, happy path
 // ---------------------------------------------------------------------------
 
@@ -215,100 +133,68 @@ const simplePlan: Plan = {
 };
 
 describe('Engine contract test #1 — single epic, single slice, happy path', () => {
-  const engines = [
-    { name: 'procedural', create: () => new ProceduralOrchestrator() },
-    { name: 'petri', create: () => new PetriOrchestrator() },
-  ] as const;
-
   for (const { name, create } of engines) {
     describe(name, () => {
       it("completes with status 'completed'", async () => {
-        resetFakes();
-        const reports = new InMemoryReportSink();
-        const engine = create();
-
-        const input: OrchestratorInput = {
+        const fakes = createFakes();
+        const result = await create().run({
           plan: simplePlan,
-          worktreeDir: '/tmp/fake-fixture',
-          actions: fakeActions(reports),
-          reports,
-          testRunner: fakeTestRunner,
+          worktreeDir: '/tmp/fake',
+          actions: fakes.actions,
+          reports: fakes.reports,
+          testRunner: fakes.testRunner,
           policy: { maxRetries: 3 },
-        };
-
-        const result = await engine.run(input);
-
+        });
         expect(result.status).toBe('completed');
       });
 
       it('produces correct epic and slice outcomes', async () => {
-        resetFakes();
-        const reports = new InMemoryReportSink();
-        const engine = create();
-
-        const input: OrchestratorInput = {
+        const fakes = createFakes();
+        const result = await create().run({
           plan: simplePlan,
-          worktreeDir: '/tmp/fake-fixture',
-          actions: fakeActions(reports),
-          reports,
-          testRunner: fakeTestRunner,
+          worktreeDir: '/tmp/fake',
+          actions: fakes.actions,
+          reports: fakes.reports,
+          testRunner: fakes.testRunner,
           policy: { maxRetries: 3 },
-        };
-
-        const result = await engine.run(input);
-
+        });
         expect(result.epics).toEqual([{ epicId: 'epic-1', status: 'completed' }]);
         expect(result.slices).toEqual([{ sliceId: 'slice-1', status: 'completed' }]);
       });
 
       it('calls actions in correct TDD cycle order', async () => {
-        resetFakes();
-        const reports = new InMemoryReportSink();
-        const engine = create();
-
-        const input: OrchestratorInput = {
+        const fakes = createFakes();
+        await create().run({
           plan: simplePlan,
-          worktreeDir: '/tmp/fake-fixture',
-          actions: fakeActions(reports),
-          reports,
-          testRunner: fakeTestRunner,
+          worktreeDir: '/tmp/fake',
+          actions: fakes.actions,
+          reports: fakes.reports,
+          testRunner: fakes.testRunner,
           policy: { maxRetries: 3 },
-        };
-
-        await engine.run(input);
-
-        // Inner loop: evaluate(NO) → write-tests → write-code → run-tests → evaluate(YES)
-        expect(callOrder).toEqual([
-          'evaluate-done:NO',
-          'write-tests',
-          'write-code',
-          'run-tests',
-          'evaluate-done:YES',
+        });
+        expect(fakes.callOrder).toEqual([
+          'slice-1:evaluate-done:NO',
+          'slice-1:write-tests',
+          'slice-1:write-code',
+          'run-tests:pass',
+          'slice-1:evaluate-done:YES',
         ]);
       });
 
       it('report sink contains expected lines', async () => {
-        resetFakes();
-        const reports = new InMemoryReportSink();
-        const engine = create();
-
-        const input: OrchestratorInput = {
+        const fakes = createFakes();
+        await create().run({
           plan: simplePlan,
-          worktreeDir: '/tmp/fake-fixture',
-          actions: fakeActions(reports),
-          reports,
-          testRunner: fakeTestRunner,
+          worktreeDir: '/tmp/fake',
+          actions: fakes.actions,
+          reports: fakes.reports,
+          testRunner: fakes.testRunner,
           policy: { maxRetries: 3 },
-        };
-
-        await engine.run(input);
-
-        const all = reports.getAll();
-        const events = all.map((r) => r.event);
+        });
+        const events = fakes.reports.getAll().map((r) => r.event);
         expect(events).toContain('eval-done');
         expect(events).toContain('tests-written');
         expect(events).toContain('code-written');
-        expect(all.length).toBeGreaterThanOrEqual(3);
       });
     });
   }
