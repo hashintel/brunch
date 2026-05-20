@@ -178,6 +178,16 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
     setComposerSlot(node);
   }, []);
 
+  // The active chat's transcript portals into this slot. The host stays
+  // mounted at outer scope across appearance + active changes; only the
+  // portal target shifts. Background chats render nothing visible.
+  const transcriptSlotRef = useRef<HTMLDivElement | null>(null);
+  const [transcriptSlot, setTranscriptSlot] = useState<HTMLDivElement | null>(null);
+  const handleTranscriptSlotRef = useCallback((node: HTMLDivElement | null) => {
+    transcriptSlotRef.current = node;
+    setTranscriptSlot(node);
+  }, []);
+
   // Scroll-to-bottom arrow surfaces only past ~50% scroll distance.
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -197,10 +207,50 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
   const prefersReducedMotion = usePrefersReducedMotion();
   const fadeSpring = prefersReducedMotion ? { duration: 0 } : CHAT_SHELL_SPRING;
 
-  if (appearance === 'closed' || appearance === 'minimized') {
+  const isExpanded = appearance === 'expanded';
+
+  // Tab strip shows only the master (Home) tab; item chats route through ChatSwitcher.
+  const computedMaxVisibleItems = 0;
+
+  // Single, stable mount point for every secondary chat. Keys are per
+  // chat.id (no `bg-`/`min-`/active prefixes) so React preserves the
+  // host's useChat instance across:
+  //   - tab switches (only `renderTranscript`/`renderComposer` + portal
+  //     targets change, the host itself stays mounted),
+  //   - minimize/expand transitions (the wrapper stays mounted regardless
+  //     of which branch is rendering UI chrome).
+  // The active+expanded host portals its transcript into `transcriptSlot`
+  // and composer into `composerSlot`. Background chats render nothing
+  // visible but keep firing `streaming`/`unread` callbacks.
+  const hosts = (
+    <div data-testid="unified-chat-shell-hosts" hidden>
+      {visibleChats.map((chat) => {
+        const isActive = chat.chat.id === activeChatId && isExpanded;
+        return (
+          <div
+            key={chat.chat.id}
+            data-testid={isActive ? undefined : `unified-chat-shell-background-host-${chat.chat.id}`}
+          >
+            <SecondaryChatHost
+              secondaryChat={chat}
+              renderTranscript={isActive}
+              renderComposer={isActive}
+              transcriptPortalTarget={isActive ? transcriptSlot : null}
+              composerPortalTarget={isActive ? composerSlot : null}
+              onStreamingChange={handleStreamingChange}
+              onAssistantTurnArrival={handleAssistantTurnArrival}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  if (!isExpanded) {
     const openChatCount = itemChats.length;
     return (
       <>
+        {hosts}
         <motion.button
           key="minimized"
           type="button"
@@ -237,23 +287,6 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
             </span>
           )}
         </motion.button>
-        {/* Keep every chat's `useChat` mounted while the shell is minimized
-            or closed so in-flight assistant streams aren't aborted and
-            background tabs continue to fire `streaming`/`unread` callbacks.
-            Rendered hidden — no transcript, no composer — so they cost
-            nothing visually but preserve the streaming lifecycle. */}
-        <div data-testid="unified-chat-shell-minimized-hosts" hidden>
-          {visibleChats.map((chat) => (
-            <SecondaryChatHost
-              key={`min-${chat.chat.id}`}
-              secondaryChat={chat}
-              renderTranscript={false}
-              renderComposer={false}
-              onStreamingChange={handleStreamingChange}
-              onAssistantTurnArrival={handleAssistantTurnArrival}
-            />
-          ))}
-        </div>
         {/* Float the post-apply Undo toast above the pill so users who
             minimize right after Apply still have the 5s undo window. The
             toast renders null when there's nothing undoable. */}
@@ -264,217 +297,190 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
     );
   }
 
-  const backgroundChats = visibleChats.filter((c) => c.chat.id !== activeChatId);
-
-  // Tab strip shows only the master (Home) tab; item chats route through ChatSwitcher.
-  const computedMaxVisibleItems = 0;
-
   return (
-    <motion.div
-      key="expanded"
-      data-testid="unified-chat-shell"
-      data-layout-mode={layoutMode}
-      initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.985 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={fadeSpring}
-      className="flex h-full min-h-0 flex-col border-l border-rule/20 bg-background shadow-[-4px_0_24px_-10px_rgba(0,0,0,0.16),-1px_0_2px_-1px_rgba(0,0,0,0.04)]"
-    >
-      <header
-        data-testid="unified-chat-shell-header"
-        className={cn(
-          'flex h-9 items-center justify-between gap-3 border-b border-rule/40',
-          layoutMode === 'compact' ? 'px-2' : 'px-3.5',
-        )}
+    <>
+      {hosts}
+      <motion.div
+        key="expanded"
+        data-testid="unified-chat-shell"
+        data-layout-mode={layoutMode}
+        initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.985 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={fadeSpring}
+        className="flex h-full min-h-0 flex-col border-l border-rule/20 bg-background shadow-[-4px_0_24px_-10px_rgba(0,0,0,0.16),-1px_0_2px_-1px_rgba(0,0,0,0.04)]"
       >
-        <div data-testid="unified-chat-shell-tabs" className="flex min-w-0 items-center gap-2">
-          {visibleChats.length > 0 && (
-            <ChatTabs
-              chats={visibleChats}
-              activeChatId={activeChatId}
-              onSelect={handleSelectChat}
-              streamingChatIds={streamingChatIds}
-              unreadChatIds={unreadChatIds}
-              maxVisibleItems={computedMaxVisibleItems}
-              refCodeByItemId={refCodeByItemId}
-              extraAnchorRefCodes={extraAnchorRefCodes}
-            />
+        <header
+          data-testid="unified-chat-shell-header"
+          className={cn(
+            'flex h-9 items-center justify-between gap-3 border-b border-rule/40',
+            layoutMode === 'compact' ? 'px-2' : 'px-3.5',
+          )}
+        >
+          <div data-testid="unified-chat-shell-tabs" className="flex min-w-0 items-center gap-2">
+            {visibleChats.length > 0 && (
+              <ChatTabs
+                chats={visibleChats}
+                activeChatId={activeChatId}
+                onSelect={handleSelectChat}
+                streamingChatIds={streamingChatIds}
+                unreadChatIds={unreadChatIds}
+                maxVisibleItems={computedMaxVisibleItems}
+                refCodeByItemId={refCodeByItemId}
+                extraAnchorRefCodes={extraAnchorRefCodes}
+              />
+            )}
+          </div>
+          <div
+            data-testid="unified-chat-shell-layout-buttons"
+            role="group"
+            aria-label="Chat controls"
+            className="flex items-center gap-0.5"
+          >
+            {(() => {
+              const interactive = Boolean(onLayoutModeChange);
+              const dockIsCompact = layoutMode === 'compact';
+              const dockNext: ChatLayoutMode = dockIsCompact ? 'side-docked' : 'compact';
+              const DockIcon = dockIsCompact ? PanelRight : PictureInPicture2;
+              const dockLabel = dockIsCompact ? 'Dock to side' : 'Compact';
+              const dockActive = layoutMode === 'side-docked' || layoutMode === 'compact';
+              const toggleIsMaxed = layoutMode === 'full';
+              const toggleNext: ChatLayoutMode = toggleIsMaxed ? 'side-docked' : 'full';
+              const toggleLabel = toggleIsMaxed ? 'Restore' : 'Maximize';
+              const ToggleIcon = toggleIsMaxed ? Minimize2 : Maximize2;
+              const togglePressed = layoutMode === 'full';
+              const buttonBase =
+                'inline-flex size-6 items-center justify-center rounded-md text-hint transition-[transform,color,background-color] duration-150 hover:bg-tint/60 hover:text-ink active:scale-95 disabled:cursor-not-allowed disabled:opacity-50';
+              const activeClass = 'bg-tint/70 text-ink';
+              return (
+                <>
+                  <button
+                    type="button"
+                    data-testid="unified-chat-shell-minimize"
+                    aria-label="Minimize chat"
+                    title="Minimize"
+                    onClick={() => setAppearance('minimized')}
+                    className={buttonBase}
+                  >
+                    <Minus aria-hidden className="size-3.5" strokeWidth={1.5} />
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="unified-chat-shell-layout-side-docked"
+                    data-active={dockActive}
+                    data-mode-target={dockNext}
+                    aria-pressed={dockActive}
+                    aria-label={dockLabel}
+                    title={dockLabel}
+                    disabled={!interactive}
+                    onClick={() => onLayoutModeChange?.(dockNext)}
+                    className={cn(buttonBase, dockActive && activeClass)}
+                  >
+                    <DockIcon aria-hidden className="size-3.5" strokeWidth={1.5} />
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="unified-chat-shell-layout-toggle"
+                    data-active={togglePressed}
+                    data-mode-target={toggleNext}
+                    aria-pressed={togglePressed}
+                    aria-label={toggleLabel}
+                    title={toggleLabel}
+                    disabled={!interactive}
+                    onClick={() => onLayoutModeChange?.(toggleNext)}
+                    className={cn(buttonBase, togglePressed && activeClass)}
+                  >
+                    <ToggleIcon aria-hidden className="size-3.5" strokeWidth={1.5} />
+                  </button>
+                  <span aria-hidden className="mx-1 h-3.5 w-px bg-rule/60" />
+                  <button
+                    type="button"
+                    data-testid="unified-chat-shell-close"
+                    onClick={() => setAppearance('closed')}
+                    aria-label="Collapse chat"
+                    className={buttonBase}
+                  >
+                    <X aria-hidden className="size-3.5" strokeWidth={1.5} />
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+        </header>
+        <div
+          ref={bodyRef}
+          onScroll={handleBodyScroll}
+          data-testid="unified-chat-shell-body"
+          // Scrollbar thumb echoes the active item's kind accent at 20% opacity.
+          style={
+            activeChat?.pinnedItemKind
+              ? ({
+                  scrollbarColor: `${hexWithAlpha(kindAccentHex[activeChat.pinnedItemKind], 0.2)} transparent`,
+                  scrollbarWidth: 'thin',
+                } as React.CSSProperties)
+              : ({
+                  scrollbarColor: 'rgba(115,115,115,0.2) transparent',
+                  scrollbarWidth: 'thin',
+                } as React.CSSProperties)
+          }
+          className={cn(
+            'flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pt-0',
+            layoutMode === 'compact' ? 'px-3 pb-2' : 'px-4 pb-3',
+          )}
+        >
+          {hasOverlayContent && (
+            <div
+              data-testid="chat-shell-sticky-overlays"
+              className={cn(
+                'sticky top-0 z-20 flex flex-col gap-2 border-b border-rule/40 bg-background/70 shadow-sm backdrop-blur-md backdrop-saturate-150 supports-[backdrop-filter]:bg-background/55',
+                layoutMode === 'compact' ? '-mx-3 px-3 py-1.5' : '-mx-4 px-4 py-2',
+              )}
+            >
+              <PendingReviewSection />
+              <ChatShellPatchPanel />
+            </div>
+          )}
+          {visibleChats.length === 0 ? (
+            <p data-testid="unified-chat-shell-empty" className="sr-only">
+              Opening chat…
+            </p>
+          ) : activeChat ? (
+            <motion.div
+              key={activeChat.chat.id}
+              layout={!prefersReducedMotion}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={fadeSpring}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              {/* Portal target for the active chat's transcript. The host
+                itself is mounted at outer scope (see `hosts` above) so
+                switching tabs only shifts the portal — it never tears
+                down a `useChat` instance. */}
+              <div ref={handleTranscriptSlotRef} className="flex min-h-0 flex-1 flex-col" />
+            </motion.div>
+          ) : null}
+          <ChatShellAppliedToast />
+        </div>
+        {/* Footer slot has no horizontal padding; the portaled composer manages its own spacing. */}
+        <div
+          ref={handleComposerSlotRef}
+          data-testid="unified-chat-shell-footer"
+          className="relative flex flex-col"
+        >
+          {showScrollToBottom && (
+            <button
+              type="button"
+              data-testid="unified-chat-shell-scroll-to-bottom"
+              aria-label="Scroll to latest"
+              title="Scroll to latest"
+              onClick={scrollToBottom}
+              className="pointer-events-auto absolute -top-9 left-1/2 inline-flex size-7 -translate-x-1/2 items-center justify-center rounded-full border border-rule/40 bg-background/90 text-hint shadow-md backdrop-blur transition-[transform,background-color,color] duration-150 hover:scale-105 hover:bg-background hover:text-ink active:scale-95"
+            >
+              <ArrowDown aria-hidden className="size-3.5" strokeWidth={1.5} />
+            </button>
           )}
         </div>
-        <div
-          data-testid="unified-chat-shell-layout-buttons"
-          role="group"
-          aria-label="Chat controls"
-          className="flex items-center gap-0.5"
-        >
-          {(() => {
-            const interactive = Boolean(onLayoutModeChange);
-            const dockIsCompact = layoutMode === 'compact';
-            const dockNext: ChatLayoutMode = dockIsCompact ? 'side-docked' : 'compact';
-            const DockIcon = dockIsCompact ? PanelRight : PictureInPicture2;
-            const dockLabel = dockIsCompact ? 'Dock to side' : 'Compact';
-            const dockActive = layoutMode === 'side-docked' || layoutMode === 'compact';
-            const toggleIsMaxed = layoutMode === 'full';
-            const toggleNext: ChatLayoutMode = toggleIsMaxed ? 'side-docked' : 'full';
-            const toggleLabel = toggleIsMaxed ? 'Restore' : 'Maximize';
-            const ToggleIcon = toggleIsMaxed ? Minimize2 : Maximize2;
-            const togglePressed = layoutMode === 'full';
-            const buttonBase =
-              'inline-flex size-6 items-center justify-center rounded-md text-hint transition-[transform,color,background-color] duration-150 hover:bg-tint/60 hover:text-ink active:scale-95 disabled:cursor-not-allowed disabled:opacity-50';
-            const activeClass = 'bg-tint/70 text-ink';
-            return (
-              <>
-                <button
-                  type="button"
-                  data-testid="unified-chat-shell-minimize"
-                  aria-label="Minimize chat"
-                  title="Minimize"
-                  onClick={() => setAppearance('minimized')}
-                  className={buttonBase}
-                >
-                  <Minus aria-hidden className="size-3.5" strokeWidth={1.5} />
-                </button>
-                <button
-                  type="button"
-                  data-testid="unified-chat-shell-layout-side-docked"
-                  data-active={dockActive}
-                  data-mode-target={dockNext}
-                  aria-pressed={dockActive}
-                  aria-label={dockLabel}
-                  title={dockLabel}
-                  disabled={!interactive}
-                  onClick={() => onLayoutModeChange?.(dockNext)}
-                  className={cn(buttonBase, dockActive && activeClass)}
-                >
-                  <DockIcon aria-hidden className="size-3.5" strokeWidth={1.5} />
-                </button>
-                <button
-                  type="button"
-                  data-testid="unified-chat-shell-layout-toggle"
-                  data-active={togglePressed}
-                  data-mode-target={toggleNext}
-                  aria-pressed={togglePressed}
-                  aria-label={toggleLabel}
-                  title={toggleLabel}
-                  disabled={!interactive}
-                  onClick={() => onLayoutModeChange?.(toggleNext)}
-                  className={cn(buttonBase, togglePressed && activeClass)}
-                >
-                  <ToggleIcon aria-hidden className="size-3.5" strokeWidth={1.5} />
-                </button>
-                <span aria-hidden className="mx-1 h-3.5 w-px bg-rule/60" />
-                <button
-                  type="button"
-                  data-testid="unified-chat-shell-close"
-                  onClick={() => setAppearance('closed')}
-                  aria-label="Collapse chat"
-                  className={buttonBase}
-                >
-                  <X aria-hidden className="size-3.5" strokeWidth={1.5} />
-                </button>
-              </>
-            );
-          })()}
-        </div>
-      </header>
-      <div
-        ref={bodyRef}
-        onScroll={handleBodyScroll}
-        data-testid="unified-chat-shell-body"
-        // Scrollbar thumb echoes the active item's kind accent at 20% opacity.
-        style={
-          activeChat?.pinnedItemKind
-            ? ({
-                scrollbarColor: `${hexWithAlpha(kindAccentHex[activeChat.pinnedItemKind], 0.2)} transparent`,
-                scrollbarWidth: 'thin',
-              } as React.CSSProperties)
-            : ({
-                scrollbarColor: 'rgba(115,115,115,0.2) transparent',
-                scrollbarWidth: 'thin',
-              } as React.CSSProperties)
-        }
-        className={cn(
-          'flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pt-0',
-          layoutMode === 'compact' ? 'px-3 pb-2' : 'px-4 pb-3',
-        )}
-      >
-        {hasOverlayContent && (
-          <div
-            data-testid="chat-shell-sticky-overlays"
-            className={cn(
-              'sticky top-0 z-20 flex flex-col gap-2 border-b border-rule/40 bg-background/70 shadow-sm backdrop-blur-md backdrop-saturate-150 supports-[backdrop-filter]:bg-background/55',
-              layoutMode === 'compact' ? '-mx-3 px-3 py-1.5' : '-mx-4 px-4 py-2',
-            )}
-          >
-            <PendingReviewSection />
-            <ChatShellPatchPanel />
-          </div>
-        )}
-        {visibleChats.length === 0 ? (
-          <p data-testid="unified-chat-shell-empty" className="sr-only">
-            Opening chat…
-          </p>
-        ) : activeChat ? (
-          <motion.div
-            key={activeChat.chat.id}
-            layout={!prefersReducedMotion}
-            initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={fadeSpring}
-            className="flex min-h-0 flex-1 flex-col"
-          >
-            {/* Single host instance for the active chat — transcript renders
-                here, composer portals into the footer slot. Previously two
-                parallel instances each owned their own useChat, which broke
-                streaming because the composer's send fired on a different
-                instance than the transcript was reading from. */}
-            <SecondaryChatHost
-              secondaryChat={activeChat}
-              renderTranscript
-              renderComposer
-              composerPortalTarget={composerSlot}
-              onStreamingChange={handleStreamingChange}
-              onAssistantTurnArrival={handleAssistantTurnArrival}
-            />
-          </motion.div>
-        ) : null}
-        {/* Background hosts for every non-active chat — keep useChat alive so
-            streaming + unread badges fire on inactive tabs. */}
-        {backgroundChats.map((chat) => (
-          <div
-            key={`bg-${chat.chat.id}`}
-            data-testid={`unified-chat-shell-background-host-${chat.chat.id}`}
-            hidden
-          >
-            <SecondaryChatHost
-              secondaryChat={chat}
-              renderTranscript={false}
-              renderComposer={false}
-              onStreamingChange={handleStreamingChange}
-              onAssistantTurnArrival={handleAssistantTurnArrival}
-            />
-          </div>
-        ))}
-        <ChatShellAppliedToast />
-      </div>
-      {/* Footer slot has no horizontal padding; the portaled composer manages its own spacing. */}
-      <div
-        ref={handleComposerSlotRef}
-        data-testid="unified-chat-shell-footer"
-        className="relative flex flex-col"
-      >
-        {showScrollToBottom && (
-          <button
-            type="button"
-            data-testid="unified-chat-shell-scroll-to-bottom"
-            aria-label="Scroll to latest"
-            title="Scroll to latest"
-            onClick={scrollToBottom}
-            className="pointer-events-auto absolute -top-9 left-1/2 inline-flex size-7 -translate-x-1/2 items-center justify-center rounded-full border border-rule/40 bg-background/90 text-hint shadow-md backdrop-blur transition-[transform,background-color,color] duration-150 hover:scale-105 hover:bg-background hover:text-ink active:scale-95"
-          >
-            <ArrowDown aria-hidden className="size-3.5" strokeWidth={1.5} />
-          </button>
-        )}
-      </div>
-    </motion.div>
+      </motion.div>
+    </>
   );
 }
