@@ -11,11 +11,11 @@ import {
 import type { EntitiesData, secondaryChatStateSchema } from '@/shared/api-types.js';
 import { brunchDataPartSchemas, type BrunchUIMessage, type EditImpactTier } from '@/shared/chat.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
+import { persistedUserPartsShowsComposerText } from '@/shared/persisted-user-parts.js';
 
 import { usePatchListForChat, type PatchListForChat } from './patch-list-host.js';
 import { SecondaryChatCollapsible, SecondaryChatComposerPanel } from './secondary-chat-collapsible.js';
 import { extractStagedIntents } from './secondary-chat-host/extract-staged-intents.js';
-import { persistedUserPartsShowsComposerText } from './secondary-chat-host/persisted-user-parts-match.js';
 import type { MentionItem } from './secondary-chat-mention-popup.js';
 import { useSetSecondaryChatModeMutation } from './secondary-chat-trigger.js';
 

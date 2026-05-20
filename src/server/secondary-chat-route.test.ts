@@ -381,6 +381,39 @@ describe('POST /api/specifications/:id/secondary-chats/:chatId/messages', () => 
     const userTurn = row?.turns.find((turn) => turn.user_parts !== null);
     expect(userTurn?.user_parts).toBe('a plain question with no mentions');
   });
+
+  it('replays prior user turns as composer text only in model history (no mention snapshot)', async () => {
+    const fixture = await createSecondaryChatFixture('FE-716 mention history strip');
+    const requirement = dbModule.createKnowledgeItem(
+      db,
+      fixture.specId,
+      'requirement',
+      'Export the spec as markdown',
+    );
+    const requirementCode = `R${requirement.kind_ordinal}`;
+    const firstUserText = `Why does #${requirementCode} matter?`;
+
+    await request(app)
+      .post(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/messages`)
+      .send(userMessagePayload(firstUserText))
+      .expect(200);
+
+    mockStreamText.mockClear();
+
+    await request(app)
+      .post(`/api/specifications/${fixture.specId}/secondary-chats/${fixture.chatId}/messages`)
+      .send(userMessagePayload('follow up'))
+      .expect(200);
+
+    const callArgs = mockStreamText.mock.calls.at(-1)?.[0] as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    const priorUser = callArgs.messages.find((m) => m.role === 'user' && m.content.includes(firstUserText));
+    expect(priorUser).toBeDefined();
+    expect(priorUser!.content).toContain(firstUserText);
+    expect(priorUser!.content).not.toContain('Mentioned items');
+    expect(priorUser!.content).not.toContain('Export the spec as markdown');
+  });
 });
 
 describe('POST /api/specifications/:id/secondary-chats — kickoff template enrichment', () => {

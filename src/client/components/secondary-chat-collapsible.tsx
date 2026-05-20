@@ -6,6 +6,7 @@ import type { z } from 'zod/v4';
 import { cn } from '@/client/lib/utils';
 import type { secondaryChatStateSchema } from '@/shared/api-types.js';
 import { knowledgeKindReferencePrefixes } from '@/shared/knowledge.js';
+import { composerTextFromPersistedUserParts } from '@/shared/persisted-user-parts.js';
 
 import { Conversation, ConversationContent } from './ai-elements/conversation.js';
 import { Message, MessageContent, MessageResponse } from './ai-elements/message.js';
@@ -492,7 +493,9 @@ function SecondaryChatTurnRow({
     return (
       <Message data-testid="secondary-chat-user-turn" from="user">
         <MessageContent className="text-foreground" style={userBubbleStyle}>
-          <span className="whitespace-pre-wrap">{renderWithMentionChips(turn.user_parts)}</span>
+          <span className="whitespace-pre-wrap">
+            {renderWithMentionChips(composerTextFromPersistedUserParts(turn.user_parts))}
+          </span>
         </MessageContent>
       </Message>
     );

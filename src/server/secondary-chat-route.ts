@@ -12,6 +12,7 @@ import {
   type BrunchUIMessage,
 } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode, knowledgeKinds } from '@/shared/knowledge.js';
+import { composerTextFromPersistedUserParts } from '@/shared/persisted-user-parts.js';
 
 import {
   appendSecondaryChatTurn,
@@ -274,7 +275,7 @@ function loadPriorTurns(db: DB, chatId: number): SideChatPriorTurn[] {
   const history: SideChatPriorTurn[] = [];
   for (const row of rows) {
     if (row.user_parts !== null) {
-      history.push({ role: 'user', text: row.user_parts });
+      history.push({ role: 'user', text: composerTextFromPersistedUserParts(row.user_parts) });
     } else if (row.assistant_parts !== null) {
       history.push({ role: 'assistant', text: row.assistant_parts });
     }

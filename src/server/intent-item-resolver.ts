@@ -5,6 +5,7 @@ import {
   type KnowledgeKind,
   type KnowledgeKindRegistryEntry,
 } from '@/shared/knowledge.js';
+import { MENTION_CONTEXT_BLOCK_PREFIX } from '@/shared/persisted-user-parts.js';
 
 import type { DB, KnowledgeItem } from './db.js';
 import * as schema from './schema.js';
@@ -128,7 +129,7 @@ export function formatMentionedItemsContextBlock(
   matched: readonly ResolvedIntentItemReference[],
 ): string | null {
   if (matched.length === 0) return null;
-  const lines = ['Mentioned items (from `#` references in the user message):'];
+  const lines = [MENTION_CONTEXT_BLOCK_PREFIX];
   for (const entry of matched) {
     lines.push(`- [${entry.code}] (${entry.item.kind}) ${entry.item.content}`);
     if (entry.item.rationale) {

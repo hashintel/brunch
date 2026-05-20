@@ -471,6 +471,30 @@ describe('SecondaryChatCollapsible — turns + composer (C5b)', () => {
     expect(screen.getByText('because.')).toBeTruthy();
   });
 
+  it('renders only composer text in the user bubble when user_parts includes a mention snapshot', () => {
+    const composer = 'Why does #R1 matter?';
+    const persisted = [
+      composer,
+      '',
+      'Mentioned items (from `#` references in the user message):',
+      '- [R1] (requirement) Export the spec as markdown',
+    ].join('\n');
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [makeUserTurn(10, persisted)],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
+    };
+    render(<CollapsibleHarness secondaryChat={chat} />);
+    const bubble = screen.getByTestId('secondary-chat-user-turn');
+    expect(bubble.textContent).toContain('Why does');
+    expect(bubble.textContent).toContain('matter?');
+    expect(bubble.textContent).not.toContain('Mentioned items');
+    expect(bubble.textContent).not.toContain('Export the spec as markdown');
+  });
+
   it('renders the composer when onSubmitMessage is provided and submits trimmed text', async () => {
     const onSubmitMessage = vi.fn();
     const chat: SecondaryChat = {
