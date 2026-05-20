@@ -322,6 +322,68 @@ describe('SecondaryChatHost — useChat refit', () => {
     expect(screen.getByTestId('secondary-chat-composer-input')).not.toBeNull();
   });
 
+  it('renders the transcript via createPortal into transcriptPortalTarget when provided (mirrors composerPortalTarget — used by the unified shell to mount the transcript inside its popover content)', () => {
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
+    };
+    const { Wrapper } = createHarness();
+    const portal = document.createElement('div');
+    portal.setAttribute('data-testid', 'transcript-portal-target');
+    document.body.appendChild(portal);
+
+    try {
+      render(
+        <Wrapper>
+          <SecondaryChatHost
+            secondaryChat={chat}
+            renderTranscript
+            renderComposer={false}
+            transcriptPortalTarget={portal}
+          />
+        </Wrapper>,
+      );
+
+      const collapsible = screen.getByTestId('secondary-chat-collapsible');
+      expect(portal.contains(collapsible)).toBe(true);
+    } finally {
+      document.body.removeChild(portal);
+    }
+  });
+
+  it('fires onSendMessage(chatId) synchronously when the composer submits, before stream.send completes (drives the shell auto-open-on-send latch)', async () => {
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
+    };
+    const { Wrapper } = createHarness();
+    const onSendMessage = vi.fn();
+
+    render(
+      <Wrapper>
+        <SecondaryChatHost secondaryChat={chat} onSendMessage={onSendMessage} />
+      </Wrapper>,
+    );
+
+    fireEvent.change(screen.getByTestId('secondary-chat-composer-input'), {
+      target: { value: 'ping' },
+    });
+    fireEvent.click(screen.getByTestId('secondary-chat-composer-send'));
+
+    await waitFor(() => {
+      expect(onSendMessage).toHaveBeenCalled();
+    });
+    expect(onSendMessage).toHaveBeenCalledWith(baseChat.id);
+  });
+
   it('isolates useChat mounts across two host instances so parallel chats do not cross-talk', () => {
     const chatA: SecondaryChat = {
       chat: { ...baseChat, id: 7 },

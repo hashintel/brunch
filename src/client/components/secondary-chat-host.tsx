@@ -9,46 +9,21 @@ import {
   useSpecificationEntities,
 } from '@/client/routes/specification/$id/-specification-data.js';
 import type { EntitiesData, secondaryChatStateSchema } from '@/shared/api-types.js';
-import {
-  brunchDataPartSchemas,
-  type BrunchUIMessage,
-  type BrunchUIMessagePart,
-  type EditImpactTier,
-} from '@/shared/chat.js';
+import { brunchDataPartSchemas, type BrunchUIMessage, type EditImpactTier } from '@/shared/chat.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
 import { usePatchListForChat, type PatchListForChat } from './patch-list-host.js';
 import { SecondaryChatCollapsible, SecondaryChatComposerPanel } from './secondary-chat-collapsible.js';
+import { extractStagedIntents } from './secondary-chat-host/extract-staged-intents.js';
 import type { MentionItem } from './secondary-chat-mention-popup.js';
 import { useSetSecondaryChatModeMutation } from './secondary-chat-trigger.js';
 
 type SecondaryChat = z.infer<typeof secondaryChatStateSchema>;
 
-function summarizeEditContent(content: string): string {
-  const trimmed = content.trim();
-  return trimmed.length > 60 ? `${trimmed.slice(0, 57)}…` : trimmed;
-}
-
 interface SecondaryChatStreamState {
   readonly isStreaming: boolean;
   readonly assistantText: string;
   readonly send: (message: string) => Promise<void>;
-}
-
-type ToolPropoosePart = Extract<
-  BrunchUIMessagePart,
-  { type: 'tool-propose_edit' | 'tool-propose_edge' | 'tool-propose_drill_down' }
->;
-
-function getToolPart(part: BrunchUIMessagePart): ToolPropoosePart | null {
-  if (
-    part.type === 'tool-propose_edit' ||
-    part.type === 'tool-propose_edge' ||
-    part.type === 'tool-propose_drill_down'
-  ) {
-    return part;
-  }
-  return null;
 }
 
 function extractAssistantText(message: BrunchUIMessage | undefined): string {
@@ -121,60 +96,23 @@ function useSecondaryChatStream(
 
   useEffect(() => {
     if (!patchList || pinnedAnchor === null || pinnedItemKind === null) return;
-    const anchor = { kind: pinnedItemKind, itemId: pinnedAnchor };
+    const decisions = extractStagedIntents(messages, {
+      producerChatId: chatId,
+      pinnedAnchor: { kind: pinnedItemKind, itemId: pinnedAnchor },
+      editImpactByToolCallId,
+      resolveTargetAnchor: (refCode) => anchorByRefCode.get(refCode),
+    });
 
-    for (const message of messages) {
-      if (message.role !== 'assistant') continue;
-      for (const rawPart of message.parts) {
-        const part = getToolPart(rawPart);
-        if (!part) continue;
-        const toolCallId = part.toolCallId;
-        if (consumedToolCallIds.current.has(toolCallId)) continue;
-        if (part.state !== 'input-available' && part.state !== 'output-available') continue;
-
-        if (part.type === 'tool-propose_edit') {
-          const input = part.input as { newContent: string; newRationale?: string };
-          const impact = editImpactByToolCallId.get(toolCallId);
-          if (impact === undefined) continue;
-          patchList.stage({
-            kind: 'edit',
-            producerChatId: chatId,
-            anchor,
-            summary: summarizeEditContent(input.newContent),
-            newContent: input.newContent,
-            ...(input.newRationale ? { newRationale: input.newRationale } : {}),
-            impact,
-          });
-          consumedToolCallIds.current.add(toolCallId);
-        } else if (part.type === 'tool-propose_edge') {
-          const input = part.input as { targetReferenceCode: string; relation: string };
-          // Drop proposals that target the pinned anchor or fail to resolve.
-          const targetAnchor = anchorByRefCode.get(input.targetReferenceCode);
-          if (!targetAnchor || (targetAnchor.kind === anchor.kind && targetAnchor.itemId === anchor.itemId)) {
-            consumedToolCallIds.current.add(toolCallId);
-            continue;
-          }
-          patchList.stage({
-            kind: 'edge',
-            producerChatId: chatId,
-            anchor,
-            targetAnchor,
-            relation: input.relation,
-            summary: `Edge: ${input.targetReferenceCode} (${input.relation})`,
-          });
-          consumedToolCallIds.current.add(toolCallId);
-        } else if (part.type === 'tool-propose_drill_down') {
-          const input = part.input as { focusArea: string };
-          patchList.stage({
-            kind: 'drill-down',
-            producerChatId: chatId,
-            anchor,
-            summary: `Drill-down: ${input.focusArea}`,
-            focusArea: input.focusArea,
-          });
-          consumedToolCallIds.current.add(toolCallId);
-        }
+    for (const decision of decisions) {
+      if (consumedToolCallIds.current.has(decision.toolCallId)) continue;
+      // `defer` leaves the toolCallId unconsumed so a later
+      // `data-edit-impact` arrival can re-emit a `stage` decision for the
+      // same tool call. `skip` and `stage` both consume.
+      if (decision.status === 'defer') continue;
+      if (decision.status === 'stage') {
+        patchList.stage(decision.intent);
       }
+      consumedToolCallIds.current.add(decision.toolCallId);
     }
   }, [anchorByRefCode, chatId, editImpactByToolCallId, messages, patchList, pinnedAnchor, pinnedItemKind]);
 
@@ -200,6 +138,15 @@ export interface SecondaryChatHostProps {
    * scrollable body). When null/undefined, the composer renders inline.
    */
   composerPortalTarget?: HTMLElement | null;
+  /**
+   * When set, the transcript surface (`<SecondaryChatCollapsible>`) is
+   * rendered via `createPortal` into this element. Mirrors
+   * `composerPortalTarget`: the shell uses this to mount the transcript
+   * inside a popover anchored to the active tab while keeping the host's
+   * per-chat `useChat` instance alive at shell scope. When null/undefined,
+   * the transcript renders inline (current default).
+   */
+  transcriptPortalTarget?: HTMLElement | null;
   /** Fires on transitions of useChat status so the shell can track streaming. */
   onStreamingChange?: (chatId: number, isStreaming: boolean) => void;
   /**
@@ -207,6 +154,12 @@ export interface SecondaryChatHostProps {
    * can flag inactive (background-mounted) tabs as unread.
    */
   onAssistantTurnArrival?: (chatId: number) => void;
+  /**
+   * Fires synchronously when the user submits a message through the
+   * composer (before the network request resolves). Used by the shell to
+   * auto-open the transcript popover on send (S1 refinement 1a).
+   */
+  onSendMessage?: (chatId: number) => void;
 }
 
 /** Lookup from knowledge-item id → referenceCode (e.g. "G1", "D5") for chip rendering. */
@@ -299,8 +252,10 @@ export function SecondaryChatHost({
   renderTranscript = true,
   renderComposer = true,
   composerPortalTarget,
+  transcriptPortalTarget,
   onStreamingChange,
   onAssistantTurnArrival,
+  onSendMessage,
 }: SecondaryChatHostProps) {
   const specificationId = secondaryChat.chat.specification_id;
   const chatId = secondaryChat.chat.id;
@@ -334,6 +289,7 @@ export function SecondaryChatHost({
       }}
       isModeUpdating={modeMutation.isPending}
       onSubmitMessage={(message) => {
+        onSendMessage?.(chatId);
         void stream.send(message);
       }}
       isStreaming={stream.isStreaming}
@@ -342,18 +298,21 @@ export function SecondaryChatHost({
     />
   ) : null;
 
+  const transcript = renderTranscript ? (
+    <SecondaryChatCollapsible
+      secondaryChat={secondaryChat}
+      streamingAssistantText={stream.assistantText}
+      isStreaming={stream.isStreaming}
+      onPickStartSuggestion={(prompt) => {
+        onSendMessage?.(chatId);
+        void stream.send(prompt);
+      }}
+    />
+  ) : null;
+
   return (
     <>
-      {renderTranscript && (
-        <SecondaryChatCollapsible
-          secondaryChat={secondaryChat}
-          streamingAssistantText={stream.assistantText}
-          isStreaming={stream.isStreaming}
-          onPickStartSuggestion={(prompt) => {
-            void stream.send(prompt);
-          }}
-        />
-      )}
+      {transcript && (transcriptPortalTarget ? createPortal(transcript, transcriptPortalTarget) : transcript)}
       {composerPanel &&
         (composerPortalTarget ? createPortal(composerPanel, composerPortalTarget) : composerPanel)}
     </>

@@ -208,6 +208,7 @@ const EmptyTab = forwardRef(function EmptyTab(
       data-testid={`chat-tabs-empty-${chat.chat.id}`}
       data-chat-id={chat.chat.id}
       data-active={active}
+      data-active-chat-tab={active || undefined}
       data-streaming={streaming}
       data-unread={unread}
       onClick={onSelect}
@@ -251,6 +252,7 @@ function ItemTab({ chat, active, streaming, unread, refCode, onSelect }: ItemTab
       data-testid={`chat-tabs-item-${chat.chat.id}`}
       data-chat-id={chat.chat.id}
       data-active={active}
+      data-active-chat-tab={active || undefined}
       data-streaming={streaming}
       data-unread={unread}
       data-accent-hex={active && accent ? accent : undefined}

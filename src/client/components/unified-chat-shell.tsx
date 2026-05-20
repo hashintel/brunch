@@ -19,7 +19,7 @@ import { kindAccentHex } from './knowledge-card.js';
 import { usePatchListState } from './patch-list-host.js';
 import { PendingReviewSection } from './pending-review-section.js';
 import { buildRefCodeByItemId, SecondaryChatHost } from './secondary-chat-host.js';
-import { useCreateMasterChatMutation } from './secondary-chat-trigger.js';
+import { useMasterChatBootstrap } from './use-master-chat-bootstrap.js';
 import { CHAT_SHELL_SPRING, usePrefersReducedMotion } from './use-prefers-reduced-motion.js';
 
 export type ChatLayoutMode = 'compact' | 'side-docked' | 'maximize' | 'full';
@@ -86,33 +86,7 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
   // usable composer + turn-zero suggestions instead of an empty placeholder.
   const parentChatId = specificationState.specification.primary_chat_id ?? null;
   const specificationId = specificationState.specification.id;
-  const masterMutation = useCreateMasterChatMutation(specificationId);
-  // `useCreateMasterChatMutation` returns a fresh object on every render, so
-  // hold it in a ref to keep the auto-create effect dependency-stable; with
-  // it in the dep array the effect could re-fire between in-flight creates
-  // and the bundle invalidation that flips `hasMaster` true, issuing
-  // duplicate `POST /secondary-chats` calls.
-  const masterMutationRef = useRef(masterMutation);
-  masterMutationRef.current = masterMutation;
-  // Hard latch keyed on `(specId, parentChatId)`: once we've kicked off a
-  // create for a given pair we never retry on the same shell mount even if
-  // the bundle is slow to refresh.
-  const masterCreateAttemptedRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (hasMaster || parentChatId === null) return;
-    const key = `${specificationId}:${parentChatId}`;
-    if (masterCreateAttemptedRef.current === key) return;
-    masterCreateAttemptedRef.current = key;
-    void masterMutationRef.current.create({ parentChatId }).then((result) => {
-      // `create` returns null on network or server error. Releasing the
-      // latch on failure lets a subsequent render — e.g. bundle refresh,
-      // route navigation — retry instead of stranding the shell on an
-      // empty "Opening chat…" state until full remount.
-      if (result === null && masterCreateAttemptedRef.current === key) {
-        masterCreateAttemptedRef.current = null;
-      }
-    });
-  }, [hasMaster, parentChatId, specificationId]);
+  useMasterChatBootstrap({ specificationId, parentChatId, hasMaster });
 
   // Sticky-overlays bar collapses entirely when both feeds are empty.
   const openReconciliationNeeds = useSpecificationOpenReconciliationNeeds();
