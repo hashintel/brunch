@@ -23,8 +23,9 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ### Active
 
-1. `agent-fixture-substrate` — branch-complete off main, reconciling — FE-705 integration substrate for JSONL agent capability CLI and LLM-as-user probes.
-2. `chat-runtime-secondary-chats` — FE-716; branch `ka/fe-716-chat-runtime-unified-secondary-chats` stacked on `ln/fe-709-reconciliations` (PR #139). **V1 done** — substrate (C0–C9) + unified shell (C11–C16) ship together on the same branch; verify green at 108 test files / 1273 tests; PR submits once #139 merges or per Lu's signal. C7 (agent-run inline) remains deferred until a producer exists.
+1. `orchestrator-poc` — FE-730 dual-engine execution POC (`brunch cook`). Two engines behind shared `Orchestrator` seam, ActionRegistry, reports.jsonl communication, worktree isolation. 15-step build sequence targeting June 11.
+2. `agent-fixture-substrate` — branch-complete off main, reconciling — FE-705 integration substrate for JSONL agent capability CLI and LLM-as-user probes.
+3. `chat-runtime-secondary-chats` — FE-716; V1 done — PR #141 merged to main.
 
 ### Next
 
@@ -57,6 +58,19 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - `portability-boundaries`
 
 ## Frontier Definitions
+
+### orchestrator-poc
+
+- **Name:** Orchestrator POC — dual-engine execution with contract tests
+- **Linear:** FE-730
+- **Kind:** structural / experiment
+- **Status:** in-progress
+- **Objective:** Two interchangeable execution engines (`proc` and `petri`) behind a shared `Orchestrator` seam, driven test-first with fake agents. Takes a plan YAML (epics → slices), dispatches actions inline (registry deferred), runs tests deterministically, writes structured events to `reports.jsonl`.
+- **Why now / unlocks:** Validates whether the Petri-net substrate earns its complexity vs a procedural baseline. Produces a working CLI built end-to-end from a plan as a demoable artifact.
+- **Acceptance:** (1) `brunch cook <fixture-dir> --engine=proc` completes Fixture #1 end-to-end. (2) Same with `--engine=petri`. (3) `reports.jsonl` human-readable. (4) Both engines pass same contract suite. (5) Worktree isolation holds. (6) Mid-run halt produces coherent `OrchestratorResult`.
+- **Verification:** Contract tests (fake agents, both engines identical), adapter tests (per-engine internals, optional in POC), integration fixture run (real pi-agent on Fixture #1).
+- **Traceability:** Requirements 46–50; D155-K–D159-K; I121-K–I123-K.
+- **Design docs:** `docs/design/orchestrator.md`; umbrella H-6476.
 
 ### continuous-workspace
 
