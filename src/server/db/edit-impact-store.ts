@@ -2,46 +2,37 @@ import { sql } from 'drizzle-orm';
 
 import type { DB } from '../db.js';
 
-export interface DownstreamItem {
-  id: number;
-  kind: string;
-  content: string;
-  kind_ordinal: number;
-}
-
-/** Direct downstream items: items whose edges point TO the given item. */
-export function getDownstreamItems(db: DB, specificationId: number, itemId: number): DownstreamItem[] {
-  return db.all(sql`
-    SELECT ki.id, ki.kind, ki.content, ki.kind_ordinal
-    FROM knowledge_edge ke
-    JOIN knowledge_item ki ON ki.id = ke.from_item_id
-    WHERE ke.to_item_id = ${itemId}
-      AND ki.specification_id = ${specificationId}
-    ORDER BY ki.id
-  `) as DownstreamItem[];
-}
-
-export interface DownstreamEdge {
-  downstream_item_id: number;
+export interface CascadeIncidentEdge {
+  source_item_id: number;
+  target_item_id: number;
+  changed_endpoint: 'source' | 'target';
   relation: 'depends_on' | 'derived_from' | 'constrains' | 'verifies' | 'refines';
 }
 
 /**
- * Like `getDownstreamItems` but preserves the edge relation alongside each
- * downstream item id. V3.0 cascade enumeration uses this to map each downstream
- * pair to a `reconciliation_need.kind`. The same (item_id, relation) tuple
- * yields one row even if the same downstream item appears via multiple
- * relations — the queue partial unique index dedupes by (source, target, kind).
+ * Enumerate all graph edges incident on the edited item. Relation policy, not
+ * this raw source/target coordinate system, decides which opposite endpoint is
+ * affected by the edit.
  */
-export function getDownstreamEdges(db: DB, specificationId: number, itemId: number): DownstreamEdge[] {
+export function getCascadeIncidentEdges(
+  db: DB,
+  specificationId: number,
+  itemId: number,
+): CascadeIncidentEdge[] {
   return db.all(sql`
-    SELECT ke.from_item_id AS downstream_item_id, ke.relation
+    SELECT
+      ke.from_item_id AS source_item_id,
+      ke.to_item_id AS target_item_id,
+      CASE WHEN ke.from_item_id = ${itemId} THEN 'source' ELSE 'target' END AS changed_endpoint,
+      ke.relation
     FROM knowledge_edge ke
-    JOIN knowledge_item ki ON ki.id = ke.from_item_id
-    WHERE ke.to_item_id = ${itemId}
-      AND ki.specification_id = ${specificationId}
-    ORDER BY ke.from_item_id, ke.relation
-  `) as DownstreamEdge[];
+    JOIN knowledge_item source ON source.id = ke.from_item_id
+    JOIN knowledge_item target ON target.id = ke.to_item_id
+    WHERE (ke.from_item_id = ${itemId} OR ke.to_item_id = ${itemId})
+      AND source.specification_id = ${specificationId}
+      AND target.specification_id = ${specificationId}
+    ORDER BY ke.from_item_id, ke.to_item_id, ke.relation
+  `) as CascadeIncidentEdge[];
 }
 
 /**

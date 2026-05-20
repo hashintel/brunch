@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  addKnowledgeRelationship,
   createDb,
   createKnowledgeItem,
   createSpecification,
   createTurn,
+  getCascadeRelationBetween,
   listOpenReconciliationNeeds,
   openReconciliationNeed,
   resolveReconciliationNeed,
@@ -241,6 +243,18 @@ describe('reconciliation_need lifecycle', () => {
 });
 
 describe('reconciliation_need queries', () => {
+  it('finds the relation that caused a need regardless of affected endpoint direction', () => {
+    const spec = createSpecification(db, 'Relation lookup');
+    const constraint = createKnowledgeItem(db, spec.id, 'constraint', 'Keep setup instant');
+    const goal = createKnowledgeItem(db, spec.id, 'goal', 'Reduce first-run friction');
+    const requirement = createKnowledgeItem(db, spec.id, 'requirement', 'Show missing provider credentials');
+    addKnowledgeRelationship(db, constraint.id, goal.id, 'constrains');
+    addKnowledgeRelationship(db, requirement.id, goal.id, 'depends_on');
+
+    expect(getCascadeRelationBetween(db, constraint.id, goal.id)).toBe('constrains');
+    expect(getCascadeRelationBetween(db, goal.id, requirement.id)).toBe('depends_on');
+  });
+
   it('listOpenReconciliationNeeds returns only open rows ordered by id ascending', () => {
     const { spec, turn, source, target } = seedSpecWithTwoItems();
     const a = openReconciliationNeed(db, {

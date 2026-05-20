@@ -282,6 +282,40 @@ describe('POST /api/specifications/:id/side-chat', () => {
     expect(res.text).toContain('[DONE]');
   });
 
+  it('previews relation-policy hard impact for raw-edge-source edits before apply', async () => {
+    mockStreamText.mockReturnValueOnce(
+      makeFullStream([
+        {
+          type: 'tool-call',
+          toolCallId: 'call-hard',
+          toolName: 'propose_edit',
+          input: { newContent: 'Keep setup under one minute' },
+        },
+      ]),
+    );
+    const specId = await createSpec();
+    const constraint = seedKnowledgeItem(specId, 'constraint', 'Keep setup instant');
+    const goal = seedKnowledgeItem(specId, 'goal', 'Reduce first-run friction');
+    const decision = seedKnowledgeItem(specId, 'decision', 'Use guided provider setup');
+    const requirement = seedKnowledgeItem(specId, 'requirement', 'Show missing provider credentials');
+    dbModule.addKnowledgeRelationship(db, constraint.id, goal.id, 'constrains');
+    dbModule.addKnowledgeRelationship(db, constraint.id, decision.id, 'constrains');
+    dbModule.addKnowledgeRelationship(db, constraint.id, requirement.id, 'constrains');
+
+    const res = await request(app)
+      .post(`/api/specifications/${specId}/side-chat`)
+      .send({
+        itemKind: 'constraint',
+        itemId: constraint.id,
+        message: 'Reword this constraint',
+        mode: 'edit',
+      })
+      .expect(200);
+
+    expect(res.text).toContain('"type":"patch-proposal"');
+    expect(res.text).toContain('"impact":"hard"');
+  });
+
   it('omits patch-proposal chunks for tool calls with names other than propose_edit', async () => {
     // Defensive: if a future tool call slips through with an unknown toolName,
     // the SSE stream should not echo it as a patch-proposal.

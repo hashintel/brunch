@@ -49,3 +49,6 @@ tmp/
 
 # codetours
 .tours/
+
+# skill quarantine
+.agents/_quarantine

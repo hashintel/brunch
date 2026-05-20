@@ -1,31 +1,51 @@
 import { describe, expect, it } from 'vitest';
 
-import { relationToKind, type CascadeRelation } from './cascade-producer.js';
+import { getCascadeChangeImpact, type CascadeRelation } from './cascade-producer.js';
 
-describe('relationToKind', () => {
-  // Table-driven assertion — keeps the V3.0 mapping reviewable in isolation.
-  // For an edge `X --(relation)--> itemId` where itemId changes, the resulting
-  // reconciliation_need.kind is what the user owes against X (the downstream).
-  //
-  // supersedes: X was built FROM itemId; source change invalidates X's foundation.
-  // needs_confirmation: X may still hold but the user must re-check after the change.
-  const cases: Array<{ relation: CascadeRelation; expected: 'supersedes' | 'needs_confirmation' }> = [
-    { relation: 'depends_on', expected: 'needs_confirmation' },
-    { relation: 'derived_from', expected: 'supersedes' },
-    { relation: 'constrains', expected: 'needs_confirmation' },
-    { relation: 'verifies', expected: 'needs_confirmation' },
-    { relation: 'refines', expected: 'supersedes' },
-  ];
+const relations: CascadeRelation[] = ['depends_on', 'derived_from', 'constrains', 'verifies', 'refines'];
 
-  for (const { relation, expected } of cases) {
-    it(`maps ${relation} → ${expected}`, () => {
-      expect(relationToKind(relation)).toBe(expected);
+describe('getCascadeChangeImpact', () => {
+  it('covers every knowledge_edge relation enum value for source and target endpoint changes', () => {
+    for (const relation of relations) {
+      expect(getCascadeChangeImpact(relation, 'source')).toHaveProperty('affectedEndpoint');
+      expect(getCascadeChangeImpact(relation, 'target')).toHaveProperty('affectedEndpoint');
+    }
+  });
+
+  it('opens needs for policy-affected source endpoints when the raw edge target changes', () => {
+    expect(getCascadeChangeImpact('depends_on', 'target')).toEqual({
+      affectedEndpoint: 'source',
+      kind: 'needs_confirmation',
     });
-  }
+    expect(getCascadeChangeImpact('derived_from', 'target')).toEqual({
+      affectedEndpoint: 'source',
+      kind: 'supersedes',
+    });
+    expect(getCascadeChangeImpact('verifies', 'target')).toEqual({
+      affectedEndpoint: 'source',
+      kind: 'needs_confirmation',
+    });
+    expect(getCascadeChangeImpact('refines', 'target')).toEqual({
+      affectedEndpoint: 'source',
+      kind: 'supersedes',
+    });
+  });
 
-  it('covers every knowledge_edge relation enum value', () => {
-    // Sanity: if the schema enum widens, this list must be updated alongside relationToKind.
-    const expected: CascadeRelation[] = ['depends_on', 'derived_from', 'constrains', 'verifies', 'refines'];
-    expect(cases.map((c) => c.relation).sort()).toEqual(expected.sort());
+  it('opens needs for policy-affected target endpoints when the raw edge source changes', () => {
+    expect(getCascadeChangeImpact('constrains', 'source')).toEqual({
+      affectedEndpoint: 'target',
+      kind: 'needs_confirmation',
+    });
+    expect(getCascadeChangeImpact('verifies', 'source')).toEqual({
+      affectedEndpoint: 'target',
+      kind: 'needs_confirmation',
+    });
+  });
+
+  it('returns no impact when relation policy says the opposite endpoint does not owe review', () => {
+    expect(getCascadeChangeImpact('depends_on', 'source')).toEqual({ affectedEndpoint: null, kind: null });
+    expect(getCascadeChangeImpact('derived_from', 'source')).toEqual({ affectedEndpoint: null, kind: null });
+    expect(getCascadeChangeImpact('constrains', 'target')).toEqual({ affectedEndpoint: null, kind: null });
+    expect(getCascadeChangeImpact('refines', 'source')).toEqual({ affectedEndpoint: null, kind: null });
   });
 });

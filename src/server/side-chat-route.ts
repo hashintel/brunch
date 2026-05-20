@@ -6,14 +6,9 @@ import * as z from 'zod/v4';
 import type { EntitiesData, MutationErrorResponse } from '@/shared/api-types.js';
 import { knowledgeKinds, type KnowledgeKind } from '@/shared/knowledge.js';
 
-import {
-  getDownstreamItems,
-  getEntitiesForSpecificationByMode,
-  getSpecification,
-  isItemInActiveReviewSet,
-  type DB,
-} from './db.js';
-import { classifyEditImpact, type EditImpactTier } from './edit-impact.js';
+import { getEntitiesForSpecificationByMode, getSpecification, type DB } from './db.js';
+import { buildKnowledgeItemEditImpactProjection } from './edit-impact-projection.js';
+import type { EditImpactTier } from './edit-impact.js';
 import {
   buildSideChatPrompt,
   getSideChatTools,
@@ -183,13 +178,8 @@ export async function handleSideChatRequest(db: DB, req: Request, res: Response)
   // (design §4.1: each edit patch shows its impact tier in the patch list).
   // Computed lazily — only when an edit-mode request actually targets the
   // pinned item — and reused for every propose_edit chunk in this stream.
-  const computeEditImpact = (): EditImpactTier => {
-    const downstream = getDownstreamItems(db, specificationId, parsed.data.itemId);
-    const inReviewSet =
-      isItemInActiveReviewSet(db, specificationId, parsed.data.itemId) ||
-      downstream.some((downstreamItem) => isItemInActiveReviewSet(db, specificationId, downstreamItem.id));
-    return classifyEditImpact(downstream.length, inReviewSet);
-  };
+  const computeEditImpact = (): EditImpactTier =>
+    buildKnowledgeItemEditImpactProjection(db, specificationId, parsed.data.itemId).impact;
   let cachedEditImpact: EditImpactTier | null = null;
 
   try {
