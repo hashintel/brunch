@@ -54,7 +54,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Linear:** [FE-729](https://linear.app/hash/issue/FE-729) (sub-issue of FE-702)
 - **Branch:** `ln/fe-729-walking-skeleton` (off `next`)
 - **Kind:** structural
-- **Status:** in-progress (bootstrap slice landed on `next` as commit `b104fc40`; remaining slices on the frontier branch)
+- **Status:** in-progress (bootstrap slice landed on `next` as commit `b104fc40`; coordinator/runbook slice landed on the frontier branch; TUI presentation remains)
 - **Objective:** Prove the wrapping model works at all: a `brunch` binary launches a pi-backed TUI session through the `WorkspaceSessionCoordinator`, scopes durable state to `.brunch/`, hardcodes Brunch's prompt and curated toolset, and mounts the persistent TUI chrome and spec-selector gate.
 - **Why now / unlocks:** First architectural proof of D1-L (depend on `pi-coding-agent`) and D2-L (opinionated product, not pi shell). Unlocks every subsequent milestone. Also doubles as the Phase-3 infra bootstrap (package.json, tsconfig, oxlint/oxfmt, vitest).
 - **Acceptance:** `brunch` launches a TUI session in a project directory; `.brunch/` is created; boot routes through a `WorkspaceSessionCoordinator` that returns `ready | select_spec | needs_human`; the spec-selector is presented before any agent loop runs when no bound spec is ready; the selected spec is written as the session's `brunch.session_binding`; `/new` creates another session bound to the same spec rather than mutating the current session's spec; the chrome region displays cwd / spec / phase / chat-mode at all times; `npm run verify` is green.
@@ -62,7 +62,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Cross-cutting obligations:** Preserve the `cwd → spec → session` hierarchy, one-spec-per-session binding, and persistent chrome region as durable product surfaces, not temporary bootstrapping hacks. Do not let TUI, RPC, or fixture code create/open Pi sessions or write `brunch.session_binding` directly; route boot, spec selection, and `/new` through the workspace-session seam.
 - **Traceability:** R1, R2, R3, R4, R19 / D1-L, D2-L, D6-L, D11-L, D21-L / I8-L, I13-L / A1-L, A10-L
 - **Design docs:** [prd.md §M0](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md), [pi-seam-extensions.md §3](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
-- **Current execution pointer:** scope next with `ln-scope` around the remaining walking-skeleton seam: implement the `WorkspaceSessionCoordinator` over real pi `SessionManager.create(cwd, '.brunch/sessions/')`, spec selector gating, `brunch.session_binding`, `/new` preserving the active spec, and persistent chrome.
+- **Current execution pointer:** scope next with `ln-scope` around the remaining walking-skeleton presentation seam: connect the TUI boot path to `WorkspaceSessionCoordinator`, present the spec-selector gate before any agent loop when needed, consume coordinator chrome-state data in a persistent cwd / spec / phase / chat-mode region, and pair manual smoke with the existing store-only runbook oracle.
 
 ### mode-shell-and-fixture-driver
 
@@ -259,6 +259,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 
 ## Recently Completed
 
+- 2026-05-20 `walking-skeleton` / coordinator-runbook slice — Done: added `WorkspaceSessionCoordinator` over real pi `SessionManager.create(cwd, '.brunch/sessions/')`, project-local `.brunch/state.json`, one `brunch.session_binding` custom entry per session, same-spec new-session creation, derivable chrome-state data, and a store-only runbook checker. Verified: `npm run verify`. Watch: pi defers session-file flushing until assistant output, so the coordinator explicitly flushes the initial binding file to satisfy the self-describing-session invariant before the agent loop starts.
 - 2026-05-20 `pre-poc-archive-and-reseed` — Done: razed pre-POC implementation, archived legacy docs and planning memory under `archive/`, tagged `next-baseline`, reseeded `memory/SPEC.md` and `memory/PLAN.md` from the three canonical POC architecture docs. Verified: `git log --oneline` shows three clean buckets; `archive/` contains all prior material. Watch: Phase 3 infra bootstrap is folded into `walking-skeleton`, not a separate frontier.
 
 Older history: `archive/docs/archive/PLAN_HISTORY.md`
