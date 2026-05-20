@@ -35,6 +35,7 @@ dist-ssr
 bun.lock
 .notes.md
 .brunch/
+.cook/
 brunch.db*
 todo.txt
 

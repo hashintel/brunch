@@ -229,9 +229,15 @@ POC implements fixture mode end-to-end; codebase mode returns a structured "not 
 
 ## 8. Worktree isolation
 
-Each run gets an isolated worktree at `<dir>/.cook/runs/<runId>/worktree/`. Agents write freely inside; anything outside the worktree stays untouched. No commits, no pushes. Recovery = throw the worktree away and start a new run.
+Each run gets an isolated worktree at `<cwd>/.cook/runs/<runId>/worktree/`, where `<cwd>` is the directory the user invoked `brunch cook` from (not the fixture/plan directory). Reports land alongside at `<cwd>/.cook/runs/<runId>/reports.jsonl`. Agents write freely inside the worktree; the fixture directory (`<dir>`) and the invoking repo are never mutated. No commits, no pushes. Recovery = throw the worktree away and start a new run.
 
-This addresses the PRD's "the orchestrator only writes to its own output" requirement. The interpretation is operational, not literal: file writes happen inside the worktree, and the worktree lives under `<dir>` so that artifacts are discoverable next to the input — but the source repo (whatever `<dir>` is or contains) is never mutated.
+The run location is cwd-scoped rather than fixture-scoped so that:
+
+- **Fixtures stay pristine.** Checked-in fixture directories (e.g. `fixtures/txt/`) contain only `plan.yaml` and are byte-identical before and after a run.
+- **No path traversal.** Because the worktree is not a descendant of the fixture dir, agents cannot accidentally read or write fixture-level files.
+- **Easy cleanup.** `rm -rf .cook/runs/` in the invoking directory clears all run history. `.cook/` is gitignored at the repo level.
+
+`--worktree <path>` overrides the default location for explicit pinning.
 
 ## 9. Verification stance
 

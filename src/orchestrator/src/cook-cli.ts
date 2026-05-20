@@ -58,8 +58,9 @@ export async function runCook(opts: CookOptions): Promise<void> {
   }
 
   const plan = loadPlan(planPath);
-  const { worktreeDir, runId } = createWorktree(opts.dir);
-  const reportsPath = join(opts.dir, '.cook', 'runs', runId, 'reports.jsonl');
+  const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
+  const { worktreeDir, runDir } = createWorktree(launchCwd);
+  const reportsPath = join(runDir, 'reports.jsonl');
 
   console.error(`[cook] Engine: ${opts.engine}`);
   console.error(`[cook] Plan: ${plan.epics.length} epics, ${plan.slices.length} slices`);
