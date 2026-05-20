@@ -100,7 +100,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Status:** not-started
 - **Objective:** `brunch --mode web` serves a native Brunch React app (TanStack Router + Query) over one WebSocket-backed JSON-RPC client; no second backend API, REST read model, or browser-owned product runtime is invented; `pi-web-ui` is not used.
 - **Why now / unlocks:** Proves D10-L. Unlocks parallel UI work and visualises graph + coherence state. Sequenced after M2 so the transcript substrate is pinned before clients depend on it.
-- **Acceptance:** Web client connects via WebSocket RPC, lists specs from `SpecRegistry`, renders a transcript and the persistent chrome region through `session.*` / `workspace.*` projection handlers, and round-trips structured elicitation prompts/responses plus freeform user input through the same transcript conventions as TUI.
+- **Acceptance:** Web client connects via WebSocket RPC, lists specs and workspace state through `session.*` / `workspace.*` projection handlers, renders a transcript and the persistent chrome region, and round-trips structured elicitation prompts/responses plus freeform user input through the same transcript conventions as TUI.
 - **Verification:** Inner gate; middle — manual browser smoke; outer — at least one fixture replays identically into the web renderer.
 - **Cross-cutting obligations:** Preserve the single command/event substrate: the browser is a thin remote head over the same elicitation/transcript/session machinery, not a second data plane, REST-backed read client, generic read gateway, or custom interaction contract.
 - **Traceability:** R4, R11, R12, R16, R17 / D5-L, D10-L, D12-L, D13-L, D19-L
@@ -151,8 +151,8 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Linear:** unassigned
 - **Kind:** structural
 - **Status:** not-started
-- **Objective:** Graph-revision tracking; session interest sets; `worldUpdate` synthesised by `prepareNextTurn`; mention-ledger staleness hints; side-task-result drain at the same boundary; lens switches and session/spec binding transitions recompute interest set before next agent turn.
-- **Acceptance:** Cross-session paired-brief fixture exercises `worldUpdate` filtering; mention-staleness hints synthesise when an entity changed since last snapshot; succeeded side-task results are delivered only at the next turn boundary; `brunch.lens_switch` and session/spec binding transitions recompute interest sets.
+- **Objective:** Graph-revision tracking; session interest sets; `worldUpdate` synthesised by `prepareNextTurn`; mention-ledger staleness hints; side-task-result drain at the same boundary; session/spec binding transitions — and any lens switches present by then — recompute interest set before next agent turn.
+- **Acceptance:** Cross-session paired-brief fixture exercises `worldUpdate` filtering; mention-staleness hints synthesise when an entity changed since last snapshot; succeeded side-task results are delivered only at the next turn boundary; session/spec binding transitions and any emitted `brunch.lens_switch` entries recompute interest sets.
 - **Verification:** Inner gate; middle — property tests for I4-L, I5-L, I9-L, and I12-L. Outer — paired-brief adversarial capture passes, including side-task delivery when the side-task subsystem is active.
 - **Cross-cutting obligations:** This frontier is the rendezvous point for Brunch's shared next-turn event semantics: `worldUpdate`, side-task results, lens changes, session/spec binding state, and mention staleness must coexist without inventing a second event plane.
 - **Traceability:** R11, R13, R14, R18 / D6-L, D11-L, D14-L, D15-L / I1-L, I4-L, I5-L, I9-L, I12-L / A4-L, A9-L, A11-L
@@ -178,9 +178,9 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Kind:** structural
 - **Status:** not-started
 - **Objective:** Compaction preserves graph and coherence anchors; interest sets can widen beyond direct reads when needed; conflict signaling remains intelligible at long horizons.
-- **Acceptance:** Long-horizon adversarial brief (50+ turns) replays through compaction with `lastSeenLsn`, interest set, and session binding preserved; lens switches and spec/session changes across compaction boundaries do not desync; active spec, lens identity, and any in-flight side-task or observer-job bookkeeping remain intelligible after compaction.
+- **Acceptance:** Long-horizon adversarial brief (50+ turns) replays through compaction with `lastSeenLsn`, interest set, and session binding preserved; spec/session changes across compaction boundaries do not desync; active spec and any in-flight side-task, observer-job, or lens bookkeeping remain intelligible after compaction.
 - **Verification:** Inner gate; middle — compaction round-trip tests. Outer — long-horizon fixture passes, including continuity checks for side-task and interest-set state when present.
-- **Cross-cutting obligations:** Preserve the coherence anchors, session binding, session continuity metadata, and side-task/observer/lens/spec state that earlier milestones attached to the shared transcript/event substrate.
+- **Cross-cutting obligations:** Preserve the coherence anchors, session binding, session continuity metadata, and side-task/observer/spec state that earlier milestones attached to the shared transcript/event substrate; preserve lens state only if a lens subsystem has landed by then.
 - **Traceability:** R15 / D6-L, D15-L / I12-L
 - **Design docs:** [prd.md §Continuity, Divergence, and Coherence](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md)
 
