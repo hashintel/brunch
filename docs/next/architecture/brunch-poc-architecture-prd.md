@@ -523,6 +523,7 @@ Prove the mode dispatcher.
 
 - `--mode print` and `--mode rpc` run from the same Brunch-owned host setup.
 - all three pi-backed modes share one coherent local authority model.
+- the JSON-RPC stdio surface is exercised end-to-end by an agent-as-user driver against a curated brief library; see [brunch-poc-fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-fixture-strategy.md). First replay-regression fixtures land here.
 
 ### M2 — JSONL session viability
 
