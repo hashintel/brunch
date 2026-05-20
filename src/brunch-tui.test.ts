@@ -4,7 +4,11 @@ import { join } from "node:path"
 
 import { describe, expect, it } from "vitest"
 
-import { SessionManager } from "@earendil-works/pi-coding-agent"
+import {
+  SessionManager,
+  type ExtensionContext,
+  type ExtensionUIContext,
+} from "@earendil-works/pi-coding-agent"
 
 import {
   createBrunchChromeExtension,
@@ -58,18 +62,27 @@ describe("Brunch TUI boot", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-tui-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch", "sessions"))
     const boundSessionIds: string[] = []
-    const ui = new FakeExtensionUi()
+    const widgets = new Map<string, string[]>()
+    const ui: FakeExtensionUi = {
+      setWidget: (key: string, content: unknown) => {
+        if (isStringArray(content)) {
+          widgets.set(key, content)
+        }
+      },
+      setTitle: (_title: string) => {},
+    }
+    const ctx: FakeExtensionContext = { sessionManager: manager, ui }
     let sessionStart: ((
       event: unknown,
-      ctx: FakeSessionStartContext,
+      ctx: FakeExtensionContext,
     ) => Promise<void>) | undefined
     let beforeAgentStart: ((
       event: unknown,
-      ctx: FakeSessionStartContext,
+      ctx: FakeExtensionContext,
     ) => Promise<void>) | undefined
     let messageStart: ((
       event: unknown,
-      ctx: FakeSessionStartContext,
+      ctx: FakeExtensionContext,
     ) => Promise<void>) | undefined
 
     createBrunchChromeExtension(
@@ -96,15 +109,15 @@ describe("Brunch TUI boot", () => {
       },
     } as never)
 
-    await sessionStart?.({}, { sessionManager: manager, ui })
-    await beforeAgentStart?.({}, { sessionManager: manager, ui })
-    await messageStart?.({ type: "message_start", message: { role: "user" } }, {
-      sessionManager: manager,
-      ui,
-    })
+    await sessionStart?.({}, ctx)
+    await beforeAgentStart?.({}, ctx)
+    await messageStart?.(
+      { type: "message_start", message: { role: "user" } },
+      ctx,
+    )
     await messageStart?.(
       { type: "message_start", message: { role: "assistant" } },
-      { sessionManager: manager, ui },
+      ctx,
     )
 
     expect(boundSessionIds).toEqual([
@@ -112,7 +125,7 @@ describe("Brunch TUI boot", () => {
       manager.getSessionId(),
       manager.getSessionId(),
     ])
-    expect(ui.widgets.get("brunch.chrome")?.join("\n")).toContain("Spec One")
+    expect(widgets.get("brunch.chrome")?.join("\n")).toContain("Spec One")
   })
 
   it("keeps session creation and binding out of the TUI boot adapter", async () => {
@@ -127,17 +140,12 @@ describe("Brunch TUI boot", () => {
   })
 })
 
-interface FakeSessionStartContext {
-  sessionManager: SessionManager
+type FakeExtensionContext = Pick<ExtensionContext, "sessionManager"> & {
   ui: FakeExtensionUi
 }
 
-class FakeExtensionUi {
-  readonly widgets = new Map<string, string[]>()
+type FakeExtensionUi = Pick<ExtensionUIContext, "setWidget" | "setTitle">
 
-  setWidget(key: string, content: string[]): void {
-    this.widgets.set(key, content)
-  }
-
-  setTitle(_title: string): void {}
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string")
 }
