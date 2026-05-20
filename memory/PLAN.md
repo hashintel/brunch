@@ -20,7 +20,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 
 ### Active
 
-1. `walking-skeleton` — not-started — Phase-3 bootstrap (package.json, tsconfig, oxlint/oxfmt, vitest) plus a `brunch` binary that boots a pi-backed TUI session against `.brunch/`. Includes mounting the persistent TUI chrome (cwd / spec / phase / chat-mode) and the spec-selector gate.
+1. `walking-skeleton` — in-progress — FE-729 / `ln/fe-729-walking-skeleton`. Phase-3 bootstrap landed on `next`; remaining slices wire pi seams (real session against `SessionManager.create(cwd, '.brunch/sessions/')`), mount the persistent TUI chrome (cwd / spec / phase / chat-mode), and add the spec-selector gate.
 
 ### Next
 
@@ -51,9 +51,10 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 ### walking-skeleton
 
 - **Name:** Walking skeleton — `brunch` binary + TUI over pi
-- **Linear:** unassigned
+- **Linear:** [FE-729](https://linear.app/hash/issue/FE-729) (sub-issue of FE-702)
+- **Branch:** `ln/fe-729-walking-skeleton` (off `next`)
 - **Kind:** structural
-- **Status:** not-started
+- **Status:** in-progress (bootstrap slice landed on `next` as commit `b104fc40`; remaining slices on the frontier branch)
 - **Objective:** Prove the wrapping model works at all: a `brunch` binary launches a pi-backed TUI session, scopes durable state to `.brunch/`, hardcodes Brunch's prompt and curated toolset, and mounts the persistent TUI chrome and spec-selector gate.
 - **Why now / unlocks:** First architectural proof of D1-L (depend on `pi-coding-agent`) and D2-L (opinionated product, not pi shell). Unlocks every subsequent milestone. Also doubles as the Phase-3 infra bootstrap (package.json, tsconfig, oxlint/oxfmt, vitest).
 - **Acceptance:** `brunch` launches a TUI session in a project directory; `.brunch/` is created; the spec-selector is presented before any agent loop runs; the chrome region displays cwd / spec / phase / chat-mode at all times; `npm run verify` is green.
