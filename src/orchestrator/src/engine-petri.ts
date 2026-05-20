@@ -1,3 +1,4 @@
+import { createReport } from './report-helpers.js';
 import type {
   ActionContext,
   EpicOutcome,
@@ -232,10 +233,7 @@ function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
       fire: async (consumed) => {
         const target = slice.verification[0]?.target ?? '';
         const result = await testRunner.run(target, input.worktreeDir);
-        const reportId = `rpt-run-${sid}-${Date.now()}`;
-        reports.append({
-          id: reportId,
-          ts: new Date().toISOString(),
+        const reportId = createReport(reports, {
           epicId: epic.id,
           sliceId: sid,
           actor: 'test-runner',

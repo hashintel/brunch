@@ -2,7 +2,8 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { ActionContext, ActionHandlers, ReportSink } from './types.js';
+import { createReport } from './report-helpers.js';
+import type { ActionContext, ActionHandlers } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const promptsDir = __dirname.includes('dist')
@@ -105,24 +106,8 @@ function extractJson(raw: string): Record<string, unknown> | undefined {
   }
 }
 
-function appendReport(
-  reports: ReportSink,
-  ctx: ActionContext,
-  actor: string,
-  event: string,
-  payload: Record<string, unknown>,
-): string {
-  const id = `rpt-${actor}-${ctx.slice.id}-${Date.now()}`;
-  reports.append({
-    id,
-    ts: new Date().toISOString(),
-    epicId: ctx.epic.id,
-    sliceId: ctx.slice.id,
-    actor,
-    event,
-    payload,
-  });
-  return id;
+function report(ctx: ActionContext, actor: string, event: string, payload: Record<string, unknown>): string {
+  return createReport(ctx.reports, { epicId: ctx.epic.id, sliceId: ctx.slice.id, actor, event, payload });
 }
 
 // ---------------------------------------------------------------------------
@@ -148,13 +133,13 @@ export function createPiActions(opts?: { verbose?: boolean }): ActionHandlers {
         const parsed = extractJson(raw) as { done?: boolean; reasoning?: string } | undefined;
         const done = !!parsed?.done;
         log(done ? '●' : '○', `verdict   ${ctx.slice.id} → ${done ? 'DONE' : 'NEEDS WORK'}`);
-        return appendReport(ctx.reports, ctx, 'evaluator', 'eval-done', {
+        return report(ctx, 'evaluator', 'eval-done', {
           done,
           reasoning: parsed?.reasoning ?? raw.slice(0, 200),
         });
       } catch (err) {
         log('✗', `evaluate  ${ctx.slice.id} — ${err instanceof Error ? err.message : err}`);
-        return appendReport(ctx.reports, ctx, 'evaluator', 'eval-done', {
+        return report(ctx, 'evaluator', 'eval-done', {
           done: false,
           reasoning: `evaluation failed: ${err instanceof Error ? err.message : String(err)}`,
         });
@@ -173,7 +158,7 @@ export function createPiActions(opts?: { verbose?: boolean }): ActionHandlers {
         worktreeDir: ctx.worktreeDir,
       });
 
-      return appendReport(ctx.reports, ctx, 'test-writer', 'tests-written', {
+      return report(ctx, 'test-writer', 'tests-written', {
         sliceId: ctx.slice.id,
         targets: ctx.slice.verification.map((v) => v.target),
       });
@@ -191,7 +176,7 @@ export function createPiActions(opts?: { verbose?: boolean }): ActionHandlers {
         worktreeDir: ctx.worktreeDir,
       });
 
-      return appendReport(ctx.reports, ctx, 'code-writer', 'code-written', {
+      return report(ctx, 'code-writer', 'code-written', {
         sliceId: ctx.slice.id,
       });
     },
@@ -232,7 +217,7 @@ export function createPiActions(opts?: { verbose?: boolean }): ActionHandlers {
       }
 
       log(allPassed ? '●' : '✗', `epic      ${ctx.epic.id} → ${allPassed ? 'PASS' : 'FAIL'}`);
-      return appendReport(ctx.reports, ctx, 'orchestrator', 'epic-verified', {
+      return report(ctx, 'orchestrator', 'epic-verified', {
         passed: allPassed,
       });
     },

@@ -1,3 +1,4 @@
+import { createReport } from './report-helpers.js';
 import type {
   ActionContext,
   Epic,
@@ -128,11 +129,7 @@ export class ProceduralOrchestrator implements Orchestrator {
       // 4. Run tests (orchestrator-owned, deterministic)
       const target = slice.verification[0]?.target ?? '';
       let result = await testRunner.run(target, input.worktreeDir);
-      // Append a report for the test run
-      const runReportId = `rpt-run-${Date.now()}`;
-      reports.append({
-        id: runReportId,
-        ts: new Date().toISOString(),
+      const runReportId = createReport(reports, {
         epicId: epic.id,
         sliceId: slice.id,
         actor: 'test-runner',
@@ -153,10 +150,7 @@ export class ProceduralOrchestrator implements Orchestrator {
         reportIds.push(retryCodeId);
 
         result = await testRunner.run(target, input.worktreeDir);
-        const retryRunId = `rpt-retry-${retry}-${Date.now()}`;
-        reports.append({
-          id: retryRunId,
-          ts: new Date().toISOString(),
+        const retryRunId = createReport(reports, {
           epicId: epic.id,
           sliceId: slice.id,
           actor: 'test-runner',
