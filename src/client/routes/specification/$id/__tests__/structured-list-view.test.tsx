@@ -794,7 +794,7 @@ describe('structured-list-view selection menu', () => {
       document.dispatchEvent(new Event('selectionchange'));
     });
 
-    const annotateButton = await screen.findByRole('button', { name: /annotate/i });
+    const annotateButton = await screen.findByRole('button', { name: /add to notes/i });
     await act(async () => {
       fireEvent.click(annotateButton);
     });

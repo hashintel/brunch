@@ -127,6 +127,9 @@ function createDeferredPromise<T>() {
 function defaultFetchHandler(input: RequestInfo | URL): Response {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
 
+  if (url.match(/\/api\/specifications\/\d+\/reconciliation-needs/)) {
+    return jsonResponse({ openNeeds: [] });
+  }
   if (url.match(/\/api\/specifications\/\d+\/entities/)) {
     return jsonResponse(minimalEntitiesData);
   }
@@ -262,7 +265,9 @@ describe('generated routeTree', () => {
     const { container } = await renderRouteAt('/specification/42/graph');
 
     // Structured list mounts under the spec layout shell
-    expect(container.querySelector('[data-graph-structured-list]')).toBeTruthy();
+    await waitFor(() => {
+      expect(container.querySelector('[data-graph-structured-list]')).toBeTruthy();
+    });
     // Phase sidebar still renders (continuity per D114)
     expect(screen.getByTestId('phase-sidebar')).toBeTruthy();
     // No phase Link carries the is-active class on /graph
