@@ -167,7 +167,7 @@ function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
       slice,
       epic,
       plan,
-      worktreeDir: input.fixtureDir,
+      worktreeDir: input.worktreeDir,
       reports,
     };
 
@@ -231,7 +231,7 @@ function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
       inputs: [p(sid, 'untested-code')],
       fire: async (consumed) => {
         const target = slice.verification[0]?.target ?? '';
-        const result = await testRunner.run(target, input.fixtureDir);
+        const result = await testRunner.run(target, input.worktreeDir);
         const reportId = `rpt-run-${sid}-${Date.now()}`;
         reports.append({
           id: reportId,
@@ -322,7 +322,7 @@ function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
             slice: epicSlices[0]!,
             epic,
             plan,
-            worktreeDir: input.fixtureDir,
+            worktreeDir: input.worktreeDir,
             reports,
           };
           const reportId = await actions['verify-epic'](verifyCtx);

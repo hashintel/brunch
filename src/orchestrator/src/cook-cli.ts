@@ -98,7 +98,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
 
   const result = await engine.run({
     plan,
-    fixtureDir: worktreeDir,
+    worktreeDir,
     actions,
     reports,
     testRunner,

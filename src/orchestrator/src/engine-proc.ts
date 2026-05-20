@@ -5,7 +5,6 @@ import type {
   Orchestrator,
   OrchestratorInput,
   OrchestratorResult,
-  ReportLine,
   Slice,
   SliceOutcome,
 } from './types.js';
@@ -64,7 +63,7 @@ export class ProceduralOrchestrator implements Orchestrator {
           slice: epicSlices[0]!,
           epic,
           plan,
-          worktreeDir: input.fixtureDir,
+          worktreeDir: input.worktreeDir,
           reports,
         });
         reportIds.push(verifyId);
@@ -104,7 +103,7 @@ export class ProceduralOrchestrator implements Orchestrator {
       slice,
       epic,
       plan: input.plan,
-      worktreeDir: input.fixtureDir,
+      worktreeDir: input.worktreeDir,
       reports,
     };
 
@@ -128,7 +127,7 @@ export class ProceduralOrchestrator implements Orchestrator {
 
       // 4. Run tests (orchestrator-owned, deterministic)
       const target = slice.verification[0]?.target ?? '';
-      let result = await testRunner.run(target, input.fixtureDir);
+      let result = await testRunner.run(target, input.worktreeDir);
       // Append a report for the test run
       const runReportId = `rpt-run-${Date.now()}`;
       reports.append({
@@ -153,7 +152,7 @@ export class ProceduralOrchestrator implements Orchestrator {
         const retryCodeId = await actions['write-code'](ctx);
         reportIds.push(retryCodeId);
 
-        result = await testRunner.run(target, input.fixtureDir);
+        result = await testRunner.run(target, input.worktreeDir);
         const retryRunId = `rpt-retry-${retry}-${Date.now()}`;
         reports.append({
           id: retryRunId,

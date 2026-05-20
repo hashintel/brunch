@@ -229,7 +229,7 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
 
         const input: OrchestratorInput = {
           plan: simplePlan,
-          fixtureDir: '/tmp/fake-fixture',
+          worktreeDir: '/tmp/fake-fixture',
           actions: fakeActions(reports),
           reports,
           testRunner: fakeTestRunner,
@@ -248,7 +248,7 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
 
         const input: OrchestratorInput = {
           plan: simplePlan,
-          fixtureDir: '/tmp/fake-fixture',
+          worktreeDir: '/tmp/fake-fixture',
           actions: fakeActions(reports),
           reports,
           testRunner: fakeTestRunner,
@@ -268,7 +268,7 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
 
         const input: OrchestratorInput = {
           plan: simplePlan,
-          fixtureDir: '/tmp/fake-fixture',
+          worktreeDir: '/tmp/fake-fixture',
           actions: fakeActions(reports),
           reports,
           testRunner: fakeTestRunner,
@@ -294,7 +294,7 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
 
         const input: OrchestratorInput = {
           plan: simplePlan,
-          fixtureDir: '/tmp/fake-fixture',
+          worktreeDir: '/tmp/fake-fixture',
           actions: fakeActions(reports),
           reports,
           testRunner: fakeTestRunner,
@@ -430,7 +430,7 @@ describe('Engine contract test #2 — intra-epic slice dependencies', () => {
         const engine = create();
         const result = await engine.run({
           plan: depPlan,
-          fixtureDir: '/tmp/fake',
+          worktreeDir: '/tmp/fake',
           actions: depActions,
           reports,
           testRunner: depTestRunner,
@@ -485,7 +485,7 @@ describe('Engine contract test #3 — epic dependencies', () => {
       const fakes = createFakes();
       const result = await create().run({
         plan: epicDepPlan,
-        fixtureDir: '/tmp/f',
+        worktreeDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -535,7 +535,7 @@ describe('Engine contract test #4 — epic verification passes', () => {
       const fakes = createFakes({ verifyEpicResult: true });
       const result = await create().run({
         plan: verifyPlan,
-        fixtureDir: '/tmp/f',
+        worktreeDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -575,7 +575,7 @@ describe('Engine contract test #5 — epic verification fails', () => {
       const fakes = createFakes({ verifyEpicResult: false });
       const result = await create().run({
         plan: verifyFailPlan,
-        fixtureDir: '/tmp/f',
+        worktreeDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -599,7 +599,7 @@ describe('Engine contract test #6 — retry loop', () => {
       const fakes = createFakes({ testRunResults: [false, true] });
       const result = await create().run({
         plan: simplePlan,
-        fixtureDir: '/tmp/f',
+        worktreeDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -625,7 +625,7 @@ describe('Engine contract test #7 — retry exhaustion', () => {
       const fakes = createFakes({ testRunResults: [false] });
       const result = await create().run({
         plan: simplePlan,
-        fixtureDir: '/tmp/f',
+        worktreeDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -648,7 +648,7 @@ describe('Engine contract test #8 — multi-cycle needs more', () => {
       const fakes = createFakes({ evalSequence: [false, false, true] });
       const result = await create().run({
         plan: simplePlan,
-        fixtureDir: '/tmp/f',
+        worktreeDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -678,7 +678,7 @@ describe('Engine contract test #9 — action handler throws', () => {
       const fakes = createFakes({ throwOnAction: 'write-tests' });
       const result = await create().run({
         plan: simplePlan,
-        fixtureDir: '/tmp/f',
+        worktreeDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
