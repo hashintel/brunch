@@ -4,9 +4,9 @@
      critical invariants, future direction pointers, lexicon, verification stance.
 
      Anchored on the three canonical POC docs:
-       - docs/next/architecture/brunch-poc-architecture-prd.md
-       - docs/next/architecture/brunch-poc-pi-seam-extensions.md
-       - docs/next/architecture/brunch-poc-fixture-strategy.md
+       - docs/architecture/prd.md
+       - docs/architecture/pi-seam-extensions.md
+       - docs/architecture/fixture-strategy.md
 
      When re-running ln-spec: read this file first, preserve existing authority,
      and evolve only the touched area. SPEC is not an implementation diary.
@@ -216,7 +216,7 @@ Infrastructure is not yet laid (Phase 3 of POC bootstrapping). Commands below fo
 - **Inner loop:** run `npm run fix` after every meaningful edit. Tooling: oxlint (lint + type-aware via tsgolint), oxfmt (format), vitest (test). See AGENTS.md.
 - **Gate before commit:** `npm run verify`. All steps must pass; no override.
 - **Failure protocol:** stop on first failure; the failure becomes the must-fix task; re-run the stack from step 1; only proceed when all checks pass.
-- **Frontier-item completion** additionally requires that fixture-property assertions for the frontier's milestone pass (see [brunch-poc-fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-fixture-strategy.md)).
+- **Frontier-item completion** additionally requires that fixture-property assertions for the frontier's milestone pass (see [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)).
 - **Middle/outer loop verification design** (oracle strategy, diagnostic assessment, blind spots) is owned by `ln-oracles`. The fixture-strategy doc is the de-facto outer-loop oracle for the POC until `ln-oracles` runs a dedicated pass.
 
 ### Acceptance Criteria

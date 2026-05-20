@@ -3,7 +3,7 @@
 Curated test inputs and captured golden runs for the Brunch POC.
 
 This directory is the on-disk home of the fixture strategy described in
-[docs/next/architecture/brunch-poc-fixture-strategy.md](../docs/next/architecture/brunch-poc-fixture-strategy.md).
+[docs/architecture/fixture-strategy.md](../docs/architecture/fixture-strategy.md).
 
 ## Layout
 

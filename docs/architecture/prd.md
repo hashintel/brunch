@@ -45,7 +45,7 @@ The POC should therefore optimize for coherence within the new line rather than 
 
 ### Spec Workspace Graphs
 
-Brunch should not harden around generic "structured records" language. The long-term durable product model should follow the graph-plane direction in [docs/design/SPEC_WORKSPACE_GRAPHS.md](file:///Users/lunelson/Code/hashintel/brunch/docs/design/SPEC_WORKSPACE_GRAPHS.md):
+Brunch should not harden around generic "structured records" language. The long-term durable product model should follow the graph-plane direction in [archive/docs/design/SPEC_WORKSPACE_GRAPHS.md](file:///Users/lunelson/Code/hashintel/brunch-next/archive/docs/design/SPEC_WORKSPACE_GRAPHS.md):
 
 - `intent` graph as canonical specification meaning
 - `oracle` graph as verification strategy and checks accountable to intent
@@ -58,7 +58,7 @@ The POC may start intent-first, but storage, transport, and naming should not lo
 
 The transcript store should be treated as a first-class architectural decision, not as an accidental side effect of whichever pi default happens to be present.
 
-The session export in [docs/next/architecture/artifacts/session-re-extending-sessions.jsonl](file:///Users/lunelson/Code/hashintel/brunch/docs/next/architecture/artifacts/session-re-extending-sessions.jsonl) sharpens the near-term posture:
+The session export in [docs/architecture/artifacts/session-re-extending-sessions.jsonl](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/artifacts/session-re-extending-sessions.jsonl) sharpens the near-term posture:
 
 - pi JSONL sessions are richer than a flat append log
 - they already support tree structure, branch summaries, compaction entries, labels, model/thinking changes, `custom` entries, and `custom_message` entries
@@ -301,7 +301,7 @@ The graph subsystem should be a deep module with a small public surface:
 - structural and semantic validators
 - graph clock and change-log services for cross-session detection
 
-The subsystem should be forward-compatible with the spec workspace graph model in [docs/design/SPEC_WORKSPACE_GRAPHS.md](file:///Users/lunelson/Code/hashintel/brunch/docs/design/SPEC_WORKSPACE_GRAPHS.md): intent as canonical meaning, with oracle, design, and plan as accountable downstream planes. The semantic API should prefer domain verbs and explicit transitions over raw table patches.
+The subsystem should be forward-compatible with the spec workspace graph model in [archive/docs/design/SPEC_WORKSPACE_GRAPHS.md](file:///Users/lunelson/Code/hashintel/brunch-next/archive/docs/design/SPEC_WORKSPACE_GRAPHS.md): intent as canonical meaning, with oracle, design, and plan as accountable downstream planes. The semantic API should prefer domain verbs and explicit transitions over raw table patches.
 
 ### Session transcript subsystem
 
@@ -523,7 +523,7 @@ Prove the mode dispatcher.
 
 - `--mode print` and `--mode rpc` run from the same Brunch-owned host setup.
 - all three pi-backed modes share one coherent local authority model.
-- the JSON-RPC stdio surface is exercised end-to-end by an agent-as-user driver against a curated brief library; see [brunch-poc-fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-fixture-strategy.md). First replay-regression fixtures land here.
+- the JSON-RPC stdio surface is exercised end-to-end by an agent-as-user driver against a curated brief library; see [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md). First replay-regression fixtures land here.
 
 ### M2 — JSONL session viability
 

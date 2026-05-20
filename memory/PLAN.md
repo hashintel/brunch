@@ -14,7 +14,7 @@
 
 ## Context
 
-Brunch-next is starting from a deliberately razed slate on the `next` branch (tag `next-baseline`). Implementation, planning memory, and pre-POC docs have been archived under `archive/`. The new line is a thin layer over `pi-coding-agent` whose milestone ladder M0–M9 (from `brunch-poc-architecture-prd.md`) is the planning spine. M0 (walking skeleton) is the first frontier to land — it also doubles as the Phase-3 infra bootstrap. Fixture capture starts at M1 and grows with every later milestone.
+Brunch-next is starting from a deliberately razed slate on the `next` branch (tag `next-baseline`). Implementation, planning memory, and pre-POC docs have been archived under `archive/`. The new line is a thin layer over `pi-coding-agent` whose milestone ladder M0–M9 (from `prd.md`) is the planning spine. M0 (walking skeleton) is the first frontier to land — it also doubles as the Phase-3 infra bootstrap. Fixture capture starts at M1 and grows with every later milestone.
 
 ## Sequencing
 
@@ -30,7 +30,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 ### Parallel / Low-conflict
 
 - `brief-library-curation` — Author and review briefs #4–#7 plus the adversarial second tier; can proceed independently once `walking-skeleton` exists. Briefs are text, no code dependency.
-- `fixture-strategy-evolution` — Iterate `brunch-poc-fixture-strategy.md` (property invariants, brief expectations) as fixtures are captured. Doc-only.
+- `fixture-strategy-evolution` — Iterate `fixture-strategy.md` (property invariants, brief expectations) as fixtures are captured. Doc-only.
 
 ### Horizon
 
@@ -59,7 +59,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Acceptance:** `brunch` launches a TUI session in a project directory; `.brunch/` is created; the spec-selector is presented before any agent loop runs; the chrome region displays cwd / spec / phase / chat-mode at all times; `npm run verify` is green.
 - **Verification:** Inner — `npm run fix` / `npm run verify`. Middle — manual TUI smoke against a scratch project. Outer — defer; first replay-regression fixture lands in M1.
 - **Traceability:** R1, R2, R3, R4, R19 / D1-L, D2-L, D6-L, D11-L / I8-L / A1-L, A10-L
-- **Design docs:** [brunch-poc-architecture-prd.md §M0](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-architecture-prd.md), [brunch-poc-pi-seam-extensions.md §3](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-pi-seam-extensions.md)
+- **Design docs:** [prd.md §M0](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md), [pi-seam-extensions.md §3](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
 - **Current execution pointer:** scope first with `ln-scope` — first slice is likely "minimal binary boot + `.brunch/` resolution", then "spec selector + chrome".
 
 ### mode-shell-and-fixture-driver
@@ -73,7 +73,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Acceptance:** `brunch --mode print` and `brunch --mode rpc` boot from the same host setup; an agent-as-user driver completes at least one brief end-to-end over stdio and writes a `.jsonl` + `.meta.json` bundle under `.brunch-fixtures/`; the first three briefs from BEHAVIORAL_KERNELS.md are captured.
 - **Verification:** Inner — verify gate. Middle — replay one captured fixture and assert byte-equivalence (modulo timestamps). Outer — at least the starter property invariants from fixture-strategy run on every capture.
 - **Traceability:** R4, R5, R11, R20 / D5-L / I3-L, I10-L / A1-L, A5-L
-- **Design docs:** [brunch-poc-fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-fixture-strategy.md)
+- **Design docs:** [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)
 
 ### jsonl-session-viability
 
@@ -86,7 +86,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Acceptance:** Round-trip reload of a captured session preserves raw payloads byte-equivalent (modulo timestamps); all named Brunch custom entries survive; continuity metadata survives. If any of these fail, the failure is sharply documented and a fallback path is proposed (project richer substrate / mirror JSONL into richer records / propose pi upstream change).
 - **Verification:** Inner — verify gate. Middle — JSONL round-trip property tests. Outer — fixture replay parity.
 - **Traceability:** R7, R8 / D6-L / I3-L / A2-L
-- **Design docs:** archived [jsonl-session-viability-note](file:///Users/lunelson/Code/hashintel/brunch-next/archive/docs/next/architecture/jsonl-session-viability-note.md)
+- **Design docs:** archived [jsonl-session-viability-note](file:///Users/lunelson/Code/hashintel/brunch-next/archive/archive/docs/architecture/jsonl-session-viability-note.md)
 
 ### web-shell
 
@@ -99,7 +99,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Acceptance:** Web client connects via WebSocket RPC, lists specs from `SpecRegistry`, renders a transcript and the persistent chrome region, and round-trips offers + freeform user input through the same envelope as TUI.
 - **Verification:** Inner gate; middle — manual browser smoke; outer — at least one fixture replays identically into the web renderer.
 - **Traceability:** R4, R11, R12 / D5-L, D10-L
-- **Design docs:** [brunch-poc-architecture-prd.md §M3, §Frontend Architecture](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-architecture-prd.md)
+- **Design docs:** [prd.md §M3, §Frontend Architecture](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md)
 
 ### graph-data-plane
 
@@ -112,7 +112,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Acceptance:** Graph CRUD + change-log replay tests pass; reconciliation-need substrate accepts inserts/updates/resolutions with LSN invariants enforced; oracle-plane stub tables exist (Check, Validation Method, Evidence, Obligation) even if unused.
 - **Verification:** Inner gate; middle — property tests on LSN monotonicity and replay; outer — fixture property invariants on reconciliation-substrate begin running.
 - **Traceability:** R7, R9, R13 / D3-L, D4-L, D6-L, D8-L, D9-L / I1-L, I6-L, I7-L / A3-L, A4-L
-- **Design docs:** [brunch-poc-pi-seam-extensions.md §Graph clock, §Reconciliation-need substrate, §Oracle plane](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-pi-seam-extensions.md)
+- **Design docs:** [pi-seam-extensions.md §Graph clock, §Reconciliation-need substrate, §Oracle plane](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
 
 ### agent-graph-integration
 
@@ -124,7 +124,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Acceptance:** Agent can create / update / link intent-plane nodes via Brunch tools; an architectural test or lint rule prevents direct DB access from outside the command layer; the same change observed across TUI and (if M3 lands) web client.
 - **Verification:** Inner gate; middle — command-layer contract tests; outer — kernel-card-output coverage assertions begin landing per brief.
 - **Traceability:** R10, R13 / D4-L / I2-L / A3-L
-- **Design docs:** [brunch-poc-architecture-prd.md §M5, §Authority Model](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-architecture-prd.md)
+- **Design docs:** [prd.md §M5, §Authority Model](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md)
 
 ### authority-model
 
@@ -136,7 +136,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Acceptance:** Adversarial briefs requesting human-gated actions in print/RPC produce structured `needs_human`; an authority test matrix passes across all four modes.
 - **Verification:** Inner gate; middle — authority test matrix; outer — adversarial fixture for `needs_human` regression.
 - **Traceability:** R5, R6, R12 / D4-L
-- **Design docs:** [brunch-poc-architecture-prd.md §Authority Model](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-architecture-prd.md)
+- **Design docs:** [prd.md §Authority Model](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md)
 
 ### turn-boundary-reconciliation
 
@@ -148,7 +148,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Acceptance:** Cross-session paired-brief fixture exercises `worldUpdate` filtering; mention-staleness hints synthesise when an entity changed since last snapshot; `brunch.spec_switch` and `brunch.lens_switch` recompute interest sets.
 - **Verification:** Inner gate; middle — property tests for I4-L, I5-L, I9-L; outer — paired-brief adversarial capture passes.
 - **Traceability:** R11, R13, R14, R18 / D6-L, D11-L, D14-L / I1-L, I4-L, I5-L, I9-L / A4-L, A9-L
-- **Design docs:** [brunch-poc-pi-seam-extensions.md §5 Graph-entity mentions](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-pi-seam-extensions.md)
+- **Design docs:** [pi-seam-extensions.md §5 Graph-entity mentions](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
 
 ### coherence-first-class
 
@@ -160,7 +160,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Acceptance:** "Contradictory requirements" adversarial brief produces an `incoherent` verdict with a backing open reconciliation need; coherence verdict surfaces in the TUI chrome and in `graph.*` reads.
 - **Verification:** Inner gate; middle — coherence-emission property tests; outer — adversarial fixture for contradictory requirements.
 - **Traceability:** R12, R14 / D8-L / I6-L
-- **Design docs:** [brunch-poc-pi-seam-extensions.md §Reconciliation-need substrate](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-pi-seam-extensions.md)
+- **Design docs:** [pi-seam-extensions.md §Reconciliation-need substrate](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
 
 ### compaction-and-conflict-widening
 
@@ -172,7 +172,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Acceptance:** Long-horizon adversarial brief (50+ turns) replays through compaction with `lastSeenLsn` and interest set preserved; lens/spec switches across compaction boundaries do not desync.
 - **Verification:** Inner gate; middle — compaction round-trip tests; outer — long-horizon fixture passes.
 - **Traceability:** R15 / D6-L
-- **Design docs:** [brunch-poc-architecture-prd.md §Continuity, Divergence, and Coherence](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-architecture-prd.md)
+- **Design docs:** [prd.md §Continuity, Divergence, and Coherence](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md)
 
 ### brief-library-curation
 
@@ -184,7 +184,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Acceptance:** Briefs #1–#7 present in `.brunch-fixtures/briefs/`; adversarial briefs present with documented targets; expectations for brief #7 satisfied per fixture-strategy.
 - **Verification:** Doc review; spot-replay if the relevant harness milestone has landed.
 - **Traceability:** R20 / A5-L
-- **Design docs:** [brunch-poc-fixture-strategy.md §Brief library](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-fixture-strategy.md)
+- **Design docs:** [fixture-strategy.md §Brief library](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)
 
 ### fixture-strategy-evolution
 
@@ -192,11 +192,11 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Linear:** unassigned
 - **Kind:** hardening
 - **Status:** not-started
-- **Objective:** Iterate `brunch-poc-fixture-strategy.md` — property invariants, brief expectations, harness CLI shape — as real fixtures expose gaps.
+- **Objective:** Iterate `fixture-strategy.md` — property invariants, brief expectations, harness CLI shape — as real fixtures expose gaps.
 - **Acceptance:** Each milestone landing adds at least one new fixture-strategy entry (invariant, brief expectation, or harness note) or explicitly records "no change needed."
 - **Verification:** PR review on the doc; downstream fixture runs catch regressions.
 - **Traceability:** A5-L
-- **Design docs:** [brunch-poc-fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-fixture-strategy.md)
+- **Design docs:** [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)
 
 ### flue-pattern-adoption
 
@@ -208,7 +208,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Acceptance:** Defer until POC success criteria are met; revisit then.
 - **Verification:** Defer.
 - **Traceability:** Future Direction Register §Adoption patterns from Flue
-- **Design docs:** [brunch-poc-pi-seam-extensions.md §Flue framework evaluation](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-pi-seam-extensions.md)
+- **Design docs:** [pi-seam-extensions.md §Flue framework evaluation](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
 
 ### oracle-design-plan-graphs
 
@@ -220,7 +220,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Acceptance:** Defer until POC success criteria are met.
 - **Verification:** Defer.
 - **Traceability:** R9, R13
-- **Design docs:** [brunch-poc-pi-seam-extensions.md §Oracle plane](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-pi-seam-extensions.md)
+- **Design docs:** [pi-seam-extensions.md §Oracle plane](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
 
 ### framework-direction-stubs
 
@@ -232,7 +232,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Acceptance:** Discretionary; only land when downstream pressure makes a stub cheaper than a hole.
 - **Verification:** Defer.
 - **Traceability:** Future Direction Register §Framework alignment & deferred subsystems
-- **Design docs:** [brunch-poc-pi-seam-extensions.md §Framework alignment & deferred subsystems](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-pi-seam-extensions.md)
+- **Design docs:** [pi-seam-extensions.md §Framework alignment & deferred subsystems](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
 
 ### geolog-and-petri-execution
 

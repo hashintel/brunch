@@ -9,9 +9,9 @@ implementation, planning memory, and design docs have been archived under
 The three POC architecture docs are the source of authority for everything
 downstream:
 
-1. [brunch-poc-architecture-prd.md](./architecture/brunch-poc-architecture-prd.md) — product thesis, delivery posture, requirements, milestone ladder M0–M9, success criteria.
-2. [brunch-poc-pi-seam-extensions.md](./architecture/brunch-poc-pi-seam-extensions.md) — the five Brunch-owned subsystems on top of pi (side-tasks, lenses, spec selector, offer-first interaction, mentions + staleness), the graph clock + change log, the reconciliation-need substrate, the oracle plane stub, the Flue evaluation, and framework-alignment / deferred subsystems.
-3. [brunch-poc-fixture-strategy.md](./architecture/brunch-poc-fixture-strategy.md) — brief library, captured-run fixture format, three-layer assertion model (replay / property / adversarial), agent-as-user driver over JSON-RPC stdio, milestone mapping.
+1. [prd.md](./architecture/prd.md) — product thesis, delivery posture, requirements, milestone ladder M0–M9, success criteria.
+2. [pi-seam-extensions.md](./architecture/pi-seam-extensions.md) — the five Brunch-owned subsystems on top of pi (side-tasks, lenses, spec selector, offer-first interaction, mentions + staleness), the graph clock + change log, the reconciliation-need substrate, the oracle plane stub, the Flue evaluation, and framework-alignment / deferred subsystems.
+3. [fixture-strategy.md](./architecture/fixture-strategy.md) — brief library, captured-run fixture format, three-layer assertion model (replay / property / adversarial), agent-as-user driver over JSON-RPC stdio, milestone mapping.
 
 ## Planning memory
 

@@ -1,8 +1,8 @@
 # Brunch POC — Fixture Strategy
 
-This is a sibling document to [brunch-poc-architecture-prd.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-architecture-prd.md) and [brunch-poc-pi-seam-extensions.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-pi-seam-extensions.md). It captures the test-fixture and evaluation-harness strategy for the POC: a brief library, a captured-run fixture format, a three-layer assertion model, and an agent-as-user driver that exercises the JSON-RPC stdio surface end to end.
+This is a sibling document to [prd.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md) and [pi-seam-extensions.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md). It captures the test-fixture and evaluation-harness strategy for the POC: a brief library, a captured-run fixture format, a three-layer assertion model, and an agent-as-user driver that exercises the JSON-RPC stdio surface end to end.
 
-This strategy exists because two things are being remodelled at once during the POC: the data layer (intent / oracle / design / plan planes, the change log, the coherence verdict, the typed oracle entities introduced in [pi-seam-extensions §Oracle plane](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-pi-seam-extensions.md#oracle-plane-typed-stub-for-the-poc)) and the elicitation product (offer envelopes, lenses, behavioral kernels per [`BEHAVIORAL_KERNELS.md`](file:///Users/lunelson/Code/hashintel/brunch-next/docs/design/BEHAVIORAL_KERNELS.md)). Without a reproducible end-to-end test loop, regressions in either layer will be invisible until the other has compounded onto them. A captured-fixture pipeline gives the POC the feedback loop it needs to iterate the schema and the kernels in parallel.
+This strategy exists because two things are being remodelled at once during the POC: the data layer (intent / oracle / design / plan planes, the change log, the coherence verdict, the typed oracle entities introduced in [pi-seam-extensions §Oracle plane](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md#oracle-plane-typed-stub-for-the-poc)) and the elicitation product (offer envelopes, lenses, behavioral kernels per [`BEHAVIORAL_KERNELS.md`](file:///Users/lunelson/Code/hashintel/brunch-next/docs/design/BEHAVIORAL_KERNELS.md)). Without a reproducible end-to-end test loop, regressions in either layer will be invisible until the other has compounded onto them. A captured-fixture pipeline gives the POC the feedback loop it needs to iterate the schema and the kernels in parallel.
 
 ## The shape
 
@@ -163,7 +163,7 @@ A run for brief #7 that terminates with kernels active but with none of `product
 The agent-as-user is a thin driver that exercises the JSON-RPC stdio surface end to end. It does three things:
 
 1. Opens a JSON-RPC stdio connection to `brunch --mode rpc`.
-2. Subscribes to the session's offer stream (`brunch.offer` custom messages per [pi-seam-extensions §4](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-pi-seam-extensions.md#4-assistant--and-system-offer-first-interaction-with-multi-choice-answers)).
+2. Subscribes to the session's offer stream (`brunch.offer` custom messages per [pi-seam-extensions §4](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md#4-assistant--and-system-offer-first-interaction-with-multi-choice-answers)).
 3. For each offer, calls an LLM with the brief, the persona dials, and the offer envelope; collects the response (`brunch.offer_response`); posts it back over RPC.
 
 ### Termination conditions
@@ -236,7 +236,7 @@ The fixture harness threads through the existing milestone ladder; it does not n
 ## Open questions
 
 1. Whether the agent-as-user should be a pi-coding-agent session or a thinner harness (just a model client). The pi-coding-agent path gets transcript capture for free; the thinner path is cheaper to run in CI.
-2. Whether briefs should be stored under `.brunch-fixtures/` in the brunch-next repo, in a sibling repository, or in `docs/next/architecture/artifacts/` alongside other captured exhibits.
+2. Whether briefs should be stored under `.brunch-fixtures/` in the brunch-next repo, in a sibling repository, or in `docs/architecture/artifacts/` alongside other captured exhibits.
 3. Whether replay regression should attempt full transcript reproduction or only assert that the *graph* matches after a free-running replay. Full reproduction is brittle to model upgrades; graph-only is more durable but loses transcript-level signal.
 4. Whether the agent-as-user should run with the same model as the Brunch session under test, or a deliberately different one (to surface model-dependent kernel-card behaviour).
 5. Whether to surface a `brunch fixtures capture <brief-id>` and `brunch fixtures replay <brief-id> <run-id>` CLI sub-command set, or keep fixture tooling external to the Brunch binary.

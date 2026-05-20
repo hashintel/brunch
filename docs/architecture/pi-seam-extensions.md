@@ -1,6 +1,6 @@
 # Brunch POC — Pi Seam Extensions
 
-This is a sibling document to [brunch-poc-architecture-prd.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-architecture-prd.md). It captures four architectural extensions to the POC that drill into how specific Brunch product affordances land on pi's existing seams. The PRD asserts that pi can be used as an internal harness without forcing Brunch to become a pi distribution; this document checks that claim against four concrete affordances and records where Brunch owns work that pi does not provide.
+This is a sibling document to [prd.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md). It captures four architectural extensions to the POC that drill into how specific Brunch product affordances land on pi's existing seams. The PRD asserts that pi can be used as an internal harness without forcing Brunch to become a pi distribution; this document checks that claim against four concrete affordances and records where Brunch owns work that pi does not provide.
 
 The four affordances:
 
@@ -648,7 +648,7 @@ The intent ontology covers engineering-spec shapes well but is thin on product-f
 
 Framing primarily drives **elicitation, rendering, and context packing** in the POC — not new relation-policy rules. Base kind still drives edge legality and most traversal. Context packs, scope-card UI, and compaction summaries must render a dedicated **Product framing** block so the data does not silently disappear from the agent's view.
 
-Kernel-activation gate: behavioral kernels should not engage in earnest before at least one `product_concept`, one `problem`, one `persona`, and one `non_goal` (or scope boundary) have been captured for the spec. This is the minimum framing bundle required for brief #7 ("Notion meets Linear meets Slack") in the [fixture strategy](file:///Users/lunelson/Code/hashintel/brunch-next/docs/next/architecture/brunch-poc-fixture-strategy.md) to succeed.
+Kernel-activation gate: behavioral kernels should not engage in earnest before at least one `product_concept`, one `problem`, one `persona`, and one `non_goal` (or scope boundary) have been captured for the spec. This is the minimum framing bundle required for brief #7 ("Notion meets Linear meets Slack") in the [fixture strategy](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md) to succeed.
 
 #### Oracle-plane entities (new node types)
 

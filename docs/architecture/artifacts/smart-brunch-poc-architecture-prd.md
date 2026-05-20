@@ -1,6 +1,6 @@
 # Smart-Brunch POC Architecture PRD
 
-Source: distilled from `docs/next/transcript-of-pi-architecture-review.md` (a conversation that examined the `pi` agent framework as a foundation for `brunch`, working name `foobar` in the transcript). Corrections made mid-conversation are folded in as-of-final positions; earlier mistakes are not retained.
+Source: distilled from `docs/architecture/artifacts/transcript-of-pi-architecture-review.md` (a conversation that examined the `pi` agent framework as a foundation for `brunch`, working name `foobar` in the transcript). Corrections made mid-conversation are folded in as-of-final positions; earlier mistakes are not retained.
 
 ## 1. Product summary
 
