@@ -4,7 +4,7 @@ import { join, resolve } from "node:path"
 
 import {
   SessionManager,
-  type SessionEntry,
+  type CustomEntry,
   type SessionHeader,
 } from "@earendil-works/pi-coding-agent"
 
@@ -30,6 +30,11 @@ interface SessionBindingData {
   sessionId: string
   specId: string
   specTitle: string
+}
+
+type SessionBindingEntry = CustomEntry<SessionBindingData> & {
+  customType: typeof SESSION_BINDING_TYPE
+  data: SessionBindingData
 }
 
 export interface WorkspaceSessionChromeState {
@@ -409,13 +414,7 @@ function isSessionHeader(value: unknown): value is SessionHeader {
   )
 }
 
-function isSessionBindingEntry(
-  value: unknown,
-): value is SessionEntry & {
-  type: "custom"
-  customType: typeof SESSION_BINDING_TYPE
-  data: SessionBindingData
-} {
+function isSessionBindingEntry(value: unknown): value is SessionBindingEntry {
   if (
     typeof value !== "object" ||
     value === null ||
