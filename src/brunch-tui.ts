@@ -7,6 +7,7 @@ import {
   createAgentSessionServices,
   getAgentDir,
   InteractiveMode,
+  SessionManager,
   type CreateAgentSessionRuntimeFactory,
   type ExtensionFactory,
 } from "@earendil-works/pi-coding-agent"
@@ -68,9 +69,11 @@ export function formatChromeWidgetLines(
 
 export function createBrunchChromeExtension(
   chrome: WorkspaceSessionChromeState,
+  onSessionStart?: (sessionManager: SessionManager) => Promise<void> | void,
 ): ExtensionFactory {
   return (pi) => {
-    pi.on("session_start", (_event, ctx) => {
+    pi.on("session_start", async (_event, ctx) => {
+      await onSessionStart?.(ctx.sessionManager as SessionManager)
       ctx.ui.setWidget("brunch.chrome", formatChromeWidgetLines(chrome), {
         placement: "aboveEditor",
       })
@@ -104,7 +107,14 @@ async function launchPiInteractive({
       cwd,
       agentDir: runtimeAgentDir,
       resourceLoaderOptions: {
-        extensionFactories: [createBrunchChromeExtension(workspace.chrome)],
+        extensionFactories: [
+          createBrunchChromeExtension(
+            workspace.chrome,
+            async (sessionManager) => {
+              await coordinator.bindCurrentSpecToSession(sessionManager)
+            },
+          ),
+        ],
       },
     })
     const created = await createAgentSessionFromServices({
@@ -122,9 +132,6 @@ async function launchPiInteractive({
     cwd: workspace.cwd,
     agentDir,
     sessionManager: workspace.session.manager,
-  })
-  runtime.setRebindSession(async (session) => {
-    await coordinator.bindCurrentSpecToSession(session.sessionManager)
   })
 
   await new InteractiveMode(runtime).run()

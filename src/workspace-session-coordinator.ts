@@ -204,14 +204,15 @@ function bindSessionToSpec(
 }
 
 interface FlushableSessionManager {
-  flushed: boolean
   _rewriteFile(): void
 }
 
 function flushSessionWithoutAssistant(manager: SessionManager): void {
-  const flushable = manager as unknown as FlushableSessionManager
-  flushable._rewriteFile()
-  flushable.flushed = true
+  const sessionFile = manager.getSessionFile()
+  ;(manager as unknown as FlushableSessionManager)._rewriteFile()
+  if (sessionFile) {
+    manager.setSessionFile(sessionFile)
+  }
 }
 
 async function ensureWorkspaceDirs(cwd: string): Promise<void> {

@@ -4,7 +4,13 @@ import { join } from "node:path"
 
 import { describe, expect, it } from "vitest"
 
-import { runBrunchTui, formatChromeWidgetLines } from "./brunch-tui.js"
+import { SessionManager } from "@earendil-works/pi-coding-agent"
+
+import {
+  createBrunchChromeExtension,
+  formatChromeWidgetLines,
+  runBrunchTui,
+} from "./brunch-tui.js"
 import { verifyWorkspaceSessionStores } from "./workspace-session-coordinator.js"
 
 describe("Brunch TUI boot", () => {
@@ -48,6 +54,40 @@ describe("Brunch TUI boot", () => {
     expect(lines.join("\n")).toContain("chat: responding-to-elicitation")
   })
 
+  it("binds replacement sessions through the internal session-start extension", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-tui-"))
+    const manager = SessionManager.create(cwd, join(cwd, ".brunch", "sessions"))
+    const boundSessionIds: string[] = []
+    const ui = new FakeExtensionUi()
+    let sessionStart: ((
+      event: unknown,
+      ctx: FakeSessionStartContext,
+    ) => Promise<void>) | undefined
+
+    createBrunchChromeExtension(
+      {
+        cwd,
+        spec: { id: "spec-1", title: "Spec One" },
+        phase: "elicitation",
+        chatMode: "responding-to-elicitation",
+      },
+      (sessionManager) => {
+        boundSessionIds.push(sessionManager.getSessionId())
+      },
+    )({
+      on: (event: string, handler: typeof sessionStart) => {
+        if (event === "session_start") {
+          sessionStart = handler
+        }
+      },
+    } as never)
+
+    await sessionStart?.({}, { sessionManager: manager, ui })
+
+    expect(boundSessionIds).toEqual([manager.getSessionId()])
+    expect(ui.widgets.get("brunch.chrome")?.join("\n")).toContain("Spec One")
+  })
+
   it("keeps session creation and binding out of the TUI boot adapter", async () => {
     const source = await readFile(
       new URL("./brunch-tui.ts", import.meta.url),
@@ -59,3 +99,18 @@ describe("Brunch TUI boot", () => {
     expect(source).not.toContain("brunch.session_binding")
   })
 })
+
+interface FakeSessionStartContext {
+  sessionManager: SessionManager
+  ui: FakeExtensionUi
+}
+
+class FakeExtensionUi {
+  readonly widgets = new Map<string, string[]>()
+
+  setWidget(key: string, content: string[]): void {
+    this.widgets.set(key, content)
+  }
+
+  setTitle(_title: string): void {}
+}
