@@ -54,12 +54,16 @@ describe("Brunch TUI boot", () => {
     expect(lines.join("\n")).toContain("chat: responding-to-elicitation")
   })
 
-  it("binds replacement sessions through the internal session-start extension", async () => {
+  it("binds replacement sessions through internal session boundary events", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-tui-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch", "sessions"))
     const boundSessionIds: string[] = []
     const ui = new FakeExtensionUi()
     let sessionStart: ((
+      event: unknown,
+      ctx: FakeSessionStartContext,
+    ) => Promise<void>) | undefined
+    let beforeAgentStart: ((
       event: unknown,
       ctx: FakeSessionStartContext,
     ) => Promise<void>) | undefined
@@ -79,12 +83,19 @@ describe("Brunch TUI boot", () => {
         if (event === "session_start") {
           sessionStart = handler
         }
+        if (event === "before_agent_start") {
+          beforeAgentStart = handler
+        }
       },
     } as never)
 
     await sessionStart?.({}, { sessionManager: manager, ui })
+    await beforeAgentStart?.({}, { sessionManager: manager, ui })
 
-    expect(boundSessionIds).toEqual([manager.getSessionId()])
+    expect(boundSessionIds).toEqual([
+      manager.getSessionId(),
+      manager.getSessionId(),
+    ])
     expect(ui.widgets.get("brunch.chrome")?.join("\n")).toContain("Spec One")
   })
 

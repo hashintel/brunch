@@ -69,15 +69,18 @@ export function formatChromeWidgetLines(
 
 export function createBrunchChromeExtension(
   chrome: WorkspaceSessionChromeState,
-  onSessionStart?: (sessionManager: SessionManager) => Promise<void> | void,
+  onSessionBoundary?: (sessionManager: SessionManager) => Promise<void> | void,
 ): ExtensionFactory {
   return (pi) => {
     pi.on("session_start", async (_event, ctx) => {
-      await onSessionStart?.(ctx.sessionManager as SessionManager)
+      await onSessionBoundary?.(ctx.sessionManager as SessionManager)
       ctx.ui.setWidget("brunch.chrome", formatChromeWidgetLines(chrome), {
         placement: "aboveEditor",
       })
       ctx.ui.setTitle(`brunch — ${chrome.spec?.title ?? chrome.cwd}`)
+    })
+    pi.on("before_agent_start", async (_event, ctx) => {
+      await onSessionBoundary?.(ctx.sessionManager as SessionManager)
     })
   }
 }

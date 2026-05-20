@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -93,6 +93,35 @@ describe("WorkspaceSessionCoordinator", () => {
       return
     }
     expect(oracle.sessions[0]?.bindingCount).toBe(1)
+  })
+
+  it("does not duplicate pre-assistant entries when the coordinator flushes before agent start", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+
+    const result = await coordinator.startOrCreate({
+      specTitle: "Scratch spec",
+    })
+    result.session.manager.appendModelChange("test-provider", "test-model")
+    result.session.manager.appendThinkingLevelChange("high")
+    result.session.manager.appendMessage({ role: "user", content: "hello" })
+    await coordinator.bindCurrentSpecToSession(result.session.manager)
+    result.session.manager.appendMessage({ role: "assistant", content: "hi" })
+
+    const content = await readFile(result.session.file, "utf8")
+    const sessionHeaderCount = content
+      .split("\n")
+      .filter((line) => line.includes('"type":"session"')).length
+    const oracle = await verifyWorkspaceSessionStores({
+      cwd,
+      expectedSessionCount: 1,
+    })
+
+    expect(sessionHeaderCount).toBe(1)
+    expect(oracle.ok).toBe(true)
+    if (!oracle.ok) {
+      expect(oracle.errors).toEqual([])
+    }
   })
 
   it("binds a pi-created replacement session to the current spec", async () => {
