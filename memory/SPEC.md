@@ -115,6 +115,7 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 
 - **D5-L — JSON-RPC is the primary product protocol.** Same command surface over stdio (RPC mode), WebSocket (browser), and in-process (TUI/agent tools). HTTP exists only as a transport shim (static bundle, health, uploads, webhooks). The RPC stdio surface is also the agent-as-user fixture-capture interface. Depends on: A5-L. Supersedes: —.
 - **D10-L — Web client is a native Brunch React app over one WebSocket RPC client.** TanStack Router + TanStack Query + Brunch-owned chat primitives (Vercel AI SDK UI or TanStack AI style). `pi-web-ui` is not reused. Depends on: D5-L. Supersedes: —.
+- **D17-L — Brunch semantics ride one event substrate, not parallel channels.** Custom-message transcript entries plus `deliverAs: "nextTurn" | "followUp"` and `prepareNextTurn` are the load-bearing mechanism for offers, `worldUpdate`, mention-staleness hints, and side-task-result delivery. New product semantics should compose onto this substrate before inventing a second event plane. Depends on: D5-L, D6-L, D12-L, D15-L. Supersedes: —.
 
 #### Persistence
 
@@ -171,6 +172,10 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 
 - Whether the chat UI leans more heavily on Vercel AI SDK, TanStack AI primitives, or a thin Brunch-owned spanning abstraction is a post-M3 decision.
 
+### Durable state framing
+
+- Brunch's durable state is intentionally split across four substrates: graph truth (nodes/edges), `change_log` audit/history, `coherence_state` verdict, and `reconciliation_need` actionable queue. This is a framing and responsibility split, not four unrelated storage features.
+
 ## Lexicon
 
 | Term | Definition |
@@ -196,7 +201,7 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 | **World update** | `worldUpdate` custom message synthesised in `prepareNextTurn` summarising relevant graph changes since the session's `lastSeenLsn`. |
 | **Mention ledger** | Per-session `(entity_id, snapshotted_lsn)` record driving discretionary staleness hints when an entity has changed since the agent last saw it. |
 | **Authority** | Source of a node's claim: `stakeholder | technical | external | derived`. |
-| **Epistemic status** | Confidence basis: `observed | asserted | assumed | inferred`. |
+| **Epistemic status** | Confidence basis: `observed | asserted | assumed | inferred`. Like `authority`, this is a context-shaping label for attention, grouping, and compression rather than a complete theory of truth. |
 | **Framing-as** | Orthogonal modality classifying a node's product role (e.g. `problem`, `persona`, `non_goal`) within an allowed matrix. |
 | **Kernel** | A behavioural elicitation pattern from `docs/design/BEHAVIORAL_KERNELS.md` (state/lifecycle, containment, concurrency, etc.). |
 | **Brief** | A short curated product brief in `.brunch-fixtures/briefs/`, run by the agent-as-user driver to produce golden captures. |
