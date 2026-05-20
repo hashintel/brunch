@@ -1,8 +1,0 @@
-node_modules
-dist
-server/data
-.env
-.git
-.claude
-CLAUDE.md
-*.md
