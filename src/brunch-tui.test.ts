@@ -67,6 +67,10 @@ describe("Brunch TUI boot", () => {
       event: unknown,
       ctx: FakeSessionStartContext,
     ) => Promise<void>) | undefined
+    let messageStart: ((
+      event: unknown,
+      ctx: FakeSessionStartContext,
+    ) => Promise<void>) | undefined
 
     createBrunchChromeExtension(
       {
@@ -86,13 +90,25 @@ describe("Brunch TUI boot", () => {
         if (event === "before_agent_start") {
           beforeAgentStart = handler
         }
+        if (event === "message_start") {
+          messageStart = handler
+        }
       },
     } as never)
 
     await sessionStart?.({}, { sessionManager: manager, ui })
     await beforeAgentStart?.({}, { sessionManager: manager, ui })
+    await messageStart?.({ type: "message_start", message: { role: "user" } }, {
+      sessionManager: manager,
+      ui,
+    })
+    await messageStart?.(
+      { type: "message_start", message: { role: "assistant" } },
+      { sessionManager: manager, ui },
+    )
 
     expect(boundSessionIds).toEqual([
+      manager.getSessionId(),
       manager.getSessionId(),
       manager.getSessionId(),
     ])

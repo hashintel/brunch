@@ -82,7 +82,24 @@ export function createBrunchChromeExtension(
     pi.on("before_agent_start", async (_event, ctx) => {
       await onSessionBoundary?.(ctx.sessionManager as SessionManager)
     })
+    pi.on("message_start", async (event, ctx) => {
+      if (isAssistantMessageStartEvent(event)) {
+        await onSessionBoundary?.(ctx.sessionManager as SessionManager)
+      }
+    })
   }
+}
+
+function isAssistantMessageStartEvent(event: unknown): boolean {
+  return (
+    typeof event === "object" &&
+    event !== null &&
+    "message" in event &&
+    typeof event.message === "object" &&
+    event.message !== null &&
+    "role" in event.message &&
+    event.message.role === "assistant"
+  )
 }
 
 async function promptForSpecTitle(): Promise<string | undefined> {

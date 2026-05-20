@@ -95,7 +95,7 @@ describe("WorkspaceSessionCoordinator", () => {
     expect(oracle.sessions[0]?.bindingCount).toBe(1)
   })
 
-  it("does not duplicate pre-assistant entries when the coordinator flushes before agent start", async () => {
+  it("does not duplicate pre-assistant entries when flushed after the user message and before assistant persistence", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
 
@@ -104,6 +104,7 @@ describe("WorkspaceSessionCoordinator", () => {
     })
     result.session.manager.appendModelChange("test-provider", "test-model")
     result.session.manager.appendThinkingLevelChange("high")
+    await coordinator.bindCurrentSpecToSession(result.session.manager)
     result.session.manager.appendMessage({ role: "user", content: "hello" })
     await coordinator.bindCurrentSpecToSession(result.session.manager)
     result.session.manager.appendMessage({ role: "assistant", content: "hi" })
