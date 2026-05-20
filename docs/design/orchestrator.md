@@ -2,7 +2,7 @@
 
 > Status: **working design proposal** — exploratory design for a CLI orchestrator that consumes a brunch-shaped execution plan (epics → slices) and dispatches agents and deterministic checks to drive the plan to completion. Not yet promoted to `memory/SPEC.md`; decisions land there through `ln-spec`. Tracked as FE-730; umbrella H-6476.
 >
-> Scope is intentionally narrow: two interchangeable execution engines behind a shared seam, plan-as-YAML, an append-only event log as the communication medium, and an isolated worktree per run. The 15-step build sequence, fixture definitions, and pi-agent invocation details are operational scaffolding kept separate from this doc.
+> Scope is intentionally narrow: two interchangeable execution engines behind a shared seam, plan-as-YAML, an append-only event log as the communication medium, and an isolated worktree per run. The 15-step build sequence, fixture definitions, and pi-agent invocation details are operational scaffolding kept separate from this doc. Code lives under `src/orchestrator/` in the brunch repo; `cook` is only the CLI subcommand name.
 >
 > **Full design vs POC implementation:** this doc describes the design as it should land if/when the orchestrator productizes. The POC implements a deliberate subset to avoid premature abstraction — see [§POC scope and deferrals](#12-poc-scope-and-deferrals) for the explicit map of designed-but-deferred items.
 
