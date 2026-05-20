@@ -45,6 +45,7 @@ export interface WorkspaceSessionReadyState {
   session: {
     id: string
     file: string
+    manager: SessionManager
   }
   chrome: WorkspaceSessionChromeState
 }
@@ -160,7 +161,7 @@ async function createBoundSession(
     specTitle: spec.title,
   } satisfies SessionBindingData)
   flushSessionWithoutAssistant(manager)
-  return { id: manager.getSessionId(), file: sessionFile }
+  return { id: manager.getSessionId(), file: sessionFile, manager }
 }
 
 interface FlushableSessionManager {
