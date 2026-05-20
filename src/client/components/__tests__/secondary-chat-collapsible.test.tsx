@@ -188,7 +188,7 @@ describe('SecondaryChatCollapsible', () => {
     expect(screen.getByText('Editing this item.')).toBeTruthy();
   });
 
-  it('renders the fresh-state hero ("Ask Brunch about anything" + chips) when no kickoff turn exists', () => {
+  it('renders the fresh-state hero ("Ask brunch about anything" + chips) when no kickoff turn exists', () => {
     // User feedback supersedes the previous "empty body" expectation: a
     // brand-new chat now surfaces the centered hero with three static
     // "How to start" chips so the surface never reads as an empty void.
@@ -205,7 +205,7 @@ describe('SecondaryChatCollapsible', () => {
 
     expect(screen.getByTestId('secondary-chat-fresh-state')).not.toBeNull();
     expect(screen.getByTestId('secondary-chat-fresh-state').textContent).toContain(
-      'Ask Brunch about your spec',
+      'Ask brunch about your spec',
     );
   });
 

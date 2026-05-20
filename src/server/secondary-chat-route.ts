@@ -19,16 +19,15 @@ import {
   createKickoffTurn,
   createSecondaryChat,
   deleteSecondaryChat,
-  getDownstreamItems,
   getKnowledgeItem,
   getOrCreateItemSecondaryChat,
   getOrCreateMasterSecondaryChat,
   getSpecification,
-  isItemInActiveReviewSet,
   setSecondaryChatMode,
   type DB,
 } from './db.js';
-import { classifyEditImpact, type EditImpactTier } from './edit-impact.js';
+import { buildKnowledgeItemEditImpactProjection } from './edit-impact-projection.js';
+import { type EditImpactTier } from './edit-impact.js';
 import {
   formatMentionedItemsContextBlock,
   parseIntentItemReferences,
@@ -398,11 +397,7 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
     if (pinnedItemId === null) {
       throw new Error('computeEditImpact called for a master chat — no pinned item');
     }
-    const downstream = getDownstreamItems(db, specificationId, pinnedItemId);
-    const inReviewSet =
-      isItemInActiveReviewSet(db, specificationId, pinnedItemId) ||
-      downstream.some((downstreamItem) => isItemInActiveReviewSet(db, specificationId, downstreamItem.id));
-    return classifyEditImpact(downstream.length, inReviewSet);
+    return buildKnowledgeItemEditImpactProjection(db, specificationId, pinnedItemId).impact;
   };
   let cachedEditImpact: EditImpactTier | null = null;
 

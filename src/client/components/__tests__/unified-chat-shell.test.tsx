@@ -272,8 +272,8 @@ describe('UnifiedChatShell', () => {
     expect(screen.getByTestId('chat-switcher-trigger')).not.toBeNull();
   });
 
-  it('close button collapses the shell to the "Ask Brunch" pill (same as minimize); presence-driven expand brings it back', () => {
-    // "Ask Brunch" is a persistent affordance: the X button can't make the
+  it('close button collapses the shell to the "Ask brunch" pill (same as minimize); presence-driven expand brings it back', () => {
+    // "Ask brunch" is a persistent affordance: the X button can't make the
     // chat entry point disappear entirely — closing collapses to the same
     // bottom-right pill as minimize so the user can always return.
     const { Wrapper } = createHarness([makeChat(7)]);
@@ -288,7 +288,7 @@ describe('UnifiedChatShell', () => {
     expect(screen.queryByTestId('unified-chat-shell')).toBeNull();
     expect(screen.queryByTestId('unified-chat-shell-collapsed')).toBeNull();
     const pill = screen.getByTestId('unified-chat-shell-minimized');
-    expect(pill.textContent).toContain('Ask Brunch');
+    expect(pill.textContent).toContain('Ask brunch');
 
     fireEvent.click(pill);
     expect(screen.getByTestId('unified-chat-shell')).not.toBeNull();
@@ -310,7 +310,7 @@ describe('UnifiedChatShell', () => {
     expect(screen.getByTestId('unified-chat-shell-minimized-count').textContent).toBe('2');
   });
 
-  it('minimize button collapses to a bottom-right "Ask Brunch" pill; clicking it restores', () => {
+  it('minimize button collapses to a bottom-right "Ask brunch" pill; clicking it restores', () => {
     const { Wrapper } = createHarness([makeChat(7)]);
 
     render(
@@ -323,7 +323,7 @@ describe('UnifiedChatShell', () => {
     expect(screen.queryByTestId('unified-chat-shell')).toBeNull();
     expect(screen.queryByTestId('unified-chat-shell-collapsed')).toBeNull();
     const pill = screen.getByTestId('unified-chat-shell-minimized');
-    expect(pill.textContent).toContain('Ask Brunch');
+    expect(pill.textContent).toContain('Ask brunch');
 
     fireEvent.click(pill);
     expect(screen.getByTestId('unified-chat-shell')).not.toBeNull();

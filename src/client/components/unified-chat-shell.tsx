@@ -276,7 +276,7 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
             aria-hidden
             className="size-3.5 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:rotate-[-8deg] group-active:translate-y-0"
           />
-          <span>Ask Brunch</span>
+          <span>Ask brunch</span>
           {openChatCount > 0 && (
             <span
               data-testid="unified-chat-shell-minimized-count"
