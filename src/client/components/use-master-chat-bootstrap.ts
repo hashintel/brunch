@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useCreateMasterChatMutation } from './secondary-chat-trigger.js';
 
@@ -12,21 +12,29 @@ export interface UseMasterChatBootstrapInput {
 }
 
 /**
+ * Hard cap on automatic retries per `(specificationId, parentChatId)` pair.
+ * After this many failed `create` attempts the shell stops auto-retrying so a
+ * down server cannot trigger a hot fetch loop; the user can recover via a
+ * deliberate refresh or navigation that changes the bootstrap deps.
+ */
+const MAX_AUTO_RETRY_ATTEMPTS = 3;
+
+/**
  * Auto-create the master (empty) secondary chat on a fresh spec so the shell
  * surfaces a usable composer + turn-zero suggestions instead of an empty
  * placeholder.
  *
- * The latch is keyed on `(specificationId, parentChatId)` and lives in a ref
- * so an in-flight create followed by bundle invalidation does not issue
- * duplicate `POST /secondary-chats`. The mutation object is also held in a
- * ref because `useCreateMasterChatMutation` returns a fresh object every
- * render — pinning it in the effect's dep array would re-fire between
- * in-flight creates and the bundle refresh that flips `hasMaster` true.
+ * Concurrency latch: `inFlightKeyRef` holds the `(specificationId,parentChatId)`
+ * key of the in-flight create so a render that re-fires the effect before the
+ * promise settles cannot issue a duplicate `POST /secondary-chats`. The
+ * mutation object lives in a ref because `useCreateMasterChatMutation` returns
+ * a fresh object every render.
  *
- * `create` returns null on network or server error. Releasing the latch on
- * failure lets a subsequent render — e.g. bundle refresh, route navigation —
- * retry instead of stranding the shell on an empty "Opening chat…" state
- * until full remount.
+ * Retry: `create` resolves to `null` on a network or server error. To recover
+ * without waiting for `hasMaster`/`parentChatId`/`specificationId` to change,
+ * each failure bumps `retryAttempt` state (capped at `MAX_AUTO_RETRY_ATTEMPTS`),
+ * which is itself an effect dep and so re-runs the bootstrap with the same
+ * key. The attempt counter resets when the pair changes.
  */
 export function useMasterChatBootstrap({
   specificationId,
@@ -37,17 +45,35 @@ export function useMasterChatBootstrap({
   const masterMutationRef = useRef(masterMutation);
   masterMutationRef.current = masterMutation;
 
-  const masterCreateAttemptedRef = useRef<string | null>(null);
+  // Set on every attempt; cleared only after a failed `create` so renders
+  // during a successful in-flight call (and after success, until `hasMaster`
+  // flips) do not re-fire the POST.
+  const attemptedKeyRef = useRef<string | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const retryKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (hasMaster || parentChatId === null) return;
     const key = `${specificationId}:${parentChatId}`;
-    if (masterCreateAttemptedRef.current === key) return;
-    masterCreateAttemptedRef.current = key;
+    // Fresh `(specId,parentChatId)` pair → reset retry budget and the latch.
+    if (retryKeyRef.current !== key) {
+      retryKeyRef.current = key;
+      attemptedKeyRef.current = null;
+      if (retryAttempt !== 0) {
+        setRetryAttempt(0);
+        return;
+      }
+    }
+    if (attemptedKeyRef.current === key) return;
+    if (retryAttempt >= MAX_AUTO_RETRY_ATTEMPTS) return;
+    attemptedKeyRef.current = key;
     void masterMutationRef.current.create({ parentChatId }).then((result) => {
-      if (result === null && masterCreateAttemptedRef.current === key) {
-        masterCreateAttemptedRef.current = null;
+      if (result === null && attemptedKeyRef.current === key) {
+        // Release the latch and bump retryAttempt to re-run this effect even
+        // when the parent re-renders with the same deps.
+        attemptedKeyRef.current = null;
+        setRetryAttempt((prev) => (prev >= MAX_AUTO_RETRY_ATTEMPTS ? prev : prev + 1));
       }
     });
-  }, [hasMaster, parentChatId, specificationId]);
+  }, [hasMaster, parentChatId, retryAttempt, specificationId]);
 }

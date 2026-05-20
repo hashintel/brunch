@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Hoisted mock for the create-master-chat mutation so each test can drive
@@ -84,6 +84,38 @@ describe('useMasterChatBootstrap', () => {
     rerender(<Harness specificationId={1} parentChatId={7} hasMaster={false} />);
     await Promise.resolve();
     expect(createSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('auto-retries with the same deps after a null create result (bot round 5)', async () => {
+    // Reproduces Cursor Bugbot's "Master bootstrap latch blocks retry" report:
+    // a failed create followed by a re-render with identical deps must still
+    // retry, instead of stranding the shell on "Opening chat…".
+    resultRef.current = null;
+    await act(async () => {
+      render(<Harness specificationId={1} parentChatId={7} hasMaster={false} />);
+    });
+    // Auto-retry triggered by setRetryAttempt should re-fire without any dep change.
+    await waitFor(() => {
+      expect(createSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  it('caps auto-retries to bound the failure storm (bot round 5)', async () => {
+    resultRef.current = null;
+    await act(async () => {
+      render(<Harness specificationId={1} parentChatId={7} hasMaster={false} />);
+    });
+    // Let auto-retries settle, then assert the cap holds (1 initial + 2 retries).
+    await waitFor(() => {
+      expect(createSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+    // Extra flushes — the cap should prevent more attempts beyond MAX (3).
+    for (let i = 0; i < 8; i += 1) {
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+    expect(createSpy.mock.calls.length).toBeLessThanOrEqual(3);
   });
 
   it('fires once per pair: changing parentChatId triggers a fresh create', async () => {
