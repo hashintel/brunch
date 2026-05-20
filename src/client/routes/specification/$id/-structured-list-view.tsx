@@ -757,11 +757,19 @@ export function StructuredListView({
 
   const bundle = useSpecificationBundleData();
   const presence = useChatShellPresence();
-  const itemChats = (bundle.secondaryChats ?? []).filter(
-    (s) => s.chat.pinned_reconciliation_need_id === null,
-  );
-  const activeChat =
-    itemChats.find((c) => c.chat.id === presence?.focusedChatId) ?? itemChats[itemChats.length - 1] ?? null;
+  const secondaryChats = bundle.secondaryChats ?? [];
+  // Match `UnifiedChatShell`: shell focus can target reconciliation-pinned
+  // chats, so row highlight must resolve from the full bundle, not only
+  // item-anchored chats.
+  const activeChat = (() => {
+    const focusedId = presence?.focusedChatId ?? null;
+    if (focusedId !== null) {
+      const focused = secondaryChats.find((c) => c.chat.id === focusedId);
+      if (focused) return focused;
+    }
+    const itemChats = secondaryChats.filter((s) => s.chat.pinned_reconciliation_need_id === null);
+    return itemChats[itemChats.length - 1] ?? null;
+  })();
   const activeChatAnchoredItemIds = new Set<number>();
   if (activeChat) {
     if (activeChat.chat.pinned_item_id !== null) {

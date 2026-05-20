@@ -1147,6 +1147,34 @@ describe('structured-list-view C19 chat-anchored row selection', () => {
     expect(constraintRow.getAttribute('data-graph-row-chat-anchored')).toBeNull();
   });
 
+  it('honors focused reconciliation-pinned chat for row anchor styling', () => {
+    setMockSecondaryChats([
+      {
+        chat: { id: 1, pinned_item_id: 20, pinned_reconciliation_need_id: null },
+        pinnedItemKind: 'constraint',
+        anchoredItemIds: [],
+      },
+      {
+        chat: { id: 2, pinned_item_id: 10, pinned_reconciliation_need_id: 99 },
+        pinnedItemKind: 'goal',
+        anchoredItemIds: [],
+      },
+    ]);
+    setMockFocusedChatId(2);
+
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const goalRow = container.querySelector(
+      '[data-graph-row][data-item-kind="goal"][data-item-id="10"]',
+    ) as HTMLElement;
+    expect(goalRow.getAttribute('data-graph-row-chat-anchored')).toBe('true');
+
+    const constraintRow = container.querySelector(
+      '[data-graph-row][data-item-kind="constraint"][data-item-id="20"]',
+    ) as HTMLElement;
+    expect(constraintRow.getAttribute('data-graph-row-chat-anchored')).toBeNull();
+  });
+
   it('flips the open-inline-chat trigger aria-label between Anchored ↔ Open when the row is chat-anchored', () => {
     setMockSecondaryChats([
       {
