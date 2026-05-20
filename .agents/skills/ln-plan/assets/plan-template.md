@@ -45,6 +45,7 @@
 - **Why now / unlocks:** [why this belongs on the frontier and what it unlocks]
 - **Acceptance:** [observable frontier-level outcome]
 - **Verification:** [inner / middle / outer summary]
+- **Cross-cutting obligations:** [optional: subsystem / invariant / verification-layer obligations this frontier must preserve or establish]
 - **Traceability:** [→ SPEC.md requirement / assumption / decision / invariant if needed]
 - **Design docs:** [links if relevant]
 - **Current execution pointer:** [optional: `memory/CARDS.md` or next intended scope card; omit when not needed]

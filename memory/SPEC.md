@@ -91,6 +91,7 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 | A8-L | One reconciliation-need substrate, sharing the same global LSN as the change log, can absorb impasses, conflicts, gaps, and process debt without needing finer kind subtypes in the POC. | medium | open | D8-L | M8 + adversarial fixtures ("contradictory requirements") exercise the substrate; subtype split deferred per Open Question #10. |
 | A9-L | A session-scoped mention ledger of (`entity_id`, `snapshotted_lsn`) is the right granularity for staleness hints; transcript-scoped or graph-scoped ledgers are not needed for the POC. | low | open | I7-L | M7 — turn-boundary reconciliation slice; observed via fixture runs that stress re-read decisions. |
 | A10-L | A persistent TUI chrome region showing cwd / spec / phase / chat-mode can be added on top of `pi-tui`'s root layout without modifying pi. | medium | open | D2-L | M0 — walking skeleton attempts to mount the chrome; escalates to a pi upstream issue only if blocked. |
+| A11-L | Pi's `prepareNextTurn` plus custom-message delivery are sufficient to express side-task result delivery without inventing a second event plane or forking pi. | medium | open | D15-L | M5 + M7: side-task registry wiring and next-turn delivery proof. |
 
 ### Active Decisions
 
@@ -118,6 +119,8 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 #### Persistence
 
 - **D6-L — JSONL-first transcript persistence in `.brunch/sessions/`; SQLite-backed graph persistence in `.brunch/`.** Two durability surfaces with distinct responsibilities. Transcript starts on pi `SessionManager` redirected to the project-local directory; graph plane is SQLite from M4. Depends on: A2-L. Supersedes: —.
+- **D15-L — Side tasks are a first-class Brunch subsystem delivered through the same transcript/event substrate.** Background sub-agents are tracked by a Brunch-owned `SideTaskRegistry`; results are never injected mid-turn and instead arrive at the next-turn boundary through the existing custom-message plus `prepareNextTurn` path. Side-task writes remain subject to the same command-layer authority as primary-agent writes. Depends on: A11-L, D4-L. Supersedes: —.
+- **D16-L — Graph persistence uses Drizzle over `better-sqlite3`, with one-LSN-per-commit and no bypass paths.** The command layer owns precondition checks, entity writes, LSN allocation, change-log append, and any coherence updates inside one transaction. This rule applies equally to migrations and maintenance code; there is no privileged write path outside the protocol. Depends on: A3-L, A4-L. Supersedes: —.
 
 #### Interaction & UI shape
 
@@ -140,6 +143,8 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 | I8-L | Spec selection persists across pi `switchSession` (i.e. `/new`); spec change happens only through the selector overlay and emits a `brunch.spec_switch` command-layer entry. | planned (TUI integration test, M0) | D11-L |
 | I9-L | Every `brunch.mention` payload is anchored to a stable `id`; the ledger never stores title-anchored references. | planned (M7 invariant) | D14-L |
 | I10-L | Offer envelopes, their responses, and capture hints all live in the transcript via `pi.appendEntry`; no parallel ephemeral channel carries elicitation state. | planned (M1+ invariant) | D12-L, D13-L |
+| I11-L | No durable graph mutation path — including migrations, maintenance scripts, or side-task-attributed writes — may bypass the command-layer transaction that performs version checks, allocates the commit LSN, and appends the change-log rows tagged with that LSN. | planned (M4 architectural + migration invariants) | D4-L, D15-L, D16-L |
+| I12-L | Side-task results are delivered only at turn boundaries; no side-task result may steer or mutate the active turn outside the next-turn delivery path. | planned (M7 side-task delivery invariant) | D15-L |
 
 ## Future Direction Register
 
@@ -216,6 +221,8 @@ Infrastructure is not yet laid (Phase 3 of POC bootstrapping). Commands below fo
 - **Inner loop:** run `npm run fix` after every meaningful edit. Tooling: oxlint (lint + type-aware via tsgolint), oxfmt (format), vitest (test). See AGENTS.md.
 - **Gate before commit:** `npm run verify`. All steps must pass; no override.
 - **Failure protocol:** stop on first failure; the failure becomes the must-fix task; re-run the stack from step 1; only proceed when all checks pass.
+- **Fixture architecture (pre-`ln-oracles` canonical stance):** the POC already adopts a three-layer middle/outer-loop model from [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md): replay regression (golden transcript/graph reproduction), property regression (structural invariants tolerant to model drift), and adversarial / generative probes (failure-mode discovery under brief/persona variation). This is already product architecture, not an optional later embellishment.
+- **Captured-run bundle:** fixture capture is expected to converge on `.jsonl`, `.graph.json`, `.coherence.json`, and `.meta.json` artefacts under `.brunch-fixtures/`, with transcript-first evidence arriving in M1 and graph/coherence artefacts arriving once M4 lands.
 - **Frontier-item completion** additionally requires that fixture-property assertions for the frontier's milestone pass (see [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)).
 - **Middle/outer loop verification design** (oracle strategy, diagnostic assessment, blind spots) is owned by `ln-oracles`. The fixture-strategy doc is the de-facto outer-loop oracle for the POC until `ln-oracles` runs a dedicated pass.
 

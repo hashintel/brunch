@@ -90,6 +90,13 @@ Validated assumptions retire by default. Promote the durable residue only when i
 
 Do **not** remove durable seam rationale merely because code and tests now exist. Prune micro-decisions, not the architectural spine.
 
+When syncing from canonical design docs or from outputs previously produced by `ln-design` / `ln-oracles`, preserve translation fidelity:
+
+- Cross-cutting subsystems or mechanisms that still shape active/next frontier work must not be reduced to lexicon-only mentions.
+- Enforcement mechanics that make an invariant real must survive somewhere in the live register if dropping them would permit a superficially compliant but architecturally wrong implementation.
+- Verification architecture already adopted by the project (for example replay/property/adversarial layers or fixture bootstrapping strategy) must remain visible in `memory/SPEC.md` even if `ln-oracles` has not yet elaborated the full oracle-design sections.
+- Chosen design shapes from `ln-design` should collapse to the durable winner and its tradeoffs, not vanish entirely because the alternatives are no longer live.
+
 Merge equivalent assumptions, decisions, and invariants instead of carrying parallel rows for the same seam-level fact. When rows merge or move, repair the references that point at them.
 
 When pruning, leave concise HTML comments naming removed IDs when useful. Do not renumber survivors.
@@ -132,6 +139,9 @@ Scan recent code / commits for:
 - equivalent facts that should merge instead of coexisting
 - prepared cards in `memory/CARDS.md` that should be retired, re-scoped, or reconciled into the next thread's live state
 - stale derivative artifacts that should be deleted after reconciliation
+- cross-cutting subsystems that appear only in glossary/design-doc links but are required by multiple active/next frontiers
+- verification strategy that is present in canonical docs or frontier definitions but absent from `memory/SPEC.md` §Verification Design
+- chosen module/API shapes or seam obligations from `ln-design` output that active frontier work still depends on
 
 ### 6. Garbage-collect derivative artifacts
 
@@ -167,6 +177,14 @@ Produce a concise sync report and make the edits.
 ### Remaining live items
 - [important assumptions or frontier work that still matter]
 ```
+
+Before finishing, perform a cross-skill preservation check:
+
+- If a later agent read only `memory/SPEC.md` and `memory/PLAN.md`, what durable design choices from `ln-design` would they miss?
+- What verification architecture or loop-tier strategy from `ln-oracles` or canonical docs would they miss?
+- What cross-cutting obligations would disappear because they are carried only by links, not by live rows or frontier definitions?
+
+If any answer is non-empty, sync is incomplete.
 
 ## Routing
 

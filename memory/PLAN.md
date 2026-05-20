@@ -58,6 +58,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Why now / unlocks:** First architectural proof of D1-L (depend on `pi-coding-agent`) and D2-L (opinionated product, not pi shell). Unlocks every subsequent milestone. Also doubles as the Phase-3 infra bootstrap (package.json, tsconfig, oxlint/oxfmt, vitest).
 - **Acceptance:** `brunch` launches a TUI session in a project directory; `.brunch/` is created; the spec-selector is presented before any agent loop runs; the chrome region displays cwd / spec / phase / chat-mode at all times; `npm run verify` is green.
 - **Verification:** Inner — `npm run fix` / `npm run verify`. Middle — manual TUI smoke against a scratch project. Outer — defer; first replay-regression fixture lands in M1.
+- **Cross-cutting obligations:** Preserve the `cwd → spec → session` hierarchy and the persistent chrome region as durable product surfaces, not temporary bootstrapping hacks.
 - **Traceability:** R1, R2, R3, R4, R19 / D1-L, D2-L, D6-L, D11-L / I8-L / A1-L, A10-L
 - **Design docs:** [prd.md §M0](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md), [pi-seam-extensions.md §3](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
 - **Current execution pointer:** scope first with `ln-scope` — first slice is likely "minimal binary boot + `.brunch/` resolution", then "spec selector + chrome".
@@ -71,7 +72,8 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Objective:** Add `--mode print` and `--mode rpc` dispatchers over the same Brunch host; land the agent-as-user JSON-RPC stdio driver and capture the first replay-regression fixtures for at least briefs #1–#3.
 - **Why now / unlocks:** Proves D5-L (JSON-RPC primary) and unlocks the fixture-driven feedback loop. Without this milestone, every downstream milestone has only manual TUI evidence.
 - **Acceptance:** `brunch --mode print` and `brunch --mode rpc` boot from the same host setup; an agent-as-user driver completes at least one brief end-to-end over stdio and writes a `.jsonl` + `.meta.json` bundle under `.brunch-fixtures/`; the first three briefs from BEHAVIORAL_KERNELS.md are captured.
-- **Verification:** Inner — verify gate. Middle — replay one captured fixture and assert byte-equivalence (modulo timestamps). Outer — at least the starter property invariants from fixture-strategy run on every capture.
+- **Verification:** Inner — verify gate. Middle — replay-regression fixture(s) assert transcript reproduction or graph equivalence as the golden basis. Outer — the three-layer fixture model is established in skeleton form here: replay regression is live now, while property and adversarial layers are wired to come online as later milestones supply the graph/coherence substrates.
+- **Cross-cutting obligations:** Keep the captured-run format forward-compatible with later `.graph.json` and `.coherence.json` artefacts; this frontier establishes the first layer of the canonical replay/property/adversarial fixture architecture rather than a one-off harness.
 - **Traceability:** R4, R5, R11, R20 / D5-L / I3-L, I10-L / A1-L, A5-L
 - **Design docs:** [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)
 
@@ -81,10 +83,11 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Linear:** unassigned
 - **Kind:** structural
 - **Status:** not-started
-- **Objective:** Prove whether pi `SessionManager` JSONL in `.brunch/sessions/` is rich enough to carry raw assistant/user payloads, Brunch custom turn entries (`brunch.offer`, `brunch.offer_response`, `brunch.spec_switch`, `brunch.lens_switch`, `worldUpdate`, `brunch.mention`, `brunch.mention_staleness_hint`), and session-scoped continuity metadata (`lastSeenLsn`, interest sets, compaction anchors) through reload.
+- **Objective:** Prove whether pi `SessionManager` JSONL in `.brunch/sessions/` is rich enough to carry raw assistant/user payloads, Brunch custom turn entries (`brunch.offer`, `brunch.offer_response`, `brunch.spec_switch`, `brunch.lens_switch`, `brunch.side_task_result`, `worldUpdate`, `brunch.mention`, `brunch.mention_staleness_hint`), and session-scoped continuity metadata (`lastSeenLsn`, interest sets, compaction anchors) through reload.
 - **Why now / unlocks:** Validates A2-L and pins D6-L. If JSONL is insufficient, M2 produces a sharply scoped fallback proposal that all later milestones can plan against.
-- **Acceptance:** Round-trip reload of a captured session preserves raw payloads byte-equivalent (modulo timestamps); all named Brunch custom entries survive; continuity metadata survives. If any of these fail, the failure is sharply documented and a fallback path is proposed (project richer substrate / mirror JSONL into richer records / propose pi upstream change).
-- **Verification:** Inner — verify gate. Middle — JSONL round-trip property tests. Outer — fixture replay parity.
+- **Acceptance:** Round-trip reload of a captured session preserves raw payloads byte-equivalent (modulo timestamps); all named Brunch custom entries survive, including side-task-result delivery entries when present; continuity metadata survives. If any of these fail, the failure is sharply documented and a fallback path is proposed (project richer substrate / mirror JSONL into richer records / propose pi upstream change).
+- **Verification:** Inner — verify gate. Middle — JSONL round-trip property tests. Outer — fixture replay parity across the transcript-first run bundle.
+- **Cross-cutting obligations:** This frontier is the transcript-side proof for the shared event substrate that later carries offers, lens/spec switches, side-task results, mentions, and `worldUpdate` without inventing a parallel channel.
 - **Traceability:** R7, R8 / D6-L / I3-L / A2-L
 - **Design docs:** archived [jsonl-session-viability-note](file:///Users/lunelson/Code/hashintel/brunch-next/archive/archive/docs/architecture/jsonl-session-viability-note.md)
 
@@ -98,6 +101,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Why now / unlocks:** Proves D10-L. Unlocks parallel UI work and visualises graph + coherence state. Sequenced after M2 so the transcript substrate is pinned before clients depend on it.
 - **Acceptance:** Web client connects via WebSocket RPC, lists specs from `SpecRegistry`, renders a transcript and the persistent chrome region, and round-trips offers + freeform user input through the same envelope as TUI.
 - **Verification:** Inner gate; middle — manual browser smoke; outer — at least one fixture replays identically into the web renderer.
+- **Cross-cutting obligations:** Preserve the single command/event substrate: the browser is a remote head over the same offer/transcript/session machinery, not a second data plane or custom interaction contract.
 - **Traceability:** R4, R11, R12 / D5-L, D10-L
 - **Design docs:** [prd.md §M3, §Frontend Architecture](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md)
 
@@ -109,10 +113,11 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Status:** not-started
 - **Objective:** Stand up SQLite-backed graph persistence; durable intent-plane nodes and edges; a single global LSN per commit; the change log; the reconciliation-need substrate; named homes for coherence state (verdicts and violations) — all forward-compatible with oracle, design, and plan planes.
 - **Why now / unlocks:** Pins I1-L, I6-L. Unlocks all agent ↔ graph work (M5+) and lets oracle / design / plan planes be added later without re-foundation.
-- **Acceptance:** Graph CRUD + change-log replay tests pass; reconciliation-need substrate accepts inserts/updates/resolutions with LSN invariants enforced; oracle-plane stub tables exist (Check, Validation Method, Evidence, Obligation) even if unused.
-- **Verification:** Inner gate; middle — property tests on LSN monotonicity and replay; outer — fixture property invariants on reconciliation-substrate begin running.
-- **Traceability:** R7, R9, R13 / D3-L, D4-L, D6-L, D8-L, D9-L / I1-L, I6-L, I7-L / A3-L, A4-L
-- **Design docs:** [pi-seam-extensions.md §Graph clock, §Reconciliation-need substrate, §Oracle plane](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
+- **Acceptance:** Graph CRUD + change-log replay tests pass; reconciliation-need substrate accepts inserts/updates/resolutions with LSN invariants enforced; oracle-plane stub tables exist (Check, Validation Method, Evidence, Obligation) even if unused; the persistence layer proves the one-transaction protocol that couples version checks, LSN allocation, change-log append, and any coherence updates.
+- **Verification:** Inner gate; middle — property tests on LSN monotonicity and replay plus architectural tests that no durable mutation path bypasses the command-layer transaction. Outer — fixture property invariants on reconciliation-substrate begin running.
+- **Cross-cutting obligations:** Establish the Drizzle + `better-sqlite3` persistence shape and the no-bypass transaction rule as shared infrastructure for later direct-agent, side-task, migration, and UI-attributed writes.
+- **Traceability:** R7, R9, R13 / D3-L, D4-L, D6-L, D8-L, D9-L, D16-L / I1-L, I6-L, I7-L, I11-L / A3-L, A4-L
+- **Design docs:** [pi-seam-extensions.md §1 Async side-chain sub-agents](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md#1-async-side-chain-sub-agents), [pi-seam-extensions.md §Graph clock, §Reconciliation-need substrate, §Oracle plane](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
 
 ### agent-graph-integration
 
@@ -121,10 +126,11 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Kind:** structural
 - **Status:** not-started
 - **Objective:** Brunch installs graph tools through pi's extension seams; agent graph operations route exclusively through the Brunch-owned command layer; web, TUI, and agent all observe the same changes.
-- **Acceptance:** Agent can create / update / link intent-plane nodes via Brunch tools; an architectural test or lint rule prevents direct DB access from outside the command layer; the same change observed across TUI and (if M3 lands) web client.
-- **Verification:** Inner gate; middle — command-layer contract tests; outer — kernel-card-output coverage assertions begin landing per brief.
-- **Traceability:** R10, R13 / D4-L / I2-L / A3-L
-- **Design docs:** [prd.md §M5, §Authority Model](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md)
+- **Acceptance:** Agent can create / update / link intent-plane nodes via Brunch tools; an architectural test or lint rule prevents direct DB access from outside the command layer; the same change observed across TUI and (if M3 lands) web client; if the registry lands here, side-task-attributed writes follow the same command-layer path.
+- **Verification:** Inner gate; middle — command-layer contract tests. Outer — kernel-card-output coverage assertions begin landing per brief and side-task-attributed writes, if present, remain indistinguishable from other writes at the command-layer boundary except for attribution.
+- **Cross-cutting obligations:** Preserve the single-authority mutation rule for both primary-agent and side-task flows; this frontier must not create a privileged write path for background work.
+- **Traceability:** R10, R13 / D4-L, D15-L / I2-L, I11-L / A3-L, A11-L
+- **Design docs:** [prd.md §M5, §Authority Model](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md), [pi-seam-extensions.md §1 Async side-chain sub-agents](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md#1-async-side-chain-sub-agents)
 
 ### authority-model
 
@@ -144,11 +150,12 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Linear:** unassigned
 - **Kind:** structural
 - **Status:** not-started
-- **Objective:** Graph-revision tracking; session interest sets; `worldUpdate` synthesised by `prepareNextTurn`; mention-ledger staleness hints; lens/spec switches recompute interest set before next agent turn.
-- **Acceptance:** Cross-session paired-brief fixture exercises `worldUpdate` filtering; mention-staleness hints synthesise when an entity changed since last snapshot; `brunch.spec_switch` and `brunch.lens_switch` recompute interest sets.
-- **Verification:** Inner gate; middle — property tests for I4-L, I5-L, I9-L; outer — paired-brief adversarial capture passes.
-- **Traceability:** R11, R13, R14, R18 / D6-L, D11-L, D14-L / I1-L, I4-L, I5-L, I9-L / A4-L, A9-L
-- **Design docs:** [pi-seam-extensions.md §5 Graph-entity mentions](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
+- **Objective:** Graph-revision tracking; session interest sets; `worldUpdate` synthesised by `prepareNextTurn`; mention-ledger staleness hints; side-task-result drain at the same boundary; lens/spec switches recompute interest set before next agent turn.
+- **Acceptance:** Cross-session paired-brief fixture exercises `worldUpdate` filtering; mention-staleness hints synthesise when an entity changed since last snapshot; succeeded side-task results are delivered only at the next turn boundary; `brunch.spec_switch` and `brunch.lens_switch` recompute interest sets.
+- **Verification:** Inner gate; middle — property tests for I4-L, I5-L, I9-L, and I12-L. Outer — paired-brief adversarial capture passes, including side-task delivery when the side-task subsystem is active.
+- **Cross-cutting obligations:** This frontier is the rendezvous point for Brunch's shared next-turn event semantics: `worldUpdate`, side-task results, lens/spec changes, and mention staleness must coexist without inventing a second event plane.
+- **Traceability:** R11, R13, R14, R18 / D6-L, D11-L, D14-L, D15-L / I1-L, I4-L, I5-L, I9-L, I12-L / A4-L, A9-L, A11-L
+- **Design docs:** [pi-seam-extensions.md §1 Async side-chain sub-agents](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md#1-async-side-chain-sub-agents), [pi-seam-extensions.md §5 Graph-entity mentions](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
 
 ### coherence-first-class
 
@@ -159,6 +166,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Objective:** Structural legality enforced synchronously; semantic coherence stored as explicit product state; UI and agent read the same coherence verdict; before-images available where needed.
 - **Acceptance:** "Contradictory requirements" adversarial brief produces an `incoherent` verdict with a backing open reconciliation need; coherence verdict surfaces in the TUI chrome and in `graph.*` reads.
 - **Verification:** Inner gate; middle — coherence-emission property tests; outer — adversarial fixture for contradictory requirements.
+- **Cross-cutting obligations:** Coherence verdicts must remain visible through the same transcript/graph authority model that side tasks, offers, and reconciliation needs already use; this frontier must not hide coherence behind a private subsystem.
 - **Traceability:** R12, R14 / D8-L / I6-L
 - **Design docs:** [pi-seam-extensions.md §Reconciliation-need substrate](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
 
@@ -169,9 +177,10 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Kind:** structural
 - **Status:** not-started
 - **Objective:** Compaction preserves graph and coherence anchors; interest sets can widen beyond direct reads when needed; conflict signaling remains intelligible at long horizons.
-- **Acceptance:** Long-horizon adversarial brief (50+ turns) replays through compaction with `lastSeenLsn` and interest set preserved; lens/spec switches across compaction boundaries do not desync.
-- **Verification:** Inner gate; middle — compaction round-trip tests; outer — long-horizon fixture passes.
-- **Traceability:** R15 / D6-L
+- **Acceptance:** Long-horizon adversarial brief (50+ turns) replays through compaction with `lastSeenLsn` and interest set preserved; lens/spec switches across compaction boundaries do not desync; active spec, lens identity, and any in-flight side-task bookkeeping remain intelligible after compaction.
+- **Verification:** Inner gate; middle — compaction round-trip tests. Outer — long-horizon fixture passes, including continuity checks for side-task and interest-set state when present.
+- **Cross-cutting obligations:** Preserve the coherence anchors, session continuity metadata, and side-task/lens/spec state that earlier milestones attached to the shared transcript/event substrate.
+- **Traceability:** R15 / D6-L, D15-L / I12-L
 - **Design docs:** [prd.md §Continuity, Divergence, and Coherence](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md)
 
 ### brief-library-curation
@@ -183,6 +192,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Objective:** Author and review briefs #4–#7 plus the adversarial second tier per fixture-strategy. Outputs are YAML briefs and one or two reviewer notes.
 - **Acceptance:** Briefs #1–#7 present in `.brunch-fixtures/briefs/`; adversarial briefs present with documented targets; expectations for brief #7 satisfied per fixture-strategy.
 - **Verification:** Doc review; spot-replay if the relevant harness milestone has landed.
+- **Cross-cutting obligations:** Keep the brief corpus aligned with the canonical replay/property/adversarial fixture model rather than letting it drift into a loose examples folder.
 - **Traceability:** R20 / A5-L
 - **Design docs:** [fixture-strategy.md §Brief library](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)
 
@@ -195,6 +205,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Objective:** Iterate `fixture-strategy.md` — property invariants, brief expectations, harness CLI shape — as real fixtures expose gaps.
 - **Acceptance:** Each milestone landing adds at least one new fixture-strategy entry (invariant, brief expectation, or harness note) or explicitly records "no change needed."
 - **Verification:** PR review on the doc; downstream fixture runs catch regressions.
+- **Cross-cutting obligations:** Treat fixture strategy as canonical verification architecture that must stay in sync with SPEC/PLAN, not as optional commentary.
 - **Traceability:** A5-L
 - **Design docs:** [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)
 

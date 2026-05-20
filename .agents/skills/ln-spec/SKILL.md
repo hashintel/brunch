@@ -56,9 +56,20 @@ Use the mature SPEC shape unless the existing project clearly predates it and th
 
 SPEC is a live register, not an archive. Keep stable product contract separate from live architectural uncertainty and future direction. Prefer short guardrails plus links to PLAN/design docs over long design-doc-scale prose.
 
+### Canonical-source ingestion
+
+When reseeding or reconciling SPEC from canonical design docs, do not merely compress by rhetorical importance. Translate each source artifact into the right durable home in SPEC.
+
+- **Cross-cutting subsystem or mechanism** that affects active/next frontier work, multiple milestones, or multiple adapters/modes must survive in SPEC as at least one active decision, assumption, invariant, or future-direction item. A glossary-only mention is not sufficient.
+- **Enforcement mechanics** that are load-bearing to an invariant may remain concise, but must survive if omitting them would permit an implementation that "satisfies" the invariant text while violating the architecture. Example shape: one decision naming the mechanism, plus one invariant naming the protected property.
+- **Verification architecture** imported from canonical docs must be preserved at the strategy level even before `ln-oracles` runs. If a source doc defines replay/property/adversarial layers, bootstrapping fixtures, or other middle/outer-loop structure that already shapes sequencing, seed that into `SPEC.md` §Verification Design rather than dropping it as "future oracle work."
+- **Design explorations** from `ln-design` should not be copied wholesale, but the chosen shape and any durable tradeoff that constrains callers, hidden complexity, or sequencing must reconcile into SPEC. If the design result still affects active work, it is not transient.
+
 ### Verification Design boundary
 
 ln-spec owns the **inner loop** of verification design: verification commands, verification policy, and inner-loop oracle items (type checks, fast unit tests, linting). Middle and outer loop oracle strategy, diagnostic assessment, and blind spots are owned by `ln-oracles`. Not every scoped slice requires a full oracle-design pass, but frontier items or slices involving LLM behavior, visual rendering, or compositional/system-level claims should route through `ln-oracles` before implementation. When writing or updating §Verification Design, preserve any content written by ln-oracles (§Verification Stance, §Diagnostic Assessment, §Oracle Strategy middle/outer tiers, §Design notes, §Acknowledged Blind Spots).
+
+Before `ln-oracles` has run, `ln-spec` still owns preserving already-chosen verification architecture from canonical product/design docs. Do not erase middle/outer-loop structure just because `ln-oracles` has not yet elaborated it.
 
 ### Traceability
 
@@ -86,6 +97,12 @@ Use the same unit-of-record rules as `ln-build` §Same-item tests. Before adding
 - detailed rationale better held by a design doc
 - future acceptance criteria better held by PLAN until the work is active
 
+**These usually ARE durable rows or section content** when they shape active work:
+- a cross-cutting subsystem mentioned by multiple active/next milestones
+- a mechanism that enforces a non-negotiable invariant or single-authority boundary
+- a selected module/API shape from `ln-design` that changes what callers know or what complexity is hidden
+- a verification strategy layer or fixture architecture that sequencing already depends on
+
 **Smell checks before adding:**
 - The sentence starts with "for this slice" or names a temporary cutover step → probably an update, not a new item
 - The difference is only approve/reject, confirm/force-close, or kind/phase/state variants of one shared rule → merge into the seam-level row
@@ -106,6 +123,16 @@ Every amendment must close its reference chain as far as the current lifecycle s
 - **New future direction** → has: PLAN frontier/horizon pointer or design-doc pointer; not full acceptance detail unless already active
 - **New constraint** → has: rationale for exclusion
 - **New inner-loop oracle item** → names the invariant(s) it protects
+
+### Cross-skill preservation check
+
+Before finishing, ask explicitly:
+
+- What durable design choices from `ln-design` or canonical design docs would be lost if a later agent read only `memory/SPEC.md`?
+- What verification architecture or loop-tier strategy from canonical docs or `ln-oracles` inputs would be lost if a later agent read only `memory/SPEC.md`?
+- What cross-cutting subsystems appear only in lexicon/design-doc links and nowhere in assumptions/decisions/invariants/future direction, despite shaping active or next work?
+
+If any answer is non-empty, amend SPEC before stopping.
 
 ## Routing
 

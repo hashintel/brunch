@@ -30,6 +30,7 @@ Treat the containing `memory/PLAN.md` frontier item as the Linear-issue / branch
 If this is a fresh thread or an unfamiliar area, also read `HANDOFF.md` if present. Read `docs/archive/PLAN_HISTORY.md` only if the frontier rationale or touched area is still unclear.
 
 Write a 2-4 bullet orientation note naming the containing seam, the relevant frontier item, volatile handoff state, and the main open risk.
+Also name any frontier-level cross-cutting obligations that this slice must preserve or establish (for example a shared command-layer invariant, a side-task/event-substrate rule, or a replay/property/adversarial verification layer).
 
 Do not create new planning documents or scratch scope files without explicit permission. The canonical planning state remains `memory/SPEC.md` and `memory/PLAN.md`. The sanctioned derivative exception is `memory/CARDS.md`, which may hold several prepared scope cards for one frontier item while that execution queue is still live.
 
@@ -122,6 +123,15 @@ Name the oracle strategy for this slice.
 - Outer: [oracle family] — [what it proves] (if applicable)
 ```
 
+### Cross-cutting obligations
+
+List any shared subsystem, invariant, or verification-layer obligations inherited from the containing frontier that this slice must preserve or advance.
+
+```
+- [obligation]
+- [obligation]
+```
+
 ## Light scope card
 
 ### Objective
@@ -143,6 +153,14 @@ Single sentence: what this work changes for the user, operator, or codebase.
 - Outer: [if needed]
 ```
 
+### Cross-cutting obligations
+
+For light cards, include this section whenever the containing frontier definition or `memory/SPEC.md` names shared obligations that would be easy to miss during implementation.
+
+```
+- [obligation]
+```
+
 ### Promotion checklist
 
 If any answer is yes, stop treating the work as light and promote it to a full scope card before routing to `ln-build`. Do not quietly carry durable change under a light card.
@@ -151,6 +169,7 @@ If any answer is yes, stop treating the work as light and promote it to a full s
 - [ ] Does this create, retire, or invalidate an assumption?
 - [ ] Does this make or reverse a non-trivial design decision?
 - [ ] Does this establish a new seam-level invariant?
+- [ ] Does this change a frontier-level cross-cutting obligation or verification architecture layer?
 - [ ] Does it cross more than two major seams?
 - [ ] Is this the first touch in an unfamiliar seam from a fresh thread?
 - [ ] Can you not name the containing seam or current rationale from the live docs?
@@ -162,6 +181,8 @@ Canonical reconciliation is **mandatory**; durable updates are **conditional**.
 - Full scope card: update `memory/SPEC.md` / `memory/PLAN.md` as needed during or after scoping.
 - Light scope card: run the promotion checklist explicitly. If it stays light, canonical reconciliation may be a no-op; if it promotes, reconcile the durable change before build.
 - Multi-card queue: keep the queue itself in `memory/CARDS.md`, but do not mirror those queued slice cards into `memory/PLAN.md` unless the frontier item itself changes. At most, add a lightweight `Current execution pointer` in the frontier definition.
+
+Do not let the scope card strip away cross-cutting obligations just because the implementation slice is narrow. The card should make visible any shared architecture or verification rule the builder must carry while working locally.
 
 When adding or updating an assumption, apply the same-item test first:
 

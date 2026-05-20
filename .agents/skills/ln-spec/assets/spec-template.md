@@ -54,6 +54,8 @@
      live alternatives at a seam or defines durable architectural authority.
      Micro-decisions, helper names, file layout, and implementation steps should
      live in code/design docs or be omitted. Group decisions by subsystem when useful.
+     Cross-cutting subsystems and enforcement mechanisms that multiple active/next
+     frontier items depend on belong here even when they are not separate frontier ids.
      Leave concise retirement comments for removed ID ranges when helpful. -->
 
 - **D1-U — [Decision]** — [rationale]. Depends on: [A1-U]. Supersedes: [—|D#-U].
@@ -117,6 +119,11 @@
 ### Verification Policy
 
 <!-- General verification policy, including inner loop and gate expectations. -->
+
+<!-- If canonical design/product docs already define middle/outer-loop verification
+     architecture (fixture layers, replay/property/adversarial model, bootstrapping
+     strategy), preserve a compact statement of that architecture here even before
+     ln-oracles elaborates it into the fuller sections below. -->
 
 <!-- === Sections below are usually written/refreshed by ln-oracles, not ln-spec ===
      When running ln-spec, preserve these sections if they exist unless the user asked

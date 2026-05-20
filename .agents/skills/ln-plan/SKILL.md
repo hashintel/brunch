@@ -86,6 +86,8 @@ Do not fragment the plan for minor action/status variants or ordinary follow-thr
 
 Do not split one frontier item into several new PLAN entries just because execution will require several scope cards or commits. Only split when the frontier itself changes shape, ownership, or dependency ordering.
 
+But do not let anti-fragmentation erase cross-cutting architecture. If a subsystem or mechanism spans multiple frontier items and is not getting its own frontier id, thread it explicitly through the affected frontier definitions as an obligation in Objective, Acceptance, Verification, or a dedicated cross-cutting note.
+
 ### Sequencing vs definition edits
 
 When priorities change, edit `Sequencing` first. Do not move or rewrite frontier definitions merely to reorder work.
@@ -110,6 +112,18 @@ If live low-confidence assumptions block downstream work, stop the plan at that 
 8. Update `Dependencies` to reflect only active / next items, by frontier id.
 9. If several commit-sized execution steps are already obvious inside one frontier item, keep them out of `memory/PLAN.md`; they belong in `memory/CARDS.md` or in the active thread as derivative execution detail.
 
+### Cross-cutting obligations
+
+When a canonical design doc or `memory/SPEC.md` defines a cross-cutting subsystem, enforcement mechanism, or verification layer that spans multiple frontiers, ensure it is visible somewhere in each affected frontier definition unless the frontier truly does not touch it.
+
+Good examples:
+
+- a side-task subsystem that affects M5, M7, and M9 even though it is not its own frontier
+- a command-layer / transaction invariant that every persistence frontier must preserve
+- a replay/property/adversarial fixture model that changes what `Verification` means for several milestones
+
+The test is simple: if an agent read only `memory/PLAN.md`, would they know this frontier must preserve or establish that cross-cutting thing? If not, the plan is under-specified.
+
 ## Traceability
 
 Traceability is conditional on structural significance.
@@ -117,6 +131,8 @@ Traceability is conditional on structural significance.
 - Structural frontier items should name relevant requirements, assumptions, decisions, or invariants from `memory/SPEC.md`.
 - Bounded features and hardening tasks only need SPEC links if they change durable boundaries or depend on a live assumption.
 - Scope-card slices inherit traceability from their containing frontier unless `ln-scope` discovers a durable change that must promote back into SPEC/PLAN.
+
+Do not rely on traceability alone to carry cross-cutting obligations. If a frontier depends on a subsystem or verification model that is easy to miss from bare id references, restate it succinctly in the frontier definition.
 
 ## Output
 

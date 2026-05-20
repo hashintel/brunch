@@ -28,6 +28,7 @@ If this is a fresh thread or an unfamiliar area, reload:
 4. `docs/archive/PLAN_HISTORY.md` only if the frontier or touched area is still unclear
 
 Write a 2-4 bullet orientation note naming the containing seam, the frontier item, any manual verification debt, and the main open risk.
+Also name any frontier-level cross-cutting obligations the slice inherits (for example shared mutation-authority rules, side-task/event-substrate semantics, or verification-layer commitments).
 
 If the request is a direct fix and you cannot name the containing seam or whether it is settled, stop and route through `ln-scope` first.
 
@@ -98,6 +99,7 @@ After the build lands and verification passes, ask:
 - [ ] Did this make or reverse a non-trivial design decision?
 - [ ] Did this retire or create an assumption?
 - [ ] Did this establish a new seam-level invariant?
+- [ ] Did this change a frontier-level cross-cutting obligation or verification architecture layer?
 
 ### If all answers are no
 
@@ -105,6 +107,7 @@ After the build lands and verification passes, ask:
 - Update `Recently Completed` if the plan uses it
 - Do **not** add new SPEC/PLAN bookkeeping just because a slice happened
 - If the slice was non-trivial, required manual verification, or leaves residual risk that matters beyond the current session, record it in the containing frontier definition or a terse `Recently Completed` entry only when it affects frontier-level re-entry
+- If the slice touched a named cross-cutting obligation but did not change it, preserve or refresh that obligation in the touched frontier definition instead of assuming traceability links are enough context
 
 ### If any answer is yes
 
@@ -121,6 +124,7 @@ Update only the touched traceability items.
 1. **PLAN**
    - Mark the frontier item done if this slice completed it
    - If the change closes, blocks, or unblocks a frontier item, reflect that in `Sequencing`, the affected `Frontier Definitions` entry, or `Recently Completed`
+   - If the build changed a frontier-level cross-cutting obligation, update the affected frontier definition explicitly; do not hide the change behind bare traceability IDs
    - Do not mirror detailed slice/card history into `memory/PLAN.md`; keep active execution queues in `memory/CARDS.md`
 
 2. **Assumptions**
@@ -141,6 +145,8 @@ Update only the touched traceability items.
 When uncertain between merge and add, add. When uncertain between update and no-op, update.
 
 If uncertain whether the seam is actually settled, promote — do not silently keep the work light.
+
+Before finishing reconciliation, perform a quick cross-skill check: if a later agent read only `memory/SPEC.md`, `memory/PLAN.md`, and the touched frontier definition, would they miss a durable design choice or verification commitment that this build changed or relied on? If yes, reconcile it before stopping.
 
 ### Retire derivative artifacts
 
