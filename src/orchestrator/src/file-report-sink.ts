@@ -1,4 +1,4 @@
-import { appendFileSync, readFileSync, existsSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 
 import type { ReportLine, ReportSink } from './types.js';
 
@@ -10,7 +10,6 @@ export class FileReportSink implements ReportSink {
   private lines: ReportLine[] = [];
 
   constructor(private readonly path: string) {
-    // Load existing lines if file exists (for resumability-readiness)
     if (existsSync(path)) {
       const content = readFileSync(path, 'utf8').trim();
       if (content) {
@@ -24,8 +23,6 @@ export class FileReportSink implements ReportSink {
   append(line: ReportLine): void {
     this.lines.push(line);
     appendFileSync(this.path, JSON.stringify(line) + '\n');
-    // Stream to stdout — plain JSON per event (§12 POC UX)
-    console.log(JSON.stringify(line));
   }
 
   getById(id: string): ReportLine | undefined {

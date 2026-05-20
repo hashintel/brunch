@@ -8,6 +8,7 @@ describe('parseCookArgs', () => {
     expect(opts.dir).toContain('fixtures/txt');
     expect(opts.engine).toBe('proc');
     expect(opts.maxRetries).toBe(3);
+    expect(opts.verbose).toBe(false);
   });
 
   it('parses --engine=petri', () => {
@@ -26,5 +27,10 @@ describe('parseCookArgs', () => {
 
   it('throws on unknown engine', () => {
     expect(() => parseCookArgs(['./f', '--engine=unknown'])).toThrow('Unknown engine');
+  });
+
+  it('parses --verbose', () => {
+    expect(parseCookArgs(['./f', '--verbose']).verbose).toBe(true);
+    expect(parseCookArgs(['./f', '-v']).verbose).toBe(true);
   });
 });

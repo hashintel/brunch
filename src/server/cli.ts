@@ -24,6 +24,7 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log('Cook flags:');
   console.log('  --engine=proc|petri  Execution engine (default: proc)');
   console.log('  --max-retries=N      Retry budget per slice (default: 3)');
+  console.log('  --verbose, -v        Show raw pi-agent output');
   process.exit(0);
 }
 
