@@ -15,6 +15,7 @@ import type { KnowledgeKind } from '@/shared/knowledge.js';
 import { usePatchListForChat, type PatchListForChat } from './patch-list-host.js';
 import { SecondaryChatCollapsible, SecondaryChatComposerPanel } from './secondary-chat-collapsible.js';
 import { extractStagedIntents } from './secondary-chat-host/extract-staged-intents.js';
+import { persistedUserPartsShowsComposerText } from './secondary-chat-host/persisted-user-parts-match.js';
 import type { MentionItem } from './secondary-chat-mention-popup.js';
 import { useSetSecondaryChatModeMutation } from './secondary-chat-trigger.js';
 
@@ -128,10 +129,7 @@ function useSecondaryChatStream(
     if (!isStreaming) return null;
     const text = extractPendingUserText(messages);
     if (!text) return null;
-    // Skip if the bundle already has the same text — avoids duplicate render
-    // during the brief window after invalidation completes but useChat still
-    // holds the same message.
-    if (text === lastBundleUserText) return null;
+    if (persistedUserPartsShowsComposerText(text, lastBundleUserText)) return null;
     return text;
   }, [isStreaming, lastBundleUserText, messages]);
 
