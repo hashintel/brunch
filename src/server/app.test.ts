@@ -4708,6 +4708,49 @@ describe('POST /api/specifications/:id/secondary-chats', () => {
     expect(secondary?.chat.pinned_span_hint).toBe('product-market fit');
   });
 
+  it('refreshes invoked_in_turn_id and pinned_span_hint when re-triggered for the same item from a later turn', async () => {
+    // Bot round 5 (cursor#3272179870): dedupe used to swallow the new
+    // anchor context, leaving jump-to-anchor stuck on the first open
+    // turn. The route now refreshes invoked_in_turn_id + pinned_span_hint
+    // so the persisted anchor tracks the most recent invocation.
+    const specificationId = await createTestSpecification('FE-716 anchor refresh');
+    const item = await setupItem(specificationId);
+    const parentChatId = await getParentChatId(specificationId);
+    const { createTurn } = await import('./db.js');
+    const firstTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q1' });
+    const secondTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q2' });
+
+    const firstRes = await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: firstTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+        spanHint: 'first hint',
+      })
+      .expect(200);
+    expect(firstRes.body.kickoffTurnId).toBeGreaterThan(0);
+
+    const secondRes = await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: secondTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+        spanHint: 'second hint',
+      })
+      .expect(200);
+    expect(secondRes.body.chatId).toBe(firstRes.body.chatId);
+    expect(secondRes.body.kickoffTurnId).toBeNull();
+
+    const snapshot = await getSpecificationSnapshot(specificationId);
+    const row = snapshot.secondaryChats?.find((r) => r.chat.id === firstRes.body.chatId);
+    expect(row?.chat.invoked_in_turn_id).toBe(secondTurn.id);
+    expect(row?.chat.pinned_span_hint).toBe('second hint');
+  });
+
   it('persists pinned_reconciliation_need_id and hydrates pinnedReconciliationNeed in the bundle (FE-716 C9)', async () => {
     const specificationId = await createTestSpecification('FE-716 C9 need');
     const item = await setupItem(specificationId);

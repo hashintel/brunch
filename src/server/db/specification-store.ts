@@ -344,7 +344,25 @@ export function getOrCreateItemSecondaryChat(
 ): GetOrCreateItemSecondaryChatResult {
   const existing = findItemSecondaryChat(db, specificationId, input.parent_chat_id, input.itemId);
   if (existing) {
-    return { chat: existing, kickoffTurnId: null };
+    // Refresh `invoked_in_turn_id` (and `pinned_span_hint`) when re-triggered
+    // so the persisted anchor tracks the *latest* invocation context.
+    // Without this, jump-to-anchor + scroll targets would stay pinned to the
+    // first turn the chat was opened from, even after the user re-triggers
+    // from a much later turn.
+    const nextInvokedInTurnId = input.invokedInTurnId ?? null;
+    const nextSpanHint = input.spanHint ?? null;
+    const anchorChanged =
+      nextInvokedInTurnId !== existing.invoked_in_turn_id || nextSpanHint !== existing.pinned_span_hint;
+    if (!anchorChanged) {
+      return { chat: existing, kickoffTurnId: null };
+    }
+    const refreshed = db
+      .update(schema.chat)
+      .set({ invoked_in_turn_id: nextInvokedInTurnId, pinned_span_hint: nextSpanHint })
+      .where(eq(schema.chat.id, existing.id))
+      .returning()
+      .get() as Chat;
+    return { chat: refreshed, kickoffTurnId: null };
   }
 
   const item = db
