@@ -1,5 +1,13 @@
 import { readFile } from "node:fs/promises"
 
+import type {
+  CustomEntry,
+  CustomMessageEntry,
+  FileEntry,
+  SessionEntry,
+  SessionMessageEntry,
+} from "@earendil-works/pi-coding-agent"
+
 const STRUCTURED_RESPONSE_TYPES = new Set([
   "brunch.elicitation_response",
   "brunch.action_response",
@@ -29,28 +37,18 @@ export interface ElicitationExchangeProjection {
   openPrompt: OpenPromptProjection | null
 }
 
-interface TranscriptEntry {
-  id: string
-  type?: string
-  role?: string
-  customType?: string
-  message?: {
-    role?: string
-  }
-}
-
 export async function loadJsonlTranscriptEntries(
   file: string,
-): Promise<unknown[]> {
+): Promise<FileEntry[]> {
   const content = await readFile(file, "utf8")
   return content
     .split("\n")
     .filter((line) => line.trim().length > 0)
-    .map((line) => JSON.parse(line) as unknown)
+    .map((line) => JSON.parse(line) as FileEntry)
 }
 
 export function projectElicitationExchanges(
-  entries: unknown[],
+  entries: readonly unknown[],
 ): ElicitationExchangeProjection {
   const exchanges: ElicitationExchange[] = []
   let promptIds: string[] = []
@@ -111,16 +109,18 @@ function rangeFor(ids: string[]): EntryRange {
   return { start: ids[0]!, end: ids[ids.length - 1]! }
 }
 
-function isTranscriptEntry(value: unknown): value is TranscriptEntry {
+function isTranscriptEntry(value: unknown): value is SessionEntry {
   return (
     typeof value === "object" &&
     value !== null &&
-    typeof (value as { id?: unknown }).id === "string"
+    (value as { type?: unknown }).type !== "session" &&
+    typeof (value as { id?: unknown }).id === "string" &&
+    typeof (value as { type?: unknown }).type === "string"
   )
 }
 
-function isPromptSideEntry(entry: TranscriptEntry): boolean {
-  if (entry.type === "custom" && entry.customType?.includes("prompt")) {
+function isPromptSideEntry(entry: SessionEntry): boolean {
+  if (isCustomTranscriptEntry(entry) && entry.customType.includes("prompt")) {
     return true
   }
 
@@ -128,19 +128,29 @@ function isPromptSideEntry(entry: TranscriptEntry): boolean {
   return role === "assistant" || role === "system" || role === "tool"
 }
 
-function isResponseSideEntry(entry: TranscriptEntry): boolean {
+function isResponseSideEntry(entry: SessionEntry): boolean {
   if (roleOf(entry) === "user") {
     return true
   }
   return (
-    entry.type === "custom" &&
-    STRUCTURED_RESPONSE_TYPES.has(entry.customType ?? "")
+    isCustomTranscriptEntry(entry) &&
+    STRUCTURED_RESPONSE_TYPES.has(entry.customType)
   )
 }
 
-function roleOf(entry: TranscriptEntry): string | undefined {
-  if (entry.type === "message") {
-    return entry.message?.role
+function isCustomTranscriptEntry(
+  entry: SessionEntry,
+): entry is CustomEntry | CustomMessageEntry {
+  return entry.type === "custom" || entry.type === "custom_message"
+}
+
+function roleOf(entry: SessionEntry): string | undefined {
+  if (isMessageEntry(entry)) {
+    return entry.message.role
   }
-  return entry.role
+  return undefined
+}
+
+function isMessageEntry(entry: SessionEntry): entry is SessionMessageEntry {
+  return entry.type === "message"
 }

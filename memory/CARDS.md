@@ -105,7 +105,7 @@ Make fixture brief documentation and plan text agree with the implemented JSON b
 
 ## Card 3 — Pi session-entry source-of-truth typing cleanup
 
-**Status:** queued
+**Status:** done
 
 ### Weight
 
