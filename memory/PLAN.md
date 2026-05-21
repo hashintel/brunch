@@ -92,6 +92,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Cross-cutting obligations:** This frontier is the transcript-side proof for the shared event substrate that later carries structured elicitation entries, session binding, lens switches, side-task results, mentions, and `worldUpdate` without inventing a parallel channel or canonical chat/turn store. JSONL viability must validate sessions created through the `WorkspaceSessionCoordinator`, including the first-entry binding and `/new` same-spec behavior.
 - **Traceability:** R7, R8, R16, R17, R19 / D6-L, D11-L, D12-L, D13-L, D18-L / I3-L, I8-L, I10-L / A2-L, A12-L
 - **Design docs:** archived [jsonl-session-viability-note](file:///Users/lunelson/Code/hashintel/brunch-next/archive/archive/docs/architecture/jsonl-session-viability-note.md)
+- **Current execution pointer:** `memory/CARDS.md` queue — build JSONL reload parity, custom-entry survival, active-branch projection, and M1 fixture replay evidence slices.
 
 ### web-shell
 
