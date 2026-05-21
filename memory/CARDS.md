@@ -137,7 +137,7 @@ Callers that need elicitation exchanges use one product-facing helper that loads
 
 ## Card 4 — Web mode HTTP shell
 
-- **Status:** queued
+- **Status:** done
 - **Weight:** full structural card
 
 ### Target Behavior

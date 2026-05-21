@@ -73,6 +73,25 @@ function collectStream(stream: PassThrough): string[] {
 }
 
 describe("Brunch CLI dispatch", () => {
+  it("routes --mode web through an injectable web host runner", async () => {
+    let launchedWith: {
+      cwd: string
+      coordinator: WorkspaceSessionCoordinator
+    } | null = null
+
+    const code = await runBrunchCli({
+      argv: ["--mode=web"],
+      cwd: "/tmp/brunch-project",
+      coordinator: coordinator(),
+      webHostRunner: async (options) => {
+        launchedWith = options
+      },
+    })
+
+    expect(code).toBe(0)
+    expect(launchedWith).toMatchObject({ cwd: "/tmp/brunch-project" })
+  })
+
   it("routes --mode print through the coordinator snapshot and exits", async () => {
     let output = ""
 

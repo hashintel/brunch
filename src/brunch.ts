@@ -8,10 +8,16 @@ import {
   workspaceSnapshotFromState,
 } from "./print-snapshot.js"
 import { createRpcHandlers, runJsonRpcLineServer } from "./rpc.js"
+import { startWebHost } from "./web-host.js"
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
 } from "./workspace-session-coordinator.js"
+
+export interface WebHostRunnerOptions {
+  cwd: string
+  coordinator: WorkspaceSessionCoordinator
+}
 
 export interface BrunchCliOptions {
   argv?: string[]
@@ -19,6 +25,7 @@ export interface BrunchCliOptions {
   coordinator?: WorkspaceSessionCoordinator
   stdin?: Readable
   stdout?: Writable | ((chunk: string) => void)
+  webHostRunner?: (options: WebHostRunnerOptions) => Promise<void>
 }
 
 export async function runBrunchCli(
@@ -46,12 +53,24 @@ export async function runBrunchCli(
     return 0
   }
 
+  if (mode === "web") {
+    await (options.webHostRunner ?? runDefaultWebHost)({ cwd, coordinator })
+    return 0
+  }
+
   if (mode === "tui") {
     await runBrunchTui({ cwd, coordinator })
     return 0
   }
 
   throw new Error(`Unsupported Brunch mode: ${mode}`)
+}
+
+async function runDefaultWebHost(options: WebHostRunnerOptions): Promise<void> {
+  void options.coordinator
+  const host = await startWebHost({ cwd: options.cwd })
+  process.stdout.write(`Brunch web listening on ${host.url}\n`)
+  await new Promise<void>(() => {})
 }
 
 function writeStdout(
