@@ -81,9 +81,10 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 ### jsonl-session-viability
 
 - **Name:** JSONL session viability proof
-- **Linear:** unassigned
+- **Linear:** [FE-736](https://linear.app/hash/issue/FE-736/jsonl-session-viability-proof)
+- **Branch:** `ln/fe-736-jsonl-session-viability` (stacked on `ln/fe-735-mode-shell-fixture-driver`)
 - **Kind:** structural
-- **Status:** not-started
+- **Status:** active
 - **Objective:** Prove whether pi `SessionManager` JSONL in `.brunch/sessions/` is rich enough to carry raw assistant/user payloads, Brunch session binding (`brunch.session_binding`), structured elicitation prompt/response entries when needed, other custom entries (`brunch.lens_switch`, `brunch.side_task_result`, `worldUpdate`, `brunch.mention`, `brunch.mention_staleness_hint`), and session-scoped continuity metadata (`lastSeenLsn`, interest sets, compaction anchors) through reload.
 - **Why now / unlocks:** Validates A2-L and pins D6-L. If JSONL is insufficient, M2 produces a sharply scoped fallback proposal that all later milestones can plan against.
 - **Acceptance:** Round-trip reload of a captured session preserves raw payloads byte-equivalent (modulo timestamps); session binding and structured elicitation entries survive; elicitation exchanges can be re-projected from the active branch after reload; all named Brunch custom entries survive, including side-task-result delivery entries when present; continuity metadata survives. If any of these fail, the failure is sharply documented and a fallback path is proposed (project richer substrate / mirror JSONL into richer records / propose pi upstream change).
