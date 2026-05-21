@@ -108,12 +108,18 @@ function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
   // (deferred until eligible places exist — see below)
   const seedEpics = plan.epics.filter((e) => e.depends_on.length === 0);
 
-  // Epic dependency transitions — ALL deps done → fan out to next epic's slices
+  // Epic dependency wiring — per-dependent signal places (avoids token starvation
+  // when multiple epics depend on the same predecessor)
   for (const epic of plan.epics) {
     if (epic.depends_on.length > 0) {
+      const signalPlaces = epic.depends_on.map((depId) => {
+        const signalPlace = ep(depId, `dep-signal:${epic.id}`);
+        net.addPlace(signalPlace);
+        return signalPlace;
+      });
       net.addTransition({
         id: `epic-deps-met:${epic.id}`,
-        inputs: epic.depends_on.map((depId) => ep(depId, 'done')),
+        inputs: signalPlaces,
         fire: async () => epicReadyOutputs(epic.id),
       });
     }
@@ -293,6 +299,18 @@ function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
 
     if (epicSlices.length === 0) continue;
 
+    // Find epics that depend on this one — emit dep-signal tokens on completion
+    const epicDependents = plan.epics.filter((e) => e.depends_on.includes(epic.id));
+    function epicDoneOutputs(): { place: string; token: Token }[] {
+      const outputs: { place: string; token: Token }[] = [
+        { place: ep(epic.id, 'done'), token: { sliceId: '', epicId: epic.id } },
+      ];
+      for (const dep of epicDependents) {
+        outputs.push({ place: ep(epic.id, `dep-signal:${dep.id}`), token: { sliceId: '', epicId: epic.id } });
+      }
+      return outputs;
+    }
+
     if (epic.verification.length === 0) {
       // No verification — slices done → epic done
       net.addTransition({
@@ -300,7 +318,7 @@ function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
         inputs: completedPlaces,
         fire: async () => {
           ctx.epicOutcomes.set(epic.id, { epicId: epic.id, status: 'completed' });
-          return [{ place: ep(epic.id, 'done'), token: { sliceId: '', epicId: epic.id } }];
+          return epicDoneOutputs();
         },
       });
     } else {
@@ -331,7 +349,7 @@ function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
           const passed = !!(report?.payload as { passed?: boolean })?.passed;
           if (passed) {
             ctx.epicOutcomes.set(epic.id, { epicId: epic.id, status: 'completed' });
-            return [{ place: ep(epic.id, 'done'), token: { sliceId: '', epicId: epic.id } }];
+            return epicDoneOutputs();
           }
           ctx.epicOutcomes.set(epic.id, { epicId: epic.id, status: 'halted' });
           ctx.halted = true;

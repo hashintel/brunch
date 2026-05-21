@@ -6,6 +6,7 @@ import type {
   Orchestrator,
   OrchestratorInput,
   OrchestratorResult,
+  Plan,
   Slice,
   SliceOutcome,
 } from './types.js';
@@ -57,13 +58,13 @@ export class ProceduralOrchestrator implements Orchestrator {
 
       if (epicHalted) {
         epicOutcomes.push({ epicId: epic.id, status: 'halted' });
-        return {
-          status: 'halted',
-          reason: `Epic ${epic.id} halted due to slice failure`,
-          reports: reportIds,
-          epics: epicOutcomes,
-          slices: sliceOutcomes,
-        };
+        return this.haltedResult(
+          plan,
+          `Epic ${epic.id} halted due to slice failure`,
+          reportIds,
+          epicOutcomes,
+          sliceOutcomes,
+        );
       }
 
       // Epic-level verification (one call — handler owns all targets)
@@ -79,13 +80,13 @@ export class ProceduralOrchestrator implements Orchestrator {
         const verifyReport = reports.getById(verifyId);
         if (verifyReport && !(verifyReport.payload as { passed?: boolean }).passed) {
           epicOutcomes.push({ epicId: epic.id, status: 'halted' });
-          return {
-            status: 'halted',
-            reason: `Epic ${epic.id} verification failed`,
-            reports: reportIds,
-            epics: epicOutcomes,
-            slices: sliceOutcomes,
-          };
+          return this.haltedResult(
+            plan,
+            `Epic ${epic.id} verification failed`,
+            reportIds,
+            epicOutcomes,
+            sliceOutcomes,
+          );
         }
       }
 
@@ -98,6 +99,25 @@ export class ProceduralOrchestrator implements Orchestrator {
       epics: epicOutcomes,
       slices: sliceOutcomes,
     };
+  }
+
+  /** Fill in unreached items as halted before returning a halted result. */
+  private haltedResult(
+    plan: Plan,
+    reason: string,
+    reportIds: string[],
+    epicOutcomes: EpicOutcome[],
+    sliceOutcomes: SliceOutcome[],
+  ): OrchestratorResult {
+    const seenEpics = new Set(epicOutcomes.map((e) => e.epicId));
+    const seenSlices = new Set(sliceOutcomes.map((s) => s.sliceId));
+    for (const epic of plan.epics) {
+      if (!seenEpics.has(epic.id)) epicOutcomes.push({ epicId: epic.id, status: 'halted' });
+    }
+    for (const slice of plan.slices) {
+      if (!seenSlices.has(slice.id)) sliceOutcomes.push({ sliceId: slice.id, status: 'halted' });
+    }
+    return { status: 'halted', reason, reports: reportIds, epics: epicOutcomes, slices: sliceOutcomes };
   }
 
   private async executeSlice(
