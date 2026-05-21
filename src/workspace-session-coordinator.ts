@@ -76,6 +76,7 @@ export interface WorkspaceSessionCoordinator {
   openExisting(): Promise<WorkspaceSessionState>
   startOrCreate(options?: {
     specTitle?: string
+    createNewSpec?: boolean
   }): Promise<WorkspaceSessionReadyState>
   createNewSessionForCurrentSpec(): Promise<WorkspaceSessionState>
   bindCurrentSpecToSession(
@@ -119,10 +120,14 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
 
   async startOrCreate(options?: {
     specTitle?: string
+    createNewSpec?: boolean
   }): Promise<WorkspaceSessionReadyState> {
     await ensureWorkspaceDirs(this.#cwd)
     const existing = await readWorkspaceState(this.#cwd)
-    const spec = existing?.currentSpec ?? createSpec(options?.specTitle)
+    const spec =
+      existing && !options?.createNewSpec
+        ? existing.currentSpec
+        : createSpec(options?.specTitle)
     const session = await createBoundSession(this.#cwd, spec)
     await writeCurrentWorkspaceState(this.#cwd, spec, session.file)
     return readyState(this.#cwd, spec, session)

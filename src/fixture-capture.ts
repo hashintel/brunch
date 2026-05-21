@@ -143,15 +143,10 @@ async function openScriptedBriefSession(
   coordinator: WorkspaceSessionCoordinator,
   brief: FixtureBrief,
 ) {
-  const existing = await coordinator.openExisting()
-  if (existing.status === "ready") {
-    const next = await coordinator.createNewSessionForCurrentSpec()
-    if (next.status === "ready") {
-      return next
-    }
-  }
-
-  return coordinator.startOrCreate({ specTitle: brief.title })
+  return coordinator.startOrCreate({
+    specTitle: brief.title,
+    createNewSpec: true,
+  })
 }
 
 async function callRpc<T>(

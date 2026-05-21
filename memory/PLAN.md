@@ -68,7 +68,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Linear:** [FE-735](https://linear.app/hash/issue/FE-735/mode-shell-and-fixture-driver-m1) (sub-issue of FE-702)
 - **Branch:** `ln/fe-735-mode-shell-fixture-driver` (stacked on `ln/fe-729-walking-skeleton`)
 - **Kind:** structural
-- **Status:** done
+- **Status:** review-fix
 - **Objective:** Add `--mode print` and `--mode rpc` transport dispatchers over the same Brunch host and named RPC method-family handlers; land the agent-as-user JSON-RPC stdio driver; prove transcript projection of elicitation exchanges; and capture the first replay-regression fixtures for at least briefs #1–#3. For M1, print mode is a snapshot renderer/proof-of-life, not a single-turn agent run.
 - **Why now / unlocks:** Proves D5-L (JSON-RPC primary) and unlocks the fixture-driven feedback loop. Without this milestone, every downstream milestone has only manual TUI evidence.
 - **Acceptance:** `brunch --mode print` and `brunch --mode rpc` boot from the same host setup; the first `session.*` / `workspace.*` RPC handlers are named product methods rather than a generic read gateway; an agent-as-user driver completes at least one brief end-to-end over stdio by responding to elicitation prompts; captured JSONL can be projected into prompt/response elicitation exchanges; a `.jsonl` + `.meta.json` bundle is written under `.brunch-fixtures/`; the first three briefs from BEHAVIORAL_KERNELS.md are captured.
@@ -76,7 +76,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Cross-cutting obligations:** Keep transport mode distinct from agent modes/lenses; do not make print mode select or imply an agent strategy in M1. Keep the captured-run format forward-compatible with later `.graph.json` and `.coherence.json` artefacts; establish exchange projection over Pi JSONL without creating canonical chat/turn tables; keep read/subscription architecture thin — named RPC method families and projection handlers over canonical stores, not a generic read-model platform; this frontier establishes the first layer of the canonical replay/property/adversarial fixture architecture rather than a one-off harness.
 - **Traceability:** R4, R5, R11, R16, R17, R20 / D5-L, D12-L, D13-L, D18-L, D19-L / I3-L, I10-L, I13-L / A1-L, A5-L, A12-L
 - **Design docs:** [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)
-- **Current execution pointer:** complete; proceed to `jsonl-session-viability`.
+- **Current execution pointer:** review-fix queue in `memory/CARDS.md`; complete those cards before proceeding to `jsonl-session-viability`.
 
 ### jsonl-session-viability
 

@@ -205,6 +205,13 @@ describe("fixture capture", () => {
     })
 
     expect(results).toHaveLength(3)
+    const seenSpecIds = new Set<string>()
+    const expectedTitlesByBriefId = new Map([
+      ["brief-001", "Team knowledge cards"],
+      ["brief-002", "Approval workflow for vendor invoices"],
+      ["brief-003", "Project dashboard rollups"],
+    ])
+
     for (const result of results) {
       const metadata = JSON.parse(await readFile(result.metaFile, "utf8")) as {
         briefId: string
@@ -222,6 +229,10 @@ describe("fixture capture", () => {
           coherence: { status: string }
         }
       }
+      const jsonl = await readJsonl(result.jsonlFile)
+      const binding = singleSessionBinding(jsonl)
+      const expectedTitle = expectedTitlesByBriefId.get(metadata.briefId)
+
       expect(metadata.runId).toBe("scripted-001")
       expect(metadata.driver.mode).toBe("scripted-deterministic")
       expect(metadata.session.id).toEqual(expect.any(String))
@@ -235,9 +246,43 @@ describe("fixture capture", () => {
         graph: { status: "deferred" },
         coherence: { status: "deferred" },
       })
-      expect(await readFile(result.jsonlFile, "utf8")).toContain(
+      expect(expectedTitle).toBeDefined()
+      expect(binding.data.specTitle).toBe(expectedTitle)
+      expect(jsonl.map((entry) => JSON.stringify(entry)).join("\n")).toContain(
         metadata.briefId,
       )
+      expect(seenSpecIds.has(binding.data.specId)).toBe(false)
+      seenSpecIds.add(binding.data.specId)
     }
   })
 })
+
+async function readJsonl(file: string): Promise<unknown[]> {
+  return (await readFile(file, "utf8"))
+    .split("\n")
+    .filter((line) => line.trim().length > 0)
+    .map((line) => JSON.parse(line) as unknown)
+}
+
+interface SessionBindingProjection {
+  data: {
+    specId: string
+    specTitle: string
+  }
+}
+
+function singleSessionBinding(entries: unknown[]): SessionBindingProjection {
+  const bindings = entries.filter(
+    (entry): entry is SessionBindingProjection =>
+      typeof entry === "object" &&
+      entry !== null &&
+      (entry as { customType?: unknown }).customType ===
+        "brunch.session_binding" &&
+      typeof (entry as { data?: { specId?: unknown } }).data?.specId ===
+        "string" &&
+      typeof (entry as { data?: { specTitle?: unknown } }).data?.specTitle ===
+        "string",
+  )
+  expect(bindings).toHaveLength(1)
+  return bindings[0]!
+}
