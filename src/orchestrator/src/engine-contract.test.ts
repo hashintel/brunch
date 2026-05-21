@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { PetriOrchestrator } from './engine-petri.js';
 import { ProceduralOrchestrator } from './engine-proc.js';
+import { compilePlan } from './net-compiler.js';
+import type { RunCtx } from './net-compiler.js';
 import { InMemoryReportSink } from './report-sink.js';
 import type { ActionContext, ActionHandlers, OrchestratorInput, Plan, TestRunner } from './types.js';
 
@@ -575,4 +577,82 @@ describe('Engine contract test #9 — action handler throws', () => {
       expect(result.reason).toContain('write-tests failed');
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Adapter test — compiled net shape for simplePlan
+// ---------------------------------------------------------------------------
+
+describe('Adapter: compiled net shape', () => {
+  it('simplePlan compiles to expected place and transition counts', () => {
+    const reports = new InMemoryReportSink();
+    const ctx: RunCtx = {
+      reportIds: [],
+      sliceOutcomes: new Map(),
+      epicOutcomes: new Map(),
+
+      halted: false,
+    };
+    const input: OrchestratorInput = {
+      plan: simplePlan,
+      worktreeDir: '/tmp/fake',
+      actions: createFakes().actions,
+      reports,
+      testRunner: createFakes().testRunner,
+      policy: { maxRetries: 3 },
+    };
+
+    const net = compilePlan(input, ctx);
+
+    // simplePlan: 1 epic, 1 slice (no deps)
+    // Epic places: epic:epic-1:done = 1
+    // Slice places: spec-ready, test-agent, code-agent, failing-tests,
+    //               untested-code, needs-more, done-spec, completed, eligible,
+    //               retry-budget = 10
+    // Total places: 11
+    expect(net.placeCount).toBe(11);
+
+    // Transitions:
+    //   slice-ready:slice-1, slice-1:evaluate, slice-1:write-tests,
+    //   slice-1:write-code, slice-1:run-tests, slice-1:return-done,
+    //   epic-complete:epic-1
+    // Total: 7
+    expect(net.transitionCount).toBe(7);
+  });
+
+  it('depPlan compiles with additional dep-signal places and transitions', () => {
+    const reports = new InMemoryReportSink();
+    const ctx: RunCtx = {
+      reportIds: [],
+      sliceOutcomes: new Map(),
+      epicOutcomes: new Map(),
+
+      halted: false,
+    };
+    const input: OrchestratorInput = {
+      plan: depPlan,
+      worktreeDir: '/tmp/fake',
+      actions: createFakes().actions,
+      reports,
+      testRunner: createFakes().testRunner,
+      policy: { maxRetries: 3 },
+    };
+
+    const net = compilePlan(input, ctx);
+
+    // depPlan: 1 epic, 2 slices (slice-b depends on slice-a)
+    // Epic places: epic:epic-1:done = 1
+    // Slice-a places: 10 (8 standard + eligible + retry-budget)
+    // Slice-b places: 10 (8 standard + eligible + retry-budget)
+    // Dep-signal places: slice:slice-a:dep-signal:slice-b = 1
+    // Total: 22
+    expect(net.placeCount).toBe(22);
+
+    // Transitions:
+    //   slice-a: slice-ready, evaluate, write-tests, write-code, run-tests, return-done = 6
+    //   slice-b: slice-ready (with dep gate), evaluate, write-tests, write-code, run-tests, return-done = 6
+    //   epic-complete:epic-1 = 1
+    // Total: 13
+    expect(net.transitionCount).toBe(13);
+  });
 });
