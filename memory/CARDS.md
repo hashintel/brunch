@@ -66,7 +66,7 @@ Full scope card — fixes the real product seam between coordinator-owned sessio
 
 ## Card 2 — Reconcile fixture brief format docs
 
-**Status:** queued
+**Status:** done
 
 ### Weight
 

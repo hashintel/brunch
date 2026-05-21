@@ -92,32 +92,31 @@ Briefs are short, human-readable, and curated. The run artefacts are the heavy d
 
 ### Brief fixture format
 
-```yaml
-# .brunch-fixtures/briefs/offline-kanban.yaml
-id: offline-kanban
-title: Offline Kanban Editing
-brief: |
-  We want to build a Kanban tool that engineering teams can use offline.
-  Multiple people edit the same board. Cards move through workflow states.
-  Some columns have WIP limits.
-persona:
-  style: collaborative           # terse | verbose | collaborative | indecisive
-  domain_literacy: high          # low | medium | high
-  patience: medium               # affects how many follow-ups before frustration
-  change_mind_probability: 0.1   # per-turn probability of revising an earlier answer
-expected_kernels:
-  - state_lifecycle
-  - containment_topology
-  - concurrency_collaboration
-  - resource_accounting
-  - derived_data_views
-  - temporal_history
-expected_entity_coverage:
-  intent: [requirement, assumption, invariant, decision, example]
-  oracle: [check, validation_method]
-known_branch_points:
-  - "What should happen on offline-edit conflict?"
-known_invalidations: []
+`.brunch-fixtures/briefs/brief-002-state-lifecycle.json`:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "brief-002",
+  "title": "Offline Kanban Editing",
+  "kernelTags": [
+    "state-lifecycle",
+    "containment-topology",
+    "concurrency-collaboration",
+    "resource-accounting",
+    "derived-data-views",
+    "temporal-history"
+  ],
+  "productBrief": "We want to build a Kanban tool that engineering teams can use offline. Multiple people edit the same board. Cards move through workflow states. Some columns have WIP limits.",
+  "scriptedUserNotes": [
+    "I care about what happens when two people move the same card offline.",
+    "Some columns should enforce WIP limits."
+  ],
+  "deferredExpectations": {
+    "graph": "Later graph fixtures should cover lifecycle states, containment, and conflict decisions.",
+    "coherence": "Later coherence checks should flag unresolved offline-edit conflict policy."
+  }
+}
 ```
 
 ### Starter set (seven briefs)
@@ -217,7 +216,7 @@ The fixture harness threads through the existing milestone ladder; it does not n
 
 | Milestone | Fixture work |
 | --- | --- |
-| **M0** (walking skeleton + TUI) | Begin capturing briefs as YAML. Manually-driven runs at the TUI produce first JSONL captures. Briefs cost nothing to write; the longer the library, the more leverage later. |
+| **M0** (walking skeleton + TUI) | Begin curating briefs as JSON. Manually-driven runs at the TUI produce first JSONL captures. Briefs cost nothing to write; the longer the library, the more leverage later. |
 | **M1** (mode shell: print + rpc) | Stand up the agent-as-user harness against `brunch --mode rpc`. First **replay regression** fixtures land here, asserting transcript reproduction only. Graph plane does not yet exist; assertions are transcript-shaped. |
 | **M2** (JSONL session viability) | The captured transcripts *are* the JSONL session files. The fixture library's reproducibility is part of M2's evidence. |
 | **M3** (web shell) | The same offer-response fixtures drive the web client through its WebSocket; free coverage of the web shell against known-good runs. |

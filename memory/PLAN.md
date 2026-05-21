@@ -191,9 +191,9 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Linear:** unassigned
 - **Kind:** bounded feature
 - **Status:** not-started
-- **Objective:** Author and review briefs #4–#7 plus the adversarial second tier per fixture-strategy. Outputs are YAML briefs and one or two reviewer notes.
+- **Objective:** Author and review briefs #4–#7 plus the adversarial second tier per fixture-strategy. Outputs are JSON briefs and one or two reviewer notes.
 - **Acceptance:** Briefs #1–#7 present in `.brunch-fixtures/briefs/`; adversarial briefs present with documented targets; expectations for brief #7 satisfied per fixture-strategy.
-- **Verification:** Doc review against fixture-strategy expectations; schema/checker validation for brief YAML once available; spot-replay if the relevant harness milestone has landed.
+- **Verification:** Doc review against fixture-strategy expectations; schema/checker validation for brief JSON once available; spot-replay if the relevant harness milestone has landed.
 - **Cross-cutting obligations:** Keep the brief corpus aligned with the canonical replay/property/adversarial fixture model rather than letting it drift into a loose examples folder.
 - **Traceability:** R20 / A5-L
 - **Design docs:** [fixture-strategy.md §Brief library](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)
