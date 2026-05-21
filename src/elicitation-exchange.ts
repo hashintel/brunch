@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises"
 
 import {
-  SessionManager,
   type CustomEntry,
   type CustomMessageEntry,
   type FileEntry,
@@ -36,11 +35,6 @@ export interface ElicitationExchangeProjection {
   status: "empty" | "open_prompt" | "ready"
   exchanges: ElicitationExchange[]
   openPrompt: OpenPromptProjection | null
-}
-
-export interface ActiveBranchTranscriptOptions {
-  cwd?: string
-  sessionDir?: string
 }
 
 export class NonLinearTranscriptError extends Error {
@@ -98,17 +92,6 @@ export function assertLinearTranscriptEntries(
       )
     }
   }
-}
-
-export function loadActiveBranchTranscriptEntries(
-  file: string,
-  options?: ActiveBranchTranscriptOptions,
-): SessionEntry[] {
-  return SessionManager.open(
-    file,
-    options?.sessionDir,
-    options?.cwd,
-  ).getBranch()
 }
 
 export function projectElicitationExchanges(

@@ -76,6 +76,17 @@ async function createSessionFile(): Promise<string> {
   return manager.getSessionFile()!
 }
 
+async function createBranchedSessionFile(): Promise<string> {
+  const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-branch-"))
+  const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+  manager.appendMessage({ role: "assistant", content: "Abandoned prompt" })
+  manager.appendMessage({ role: "user", content: "Abandoned answer" })
+  manager.resetLeaf()
+  manager.appendMessage({ role: "assistant", content: "Active prompt" })
+  manager.appendMessage({ role: "user", content: "Active answer" })
+  return manager.getSessionFile()!
+}
+
 describe("JSON-RPC handlers", () => {
   it("serves a named workspace snapshot method", async () => {
     const handlers = createRpcHandlers({ coordinator: coordinator() })
@@ -115,6 +126,28 @@ describe("JSON-RPC handlers", () => {
       result: {
         status: "ready",
         exchanges: [{ promptEntryIds: [expect.any(String)] }],
+      },
+    })
+  })
+
+  it("returns a product-shaped error for non-linear selected sessions", async () => {
+    const sessionFile = await createBranchedSessionFile()
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(readyState(sessionFile)),
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 8,
+        method: "session.elicitationExchanges",
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 8,
+      error: {
+        code: -32002,
+        message: "Selected Brunch session transcript is non-linear",
       },
     })
   })

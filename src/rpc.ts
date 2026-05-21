@@ -2,7 +2,8 @@ import { createInterface } from "node:readline/promises"
 import type { Readable, Writable } from "node:stream"
 
 import {
-  loadActiveBranchTranscriptEntries,
+  loadJsonlTranscriptEntries,
+  NonLinearTranscriptError,
   projectElicitationExchanges,
 } from "./elicitation-exchange.js"
 import { workspaceSnapshotFromState } from "./print-snapshot.js"
@@ -67,10 +68,22 @@ export function createRpcHandlers(options: {
           )
         }
 
-        const entries = loadActiveBranchTranscriptEntries(state.session.file, {
-          cwd: state.cwd,
-        })
-        return success(request.id ?? null, projectElicitationExchanges(entries))
+        try {
+          const entries = await loadJsonlTranscriptEntries(state.session.file)
+          return success(
+            request.id ?? null,
+            projectElicitationExchanges(entries),
+          )
+        } catch (error) {
+          if (error instanceof NonLinearTranscriptError) {
+            return failure(
+              request.id ?? null,
+              -32002,
+              "Selected Brunch session transcript is non-linear",
+            )
+          }
+          throw error
+        }
       }
 
       return failure(request.id ?? null, -32601, "Method not found")

@@ -61,7 +61,7 @@ Brunch transcript loading rejects non-linear Pi JSONL before elicitation exchang
 
 ## Card 2 — RPC reader fail-fast semantics
 
-- **Status:** next
+- **Status:** done
 - **Weight:** light hardening card
 
 ### Objective
@@ -99,7 +99,7 @@ Brunch transcript loading rejects non-linear Pi JSONL before elicitation exchang
 
 ## Card 3 — TUI branch-flow guard hooks
 
-- **Status:** queued
+- **Status:** next
 - **Weight:** light hardening card
 
 ### Objective
