@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "briefId": "brief-003",
+  "runId": "scripted-001",
+  "timestamp": "2026-05-21T00:00:00.000Z",
+  "brunchVersion": "0.0.0",
+  "session": {
+    "id": "019e49ff-bf39-7d1e-9221-6f84107b55be",
+    "sourceFile": "/Users/lunelson/Code/hashintel/brunch-next/.brunch/sessions/2026-05-21T10-05-57-945Z_019e49ff-bf39-7d1e-9221-6f84107b55be.jsonl"
+  },
+  "driver": {
+    "mode": "scripted-deterministic"
+  },
+  "projectionSummary": {
+    "status": "ready",
+    "exchangeCount": 1,
+    "openPrompt": false
+  },
+  "artifacts": {
+    "jsonl": "scripted-001.jsonl",
+    "graph": {
+      "status": "deferred"
+    },
+    "coherence": {
+      "status": "deferred"
+    }
+  }
+}

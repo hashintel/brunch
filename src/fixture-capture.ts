@@ -3,10 +3,14 @@ import { dirname, join } from "node:path"
 import { PassThrough } from "node:stream"
 import { fileURLToPath } from "node:url"
 
+import { loadBriefLibrary, type FixtureBrief } from "./brief-library.js"
 import { runBrunchCli } from "./brunch.js"
 import type { ElicitationExchangeProjection } from "./elicitation-exchange.js"
 import type { WorkspaceSnapshot } from "./print-snapshot.js"
-import type { WorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
+import {
+  createWorkspaceSessionCoordinator,
+  type WorkspaceSessionCoordinator,
+} from "./workspace-session-coordinator.js"
 
 export interface FixtureCaptureOptions {
   cwd: string
@@ -20,6 +24,13 @@ export interface FixtureCaptureResult {
   runDir: string
   jsonlFile: string
   metaFile: string
+}
+
+export interface DeterministicBriefRunOptions {
+  cwd: string
+  briefsDir?: string
+  runId?: string
+  timestamp?: string
 }
 
 interface JsonRpcResponse<T> {
@@ -69,6 +80,9 @@ export async function captureFixtureRun(
           id: workspace.session.id,
           sourceFile: workspace.session.file,
         },
+        driver: {
+          mode: "scripted-deterministic",
+        },
         projectionSummary: {
           status: projection.status,
           exchangeCount: projection.exchanges.length,
@@ -76,6 +90,8 @@ export async function captureFixtureRun(
         },
         artifacts: {
           jsonl: `${options.runId}.jsonl`,
+          graph: { status: "deferred" },
+          coherence: { status: "deferred" },
         },
       },
       null,
@@ -85,6 +101,57 @@ export async function captureFixtureRun(
   )
 
   return { runDir, jsonlFile, metaFile }
+}
+
+export async function captureDeterministicBriefRuns(
+  options: DeterministicBriefRunOptions,
+): Promise<FixtureCaptureResult[]> {
+  const briefs = await loadBriefLibrary(
+    options.briefsDir ?? join(options.cwd, ".brunch-fixtures", "briefs"),
+  )
+  const coordinator = createWorkspaceSessionCoordinator({ cwd: options.cwd })
+  const results: FixtureCaptureResult[] = []
+
+  for (const brief of briefs) {
+    const workspace = await openScriptedBriefSession(coordinator, brief)
+    workspace.session.manager.appendCustomMessageEntry(
+      "brunch.elicitation_prompt",
+      `Elicitation prompt for ${brief.id} — ${brief.title}: ${brief.productBrief}`,
+      true,
+    )
+    workspace.session.manager.appendMessage({
+      role: "user",
+      content: brief.scriptedUserNotes.join("\n"),
+      timestamp: Date.parse(options.timestamp ?? new Date().toISOString()),
+    })
+    await coordinator.bindCurrentSpecToSession(workspace.session.manager)
+
+    results.push(
+      await captureFixtureRun({
+        cwd: options.cwd,
+        briefId: brief.id,
+        runId: options.runId ?? "scripted-001",
+        ...(options.timestamp ? { timestamp: options.timestamp } : {}),
+      }),
+    )
+  }
+
+  return results
+}
+
+async function openScriptedBriefSession(
+  coordinator: WorkspaceSessionCoordinator,
+  brief: FixtureBrief,
+) {
+  const existing = await coordinator.openExisting()
+  if (existing.status === "ready") {
+    const next = await coordinator.createNewSessionForCurrentSpec()
+    if (next.status === "ready") {
+      return next
+    }
+  }
+
+  return coordinator.startOrCreate({ specTitle: brief.title })
 }
 
 async function callRpc<T>(

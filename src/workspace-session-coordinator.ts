@@ -23,6 +23,7 @@ export interface WorkspaceSpecState {
 interface WorkspaceStateFile {
   schemaVersion: 1
   currentSpec: WorkspaceSpecState
+  currentSessionFile?: string
 }
 
 interface SessionBindingData {
@@ -107,7 +108,12 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
       }
     }
 
-    const session = await openCurrentSession(this.#cwd, state.currentSpec)
+    const session = await openCurrentSession(
+      this.#cwd,
+      state.currentSpec,
+      state.currentSessionFile,
+    )
+    await writeCurrentWorkspaceState(this.#cwd, state.currentSpec, session.file)
     return readyState(this.#cwd, state.currentSpec, session)
   }
 
@@ -117,14 +123,8 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     await ensureWorkspaceDirs(this.#cwd)
     const existing = await readWorkspaceState(this.#cwd)
     const spec = existing?.currentSpec ?? createSpec(options?.specTitle)
-    if (!existing) {
-      await writeWorkspaceState(this.#cwd, {
-        schemaVersion: STATE_SCHEMA_VERSION,
-        currentSpec: spec,
-      })
-    }
-
     const session = await createBoundSession(this.#cwd, spec)
+    await writeCurrentWorkspaceState(this.#cwd, spec, session.file)
     return readyState(this.#cwd, spec, session)
   }
 
@@ -140,6 +140,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     }
 
     const session = await createBoundSession(this.#cwd, state.currentSpec)
+    await writeCurrentWorkspaceState(this.#cwd, state.currentSpec, session.file)
     return readyState(this.#cwd, state.currentSpec, session)
   }
 
@@ -152,6 +153,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     }
 
     const session = bindSessionToSpec(manager, state.currentSpec)
+    await writeCurrentWorkspaceState(this.#cwd, state.currentSpec, session.file)
     return readyState(this.#cwd, state.currentSpec, session)
   }
 
@@ -181,11 +183,13 @@ async function createBoundSession(
 async function openCurrentSession(
   cwd: string,
   spec: WorkspaceSpecState,
+  currentSessionFile: string | undefined,
 ): Promise<WorkspaceSessionReadyState["session"]> {
   await ensureWorkspaceDirs(cwd)
   const files = await listSessionFiles(cwd)
-  const manager =
-    files.length === 0
+  const manager = currentSessionFile
+    ? SessionManager.open(currentSessionFile, sessionDir(cwd), cwd)
+    : files.length === 0
       ? SessionManager.create(cwd, sessionDir(cwd))
       : SessionManager.continueRecent(cwd, sessionDir(cwd))
   const sessionFile = manager.getSessionFile()
@@ -283,6 +287,18 @@ async function writeWorkspaceState(
 ): Promise<void> {
   await ensureWorkspaceDirs(cwd)
   await writeFile(statePath(cwd), `${JSON.stringify(state, null, 2)}\n`, "utf8")
+}
+
+async function writeCurrentWorkspaceState(
+  cwd: string,
+  spec: WorkspaceSpecState,
+  currentSessionFile: string,
+): Promise<void> {
+  await writeWorkspaceState(cwd, {
+    schemaVersion: STATE_SCHEMA_VERSION,
+    currentSpec: spec,
+    currentSessionFile,
+  })
 }
 
 function readyState(

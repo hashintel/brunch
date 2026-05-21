@@ -5,7 +5,14 @@ import { describe, expect, it } from "vitest"
 
 import type { WorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
 import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
-import { captureFixtureRun } from "./fixture-capture.js"
+import {
+  loadJsonlTranscriptEntries,
+  projectElicitationExchanges,
+} from "./elicitation-exchange.js"
+import {
+  captureDeterministicBriefRuns,
+  captureFixtureRun,
+} from "./fixture-capture.js"
 
 describe("fixture capture", () => {
   it("captures the coordinator-selected session without injecting a test coordinator", async () => {
@@ -139,6 +146,9 @@ describe("fixture capture", () => {
         id: expect.any(String),
         sourceFile: expect.stringContaining(".brunch/sessions"),
       },
+      driver: {
+        mode: "scripted-deterministic",
+      },
       projectionSummary: {
         status: "ready",
         exchangeCount: 1,
@@ -146,10 +156,88 @@ describe("fixture capture", () => {
       },
       artifacts: {
         jsonl: "run-001.jsonl",
+        graph: { status: "deferred" },
+        coherence: { status: "deferred" },
       },
     })
     expect(await readFile(result.jsonlFile, "utf8")).toContain(
       '"role":"assistant"',
     )
+  })
+
+  it("replays captured brief bundles through exchange projection", async () => {
+    for (const briefId of ["brief-001", "brief-002", "brief-003"]) {
+      const runId = "scripted-001"
+      const runDir = join(".brunch-fixtures", briefId, runId)
+      const metadata = JSON.parse(
+        await readFile(join(runDir, `${runId}.meta.json`), "utf8"),
+      ) as {
+        briefId: string
+        runId: string
+        projectionSummary: {
+          status: string
+          exchangeCount: number
+          openPrompt: boolean
+        }
+      }
+      const projection = projectElicitationExchanges(
+        await loadJsonlTranscriptEntries(join(runDir, `${runId}.jsonl`)),
+      )
+
+      expect(metadata.briefId).toBe(briefId)
+      expect(metadata.runId).toBe(runId)
+      expect({
+        status: projection.status,
+        exchangeCount: projection.exchanges.length,
+        openPrompt: projection.openPrompt !== null,
+      }).toEqual(metadata.projectionSummary)
+    }
+  })
+
+  it("captures deterministic runs for the first three briefs", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-fixture-driver-"))
+
+    const results = await captureDeterministicBriefRuns({
+      cwd,
+      briefsDir: ".brunch-fixtures/briefs",
+      runId: "scripted-001",
+      timestamp: "2026-05-21T00:00:00.000Z",
+    })
+
+    expect(results).toHaveLength(3)
+    for (const result of results) {
+      const metadata = JSON.parse(await readFile(result.metaFile, "utf8")) as {
+        briefId: string
+        runId: string
+        driver: { mode: string }
+        session: { id: string }
+        projectionSummary: {
+          status: string
+          exchangeCount: number
+          openPrompt: boolean
+        }
+        artifacts: {
+          jsonl: string
+          graph: { status: string }
+          coherence: { status: string }
+        }
+      }
+      expect(metadata.runId).toBe("scripted-001")
+      expect(metadata.driver.mode).toBe("scripted-deterministic")
+      expect(metadata.session.id).toEqual(expect.any(String))
+      expect(metadata.projectionSummary).toEqual({
+        status: "ready",
+        exchangeCount: 1,
+        openPrompt: false,
+      })
+      expect(metadata.artifacts).toEqual({
+        jsonl: "scripted-001.jsonl",
+        graph: { status: "deferred" },
+        coherence: { status: "deferred" },
+      })
+      expect(await readFile(result.jsonlFile, "utf8")).toContain(
+        metadata.briefId,
+      )
+    }
   })
 })
