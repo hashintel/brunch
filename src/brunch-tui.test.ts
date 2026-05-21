@@ -70,6 +70,7 @@ describe("Brunch TUI boot", () => {
         }
       },
       setTitle: (_title: string) => {},
+      notify: (_message: string, _type?: "info" | "warning" | "error") => {},
     }
     const ctx: FakeExtensionContext = { sessionManager: manager, ui }
     let sessionStart: ((
@@ -128,6 +129,70 @@ describe("Brunch TUI boot", () => {
     expect(widgets.get("brunch.chrome")?.join("\n")).toContain("Spec One")
   })
 
+  it("cancels Pi branch-flow hooks with a stable user-facing reason", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-tui-"))
+    const manager = SessionManager.create(cwd, join(cwd, ".brunch", "sessions"))
+    const notifications: Array<{
+      message: string
+      type: "info" | "warning" | "error" | undefined
+    }> = []
+    const ctx: FakeExtensionContext = {
+      sessionManager: manager,
+      ui: {
+        setWidget: (_key: string, _content: unknown) => {},
+        setTitle: (_title: string) => {},
+        notify: (message, type) => notifications.push({ message, type }),
+      },
+    }
+    const handlers = new Map<string, (
+      event: unknown,
+      ctx: FakeExtensionContext,
+    ) => unknown>()
+
+    createBrunchChromeExtension({
+      cwd,
+      spec: { id: "spec-1", title: "Spec One" },
+      phase: "elicitation",
+      chatMode: "responding-to-elicitation",
+    })({
+      on: (
+        event: string,
+        handler: (event: unknown, ctx: FakeExtensionContext) => unknown,
+      ) => {
+        handlers.set(event, handler)
+      },
+    } as never)
+
+    await expect(
+      Promise.resolve(
+        handlers.get("session_before_tree")?.(
+          { type: "session_before_tree" },
+          ctx,
+        ),
+      ),
+    ).resolves.toEqual({ cancel: true })
+    await expect(
+      Promise.resolve(
+        handlers.get("session_before_fork")?.(
+          { type: "session_before_fork" },
+          ctx,
+        ),
+      ),
+    ).resolves.toEqual({ cancel: true })
+    expect(notifications).toEqual([
+      {
+        message:
+          "Brunch does not support Pi session branches in this POC. Use /new to continue within the selected spec.",
+        type: "warning",
+      },
+      {
+        message:
+          "Brunch does not support Pi session branches in this POC. Use /new to continue within the selected spec.",
+        type: "warning",
+      },
+    ])
+  })
+
   it("keeps session creation and binding out of the TUI boot adapter", async () => {
     const source = await readFile(
       new URL("./brunch-tui.ts", import.meta.url),
@@ -144,7 +209,7 @@ type FakeExtensionContext = Pick<ExtensionContext, "sessionManager"> & {
   ui: FakeExtensionUi
 }
 
-type FakeExtensionUi = Pick<ExtensionUIContext, "setWidget" | "setTitle">
+type FakeExtensionUi = Pick<ExtensionUIContext, "setWidget" | "setTitle" | "notify">
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string")
