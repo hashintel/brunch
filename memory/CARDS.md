@@ -98,7 +98,7 @@ File-backed Brunch transcript loading rejects malformed Pi JSONL instead of proj
 
 ## Card 3 — Product-facing linear exchange projection helper
 
-- **Status:** queued
+- **Status:** done
 - **Weight:** light hardening card
 
 ### Objective

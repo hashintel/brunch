@@ -46,6 +46,12 @@ export class NonLinearTranscriptError extends Error {
   }
 }
 
+export async function loadLinearElicitationExchangeProjection(
+  file: string,
+): Promise<ElicitationExchangeProjection> {
+  return projectElicitationExchanges(await loadJsonlTranscriptEntries(file))
+}
+
 export async function loadJsonlTranscriptEntries(
   file: string,
 ): Promise<FileEntry[]> {

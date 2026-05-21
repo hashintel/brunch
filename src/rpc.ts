@@ -2,9 +2,8 @@ import { createInterface } from "node:readline/promises"
 import type { Readable, Writable } from "node:stream"
 
 import {
-  loadJsonlTranscriptEntries,
+  loadLinearElicitationExchangeProjection,
   NonLinearTranscriptError,
-  projectElicitationExchanges,
 } from "./elicitation-exchange.js"
 import { workspaceSnapshotFromState } from "./print-snapshot.js"
 import type { WorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
@@ -69,10 +68,9 @@ export function createRpcHandlers(options: {
         }
 
         try {
-          const entries = await loadJsonlTranscriptEntries(state.session.file)
           return success(
             request.id ?? null,
-            projectElicitationExchanges(entries),
+            await loadLinearElicitationExchangeProjection(state.session.file),
           )
         } catch (error) {
           if (error instanceof NonLinearTranscriptError) {

@@ -7,6 +7,7 @@ import { SessionManager } from "@earendil-works/pi-coding-agent"
 
 import {
   loadJsonlTranscriptEntries,
+  loadLinearElicitationExchangeProjection,
   NonLinearTranscriptError,
   projectElicitationExchanges,
 } from "./elicitation-exchange.js"
@@ -149,14 +150,15 @@ describe("elicitation exchange projection", () => {
     })
   })
 
-  it("projects a real SessionManager JSONL assistant/user transcript", async () => {
+  it("loads and projects a real SessionManager JSONL assistant/user transcript through the product helper", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-jsonl-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
     manager.appendMessage({ role: "assistant", content: "Question" })
     manager.appendMessage({ role: "user", content: "Answer" })
 
-    const entries = await loadJsonlTranscriptEntries(manager.getSessionFile()!)
-    const projection = projectElicitationExchanges(entries)
+    const projection = await loadLinearElicitationExchangeProjection(
+      manager.getSessionFile()!,
+    )
 
     expect(projection.status).toBe("ready")
     expect(projection.exchanges).toHaveLength(1)
@@ -166,6 +168,19 @@ describe("elicitation exchange projection", () => {
     expect(projection.exchanges[0]?.responseEntryIds[0]).toEqual(
       expect.any(String),
     )
+  })
+
+  it("preserves the non-linear error discriminant through the product helper", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-helper-branch-"))
+    const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    manager.appendMessage({ role: "assistant", content: "Abandoned prompt" })
+    manager.appendMessage({ role: "user", content: "Abandoned answer" })
+    manager.resetLeaf()
+    manager.appendMessage({ role: "assistant", content: "Active prompt" })
+
+    await expect(
+      loadLinearElicitationExchangeProjection(manager.getSessionFile()!),
+    ).rejects.toThrow(NonLinearTranscriptError)
   })
 
   it("rejects a Pi JSONL file with multiple children from one parent", async () => {

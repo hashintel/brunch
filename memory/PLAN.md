@@ -108,7 +108,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Cross-cutting obligations:** Preserve the single command/event substrate: the browser is a thin remote head over the same elicitation/transcript/session machinery, not a second data plane, REST-backed read client, generic read gateway, or custom interaction contract. Carry D24-L linear transcript policy forward before adding another session-consuming surface: block Brunch-controlled `/tree`/`/fork`/`/clone` branch flows where Pi hooks permit, and make transcript readers fail fast on non-linear JSONL rather than adapting it. If/when `brunch.establishment_offer` entries are present, browser chrome should project the latest offer as ambient orientation rather than inventing a browser-only strategy menu.
 - **Traceability:** R4, R8, R11, R12, R16, R17 / D5-L, D10-L, D12-L, D13-L, D19-L, D24-L / I19-L
 - **Design docs:** [prd.md §M3, §Frontend Architecture](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md)
-- **Current execution pointer:** D24-L/I19-L linear transcript policy hardening is continuing through strict transcript-reader and shared-helper slices before the browser shell consumes `session.*` projections.
+- **Current execution pointer:** D24-L/I19-L strict transcript-reader and shared-helper slices are complete; next slice starts the browser HTTP shell without adding REST product reads.
 
 ### graph-data-plane
 
