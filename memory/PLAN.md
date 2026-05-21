@@ -77,7 +77,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Cross-cutting obligations:** Keep transport mode distinct from agent modes/lenses; do not make print mode select or imply an agent strategy in M1. Keep the captured-run format forward-compatible with later `.graph.json` and `.coherence.json` artefacts; establish exchange projection over Pi JSONL without creating canonical chat/turn tables; keep read/subscription architecture thin — named RPC method families and projection handlers over canonical stores, not a generic read-model platform; this frontier establishes the first layer of the canonical replay/property/adversarial fixture architecture rather than a one-off harness.
 - **Traceability:** R4, R5, R11, R16, R17, R20 / D5-L, D12-L, D13-L, D18-L, D19-L / I3-L, I10-L, I13-L / A1-L, A5-L, A12-L
 - **Design docs:** [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)
-- **Current execution pointer:** initial transport/projection scope queue complete: `--mode print`, `--mode rpc`, `workspace.snapshot`, and `session.elicitationExchanges` are implemented and verified. Next scope should cover fixture-driver capture and brief seeding.
+- **Current execution pointer:** review blockers and next M1 slices complete: real Pi JSONL exchange projection, product-scoped `session.elicitationExchanges`, RPC/print snapshot parity, fixture bundle capture skeleton, and briefs #1–#3 are implemented and verified. Remaining frontier work should scope actual captured runs for briefs #1–#3 and any agent-as-user driver behavior beyond deterministic bundle capture.
 
 ### jsonl-session-viability
 
