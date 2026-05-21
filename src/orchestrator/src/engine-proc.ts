@@ -13,22 +13,22 @@ import type {
 
 export class ProceduralOrchestrator implements Orchestrator {
   async run(input: OrchestratorInput): Promise<OrchestratorResult> {
+    const reportIds: string[] = [];
     try {
-      return await this.runInner(input);
+      return await this.runInner(input, reportIds);
     } catch (err) {
       return {
         status: 'halted',
         reason: err instanceof Error ? err.message : String(err),
-        reports: [],
+        reports: reportIds,
         epics: input.plan.epics.map((e) => ({ epicId: e.id, status: 'halted' as const })),
         slices: input.plan.slices.map((s) => ({ sliceId: s.id, status: 'halted' as const })),
       };
     }
   }
 
-  private async runInner(input: OrchestratorInput): Promise<OrchestratorResult> {
+  private async runInner(input: OrchestratorInput, reportIds: string[]): Promise<OrchestratorResult> {
     const { plan, reports, actions, testRunner, policy } = input;
-    const reportIds: string[] = [];
     const sliceOutcomes: SliceOutcome[] = [];
     const epicOutcomes: EpicOutcome[] = [];
 

@@ -190,7 +190,7 @@ export function createPiActions(opts?: { verbose?: boolean }): ActionHandlers {
       runPi({
         label: `verify    ${ctx.epic.id} (write)`,
         model: 'claude-sonnet-4-6',
-        promptFile: join(promptsDir, 'evaluator.md'),
+        promptFile: join(promptsDir, 'test-writer.md'),
         task: writeTask,
         worktreeDir: ctx.worktreeDir,
       });

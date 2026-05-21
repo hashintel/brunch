@@ -93,7 +93,6 @@ function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
 
   // Epic-level places
   for (const epic of plan.epics) {
-    net.addPlace(ep(epic.id, 'ready'));
     net.addPlace(ep(epic.id, 'done'));
   }
 
