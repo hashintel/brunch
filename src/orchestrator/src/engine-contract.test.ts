@@ -1,21 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { PetriOrchestrator } from './engine-petri.js';
-import { ProceduralOrchestrator } from './engine-proc.js';
-import { compilePlan } from './net-compiler.js';
-import type { RunCtx } from './net-compiler.js';
+import { createOrchestrator } from './engine.js';
+import { compilePlan, compileTopology } from './net-compiler.js';
 import type { NetEvent } from './petri-net.js';
 import { InMemoryReportSink } from './report-sink.js';
-import type { ActionContext, ActionHandlers, OrchestratorInput, Plan, TestRunner } from './types.js';
+import type { ActionContext, ActionHandlers, OrchestratorInput, Plan, RunCtx, TestRunner } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Shared engine list for parameterized tests
 // ---------------------------------------------------------------------------
 
-const engines = [
-  { name: 'procedural', create: () => new ProceduralOrchestrator() },
-  { name: 'petri', create: () => new PetriOrchestrator() },
-] as const;
+const engines = [{ name: 'serial', create: () => createOrchestrator('serial') }] as const;
 
 // ---------------------------------------------------------------------------
 // Reusable fake factory — per-test closures instead of module-level state
@@ -257,10 +252,7 @@ const depPlan: Plan = {
 };
 
 describe('Engine contract test #2 — intra-epic slice dependencies', () => {
-  const engines = [
-    { name: 'procedural', create: () => new ProceduralOrchestrator() },
-    { name: 'petri', create: () => new PetriOrchestrator() },
-  ] as const;
+  const engines = [{ name: 'serial', create: () => createOrchestrator('serial') }] as const;
 
   for (const { name, create } of engines) {
     describe(name, () => {
@@ -652,124 +644,109 @@ describe('Engine contract test #10 — semantic gate rejects then accepts', () =
 });
 
 // ---------------------------------------------------------------------------
+// Contract test #11 — semantic rework exhaustion
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #11 — semantic rework exhaustion halts', () => {
+  for (const { name, create } of engines) {
+    it(`${name}: assess-semantic always fails → halted after maxSemanticReworks`, async () => {
+      const fakes = createFakes({
+        evalSequence: [false, true], // NO then YES (repeated)
+        semanticResults: [false], // always rejects
+      });
+      const result = await create().run({
+        plan: simplePlan,
+        worktreeDir: '/tmp/f',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3, maxSemanticReworks: 2 },
+      });
+
+      expect(result.status).toBe('halted');
+      expect(result.slices).toEqual([{ sliceId: 'slice-1', status: 'halted' }]);
+      expect(result.reason).toContain('semantic');
+      // Should have exactly maxSemanticReworks + 1 semantic assessments
+      const semantics = fakes.callOrder.filter((c) => c.includes('assess-semantic'));
+      expect(semantics.length).toBe(3); // 0, 1, 2 → exhausted at 2
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Adapter test — compiled net shape for simplePlan
 // ---------------------------------------------------------------------------
 
-describe('Adapter: compiled net shape', () => {
+describe('Adapter: compiled net shape (topology-only — no runtime bindings)', () => {
   it('simplePlan compiles to expected place and transition counts', () => {
-    const reports = new InMemoryReportSink();
-    const ctx: RunCtx = {
-      reportIds: [],
-      sliceOutcomes: new Map(),
-      epicOutcomes: new Map(),
-
-      halted: false,
-    };
-    const input: OrchestratorInput = {
-      plan: simplePlan,
-      worktreeDir: '/tmp/fake',
-      actions: createFakes().actions,
-      reports,
-      testRunner: createFakes().testRunner,
-      policy: { maxRetries: 3 },
-    };
-
-    const net = compilePlan(input, ctx);
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
 
     // simplePlan: 1 epic, 1 slice (no deps)
     // Epic places: epic:epic-1:done = 1
     // Mechanical places: spec-ready, test-agent, code-agent, failing-tests,
     //                    untested-code, needs-more, done-spec, completed, eligible,
     //                    retry-budget = 10
-    // Semantic places: semantic-gate, semantic-satisfied = 2
+    // Semantic places: semantic-budget, semantic-satisfied = 2
     // Total places: 13
-    expect(net.placeCount).toBe(13);
+    expect(blueprint.places.length).toBe(13);
 
     // Transitions:
     //   slice-ready:slice-1, slice-1:evaluate, slice-1:write-tests,
     //   slice-1:write-code, slice-1:run-tests, slice-1:assess-semantic,
     //   slice-1:return-done, epic-complete:epic-1
     // Total: 8
-    expect(net.transitionCount).toBe(8);
+    expect(blueprint.transitions.length).toBe(8);
   });
 
   it('simplePlan transitions carry correct contract metadata', () => {
-    const reports = new InMemoryReportSink();
-    const ctx: RunCtx = {
-      reportIds: [],
-      sliceOutcomes: new Map(),
-      epicOutcomes: new Map(),
-
-      halted: false,
-    };
-    const input: OrchestratorInput = {
-      plan: simplePlan,
-      worktreeDir: '/tmp/fake',
-      actions: createFakes().actions,
-      reports,
-      testRunner: createFakes().testRunner,
-      policy: { maxRetries: 3 },
-    };
-
-    const net = compilePlan(input, ctx);
-    const transitions = net.getTransitions();
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+    const transitions = blueprint.transitions;
 
     // Mechanical-lane transitions
-    const mechanical = transitions.filter((t) => t.contract?.lane === 'mechanical');
+    const mechanical = transitions.filter((t) => t.contract.lane === 'mechanical');
     expect(mechanical.length).toBeGreaterThanOrEqual(5); // ready, evaluate, write-tests, write-code, run-tests
     for (const t of mechanical) {
-      if (t.contract?.kind !== 'structural') {
-        expect(t.contract?.kind).toBe('mechanical');
+      if (t.contract.kind !== 'structural') {
+        expect(t.contract.kind).toBe('mechanical');
       }
     }
 
     // Semantic-lane transitions
-    const semantic = transitions.filter((t) => t.contract?.lane === 'semantic');
+    const semantic = transitions.filter((t) => t.contract.lane === 'semantic');
     expect(semantic.length).toBeGreaterThanOrEqual(1); // assess-semantic, return-done
     const assessSemantic = transitions.find((t) => t.id.endsWith(':assess-semantic'));
-    expect(assessSemantic?.contract?.kind).toBe('semantic');
-    expect(assessSemantic?.contract?.actor).toBe('semantic-assessor');
-
-    // All transitions have contracts
-    for (const t of transitions) {
-      expect(t.contract).toBeDefined();
-    }
+    expect(assessSemantic?.contract.kind).toBe('semantic');
+    expect(assessSemantic?.contract.actor).toBe('semantic-assessor');
   });
 
   it('depPlan compiles with additional dep-signal places and transitions', () => {
-    const reports = new InMemoryReportSink();
-    const ctx: RunCtx = {
-      reportIds: [],
-      sliceOutcomes: new Map(),
-      epicOutcomes: new Map(),
-
-      halted: false,
-    };
-    const input: OrchestratorInput = {
-      plan: depPlan,
-      worktreeDir: '/tmp/fake',
-      actions: createFakes().actions,
-      reports,
-      testRunner: createFakes().testRunner,
-      policy: { maxRetries: 3 },
-    };
-
-    const net = compilePlan(input, ctx);
+    const blueprint = compileTopology(depPlan, { maxRetries: 3 });
 
     // depPlan: 1 epic, 2 slices (slice-b depends on slice-a)
     // Epic places: epic:epic-1:done = 1
-    // Slice-a places: 12 (8 standard + eligible + retry-budget + semantic-gate + semantic-satisfied)
-    // Slice-b places: 12 (8 standard + eligible + retry-budget + semantic-gate + semantic-satisfied)
+    // Slice-a places: 12 (8 standard + eligible + retry-budget + semantic-budget + semantic-satisfied)
+    // Slice-b places: 12 (8 standard + eligible + retry-budget + semantic-budget + semantic-satisfied)
     // Dep-signal places: slice:slice-a:dep-signal:slice-b = 1
     // Total: 26
-    expect(net.placeCount).toBe(26);
+    expect(blueprint.places.length).toBe(26);
 
     // Transitions:
     //   slice-a: slice-ready, evaluate, write-tests, write-code, run-tests, assess-semantic, return-done = 7
     //   slice-b: slice-ready (with dep gate), evaluate, write-tests, write-code, run-tests, assess-semantic, return-done = 7
     //   epic-complete:epic-1 = 1
     // Total: 15
-    expect(net.transitionCount).toBe(15);
+    expect(blueprint.transitions.length).toBe(15);
+  });
+
+  it('blueprint handler descriptors cover all transition kinds', () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+    const kinds = new Set(blueprint.transitions.map((t) => t.handler.kind));
+    expect(kinds).toContain('passthrough');
+    expect(kinds).toContain('action');
+    expect(kinds).toContain('run-tests');
+    expect(kinds).toContain('assess-semantic');
+    expect(kinds).toContain('complete-slice');
+    expect(kinds).toContain('complete-epic');
   });
 });
 

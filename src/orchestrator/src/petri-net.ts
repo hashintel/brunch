@@ -1,6 +1,5 @@
 // ---------------------------------------------------------------------------
-// Petri-net interpreter — extracted from engine-petri.ts for Phase 0.
-// PetriNet class, Token, TransitionDef, and FiringPolicy live here.
+// Petri-net interpreter — PetriNet class, Token, TransitionDef, FiringPolicy.
 // ---------------------------------------------------------------------------
 
 export type Token = {
@@ -10,6 +9,9 @@ export type Token = {
   /** Retry counter — carried on retry-budget tokens. Phase 0 extension
    *  to move retry state into the net instead of leaking to ctx.retries. */
   retryCount?: number;
+  /** Semantic rework counter — carried on semantic-budget tokens.
+   *  Prevents infinite rework loops when assess-semantic always rejects. */
+  reworkCount?: number;
 };
 
 /**

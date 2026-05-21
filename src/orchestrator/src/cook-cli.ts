@@ -1,13 +1,11 @@
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { PetriOrchestrator } from './engine-petri.js';
-import { ProceduralOrchestrator } from './engine-proc.js';
+import { createOrchestrator } from './engine.js';
 import { FileReportSink } from './file-report-sink.js';
 import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
 import { BunTestRunner } from './test-runner.js';
-import type { Orchestrator } from './types.js';
 import { createWorktree } from './worktree.js';
 
 export type CookOptions = {
@@ -94,8 +92,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
   const reports = new FileReportSink(reportsPath);
   const testRunner = new BunTestRunner();
 
-  const engine: Orchestrator =
-    opts.engine === 'petri' ? new PetriOrchestrator() : new ProceduralOrchestrator();
+  const engine = createOrchestrator('serial');
 
   const runStart = Date.now();
   const actions = createPiActions({ verbose: opts.verbose, runStart });
