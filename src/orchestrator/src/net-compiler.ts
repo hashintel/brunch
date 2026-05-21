@@ -79,7 +79,7 @@ export function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
     const sid = slice.id;
     const baseToken: Token = { sliceId: sid, epicId: epic.id };
 
-    // Places
+    // Places — mechanical lane
     for (const name of [
       'spec-ready',
       'test-agent',
@@ -93,9 +93,14 @@ export function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
       net.addPlace(p(sid, name));
     }
 
-    // Initial tokens (agent resources)
+    // Places — semantic lane
+    net.addPlace(p(sid, 'semantic-gate'));
+    net.addPlace(p(sid, 'semantic-satisfied'));
+
+    // Initial tokens (agent resources + semantic gate)
     net.addToken(p(sid, 'test-agent'), { ...baseToken });
     net.addToken(p(sid, 'code-agent'), { ...baseToken });
+    net.addToken(p(sid, 'semantic-gate'), { ...baseToken });
 
     // Slice readiness gate — collects per-slice prerequisite tokens
     net.addPlace(p(sid, 'eligible'));
@@ -224,11 +229,32 @@ export function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
       },
     });
 
-    // Return DONE — also emit dep-signal tokens for downstream slices
+    // Assess semantic — two-lane join: mechanical done + semantic gate → semantic satisfied
+    // On pass: produces semantic-satisfied. On fail: routes back to needs-more for rework.
+    net.addTransition({
+      id: `${sid}:assess-semantic`,
+      inputs: [p(sid, 'done-spec'), p(sid, 'semantic-gate')],
+      fire: async (consumed) => {
+        const reportId = await actions['assess-semantic'](actCtx);
+        ctx.reportIds.push(reportId);
+        const report = reports.getById(reportId);
+        const satisfied = !!(report?.payload as { satisfied?: boolean })?.satisfied;
+        if (satisfied) {
+          return [{ place: p(sid, 'semantic-satisfied'), token: { ...consumed[0]!, reportId } }];
+        }
+        // Semantic rejection → rework: re-enter TDD loop + re-seed semantic gate
+        return [
+          { place: p(sid, 'needs-more'), token: { ...consumed[0]!, reportId } },
+          { place: p(sid, 'semantic-gate'), token: { ...baseToken } },
+        ];
+      },
+    });
+
+    // Return DONE — consumes semantic-satisfied (not done-spec directly)
     const dependents = plan.slices.filter((s) => s.depends_on.includes(sid));
     net.addTransition({
       id: `${sid}:return-done`,
-      inputs: [p(sid, 'done-spec')],
+      inputs: [p(sid, 'semantic-satisfied')],
       fire: async () => {
         ctx.sliceOutcomes.set(sid, { sliceId: sid, status: 'completed' });
         const outputs: { place: string; token: Token }[] = [

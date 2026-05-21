@@ -80,9 +80,9 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 ### petri-semantic-lanes
 
 - **Name:** Petri semantic lanes — mechanical + semantic two-lane subnet template
-- **Linear:** unassigned (create under umbrella H-6476)
+- **Linear:** FE-738
 - **Kind:** structural
-- **Status:** not-started
+- **Status:** in-progress
 - **Objective:** Extend the extracted NetCompiler to produce a two-lane subnet template per slice: a mechanical lane (dispatch, artifact production, test execution, verification) and a semantic lane (oracle satisfaction, design exercise, intent establishment, completion claim review). Add the spec §7 structured event vocabulary (`transition_fired`, `oracle_passed`, `graph_revision_stale`, `semantic_review_requested`, `completion_claim_accepted`, `status_projection_suggested`, `net_deadlocked`, …) as the interpreter's durable event model. `TransitionContract` type (spec §6) governs each transition's kind, actor, guard, action binding, and emitted events. Mechanical transitions produce candidate evidence; semantic transitions judge that evidence against graph-derived requirements. `PlanDoneAccepted` is reachable only after both lanes complete.
 - **Why now / unlocks:** First frontier where the Petri engine models a distinction the proc engine cannot express topologically: mechanical completion ≠ semantic completion. Unblocks Phase 2 parallel firing (lanes can fire concurrently) and Phase 3 graph compilation (semantic lane structure maps to relation-policy gates). Without this, the engine remains a serial task runner with token-shaped bookkeeping.
 - **Acceptance:** (1) Compiled subnet has distinct mechanical and semantic places/transitions. (2) `PlanDoneAccepted` is unreachable unless both `VerifyPassed` and `OracleSatisfied` (or equivalent semantic tokens) are present. (3) Event log records §7 vocabulary events per transition firing. (4) `TransitionContract` type covers kind, actor, guard, and emits. (5) Stale-graph detection routes to reconciliation or context rebuild, not a dead-end. (6) Existing contract test suite passes with both engines.

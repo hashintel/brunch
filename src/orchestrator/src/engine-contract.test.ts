@@ -24,14 +24,17 @@ function createFakes(opts?: {
   evalSequence?: boolean[]; // sequence of done values for evaluate-done
   testRunResults?: boolean[]; // sequence of passed values for test runner
   verifyEpicResult?: boolean; // result of verify-epic
+  semanticResults?: boolean[]; // sequence of satisfied values for assess-semantic
   throwOnAction?: string; // action name that throws
 }) {
   const callOrder: string[] = [];
   const reports = new InMemoryReportSink();
   let evalIdx = 0;
   let testRunIdx = 0;
+  let semanticIdx = 0;
   const evalSeq = opts?.evalSequence ?? [false, true]; // default: NO then YES
   const testSeq = opts?.testRunResults ?? [true]; // default: pass
+  const semanticSeq = opts?.semanticResults ?? [true]; // default: satisfied
 
   const actions: ActionHandlers = {
     'evaluate-done': async (ctx: ActionContext) => {
@@ -94,6 +97,23 @@ function createFakes(opts?: {
         payload: { passed },
       });
       callOrder.push(`${ctx.epic.id}:verify-epic:${passed ? 'PASS' : 'FAIL'}`);
+      return id;
+    },
+    'assess-semantic': async (ctx: ActionContext) => {
+      if (opts?.throwOnAction === 'assess-semantic') throw new Error('assess-semantic failed');
+      const satisfied = semanticSeq[semanticIdx % semanticSeq.length]!;
+      semanticIdx++;
+      const id = `rpt-sem-${ctx.slice.id}-${semanticIdx}`;
+      reports.append({
+        id,
+        ts: new Date().toISOString(),
+        epicId: ctx.epic.id,
+        sliceId: ctx.slice.id,
+        actor: 'semantic-assessor',
+        event: 'semantic-assessed',
+        payload: { satisfied },
+      });
+      callOrder.push(`${ctx.slice.id}:assess-semantic:${satisfied ? 'PASS' : 'FAIL'}`);
       return id;
     },
   };
@@ -180,6 +200,7 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
           'slice-1:write-code',
           'run-tests:pass',
           'slice-1:evaluate-done:YES',
+          'slice-1:assess-semantic:PASS',
         ]);
       });
 
@@ -197,6 +218,7 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
         expect(events).toContain('eval-done');
         expect(events).toContain('tests-written');
         expect(events).toContain('code-written');
+        expect(events).toContain('semantic-assessed');
       });
     });
   }
@@ -305,6 +327,20 @@ describe('Engine contract test #2 — intra-epic slice dependencies', () => {
               event: 'epic-verified',
               payload: { passed: true },
             });
+            return id;
+          },
+          'assess-semantic': async (ctx: ActionContext) => {
+            const id = `rpt-sem-${ctx.slice.id}`;
+            reports.append({
+              id,
+              ts: new Date().toISOString(),
+              epicId: ctx.epic.id,
+              sliceId: ctx.slice.id,
+              actor: 'semantic-assessor',
+              event: 'semantic-assessed',
+              payload: { satisfied: true },
+            });
+            sliceCallOrder.push(`${ctx.slice.id}:assess-semantic:PASS`);
             return id;
           },
         };
@@ -580,6 +616,41 @@ describe('Engine contract test #9 — action handler throws', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Contract test #10 — semantic gate rejects → rework loop
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #10 — semantic gate rejects then accepts', () => {
+  for (const { name, create } of engines) {
+    it(`${name}: assess-semantic fails once then passes → extra TDD cycle`, async () => {
+      // eval: NO, YES (first TDD cycle completes mechanically),
+      //   semantic: FAIL → needs-more → write-tests → write-code → run-tests
+      //   → spec-ready → eval: YES (second mechanical done),
+      //   semantic: PASS → done
+      const fakes = createFakes({
+        evalSequence: [false, true, true],
+        semanticResults: [false, true],
+      });
+      const result = await create().run({
+        plan: simplePlan,
+        worktreeDir: '/tmp/f',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+      });
+
+      expect(result.status).toBe('completed');
+      // Should have two assess-semantic calls: first FAIL, then PASS
+      const semantics = fakes.callOrder.filter((c) => c.includes('assess-semantic'));
+      expect(semantics).toEqual(['slice-1:assess-semantic:FAIL', 'slice-1:assess-semantic:PASS']);
+      // Two TDD cycles (2 write-tests calls)
+      const writeTests = fakes.callOrder.filter((c) => c.includes('write-tests'));
+      expect(writeTests.length).toBe(2);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Adapter test — compiled net shape for simplePlan
 // ---------------------------------------------------------------------------
 
@@ -606,18 +677,19 @@ describe('Adapter: compiled net shape', () => {
 
     // simplePlan: 1 epic, 1 slice (no deps)
     // Epic places: epic:epic-1:done = 1
-    // Slice places: spec-ready, test-agent, code-agent, failing-tests,
-    //               untested-code, needs-more, done-spec, completed, eligible,
-    //               retry-budget = 10
-    // Total places: 11
-    expect(net.placeCount).toBe(11);
+    // Mechanical places: spec-ready, test-agent, code-agent, failing-tests,
+    //                    untested-code, needs-more, done-spec, completed, eligible,
+    //                    retry-budget = 10
+    // Semantic places: semantic-gate, semantic-satisfied = 2
+    // Total places: 13
+    expect(net.placeCount).toBe(13);
 
     // Transitions:
     //   slice-ready:slice-1, slice-1:evaluate, slice-1:write-tests,
-    //   slice-1:write-code, slice-1:run-tests, slice-1:return-done,
-    //   epic-complete:epic-1
-    // Total: 7
-    expect(net.transitionCount).toBe(7);
+    //   slice-1:write-code, slice-1:run-tests, slice-1:assess-semantic,
+    //   slice-1:return-done, epic-complete:epic-1
+    // Total: 8
+    expect(net.transitionCount).toBe(8);
   });
 
   it('depPlan compiles with additional dep-signal places and transitions', () => {
@@ -642,17 +714,17 @@ describe('Adapter: compiled net shape', () => {
 
     // depPlan: 1 epic, 2 slices (slice-b depends on slice-a)
     // Epic places: epic:epic-1:done = 1
-    // Slice-a places: 10 (8 standard + eligible + retry-budget)
-    // Slice-b places: 10 (8 standard + eligible + retry-budget)
+    // Slice-a places: 12 (8 standard + eligible + retry-budget + semantic-gate + semantic-satisfied)
+    // Slice-b places: 12 (8 standard + eligible + retry-budget + semantic-gate + semantic-satisfied)
     // Dep-signal places: slice:slice-a:dep-signal:slice-b = 1
-    // Total: 22
-    expect(net.placeCount).toBe(22);
+    // Total: 26
+    expect(net.placeCount).toBe(26);
 
     // Transitions:
-    //   slice-a: slice-ready, evaluate, write-tests, write-code, run-tests, return-done = 6
-    //   slice-b: slice-ready (with dep gate), evaluate, write-tests, write-code, run-tests, return-done = 6
+    //   slice-a: slice-ready, evaluate, write-tests, write-code, run-tests, assess-semantic, return-done = 7
+    //   slice-b: slice-ready (with dep gate), evaluate, write-tests, write-code, run-tests, assess-semantic, return-done = 7
     //   epic-complete:epic-1 = 1
-    // Total: 13
-    expect(net.transitionCount).toBe(13);
+    // Total: 15
+    expect(net.transitionCount).toBe(15);
   });
 });
