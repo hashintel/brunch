@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto"
+import { readFile } from "node:fs/promises"
 import { createServer, type Server } from "node:http"
+import { dirname, join } from "node:path"
 import type { Duplex } from "node:stream"
+import { fileURLToPath } from "node:url"
 
 import { createRpcHandlers } from "./rpc.js"
 import type { WorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
@@ -29,6 +32,7 @@ const SHELL_HTML = `<!doctype html>
       <h1>Brunch</h1>
       <p>Native Brunch web shell.</p>
     </main>
+    <script type="module" src="/assets/brunch-web.js"></script>
   </body>
 </html>
 `
@@ -45,6 +49,25 @@ export async function startWebHost(
         "cache-control": "no-store",
       })
       response.end(SHELL_HTML)
+      return
+    }
+
+    if (request.method === "GET" && request.url === "/assets/brunch-web.js") {
+      void readWebAsset("assets/brunch-web.js").then(
+        (asset) => {
+          response.writeHead(200, {
+            "content-type": "text/javascript; charset=utf-8",
+            "cache-control": "no-store",
+          })
+          response.end(asset)
+        },
+        () => {
+          response.writeHead(404, {
+            "content-type": "text/plain; charset=utf-8",
+          })
+          response.end("Not found")
+        },
+      )
       return
     }
 
@@ -98,6 +121,17 @@ export async function startWebHost(
       await close(server)
     },
   }
+}
+
+async function readWebAsset(relativePath: string): Promise<Buffer> {
+  return readFile(
+    join(
+      dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "dist-web",
+      relativePath,
+    ),
+  )
 }
 
 function websocketHandshakeResponse(key: string): string {
