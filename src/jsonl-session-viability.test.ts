@@ -1,6 +1,7 @@
 import { mkdtempSync } from "node:fs"
+import { readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 
 import { describe, expect, it } from "vitest"
 
@@ -12,9 +13,56 @@ import {
   type SessionMessageEntry,
 } from "@earendil-works/pi-coding-agent"
 
+import {
+  loadActiveBranchTranscriptEntries,
+  projectElicitationExchanges,
+  type ElicitationExchangeProjection,
+} from "./elicitation-exchange.js"
+
+const M1_FIXTURE_IDS = ["brief-001", "brief-002", "brief-003"] as const
+const M1_RUN_ID = "scripted-001"
+
 interface PersistedSessionFixture {
   file: string
   manager: SessionManager
+}
+
+interface SessionBindingData {
+  schemaVersion: 1
+  sessionId: string
+  specId: string
+  specTitle: string
+}
+
+interface M1FixtureMeta {
+  briefId: string
+  runId: string
+  session: {
+    id: string
+    sourceFile: string
+  }
+  projectionSummary: {
+    status: ElicitationExchangeProjection["status"]
+    exchangeCount: number
+    openPrompt: boolean
+  }
+  artifacts: {
+    jsonl: string
+    graph: { status: "deferred" }
+    coherence: { status: "deferred" }
+  }
+}
+
+interface M1Brief {
+  id: string
+  title: string
+}
+
+interface M1FixtureBundle {
+  bundleDir: string
+  jsonlPath: string
+  meta: M1FixtureMeta
+  brief: M1Brief
 }
 
 describe("Pi JSONL transcript viability", () => {
@@ -268,6 +316,107 @@ describe("Pi JSONL transcript viability", () => {
     })
   })
 })
+
+describe("M1 fixture JSONL replay parity", () => {
+  it("m1 fixture bundles reload for transcript parity", async () => {
+    for (const briefId of M1_FIXTURE_IDS) {
+      const bundle = await loadM1FixtureBundle(briefId)
+      const reloaded = SessionManager.open(
+        bundle.jsonlPath,
+        undefined,
+        process.cwd(),
+      )
+
+      expect(reloaded.getHeader()).toMatchObject({ id: bundle.meta.session.id })
+      expect(reloaded.getEntries()).not.toHaveLength(0)
+      expect(bundle.meta.artifacts.jsonl).toBe(`${M1_RUN_ID}.jsonl`)
+    }
+  })
+
+  it("m1 fixture bundle metadata matches reprojected exchanges", async () => {
+    for (const briefId of M1_FIXTURE_IDS) {
+      const bundle = await loadM1FixtureBundle(briefId)
+      const projection = projectElicitationExchanges(
+        loadActiveBranchTranscriptEntries(bundle.jsonlPath, {
+          cwd: process.cwd(),
+        }),
+      )
+
+      expect(summaryForProjection(projection)).toEqual(
+        bundle.meta.projectionSummary,
+      )
+    }
+  })
+
+  it("m1 fixture bundle bindings match briefs", async () => {
+    for (const briefId of M1_FIXTURE_IDS) {
+      const bundle = await loadM1FixtureBundle(briefId)
+      const bindings = SessionManager.open(
+        bundle.jsonlPath,
+        undefined,
+        process.cwd(),
+      )
+        .getEntries()
+        .filter(
+          (entry): entry is CustomEntry<SessionBindingData> =>
+            entry.type === "custom" &&
+            entry.customType === "brunch.session_binding",
+        )
+
+      expect(bindings).toHaveLength(1)
+      expect(bindings[0]?.data).toMatchObject({
+        sessionId: bundle.meta.session.id,
+        specTitle: bundle.brief.title,
+      })
+    }
+  })
+
+  it("m1 fixture metadata treats source file as provenance only", async () => {
+    for (const briefId of M1_FIXTURE_IDS) {
+      const bundle = await loadM1FixtureBundle(briefId)
+
+      expect(bundle.meta.session.sourceFile).toMatch(/^\//u)
+      expect(bundle.jsonlPath).toBe(
+        join(bundle.bundleDir, bundle.meta.artifacts.jsonl),
+      )
+      expect(bundle.jsonlPath).not.toBe(bundle.meta.session.sourceFile)
+    }
+  })
+})
+
+async function loadM1FixtureBundle(
+  briefId: typeof M1_FIXTURE_IDS[number],
+): Promise<M1FixtureBundle> {
+  const bundleDir = join(".brunch-fixtures", briefId, M1_RUN_ID)
+  const metaPath = join(bundleDir, `${M1_RUN_ID}.meta.json`)
+  const meta = JSON.parse(await readFile(metaPath, "utf8")) as M1FixtureMeta
+  const jsonlPath = join(dirname(metaPath), meta.artifacts.jsonl)
+  const briefPath = join(
+    ".brunch-fixtures",
+    "briefs",
+    `${briefId}-${briefSlug(briefId)}.json`,
+  )
+  const brief = JSON.parse(await readFile(briefPath, "utf8")) as M1Brief
+  return { bundleDir, jsonlPath, meta, brief }
+}
+
+function briefSlug(briefId: typeof M1_FIXTURE_IDS[number]): string {
+  return {
+    "brief-001": "identity-reference",
+    "brief-002": "state-lifecycle",
+    "brief-003": "derived-views",
+  }[briefId]
+}
+
+function summaryForProjection(
+  projection: ElicitationExchangeProjection,
+): M1FixtureMeta["projectionSummary"] {
+  return {
+    status: projection.status,
+    exchangeCount: projection.exchanges.length,
+    openPrompt: projection.openPrompt !== null,
+  }
+}
 
 function createPersistedSession(): PersistedSessionFixture {
   const cwd = mkdtempSync(join(tmpdir(), "brunch-jsonl-"))

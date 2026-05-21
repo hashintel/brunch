@@ -20,11 +20,11 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 
 ### Active
 
-1. `jsonl-session-viability` — Proves whether pi JSONL sessions can hold raw payloads, Brunch session binding, structured elicitation entries, and continuity metadata faithfully across reload.
+1. `web-shell` — M3. Browser as thin remote head over the same host, TanStack Router + Query, one WebSocket RPC client, no REST read model.
 
 ### Next
 
-1. `web-shell` — M3. Browser as thin remote head over the same host, TanStack Router + Query, one WebSocket RPC client, no REST read model.
+1. `graph-data-plane` — M4. SQLite-backed graph persistence; intent-plane nodes/edges; graph clock; change log; coherence-state homes.
 
 ### Parallel / Low-conflict
 
@@ -33,7 +33,6 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 
 ### Horizon
 
-- `graph-data-plane` — M4. SQLite-backed graph persistence; intent-plane nodes/edges; graph clock; change log; coherence-state homes.
 - `agent-graph-integration` — M5. Graph tools and observer extraction through pi extension seams; all writes via the shared command layer.
 - `authority-model` — M6. Three-tier policy (autonomous / requires-confirmation / human-only) end-to-end across modes.
 - `turn-boundary-reconciliation` — M7. Graph-revision tracking, session interest sets, `worldUpdate` injection, and the mention-staleness hint synthesiser.
@@ -84,15 +83,15 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Linear:** [FE-736](https://linear.app/hash/issue/FE-736/jsonl-session-viability-proof)
 - **Branch:** `ln/fe-736-jsonl-session-viability` (stacked on `ln/fe-735-mode-shell-fixture-driver`)
 - **Kind:** structural
-- **Status:** active
+- **Status:** done
 - **Objective:** Prove whether pi `SessionManager` JSONL in `.brunch/sessions/` is rich enough to carry raw assistant/user payloads, Brunch session binding (`brunch.session_binding`), structured elicitation prompt/response entries when needed, other custom entries (`brunch.lens_switch`, `brunch.side_task_result`, `worldUpdate`, `brunch.mention`, `brunch.mention_staleness_hint`), and session-scoped continuity metadata (`lastSeenLsn`, interest sets, compaction anchors) through reload.
 - **Why now / unlocks:** Validates A2-L and pins D6-L. If JSONL is insufficient, M2 produces a sharply scoped fallback proposal that all later milestones can plan against.
 - **Acceptance:** Round-trip reload of a captured session preserves raw payloads byte-equivalent (modulo timestamps); session binding and structured elicitation entries survive; elicitation exchanges can be re-projected from the active branch after reload; all named Brunch custom entries survive, including side-task-result delivery entries when present; continuity metadata survives. If any of these fail, the failure is sharply documented and a fallback path is proposed (project richer substrate / mirror JSONL into richer records / propose pi upstream change).
-- **Verification:** Inner — verify gate plus synthetic JSONL projection tests. Middle — JSONL round-trip/property tests for raw payloads, `brunch.session_binding`, structured elicitation entries, active-branch exchange projection, and coordinator-created `/new` sessions. Outer — fixture replay parity across the transcript-first run bundle.
+- **Verification:** Inner — verify gate plus synthetic JSONL projection tests. Middle — JSONL round-trip/property tests for raw payloads, `brunch.session_binding`, structured elicitation entries, active-branch exchange projection, coordinator-created `/new` sessions, and M1 fixture replay parity. Outer — fixture replay parity across the transcript-first run bundle; no new human review was required because brief content and scripted user notes did not change.
 - **Cross-cutting obligations:** This frontier is the transcript-side proof for the shared event substrate that later carries structured elicitation entries, session binding, lens switches, side-task results, mentions, and `worldUpdate` without inventing a parallel channel or canonical chat/turn store. JSONL viability must validate sessions created through the `WorkspaceSessionCoordinator`, including the first-entry binding and `/new` same-spec behavior.
 - **Traceability:** R7, R8, R16, R17, R19 / D6-L, D11-L, D12-L, D13-L, D18-L / I3-L, I8-L, I10-L / A2-L, A12-L
 - **Design docs:** archived [jsonl-session-viability-note](file:///Users/lunelson/Code/hashintel/brunch-next/archive/archive/docs/architecture/jsonl-session-viability-note.md)
-- **Current execution pointer:** `memory/CARDS.md` queue — build JSONL reload parity, custom-entry survival, active-branch projection, and M1 fixture replay evidence slices.
+- **Current execution pointer:** complete; proceed to `web-shell`.
 
 ### web-shell
 
@@ -261,7 +260,8 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 
 ## Recently Completed
 
-- 2026-05-21 `mode-shell-and-fixture-driver` — Done: print and RPC transport modes boot through the Brunch host; named `workspace.snapshot` and `session.elicitationExchanges` handlers project coordinator-selected session state; fixture capture copies the same selected Pi JSONL session projected by RPC; brief metadata is Brunch-owned and marks graph/coherence artifacts deferred; briefs #1–#3 have scripted deterministic replay bundles under `.brunch-fixtures/<brief-id>/scripted-001/`. Verified: `npm run verify`, RPC/print parity smoke, exchange projection tests, fixture replay/projection parity tests, `./runbooks/verify-m1.sh`, and human inspection that briefs/captures/product-shaped outputs are good on their current terms. Watch: M2 should use these captured transcripts as JSONL reload evidence without turning them into a parallel chat/turn store; later elicitation work must revisit the encoded interaction logic, expectations, and knowledge-flow assumptions rather than treating the scripted M1 exchange shape as final product behavior.
+- 2026-05-21 `jsonl-session-viability` — Done: Pi JSONL reload preserves coordinator-created binding-only sessions, first assistant/user flushes without duplicate prefixes, `/new` same-spec bindings, raw user/assistant payloads, representative Brunch custom entries, context-participating custom messages, continuity/compaction metadata, structured elicitation entries, active-branch exchange projection, and M1 bundle-local replay parity for briefs #1–#3. `session.elicitationExchanges` now projects from Pi's active branch instead of file-linear JSONL. Verified: `npm run verify` after each slice. Watch: M2 validates JSONL as sufficient on current POC terms, but later side-task, mention, and continuity frontiers still own their final payload semantics.
+- 2026-05-21 `mode-shell-and-fixture-driver` — Done: print and RPC transport modes boot through the Brunch host; named `workspace.snapshot` and `session.elicitationExchanges` handlers project coordinator-selected session state; fixture capture copies the same selected Pi JSONL session projected by RPC; brief metadata is Brunch-owned and marks graph/coherence artifacts deferred; briefs #1–#3 have scripted deterministic replay bundles under `.brunch-fixtures/<brief-id>/scripted-001/`. Verified: `npm run verify`, RPC/print parity smoke, exchange projection tests, fixture replay/projection parity tests, `./runbooks/verify-m1.sh`, and human inspection that briefs/captures/product-shaped outputs are good on their current terms. Watch: M2 used these captured transcripts as JSONL reload evidence without turning them into a parallel chat/turn store; later elicitation work must revisit the encoded interaction logic, expectations, and knowledge-flow assumptions rather than treating the scripted M1 exchange shape as final product behavior.
 - 2026-05-20 `walking-skeleton` — Done: Brunch now launches through a real pi-backed TUI boot path with coordinator-first spec gating, project-local `.brunch/` state, self-describing Pi JSONL sessions via exactly one `brunch.session_binding`, same-spec `/new` coverage, persistent cwd / spec / phase / chat-mode chrome through pi's extension widget seam, a bin shim, store-only runbook checker, and type-ownership hardening against Pi exported types. Verified: `npm run verify`, manual TUI smoke in a scratch project, automated TUI/coordinator tests, store-only runbook oracle, and manual file inspection. Watch: M1 should reuse the coordinator/session truth rather than recreating boot/session mechanics.
 - 2026-05-20 `pre-poc-archive-and-reseed` — Done: razed pre-POC implementation, archived legacy docs and planning memory under `archive/`, tagged `next-baseline`, reseeded `memory/SPEC.md` and `memory/PLAN.md` from the three canonical POC architecture docs. Verified: `git log --oneline` shows three clean buckets; `archive/` contains all prior material. Watch: Phase 3 infra bootstrap is folded into `walking-skeleton`, not a separate frontier.
 
