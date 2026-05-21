@@ -1,13 +1,71 @@
 import process from "node:process"
+import { fileURLToPath } from "node:url"
 
 import { runBrunchTui } from "./brunch-tui.js"
+import {
+  renderWorkspaceSnapshot,
+  workspaceSnapshotFromState,
+} from "./print-snapshot.js"
+import {
+  createWorkspaceSessionCoordinator,
+  type WorkspaceSessionCoordinator,
+} from "./workspace-session-coordinator.js"
 
-async function main(): Promise<void> {
-  await runBrunchTui({ cwd: process.cwd() })
+export interface BrunchCliOptions {
+  argv?: string[]
+  cwd?: string
+  coordinator?: WorkspaceSessionCoordinator
+  stdout?: (chunk: string) => void
 }
 
-main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error)
-  process.stderr.write(`${message}\n`)
-  process.exitCode = 1
-})
+export async function runBrunchCli(
+  options: BrunchCliOptions = {},
+): Promise<number> {
+  const argv = options.argv ?? process.argv.slice(2)
+  const cwd = options.cwd ?? process.cwd()
+  const mode = parseMode(argv)
+  const coordinator =
+    options.coordinator ?? createWorkspaceSessionCoordinator({ cwd })
+
+  if (mode === "print") {
+    const state = await coordinator.openExisting()
+    const snapshot = workspaceSnapshotFromState(state)
+    ;(options.stdout ?? process.stdout.write.bind(process.stdout))(
+      renderWorkspaceSnapshot(snapshot),
+    )
+    return 0
+  }
+
+  if (mode === "tui") {
+    await runBrunchTui({ cwd, coordinator })
+    return 0
+  }
+
+  throw new Error(`Unsupported Brunch mode: ${mode}`)
+}
+
+function parseMode(argv: string[]): string {
+  const modeFlagIndex = argv.indexOf("--mode")
+  if (modeFlagIndex >= 0) {
+    return argv[modeFlagIndex + 1] ?? "tui"
+  }
+
+  const modeEquals = argv.find((arg) => arg.startsWith("--mode="))
+  if (modeEquals) {
+    return modeEquals.slice("--mode=".length)
+  }
+
+  return "tui"
+}
+
+async function main(): Promise<void> {
+  process.exitCode = await runBrunchCli()
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error)
+    process.stderr.write(`${message}\n`)
+    process.exitCode = 1
+  })
+}
