@@ -4,7 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import { PetriNet } from './petri-net.js';
-import type { Token } from './petri-net.js';
+import type { Token, TransitionContract } from './petri-net.js';
 import { createReport } from './report-helpers.js';
 import type { ActionContext, EpicOutcome, OrchestratorInput, SliceOutcome } from './types.js';
 
@@ -68,6 +68,7 @@ export function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
       net.addTransition({
         id: `epic-deps-met:${epic.id}`,
         inputs: signalPlaces,
+        contract: { kind: 'structural', lane: 'epic', guard: 'all epic dependencies done' },
         fire: async () => epicReadyOutputs(epic.id),
       });
     }
@@ -107,9 +108,15 @@ export function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
 
     if (slice.depends_on.length === 0) {
       // No slice deps — eligible when epic is ready (token seeded below)
+      const readyContract: TransitionContract = {
+        kind: 'structural',
+        lane: 'mechanical',
+        guard: 'slice eligible',
+      };
       net.addTransition({
         id: `slice-ready:${sid}`,
         inputs: [p(sid, 'eligible')],
+        contract: readyContract,
         fire: async () => [{ place: p(sid, 'spec-ready'), token: { ...baseToken } }],
       });
     } else {
@@ -121,6 +128,7 @@ export function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
       net.addTransition({
         id: `slice-ready:${sid}`,
         inputs: gateInputs,
+        contract: { kind: 'structural', lane: 'mechanical', guard: 'slice eligible + all deps done' },
         fire: async () => [{ place: p(sid, 'spec-ready'), token: { ...baseToken } }],
       });
     }
@@ -137,6 +145,12 @@ export function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
     net.addTransition({
       id: `${sid}:evaluate`,
       inputs: [p(sid, 'spec-ready'), p(sid, 'test-agent')],
+      contract: {
+        kind: 'mechanical',
+        lane: 'mechanical',
+        actor: 'evaluator',
+        guard: 'spec-ready + test-agent available',
+      },
       fire: async (consumed) => {
         const reportId = await actions['evaluate-done'](actCtx);
         ctx.reportIds.push(reportId);
@@ -160,6 +174,7 @@ export function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
     net.addTransition({
       id: `${sid}:write-tests`,
       inputs: [p(sid, 'needs-more'), p(sid, 'test-agent')],
+      contract: { kind: 'mechanical', lane: 'mechanical', actor: 'test-agent' },
       fire: async (consumed) => {
         const reportId = await actions['write-tests'](actCtx);
         ctx.reportIds.push(reportId);
@@ -174,6 +189,7 @@ export function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
     net.addTransition({
       id: `${sid}:write-code`,
       inputs: [p(sid, 'failing-tests'), p(sid, 'code-agent')],
+      contract: { kind: 'mechanical', lane: 'mechanical', actor: 'coding-agent' },
       fire: async (consumed) => {
         const reportId = await actions['write-code'](actCtx);
         ctx.reportIds.push(reportId);
@@ -193,6 +209,12 @@ export function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
     net.addTransition({
       id: `${sid}:run-tests`,
       inputs: [p(sid, 'untested-code'), p(sid, 'retry-budget')],
+      contract: {
+        kind: 'mechanical',
+        lane: 'mechanical',
+        actor: 'test-runner',
+        guard: 'untested-code + retry-budget available',
+      },
       fire: async (consumed) => {
         const retryToken = consumed[1]!;
         const retryCount = retryToken.retryCount ?? 0;
@@ -234,6 +256,12 @@ export function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
     net.addTransition({
       id: `${sid}:assess-semantic`,
       inputs: [p(sid, 'done-spec'), p(sid, 'semantic-gate')],
+      contract: {
+        kind: 'semantic',
+        lane: 'semantic',
+        actor: 'semantic-assessor',
+        guard: 'done-spec + semantic-gate',
+      },
       fire: async (consumed) => {
         const reportId = await actions['assess-semantic'](actCtx);
         ctx.reportIds.push(reportId);
@@ -255,6 +283,7 @@ export function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
     net.addTransition({
       id: `${sid}:return-done`,
       inputs: [p(sid, 'semantic-satisfied')],
+      contract: { kind: 'structural', lane: 'semantic', guard: 'semantic-satisfied' },
       fire: async () => {
         ctx.sliceOutcomes.set(sid, { sliceId: sid, status: 'completed' });
         const outputs: { place: string; token: Token }[] = [
@@ -299,6 +328,7 @@ export function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
       net.addTransition({
         id: `epic-complete:${epic.id}`,
         inputs: completedPlaces,
+        contract: { kind: 'structural', lane: 'epic', guard: 'all slices completed' },
         fire: async () => {
           ctx.epicOutcomes.set(epic.id, { epicId: epic.id, status: 'completed' });
           return epicDoneOutputs();
@@ -312,12 +342,14 @@ export function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
       net.addTransition({
         id: `epic-slices-done:${epic.id}`,
         inputs: completedPlaces,
+        contract: { kind: 'structural', lane: 'epic', guard: 'all slices completed' },
         fire: async () => [{ place: verifyPlace, token: { sliceId: '', epicId: epic.id } }],
       });
 
       net.addTransition({
         id: `epic-verify:${epic.id}`,
         inputs: [verifyPlace],
+        contract: { kind: 'mechanical', lane: 'epic', actor: 'orchestrator', guard: 'verify-ready' },
         fire: async () => {
           const verifyCtx: ActionContext = {
             slice: epicSlices[0]!,

@@ -692,6 +692,49 @@ describe('Adapter: compiled net shape', () => {
     expect(net.transitionCount).toBe(8);
   });
 
+  it('simplePlan transitions carry correct contract metadata', () => {
+    const reports = new InMemoryReportSink();
+    const ctx: RunCtx = {
+      reportIds: [],
+      sliceOutcomes: new Map(),
+      epicOutcomes: new Map(),
+
+      halted: false,
+    };
+    const input: OrchestratorInput = {
+      plan: simplePlan,
+      worktreeDir: '/tmp/fake',
+      actions: createFakes().actions,
+      reports,
+      testRunner: createFakes().testRunner,
+      policy: { maxRetries: 3 },
+    };
+
+    const net = compilePlan(input, ctx);
+    const transitions = net.getTransitions();
+
+    // Mechanical-lane transitions
+    const mechanical = transitions.filter((t) => t.contract?.lane === 'mechanical');
+    expect(mechanical.length).toBeGreaterThanOrEqual(5); // ready, evaluate, write-tests, write-code, run-tests
+    for (const t of mechanical) {
+      if (t.contract?.kind !== 'structural') {
+        expect(t.contract?.kind).toBe('mechanical');
+      }
+    }
+
+    // Semantic-lane transitions
+    const semantic = transitions.filter((t) => t.contract?.lane === 'semantic');
+    expect(semantic.length).toBeGreaterThanOrEqual(1); // assess-semantic, return-done
+    const assessSemantic = transitions.find((t) => t.id.endsWith(':assess-semantic'));
+    expect(assessSemantic?.contract?.kind).toBe('semantic');
+    expect(assessSemantic?.contract?.actor).toBe('semantic-assessor');
+
+    // All transitions have contracts
+    for (const t of transitions) {
+      expect(t.contract).toBeDefined();
+    }
+  });
+
   it('depPlan compiles with additional dep-signal places and transitions', () => {
     const reports = new InMemoryReportSink();
     const ctx: RunCtx = {

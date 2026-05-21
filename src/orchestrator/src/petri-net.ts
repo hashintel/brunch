@@ -12,9 +12,27 @@ export type Token = {
   retryCount?: number;
 };
 
+/**
+ * Typed metadata per transition — describes what a transition represents
+ * without affecting firing semantics. Enables the interpreter and event
+ * model to distinguish mechanical from semantic transitions.
+ */
+export type TransitionContract = {
+  /** Transition classification. */
+  kind: 'mechanical' | 'semantic' | 'structural';
+  /** Which subnet lane this transition belongs to. */
+  lane?: 'mechanical' | 'semantic' | 'epic';
+  /** What entity fires this transition. */
+  actor?: 'coding-agent' | 'test-agent' | 'test-runner' | 'evaluator' | 'semantic-assessor' | 'orchestrator';
+  /** Human-readable guard description (predicate logic is in the fire handler). */
+  guard?: string;
+};
+
 export type TransitionDef = {
   id: string;
   inputs: string[];
+  /** Optional typed metadata — does not affect firing semantics. */
+  contract?: TransitionContract;
   fire: (consumed: Token[]) => Promise<{ place: string; token: Token }[]>;
 };
 
@@ -56,6 +74,11 @@ export class PetriNet {
   /** Returns the number of registered transitions. */
   get transitionCount(): number {
     return this.transitions.length;
+  }
+
+  /** Returns registered transitions for inspection (e.g. adapter tests). */
+  getTransitions(): ReadonlyArray<TransitionDef> {
+    return this.transitions;
   }
 
   async run(_policy: FiringPolicy, shouldHalt?: () => boolean): Promise<void> {
