@@ -59,7 +59,7 @@
 
 ## Card 2 — Strict Pi JSONL transcript reader
 
-- **Status:** queued
+- **Status:** done
 - **Weight:** light hardening card
 
 ### Objective

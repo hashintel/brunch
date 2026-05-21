@@ -235,12 +235,61 @@ describe("elicitation exchange projection", () => {
     )
   })
 
+  it("rejects file-backed transcripts without exactly one Pi session header", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "brunch-jsonl-header-"))
+    const headerlessFile = join(dir, "headerless.jsonl")
+    const duplicateHeaderFile = join(dir, "duplicate-header.jsonl")
+    const header = { type: "session", id: "session-1", cwd: dir }
+    await writeFile(
+      headerlessFile,
+      `${JSON.stringify(assistant)}\n${JSON.stringify(user)}\n`,
+    )
+    await writeFile(
+      duplicateHeaderFile,
+      `${JSON.stringify(header)}\n${JSON.stringify(header)}\n${JSON.stringify({
+        ...assistant,
+        parentId: null,
+      })}\n`,
+    )
+
+    await expect(loadJsonlTranscriptEntries(headerlessFile)).rejects.toThrow(
+      "exactly one Pi session header",
+    )
+    await expect(
+      loadJsonlTranscriptEntries(duplicateHeaderFile),
+    ).rejects.toThrow("exactly one Pi session header")
+  })
+
+  it("rejects malformed non-header Pi JSONL entries before projection", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "brunch-jsonl-shape-"))
+    const file = join(dir, "malformed.jsonl")
+    const header = { type: "session", id: "session-1", cwd: dir }
+    await writeFile(
+      file,
+      `${JSON.stringify(header)}\n${JSON.stringify({ ...assistant, parentId: null })}\n${JSON.stringify(
+        {
+          id: "u1",
+          type: "message",
+          message: { role: "user", content: "A" },
+        },
+      )}\n`,
+    )
+
+    await expect(loadJsonlTranscriptEntries(file)).rejects.toThrow(
+      "string-or-null parentId",
+    )
+  })
+
   it("loads newline-delimited Pi transcript entries from disk", async () => {
     const dir = await mkdtemp(join(tmpdir(), "brunch-jsonl-"))
     const file = join(dir, "session.jsonl")
+    const header = { type: "session", id: "session-1", cwd: dir }
     await writeFile(
       file,
-      `${JSON.stringify(assistant)}\n${JSON.stringify(user)}\n`,
+      `${JSON.stringify(header)}\n${JSON.stringify({
+        ...assistant,
+        parentId: null,
+      })}\n${JSON.stringify({ ...user, parentId: "a1" })}\n`,
     )
 
     const entries = await loadJsonlTranscriptEntries(file)

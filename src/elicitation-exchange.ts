@@ -53,10 +53,34 @@ export async function loadJsonlTranscriptEntries(
   const entries = content
     .split("\n")
     .filter((line) => line.trim().length > 0)
-    .map((line) => JSON.parse(line) as FileEntry)
+    .map((line) => JSON.parse(line) as unknown)
 
+  assertFileBackedTranscriptEntries(entries)
   assertLinearTranscriptEntries(entries)
   return entries
+}
+
+function assertFileBackedTranscriptEntries(
+  entries: readonly unknown[],
+): asserts entries is FileEntry[] {
+  const headerCount = entries.filter(isSessionHeader).length
+  if (headerCount !== 1) {
+    throw new Error(
+      `Invalid Pi JSONL transcript: expected exactly one Pi session header, found ${headerCount}`,
+    )
+  }
+
+  for (const entry of entries) {
+    if (isSessionHeader(entry)) {
+      continue
+    }
+
+    if (!hasRequiredSessionEntryShape(entry)) {
+      throw new Error(
+        "Invalid Pi JSONL transcript: every non-header entry must have a string id, string-or-null parentId, and string type",
+      )
+    }
+  }
 }
 
 export function assertLinearTranscriptEntries(
@@ -167,10 +191,17 @@ function isTranscriptEntry(value: unknown): value is SessionEntry {
 }
 
 function isSessionEntry(value: unknown): value is SessionEntry {
+  return isTranscriptEntry(value) && hasStringOrNullParentId(value)
+}
+
+function hasRequiredSessionEntryShape(value: unknown): value is SessionEntry {
+  return isTranscriptEntry(value) && hasStringOrNullParentId(value)
+}
+
+function hasStringOrNullParentId(value: unknown): boolean {
   return (
-    isTranscriptEntry(value) &&
-    ((value as { parentId?: unknown }).parentId === null ||
-      typeof (value as { parentId?: unknown }).parentId === "string")
+    (value as { parentId?: unknown }).parentId === null ||
+    typeof (value as { parentId?: unknown }).parentId === "string"
   )
 }
 
