@@ -17,9 +17,9 @@ record_failure() {
 run_check() {
   local label="$1"
   shift
-  echo "\n## $label"
+  printf "\n## %s\n" "$label"
   if "$@"; then
-    echo "PASS: $label"
+    printf "\nPASS: %s\n" "$label"
   else
     local status=$?
     record_failure "$label exited $status"
@@ -114,10 +114,10 @@ run_check "Print-mode smoke output" \
   bash -c 'cd "$TMP_WORKSPACE" && node --import "$TSX_LOADER" "$ROOT/src/brunch.ts" --mode print | tee "$TMP_WORKSPACE/print.out" && grep -q "M1 runbook smoke" "$TMP_WORKSPACE/print.out"'
 
 run_check "RPC workspace.snapshot smoke output" \
-  bash -c 'cd "$TMP_WORKSPACE" && printf "%s\n" "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"workspace.snapshot\"}" | node --import "$TSX_LOADER" "$ROOT/src/brunch.ts" --mode rpc | tee "$TMP_WORKSPACE/workspace-rpc.out" && grep -q "M1 runbook smoke" "$TMP_WORKSPACE/workspace-rpc.out" && grep -q "\"session\"" "$TMP_WORKSPACE/workspace-rpc.out"'
+  bash -c 'cd "$TMP_WORKSPACE" && printf "%s\n" "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"workspace.snapshot\"}" | node --import "$TSX_LOADER" "$ROOT/src/brunch.ts" --mode rpc > "$TMP_WORKSPACE/workspace-rpc.out" && node -e "const fs=require(\"node:fs\"); const path=process.env.TMP_WORKSPACE + \"/workspace-rpc.out\"; console.log(JSON.stringify(JSON.parse(fs.readFileSync(path, \"utf8\")), null, 2))" && grep -q "M1 runbook smoke" "$TMP_WORKSPACE/workspace-rpc.out" && grep -q "\"session\"" "$TMP_WORKSPACE/workspace-rpc.out"'
 
 run_check "RPC session.elicitationExchanges smoke output" \
-  bash -c 'cd "$TMP_WORKSPACE" && printf "%s\n" "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"session.elicitationExchanges\"}" | node --import "$TSX_LOADER" "$ROOT/src/brunch.ts" --mode rpc | tee "$TMP_WORKSPACE/exchanges-rpc.out" && grep -q "\"status\":\"ready\"" "$TMP_WORKSPACE/exchanges-rpc.out" && grep -q "promptEntryIds" "$TMP_WORKSPACE/exchanges-rpc.out"'
+  bash -c 'cd "$TMP_WORKSPACE" && printf "%s\n" "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"session.elicitationExchanges\"}" | node --import "$TSX_LOADER" "$ROOT/src/brunch.ts" --mode rpc > "$TMP_WORKSPACE/exchanges-rpc.out" && node -e "const fs=require(\"node:fs\"); const path=process.env.TMP_WORKSPACE + \"/exchanges-rpc.out\"; console.log(JSON.stringify(JSON.parse(fs.readFileSync(path, \"utf8\")), null, 2))" && grep -q "\"status\":\"ready\"" "$TMP_WORKSPACE/exchanges-rpc.out" && grep -q "promptEntryIds" "$TMP_WORKSPACE/exchanges-rpc.out"'
 
 echo
 echo "## Human review prompts"
