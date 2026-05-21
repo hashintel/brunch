@@ -48,8 +48,10 @@ class PetriNet {
     return !!tokens && tokens.length > 0;
   }
 
-  async run(): Promise<void> {
+  async run(shouldHalt?: () => boolean): Promise<void> {
     while (true) {
+      if (shouldHalt?.()) break;
+
       const enabled = this.transitions.find((t) =>
         t.inputs.every((p) => {
           const tokens = this.places.get(p);
@@ -106,12 +108,12 @@ function compilePlan(input: OrchestratorInput, ctx: RunCtx): PetriNet {
   // (deferred until eligible places exist — see below)
   const seedEpics = plan.epics.filter((e) => e.depends_on.length === 0);
 
-  // Epic dependency transitions — dep done → fan out to next epic's slices
+  // Epic dependency transitions — ALL deps done → fan out to next epic's slices
   for (const epic of plan.epics) {
-    for (const depId of epic.depends_on) {
+    if (epic.depends_on.length > 0) {
       net.addTransition({
-        id: `epic-dep:${depId}->${epic.id}`,
-        inputs: [ep(depId, 'done')],
+        id: `epic-deps-met:${epic.id}`,
+        inputs: epic.depends_on.map((depId) => ep(depId, 'done')),
         fire: async () => epicReadyOutputs(epic.id),
       });
     }
@@ -372,7 +374,7 @@ export class PetriOrchestrator implements Orchestrator {
 
     try {
       const net = compilePlan(input, ctx);
-      await net.run();
+      await net.run(() => ctx.halted);
     } catch (err) {
       return {
         status: 'halted',

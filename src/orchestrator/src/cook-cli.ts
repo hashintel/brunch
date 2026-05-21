@@ -32,7 +32,11 @@ export function parseCookArgs(args: string[]): CookOptions {
       }
       engine = val;
     } else if (arg.startsWith('--max-retries=')) {
-      maxRetries = Number.parseInt(arg.split('=')[1]!, 10);
+      const parsed = Number.parseInt(arg.split('=')[1]!, 10);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        throw new Error(`Invalid --max-retries value: ${arg.split('=')[1]}. Must be a non-negative integer.`);
+      }
+      maxRetries = parsed;
     } else if (arg === '--verbose' || arg === '-v') {
       verbose = true;
     } else if (!arg.startsWith('-')) {

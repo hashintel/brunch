@@ -66,8 +66,8 @@ export class ProceduralOrchestrator implements Orchestrator {
         };
       }
 
-      // Epic-level verification
-      for (const v of epic.verification) {
+      // Epic-level verification (one call — handler owns all targets)
+      if (epic.verification.length > 0) {
         const verifyId = await actions['verify-epic']({
           slice: epicSlices[0]!,
           epic,
@@ -81,7 +81,7 @@ export class ProceduralOrchestrator implements Orchestrator {
           epicOutcomes.push({ epicId: epic.id, status: 'halted' });
           return {
             status: 'halted',
-            reason: `Epic ${epic.id} verification failed: ${v.target}`,
+            reason: `Epic ${epic.id} verification failed`,
             reports: reportIds,
             epics: epicOutcomes,
             slices: sliceOutcomes,
