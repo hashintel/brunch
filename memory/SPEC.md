@@ -229,7 +229,7 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 | **Elicitation exchange** | A derived projection over Pi JSONL: prompt-side span (system/assistant/tool-side entries since the prior user response) plus response-side span (the user's text and/or structured action entries). This is the observer's default extraction unit. |
 | **Structured elicitation entry** | Optional Brunch custom transcript entry used when an elicitation prompt or response carries actions, choices, or other deterministic UI structure. Plain generative prompts can remain ordinary Pi messages. |
 | **Observer job** | Durable async work item keyed by session id and elicitation-exchange entry-range ids. It analyzes an exchange for graph mutations or low-confidence suggestions, and survives process restart. |
-| **Lens** | A switchable framing of the active agent (e.g. interview, clarify, oracle-active). Switches are durable transcript entries. |
+| **Lens switch** | A durable `brunch.lens_switch` transcript entry recording that the active agent/session changed lenses. The switch event is distinct from the lens concept itself. |
 | **Side task** | A scoped sub-agent invocation whose result returns through the shared command layer. |
 | **World update** | `worldUpdate` custom message synthesised in `prepareNextTurn` summarising relevant graph changes since the session's `lastSeenLsn`. |
 | **Mention ledger** | Per-session `(entity_id, snapshotted_lsn)` record driving discretionary staleness hints when an entity has changed since the agent last saw it. |
