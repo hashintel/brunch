@@ -107,7 +107,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
       }
     }
 
-    const session = await createBoundSession(this.#cwd, state.currentSpec)
+    const session = await openCurrentSession(this.#cwd, state.currentSpec)
     return readyState(this.#cwd, state.currentSpec, session)
   }
 
@@ -174,6 +174,23 @@ async function createBoundSession(
   const sessionFile = manager.getSessionFile()
   if (!sessionFile) {
     throw new Error("Pi SessionManager did not create a persisted session file")
+  }
+  return bindSessionToSpec(manager, spec)
+}
+
+async function openCurrentSession(
+  cwd: string,
+  spec: WorkspaceSpecState,
+): Promise<WorkspaceSessionReadyState["session"]> {
+  await ensureWorkspaceDirs(cwd)
+  const files = await listSessionFiles(cwd)
+  const manager =
+    files.length === 0
+      ? SessionManager.create(cwd, sessionDir(cwd))
+      : SessionManager.continueRecent(cwd, sessionDir(cwd))
+  const sessionFile = manager.getSessionFile()
+  if (!sessionFile) {
+    throw new Error("Pi SessionManager did not open a persisted session file")
   }
   return bindSessionToSpec(manager, spec)
 }

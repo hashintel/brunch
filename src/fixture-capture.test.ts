@@ -8,6 +8,51 @@ import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinat
 import { captureFixtureRun } from "./fixture-capture.js"
 
 describe("fixture capture", () => {
+  it("captures the coordinator-selected session without injecting a test coordinator", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-fixture-real-"))
+    const workspace = await createWorkspaceSessionCoordinator({
+      cwd,
+    }).startOrCreate({
+      specTitle: "Fixture spec",
+    })
+    workspace.session.manager.appendMessage({
+      role: "assistant",
+      content: "Real selected question",
+    })
+    workspace.session.manager.appendMessage({
+      role: "user",
+      content: "Real selected answer",
+    })
+
+    const result = await captureFixtureRun({
+      cwd,
+      briefId: "brief-001",
+      runId: "run-001",
+      timestamp: "2026-05-21T00:00:00.000Z",
+    })
+
+    const copiedJsonl = await readFile(result.jsonlFile, "utf8")
+    const metadata = JSON.parse(await readFile(result.metaFile, "utf8")) as {
+      session: {
+        id: string
+        sourceFile: string
+      }
+      projectionSummary: {
+        status: string
+        exchangeCount: number
+      }
+    }
+
+    expect(copiedJsonl).toContain("Real selected question")
+    expect(copiedJsonl).toContain("Real selected answer")
+    expect(metadata.session.id).toBe(workspace.session.id)
+    expect(metadata.session.sourceFile).toBe(workspace.session.file)
+    expect(metadata.projectionSummary).toMatchObject({
+      status: "ready",
+      exchangeCount: 1,
+    })
+  })
+
   it("captures a deterministic JSONL and metadata bundle through RPC", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-fixture-"))
     const workspace = await createWorkspaceSessionCoordinator({

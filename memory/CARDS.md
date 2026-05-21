@@ -18,7 +18,7 @@ Complete Card 1 before any actual captured-run work for briefs #1–#3. Cards 2�
 
 ## Card 1 — Stable current-session capture path
 
-**Status:** next
+**Status:** done
 
 ### Weight
 
