@@ -68,7 +68,7 @@ describe("JSON-RPC handlers", () => {
     const sessionFile = join(dir, "session.jsonl")
     await writeFile(
       sessionFile,
-      `${JSON.stringify({ id: "a1", type: "message", role: "assistant", content: "Question" })}\n${JSON.stringify({ id: "u1", type: "message", role: "user", content: "Answer" })}\n`,
+      `${JSON.stringify({ id: "a1", type: "message", message: { role: "assistant", content: "Question" } })}\n${JSON.stringify({ id: "u1", type: "message", message: { role: "user", content: "Answer" } })}\n`,
     )
     const handlers = createRpcHandlers({ coordinator: coordinator() })
 

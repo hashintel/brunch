@@ -34,6 +34,9 @@ interface TranscriptEntry {
   type?: string
   role?: string
   customType?: string
+  message?: {
+    role?: string
+  }
 }
 
 export async function loadJsonlTranscriptEntries(
@@ -64,7 +67,7 @@ export function projectElicitationExchanges(
       continue
     }
 
-    if (isResponseSideEntry(entry)) {
+    if (isResponseSideEntry(entry) && promptIds.length > 0) {
       responseIds.push(entry.id)
     }
   }
@@ -120,19 +123,24 @@ function isPromptSideEntry(entry: TranscriptEntry): boolean {
   if (entry.type === "custom" && entry.customType?.includes("prompt")) {
     return true
   }
-  return (
-    entry.role === "assistant" ||
-    entry.role === "system" ||
-    entry.role === "tool"
-  )
+
+  const role = roleOf(entry)
+  return role === "assistant" || role === "system" || role === "tool"
 }
 
 function isResponseSideEntry(entry: TranscriptEntry): boolean {
-  if (entry.role === "user") {
+  if (roleOf(entry) === "user") {
     return true
   }
   return (
     entry.type === "custom" &&
     STRUCTURED_RESPONSE_TYPES.has(entry.customType ?? "")
   )
+}
+
+function roleOf(entry: TranscriptEntry): string | undefined {
+  if (entry.type === "message") {
+    return entry.message?.role
+  }
+  return entry.role
 }

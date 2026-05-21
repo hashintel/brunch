@@ -3,6 +3,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
+import { SessionManager } from "@earendil-works/pi-coding-agent"
+
 import {
   loadJsonlTranscriptEntries,
   projectElicitationExchanges,
@@ -11,8 +13,7 @@ import {
 const assistant = {
   id: "a1",
   type: "message",
-  role: "assistant",
-  content: "Pick one",
+  message: { role: "assistant", content: "Pick one" },
 }
 const structuredPrompt = {
   id: "p1",
@@ -20,7 +21,11 @@ const structuredPrompt = {
   customType: "brunch.elicitation_prompt",
   data: { choices: ["A", "B"] },
 }
-const user = { id: "u1", type: "message", role: "user", content: "A" }
+const user = {
+  id: "u1",
+  type: "message",
+  message: { role: "user", content: "A" },
+}
 const structuredResponse = {
   id: "r1",
   type: "custom",
@@ -35,8 +40,16 @@ describe("elicitation exchange projection", () => {
       assistant,
       structuredPrompt,
       user,
-      { id: "a2", type: "message", role: "assistant", content: "Why?" },
-      { id: "u2", type: "message", role: "user", content: "Because" },
+      {
+        id: "a2",
+        type: "message",
+        message: { role: "assistant", content: "Why?" },
+      },
+      {
+        id: "u2",
+        type: "message",
+        message: { role: "user", content: "Because" },
+      },
     ])
 
     expect(exchanges).toEqual({
@@ -88,6 +101,45 @@ describe("elicitation exchange projection", () => {
         promptEntryIds: ["a1"],
       },
     })
+  })
+
+  it("ignores orphan user responses before a prompt", () => {
+    const projection = projectElicitationExchanges([
+      user,
+      {
+        id: "a2",
+        type: "message",
+        message: { role: "assistant", content: "Later prompt" },
+      },
+    ])
+
+    expect(projection).toEqual({
+      status: "open_prompt",
+      exchanges: [],
+      openPrompt: {
+        promptRange: { start: "a2", end: "a2" },
+        promptEntryIds: ["a2"],
+      },
+    })
+  })
+
+  it("projects a real SessionManager JSONL assistant/user transcript", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-jsonl-"))
+    const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    manager.appendMessage({ role: "assistant", content: "Question" })
+    manager.appendMessage({ role: "user", content: "Answer" })
+
+    const entries = await loadJsonlTranscriptEntries(manager.getSessionFile()!)
+    const projection = projectElicitationExchanges(entries)
+
+    expect(projection.status).toBe("ready")
+    expect(projection.exchanges).toHaveLength(1)
+    expect(projection.exchanges[0]?.promptEntryIds[0]).toEqual(
+      expect.any(String),
+    )
+    expect(projection.exchanges[0]?.responseEntryIds[0]).toEqual(
+      expect.any(String),
+    )
   })
 
   it("loads newline-delimited Pi transcript entries from disk", async () => {
