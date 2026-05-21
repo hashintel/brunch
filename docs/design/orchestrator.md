@@ -1,6 +1,6 @@
 # Orchestrator POC — Design Proposal
 
-> Status: **working design proposal** — exploratory design for a CLI orchestrator that consumes a brunch-shaped execution plan (epics → slices) and dispatches agents and deterministic checks to drive the plan to completion. Not yet promoted to `memory/SPEC.md`; decisions land there through `ln-spec`. Tracked as FE-730; umbrella H-6476.
+> Status: **landed POC** — CLI orchestrator that consumes a brunch-shaped execution plan (epics → slices) and dispatches agents and deterministic checks to drive the plan to completion. Canonical decisions in `memory/SPEC.md` (R46–50, D155-K–D159-K, I121-K–I123-K). Tracked as FE-730; umbrella H-6476.
 >
 > Scope is intentionally narrow: two interchangeable execution engines behind a shared seam, plan-as-YAML, an append-only event log as the communication medium, and an isolated worktree per run. The 15-step build sequence, fixture definitions, and pi-agent invocation details are operational scaffolding kept separate from this doc. Code lives under `src/orchestrator/` in the brunch repo; `cook` is only the CLI subcommand name.
 >
@@ -57,8 +57,8 @@ interface Orchestrator {
 
 type OrchestratorInput = {
   plan: Plan;                  // { epics, slices }
-  fixtureDir: string;
-  actions: ActionRegistry;     // name-keyed action handlers
+  worktreeDir: string;         // cwd-scoped isolated run directory
+  actions: ActionHandlers;     // Record<string, ActionHandler> — inline dispatch (POC); ActionRegistry when productized (§12)
   reports: ReportSink;         // append-only jsonl
   testRunner: TestRunner;      // deterministic exec
   policy: RunPolicy;           // { maxRetries }
@@ -83,6 +83,8 @@ Every dependency is injected. Contract tests swap in fakes — a fake `ActionReg
 Both produce identical observable behavior on the contract test suite. That's the non-negotiable.
 
 ## 3. ActionRegistry — name-keyed dispatch
+
+> **POC note:** The POC uses inline `ActionHandlers` (a record of handler functions) instead of a formal registry class. The `ActionRegistry` interface below is the productized target — see [§12 POC scope and deferrals](#12-poc-scope-and-deferrals).
 
 The TDD inner loop's transitions (`write-tests`, `write-code`, `run-tests`, `evaluate-done`, `verify-epic`) are not hardcoded inside the engines. They are registered handlers the engines look up by name:
 
@@ -286,15 +288,19 @@ The design above is the target shape. The POC builds a deliberate subset and def
 | **Brownfield seed** | When codebase mode is used and `<dir>/.git` exists, prefer `git worktree add`; otherwise filtered copy (`rsync` excluding `.git`, `node_modules`, `dist`, `.cook/runs/`). | Not implemented. Greenfield-only execution; `mkdir` creates an empty worktree. |
 | **Token-pointer discipline** | Universal rule: tokens between transitions carry only `{ reportId, sliceId, epicId }` pointers; all event content lives in `reports.jsonl`. Applied across both engines. | Petrinet engine enforces this internally (it's a hard constraint of the substrate). Procedural engine is free to pass data through normal function calls — each engine handles its own state shape, the shared seam is just inputs and outputs. |
 | **Layer 2 adapter tests** | Per-engine internal tests (net compilation / solver / transition firing for petrinet; topo sort / inner-loop state transitions / retry counter for procedural). | Optional. Defer until a debugging need surfaces. Layer 1 (contract) + Layer 3 (integration) are mandatory; Layer 2 is added if and when it pays for itself. |
-| **Streaming UX formatting** | Compact per-event lines like `[slice-1 ▸ test-writer] tests-written → 3 files`. | A plain `console.log(JSON.stringify(report))` per event is sufficient. The structured rendering is a polish item, not a correctness item. |
+| **Streaming UX formatting** | Compact per-event lines like `[slice-1 ▸ test-writer] tests-written → 3 files`. | Implemented: elapsed timing, icons (▸/✓/✗/●/○), structured header/footer, `--verbose` for raw pi output. JSON stays in `reports.jsonl` only. |
 
 Rationale for deferring: each item above is "right" for the productized version and "premature" for the POC. The experiment we actually need to run is whether the Petri-net substrate earns its complexity — none of the deferred items affect that experiment's signal. Adding them now would inflate the LOC count and make the comparison muddier, not crisper.
 
 When the experiment concludes and the orchestrator productizes (or merges into something else), the deferrals become the natural follow-up backlog: lift inline dispatch into `ActionRegistry`, wire the codebase-mode resolver branch, add the seed step, etc.
 
-## 13. Two-path experiment success criteria
+## 13. Two-path experiment results
 
-Exploration first, judgement later. No fixed quantitative criteria up front. After the fixture passes on both engines, write a short comparison covering: lines of code per engine, debuggability of mid-run state, how each engine would absorb a hypothetical new action type (e.g. `lint`) or a new plan-level concept (e.g. milestones). The empirical signal from that exercise — not the architectural elegance of either engine — is what decides the next commitment.
+Both engines completed Fixture #1 end-to-end. Procedural: 206 LOC, ~9 min, 23 events. Petri-net: 410 LOC, ~13 min, 27 events. Both produced a working `txt` CLI with 154 agent-written tests passing.
+
+**Verdict:** The procedural engine is half the code, faster to debug (stack traces point to loop lines, not fire() closures), and trivially readable. The Petri-net engine's main advantage is parallelism readiness — independent slices could fire concurrently without restructuring the engine. For serial execution, proc wins. Petri earns its complexity only when parallel execution or dynamic replanning enters scope.
+
+Full comparison table in the POC summary doc.
 
 ## Lexicon
 
