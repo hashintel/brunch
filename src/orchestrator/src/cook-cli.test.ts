@@ -6,7 +6,7 @@ describe('parseCookArgs', () => {
   it('parses dir only', () => {
     const opts = parseCookArgs(['./fixtures/txt']);
     expect(opts.dir).toContain('fixtures/txt');
-    expect(opts.engine).toBe('proc');
+    expect(opts.engine).toBe('petri');
     expect(opts.maxRetries).toBe(3);
     expect(opts.verbose).toBe(false);
   });

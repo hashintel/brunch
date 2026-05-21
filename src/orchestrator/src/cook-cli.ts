@@ -19,7 +19,7 @@ export type CookOptions = {
 
 export function parseCookArgs(args: string[]): CookOptions {
   let dir = '';
-  let engine: 'proc' | 'petri' = 'proc';
+  let engine: 'proc' | 'petri' = 'petri';
   let maxRetries = 3;
   let verbose = false;
 
