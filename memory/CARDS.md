@@ -48,7 +48,7 @@ Coordinator-created sessions remain self-describing after Pi JSONL reload.
 - Do not introduce a canonical chat/turn table or a Brunch-side mirror store to make the test pass.
 - Treat failure as viability evidence, not as an invitation to silently widen Brunch's local parser.
 
-## Card 2 — status: next
+## Card 2 — status: done
 
 ### Target Behavior
 
