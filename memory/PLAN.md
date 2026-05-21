@@ -97,7 +97,8 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 ### web-shell
 
 - **Name:** Web shell over the same host (M3)
-- **Linear:** unassigned
+- **Linear:** [FE-737](https://linear.app/hash/issue/FE-737/web-shell-over-the-same-host-m3)
+- **Branch:** `ln/fe-737-web-shell`
 - **Kind:** structural
 - **Status:** not-started
 - **Objective:** `brunch --mode web` serves a native Brunch React app (TanStack Router + Query) over one WebSocket-backed JSON-RPC client; no second backend API, REST read model, or browser-owned product runtime is invented; `pi-web-ui` is not used.
