@@ -67,8 +67,10 @@ export async function runBrunchCli(
 }
 
 async function runDefaultWebHost(options: WebHostRunnerOptions): Promise<void> {
-  void options.coordinator
-  const host = await startWebHost({ cwd: options.cwd })
+  const host = await startWebHost({
+    cwd: options.cwd,
+    coordinator: options.coordinator,
+  })
   process.stdout.write(`Brunch web listening on ${host.url}\n`)
   await new Promise<void>(() => {})
 }

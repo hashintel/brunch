@@ -182,7 +182,7 @@ Callers that need elicitation exchanges use one product-facing helper that loads
 
 ## Card 5 — WebSocket JSON-RPC bridge
 
-- **Status:** queued
+- **Status:** done
 - **Weight:** full structural card
 
 ### Target Behavior
