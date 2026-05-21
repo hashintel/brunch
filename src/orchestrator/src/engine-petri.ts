@@ -393,11 +393,15 @@ export class PetriOrchestrator implements Orchestrator {
     for (const slice of input.plan.slices) {
       if (!ctx.sliceOutcomes.has(slice.id)) {
         ctx.sliceOutcomes.set(slice.id, { sliceId: slice.id, status: 'halted' });
+        ctx.halted = true;
+        ctx.haltReason ??= 'Some slices were never reached';
       }
     }
     for (const epic of input.plan.epics) {
       if (!ctx.epicOutcomes.has(epic.id)) {
         ctx.epicOutcomes.set(epic.id, { epicId: epic.id, status: 'halted' });
+        ctx.halted = true;
+        ctx.haltReason ??= 'Some epics were never reached';
       }
     }
 
