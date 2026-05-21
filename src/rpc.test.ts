@@ -1,3 +1,6 @@
+import { writeFile, mkdtemp } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { PassThrough } from "node:stream"
 import { describe, expect, it } from "vitest"
 
@@ -57,6 +60,29 @@ describe("JSON-RPC handlers", () => {
         spec: { id: "spec-1", title: "Alpha spec" },
         session: { id: "session-1" },
       },
+    })
+  })
+
+  it("serves session elicitation exchanges from a Pi JSONL file", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "brunch-rpc-"))
+    const sessionFile = join(dir, "session.jsonl")
+    await writeFile(
+      sessionFile,
+      `${JSON.stringify({ id: "a1", type: "message", role: "assistant", content: "Question" })}\n${JSON.stringify({ id: "u1", type: "message", role: "user", content: "Answer" })}\n`,
+    )
+    const handlers = createRpcHandlers({ coordinator: coordinator() })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 3,
+        method: "session.elicitationExchanges",
+        params: { file: sessionFile },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 3,
+      result: { status: "ready", exchanges: [{ promptEntryIds: ["a1"] }] },
     })
   })
 

@@ -1,6 +1,10 @@
 import { createInterface } from "node:readline/promises"
 import type { Readable, Writable } from "node:stream"
 
+import {
+  loadJsonlTranscriptEntries,
+  projectElicitationExchanges,
+} from "./elicitation-exchange.js"
 import { workspaceSnapshotFromState } from "./print-snapshot.js"
 import type { WorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
 
@@ -49,6 +53,14 @@ export function createRpcHandlers(options: {
         return success(request.id ?? null, workspaceSnapshotFromState(state))
       }
 
+      if (request.method === "session.elicitationExchanges") {
+        if (!isSessionProjectionParams(request.params)) {
+          return failure(request.id ?? null, -32602, "Invalid params")
+        }
+        const entries = await loadJsonlTranscriptEntries(request.params.file)
+        return success(request.id ?? null, projectElicitationExchanges(entries))
+      }
+
       return failure(request.id ?? null, -32601, "Method not found")
     },
   }
@@ -90,6 +102,14 @@ function failure(
   message: string,
 ): JsonRpcFailure {
   return { jsonrpc: "2.0", id, error: { code, message } }
+}
+
+function isSessionProjectionParams(value: unknown): value is { file: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { file?: unknown }).file === "string"
+  )
 }
 
 function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
