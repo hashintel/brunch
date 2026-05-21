@@ -62,6 +62,7 @@ function StageEditPatchButton() {
       onClick={() =>
         patchList?.stage({
           kind: 'edit',
+          producerChatId: null,
           anchor: { kind: 'goal', itemId: 1 },
           summary: 'Edit: rephrase',
           newContent: 'rephrased content',
@@ -81,6 +82,7 @@ function StageEditPatchWithDiffButton() {
       onClick={() =>
         patchList?.stage({
           kind: 'edit',
+          producerChatId: null,
           anchor: { kind: 'goal', itemId: 1 },
           anchorReferenceCode: 'G1',
           summary: 'Edit: swap database',
@@ -103,6 +105,7 @@ function StageAnnotatePatchButton() {
       onClick={() =>
         patchList?.stage({
           kind: 'annotate',
+          producerChatId: null,
           anchor: { kind: 'goal', itemId: 2 },
           summary: 'Note: clarify exclusion',
           body: 'The exclusion clause should be moved up.',
@@ -122,6 +125,7 @@ function StageHardEditButton() {
       onClick={() =>
         patchList?.stage({
           kind: 'edit',
+          producerChatId: null,
           anchor: { kind: 'goal', itemId: 3 },
           summary: 'Hard: restructure',
           currentContent: 'before',
@@ -224,7 +228,7 @@ describe('PatchListOverlay', () => {
     expect(editApplier).toHaveBeenCalledTimes(1);
   });
 
-  it('renders staged-changes but no longer composes Pending review (moved into structured-list view, Card 4 follow-up)', () => {
+  it('renders staged-changes but no longer composes Pending review (moved into structured-list view)', () => {
     setMockOpenNeeds([makeNeed({ id: 7 })]);
     const appliers = makeAppliers();
     render(
@@ -357,7 +361,7 @@ describe('PatchListOverlay', () => {
     expect(screen.getByRole('status', { name: /change saved/i })).toBeTruthy();
   });
 
-  it('hides the Undo button after a hard-impact-only apply (V3.0 polish — noUndo)', async () => {
+  it('hides the Undo button after a hard-impact-only apply (noUndo)', async () => {
     const editApplier = vi.fn(() =>
       Promise.resolve({
         undo: () => Promise.resolve(),
@@ -461,7 +465,7 @@ describe('PatchListOverlay', () => {
   });
 });
 
-describe('PatchListOverlay — expand-to-detail (FE-665 follow-up)', () => {
+describe('PatchListOverlay — expand-to-detail', () => {
   it('renders the N pending changes label as a toggle button', () => {
     const appliers = makeAppliers();
     render(
@@ -608,7 +612,7 @@ describe('PatchListOverlay — expand-to-detail (FE-665 follow-up)', () => {
     );
     fireEvent.click(screen.getByText('stage-edit-with-diff'));
     fireEvent.click(screen.getByRole('button', { name: /1 pending change/i }));
-    const chip = screen.getByLabelText(/soft impact/i);
+    const chip = screen.getByLabelText(/^soft$/i);
     expect(chip.getAttribute('data-impact')).toBe('soft');
   });
 });

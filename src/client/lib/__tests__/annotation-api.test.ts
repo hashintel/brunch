@@ -72,6 +72,7 @@ describe('makeAnnotateApplier', () => {
     const patch: AnnotatePatch = {
       id: 'p1',
       kind: 'annotate',
+      producerChatId: null,
       anchor: { kind: 'decision', itemId: 5 },
       summary: 'phrase',
       body: '',
@@ -93,6 +94,7 @@ describe('makeAnnotateApplier', () => {
     const patch: AnnotatePatch = {
       id: 'p1',
       kind: 'annotate',
+      producerChatId: null,
       anchor: { kind: 'decision', itemId: 5 },
       summary: '  phrase  ',
       body: 'note',
@@ -112,6 +114,7 @@ describe('makeAnnotateApplier', () => {
     const patch: AnnotatePatch = {
       id: 'p1',
       kind: 'annotate',
+      producerChatId: null,
       anchor: { kind: 'decision', itemId: 5 },
       summary: 'x',
       body: '',

@@ -56,7 +56,7 @@ export interface ClassifyNeedResult {
  * One-shot LLM classification. The injected `runModel` function exists so
  * tests can stub the LLM seam without touching any provider; production
  * callers pass {@link defaultRunModel} which routes through the AI SDK
- * adapter already used by side-chat-route + observer.
+ * adapter already used by secondary-chat-route + observer.
  */
 export async function classifyNeed(
   input: ClassifyNeedInput,

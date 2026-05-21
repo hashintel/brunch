@@ -65,7 +65,12 @@ import {
   handleListOpenReconciliationNeeds,
   handleResolveReconciliationNeed,
 } from './reconciliation-needs-route.js';
-import { handleSideChatRequest } from './side-chat-route.js';
+import {
+  handleCreateSecondaryChatRequest,
+  handleDeleteSecondaryChatRequest,
+  handleSecondaryChatMessageRequest,
+  handleSetSecondaryChatModeRequest,
+} from './secondary-chat-route.js';
 import { createCoreTools } from './tools/index.js';
 import { materializeTurnArtifacts } from './turn-artifacts.js';
 import {
@@ -241,7 +246,16 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const specificationEntitiesPaths = ['/api/specifications/:id/entities'] as const;
   const specificationExportPaths = ['/api/specifications/:id/export'] as const;
   const specificationChatPaths = ['/api/specifications/:id/chat'] as const;
-  const specificationSideChatPaths = ['/api/specifications/:id/side-chat'] as const;
+  const specificationSecondaryChatPaths = ['/api/specifications/:id/secondary-chats'] as const;
+  const specificationSecondaryChatResourcePaths = [
+    '/api/specifications/:id/secondary-chats/:chatId',
+  ] as const;
+  const specificationSecondaryChatModePaths = [
+    '/api/specifications/:id/secondary-chats/:chatId/mode',
+  ] as const;
+  const specificationSecondaryChatMessagePaths = [
+    '/api/specifications/:id/secondary-chats/:chatId/messages',
+  ] as const;
   const specificationAnnotationsPaths = ['/api/specifications/:id/annotations'] as const;
   const annotationResourcePaths = ['/api/annotations/:annotationId'] as const;
   const specificationKnowledgeItemPaths = ['/api/specifications/:id/knowledge-items/:itemId'] as const;
@@ -621,8 +635,20 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     pipeUIMessageStreamToResponse({ response: res, stream });
   });
 
-  registerPost(specificationSideChatPaths, async (req: Request, res: Response) => {
-    await handleSideChatRequest(db, req, res);
+  registerPost(specificationSecondaryChatPaths, (req: Request, res: Response) => {
+    handleCreateSecondaryChatRequest(db, req, res);
+  });
+
+  registerPost(specificationSecondaryChatMessagePaths, async (req: Request, res: Response) => {
+    await handleSecondaryChatMessageRequest(db, req, res);
+  });
+
+  registerPatch(specificationSecondaryChatModePaths, (req: Request, res: Response) => {
+    handleSetSecondaryChatModeRequest(db, req, res);
+  });
+
+  registerDelete(specificationSecondaryChatResourcePaths, (req: Request, res: Response) => {
+    handleDeleteSecondaryChatRequest(db, req, res);
   });
 
   registerPost(specificationAnnotationsPaths, (req: Request, res: Response) => {

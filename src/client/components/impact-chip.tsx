@@ -1,15 +1,3 @@
-// ImpactChip — small color-coded pill rendering a staged edit patch's
-// pre-classified impact tier (design §4.1 / SIDE_CHAT.md).
-//
-// Color cues mirror the patch-list overlay's deferred banner family:
-//   - none → neutral wash
-//   - soft → cool blue (matches the Apply button)
-//   - hard → warm amber (matches the deferred banner)
-//
-// Shared by `side-chat-popover.tsx` (popover staged-patch row) and
-// `patch-list-overlay.tsx` (canonical overlay expanded list) so both
-// surfaces speak the same visual language.
-
 import type { EditImpactTier } from './patch-list-reducer.js';
 
 export interface ImpactChipProps {
@@ -23,7 +11,10 @@ export function ImpactChip({ impact }: ImpactChipProps): React.ReactElement {
       : impact === 'soft'
         ? 'rounded bg-[rgba(32,112,230,0.12)] px-1.5 py-0.5 text-[10px] font-medium text-[#1060d6]'
         : 'rounded bg-wash px-1.5 py-0.5 text-[10px] font-medium text-sub';
-  const label = impact === 'hard' ? 'Hard impact — V3' : impact === 'soft' ? 'Soft impact' : 'No impact';
+  // Drop the "impact" word — the chip color already
+  // encodes severity, so "Hard" / "Soft" / "None" reads as the chip's job
+  // without redundant noise.
+  const label = impact === 'hard' ? 'Hard' : impact === 'soft' ? 'Soft' : 'None';
   return (
     <span className={className} aria-label={label} data-impact={impact}>
       {label}

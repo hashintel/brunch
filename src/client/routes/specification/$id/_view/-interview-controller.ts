@@ -59,7 +59,6 @@ export interface InterviewControllerChatState {
   readonly forcePhaseClosure: (phase: SpecificationTurn['phase']) => void;
 }
 
-// Re-export from core — the type moved there to enable shared enrichment logic
 export type { InterviewControllerBottomArtifactState } from './-interview-controller-core.js';
 
 export interface InterviewController {

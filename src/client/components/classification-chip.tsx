@@ -5,6 +5,8 @@ import type {
   ReconciliationNeedAgentStatus,
 } from '@/shared/reconciliation-need.js';
 
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip.js';
+
 type Variant = 'queued' | 'classifying' | 'auto-confirm' | 'auto-edit' | 'substantive' | 'failed';
 
 interface ChipStyle {
@@ -15,12 +17,12 @@ interface ChipStyle {
 }
 
 const VARIANT_STYLES: Record<Variant, ChipStyle> = {
-  queued: { icon: Hourglass, label: 'queued', accent: '#6b7280' },
-  classifying: { icon: Loader2, label: 'classifying', accent: '#3484fa', animated: true },
-  'auto-confirm': { icon: CheckCircle2, label: 'auto-confirm', accent: '#16a34a' },
-  'auto-edit': { icon: Edit3, label: 'auto-edit', accent: '#ea580c' },
-  substantive: { icon: AlertTriangle, label: 'substantive', accent: '#a16207' },
-  failed: { icon: XCircle, label: 'failed', accent: '#dc2626' },
+  queued: { icon: Hourglass, label: 'Queued', accent: '#6b7280' },
+  classifying: { icon: Loader2, label: 'Classifying', accent: '#3484fa', animated: true },
+  'auto-confirm': { icon: CheckCircle2, label: 'Auto-confirm', accent: '#16a34a' },
+  'auto-edit': { icon: Edit3, label: 'Auto-edit', accent: '#ea580c' },
+  substantive: { icon: AlertTriangle, label: 'Substantive', accent: '#a16207' },
+  failed: { icon: XCircle, label: 'Failed', accent: '#dc2626' },
 };
 
 function variantFor(
@@ -53,19 +55,43 @@ export function ClassificationChip({
 
   const style = VARIANT_STYLES[variant];
   const Icon = style.icon;
-  const tooltip =
+  // For failed rows, surface the agent's error message in the tooltip
+  // instead of the generic "Failed" label so the user can immediately
+  // see why classification didn't succeed.
+  const tooltipBody =
     variant === 'failed' && agentProposal !== null && agentProposal.length > 0 ? agentProposal : style.label;
 
   return (
-    <span
-      className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase"
-      style={{ backgroundColor: `${style.accent}14`, color: style.accent }}
-      data-classification-chip={variant}
-      title={tooltip}
-    >
-      <Icon className={style.animated === true ? 'size-3 animate-spin' : 'size-3'} aria-hidden />
-      {style.label}
-    </span>
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            // Icon-only badge. Background fill at ~8% alpha keeps the
+            // accent legible without competing with the row's text. The
+            // status label moves into the tooltip — keeps the row chrome
+            // tight while preserving discoverability on hover/focus. The
+            // `title` attribute mirrors the tooltip body so the native
+            // hover tooltip still works in keyboard-only or non-pointer
+            // contexts.
+            className="inline-flex size-4 shrink-0 items-center justify-center rounded outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+            style={{ backgroundColor: `${style.accent}14`, color: style.accent }}
+            data-classification-chip={variant}
+            data-classification-label={style.label}
+            tabIndex={0}
+            aria-label={style.label}
+            title={tooltipBody}
+          >
+            <Icon className={style.animated === true ? 'size-3 animate-spin' : 'size-3'} aria-hidden />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent data-classification-chip-tooltip={variant} className="max-w-[260px] text-xs">
+          <span className="font-medium">{style.label}</span>
+          {tooltipBody !== style.label && (
+            <span className="mt-1 block text-[11px] whitespace-pre-wrap opacity-90">{tooltipBody}</span>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 

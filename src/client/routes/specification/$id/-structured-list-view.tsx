@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from '@tanstack/react-router';
-import { ArrowDownLeft, ArrowUpRight, Check, ChevronRight, MessageCircle, Pencil, X } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Check, ChevronRight, MessagesSquare, Pencil, X } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -12,12 +12,15 @@ import {
 } from 'react';
 import { flushSync } from 'react-dom';
 
+import { useChatShellPresence } from '@/client/components/chat-shell-presence.js';
 import { kindAccentHex, kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
-import { usePatchList } from '@/client/components/patch-list-host.js';
-import { PendingReviewSection } from '@/client/components/pending-review-section.js';
+import { usePatchList, useStagedPatches } from '@/client/components/patch-list-host.js';
+// FE-716 C30: PendingReviewSection now mounts inside <UnifiedChatShell>; keep the
+// import commented out so the revert path is a 2-line uncomment.
+// import { PendingReviewSection } from '@/client/components/pending-review-section.js';
+import { useSecondaryChatTrigger } from '@/client/components/secondary-chat-trigger.js';
 import { SelectionMenu } from '@/client/components/selection-menu.js';
-import { useSideChat } from '@/client/components/side-chat-host.js';
 import { Badge } from '@/client/components/ui/badge';
 import { Button } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
@@ -27,6 +30,7 @@ import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js
 
 import { KindToggleChip } from './-kind-toggle-chip.js';
 import { ChipActivateProvider, RelationChip, type RelationChipTarget } from './-relation-chip.js';
+import { useSpecificationBundleData } from './-specification-data.js';
 
 const HASH_ANCHOR_HIGHLIGHT_MS = 1500;
 const CHIP_TRUNCATE_LIMIT = 6;
@@ -451,23 +455,25 @@ function ItemActionRail({
   item,
   onStartEdit,
   editDisabled,
+  chatAnchored,
 }: {
   item: KnowledgeItemSummary;
   onStartEdit?: (() => void) | undefined;
   editDisabled?: boolean;
+  chatAnchored?: boolean;
 }) {
-  const sideChat = useSideChat();
-  const isActive = sideChat !== null;
-  const handleClick = isActive
-    ? () =>
-        sideChat.openFor({
-          kind: item.kind,
-          id: item.id,
-          referenceCode: item.referenceCode,
-          content: item.content,
-        })
-    : undefined;
   const editEnabled = Boolean(onStartEdit) && !editDisabled;
+
+  const secondaryChatTrigger = useSecondaryChatTrigger();
+  const secondaryChatEnabled = Boolean(secondaryChatTrigger?.canCreate) && !secondaryChatTrigger?.isPending;
+  const handleOpenInlineChat =
+    secondaryChatEnabled && secondaryChatTrigger
+      ? () => {
+          void secondaryChatTrigger.create({ kind: item.kind, id: item.id });
+        }
+      : undefined;
+  const chatTriggerLabel = chatAnchored ? 'Anchored to active chat' : 'Open inline chat about this item';
+
   return (
     <div
       data-graph-action-rail
@@ -489,17 +495,20 @@ function ItemActionRail({
       </button>
       <button
         type="button"
-        data-graph-action="chat-with"
-        disabled={!isActive}
-        aria-label="Chat about this item"
-        onClick={handleClick}
+        data-graph-action="open-inline-chat"
+        data-chat-anchored={chatAnchored ? 'true' : undefined}
+        disabled={!secondaryChatEnabled}
+        aria-label={chatTriggerLabel}
+        aria-pressed={chatAnchored ? true : undefined}
+        title={chatTriggerLabel}
+        onClick={handleOpenInlineChat}
         className={
-          isActive
+          secondaryChatEnabled
             ? 'flex size-6 items-center justify-center rounded text-hint hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30'
             : 'flex size-6 items-center justify-center rounded text-hint opacity-40'
         }
       >
-        <MessageCircle className="size-3.5" />
+        <MessagesSquare className="size-3.5" />
       </button>
     </div>
   );
@@ -643,6 +652,7 @@ function ItemRow({
   onSaveEdit,
   onCancelEdit,
   editDisabled,
+  chatAnchored,
 }: {
   item: KnowledgeItemSummary;
   outgoing: DirectedEdge[];
@@ -655,8 +665,11 @@ function ItemRow({
   onSaveEdit: (next: string) => void;
   onCancelEdit: () => void;
   editDisabled: boolean;
+  chatAnchored: boolean;
 }) {
   const hasExpansion = Boolean(item.rationale) || outgoing.length > 0 || incoming.length > 0;
+  const itemAccentHex = kindAccentHex[item.kind];
+  const chatAnchorStyle = chatAnchored ? { borderColor: `${itemAccentHex}33` } : undefined;
 
   return (
     <Collapsible defaultOpen={defaultOpen} asChild>
@@ -667,7 +680,9 @@ function ItemRow({
         data-item-id={item.id}
         data-graph-kind-anchor={kindAnchor ?? undefined}
         data-graph-row-anchored={anchored ? 'true' : undefined}
+        data-graph-row-chat-anchored={chatAnchored ? 'true' : undefined}
         data-graph-row-editing={isEditing ? 'true' : undefined}
+        style={chatAnchorStyle}
         className={`group/row overflow-hidden rounded-xl border bg-background shadow-[var(--shadow-card)] transition-all duration-700 ${anchored ? `animate-in border-current/50 ring-2 ring-current/30 duration-300 fade-in ${kindTextColor[item.kind]}` : 'border-rule'}`}
       >
         <div className={`flex justify-between gap-2 p-3 ${isEditing ? 'items-start' : 'items-baseline'}`}>
@@ -693,7 +708,12 @@ function ItemRow({
           </div>
           {!isEditing && (
             <div className="flex items-center gap-1">
-              <ItemActionRail item={item} onStartEdit={onStartEdit} editDisabled={editDisabled} />
+              <ItemActionRail
+                item={item}
+                onStartEdit={onStartEdit}
+                editDisabled={editDisabled}
+                chatAnchored={chatAnchored}
+              />
               {hasExpansion && (
                 <CollapsibleTrigger
                   data-graph-row-toggle
@@ -735,9 +755,55 @@ export function StructuredListView({
   const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
   const navigate = useNavigate();
 
+  const bundle = useSpecificationBundleData();
+  const presence = useChatShellPresence();
+  const secondaryChats = bundle.secondaryChats ?? [];
+  // Match `UnifiedChatShell`: shell focus can target reconciliation-pinned
+  // chats, so row highlight must resolve from the full bundle, not only
+  // item-anchored chats.
+  const activeChat = (() => {
+    const focusedId = presence?.focusedChatId ?? null;
+    if (focusedId !== null) {
+      const focused = secondaryChats.find((c) => c.chat.id === focusedId);
+      if (focused) return focused;
+    }
+    const itemChats = secondaryChats.filter((s) => s.chat.pinned_reconciliation_need_id === null);
+    return itemChats[itemChats.length - 1] ?? null;
+  })();
+  const activeChatAnchoredItemIds = new Set<number>();
+  if (activeChat) {
+    if (activeChat.chat.pinned_item_id !== null) {
+      activeChatAnchoredItemIds.add(activeChat.chat.pinned_item_id);
+    }
+    for (const id of activeChat.anchoredItemIds) {
+      activeChatAnchoredItemIds.add(id);
+    }
+  }
+
   const selection = useTextSelection('[data-annotatable]');
-  const sideChat = useSideChat();
+  const secondaryChatTrigger = useSecondaryChatTrigger();
   const patchList = usePatchList();
+
+  // Auto-apply staged annotate patches. Annotations are user-confirmed at the
+  // moment the user clicks "Annotate"; staging them is a single-step write that
+  // should land in the saved overlay immediately with the standard "Change
+  // saved" toast.
+  const stagedAnnotatePatches = useStagedPatches({ kind: 'annotate' });
+  const triggeredAutoApplyIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!patchList || stagedAnnotatePatches.length === 0) return;
+    const triggered = triggeredAutoApplyIdsRef.current;
+    const stagedIds = new Set(stagedAnnotatePatches.map((patch) => patch.id));
+    for (const id of triggered) {
+      if (!stagedIds.has(id)) triggered.delete(id);
+    }
+    const untriggered = stagedAnnotatePatches.filter((patch) => !triggered.has(patch.id));
+    if (untriggered.length === 0) return;
+    for (const patch of untriggered) {
+      triggered.add(patch.id);
+    }
+    void patchList.apply(untriggered.map((patch) => patch.id));
+  }, [patchList, stagedAnnotatePatches]);
 
   // Direct-edit mode (FE-657): one row in inline edit at a time. Staging the
   // resulting `kind: 'edit'` patch routes through the same PatchListProvider
@@ -759,6 +825,7 @@ export function StructuredListView({
       if (!patchList) return;
       patchList.stage({
         kind: 'edit',
+        producerChatId: null,
         anchor: { kind: item.kind, itemId: item.id },
         anchorReferenceCode: item.referenceCode,
         summary: `Edit ${item.referenceCode}`,
@@ -773,14 +840,11 @@ export function StructuredListView({
     if (!selection || !patchList) return;
     const item = itemsByKey.get(`${selection.anchor.kind}:${selection.anchor.itemId}`);
     if (!item) return;
-    sideChat?.openFor({
-      kind: item.kind,
-      id: item.id,
-      referenceCode: item.referenceCode,
-      content: item.content,
-    });
+    // Stage only — the auto-apply effect above will pick the new annotate up on
+    // the next render and route it through patchList.apply().
     patchList.stage({
       kind: 'annotate',
+      producerChatId: null,
       anchor: { kind: item.kind, itemId: item.id },
       summary: selection.snapshot,
       body: '',
@@ -792,18 +856,14 @@ export function StructuredListView({
   };
 
   const handleChat = () => {
-    if (!selection || !sideChat) return;
+    if (!selection || !secondaryChatTrigger || !secondaryChatTrigger.canCreate) return;
     const item = itemsByKey.get(`${selection.anchor.kind}:${selection.anchor.itemId}`);
     if (!item) return;
-    sideChat.openWithSpanHint(
-      {
-        kind: item.kind,
-        id: item.id,
-        referenceCode: item.referenceCode,
-        content: item.content,
-      },
-      selection.snapshot,
-    );
+    void secondaryChatTrigger.create({
+      kind: item.kind,
+      id: item.id,
+      spanHint: selection.snapshot,
+    });
     window.getSelection()?.removeAllRanges();
   };
 
@@ -905,11 +965,10 @@ export function StructuredListView({
             </button>
           </div>
         )}
-        {/* Pending review queue sits under the kind filter chips next to the
-            graph list. Staged patches + saved toast mount in specification
-            layout (<PatchListOverlay /> in route.tsx) so they persist across
-            phase routes and sibling navigations. */}
-        <PendingReviewSection />
+        {/* FE-716 C30: pending-review queue integrated into the chat shell body
+            (<UnifiedChatShell /> mounts <PendingReviewSection /> directly).
+            Restore this mount and revert the chat-shell mount to undo. */}
+        {/* <PendingReviewSection /> */}
         <div ref={scrollAreaRef} className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-6 pb-8">
             {view === 'empty' && (
@@ -971,6 +1030,7 @@ export function StructuredListView({
                                   onSaveEdit={(next) => handleSaveEdit(item, next)}
                                   onCancelEdit={handleCancelEdit}
                                   editDisabled={patchList === null || (editingItemKey !== null && !isEditing)}
+                                  chatAnchored={activeChatAnchoredItemIds.has(item.id)}
                                 />
                               );
                             });

@@ -26,6 +26,16 @@ const POPOVER_MAX_WIDTH = 480;
 const POPOVER_GAP = 6;
 const VIEWPORT_MARGIN = 8;
 
+/**
+ * When the anchor sits inside the chat shell (e.g. a "view source diff"
+ * trigger inside a pending-review row) we want the popover centered
+ * horizontally inside that container, not aligned right-of-anchor against
+ * the viewport. Walking up from the anchor finds the nearest such surface.
+ */
+function findContainingChatShell(anchor: HTMLElement): HTMLElement | null {
+  return anchor.closest<HTMLElement>('[data-testid="unified-chat-shell"]');
+}
+
 function computePosition(anchor: HTMLElement, popoverHeight: number): ComputedPosition {
   const rect = anchor.getBoundingClientRect();
   const viewportHeight = window.innerHeight;
@@ -39,7 +49,16 @@ function computePosition(anchor: HTMLElement, popoverHeight: number): ComputedPo
     placement === 'below'
       ? Math.min(viewportHeight - popoverHeight - VIEWPORT_MARGIN, rect.bottom + POPOVER_GAP)
       : Math.max(VIEWPORT_MARGIN, rect.top - popoverHeight - POPOVER_GAP);
-  const idealLeft = rect.right - POPOVER_MAX_WIDTH;
+  // Center the popover horizontally inside the chat shell
+  // when the anchor lives there, instead of always right-aligning to the
+  // anchor and drifting to wherever the trigger sits. Fall back to the old
+  // anchor-right behavior outside the shell so other call sites (e.g. the
+  // workspace) keep their existing alignment.
+  const shell = findContainingChatShell(anchor);
+  const shellRect = shell?.getBoundingClientRect();
+  const idealLeft = shellRect
+    ? shellRect.left + (shellRect.width - POPOVER_MAX_WIDTH) / 2
+    : rect.right - POPOVER_MAX_WIDTH;
   const left = Math.max(
     VIEWPORT_MARGIN,
     Math.min(viewportWidth - POPOVER_MAX_WIDTH - VIEWPORT_MARGIN, idealLeft),

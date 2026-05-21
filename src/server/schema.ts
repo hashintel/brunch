@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // --- Core tables ---
 
@@ -19,17 +19,31 @@ export const specification = sqliteTable('specification', {
     .default(sql`(datetime('now'))`),
 });
 
-export const chat = sqliteTable('chat', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  specification_id: integer()
-    .notNull()
-    .references(() => specification.id),
-  kind: text({ enum: ['interview', 'side_chat'] }).notNull(),
-  active_turn_id: integer().references((): any => turn.id),
-  created_at: text()
-    .notNull()
-    .default(sql`(datetime('now'))`),
-});
+export const chat = sqliteTable(
+  'chat',
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    specification_id: integer()
+      .notNull()
+      .references(() => specification.id),
+    kind: text({ enum: ['interview', 'side_chat'] }).notNull(),
+    active_turn_id: integer().references((): any => turn.id),
+    parent_chat_id: integer().references((): any => chat.id),
+    invoked_in_turn_id: integer().references((): any => turn.id),
+    pinned_item_id: integer().references(() => knowledgeItem.id),
+    pinned_span_hint: text(),
+    pinned_reconciliation_need_id: integer().references((): any => reconciliationNeed.id),
+    mode: text({ enum: ['explore', 'edit'] }),
+    anchored_item_ids: text().notNull().default('[]'),
+    created_at: text()
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('chat_parent_chat_id_idx').on(table.parent_chat_id),
+    index('chat_invoked_in_turn_id_idx').on(table.invoked_in_turn_id),
+  ],
+);
 
 export const turn = sqliteTable('turn', {
   id: integer().primaryKey({ autoIncrement: true }),

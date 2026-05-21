@@ -7,7 +7,7 @@ export function RouteRoot({ cwd }: { cwd: string }) {
     <div className="flex h-dvh flex-col bg-background font-sans text-foreground antialiased">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-rule bg-card px-3">
         <Link to="/" className="flex shrink-0 items-baseline gap-2 text-foreground">
-          <img src={brunchLogo} alt="Brunch" className="h-7 w-auto shrink-0" />
+          <img src={brunchLogo} alt="brunch" className="h-7 w-auto shrink-0" />
         </Link>
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
           <Link to="/" className="flex shrink-0 items-baseline gap-2">

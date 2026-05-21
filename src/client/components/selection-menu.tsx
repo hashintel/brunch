@@ -40,7 +40,7 @@ export function SelectionMenu({ rect, onChat, onAnnotate }: SelectionMenuProps) 
         className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-ink hover:bg-[rgba(0,0,0,0.04)]"
       >
         <NotebookPen className="size-3.5" aria-hidden />
-        Annotate
+        Add to Notes
       </button>
     </div>
   );

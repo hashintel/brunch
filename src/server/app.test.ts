@@ -4643,3 +4643,429 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
       .expect(400);
   });
 });
+
+describe('POST /api/specifications/:id/secondary-chats', () => {
+  async function setupItem(specificationId: number) {
+    const { createKnowledgeItem } = await import('./db.js');
+    return createKnowledgeItem(db, specificationId, 'goal', 'Reach product-market fit');
+  }
+
+  async function getParentChatId(specificationId: number): Promise<number> {
+    const { getSpecification } = await import('./db.js');
+    return getSpecification(db, specificationId)!.primary_chat_id!;
+  }
+
+  it('creates a secondary chat with kickoff turn anchored to the item', async () => {
+    const specificationId = await createTestSpecification('FE-716 route');
+    const item = await setupItem(specificationId);
+    const parentChatId = await getParentChatId(specificationId);
+    const { createTurn } = await import('./db.js');
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+
+    const res = await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+      })
+      .expect(200);
+
+    expect(res.body.chatId).toBeGreaterThan(0);
+    expect(res.body.kickoffTurnId).toBeGreaterThan(0);
+
+    const snapshot = await getSpecificationSnapshot(specificationId);
+    const secondary = snapshot.secondaryChats?.find((row) => row.chat.id === res.body.chatId);
+    expect(secondary).toBeTruthy();
+    expect(secondary?.chat.parent_chat_id).toBe(parentChatId);
+    expect(secondary?.chat.invoked_in_turn_id).toBe(parentTurn.id);
+    expect(secondary?.chat.pinned_item_id).toBe(item.id);
+    expect(secondary?.kickoffTurn?.id).toBe(res.body.kickoffTurnId);
+    expect(secondary?.kickoffTurn?.assistant_parts).toBeTruthy();
+  });
+
+  it('returns 400 when parentChatId is not the specification primary chat', async () => {
+    const specificationId = await createTestSpecification('FE-716 lineage parent');
+    const otherSpecId = await createTestSpecification('FE-716 lineage other');
+    const item = await setupItem(specificationId);
+    const wrongParent = await getParentChatId(otherSpecId);
+    const { createTurn } = await import('./db.js');
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+
+    await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId: wrongParent,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+      })
+      .expect(400);
+  });
+
+  it('returns 404 when invokedInTurnId belongs to another specification', async () => {
+    const specificationId = await createTestSpecification('FE-716 lineage turn spec');
+    const otherSpecId = await createTestSpecification('FE-716 lineage turn other');
+    const item = await setupItem(specificationId);
+    const parentChatId = await getParentChatId(specificationId);
+    const { createTurn } = await import('./db.js');
+    const foreignTurn = createTurn(db, otherSpecId, { phase: 'grounding', question: 'Q' });
+
+    await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: foreignTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+      })
+      .expect(404);
+  });
+
+  it('returns 400 when invokedInTurnId is not on the parent chat', async () => {
+    const specificationId = await createTestSpecification('FE-716 lineage turn chat');
+    const item = await setupItem(specificationId);
+    const parentChatId = await getParentChatId(specificationId);
+    const { appendSecondaryChatTurn, createTurn } = await import('./db.js');
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+
+    const createRes = await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+      })
+      .expect(200);
+
+    const wrongChatTurn = appendSecondaryChatTurn(db, createRes.body.chatId as number, {
+      role: 'user',
+      content: 'turn on secondary chat',
+    });
+
+    await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: wrongChatTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+      })
+      .expect(400);
+  });
+
+  it('persists pinned_span_hint when provided', async () => {
+    const specificationId = await createTestSpecification('FE-716 span hint');
+    const item = await setupItem(specificationId);
+    const parentChatId = await getParentChatId(specificationId);
+    const { createTurn } = await import('./db.js');
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+
+    const res = await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+        spanHint: 'product-market fit',
+      })
+      .expect(200);
+
+    const snapshot = await getSpecificationSnapshot(specificationId);
+    const secondary = snapshot.secondaryChats?.find((row) => row.chat.id === res.body.chatId);
+    expect(secondary?.chat.pinned_span_hint).toBe('product-market fit');
+  });
+
+  it('refreshes invoked_in_turn_id and pinned_span_hint when re-triggered for the same item from a later turn', async () => {
+    // Bot round 5 (cursor#3272179870): dedupe used to swallow the new
+    // anchor context, leaving jump-to-anchor stuck on the first open
+    // turn. The route now refreshes invoked_in_turn_id + pinned_span_hint
+    // so the persisted anchor tracks the most recent invocation.
+    const specificationId = await createTestSpecification('FE-716 anchor refresh');
+    const item = await setupItem(specificationId);
+    const parentChatId = await getParentChatId(specificationId);
+    const { createTurn } = await import('./db.js');
+    const firstTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q1' });
+    const secondTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q2' });
+
+    const firstRes = await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: firstTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+        spanHint: 'first hint',
+      })
+      .expect(200);
+    expect(firstRes.body.kickoffTurnId).toBeGreaterThan(0);
+
+    const secondRes = await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: secondTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+        spanHint: 'second hint',
+      })
+      .expect(200);
+    expect(secondRes.body.chatId).toBe(firstRes.body.chatId);
+    expect(secondRes.body.kickoffTurnId).toBeNull();
+
+    const snapshot = await getSpecificationSnapshot(specificationId);
+    const row = snapshot.secondaryChats?.find((r) => r.chat.id === firstRes.body.chatId);
+    expect(row?.chat.invoked_in_turn_id).toBe(secondTurn.id);
+    expect(row?.chat.pinned_span_hint).toBe('second hint');
+  });
+
+  it('persists pinned_reconciliation_need_id and hydrates pinnedReconciliationNeed in the bundle (FE-716 C9)', async () => {
+    const specificationId = await createTestSpecification('FE-716 C9 need');
+    const item = await setupItem(specificationId);
+    const parentChatId = await getParentChatId(specificationId);
+    const { createTurn, createKnowledgeItem, openReconciliationNeed } = await import('./db.js');
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+    const source = createKnowledgeItem(db, specificationId, 'goal', 'Source goal text');
+    const need = openReconciliationNeed(db, {
+      specificationId,
+      sourceItemId: source.id,
+      targetItemId: item.id,
+      kind: 'supersedes',
+    });
+
+    const res = await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+        reconciliationNeedId: need.id,
+      })
+      .expect(200);
+
+    const snapshot = await getSpecificationSnapshot(specificationId);
+    const secondary = snapshot.secondaryChats?.find((row) => row.chat.id === res.body.chatId);
+    expect(secondary?.chat.pinned_reconciliation_need_id).toBe(need.id);
+    expect(secondary?.pinnedReconciliationNeed).toBeTruthy();
+    expect(secondary?.pinnedReconciliationNeed?.needId).toBe(need.id);
+    expect(secondary?.pinnedReconciliationNeed?.kind).toBe('supersedes');
+    expect(secondary?.pinnedReconciliationNeed?.sourceItemId).toBe(source.id);
+    expect(secondary?.pinnedReconciliationNeed?.targetItemId).toBe(item.id);
+    expect(secondary?.pinnedReconciliationNeed?.sourceExcerpt).toContain('Source goal text');
+    expect(secondary?.pinnedReconciliationNeed?.targetExcerpt).toContain('Reach product-market fit');
+  });
+
+  it('returns 404 when reconciliationNeedId belongs to a different specification (FE-716 C9)', async () => {
+    const specificationId = await createTestSpecification('FE-716 C9 cross-spec');
+    const otherSpecId = await createTestSpecification('FE-716 C9 other');
+    const item = await setupItem(specificationId);
+    const parentChatId = await getParentChatId(specificationId);
+    const { createTurn, createKnowledgeItem, openReconciliationNeed } = await import('./db.js');
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+    const otherSource = createKnowledgeItem(db, otherSpecId, 'goal', 'foreign goal');
+    const otherTarget = createKnowledgeItem(db, otherSpecId, 'goal', 'foreign target');
+    const foreignNeed = openReconciliationNeed(db, {
+      specificationId: otherSpecId,
+      sourceItemId: otherSource.id,
+      targetItemId: otherTarget.id,
+      kind: 'supersedes',
+    });
+
+    await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+        reconciliationNeedId: foreignNeed.id,
+      })
+      .expect(404);
+  });
+
+  it('rejects malformed bodies with 400', async () => {
+    const specificationId = await createTestSpecification('FE-716 bad body');
+    await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({ parentChatId: 'not-a-number' })
+      .expect(400);
+  });
+
+  it('returns 404 when the specification does not exist', async () => {
+    await request(app)
+      .post('/api/specifications/999999/secondary-chats')
+      .send({ parentChatId: 1, invokedInTurnId: 1, itemKind: 'goal', itemId: 1 })
+      .expect(404);
+  });
+
+  it('returns 404 when the pinned item does not exist in the specification', async () => {
+    const specificationId = await createTestSpecification('FE-716 missing item');
+    const parentChatId = await getParentChatId(specificationId);
+    const { createTurn } = await import('./db.js');
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+
+    await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: 999999,
+      })
+      .expect(404);
+  });
+});
+
+describe('PATCH /api/specifications/:id/secondary-chats/:chatId/mode', () => {
+  async function createSecondaryChatForSpec(specificationId: number): Promise<number> {
+    const { createKnowledgeItem, createTurn, getSpecification } = await import('./db.js');
+    const item = createKnowledgeItem(db, specificationId, 'goal', 'Mode test goal');
+    const parentChatId = getSpecification(db, specificationId)!.primary_chat_id!;
+    const parentTurn = createTurn(db, specificationId, { phase: 'grounding', question: 'Q' });
+    const res = await request(app)
+      .post(`/api/specifications/${specificationId}/secondary-chats`)
+      .send({
+        parentChatId,
+        invokedInTurnId: parentTurn.id,
+        itemKind: 'goal',
+        itemId: item.id,
+      })
+      .expect(200);
+    return res.body.chatId as number;
+  }
+
+  it("toggles a secondary chat's mode and reflects the new mode in the bundle", async () => {
+    const specificationId = await createTestSpecification('FE-716 mode toggle');
+    const chatId = await createSecondaryChatForSpec(specificationId);
+
+    const before = await getSpecificationSnapshot(specificationId);
+    const beforeRow = before.secondaryChats?.find((row) => row.chat.id === chatId);
+    expect(beforeRow?.chat.mode).toBe('explore');
+
+    const res = await request(app)
+      .patch(`/api/specifications/${specificationId}/secondary-chats/${chatId}/mode`)
+      .send({ mode: 'edit' })
+      .expect(200);
+    expect(res.body).toEqual({ chatId, mode: 'edit' });
+
+    const after = await getSpecificationSnapshot(specificationId);
+    const afterRow = after.secondaryChats?.find((row) => row.chat.id === chatId);
+    expect(afterRow?.chat.mode).toBe('edit');
+  });
+
+  it('rejects an invalid mode with 400', async () => {
+    const specificationId = await createTestSpecification('FE-716 mode invalid');
+    const chatId = await createSecondaryChatForSpec(specificationId);
+    await request(app)
+      .patch(`/api/specifications/${specificationId}/secondary-chats/${chatId}/mode`)
+      .send({ mode: 'bogus' })
+      .expect(400);
+  });
+
+  describe('master secondary chat', () => {
+    it('creates a master secondary chat with no item, no kickoff turn, and dedupes on second call', async () => {
+      const specificationId = await createTestSpecification('FE-716 C31 master create');
+      const { getSpecification } = await import('./db.js');
+      const parentChatId = getSpecification(db, specificationId)!.primary_chat_id!;
+
+      const firstRes = await request(app)
+        .post(`/api/specifications/${specificationId}/secondary-chats`)
+        .send({ parentChatId })
+        .expect(200);
+      expect(firstRes.body.chatId).toBeGreaterThan(0);
+      expect(firstRes.body.kickoffTurnId).toBeNull();
+
+      const secondRes = await request(app)
+        .post(`/api/specifications/${specificationId}/secondary-chats`)
+        .send({ parentChatId })
+        .expect(200);
+      expect(secondRes.body.chatId).toBe(firstRes.body.chatId);
+      expect(secondRes.body.kickoffTurnId).toBeNull();
+
+      const snapshot = await getSpecificationSnapshot(specificationId);
+      const masterChats = (snapshot.secondaryChats ?? []).filter(
+        (row) => row.chat.pinned_item_id === null && row.chat.pinned_reconciliation_need_id === null,
+      );
+      expect(masterChats).toHaveLength(1);
+      expect(masterChats[0]!.chat.id).toBe(firstRes.body.chatId);
+      expect(masterChats[0]!.kickoffTurn).toBeNull();
+      expect(masterChats[0]!.turns).toHaveLength(0);
+    });
+
+    it('always creates a new empty chat when `fresh: true` is passed, even with an existing master', async () => {
+      const specificationId = await createTestSpecification('FE-716 C31 fresh empty chat');
+      const { getSpecification } = await import('./db.js');
+      const parentChatId = getSpecification(db, specificationId)!.primary_chat_id!;
+
+      const masterRes = await request(app)
+        .post(`/api/specifications/${specificationId}/secondary-chats`)
+        .send({ parentChatId })
+        .expect(200);
+      const masterId = masterRes.body.chatId as number;
+
+      const fresh1 = await request(app)
+        .post(`/api/specifications/${specificationId}/secondary-chats`)
+        .send({ parentChatId, fresh: true })
+        .expect(200);
+      const fresh2 = await request(app)
+        .post(`/api/specifications/${specificationId}/secondary-chats`)
+        .send({ parentChatId, fresh: true })
+        .expect(200);
+
+      expect(fresh1.body.chatId).not.toBe(masterId);
+      expect(fresh2.body.chatId).not.toBe(masterId);
+      expect(fresh1.body.chatId).not.toBe(fresh2.body.chatId);
+      expect(fresh1.body.kickoffTurnId).toBeNull();
+      expect(fresh2.body.kickoffTurnId).toBeNull();
+
+      const snapshot = await getSpecificationSnapshot(specificationId);
+      const emptyChats = (snapshot.secondaryChats ?? []).filter(
+        (row) => row.chat.pinned_item_id === null && row.chat.pinned_reconciliation_need_id === null,
+      );
+      expect(emptyChats).toHaveLength(3);
+    });
+
+    it('isolates master chats by specification — cross-spec call creates a different chat', async () => {
+      const specA = await createTestSpecification('FE-716 C31 master spec A');
+      const specB = await createTestSpecification('FE-716 C31 master spec B');
+      const { getSpecification } = await import('./db.js');
+      const parentA = getSpecification(db, specA)!.primary_chat_id!;
+      const parentB = getSpecification(db, specB)!.primary_chat_id!;
+
+      const resA = await request(app)
+        .post(`/api/specifications/${specA}/secondary-chats`)
+        .send({ parentChatId: parentA })
+        .expect(200);
+      const resB = await request(app)
+        .post(`/api/specifications/${specB}/secondary-chats`)
+        .send({ parentChatId: parentB })
+        .expect(200);
+
+      expect(resA.body.chatId).not.toBe(resB.body.chatId);
+    });
+  });
+
+  it('returns 404 when chat does not belong to the specification', async () => {
+    const specificationId = await createTestSpecification('FE-716 mode wrong spec');
+    const otherSpec = await createTestSpecification('FE-716 mode owner');
+    const chatId = await createSecondaryChatForSpec(otherSpec);
+    await request(app)
+      .patch(`/api/specifications/${specificationId}/secondary-chats/${chatId}/mode`)
+      .send({ mode: 'edit' })
+      .expect(404);
+  });
+
+  it('returns 404 when chat is the interview (primary) chat', async () => {
+    const specificationId = await createTestSpecification('FE-716 mode primary');
+    const { getSpecification } = await import('./db.js');
+    const interviewChatId = getSpecification(db, specificationId)!.primary_chat_id!;
+    await request(app)
+      .patch(`/api/specifications/${specificationId}/secondary-chats/${interviewChatId}/mode`)
+      .send({ mode: 'edit' })
+      .expect(404);
+  });
+});
