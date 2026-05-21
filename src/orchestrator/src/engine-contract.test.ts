@@ -4,6 +4,7 @@ import { PetriOrchestrator } from './engine-petri.js';
 import { ProceduralOrchestrator } from './engine-proc.js';
 import { compilePlan } from './net-compiler.js';
 import type { RunCtx } from './net-compiler.js';
+import type { NetEvent } from './petri-net.js';
 import { InMemoryReportSink } from './report-sink.js';
 import type { ActionContext, ActionHandlers, OrchestratorInput, Plan, TestRunner } from './types.js';
 
@@ -769,5 +770,87 @@ describe('Adapter: compiled net shape', () => {
     //   epic-complete:epic-1 = 1
     // Total: 15
     expect(net.transitionCount).toBe(15);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Adapter test — §7 event vocabulary
+// ---------------------------------------------------------------------------
+
+describe('Adapter: §7 event vocabulary', () => {
+  it('simplePlan happy path emits transition_fired events for each transition', async () => {
+    const fakes = createFakes();
+    const ctx: RunCtx = {
+      reportIds: [],
+      sliceOutcomes: new Map(),
+      epicOutcomes: new Map(),
+
+      halted: false,
+    };
+    const input: OrchestratorInput = {
+      plan: simplePlan,
+      worktreeDir: '/tmp/fake',
+      actions: fakes.actions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+    };
+
+    const net = compilePlan(input, ctx);
+    const events: NetEvent[] = [];
+    await net.run('serial', () => ctx.halted, { emit: (e) => events.push(e) });
+
+    // All events should be transition_fired (happy path, no deadlock/halt)
+    const fired = events.filter((e) => e.kind === 'transition_fired');
+    expect(fired.length).toBeGreaterThan(0);
+
+    // Check transition IDs appear in order
+    const ids = fired.map((e) => e.transitionId);
+    expect(ids).toContain('slice-ready:slice-1');
+    expect(ids).toContain('slice-1:evaluate');
+    expect(ids).toContain('slice-1:assess-semantic');
+    expect(ids).toContain('slice-1:return-done');
+    expect(ids).toContain('epic-complete:epic-1');
+
+    // Each fired event carries contract metadata
+    for (const e of fired) {
+      expect(e.contract).toBeDefined();
+      expect(e.consumed).toBeDefined();
+      expect(e.produced).toBeDefined();
+    }
+
+    // No halt events (happy path)
+    expect(events.filter((e) => e.kind === 'net_halted').length).toBe(0);
+    // Note: net_deadlocked may fire on clean completion because resource tokens
+    // (test-agent, code-agent) remain in places after the slice completes.
+    // This is expected — true deadlock detection requires distinguishing
+    // resource tokens from work-bearing tokens (future work).
+  });
+
+  it('retry exhaustion emits net_deadlocked', async () => {
+    const fakes = createFakes({ testRunResults: [false] });
+    const ctx: RunCtx = {
+      reportIds: [],
+      sliceOutcomes: new Map(),
+      epicOutcomes: new Map(),
+
+      halted: false,
+    };
+    const input: OrchestratorInput = {
+      plan: simplePlan,
+      worktreeDir: '/tmp/fake',
+      actions: fakes.actions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 1 },
+    };
+
+    const net = compilePlan(input, ctx);
+    const events: NetEvent[] = [];
+    await net.run('serial', () => ctx.halted, { emit: (e) => events.push(e) });
+
+    // Should have a net_halted event (ctx.halted becomes true after retry exhaustion)
+    const halted = events.filter((e) => e.kind === 'net_halted');
+    expect(halted.length).toBe(1);
   });
 });

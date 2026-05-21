@@ -43,6 +43,28 @@ export type TransitionDef = {
  */
 export type FiringPolicy = 'serial';
 
+// ---------------------------------------------------------------------------
+// §7 Event vocabulary — structured events emitted by the interpreter.
+// ---------------------------------------------------------------------------
+
+/** Event kinds aligned with spec doc §7. */
+export type NetEventKind = 'transition_fired' | 'net_deadlocked' | 'net_halted';
+
+/** Structured event emitted during net execution. */
+export type NetEvent = {
+  kind: NetEventKind;
+  ts: string;
+  transitionId?: string;
+  contract?: TransitionContract;
+  consumed?: string[];
+  produced?: string[];
+};
+
+/** Sink for structured net events. Optional — defaults to no-op. */
+export interface NetEventSink {
+  emit(event: NetEvent): void;
+}
+
 export class PetriNet {
   private places = new Map<string, Token[]>();
   private transitions: TransitionDef[] = [];
@@ -81,10 +103,13 @@ export class PetriNet {
     return this.transitions;
   }
 
-  async run(_policy: FiringPolicy, shouldHalt?: () => boolean): Promise<void> {
+  async run(_policy: FiringPolicy, shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
     // Phase 0: only serial policy — find first enabled, fire, repeat.
     while (true) {
-      if (shouldHalt?.()) break;
+      if (shouldHalt?.()) {
+        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
+        break;
+      }
 
       const enabled = this.transitions.find((t) =>
         t.inputs.every((p) => {
@@ -92,7 +117,15 @@ export class PetriNet {
           return tokens && tokens.length > 0;
         }),
       );
-      if (!enabled) break;
+      if (!enabled) {
+        // No enabled transition — either deadlock or clean termination.
+        // Deadlock = places have tokens but no transition can fire.
+        const hasTokens = [...this.places.values()].some((tokens) => tokens.length > 0);
+        if (hasTokens) {
+          eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
+        }
+        break;
+      }
 
       // Consume one token per input place
       const consumed: Token[] = [];
@@ -102,9 +135,21 @@ export class PetriNet {
 
       // Fire — handler decides outputs
       const outputs = await enabled.fire(consumed);
+      const producedPlaces: string[] = [];
       for (const { place, token } of outputs) {
         this.addToken(place, token);
+        producedPlaces.push(place);
       }
+
+      // Emit transition_fired event
+      eventSink?.emit({
+        kind: 'transition_fired',
+        ts: new Date().toISOString(),
+        transitionId: enabled.id,
+        contract: enabled.contract,
+        consumed: enabled.inputs,
+        produced: producedPlaces,
+      });
     }
   }
 }

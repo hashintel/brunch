@@ -6,7 +6,7 @@
 
 ## Card 1: Two-lane subnet with semantic completion gate
 
-**Status:** next
+**Status:** done
 
 ### Target Behavior
 
@@ -95,7 +95,7 @@ The compiled slice subnet enforces a two-lane terminal join: `return-done` is un
 
 ## Card 2: TransitionContract type
 
-**Status:** queued
+**Status:** done
 
 ### Objective
 
@@ -127,7 +127,7 @@ Each transition in the compiled net carries typed metadata (`TransitionContract`
 
 ## Card 3: §7 event vocabulary
 
-**Status:** queued
+**Status:** next
 
 ### Objective
 
