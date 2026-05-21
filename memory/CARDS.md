@@ -66,7 +66,7 @@ A `SessionManager`-created assistant→user JSONL transcript projects to one rea
 
 ## Card 2 — Product-scoped session exchange RPC
 
-**Status:** next
+**Status:** done
 
 ### Weight
 
@@ -115,7 +115,7 @@ Full scope card — corrects the public RPC method boundary so it remains produc
 
 ## Card 3 — RPC/print projection parity smoke
 
-**Status:** queued
+**Status:** next
 
 ### Weight
 

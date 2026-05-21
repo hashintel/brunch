@@ -54,10 +54,20 @@ export function createRpcHandlers(options: {
       }
 
       if (request.method === "session.elicitationExchanges") {
-        if (!isSessionProjectionParams(request.params)) {
+        if (request.params !== undefined) {
           return failure(request.id ?? null, -32602, "Invalid params")
         }
-        const entries = await loadJsonlTranscriptEntries(request.params.file)
+
+        const state = await options.coordinator.openExisting()
+        if (state.status !== "ready") {
+          return failure(
+            request.id ?? null,
+            -32001,
+            "No selected Brunch session",
+          )
+        }
+
+        const entries = await loadJsonlTranscriptEntries(state.session.file)
         return success(request.id ?? null, projectElicitationExchanges(entries))
       }
 
@@ -104,19 +114,21 @@ function failure(
   return { jsonrpc: "2.0", id, error: { code, message } }
 }
 
-function isSessionProjectionParams(value: unknown): value is { file: string } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { file?: unknown }).file === "string"
-  )
-}
-
 function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    (value as { jsonrpc?: unknown }).jsonrpc !== "2.0" ||
+    typeof (value as { method?: unknown }).method !== "string"
+  ) {
+    return false
+  }
+
+  const id = (value as { id?: unknown }).id
   return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as { jsonrpc?: unknown }).jsonrpc === "2.0" &&
-    typeof (value as { method?: unknown }).method === "string"
+    id === undefined ||
+    id === null ||
+    typeof id === "string" ||
+    typeof id === "number"
   )
 }
