@@ -14,7 +14,7 @@ import {
 } from "@earendil-works/pi-coding-agent"
 
 import {
-  loadActiveBranchTranscriptEntries,
+  loadJsonlTranscriptEntries,
   projectElicitationExchanges,
   type ElicitationExchangeProjection,
 } from "./elicitation-exchange.js"
@@ -337,9 +337,7 @@ describe("M1 fixture JSONL replay parity", () => {
     for (const briefId of M1_FIXTURE_IDS) {
       const bundle = await loadM1FixtureBundle(briefId)
       const projection = projectElicitationExchanges(
-        loadActiveBranchTranscriptEntries(bundle.jsonlPath, {
-          cwd: process.cwd(),
-        }),
+        await loadJsonlTranscriptEntries(bundle.jsonlPath),
       )
 
       expect(summaryForProjection(projection)).toEqual(

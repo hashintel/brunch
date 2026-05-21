@@ -43,14 +43,61 @@ export interface ActiveBranchTranscriptOptions {
   sessionDir?: string
 }
 
+export class NonLinearTranscriptError extends Error {
+  readonly code = "BRUNCH_NON_LINEAR_TRANSCRIPT"
+
+  constructor(message: string) {
+    super(message)
+    this.name = "NonLinearTranscriptError"
+  }
+}
+
 export async function loadJsonlTranscriptEntries(
   file: string,
 ): Promise<FileEntry[]> {
   const content = await readFile(file, "utf8")
-  return content
+  const entries = content
     .split("\n")
     .filter((line) => line.trim().length > 0)
     .map((line) => JSON.parse(line) as FileEntry)
+
+  assertLinearTranscriptEntries(entries)
+  return entries
+}
+
+export function assertLinearTranscriptEntries(
+  entries: readonly FileEntry[],
+): void {
+  for (const entry of entries) {
+    if (isSessionHeader(entry) && typeof entry.parentSession === "string") {
+      throw new NonLinearTranscriptError(
+        "Brunch does not support branch-derived Pi sessions",
+      )
+    }
+
+    if (isSessionEntry(entry) && entry.type === "branch_summary") {
+      throw new NonLinearTranscriptError(
+        "Brunch does not support Pi branch-summary transcript entries",
+      )
+    }
+  }
+
+  const childrenByParent = new Map<string | null, string[]>()
+  for (const entry of entries) {
+    if (!isSessionEntry(entry)) {
+      continue
+    }
+
+    const siblings = childrenByParent.get(entry.parentId) ?? []
+    siblings.push(entry.id)
+    childrenByParent.set(entry.parentId, siblings)
+
+    if (siblings.length > 1) {
+      throw new NonLinearTranscriptError(
+        "Brunch does not support non-linear Pi transcript branches",
+      )
+    }
+  }
 }
 
 export function loadActiveBranchTranscriptEntries(
@@ -133,6 +180,24 @@ function isTranscriptEntry(value: unknown): value is SessionEntry {
     (value as { type?: unknown }).type !== "session" &&
     typeof (value as { id?: unknown }).id === "string" &&
     typeof (value as { type?: unknown }).type === "string"
+  )
+}
+
+function isSessionEntry(value: unknown): value is SessionEntry {
+  return (
+    isTranscriptEntry(value) &&
+    ((value as { parentId?: unknown }).parentId === null ||
+      typeof (value as { parentId?: unknown }).parentId === "string")
+  )
+}
+
+function isSessionHeader(
+  value: unknown,
+): value is Extract<FileEntry, { type: "session" }> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { type?: unknown }).type === "session"
   )
 }
 
