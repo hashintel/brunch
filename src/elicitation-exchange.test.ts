@@ -21,6 +21,17 @@ const structuredPrompt = {
   customType: "brunch.elicitation_prompt",
   data: { choices: ["A", "B"] },
 }
+const toolResult = {
+  id: "t1",
+  type: "message",
+  message: {
+    role: "toolResult",
+    toolCallId: "call-1",
+    toolName: "read",
+    content: [{ type: "text", text: "tool output" }],
+    isError: false,
+  },
+}
 const user = {
   id: "u1",
   type: "message",
@@ -83,6 +94,20 @@ describe("elicitation exchange projection", () => {
     expect(projection.exchanges[0]?.responseRange).toEqual({
       start: "u1",
       end: "r1",
+    })
+  })
+
+  it("includes Pi toolResult messages on the prompt side", () => {
+    const projection = projectElicitationExchanges([
+      assistant,
+      toolResult,
+      user,
+    ])
+
+    expect(projection.exchanges[0]?.promptEntryIds).toEqual(["a1", "t1"])
+    expect(projection.exchanges[0]?.promptRange).toEqual({
+      start: "a1",
+      end: "t1",
     })
   })
 

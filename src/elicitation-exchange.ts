@@ -125,7 +125,7 @@ function isPromptSideEntry(entry: SessionEntry): boolean {
   }
 
   const role = roleOf(entry)
-  return role === "assistant" || role === "system" || role === "tool"
+  return role === "assistant" || role === "toolResult"
 }
 
 function isResponseSideEntry(entry: SessionEntry): boolean {
@@ -144,7 +144,9 @@ function isCustomTranscriptEntry(
   return entry.type === "custom" || entry.type === "custom_message"
 }
 
-function roleOf(entry: SessionEntry): string | undefined {
+function roleOf(
+  entry: SessionEntry,
+): SessionMessageEntry["message"]["role"] | undefined {
   if (isMessageEntry(entry)) {
     return entry.message.role
   }

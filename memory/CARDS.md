@@ -43,7 +43,7 @@ Scripted captures for briefs #1–#3 bind each captured session to the brief bei
 - [ ] Is this the first touch in an unfamiliar seam from a fresh thread?
 - [ ] Can you not name the containing seam or current rationale from the live docs?
 
-## Card 2 — status: next
+## Card 2 — status: done
 
 ### Objective
 
