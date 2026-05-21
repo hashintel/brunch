@@ -115,7 +115,7 @@ Full scope card — corrects the public RPC method boundary so it remains produc
 
 ## Card 3 — RPC/print projection parity smoke
 
-**Status:** next
+**Status:** done
 
 ### Weight
 
@@ -154,7 +154,7 @@ Prove the print snapshot and RPC workspace snapshot expose the same product-shap
 
 ## Card 4 — Fixture capture bundle skeleton
 
-**Status:** queued
+**Status:** next
 
 ### Weight
 

@@ -8,7 +8,10 @@ import { describe, expect, it } from "vitest"
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
 import { runBrunchCli } from "./brunch.js"
-import type { WorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
+import {
+  createWorkspaceSessionCoordinator,
+  type WorkspaceSessionCoordinator,
+} from "./workspace-session-coordinator.js"
 
 function coordinator(sessionFile?: string): WorkspaceSessionCoordinator {
   return {
@@ -57,6 +60,18 @@ function coordinator(sessionFile?: string): WorkspaceSessionCoordinator {
   }
 }
 
+function rpcRequest(method: string, id = 1): PassThrough {
+  const stdin = new PassThrough()
+  stdin.end(`${JSON.stringify({ jsonrpc: "2.0", id, method })}\n`)
+  return stdin
+}
+
+function collectStream(stream: PassThrough): string[] {
+  const chunks: string[] = []
+  stream.on("data", (chunk) => chunks.push(String(chunk)))
+  return chunks
+}
+
 describe("Brunch CLI dispatch", () => {
   it("routes --mode print through the coordinator snapshot and exits", async () => {
     let output = ""
@@ -80,20 +95,14 @@ describe("Brunch CLI dispatch", () => {
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
     manager.appendMessage({ role: "assistant", content: "Question" })
     manager.appendMessage({ role: "user", content: "Answer" })
-    const stdin = new PassThrough()
     const stdout = new PassThrough()
-    const chunks: string[] = []
-    stdout.on("data", (chunk) => chunks.push(String(chunk)))
-
-    stdin.end(
-      `${JSON.stringify({ jsonrpc: "2.0", id: 2, method: "session.elicitationExchanges" })}\n`,
-    )
+    const chunks = collectStream(stdout)
 
     const code = await runBrunchCli({
       argv: ["--mode=rpc"],
       cwd: "/tmp/brunch-project",
       coordinator: coordinator(manager.getSessionFile()!),
-      stdin,
+      stdin: rpcRequest("session.elicitationExchanges", 2),
       stdout,
     })
 
@@ -109,20 +118,14 @@ describe("Brunch CLI dispatch", () => {
   })
 
   it("routes --mode rpc through the named JSON-RPC stdio adapter", async () => {
-    const stdin = new PassThrough()
     const stdout = new PassThrough()
-    const chunks: string[] = []
-    stdout.on("data", (chunk) => chunks.push(String(chunk)))
-
-    stdin.end(
-      `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "workspace.snapshot" })}\n`,
-    )
+    const chunks = collectStream(stdout)
 
     const code = await runBrunchCli({
       argv: ["--mode=rpc"],
       cwd: "/tmp/brunch-project",
       coordinator: coordinator(),
-      stdin,
+      stdin: rpcRequest("workspace.snapshot"),
       stdout,
     })
 
@@ -131,6 +134,46 @@ describe("Brunch CLI dispatch", () => {
       jsonrpc: "2.0",
       id: 1,
       result: { status: "select_spec" },
+    })
+  })
+
+  it("exposes matching print and RPC workspace snapshots from a real coordinator store", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-parity-"))
+    await createWorkspaceSessionCoordinator({ cwd }).startOrCreate({
+      specTitle: "Parity spec",
+    })
+    let printOutput = ""
+    const rpcOutput = new PassThrough()
+    const rpcChunks = collectStream(rpcOutput)
+
+    await runBrunchCli({
+      argv: ["--mode=print"],
+      cwd,
+      stdout: (chunk) => {
+        printOutput += chunk
+      },
+    })
+    await runBrunchCli({
+      argv: ["--mode=rpc"],
+      cwd,
+      stdin: rpcRequest("workspace.snapshot"),
+      stdout: rpcOutput,
+    })
+
+    const rpcSnapshot = JSON.parse(rpcChunks.join("")).result
+    expect(printOutput).toContain("status: ready")
+    expect(printOutput).toContain(`cwd: ${rpcSnapshot.cwd}`)
+    expect(printOutput).toContain("spec: Parity spec")
+    expect(printOutput).toContain(`phase: ${rpcSnapshot.chrome.phase}`)
+    expect(printOutput).toContain(`chatMode: ${rpcSnapshot.chrome.chatMode}`)
+    expect(rpcSnapshot).toMatchObject({
+      status: "ready",
+      cwd,
+      spec: { title: "Parity spec" },
+      chrome: {
+        phase: "elicitation",
+        chatMode: "responding-to-elicitation",
+      },
     })
   })
 })
