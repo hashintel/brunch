@@ -2,7 +2,7 @@ import { createInterface } from "node:readline/promises"
 import type { Readable, Writable } from "node:stream"
 
 import {
-  loadJsonlTranscriptEntries,
+  loadActiveBranchTranscriptEntries,
   projectElicitationExchanges,
 } from "./elicitation-exchange.js"
 import { workspaceSnapshotFromState } from "./print-snapshot.js"
@@ -67,7 +67,9 @@ export function createRpcHandlers(options: {
           )
         }
 
-        const entries = await loadJsonlTranscriptEntries(state.session.file)
+        const entries = loadActiveBranchTranscriptEntries(state.session.file, {
+          cwd: state.cwd,
+        })
         return success(request.id ?? null, projectElicitationExchanges(entries))
       }
 

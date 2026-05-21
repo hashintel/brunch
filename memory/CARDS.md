@@ -90,7 +90,7 @@ Representative Pi message and Brunch custom transcript payloads survive Pi JSONL
 - Use Pi-exported entry/message types for envelopes; Brunch-owned fixture types should cover only Brunch payload semantics.
 - If a payload cannot be represented without a new Brunch schema owner, stop and surface that as a design/scoping issue rather than inventing a broad store.
 
-## Card 3 — status: next
+## Card 3 — status: done
 
 ### Target Behavior
 

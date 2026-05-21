@@ -1,11 +1,12 @@
 import { readFile } from "node:fs/promises"
 
-import type {
-  CustomEntry,
-  CustomMessageEntry,
-  FileEntry,
-  SessionEntry,
-  SessionMessageEntry,
+import {
+  SessionManager,
+  type CustomEntry,
+  type CustomMessageEntry,
+  type FileEntry,
+  type SessionEntry,
+  type SessionMessageEntry,
 } from "@earendil-works/pi-coding-agent"
 
 const STRUCTURED_RESPONSE_TYPES = new Set([
@@ -37,6 +38,11 @@ export interface ElicitationExchangeProjection {
   openPrompt: OpenPromptProjection | null
 }
 
+export interface ActiveBranchTranscriptOptions {
+  cwd?: string
+  sessionDir?: string
+}
+
 export async function loadJsonlTranscriptEntries(
   file: string,
 ): Promise<FileEntry[]> {
@@ -45,6 +51,17 @@ export async function loadJsonlTranscriptEntries(
     .split("\n")
     .filter((line) => line.trim().length > 0)
     .map((line) => JSON.parse(line) as FileEntry)
+}
+
+export function loadActiveBranchTranscriptEntries(
+  file: string,
+  options?: ActiveBranchTranscriptOptions,
+): SessionEntry[] {
+  return SessionManager.open(
+    file,
+    options?.sessionDir,
+    options?.cwd,
+  ).getBranch()
 }
 
 export function projectElicitationExchanges(
