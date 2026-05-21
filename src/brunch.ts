@@ -1,4 +1,5 @@
 import process from "node:process"
+import type { Readable, Writable } from "node:stream"
 import { fileURLToPath } from "node:url"
 
 import { runBrunchTui } from "./brunch-tui.js"
@@ -6,6 +7,7 @@ import {
   renderWorkspaceSnapshot,
   workspaceSnapshotFromState,
 } from "./print-snapshot.js"
+import { createRpcHandlers, runJsonRpcLineServer } from "./rpc.js"
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
@@ -15,7 +17,8 @@ export interface BrunchCliOptions {
   argv?: string[]
   cwd?: string
   coordinator?: WorkspaceSessionCoordinator
-  stdout?: (chunk: string) => void
+  stdin?: Readable
+  stdout?: Writable | ((chunk: string) => void)
 }
 
 export async function runBrunchCli(
@@ -30,9 +33,16 @@ export async function runBrunchCli(
   if (mode === "print") {
     const state = await coordinator.openExisting()
     const snapshot = workspaceSnapshotFromState(state)
-    ;(options.stdout ?? process.stdout.write.bind(process.stdout))(
-      renderWorkspaceSnapshot(snapshot),
-    )
+    writeStdout(options.stdout, renderWorkspaceSnapshot(snapshot))
+    return 0
+  }
+
+  if (mode === "rpc") {
+    await runJsonRpcLineServer({
+      input: options.stdin ?? process.stdin,
+      output: stdoutStream(options.stdout),
+      handlers: createRpcHandlers({ coordinator }),
+    })
     return 0
   }
 
@@ -42,6 +52,36 @@ export async function runBrunchCli(
   }
 
   throw new Error(`Unsupported Brunch mode: ${mode}`)
+}
+
+function writeStdout(
+  stdout: Writable | ((chunk: string) => void) | undefined,
+  chunk: string,
+): void {
+  if (!stdout) {
+    process.stdout.write(chunk)
+  } else if (typeof stdout === "function") {
+    stdout(chunk)
+  } else {
+    stdout.write(chunk)
+  }
+}
+
+function stdoutStream(
+  stdout: Writable | ((chunk: string) => void) | undefined,
+): Writable {
+  if (!stdout) {
+    return process.stdout
+  }
+  if (typeof stdout !== "function") {
+    return stdout
+  }
+  return {
+    write(chunk: string | Uint8Array) {
+      stdout(String(chunk))
+      return true
+    },
+  } as Writable
 }
 
 function parseMode(argv: string[]): string {

@@ -1,3 +1,5 @@
+import { PassThrough } from "node:stream"
+
 import { describe, expect, it } from "vitest"
 
 import { runBrunchCli } from "./brunch.js"
@@ -48,5 +50,31 @@ describe("Brunch CLI dispatch", () => {
     expect(code).toBe(0)
     expect(output).toContain("status: select_spec")
     expect(output).toContain("spec: <none>")
+  })
+
+  it("routes --mode rpc through the named JSON-RPC stdio adapter", async () => {
+    const stdin = new PassThrough()
+    const stdout = new PassThrough()
+    const chunks: string[] = []
+    stdout.on("data", (chunk) => chunks.push(String(chunk)))
+
+    stdin.end(
+      `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "workspace.snapshot" })}\n`,
+    )
+
+    const code = await runBrunchCli({
+      argv: ["--mode=rpc"],
+      cwd: "/tmp/brunch-project",
+      coordinator: coordinator(),
+      stdin,
+      stdout,
+    })
+
+    expect(code).toBe(0)
+    expect(JSON.parse(chunks.join(""))).toMatchObject({
+      jsonrpc: "2.0",
+      id: 1,
+      result: { status: "select_spec" },
+    })
   })
 })

@@ -61,7 +61,7 @@ Full scope card — establishes the transport-mode dispatch seam and the first p
 
 ## Card 2 — Named RPC stdio skeleton
 
-**Status:** next
+**Status:** done
 
 ### Weight
 
@@ -108,7 +108,7 @@ Full scope card — establishes the JSON-RPC transport adapter and first named p
 
 ## Card 3 — Elicitation exchange projection
 
-**Status:** queued
+**Status:** next
 
 ### Weight
 
