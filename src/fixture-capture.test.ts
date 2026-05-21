@@ -1,0 +1,76 @@
+import { mkdtemp, readFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { describe, expect, it } from "vitest"
+
+import type { WorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
+import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
+import { captureFixtureRun } from "./fixture-capture.js"
+
+describe("fixture capture", () => {
+  it("captures a deterministic JSONL and metadata bundle through RPC", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-fixture-"))
+    const workspace = await createWorkspaceSessionCoordinator({
+      cwd,
+    }).startOrCreate({
+      specTitle: "Fixture spec",
+    })
+    workspace.session.manager.appendMessage({
+      role: "assistant",
+      content: "Question",
+    })
+    workspace.session.manager.appendMessage({ role: "user", content: "Answer" })
+
+    const coordinator: WorkspaceSessionCoordinator = {
+      async openExisting() {
+        return workspace
+      },
+      async startOrCreate() {
+        return workspace
+      },
+      async createNewSessionForCurrentSpec() {
+        return workspace
+      },
+      async bindCurrentSpecToSession() {
+        return workspace
+      },
+      async deriveChromeState() {
+        return workspace.chrome
+      },
+    }
+
+    const result = await captureFixtureRun({
+      cwd,
+      briefId: "brief-001",
+      runId: "run-001",
+      timestamp: "2026-05-21T00:00:00.000Z",
+      coordinator,
+    })
+
+    expect(result.runDir).toBe(
+      join(cwd, ".brunch-fixtures", "brief-001", "run-001"),
+    )
+    expect(JSON.parse(await readFile(result.metaFile, "utf8"))).toMatchObject({
+      schemaVersion: 1,
+      briefId: "brief-001",
+      runId: "run-001",
+      timestamp: "2026-05-21T00:00:00.000Z",
+      brunchVersion: "0.0.0",
+      session: {
+        id: expect.any(String),
+        sourceFile: expect.stringContaining(".brunch/sessions"),
+      },
+      projectionSummary: {
+        status: "ready",
+        exchangeCount: 1,
+        openPrompt: false,
+      },
+      artifacts: {
+        jsonl: "run-001.jsonl",
+      },
+    })
+    expect(await readFile(result.jsonlFile, "utf8")).toContain(
+      '"role":"assistant"',
+    )
+  })
+})

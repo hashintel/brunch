@@ -154,7 +154,7 @@ Prove the print snapshot and RPC workspace snapshot expose the same product-shap
 
 ## Card 4 — Fixture capture bundle skeleton
 
-**Status:** next
+**Status:** done
 
 ### Weight
 
@@ -201,7 +201,7 @@ A deterministic fixture capture command writes a `.jsonl` plus `.meta.json` bund
 
 ## Card 5 — Seed first deterministic briefs
 
-**Status:** queued
+**Status:** next
 
 ### Weight
 
