@@ -1,6 +1,7 @@
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { PassThrough } from "node:stream"
+import { fileURLToPath } from "node:url"
 
 import { runBrunchCli } from "./brunch.js"
 import type { ElicitationExchangeProjection } from "./elicitation-exchange.js"
@@ -115,8 +116,22 @@ async function callRpc<T>(
 }
 
 async function readPackageVersion(): Promise<string> {
-  const packageJson = JSON.parse(await readFile("package.json", "utf8")) as {
-    version?: unknown
+  try {
+    const packageJson = JSON.parse(
+      await readFile(
+        join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"),
+        "utf8",
+      ),
+    ) as {
+      version?: unknown
+    }
+    return typeof packageJson.version === "string"
+      ? packageJson.version
+      : "unknown"
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return "unknown"
+    }
+    throw error
   }
-  return typeof packageJson.version === "string" ? packageJson.version : "0.0.0"
 }

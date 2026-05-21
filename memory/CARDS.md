@@ -144,7 +144,7 @@ Make `elicitation-exchange.ts` project from Pi-owned session entry types instead
 
 ## Card 4 — Brunch-owned fixture metadata version
 
-**Status:** queued
+**Status:** done
 
 ### Weight
 

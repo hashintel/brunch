@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises"
+import { mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
@@ -51,6 +51,40 @@ describe("fixture capture", () => {
       status: "ready",
       exchangeCount: 1,
     })
+  })
+
+  it("reports Brunch's package version, not the caller project's version", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-fixture-package-"))
+    await writeFile(
+      join(cwd, "package.json"),
+      `${JSON.stringify({ name: "caller-project", version: "9.9.9" })}\n`,
+    )
+    const workspace = await createWorkspaceSessionCoordinator({
+      cwd,
+    }).startOrCreate({
+      specTitle: "Fixture spec",
+    })
+    workspace.session.manager.appendMessage({
+      role: "assistant",
+      content: "Question",
+    })
+    workspace.session.manager.appendMessage({ role: "user", content: "Answer" })
+
+    const result = await captureFixtureRun({
+      cwd,
+      briefId: "brief-001",
+      runId: "run-001",
+      timestamp: "2026-05-21T00:00:00.000Z",
+    })
+
+    const metadata = JSON.parse(await readFile(result.metaFile, "utf8")) as {
+      brunchVersion: string
+      timestamp: string
+    }
+
+    expect(metadata.brunchVersion).toBe("0.0.0")
+    expect(metadata.brunchVersion).not.toBe("9.9.9")
+    expect(metadata.timestamp).toBe("2026-05-21T00:00:00.000Z")
   })
 
   it("captures a deterministic JSONL and metadata bundle through RPC", async () => {
