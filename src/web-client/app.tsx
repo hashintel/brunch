@@ -2,6 +2,7 @@ import {
   QueryClient,
   QueryClientProvider,
   queryOptions,
+  useQuery,
   useSuspenseQuery,
 } from "@tanstack/react-query"
 import {
@@ -11,6 +12,7 @@ import {
 } from "@tanstack/react-router"
 import { Suspense } from "react"
 
+import type { ElicitationExchangeProjection } from "../elicitation-exchange.js"
 import type { WorkspaceSnapshot } from "../print-snapshot.js"
 import type { WebSocketRpcClient } from "./rpc-client.js"
 
@@ -95,10 +97,36 @@ function workspaceSnapshotQueryOptions(rpcClient: WebSocketRpcClient) {
   })
 }
 
+function sessionElicitationExchangesQueryOptions(
+  rpcClient: WebSocketRpcClient,
+  snapshot: WorkspaceSnapshot,
+) {
+  return {
+    queryKey: [
+      "session.elicitationExchanges",
+      snapshot.session?.id ?? null,
+      snapshot.spec?.id ?? null,
+    ],
+    queryFn: () =>
+      rpcClient.request<ElicitationExchangeProjection>(
+        "session.elicitationExchanges",
+        {
+          sessionId: snapshot.session!.id,
+          specId: snapshot.spec!.id,
+        },
+      ),
+    enabled: Boolean(snapshot.session && snapshot.spec),
+    retry: false,
+  }
+}
+
 function WorkspaceSnapshotPage() {
   const { rpcClient } = rootRoute.useRouteContext()
   const { data: snapshot } = useSuspenseQuery(
     workspaceSnapshotQueryOptions(rpcClient),
+  )
+  const projection = useQuery(
+    sessionElicitationExchangesQueryOptions(rpcClient, snapshot),
   )
 
   return (
@@ -126,6 +154,58 @@ function WorkspaceSnapshotPage() {
           <dd>{snapshot.chrome.chatMode}</dd>
         </div>
       </dl>
+      <TranscriptPanel snapshot={snapshot} projection={projection} />
     </main>
   )
+}
+
+function TranscriptPanel(options: {
+  snapshot: WorkspaceSnapshot
+  projection: ReturnType<typeof useQuery<ElicitationExchangeProjection>>
+}) {
+  if (!options.snapshot.session || !options.snapshot.spec) {
+    return (
+      <section aria-label="Session transcript">
+        <h2>Session transcript</h2>
+        <p>No Brunch session selected.</p>
+      </section>
+    )
+  }
+
+  if (options.projection.isError) {
+    return (
+      <section aria-label="Session transcript">
+        <h2>Session transcript</h2>
+        <p>{`Transcript unavailable: ${errorMessage(options.projection.error)}`}</p>
+      </section>
+    )
+  }
+
+  if (!options.projection.data) {
+    return (
+      <section aria-busy="true" aria-label="Session transcript">
+        <h2>Session transcript</h2>
+        <p>Loading transcript…</p>
+      </section>
+    )
+  }
+
+  const projection = options.projection.data
+  const exchangeCount = projection.exchanges.length
+  return (
+    <section aria-label="Session transcript">
+      <h2>Session transcript</h2>
+      <p>{`${exchangeCount} ${
+        exchangeCount === 1 ? "exchange" : "exchanges"
+      }`}</p>
+      <p>{`Transcript status: ${projection.status}`}</p>
+      {projection.openPrompt ? (
+        <p>{`Open prompt: ${projection.openPrompt.promptRange.start}`}</p>
+      ) : null}
+    </section>
+  )
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
