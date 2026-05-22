@@ -13,15 +13,17 @@ import {
 import {
   applyBrunchOfflineDefault,
   brunchResourceLoaderOptions,
+  createBrunchSettingsManager,
+  runBrunchTui,
+} from "./brunch-tui.js"
+import {
   chromeStateForWorkspace,
   createBrunchChromeExtension,
-  createBrunchSettingsManager,
   formatBrunchChromeFooterLines,
   formatBrunchChromeHeaderLines,
   formatChromeWidgetLines,
   renderBrunchChrome,
-  runBrunchTui,
-} from "./brunch-tui.js"
+} from "./pi-extensions/brunch/index.js"
 import {
   createWorkspaceSessionCoordinator,
   verifyWorkspaceSessionStores,
