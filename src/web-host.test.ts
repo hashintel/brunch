@@ -9,7 +9,7 @@ import { SessionManager } from "@earendil-works/pi-coding-agent"
 
 import {
   createWorkspaceSessionCoordinator,
-  type WorkspaceSessionCoordinator,
+  type DefaultWorkspaceCoordinator,
 } from "./workspace-session-coordinator.js"
 import { startWebHost } from "./web-host.js"
 
@@ -491,22 +491,10 @@ function openWebSocket(url: string): Promise<WebSocket> {
   })
 }
 
-function throwingCoordinator(): WorkspaceSessionCoordinator {
+function throwingCoordinator(): DefaultWorkspaceCoordinator {
   return {
     async openDefaultWorkspace() {
       throw new Error("boom")
-    },
-    async createSetupSession() {
-      throw new Error("not used")
-    },
-    async createSetupSessionForCurrentSpec() {
-      throw new Error("not used")
-    },
-    async bindCurrentSpecToReplacementSession() {
-      throw new Error("not used")
-    },
-    async deriveDefaultChromeState() {
-      throw new Error("not used")
     },
   }
 }

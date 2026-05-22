@@ -10,7 +10,7 @@ import { createRpcHandlers, runJsonRpcLineServer } from "./rpc.js"
 import { createSessionBindingData } from "./session-binding.js"
 import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
 import type {
-  WorkspaceSessionCoordinator,
+  DefaultWorkspaceCoordinator,
   WorkspaceSessionState,
 } from "./workspace-session-coordinator.js"
 
@@ -18,22 +18,10 @@ function coordinator(
   state: WorkspaceSessionState = readyState(
     "/tmp/brunch-project/.brunch/sessions/session-1.jsonl",
   ),
-): WorkspaceSessionCoordinator {
+): DefaultWorkspaceCoordinator {
   return {
     async openDefaultWorkspace() {
       return state
-    },
-    async createSetupSession() {
-      throw new Error("not used")
-    },
-    async createSetupSessionForCurrentSpec() {
-      throw new Error("not used")
-    },
-    async bindCurrentSpecToReplacementSession() {
-      throw new Error("not used")
-    },
-    async deriveDefaultChromeState() {
-      throw new Error("not used")
     },
   }
 }

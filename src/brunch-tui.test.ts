@@ -74,11 +74,7 @@ describe("Brunch TUI boot", () => {
           events.push(`activate:${decision.action}`)
           return workspace
         },
-        openDefaultWorkspace: async () => workspace,
-        createSetupSession: async () => workspace,
-        createSetupSessionForCurrentSpec: async () => workspace,
         bindCurrentSpecToReplacementSession: async () => workspace,
-        deriveDefaultChromeState: async () => workspace.chrome,
       },
       runWorkspaceSwitchPreflight: async () => {
         events.push("preflight")
@@ -127,11 +123,7 @@ describe("Brunch TUI boot", () => {
             chrome: workspace.chrome,
           }
         },
-        openDefaultWorkspace: async () => workspace,
-        createSetupSession: async () => workspace,
-        createSetupSessionForCurrentSpec: async () => workspace,
         bindCurrentSpecToReplacementSession: async () => workspace,
-        deriveDefaultChromeState: async () => workspace.chrome,
       },
       runWorkspaceSwitchPreflight: async () => {
         events.push("preflight")

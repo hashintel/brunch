@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
-import type { WorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
+import type { DefaultWorkspaceCoordinator } from "./workspace-session-coordinator.js"
 import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
 import { loadLinearElicitationExchangeProjection } from "./elicitation-exchange.js"
 import {
@@ -104,21 +104,9 @@ describe("fixture capture", () => {
     })
     workspace.session.manager.appendMessage({ role: "user", content: "Answer" })
 
-    const coordinator: WorkspaceSessionCoordinator = {
+    const coordinator: DefaultWorkspaceCoordinator = {
       async openDefaultWorkspace() {
         return workspace
-      },
-      async createSetupSession() {
-        return workspace
-      },
-      async createSetupSessionForCurrentSpec() {
-        return workspace
-      },
-      async bindCurrentSpecToReplacementSession() {
-        return workspace
-      },
-      async deriveDefaultChromeState() {
-        return workspace.chrome
       },
     }
 
