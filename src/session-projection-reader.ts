@@ -27,10 +27,15 @@ export async function resolveExplicitSessionProjectionTarget(
 ): Promise<SessionProjectionTarget> {
   const files = await listSessionFiles(cwd)
   for (const file of files) {
-    const binding = await readBrunchSessionBinding(file)
-    if (!binding || binding.sessionId !== params.sessionId) {
+    const selfDescription = await readBrunchSessionSelfDescription(file)
+    if (!selfDescription.targetsSession(params.sessionId)) {
       continue
     }
+    if (!selfDescription.ok) {
+      return invalidSessionSelfDescription()
+    }
+
+    const binding = selfDescription.binding
     if (params.specId && binding.specId !== params.specId) {
       return {
         ok: false,
@@ -51,16 +56,82 @@ export async function resolveExplicitSessionProjectionTarget(
 export async function readBrunchSessionBinding(
   file: string,
 ): Promise<SessionBindingData | null> {
-  const lines = (await readFile(file, "utf8"))
+  const selfDescription = await readBrunchSessionSelfDescription(file)
+  return selfDescription.ok ? selfDescription.binding : null
+}
+
+type SessionSelfDescription = ValidSessionSelfDescription | InvalidSessionSelfDescription
+
+interface ValidSessionSelfDescription {
+  ok: true
+  binding: SessionBindingData
+  headerSessionId: string
+  targetsSession(sessionId: string): boolean
+}
+
+interface InvalidSessionSelfDescription {
+  ok: false
+  targetsSession(sessionId: string): boolean
+}
+
+async function readBrunchSessionSelfDescription(
+  file: string,
+): Promise<SessionSelfDescription> {
+  const entries = (await readFile(file, "utf8"))
     .split("\n")
     .filter((line) => line.trim().length > 0)
-  for (const line of lines) {
-    const entry = JSON.parse(line) as unknown
-    if (isSessionBindingEntry(entry)) {
-      return entry.data
+    .map((line) => JSON.parse(line) as unknown)
+  const headers = entries.filter(isPiSessionHeader)
+  const bindings = entries
+    .filter(isSessionBindingEntry)
+    .map((entry) => entry.data)
+
+  if (headers.length !== 1 || bindings.length !== 1) {
+    return {
+      ok: false,
+      targetsSession: (sessionId) =>
+        bindings.some((binding) => binding.sessionId === sessionId),
     }
   }
-  return null
+
+  const headerSessionId = headers[0]!.id
+  const binding = bindings[0]!
+  if (binding.sessionId !== headerSessionId) {
+    return {
+      ok: false,
+      targetsSession: (sessionId) =>
+        binding.sessionId === sessionId || headerSessionId === sessionId,
+    }
+  }
+
+  return {
+    ok: true,
+    binding,
+    headerSessionId,
+    targetsSession: (sessionId) => binding.sessionId === sessionId,
+  }
+}
+
+interface PiSessionHeader {
+  type: "session"
+  id: string
+}
+
+function isPiSessionHeader(value: unknown): value is PiSessionHeader {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { type?: unknown }).type === "session" &&
+    typeof (value as { id?: unknown }).id === "string"
+  )
+}
+
+function invalidSessionSelfDescription(): SessionProjectionTarget {
+  return {
+    ok: false,
+    code: -32005,
+    message: "Brunch session self-description is invalid",
+  }
 }
 
 async function listSessionFiles(cwd: string): Promise<string[]> {

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { PassThrough } from "node:stream"
@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest"
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
 import { createRpcHandlers, runJsonRpcLineServer } from "./rpc.js"
+import { createSessionBindingData } from "./session-binding.js"
 import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
 import type {
   WorkspaceSessionCoordinator,
@@ -86,6 +87,32 @@ async function createBranchedSessionFile(): Promise<string> {
   manager.appendMessage({ role: "assistant", content: "Active prompt" })
   manager.appendMessage({ role: "user", content: "Active answer" })
   return manager.getSessionFile()!
+}
+
+async function writeExplicitSessionFixture(
+  cwd: string,
+  entries: readonly unknown[],
+): Promise<void> {
+  const sessionRoot = join(cwd, ".brunch", "sessions")
+  await mkdir(sessionRoot, { recursive: true })
+  await writeFile(
+    join(sessionRoot, "session.jsonl"),
+    entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
+  )
+}
+
+function sessionBindingEntry(sessionId = "session-1", specId = "spec-1") {
+  return {
+    id: `binding-${sessionId}-${specId}`,
+    type: "custom",
+    parentId: null,
+    customType: "brunch.session_binding",
+    data: createSessionBindingData({
+      sessionId,
+      specId,
+      specTitle: "Spec",
+    }),
+  }
 }
 
 describe("JSON-RPC handlers", () => {
@@ -277,6 +304,117 @@ describe("JSON-RPC handlers", () => {
       error: {
         code: -32003,
         message: "Brunch session does not belong to requested spec",
+      },
+    })
+  })
+
+  it("returns a product-shaped error for explicit sessions with duplicate durable bindings", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-duplicate-binding-"))
+    await writeExplicitSessionFixture(cwd, [
+      { type: "session", id: "session-1", cwd },
+      sessionBindingEntry(),
+      sessionBindingEntry(),
+    ])
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd,
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 16,
+        method: "session.elicitationExchanges",
+        params: { sessionId: "session-1" },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 16,
+      error: {
+        code: -32005,
+        message: "Brunch session self-description is invalid",
+      },
+    })
+  })
+
+  it("returns a product-shaped error for explicit sessions without exactly one Pi header", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-invalid-header-"))
+    await writeExplicitSessionFixture(cwd, [
+      { type: "session", id: "session-1", cwd },
+      { type: "session", id: "session-1", cwd },
+      sessionBindingEntry(),
+    ])
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd,
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 17,
+        method: "session.transcriptDisplay",
+        params: { sessionId: "session-1" },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 17,
+      error: {
+        code: -32005,
+        message: "Brunch session self-description is invalid",
+      },
+    })
+
+    const headerlessCwd = await mkdtemp(
+      join(tmpdir(), "brunch-rpc-missing-header-"),
+    )
+    await writeExplicitSessionFixture(headerlessCwd, [sessionBindingEntry()])
+    const headerlessHandlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: headerlessCwd,
+    })
+
+    await expect(
+      headerlessHandlers.handle({
+        jsonrpc: "2.0",
+        id: 19,
+        method: "session.transcriptDisplay",
+        params: { sessionId: "session-1" },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 19,
+      error: {
+        code: -32005,
+        message: "Brunch session self-description is invalid",
+      },
+    })
+  })
+
+  it("returns a product-shaped error when explicit binding and Pi header session ids disagree", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-header-mismatch-"))
+    await writeExplicitSessionFixture(cwd, [
+      { type: "session", id: "session-header", cwd },
+      sessionBindingEntry("session-binding"),
+    ])
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd,
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 18,
+        method: "session.elicitationExchanges",
+        params: { sessionId: "session-binding" },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 18,
+      error: {
+        code: -32005,
+        message: "Brunch session self-description is invalid",
       },
     })
   })
