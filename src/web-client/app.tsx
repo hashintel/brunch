@@ -21,6 +21,11 @@ type RouterContext = {
   rpcClient: WebSocketRpcClient
 }
 
+type SessionProjectionTarget = {
+  sessionId: string
+  specId: string
+}
+
 export interface BrunchWebRuntime {
   queryClient: QueryClient
   rpcClient: WebSocketRpcClient
@@ -97,27 +102,37 @@ function workspaceSnapshotQueryOptions(rpcClient: WebSocketRpcClient) {
   })
 }
 
+function sessionProjectionTargetFromSnapshot(
+  snapshot: WorkspaceSnapshot,
+): SessionProjectionTarget | null {
+  if (!snapshot.session || !snapshot.spec) {
+    return null
+  }
+  return { sessionId: snapshot.session.id, specId: snapshot.spec.id }
+}
+
 function sessionTranscriptDisplayQueryOptions(
   rpcClient: WebSocketRpcClient,
-  snapshot: WorkspaceSnapshot,
+  target: SessionProjectionTarget | null,
 ) {
   return {
     queryKey: [
       "session.transcriptDisplay",
-      snapshot.session?.id ?? null,
-      snapshot.spec?.id ?? null,
+      target?.sessionId ?? null,
+      target?.specId ?? null,
     ],
     queryFn: () =>
       rpcClient.request<TranscriptDisplayProjection>(
         "session.transcriptDisplay",
-        {
-          sessionId: snapshot.session!.id,
-          specId: snapshot.spec!.id,
-        },
+        target ?? unreachableSessionProjectionTarget(),
       ),
-    enabled: Boolean(snapshot.session && snapshot.spec),
+    enabled: target !== null,
     retry: false,
   }
+}
+
+function unreachableSessionProjectionTarget(): never {
+  throw new Error("Session transcript query is disabled without a target")
 }
 
 function WorkspaceSnapshotPage() {
@@ -125,8 +140,9 @@ function WorkspaceSnapshotPage() {
   const { data: snapshot } = useSuspenseQuery(
     workspaceSnapshotQueryOptions(rpcClient),
   )
+  const target = sessionProjectionTargetFromSnapshot(snapshot)
   const projection = useQuery(
-    sessionTranscriptDisplayQueryOptions(rpcClient, snapshot),
+    sessionTranscriptDisplayQueryOptions(rpcClient, target),
   )
 
   return (
