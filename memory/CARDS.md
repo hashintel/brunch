@@ -176,7 +176,7 @@ A Brunch-owned slash command opens the reusable workspace switcher inside an act
 
 ## Card 4 — Startup pty oracle for no implicit transcript resume
 
-- **Status:** queued
+- **Status:** done
 - **Weight:** full scope card
 - **Frontier:** `pi-ui-extension-patterns` / FE-744
 
