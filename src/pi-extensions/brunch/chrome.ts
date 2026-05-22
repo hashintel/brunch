@@ -22,7 +22,6 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
   reconcilerStatus: BrunchChromeWorkerStatus
   reconciliationNeedCount: number
   latestEstablishmentOfferSummary: string | null
-  streaming: boolean
 }
 
 export type BrunchChromeUi = Pick<ExtensionUIContext, "setFooter" | "setHeader" | "setStatus" | "setWidget" | "setWorkingIndicator" | "setTitle">
@@ -70,7 +69,6 @@ export function chromeStateForWorkspace(
     reconcilerStatus: "idle",
     reconciliationNeedCount: 0,
     latestEstablishmentOfferSummary: null,
-    streaming: false,
   }
 }
 
@@ -87,9 +85,7 @@ export function renderBrunchChrome(
   ui.setWidget("brunch.chrome", formatChromeWidgetLines(chrome), {
     placement: "aboveEditor",
   })
-  ui.setWorkingIndicator(
-    chrome.streaming ? { frames: ["●"], intervalMs: 120 } : undefined,
-  )
+  ui.setWorkingIndicator(undefined)
   ui.setTitle(`brunch — ${chrome.spec?.title ?? chrome.cwd}`)
 }
 

@@ -208,7 +208,6 @@ describe("Brunch TUI boot", () => {
       reconciliationNeedCount: 3,
       latestEstablishmentOfferSummary:
         "Recommended lens: problem-framing; missing constraints.",
-      streaming: true,
     }
 
     expect(formatBrunchChromeHeaderLines(state).join("\n")).toContain(
@@ -257,7 +256,6 @@ describe("Brunch TUI boot", () => {
       reconcilerStatus: "idle",
       reconciliationNeedCount: 0,
       latestEstablishmentOfferSummary: null,
-      streaming: false,
     })
 
     expect(calls.map((call) => call.method)).toEqual([
@@ -285,6 +283,9 @@ describe("Brunch TUI boot", () => {
       ],
       { placement: "aboveEditor" },
     ])
+    expect(
+      calls.find((call) => call.method === "setWorkingIndicator")?.args,
+    ).toEqual([undefined])
     expect(calls.find((call) => call.method === "setTitle")?.args).toEqual([
       "brunch — Spec One",
     ])
