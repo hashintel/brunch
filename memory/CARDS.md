@@ -59,7 +59,7 @@ Explicit session projection rejects session files whose durable self-description
 
 ## Card 2 — Display transcript-native custom-message prompts
 
-**Status:** next  
+**Status:** done  
 **Weight:** full scope card
 
 ### Target Behavior
@@ -107,7 +107,7 @@ The read-only transcript display projection renders text-bearing Brunch custom-m
 
 ## Card 3 — Human browser-open smoke and frontier reconciliation
 
-**Status:** queued  
+**Status:** next  
 **Weight:** light scope card
 
 ### Objective

@@ -223,6 +223,11 @@ describe("web host", () => {
       role: "assistant",
       content: "First question",
     })
+    first.session.manager.appendCustomMessageEntry(
+      "brunch.elicitation_prompt",
+      "Pick an explicit session direction.",
+      true,
+    )
     first.session.manager.appendMessage({
       role: "user",
       content: "First answer",
@@ -252,7 +257,9 @@ describe("web host", () => {
         id: 14,
         result: {
           status: "ready",
-          exchanges: [{ promptEntryIds: [expect.any(String)] }],
+          exchanges: [
+            { promptEntryIds: expect.arrayContaining([expect.any(String)]) },
+          ],
         },
       })
       expect(display).toMatchObject({
@@ -261,6 +268,7 @@ describe("web host", () => {
         result: {
           rows: [
             { role: "assistant", text: "First question" },
+            { role: "prompt", text: "Pick an explicit session direction." },
             { role: "user", text: "First answer" },
           ],
         },

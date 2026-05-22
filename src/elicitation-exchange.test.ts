@@ -11,6 +11,7 @@ import {
   loadLinearTranscriptDisplayProjection,
   NonLinearTranscriptError,
   projectElicitationExchanges,
+  projectTranscriptDisplay,
 } from "./elicitation-exchange.js"
 
 const assistant = {
@@ -184,6 +185,77 @@ describe("elicitation exchange projection", () => {
     expect(projection.rows).toEqual([
       { id: expect.any(String), role: "assistant", text: "Question" },
       { id: expect.any(String), role: "user", text: "Answer" },
+    ])
+  })
+
+  it("loads displayable elicitation prompt custom-message rows without operational custom entries", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-display-prompt-"))
+    const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    manager.appendCustomEntry("brunch.session_binding", {
+      schemaVersion: 1,
+      sessionId: "session-1",
+      specId: "spec-1",
+      specTitle: "Spec",
+    })
+    manager.appendCustomMessageEntry(
+      "brunch.elicitation_prompt",
+      "Choose the better framing.",
+      true,
+    )
+    manager.appendMessage({
+      role: "assistant",
+      content: "Persistence sentinel",
+    })
+    manager.appendMessage({ role: "user", content: "Option A" })
+
+    const projection = await loadLinearTranscriptDisplayProjection(
+      manager.getSessionFile()!,
+    )
+
+    expect(projection.rows).toEqual([
+      {
+        id: expect.any(String),
+        role: "prompt",
+        text: "Choose the better framing.",
+      },
+      {
+        id: expect.any(String),
+        role: "assistant",
+        text: "Persistence sentinel",
+      },
+      { id: expect.any(String), role: "user", text: "Option A" },
+    ])
+  })
+
+  it("projects only text-bearing elicitation prompt custom messages as prompt display rows", () => {
+    const projection = projectTranscriptDisplay([
+      {
+        id: "binding-1",
+        type: "custom",
+        parentId: null,
+        customType: "brunch.session_binding",
+        data: { sessionId: "session-1" },
+      },
+      {
+        id: "prompt-1",
+        type: "custom_message",
+        parentId: "binding-1",
+        customType: "brunch.elicitation_prompt",
+        content: [{ type: "text", text: "Describe the user." }],
+        display: true,
+      },
+      {
+        id: "side-task-1",
+        type: "custom_message",
+        parentId: "prompt-1",
+        customType: "brunch.side_task_result",
+        content: "Operational note",
+        display: true,
+      },
+    ])
+
+    expect(projection.rows).toEqual([
+      { id: "prompt-1", role: "prompt", text: "Describe the user." },
     ])
   })
 

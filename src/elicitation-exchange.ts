@@ -39,7 +39,7 @@ export interface ElicitationExchangeProjection {
 
 export interface TranscriptDisplayRow {
   id: string
-  role: "assistant" | "user"
+  role: "prompt" | "assistant" | "user"
   text: string
 }
 
@@ -73,7 +73,19 @@ export function projectTranscriptDisplay(
 ): TranscriptDisplayProjection {
   const rows: TranscriptDisplayRow[] = []
   for (const entry of entries) {
-    if (!isSessionEntry(entry) || !isMessageEntry(entry)) {
+    if (!isSessionEntry(entry)) {
+      continue
+    }
+
+    if (isDisplayableElicitationPrompt(entry)) {
+      const text = textContent(entry.content)
+      if (text.length > 0) {
+        rows.push({ id: entry.id, role: "prompt", text })
+      }
+      continue
+    }
+
+    if (!isMessageEntry(entry)) {
       continue
     }
 
@@ -284,6 +296,16 @@ function isCustomTranscriptEntry(
   entry: SessionEntry,
 ): entry is CustomEntry | CustomMessageEntry {
   return entry.type === "custom" || entry.type === "custom_message"
+}
+
+function isDisplayableElicitationPrompt(
+  entry: SessionEntry,
+): entry is CustomMessageEntry {
+  return (
+    entry.type === "custom_message" &&
+    entry.customType === "brunch.elicitation_prompt" &&
+    entry.display === true
+  )
 }
 
 function roleOf(

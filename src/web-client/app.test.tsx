@@ -36,6 +36,7 @@ const selectSpecSnapshot: WorkspaceSnapshot = {
 
 const readyProjection: TranscriptDisplayProjection = {
   rows: [
+    { id: "prompt-1", role: "prompt", text: "Choose the better framing." },
     { id: "assistant-1", role: "assistant", text: "What should we build?" },
     { id: "user-1", role: "user", text: "A read-only dashboard." },
   ],
@@ -89,8 +90,10 @@ describe("Brunch React web app", () => {
 
     render(<BrunchWebApp runtime={runtime} />)
 
-    expect(await screen.findByText("What should we build?")).toBeTruthy()
+    expect(await screen.findByText("Choose the better framing.")).toBeTruthy()
+    expect(screen.getByText("What should we build?")).toBeTruthy()
     expect(screen.getByText("A read-only dashboard.")).toBeTruthy()
+    expect(screen.getByLabelText("prompt message")).toBeTruthy()
     expect(calls).toContainEqual({ method: "workspace.snapshot" })
     expect(calls).toContainEqual({
       method: "session.transcriptDisplay",
