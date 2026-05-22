@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest"
 
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
+import { createSessionBindingData } from "./session-binding.js"
 import {
   loadJsonlTranscriptEntries,
   loadLinearElicitationExchangeProjection,
@@ -46,6 +47,17 @@ const structuredResponse = {
   type: "custom",
   customType: "brunch.elicitation_response",
   data: { choice: "A" },
+}
+
+function appendBinding(manager: SessionManager): void {
+  manager.appendCustomEntry(
+    "brunch.session_binding",
+    createSessionBindingData({
+      sessionId: manager.getSessionId(),
+      specId: "spec-1",
+      specTitle: "Spec",
+    }),
+  )
 }
 
 describe("elicitation exchange projection", () => {
@@ -155,6 +167,7 @@ describe("elicitation exchange projection", () => {
   it("loads and projects a real SessionManager JSONL assistant/user transcript through the product helper", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-jsonl-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    appendBinding(manager)
     manager.appendMessage({ role: "assistant", content: "Question" })
     manager.appendMessage({ role: "user", content: "Answer" })
 
@@ -175,6 +188,7 @@ describe("elicitation exchange projection", () => {
   it("loads displayable assistant and user transcript rows", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-display-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    appendBinding(manager)
     manager.appendMessage({ role: "assistant", content: "Question" })
     manager.appendMessage({ role: "user", content: "Answer" })
 
@@ -191,12 +205,7 @@ describe("elicitation exchange projection", () => {
   it("loads displayable elicitation prompt custom-message rows without operational custom entries", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-display-prompt-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
-    manager.appendCustomEntry("brunch.session_binding", {
-      schemaVersion: 1,
-      sessionId: "session-1",
-      specId: "spec-1",
-      specTitle: "Spec",
-    })
+    appendBinding(manager)
     manager.appendCustomMessageEntry(
       "brunch.elicitation_prompt",
       "Choose the better framing.",
@@ -262,6 +271,7 @@ describe("elicitation exchange projection", () => {
   it("preserves the non-linear error discriminant through the product helper", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-helper-branch-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    appendBinding(manager)
     manager.appendMessage({ role: "assistant", content: "Abandoned prompt" })
     manager.appendMessage({ role: "user", content: "Abandoned answer" })
     manager.resetLeaf()

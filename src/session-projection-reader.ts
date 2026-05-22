@@ -1,10 +1,10 @@
-import { readdir, readFile } from "node:fs/promises"
+import { readdir } from "node:fs/promises"
 import { join, resolve } from "node:path"
 
 import {
-  isSessionBindingEntry,
-  type SessionBindingData,
-} from "./session-binding.js"
+  readBrunchSessionEnvelope,
+  type BrunchSessionEnvelope,
+} from "./brunch-session-envelope.js"
 
 export interface ExplicitSessionProjectionParams {
   sessionId: string
@@ -13,7 +13,7 @@ export interface ExplicitSessionProjectionParams {
 
 export type SessionProjectionTarget = {
   ok: true
-  file: string
+  envelope: BrunchSessionEnvelope
   nonLinearMessage: string
 } | {
   ok: false
@@ -27,15 +27,15 @@ export async function resolveExplicitSessionProjectionTarget(
 ): Promise<SessionProjectionTarget> {
   const files = await listSessionFiles(cwd)
   for (const file of files) {
-    const selfDescription = await readBrunchSessionSelfDescription(file)
-    if (!selfDescription.targetsSession(params.sessionId)) {
+    const readResult = await readBrunchSessionEnvelope(file)
+    if (!sessionIds(readResult).includes(params.sessionId)) {
       continue
     }
-    if (!selfDescription.ok) {
+    if (!readResult.ok) {
       return invalidSessionSelfDescription()
     }
 
-    const binding = selfDescription.binding
+    const binding = readResult.envelope.binding
     if (params.specId && binding.specId !== params.specId) {
       return {
         ok: false,
@@ -45,7 +45,7 @@ export async function resolveExplicitSessionProjectionTarget(
     }
     return {
       ok: true,
-      file,
+      envelope: readResult.envelope,
       nonLinearMessage: "Brunch session transcript is non-linear",
     }
   }
@@ -53,77 +53,12 @@ export async function resolveExplicitSessionProjectionTarget(
   return { ok: false, code: -32004, message: "Brunch session not found" }
 }
 
-export async function readBrunchSessionBinding(
-  file: string,
-): Promise<SessionBindingData | null> {
-  const selfDescription = await readBrunchSessionSelfDescription(file)
-  return selfDescription.ok ? selfDescription.binding : null
-}
-
-type SessionSelfDescription = ValidSessionSelfDescription | InvalidSessionSelfDescription
-
-interface ValidSessionSelfDescription {
-  ok: true
-  binding: SessionBindingData
-  headerSessionId: string
-  targetsSession(sessionId: string): boolean
-}
-
-interface InvalidSessionSelfDescription {
-  ok: false
-  targetsSession(sessionId: string): boolean
-}
-
-async function readBrunchSessionSelfDescription(
-  file: string,
-): Promise<SessionSelfDescription> {
-  const entries = (await readFile(file, "utf8"))
-    .split("\n")
-    .filter((line) => line.trim().length > 0)
-    .map((line) => JSON.parse(line) as unknown)
-  const headers = entries.filter(isPiSessionHeader)
-  const bindings = entries
-    .filter(isSessionBindingEntry)
-    .map((entry) => entry.data)
-
-  if (headers.length !== 1 || bindings.length !== 1) {
-    return {
-      ok: false,
-      targetsSession: (sessionId) =>
-        bindings.some((binding) => binding.sessionId === sessionId),
-    }
-  }
-
-  const headerSessionId = headers[0]!.id
-  const binding = bindings[0]!
-  if (binding.sessionId !== headerSessionId) {
-    return {
-      ok: false,
-      targetsSession: (sessionId) =>
-        binding.sessionId === sessionId || headerSessionId === sessionId,
-    }
-  }
-
-  return {
-    ok: true,
-    binding,
-    headerSessionId,
-    targetsSession: (sessionId) => binding.sessionId === sessionId,
-  }
-}
-
-interface PiSessionHeader {
-  type: "session"
-  id: string
-}
-
-function isPiSessionHeader(value: unknown): value is PiSessionHeader {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as { type?: unknown }).type === "session" &&
-    typeof (value as { id?: unknown }).id === "string"
-  )
+function sessionIds(
+  readResult: Awaited<ReturnType<typeof readBrunchSessionEnvelope>>,
+): string[] {
+  return readResult.ok
+    ? [readResult.envelope.binding.sessionId]
+    : readResult.observedSessionIds
 }
 
 function invalidSessionSelfDescription(): SessionProjectionTarget {

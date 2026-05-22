@@ -1,12 +1,17 @@
-import { readFile } from "node:fs/promises"
-
 import {
   type CustomEntry,
   type CustomMessageEntry,
-  type FileEntry,
   type SessionEntry,
   type SessionMessageEntry,
 } from "@earendil-works/pi-coding-agent"
+
+import {
+  assertLinearBrunchSessionEnvelope,
+  loadJsonlTranscriptEntries,
+  NonLinearTranscriptError,
+  readBrunchSessionEnvelope,
+  type BrunchSessionEnvelope,
+} from "./brunch-session-envelope.js"
 
 const STRUCTURED_RESPONSE_TYPES = new Set([
   "brunch.elicitation_response",
@@ -47,25 +52,46 @@ export interface TranscriptDisplayProjection {
   rows: TranscriptDisplayRow[]
 }
 
-export class NonLinearTranscriptError extends Error {
-  readonly code = "BRUNCH_NON_LINEAR_TRANSCRIPT"
-
-  constructor(message: string) {
-    super(message)
-    this.name = "NonLinearTranscriptError"
-  }
-}
+export { loadJsonlTranscriptEntries, NonLinearTranscriptError }
 
 export async function loadLinearElicitationExchangeProjection(
   file: string,
 ): Promise<ElicitationExchangeProjection> {
-  return projectElicitationExchanges(await loadJsonlTranscriptEntries(file))
+  return projectLinearElicitationExchangeProjection(
+    await loadBrunchSessionEnvelope(file),
+  )
 }
 
 export async function loadLinearTranscriptDisplayProjection(
   file: string,
 ): Promise<TranscriptDisplayProjection> {
-  return projectTranscriptDisplay(await loadJsonlTranscriptEntries(file))
+  return projectLinearTranscriptDisplayProjection(
+    await loadBrunchSessionEnvelope(file),
+  )
+}
+
+export function projectLinearElicitationExchangeProjection(
+  envelope: BrunchSessionEnvelope,
+): ElicitationExchangeProjection {
+  assertLinearBrunchSessionEnvelope(envelope)
+  return projectElicitationExchanges(envelope.entries)
+}
+
+export function projectLinearTranscriptDisplayProjection(
+  envelope: BrunchSessionEnvelope,
+): TranscriptDisplayProjection {
+  assertLinearBrunchSessionEnvelope(envelope)
+  return projectTranscriptDisplay(envelope.entries)
+}
+
+async function loadBrunchSessionEnvelope(
+  file: string,
+): Promise<BrunchSessionEnvelope> {
+  const readResult = await readBrunchSessionEnvelope(file)
+  if (!readResult.ok) {
+    throw new Error("Brunch session self-description is invalid")
+  }
+  return readResult.envelope
 }
 
 export function projectTranscriptDisplay(
@@ -102,78 +128,6 @@ export function projectTranscriptDisplay(
     rows.push({ id: entry.id, role, text })
   }
   return { rows }
-}
-
-export async function loadJsonlTranscriptEntries(
-  file: string,
-): Promise<FileEntry[]> {
-  const content = await readFile(file, "utf8")
-  const entries = content
-    .split("\n")
-    .filter((line) => line.trim().length > 0)
-    .map((line) => JSON.parse(line) as unknown)
-
-  assertFileBackedTranscriptEntries(entries)
-  assertLinearTranscriptEntries(entries)
-  return entries
-}
-
-function assertFileBackedTranscriptEntries(
-  entries: readonly unknown[],
-): asserts entries is FileEntry[] {
-  const headerCount = entries.filter(isSessionHeader).length
-  if (headerCount !== 1) {
-    throw new Error(
-      `Invalid Pi JSONL transcript: expected exactly one Pi session header, found ${headerCount}`,
-    )
-  }
-
-  for (const entry of entries) {
-    if (isSessionHeader(entry)) {
-      continue
-    }
-
-    if (!hasRequiredSessionEntryShape(entry)) {
-      throw new Error(
-        "Invalid Pi JSONL transcript: every non-header entry must have a string id, string-or-null parentId, and string type",
-      )
-    }
-  }
-}
-
-export function assertLinearTranscriptEntries(
-  entries: readonly FileEntry[],
-): void {
-  for (const entry of entries) {
-    if (isSessionHeader(entry) && typeof entry.parentSession === "string") {
-      throw new NonLinearTranscriptError(
-        "Brunch does not support branch-derived Pi sessions",
-      )
-    }
-
-    if (isSessionEntry(entry) && entry.type === "branch_summary") {
-      throw new NonLinearTranscriptError(
-        "Brunch does not support Pi branch-summary transcript entries",
-      )
-    }
-  }
-
-  const childrenByParent = new Map<string | null, string[]>()
-  for (const entry of entries) {
-    if (!isSessionEntry(entry)) {
-      continue
-    }
-
-    const siblings = childrenByParent.get(entry.parentId) ?? []
-    siblings.push(entry.id)
-    childrenByParent.set(entry.parentId, siblings)
-
-    if (siblings.length > 1) {
-      throw new NonLinearTranscriptError(
-        "Brunch does not support non-linear Pi transcript branches",
-      )
-    }
-  }
 }
 
 export function projectElicitationExchanges(
@@ -252,24 +206,10 @@ function isSessionEntry(value: unknown): value is SessionEntry {
   return isTranscriptEntry(value) && hasStringOrNullParentId(value)
 }
 
-function hasRequiredSessionEntryShape(value: unknown): value is SessionEntry {
-  return isTranscriptEntry(value) && hasStringOrNullParentId(value)
-}
-
 function hasStringOrNullParentId(value: unknown): boolean {
   return (
     (value as { parentId?: unknown }).parentId === null ||
     typeof (value as { parentId?: unknown }).parentId === "string"
-  )
-}
-
-function isSessionHeader(
-  value: unknown,
-): value is Extract<FileEntry, { type: "session" }> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as { type?: unknown }).type === "session"
   )
 }
 

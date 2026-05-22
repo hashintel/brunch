@@ -73,6 +73,7 @@ function selectSpecState(): WorkspaceSessionState {
 async function createSessionFile(): Promise<string> {
   const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-session-"))
   const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+  appendBinding(manager)
   manager.appendMessage({ role: "assistant", content: "Question" })
   manager.appendMessage({ role: "user", content: "Answer" })
   return manager.getSessionFile()!
@@ -81,6 +82,7 @@ async function createSessionFile(): Promise<string> {
 async function createBranchedSessionFile(): Promise<string> {
   const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-branch-"))
   const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+  appendBinding(manager)
   manager.appendMessage({ role: "assistant", content: "Abandoned prompt" })
   manager.appendMessage({ role: "user", content: "Abandoned answer" })
   manager.resetLeaf()
@@ -98,6 +100,17 @@ async function writeExplicitSessionFixture(
   await writeFile(
     join(sessionRoot, "session.jsonl"),
     entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
+  )
+}
+
+function appendBinding(manager: SessionManager): void {
+  manager.appendCustomEntry(
+    "brunch.session_binding",
+    createSessionBindingData({
+      sessionId: manager.getSessionId(),
+      specId: "spec-1",
+      specTitle: "Spec",
+    }),
   )
 }
 

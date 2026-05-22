@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest"
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
 import { runBrunchCli } from "./brunch.js"
+import { createSessionBindingData } from "./session-binding.js"
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
@@ -112,6 +113,14 @@ describe("Brunch CLI dispatch", () => {
   it("routes --mode rpc session projection through the coordinator-selected session", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-cli-rpc-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    manager.appendCustomEntry(
+      "brunch.session_binding",
+      createSessionBindingData({
+        sessionId: manager.getSessionId(),
+        specId: "spec-1",
+        specTitle: "Spec",
+      }),
+    )
     manager.appendMessage({ role: "assistant", content: "Question" })
     manager.appendMessage({ role: "user", content: "Answer" })
     const stdout = new PassThrough()

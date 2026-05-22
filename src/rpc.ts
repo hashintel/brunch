@@ -2,9 +2,13 @@ import { createInterface } from "node:readline/promises"
 import type { Readable, Writable } from "node:stream"
 
 import {
-  loadLinearElicitationExchangeProjection,
-  loadLinearTranscriptDisplayProjection,
+  readBrunchSessionEnvelope,
   NonLinearTranscriptError,
+  type BrunchSessionEnvelope,
+} from "./brunch-session-envelope.js"
+import {
+  projectLinearElicitationExchangeProjection,
+  projectLinearTranscriptDisplayProjection,
 } from "./elicitation-exchange.js"
 import {
   createJsonRpcFailure,
@@ -55,7 +59,7 @@ export function createRpcHandlers(options: {
           requestId,
           request.params,
           options,
-          loadLinearElicitationExchangeProjection,
+          projectLinearElicitationExchangeProjection,
         )
       }
 
@@ -64,7 +68,7 @@ export function createRpcHandlers(options: {
           requestId,
           request.params,
           options,
-          loadLinearTranscriptDisplayProjection,
+          projectLinearTranscriptDisplayProjection,
         )
       }
 
@@ -80,7 +84,7 @@ async function handleSessionProjection<T>(
     coordinator: WorkspaceSessionCoordinator
     cwd: string
   },
-  loadProjection: (file: string) => Promise<T>,
+  loadProjection: (envelope: BrunchSessionEnvelope) => T,
 ): Promise<JsonRpcResponse> {
   const params = parseSessionProjectionParams(rawParams)
   if (!params.ok) {
@@ -89,13 +93,13 @@ async function handleSessionProjection<T>(
 
   const target = params.value
     ? await resolveExplicitSessionProjectionTarget(options.cwd, params.value)
-    : selectedSessionFile(await options.coordinator.openExisting())
+    : await selectedSessionFile(await options.coordinator.openExisting())
   if (!target.ok) {
     return createJsonRpcFailure(requestId, target.code, target.message)
   }
 
   try {
-    return createJsonRpcSuccess(requestId, await loadProjection(target.file))
+    return createJsonRpcSuccess(requestId, loadProjection(target.envelope))
   } catch (error) {
     if (error instanceof NonLinearTranscriptError) {
       return createJsonRpcFailure(requestId, -32002, target.nonLinearMessage)
@@ -141,15 +145,25 @@ function parseSessionProjectionParams(
   }
 }
 
-function selectedSessionFile(
+async function selectedSessionFile(
   state: Awaited<ReturnType<WorkspaceSessionCoordinator["openExisting"]>>,
-): SessionProjectionTarget {
+): Promise<SessionProjectionTarget> {
   if (state.status !== "ready") {
     return { ok: false, code: -32001, message: "No selected Brunch session" }
   }
+
+  const readResult = await readBrunchSessionEnvelope(state.session.file)
+  if (!readResult.ok) {
+    return {
+      ok: false,
+      code: -32005,
+      message: "Brunch session self-description is invalid",
+    }
+  }
+
   return {
     ok: true,
-    file: state.session.file,
+    envelope: readResult.envelope,
     nonLinearMessage: "Selected Brunch session transcript is non-linear",
   }
 }
