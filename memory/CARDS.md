@@ -74,7 +74,7 @@ The Brunch Pi extension entrypoint registers extension behavior through surface-
 
 ## Card 2 — Product-shell chrome surface allocation
 
-- **Status:** queued
+- **Status:** done
 - **Weight:** light scope card
 - **Frontier:** `pi-ui-extension-patterns` / FE-744
 

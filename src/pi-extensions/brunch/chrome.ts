@@ -32,29 +32,31 @@ export function formatBrunchChromeHeaderLines(
 ): string[] {
   return [
     "brunch specification workspace",
-    `${formatSpec(chrome)} · ${formatSession(chrome)} · ${chrome.phase}`,
+    `${formatSpec(chrome)} · ${formatSession(chrome)}`,
   ]
+}
+
+export function formatBrunchStatus(chrome: BrunchChromeState): string {
+  return `Brunch · ${chrome.phase} · ${chrome.coherenceVerdict} · needs ${chrome.reconciliationNeedCount}`
 }
 
 export function formatChromeWidgetLines(chrome: BrunchChromeState): string[] {
-  return [
+  const lines = [
     `cwd: ${chrome.cwd}`,
-    `spec: ${formatSpec(chrome)}  session: ${formatSession(chrome)}  stage: ${chrome.stage}`,
-    `lens: ${chrome.activeLens ?? "none"}  coherence: ${chrome.coherenceVerdict}  needs: ${chrome.reconciliationNeedCount}`,
-    `observer: ${chrome.observerStatus}  reviewer: ${chrome.reviewerStatus}  reconciler: ${chrome.reconcilerStatus}`,
+    `chat mode: ${chrome.chatMode}  stage: ${chrome.stage}`,
+    `lens: ${chrome.activeLens ?? "none"}`,
+    `workers: observer ${chrome.observerStatus} · reviewer ${chrome.reviewerStatus} · reconciler ${chrome.reconcilerStatus}`,
   ]
+  if (chrome.latestEstablishmentOfferSummary) {
+    lines.push(`offer: ${chrome.latestEstablishmentOfferSummary}`)
+  }
+  return lines
 }
 
 export function formatBrunchChromeFooterLines(
-  chrome: BrunchChromeState,
+  _chrome: BrunchChromeState,
 ): string[] {
-  const offer = chrome.latestEstablishmentOfferSummary
-    ? `offer: ${chrome.latestEstablishmentOfferSummary}`
-    : "offer: none"
-  return [
-    `observer: ${chrome.observerStatus} · reviewer: ${chrome.reviewerStatus} · reconciler: ${chrome.reconcilerStatus}`,
-    offer,
-  ]
+  return []
 }
 
 export function chromeStateForWorkspace(
@@ -86,14 +88,8 @@ export function renderBrunchChrome(
     render: () => formatBrunchChromeHeaderLines(chrome),
     invalidate: () => {},
   }))
-  ui.setFooter(() => ({
-    render: () => formatBrunchChromeFooterLines(chrome),
-    invalidate: () => {},
-  }))
-  ui.setStatus(
-    "brunch.chrome",
-    `Brunch · ${chrome.phase} · ${chrome.activeLens ?? "no active lens"} · ${chrome.coherenceVerdict} · needs ${chrome.reconciliationNeedCount}`,
-  )
+  ui.setFooter(undefined)
+  ui.setStatus("brunch.chrome", formatBrunchStatus(chrome))
   ui.setWidget("brunch.chrome", formatChromeWidgetLines(chrome), {
     placement: "aboveEditor",
   })

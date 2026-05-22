@@ -21,6 +21,7 @@ import {
   createBrunchChromeExtension,
   formatBrunchChromeFooterLines,
   formatBrunchChromeHeaderLines,
+  formatBrunchStatus,
   formatChromeWidgetLines,
   renderBrunchChrome,
 } from "./pi-extensions/brunch/index.js"
@@ -178,28 +179,12 @@ describe("Brunch TUI boot", () => {
   })
 
   it("passes activated session state into chrome instead of fabricating unbound", async () => {
-    const widgets = new Map<string, string[]>()
-    const ui: FakeExtensionUi = {
-      setHeader: (_factory) => {},
-      setFooter: (_factory) => {},
-      setStatus: (_key, _text) => {},
-      setWidget: (key: string, content: unknown) => {
-        if (isStringArray(content)) {
-          widgets.set(key, content)
-        }
-      },
-      setWorkingIndicator: (_options) => {},
-      setTitle: (_title: string) => {},
-      notify: (_message: string, _type?: "info" | "warning" | "error") => {},
-    }
-
-    renderBrunchChrome(
-      ui,
-      chromeStateForWorkspace(readyWorkspace("/tmp/project", "session-real")),
+    const state = chromeStateForWorkspace(
+      readyWorkspace("/tmp/project", "session-real"),
     )
 
-    expect(widgets.get("brunch.chrome")?.join("\n")).toContain(
-      "session: session-real",
+    expect(formatBrunchChromeHeaderLines(state).join("\n")).toContain(
+      "session-real",
     )
   })
 
@@ -228,13 +213,13 @@ describe("Brunch TUI boot", () => {
     expect(formatChromeWidgetLines(state).join("\n")).toContain(
       "lens: problem-framing",
     )
-    expect(formatChromeWidgetLines(state).join("\n")).toContain("needs: 3")
-    expect(formatBrunchChromeFooterLines(state).join("\n")).toContain(
-      "observer: running",
+    expect(formatBrunchStatus(state)).toBe(
+      "Brunch · elicitation · needs_review · needs 3",
     )
-    expect(formatBrunchChromeFooterLines(state).join("\n")).toContain(
+    expect(formatChromeWidgetLines(state).join("\n")).toContain(
       "offer: Recommended lens: problem-framing; missing constraints.",
     )
+    expect(formatBrunchChromeFooterLines(state)).toEqual([])
   })
 
   it("renders Brunch chrome through one wrapper over Pi UI calls", async () => {
@@ -280,19 +265,25 @@ describe("Brunch TUI boot", () => {
       "setWorkingIndicator",
       "setTitle",
     ])
+    expect(calls.find((call) => call.method === "setFooter")?.args).toEqual([
+      undefined,
+    ])
     expect(calls.find((call) => call.method === "setStatus")?.args).toEqual([
       "brunch.chrome",
-      "Brunch · elicitation · no active lens · coherent · needs 0",
+      "Brunch · elicitation · coherent · needs 0",
     ])
     expect(calls.find((call) => call.method === "setWidget")?.args).toEqual([
       "brunch.chrome",
       [
         "cwd: /tmp/project",
-        "spec: Spec One  session: session-1  stage: idle",
-        "lens: none  coherence: coherent  needs: 0",
-        "observer: idle  reviewer: idle  reconciler: idle",
+        "chat mode: responding-to-elicitation  stage: idle",
+        "lens: none",
+        "workers: observer idle · reviewer idle · reconciler idle",
       ],
       { placement: "aboveEditor" },
+    ])
+    expect(calls.find((call) => call.method === "setTitle")?.args).toEqual([
+      "brunch — Spec One",
     ])
   })
 
@@ -301,6 +292,7 @@ describe("Brunch TUI boot", () => {
     const manager = SessionManager.create(cwd, join(cwd, ".brunch", "sessions"))
     const boundSessionIds: string[] = []
     const widgets = new Map<string, string[]>()
+    const titles: string[] = []
     const ui: FakeExtensionUi = {
       setHeader: (_factory) => {},
       setFooter: (_factory) => {},
@@ -311,7 +303,7 @@ describe("Brunch TUI boot", () => {
         }
       },
       setWorkingIndicator: (_options) => {},
-      setTitle: (_title: string) => {},
+      setTitle: (title: string) => titles.push(title),
       notify: (_message: string, _type?: "info" | "warning" | "error") => {},
     }
     const ctx: FakeExtensionContext = { sessionManager: manager, ui }
@@ -363,7 +355,10 @@ describe("Brunch TUI boot", () => {
       manager.getSessionId(),
       manager.getSessionId(),
     ])
-    expect(widgets.get("brunch.chrome")?.join("\n")).toContain("Spec One")
+    expect(widgets.get("brunch.chrome")?.join("\n")).toContain(
+      "chat mode: responding-to-elicitation",
+    )
+    expect(titles).toEqual(["brunch — Spec One"])
   })
 
   it("cancels Pi branch-flow hooks with a stable user-facing reason", async () => {

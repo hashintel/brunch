@@ -16,6 +16,7 @@ export {
   chromeStateForWorkspace,
   formatBrunchChromeFooterLines,
   formatBrunchChromeHeaderLines,
+  formatBrunchStatus,
   formatChromeWidgetLines,
   renderBrunchChrome,
   type BrunchChromeCoherenceVerdict,
