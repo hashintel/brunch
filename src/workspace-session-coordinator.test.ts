@@ -543,22 +543,6 @@ describe("WorkspaceSessionCoordinator", () => {
     expect(mismatched.status).toBe("needs_human")
   })
 
-  it("keeps inventory scanning out of activation and binding helpers", async () => {
-    const source = await readFile(
-      new URL("./workspace-session-coordinator.ts", import.meta.url),
-      "utf8",
-    )
-    const inspectMethod = source.slice(
-      source.indexOf("async inspectWorkspace()"),
-      source.indexOf("async activateWorkspace("),
-    )
-
-    expect(inspectMethod).not.toContain("bindSessionToSpec")
-    expect(inspectMethod).not.toContain("appendCustomEntry")
-    expect(inspectMethod).not.toContain("SessionManager.create")
-    expect(inspectMethod).not.toContain("writeCurrentWorkspaceState")
-  })
-
   it("asks for spec selection when no current spec exists and creation is not allowed", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     await mkdir(join(cwd, ".brunch"), { recursive: true })

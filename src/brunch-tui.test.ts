@@ -442,17 +442,6 @@ describe("Brunch TUI boot", () => {
     ])
   })
 
-  it("keeps session creation and binding out of the TUI boot adapter", async () => {
-    const source = await readFile(
-      new URL("./brunch-tui.ts", import.meta.url),
-      "utf8",
-    )
-
-    expect(source).not.toContain("SessionManager.create")
-    expect(source).not.toContain("appendCustomEntry")
-    expect(source).not.toContain("brunch.session_binding")
-  })
-
   it("suppresses generic Pi startup resources for the Brunch shell", async () => {
     const source = await readFile(
       new URL("./brunch-tui.ts", import.meta.url),

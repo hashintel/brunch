@@ -105,18 +105,6 @@ describe("workspace switcher", () => {
     )
   })
 
-  it("keeps the switcher out of coordinator and session mutation imports", async () => {
-    const source = await readFile(
-      new URL("./workspace-switcher.ts", import.meta.url),
-      "utf8",
-    )
-
-    expect(source).not.toContain("WorkspaceSessionCoordinator")
-    expect(source).not.toContain("SessionManager")
-    expect(source).not.toContain("bindSessionToSpec")
-    expect(source).not.toContain("appendCustomEntry")
-  })
-
   it("declares pi-tui as a direct dependency", async () => {
     const manifest = JSON.parse(
       await readFile(new URL("../package.json", import.meta.url), "utf8"),

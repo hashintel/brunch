@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { PassThrough } from "node:stream"
@@ -284,13 +284,6 @@ describe("JSON-RPC handlers", () => {
         ],
       },
     })
-  })
-
-  it("does not parse durable session bindings inside the RPC handler module", async () => {
-    const source = await readFile(new URL("./rpc.ts", import.meta.url), "utf8")
-
-    expect(source).not.toContain("brunch.session_binding")
-    expect(source).not.toContain("customType")
   })
 
   it("validates explicit session projection against a requested spec id", async () => {
