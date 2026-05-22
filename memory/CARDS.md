@@ -173,7 +173,7 @@ The workspace switcher UI can turn launch inventory into a typed workspace decis
 
 ## Card 4 — Pre-Pi startup gate
 
-- **Status:** next
+- **Status:** done
 - **Weight:** full scope card
 - **Frontier:** `pi-ui-extension-patterns` / FE-744
 

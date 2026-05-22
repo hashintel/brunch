@@ -11,6 +11,7 @@ import {
 } from "@earendil-works/pi-coding-agent"
 
 import {
+  chromeStateForWorkspace,
   createBrunchChromeExtension,
   formatBrunchChromeFooterLines,
   formatBrunchChromeHeaderLines,
@@ -18,7 +19,11 @@ import {
   renderBrunchChrome,
   runBrunchTui,
 } from "./brunch-tui.js"
-import { verifyWorkspaceSessionStores } from "./workspace-session-coordinator.js"
+import {
+  createWorkspaceSessionCoordinator,
+  verifyWorkspaceSessionStores,
+  type WorkspaceSessionReadyState,
+} from "./workspace-session-coordinator.js"
 
 describe("Brunch TUI boot", () => {
   it("gates spec selection through the coordinator before launching interactive mode", async () => {
@@ -45,6 +50,158 @@ describe("Brunch TUI boot", () => {
     if (!oracle.ok) {
       expect(oracle.errors).toEqual([])
     }
+  })
+
+  it("runs inspect, preflight, and activation before launching interactive mode", async () => {
+    const events: string[] = []
+    const workspace = readyWorkspace("/tmp/project", "session-ready")
+
+    await runBrunchTui({
+      cwd: "/tmp/project",
+      coordinator: {
+        inspectWorkspace: async () => {
+          events.push("inspect")
+          return {
+            cwd: "/tmp/project",
+            currentSpec: workspace.spec,
+            currentSessionFile: workspace.session.file,
+            needsNewSpec: false,
+            specs: [],
+            unavailableSessions: [],
+          }
+        },
+        activateWorkspace: async (decision) => {
+          events.push(`activate:${decision.action}`)
+          return workspace
+        },
+        openExisting: async () => workspace,
+        startOrCreate: async () => workspace,
+        createNewSessionForCurrentSpec: async () => workspace,
+        bindCurrentSpecToSession: async () => workspace,
+        deriveChromeState: async () => workspace.chrome,
+      },
+      runWorkspaceSwitchPreflight: async () => {
+        events.push("preflight")
+        return {
+          action: "continue",
+          specId: workspace.spec.id,
+          sessionFile: workspace.session.file,
+        }
+      },
+      launchInteractive: async ({ workspace: launched }) => {
+        events.push(`launch:${launched.session.id}`)
+      },
+    })
+
+    expect(events).toEqual([
+      "inspect",
+      "preflight",
+      "activate:continue",
+      "launch:session-ready",
+    ])
+  })
+
+  it("does not launch interactive mode when startup preflight is cancelled", async () => {
+    const events: string[] = []
+    const workspace = readyWorkspace("/tmp/project", "session-ready")
+
+    await runBrunchTui({
+      cwd: "/tmp/project",
+      coordinator: {
+        inspectWorkspace: async () => {
+          events.push("inspect")
+          return {
+            cwd: "/tmp/project",
+            currentSpec: workspace.spec,
+            currentSessionFile: workspace.session.file,
+            needsNewSpec: false,
+            specs: [],
+            unavailableSessions: [],
+          }
+        },
+        activateWorkspace: async () => {
+          events.push("activate")
+          return {
+            status: "cancelled",
+            cwd: "/tmp/project",
+            chrome: workspace.chrome,
+          }
+        },
+        openExisting: async () => workspace,
+        startOrCreate: async () => workspace,
+        createNewSessionForCurrentSpec: async () => workspace,
+        bindCurrentSpecToSession: async () => workspace,
+        deriveChromeState: async () => workspace.chrome,
+      },
+      runWorkspaceSwitchPreflight: async () => {
+        events.push("preflight")
+        return { action: "cancel" }
+      },
+      launchInteractive: async () => {
+        events.push("launch")
+      },
+    })
+
+    expect(events).toEqual(["inspect", "preflight", "activate"])
+  })
+
+  it("chooses a new binding-only session instead of implicitly resuming stale transcript", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-tui-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+    const first = await coordinator.startOrCreate({ specTitle: "Spec One" })
+    first.session.manager.appendMessage({
+      role: "user",
+      content: "stale transcript",
+    })
+    const firstContent = await readFile(first.session.file, "utf8")
+    let launchedSessionFile: string | undefined
+
+    await runBrunchTui({
+      cwd,
+      coordinator,
+      runWorkspaceSwitchPreflight: async () => ({
+        action: "newSession",
+        specId: first.spec.id,
+      }),
+      launchInteractive: async ({ workspace }) => {
+        launchedSessionFile = workspace.session.file
+      },
+    })
+
+    expect(launchedSessionFile).toBeDefined()
+    expect(launchedSessionFile).not.toBe(first.session.file)
+    await expect(readFile(first.session.file, "utf8")).resolves.toBe(
+      firstContent,
+    )
+    expect(await readFile(launchedSessionFile!, "utf8")).not.toContain(
+      "stale transcript",
+    )
+  })
+
+  it("passes activated session state into chrome instead of fabricating unbound", async () => {
+    const widgets = new Map<string, string[]>()
+    const ui: FakeExtensionUi = {
+      setHeader: (_factory) => {},
+      setFooter: (_factory) => {},
+      setStatus: (_key, _text) => {},
+      setWidget: (key: string, content: unknown) => {
+        if (isStringArray(content)) {
+          widgets.set(key, content)
+        }
+      },
+      setWorkingIndicator: (_options) => {},
+      setTitle: (_title: string) => {},
+      notify: (_message: string, _type?: "info" | "warning" | "error") => {},
+    }
+
+    renderBrunchChrome(
+      ui,
+      chromeStateForWorkspace(readyWorkspace("/tmp/project", "session-real")),
+    )
+
+    expect(widgets.get("brunch.chrome")?.join("\n")).toContain(
+      "session: session-real",
+    )
   })
 
   it("formats Brunch chrome from one product-state snapshot", async () => {
@@ -293,7 +450,44 @@ describe("Brunch TUI boot", () => {
     expect(source).not.toContain("appendCustomEntry")
     expect(source).not.toContain("brunch.session_binding")
   })
+
+  it("suppresses generic Pi startup resources for the Brunch shell", async () => {
+    const source = await readFile(
+      new URL("./brunch-tui.ts", import.meta.url),
+      "utf8",
+    )
+
+    expect(source).toContain("settingsManager.getQuietStartup = () => true")
+    expect(source).toContain("noContextFiles: true")
+    expect(source).toContain("noExtensions: true")
+    expect(source).toContain("noPromptTemplates: true")
+    expect(source).toContain("noSkills: true")
+    expect(source).toContain('process.env.PI_OFFLINE ??= "1"')
+  })
 })
+
+function readyWorkspace(
+  cwd: string,
+  sessionId: string,
+): WorkspaceSessionReadyState {
+  const spec = { id: "spec-1", title: "Spec One" }
+  return {
+    status: "ready",
+    cwd,
+    spec,
+    session: {
+      id: sessionId,
+      file: `/sessions/${sessionId}.jsonl`,
+      manager: {} as WorkspaceSessionReadyState["session"]["manager"],
+    },
+    chrome: {
+      cwd,
+      spec,
+      phase: "elicitation",
+      chatMode: "responding-to-elicitation",
+    },
+  }
+}
 
 interface FakeUiCall {
   method: string
