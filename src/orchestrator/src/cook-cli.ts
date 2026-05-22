@@ -7,7 +7,7 @@ import type { FiringPolicy } from './petri-net.js';
 import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
 import { BunTestRunner } from './test-runner.js';
-import { createWorktree } from './worktree.js';
+import { createSandbox } from './worktree.js';
 
 export type CookOptions = {
   dir: string;
@@ -26,8 +26,8 @@ export function parseCookArgs(args: string[]): CookOptions {
     const arg = args[i]!;
     if (arg.startsWith('--policy=')) {
       const val = arg.split('=')[1]!;
-      if (val !== 'serial') {
-        throw new Error(`Unknown policy: ${val}. Use serial.`);
+      if (val !== 'serial' && val !== 'parallel') {
+        throw new Error(`Unknown policy: ${val}. Use serial or parallel.`);
       }
       policy = val;
     } else if (arg.startsWith('--max-retries=')) {
@@ -44,7 +44,7 @@ export function parseCookArgs(args: string[]): CookOptions {
   }
 
   if (!dir) {
-    throw new Error('Usage: brunch cook <dir> [--policy=serial] [--max-retries=N] [--verbose]');
+    throw new Error('Usage: brunch cook <dir> [--policy=serial|parallel] [--max-retries=N] [--verbose]');
   }
 
   return { dir: resolve(dir), policy, maxRetries, verbose };
@@ -74,7 +74,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
 
   const plan = loadPlan(planPath);
   const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
-  const { worktreeDir, runDir } = createWorktree(launchCwd);
+  const { sandboxDir, runDir } = createSandbox(launchCwd);
   const reportsPath = join(runDir, 'reports.jsonl');
 
   const epicCount = plan.epics.length;
@@ -86,7 +86,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
   console.error(`  policy     ${opts.policy}`);
   console.error(`  plan       ${epicCount} epics, ${sliceCount} slices`);
   console.error(`  retries    ${opts.maxRetries}`);
-  console.error(`  worktree   ${worktreeDir}`);
+  console.error(`  sandbox    ${sandboxDir}`);
   console.error(`  reports    ${reportsPath}`);
   console.error('');
 
@@ -100,7 +100,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
 
   const result = await engine.run({
     plan,
-    worktreeDir,
+    sandboxDir,
     actions,
     reports,
     testRunner,

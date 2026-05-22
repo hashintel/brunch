@@ -10,7 +10,10 @@ import type { ActionContext, ActionHandlers, OrchestratorInput, Plan, RunCtx, Te
 // Shared engine list for parameterized tests
 // ---------------------------------------------------------------------------
 
-const engines = [{ name: 'serial', create: () => createOrchestrator('serial') }] as const;
+const engines = [
+  { name: 'serial', create: () => createOrchestrator('serial') },
+  { name: 'parallel', create: () => createOrchestrator('parallel') },
+] as const;
 
 // ---------------------------------------------------------------------------
 // Reusable fake factory — per-test closures instead of module-level state
@@ -127,6 +130,48 @@ function createFakes(opts?: {
 }
 
 // ---------------------------------------------------------------------------
+// Concurrency-tracking wrapper — reusable across parallel/pool tests
+// ---------------------------------------------------------------------------
+
+type ConcurrencyTracker = { maxConcurrent: number };
+
+/**
+ * Wrap action handlers with concurrency tracking. Each wrapped handler
+ * increments an active counter, yields to allow interleaving under
+ * Promise.allSettled, calls the original, then decrements.
+ *
+ * @param actions   Original action handlers to wrap
+ * @param onlyKeys  If provided, only wrap these action keys (others pass through)
+ */
+function withConcurrencyTracking(
+  actions: ActionHandlers,
+  onlyKeys?: Set<string>,
+): { tracked: ActionHandlers; tracker: ConcurrencyTracker } {
+  let active = 0;
+  const tracker: ConcurrencyTracker = { maxConcurrent: 0 };
+
+  const tracked: ActionHandlers = {};
+  for (const [key, handler] of Object.entries(actions)) {
+    if (onlyKeys && !onlyKeys.has(key)) {
+      tracked[key] = handler!;
+    } else {
+      tracked[key] = async (ctx: ActionContext) => {
+        active++;
+        tracker.maxConcurrent = Math.max(tracker.maxConcurrent, active);
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          return await handler!(ctx);
+        } finally {
+          active--;
+        }
+      };
+    }
+  }
+
+  return { tracked, tracker };
+}
+
+// ---------------------------------------------------------------------------
 // Contract test #1 — single epic, single slice, happy path
 // ---------------------------------------------------------------------------
 
@@ -157,7 +202,7 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
         const fakes = createFakes();
         const result = await create().run({
           plan: simplePlan,
-          worktreeDir: '/tmp/fake',
+          sandboxDir: '/tmp/fake',
           actions: fakes.actions,
           reports: fakes.reports,
           testRunner: fakes.testRunner,
@@ -170,7 +215,7 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
         const fakes = createFakes();
         const result = await create().run({
           plan: simplePlan,
-          worktreeDir: '/tmp/fake',
+          sandboxDir: '/tmp/fake',
           actions: fakes.actions,
           reports: fakes.reports,
           testRunner: fakes.testRunner,
@@ -184,7 +229,7 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
         const fakes = createFakes();
         await create().run({
           plan: simplePlan,
-          worktreeDir: '/tmp/fake',
+          sandboxDir: '/tmp/fake',
           actions: fakes.actions,
           reports: fakes.reports,
           testRunner: fakes.testRunner,
@@ -204,7 +249,7 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
         const fakes = createFakes();
         await create().run({
           plan: simplePlan,
-          worktreeDir: '/tmp/fake',
+          sandboxDir: '/tmp/fake',
           actions: fakes.actions,
           reports: fakes.reports,
           testRunner: fakes.testRunner,
@@ -252,8 +297,6 @@ const depPlan: Plan = {
 };
 
 describe('Engine contract test #2 — intra-epic slice dependencies', () => {
-  const engines = [{ name: 'serial', create: () => createOrchestrator('serial') }] as const;
-
   for (const { name, create } of engines) {
     describe(name, () => {
       it('completes both slices in dependency order', async () => {
@@ -347,7 +390,7 @@ describe('Engine contract test #2 — intra-epic slice dependencies', () => {
         const engine = create();
         const result = await engine.run({
           plan: depPlan,
-          worktreeDir: '/tmp/fake',
+          sandboxDir: '/tmp/fake',
           actions: depActions,
           reports,
           testRunner: depTestRunner,
@@ -402,7 +445,7 @@ describe('Engine contract test #3 — epic dependencies', () => {
       const fakes = createFakes();
       const result = await create().run({
         plan: epicDepPlan,
-        worktreeDir: '/tmp/f',
+        sandboxDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -452,7 +495,7 @@ describe('Engine contract test #4 — epic verification passes', () => {
       const fakes = createFakes({ verifyEpicResult: true });
       const result = await create().run({
         plan: verifyPlan,
-        worktreeDir: '/tmp/f',
+        sandboxDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -492,7 +535,7 @@ describe('Engine contract test #5 — epic verification fails', () => {
       const fakes = createFakes({ verifyEpicResult: false });
       const result = await create().run({
         plan: verifyFailPlan,
-        worktreeDir: '/tmp/f',
+        sandboxDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -516,7 +559,7 @@ describe('Engine contract test #6 — retry loop', () => {
       const fakes = createFakes({ testRunResults: [false, true] });
       const result = await create().run({
         plan: simplePlan,
-        worktreeDir: '/tmp/f',
+        sandboxDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -542,7 +585,7 @@ describe('Engine contract test #7 — retry exhaustion', () => {
       const fakes = createFakes({ testRunResults: [false] });
       const result = await create().run({
         plan: simplePlan,
-        worktreeDir: '/tmp/f',
+        sandboxDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -565,7 +608,7 @@ describe('Engine contract test #8 — multi-cycle needs more', () => {
       const fakes = createFakes({ evalSequence: [false, false, true] });
       const result = await create().run({
         plan: simplePlan,
-        worktreeDir: '/tmp/f',
+        sandboxDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -595,7 +638,7 @@ describe('Engine contract test #9 — action handler throws', () => {
       const fakes = createFakes({ throwOnAction: 'write-tests' });
       const result = await create().run({
         plan: simplePlan,
-        worktreeDir: '/tmp/f',
+        sandboxDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -625,7 +668,7 @@ describe('Engine contract test #10 — semantic gate rejects then accepts', () =
       });
       const result = await create().run({
         plan: simplePlan,
-        worktreeDir: '/tmp/f',
+        sandboxDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -656,7 +699,7 @@ describe('Engine contract test #11 — semantic rework exhaustion halts', () => 
       });
       const result = await create().run({
         plan: simplePlan,
-        worktreeDir: '/tmp/f',
+        sandboxDir: '/tmp/f',
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -682,10 +725,11 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
 
     // simplePlan: 1 epic, 1 slice (no deps)
+    // Pool places: pool:test-agent, pool:code-agent = 2
     // Epic places: epic:epic-1:done = 1
-    // Mechanical places: spec-ready, test-agent, code-agent, failing-tests,
-    //                    untested-code, needs-more, done-spec, completed, eligible,
-    //                    retry-budget = 10
+    // Mechanical places: spec-ready, failing-tests, untested-code,
+    //                    needs-more, done-spec, completed, eligible,
+    //                    retry-budget = 8
     // Semantic places: semantic-budget, semantic-satisfied = 2
     // Total places: 13
     expect(blueprint.places.length).toBe(13);
@@ -723,12 +767,13 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     const blueprint = compileTopology(depPlan, { maxRetries: 3 });
 
     // depPlan: 1 epic, 2 slices (slice-b depends on slice-a)
+    // Pool places: pool:test-agent, pool:code-agent = 2
     // Epic places: epic:epic-1:done = 1
-    // Slice-a places: 12 (8 standard + eligible + retry-budget + semantic-budget + semantic-satisfied)
-    // Slice-b places: 12 (8 standard + eligible + retry-budget + semantic-budget + semantic-satisfied)
+    // Slice-a places: 10 (6 mechanical + eligible + retry-budget + semantic-budget + semantic-satisfied)
+    // Slice-b places: 10 (same)
     // Dep-signal places: slice:slice-a:dep-signal:slice-b = 1
-    // Total: 26
-    expect(blueprint.places.length).toBe(26);
+    // Total: 24
+    expect(blueprint.places.length).toBe(24);
 
     // Transitions:
     //   slice-a: slice-ready, evaluate, write-tests, write-code, run-tests, assess-semantic, return-done = 7
@@ -766,7 +811,7 @@ describe('Adapter: §7 event vocabulary', () => {
     };
     const input: OrchestratorInput = {
       plan: simplePlan,
-      worktreeDir: '/tmp/fake',
+      sandboxDir: '/tmp/fake',
       actions: fakes.actions,
       reports: fakes.reports,
       testRunner: fakes.testRunner,
@@ -812,7 +857,7 @@ describe('Adapter: §7 event vocabulary', () => {
     };
     const input: OrchestratorInput = {
       plan: simplePlan,
-      worktreeDir: '/tmp/fake',
+      sandboxDir: '/tmp/fake',
       actions: fakes.actions,
       reports: fakes.reports,
       testRunner: fakes.testRunner,
@@ -826,5 +871,289 @@ describe('Adapter: §7 event vocabulary', () => {
     // Should have a net_halted event (ctx.halted becomes true after retry exhaustion)
     const halted = events.filter((e) => e.kind === 'net_halted');
     expect(halted.length).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Contract test #12 — parallel fires concurrently
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #12 — parallel fires concurrently', () => {
+  const threeSlicePlan: Plan = {
+    epics: [{ id: 'e1', summary: 'Three independent slices', depends_on: [], verification: [] }],
+    slices: [
+      {
+        id: 'p1',
+        epic_id: 'e1',
+        definition: 'S1',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't1' }],
+      },
+      {
+        id: 'p2',
+        epic_id: 'e1',
+        definition: 'S2',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't2' }],
+      },
+      {
+        id: 'p3',
+        epic_id: 'e1',
+        definition: 'S3',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't3' }],
+      },
+    ],
+  };
+
+  it('parallel: multiple action handlers execute concurrently for independent slices', async () => {
+    const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
+    const { tracked, tracker } = withConcurrencyTracking(fakes.actions);
+
+    const engine = createOrchestrator('parallel');
+    const result = await engine.run({
+      plan: threeSlicePlan,
+      sandboxDir: '/tmp/f',
+      actions: tracked,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+    });
+
+    expect(result.status).toBe('completed');
+    // Under parallel policy, independent slices fire concurrently.
+    expect(tracker.maxConcurrent).toBeGreaterThan(1);
+  });
+
+  it('serial: action handlers execute one at a time', async () => {
+    const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
+    const { tracked, tracker } = withConcurrencyTracking(fakes.actions);
+
+    const engine = createOrchestrator('serial');
+    const result = await engine.run({
+      plan: threeSlicePlan,
+      sandboxDir: '/tmp/f',
+      actions: tracked,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+    });
+
+    expect(result.status).toBe('completed');
+    expect(tracker.maxConcurrent).toBe(1);
+  });
+
+  it('parallel: wall-clock time is faster than serial for independent slices', async () => {
+    const DELAY_MS = 20;
+
+    function createDelayedFakes() {
+      const f = createFakes({ evalSequence: [true], semanticResults: [true] });
+      const delayed: ActionHandlers = {};
+      for (const [key, handler] of Object.entries(f.actions)) {
+        delayed[key] = async (ctx: ActionContext) => {
+          await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+          return handler!(ctx);
+        };
+      }
+      return { ...f, actions: delayed };
+    }
+
+    // Serial run
+    const serialFakes = createDelayedFakes();
+    const t0 = Date.now();
+    await createOrchestrator('serial').run({
+      plan: threeSlicePlan,
+      sandboxDir: '/tmp/f',
+      actions: serialFakes.actions,
+      reports: serialFakes.reports,
+      testRunner: serialFakes.testRunner,
+      policy: { maxRetries: 3 },
+    });
+    const serialMs = Date.now() - t0;
+
+    // Parallel run
+    const parallelFakes = createDelayedFakes();
+    const t1 = Date.now();
+    await createOrchestrator('parallel').run({
+      plan: threeSlicePlan,
+      sandboxDir: '/tmp/f',
+      actions: parallelFakes.actions,
+      reports: parallelFakes.reports,
+      testRunner: parallelFakes.testRunner,
+      policy: { maxRetries: 3 },
+    });
+    const parallelMs = Date.now() - t1;
+
+    // Parallel should be measurably faster — at least 20% improvement
+    expect(parallelMs).toBeLessThan(serialMs * 0.85);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Contract test #13 — resource pool bounds concurrency
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #13 — resource pool bounds concurrency', () => {
+  const threeSlicePlan: Plan = {
+    epics: [{ id: 'e1', summary: 'Three independent slices', depends_on: [], verification: [] }],
+    slices: [
+      {
+        id: 'r1',
+        epic_id: 'e1',
+        definition: 'S1',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't1' }],
+      },
+      {
+        id: 'r2',
+        epic_id: 'e1',
+        definition: 'S2',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't2' }],
+      },
+      {
+        id: 'r3',
+        epic_id: 'e1',
+        definition: 'S3',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't3' }],
+      },
+    ],
+  };
+
+  const agentActions = new Set(['evaluate-done', 'write-tests', 'write-code']);
+
+  it('parallel + agentPoolSize=1: only 1 agent-consuming action at a time', async () => {
+    const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
+    const { tracked, tracker } = withConcurrencyTracking(fakes.actions, agentActions);
+
+    const result = await createOrchestrator('parallel').run({
+      plan: threeSlicePlan,
+      sandboxDir: '/tmp/f',
+      actions: tracked,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3, agentPoolSize: 1 },
+    });
+
+    expect(result.status).toBe('completed');
+    expect(tracker.maxConcurrent).toBe(1);
+  });
+
+  it('parallel + agentPoolSize=2: at most 2 agent-consuming actions at a time', async () => {
+    const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
+    const { tracked, tracker } = withConcurrencyTracking(fakes.actions, agentActions);
+
+    const result = await createOrchestrator('parallel').run({
+      plan: threeSlicePlan,
+      sandboxDir: '/tmp/f',
+      actions: tracked,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3, agentPoolSize: 2 },
+    });
+
+    expect(result.status).toBe('completed');
+    expect(tracker.maxConcurrent).toBe(2);
+  });
+
+  it('default agentPoolSize (unbounded) preserves full concurrency', async () => {
+    const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
+    const { tracked, tracker } = withConcurrencyTracking(fakes.actions, agentActions);
+
+    const result = await createOrchestrator('parallel').run({
+      plan: threeSlicePlan,
+      sandboxDir: '/tmp/f',
+      actions: tracked,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+    });
+
+    expect(result.status).toBe('completed');
+    expect(tracker.maxConcurrent).toBe(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Adapter test — sandbox-per-slice isolation
+// ---------------------------------------------------------------------------
+
+describe('Adapter: sandbox-per-slice isolation', () => {
+  it('each action handler receives a per-slice sandboxDir', async () => {
+    const sandboxDirs = new Map<string, string>();
+
+    const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
+    const trackingActions: ActionHandlers = {};
+    for (const [key, handler] of Object.entries(fakes.actions)) {
+      trackingActions[key] = async (ctx: ActionContext) => {
+        sandboxDirs.set(`${ctx.slice.id}:${key}`, ctx.sandboxDir);
+        return handler!(ctx);
+      };
+    }
+
+    const engine = createOrchestrator('serial');
+    const result = await engine.run({
+      plan: simplePlan,
+      sandboxDir: '/tmp/run',
+      actions: trackingActions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+    });
+
+    expect(result.status).toBe('completed');
+    // Every action should receive sandboxDir = /tmp/run/<sliceId>
+    for (const [key, dir] of sandboxDirs) {
+      const sliceId = key.split(':')[0]!;
+      expect(dir).toBe(`/tmp/run/${sliceId}`);
+    }
+    // At least evaluate-done and assess-semantic were called
+    expect(sandboxDirs.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it('verify-epic receives the parent sandboxDir (not per-slice)', async () => {
+    const verifyPlan: Plan = {
+      epics: [
+        {
+          id: 'ev',
+          summary: 'Verified',
+          depends_on: [],
+          verification: [{ kind: 'integration-test', target: 't' }],
+        },
+      ],
+      slices: [
+        {
+          id: 'sv',
+          epic_id: 'ev',
+          definition: 'S',
+          depends_on: [],
+          verification: [{ kind: 'unit-test', target: 't' }],
+        },
+      ],
+    };
+
+    let verifyEpicSandboxDir = '';
+    const fakes = createFakes({ evalSequence: [true], semanticResults: [true], verifyEpicResult: true });
+    const trackingActions: ActionHandlers = {};
+    for (const [key, handler] of Object.entries(fakes.actions)) {
+      trackingActions[key] = async (ctx: ActionContext) => {
+        if (key === 'verify-epic') verifyEpicSandboxDir = ctx.sandboxDir;
+        return handler!(ctx);
+      };
+    }
+
+    const result = await createOrchestrator('serial').run({
+      plan: verifyPlan,
+      sandboxDir: '/tmp/run',
+      actions: trackingActions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+    });
+
+    expect(result.status).toBe('completed');
+    // verify-epic gets the parent sandbox, not /tmp/run/sv
+    expect(verifyEpicSandboxDir).toBe('/tmp/run');
   });
 });

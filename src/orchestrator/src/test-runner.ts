@@ -3,10 +3,10 @@ import { execSync } from 'node:child_process';
 import type { TestResult, TestRunner } from './types.js';
 
 export class BunTestRunner implements TestRunner {
-  async run(target: string, worktreeDir: string): Promise<TestResult> {
+  async run(target: string, sandboxDir: string): Promise<TestResult> {
     try {
       const output = execSync(`bun test ${target}`, {
-        cwd: worktreeDir,
+        cwd: sandboxDir,
         encoding: 'utf8',
         timeout: 60_000,
         stdio: ['ignore', 'pipe', 'pipe'],
