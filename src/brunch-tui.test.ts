@@ -392,6 +392,7 @@ describe("Brunch TUI boot", () => {
 
   it("runs the in-session workspace switch through coordinator activation and replacement context", async () => {
     const events: string[] = []
+    const customOptions: unknown[] = []
     const target = readyWorkspace("/tmp/project", "session-target")
     const replacementUi = fakeUi((method) =>
       events.push(`replacement:${method}`),
@@ -403,6 +404,7 @@ describe("Brunch TUI boot", () => {
         specId: target.spec.id,
         sessionFile: target.session.file,
       },
+      onCustomOptions: (options) => customOptions.push(options),
       onEvent: (event) => events.push(event),
       replacementUi,
     })
@@ -432,6 +434,7 @@ describe("Brunch TUI boot", () => {
       "replacement:setTitle",
       "replacement:notify",
     ])
+    expect(customOptions).toEqual([])
   })
 
   it("leaves the current session untouched when workspace switch is cancelled", async () => {
@@ -639,6 +642,7 @@ function inventoryWithWorkspace(
 function fakeCommandContext(options: {
   currentSessionFile: string
   decision: Awaited<ReturnType<ExtensionUIContext["custom"]>>
+  onCustomOptions?: (customOptions: unknown) => void
   onEvent: (event: string) => void
   replacementUi?: FakeExtensionUi
 }): ExtensionCommandContext {
@@ -654,8 +658,11 @@ function fakeCommandContext(options: {
     },
     ui: {
       ...ui,
-      custom: async () => {
+      custom: async (_component: unknown, customOptions?: unknown) => {
         options.onEvent("custom")
+        if (customOptions !== undefined) {
+          options.onCustomOptions?.(customOptions)
+        }
         return options.decision
       },
     },

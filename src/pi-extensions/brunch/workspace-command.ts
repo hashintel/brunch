@@ -42,7 +42,6 @@ export async function runBrunchWorkspaceCommand(
   const decision = await ctx.ui.custom<WorkspaceSwitchDecision>(
     (_tui, _theme, _keybindings, done) =>
       createWorkspaceSwitchComponent({ inventory, onDecision: done }),
-    { overlay: true },
   )
   const activated = await coordinator.activateWorkspace(decision)
 
