@@ -158,6 +158,47 @@ describe("web host", () => {
     }
   })
 
+  it("serves explicit session projection over WebSocket", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-web-rpc-explicit-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+    const first = await coordinator.startOrCreate({
+      specTitle: "Explicit web spec",
+    })
+    first.session.manager.appendMessage({
+      role: "assistant",
+      content: "First question",
+    })
+    first.session.manager.appendMessage({
+      role: "user",
+      content: "First answer",
+    })
+    await coordinator.createNewSessionForCurrentSpec()
+    const host = await startWebHost({
+      cwd,
+      port: 0,
+      coordinator: createWorkspaceSessionCoordinator({ cwd }),
+    })
+    try {
+      const response = await websocketRpc(host.url, {
+        jsonrpc: "2.0",
+        id: 14,
+        method: "session.elicitationExchanges",
+        params: { sessionId: first.session.id, specId: first.spec.id },
+      })
+
+      expect(response).toMatchObject({
+        jsonrpc: "2.0",
+        id: 14,
+        result: {
+          status: "ready",
+          exchanges: [{ promptEntryIds: [expect.any(String)] }],
+        },
+      })
+    } finally {
+      await host.close()
+    }
+  })
+
   it("multiplexes two JSON-RPC requests over one WebSocket", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-web-rpc-multiplex-"))
     await createWorkspaceSessionCoordinator({ cwd }).startOrCreate({

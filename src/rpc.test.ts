@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest"
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
 import { createRpcHandlers, runJsonRpcLineServer } from "./rpc.js"
+import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
 import type {
   WorkspaceSessionCoordinator,
   WorkspaceSessionState,
@@ -148,6 +149,65 @@ describe("JSON-RPC handlers", () => {
       error: {
         code: -32002,
         message: "Selected Brunch session transcript is non-linear",
+      },
+    })
+  })
+
+  it("serves session elicitation exchanges by durable session id", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-explicit-session-"))
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
+    const first = await coordinatorInstance.startOrCreate({
+      specTitle: "Explicit spec",
+    })
+    first.session.manager.appendMessage({
+      role: "assistant",
+      content: "First question",
+    })
+    first.session.manager.appendMessage({
+      role: "user",
+      content: "First answer",
+    })
+    await coordinatorInstance.createNewSessionForCurrentSpec()
+    const handlers = createRpcHandlers({ coordinator: coordinatorInstance })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 9,
+        method: "session.elicitationExchanges",
+        params: { sessionId: first.session.id },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 9,
+      result: {
+        status: "ready",
+        exchanges: [{ promptEntryIds: [expect.any(String)] }],
+      },
+    })
+  })
+
+  it("validates explicit session projection against a requested spec id", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-explicit-spec-"))
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
+    const workspace = await coordinatorInstance.startOrCreate({
+      specTitle: "Explicit spec",
+    })
+    const handlers = createRpcHandlers({ coordinator: coordinatorInstance })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 10,
+        method: "session.elicitationExchanges",
+        params: { sessionId: workspace.session.id, specId: "spec-other" },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 10,
+      error: {
+        code: -32003,
+        message: "Brunch session does not belong to requested spec",
       },
     })
   })
