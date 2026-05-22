@@ -130,6 +130,30 @@ Observed behavior:
 | Session replacement / selected-session reopen | Existing Brunch extension calls the session-boundary binding hook on `session_start`, `before_agent_start`, and assistant `message_start`; `session_start` then renders chrome for the supplied workspace snapshot. This is safe for same-spec coordinator flows but does not authorize raw Pi session switching. | `src/brunch-tui.test.ts` |
 | RPC degradation | `setStatus`, string-array `setWidget`, `setTitle`, and `notify` emit RPC `extension_ui_request` events; `setHeader`, `setFooter`, and `setWorkingIndicator` are RPC no-ops. Fixture drivers should assert status/widget events, not TUI-only header/footer. | Pi RPC source + temp RPC JSONL probe |
 
+## Startup/splash logo asset decision
+
+Brunch should render the startup/splash logo as TUI chrome, not as a session message, so it does not persist in the transcript/log. For the preferred blocky aesthetic, the selected rendering is a pre-generated Chafa Unicode-symbol asset rather than runtime image rendering:
+
+- Source PNG copied from the legacy Brunch app to `assets/brunch.png`.
+- Preferred splash asset: `assets/brunch-logo-quad-56x18.ansi`.
+- Lower-color fallback asset: `assets/brunch-logo-quad-56x18-240.ansi`.
+- `package.json` includes `assets` in published package files so runtime code can read these files directly.
+
+The selected generator command for the preferred asset is:
+
+```sh
+chafa -f symbols \
+  --symbols=quad \
+  --colors=full \
+  --color-space=din99d \
+  --color-extractor=median \
+  --bg=black \
+  --size=56x18 \
+  assets/brunch.png > assets/brunch-logo-quad-56x18.ansi
+```
+
+Runtime should **not** invoke Chafa on startup. The logo should be deterministic, cheap to render, and independent of host-installed CLI tools. Chafa is therefore a maintainer/dev tool at most, not a runtime dependency. Startup chrome should choose `brunch-logo-quad-56x18.ansi` when truecolor is available, otherwise `brunch-logo-quad-56x18-240.ansi`; for very limited terminals, a plain `brunch` wordmark is sufficient rather than carrying 16-color or 8-color assets.
+
 ## RPC controllability observations relevant to command containment and chrome
 
 Raw Pi RPC success is not Brunch integration proof, but it matters for the fixture-driver oracle:

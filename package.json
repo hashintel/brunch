@@ -12,7 +12,8 @@
 	"files": [
 		"dist",
 		"dist-web",
-		"bin"
+		"bin",
+		"assets"
 	],
 	"scripts": {
 		"dev": "tsx src/brunch.ts",
