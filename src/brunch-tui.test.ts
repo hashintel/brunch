@@ -22,7 +22,6 @@ import {
   BRUNCH_WORKSPACE_COMMAND,
   chromeStateForWorkspace,
   createBrunchChromeExtension,
-  formatBrunchChromeFooterLines,
   formatBrunchChromeHeaderLines,
   formatBrunchStatus,
   formatChromeWidgetLines,
@@ -224,7 +223,6 @@ describe("Brunch TUI boot", () => {
     expect(formatChromeWidgetLines(state).join("\n")).toContain(
       "offer: Recommended lens: problem-framing; missing constraints.",
     )
-    expect(formatBrunchChromeFooterLines(state)).toEqual([])
   })
 
   it("renders Brunch chrome through one wrapper over Pi UI calls", async () => {

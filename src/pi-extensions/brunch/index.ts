@@ -18,7 +18,6 @@ import {
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from "./branch-policy.js"
 export {
   chromeStateForWorkspace,
-  formatBrunchChromeFooterLines,
   formatBrunchChromeHeaderLines,
   formatBrunchStatus,
   formatChromeWidgetLines,

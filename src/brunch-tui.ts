@@ -28,7 +28,6 @@ export {
   BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE,
   chromeStateForWorkspace,
   createBrunchChromeExtension,
-  formatBrunchChromeFooterLines,
   formatBrunchChromeHeaderLines,
   formatChromeWidgetLines,
   renderBrunchChrome,

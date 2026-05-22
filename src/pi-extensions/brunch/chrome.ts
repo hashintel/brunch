@@ -53,12 +53,6 @@ export function formatChromeWidgetLines(chrome: BrunchChromeState): string[] {
   return lines
 }
 
-export function formatBrunchChromeFooterLines(
-  _chrome: BrunchChromeState,
-): string[] {
-  return []
-}
-
 export function chromeStateForWorkspace(
   workspace: WorkspaceSessionReadyState,
 ): BrunchChromeState {
