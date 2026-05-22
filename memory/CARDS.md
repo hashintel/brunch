@@ -58,7 +58,7 @@ Session projection reads from one validated Brunch session envelope.
 
 ## Card 2 — Explicit transcript custom-entry classifiers
 
-**Status:** next  
+**Status:** done  
 **Weight:** light scope card
 
 ### Objective

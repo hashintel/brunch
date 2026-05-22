@@ -99,6 +99,46 @@ describe("elicitation exchange projection", () => {
     })
   })
 
+  it("includes known elicitor custom entries on the prompt side", () => {
+    const projection = projectElicitationExchanges([
+      assistant,
+      {
+        id: "offer-1",
+        type: "custom",
+        customType: "brunch.establishment_offer",
+        data: { lens: "step-by-step" },
+      },
+      {
+        id: "proposal-1",
+        type: "custom",
+        customType: "brunch.review_set_proposal",
+        data: { lens: "propose-scenarios-with-tradeoffs" },
+      },
+      user,
+    ])
+
+    expect(projection.exchanges[0]?.promptEntryIds).toEqual([
+      "a1",
+      "offer-1",
+      "proposal-1",
+    ])
+  })
+
+  it("ignores unknown custom entries even when their type contains prompt", () => {
+    const projection = projectElicitationExchanges([
+      assistant,
+      {
+        id: "operational-1",
+        type: "custom",
+        customType: "brunch.operational_prompt_cache",
+        data: {},
+      },
+      user,
+    ])
+
+    expect(projection.exchanges[0]?.promptEntryIds).toEqual(["a1"])
+  })
+
   it("includes structured response entries on the response side", () => {
     const projection = projectElicitationExchanges([
       assistant,

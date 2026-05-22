@@ -13,6 +13,13 @@ import {
   type BrunchSessionEnvelope,
 } from "./brunch-session-envelope.js"
 
+const PROMPT_SIDE_CUSTOM_TYPES = new Set([
+  "brunch.elicitation_prompt",
+  "brunch.elicitor_intent_hint",
+  "brunch.establishment_offer",
+  "brunch.review_set_proposal",
+])
+
 const STRUCTURED_RESPONSE_TYPES = new Set([
   "brunch.elicitation_response",
   "brunch.action_response",
@@ -214,8 +221,8 @@ function hasStringOrNullParentId(value: unknown): boolean {
 }
 
 function isPromptSideEntry(entry: SessionEntry): boolean {
-  if (isCustomTranscriptEntry(entry) && entry.customType.includes("prompt")) {
-    return true
+  if (isCustomTranscriptEntry(entry)) {
+    return PROMPT_SIDE_CUSTOM_TYPES.has(entry.customType)
   }
 
   const role = roleOf(entry)
