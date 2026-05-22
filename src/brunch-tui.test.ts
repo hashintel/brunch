@@ -6,8 +6,10 @@ import { describe, expect, it } from "vitest"
 
 import {
   SessionManager,
+  type ExtensionCommandContext,
   type ExtensionContext,
   type ExtensionUIContext,
+  type RegisteredCommand,
 } from "@earendil-works/pi-coding-agent"
 
 import {
@@ -17,6 +19,7 @@ import {
   runBrunchTui,
 } from "./brunch-tui.js"
 import {
+  BRUNCH_WORKSPACE_COMMAND,
   chromeStateForWorkspace,
   createBrunchChromeExtension,
   formatBrunchChromeFooterLines,
@@ -24,10 +27,12 @@ import {
   formatBrunchStatus,
   formatChromeWidgetLines,
   renderBrunchChrome,
+  runBrunchWorkspaceCommand,
 } from "./pi-extensions/brunch/index.js"
 import {
   createWorkspaceSessionCoordinator,
   verifyWorkspaceSessionStores,
+  type WorkspaceLaunchInventory,
   type WorkspaceSessionReadyState,
 } from "./workspace-session-coordinator.js"
 
@@ -361,6 +366,129 @@ describe("Brunch TUI boot", () => {
     expect(titles).toEqual(["brunch — Spec One"])
   })
 
+  it("registers a Brunch-owned workspace switch command", async () => {
+    const commands =
+      new Map<string, Omit<RegisteredCommand, "name" | "sourceInfo">>()
+
+    createBrunchChromeExtension(
+      chromeStateForWorkspace(readyWorkspace("/tmp/project", "session-1")),
+      undefined,
+      {
+        coordinator: {
+          inspectWorkspace: async () => emptyInventory("/tmp/project"),
+          activateWorkspace: async () =>
+            readyWorkspace("/tmp/project", "session-1"),
+        },
+      },
+    )({
+      on: (_event: string, _handler: unknown) => {},
+      registerCommand: (name, options) => commands.set(name, options),
+    } as never)
+
+    expect(commands.get(BRUNCH_WORKSPACE_COMMAND)?.description).toBe(
+      "Switch Brunch spec/session workspace",
+    )
+  })
+
+  it("runs the in-session workspace switch through coordinator activation and replacement context", async () => {
+    const events: string[] = []
+    const target = readyWorkspace("/tmp/project", "session-target")
+    const replacementUi = fakeUi((method) =>
+      events.push(`replacement:${method}`),
+    )
+    const ctx = fakeCommandContext({
+      currentSessionFile: "/sessions/session-old.jsonl",
+      decision: {
+        action: "openSession",
+        specId: target.spec.id,
+        sessionFile: target.session.file,
+      },
+      onEvent: (event) => events.push(event),
+      replacementUi,
+    })
+
+    await runBrunchWorkspaceCommand(ctx, {
+      inspectWorkspace: async () => {
+        events.push("inspect")
+        return inventoryWithWorkspace(target)
+      },
+      activateWorkspace: async (decision) => {
+        events.push(`activate:${decision.action}`)
+        return target
+      },
+    })
+
+    expect(events).toEqual([
+      "waitForIdle",
+      "inspect",
+      "custom",
+      "activate:openSession",
+      `switch:${target.session.file}`,
+      "replacement:setHeader",
+      "replacement:setFooter",
+      "replacement:setStatus",
+      "replacement:setWidget",
+      "replacement:setWorkingIndicator",
+      "replacement:setTitle",
+      "replacement:notify",
+    ])
+  })
+
+  it("leaves the current session untouched when workspace switch is cancelled", async () => {
+    const events: string[] = []
+    const ctx = fakeCommandContext({
+      currentSessionFile: "/sessions/session-old.jsonl",
+      decision: { action: "cancel" },
+      onEvent: (event) => events.push(event),
+    })
+
+    await runBrunchWorkspaceCommand(ctx, {
+      inspectWorkspace: async () => emptyInventory("/tmp/project"),
+      activateWorkspace: async () => ({
+        status: "cancelled",
+        cwd: "/tmp/project",
+        chrome: {
+          cwd: "/tmp/project",
+          spec: null,
+          phase: "select_spec",
+          chatMode: "select-spec",
+        },
+      }),
+    })
+
+    expect(events).toEqual(["waitForIdle", "custom", "notify:info"])
+  })
+
+  it("reports needs-human workspace switch decisions without switching sessions", async () => {
+    const events: string[] = []
+    const ctx = fakeCommandContext({
+      currentSessionFile: "/sessions/session-old.jsonl",
+      decision: {
+        action: "openSession",
+        specId: "missing",
+        sessionFile: "/sessions/missing.jsonl",
+      },
+      onEvent: (event) => events.push(event),
+    })
+
+    await runBrunchWorkspaceCommand(ctx, {
+      inspectWorkspace: async () => emptyInventory("/tmp/project"),
+      activateWorkspace: async () => ({
+        status: "needs_human",
+        cwd: "/tmp/project",
+        reason: "Selected session is not available.",
+        chrome: {
+          cwd: "/tmp/project",
+          spec: null,
+          phase: "select_spec",
+          chatMode: "select-spec",
+        },
+      }),
+    })
+
+    expect(events).toEqual(["waitForIdle", "custom", "notify:warning"])
+  })
+
   it("cancels Pi branch-flow hooks with a stable user-facing reason", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-tui-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch", "sessions"))
@@ -468,6 +596,97 @@ function readyWorkspace(
       phase: "elicitation",
       chatMode: "responding-to-elicitation",
     },
+  }
+}
+
+function emptyInventory(cwd: string): WorkspaceLaunchInventory {
+  return {
+    cwd,
+    currentSpec: null,
+    currentSessionFile: null,
+    needsNewSpec: true,
+    specs: [],
+    unavailableSessions: [],
+  }
+}
+
+function inventoryWithWorkspace(
+  workspace: WorkspaceSessionReadyState,
+): WorkspaceLaunchInventory {
+  return {
+    cwd: workspace.cwd,
+    currentSpec: workspace.spec,
+    currentSessionFile: workspace.session.file,
+    needsNewSpec: false,
+    specs: [
+      {
+        spec: workspace.spec,
+        sessions: [
+          {
+            id: workspace.session.id,
+            file: workspace.session.file,
+            specId: workspace.spec.id,
+            specTitle: workspace.spec.title,
+            available: true,
+          },
+        ],
+      },
+    ],
+    unavailableSessions: [],
+  }
+}
+
+function fakeCommandContext(options: {
+  currentSessionFile: string
+  decision: Awaited<ReturnType<ExtensionUIContext["custom"]>>
+  onEvent: (event: string) => void
+  replacementUi?: FakeExtensionUi
+}): ExtensionCommandContext {
+  const ui = fakeUi((method, type) => {
+    if (method === "notify") {
+      options.onEvent(`notify:${type}`)
+    }
+  })
+  const ctx = {
+    cwd: "/tmp/project",
+    sessionManager: {
+      getSessionFile: () => options.currentSessionFile,
+    },
+    ui: {
+      ...ui,
+      custom: async () => {
+        options.onEvent("custom")
+        return options.decision
+      },
+    },
+    waitForIdle: async () => options.onEvent("waitForIdle"),
+    switchSession: async (
+      sessionPath: string,
+      switchOptions?: Parameters<ExtensionCommandContext["switchSession"]>[1],
+    ) => {
+      options.onEvent(`switch:${sessionPath}`)
+      await switchOptions?.withSession?.({
+        ...ctx,
+        ui: options.replacementUi ?? ui,
+        sessionManager: { getSessionFile: () => sessionPath },
+      } as ExtensionCommandContext)
+      return { cancelled: false }
+    },
+  }
+  return ctx as unknown as ExtensionCommandContext
+}
+
+function fakeUi(
+  onCall: (method: string, notifyType?: "info" | "warning" | "error") => void,
+): FakeExtensionUi {
+  return {
+    setHeader: (_factory) => onCall("setHeader"),
+    setFooter: (_factory) => onCall("setFooter"),
+    setStatus: (_key, _text) => onCall("setStatus"),
+    setWidget: (_key, _content, _options) => onCall("setWidget"),
+    setWorkingIndicator: (_options) => onCall("setWorkingIndicator"),
+    setTitle: (_title) => onCall("setTitle"),
+    notify: (_message, type) => onCall("notify", type),
   }
 }
 

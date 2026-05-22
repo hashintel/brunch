@@ -10,6 +10,10 @@ import {
   registerBrunchSessionBoundaryRefreshHandlers,
   type BrunchSessionBoundaryHandler,
 } from "./session-boundary.js"
+import {
+  registerBrunchWorkspaceCommand,
+  type BrunchWorkspaceCommandOptions,
+} from "./workspace-command.js"
 
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from "./branch-policy.js"
 export {
@@ -30,10 +34,17 @@ export {
   registerBrunchSessionBoundaryRefreshHandlers,
   type BrunchSessionBoundaryHandler,
 } from "./session-boundary.js"
+export {
+  BRUNCH_WORKSPACE_COMMAND,
+  registerBrunchWorkspaceCommand,
+  runBrunchWorkspaceCommand,
+  type BrunchWorkspaceCommandOptions,
+} from "./workspace-command.js"
 
 export function createBrunchChromeExtension(
   chrome: BrunchChromeState,
   onSessionBoundary?: BrunchSessionBoundaryHandler,
+  options: BrunchWorkspaceCommandOptions = {},
 ): ExtensionFactory {
   return (pi) => {
     pi.on("session_start", async (_event, ctx) => {
@@ -45,5 +56,6 @@ export function createBrunchChromeExtension(
     })
     registerBrunchSessionBoundaryRefreshHandlers(pi, onSessionBoundary)
     registerBrunchBranchPolicyHandlers(pi)
+    registerBrunchWorkspaceCommand(pi, options)
   }
 }

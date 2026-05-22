@@ -39,12 +39,12 @@ export {
 } from "./pi-extensions/brunch/index.js"
 export { runWorkspaceSwitchPreflight } from "./workspace-switcher.js"
 
+export type BrunchTuiCoordinator = WorkspaceSwitchCoordinator & WorkspaceSessionBoundaryCoordinator
+
 export interface BrunchTuiLaunchContext {
   workspace: WorkspaceSessionReadyState
-  coordinator: WorkspaceSessionBoundaryCoordinator
+  coordinator: BrunchTuiCoordinator
 }
-
-export type BrunchTuiCoordinator = WorkspaceSwitchCoordinator & WorkspaceSessionBoundaryCoordinator
 
 export interface BrunchTuiOptions {
   cwd?: string
@@ -117,6 +117,7 @@ async function launchPiInteractive({
               sessionManager,
             )
           },
+          { coordinator },
         ),
       ]),
     })

@@ -119,7 +119,7 @@ Brunch chrome renders each persistent shell fact on one deliberate Pi UI surface
 
 ## Card 3 — In-session workspace switcher command
 
-- **Status:** queued
+- **Status:** done
 - **Weight:** full scope card
 - **Frontier:** `pi-ui-extension-patterns` / FE-744
 
