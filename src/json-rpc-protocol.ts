@@ -32,6 +32,10 @@ export type JsonRpcParseResult = {
   response: JsonRpcFailure
 }
 
+export interface JsonRpcMessageHandler {
+  handle(request: unknown): Promise<JsonRpcResponse>
+}
+
 export function createJsonRpcSuccess<T>(
   id: JsonRpcId,
   result: T,
@@ -56,6 +60,25 @@ export function parseJsonRpcMessage(message: string): JsonRpcParseResult {
     return { ok: true, value: JSON.parse(message) as unknown }
   } catch {
     return { ok: false, response: createJsonRpcParseError() }
+  }
+}
+
+export async function dispatchJsonRpcMessage(
+  message: string,
+  handler: JsonRpcMessageHandler,
+): Promise<JsonRpcResponse> {
+  const parsed = parseJsonRpcMessage(message)
+  if (!parsed.ok) {
+    return parsed.response
+  }
+
+  try {
+    return await handler.handle(parsed.value)
+  } catch {
+    const id = isJsonRpcRequest(parsed.value)
+      ? jsonRpcRequestId(parsed.value)
+      : null
+    return createJsonRpcFailure(id, -32603, "Internal error")
   }
 }
 

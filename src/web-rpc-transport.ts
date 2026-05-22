@@ -2,12 +2,7 @@ import type { Server as HttpServer } from "node:http"
 
 import { WebSocketServer, type RawData } from "ws"
 
-import {
-  createJsonRpcFailure,
-  isJsonRpcRequest,
-  jsonRpcRequestId,
-  parseJsonRpcMessage,
-} from "./json-rpc-protocol.js"
+import { dispatchJsonRpcMessage } from "./json-rpc-protocol.js"
 import type { RpcHandlers } from "./rpc.js"
 
 export interface WebRpcTransport {
@@ -59,20 +54,7 @@ export function attachWebRpcTransport(options: {
 }
 
 async function handleMessage(handlers: RpcHandlers, data: RawData) {
-  const message = websocketMessageToString(data)
-  const parsed = parseJsonRpcMessage(message)
-  if (!parsed.ok) {
-    return parsed.response
-  }
-
-  try {
-    return await handlers.handle(parsed.value)
-  } catch {
-    const id = isJsonRpcRequest(parsed.value)
-      ? jsonRpcRequestId(parsed.value)
-      : null
-    return createJsonRpcFailure(id, -32603, "Internal error")
-  }
+  return dispatchJsonRpcMessage(websocketMessageToString(data), handlers)
 }
 
 function websocketMessageToString(data: RawData): string {

@@ -61,7 +61,7 @@ Explicit session projection reads are resolved through one read-side session pro
 
 ## Card 2 — Shared JSON-RPC dispatch failure semantics
 
-**Status:** next  
+**Status:** done  
 **Weight:** full scope card
 
 ### Target Behavior
@@ -105,7 +105,7 @@ Both stdio and WebSocket JSON-RPC transports map malformed JSON and handler exce
 
 ## Card 3 — Browser RPC client protocol-failure hardening
 
-**Status:** queued  
+**Status:** next  
 **Weight:** light scope card
 
 ### Objective

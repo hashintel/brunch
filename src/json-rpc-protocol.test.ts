@@ -4,6 +4,7 @@ import {
   createJsonRpcFailure,
   createJsonRpcParseError,
   createJsonRpcSuccess,
+  dispatchJsonRpcMessage,
   isJsonRpcRequest,
   parseJsonRpcMessage,
 } from "./json-rpc-protocol.js"
@@ -54,6 +55,31 @@ describe("JSON-RPC protocol helpers", () => {
       jsonrpc: "2.0",
       id: null,
       error: { code: -32700, message: "Parse error" },
+    })
+  })
+
+  it("dispatches parse failures and handler throws without attaching product semantics", async () => {
+    await expect(
+      dispatchJsonRpcMessage("not json", {
+        async handle() {
+          throw new Error("should not handle malformed JSON")
+        },
+      }),
+    ).resolves.toEqual(createJsonRpcParseError())
+
+    await expect(
+      dispatchJsonRpcMessage(
+        '{"jsonrpc":"2.0","id":7,"method":"workspace.snapshot"}',
+        {
+          async handle() {
+            throw new Error("boom")
+          },
+        },
+      ),
+    ).resolves.toEqual({
+      jsonrpc: "2.0",
+      id: 7,
+      error: { code: -32603, message: "Internal error" },
     })
   })
 

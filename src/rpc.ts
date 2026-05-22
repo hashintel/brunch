@@ -10,7 +10,7 @@ import {
   createJsonRpcSuccess,
   isJsonRpcRequest,
   jsonRpcRequestId,
-  parseJsonRpcMessage,
+  dispatchJsonRpcMessage,
   type JsonRpcResponse,
 } from "./json-rpc-protocol.js"
 import { workspaceSnapshotFromState } from "./print-snapshot.js"
@@ -154,13 +154,7 @@ export async function runJsonRpcLineServer(options: {
       continue
     }
 
-    const parsed = parseJsonRpcMessage(line)
-    if (!parsed.ok) {
-      options.output.write(`${JSON.stringify(parsed.response)}\n`)
-      continue
-    }
-
-    const response = await options.handlers.handle(parsed.value)
+    const response = await dispatchJsonRpcMessage(line, options.handlers)
     options.output.write(`${JSON.stringify(response)}\n`)
   }
 }

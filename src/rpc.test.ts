@@ -355,6 +355,56 @@ describe("JSON-RPC handlers", () => {
     })
   })
 
+  it("returns parse errors over newline-delimited JSON-RPC streams", async () => {
+    const input = new PassThrough()
+    const output = new PassThrough()
+    const chunks: string[] = []
+    output.on("data", (chunk) => chunks.push(String(chunk)))
+
+    const done = runJsonRpcLineServer({
+      input,
+      output,
+      handlers: createRpcHandlers({ coordinator: coordinator() }),
+    })
+
+    input.end("not json\n")
+    await done
+
+    expect(JSON.parse(chunks.join(""))).toEqual({
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32700, message: "Parse error" },
+    })
+  })
+
+  it("returns internal errors for thrown newline-delimited JSON-RPC handlers", async () => {
+    const input = new PassThrough()
+    const output = new PassThrough()
+    const chunks: string[] = []
+    output.on("data", (chunk) => chunks.push(String(chunk)))
+
+    const done = runJsonRpcLineServer({
+      input,
+      output,
+      handlers: {
+        async handle() {
+          throw new Error("boom")
+        },
+      },
+    })
+
+    input.end(
+      `${JSON.stringify({ jsonrpc: "2.0", id: 15, method: "workspace.snapshot" })}\n`,
+    )
+    await done
+
+    expect(JSON.parse(chunks.join(""))).toEqual({
+      jsonrpc: "2.0",
+      id: 15,
+      error: { code: -32603, message: "Internal error" },
+    })
+  })
+
   it("speaks newline-delimited JSON-RPC over streams", async () => {
     const input = new PassThrough()
     const output = new PassThrough()
