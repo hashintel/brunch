@@ -100,14 +100,14 @@ import { createWorkspaceSessionCoordinator } from "./src/workspace-session-coord
 
 const cwd = process.env.TMP_WORKSPACE
 const coordinator = createWorkspaceSessionCoordinator({ cwd })
-const workspace = await coordinator.startOrCreate({ specTitle: "M1 runbook smoke" })
+const workspace = await coordinator.createSetupSession({ specTitle: "M1 runbook smoke" })
 workspace.session.manager.appendCustomMessageEntry(
   "brunch.elicitation_prompt",
   "Runbook prompt: confirm the M1 mode shell is product-shaped.",
   true,
 )
 workspace.session.manager.appendMessage({ role: "user", content: "Runbook response" })
-await coordinator.bindCurrentSpecToSession(workspace.session.manager)
+await coordinator.bindCurrentSpecToReplacementSession(workspace.session.manager)
 NODE
 
 run_check "Print-mode smoke output" \

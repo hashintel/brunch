@@ -4,7 +4,7 @@ import { PassThrough } from "node:stream"
 import { fileURLToPath } from "node:url"
 
 import { loadBriefLibrary, type FixtureBrief } from "./brief-library.js"
-import { runBrunchCli } from "./brunch.js"
+import { createRpcHandlers, runJsonRpcLineServer } from "./rpc.js"
 import type { ElicitationExchangeProjection } from "./elicitation-exchange.js"
 import type { WorkspaceSnapshot } from "./print-snapshot.js"
 import type { JsonRpcResponse } from "./json-rpc-protocol.js"
@@ -156,12 +156,15 @@ async function callRpc<T>(
   stdout.on("data", (chunk) => chunks.push(String(chunk)))
   stdin.end(`${JSON.stringify({ jsonrpc: "2.0", id: 1, method })}\n`)
 
-  await runBrunchCli({
-    argv: ["--mode=rpc"],
-    cwd: options.cwd,
-    ...(options.coordinator ? { coordinator: options.coordinator } : {}),
-    stdin,
-    stdout,
+  await runJsonRpcLineServer({
+    input: stdin,
+    output: stdout,
+    handlers: createRpcHandlers({
+      coordinator:
+        options.coordinator ??
+        createWorkspaceSessionCoordinator({ cwd: options.cwd }),
+      cwd: options.cwd,
+    }),
   })
 
   const response = JSON.parse(chunks.join("")) as JsonRpcResponse<T>
