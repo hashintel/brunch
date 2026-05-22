@@ -55,7 +55,7 @@ JSON-RPC request/response types and helpers are defined once and reused by stdio
 
 ## Card 2 — Server WebSocket transport adapter
 
-**Status:** next  
+**Status:** done  
 **Weight:** full scope card
 
 ### Target Behavior
@@ -102,7 +102,7 @@ The `/rpc` WebSocket endpoint is served by a dedicated transport adapter that de
 
 ## Card 3 — Persistent browser RPC client
 
-**Status:** queued  
+**Status:** next  
 **Weight:** full scope card
 
 ### Target Behavior

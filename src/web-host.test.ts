@@ -6,7 +6,10 @@ import { describe, expect, it } from "vitest"
 
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
-import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
+import {
+  createWorkspaceSessionCoordinator,
+  type WorkspaceSessionCoordinator,
+} from "./workspace-session-coordinator.js"
 import { startWebHost } from "./web-host.js"
 
 function text(response: Response): Promise<string> {
@@ -76,6 +79,99 @@ describe("web host", () => {
     }
   })
 
+  it("multiplexes two JSON-RPC requests over one WebSocket", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-web-rpc-multiplex-"))
+    await createWorkspaceSessionCoordinator({ cwd }).startOrCreate({
+      specTitle: "Multiplex spec",
+    })
+    const host = await startWebHost({
+      cwd,
+      port: 0,
+      coordinator: createWorkspaceSessionCoordinator({ cwd }),
+    })
+    try {
+      const responses = await websocketRpcBatch(host.url, [
+        { jsonrpc: "2.0", id: 10, method: "workspace.snapshot" },
+        { jsonrpc: "2.0", id: 11, method: "workspace.snapshot" },
+      ])
+
+      expect(responses).toEqual([
+        expect.objectContaining({ jsonrpc: "2.0", id: 10 }),
+        expect.objectContaining({ jsonrpc: "2.0", id: 11 }),
+      ])
+    } finally {
+      await host.close()
+    }
+  })
+
+  it("returns a parse error for malformed WebSocket JSON without killing the host", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-web-rpc-malformed-"))
+    await createWorkspaceSessionCoordinator({ cwd }).startOrCreate({
+      specTitle: "Malformed spec",
+    })
+    const host = await startWebHost({
+      cwd,
+      port: 0,
+      coordinator: createWorkspaceSessionCoordinator({ cwd }),
+    })
+    try {
+      const response = await websocketRaw(host.url, "not json")
+
+      expect(response).toEqual({
+        jsonrpc: "2.0",
+        id: null,
+        error: { code: -32700, message: "Parse error" },
+      })
+      await expect(
+        websocketRpc(host.url, {
+          jsonrpc: "2.0",
+          id: 12,
+          method: "workspace.snapshot",
+        }),
+      ).resolves.toMatchObject({ jsonrpc: "2.0", id: 12 })
+    } finally {
+      await host.close()
+    }
+  })
+
+  it("returns an internal error for WebSocket handler failures", async () => {
+    const host = await startWebHost({
+      cwd: "/tmp/brunch-project",
+      port: 0,
+      coordinator: throwingCoordinator(),
+    })
+    try {
+      const response = await websocketRpc(host.url, {
+        jsonrpc: "2.0",
+        id: 13,
+        method: "workspace.snapshot",
+      })
+
+      expect(response).toEqual({
+        jsonrpc: "2.0",
+        id: 13,
+        error: { code: -32603, message: "Internal error" },
+      })
+    } finally {
+      await host.close()
+    }
+  })
+
+  it("rejects non-rpc WebSocket upgrade paths", async () => {
+    const host = await startWebHost({
+      cwd: "/tmp/brunch-project",
+      port: 0,
+      coordinator: throwingCoordinator(),
+    })
+    try {
+      await expect(
+        openWebSocket(`${host.url.replace(/^http/u, "ws")}/not-rpc`),
+      ).rejects.toThrow("WebSocket failed to open")
+    } finally {
+      await host.close()
+    }
+  })
+
   it("propagates the non-linear transcript JSON-RPC error over WebSocket", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-web-rpc-branch-"))
     const workspace = await createWorkspaceSessionCoordinator({
@@ -126,33 +222,89 @@ describe("web host", () => {
 })
 
 async function websocketRpc(url: string, request: unknown): Promise<unknown> {
-  const wsUrl = url.replace(/^http/u, "ws") + "/rpc"
-  const socket = new WebSocket(wsUrl)
-  await new Promise<void>((resolve, reject) => {
-    socket.addEventListener("open", () => resolve(), { once: true })
+  const [response] = await websocketRpcBatch(url, [request])
+  return response
+}
+
+async function websocketRpcBatch(
+  url: string,
+  requests: readonly unknown[],
+): Promise<unknown[]> {
+  const socket = await openWebSocket(`${url.replace(/^http/u, "ws")}/rpc`)
+  const responses: unknown[] = []
+  try {
+    const done = new Promise<unknown[]>((resolve, reject) => {
+      socket.addEventListener("message", (event) => {
+        responses.push(JSON.parse(String(event.data)) as unknown)
+        if (responses.length === requests.length) {
+          resolve(responses)
+        }
+      })
+      socket.addEventListener(
+        "error",
+        () => reject(new Error("WebSocket error")),
+        { once: true },
+      )
+    })
+    for (const request of requests) {
+      socket.send(JSON.stringify(request))
+    }
+    return await done
+  } finally {
+    socket.close()
+  }
+}
+
+async function websocketRaw(url: string, message: string): Promise<unknown> {
+  const socket = await openWebSocket(`${url.replace(/^http/u, "ws")}/rpc`)
+  try {
+    const response = new Promise<unknown>((resolve, reject) => {
+      socket.addEventListener(
+        "message",
+        (event) => resolve(JSON.parse(String(event.data)) as unknown),
+        { once: true },
+      )
+      socket.addEventListener(
+        "error",
+        () => reject(new Error("WebSocket error")),
+        { once: true },
+      )
+    })
+    socket.send(message)
+    return await response
+  } finally {
+    socket.close()
+  }
+}
+
+function openWebSocket(url: string): Promise<WebSocket> {
+  const socket = new WebSocket(url)
+  return new Promise<WebSocket>((resolve, reject) => {
+    socket.addEventListener("open", () => resolve(socket), { once: true })
     socket.addEventListener(
       "error",
       () => reject(new Error("WebSocket failed to open")),
       { once: true },
     )
   })
+}
 
-  const response = new Promise<unknown>((resolve, reject) => {
-    socket.addEventListener(
-      "message",
-      (event) => {
-        resolve(JSON.parse(String(event.data)) as unknown)
-      },
-      { once: true },
-    )
-    socket.addEventListener(
-      "error",
-      () => reject(new Error("WebSocket error")),
-      { once: true },
-    )
-  })
-  socket.send(JSON.stringify(request))
-  const parsed = await response
-  socket.close()
-  return parsed
+function throwingCoordinator(): WorkspaceSessionCoordinator {
+  return {
+    async openExisting() {
+      throw new Error("boom")
+    },
+    async startOrCreate() {
+      throw new Error("not used")
+    },
+    async createNewSessionForCurrentSpec() {
+      throw new Error("not used")
+    },
+    async bindCurrentSpecToSession() {
+      throw new Error("not used")
+    },
+    async deriveChromeState() {
+      throw new Error("not used")
+    },
+  }
 }
