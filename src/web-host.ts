@@ -77,7 +77,10 @@ export async function startWebHost(
     ? attachWebRpcTransport({
         server,
         path: "/rpc",
-        handlers: createRpcHandlers({ coordinator: options.coordinator }),
+        handlers: createRpcHandlers({
+          coordinator: options.coordinator,
+          cwd: options.cwd,
+        }),
       })
     : null
 

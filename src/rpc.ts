@@ -1,5 +1,3 @@
-import { readdir, readFile } from "node:fs/promises"
-import { join } from "node:path"
 import { createInterface } from "node:readline/promises"
 import type { Readable, Writable } from "node:stream"
 
@@ -16,6 +14,11 @@ import {
   type JsonRpcResponse,
 } from "./json-rpc-protocol.js"
 import { workspaceSnapshotFromState } from "./print-snapshot.js"
+import {
+  resolveExplicitSessionProjectionTarget,
+  type ExplicitSessionProjectionParams,
+  type SessionProjectionTarget,
+} from "./session-projection-reader.js"
 import type { WorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
 
 export interface RpcHandlers {
@@ -24,6 +27,7 @@ export interface RpcHandlers {
 
 export function createRpcHandlers(options: {
   coordinator: WorkspaceSessionCoordinator
+  cwd?: string
 }): RpcHandlers {
   return {
     async handle(request) {
@@ -50,10 +54,12 @@ export function createRpcHandlers(options: {
           return createJsonRpcFailure(requestId, -32602, "Invalid params")
         }
 
-        const state = await options.coordinator.openExisting()
         const target = params.value
-          ? await findBoundSessionFile(state.cwd, params.value)
-          : selectedSessionFile(state)
+          ? await resolveExplicitSessionProjectionTarget(
+              explicitProjectionCwd(options),
+              params.value,
+            )
+          : selectedSessionFile(await options.coordinator.openExisting())
         if (!target.ok) {
           return createJsonRpcFailure(requestId, target.code, target.message)
         }
@@ -80,24 +86,9 @@ export function createRpcHandlers(options: {
   }
 }
 
-type SessionProjectionParams = {
-  sessionId: string
-  specId?: string
-}
-
-type SessionProjectionTarget = {
-  ok: true
-  file: string
-  nonLinearMessage: string
-} | {
-  ok: false
-  code: number
-  message: string
-}
-
 type SessionProjectionParamsParseResult = {
   ok: true
-  value: SessionProjectionParams | null
+  value: ExplicitSessionProjectionParams | null
 } | { ok: false }
 
 function parseSessionProjectionParams(
@@ -145,83 +136,11 @@ function selectedSessionFile(
   }
 }
 
-async function findBoundSessionFile(
-  cwd: string,
-  params: SessionProjectionParams,
-): Promise<SessionProjectionTarget> {
-  const files = await listSessionFiles(cwd)
-  for (const file of files) {
-    const binding = await readSessionBinding(file)
-    if (!binding || binding.sessionId !== params.sessionId) {
-      continue
-    }
-    if (params.specId && binding.specId !== params.specId) {
-      return {
-        ok: false,
-        code: -32003,
-        message: "Brunch session does not belong to requested spec",
-      }
-    }
-    return {
-      ok: true,
-      file,
-      nonLinearMessage: "Brunch session transcript is non-linear",
-    }
+function explicitProjectionCwd(options: { cwd?: string }): string {
+  if (!options.cwd) {
+    throw new Error("Explicit session projection requires a workspace cwd")
   }
-
-  return { ok: false, code: -32004, message: "Brunch session not found" }
-}
-
-async function listSessionFiles(cwd: string): Promise<string[]> {
-  try {
-    const entries = await readdir(join(cwd, ".brunch", "sessions"), {
-      withFileTypes: true,
-    })
-    return entries
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".jsonl"))
-      .map((entry) => join(cwd, ".brunch", "sessions", entry.name))
-      .sort()
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return []
-    }
-    throw error
-  }
-}
-
-async function readSessionBinding(
-  file: string,
-): Promise<SessionProjectionParams | null> {
-  const lines = (await readFile(file, "utf8"))
-    .split("\n")
-    .filter((line) => line.trim().length > 0)
-  for (const line of lines) {
-    const entry = JSON.parse(line) as unknown
-    if (isSessionBindingEntry(entry)) {
-      return entry.data
-    }
-  }
-  return null
-}
-
-type SessionBindingEntry = {
-  data: {
-    sessionId: string
-    specId: string
-  }
-}
-
-function isSessionBindingEntry(value: unknown): value is SessionBindingEntry {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as { type?: unknown }).type === "custom" &&
-    (value as { customType?: unknown }).customType ===
-      "brunch.session_binding" &&
-    typeof (value as { data?: { sessionId?: unknown } }).data?.sessionId ===
-      "string" &&
-    typeof (value as { data?: { specId?: unknown } }).data?.specId === "string"
-  )
+  return options.cwd
 }
 
 export async function runJsonRpcLineServer(options: {

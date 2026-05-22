@@ -48,7 +48,7 @@ export async function runBrunchCli(
     await runJsonRpcLineServer({
       input: options.stdin ?? process.stdin,
       output: stdoutStream(options.stdout),
-      handlers: createRpcHandlers({ coordinator }),
+      handlers: createRpcHandlers({ coordinator, cwd }),
     })
     return 0
   }

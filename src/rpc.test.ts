@@ -1,4 +1,4 @@
-import { mkdtemp } from "node:fs/promises"
+import { mkdtemp, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { PassThrough } from "node:stream"
@@ -153,7 +153,7 @@ describe("JSON-RPC handlers", () => {
     })
   })
 
-  it("serves session elicitation exchanges by durable session id", async () => {
+  it("serves session elicitation exchanges by durable session id without opening the selected workspace session", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-explicit-session-"))
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
     const first = await coordinatorInstance.startOrCreate({
@@ -167,8 +167,19 @@ describe("JSON-RPC handlers", () => {
       role: "user",
       content: "First answer",
     })
-    await coordinatorInstance.createNewSessionForCurrentSpec()
-    const handlers = createRpcHandlers({ coordinator: coordinatorInstance })
+    const second = await coordinatorInstance.createNewSessionForCurrentSpec()
+    if (second.status !== "ready") {
+      throw new Error("expected a ready second session")
+    }
+    const handlers = createRpcHandlers({
+      coordinator: {
+        ...coordinatorInstance,
+        async openExisting() {
+          throw new Error("explicit reads must not open selected session")
+        },
+      },
+      cwd,
+    })
 
     await expect(
       handlers.handle({
@@ -187,13 +198,23 @@ describe("JSON-RPC handlers", () => {
     })
   })
 
+  it("does not parse durable session bindings inside the RPC handler module", async () => {
+    const source = await readFile(new URL("./rpc.ts", import.meta.url), "utf8")
+
+    expect(source).not.toContain("brunch.session_binding")
+    expect(source).not.toContain("customType")
+  })
+
   it("validates explicit session projection against a requested spec id", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-explicit-spec-"))
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
     const workspace = await coordinatorInstance.startOrCreate({
       specTitle: "Explicit spec",
     })
-    const handlers = createRpcHandlers({ coordinator: coordinatorInstance })
+    const handlers = createRpcHandlers({
+      coordinator: coordinatorInstance,
+      cwd,
+    })
 
     await expect(
       handlers.handle({
@@ -208,6 +229,65 @@ describe("JSON-RPC handlers", () => {
       error: {
         code: -32003,
         message: "Brunch session does not belong to requested spec",
+      },
+    })
+  })
+
+  it("returns a product-shaped error for unknown explicit sessions", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-missing-session-"))
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
+    await coordinatorInstance.startOrCreate({ specTitle: "Explicit spec" })
+    const handlers = createRpcHandlers({
+      coordinator: coordinatorInstance,
+      cwd,
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 11,
+        method: "session.elicitationExchanges",
+        params: { sessionId: "session-does-not-exist" },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 11,
+      error: {
+        code: -32004,
+        message: "Brunch session not found",
+      },
+    })
+  })
+
+  it("returns a product-shaped error for non-linear explicit sessions", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-explicit-branch-"))
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
+    const workspace = await coordinatorInstance.startOrCreate({
+      specTitle: "Explicit branch spec",
+    })
+    const manager = SessionManager.open(workspace.session.file)
+    manager.appendMessage({ role: "assistant", content: "Abandoned prompt" })
+    manager.appendMessage({ role: "user", content: "Abandoned answer" })
+    manager.resetLeaf()
+    manager.appendMessage({ role: "assistant", content: "Active prompt" })
+    const handlers = createRpcHandlers({
+      coordinator: coordinatorInstance,
+      cwd,
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 12,
+        method: "session.elicitationExchanges",
+        params: { sessionId: workspace.session.id },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 12,
+      error: {
+        code: -32002,
+        message: "Brunch session transcript is non-linear",
       },
     })
   })
