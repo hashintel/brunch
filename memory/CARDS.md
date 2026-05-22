@@ -145,7 +145,7 @@ Make malformed or invalid WebSocket JSON-RPC response frames fail the browser RP
 
 ## Card 4 — Safe static asset resolver
 
-**Status:** next  
+**Status:** done  
 **Weight:** light scope card
 
 ### Objective
@@ -185,7 +185,7 @@ Constrain web-mode static asset serving so `/assets/*` requests cannot escape th
 
 ## Card 5 — Shared JSON-RPC response type in fixture capture
 
-**Status:** queued  
+**Status:** next  
 **Weight:** light scope card
 
 ### Objective

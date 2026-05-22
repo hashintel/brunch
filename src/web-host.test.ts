@@ -1,3 +1,4 @@
+import { request } from "node:http"
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -14,6 +15,34 @@ import { startWebHost } from "./web-host.js"
 
 function text(response: Response): Promise<string> {
   return response.text()
+}
+
+async function rawGet(url: string, path: string): Promise<Response> {
+  const base = new URL(url)
+  return new Promise((resolve, reject) => {
+    const req = request(
+      {
+        hostname: base.hostname,
+        port: base.port,
+        method: "GET",
+        path,
+      },
+      (res) => {
+        const chunks: Uint8Array[] = []
+        res.on("data", (chunk: Uint8Array) => chunks.push(chunk))
+        res.on("end", () => {
+          resolve(
+            new Response(Buffer.concat(chunks), {
+              status: res.statusCode,
+              headers: res.headers as Record<string, string>,
+            }),
+          )
+        })
+      },
+    )
+    req.on("error", reject)
+    req.end()
+  })
 }
 
 async function builtWebAssets(): Promise<string> {
@@ -66,6 +95,32 @@ describe("web host", () => {
       expect(response.status).toBe(200)
       expect(response.headers.get("content-type")).toContain("text/javascript")
       expect(body).toContain("console.log('built web')")
+    } finally {
+      await host.close()
+    }
+  })
+
+  it("rejects asset traversal without reading outside the web asset root", async () => {
+    const assetRoot = await builtWebAssets()
+    await writeFile(join(assetRoot, "secret.txt"), "outside asset root")
+    const host = await startWebHost({
+      cwd: "/tmp/brunch-project",
+      port: 0,
+      webAssetRoot: assetRoot,
+    })
+    try {
+      const traversal = await rawGet(host.url, "/assets/../secret.txt")
+      const encodedTraversal = await rawGet(
+        host.url,
+        "/assets/%2e%2e/secret.txt",
+      )
+      const absoluteLike = await rawGet(host.url, "/assets/%2Ftmp/secret.txt")
+
+      expect(traversal.status).toBe(404)
+      expect(await text(traversal)).not.toContain("outside asset root")
+      expect(encodedTraversal.status).toBe(404)
+      expect(await text(encodedTraversal)).not.toContain("outside asset root")
+      expect(absoluteLike.status).toBe(404)
     } finally {
       await host.close()
     }

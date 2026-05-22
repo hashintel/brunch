@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises"
 import { createServer, type Server } from "node:http"
-import { dirname, join } from "node:path"
+import { dirname, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { createRpcHandlers } from "./rpc.js"
@@ -30,7 +30,7 @@ export async function startWebHost(
   const webAssetRoot = options.webAssetRoot ?? defaultWebAssetRoot()
   const server = createServer((request, response) => {
     if (request.method === "GET" && request.url === "/") {
-      void readWebAsset(webAssetRoot, "index.html").then(
+      void readFile(resolve(webAssetRoot, "index.html")).then(
         (asset) => {
           response.writeHead(200, {
             "content-type": "text/html; charset=utf-8",
@@ -50,11 +50,19 @@ export async function startWebHost(
     }
 
     if (request.method === "GET" && request.url?.startsWith("/assets/")) {
-      const relativePath = request.url.slice(1)
-      void readWebAsset(webAssetRoot, relativePath).then(
+      const assetPath = resolveAssetRequest(webAssetRoot, request.url)
+      if (!assetPath) {
+        response.writeHead(404, {
+          "content-type": "text/plain; charset=utf-8",
+        })
+        response.end("Not found")
+        return
+      }
+
+      void readFile(assetPath.file).then(
         (asset) => {
           response.writeHead(200, {
-            "content-type": contentTypeForAsset(relativePath),
+            "content-type": contentTypeForAsset(assetPath.relativePath),
             "cache-control": "no-store",
           })
           response.end(asset)
@@ -101,14 +109,47 @@ export async function startWebHost(
 }
 
 function defaultWebAssetRoot(): string {
-  return join(dirname(fileURLToPath(import.meta.url)), "..", "dist-web")
+  return resolve(dirname(fileURLToPath(import.meta.url)), "..", "dist-web")
 }
 
-async function readWebAsset(
+interface ResolvedAssetRequest {
+  file: string
+  relativePath: string
+}
+
+function resolveAssetRequest(
   webAssetRoot: string,
-  relativePath: string,
-): Promise<Buffer> {
-  return readFile(join(webAssetRoot, relativePath))
+  requestUrl: string,
+): ResolvedAssetRequest | null {
+  let pathname: string
+  try {
+    pathname = new URL(requestUrl, "http://brunch.local").pathname
+  } catch {
+    return null
+  }
+
+  let suffix: string
+  try {
+    suffix = decodeURIComponent(pathname.slice("/assets/".length))
+  } catch {
+    return null
+  }
+
+  if (
+    suffix.length === 0 ||
+    suffix.startsWith("/") ||
+    /^[a-zA-Z]:/u.test(suffix)
+  ) {
+    return null
+  }
+
+  const assetRoot = resolve(webAssetRoot, "assets")
+  const file = resolve(assetRoot, suffix)
+  if (file !== assetRoot && !file.startsWith(`${assetRoot}${sep}`)) {
+    return null
+  }
+
+  return { file, relativePath: `assets/${suffix}` }
 }
 
 function contentTypeForAsset(relativePath: string): string {
