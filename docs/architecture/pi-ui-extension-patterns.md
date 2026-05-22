@@ -216,6 +216,30 @@ allowedBuiltInCommands: ["compact", "reload", "quit"]
 
 The policy must run before interactive-mode built-in dispatch and before autocomplete construction. Ideally it should also expose a keybinding-action policy for `app.model.*` and `app.session.*` actions so keyboard paths cannot bypass slash visibility.
 
+## Offer-first custom UI gap
+
+The remaining live FE-744 gap is not generic UI polish. Brunch still needs an offer-first interaction loop: a system/assistant-originated structured offer should act like the assistant turn, render as transcript-visible custom message state, replace the default input surface with custom response UI, and persist the user's structured response before the next agent turn.
+
+Pi source/docs already give strong evidence for the primitive:
+
+- `docs/usage.md` states that the editor can be temporarily replaced by custom extension UI.
+- `docs/tui.md` documents `ctx.ui.custom<T>()` for editor-area replacement and `ctx.ui.setEditorComponent()` for replacing the main input editor.
+- `examples/extensions/question.ts` proves single-choice plus optional freeform input.
+- `examples/extensions/questionnaire.ts` proves multi-question/multi-step choice UI with custom answers.
+- `examples/extensions/message-renderer.ts` proves custom transcript display, but display alone does not collect a response.
+
+The seam Brunch must still prove is the composition: transcript-native unresolved offer → input-replacing custom UI → persisted structured response → projection as an elicitation exchange. The trimmed working plan remains in `docs/architecture/pi-ui-extension-patterns-provisional-plan.md` until that loop is implemented or deliberately moved into a named M5 slice.
+
+| Residual affordance | Current posture | Carry-forward obligation |
+| --- | --- | --- |
+| Offer-first session loop | Missing and POC-critical. | A session can begin from a system/assistant offer without ambient user chat; unresolved offers own the input surface until answered. |
+| Structured custom message as UI driver | Display is Pi-example-proven; response collection still needs Brunch composition. | Persist the offer as a Brunch custom entry, render it in transcript history, and mount response UI from the pending offer state. |
+| Single-choice / multi-choice / freeform-plus-choice response | Pi examples prove the component patterns. | Build a Brunch-owned response helper over those patterns and persist `brunch.offer_response`-shaped data. |
+| Review-set decisions | Depends on the offer-response loop. | Approve routes to one `acceptReviewSet` command; request-changes appends a successor proposal; reject persists a response entry. |
+| Pickers and orientation views | Workspace switcher proves pure decision UI. | Reuse the same decision-returning shape; coordinator or command-layer code owns mutations. |
+| RPC/fixture controllability | `ctx.ui.custom()` is not automatically RPC-controllable. | Critical fixture paths need Brunch RPC methods or built-in dialog fallbacks over the same semantic pending offer. |
+| Live Pi harness probes | Useful for fast source/API validation but not Brunch-host proof. | Keep scratch extensions temporary, record evidence tier, and promote only product-named wrappers that survive the spike. |
+
 ## Downstream posture
 
 - For the POC, Brunch can plausibly proceed if it hides disallowed commands from autocomplete and blocks branch/session effects with lifecycle hooks, **provided product documentation does not claim strict built-in suppression**.
