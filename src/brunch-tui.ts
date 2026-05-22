@@ -8,6 +8,7 @@ import {
   InteractiveMode,
   SettingsManager,
   type CreateAgentSessionRuntimeFactory,
+  type ExtensionFactory,
 } from "@earendil-works/pi-coding-agent"
 
 import {
@@ -108,23 +109,16 @@ async function launchPiInteractive({
       cwd,
       agentDir: runtimeAgentDir,
       settingsManager,
-      resourceLoaderOptions: {
-        noContextFiles: true,
-        noExtensions: true,
-        noPromptTemplates: true,
-        noSkills: true,
-        noThemes: true,
-        extensionFactories: [
-          createBrunchChromeExtension(
-            chromeStateForWorkspace(workspace),
-            async (sessionManager) => {
-              await coordinator.bindCurrentSpecToReplacementSession(
-                sessionManager,
-              )
-            },
-          ),
-        ],
-      },
+      resourceLoaderOptions: brunchResourceLoaderOptions([
+        createBrunchChromeExtension(
+          chromeStateForWorkspace(workspace),
+          async (sessionManager) => {
+            await coordinator.bindCurrentSpecToReplacementSession(
+              sessionManager,
+            )
+          },
+        ),
+      ]),
     })
     const created = await createAgentSessionFromServices({
       services,
@@ -143,11 +137,30 @@ async function launchPiInteractive({
     sessionManager: workspace.session.manager,
   })
 
-  process.env.PI_OFFLINE ??= "1"
+  applyBrunchOfflineDefault()
   await new InteractiveMode(runtime).run()
 }
 
-function createBrunchSettingsManager(
+export function brunchResourceLoaderOptions(
+  extensionFactories: ExtensionFactory[],
+) {
+  return {
+    noContextFiles: true,
+    noExtensions: true,
+    noPromptTemplates: true,
+    noSkills: true,
+    noThemes: true,
+    extensionFactories,
+  }
+}
+
+export function applyBrunchOfflineDefault(
+  env: Pick<NodeJS.ProcessEnv, "PI_OFFLINE"> = process.env,
+): void {
+  env.PI_OFFLINE ??= "1"
+}
+
+export function createBrunchSettingsManager(
   cwd: string,
   agentDir: string,
 ): SettingsManager {

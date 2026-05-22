@@ -11,8 +11,11 @@ import {
 } from "@earendil-works/pi-coding-agent"
 
 import {
+  applyBrunchOfflineDefault,
+  brunchResourceLoaderOptions,
   chromeStateForWorkspace,
   createBrunchChromeExtension,
+  createBrunchSettingsManager,
   formatBrunchChromeFooterLines,
   formatBrunchChromeHeaderLines,
   formatChromeWidgetLines,
@@ -427,17 +430,24 @@ describe("Brunch TUI boot", () => {
   })
 
   it("suppresses generic Pi startup resources for the Brunch shell", async () => {
-    const source = await readFile(
-      new URL("./brunch-tui.ts", import.meta.url),
-      "utf8",
-    )
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-tui-"))
+    const settingsManager = createBrunchSettingsManager(cwd, cwd)
+    const extension = () => {}
+    const resourceOptions = brunchResourceLoaderOptions([extension])
+    const env: { PI_OFFLINE?: string } = {}
 
-    expect(source).toContain("settingsManager.getQuietStartup = () => true")
-    expect(source).toContain("noContextFiles: true")
-    expect(source).toContain("noExtensions: true")
-    expect(source).toContain("noPromptTemplates: true")
-    expect(source).toContain("noSkills: true")
-    expect(source).toContain('process.env.PI_OFFLINE ??= "1"')
+    applyBrunchOfflineDefault(env)
+
+    expect(settingsManager.getQuietStartup()).toBe(true)
+    expect(resourceOptions).toEqual({
+      noContextFiles: true,
+      noExtensions: true,
+      noPromptTemplates: true,
+      noSkills: true,
+      noThemes: true,
+      extensionFactories: [extension],
+    })
+    expect(env.PI_OFFLINE).toBe("1")
   })
 })
 
