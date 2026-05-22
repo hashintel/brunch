@@ -96,7 +96,9 @@ export function createWebSocketRpcClient(options: {
   })
 
   socket.addEventListener("error", () => {
-    rejectPending(new Error("Brunch WebSocket RPC connection failed"))
+    terminalError = new Error("Brunch WebSocket RPC connection failed")
+    isClosed = true
+    rejectPending(terminalError)
   })
 
   function failProtocol(): void {

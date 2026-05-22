@@ -98,7 +98,7 @@ Make `createRpcHandlers` impossible to construct without the workspace cwd neede
 
 ## Card 3 — Terminal browser RPC socket errors
 
-**Status:** next  
+**Status:** done  
 **Weight:** light scope card
 
 ### Objective
@@ -138,7 +138,7 @@ Treat browser WebSocket `error` events as terminal connection failures until an 
 
 ## Card 4 — Transcript display projection
 
-**Status:** queued  
+**Status:** next  
 **Weight:** full scope card
 
 ### Target Behavior

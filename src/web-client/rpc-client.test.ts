@@ -171,7 +171,7 @@ describe("browser WebSocket RPC client", () => {
     )
   })
 
-  it("rejects all pending requests on socket close or error", async () => {
+  it("rejects all pending requests on socket close", async () => {
     const client = rpcClient()
     const first = client.request("workspace.snapshot")
     const second = client.request("session.elicitationExchanges")
@@ -185,6 +185,27 @@ describe("browser WebSocket RPC client", () => {
     )
     await expect(second).rejects.toThrow(
       "Brunch WebSocket RPC connection closed",
+    )
+  })
+
+  it("treats socket errors as terminal connection failures", async () => {
+    const client = rpcClient()
+    const first = client.request("workspace.snapshot")
+    const second = client.request("session.elicitationExchanges")
+    const socket = FakeWebSocket.instances[0]!
+
+    socket.emit("open")
+    socket.emit("error")
+    socket.emit("close")
+
+    await expect(first).rejects.toThrow(
+      "Brunch WebSocket RPC connection failed",
+    )
+    await expect(second).rejects.toThrow(
+      "Brunch WebSocket RPC connection failed",
+    )
+    await expect(client.request("workspace.snapshot")).rejects.toThrow(
+      "Brunch WebSocket RPC connection failed",
     )
   })
 
