@@ -31,6 +31,7 @@
 	},
 	"dependencies": {
 		"@earendil-works/pi-coding-agent": "^0.75.3",
+		"@earendil-works/pi-tui": "^0.75.4",
 		"@tanstack/react-query": "^5.100.11",
 		"@tanstack/react-router": "^1.170.6",
 		"react": "^19.2.6",
