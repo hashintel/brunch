@@ -235,8 +235,7 @@ describe("Brunch TUI boot", () => {
         calls.push({ method: "setStatus", args }),
       setWidget: (...args: unknown[]) =>
         calls.push({ method: "setWidget", args }),
-      setWorkingIndicator: (...args: unknown[]) =>
-        calls.push({ method: "setWorkingIndicator", args }),
+      setWorkingIndicator: (_options) => {},
       setTitle: (...args: unknown[]) =>
         calls.push({ method: "setTitle", args }),
       notify: (_message: string, _type?: "info" | "warning" | "error") => {},
@@ -263,7 +262,6 @@ describe("Brunch TUI boot", () => {
       "setFooter",
       "setStatus",
       "setWidget",
-      "setWorkingIndicator",
       "setTitle",
     ])
     expect(calls.find((call) => call.method === "setFooter")?.args).toEqual([
@@ -283,9 +281,6 @@ describe("Brunch TUI boot", () => {
       ],
       { placement: "aboveEditor" },
     ])
-    expect(
-      calls.find((call) => call.method === "setWorkingIndicator")?.args,
-    ).toEqual([undefined])
     expect(calls.find((call) => call.method === "setTitle")?.args).toEqual([
       "brunch — Spec One",
     ])
@@ -429,7 +424,6 @@ describe("Brunch TUI boot", () => {
       "replacement:setFooter",
       "replacement:setStatus",
       "replacement:setWidget",
-      "replacement:setWorkingIndicator",
       "replacement:setTitle",
       "replacement:notify",
     ])

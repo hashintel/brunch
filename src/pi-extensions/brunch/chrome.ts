@@ -24,7 +24,7 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
   latestEstablishmentOfferSummary: string | null
 }
 
-export type BrunchChromeUi = Pick<ExtensionUIContext, "setFooter" | "setHeader" | "setStatus" | "setWidget" | "setWorkingIndicator" | "setTitle">
+export type BrunchChromeUi = Pick<ExtensionUIContext, "setFooter" | "setHeader" | "setStatus" | "setWidget" | "setTitle">
 
 export function formatBrunchChromeHeaderLines(
   chrome: BrunchChromeState,
@@ -85,7 +85,6 @@ export function renderBrunchChrome(
   ui.setWidget("brunch.chrome", formatChromeWidgetLines(chrome), {
     placement: "aboveEditor",
   })
-  ui.setWorkingIndicator(undefined)
   ui.setTitle(`brunch — ${chrome.spec?.title ?? chrome.cwd}`)
 }
 
