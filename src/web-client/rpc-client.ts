@@ -1,17 +1,23 @@
 import type {
   JsonRpcFailure,
+  JsonRpcId,
   JsonRpcRequest,
   JsonRpcResponse,
 } from "../json-rpc-protocol.js"
 
 export type { JsonRpcRequest, JsonRpcResponse } from "../json-rpc-protocol.js"
 
-type WebSocketLike = Pick<WebSocket, "send" | "close" | "addEventListener">
+type WebSocketEventListener = (event: { data?: unknown }) => void
+
+type WebSocketLike = Pick<WebSocket, "send" | "close"> & {
+  addEventListener(event: string, listener: WebSocketEventListener): void
+}
 
 type WebSocketConstructor = new (url: string) => WebSocketLike
 
 export interface WebSocketRpcClient {
   request<T>(method: string, params?: unknown): Promise<T>
+  close(): void
 }
 
 export class JsonRpcClientError extends Error {
@@ -24,16 +30,70 @@ export class JsonRpcClientError extends Error {
   }
 }
 
+type PendingRequest = {
+  resolve(value: unknown): void
+  reject(error: Error): void
+}
+
 export function createWebSocketRpcClient(options: {
   url?: string
   WebSocketImpl?: WebSocketConstructor
 }): WebSocketRpcClient {
   const WebSocketImpl = options.WebSocketImpl ?? WebSocket
   const url = options.url ?? defaultRpcUrl()
+  const socket = new WebSocketImpl(url)
+  const pending = new Map<JsonRpcId, PendingRequest>()
+  const queued: string[] = []
   let nextId = 1
+  let isOpen = false
+  let isClosed = false
+
+  socket.addEventListener("open", () => {
+    isOpen = true
+    for (const message of queued.splice(0)) {
+      socket.send(message)
+    }
+  })
+
+  socket.addEventListener("message", (event) => {
+    const response = JSON.parse(String(event.data)) as JsonRpcResponse
+    const request = pending.get(response.id)
+    if (!request) {
+      return
+    }
+    pending.delete(response.id)
+    if ("error" in response) {
+      request.reject(new JsonRpcClientError(response.error))
+      return
+    }
+    request.resolve(response.result)
+  })
+
+  socket.addEventListener("close", () => {
+    if (!isClosed) {
+      rejectPending(new Error("Brunch WebSocket RPC connection closed"))
+    }
+    isClosed = true
+  })
+
+  socket.addEventListener("error", () => {
+    rejectPending(new Error("Brunch WebSocket RPC connection failed"))
+  })
+
+  function rejectPending(error: Error): void {
+    for (const request of pending.values()) {
+      request.reject(error)
+    }
+    pending.clear()
+    queued.length = 0
+  }
 
   return {
     request<T,>(method: string, params?: unknown): Promise<T> {
+      if (isClosed) {
+        return Promise.reject(new Error("Brunch WebSocket RPC client closed"))
+      }
+
       const id = nextId
       nextId += 1
       const request: JsonRpcRequest = {
@@ -42,40 +102,28 @@ export function createWebSocketRpcClient(options: {
         method,
         ...(params === undefined ? {} : { params }),
       }
-      const socket = new WebSocketImpl(url)
+      const message = JSON.stringify(request)
 
       return new Promise<T>((resolve, reject) => {
-        socket.addEventListener(
-          "open",
-          () => {
-            socket.send(JSON.stringify(request))
-          },
-          { once: true },
-        )
-        socket.addEventListener(
-          "message",
-          (event) => {
-            socket.close()
-            const response = JSON.parse(
-              String(event.data),
-            ) as JsonRpcResponse<T>
-            if ("error" in response) {
-              reject(new JsonRpcClientError(response.error))
-              return
-            }
-            resolve(response.result)
-          },
-          { once: true },
-        )
-        socket.addEventListener(
-          "error",
-          () => {
-            socket.close()
-            reject(new Error("Brunch WebSocket RPC connection failed"))
-          },
-          { once: true },
-        )
+        pending.set(id, {
+          resolve: (value) => resolve(value as T),
+          reject,
+        })
+        if (isOpen) {
+          socket.send(message)
+          return
+        }
+        queued.push(message)
       })
+    },
+
+    close() {
+      if (isClosed) {
+        return
+      }
+      isClosed = true
+      rejectPending(new Error("Brunch WebSocket RPC client closed"))
+      socket.close()
     },
   }
 }

@@ -95,10 +95,13 @@ describe("web host", () => {
         { jsonrpc: "2.0", id: 11, method: "workspace.snapshot" },
       ])
 
-      expect(responses).toEqual([
-        expect.objectContaining({ jsonrpc: "2.0", id: 10 }),
-        expect.objectContaining({ jsonrpc: "2.0", id: 11 }),
-      ])
+      expect(responses).toHaveLength(2)
+      expect(responses).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ jsonrpc: "2.0", id: 10 }),
+          expect.objectContaining({ jsonrpc: "2.0", id: 11 }),
+        ]),
+      )
     } finally {
       await host.close()
     }

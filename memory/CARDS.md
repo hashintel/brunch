@@ -102,7 +102,7 @@ The `/rpc` WebSocket endpoint is served by a dedicated transport adapter that de
 
 ## Card 3 — Persistent browser RPC client
 
-**Status:** next  
+**Status:** done  
 **Weight:** full scope card
 
 ### Target Behavior
@@ -148,7 +148,7 @@ The `/rpc` WebSocket endpoint is served by a dedicated transport adapter that de
 
 ## Card 4 — Canonical web shell asset contract
 
-**Status:** queued  
+**Status:** next  
 **Weight:** light scope card
 
 ### Objective
