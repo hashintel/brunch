@@ -185,7 +185,7 @@ Constrain web-mode static asset serving so `/assets/*` requests cannot escape th
 
 ## Card 5 — Shared JSON-RPC response type in fixture capture
 
-**Status:** next  
+**Status:** done  
 **Weight:** light scope card
 
 ### Objective
@@ -225,7 +225,7 @@ Remove fixture-capture’s local JSON-RPC response type so the fixture driver co
 
 ## Card 6 — Read-only transcript rendering in web shell
 
-**Status:** queued  
+**Status:** next  
 **Weight:** full scope card
 
 ### Target Behavior
