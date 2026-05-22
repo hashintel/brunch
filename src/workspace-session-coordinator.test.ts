@@ -23,7 +23,7 @@ describe("WorkspaceSessionCoordinator", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
 
-    const result = await coordinator.startOrCreate({
+    const result = await coordinator.createSetupSession({
       specTitle: "Scratch spec",
     })
 
@@ -52,8 +52,10 @@ describe("WorkspaceSessionCoordinator", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
 
-    const first = await coordinator.startOrCreate({ specTitle: "Scratch spec" })
-    const second = await coordinator.createNewSessionForCurrentSpec()
+    const first = await coordinator.createSetupSession({
+      specTitle: "Scratch spec",
+    })
+    const second = await coordinator.createSetupSessionForCurrentSpec()
 
     expect(second.status).toBe("ready")
     if (second.status !== "ready") {
@@ -108,7 +110,7 @@ describe("WorkspaceSessionCoordinator", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
 
-    const result = await coordinator.startOrCreate({
+    const result = await coordinator.createSetupSession({
       specTitle: "Scratch spec",
     })
     const reloaded = SessionManager.open(result.session.file, undefined, cwd)
@@ -131,7 +133,7 @@ describe("WorkspaceSessionCoordinator", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
 
-    const result = await coordinator.startOrCreate({
+    const result = await coordinator.createSetupSession({
       specTitle: "Scratch spec",
     })
     const reloaded = SessionManager.open(result.session.file, undefined, cwd)
@@ -154,7 +156,7 @@ describe("WorkspaceSessionCoordinator", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
 
-    const result = await coordinator.startOrCreate({
+    const result = await coordinator.createSetupSession({
       specTitle: "Scratch spec",
     })
     result.session.manager.appendMessage({
@@ -182,14 +184,18 @@ describe("WorkspaceSessionCoordinator", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
 
-    const result = await coordinator.startOrCreate({
+    const result = await coordinator.createSetupSession({
       specTitle: "Scratch spec",
     })
     result.session.manager.appendModelChange("test-provider", "test-model")
     result.session.manager.appendThinkingLevelChange("high")
-    await coordinator.bindCurrentSpecToSession(result.session.manager)
+    await coordinator.bindCurrentSpecToReplacementSession(
+      result.session.manager,
+    )
     result.session.manager.appendMessage({ role: "user", content: "hello" })
-    await coordinator.bindCurrentSpecToSession(result.session.manager)
+    await coordinator.bindCurrentSpecToReplacementSession(
+      result.session.manager,
+    )
     result.session.manager.appendMessage({ role: "assistant", content: "hi" })
 
     const content = await readFile(result.session.file, "utf8")
@@ -212,7 +218,7 @@ describe("WorkspaceSessionCoordinator", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
 
-    const result = await coordinator.startOrCreate({
+    const result = await coordinator.createSetupSession({
       specTitle: "Scratch spec",
     })
     result.session.manager.appendMessage({
@@ -236,9 +242,11 @@ describe("WorkspaceSessionCoordinator", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
 
-    const first = await coordinator.startOrCreate({ specTitle: "Scratch spec" })
+    const first = await coordinator.createSetupSession({
+      specTitle: "Scratch spec",
+    })
     const replacementFile = first.session.manager.newSession()
-    await coordinator.bindCurrentSpecToSession(first.session.manager)
+    await coordinator.bindCurrentSpecToReplacementSession(first.session.manager)
 
     expect(replacementFile).toBeDefined()
     const oracle = await verifyWorkspaceSessionStores({
@@ -264,9 +272,9 @@ describe("WorkspaceSessionCoordinator", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
 
-    const first = await coordinator.startOrCreate({ specTitle: "Alpha" })
+    const first = await coordinator.createSetupSession({ specTitle: "Alpha" })
     first.session.manager.appendMessage({ role: "user", content: "first" })
-    const second = await coordinator.startOrCreate({
+    const second = await coordinator.createSetupSession({
       specTitle: "Beta",
       createNewSpec: true,
     })
@@ -339,7 +347,7 @@ describe("WorkspaceSessionCoordinator", () => {
   it("marks unbound or incompatible sessions unavailable during inventory", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
-    const ready = await coordinator.startOrCreate({ specTitle: "Alpha" })
+    const ready = await coordinator.createSetupSession({ specTitle: "Alpha" })
     const unboundFile = join(cwd, ".brunch", "sessions", "unbound.jsonl")
     const mismatchedFile = join(cwd, ".brunch", "sessions", "mismatched.jsonl")
     await writeFile(
@@ -386,8 +394,8 @@ describe("WorkspaceSessionCoordinator", () => {
   it("activates explicit open and continue decisions as the current workspace", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
-    const first = await coordinator.startOrCreate({ specTitle: "Alpha" })
-    const second = await coordinator.startOrCreate({
+    const first = await coordinator.createSetupSession({ specTitle: "Alpha" })
+    const second = await coordinator.createSetupSession({
       specTitle: "Beta",
       createNewSpec: true,
     })
@@ -430,7 +438,7 @@ describe("WorkspaceSessionCoordinator", () => {
   it("activates a new session decision as a binding-only session for the selected spec", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
-    const first = await coordinator.startOrCreate({ specTitle: "Alpha" })
+    const first = await coordinator.createSetupSession({ specTitle: "Alpha" })
     first.session.manager.appendMessage({
       role: "user",
       content: "preserve me",
@@ -486,7 +494,7 @@ describe("WorkspaceSessionCoordinator", () => {
   it("activates cancel without mutating workspace state or session files", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
-    const ready = await coordinator.startOrCreate({ specTitle: "Alpha" })
+    const ready = await coordinator.createSetupSession({ specTitle: "Alpha" })
     const beforeState = await readFile(
       join(cwd, ".brunch", "state.json"),
       "utf8",
@@ -507,7 +515,7 @@ describe("WorkspaceSessionCoordinator", () => {
   it("refuses to activate mismatched or unavailable sessions", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
-    const ready = await coordinator.startOrCreate({ specTitle: "Alpha" })
+    const ready = await coordinator.createSetupSession({ specTitle: "Alpha" })
     const unavailableFile = join(
       cwd,
       ".brunch",
@@ -556,7 +564,7 @@ describe("WorkspaceSessionCoordinator", () => {
     await mkdir(join(cwd, ".brunch"), { recursive: true })
 
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
-    const result = await coordinator.openExisting()
+    const result = await coordinator.openDefaultWorkspace()
 
     expect(result.status).toBe("select_spec")
     expect(result.chrome.cwd).toBe(cwd)

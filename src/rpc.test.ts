@@ -20,19 +20,19 @@ function coordinator(
   ),
 ): WorkspaceSessionCoordinator {
   return {
-    async openExisting() {
+    async openDefaultWorkspace() {
       return state
     },
-    async startOrCreate() {
+    async createSetupSession() {
       throw new Error("not used")
     },
-    async createNewSessionForCurrentSpec() {
+    async createSetupSessionForCurrentSpec() {
       throw new Error("not used")
     },
-    async bindCurrentSpecToSession() {
+    async bindCurrentSpecToReplacementSession() {
       throw new Error("not used")
     },
-    async deriveChromeState() {
+    async deriveDefaultChromeState() {
       throw new Error("not used")
     },
   }
@@ -201,7 +201,7 @@ describe("JSON-RPC handlers", () => {
   it("serves session elicitation exchanges by durable session id without opening the selected workspace session", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-explicit-session-"))
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
-    const first = await coordinatorInstance.startOrCreate({
+    const first = await coordinatorInstance.createSetupSession({
       specTitle: "Explicit spec",
     })
     first.session.manager.appendMessage({
@@ -212,14 +212,14 @@ describe("JSON-RPC handlers", () => {
       role: "user",
       content: "First answer",
     })
-    const second = await coordinatorInstance.createNewSessionForCurrentSpec()
+    const second = await coordinatorInstance.createSetupSessionForCurrentSpec()
     if (second.status !== "ready") {
       throw new Error("expected a ready second session")
     }
     const handlers = createRpcHandlers({
       coordinator: {
         ...coordinatorInstance,
-        async openExisting() {
+        async openDefaultWorkspace() {
           throw new Error("explicit reads must not open selected session")
         },
       },
@@ -246,7 +246,7 @@ describe("JSON-RPC handlers", () => {
   it("serves transcript display rows by durable session id without opening the selected workspace session", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-display-"))
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
-    const workspace = await coordinatorInstance.startOrCreate({
+    const workspace = await coordinatorInstance.createSetupSession({
       specTitle: "Display spec",
     })
     workspace.session.manager.appendMessage({
@@ -260,7 +260,7 @@ describe("JSON-RPC handlers", () => {
     const handlers = createRpcHandlers({
       coordinator: {
         ...coordinatorInstance,
-        async openExisting() {
+        async openDefaultWorkspace() {
           throw new Error("explicit reads must not open selected session")
         },
       },
@@ -296,7 +296,7 @@ describe("JSON-RPC handlers", () => {
   it("validates explicit session projection against a requested spec id", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-explicit-spec-"))
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
-    const workspace = await coordinatorInstance.startOrCreate({
+    const workspace = await coordinatorInstance.createSetupSession({
       specTitle: "Explicit spec",
     })
     const handlers = createRpcHandlers({
@@ -435,7 +435,7 @@ describe("JSON-RPC handlers", () => {
   it("returns a product-shaped error for unknown explicit sessions", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-missing-session-"))
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
-    await coordinatorInstance.startOrCreate({ specTitle: "Explicit spec" })
+    await coordinatorInstance.createSetupSession({ specTitle: "Explicit spec" })
     const handlers = createRpcHandlers({
       coordinator: coordinatorInstance,
       cwd,
@@ -461,7 +461,7 @@ describe("JSON-RPC handlers", () => {
   it("returns a product-shaped error for non-linear explicit sessions", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-explicit-branch-"))
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
-    const workspace = await coordinatorInstance.startOrCreate({
+    const workspace = await coordinatorInstance.createSetupSession({
       specTitle: "Explicit branch spec",
     })
     const manager = SessionManager.open(workspace.session.file)

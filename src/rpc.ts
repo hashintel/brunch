@@ -47,7 +47,7 @@ export function createRpcHandlers(options: {
         if (request.params !== undefined) {
           return createJsonRpcFailure(requestId, -32602, "Invalid params")
         }
-        const state = await options.coordinator.openExisting()
+        const state = await options.coordinator.openDefaultWorkspace()
         return createJsonRpcSuccess(
           requestId,
           workspaceSnapshotFromState(state),
@@ -93,7 +93,9 @@ async function handleSessionProjection<T>(
 
   const target = params.value
     ? await resolveExplicitSessionProjectionTarget(options.cwd, params.value)
-    : await selectedSessionFile(await options.coordinator.openExisting())
+    : await selectedSessionFile(
+        await options.coordinator.openDefaultWorkspace(),
+      )
   if (!target.ok) {
     return createJsonRpcFailure(requestId, target.code, target.message)
   }
@@ -146,7 +148,7 @@ function parseSessionProjectionParams(
 }
 
 async function selectedSessionFile(
-  state: Awaited<ReturnType<WorkspaceSessionCoordinator["openExisting"]>>,
+  state: Awaited<ReturnType<WorkspaceSessionCoordinator["openDefaultWorkspace"]>>,
 ): Promise<SessionProjectionTarget> {
   if (state.status !== "ready") {
     return { ok: false, code: -32001, message: "No selected Brunch session" }

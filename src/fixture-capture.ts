@@ -117,7 +117,9 @@ export async function captureDeterministicBriefRuns(
       content: brief.scriptedUserNotes.join("\n"),
       timestamp: Date.parse(options.timestamp ?? new Date().toISOString()),
     })
-    await coordinator.bindCurrentSpecToSession(workspace.session.manager)
+    await coordinator.bindCurrentSpecToReplacementSession(
+      workspace.session.manager,
+    )
 
     results.push(
       await captureFixtureRun({
@@ -136,7 +138,7 @@ async function openScriptedBriefSession(
   coordinator: WorkspaceSessionCoordinator,
   brief: FixtureBrief,
 ) {
-  return coordinator.startOrCreate({
+  return coordinator.createSetupSession({
     specTitle: brief.title,
     createNewSpec: true,
   })

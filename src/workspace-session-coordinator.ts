@@ -136,16 +136,16 @@ export interface WorkspaceSessionCoordinator {
   activateWorkspace(
     decision: WorkspaceSwitchDecision,
   ): Promise<WorkspaceActivationState>
-  openExisting(): Promise<WorkspaceSessionState>
-  startOrCreate(options?: {
+  openDefaultWorkspace(): Promise<WorkspaceSessionState>
+  createSetupSession(options?: {
     specTitle?: string
     createNewSpec?: boolean
   }): Promise<WorkspaceSessionReadyState>
-  createNewSessionForCurrentSpec(): Promise<WorkspaceSessionState>
-  bindCurrentSpecToSession(
+  createSetupSessionForCurrentSpec(): Promise<WorkspaceSessionState>
+  bindCurrentSpecToReplacementSession(
     manager: SessionManager,
   ): Promise<WorkspaceSessionReadyState>
-  deriveChromeState(): Promise<WorkspaceSessionChromeState>
+  deriveDefaultChromeState(): Promise<WorkspaceSessionChromeState>
 }
 
 export function createWorkspaceSessionCoordinator(options?: {
@@ -179,7 +179,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     }
 
     if (decision.action === "newSpec") {
-      return this.startOrCreate({
+      return this.createSetupSession({
         specTitle: decision.title,
         createNewSpec: true,
       })
@@ -225,7 +225,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     return readyState(this.#cwd, spec.spec, opened)
   }
 
-  async openExisting(): Promise<WorkspaceSessionState> {
+  async openDefaultWorkspace(): Promise<WorkspaceSessionState> {
     const state = await readWorkspaceState(this.#cwd)
     if (!state) {
       return {
@@ -244,7 +244,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     return readyState(this.#cwd, state.currentSpec, session)
   }
 
-  async startOrCreate(options?: {
+  async createSetupSession(options?: {
     specTitle?: string
     createNewSpec?: boolean
   }): Promise<WorkspaceSessionReadyState> {
@@ -259,7 +259,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     return readyState(this.#cwd, spec, session)
   }
 
-  async createNewSessionForCurrentSpec(): Promise<WorkspaceSessionState> {
+  async createSetupSessionForCurrentSpec(): Promise<WorkspaceSessionState> {
     const state = await readWorkspaceState(this.#cwd)
     if (!state) {
       return {
@@ -275,7 +275,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     return readyState(this.#cwd, state.currentSpec, session)
   }
 
-  async bindCurrentSpecToSession(
+  async bindCurrentSpecToReplacementSession(
     manager: SessionManager,
   ): Promise<WorkspaceSessionReadyState> {
     const state = await readWorkspaceState(this.#cwd)
@@ -288,7 +288,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     return readyState(this.#cwd, state.currentSpec, session)
   }
 
-  async deriveChromeState(): Promise<WorkspaceSessionChromeState> {
+  async deriveDefaultChromeState(): Promise<WorkspaceSessionChromeState> {
     const state = await readWorkspaceState(this.#cwd)
     return chromeState(this.#cwd, state?.currentSpec ?? null)
   }

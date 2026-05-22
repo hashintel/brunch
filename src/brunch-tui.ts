@@ -289,7 +289,9 @@ async function launchPiInteractive({
           createBrunchChromeExtension(
             chromeStateForWorkspace(workspace),
             async (sessionManager) => {
-              await coordinator.bindCurrentSpecToSession(sessionManager)
+              await coordinator.bindCurrentSpecToReplacementSession(
+                sessionManager,
+              )
             },
           ),
         ],

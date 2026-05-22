@@ -16,7 +16,7 @@ describe("fixture capture", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-fixture-real-"))
     const workspace = await createWorkspaceSessionCoordinator({
       cwd,
-    }).startOrCreate({
+    }).createSetupSession({
       specTitle: "Fixture spec",
     })
     workspace.session.manager.appendMessage({
@@ -65,7 +65,7 @@ describe("fixture capture", () => {
     )
     const workspace = await createWorkspaceSessionCoordinator({
       cwd,
-    }).startOrCreate({
+    }).createSetupSession({
       specTitle: "Fixture spec",
     })
     workspace.session.manager.appendMessage({
@@ -95,7 +95,7 @@ describe("fixture capture", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-fixture-"))
     const workspace = await createWorkspaceSessionCoordinator({
       cwd,
-    }).startOrCreate({
+    }).createSetupSession({
       specTitle: "Fixture spec",
     })
     workspace.session.manager.appendMessage({
@@ -105,19 +105,19 @@ describe("fixture capture", () => {
     workspace.session.manager.appendMessage({ role: "user", content: "Answer" })
 
     const coordinator: WorkspaceSessionCoordinator = {
-      async openExisting() {
+      async openDefaultWorkspace() {
         return workspace
       },
-      async startOrCreate() {
+      async createSetupSession() {
         return workspace
       },
-      async createNewSessionForCurrentSpec() {
+      async createSetupSessionForCurrentSpec() {
         return workspace
       },
-      async bindCurrentSpecToSession() {
+      async bindCurrentSpecToReplacementSession() {
         return workspace
       },
-      async deriveChromeState() {
+      async deriveDefaultChromeState() {
         return workspace.chrome
       },
     }

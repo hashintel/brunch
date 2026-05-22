@@ -38,7 +38,7 @@ export async function runBrunchCli(
     options.coordinator ?? createWorkspaceSessionCoordinator({ cwd })
 
   if (mode === "print") {
-    const state = await coordinator.openExisting()
+    const state = await coordinator.openDefaultWorkspace()
     const snapshot = workspaceSnapshotFromState(state)
     writeStdout(options.stdout, renderWorkspaceSnapshot(snapshot))
     return 0

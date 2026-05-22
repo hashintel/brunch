@@ -74,11 +74,11 @@ describe("Brunch TUI boot", () => {
           events.push(`activate:${decision.action}`)
           return workspace
         },
-        openExisting: async () => workspace,
-        startOrCreate: async () => workspace,
-        createNewSessionForCurrentSpec: async () => workspace,
-        bindCurrentSpecToSession: async () => workspace,
-        deriveChromeState: async () => workspace.chrome,
+        openDefaultWorkspace: async () => workspace,
+        createSetupSession: async () => workspace,
+        createSetupSessionForCurrentSpec: async () => workspace,
+        bindCurrentSpecToReplacementSession: async () => workspace,
+        deriveDefaultChromeState: async () => workspace.chrome,
       },
       runWorkspaceSwitchPreflight: async () => {
         events.push("preflight")
@@ -127,11 +127,11 @@ describe("Brunch TUI boot", () => {
             chrome: workspace.chrome,
           }
         },
-        openExisting: async () => workspace,
-        startOrCreate: async () => workspace,
-        createNewSessionForCurrentSpec: async () => workspace,
-        bindCurrentSpecToSession: async () => workspace,
-        deriveChromeState: async () => workspace.chrome,
+        openDefaultWorkspace: async () => workspace,
+        createSetupSession: async () => workspace,
+        createSetupSessionForCurrentSpec: async () => workspace,
+        bindCurrentSpecToReplacementSession: async () => workspace,
+        deriveDefaultChromeState: async () => workspace.chrome,
       },
       runWorkspaceSwitchPreflight: async () => {
         events.push("preflight")
@@ -148,7 +148,9 @@ describe("Brunch TUI boot", () => {
   it("chooses a new binding-only session instead of implicitly resuming stale transcript", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-tui-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
-    const first = await coordinator.startOrCreate({ specTitle: "Spec One" })
+    const first = await coordinator.createSetupSession({
+      specTitle: "Spec One",
+    })
     first.session.manager.appendMessage({
       role: "user",
       content: "stale transcript",

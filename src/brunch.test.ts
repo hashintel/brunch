@@ -16,7 +16,7 @@ import {
 
 function coordinator(sessionFile?: string): WorkspaceSessionCoordinator {
   return {
-    async openExisting() {
+    async openDefaultWorkspace() {
       return {
         ...(sessionFile
           ? {
@@ -46,16 +46,16 @@ function coordinator(sessionFile?: string): WorkspaceSessionCoordinator {
         cwd: "/tmp/brunch-project",
       }
     },
-    async startOrCreate() {
+    async createSetupSession() {
       throw new Error("print must not create a session")
     },
-    async createNewSessionForCurrentSpec() {
+    async createSetupSessionForCurrentSpec() {
       throw new Error("not used")
     },
-    async bindCurrentSpecToSession() {
+    async bindCurrentSpecToReplacementSession() {
       throw new Error("not used")
     },
-    async deriveChromeState() {
+    async deriveDefaultChromeState() {
       throw new Error("not used")
     },
   }
@@ -167,7 +167,7 @@ describe("Brunch CLI dispatch", () => {
 
   it("exposes matching print and RPC workspace snapshots from a real coordinator store", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-parity-"))
-    await createWorkspaceSessionCoordinator({ cwd }).startOrCreate({
+    await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
       specTitle: "Parity spec",
     })
     let printOutput = ""

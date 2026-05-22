@@ -170,7 +170,7 @@ describe("web host", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-web-rpc-"))
     const workspace = await createWorkspaceSessionCoordinator({
       cwd,
-    }).startOrCreate({
+    }).createSetupSession({
       specTitle: "Web spec",
     })
     workspace.session.manager.appendMessage({
@@ -216,7 +216,7 @@ describe("web host", () => {
   it("serves explicit session projection over WebSocket", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-web-rpc-explicit-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
-    const first = await coordinator.startOrCreate({
+    const first = await coordinator.createSetupSession({
       specTitle: "Explicit web spec",
     })
     first.session.manager.appendMessage({
@@ -232,7 +232,7 @@ describe("web host", () => {
       role: "user",
       content: "First answer",
     })
-    await coordinator.createNewSessionForCurrentSpec()
+    await coordinator.createSetupSessionForCurrentSpec()
     const host = await startWebHost({
       cwd,
       port: 0,
@@ -280,7 +280,7 @@ describe("web host", () => {
 
   it("multiplexes two JSON-RPC requests over one WebSocket", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-web-rpc-multiplex-"))
-    await createWorkspaceSessionCoordinator({ cwd }).startOrCreate({
+    await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
       specTitle: "Multiplex spec",
     })
     const host = await startWebHost({
@@ -308,7 +308,7 @@ describe("web host", () => {
 
   it("returns a parse error for malformed WebSocket JSON without killing the host", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-web-rpc-malformed-"))
-    await createWorkspaceSessionCoordinator({ cwd }).startOrCreate({
+    await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
       specTitle: "Malformed spec",
     })
     const host = await startWebHost({
@@ -378,7 +378,7 @@ describe("web host", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-web-rpc-branch-"))
     const workspace = await createWorkspaceSessionCoordinator({
       cwd,
-    }).startOrCreate({
+    }).createSetupSession({
       specTitle: "Branch spec",
     })
     const manager = SessionManager.open(workspace.session.file)
@@ -493,19 +493,19 @@ function openWebSocket(url: string): Promise<WebSocket> {
 
 function throwingCoordinator(): WorkspaceSessionCoordinator {
   return {
-    async openExisting() {
+    async openDefaultWorkspace() {
       throw new Error("boom")
     },
-    async startOrCreate() {
+    async createSetupSession() {
       throw new Error("not used")
     },
-    async createNewSessionForCurrentSpec() {
+    async createSetupSessionForCurrentSpec() {
       throw new Error("not used")
     },
-    async bindCurrentSpecToSession() {
+    async bindCurrentSpecToReplacementSession() {
       throw new Error("not used")
     },
-    async deriveChromeState() {
+    async deriveDefaultChromeState() {
       throw new Error("not used")
     },
   }
