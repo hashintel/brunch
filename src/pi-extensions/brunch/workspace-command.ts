@@ -14,21 +14,17 @@ import { chromeStateForWorkspace, renderBrunchChrome } from "./chrome.js"
 export const BRUNCH_WORKSPACE_COMMAND = "brunch-workspace"
 
 export interface BrunchWorkspaceCommandOptions {
-  coordinator?: WorkspaceSwitchCoordinator
+  coordinator: WorkspaceSwitchCoordinator
 }
 
 export function registerBrunchWorkspaceCommand(
   pi: ExtensionAPI,
-  options: BrunchWorkspaceCommandOptions = {},
+  { coordinator }: BrunchWorkspaceCommandOptions,
 ): void {
-  if (!options.coordinator) {
-    return
-  }
-
   pi.registerCommand(BRUNCH_WORKSPACE_COMMAND, {
     description: "Switch Brunch spec/session workspace",
     handler: async (_args, ctx) => {
-      await runBrunchWorkspaceCommand(ctx, options.coordinator!)
+      await runBrunchWorkspaceCommand(ctx, coordinator)
     },
   })
 }

@@ -40,10 +40,10 @@ export {
   type BrunchWorkspaceCommandOptions,
 } from "./workspace-command.js"
 
-export function createBrunchChromeExtension(
+export function createBrunchPiExtensionShell(
   chrome: BrunchChromeState,
-  onSessionBoundary?: BrunchSessionBoundaryHandler,
-  options: BrunchWorkspaceCommandOptions = {},
+  onSessionBoundary: BrunchSessionBoundaryHandler | undefined,
+  options: BrunchWorkspaceCommandOptions,
 ): ExtensionFactory {
   return (pi) => {
     pi.on("session_start", async (_event, ctx) => {

@@ -21,13 +21,13 @@ import {
 } from "./workspace-session-coordinator.js"
 import {
   chromeStateForWorkspace,
-  createBrunchChromeExtension,
+  createBrunchPiExtensionShell,
 } from "./pi-extensions/brunch/index.js"
 import { runWorkspaceSwitchPreflight } from "./workspace-switcher.js"
 export {
   BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE,
   chromeStateForWorkspace,
-  createBrunchChromeExtension,
+  createBrunchPiExtensionShell,
   formatBrunchChromeHeaderLines,
   formatChromeWidgetLines,
   renderBrunchChrome,
@@ -109,7 +109,7 @@ async function launchPiInteractive({
       agentDir: runtimeAgentDir,
       settingsManager,
       resourceLoaderOptions: brunchResourceLoaderOptions([
-        createBrunchChromeExtension(
+        createBrunchPiExtensionShell(
           chromeStateForWorkspace(workspace),
           async (sessionManager) => {
             await coordinator.bindCurrentSpecToReplacementSession(

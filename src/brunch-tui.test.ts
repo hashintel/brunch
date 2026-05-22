@@ -21,7 +21,7 @@ import {
 import {
   BRUNCH_WORKSPACE_COMMAND,
   chromeStateForWorkspace,
-  createBrunchChromeExtension,
+  createBrunchPiExtensionShell,
   formatBrunchChromeHeaderLines,
   formatBrunchStatus,
   formatChromeWidgetLines,
@@ -319,11 +319,12 @@ describe("Brunch TUI boot", () => {
       ctx: FakeExtensionContext,
     ) => Promise<void>) | undefined
 
-    createBrunchChromeExtension(
+    createBrunchPiExtensionShell(
       chromeStateForWorkspace(readyWorkspace(cwd, manager.getSessionId())),
       (sessionManager) => {
         boundSessionIds.push(sessionManager.getSessionId())
       },
+      { coordinator: noOpWorkspaceCoordinator(cwd) },
     )({
       on: (event: string, handler: typeof sessionStart) => {
         if (event === "session_start") {
@@ -336,6 +337,7 @@ describe("Brunch TUI boot", () => {
           messageStart = handler
         }
       },
+      registerCommand: (_name: string, _options: unknown) => {},
     } as never)
 
     await sessionStart?.({}, ctx)
@@ -364,7 +366,7 @@ describe("Brunch TUI boot", () => {
     const commands =
       new Map<string, Omit<RegisteredCommand, "name" | "sourceInfo">>()
 
-    createBrunchChromeExtension(
+    createBrunchPiExtensionShell(
       chromeStateForWorkspace(readyWorkspace("/tmp/project", "session-1")),
       undefined,
       {
@@ -509,8 +511,10 @@ describe("Brunch TUI boot", () => {
       ctx: FakeExtensionContext,
     ) => unknown>()
 
-    createBrunchChromeExtension(
+    createBrunchPiExtensionShell(
       chromeStateForWorkspace(readyWorkspace(cwd, manager.getSessionId())),
+      undefined,
+      { coordinator: noOpWorkspaceCoordinator(cwd) },
     )({
       on: (
         event: string,
@@ -518,6 +522,7 @@ describe("Brunch TUI boot", () => {
       ) => {
         handlers.set(event, handler)
       },
+      registerCommand: (_name: string, _options: unknown) => {},
     } as never)
 
     await expect(
@@ -629,6 +634,13 @@ function inventoryWithWorkspace(
       },
     ],
     unavailableSessions: [],
+  }
+}
+
+function noOpWorkspaceCoordinator(cwd: string) {
+  return {
+    inspectWorkspace: async () => emptyInventory(cwd),
+    activateWorkspace: async () => readyWorkspace(cwd, "session-1"),
   }
 }
 
