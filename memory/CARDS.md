@@ -67,7 +67,7 @@ The coordinator can report launch inventory for existing Brunch specs/sessions w
 
 ## Card 2 — Workspace decision activation
 
-- **Status:** next
+- **Status:** done
 - **Weight:** full scope card
 - **Frontier:** `pi-ui-extension-patterns` / FE-744
 
@@ -121,7 +121,7 @@ The coordinator can turn an explicit workspace decision into the resulting ready
 
 ## Card 3 — Workspace switcher decision UI
 
-- **Status:** queued
+- **Status:** next
 - **Weight:** full scope card
 - **Frontier:** `pi-ui-extension-patterns` / FE-744
 

@@ -62,7 +62,43 @@ export interface WorkspaceSessionNeedsHumanState {
   chrome: WorkspaceSessionChromeState
 }
 
+export interface WorkspaceSessionCancelledState {
+  status: "cancelled"
+  cwd: string
+  chrome: WorkspaceSessionChromeState
+}
+
 export type WorkspaceSessionState = WorkspaceSessionReadyState | WorkspaceSessionSelectSpecState | WorkspaceSessionNeedsHumanState
+
+export interface WorkspaceContinueDecision {
+  action: "continue"
+  specId: string
+  sessionFile: string
+}
+
+export interface WorkspaceOpenSessionDecision {
+  action: "openSession"
+  specId: string
+  sessionFile: string
+}
+
+export interface WorkspaceNewSessionDecision {
+  action: "newSession"
+  specId: string
+}
+
+export interface WorkspaceNewSpecDecision {
+  action: "newSpec"
+  title: string
+}
+
+export interface WorkspaceCancelDecision {
+  action: "cancel"
+}
+
+export type WorkspaceSwitchDecision = WorkspaceContinueDecision | WorkspaceOpenSessionDecision | WorkspaceNewSessionDecision | WorkspaceNewSpecDecision | WorkspaceCancelDecision
+
+export type WorkspaceActivationState = WorkspaceSessionReadyState | WorkspaceSessionNeedsHumanState | WorkspaceSessionCancelledState
 
 export interface WorkspaceLaunchSession {
   id: string
@@ -97,6 +133,9 @@ export interface WorkspaceLaunchInventory {
 
 export interface WorkspaceSessionCoordinator {
   inspectWorkspace(): Promise<WorkspaceLaunchInventory>
+  activateWorkspace(
+    decision: WorkspaceSwitchDecision,
+  ): Promise<WorkspaceActivationState>
   openExisting(): Promise<WorkspaceSessionState>
   startOrCreate(options?: {
     specTitle?: string
@@ -125,6 +164,65 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
 
   async inspectWorkspace(): Promise<WorkspaceLaunchInventory> {
     return inspectWorkspaceInventory(this.#cwd)
+  }
+
+  async activateWorkspace(
+    decision: WorkspaceSwitchDecision,
+  ): Promise<WorkspaceActivationState> {
+    if (decision.action === "cancel") {
+      const state = await readWorkspaceState(this.#cwd)
+      return {
+        status: "cancelled",
+        cwd: this.#cwd,
+        chrome: chromeState(this.#cwd, state?.currentSpec ?? null),
+      }
+    }
+
+    if (decision.action === "newSpec") {
+      return this.startOrCreate({
+        specTitle: decision.title,
+        createNewSpec: true,
+      })
+    }
+
+    const inventory = await inspectWorkspaceInventory(this.#cwd)
+    const spec = inventory.specs.find(
+      (candidate) => candidate.spec.id === decision.specId,
+    )
+
+    if (!spec) {
+      return needsHumanState(
+        this.#cwd,
+        inventory.currentSpec,
+        "Selected spec is not available in this workspace.",
+      )
+    }
+
+    if (decision.action === "newSession") {
+      const session = await createBoundSession(this.#cwd, spec.spec)
+      await writeCurrentWorkspaceState(this.#cwd, spec.spec, session.file)
+      return readyState(this.#cwd, spec.spec, session)
+    }
+
+    const session = spec.sessions.find(
+      (candidate) => candidate.file === decision.sessionFile,
+    )
+    if (!session) {
+      return needsHumanState(
+        this.#cwd,
+        inventory.currentSpec,
+        "Selected session is not available for the selected spec.",
+      )
+    }
+
+    const manager = SessionManager.open(
+      session.file,
+      sessionDir(this.#cwd),
+      this.#cwd,
+    )
+    const opened = bindSessionToSpec(manager, spec.spec)
+    await writeCurrentWorkspaceState(this.#cwd, spec.spec, opened.file)
+    return readyState(this.#cwd, spec.spec, opened)
   }
 
   async openExisting(): Promise<WorkspaceSessionState> {
@@ -436,6 +534,19 @@ function readyState(
     cwd,
     spec,
     session,
+    chrome: chromeState(cwd, spec),
+  }
+}
+
+function needsHumanState(
+  cwd: string,
+  spec: WorkspaceSpecState | null,
+  reason: string,
+): WorkspaceSessionNeedsHumanState {
+  return {
+    status: "needs_human",
+    cwd,
+    reason,
     chrome: chromeState(cwd, spec),
   }
 }

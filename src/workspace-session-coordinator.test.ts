@@ -383,6 +383,158 @@ describe("WorkspaceSessionCoordinator", () => {
     )
   })
 
+  it("activates explicit open and continue decisions as the current workspace", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+    const first = await coordinator.startOrCreate({ specTitle: "Alpha" })
+    const second = await coordinator.startOrCreate({
+      specTitle: "Beta",
+      createNewSpec: true,
+    })
+
+    const opened = await coordinator.activateWorkspace({
+      action: "openSession",
+      specId: first.spec.id,
+      sessionFile: first.session.file,
+    })
+
+    expect(opened.status).toBe("ready")
+    if (opened.status !== "ready") {
+      return
+    }
+    expect(opened.spec).toEqual(first.spec)
+    expect(opened.session.id).toBe(first.session.id)
+    expect(opened.session.file).toBe(first.session.file)
+    expect(opened.chrome.spec).toEqual(first.spec)
+
+    const continued = await coordinator.activateWorkspace({
+      action: "continue",
+      specId: second.spec.id,
+      sessionFile: second.session.file,
+    })
+
+    expect(continued.status).toBe("ready")
+    if (continued.status !== "ready") {
+      return
+    }
+    expect(continued.spec).toEqual(second.spec)
+    expect(continued.session.id).toBe(second.session.id)
+    expect(
+      JSON.parse(await readFile(join(cwd, ".brunch", "state.json"), "utf8")),
+    ).toMatchObject({
+      currentSpec: second.spec,
+      currentSessionFile: second.session.file,
+    })
+  })
+
+  it("activates a new session decision as a binding-only session for the selected spec", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+    const first = await coordinator.startOrCreate({ specTitle: "Alpha" })
+    first.session.manager.appendMessage({
+      role: "user",
+      content: "preserve me",
+    })
+    const beforeFirst = await readFile(first.session.file, "utf8")
+
+    const created = await coordinator.activateWorkspace({
+      action: "newSession",
+      specId: first.spec.id,
+    })
+
+    expect(created.status).toBe("ready")
+    if (created.status !== "ready") {
+      return
+    }
+    expect(created.spec).toEqual(first.spec)
+    expect(created.session.id).not.toBe(first.session.id)
+    await expect(readFile(first.session.file, "utf8")).resolves.toBe(
+      beforeFirst,
+    )
+    const createdContent = await readFile(created.session.file, "utf8")
+    expect(createdContent).toContain(SESSION_BINDING_TYPE)
+    expect(createdContent).not.toContain("preserve me")
+    const oracle = await verifyWorkspaceSessionStores({
+      cwd,
+      expectedSessionCount: 2,
+    })
+    expect(oracle.ok).toBe(true)
+  })
+
+  it("activates a new spec decision by creating a bound current session", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+
+    const created = await coordinator.activateWorkspace({
+      action: "newSpec",
+      title: "Gamma",
+    })
+
+    expect(created.status).toBe("ready")
+    if (created.status !== "ready") {
+      return
+    }
+    expect(created.spec.title).toBe("Gamma")
+    expect(created.session.id).toMatch(/[\da-f-]+/iu)
+    const oracle = await verifyWorkspaceSessionStores({
+      cwd,
+      expectedSessionCount: 1,
+    })
+    expect(oracle.ok).toBe(true)
+  })
+
+  it("activates cancel without mutating workspace state or session files", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+    const ready = await coordinator.startOrCreate({ specTitle: "Alpha" })
+    const beforeState = await readFile(
+      join(cwd, ".brunch", "state.json"),
+      "utf8",
+    )
+    const beforeSession = await readFile(ready.session.file, "utf8")
+
+    const result = await coordinator.activateWorkspace({ action: "cancel" })
+
+    expect(result.status).toBe("cancelled")
+    await expect(
+      readFile(join(cwd, ".brunch", "state.json"), "utf8"),
+    ).resolves.toBe(beforeState)
+    await expect(readFile(ready.session.file, "utf8")).resolves.toBe(
+      beforeSession,
+    )
+  })
+
+  it("refuses to activate mismatched or unavailable sessions", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+    const ready = await coordinator.startOrCreate({ specTitle: "Alpha" })
+    const unavailableFile = join(
+      cwd,
+      ".brunch",
+      "sessions",
+      "unavailable.jsonl",
+    )
+    await writeFile(
+      unavailableFile,
+      `${JSON.stringify({ type: "session", id: "unavailable-session", cwd })}\n`,
+      "utf8",
+    )
+
+    const unavailable = await coordinator.activateWorkspace({
+      action: "openSession",
+      specId: ready.spec.id,
+      sessionFile: unavailableFile,
+    })
+    const mismatched = await coordinator.activateWorkspace({
+      action: "openSession",
+      specId: "spec-missing",
+      sessionFile: ready.session.file,
+    })
+
+    expect(unavailable.status).toBe("needs_human")
+    expect(mismatched.status).toBe("needs_human")
+  })
+
   it("keeps inventory scanning out of activation and binding helpers", async () => {
     const source = await readFile(
       new URL("./workspace-session-coordinator.ts", import.meta.url),
@@ -390,7 +542,7 @@ describe("WorkspaceSessionCoordinator", () => {
     )
     const inspectMethod = source.slice(
       source.indexOf("async inspectWorkspace()"),
-      source.indexOf("async openExisting()"),
+      source.indexOf("async activateWorkspace("),
     )
 
     expect(inspectMethod).not.toContain("bindSessionToSpec")
