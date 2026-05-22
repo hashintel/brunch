@@ -66,8 +66,6 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
   streaming: boolean
 }
 
-type BrunchChromeInputState = WorkspaceSessionChromeState | BrunchChromeState
-
 export async function runBrunchTui(
   options: BrunchTuiOptions = {},
 ): Promise<void> {
@@ -93,19 +91,15 @@ export async function runBrunchTui(
 }
 
 export function formatBrunchChromeHeaderLines(
-  state: BrunchChromeInputState,
+  chrome: BrunchChromeState,
 ): string[] {
-  const chrome = normalizeBrunchChromeState(state)
   return [
     "brunch specification workspace",
     `${formatSpec(chrome)} · ${formatSession(chrome)} · ${chrome.phase}`,
   ]
 }
 
-export function formatChromeWidgetLines(
-  state: BrunchChromeInputState,
-): string[] {
-  const chrome = normalizeBrunchChromeState(state)
+export function formatChromeWidgetLines(chrome: BrunchChromeState): string[] {
   return [
     `cwd: ${chrome.cwd}`,
     `spec: ${formatSpec(chrome)}  session: ${formatSession(chrome)}  stage: ${chrome.stage}`,
@@ -115,9 +109,8 @@ export function formatChromeWidgetLines(
 }
 
 export function formatBrunchChromeFooterLines(
-  state: BrunchChromeInputState,
+  chrome: BrunchChromeState,
 ): string[] {
-  const chrome = normalizeBrunchChromeState(state)
   const offer = chrome.latestEstablishmentOfferSummary
     ? `offer: ${chrome.latestEstablishmentOfferSummary}`
     : "offer: none"
@@ -150,9 +143,8 @@ export function chromeStateForWorkspace(
 
 export function renderBrunchChrome(
   ui: Pick<ExtensionUIContext, "setFooter" | "setHeader" | "setStatus" | "setWidget" | "setWorkingIndicator" | "setTitle">,
-  state: BrunchChromeInputState,
+  chrome: BrunchChromeState,
 ): void {
-  const chrome = normalizeBrunchChromeState(state)
   ui.setHeader(() => ({
     render: () => formatBrunchChromeHeaderLines(chrome),
     invalidate: () => {},
@@ -174,27 +166,6 @@ export function renderBrunchChrome(
   ui.setTitle(`brunch — ${chrome.spec?.title ?? chrome.cwd}`)
 }
 
-function normalizeBrunchChromeState(
-  state: BrunchChromeInputState,
-): BrunchChromeState {
-  if ("session" in state) {
-    return state
-  }
-  return {
-    ...state,
-    session: { id: "unbound" },
-    stage: state.phase === "elicitation" ? "idle" : "idle",
-    activeLens: null,
-    coherenceVerdict: "unknown",
-    observerStatus: "idle",
-    reviewerStatus: "idle",
-    reconcilerStatus: "idle",
-    reconciliationNeedCount: 0,
-    latestEstablishmentOfferSummary: null,
-    streaming: false,
-  }
-}
-
 function formatSpec(chrome: BrunchChromeState): string {
   return chrome.spec?.title ?? "no spec selected"
 }
@@ -204,7 +175,7 @@ function formatSession(chrome: BrunchChromeState): string {
 }
 
 export function createBrunchChromeExtension(
-  chrome: BrunchChromeInputState,
+  chrome: BrunchChromeState,
   onSessionBoundary?: (sessionManager: SessionManager) => Promise<void> | void,
 ): ExtensionFactory {
   return (pi) => {

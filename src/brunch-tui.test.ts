@@ -332,12 +332,7 @@ describe("Brunch TUI boot", () => {
     ) => Promise<void>) | undefined
 
     createBrunchChromeExtension(
-      {
-        cwd,
-        spec: { id: "spec-1", title: "Spec One" },
-        phase: "elicitation",
-        chatMode: "responding-to-elicitation",
-      },
+      chromeStateForWorkspace(readyWorkspace(cwd, manager.getSessionId())),
       (sessionManager) => {
         boundSessionIds.push(sessionManager.getSessionId())
       },
@@ -398,12 +393,9 @@ describe("Brunch TUI boot", () => {
       ctx: FakeExtensionContext,
     ) => unknown>()
 
-    createBrunchChromeExtension({
-      cwd,
-      spec: { id: "spec-1", title: "Spec One" },
-      phase: "elicitation",
-      chatMode: "responding-to-elicitation",
-    })({
+    createBrunchChromeExtension(
+      chromeStateForWorkspace(readyWorkspace(cwd, manager.getSessionId())),
+    )({
       on: (
         event: string,
         handler: (event: unknown, ctx: FakeExtensionContext) => unknown,
