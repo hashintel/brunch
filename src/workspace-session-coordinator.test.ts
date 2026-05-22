@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -258,6 +258,145 @@ describe("WorkspaceSessionCoordinator", () => {
     expect(oracle.sessions.every((session) => session.bindingCount === 1)).toBe(
       true,
     )
+  })
+
+  it("inspects current defaults, bound specs, and sessions without activation writes", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+
+    const first = await coordinator.startOrCreate({ specTitle: "Alpha" })
+    first.session.manager.appendMessage({ role: "user", content: "first" })
+    const second = await coordinator.startOrCreate({
+      specTitle: "Beta",
+      createNewSpec: true,
+    })
+    const beforeState = await readFile(
+      join(cwd, ".brunch", "state.json"),
+      "utf8",
+    )
+    const beforeFirst = await readFile(first.session.file, "utf8")
+    const beforeSecond = await readFile(second.session.file, "utf8")
+
+    const inventory = await coordinator.inspectWorkspace()
+
+    expect(inventory.cwd).toBe(cwd)
+    expect(inventory.needsNewSpec).toBe(false)
+    expect(inventory.currentSpec).toEqual(second.spec)
+    expect(inventory.currentSessionFile).toBe(second.session.file)
+    expect(inventory.specs.map(({ spec }) => spec.title)).toEqual([
+      "Alpha",
+      "Beta",
+    ])
+    expect(inventory.specs[0]?.sessions).toEqual([
+      expect.objectContaining({
+        id: first.session.id,
+        file: first.session.file,
+        specId: first.spec.id,
+        specTitle: "Alpha",
+        available: true,
+      }),
+    ])
+    expect(inventory.specs[1]?.sessions).toEqual([
+      expect.objectContaining({
+        id: second.session.id,
+        file: second.session.file,
+        specId: second.spec.id,
+        specTitle: "Beta",
+        available: true,
+      }),
+    ])
+    expect(inventory.unavailableSessions).toEqual([])
+    await expect(
+      readFile(join(cwd, ".brunch", "state.json"), "utf8"),
+    ).resolves.toBe(beforeState)
+    await expect(readFile(first.session.file, "utf8")).resolves.toBe(
+      beforeFirst,
+    )
+    await expect(readFile(second.session.file, "utf8")).resolves.toBe(
+      beforeSecond,
+    )
+  })
+
+  it("inspects an empty workspace without creating session files", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+
+    const inventory = await coordinator.inspectWorkspace()
+
+    expect(inventory).toMatchObject({
+      cwd,
+      currentSpec: null,
+      currentSessionFile: null,
+      needsNewSpec: true,
+      specs: [],
+      unavailableSessions: [],
+    })
+    await expect(
+      readFile(join(cwd, ".brunch", "sessions", "missing.jsonl"), "utf8"),
+    ).rejects.toMatchObject({ code: "ENOENT" })
+  })
+
+  it("marks unbound or incompatible sessions unavailable during inventory", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+    const ready = await coordinator.startOrCreate({ specTitle: "Alpha" })
+    const unboundFile = join(cwd, ".brunch", "sessions", "unbound.jsonl")
+    const mismatchedFile = join(cwd, ".brunch", "sessions", "mismatched.jsonl")
+    await writeFile(
+      unboundFile,
+      `${JSON.stringify({ type: "session", id: "unbound-session", cwd })}\n`,
+      "utf8",
+    )
+    await writeFile(
+      mismatchedFile,
+      `${JSON.stringify({ type: "session", id: "header-session", cwd })}\n${JSON.stringify(
+        {
+          type: "custom",
+          customType: SESSION_BINDING_TYPE,
+          data: {
+            schemaVersion: 1,
+            sessionId: "other-session",
+            specId: ready.spec.id,
+            specTitle: ready.spec.title,
+          },
+        },
+      )}\n`,
+      "utf8",
+    )
+    const beforeUnbound = await readFile(unboundFile, "utf8")
+    const beforeMismatched = await readFile(mismatchedFile, "utf8")
+
+    const inventory = await coordinator.inspectWorkspace()
+
+    expect(inventory.specs).toHaveLength(1)
+    expect(inventory.specs[0]?.sessions).toHaveLength(1)
+    expect(inventory.unavailableSessions).toEqual([
+      expect.objectContaining({
+        file: mismatchedFile,
+        reason: "incompatible_binding",
+      }),
+      expect.objectContaining({ file: unboundFile, reason: "missing_binding" }),
+    ])
+    await expect(readFile(unboundFile, "utf8")).resolves.toBe(beforeUnbound)
+    await expect(readFile(mismatchedFile, "utf8")).resolves.toBe(
+      beforeMismatched,
+    )
+  })
+
+  it("keeps inventory scanning out of activation and binding helpers", async () => {
+    const source = await readFile(
+      new URL("./workspace-session-coordinator.ts", import.meta.url),
+      "utf8",
+    )
+    const inspectMethod = source.slice(
+      source.indexOf("async inspectWorkspace()"),
+      source.indexOf("async openExisting()"),
+    )
+
+    expect(inspectMethod).not.toContain("bindSessionToSpec")
+    expect(inspectMethod).not.toContain("appendCustomEntry")
+    expect(inspectMethod).not.toContain("SessionManager.create")
+    expect(inspectMethod).not.toContain("writeCurrentWorkspaceState")
   })
 
   it("asks for spec selection when no current spec exists and creation is not allowed", async () => {

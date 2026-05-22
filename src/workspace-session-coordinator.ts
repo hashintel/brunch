@@ -64,7 +64,39 @@ export interface WorkspaceSessionNeedsHumanState {
 
 export type WorkspaceSessionState = WorkspaceSessionReadyState | WorkspaceSessionSelectSpecState | WorkspaceSessionNeedsHumanState
 
+export interface WorkspaceLaunchSession {
+  id: string
+  file: string
+  specId: string
+  specTitle: string
+  name?: string
+  available: true
+}
+
+export interface WorkspaceLaunchSpec {
+  spec: WorkspaceSpecState
+  sessions: WorkspaceLaunchSession[]
+}
+
+export type WorkspaceUnavailableSessionReason = "missing_header" | "missing_binding" | "incompatible_binding"
+
+export interface WorkspaceUnavailableSession {
+  file: string
+  reason: WorkspaceUnavailableSessionReason
+  available: false
+}
+
+export interface WorkspaceLaunchInventory {
+  cwd: string
+  currentSpec: WorkspaceSpecState | null
+  currentSessionFile: string | null
+  needsNewSpec: boolean
+  specs: WorkspaceLaunchSpec[]
+  unavailableSessions: WorkspaceUnavailableSession[]
+}
+
 export interface WorkspaceSessionCoordinator {
+  inspectWorkspace(): Promise<WorkspaceLaunchInventory>
   openExisting(): Promise<WorkspaceSessionState>
   startOrCreate(options?: {
     specTitle?: string
@@ -89,6 +121,10 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
 
   constructor(cwd: string) {
     this.#cwd = cwd
+  }
+
+  async inspectWorkspace(): Promise<WorkspaceLaunchInventory> {
+    return inspectWorkspaceInventory(this.#cwd)
   }
 
   async openExisting(): Promise<WorkspaceSessionState> {
@@ -278,6 +314,96 @@ async function readWorkspaceState(
     }
     throw error
   }
+}
+
+async function inspectWorkspaceInventory(
+  cwd: string,
+): Promise<WorkspaceLaunchInventory> {
+  const state = await readWorkspaceState(cwd)
+  const files = await listSessionFiles(cwd)
+  const specsById = new Map<string, WorkspaceLaunchSpec>()
+  const unavailableSessions: WorkspaceUnavailableSession[] = []
+
+  if (state) {
+    specsById.set(state.currentSpec.id, {
+      spec: state.currentSpec,
+      sessions: [],
+    })
+  }
+
+  for (const file of files) {
+    const session = await inspectSessionFile(file)
+    if (session.available) {
+      const spec = getOrCreateLaunchSpec(specsById, {
+        id: session.specId,
+        title: session.specTitle,
+      })
+      spec.sessions.push(session)
+    } else {
+      unavailableSessions.push(session)
+    }
+  }
+
+  const specs = [...specsById.values()]
+    .map((spec) => ({
+      ...spec,
+      sessions: spec.sessions.sort((left, right) =>
+        left.file.localeCompare(right.file),
+      ),
+    }))
+    .sort((left, right) => left.spec.title.localeCompare(right.spec.title))
+
+  return {
+    cwd,
+    currentSpec: state?.currentSpec ?? null,
+    currentSessionFile: state?.currentSessionFile ?? null,
+    needsNewSpec: specs.length === 0,
+    specs,
+    unavailableSessions: unavailableSessions.sort((left, right) =>
+      left.file.localeCompare(right.file),
+    ),
+  }
+}
+
+type InspectedSessionFile = WorkspaceLaunchSession | WorkspaceUnavailableSession
+
+async function inspectSessionFile(file: string): Promise<InspectedSessionFile> {
+  const entries = await readJsonl(file)
+  const header = entries.find(isSessionHeader)
+  if (!header) {
+    return { file, reason: "missing_header", available: false }
+  }
+
+  const bindings = entries.filter(isSessionBindingEntry)
+  if (bindings.length === 0) {
+    return { file, reason: "missing_binding", available: false }
+  }
+
+  const binding = bindings[0]!
+  if (bindings.length !== 1 || binding.data.sessionId !== header.id) {
+    return { file, reason: "incompatible_binding", available: false }
+  }
+
+  return {
+    id: header.id,
+    file,
+    specId: binding.data.specId,
+    specTitle: binding.data.specTitle,
+    available: true,
+  }
+}
+
+function getOrCreateLaunchSpec(
+  specsById: Map<string, WorkspaceLaunchSpec>,
+  spec: WorkspaceSpecState,
+): WorkspaceLaunchSpec {
+  const existing = specsById.get(spec.id)
+  if (existing) {
+    return existing
+  }
+  const created = { spec, sessions: [] }
+  specsById.set(spec.id, created)
+  return created
 }
 
 async function writeWorkspaceState(
