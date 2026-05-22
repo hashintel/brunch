@@ -203,6 +203,49 @@ describe("JSON-RPC handlers", () => {
     })
   })
 
+  it("serves transcript display rows by durable session id without opening the selected workspace session", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-display-"))
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
+    const workspace = await coordinatorInstance.startOrCreate({
+      specTitle: "Display spec",
+    })
+    workspace.session.manager.appendMessage({
+      role: "assistant",
+      content: "Display question",
+    })
+    workspace.session.manager.appendMessage({
+      role: "user",
+      content: "Display answer",
+    })
+    const handlers = createRpcHandlers({
+      coordinator: {
+        ...coordinatorInstance,
+        async openExisting() {
+          throw new Error("explicit reads must not open selected session")
+        },
+      },
+      cwd,
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 13,
+        method: "session.transcriptDisplay",
+        params: { sessionId: workspace.session.id, specId: workspace.spec.id },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 13,
+      result: {
+        rows: [
+          { role: "assistant", text: "Display question" },
+          { role: "user", text: "Display answer" },
+        ],
+      },
+    })
+  })
+
   it("does not parse durable session bindings inside the RPC handler module", async () => {
     const source = await readFile(new URL("./rpc.ts", import.meta.url), "utf8")
 

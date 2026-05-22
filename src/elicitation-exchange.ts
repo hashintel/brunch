@@ -37,6 +37,16 @@ export interface ElicitationExchangeProjection {
   openPrompt: OpenPromptProjection | null
 }
 
+export interface TranscriptDisplayRow {
+  id: string
+  role: "assistant" | "user"
+  text: string
+}
+
+export interface TranscriptDisplayProjection {
+  rows: TranscriptDisplayRow[]
+}
+
 export class NonLinearTranscriptError extends Error {
   readonly code = "BRUNCH_NON_LINEAR_TRANSCRIPT"
 
@@ -50,6 +60,36 @@ export async function loadLinearElicitationExchangeProjection(
   file: string,
 ): Promise<ElicitationExchangeProjection> {
   return projectElicitationExchanges(await loadJsonlTranscriptEntries(file))
+}
+
+export async function loadLinearTranscriptDisplayProjection(
+  file: string,
+): Promise<TranscriptDisplayProjection> {
+  return projectTranscriptDisplay(await loadJsonlTranscriptEntries(file))
+}
+
+export function projectTranscriptDisplay(
+  entries: readonly unknown[],
+): TranscriptDisplayProjection {
+  const rows: TranscriptDisplayRow[] = []
+  for (const entry of entries) {
+    if (!isSessionEntry(entry) || !isMessageEntry(entry)) {
+      continue
+    }
+
+    const role = entry.message.role
+    if (role !== "assistant" && role !== "user") {
+      continue
+    }
+
+    const text = textContent(entry.message.content)
+    if (text.length === 0) {
+      continue
+    }
+
+    rows.push({ id: entry.id, role, text })
+  }
+  return { rows }
 }
 
 export async function loadJsonlTranscriptEntries(
@@ -257,4 +297,25 @@ function roleOf(
 
 function isMessageEntry(entry: SessionEntry): entry is SessionMessageEntry {
   return entry.type === "message"
+}
+
+function textContent(content: unknown): string {
+  if (typeof content === "string") {
+    return content
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((part) =>
+        typeof part === "object" &&
+        part !== null &&
+        typeof (part as { text?: unknown }).text === "string"
+          ? (part as { text: string }).text
+          : "",
+      )
+      .filter((text) => text.length > 0)
+      .join("\n")
+  }
+
+  return ""
 }

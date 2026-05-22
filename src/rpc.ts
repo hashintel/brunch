@@ -3,6 +3,7 @@ import type { Readable, Writable } from "node:stream"
 
 import {
   loadLinearElicitationExchangeProjection,
+  loadLinearTranscriptDisplayProjection,
   NonLinearTranscriptError,
 } from "./elicitation-exchange.js"
 import {
@@ -11,6 +12,7 @@ import {
   isJsonRpcRequest,
   jsonRpcRequestId,
   dispatchJsonRpcMessage,
+  type JsonRpcId,
   type JsonRpcResponse,
 } from "./json-rpc-protocol.js"
 import { workspaceSnapshotFromState } from "./print-snapshot.js"
@@ -49,40 +51,56 @@ export function createRpcHandlers(options: {
       }
 
       if (request.method === "session.elicitationExchanges") {
-        const params = parseSessionProjectionParams(request.params)
-        if (!params.ok) {
-          return createJsonRpcFailure(requestId, -32602, "Invalid params")
-        }
+        return handleSessionProjection(
+          requestId,
+          request.params,
+          options,
+          loadLinearElicitationExchangeProjection,
+        )
+      }
 
-        const target = params.value
-          ? await resolveExplicitSessionProjectionTarget(
-              options.cwd,
-              params.value,
-            )
-          : selectedSessionFile(await options.coordinator.openExisting())
-        if (!target.ok) {
-          return createJsonRpcFailure(requestId, target.code, target.message)
-        }
-
-        try {
-          return createJsonRpcSuccess(
-            requestId,
-            await loadLinearElicitationExchangeProjection(target.file),
-          )
-        } catch (error) {
-          if (error instanceof NonLinearTranscriptError) {
-            return createJsonRpcFailure(
-              requestId,
-              -32002,
-              target.nonLinearMessage,
-            )
-          }
-          throw error
-        }
+      if (request.method === "session.transcriptDisplay") {
+        return handleSessionProjection(
+          requestId,
+          request.params,
+          options,
+          loadLinearTranscriptDisplayProjection,
+        )
       }
 
       return createJsonRpcFailure(requestId, -32601, "Method not found")
     },
+  }
+}
+
+async function handleSessionProjection<T>(
+  requestId: JsonRpcId,
+  rawParams: unknown,
+  options: {
+    coordinator: WorkspaceSessionCoordinator
+    cwd: string
+  },
+  loadProjection: (file: string) => Promise<T>,
+): Promise<JsonRpcResponse> {
+  const params = parseSessionProjectionParams(rawParams)
+  if (!params.ok) {
+    return createJsonRpcFailure(requestId, -32602, "Invalid params")
+  }
+
+  const target = params.value
+    ? await resolveExplicitSessionProjectionTarget(options.cwd, params.value)
+    : selectedSessionFile(await options.coordinator.openExisting())
+  if (!target.ok) {
+    return createJsonRpcFailure(requestId, target.code, target.message)
+  }
+
+  try {
+    return createJsonRpcSuccess(requestId, await loadProjection(target.file))
+  } catch (error) {
+    if (error instanceof NonLinearTranscriptError) {
+      return createJsonRpcFailure(requestId, -32002, target.nonLinearMessage)
+    }
+    throw error
   }
 }
 

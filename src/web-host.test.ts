@@ -240,6 +240,12 @@ describe("web host", () => {
         method: "session.elicitationExchanges",
         params: { sessionId: first.session.id, specId: first.spec.id },
       })
+      const display = await websocketRpc(host.url, {
+        jsonrpc: "2.0",
+        id: 15,
+        method: "session.transcriptDisplay",
+        params: { sessionId: first.session.id, specId: first.spec.id },
+      })
 
       expect(response).toMatchObject({
         jsonrpc: "2.0",
@@ -247,6 +253,16 @@ describe("web host", () => {
         result: {
           status: "ready",
           exchanges: [{ promptEntryIds: [expect.any(String)] }],
+        },
+      })
+      expect(display).toMatchObject({
+        jsonrpc: "2.0",
+        id: 15,
+        result: {
+          rows: [
+            { role: "assistant", text: "First question" },
+            { role: "user", text: "First answer" },
+          ],
         },
       })
     } finally {

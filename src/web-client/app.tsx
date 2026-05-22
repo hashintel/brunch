@@ -12,7 +12,7 @@ import {
 } from "@tanstack/react-router"
 import { Suspense } from "react"
 
-import type { ElicitationExchangeProjection } from "../elicitation-exchange.js"
+import type { TranscriptDisplayProjection } from "../elicitation-exchange.js"
 import type { WorkspaceSnapshot } from "../print-snapshot.js"
 import type { WebSocketRpcClient } from "./rpc-client.js"
 
@@ -97,19 +97,19 @@ function workspaceSnapshotQueryOptions(rpcClient: WebSocketRpcClient) {
   })
 }
 
-function sessionElicitationExchangesQueryOptions(
+function sessionTranscriptDisplayQueryOptions(
   rpcClient: WebSocketRpcClient,
   snapshot: WorkspaceSnapshot,
 ) {
   return {
     queryKey: [
-      "session.elicitationExchanges",
+      "session.transcriptDisplay",
       snapshot.session?.id ?? null,
       snapshot.spec?.id ?? null,
     ],
     queryFn: () =>
-      rpcClient.request<ElicitationExchangeProjection>(
-        "session.elicitationExchanges",
+      rpcClient.request<TranscriptDisplayProjection>(
+        "session.transcriptDisplay",
         {
           sessionId: snapshot.session!.id,
           specId: snapshot.spec!.id,
@@ -126,7 +126,7 @@ function WorkspaceSnapshotPage() {
     workspaceSnapshotQueryOptions(rpcClient),
   )
   const projection = useQuery(
-    sessionElicitationExchangesQueryOptions(rpcClient, snapshot),
+    sessionTranscriptDisplayQueryOptions(rpcClient, snapshot),
   )
 
   return (
@@ -161,7 +161,7 @@ function WorkspaceSnapshotPage() {
 
 function TranscriptPanel(options: {
   snapshot: WorkspaceSnapshot
-  projection: ReturnType<typeof useQuery<ElicitationExchangeProjection>>
+  projection: ReturnType<typeof useQuery<TranscriptDisplayProjection>>
 }) {
   if (!options.snapshot.session || !options.snapshot.spec) {
     return (
@@ -191,17 +191,20 @@ function TranscriptPanel(options: {
   }
 
   const projection = options.projection.data
-  const exchangeCount = projection.exchanges.length
   return (
     <section aria-label="Session transcript">
       <h2>Session transcript</h2>
-      <p>{`${exchangeCount} ${
-        exchangeCount === 1 ? "exchange" : "exchanges"
-      }`}</p>
-      <p>{`Transcript status: ${projection.status}`}</p>
-      {projection.openPrompt ? (
-        <p>{`Open prompt: ${projection.openPrompt.promptRange.start}`}</p>
-      ) : null}
+      {projection.rows.length === 0 ? <p>No transcript messages yet.</p> : null}
+      <ol>
+        {projection.rows.map((row) => (
+          <li key={row.id}>
+            <article aria-label={`${row.role} message`}>
+              <strong>{row.role}</strong>
+              <p>{row.text}</p>
+            </article>
+          </li>
+        ))}
+      </ol>
     </section>
   )
 }

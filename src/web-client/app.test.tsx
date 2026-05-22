@@ -3,7 +3,7 @@
 import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import type { ElicitationExchangeProjection } from "../elicitation-exchange.js"
+import type { TranscriptDisplayProjection } from "../elicitation-exchange.js"
 import type { WorkspaceSnapshot } from "../print-snapshot.js"
 import { BrunchWebApp, createBrunchWebRuntime } from "./app.js"
 import type { WebSocketRpcClient } from "./rpc-client.js"
@@ -34,22 +34,16 @@ const selectSpecSnapshot: WorkspaceSnapshot = {
   },
 }
 
-const readyProjection: ElicitationExchangeProjection = {
-  status: "ready",
-  exchanges: [
-    {
-      promptRange: { start: "prompt-1", end: "prompt-1" },
-      responseRange: { start: "response-1", end: "response-1" },
-      promptEntryIds: ["prompt-1"],
-      responseEntryIds: ["response-1"],
-    },
+const readyProjection: TranscriptDisplayProjection = {
+  rows: [
+    { id: "assistant-1", role: "assistant", text: "What should we build?" },
+    { id: "user-1", role: "user", text: "A read-only dashboard." },
   ],
-  openPrompt: null,
 }
 
 function rpcClient(options?: {
   snapshot?: WorkspaceSnapshot
-  projection?: ElicitationExchangeProjection
+  projection?: TranscriptDisplayProjection
   projectionError?: Error
   calls?: RpcCall[]
 }): WebSocketRpcClient {
@@ -62,7 +56,7 @@ function rpcClient(options?: {
       if (method === "workspace.snapshot") {
         return snapshot
       }
-      if (method === "session.elicitationExchanges") {
+      if (method === "session.transcriptDisplay") {
         if (options?.projectionError) {
           throw options.projectionError
         }
@@ -95,34 +89,23 @@ describe("Brunch React web app", () => {
 
     render(<BrunchWebApp runtime={runtime} />)
 
-    expect(await screen.findByText("1 exchange")).toBeTruthy()
-    expect(screen.getByText("Transcript status: ready")).toBeTruthy()
+    expect(await screen.findByText("What should we build?")).toBeTruthy()
+    expect(screen.getByText("A read-only dashboard.")).toBeTruthy()
     expect(calls).toContainEqual({ method: "workspace.snapshot" })
     expect(calls).toContainEqual({
-      method: "session.elicitationExchanges",
+      method: "session.transcriptDisplay",
       params: { sessionId: "session-1", specId: "spec-1" },
     })
   })
 
-  it("renders open-prompt projection state", async () => {
+  it("renders an empty transcript display state", async () => {
     const runtime = createBrunchWebRuntime({
-      rpcClient: rpcClient({
-        projection: {
-          status: "open_prompt",
-          exchanges: [],
-          openPrompt: {
-            promptRange: { start: "prompt-open", end: "prompt-open" },
-            promptEntryIds: ["prompt-open"],
-          },
-        },
-      }),
+      rpcClient: rpcClient({ projection: { rows: [] } }),
     })
 
     render(<BrunchWebApp runtime={runtime} />)
 
-    expect(await screen.findByText("0 exchanges")).toBeTruthy()
-    expect(screen.getByText("Transcript status: open_prompt")).toBeTruthy()
-    expect(screen.getByText("Open prompt: prompt-open")).toBeTruthy()
+    expect(await screen.findByText("No transcript messages yet.")).toBeTruthy()
   })
 
   it("does not request session projection when no session is selected", async () => {

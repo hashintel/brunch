@@ -138,7 +138,7 @@ Treat browser WebSocket `error` events as terminal connection failures until an 
 
 ## Card 4 — Transcript display projection
 
-**Status:** next  
+**Status:** done  
 **Weight:** full scope card
 
 ### Target Behavior
@@ -188,7 +188,7 @@ The browser transcript panel renders user/assistant transcript text from the sel
 
 ## Card 5 — M3 manual browser smoke and projection postconditions
 
-**Status:** queued  
+**Status:** next  
 **Weight:** light scope card
 
 ### Objective

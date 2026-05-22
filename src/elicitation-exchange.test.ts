@@ -8,6 +8,7 @@ import { SessionManager } from "@earendil-works/pi-coding-agent"
 import {
   loadJsonlTranscriptEntries,
   loadLinearElicitationExchangeProjection,
+  loadLinearTranscriptDisplayProjection,
   NonLinearTranscriptError,
   projectElicitationExchanges,
 } from "./elicitation-exchange.js"
@@ -168,6 +169,22 @@ describe("elicitation exchange projection", () => {
     expect(projection.exchanges[0]?.responseEntryIds[0]).toEqual(
       expect.any(String),
     )
+  })
+
+  it("loads displayable assistant and user transcript rows", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-display-"))
+    const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    manager.appendMessage({ role: "assistant", content: "Question" })
+    manager.appendMessage({ role: "user", content: "Answer" })
+
+    const projection = await loadLinearTranscriptDisplayProjection(
+      manager.getSessionFile()!,
+    )
+
+    expect(projection.rows).toEqual([
+      { id: expect.any(String), role: "assistant", text: "Question" },
+      { id: expect.any(String), role: "user", text: "Answer" },
+    ])
   })
 
   it("preserves the non-linear error discriminant through the product helper", async () => {
