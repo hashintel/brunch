@@ -155,7 +155,7 @@ export function brunchResourceLoaderOptions(
 }
 
 export function applyBrunchOfflineDefault(
-  env: Pick<NodeJS.ProcessEnv, "PI_OFFLINE"> = process.env,
+  env: { PI_OFFLINE?: string } = process.env,
 ): void {
   env.PI_OFFLINE ??= "1"
 }
