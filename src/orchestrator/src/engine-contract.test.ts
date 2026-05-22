@@ -1,3 +1,7 @@
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { createOrchestrator } from './engine.js';
@@ -1112,7 +1116,7 @@ describe('Adapter: sandbox-per-slice isolation', () => {
     expect(sandboxDirs.size).toBeGreaterThanOrEqual(2);
   });
 
-  it('verify-epic receives the parent sandboxDir (not per-slice)', async () => {
+  it('verify-epic receives a merged epic sandbox under <parent>/__epic__/<epicId>/ (not per-slice, not parent)', async () => {
     const verifyPlan: Plan = {
       epics: [
         {
@@ -1133,27 +1137,46 @@ describe('Adapter: sandbox-per-slice isolation', () => {
       ],
     };
 
-    let verifyEpicSandboxDir = '';
-    const fakes = createFakes({ evalSequence: [true], semanticResults: [true], verifyEpicResult: true });
-    const trackingActions: ActionHandlers = {};
-    for (const [key, handler] of Object.entries(fakes.actions)) {
-      trackingActions[key] = async (ctx: ActionContext) => {
-        if (key === 'verify-epic') verifyEpicSandboxDir = ctx.sandboxDir;
-        return handler!(ctx);
-      };
+    const parent = mkdtempSync(join(tmpdir(), 'cook-ec-'));
+    try {
+      // Seed the per-slice worktree with a file so the merge has something to copy.
+      mkdirSync(join(parent, 'sv'), { recursive: true });
+      writeFileSync(join(parent, 'sv', 'sv-marker.txt'), 'from-slice-sv');
+
+      let verifyEpicSandboxDir = '';
+      const fakes = createFakes({ evalSequence: [true], semanticResults: [true], verifyEpicResult: true });
+      const trackingActions: ActionHandlers = {};
+      for (const [key, handler] of Object.entries(fakes.actions)) {
+        trackingActions[key] = async (ctx: ActionContext) => {
+          if (key === 'verify-epic') verifyEpicSandboxDir = ctx.sandboxDir;
+          return handler!(ctx);
+        };
+      }
+
+      const result = await createOrchestrator('serial').run({
+        plan: verifyPlan,
+        sandboxDir: parent,
+        actions: trackingActions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+      });
+
+      expect(result.status).toBe('completed');
+      expect(verifyEpicSandboxDir).toBe(join(parent, '__epic__', 'ev'));
+      // Merge produced a real dir holding the slice's seed file.
+      expect(existsSync(join(verifyEpicSandboxDir, 'sv-marker.txt'))).toBe(true);
+
+      // An epic-sandbox-merged event was appended before verify-epic.
+      const merged = fakes.reports.getAll().find((r) => r.event === 'epic-sandbox-merged');
+      expect(merged).toBeDefined();
+      expect(merged?.payload).toMatchObject({
+        epicSandboxDir: join(parent, '__epic__', 'ev'),
+        sliceIds: ['sv'],
+        conflicts: [],
+      });
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
     }
-
-    const result = await createOrchestrator('serial').run({
-      plan: verifyPlan,
-      sandboxDir: '/tmp/run',
-      actions: trackingActions,
-      reports: fakes.reports,
-      testRunner: fakes.testRunner,
-      policy: { maxRetries: 3 },
-    });
-
-    expect(result.status).toBe('completed');
-    // verify-epic gets the parent sandbox, not /tmp/run/sv
-    expect(verifyEpicSandboxDir).toBe('/tmp/run');
   });
 });

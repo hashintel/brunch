@@ -8,6 +8,7 @@
 import { mkdirSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
 
+import { mergeSlicesIntoEpicSandbox } from './epic-sandbox-merge.js';
 import type { NetBlueprint, TokenSeed, TransitionSkeleton } from './net-blueprint.js';
 import { PetriNet } from './petri-net.js';
 import type { Token } from './petri-net.js';
@@ -504,18 +505,40 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         const { actionKey, epicId, representativeSliceId, onPassOutputs } = h;
         const epic = plan.epics.find((e) => e.id === epicId)!;
         const slice = plan.slices.find((s) => s.id === representativeSliceId)!;
-        // Epic verification runs against the parent sandbox (not a per-slice dir)
-        // so it can see artifacts from all slices. TODO: merge per-slice sandboxes
-        // into an epic-scoped dir once parallel slice isolation is production-ready.
-        const actCtx: ActionContext = {
-          slice,
-          epic,
-          plan,
-          sandboxDir: input.sandboxDir,
-          reports,
-        };
+        // Epic verification runs against a freshly-merged `__epic__/<epicId>/`
+        // dir built from this epic's completed slice worktrees.
+        const sliceIdsInDeclOrder = plan.slices.filter((s) => s.epic_id === epicId).map((s) => s.id);
 
         fire = async () => {
+          const completedSliceIds = sliceIdsInDeclOrder.filter(
+            (sid) => ctx.sliceOutcomes.get(sid)?.status === 'completed',
+          );
+          const merge = mergeSlicesIntoEpicSandbox({
+            parentSandboxDir: input.sandboxDir,
+            epicId,
+            sliceIds: completedSliceIds,
+          });
+          ctx.reportIds.push(
+            createReport(reports, {
+              epicId,
+              sliceId: '',
+              actor: 'orchestrator',
+              event: 'epic-sandbox-merged',
+              payload: {
+                epicSandboxDir: merge.epicSandboxDir,
+                sliceIds: completedSliceIds,
+                conflicts: merge.conflicts,
+              },
+            }),
+          );
+
+          const actCtx: ActionContext = {
+            slice,
+            epic,
+            plan,
+            sandboxDir: merge.epicSandboxDir,
+            reports,
+          };
           const reportId = await actions[actionKey]!(actCtx);
           ctx.reportIds.push(reportId);
           const report = reports.getById(reportId);
