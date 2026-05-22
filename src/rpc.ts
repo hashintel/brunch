@@ -27,7 +27,7 @@ export interface RpcHandlers {
 
 export function createRpcHandlers(options: {
   coordinator: WorkspaceSessionCoordinator
-  cwd?: string
+  cwd: string
 }): RpcHandlers {
   return {
     async handle(request) {
@@ -56,7 +56,7 @@ export function createRpcHandlers(options: {
 
         const target = params.value
           ? await resolveExplicitSessionProjectionTarget(
-              explicitProjectionCwd(options),
+              options.cwd,
               params.value,
             )
           : selectedSessionFile(await options.coordinator.openExisting())
@@ -134,13 +134,6 @@ function selectedSessionFile(
     file: state.session.file,
     nonLinearMessage: "Selected Brunch session transcript is non-linear",
   }
-}
-
-function explicitProjectionCwd(options: { cwd?: string }): string {
-  if (!options.cwd) {
-    throw new Error("Explicit session projection requires a workspace cwd")
-  }
-  return options.cwd
 }
 
 export async function runJsonRpcLineServer(options: {

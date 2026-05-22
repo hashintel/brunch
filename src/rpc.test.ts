@@ -90,7 +90,10 @@ async function createBranchedSessionFile(): Promise<string> {
 
 describe("JSON-RPC handlers", () => {
   it("serves a named workspace snapshot method", async () => {
-    const handlers = createRpcHandlers({ coordinator: coordinator() })
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: "/tmp/brunch-project",
+    })
 
     const result = await handlers.handle({
       jsonrpc: "2.0",
@@ -113,6 +116,7 @@ describe("JSON-RPC handlers", () => {
     const sessionFile = await createSessionFile()
     const handlers = createRpcHandlers({
       coordinator: coordinator(readyState(sessionFile)),
+      cwd: "/tmp/brunch-project",
     })
 
     await expect(
@@ -135,6 +139,7 @@ describe("JSON-RPC handlers", () => {
     const sessionFile = await createBranchedSessionFile()
     const handlers = createRpcHandlers({
       coordinator: coordinator(readyState(sessionFile)),
+      cwd: "/tmp/brunch-project",
     })
 
     await expect(
@@ -293,7 +298,10 @@ describe("JSON-RPC handlers", () => {
   })
 
   it("rejects raw file params on session elicitation exchange RPC", async () => {
-    const handlers = createRpcHandlers({ coordinator: coordinator() })
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: "/tmp/brunch-project",
+    })
 
     await expect(
       handlers.handle({
@@ -312,6 +320,7 @@ describe("JSON-RPC handlers", () => {
   it("returns a product-shaped no-session error without creating a session", async () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator(selectSpecState()),
+      cwd: "/tmp/brunch-project",
     })
 
     await expect(
@@ -328,7 +337,10 @@ describe("JSON-RPC handlers", () => {
   })
 
   it("rejects invalid request id shapes", async () => {
-    const handlers = createRpcHandlers({ coordinator: coordinator() })
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: "/tmp/brunch-project",
+    })
 
     await expect(
       handlers.handle({
@@ -344,7 +356,10 @@ describe("JSON-RPC handlers", () => {
   })
 
   it("returns structured errors for unknown methods", async () => {
-    const handlers = createRpcHandlers({ coordinator: coordinator() })
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: "/tmp/brunch-project",
+    })
 
     await expect(
       handlers.handle({ jsonrpc: "2.0", id: 2, method: "records.list" }),
@@ -364,7 +379,10 @@ describe("JSON-RPC handlers", () => {
     const done = runJsonRpcLineServer({
       input,
       output,
-      handlers: createRpcHandlers({ coordinator: coordinator() }),
+      handlers: createRpcHandlers({
+        coordinator: coordinator(),
+        cwd: "/tmp/brunch-project",
+      }),
     })
 
     input.end("not json\n")
@@ -414,7 +432,10 @@ describe("JSON-RPC handlers", () => {
     const done = runJsonRpcLineServer({
       input,
       output,
-      handlers: createRpcHandlers({ coordinator: coordinator() }),
+      handlers: createRpcHandlers({
+        coordinator: coordinator(),
+        cwd: "/tmp/brunch-project",
+      }),
     })
 
     input.end(

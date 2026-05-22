@@ -58,7 +58,7 @@ All code that creates, verifies, or reads `brunch.session_binding` uses one shar
 
 ## Card 2 — Required cwd for RPC handlers
 
-**Status:** next  
+**Status:** done  
 **Weight:** light scope card
 
 ### Objective
@@ -98,7 +98,7 @@ Make `createRpcHandlers` impossible to construct without the workspace cwd neede
 
 ## Card 3 — Terminal browser RPC socket errors
 
-**Status:** queued  
+**Status:** next  
 **Weight:** light scope card
 
 ### Objective
