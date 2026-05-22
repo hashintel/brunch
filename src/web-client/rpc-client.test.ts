@@ -111,6 +111,66 @@ describe("browser WebSocket RPC client", () => {
     } satisfies Partial<JsonRpcClientError>)
   })
 
+  it("rejects all pending requests and later calls on malformed response frames", async () => {
+    const client = rpcClient()
+    const first = client.request("workspace.snapshot")
+    const second = client.request("session.elicitationExchanges")
+    const socket = FakeWebSocket.instances[0]!
+
+    socket.emit("open")
+    socket.emit("message", "not json")
+
+    await expect(first).rejects.toThrow("Brunch WebSocket RPC protocol failure")
+    await expect(second).rejects.toThrow(
+      "Brunch WebSocket RPC protocol failure",
+    )
+    await expect(client.request("workspace.snapshot")).rejects.toThrow(
+      "Brunch WebSocket RPC protocol failure",
+    )
+  })
+
+  it("rejects all pending requests and later calls on invalid response frames", async () => {
+    const client = rpcClient()
+    const first = client.request("workspace.snapshot")
+    const second = client.request("session.elicitationExchanges")
+    const socket = FakeWebSocket.instances[0]!
+
+    socket.emit("open")
+    socket.emit(
+      "message",
+      JSON.stringify({ jsonrpc: "2.0", result: "missing id" }),
+    )
+
+    await expect(first).rejects.toThrow("Brunch WebSocket RPC protocol failure")
+    await expect(second).rejects.toThrow(
+      "Brunch WebSocket RPC protocol failure",
+    )
+    await expect(client.request("workspace.snapshot")).rejects.toThrow(
+      "Brunch WebSocket RPC protocol failure",
+    )
+  })
+
+  it("rejects all pending requests and later calls on unknown response IDs", async () => {
+    const client = rpcClient()
+    const first = client.request("workspace.snapshot")
+    const second = client.request("session.elicitationExchanges")
+    const socket = FakeWebSocket.instances[0]!
+
+    socket.emit("open")
+    socket.emit(
+      "message",
+      JSON.stringify({ jsonrpc: "2.0", id: 999, result: "unknown" }),
+    )
+
+    await expect(first).rejects.toThrow("Brunch WebSocket RPC protocol failure")
+    await expect(second).rejects.toThrow(
+      "Brunch WebSocket RPC protocol failure",
+    )
+    await expect(client.request("workspace.snapshot")).rejects.toThrow(
+      "Brunch WebSocket RPC protocol failure",
+    )
+  })
+
   it("rejects all pending requests on socket close or error", async () => {
     const client = rpcClient()
     const first = client.request("workspace.snapshot")

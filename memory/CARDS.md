@@ -105,7 +105,7 @@ Both stdio and WebSocket JSON-RPC transports map malformed JSON and handler exce
 
 ## Card 3 — Browser RPC client protocol-failure hardening
 
-**Status:** next  
+**Status:** done  
 **Weight:** light scope card
 
 ### Objective
@@ -145,7 +145,7 @@ Make malformed or invalid WebSocket JSON-RPC response frames fail the browser RP
 
 ## Card 4 — Safe static asset resolver
 
-**Status:** queued  
+**Status:** next  
 **Weight:** light scope card
 
 ### Objective

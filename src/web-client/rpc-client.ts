@@ -35,6 +35,17 @@ type PendingRequest = {
   reject(error: Error): void
 }
 
+interface ResponseFrameSuccess {
+  ok: true
+  value: JsonRpcResponse
+}
+
+interface ResponseFrameFailure {
+  ok: false
+}
+
+type ResponseFrameParseResult = ResponseFrameSuccess | ResponseFrameFailure
+
 export function createWebSocketRpcClient(options: {
   url?: string
   WebSocketImpl?: WebSocketConstructor
@@ -47,6 +58,7 @@ export function createWebSocketRpcClient(options: {
   let nextId = 1
   let isOpen = false
   let isClosed = false
+  let terminalError: Error | null = null
 
   socket.addEventListener("open", () => {
     isOpen = true
@@ -56,9 +68,16 @@ export function createWebSocketRpcClient(options: {
   })
 
   socket.addEventListener("message", (event) => {
-    const response = JSON.parse(String(event.data)) as JsonRpcResponse
+    const parsed = parseResponseFrame(event.data)
+    if (!parsed.ok) {
+      failProtocol()
+      return
+    }
+
+    const response = parsed.value
     const request = pending.get(response.id)
     if (!request) {
+      failProtocol()
       return
     }
     pending.delete(response.id)
@@ -80,6 +99,16 @@ export function createWebSocketRpcClient(options: {
     rejectPending(new Error("Brunch WebSocket RPC connection failed"))
   })
 
+  function failProtocol(): void {
+    // A malformed, uncorrelatable, or otherwise invalid server frame means the
+    // client cannot trust response correlation anymore. Close this attachment,
+    // reject pending calls, and make future requests fail immediately.
+    terminalError = new Error("Brunch WebSocket RPC protocol failure")
+    isClosed = true
+    rejectPending(terminalError)
+    socket.close()
+  }
+
   function rejectPending(error: Error): void {
     for (const request of pending.values()) {
       request.reject(error)
@@ -90,6 +119,9 @@ export function createWebSocketRpcClient(options: {
 
   return {
     request<T,>(method: string, params?: unknown): Promise<T> {
+      if (terminalError) {
+        return Promise.reject(terminalError)
+      }
       if (isClosed) {
         return Promise.reject(new Error("Brunch WebSocket RPC client closed"))
       }
@@ -126,6 +158,44 @@ export function createWebSocketRpcClient(options: {
       socket.close()
     },
   }
+}
+
+function parseResponseFrame(data: unknown): ResponseFrameParseResult {
+  try {
+    const value = JSON.parse(String(data)) as unknown
+    return isJsonRpcResponse(value) ? { ok: true, value } : { ok: false }
+  } catch {
+    return { ok: false }
+  }
+}
+
+function isJsonRpcResponse(value: unknown): value is JsonRpcResponse {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    (value as { jsonrpc?: unknown }).jsonrpc !== "2.0" ||
+    !isJsonRpcId((value as { id?: unknown }).id)
+  ) {
+    return false
+  }
+
+  if ("error" in value) {
+    const error = (value as { error?: unknown }).error
+    return (
+      typeof error === "object" &&
+      error !== null &&
+      typeof (error as { code?: unknown }).code === "number" &&
+      typeof (error as { message?: unknown }).message === "string"
+    )
+  }
+
+  return Object.hasOwn(value, "result")
+}
+
+function isJsonRpcId(value: unknown): value is JsonRpcId {
+  return (
+    value === null || typeof value === "string" || typeof value === "number"
+  )
 }
 
 function defaultRpcUrl(): string {
