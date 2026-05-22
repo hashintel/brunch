@@ -188,7 +188,7 @@ Make Vite's built `dist-web/index.html` the canonical browser shell served by we
 
 ## Card 5 — Stable React web runtime boundary
 
-**Status:** next  
+**Status:** done  
 **Weight:** light scope card
 
 ### Objective
@@ -228,7 +228,7 @@ Hoist the web app runtime so React renders do not recreate the TanStack Router, 
 
 ## Card 6 — Explicit read-only session projection target
 
-**Status:** queued  
+**Status:** next  
 **Weight:** full scope card
 
 ### Target Behavior

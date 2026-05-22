@@ -19,6 +19,13 @@ type RouterContext = {
   rpcClient: WebSocketRpcClient
 }
 
+export interface BrunchWebRuntime {
+  queryClient: QueryClient
+  rpcClient: WebSocketRpcClient
+  router: ReturnType<typeof createBrunchWebRouter>
+  dispose(): void
+}
+
 const rootRoute = createRootRouteWithContext<RouterContext>()({
   loader: ({ context }) =>
     context.queryClient.ensureQueryData(
@@ -29,15 +36,18 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
 
 const routeTree = rootRoute
 
-export function createBrunchWebRouter(rpcClient: WebSocketRpcClient) {
-  const queryClient = new QueryClient()
-
+export function createBrunchWebRouter(options: {
+  queryClient: QueryClient
+  rpcClient: WebSocketRpcClient
+}) {
   return createRouter({
     routeTree,
     defaultPreloadStaleTime: 0,
-    context: { queryClient, rpcClient },
+    context: options,
     Wrap: ({ children }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={options.queryClient}>
+        {children}
+      </QueryClientProvider>
     ),
   })
 }
@@ -48,13 +58,32 @@ declare module "@tanstack/react-router" {
   }
 }
 
-export function BrunchWebApp(options: { rpcClient: WebSocketRpcClient }) {
-  const router = createBrunchWebRouter(options.rpcClient)
+export function createBrunchWebRuntime(options: {
+  rpcClient: WebSocketRpcClient
+}): BrunchWebRuntime {
+  const queryClient = new QueryClient()
+  const router = createBrunchWebRouter({
+    queryClient,
+    rpcClient: options.rpcClient,
+  })
+
+  return {
+    queryClient,
+    rpcClient: options.rpcClient,
+    router,
+    dispose() {
+      options.rpcClient.close()
+      queryClient.clear()
+    },
+  }
+}
+
+export function BrunchWebApp(options: { runtime: BrunchWebRuntime }) {
   return (
     <Suspense
       fallback={<main aria-busy="true">Loading Brunch workspace…</main>}
     >
-      <RouterProvider router={router} />
+      <RouterProvider router={options.runtime.router} />
     </Suspense>
   )
 }
