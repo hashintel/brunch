@@ -1,7 +1,5 @@
 import process from "node:process"
 
-import { ProcessTerminal, TUI } from "@earendil-works/pi-tui"
-
 import {
   createAgentSessionFromServices,
   createAgentSessionRuntime,
@@ -24,8 +22,7 @@ import {
   chromeStateForWorkspace,
   createBrunchChromeExtension,
 } from "./pi-extensions/brunch/index.js"
-import { createWorkspaceSwitchComponent } from "./workspace-switcher.js"
-
+import { runWorkspaceSwitchPreflight } from "./workspace-switcher.js"
 export {
   BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE,
   chromeStateForWorkspace,
@@ -39,6 +36,7 @@ export {
   type BrunchChromeState,
   type BrunchChromeWorkerStatus,
 } from "./pi-extensions/brunch/index.js"
+export { runWorkspaceSwitchPreflight } from "./workspace-switcher.js"
 
 export interface BrunchTuiLaunchContext {
   workspace: WorkspaceSessionReadyState
@@ -93,28 +91,6 @@ async function chooseWorkspaceSwitchDecision(
     return title ? { action: "newSpec", title } : { action: "cancel" }
   }
   return runWorkspaceSwitchPreflight(inventory)
-}
-
-export async function runWorkspaceSwitchPreflight(
-  inventory: WorkspaceLaunchInventory,
-): Promise<WorkspaceSwitchDecision> {
-  const terminal = new ProcessTerminal()
-  const tui = new TUI(terminal)
-
-  return await new Promise<WorkspaceSwitchDecision>((resolve) => {
-    const finish = (decision: WorkspaceSwitchDecision) => {
-      tui.stop()
-      resolve(decision)
-    }
-    const component = createWorkspaceSwitchComponent({
-      inventory,
-      onDecision: finish,
-    })
-    tui.addChild(component)
-    tui.setFocus(component)
-    terminal.clearScreen()
-    tui.start()
-  })
 }
 
 async function launchPiInteractive({
