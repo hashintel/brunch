@@ -1,26 +1,10 @@
-export interface JsonRpcRequest {
-  jsonrpc: "2.0"
-  id: number
-  method: string
-  params?: unknown
-}
+import type {
+  JsonRpcFailure,
+  JsonRpcRequest,
+  JsonRpcResponse,
+} from "../json-rpc-protocol.js"
 
-export interface JsonRpcSuccess<T> {
-  jsonrpc: "2.0"
-  id: number
-  result: T
-}
-
-export interface JsonRpcFailure {
-  jsonrpc: "2.0"
-  id: number
-  error: {
-    code: number
-    message: string
-  }
-}
-
-type JsonRpcResponse<T> = JsonRpcSuccess<T> | JsonRpcFailure
+export type { JsonRpcRequest, JsonRpcResponse } from "../json-rpc-protocol.js"
 
 type WebSocketLike = Pick<WebSocket, "send" | "close" | "addEventListener">
 
@@ -28,6 +12,16 @@ type WebSocketConstructor = new (url: string) => WebSocketLike
 
 export interface WebSocketRpcClient {
   request<T>(method: string, params?: unknown): Promise<T>
+}
+
+export class JsonRpcClientError extends Error {
+  readonly code: number
+
+  constructor(error: JsonRpcFailure["error"]) {
+    super(error.message)
+    this.name = "JsonRpcClientError"
+    this.code = error.code
+  }
 }
 
 export function createWebSocketRpcClient(options: {
@@ -66,7 +60,7 @@ export function createWebSocketRpcClient(options: {
               String(event.data),
             ) as JsonRpcResponse<T>
             if ("error" in response) {
-              reject(new Error(response.error.message))
+              reject(new JsonRpcClientError(response.error))
               return
             }
             resolve(response.result)
