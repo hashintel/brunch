@@ -18,21 +18,24 @@ import {
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceLaunchInventory,
+  type WorkspaceSessionBoundaryCoordinator,
   type WorkspaceSessionChromeState,
-  type WorkspaceSessionCoordinator,
   type WorkspaceSessionReadyState,
+  type WorkspaceSwitchCoordinator,
   type WorkspaceSwitchDecision,
 } from "./workspace-session-coordinator.js"
 import { createWorkspaceSwitchComponent } from "./workspace-switcher.js"
 
 export interface BrunchTuiLaunchContext {
   workspace: WorkspaceSessionReadyState
-  coordinator: WorkspaceSessionCoordinator
+  coordinator: WorkspaceSessionBoundaryCoordinator
 }
+
+export type BrunchTuiCoordinator = WorkspaceSwitchCoordinator & WorkspaceSessionBoundaryCoordinator
 
 export interface BrunchTuiOptions {
   cwd?: string
-  coordinator?: WorkspaceSessionCoordinator
+  coordinator?: BrunchTuiCoordinator
   selectSpecTitle?: () => Promise<string | undefined>
   runWorkspaceSwitchPreflight?: (
     inventory: WorkspaceLaunchInventory,

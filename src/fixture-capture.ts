@@ -10,7 +10,9 @@ import type { WorkspaceSnapshot } from "./print-snapshot.js"
 import type { JsonRpcResponse } from "./json-rpc-protocol.js"
 import {
   createWorkspaceSessionCoordinator,
-  type WorkspaceSessionCoordinator,
+  type DefaultWorkspaceCoordinator,
+  type WorkspaceSessionBoundaryCoordinator,
+  type WorkspaceSetupCoordinator,
 } from "./workspace-session-coordinator.js"
 
 export interface FixtureCaptureOptions {
@@ -18,7 +20,7 @@ export interface FixtureCaptureOptions {
   briefId: string
   runId: string
   timestamp?: string
-  coordinator?: WorkspaceSessionCoordinator
+  coordinator?: DefaultWorkspaceCoordinator
 }
 
 export interface FixtureCaptureResult {
@@ -135,7 +137,7 @@ export async function captureDeterministicBriefRuns(
 }
 
 async function openScriptedBriefSession(
-  coordinator: WorkspaceSessionCoordinator,
+  coordinator: WorkspaceSetupCoordinator & WorkspaceSessionBoundaryCoordinator,
   brief: FixtureBrief,
 ) {
   return coordinator.createSetupSession({

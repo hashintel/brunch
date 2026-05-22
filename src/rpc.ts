@@ -25,14 +25,17 @@ import {
   type ExplicitSessionProjectionParams,
   type SessionProjectionTarget,
 } from "./session-projection-reader.js"
-import type { WorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
+import type {
+  DefaultWorkspaceCoordinator,
+  WorkspaceSessionState,
+} from "./workspace-session-coordinator.js"
 
 export interface RpcHandlers {
   handle(request: unknown): Promise<JsonRpcResponse>
 }
 
 export function createRpcHandlers(options: {
-  coordinator: WorkspaceSessionCoordinator
+  coordinator: DefaultWorkspaceCoordinator
   cwd: string
 }): RpcHandlers {
   return {
@@ -81,7 +84,7 @@ async function handleSessionProjection<T>(
   requestId: JsonRpcId,
   rawParams: unknown,
   options: {
-    coordinator: WorkspaceSessionCoordinator
+    coordinator: DefaultWorkspaceCoordinator
     cwd: string
   },
   loadProjection: (envelope: BrunchSessionEnvelope) => T,
@@ -148,7 +151,7 @@ function parseSessionProjectionParams(
 }
 
 async function selectedSessionFile(
-  state: Awaited<ReturnType<WorkspaceSessionCoordinator["openDefaultWorkspace"]>>,
+  state: WorkspaceSessionState,
 ): Promise<SessionProjectionTarget> {
   if (state.status !== "ready") {
     return { ok: false, code: -32001, message: "No selected Brunch session" }

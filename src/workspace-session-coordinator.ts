@@ -131,22 +131,41 @@ export interface WorkspaceLaunchInventory {
   unavailableSessions: WorkspaceUnavailableSession[]
 }
 
-export interface WorkspaceSessionCoordinator {
+export interface WorkspaceSwitchCoordinator {
   inspectWorkspace(): Promise<WorkspaceLaunchInventory>
   activateWorkspace(
     decision: WorkspaceSwitchDecision,
   ): Promise<WorkspaceActivationState>
+}
+
+export interface DefaultWorkspaceCoordinator {
   openDefaultWorkspace(): Promise<WorkspaceSessionState>
+}
+
+export interface WorkspaceSetupCoordinator {
   createSetupSession(options?: {
     specTitle?: string
     createNewSpec?: boolean
   }): Promise<WorkspaceSessionReadyState>
   createSetupSessionForCurrentSpec(): Promise<WorkspaceSessionState>
+}
+
+export interface WorkspaceSessionBoundaryCoordinator {
   bindCurrentSpecToReplacementSession(
     manager: SessionManager,
   ): Promise<WorkspaceSessionReadyState>
+}
+
+export interface WorkspaceDefaultChromeCoordinator {
   deriveDefaultChromeState(): Promise<WorkspaceSessionChromeState>
 }
+
+export interface WorkspaceSessionCoordinator
+  extends WorkspaceSwitchCoordinator,
+    DefaultWorkspaceCoordinator,
+    WorkspaceSetupCoordinator,
+    WorkspaceSessionBoundaryCoordinator,
+    WorkspaceDefaultChromeCoordinator {}
 
 export function createWorkspaceSessionCoordinator(options?: {
   cwd?: string

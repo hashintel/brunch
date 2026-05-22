@@ -11,12 +11,13 @@ import { createRpcHandlers, runJsonRpcLineServer } from "./rpc.js"
 import { startWebHost } from "./web-host.js"
 import {
   createWorkspaceSessionCoordinator,
+  type DefaultWorkspaceCoordinator,
   type WorkspaceSessionCoordinator,
 } from "./workspace-session-coordinator.js"
 
 export interface WebHostRunnerOptions {
   cwd: string
-  coordinator: WorkspaceSessionCoordinator
+  coordinator: DefaultWorkspaceCoordinator
 }
 
 export interface BrunchCliOptions {
