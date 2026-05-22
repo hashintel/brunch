@@ -1,6 +1,11 @@
 import { readdir, readFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 
+import {
+  isSessionBindingEntry,
+  type SessionBindingData,
+} from "./session-binding.js"
+
 export interface ExplicitSessionProjectionParams {
   sessionId: string
   specId?: string
@@ -14,22 +19,6 @@ export type SessionProjectionTarget = {
   ok: false
   code: number
   message: string
-}
-
-const SESSION_BINDING_TYPE = "brunch.session_binding"
-const BINDING_SCHEMA_VERSION = 1
-
-interface SessionBindingData {
-  schemaVersion: 1
-  sessionId: string
-  specId: string
-  specTitle: string
-}
-
-type SessionBindingEntry = {
-  type: "custom"
-  customType: typeof SESSION_BINDING_TYPE
-  data: SessionBindingData
 }
 
 export async function resolveExplicitSessionProjectionTarget(
@@ -88,26 +77,4 @@ async function listSessionFiles(cwd: string): Promise<string[]> {
     }
     throw error
   }
-}
-
-function isSessionBindingEntry(value: unknown): value is SessionBindingEntry {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    (value as { type?: unknown }).type !== "custom" ||
-    (value as { customType?: unknown }).customType !== SESSION_BINDING_TYPE
-  ) {
-    return false
-  }
-
-  const data = (value as { data?: unknown }).data
-  return (
-    typeof data === "object" &&
-    data !== null &&
-    (data as { schemaVersion?: unknown }).schemaVersion ===
-      BINDING_SCHEMA_VERSION &&
-    typeof (data as { sessionId?: unknown }).sessionId === "string" &&
-    typeof (data as { specId?: unknown }).specId === "string" &&
-    typeof (data as { specTitle?: unknown }).specTitle === "string"
-  )
 }

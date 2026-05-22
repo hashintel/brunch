@@ -7,12 +7,11 @@ import { describe, expect, it } from "vitest"
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
 import { projectElicitationExchanges } from "./elicitation-exchange.js"
+import { SESSION_BINDING_TYPE } from "./session-binding.js"
 import {
   createWorkspaceSessionCoordinator,
   verifyWorkspaceSessionStores,
 } from "./workspace-session-coordinator.js"
-
-const SESSION_BINDING_TYPE = "brunch.session_binding"
 
 type JsonlLine = {
   type?: string
