@@ -12,7 +12,10 @@ import {
 
 import {
   createBrunchChromeExtension,
+  formatBrunchChromeFooterLines,
+  formatBrunchChromeHeaderLines,
   formatChromeWidgetLines,
+  renderBrunchChrome,
   runBrunchTui,
 } from "./brunch-tui.js"
 import { verifyWorkspaceSessionStores } from "./workspace-session-coordinator.js"
@@ -44,18 +47,97 @@ describe("Brunch TUI boot", () => {
     }
   })
 
-  it("passes coordinator chrome state to the persistent chrome widget", async () => {
-    const lines = formatChromeWidgetLines({
+  it("formats Brunch chrome from one product-state snapshot", async () => {
+    const state = {
       cwd: "/tmp/project",
       spec: { id: "spec-1", title: "Spec One" },
+      session: { id: "session-1", label: "Interview #1" },
+      phase: "elicitation" as const,
+      stage: "observer-review" as const,
+      chatMode: "responding-to-elicitation" as const,
+      activeLens: "problem-framing",
+      coherenceVerdict: "needs_review" as const,
+      observerStatus: "running" as const,
+      reviewerStatus: "queued" as const,
+      reconcilerStatus: "idle" as const,
+      reconciliationNeedCount: 3,
+      latestEstablishmentOfferSummary:
+        "Recommended lens: problem-framing; missing constraints.",
+      streaming: true,
+    }
+
+    expect(formatBrunchChromeHeaderLines(state).join("\n")).toContain(
+      "Spec One",
+    )
+    expect(formatChromeWidgetLines(state).join("\n")).toContain(
+      "lens: problem-framing",
+    )
+    expect(formatChromeWidgetLines(state).join("\n")).toContain("needs: 3")
+    expect(formatBrunchChromeFooterLines(state).join("\n")).toContain(
+      "observer: running",
+    )
+    expect(formatBrunchChromeFooterLines(state).join("\n")).toContain(
+      "offer: Recommended lens: problem-framing; missing constraints.",
+    )
+  })
+
+  it("renders Brunch chrome through one wrapper over Pi UI calls", async () => {
+    const calls: FakeUiCall[] = []
+    const ui: FakeExtensionUi = {
+      setHeader: (...args: unknown[]) =>
+        calls.push({ method: "setHeader", args }),
+      setFooter: (...args: unknown[]) =>
+        calls.push({ method: "setFooter", args }),
+      setStatus: (...args: unknown[]) =>
+        calls.push({ method: "setStatus", args }),
+      setWidget: (...args: unknown[]) =>
+        calls.push({ method: "setWidget", args }),
+      setWorkingIndicator: (...args: unknown[]) =>
+        calls.push({ method: "setWorkingIndicator", args }),
+      setTitle: (...args: unknown[]) =>
+        calls.push({ method: "setTitle", args }),
+      notify: (_message: string, _type?: "info" | "warning" | "error") => {},
+    }
+
+    renderBrunchChrome(ui, {
+      cwd: "/tmp/project",
+      spec: { id: "spec-1", title: "Spec One" },
+      session: { id: "session-1" },
       phase: "elicitation",
+      stage: "idle",
       chatMode: "responding-to-elicitation",
+      activeLens: null,
+      coherenceVerdict: "coherent",
+      observerStatus: "idle",
+      reviewerStatus: "idle",
+      reconcilerStatus: "idle",
+      reconciliationNeedCount: 0,
+      latestEstablishmentOfferSummary: null,
+      streaming: false,
     })
 
-    expect(lines.join("\n")).toContain("cwd: /tmp/project")
-    expect(lines.join("\n")).toContain("spec: Spec One")
-    expect(lines.join("\n")).toContain("phase: elicitation")
-    expect(lines.join("\n")).toContain("chat: responding-to-elicitation")
+    expect(calls.map((call) => call.method)).toEqual([
+      "setHeader",
+      "setFooter",
+      "setStatus",
+      "setWidget",
+      "setWorkingIndicator",
+      "setTitle",
+    ])
+    expect(calls.find((call) => call.method === "setStatus")?.args).toEqual([
+      "brunch.chrome",
+      "Brunch · elicitation · no active lens · coherent · needs 0",
+    ])
+    expect(calls.find((call) => call.method === "setWidget")?.args).toEqual([
+      "brunch.chrome",
+      [
+        "cwd: /tmp/project",
+        "spec: Spec One  session: session-1  stage: idle",
+        "lens: none  coherence: coherent  needs: 0",
+        "observer: idle  reviewer: idle  reconciler: idle",
+      ],
+      { placement: "aboveEditor" },
+    ])
   })
 
   it("binds replacement sessions through internal session boundary events", async () => {
@@ -64,11 +146,15 @@ describe("Brunch TUI boot", () => {
     const boundSessionIds: string[] = []
     const widgets = new Map<string, string[]>()
     const ui: FakeExtensionUi = {
+      setHeader: (_factory) => {},
+      setFooter: (_factory) => {},
+      setStatus: (_key, _text) => {},
       setWidget: (key: string, content: unknown) => {
         if (isStringArray(content)) {
           widgets.set(key, content)
         }
       },
+      setWorkingIndicator: (_options) => {},
       setTitle: (_title: string) => {},
       notify: (_message: string, _type?: "info" | "warning" | "error") => {},
     }
@@ -139,7 +225,11 @@ describe("Brunch TUI boot", () => {
     const ctx: FakeExtensionContext = {
       sessionManager: manager,
       ui: {
+        setHeader: (_factory) => {},
+        setFooter: (_factory) => {},
+        setStatus: (_key, _text) => {},
         setWidget: (_key: string, _content: unknown) => {},
+        setWorkingIndicator: (_options) => {},
         setTitle: (_title: string) => {},
         notify: (message, type) => notifications.push({ message, type }),
       },
@@ -205,11 +295,16 @@ describe("Brunch TUI boot", () => {
   })
 })
 
+interface FakeUiCall {
+  method: string
+  args: unknown[]
+}
+
 type FakeExtensionContext = Pick<ExtensionContext, "sessionManager"> & {
   ui: FakeExtensionUi
 }
 
-type FakeExtensionUi = Pick<ExtensionUIContext, "setWidget" | "setTitle" | "notify">
+type FakeExtensionUi = Pick<ExtensionUIContext, "setFooter" | "setHeader" | "setStatus" | "setWidget" | "setWorkingIndicator" | "setTitle" | "notify">
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string")

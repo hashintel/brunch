@@ -10,6 +10,7 @@ import {
   SessionManager,
   type CreateAgentSessionRuntimeFactory,
   type ExtensionFactory,
+  type ExtensionUIContext,
 } from "@earendil-works/pi-coding-agent"
 
 import {
@@ -33,6 +34,28 @@ export interface BrunchTuiOptions {
 
 export const BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE =
   "Brunch does not support Pi session branches in this POC. Use /new to continue within the selected spec."
+
+export type BrunchChromeStage = "idle" | "streaming" | "observer-review"
+export type BrunchChromeWorkerStatus = "idle" | "queued" | "running" | "blocked"
+export type BrunchChromeCoherenceVerdict = "unknown" | "coherent" | "needs_review" | "incoherent"
+
+export interface BrunchChromeState extends WorkspaceSessionChromeState {
+  session: {
+    id: string
+    label?: string
+  }
+  stage: BrunchChromeStage
+  activeLens: string | null
+  coherenceVerdict: BrunchChromeCoherenceVerdict
+  observerStatus: BrunchChromeWorkerStatus
+  reviewerStatus: BrunchChromeWorkerStatus
+  reconcilerStatus: BrunchChromeWorkerStatus
+  reconciliationNeedCount: number
+  latestEstablishmentOfferSummary: string | null
+  streaming: boolean
+}
+
+type BrunchChromeInputState = WorkspaceSessionChromeState | BrunchChromeState
 
 export async function runBrunchTui(
   options: BrunchTuiOptions = {},
@@ -60,14 +83,94 @@ export async function runBrunchTui(
   })
 }
 
-export function formatChromeWidgetLines(
-  chrome: WorkspaceSessionChromeState,
+export function formatBrunchChromeHeaderLines(
+  state: BrunchChromeInputState,
 ): string[] {
-  const spec = chrome.spec ? chrome.spec.title : "<none>"
+  const chrome = normalizeBrunchChromeState(state)
   return [
-    `brunch  cwd: ${chrome.cwd}`,
-    `        spec: ${spec}  phase: ${chrome.phase}  chat: ${chrome.chatMode}`,
+    "brunch specification workspace",
+    `${formatSpec(chrome)} · ${formatSession(chrome)} · ${chrome.phase}`,
   ]
+}
+
+export function formatChromeWidgetLines(
+  state: BrunchChromeInputState,
+): string[] {
+  const chrome = normalizeBrunchChromeState(state)
+  return [
+    `cwd: ${chrome.cwd}`,
+    `spec: ${formatSpec(chrome)}  session: ${formatSession(chrome)}  stage: ${chrome.stage}`,
+    `lens: ${chrome.activeLens ?? "none"}  coherence: ${chrome.coherenceVerdict}  needs: ${chrome.reconciliationNeedCount}`,
+    `observer: ${chrome.observerStatus}  reviewer: ${chrome.reviewerStatus}  reconciler: ${chrome.reconcilerStatus}`,
+  ]
+}
+
+export function formatBrunchChromeFooterLines(
+  state: BrunchChromeInputState,
+): string[] {
+  const chrome = normalizeBrunchChromeState(state)
+  const offer = chrome.latestEstablishmentOfferSummary
+    ? `offer: ${chrome.latestEstablishmentOfferSummary}`
+    : "offer: none"
+  return [
+    `observer: ${chrome.observerStatus} · reviewer: ${chrome.reviewerStatus} · reconciler: ${chrome.reconcilerStatus}`,
+    offer,
+  ]
+}
+
+export function renderBrunchChrome(
+  ui: Pick<ExtensionUIContext, "setFooter" | "setHeader" | "setStatus" | "setWidget" | "setWorkingIndicator" | "setTitle">,
+  state: BrunchChromeInputState,
+): void {
+  const chrome = normalizeBrunchChromeState(state)
+  ui.setHeader(() => ({
+    render: () => formatBrunchChromeHeaderLines(chrome),
+    invalidate: () => {},
+  }))
+  ui.setFooter(() => ({
+    render: () => formatBrunchChromeFooterLines(chrome),
+    invalidate: () => {},
+  }))
+  ui.setStatus(
+    "brunch.chrome",
+    `Brunch · ${chrome.phase} · ${chrome.activeLens ?? "no active lens"} · ${chrome.coherenceVerdict} · needs ${chrome.reconciliationNeedCount}`,
+  )
+  ui.setWidget("brunch.chrome", formatChromeWidgetLines(chrome), {
+    placement: "aboveEditor",
+  })
+  ui.setWorkingIndicator(
+    chrome.streaming ? { frames: ["●"], intervalMs: 120 } : undefined,
+  )
+  ui.setTitle(`brunch — ${chrome.spec?.title ?? chrome.cwd}`)
+}
+
+function normalizeBrunchChromeState(
+  state: BrunchChromeInputState,
+): BrunchChromeState {
+  if ("session" in state) {
+    return state
+  }
+  return {
+    ...state,
+    session: { id: "unbound" },
+    stage: state.phase === "elicitation" ? "idle" : "idle",
+    activeLens: null,
+    coherenceVerdict: "unknown",
+    observerStatus: "idle",
+    reviewerStatus: "idle",
+    reconcilerStatus: "idle",
+    reconciliationNeedCount: 0,
+    latestEstablishmentOfferSummary: null,
+    streaming: false,
+  }
+}
+
+function formatSpec(chrome: BrunchChromeState): string {
+  return chrome.spec?.title ?? "no spec selected"
+}
+
+function formatSession(chrome: BrunchChromeState): string {
+  return chrome.session.label ?? chrome.session.id
 }
 
 export function createBrunchChromeExtension(
@@ -77,10 +180,7 @@ export function createBrunchChromeExtension(
   return (pi) => {
     pi.on("session_start", async (_event, ctx) => {
       await onSessionBoundary?.(ctx.sessionManager as SessionManager)
-      ctx.ui.setWidget("brunch.chrome", formatChromeWidgetLines(chrome), {
-        placement: "aboveEditor",
-      })
-      ctx.ui.setTitle(`brunch — ${chrome.spec?.title ?? chrome.cwd}`)
+      renderBrunchChrome(ctx.ui, chrome)
     })
     pi.on("before_agent_start", async (_event, ctx) => {
       await onSessionBoundary?.(ctx.sessionManager as SessionManager)

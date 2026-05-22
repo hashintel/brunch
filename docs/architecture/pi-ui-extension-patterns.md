@@ -10,14 +10,17 @@ This memo records evidence for the `pi-ui-extension-patterns` frontier. It is in
 | Built-in exact slash execution allowlist | requires-pi-change for strict suppression | required before claiming strict product-shell containment; not required for graph-command safety if dangerous effects are blocked separately | source audit + raw RPC probe |
 | Branch-flow effect blocking (`/fork`, `/clone`, `/tree`) | proven for lifecycle/API effect cancellation; residual pre-cancel UI exposure remains | required for I19-L and already partly used by Brunch | source audit + raw RPC probe |
 | Extension command collision override | not-feasible | product commands must avoid built-in names unless Pi adds policy | source audit |
-| RPC-visible chrome/status degradation | partially proven | informs fixture-driver expectations | raw RPC probe |
+| RPC-visible chrome/status degradation | proven for status/widget/title; no-op for header/footer/working indicator | informs fixture-driver expectations | Brunch wrapper unit oracle + raw RPC probe |
+| Dynamic Brunch chrome wrapper | proven for deterministic product-state projection and TUI mounting | required before downstream M5/M6/M7 affordance wrappers call Pi UI primitives | Brunch-host tests + raw TUI transcript proof |
 
 ## Evidence inventory
 
 - **Pi version/source:** `pi --version` reports `0.75.4`; audited installed docs under `npm-mariozechner-pi-coding-agent/0.73.1` whose package version is `0.75.4`, plus source at `~/Clones/earendil-works/pi/packages/coding-agent`.
 - **Source audit oracle:** `src/core/slash-commands.ts`, `src/modes/interactive/interactive-mode.ts`, `src/core/agent-session.ts`, `src/core/extensions/runner.ts`, `docs/extensions.md`, `docs/rpc.md`, and `docs/keybindings.md`.
 - **Raw Pi harness oracle:** temporary project extension `.pi/extensions/brunch-command-probe.ts` was loaded with `pi --mode rpc --no-session -e .pi/extensions/brunch-command-probe.ts`, then deleted after probing. This proves extension command handling, `input` handling, lifecycle cancellation, and RPC-visible `setStatus` / string `setWidget` events. It does **not** prove interactive autocomplete visual behavior.
-- **Brunch-host oracle:** not yet run for Card 1. Brunch already has Brunch TUI branch-cancellation coverage in SPEC I19-L; this card does not add a new Brunch wrapper.
+- **Brunch-host oracle:** Card 2 adds `renderBrunchChrome(ctx.ui, state)` in `src/brunch-tui.ts`, with tests proving one Brunch-owned wrapper drives `setHeader`, `setFooter`, `setStatus`, `setWidget`, optional `setWorkingIndicator`, and terminal title from one product-state snapshot. Existing branch-cancellation coverage still protects `I19-L`.
+- **Raw TUI visual oracle:** a temporary extension loaded with `script -q /tmp/brunch-chrome-tui-proof.typescript /bin/bash -lc "pi --no-session -e <temp-extension>"`; the transcript contained `BRUNCH HEADER PROOF`, `BRUNCH FOOTER PROOF`, `Spec: Proof Spec`, `observer: running`, and `lens: problem-framing`, proving header/footer/widget text is actually visible in a live Pi TUI render. The temp extension was deleted after the run.
+- **Raw RPC chrome oracle:** a temporary extension loaded with `pi --mode rpc --no-session -e <temp-extension>` emitted `extension_ui_request` events for `setStatus`, `setWidget`, and `notify`; header/footer/working-indicator calls produced no RPC events as expected from Pi's RPC implementation. The temp extension was deleted after the run.
 
 ## Command inventory and containment matrix
 
@@ -104,14 +107,39 @@ Raw RPC probe results with the temporary extension:
 
 The same probe emitted corresponding `notify` requests (`cancel switch new`, `cancel fork/clone`). No Brunch product transcript fixture was created; the probe used `--no-session`.
 
-## RPC controllability observations relevant to command containment
+## Dynamic Brunch chrome proof
+
+Card 2 adds a product-named wrapper, `renderBrunchChrome(ctx.ui, state)`, rather than letting downstream affordance probes scatter raw Pi UI calls. The wrapper treats chrome as projection state over canonical Brunch/session facts and renders:
+
+- cwd, selected spec, and session label/id;
+- phase, stage, chat mode, and streaming state;
+- active lens or `none`;
+- coherence verdict and reconciliation-need count;
+- observer, reviewer, and reconciler status;
+- latest establishment-offer summary or `offer: none`.
+
+The wrapper currently uses plain, narrow-terminal-safe text/glyphs (`Brunch`, `·`, `●`) and does not depend on Pi branding/footer text as the primary product surface. Header/footer factories render in TUI; status/widget/title provide deterministic state strings for tests and RPC-compatible clients. `session_start` reconstructs chrome from the supplied product snapshot, and replacement-session binding still runs through the existing session-boundary hooks before rendering. Reload/session replacement therefore requires callers to provide a fresh product snapshot; the wrapper does not own durable state.
+
+Observed behavior:
+
+| Scenario | Result | Evidence |
+| --- | --- | --- |
+| Idle TUI mount | Header, footer, status, widget, and title are called from one snapshot; raw TUI transcript shows Brunch header/footer/widget text visible. | `src/brunch-tui.test.ts`; temp `script` transcript needle check |
+| Streaming/progress update | Wrapper formats streaming/worker state deterministically; raw RPC extension command updates status/widget to `stage: streaming`, `lens: problem-framing`, `needs: 3`. | `src/brunch-tui.test.ts`; temp RPC JSONL probe |
+| `/reload` / extension reload | Chrome is not durable inside Pi UI; reload must rerun extension setup and call `renderBrunchChrome` with a fresh Brunch snapshot. | source/API behavior; wrapper is stateless by design |
+| Session replacement / selected-session reopen | Existing Brunch extension calls the session-boundary binding hook on `session_start`, `before_agent_start`, and assistant `message_start`; `session_start` then renders chrome for the supplied workspace snapshot. This is safe for same-spec coordinator flows but does not authorize raw Pi session switching. | `src/brunch-tui.test.ts` |
+| RPC degradation | `setStatus`, string-array `setWidget`, `setTitle`, and `notify` emit RPC `extension_ui_request` events; `setHeader`, `setFooter`, and `setWorkingIndicator` are RPC no-ops. Fixture drivers should assert status/widget events, not TUI-only header/footer. | Pi RPC source + temp RPC JSONL probe |
+
+## RPC controllability observations relevant to command containment and chrome
 
 Raw Pi RPC success is not Brunch integration proof, but it matters for the fixture-driver oracle:
 
 - Extension command handlers are RPC-invocable via `prompt` for extension command names.
 - `ctx.ui.setStatus()` emits RPC `extension_ui_request` with method `setStatus`.
 - `ctx.ui.setWidget()` emits RPC `extension_ui_request` with method `setWidget` when the widget is a string array.
+- `ctx.ui.setTitle()` emits RPC `extension_ui_request` with method `setTitle`.
 - `ctx.ui.notify()` emits RPC `extension_ui_request` with method `notify`.
+- `ctx.ui.setHeader()`, `ctx.ui.setFooter()`, and `ctx.ui.setWorkingIndicator()` are TUI-only in current Pi RPC mode and should be treated as no-ops for fixture-driver expectations.
 - Built-in interactive slash commands are not included in RPC `prompt` handling as built-ins; Brunch must not infer interactive command safety from RPC prompt behavior.
 
 ## Minimum Pi API ask
@@ -137,8 +165,10 @@ The policy must run before interactive-mode built-in dispatch and before autocom
 ## Downstream posture
 
 - For the POC, Brunch can plausibly proceed if it hides disallowed commands from autocomplete and blocks branch/session effects with lifecycle hooks, **provided product documentation does not claim strict built-in suppression**.
+- Dynamic Brunch chrome is strong enough to make the primary idle/working TUI surface read as Brunch-owned in a local proof, but exact built-in commands remain a residual shell-containment risk for product review.
 - `I19-L` remains protected by effect blocking and transcript-reader fail-fast behavior, not by complete command invisibility.
 - M5/M6/M7 should route Brunch actions through Brunch-owned command names and handlers; extension command collisions are not an override mechanism.
+- M5/M6/M7 chrome/status affordances should call Brunch product wrappers (`renderBrunchChrome` or successors) instead of raw Pi `ctx.ui.*` primitives.
 - A strict upstream Pi command-policy API is required before Brunch can honestly claim Pi's generic shell is unavailable rather than merely discouraged/guarded.
 
 ## Open evidence gaps
@@ -146,3 +176,4 @@ The policy must run before interactive-mode built-in dispatch and before autocom
 - Interactive autocomplete filtering was source-proven but not visually observed in a TUI session from this API-only run.
 - Exact interactive `/fork`, `/tree`, `/new`, and `/resume` pre-cancel UI exposure should be manually observed in Brunch TUI or a controlled Pi TUI before product signoff.
 - Keybinding unbinding/configuration strategy remains source-audited only; no Brunch-owned keybinding settings wrapper has been tested.
+- Dynamic chrome was visually proven in a raw Pi TUI harness and unit-proven in Brunch; a full Brunch-host manual walkthrough remains useful before product signoff because the temp TUI proof did not exercise real coordinator-derived graph/lens/coherence data.
