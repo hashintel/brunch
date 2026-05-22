@@ -1,4 +1,4 @@
-import { mkdtemp } from "node:fs/promises"
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -16,9 +16,88 @@ function text(response: Response): Promise<string> {
   return response.text()
 }
 
+async function builtWebAssets(): Promise<string> {
+  const assetRoot = await mkdtemp(join(tmpdir(), "brunch-web-assets-"))
+  await mkdir(join(assetRoot, "assets"))
+  await writeFile(
+    join(assetRoot, "index.html"),
+    '<!doctype html><title>Brunch</title><main id="root" data-built-shell="true"></main><script type="module" src="/assets/brunch-web.js"></script>',
+  )
+  await writeFile(
+    join(assetRoot, "assets", "brunch-web.js"),
+    "console.log('built web')",
+  )
+  return assetRoot
+}
+
 describe("web host", () => {
+  it("serves built Vite index.html as the native Brunch HTML shell", async () => {
+    const assetRoot = await builtWebAssets()
+    const host = await startWebHost({
+      cwd: "/tmp/brunch-project",
+      port: 0,
+      webAssetRoot: assetRoot,
+    })
+    try {
+      const response = await fetch(host.url)
+      const html = await text(response)
+
+      expect(response.status).toBe(200)
+      expect(response.headers.get("content-type")).toContain("text/html")
+      expect(html).toContain('data-built-shell="true"')
+      expect(html).toContain("/assets/brunch-web.js")
+      expect(html).not.toContain("pi-web-ui")
+    } finally {
+      await host.close()
+    }
+  })
+
+  it("serves built Vite JavaScript assets", async () => {
+    const assetRoot = await builtWebAssets()
+    const host = await startWebHost({
+      cwd: "/tmp/brunch-project",
+      port: 0,
+      webAssetRoot: assetRoot,
+    })
+    try {
+      const response = await fetch(`${host.url}/assets/brunch-web.js`)
+      const body = await text(response)
+
+      expect(response.status).toBe(200)
+      expect(response.headers.get("content-type")).toContain("text/javascript")
+      expect(body).toContain("console.log('built web')")
+    } finally {
+      await host.close()
+    }
+  })
+
+  it("returns an explicit build-web error when the web bundle is missing", async () => {
+    const assetRoot = await mkdtemp(
+      join(tmpdir(), "brunch-web-assets-missing-"),
+    )
+    const host = await startWebHost({
+      cwd: "/tmp/brunch-project",
+      port: 0,
+      webAssetRoot: assetRoot,
+    })
+    try {
+      const response = await fetch(host.url)
+      const body = await text(response)
+
+      expect(response.status).toBe(500)
+      expect(body).toContain("npm run build:web")
+    } finally {
+      await host.close()
+    }
+  })
+
   it("serves a native Brunch HTML shell on an ephemeral port", async () => {
-    const host = await startWebHost({ cwd: "/tmp/brunch-project", port: 0 })
+    const assetRoot = await builtWebAssets()
+    const host = await startWebHost({
+      cwd: "/tmp/brunch-project",
+      port: 0,
+      webAssetRoot: assetRoot,
+    })
     try {
       const response = await fetch(host.url)
       const html = await text(response)

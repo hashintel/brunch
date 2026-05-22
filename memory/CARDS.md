@@ -148,7 +148,7 @@ The `/rpc` WebSocket endpoint is served by a dedicated transport adapter that de
 
 ## Card 4 — Canonical web shell asset contract
 
-**Status:** next  
+**Status:** done  
 **Weight:** light scope card
 
 ### Objective
@@ -188,7 +188,7 @@ Make Vite's built `dist-web/index.html` the canonical browser shell served by we
 
 ## Card 5 — Stable React web runtime boundary
 
-**Status:** queued  
+**Status:** next  
 **Weight:** light scope card
 
 ### Objective
