@@ -150,12 +150,19 @@ Before finishing reconciliation, perform a quick cross-skill check: if a later a
 
 ### Retire derivative artifacts
 
-After reconciliation, garbage-collect exhausted temporary files instead of leaving breadcrumbs or tombstones:
+After reconciliation, garbage-collect exhausted temporary files instead of leaving breadcrumbs or tombstones, but deletion is narrowly scoped.
 
-- `HANDOFF.md` — keep only if unfinished volatile transfer state still exists; otherwise delete it
-- `memory/CARDS.md` — keep only while queued scope cards still remain; otherwise delete it
-- `memory/REFACTOR.md` — keep only while unfinished refactor steps still depend on it; otherwise delete it
-- Do not create archive copies, numbered handoffs, or completion-pointer files
+Default deletion target:
+
+- `memory/CARDS.md` — delete only when the execution queue is fully exhausted, superseded, or empty after reconciliation.
+
+Other volatile artifacts are **review-before-delete**, not automatic cleanup:
+
+- `HANDOFF.md` — delete only when it contains no unfinished transfer state and no future-context inventory that is not already captured in `memory/SPEC.md`, `memory/PLAN.md`, an active scope card, or a stable design memo.
+- `memory/REFACTOR.md` — delete only when every listed refactor step is done/dropped and no future sequence depends on it.
+- Provisional docs outside `memory/` (for example `docs/**/provisional*.md`, handoff plans, spike plans, or exploration inventories) — do **not** delete during `ln-build` cleanup unless the user explicitly asks or you first prove that all remaining future-facing inventory has been absorbed elsewhere. If only the current card is done but the artifact still contains later affordances, open questions, or scoping input, update it instead of deleting it.
+
+Before deleting anything other than `memory/CARDS.md`, name the file, state why no future agent would need it, and prefer asking the user when uncertain. Do not create archive copies, numbered handoffs, or completion-pointer files.
 
 ## Routing
 
