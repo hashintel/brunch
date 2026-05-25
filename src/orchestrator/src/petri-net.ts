@@ -208,8 +208,9 @@ export class PetriNet {
    * Parallel policy — find all enabled transitions, claim tokens greedily,
    * fire all claimed transitions concurrently via Promise.allSettled, repeat.
    *
-   * If any handler rejects or `shouldHalt` becomes true during the batch,
-   * consumed tokens are restored and no outputs from that step are deposited.
+   * Successful fires in a batch are committed before checking halt, matching
+   * serial semantics where each completed fire persists. Handler rejections
+   * roll back the entire batch to avoid partial net state.
    */
   private async runParallel(shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
     while (true) {
@@ -247,14 +248,6 @@ export class PetriNet {
         })),
       );
 
-      if (shouldHalt?.()) {
-        for (const claim of claims) {
-          this.restoreClaim(claim);
-        }
-        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
-        break;
-      }
-
       let firstError: unknown;
       const fulfilled: { claim: TransitionClaim; outputs: { place: string; token: Token }[] }[] = [];
 
@@ -275,6 +268,11 @@ export class PetriNet {
 
       for (const { claim, outputs } of fulfilled) {
         this.depositClaim(claim, outputs, eventSink);
+      }
+
+      if (shouldHalt?.()) {
+        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
+        break;
       }
     }
   }
