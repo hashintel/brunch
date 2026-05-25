@@ -8,7 +8,7 @@
 import { mkdirSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
 
-import { mergeSlicesIntoEpicSandbox } from './epic-sandbox-merge.js';
+import { mergeSlicesIntoEpicSandbox, epicIdsForEpicVerifyMerge } from './epic-sandbox-merge.js';
 import type { NetBlueprint, TokenSeed, TransitionSkeleton } from './net-blueprint.js';
 import { PetriNet } from './petri-net.js';
 import type { Token } from './petri-net.js';
@@ -27,18 +27,18 @@ function ep(epicId: string, place: string): string {
   return `epic:${epicId}:${place}`;
 }
 
-/** Resolve a per-slice sandbox under the run root; reject path-escape ids. */
-function sliceSandboxDir(rootSandboxDir: string, sliceId: string): string {
-  if (!sliceId || sliceId.includes('..') || sliceId.includes('/') || sliceId.includes('\\')) {
-    throw new Error(`Invalid slice id: ${sliceId}`);
+/** Resolve an epic-scoped sandbox under the run root; reject path-escape ids. */
+function epicWorktreeDir(rootSandboxDir: string, epicId: string): string {
+  if (!epicId || epicId.includes('..') || epicId.includes('/') || epicId.includes('\\')) {
+    throw new Error(`Invalid epic id: ${epicId}`);
   }
-  if (sliceId === '__epic__') {
-    throw new Error(`Invalid slice id: ${sliceId}`);
+  if (epicId === '__epic__') {
+    throw new Error(`Invalid epic id: ${epicId}`);
   }
   const root = resolve(rootSandboxDir);
-  const dir = resolve(root, sliceId);
+  const dir = resolve(root, epicId);
   if (dir !== root && !dir.startsWith(root + sep)) {
-    throw new Error(`Invalid slice id: ${sliceId}`);
+    throw new Error(`Invalid epic id: ${epicId}`);
   }
   return dir;
 }
@@ -341,12 +341,12 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
     net.addPlace(place);
   }
 
-  // Runtime filesystem preparation lives in wireHandlers for FE-743 so every
-  // action/test cwd exists before any transition can fire. This is the one
-  // intentional side effect in the wiring pass; a future prepareRunFilesystem
-  // step can split it out if more provisioning responsibilities accumulate.
-  for (const slice of plan.slices) {
-    mkdirSync(sliceSandboxDir(input.sandboxDir, slice.id), { recursive: true });
+  // Runtime filesystem preparation lives in wireHandlers so every action/test
+  // cwd exists before any transition can fire. This is the one intentional side
+  // effect in the wiring pass; a future prepareRunFilesystem step can split it
+  // out if more provisioning responsibilities accumulate.
+  for (const epic of plan.epics) {
+    mkdirSync(epicWorktreeDir(input.sandboxDir, epic.id), { recursive: true });
   }
 
   // Register transitions with wired fire handlers
@@ -370,7 +370,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           slice,
           epic,
           plan,
-          sandboxDir: sliceSandboxDir(input.sandboxDir, sliceId),
+          sandboxDir: epicWorktreeDir(input.sandboxDir, epicId),
           reports,
         };
         const baseToken: Token = { sliceId, epicId };
@@ -406,7 +406,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           const retryToken = consumed[1]!;
           const retryCount = retryToken.retryCount ?? 0;
 
-          const result = await testRunner.run(target, sliceSandboxDir(input.sandboxDir, sliceId));
+          const result = await testRunner.run(target, epicWorktreeDir(input.sandboxDir, epicId));
           const reportId = createReport(reports, {
             epicId,
             sliceId,
@@ -445,7 +445,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           slice,
           epic,
           plan,
-          sandboxDir: sliceSandboxDir(input.sandboxDir, sliceId),
+          sandboxDir: epicWorktreeDir(input.sandboxDir, epicId),
           reports,
         };
         const baseToken: Token = { sliceId, epicId };
@@ -509,17 +509,18 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         const epic = plan.epics.find((e) => e.id === epicId)!;
         const slice = plan.slices.find((s) => s.id === representativeSliceId)!;
         // Epic verification runs against a freshly-merged `__epic__/<epicId>/`
-        // dir built from this epic's completed slice worktrees.
-        const sliceIdsInDeclOrder = plan.slices.filter((s) => s.epic_id === epicId).map((s) => s.id);
+        // dir built from dependency epic worktrees plus this epic's accumulated worktree.
+        const epicIdsInMergeOrder = epicIdsForEpicVerifyMerge(plan, epicId);
 
         fire = async () => {
-          const completedSliceIds = sliceIdsInDeclOrder.filter(
-            (sid) => ctx.sliceOutcomes.get(sid)?.status === 'completed',
-          );
+          const mergeEpicIds = epicIdsInMergeOrder.filter((eid) => {
+            if (eid === epicId) return true;
+            return ctx.epicOutcomes.get(eid)?.status === 'completed';
+          });
           const merge = mergeSlicesIntoEpicSandbox({
             parentSandboxDir: input.sandboxDir,
             epicId,
-            sliceIds: completedSliceIds,
+            epicIds: mergeEpicIds,
           });
           ctx.reportIds.push(
             createReport(reports, {
@@ -529,7 +530,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
               event: 'epic-sandbox-merged',
               payload: {
                 epicSandboxDir: merge.epicSandboxDir,
-                sliceIds: completedSliceIds,
+                epicIds: mergeEpicIds,
                 conflicts: merge.conflicts,
               },
             }),

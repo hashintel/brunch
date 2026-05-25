@@ -1080,11 +1080,11 @@ describe('Engine contract test #13 — resource pool bounds concurrency', () => 
 });
 
 // ---------------------------------------------------------------------------
-// Adapter test — sandbox-per-slice isolation
+// Adapter test — sandbox-per-epic isolation
 // ---------------------------------------------------------------------------
 
-describe('Adapter: sandbox-per-slice isolation', () => {
-  it('each action handler receives a per-slice sandboxDir', async () => {
+describe('Adapter: sandbox-per-epic isolation', () => {
+  it('each action handler receives an epic-scoped sandboxDir shared by slices in the epic', async () => {
     const sandboxDirs = new Map<string, string>();
 
     const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
@@ -1107,16 +1107,17 @@ describe('Adapter: sandbox-per-slice isolation', () => {
     });
 
     expect(result.status).toBe('completed');
-    // Every action should receive sandboxDir = /tmp/run/<sliceId>
+    // Every action should receive sandboxDir = /tmp/run/<epicId>
     for (const [key, dir] of sandboxDirs) {
       const sliceId = key.split(':')[0]!;
-      expect(dir).toBe(`/tmp/run/${sliceId}`);
+      expect(dir).toBe('/tmp/run/epic-1');
+      expect(simplePlan.slices.find((s) => s.id === sliceId)?.epic_id).toBe('epic-1');
     }
     // At least evaluate-done and assess-semantic were called
     expect(sandboxDirs.size).toBeGreaterThanOrEqual(2);
   });
 
-  it('verify-epic receives a merged epic sandbox under <parent>/__epic__/<epicId>/ (not per-slice, not parent)', async () => {
+  it('verify-epic receives a merged epic sandbox under <parent>/__epic__/<epicId>/ (not epic worktree, not parent)', async () => {
     const verifyPlan: Plan = {
       epics: [
         {
@@ -1139,9 +1140,9 @@ describe('Adapter: sandbox-per-slice isolation', () => {
 
     const parent = mkdtempSync(join(tmpdir(), 'cook-ec-'));
     try {
-      // Seed the per-slice worktree with a file so the merge has something to copy.
-      mkdirSync(join(parent, 'sv'), { recursive: true });
-      writeFileSync(join(parent, 'sv', 'sv-marker.txt'), 'from-slice-sv');
+      // Seed the epic worktree with a file so the merge has something to copy.
+      mkdirSync(join(parent, 'ev'), { recursive: true });
+      writeFileSync(join(parent, 'ev', 'ev-marker.txt'), 'from-epic-ev');
 
       let verifyEpicSandboxDir = '';
       const fakes = createFakes({ evalSequence: [true], semanticResults: [true], verifyEpicResult: true });
@@ -1164,15 +1165,15 @@ describe('Adapter: sandbox-per-slice isolation', () => {
 
       expect(result.status).toBe('completed');
       expect(verifyEpicSandboxDir).toBe(join(parent, '__epic__', 'ev'));
-      // Merge produced a real dir holding the slice's seed file.
-      expect(existsSync(join(verifyEpicSandboxDir, 'sv-marker.txt'))).toBe(true);
+      // Merge produced a real dir holding the epic worktree seed file.
+      expect(existsSync(join(verifyEpicSandboxDir, 'ev-marker.txt'))).toBe(true);
 
       // An epic-sandbox-merged event was appended before verify-epic.
       const merged = fakes.reports.getAll().find((r) => r.event === 'epic-sandbox-merged');
       expect(merged).toBeDefined();
       expect(merged?.payload).toMatchObject({
         epicSandboxDir: join(parent, '__epic__', 'ev'),
-        sliceIds: ['sv'],
+        epicIds: ['ev'],
         conflicts: [],
       });
     } finally {
