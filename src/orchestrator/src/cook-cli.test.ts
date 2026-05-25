@@ -6,14 +6,14 @@ describe('parseCookArgs', () => {
   it('parses dir only', () => {
     const opts = parseCookArgs(['./fixtures/txt']);
     expect(opts.dir).toContain('fixtures/txt');
-    expect(opts.engine).toBe('petri');
+    expect(opts.policy).toBe('serial');
     expect(opts.maxRetries).toBe(3);
     expect(opts.verbose).toBe(false);
   });
 
-  it('parses --engine=petri', () => {
-    const opts = parseCookArgs(['./f', '--engine=petri']);
-    expect(opts.engine).toBe('petri');
+  it('parses --policy=serial', () => {
+    const opts = parseCookArgs(['./f', '--policy=serial']);
+    expect(opts.policy).toBe('serial');
   });
 
   it('parses --max-retries=5', () => {
@@ -22,11 +22,11 @@ describe('parseCookArgs', () => {
   });
 
   it('throws on missing dir', () => {
-    expect(() => parseCookArgs(['--engine=proc'])).toThrow('Usage');
+    expect(() => parseCookArgs(['--policy=serial'])).toThrow('Usage');
   });
 
-  it('throws on unknown engine', () => {
-    expect(() => parseCookArgs(['./f', '--engine=unknown'])).toThrow('Unknown engine');
+  it('throws on unknown policy', () => {
+    expect(() => parseCookArgs(['./f', '--policy=unknown'])).toThrow('Unknown policy');
   });
 
   it('parses --verbose', () => {

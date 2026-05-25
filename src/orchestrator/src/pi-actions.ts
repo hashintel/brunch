@@ -182,6 +182,12 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
       });
     },
 
+    'assess-semantic': async (ctx: ActionContext) => {
+      log('?', `semantic  ${ctx.slice.id}`);
+      // POC: auto-satisfy — real semantic assessment requires graph-derived gates (Phase 3)
+      return report(ctx, 'semantic-assessor', 'semantic-assessed', { satisfied: true });
+    },
+
     'verify-epic': async (ctx: ActionContext) => {
       log('▸', `verify    ${ctx.epic.id}`);
       const targets = ctx.epic.verification.map((v) => `${v.kind}: ${v.target}`).join(', ');

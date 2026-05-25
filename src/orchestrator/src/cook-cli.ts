@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 
 import { createOrchestrator } from './engine.js';
 import { FileReportSink } from './file-report-sink.js';
+import type { FiringPolicy } from './petri-net.js';
 import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
 import { BunTestRunner } from './test-runner.js';
@@ -10,25 +11,25 @@ import { createWorktree } from './worktree.js';
 
 export type CookOptions = {
   dir: string;
-  engine: 'proc' | 'petri';
+  policy: FiringPolicy;
   maxRetries: number;
   verbose: boolean;
 };
 
 export function parseCookArgs(args: string[]): CookOptions {
   let dir = '';
-  let engine: 'proc' | 'petri' = 'petri';
+  let policy: FiringPolicy = 'serial';
   let maxRetries = 3;
   let verbose = false;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
-    if (arg.startsWith('--engine=')) {
+    if (arg.startsWith('--policy=')) {
       const val = arg.split('=')[1]!;
-      if (val !== 'proc' && val !== 'petri') {
-        throw new Error(`Unknown engine: ${val}. Use proc or petri.`);
+      if (val !== 'serial') {
+        throw new Error(`Unknown policy: ${val}. Use serial.`);
       }
-      engine = val;
+      policy = val;
     } else if (arg.startsWith('--max-retries=')) {
       const parsed = Number.parseInt(arg.split('=')[1]!, 10);
       if (!Number.isFinite(parsed) || parsed < 0) {
@@ -43,10 +44,10 @@ export function parseCookArgs(args: string[]): CookOptions {
   }
 
   if (!dir) {
-    throw new Error('Usage: brunch cook <dir> [--engine=proc|petri] [--max-retries=N] [--verbose]');
+    throw new Error('Usage: brunch cook <dir> [--policy=serial] [--max-retries=N] [--verbose]');
   }
 
-  return { dir: resolve(dir), engine, maxRetries, verbose };
+  return { dir: resolve(dir), policy, maxRetries, verbose };
 }
 
 function fmtDuration(ms: number): string {
@@ -82,7 +83,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
   console.error('');
   console.error(`  brunch cook`);
   console.error(`  ──────────────────────────────────────`);
-  console.error(`  engine     ${opts.engine}`);
+  console.error(`  policy     ${opts.policy}`);
   console.error(`  plan       ${epicCount} epics, ${sliceCount} slices`);
   console.error(`  retries    ${opts.maxRetries}`);
   console.error(`  worktree   ${worktreeDir}`);
@@ -92,7 +93,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
   const reports = new FileReportSink(reportsPath);
   const testRunner = new BunTestRunner();
 
-  const engine = createOrchestrator('serial');
+  const engine = createOrchestrator(opts.policy);
 
   const runStart = Date.now();
   const actions = createPiActions({ verbose: opts.verbose, runStart });

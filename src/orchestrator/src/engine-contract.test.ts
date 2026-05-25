@@ -796,12 +796,9 @@ describe('Adapter: §7 event vocabulary', () => {
       expect(e.produced).toBeDefined();
     }
 
-    // No halt events (happy path)
+    // No halt or false-deadlock events (happy path)
     expect(events.filter((e) => e.kind === 'net_halted').length).toBe(0);
-    // Note: net_deadlocked may fire on clean completion because resource tokens
-    // (test-agent, code-agent) remain in places after the slice completes.
-    // This is expected — true deadlock detection requires distinguishing
-    // resource tokens from work-bearing tokens (future work).
+    expect(events.filter((e) => e.kind === 'net_deadlocked').length).toBe(0);
   });
 
   it('retry exhaustion emits net_deadlocked', async () => {

@@ -67,6 +67,24 @@ export interface NetEventSink {
   emit(event: NetEvent): void;
 }
 
+/** Place names that may retain tokens after clean termination (resource pools, budgets, markers). */
+const BENIGN_RESIDUAL_PLACES = new Set([
+  'test-agent',
+  'code-agent',
+  'retry-budget',
+  'semantic-budget',
+  'completed',
+  'done',
+]);
+
+function placeName(placeId: string): string {
+  const sliceMatch = placeId.match(/^slice:[^:]+:(.+)$/);
+  if (sliceMatch) return sliceMatch[1]!;
+  const epicMatch = placeId.match(/^epic:[^:]+:(.+)$/);
+  if (epicMatch) return epicMatch[1]!;
+  return placeId;
+}
+
 export class PetriNet {
   private places = new Map<string, Token[]>();
   private transitions: TransitionDef[] = [];
@@ -105,6 +123,17 @@ export class PetriNet {
     return this.transitions;
   }
 
+  /** True when any non-resource place still holds tokens (actual deadlock, not clean completion). */
+  private hasWorkBearingTokens(): boolean {
+    for (const [placeId, tokens] of this.places) {
+      if (tokens.length === 0) continue;
+      const name = placeName(placeId);
+      if (BENIGN_RESIDUAL_PLACES.has(name)) continue;
+      return true;
+    }
+    return false;
+  }
+
   async run(_policy: FiringPolicy, shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
     // Phase 0: only serial policy — find first enabled, fire, repeat.
     while (true) {
@@ -120,10 +149,7 @@ export class PetriNet {
         }),
       );
       if (!enabled) {
-        // No enabled transition — either deadlock or clean termination.
-        // Deadlock = places have tokens but no transition can fire.
-        const hasTokens = [...this.places.values()].some((tokens) => tokens.length > 0);
-        if (hasTokens) {
+        if (this.hasWorkBearingTokens()) {
           eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
         }
         break;
