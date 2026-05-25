@@ -92,13 +92,13 @@ export async function runCook(opts: CookOptions): Promise<void> {
   console.error('');
 
   const reports = new FileReportSink(reportsPath);
-  const actions = createPiActions({ verbose: opts.verbose });
   const testRunner = new BunTestRunner();
 
   const engine: Orchestrator =
     opts.engine === 'petri' ? new PetriOrchestrator() : new ProceduralOrchestrator();
 
-  const t0 = Date.now();
+  const runStart = Date.now();
+  const actions = createPiActions({ verbose: opts.verbose, runStart });
 
   const result = await engine.run({
     plan,
@@ -109,7 +109,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
     policy: { maxRetries: opts.maxRetries },
   });
 
-  const duration = fmtDuration(Date.now() - t0);
+  const duration = fmtDuration(Date.now() - runStart);
   const ok = result.status === 'completed';
 
   console.error('');

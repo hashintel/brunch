@@ -14,7 +14,7 @@ const promptsDir = __dirname.includes('dist')
 // Logging
 // ---------------------------------------------------------------------------
 
-const t0 = Date.now();
+let t0 = 0;
 let _verbose = false;
 
 function elapsed(): string {
@@ -114,8 +114,9 @@ function report(ctx: ActionContext, actor: string, event: string, payload: Recor
 // Actions
 // ---------------------------------------------------------------------------
 
-export function createPiActions(opts?: { verbose?: boolean }): ActionHandlers {
+export function createPiActions(opts?: { verbose?: boolean; runStart?: number }): ActionHandlers {
   _verbose = opts?.verbose ?? false;
+  t0 = opts?.runStart ?? Date.now();
 
   return {
     'evaluate-done': async (ctx: ActionContext) => {
