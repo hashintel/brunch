@@ -16,7 +16,7 @@ const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
 
 loadLocalEnvFile(launchCwd);
 
-if (args.has('--version') || args.has('-V')) {
+if (rawArgs[0] === '--version' || rawArgs[0] === '-V') {
   const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '../../package.json');
   const { version } = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version: string };
   console.log(version);

@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -119,6 +127,48 @@ describe('mergeSlicesIntoEpicSandbox', () => {
     });
 
     expect(existsSync(join(result.epicSandboxDir, 'src/a.ts'))).toBe(true);
+    expect(result.conflicts).toEqual([]);
+  });
+
+  it('rejects epic ids that escape the parent sandbox', () => {
+    const parent = makeParent();
+    expect(() =>
+      mergeSlicesIntoEpicSandbox({
+        parentSandboxDir: parent,
+        epicId: '..',
+        sliceIds: [],
+      }),
+    ).toThrow(/Invalid epic id/);
+  });
+
+  it('ignores symlinks when walking slice files', () => {
+    const parent = makeParent();
+    seedSlice(parent, 'a', { 'src/a.ts': 'A\n' });
+    writeFileSync(join(parent, 'outside.ts'), 'OUT\n');
+    symlinkSync(join(parent, 'outside.ts'), join(parent, 'a', 'escape.link'));
+
+    const result = mergeSlicesIntoEpicSandbox({
+      parentSandboxDir: parent,
+      epicId: 'epic-1',
+      sliceIds: ['a'],
+    });
+
+    expect(existsSync(join(result.epicSandboxDir, 'src/a.ts'))).toBe(true);
+    expect(existsSync(join(result.epicSandboxDir, 'escape.link'))).toBe(false);
+  });
+
+  it('replaces a file with a directory when later slices need nested paths', () => {
+    const parent = makeParent();
+    seedSlice(parent, 'a', { 'src/x': 'file\n' });
+    seedSlice(parent, 'b', { 'src/x/inner.ts': 'inner\n' });
+
+    const result = mergeSlicesIntoEpicSandbox({
+      parentSandboxDir: parent,
+      epicId: 'epic-1',
+      sliceIds: ['a', 'b'],
+    });
+
+    expect(readFileSync(join(result.epicSandboxDir, 'src/x/inner.ts'), 'utf8')).toBe('inner\n');
     expect(result.conflicts).toEqual([]);
   });
 });
