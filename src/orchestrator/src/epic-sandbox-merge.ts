@@ -26,16 +26,22 @@ export type MergeOptions = {
   sliceIds: string[];
 };
 
+/** Reserved under the parent sandbox for merged epic verify trees. */
+const EPIC_MERGE_SEGMENT = '__epic__';
+
 function assertSafePathSegment(id: string, label: string): void {
   if (!id || id.includes('..') || id.includes('/') || id.includes('\\')) {
     throw new Error(`Invalid ${label}: ${id}`);
+  }
+  if (label === 'slice id' && id === EPIC_MERGE_SEGMENT) {
+    throw new Error(`Invalid slice id: ${id}`);
   }
 }
 
 function resolveEpicSandboxDir(parentSandboxDir: string, epicId: string): string {
   assertSafePathSegment(epicId, 'epic id');
   const parent = resolve(parentSandboxDir);
-  const epicRoot = resolve(parent, '__epic__');
+  const epicRoot = resolve(parent, EPIC_MERGE_SEGMENT);
   const dir = resolve(epicRoot, epicId);
   if (dir === parent || !dir.startsWith(epicRoot + sep)) {
     throw new Error(`Invalid epic id: ${epicId}`);
@@ -100,9 +106,12 @@ export function mergeSlicesIntoEpicSandbox(opts: MergeOptions): MergeResult {
   mkdirSync(epicSandboxDir, { recursive: true });
 
   const writers = new Map<string, string[]>();
+  const parent = resolve(opts.parentSandboxDir);
+  const epicRoot = resolve(parent, EPIC_MERGE_SEGMENT);
 
   for (const sliceId of opts.sliceIds) {
     const sliceDir = resolveSliceDir(opts.parentSandboxDir, sliceId);
+    if (sliceDir === epicRoot || sliceDir.startsWith(epicRoot + sep)) continue;
     if (!existsSync(sliceDir)) continue;
 
     for (const file of walkFiles(sliceDir)) {

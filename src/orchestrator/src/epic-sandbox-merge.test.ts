@@ -141,6 +141,37 @@ describe('mergeSlicesIntoEpicSandbox', () => {
     ).toThrow(/Invalid epic id/);
   });
 
+  it('rejects reserved __epic__ slice id', () => {
+    const parent = makeParent();
+    expect(() =>
+      mergeSlicesIntoEpicSandbox({
+        parentSandboxDir: parent,
+        epicId: 'epic-1',
+        sliceIds: ['__epic__'],
+      }),
+    ).toThrow(/Invalid slice id: __epic__/);
+  });
+
+  it('does not nest other epic merge dirs into the verify sandbox', () => {
+    const parent = makeParent();
+    seedSlice(parent, 'a', { 'src/a.ts': 'A\n' });
+
+    mergeSlicesIntoEpicSandbox({
+      parentSandboxDir: parent,
+      epicId: 'epic-1',
+      sliceIds: ['a'],
+    });
+
+    const result = mergeSlicesIntoEpicSandbox({
+      parentSandboxDir: parent,
+      epicId: 'epic-2',
+      sliceIds: ['a'],
+    });
+
+    expect(existsSync(join(result.epicSandboxDir, 'src/a.ts'))).toBe(true);
+    expect(existsSync(join(result.epicSandboxDir, 'epic-1'))).toBe(false);
+  });
+
   it('ignores symlinks when walking slice files', () => {
     const parent = makeParent();
     seedSlice(parent, 'a', { 'src/a.ts': 'A\n' });

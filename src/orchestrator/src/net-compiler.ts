@@ -32,6 +32,9 @@ function sliceSandboxDir(rootSandboxDir: string, sliceId: string): string {
   if (!sliceId || sliceId.includes('..') || sliceId.includes('/') || sliceId.includes('\\')) {
     throw new Error(`Invalid slice id: ${sliceId}`);
   }
+  if (sliceId === '__epic__') {
+    throw new Error(`Invalid slice id: ${sliceId}`);
+  }
   const root = resolve(rootSandboxDir);
   const dir = resolve(root, sliceId);
   if (dir !== root && !dir.startsWith(root + sep)) {
