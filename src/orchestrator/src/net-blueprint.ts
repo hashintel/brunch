@@ -7,16 +7,16 @@ import type { TransitionContract } from './petri-net.js';
 import type { ReportLine } from './types.js';
 
 // ---------------------------------------------------------------------------
-// Guard — declarative routing predicate evaluated against a report payload
+// RouteGuard — declarative routing predicate evaluated against a report payload
 //
 // Extension shape: add a new `kind` variant here and a matching case in
-// evalGuard. Keep guards pure data so a static analyzer can reason about
+// evalRouteGuard. Keep guards pure data so a static analyzer can reason about
 // reachable markings without executing fire closures.
 // ---------------------------------------------------------------------------
 
-export type Guard = { kind: 'always' } | { kind: 'reportFieldTruthy'; field: string };
+export type RouteGuard = { kind: 'always' } | { kind: 'reportFieldTruthy'; field: string };
 
-export function evalGuard(guard: Guard, report: ReportLine | undefined): boolean {
+export function evalRouteGuard(guard: RouteGuard, report: ReportLine | undefined): boolean {
   switch (guard.kind) {
     case 'always':
       return true;
@@ -57,8 +57,8 @@ type ActionDescriptor = {
   actionKey: string;
   sliceId: string;
   epicId: string;
-  /** Guard evaluated against the action's report; selects onTrue vs onFalse. */
-  guard: Guard;
+  /** RouteGuard evaluated against the action's report; selects onTrue vs onFalse. */
+  guard: RouteGuard;
   /** Places to emit to when guard evaluates true. */
   onTrue: string[];
   /** Places to emit to when guard evaluates false. */
@@ -73,8 +73,8 @@ type RunTestsDescriptor = {
   sliceId: string;
   epicId: string;
   target: string;
-  /** Guard evaluated against the tests-run report; selects onPass vs onFail. */
-  passGuard: Guard;
+  /** RouteGuard evaluated against the tests-run report; selects onPass vs onFail. */
+  passGuard: RouteGuard;
   onPass: string[];
   onFail: string[];
   budgetPlace: string;
@@ -87,8 +87,8 @@ type AssessSemanticDescriptor = {
   actionKey: string;
   sliceId: string;
   epicId: string;
-  /** Guard evaluated against the semantic-assessed report; selects onSatisfied vs onRejected. */
-  satisfiedGuard: Guard;
+  /** RouteGuard evaluated against the semantic-assessed report; selects onSatisfied vs onRejected. */
+  satisfiedGuard: RouteGuard;
   onSatisfied: string[];
   onRejected: string[];
   budgetPlace: string;

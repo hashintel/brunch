@@ -13,7 +13,7 @@ import {
   seedSliceSandboxFromDeps,
   sliceIdsForEpicVerifyMerge,
 } from './epic-sandbox-merge.js';
-import { evalGuard } from './net-blueprint.js';
+import { evalRouteGuard } from './net-blueprint.js';
 import type { NetBlueprint, TokenSeed, TransitionSkeleton } from './net-blueprint.js';
 import { PetriNet } from './petri-net.js';
 import type { Token } from './petri-net.js';
@@ -376,7 +376,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           ctx.reportIds.push(reportId);
           const tok: Token = { ...consumed[0]!, reportId };
 
-          const route = evalGuard(guard, reports.getById(reportId)) ? onTrue : onFalse;
+          const route = evalRouteGuard(guard, reports.getById(reportId)) ? onTrue : onFalse;
 
           const outputs: { place: string; token: Token }[] = route.map((pl) => ({ place: pl, token: tok }));
           if (agentReturnPlace) {
@@ -410,7 +410,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           ctx.reportIds.push(reportId);
 
           const tok: Token = { ...consumed[0]!, reportId };
-          if (evalGuard(passGuard, reports.getById(reportId))) {
+          if (evalRouteGuard(passGuard, reports.getById(reportId))) {
             return [
               ...onPass.map((pl) => ({ place: pl, token: tok })),
               { place: budgetPlace, token: { ...baseToken, retryCount: 0 } },
@@ -461,7 +461,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           const reportId = await actions[actionKey]!(actCtx);
           ctx.reportIds.push(reportId);
 
-          if (evalGuard(satisfiedGuard, reports.getById(reportId))) {
+          if (evalRouteGuard(satisfiedGuard, reports.getById(reportId))) {
             return onSatisfied.map((pl) => ({ place: pl, token: { ...consumed[0]!, reportId } }));
           }
           if (reworkCount >= maxReworks) {

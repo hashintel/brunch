@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { enumerateCandidateOutputs, evalGuard } from './net-blueprint.js';
+import { enumerateCandidateOutputs, evalRouteGuard } from './net-blueprint.js';
 import { compileTopology } from './net-compiler.js';
 import type { Plan, ReportLine } from './types.js';
 
 // ---------------------------------------------------------------------------
-// evalGuard — pure interpreter for declarative routing guards
+// evalRouteGuard — pure interpreter for declarative routing guards
 // ---------------------------------------------------------------------------
 
 function makeReport(payload: Record<string, unknown>): ReportLine {
@@ -20,25 +20,25 @@ function makeReport(payload: Record<string, unknown>): ReportLine {
   };
 }
 
-describe('evalGuard', () => {
+describe('evalRouteGuard', () => {
   it('always returns true regardless of report', () => {
-    expect(evalGuard({ kind: 'always' }, makeReport({ done: false }))).toBe(true);
-    expect(evalGuard({ kind: 'always' }, makeReport({}))).toBe(true);
-    expect(evalGuard({ kind: 'always' }, undefined)).toBe(true);
+    expect(evalRouteGuard({ kind: 'always' }, makeReport({ done: false }))).toBe(true);
+    expect(evalRouteGuard({ kind: 'always' }, makeReport({}))).toBe(true);
+    expect(evalRouteGuard({ kind: 'always' }, undefined)).toBe(true);
   });
 
   it('reportFieldTruthy reads the named field and coerces to boolean', () => {
     const guard = { kind: 'reportFieldTruthy', field: 'done' } as const;
-    expect(evalGuard(guard, makeReport({ done: true }))).toBe(true);
-    expect(evalGuard(guard, makeReport({ done: false }))).toBe(false);
-    expect(evalGuard(guard, makeReport({ done: 'yes' }))).toBe(true);
-    expect(evalGuard(guard, makeReport({ done: 0 }))).toBe(false);
-    expect(evalGuard(guard, makeReport({ other: true }))).toBe(false);
+    expect(evalRouteGuard(guard, makeReport({ done: true }))).toBe(true);
+    expect(evalRouteGuard(guard, makeReport({ done: false }))).toBe(false);
+    expect(evalRouteGuard(guard, makeReport({ done: 'yes' }))).toBe(true);
+    expect(evalRouteGuard(guard, makeReport({ done: 0 }))).toBe(false);
+    expect(evalRouteGuard(guard, makeReport({ other: true }))).toBe(false);
   });
 
   it('reportFieldTruthy returns false when the report is missing', () => {
     const guard = { kind: 'reportFieldTruthy', field: 'done' } as const;
-    expect(evalGuard(guard, undefined)).toBe(false);
+    expect(evalRouteGuard(guard, undefined)).toBe(false);
   });
 });
 
