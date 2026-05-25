@@ -140,4 +140,37 @@ describe('enumerateCandidateOutputs', () => {
     const outputs = enumerateCandidateOutputs(completeA!);
     expect(outputs.has('slice:slice-a:dep-signal:slice-b')).toBe(true);
   });
+
+  // Goldens — literal expected sets, not derived from descriptor fields.
+  // These catch silent lockstep drift in both the descriptor emitter and the enumerator.
+  it("golden: simplePlan 'slice-1:evaluate' enumerates to the action's two routes plus pool return", () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+    const evaluate = blueprint.transitions.find((t) => t.id === 'slice-1:evaluate');
+    expect(evaluate).toBeDefined();
+    expect(enumerateCandidateOutputs(evaluate!)).toEqual(
+      new Set(['slice:slice-1:done-spec', 'slice:slice-1:needs-more', 'pool:test-agent']),
+    );
+  });
+
+  it("golden: simplePlan 'slice-1:run-tests' enumerates to pass, fail, and retry-budget", () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+    const runTests = blueprint.transitions.find((t) => t.id === 'slice-1:run-tests');
+    expect(runTests).toBeDefined();
+    expect(enumerateCandidateOutputs(runTests!)).toEqual(
+      new Set(['slice:slice-1:spec-ready', 'slice:slice-1:failing-tests', 'slice:slice-1:retry-budget']),
+    );
+  });
+
+  it("golden: simplePlan 'slice-1:assess-semantic' enumerates to satisfied, rejected, and semantic-budget", () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+    const assess = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic');
+    expect(assess).toBeDefined();
+    expect(enumerateCandidateOutputs(assess!)).toEqual(
+      new Set([
+        'slice:slice-1:semantic-satisfied',
+        'slice:slice-1:needs-more',
+        'slice:slice-1:semantic-budget',
+      ]),
+    );
+  });
 });
