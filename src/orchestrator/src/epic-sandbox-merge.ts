@@ -133,19 +133,63 @@ function copyIntoTree(src: string, dest: string, treeRoot: string): void {
   cpSync(src, dest, { dereference: false });
 }
 
-/** Copy completed dependency slice worktrees into `slice`'s sandbox (plan order). */
-export function seedSliceSandboxFromDeps(parentSandboxDir: string, slice: Slice): string {
-  const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, slice.id);
-  mkdirSync(sliceDir, { recursive: true });
+export type SeedSliceSandboxOptions = {
+  /** Keep slice-owned paths; only add missing dependency files (post-action test/assess). */
+  preserveExisting?: boolean;
+};
 
+function collectDepFiles(parentSandboxDir: string, slice: Slice): Map<string, string> {
+  const depFiles = new Map<string, string>();
   for (const depId of slice.depends_on) {
     const depDir = resolveSliceWorktreeDir(parentSandboxDir, depId);
     if (!existsSync(depDir)) continue;
 
     for (const file of walkFiles(depDir)) {
       const rel = relativePathWithin(depDir, file);
-      copyIntoTree(file, join(sliceDir, rel), sliceDir);
+      depFiles.set(rel, file);
     }
+  }
+  return depFiles;
+}
+
+function pruneEmptyDirs(rootDir: string, dir: string = rootDir): void {
+  for (const entry of readdirSync(dir)) {
+    const abs = join(dir, entry);
+    if (lstatSync(abs).isDirectory()) {
+      pruneEmptyDirs(rootDir, abs);
+    }
+  }
+  if (dir !== rootDir && readdirSync(dir).length === 0) {
+    rmSync(dir);
+  }
+}
+
+/** Copy completed dependency slice worktrees into `slice`'s sandbox (plan order). */
+export function seedSliceSandboxFromDeps(
+  parentSandboxDir: string,
+  slice: Slice,
+  opts?: SeedSliceSandboxOptions,
+): string {
+  const preserveExisting = opts?.preserveExisting ?? false;
+  const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, slice.id);
+  mkdirSync(sliceDir, { recursive: true });
+
+  const depFiles = collectDepFiles(parentSandboxDir, slice);
+
+  if (!preserveExisting && depFiles.size > 0 && existsSync(sliceDir)) {
+    for (const file of walkFiles(sliceDir)) {
+      const rel = relativePathWithin(sliceDir, file);
+      if (!depFiles.has(rel)) {
+        rmSync(file, { force: true });
+      }
+    }
+    pruneEmptyDirs(sliceDir);
+  }
+
+  for (const [rel, src] of depFiles) {
+    const dest = join(sliceDir, rel);
+    if (preserveExisting && existsSync(dest)) continue;
+    copyIntoTree(src, dest, sliceDir);
   }
 
   return sliceDir;

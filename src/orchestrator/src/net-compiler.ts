@@ -412,7 +412,9 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           const retryCount = retryToken.retryCount ?? 0;
 
           const slice = plan.slices.find((s) => s.id === sliceId)!;
-          const sandboxDir = seedSliceSandboxFromDeps(input.sandboxDir, slice);
+          const sandboxDir = seedSliceSandboxFromDeps(input.sandboxDir, slice, {
+            preserveExisting: true,
+          });
           const result = await testRunner.run(target, sandboxDir);
           const reportId = createReport(reports, {
             epicId,
@@ -458,7 +460,9 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             slice,
             epic,
             plan,
-            sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, slice),
+            sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, slice, {
+              preserveExisting: true,
+            }),
             reports,
           };
           const reportId = await actions[actionKey]!(actCtx);
