@@ -1,17 +1,17 @@
-// Materialize `<parentSandboxDir>/__epic__/<epicId>/` as the union of epic-scoped
-// worktrees at `<parentSandboxDir>/<sourceEpicId>/`. Sources apply in epic
-// dependency order (plan declaration order among included epics); later epics
-// overwrite earlier ones on the same path and the collision is reported.
-// Source worktrees are not mutated. The verify dir is rebuilt fresh on every call.
+// Materialize `<parentSandboxDir>/__epic__/<epicId>/` as the union of completed
+// slice worktrees at `<parentSandboxDir>/<sliceId>/`. Sources apply in plan
+// declaration order among included slices; later slices overwrite earlier ones
+// on the same path and the collision is reported. Source worktrees are not
+// mutated. The verify dir is rebuilt fresh on every call.
 
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
-import type { Plan } from './types.js';
+import type { Plan, Slice } from './types.js';
 
 export type MergeConflict = {
   path: string;
-  epics: string[];
+  slices: string[];
   winner: string;
 };
 
@@ -21,25 +21,45 @@ export type MergeResult = {
 };
 
 export type MergeOptions = {
-  /** Parent worktree dir holding epic sandboxes at `<parentSandboxDir>/<sourceEpicId>`. */
+  /** Parent worktree dir holding slice sandboxes at `<parentSandboxDir>/<sliceId>`. */
   parentSandboxDir: string;
   epicId: string;
-  /** Epic ids to merge in plan declaration order (this epic plus transitive deps). */
-  epicIds: string[];
+  /** Slice ids to merge in plan declaration order. */
+  sliceIds: string[];
 };
 
-/** Epic ids to merge before verify-epic: transitive deps then target, plan declaration order. */
+/** Epic ids whose slice worktrees participate in verify-epic for `epicId`. */
 export function epicIdsForEpicVerifyMerge(plan: Plan, epicId: string): string[] {
   const epicIds = new Set<string>();
-  const visit = (id: string) => {
+
+  const visitEpic = (id: string) => {
     if (epicIds.has(id)) return;
     const epic = plan.epics.find((e) => e.id === id);
     if (!epic) return;
-    for (const dep of epic.depends_on) visit(dep);
+    for (const dep of epic.depends_on) visitEpic(dep);
     epicIds.add(id);
   };
-  visit(epicId);
+
+  const visitSliceDeps = (sliceId: string) => {
+    const slice = plan.slices.find((s) => s.id === sliceId);
+    if (!slice) return;
+    visitEpic(slice.epic_id);
+    for (const depId of slice.depends_on) visitSliceDeps(depId);
+  };
+
+  visitEpic(epicId);
+  for (const slice of plan.slices.filter((s) => s.epic_id === epicId)) {
+    for (const depId of slice.depends_on) visitSliceDeps(depId);
+  }
+
   return plan.epics.filter((e) => epicIds.has(e.id)).map((e) => e.id);
+}
+
+/** Slice ids to merge before verify-epic: deps then target epic, plan declaration order. */
+export function sliceIdsForEpicVerifyMerge(plan: Plan, epicId: string): string[] {
+  const epicIds = epicIdsForEpicVerifyMerge(plan, epicId);
+  const epicOrder = new Map(epicIds.map((id, i) => [id, i]));
+  return plan.slices.filter((s) => epicOrder.has(s.epic_id)).map((s) => s.id);
 }
 
 /** Reserved under the parent sandbox for merged epic verify trees. */
@@ -65,12 +85,12 @@ function resolveEpicSandboxDir(parentSandboxDir: string, epicId: string): string
   return dir;
 }
 
-function resolveEpicWorktreeDir(parentSandboxDir: string, sourceEpicId: string): string {
-  assertSafePathSegment(sourceEpicId, 'epic id');
+export function resolveSliceWorktreeDir(parentSandboxDir: string, sliceId: string): string {
+  assertSafePathSegment(sliceId, 'slice id');
   const parent = resolve(parentSandboxDir);
-  const dir = resolve(parent, sourceEpicId);
+  const dir = resolve(parent, sliceId);
   if (dir === parent || !dir.startsWith(parent + sep)) {
-    throw new Error(`Invalid epic id: ${sourceEpicId}`);
+    throw new Error(`Invalid slice id: ${sliceId}`);
   }
   return dir;
 }
@@ -83,11 +103,11 @@ function relativePathWithin(rootDir: string, file: string): string {
   return rel;
 }
 
-function prepareDestForFile(epicRoot: string, dest: string): void {
-  const root = resolve(epicRoot);
+function prepareDestForFile(treeRoot: string, dest: string): void {
+  const root = resolve(treeRoot);
   const dir = dirname(resolve(dest));
   if (dir !== root && !dir.startsWith(root + sep)) {
-    throw new Error(`Path escapes epic sandbox: ${dest}`);
+    throw new Error(`Path escapes sandbox: ${dest}`);
   }
 
   const relDir = relative(root, dir);
@@ -105,12 +125,30 @@ function prepareDestForFile(epicRoot: string, dest: string): void {
   mkdirSync(dir, { recursive: true });
 }
 
-function copyIntoEpicSandbox(src: string, dest: string, epicRoot: string): void {
-  prepareDestForFile(epicRoot, dest);
+function copyIntoTree(src: string, dest: string, treeRoot: string): void {
+  prepareDestForFile(treeRoot, dest);
   if (existsSync(dest) && lstatSync(dest).isDirectory()) {
     rmSync(dest, { recursive: true, force: true });
   }
   cpSync(src, dest, { dereference: false });
+}
+
+/** Copy completed dependency slice worktrees into `slice`'s sandbox (plan order). */
+export function seedSliceSandboxFromDeps(parentSandboxDir: string, slice: Slice): string {
+  const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, slice.id);
+  mkdirSync(sliceDir, { recursive: true });
+
+  for (const depId of slice.depends_on) {
+    const depDir = resolveSliceWorktreeDir(parentSandboxDir, depId);
+    if (!existsSync(depDir)) continue;
+
+    for (const file of walkFiles(depDir)) {
+      const rel = relativePathWithin(depDir, file);
+      copyIntoTree(file, join(sliceDir, rel), sliceDir);
+    }
+  }
+
+  return sliceDir;
 }
 
 export function mergeSlicesIntoEpicSandbox(opts: MergeOptions): MergeResult {
@@ -125,26 +163,26 @@ export function mergeSlicesIntoEpicSandbox(opts: MergeOptions): MergeResult {
   const parent = resolve(opts.parentSandboxDir);
   const epicRoot = resolve(parent, EPIC_MERGE_SEGMENT);
 
-  for (const sourceEpicId of opts.epicIds) {
-    const epicWorktreeDir = resolveEpicWorktreeDir(opts.parentSandboxDir, sourceEpicId);
-    if (epicWorktreeDir === epicRoot || epicWorktreeDir.startsWith(epicRoot + sep)) continue;
-    if (!existsSync(epicWorktreeDir)) continue;
+  for (const sliceId of opts.sliceIds) {
+    const sliceDir = resolveSliceWorktreeDir(opts.parentSandboxDir, sliceId);
+    if (sliceDir === epicRoot || sliceDir.startsWith(epicRoot + sep)) continue;
+    if (!existsSync(sliceDir)) continue;
 
-    for (const file of walkFiles(epicWorktreeDir)) {
-      const rel = relativePathWithin(epicWorktreeDir, file);
+    for (const file of walkFiles(sliceDir)) {
+      const rel = relativePathWithin(sliceDir, file);
       const list = writers.get(rel) ?? [];
-      list.push(sourceEpicId);
+      list.push(sliceId);
       writers.set(rel, list);
 
       const dest = join(epicSandboxDir, rel);
-      copyIntoEpicSandbox(file, dest, epicSandboxDir);
+      copyIntoTree(file, dest, epicSandboxDir);
     }
   }
 
   const conflicts: MergeConflict[] = [];
-  for (const [path, epics] of writers) {
-    if (epics.length > 1) {
-      conflicts.push({ path, epics, winner: epics[epics.length - 1]! });
+  for (const [path, slices] of writers) {
+    if (slices.length > 1) {
+      conflicts.push({ path, slices, winner: slices[slices.length - 1]! });
     }
   }
   conflicts.sort((a, b) => a.path.localeCompare(b.path));
