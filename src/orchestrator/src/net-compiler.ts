@@ -13,6 +13,7 @@ import {
   seedSliceSandboxFromDeps,
   sliceIdsForEpicVerifyMerge,
 } from './epic-sandbox-merge.js';
+import { evalGuard } from './net-blueprint.js';
 import type { NetBlueprint, TokenSeed, TransitionSkeleton } from './net-blueprint.js';
 import { PetriNet } from './petri-net.js';
 import type { Token } from './petri-net.js';
@@ -154,7 +155,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         actionKey: 'evaluate-done',
         sliceId: sid,
         epicId: epic.id,
-        routeField: 'done',
+        guard: { kind: 'reportFieldTruthy', field: 'done' },
         onTrue: [p(sid, 'done-spec')],
         onFalse: [p(sid, 'needs-more')],
         agentReturnPlace: poolTestAgent,
@@ -171,6 +172,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         actionKey: 'write-tests',
         sliceId: sid,
         epicId: epic.id,
+        guard: { kind: 'always' },
         onTrue: [p(sid, 'failing-tests')],
         onFalse: [],
         agentReturnPlace: poolTestAgent,
@@ -187,6 +189,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         actionKey: 'write-code',
         sliceId: sid,
         epicId: epic.id,
+        guard: { kind: 'always' },
         onTrue: [p(sid, 'untested-code')],
         onFalse: [],
         agentReturnPlace: poolCodeAgent,
@@ -208,6 +211,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         sliceId: sid,
         epicId: epic.id,
         target: slice.verification[0]?.target ?? '',
+        passGuard: { kind: 'reportFieldTruthy', field: 'passed' },
         onPass: [p(sid, 'spec-ready')],
         onFail: [p(sid, 'failing-tests')],
         budgetPlace: p(sid, 'retry-budget'),
@@ -231,6 +235,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         actionKey: 'assess-semantic',
         sliceId: sid,
         epicId: epic.id,
+        satisfiedGuard: { kind: 'reportFieldTruthy', field: 'satisfied' },
         onSatisfied: [p(sid, 'semantic-satisfied')],
         onRejected: [p(sid, 'needs-more')],
         budgetPlace: p(sid, 'semantic-budget'),
@@ -352,7 +357,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
       }
 
       case 'action': {
-        const { actionKey, sliceId, epicId, routeField, onTrue, onFalse, agentReturnPlace } = h;
+        const { actionKey, sliceId, epicId, guard, onTrue, onFalse, agentReturnPlace } = h;
         const slice = plan.slices.find((s) => s.id === sliceId)!;
         const epic = plan.epics.find((e) => e.id === epicId)!;
         const baseToken: Token = { sliceId, epicId };
@@ -371,14 +376,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           ctx.reportIds.push(reportId);
           const tok: Token = { ...consumed[0]!, reportId };
 
-          let route: string[];
-          if (routeField) {
-            const report = reports.getById(reportId);
-            const val = !!(report?.payload as Record<string, unknown>)?.[routeField];
-            route = val ? onTrue : onFalse;
-          } else {
-            route = onTrue;
-          }
+          const route = evalGuard(guard, reports.getById(reportId)) ? onTrue : onFalse;
 
           const outputs: { place: string; token: Token }[] = route.map((pl) => ({ place: pl, token: tok }));
           if (agentReturnPlace) {
@@ -390,7 +388,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
       }
 
       case 'run-tests': {
-        const { sliceId, epicId, target, onPass, onFail, budgetPlace, maxRetries } = h;
+        const { sliceId, epicId, target, passGuard, onPass, onFail, budgetPlace, maxRetries } = h;
         const baseToken: Token = { sliceId, epicId };
 
         fire = async (consumed) => {
@@ -412,7 +410,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           ctx.reportIds.push(reportId);
 
           const tok: Token = { ...consumed[0]!, reportId };
-          if (result.passed) {
+          if (evalGuard(passGuard, reports.getById(reportId))) {
             return [
               ...onPass.map((pl) => ({ place: pl, token: tok })),
               { place: budgetPlace, token: { ...baseToken, retryCount: 0 } },
@@ -433,7 +431,16 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
       }
 
       case 'assess-semantic': {
-        const { actionKey, sliceId, epicId, onSatisfied, onRejected, budgetPlace, maxReworks } = h;
+        const {
+          actionKey,
+          sliceId,
+          epicId,
+          satisfiedGuard,
+          onSatisfied,
+          onRejected,
+          budgetPlace,
+          maxReworks,
+        } = h;
         const slice = plan.slices.find((s) => s.id === sliceId)!;
         const epic = plan.epics.find((e) => e.id === epicId)!;
         const baseToken: Token = { sliceId, epicId };
@@ -453,10 +460,8 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           };
           const reportId = await actions[actionKey]!(actCtx);
           ctx.reportIds.push(reportId);
-          const report = reports.getById(reportId);
-          const satisfied = !!(report?.payload as { satisfied?: boolean })?.satisfied;
 
-          if (satisfied) {
+          if (evalGuard(satisfiedGuard, reports.getById(reportId))) {
             return onSatisfied.map((pl) => ({ place: pl, token: { ...consumed[0]!, reportId } }));
           }
           if (reworkCount >= maxReworks) {
