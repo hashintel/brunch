@@ -138,9 +138,15 @@ export type SeedSliceSandboxOptions = {
   preserveExisting?: boolean;
 };
 
-function collectDepFiles(parentSandboxDir: string, slice: Slice): Map<string, string> {
+/** Dependency slice ids in plan declaration order (matches epic verify merge). */
+function depSliceIdsInPlanOrder(plan: Plan, slice: Slice): string[] {
+  const order = new Map(plan.slices.map((s, i) => [s.id, i]));
+  return [...slice.depends_on].sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
+}
+
+function collectDepFiles(parentSandboxDir: string, plan: Plan, slice: Slice): Map<string, string> {
   const depFiles = new Map<string, string>();
-  for (const depId of slice.depends_on) {
+  for (const depId of depSliceIdsInPlanOrder(plan, slice)) {
     const depDir = resolveSliceWorktreeDir(parentSandboxDir, depId);
     if (!existsSync(depDir)) continue;
 
@@ -167,6 +173,7 @@ function pruneEmptyDirs(rootDir: string, dir: string = rootDir): void {
 /** Copy completed dependency slice worktrees into `slice`'s sandbox (plan order). */
 export function seedSliceSandboxFromDeps(
   parentSandboxDir: string,
+  plan: Plan,
   slice: Slice,
   opts?: SeedSliceSandboxOptions,
 ): string {
@@ -174,9 +181,9 @@ export function seedSliceSandboxFromDeps(
   const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, slice.id);
   mkdirSync(sliceDir, { recursive: true });
 
-  const depFiles = collectDepFiles(parentSandboxDir, slice);
+  const depFiles = collectDepFiles(parentSandboxDir, plan, slice);
 
-  if (!preserveExisting && depFiles.size > 0 && existsSync(sliceDir)) {
+  if (depFiles.size > 0 && existsSync(sliceDir)) {
     for (const file of walkFiles(sliceDir)) {
       const rel = relativePathWithin(sliceDir, file);
       if (!depFiles.has(rel)) {

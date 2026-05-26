@@ -6,10 +6,10 @@
 // ---------------------------------------------------------------------------
 
 import { mkdirSync } from 'node:fs';
-import { resolve, sep } from 'node:path';
 
 import {
   mergeSlicesIntoEpicSandbox,
+  resolveSliceWorktreeDir,
   seedSliceSandboxFromDeps,
   sliceIdsForEpicVerifyMerge,
 } from './epic-sandbox-merge.js';
@@ -29,22 +29,6 @@ function p(sliceId: string, place: string): string {
 
 function ep(epicId: string, place: string): string {
   return `epic:${epicId}:${place}`;
-}
-
-/** Resolve a per-slice sandbox under the run root; reject path-escape ids. */
-function sliceWorktreeDir(rootSandboxDir: string, sliceId: string): string {
-  if (!sliceId || sliceId.includes('..') || sliceId.includes('/') || sliceId.includes('\\')) {
-    throw new Error(`Invalid slice id: ${sliceId}`);
-  }
-  if (sliceId === '__epic__') {
-    throw new Error(`Invalid slice id: ${sliceId}`);
-  }
-  const root = resolve(rootSandboxDir);
-  const dir = resolve(root, sliceId);
-  if (dir !== root && !dir.startsWith(root + sep)) {
-    throw new Error(`Invalid slice id: ${sliceId}`);
-  }
-  return dir;
 }
 
 // ---------------------------------------------------------------------------
@@ -351,7 +335,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
   // out if more provisioning responsibilities accumulate.
   // Per-slice dirs are parallel-safe; dependency seeding happens at fire time.
   for (const slice of plan.slices) {
-    mkdirSync(sliceWorktreeDir(input.sandboxDir, slice.id), { recursive: true });
+    mkdirSync(resolveSliceWorktreeDir(input.sandboxDir, slice.id), { recursive: true });
   }
 
   // Register transitions with wired fire handlers
@@ -378,7 +362,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             slice,
             epic,
             plan,
-            sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, slice, {
+            sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
               preserveExisting: true,
             }),
             reports,
@@ -414,7 +398,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           const retryCount = retryToken.retryCount ?? 0;
 
           const slice = plan.slices.find((s) => s.id === sliceId)!;
-          const sandboxDir = seedSliceSandboxFromDeps(input.sandboxDir, slice, {
+          const sandboxDir = seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
             preserveExisting: true,
           });
           const result = await testRunner.run(target, sandboxDir);
@@ -462,7 +446,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             slice,
             epic,
             plan,
-            sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, slice, {
+            sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
               preserveExisting: true,
             }),
             reports,

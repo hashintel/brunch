@@ -95,10 +95,27 @@ describe('seedSliceSandboxFromDeps', () => {
     writeFileSync(join(parent, 'version-flag', 'src/cli.ts'), 'version\n');
 
     const slice = txtLikePlan.slices.find((s) => s.id === 'help-flag')!;
-    const sliceDir = seedSliceSandboxFromDeps(parent, slice);
+    const sliceDir = seedSliceSandboxFromDeps(parent, txtLikePlan, slice);
 
     expect(sliceDir).toBe(join(parent, 'help-flag'));
     expect(readFileSync(join(sliceDir, 'src/cli.ts'), 'utf8')).toBe('version\n');
+  });
+
+  it('preserveExisting prunes rework orphans but keeps slice edits on dep paths', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'cook-seed-'));
+    dirs.push(parent);
+    mkdirSync(join(parent, 'version-flag', 'src'), { recursive: true });
+    writeFileSync(join(parent, 'version-flag', 'src/cli.ts'), 'dep\n');
+
+    const slice = txtLikePlan.slices.find((s) => s.id === 'help-flag')!;
+    seedSliceSandboxFromDeps(parent, txtLikePlan, slice);
+    writeFileSync(join(parent, 'help-flag', 'src/stale.ts'), 'orphan\n');
+    writeFileSync(join(parent, 'help-flag', 'src/cli.ts'), 'slice edit\n');
+
+    seedSliceSandboxFromDeps(parent, txtLikePlan, slice, { preserveExisting: true });
+
+    expect(existsSync(join(parent, 'help-flag', 'src/stale.ts'))).toBe(false);
+    expect(readFileSync(join(parent, 'help-flag', 'src/cli.ts'), 'utf8')).toBe('slice edit\n');
   });
 
   it('preserveExisting keeps slice modifications when re-seeding before tests', () => {
@@ -108,12 +125,40 @@ describe('seedSliceSandboxFromDeps', () => {
     writeFileSync(join(parent, 'version-flag', 'src/cli.ts'), 'dep\n');
 
     const slice = txtLikePlan.slices.find((s) => s.id === 'help-flag')!;
-    seedSliceSandboxFromDeps(parent, slice);
+    seedSliceSandboxFromDeps(parent, txtLikePlan, slice);
     writeFileSync(join(parent, 'help-flag', 'src/cli.ts'), 'slice edit\n');
 
-    seedSliceSandboxFromDeps(parent, slice, { preserveExisting: true });
+    seedSliceSandboxFromDeps(parent, txtLikePlan, slice, { preserveExisting: true });
 
     expect(readFileSync(join(parent, 'help-flag', 'src/cli.ts'), 'utf8')).toBe('slice edit\n');
+  });
+
+  it('uses plan order when multiple deps share a path', () => {
+    const plan: Plan = {
+      epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
+      slices: [
+        { id: 'dep-b', epic_id: 'e1', definition: '', depends_on: [], verification: [] },
+        { id: 'dep-a', epic_id: 'e1', definition: '', depends_on: [], verification: [] },
+        {
+          id: 'target',
+          epic_id: 'e1',
+          definition: '',
+          depends_on: ['dep-b', 'dep-a'],
+          verification: [],
+        },
+      ],
+    };
+    const parent = mkdtempSync(join(tmpdir(), 'cook-seed-'));
+    dirs.push(parent);
+    mkdirSync(join(parent, 'dep-b'), { recursive: true });
+    writeFileSync(join(parent, 'dep-b', 'shared.txt'), 'B\n');
+    mkdirSync(join(parent, 'dep-a'), { recursive: true });
+    writeFileSync(join(parent, 'dep-a', 'shared.txt'), 'A\n');
+
+    const slice = plan.slices.find((s) => s.id === 'target')!;
+    seedSliceSandboxFromDeps(parent, plan, slice);
+
+    expect(readFileSync(join(parent, 'target', 'shared.txt'), 'utf8')).toBe('A\n');
   });
 
   it('reset re-seed removes orphaned slice files from a prior rework attempt', () => {
@@ -123,11 +168,11 @@ describe('seedSliceSandboxFromDeps', () => {
     writeFileSync(join(parent, 'version-flag', 'src/cli.ts'), 'dep\n');
 
     const slice = txtLikePlan.slices.find((s) => s.id === 'help-flag')!;
-    seedSliceSandboxFromDeps(parent, slice);
+    seedSliceSandboxFromDeps(parent, txtLikePlan, slice);
     writeFileSync(join(parent, 'help-flag', 'src/stale.ts'), 'orphan\n');
     writeFileSync(join(parent, 'help-flag', 'src/cli.ts'), 'bad edit\n');
 
-    seedSliceSandboxFromDeps(parent, slice);
+    seedSliceSandboxFromDeps(parent, txtLikePlan, slice);
 
     expect(existsSync(join(parent, 'help-flag', 'src/stale.ts'))).toBe(false);
     expect(readFileSync(join(parent, 'help-flag', 'src/cli.ts'), 'utf8')).toBe('dep\n');
