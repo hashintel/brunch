@@ -12,6 +12,7 @@ import {
   type DefaultWorkspaceCoordinator,
 } from "./workspace-session-coordinator.js"
 import { startWebHost } from "./web-host.js"
+import { assistantMessage, userMessage } from "./test-helpers.js"
 
 function text(response: Response): Promise<string> {
   return response.text()
@@ -33,7 +34,9 @@ async function rawGet(url: string, path: string): Promise<Response> {
         res.on("end", () => {
           resolve(
             new Response(Buffer.concat(chunks), {
-              status: res.statusCode,
+              ...(res.statusCode !== undefined
+                ? { status: res.statusCode }
+                : {}),
               headers: res.headers as Record<string, string>,
             }),
           )
@@ -173,11 +176,8 @@ describe("web host", () => {
     }).createSetupSession({
       specTitle: "Web spec",
     })
-    workspace.session.manager.appendMessage({
-      role: "assistant",
-      content: "Question",
-    })
-    workspace.session.manager.appendMessage({ role: "user", content: "Answer" })
+    workspace.session.manager.appendMessage(assistantMessage("Question"))
+    workspace.session.manager.appendMessage(userMessage("Answer"))
     const host = await startWebHost({
       cwd,
       port: 0,
@@ -219,19 +219,13 @@ describe("web host", () => {
     const first = await coordinator.createSetupSession({
       specTitle: "Explicit web spec",
     })
-    first.session.manager.appendMessage({
-      role: "assistant",
-      content: "First question",
-    })
+    first.session.manager.appendMessage(assistantMessage("First question"))
     first.session.manager.appendCustomMessageEntry(
       "brunch.elicitation_prompt",
       "Pick an explicit session direction.",
       true,
     )
-    first.session.manager.appendMessage({
-      role: "user",
-      content: "First answer",
-    })
+    first.session.manager.appendMessage(userMessage("First answer"))
     await coordinator.createSetupSessionForCurrentSpec()
     const host = await startWebHost({
       cwd,
@@ -382,10 +376,10 @@ describe("web host", () => {
       specTitle: "Branch spec",
     })
     const manager = SessionManager.open(workspace.session.file)
-    manager.appendMessage({ role: "assistant", content: "Abandoned prompt" })
-    manager.appendMessage({ role: "user", content: "Abandoned answer" })
+    manager.appendMessage(assistantMessage("Abandoned prompt"))
+    manager.appendMessage(userMessage("Abandoned answer"))
     manager.resetLeaf()
-    manager.appendMessage({ role: "assistant", content: "Active prompt" })
+    manager.appendMessage(assistantMessage("Active prompt"))
     const host = await startWebHost({
       cwd,
       port: 0,

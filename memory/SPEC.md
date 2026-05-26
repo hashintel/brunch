@@ -232,6 +232,11 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 
 - Brunch's durable state is intentionally split across four semantic substrates: graph truth (nodes/edges), `change_log` audit/history, `coherence_state` verdict, and `reconciliation_need` actionable semantic queue. Routine async work such as observer jobs may use a separate operational queue; if later generalized, table naming may become `work_item` with subtypes, but the POC should not make every observer job a reconciliation need.
 
+### Chrome surface evolution
+
+- **Title and hidden-thinking-label as state-indicative chrome.** Pi exposes `ctx.ui.setTitle()` and `ctx.ui.setHiddenThinkingLabel()` as small dynamic chrome surfaces. Brunch defers wiring them until the question of *what state they should indicate* is sharper. Candidate signals once a canonical chrome-state snapshot exists: terminal title carries spec/session identity with optional working-state tied to the active agent-mode (e.g. eliciting / observing / reviewing / reconciling) rather than raw `agent_start`/`agent_end`; hidden-thinking label varies by agent-mode or lens (e.g. "Eliciting…", "Reviewing batch…", "Reconciling…"). Both depend on stable producers for those signals — the chrome wrapper must not synthesize state it doesn't have, so wiring is deferred until the relevant subsystems (agent-mode dispatcher, lens registry) land. Until then, Brunch's chrome owns header and footer projection only; title and hidden-thinking-label remain Pi defaults.
+- **Status keys as the dynamic contribution channel.** `ctx.ui.setStatus(key, text)` remains the multi-extension-friendly seam for other Brunch extensions and future dynamic Brunch state to surface in the footer's status row. Brunch's chrome wrapper does not contribute its own status key by default; it merges all foreign status entries via `footerData.getExtensionStatuses()` into the footer's right column so contributions surface without anyone owning the whole footer.
+
 ## Lexicon
 
 | Term | Definition |

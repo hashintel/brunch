@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest"
 import type { DefaultWorkspaceCoordinator } from "./workspace-session-coordinator.js"
 import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
 import { loadLinearElicitationExchangeProjection } from "./elicitation-exchange.js"
+import { assistantMessage, userMessage } from "./test-helpers.js"
 import {
   captureDeterministicBriefRuns,
   captureFixtureRun,
@@ -19,14 +20,10 @@ describe("fixture capture", () => {
     }).createSetupSession({
       specTitle: "Fixture spec",
     })
-    workspace.session.manager.appendMessage({
-      role: "assistant",
-      content: "Real selected question",
-    })
-    workspace.session.manager.appendMessage({
-      role: "user",
-      content: "Real selected answer",
-    })
+    workspace.session.manager.appendMessage(
+      assistantMessage("Real selected question"),
+    )
+    workspace.session.manager.appendMessage(userMessage("Real selected answer"))
 
     const result = await captureFixtureRun({
       cwd,
@@ -68,11 +65,8 @@ describe("fixture capture", () => {
     }).createSetupSession({
       specTitle: "Fixture spec",
     })
-    workspace.session.manager.appendMessage({
-      role: "assistant",
-      content: "Question",
-    })
-    workspace.session.manager.appendMessage({ role: "user", content: "Answer" })
+    workspace.session.manager.appendMessage(assistantMessage("Question"))
+    workspace.session.manager.appendMessage(userMessage("Answer"))
 
     const result = await captureFixtureRun({
       cwd,
@@ -98,11 +92,8 @@ describe("fixture capture", () => {
     }).createSetupSession({
       specTitle: "Fixture spec",
     })
-    workspace.session.manager.appendMessage({
-      role: "assistant",
-      content: "Question",
-    })
-    workspace.session.manager.appendMessage({ role: "user", content: "Answer" })
+    workspace.session.manager.appendMessage(assistantMessage("Question"))
+    workspace.session.manager.appendMessage(userMessage("Answer"))
 
     const coordinator: DefaultWorkspaceCoordinator = {
       async openDefaultWorkspace() {

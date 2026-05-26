@@ -1,3 +1,4 @@
+import { userMessage } from "./test-helpers.js"
 import { mkdtemp, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -153,10 +154,7 @@ describe("Brunch TUI boot", () => {
     const first = await coordinator.createSetupSession({
       specTitle: "Spec One",
     })
-    first.session.manager.appendMessage({
-      role: "user",
-      content: "stale transcript",
-    })
+    first.session.manager.appendMessage(userMessage("stale transcript"))
     const firstContent = await readFile(first.session.file, "utf8")
     let launchedSessionFile: string | undefined
 
@@ -378,7 +376,8 @@ describe("Brunch TUI boot", () => {
       },
     )({
       on: (_event: string, _handler: unknown) => {},
-      registerCommand: (name, options) => commands.set(name, options),
+      registerCommand: (name: string, opts: unknown) =>
+        commands.set(name, opts as never),
     } as never)
 
     expect(commands.get(BRUNCH_WORKSPACE_COMMAND)?.description).toBe(
@@ -681,7 +680,7 @@ function fakeCommandContext(options: {
         ...ctx,
         ui: options.replacementUi ?? ui,
         sessionManager: { getSessionFile: () => sessionPath },
-      } as ExtensionCommandContext)
+      } as never)
       return { cancelled: false }
     },
   }

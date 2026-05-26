@@ -9,6 +9,7 @@ import { SessionManager } from "@earendil-works/pi-coding-agent"
 import { createRpcHandlers, runJsonRpcLineServer } from "./rpc.js"
 import { createSessionBindingData } from "./session-binding.js"
 import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
+import { assistantMessage, userMessage } from "./test-helpers.js"
 import type {
   DefaultWorkspaceCoordinator,
   WorkspaceSessionState,
@@ -62,8 +63,8 @@ async function createSessionFile(): Promise<string> {
   const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-session-"))
   const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
   appendBinding(manager)
-  manager.appendMessage({ role: "assistant", content: "Question" })
-  manager.appendMessage({ role: "user", content: "Answer" })
+  manager.appendMessage(assistantMessage("Question"))
+  manager.appendMessage(userMessage("Answer"))
   return manager.getSessionFile()!
 }
 
@@ -71,11 +72,11 @@ async function createBranchedSessionFile(): Promise<string> {
   const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-branch-"))
   const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
   appendBinding(manager)
-  manager.appendMessage({ role: "assistant", content: "Abandoned prompt" })
-  manager.appendMessage({ role: "user", content: "Abandoned answer" })
+  manager.appendMessage(assistantMessage("Abandoned prompt"))
+  manager.appendMessage(userMessage("Abandoned answer"))
   manager.resetLeaf()
-  manager.appendMessage({ role: "assistant", content: "Active prompt" })
-  manager.appendMessage({ role: "user", content: "Active answer" })
+  manager.appendMessage(assistantMessage("Active prompt"))
+  manager.appendMessage(userMessage("Active answer"))
   return manager.getSessionFile()!
 }
 
@@ -192,14 +193,8 @@ describe("JSON-RPC handlers", () => {
     const first = await coordinatorInstance.createSetupSession({
       specTitle: "Explicit spec",
     })
-    first.session.manager.appendMessage({
-      role: "assistant",
-      content: "First question",
-    })
-    first.session.manager.appendMessage({
-      role: "user",
-      content: "First answer",
-    })
+    first.session.manager.appendMessage(assistantMessage("First question"))
+    first.session.manager.appendMessage(userMessage("First answer"))
     const second = await coordinatorInstance.createSetupSessionForCurrentSpec()
     if (second.status !== "ready") {
       throw new Error("expected a ready second session")
@@ -237,14 +232,10 @@ describe("JSON-RPC handlers", () => {
     const workspace = await coordinatorInstance.createSetupSession({
       specTitle: "Display spec",
     })
-    workspace.session.manager.appendMessage({
-      role: "assistant",
-      content: "Display question",
-    })
-    workspace.session.manager.appendMessage({
-      role: "user",
-      content: "Display answer",
-    })
+    workspace.session.manager.appendMessage(
+      assistantMessage("Display question"),
+    )
+    workspace.session.manager.appendMessage(userMessage("Display answer"))
     const handlers = createRpcHandlers({
       coordinator: {
         ...coordinatorInstance,
@@ -446,10 +437,10 @@ describe("JSON-RPC handlers", () => {
       specTitle: "Explicit branch spec",
     })
     const manager = SessionManager.open(workspace.session.file)
-    manager.appendMessage({ role: "assistant", content: "Abandoned prompt" })
-    manager.appendMessage({ role: "user", content: "Abandoned answer" })
+    manager.appendMessage(assistantMessage("Abandoned prompt"))
+    manager.appendMessage(userMessage("Abandoned answer"))
     manager.resetLeaf()
-    manager.appendMessage({ role: "assistant", content: "Active prompt" })
+    manager.appendMessage(assistantMessage("Active prompt"))
     const handlers = createRpcHandlers({
       coordinator: coordinatorInstance,
       cwd,

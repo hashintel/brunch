@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   SessionManager,
+  type CustomEntry,
   type CustomMessageEntry,
   type SessionEntry,
   type SessionMessageEntry,
@@ -17,6 +18,7 @@ import {
   type ElicitationExchangeProjection,
 } from "./elicitation-exchange.js"
 import { isSessionBindingEntry } from "./session-binding.js"
+import { assistantMessage, userMessage } from "./test-helpers.js"
 
 const M1_FIXTURE_IDS = ["brief-001", "brief-002", "brief-003"] as const
 const M1_RUN_ID = "scripted-001"
@@ -60,25 +62,26 @@ interface M1FixtureBundle {
 describe("Pi JSONL transcript viability", () => {
   it("jsonl raw user assistant payload survival", async () => {
     const { file, manager } = createPersistedSession()
-    const userContent = [
-      { type: "text" as const, text: "Describe this image" },
-      {
-        type: "image" as const,
-        image: "data:image/png;base64,ZmFrZQ==",
-        mimeType: "image/png",
-      },
-    ]
-    const assistantContent = [
-      { type: "text" as const, text: "Here is a structured answer." },
+    const userContent: (import("@earendil-works/pi-ai").TextContent | import("@earendil-works/pi-ai").ImageContent)[] =
+      [
+        { type: "text", text: "Describe this image" },
+        {
+          type: "image",
+          data: "data:image/png;base64,ZmFrZQ==",
+          mimeType: "image/png",
+        },
+      ]
+    const assistantContent: import("@earendil-works/pi-ai").TextContent[] = [
+      { type: "text", text: "Here is a structured answer." },
     ]
 
-    manager.appendMessage({ role: "user", content: userContent })
-    manager.appendMessage({ role: "assistant", content: assistantContent })
+    manager.appendMessage(userMessage(userContent))
+    manager.appendMessage(assistantMessage(assistantContent))
 
     const reloaded = SessionManager.open(file)
     const messages = reloaded.getEntries().filter(isMessageEntry)
 
-    expect(messages.map((entry) => entry.message)).toEqual([
+    expect(messages.map((entry) => entry.message)).toMatchObject([
       { role: "user", content: userContent },
       { role: "assistant", content: assistantContent },
     ])
@@ -225,10 +228,9 @@ describe("Pi JSONL transcript viability", () => {
 
   it("jsonl continuity metadata survival", async () => {
     const { file, manager } = createPersistedSession()
-    const anchorEntryId = manager.appendMessage({
-      role: "assistant",
-      content: "Anchor before compaction",
-    })
+    const anchorEntryId = manager.appendMessage(
+      assistantMessage("Anchor before compaction"),
+    )
     const continuity = {
       lastSeenLsn: 42,
       interestSet: ["node-a", "node-b"],
@@ -275,7 +277,7 @@ describe("Pi JSONL transcript viability", () => {
       true,
       promptDetails,
     )
-    manager.appendMessage({ role: "user", content: "I choose safety." })
+    manager.appendMessage(userMessage("I choose safety."))
     manager.appendCustomEntry("brunch.elicitation_response", responseData)
     flushPreAssistantEntries(manager)
 
@@ -300,7 +302,7 @@ describe("Pi JSONL transcript viability", () => {
     })
     expect(ordinaryUser).toMatchObject({
       type: "message",
-      message: { role: "user", content: "I choose safety." },
+      message: userMessage("I choose safety."),
     })
     expect(structuredResponse).toMatchObject({
       type: "custom",
@@ -415,7 +417,7 @@ function createPersistedSession(): PersistedSessionFixture {
 }
 
 function flushPreAssistantEntries(manager: SessionManager): void {
-  manager.appendMessage({ role: "assistant", content: "Persistence sentinel" })
+  manager.appendMessage(assistantMessage("Persistence sentinel"))
 }
 
 function isMessageEntry(entry: SessionEntry): entry is SessionMessageEntry {

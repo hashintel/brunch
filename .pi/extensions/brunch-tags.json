@@ -1,0 +1,47 @@
+[
+  {
+    "value": "breakfast",
+    "label": "Breakfast",
+    "description": "First meal of the day"
+  },
+  {
+    "value": "brunch",
+    "label": "Brunch",
+    "description": "Late morning treat"
+  },
+  {
+    "value": "coffee",
+    "label": "Coffee",
+    "description": "Morning fuel"
+  },
+  {
+    "value": "croissant",
+    "label": "Croissant",
+    "description": "Flaky pastry"
+  },
+  {
+    "value": "eggs-benedict",
+    "label": "Eggs Benedict",
+    "description": "With hollandaise"
+  },
+  {
+    "value": "mimosa",
+    "label": "Mimosa",
+    "description": "OJ + champagne"
+  },
+  {
+    "value": "pancakes",
+    "label": "Pancakes",
+    "description": "Fluffy stack"
+  },
+  {
+    "value": "toast",
+    "label": "Toast",
+    "description": "Crispy bread"
+  },
+  {
+    "value": "waffles",
+    "label": "Waffles",
+    "description": "Grid-shaped breakfast"
+  }
+]

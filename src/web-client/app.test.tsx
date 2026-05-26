@@ -52,21 +52,21 @@ function rpcClient(options?: {
   const projection = options?.projection ?? readyProjection
   const calls = options?.calls
   return {
-    async request(method, params) {
+    async request<T,>(method: string, params?: unknown): Promise<T> {
       calls?.push(params === undefined ? { method } : { method, params })
       if (method === "workspace.snapshot") {
-        return snapshot
+        return snapshot as T
       }
       if (method === "session.transcriptDisplay") {
         if (options?.projectionError) {
           throw options.projectionError
         }
-        return projection
+        return projection as T
       }
       throw new Error(`unexpected RPC method ${method}`)
     },
     close: vi.fn(),
-  }
+  } as unknown as WebSocketRpcClient
 }
 
 afterEach(() => cleanup())

@@ -4,10 +4,14 @@ import { join } from "node:path"
 
 import { describe, expect, it } from "vitest"
 
-import { SessionManager } from "@earendil-works/pi-coding-agent"
+import {
+  SessionManager,
+  type SessionEntry,
+} from "@earendil-works/pi-coding-agent"
 
 import { projectElicitationExchanges } from "./elicitation-exchange.js"
 import { SESSION_BINDING_TYPE } from "./session-binding.js"
+import { assistantMessage, userMessage, isCustomEntry } from "./test-helpers.js"
 import {
   createWorkspaceSessionCoordinator,
   verifyWorkspaceSessionStores,
@@ -76,10 +80,16 @@ describe("WorkspaceSessionCoordinator", () => {
     )
     const firstBinding = reloadedFirst
       .getEntries()
-      .find((entry) => entry.customType === SESSION_BINDING_TYPE)
+      .find(
+        (entry) =>
+          isCustomEntry(entry) && entry.customType === SESSION_BINDING_TYPE,
+      )
     const secondBinding = reloadedSecond
       .getEntries()
-      .find((entry) => entry.customType === SESSION_BINDING_TYPE)
+      .find(
+        (entry) =>
+          isCustomEntry(entry) && entry.customType === SESSION_BINDING_TYPE,
+      )
 
     expect(firstBinding).toMatchObject({
       data: { specId: first.spec.id, specTitle: "Scratch spec" },
@@ -116,7 +126,10 @@ describe("WorkspaceSessionCoordinator", () => {
     const reloaded = SessionManager.open(result.session.file, undefined, cwd)
     const bindings = reloaded
       .getEntries()
-      .filter((entry) => entry.customType === SESSION_BINDING_TYPE)
+      .filter(
+        (entry) =>
+          isCustomEntry(entry) && entry.customType === SESSION_BINDING_TYPE,
+      )
 
     expect(bindings).toHaveLength(1)
     expect(bindings[0]).toMatchObject({
@@ -137,8 +150,8 @@ describe("WorkspaceSessionCoordinator", () => {
       specTitle: "Scratch spec",
     })
     const reloaded = SessionManager.open(result.session.file, undefined, cwd)
-    reloaded.appendMessage({ role: "assistant", content: "hello" })
-    reloaded.appendMessage({ role: "user", content: "hi" })
+    reloaded.appendMessage(assistantMessage("hello"))
+    reloaded.appendMessage(userMessage("hi"))
 
     const content = await readFile(result.session.file, "utf8")
     const lines = content
@@ -148,7 +161,11 @@ describe("WorkspaceSessionCoordinator", () => {
 
     expect(lines.filter((entry) => entry.type === "session")).toHaveLength(1)
     expect(
-      lines.filter((entry) => entry.customType === SESSION_BINDING_TYPE),
+      lines.filter(
+        (entry) =>
+          isCustomEntry(entry as unknown as SessionEntry) &&
+          (entry as JsonlLine).customType === SESSION_BINDING_TYPE,
+      ),
     ).toHaveLength(1)
   })
 
@@ -159,16 +176,16 @@ describe("WorkspaceSessionCoordinator", () => {
     const result = await coordinator.createSetupSession({
       specTitle: "Scratch spec",
     })
-    result.session.manager.appendMessage({
-      role: "assistant",
-      content: "hello",
-    })
-    result.session.manager.appendMessage({ role: "user", content: "answer" })
+    result.session.manager.appendMessage(assistantMessage("hello"))
+    result.session.manager.appendMessage(userMessage("answer"))
 
     const reloaded = SessionManager.open(result.session.file, undefined, cwd)
     const bindings = reloaded
       .getEntries()
-      .filter((entry) => entry.customType === SESSION_BINDING_TYPE)
+      .filter(
+        (entry) =>
+          isCustomEntry(entry) && entry.customType === SESSION_BINDING_TYPE,
+      )
 
     expect(bindings).toHaveLength(1)
     expect(bindings[0]).toMatchObject({
@@ -192,11 +209,11 @@ describe("WorkspaceSessionCoordinator", () => {
     await coordinator.bindCurrentSpecToReplacementSession(
       result.session.manager,
     )
-    result.session.manager.appendMessage({ role: "user", content: "hello" })
+    result.session.manager.appendMessage(userMessage("hello"))
     await coordinator.bindCurrentSpecToReplacementSession(
       result.session.manager,
     )
-    result.session.manager.appendMessage({ role: "assistant", content: "hi" })
+    result.session.manager.appendMessage(assistantMessage("hi"))
 
     const content = await readFile(result.session.file, "utf8")
     const sessionHeaderCount = content
@@ -221,11 +238,8 @@ describe("WorkspaceSessionCoordinator", () => {
     const result = await coordinator.createSetupSession({
       specTitle: "Scratch spec",
     })
-    result.session.manager.appendMessage({
-      role: "assistant",
-      content: "Question",
-    })
-    result.session.manager.appendMessage({ role: "user", content: "Answer" })
+    result.session.manager.appendMessage(assistantMessage("Question"))
+    result.session.manager.appendMessage(userMessage("Answer"))
 
     const beforeReload = projectElicitationExchanges(
       result.session.manager.getBranch(),
@@ -273,7 +287,7 @@ describe("WorkspaceSessionCoordinator", () => {
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
 
     const first = await coordinator.createSetupSession({ specTitle: "Alpha" })
-    first.session.manager.appendMessage({ role: "user", content: "first" })
+    first.session.manager.appendMessage(userMessage("first"))
     const second = await coordinator.createSetupSession({
       specTitle: "Beta",
       createNewSpec: true,
@@ -439,10 +453,7 @@ describe("WorkspaceSessionCoordinator", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
     const coordinator = createWorkspaceSessionCoordinator({ cwd })
     const first = await coordinator.createSetupSession({ specTitle: "Alpha" })
-    first.session.manager.appendMessage({
-      role: "user",
-      content: "preserve me",
-    })
+    first.session.manager.appendMessage(userMessage("preserve me"))
     const beforeFirst = await readFile(first.session.file, "utf8")
 
     const created = await coordinator.activateWorkspace({

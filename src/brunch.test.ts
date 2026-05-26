@@ -7,8 +7,9 @@ import { describe, expect, it } from "vitest"
 
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
-import { runBrunchCli } from "./brunch.js"
+import { runBrunchCli, type WebHostRunnerOptions } from "./brunch.js"
 import { createSessionBindingData } from "./session-binding.js"
+import { assistantMessage, userMessage } from "./test-helpers.js"
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
@@ -58,7 +59,7 @@ function coordinator(sessionFile?: string): WorkspaceSessionCoordinator {
     async deriveDefaultChromeState() {
       throw new Error("not used")
     },
-  }
+  } as unknown as WorkspaceSessionCoordinator
 }
 
 function rpcRequest(method: string, id = 1): PassThrough {
@@ -75,10 +76,7 @@ function collectStream(stream: PassThrough): string[] {
 
 describe("Brunch CLI dispatch", () => {
   it("routes --mode web through an injectable web host runner", async () => {
-    let launchedWith: {
-      cwd: string
-      coordinator: WorkspaceSessionCoordinator
-    } | null = null
+    let launchedWith: WebHostRunnerOptions | null = null
 
     const code = await runBrunchCli({
       argv: ["--mode=web"],
@@ -121,8 +119,8 @@ describe("Brunch CLI dispatch", () => {
         specTitle: "Spec",
       }),
     )
-    manager.appendMessage({ role: "assistant", content: "Question" })
-    manager.appendMessage({ role: "user", content: "Answer" })
+    manager.appendMessage(assistantMessage("Question"))
+    manager.appendMessage(userMessage("Answer"))
     const stdout = new PassThrough()
     const chunks = collectStream(stdout)
 

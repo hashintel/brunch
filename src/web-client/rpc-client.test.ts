@@ -31,7 +31,7 @@ class FakeWebSocket {
 
   emit(event: string, data?: string) {
     for (const listener of this.listeners.get(event) ?? []) {
-      listener({ data })
+      listener(data === undefined ? {} : { data })
     }
   }
 }

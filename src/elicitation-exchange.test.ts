@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest"
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
 import { createSessionBindingData } from "./session-binding.js"
+import { assistantMessage, userMessage } from "./test-helpers.js"
 import {
   loadJsonlTranscriptEntries,
   loadLinearElicitationExchangeProjection,
@@ -18,7 +19,7 @@ import {
 const assistant = {
   id: "a1",
   type: "message",
-  message: { role: "assistant", content: "Pick one" },
+  message: assistantMessage("Pick one"),
 }
 const structuredPrompt = {
   id: "p1",
@@ -40,7 +41,7 @@ const toolResult = {
 const user = {
   id: "u1",
   type: "message",
-  message: { role: "user", content: "A" },
+  message: userMessage("A"),
 }
 const structuredResponse = {
   id: "r1",
@@ -70,12 +71,12 @@ describe("elicitation exchange projection", () => {
       {
         id: "a2",
         type: "message",
-        message: { role: "assistant", content: "Why?" },
+        message: assistantMessage("Why?"),
       },
       {
         id: "u2",
         type: "message",
-        message: { role: "user", content: "Because" },
+        message: userMessage("Because"),
       },
     ])
 
@@ -190,7 +191,7 @@ describe("elicitation exchange projection", () => {
       {
         id: "a2",
         type: "message",
-        message: { role: "assistant", content: "Later prompt" },
+        message: assistantMessage("Later prompt"),
       },
     ])
 
@@ -208,8 +209,8 @@ describe("elicitation exchange projection", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-jsonl-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
     appendBinding(manager)
-    manager.appendMessage({ role: "assistant", content: "Question" })
-    manager.appendMessage({ role: "user", content: "Answer" })
+    manager.appendMessage(assistantMessage("Question"))
+    manager.appendMessage(userMessage("Answer"))
 
     const projection = await loadLinearElicitationExchangeProjection(
       manager.getSessionFile()!,
@@ -229,8 +230,8 @@ describe("elicitation exchange projection", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-display-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
     appendBinding(manager)
-    manager.appendMessage({ role: "assistant", content: "Question" })
-    manager.appendMessage({ role: "user", content: "Answer" })
+    manager.appendMessage(assistantMessage("Question"))
+    manager.appendMessage(userMessage("Answer"))
 
     const projection = await loadLinearTranscriptDisplayProjection(
       manager.getSessionFile()!,
@@ -251,11 +252,8 @@ describe("elicitation exchange projection", () => {
       "Choose the better framing.",
       true,
     )
-    manager.appendMessage({
-      role: "assistant",
-      content: "Persistence sentinel",
-    })
-    manager.appendMessage({ role: "user", content: "Option A" })
+    manager.appendMessage(assistantMessage("Persistence sentinel"))
+    manager.appendMessage(userMessage("Option A"))
 
     const projection = await loadLinearTranscriptDisplayProjection(
       manager.getSessionFile()!,
@@ -312,10 +310,10 @@ describe("elicitation exchange projection", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-helper-branch-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
     appendBinding(manager)
-    manager.appendMessage({ role: "assistant", content: "Abandoned prompt" })
-    manager.appendMessage({ role: "user", content: "Abandoned answer" })
+    manager.appendMessage(assistantMessage("Abandoned prompt"))
+    manager.appendMessage(userMessage("Abandoned answer"))
     manager.resetLeaf()
-    manager.appendMessage({ role: "assistant", content: "Active prompt" })
+    manager.appendMessage(assistantMessage("Active prompt"))
 
     await expect(
       loadLinearElicitationExchangeProjection(manager.getSessionFile()!),
@@ -325,11 +323,11 @@ describe("elicitation exchange projection", () => {
   it("rejects a Pi JSONL file with multiple children from one parent", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-branch-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
-    manager.appendMessage({ role: "assistant", content: "Abandoned prompt" })
-    manager.appendMessage({ role: "user", content: "Abandoned answer" })
+    manager.appendMessage(assistantMessage("Abandoned prompt"))
+    manager.appendMessage(userMessage("Abandoned answer"))
     manager.resetLeaf()
-    manager.appendMessage({ role: "assistant", content: "Active prompt" })
-    manager.appendMessage({ role: "user", content: "Active answer" })
+    manager.appendMessage(assistantMessage("Active prompt"))
+    manager.appendMessage(userMessage("Active answer"))
 
     await expect(
       loadJsonlTranscriptEntries(manager.getSessionFile()!),
@@ -339,13 +337,12 @@ describe("elicitation exchange projection", () => {
   it("rejects a Pi JSONL file with branched sibling responses", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-branch-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
-    const sharedPromptId = manager.appendMessage({
-      role: "assistant",
-      content: "Choose a path",
-    })
-    manager.appendMessage({ role: "user", content: "Old path" })
+    const sharedPromptId = manager.appendMessage(
+      assistantMessage("Choose a path"),
+    )
+    manager.appendMessage(userMessage("Old path"))
     manager.branch(sharedPromptId)
-    manager.appendMessage({ role: "user", content: "Selected path" })
+    manager.appendMessage(userMessage("Selected path"))
 
     await expect(
       loadJsonlTranscriptEntries(manager.getSessionFile()!),
@@ -424,7 +421,7 @@ describe("elicitation exchange projection", () => {
         {
           id: "u1",
           type: "message",
-          message: { role: "user", content: "A" },
+          message: userMessage("A"),
         },
       )}\n`,
     )

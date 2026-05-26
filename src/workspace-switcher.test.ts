@@ -48,10 +48,10 @@ describe("workspace switcher", () => {
       onDecision: (decision) => decisions.push(decision),
     })
 
-    component.handleInput("\r")
-    component.handleInput("\x1B[B")
-    component.handleInput("\x1B[B")
-    component.handleInput("\r")
+    component.handleInput!("\r")
+    component.handleInput!("\x1B[B")
+    component.handleInput!("\x1B[B")
+    component.handleInput!("\r")
 
     expect(decisions).toEqual([
       {
@@ -75,18 +75,18 @@ describe("workspace switcher", () => {
     })
 
     for (let index = 0; index < 5; index += 1) {
-      component.handleInput("\x1B[B")
+      component.handleInput!("\x1B[B")
     }
-    component.handleInput("\r")
+    component.handleInput!("\r")
     for (const char of "Gamma") {
-      component.handleInput(char)
+      component.handleInput!(char)
     }
-    component.handleInput("\r")
+    component.handleInput!("\r")
     const cancelComponent = createWorkspaceSwitchComponent({
       inventory: inventory(),
       onDecision: (decision) => decisions.push(decision),
     })
-    cancelComponent.handleInput("\x1B")
+    cancelComponent.handleInput!("\x1B")
 
     expect(decisions).toEqual([
       { action: "newSpec", title: "Gamma" },
