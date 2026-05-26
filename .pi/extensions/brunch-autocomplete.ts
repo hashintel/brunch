@@ -93,6 +93,16 @@ function extractHashPrefix(line: string, cursorCol: number): string | null {
 }
 
 export default function brunchAutocomplete(pi: ExtensionAPI) {
+  pi.on("before_agent_start", async (event) => ({
+    systemPrompt:
+      event.systemPrompt +
+      `\n\n[Brunch fixture references]\n` +
+      `- Tokens like #breakfast or #coffee may be inserted by the Brunch autocomplete fixture extension.\n` +
+      `- Treat these as fixture-backed Brunch reference handles for testing the #mention interaction, not as Markdown hashtags.\n` +
+      `- Pi autocomplete persists only the inserted handle text in the transcript; popup labels/descriptions are UI-only and are not hidden metadata.\n` +
+      `- There is not yet a Brunch graph lookup tool in this prototype extension. Use the visible handle text only, and ask the user if deeper fixture/entity details are needed.`,
+  }))
+
   pi.on("session_start", async (_event, ctx) => {
     await ensureTagsFile(ctx)
 

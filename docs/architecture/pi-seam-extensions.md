@@ -203,27 +203,28 @@ The user (and the agent, on the user's behalf) should be able to refer to graph 
 
 ### Pi seams used
 
-- `pi-tui` input components (the prompt-editor surface), augmented with a Brunch-owned `MentionAutocompleteOverlay` mounted via `ExtensionUIContext.custom<T>(...)`.
-- The custom-entry transcript surface (`pi.appendEntry`, `pi.registerMessageRenderer`) for representing mentions inside user messages as structured spans rather than as raw text.
+- `ctx.ui.addAutocompleteProvider((current) => ...)` over Pi's prompt editor. The autocomplete item's `value` is inserted into the editor; Pi does not persist hidden autocomplete metadata.
+- `before_agent_start` system-prompt injection for teaching the active agent how to interpret Brunch `#` handles and when to call a lookup/re-read tool. The inserted handle is just transcript text unless Brunch adds a later parser/indexer.
+- Brunch custom transcript entries (`pi.appendEntry`, `pi.registerMessageRenderer`) for future mention ledger/staleness records and resolved entity snapshots; these are separate from the autocomplete insertion itself.
 - `prepareNextTurn` for injecting mention-staleness hints into the agent's next-turn context, alongside the existing `worldUpdate` flow.
 - The reconciliation-need substrate and global LSN (see §Reconciliation-need substrate and §Graph clock) for comparing the LSN at which a mention was last *snapshotted into the model's working context* against the entity's current LSN.
 
 ### Brunch-owned work
 
-- A `MentionAutocompleteOverlay` triggered by `#` in the input area, sourced from `SpecRegistry` + current spec's graph index, that resolves either against stable graph `ID` or (fallback) against the entity's current `title`. ID resolution is canonical; title resolution is a UX affordance that always rewrites to an ID-anchored mention on insertion.
-- A `brunch.mention` payload shape attached to user message entries (e.g. as a span array in the message custom payload): `{ id: NodeId, title_at_mention: string, lsn_at_mention: number }`. The `title_at_mention` and `lsn_at_mention` are frozen at insertion time so the transcript carries the historical reference even if the entity is later renamed.
-- A renderer (per mode: TUI, web, RPC) that displays mentions as `#<title>` (current title, not the frozen one) with an indicator when the current title differs from the frozen one.
+- A `#` autocomplete provider sourced from `SpecRegistry` + current spec's graph index. It may search current titles and descriptions, but the inserted `value` must be a stable handle such as `#A12` or `#<node-id>`; popup `label`/`description` are UI-only and are not session metadata.
+- A Brunch mention indexer that parses user/assistant text for stable `#` handles after input and resolves them to `{ id: NodeId, title_at_mention: string, lsn_at_mention: number }` for the session mention ledger. This parsing/indexing step, not Pi autocomplete, is what creates structured mention state.
+- A graph lookup/re-read tool (for example `brunch.entity_reread`) whose prompt guidance tells the agent to resolve `#A12` by passing the handle without the `#` when deeper entity detail matters.
 - A `SessionMentionLedger` in the session-scoped state: for each `id` ever mentioned in this session, the highest `snapshotted_lsn` — i.e. the LSN at which the agent most recently received the full entity payload (either via initial context, a `worldUpdate` cascade, or an explicit re-read tool call). The ledger persists with the session and survives compaction.
 - A staleness check executed during `prepareNextTurn`:
   1. Walk the session's `SessionMentionLedger`.
   2. For every entry where the entity's current LSN > `snapshotted_lsn`, the entity is **stale-in-context** for this session.
   3. Brunch synthesizes a `brunch.mention_staleness_hint` entry (custom message, `deliverAs: "nextTurn"`) summarising the stale set. The hint is **discretionary advice to the agent**, not a forced re-read: it tells the agent "if you intend to reason over `#foo` again, re-read it; the snapshot you have is from LSN 412, current is LSN 487."
   4. The agent decides whether to invoke a re-read tool (which then updates `snapshotted_lsn`) or to proceed with the existing snapshot, accepting the staleness.
-- A `brunch.entity_reread` command (through the shared command layer) that re-snapshots a named entity and updates `snapshotted_lsn` to the LSN observed at re-read.
+- A `brunch.entity_reread` command/tool (through the shared command layer) that re-snapshots a named entity and updates `snapshotted_lsn` to the LSN observed at re-read.
 
 ### Posture
 
-- Mentions are anchored to stable IDs, never to titles. Title-based autocomplete is a UX affordance only.
+- Mentions are anchored to stable handles/IDs, never to titles. Title-based autocomplete is a UX affordance only; the transcript persists the inserted textual handle, not the popup label/description.
 - The mention ledger is **session-scoped**, not transcript-scoped: the question "what has this agent seen at what LSN" is a per-session model-context question, and crossing sessions (via `switchSession`) legitimately resets it.
 - Staleness hints are **discretionary**. The agent's autonomy over its own context is preserved; Brunch merely surfaces the gap. The product stance is that re-read is cheap and worth doing when in doubt, but the framework does not mandate it.
 - Staleness hints reuse the same `worldUpdate` machinery and the same global LSN as the rest of the change-log / reconciliation substrate; this is not a parallel staleness mechanism.

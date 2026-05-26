@@ -78,6 +78,14 @@ Policy buckets:
 
 **Limit:** this is visibility suppression only. It does not change exact slash execution.
 
+### Autocomplete persistence and reference interpretation
+
+Pi autocomplete persists only the text inserted into the editor. For both file completion and custom providers such as Pi's `github-issue-autocomplete.ts`, the `AutocompleteItem.value` becomes ordinary user-message text in the session transcript; the popup `label` and `description` are display-only and do not become hidden session metadata. The GitHub example inserts `#123`; it does not persist issue title/state, nor provide a resolver tool by itself.
+
+Brunch `#` mentions must therefore use a stable inserted handle (`#A12`, `#I7`, or a stable node id) as the durable transcript reference. If the agent needs deeper detail, Brunch must teach that convention through `before_agent_start` system-prompt injection and provide a read-only lookup/re-read tool that resolves the handle against the local graph DB. Any structured mention ledger or staleness state is Brunch-owned parsing/indexing work layered after insertion; it is not supplied by Pi autocomplete.
+
+The current `.pi/extensions/brunch-autocomplete.ts` fixture extension follows this model: it inserts fixture handles, explains via `before_agent_start` that labels/descriptions are UI-only, and explicitly says no graph lookup tool exists yet.
+
 ### Exact slash execution
 
 `InteractiveMode.setupEditorSubmitHandler()` handles built-ins directly before normal `AgentSession.prompt()` flow. `AgentSession.prompt()` handles extension commands first, then emits `input`, then expands skills/templates. Therefore extension `input` interception cannot reliably block exact interactive built-ins such as `/settings`, `/model`, `/fork`, `/tree`, `/new`, `/compact`, `/resume`, or `/quit`, because they have already been consumed by interactive mode.
