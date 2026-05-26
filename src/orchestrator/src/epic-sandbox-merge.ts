@@ -186,6 +186,43 @@ function pruneEmptyDirs(rootDir: string, dir: string = rootDir): void {
   }
 }
 
+/**
+ * Codebase-mode seed: copy the parent worktree's contents into the slice
+ * sandbox so that pi-actions run against pre-existing cwd code. The parent
+ * is the `git worktree add` of the source repo; its contents = source HEAD.
+ *
+ * Excluded from the seed:
+ *   - sibling slice subdirs (other entries in `plan.slices`)
+ *   - the `__epic__/` reserved merge dir
+ *   - `.git` (the worktree pointer file/dir; copying it would break the
+ *     pointer chain into the source repo)
+ *
+ * Returns the slice sandbox path. Safe to re-invoke.
+ *
+ * TODO(cook-codebase-mode follow-on): multi-slice brownfield runs file-copy
+ * the entire parent (cwd repo) into every slice worktree, producing O(slices *
+ * repoSize) on-disk duplication. Either migrate per-slice worktrees to real
+ * `git worktree add` calls off the run-level cook branch, or switch epic-merge
+ * to a diff-based mechanism so the per-slice copy can stay cheap.
+ */
+export function seedSliceFromParentWorktree(parentSandboxDir: string, sliceId: string, plan: Plan): string {
+  const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
+  mkdirSync(sliceDir, { recursive: true });
+
+  const excludedNames = new Set<string>(['.git', EPIC_MERGE_SEGMENT]);
+  for (const s of plan.slices) excludedNames.add(s.id);
+
+  const parent = resolve(parentSandboxDir);
+  for (const entry of readdirSync(parent)) {
+    if (excludedNames.has(entry)) continue;
+    const src = join(parent, entry);
+    const dest = join(sliceDir, entry);
+    cpSync(src, dest, { dereference: false, recursive: true });
+  }
+
+  return sliceDir;
+}
+
 /** Copy completed dependency slice worktrees into `slice`'s sandbox (plan order). */
 export function seedSliceSandboxFromDeps(
   parentSandboxDir: string,

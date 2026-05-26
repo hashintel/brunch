@@ -97,6 +97,12 @@ export type OrchestratorInput = {
   reports: ReportSink;
   testRunner: TestRunner;
   policy: RunPolicy;
+  /**
+   * 'fixture' (default): per-slice worktrees are created empty. Greenfield.
+   * 'codebase': per-slice worktrees are seeded from the parent worktree
+   *   (which is itself a `git worktree add` of the source repo). Brownfield.
+   */
+  sandboxMode?: 'fixture' | 'codebase';
 };
 
 export type EpicOutcome = {

@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   epicIdsForEpicVerifyMerge,
   mergeSlicesIntoEpicSandbox,
+  seedSliceFromParentWorktree,
   seedSliceSandboxFromDeps,
   sliceIdsForEpicVerifyMerge,
 } from './epic-sandbox-merge.js';
@@ -200,6 +201,96 @@ describe('seedSliceSandboxFromDeps', () => {
 
     expect(existsSync(join(parent, 'help-flag', 'src/stale.ts'))).toBe(false);
     expect(readFileSync(join(parent, 'help-flag', 'src/cli.ts'), 'utf8')).toBe('dep\n');
+  });
+});
+
+describe('seedSliceFromParentWorktree', () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    dirs.length = 0;
+  });
+
+  const singleSlicePlan: Plan = {
+    epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
+    slices: [{ id: 'only', epic_id: 'e1', definition: '', depends_on: [], verification: [] }],
+  };
+
+  it('copies parent worktree contents into the slice dir', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'cook-parent-'));
+    dirs.push(parent);
+    // Parent worktree mimics a brownfield codebase content layout
+    mkdirSync(join(parent, 'src'), { recursive: true });
+    writeFileSync(join(parent, 'README.md'), '# project\n');
+    writeFileSync(join(parent, 'src', 'a.ts'), 'export const a = 1;\n');
+
+    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan);
+
+    expect(sliceDir).toBe(join(parent, 'only'));
+    expect(readFileSync(join(sliceDir, 'README.md'), 'utf8')).toBe('# project\n');
+    expect(readFileSync(join(sliceDir, 'src/a.ts'), 'utf8')).toBe('export const a = 1;\n');
+  });
+
+  it('excludes sibling slice subdirs from the seed', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'cook-parent-'));
+    dirs.push(parent);
+    const planTwo: Plan = {
+      epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
+      slices: [
+        { id: 'first', epic_id: 'e1', definition: '', depends_on: [], verification: [] },
+        { id: 'second', epic_id: 'e1', definition: '', depends_on: [], verification: [] },
+      ],
+    };
+    writeFileSync(join(parent, 'shared.txt'), 'shared\n');
+    mkdirSync(join(parent, 'first'), { recursive: true });
+    writeFileSync(join(parent, 'first', 'a.txt'), 'first work\n');
+
+    const sliceDir = seedSliceFromParentWorktree(parent, 'second', planTwo);
+
+    // shared.txt should be present (it's parent-level)
+    expect(readFileSync(join(sliceDir, 'shared.txt'), 'utf8')).toBe('shared\n');
+    // The 'first' slice dir must NOT be nested inside the 'second' slice dir
+    expect(existsSync(join(sliceDir, 'first'))).toBe(false);
+  });
+
+  it('excludes __epic__ reserved directory from the seed', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'cook-parent-'));
+    dirs.push(parent);
+    mkdirSync(join(parent, '__epic__', 'e1'), { recursive: true });
+    writeFileSync(join(parent, '__epic__', 'e1', 'leftover.txt'), 'leftover\n');
+    writeFileSync(join(parent, 'kept.txt'), 'kept\n');
+
+    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan);
+
+    expect(readFileSync(join(sliceDir, 'kept.txt'), 'utf8')).toBe('kept\n');
+    expect(existsSync(join(sliceDir, '__epic__'))).toBe(false);
+  });
+
+  it('excludes .git from the seed (git worktree pointer files would break in a nested copy)', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'cook-parent-'));
+    dirs.push(parent);
+    mkdirSync(join(parent, '.git'), { recursive: true });
+    writeFileSync(join(parent, '.git', 'HEAD'), 'ref: refs/heads/cook/x\n');
+    writeFileSync(join(parent, 'code.ts'), 'export {};\n');
+
+    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan);
+
+    expect(readFileSync(join(sliceDir, 'code.ts'), 'utf8')).toBe('export {};\n');
+    expect(existsSync(join(sliceDir, '.git'))).toBe(false);
+  });
+
+  it('does not nest the slice dir inside itself when re-seeding', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'cook-parent-'));
+    dirs.push(parent);
+    writeFileSync(join(parent, 'a.txt'), 'a\n');
+
+    // First seed: creates parent/only/a.txt
+    seedSliceFromParentWorktree(parent, 'only', singleSlicePlan);
+    // Second seed should not nest parent/only/only/...
+    seedSliceFromParentWorktree(parent, 'only', singleSlicePlan);
+
+    expect(existsSync(join(parent, 'only', 'only'))).toBe(false);
+    expect(readFileSync(join(parent, 'only', 'a.txt'), 'utf8')).toBe('a\n');
   });
 });
 

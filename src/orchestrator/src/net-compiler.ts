@@ -10,6 +10,7 @@ import { mkdirSync } from 'node:fs';
 import {
   mergeSlicesIntoEpicSandbox,
   resolveSliceWorktreeDir,
+  seedSliceFromParentWorktree,
   seedSliceSandboxFromDeps,
   sliceIdsForEpicVerifyMerge,
 } from './epic-sandbox-merge.js';
@@ -339,8 +340,15 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
   // effect in the wiring pass; a future prepareRunFilesystem step can split it
   // out if more provisioning responsibilities accumulate.
   // Per-slice dirs are parallel-safe; dependency seeding happens at fire time.
+  // In codebase mode, seed each slice dir with the parent worktree's contents
+  // (the source repo's HEAD via `git worktree add`) so pi-actions can modify
+  // existing code instead of writing into an empty dir.
   for (const slice of plan.slices) {
-    mkdirSync(resolveSliceWorktreeDir(input.sandboxDir, slice.id), { recursive: true });
+    if (input.sandboxMode === 'codebase') {
+      seedSliceFromParentWorktree(input.sandboxDir, slice.id, plan);
+    } else {
+      mkdirSync(resolveSliceWorktreeDir(input.sandboxDir, slice.id), { recursive: true });
+    }
   }
 
   // Register transitions with wired fire handlers
