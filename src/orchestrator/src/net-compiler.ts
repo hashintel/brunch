@@ -378,7 +378,9 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             slice,
             epic,
             plan,
-            sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, slice),
+            sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, slice, {
+              preserveExisting: true,
+            }),
             reports,
           };
           const reportId = await actions[actionKey]!(actCtx);
