@@ -53,13 +53,13 @@ const CONTEXT_GAUGE_WIDTH = 12
 const BAR_FILLED = "━"
 const BAR_EMPTY = "─"
 
-// Pre-generated with: cfonts "brunch" -f tiny -c candy
-const BRUNCH_WORDMARK =
-  "\x1b[33m \x1b[39m\x1b[32m█▄▄\x1b[39m\x1b[33m \x1b[39m\x1b[95m█▀█\x1b[39m\x1b[33m \x1b[39m\x1b[95m█ █\x1b[39m\x1b[33m \x1b[39m\x1b[31m█▄ █\x1b[39m\x1b[33m \x1b[39m\x1b[94m█▀▀\x1b[39m\x1b[33m \x1b[39m\x1b[32m█ █\x1b[39m\n" +
-  "\x1b[96m \x1b[39m\x1b[91m█▄█\x1b[39m\x1b[96m \x1b[39m\x1b[93m█▀▄\x1b[39m\x1b[96m \x1b[39m\x1b[31m█▄█\x1b[39m\x1b[96m \x1b[39m\x1b[92m█ ▀█\x1b[39m\x1b[96m \x1b[39m\x1b[96m█▄▄\x1b[39m\x1b[96m \x1b[39m\x1b[96m█▀█\x1b[39m"
+// Letterform copied from: cfonts "brunch" -f tiny -c candy
+// Colors are intentionally applied through the active Pi theme at render time.
+const BRUNCH_WORDMARK = ["█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █", "█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█"]
 
 const LOCAL_BUILD_TIME = formatBuildTime(new Date())
 const ESC = String.fromCharCode(27)
+const ANSI_SEQUENCE = new RegExp(`^${ESC}\\[[0-9;?]*[ -/]*[@-~]`)
 
 type BrunchSpecIdentity = {
   id: string
@@ -77,6 +77,11 @@ type WorkspaceStateFile = {
 type PackageJson = {
   version?: unknown
   private?: unknown
+}
+
+type BrunchVersionInfo = {
+  version: string
+  dev: string | null
 }
 
 function formatBuildTime(date: Date): string {
@@ -108,27 +113,87 @@ function readPackage(cwd: string): PackageJson {
   }
 }
 
-function brunchVersion(cwd: string): string {
+function brunchVersion(cwd: string): BrunchVersionInfo {
   const pkg = readPackage(cwd)
   const version = typeof pkg.version === "string" ? pkg.version : "0.0.0"
   const isLocalDev = pkg.private === true || version === "0.0.0"
-  if (!isLocalDev) return `v${version}`
+  if (!isLocalDev) return { version: `v${version}`, dev: null }
 
   const gitSha = getGitSha(cwd)
   const devMeta = [gitSha, `@ ${LOCAL_BUILD_TIME}`].filter(Boolean).join(" ")
-  return `v${version} (${devMeta ? `dev ${devMeta}` : "dev"})`
+  return { version: `v${version}`, dev: devMeta ? `(dev ${devMeta})` : "(dev)" }
+}
+
+function stripAnsi(text: string): string {
+  return text.replace(new RegExp(`${ESC}\\[[0-9;?]*[ -/]*[@-~]`, "g"), "")
+}
+
+function visibleLeadingSpaces(line: string): number {
+  const plain = stripAnsi(line)
+  const match = plain.match(/^ */)
+  return match?.[0].length ?? 0
+}
+
+function removeVisibleColumns(line: string, columns: number): string {
+  if (columns <= 0) return line
+
+  let output = ""
+  let removed = 0
+  for (let index = 0; index < line.length; index += 1) {
+    if (line[index] === ESC) {
+      const match = line.slice(index).match(ANSI_SEQUENCE)
+      if (match) {
+        output += match[0]
+        index += match[0].length - 1
+        continue
+      }
+    }
+
+    if (removed < columns) {
+      removed += 1
+      continue
+    }
+    output += line[index]!
+  }
+  return output
+}
+
+function cropLogo(lines: string[]): string[] {
+  const cropped = [...lines]
+  while (cropped.length > 0 && stripAnsi(cropped[0]!).trim().length === 0)
+    cropped.shift()
+  while (
+    cropped.length > 0 &&
+    stripAnsi(cropped[cropped.length - 1]!).trim().length === 0
+  )
+    cropped.pop()
+  if (cropped.length === 0) return []
+
+  const commonLeft = Math.min(...cropped.map(visibleLeadingSpaces))
+  return cropped.map((line) => removeVisibleColumns(line, commonLeft))
+}
+
+function supportsTruecolor(): boolean {
+  const colorterm = process.env.COLORTERM?.toLowerCase() ?? ""
+  const term = process.env.TERM?.toLowerCase() ?? ""
+  return (
+    colorterm === "truecolor" ||
+    colorterm === "24bit" ||
+    term.includes("truecolor")
+  )
 }
 
 function readLogo(cwd: string): string[] {
+  const asset = supportsTruecolor()
+    ? "brunch-logo-quad-56x18.ansi"
+    : "brunch-logo-quad-56x18-240.ansi"
   try {
-    return readFileSync(
-      path.join(cwd, "assets", "brunch-logo-quad-56x18.ansi"),
-      "utf8",
+    return cropLogo(
+      readFileSync(path.join(cwd, "assets", asset), "utf8")
+        .replace(new RegExp(`${ESC}\\[\\?25[lh]`, "g"), "")
+        .replace(new RegExp(`${ESC}\\[0m$`, "g"), "")
+        .split("\n"),
     )
-      .replace(new RegExp(`${ESC}\\[\\?25[lh]`, "g"), "")
-      .replace(new RegExp(`${ESC}\\[0m$`, "g"), "")
-      .split("\n")
-      .filter((line) => line.length > 0)
   } catch {
     return []
   }
@@ -210,17 +275,14 @@ function renderContextGauge(ctx: ExtensionContext, theme: Theme): string {
   const filled =
     percent === null ? 0 : Math.round((clamped / 100) * CONTEXT_GAUGE_WIDTH)
   const empty = CONTEXT_GAUGE_WIDTH - filled
-  const color = clamped >= 90 ? "error" : clamped >= 70 ? "warning" : "accent"
-  const bar =
-    theme.fg(color, BAR_FILLED.repeat(filled)) +
-    theme.fg("dim", BAR_EMPTY.repeat(empty))
+  const bar = BAR_FILLED.repeat(filled) + BAR_EMPTY.repeat(empty)
   const percentText = percent === null ? "?%" : `${Math.round(clamped)}%`
   const counts =
     tokens === null || contextWindow === 0
       ? `?/${formatTokens(contextWindow)}`
       : `${formatTokens(tokens)}/${formatTokens(contextWindow)}`
 
-  return `${theme.fg("dim", "ctx ")}${bar} ${theme.fg("dim", `${percentText} ${counts}`)}`
+  return theme.fg("dim", `${bar} ${percentText} ${counts}`)
 }
 
 function rightAlign(left: string, right: string, width: number): string {
@@ -241,51 +303,51 @@ function rightAlign(left: string, right: string, width: number): string {
   )
 }
 
+function projectName(cwd: string): string {
+  return path.basename(path.resolve(cwd))
+}
+
+function paddedHeaderLine(content: string, width: number): string {
+  if (width <= 2) return truncateToWidth(content, width)
+  const inner = truncateToWidth(content, width - 2)
+  return ` ${inner}${" ".repeat(Math.max(0, width - 1 - visibleWidth(inner)))}`
+}
+
+function emptyHeaderLine(width: number): string {
+  return " ".repeat(Math.max(0, width))
+}
+
 // ── Header ─────────────────────────────────────────────────────────────
 function installHeader(ctx: ExtensionContext): void {
   if (!ctx.hasUI) return
 
   const logoLines = readLogo(ctx.cwd)
-  const wordmarkLines = BRUNCH_WORDMARK.split("\n")
 
   ctx.ui.setHeader((_tui, theme) => ({
     render: (width: number) => {
-      const version = theme.fg("muted", brunchVersion(ctx.cwd))
-      const piLine = theme.fg("dim", `built in Pi v${PI_VERSION}`)
-      const cwdLine = theme.fg(
+      const versionInfo = brunchVersion(ctx.cwd)
+      const versionLine =
+        theme.fg("accent", `brunch ${versionInfo.version}`) +
+        (versionInfo.dev ? ` ${theme.fg("success", versionInfo.dev)}` : "")
+      const piLine = theme.fg("dim", `built on Pi v${PI_VERSION}`)
+      const projectRootLine = theme.fg(
         "dim",
-        `cwd: ${shortenPath(path.resolve(ctx.cwd))}`,
+        `project root: ${shortenPath(path.resolve(ctx.cwd))}`,
       )
-      const textBlock = [
-        ...wordmarkLines,
-        `${theme.fg("dim", "brunch")} ${version}`,
-        piLine,
-        cwdLine,
+
+      return [
+        emptyHeaderLine(width),
+        ...logoLines.map((line) => paddedHeaderLine(line, width)),
+        emptyHeaderLine(width),
+        ...BRUNCH_WORDMARK.map((line) =>
+          paddedHeaderLine(theme.fg("muted", line), width),
+        ),
+        emptyHeaderLine(width),
+        paddedHeaderLine(versionLine, width),
+        paddedHeaderLine(piLine, width),
+        paddedHeaderLine(projectRootLine, width),
+        emptyHeaderLine(width),
       ]
-
-      if (logoLines.length === 0 || width < 88) {
-        return [
-          ...wordmarkLines.map((line) => truncateToWidth(line, width)),
-          truncateToWidth(`${theme.fg("dim", "brunch")} ${version}`, width),
-          truncateToWidth(piLine, width),
-          truncateToWidth(cwdLine, width),
-          "",
-        ]
-      }
-
-      const logoWidth = Math.max(...logoLines.map((line) => visibleWidth(line)))
-      const gap = "  "
-      const lines: string[] = []
-      const maxLines = Math.max(logoLines.length, textBlock.length)
-      for (let index = 0; index < maxLines; index += 1) {
-        const logo = logoLines[index] ?? ""
-        const paddedLogo =
-          logo + " ".repeat(Math.max(0, logoWidth - visibleWidth(logo)))
-        const text = textBlock[index] ?? ""
-        lines.push(truncateToWidth(`${paddedLogo}${gap}${text}`, width))
-      }
-      lines.push("")
-      return lines
     },
     invalidate: () => {},
   }))
@@ -313,21 +375,14 @@ function installFooter(
       },
       invalidate: () => {},
       render: (width: number): string[] => {
-        const branch = footerData.getGitBranch()
+        const branch = footerData.getGitBranch() ?? "no branch"
         const spec = currentSpec(ctx)
-        const locationParts = [
-          theme.fg("accent", shortenPath(path.resolve(ctx.cwd))),
-          spec
-            ? `${theme.fg("dim", "spec:")} ${theme.fg("muted", spec.title)}`
-            : theme.fg("dim", "spec: none"),
-          branch
-            ? `${theme.fg("dim", "branch:")} ${theme.fg("muted", branch)}`
-            : "",
-        ].filter(Boolean)
-        const locationLine = truncateToWidth(
-          locationParts.join(theme.fg("dim", " · ")),
+        const specTitle = spec?.title ?? "none"
+
+        const projectLine = rightAlign(
+          `${theme.fg("accent", "project:")} ${theme.fg("success", projectName(ctx.cwd))}`,
+          `${theme.fg("accent", "specification:")} ${theme.fg("success", specTitle)}`,
           width,
-          theme.fg("dim", "..."),
         )
 
         const modelName = ctx.model?.id ?? "no-model"
@@ -343,14 +398,18 @@ function installFooter(
           modelLabel = `(${ctx.model.provider}) ${modelLabel}`
         }
 
-        const context = renderContextGauge(ctx, theme)
-        const telemetryLine = rightAlign(
-          context,
+        const rootLine = rightAlign(
+          theme.fg("dim", shortenPath(path.resolve(ctx.cwd))),
           theme.fg("dim", modelLabel),
           width,
         )
+        const branchLine = rightAlign(
+          theme.fg("dim", branch),
+          renderContextGauge(ctx, theme),
+          width,
+        )
 
-        const lines = [locationLine, telemetryLine]
+        const lines = [projectLine, rootLine, branchLine]
 
         const extensionStatuses = footerData.getExtensionStatuses()
         if (extensionStatuses.size > 0) {
@@ -366,6 +425,10 @@ function installFooter(
           }
         }
 
+        // One trailing row keeps VS Code's terminal from visually pinning the
+        // footer against the bottom edge; Ghostty already adds some external
+        // breathing room, so a single blank row is the least surprising shim.
+        lines.push("")
         return lines
       },
     }
