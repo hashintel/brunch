@@ -750,6 +750,90 @@ describe("Brunch TUI boot", () => {
     expect(commands).toEqual([])
   })
 
+  it("installs fixture graph-code mention autocomplete and prompt guidance from the Brunch shell", async () => {
+    let providerFactory: ((
+      current: FakeAutocompleteProvider,
+    ) => FakeAutocompleteProvider) | undefined
+    const sessionStart: Array<(
+      event: unknown,
+      ctx: FakeExtensionContext,
+    ) => Promise<void> | void> = []
+    const beforeAgentStart: Array<(
+      event: { systemPrompt: string },
+      ctx: FakeExtensionContext,
+    ) => Promise<unknown> | unknown> = []
+
+    createBrunchPiExtensionShell(
+      chromeStateForWorkspace(readyWorkspace("/tmp/project", "session-1")),
+      undefined,
+      { coordinator: noOpWorkspaceCoordinator("/tmp/project") },
+    )({
+      on: (event: string, handler: never) => {
+        if (event === "session_start") sessionStart.push(handler)
+        if (event === "before_agent_start") beforeAgentStart.push(handler)
+      },
+      registerCommand: (_name: string, _options: unknown) => {},
+      registerShortcut: (_name: string, _options: unknown) => {},
+      registerTool: (_tool: unknown) => {},
+      registerMessageRenderer: (_type: string) => {},
+      sendMessage: (_message: unknown) => {},
+      getAllTools: () => [],
+      setActiveTools: (_tools: string[]) => {},
+    } as never)
+
+    const ctx: FakeExtensionContext = {
+      sessionManager: {
+        getEntries: () => [],
+      } as unknown as FakeExtensionContext["sessionManager"],
+      ui: {
+        setHeader: (_factory) => {},
+        setFooter: (_factory) => {},
+        setStatus: (_key, _text) => {},
+        setWidget: (_key: string, _content: unknown) => {},
+        setWorkingIndicator: (_options) => {},
+        setTitle: (_title: string) => {},
+        notify: (_message: string, _type?: "info" | "warning" | "error") => {},
+        addAutocompleteProvider: (factory: typeof providerFactory) => {
+          providerFactory = factory
+        },
+      } as FakeExtensionUi & {
+        addAutocompleteProvider: (factory: typeof providerFactory) => void
+      },
+    }
+
+    for (const handler of sessionStart) await handler({}, ctx)
+    const promptUpdates = await Promise.all(
+      beforeAgentStart.map((handler) =>
+        Promise.resolve(handler({ systemPrompt: "base" }, ctx)),
+      ),
+    )
+
+    const fallback: FakeAutocompleteProvider = {
+      getSuggestions: async () => ({ items: [], prefix: "" }),
+      applyCompletion: (lines) => ({ lines, cursorLine: 0, cursorCol: 0 }),
+      shouldTriggerFileCompletion: () => true,
+    }
+    const provider = providerFactory?.(fallback)
+
+    expect(
+      promptUpdates.some(
+        (update) =>
+          typeof update === "object" &&
+          update !== null &&
+          "systemPrompt" in update &&
+          String(update.systemPrompt).includes("Brunch graph mention handles"),
+      ),
+    ).toBe(true)
+    await expect(
+      provider?.getSuggestions(["Discuss #"], 0, 9, {} as never),
+    ).resolves.toMatchObject({
+      prefix: "#",
+      items: expect.arrayContaining([
+        expect.objectContaining({ value: "#D12" }),
+      ]),
+    })
+  })
+
   it("registers graph-code mention autocomplete without fixture tag JSON", async () => {
     let providerFactory: ((
       current: FakeAutocompleteProvider,

@@ -6,6 +6,7 @@ import {
 import { registerBrunchAlternatives } from "./pi-extensions/alternatives.js"
 import { registerBrunchBranchPolicyHandlers } from "./pi-extensions/command-policy.js"
 import {
+  FIXTURE_GRAPH_MENTION_SOURCE,
   registerBrunchMentionAutocomplete,
   type GraphMentionSource,
 } from "./pi-extensions/mention-autocomplete.js"
@@ -28,6 +29,7 @@ import {
 export { registerBrunchAlternatives } from "./pi-extensions/alternatives.js"
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from "./pi-extensions/command-policy.js"
 export {
+  FIXTURE_GRAPH_MENTION_SOURCE,
   extractHashPrefix,
   registerBrunchMentionAutocomplete,
   type GraphMentionCandidate,
@@ -109,7 +111,10 @@ export function createBrunchPiExtensionShell(
     registerBrunchSessionBoundaryRefreshHandlers(pi, onSessionBoundary)
     registerBrunchBranchPolicyHandlers(pi)
     registerBrunchOperationalModePolicy(pi)
-    registerBrunchMentionAutocomplete(pi, options.graphMentionSource)
+    registerBrunchMentionAutocomplete(
+      pi,
+      options.graphMentionSource ?? FIXTURE_GRAPH_MENTION_SOURCE,
+    )
     registerBrunchAlternatives(pi)
     registerBrunchStructuredQuestion(pi)
     registerBrunchWorkspaceDialog(pi, options)
