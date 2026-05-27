@@ -4,7 +4,7 @@ This file is a trimmed working inventory for the remaining FE-744 gap. It is not
 
 ## Why this is still live
 
-Command containment, Brunch chrome, startup no-resume, and `/brunch-workspace` are proven enough for now. The unresolved POC seam is different:
+Command containment, Brunch chrome, startup no-resume, and the `/brunch` menu/workspace switch flow are proven enough for now. The unresolved POC seam is different:
 
 > Brunch sessions must work elicitation-first: a system/assistant-originated question, questionnaire, or offer should own the response surface, persist a terminal structured result in Pi JSONL, and be projectable as a prompt/response elicitation exchange before the next agent turn.
 

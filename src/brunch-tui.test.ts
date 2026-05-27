@@ -397,7 +397,8 @@ describe("Brunch TUI boot", () => {
     expect(commands.get(BRUNCH_MENU_COMMAND)?.description).toBe(
       "Open the Brunch menu",
     )
-    expect(commands.has("brunch-workspace")).toBe(false)
+    const retiredWorkspaceCommand = ["brunch", "workspace"].join("-")
+    expect(commands.has(retiredWorkspaceCommand)).toBe(false)
     expect(shortcuts.get(BRUNCH_MENU_SHORTCUT)?.description).toBe(
       "Open the Brunch menu",
     )
