@@ -101,7 +101,7 @@ describe('seedSliceSandboxFromDeps', () => {
     expect(readFileSync(join(sliceDir, 'src/cli.ts'), 'utf8')).toBe('version\n');
   });
 
-  it('preserveExisting prunes rework orphans but keeps slice edits on dep paths', () => {
+  it('preserveExisting keeps slice-owned files and edits on dep paths', () => {
     const parent = mkdtempSync(join(tmpdir(), 'cook-seed-'));
     dirs.push(parent);
     mkdirSync(join(parent, 'version-flag', 'src'), { recursive: true });
@@ -109,12 +109,12 @@ describe('seedSliceSandboxFromDeps', () => {
 
     const slice = txtLikePlan.slices.find((s) => s.id === 'help-flag')!;
     seedSliceSandboxFromDeps(parent, txtLikePlan, slice);
-    writeFileSync(join(parent, 'help-flag', 'src/stale.ts'), 'orphan\n');
+    writeFileSync(join(parent, 'help-flag', 'src/stale.ts'), 'slice-owned\n');
     writeFileSync(join(parent, 'help-flag', 'src/cli.ts'), 'slice edit\n');
 
     seedSliceSandboxFromDeps(parent, txtLikePlan, slice, { preserveExisting: true });
 
-    expect(existsSync(join(parent, 'help-flag', 'src/stale.ts'))).toBe(false);
+    expect(readFileSync(join(parent, 'help-flag', 'src/stale.ts'), 'utf8')).toBe('slice-owned\n');
     expect(readFileSync(join(parent, 'help-flag', 'src/cli.ts'), 'utf8')).toBe('slice edit\n');
   });
 

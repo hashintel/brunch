@@ -183,7 +183,7 @@ export function seedSliceSandboxFromDeps(
 
   const depFiles = collectDepFiles(parentSandboxDir, plan, slice);
 
-  if (depFiles.size > 0 && existsSync(sliceDir)) {
+  if (!preserveExisting && depFiles.size > 0 && existsSync(sliceDir)) {
     for (const file of walkFiles(sliceDir)) {
       const rel = relativePathWithin(sliceDir, file);
       if (!depFiles.has(rel)) {
