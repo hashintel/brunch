@@ -23,7 +23,7 @@ import {
   chromeStateForWorkspace,
   createBrunchPiExtensionShell,
 } from "./pi-extensions.js"
-import { runWorkspaceSwitchPreflight } from "./pi-components/workspace-switcher.js"
+import { runWorkspaceDialogPreflight } from "./pi-components/workspace-dialog.js"
 export {
   BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE,
   chromeStateForWorkspace,
@@ -36,7 +36,7 @@ export {
   type BrunchChromeState,
   type BrunchChromeWorkerStatus,
 } from "./pi-extensions.js"
-export { runWorkspaceSwitchPreflight } from "./pi-components/workspace-switcher.js"
+export { runWorkspaceDialogPreflight } from "./pi-components/workspace-dialog.js"
 
 export type BrunchTuiCoordinator = WorkspaceSwitchCoordinator & WorkspaceSessionBoundaryCoordinator
 
@@ -49,7 +49,7 @@ export interface BrunchTuiOptions {
   cwd?: string
   coordinator?: BrunchTuiCoordinator
   selectSpecTitle?: () => Promise<string | undefined>
-  runWorkspaceSwitchPreflight?: (
+  runWorkspaceDialogPreflight?: (
     inventory: WorkspaceLaunchInventory,
   ) => Promise<WorkspaceSwitchDecision>
   launchInteractive?: (context: BrunchTuiLaunchContext) => Promise<void>
@@ -83,14 +83,14 @@ async function chooseWorkspaceSwitchDecision(
   inventory: WorkspaceLaunchInventory,
   options: BrunchTuiOptions,
 ): Promise<WorkspaceSwitchDecision> {
-  if (options.runWorkspaceSwitchPreflight) {
-    return options.runWorkspaceSwitchPreflight(inventory)
+  if (options.runWorkspaceDialogPreflight) {
+    return options.runWorkspaceDialogPreflight(inventory)
   }
   if (options.selectSpecTitle && inventory.needsNewSpec) {
     const title = await options.selectSpecTitle()
     return title ? { action: "newSpec", title } : { action: "cancel" }
   }
-  return runWorkspaceSwitchPreflight(inventory)
+  return runWorkspaceDialogPreflight(inventory)
 }
 
 async function launchPiInteractive({

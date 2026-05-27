@@ -20,9 +20,9 @@ import {
   type BrunchSessionBoundaryHandler,
 } from "./pi-extensions/session-lifecycle.js"
 import {
-  registerBrunchSettingsSwitcherMenu,
-  type BrunchSettingsSwitcherMenuOptions,
-} from "./pi-extensions/settings-switcher-menu.js"
+  registerBrunchWorkspaceDialog,
+  type BrunchWorkspaceDialogOptions,
+} from "./pi-extensions/workspace-dialog.js"
 
 export { registerBrunchAlternatives } from "./pi-extensions/alternatives.js"
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from "./pi-extensions/command-policy.js"
@@ -66,16 +66,16 @@ export {
   type BrunchSessionBoundaryHandler,
 } from "./pi-extensions/session-lifecycle.js"
 export {
-  BRUNCH_MENU_COMMAND,
-  BRUNCH_MENU_SHORTCUT,
-  registerBrunchSettingsSwitcherMenu,
-  runBrunchMenuCommand,
-  runBrunchSettingsSwitcherAction,
-  type BrunchSettingsSwitcherMenuOptions,
-} from "./pi-extensions/settings-switcher-menu.js"
+  BRUNCH_WORKSPACE_COMMAND,
+  BRUNCH_WORKSPACE_SHORTCUT,
+  registerBrunchWorkspaceDialog,
+  runBrunchWorkspaceAction,
+  runBrunchWorkspaceCommand,
+  type BrunchWorkspaceDialogOptions,
+} from "./pi-extensions/workspace-dialog.js"
 
 export interface BrunchPiExtensionShellOptions
-  extends BrunchSettingsSwitcherMenuOptions {
+  extends BrunchWorkspaceDialogOptions {
   graphMentionSource?: GraphMentionSource
 }
 
@@ -97,6 +97,6 @@ export function createBrunchPiExtensionShell(
     registerBrunchOperationalModePolicy(pi)
     registerBrunchMentionAutocomplete(pi, options.graphMentionSource)
     registerBrunchAlternatives(pi)
-    registerBrunchSettingsSwitcherMenu(pi, options)
+    registerBrunchWorkspaceDialog(pi, options)
   }
 }

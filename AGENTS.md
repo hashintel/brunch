@@ -79,6 +79,10 @@ Verification boundary: /ln-spec owns inner-loop verification (commands, policy).
 
 Tooling: oxlint (lint + type-aware + type-check via tsgolint), oxfmt (format). Verification strategy details in SPEC.md §Verification Design.
 
+## critical file-safety rule
+
+Do not delete untracked files or directories without explicit user confirmation. This includes newly-created local files, ignored files, scratch directories, generated-looking folders, and empty placeholder directories. If cleanup seems appropriate, ask first and name the exact path(s) you propose to remove.
+
 ## operational protocols
 
 Read these before the relevant activity:

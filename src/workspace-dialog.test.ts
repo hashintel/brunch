@@ -5,14 +5,14 @@ import { visibleWidth } from "@earendil-works/pi-tui"
 import { describe, expect, it } from "vitest"
 
 import {
-  buildWorkspaceSwitchOptions,
-  createWorkspaceSwitchComponent,
-} from "./pi-components/workspace-switcher.js"
+  buildWorkspaceDialogOptions,
+  createWorkspaceDialogComponent,
+} from "./pi-components/workspace-dialog/index.js"
 import type { WorkspaceLaunchInventory } from "./workspace-session-coordinator.js"
 
-describe("workspace switcher", () => {
+describe("workspace dialog", () => {
   it("builds explicit resume, new-session, open-session, create-spec, and cancel options", () => {
-    const options = buildWorkspaceSwitchOptions(inventory())
+    const options = buildWorkspaceDialogOptions(inventory())
 
     expect(options.map((option) => option.kind)).toEqual([
       "continue",
@@ -32,7 +32,7 @@ describe("workspace switcher", () => {
       },
     })
     expect(options.at(-2)).toMatchObject({
-      label: "Create spec",
+      label: "Create workspace",
     })
     expect(options.at(-2)).not.toHaveProperty("decision")
     expect(options.at(-1)).toMatchObject({
@@ -43,7 +43,7 @@ describe("workspace switcher", () => {
 
   it("selects current resume and existing sessions as typed decisions", () => {
     const decisions: unknown[] = []
-    const component = createWorkspaceSwitchComponent({
+    const component = createWorkspaceDialogComponent({
       inventory: inventory(),
       onDecision: (decision) => decisions.push(decision),
     })
@@ -69,7 +69,7 @@ describe("workspace switcher", () => {
 
   it("returns new-spec decisions from title entry and cancel on escape", () => {
     const decisions: unknown[] = []
-    const component = createWorkspaceSwitchComponent({
+    const component = createWorkspaceDialogComponent({
       inventory: inventory(),
       onDecision: (decision) => decisions.push(decision),
     })
@@ -82,7 +82,7 @@ describe("workspace switcher", () => {
       component.handleInput!(char)
     }
     component.handleInput!("\r")
-    const cancelComponent = createWorkspaceSwitchComponent({
+    const cancelComponent = createWorkspaceDialogComponent({
       inventory: inventory(),
       onDecision: (decision) => decisions.push(decision),
     })
@@ -94,15 +94,29 @@ describe("workspace switcher", () => {
     ])
   })
 
-  it("keeps rendered lines within the requested width", () => {
-    const component = createWorkspaceSwitchComponent({
+  it("renders a branded centered-dialog frame within the requested width", () => {
+    const component = createWorkspaceDialogComponent({
       inventory: inventory(),
       onDecision: () => {},
     })
 
-    expect(component.render(24).every((line) => visibleWidth(line) <= 24)).toBe(
-      true,
+    const lines = component.render(64)
+
+    expect(lines[0]).toContain("╭")
+    expect(lines.some((line) => line.includes("Brunch workspace"))).toBe(true)
+    expect(lines.every((line) => visibleWidth(line) <= 64)).toBe(true)
+  })
+
+  it("keeps logo assets colocated with the workspace dialog component", async () => {
+    const source = await readFile(
+      new URL(
+        "./pi-components/workspace-dialog/assets/brunch-logo-quad-56x18.ansi",
+        import.meta.url,
+      ),
+      "utf8",
     )
+
+    expect(source).toContain("\x1B[")
   })
 
   it("declares pi-tui as a direct dependency", async () => {

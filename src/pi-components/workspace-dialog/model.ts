@@ -4,7 +4,7 @@ import type {
   WorkspaceSwitchDecision,
 } from "../../workspace-session-coordinator.js"
 
-export interface WorkspaceSwitchOption {
+export interface WorkspaceDialogOption {
   id: string
   label: string
   description: string
@@ -12,10 +12,10 @@ export interface WorkspaceSwitchOption {
   decision?: WorkspaceSwitchDecision
 }
 
-export function buildWorkspaceSwitchOptions(
+export function buildWorkspaceDialogOptions(
   inventory: WorkspaceLaunchInventory,
-): WorkspaceSwitchOption[] {
-  const options: WorkspaceSwitchOption[] = []
+): WorkspaceDialogOption[] {
+  const options: WorkspaceDialogOption[] = []
   const currentSession = findCurrentSession(inventory)
 
   if (currentSession && inventory.currentSpec) {
@@ -64,14 +64,14 @@ export function buildWorkspaceSwitchOptions(
 
   options.push({
     id: "new-spec",
-    label: "Create spec",
+    label: "Create workspace",
     description: "Name a new specification workspace",
     kind: "newSpec",
   })
   options.push({
     id: "cancel",
     label: "Cancel",
-    description: "Exit without opening a Brunch session",
+    description: "Exit without opening a Brunch workspace",
     kind: "cancel",
     decision: { action: "cancel" },
   })

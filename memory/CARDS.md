@@ -33,7 +33,7 @@ The completed extension/component port has no unreconciled draft sidecar, chrome
 → memory/CARDS.md canonical scope queue
 → src/pi-extensions/chrome.ts and chrome tests
 → docs/architecture/pi-ui-extension-patterns.md
-→ src/pi-extensions/settings-switcher-menu.ts aggregate exports
+→ src/pi-extensions/workspace-dialog.ts aggregate exports
 → src/pi-extensions/operational-mode.ts naming/comments
 → src/pi-components/cards.ts and src/pi-extensions/alternatives.ts comments
 ```
@@ -49,8 +49,8 @@ The completed extension/component port has no unreconciled draft sidecar, chrome
 
 ✓ `planning sidecar removed` — useful content from `docs/design/DRAFT_CARDS.md` is reconciled into `memory/CARDS.md`, and `docs/design/DRAFT_CARDS.md` is deleted.
 ✓ `chrome proof matches code` — `src/pi-extensions/chrome.ts` and `docs/architecture/pi-ui-extension-patterns.md` agree on the actual chrome contract: either richer version/build/model/thinking/context/git/status passthrough is implemented and tested, or docs explicitly narrow the claim.
-✓ `extension layout narrative updated` — `docs/architecture/pi-ui-extension-patterns.md` names the current flat `src/pi-extensions.ts`, `command-policy`, `session-lifecycle`, `settings-switcher-menu`, `operational-mode`, `mention-autocomplete`, `alternatives`, and `src/pi-components/*` layout without old `branch-policy` / `session-boundary` / `workspace-command` narratives.
-✓ `menu surface renamed` — public-ish exports use menu/settings-switcher language for `/brunch`; workspace switching is an internal menu action helper rather than the exported registration surface.
+✓ `extension layout narrative updated` — `docs/architecture/pi-ui-extension-patterns.md` names the current flat `src/pi-extensions.ts`, `command-policy`, `session-lifecycle`, `workspace-dialog`, `operational-mode`, `mention-autocomplete`, `alternatives`, and `src/pi-components/*` layout without old `branch-policy` / `session-boundary` / `workspace-command` narratives.
+✓ `workspace dialog surface renamed` — public-ish exports use workspace-dialog language for `/brunch`; coordinator-owned workspace activation remains separate from the reusable decision component.
 ✓ `operational-mode vocabulary cleaned` — `operational-mode.ts` no longer reads like copied “Brunch — tools” / generic read-only tool policy, and local constants/comments use `elicit` / operational-mode policy vocabulary.
 ✓ `stale comments cleaned` — `src/pi-components/cards.ts` and `src/pi-extensions/alternatives.ts` no longer reference `.pi/extensions`, `brunch-messages.ts`, malformed comments, or empty activation sections.
 
@@ -62,7 +62,7 @@ The completed extension/component port has no unreconciled draft sidecar, chrome
 ### Cross-cutting obligations
 
 - Do not add Brunch agent-state switching in this cleanup card.
-- Preserve existing `/brunch` behavior and coordinator-owned workspace activation while renaming the module surface.
+- Preserve existing `/brunch` behavior and coordinator-owned workspace activation while keeping the module surface named around workspace.
 - Keep chrome a projection, not authority; it must not mutate workspace/session state.
 
 ---

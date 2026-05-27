@@ -20,8 +20,8 @@ import {
   runBrunchTui,
 } from "./brunch-tui.js"
 import {
-  BRUNCH_MENU_COMMAND,
-  BRUNCH_MENU_SHORTCUT,
+  BRUNCH_WORKSPACE_COMMAND,
+  BRUNCH_WORKSPACE_SHORTCUT,
   chromeStateForWorkspace,
   createBrunchPiExtensionShell,
   formatBrunchChromeFooterLines,
@@ -33,8 +33,8 @@ import {
   registerBrunchMentionAutocomplete,
   registerBrunchOperationalModePolicy,
   renderBrunchChrome,
-  runBrunchMenuCommand,
-  runBrunchSettingsSwitcherAction,
+  runBrunchWorkspaceCommand,
+  runBrunchWorkspaceAction,
 } from "./pi-extensions.js"
 import {
   createWorkspaceSessionCoordinator,
@@ -94,7 +94,7 @@ describe("Brunch TUI boot", () => {
         },
         bindCurrentSpecToReplacementSession: async () => workspace,
       },
-      runWorkspaceSwitchPreflight: async () => {
+      runWorkspaceDialogPreflight: async () => {
         events.push("preflight")
         return {
           action: "continue",
@@ -143,7 +143,7 @@ describe("Brunch TUI boot", () => {
         },
         bindCurrentSpecToReplacementSession: async () => workspace,
       },
-      runWorkspaceSwitchPreflight: async () => {
+      runWorkspaceDialogPreflight: async () => {
         events.push("preflight")
         return { action: "cancel" }
       },
@@ -168,7 +168,7 @@ describe("Brunch TUI boot", () => {
     await runBrunchTui({
       cwd,
       coordinator,
-      runWorkspaceSwitchPreflight: async () => ({
+      runWorkspaceDialogPreflight: async () => ({
         action: "newSession",
         specId: first.spec.id,
       }),
@@ -356,7 +356,7 @@ describe("Brunch TUI boot", () => {
     expect(titles).toEqual(["brunch — Spec One"])
   })
 
-  it("registers the Brunch menu command and shortcut", async () => {
+  it("registers the Brunch workspace command and shortcut", async () => {
     const commands =
       new Map<string, Omit<RegisteredCommand, "name" | "sourceInfo">>()
     const shortcuts =
@@ -394,24 +394,23 @@ describe("Brunch TUI boot", () => {
       "ls",
       "present_alternatives",
     ])
-    expect(commands.get(BRUNCH_MENU_COMMAND)?.description).toBe(
-      "Open the Brunch menu",
+    expect(commands.get(BRUNCH_WORKSPACE_COMMAND)?.description).toBe(
+      "Open the Brunch workspace dialog",
     )
     const retiredWorkspaceCommand = ["brunch", "workspace"].join("-")
     expect(commands.has(retiredWorkspaceCommand)).toBe(false)
-    expect(shortcuts.get(BRUNCH_MENU_SHORTCUT)?.description).toBe(
-      "Open the Brunch menu",
+    expect(shortcuts.get(BRUNCH_WORKSPACE_SHORTCUT)?.description).toBe(
+      "Open the Brunch workspace dialog",
     )
     expect(shortcuts.has("ctrl+b")).toBe(false)
   })
 
-  it("opens the workspace switcher from the Brunch menu shell", async () => {
+  it("opens the workspace dialog from the Brunch command", async () => {
     const events: string[] = []
     const target = readyWorkspace("/tmp/project", "session-target")
     const ctx = fakeCommandContext({
       currentSessionFile: "/sessions/session-old.jsonl",
       decisions: [
-        "workspace",
         {
           action: "openSession",
           specId: target.spec.id,
@@ -421,7 +420,7 @@ describe("Brunch TUI boot", () => {
       onEvent: (event) => events.push(event),
     })
 
-    await runBrunchMenuCommand(ctx, {
+    await runBrunchWorkspaceCommand(ctx, {
       inspectWorkspace: async () => {
         events.push("inspect")
         return inventoryWithWorkspace(target)
@@ -434,7 +433,6 @@ describe("Brunch TUI boot", () => {
 
     expect(events).toEqual([
       "waitForIdle",
-      "custom",
       "inspect",
       "custom",
       "activate:openSession",
@@ -462,7 +460,7 @@ describe("Brunch TUI boot", () => {
       replacementUi,
     })
 
-    await runBrunchSettingsSwitcherAction(ctx, {
+    await runBrunchWorkspaceAction(ctx, {
       inspectWorkspace: async () => {
         events.push("inspect")
         return inventoryWithWorkspace(target)
@@ -486,7 +484,17 @@ describe("Brunch TUI boot", () => {
       "replacement:setTitle",
       "replacement:notify",
     ])
-    expect(customOptions).toEqual([])
+    expect(customOptions).toEqual([
+      {
+        overlay: true,
+        overlayOptions: {
+          anchor: "center",
+          width: 72,
+          maxHeight: "90%",
+          margin: 1,
+        },
+      },
+    ])
   })
 
   it("leaves the current session untouched when workspace switch is cancelled", async () => {
@@ -497,7 +505,7 @@ describe("Brunch TUI boot", () => {
       onEvent: (event) => events.push(event),
     })
 
-    await runBrunchSettingsSwitcherAction(ctx, {
+    await runBrunchWorkspaceAction(ctx, {
       inspectWorkspace: async () => emptyInventory("/tmp/project"),
       activateWorkspace: async () => ({
         status: "cancelled",
@@ -526,7 +534,7 @@ describe("Brunch TUI boot", () => {
       onEvent: (event) => events.push(event),
     })
 
-    await runBrunchSettingsSwitcherAction(ctx, {
+    await runBrunchWorkspaceAction(ctx, {
       inspectWorkspace: async () => emptyInventory("/tmp/project"),
       activateWorkspace: async () => ({
         status: "needs_human",

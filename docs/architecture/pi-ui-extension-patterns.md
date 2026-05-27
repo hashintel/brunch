@@ -12,8 +12,8 @@ This memo records evidence for the `pi-ui-extension-patterns` frontier. It is in
 | Extension command collision override | not-feasible | product commands must avoid built-in names unless Pi adds policy | source audit |
 | RPC-visible chrome/status degradation | proven for status/widget/title; no-op for header/footer/working indicator | informs fixture-driver expectations | Brunch wrapper unit oracle + raw RPC probe |
 | Dynamic Brunch chrome wrapper | proven for deterministic product-state projection and TUI mounting | required before downstream M5/M6/M7 affordance wrappers call Pi UI primitives | Brunch-host tests + raw TUI transcript proof |
-| Startup workspace switcher | proven for Brunch-owned pre-Pi activation with no implicit transcript resume | required for I22-L | Brunch coordinator/UI tests + `runbooks/verify-startup-no-resume.sh` pty oracle |
-| In-session workspace switcher command | implemented/proven at command-handler seam; manual TUI walkthrough still useful | unlocks reusable switcher beyond startup | Brunch extension command tests + coordinator store oracle |
+| Startup workspace dialog | proven for Brunch-owned pre-Pi activation with no implicit transcript resume | required for I22-L | Brunch coordinator/UI tests + `runbooks/verify-startup-no-resume.sh` pty oracle |
+| In-session workspace dialog command | implemented/proven at command-handler seam; manual TUI walkthrough still useful | unlocks reusable workspace selection beyond startup | Brunch extension command tests + coordinator store oracle |
 | Structured-question response loop | feasible but not Brunch-proven | required before M5 lens/review affordances depend on structured elicitation | Pi `question`/`questionnaire` examples + RPC UI demo; Brunch proof pending |
 
 ## Evidence inventory
@@ -21,7 +21,7 @@ This memo records evidence for the `pi-ui-extension-patterns` frontier. It is in
 - **Pi version/source:** `pi --version` reports `0.75.4`; audited installed docs under `npm-mariozechner-pi-coding-agent/0.73.1` whose package version is `0.75.4`, plus source at `~/Clones/earendil-works/pi/packages/coding-agent`.
 - **Source audit oracle:** `src/core/slash-commands.ts`, `src/modes/interactive/interactive-mode.ts`, `src/core/agent-session.ts`, `src/core/extensions/runner.ts`, `docs/extensions.md`, `docs/rpc.md`, and `docs/keybindings.md`.
 - **Raw Pi harness oracle:** a temporary project-local Pi extension was loaded with `pi --mode rpc --no-session -e ...`, then deleted after probing. This proves extension command handling, `input` handling, lifecycle cancellation, and RPC-visible `setStatus` / string `setWidget` events. It does **not** prove interactive autocomplete visual behavior.
-- **Brunch-host oracle:** FE-744 now exposes a thin internal extension entrypoint at `src/pi-extensions.ts`, with product modules for chrome (`src/pi-extensions/chrome.ts`), session-lifecycle binding (`session-lifecycle.ts`), command policy (`command-policy.ts`), the Brunch menu/workspace switcher (`settings-switcher-menu.ts` plus `src/pi-components/brunch-menu.ts`), operational-mode policy (`operational-mode.ts`), mention autocomplete (`mention-autocomplete.ts`), and alternatives cards (`alternatives.ts`). Tests prove one Brunch-owned wrapper drives `setHeader`, owns an honest footer projection, writes compact `setStatus`, expanded string-array `setWidget`, and sets the terminal title from one product-state snapshot. Existing branch-cancellation coverage still protects `I19-L`; menu/workspace tests prove decision UI remains separate from coordinator activation and uses the default `ctx.ui.custom()` component-replacement path rather than experimental overlay options.
+- **Brunch-host oracle:** FE-744 now exposes a thin internal extension entrypoint at `src/pi-extensions.ts`, with product modules for chrome (`src/pi-extensions/chrome.ts`), session-lifecycle binding (`session-lifecycle.ts`), command policy (`command-policy.ts`), the workspace dialog (`workspace-dialog.ts` plus `src/pi-components/workspace-dialog/*`), operational-mode policy (`operational-mode.ts`), mention autocomplete (`mention-autocomplete.ts`), and alternatives cards (`alternatives.ts`). Tests prove one Brunch-owned wrapper drives `setHeader`, owns an honest footer projection, writes compact `setStatus`, expanded string-array `setWidget`, and sets the terminal title from one product-state snapshot. Existing branch-cancellation coverage still protects `I19-L`; workspace dialog tests prove decision UI remains separate from coordinator activation and runs as the same centered overlay component at startup and in-session.
 - **Raw TUI visual oracle:** a temporary extension loaded with `script -q /tmp/brunch-chrome-tui-proof.typescript /bin/bash -lc "pi --no-session -e <temp-extension>"`; the transcript contained `BRUNCH HEADER PROOF`, `BRUNCH FOOTER PROOF`, `Spec: Proof Spec`, `observer: running`, and `lens: problem-framing`, proving header/footer/widget text is actually visible in a live Pi TUI render. The temp extension was deleted after the run.
 - **Raw RPC chrome oracle:** a temporary extension loaded with `pi --mode rpc --no-session -e <temp-extension>` emitted `extension_ui_request` events for `setStatus`, `setWidget`, and `notify`; header/footer/working-indicator calls produced no RPC events as expected from Pi's RPC implementation. The temp extension was deleted after the run.
 
@@ -125,7 +125,7 @@ The Brunch extension entrypoint is intentionally a registration map. `src/pi-ext
 - `chrome.ts` owns `BrunchChromeState`, formatting, and `renderBrunchChrome()`.
 - `session-lifecycle.ts` owns coordinator refresh calls on Pi session lifecycle events.
 - `command-policy.ts` owns branch/session effect blocking for unsupported Pi flows.
-- `settings-switcher-menu.ts` owns `/brunch`, `ctrl+shift+b`, the product menu shell, and the internal workspace-switch action.
+- `workspace-dialog.ts` owns `/brunch`, `ctrl+shift+b`, and the in-session workspace-dialog activation adapter.
 - `operational-mode.ts` owns the current `elicit` read-only tool policy pending transcript-backed runtime state.
 - `mention-autocomplete.ts` owns fixture-backed `#` mention autocomplete.
 - `alternatives.ts` owns the transcript-persistent alternatives/card primitive, using reusable widgets from `src/pi-components/*`.
@@ -153,10 +153,10 @@ Observed behavior:
 
 Brunch should render the startup/splash logo as TUI chrome, not as a session message, so it does not persist in the transcript/log. For the preferred blocky aesthetic, the selected rendering is a pre-generated Chafa Unicode-symbol asset rather than runtime image rendering:
 
-- Source PNG copied from the legacy Brunch app to `assets/brunch.png`.
-- Preferred splash asset: `assets/brunch-logo-quad-56x18.ansi`.
-- Lower-color fallback asset: `assets/brunch-logo-quad-56x18-240.ansi`.
-- `package.json` includes `assets` in published package files so runtime code can read these files directly.
+- Source PNG copied from the legacy Brunch app to `src/pi-components/workspace-dialog/assets/brunch.png`.
+- Preferred splash asset: `src/pi-components/workspace-dialog/assets/brunch-logo-quad-56x18.ansi`.
+- Lower-color fallback asset: `src/pi-components/workspace-dialog/assets/brunch-logo-quad-56x18-240.ansi`.
+- The build copies those assets to `dist/pi-components/workspace-dialog/assets` so runtime code can read them beside the compiled component.
 
 The selected generator command for the preferred asset is:
 
@@ -168,18 +168,18 @@ chafa -f symbols \
   --color-extractor=median \
   --bg=black \
   --size=56x18 \
-  assets/brunch.png > assets/brunch-logo-quad-56x18.ansi
+  src/pi-components/workspace-dialog/assets/brunch.png > src/pi-components/workspace-dialog/assets/brunch-logo-quad-56x18.ansi
 ```
 
 Runtime should **not** invoke Chafa on startup. The logo should be deterministic, cheap to render, and independent of host-installed CLI tools. Chafa is therefore a maintainer/dev tool at most, not a runtime dependency. Startup chrome should choose `brunch-logo-quad-56x18.ansi` when truecolor is available, otherwise `brunch-logo-quad-56x18-240.ansi`; for very limited terminals, a plain `brunch` wordmark is sufficient rather than carrying 16-color or 8-color assets.
 
-## Workspace switcher implementation evidence
+## Workspace dialog implementation evidence
 
-Startup now runs through Brunch-owned inventory and activation before Pi `InteractiveMode` starts. `.brunch/state.json` accelerates defaults but does not implicitly resume the prior transcript; the pure `workspace-switcher` UI returns `continue` / `openSession` / `newSession` / `newSpec` / `cancel`, and `WorkspaceSessionCoordinator.activateWorkspace()` owns all session creation/opening, binding, and state-file effects.
+Startup now runs through Brunch-owned inventory and activation before Pi `InteractiveMode` starts. `.brunch/state.json` accelerates defaults but does not implicitly resume the prior transcript; the pure `workspace-dialog` UI returns `continue` / `openSession` / `newSession` / `newSpec` / `cancel`, and `WorkspaceSessionCoordinator.activateWorkspace()` owns all session creation/opening, binding, and state-file effects.
 
-The executable pty oracle is `runbooks/verify-startup-no-resume.sh`. It builds the project, seeds a scratch workspace with a unique stale transcript sentinel, launches `brunch --mode tui` under `script`, strips ANSI/control sequences, and asserts the first captured startup screen contains workspace-switcher markers and not the stale transcript text. This is a middle-loop/manual oracle, not part of `npm run verify`, because pty behavior is host-sensitive.
+The executable pty oracle is `runbooks/verify-startup-no-resume.sh`. It builds the project, seeds a scratch workspace with a unique stale transcript sentinel, launches `brunch --mode tui` under `script`, strips ANSI/control sequences, and asserts the first captured startup screen contains workspace-dialog markers and not the stale transcript text. This is a middle-loop/manual oracle, not part of `npm run verify`, because pty behavior is host-sensitive.
 
-The in-session product command is `/brunch` with `ctrl+shift+b`. It opens a minimal Brunch menu shell; choosing the workspace/session action waits for idle, inspects inventory, renders the same typed workspace-switcher component with the default `ctx.ui.custom()` component-replacement flow, activates the returned decision through the coordinator, and then calls `ctx.switchSession()` only for the already-activated target file. Post-switch chrome and notification use the `withSession` replacement context only; cancel and `needs_human` decisions notify without switching. This does not override `/resume`, `/new`, or other built-ins. Overlay/modal custom-UI patterns remain deferred to later review-set, orientation, or picker surfaces only when a concrete product interaction needs them.
+The in-session product command is `/brunch` with `ctrl+shift+b`. It waits for idle, inspects inventory, renders the same typed centered workspace dialog with `ctx.ui.custom(..., { overlay: true })`, activates the returned decision through the coordinator, and then calls `ctx.switchSession()` only for the already-activated target file. Post-switch chrome and notification use the `withSession` replacement context only; cancel and `needs_human` decisions notify without switching. This does not override `/resume`, `/new`, or other built-ins; it is the Brunch-owned workspace adapter over Pi's session-replacement API.
 
 ## Pi example evidence not yet Brunch integration proof
 
@@ -189,7 +189,7 @@ Reviewed Pi docs/examples remain useful for downstream M5/M6/M7 affordance desig
 | --- | --- | --- |
 | `question` / `questionnaire` typed UI patterns | Pi example/source evidence | Suitable model for future structured elicitation/review surfaces; Brunch has only proven typed custom workspace decisions so far. |
 | `shutdown-command` | Pi example evidence | Confirms commands can drive lifecycle actions; Brunch has not added a product shutdown command beyond allowing Pi quit. |
-| `structured-output` | Pi example evidence | Relevant to future agent/tool result rendering, not current workspace-switcher proof. |
+| `structured-output` | Pi example evidence | Relevant to future agent/tool result rendering, not current workspace-dialog proof. |
 | `titlebar-spinner` / working indicator examples | Pi example evidence only | Brunch leaves Pi's working indicator untouched; custom spinner styling is deferred until a live side-task/reviewer spinner is product-proven. |
 | `custom-header` / `custom-footer` | Raw Pi TUI proof plus Brunch wrapper tests | Brunch uses header for product identity and restores the default footer; replacing the footer should remain intentional. |
 | `status-line` / `border-status-editor` | Pi example plus Brunch wrapper tests | Supports compact persistent state; Brunch currently uses `setStatus` and widget diagnostics, not a custom editor/border. |

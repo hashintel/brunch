@@ -1,0 +1,294 @@
+import { readFileSync } from "node:fs"
+import { fileURLToPath } from "node:url"
+
+import type { Theme } from "@earendil-works/pi-coding-agent"
+import {
+  Key,
+  matchesKey,
+  truncateToWidth,
+  visibleWidth,
+  type Component,
+} from "@earendil-works/pi-tui"
+
+import type {
+  WorkspaceLaunchInventory,
+  WorkspaceSwitchDecision,
+} from "../../workspace-session-coordinator.js"
+import {
+  buildWorkspaceDialogOptions,
+  type WorkspaceDialogOption,
+} from "./model.js"
+
+const DEFAULT_DIALOG_WIDTH = 72
+const ESC = String.fromCharCode(27)
+const ANSI_SEQUENCE = new RegExp(`^${ESC}\\[[0-9;?]*[ -/]*[@-~]`)
+const ANSI_SEQUENCE_GLOBAL = new RegExp(`${ESC}\\[[0-9;?]*[ -/]*[@-~]`, "g")
+const ASSET_DIR = new URL("./assets/", import.meta.url)
+
+// Letterform copied from: cfonts "brunch" -f tiny -c candy
+const BRUNCH_WORDMARK = ["█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █", "█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█"]
+
+export interface WorkspaceDialogComponentOptions {
+  inventory: WorkspaceLaunchInventory
+  onDecision: (decision: WorkspaceSwitchDecision) => void
+  theme?: Theme
+}
+
+export function createWorkspaceDialogComponent(
+  options: WorkspaceDialogComponentOptions,
+): Component {
+  return new WorkspaceDialogComponent(options)
+}
+
+class WorkspaceDialogComponent implements Component {
+  #options: WorkspaceDialogOption[]
+  #onDecision: (decision: WorkspaceSwitchDecision) => void
+  #theme: Theme | undefined
+  #selectedIndex = 0
+  #mode: "select" | "newSpecTitle" = "select"
+  #title = ""
+
+  constructor(options: WorkspaceDialogComponentOptions) {
+    this.#options = buildWorkspaceDialogOptions(options.inventory)
+    this.#onDecision = options.onDecision
+    this.#theme = options.theme
+  }
+
+  handleInput(data: string): void {
+    if (this.#mode === "newSpecTitle") {
+      this.#handleTitleInput(data)
+      return
+    }
+
+    if (matchesKey(data, Key.up)) {
+      this.#selectedIndex = Math.max(0, this.#selectedIndex - 1)
+      return
+    }
+    if (matchesKey(data, Key.down)) {
+      this.#selectedIndex = Math.min(
+        this.#options.length - 1,
+        this.#selectedIndex + 1,
+      )
+      return
+    }
+    if (matchesKey(data, Key.escape)) {
+      this.#onDecision({ action: "cancel" })
+      return
+    }
+    if (matchesKey(data, Key.enter)) {
+      this.#selectCurrentOption()
+    }
+  }
+
+  render(width: number): string[] {
+    const dialogWidth = Math.max(24, Math.min(width, DEFAULT_DIALOG_WIDTH))
+    const content = this.#contentLines()
+    return renderFrame(content, dialogWidth, this.#theme)
+  }
+
+  invalidate(): void {}
+
+  #contentLines(): string[] {
+    const title = style(this.#theme, "accent", "Brunch workspace")
+    const subtitle = style(
+      this.#theme,
+      "dim",
+      "Choose or create the workspace before the agent loop runs.",
+    )
+    const lines = [
+      ...readLogo(),
+      ...BRUNCH_WORDMARK.map((line) => style(this.#theme, "muted", line)),
+      "",
+      title,
+      subtitle,
+      "",
+    ]
+
+    if (this.#mode === "newSpecTitle") {
+      lines.push("New workspace title:", `› ${this.#title}`)
+      lines.push("", style(this.#theme, "dim", "enter create • esc back"))
+      return lines
+    }
+
+    for (const [index, option] of this.#options.entries()) {
+      const selected = index === this.#selectedIndex
+      const prefix = selected ? style(this.#theme, "accent", "› ") : "  "
+      const label = selected
+        ? style(this.#theme, "accent", option.label)
+        : option.label
+      lines.push(`${prefix}${label}`)
+      lines.push(`    ${style(this.#theme, "dim", option.description)}`)
+    }
+    lines.push(
+      "",
+      style(this.#theme, "dim", "↑↓ navigate • enter select • esc cancel"),
+    )
+    return lines
+  }
+
+  #selectCurrentOption(): void {
+    const option = this.#options[this.#selectedIndex]
+    if (!option) {
+      return
+    }
+    if (option.kind === "newSpec") {
+      this.#mode = "newSpecTitle"
+      this.#title = ""
+      return
+    }
+    if (option.decision) {
+      this.#onDecision(option.decision)
+    }
+  }
+
+  #handleTitleInput(data: string): void {
+    if (matchesKey(data, Key.escape)) {
+      this.#mode = "select"
+      this.#title = ""
+      return
+    }
+    if (matchesKey(data, Key.backspace)) {
+      this.#title = this.#title.slice(0, -1)
+      return
+    }
+    if (matchesKey(data, Key.enter)) {
+      const title = this.#title.trim()
+      if (title.length > 0) {
+        this.#onDecision({ action: "newSpec", title })
+      }
+      return
+    }
+    if (isPrintableInput(data)) {
+      this.#title += data
+    }
+  }
+}
+
+function renderFrame(
+  content: string[],
+  width: number,
+  theme: Theme | undefined,
+): string[] {
+  return [
+    topBorderLine(width, theme),
+    emptyLine(width, theme),
+    ...content.map((line) => contentLine(line, width, theme)),
+    emptyLine(width, theme),
+    bottomBorderLine(width, theme),
+  ]
+}
+
+function contentLine(
+  content: string,
+  width: number,
+  theme: Theme | undefined,
+): string {
+  if (width <= 4) return truncateToWidth(content, width)
+  const innerWidth = width - 4
+  const inner = truncateToWidth(content, innerWidth)
+  const padding = " ".repeat(Math.max(0, innerWidth - visibleWidth(inner)))
+  const vertical = style(theme, "borderMuted", "│")
+  return `${vertical} ${inner}${padding} ${vertical}`
+}
+
+function emptyLine(width: number, theme: Theme | undefined): string {
+  if (width <= 2) return " ".repeat(Math.max(0, width))
+  const vertical = style(theme, "borderMuted", "│")
+  return `${vertical}${" ".repeat(width - 2)}${vertical}`
+}
+
+function topBorderLine(width: number, theme: Theme | undefined): string {
+  if (width <= 2) return " ".repeat(Math.max(0, width))
+  return style(theme, "borderMuted", `╭${"─".repeat(width - 2)}╮`)
+}
+
+function bottomBorderLine(width: number, theme: Theme | undefined): string {
+  if (width <= 2) return " ".repeat(Math.max(0, width))
+  return style(theme, "borderMuted", `╰${"─".repeat(width - 2)}╯`)
+}
+
+function readLogo(): string[] {
+  const asset = supportsTruecolor()
+    ? "brunch-logo-quad-56x18.ansi"
+    : "brunch-logo-quad-56x18-240.ansi"
+  try {
+    return cropLogo(
+      readFileSync(fileURLToPath(new URL(asset, ASSET_DIR)), "utf8")
+        .replace(new RegExp(`${ESC}\\[\\?25[lh]`, "g"), "")
+        .replace(new RegExp(`${ESC}\\[0m$`, "g"), "")
+        .split("\n"),
+    )
+  } catch {
+    return []
+  }
+}
+
+function supportsTruecolor(): boolean {
+  const colorterm = process.env.COLORTERM?.toLowerCase() ?? ""
+  const term = process.env.TERM?.toLowerCase() ?? ""
+  return (
+    colorterm === "truecolor" ||
+    colorterm === "24bit" ||
+    term.includes("truecolor")
+  )
+}
+
+function cropLogo(lines: string[]): string[] {
+  const cropped = [...lines]
+  while (cropped.length > 0 && stripAnsi(cropped[0]!).trim().length === 0)
+    cropped.shift()
+  while (
+    cropped.length > 0 &&
+    stripAnsi(cropped[cropped.length - 1]!).trim().length === 0
+  )
+    cropped.pop()
+  if (cropped.length === 0) return []
+
+  const commonLeft = Math.min(...cropped.map(visibleLeadingSpaces))
+  return cropped.map((line) => removeVisibleColumns(line, commonLeft))
+}
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_SEQUENCE_GLOBAL, "")
+}
+
+function visibleLeadingSpaces(line: string): number {
+  const match = stripAnsi(line).match(/^ */)
+  return match?.[0].length ?? 0
+}
+
+function removeVisibleColumns(line: string, columns: number): string {
+  if (columns <= 0) return line
+
+  let output = ""
+  let removed = 0
+  for (let index = 0; index < line.length; index += 1) {
+    if (line[index] === ESC) {
+      const match = line.slice(index).match(ANSI_SEQUENCE)
+      if (match) {
+        output += match[0]
+        index += match[0].length - 1
+        continue
+      }
+    }
+
+    if (removed < columns) {
+      removed += 1
+      continue
+    }
+    output += line[index]!
+  }
+  return output
+}
+
+function style(
+  theme: Theme | undefined,
+  color: Parameters<Theme["fg"]>[0],
+  text: string,
+): string {
+  return theme ? theme.fg(color, text) : text
+}
+
+function isPrintableInput(data: string): boolean {
+  return data.length === 1 && data >= " " && data !== "\u007f"
+}

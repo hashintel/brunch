@@ -8,59 +8,45 @@ import {
   type WorkspaceSwitchCoordinator,
   type WorkspaceSwitchDecision,
 } from "../workspace-session-coordinator.js"
-import {
-  createBrunchMenuComponent,
-  type BrunchMenuDecision,
-} from "../pi-components/brunch-menu.js"
-import { createWorkspaceSwitchComponent } from "../pi-components/workspace-switcher/index.js"
+import { createWorkspaceDialogComponent } from "../pi-components/workspace-dialog/index.js"
 import { chromeStateForWorkspace, renderBrunchChrome } from "./chrome.js"
 
-export const BRUNCH_MENU_COMMAND = "brunch"
-export const BRUNCH_MENU_SHORTCUT = "ctrl+shift+b"
+export const BRUNCH_WORKSPACE_COMMAND = "brunch"
+export const BRUNCH_WORKSPACE_SHORTCUT = "ctrl+shift+b"
 
-export interface BrunchSettingsSwitcherMenuOptions {
+export interface BrunchWorkspaceDialogOptions {
   coordinator: WorkspaceSwitchCoordinator
 }
 
-export function registerBrunchSettingsSwitcherMenu(
+export function registerBrunchWorkspaceDialog(
   pi: ExtensionAPI,
-  { coordinator }: BrunchSettingsSwitcherMenuOptions,
+  { coordinator }: BrunchWorkspaceDialogOptions,
 ): void {
-  pi.registerCommand(BRUNCH_MENU_COMMAND, {
-    description: "Open the Brunch menu",
+  pi.registerCommand(BRUNCH_WORKSPACE_COMMAND, {
+    description: "Open the Brunch workspace dialog",
     handler: async (_args, ctx) => {
-      await runBrunchMenuCommand(ctx, coordinator)
+      await runBrunchWorkspaceCommand(ctx, coordinator)
     },
   })
-  pi.registerShortcut?.(BRUNCH_MENU_SHORTCUT, {
-    description: "Open the Brunch menu",
+  pi.registerShortcut?.(BRUNCH_WORKSPACE_SHORTCUT, {
+    description: "Open the Brunch workspace dialog",
     handler: async (ctx) => {
-      await runBrunchMenuCommand(ctx as ExtensionCommandContext, coordinator)
+      await runBrunchWorkspaceCommand(
+        ctx as ExtensionCommandContext,
+        coordinator,
+      )
     },
   })
 }
 
-export async function runBrunchMenuCommand(
+export async function runBrunchWorkspaceCommand(
   ctx: ExtensionCommandContext,
   coordinator: WorkspaceSwitchCoordinator,
 ): Promise<void> {
-  await ctx.waitForIdle()
-  const decision = await ctx.ui.custom<BrunchMenuDecision>(
-    (_tui, _theme, _keybindings, done) =>
-      createBrunchMenuComponent({ onDecision: done }),
-  )
-
-  if (decision === "cancel") {
-    ctx.ui.notify("Brunch menu closed.", "info")
-    return
-  }
-
-  await runBrunchSettingsSwitcherAction(ctx, coordinator, {
-    waitForIdle: false,
-  })
+  await runBrunchWorkspaceAction(ctx, coordinator)
 }
 
-export async function runBrunchSettingsSwitcherAction(
+export async function runBrunchWorkspaceAction(
   ctx: ExtensionCommandContext,
   coordinator: WorkspaceSwitchCoordinator,
   options: { waitForIdle?: boolean } = {},
@@ -70,8 +56,17 @@ export async function runBrunchSettingsSwitcherAction(
   }
   const inventory = await coordinator.inspectWorkspace()
   const decision = await ctx.ui.custom<WorkspaceSwitchDecision>(
-    (_tui, _theme, _keybindings, done) =>
-      createWorkspaceSwitchComponent({ inventory, onDecision: done }),
+    (_tui, theme, _keybindings, done) =>
+      createWorkspaceDialogComponent({ inventory, theme, onDecision: done }),
+    {
+      overlay: true,
+      overlayOptions: {
+        anchor: "center",
+        width: 72,
+        maxHeight: "90%",
+        margin: 1,
+      },
+    },
   )
   const activated = await coordinator.activateWorkspace(decision)
 
