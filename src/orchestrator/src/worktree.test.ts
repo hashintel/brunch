@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -97,6 +97,21 @@ describe('createSandbox — codebase mode', () => {
       encoding: 'utf8',
     }).trim();
     expect(branch).toBe('cook/branch-test');
+  });
+
+  it('CoW-copies untracked top-level dirs from sourceDir into the parent worktree', () => {
+    const baseDir = makeTmpDir('cook-base-');
+    const sourceDir = makeTmpDir('cook-src-');
+    initSeededGitRepo(sourceDir);
+    const depFile = join(sourceDir, 'node_modules', 'dep', 'index.js');
+    mkdirSync(dirname(depFile), { recursive: true });
+    writeFileSync(depFile, 'module.exports = 1;\n');
+
+    const info = createSandbox(baseDir, 'untracked-copy', { mode: 'codebase', sourceDir });
+
+    expect(readFileSync(join(info.sandboxDir, 'node_modules', 'dep', 'index.js'), 'utf8')).toBe(
+      'module.exports = 1;\n',
+    );
   });
 
   it('source branch in sourceDir is byte-identical after worktree creation', () => {

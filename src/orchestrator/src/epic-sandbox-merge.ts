@@ -17,10 +17,11 @@
 // epic, its transitive epic dependencies, and any transitive slice dependencies
 // owned by other epics. It never walks filesystem state to discover more scope.
 
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
+import { copyMissingTopLevelEntries } from './cow-copy.js';
 import type { Plan, Slice } from './types.js';
 
 export type MergeConflict = {
@@ -195,23 +196,6 @@ function assertSliceWorktreePathAvailable(parentSandboxDir: string, sliceId: str
 }
 
 /**
- * back to a regular recursive `cpSync` otherwise. Lazy at the block level
- * on APFS (macOS) and reflink-capable filesystems (Linux btrfs/xfs/etc.),
- * so large gitignored content like `node_modules/` costs ~zero disk on the
- * first copy.
- */
-function cowCopy(src: string, dest: string): void {
-  const flag = process.platform === 'darwin' ? '-c' : process.platform === 'linux' ? '--reflink=auto' : null;
-  if (flag) {
-    const result = spawnSync('cp', [flag, '-R', src, dest], { stdio: ['ignore', 'pipe', 'pipe'] });
-    if (result.status === 0) return;
-    // Fall through to cpSync on any failure (unsupported filesystem, missing
-    // flag in the host cp, etc.) — correctness is preserved at the cost of disk.
-  }
-  cpSync(src, dest, { dereference: false, recursive: true });
-}
-
-/**
  * Codebase-mode seed: prepare the per-slice worktree as a real `git worktree`
  * checked out on a slice-level branch (`cook-slice/<runId>/<sliceId>`) off
  * the run-level cook branch, then CoW-copy any untracked/gitignored content
@@ -268,15 +252,7 @@ export function seedSliceFromParentWorktree(
   //    `dist/`, etc.) that pi-actions might need at runtime.
   const excludedNames = new Set<string>(['.git', EPIC_MERGE_SEGMENT]);
   for (const s of plan.slices) excludedNames.add(s.id);
-
-  const parent = resolve(parentSandboxDir);
-  for (const entry of readdirSync(parent)) {
-    if (excludedNames.has(entry)) continue;
-    const dest = join(sliceDir, entry);
-    if (existsSync(dest)) continue; // already present from git worktree (tracked)
-    const src = join(parent, entry);
-    cowCopy(src, dest);
-  }
+  copyMissingTopLevelEntries(parentSandboxDir, sliceDir, excludedNames);
 
   return sliceDir;
 }

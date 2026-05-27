@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { copyMissingTopLevelEntries } from './cow-copy.js';
+
 export type SandboxInfo = {
   runId: string;
   runDir: string;
@@ -48,6 +50,10 @@ export function createSandbox(
       cwd: opts.sourceDir,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+    // `git worktree add` only materializes tracked files; CoW-copy untracked /
+    // gitignored top-level dirs (e.g. `node_modules/`) from the source cwd so
+    // slice seeding and pi-actions see the same runtime deps as the developer tree.
+    copyMissingTopLevelEntries(opts.sourceDir, sandboxDir);
   } else {
     mkdirSync(sandboxDir, { recursive: true });
   }
