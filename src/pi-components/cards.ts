@@ -1,9 +1,8 @@
 /**
  * Cards — pi-tui rendering primitives for bordered card layouts.
  *
- * Pure library module. Lives outside `.pi/extensions/` because it registers
- * nothing with Pi; it is consumed by extensions (e.g. `brunch-messages.ts`)
- * that compose these primitives into custom message renderers.
+ * Pure library module. It registers nothing with Pi; product extensions import
+ * these primitives when they need transcript-rendered card layouts.
  *
  * Components here should remain stateless and stitch only pi-tui primitives.
  */

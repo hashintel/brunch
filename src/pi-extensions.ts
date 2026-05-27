@@ -20,8 +20,8 @@ import {
   type BrunchSessionBoundaryHandler,
 } from "./pi-extensions/session-lifecycle.js"
 import {
-  registerBrunchWorkspaceCommand,
-  type BrunchWorkspaceCommandOptions,
+  registerBrunchSettingsSwitcherMenu,
+  type BrunchSettingsSwitcherMenuOptions,
 } from "./pi-extensions/settings-switcher-menu.js"
 
 export { registerBrunchAlternatives } from "./pi-extensions/alternatives.js"
@@ -54,14 +54,14 @@ export {
 export {
   BRUNCH_MENU_COMMAND,
   BRUNCH_MENU_SHORTCUT,
-  registerBrunchWorkspaceCommand,
+  registerBrunchSettingsSwitcherMenu,
   runBrunchMenuCommand,
-  runBrunchWorkspaceCommand,
-  type BrunchWorkspaceCommandOptions,
+  runBrunchSettingsSwitcherAction,
+  type BrunchSettingsSwitcherMenuOptions,
 } from "./pi-extensions/settings-switcher-menu.js"
 
 export interface BrunchPiExtensionShellOptions
-  extends BrunchWorkspaceCommandOptions {
+  extends BrunchSettingsSwitcherMenuOptions {
   graphMentionSource?: GraphMentionSource
 }
 
@@ -83,6 +83,6 @@ export function createBrunchPiExtensionShell(
     registerBrunchOperationalModePolicy(pi)
     registerBrunchMentionAutocomplete(pi, options.graphMentionSource)
     registerBrunchAlternatives(pi)
-    registerBrunchWorkspaceCommand(pi, options)
+    registerBrunchSettingsSwitcherMenu(pi, options)
   }
 }

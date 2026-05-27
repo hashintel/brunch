@@ -34,7 +34,7 @@ import {
   registerBrunchOperationalModePolicy,
   renderBrunchChrome,
   runBrunchMenuCommand,
-  runBrunchWorkspaceCommand,
+  runBrunchSettingsSwitcherAction,
 } from "./pi-extensions.js"
 import {
   createWorkspaceSessionCoordinator,
@@ -462,7 +462,7 @@ describe("Brunch TUI boot", () => {
       replacementUi,
     })
 
-    await runBrunchWorkspaceCommand(ctx, {
+    await runBrunchSettingsSwitcherAction(ctx, {
       inspectWorkspace: async () => {
         events.push("inspect")
         return inventoryWithWorkspace(target)
@@ -497,7 +497,7 @@ describe("Brunch TUI boot", () => {
       onEvent: (event) => events.push(event),
     })
 
-    await runBrunchWorkspaceCommand(ctx, {
+    await runBrunchSettingsSwitcherAction(ctx, {
       inspectWorkspace: async () => emptyInventory("/tmp/project"),
       activateWorkspace: async () => ({
         status: "cancelled",
@@ -526,7 +526,7 @@ describe("Brunch TUI boot", () => {
       onEvent: (event) => events.push(event),
     })
 
-    await runBrunchWorkspaceCommand(ctx, {
+    await runBrunchSettingsSwitcherAction(ctx, {
       inspectWorkspace: async () => emptyInventory("/tmp/project"),
       activateWorkspace: async () => ({
         status: "needs_human",

@@ -19,7 +19,7 @@
 
 ## Card 0 — Reconcile post-port review findings before runtime-state work
 
-**Status:** next
+**Status:** done
 **Weight:** full scope card
 
 ### Target Behavior

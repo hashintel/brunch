@@ -120,31 +120,33 @@ The same probe emitted corresponding `notify` requests (`cancel switch new`, `ca
 
 ## Brunch extension layout and dynamic chrome proof
 
-The Brunch extension entrypoint is intentionally a registration map. It composes private modules by Pi surface/responsibility:
+The Brunch extension entrypoint is intentionally a registration map. `src/pi-extensions.ts` composes flat product-owned modules by Pi surface/responsibility:
 
 - `chrome.ts` owns `BrunchChromeState`, formatting, and `renderBrunchChrome()`.
-- `session-boundary.ts` owns coordinator refresh calls on session-boundary events.
-- `branch-policy.ts` owns `session_before_tree` / `session_before_fork` cancellation.
-- `workspace-command.ts` owns the product slash command and replacement-session lifecycle.
+- `session-lifecycle.ts` owns coordinator refresh calls on Pi session lifecycle events.
+- `command-policy.ts` owns branch/session effect blocking for unsupported Pi flows.
+- `settings-switcher-menu.ts` owns `/brunch`, `ctrl+shift+b`, the product menu shell, and the internal workspace-switch action.
+- `operational-mode.ts` owns the current `elicit` read-only tool policy pending transcript-backed runtime state.
+- `mention-autocomplete.ts` owns fixture-backed `#` mention autocomplete.
+- `alternatives.ts` owns the transcript-persistent alternatives/card primitive, using reusable widgets from `src/pi-components/*`.
 
-`renderBrunchChrome(ctx.ui, state)` is the product-named wrapper downstream affordances should call instead of scattering raw Pi UI calls. The current surface allocation is deliberate:
+`renderBrunchChrome(ctx.ui, state)` is the product-named wrapper downstream affordances should call instead of scattering raw Pi UI calls. The current code renders only facts present in `BrunchChromeState`:
 
-- header: product identity plus active spec/session (`brunch specification workspace`, spec title, real activated session id/label);
-- status: compact persistent phase/coherence/reconciliation-need summary;
-- widget: expanded diagnostics (cwd, chat mode, stage, active lens, worker statuses, latest establishment offer when present);
-- title: compact Brunch-owned terminal title derived from activated workspace state;
-- footer: restored to Pi default via `setFooter(undefined)` because Brunch does not currently need to replace the whole footer.
+- header: product identity plus cwd, active spec, and real activated session id/label;
+- footer: phase/chat mode plus active spec/session;
+- status: compact persistent phase/spec summary;
+- widget: cwd, spec, session, and chat mode diagnostics;
+- title: compact Brunch-owned terminal title derived from activated workspace state.
 
-The wrapper uses plain, narrow-terminal-safe text/glyphs (`Brunch`, `·`) and does not depend on Pi branding/footer text as the primary product surface. Header rendering is TUI-only; status/widget/title provide deterministic state strings for tests and RPC-compatible clients. Brunch currently restores Pi's default footer and leaves Pi's working indicator untouched instead of carrying empty/custom chrome abstractions. `session_start` reconstructs chrome from the supplied product snapshot, and replacement-session binding still runs through the existing session-boundary hooks before rendering. Reload/session replacement therefore requires callers to provide a fresh product snapshot; the wrapper does not own durable state.
+The wrapper uses plain, narrow-terminal-safe text/glyphs (`brunch`, `·`) and does not depend on Pi branding/footer text as the primary product surface. Header/footer rendering is TUI-only; status/widget/title provide deterministic state strings for tests and RPC-compatible clients. The wrapper deliberately does not fabricate build version, model/thinking, git state, worker state, coherence verdicts, establishment offers, or a working-indicator abstraction until those producers exist. `session_start` reconstructs chrome from the supplied product snapshot, and replacement-session binding still runs through the existing session-lifecycle hooks before rendering. Reload/session replacement therefore requires callers to provide a fresh product snapshot; the wrapper does not own durable state.
 
 Observed behavior:
 
 | Scenario | Result | Evidence |
 | --- | --- | --- |
-| Idle TUI mount | Header, status, diagnostic widget, title, and default-footer restoration are called from one snapshot; raw TUI transcript shows Brunch header/widget text visible. | `src/brunch-tui.test.ts`; temp `script` transcript needle check |
-| Streaming/progress update | Wrapper formats stage/worker state deterministically in status/widget; Brunch leaves the interactive working indicator on Pi defaults until a concrete side-task/reviewer spinner is product-proven. | `src/brunch-tui.test.ts`; temp RPC JSONL probe |
+| Idle TUI mount | Header, footer, status, diagnostic widget, and title are called from one snapshot; tests assert the same formatter output used by the wrapper. | `src/brunch-tui.test.ts` |
 | `/reload` / extension reload | Chrome is not durable inside Pi UI; reload must rerun extension setup and call `renderBrunchChrome` with a fresh Brunch snapshot. | source/API behavior; wrapper is stateless by design |
-| Session replacement / selected-session reopen | Existing Brunch extension calls the session-boundary binding hook on `session_start`, `before_agent_start`, and assistant `message_start`; `session_start` then renders chrome for the supplied workspace snapshot. The Brunch workspace command activates decisions through the coordinator, calls `ctx.switchSession()`, and renders fresh chrome/notification only through `withSession` replacement context. | `src/brunch-tui.test.ts` |
+| Session replacement / selected-session reopen | Existing Brunch extension calls the session-lifecycle binding hook on `session_start`, `before_agent_start`, and assistant `message_start`; `session_start` then renders chrome for the supplied workspace snapshot. The `/brunch` settings-switcher action activates decisions through the coordinator, calls `ctx.switchSession()`, and renders fresh chrome/notification only through `withSession` replacement context. | `src/brunch-tui.test.ts` |
 | RPC degradation | `setStatus`, string-array `setWidget`, `setTitle`, and `notify` emit RPC `extension_ui_request` events; `setHeader`, `setFooter`, and `setWorkingIndicator` are RPC no-ops. Fixture drivers should assert status/widget events, not TUI-only header/footer. | Pi RPC source + temp RPC JSONL probe |
 
 ## Startup/splash logo asset decision

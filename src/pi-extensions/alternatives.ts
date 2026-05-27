@@ -1,16 +1,13 @@
 /**
- * Brunch — custom messages
+ * Brunch alternatives transcript primitive.
  *
  * Owns the `alternatives-card-set` custom message type end-to-end:
  *   - registerMessageRenderer to draw bordered cards in the transcript
  *   - registerTool (`present_alternatives`) so the LLM can emit a card set
- *  *
- * Compared with an ephemeral picker (e.g. `ctx.ui.custom`), this surface
- * PRESENTS alternatives via `pi.sendMessage` — persistent, returns
- * immediately, no UI focus stolen — and is the closest existing precedent for
- * the offer-first transcript-native loop tracked under FE-744 (D37-L / I23-L).
  *
- * Activate:
+ * Compared with an ephemeral picker (e.g. `ctx.ui.custom`), this surface
+ * presents alternatives via `pi.sendMessage`: persistent, immediately returned,
+ * and visible to transcript replay/RPC clients through markdown fallback text.
  */
 
 import type { ExtensionAPI, ThemeColor } from "@earendil-works/pi-coding-agent"

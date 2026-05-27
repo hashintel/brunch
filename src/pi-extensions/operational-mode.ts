@@ -1,14 +1,11 @@
 /**
- * Brunch — tools
+ * Brunch operational-mode policy.
  *
- * Product-facing tool policy for the Brunch Pi wrapper prototype:
- *   - hard-enforce read-only tool access (`read`, `grep`, `find`, `ls`)
- *   - block every side-effecting tool, including `bash`, `edit`, and `write`
- *   - render the standard read-only tools in a deliberately tiny TUI form
- *
- * This is not a toggle. Brunch is testing a narrower tool surface than Pi's
- * default coding-agent harness, so loading this extension means Brunch tool
- * policy is active for the session.
+ * The current product runtime has one safe state: `elicit`. In that state the
+ * embedded Pi harness exposes only Brunch's read-only inspection tools and
+ * blocks side-effecting tools (`bash`, `edit`, `write`, etc.) at multiple Pi
+ * seams. Later cards replace this fixed posture with transcript-backed
+ * BrunchAgentState projection, but the policy remains operational-mode owned.
  */
 
 import { homedir } from "node:os"

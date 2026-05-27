@@ -18,13 +18,13 @@ import { chromeStateForWorkspace, renderBrunchChrome } from "./chrome.js"
 export const BRUNCH_MENU_COMMAND = "brunch"
 export const BRUNCH_MENU_SHORTCUT = "ctrl+shift+b"
 
-export interface BrunchWorkspaceCommandOptions {
+export interface BrunchSettingsSwitcherMenuOptions {
   coordinator: WorkspaceSwitchCoordinator
 }
 
-export function registerBrunchWorkspaceCommand(
+export function registerBrunchSettingsSwitcherMenu(
   pi: ExtensionAPI,
-  { coordinator }: BrunchWorkspaceCommandOptions,
+  { coordinator }: BrunchSettingsSwitcherMenuOptions,
 ): void {
   pi.registerCommand(BRUNCH_MENU_COMMAND, {
     description: "Open the Brunch menu",
@@ -55,10 +55,12 @@ export async function runBrunchMenuCommand(
     return
   }
 
-  await runBrunchWorkspaceCommand(ctx, coordinator, { waitForIdle: false })
+  await runBrunchSettingsSwitcherAction(ctx, coordinator, {
+    waitForIdle: false,
+  })
 }
 
-export async function runBrunchWorkspaceCommand(
+export async function runBrunchSettingsSwitcherAction(
   ctx: ExtensionCommandContext,
   coordinator: WorkspaceSwitchCoordinator,
   options: { waitForIdle?: boolean } = {},
