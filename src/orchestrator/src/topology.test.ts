@@ -105,14 +105,14 @@ describe('enumerateCandidateOutputs', () => {
     }
   });
 
-  it('action transitions enumerate the union of onTrue, onFalse, and agentReturnPlace', () => {
+  it('action transitions enumerate outputs plus agentReturnPlace', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
     const writeTests = blueprint.transitions.find((t) => t.id.endsWith(':write-tests'));
     expect(writeTests).toBeDefined();
     const handler = writeTests!.handler;
     if (handler.kind !== 'action') throw new Error('expected action descriptor');
 
-    const expected = new Set<string>([...handler.onTrue, ...handler.onFalse]);
+    const expected = new Set<string>(handler.outputs);
     if (handler.agentReturnPlace) expected.add(handler.agentReturnPlace);
 
     expect(enumerateCandidateOutputs(writeTests!)).toEqual(expected);
@@ -150,12 +150,12 @@ describe('enumerateCandidateOutputs', () => {
 
   // Goldens — literal expected sets, not derived from descriptor fields.
   // These catch silent lockstep drift in both the descriptor emitter and the enumerator.
-  it("golden: simplePlan 'slice-1:evaluate' enumerates to the action's two routes plus pool return", () => {
+  it("golden: simplePlan 'slice-1:evaluate' producer enumerates to intermediate place plus pool return", () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
     const evaluate = blueprint.transitions.find((t) => t.id === 'slice-1:evaluate');
     expect(evaluate).toBeDefined();
     expect(enumerateCandidateOutputs(evaluate!)).toEqual(
-      new Set(['slice:slice-1:done-spec', 'slice:slice-1:needs-more', 'pool:test-agent']),
+      new Set(['slice:slice-1:evaluate:reported', 'pool:test-agent']),
     );
   });
 
@@ -179,5 +179,65 @@ describe('enumerateCandidateOutputs', () => {
         'slice:slice-1:semantic-budget',
       ]),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FE-761 Slice 1: sibling transitions for conditional branching
+// ---------------------------------------------------------------------------
+//
+// Acceptance: every conditional action-transition decomposes into:
+//   1. one producer transition, emitting to a single new intermediate place
+//      `slice:<sliceId>:<step>:reported` with the action's report attached to
+//      the output token
+//   2. N sibling passthrough transitions, each consuming from the intermediate
+//      place, evaluating an EnablingGuard over the token payload, and emitting
+//      to exactly one fixed output set
+//
+// Result: every TransitionSkeleton has one fixed output set; conditional
+// choice happens via mutually-exclusive enabling guards on siblings.
+// ---------------------------------------------------------------------------
+
+describe('FE-761 Slice 1: sibling-transition decomposition', () => {
+  it('evaluate decomposes into producer + 2 sibling passthroughs (done / more)', () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+
+    // Producer: runs evaluate-done action, attaches report, emits to intermediate.
+    const producer = blueprint.transitions.find((t) => t.id === 'slice-1:evaluate');
+    expect(producer, 'producer transition slice-1:evaluate should exist').toBeDefined();
+    expect(producer!.handler.kind).toBe('action');
+
+    // Producer must emit to exactly one intermediate place (plus pool return).
+    const producerOutputs = enumerateCandidateOutputs(producer!);
+    expect(
+      producerOutputs.has('slice:slice-1:evaluate:reported'),
+      'producer must emit to slice-1:evaluate:reported intermediate',
+    ).toBe(true);
+
+    // Sibling siblings: two passthroughs that route based on enabling guard.
+    const siblings = blueprint.transitions.filter(
+      (t) => t.id === 'slice-1:evaluate:done' || t.id === 'slice-1:evaluate:more',
+    );
+    expect(siblings, 'expect 2 sibling passthrough transitions').toHaveLength(2);
+
+    // Each sibling consumes from the intermediate place.
+    for (const sibling of siblings) {
+      expect(sibling.inputs, `${sibling.id} must consume from slice-1:evaluate:reported`).toContain(
+        'slice:slice-1:evaluate:reported',
+      );
+    }
+
+    // Each sibling has exactly one fixed output set — no branching descriptor.
+    const doneSibling = siblings.find((t) => t.id === 'slice-1:evaluate:done')!;
+    const moreSibling = siblings.find((t) => t.id === 'slice-1:evaluate:more')!;
+    expect(enumerateCandidateOutputs(doneSibling)).toEqual(new Set(['slice:slice-1:done-spec']));
+    expect(enumerateCandidateOutputs(moreSibling)).toEqual(new Set(['slice:slice-1:needs-more']));
+
+    // Branching descriptor fields are gone from the action descriptor.
+    const producerHandler = producer!.handler;
+    if (producerHandler.kind === 'action') {
+      expect(producerHandler).not.toHaveProperty('onTrue');
+      expect(producerHandler).not.toHaveProperty('onFalse');
+    }
   });
 });

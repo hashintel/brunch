@@ -14,7 +14,7 @@ import {
   seedSliceSandboxFromDeps,
   sliceIdsForEpicVerifyMerge,
 } from './epic-sandbox-merge.js';
-import { evalRouteGuard } from './net-blueprint.js';
+import { evalEnablingGuard, evalRouteGuard } from './net-blueprint.js';
 import type { NetBlueprint, TokenSeed, TransitionSkeleton } from './net-blueprint.js';
 import { PetriNet } from './petri-net.js';
 import type { Token } from './petri-net.js';
@@ -96,6 +96,9 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       'needs-more',
       'done-spec',
       'completed',
+      // FE-761 Slice 1: intermediate report-bearing place between evaluate
+      // producer and its two sibling passthroughs (done / more).
+      'evaluate:reported',
     ]) {
       places.push(p(sid, name));
     }
@@ -141,7 +144,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       });
     }
 
-    // Evaluate
+    // Evaluate — producer (action) emits report-bearing token to intermediate place.
     transitions.push({
       id: `${sid}:evaluate`,
       inputs: [p(sid, 'spec-ready'), poolTestAgent],
@@ -156,10 +159,37 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         actionKey: 'evaluate-done',
         sliceId: sid,
         epicId: epic.id,
-        guard: { kind: 'reportFieldTruthy', field: 'done' },
-        onTrue: [p(sid, 'done-spec')],
-        onFalse: [p(sid, 'needs-more')],
+        outputs: [p(sid, 'evaluate:reported')],
         agentReturnPlace: poolTestAgent,
+      },
+    });
+
+    // Evaluate — sibling passthroughs. Complementary enabling guards over the
+    // token's attached report decide which sibling fires per token.
+    transitions.push({
+      id: `${sid}:evaluate:done`,
+      inputs: [p(sid, 'evaluate:reported')],
+      contract: { kind: 'structural', lane: 'mechanical', guard: 'report.done truthy' },
+      handler: {
+        kind: 'sibling-passthrough',
+        sliceId: sid,
+        epicId: epic.id,
+        input: p(sid, 'evaluate:reported'),
+        outputs: [p(sid, 'done-spec')],
+        enablingGuard: { kind: 'tokenReportFieldTruthy', field: 'done' },
+      },
+    });
+    transitions.push({
+      id: `${sid}:evaluate:more`,
+      inputs: [p(sid, 'evaluate:reported')],
+      contract: { kind: 'structural', lane: 'mechanical', guard: 'report.done falsy' },
+      handler: {
+        kind: 'sibling-passthrough',
+        sliceId: sid,
+        epicId: epic.id,
+        input: p(sid, 'evaluate:reported'),
+        outputs: [p(sid, 'needs-more')],
+        enablingGuard: { kind: 'tokenReportFieldFalsy', field: 'done' },
       },
     });
 
@@ -173,9 +203,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         actionKey: 'write-tests',
         sliceId: sid,
         epicId: epic.id,
-        guard: { kind: 'always' },
-        onTrue: [p(sid, 'failing-tests')],
-        onFalse: [],
+        outputs: [p(sid, 'failing-tests')],
         agentReturnPlace: poolTestAgent,
       },
     });
@@ -190,9 +218,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         actionKey: 'write-code',
         sliceId: sid,
         epicId: epic.id,
-        guard: { kind: 'always' },
-        onTrue: [p(sid, 'untested-code')],
-        onFalse: [],
+        outputs: [p(sid, 'untested-code')],
         agentReturnPlace: poolCodeAgent,
       },
     });
@@ -368,7 +394,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
       }
 
       case 'action': {
-        const { actionKey, sliceId, epicId, guard, onTrue, onFalse, agentReturnPlace } = h;
+        const { actionKey, sliceId, epicId, outputs: outputPlaces, agentReturnPlace } = h;
         const slice = plan.slices.find((s) => s.id === sliceId)!;
         const epic = plan.epics.find((e) => e.id === epicId)!;
         const baseToken: Token = { sliceId, epicId };
@@ -387,15 +413,43 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           ctx.reportIds.push(reportId);
           const tok: Token = { ...consumed[0]!, reportId };
 
-          const route = evalRouteGuard(guard, reports.getById(reportId)) ? onTrue : onFalse;
-
-          const outputs: { place: string; token: Token }[] = route.map((pl) => ({ place: pl, token: tok }));
+          const out: { place: string; token: Token }[] = outputPlaces.map((pl) => ({
+            place: pl,
+            token: tok,
+          }));
           if (agentReturnPlace) {
-            outputs.push({ place: agentReturnPlace, token: { ...baseToken } });
+            out.push({ place: agentReturnPlace, token: { ...baseToken } });
           }
-          return outputs;
+          return out;
         };
         break;
+      }
+
+      case 'sibling-passthrough': {
+        const { outputs: outputPlaces, enablingGuard } = h;
+        fire = async (consumed) => {
+          // Sibling fires by forwarding the report-bearing token unchanged
+          // to its single fixed output set. Enabling-guard mutual exclusion
+          // is enforced upstream in PetriNet.isEnabled (peek-time).
+          return outputPlaces.map((pl) => ({ place: pl, token: consumed[0]! }));
+        };
+        // Peek-time guard reads the token's attached reportId and evaluates
+        // the enabling predicate against the report's payload. Mutually-
+        // exclusive guards across siblings ensure exactly one sibling fires
+        // per intermediate token.
+        const peekGuard = (peeked: Token[]) => {
+          const tok = peeked[0]!;
+          const report = tok.reportId ? reports.getById(tok.reportId) : undefined;
+          return evalEnablingGuard(enablingGuard, report);
+        };
+        net.addTransition({
+          id: skel.id,
+          inputs: skel.inputs,
+          contract: skel.contract,
+          guard: peekGuard,
+          fire,
+        });
+        continue;
       }
 
       case 'run-tests': {

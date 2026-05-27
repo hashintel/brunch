@@ -34,6 +34,14 @@ export type TransitionDef = {
   inputs: string[];
   /** Optional typed metadata — does not affect firing semantics. */
   contract?: TransitionContract;
+  /**
+   * Optional peek-time enabling guard. Evaluated against the first token in
+   * each input place (peeked, not consumed) before the transition is
+   * considered enabled. Returns true to allow firing, false to defer.
+   * Used by FE-761 sibling transitions to express mutually-exclusive
+   * conditional branching at the topology level.
+   */
+  guard?: (peeked: Token[]) => boolean;
   fire: (consumed: Token[]) => Promise<{ place: string; token: Token }[]>;
 };
 
@@ -112,12 +120,20 @@ export class PetriNet {
     return this.transitions;
   }
 
-  /** True when every input place of `t` has at least one token. */
+  /**
+   * True when every input place of `t` has at least one token AND, if `t`
+   * defines a peek-time enabling guard, that guard returns true for the
+   * first token at each input place.
+   */
   private isEnabled(t: TransitionDef): boolean {
-    return t.inputs.every((p) => {
+    const peeked: Token[] = [];
+    for (const p of t.inputs) {
       const tokens = this.places.get(p);
-      return tokens && tokens.length > 0;
-    });
+      if (!tokens || tokens.length === 0) return false;
+      peeked.push(tokens[0]!);
+    }
+    if (t.guard && !t.guard(peeked)) return false;
+    return true;
   }
 
   /** True when any non-resource place still holds tokens (actual deadlock, not clean completion). */

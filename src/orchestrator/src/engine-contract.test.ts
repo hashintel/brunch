@@ -733,17 +733,18 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // Epic places: epic:epic-1:done = 1
     // Mechanical places: spec-ready, failing-tests, untested-code,
     //                    needs-more, done-spec, completed, eligible,
-    //                    retry-budget = 8
+    //                    retry-budget, evaluate:reported = 9
     // Semantic places: semantic-budget, semantic-satisfied = 2
-    // Total places: 13
-    expect(blueprint.places.length).toBe(13);
+    // Total places: 14
+    expect(blueprint.places.length).toBe(14);
 
     // Transitions:
-    //   slice-ready:slice-1, slice-1:evaluate, slice-1:write-tests,
-    //   slice-1:write-code, slice-1:run-tests, slice-1:assess-semantic,
-    //   slice-1:return-done, epic-complete:epic-1
-    // Total: 8
-    expect(blueprint.transitions.length).toBe(8);
+    //   slice-ready:slice-1, slice-1:evaluate, slice-1:evaluate:done,
+    //   slice-1:evaluate:more, slice-1:write-tests, slice-1:write-code,
+    //   slice-1:run-tests, slice-1:assess-semantic, slice-1:return-done,
+    //   epic-complete:epic-1
+    // Total: 10
+    expect(blueprint.transitions.length).toBe(10);
   });
 
   it('simplePlan transitions carry correct contract metadata', () => {
@@ -773,18 +774,20 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // depPlan: 1 epic, 2 slices (slice-b depends on slice-a)
     // Pool places: pool:test-agent, pool:code-agent = 2
     // Epic places: epic:epic-1:done = 1
-    // Slice-a places: 10 (6 mechanical + eligible + retry-budget + semantic-budget + semantic-satisfied)
-    // Slice-b places: 10 (same)
+    // Slice-a places: 11 (6 mechanical + eligible + retry-budget + semantic-budget + semantic-satisfied + evaluate:reported)
+    // Slice-b places: 11 (same)
     // Dep-signal places: slice:slice-a:dep-signal:slice-b = 1
-    // Total: 24
-    expect(blueprint.places.length).toBe(24);
+    // Total: 26
+    expect(blueprint.places.length).toBe(26);
 
     // Transitions:
-    //   slice-a: slice-ready, evaluate, write-tests, write-code, run-tests, assess-semantic, return-done = 7
-    //   slice-b: slice-ready (with dep gate), evaluate, write-tests, write-code, run-tests, assess-semantic, return-done = 7
+    //   slice-a: slice-ready, evaluate, evaluate:done, evaluate:more, write-tests, write-code,
+    //            run-tests, assess-semantic, return-done = 9
+    //   slice-b: slice-ready (with dep gate), evaluate, evaluate:done, evaluate:more, write-tests,
+    //            write-code, run-tests, assess-semantic, return-done = 9
     //   epic-complete:epic-1 = 1
-    // Total: 15
-    expect(blueprint.transitions.length).toBe(15);
+    // Total: 19
+    expect(blueprint.transitions.length).toBe(19);
   });
 
   it('blueprint handler descriptors cover all transition kinds', () => {
@@ -792,6 +795,7 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     const kinds = new Set(blueprint.transitions.map((t) => t.handler.kind));
     expect(kinds).toContain('passthrough');
     expect(kinds).toContain('action');
+    expect(kinds).toContain('sibling-passthrough');
     expect(kinds).toContain('run-tests');
     expect(kinds).toContain('assess-semantic');
     expect(kinds).toContain('complete-slice');

@@ -9,9 +9,8 @@ import type { ReportLine } from './types.js';
 // ---------------------------------------------------------------------------
 // RouteGuard — declarative routing predicate evaluated against a report payload
 //
-// Extension shape: add a new `kind` variant here and a matching case in
-// evalRouteGuard. Keep guards pure data so a static analyzer can reason about
-// reachable markings without executing fire closures.
+// Retained for run-tests / assess-semantic / verify-epic transitions that still
+// branch inside their fire closure (FE-761 Slice 2 will retire these uses too).
 // ---------------------------------------------------------------------------
 
 export type RouteGuard = { kind: 'always' } | { kind: 'reportFieldTruthy'; field: string };
@@ -27,6 +26,39 @@ export function evalRouteGuard(guard: RouteGuard, report: ReportLine | undefined
     default: {
       const unknown = guard as { kind: string };
       throw new Error(`Unsupported RouteGuard kind: ${unknown.kind}`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// EnablingGuard — declarative enabling predicate evaluated against an input
+// token's attached report. Distinct from RouteGuard: the EnablingGuard runs at
+// `isEnabled` time (the firing policy uses it to pick which sibling transition
+// is currently allowed to fire) rather than at fire time. Mutually-exclusive
+// guards over the same intermediate place implement Petri-net-faithful
+// conditional branching via sibling transitions (FE-761 Slice 1).
+// ---------------------------------------------------------------------------
+
+export type EnablingGuard =
+  | { kind: 'always' }
+  | { kind: 'tokenReportFieldTruthy'; field: string }
+  | { kind: 'tokenReportFieldFalsy'; field: string };
+
+export function evalEnablingGuard(guard: EnablingGuard, report: ReportLine | undefined): boolean {
+  switch (guard.kind) {
+    case 'always':
+      return true;
+    case 'tokenReportFieldTruthy': {
+      const payload = report?.payload as Record<string, unknown> | undefined;
+      return !!payload?.[guard.field];
+    }
+    case 'tokenReportFieldFalsy': {
+      const payload = report?.payload as Record<string, unknown> | undefined;
+      return !payload?.[guard.field];
+    }
+    default: {
+      const unknown = guard as { kind: string };
+      throw new Error(`Unsupported EnablingGuard kind: ${unknown.kind}`);
     }
   }
 }
@@ -53,22 +85,41 @@ type PassthroughDescriptor = {
 };
 
 /**
- * Call an action handler, route declaratively on guard evaluation.
- * Covers: evaluate, write-tests, write-code.
+ * Call an action handler, attach the resulting reportId to the output token,
+ * and emit to a single fixed output set. Conditional branching is expressed
+ * downstream via sibling-passthrough transitions reading the attached report.
+ *
+ * Covers: evaluate (with intermediate place + 2 siblings), write-tests,
+ * write-code (single output, no siblings).
  */
 type ActionDescriptor = {
   kind: 'action';
   actionKey: string;
   sliceId: string;
   epicId: string;
-  /** RouteGuard evaluated against the action's report; selects onTrue vs onFalse. */
-  guard: RouteGuard;
-  /** Places to emit to when guard evaluates true. */
-  onTrue: string[];
-  /** Places to emit to when guard evaluates false. */
-  onFalse: string[];
+  /** Single fixed output set. */
+  outputs: string[];
   /** Place to return a fresh agent-resource token to. */
   agentReturnPlace?: string;
+};
+
+/**
+ * Sibling passthrough — consumes a report-bearing token from an intermediate
+ * place, evaluates its enabling guard against the token's attached report,
+ * and (when enabled) emits to a single fixed output set. Pairs of siblings
+ * over one intermediate place implement Petri-net-faithful branching:
+ * complementary guards ensure exactly one sibling is enabled per token.
+ */
+type SiblingPassthroughDescriptor = {
+  kind: 'sibling-passthrough';
+  sliceId: string;
+  epicId: string;
+  /** The intermediate place this sibling reads from. */
+  input: string;
+  /** Fixed output set this sibling emits to when enabled. */
+  outputs: string[];
+  /** Predicate evaluated against the token's attached report. */
+  enablingGuard: EnablingGuard;
 };
 
 /** Test runner with retry budget — 3-way routing on declarative guard. */
@@ -130,6 +181,7 @@ type VerifyEpicDescriptor = {
 export type HandlerDescriptor =
   | PassthroughDescriptor
   | ActionDescriptor
+  | SiblingPassthroughDescriptor
   | RunTestsDescriptor
   | AssessSemanticDescriptor
   | CompleteSliceDescriptor
@@ -178,9 +230,11 @@ export function enumerateCandidateOutputs(transition: TransitionSkeleton): Set<s
       for (const o of h.outputs) out.add(o.place);
       return out;
     case 'action':
-      for (const p of h.onTrue) out.add(p);
-      for (const p of h.onFalse) out.add(p);
+      for (const p of h.outputs) out.add(p);
       if (h.agentReturnPlace) out.add(h.agentReturnPlace);
+      return out;
+    case 'sibling-passthrough':
+      for (const p of h.outputs) out.add(p);
       return out;
     case 'run-tests':
       for (const p of h.onPass) out.add(p);
