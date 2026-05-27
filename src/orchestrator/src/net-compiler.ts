@@ -345,7 +345,10 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
   // existing code instead of writing into an empty dir.
   for (const slice of plan.slices) {
     if (input.sandboxMode === 'codebase') {
-      seedSliceFromParentWorktree(input.sandboxDir, slice.id, plan);
+      if (!input.runId) {
+        throw new Error('codebase mode requires input.runId (used to name slice-level git branches)');
+      }
+      seedSliceFromParentWorktree(input.sandboxDir, slice.id, plan, input.runId);
     } else {
       mkdirSync(resolveSliceWorktreeDir(input.sandboxDir, slice.id), { recursive: true });
     }

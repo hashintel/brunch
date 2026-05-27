@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -8,7 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -216,24 +217,81 @@ describe('seedSliceFromParentWorktree', () => {
     slices: [{ id: 'only', epic_id: 'e1', definition: '', depends_on: [], verification: [] }],
   };
 
-  it('copies parent worktree contents into the slice dir', () => {
-    const parent = mkdtempSync(join(tmpdir(), 'cook-parent-'));
-    dirs.push(parent);
-    // Parent worktree mimics a brownfield codebase content layout
-    mkdirSync(join(parent, 'src'), { recursive: true });
-    writeFileSync(join(parent, 'README.md'), '# project\n');
-    writeFileSync(join(parent, 'src', 'a.ts'), 'export const a = 1;\n');
+  /**
+   * Create a tmp dir initialised as a git worktree of a fresh repo at HEAD,
+   * mimicking the structure cook produces via createSandbox in codebase mode:
+   * the "parent" is itself a `git worktree add` of a separate "source" repo,
+   * checked out on a `cook/<runId>` branch.
+   */
+  function makeGitParentWorktree(runId: string): {
+    parent: string;
+    source: string;
+    addUntracked: (relPath: string, content: string) => void;
+  } {
+    const source = mkdtempSync(join(tmpdir(), 'cook-source-'));
+    dirs.push(source);
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: source });
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: source });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: source });
+    writeFileSync(join(source, 'README.md'), '# project\n');
+    mkdirSync(join(source, 'src'));
+    writeFileSync(join(source, 'src', 'a.ts'), 'export const a = 1;\n');
+    execFileSync('git', ['add', '.'], { cwd: source });
+    execFileSync('git', ['commit', '-q', '-m', 'initial'], { cwd: source });
 
-    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan);
+    const runDir = mkdtempSync(join(tmpdir(), 'cook-run-'));
+    dirs.push(runDir);
+    const parent = join(runDir, 'worktree');
+    execFileSync('git', ['worktree', 'add', '-q', '-b', `cook/${runId}`, parent, 'HEAD'], { cwd: source });
+
+    return {
+      parent,
+      source,
+      addUntracked: (relPath, content) => {
+        const abs = join(parent, relPath);
+        mkdirSync(dirname(abs), { recursive: true });
+        writeFileSync(abs, content);
+      },
+    };
+  }
+
+  it('tracked content arrives via git worktree checkout', () => {
+    const { parent } = makeGitParentWorktree('r1');
+
+    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan, 'r1');
 
     expect(sliceDir).toBe(join(parent, 'only'));
     expect(readFileSync(join(sliceDir, 'README.md'), 'utf8')).toBe('# project\n');
     expect(readFileSync(join(sliceDir, 'src/a.ts'), 'utf8')).toBe('export const a = 1;\n');
   });
 
-  it('excludes sibling slice subdirs from the seed', () => {
-    const parent = mkdtempSync(join(tmpdir(), 'cook-parent-'));
-    dirs.push(parent);
+  it('untracked content arrives via CoW copy from the parent', () => {
+    const { parent, addUntracked } = makeGitParentWorktree('r2');
+    // Simulate node_modules / generated artifacts present in the parent
+    // worktree but NOT tracked by git.
+    addUntracked('node_modules/dep/index.js', 'module.exports = 1;\n');
+    addUntracked('dist/bundle.js', 'console.log("bundle");\n');
+
+    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan, 'r2');
+
+    expect(readFileSync(join(sliceDir, 'node_modules/dep/index.js'), 'utf8')).toBe('module.exports = 1;\n');
+    expect(readFileSync(join(sliceDir, 'dist/bundle.js'), 'utf8')).toBe('console.log("bundle");\n');
+  });
+
+  it('slice worktree is checked out on a slice-level cook branch', () => {
+    const { parent } = makeGitParentWorktree('r3');
+
+    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan, 'r3');
+
+    const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: sliceDir,
+      encoding: 'utf8',
+    }).trim();
+    expect(branch).toBe('cook-slice/r3/only');
+  });
+
+  it('excludes sibling slice subdirs from the untracked copy', () => {
+    const { parent, addUntracked } = makeGitParentWorktree('r4');
     const planTwo: Plan = {
       epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
       slices: [
@@ -241,56 +299,20 @@ describe('seedSliceFromParentWorktree', () => {
         { id: 'second', epic_id: 'e1', definition: '', depends_on: [], verification: [] },
       ],
     };
-    writeFileSync(join(parent, 'shared.txt'), 'shared\n');
-    mkdirSync(join(parent, 'first'), { recursive: true });
-    writeFileSync(join(parent, 'first', 'a.txt'), 'first work\n');
+    addUntracked('first/already-cooked.txt', 'first slice output\n');
 
-    const sliceDir = seedSliceFromParentWorktree(parent, 'second', planTwo);
+    const sliceDir = seedSliceFromParentWorktree(parent, 'second', planTwo, 'r4');
 
-    // shared.txt should be present (it's parent-level)
-    expect(readFileSync(join(sliceDir, 'shared.txt'), 'utf8')).toBe('shared\n');
-    // The 'first' slice dir must NOT be nested inside the 'second' slice dir
     expect(existsSync(join(sliceDir, 'first'))).toBe(false);
   });
 
-  it('excludes __epic__ reserved directory from the seed', () => {
-    const parent = mkdtempSync(join(tmpdir(), 'cook-parent-'));
-    dirs.push(parent);
-    mkdirSync(join(parent, '__epic__', 'e1'), { recursive: true });
-    writeFileSync(join(parent, '__epic__', 'e1', 'leftover.txt'), 'leftover\n');
-    writeFileSync(join(parent, 'kept.txt'), 'kept\n');
+  it('excludes __epic__ reserved dir from the untracked copy', () => {
+    const { parent, addUntracked } = makeGitParentWorktree('r5');
+    addUntracked('__epic__/e1/leftover.txt', 'leftover\n');
 
-    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan);
+    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan, 'r5');
 
-    expect(readFileSync(join(sliceDir, 'kept.txt'), 'utf8')).toBe('kept\n');
     expect(existsSync(join(sliceDir, '__epic__'))).toBe(false);
-  });
-
-  it('excludes .git from the seed (git worktree pointer files would break in a nested copy)', () => {
-    const parent = mkdtempSync(join(tmpdir(), 'cook-parent-'));
-    dirs.push(parent);
-    mkdirSync(join(parent, '.git'), { recursive: true });
-    writeFileSync(join(parent, '.git', 'HEAD'), 'ref: refs/heads/cook/x\n');
-    writeFileSync(join(parent, 'code.ts'), 'export {};\n');
-
-    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan);
-
-    expect(readFileSync(join(sliceDir, 'code.ts'), 'utf8')).toBe('export {};\n');
-    expect(existsSync(join(sliceDir, '.git'))).toBe(false);
-  });
-
-  it('does not nest the slice dir inside itself when re-seeding', () => {
-    const parent = mkdtempSync(join(tmpdir(), 'cook-parent-'));
-    dirs.push(parent);
-    writeFileSync(join(parent, 'a.txt'), 'a\n');
-
-    // First seed: creates parent/only/a.txt
-    seedSliceFromParentWorktree(parent, 'only', singleSlicePlan);
-    // Second seed should not nest parent/only/only/...
-    seedSliceFromParentWorktree(parent, 'only', singleSlicePlan);
-
-    expect(existsSync(join(parent, 'only', 'only'))).toBe(false);
-    expect(readFileSync(join(parent, 'only', 'a.txt'), 'utf8')).toBe('a\n');
   });
 });
 

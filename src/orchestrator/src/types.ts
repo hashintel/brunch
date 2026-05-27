@@ -99,10 +99,16 @@ export type OrchestratorInput = {
   policy: RunPolicy;
   /**
    * 'fixture' (default): per-slice worktrees are created empty. Greenfield.
-   * 'codebase': per-slice worktrees are seeded from the parent worktree
-   *   (which is itself a `git worktree add` of the source repo). Brownfield.
+   * 'codebase': per-slice worktrees are real `git worktree`s on slice-level
+   *   branches (`cook/<runId>/<sliceId>`) off the run-level cook branch,
+   *   with untracked/gitignored content CoW-copied from the parent. Brownfield.
    */
   sandboxMode?: 'fixture' | 'codebase';
+  /**
+   * Required in `codebase` mode: the run id used to name slice-level branches
+   * (`cook/<runId>/<sliceId>`). Unused in fixture mode.
+   */
+  runId?: string;
 };
 
 export type EpicOutcome = {

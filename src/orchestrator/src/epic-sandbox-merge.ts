@@ -17,6 +17,7 @@
 // epic, its transitive epic dependencies, and any transitive slice dependencies
 // owned by other epics. It never walks filesystem state to discover more scope.
 
+import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
@@ -187,37 +188,87 @@ function pruneEmptyDirs(rootDir: string, dir: string = rootDir): void {
 }
 
 /**
- * Codebase-mode seed: copy the parent worktree's contents into the slice
- * sandbox so that pi-actions run against pre-existing cwd code. The parent
- * is the `git worktree add` of the source repo; its contents = source HEAD.
+ * Platform-aware copy-on-write (reflink/clonefile) where supported; falls
+ * back to a regular recursive `cpSync` otherwise. Lazy at the block level
+ * on APFS (macOS) and reflink-capable filesystems (Linux btrfs/xfs/etc.),
+ * so large gitignored content like `node_modules/` costs ~zero disk on the
+ * first copy.
+ */
+function cowCopy(src: string, dest: string): void {
+  const flag = process.platform === 'darwin' ? '-c' : process.platform === 'linux' ? '--reflink=auto' : null;
+  if (flag) {
+    const result = spawnSync('cp', [flag, '-R', src, dest], { stdio: ['ignore', 'pipe', 'pipe'] });
+    if (result.status === 0) return;
+    // Fall through to cpSync on any failure (unsupported filesystem, missing
+    // flag in the host cp, etc.) — correctness is preserved at the cost of disk.
+  }
+  cpSync(src, dest, { dereference: false, recursive: true });
+}
+
+/**
+ * Codebase-mode seed: prepare the per-slice worktree as a real `git worktree`
+ * checked out on a slice-level branch (`cook-slice/<runId>/<sliceId>`) off
+ * the run-level cook branch, then CoW-copy any untracked/gitignored content
+ * from the parent worktree (e.g. `node_modules/`, `dist/`) so pi-actions can
+ * run `npm test` / `bun test` / build steps that depend on runtime deps.
  *
- * Excluded from the seed:
+ * The slice branches live in a sibling namespace `cook-slice/` rather than
+ * nested under `cook/<runId>/` because git refs are leaf-or-directory: with
+ * `cook/<runId>` already a leaf branch, `cook/<runId>/<sliceId>` would fail
+ * with "cannot lock ref ... 'refs/heads/cook/<runId>' exists."
+ *
+ * Excluded from the untracked CoW step:
  *   - sibling slice subdirs (other entries in `plan.slices`)
  *   - the `__epic__/` reserved merge dir
- *   - `.git` (the worktree pointer file/dir; copying it would break the
- *     pointer chain into the source repo)
+ *   - `.git` (the parent's worktree pointer; the new worktree gets its own)
+ *   - any entry already created by `git worktree add` (tracked content)
  *
- * Returns the slice sandbox path. Safe to re-invoke.
+ * Returns the slice sandbox path. NOT safe to re-invoke against an existing
+ * slice worktree — `git worktree add` would fail with "already exists." The
+ * caller must remove the prior worktree first if re-seeding.
  *
- * TODO(cook-codebase-mode follow-on): multi-slice brownfield runs file-copy
- * the entire parent (cwd repo) into every slice worktree, producing O(slices *
- * repoSize) on-disk duplication. Either migrate per-slice worktrees to real
- * `git worktree add` calls off the run-level cook branch, or switch epic-merge
- * to a diff-based mechanism so the per-slice copy can stay cheap.
+ * TODO(cook-artifact-lifecycle follow-on, separate frontier): the slice branch
+ * exists but is never committed to. After this lands, a future frontier should
+ * add slice-completion commits, replace `mergeSlicesIntoEpicSandbox`'s file-copy
+ * with a git merge of slice branches into an epic branch, and surface real
+ * merge conflicts (today's file-copy is silent last-slice-wins). That work
+ * earns the "discoverable cook artifact" criterion via `git merge cook/<runId>`
+ * promotion semantics.
  */
-export function seedSliceFromParentWorktree(parentSandboxDir: string, sliceId: string, plan: Plan): string {
+export function seedSliceFromParentWorktree(
+  parentSandboxDir: string,
+  sliceId: string,
+  plan: Plan,
+  runId: string,
+): string {
   const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
-  mkdirSync(sliceDir, { recursive: true });
 
+  // 1. Real git worktree: tracked content arrives via git checkout, slice
+  //    branch is `cook/<runId>/<sliceId>` off the parent worktree's HEAD
+  //    (which is the run-level `cook/<runId>` branch). Shares the source
+  //    repo's `.git/` object database via hardlinks — no full git copy.
+  execFileSync(
+    'git',
+    ['worktree', 'add', '--quiet', '-b', `cook-slice/${runId}/${sliceId}`, sliceDir, 'HEAD'],
+    {
+      cwd: parentSandboxDir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+
+  // 2. CoW-copy whatever's in the parent worktree but NOT in the slice
+  //    worktree yet — i.e. untracked / gitignored content (`node_modules/`,
+  //    `dist/`, etc.) that pi-actions might need at runtime.
   const excludedNames = new Set<string>(['.git', EPIC_MERGE_SEGMENT]);
   for (const s of plan.slices) excludedNames.add(s.id);
 
   const parent = resolve(parentSandboxDir);
   for (const entry of readdirSync(parent)) {
     if (excludedNames.has(entry)) continue;
-    const src = join(parent, entry);
     const dest = join(sliceDir, entry);
-    cpSync(src, dest, { dereference: false, recursive: true });
+    if (existsSync(dest)) continue; // already present from git worktree (tracked)
+    const src = join(parent, entry);
+    cowCopy(src, dest);
   }
 
   return sliceDir;

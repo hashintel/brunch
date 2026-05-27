@@ -176,6 +176,7 @@ describe('brownfield smoke — 1-slice 1-epic codebase mode', () => {
       testRunner: fakeTestRunner,
       policy: { maxRetries: 3 },
       sandboxMode: 'codebase',
+      runId: sandbox.runId,
     });
 
     expect(result.status).toBe('completed');
@@ -206,5 +207,13 @@ describe('brownfield smoke — 1-slice 1-epic codebase mode', () => {
       encoding: 'utf8',
     }).trim();
     expect(parentBranch).toBe(`cook/${sandbox.runId}`);
+
+    // The slice worktree is a real git worktree on its slice-level branch
+    // (sibling namespace cook-slice/ to avoid ref-hierarchy collision with cook/<runId>).
+    const sliceBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: sliceDir,
+      encoding: 'utf8',
+    }).trim();
+    expect(sliceBranch).toBe(`cook-slice/${sandbox.runId}/modify-src`);
   });
 });

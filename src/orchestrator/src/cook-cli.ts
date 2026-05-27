@@ -127,7 +127,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
 
   const plan = loadPlan(resolved.planPath);
   const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
-  const { sandboxDir, runDir } =
+  const { sandboxDir, runDir, runId } =
     resolved.mode === 'codebase'
       ? createSandbox(launchCwd, undefined, { mode: 'codebase', sourceDir: resolved.sourceDir })
       : createSandbox(launchCwd);
@@ -162,6 +162,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
     testRunner,
     policy: { maxRetries: opts.maxRetries },
     sandboxMode: resolved.mode === 'codebase' ? 'codebase' : 'fixture',
+    runId,
   });
 
   const duration = fmtDuration(Date.now() - runStart);
