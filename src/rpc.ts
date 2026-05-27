@@ -27,7 +27,11 @@ import {
 } from "./session-projection-reader.js"
 import type {
   DefaultWorkspaceCoordinator,
+  WorkspaceActivationState,
+  WorkspaceLaunchInventory,
   WorkspaceSessionState,
+  WorkspaceSwitchCoordinator,
+  WorkspaceSwitchDecision,
 } from "./workspace-session-coordinator.js"
 
 export interface RpcHandlers {
@@ -35,7 +39,7 @@ export interface RpcHandlers {
 }
 
 export function createRpcHandlers(options: {
-  coordinator: DefaultWorkspaceCoordinator
+  coordinator: DefaultWorkspaceCoordinator & Partial<WorkspaceSwitchCoordinator>
   cwd: string
 }): RpcHandlers {
   return {
@@ -54,6 +58,40 @@ export function createRpcHandlers(options: {
         return createJsonRpcSuccess(
           requestId,
           workspaceSnapshotFromState(state),
+        )
+      }
+
+      if (request.method === "workspace.selectionState") {
+        if (request.params !== undefined) {
+          return createJsonRpcFailure(requestId, -32602, "Invalid params")
+        }
+        if (!options.coordinator.inspectWorkspace) {
+          return createJsonRpcFailure(requestId, -32603, "Internal error")
+        }
+        const [state, inventory] = await Promise.all([
+          options.coordinator.openDefaultWorkspace(),
+          options.coordinator.inspectWorkspace(),
+        ])
+        return createJsonRpcSuccess(
+          requestId,
+          workspaceSelectionStateFromInventory(state, inventory),
+        )
+      }
+
+      if (request.method === "workspace.activate") {
+        const decision = parseWorkspaceActivationParams(request.params)
+        if (!decision.ok) {
+          return createJsonRpcFailure(requestId, -32602, "Invalid params")
+        }
+        if (!options.coordinator.activateWorkspace) {
+          return createJsonRpcFailure(requestId, -32603, "Internal error")
+        }
+        const state = await options.coordinator.activateWorkspace(
+          decision.value,
+        )
+        return createJsonRpcSuccess(
+          requestId,
+          workspaceActivationSnapshotFromState(state),
         )
       }
 
@@ -78,6 +116,91 @@ export function createRpcHandlers(options: {
       return createJsonRpcFailure(requestId, -32601, "Method not found")
     },
   }
+}
+
+function workspaceSelectionStateFromInventory(
+  state: WorkspaceSessionState,
+  inventory: WorkspaceLaunchInventory,
+): WorkspaceLaunchInventory & {
+  status: WorkspaceSessionState["status"]
+  requiresSelection: boolean
+} {
+  return {
+    ...inventory,
+    status: state.status,
+    requiresSelection: state.status !== "ready",
+  }
+}
+
+function workspaceActivationSnapshotFromState(
+  state: WorkspaceActivationState,
+): ReturnType<typeof workspaceSnapshotFromState> | {
+  status: "cancelled"
+  cwd: string
+  spec: WorkspaceActivationState["chrome"]["spec"]
+  chrome: {
+    phase: "select_spec" | "elicitation"
+    chatMode: "select-spec" | "responding-to-elicitation"
+  }
+} {
+  if (state.status === "cancelled") {
+    return {
+      status: "cancelled",
+      cwd: state.cwd,
+      spec: state.chrome.spec,
+      chrome: {
+        phase: state.chrome.phase,
+        chatMode: state.chrome.chatMode,
+      },
+    }
+  }
+  return workspaceSnapshotFromState(state)
+}
+
+type WorkspaceActivationParamsParseResult = {
+  ok: true
+  value: WorkspaceSwitchDecision
+} | { ok: false }
+
+function parseWorkspaceActivationParams(
+  value: unknown,
+): WorkspaceActivationParamsParseResult {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return { ok: false }
+  }
+  const decision = (value as { decision?: unknown }).decision
+  if (
+    typeof decision !== "object" ||
+    decision === null ||
+    Array.isArray(decision)
+  ) {
+    return { ok: false }
+  }
+  const action = (decision as { action?: unknown }).action
+  if (action === "cancel") return { ok: true, value: { action } }
+  if (action === "newSpec") {
+    const title = (decision as { title?: unknown }).title
+    return typeof title === "string" && title.trim().length > 0
+      ? { ok: true, value: { action, title } }
+      : { ok: false }
+  }
+  if (action === "newSession") {
+    const specId = (decision as { specId?: unknown }).specId
+    return typeof specId === "string" && specId.length > 0
+      ? { ok: true, value: { action, specId } }
+      : { ok: false }
+  }
+  if (action === "continue" || action === "openSession") {
+    const specId = (decision as { specId?: unknown }).specId
+    const sessionFile = (decision as { sessionFile?: unknown }).sessionFile
+    return typeof specId === "string" &&
+      specId.length > 0 &&
+      typeof sessionFile === "string" &&
+      sessionFile.length > 0
+      ? { ok: true, value: { action, specId, sessionFile } }
+      : { ok: false }
+  }
+  return { ok: false }
 }
 
 async function handleSessionProjection<T>(

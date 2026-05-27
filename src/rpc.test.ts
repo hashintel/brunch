@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { PassThrough } from "node:stream"
@@ -12,22 +12,80 @@ import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinat
 import { assistantMessage, userMessage } from "./test-helpers.js"
 import type {
   DefaultWorkspaceCoordinator,
+  WorkspaceActivationState,
+  WorkspaceLaunchInventory,
+  WorkspaceSessionReadyState,
   WorkspaceSessionState,
+  WorkspaceSwitchCoordinator,
+  WorkspaceSwitchDecision,
 } from "./workspace-session-coordinator.js"
 
 function coordinator(
   state: WorkspaceSessionState = readyState(
     "/tmp/brunch-project/.brunch/sessions/session-1.jsonl",
   ),
-): DefaultWorkspaceCoordinator {
+): DefaultWorkspaceCoordinator & WorkspaceSwitchCoordinator {
+  const inventory = launchInventory()
   return {
     async openDefaultWorkspace() {
       return state
     },
+    async inspectWorkspace() {
+      return inventory
+    },
+    async activateWorkspace(
+      decision: WorkspaceSwitchDecision,
+    ): Promise<WorkspaceActivationState> {
+      if (decision.action === "cancel") return cancelledState()
+      return readyState("/tmp/brunch-project/.brunch/sessions/session-1.jsonl")
+    },
   }
 }
 
-function readyState(sessionFile: string): WorkspaceSessionState {
+function launchInventory(): WorkspaceLaunchInventory {
+  return {
+    cwd: "/tmp/brunch-project",
+    currentSpec: { id: "spec-1", title: "Alpha spec" },
+    currentSessionFile: "/tmp/brunch-project/.brunch/sessions/session-1.jsonl",
+    needsNewSpec: false,
+    specs: [
+      {
+        spec: { id: "spec-1", title: "Alpha spec" },
+        sessions: [
+          {
+            id: "session-1",
+            file: "/tmp/brunch-project/.brunch/sessions/session-1.jsonl",
+            specId: "spec-1",
+            specTitle: "Alpha spec",
+            available: true,
+          },
+        ],
+      },
+    ],
+    unavailableSessions: [
+      {
+        file: "/tmp/missing.jsonl",
+        reason: "missing_header",
+        available: false,
+      },
+    ],
+  }
+}
+
+function cancelledState(): WorkspaceActivationState {
+  return {
+    status: "cancelled",
+    cwd: "/tmp/brunch-project",
+    chrome: {
+      cwd: "/tmp/brunch-project",
+      spec: { id: "spec-1", title: "Alpha spec" },
+      phase: "elicitation",
+      chatMode: "responding-to-elicitation",
+    },
+  }
+}
+
+function readyState(sessionFile: string): WorkspaceSessionReadyState {
   return {
     status: "ready",
     cwd: "/tmp/brunch-project",
@@ -118,6 +176,95 @@ function sessionBindingEntry(sessionId = "session-1", specId = "spec-1") {
 }
 
 describe("JSON-RPC handlers", () => {
+  it("serves structured workspace selection state without invoking the TUI picker", async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(selectSpecState()),
+      cwd: "/tmp/brunch-project",
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 20,
+        method: "workspace.selectionState",
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 20,
+      result: {
+        status: "select_spec",
+        requiresSelection: true,
+        cwd: "/tmp/brunch-project",
+        currentSpec: { id: "spec-1", title: "Alpha spec" },
+        currentSessionFile:
+          "/tmp/brunch-project/.brunch/sessions/session-1.jsonl",
+        specs: [{ spec: { id: "spec-1" }, sessions: [{ id: "session-1" }] }],
+        unavailableSessions: [{ reason: "missing_header" }],
+      },
+    })
+  })
+
+  it("activates valid workspace decisions and returns a serializable product snapshot", async () => {
+    const decisions: WorkspaceSwitchDecision[] = []
+    const handlers = createRpcHandlers({
+      cwd: "/tmp/brunch-project",
+      coordinator: {
+        ...coordinator(),
+        async activateWorkspace(decision): Promise<WorkspaceActivationState> {
+          decisions.push(decision)
+          return readyState(
+            "/tmp/brunch-project/.brunch/sessions/session-1.jsonl",
+          )
+        },
+      },
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 21,
+        method: "workspace.activate",
+        params: { decision: { action: "newSession", specId: "spec-1" } },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 21,
+      result: {
+        status: "ready",
+        spec: { id: "spec-1" },
+        session: { id: "session-1" },
+      },
+    })
+    expect(decisions).toEqual([{ action: "newSession", specId: "spec-1" }])
+  })
+
+  it("rejects invalid workspace activation params", async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: "/tmp/brunch-project",
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 22,
+        method: "workspace.activate",
+        params: { decision: { action: "openSession", specId: "spec-1" } },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 22,
+      error: { code: -32602, message: "Invalid params" },
+    })
+  })
+
+  it("keeps RPC initial selection independent from TUI picker imports", async () => {
+    const source = await readFile(new URL("./rpc.ts", import.meta.url), "utf8")
+
+    expect(source).not.toContain("workspace-dialog")
+    expect(source).not.toContain("createWorkspaceDialogComponent")
+  })
+
   it("serves a named workspace snapshot method", async () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator(),

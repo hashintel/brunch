@@ -105,7 +105,7 @@ The startup and in-session TUI picker renders the hierarchical spec/session flow
 
 ## Card 3 — RPC/headless initial selection contract
 
-**Status:** next  
+**Status:** done  
 **Weight:** full scope card
 
 ### Target Behavior
