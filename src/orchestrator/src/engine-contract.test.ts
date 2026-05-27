@@ -5,8 +5,13 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { createOrchestrator } from './engine.js';
-import { compilePlan, compileTopology } from './net-compiler.js';
+import { compilePlan, compileTopology, wireHandlers } from './net-compiler.js';
 import type { NetEvent } from './petri-net.js';
+import {
+  createPetrinautEventStream,
+  type PetrinautEvent,
+  type PetrinautTransitionFiredEvent,
+} from './petrinaut-events.js';
 import { InMemoryReportSink } from './report-sink.js';
 import type { ActionContext, ActionHandlers, OrchestratorInput, Plan, RunCtx, TestRunner } from './types.js';
 
@@ -903,6 +908,74 @@ describe('Adapter: §7 event vocabulary', () => {
     // lands on slice:slice-1:halted and the next loop iteration observes it.
     const halted = events.filter((e) => e.kind === 'net_halted');
     expect(halted.length).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FE-763 — Petrinaut event stream end-to-end on the orchestrator
+// ---------------------------------------------------------------------------
+
+describe('FE-763: Petrinaut event stream on a real run', () => {
+  it('emits initial_marking + transition_fired (with token payload) + net_halted for simplePlan happy path', async () => {
+    const fakes = createFakes();
+    const ctx: RunCtx = {
+      reportIds: [],
+      sliceOutcomes: new Map(),
+      epicOutcomes: new Map(),
+    };
+    const input: OrchestratorInput = {
+      plan: simplePlan,
+      sandboxDir: '/tmp/fake',
+      actions: fakes.actions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+    };
+
+    const blueprint = compileTopology(input.plan, input.policy);
+    const net = wireHandlers(blueprint, input, ctx);
+
+    const events: PetrinautEvent[] = [];
+    const stream = createPetrinautEventStream({
+      runId: 'run-e2e',
+      onEvent: (e) => events.push(e),
+    });
+    stream.emitInitialMarking(blueprint);
+    await net.run('serial', () => net.hasHaltToken(), stream.sink);
+
+    // 1. initial_marking is first.
+    expect(events[0]!.kind).toBe('initial_marking');
+
+    // 2. every event carries the runId.
+    expect(events.every((e) => 'runId' in e && e.runId === 'run-e2e')).toBe(true);
+
+    // 3. transition_fired events expose the FE-761 Slice 4 dispatch/complete
+    //    topology directly in Petrinaut's wire format.
+    const fired = events.filter((e): e is PetrinautTransitionFiredEvent => e.kind === 'transition_fired');
+    const names = fired.map((e) => e.transitionName);
+    expect(names).toContain('slice-1:evaluate:dispatch');
+    expect(names).toContain('slice-1:evaluate:complete');
+    expect(names).toContain('slice-1:assess-semantic:dispatch');
+    expect(names).toContain('slice-1:assess-semantic:complete');
+
+    // 4. each transition_fired carries per-place token data with a UUID
+    //    (cross-team-agreed shape: { id: <UUID>, ...payload }).
+    for (const e of fired) {
+      for (const tokens of Object.values(e.input)) {
+        for (const tok of tokens) expect(typeof tok.id).toBe('string');
+      }
+      for (const tokens of Object.values(e.output)) {
+        for (const tok of tokens) expect(typeof tok.id).toBe('string');
+      }
+    }
+
+    // 5. happy path: no net_halted / net_deadlocked emitted (engine exits
+    //    the loop cleanly when nothing remains enabled). When the cook
+    //    fails — retry exhaustion etc. — Petrinaut sees the halt token
+    //    travel through the topology as a transition_fired event landing
+    //    in `slice:<sid>:halted`, plus the engine emits net_halted.
+    expect(events.filter((e) => e.kind === 'net_halted')).toHaveLength(0);
+    expect(events.filter((e) => e.kind === 'net_deadlocked')).toHaveLength(0);
   });
 });
 

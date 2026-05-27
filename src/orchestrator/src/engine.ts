@@ -2,7 +2,8 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { compileTopology, wireHandlers } from './net-compiler.js';
-import type { FiringPolicy } from './petri-net.js';
+import type { FiringPolicy, NetEventSink } from './petri-net.js';
+import { createPetrinautEventStream } from './petrinaut-events.js';
 import { serializeBlueprint } from './petrinaut-export.js';
 import { toSdcpnFile } from './petrinaut-sdcpn.js';
 import type { Orchestrator, OrchestratorInput, OrchestratorResult, RunCtx } from './types.js';
@@ -49,8 +50,22 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
           }
         }
 
+        // FE-763: open a Petrinaut event stream when runDir is present.
+        // Emits an initial_marking event up-front, then transition_fired /
+        // net_halted / net_deadlocked events as the net runs. Library
+        // callers without a runDir get the existing no-op behavior.
+        let eventSink: NetEventSink | undefined;
+        if (input.runDir) {
+          const stream = createPetrinautEventStream({
+            runId: input.runId ?? 'unknown',
+            filePath: join(input.runDir, 'petrinaut-events.jsonl'),
+          });
+          stream.emitInitialMarking(blueprint);
+          eventSink = stream.sink;
+        }
+
         const net = wireHandlers(blueprint, input, ctx);
-        await net.run(firingPolicy, () => net.hasHaltToken());
+        await net.run(firingPolicy, () => net.hasHaltToken(), eventSink);
 
         hasStructuralHalt = net.hasHaltToken();
         // Derive halt reason from any halt token deposited during the run.
