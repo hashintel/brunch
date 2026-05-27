@@ -12,6 +12,7 @@ import {
   readBrunchSessionEnvelope,
   type BrunchSessionEnvelope,
 } from "./brunch-session-envelope.js"
+import { isTerminalStructuredQuestionResultDetails } from "./structured-question.js"
 
 const PROMPT_SIDE_CUSTOM_TYPES = new Set([
   "brunch.elicitation_prompt",
@@ -226,6 +227,9 @@ function isPromptSideEntry(entry: SessionEntry): boolean {
   }
 
   const role = roleOf(entry)
+  if (role === "toolResult" && isTerminalStructuredQuestionToolResult(entry)) {
+    return false
+  }
   return role === "assistant" || role === "toolResult"
 }
 
@@ -233,9 +237,22 @@ function isResponseSideEntry(entry: SessionEntry): boolean {
   if (roleOf(entry) === "user") {
     return true
   }
+  if (isTerminalStructuredQuestionToolResult(entry)) {
+    return true
+  }
   return (
     isCustomTranscriptEntry(entry) &&
     STRUCTURED_RESPONSE_TYPES.has(entry.customType)
+  )
+}
+
+function isTerminalStructuredQuestionToolResult(entry: SessionEntry): boolean {
+  return (
+    isMessageEntry(entry) &&
+    entry.message.role === "toolResult" &&
+    isTerminalStructuredQuestionResultDetails(
+      (entry.message as { details?: unknown }).details,
+    )
   )
 }
 

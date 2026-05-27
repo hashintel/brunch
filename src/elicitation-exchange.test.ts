@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest"
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
 import { createSessionBindingData } from "./session-binding.js"
+import { buildStructuredQuestionResult } from "./structured-question.js"
 import { assistantMessage, userMessage } from "./test-helpers.js"
 import {
   loadJsonlTranscriptEntries,
@@ -35,6 +36,50 @@ const toolResult = {
     toolCallId: "call-1",
     toolName: "read",
     content: [{ type: "text", text: "tool output" }],
+    isError: false,
+  },
+}
+const structuredQuestionToolResult = {
+  id: "sq1",
+  type: "message",
+  message: {
+    role: "toolResult",
+    toolCallId: "call-sq-1",
+    toolName: "brunch_structured_question",
+    content: [{ type: "text", text: "Domain?: Developer tooling" }],
+    details: buildStructuredQuestionResult({
+      params: {
+        id: "domain",
+        mode: "text",
+        prompt: "Domain?",
+      },
+      status: "answered",
+      answers: [
+        { questionId: "domain", mode: "text", value: "Developer tooling" },
+      ],
+      transport: { surface: "rpc-editor" },
+    }).details,
+    isError: false,
+  },
+}
+const unavailableStructuredQuestionToolResult = {
+  id: "sq-unavailable",
+  type: "message",
+  message: {
+    role: "toolResult",
+    toolCallId: "call-sq-2",
+    toolName: "brunch_structured_question",
+    content: [{ type: "text", text: "Structured question unavailable." }],
+    details: buildStructuredQuestionResult({
+      params: {
+        id: "domain",
+        mode: "text",
+        prompt: "Domain?",
+      },
+      status: "unavailable",
+      transport: { surface: "headless" },
+      message: "Structured question UI is unavailable.",
+    }).details,
     isError: false,
   },
 }
@@ -166,6 +211,34 @@ describe("elicitation exchange projection", () => {
       start: "a1",
       end: "t1",
     })
+  })
+
+  it("classifies terminal structured-question tool results as response-side entries", () => {
+    const projection = projectElicitationExchanges([
+      assistant,
+      structuredQuestionToolResult,
+    ])
+
+    expect(projection.exchanges[0]?.promptEntryIds).toEqual(["a1"])
+    expect(projection.exchanges[0]?.responseEntryIds).toEqual(["sq1"])
+    expect(projection.exchanges[0]?.responseRange).toEqual({
+      start: "sq1",
+      end: "sq1",
+    })
+    expect(projection.openPrompt).toBeNull()
+  })
+
+  it("keeps non-terminal structured-question tool results on the prompt side", () => {
+    const projection = projectElicitationExchanges([
+      assistant,
+      unavailableStructuredQuestionToolResult,
+    ])
+
+    expect(projection.exchanges).toEqual([])
+    expect(projection.openPrompt?.promptEntryIds).toEqual([
+      "a1",
+      "sq-unavailable",
+    ])
   })
 
   it("returns an explicit empty/open shape for incomplete transcripts", () => {
