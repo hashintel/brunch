@@ -11,6 +11,12 @@ export type Token = {
   /** Semantic rework counter — carried on semantic-budget tokens.
    *  Prevents infinite rework loops when assess-semantic always rejects. */
   reworkCount?: number;
+  /**
+   * FE-761 Slice 2b: halt reason carried on tokens emitted to `:halted`
+   * places. Engine derives `result.reason` from this field. Replaces the
+   * retired `ctx.haltReason` mutation seam.
+   */
+  haltReason?: string;
 };
 
 /**
@@ -127,6 +133,33 @@ export class PetriNet {
   /** Returns registered transitions for inspection (e.g. adapter tests). */
   getTransitions(): ReadonlyArray<TransitionDef> {
     return this.transitions;
+  }
+
+  /**
+   * FE-761 Slice 2b: place-level halt introspection. Returns true when any
+   * place whose name ends in `:halted` currently holds tokens. The engine
+   * uses this as the structural halt signal in place of the retired
+   * `ctx.halted` mutation.
+   */
+  hasHaltToken(): boolean {
+    for (const [placeId, tokens] of this.places) {
+      if (tokens.length === 0) continue;
+      if (placeName(placeId) === 'halted') return true;
+    }
+    return false;
+  }
+
+  /**
+   * FE-761 Slice 2b: return all tokens currently sitting on halt-sink places.
+   * Engine reads these to derive `result.reason` and per-scope halt status.
+   */
+  getHaltTokens(): { placeId: string; token: Token }[] {
+    const out: { placeId: string; token: Token }[] = [];
+    for (const [placeId, tokens] of this.places) {
+      if (placeName(placeId) !== 'halted') continue;
+      for (const token of tokens) out.push({ placeId, token });
+    }
+    return out;
   }
 
   /**

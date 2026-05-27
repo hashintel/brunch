@@ -111,10 +111,13 @@ type ActionDescriptor = {
  * complementary guards ensure exactly one sibling is enabled per token.
  *
  * Optional `onFire` declares a side effect the sibling performs in addition
- * to forwarding the token — used by FE-761 verify-epic siblings to mark
- * the epic completed or halted in ctx without inventing new descriptor
- * variants. The halt-side-effect produces empty outputs (Slice 1 keeps
- * halt-as-ctx; Slice 2 will surface it as a halted:* place).
+ * to forwarding the token. Variants:
+ *   - `mark-epic-completed` — used by the verify-epic pass sibling to record
+ *     the epic outcome in `ctx.epicOutcomes`.
+ *   - `attach-halt-reason` — used by halt-emitting siblings (e.g. the
+ *     verify-epic fail sibling) to stamp `haltReason` on the forwarded
+ *     token so the engine can surface it via `result.reason`. The sibling
+ *     emits to a halted:* place (FE-761 Slice 2b: halted-as-place).
  */
 type SiblingPassthroughDescriptor = {
   kind: 'sibling-passthrough';
@@ -126,17 +129,17 @@ type SiblingPassthroughDescriptor = {
   outputs: string[];
   /** Predicate evaluated against the token's attached report. */
   enablingGuard: EnablingGuard;
-  /** Optional fire-time side effect (epic completion / halt). */
-  onFire?: { kind: 'mark-epic-completed' } | { kind: 'halt-epic'; reason: string };
+  /** Optional fire-time side effect (epic completion mark / halt reason). */
+  onFire?: { kind: 'mark-epic-completed' } | { kind: 'attach-halt-reason'; reason: string };
 };
 
 /**
  * Test runner with retry budget — producer. Runs tests synchronously,
  * attaches the test-run report to the output token, and emits to a single
  * intermediate place plus the retry-budget place. Sibling-passthrough
- * transitions downstream route by the report's `passed` field. Budget
- * exhaustion on fail is handled in the fire closure via ctx.halted
- * mutation (FE-761 Slice 2 will move that to a halted:* place).
+ * transitions downstream route by the report's `passed` field. On budget
+ * exhaustion the producer instead emits a halt token (carrying its own
+ * `haltReason`) to `slice:<sid>:halted` — FE-761 Slice 2b: halted-as-place.
  */
 type RunTestsDescriptor = {
   kind: 'run-tests';
@@ -156,9 +159,9 @@ type RunTestsDescriptor = {
  * and emits to a single intermediate place. On rejection the budget place
  * receives an incremented rework token; on satisfaction the budget is
  * consumed and not returned. Sibling-passthrough transitions downstream
- * route by the report's `satisfied` field. Budget exhaustion on rejection
- * is handled in the fire closure via ctx.halted mutation (FE-761 Slice 2
- * will move that to a halted:* place).
+ * route by the report's `satisfied` field. On rework-budget exhaustion the
+ * producer instead emits a halt token (carrying its own `haltReason`) to
+ * `slice:<sid>:halted` — FE-761 Slice 2b: halted-as-place.
  */
 type AssessSemanticDescriptor = {
   kind: 'assess-semantic';

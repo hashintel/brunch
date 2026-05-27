@@ -137,10 +137,15 @@ export interface Orchestrator {
 // Mutable run context — orchestrator-execution bookkeeping
 // ---------------------------------------------------------------------------
 
+/**
+ * FE-761 Slice 2b: `halted` / `haltReason` retired. Halt is now observable
+ * via the petri-net's `:halted` place tokens (see `PetriNet.hasHaltToken()`),
+ * and the halt reason is carried on the halt token itself
+ * (`Token.haltReason`). The engine derives both from the net rather than
+ * mutating ctx in a fire closure.
+ */
 export type RunCtx = {
   reportIds: string[];
   sliceOutcomes: Map<string, SliceOutcome>;
   epicOutcomes: Map<string, EpicOutcome>;
-  halted: boolean;
-  haltReason?: string;
 };

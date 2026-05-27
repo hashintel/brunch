@@ -420,9 +420,8 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       });
 
       // Verify-epic — fail halt-sibling: emits to the epic halted place
-      // (FE-761 Slice 2a: halted-as-place). onFire still mutates ctx for now
-      // so engine.shouldHalt() keeps working without further wiring; Slice 2b
-      // will retire ctx.halted entirely.
+      // with a haltReason stamped on the forwarded token (FE-761 Slice 2b:
+      // halted-as-place, halt reason carried by the token rather than ctx).
       transitions.push({
         id: `epic-verify:${epic.id}:fail`,
         inputs: [verifyReportedPlace],
@@ -434,7 +433,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
           input: verifyReportedPlace,
           outputs: [epicHaltedPlace],
           enablingGuard: { kind: 'tokenReportFieldFalsy', field: 'passed' },
-          onFire: { kind: 'halt-epic', reason: `Epic ${epic.id} verification failed` },
+          onFire: { kind: 'attach-halt-reason', reason: `Epic ${epic.id} verification failed` },
         },
       });
     }
@@ -524,18 +523,21 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         const { outputs: outputPlaces, enablingGuard, onFire, epicId } = h;
         fire = async (consumed) => {
           // Apply optional fire-time side effect before emitting outputs.
+          let forwarded = consumed[0]!;
           if (onFire?.kind === 'mark-epic-completed') {
             ctx.epicOutcomes.set(epicId, { epicId, status: 'completed' });
-          } else if (onFire?.kind === 'halt-epic') {
+          } else if (onFire?.kind === 'attach-halt-reason') {
+            // FE-761 Slice 2b: halted-as-place — the epic outcome is marked
+            // halted and the halt reason is stamped on the forwarded token
+            // so the engine can derive `result.reason` from the halted:*
+            // place via `net.getHaltTokens()`.
             ctx.epicOutcomes.set(epicId, { epicId, status: 'halted' });
-            ctx.halted = true;
-            ctx.haltReason = onFire.reason;
+            forwarded = { ...forwarded, haltReason: onFire.reason };
           }
-          // Sibling fires by forwarding the report-bearing token unchanged
-          // to its single fixed output set (or empty for halt-siblings).
-          // Enabling-guard mutual exclusion is enforced upstream in
-          // PetriNet.isEnabled (peek-time).
-          return outputPlaces.map((pl) => ({ place: pl, token: consumed[0]! }));
+          // Sibling fires by forwarding the (possibly halt-stamped) token
+          // to its single fixed output set. Enabling-guard mutual exclusion
+          // is enforced upstream in PetriNet.isEnabled (peek-time).
+          return outputPlaces.map((pl) => ({ place: pl, token: forwarded }));
         };
         // Peek-time guard reads the token's attached reportId and evaluates
         // the enabling predicate against the report's payload. Mutually-
@@ -586,13 +588,17 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             ];
           }
           if (retryCount >= maxRetries) {
-            // FE-761 Slice 2a: halt is now structural — emit to the slice
-            // halted place in addition to the legacy ctx.halted mutation
-            // (Slice 2b will retire ctx.halted entirely).
+            // FE-761 Slice 2b: halt is fully structural — emit a halt token
+            // carrying its own reason; engine derives `result.reason` from
+            // it via `net.getHaltTokens()`. Slice outcome is also marked
+            // here so post-run derivation sees the right status.
             ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
-            ctx.halted = true;
-            ctx.haltReason = `Slice ${sliceId} retry exhaustion`;
-            return [{ place: p(sliceId, 'halted'), token: tok }];
+            return [
+              {
+                place: p(sliceId, 'halted'),
+                token: { ...tok, haltReason: `Slice ${sliceId} retry exhaustion` },
+              },
+            ];
           }
           return [
             { place: intermediatePlace, token: tok },
@@ -633,12 +639,15 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             return [{ place: intermediatePlace, token: tok }];
           }
           if (reworkCount >= maxReworks) {
-            // FE-761 Slice 2a: halt is now structural — emit to the slice
-            // halted place in addition to the legacy ctx.halted mutation.
+            // FE-761 Slice 2b: halt token carries its own reason; engine
+            // derives `result.reason` via `net.getHaltTokens()`.
             ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
-            ctx.halted = true;
-            ctx.haltReason = `Slice ${sliceId} semantic rework exhaustion`;
-            return [{ place: p(sliceId, 'halted'), token: tok }];
+            return [
+              {
+                place: p(sliceId, 'halted'),
+                token: { ...tok, haltReason: `Slice ${sliceId} semantic rework exhaustion` },
+              },
+            ];
           }
           return [
             { place: intermediatePlace, token: tok },

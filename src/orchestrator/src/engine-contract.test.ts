@@ -818,8 +818,6 @@ describe('Adapter: §7 event vocabulary', () => {
       reportIds: [],
       sliceOutcomes: new Map(),
       epicOutcomes: new Map(),
-
-      halted: false,
     };
     const input: OrchestratorInput = {
       plan: simplePlan,
@@ -832,7 +830,7 @@ describe('Adapter: §7 event vocabulary', () => {
 
     const net = compilePlan(input, ctx);
     const events: NetEvent[] = [];
-    await net.run('serial', () => ctx.halted, { emit: (e) => events.push(e) });
+    await net.run('serial', () => net.hasHaltToken(), { emit: (e) => events.push(e) });
 
     // All events should be transition_fired (happy path, no deadlock/halt)
     const fired = events.filter((e) => e.kind === 'transition_fired');
@@ -864,8 +862,6 @@ describe('Adapter: §7 event vocabulary', () => {
       reportIds: [],
       sliceOutcomes: new Map(),
       epicOutcomes: new Map(),
-
-      halted: false,
     };
     const input: OrchestratorInput = {
       plan: simplePlan,
@@ -878,9 +874,12 @@ describe('Adapter: §7 event vocabulary', () => {
 
     const net = compilePlan(input, ctx);
     const events: NetEvent[] = [];
-    await net.run('serial', () => ctx.halted, { emit: (e) => events.push(e) });
+    // FE-761 Slice 2b: halt is observed via net.hasHaltToken() reading
+    // tokens on `:halted` places, not via the retired ctx.halted mutation.
+    await net.run('serial', () => net.hasHaltToken(), { emit: (e) => events.push(e) });
 
-    // Should have a net_halted event (ctx.halted becomes true after retry exhaustion)
+    // Should have a net_halted event once the retry-exhaustion halt token
+    // lands on slice:slice-1:halted and the next loop iteration observes it.
     const halted = events.filter((e) => e.kind === 'net_halted');
     expect(halted.length).toBe(1);
   });
