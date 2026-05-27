@@ -9,7 +9,7 @@ import { SessionManager } from "@earendil-works/pi-coding-agent"
 
 import {
   createWorkspaceSessionCoordinator,
-  type DefaultWorkspaceCoordinator,
+  type WorkspaceSessionCoordinator,
 } from "./workspace-session-coordinator.js"
 import { startWebHost } from "./web-host.js"
 import { assistantMessage, userMessage } from "./test-helpers.js"
@@ -485,8 +485,9 @@ function openWebSocket(url: string): Promise<WebSocket> {
   })
 }
 
-function throwingCoordinator(): DefaultWorkspaceCoordinator {
+function throwingCoordinator(): WorkspaceSessionCoordinator {
   return {
+    ...createWorkspaceSessionCoordinator({ cwd: "/tmp/brunch-project" }),
     async openDefaultWorkspace() {
       throw new Error("boom")
     },

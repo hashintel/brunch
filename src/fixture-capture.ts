@@ -10,8 +10,8 @@ import type { WorkspaceSnapshot } from "./print-snapshot.js"
 import type { JsonRpcResponse } from "./json-rpc-protocol.js"
 import {
   createWorkspaceSessionCoordinator,
-  type DefaultWorkspaceCoordinator,
   type WorkspaceSessionBoundaryCoordinator,
+  type WorkspaceSessionCoordinator,
   type WorkspaceSetupCoordinator,
 } from "./workspace-session-coordinator.js"
 
@@ -20,7 +20,7 @@ export interface FixtureCaptureOptions {
   briefId: string
   runId: string
   timestamp?: string
-  coordinator?: DefaultWorkspaceCoordinator
+  coordinator?: WorkspaceSessionCoordinator
 }
 
 export interface FixtureCaptureResult {

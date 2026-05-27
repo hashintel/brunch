@@ -5,7 +5,7 @@ Status key: `next` / `in progress` / `done` / `dropped`.
 ## Orientation
 
 - **Containing seam / frontier:** `pi-ui-extension-patterns` (FE-744), the Brunch-owned Pi UI affordance seam: startup/in-session spec/session selection, RPC/headless selection contract, and the next structured-question/RPC-relay proof.
-- **Current state:** The hierarchical spec/session picker landed and verified. Card 1 retired stale flat-picker exports, renamed the activation decision/coordinator types, and restored separate dev-tag styling; remaining review findings are the ad-hoc RPC activation parser, partial-coordinator capability smell, and visible regression to minimal chrome.
+- **Current state:** The hierarchical spec/session picker landed and verified. Cards 1–2 retired stale flat-picker exports, renamed the activation decision/coordinator types, restored separate dev-tag styling, and put `workspace.activate` behind a TypeBox-backed activation schema with required coordinator capabilities. The remaining review finding is the visible regression to minimal chrome.
 - **Main open risk:** The next structured-question work will add another UI/RPC boundary; if the existing picker/RPC seam keeps stale APIs and cast-heavy parsing, the structured-question slice will copy that complexity.
 - **Frontier obligations:** Preserve `workspace(cwd) → spec → session` (D11-L/D36-L/I22-L), coordinator-owned activation and binding (D21-L/I8-L), no implicit TUI resume before explicit activation (D22-L/I22-L), RPC/headless non-TUI selection, Pi transcript truth for structured interactions (D37-L/I23-L), and TypeBox as Brunch's runtime schema vocabulary (D41-L/I26-L).
 
@@ -55,7 +55,7 @@ Retire the obsolete flat workspace-dialog option API, rename the activation deci
 
 ## Card 2 — Schema-backed RPC spec/session activation boundary
 
-**Status:** next  
+**Status:** done  
 **Weight:** full scope card
 
 ### Target Behavior

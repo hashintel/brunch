@@ -204,7 +204,7 @@ describe("JSON-RPC handlers", () => {
     })
   })
 
-  it("activates valid workspace decisions and returns a serializable product snapshot", async () => {
+  it("activates valid spec/session decisions and returns serializable product snapshots", async () => {
     const decisions: SpecSessionActivationDecision[] = []
     const handlers = createRpcHandlers({
       cwd: "/tmp/brunch-project",
@@ -212,30 +212,52 @@ describe("JSON-RPC handlers", () => {
         ...coordinator(),
         async activateWorkspace(decision): Promise<WorkspaceActivationState> {
           decisions.push(decision)
-          return readyState(
-            "/tmp/brunch-project/.brunch/sessions/session-1.jsonl",
-          )
+          return decision.action === "cancel"
+            ? cancelledState()
+            : readyState("/tmp/brunch-project/.brunch/sessions/session-1.jsonl")
         },
       },
     })
 
-    await expect(
-      handlers.handle({
-        jsonrpc: "2.0",
-        id: 21,
-        method: "workspace.activate",
-        params: { decision: { action: "newSession", specId: "spec-1" } },
-      }),
-    ).resolves.toMatchObject({
-      jsonrpc: "2.0",
-      id: 21,
-      result: {
-        status: "ready",
-        spec: { id: "spec-1" },
-        session: { id: "session-1" },
+    const validDecisions: SpecSessionActivationDecision[] = [
+      { action: "cancel" },
+      { action: "newSpec", title: "New spec" },
+      { action: "newSession", specId: "spec-1" },
+      {
+        action: "continue",
+        specId: "spec-1",
+        sessionFile: "session-1.jsonl",
       },
-    })
-    expect(decisions).toEqual([{ action: "newSession", specId: "spec-1" }])
+      {
+        action: "openSession",
+        specId: "spec-1",
+        sessionFile: "session-2.jsonl",
+      },
+    ]
+
+    for (const [index, decision] of validDecisions.entries()) {
+      await expect(
+        handlers.handle({
+          jsonrpc: "2.0",
+          id: 21 + index,
+          method: "workspace.activate",
+          params: { decision },
+        }),
+      ).resolves.toMatchObject({
+        jsonrpc: "2.0",
+        id: 21 + index,
+        result:
+          decision.action === "cancel"
+            ? { status: "cancelled", spec: { id: "spec-1" } }
+            : {
+                status: "ready",
+                spec: { id: "spec-1" },
+                session: { id: "session-1" },
+              },
+      })
+      expect(decisions).toHaveLength(index + 1)
+      expect(decisions[index]).toEqual(decision)
+    }
   })
 
   it("rejects invalid workspace activation params", async () => {

@@ -1,6 +1,9 @@
 import { createInterface } from "node:readline/promises"
 import type { Readable, Writable } from "node:stream"
 
+import { Type, type Static } from "typebox"
+import { Value } from "typebox/value"
+
 import {
   readBrunchSessionEnvelope,
   NonLinearTranscriptError,
@@ -39,7 +42,7 @@ export interface RpcHandlers {
 }
 
 export function createRpcHandlers(options: {
-  coordinator: DefaultWorkspaceCoordinator & Partial<SpecSessionActivationCoordinator>
+  coordinator: DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator
   cwd: string
 }): RpcHandlers {
   return {
@@ -65,9 +68,6 @@ export function createRpcHandlers(options: {
         if (request.params !== undefined) {
           return createJsonRpcFailure(requestId, -32602, "Invalid params")
         }
-        if (!options.coordinator.inspectWorkspace) {
-          return createJsonRpcFailure(requestId, -32603, "Internal error")
-        }
         const [state, inventory] = await Promise.all([
           options.coordinator.openDefaultWorkspace(),
           options.coordinator.inspectWorkspace(),
@@ -82,9 +82,6 @@ export function createRpcHandlers(options: {
         const decision = parseWorkspaceActivationParams(request.params)
         if (!decision.ok) {
           return createJsonRpcFailure(requestId, -32602, "Invalid params")
-        }
-        if (!options.coordinator.activateWorkspace) {
-          return createJsonRpcFailure(requestId, -32603, "Internal error")
         }
         const state = await options.coordinator.activateWorkspace(
           decision.value,
@@ -157,6 +154,56 @@ function workspaceActivationSnapshotFromState(
   return workspaceSnapshotFromState(state)
 }
 
+const NonBlankStringSchema = Type.String({ minLength: 1, pattern: "\\S" })
+
+export const SpecSessionActivationDecisionSchema = Type.Union([
+  Type.Object(
+    {
+      action: Type.Literal("continue"),
+      specId: NonBlankStringSchema,
+      sessionFile: NonBlankStringSchema,
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      action: Type.Literal("openSession"),
+      specId: NonBlankStringSchema,
+      sessionFile: NonBlankStringSchema,
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      action: Type.Literal("newSession"),
+      specId: NonBlankStringSchema,
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      action: Type.Literal("newSpec"),
+      title: NonBlankStringSchema,
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      action: Type.Literal("cancel"),
+    },
+    { additionalProperties: false },
+  ),
+])
+
+const WorkspaceActivationParamsSchema = Type.Object(
+  {
+    decision: SpecSessionActivationDecisionSchema,
+  },
+  { additionalProperties: false },
+)
+
+type WorkspaceActivationParams = Static<typeof WorkspaceActivationParamsSchema>
+
 type WorkspaceActivationParamsParseResult = {
   ok: true
   value: SpecSessionActivationDecision
@@ -165,42 +212,14 @@ type WorkspaceActivationParamsParseResult = {
 function parseWorkspaceActivationParams(
   value: unknown,
 ): WorkspaceActivationParamsParseResult {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+  if (!Value.Check(WorkspaceActivationParamsSchema, value)) {
     return { ok: false }
   }
-  const decision = (value as { decision?: unknown }).decision
-  if (
-    typeof decision !== "object" ||
-    decision === null ||
-    Array.isArray(decision)
-  ) {
-    return { ok: false }
-  }
-  const action = (decision as { action?: unknown }).action
-  if (action === "cancel") return { ok: true, value: { action } }
-  if (action === "newSpec") {
-    const title = (decision as { title?: unknown }).title
-    return typeof title === "string" && title.trim().length > 0
-      ? { ok: true, value: { action, title } }
-      : { ok: false }
-  }
-  if (action === "newSession") {
-    const specId = (decision as { specId?: unknown }).specId
-    return typeof specId === "string" && specId.length > 0
-      ? { ok: true, value: { action, specId } }
-      : { ok: false }
-  }
-  if (action === "continue" || action === "openSession") {
-    const specId = (decision as { specId?: unknown }).specId
-    const sessionFile = (decision as { sessionFile?: unknown }).sessionFile
-    return typeof specId === "string" &&
-      specId.length > 0 &&
-      typeof sessionFile === "string" &&
-      sessionFile.length > 0
-      ? { ok: true, value: { action, specId, sessionFile } }
-      : { ok: false }
-  }
-  return { ok: false }
+  const params: WorkspaceActivationParams = Value.Parse(
+    WorkspaceActivationParamsSchema,
+    value,
+  )
+  return { ok: true, value: params.decision }
 }
 
 async function handleSessionProjection<T>(

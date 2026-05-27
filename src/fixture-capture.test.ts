@@ -3,8 +3,10 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
-import type { DefaultWorkspaceCoordinator } from "./workspace-session-coordinator.js"
-import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
+import {
+  createWorkspaceSessionCoordinator,
+  type WorkspaceSessionCoordinator,
+} from "./workspace-session-coordinator.js"
 import { loadLinearElicitationExchangeProjection } from "./elicitation-exchange.js"
 import { assistantMessage, userMessage } from "./test-helpers.js"
 import {
@@ -95,7 +97,8 @@ describe("fixture capture", () => {
     workspace.session.manager.appendMessage(assistantMessage("Question"))
     workspace.session.manager.appendMessage(userMessage("Answer"))
 
-    const coordinator: DefaultWorkspaceCoordinator = {
+    const coordinator: WorkspaceSessionCoordinator = {
+      ...createWorkspaceSessionCoordinator({ cwd }),
       async openDefaultWorkspace() {
         return workspace
       },

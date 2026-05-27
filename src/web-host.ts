@@ -5,13 +5,13 @@ import { fileURLToPath } from "node:url"
 
 import { createRpcHandlers } from "./rpc.js"
 import { attachWebRpcTransport } from "./web-rpc-transport.js"
-import type { DefaultWorkspaceCoordinator } from "./workspace-session-coordinator.js"
+import type { WorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
 
 export interface WebHostOptions {
   cwd: string
   port?: number
   hostname?: string
-  coordinator?: DefaultWorkspaceCoordinator
+  coordinator?: WorkspaceSessionCoordinator
   webAssetRoot?: string
 }
 
