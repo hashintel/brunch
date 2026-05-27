@@ -58,7 +58,6 @@ export {
   chromeStateForWorkspace,
   formatBrunchChromeFooterLines,
   formatBrunchChromeHeaderLines,
-  formatBrunchStatus,
   formatChromeIdentity,
   formatChromeWidgetLines,
   formatContextGauge,

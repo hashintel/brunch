@@ -27,7 +27,6 @@ import {
   formatBrunchChromeFooterLines,
   alignChromeColumns,
   formatBrunchChromeHeaderLines,
-  formatBrunchStatus,
   formatChromeIdentity,
   formatChromeWidgetLines,
   formatContextGauge,
@@ -246,9 +245,6 @@ describe("Brunch TUI boot", () => {
       "spec: Spec One · session: Interview #1",
       "",
     ])
-    expect(formatBrunchStatus(state)).toBe(
-      "Brunch · elicitation · Spec One · not reported",
-    )
     expect(formatChromeWidgetLines(state)).toEqual([
       "cwd: /tmp/project",
       "spec: Spec One",

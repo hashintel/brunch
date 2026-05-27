@@ -82,10 +82,6 @@ export function formatBrunchChromeFooterLines(
   ]
 }
 
-export function formatBrunchStatus(chrome: BrunchChromeState): string {
-  return `Brunch · ${chrome.phase} · ${formatSpec(chrome)} · ${formatRuntime(chrome)}`
-}
-
 export function formatChromeWidgetLines(chrome: BrunchChromeState): string[] {
   return [
     `cwd: ${chrome.cwd}`,
