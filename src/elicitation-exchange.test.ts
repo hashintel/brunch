@@ -299,6 +299,44 @@ describe("elicitation exchange projection", () => {
     )
   })
 
+  it("loads and projects terminal structured-question tool results as JSONL responses", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-structured-question-"))
+    const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    appendBinding(manager)
+    manager.appendMessage(
+      assistantMessage("Please answer the structured question."),
+    )
+    manager.appendMessage({
+      role: "toolResult",
+      toolCallId: "call-sq-jsonl",
+      toolName: "brunch_structured_question",
+      content: [{ type: "text", text: "Domain?: Developer tooling" }],
+      details: buildStructuredQuestionResult({
+        params: {
+          id: "domain",
+          mode: "text",
+          prompt: "Domain?",
+        },
+        status: "answered",
+        answers: [
+          { questionId: "domain", mode: "text", value: "Developer tooling" },
+        ],
+        transport: { surface: "rpc-editor" },
+      }).details,
+      isError: false,
+      timestamp: 0,
+    })
+
+    const projection = await loadLinearElicitationExchangeProjection(
+      manager.getSessionFile()!,
+    )
+
+    expect(projection.status).toBe("ready")
+    expect(projection.exchanges).toHaveLength(1)
+    expect(projection.exchanges[0]?.promptEntryIds).toHaveLength(1)
+    expect(projection.exchanges[0]?.responseEntryIds).toHaveLength(1)
+  })
+
   it("loads displayable assistant and user transcript rows", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-display-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
