@@ -29,8 +29,6 @@ import {
 export { registerBrunchAlternatives } from "./pi-extensions/alternatives.js"
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from "./pi-extensions/command-policy.js"
 export {
-  FIXTURE_GRAPH_MENTION_SOURCE,
-  extractHashPrefix,
   registerBrunchMentionAutocomplete,
   type GraphMentionCandidate,
   type GraphMentionSource,
