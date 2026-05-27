@@ -39,6 +39,10 @@ export interface WorkspaceSelectionView {
   specId?: string
 }
 
+export interface WorkspaceSelectionViewOptions {
+  includeContinue?: boolean
+}
+
 export type WorkspaceSelectionResult = { decision: WorkspaceSwitchDecision } | {
   view: WorkspaceSelectionView
 }
@@ -46,6 +50,7 @@ export type WorkspaceSelectionResult = { decision: WorkspaceSwitchDecision } | {
 export function buildWorkspaceSelectionView(
   inventory: WorkspaceLaunchInventory,
   stage: WorkspaceSelectionStage = { stage: "home" },
+  options: WorkspaceSelectionViewOptions = {},
 ): WorkspaceSelectionView {
   if (stage.stage === "newSpecTitle") {
     return {
@@ -116,13 +121,14 @@ export function buildWorkspaceSelectionView(
     }
   }
 
-  return buildHomeSelectionView(inventory)
+  return buildHomeSelectionView(inventory, options)
 }
 
 export function selectWorkspaceSelectionOption(
   view: WorkspaceSelectionView,
   index: number,
   inventory?: WorkspaceLaunchInventory,
+  options: WorkspaceSelectionViewOptions = {},
 ): WorkspaceSelectionResult {
   const option = view.options[index]
   if (!option) return { decision: { action: "cancel" } }
@@ -130,7 +136,9 @@ export function selectWorkspaceSelectionOption(
   if (!inventory) {
     return { view: stageOnlyView(option.nextStage ?? { stage: "home" }) }
   }
-  return { view: buildWorkspaceSelectionView(inventory, option.nextStage) }
+  return {
+    view: buildWorkspaceSelectionView(inventory, option.nextStage, options),
+  }
 }
 
 function stageOnlyView(stage: WorkspaceSelectionStage): WorkspaceSelectionView {
@@ -144,14 +152,19 @@ function stageOnlyView(stage: WorkspaceSelectionStage): WorkspaceSelectionView {
 
 function buildHomeSelectionView(
   inventory: WorkspaceLaunchInventory,
+  viewOptions: WorkspaceSelectionViewOptions,
 ): WorkspaceSelectionView {
-  const options: WorkspaceSelectionOption[] = []
+  const selectionOptions: WorkspaceSelectionOption[] = []
   const currentSession = findCurrentSession(inventory)
 
-  if (currentSession && inventory.currentSpec) {
-    options.push({
+  if (
+    viewOptions.includeContinue !== false &&
+    currentSession &&
+    inventory.currentSpec
+  ) {
+    selectionOptions.push({
       id: `continue:${currentSession.file}`,
-      label: "Continue last session",
+      label: "Continue your latest spec and session",
       description: `${inventory.currentSpec.title} · ${currentSession.id}`,
       kind: "continue",
       decision: {
@@ -162,17 +175,17 @@ function buildHomeSelectionView(
     })
   }
 
-  options.push(
+  selectionOptions.push(
     {
       id: "new-spec",
-      label: "Create new specification",
+      label: "Start a new specification",
       description: "Name a new spec and create its first session",
       kind: "newSpec",
       nextStage: { stage: "newSpecTitle", title: "" },
     },
     {
       id: "resume-spec",
-      label: "Resume existing specification",
+      label: "Continue an existing specification",
       description: "Choose a spec, then create or resume a session",
       kind: "resumeSpec",
       nextStage: { stage: "specList" },
@@ -186,7 +199,11 @@ function buildHomeSelectionView(
     },
   )
 
-  return { stage: "home", title: "Choose a specification", options }
+  return {
+    stage: "home",
+    title: "Choose a specification",
+    options: selectionOptions,
+  }
 }
 
 export function buildWorkspaceDialogOptions(

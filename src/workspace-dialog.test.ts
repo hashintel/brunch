@@ -25,9 +25,9 @@ describe("spec/session picker", () => {
       "cancel",
     ])
     expect(view.options.map((option) => option.label)).toEqual([
-      "Continue last session",
-      "Create new specification",
-      "Resume existing specification",
+      "Continue your latest spec and session",
+      "Start a new specification",
+      "Continue an existing specification",
       "Cancel",
     ])
     expect(view.options.map((option) => option.label).join("\n")).not.toMatch(
@@ -137,11 +137,25 @@ describe("spec/session picker", () => {
     const text = component.render(80).join("\n")
 
     expect(text).toContain("Choose a specification")
-    expect(text).toContain("Create new specification")
-    expect(text).toContain("Resume existing specification")
+    expect(text).toContain("Start a new specification")
+    expect(text).toContain("Continue an existing specification")
     expect(text).not.toContain("Brunch workspace")
     expect(text).not.toContain("Create workspace")
     expect(text).not.toContain("Open workspace")
+  })
+
+  it("omits continue-latest from in-session picker contexts", () => {
+    const component = createWorkspaceDialogComponent({
+      inventory: inventory(),
+      includeContinue: false,
+      onDecision: () => {},
+    })
+
+    const text = component.render(80).join("\n")
+
+    expect(text).not.toContain("Continue your latest spec and session")
+    expect(text).toContain("Start a new specification")
+    expect(text).toContain("Continue an existing specification")
   })
 
   it("selects current continue as a typed decision", () => {
@@ -240,7 +254,9 @@ describe("spec/session picker", () => {
     component.handleInput!("\r")
     expect(component.render(80).join("\n")).toContain("Choose a specification")
     component.handleInput!("\x1B")
-    expect(component.render(80).join("\n")).toContain("Continue last session")
+    expect(component.render(80).join("\n")).toContain(
+      "Continue your latest spec and session",
+    )
     component.handleInput!("\x1B")
 
     expect(decisions).toEqual([{ action: "cancel" }])

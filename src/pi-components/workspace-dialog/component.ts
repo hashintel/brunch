@@ -40,6 +40,7 @@ export interface WorkspaceDialogComponentOptions {
   inventory: WorkspaceLaunchInventory
   onDecision: (decision: WorkspaceSwitchDecision) => void
   theme?: WorkspaceDialogTheme
+  includeContinue?: boolean
 }
 
 export function createWorkspaceDialogComponent(
@@ -52,6 +53,7 @@ class WorkspaceDialogComponent implements Component {
   #inventory: WorkspaceLaunchInventory
   #onDecision: (decision: WorkspaceSwitchDecision) => void
   #theme: WorkspaceDialogTheme | undefined
+  #includeContinue: boolean
   #selectedIndex = 0
   #stage: WorkspaceSelectionStage = { stage: "home" }
   #history: WorkspaceSelectionStage[] = []
@@ -61,6 +63,7 @@ class WorkspaceDialogComponent implements Component {
     this.#inventory = options.inventory
     this.#onDecision = options.onDecision
     this.#theme = options.theme
+    this.#includeContinue = options.includeContinue ?? true
   }
 
   handleInput(data: string): void {
@@ -153,6 +156,7 @@ class WorkspaceDialogComponent implements Component {
       this.#view(),
       this.#selectedIndex,
       this.#inventory,
+      { includeContinue: this.#includeContinue },
     )
     if ("decision" in result) {
       this.#onDecision(result.decision)
@@ -186,7 +190,9 @@ class WorkspaceDialogComponent implements Component {
   }
 
   #view(): WorkspaceSelectionView {
-    return buildWorkspaceSelectionView(this.#inventory, this.#stage)
+    return buildWorkspaceSelectionView(this.#inventory, this.#stage, {
+      includeContinue: this.#includeContinue,
+    })
   }
 
   #backOrCancel(): void {

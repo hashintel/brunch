@@ -34,9 +34,9 @@ export function registerBrunchWorkspaceDialog(
   pi.registerShortcut?.(BRUNCH_WORKSPACE_SHORTCUT, {
     description: "Open the Brunch spec/session picker",
     handler: async (ctx) => {
-      await runBrunchWorkspaceCommand(
-        ctx as ExtensionCommandContext,
-        coordinator,
+      ctx.ui.notify(
+        "Use /brunch to switch specs or sessions; Pi shortcut contexts cannot switch sessions yet.",
+        "warning",
       )
     },
   })
@@ -60,7 +60,12 @@ export async function runBrunchWorkspaceAction(
   const inventory = await coordinator.inspectWorkspace()
   const decision = await ctx.ui.custom<WorkspaceSwitchDecision>(
     (_tui, theme, _keybindings, done) =>
-      createWorkspaceDialogComponent({ inventory, theme, onDecision: done }),
+      createWorkspaceDialogComponent({
+        inventory,
+        theme,
+        onDecision: done,
+        includeContinue: false,
+      }),
     {
       overlay: true,
       overlayOptions: {
@@ -95,6 +100,13 @@ async function switchToActivatedWorkspace(
   ctx: ExtensionCommandContext,
   activated: WorkspaceSessionReadyState,
 ): Promise<void> {
+  if (typeof ctx.switchSession !== "function") {
+    ctx.ui.notify(
+      "Use /brunch to switch specs or sessions; this Pi context cannot switch sessions.",
+      "warning",
+    )
+    return
+  }
   const targetFile = activated.session.file
   if (ctx.sessionManager.getSessionFile() === targetFile) {
     renderBrunchChrome(ctx.ui, chromeStateForWorkspace(activated))

@@ -403,6 +403,17 @@ describe("Brunch TUI boot", () => {
       "Open the Brunch spec/session picker",
     )
     expect(shortcuts.has("ctrl+b")).toBe(false)
+
+    const shortcutEvents: string[] = []
+    const shortcut = shortcuts.get(BRUNCH_WORKSPACE_SHORTCUT)
+    expect(shortcut).toBeDefined()
+    const shortcutHandler = shortcut!.handler as (
+      ctx: unknown,
+    ) => Promise<void> | void
+    await shortcutHandler({
+      ui: fakeUi((method, type) => shortcutEvents.push(`${method}:${type}`)),
+    })
+    expect(shortcutEvents).toEqual(["notify:warning"])
   })
 
   it("opens the spec/session picker from the Brunch command", async () => {
