@@ -29,6 +29,7 @@ import {
   formatBrunchStatus,
   formatChromeWidgetLines,
   extractHashPrefix,
+  registerBrunchAlternatives,
   registerBrunchMentionAutocomplete,
   registerBrunchOperationalModePolicy,
   renderBrunchChrome,
@@ -379,12 +380,20 @@ describe("Brunch TUI boot", () => {
       registerShortcut: (name: string, opts: unknown) =>
         shortcuts.set(name, opts as never),
       registerTool: (tool: { name: string }) => registeredTools.push(tool.name),
+      registerMessageRenderer: (_type: string) => {},
+      sendMessage: (_message: unknown) => {},
       getAllTools: () =>
         ["read", "grep", "find", "ls", "bash"].map((name) => ({ name })),
       setActiveTools: (_tools: string[]) => {},
     } as never)
 
-    expect(registeredTools).toEqual(["read", "grep", "find", "ls"])
+    expect(registeredTools).toEqual([
+      "read",
+      "grep",
+      "find",
+      "ls",
+      "present_alternatives",
+    ])
     expect(commands.get(BRUNCH_MENU_COMMAND)?.description).toBe(
       "Open the Brunch menu",
     )
@@ -600,6 +609,50 @@ describe("Brunch TUI boot", () => {
         type: "warning",
       },
     ])
+  })
+
+  it("registers alternatives cards as a transcript primitive without demo commands", async () => {
+    const commands: string[] = []
+    const renderers: string[] = []
+    const tools = new Map<string, {
+      execute: (id: string, params: never) => unknown
+    }>()
+    const messages: unknown[] = []
+
+    registerBrunchAlternatives({
+      registerMessageRenderer: (type: string) => renderers.push(type),
+      registerTool: (tool: {
+        name: string
+        execute: (id: string, params: never) => unknown
+      }) => tools.set(tool.name, tool),
+      registerCommand: (name: string) => commands.push(name),
+      sendMessage: (message: unknown) => messages.push(message),
+    } as never)
+
+    await expect(
+      Promise.resolve(tools.get("present_alternatives")?.execute("tool-1", {
+          headline: "Choose",
+          alternatives: [{ title: "A", body: "Alpha", flavor: "accent" }],
+        } as never)),
+    ).resolves.toMatchObject({
+      content: [{ type: "text", text: "Presented 1 alternative." }],
+      details: { count: 1 },
+      terminate: true,
+    })
+
+    expect(renderers).toEqual(["alternatives-card-set"])
+    expect(messages).toEqual([
+      {
+        customType: "alternatives-card-set",
+        content: "## Choose\n\n---\n\n### A\n\nAlpha",
+        display: true,
+        details: {
+          headline: "Choose",
+          alternatives: [{ title: "A", body: "Alpha", flavor: "accent" }],
+        },
+      },
+    ])
+    expect(commands).toEqual([])
   })
 
   it("registers graph-code mention autocomplete without fixture tag JSON", async () => {

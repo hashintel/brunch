@@ -283,7 +283,7 @@ Reusable Pi TUI components live under `src/pi-components`, including the workspa
 
 ## Card 7 — Port alternatives/card transcript primitive without demos
 
-**Status:** next
+**Status:** done
 **Weight:** full scope card
 
 ### Target Behavior

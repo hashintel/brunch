@@ -3,6 +3,7 @@ import {
   type ExtensionFactory,
 } from "@earendil-works/pi-coding-agent"
 
+import { registerBrunchAlternatives } from "./pi-extensions/alternatives.js"
 import { registerBrunchBranchPolicyHandlers } from "./pi-extensions/command-policy.js"
 import {
   registerBrunchMentionAutocomplete,
@@ -23,6 +24,7 @@ import {
   type BrunchWorkspaceCommandOptions,
 } from "./pi-extensions/settings-switcher-menu.js"
 
+export { registerBrunchAlternatives } from "./pi-extensions/alternatives.js"
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from "./pi-extensions/command-policy.js"
 export {
   extractHashPrefix,
@@ -80,6 +82,7 @@ export function createBrunchPiExtensionShell(
     registerBrunchBranchPolicyHandlers(pi)
     registerBrunchOperationalModePolicy(pi)
     registerBrunchMentionAutocomplete(pi, options.graphMentionSource)
+    registerBrunchAlternatives(pi)
     registerBrunchWorkspaceCommand(pi, options)
   }
 }

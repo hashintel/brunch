@@ -22,7 +22,13 @@ import {
 } from "@earendil-works/pi-coding-agent"
 import { Text } from "@earendil-works/pi-tui"
 
-const READ_ONLY_TOOLS = ["read", "grep", "find", "ls"] as const
+const READ_ONLY_TOOLS = [
+  "read",
+  "grep",
+  "find",
+  "ls",
+  "present_alternatives",
+] as const
 type ReadOnlyToolName = typeof READ_ONLY_TOOLS[number]
 
 function shortenPath(path: string): string {
