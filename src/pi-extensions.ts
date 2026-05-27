@@ -10,6 +10,7 @@ import {
   type GraphMentionSource,
 } from "./pi-extensions/mention-autocomplete.js"
 import { registerBrunchOperationalModePolicy } from "./pi-extensions/operational-mode.js"
+import { registerBrunchStructuredQuestion } from "./pi-extensions/structured-question.js"
 import {
   renderBrunchChrome,
   type BrunchChromeState,
@@ -69,6 +70,13 @@ export {
   type BrunchSessionBoundaryHandler,
 } from "./pi-extensions/session-lifecycle.js"
 export {
+  STRUCTURED_QUESTION_TOOL,
+  answerStructuredQuestionWithTui,
+  createStructuredQuestionTuiComponent,
+  registerBrunchStructuredQuestion,
+  type StructuredQuestionTuiResponse,
+} from "./pi-extensions/structured-question.js"
+export {
   BRUNCH_WORKSPACE_COMMAND,
   BRUNCH_WORKSPACE_SHORTCUT,
   registerBrunchWorkspaceDialog,
@@ -100,6 +108,7 @@ export function createBrunchPiExtensionShell(
     registerBrunchOperationalModePolicy(pi)
     registerBrunchMentionAutocomplete(pi, options.graphMentionSource)
     registerBrunchAlternatives(pi)
+    registerBrunchStructuredQuestion(pi)
     registerBrunchWorkspaceDialog(pi, options)
   }
 }

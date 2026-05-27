@@ -433,6 +433,7 @@ describe("Brunch TUI boot", () => {
       "find",
       "ls",
       "present_alternatives",
+      "brunch_structured_question",
     ])
     expect(commands.get(BRUNCH_WORKSPACE_COMMAND)?.description).toBe(
       "Open the Brunch spec/session picker",

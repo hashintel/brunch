@@ -5,7 +5,7 @@ Status key: `next` / `in progress` / `done` / `dropped`.
 ## Orientation
 
 - **Containing seam / frontier:** `pi-ui-extension-patterns` (FE-744), the Brunch-owned Pi UI affordance seam: startup/in-session spec/session selection, RPC/headless selection contract, and the next structured-question/RPC-relay proof.
-- **Current state:** The hierarchical spec/session picker landed and verified. Cards 1–4 retired stale picker/RPC APIs, restored richer Brunch chrome formatting, and added the TypeBox-backed structured-question result schema/builder for self-contained `toolResult.details`. The remaining queue is TUI input replacement and RPC JSON-editor fallback.
+- **Current state:** The hierarchical spec/session picker landed and verified. Cards 1–5 retired stale picker/RPC APIs, restored richer Brunch chrome formatting, added the TypeBox-backed structured-question result schema/builder, and registered the TUI custom adapter for input-replacing structured answers. The remaining queue is RPC JSON-editor fallback.
 - **Main open risk:** The next structured-question work will add another UI/RPC boundary; if the existing picker/RPC seam keeps stale APIs and cast-heavy parsing, the structured-question slice will copy that complexity.
 - **Frontier obligations:** Preserve `workspace(cwd) → spec → session` (D11-L/D36-L/I22-L), coordinator-owned activation and binding (D21-L/I8-L), no implicit TUI resume before explicit activation (D22-L/I22-L), RPC/headless non-TUI selection, Pi transcript truth for structured interactions (D37-L/I23-L), and TypeBox as Brunch's runtime schema vocabulary (D41-L/I26-L).
 
@@ -196,7 +196,7 @@ A Brunch structured-question tool can return a self-contained `toolResult.detail
 
 ## Card 5 — TUI custom UI adapter for structured questions
 
-**Status:** next  
+**Status:** done  
 **Weight:** full scope card
 
 ### Target Behavior
