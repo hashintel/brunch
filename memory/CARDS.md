@@ -10,19 +10,31 @@ Two-slice queue. Only Slice 1 is pre-scoped; Slice 2 will be scoped after Slice 
 
 ## Slice 1: sibling transitions for conditional branching
 
-**Status:** next
+**Status:** in progress
 
 ### Target Behavior
 
 Every `TransitionSkeleton` in the compiled net has exactly one fixed output set; conditional routing in `evaluate`, `run-tests`, `assess-semantic`, and `verify-epic` is expressed as sibling transitions with complementary enabling guards rather than `HandlerDescriptor` output-set selection.
 
+### Design choice (option A, confirmed 2026-05-27)
+
+Each conditional action-transition splits into two stages:
+
+1. **Producer transition** (kind preserved: `action` / `run-tests` / `assess-semantic` / `verify-epic`) — runs the work synchronously, attaches the resulting report to the output token, emits to a single new intermediate place named `slice:<sliceId>:<step>:reported` (or `epic:<epicId>:verify:reported` for the epic-level verify).
+2. **Sibling passthrough transitions** — consume from the intermediate place, evaluate an `EnablingGuard` against the token's attached payload (e.g. `tokenPayloadFieldTruthy: 'done'`), and emit to a single fixed output set.
+
+Tokens gain a `report?: ReportLine | { passed: boolean; ... }` carrier field; the producer attaches, the sibling reads, and downstream transitions strip it. The producer transition is still synchronous in Slice 1 — making it instantaneous (`dispatch:*` + `complete:*:<outcome>`) is Slice 2's concern.
+
+Why option A: (a) ships Slice 1 with no dependency on dispatch/complete async work; (b) every transition emits to one fixed output set, satisfying the Petrinaut all-outputs-fire requirement at the topology level; (c) the report-bearing-token + intermediate-place contract is exactly what Slice 2 will need anyway, so this lays Slice 2's foundation; (d) rejected option B (pure relabeling with hidden state) and option C (merge Slice 1 + Slice 2) for under- and over-scope respectively.
+
 ### Boundary Crossings
 
 ```
-→ src/orchestrator/src/net-blueprint.ts        (drop onTrue/onFalse/onPass/onFail/onSatisfied/onRejected from HandlerDescriptor; add enabling-guard data; collapse enumerateCandidateOutputs to single output set)
-→ src/orchestrator/src/net-compiler.ts          (compileTopology emits 2× sibling transitions per conditional-branch transition; restructure ~4 conditional transitions/slice)
-→ src/orchestrator/src/petri-net.ts             (Transition.isEnabled gains payload/marking-aware guard evaluation; selection between siblings happens here, not in fire closures)
-→ src/orchestrator/src/engine-contract.test.ts  (adapter goldens updated for new place/transition counts; runtime-equivalence assertions unchanged)
+→ src/orchestrator/src/net-blueprint.ts        (introduce EnablingGuard; drop onTrue/onFalse/onPass/onFail/onSatisfied/onRejected/onPassOutputs branching from HandlerDescriptor variants; producer descriptors emit to single `*:reported` intermediate place; sibling passthroughs gain enabling-guard data; enumerateCandidateOutputs collapses to single output set per transition)
+→ src/orchestrator/src/net-compiler.ts          (compileTopology adds 4 intermediate places + 4 producer transitions + 8 sibling passthroughs per slice; verify-epic also splits)
+→ src/orchestrator/src/petri-net.ts             (Transition.isEnabled evaluates EnablingGuard over token payload from input markings; Token type gains optional report carrier; fire kernel propagates report attach/strip)
+→ src/orchestrator/src/topology.test.ts         (adapter goldens updated for new place/transition counts and sibling shapes)
+→ src/orchestrator/src/engine-contract.test.ts  (runtime-equivalence assertions unchanged — same observable outcomes; counts in adapter assertions updated)
 ```
 
 ### Risks and Assumptions
@@ -33,7 +45,7 @@ Every `TransitionSkeleton` in the compiled net has exactly one fixed output set;
 - RISK: verify-epic halt-on-fail currently mutates ctx.halted in a fire closure; without halted:* place, the "fail" sibling has no topological output and may dead-end the net → MITIGATION: For Slice 1, keep ctx.halted mutation in the fail sibling's fire closure (instantaneous transition is acceptable; halted:* place is a Slice 2 / dispatch-refactor concern). Flag for Slice 2 scoping.
 - ASSUMPTION: Engine contract suite (~120 tests across both engines) is the runtime-equivalence oracle. → VALIDATE: All tests green post-refactor. [→ memory/SPEC.md §Assumptions]
 - ASSUMPTION: Pool / budget tokens stay consume+return (no read-arc migration) until Petrinaut team confirms read-arc concurrency. [→ HANDOFF.md "Open coordination items"; PLAN.md FE-761 frontier]
-- ASSUMPTION: Topology growth ≈ +4 transitions per slice (4 conditional transitions × 2 siblings − 4 originals); places unchanged in this slice. → VALIDATE: compileTopology adapter test asserts new counts.
+- ASSUMPTION: Topology growth ≈ +4 intermediate places + +8 sibling-passthrough transitions per slice (4 conditional transitions × 2 siblings each, producers retained). Plus +1 intermediate place + 2 siblings for epic-level `verify-epic`. → VALIDATE: compileTopology adapter test asserts new counts.
 ```
 
 ### Acceptance Criteria

@@ -109,6 +109,12 @@ type ActionDescriptor = {
  * and (when enabled) emits to a single fixed output set. Pairs of siblings
  * over one intermediate place implement Petri-net-faithful branching:
  * complementary guards ensure exactly one sibling is enabled per token.
+ *
+ * Optional `onFire` declares a side effect the sibling performs in addition
+ * to forwarding the token — used by FE-761 verify-epic siblings to mark
+ * the epic completed or halted in ctx without inventing new descriptor
+ * variants. The halt-side-effect produces empty outputs (Slice 1 keeps
+ * halt-as-ctx; Slice 2 will surface it as a halted:* place).
  */
 type SiblingPassthroughDescriptor = {
   kind: 'sibling-passthrough';
@@ -120,32 +126,48 @@ type SiblingPassthroughDescriptor = {
   outputs: string[];
   /** Predicate evaluated against the token's attached report. */
   enablingGuard: EnablingGuard;
+  /** Optional fire-time side effect (epic completion / halt). */
+  onFire?: { kind: 'mark-epic-completed' } | { kind: 'halt-epic'; reason: string };
 };
 
-/** Test runner with retry budget — 3-way routing on declarative guard. */
+/**
+ * Test runner with retry budget — producer. Runs tests synchronously,
+ * attaches the test-run report to the output token, and emits to a single
+ * intermediate place plus the retry-budget place. Sibling-passthrough
+ * transitions downstream route by the report's `passed` field. Budget
+ * exhaustion on fail is handled in the fire closure via ctx.halted
+ * mutation (FE-761 Slice 2 will move that to a halted:* place).
+ */
 type RunTestsDescriptor = {
   kind: 'run-tests';
   sliceId: string;
   epicId: string;
   target: string;
-  /** RouteGuard evaluated against the tests-run report; selects onPass vs onFail. */
-  passGuard: RouteGuard;
-  onPass: string[];
-  onFail: string[];
+  /** Single intermediate output place; siblings route from here. */
+  intermediatePlace: string;
+  /** Place to emit the (decremented or reset) retry-budget token to. */
   budgetPlace: string;
   maxRetries: number;
 };
 
-/** Semantic assessment with rework budget; routing is declarative. */
+/**
+ * Semantic assessment with rework budget — producer. Runs assessment
+ * synchronously, attaches the assess-semantic report to the output token,
+ * and emits to a single intermediate place. On rejection the budget place
+ * receives an incremented rework token; on satisfaction the budget is
+ * consumed and not returned. Sibling-passthrough transitions downstream
+ * route by the report's `satisfied` field. Budget exhaustion on rejection
+ * is handled in the fire closure via ctx.halted mutation (FE-761 Slice 2
+ * will move that to a halted:* place).
+ */
 type AssessSemanticDescriptor = {
   kind: 'assess-semantic';
   actionKey: string;
   sliceId: string;
   epicId: string;
-  /** RouteGuard evaluated against the semantic-assessed report; selects onSatisfied vs onRejected. */
-  satisfiedGuard: RouteGuard;
-  onSatisfied: string[];
-  onRejected: string[];
+  /** Single intermediate output place; siblings route from here. */
+  intermediatePlace: string;
+  /** Place to emit the (incremented) rework-budget token to on rejection. */
   budgetPlace: string;
   maxReworks: number;
 };
@@ -167,15 +189,21 @@ type CompleteEpicDescriptor = {
   depSignals: string[];
 };
 
-/** Verify epic — action call + pass/fail routing + halt on fail. */
+/**
+ * Verify epic — producer. Runs verification synchronously against the
+ * merged epic sandbox, attaches the verify-epic report to the output
+ * token, and emits to a single intermediate place. Sibling-passthrough
+ * transitions downstream route by the report's `passed` field — pass
+ * marks the epic completed and emits done + dep-signals; fail halts.
+ */
 type VerifyEpicDescriptor = {
   kind: 'verify-epic';
   actionKey: string;
   epicId: string;
   /** A representative slice for ActionContext. */
   representativeSliceId: string;
-  /** Outputs on pass (done place + dep-signals). */
-  onPassOutputs: { place: string; sliceId: string; epicId: string }[];
+  /** Single intermediate output place; siblings route from here. */
+  intermediatePlace: string;
 };
 
 export type HandlerDescriptor =
@@ -237,13 +265,11 @@ export function enumerateCandidateOutputs(transition: TransitionSkeleton): Set<s
       for (const p of h.outputs) out.add(p);
       return out;
     case 'run-tests':
-      for (const p of h.onPass) out.add(p);
-      for (const p of h.onFail) out.add(p);
+      out.add(h.intermediatePlace);
       out.add(h.budgetPlace);
       return out;
     case 'assess-semantic':
-      for (const p of h.onSatisfied) out.add(p);
-      for (const p of h.onRejected) out.add(p);
+      out.add(h.intermediatePlace);
       out.add(h.budgetPlace);
       return out;
     case 'complete-slice':
@@ -255,7 +281,7 @@ export function enumerateCandidateOutputs(transition: TransitionSkeleton): Set<s
       for (const p of h.depSignals) out.add(p);
       return out;
     case 'verify-epic':
-      for (const o of h.onPassOutputs) out.add(o.place);
+      out.add(h.intermediatePlace);
       return out;
   }
 }

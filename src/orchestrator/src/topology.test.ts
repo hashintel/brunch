@@ -118,25 +118,25 @@ describe('enumerateCandidateOutputs', () => {
     expect(enumerateCandidateOutputs(writeTests!)).toEqual(expected);
   });
 
-  it('run-tests transitions enumerate onPass, onFail, and budgetPlace', () => {
+  it('run-tests producer enumerates intermediatePlace plus budgetPlace', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const runTests = blueprint.transitions.find((t) => t.id.endsWith(':run-tests'));
+    const runTests = blueprint.transitions.find((t) => t.id === 'slice-1:run-tests');
     expect(runTests).toBeDefined();
     const handler = runTests!.handler;
     if (handler.kind !== 'run-tests') throw new Error('expected run-tests descriptor');
 
-    const expected = new Set<string>([...handler.onPass, ...handler.onFail, handler.budgetPlace]);
+    const expected = new Set<string>([handler.intermediatePlace, handler.budgetPlace]);
     expect(enumerateCandidateOutputs(runTests!)).toEqual(expected);
   });
 
-  it('assess-semantic transitions enumerate onSatisfied, onRejected, and budgetPlace', () => {
+  it('assess-semantic producer enumerates intermediatePlace plus budgetPlace', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const assess = blueprint.transitions.find((t) => t.id.endsWith(':assess-semantic'));
+    const assess = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic');
     expect(assess).toBeDefined();
     const handler = assess!.handler;
     if (handler.kind !== 'assess-semantic') throw new Error('expected assess-semantic descriptor');
 
-    const expected = new Set<string>([...handler.onSatisfied, ...handler.onRejected, handler.budgetPlace]);
+    const expected = new Set<string>([handler.intermediatePlace, handler.budgetPlace]);
     expect(enumerateCandidateOutputs(assess!)).toEqual(expected);
   });
 
@@ -159,25 +159,21 @@ describe('enumerateCandidateOutputs', () => {
     );
   });
 
-  it("golden: simplePlan 'slice-1:run-tests' enumerates to pass, fail, and retry-budget", () => {
+  it("golden: simplePlan 'slice-1:run-tests' producer enumerates intermediate place plus retry-budget", () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
     const runTests = blueprint.transitions.find((t) => t.id === 'slice-1:run-tests');
     expect(runTests).toBeDefined();
     expect(enumerateCandidateOutputs(runTests!)).toEqual(
-      new Set(['slice:slice-1:spec-ready', 'slice:slice-1:failing-tests', 'slice:slice-1:retry-budget']),
+      new Set(['slice:slice-1:run-tests:reported', 'slice:slice-1:retry-budget']),
     );
   });
 
-  it("golden: simplePlan 'slice-1:assess-semantic' enumerates to satisfied, rejected, and semantic-budget", () => {
+  it("golden: simplePlan 'slice-1:assess-semantic' producer enumerates intermediate plus semantic-budget", () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
     const assess = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic');
     expect(assess).toBeDefined();
     expect(enumerateCandidateOutputs(assess!)).toEqual(
-      new Set([
-        'slice:slice-1:semantic-satisfied',
-        'slice:slice-1:needs-more',
-        'slice:slice-1:semantic-budget',
-      ]),
+      new Set(['slice:slice-1:assess-semantic:reported', 'slice:slice-1:semantic-budget']),
     );
   });
 });
@@ -238,6 +234,126 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
     if (producerHandler.kind === 'action') {
       expect(producerHandler).not.toHaveProperty('onTrue');
       expect(producerHandler).not.toHaveProperty('onFalse');
+    }
+  });
+
+  it('run-tests decomposes into producer + 2 sibling passthroughs (pass / fail)', () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+
+    const producer = blueprint.transitions.find((t) => t.id === 'slice-1:run-tests');
+    expect(producer).toBeDefined();
+    expect(producer!.handler.kind).toBe('run-tests');
+
+    // Producer emits to intermediate place + budget place; no direct pass/fail routes.
+    const producerOutputs = enumerateCandidateOutputs(producer!);
+    expect(producerOutputs).toEqual(
+      new Set(['slice:slice-1:run-tests:reported', 'slice:slice-1:retry-budget']),
+    );
+
+    // Siblings consume from intermediate and route by enabling guard.
+    const passSibling = blueprint.transitions.find((t) => t.id === 'slice-1:run-tests:pass');
+    const failSibling = blueprint.transitions.find((t) => t.id === 'slice-1:run-tests:fail');
+    expect(passSibling, 'expect run-tests:pass sibling').toBeDefined();
+    expect(failSibling, 'expect run-tests:fail sibling').toBeDefined();
+
+    for (const sibling of [passSibling!, failSibling!]) {
+      expect(sibling.inputs).toEqual(['slice:slice-1:run-tests:reported']);
+      expect(sibling.handler.kind).toBe('sibling-passthrough');
+    }
+
+    expect(enumerateCandidateOutputs(passSibling!)).toEqual(new Set(['slice:slice-1:spec-ready']));
+    expect(enumerateCandidateOutputs(failSibling!)).toEqual(new Set(['slice:slice-1:failing-tests']));
+
+    // Branching descriptor fields are gone from the producer.
+    const producerHandler = producer!.handler;
+    if (producerHandler.kind === 'run-tests') {
+      expect(producerHandler).not.toHaveProperty('onPass');
+      expect(producerHandler).not.toHaveProperty('onFail');
+    }
+  });
+
+  it('verify-epic decomposes into producer + pass sibling + fail halt-sibling', () => {
+    // verifyPlan: epic-1 has verification, slice-1 inside it.
+    const verifyPlan = {
+      epics: [
+        {
+          id: 'epic-1',
+          summary: 'E',
+          depends_on: [],
+          verification: [{ kind: 'integration-test' as const, target: 'it.test.ts' }],
+        },
+      ],
+      slices: [
+        {
+          id: 'slice-1',
+          epic_id: 'epic-1',
+          definition: 'D',
+          depends_on: [],
+          verification: [{ kind: 'unit-test' as const, target: 't' }],
+        },
+      ],
+    };
+    const blueprint = compileTopology(verifyPlan, { maxRetries: 3 });
+
+    const producer = blueprint.transitions.find((t) => t.id === 'epic-verify:epic-1');
+    expect(producer, 'expect verify-epic producer').toBeDefined();
+    expect(producer!.handler.kind).toBe('verify-epic');
+
+    // Producer emits to single intermediate place (no direct done/halt routes).
+    expect(enumerateCandidateOutputs(producer!)).toEqual(new Set(['epic:epic-1:verify:reported']));
+
+    const passSibling = blueprint.transitions.find((t) => t.id === 'epic-verify:epic-1:pass');
+    const failSibling = blueprint.transitions.find((t) => t.id === 'epic-verify:epic-1:fail');
+    expect(passSibling, 'expect epic-verify:pass sibling').toBeDefined();
+    expect(failSibling, 'expect epic-verify:fail halt-sibling').toBeDefined();
+
+    for (const sibling of [passSibling!, failSibling!]) {
+      expect(sibling.inputs).toEqual(['epic:epic-1:verify:reported']);
+    }
+
+    // Pass sibling emits to the epic done place (no depSignals here — epic-1 has no epic dependents).
+    expect(enumerateCandidateOutputs(passSibling!)).toEqual(new Set(['epic:epic-1:done']));
+
+    // Fail halt-sibling emits nothing — halt is the side effect.
+    expect(enumerateCandidateOutputs(failSibling!)).toEqual(new Set());
+
+    // Branching descriptor fields are gone from the producer.
+    const producerHandler = producer!.handler;
+    if (producerHandler.kind === 'verify-epic') {
+      expect(producerHandler).not.toHaveProperty('onPassOutputs');
+    }
+  });
+
+  it('assess-semantic decomposes into producer + 2 sibling passthroughs (satisfied / rejected)', () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+
+    const producer = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic');
+    expect(producer).toBeDefined();
+    expect(producer!.handler.kind).toBe('assess-semantic');
+
+    // Producer emits to intermediate + budget place; no direct satisfied/rejected routes.
+    const producerOutputs = enumerateCandidateOutputs(producer!);
+    expect(producerOutputs).toEqual(
+      new Set(['slice:slice-1:assess-semantic:reported', 'slice:slice-1:semantic-budget']),
+    );
+
+    const satSibling = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic:satisfied');
+    const rejSibling = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic:rejected');
+    expect(satSibling, 'expect assess-semantic:satisfied sibling').toBeDefined();
+    expect(rejSibling, 'expect assess-semantic:rejected sibling').toBeDefined();
+
+    for (const sibling of [satSibling!, rejSibling!]) {
+      expect(sibling.inputs).toEqual(['slice:slice-1:assess-semantic:reported']);
+      expect(sibling.handler.kind).toBe('sibling-passthrough');
+    }
+
+    expect(enumerateCandidateOutputs(satSibling!)).toEqual(new Set(['slice:slice-1:semantic-satisfied']));
+    expect(enumerateCandidateOutputs(rejSibling!)).toEqual(new Set(['slice:slice-1:needs-more']));
+
+    const producerHandler = producer!.handler;
+    if (producerHandler.kind === 'assess-semantic') {
+      expect(producerHandler).not.toHaveProperty('onSatisfied');
+      expect(producerHandler).not.toHaveProperty('onRejected');
     }
   });
 });
