@@ -4,12 +4,11 @@
 
 # Scope cards — FE-761 petri-petrinaut-semantics
 
-Four-slice queue. Slices 1, 2, and 3 have landed. Slice 4 (the explicit
-dispatch+running:*+complete topology split for Petrinaut blueprint
-compatibility) remains scoped but unstarted — Slice 3 deliberately
-delivered the runtime async semantics via a deferred-fire mechanism
-without restructuring the topology; Slice 4 still owes Petrinaut the
-faithful topology shape called for in FE-761 acceptance criterion (3).
+Four-slice queue. **All four slices have landed.** Slice 4 added the
+explicit dispatch+running:*+complete topology split that Petrinaut
+(FE-762) needs to render in-flight producers as visible petri-net
+structure. Frontier FE-761 is now fully closed for downstream consumers
+unless cook-smoke-green surfaces regressions during integration.
 
 ---
 
@@ -100,7 +99,34 @@ Acceptance criteria from the original card revisited:
 
 ## Slice 4: explicit dispatch + running:* + complete topology split (for Petrinaut)
 
-**Status:** next — owed to FE-761 acceptance criterion (3) for Petrinaut blueprint compatibility (FE-762).
+**Status:** done — landed in this branch. Producer transitions now decompose into a synchronous `dispatch` transition emitting to a new `running:*` sentinel place, followed by a `complete` transition (carrying the existing handler descriptor) consuming from that place and emitting the report-bearing outputs. Existing slice-1 sibling-passthroughs continue to do outcome routing off the `:reported` intermediate, so no new `complete:*:<outcome>` siblings were needed.
+
+### Outcome
+
+- `net-blueprint.ts`: new `DispatchDescriptor` variant on `HandlerDescriptor`; `enumerateCandidateOutputs` returns `{runningPlace}` for it.
+- `net-compiler.ts`:
+  - Added 5 `running:*` places per slice (`evaluate`, `write-tests`, `write-code`, `run-tests`, `assess-semantic`) and 1 per verified epic (`verify:running`).
+  - Each of the 5 producers per slice + 1 per verified epic now compiles as two transitions: `<sid>:<step>:dispatch` (`kind: 'dispatch'`, structural lane) → `<sid>:<step>:complete` (existing handler descriptor, consumes from `running:*`).
+  - `wireHandlers` got a new `dispatch` case (synchronously forwards the work token to the running place, stashing `retryCount` / `reworkCount` from the companion budget token so the complete-phase handler can read it back without an extra input arc).
+  - `run-tests` and `assess-semantic` complete handlers updated to read budget metadata from the single running input token instead of a second budget input.
+- Tests updated:
+  - `topology.test.ts`: producer lookups migrated from `<sid>:<step>` to `<sid>:<step>:complete`; new golden test pinning the dispatch/running shape across all 5 per-slice producers; total 21 tests (was 20).
+  - `engine-contract.test.ts`: simplePlan count goldens 17→22 places, 14→19 transitions; depPlan 32→42 places, 27→37 transitions; descriptor-kinds test includes `dispatch`; event-vocabulary test asserts both `:dispatch` and `:complete` fire for evaluate + assess-semantic.
+- 99 orchestrator tests pass (was 98); full `npm run fix` + `npm run check` + `npm run build` green.
+
+### Acceptance Criteria — final
+
+```
+✓ topology-dispatch-complete-shape — every former producer has one :dispatch + one :complete transition; complete consumes from a single running:* place.
+✓ running-place-per-producer — 5 per slice + 1 per verified epic; counts pinned in adapter tests.
+✓ engine-contract-suite-green — all 99 orchestrator tests pass.
+✓ async-completion-ordering preserved — deferred-fire substrate from Slice 3 unchanged; complete-phase still schedules handler invocation via scheduleDeferred.
+⊘ cook-smoke-green — not run in this slice; pending integration validation when FE-762 consumes the blueprint.
+```
+
+### Status: previously-scoped target before implementation
+
+(Original scope text retained below for traceability.)
 
 ### Target Behavior
 

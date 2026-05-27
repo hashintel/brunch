@@ -107,7 +107,8 @@ describe('enumerateCandidateOutputs', () => {
 
   it('action transitions enumerate outputs plus agentReturnPlace', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const writeTests = blueprint.transitions.find((t) => t.id.endsWith(':write-tests'));
+    // FE-761 Slice 4: the action descriptor now lives on the :complete transition.
+    const writeTests = blueprint.transitions.find((t) => t.id === 'slice-1:write-tests:complete');
     expect(writeTests).toBeDefined();
     const handler = writeTests!.handler;
     if (handler.kind !== 'action') throw new Error('expected action descriptor');
@@ -120,7 +121,7 @@ describe('enumerateCandidateOutputs', () => {
 
   it('run-tests producer enumerates intermediatePlace plus budgetPlace', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const runTests = blueprint.transitions.find((t) => t.id === 'slice-1:run-tests');
+    const runTests = blueprint.transitions.find((t) => t.id === 'slice-1:run-tests:complete');
     expect(runTests).toBeDefined();
     const handler = runTests!.handler;
     if (handler.kind !== 'run-tests') throw new Error('expected run-tests descriptor');
@@ -131,7 +132,7 @@ describe('enumerateCandidateOutputs', () => {
 
   it('assess-semantic producer enumerates intermediatePlace plus budgetPlace', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const assess = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic');
+    const assess = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic:complete');
     expect(assess).toBeDefined();
     const handler = assess!.handler;
     if (handler.kind !== 'assess-semantic') throw new Error('expected assess-semantic descriptor');
@@ -150,31 +151,49 @@ describe('enumerateCandidateOutputs', () => {
 
   // Goldens — literal expected sets, not derived from descriptor fields.
   // These catch silent lockstep drift in both the descriptor emitter and the enumerator.
-  it("golden: simplePlan 'slice-1:evaluate' producer enumerates to intermediate place plus pool return", () => {
+  it("golden: simplePlan 'slice-1:evaluate:complete' producer enumerates to intermediate place plus pool return", () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const evaluate = blueprint.transitions.find((t) => t.id === 'slice-1:evaluate');
+    const evaluate = blueprint.transitions.find((t) => t.id === 'slice-1:evaluate:complete');
     expect(evaluate).toBeDefined();
     expect(enumerateCandidateOutputs(evaluate!)).toEqual(
       new Set(['slice:slice-1:evaluate:reported', 'pool:test-agent']),
     );
   });
 
-  it("golden: simplePlan 'slice-1:run-tests' producer enumerates intermediate place plus retry-budget", () => {
+  it("golden: simplePlan 'slice-1:run-tests:complete' producer enumerates intermediate place plus retry-budget", () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const runTests = blueprint.transitions.find((t) => t.id === 'slice-1:run-tests');
+    const runTests = blueprint.transitions.find((t) => t.id === 'slice-1:run-tests:complete');
     expect(runTests).toBeDefined();
     expect(enumerateCandidateOutputs(runTests!)).toEqual(
       new Set(['slice:slice-1:run-tests:reported', 'slice:slice-1:retry-budget']),
     );
   });
 
-  it("golden: simplePlan 'slice-1:assess-semantic' producer enumerates intermediate plus semantic-budget", () => {
+  it("golden: simplePlan 'slice-1:assess-semantic:complete' producer enumerates intermediate plus semantic-budget", () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const assess = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic');
+    const assess = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic:complete');
     expect(assess).toBeDefined();
     expect(enumerateCandidateOutputs(assess!)).toEqual(
       new Set(['slice:slice-1:assess-semantic:reported', 'slice:slice-1:semantic-budget']),
     );
+  });
+
+  // FE-761 Slice 4: explicit dispatch + running-place topology
+  it('golden: simplePlan dispatch transitions emit to running:* sentinels', () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+    const cases = [
+      { id: 'slice-1:evaluate:dispatch', running: 'slice:slice-1:evaluate:running' },
+      { id: 'slice-1:write-tests:dispatch', running: 'slice:slice-1:write-tests:running' },
+      { id: 'slice-1:write-code:dispatch', running: 'slice:slice-1:write-code:running' },
+      { id: 'slice-1:run-tests:dispatch', running: 'slice:slice-1:run-tests:running' },
+      { id: 'slice-1:assess-semantic:dispatch', running: 'slice:slice-1:assess-semantic:running' },
+    ];
+    for (const { id, running } of cases) {
+      const dispatch = blueprint.transitions.find((t) => t.id === id);
+      expect(dispatch, `expect dispatch transition ${id}`).toBeDefined();
+      expect(dispatch!.handler.kind).toBe('dispatch');
+      expect(enumerateCandidateOutputs(dispatch!)).toEqual(new Set([running]));
+    }
   });
 });
 
@@ -199,8 +218,9 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
 
     // Producer: runs evaluate-done action, attaches report, emits to intermediate.
-    const producer = blueprint.transitions.find((t) => t.id === 'slice-1:evaluate');
-    expect(producer, 'producer transition slice-1:evaluate should exist').toBeDefined();
+    // FE-761 Slice 4: producer is now the :complete phase of the dispatch/complete split.
+    const producer = blueprint.transitions.find((t) => t.id === 'slice-1:evaluate:complete');
+    expect(producer, 'producer transition slice-1:evaluate:complete should exist').toBeDefined();
     expect(producer!.handler.kind).toBe('action');
 
     // Producer must emit to exactly one intermediate place (plus pool return).
@@ -240,7 +260,7 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
   it('run-tests decomposes into producer + 2 sibling passthroughs (pass / fail)', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
 
-    const producer = blueprint.transitions.find((t) => t.id === 'slice-1:run-tests');
+    const producer = blueprint.transitions.find((t) => t.id === 'slice-1:run-tests:complete');
     expect(producer).toBeDefined();
     expect(producer!.handler.kind).toBe('run-tests');
 
@@ -295,7 +315,7 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
     };
     const blueprint = compileTopology(verifyPlan, { maxRetries: 3 });
 
-    const producer = blueprint.transitions.find((t) => t.id === 'epic-verify:epic-1');
+    const producer = blueprint.transitions.find((t) => t.id === 'epic-verify:epic-1:complete');
     expect(producer, 'expect verify-epic producer').toBeDefined();
     expect(producer!.handler.kind).toBe('verify-epic');
 
@@ -329,7 +349,7 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
   it('assess-semantic decomposes into producer + 2 sibling passthroughs (satisfied / rejected)', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
 
-    const producer = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic');
+    const producer = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic:complete');
     expect(producer).toBeDefined();
     expect(producer!.handler.kind).toBe('assess-semantic');
 

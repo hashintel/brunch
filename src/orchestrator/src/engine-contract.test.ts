@@ -734,19 +734,27 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // Mechanical places: spec-ready, failing-tests, untested-code,
     //                    needs-more, done-spec, completed, eligible,
     //                    retry-budget, evaluate:reported, run-tests:reported,
-    //                    halted (FE-761 Slice 2a) = 11
+    //                    halted (FE-761 Slice 2a),
+    //                    evaluate:running, write-tests:running,
+    //                    write-code:running, run-tests:running,
+    //                    assess-semantic:running (FE-761 Slice 4) = 16
     // Semantic places: semantic-budget, semantic-satisfied, assess-semantic:reported = 3
-    // Total places: 17
-    expect(blueprint.places.length).toBe(17);
+    // Total places: 22
+    expect(blueprint.places.length).toBe(22);
 
-    // Transitions:
-    //   slice-ready:slice-1, slice-1:evaluate, slice-1:evaluate:done,
-    //   slice-1:evaluate:more, slice-1:write-tests, slice-1:write-code,
-    //   slice-1:run-tests, slice-1:run-tests:pass, slice-1:run-tests:fail,
-    //   slice-1:assess-semantic, slice-1:assess-semantic:satisfied,
-    //   slice-1:assess-semantic:rejected, slice-1:return-done, epic-complete:epic-1
-    // Total: 14
-    expect(blueprint.transitions.length).toBe(14);
+    // Transitions (FE-761 Slice 4: every producer split into dispatch + complete):
+    //   slice-ready:slice-1,
+    //   slice-1:evaluate:dispatch, slice-1:evaluate:complete,
+    //   slice-1:evaluate:done, slice-1:evaluate:more,
+    //   slice-1:write-tests:dispatch, slice-1:write-tests:complete,
+    //   slice-1:write-code:dispatch, slice-1:write-code:complete,
+    //   slice-1:run-tests:dispatch, slice-1:run-tests:complete,
+    //   slice-1:run-tests:pass, slice-1:run-tests:fail,
+    //   slice-1:assess-semantic:dispatch, slice-1:assess-semantic:complete,
+    //   slice-1:assess-semantic:satisfied, slice-1:assess-semantic:rejected,
+    //   slice-1:return-done, epic-complete:epic-1
+    // Total: 19
+    expect(blueprint.transitions.length).toBe(19);
   });
 
   it('simplePlan transitions carry correct contract metadata', () => {
@@ -765,7 +773,8 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // Semantic-lane transitions
     const semantic = transitions.filter((t) => t.contract.lane === 'semantic');
     expect(semantic.length).toBeGreaterThanOrEqual(1); // assess-semantic, return-done
-    const assessSemantic = transitions.find((t) => t.id.endsWith(':assess-semantic'));
+    // FE-761 Slice 4: the semantic-lane handler descriptor lives on :complete.
+    const assessSemantic = transitions.find((t) => t.id.endsWith(':assess-semantic:complete'));
     expect(assessSemantic?.contract.kind).toBe('semantic');
     expect(assessSemantic?.contract.actor).toBe('semantic-assessor');
   });
@@ -776,28 +785,37 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // depPlan: 1 epic, 2 slices (slice-b depends on slice-a)
     // Pool places: pool:test-agent, pool:code-agent = 2
     // Epic places: epic:epic-1:done = 1
-    // Slice-a places: 14 (6 mechanical + eligible + retry-budget + semantic-budget + semantic-satisfied
+    // Slice-a places: 19 (6 mechanical + eligible + retry-budget + semantic-budget + semantic-satisfied
     //                     + evaluate:reported + run-tests:reported + assess-semantic:reported
-    //                     + halted (FE-761 Slice 2a))
-    // Slice-b places: 14 (same)
+    //                     + halted (FE-761 Slice 2a)
+    //                     + evaluate:running + write-tests:running + write-code:running
+    //                     + run-tests:running + assess-semantic:running (FE-761 Slice 4))
+    // Slice-b places: 19 (same)
     // Dep-signal places: slice:slice-a:dep-signal:slice-b = 1
-    // Total: 32
-    expect(blueprint.places.length).toBe(32);
+    // Total: 42
+    expect(blueprint.places.length).toBe(42);
 
-    // Transitions:
-    //   slice-a: slice-ready, evaluate, evaluate:done, evaluate:more, write-tests, write-code,
-    //            run-tests, run-tests:pass, run-tests:fail, assess-semantic,
-    //            assess-semantic:satisfied, assess-semantic:rejected, return-done = 13
-    //   slice-b: same = 13
+    // Transitions (FE-761 Slice 4: each producer split into dispatch + complete):
+    //   slice-a: slice-ready,
+    //            evaluate:dispatch, evaluate:complete, evaluate:done, evaluate:more,
+    //            write-tests:dispatch, write-tests:complete,
+    //            write-code:dispatch, write-code:complete,
+    //            run-tests:dispatch, run-tests:complete, run-tests:pass, run-tests:fail,
+    //            assess-semantic:dispatch, assess-semantic:complete,
+    //            assess-semantic:satisfied, assess-semantic:rejected,
+    //            return-done = 18
+    //   slice-b: same = 18
     //   epic-complete:epic-1 = 1
-    // Total: 27
-    expect(blueprint.transitions.length).toBe(27);
+    // Total: 37
+    expect(blueprint.transitions.length).toBe(37);
   });
 
   it('blueprint handler descriptors cover all transition kinds', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
     const kinds = new Set(blueprint.transitions.map((t) => t.handler.kind));
     expect(kinds).toContain('passthrough');
+    // FE-761 Slice 4: explicit dispatch/complete topology split adds dispatch descriptors.
+    expect(kinds).toContain('dispatch');
     expect(kinds).toContain('action');
     expect(kinds).toContain('sibling-passthrough');
     expect(kinds).toContain('run-tests');
@@ -839,8 +857,11 @@ describe('Adapter: §7 event vocabulary', () => {
     // Check transition IDs appear in order
     const ids = fired.map((e) => e.transitionId);
     expect(ids).toContain('slice-ready:slice-1');
-    expect(ids).toContain('slice-1:evaluate');
-    expect(ids).toContain('slice-1:assess-semantic');
+    // FE-761 Slice 4: producers split into dispatch + complete — both fire.
+    expect(ids).toContain('slice-1:evaluate:dispatch');
+    expect(ids).toContain('slice-1:evaluate:complete');
+    expect(ids).toContain('slice-1:assess-semantic:dispatch');
+    expect(ids).toContain('slice-1:assess-semantic:complete');
     expect(ids).toContain('slice-1:return-done');
     expect(ids).toContain('epic-complete:epic-1');
 

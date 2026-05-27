@@ -85,6 +85,27 @@ type PassthroughDescriptor = {
 };
 
 /**
+ * Dispatch — synchronous front-half of a long-running producer (FE-761
+ * Slice 4 explicit topology split). Consumes the producer's original
+ * inputs (work token + optional agent / budget) and emits a single
+ * `running:*` sentinel token to make the in-flight phase visible at the
+ * net level (Petrinaut compatibility / FE-762).
+ *
+ * The companion `complete` transition (one of action / run-tests /
+ * assess-semantic / verify-epic, now consuming only the running:* place)
+ * runs the deferred handler and emits the report-bearing outputs. Budget
+ * metadata (retryCount / reworkCount) is stashed on the running token by
+ * the dispatch so the complete phase can read it back.
+ */
+type DispatchDescriptor = {
+  kind: 'dispatch';
+  sliceId: string;
+  epicId: string;
+  /** Place to deposit the running:* sentinel token. */
+  runningPlace: string;
+};
+
+/**
  * Call an action handler, attach the resulting reportId to the output token,
  * and emit to a single fixed output set. Conditional branching is expressed
  * downstream via sibling-passthrough transitions reading the attached report.
@@ -211,6 +232,7 @@ type VerifyEpicDescriptor = {
 
 export type HandlerDescriptor =
   | PassthroughDescriptor
+  | DispatchDescriptor
   | ActionDescriptor
   | SiblingPassthroughDescriptor
   | RunTestsDescriptor
@@ -259,6 +281,9 @@ export function enumerateCandidateOutputs(transition: TransitionSkeleton): Set<s
   switch (h.kind) {
     case 'passthrough':
       for (const o of h.outputs) out.add(o.place);
+      return out;
+    case 'dispatch':
+      out.add(h.runningPlace);
       return out;
     case 'action':
       for (const p of h.outputs) out.add(p);

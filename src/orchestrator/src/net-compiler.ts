@@ -100,6 +100,16 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       // conditional producers and their sibling passthroughs.
       'evaluate:reported',
       'run-tests:reported',
+      // FE-761 Slice 4: explicit dispatch/running/complete topology
+      // split for every long-running producer. The running:* place
+      // is the in-flight sentinel between dispatch and complete; it
+      // makes the async phase visible at the net level (Petrinaut
+      // compatibility / FE-762).
+      'evaluate:running',
+      'write-tests:running',
+      'write-code:running',
+      'run-tests:running',
+      'assess-semantic:running',
       // FE-761 Slice 2a: halt sink — receives a halt-token from any halt
       // path inside this slice (retry exhaustion, semantic rework
       // exhaustion). Halt becomes observable at topology level.
@@ -152,15 +162,31 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       });
     }
 
-    // Evaluate — producer (action) emits report-bearing token to intermediate place.
+    // Evaluate — FE-761 Slice 4 explicit topology split:
+    //   dispatch (sync, consumes work + agent) → running → complete (deferred handler).
     transitions.push({
-      id: `${sid}:evaluate`,
+      id: `${sid}:evaluate:dispatch`,
       inputs: [p(sid, 'spec-ready'), poolTestAgent],
+      contract: {
+        kind: 'structural',
+        lane: 'mechanical',
+        guard: 'spec-ready + test-agent available',
+      },
+      handler: {
+        kind: 'dispatch',
+        sliceId: sid,
+        epicId: epic.id,
+        runningPlace: p(sid, 'evaluate:running'),
+      },
+    });
+    transitions.push({
+      id: `${sid}:evaluate:complete`,
+      inputs: [p(sid, 'evaluate:running')],
       contract: {
         kind: 'mechanical',
         lane: 'mechanical',
         actor: 'evaluator',
-        guard: 'spec-ready + test-agent available',
+        guard: 'evaluate handler complete',
       },
       handler: {
         kind: 'action',
@@ -201,10 +227,21 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       },
     });
 
-    // Write tests
+    // Write tests — FE-761 Slice 4 explicit dispatch/running/complete split.
     transitions.push({
-      id: `${sid}:write-tests`,
+      id: `${sid}:write-tests:dispatch`,
       inputs: [p(sid, 'needs-more'), poolTestAgent],
+      contract: { kind: 'structural', lane: 'mechanical', guard: 'needs-more + test-agent' },
+      handler: {
+        kind: 'dispatch',
+        sliceId: sid,
+        epicId: epic.id,
+        runningPlace: p(sid, 'write-tests:running'),
+      },
+    });
+    transitions.push({
+      id: `${sid}:write-tests:complete`,
+      inputs: [p(sid, 'write-tests:running')],
       contract: { kind: 'mechanical', lane: 'mechanical', actor: 'test-agent' },
       handler: {
         kind: 'action',
@@ -216,10 +253,21 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       },
     });
 
-    // Write code
+    // Write code — FE-761 Slice 4 explicit dispatch/running/complete split.
     transitions.push({
-      id: `${sid}:write-code`,
+      id: `${sid}:write-code:dispatch`,
       inputs: [p(sid, 'failing-tests'), poolCodeAgent],
+      contract: { kind: 'structural', lane: 'mechanical', guard: 'failing-tests + code-agent' },
+      handler: {
+        kind: 'dispatch',
+        sliceId: sid,
+        epicId: epic.id,
+        runningPlace: p(sid, 'write-code:running'),
+      },
+    });
+    transitions.push({
+      id: `${sid}:write-code:complete`,
+      inputs: [p(sid, 'write-code:running')],
       contract: { kind: 'mechanical', lane: 'mechanical', actor: 'coding-agent' },
       handler: {
         kind: 'action',
@@ -231,15 +279,32 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       },
     });
 
-    // Run tests — producer emits report-bearing token to intermediate place.
+    // Run tests — FE-761 Slice 4 explicit dispatch/running/complete split.
+    // Dispatch stashes retryCount on the running token so complete can
+    // read it back at handler time (budget remains "checked out").
     transitions.push({
-      id: `${sid}:run-tests`,
+      id: `${sid}:run-tests:dispatch`,
       inputs: [p(sid, 'untested-code'), p(sid, 'retry-budget')],
+      contract: {
+        kind: 'structural',
+        lane: 'mechanical',
+        guard: 'untested-code + retry-budget available',
+      },
+      handler: {
+        kind: 'dispatch',
+        sliceId: sid,
+        epicId: epic.id,
+        runningPlace: p(sid, 'run-tests:running'),
+      },
+    });
+    transitions.push({
+      id: `${sid}:run-tests:complete`,
+      inputs: [p(sid, 'run-tests:running')],
       contract: {
         kind: 'mechanical',
         lane: 'mechanical',
         actor: 'test-runner',
-        guard: 'untested-code + retry-budget available',
+        guard: 'run-tests handler complete',
       },
       handler: {
         kind: 'run-tests',
@@ -280,16 +345,33 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       },
     });
 
-    // Assess semantic — producer emits report-bearing token to intermediate place.
+    // Assess semantic — FE-761 Slice 4 explicit dispatch/running/complete split.
+    // Dispatch stashes reworkCount on the running token so complete can
+    // read it back at handler time (budget remains "checked out").
     const maxSemantic = policy.maxSemanticReworks ?? policy.maxRetries;
     transitions.push({
-      id: `${sid}:assess-semantic`,
+      id: `${sid}:assess-semantic:dispatch`,
       inputs: [p(sid, 'done-spec'), p(sid, 'semantic-budget')],
+      contract: {
+        kind: 'structural',
+        lane: 'semantic',
+        guard: 'done-spec + semantic-budget available',
+      },
+      handler: {
+        kind: 'dispatch',
+        sliceId: sid,
+        epicId: epic.id,
+        runningPlace: p(sid, 'assess-semantic:running'),
+      },
+    });
+    transitions.push({
+      id: `${sid}:assess-semantic:complete`,
+      inputs: [p(sid, 'assess-semantic:running')],
       contract: {
         kind: 'semantic',
         lane: 'semantic',
         actor: 'semantic-assessor',
-        guard: 'done-spec + semantic-budget available',
+        guard: 'assess-semantic handler complete',
       },
       handler: {
         kind: 'assess-semantic',
@@ -378,9 +460,11 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
     } else {
       const verifyPlace = ep(epic.id, 'verify-ready');
       const verifyReportedPlace = ep(epic.id, 'verify:reported');
+      // FE-761 Slice 4: in-flight sentinel for the verify dispatch/complete split.
+      const verifyRunningPlace = ep(epic.id, 'verify:running');
       // FE-761 Slice 2a: halt sink for epic verification failure.
       const epicHaltedPlace = ep(epic.id, 'halted');
-      places.push(verifyPlace, verifyReportedPlace, epicHaltedPlace);
+      places.push(verifyPlace, verifyReportedPlace, verifyRunningPlace, epicHaltedPlace);
 
       transitions.push({
         id: `epic-slices-done:${epic.id}`,
@@ -389,11 +473,27 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         handler: { kind: 'passthrough', outputs: [{ place: verifyPlace, sliceId: '', epicId: epic.id }] },
       });
 
-      // Verify-epic — producer emits report-bearing token to intermediate place.
+      // Verify-epic — FE-761 Slice 4 explicit dispatch/running/complete split.
       transitions.push({
-        id: `epic-verify:${epic.id}`,
+        id: `epic-verify:${epic.id}:dispatch`,
         inputs: [verifyPlace],
-        contract: { kind: 'mechanical', lane: 'epic', actor: 'orchestrator', guard: 'verify-ready' },
+        contract: { kind: 'structural', lane: 'epic', guard: 'verify-ready' },
+        handler: {
+          kind: 'dispatch',
+          sliceId: '',
+          epicId: epic.id,
+          runningPlace: verifyRunningPlace,
+        },
+      });
+      transitions.push({
+        id: `epic-verify:${epic.id}:complete`,
+        inputs: [verifyRunningPlace],
+        contract: {
+          kind: 'mechanical',
+          lane: 'epic',
+          actor: 'orchestrator',
+          guard: 'verify handler complete',
+        },
         handler: {
           kind: 'verify-epic',
           actionKey: 'verify-epic',
@@ -484,6 +584,24 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         const outputs = h.outputs;
         fire = async () =>
           outputs.map((o) => ({ place: o.place, token: { sliceId: o.sliceId, epicId: o.epicId } }));
+        break;
+      }
+
+      case 'dispatch': {
+        // FE-761 Slice 4: synchronous front-half. Forward the work token
+        // (consumed[0]) to the running:* sentinel place, stashing budget
+        // metadata (retryCount / reworkCount) from any companion budget
+        // token (consumed[1]) so the complete-phase handler can read it
+        // back without an extra input arc.
+        const { runningPlace } = h;
+        fire = async (consumed) => {
+          const workToken = consumed[0]!;
+          const companion = consumed[1];
+          const running: Token = { ...workToken };
+          if (companion?.retryCount !== undefined) running.retryCount = companion.retryCount;
+          if (companion?.reworkCount !== undefined) running.reworkCount = companion.reworkCount;
+          return [{ place: runningPlace, token: running }];
+        };
         break;
       }
 
@@ -578,10 +696,11 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         // returns no outputs (budget stays "checked out" until the test
         // run completes, which preserves retry-budget semantics). The
         // test-runner invocation + outcome routing is deferred.
+        // FE-761 Slice 4: complete now consumes a single running:* token
+        // whose retryCount was stashed by the dispatch phase.
         fire = async (consumed) => {
           const inputToken = consumed[0]!;
-          const retryToken = consumed[1]!;
-          const retryCount = retryToken.retryCount ?? 0;
+          const retryCount = inputToken.retryCount ?? 0;
 
           const deferred = (async () => {
             const slice = plan.slices.find((s) => s.id === sliceId)!;
@@ -635,10 +754,11 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
 
         // FE-761 Slice 3: deferred-completion split. Semantic budget stays
         // checked out for the duration of the assess-semantic handler.
+        // FE-761 Slice 4: complete now consumes a single running:* token
+        // whose reworkCount was stashed by the dispatch phase.
         fire = async (consumed) => {
           const inputToken = consumed[0]!;
-          const budgetToken = consumed[1]!;
-          const reworkCount = budgetToken.reworkCount ?? 0;
+          const reworkCount = inputToken.reworkCount ?? 0;
 
           const deferred = (async () => {
             const actCtx: ActionContext = {
