@@ -25,6 +25,7 @@ import {
 
 export const WORKSPACE_DIALOG_WIDTH = 80
 const ESC = String.fromCharCode(27)
+const CTRL_C = "\x03"
 const ANSI_SEQUENCE = new RegExp(`^${ESC}\\[[0-9;?]*[ -/]*[@-~]`)
 const ANSI_SEQUENCE_GLOBAL = new RegExp(`${ESC}\\[[0-9;?]*[ -/]*[@-~]`, "g")
 const ASSET_DIR = new URL("./assets/", import.meta.url)
@@ -67,6 +68,11 @@ class WorkspaceDialogComponent implements Component {
   }
 
   handleInput(data: string): void {
+    if (data === CTRL_C) {
+      this.#onDecision({ action: "cancel" })
+      return
+    }
+
     if (this.#stage.stage === "newSpecTitle") {
       this.#handleTitleInput(data)
       return

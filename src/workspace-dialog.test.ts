@@ -283,6 +283,17 @@ describe("spec/session picker", () => {
     expect(decisions).toEqual([{ action: "cancel" }])
   })
 
+  it("cancels from startup preflight on ctrl-c", async () => {
+    const terminal = new FakeTerminal()
+    const decision = runWorkspaceDialogPreflight(inventory(), { terminal })
+
+    terminal.emit("\x03")
+
+    await expect(decision).resolves.toEqual({ action: "cancel" })
+    expect(terminal.events.at(-2)).toBe("stop")
+    expect(terminal.events.at(-1)).toBe("clearScreen")
+  })
+
   it("renders a branded centered-dialog frame with version metadata", () => {
     const component = createWorkspaceDialogComponent({
       inventory: inventory(),
