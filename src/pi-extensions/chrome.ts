@@ -50,12 +50,6 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
 
 export type BrunchChromeUi = Pick<ExtensionUIContext, "setFooter" | "setHeader" | "setWidget" | "setTitle">
 
-interface BrunchChromeFooterData {
-  getGitBranch(): string | null
-  getExtensionStatuses(): ReadonlyMap<string, string>
-  onBranchChange(callback: () => void): () => void
-}
-
 export function formatBrunchChromeHeaderLines(
   chrome: BrunchChromeState,
 ): string[] {
@@ -64,23 +58,6 @@ export function formatBrunchChromeHeaderLines(
     `runtime: ${formatRuntime(chrome)}`,
     `${formatChromeIdentity(chrome)} · phase: ${chrome.phase}`,
   ]
-}
-
-export function formatBrunchChromeFooterLines(
-  chrome: BrunchChromeState,
-  footerData?: BrunchChromeFooterData,
-  width?: number,
-): string[] {
-  return projectBrunchChromeFooterLines(
-    chrome,
-    footerData === undefined
-      ? undefined
-      : {
-          gitBranch: footerData.getGitBranch(),
-          statuses: footerData.getExtensionStatuses(),
-        },
-    width,
-  )
 }
 
 export function projectBrunchChromeFooterLines(
@@ -115,11 +92,11 @@ export function formatChromeWidgetLines(chrome: BrunchChromeState): string[] {
   ]
 }
 
-export function formatChromeIdentity(chrome: BrunchChromeState): string {
+function formatChromeIdentity(chrome: BrunchChromeState): string {
   return `spec: ${formatSpec(chrome)} · session: ${formatSession(chrome)}`
 }
 
-export function sanitizeChromeStatuses(
+function sanitizeChromeStatuses(
   statuses: ReadonlyMap<string, string> | undefined,
 ): string[] {
   return [...(statuses ?? new Map())]
@@ -129,19 +106,7 @@ export function sanitizeChromeStatuses(
     .map(([, value]) => value.trim())
 }
 
-export function formatTokenCount(tokens: number): string {
-  const normalized = Math.max(0, tokens)
-  if (normalized < 1000) return String(normalized)
-  return `${(normalized / 1000).toFixed(1)}k`
-}
-
-export function formatContextGauge(
-  usage: BrunchChromeContextUsage | undefined,
-): string {
-  return formatContextUsage(usage)
-}
-
-export function alignChromeColumns(
+function alignChromeColumns(
   left: string,
   right: string,
   width: number,

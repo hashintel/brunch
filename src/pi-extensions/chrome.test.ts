@@ -4,17 +4,11 @@ import { describe, expect, it } from "vitest"
 
 import type { WorkspaceSessionReadyState } from "../workspace-session-coordinator.js"
 import {
-  alignChromeColumns,
   chromeStateForWorkspace,
-  formatBrunchChromeFooterLines,
   formatBrunchChromeHeaderLines,
-  formatChromeIdentity,
   formatChromeWidgetLines,
-  formatContextGauge,
-  formatTokenCount,
   projectBrunchChromeFooterLines,
   renderBrunchChrome,
-  sanitizeChromeStatuses,
 } from "./chrome.js"
 
 describe("Brunch chrome projection", () => {
@@ -65,7 +59,7 @@ describe("Brunch chrome projection", () => {
       "runtime: not reported",
       "spec: Spec One · session: Interview #1 · phase: elicitation",
     ])
-    expect(formatBrunchChromeFooterLines(state)).toEqual([
+    expect(projectBrunchChromeFooterLines(state)).toEqual([
       "runtime: not reported · build: not reported",
       "context: not reported",
       "state: responding-to-elicitation · coherence: unknown · worker: not reported",
@@ -102,7 +96,7 @@ describe("Brunch chrome projection", () => {
       coherence: "needs_review" as const,
     }
 
-    expect(formatBrunchChromeFooterLines(state)).toEqual([
+    expect(projectBrunchChromeFooterLines(state)).toEqual([
       "runtime: elicit-default · role elicitor · claude-sonnet · thinking medium · lens step-by-step · build: v0.0.0 dev abc123",
       "context: [█████░░░░░] 1,024/2,048 tokens (50%)",
       "state: responding-to-elicitation · coherence: needs_review · worker: observer-review/queued",
@@ -112,32 +106,6 @@ describe("Brunch chrome projection", () => {
     expect(formatChromeWidgetLines(state)).toContain(
       "context: [█████░░░░░] 1,024/2,048 tokens (50%)",
     )
-  })
-
-  it("provides reusable chrome formatting helpers", () => {
-    expect(formatTokenCount(999)).toBe("999")
-    expect(formatTokenCount(1536)).toBe("1.5k")
-    expect(formatContextGauge({ usedTokens: 1024, maxTokens: 2048 })).toBe(
-      "[█████░░░░░] 1,024/2,048 tokens (50%)",
-    )
-    expect(
-      sanitizeChromeStatuses(
-        new Map([
-          ["brunch.chrome", "ignored"],
-          ["brunch.reviewer", "reviewer queued"],
-        ]),
-      ),
-    ).toEqual(["reviewer queued"])
-    expect(
-      formatChromeIdentity({
-        cwd: "/tmp/project",
-        spec: { id: "spec-1", title: "Spec One" },
-        session: { id: "session-1", label: "Interview #1" },
-        phase: "elicitation",
-        chatMode: "responding-to-elicitation",
-      }),
-    ).toBe("spec: Spec One · session: Interview #1")
-    expect(alignChromeColumns("left", "right", 14)).toBe("left     right")
   })
 
   it("projects footer telemetry and foreign statuses without publishing a chrome status key", async () => {
