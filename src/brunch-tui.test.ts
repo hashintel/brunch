@@ -24,6 +24,7 @@ import {
   BRUNCH_MENU_SHORTCUT,
   chromeStateForWorkspace,
   createBrunchPiExtensionShell,
+  formatBrunchChromeFooterLines,
   formatBrunchChromeHeaderLines,
   formatBrunchStatus,
   formatChromeWidgetLines,
@@ -192,36 +193,32 @@ describe("Brunch TUI boot", () => {
     )
   })
 
-  it("formats Brunch chrome from one product-state snapshot", async () => {
+  it("formats honest Brunch chrome from one product-state snapshot", async () => {
     const state = {
       cwd: "/tmp/project",
       spec: { id: "spec-1", title: "Spec One" },
       session: { id: "session-1", label: "Interview #1" },
       phase: "elicitation" as const,
-      stage: "observer-review" as const,
       chatMode: "responding-to-elicitation" as const,
-      activeLens: "problem-framing",
-      coherenceVerdict: "needs_review" as const,
-      observerStatus: "running" as const,
-      reviewerStatus: "queued" as const,
-      reconcilerStatus: "idle" as const,
-      reconciliationNeedCount: 3,
-      latestEstablishmentOfferSummary:
-        "Recommended lens: problem-framing; missing constraints.",
     }
 
-    expect(formatBrunchChromeHeaderLines(state).join("\n")).toContain(
-      "Spec One",
-    )
-    expect(formatChromeWidgetLines(state).join("\n")).toContain(
-      "lens: problem-framing",
-    )
-    expect(formatBrunchStatus(state)).toBe(
-      "Brunch · elicitation · needs_review · needs 3",
-    )
-    expect(formatChromeWidgetLines(state).join("\n")).toContain(
-      "offer: Recommended lens: problem-framing; missing constraints.",
-    )
+    expect(formatBrunchChromeHeaderLines(state)).toEqual([
+      "brunch specification workspace",
+      "cwd: /tmp/project",
+      "Spec One · Interview #1",
+    ])
+    expect(formatBrunchChromeFooterLines(state)).toEqual([
+      "phase: elicitation · chat: responding-to-elicitation",
+      "spec: Spec One · session: Interview #1",
+      "",
+    ])
+    expect(formatBrunchStatus(state)).toBe("Brunch · elicitation · Spec One")
+    expect(formatChromeWidgetLines(state)).toEqual([
+      "cwd: /tmp/project",
+      "spec: Spec One",
+      "session: Interview #1",
+      "chat mode: responding-to-elicitation",
+    ])
   })
 
   it("renders Brunch chrome through one wrapper over Pi UI calls", async () => {
@@ -246,15 +243,7 @@ describe("Brunch TUI boot", () => {
       spec: { id: "spec-1", title: "Spec One" },
       session: { id: "session-1" },
       phase: "elicitation",
-      stage: "idle",
       chatMode: "responding-to-elicitation",
-      activeLens: null,
-      coherenceVerdict: "coherent",
-      observerStatus: "idle",
-      reviewerStatus: "idle",
-      reconcilerStatus: "idle",
-      reconciliationNeedCount: 0,
-      latestEstablishmentOfferSummary: null,
     })
 
     expect(calls.map((call) => call.method)).toEqual([
@@ -264,20 +253,20 @@ describe("Brunch TUI boot", () => {
       "setWidget",
       "setTitle",
     ])
-    expect(calls.find((call) => call.method === "setFooter")?.args).toEqual([
-      undefined,
-    ])
+    expect(calls.find((call) => call.method === "setFooter")?.args[0]).toEqual(
+      expect.any(Function),
+    )
     expect(calls.find((call) => call.method === "setStatus")?.args).toEqual([
       "brunch.chrome",
-      "Brunch · elicitation · coherent · needs 0",
+      "Brunch · elicitation · Spec One",
     ])
     expect(calls.find((call) => call.method === "setWidget")?.args).toEqual([
       "brunch.chrome",
       [
         "cwd: /tmp/project",
-        "chat mode: responding-to-elicitation  stage: idle",
-        "lens: none",
-        "workers: observer idle · reviewer idle · reconciler idle",
+        "spec: Spec One",
+        "session: session-1",
+        "chat mode: responding-to-elicitation",
       ],
       { placement: "aboveEditor" },
     ])

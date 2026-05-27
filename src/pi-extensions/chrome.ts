@@ -14,14 +14,6 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
     id: string
     label?: string
   }
-  stage: BrunchChromeStage
-  activeLens: string | null
-  coherenceVerdict: BrunchChromeCoherenceVerdict
-  observerStatus: BrunchChromeWorkerStatus
-  reviewerStatus: BrunchChromeWorkerStatus
-  reconcilerStatus: BrunchChromeWorkerStatus
-  reconciliationNeedCount: number
-  latestEstablishmentOfferSummary: string | null
 }
 
 export type BrunchChromeUi = Pick<ExtensionUIContext, "setFooter" | "setHeader" | "setStatus" | "setWidget" | "setTitle">
@@ -31,25 +23,32 @@ export function formatBrunchChromeHeaderLines(
 ): string[] {
   return [
     "brunch specification workspace",
+    `cwd: ${chrome.cwd}`,
     `${formatSpec(chrome)} · ${formatSession(chrome)}`,
   ]
 }
 
+export function formatBrunchChromeFooterLines(
+  chrome: BrunchChromeState,
+): string[] {
+  return [
+    `phase: ${chrome.phase} · chat: ${chrome.chatMode}`,
+    `spec: ${formatSpec(chrome)} · session: ${formatSession(chrome)}`,
+    "",
+  ]
+}
+
 export function formatBrunchStatus(chrome: BrunchChromeState): string {
-  return `Brunch · ${chrome.phase} · ${chrome.coherenceVerdict} · needs ${chrome.reconciliationNeedCount}`
+  return `Brunch · ${chrome.phase} · ${formatSpec(chrome)}`
 }
 
 export function formatChromeWidgetLines(chrome: BrunchChromeState): string[] {
-  const lines = [
+  return [
     `cwd: ${chrome.cwd}`,
-    `chat mode: ${chrome.chatMode}  stage: ${chrome.stage}`,
-    `lens: ${chrome.activeLens ?? "none"}`,
-    `workers: observer ${chrome.observerStatus} · reviewer ${chrome.reviewerStatus} · reconciler ${chrome.reconcilerStatus}`,
+    `spec: ${formatSpec(chrome)}`,
+    `session: ${formatSession(chrome)}`,
+    `chat mode: ${chrome.chatMode}`,
   ]
-  if (chrome.latestEstablishmentOfferSummary) {
-    lines.push(`offer: ${chrome.latestEstablishmentOfferSummary}`)
-  }
-  return lines
 }
 
 export function chromeStateForWorkspace(
@@ -61,14 +60,6 @@ export function chromeStateForWorkspace(
       id: workspace.session.id,
       label: workspace.session.id,
     },
-    stage: "idle",
-    activeLens: null,
-    coherenceVerdict: "unknown",
-    observerStatus: "idle",
-    reviewerStatus: "idle",
-    reconcilerStatus: "idle",
-    reconciliationNeedCount: 0,
-    latestEstablishmentOfferSummary: null,
   }
 }
 
@@ -80,7 +71,10 @@ export function renderBrunchChrome(
     render: () => formatBrunchChromeHeaderLines(chrome),
     invalidate: () => {},
   }))
-  ui.setFooter(undefined)
+  ui.setFooter(() => ({
+    render: () => formatBrunchChromeFooterLines(chrome),
+    invalidate: () => {},
+  }))
   ui.setStatus("brunch.chrome", formatBrunchStatus(chrome))
   ui.setWidget("brunch.chrome", formatChromeWidgetLines(chrome), {
     placement: "aboveEditor",

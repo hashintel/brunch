@@ -21,6 +21,7 @@ import {
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from "./pi-extensions/command-policy.js"
 export {
   chromeStateForWorkspace,
+  formatBrunchChromeFooterLines,
   formatBrunchChromeHeaderLines,
   formatBrunchStatus,
   formatChromeWidgetLines,
