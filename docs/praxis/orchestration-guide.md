@@ -1,6 +1,6 @@
-# Cook brownfield on brunch
+# Orchestration guide — cook on brunch
 
-Run `brunch cook` against the brunch repo.
+Run `brunch cook` against the brunch repo in codebase (brownfield) mode.
 
 ## Pre-flight
 
@@ -14,9 +14,36 @@ git status --porcelain --untracked-files=no    # must be empty
 
 ## Author the plan
 
-Cook reads ONE file: `.brunch/cook/plan.yaml`. Two ways to produce it.
+Cook reads ONE file: `.brunch/cook/plan.yaml`.
 
-### A. Hand-author
+**Target shape: read it from a spec-graph projection.** The intended long-term path is `petri-graph-compilation` (blocked on `intent-graph-semantics` / FE-700): cook compiles its net directly from workspace plan-graph nodes + relation policy, no `plan.yaml` step at all. The plan-graph projection becomes the source of truth; `.brunch/cook/plan.yaml` either disappears or becomes a derived artifact emitted by the compiler.
+
+**Not done yet.** Until `petri-graph-compilation` lands, the bridge from spec/frontier to cook plan is manual. Two interim mechanisms:
+
+### A. `/ln-scope`-then-translate (most disciplined interim)
+
+Run `/ln-scope` on a `memory/PLAN.md` frontier to produce a scope card (Target Behavior + Acceptance + Verification). Translate the scope card to YAML by hand — usually 15–30 lines, 2–5 minutes. The scope card is the human-readable contract you can verify before spending pi tokens.
+
+### B. One-shot pi translation (cheap interim)
+
+Extract the frontier section and ask pi for YAML:
+
+```sh
+FRONTIER="<id>"
+awk "/^### $FRONTIER\$/,/^### /" memory/PLAN.md | head -n -1 > /tmp/f.md
+pi -p --no-session --provider anthropic --model claude-haiku-4-5 \
+   --tools "read,write" \
+   "Translate /tmp/f.md into .brunch/cook/plan.yaml. One epic, one slice per
+    Acceptance line (max 2). Each slice needs a verification.target pointing
+    at a real bun-test file. Definitions name exact file + change + constraint.
+    Output only YAML." > .brunch/cook/plan.yaml
+```
+
+Always review — pi hallucinates file paths.
+
+### C. Hand-author (escape hatch)
+
+For one-off experiments or when no frontier exists:
 
 ```yaml
 epics:
@@ -39,33 +66,11 @@ slices:
         target: <path/to/existing.test.ts>
 ```
 
-**Discipline:**
+### Discipline (applies to all three)
 
 - Every slice needs a real `verification.target` (an existing test file) or `bun test` halts with no output → retry exhaustion.
 - Definitions name exact file + exact change + exact constraint. Vague slices halt or short-circuit.
 - 1–2 slices per run; more triggers more disk usage even with CoW.
-
-### B. Generate from a `memory/PLAN.md` frontier
-
-Cook's plan format is the orchestrator runtime, not the planning vocabulary — frontiers don't map mechanically.
-
-Two bridges, both still manual review at the end:
-
-- **`/ln-scope` then translate.** Run the skill on a frontier to get a scope card (Target Behavior + Acceptance + Verification), then translate to YAML by hand. Most disciplined.
-- **One-shot pi translation.** Extract the frontier section and ask pi for YAML:
-  ```sh
-  FRONTIER="<id>"
-  awk "/^### $FRONTIER\$/,/^### /" memory/PLAN.md | head -n -1 > /tmp/f.md
-  pi -p --no-session --provider anthropic --model claude-haiku-4-5 \
-     --tools "read,write" \
-     "Translate /tmp/f.md into .brunch/cook/plan.yaml. One epic, one slice per
-      Acceptance line (max 2). Each slice needs a verification.target pointing
-      at a real bun-test file. Definitions name exact file + change + constraint.
-      Output only YAML." > .brunch/cook/plan.yaml
-  ```
-  Always review — pi hallucinates file paths.
-
-Long-term answer: `petri-graph-compilation` (blocked on FE-700) compiles cook nets directly from workspace graph, no `plan.yaml` step.
 
 ## Cook
 
