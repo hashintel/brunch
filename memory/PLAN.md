@@ -14,7 +14,7 @@
 
 ## Context
 
-Brunch-next is starting from a deliberately razed slate on the `next` branch (tag `next-baseline`). Implementation, planning memory, and pre-POC docs have been archived under `archive/`. The new line is a thin layer over `pi-coding-agent` whose milestone ladder M0–M9 (from `prd.md`) is the planning spine. M0 (walking skeleton) is the first frontier to land — it also doubles as the Phase-3 infra bootstrap. Fixture capture starts at M1 and grows with every later milestone.
+Brunch-next is proceeding on the razed `next` line (tag `next-baseline`) as a thin product layer over `pi-coding-agent`. M0–M3 proved the basic host, JSONL transcript viability, fixture/RPC substrate, and read-only web shell. The active risk is now Pi wrapping: FE-744 must finish the structured-question / Pi-RPC JSON-editor fallback proof, then the new sealed-profile/runtime-state frontier must lock down ambient Pi isolation plus transcript-backed operational mode / role preset / strategy / lens state before graph tools and authority-gated agent work depend on those seams. The M4 graph data plane remains structurally next after those harness/control-plane risks are scoped.
 
 ## Sequencing
 
@@ -24,8 +24,9 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 
 ### Next
 
-1. `graph-data-plane` — M4 remains structurally next after the offer-first UI seam is proven; do not return to it until FE-744 has a credible elicitation input loop for POC sessions.
-2. `agent-graph-integration` — M5. Graph tools and observer extraction through pi extension seams; all writes via the shared command layer.
+1. `sealed-pi-profile-runtime-state` — Seal Brunch's embedded Pi profile and transcript-backed runtime-bundle state before future agent-loop work depends on ambient-safe settings, prompt composition, or tool gating.
+2. `graph-data-plane` — M4 remains structurally next after the offer-first UI seam is proven; do not return to it until FE-744 has a credible elicitation input loop for POC sessions and the sealed-profile/runtime-state follow-up is scoped.
+3. `agent-graph-integration` — M5. Graph tools and observer extraction through pi extension seams; all writes via the shared command layer.
 
 ### Parallel / Low-conflict
 
@@ -54,7 +55,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Status:** done (bootstrap slice landed on `next` as commit `b104fc40`; coordinator/runbook and TUI boot/chrome slices landed on the frontier branch; manual M0 smoke + store-only runbook oracle passed)
 - **Objective:** Prove the wrapping model works at all: a `brunch` binary launches a pi-backed TUI session through the `WorkspaceSessionCoordinator`, scopes durable state to `.brunch/`, hardcodes Brunch's prompt and curated toolset, and mounts the persistent TUI chrome and spec-selector gate.
 - **Why now / unlocks:** First architectural proof of D1-L (depend on `pi-coding-agent`) and D2-L (opinionated product, not pi shell). Unlocks every subsequent milestone. Also doubles as the Phase-3 infra bootstrap (package.json, tsconfig, oxlint/oxfmt, vitest).
-- **Acceptance:** `brunch` launches a TUI session in a project directory; `.brunch/` is created; boot routes through a `WorkspaceSessionCoordinator` that returns `ready | select_spec | needs_human`; the spec-selector is presented before any agent loop runs when no bound spec is ready; the selected spec is written as the session's `brunch.session_binding`; `/new` creates another session bound to the same spec rather than mutating the current session's spec; the chrome region displays cwd / spec / phase / chat-mode at all times; `npm run verify` is green.
+- **Acceptance:** `brunch` launches a TUI session in a project directory; `.brunch/` is created; boot routes through a `WorkspaceSessionCoordinator` that returns `ready | select_spec | needs_human`; the spec-selector is presented before any agent loop runs when no bound spec is ready; the selected spec is written as the session's `brunch.session_binding`; `/new` creates another session bound to the same spec rather than mutating the current session's spec; the chrome region displays cwd / spec / phase / runtime bundle at all times; `npm run verify` is green.
 - **Verification:** Inner — `npm run fix` / `npm run verify` plus coordinator state/unit tests. Middle — M0 runbook oracle: manual TUI smoke against a scratch project paired with artifact/query postconditions for `.brunch/`, `brunch.session_binding`, same-spec `/new`, and chrome/workspace state (SPEC §Runbook Oracle Design). Outer — defer; first replay-regression fixture lands in M1.
 - **Cross-cutting obligations:** Preserve the `cwd → spec → session` hierarchy, one-spec-per-session binding, and persistent chrome region as durable product surfaces, not temporary bootstrapping hacks. Do not let TUI, RPC, or fixture code create/open Pi sessions or write `brunch.session_binding` directly; route boot, spec selection, and `/new` through the workspace-session seam.
 - **Traceability:** R1, R2, R3, R4, R19 / D1-L, D2-L, D6-L, D11-L, D21-L / I8-L, I13-L / A1-L, A10-L
@@ -72,7 +73,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Why now / unlocks:** Proves D5-L (JSON-RPC primary) and unlocks the fixture-driven feedback loop. Without this milestone, every downstream milestone has only manual TUI evidence.
 - **Acceptance:** `brunch --mode print` and `brunch --mode rpc` boot from the same host setup; the first `session.*` / `workspace.*` RPC handlers are named product methods rather than a generic read gateway; an agent-as-user driver completes at least one brief end-to-end over stdio by responding to elicitation prompts; captured JSONL can be projected into prompt/response elicitation exchanges; a `.jsonl` + `.meta.json` bundle is written under `.brunch-fixtures/`; the first three curated briefs are captured.
 - **Verification:** Inner — verify gate plus projection-handler unit tests for elicitation exchange ranges. Middle — deterministic first captured run, stdio RPC handler contract tests, replay-regression fixture(s) asserting transcript reproduction/projection parity, and `./runbooks/verify-m1.sh` for store/projection/manual-smoke evidence (SPEC §Oracle Strategy by Loop Tier). Outer — the three-layer fixture model is established in skeleton form here; property and adversarial layers come online as later milestones supply graph/coherence substrates; brief quality and golden-capture representativeness remain explicit human review prompts in the runbook.
-- **Cross-cutting obligations:** Keep transport mode distinct from agent modes/lenses; do not make print mode select or imply an agent strategy in M1. Keep the captured-run format forward-compatible with later `.graph.json` and `.coherence.json` artefacts; establish exchange projection over Pi JSONL without creating canonical chat/turn tables; keep read/subscription architecture thin — named RPC method families and projection handlers over canonical stores, not a generic read-model platform; this frontier establishes the first layer of the canonical replay/property/adversarial fixture architecture rather than a one-off harness.
+- **Cross-cutting obligations:** Keep transport mode distinct from agent roles/lenses; do not make print mode select or imply an agent strategy in M1. Keep the captured-run format forward-compatible with later `.graph.json` and `.coherence.json` artefacts; establish exchange projection over Pi JSONL without creating canonical chat/turn tables; keep read/subscription architecture thin — named RPC method families and projection handlers over canonical stores, not a generic read-model platform; this frontier establishes the first layer of the canonical replay/property/adversarial fixture architecture rather than a one-off harness.
 - **Traceability:** R4, R5, R11, R16, R17, R20 / D5-L, D12-L, D13-L, D18-L, D19-L / I3-L, I10-L, I13-L / A1-L, A5-L
 - **Design docs:** [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)
 - **Current execution pointer:** complete after M1 review fixes; proceed to `jsonl-session-viability`.
@@ -109,13 +110,28 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Design docs:** [prd.md §M3, §Frontend Architecture](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md)
 - **Current execution pointer:** complete. M3 tied off with shared JSON-RPC protocol helpers/dispatch semantics, `ws`-backed `/rpc` transport, persistent browser RPC client with protocol-failure hardening, canonical built asset serving with traversal-safe asset resolution, stable React runtime, explicit read-only session projection by durable session id through a canonical Brunch session-envelope reader with strict self-description validation, explicit transcript custom-entry classifiers, and read-only browser transcript rendering of assistant/user rows plus transcript-native prompt display rows from typed `{ sessionId, specId }` targets. Automated verification and direct HTTP/WebSocket projection postconditions pass. Accepted outer-loop deferral: qualitative browser-open smoke remains environment-blocked because `agent-browser` cannot create its socket directory under the current macOS sandbox (`Operation not permitted`); this does not block M3 tie-off because static HTML serving, absence of HTTP product reads, explicit `{ sessionId, specId }` WebSocket RPC reads, transcript-display text including custom prompt rows, and exchange projection were rechecked directly against the host.
 
+### sealed-pi-profile-runtime-state
+
+- **Name:** Sealed Pi profile and transcript-backed runtime state
+- **Linear:** unassigned
+- **Kind:** structural hardening
+- **Status:** not-started
+- **Objective:** Turn the discussion-locked Brunch Pi Profile and runtime-bundle model into code/tests by porting the useful `.pi/` probe extensions into flat product modules under `src/pi-extensions/*.ts` plus aggregate `src/pi-extensions.ts`: Brunch-owned programmatic settings/resource/tool/prompt/keybinding policy isolates product behavior from ambient user/project `.pi/`; operational mode / role preset / strategy / lens state is appended to Pi JSONL as Brunch custom entries and reconstructed at turn boundaries.
+- **Why now / unlocks:** FE-744 proved multiple Pi extension seams and exposed the exact weak point: ambient resource discovery is mostly disabled, but `SettingsManager.create(cwd, agentDir)` can still leak behavior-shaping settings, and future `elicit` vs `execute` work needs prompt/tool posture to be stateful without hidden extension memory. This frontier de-risks M5/M6/M7 before graph tools, observer/reviewer jobs, and authority gating depend on the embedded harness.
+- **Acceptance:** A `BrunchPiProfile` (or equivalent module boundary) owns settings policy, resource-loader options, extension factories, keybinding/command policy, tool policy, and prompt policy; tests prove ambient context files/extensions/skills/prompt templates/themes do not load while explicit Brunch-owned extension-discovered resources can load intentionally through Pi `resources_discover`; settings that affect product behavior are overridden/sealed or documented as a Pi upstream seam; the runtime no longer imports from `src/pi-extensions/brunch/*`; replacement modules are flat and product-named: `.pi/extensions/brunch-tools.ts` ports to `src/pi-extensions/operational-mode.ts`; `.pi/extensions/brunch-autocomplete.ts` ports to `src/pi-extensions/mention-autocomplete.ts` with graph-node stable-code completion instead of `.pi/extensions/brunch-tags.json`; `.pi/extensions/brunch-chrome.ts` supersedes and merges the old product `chrome.ts` as `src/pi-extensions/chrome.ts`; `.pi/extensions/brunch-messages.ts` ports to `src/pi-extensions/alternatives.ts` while `.pi/components/cards.ts` moves to `src/pi-components/cards.ts` with demo commands removed; `branch-policy.ts` becomes `src/pi-extensions/command-policy.ts`; `session-boundary.ts` becomes `src/pi-extensions/session-lifecycle.ts`; `workspace-command.ts` becomes `src/pi-extensions/settings-switcher-menu.ts`; `src/pi-extensions/brunch/index.ts` becomes `src/pi-extensions.ts`; `src/workspace-switcher/*` moves under `src/pi-components/workspace-switcher/*` (with a public component/preflight entrypoint) so TUI components live beside card components rather than as a top-level product domain. Transcript entries such as `brunch.runtime_init`, `brunch.runtime_switch`, `brunch.strategy_switch`, and `brunch.lens_switch` can be appended by Brunch commands and replayed to reconstruct active operational mode, role preset/runtime bundle, strategy, and lens; turn prep composes prompt packs from base Brunch prompt + operational mode + role preset + strategy + lens + spec phase/maturity/gates + current graph/coherence/world state + pending structured-interaction rules; `elicit` suppresses execute/dangerous tools such as raw `bash`/`write` unless explicitly allowed by the active bundle.
+- **Verification:** Inner — profile/runtimestate unit tests, prompt-composition snapshot tests, and tool-policy contract tests. Middle — ambient `.pi/` fixture/audit tests proving disabled discovery and sealed settings; explicit Brunch resource-injection test proving extension factories may inject Brunch-owned skills/prompts despite ambient `noSkills`/`noPromptTemplates`; JSONL reload/projection tests for runtime init/switch entries; before-agent-start/tool-call policy tests for `elicit`. Outer — manual TUI/RPC smoke that active role/lens/strategy changes are inspectable in transcript and reflected in prompt/tool posture rather than hidden UI state.
+- **Cross-cutting obligations:** Do not expose Pi's generic extension/skill/prompt/theme configuration to Brunch users; do not make Pi skills the primary authority for core operational prompts; keep raw Pi RPC behind Brunch adapters; keep runtime state linear-transcript-backed and compatible with compaction/session-boundary lifecycle hooks (`session_start`, `resources_discover`, `before_agent_start`, `context`, `tool_call`, `session_before_switch`, `session_before_compact`, `session_shutdown`).
+- **Traceability:** R25, R26 / D2-L, D23-L, D39-L, D40-L / I24-L, I25-L / A19-L
+- **Design docs:** [pi-seam-extensions.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md), [pi-ui-extension-patterns.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-ui-extension-patterns.md)
+- **Current execution pointer:** consume the prepared queue in [`memory/CARDS.md`](file:///Users/lunelson/Code/hashintel/brunch-next/memory/CARDS.md): flatten `src/pi-extensions`, create `src/pi-components`, port `operational-mode`, `command-policy`, `session-lifecycle`, `chrome`, `settings-switcher-menu`, `mention-autocomplete`, and `alternatives` behind the existing extension factory, move workspace-switcher/cards TUI components into `src/pi-components`, and delete/retire duplicate `.pi/` probe runtime reliance. Then scope the settings/resource audit: preserve current `noContextFiles`/`noExtensions`/`noPromptTemplates`/`noSkills`/`noThemes` posture, prove extension-factory resource injection is intentional, then seal or document the remaining `SettingsManager` leakage before adding runtime-bundle switch entries.
+
 ### graph-data-plane
 
 - **Name:** Graph data plane (intent-first, workspace-graph-ready) (M4)
 - **Linear:** [FE-741](https://linear.app/hash/issue/FE-741/graph-data-plane-intent-first-workspace-graph-ready-m4)
 - **Branch:** `ln/fe-741-graph-data-plane` (stacked on `ln/fe-737-web-shell`)
 - **Kind:** structural
-- **Status:** active
+- **Status:** next / paused until FE-744 structured-question proof and the sealed-profile/runtime-state follow-up are scoped
 - **Objective:** Stand up SQLite-backed graph persistence; durable intent-plane nodes and edges; a single global LSN per commit; the change log; the reconciliation-need substrate; named homes for coherence state (verdicts and violations) — all forward-compatible with oracle, design, and plan planes.
 - **Why now / unlocks:** Pins I1-L, I6-L. Unlocks all agent ↔ graph work (M5+) and lets oracle / design / plan planes be added later without re-foundation.
 - **Acceptance:** Graph CRUD + change-log replay tests pass through the `CommandExecutor` public mutation boundary; command results already include success, `needs_human`, `policy_blocked`, `version_conflict`, and `structural_illegal` shapes even if pre-M6 policy classification is minimal; reconciliation-need substrate accepts inserts/updates/resolutions with LSN invariants enforced; oracle-plane stub tables exist (Check, Validation Method, Evidence, Obligation) even if unused; the persistence layer proves the one-transaction protocol that couples authority/result classification, version checks, structural validation, LSN allocation, change-log append, and any coherence updates.
@@ -227,7 +243,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Verification:** Inner — verify gate plus unit tests for any extension wrappers added; coordinator inventory/activation tests for switch decisions; source/contract tests that switcher UI returns decisions rather than mutating sessions; schema tests for structured question result details and JSON-editor request/response parsing. Middle — runbook oracles per affordance category (manual checklist + executable postcondition checker on chrome state, JSONL tool results/custom entries emitted, or command-result discriminants); contract tests for any new Brunch handler shape introduced (slash command router, modal request/response, picker selection, elicitation pending/response relay); pty/ANSI-stripped startup oracle proving no prior transcript appears before an explicit resume/open decision; raw Pi RPC probe demonstrating `ctx.ui.editor` JSON fallback round-trips through the documented extension UI protocol. Outer — manual TUI walkthrough validating visual quality, full-screen startup feel, interaction feel, and controllability cost between scripted-driver and manual paths.
 - **Cross-cutting obligations:** Preserve the linear-transcript invariant (`I19-L`) — affordance prototypes must not introduce branch creation, mid-turn state mutations outside the command layer, or a parallel chat/turn store. Preserve the workspace hierarchy and startup invariant (`R19` / `I22-L`): `.brunch/state.json` is default acceleration, not implicit resume; no prior transcript or agent loop may run before an explicit workspace-switch decision. Workspace switcher UI must remain pure decision rendering; `WorkspaceSessionCoordinator` owns inventory, activation, state writes, session creation/opening, and binding. Structured question/questionnaire affordances must use Pi transcript truth first: `toolResult.details` may be the canonical structured response payload, while assistant tool-call args are positional/causal context. Slash commands and action buttons must route writes through the `CommandExecutor`; the JSON-editor RPC fallback is an adapter over Pi's supported extension UI protocol, not a new public Pi command family and not a bypass around Brunch's product RPC surface. Any new custom-entry kinds must declare `lens` per `I18-L` if elicitor-emitted. Establishment-offer affordances must stay orientation-first and user-invoked when expanded, rather than turning the full offer tree into a default next-action menu. TUI chrome/status affordances should call Brunch product wrappers rather than raw Pi `ctx.ui.*` primitives, and RPC fixtures should assert only chrome events that Pi actually emits (`setStatus`, string-array `setWidget`, `setTitle`, notifications).
 - **Why now / unlocks:** Lens/review-set/reviewer UX in M5 and authority gating in M6 both assume Brunch can render rich interactive affordances over Pi without forking it. Proving the affordance set early de-risks those frontiers and lets the agent-as-user-driver extension question (controllability vs cost trade flagged in `ln-oracles` pass) be answered with evidence rather than estimation. Can run in parallel with `graph-data-plane` because TUI seams are independent of graph persistence.
-- **Traceability:** R4, R14, R16, R17, R19, R20, R21 / D2-L, D5-L, D11-L, D12-L, D13-L, D17-L, D19-L, D21-L, D22-L, D24-L, D25-L, D26-L, D27-L, D29-L, D32-L, D33-L, D34-L, D35-L, D36-L, D37-L, D38-L / I10-L, I13-L, I18-L, I19-L, I22-L, I23-L / A10-L, A14-L, A17-L, A18-L
+- **Traceability:** R4, R14, R16, R17, R19, R20, R21 / D2-L, D5-L, D11-L, D12-L, D13-L, D17-L, D19-L, D21-L, D22-L, D24-L, D25-L, D26-L, D27-L, D29-L, D32-L, D33-L, D34-L, D35-L, D36-L, D37-L, D38-L, D39-L, D40-L / I10-L, I13-L, I18-L, I19-L, I22-L, I23-L, I24-L, I25-L / A10-L, A14-L, A17-L, A18-L, A19-L
 - **Design docs:** [pi-seam-extensions.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md), [pi-ui-extension-patterns.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-ui-extension-patterns.md), [pi-ui-extension-patterns-provisional-plan.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-ui-extension-patterns-provisional-plan.md), [ELICITATION_LENSES.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/design/ELICITATION_LENSES.md), [REVIEW_SETS.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/design/REVIEW_SETS.md).
 - **Current execution pointer:** Scope the structured-question result + JSON-editor RPC fallback spike. Use Pi's `question.ts`, `questionnaire.ts`, `rpc-demo.ts`, and `examples/rpc-extension-ui.ts` as implementation references; prove self-contained `toolResult.details`, TUI input replacement, JSON-over-`ctx.ui.editor` round-trip in raw Pi RPC, Brunch product-surface relay semantics, and elicitation-exchange projection before returning to `graph-data-plane`.
 
@@ -295,25 +311,27 @@ walking-skeleton
    │      │
    │      ├── jsonl-session-viability
    │      │      │
-   │      │      ├── graph-data-plane
-   │      │      │      │
-   │      │      │      ├── agent-graph-integration
-   │      │      │      │      │
-   │      │      │      │      ├── authority-model
-   │      │      │      │      │
-   │      │      │      │      └── turn-boundary-reconciliation
-   │      │      │      │             │
-   │      │      │      │             └── coherence-first-class
-   │      │      │      │                    │
-   │      │      │      │                    └── compaction-and-conflict-widening
-   │      │      │      │
-   │      │      │      └── (oracle-design-plan-graphs — horizon)
-   │      │      │
    │      │      ├── web-shell  (M3, can run parallel after M2)
    │      │      │
-   │      │      └── pi-ui-extension-patterns  (parallel after M2; informs M5/M6/M7)
-   │      │
-   │      └── brief-library-curation   (parallel after M0)
+   │      │      ├── pi-ui-extension-patterns  (parallel after M2; informs profile/M5/M6/M7)
+   │      │      │      │
+   │      │      │      └── sealed-pi-profile-runtime-state
+   │      │      │             │
+   │      │      │             ├── graph-data-plane
+   │      │      │             │      │
+   │      │      │             │      ├── agent-graph-integration
+   │      │      │             │      │      │
+   │      │      │             │      │      ├── authority-model
+   │      │      │             │      │      │
+   │      │      │             │      │      └── turn-boundary-reconciliation
+   │      │      │             │      │             │
+   │      │      │             │      │             └── coherence-first-class
+   │      │      │             │      │                    │
+   │      │      │             │      │                    └── compaction-and-conflict-widening
+   │      │      │             │      │
+   │      │      │             │      └── (oracle-design-plan-graphs — horizon)
+   │      │      │
+   │      │      └── brief-library-curation   (parallel after M0)
    │
    └── fixture-strategy-evolution     (continuous, doc-only)
 
