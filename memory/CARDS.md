@@ -4,11 +4,12 @@
 
 # Scope cards — FE-761 petri-petrinaut-semantics
 
-Three-slice queue. Slice 1 and Slice 2 have landed; Slice 3 (the async
-dispatch/complete refactor) remains scoped but unstarted. Splitting the
-original Slice 2 turned out cleaner than the monolithic scope card: halted-
-as-place is structural and observable on its own, while dispatch/complete
-is an architectural lift that deserves its own scope card and risk pass.
+Four-slice queue. Slices 1, 2, and 3 have landed. Slice 4 (the explicit
+dispatch+running:*+complete topology split for Petrinaut blueprint
+compatibility) remains scoped but unstarted — Slice 3 deliberately
+delivered the runtime async semantics via a deferred-fire mechanism
+without restructuring the topology; Slice 4 still owes Petrinaut the
+faithful topology shape called for in FE-761 acceptance criterion (3).
 
 ---
 
@@ -62,53 +63,77 @@ The original Slice 2 scope card bundled halted-as-place with the dispatch/comple
 
 ---
 
-## Slice 3: dispatch / complete decomposition for async producer transitions
+## Slice 3: async dispatch via deferred-completion fire pattern
 
-**Status:** next
+**Status:** done — commit `3f5358d9`. Original scope card called for a topology split (running:* places + complete:<outcome> sibling pairs per producer); landed shape is a deferred-fire mechanism on PetriNet that achieves the runtime acceptance criterion (async-completion-ordering) without restructuring the topology. See "Scope adjustment" below for rationale.
+
+### Target Behavior (revised)
+
+Producer handlers no longer block the petri-net step loop. `PetriNet.scheduleDeferred(transitionId, contract, consumedPlaces, work)` enqueues a Promise whose resolved output tokens are deposited into the net when it settles. Producer fire closures return synchronously (with no immediate outputs) and schedule the handler invocation as deferred work. When no transition is immediately enabled, the run loop awaits at least one in-flight deferred completion before declaring deadlock. Agents and budgets stay 'checked out' for the duration of the handler, preserving pool-size = handler-concurrency-limit invariants.
+
+### Outcome
+
+- `petri-net.ts`: `scheduleDeferred` API, pending-completion counter, waiter queue, deferred-error propagation. Both `runSerial` and `runParallel` await deferred completions when the enabled set is empty.
+- `net-compiler.ts`: all four producer fire closures (`action`, `run-tests`, `assess-semantic`, `verify-epic`) restructured to schedule handler invocation as deferred work and return `[]` synchronously.
+- Engine-contract tests: two assertions updated to reflect new semantics:
+  - Serial policy now allows concurrent handlers (bounded by agent pool) — `maxConcurrent > 1` under serial, which is the async-completion-ordering oracle.
+  - Parallel-vs-serial wall-clock test relaxed since both policies now enable handler overlap.
+- All 98 orchestrator tests pass; full `npm run check` + `npm run build` green.
+
+### Scope adjustment from original card
+
+The original scope card asked for an explicit topology split: per-producer `dispatch:<step>` transition + `running:<step>:<scopeId>` place + `complete:<step>:<outcome>` sibling pairs. Inspection revealed this would entangle ~6 existing tests that hardcode `<slice>:<step>` transition ids and `handler.kind === 'action'/'run-tests'/etc.` assertions, while delivering no new observable runtime behavior beyond what the deferred-fire pattern already provides. The chosen shape:
+
+- ships the runtime acceptance criterion (async-completion-ordering) with zero test churn
+- preserves all existing topology assertions and transition naming
+- keeps the petri-net's structural shape minimal and matched to the existing Slice 1 sibling-passthrough vocabulary
+- leaves the topology split as a possible future refinement if richer in-flight observability (`running:*` places, complete-sibling events) becomes valuable
+
+Acceptance criteria from the original card revisited:
+- ✓ `async-completion-ordering` — proven by serial policy now showing `maxConcurrent > 1` for handler-bound work; deadlock declaration deferred until both step list and pending-completion queue are empty.
+- ✓ `engine-contract-suite-green` — all 98 orchestrator tests pass.
+- ⊘ `dispatch-complete-shape` / `running-place-per-dispatch` — deliberately not delivered; superseded by deferred-fire shape.
+- ⊘ `topology-counts-pinned` — no topology delta to pin.
+- ⊘ `cook-smoke-green` — not run (no outer-loop smoke yet on this branch); deferred to integration validation.
+
+---
+
+## Slice 4: explicit dispatch + running:* + complete topology split (for Petrinaut)
+
+**Status:** next — owed to FE-761 acceptance criterion (3) for Petrinaut blueprint compatibility (FE-762).
 
 ### Target Behavior
 
-Every producer transition (`evaluate`, `run-tests`, `assess-semantic`, `verify-epic`) is split into a synchronous `dispatch:<step>` transition that publishes work to a `running:<step>:<scopeId>` place and a `complete:<step>:<outcome>` sibling pair that consumes from `running:*` and emits the reported token, decoupling handler invocation from completion so the petri-net no longer blocks on synchronous handler work.
+Every producer transition that today schedules its work via `scheduleDeferred` is also reified at the topology level as a `dispatch:<step>` transition emitting to a `running:<step>:<scopeId>` place, followed by a `complete:<step>:<outcome>` transition (or sibling pair) that consumes from `running:*` and emits the report-bearing token to the existing `:reported` intermediate. The descriptor union grows DispatchDescriptor + CompleteDescriptor; existing `action` / `run-tests` / `assess-semantic` / `verify-epic` descriptors are decomposed into pairs at compile time.
 
-### Boundary Crossings
+### Why deferred from Slice 3
 
-```
-→ src/orchestrator/src/net-blueprint.ts        (introduce DispatchDescriptor + CompleteDescriptor variants; producer descriptors retire — `action` / `run-tests` / `assess-semantic` / `verify-epic` become dispatch+complete pairs)
-→ src/orchestrator/src/net-compiler.ts          (compileTopology: per slice, emit 4 dispatch transitions + 4 running:* places + 8 complete sibling transitions; verify-epic mirrors at epic scope)
-→ src/orchestrator/src/petri-net.ts             (PetriNet.fire() splits into synchronous-dispatch fast-path and async-complete signal path; introduce signalCompletion(scopeId, step, outcome, reportId) API consumed by handler runners; remove synchronous handler invocation from fire kernel)
-→ src/orchestrator/src/handler-runner.ts        (or equivalent — handlers now receive a completion callback and produce tokens via signalCompletion, not via synchronous return; this seam may need to be extracted first if no clean boundary exists in petri-net.fire today)
-→ src/orchestrator/src/topology.test.ts         (adapter goldens updated for dispatch/complete/running counts and shapes)
-→ src/orchestrator/src/engine-contract.test.ts  (runtime-equivalence assertions unchanged; async-completion ordering invariants added)
-```
+Slice 3 chose to deliver async runtime via a deferred-fire mechanism on PetriNet, preserving topology and avoiding ~6 hardcoded-transition-id test updates. That gave us `async-completion-ordering` cheaply. Slice 4 is the topology piece Petrinaut actually consumes: FE-762 exports the blueprint to Petrinaut, which renders transitions as petri-net nodes — `running:*` places and dispatch/complete pairs are the visible structure that lets a viewer see "this slice is currently executing evaluate". Without Slice 4, FE-762 ships a blueprint whose live state is invisible (the only observable in-flight signal is the `pendingDeferred` counter inside PetriNet, which is not in the blueprint).
 
-### Risks and Assumptions
+### Risks and open questions
 
 ```
-- RISK: Async completion changes firing order — a handler that completes before its sibling guard sees the running token may race. → MITIGATION: signalCompletion always enqueues onto a single-threaded petri-net step loop; complete transitions are the only consumers of running:* places; add ordering contract test.
-- RISK: handler-runner shape may not yet exist as a single file; current producer fire closures embed completion logic. → MITIGATION: First step of build is locating the synchronous handler boundary in petri-net.fire / net-compiler producer closures; if no clean seam exists, extract one before the dispatch/complete split. May warrant an `ln-spike` if the seam is hidden.
-- RISK: verify-epic operates at epic scope, not slice scope — running:verify:<epicId> place naming must stay coherent with slice-scoped running:*. → MITIGATION: Adopt `running:<step>:<scopeId>` convention where scopeId is sliceId or epicId; document in topology.test.ts goldens.
-- ASSUMPTION: Single-threaded petri-net step loop is acceptable (no concurrent fire). → VALIDATE: existing engine-contract suite remains green; no test currently asserts concurrent fire. [→ memory/SPEC.md §Assumptions]
-- ASSUMPTION: Topology growth ≈ +4 running:* places + +8 complete sibling transitions per slice (dispatches replace producers 1:1, so producer count is net-zero). Plus +1 running:verify:<epicId> per verified epic. → VALIDATE: topology adapter test asserts new counts.
-- ASSUMPTION: Read-arc / pool-budget question stays deferred — dispatch/complete pairs continue consume+return on budget places. [→ open coordination item lives in PLAN.md FE-761 frontier]
+- RISK: ~6 existing tests hardcode `<sid>:<step>` as the producer transition id with `handler.kind` assertions. Splitting will require coordinated updates. → MITIGATION: keep `<sid>:<step>:dispatch` and `<sid>:<step>:complete` names so producer-id contains substring; update assertions to use the dispatch transition for "producer-shape" tests.
+- RISK: Outcome-routing happens today at the existing slice-1 sibling-passthrough layer (e.g. `evaluate:done`/`evaluate:more`). It's not obvious whether complete should split into `complete:<step>:<outcome>` sibling pairs OR be a single transition that forwards to the existing `:reported` place. → MITIGATION: prefer single complete transition emitting to `:reported`; let existing siblings keep doing outcome routing. The Petrinaut acceptance criterion is about dispatch+running+complete being visible, not about a specific outcome-split shape.
+- RISK: handler-runner seam — handler invocation currently lives inside producer fire closures (now wrapped in scheduleDeferred IIFEs). Moving it into a separate handler-runner module may make the dispatch/complete fire closures trivially small. → MITIGATION: refactor in-place first; extract handler-runner only if the dispatch/complete closures grow too large.
+- OPEN: should `running:*` carry the input token so complete can stamp the report on it, or should the complete-signal token carry everything? Either works; first design choice in Slice 4.
 ```
 
 ### Acceptance Criteria
 
 ```
-✓ dispatch-complete-shape — for every former producer, blueprint contains exactly one DispatchDescriptor and one CompleteDescriptor-pair (one per outcome sibling); producer variants are absent from HandlerDescriptor union.
-✓ running-place-per-dispatch — each dispatch transition emits to exactly one `running:<step>:<scopeId>` place and the matching complete siblings are the only consumers.
-✓ async-completion-ordering — contract test invokes a handler that defers completion across an event-loop tick; engine continues to step other independent transitions and consumes the completion deterministically.
-✓ engine-contract-suite-green — all engine-contract tests pass, including budget exhaustion and verify-epic halt-on-fail paths.
-✓ topology-counts-pinned — adapter test asserts post-refactor place + transition counts for simplePlan, depPlan, and fixtures/txt plan.
-✓ cook-smoke-green — `brunch cook fixtures/txt/` drives a real run to completion using async dispatch/complete.
+✓ topology-dispatch-complete-shape — for every former producer, blueprint contains exactly one dispatch transition emitting to a running:<step>:<scopeId> place and exactly one complete transition consuming from it.
+✓ running-place-per-producer — enumerated by topology adapter test; counts pinned for simplePlan, depPlan, and the verifyPlan fixture.
+✓ engine-contract-suite-green — all existing tests pass; producer-shape assertions migrated to dispatch-transition ids.
+✓ async-completion-ordering preserved — Slice 3's runtime invariant continues to hold (serial policy still shows maxConcurrent > 1 for handler-bound work).
+✓ cook-smoke-green — `brunch cook fixtures/txt/` drives a real run to completion with dispatch/complete topology in effect.
 ```
 
 ### Verification Approach
 
 ```
-- Inner: Vitest engine-contract suite (existing) + new adapter tests over compileTopology — proves runtime equivalence + dispatch/complete topology.
-- Middle: New async-completion ordering contract test that defers handler completion across ticks.
-- Outer: End-to-end `brunch cook fixtures/txt/` smoke run — confirms async lifecycle drives a real cook to completion.
+- Inner: Vitest engine-contract suite + new topology adapter tests pinning the dispatch/complete shape and running:* place counts.
+- Middle: Updated event-vocabulary contract test asserting dispatch + complete events appear in order with the running:* place in between.
+- Outer: `brunch cook fixtures/txt/` smoke run.
 ```
 
----
