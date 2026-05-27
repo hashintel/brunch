@@ -28,6 +28,8 @@ import {
   formatBrunchChromeHeaderLines,
   formatBrunchStatus,
   formatChromeWidgetLines,
+  extractHashPrefix,
+  registerBrunchMentionAutocomplete,
   registerBrunchOperationalModePolicy,
   renderBrunchChrome,
   runBrunchMenuCommand,
@@ -296,18 +298,18 @@ describe("Brunch TUI boot", () => {
       notify: (_message: string, _type?: "info" | "warning" | "error") => {},
     }
     const ctx: FakeExtensionContext = { sessionManager: manager, ui }
-    let sessionStart: ((
+    const sessionStart: Array<(
       event: unknown,
       ctx: FakeExtensionContext,
-    ) => Promise<void>) | undefined
-    let beforeAgentStart: ((
+    ) => Promise<void>> = []
+    const beforeAgentStart: Array<(
       event: unknown,
       ctx: FakeExtensionContext,
-    ) => Promise<void>) | undefined
-    let messageStart: ((
+    ) => Promise<void>> = []
+    const messageStart: Array<(
       event: unknown,
       ctx: FakeExtensionContext,
-    ) => Promise<void>) | undefined
+    ) => Promise<void>> = []
 
     createBrunchPiExtensionShell(
       chromeStateForWorkspace(readyWorkspace(cwd, manager.getSessionId())),
@@ -316,30 +318,31 @@ describe("Brunch TUI boot", () => {
       },
       { coordinator: noOpWorkspaceCoordinator(cwd) },
     )({
-      on: (event: string, handler: typeof sessionStart) => {
+      on: (event: string, handler: never) => {
         if (event === "session_start") {
-          sessionStart = handler
+          sessionStart.push(handler)
         }
         if (event === "before_agent_start") {
-          beforeAgentStart = handler
+          beforeAgentStart.push(handler)
         }
         if (event === "message_start") {
-          messageStart = handler
+          messageStart.push(handler)
         }
       },
       registerCommand: (_name: string, _options: unknown) => {},
     } as never)
 
-    await sessionStart?.({}, ctx)
-    await beforeAgentStart?.({}, ctx)
-    await messageStart?.(
-      { type: "message_start", message: { role: "user" } },
-      ctx,
-    )
-    await messageStart?.(
-      { type: "message_start", message: { role: "assistant" } },
-      ctx,
-    )
+    for (const handler of sessionStart) await handler({}, ctx)
+    for (const handler of beforeAgentStart) await handler({}, ctx)
+    for (const handler of messageStart) {
+      await handler({ type: "message_start", message: { role: "user" } }, ctx)
+    }
+    for (const handler of messageStart) {
+      await handler(
+        { type: "message_start", message: { role: "assistant" } },
+        ctx,
+      )
+    }
 
     expect(boundSessionIds).toEqual([
       manager.getSessionId(),
@@ -599,6 +602,70 @@ describe("Brunch TUI boot", () => {
     ])
   })
 
+  it("registers graph-code mention autocomplete without fixture tag JSON", async () => {
+    let providerFactory: ((
+      current: FakeAutocompleteProvider,
+    ) => FakeAutocompleteProvider) | undefined
+    const source = {
+      listMentionCandidates: () => [
+        {
+          code: "D12",
+          title: "Command containment",
+          description: "Blocks branchy Pi flows",
+          plane: "design" as const,
+        },
+        { code: "I9", title: "Mention ledger", plane: "intent" as const },
+      ],
+    }
+
+    registerBrunchMentionAutocomplete(
+      {
+        on: (event: string, handler: (event: never, ctx: never) => unknown) => {
+          if (event === "session_start") {
+            void handler({} as never, {
+              ui: {
+                addAutocompleteProvider: (factory: typeof providerFactory) => {
+                  providerFactory = factory
+                },
+              },
+            } as never)
+          }
+        },
+      } as never,
+      source,
+    )
+
+    const fallback: FakeAutocompleteProvider = {
+      getSuggestions: async () => ({ items: [], prefix: "" }),
+      applyCompletion: (lines) => ({ lines, cursorLine: 0, cursorCol: 0 }),
+      shouldTriggerFileCompletion: () => true,
+    }
+    const provider = providerFactory?.(fallback)
+
+    expect(extractHashPrefix("See #D1", 7)).toBe("#D1")
+    await expect(
+      provider?.getSuggestions(["See #D1"], 0, 7, {} as never),
+    ).resolves.toEqual({
+      prefix: "#D1",
+      items: [
+        {
+          value: "#D12",
+          label: "#D12 Command containment",
+          description: "Blocks branchy Pi flows",
+        },
+      ],
+    })
+    expect(
+      provider?.applyCompletion(
+        ["See #D"],
+        0,
+        6,
+        { value: "#D12", label: "#D12 Command containment" },
+        "#D",
+      ),
+    ).toEqual({ lines: ["See #D12"], cursorLine: 0, cursorCol: 8 })
+  })
+
   it("loads the elicit operational-mode tool policy from product code", async () => {
     const events: Record<string, (event: never) => unknown> = {}
     const activeTools: string[][] = []
@@ -795,6 +862,32 @@ interface FakeUiCall {
 
 type FakeExtensionContext = Pick<ExtensionContext, "sessionManager"> & {
   ui: FakeExtensionUi
+}
+
+interface FakeAutocompleteItem {
+  value: string
+  label: string
+}
+
+interface FakeAutocompleteProvider {
+  getSuggestions(
+    lines: string[],
+    cursorLine: number,
+    cursorCol: number,
+    options: never,
+  ): Promise<unknown>
+  applyCompletion(
+    lines: string[],
+    cursorLine: number,
+    cursorCol: number,
+    item: FakeAutocompleteItem,
+    prefix: string,
+  ): unknown
+  shouldTriggerFileCompletion(
+    lines: string[],
+    cursorLine: number,
+    cursorCol: number,
+  ): boolean
 }
 
 type FakeExtensionUi = Pick<ExtensionUIContext, "setFooter" | "setHeader" | "setStatus" | "setWidget" | "setWorkingIndicator" | "setTitle" | "notify">

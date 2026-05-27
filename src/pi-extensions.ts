@@ -4,6 +4,10 @@ import {
 } from "@earendil-works/pi-coding-agent"
 
 import { registerBrunchBranchPolicyHandlers } from "./pi-extensions/command-policy.js"
+import {
+  registerBrunchMentionAutocomplete,
+  type GraphMentionSource,
+} from "./pi-extensions/mention-autocomplete.js"
 import { registerBrunchOperationalModePolicy } from "./pi-extensions/operational-mode.js"
 import {
   renderBrunchChrome,
@@ -20,6 +24,12 @@ import {
 } from "./pi-extensions/settings-switcher-menu.js"
 
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from "./pi-extensions/command-policy.js"
+export {
+  extractHashPrefix,
+  registerBrunchMentionAutocomplete,
+  type GraphMentionCandidate,
+  type GraphMentionSource,
+} from "./pi-extensions/mention-autocomplete.js"
 export { registerBrunchOperationalModePolicy } from "./pi-extensions/operational-mode.js"
 export {
   chromeStateForWorkspace,
@@ -48,10 +58,15 @@ export {
   type BrunchWorkspaceCommandOptions,
 } from "./pi-extensions/settings-switcher-menu.js"
 
+export interface BrunchPiExtensionShellOptions
+  extends BrunchWorkspaceCommandOptions {
+  graphMentionSource?: GraphMentionSource
+}
+
 export function createBrunchPiExtensionShell(
   chrome: BrunchChromeState,
   onSessionBoundary: BrunchSessionBoundaryHandler | undefined,
-  options: BrunchWorkspaceCommandOptions,
+  options: BrunchPiExtensionShellOptions,
 ): ExtensionFactory {
   return (pi) => {
     pi.on("session_start", async (_event, ctx) => {
@@ -64,6 +79,7 @@ export function createBrunchPiExtensionShell(
     registerBrunchSessionBoundaryRefreshHandlers(pi, onSessionBoundary)
     registerBrunchBranchPolicyHandlers(pi)
     registerBrunchOperationalModePolicy(pi)
+    registerBrunchMentionAutocomplete(pi, options.graphMentionSource)
     registerBrunchWorkspaceCommand(pi, options)
   }
 }

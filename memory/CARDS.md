@@ -239,7 +239,7 @@ Reusable Pi TUI components live under `src/pi-components`, including the workspa
 
 ## Card 6 — Port mention autocomplete as graph-code completion
 
-**Status:** next
+**Status:** done
 **Weight:** full scope card
 
 ### Target Behavior
