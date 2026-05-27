@@ -493,28 +493,40 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         const epic = plan.epics.find((e) => e.id === epicId)!;
         const baseToken: Token = { sliceId, epicId };
 
+        // FE-761 Slice 3: dispatch / deferred-completion split. The
+        // synchronous part returns no tokens — the agent stays "checked
+        // out" of its pool until the handler completes, preserving the
+        // pool-size = handler-concurrency-limit invariant. The handler
+        // invocation, report-bearing output, and agent return are all
+        // deferred, freeing the run loop to step other independent
+        // transitions (e.g. those that don't need this agent) while the
+        // handler is in flight.
         fire = async (consumed) => {
-          const actCtx: ActionContext = {
-            slice,
-            epic,
-            plan,
-            sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
-              preserveExisting: true,
-            }),
-            reports,
-          };
-          const reportId = await actions[actionKey]!(actCtx);
-          ctx.reportIds.push(reportId);
-          const tok: Token = { ...consumed[0]!, reportId };
-
-          const out: { place: string; token: Token }[] = outputPlaces.map((pl) => ({
-            place: pl,
-            token: tok,
-          }));
-          if (agentReturnPlace) {
-            out.push({ place: agentReturnPlace, token: { ...baseToken } });
-          }
-          return out;
+          const inputToken = consumed[0]!;
+          const deferred = (async () => {
+            const actCtx: ActionContext = {
+              slice,
+              epic,
+              plan,
+              sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
+                preserveExisting: true,
+              }),
+              reports,
+            };
+            const reportId = await actions[actionKey]!(actCtx);
+            ctx.reportIds.push(reportId);
+            const tok: Token = { ...inputToken, reportId };
+            const out: { place: string; token: Token }[] = outputPlaces.map((pl) => ({
+              place: pl,
+              token: tok,
+            }));
+            if (agentReturnPlace) {
+              out.push({ place: agentReturnPlace, token: { ...baseToken } });
+            }
+            return out;
+          })();
+          net.scheduleDeferred(skel.id, skel.contract, skel.inputs, deferred);
+          return [];
         };
         break;
       }
@@ -562,48 +574,55 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         const { sliceId, epicId, target, intermediatePlace, budgetPlace, maxRetries } = h;
         const baseToken: Token = { sliceId, epicId };
 
+        // FE-761 Slice 3: deferred-completion split. The synchronous part
+        // returns no outputs (budget stays "checked out" until the test
+        // run completes, which preserves retry-budget semantics). The
+        // test-runner invocation + outcome routing is deferred.
         fire = async (consumed) => {
+          const inputToken = consumed[0]!;
           const retryToken = consumed[1]!;
           const retryCount = retryToken.retryCount ?? 0;
 
-          const slice = plan.slices.find((s) => s.id === sliceId)!;
-          const sandboxDir = seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
-            preserveExisting: true,
-          });
-          const result = await testRunner.run(target, sandboxDir);
-          const reportId = createReport(reports, {
-            epicId,
-            sliceId,
-            actor: 'test-runner',
-            event: 'tests-run',
-            payload: { passed: result.passed, output: result.output },
-          });
-          ctx.reportIds.push(reportId);
+          const deferred = (async () => {
+            const slice = plan.slices.find((s) => s.id === sliceId)!;
+            const sandboxDir = seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
+              preserveExisting: true,
+            });
+            const result = await testRunner.run(target, sandboxDir);
+            const reportId = createReport(reports, {
+              epicId,
+              sliceId,
+              actor: 'test-runner',
+              event: 'tests-run',
+              payload: { passed: result.passed, output: result.output },
+            });
+            ctx.reportIds.push(reportId);
 
-          const tok: Token = { ...consumed[0]!, reportId };
-          if (result.passed) {
+            const tok: Token = { ...inputToken, reportId };
+            if (result.passed) {
+              return [
+                { place: intermediatePlace, token: tok },
+                { place: budgetPlace, token: { ...baseToken, retryCount: 0 } },
+              ];
+            }
+            if (retryCount >= maxRetries) {
+              // FE-761 Slice 2b: structural halt — emit a halt token
+              // carrying its own reason.
+              ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
+              return [
+                {
+                  place: p(sliceId, 'halted'),
+                  token: { ...tok, haltReason: `Slice ${sliceId} retry exhaustion` },
+                },
+              ];
+            }
             return [
               { place: intermediatePlace, token: tok },
-              { place: budgetPlace, token: { ...baseToken, retryCount: 0 } },
+              { place: budgetPlace, token: { ...baseToken, retryCount: retryCount + 1 } },
             ];
-          }
-          if (retryCount >= maxRetries) {
-            // FE-761 Slice 2b: halt is fully structural — emit a halt token
-            // carrying its own reason; engine derives `result.reason` from
-            // it via `net.getHaltTokens()`. Slice outcome is also marked
-            // here so post-run derivation sees the right status.
-            ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
-            return [
-              {
-                place: p(sliceId, 'halted'),
-                token: { ...tok, haltReason: `Slice ${sliceId} retry exhaustion` },
-              },
-            ];
-          }
-          return [
-            { place: intermediatePlace, token: tok },
-            { place: budgetPlace, token: { ...baseToken, retryCount: retryCount + 1 } },
-          ];
+          })();
+          net.scheduleDeferred(skel.id, skel.contract, skel.inputs, deferred);
+          return [];
         };
         break;
       }
@@ -614,45 +633,50 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         const epic = plan.epics.find((e) => e.id === epicId)!;
         const baseToken: Token = { sliceId, epicId };
 
+        // FE-761 Slice 3: deferred-completion split. Semantic budget stays
+        // checked out for the duration of the assess-semantic handler.
         fire = async (consumed) => {
+          const inputToken = consumed[0]!;
           const budgetToken = consumed[1]!;
           const reworkCount = budgetToken.reworkCount ?? 0;
 
-          const actCtx: ActionContext = {
-            slice,
-            epic,
-            plan,
-            sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
-              preserveExisting: true,
-            }),
-            reports,
-          };
-          const reportId = await actions[actionKey]!(actCtx);
-          ctx.reportIds.push(reportId);
+          const deferred = (async () => {
+            const actCtx: ActionContext = {
+              slice,
+              epic,
+              plan,
+              sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
+                preserveExisting: true,
+              }),
+              reports,
+            };
+            const reportId = await actions[actionKey]!(actCtx);
+            ctx.reportIds.push(reportId);
 
-          const report = reports.getById(reportId);
-          const satisfied = !!(report?.payload as { satisfied?: boolean } | undefined)?.satisfied;
-          const tok: Token = { ...consumed[0]!, reportId };
+            const report = reports.getById(reportId);
+            const satisfied = !!(report?.payload as { satisfied?: boolean } | undefined)?.satisfied;
+            const tok: Token = { ...inputToken, reportId };
 
-          if (satisfied) {
-            // Budget is consumed and not returned on satisfaction.
-            return [{ place: intermediatePlace, token: tok }];
-          }
-          if (reworkCount >= maxReworks) {
-            // FE-761 Slice 2b: halt token carries its own reason; engine
-            // derives `result.reason` via `net.getHaltTokens()`.
-            ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
+            if (satisfied) {
+              // Budget is consumed and not returned on satisfaction.
+              return [{ place: intermediatePlace, token: tok }];
+            }
+            if (reworkCount >= maxReworks) {
+              ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
+              return [
+                {
+                  place: p(sliceId, 'halted'),
+                  token: { ...tok, haltReason: `Slice ${sliceId} semantic rework exhaustion` },
+                },
+              ];
+            }
             return [
-              {
-                place: p(sliceId, 'halted'),
-                token: { ...tok, haltReason: `Slice ${sliceId} semantic rework exhaustion` },
-              },
+              { place: intermediatePlace, token: tok },
+              { place: budgetPlace, token: { ...baseToken, reworkCount: reworkCount + 1 } },
             ];
-          }
-          return [
-            { place: intermediatePlace, token: tok },
-            { place: budgetPlace, token: { ...baseToken, reworkCount: reworkCount + 1 } },
-          ];
+          })();
+          net.scheduleDeferred(skel.id, skel.contract, skel.inputs, deferred);
+          return [];
         };
         break;
       }
@@ -693,42 +717,48 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         // dir built from completed slice worktrees (cross-epic slice deps included).
         const sliceIdsInMergeOrder = sliceIdsForEpicVerifyMerge(plan, epicId);
 
+        // FE-761 Slice 3: deferred-completion split. Merge + verification
+        // both happen asynchronously after dispatch returns.
         fire = async (consumed) => {
-          const mergeSliceIds = sliceIdsInMergeOrder.filter(
-            (sid) => ctx.sliceOutcomes.get(sid)?.status === 'completed',
-          );
-          const merge = mergeSlicesIntoEpicSandbox({
-            parentSandboxDir: input.sandboxDir,
-            epicId,
-            sliceIds: mergeSliceIds,
-          });
-          ctx.reportIds.push(
-            createReport(reports, {
+          const inputToken = consumed[0]!;
+          const deferred = (async () => {
+            const mergeSliceIds = sliceIdsInMergeOrder.filter(
+              (sid) => ctx.sliceOutcomes.get(sid)?.status === 'completed',
+            );
+            const merge = mergeSlicesIntoEpicSandbox({
+              parentSandboxDir: input.sandboxDir,
               epicId,
-              sliceId: '',
-              actor: 'orchestrator',
-              event: 'epic-sandbox-merged',
-              payload: {
-                epicSandboxDir: merge.epicSandboxDir,
-                sliceIds: mergeSliceIds,
-                conflicts: merge.conflicts,
-              },
-            }),
-          );
+              sliceIds: mergeSliceIds,
+            });
+            ctx.reportIds.push(
+              createReport(reports, {
+                epicId,
+                sliceId: '',
+                actor: 'orchestrator',
+                event: 'epic-sandbox-merged',
+                payload: {
+                  epicSandboxDir: merge.epicSandboxDir,
+                  sliceIds: mergeSliceIds,
+                  conflicts: merge.conflicts,
+                },
+              }),
+            );
 
-          const actCtx: ActionContext = {
-            slice,
-            epic,
-            plan,
-            sandboxDir: merge.epicSandboxDir,
-            reports,
-          };
-          const reportId = await actions[actionKey]!(actCtx);
-          ctx.reportIds.push(reportId);
-          // Producer always emits to the intermediate place. Pass/fail
-          // routing happens in sibling-passthrough transitions which read
-          // the attached reportId to evaluate report.passed.
-          return [{ place: intermediatePlace, token: { ...consumed[0]!, reportId } }];
+            const actCtx: ActionContext = {
+              slice,
+              epic,
+              plan,
+              sandboxDir: merge.epicSandboxDir,
+              reports,
+            };
+            const reportId = await actions[actionKey]!(actCtx);
+            ctx.reportIds.push(reportId);
+            // Producer emits to the intermediate place; pass/fail routing
+            // happens in sibling-passthrough transitions downstream.
+            return [{ place: intermediatePlace, token: { ...inputToken, reportId } }];
+          })();
+          net.scheduleDeferred(skel.id, skel.contract, skel.inputs, deferred);
+          return [];
         };
         break;
       }

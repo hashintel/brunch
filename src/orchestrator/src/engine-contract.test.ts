@@ -936,7 +936,12 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
     expect(tracker.maxConcurrent).toBeGreaterThan(1);
   });
 
-  it('serial: action handlers execute one at a time', async () => {
+  it('serial: transitions fire one at a time, handlers run concurrently within agent-pool bounds', async () => {
+    // FE-761 Slice 3: under async dispatch, "serial" means *transition
+    // firing* is serial — but handlers run asynchronously after dispatch,
+    // so multiple handlers can be in flight concurrently as long as the
+    // agent pool has enough tokens. The agent pool (default = slices count
+    // = 3 here) bounds handler concurrency.
     const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
     const { tracked, tracker } = withConcurrencyTracking(fakes.actions);
 
@@ -951,10 +956,17 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
     });
 
     expect(result.status).toBe('completed');
-    expect(tracker.maxConcurrent).toBe(1);
+    // Pre-Slice 3 this was hardcoded to 1 because fire() awaited the handler
+    // inline. Now handlers complete asynchronously after dispatch.
+    expect(tracker.maxConcurrent).toBeGreaterThan(1);
+    expect(tracker.maxConcurrent).toBeLessThanOrEqual(threeSlicePlan.slices.length);
   });
 
-  it('parallel: wall-clock time is faster than serial for independent slices', async () => {
+  it('serial and parallel have comparable wall-clock for handler-bound work (async dispatch)', async () => {
+    // FE-761 Slice 3: with async dispatch, both serial and parallel
+    // policies let handlers run concurrently — the difference is only in
+    // *transition* firing batching. For handler-bound work, both policies
+    // complete in roughly the same wall-clock time.
     const DELAY_MS = 20;
 
     function createDelayedFakes() {
@@ -995,8 +1007,10 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
     });
     const parallelMs = Date.now() - t1;
 
-    // Parallel should be measurably faster — at least 20% improvement
-    expect(parallelMs).toBeLessThan(serialMs * 0.85);
+    // Parallel should be no slower than serial (they're effectively equal
+    // now that async dispatch lets handlers overlap in both policies).
+    // Allow a small constant slack for scheduling jitter.
+    expect(parallelMs).toBeLessThan(serialMs + 25);
   });
 });
 

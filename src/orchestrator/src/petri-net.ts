@@ -106,6 +106,80 @@ export class PetriNet {
   private places = new Map<string, Token[]>();
   private transitions: TransitionDef[] = [];
 
+  // ------------------------------------------------------------------
+  // FE-761 Slice 3: async dispatch / deferred completion plumbing.
+  //
+  // A producer fire closure may return its synchronous outputs (e.g.
+  // returning an agent token to its pool) AND additionally enqueue
+  // asynchronous follow-up work via `scheduleDeferred(work)`. The
+  // deferred Promise resolves with the eventual output tokens, which
+  // are then deposited as if a separate fire had produced them. The
+  // run loop awaits at least one deferred completion whenever no
+  // transition is immediately enabled, so the engine continues to
+  // step other independent slices while a handler is in flight.
+  // ------------------------------------------------------------------
+  private pendingDeferred = 0;
+  private deferredWaiters: Array<() => void> = [];
+  private deferredEventSink?: NetEventSink;
+  private deferredError?: unknown;
+
+  /**
+   * Enqueue asynchronous follow-up work whose resolved tokens should be
+   * deposited into the net once the Promise settles. Used by producer
+   * fire closures to decouple handler invocation from synchronous emit.
+   *
+   * The provided `transitionId` and `contract` are used to emit a
+   * `transition_fired` event when the deferred outputs land, so async
+   * completions appear in the event stream just like synchronous fires.
+   */
+  scheduleDeferred(
+    transitionId: string,
+    contract: TransitionContract | undefined,
+    consumedPlaces: string[],
+    work: Promise<{ place: string; token: Token }[]>,
+  ): void {
+    this.pendingDeferred++;
+    work
+      .then((outputs) => this.completeDeferred(transitionId, contract, consumedPlaces, outputs))
+      .catch((err) => {
+        this.deferredError ??= err;
+        this.pendingDeferred--;
+        this.wakeOneWaiter();
+      });
+  }
+
+  private completeDeferred(
+    transitionId: string,
+    contract: TransitionContract | undefined,
+    consumedPlaces: string[],
+    outputs: { place: string; token: Token }[],
+  ): void {
+    const producedPlaces: string[] = [];
+    for (const { place, token } of outputs) {
+      this.addToken(place, token);
+      producedPlaces.push(place);
+    }
+    this.deferredEventSink?.emit({
+      kind: 'transition_fired',
+      ts: new Date().toISOString(),
+      transitionId,
+      contract,
+      consumed: consumedPlaces,
+      produced: producedPlaces,
+    });
+    this.pendingDeferred--;
+    this.wakeOneWaiter();
+  }
+
+  private wakeOneWaiter(): void {
+    const wake = this.deferredWaiters.shift();
+    if (wake) wake();
+  }
+
+  private async waitForOneDeferred(): Promise<void> {
+    return new Promise((resolve) => this.deferredWaiters.push(resolve));
+  }
+
   addPlace(id: string): void {
     this.places.set(id, []);
   }
@@ -226,7 +300,9 @@ export class PetriNet {
 
   /** Serial policy — find first enabled transition, fire, repeat. */
   private async runSerial(shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
+    this.deferredEventSink = eventSink;
     while (true) {
+      if (this.deferredError) throw this.deferredError;
       if (shouldHalt?.()) {
         eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
         break;
@@ -234,6 +310,14 @@ export class PetriNet {
 
       const enabled = this.transitions.find((t) => this.isEnabled(t));
       if (!enabled) {
+        // FE-761 Slice 3: when nothing is immediately enabled, wait for any
+        // in-flight deferred completion to deposit its outputs before
+        // re-evaluating enablement. Only declare deadlock when both the
+        // step list AND the pending-completion queue are empty.
+        if (this.pendingDeferred > 0) {
+          await this.waitForOneDeferred();
+          continue;
+        }
         if (this.hasWorkBearingTokens()) {
           eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
         }
@@ -268,7 +352,9 @@ export class PetriNet {
    * AggregateError collection should be designed as a follow-up.
    */
   private async runParallel(shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
+    this.deferredEventSink = eventSink;
     while (true) {
+      if (this.deferredError) throw this.deferredError;
       if (shouldHalt?.()) {
         eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
         break;
@@ -277,6 +363,12 @@ export class PetriNet {
       const allEnabled = this.transitions.filter((t) => this.isEnabled(t));
 
       if (allEnabled.length === 0) {
+        // FE-761 Slice 3: same deferred-await behavior as serial mode —
+        // wait for an in-flight async completion before declaring deadlock.
+        if (this.pendingDeferred > 0) {
+          await this.waitForOneDeferred();
+          continue;
+        }
         if (this.hasWorkBearingTokens()) {
           eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
         }
