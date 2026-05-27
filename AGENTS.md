@@ -81,7 +81,7 @@ Tooling: oxlint (lint + type-aware + type-check via tsgolint), oxfmt (format). V
 
 ## critical file-safety rule
 
-Do not delete untracked files or directories without explicit user confirmation. This includes newly-created local files, ignored files, scratch directories, generated-looking folders, and empty placeholder directories. If cleanup seems appropriate, ask first and name the exact path(s) you propose to remove.
+Do not delete untracked files or directories without explicit user confirmation. Do not overwrite, revert, reset, reformat, or otherwise clobber uncommitted changes unless you know they are yours from this session or the user explicitly approves. Treat any uncommitted work from the user or another agent as protected. This includes newly-created local files, ignored files, scratch directories, generated-looking folders, empty placeholder directories, and modified tracked files. If cleanup or rollback seems appropriate, ask first and name the exact path(s) and action you propose.
 
 ## operational protocols
 
