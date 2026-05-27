@@ -16,15 +16,15 @@ import type {
   WorkspaceLaunchInventory,
   WorkspaceSessionReadyState,
   WorkspaceSessionState,
-  WorkspaceSwitchCoordinator,
-  WorkspaceSwitchDecision,
+  SpecSessionActivationCoordinator,
+  SpecSessionActivationDecision,
 } from "./workspace-session-coordinator.js"
 
 function coordinator(
   state: WorkspaceSessionState = readyState(
     "/tmp/brunch-project/.brunch/sessions/session-1.jsonl",
   ),
-): DefaultWorkspaceCoordinator & WorkspaceSwitchCoordinator {
+): DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator {
   const inventory = launchInventory()
   return {
     async openDefaultWorkspace() {
@@ -34,7 +34,7 @@ function coordinator(
       return inventory
     },
     async activateWorkspace(
-      decision: WorkspaceSwitchDecision,
+      decision: SpecSessionActivationDecision,
     ): Promise<WorkspaceActivationState> {
       if (decision.action === "cancel") return cancelledState()
       return readyState("/tmp/brunch-project/.brunch/sessions/session-1.jsonl")
@@ -205,7 +205,7 @@ describe("JSON-RPC handlers", () => {
   })
 
   it("activates valid workspace decisions and returns a serializable product snapshot", async () => {
-    const decisions: WorkspaceSwitchDecision[] = []
+    const decisions: SpecSessionActivationDecision[] = []
     const handlers = createRpcHandlers({
       cwd: "/tmp/brunch-project",
       coordinator: {

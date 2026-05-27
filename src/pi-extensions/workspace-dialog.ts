@@ -5,8 +5,8 @@ import type {
 
 import {
   type WorkspaceSessionReadyState,
-  type WorkspaceSwitchCoordinator,
-  type WorkspaceSwitchDecision,
+  type SpecSessionActivationCoordinator,
+  type SpecSessionActivationDecision,
 } from "../workspace-session-coordinator.js"
 import {
   WORKSPACE_DIALOG_WIDTH,
@@ -17,13 +17,13 @@ import { chromeStateForWorkspace, renderBrunchChrome } from "./chrome.js"
 export const BRUNCH_WORKSPACE_COMMAND = "brunch"
 export const BRUNCH_WORKSPACE_SHORTCUT = "ctrl+shift+b"
 
-export interface BrunchWorkspaceDialogOptions {
-  coordinator: WorkspaceSwitchCoordinator
+export interface BrunchSpecSessionPickerOptions {
+  coordinator: SpecSessionActivationCoordinator
 }
 
 export function registerBrunchWorkspaceDialog(
   pi: ExtensionAPI,
-  { coordinator }: BrunchWorkspaceDialogOptions,
+  { coordinator }: BrunchSpecSessionPickerOptions,
 ): void {
   pi.registerCommand(BRUNCH_WORKSPACE_COMMAND, {
     description: "Open the Brunch spec/session picker",
@@ -44,21 +44,21 @@ export function registerBrunchWorkspaceDialog(
 
 export async function runBrunchWorkspaceCommand(
   ctx: ExtensionCommandContext,
-  coordinator: WorkspaceSwitchCoordinator,
+  coordinator: SpecSessionActivationCoordinator,
 ): Promise<void> {
   await runBrunchWorkspaceAction(ctx, coordinator)
 }
 
 export async function runBrunchWorkspaceAction(
   ctx: ExtensionCommandContext,
-  coordinator: WorkspaceSwitchCoordinator,
+  coordinator: SpecSessionActivationCoordinator,
   options: { waitForIdle?: boolean } = {},
 ): Promise<void> {
   if (options.waitForIdle !== false && canWaitForIdle(ctx)) {
     await ctx.waitForIdle()
   }
   const inventory = await coordinator.inspectWorkspace()
-  const decision = await ctx.ui.custom<WorkspaceSwitchDecision>(
+  const decision = await ctx.ui.custom<SpecSessionActivationDecision>(
     (_tui, theme, _keybindings, done) =>
       createWorkspaceDialogComponent({
         inventory,

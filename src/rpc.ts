@@ -30,8 +30,8 @@ import type {
   WorkspaceActivationState,
   WorkspaceLaunchInventory,
   WorkspaceSessionState,
-  WorkspaceSwitchCoordinator,
-  WorkspaceSwitchDecision,
+  SpecSessionActivationCoordinator,
+  SpecSessionActivationDecision,
 } from "./workspace-session-coordinator.js"
 
 export interface RpcHandlers {
@@ -39,7 +39,7 @@ export interface RpcHandlers {
 }
 
 export function createRpcHandlers(options: {
-  coordinator: DefaultWorkspaceCoordinator & Partial<WorkspaceSwitchCoordinator>
+  coordinator: DefaultWorkspaceCoordinator & Partial<SpecSessionActivationCoordinator>
   cwd: string
 }): RpcHandlers {
   return {
@@ -159,7 +159,7 @@ function workspaceActivationSnapshotFromState(
 
 type WorkspaceActivationParamsParseResult = {
   ok: true
-  value: WorkspaceSwitchDecision
+  value: SpecSessionActivationDecision
 } | { ok: false }
 
 function parseWorkspaceActivationParams(

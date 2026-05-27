@@ -16,8 +16,8 @@ import {
   type WorkspaceLaunchInventory,
   type WorkspaceSessionBoundaryCoordinator,
   type WorkspaceSessionReadyState,
-  type WorkspaceSwitchCoordinator,
-  type WorkspaceSwitchDecision,
+  type SpecSessionActivationCoordinator,
+  type SpecSessionActivationDecision,
 } from "./workspace-session-coordinator.js"
 import {
   chromeStateForWorkspace,
@@ -38,7 +38,7 @@ export {
 } from "./pi-extensions.js"
 export { runWorkspaceDialogPreflight } from "./pi-components/workspace-dialog.js"
 
-export type BrunchTuiCoordinator = WorkspaceSwitchCoordinator & WorkspaceSessionBoundaryCoordinator
+export type BrunchTuiCoordinator = SpecSessionActivationCoordinator & WorkspaceSessionBoundaryCoordinator
 
 export interface BrunchTuiLaunchContext {
   workspace: WorkspaceSessionReadyState
@@ -51,7 +51,7 @@ export interface BrunchTuiOptions {
   selectSpecTitle?: () => Promise<string | undefined>
   runWorkspaceDialogPreflight?: (
     inventory: WorkspaceLaunchInventory,
-  ) => Promise<WorkspaceSwitchDecision>
+  ) => Promise<SpecSessionActivationDecision>
   launchInteractive?: (context: BrunchTuiLaunchContext) => Promise<void>
 }
 
@@ -63,7 +63,7 @@ export async function runBrunchTui(
     options.coordinator ?? createWorkspaceSessionCoordinator({ cwd })
 
   const inventory = await coordinator.inspectWorkspace()
-  const decision = await chooseWorkspaceSwitchDecision(inventory, options)
+  const decision = await chooseSpecSessionActivationDecision(inventory, options)
   const workspaceState = await coordinator.activateWorkspace(decision)
 
   if (workspaceState.status === "cancelled") {
@@ -79,10 +79,10 @@ export async function runBrunchTui(
   })
 }
 
-async function chooseWorkspaceSwitchDecision(
+async function chooseSpecSessionActivationDecision(
   inventory: WorkspaceLaunchInventory,
   options: BrunchTuiOptions,
-): Promise<WorkspaceSwitchDecision> {
+): Promise<SpecSessionActivationDecision> {
   if (options.runWorkspaceDialogPreflight) {
     return options.runWorkspaceDialogPreflight(inventory)
   }

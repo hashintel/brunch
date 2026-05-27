@@ -1,16 +1,8 @@
 import type {
   WorkspaceLaunchInventory,
   WorkspaceLaunchSession,
-  WorkspaceSwitchDecision,
+  SpecSessionActivationDecision,
 } from "../../workspace-session-coordinator.js"
-
-export interface WorkspaceDialogOption {
-  id: string
-  label: string
-  description: string
-  kind: "continue" | "openSession" | "newSession" | "newSpec" | "cancel"
-  decision?: WorkspaceSwitchDecision
-}
 
 export type WorkspaceSelectionStage = { stage: "home" } | {
   stage: "newSpecTitle"
@@ -28,7 +20,7 @@ export interface WorkspaceSelectionOption {
   label: string
   description: string
   kind: "continue" | "newSpec" | "resumeSpec" | "cancel" | "spec" | "newSession" | "resumeSession" | "session"
-  decision?: WorkspaceSwitchDecision
+  decision?: SpecSessionActivationDecision
   nextStage?: WorkspaceSelectionStage
 }
 
@@ -43,7 +35,9 @@ export interface WorkspaceSelectionViewOptions {
   includeContinue?: boolean
 }
 
-export type WorkspaceSelectionResult = { decision: WorkspaceSwitchDecision } | {
+export type WorkspaceSelectionResult = {
+  decision: SpecSessionActivationDecision
+} | {
   view: WorkspaceSelectionView
 }
 
@@ -219,73 +213,6 @@ function buildHomeSelectionView(
     title: "Choose a specification",
     options: selectionOptions,
   }
-}
-
-export function buildWorkspaceDialogOptions(
-  inventory: WorkspaceLaunchInventory,
-): WorkspaceDialogOption[] {
-  const options: WorkspaceDialogOption[] = []
-  const currentSession = findCurrentSession(inventory)
-
-  if (currentSession && inventory.currentSpec) {
-    options.push({
-      id: `continue:${currentSession.file}`,
-      label: `Continue ${inventory.currentSpec.title}`,
-      description: sessionDescription(
-        currentSession,
-        "Resume selected session",
-      ),
-      kind: "continue",
-      decision: {
-        action: "continue",
-        specId: inventory.currentSpec.id,
-        sessionFile: currentSession.file,
-      },
-    })
-  }
-
-  for (const { spec, sessions } of inventory.specs) {
-    options.push({
-      id: `new-session:${spec.id}`,
-      label: `Create new session for ${spec.title}`,
-      description: "Create a binding-only session before Pi starts",
-      kind: "newSession",
-      decision: { action: "newSession", specId: spec.id },
-    })
-
-    for (const session of sessions) {
-      if (session.file === currentSession?.file) {
-        continue
-      }
-      options.push({
-        id: `open:${session.file}`,
-        label: `Resume ${spec.title}`,
-        description: sessionDescription(session, "Resume existing session"),
-        kind: "openSession",
-        decision: {
-          action: "openSession",
-          specId: spec.id,
-          sessionFile: session.file,
-        },
-      })
-    }
-  }
-
-  options.push({
-    id: "new-spec",
-    label: "Create new specification",
-    description: "Name a new spec and create its first session",
-    kind: "newSpec",
-  })
-  options.push({
-    id: "cancel",
-    label: "Cancel",
-    description: "Exit without activating a spec/session",
-    kind: "cancel",
-    decision: { action: "cancel" },
-  })
-
-  return options
 }
 
 function findCurrentSession(

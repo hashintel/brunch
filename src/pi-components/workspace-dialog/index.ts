@@ -4,10 +4,8 @@ export {
   type WorkspaceDialogComponentOptions,
 } from "./component.js"
 export {
-  buildWorkspaceDialogOptions,
   buildWorkspaceSelectionView,
   selectWorkspaceSelectionOption,
-  type WorkspaceDialogOption,
   type WorkspaceSelectionOption,
   type WorkspaceSelectionResult,
   type WorkspaceSelectionStage,

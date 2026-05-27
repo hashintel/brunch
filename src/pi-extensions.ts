@@ -21,7 +21,7 @@ import {
 } from "./pi-extensions/session-lifecycle.js"
 import {
   registerBrunchWorkspaceDialog,
-  type BrunchWorkspaceDialogOptions,
+  type BrunchSpecSessionPickerOptions,
 } from "./pi-extensions/workspace-dialog.js"
 
 export { registerBrunchAlternatives } from "./pi-extensions/alternatives.js"
@@ -74,11 +74,11 @@ export {
   registerBrunchWorkspaceDialog,
   runBrunchWorkspaceAction,
   runBrunchWorkspaceCommand,
-  type BrunchWorkspaceDialogOptions,
+  type BrunchSpecSessionPickerOptions,
 } from "./pi-extensions/workspace-dialog.js"
 
 export interface BrunchPiExtensionShellOptions
-  extends BrunchWorkspaceDialogOptions {
+  extends BrunchSpecSessionPickerOptions {
   graphMentionSource?: GraphMentionSource
 }
 

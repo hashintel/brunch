@@ -3,7 +3,7 @@ import { ProcessTerminal, TUI, type Terminal } from "@earendil-works/pi-tui"
 
 import type {
   WorkspaceLaunchInventory,
-  WorkspaceSwitchDecision,
+  SpecSessionActivationDecision,
 } from "../../workspace-session-coordinator.js"
 import {
   WORKSPACE_DIALOG_WIDTH,
@@ -19,13 +19,13 @@ interface WorkspaceDialogPreflightOptions {
 export async function runWorkspaceDialogPreflight(
   inventory: WorkspaceLaunchInventory,
   options: WorkspaceDialogPreflightOptions = {},
-): Promise<WorkspaceSwitchDecision> {
+): Promise<SpecSessionActivationDecision> {
   const terminal = options.terminal ?? new ProcessTerminal()
   const tui = new TUI(terminal)
   const dialogTheme = options.theme ?? resolveStartupDialogTheme()
 
-  return await new Promise<WorkspaceSwitchDecision>((resolve) => {
-    const finish = (decision: WorkspaceSwitchDecision) => {
+  return await new Promise<SpecSessionActivationDecision>((resolve) => {
+    const finish = (decision: SpecSessionActivationDecision) => {
       overlay.hide()
       tui.stop()
       terminal.clearScreen()

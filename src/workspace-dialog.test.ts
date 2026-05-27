@@ -1,11 +1,10 @@
 import { readFile } from "node:fs/promises"
 
-import { visibleWidth, type Terminal } from "@earendil-works/pi-tui"
+import { type Terminal } from "@earendil-works/pi-tui"
 
 import { describe, expect, it } from "vitest"
 
 import {
-  buildWorkspaceDialogOptions,
   buildWorkspaceSelectionView,
   createWorkspaceDialogComponent,
   selectWorkspaceSelectionOption,
@@ -116,36 +115,6 @@ describe("spec/session picker", () => {
     expect(view.options.map((option) => option.label)).toEqual([
       "Create new session",
     ])
-  })
-
-  it("builds explicit resume, new-session, open-session, create-spec, and cancel options", () => {
-    const options = buildWorkspaceDialogOptions(inventory())
-
-    expect(options.map((option) => option.kind)).toEqual([
-      "continue",
-      "newSession",
-      "openSession",
-      "newSession",
-      "openSession",
-      "newSpec",
-      "cancel",
-    ])
-    expect(options[0]).toMatchObject({
-      label: "Continue Alpha",
-      decision: {
-        action: "continue",
-        specId: "spec-alpha",
-        sessionFile: "/sessions/alpha-current.jsonl",
-      },
-    })
-    expect(options.at(-2)).toMatchObject({
-      label: "Create new specification",
-    })
-    expect(options.at(-2)).not.toHaveProperty("decision")
-    expect(options.at(-1)).toMatchObject({
-      label: "Cancel",
-      decision: { action: "cancel" },
-    })
   })
 
   it("renders specification copy without user-created workspace wording", () => {
@@ -294,23 +263,29 @@ describe("spec/session picker", () => {
     expect(terminal.events.at(-1)).toBe("clearScreen")
   })
 
-  it("renders a branded centered-dialog frame with version metadata", () => {
+  it("renders a branded centered-dialog frame with separately styled version metadata", () => {
     const component = createWorkspaceDialogComponent({
       inventory: inventory(),
       onDecision: () => {},
+      theme: {
+        fg: (color, text) => `[${color}]${text}[/${color}]`,
+      },
     })
 
     const lines = component.render(80)
 
     expect(lines[0]).toContain("╭")
-    expect(lines[1]).toMatch(/^│\s+│$/)
+    expect(lines[1]).toMatch(
+      /^\[borderMuted\]│\[\/borderMuted\]\s+\[borderMuted\]│\[\/borderMuted\]$/,
+    )
     expect(lines.some((line) => line.includes("Choose a specification"))).toBe(
       true,
     )
-    expect(lines.some((line) => line.includes("brunch v0.0.0"))).toBe(true)
-    expect(lines.some((line) => line.includes("(dev"))).toBe(true)
+    expect(
+      lines.some((line) => line.includes("[accent]brunch v0.0.0[/accent]")),
+    ).toBe(true)
+    expect(lines.some((line) => line.includes("[success](dev"))).toBe(true)
     expect(lines.some((line) => line.includes("built on Pi v"))).toBe(true)
-    expect(lines.every((line) => visibleWidth(line) <= 80)).toBe(true)
   })
 
   it("keeps logo assets colocated with the private picker component", async () => {

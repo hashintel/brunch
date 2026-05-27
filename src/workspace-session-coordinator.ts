@@ -96,7 +96,7 @@ export interface WorkspaceCancelDecision {
   action: "cancel"
 }
 
-export type WorkspaceSwitchDecision = WorkspaceContinueDecision | WorkspaceOpenSessionDecision | WorkspaceNewSessionDecision | WorkspaceNewSpecDecision | WorkspaceCancelDecision
+export type SpecSessionActivationDecision = WorkspaceContinueDecision | WorkspaceOpenSessionDecision | WorkspaceNewSessionDecision | WorkspaceNewSpecDecision | WorkspaceCancelDecision
 
 export type WorkspaceActivationState = WorkspaceSessionReadyState | WorkspaceSessionNeedsHumanState | WorkspaceSessionCancelledState
 
@@ -131,10 +131,10 @@ export interface WorkspaceLaunchInventory {
   unavailableSessions: WorkspaceUnavailableSession[]
 }
 
-export interface WorkspaceSwitchCoordinator {
+export interface SpecSessionActivationCoordinator {
   inspectWorkspace(): Promise<WorkspaceLaunchInventory>
   activateWorkspace(
-    decision: WorkspaceSwitchDecision,
+    decision: SpecSessionActivationDecision,
   ): Promise<WorkspaceActivationState>
 }
 
@@ -161,7 +161,7 @@ export interface WorkspaceDefaultChromeCoordinator {
 }
 
 export interface WorkspaceSessionCoordinator
-  extends WorkspaceSwitchCoordinator,
+  extends SpecSessionActivationCoordinator,
     DefaultWorkspaceCoordinator,
     WorkspaceSetupCoordinator,
     WorkspaceSessionBoundaryCoordinator,
@@ -186,7 +186,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
   }
 
   async activateWorkspace(
-    decision: WorkspaceSwitchDecision,
+    decision: SpecSessionActivationDecision,
   ): Promise<WorkspaceActivationState> {
     if (decision.action === "cancel") {
       const state = await readWorkspaceState(this.#cwd)

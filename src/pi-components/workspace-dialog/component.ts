@@ -14,7 +14,7 @@ import {
 
 import type {
   WorkspaceLaunchInventory,
-  WorkspaceSwitchDecision,
+  SpecSessionActivationDecision,
 } from "../../workspace-session-coordinator.js"
 import {
   buildWorkspaceSelectionView,
@@ -39,7 +39,7 @@ export type WorkspaceDialogTheme = Pick<Theme, "fg">
 
 export interface WorkspaceDialogComponentOptions {
   inventory: WorkspaceLaunchInventory
-  onDecision: (decision: WorkspaceSwitchDecision) => void
+  onDecision: (decision: SpecSessionActivationDecision) => void
   theme?: WorkspaceDialogTheme
   includeContinue?: boolean
 }
@@ -52,7 +52,7 @@ export function createWorkspaceDialogComponent(
 
 class WorkspaceDialogComponent implements Component {
   #inventory: WorkspaceLaunchInventory
-  #onDecision: (decision: WorkspaceSwitchDecision) => void
+  #onDecision: (decision: SpecSessionActivationDecision) => void
   #theme: WorkspaceDialogTheme | undefined
   #includeContinue: boolean
   #selectedIndex = 0
@@ -121,8 +121,11 @@ class WorkspaceDialogComponent implements Component {
     const versionLine = style(
       this.#theme,
       "accent",
-      `brunch ${version.version}${version.dev ? ` ${version.dev}` : ""}`,
+      `brunch ${version.version}`,
     )
+    const devLine = version.dev
+      ? style(this.#theme, "success", version.dev)
+      : null
     const piLine = style(this.#theme, "dim", `built on Pi v${PI_VERSION}`)
     const lines = [
       ...logo,
@@ -130,6 +133,7 @@ class WorkspaceDialogComponent implements Component {
       ...BRUNCH_WORDMARK.map((line) => style(this.#theme, "muted", line)),
       "",
       versionLine,
+      ...(devLine ? [devLine] : []),
       piLine,
       "",
       title,
