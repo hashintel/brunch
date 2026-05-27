@@ -109,6 +109,13 @@ export type OrchestratorInput = {
    * (`cook/<runId>/<sliceId>`). Unused in fixture mode.
    */
   runId?: string;
+  /**
+   * Optional run directory (e.g. `<baseDir>/.cook/runs/<runId>/`). When set,
+   * the orchestrator writes the Petrinaut-format compiled net to
+   * `<runDir>/net.json` after `compileTopology` returns (FE-762). Tests and
+   * library callers that do not need on-disk export can omit it.
+   */
+  runDir?: string;
 };
 
 export type EpicOutcome = {

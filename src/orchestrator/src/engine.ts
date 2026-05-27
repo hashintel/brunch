@@ -1,5 +1,9 @@
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { compileTopology, wireHandlers } from './net-compiler.js';
 import type { FiringPolicy } from './petri-net.js';
+import { serializeBlueprint } from './petrinaut-export.js';
 import type { Orchestrator, OrchestratorInput, OrchestratorResult, RunCtx } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -26,6 +30,15 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
 
       try {
         const blueprint = compileTopology(input.plan, input.policy);
+
+        // FE-762: write the Petrinaut-format compiled net to <runDir>/net.json
+        // so the Petrinaut team can render the topology of this cook run.
+        // Skipped when runDir is absent (library callers / tests).
+        if (input.runDir) {
+          const net = serializeBlueprint(blueprint, { runId: input.runId ?? 'unknown' });
+          writeFileSync(join(input.runDir, 'net.json'), `${JSON.stringify(net, null, 2)}\n`);
+        }
+
         const net = wireHandlers(blueprint, input, ctx);
         await net.run(firingPolicy, () => net.hasHaltToken());
 
