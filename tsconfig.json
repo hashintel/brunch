@@ -26,7 +26,8 @@
 		"verbatimModuleSyntax": true
 	},
 	"include": [
-		"src/**/*"
+		"src/**/*",
+		".pi/extensions/**/*.ts"
 	],
 	"exclude": [
 		"node_modules",
