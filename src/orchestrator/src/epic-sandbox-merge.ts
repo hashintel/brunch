@@ -187,8 +187,14 @@ function pruneEmptyDirs(rootDir: string, dir: string = rootDir): void {
   }
 }
 
+function assertSliceWorktreePathAvailable(parentSandboxDir: string, sliceId: string): void {
+  const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
+  if (existsSync(sliceDir)) {
+    throw new Error(`Slice id "${sliceId}" collides with an existing entry in the parent worktree`);
+  }
+}
+
 /**
- * Platform-aware copy-on-write (reflink/clonefile) where supported; falls
  * back to a regular recursive `cpSync` otherwise. Lazy at the block level
  * on APFS (macOS) and reflink-capable filesystems (Linux btrfs/xfs/etc.),
  * so large gitignored content like `node_modules/` costs ~zero disk on the
@@ -241,6 +247,7 @@ export function seedSliceFromParentWorktree(
   plan: Plan,
   runId: string,
 ): string {
+  assertSliceWorktreePathAvailable(parentSandboxDir, sliceId);
   const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
 
   // 1. Real git worktree: tracked content arrives via git checkout, slice

@@ -314,6 +314,18 @@ describe('seedSliceFromParentWorktree', () => {
 
     expect(existsSync(join(sliceDir, '__epic__'))).toBe(false);
   });
+
+  it('rejects slice ids that collide with top-level repo entries', () => {
+    const { parent } = makeGitParentWorktree('r6');
+    const plan: Plan = {
+      epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
+      slices: [{ id: 'src', epic_id: 'e1', definition: '', depends_on: [], verification: [] }],
+    };
+
+    expect(() => seedSliceFromParentWorktree(parent, 'src', plan, 'r6')).toThrow(
+      'Slice id "src" collides with an existing entry in the parent worktree',
+    );
+  });
 });
 
 describe('mergeSlicesIntoEpicSandbox', () => {
