@@ -6,12 +6,98 @@ import { describe, expect, it } from "vitest"
 
 import {
   buildWorkspaceDialogOptions,
+  buildWorkspaceSelectionView,
   createWorkspaceDialogComponent,
+  selectWorkspaceSelectionOption,
   runWorkspaceDialogPreflight,
 } from "./pi-components/workspace-dialog/index.js"
 import type { WorkspaceLaunchInventory } from "./workspace-session-coordinator.js"
 
 describe("workspace dialog", () => {
+  it("builds a hierarchical spec/session selection home without per-spec top-level actions", () => {
+    const view = buildWorkspaceSelectionView(inventory())
+
+    expect(view.stage).toBe("home")
+    expect(view.options.map((option) => option.kind)).toEqual([
+      "continue",
+      "newSpec",
+      "resumeSpec",
+      "cancel",
+    ])
+    expect(view.options.map((option) => option.label)).toEqual([
+      "Continue last session",
+      "Create new specification",
+      "Resume existing specification",
+      "Cancel",
+    ])
+    expect(view.options.map((option) => option.label).join("\n")).not.toMatch(
+      /Resume Alpha|Open Alpha|Start new session in Alpha/,
+    )
+    expect(selectWorkspaceSelectionOption(view, 0)).toEqual({
+      decision: {
+        action: "continue",
+        specId: "spec-alpha",
+        sessionFile: "/sessions/alpha-current.jsonl",
+      },
+    })
+  })
+
+  it("navigates resume-existing-spec to spec actions without emitting activation early", () => {
+    const currentInventory = inventory()
+    const home = buildWorkspaceSelectionView(currentInventory)
+    const specList = selectWorkspaceSelectionOption(home, 2, currentInventory)
+
+    expect(specList).toMatchObject({ view: { stage: "specList" } })
+    if (!("view" in specList)) throw new Error("expected spec list")
+    expect(specList.view.options.map((option) => option.label)).toEqual([
+      "Alpha",
+      "Beta",
+    ])
+
+    const specAction = selectWorkspaceSelectionOption(
+      specList.view,
+      0,
+      currentInventory,
+    )
+
+    expect(specAction).toMatchObject({ view: { stage: "specAction" } })
+    if (!("view" in specAction)) throw new Error("expected spec action")
+    expect(specAction.view.options.map((option) => option.label)).toEqual([
+      "Create new session",
+      "Resume existing session",
+    ])
+    expect(selectWorkspaceSelectionOption(specAction.view, 0)).toEqual({
+      decision: { action: "newSession", specId: "spec-alpha" },
+    })
+  })
+
+  it("emits open-session only after a session is selected", () => {
+    const sessionList = buildWorkspaceSelectionView(inventory(), {
+      stage: "sessionList",
+      specId: "spec-alpha",
+    })
+
+    expect(sessionList.options.map((option) => option.label)).toEqual([
+      "session-alpha-current",
+      "session-alpha-older",
+    ])
+    expect(selectWorkspaceSelectionOption(sessionList, 1)).toEqual({
+      decision: {
+        action: "openSession",
+        specId: "spec-alpha",
+        sessionFile: "/sessions/alpha-older.jsonl",
+      },
+    })
+  })
+
+  it("enters new-spec title state before emitting a new-spec decision", () => {
+    const home = buildWorkspaceSelectionView(inventory())
+
+    expect(selectWorkspaceSelectionOption(home, 1)).toMatchObject({
+      view: { stage: "newSpecTitle", title: "", options: [] },
+    })
+  })
+
   it("builds explicit resume, new-session, open-session, create-spec, and cancel options", () => {
     const options = buildWorkspaceDialogOptions(inventory())
 

@@ -14,7 +14,7 @@ Status key: `next` / `in progress` / `done` / `dropped`.
 
 ## Card 1 — Pure spec/session selection model
 
-**Status:** next  
+**Status:** done  
 **Weight:** full scope card
 
 ### Target Behavior
