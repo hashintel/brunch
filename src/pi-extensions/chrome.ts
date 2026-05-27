@@ -42,7 +42,13 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
   coherence?: BrunchChromeCoherenceVerdict
 }
 
-export type BrunchChromeUi = Pick<ExtensionUIContext, "setFooter" | "setHeader" | "setStatus" | "setWidget" | "setTitle">
+export type BrunchChromeUi = Pick<ExtensionUIContext, "setFooter" | "setHeader" | "setWidget" | "setTitle">
+
+interface BrunchChromeFooterData {
+  getGitBranch(): string | null
+  getExtensionStatuses(): ReadonlyMap<string, string>
+  onBranchChange(callback: () => void): () => void
+}
 
 export function formatBrunchChromeHeaderLines(
   chrome: BrunchChromeState,
@@ -56,13 +62,20 @@ export function formatBrunchChromeHeaderLines(
 
 export function formatBrunchChromeFooterLines(
   chrome: BrunchChromeState,
+  footerData?: BrunchChromeFooterData,
 ): string[] {
+  const statuses = [...(footerData?.getExtensionStatuses() ?? new Map())]
+    .filter(([key]) => key !== "brunch.chrome")
+    .map(([, value]) => value)
+  const branch = footerData?.getGitBranch()
   return [
     `runtime: ${formatRuntime(chrome)} · build: ${formatBuild(chrome)}`,
     `context: ${formatContextUsage(chrome.contextUsage)}`,
     `state: ${chrome.chatMode} · coherence: ${chrome.coherence ?? "unknown"} · worker: ${formatWorker(chrome)}`,
-    `spec: ${formatSpec(chrome)} · session: ${formatSession(chrome)}`,
-    "",
+    `spec: ${formatSpec(chrome)} · session: ${formatSession(chrome)}${
+      branch ? ` · branch: ${branch}` : ""
+    }`,
+    statuses.length > 0 ? `status: ${statuses.join(" · ")}` : "",
   ]
 }
 
@@ -101,11 +114,14 @@ export function renderBrunchChrome(
     render: () => formatBrunchChromeHeaderLines(chrome),
     invalidate: () => {},
   }))
-  ui.setFooter(() => ({
-    render: () => formatBrunchChromeFooterLines(chrome),
-    invalidate: () => {},
-  }))
-  ui.setStatus("brunch.chrome", formatBrunchStatus(chrome))
+  ui.setFooter((tui, _theme, footerData) => {
+    const unsubscribe = footerData.onBranchChange(() => tui.requestRender())
+    return {
+      render: () => formatBrunchChromeFooterLines(chrome, footerData),
+      invalidate: () => {},
+      dispose: unsubscribe,
+    }
+  })
   ui.setWidget("brunch.chrome", formatChromeWidgetLines(chrome), {
     placement: "aboveEditor",
   })

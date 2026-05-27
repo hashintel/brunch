@@ -263,6 +263,73 @@ describe("Brunch TUI boot", () => {
     )
   })
 
+  it("renders live footer telemetry and foreign statuses without publishing a chrome status key", async () => {
+    let footerFactory: unknown
+    const calls: FakeUiCall[] = []
+    const ui: FakeExtensionUi = {
+      setHeader: (...args: unknown[]) =>
+        calls.push({ method: "setHeader", args }),
+      setFooter: (factory: unknown) => {
+        footerFactory = factory
+        calls.push({ method: "setFooter", args: [factory] })
+      },
+      setStatus: (...args: unknown[]) =>
+        calls.push({ method: "setStatus", args }),
+      setWidget: (...args: unknown[]) =>
+        calls.push({ method: "setWidget", args }),
+      setWorkingIndicator: (_options) => {},
+      setTitle: (...args: unknown[]) =>
+        calls.push({ method: "setTitle", args }),
+      notify: (_message: string, _type?: "info" | "warning" | "error") => {},
+    }
+
+    renderBrunchChrome(ui, {
+      cwd: "/tmp/project",
+      spec: { id: "spec-1", title: "Spec One" },
+      session: { id: "session-1", label: "Interview #1" },
+      phase: "elicitation",
+      chatMode: "responding-to-elicitation",
+      runtime: {
+        bundle: "elicit-default",
+        role: "elicitor",
+        model: "claude-sonnet",
+        thinking: "medium",
+      },
+      contextUsage: { usedTokens: 1024, maxTokens: 2048 },
+    })
+
+    const footerRenderer = footerFactory as (
+      tui: unknown,
+      theme: unknown,
+      footerData: unknown,
+    ) => { render: (width: number) => string[] }
+    const component = footerRenderer(
+      { requestRender: () => {} },
+      { fg: (_tone: string, value: string) => value },
+      {
+        getGitBranch: () => "main",
+        getExtensionStatuses: () =>
+          new Map([
+            ["brunch.reviewer", "reviewer queued"],
+            ["brunch.chrome", "should not echo"],
+          ]),
+        getAvailableProviderCount: () => 2,
+        onBranchChange: () => () => {},
+      },
+    )
+    const footer = component.render(100).join("\n")
+
+    expect(footer).toContain("Spec One")
+    expect(footer).toContain("Interview #1")
+    expect(footer).toContain("main")
+    expect(footer).toContain("claude-sonnet")
+    expect(footer).toContain("thinking medium")
+    expect(footer).toContain("[█████░░░░░] 1,024/2,048 tokens (50%)")
+    expect(footer).toContain("reviewer queued")
+    expect(footer).not.toContain("should not echo")
+    expect(calls.map((call) => call.method)).not.toContain("setStatus")
+  })
+
   it("renders Brunch chrome through one wrapper over Pi UI calls", async () => {
     const calls: FakeUiCall[] = []
     const ui: FakeExtensionUi = {
@@ -291,17 +358,13 @@ describe("Brunch TUI boot", () => {
     expect(calls.map((call) => call.method)).toEqual([
       "setHeader",
       "setFooter",
-      "setStatus",
       "setWidget",
       "setTitle",
     ])
     expect(calls.find((call) => call.method === "setFooter")?.args[0]).toEqual(
       expect.any(Function),
     )
-    expect(calls.find((call) => call.method === "setStatus")?.args).toEqual([
-      "brunch.chrome",
-      "Brunch · elicitation · Spec One · not reported",
-    ])
+    expect(calls.some((call) => call.method === "setStatus")).toBe(false)
     expect(calls.find((call) => call.method === "setWidget")?.args).toEqual([
       "brunch.chrome",
       [
@@ -531,7 +594,6 @@ describe("Brunch TUI boot", () => {
       `switch:${target.session.file}`,
       "replacement:setHeader",
       "replacement:setFooter",
-      "replacement:setStatus",
       "replacement:setWidget",
       "replacement:setTitle",
       "replacement:notify",
