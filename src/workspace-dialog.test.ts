@@ -13,7 +13,7 @@ import {
 } from "./pi-components/workspace-dialog/index.js"
 import type { WorkspaceLaunchInventory } from "./workspace-session-coordinator.js"
 
-describe("workspace dialog", () => {
+describe("spec/session picker", () => {
   it("builds a hierarchical spec/session selection home without per-spec top-level actions", () => {
     const view = buildWorkspaceSelectionView(inventory())
 
@@ -119,7 +119,7 @@ describe("workspace dialog", () => {
       },
     })
     expect(options.at(-2)).toMatchObject({
-      label: "Create workspace",
+      label: "Create new specification",
     })
     expect(options.at(-2)).not.toHaveProperty("decision")
     expect(options.at(-1)).toMatchObject({
@@ -265,7 +265,7 @@ describe("workspace dialog", () => {
     expect(lines.every((line) => visibleWidth(line) <= 80)).toBe(true)
   })
 
-  it("keeps logo assets colocated with the workspace dialog component", async () => {
+  it("keeps logo assets colocated with the private picker component", async () => {
     const source = await readFile(
       new URL(
         "./pi-components/workspace-dialog/assets/brunch-logo-quad-56x18.ansi",
@@ -285,7 +285,7 @@ describe("workspace dialog", () => {
     expect(manifest.dependencies).toHaveProperty("@earendil-works/pi-tui")
   })
 
-  it("clears the startup preflight frame after a workspace decision", async () => {
+  it("clears the startup preflight frame after a spec/session decision", async () => {
     const terminal = new FakeTerminal()
     const decision = runWorkspaceDialogPreflight(inventory(), { terminal })
 

@@ -215,7 +215,7 @@ export function buildWorkspaceDialogOptions(
   for (const { spec, sessions } of inventory.specs) {
     options.push({
       id: `new-session:${spec.id}`,
-      label: `Start new session in ${spec.title}`,
+      label: `Create new session for ${spec.title}`,
       description: "Create a binding-only session before Pi starts",
       kind: "newSession",
       decision: { action: "newSession", specId: spec.id },
@@ -227,8 +227,8 @@ export function buildWorkspaceDialogOptions(
       }
       options.push({
         id: `open:${session.file}`,
-        label: `Open ${spec.title}`,
-        description: sessionDescription(session, "Open existing session"),
+        label: `Resume ${spec.title}`,
+        description: sessionDescription(session, "Resume existing session"),
         kind: "openSession",
         decision: {
           action: "openSession",
@@ -241,14 +241,14 @@ export function buildWorkspaceDialogOptions(
 
   options.push({
     id: "new-spec",
-    label: "Create workspace",
-    description: "Name a new specification workspace",
+    label: "Create new specification",
+    description: "Name a new spec and create its first session",
     kind: "newSpec",
   })
   options.push({
     id: "cancel",
     label: "Cancel",
-    description: "Exit without opening a Brunch workspace",
+    description: "Exit without activating a spec/session",
     kind: "cancel",
     decision: { action: "cancel" },
   })

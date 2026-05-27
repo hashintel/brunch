@@ -356,7 +356,7 @@ describe("Brunch TUI boot", () => {
     expect(titles).toEqual(["brunch — Spec One"])
   })
 
-  it("registers the Brunch workspace command and shortcut", async () => {
+  it("registers the Brunch spec/session picker command and shortcut", async () => {
     const commands =
       new Map<string, Omit<RegisteredCommand, "name" | "sourceInfo">>()
     const shortcuts =
@@ -395,17 +395,17 @@ describe("Brunch TUI boot", () => {
       "present_alternatives",
     ])
     expect(commands.get(BRUNCH_WORKSPACE_COMMAND)?.description).toBe(
-      "Open the Brunch workspace dialog",
+      "Open the Brunch spec/session picker",
     )
     const retiredWorkspaceCommand = ["brunch", "workspace"].join("-")
     expect(commands.has(retiredWorkspaceCommand)).toBe(false)
     expect(shortcuts.get(BRUNCH_WORKSPACE_SHORTCUT)?.description).toBe(
-      "Open the Brunch workspace dialog",
+      "Open the Brunch spec/session picker",
     )
     expect(shortcuts.has("ctrl+b")).toBe(false)
   })
 
-  it("opens the workspace dialog from the Brunch command", async () => {
+  it("opens the spec/session picker from the Brunch command", async () => {
     const events: string[] = []
     const target = readyWorkspace("/tmp/project", "session-target")
     const ctx = fakeCommandContext({
@@ -497,7 +497,7 @@ describe("Brunch TUI boot", () => {
     ])
   })
 
-  it("opens the workspace dialog from shortcut contexts without waitForIdle", async () => {
+  it("opens the spec/session picker from shortcut contexts without waitForIdle", async () => {
     const events: string[] = []
     const target = readyWorkspace("/tmp/project", "session-target")
     const ctx = fakeCommandContext({

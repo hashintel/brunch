@@ -26,13 +26,13 @@ export function registerBrunchWorkspaceDialog(
   { coordinator }: BrunchWorkspaceDialogOptions,
 ): void {
   pi.registerCommand(BRUNCH_WORKSPACE_COMMAND, {
-    description: "Open the Brunch workspace dialog",
+    description: "Open the Brunch spec/session picker",
     handler: async (_args, ctx) => {
       await runBrunchWorkspaceCommand(ctx, coordinator)
     },
   })
   pi.registerShortcut?.(BRUNCH_WORKSPACE_SHORTCUT, {
-    description: "Open the Brunch workspace dialog",
+    description: "Open the Brunch spec/session picker",
     handler: async (ctx) => {
       await runBrunchWorkspaceCommand(
         ctx as ExtensionCommandContext,
@@ -74,7 +74,7 @@ export async function runBrunchWorkspaceAction(
   const activated = await coordinator.activateWorkspace(decision)
 
   if (activated.status === "cancelled") {
-    ctx.ui.notify("Workspace switch cancelled.", "info")
+    ctx.ui.notify("Spec/session switch cancelled.", "info")
     return
   }
   if (activated.status === "needs_human") {
@@ -98,7 +98,7 @@ async function switchToActivatedWorkspace(
   const targetFile = activated.session.file
   if (ctx.sessionManager.getSessionFile() === targetFile) {
     renderBrunchChrome(ctx.ui, chromeStateForWorkspace(activated))
-    ctx.ui.notify("Already using the selected Brunch workspace.", "info")
+    ctx.ui.notify("Already using the selected Brunch spec/session.", "info")
     return
   }
 
@@ -110,13 +110,13 @@ async function switchToActivatedWorkspace(
     withSession: async (replacementCtx) => {
       renderBrunchChrome(replacementCtx.ui, targetChrome)
       replacementCtx.ui.notify(
-        `Switched Brunch workspace to ${targetSpecTitle} (${targetSessionId}).`,
+        `Switched Brunch spec/session to ${targetSpecTitle} (${targetSessionId}).`,
         "info",
       )
     },
   })
 
   if (result.cancelled) {
-    ctx.ui.notify("Workspace switch was cancelled by Pi.", "warning")
+    ctx.ui.notify("Spec/session switch was cancelled by Pi.", "warning")
   }
 }
