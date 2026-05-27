@@ -20,14 +20,14 @@ describe("spec/session picker", () => {
     expect(view.stage).toBe("home")
     expect(view.options.map((option) => option.kind)).toEqual([
       "continue",
-      "newSpec",
       "resumeSpec",
+      "newSpec",
       "cancel",
     ])
     expect(view.options.map((option) => option.label)).toEqual([
       "Continue your latest spec and session",
+      "Continue another existing specification",
       "Start a new specification",
-      "Continue an existing specification",
       "Cancel",
     ])
     expect(view.options.map((option) => option.label).join("\n")).not.toMatch(
@@ -45,7 +45,7 @@ describe("spec/session picker", () => {
   it("navigates resume-existing-spec to spec actions without emitting activation early", () => {
     const currentInventory = inventory()
     const home = buildWorkspaceSelectionView(currentInventory)
-    const specList = selectWorkspaceSelectionOption(home, 2, currentInventory)
+    const specList = selectWorkspaceSelectionOption(home, 1, currentInventory)
 
     expect(specList).toMatchObject({ view: { stage: "specList" } })
     if (!("view" in specList)) throw new Error("expected spec list")
@@ -93,9 +93,29 @@ describe("spec/session picker", () => {
   it("enters new-spec title state before emitting a new-spec decision", () => {
     const home = buildWorkspaceSelectionView(inventory())
 
-    expect(selectWorkspaceSelectionOption(home, 1)).toMatchObject({
+    expect(selectWorkspaceSelectionOption(home, 2)).toMatchObject({
       view: { stage: "newSpecTitle", title: "", options: [] },
     })
+  })
+
+  it("only shows logical home options in an empty workspace", () => {
+    const view = buildWorkspaceSelectionView(emptyInventory())
+
+    expect(view.options.map((option) => option.label)).toEqual([
+      "Start a new specification",
+      "Cancel",
+    ])
+  })
+
+  it("only shows resume-existing-session when the chosen spec has sessions", () => {
+    const view = buildWorkspaceSelectionView(emptySessionInventory(), {
+      stage: "specAction",
+      specId: "spec-empty",
+    })
+
+    expect(view.options.map((option) => option.label)).toEqual([
+      "Create new session",
+    ])
   })
 
   it("builds explicit resume, new-session, open-session, create-spec, and cancel options", () => {
@@ -138,7 +158,7 @@ describe("spec/session picker", () => {
 
     expect(text).toContain("Choose a specification")
     expect(text).toContain("Start a new specification")
-    expect(text).toContain("Continue an existing specification")
+    expect(text).toContain("Continue another existing specification")
     expect(text).not.toContain("Brunch workspace")
     expect(text).not.toContain("Create workspace")
     expect(text).not.toContain("Open workspace")
@@ -187,7 +207,6 @@ describe("spec/session picker", () => {
     })
 
     component.handleInput!("\x1B[B")
-    component.handleInput!("\x1B[B")
     component.handleInput!("\r")
     component.handleInput!("\r")
     component.handleInput!("\r")
@@ -202,7 +221,6 @@ describe("spec/session picker", () => {
       onDecision: (decision) => decisions.push(decision),
     })
 
-    component.handleInput!("\x1B[B")
     component.handleInput!("\x1B[B")
     component.handleInput!("\r")
     component.handleInput!("\r")
@@ -228,6 +246,7 @@ describe("spec/session picker", () => {
     })
 
     component.handleInput!("\x1B[B")
+    component.handleInput!("\x1B[B")
     component.handleInput!("\r")
     for (const char of "Gamma") {
       component.handleInput!(char)
@@ -252,7 +271,6 @@ describe("spec/session picker", () => {
       onDecision: (decision) => decisions.push(decision),
     })
 
-    component.handleInput!("\x1B[B")
     component.handleInput!("\x1B[B")
     component.handleInput!("\r")
     expect(component.render(80).join("\n")).toContain("Choose a specification")
@@ -365,6 +383,28 @@ class FakeTerminal implements Terminal {
 
   emit(data: string): void {
     this.#onInput?.(data)
+  }
+}
+
+function emptyInventory(): WorkspaceLaunchInventory {
+  return {
+    cwd: "/project",
+    currentSpec: null,
+    currentSessionFile: null,
+    needsNewSpec: true,
+    specs: [],
+    unavailableSessions: [],
+  }
+}
+
+function emptySessionInventory(): WorkspaceLaunchInventory {
+  return {
+    cwd: "/project",
+    currentSpec: { id: "spec-empty", title: "Empty" },
+    currentSessionFile: null,
+    needsNewSpec: false,
+    specs: [{ spec: { id: "spec-empty", title: "Empty" }, sessions: [] }],
+    unavailableSessions: [],
   }
 }
 

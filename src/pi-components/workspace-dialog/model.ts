@@ -76,26 +76,29 @@ export function buildWorkspaceSelectionView(
 
   if (stage.stage === "specAction") {
     const spec = findSpec(inventory, stage.specId)
+    const options: WorkspaceSelectionOption[] = [
+      {
+        id: `new-session:${stage.specId}`,
+        label: "Create new session",
+        description: "Start a binding-only session for this specification",
+        kind: "newSession",
+        decision: { action: "newSession", specId: stage.specId },
+      },
+    ]
+    if ((spec?.sessions.length ?? 0) > 0) {
+      options.push({
+        id: `resume-session:${stage.specId}`,
+        label: "Resume existing session",
+        description: "Choose a prior session transcript explicitly",
+        kind: "resumeSession",
+        nextStage: { stage: "sessionList", specId: stage.specId },
+      })
+    }
     return {
       stage: "specAction",
       specId: stage.specId,
       title: spec ? `Continue ${spec.spec.title}` : "Continue specification",
-      options: [
-        {
-          id: `new-session:${stage.specId}`,
-          label: "Create new session",
-          description: "Start a binding-only session for this specification",
-          kind: "newSession",
-          decision: { action: "newSession", specId: stage.specId },
-        },
-        {
-          id: `resume-session:${stage.specId}`,
-          label: "Resume existing session",
-          description: "Choose a prior session transcript explicitly",
-          kind: "resumeSession",
-          nextStage: { stage: "sessionList", specId: stage.specId },
-        },
-      ],
+      options,
     }
   }
 
@@ -182,16 +185,19 @@ function buildHomeSelectionView(
     kind: "newSpec",
     nextStage: { stage: "newSpecTitle", title: "" },
   }
-  const resumeSpecOption: WorkspaceSelectionOption = {
-    id: "resume-spec",
-    label:
-      viewOptions.includeContinue === false
-        ? "Switch to another specification"
-        : "Continue an existing specification",
-    description: "Choose a spec, then create or resume a session",
-    kind: "resumeSpec",
-    nextStage: { stage: "specList" },
-  }
+  const resumeSpecOption: WorkspaceSelectionOption | null =
+    inventory.specs.length > 0
+      ? {
+          id: "resume-spec",
+          label:
+            viewOptions.includeContinue === false
+              ? "Switch to another specification"
+              : "Continue another existing specification",
+          description: "Choose a spec, then create or resume a session",
+          kind: "resumeSpec",
+          nextStage: { stage: "specList" },
+        }
+      : null
   const cancelOption: WorkspaceSelectionOption = {
     id: "cancel",
     label: "Cancel",
@@ -201,9 +207,11 @@ function buildHomeSelectionView(
   }
 
   if (viewOptions.includeContinue === false) {
-    selectionOptions.push(resumeSpecOption, newSpecOption, cancelOption)
+    if (resumeSpecOption) selectionOptions.push(resumeSpecOption)
+    selectionOptions.push(newSpecOption, cancelOption)
   } else {
-    selectionOptions.push(newSpecOption, resumeSpecOption, cancelOption)
+    if (resumeSpecOption) selectionOptions.push(resumeSpecOption)
+    selectionOptions.push(newSpecOption, cancelOption)
   }
 
   return {
