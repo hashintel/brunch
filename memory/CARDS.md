@@ -19,7 +19,7 @@
 
 ## Card 1 — Flatten the existing product extension shell
 
-**Status:** next
+**Status:** done
 **Weight:** full scope card
 
 ### Target Behavior

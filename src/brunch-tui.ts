@@ -22,7 +22,7 @@ import {
 import {
   chromeStateForWorkspace,
   createBrunchPiExtensionShell,
-} from "./pi-extensions/brunch/index.js"
+} from "./pi-extensions.js"
 import { runWorkspaceSwitchPreflight } from "./workspace-switcher.js"
 export {
   BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE,
@@ -35,7 +35,7 @@ export {
   type BrunchChromeStage,
   type BrunchChromeState,
   type BrunchChromeWorkerStatus,
-} from "./pi-extensions/brunch/index.js"
+} from "./pi-extensions.js"
 export { runWorkspaceSwitchPreflight } from "./workspace-switcher.js"
 
 export type BrunchTuiCoordinator = WorkspaceSwitchCoordinator & WorkspaceSessionBoundaryCoordinator

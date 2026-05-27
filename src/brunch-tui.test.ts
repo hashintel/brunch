@@ -28,7 +28,7 @@ import {
   formatChromeWidgetLines,
   renderBrunchChrome,
   runBrunchWorkspaceCommand,
-} from "./pi-extensions/brunch/index.js"
+} from "./pi-extensions.js"
 import {
   createWorkspaceSessionCoordinator,
   verifyWorkspaceSessionStores,

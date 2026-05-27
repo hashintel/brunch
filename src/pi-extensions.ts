@@ -3,19 +3,22 @@ import {
   type ExtensionFactory,
 } from "@earendil-works/pi-coding-agent"
 
-import { registerBrunchBranchPolicyHandlers } from "./branch-policy.js"
-import { renderBrunchChrome, type BrunchChromeState } from "./chrome.js"
+import { registerBrunchBranchPolicyHandlers } from "./pi-extensions/command-policy.js"
+import {
+  renderBrunchChrome,
+  type BrunchChromeState,
+} from "./pi-extensions/chrome.js"
 import {
   bindBrunchSessionBoundary,
   registerBrunchSessionBoundaryRefreshHandlers,
   type BrunchSessionBoundaryHandler,
-} from "./session-boundary.js"
+} from "./pi-extensions/session-lifecycle.js"
 import {
   registerBrunchWorkspaceCommand,
   type BrunchWorkspaceCommandOptions,
-} from "./workspace-command.js"
+} from "./pi-extensions/settings-switcher-menu.js"
 
-export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from "./branch-policy.js"
+export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from "./pi-extensions/command-policy.js"
 export {
   chromeStateForWorkspace,
   formatBrunchChromeHeaderLines,
@@ -27,18 +30,18 @@ export {
   type BrunchChromeState,
   type BrunchChromeUi,
   type BrunchChromeWorkerStatus,
-} from "./chrome.js"
+} from "./pi-extensions/chrome.js"
 export {
   bindBrunchSessionBoundary,
   registerBrunchSessionBoundaryRefreshHandlers,
   type BrunchSessionBoundaryHandler,
-} from "./session-boundary.js"
+} from "./pi-extensions/session-lifecycle.js"
 export {
   BRUNCH_WORKSPACE_COMMAND,
   registerBrunchWorkspaceCommand,
   runBrunchWorkspaceCommand,
   type BrunchWorkspaceCommandOptions,
-} from "./workspace-command.js"
+} from "./pi-extensions/settings-switcher-menu.js"
 
 export function createBrunchPiExtensionShell(
   chrome: BrunchChromeState,

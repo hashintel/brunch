@@ -7,8 +7,8 @@ import {
   type WorkspaceSessionReadyState,
   type WorkspaceSwitchCoordinator,
   type WorkspaceSwitchDecision,
-} from "../../workspace-session-coordinator.js"
-import { createWorkspaceSwitchComponent } from "../../workspace-switcher/index.js"
+} from "../workspace-session-coordinator.js"
+import { createWorkspaceSwitchComponent } from "../workspace-switcher/index.js"
 import { chromeStateForWorkspace, renderBrunchChrome } from "./chrome.js"
 
 export const BRUNCH_WORKSPACE_COMMAND = "brunch-workspace"
