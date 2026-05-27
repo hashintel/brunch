@@ -32,7 +32,21 @@ export {
   type GraphMentionCandidate,
   type GraphMentionSource,
 } from "./pi-extensions/mention-autocomplete.js"
-export { registerBrunchOperationalModePolicy } from "./pi-extensions/operational-mode.js"
+export {
+  BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+  DEFAULT_BRUNCH_AGENT_STATE,
+  projectBrunchAgentState,
+  registerBrunchOperationalModePolicy,
+  type AgentLensId,
+  type AgentRoleDefinition,
+  type AgentRoleId,
+  type AgentStrategyId,
+  type BrunchAgentState,
+  type BrunchAgentStateEntryData,
+  type OperationalModeDefinition,
+  type OperationalModeId,
+  type ResolvedBrunchAgentState,
+} from "./pi-extensions/operational-mode.js"
 export {
   chromeStateForWorkspace,
   formatBrunchChromeFooterLines,

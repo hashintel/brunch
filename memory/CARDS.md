@@ -69,7 +69,7 @@ The completed extension/component port has no unreconciled draft sidecar, chrome
 
 ## Card 1 — Project Brunch agent state from transcript
 
-**Status:** queued
+**Status:** done
 **Weight:** full scope card
 
 ### Target Behavior

@@ -28,6 +28,201 @@ const READ_ONLY_TOOLS = [
 ] as const
 type ReadOnlyToolName = typeof READ_ONLY_TOOLS[number]
 
+export const BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE =
+  "brunch.agent_runtime_state"
+
+export type OperationalModeId = "elicit"
+export type AgentRoleId = "elicitor"
+export type AgentStrategyId = "step-by-step" | "disambiguate-via-examples"
+export type AgentLensId = AgentStrategyId
+export type ToolPolicyId = "elicit-read-only"
+export type PromptPackId = "brunch-base" | "elicit" | "elicitor"
+export type ModelPreference = "default"
+export type ThinkingLevel = "low" | "medium" | "high"
+
+export interface BrunchAgentState {
+  schemaVersion: 1
+  operationalMode: OperationalModeId
+  agentRole: AgentRoleId
+  agentStrategy: AgentStrategyId
+  agentLens: AgentLensId | null
+}
+
+export interface OperationalModeDefinition {
+  id: OperationalModeId
+  defaultRole: AgentRoleId
+  allowedRoles: readonly AgentRoleId[]
+  toolPolicyId: ToolPolicyId
+  promptPackIds: readonly PromptPackId[]
+}
+
+export interface AgentRoleDefinition {
+  id: AgentRoleId
+  operationalMode: OperationalModeId
+  defaultStrategy: AgentStrategyId
+  allowedStrategies: readonly AgentStrategyId[]
+  defaultLens: AgentLensId | null
+  allowedLenses: readonly AgentLensId[]
+  promptPackIds: readonly PromptPackId[]
+  modelPreference?: ModelPreference
+  thinkingLevel?: ThinkingLevel
+}
+
+export interface ResolvedBrunchAgentState extends BrunchAgentState {
+  operationalModeDefinition: OperationalModeDefinition
+  agentRoleDefinition: AgentRoleDefinition
+}
+
+export interface BrunchAgentStateEntryData {
+  schemaVersion: 1
+  reason: "init" | "switch"
+  state: BrunchAgentState
+  previous?: BrunchAgentState
+  source: "system" | "user" | "agent" | "extension"
+}
+
+export const DEFAULT_BRUNCH_AGENT_STATE: BrunchAgentState = {
+  schemaVersion: 1,
+  operationalMode: "elicit",
+  agentRole: "elicitor",
+  agentStrategy: "step-by-step",
+  agentLens: "step-by-step",
+}
+
+export const OPERATIONAL_MODE_DEFINITIONS: Record<OperationalModeId, OperationalModeDefinition> =
+  {
+    elicit: {
+      id: "elicit",
+      defaultRole: "elicitor",
+      allowedRoles: ["elicitor"],
+      toolPolicyId: "elicit-read-only",
+      promptPackIds: ["brunch-base", "elicit"],
+    },
+  }
+
+export const AGENT_ROLE_DEFINITIONS: Record<AgentRoleId, AgentRoleDefinition> =
+  {
+    elicitor: {
+      id: "elicitor",
+      operationalMode: "elicit",
+      defaultStrategy: "step-by-step",
+      allowedStrategies: ["step-by-step", "disambiguate-via-examples"],
+      defaultLens: "step-by-step",
+      allowedLenses: ["step-by-step", "disambiguate-via-examples"],
+      promptPackIds: ["elicitor"],
+    },
+  }
+
+interface CustomEntryLike {
+  type?: unknown
+  customType?: unknown
+  data?: unknown
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null
+}
+
+function isOneOf<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+): value is T {
+  return typeof value === "string" && allowed.includes(value as T)
+}
+
+function parseBrunchAgentState(value: unknown): BrunchAgentState | undefined {
+  if (!isRecord(value)) return undefined
+  const operationalModes = Object.keys(
+    OPERATIONAL_MODE_DEFINITIONS,
+  ) as OperationalModeId[]
+  const agentRoles = Object.keys(AGENT_ROLE_DEFINITIONS) as AgentRoleId[]
+
+  if (value.schemaVersion !== 1) return undefined
+  if (!isOneOf(value.operationalMode, operationalModes)) return undefined
+  if (!isOneOf(value.agentRole, agentRoles)) return undefined
+
+  const mode = OPERATIONAL_MODE_DEFINITIONS[value.operationalMode]
+  const role = AGENT_ROLE_DEFINITIONS[value.agentRole]
+  if (!mode.allowedRoles.includes(value.agentRole)) return undefined
+  if (role.operationalMode !== value.operationalMode) return undefined
+  if (!isOneOf(value.agentStrategy, role.allowedStrategies)) return undefined
+  if (
+    value.agentLens !== null &&
+    !isOneOf(value.agentLens, role.allowedLenses)
+  ) {
+    return undefined
+  }
+
+  return {
+    schemaVersion: 1,
+    operationalMode: value.operationalMode,
+    agentRole: value.agentRole,
+    agentStrategy: value.agentStrategy,
+    agentLens: value.agentLens,
+  }
+}
+
+function parseBrunchAgentStateEntryData(
+  value: unknown,
+): BrunchAgentStateEntryData | undefined {
+  if (!isRecord(value)) return undefined
+  if (value.schemaVersion !== 1) return undefined
+  if (value.reason !== "init" && value.reason !== "switch") return undefined
+  if (
+    value.source !== "system" &&
+    value.source !== "user" &&
+    value.source !== "agent" &&
+    value.source !== "extension"
+  ) {
+    return undefined
+  }
+  const state = parseBrunchAgentState(value.state)
+  if (!state) return undefined
+  const previous =
+    value.previous === undefined
+      ? undefined
+      : parseBrunchAgentState(value.previous)
+  if (value.previous !== undefined && !previous) return undefined
+
+  return {
+    schemaVersion: 1,
+    reason: value.reason,
+    state,
+    ...(previous ? { previous } : {}),
+    source: value.source,
+  }
+}
+
+function resolveBrunchAgentState(
+  state: BrunchAgentState,
+): ResolvedBrunchAgentState {
+  return {
+    ...state,
+    operationalModeDefinition:
+      OPERATIONAL_MODE_DEFINITIONS[state.operationalMode],
+    agentRoleDefinition: AGENT_ROLE_DEFINITIONS[state.agentRole],
+  }
+}
+
+export function projectBrunchAgentState(
+  entries: readonly CustomEntryLike[],
+): ResolvedBrunchAgentState {
+  let state = DEFAULT_BRUNCH_AGENT_STATE
+
+  for (const entry of entries) {
+    if (
+      entry.type !== "custom" ||
+      entry.customType !== BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE
+    ) {
+      continue
+    }
+    const data = parseBrunchAgentStateEntryData(entry.data)
+    if (data) state = data.state
+  }
+
+  return resolveBrunchAgentState(state)
+}
+
 function shortenPath(path: string): string {
   const home = homedir()
   if (path.startsWith(home)) return `~${path.slice(home.length)}`
