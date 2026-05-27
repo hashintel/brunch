@@ -28,6 +28,11 @@ export interface BrunchChromeBuildState {
   dev?: string
 }
 
+export interface BrunchChromeFooterTelemetry {
+  gitBranch?: string | null
+  statuses?: ReadonlyMap<string, string>
+}
+
 export interface BrunchChromeState extends WorkspaceSessionChromeState {
   session: {
     id: string
@@ -66,8 +71,25 @@ export function formatBrunchChromeFooterLines(
   footerData?: BrunchChromeFooterData,
   width?: number,
 ): string[] {
-  const statuses = sanitizeChromeStatuses(footerData?.getExtensionStatuses())
-  const branch = footerData?.getGitBranch()
+  return projectBrunchChromeFooterLines(
+    chrome,
+    footerData === undefined
+      ? undefined
+      : {
+          gitBranch: footerData.getGitBranch(),
+          statuses: footerData.getExtensionStatuses(),
+        },
+    width,
+  )
+}
+
+export function projectBrunchChromeFooterLines(
+  chrome: BrunchChromeState,
+  telemetry?: BrunchChromeFooterTelemetry,
+  width?: number,
+): string[] {
+  const statuses = sanitizeChromeStatuses(telemetry?.statuses)
+  const branch = telemetry?.gitBranch
   const identity = `${formatChromeIdentity(chrome)}${
     branch ? ` · branch: ${branch}` : ""
   }`
@@ -153,7 +175,14 @@ export function renderBrunchChrome(
     const unsubscribe = footerData.onBranchChange(() => tui.requestRender())
     return {
       render: (width: number) =>
-        formatBrunchChromeFooterLines(chrome, footerData, width),
+        projectBrunchChromeFooterLines(
+          chrome,
+          {
+            gitBranch: footerData.getGitBranch(),
+            statuses: footerData.getExtensionStatuses(),
+          },
+          width,
+        ),
       invalidate: () => {},
       dispose: unsubscribe,
     }
