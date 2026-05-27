@@ -1,12 +1,13 @@
 import { readFile } from "node:fs/promises"
 
-import { visibleWidth } from "@earendil-works/pi-tui"
+import { visibleWidth, type Terminal } from "@earendil-works/pi-tui"
 
 import { describe, expect, it } from "vitest"
 
 import {
   buildWorkspaceDialogOptions,
   createWorkspaceDialogComponent,
+  runWorkspaceDialogPreflight,
 } from "./pi-components/workspace-dialog/index.js"
 import type { WorkspaceLaunchInventory } from "./workspace-session-coordinator.js"
 
@@ -94,17 +95,21 @@ describe("workspace dialog", () => {
     ])
   })
 
-  it("renders a branded centered-dialog frame within the requested width", () => {
+  it("renders a branded centered-dialog frame with version metadata", () => {
     const component = createWorkspaceDialogComponent({
       inventory: inventory(),
       onDecision: () => {},
     })
 
-    const lines = component.render(64)
+    const lines = component.render(80)
 
     expect(lines[0]).toContain("╭")
+    expect(lines[1]).toMatch(/^│\s+│$/)
     expect(lines.some((line) => line.includes("Brunch workspace"))).toBe(true)
-    expect(lines.every((line) => visibleWidth(line) <= 64)).toBe(true)
+    expect(lines.some((line) => line.includes("brunch v0.0.0"))).toBe(true)
+    expect(lines.some((line) => line.includes("(dev"))).toBe(true)
+    expect(lines.some((line) => line.includes("built on Pi v"))).toBe(true)
+    expect(lines.every((line) => visibleWidth(line) <= 80)).toBe(true)
   })
 
   it("keeps logo assets colocated with the workspace dialog component", async () => {
@@ -126,7 +131,70 @@ describe("workspace dialog", () => {
 
     expect(manifest.dependencies).toHaveProperty("@earendil-works/pi-tui")
   })
+
+  it("clears the startup preflight frame after a workspace decision", async () => {
+    const terminal = new FakeTerminal()
+    const decision = runWorkspaceDialogPreflight(inventory(), { terminal })
+
+    terminal.emit("\r")
+
+    await expect(decision).resolves.toMatchObject({ action: "continue" })
+    expect(terminal.events.at(-2)).toBe("stop")
+    expect(terminal.events.at(-1)).toBe("clearScreen")
+  })
 })
+
+class FakeTerminal implements Terminal {
+  events: string[] = []
+  #onInput: ((data: string) => void) | undefined
+
+  get columns(): number {
+    return 100
+  }
+
+  get rows(): number {
+    return 32
+  }
+
+  get kittyProtocolActive(): boolean {
+    return false
+  }
+
+  start(onInput: (data: string) => void): void {
+    this.events.push("start")
+    this.#onInput = onInput
+  }
+
+  stop(): void {
+    this.events.push("stop")
+  }
+
+  async drainInput(): Promise<void> {}
+
+  write(_data: string): void {}
+
+  moveBy(_lines: number): void {}
+
+  hideCursor(): void {}
+
+  showCursor(): void {}
+
+  clearLine(): void {}
+
+  clearFromCursor(): void {}
+
+  clearScreen(): void {
+    this.events.push("clearScreen")
+  }
+
+  setTitle(_title: string): void {}
+
+  setProgress(_active: boolean): void {}
+
+  emit(data: string): void {
+    this.#onInput?.(data)
+  }
+}
 
 function inventory(): WorkspaceLaunchInventory {
   return {

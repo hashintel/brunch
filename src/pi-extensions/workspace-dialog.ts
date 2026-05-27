@@ -8,7 +8,10 @@ import {
   type WorkspaceSwitchCoordinator,
   type WorkspaceSwitchDecision,
 } from "../workspace-session-coordinator.js"
-import { createWorkspaceDialogComponent } from "../pi-components/workspace-dialog/index.js"
+import {
+  WORKSPACE_DIALOG_WIDTH,
+  createWorkspaceDialogComponent,
+} from "../pi-components/workspace-dialog/index.js"
 import { chromeStateForWorkspace, renderBrunchChrome } from "./chrome.js"
 
 export const BRUNCH_WORKSPACE_COMMAND = "brunch"
@@ -51,7 +54,7 @@ export async function runBrunchWorkspaceAction(
   coordinator: WorkspaceSwitchCoordinator,
   options: { waitForIdle?: boolean } = {},
 ): Promise<void> {
-  if (options.waitForIdle !== false) {
+  if (options.waitForIdle !== false && canWaitForIdle(ctx)) {
     await ctx.waitForIdle()
   }
   const inventory = await coordinator.inspectWorkspace()
@@ -62,7 +65,7 @@ export async function runBrunchWorkspaceAction(
       overlay: true,
       overlayOptions: {
         anchor: "center",
-        width: 72,
+        width: WORKSPACE_DIALOG_WIDTH,
         maxHeight: "90%",
         margin: 1,
       },
@@ -80,6 +83,12 @@ export async function runBrunchWorkspaceAction(
   }
 
   await switchToActivatedWorkspace(ctx, activated)
+}
+
+function canWaitForIdle(
+  ctx: ExtensionCommandContext,
+): ctx is ExtensionCommandContext & { waitForIdle: () => Promise<void> } {
+  return typeof ctx.waitForIdle === "function"
 }
 
 async function switchToActivatedWorkspace(

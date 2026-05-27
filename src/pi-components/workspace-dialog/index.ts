@@ -1,4 +1,5 @@
 export {
+  WORKSPACE_DIALOG_WIDTH,
   createWorkspaceDialogComponent,
   type WorkspaceDialogComponentOptions,
 } from "./component.js"

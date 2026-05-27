@@ -1,7 +1,9 @@
+import { execSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
-import type { Theme } from "@earendil-works/pi-coding-agent"
+import { VERSION as PI_VERSION } from "@earendil-works/pi-coding-agent"
+import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent"
 import {
   Key,
   matchesKey,
@@ -19,19 +21,23 @@ import {
   type WorkspaceDialogOption,
 } from "./model.js"
 
-const DEFAULT_DIALOG_WIDTH = 72
+export const WORKSPACE_DIALOG_WIDTH = 80
 const ESC = String.fromCharCode(27)
 const ANSI_SEQUENCE = new RegExp(`^${ESC}\\[[0-9;?]*[ -/]*[@-~]`)
 const ANSI_SEQUENCE_GLOBAL = new RegExp(`${ESC}\\[[0-9;?]*[ -/]*[@-~]`, "g")
 const ASSET_DIR = new URL("./assets/", import.meta.url)
+const PACKAGE_JSON_URL = new URL("../../../package.json", import.meta.url)
+const LOCAL_BUILD_TIME = formatBuildTime(new Date())
 
 // Letterform copied from: cfonts "brunch" -f tiny -c candy
 const BRUNCH_WORDMARK = ["█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █", "█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█"]
 
+export type WorkspaceDialogTheme = Pick<Theme, "fg">
+
 export interface WorkspaceDialogComponentOptions {
   inventory: WorkspaceLaunchInventory
   onDecision: (decision: WorkspaceSwitchDecision) => void
-  theme?: Theme
+  theme?: WorkspaceDialogTheme
 }
 
 export function createWorkspaceDialogComponent(
@@ -43,7 +49,7 @@ export function createWorkspaceDialogComponent(
 class WorkspaceDialogComponent implements Component {
   #options: WorkspaceDialogOption[]
   #onDecision: (decision: WorkspaceSwitchDecision) => void
-  #theme: Theme | undefined
+  #theme: WorkspaceDialogTheme | undefined
   #selectedIndex = 0
   #mode: "select" | "newSpecTitle" = "select"
   #title = ""
@@ -81,7 +87,7 @@ class WorkspaceDialogComponent implements Component {
   }
 
   render(width: number): string[] {
-    const dialogWidth = Math.max(24, Math.min(width, DEFAULT_DIALOG_WIDTH))
+    const dialogWidth = Math.max(24, Math.min(width, WORKSPACE_DIALOG_WIDTH))
     const content = this.#contentLines()
     return renderFrame(content, dialogWidth, this.#theme)
   }
@@ -95,9 +101,20 @@ class WorkspaceDialogComponent implements Component {
       "dim",
       "Choose or create the workspace before the agent loop runs.",
     )
+    const logo = readLogo()
+    const version = brunchVersion()
+    const versionLines = [
+      style(this.#theme, "accent", `brunch ${version.version}`),
+      ...(version.dev ? [style(this.#theme, "success", version.dev)] : []),
+    ]
+    const piLine = style(this.#theme, "dim", `built on Pi v${PI_VERSION}`)
     const lines = [
-      ...readLogo(),
+      ...logo,
+      ...(logo.length > 0 ? [""] : []),
       ...BRUNCH_WORDMARK.map((line) => style(this.#theme, "muted", line)),
+      "",
+      ...versionLines,
+      piLine,
       "",
       title,
       subtitle,
@@ -167,7 +184,7 @@ class WorkspaceDialogComponent implements Component {
 function renderFrame(
   content: string[],
   width: number,
-  theme: Theme | undefined,
+  theme: WorkspaceDialogTheme | undefined,
 ): string[] {
   return [
     topBorderLine(width, theme),
@@ -178,10 +195,60 @@ function renderFrame(
   ]
 }
 
+interface PackageJson {
+  version?: unknown
+  private?: unknown
+}
+
+interface BrunchVersionInfo {
+  version: string
+  dev: string | null
+}
+
+function formatBuildTime(date: Date): string {
+  return date
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, " UTC")
+}
+
+function readPackage(): PackageJson {
+  try {
+    return JSON.parse(
+      readFileSync(fileURLToPath(PACKAGE_JSON_URL), "utf8"),
+    ) as PackageJson
+  } catch {
+    return {}
+  }
+}
+
+function getGitSha(): string {
+  try {
+    return execSync("git rev-parse --short=7 HEAD", {
+      cwd: fileURLToPath(new URL("../../../", import.meta.url)),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim()
+  } catch {
+    return ""
+  }
+}
+
+function brunchVersion(): BrunchVersionInfo {
+  const pkg = readPackage()
+  const version = typeof pkg.version === "string" ? pkg.version : "0.0.0"
+  const isLocalDev = pkg.private === true || version === "0.0.0"
+  if (!isLocalDev) return { version: `v${version}`, dev: null }
+
+  const gitSha = getGitSha()
+  const devMeta = [gitSha, `@ ${LOCAL_BUILD_TIME}`].filter(Boolean).join(" ")
+  return { version: `v${version}`, dev: devMeta ? `(dev ${devMeta})` : "(dev)" }
+}
+
 function contentLine(
   content: string,
   width: number,
-  theme: Theme | undefined,
+  theme: WorkspaceDialogTheme | undefined,
 ): string {
   if (width <= 4) return truncateToWidth(content, width)
   const innerWidth = width - 4
@@ -191,18 +258,27 @@ function contentLine(
   return `${vertical} ${inner}${padding} ${vertical}`
 }
 
-function emptyLine(width: number, theme: Theme | undefined): string {
+function emptyLine(
+  width: number,
+  theme: WorkspaceDialogTheme | undefined,
+): string {
   if (width <= 2) return " ".repeat(Math.max(0, width))
   const vertical = style(theme, "borderMuted", "│")
   return `${vertical}${" ".repeat(width - 2)}${vertical}`
 }
 
-function topBorderLine(width: number, theme: Theme | undefined): string {
+function topBorderLine(
+  width: number,
+  theme: WorkspaceDialogTheme | undefined,
+): string {
   if (width <= 2) return " ".repeat(Math.max(0, width))
   return style(theme, "borderMuted", `╭${"─".repeat(width - 2)}╮`)
 }
 
-function bottomBorderLine(width: number, theme: Theme | undefined): string {
+function bottomBorderLine(
+  width: number,
+  theme: WorkspaceDialogTheme | undefined,
+): string {
   if (width <= 2) return " ".repeat(Math.max(0, width))
   return style(theme, "borderMuted", `╰${"─".repeat(width - 2)}╯`)
 }
@@ -282,8 +358,8 @@ function removeVisibleColumns(line: string, columns: number): string {
 }
 
 function style(
-  theme: Theme | undefined,
-  color: Parameters<Theme["fg"]>[0],
+  theme: WorkspaceDialogTheme | undefined,
+  color: ThemeColor,
   text: string,
 ): string {
   return theme ? theme.fg(color, text) : text

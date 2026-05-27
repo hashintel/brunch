@@ -489,11 +489,45 @@ describe("Brunch TUI boot", () => {
         overlay: true,
         overlayOptions: {
           anchor: "center",
-          width: 72,
+          width: 80,
           maxHeight: "90%",
           margin: 1,
         },
       },
+    ])
+  })
+
+  it("opens the workspace dialog from shortcut contexts without waitForIdle", async () => {
+    const events: string[] = []
+    const target = readyWorkspace("/tmp/project", "session-target")
+    const ctx = fakeCommandContext({
+      currentSessionFile: "/sessions/session-old.jsonl",
+      decision: {
+        action: "openSession",
+        specId: target.spec.id,
+        sessionFile: target.session.file,
+      },
+      onEvent: (event) => events.push(event),
+    })
+    delete (ctx as Partial<ExtensionCommandContext>).waitForIdle
+
+    await runBrunchWorkspaceAction(ctx, {
+      inspectWorkspace: async () => {
+        events.push("inspect")
+        return inventoryWithWorkspace(target)
+      },
+      activateWorkspace: async (decision) => {
+        events.push(`activate:${decision.action}`)
+        return target
+      },
+    })
+
+    expect(events).toEqual([
+      "inspect",
+      "custom",
+      "activate:openSession",
+      `switch:${target.session.file}`,
+      "notify:info",
     ])
   })
 
