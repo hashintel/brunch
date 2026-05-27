@@ -105,7 +105,7 @@ Reusable Pi TUI components live under `src/pi-components`, including the workspa
 
 ## Card 3 — Replace `/brunch-workspace` with the Brunch menu shell
 
-**Status:** next
+**Status:** done
 **Weight:** full scope card
 
 ### Target Behavior

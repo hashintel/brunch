@@ -8,10 +8,15 @@ import {
   type WorkspaceSwitchCoordinator,
   type WorkspaceSwitchDecision,
 } from "../workspace-session-coordinator.js"
+import {
+  createBrunchMenuComponent,
+  type BrunchMenuDecision,
+} from "../pi-components/brunch-menu.js"
 import { createWorkspaceSwitchComponent } from "../pi-components/workspace-switcher/index.js"
 import { chromeStateForWorkspace, renderBrunchChrome } from "./chrome.js"
 
-export const BRUNCH_WORKSPACE_COMMAND = "brunch-workspace"
+export const BRUNCH_MENU_COMMAND = "brunch"
+export const BRUNCH_MENU_SHORTCUT = "ctrl+shift+b"
 
 export interface BrunchWorkspaceCommandOptions {
   coordinator: WorkspaceSwitchCoordinator
@@ -21,19 +26,46 @@ export function registerBrunchWorkspaceCommand(
   pi: ExtensionAPI,
   { coordinator }: BrunchWorkspaceCommandOptions,
 ): void {
-  pi.registerCommand(BRUNCH_WORKSPACE_COMMAND, {
-    description: "Switch Brunch spec/session workspace",
+  pi.registerCommand(BRUNCH_MENU_COMMAND, {
+    description: "Open the Brunch menu",
     handler: async (_args, ctx) => {
-      await runBrunchWorkspaceCommand(ctx, coordinator)
+      await runBrunchMenuCommand(ctx, coordinator)
     },
   })
+  pi.registerShortcut?.(BRUNCH_MENU_SHORTCUT, {
+    description: "Open the Brunch menu",
+    handler: async (ctx) => {
+      await runBrunchMenuCommand(ctx as ExtensionCommandContext, coordinator)
+    },
+  })
+}
+
+export async function runBrunchMenuCommand(
+  ctx: ExtensionCommandContext,
+  coordinator: WorkspaceSwitchCoordinator,
+): Promise<void> {
+  await ctx.waitForIdle()
+  const decision = await ctx.ui.custom<BrunchMenuDecision>(
+    (_tui, _theme, _keybindings, done) =>
+      createBrunchMenuComponent({ onDecision: done }),
+  )
+
+  if (decision === "cancel") {
+    ctx.ui.notify("Brunch menu closed.", "info")
+    return
+  }
+
+  await runBrunchWorkspaceCommand(ctx, coordinator, { waitForIdle: false })
 }
 
 export async function runBrunchWorkspaceCommand(
   ctx: ExtensionCommandContext,
   coordinator: WorkspaceSwitchCoordinator,
+  options: { waitForIdle?: boolean } = {},
 ): Promise<void> {
-  await ctx.waitForIdle()
+  if (options.waitForIdle !== false) {
+    await ctx.waitForIdle()
+  }
   const inventory = await coordinator.inspectWorkspace()
   const decision = await ctx.ui.custom<WorkspaceSwitchDecision>(
     (_tui, _theme, _keybindings, done) =>

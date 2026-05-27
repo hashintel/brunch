@@ -37,8 +37,10 @@ export {
   type BrunchSessionBoundaryHandler,
 } from "./pi-extensions/session-lifecycle.js"
 export {
-  BRUNCH_WORKSPACE_COMMAND,
+  BRUNCH_MENU_COMMAND,
+  BRUNCH_MENU_SHORTCUT,
   registerBrunchWorkspaceCommand,
+  runBrunchMenuCommand,
   runBrunchWorkspaceCommand,
   type BrunchWorkspaceCommandOptions,
 } from "./pi-extensions/settings-switcher-menu.js"

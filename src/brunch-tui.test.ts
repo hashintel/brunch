@@ -20,13 +20,15 @@ import {
   runBrunchTui,
 } from "./brunch-tui.js"
 import {
-  BRUNCH_WORKSPACE_COMMAND,
+  BRUNCH_MENU_COMMAND,
+  BRUNCH_MENU_SHORTCUT,
   chromeStateForWorkspace,
   createBrunchPiExtensionShell,
   formatBrunchChromeHeaderLines,
   formatBrunchStatus,
   formatChromeWidgetLines,
   renderBrunchChrome,
+  runBrunchMenuCommand,
   runBrunchWorkspaceCommand,
 } from "./pi-extensions.js"
 import {
@@ -360,8 +362,10 @@ describe("Brunch TUI boot", () => {
     expect(titles).toEqual(["brunch — Spec One"])
   })
 
-  it("registers a Brunch-owned workspace switch command", async () => {
+  it("registers the Brunch menu command and shortcut", async () => {
     const commands =
+      new Map<string, Omit<RegisteredCommand, "name" | "sourceInfo">>()
+    const shortcuts =
       new Map<string, Omit<RegisteredCommand, "name" | "sourceInfo">>()
 
     createBrunchPiExtensionShell(
@@ -378,11 +382,56 @@ describe("Brunch TUI boot", () => {
       on: (_event: string, _handler: unknown) => {},
       registerCommand: (name: string, opts: unknown) =>
         commands.set(name, opts as never),
+      registerShortcut: (name: string, opts: unknown) =>
+        shortcuts.set(name, opts as never),
     } as never)
 
-    expect(commands.get(BRUNCH_WORKSPACE_COMMAND)?.description).toBe(
-      "Switch Brunch spec/session workspace",
+    expect(commands.get(BRUNCH_MENU_COMMAND)?.description).toBe(
+      "Open the Brunch menu",
     )
+    expect(commands.has("brunch-workspace")).toBe(false)
+    expect(shortcuts.get(BRUNCH_MENU_SHORTCUT)?.description).toBe(
+      "Open the Brunch menu",
+    )
+    expect(shortcuts.has("ctrl+b")).toBe(false)
+  })
+
+  it("opens the workspace switcher from the Brunch menu shell", async () => {
+    const events: string[] = []
+    const target = readyWorkspace("/tmp/project", "session-target")
+    const ctx = fakeCommandContext({
+      currentSessionFile: "/sessions/session-old.jsonl",
+      decisions: [
+        "workspace",
+        {
+          action: "openSession",
+          specId: target.spec.id,
+          sessionFile: target.session.file,
+        },
+      ],
+      onEvent: (event) => events.push(event),
+    })
+
+    await runBrunchMenuCommand(ctx, {
+      inspectWorkspace: async () => {
+        events.push("inspect")
+        return inventoryWithWorkspace(target)
+      },
+      activateWorkspace: async (decision) => {
+        events.push(`activate:${decision.action}`)
+        return target
+      },
+    })
+
+    expect(events).toEqual([
+      "waitForIdle",
+      "custom",
+      "inspect",
+      "custom",
+      "activate:openSession",
+      `switch:${target.session.file}`,
+      "notify:info",
+    ])
   })
 
   it("runs the in-session workspace switch through coordinator activation and replacement context", async () => {
@@ -645,7 +694,8 @@ function noOpWorkspaceCoordinator(cwd: string) {
 
 function fakeCommandContext(options: {
   currentSessionFile: string
-  decision: Awaited<ReturnType<ExtensionUIContext["custom"]>>
+  decision?: Awaited<ReturnType<ExtensionUIContext["custom"]>>
+  decisions?: Array<Awaited<ReturnType<ExtensionUIContext["custom"]>>>
   onCustomOptions?: (customOptions: unknown) => void
   onEvent: (event: string) => void
   replacementUi?: FakeExtensionUi
@@ -655,6 +705,7 @@ function fakeCommandContext(options: {
       options.onEvent(`notify:${type}`)
     }
   })
+  const decisions = [...(options.decisions ?? [options.decision])]
   const ctx = {
     cwd: "/tmp/project",
     sessionManager: {
@@ -667,7 +718,7 @@ function fakeCommandContext(options: {
         if (customOptions !== undefined) {
           options.onCustomOptions?.(customOptions)
         }
-        return options.decision
+        return decisions.shift()
       },
     },
     waitForIdle: async () => options.onEvent("waitForIdle"),
