@@ -23,8 +23,8 @@ The target state is:
 ## Commits
 
 1. [x] Add characterization coverage for the existing structured-question transcript boundary: ordinary tool results stay prompt-side, and typed structured-question result details are recognized by a pure predicate without changing exchange projection yet.
-2. [ ] Add a live RPC proof harness that launches a minimal structured-question scenario, observes the actual editor UI request, submits a documented RPC UI response, and captures the resulting terminal payload.
-3. Wire the proof harness into an executable runbook or targeted test path with stable assertions over the editor request shape and terminal structured-question result details.
+2. [x] Add a live RPC proof harness that launches a minimal structured-question scenario, observes the actual editor UI request, submits a documented RPC UI response, and captures the resulting terminal payload.
+3. [ ] Wire the proof harness into an executable runbook or targeted test path with stable assertions over the editor request shape and terminal structured-question result details.
 4. Change elicitation-exchange projection so terminal structured-question tool results are response-side entries, while ordinary tool results and non-terminal structured-question statuses retain the existing prompt/open behavior as appropriate.
 5. Add projection coverage for typed structured-question exchanges, including the contrastive case where an ordinary tool result remains prompt-side.
 6. Reconcile documentation and planning evidence: mark the RPC editor fallback as live-proven at the adapter level, mark elicitation-exchange projection for structured-question terminal results as covered, and keep broader Brunch product-surface relay semantics as the remaining gap.
