@@ -72,8 +72,11 @@ export {
 export {
   STRUCTURED_QUESTION_TOOL,
   answerStructuredQuestionWithTui,
+  buildStructuredQuestionEditorPrefill,
   createStructuredQuestionTuiComponent,
+  parseStructuredQuestionEditorResponse,
   registerBrunchStructuredQuestion,
+  structuredQuestionResultFromEditor,
   type StructuredQuestionTuiResponse,
 } from "./pi-extensions/structured-question.js"
 export {

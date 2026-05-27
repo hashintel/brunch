@@ -3,8 +3,11 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent"
 import { Key, matchesKey, type Component } from "@earendil-works/pi-tui"
+import { Type } from "typebox"
+import { Value } from "typebox/value"
 
 import {
+  StructuredQuestionAnswerSchema,
   StructuredQuestionParamsSchema,
   buildStructuredQuestionResult,
   type StructuredQuestion,
@@ -20,6 +23,38 @@ export interface StructuredQuestionTuiResponse {
   status: Exclude<StructuredQuestionStatus, "unavailable">
   answers?: StructuredQuestionAnswer[]
 }
+
+const StructuredQuestionModeSchema = Type.Union([
+  Type.Literal("text"),
+  Type.Literal("singleSelect"),
+  Type.Literal("multiSelect"),
+  Type.Literal("questionnaire"),
+])
+
+const StructuredQuestionEditorResponseSchema = Type.Object(
+  {
+    status: Type.Union([
+      Type.Literal("answered"),
+      Type.Literal("skipped"),
+      Type.Literal("cancelled"),
+    ]),
+    answers: Type.Optional(Type.Array(StructuredQuestionAnswerSchema)),
+  },
+  { additionalProperties: false },
+)
+
+const StructuredQuestionEditorPayloadSchema = Type.Object(
+  {
+    schema: Type.Literal("brunch.structured_question.editor"),
+    schemaVersion: Type.Literal(1),
+    mode: StructuredQuestionModeSchema,
+    prompt: Type.String(),
+    instructions: Type.Array(Type.String()),
+    params: StructuredQuestionParamsSchema,
+    response: StructuredQuestionEditorResponseSchema,
+  },
+  { additionalProperties: false },
+)
 
 export function registerBrunchStructuredQuestion(pi: ExtensionAPI): void {
   if (typeof (pi as Partial<ExtensionAPI>).registerTool !== "function") {
@@ -41,25 +76,102 @@ export async function answerStructuredQuestionWithTui(
   params: StructuredQuestionParams,
   ctx: Pick<ExtensionContext, "hasUI" | "ui">,
 ): Promise<StructuredQuestionToolResult> {
-  if (!ctx.hasUI || typeof ctx.ui.custom !== "function") {
+  if (!ctx.hasUI) {
+    return unavailableStructuredQuestionResult(params)
+  }
+
+  if (typeof ctx.ui.custom === "function") {
+    const response = await ctx.ui.custom<StructuredQuestionTuiResponse>(
+      (_tui, _theme, _keybindings, done) =>
+        createStructuredQuestionTuiComponent(params, done),
+    )
+
     return buildStructuredQuestionResult({
       params,
-      status: "unavailable",
-      transport: { surface: "headless" },
-      message: "Structured question UI is unavailable.",
+      status: response.status,
+      answers: response.status === "answered" ? (response.answers ?? []) : [],
+      transport: { surface: "tui-custom" },
     })
   }
 
-  const response = await ctx.ui.custom<StructuredQuestionTuiResponse>(
-    (_tui, _theme, _keybindings, done) =>
-      createStructuredQuestionTuiComponent(params, done),
-  )
+  if (typeof ctx.ui.editor === "function") {
+    const edited = await ctx.ui.editor(
+      "Answer structured question as JSON",
+      buildStructuredQuestionEditorPrefill(params),
+    )
+    return structuredQuestionResultFromEditor(params, edited)
+  }
 
+  return unavailableStructuredQuestionResult(params)
+}
+
+export function buildStructuredQuestionEditorPrefill(
+  params: StructuredQuestionParams,
+): string {
+  return `${JSON.stringify(
+    Value.Parse(StructuredQuestionEditorPayloadSchema, {
+      schema: "brunch.structured_question.editor",
+      schemaVersion: 1,
+      mode: params.mode,
+      prompt: params.prompt,
+      instructions: [
+        "Edit response.status to answered, skipped, or cancelled.",
+        "For answered responses, fill response.answers using the question ids and answer shapes shown by params.",
+        "Do not change schema, schemaVersion, params, prompt, or mode.",
+      ],
+      params,
+      response: { status: "skipped" },
+    }),
+    null,
+    2,
+  )}\n`
+}
+
+export function parseStructuredQuestionEditorResponse(
+  edited: string | undefined,
+): StructuredQuestionTuiResponse | null {
+  if (edited === undefined) return { status: "cancelled" }
+  try {
+    const payload = Value.Parse(
+      StructuredQuestionEditorPayloadSchema,
+      JSON.parse(edited),
+    )
+    return payload.response
+  } catch {
+    return null
+  }
+}
+
+export function structuredQuestionResultFromEditor(
+  params: StructuredQuestionParams,
+  edited: string | undefined,
+): StructuredQuestionToolResult {
+  const response = parseStructuredQuestionEditorResponse(edited)
+  if (!response) {
+    return buildStructuredQuestionResult({
+      params,
+      status: "unavailable",
+      transport: { surface: "rpc-editor" },
+      message:
+        "Structured question editor response was invalid JSON or failed schema validation.",
+    })
+  }
   return buildStructuredQuestionResult({
     params,
     status: response.status,
     answers: response.status === "answered" ? (response.answers ?? []) : [],
-    transport: { surface: "tui-custom" },
+    transport: { surface: "rpc-editor" },
+  })
+}
+
+function unavailableStructuredQuestionResult(
+  params: StructuredQuestionParams,
+): StructuredQuestionToolResult {
+  return buildStructuredQuestionResult({
+    params,
+    status: "unavailable",
+    transport: { surface: "headless" },
+    message: "Structured question UI is unavailable.",
   })
 }
 

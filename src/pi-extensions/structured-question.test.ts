@@ -3,11 +3,29 @@ import { describe, expect, it } from "vitest"
 import {
   STRUCTURED_QUESTION_TOOL,
   answerStructuredQuestionWithTui,
+  buildStructuredQuestionEditorPrefill,
   createStructuredQuestionTuiComponent,
+  parseStructuredQuestionEditorResponse,
   registerBrunchStructuredQuestion,
+  structuredQuestionResultFromEditor,
   type StructuredQuestionTuiResponse,
 } from "./structured-question.js"
 import type { StructuredQuestionParams } from "../structured-question.js"
+
+interface EditorOptionForTest {
+  id: string
+  label: string
+}
+
+interface EditorPayloadForTest {
+  schema: string
+  schemaVersion: number
+  mode: string
+  prompt: string
+  instructions: string[]
+  params: { options: EditorOptionForTest[] }
+  response: { status: string }
+}
 
 describe("Brunch structured-question TUI adapter", () => {
   it("registers a structured-question tool", () => {
@@ -93,6 +111,104 @@ describe("Brunch structured-question TUI adapter", () => {
         { id: "a", label: "Alpha" },
         { id: "b", label: "Beta" },
       ],
+    })
+  })
+
+  it("builds schema-tagged JSON editor prefill for raw RPC fallback", () => {
+    const prefill = JSON.parse(
+      buildStructuredQuestionEditorPrefill(singleParams()),
+    ) as EditorPayloadForTest
+
+    expect(prefill).toMatchObject({
+      schema: "brunch.structured_question.editor",
+      schemaVersion: 1,
+      mode: "singleSelect",
+      prompt: "Pick one",
+      response: { status: "skipped" },
+    })
+    expect(prefill.instructions.join("\n")).toContain("response.answers")
+    expect(prefill.params.options).toEqual([
+      { id: "a", label: "Alpha" },
+      { id: "b", label: "Beta" },
+    ])
+  })
+
+  it("parses valid edited JSON into the same result-details shape as TUI", async () => {
+    const edited = JSON.parse(
+      buildStructuredQuestionEditorPrefill(singleParams()),
+    ) as Record<string, unknown>
+    edited.response = {
+      status: "answered",
+      answers: [
+        {
+          questionId: "q-single",
+          mode: "singleSelect",
+          selectedOption: { id: "b", label: "Beta" },
+        },
+      ],
+    }
+
+    const result = structuredQuestionResultFromEditor(
+      singleParams(),
+      JSON.stringify(edited),
+    )
+
+    expect(
+      parseStructuredQuestionEditorResponse(JSON.stringify(edited)),
+    ).toEqual(edited.response)
+    expect(result.details).toMatchObject({
+      status: "answered",
+      mode: "singleSelect",
+      answers: [
+        {
+          questionId: "q-single",
+          selectedOption: { id: "b", label: "Beta" },
+        },
+      ],
+      transport: { surface: "rpc-editor" },
+    })
+  })
+
+  it("fails malformed or schema-invalid edited JSON deterministically", () => {
+    expect(parseStructuredQuestionEditorResponse("not json")).toBeNull()
+
+    const invalid = JSON.parse(
+      buildStructuredQuestionEditorPrefill(textParams()),
+    ) as Record<string, unknown>
+    invalid.response = { status: "answered", answers: [{ mode: "text" }] }
+
+    const result = structuredQuestionResultFromEditor(
+      textParams(),
+      JSON.stringify(invalid),
+    )
+
+    expect(result.details).toMatchObject({
+      status: "unavailable",
+      transport: { surface: "rpc-editor" },
+    })
+    expect(result.content[0]?.text).toContain("invalid JSON")
+  })
+
+  it("uses ctx.ui.editor when custom UI is unavailable", async () => {
+    const edited = JSON.parse(
+      buildStructuredQuestionEditorPrefill(textParams()),
+    ) as Record<string, unknown>
+    edited.response = {
+      status: "answered",
+      answers: [{ questionId: "q-text", mode: "text", value: "RPC answer" }],
+    }
+
+    const result = await answerStructuredQuestionWithTui(textParams(), {
+      hasUI: true,
+      ui: {
+        editor: async () => JSON.stringify(edited),
+      } as never,
+    })
+
+    expect(result.details).toMatchObject({
+      status: "answered",
+      transport: { surface: "rpc-editor" },
+      answers: [{ value: "RPC answer" }],
     })
   })
 
