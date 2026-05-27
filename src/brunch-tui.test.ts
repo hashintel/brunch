@@ -24,9 +24,7 @@ import {
   BRUNCH_WORKSPACE_SHORTCUT,
   chromeStateForWorkspace,
   createBrunchPiExtensionShell,
-  extractHashPrefix,
   registerBrunchAlternatives,
-  registerBrunchMentionAutocomplete,
   registerBrunchOperationalModePolicy,
   runBrunchWorkspaceCommand,
   runBrunchWorkspaceAction,
@@ -612,7 +610,7 @@ describe("Brunch TUI boot", () => {
     expect(commands).toEqual([])
   })
 
-  it("installs fixture graph-code mention autocomplete and prompt guidance from the Brunch shell", async () => {
+  it("wires the fixture graph-code mention source through the Brunch shell", async () => {
     let providerFactory: ((
       current: FakeAutocompleteProvider,
     ) => FakeAutocompleteProvider) | undefined
@@ -620,10 +618,6 @@ describe("Brunch TUI boot", () => {
       event: unknown,
       ctx: FakeExtensionContext,
     ) => Promise<void> | void> = []
-    const beforeAgentStart: Array<(
-      event: { systemPrompt: string },
-      ctx: FakeExtensionContext,
-    ) => Promise<unknown> | unknown> = []
 
     createBrunchPiExtensionShell(
       chromeStateForWorkspace(readyWorkspace("/tmp/project", "session-1")),
@@ -632,7 +626,6 @@ describe("Brunch TUI boot", () => {
     )({
       on: (event: string, handler: never) => {
         if (event === "session_start") sessionStart.push(handler)
-        if (event === "before_agent_start") beforeAgentStart.push(handler)
       },
       registerCommand: (_name: string, _options: unknown) => {},
       registerShortcut: (_name: string, _options: unknown) => {},
@@ -664,11 +657,6 @@ describe("Brunch TUI boot", () => {
     }
 
     for (const handler of sessionStart) await handler({}, ctx)
-    const promptUpdates = await Promise.all(
-      beforeAgentStart.map((handler) =>
-        Promise.resolve(handler({ systemPrompt: "base" }, ctx)),
-      ),
-    )
 
     const fallback: FakeAutocompleteProvider = {
       getSuggestions: async () => ({ items: [], prefix: "" }),
@@ -677,15 +665,6 @@ describe("Brunch TUI boot", () => {
     }
     const provider = providerFactory?.(fallback)
 
-    expect(
-      promptUpdates.some(
-        (update) =>
-          typeof update === "object" &&
-          update !== null &&
-          "systemPrompt" in update &&
-          String(update.systemPrompt).includes("Brunch graph mention handles"),
-      ),
-    ).toBe(true)
     await expect(
       provider?.getSuggestions(["Discuss #"], 0, 9, {} as never),
     ).resolves.toMatchObject({
@@ -694,70 +673,6 @@ describe("Brunch TUI boot", () => {
         expect.objectContaining({ value: "#D12" }),
       ]),
     })
-  })
-
-  it("registers graph-code mention autocomplete without fixture tag JSON", async () => {
-    let providerFactory: ((
-      current: FakeAutocompleteProvider,
-    ) => FakeAutocompleteProvider) | undefined
-    const source = {
-      listMentionCandidates: () => [
-        {
-          code: "D12",
-          title: "Command containment",
-          description: "Blocks branchy Pi flows",
-          plane: "design" as const,
-        },
-        { code: "I9", title: "Mention ledger", plane: "intent" as const },
-      ],
-    }
-
-    registerBrunchMentionAutocomplete(
-      {
-        on: (event: string, handler: (event: never, ctx: never) => unknown) => {
-          if (event === "session_start") {
-            void handler({} as never, {
-              ui: {
-                addAutocompleteProvider: (factory: typeof providerFactory) => {
-                  providerFactory = factory
-                },
-              },
-            } as never)
-          }
-        },
-      } as never,
-      source,
-    )
-
-    const fallback: FakeAutocompleteProvider = {
-      getSuggestions: async () => ({ items: [], prefix: "" }),
-      applyCompletion: (lines) => ({ lines, cursorLine: 0, cursorCol: 0 }),
-      shouldTriggerFileCompletion: () => true,
-    }
-    const provider = providerFactory?.(fallback)
-
-    expect(extractHashPrefix("See #D1", 7)).toBe("#D1")
-    await expect(
-      provider?.getSuggestions(["See #D1"], 0, 7, {} as never),
-    ).resolves.toEqual({
-      prefix: "#D1",
-      items: [
-        {
-          value: "#D12",
-          label: "#D12 Command containment",
-          description: "Blocks branchy Pi flows",
-        },
-      ],
-    })
-    expect(
-      provider?.applyCompletion(
-        ["See #D"],
-        0,
-        6,
-        { value: "#D12", label: "#D12 Command containment" },
-        "#D",
-      ),
-    ).toEqual({ lines: ["See #D12"], cursorLine: 0, cursorCol: 8 })
   })
 
   it("loads the elicit operational-mode tool policy from product code", async () => {
