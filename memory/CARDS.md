@@ -162,7 +162,7 @@ Validation requires: `OperationalModeDefinition.allowedRoles` contains `agentRol
 
 ## Card 2 — Apply active Brunch agent state to prompt and tools
 
-**Status:** queued
+**Status:** done
 **Weight:** full scope card
 
 ### Target Behavior

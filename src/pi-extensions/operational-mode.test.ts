@@ -10,6 +10,7 @@ import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
   projectBrunchAgentState,
+  registerBrunchOperationalModePolicy,
   type BrunchAgentState,
 } from "./operational-mode.js"
 
@@ -81,6 +82,68 @@ describe("Brunch agent runtime-state projection", () => {
     expect(
       projectBrunchAgentState([valid, invalidCombination, malformed]),
     ).toMatchObject(DEFAULT_BRUNCH_AGENT_STATE)
+  })
+
+  it("applies resolved elicit state to active tools, prompt, and blockers", async () => {
+    const latestState: BrunchAgentState = {
+      schemaVersion: 1,
+      operationalMode: "elicit",
+      agentRole: "elicitor",
+      agentStrategy: "disambiguate-via-examples",
+      agentLens: "disambiguate-via-examples",
+    }
+    const events: Record<string, (event: never, ctx?: never) => unknown> = {}
+    const activeTools: string[][] = []
+
+    registerBrunchOperationalModePolicy({
+      registerTool: (_tool: { name: string }) => {},
+      getAllTools: () =>
+        ["read", "grep", "find", "ls", "bash", "edit", "write"].map((name) => ({
+          name,
+        })),
+      setActiveTools: (tools: string[]) => activeTools.push(tools),
+      on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
+        events[event] = handler
+      },
+    } as never)
+
+    const promptResult = await Promise.resolve(
+      events.before_agent_start?.({ systemPrompt: "base" } as never, {
+        sessionManager: {
+          getEntries: () => [runtimeEntry(latestState)],
+        },
+      } as never),
+    )
+
+    expect(activeTools).toEqual([["read", "grep", "find", "ls"]])
+    expect(promptResult).toMatchObject({
+      systemPrompt: expect.stringContaining("Operational mode: elicit."),
+    })
+    expect(promptResult).toMatchObject({
+      systemPrompt: expect.stringContaining("Agent role: elicitor."),
+    })
+    expect(promptResult).toMatchObject({
+      systemPrompt: expect.stringContaining(
+        "Agent strategy: disambiguate-via-examples.",
+      ),
+    })
+    expect(promptResult).toMatchObject({
+      systemPrompt: expect.stringContaining(
+        "Brunch exposes only read-only tools: read, grep, find, ls.",
+      ),
+    })
+    await expect(
+      Promise.resolve(events.tool_call?.({ toolName: "write" } as never)),
+    ).resolves.toMatchObject({
+      block: true,
+      reason: expect.stringContaining('Brunch tool policy blocks "write"'),
+    })
+    expect(events.user_bash?.({ command: "rm -rf ." } as never)).toMatchObject({
+      result: {
+        exitCode: 1,
+        output: "Brunch tool policy blocks shell commands: rm -rf .",
+      },
+    })
   })
 
   it("reprojects runtime-state snapshots after Pi JSONL reload", async () => {

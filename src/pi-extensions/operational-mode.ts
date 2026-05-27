@@ -234,8 +234,55 @@ function availableReadOnlyToolNames(pi: ExtensionAPI): ReadOnlyToolName[] {
   return READ_ONLY_TOOLS.filter((name) => allToolNames.has(name))
 }
 
-function applyBrunchToolPolicy(pi: ExtensionAPI): void {
-  pi.setActiveTools(availableReadOnlyToolNames(pi))
+interface SessionManagerLike {
+  getEntries(): readonly CustomEntryLike[]
+}
+
+function projectBrunchAgentStateFromSessionManager(
+  sessionManager: SessionManagerLike | undefined,
+): ResolvedBrunchAgentState {
+  return projectBrunchAgentState(sessionManager?.getEntries() ?? [])
+}
+
+function activeToolNamesForState(
+  pi: ExtensionAPI,
+  state: ResolvedBrunchAgentState,
+): ReadOnlyToolName[] {
+  if (state.operationalModeDefinition.toolPolicyId === "elicit-read-only") {
+    return availableReadOnlyToolNames(pi)
+  }
+  return []
+}
+
+function applyBrunchToolPolicy(
+  pi: ExtensionAPI,
+  state: ResolvedBrunchAgentState,
+): void {
+  pi.setActiveTools(activeToolNamesForState(pi, state))
+}
+
+function composeBrunchAgentStatePrompt(
+  state: ResolvedBrunchAgentState,
+  activeTools: readonly string[],
+): string {
+  const tools = activeTools.join(", ") || "none"
+  const lens = state.agentLens ?? "none"
+
+  return (
+    `\n\n[Brunch agent state]\n` +
+    `- Operational mode: ${state.operationalMode}.\n` +
+    `- Agent role: ${state.agentRole}.\n` +
+    `- Agent strategy: ${state.agentStrategy}.\n` +
+    `- Agent lens: ${lens}.\n` +
+    `- Prompt packs: ${[
+      ...state.operationalModeDefinition.promptPackIds,
+      ...state.agentRoleDefinition.promptPackIds,
+    ].join(", ")}.\n` +
+    `\n[Brunch tool policy]\n` +
+    `- Brunch exposes only read-only tools: ${tools}.\n` +
+    `- Do not attempt to write files, edit code, run shell commands, change git state, install dependencies, start processes, or mutate external systems.\n` +
+    `- If the user asks for a side-effecting action, explain that this Brunch prototype is read-only for now.`
+  )
 }
 
 interface TextLikeContent {
@@ -433,21 +480,19 @@ export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
     },
   })
 
-  pi.on("session_start", async () => {
-    applyBrunchToolPolicy(pi)
+  pi.on("session_start", async (_event, ctx) => {
+    const state = projectBrunchAgentStateFromSessionManager(ctx?.sessionManager)
+    applyBrunchToolPolicy(pi, state)
   })
 
-  pi.on("before_agent_start", async (event) => {
-    applyBrunchToolPolicy(pi)
+  pi.on("before_agent_start", async (event, ctx) => {
+    const state = projectBrunchAgentStateFromSessionManager(ctx?.sessionManager)
+    const activeTools = activeToolNamesForState(pi, state)
+    applyBrunchToolPolicy(pi, state)
 
-    const tools = availableReadOnlyToolNames(pi).join(", ") || "none"
     return {
       systemPrompt:
-        event.systemPrompt +
-        `\n\n[Brunch tool policy]\n` +
-        `- Brunch exposes only read-only tools: ${tools}.\n` +
-        `- Do not attempt to write files, edit code, run shell commands, change git state, install dependencies, start processes, or mutate external systems.\n` +
-        `- If the user asks for a side-effecting action, explain that this Brunch prototype is read-only for now.`,
+        event.systemPrompt + composeBrunchAgentStatePrompt(state, activeTools),
     }
   })
 
