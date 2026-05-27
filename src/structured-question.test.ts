@@ -4,6 +4,7 @@ import { Value } from "typebox/value"
 import {
   StructuredQuestionResultDetailsSchema,
   buildStructuredQuestionResult,
+  isTerminalStructuredQuestionResultDetails,
   parseStructuredQuestionParams,
   structuredQuestionSummary,
   type StructuredQuestionAnswer,
@@ -204,5 +205,54 @@ describe("structured-question result model", () => {
       })
       expect(structuredQuestionSummary(result.details)).toContain(status)
     }
+  })
+
+  it("recognizes terminal structured-question result details without matching unrelated tool output", () => {
+    const params = parseStructuredQuestionParams({
+      id: "q-terminal",
+      mode: "text",
+      prompt: "Can you answer?",
+    })
+    const answered = buildStructuredQuestionResult({
+      params,
+      status: "answered",
+      answers: [{ questionId: "q-terminal", mode: "text", value: "Yes" }],
+      transport,
+    })
+    const skipped = buildStructuredQuestionResult({
+      params,
+      status: "skipped",
+      transport,
+    })
+    const cancelled = buildStructuredQuestionResult({
+      params,
+      status: "cancelled",
+      transport,
+    })
+    const unavailable = buildStructuredQuestionResult({
+      params,
+      status: "unavailable",
+      transport: { surface: "headless" },
+      message: "No UI surface is available.",
+    })
+
+    expect(isTerminalStructuredQuestionResultDetails(answered.details)).toBe(
+      true,
+    )
+    expect(isTerminalStructuredQuestionResultDetails(skipped.details)).toBe(
+      true,
+    )
+    expect(isTerminalStructuredQuestionResultDetails(cancelled.details)).toBe(
+      true,
+    )
+    expect(isTerminalStructuredQuestionResultDetails(unavailable.details)).toBe(
+      false,
+    )
+    expect(
+      isTerminalStructuredQuestionResultDetails({
+        status: "answered",
+        content: [{ type: "text", text: "ordinary tool output" }],
+      }),
+    ).toBe(false)
   })
 })

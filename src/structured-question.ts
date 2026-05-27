@@ -172,6 +172,19 @@ export function parseStructuredQuestionParams(
   return Value.Parse(StructuredQuestionParamsSchema, value)
 }
 
+export function isTerminalStructuredQuestionResultDetails(
+  value: unknown,
+): value is StructuredQuestionResultDetails {
+  if (!Value.Check(StructuredQuestionResultDetailsSchema, value)) {
+    return false
+  }
+  return (
+    value.status === "answered" ||
+    value.status === "skipped" ||
+    value.status === "cancelled"
+  )
+}
+
 export function buildStructuredQuestionResult(input: {
   params: StructuredQuestionParams
   status: StructuredQuestionStatus
