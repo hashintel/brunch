@@ -55,9 +55,9 @@ export function formatBrunchChromeHeaderLines(
   chrome: BrunchChromeState,
 ): string[] {
   return [
-    `brunch · ${formatSpec(chrome)}`,
-    `cwd: ${chrome.cwd}`,
-    `session: ${formatSession(chrome)} · phase: ${chrome.phase}`,
+    "brunch",
+    `runtime: ${formatRuntime(chrome)}`,
+    `${formatChromeIdentity(chrome)} · phase: ${chrome.phase}`,
   ]
 }
 

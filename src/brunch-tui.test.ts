@@ -202,6 +202,29 @@ describe("Brunch TUI boot", () => {
     )
   })
 
+  it("formats chrome header as wordmark plus runtime-state summary", async () => {
+    const state = {
+      cwd: "/tmp/project",
+      spec: { id: "spec-1", title: "Spec One" },
+      session: { id: "session-1", label: "Interview #1" },
+      phase: "elicitation" as const,
+      chatMode: "responding-to-elicitation" as const,
+      runtime: {
+        bundle: "elicit-default",
+        role: "elicitor",
+        model: "claude-sonnet",
+        thinking: "medium",
+        lens: "step-by-step",
+      },
+    }
+
+    expect(formatBrunchChromeHeaderLines(state)).toEqual([
+      "brunch",
+      "runtime: elicit-default · role elicitor · claude-sonnet · thinking medium · lens step-by-step",
+      "spec: Spec One · session: Interview #1 · phase: elicitation",
+    ])
+  })
+
   it("formats honest Brunch chrome from one product-state snapshot", async () => {
     const state = {
       cwd: "/tmp/project",
@@ -212,9 +235,9 @@ describe("Brunch TUI boot", () => {
     }
 
     expect(formatBrunchChromeHeaderLines(state)).toEqual([
-      "brunch · Spec One",
-      "cwd: /tmp/project",
-      "session: Interview #1 · phase: elicitation",
+      "brunch",
+      "runtime: not reported",
+      "spec: Spec One · session: Interview #1 · phase: elicitation",
     ])
     expect(formatBrunchChromeFooterLines(state)).toEqual([
       "runtime: not reported · build: not reported",
