@@ -9,9 +9,12 @@ import { SessionManager } from "@earendil-works/pi-coding-agent"
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
+  appendBrunchAgentRuntimeInit,
+  appendBrunchAgentRuntimeSwitch,
   projectBrunchAgentState,
   registerBrunchOperationalModePolicy,
   type BrunchAgentState,
+  type BrunchAgentStateEntryData,
 } from "./operational-mode.js"
 
 function runtimeEntry(
@@ -28,6 +31,23 @@ function runtimeEntry(
       source: "user",
       ...data,
     },
+  }
+}
+
+class FakeRuntimeStateSessionManager {
+  entries: Array<{
+    type: "custom"
+    customType: string
+    data: BrunchAgentStateEntryData
+  }> = []
+
+  getEntries() {
+    return this.entries
+  }
+
+  appendCustomEntry(customType: string, data: BrunchAgentStateEntryData) {
+    this.entries.push({ type: "custom", customType, data })
+    return `entry-${this.entries.length}`
   }
 }
 
@@ -144,6 +164,82 @@ describe("Brunch agent runtime-state projection", () => {
         output: "Brunch tool policy blocks shell commands: rm -rf .",
       },
     })
+  })
+
+  it("appends init only when the transcript has no valid runtime state", () => {
+    const manager = new FakeRuntimeStateSessionManager()
+
+    expect(appendBrunchAgentRuntimeInit(manager)).toBe("entry-1")
+    expect(appendBrunchAgentRuntimeInit(manager)).toBeUndefined()
+    expect(manager.entries).toHaveLength(1)
+    expect(manager.entries[0]?.data).toEqual({
+      schemaVersion: 1,
+      reason: "init",
+      state: DEFAULT_BRUNCH_AGENT_STATE,
+      source: "extension",
+    })
+  })
+
+  it("appends validated runtime switches as full state snapshots", () => {
+    const manager = new FakeRuntimeStateSessionManager()
+    appendBrunchAgentRuntimeInit(manager)
+    const latestState: BrunchAgentState = {
+      schemaVersion: 1,
+      operationalMode: "elicit",
+      agentRole: "elicitor",
+      agentStrategy: "disambiguate-via-examples",
+      agentLens: "disambiguate-via-examples",
+    }
+
+    expect(appendBrunchAgentRuntimeSwitch(manager, latestState, "user")).toBe(
+      "entry-2",
+    )
+
+    expect(manager.entries[1]?.data).toEqual({
+      schemaVersion: 1,
+      reason: "switch",
+      state: latestState,
+      previous: DEFAULT_BRUNCH_AGENT_STATE,
+      source: "user",
+    })
+    expect(projectBrunchAgentState(manager.getEntries())).toMatchObject(
+      latestState,
+    )
+  })
+
+  it("rejects invalid runtime switch combinations before appending", () => {
+    const manager = new FakeRuntimeStateSessionManager()
+
+    expect(() =>
+      appendBrunchAgentRuntimeSwitch(manager, {
+        schemaVersion: 1,
+        operationalMode: "elicit",
+        agentRole: "elicitor",
+        agentStrategy: "not-a-strategy",
+        agentLens: "step-by-step",
+      } as unknown as BrunchAgentState),
+    ).toThrow("Invalid BrunchAgentState runtime selection.")
+    expect(manager.entries).toEqual([])
+  })
+
+  it("appends runtime init from the extension session-start hook", async () => {
+    const manager = new FakeRuntimeStateSessionManager()
+    const events: Record<string, (event: never, ctx?: never) => unknown> = {}
+
+    registerBrunchOperationalModePolicy({
+      registerTool: (_tool: { name: string }) => {},
+      getAllTools: () => ["read"].map((name) => ({ name })),
+      setActiveTools: (_tools: string[]) => {},
+      on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
+        events[event] = handler
+      },
+    } as never)
+
+    await events.session_start?.({} as never, {
+      sessionManager: manager,
+    } as never)
+
+    expect(manager.entries[0]?.data.reason).toBe("init")
   })
 
   it("reprojects runtime-state snapshots after Pi JSONL reload", async () => {

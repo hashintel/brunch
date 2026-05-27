@@ -35,6 +35,8 @@ export {
 export {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
+  appendBrunchAgentRuntimeInit,
+  appendBrunchAgentRuntimeSwitch,
   projectBrunchAgentState,
   registerBrunchOperationalModePolicy,
   type AgentLensId,
@@ -43,6 +45,7 @@ export {
   type AgentStrategyId,
   type BrunchAgentState,
   type BrunchAgentStateEntryData,
+  type BrunchAgentStateEntrySessionManager,
   type OperationalModeDefinition,
   type OperationalModeId,
   type ResolvedBrunchAgentState,

@@ -208,7 +208,7 @@ Before each agent turn, `operational-mode.ts` applies the reconstructed and reso
 
 ## Card 3 — Persist Brunch agent-state switches as selected-state snapshots
 
-**Status:** queued
+**Status:** done
 **Weight:** full scope card
 
 ### Target Behavior

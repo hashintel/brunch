@@ -204,10 +204,10 @@ function resolveBrunchAgentState(
   }
 }
 
-export function projectBrunchAgentState(
+function latestValidBrunchAgentStateEntryData(
   entries: readonly CustomEntryLike[],
-): ResolvedBrunchAgentState {
-  let state = DEFAULT_BRUNCH_AGENT_STATE
+): BrunchAgentStateEntryData | undefined {
+  let latest: BrunchAgentStateEntryData | undefined
 
   for (const entry of entries) {
     if (
@@ -217,10 +217,79 @@ export function projectBrunchAgentState(
       continue
     }
     const data = parseBrunchAgentStateEntryData(entry.data)
-    if (data) state = data.state
+    if (data) latest = data
   }
 
-  return resolveBrunchAgentState(state)
+  return latest
+}
+
+export function projectBrunchAgentState(
+  entries: readonly CustomEntryLike[],
+): ResolvedBrunchAgentState {
+  return resolveBrunchAgentState(
+    latestValidBrunchAgentStateEntryData(entries)?.state ??
+      DEFAULT_BRUNCH_AGENT_STATE,
+  )
+}
+
+export interface BrunchAgentStateEntrySessionManager {
+  getEntries(): readonly CustomEntryLike[]
+  appendCustomEntry(customType: string, data: BrunchAgentStateEntryData): string
+}
+
+function requireValidBrunchAgentState(
+  state: BrunchAgentState,
+): BrunchAgentState {
+  const valid = parseBrunchAgentState(state)
+  if (!valid) {
+    throw new Error("Invalid BrunchAgentState runtime selection.")
+  }
+  return valid
+}
+
+export function appendBrunchAgentRuntimeInit(
+  sessionManager: BrunchAgentStateEntrySessionManager,
+  source: BrunchAgentStateEntryData["source"] = "extension",
+): string | undefined {
+  if (latestValidBrunchAgentStateEntryData(sessionManager.getEntries())) {
+    return undefined
+  }
+
+  return sessionManager.appendCustomEntry(
+    BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+    {
+      schemaVersion: 1,
+      reason: "init",
+      state: DEFAULT_BRUNCH_AGENT_STATE,
+      source,
+    },
+  )
+}
+
+export function appendBrunchAgentRuntimeSwitch(
+  sessionManager: BrunchAgentStateEntrySessionManager,
+  state: BrunchAgentState,
+  source: BrunchAgentStateEntryData["source"] = "user",
+): string {
+  const validState = requireValidBrunchAgentState(state)
+  const previous = projectBrunchAgentState(sessionManager.getEntries())
+
+  return sessionManager.appendCustomEntry(
+    BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+    {
+      schemaVersion: 1,
+      reason: "switch",
+      state: validState,
+      previous: {
+        schemaVersion: previous.schemaVersion,
+        operationalMode: previous.operationalMode,
+        agentRole: previous.agentRole,
+        agentStrategy: previous.agentStrategy,
+        agentLens: previous.agentLens,
+      },
+      source,
+    },
+  )
 }
 
 function shortenPath(path: string): string {
@@ -242,6 +311,16 @@ function projectBrunchAgentStateFromSessionManager(
   sessionManager: SessionManagerLike | undefined,
 ): ResolvedBrunchAgentState {
   return projectBrunchAgentState(sessionManager?.getEntries() ?? [])
+}
+
+function supportsBrunchAgentStateEntries(
+  sessionManager: SessionManagerLike | undefined,
+): sessionManager is BrunchAgentStateEntrySessionManager {
+  return (
+    sessionManager !== undefined &&
+    typeof (sessionManager as Partial<BrunchAgentStateEntrySessionManager>)
+      .appendCustomEntry === "function"
+  )
 }
 
 function activeToolNamesForState(
@@ -481,6 +560,9 @@ export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
   })
 
   pi.on("session_start", async (_event, ctx) => {
+    if (supportsBrunchAgentStateEntries(ctx?.sessionManager)) {
+      appendBrunchAgentRuntimeInit(ctx.sessionManager)
+    }
     const state = projectBrunchAgentStateFromSessionManager(ctx?.sessionManager)
     applyBrunchToolPolicy(pi, state)
   })
