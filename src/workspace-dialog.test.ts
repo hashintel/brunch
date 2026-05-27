@@ -154,8 +154,11 @@ describe("spec/session picker", () => {
     const text = component.render(80).join("\n")
 
     expect(text).not.toContain("Continue your latest spec and session")
+    expect(text).toContain("Switch to another specification")
     expect(text).toContain("Start a new specification")
-    expect(text).toContain("Continue an existing specification")
+    expect(text.indexOf("Switch to another specification")).toBeLessThan(
+      text.indexOf("Start a new specification"),
+    )
   })
 
   it("selects current continue as a typed decision", () => {

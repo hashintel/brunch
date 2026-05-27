@@ -112,15 +112,18 @@ class WorkspaceDialogComponent implements Component {
     )
     const logo = readLogo()
     const version = brunchVersion()
-    const versionLines = [
-      style(this.#theme, "accent", `brunch ${version.version}`),
-      ...(version.dev ? [style(this.#theme, "success", version.dev)] : []),
-    ]
+    const versionLine = style(
+      this.#theme,
+      "accent",
+      `brunch ${version.version}${version.dev ? ` ${version.dev}` : ""}`,
+    )
     const piLine = style(this.#theme, "dim", `built on Pi v${PI_VERSION}`)
     const lines = [
+      ...logo,
+      ...(logo.length > 0 ? [""] : []),
       ...BRUNCH_WORDMARK.map((line) => style(this.#theme, "muted", line)),
       "",
-      ...versionLines,
+      versionLine,
       piLine,
       "",
       title,
@@ -147,7 +150,6 @@ class WorkspaceDialogComponent implements Component {
       "",
       style(this.#theme, "dim", "↑↓ navigate • enter select • esc cancel"),
     )
-    lines.push("", ...logo)
     return lines
   }
 

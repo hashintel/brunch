@@ -175,29 +175,36 @@ function buildHomeSelectionView(
     })
   }
 
-  selectionOptions.push(
-    {
-      id: "new-spec",
-      label: "Start a new specification",
-      description: "Name a new spec and create its first session",
-      kind: "newSpec",
-      nextStage: { stage: "newSpecTitle", title: "" },
-    },
-    {
-      id: "resume-spec",
-      label: "Continue an existing specification",
-      description: "Choose a spec, then create or resume a session",
-      kind: "resumeSpec",
-      nextStage: { stage: "specList" },
-    },
-    {
-      id: "cancel",
-      label: "Cancel",
-      description: "Exit without activating a spec/session",
-      kind: "cancel",
-      decision: { action: "cancel" },
-    },
-  )
+  const newSpecOption: WorkspaceSelectionOption = {
+    id: "new-spec",
+    label: "Start a new specification",
+    description: "Name a new spec and create its first session",
+    kind: "newSpec",
+    nextStage: { stage: "newSpecTitle", title: "" },
+  }
+  const resumeSpecOption: WorkspaceSelectionOption = {
+    id: "resume-spec",
+    label:
+      viewOptions.includeContinue === false
+        ? "Switch to another specification"
+        : "Continue an existing specification",
+    description: "Choose a spec, then create or resume a session",
+    kind: "resumeSpec",
+    nextStage: { stage: "specList" },
+  }
+  const cancelOption: WorkspaceSelectionOption = {
+    id: "cancel",
+    label: "Cancel",
+    description: "Exit without activating a spec/session",
+    kind: "cancel",
+    decision: { action: "cancel" },
+  }
+
+  if (viewOptions.includeContinue === false) {
+    selectionOptions.push(resumeSpecOption, newSpecOption, cancelOption)
+  } else {
+    selectionOptions.push(newSpecOption, resumeSpecOption, cancelOption)
+  }
 
   return {
     stage: "home",
