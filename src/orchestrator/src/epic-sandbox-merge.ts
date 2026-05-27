@@ -40,7 +40,10 @@ export function epicIdsForEpicVerifyMerge(plan: Plan, epicId: string): string[] 
     epicIds.add(id);
   };
 
+  const visitedSliceDeps = new Set<string>();
   const visitSliceDeps = (sliceId: string) => {
+    if (visitedSliceDeps.has(sliceId)) return;
+    visitedSliceDeps.add(sliceId);
     const slice = plan.slices.find((s) => s.id === sliceId);
     if (!slice) return;
     visitEpic(slice.epic_id);
