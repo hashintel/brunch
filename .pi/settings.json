@@ -1,3 +1,10 @@
 {
-  "quietStartup": true
+  "quietStartup": true,
+  "extensions": [
+    "-extensions/brunch-tools.ts"
+  ],
+  "skills": [
+    "-skills/d3k/SKILL.md",
+    "-skills/planning-pr/SKILL.md"
+  ]
 }

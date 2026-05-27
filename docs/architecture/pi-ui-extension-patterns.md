@@ -14,7 +14,7 @@ This memo records evidence for the `pi-ui-extension-patterns` frontier. It is in
 | Dynamic Brunch chrome wrapper | proven for deterministic product-state projection and TUI mounting | required before downstream M5/M6/M7 affordance wrappers call Pi UI primitives | Brunch-host tests + raw TUI transcript proof |
 | Startup workspace switcher | proven for Brunch-owned pre-Pi activation with no implicit transcript resume | required for I22-L | Brunch coordinator/UI tests + `runbooks/verify-startup-no-resume.sh` pty oracle |
 | In-session workspace switcher command | implemented/proven at command-handler seam; manual TUI walkthrough still useful | unlocks reusable switcher beyond startup | Brunch extension command tests + coordinator store oracle |
-| Typed custom UI (`ctx.ui.custom`) | feasible/proven for Brunch workspace decisions; richer question/questionnaire surfaces remain Pi-example evidence only | informs M5 review/lens affordances | Brunch command tests + Pi docs/examples |
+| Structured-question response loop | feasible but not Brunch-proven | required before M5 lens/review affordances depend on structured elicitation | Pi `question`/`questionnaire` examples + RPC UI demo; Brunch proof pending |
 
 ## Evidence inventory
 
@@ -224,28 +224,29 @@ allowedBuiltInCommands: ["compact", "reload", "quit"]
 
 The policy must run before interactive-mode built-in dispatch and before autocomplete construction. Ideally it should also expose a keybinding-action policy for `app.model.*` and `app.session.*` actions so keyboard paths cannot bypass slash visibility.
 
-## Offer-first custom UI gap
+## Structured-question / RPC-relay gap
 
-The remaining live FE-744 gap is not generic UI polish. Brunch still needs an offer-first interaction loop: a system/assistant-originated structured offer should act like the assistant turn, render as transcript-visible custom message state, replace the default input surface with custom response UI, and persist the user's structured response before the next agent turn.
+The remaining live FE-744 gap is not generic UI polish. Brunch still needs a structured elicitation loop: a system/assistant-originated question or questionnaire should be transcript truth, replace the default TUI input surface when rich UI is available, degrade over Pi RPC through supported extension UI dialogs (notably schema-tagged JSON over `ctx.ui.editor` for complex shapes), and persist a self-contained terminal structured result before the next agent turn consumes it.
 
 Pi source/docs already give strong evidence for the primitive:
 
 - `docs/usage.md` states that the editor can be temporarily replaced by custom extension UI.
 - `docs/tui.md` documents `ctx.ui.custom<T>()` for editor-area replacement and `ctx.ui.setEditorComponent()` for replacing the main input editor.
-- `examples/extensions/question.ts` proves single-choice plus optional freeform input.
-- `examples/extensions/questionnaire.ts` proves multi-question/multi-step choice UI with custom answers.
+- `examples/extensions/question.ts` proves a registered tool can ask a single-choice question with optional freeform input and persist the answer in `toolResult.details`.
+- `examples/extensions/questionnaire.ts` proves a registered tool can ask a multi-question questionnaire and persist the full answer set in `toolResult.details`.
+- `examples/extensions/rpc-demo.ts` and `examples/rpc-extension-ui.ts` prove Pi RPC can carry supported extension UI requests, including `editor`, through `extension_ui_request` / `extension_ui_response`.
 - `examples/extensions/message-renderer.ts` proves custom transcript display, but display alone does not collect a response.
 
-The seam Brunch must still prove is the composition: transcript-native unresolved offer → input-replacing custom UI → persisted structured response → projection as an elicitation exchange. The trimmed working plan remains in `docs/architecture/pi-ui-extension-patterns-provisional-plan.md` until that loop is implemented or deliberately moved into a named M5 slice.
+The seam Brunch must still prove is the composition: assistant tool/custom prompt → input-replacing TUI UI or JSON-editor RPC fallback → self-contained structured result in Pi JSONL → projection as the response side of an elicitation exchange. The trimmed working plan remains in `docs/architecture/pi-ui-extension-patterns-provisional-plan.md` until that loop is implemented or deliberately moved into a named M5 slice.
 
 | Residual affordance | Current posture | Carry-forward obligation |
 | --- | --- | --- |
-| Offer-first session loop | Missing and POC-critical. | A session can begin from a system/assistant offer without ambient user chat; unresolved offers own the input surface until answered. |
-| Structured custom message as UI driver | Display is Pi-example-proven; response collection still needs Brunch composition. | Persist the offer as a Brunch custom entry, render it in transcript history, and mount response UI from the pending offer state. |
-| Single-choice / multi-choice / freeform-plus-choice response | Pi examples prove the component patterns. | Build a Brunch-owned response helper over those patterns and persist `brunch.offer_response`-shaped data. |
-| Review-set decisions | Depends on the offer-response loop. | Approve routes to one `acceptReviewSet` command; request-changes appends a successor proposal; reject persists a response entry. |
+| Elicitation-first session loop | Missing and POC-critical. | A session can begin from a system/assistant question or offer without ambient user chat; unresolved interactions own the response surface until answered, skipped, cancelled, or marked unavailable. |
+| Registered structured-question tool seam | Pi examples prove tool-call / `toolResult.details` capture; Brunch projection does not yet classify terminal structured tool results as response-side entries. | Prefer the thinnest Pi-supported transcript seam for basic questions/questionnaires; make `toolResult.details` self-contained enough for Brunch projection. |
+| TUI input replacement | Pi examples prove `ctx.ui.custom()` component replacement; Brunch has proven it only for workspace decisions. | Build a Brunch-owned response helper over single-select, multi-select, questionnaire, and freeform-plus-choice patterns. |
+| JSON-editor RPC fallback | Pi RPC supports `editor`; Brunch has not yet wrapped schema-tagged JSON editor requests as product pending-elicitation state. | Treat JSON-over-editor as a Pi adapter behind Brunch public RPC, not as a second product API or raw UX contract. |
+| Review-set decisions | Depends on the same terminal structured-result discipline. | Approve routes to one `acceptReviewSet` command; request-changes appends a successor proposal; reject persists a terminal response. |
 | Pickers and orientation views | Workspace switcher proves pure decision UI. | Reuse the same decision-returning shape; coordinator or command-layer code owns mutations. |
-| RPC/fixture controllability | `ctx.ui.custom()` is not automatically RPC-controllable. | Critical fixture paths need Brunch RPC methods or built-in dialog fallbacks over the same semantic pending offer. |
 | Live Pi harness probes | Useful for fast source/API validation but not Brunch-host proof. | Keep scratch extensions temporary, record evidence tier, and promote only product-named wrappers that survive the spike. |
 
 ## Downstream posture

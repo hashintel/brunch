@@ -159,8 +159,8 @@ A run for brief #7 that terminates with kernels active but with none of `product
 The agent-as-user is a thin driver that exercises the JSON-RPC stdio surface end to end. It does three things:
 
 1. Opens a JSON-RPC stdio connection to `brunch --mode rpc`.
-2. Subscribes to the session's offer stream (`brunch.offer` custom messages per [pi-seam-extensions §4](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md#4-assistant--and-system-offer-first-interaction-with-multi-choice-answers)).
-3. For each offer, calls an LLM with the brief, the persona dials, and the offer envelope; collects the response (`brunch.offer_response`); posts it back over RPC.
+2. Subscribes to Brunch's pending structured-interaction stream (structured-question tool calls/results and product-native offer/proposal entries per [pi-seam-extensions §4](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md#4-assistant--and-system-offer-first-structured-interaction)).
+3. For each pending interaction, calls an LLM with the brief, the persona dials, and the interaction payload; collects a terminal structured response; posts it back over Brunch RPC (or through the private Pi-RPC extension UI relay when the driver is proving that seam).
 
 ### Termination conditions
 
@@ -200,7 +200,7 @@ A captured run produces four artefacts under `.brunch-fixtures/<brief-id>/<run-i
 
 | File | Contents |
 | --- | --- |
-| `<run-id>.jsonl` | The full pi JSONL session transcript including all custom entries (`brunch.offer`, `brunch.offer_response`, `brunch.lens_switch`, `brunch.spec_switch`, `brunch.kernel_activation`, `brunch.side_task_result`, `worldUpdate`) |
+| `<run-id>.jsonl` | The full pi JSONL session transcript including structured-question tool results and Brunch custom entries (`brunch.establishment_offer`, `brunch.review_set_proposal`, `brunch.elicitor_intent_hint`, `brunch.lens_switch`, `brunch.spec_switch`, `brunch.kernel_activation`, `brunch.side_task_result`, `worldUpdate`) |
 | `<run-id>.graph.json` | A snapshot of all spec-workspace graph planes at run termination: nodes, edges, per-entity versions, current graph LSN |
 | `<run-id>.coherence.json` | Coherence verdict at termination, including per-plane status and any open violations |
 | `<run-id>.meta.json` | Run metadata: brief id, persona dials, model, timestamps, total turns, total tokens, terminal reason, agent-as-user prompt hash |
