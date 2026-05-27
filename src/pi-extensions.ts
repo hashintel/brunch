@@ -54,12 +54,17 @@ export {
   type ResolvedBrunchAgentState,
 } from "./pi-extensions/operational-mode.js"
 export {
+  alignChromeColumns,
   chromeStateForWorkspace,
   formatBrunchChromeFooterLines,
   formatBrunchChromeHeaderLines,
   formatBrunchStatus,
+  formatChromeIdentity,
   formatChromeWidgetLines,
+  formatContextGauge,
+  formatTokenCount,
   renderBrunchChrome,
+  sanitizeChromeStatuses,
   type BrunchChromeCoherenceVerdict,
   type BrunchChromeStage,
   type BrunchChromeState,

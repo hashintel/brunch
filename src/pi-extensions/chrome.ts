@@ -1,4 +1,5 @@
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent"
+import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui"
 
 import type {
   WorkspaceSessionChromeState,
@@ -63,18 +64,20 @@ export function formatBrunchChromeHeaderLines(
 export function formatBrunchChromeFooterLines(
   chrome: BrunchChromeState,
   footerData?: BrunchChromeFooterData,
+  width?: number,
 ): string[] {
-  const statuses = [...(footerData?.getExtensionStatuses() ?? new Map())]
-    .filter(([key]) => key !== "brunch.chrome")
-    .map(([, value]) => value)
+  const statuses = sanitizeChromeStatuses(footerData?.getExtensionStatuses())
   const branch = footerData?.getGitBranch()
+  const identity = `${formatChromeIdentity(chrome)}${
+    branch ? ` · branch: ${branch}` : ""
+  }`
+  const runtime = `runtime: ${formatRuntime(chrome)} · build: ${formatBuild(chrome)}`
+  const context = `context: ${formatContextUsage(chrome.contextUsage)}`
   return [
-    `runtime: ${formatRuntime(chrome)} · build: ${formatBuild(chrome)}`,
-    `context: ${formatContextUsage(chrome.contextUsage)}`,
+    width === undefined ? runtime : alignChromeColumns(runtime, context, width),
+    ...(width === undefined ? [context] : []),
     `state: ${chrome.chatMode} · coherence: ${chrome.coherence ?? "unknown"} · worker: ${formatWorker(chrome)}`,
-    `spec: ${formatSpec(chrome)} · session: ${formatSession(chrome)}${
-      branch ? ` · branch: ${branch}` : ""
-    }`,
+    identity,
     statuses.length > 0 ? `status: ${statuses.join(" · ")}` : "",
   ]
 }
@@ -92,6 +95,42 @@ export function formatChromeWidgetLines(chrome: BrunchChromeState): string[] {
     `context: ${formatContextUsage(chrome.contextUsage)}`,
     `chat mode: ${chrome.chatMode}`,
   ]
+}
+
+export function formatChromeIdentity(chrome: BrunchChromeState): string {
+  return `spec: ${formatSpec(chrome)} · session: ${formatSession(chrome)}`
+}
+
+export function sanitizeChromeStatuses(
+  statuses: ReadonlyMap<string, string> | undefined,
+): string[] {
+  return [...(statuses ?? new Map())]
+    .filter(
+      ([key, value]) => key !== "brunch.chrome" && value.trim().length > 0,
+    )
+    .map(([, value]) => value.trim())
+}
+
+export function formatTokenCount(tokens: number): string {
+  const normalized = Math.max(0, tokens)
+  if (normalized < 1000) return String(normalized)
+  return `${(normalized / 1000).toFixed(1)}k`
+}
+
+export function formatContextGauge(
+  usage: BrunchChromeContextUsage | undefined,
+): string {
+  return formatContextUsage(usage)
+}
+
+export function alignChromeColumns(
+  left: string,
+  right: string,
+  width: number,
+): string {
+  const available = Math.max(0, width)
+  const gap = Math.max(1, available - visibleWidth(left) - visibleWidth(right))
+  return truncateToWidth(`${left}${" ".repeat(gap)}${right}`, available)
 }
 
 export function chromeStateForWorkspace(
@@ -117,7 +156,8 @@ export function renderBrunchChrome(
   ui.setFooter((tui, _theme, footerData) => {
     const unsubscribe = footerData.onBranchChange(() => tui.requestRender())
     return {
-      render: () => formatBrunchChromeFooterLines(chrome, footerData),
+      render: (width: number) =>
+        formatBrunchChromeFooterLines(chrome, footerData, width),
       invalidate: () => {},
       dispose: unsubscribe,
     }
