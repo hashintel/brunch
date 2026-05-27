@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Proves FE-744/I22 at the terminal boundary: Brunch TUI startup shows the
-# workspace dialog before any prior transcript is rendered. This runbook uses
+# spec/session picker before any prior transcript is rendered. This runbook uses
 # a real pty via `script`; it is intended as a manual/middle-loop oracle rather
 # than part of the default verify gate.
 
@@ -50,8 +50,8 @@ if grep -Fq "$STALE_TEXT" "$CAPTURE_STRIPPED"; then
   exit 1
 fi
 
-if ! grep -Eq "Brunch workspace|Choose or create the workspace|New workspace title" "$CAPTURE_STRIPPED"; then
-  echo "FAILED: startup capture did not show a stable workspace-dialog marker" >&2
+if ! grep -Eq "Choose a specification|Create new specification|New specification title" "$CAPTURE_STRIPPED"; then
+  echo "FAILED: startup capture did not show a stable spec/session picker marker" >&2
   echo "Capture: $CAPTURE_STRIPPED" >&2
   exit 1
 fi

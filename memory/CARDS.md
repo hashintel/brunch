@@ -57,7 +57,7 @@ The selection model turns workspace inventory into hierarchical spec/session sta
 
 ## Card 2 — Hierarchical TUI spec/session picker
 
-**Status:** next  
+**Status:** done  
 **Weight:** full scope card
 
 ### Target Behavior

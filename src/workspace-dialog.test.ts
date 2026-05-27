@@ -128,16 +128,29 @@ describe("workspace dialog", () => {
     })
   })
 
-  it("selects current resume and existing sessions as typed decisions", () => {
+  it("renders specification copy without user-created workspace wording", () => {
+    const component = createWorkspaceDialogComponent({
+      inventory: inventory(),
+      onDecision: () => {},
+    })
+
+    const text = component.render(80).join("\n")
+
+    expect(text).toContain("Choose a specification")
+    expect(text).toContain("Create new specification")
+    expect(text).toContain("Resume existing specification")
+    expect(text).not.toContain("Brunch workspace")
+    expect(text).not.toContain("Create workspace")
+    expect(text).not.toContain("Open workspace")
+  })
+
+  it("selects current continue as a typed decision", () => {
     const decisions: unknown[] = []
     const component = createWorkspaceDialogComponent({
       inventory: inventory(),
       onDecision: (decision) => decisions.push(decision),
     })
 
-    component.handleInput!("\r")
-    component.handleInput!("\x1B[B")
-    component.handleInput!("\x1B[B")
     component.handleInput!("\r")
 
     expect(decisions).toEqual([
@@ -146,6 +159,42 @@ describe("workspace dialog", () => {
         specId: "spec-alpha",
         sessionFile: "/sessions/alpha-current.jsonl",
       },
+    ])
+  })
+
+  it("returns new-session through the hierarchical keyboard path", () => {
+    const decisions: unknown[] = []
+    const component = createWorkspaceDialogComponent({
+      inventory: inventory(),
+      onDecision: (decision) => decisions.push(decision),
+    })
+
+    component.handleInput!("\x1B[B")
+    component.handleInput!("\x1B[B")
+    component.handleInput!("\r")
+    component.handleInput!("\r")
+    component.handleInput!("\r")
+
+    expect(decisions).toEqual([{ action: "newSession", specId: "spec-alpha" }])
+  })
+
+  it("returns open-session through the hierarchical keyboard path", () => {
+    const decisions: unknown[] = []
+    const component = createWorkspaceDialogComponent({
+      inventory: inventory(),
+      onDecision: (decision) => decisions.push(decision),
+    })
+
+    component.handleInput!("\x1B[B")
+    component.handleInput!("\x1B[B")
+    component.handleInput!("\r")
+    component.handleInput!("\r")
+    component.handleInput!("\x1B[B")
+    component.handleInput!("\r")
+    component.handleInput!("\x1B[B")
+    component.handleInput!("\r")
+
+    expect(decisions).toEqual([
       {
         action: "openSession",
         specId: "spec-alpha",
@@ -161,9 +210,7 @@ describe("workspace dialog", () => {
       onDecision: (decision) => decisions.push(decision),
     })
 
-    for (let index = 0; index < 5; index += 1) {
-      component.handleInput!("\x1B[B")
-    }
+    component.handleInput!("\x1B[B")
     component.handleInput!("\r")
     for (const char of "Gamma") {
       component.handleInput!(char)
@@ -181,6 +228,24 @@ describe("workspace dialog", () => {
     ])
   })
 
+  it("backs out one picker stage on escape and cancels from the home stage", () => {
+    const decisions: unknown[] = []
+    const component = createWorkspaceDialogComponent({
+      inventory: inventory(),
+      onDecision: (decision) => decisions.push(decision),
+    })
+
+    component.handleInput!("\x1B[B")
+    component.handleInput!("\x1B[B")
+    component.handleInput!("\r")
+    expect(component.render(80).join("\n")).toContain("Choose a specification")
+    component.handleInput!("\x1B")
+    expect(component.render(80).join("\n")).toContain("Continue last session")
+    component.handleInput!("\x1B")
+
+    expect(decisions).toEqual([{ action: "cancel" }])
+  })
+
   it("renders a branded centered-dialog frame with version metadata", () => {
     const component = createWorkspaceDialogComponent({
       inventory: inventory(),
@@ -191,7 +256,9 @@ describe("workspace dialog", () => {
 
     expect(lines[0]).toContain("╭")
     expect(lines[1]).toMatch(/^│\s+│$/)
-    expect(lines.some((line) => line.includes("Brunch workspace"))).toBe(true)
+    expect(lines.some((line) => line.includes("Choose a specification"))).toBe(
+      true,
+    )
     expect(lines.some((line) => line.includes("brunch v0.0.0"))).toBe(true)
     expect(lines.some((line) => line.includes("(dev"))).toBe(true)
     expect(lines.some((line) => line.includes("built on Pi v"))).toBe(true)

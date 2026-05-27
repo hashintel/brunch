@@ -17,8 +17,10 @@ import type {
   WorkspaceSwitchDecision,
 } from "../../workspace-session-coordinator.js"
 import {
-  buildWorkspaceDialogOptions,
-  type WorkspaceDialogOption,
+  buildWorkspaceSelectionView,
+  selectWorkspaceSelectionOption,
+  type WorkspaceSelectionStage,
+  type WorkspaceSelectionView,
 } from "./model.js"
 
 export const WORKSPACE_DIALOG_WIDTH = 80
@@ -47,24 +49,27 @@ export function createWorkspaceDialogComponent(
 }
 
 class WorkspaceDialogComponent implements Component {
-  #options: WorkspaceDialogOption[]
+  #inventory: WorkspaceLaunchInventory
   #onDecision: (decision: WorkspaceSwitchDecision) => void
   #theme: WorkspaceDialogTheme | undefined
   #selectedIndex = 0
-  #mode: "select" | "newSpecTitle" = "select"
+  #stage: WorkspaceSelectionStage = { stage: "home" }
+  #history: WorkspaceSelectionStage[] = []
   #title = ""
 
   constructor(options: WorkspaceDialogComponentOptions) {
-    this.#options = buildWorkspaceDialogOptions(options.inventory)
+    this.#inventory = options.inventory
     this.#onDecision = options.onDecision
     this.#theme = options.theme
   }
 
   handleInput(data: string): void {
-    if (this.#mode === "newSpecTitle") {
+    if (this.#stage.stage === "newSpecTitle") {
       this.#handleTitleInput(data)
       return
     }
+
+    const view = this.#view()
 
     if (matchesKey(data, Key.up)) {
       this.#selectedIndex = Math.max(0, this.#selectedIndex - 1)
@@ -72,13 +77,13 @@ class WorkspaceDialogComponent implements Component {
     }
     if (matchesKey(data, Key.down)) {
       this.#selectedIndex = Math.min(
-        this.#options.length - 1,
+        view.options.length - 1,
         this.#selectedIndex + 1,
       )
       return
     }
     if (matchesKey(data, Key.escape)) {
-      this.#onDecision({ action: "cancel" })
+      this.#backOrCancel()
       return
     }
     if (matchesKey(data, Key.enter)) {
@@ -95,11 +100,12 @@ class WorkspaceDialogComponent implements Component {
   invalidate(): void {}
 
   #contentLines(): string[] {
-    const title = style(this.#theme, "accent", "Brunch workspace")
+    const view = this.#view()
+    const title = style(this.#theme, "accent", view.title)
     const subtitle = style(
       this.#theme,
       "dim",
-      "Choose or create the workspace before the agent loop runs.",
+      "Choose or create the spec/session before the agent loop runs.",
     )
     const logo = readLogo()
     const version = brunchVersion()
@@ -109,8 +115,6 @@ class WorkspaceDialogComponent implements Component {
     ]
     const piLine = style(this.#theme, "dim", `built on Pi v${PI_VERSION}`)
     const lines = [
-      ...logo,
-      ...(logo.length > 0 ? [""] : []),
       ...BRUNCH_WORDMARK.map((line) => style(this.#theme, "muted", line)),
       "",
       ...versionLines,
@@ -121,13 +125,13 @@ class WorkspaceDialogComponent implements Component {
       "",
     ]
 
-    if (this.#mode === "newSpecTitle") {
-      lines.push("New workspace title:", `› ${this.#title}`)
+    if (this.#stage.stage === "newSpecTitle") {
+      lines.push("New specification title:", `› ${this.#title}`)
       lines.push("", style(this.#theme, "dim", "enter create • esc back"))
       return lines
     }
 
-    for (const [index, option] of this.#options.entries()) {
+    for (const [index, option] of view.options.entries()) {
       const selected = index === this.#selectedIndex
       const prefix = selected ? style(this.#theme, "accent", "› ") : "  "
       const label = selected
@@ -140,28 +144,29 @@ class WorkspaceDialogComponent implements Component {
       "",
       style(this.#theme, "dim", "↑↓ navigate • enter select • esc cancel"),
     )
+    lines.push("", ...logo)
     return lines
   }
 
   #selectCurrentOption(): void {
-    const option = this.#options[this.#selectedIndex]
-    if (!option) {
+    const result = selectWorkspaceSelectionOption(
+      this.#view(),
+      this.#selectedIndex,
+      this.#inventory,
+    )
+    if ("decision" in result) {
+      this.#onDecision(result.decision)
       return
     }
-    if (option.kind === "newSpec") {
-      this.#mode = "newSpecTitle"
-      this.#title = ""
-      return
-    }
-    if (option.decision) {
-      this.#onDecision(option.decision)
-    }
+    this.#history.push(this.#stage)
+    this.#stage = viewToStage(result.view)
+    this.#selectedIndex = 0
+    if (this.#stage.stage === "newSpecTitle") this.#title = ""
   }
 
   #handleTitleInput(data: string): void {
     if (matchesKey(data, Key.escape)) {
-      this.#mode = "select"
-      this.#title = ""
+      this.#backOrCancel()
       return
     }
     if (matchesKey(data, Key.backspace)) {
@@ -179,6 +184,31 @@ class WorkspaceDialogComponent implements Component {
       this.#title += data
     }
   }
+
+  #view(): WorkspaceSelectionView {
+    return buildWorkspaceSelectionView(this.#inventory, this.#stage)
+  }
+
+  #backOrCancel(): void {
+    const previous = this.#history.pop()
+    if (!previous) {
+      this.#onDecision({ action: "cancel" })
+      return
+    }
+    this.#stage = previous
+    this.#selectedIndex = 0
+    this.#title = ""
+  }
+}
+
+function viewToStage(view: WorkspaceSelectionView): WorkspaceSelectionStage {
+  if (view.stage === "newSpecTitle") return { stage: "newSpecTitle", title: "" }
+  if (view.stage === "specAction" && view.specId)
+    return { stage: "specAction", specId: view.specId }
+  if (view.stage === "sessionList" && view.specId)
+    return { stage: "sessionList", specId: view.specId }
+  if (view.stage === "specList") return { stage: "specList" }
+  return { stage: "home" }
 }
 
 function renderFrame(
