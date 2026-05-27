@@ -75,7 +75,16 @@ export interface NetEventSink {
 }
 
 /** Place names that may retain tokens after clean termination (resource pools, budgets, markers). */
-const BENIGN_RESIDUAL_PLACES = new Set(['retry-budget', 'semantic-budget', 'completed', 'done']);
+const BENIGN_RESIDUAL_PLACES = new Set([
+  'retry-budget',
+  'semantic-budget',
+  'completed',
+  'done',
+  // FE-761 Slice 2a: halt sink — receives a token when a slice/epic halts.
+  // Treated as benign so the engine reports net_halted (via ctx) rather than
+  // a spurious net_deadlocked.
+  'halted',
+]);
 
 function placeName(placeId: string): string {
   const sliceMatch = placeId.match(/^slice:[^:]+:(.+)$/);

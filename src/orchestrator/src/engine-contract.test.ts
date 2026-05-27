@@ -733,10 +733,11 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // Epic places: epic:epic-1:done = 1
     // Mechanical places: spec-ready, failing-tests, untested-code,
     //                    needs-more, done-spec, completed, eligible,
-    //                    retry-budget, evaluate:reported, run-tests:reported = 10
+    //                    retry-budget, evaluate:reported, run-tests:reported,
+    //                    halted (FE-761 Slice 2a) = 11
     // Semantic places: semantic-budget, semantic-satisfied, assess-semantic:reported = 3
-    // Total places: 16
-    expect(blueprint.places.length).toBe(16);
+    // Total places: 17
+    expect(blueprint.places.length).toBe(17);
 
     // Transitions:
     //   slice-ready:slice-1, slice-1:evaluate, slice-1:evaluate:done,
@@ -775,12 +776,13 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // depPlan: 1 epic, 2 slices (slice-b depends on slice-a)
     // Pool places: pool:test-agent, pool:code-agent = 2
     // Epic places: epic:epic-1:done = 1
-    // Slice-a places: 13 (6 mechanical + eligible + retry-budget + semantic-budget + semantic-satisfied
-    //                     + evaluate:reported + run-tests:reported + assess-semantic:reported)
-    // Slice-b places: 13 (same)
+    // Slice-a places: 14 (6 mechanical + eligible + retry-budget + semantic-budget + semantic-satisfied
+    //                     + evaluate:reported + run-tests:reported + assess-semantic:reported
+    //                     + halted (FE-761 Slice 2a))
+    // Slice-b places: 14 (same)
     // Dep-signal places: slice:slice-a:dep-signal:slice-b = 1
-    // Total: 30
-    expect(blueprint.places.length).toBe(30);
+    // Total: 32
+    expect(blueprint.places.length).toBe(32);
 
     // Transitions:
     //   slice-a: slice-ready, evaluate, evaluate:done, evaluate:more, write-tests, write-code,

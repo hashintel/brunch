@@ -314,8 +314,10 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
     // Pass sibling emits to the epic done place (no depSignals here — epic-1 has no epic dependents).
     expect(enumerateCandidateOutputs(passSibling!)).toEqual(new Set(['epic:epic-1:done']));
 
-    // Fail halt-sibling emits nothing — halt is the side effect.
-    expect(enumerateCandidateOutputs(failSibling!)).toEqual(new Set());
+    // Fail halt-sibling emits to the epic halted place (FE-761 Slice 2a:
+    // halted-as-place — halt is now a structural place-token, not a ctx side
+    // effect alone).
+    expect(enumerateCandidateOutputs(failSibling!)).toEqual(new Set(['epic:epic-1:halted']));
 
     // Branching descriptor fields are gone from the producer.
     const producerHandler = producer!.handler;
@@ -355,5 +357,53 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
       expect(producerHandler).not.toHaveProperty('onSatisfied');
       expect(producerHandler).not.toHaveProperty('onRejected');
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FE-761 Slice 2a: halted-as-place
+//
+// Halt paths (retry exhaustion in run-tests, rework exhaustion in
+// assess-semantic, verify-epic failure) now emit a halt token to a
+// `slice:<sid>:halted` or `epic:<eid>:halted` place instead of only
+// mutating ctx.halted in a fire closure. This makes halt observable at the
+// topology level and is a precondition for Slice 2b's dispatch/complete
+// async refactor (which retires ctx.halted entirely).
+// ---------------------------------------------------------------------------
+
+describe('FE-761 Slice 2a: halted-as-place', () => {
+  it('declares slice:<sid>:halted place for every slice', () => {
+    const blueprint = compileTopology(depPlan, { maxRetries: 3 });
+    expect(blueprint.places).toContain('slice:slice-a:halted');
+    expect(blueprint.places).toContain('slice:slice-b:halted');
+  });
+
+  it('declares epic:<eid>:halted place for every epic with verification', () => {
+    const verifyPlan: Plan = {
+      epics: [
+        {
+          id: 'epic-1',
+          summary: 'E',
+          depends_on: [],
+          verification: [{ kind: 'integration-test', target: 'it.test.ts' }],
+        },
+      ],
+      slices: [
+        {
+          id: 'slice-1',
+          epic_id: 'epic-1',
+          definition: 'D',
+          depends_on: [],
+          verification: [{ kind: 'unit-test', target: 't' }],
+        },
+      ],
+    };
+    const blueprint = compileTopology(verifyPlan, { maxRetries: 3 });
+    expect(blueprint.places).toContain('epic:epic-1:halted');
+  });
+
+  it('does not declare epic:<eid>:halted for epics without verification', () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+    expect(blueprint.places).not.toContain('epic:epic-1:halted');
   });
 });

@@ -100,6 +100,10 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       // conditional producers and their sibling passthroughs.
       'evaluate:reported',
       'run-tests:reported',
+      // FE-761 Slice 2a: halt sink — receives a halt-token from any halt
+      // path inside this slice (retry exhaustion, semantic rework
+      // exhaustion). Halt becomes observable at topology level.
+      'halted',
     ]) {
       places.push(p(sid, name));
     }
@@ -374,7 +378,9 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
     } else {
       const verifyPlace = ep(epic.id, 'verify-ready');
       const verifyReportedPlace = ep(epic.id, 'verify:reported');
-      places.push(verifyPlace, verifyReportedPlace);
+      // FE-761 Slice 2a: halt sink for epic verification failure.
+      const epicHaltedPlace = ep(epic.id, 'halted');
+      places.push(verifyPlace, verifyReportedPlace, epicHaltedPlace);
 
       transitions.push({
         id: `epic-slices-done:${epic.id}`,
@@ -413,7 +419,10 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         },
       });
 
-      // Verify-epic — fail halt-sibling: empty outputs, halts via ctx mutation.
+      // Verify-epic — fail halt-sibling: emits to the epic halted place
+      // (FE-761 Slice 2a: halted-as-place). onFire still mutates ctx for now
+      // so engine.shouldHalt() keeps working without further wiring; Slice 2b
+      // will retire ctx.halted entirely.
       transitions.push({
         id: `epic-verify:${epic.id}:fail`,
         inputs: [verifyReportedPlace],
@@ -423,7 +432,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
           sliceId: '',
           epicId: epic.id,
           input: verifyReportedPlace,
-          outputs: [],
+          outputs: [epicHaltedPlace],
           enablingGuard: { kind: 'tokenReportFieldFalsy', field: 'passed' },
           onFire: { kind: 'halt-epic', reason: `Epic ${epic.id} verification failed` },
         },
@@ -577,10 +586,13 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             ];
           }
           if (retryCount >= maxRetries) {
+            // FE-761 Slice 2a: halt is now structural — emit to the slice
+            // halted place in addition to the legacy ctx.halted mutation
+            // (Slice 2b will retire ctx.halted entirely).
             ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
             ctx.halted = true;
             ctx.haltReason = `Slice ${sliceId} retry exhaustion`;
-            return [];
+            return [{ place: p(sliceId, 'halted'), token: tok }];
           }
           return [
             { place: intermediatePlace, token: tok },
@@ -621,10 +633,12 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             return [{ place: intermediatePlace, token: tok }];
           }
           if (reworkCount >= maxReworks) {
+            // FE-761 Slice 2a: halt is now structural — emit to the slice
+            // halted place in addition to the legacy ctx.halted mutation.
             ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
             ctx.halted = true;
             ctx.haltReason = `Slice ${sliceId} semantic rework exhaustion`;
-            return [];
+            return [{ place: p(sliceId, 'halted'), token: tok }];
           }
           return [
             { place: intermediatePlace, token: tok },
