@@ -207,22 +207,60 @@ describe("Brunch TUI boot", () => {
     }
 
     expect(formatBrunchChromeHeaderLines(state)).toEqual([
-      "brunch specification workspace",
+      "brunch · Spec One",
       "cwd: /tmp/project",
-      "Spec One · Interview #1",
+      "session: Interview #1 · phase: elicitation",
     ])
     expect(formatBrunchChromeFooterLines(state)).toEqual([
-      "phase: elicitation · chat: responding-to-elicitation",
+      "runtime: not reported · build: not reported",
+      "context: not reported",
+      "state: responding-to-elicitation · coherence: unknown · worker: not reported",
       "spec: Spec One · session: Interview #1",
       "",
     ])
-    expect(formatBrunchStatus(state)).toBe("Brunch · elicitation · Spec One")
+    expect(formatBrunchStatus(state)).toBe(
+      "Brunch · elicitation · Spec One · not reported",
+    )
     expect(formatChromeWidgetLines(state)).toEqual([
       "cwd: /tmp/project",
       "spec: Spec One",
       "session: Interview #1",
+      "runtime: not reported",
+      "context: not reported",
       "chat mode: responding-to-elicitation",
     ])
+  })
+
+  it("formats rich optional runtime and context metadata without fabricating missing fields", () => {
+    const state = {
+      cwd: "/tmp/project",
+      spec: { id: "spec-1", title: "Spec One" },
+      session: { id: "session-1", label: "Interview #1" },
+      phase: "elicitation" as const,
+      chatMode: "responding-to-elicitation" as const,
+      runtime: {
+        bundle: "elicit-default",
+        role: "elicitor",
+        model: "claude-sonnet",
+        thinking: "medium",
+        lens: "step-by-step",
+      },
+      build: { version: "v0.0.0", dev: "dev abc123" },
+      contextUsage: { usedTokens: 1024, maxTokens: 2048 },
+      worker: { stage: "observer-review" as const, status: "queued" as const },
+      coherence: "needs_review" as const,
+    }
+
+    expect(formatBrunchChromeFooterLines(state)).toEqual([
+      "runtime: elicit-default · role elicitor · claude-sonnet · thinking medium · lens step-by-step · build: v0.0.0 dev abc123",
+      "context: [█████░░░░░] 1,024/2,048 tokens (50%)",
+      "state: responding-to-elicitation · coherence: needs_review · worker: observer-review/queued",
+      "spec: Spec One · session: Interview #1",
+      "",
+    ])
+    expect(formatChromeWidgetLines(state)).toContain(
+      "context: [█████░░░░░] 1,024/2,048 tokens (50%)",
+    )
   })
 
   it("renders Brunch chrome through one wrapper over Pi UI calls", async () => {
@@ -262,7 +300,7 @@ describe("Brunch TUI boot", () => {
     )
     expect(calls.find((call) => call.method === "setStatus")?.args).toEqual([
       "brunch.chrome",
-      "Brunch · elicitation · Spec One",
+      "Brunch · elicitation · Spec One · not reported",
     ])
     expect(calls.find((call) => call.method === "setWidget")?.args).toEqual([
       "brunch.chrome",
@@ -270,6 +308,8 @@ describe("Brunch TUI boot", () => {
         "cwd: /tmp/project",
         "spec: Spec One",
         "session: session-1",
+        "runtime: not reported",
+        "context: not reported",
         "chat mode: responding-to-elicitation",
       ],
       { placement: "aboveEditor" },
