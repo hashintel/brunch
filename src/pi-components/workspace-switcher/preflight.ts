@@ -3,7 +3,7 @@ import { ProcessTerminal, TUI } from "@earendil-works/pi-tui"
 import type {
   WorkspaceLaunchInventory,
   WorkspaceSwitchDecision,
-} from "../workspace-session-coordinator.js"
+} from "../../workspace-session-coordinator.js"
 import { createWorkspaceSwitchComponent } from "./component.js"
 
 export async function runWorkspaceSwitchPreflight(

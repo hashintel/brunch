@@ -22,7 +22,11 @@ import { Container, Text } from "@earendil-works/pi-tui"
 import { StringEnum } from "@earendil-works/pi-ai"
 import { Type } from "typebox"
 
-import { CardComponent, ResponsiveColumns, chunk } from "../components/cards.js"
+import {
+  CardComponent,
+  ResponsiveColumns,
+  chunk,
+} from "../../src/pi-components/cards.js"
 
 // ── Types & schema ─────────────────────────────────────────────────────
 const FLAVOR = StringEnum(["accent", "success", "warning", "muted"] as const)

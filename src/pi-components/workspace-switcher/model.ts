@@ -2,7 +2,7 @@ import type {
   WorkspaceLaunchInventory,
   WorkspaceLaunchSession,
   WorkspaceSwitchDecision,
-} from "../workspace-session-coordinator.js"
+} from "../../workspace-session-coordinator.js"
 
 export interface WorkspaceSwitchOption {
   id: string

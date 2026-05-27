@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest"
 import {
   buildWorkspaceSwitchOptions,
   createWorkspaceSwitchComponent,
-} from "./workspace-switcher.js"
+} from "./pi-components/workspace-switcher.js"
 import type { WorkspaceLaunchInventory } from "./workspace-session-coordinator.js"
 
 describe("workspace switcher", () => {

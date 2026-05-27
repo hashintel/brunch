@@ -8,7 +8,7 @@ import {
 import type {
   WorkspaceLaunchInventory,
   WorkspaceSwitchDecision,
-} from "../workspace-session-coordinator.js"
+} from "../../workspace-session-coordinator.js"
 import {
   buildWorkspaceSwitchOptions,
   type WorkspaceSwitchOption,

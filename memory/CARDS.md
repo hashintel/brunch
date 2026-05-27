@@ -62,7 +62,7 @@ The existing Brunch Pi extension shell is imported from flat `src/pi-extensions.
 
 ## Card 2 — Move reusable Pi TUI components under `src/pi-components`
 
-**Status:** next
+**Status:** done
 **Weight:** full scope card
 
 ### Target Behavior
