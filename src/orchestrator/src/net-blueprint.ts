@@ -24,6 +24,10 @@ export function evalRouteGuard(guard: RouteGuard, report: ReportLine | undefined
       const payload = report?.payload as Record<string, unknown> | undefined;
       return !!payload?.[guard.field];
     }
+    default: {
+      const unknown = guard as { kind: string };
+      throw new Error(`Unsupported RouteGuard kind: ${unknown.kind}`);
+    }
   }
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { enumerateCandidateOutputs, evalRouteGuard } from './net-blueprint.js';
+import { enumerateCandidateOutputs, evalRouteGuard, type RouteGuard } from './net-blueprint.js';
 import { compileTopology } from './net-compiler.js';
 import type { Plan, ReportLine } from './types.js';
 
@@ -39,6 +39,13 @@ describe('evalRouteGuard', () => {
   it('reportFieldTruthy returns false when the report is missing', () => {
     const guard = { kind: 'reportFieldTruthy', field: 'done' } as const;
     expect(evalRouteGuard(guard, undefined)).toBe(false);
+  });
+
+  it('throws on unsupported guard kinds', () => {
+    const guard = { kind: 'unknown' } as unknown as RouteGuard;
+    expect(() => evalRouteGuard(guard, makeReport({ done: true }))).toThrow(
+      'Unsupported RouteGuard kind: unknown',
+    );
   });
 });
 
