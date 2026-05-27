@@ -4,6 +4,7 @@ import {
 } from "@earendil-works/pi-coding-agent"
 
 import { registerBrunchBranchPolicyHandlers } from "./pi-extensions/command-policy.js"
+import { registerBrunchOperationalModePolicy } from "./pi-extensions/operational-mode.js"
 import {
   renderBrunchChrome,
   type BrunchChromeState,
@@ -19,6 +20,7 @@ import {
 } from "./pi-extensions/settings-switcher-menu.js"
 
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from "./pi-extensions/command-policy.js"
+export { registerBrunchOperationalModePolicy } from "./pi-extensions/operational-mode.js"
 export {
   chromeStateForWorkspace,
   formatBrunchChromeFooterLines,
@@ -61,6 +63,7 @@ export function createBrunchPiExtensionShell(
     })
     registerBrunchSessionBoundaryRefreshHandlers(pi, onSessionBoundary)
     registerBrunchBranchPolicyHandlers(pi)
+    registerBrunchOperationalModePolicy(pi)
     registerBrunchWorkspaceCommand(pi, options)
   }
 }

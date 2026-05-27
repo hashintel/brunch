@@ -194,7 +194,7 @@ Reusable Pi TUI components live under `src/pi-components`, including the workspa
 
 ## Card 5 — Port operational-mode tool policy
 
-**Status:** next
+**Status:** done
 **Weight:** full scope card
 
 ### Target Behavior

@@ -28,6 +28,7 @@ import {
   formatBrunchChromeHeaderLines,
   formatBrunchStatus,
   formatChromeWidgetLines,
+  registerBrunchOperationalModePolicy,
   renderBrunchChrome,
   runBrunchMenuCommand,
   runBrunchWorkspaceCommand,
@@ -356,6 +357,7 @@ describe("Brunch TUI boot", () => {
       new Map<string, Omit<RegisteredCommand, "name" | "sourceInfo">>()
     const shortcuts =
       new Map<string, Omit<RegisteredCommand, "name" | "sourceInfo">>()
+    const registeredTools: string[] = []
 
     createBrunchPiExtensionShell(
       chromeStateForWorkspace(readyWorkspace("/tmp/project", "session-1")),
@@ -373,8 +375,13 @@ describe("Brunch TUI boot", () => {
         commands.set(name, opts as never),
       registerShortcut: (name: string, opts: unknown) =>
         shortcuts.set(name, opts as never),
+      registerTool: (tool: { name: string }) => registeredTools.push(tool.name),
+      getAllTools: () =>
+        ["read", "grep", "find", "ls", "bash"].map((name) => ({ name })),
+      setActiveTools: (_tools: string[]) => {},
     } as never)
 
+    expect(registeredTools).toEqual(["read", "grep", "find", "ls"])
     expect(commands.get(BRUNCH_MENU_COMMAND)?.description).toBe(
       "Open the Brunch menu",
     )
@@ -590,6 +597,46 @@ describe("Brunch TUI boot", () => {
         type: "warning",
       },
     ])
+  })
+
+  it("loads the elicit operational-mode tool policy from product code", async () => {
+    const events: Record<string, (event: never) => unknown> = {}
+    const activeTools: string[][] = []
+    const registeredTools: string[] = []
+
+    registerBrunchOperationalModePolicy({
+      registerTool: (tool: { name: string }) => registeredTools.push(tool.name),
+      getAllTools: () =>
+        ["read", "grep", "find", "ls", "bash", "write"].map((name) => ({
+          name,
+        })),
+      setActiveTools: (tools: string[]) => activeTools.push(tools),
+      on: (event: string, handler: (event: never) => unknown) => {
+        events[event] = handler
+      },
+    } as never)
+
+    expect(registeredTools).toEqual(["read", "grep", "find", "ls"])
+    await events.session_start?.({} as never)
+    expect(activeTools).toEqual([["read", "grep", "find", "ls"]])
+    await expect(
+      Promise.resolve(
+        events.before_agent_start?.({ systemPrompt: "base" } as never),
+      ),
+    ).resolves.toMatchObject({
+      systemPrompt: expect.stringContaining(
+        "Brunch exposes only read-only tools: read, grep, find, ls.",
+      ),
+    })
+    await expect(
+      Promise.resolve(events.tool_call?.({ toolName: "write" } as never)),
+    ).resolves.toMatchObject({ block: true })
+    expect(events.user_bash?.({ command: "rm -rf ." } as never)).toMatchObject({
+      result: {
+        exitCode: 1,
+        output: "Brunch tool policy blocks shell commands: rm -rf .",
+      },
+    })
   })
 
   it("suppresses generic Pi startup resources for the Brunch shell", async () => {
