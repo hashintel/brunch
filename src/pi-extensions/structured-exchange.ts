@@ -13,7 +13,7 @@ import {
 } from "@earendil-works/pi-tui"
 import { Type } from "typebox"
 
-interface AskOption {
+export interface AskOption {
   label: string
   value: string
   description?: string
@@ -49,13 +49,16 @@ type AskAnswer = TextAnswer | OptionAnswer | OtherAnswer
 type AskUserQuestionStatus = "answered" | "cancelled" | "unavailable"
 type AskUserQuestionMode = "text" | "single-select" | "multi-select"
 
-interface AskUserQuestionResultDetails {
+export interface AskUserQuestionResultDetails {
   status: AskUserQuestionStatus
   question: string
   context?: string
   mode: AskUserQuestionMode
+  options?: AskOption[]
   answers: AskAnswer[]
+  rejectedOptions?: AskOption[]
   note?: string
+  transport?: { surface: "tui-custom" | "rpc-editor" | "headless" }
   message?: string
 }
 
@@ -64,7 +67,7 @@ interface OptionAnswerResult {
   note: string
 }
 
-interface StructuredExchangeEditorPrefillParams {
+export interface StructuredExchangeEditorPrefillParams {
   question: string
   context?: string
   mode: Exclude<AskUserQuestionMode, "text">
@@ -285,6 +288,8 @@ function buildStructuredResult(
   context?: string,
   message?: string,
   note?: string,
+  options?: AskOption[],
+  transport?: AskUserQuestionResultDetails["transport"],
 ): AskUserQuestionResultDetails {
   const result: AskUserQuestionResultDetails = {
     status,
@@ -293,7 +298,15 @@ function buildStructuredResult(
     answers,
   }
   if (context !== undefined) result.context = context
+  if (options !== undefined) {
+    result.options = options
+    result.rejectedOptions = options.filter(
+      (option) =>
+        !answers.some((answer) => optionMatchesAnswer(option, answer)),
+    )
+  }
   if (note !== undefined) result.note = note
+  if (transport !== undefined) result.transport = transport
   if (message !== undefined) result.message = message
   return result
 }
@@ -342,6 +355,8 @@ function buildResult(
   mode: AskUserQuestionMode,
   answers: AskAnswer[],
   note?: string,
+  options?: AskOption[],
+  transport?: AskUserQuestionResultDetails["transport"],
 ) {
   let text: string
   if (mode === "text") {
@@ -370,6 +385,8 @@ function buildResult(
       context,
       undefined,
       note,
+      options,
+      transport,
     ),
   }
 }
@@ -428,6 +445,36 @@ export function parseStructuredExchangeEditorResponse(
     answers: sortAnswers(answers as AskAnswer[]),
     note: response.note.trim(),
   }
+}
+
+export function structuredExchangeResultFromEditor(
+  params: StructuredExchangeEditorPrefillParams,
+  edited: string | undefined,
+) {
+  const response = parseStructuredExchangeEditorResponse(edited ?? "")
+  if (edited === undefined) {
+    return cancelledResult(params.question, params.mode, params.context)
+  }
+  if (!response) {
+    return unavailableResult(
+      params.question,
+      params.mode,
+      "ask_user_question editor fallback returned invalid JSON",
+      params.context,
+    )
+  }
+  if (response.status === "cancelled") {
+    return cancelledResult(params.question, params.mode, params.context)
+  }
+  return buildResult(
+    params.question,
+    params.context,
+    params.mode,
+    response.answers,
+    response.note,
+    params.options,
+    { surface: "rpc-editor" },
+  )
 }
 
 function parseEditorAnswer(value: unknown): AskAnswer | null {
@@ -1043,6 +1090,10 @@ export default function askUserQuestion(pi: ExtensionAPI) {
             mode,
             result.answers,
             result.note,
+            options,
+            typeof ctx.ui.custom === "function"
+              ? { surface: "tui-custom" }
+              : { surface: "rpc-editor" },
           )
         }
 
@@ -1073,6 +1124,10 @@ export default function askUserQuestion(pi: ExtensionAPI) {
           mode,
           result.answers,
           result.note,
+          options,
+          typeof ctx.ui.custom === "function"
+            ? { surface: "tui-custom" }
+            : { surface: "rpc-editor" },
         )
       })
     },

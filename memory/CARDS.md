@@ -88,7 +88,7 @@ The structured-exchange tool can collect option answers plus optional notes thro
 
 ## Card 3 — RPC structured-exchange evaluator proof
 
-- **Status:** next
+- **Status:** done
 - **Weight:** light build/proof card, dependent on Card 2 RPC fallback
 
 ### Objective
