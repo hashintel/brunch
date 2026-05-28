@@ -22,12 +22,14 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
       };
 
       let haltReason: string | undefined;
+      let hasStructuralHalt = false;
 
       try {
         const blueprint = compileTopology(input.plan, input.policy);
         const net = wireHandlers(blueprint, input, ctx);
         await net.run(firingPolicy, () => net.hasHaltToken());
 
+        hasStructuralHalt = net.hasHaltToken();
         // Derive halt reason from any halt token deposited during the run.
         const haltTokens = net.getHaltTokens();
         for (const { token } of haltTokens) {
@@ -68,7 +70,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
         haltReason = 'Some slices or epics were never reached';
       }
 
-      const halted = haltReason !== undefined;
+      const halted = hasStructuralHalt || haltReason !== undefined;
 
       return {
         status: halted ? 'halted' : 'completed',

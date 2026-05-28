@@ -126,7 +126,11 @@ describe('enumerateCandidateOutputs', () => {
     const handler = runTests!.handler;
     if (handler.kind !== 'run-tests') throw new Error('expected run-tests descriptor');
 
-    const expected = new Set<string>([handler.intermediatePlace, handler.budgetPlace]);
+    const expected = new Set<string>([
+      handler.intermediatePlace,
+      handler.budgetPlace,
+      'slice:slice-1:halted',
+    ]);
     expect(enumerateCandidateOutputs(runTests!)).toEqual(expected);
   });
 
@@ -137,7 +141,11 @@ describe('enumerateCandidateOutputs', () => {
     const handler = assess!.handler;
     if (handler.kind !== 'assess-semantic') throw new Error('expected assess-semantic descriptor');
 
-    const expected = new Set<string>([handler.intermediatePlace, handler.budgetPlace]);
+    const expected = new Set<string>([
+      handler.intermediatePlace,
+      handler.budgetPlace,
+      'slice:slice-1:halted',
+    ]);
     expect(enumerateCandidateOutputs(assess!)).toEqual(expected);
   });
 
@@ -165,7 +173,7 @@ describe('enumerateCandidateOutputs', () => {
     const runTests = blueprint.transitions.find((t) => t.id === 'slice-1:run-tests:complete');
     expect(runTests).toBeDefined();
     expect(enumerateCandidateOutputs(runTests!)).toEqual(
-      new Set(['slice:slice-1:run-tests:reported', 'slice:slice-1:retry-budget']),
+      new Set(['slice:slice-1:run-tests:reported', 'slice:slice-1:retry-budget', 'slice:slice-1:halted']),
     );
   });
 
@@ -174,7 +182,11 @@ describe('enumerateCandidateOutputs', () => {
     const assess = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic:complete');
     expect(assess).toBeDefined();
     expect(enumerateCandidateOutputs(assess!)).toEqual(
-      new Set(['slice:slice-1:assess-semantic:reported', 'slice:slice-1:semantic-budget']),
+      new Set([
+        'slice:slice-1:assess-semantic:reported',
+        'slice:slice-1:semantic-budget',
+        'slice:slice-1:halted',
+      ]),
     );
   });
 
@@ -267,7 +279,7 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
     // Producer emits to intermediate place + budget place; no direct pass/fail routes.
     const producerOutputs = enumerateCandidateOutputs(producer!);
     expect(producerOutputs).toEqual(
-      new Set(['slice:slice-1:run-tests:reported', 'slice:slice-1:retry-budget']),
+      new Set(['slice:slice-1:run-tests:reported', 'slice:slice-1:retry-budget', 'slice:slice-1:halted']),
     );
 
     // Siblings consume from intermediate and route by enabling guard.
@@ -356,7 +368,7 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
     // Producer emits to intermediate + budget place; no direct satisfied/rejected routes.
     const producerOutputs = enumerateCandidateOutputs(producer!);
     expect(producerOutputs).toEqual(
-      new Set(['slice:slice-1:assess-semantic:reported', 'slice:slice-1:semantic-budget']),
+      new Set(['slice:slice-1:assess-semantic:reported', 'slice:slice-1:semantic-budget', 'slice:slice-1:halted']),
     );
 
     const satSibling = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic:satisfied');

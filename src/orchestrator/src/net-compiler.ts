@@ -14,7 +14,7 @@ import {
   seedSliceSandboxFromDeps,
   sliceIdsForEpicVerifyMerge,
 } from './epic-sandbox-merge.js';
-import { evalEnablingGuard, evalRouteGuard } from './net-blueprint.js';
+import { evalEnablingGuard } from './net-blueprint.js';
 import type { NetBlueprint, TokenSeed, TransitionSkeleton } from './net-blueprint.js';
 import { PetriNet } from './petri-net.js';
 import type { Token } from './petri-net.js';

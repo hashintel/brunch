@@ -280,6 +280,9 @@ export class PetriNet {
       this.addToken(place, token);
       producedPlaces.push(place);
     }
+    // Deferred handlers return [] synchronously; their transition_fired
+    // event is emitted once from completeDeferred when outputs land.
+    if (producedPlaces.length === 0) return;
     eventSink?.emit({
       kind: 'transition_fired',
       ts: new Date().toISOString(),

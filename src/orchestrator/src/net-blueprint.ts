@@ -295,10 +295,12 @@ export function enumerateCandidateOutputs(transition: TransitionSkeleton): Set<s
     case 'run-tests':
       out.add(h.intermediatePlace);
       out.add(h.budgetPlace);
+      out.add(`slice:${h.sliceId}:halted`);
       return out;
     case 'assess-semantic':
       out.add(h.intermediatePlace);
       out.add(h.budgetPlace);
+      out.add(`slice:${h.sliceId}:halted`);
       return out;
     case 'complete-slice':
       out.add(h.completedPlace);
