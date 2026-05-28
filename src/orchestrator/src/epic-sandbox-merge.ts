@@ -250,7 +250,7 @@ export function seedSliceFromParentWorktree(
   // 2. CoW-copy whatever's in the parent worktree but NOT in the slice
   //    worktree yet — i.e. untracked / gitignored content (`node_modules/`,
   //    `dist/`, etc.) that pi-actions might need at runtime.
-  const excludedNames = new Set<string>(['.git', EPIC_MERGE_SEGMENT]);
+  const excludedNames = new Set<string>(['.git', '.brunch', EPIC_MERGE_SEGMENT]);
   for (const s of plan.slices) excludedNames.add(s.id);
   copyMissingTopLevelEntries(parentSandboxDir, sliceDir, excludedNames);
 

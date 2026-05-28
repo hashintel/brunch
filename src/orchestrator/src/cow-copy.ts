@@ -20,6 +20,9 @@ export function cowCopy(src: string, dest: string): void {
   cpSync(src, dest, { dereference: false, recursive: true });
 }
 
+/** Top-level names skipped when CoW-copying into cook sandboxes. */
+export const COW_COPY_DEFAULT_EXCLUDE = new Set(['.git', '.brunch']);
+
 /**
  * CoW-copy top-level entries from `sourceDir` that are absent in `destDir`
  * (untracked/gitignored dirs like `node_modules/`, `dist/`). Skips names in
@@ -29,7 +32,7 @@ export function cowCopy(src: string, dest: string): void {
 export function copyMissingTopLevelEntries(
   sourceDir: string,
   destDir: string,
-  exclude: ReadonlySet<string> = new Set(['.git']),
+  exclude: ReadonlySet<string> = COW_COPY_DEFAULT_EXCLUDE,
 ): void {
   const source = resolve(sourceDir);
   const dest = resolve(destDir);
