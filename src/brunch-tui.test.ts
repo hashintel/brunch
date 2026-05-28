@@ -28,7 +28,7 @@ import {
   registerBrunchOperationalModePolicy,
   runBrunchWorkspaceCommand,
   runBrunchWorkspaceAction,
-} from "./pi-extensions.js"
+} from "./tui-client/pi-extension-shell.js"
 import {
   createWorkspaceSessionCoordinator,
   verifyWorkspaceSessionStores,
@@ -295,7 +295,10 @@ describe("Brunch TUI boot", () => {
       "find",
       "ls",
       "present_alternatives",
-      "structured_exchange",
+      "present_question",
+      "present_options",
+      "request_answer",
+      "request_choice",
     ])
     expect(commands.get(BRUNCH_WORKSPACE_COMMAND)?.description).toBe(
       "Open the Brunch spec/session picker",
@@ -690,7 +693,10 @@ describe("Brunch TUI boot", () => {
           "grep",
           "find",
           "ls",
-          "structured_exchange",
+          "present_question",
+          "present_options",
+          "request_answer",
+          "request_choice",
           "bash",
           "edit",
           "write",
@@ -706,7 +712,16 @@ describe("Brunch TUI boot", () => {
     expect(registeredTools).toEqual(["read", "grep", "find", "ls"])
     await events.session_start?.({} as never)
     expect(activeTools).toEqual([
-      ["read", "grep", "find", "ls", "structured_exchange"],
+      [
+        "read",
+        "grep",
+        "find",
+        "ls",
+        "present_question",
+        "present_options",
+        "request_answer",
+        "request_choice",
+      ],
     ])
     await expect(
       Promise.resolve(
@@ -714,7 +729,7 @@ describe("Brunch TUI boot", () => {
       ),
     ).resolves.toMatchObject({
       systemPrompt: expect.stringContaining(
-        "Brunch exposes only elicit-safe tools: read, grep, find, ls, structured_exchange.",
+        "Brunch exposes only elicit-safe tools: read, grep, find, ls, present_question, present_options, request_answer, request_choice.",
       ),
     })
     await expect(
