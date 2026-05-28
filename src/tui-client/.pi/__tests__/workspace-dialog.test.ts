@@ -9,8 +9,8 @@ import {
   createWorkspaceDialogComponent,
   selectWorkspaceSelectionOption,
   runWorkspaceDialogPreflight,
-} from "./tui-client/.pi/components/workspace-dialog/index.js"
-import type { WorkspaceLaunchInventory } from "./workspace-session-coordinator.js"
+} from "../components/workspace-dialog/index.js"
+import type { WorkspaceLaunchInventory } from "../../../workspace-session-coordinator.js"
 
 describe("spec/session picker", () => {
   it("builds a hierarchical spec/session selection home without per-spec top-level actions", () => {
@@ -307,7 +307,7 @@ describe("spec/session picker", () => {
   it("keeps logo assets colocated with the private picker component", async () => {
     const source = await readFile(
       new URL(
-        "./tui-client/.pi/components/workspace-dialog/assets/brunch-logo-quad-56x18.ansi",
+        "../components/workspace-dialog/assets/brunch-logo-quad-56x18.ansi",
         import.meta.url,
       ),
       "utf8",
@@ -318,7 +318,10 @@ describe("spec/session picker", () => {
 
   it("declares pi-tui as a direct dependency", async () => {
     const manifest = JSON.parse(
-      await readFile(new URL("../package.json", import.meta.url), "utf8"),
+      await readFile(
+        new URL("../../../../package.json", import.meta.url),
+        "utf8",
+      ),
     ) as { dependencies?: Record<string, string> }
 
     expect(manifest.dependencies).toHaveProperty("@earendil-works/pi-tui")

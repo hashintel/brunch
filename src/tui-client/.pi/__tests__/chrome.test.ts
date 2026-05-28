@@ -2,14 +2,14 @@ import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent"
 
 import { describe, expect, it } from "vitest"
 
-import type { WorkspaceSessionReadyState } from "../workspace-session-coordinator.js"
+import type { WorkspaceSessionReadyState } from "../../../workspace-session-coordinator.js"
 import {
   chromeStateForWorkspace,
   formatBrunchChromeHeaderLines,
   formatChromeWidgetLines,
   projectBrunchChromeFooterLines,
   renderBrunchChrome,
-} from "./.pi/extensions/chrome.js"
+} from "../extensions/chrome.js"
 
 describe("Brunch chrome projection", () => {
   it("uses activated session state instead of fabricating unbound", async () => {

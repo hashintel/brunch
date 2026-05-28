@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import registerStructuredExchange, {
   buildStructuredExchangeEditorPrefill,
   parseStructuredExchangeEditorResponse,
-} from "./tui-client/.pi/extensions/structured-exchange/index.js"
+} from "../extensions/structured-exchange/index.js"
 
 interface ToolTextContent {
   type: "text"

@@ -9,8 +9,8 @@ import {
   registerBrunchStructuredQuestion,
   structuredQuestionResultFromEditor,
   type StructuredQuestionTuiResponse,
-} from "./.pi/extensions/structured-question.js"
-import type { StructuredQuestionParams } from "../structured-question.js"
+} from "../extensions/structured-question.js"
+import type { StructuredQuestionParams } from "../../../structured-question.js"
 
 interface EditorOptionForTest {
   id: string
