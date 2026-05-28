@@ -368,7 +368,11 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
     // Producer emits to intermediate + budget place; no direct satisfied/rejected routes.
     const producerOutputs = enumerateCandidateOutputs(producer!);
     expect(producerOutputs).toEqual(
-      new Set(['slice:slice-1:assess-semantic:reported', 'slice:slice-1:semantic-budget', 'slice:slice-1:halted']),
+      new Set([
+        'slice:slice-1:assess-semantic:reported',
+        'slice:slice-1:semantic-budget',
+        'slice:slice-1:halted',
+      ]),
     );
 
     const satSibling = blueprint.transitions.find((t) => t.id === 'slice-1:assess-semantic:satisfied');
