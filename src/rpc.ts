@@ -100,6 +100,13 @@ export function createRpcHandlers(options: {
         )
       }
 
+      if (request.method === "session.startElicitation") {
+        if (request.params !== undefined) {
+          return createJsonRpcFailure(requestId, -32602, "Invalid params")
+        }
+        return handleStartElicitation(requestId, options)
+      }
+
       if (request.method === "session.elicitationExchanges") {
         return handleSessionProjection(
           requestId,
@@ -295,6 +302,33 @@ const TranscriptDisplayResultSchema = Type.Object(
   { additionalProperties: true },
 )
 
+const PendingElicitationExchangeSchema = Type.Object(
+  {
+    exchangeId: NonBlankStringSchema,
+    lens: Type.Literal("step-by-step"),
+    mode: Type.Literal("single-select"),
+    prompt: NonBlankStringSchema,
+    details: Type.Optional(NonBlankStringSchema),
+    options: Type.Array(
+      Type.Object({ id: NonBlankStringSchema, label: NonBlankStringSchema }, {
+        additionalProperties: false,
+      }),
+    ),
+    note: Type.Object({ allowed: Type.Boolean() }, {
+      additionalProperties: false,
+    }),
+  },
+  { additionalProperties: false },
+)
+
+const StartElicitationResultSchema = Type.Object(
+  {
+    status: Type.Literal("pending"),
+    exchange: PendingElicitationExchangeSchema,
+  },
+  { additionalProperties: false },
+)
+
 type RpcMethodDiscovery = {
   method: string
   description: string
@@ -392,6 +426,14 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
       },
     ],
   },
+  {
+    method: "session.startElicitation",
+    description:
+      "Start or resume the selected session's deterministic assistant-first elicitation loop and return the current pending structured exchange.",
+    paramsSchema: NoParamsSchema,
+    resultSchema: StartElicitationResultSchema,
+    examples: [{ jsonrpc: "2.0", id: 8, method: "session.startElicitation" }],
+  },
 ]
 
 type WorkspaceActivationParamsParseResult = {
@@ -443,6 +485,118 @@ async function handleSessionProjection<T>(
     }
     throw error
   }
+}
+
+async function handleStartElicitation(
+  requestId: JsonRpcId,
+  options: {
+    coordinator: DefaultWorkspaceCoordinator
+    cwd: string
+  },
+): Promise<JsonRpcResponse> {
+  const state = await options.coordinator.openDefaultWorkspace()
+  if (state.status !== "ready") {
+    return createJsonRpcFailure(requestId, -32001, "No selected Brunch session")
+  }
+
+  const existingTarget = await selectedSessionFile(state)
+  if (!existingTarget.ok) {
+    return createJsonRpcFailure(
+      requestId,
+      existingTarget.code,
+      existingTarget.message,
+    )
+  }
+
+  const existing = pendingExchangeFromEnvelope(existingTarget.envelope)
+  if (existing) {
+    return createJsonRpcSuccess(requestId, {
+      status: "pending",
+      exchange: existing,
+    })
+  }
+
+  const exchange = firstDeterministicElicitationExchange()
+  const manager = state.session.manager
+  manager.appendCustomMessageEntry(
+    "brunch.elicitation_prompt",
+    exchange.prompt,
+    true,
+    exchange,
+  )
+  flushSessionEntries(manager, state.session.file)
+
+  const reloadedTarget = await selectedSessionFile(state)
+  if (!reloadedTarget.ok) {
+    return createJsonRpcFailure(
+      requestId,
+      reloadedTarget.code,
+      reloadedTarget.message,
+    )
+  }
+  const reloaded = pendingExchangeFromEnvelope(reloadedTarget.envelope)
+
+  return createJsonRpcSuccess(requestId, {
+    status: "pending",
+    exchange: reloaded ?? exchange,
+  })
+}
+
+type PendingElicitationExchange = Static<typeof PendingElicitationExchangeSchema>
+
+function firstDeterministicElicitationExchange(): PendingElicitationExchange {
+  return {
+    exchangeId: "deterministic-grounding-1",
+    lens: "step-by-step",
+    mode: "single-select",
+    prompt: "Is this a new product or feature from scratch?",
+    details:
+      "This starts Brunch's deterministic public-RPC elicitation parity proof for an activated spec/session.",
+    options: [
+      { id: "new-from-scratch", label: "Yes — this is new from scratch" },
+      { id: "existing-codebase", label: "No — this builds on existing code" },
+      {
+        id: "relates-to-existing-spec",
+        label: "It relates to an existing spec",
+      },
+    ],
+    note: { allowed: true },
+  }
+}
+
+function pendingExchangeFromEnvelope(
+  envelope: BrunchSessionEnvelope,
+): PendingElicitationExchange | null {
+  const projection = projectLinearElicitationExchangeProjection(envelope)
+  if (!projection.openPrompt) {
+    return null
+  }
+
+  for (const entryId of projection.openPrompt.promptEntryIds) {
+    const entry = envelope.entries.find(
+      (candidate) =>
+        candidate.type === "custom_message" &&
+        candidate.id === entryId &&
+        candidate.customType === "brunch.elicitation_prompt" &&
+        Value.Check(PendingElicitationExchangeSchema, candidate.details),
+    )
+    if (entry?.type === "custom_message") {
+      return Value.Parse(PendingElicitationExchangeSchema, entry.details)
+    }
+  }
+
+  return null
+}
+
+interface FlushableSessionManager {
+  _rewriteFile(): void
+  setSessionFile(file: string): void
+}
+
+function flushSessionEntries(manager: unknown, sessionFile: string): void {
+  const flushable = manager as FlushableSessionManager
+  flushable._rewriteFile()
+  flushable.setSessionFile(sessionFile)
 }
 
 type SessionProjectionParamsParseResult = {

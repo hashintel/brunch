@@ -205,6 +205,7 @@ describe("JSON-RPC handlers", () => {
     expect(methods.map((entry) => entry.method).sort()).toEqual([
       "rpc.discover",
       "session.elicitationExchanges",
+      "session.startElicitation",
       "session.transcriptDisplay",
       "workspace.activate",
       "workspace.selectionState",
@@ -269,7 +270,7 @@ describe("JSON-RPC handlers", () => {
     const discoveryJson = JSON.stringify(result)
     expect(discoveryJson).not.toContain("get_commands")
     expect(discoveryJson).not.toContain("get_state")
-    expect(discoveryJson).not.toContain("prompt")
+    expect(discoveryJson).not.toContain('"method":"prompt"')
     expect(discoveryJson).not.toContain("/brunch")
 
     const activation = methods.find(
@@ -441,6 +442,7 @@ describe("JSON-RPC handlers", () => {
 
     expect(source).not.toContain("workspace-dialog")
     expect(source).not.toContain("createWorkspaceDialogComponent")
+    expect(source).not.toContain("structured-exchange")
   })
 
   it("serves a named workspace snapshot method", async () => {
@@ -486,6 +488,138 @@ describe("JSON-RPC handlers", () => {
         status: "ready",
         exchanges: [{ promptEntryIds: [expect.any(String)] }],
       },
+    })
+  })
+
+  it("starts a deterministic assistant-first elicitation prompt for the selected session", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-start-"))
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
+    const workspace = await coordinatorInstance.createSetupSession({
+      specTitle: "Start spec",
+    })
+    const handlers = createRpcHandlers({
+      coordinator: coordinatorInstance,
+      cwd,
+    })
+
+    const start = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 40,
+      method: "session.startElicitation",
+    })
+
+    expect(start).toMatchObject({
+      jsonrpc: "2.0",
+      id: 40,
+      result: {
+        status: "pending",
+        exchange: {
+          exchangeId: expect.any(String),
+          lens: "step-by-step",
+          mode: "single-select",
+          prompt: expect.stringContaining("new product or feature"),
+          options: expect.arrayContaining([
+            expect.objectContaining({ id: "new-from-scratch" }),
+          ]),
+          note: { allowed: true },
+        },
+      },
+    })
+    const exchangeId = (start as {
+      result: { exchange: { exchangeId: string } }
+    }).result.exchange.exchangeId
+
+    const exchanges = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 41,
+      method: "session.elicitationExchanges",
+    })
+    expect(exchanges).toMatchObject({
+      jsonrpc: "2.0",
+      id: 41,
+      result: { status: "open_prompt", openPrompt: expect.any(Object) },
+    })
+
+    const display = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 42,
+      method: "session.transcriptDisplay",
+    })
+    expect(display).toMatchObject({
+      jsonrpc: "2.0",
+      id: 42,
+      result: {
+        rows: [
+          {
+            role: "prompt",
+            text: expect.stringContaining("new product or feature"),
+          },
+        ],
+      },
+    })
+
+    const sessionText = await readFile(workspace.session.file, "utf8")
+    expect(sessionText).toContain("brunch.elicitation_prompt")
+    expect(sessionText).toContain(exchangeId)
+    expect(sessionText).toContain('"lens":"step-by-step"')
+  })
+
+  it("resumes an open deterministic elicitation prompt without duplicating transcript entries", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-resume-"))
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
+    const workspace = await coordinatorInstance.createSetupSession({
+      specTitle: "Resume spec",
+    })
+    const handlers = createRpcHandlers({
+      coordinator: coordinatorInstance,
+      cwd,
+    })
+
+    const first = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 43,
+      method: "session.startElicitation",
+    })
+    const before = await readFile(workspace.session.file, "utf8")
+
+    const second = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 44,
+      method: "session.startElicitation",
+    })
+    const after = await readFile(workspace.session.file, "utf8")
+
+    expect(second).toMatchObject({
+      jsonrpc: "2.0",
+      id: 44,
+      result: {
+        status: "pending",
+        exchange: {
+          exchangeId: (first as {
+            result: { exchange: { exchangeId: string } }
+          }).result.exchange.exchangeId,
+        },
+      },
+    })
+    expect(after).toBe(before)
+  })
+
+  it("returns a product-shaped no-session error when starting elicitation without a selected session", async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(selectSpecState()),
+      cwd: "/tmp/brunch-project",
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 45,
+        method: "session.startElicitation",
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 45,
+      error: { code: -32001, message: "No selected Brunch session" },
     })
   })
 

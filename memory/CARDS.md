@@ -90,3 +90,95 @@ A Brunch JSON-RPC client can call `rpc.discover` with no params and receive a se
 - [ ] Does it cross more than two major seams? No — JSON-RPC dispatch + registry/schema metadata.
 - [x] Is this the first touch in an unfamiliar seam from a fresh thread? Yes; use full card.
 - [ ] Can you not name the containing seam or current rationale from the live docs? No.
+
+---
+
+## Card 2 — Start deterministic elicitation with a pending exchange
+
+- **Status:** done
+- **Weight:** full scope card — establishes the assistant-first public RPC lifecycle seam while deliberately avoiding structured answer semantics that are being refined in another thread.
+
+### Orientation
+
+- **Containing seam:** FE-744 public RPC elicitation parity, after `rpc.discover` landed in `db859418`.
+- **Frontier item:** `pi-ui-extension-patterns`; this is still one slice inside the existing FE-744 Linear/branch boundary.
+- **Volatile state:** another thread is refining structured-exchange answer behavior (`Other` vs optional note). This slice must not modify `src/pi-extensions/structured-exchange.ts` or commit response semantics.
+- **Main open risk:** a deterministic assistant-first prompt is now transcript-backed; later `pendingExchange` / `elicitation.respond` / ten-turn parity work must continue this without inventing a parallel turn store.
+
+### Target Behavior
+
+A Brunch JSON-RPC client can call `session.startElicitation` for the selected session and receive the first deterministic assistant-originated pending exchange.
+
+### Boundary Crossings
+
+```text
+→ JSON-RPC request { method: "session.startElicitation" }
+→ createRpcHandlers dispatch
+→ selected WorkspaceSessionCoordinator state
+→ deterministic elicitation starter
+→ Pi JSONL prompt-side entry or entries under the selected session
+→ JSON-RPC result containing the pending exchange snapshot
+→ rpc.discover metadata for session.startElicitation
+```
+
+### Risks and Assumptions
+
+- RISK: The starter becomes an in-memory queue instead of transcript-backed product state.
+  → MITIGATION: write prompt-side Pi JSONL evidence using the existing `brunch.elicitation_prompt` transcript seam; tests reload the session file and project an open prompt from disk.
+- RISK: The slice accidentally commits answer semantics while the structured-exchange refinement thread is active.
+  → MITIGATION: implement only start/resume and pending snapshot return; do not add `elicitation.respond`, do not parse option answers, and do not modify `src/pi-extensions/structured-exchange.ts`.
+- RISK: Repeated `session.startElicitation` calls duplicate the first prompt.
+  → MITIGATION: make the method idempotent for an already-open prompt in the selected session; return the existing pending exchange rather than appending another prompt.
+- RISK: New prompt entries violate lens/custom-entry obligations.
+  → MITIGATION: any structured elicitor-emitted custom entry data includes `lens: "step-by-step"`; displayable custom-message rows remain prompt-side transcript evidence.
+- ASSUMPTION: A deterministic starter prompt over the selected session is enough to attack A23-L before implementing response handling.
+  → IMPACT IF FALSE: the next cards may need a fuller elicitor state machine before `elicitation.respond` can be scoped.
+  → VALIDATE: this card proves Brunch can create/resume assistant-first pending state through public RPC and project it from linear Pi JSONL.
+  → `memory/SPEC.md` §Assumptions: A23-L.
+
+### Tracer-bullet check
+
+- **Proof of life:** lights up the first assistant-first public Brunch RPC path after workspace activation.
+- **Invariants:** stabilizes the boundary between selected session state, transcript-backed prompt-side entries, and public pending-exchange snapshots.
+- **Uncertainty:** attacks A23-L by proving that public RPC can initiate the elicitation loop without raw Pi RPC or a parallel prompt table.
+
+### Acceptance Criteria
+
+✓ `session.startElicitation` discovery — `rpc.discover` lists `session.startElicitation` with params/result schemas and an example request.
+
+✓ selected-session start — with a ready selected session, `session.startElicitation` returns `{ status: "pending", exchange: ... }` with a stable `exchangeId`, `lens: "step-by-step"`, `mode`, prompt text, options (if any), and `note: { allowed: true }` metadata.
+
+✓ transcript-backed prompt — starting elicitation appends prompt-side Pi JSONL evidence under the selected session, and `session.elicitationExchanges` reports `status: "open_prompt"` after reloading that session file.
+
+✓ transcript display — `session.transcriptDisplay` includes a prompt row for the deterministic first question after start.
+
+✓ idempotent resume — calling `session.startElicitation` again while the first prompt is open returns the same pending exchange id and does not append duplicate prompt-side entries.
+
+✓ no selected session — calling `session.startElicitation` while workspace state is not ready returns the existing product-shaped no-session error (`-32001`, `No selected Brunch session`).
+
+✓ boundary guard — the implementation does not import or modify the TUI structured-exchange tool module for this slice.
+
+### Verification Approach
+
+- **Inner:** `npm run fix`; targeted `vitest src/rpc.test.ts`; `npm run check`.
+- **Middle:** JSON-RPC contract tests for discovery, ready/no-session behavior, idempotent start, transcript reload, `session.elicitationExchanges` open-prompt projection, and `session.transcriptDisplay` prompt row.
+- **Outer:** none for this slice; the later ten-turn parity proof is the outer/product proof.
+
+### Cross-cutting obligations
+
+- Public clients speak Brunch JSON-RPC only; no raw Pi RPC command or slash command participates in this slice (`D5-L`, `D48-L`, `D49-L`).
+- Preserve linear transcript policy and prompt-side projection over Pi JSONL (`I19-L`, `I23-L`, `I32-L`).
+- Preserve workspace/spec/session activation authority: the selected session comes from `WorkspaceSessionCoordinator`; startup/picker UI is not invoked (`D21-L`, `I22-L`).
+- Keep this slice response-free while structured answer permutations are refined elsewhere; `elicitation.respond` is a later card.
+
+### Promotion checklist
+
+- [x] Does this change a requirement? Already reconciled in `memory/SPEC.md` as R28/R24.
+- [x] Does this create, retire, or invalidate an assumption? It advances but does not retire A23-L.
+- [x] Does this slice depend on an unvalidated high-impact assumption? It attacks A23-L as a tracer bullet.
+- [x] Does this make or reverse a non-trivial design decision? Already reconciled as D49-L; this card implements the first half.
+- [x] Does this establish a new seam-level invariant? Already reconciled as I32-L; this card establishes the start/open-prompt part.
+- [ ] Does this change a frontier-level cross-cutting obligation or verification architecture layer? No.
+- [x] Does it cross more than two major seams? Yes — RPC dispatch, workspace/session coordination, Pi JSONL transcript projection, and discovery metadata; use full card.
+- [ ] Is this the first touch in an unfamiliar seam from a fresh thread? No — `rpc.discover` just landed, but the lifecycle seam is new enough to keep full weight.
+- [ ] Can you not name the containing seam or current rationale from the live docs? No.
