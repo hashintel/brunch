@@ -22,7 +22,7 @@
 
 ## Card 1 — Option-selection note step in TUI
 
-- **Status:** next
+- **Status:** done
 - **Weight:** light build card inside a now-reconciled structural frontier
 
 ### Objective
@@ -56,7 +56,7 @@ Option-based structured exchanges advance from answer selection to a focused opt
 
 ## Card 2 — RPC editor fallback carries option notes
 
-- **Status:** queued
+- **Status:** next
 - **Weight:** light build card, dependent on Card 1 result shape
 
 ### Objective

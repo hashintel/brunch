@@ -55,7 +55,13 @@ interface AskUserQuestionResultDetails {
   context?: string
   mode: AskUserQuestionMode
   answers: AskAnswer[]
+  note?: string
   message?: string
+}
+
+interface OptionAnswerResult {
+  answers: AskAnswer[]
+  note: string
 }
 
 const OptionSchema = Type.Object({
@@ -265,6 +271,7 @@ function buildStructuredResult(
   answers: AskAnswer[],
   context?: string,
   message?: string,
+  note?: string,
 ): AskUserQuestionResultDetails {
   const result: AskUserQuestionResultDetails = {
     status,
@@ -273,6 +280,7 @@ function buildStructuredResult(
     answers,
   }
   if (context !== undefined) result.context = context
+  if (note !== undefined) result.note = note
   if (message !== undefined) result.message = message
   return result
 }
@@ -320,6 +328,7 @@ function buildResult(
   context: string | undefined,
   mode: AskUserQuestionMode,
   answers: AskAnswer[],
+  note?: string,
 ) {
   let text: string
   if (mode === "text") {
@@ -334,6 +343,10 @@ function buildResult(
     text = `User selected:\n${answers.map((answer) => `- ${formatAnswerForModel(answer)}`).join("\n")}`
   }
 
+  if (note) {
+    text = `${text.trim()}\nNote: ${note}`
+  }
+
   return {
     content: [{ type: "text" as const, text: text.trim() }],
     details: buildStructuredResult(
@@ -342,6 +355,8 @@ function buildResult(
       mode,
       answers,
       context,
+      undefined,
+      note,
     ),
   }
 }
@@ -351,7 +366,7 @@ async function askSingleChoice(
   _question: string,
   _context: string | undefined,
   options: AskOption[],
-): Promise<AskAnswer | null> {
+): Promise<OptionAnswerResult | null> {
   const otherLabel = getOtherLabel(options)
   const allOptions: DisplayOption[] = [
     ...options.map((option, index) => ({
@@ -367,17 +382,29 @@ async function askSingleChoice(
       tui: any,
       theme: any,
       _kb: any,
-      done: (result: AskAnswer | null) => void,
+      done: (result: OptionAnswerResult | null) => void,
     ) => {
       let optionIndex = 0
       let editMode = false
+      let noteMode = false
+      let selectedAnswer: AskAnswer | undefined
       let cachedLines: string[] | undefined
       const editor = new Editor(tui, createEditorTheme(theme))
+      const noteEditor = new Editor(tui, createEditorTheme(theme))
 
       editor.onSubmit = (value) => {
         const trimmed = value.trim()
         if (!trimmed) return
-        done({ type: "other", label: trimmed, value: trimmed })
+        selectedAnswer = { type: "other", label: trimmed, value: trimmed }
+        editMode = false
+        noteMode = true
+        noteEditor.setText("")
+        refresh()
+      }
+
+      noteEditor.onSubmit = (value) => {
+        if (!selectedAnswer) return
+        done({ answers: [selectedAnswer], note: value.trim() })
       }
 
       function refresh() {
@@ -386,6 +413,18 @@ async function askSingleChoice(
       }
 
       function handleInput(data: string) {
+        if (noteMode) {
+          if (matchesKey(data, Key.escape)) {
+            noteMode = false
+            noteEditor.setText("")
+            refresh()
+            return
+          }
+          noteEditor.handleInput(data)
+          refresh()
+          return
+        }
+
         if (editMode) {
           if (matchesKey(data, Key.escape)) {
             editMode = false
@@ -416,12 +455,15 @@ async function askSingleChoice(
             refresh()
             return
           }
-          done({
+          selectedAnswer = {
             type: "option",
             label: selected.label,
             value: selected.value,
             index: selected.index!,
-          })
+          }
+          noteMode = true
+          noteEditor.setText("")
+          refresh()
           return
         }
         if (matchesKey(data, Key.escape)) {
@@ -436,6 +478,23 @@ async function askSingleChoice(
         const add = (text: string) => lines.push(truncateToWidth(text, width))
 
         add(pickerTopBorder(theme, width))
+
+        if (noteMode) {
+          add(theme.fg("success", " Answer selected"))
+          if (selectedAnswer) {
+            add(` ${formatAnswerForModel(selectedAnswer)}`)
+          }
+          lines.push("")
+          add(theme.fg("muted", " Optional note:"))
+          for (const line of noteEditor.render(Math.max(1, width - 2))) {
+            add(` ${line}`)
+          }
+          lines.push("")
+          add(theme.fg("dim", " Enter to submit • Esc to go back"))
+          add(pickerBottomBorder(theme, width))
+          cachedLines = lines
+          return lines
+        }
 
         for (let i = 0; i < allOptions.length; i++) {
           const option = allOptions[i]!
@@ -493,7 +552,7 @@ async function askMultiChoice(
   _question: string,
   _context: string | undefined,
   options: AskOption[],
-): Promise<AskAnswer[] | null> {
+): Promise<OptionAnswerResult | null> {
   const otherLabel = getOtherLabel(options)
   const choiceItems: DisplayOption[] = options.map((option, index) => ({
     ...option,
@@ -517,13 +576,15 @@ async function askMultiChoice(
       tui: any,
       theme: any,
       _kb: any,
-      done: (result: AskAnswer[] | null) => void,
+      done: (result: OptionAnswerResult | null) => void,
     ) => {
       let optionIndex = 0
       let editMode = false
+      let noteMode = false
       let cachedLines: string[] | undefined
       const selected = new Map<string, AskAnswer>()
       const editor = new Editor(tui, createEditorTheme(theme))
+      const noteEditor = new Editor(tui, createEditorTheme(theme))
 
       editor.onSubmit = (value) => {
         const trimmed = value.trim()
@@ -531,6 +592,13 @@ async function askMultiChoice(
         selected.set("other", { type: "other", label: trimmed, value: trimmed })
         editMode = false
         refresh()
+      }
+
+      noteEditor.onSubmit = (value) => {
+        done({
+          answers: sortAnswers(Array.from(selected.values())),
+          note: value.trim(),
+        })
       }
 
       function refresh() {
@@ -553,6 +621,18 @@ async function askMultiChoice(
       }
 
       function handleInput(data: string) {
+        if (noteMode) {
+          if (matchesKey(data, Key.escape)) {
+            noteMode = false
+            noteEditor.setText("")
+            refresh()
+            return
+          }
+          noteEditor.handleInput(data)
+          refresh()
+          return
+        }
+
         if (editMode) {
           if (matchesKey(data, Key.escape)) {
             editMode = false
@@ -597,7 +677,9 @@ async function askMultiChoice(
         if (matchesKey(data, Key.enter)) {
           if (current.isSubmit) {
             if (selected.size > 0) {
-              done(sortAnswers(Array.from(selected.values())))
+              noteMode = true
+              noteEditor.setText("")
+              refresh()
             }
             return
           }
@@ -623,6 +705,23 @@ async function askMultiChoice(
         const add = (text: string) => lines.push(truncateToWidth(text, width))
 
         add(pickerTopBorder(theme, width))
+
+        if (noteMode) {
+          add(theme.fg("success", ` ${selected.size} answer(s) selected`))
+          for (const answer of sortAnswers(Array.from(selected.values()))) {
+            add(` ${formatAnswerForModel(answer)}`)
+          }
+          lines.push("")
+          add(theme.fg("muted", " Optional note:"))
+          for (const line of noteEditor.render(Math.max(1, width - 2))) {
+            add(` ${line}`)
+          }
+          lines.push("")
+          add(theme.fg("dim", " Enter to submit • Esc to go back"))
+          add(pickerBottomBorder(theme, width))
+          cachedLines = lines
+          return lines
+        }
 
         for (let i = 0; i < allItems.length; i++) {
           const item = allItems[i]!
@@ -781,28 +880,40 @@ export default function askUserQuestion(pi: ExtensionAPI) {
         }
 
         if (mode === "single-select") {
-          const answer = await askSingleChoice(
+          const result = await askSingleChoice(
             ctx,
             params.question,
             context,
             options,
           )
-          if (!answer) {
+          if (!result) {
             return cancelledResult(params.question, mode, context)
           }
-          return buildResult(params.question, context, mode, [answer])
+          return buildResult(
+            params.question,
+            context,
+            mode,
+            result.answers,
+            result.note,
+          )
         }
 
-        const answers = await askMultiChoice(
+        const result = await askMultiChoice(
           ctx,
           params.question,
           context,
           options,
         )
-        if (!answers) {
+        if (!result) {
           return cancelledResult(params.question, mode, context)
         }
-        return buildResult(params.question, context, mode, answers)
+        return buildResult(
+          params.question,
+          context,
+          mode,
+          result.answers,
+          result.note,
+        )
       })
     },
 
@@ -872,7 +983,18 @@ export default function askUserQuestion(pi: ExtensionAPI) {
           : [theme.fg("dim", `○ Rejected: ${index + 1}. ${option.label}`)],
       )
 
-      return new Text([...selectedLines, ...rejectedLines].join("\n"), 0, 0)
+      const noteLines =
+        details.note && details.note.length > 0
+          ? [
+              `${theme.fg("muted", "Note: ")}${theme.fg("accent", details.note)}`,
+            ]
+          : []
+
+      return new Text(
+        [...selectedLines, ...rejectedLines, ...noteLines].join("\n"),
+        0,
+        0,
+      )
     },
   })
 }
