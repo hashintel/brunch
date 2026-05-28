@@ -6,7 +6,7 @@
 
 ## Orientation
 
-- **Containing seam:** FE-744 `pi-ui-extension-patterns`, specifically the structured-exchange response surface in `src/pi-extensions/structured-exchange.ts` and its transcript replay rendering.
+- **Containing seam:** FE-744 `pi-ui-extension-patterns`, specifically the structured-exchange response surface in `src/tui-client/.pi/extensions/structured-exchange/index.ts` and its transcript replay rendering.
 - **Frontier item:** `pi-ui-extension-patterns`; this side mission stays inside the existing FE-744 branch/Linear boundary and must not create a new tracker item.
 - **Coordination:** do **not** edit `memory/CARDS.md` for this side mission while another builder thread owns the active card queue. This file is a temporary sidecar scope by explicit user request.
 - **Main open risk:** the single just-in-time editor may feel better than the second note tab, but it may not be feasible with current `ctx.ui.custom()` focus/render constraints or may create ambiguous result payload semantics.
@@ -183,7 +183,7 @@ Option-selection structured exchanges use one inline just-in-time editor whose p
 
 ### Verification Approach
 
-- **Inner:** `npm run fix` after meaningful edits; targeted `vitest src/pi-extensions/structured-exchange.test.ts src/ask-user-question-extension.test.ts` during the loop.
+- **Inner:** `npm run fix` after meaningful edits; targeted `vitest src/structured-exchange.test.ts src/ask-user-question-extension.test.ts` during the loop.
 - **Middle:** component-driving tests with render snapshots before and after input, proving the real custom component displays the inline editor and produces the expected details payloads.
 - **Outer:** manual TUI smoke or scripted pty check if available: answer one single-select listed option, one single-select `Other`, one multi-select listed combination, and one multi-select `Other` path; confirm the interaction feels like one surface rather than a second tab.
 
@@ -202,7 +202,7 @@ Option-selection structured exchanges use one inline just-in-time editor whose p
 
 ### Build Result
 
-Implemented in `src/pi-extensions/structured-exchange.ts` and covered by `src/pi-extensions/structured-exchange.test.ts`.
+Implemented in `src/tui-client/.pi/extensions/structured-exchange/index.ts` and covered by `src/structured-exchange.test.ts`.
 
 - Single-select listed options now reveal one inline optional-context editor and submit `OptionAnswer` plus optional `note`.
 - Single-select `Other` uses the same inline editor as required custom-answer text and submits `OtherAnswer` with empty note.
@@ -215,7 +215,7 @@ Verification run:
 
 ```sh
 npm run check
-npx vitest --run src/pi-extensions/structured-exchange.test.ts src/ask-user-question-extension.test.ts
+npx vitest --run src/structured-exchange.test.ts src/ask-user-question-extension.test.ts
 npm run test
 npm run build
 ```

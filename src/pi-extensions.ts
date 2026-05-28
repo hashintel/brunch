@@ -11,7 +11,7 @@ import {
   type GraphMentionSource,
 } from "./pi-extensions/mention-autocomplete.js"
 import { registerBrunchOperationalModePolicy } from "./pi-extensions/operational-mode.js"
-import registerBrunchStructuredExchange from "./pi-extensions/structured-exchange.js"
+import registerBrunchStructuredExchange from "./tui-client/.pi/extensions/structured-exchange/index.js"
 import { registerBrunchStructuredQuestion } from "./pi-extensions/structured-question.js"
 import {
   renderBrunchChrome,

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import type { AskUserQuestionResultDetails } from "./pi-extensions/structured-exchange.js"
+import type { AskUserQuestionResultDetails } from "./tui-client/.pi/extensions/structured-exchange/index.js"
 
 interface ProbeMetadata {
   name: string
@@ -142,7 +142,9 @@ export async function runStructuredExchangeRpcProof(
 
 async function writeProofExtension(cwd: string): Promise<string> {
   const extensionPath = join(cwd, "structured-exchange-rpc-proof-extension.ts")
-  const adapterPath = resolve("src/pi-extensions/structured-exchange.ts")
+  const adapterPath = resolve(
+    "src/tui-client/.pi/extensions/structured-exchange/index.ts",
+  )
   const content = `
     import type { ExtensionAPI } from "@earendil-works/pi-coding-agent"
     import {
