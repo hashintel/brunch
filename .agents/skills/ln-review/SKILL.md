@@ -1,6 +1,6 @@
 ---
 name: ln-review
-description: "Audit code quality focusing on deep modules, naming, model hygiene, and architectural clarity. Use after a burst of development, when codebase structure needs assessment, or to make code more agent-navigable."
+description: "Audit code quality focusing on deep modules, naming, model hygiene, topographic legibility, and architectural clarity. Use after a burst of development, when codebase structure needs assessment, or to make code more agent-navigable."
 argument-hint: "[area of codebase to review, or 'recent' for recently changed files]"
 ---
 
@@ -20,21 +20,31 @@ If "recent" or unspecified, focus on recently modified files.
 
 Read `memory/SPEC.md` first when it exists. Use its lexicon for domain terms, and treat the live architecture register as the current decision record. Read `memory/PLAN.md` for active frontier context when the reviewed area touches active or near-horizon work. If ADRs or design docs exist in the touched area, respect them as supporting context, but do not introduce ADRs or sidecar decision logs by default; durable updates reconcile through `memory/SPEC.md` / `memory/PLAN.md`.
 
+The lenses below are sub-passes. Apply each in turn; collect findings by category as you go. Each sub-pass owns one or more finding categories (named in parentheses).
+
+### Module depth (category: `depth`)
+
 Apply Ousterhout's depth test: modules should have small interfaces hiding significant complexity. Modules that move together should live together — clusters of small files always used in concert are a single deep module waiting to be extracted.
 
 Use the deletion test for suspected shallow modules: if deleting the module makes complexity vanish, it was pass-through structure; if the same complexity reappears across multiple callers, the module was earning its keep. Prefer depth as leverage/locality, not line-count ratio.
+
+### Seams and interfaces (categories: `seam`, `coupling`)
 
 Treat the interface as the test surface. The interface is everything callers must know to use the module correctly: types, invariants, ordering constraints, error modes, required configuration, and performance characteristics. If callers or tests must reach past the interface to verify important behavior, the module shape is probably wrong. A good seam lets tests and callers cross the same public boundary.
 
 Apply seam discipline: one adapter usually means a hypothetical seam; two adapters make a real seam. Flag indirection introduced only for imagined future variation, especially when it spreads configuration, mocks, or ordering knowledge into callers.
 
-When a finding is a deepening opportunity, present it as a candidate rather than a detailed design. Name the current shallow module shape, the deepened module that might replace it, what complexity would move behind the seam, and why that would improve locality, leverage, and the test surface. Do **not** propose detailed interfaces in `ln-review`; route selected deepening candidates to `ln-design` before scoping or refactoring.
+When a finding here is a deepening opportunity, present it as a candidate rather than a detailed design. Name the current shallow module shape, the deepened module that might replace it, what complexity would move behind the seam, and why that would improve locality, leverage, and the test surface. Do **not** propose detailed interfaces in `ln-review`; route selected deepening candidates to `ln-design` before scoping or refactoring.
+
+### Core/shell boundary (category: `model`)
 
 Check the functional core / imperative shell boundary (Gary Bernhardt, "Boundaries"). Pure functions should stay pure. Flag when a pure function has acquired side effects or a growing parameter list — it has drifted into shell territory.
 
+### Model integrity (category: `model`)
+
 Make invalid states unrepresentable (Yaron Minsky). Split optional fields into distinct types. Use branded types for domain-distinct values.
 
-### Oracle coverage
+### Oracle coverage (category: `oracle-coverage`)
 
 If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, check whether recent work implemented the oracles declared by the relevant `memory/PLAN.md` frontier definition. If a full or light scope card is available in session context, use it as a higher-resolution slice supplement, not the primary source of truth. Look for:
 
@@ -45,7 +55,7 @@ If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, check whether recent 
 
 Collect gaps as numbered findings (category: `oracle-coverage`).
 
-### Lexicon alignment
+### Lexicon alignment (category: `naming`)
 
 If `memory/SPEC.md` exists, survey how §Lexicon terms (both method and domain) appear across:
 
@@ -56,6 +66,26 @@ If `memory/SPEC.md` exists, survey how §Lexicon terms (both method and domain) 
 
 Collect misalignments as numbered findings (category: `naming`) with the canonical term, where the deviation occurs, and what it should be. Format these so they can be passed directly to `ln-refactor`.
 
+### Topographic legibility (category: `topography`)
+
+The directory tree is a spatial artifact, read top-down by humans and agents during orientation — *before any file is opened*. Layout is its own design surface, peer to module depth. Three lenses fire here:
+
+- **Topographic legibility** — a stranger should be able to *walk* the tree (not grep it) and infer the shape of the territory: what kinds of things exist, where each kind lives, and how they relate. Directory names predict the *kind* of their children; file names predict their contents.
+- **Chunking budget** — siblings at one level should fit working memory (~7±2). A directory with many peer entries blows the budget; nested grouping should restore it. **Mixed grain** among siblings (a domain concept next to a utility next to a config) is the same kind of smell — peers should be peers in kind, not just in location.
+- **Orientation debt / navigation tax** — the failure mode. When the tree doesn't teach, every reader pays a search cost on first contact. The cost compounds invisibly because no test, type-check, or build catches it. The signal is "a stranger had to grep to find X" or "no two readers guess the same location for a new file."
+
+Concrete cues to look for:
+
+- Sibling counts well above ~9 with no clear sub-grouping
+- Mixed-grain siblings (e.g., one file is a domain concept, the next is a utility, the next is config)
+- Deep nesting that doesn't reflect conceptual depth (folders of folders with one file each)
+- Generic bucket names (`utils/`, `helpers/`, `lib/`, `misc/`, `shared/`) that hide what lives inside
+- File names that don't predict contents; directory names that don't predict their children's kind
+- Fractal-pattern violations: a file outgrew its boundary but stayed flat instead of getting its same-named private folder (the pattern documented in `AGENTS.md`)
+- Imports that cross conceptual layers in surprising directions, hinting that the tree is *lying* about the dependency shape
+
+Collect findings as numbered items (category: `topography`). Frame each as: what the reader sees today, what they would have to internalize to find things, and the smallest topographic move that would make the tree teach itself. Routing for coordinated layout changes goes through `ln-refactor`; a single misplaced file can be a `ln-scope` slice.
+
 ## Output
 
 Present findings as numbered candidates. Use the compact form for ordinary findings:
@@ -63,7 +93,7 @@ Present findings as numbered candidates. Use the compact form for ordinary findi
 ```md
 ## Review: [area]
 
-1. **[Description]** — [category: depth|naming|model|coupling|seam|oracle-coverage] — [impact: low|medium|high]
+1. **[Description]** — [category: depth|naming|model|coupling|seam|oracle-coverage|topography] — [impact: low|medium|high]
    [1-2 sentence explanation and suggested action]
 
 2. ...
@@ -92,7 +122,7 @@ After presenting findings, present these options to the user (use `tool-ask-ques
 | 3   | Plan a refactor            | `ln-refactor` | Multiple findings need coordinated restructuring |
 | 4   | Back to triage             | `ln-consult`  | Review complete, no immediate action needed      |
 
-Recommended: **2** if the highest-impact finding is a deepening candidate, **1** if high-impact findings are concrete fixes, **4** otherwise.
+Recommended: **2** if the highest-impact finding is a deepening candidate, **1** if high-impact findings are concrete fixes, **3** when multiple topographic or naming findings cluster into a single layout pass, **4** otherwise.
 
 ---
 *Draws from [mattpocock/skills/improve-codebase-architecture](https://github.com/mattpocock/skills/tree/main/improve-codebase-architecture) and [theswerd/aicode/skills/self-documenting-code](https://github.com/theswerd/aicode/blob/main/skills/self-documenting-code/SKILL.md).*
