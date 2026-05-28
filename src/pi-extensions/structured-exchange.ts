@@ -64,6 +64,19 @@ interface OptionAnswerResult {
   note: string
 }
 
+interface StructuredExchangeEditorPrefillParams {
+  question: string
+  context?: string
+  mode: Exclude<AskUserQuestionMode, "text">
+  options: AskOption[]
+}
+
+interface StructuredExchangeEditorResponse {
+  status: "answered" | "cancelled"
+  answers: AskAnswer[]
+  note: string
+}
+
 const OptionSchema = Type.Object({
   label: Type.String({
     description:
@@ -359,6 +372,129 @@ function buildResult(
       note,
     ),
   }
+}
+
+export function buildStructuredExchangeEditorPrefill(
+  params: StructuredExchangeEditorPrefillParams,
+): string {
+  const payload: Record<string, unknown> = {
+    schema: "brunch.structured_exchange.editor",
+    schemaVersion: 1,
+    question: params.question,
+    mode: params.mode,
+    options: params.options.map((option, index) => ({
+      index: index + 1,
+      label: option.label,
+      value: option.value,
+      ...(option.description ? { description: option.description } : {}),
+    })),
+    instructions: [
+      "Edit only response.",
+      'For a selected listed option, add an answer like {"type":"option","label":"Alpha","value":"alpha","index":1}.',
+      'For Other, add an answer like {"type":"other","label":"Custom answer","value":"Custom answer"}.',
+      'Set response.note to a string. Use "" when there is no additional note.',
+    ],
+    response: { status: "cancelled", answers: [], note: "" },
+  }
+  if (params.context !== undefined) payload.context = params.context
+  return JSON.stringify(payload, null, 2)
+}
+
+export function parseStructuredExchangeEditorResponse(
+  value: string,
+): StructuredExchangeEditorResponse | null {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(value)
+  } catch {
+    return null
+  }
+
+  if (!isRecord(parsed)) return null
+  const response = parsed.response
+  if (!isRecord(response)) return null
+
+  if (response.status === "cancelled") {
+    return { status: "cancelled", answers: [], note: "" }
+  }
+  if (response.status !== "answered") return null
+  if (!Array.isArray(response.answers)) return null
+  if (typeof response.note !== "string") return null
+
+  const answers = response.answers.map(parseEditorAnswer)
+  if (answers.some((answer) => answer === null)) return null
+  return {
+    status: "answered",
+    answers: sortAnswers(answers as AskAnswer[]),
+    note: response.note.trim(),
+  }
+}
+
+function parseEditorAnswer(value: unknown): AskAnswer | null {
+  if (!isRecord(value)) return null
+
+  if (value.type === "option") {
+    if (
+      typeof value.label !== "string" ||
+      typeof value.value !== "string" ||
+      typeof value.index !== "number" ||
+      !Number.isInteger(value.index) ||
+      value.index < 1
+    ) {
+      return null
+    }
+    return {
+      type: "option",
+      label: value.label,
+      value: value.value,
+      index: value.index,
+    }
+  }
+
+  if (value.type === "other") {
+    if (typeof value.label !== "string" || typeof value.value !== "string") {
+      return null
+    }
+    return { type: "other", label: value.label, value: value.value }
+  }
+
+  return null
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null
+}
+
+async function askOptionsWithEditor(
+  ctx: any,
+  question: string,
+  context: string | undefined,
+  mode: Exclude<AskUserQuestionMode, "text">,
+  options: AskOption[],
+): Promise<OptionAnswerResult | null | "invalid"> {
+  if (typeof ctx.ui.editor !== "function") return "invalid"
+  const prefillParams: StructuredExchangeEditorPrefillParams = {
+    question,
+    mode,
+    options,
+  }
+  if (context !== undefined) prefillParams.context = context
+  const edited = await ctx.ui.editor(
+    buildStructuredExchangeEditorPrefill(prefillParams),
+  )
+  if (edited === undefined) return null
+
+  const response = parseStructuredExchangeEditorResponse(edited)
+  if (!response) return "invalid"
+  if (response.status === "cancelled") return null
+
+  if (mode === "single-select" && response.answers.length !== 1) {
+    return "invalid"
+  }
+  if (mode === "multi-select" && response.answers.length === 0) {
+    return "invalid"
+  }
+  return { answers: response.answers, note: response.note }
 }
 
 async function askSingleChoice(
@@ -880,12 +1016,24 @@ export default function askUserQuestion(pi: ExtensionAPI) {
         }
 
         if (mode === "single-select") {
-          const result = await askSingleChoice(
-            ctx,
-            params.question,
-            context,
-            options,
-          )
+          const result =
+            typeof ctx.ui.custom === "function"
+              ? await askSingleChoice(ctx, params.question, context, options)
+              : await askOptionsWithEditor(
+                  ctx,
+                  params.question,
+                  context,
+                  mode,
+                  options,
+                )
+          if (result === "invalid") {
+            return unavailableResult(
+              params.question,
+              mode,
+              "ask_user_question editor fallback returned invalid JSON",
+              context,
+            )
+          }
           if (!result) {
             return cancelledResult(params.question, mode, context)
           }
@@ -898,12 +1046,24 @@ export default function askUserQuestion(pi: ExtensionAPI) {
           )
         }
 
-        const result = await askMultiChoice(
-          ctx,
-          params.question,
-          context,
-          options,
-        )
+        const result =
+          typeof ctx.ui.custom === "function"
+            ? await askMultiChoice(ctx, params.question, context, options)
+            : await askOptionsWithEditor(
+                ctx,
+                params.question,
+                context,
+                mode,
+                options,
+              )
+        if (result === "invalid") {
+          return unavailableResult(
+            params.question,
+            mode,
+            "ask_user_question editor fallback returned invalid JSON",
+            context,
+          )
+        }
         if (!result) {
           return cancelledResult(params.question, mode, context)
         }

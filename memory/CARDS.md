@@ -56,7 +56,7 @@ Option-based structured exchanges advance from answer selection to a focused opt
 
 ## Card 2 — RPC editor fallback carries option notes
 
-- **Status:** next
+- **Status:** done
 - **Weight:** light build card, dependent on Card 1 result shape
 
 ### Objective
@@ -88,7 +88,7 @@ The structured-exchange tool can collect option answers plus optional notes thro
 
 ## Card 3 — RPC structured-exchange evaluator proof
 
-- **Status:** queued
+- **Status:** next
 - **Weight:** light build/proof card, dependent on Card 2 RPC fallback
 
 ### Objective
