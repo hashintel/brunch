@@ -129,3 +129,95 @@ These are **not** active cards; they are likely follow-ups if the prototype is p
 **Delete:** Delete `src/pi-extensions/structured-exchange-jit-editor.prototype.ts` after the production rewrite or after a scoped build explicitly rejects this direction. Delete or absorb this side-mission file after its findings are reconciled into canonical SPEC/PLAN and the active card queue.
 
 **Follow-up:** Scope a production slice to implement the inline JIT editor in `askSingleChoice` / `askMultiChoice` and update tests; scope a second small slice if needed for replay-self-contained `renderResult`. Review-set comments with proposal IDs and `#`-mention-like affordances remain a later design pass, not part of option-question UI.
+
+## Scope Card — Inline JIT editor for option structured exchanges
+
+- **Status:** done
+- **Weight:** full scope card — this changes the option-answer UI state machine and retires the second-step note tab.
+
+### Target Behavior
+
+Option-selection structured exchanges use one inline just-in-time editor whose payload meaning is determined by whether the current selection is listed options or `Other`.
+
+### Boundary Crossings
+
+```text
+→ ask_user_question tool execution
+→ ctx.ui.custom option component state machine
+→ pi-tui Editor rendered inline beneath the picker
+→ OptionAnswer / OtherAnswer / note result details
+→ renderResult transcript projection for the completed answer
+```
+
+### Risks and Assumptions
+
+- RISK: real `pi-tui` `Editor` focus/input handling does not work cleanly when rendered inline under the picker. → MITIGATION: add a test harness that records `component.render(width)` after each input and drives actual component `handleInput`; require acceptance tests to observe the inline editor state before result submission.
+- RISK: inline editor height makes the active answer surface too tall. → MITIGATION: keep the active component compact: picker rows plus one short editor label/value area; leave full prompt/context in `renderCall`/transcript rendering.
+- RISK: editor text becomes stale or semantically ambiguous when selections change. → MITIGATION: listed-option changes preserve the editor text as one global note; switching to `Other` clears listed selections and interprets the current editor text as the required custom answer.
+- ASSUMPTION: multi-select `Other` should be exclusive rather than combinable with listed options.
+    → IMPACT IF FALSE: production payload semantics and tests need revision before public RPC parity depends on them.
+    → VALIDATE: multi-select UI test selects listed options, enters editor text, switches to `Other`, and asserts listed answers are cleared and one `OtherAnswer` is produced.
+    → memory/SPEC.md §Assumptions: indirect pressure on A23-L; mainly FE-744 UI semantics.
+
+### Tracer-bullet check
+
+- **Proof of life:** drives the real `ctx.ui.custom()` component through listed-option and `Other` flows with rendered inline editor snapshots.
+- **Invariants:** stabilizes the answer payload mapping: listed options → `OptionAnswer[]` plus optional global `note`; `Other` → one `OtherAnswer` and omitted/empty `note`.
+- **Uncertainty:** retires the prototype's remaining real-UI uncertainty around inline editor focus/render feasibility.
+
+### Acceptance Criteria
+
+✓ **single listed JIT** — selecting a listed single-select option renders the inline editor immediately, allows submitting with an empty note, and allows submitting `{ answers: [OptionAnswer], note }` after typing context.
+
+✓ **single Other JIT** — selecting `Other` renders the same inline editor as a required custom-answer field, blocks empty submission, and submits `{ answers: [OtherAnswer] }` with empty/omitted note after text entry.
+
+✓ **multi listed JIT** — selecting multiple listed options renders one global inline editor and submits sorted `OptionAnswer` values plus one global note.
+
+✓ **multi Other exclusivity** — selecting `Other` in multi-select clears listed selections, reuses the inline editor as required custom-answer text, and submits exactly one `OtherAnswer`.
+
+✓ **no second note tab** — option flows no longer enter a separate note-only mode after selection; rendered snapshots show picker plus inline editor in the same active surface before submission.
+
+✓ **selection-change behavior** — changing listed selections after typing preserves the editor text as global note; switching to `Other` interprets the editor text as custom answer text.
+
+✓ **result payload compatibility** — existing structured details keep `question`, `context`, `mode`, `options`, `answers`, `rejectedOptions`, `note`, and `transport` semantics; RPC editor fallback parsing remains compatible with listed-option notes and `OtherAnswer` values.
+
+### Verification Approach
+
+- **Inner:** `npm run fix` after meaningful edits; targeted `vitest src/pi-extensions/structured-exchange.test.ts src/ask-user-question-extension.test.ts` during the loop.
+- **Middle:** component-driving tests with render snapshots before and after input, proving the real custom component displays the inline editor and produces the expected details payloads.
+- **Outer:** manual TUI smoke or scripted pty check if available: answer one single-select listed option, one single-select `Other`, one multi-select listed combination, and one multi-select `Other` path; confirm the interaction feels like one surface rather than a second tab.
+
+### Cross-cutting obligations
+
+- Do not edit `memory/CARDS.md` for this side mission while another builder owns it.
+- Keep prompt/question content transcript-backed; do not introduce a parallel chat/turn store or non-transcript response state.
+- Keep `Other` as an answer value, not a note.
+- Preserve the finding that resumed transcripts appear to replay only `renderResult`; if this slice does not make `renderResult` question/context-self-contained, leave a visible follow-up for that separate replay-rendering slice.
+- Keep review-set approval/comment semantics out of this slice.
+
+### Notes for build
+
+- Existing tests named around the second note step should be renamed or replaced rather than preserved as compatibility behavior.
+- The throwaway prototype `src/pi-extensions/structured-exchange-jit-editor.prototype.ts` should be deleted in the same build once production tests cover its cases, unless the builder explicitly keeps it with a deletion trigger.
+
+### Build Result
+
+Implemented in `src/pi-extensions/structured-exchange.ts` and covered by `src/pi-extensions/structured-exchange.test.ts`.
+
+- Single-select listed options now reveal one inline optional-context editor and submit `OptionAnswer` plus optional `note`.
+- Single-select `Other` uses the same inline editor as required custom-answer text and submits `OtherAnswer` with empty note.
+- Multi-select listed options use one global inline editor; listed answer changes preserve the editor text as global note.
+- Multi-select `Other` is exclusive: it clears listed options and submits one `OtherAnswer`.
+- The separate note-only mode/tab was removed from option flows.
+- The prototype file `src/pi-extensions/structured-exchange-jit-editor.prototype.ts` was deleted after production tests covered its cases.
+
+Verification run:
+
+```sh
+npm run check
+npx vitest --run src/pi-extensions/structured-exchange.test.ts src/ask-user-question-extension.test.ts
+npm run test
+npm run build
+```
+
+Canonical follow-up: promote the durable UI semantics into `memory/SPEC.md`/`memory/PLAN.md` after the concurrent RPC builder's edits settle. The replay finding remains open: production `renderResult` still needs a separate replay-self-contained question/context slice if resumed transcripts continue to replay only results.

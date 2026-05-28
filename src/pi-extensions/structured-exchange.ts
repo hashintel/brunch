@@ -568,26 +568,22 @@ async function askSingleChoice(
       done: (result: OptionAnswerResult | null) => void,
     ) => {
       let optionIndex = 0
-      let editMode = false
-      let noteMode = false
       let selectedAnswer: AskAnswer | undefined
       let cachedLines: string[] | undefined
       const editor = new Editor(tui, createEditorTheme(theme))
-      const noteEditor = new Editor(tui, createEditorTheme(theme))
 
       editor.onSubmit = (value) => {
         const trimmed = value.trim()
-        if (!trimmed) return
-        selectedAnswer = { type: "other", label: trimmed, value: trimmed }
-        editMode = false
-        noteMode = true
-        noteEditor.setText("")
-        refresh()
-      }
-
-      noteEditor.onSubmit = (value) => {
         if (!selectedAnswer) return
-        done({ answers: [selectedAnswer], note: value.trim() })
+        if (selectedAnswer.type === "other") {
+          if (!trimmed) return
+          done({
+            answers: [{ type: "other", label: trimmed, value: trimmed }],
+            note: "",
+          })
+          return
+        }
+        done({ answers: [selectedAnswer], note: trimmed })
       }
 
       function refresh() {
@@ -595,62 +591,50 @@ async function askSingleChoice(
         tui.requestRender()
       }
 
+      function selectFocusedOption() {
+        const selected = allOptions[optionIndex]!
+        if (selected.isOther) {
+          selectedAnswer = { type: "other", label: "", value: "" }
+          return
+        }
+        selectedAnswer = {
+          type: "option",
+          label: selected.label,
+          value: selected.value,
+          index: selected.index!,
+        }
+      }
+
       function handleInput(data: string) {
-        if (noteMode) {
-          if (matchesKey(data, Key.escape)) {
-            noteMode = false
-            noteEditor.setText("")
-            refresh()
-            return
-          }
-          noteEditor.handleInput(data)
-          refresh()
-          return
-        }
-
-        if (editMode) {
-          if (matchesKey(data, Key.escape)) {
-            editMode = false
-            editor.setText("")
-            refresh()
-            return
-          }
-          editor.handleInput(data)
-          refresh()
-          return
-        }
-
         if (matchesKey(data, Key.up)) {
           optionIndex = Math.max(0, optionIndex - 1)
+          if (selectedAnswer) selectFocusedOption()
           refresh()
           return
         }
         if (matchesKey(data, Key.down)) {
           optionIndex = Math.min(allOptions.length - 1, optionIndex + 1)
+          if (selectedAnswer) selectFocusedOption()
           refresh()
           return
         }
         if (matchesKey(data, Key.enter)) {
-          const selected = allOptions[optionIndex]!
-          if (selected.isOther) {
-            editMode = true
-            editor.setText("")
-            refresh()
+          if (selectedAnswer) {
+            editor.onSubmit?.(editor.getText())
             return
           }
-          selectedAnswer = {
-            type: "option",
-            label: selected.label,
-            value: selected.value,
-            index: selected.index!,
-          }
-          noteMode = true
-          noteEditor.setText("")
+          selectFocusedOption()
           refresh()
           return
         }
         if (matchesKey(data, Key.escape)) {
           done(null)
+          return
+        }
+
+        if (selectedAnswer) {
+          editor.handleInput(data)
+          refresh()
         }
       }
 
@@ -661,23 +645,6 @@ async function askSingleChoice(
         const add = (text: string) => lines.push(truncateToWidth(text, width))
 
         add(pickerTopBorder(theme, width))
-
-        if (noteMode) {
-          add(theme.fg("success", " Answer selected"))
-          if (selectedAnswer) {
-            add(` ${formatAnswerForModel(selectedAnswer)}`)
-          }
-          lines.push("")
-          add(theme.fg("muted", " Optional note:"))
-          for (const line of noteEditor.render(Math.max(1, width - 2))) {
-            add(` ${line}`)
-          }
-          lines.push("")
-          add(theme.fg("dim", " Enter to submit • Esc to go back"))
-          add(pickerBottomBorder(theme, width))
-          cachedLines = lines
-          return lines
-        }
 
         for (let i = 0; i < allOptions.length; i++) {
           const option = allOptions[i]!
@@ -701,14 +668,25 @@ async function askSingleChoice(
           }
         }
 
-        if (editMode) {
+        if (selectedAnswer) {
           lines.push("")
-          add(theme.fg("muted", " Write your custom answer:"))
+          const isOther = selectedAnswer.type === "other"
+          add(
+            theme.fg(
+              isOther ? "warning" : "muted",
+              isOther ? " Custom answer required:" : " Optional context:",
+            ),
+          )
           for (const line of editor.render(Math.max(1, width - 2))) {
             add(` ${line}`)
           }
           lines.push("")
-          add(theme.fg("dim", " Enter to submit • Esc to go back"))
+          add(
+            theme.fg(
+              "dim",
+              " ↑↓ change selection • Type context • Enter submit • Esc cancel",
+            ),
+          )
         } else {
           lines.push("")
           add(theme.fg("dim", " ↑↓ navigate • Enter select • Esc cancel"))
@@ -762,26 +740,27 @@ async function askMultiChoice(
       done: (result: OptionAnswerResult | null) => void,
     ) => {
       let optionIndex = 0
-      let editMode = false
-      let noteMode = false
       let cachedLines: string[] | undefined
       const selected = new Map<string, AskAnswer>()
       const editor = new Editor(tui, createEditorTheme(theme))
-      const noteEditor = new Editor(tui, createEditorTheme(theme))
+      let otherSelected = false
 
       editor.onSubmit = (value) => {
         const trimmed = value.trim()
-        if (!trimmed) return
-        selected.set("other", { type: "other", label: trimmed, value: trimmed })
-        editMode = false
-        refresh()
-      }
-
-      noteEditor.onSubmit = (value) => {
-        done({
-          answers: sortAnswers(Array.from(selected.values())),
-          note: value.trim(),
-        })
+        if (otherSelected) {
+          if (!trimmed) return
+          done({
+            answers: [{ type: "other", label: trimmed, value: trimmed }],
+            note: "",
+          })
+          return
+        }
+        if (selected.size > 0) {
+          done({
+            answers: sortAnswers(Array.from(selected.values())),
+            note: trimmed,
+          })
+        }
       }
 
       function refresh() {
@@ -790,6 +769,7 @@ async function askMultiChoice(
       }
 
       function toggleOption(item: DisplayOption) {
+        otherSelected = false
         if (selected.has(item.id)) {
           selected.delete(item.id)
         } else {
@@ -804,30 +784,6 @@ async function askMultiChoice(
       }
 
       function handleInput(data: string) {
-        if (noteMode) {
-          if (matchesKey(data, Key.escape)) {
-            noteMode = false
-            noteEditor.setText("")
-            refresh()
-            return
-          }
-          noteEditor.handleInput(data)
-          refresh()
-          return
-        }
-
-        if (editMode) {
-          if (matchesKey(data, Key.escape)) {
-            editMode = false
-            editor.setText(selected.get("other")?.label || "")
-            refresh()
-            return
-          }
-          editor.handleInput(data)
-          refresh()
-          return
-        }
-
         if (matchesKey(data, Key.up)) {
           optionIndex = Math.max(0, optionIndex - 1)
           refresh()
@@ -841,16 +797,16 @@ async function askMultiChoice(
 
         const current = allItems[optionIndex]!
         if (matchesKey(data, Key.space)) {
+          if (otherSelected || selected.size > 0) {
+            editor.handleInput(data)
+            refresh()
+            return
+          }
           if (current.isSubmit) return
           if (current.isOther) {
-            if (selected.has("other")) {
-              selected.delete("other")
-              refresh()
-            } else {
-              editMode = true
-              editor.setText("")
-              refresh()
-            }
+            selected.clear()
+            otherSelected = true
+            refresh()
             return
           }
           toggleOption(current)
@@ -859,16 +815,16 @@ async function askMultiChoice(
 
         if (matchesKey(data, Key.enter)) {
           if (current.isSubmit) {
-            if (selected.size > 0) {
-              noteMode = true
-              noteEditor.setText("")
-              refresh()
-            }
+            editor.onSubmit?.(editor.getText())
+            return
+          }
+          if (current.isOther && otherSelected) {
+            editor.onSubmit?.(editor.getText())
             return
           }
           if (current.isOther) {
-            editMode = true
-            editor.setText(selected.get("other")?.label || "")
+            selected.clear()
+            otherSelected = true
             refresh()
             return
           }
@@ -878,6 +834,12 @@ async function askMultiChoice(
 
         if (matchesKey(data, Key.escape)) {
           done(null)
+          return
+        }
+
+        if (otherSelected || selected.size > 0) {
+          editor.handleInput(data)
+          refresh()
         }
       }
 
@@ -889,23 +851,6 @@ async function askMultiChoice(
 
         add(pickerTopBorder(theme, width))
 
-        if (noteMode) {
-          add(theme.fg("success", ` ${selected.size} answer(s) selected`))
-          for (const answer of sortAnswers(Array.from(selected.values()))) {
-            add(` ${formatAnswerForModel(answer)}`)
-          }
-          lines.push("")
-          add(theme.fg("muted", " Optional note:"))
-          for (const line of noteEditor.render(Math.max(1, width - 2))) {
-            add(` ${line}`)
-          }
-          lines.push("")
-          add(theme.fg("dim", " Enter to submit • Esc to go back"))
-          add(pickerBottomBorder(theme, width))
-          cachedLines = lines
-          return lines
-        }
-
         for (let i = 0; i < allItems.length; i++) {
           const item = allItems[i]!
           const isFocused = i === optionIndex
@@ -913,24 +858,28 @@ async function askMultiChoice(
 
           if (item.isSubmit) {
             const label =
-              selected.size > 0
-                ? `✓ ${item.label} (${selected.size} selected)`
+              selected.size > 0 || otherSelected
+                ? `✓ ${item.label} (${
+                    otherSelected ? 1 : selected.size
+                  } selected)`
                 : `○ ${item.label}`
             const styled = isFocused
               ? theme.fg("accent", label)
-              : theme.fg(selected.size > 0 ? "success" : "dim", label)
+              : theme.fg(
+                  selected.size > 0 || otherSelected ? "success" : "dim",
+                  label,
+                )
             add(`${prefix}${styled}`)
             continue
           }
 
           if (item.isOther) {
-            const other = selected.get("other")
-            const marker = other ? "[x]" : "[ ]"
-            const suffix = other ? ` — ${other.label}` : ""
+            const marker = otherSelected ? "[x]" : "[ ]"
+            const suffix = otherSelected ? ` — ${editor.getText?.() ?? ""}` : ""
             const styled = isFocused
               ? theme.fg("accent", `${marker} ${item.label}${suffix}`)
               : theme.fg(
-                  other ? "success" : "text",
+                  otherSelected ? "success" : "text",
                   `${marker} ${item.label}${suffix}`,
                 )
             add(`${prefix}${styled}`)
@@ -957,17 +906,27 @@ async function askMultiChoice(
           }
         }
 
-        if (editMode) {
+        if (otherSelected || selected.size > 0) {
           lines.push("")
-          add(theme.fg("muted", " Write your custom answer:"))
+          add(
+            theme.fg(
+              otherSelected ? "warning" : "muted",
+              otherSelected ? " Custom answer required:" : " Optional context:",
+            ),
+          )
           for (const line of editor.render(Math.max(1, width - 2))) {
             add(` ${line}`)
           }
           lines.push("")
-          add(theme.fg("dim", " Enter to save • Esc to go back"))
+          add(
+            theme.fg(
+              "dim",
+              " ↑↓ change focus • Enter toggle/submit • Type context • Esc cancel",
+            ),
+          )
         } else {
           lines.push("")
-          if (selected.size === 0) {
+          if (selected.size === 0 && !otherSelected) {
             add(
               theme.fg(
                 "warning",

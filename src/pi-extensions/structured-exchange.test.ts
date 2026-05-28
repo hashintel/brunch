@@ -41,8 +41,8 @@ interface FakeTheme {
 }
 
 const enter = "\r"
-const escape = "\x1b"
 const down = "\x1b[B"
+const up = "\x1b[A"
 const space = " "
 const theme: FakeTheme = { fg: (_color, text) => text }
 
@@ -57,22 +57,24 @@ function registeredTool(): RegisteredTool {
   return tool
 }
 
-function contextDrivingCustom(inputs: string[]) {
+function contextDrivingCustom(inputs: string[], renders?: string[]) {
   return {
     hasUI: true,
     ui: {
       custom: async (factory: any) => {
+        let resolved: unknown = undefined
         const component = factory(
-          { requestRender: () => {} },
+          { requestRender: () => {}, terminal: { rows: 30 } },
           theme,
           {},
           (result: unknown) => {
             resolved = result
           },
         )
-        let resolved: unknown = undefined
+        renders?.push(component.render(80).join("\n"))
         for (const input of inputs) {
           component.handleInput(input)
+          renders?.push(component.render(80).join("\n"))
           if (resolved !== undefined) return resolved
         }
         throw new Error("custom UI did not resolve")
@@ -106,18 +108,23 @@ function optionParams(multiSelect = false): Record<string, unknown> {
   }
 }
 
-describe("structured exchange option notes", () => {
-  it("requires a focused note submit after a single-select option answer", async () => {
+describe("structured exchange inline JIT editor", () => {
+  it("renders one inline optional editor after a single-select listed option", async () => {
     const tool = registeredTool()
+    const renders: string[] = []
 
     const result = await tool.execute(
       "call-1",
       optionParams(),
       undefined,
       undefined,
-      contextDrivingCustom([enter, ..."Add context", enter]),
+      contextDrivingCustom([enter, ..."Add context", enter], renders),
     )
 
+    expect(
+      renders.some((rendered) => rendered.includes("Optional context:")),
+    ).toBe(true)
+    expect(renders.join("\n")).not.toContain("Optional note:")
     expect(result.details).toMatchObject({
       status: "answered",
       mode: "single-select",
@@ -127,17 +134,22 @@ describe("structured exchange option notes", () => {
     expect(result.content[0]?.text).toContain("Add context")
   })
 
-  it("preserves Other as an answer and records an intentionally empty single-select note", async () => {
+  it("uses the inline editor as required single-select Other text", async () => {
     const tool = registeredTool()
+    const emptyAttemptRenders: string[] = []
 
     const result = await tool.execute(
       "call-1",
       optionParams(),
       undefined,
       undefined,
-      contextDrivingCustom([down, down, enter, ..."Custom", enter, enter]),
+      contextDrivingCustom(
+        [down, down, enter, enter, ..."Custom", enter],
+        emptyAttemptRenders,
+      ),
     )
 
+    expect(emptyAttemptRenders.join("\n")).toContain("Custom answer required:")
     expect(result.details).toMatchObject({
       status: "answered",
       mode: "single-select",
@@ -146,7 +158,37 @@ describe("structured exchange option notes", () => {
     })
   })
 
-  it("returns from the note step to the multi-select picker with selections preserved", async () => {
+  it("renders one global inline editor for multi-select listed options", async () => {
+    const tool = registeredTool()
+    const renders: string[] = []
+
+    const result = await tool.execute(
+      "call-1",
+      optionParams(true),
+      undefined,
+      undefined,
+      contextDrivingCustom(
+        [space, down, enter, ..."Shared note", down, down, enter],
+        renders,
+      ),
+    )
+
+    expect(
+      renders.some((rendered) => rendered.includes("Optional context:")),
+    ).toBe(true)
+    expect(renders.join("\n")).not.toContain("Optional note:")
+    expect(result.details).toMatchObject({
+      status: "answered",
+      mode: "multi-select",
+      note: "Shared note",
+      answers: [
+        { type: "option", label: "Alpha", value: "a", index: 1 },
+        { type: "option", label: "Beta", value: "b", index: 2 },
+      ],
+    })
+  })
+
+  it("makes multi-select Other exclusive and required", async () => {
     const tool = registeredTool()
 
     const result = await tool.execute(
@@ -156,12 +198,7 @@ describe("structured exchange option notes", () => {
       undefined,
       contextDrivingCustom([
         space,
-        down,
-        space,
-        down,
-        down,
-        enter,
-        escape,
+        ..."Existing note becomes custom text",
         down,
         down,
         enter,
@@ -174,9 +211,42 @@ describe("structured exchange option notes", () => {
       mode: "multi-select",
       note: "",
       answers: [
-        { type: "option", label: "Alpha", value: "a", index: 1 },
-        { type: "option", label: "Beta", value: "b", index: 2 },
+        {
+          type: "other",
+          label: "Existing note becomes custom text",
+          value: "Existing note becomes custom text",
+        },
       ],
+    })
+  })
+
+  it("preserves global listed-option context as selections change", async () => {
+    const tool = registeredTool()
+
+    const result = await tool.execute(
+      "call-1",
+      optionParams(true),
+      undefined,
+      undefined,
+      contextDrivingCustom([
+        space,
+        ..."Global context",
+        down,
+        enter,
+        up,
+        enter,
+        down,
+        down,
+        down,
+        enter,
+      ]),
+    )
+
+    expect(result.details).toMatchObject({
+      status: "answered",
+      mode: "multi-select",
+      note: "Global context",
+      answers: [{ type: "option", label: "Beta", value: "b", index: 2 }],
     })
   })
 
