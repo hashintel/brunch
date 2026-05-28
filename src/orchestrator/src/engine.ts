@@ -35,8 +35,12 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
         // so the Petrinaut team can render the topology of this cook run.
         // Skipped when runDir is absent (library callers / tests).
         if (input.runDir) {
-          const net = serializeBlueprint(blueprint, { runId: input.runId ?? 'unknown' });
-          writeFileSync(join(input.runDir, 'net.json'), `${JSON.stringify(net, null, 2)}\n`);
+          try {
+            const serialized = serializeBlueprint(blueprint, { runId: input.runId ?? 'unknown' });
+            writeFileSync(join(input.runDir, 'net.json'), `${JSON.stringify(serialized, null, 2)}\n`);
+          } catch {
+            // Best-effort integration output — don't fail the cook run.
+          }
         }
 
         const net = wireHandlers(blueprint, input, ctx);
