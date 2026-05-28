@@ -23,10 +23,8 @@ ln-consult
   → ln-grill or ln-disambiguate
   → ln-spec
   → ln-plan
-  → ln-oracles
-  → ln-scope
-  → ln-spike (optional)
-  → ln-build
+  → ln-scope     ← default uncertainty-attack: thin tracer-bullet slice
+  → ln-build       whose landing falsifies the load-bearing belief
   → ln-review
   → ln-witness (optional)
   → ln-refactor (optional)
@@ -35,6 +33,15 @@ ln-consult
 ```
 
 The flow is not a checklist. Skip steps whose uncertainty is already retired.
+
+Given the repo's pre-release posture, **the primary vehicle for retiring uncertainty is a thin vertical slice that would break if a load-bearing assumption is wrong** — built through `ln-scope` → `ln-build`. Non-build detours are escape hatches for questions a slice cannot cheaply carry:
+
+- `ln-design` — module shape itself is the uncertain thing and any slice would lock in the wrong seam
+- `ln-oracles` — verification strategy is too uncertain to distinguish a passing slice from a wrong one
+- `ln-spike` — research-grade or external question (third-party API contract, vendor performance characteristic, library behavior under load) where no buildable slice would be cheaper than a probe
+- `ln-prototype` — feel, comparison, or UX-legibility question better answered by playable variants than by real code
+
+`ln-plan`, `ln-design`, `ln-scope`, and `ln-consult` all bias toward attacking uncertainty by building. The escape hatches stay available; they just are not the default.
 
 ## Skill map
 

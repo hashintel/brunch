@@ -31,7 +31,7 @@ Spawn 3+ sub-agents simultaneously. Each must produce a **radically different** 
 - "Optimize for the most common case"
 - "Take inspiration from [specific paradigm or library]"
 
-Each agent returns: **interface** (types, methods, params, invariants, ordering constraints, error modes, required configuration, and performance characteristics), **usage example**, **what it hides**, **seam / adapter strategy** where relevant, and **trade-offs**.
+Each agent returns: **interface** (types, methods, params, invariants, ordering constraints, error modes, required configuration, and performance characteristics), **usage example**, **what it hides**, **seam / adapter strategy** where relevant, **trade-offs**, **load-bearing claims** (1–3 falsifiable beliefs the design rests on — for each, note whether it is already covered by `memory/SPEC.md` §Assumptions), and **cheapest falsifier** — preferably a thin `ln-scope` slice whose landing would break if the design's load-bearing claim is wrong. Fall back to `ln-spike` only when no buildable slice could carry the proof (external API contract, vendor characteristic, research-grade unknown).
 
 ### 3. Present and compare
 
@@ -43,8 +43,9 @@ Show each design sequentially, then compare in prose on:
 - **Ease of correct use** vs ease of misuse
 - **General-purpose vs specialized**: flexibility vs focus
 - **Implementation efficiency**: does the shape allow efficient internals?
+- **Epistemic cost**: how much unvalidated reality this shape asks callers / sequencing to trust, and how cheaply that trust can be tested before committing
 
-Highlight where designs diverge most.
+Highlight where designs diverge most, including which design has the cheapest path to falsification if its load-bearing claims are wrong.
 
 ### 4. Synthesize
 
@@ -52,7 +53,13 @@ The best design often combines insights from multiple options. Ask which shape b
 
 ## Output
 
-Present the recommended module shape with rationale. If `memory/SPEC.md` exists, ensure names align with its lexicon.
+Present the recommended module shape with rationale, plus:
+
+- the 1–3 load-bearing claims it rests on
+- which of those are already covered by `memory/SPEC.md` §Assumptions and which need to be added there
+- the recommended first proving step — default to a thin `ln-scope` slice that would break if the chosen design's highest load-bearing claim is wrong; recommend `ln-spike` instead only when no slice could carry the proof more cheaply
+
+If `memory/SPEC.md` exists, ensure names align with its lexicon.
 
 Do not invent a standalone design document unless the user explicitly asks for one. Durable design choices reconcile back into `memory/SPEC.md` and `memory/PLAN.md`.
 
@@ -63,10 +70,11 @@ After choosing a design, present these options to the user (use `tool-ask-questi
 | #   | Label         | Target     | Why                                      |
 | --- | ------------- | ---------- | ---------------------------------------- |
 | 1   | Scope a slice | `ln-scope` | Design is chosen, define the first slice |
-| 2   | Write a spec  | `ln-spec`  | Module needs a full spec before slicing  |
-| 3   | Grill it more | `ln-grill` | Design choice raised new questions       |
+| 2   | Spike first   | `ln-spike` | The chosen design rests on a low-confidence load-bearing claim worth retiring before scoping |
+| 3   | Write a spec  | `ln-spec`  | Module needs a full spec before slicing  |
+| 4   | Grill it more | `ln-grill` | Design choice raised new questions       |
 
-Recommended: **1**
+Recommended: **1** — including when a load-bearing claim is low-confidence, because the preferred falsifier is a thin slice that breaks if the claim is wrong. Recommend **2 (Spike first)** only when no buildable slice could carry the proof (external API contract, vendor characteristic, research-grade unknown).
 
 ---
 *Adapted from [mattpocock/skills/design-an-interface](https://github.com/mattpocock/skills/tree/main/design-an-interface).*

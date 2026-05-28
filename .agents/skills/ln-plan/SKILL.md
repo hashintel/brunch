@@ -100,6 +100,27 @@ When a frontier completes, remove it from `Sequencing`, add a terse `Recently Co
 
 If live low-confidence assumptions block downstream work, stop the plan at that boundary. Plan spikes or thinner proving frontier items, not fantasy certainty.
 
+### Uncertainty-first sequencing
+
+Sequencing is not only seam-driven. Before fixing `Sequencing`, rank the live assumptions in `memory/SPEC.md` §Assumptions by:
+
+- **blast radius** if the assumption turns out false (how many downstream frontier items rework)
+- **reversibility cost** if discovered late vs early
+- **validation cost** (cheap spike vs expensive end-to-end build)
+- **load-bearingness** (how many active/next frontiers depend on it)
+
+Given the repo's pre-release posture, prefer **the thinnest vertical frontier item that would break if the load-bearing assumption is wrong**. A frontier whose landing falsifies or confirms the belief is almost always cheaper and more informative than a study-step spike. Verticality of slices still applies; this is a tie-breaker and a re-ordering pressure, not a license to fragment into horizontal investigations.
+
+Annotate each `Active` / `Next` frontier definition with one of the following lines when assumptions are in play:
+
+- `Retires: <SPEC assumption id(s)>` — this frontier collapses the assumption by landing
+- `Depends on: <SPEC assumption id(s)> (validated enough)` — assumption must be settled before this frontier starts
+- `Blocked by: <SPEC assumption id(s)>` — assumption is live and load-bearing; do not start until retired
+
+Use `ln-spike` only when the question is genuinely outside the buildable surface — for example a third-party API contract, vendor performance characteristic, or research-grade unknown where no vertical frontier could carry the proof cheaper than a probe. Do not insert ceremonial spikes when a thin proving frontier exists.
+
+This sequencing pressure is distinct from "Epistemic horizon": that rule tells the planner to *stop* at fog; this rule tells the planner to *attack the fog* by reordering toward whichever next landed frontier produces the most information.
+
 ## Procedure
 
 1. Read `memory/PLAN.md` if it exists. Identify existing frontier ids and retire/archive stale completed material into `docs/archive/PLAN_HISTORY.md`.
@@ -146,7 +167,8 @@ After writing the plan, present these options to the user (use `tool-ask-questio
 | --- | ----------------- | ------------ | --- |
 | 1   | Scope next slice  | `ln-scope`   | The frontier is clear and ready to scope |
 | 2   | Design oracles    | `ln-oracles` | Verification design needs explicit work |
-| 3   | Grill it more     | `ln-grill`   | Planning surfaced unresolved product questions |
-| 4   | Back to triage    | `ln-consult` | Direction needs reassessment |
+| 3   | Spike first       | `ln-spike`   | A load-bearing assumption should be retired before scoping |
+| 4   | Grill it more     | `ln-grill`   | Planning surfaced unresolved product questions |
+| 5   | Back to triage    | `ln-consult` | Direction needs reassessment |
 
-Recommended: **1**
+Recommended: **1** unless uncertainty-first sequencing surfaced a load-bearing assumption whose cheapest retirement is a spike (then **3**).

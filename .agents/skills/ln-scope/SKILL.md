@@ -101,10 +101,22 @@ Every boundary the slice passes through, entry to exit:
 
 ```
 - RISK: [what might not work] → MITIGATION: [how to handle it]
-- ASSUMPTION: [what we're assuming] → VALIDATE: [how we'll know] → [→ memory/SPEC.md §Assumptions]
+- ASSUMPTION: [what we're assuming]
+    → IMPACT IF FALSE: [what breaks / rework cost / blast radius across queued cards or other frontiers]
+    → VALIDATE: [cheapest proof — spike, fixture, contract test, prototype]
+    → [→ memory/SPEC.md §Assumptions id]
 ```
 
-High-risk unvalidated assumption → suggest `ln-spike` before `ln-build`.
+### Uncertainty gate
+
+If the slice depends on an unresolved high-impact assumption that the slice's own acceptance criteria and oracle strategy will not directly retire, do not let it pass as-is. Given the repo's pre-release posture, the preferred response is **aggressive**, not cautious:
+
+1. **First choice — narrow into a tracer bullet.** Reshape the slice so that *landing it end-to-end is the proof step* that falsifies or confirms the assumption. A thin vertical slice that would break if the assumption is wrong is almost always the cheapest and most informative falsifier in this codebase. Then recommend `ln-build`.
+2. **Escape hatch — `ln-spike`.** Only when no vertical slice would be cheaper than a pure-investigation probe (for example: an external API contract question, a third-party perf characteristic, a research-grade unknown) route to `ln-spike` instead of building.
+
+"High-impact" means the assumption being false would force rework across more than this slice — invalidating queued cards, changing the chosen module shape from `ln-design`, or forcing a different frontier-level sequencing decision.
+
+The gate is not a brake. It is a reshaping rule: the assumption must be **attacked** by the next move, preferably by building.
 
 ### Acceptance Criteria
 
@@ -161,12 +173,22 @@ For light cards, include this section whenever the containing frontier definitio
 - [obligation]
 ```
 
+### Assumption dependency
+
+State one of:
+
+- `None` — this slice's correctness does not hinge on any live `memory/SPEC.md` §Assumptions
+- `Depends on: <SPEC assumption id(s)>` — and a one-line note on why those assumptions are validated enough to build against
+
+If a light card would have to mark `Depends on:` a high-impact unvalidated assumption, promote to a full scope card and apply the **Uncertainty gate**.
+
 ### Promotion checklist
 
 If any answer is yes, stop treating the work as light and promote it to a full scope card before routing to `ln-build`. Do not quietly carry durable change under a light card.
 
 - [ ] Does this change a requirement?
 - [ ] Does this create, retire, or invalidate an assumption?
+- [ ] Does this slice depend on an unvalidated high-impact assumption?
 - [ ] Does this make or reverse a non-trivial design decision?
 - [ ] Does this establish a new seam-level invariant?
 - [ ] Does this change a frontier-level cross-cutting obligation or verification architecture layer?
@@ -201,4 +223,4 @@ After the scope card is complete, present these options to the user (use `tool-a
 | 5   | Revise plan    | `ln-plan`    | The work no longer fits the current frontier |
 | 6   | Back to triage | `ln-consult` | Scope revealed unclear state |
 
-Recommended: **1** unless the promotion checklist fires or the verification approach is still unclear. If a short prepared queue is warranted, write it to `memory/CARDS.md` and let `ln-build` consume the next ready card from there.
+Recommended: **1** in nearly all cases — including when the **Uncertainty gate** trips, because the gate's preferred resolution is to reshape the slice into a tracer bullet that falsifies the assumption by landing, then build it. Recommend **3 (Spike first)** only when no vertical slice would be cheaper than a pure-investigation probe. Recommend **2 (Design oracles)** only when the verification approach for the reshaped slice is still genuinely unclear. If a short prepared queue is warranted, write it to `memory/CARDS.md` and let `ln-build` consume the next ready card from there.

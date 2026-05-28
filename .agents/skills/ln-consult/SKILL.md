@@ -30,6 +30,7 @@ Start the assessment with 2-4 bullets naming:
 - the active frontier item or nearby priority
 - volatile state or manual follow-up from handoff
 - the main open risk
+- the dominant load-bearing uncertainty (which `memory/SPEC.md` §Assumption, if any) and the cheapest way to retire it
 
 ## Work-type classification
 
@@ -72,8 +73,22 @@ Only recommend the bounded or direct-build exceptions when all of these are true
 - the containing seam is already named in the live docs
 - no durable requirement / assumption / decision / invariant change is expected
 - post-build reconciliation can plausibly be a no-op
+- no high-impact unresolved `memory/SPEC.md` §Assumption is load-bearing for this work
 
 Only recommend the bounded serial exception when those same conditions hold and the next several commit-sized steps are obvious enough to queue without fresh planning.
+
+## Uncertainty-first override
+
+When several routes fit the work, prefer the one with the highest information gain per unit of cost. Given the repo's pre-release posture, the default uncertainty-attack vehicle is **a thin vertical slice that would break if the assumption is wrong**, built via `ln-scope` → `ln-build`. That is usually cheaper and more informative than a study-step spike.
+
+Recommend a non-build route **only when** the cheapest informative move genuinely is not a slice:
+
+- `ln-design` — the module shape itself rests on a low-confidence claim and building any slice would lock in the wrong seam
+- `ln-oracles` — the verification strategy is so uncertain that you cannot tell a passing slice from a wrong one
+- `ln-spike` — the question is research-grade or external (third-party API contract, vendor perf characteristic, library behavior under load) and no vertical slice would be cheaper than a pure probe
+- `ln-prototype` — the question is about feel, comparison, or UX legibility, where playable variants beat real code
+
+This override is for **attacking** uncertainty aggressively, not deferring it. If in doubt, build the thinnest slice that would break if the belief is wrong, and let landing it produce the evidence. Spikes are the escape hatch, not the default.
 
 ## Routing table
 
@@ -88,7 +103,7 @@ Only recommend the bounded serial exception when those same conditions hold and 
 | One settled frontier item needs several small verified commits in sequence | bounded, hardening | `ln-scope` then serial `ln-build` loop, optionally via `memory/CARDS.md` |
 | Module interface needs exploration | structural | `ln-design` |
 | Full or light scope card exists, ready to code | bounded, hardening, bugfix | `ln-build` |
-| Technical uncertainty blocks progress | any | `ln-spike` |
+| Technical uncertainty blocks progress, or a cheap investigation could invalidate planned work | any | `ln-spike` |
 | Code works but needs restructuring | refactor | `ln-refactor` |
 | Code works but quality / architecture needs audit | any | `ln-review` |
 | Docs are stale, overweight, or milestone context needs cleanup | structural / maintenance | `ln-sync` |
