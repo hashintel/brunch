@@ -205,6 +205,7 @@ describe("JSON-RPC handlers", () => {
     expect(methods.map((entry) => entry.method).sort()).toEqual([
       "rpc.discover",
       "session.elicitationExchanges",
+      "session.pendingExchange",
       "session.startElicitation",
       "session.transcriptDisplay",
       "workspace.activate",
@@ -562,6 +563,152 @@ describe("JSON-RPC handlers", () => {
     expect(sessionText).toContain("brunch.elicitation_prompt")
     expect(sessionText).toContain(exchangeId)
     expect(sessionText).toContain('"lens":"step-by-step"')
+  })
+
+  it("reads the selected pending elicitation exchange from transcript truth", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-pending-"))
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
+    await coordinatorInstance.createSetupSession({
+      specTitle: "Pending spec",
+    })
+    const handlers = createRpcHandlers({
+      coordinator: coordinatorInstance,
+      cwd,
+    })
+
+    const start = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 46,
+      method: "session.startElicitation",
+    })
+    const pending = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 47,
+      method: "session.pendingExchange",
+    })
+
+    expect(pending).toMatchObject({
+      jsonrpc: "2.0",
+      id: 47,
+      result: {
+        status: "pending",
+        exchange: {
+          exchangeId: (start as {
+            result: { exchange: { exchangeId: string } }
+          }).result.exchange.exchangeId,
+          prompt: expect.stringContaining("new product or feature"),
+          lens: "step-by-step",
+          note: { allowed: true },
+        },
+      },
+    })
+  })
+
+  it("reads an explicit pending exchange without opening the selected workspace session", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-explicit-pending-"))
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
+    const workspace = await coordinatorInstance.createSetupSession({
+      specTitle: "Explicit pending spec",
+    })
+    const startHandlers = createRpcHandlers({
+      coordinator: coordinatorInstance,
+      cwd,
+    })
+    await startHandlers.handle({
+      jsonrpc: "2.0",
+      id: 48,
+      method: "session.startElicitation",
+    })
+
+    const handlers = createRpcHandlers({
+      coordinator: {
+        ...coordinatorInstance,
+        async openDefaultWorkspace() {
+          throw new Error(
+            "explicit pending reads must not open selected session",
+          )
+        },
+      },
+      cwd,
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 49,
+        method: "session.pendingExchange",
+        params: { sessionId: workspace.session.id, specId: workspace.spec.id },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 49,
+      result: {
+        status: "pending",
+        exchange: { exchangeId: "deterministic-grounding-1" },
+      },
+    })
+  })
+
+  it("reports idle pending state when the selected session has no open prompt", async () => {
+    const sessionFile = await createSessionFile()
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(readyState(sessionFile)),
+      cwd: "/tmp/brunch-project",
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 50,
+        method: "session.pendingExchange",
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 50,
+      result: { status: "idle", exchange: null },
+    })
+  })
+
+  it("returns a product-shaped no-session error when reading pending without a selected session", async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(selectSpecState()),
+      cwd: "/tmp/brunch-project",
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 51,
+        method: "session.pendingExchange",
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 51,
+      error: { code: -32001, message: "No selected Brunch session" },
+    })
+  })
+
+  it("returns product-shaped non-linear errors when reading pending exchanges", async () => {
+    const sessionFile = await createBranchedSessionFile()
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(readyState(sessionFile)),
+      cwd: "/tmp/brunch-project",
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 52,
+        method: "session.pendingExchange",
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 52,
+      error: {
+        code: -32002,
+        message: "Selected Brunch session transcript is non-linear",
+      },
+    })
   })
 
   it("resumes an open deterministic elicitation prompt without duplicating transcript entries", async () => {

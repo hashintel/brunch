@@ -107,6 +107,15 @@ export function createRpcHandlers(options: {
         return handleStartElicitation(requestId, options)
       }
 
+      if (request.method === "session.pendingExchange") {
+        return handleSessionProjection(
+          requestId,
+          request.params,
+          options,
+          projectPendingElicitationExchange,
+        )
+      }
+
       if (request.method === "session.elicitationExchanges") {
         return handleSessionProjection(
           requestId,
@@ -329,6 +338,17 @@ const StartElicitationResultSchema = Type.Object(
   { additionalProperties: false },
 )
 
+const PendingExchangeResultSchema = Type.Union([
+  StartElicitationResultSchema,
+  Type.Object(
+    {
+      status: Type.Literal("idle"),
+      exchange: Type.Null(),
+    },
+    { additionalProperties: false },
+  ),
+])
+
 type RpcMethodDiscovery = {
   method: string
   description: string
@@ -433,6 +453,22 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
     paramsSchema: NoParamsSchema,
     resultSchema: StartElicitationResultSchema,
     examples: [{ jsonrpc: "2.0", id: 8, method: "session.startElicitation" }],
+  },
+  {
+    method: "session.pendingExchange",
+    description:
+      "Read the current transcript-backed pending elicitation exchange from the selected or explicitly named linear Brunch session.",
+    paramsSchema: SessionProjectionParamsSchema,
+    resultSchema: PendingExchangeResultSchema,
+    examples: [
+      { jsonrpc: "2.0", id: 9, method: "session.pendingExchange" },
+      {
+        jsonrpc: "2.0",
+        id: 10,
+        method: "session.pendingExchange",
+        params: { sessionId: "session-1", specId: "spec-1" },
+      },
+    ],
   },
 ]
 
@@ -586,6 +622,16 @@ function pendingExchangeFromEnvelope(
   }
 
   return null
+}
+
+function projectPendingElicitationExchange(
+  envelope: BrunchSessionEnvelope,
+): Static<typeof PendingExchangeResultSchema> {
+  const exchange = pendingExchangeFromEnvelope(envelope)
+  if (!exchange) {
+    return { status: "idle", exchange: null }
+  }
+  return { status: "pending", exchange }
 }
 
 interface FlushableSessionManager {
