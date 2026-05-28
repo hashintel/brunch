@@ -16,6 +16,34 @@
 
 Brunch-next is proceeding on the razed `next` line (tag `next-baseline`) as a thin product layer over `pi-coding-agent`. M0–M3 proved the basic host, JSONL transcript viability, fixture/RPC substrate, and read-only web shell; detailed completed frontier definitions now live in `docs/archive/PLAN_HISTORY.md`. The active risk is still Pi wrapping: FE-744 must finish Brunch-owned structured-elicitation relay semantics and recover the branded product chrome, then `sealed-pi-profile-runtime-state` must make the embedded Pi harness product-safe. In concrete terms, the sealed-profile/runtime-state frontier prevents ambient user/project `.pi/` settings or resources from shaping Brunch behavior, and persists the active operational mode, role preset/runtime bundle, strategy, and lens in the linear transcript so prompt/tool posture can be reconstructed at turn boundaries. The M4 graph data plane remains structurally next after those harness/control-plane risks are scoped.
 
+### POC assumption pressure
+
+The POC should maximize assumption falsification rather than merely implement milestone labels. Treat the table below as the live consequence map from SPEC assumptions to frontier pressure; when scoping a frontier, prefer the thinnest slice that can validate or falsify its assigned assumptions.
+
+| Assumption | Pressure / what could falsify it | Plan consequence |
+| --- | --- | --- |
+| A1-L Pi substrate seams | A needed host/session/RPC/extension seam cannot be expressed without forking Pi. | Mostly exercised by M0-M3; FE-744 and `sealed-pi-profile-runtime-state` close the remaining UI/profile seams before graph-agent work depends on them. |
+| A3-L command layer sufficiency | Agent, UI, reviewer, or capture writes need shortcuts around one `CommandExecutor`. | `graph-data-plane`, `agent-graph-integration`, and `authority-model` must prove one command boundary for every write path. |
+| A4-L global LSN adequacy | Replay, staleness, or reconciliation ordering needs per-entity/vector clocks. | `graph-data-plane` establishes one-LSN-per-transaction; `turn-boundary-reconciliation` tries to break it with cross-session traces. |
+| A5-L fixture driver quality | Agent-as-user captures fail to catch regressions or cannot represent realistic briefs. | `brief-library-curation` and `fixture-strategy-evolution` stay live; every assumption-heavy frontier should add or update a fixture/probe. |
+| A6-L unified `graph.*` namespace | Intent/oracle/design/plan semantics become confusing or unsafe under one umbrella. | `graph-data-plane` and `agent-graph-integration` should start unified but watch for namespace pressure. |
+| A7-L `framing_as` modality | Product framings need relation policies that base kinds cannot express. | M4 schema plus briefs #1-#7 exercise framing; promote only if fixture pressure demands it. |
+| A8-L reconciliation substrate | Gaps, contradictions, process debt, and conflicts need separate substrates immediately. | `graph-data-plane` builds the shared substrate; `coherence-first-class` and known-bad briefs test subtype pressure. |
+| A9-L mention ledger granularity | Session-scoped snapshots miss necessary staleness or create noisy hints. | Defer until `turn-boundary-reconciliation`, after graph ids/LSNs exist. |
+| A10-L TUI chrome seam | Branded persistent chrome cannot be recovered through Pi UI primitives. | FE-744 must re-prove chrome visually/thematically, not just semantically, before closeout. |
+| A11-L next-turn delivery | Side-task/reviewer results require mid-turn delivery or another event plane. | Keep deferred until M5/M7 side-task/reviewer paths exist; test at turn-boundary rendezvous. |
+| A13-L deferred observer/auditor queue | Async audit/backfill needs canonical chat/turn tables or privileged writes. | Not load-bearing after D18-L; defer until a backstop queue is actually introduced. |
+| A14-L review-set structural legality | LLMs cannot produce dry-run-valid entity/edge drafts reliably enough. | M5 must measure structural-legality rate and retry/fallback behavior before depending on proposal-heavy UX. |
+| A15-L establishment hints | Offers are not reconstructable or useful from transcript entries alone. | M5 establishment-offer fixtures and FE-744 chrome affordances exercise this. |
+| A16-L reviewer trigger/scope | Reviewer findings are too slow, noisy, or incomplete under deferred policy. | Do not overbuild early; first accepted review-set fixtures should make reviewer policy empirical. |
+| A17-L elicitation temperament preference | Users do not need persistent interrogative/proposal preference. | Outer-loop adoption signal only; do not block POC. |
+| A18-L command containment | Hiding suggestions + lifecycle blocking leaves unsafe Pi built-ins reachable. | FE-744 product-shell evidence must name any Pi upstream seam before M5/M6 authority work relies on it. |
+| A19-L sealed Pi profile | Ambient `.pi` settings/resources still shape Brunch product behavior. | `sealed-pi-profile-runtime-state` is a gate before graph tools and authority-sensitive agent work. |
+| A20-L Drizzle 1.0 beta | Beta blocks migrations, SQLite fidelity, or TypeBox derivation. | `graph-data-plane` starts with a version/schema spike before broad imports. |
+| A21-L bounded coherence | Contradiction/gap verdicts cannot represent useful coherence without broader judgment. | Keep implementation late (M8), but design known-bad fixtures earlier so the rubric is falsifiable. |
+| A22-L synchronous elicitor capture | Elicitor over-captures, misses obvious facts, or cannot use preface to resolve uncertainty. | `agent-graph-integration` needs targeted capture fixtures before async observer backstops are reconsidered. |
+
+
 ## Sequencing
 
 ### Active
@@ -31,7 +59,7 @@ Brunch-next is proceeding on the razed `next` line (tag `next-baseline`) as a th
 ### Parallel / Low-conflict
 
 - `brief-library-curation` — Author and review briefs #4–#7 plus the adversarial second tier. Briefs are text and can proceed independently of current Pi-wrapping work.
-- `fixture-strategy-evolution` — Iterate `fixture-strategy.md` (property invariants, brief expectations) as fixtures are captured. Doc-only.
+- `fixture-strategy-evolution` — Keep the assumption-proof matrix honest as captures land: property invariants, brief expectations, harness notes, and known-bad probes. Doc-only, but assumption-critical.
 - `subagents-for-proposal-diversity` — Optional enhancement to candidate-proposal generation (D44-L). Lands when `agent-and-graph-integration` (M5) is far enough along that batch-proposal flow exists and would benefit from parallel data-gathering; never a blocker.
 
 ### Horizon
@@ -76,7 +104,7 @@ Brunch-next is proceeding on the razed `next` line (tag `next-baseline`) as a th
 - **Cross-cutting obligations:** Establish the Drizzle + `better-sqlite3` persistence shape, `CommandExecutor` result contract, and no-bypass transaction rule as shared infrastructure for later direct-agent, elicitor-capture, deferred observer/auditor, side-task, migration, and UI-attributed writes. Derive row/insert/update runtime schemas from Drizzle table definitions via TypeBox (`drizzle-orm/typebox` if A20-L resolves to the Drizzle 1.0 beta line; standalone `drizzle-typebox` + `drizzle-orm/typebox-legacy` otherwise) — do not hand-author parallel row schemas. Land the I26-L grep-based architectural test alongside the first Drizzle import so the single-schema-vocabulary boundary stays enforced.
 - **Traceability:** R7, R9, R13 / D3-L, D4-L, D6-L, D8-L, D9-L, D16-L, D20-L, D41-L / I1-L, I6-L, I7-L, I11-L, I26-L / A3-L, A4-L, A20-L
 - **Design docs:** [pi-seam-extensions.md §1 Async side-chain sub-agents](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md#1-async-side-chain-sub-agents), [pi-seam-extensions.md §Graph clock, §Reconciliation-need substrate, §Oracle plane](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md)
-- **Current execution pointer:** start by scoping the narrow `CommandExecutor` result contract and one-transaction LSN/change-log skeleton before widening CRUD or coherence homes. Pair the first slice with an A20-L spike (Drizzle 1.0 beta + `drizzle-orm/typebox` + `better-sqlite3` + Pi `registerTool` round-trip) so the version pin and schema-derivation path are settled before later slices import them broadly.
+- **Current execution pointer:** start by scoping the narrow `CommandExecutor` result contract and one-transaction LSN/change-log skeleton before widening CRUD or coherence homes. Pair the first slice with an A20-L spike (Drizzle 1.0 beta + `drizzle-orm/typebox` + `better-sqlite3` + Pi `registerTool` round-trip) so the version pin and schema-derivation path are settled before later slices import them broadly. Keep M4 thin enough to falsify A3-L/A4-L/A6-L/A8-L/A20-L before widening CRUD or coherence homes.
 
 ### agent-graph-integration
 
@@ -90,6 +118,7 @@ Brunch-next is proceeding on the razed `next` line (tag `next-baseline`) as a th
 - **Cross-cutting obligations:** Preserve the single-authority mutation rule for primary-agent, elicitor-capture, reviewer, side-task, and batch-acceptance flows by making the `CommandExecutor` the only mutation entry; deferred observer/auditor jobs, if introduced, are operational backstops keyed to transcript anchors, not a revived chat/turn store or privileged primary extraction path; reviewer is advisory and writes only to `reconciliation_need`; lens metadata on elicitor-emitted entries routes capture/reviewer/future-auditor consumption; establishment offers remain orientation artifacts for chrome/web surfaces rather than a default exhaustive lens picker.
 - **Traceability:** R10, R13, R17, R21, R22, R23 / D4-L, D13-L, D15-L, D18-L, D20-L, D25-L, D26-L, D27-L, D28-L, D29-L, D30-L, D32-L, D45-L, D46-L, D47-L / I2-L, I11-L, I14-L, I15-L, I16-L, I17-L, I18-L, I20-L, I30-L, I31-L / A3-L, A11-L, A13-L, A14-L, A16-L, A22-L
 - **Design docs:** [prd.md §M5, §Authority Model](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md), [pi-seam-extensions.md §1 Async side-chain sub-agents](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md#1-async-side-chain-sub-agents), [ELICITATION_LENSES.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/design/ELICITATION_LENSES.md), [REVIEW_SETS.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/design/REVIEW_SETS.md)
+- **Current execution pointer:** before implementation, run oracle/scoping pressure on A14-L and A22-L: define the smallest replay/probe set that can reveal over-capture, missed obvious facts, dry-run-invalid review-set drafts, and whether plain-prose `preface` is sufficient for low-confidence implications.
 
 ### subagents-for-proposal-diversity
 
@@ -174,10 +203,10 @@ Brunch-next is proceeding on the razed `next` line (tag `next-baseline`) as a th
 - **Linear:** unassigned
 - **Kind:** hardening
 - **Status:** not-started
-- **Objective:** Iterate `fixture-strategy.md` — property invariants, brief expectations, harness CLI shape — as real fixtures expose gaps.
-- **Acceptance:** Each milestone landing adds at least one new fixture-strategy entry (invariant, brief expectation, or harness note) or explicitly records "no change needed."
-- **Verification:** PR review on the doc plus cross-check that new/changed fixture assertions map to SPEC invariants or acknowledged blind spots; downstream fixture runs catch regressions.
-- **Cross-cutting obligations:** Treat fixture strategy as canonical verification architecture that must stay in sync with SPEC/PLAN, not as optional commentary.
+- **Objective:** Iterate `fixture-strategy.md` as the POC assumption-proof plan: property invariants, brief expectations, harness CLI shape, known-bad probes, and per-assumption fitness notes as real captures expose gaps.
+- **Acceptance:** Each assumption-heavy milestone landing adds at least one new fixture-strategy entry (invariant, brief expectation, harness note, known-bad probe, or fitness metric) or explicitly records "no change needed" for the assumptions it touched.
+- **Verification:** PR review on the doc plus cross-check that new/changed fixture assertions map to SPEC assumptions/invariants or acknowledged blind spots; downstream fixture runs catch regressions and surface assumption fitness rather than only pass/fail.
+- **Cross-cutting obligations:** Treat fixture strategy as canonical verification architecture that must stay in sync with SPEC/PLAN, not as optional commentary. If an assumption is not being tested by its assigned frontier, PLAN should say whether it is deferred, accepted as risk, or needs a spike/oracle pass.
 - **Traceability:** A5-L
 - **Design docs:** [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)
 
@@ -195,7 +224,7 @@ Brunch-next is proceeding on the razed `next` line (tag `next-baseline`) as a th
 - **Why now / unlocks:** Lens/review-set/reviewer UX in M5 and authority gating in M6 both assume Brunch can render rich interactive affordances over Pi without forking it. Proving the affordance set early de-risks those frontiers and lets the agent-as-user-driver extension question (controllability vs cost trade flagged in `ln-oracles` pass) be answered with evidence rather than estimation. Can run in parallel with `graph-data-plane` because TUI seams are independent of graph persistence.
 - **Traceability:** R4, R14, R16, R17, R19, R20, R21 / D2-L, D5-L, D11-L, D12-L, D13-L, D17-L, D19-L, D21-L, D22-L, D24-L, D25-L, D26-L, D27-L, D29-L, D32-L, D33-L, D34-L, D35-L, D36-L, D37-L, D38-L, D39-L, D40-L / I10-L, I13-L, I18-L, I19-L, I22-L, I23-L, I24-L, I25-L / A10-L, A14-L, A17-L, A18-L, A19-L
 - **Design docs:** [pi-seam-extensions.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md), [pi-ui-extension-patterns.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-ui-extension-patterns.md), [pi-ui-extension-patterns-provisional-plan.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-ui-extension-patterns-provisional-plan.md), [ELICITATION_LENSES.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/design/ELICITATION_LENSES.md), [REVIEW_SETS.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/design/REVIEW_SETS.md).
-- **Current execution pointer:** Spec/session picker correction is complete: the pure model and TUI component now use the hierarchical create-spec/resume-spec/create-session/resume-session flow, RPC/headless startup exposes TypeBox-validated `workspace.selectionState` / `workspace.activate` without importing TUI picker code, the startup no-resume pty oracle passes with the new spec/session copy, and the structured-question result schema/builder plus TUI/editor adapters now prove self-contained `toolResult.details`, model-readable `content`, input-replacing TUI answer collection, schema-tagged JSON-over-`ctx.ui.editor` validation for text/single/multi/questionnaire and terminal statuses, live Pi RPC editor fallback at the adapter layer (`npm run test:structured-question-rpc-proof`), and response-side elicitation-exchange projection for terminal structured-question results. Continue the structured-question proof with Brunch product-surface relay semantics before returning to `graph-data-plane`.
+- **Current execution pointer:** Spec/session picker correction is complete: the pure model and TUI component now use the hierarchical create-spec/resume-spec/create-session/resume-session flow, RPC/headless startup exposes TypeBox-validated `workspace.selectionState` / `workspace.activate` without importing TUI picker code, the startup no-resume pty oracle passes with the new spec/session copy, and the structured-question result schema/builder plus TUI/editor adapters now prove self-contained `toolResult.details`, model-readable `content`, input-replacing TUI answer collection, schema-tagged JSON-over-`ctx.ui.editor` validation for text/single/multi/questionnaire and terminal statuses, live Pi RPC editor fallback at the adapter layer (`npm run test:structured-question-rpc-proof`), and response-side elicitation-exchange projection for terminal structured-question results. Continue the structured-question proof with Brunch product-surface relay semantics and branded chrome recovery before returning to `graph-data-plane`; this is the active proof point for A10-L, A18-L, and the remaining UI/RPC slice of A19-L.
 
 ### flue-pattern-adoption
 
