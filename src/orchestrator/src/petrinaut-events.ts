@@ -115,7 +115,11 @@ export function createPetrinautEventStream(opts: CreatePetrinautEventStreamOpts)
     tokens: Token[][] | undefined,
   ): Record<string, PetrinautToken[]> {
     const out: Record<string, PetrinautToken[]> = {};
-    if (!places || !tokens) return out;
+    if (!places) return out;
+    if (!tokens) {
+      for (const place of places) out[place] = [];
+      return out;
+    }
     for (let i = 0; i < places.length; i++) {
       const place = places[i]!;
       const placeTokens = tokens[i] ?? [];
@@ -130,11 +134,14 @@ export function createPetrinautEventStream(opts: CreatePetrinautEventStreamOpts)
     emit(event: NetEvent): void {
       switch (event.kind) {
         case 'transition_fired': {
+          if (!event.transitionId) {
+            throw new Error('transition_fired NetEvent missing transitionId');
+          }
           publish({
             kind: 'transition_fired',
             ts: event.ts,
             runId,
-            transitionName: event.transitionId ?? '',
+            transitionName: event.transitionId,
             input: groupTokens(event.consumed, event.consumedTokens),
             output: groupTokens(event.produced, event.producedTokens),
           });

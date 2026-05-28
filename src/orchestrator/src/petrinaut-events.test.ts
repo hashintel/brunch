@@ -101,6 +101,45 @@ describe('createPetrinautEventStream — transition_fired adapter', () => {
     expect(ev.output['slice:slice-1:evaluate:running']![0]!.id).toBeDefined();
   });
 
+  it('throws when transition_fired is missing transitionId', () => {
+    const stream = createPetrinautEventStream({
+      runId: 'run-1',
+      tokenIdFn: deterministicTokenId(),
+    });
+    expect(() =>
+      stream.sink.emit({
+        kind: 'transition_fired',
+        ts: '2026-05-27T00:00:00.000Z',
+        consumed: ['slice:slice-1:spec-ready'],
+        consumedTokens: [[{ sliceId: 'slice-1', epicId: 'epic-1' }]],
+        produced: [],
+        producedTokens: [],
+      }),
+    ).toThrow(/missing transitionId/);
+  });
+
+  it('emits empty token arrays per place when places are present without tokens', () => {
+    const events: PetrinautEvent[] = [];
+    const stream = createPetrinautEventStream({
+      runId: 'run-1',
+      tokenIdFn: deterministicTokenId(),
+      onEvent: (e) => events.push(e),
+    });
+    stream.sink.emit({
+      kind: 'transition_fired',
+      ts: '2026-05-27T00:00:00.000Z',
+      transitionId: 'slice-1:evaluate:dispatch',
+      consumed: ['slice:slice-1:spec-ready', 'pool:test-agent'],
+      produced: ['slice:slice-1:evaluate:running'],
+    });
+
+    const ev = events[0]! as PetrinautTransitionFiredEvent;
+    expect(Object.keys(ev.input).sort()).toEqual(['pool:test-agent', 'slice:slice-1:spec-ready']);
+    expect(ev.input['slice:slice-1:spec-ready']).toEqual([]);
+    expect(ev.input['pool:test-agent']).toEqual([]);
+    expect(ev.output['slice:slice-1:evaluate:running']).toEqual([]);
+  });
+
   it('forwards net_halted and net_deadlocked as terminal events', () => {
     const events: PetrinautEvent[] = [];
     const stream = createPetrinautEventStream({

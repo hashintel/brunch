@@ -916,7 +916,7 @@ describe('Adapter: §7 event vocabulary', () => {
 // ---------------------------------------------------------------------------
 
 describe('FE-763: Petrinaut event stream on a real run', () => {
-  it('emits initial_marking + transition_fired (with token payload) + net_halted for simplePlan happy path', async () => {
+  it('emits initial_marking + transition_fired (with token payload) for simplePlan happy path', async () => {
     const fakes = createFakes();
     const ctx: RunCtx = {
       reportIds: [],
