@@ -801,7 +801,7 @@ describe('Adapter: §7 event vocabulary', () => {
     expect(events.filter((e) => e.kind === 'net_deadlocked').length).toBe(0);
   });
 
-  it('retry exhaustion emits net_deadlocked', async () => {
+  it('retry exhaustion emits net_halted', async () => {
     const fakes = createFakes({ testRunResults: [false] });
     const ctx: RunCtx = {
       reportIds: [],
