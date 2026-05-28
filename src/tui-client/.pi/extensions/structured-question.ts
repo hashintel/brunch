@@ -15,7 +15,7 @@ import {
   type StructuredQuestionParams,
   type StructuredQuestionStatus,
   type StructuredQuestionToolResult,
-} from "../structured-question.js"
+} from "../../../structured-question.js"
 
 export const STRUCTURED_QUESTION_TOOL = "brunch_structured_question"
 

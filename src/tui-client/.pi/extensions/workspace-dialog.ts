@@ -7,11 +7,11 @@ import {
   type WorkspaceSessionReadyState,
   type SpecSessionActivationCoordinator,
   type SpecSessionActivationDecision,
-} from "../workspace-session-coordinator.js"
+} from "../../../workspace-session-coordinator.js"
 import {
   WORKSPACE_DIALOG_WIDTH,
   createWorkspaceDialogComponent,
-} from "../pi-components/workspace-dialog/index.js"
+} from "../components/workspace-dialog/index.js"
 import { chromeStateForWorkspace, renderBrunchChrome } from "./chrome.js"
 
 export const BRUNCH_WORKSPACE_COMMAND = "brunch"

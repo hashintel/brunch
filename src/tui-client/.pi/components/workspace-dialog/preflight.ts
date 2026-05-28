@@ -4,7 +4,7 @@ import { ProcessTerminal, TUI, type Terminal } from "@earendil-works/pi-tui"
 import type {
   WorkspaceLaunchInventory,
   SpecSessionActivationDecision,
-} from "../../workspace-session-coordinator.js"
+} from "../../../../workspace-session-coordinator.js"
 import {
   WORKSPACE_DIALOG_WIDTH,
   createWorkspaceDialogComponent,

@@ -15,7 +15,7 @@ import {
 import type {
   WorkspaceLaunchInventory,
   SpecSessionActivationDecision,
-} from "../../workspace-session-coordinator.js"
+} from "../../../../workspace-session-coordinator.js"
 import {
   buildWorkspaceSelectionView,
   selectWorkspaceSelectionOption,
@@ -29,7 +29,7 @@ const CTRL_C = "\x03"
 const ANSI_SEQUENCE = new RegExp(`^${ESC}\\[[0-9;?]*[ -/]*[@-~]`)
 const ANSI_SEQUENCE_GLOBAL = new RegExp(`${ESC}\\[[0-9;?]*[ -/]*[@-~]`, "g")
 const ASSET_DIR = new URL("./assets/", import.meta.url)
-const PACKAGE_JSON_URL = new URL("../../../package.json", import.meta.url)
+const PACKAGE_JSON_URL = new URL("../../../../../package.json", import.meta.url)
 const LOCAL_BUILD_TIME = formatBuildTime(new Date())
 
 // Letterform copied from: cfonts "brunch" -f tiny -c candy
@@ -274,7 +274,7 @@ function readPackage(): PackageJson {
 function getGitSha(): string {
   try {
     return execSync("git rev-parse --short=7 HEAD", {
-      cwd: fileURLToPath(new URL("../../../", import.meta.url)),
+      cwd: fileURLToPath(new URL("../../../../../", import.meta.url)),
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim()

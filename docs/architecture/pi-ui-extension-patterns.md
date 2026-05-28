@@ -21,7 +21,7 @@ This memo records evidence for the `pi-ui-extension-patterns` frontier. It is in
 - **Pi version/source:** `pi --version` reports `0.75.4`; audited installed docs under `npm-mariozechner-pi-coding-agent/0.73.1` whose package version is `0.75.4`, plus source at `~/Clones/earendil-works/pi/packages/coding-agent`.
 - **Source audit oracle:** `src/core/slash-commands.ts`, `src/modes/interactive/interactive-mode.ts`, `src/core/agent-session.ts`, `src/core/extensions/runner.ts`, `docs/extensions.md`, `docs/rpc.md`, and `docs/keybindings.md`.
 - **Raw Pi harness oracle:** a temporary project-local Pi extension was loaded with `pi --mode rpc --no-session -e ...`, then deleted after probing. This proves extension command handling, `input` handling, lifecycle cancellation, and RPC-visible `setStatus` / string `setWidget` events. It does **not** prove interactive autocomplete visual behavior.
-- **Brunch-host oracle:** FE-744 now exposes a thin internal extension entrypoint at `src/pi-extensions.ts`, with product modules for chrome (`src/pi-extensions/chrome.ts`), session-lifecycle binding (`session-lifecycle.ts`), command policy (`command-policy.ts`), the spec/session picker (`workspace-dialog.ts` plus private `src/pi-components/workspace-dialog/*` compatibility paths), operational-mode policy (`operational-mode.ts`), fixture-backed mention autocomplete (`mention-autocomplete.ts`), and alternatives cards (`alternatives.ts`). Tests prove one Brunch-owned wrapper drives `setHeader`, owns a live TUI footer compositor over product facts plus Pi footer telemetry, filters out a chrome-owned status key while rendering foreign status entries, publishes diagnostic `setWidget` content, and sets the terminal title from one product-state snapshot. Existing branch-cancellation coverage still protects `I19-L`; spec/session picker tests prove decision UI remains separate from coordinator activation and runs as the same centered overlay component at startup and in-session.
+- **Brunch-host oracle:** FE-744 now exposes a thin internal extension entrypoint at `src/pi-extensions.ts`, with product modules for chrome (`src/tui-client/.pi/extensions/chrome.ts`), session-lifecycle binding (`session-lifecycle.ts`), command policy (`command-policy.ts`), the spec/session picker (`workspace-dialog.ts` plus private `src/tui-client/.pi/components/workspace-dialog/*` compatibility paths), operational-mode policy (`operational-mode.ts`), fixture-backed mention autocomplete (`mention-autocomplete.ts`), and alternatives cards (`alternatives.ts`). Tests prove one Brunch-owned wrapper drives `setHeader`, owns a live TUI footer compositor over product facts plus Pi footer telemetry, filters out a chrome-owned status key while rendering foreign status entries, publishes diagnostic `setWidget` content, and sets the terminal title from one product-state snapshot. Existing branch-cancellation coverage still protects `I19-L`; spec/session picker tests prove decision UI remains separate from coordinator activation and runs as the same centered overlay component at startup and in-session.
 - **Raw TUI visual oracle:** a temporary extension loaded with `script -q /tmp/brunch-chrome-tui-proof.typescript /bin/bash -lc "pi --no-session -e <temp-extension>"`; the transcript contained `BRUNCH HEADER PROOF`, `BRUNCH FOOTER PROOF`, `Spec: Proof Spec`, `observer: running`, and `lens: problem-framing`, proving header/footer/widget text is actually visible in a live Pi TUI render. The temp extension was deleted after the run.
 - **Raw RPC chrome oracle:** a temporary extension loaded with `pi --mode rpc --no-session -e <temp-extension>` emitted `extension_ui_request` events for `setStatus`, `setWidget`, and `notify`; header/footer/working-indicator calls produced no RPC events as expected from Pi's RPC implementation. The temp extension was deleted after the run.
 - **Live structured-question RPC oracle:** `npm run test:structured-question-rpc-proof` launches a real Pi RPC subprocess with a minimal Brunch structured-question proof extension, observes the documented `extension_ui_request(method: "editor")`, responds with `extension_ui_response(value: schema-tagged JSON)`, and asserts the persisted terminal result details use the same self-contained `brunch.structured_question.result` payload as the TUI/helper path.
@@ -85,7 +85,7 @@ Pi autocomplete persists only the text inserted into the editor. For both file c
 
 Brunch `#` mentions must therefore use a stable inserted handle (`#A12`, `#I7`, or a stable node id) as the durable transcript reference. If the agent needs deeper detail, Brunch must teach that convention through `before_agent_start` system-prompt injection and provide a read-only lookup/re-read tool that resolves the handle against the local graph DB. Any structured mention ledger or staleness state is Brunch-owned parsing/indexing work layered after insertion; it is not supplied by Pi autocomplete.
 
-The product `src/pi-extensions/mention-autocomplete.ts` follows this model: it inserts stable graph-code handles from an injectable Brunch mention source, explains via `before_agent_start` that labels/descriptions are UI-only, and leaves deeper detail lookup to future Brunch graph read tools.
+The product `src/tui-client/.pi/extensions/mention-autocomplete.ts` follows this model: it inserts stable graph-code handles from an injectable Brunch mention source, explains via `before_agent_start` that labels/descriptions are UI-only, and leaves deeper detail lookup to future Brunch graph read tools.
 
 ### Exact slash execution
 
@@ -121,7 +121,7 @@ The same probe emitted corresponding `notify` requests (`cancel switch new`, `ca
 
 ## Brunch extension layout and dynamic chrome proof
 
-The Brunch extension entrypoint is intentionally a registration map. `src/pi-extensions.ts` composes flat product-owned modules by Pi surface/responsibility:
+The Brunch extension entrypoint is intentionally a registration map. `src/pi-extensions.ts` composes product-owned modules under `src/tui-client/.pi/extensions/*` by Pi surface/responsibility:
 
 - `chrome.ts` owns `BrunchChromeState`, reusable formatting helpers, and `renderBrunchChrome()`.
 - `session-lifecycle.ts` owns coordinator refresh calls on Pi session lifecycle events.
@@ -129,7 +129,7 @@ The Brunch extension entrypoint is intentionally a registration map. `src/pi-ext
 - `workspace-dialog.ts` owns `/brunch`, `ctrl+shift+b`, and the in-session spec/session picker activation adapter.
 - `operational-mode.ts` owns the current `elicit` read-only tool policy pending transcript-backed runtime state.
 - `mention-autocomplete.ts` owns fixture-backed `#` mention autocomplete.
-- `alternatives.ts` owns the transcript-persistent alternatives/card primitive, using reusable widgets from `src/pi-components/*`.
+- `alternatives.ts` owns the transcript-persistent alternatives/card primitive, using reusable widgets from `src/tui-client/.pi/components/*`.
 
 `renderBrunchChrome(ctx.ui, state)` is the product-named wrapper downstream affordances should call instead of scattering raw Pi UI calls. The current code renders only facts present in `BrunchChromeState`:
 
@@ -153,10 +153,10 @@ Observed behavior:
 
 Brunch should render the startup/splash logo as TUI chrome, not as a session message, so it does not persist in the transcript/log. For the preferred blocky aesthetic, the selected rendering is a pre-generated Chafa Unicode-symbol asset rather than runtime image rendering:
 
-- Source PNG copied from the legacy Brunch app to `src/pi-components/workspace-dialog/assets/brunch.png`.
-- Preferred splash asset: `src/pi-components/workspace-dialog/assets/brunch-logo-quad-56x18.ansi`.
-- Lower-color fallback asset: `src/pi-components/workspace-dialog/assets/brunch-logo-quad-56x18-240.ansi`.
-- The build copies those assets to `dist/pi-components/workspace-dialog/assets` so runtime code can read them beside the compiled component.
+- Source PNG copied from the legacy Brunch app to `src/tui-client/.pi/components/workspace-dialog/assets/brunch.png`.
+- Preferred splash asset: `src/tui-client/.pi/components/workspace-dialog/assets/brunch-logo-quad-56x18.ansi`.
+- Lower-color fallback asset: `src/tui-client/.pi/components/workspace-dialog/assets/brunch-logo-quad-56x18-240.ansi`.
+- The build copies those assets to `dist/tui-client/.pi/components/workspace-dialog/assets` so runtime code can read them beside the compiled component.
 
 The selected generator command for the preferred asset is:
 
@@ -168,7 +168,7 @@ chafa -f symbols \
   --color-extractor=median \
   --bg=black \
   --size=56x18 \
-  src/pi-components/workspace-dialog/assets/brunch.png > src/pi-components/workspace-dialog/assets/brunch-logo-quad-56x18.ansi
+  src/tui-client/.pi/components/workspace-dialog/assets/brunch.png > src/tui-client/.pi/components/workspace-dialog/assets/brunch-logo-quad-56x18.ansi
 ```
 
 Runtime should **not** invoke Chafa on startup. The logo should be deterministic, cheap to render, and independent of host-installed CLI tools. Chafa is therefore a maintainer/dev tool at most, not a runtime dependency. Startup chrome should choose `brunch-logo-quad-56x18.ansi` when truecolor is available, otherwise `brunch-logo-quad-56x18-240.ansi`; for very limited terminals, a plain `brunch` wordmark is sufficient rather than carrying 16-color or 8-color assets.

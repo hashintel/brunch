@@ -2,7 +2,7 @@ import type {
   WorkspaceLaunchInventory,
   WorkspaceLaunchSession,
   SpecSessionActivationDecision,
-} from "../../workspace-session-coordinator.js"
+} from "../../../../workspace-session-coordinator.js"
 
 export type WorkspaceSelectionStage = { stage: "home" } | {
   stage: "newSpecTitle"

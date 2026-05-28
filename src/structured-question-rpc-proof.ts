@@ -114,7 +114,9 @@ export async function runStructuredQuestionRpcProof(
 
 async function writeProofExtension(cwd: string): Promise<string> {
   const extensionPath = join(cwd, "structured-question-rpc-proof-extension.ts")
-  const adapterPath = resolve("src/pi-extensions/structured-question.ts")
+  const adapterPath = resolve(
+    "src/tui-client/.pi/extensions/structured-question.ts",
+  )
   const content = `
     import type { ExtensionAPI } from "@earendil-works/pi-coding-agent"
     import {

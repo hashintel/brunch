@@ -9,7 +9,7 @@ import {
   createWorkspaceDialogComponent,
   selectWorkspaceSelectionOption,
   runWorkspaceDialogPreflight,
-} from "./pi-components/workspace-dialog/index.js"
+} from "./tui-client/.pi/components/workspace-dialog/index.js"
 import type { WorkspaceLaunchInventory } from "./workspace-session-coordinator.js"
 
 describe("spec/session picker", () => {
@@ -307,7 +307,7 @@ describe("spec/session picker", () => {
   it("keeps logo assets colocated with the private picker component", async () => {
     const source = await readFile(
       new URL(
-        "./pi-components/workspace-dialog/assets/brunch-logo-quad-56x18.ansi",
+        "./tui-client/.pi/components/workspace-dialog/assets/brunch-logo-quad-56x18.ansi",
         import.meta.url,
       ),
       "utf8",

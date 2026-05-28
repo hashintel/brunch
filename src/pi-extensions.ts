@@ -3,37 +3,37 @@ import {
   type ExtensionFactory,
 } from "@earendil-works/pi-coding-agent"
 
-import { registerBrunchAlternatives } from "./pi-extensions/alternatives.js"
-import { registerBrunchBranchPolicyHandlers } from "./pi-extensions/command-policy.js"
+import { registerBrunchAlternatives } from "./tui-client/.pi/extensions/alternatives.js"
+import { registerBrunchBranchPolicyHandlers } from "./tui-client/.pi/extensions/command-policy.js"
 import {
   FIXTURE_GRAPH_MENTION_SOURCE,
   registerBrunchMentionAutocomplete,
   type GraphMentionSource,
-} from "./pi-extensions/mention-autocomplete.js"
-import { registerBrunchOperationalModePolicy } from "./pi-extensions/operational-mode.js"
+} from "./tui-client/.pi/extensions/mention-autocomplete.js"
+import { registerBrunchOperationalModePolicy } from "./tui-client/.pi/extensions/operational-mode.js"
 import registerBrunchStructuredExchange from "./tui-client/.pi/extensions/structured-exchange/index.js"
-import { registerBrunchStructuredQuestion } from "./pi-extensions/structured-question.js"
+import { registerBrunchStructuredQuestion } from "./tui-client/.pi/extensions/structured-question.js"
 import {
   renderBrunchChrome,
   type BrunchChromeState,
-} from "./pi-extensions/chrome.js"
+} from "./tui-client/.pi/extensions/chrome.js"
 import {
   bindBrunchSessionBoundary,
   registerBrunchSessionBoundaryRefreshHandlers,
   type BrunchSessionBoundaryHandler,
-} from "./pi-extensions/session-lifecycle.js"
+} from "./tui-client/.pi/extensions/session-lifecycle.js"
 import {
   registerBrunchWorkspaceDialog,
   type BrunchSpecSessionPickerOptions,
-} from "./pi-extensions/workspace-dialog.js"
+} from "./tui-client/.pi/extensions/workspace-dialog.js"
 
-export { registerBrunchAlternatives } from "./pi-extensions/alternatives.js"
-export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from "./pi-extensions/command-policy.js"
+export { registerBrunchAlternatives } from "./tui-client/.pi/extensions/alternatives.js"
+export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from "./tui-client/.pi/extensions/command-policy.js"
 export {
   registerBrunchMentionAutocomplete,
   type GraphMentionCandidate,
   type GraphMentionSource,
-} from "./pi-extensions/mention-autocomplete.js"
+} from "./tui-client/.pi/extensions/mention-autocomplete.js"
 export {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -51,7 +51,7 @@ export {
   type OperationalModeDefinition,
   type OperationalModeId,
   type ResolvedBrunchAgentState,
-} from "./pi-extensions/operational-mode.js"
+} from "./tui-client/.pi/extensions/operational-mode.js"
 export {
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
@@ -62,12 +62,12 @@ export {
   type BrunchChromeState,
   type BrunchChromeUi,
   type BrunchChromeWorkerStatus,
-} from "./pi-extensions/chrome.js"
+} from "./tui-client/.pi/extensions/chrome.js"
 export {
   bindBrunchSessionBoundary,
   registerBrunchSessionBoundaryRefreshHandlers,
   type BrunchSessionBoundaryHandler,
-} from "./pi-extensions/session-lifecycle.js"
+} from "./tui-client/.pi/extensions/session-lifecycle.js"
 export {
   STRUCTURED_QUESTION_TOOL,
   answerStructuredQuestionWithTui,
@@ -77,7 +77,7 @@ export {
   registerBrunchStructuredQuestion,
   structuredQuestionResultFromEditor,
   type StructuredQuestionTuiResponse,
-} from "./pi-extensions/structured-question.js"
+} from "./tui-client/.pi/extensions/structured-question.js"
 export {
   BRUNCH_WORKSPACE_COMMAND,
   BRUNCH_WORKSPACE_SHORTCUT,
@@ -85,7 +85,7 @@ export {
   runBrunchWorkspaceAction,
   runBrunchWorkspaceCommand,
   type BrunchSpecSessionPickerOptions,
-} from "./pi-extensions/workspace-dialog.js"
+} from "./tui-client/.pi/extensions/workspace-dialog.js"
 
 export interface BrunchPiExtensionShellOptions
   extends BrunchSpecSessionPickerOptions {

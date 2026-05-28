@@ -6,7 +6,7 @@ import {
   extractHashPrefix,
   registerBrunchMentionAutocomplete,
   type GraphMentionSource,
-} from "./mention-autocomplete.js"
+} from "./.pi/extensions/mention-autocomplete.js"
 
 describe("Brunch mention autocomplete", () => {
   it("adds graph mention prompt guidance", async () => {

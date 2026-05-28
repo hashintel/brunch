@@ -9,7 +9,7 @@ import {
   formatChromeWidgetLines,
   projectBrunchChromeFooterLines,
   renderBrunchChrome,
-} from "./chrome.js"
+} from "./.pi/extensions/chrome.js"
 
 describe("Brunch chrome projection", () => {
   it("uses activated session state instead of fabricating unbound", async () => {
