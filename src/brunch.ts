@@ -7,7 +7,7 @@ import {
   renderWorkspaceSnapshot,
   workspaceSnapshotFromState,
 } from "./print-snapshot.js"
-import { createRpcHandlers, runJsonRpcLineServer } from "./rpc.js"
+import { createRpcHandlers, runJsonRpcLineServer } from "./rpc/handlers.js"
 import { startWebHost } from "./web-host.js"
 import {
   createWorkspaceSessionCoordinator,

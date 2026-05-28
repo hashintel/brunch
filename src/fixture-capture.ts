@@ -4,10 +4,10 @@ import { PassThrough } from "node:stream"
 import { fileURLToPath } from "node:url"
 
 import { loadBriefLibrary, type FixtureBrief } from "./brief-library.js"
-import { createRpcHandlers, runJsonRpcLineServer } from "./rpc.js"
+import { createRpcHandlers, runJsonRpcLineServer } from "./rpc/handlers.js"
 import type { ElicitationExchangeProjection } from "./elicitation-exchange.js"
 import type { WorkspaceSnapshot } from "./print-snapshot.js"
-import type { JsonRpcResponse } from "./json-rpc-protocol.js"
+import type { JsonRpcResponse } from "./rpc/protocol.js"
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionBoundaryCoordinator,

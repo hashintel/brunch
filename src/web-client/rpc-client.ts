@@ -3,9 +3,9 @@ import type {
   JsonRpcId,
   JsonRpcRequest,
   JsonRpcResponse,
-} from "../json-rpc-protocol.js"
+} from "../rpc/protocol.js"
 
-export type { JsonRpcRequest, JsonRpcResponse } from "../json-rpc-protocol.js"
+export type { JsonRpcRequest, JsonRpcResponse } from "../rpc/protocol.js"
 
 type WebSocketEventListener = (event: { data?: unknown }) => void
 

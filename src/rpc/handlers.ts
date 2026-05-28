@@ -8,11 +8,11 @@ import {
   readBrunchSessionEnvelope,
   NonLinearTranscriptError,
   type BrunchSessionEnvelope,
-} from "./brunch-session-envelope.js"
+} from "../brunch-session-envelope.js"
 import {
   projectLinearElicitationExchangeProjection,
   projectLinearTranscriptDisplayProjection,
-} from "./elicitation-exchange.js"
+} from "../elicitation-exchange.js"
 import {
   createJsonRpcFailure,
   createJsonRpcSuccess,
@@ -22,13 +22,13 @@ import {
   type JsonRpcId,
   type JsonRpcRequest,
   type JsonRpcResponse,
-} from "./json-rpc-protocol.js"
-import { workspaceSnapshotFromState } from "./print-snapshot.js"
+} from "./protocol.js"
+import { workspaceSnapshotFromState } from "../print-snapshot.js"
 import {
   resolveExplicitSessionProjectionTarget,
   type ExplicitSessionProjectionParams,
   type SessionProjectionTarget,
-} from "./session-projection-reader.js"
+} from "../session-projection-reader.js"
 import type {
   DefaultWorkspaceCoordinator,
   WorkspaceActivationState,
@@ -36,7 +36,7 @@ import type {
   WorkspaceSessionState,
   SpecSessionActivationCoordinator,
   SpecSessionActivationDecision,
-} from "./workspace-session-coordinator.js"
+} from "../workspace-session-coordinator.js"
 
 export interface RpcHandlers {
   handle(request: unknown): Promise<JsonRpcResponse>

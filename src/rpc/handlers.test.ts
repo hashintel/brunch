@@ -8,10 +8,10 @@ import { SessionManager } from "@earendil-works/pi-coding-agent"
 
 import { Value } from "typebox/value"
 
-import { createRpcHandlers, runJsonRpcLineServer } from "./rpc.js"
-import { createSessionBindingData } from "./session-binding.js"
-import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
-import { assistantMessage, userMessage } from "./test-helpers.js"
+import { createRpcHandlers, runJsonRpcLineServer } from "./handlers.js"
+import { createSessionBindingData } from "../session-binding.js"
+import { createWorkspaceSessionCoordinator } from "../workspace-session-coordinator.js"
+import { assistantMessage, userMessage } from "../test-helpers.js"
 import type {
   DefaultWorkspaceCoordinator,
   WorkspaceActivationState,
@@ -20,7 +20,7 @@ import type {
   WorkspaceSessionState,
   SpecSessionActivationCoordinator,
   SpecSessionActivationDecision,
-} from "./workspace-session-coordinator.js"
+} from "../workspace-session-coordinator.js"
 
 function coordinator(
   state: WorkspaceSessionState = readyState(
@@ -440,7 +440,10 @@ describe("JSON-RPC handlers", () => {
   })
 
   it("keeps RPC initial selection independent from TUI picker imports", async () => {
-    const source = await readFile(new URL("./rpc.ts", import.meta.url), "utf8")
+    const source = await readFile(
+      new URL("./handlers.ts", import.meta.url),
+      "utf8",
+    )
 
     expect(source).not.toContain("workspace-dialog")
     expect(source).not.toContain("createWorkspaceDialogComponent")

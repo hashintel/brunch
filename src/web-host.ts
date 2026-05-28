@@ -3,8 +3,8 @@ import { createServer, type Server } from "node:http"
 import { dirname, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { createRpcHandlers } from "./rpc.js"
-import { attachWebRpcTransport } from "./web-rpc-transport.js"
+import { createRpcHandlers } from "./rpc/handlers.js"
+import { attachWebRpcTransport } from "./rpc/websocket.js"
 import type { WorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
 
 export interface WebHostOptions {

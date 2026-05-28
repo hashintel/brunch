@@ -7,7 +7,7 @@ import {
   dispatchJsonRpcMessage,
   isJsonRpcRequest,
   parseJsonRpcMessage,
-} from "./json-rpc-protocol.js"
+} from "./protocol.js"
 
 describe("JSON-RPC protocol helpers", () => {
   it("recognizes valid request IDs and rejects invalid request shapes", () => {

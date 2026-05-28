@@ -2,8 +2,8 @@ import type { Server as HttpServer } from "node:http"
 
 import { WebSocketServer, type RawData } from "ws"
 
-import { dispatchJsonRpcMessage } from "./json-rpc-protocol.js"
-import type { RpcHandlers } from "./rpc.js"
+import { dispatchJsonRpcMessage } from "./protocol.js"
+import type { RpcHandlers } from "./handlers.js"
 
 export interface WebRpcTransport {
   close(): Promise<void>
