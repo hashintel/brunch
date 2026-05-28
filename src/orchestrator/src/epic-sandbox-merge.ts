@@ -36,8 +36,8 @@ export function epicIdsForEpicVerifyMerge(plan: Plan, epicId: string): string[] 
     if (epicIds.has(id)) return;
     const epic = plan.epics.find((e) => e.id === id);
     if (!epic) return;
-    for (const dep of epic.depends_on) visitEpic(dep);
     epicIds.add(id);
+    for (const dep of epic.depends_on) visitEpic(dep);
   };
 
   const visitedSliceDeps = new Set<string>();

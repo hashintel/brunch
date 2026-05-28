@@ -75,6 +75,18 @@ describe('epicIdsForEpicVerifyMerge', () => {
     expect(() => epicIdsForEpicVerifyMerge(cyclicPlan, 'e1')).not.toThrow();
     expect(epicIdsForEpicVerifyMerge(cyclicPlan, 'e1')).toEqual(['e1']);
   });
+
+  it('tolerates cyclic epic depends_on without stack overflow', () => {
+    const cyclicPlan: Plan = {
+      epics: [
+        { id: 'e1', summary: '', depends_on: ['e2'], verification: [] },
+        { id: 'e2', summary: '', depends_on: ['e1'], verification: [] },
+      ],
+      slices: [{ id: 's1', epic_id: 'e1', definition: '', depends_on: [], verification: [] }],
+    };
+    expect(() => epicIdsForEpicVerifyMerge(cyclicPlan, 'e1')).not.toThrow();
+    expect(epicIdsForEpicVerifyMerge(cyclicPlan, 'e1')).toEqual(['e1', 'e2']);
+  });
 });
 
 describe('sliceIdsForEpicVerifyMerge', () => {
