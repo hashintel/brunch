@@ -6,9 +6,9 @@ import { describe, expect, it } from "vitest"
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
-} from "./workspace-session-coordinator.js"
-import { loadLinearElicitationExchangeProjection } from "./elicitation-exchange.js"
-import { assistantMessage, userMessage } from "./test-helpers.js"
+} from "../workspace-session-coordinator.js"
+import { loadLinearElicitationExchangeProjection } from "../elicitation-exchange.js"
+import { assistantMessage, userMessage } from "../test-helpers.js"
 import {
   captureDeterministicBriefRuns,
   captureFixtureRun,

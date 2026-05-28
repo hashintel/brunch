@@ -48,7 +48,7 @@ run_check "Per-brief binding/title alignment and metadata/projection parity" \
   node --import "$TSX_LOADER" --input-type=module <<'NODE'
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import { loadBriefLibrary } from "./src/brief-library.ts"
+import { loadBriefLibrary } from "./src/probes/brief-library.ts"
 import { loadJsonlTranscriptEntries, projectElicitationExchanges } from "./src/elicitation-exchange.ts"
 
 const briefs = await loadBriefLibrary(".brunch-fixtures/briefs")

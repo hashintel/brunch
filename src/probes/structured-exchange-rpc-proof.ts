@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import type { StructuredExchangeToolResultDetails } from "./tui-client/.pi/extensions/structured-exchange/index.js"
+import type { StructuredExchangeToolResultDetails } from "../tui-client/.pi/extensions/structured-exchange/index.js"
 
 interface ProbeMetadata {
   name: string
@@ -245,7 +245,7 @@ async function readProofDetails(
 function piCliPath(): string {
   return fileURLToPath(
     new URL(
-      "../node_modules/@earendil-works/pi-coding-agent/dist/cli.js",
+      "../../node_modules/@earendil-works/pi-coding-agent/dist/cli.js",
       import.meta.url,
     ),
   )

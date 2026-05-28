@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import process from "node:process"
 
-import { verifyWorkspaceSessionStores } from "./workspace-session-coordinator.js"
+import { verifyWorkspaceSessionStores } from "../workspace-session-coordinator.js"
 
 const cwd = process.argv[2]
 const expectedSessionCount = process.argv[3]
@@ -10,7 +10,7 @@ const expectedSessionCount = process.argv[3]
 
 if (!cwd || Number.isNaN(expectedSessionCount)) {
   process.stderr.write(
-    "Usage: tsx src/check-workspace-session-stores.ts <cwd> [expected-session-count]\n",
+    "Usage: tsx src/probes/check-workspace-session-stores.ts <cwd> [expected-session-count]\n",
   )
   process.exit(2)
 }

@@ -4,16 +4,16 @@ import { PassThrough } from "node:stream"
 import { fileURLToPath } from "node:url"
 
 import { loadBriefLibrary, type FixtureBrief } from "./brief-library.js"
-import { createRpcHandlers, runJsonRpcLineServer } from "./rpc/handlers.js"
-import type { ElicitationExchangeProjection } from "./elicitation-exchange.js"
-import type { WorkspaceSnapshot } from "./print-snapshot.js"
-import type { JsonRpcResponse } from "./rpc/protocol.js"
+import { createRpcHandlers, runJsonRpcLineServer } from "../rpc/handlers.js"
+import type { ElicitationExchangeProjection } from "../elicitation-exchange.js"
+import type { WorkspaceSnapshot } from "../print-snapshot.js"
+import type { JsonRpcResponse } from "../rpc/protocol.js"
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionBoundaryCoordinator,
   type WorkspaceSessionCoordinator,
   type WorkspaceSetupCoordinator,
-} from "./workspace-session-coordinator.js"
+} from "../workspace-session-coordinator.js"
 
 export interface FixtureCaptureOptions {
   cwd: string
@@ -178,7 +178,12 @@ async function readPackageVersion(): Promise<string> {
   try {
     const packageJson = JSON.parse(
       await readFile(
-        join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"),
+        join(
+          dirname(fileURLToPath(import.meta.url)),
+          "..",
+          "..",
+          "package.json",
+        ),
         "utf8",
       ),
     ) as {
