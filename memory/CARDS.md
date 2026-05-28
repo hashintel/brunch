@@ -1,123 +1,92 @@
 <!-- CARDS.md — temporary execution queue for the active FE-744 frontier.
      Delete when exhausted or superseded. Canonical state remains in memory/SPEC.md and memory/PLAN.md. -->
 
-# Cards — FE-744 structured exchange proof
+# Cards — FE-744 public RPC elicitation parity
 
 ## Orientation
 
-- **Containing seam:** FE-744 `pi-ui-extension-patterns`, specifically the structured-exchange tool surface now hosted at `src/pi-extensions/structured-exchange.ts` with a project-local Pi loader at `.pi/extensions/structured-exchange.ts`.
-- **Frontier item:** `pi-ui-extension-patterns`; these cards are slices inside the existing FE-744 Linear/branch boundary, not new tracker items.
-- **Volatile state:** `HANDOFF.md` is absent; the working tree was clean before this queue was written. Canonical reconciliation for the newly remembered optional-note requirement has been applied to `memory/SPEC.md` and `memory/PLAN.md`.
-- **Main open risk:** the TUI note step must not make the active `ctx.ui.custom()` surface tall again, and the RPC proof must falsify semantic parity rather than merely proving a low-level Pi editor request round-trips.
+- **Containing seam:** FE-744 `pi-ui-extension-patterns`, now re-aimed from the completed raw Pi RPC editor-fallback proof toward the public Brunch JSON-RPC elicitation session parity proof.
+- **Frontier item:** `pi-ui-extension-patterns`; this card is a slice inside the existing FE-744 Linear/branch boundary, not a new tracker item or branch.
+- **Volatile handoff state:** `HANDOFF.md` remains an untracked transfer artifact. Its durable claims have been reconciled into `memory/SPEC.md` / `memory/PLAN.md`; do not treat the old completed card queue as active.
+- **Main open risk:** discovery must be useful to an agent-as-user without becoming a generic RPC platform or drifting away from the handlers that actually validate and serve Brunch methods.
 
 ## Cross-cutting obligations for all cards
 
-- Preserve Pi transcript truth: terminal structured exchange results must be self-contained in `toolResult.details` (or proof custom entry details where the probe directly exercises adapter helpers).
-- Preserve linear transcript policy: no Pi branching, no parallel chat/turn store, and no mid-turn state outside the established Pi transcript / Brunch handler seams.
-- Keep option-selection `note` separate from `Other`/custom answers: `Other` is an answer value; `note` is additional context attached to the selected answer(s).
-- Keep full question/details content out of the focused picker unless a later explicit internal viewport slice is scoped.
-- Do not mutate the user-level Pi extension/config under `/Users/lunelson/.pi/agent/`.
+- Public clients speak Brunch JSON-RPC only. Raw Pi RPC may be used behind Brunch adapters, but method discovery must not expose Pi command objects, Pi `get_commands`, or slash-command internals as Brunch product methods.
+- Preserve TypeBox as the runtime schema vocabulary for Brunch boundaries (`D41-L`); do not introduce Zod or hand-wavy schema prose for RPC discovery.
+- Preserve the thin named-method-family posture (`D19-L`): concrete product methods and projection handlers, not a generic read gateway or generic records API.
+- Preserve workspace/spec/session hierarchy and explicit activation semantics (`D11-L`, `D21-L`, `I22-L`). Discovery must describe activation; it must not silently activate or create sessions.
+- Preserve linear transcript policy and transcript-backed elicitation (`I19-L`, `I23-L`, `I32-L`) even though this first card does not yet implement pending/respond.
 
 ---
 
-## Card 1 — Option-selection note step in TUI
+## Card 1 — Public RPC method discovery registry
 
 - **Status:** done
-- **Weight:** light build card inside a now-reconciled structural frontier
+- **Weight:** full scope card — establishes the public method-discovery seam for FE-744 and becomes the contract source for later agent-as-user probes.
 
-### Objective
+### Target Behavior
 
-Option-based structured exchanges advance from answer selection to a focused optional-note editor before submitting the terminal result.
+A Brunch JSON-RPC client can call `rpc.discover` with no params and receive a self-describing list of currently supported public Brunch methods with descriptions, parameter schemas, result schemas, and example calls.
+
+### Boundary Crossings
+
+```text
+→ JSON-RPC request { method: "rpc.discover" }
+→ createRpcHandlers dispatch
+→ Brunch-owned RPC method registry / schema descriptions
+→ TypeBox/JSON-Schema-shaped method metadata
+→ JSON-RPC success response usable by CLI/web/fixture clients
+```
+
+### Risks and Assumptions
+
+- RISK: Discovery schemas drift from handler validation schemas.
+  → MITIGATION: centralize discoverable method metadata near the RPC handler layer; reuse exported TypeBox schemas where they already exist (for example `SpecSessionActivationDecisionSchema` / activation params) rather than duplicating shapes in comments.
+- RISK: Discovery tries to describe future methods and misleads the agent-as-user probe.
+  → MITIGATION: `rpc.discover` lists only methods implemented by the current host in this slice; pending future methods (`session.startElicitation`, `session.pendingExchange`, `elicitation.respond`) land with their own cards.
+- RISK: Examples become a second informal contract that diverges from schemas.
+  → MITIGATION: tests assert examples are valid JSON-RPC request shapes for their advertised methods and include no raw Pi RPC commands.
+- ASSUMPTION: A compact hand-authored registry for the current method set is enough to bootstrap public discovery without refactoring the whole dispatcher into a framework.
+  → IMPACT IF FALSE: later pending/respond work may need a deeper handler-table refactor before the parity driver can rely on discovery.
+  → VALIDATE: this card lands a discoverable registry for all currently implemented public methods and tests it against existing handler behavior.
+  → `memory/SPEC.md` §Assumptions: A23-L.
 
 ### Acceptance Criteria
 
-✓ Single-select mode moves to a note step after selecting a listed option or `Other`; the note editor is focused; pressing Enter submits even when empty.  
-✓ Multi-select mode moves to a note step after activating Submit; the note editor is focused; pressing Enter submits even when empty.  
-✓ Esc from the note step returns to the answer picker with prior selections preserved rather than cancelling the whole exchange.  
-✓ `toolResult.details` for answered option modes includes a string `note` field, with `""` representing an intentionally empty note.  
-✓ `Other` remains represented as an `OtherAnswer`; it is not folded into `note`.  
-✓ `renderResult` shows the note only when non-empty while preserving the selected/rejected summary.  
-✓ Text/freeform mode behavior is unchanged by this card.
+✓ `rpc.discover` — returns entries for `rpc.discover`, `workspace.snapshot`, `workspace.selectionState`, `workspace.activate`, `session.elicitationExchanges`, and `session.transcriptDisplay`.
+
+✓ `rpc.discover` params contract — rejects any non-empty `params` with JSON-RPC `-32602 Invalid params`.
+
+✓ Method metadata shape — every discovered method has `method`, `description`, `paramsSchema`, `resultSchema`, and at least one JSON-RPC example call.
+
+✓ Product boundary — discovery does not list raw Pi RPC commands such as `prompt`, `get_state`, `get_commands`, or slash command names.
+
+✓ Schema usefulness — `workspace.activate` discovery exposes the activation decision union closely enough that a client can see `continue`, `openSession`, `newSession`, `newSpec`, and `cancel` variants without reading source.
+
+✓ Drift guard — examples in discovery are valid JSON-RPC request objects for advertised methods, and tests fail if discovery omits an implemented public method or advertises an unsupported method.
 
 ### Verification Approach
 
-- **Inner:** `npm run fix`; targeted `vitest` for structured-exchange tests; `npm run check`.
-- **Middle:** component/state-machine tests drive the registered tool through fake `ctx.ui.custom()` callbacks for single-select and multi-select, including empty-note and non-empty-note submissions.
-- **Outer:** optional manual TUI smoke to confirm the note step feels like a compact second tab/step and does not reintroduce tall active content.
+- **Inner:** `npm run fix`; targeted `vitest` for `src/rpc.test.ts`; `npm run check`.
+- **Middle:** JSON-RPC contract tests for discovery shape, invalid params, no raw Pi exposure, example validity, and registry/dispatcher method parity for the currently implemented public method set.
+- **Outer:** none for this card; human review of the discovery response is sufficient until the agent-as-user parity driver consumes it.
+
+### Cross-cutting obligations
+
+- Keep discovery Brunch-owned and product-shaped (`D5-L`, `D48-L`); do not copy Pi's non-JSON-RPC command shape.
+- Keep TypeBox/JSON-Schema as the schema vocabulary for RPC boundary metadata (`D41-L`).
+- Keep discovery scoped to named Brunch method families (`D19-L`); do not introduce generic `records.*` or a read-model platform.
+- Preserve activation/session semantics: describe `workspace.*` methods without opening sessions or invoking TUI picker code (`I22-L`).
 
 ### Promotion checklist
 
-- [ ] Requirement already reconciled? Yes — SPEC/PLAN now name optional notes for option-selection exchanges.
-- [ ] Creates/retires/invalidates an assumption? No.
-- [ ] New seam-level invariant? No; implements the existing structured-result self-containment invariant.
-- [ ] More than two major seams? No — TUI tool UI + result payload/rendering.
-
----
-
-## Card 2 — RPC editor fallback carries option notes
-
-- **Status:** done
-- **Weight:** light build card, dependent on Card 1 result shape
-
-### Objective
-
-The structured-exchange tool can collect option answers plus optional notes through Pi RPC using schema-tagged JSON over `ctx.ui.editor()` instead of `ctx.ui.custom()`.
-
-### Acceptance Criteria
-
-✓ In an RPC-compatible path, single-select payloads include options, selected answer, and `note`.  
-✓ In an RPC-compatible path, multi-select payloads include options, selected answers, and `note`.  
-✓ Empty-note submissions round-trip as `note: ""`.  
-✓ Invalid editor JSON returns a structured terminal failure or retry/error result without producing a malformed answered payload.  
-✓ TUI `ctx.ui.custom()` behavior from Card 1 remains the rich path; RPC/editor fallback is an adapter over Pi-supported extension UI, not a new public Pi command family.
-
-### Verification Approach
-
-- **Inner:** `npm run fix`; targeted helper/adapter tests; `npm run check`.
-- **Middle:** contract tests for JSON prefill/parse/validation prove the returned `toolResult.details` is self-contained for option answers plus notes.
-- **Outer:** defer full subprocess RPC proof to Card 3.
-
-### Promotion checklist
-
-- [ ] Requirement already reconciled? Yes.
-- [ ] Creates/retires/invalidates an assumption? No unless Pi RPC cannot express the fallback.
-- [ ] New seam-level invariant? No; it exercises D38-L JSON-over-editor compatibility.
-- [ ] More than two major seams? Borderline but acceptable: tool result model + Pi RPC editor adapter; public Brunch relay stays for later proof work.
-
----
-
-## Card 3 — RPC structured-exchange evaluator proof
-
-- **Status:** done
-- **Weight:** light build/proof card, dependent on Card 2 RPC fallback
-
-### Objective
-
-A repeatable RPC probe demonstrates that an agent-as-user can complete an option-based structured exchange with an optional note and report blocker/friction findings.
-
-### Acceptance Criteria
-
-✓ The probe runs Pi in `--mode rpc` with the project structured-exchange extension or a minimal proof extension importing the same implementation/helpers.  
-✓ The evaluator scenario declares mission/intention, UX or feature-evaluation focus, and max-turn budget in the probe fixture/result.  
-✓ The scripted agent-as-user response selects at least one option and submits a non-empty note.  
-✓ The captured terminal details include prompt/question, options, selected answer(s), rejected option context where applicable, `note`, mode, status, and transport/probe metadata sufficient for Brunch projection.  
-✓ The probe emits a blocker/friction report even when no blockers are found.  
-✓ A regression test fails if the RPC path silently drops `note` or only proves raw `extension_ui_request(editor)` without validating the structured result payload.
-
-### Verification Approach
-
-- **Inner:** `npm run fix`; targeted `vitest` for the RPC proof; `npm run check`.
-- **Middle:** subprocess RPC proof analogous to `src/structured-question-rpc-proof.ts`, but shaped around structured exchange option selection plus note.
-- **Outer:** manual review of the saved probe result/session snippet to confirm the transcript is intelligible as evidence, not just protocol noise.
-
-### Promotion checklist
-
-- [ ] Requirement already reconciled? Yes.
-- [ ] Creates/retires/invalidates an assumption? No if it passes; if it fails, route to `ln-plan`/`ln-spike` because A5-L / FE-744 RPC proof pressure changes.
-- [ ] New seam-level invariant? No; it adds coverage to existing structured-exchange/RPC obligations.
-- [ ] More than two major seams? No for the proof harness; public web relay remains intentionally out of this queue.
-
-## Not queued yet
-
-- Web real-time update smoke should be scoped after Card 3, because its exact target should follow the proven RPC/public-surface shape rather than guessing ahead.
-- Invocation-discipline tightening should be scoped separately after the transport proof, because it changes assistant-facing tool guidance rather than response semantics.
+- [x] Does this change a requirement? Already reconciled in `memory/SPEC.md` as R27/R24/R28.
+- [x] Does this create, retire, or invalidate an assumption? It advances but does not retire A23-L.
+- [x] Does this slice depend on an unvalidated high-impact assumption? It attacks A23-L as the first tracer bullet rather than assuming the whole ten-turn proof works.
+- [x] Does this make or reverse a non-trivial design decision? Already reconciled as D48-L; this card implements it.
+- [x] Does this establish a new seam-level invariant? Already reconciled as I32-L; this card establishes the discovery part.
+- [ ] Does this change a frontier-level cross-cutting obligation or verification architecture layer? No — obligations were reconciled in SPEC/PLAN before this card.
+- [ ] Does it cross more than two major seams? No — JSON-RPC dispatch + registry/schema metadata.
+- [x] Is this the first touch in an unfamiliar seam from a fresh thread? Yes; use full card.
+- [ ] Can you not name the containing seam or current rationale from the live docs? No.

@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest"
 
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
+import { Value } from "typebox/value"
+
 import { createRpcHandlers, runJsonRpcLineServer } from "./rpc.js"
 import { createSessionBindingData } from "./session-binding.js"
 import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
@@ -176,6 +178,160 @@ function sessionBindingEntry(sessionId = "session-1", specId = "spec-1") {
 }
 
 describe("JSON-RPC handlers", () => {
+  it("discovers the current public Brunch JSON-RPC surface", async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: "/tmp/brunch-project",
+    })
+
+    const response = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 30,
+      method: "rpc.discover",
+    })
+
+    expect(response).toMatchObject({ jsonrpc: "2.0", id: 30 })
+    if (!("result" in response)) throw new Error("expected success response")
+
+    const methods = (response.result as {
+      methods: Array<{
+        method: string
+        description: string
+        paramsSchema: unknown
+        resultSchema: unknown
+        examples: Array<Record<string, unknown>>
+      }>
+    }).methods
+    expect(methods.map((entry) => entry.method).sort()).toEqual([
+      "rpc.discover",
+      "session.elicitationExchanges",
+      "session.transcriptDisplay",
+      "workspace.activate",
+      "workspace.selectionState",
+      "workspace.snapshot",
+    ])
+
+    const discoveredNames = new Set(methods.map((entry) => entry.method))
+    for (const entry of methods) {
+      expect(entry.description).toEqual(expect.any(String))
+      expect(entry.description.length).toBeGreaterThan(10)
+      expect(entry.paramsSchema).toEqual(expect.any(Object))
+      expect(entry.resultSchema).toEqual(expect.any(Object))
+      expect(entry.examples.length).toBeGreaterThanOrEqual(1)
+      for (const example of entry.examples) {
+        expect(example).toMatchObject({ jsonrpc: "2.0", method: entry.method })
+        expect(discoveredNames.has(String(example.method))).toBe(true)
+      }
+    }
+  })
+
+  it("rejects params on method discovery", async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: "/tmp/brunch-project",
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 31,
+        method: "rpc.discover",
+        params: {},
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 31,
+      error: { code: -32602, message: "Invalid params" },
+    })
+  })
+
+  it("keeps discovery product-shaped and exposes workspace activation variants", async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: "/tmp/brunch-project",
+    })
+
+    const response = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 32,
+      method: "rpc.discover",
+    })
+    if (!("result" in response)) throw new Error("expected success response")
+
+    const result = response.result as {
+      methods: Array<{
+        method: string
+        paramsSchema: unknown
+        examples: unknown[]
+      }>
+    }
+    const methods = result.methods
+    const discoveryJson = JSON.stringify(result)
+    expect(discoveryJson).not.toContain("get_commands")
+    expect(discoveryJson).not.toContain("get_state")
+    expect(discoveryJson).not.toContain("prompt")
+    expect(discoveryJson).not.toContain("/brunch")
+
+    const activation = methods.find(
+      (entry) => entry.method === "workspace.activate",
+    )
+    expect(activation).toBeDefined()
+    const activationSchema = JSON.stringify(activation?.paramsSchema)
+    for (const action of [
+      "continue",
+      "openSession",
+      "newSession",
+      "newSpec",
+      "cancel",
+    ]) {
+      expect(activationSchema).toContain(action)
+    }
+  })
+
+  it("serves discovery examples that are valid JSON-RPC requests for advertised methods", async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: "/tmp/brunch-project",
+    })
+
+    const response = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 33,
+      method: "rpc.discover",
+    })
+    if (!("result" in response)) throw new Error("expected success response")
+
+    const methods = (response.result as {
+      methods: Array<{
+        method: string
+        examples: unknown[]
+      }>
+    }).methods
+    const discoveredNames = new Set(methods.map((entry) => entry.method))
+    const exampleRequestSchema = {
+      type: "object",
+      properties: {
+        jsonrpc: { const: "2.0" },
+        id: {
+          anyOf: [{ type: "string" }, { type: "number" }, { type: "null" }],
+        },
+        method: { type: "string" },
+        params: {},
+      },
+      required: ["jsonrpc", "method"],
+      additionalProperties: false,
+    }
+
+    for (const entry of methods) {
+      for (const example of entry.examples) {
+        expect(Value.Check(exampleRequestSchema, example)).toBe(true)
+        expect(
+          discoveredNames.has((example as { method: string }).method),
+        ).toBe(true)
+      }
+    }
+  })
+
   it("serves structured workspace selection state without invoking the TUI picker", async () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator(selectSpecState()),

@@ -20,6 +20,7 @@ import {
   jsonRpcRequestId,
   dispatchJsonRpcMessage,
   type JsonRpcId,
+  type JsonRpcRequest,
   type JsonRpcResponse,
 } from "./json-rpc-protocol.js"
 import { workspaceSnapshotFromState } from "./print-snapshot.js"
@@ -52,6 +53,13 @@ export function createRpcHandlers(options: {
       }
 
       const requestId = jsonRpcRequestId(request)
+
+      if (request.method === "rpc.discover") {
+        if (request.params !== undefined) {
+          return createJsonRpcFailure(requestId, -32602, "Invalid params")
+        }
+        return createJsonRpcSuccess(requestId, discoverPublicRpcMethods())
+      }
 
       if (request.method === "workspace.snapshot") {
         if (request.params !== undefined) {
@@ -203,6 +211,188 @@ const WorkspaceActivationParamsSchema = Type.Object(
 )
 
 type WorkspaceActivationParams = Static<typeof WorkspaceActivationParamsSchema>
+
+const NoParamsSchema = Type.Void({ description: "Omit JSON-RPC params." })
+
+const WorkspaceSnapshotResultSchema = Type.Object(
+  {
+    status: Type.String(),
+    cwd: Type.String(),
+    spec: Type.Union([
+      Type.Null(),
+      Type.Object({ id: Type.String(), title: Type.String() }, {
+        additionalProperties: true,
+      }),
+    ]),
+    chrome: Type.Object({}, { additionalProperties: true }),
+  },
+  { additionalProperties: true },
+)
+
+const WorkspaceSelectionStateResultSchema = Type.Object(
+  {
+    status: Type.String(),
+    requiresSelection: Type.Boolean(),
+    cwd: Type.String(),
+    specs: Type.Array(Type.Object({}, { additionalProperties: true })),
+    unavailableSessions: Type.Array(
+      Type.Object({}, { additionalProperties: true }),
+    ),
+  },
+  { additionalProperties: true },
+)
+
+const WorkspaceActivationResultSchema = Type.Union([
+  WorkspaceSnapshotResultSchema,
+  Type.Object(
+    {
+      status: Type.Literal("cancelled"),
+      cwd: Type.String(),
+      spec: Type.Union([
+        Type.Null(),
+        Type.Object({ id: Type.String(), title: Type.String() }, {
+          additionalProperties: true,
+        }),
+      ]),
+      chrome: Type.Object(
+        {
+          phase: Type.Union([
+            Type.Literal("select_spec"),
+            Type.Literal("elicitation"),
+          ]),
+          chatMode: Type.Union([
+            Type.Literal("select-spec"),
+            Type.Literal("responding-to-elicitation"),
+          ]),
+        },
+        { additionalProperties: false },
+      ),
+    },
+    { additionalProperties: false },
+  ),
+])
+
+const SessionProjectionParamsSchema = Type.Object(
+  {
+    sessionId: NonBlankStringSchema,
+    specId: Type.Optional(NonBlankStringSchema),
+  },
+  { additionalProperties: false },
+)
+
+const ElicitationExchangesResultSchema = Type.Object(
+  {
+    status: Type.String(),
+    exchanges: Type.Array(Type.Object({}, { additionalProperties: true })),
+  },
+  { additionalProperties: true },
+)
+
+const TranscriptDisplayResultSchema = Type.Object(
+  {
+    rows: Type.Array(Type.Object({}, { additionalProperties: true })),
+  },
+  { additionalProperties: true },
+)
+
+type RpcMethodDiscovery = {
+  method: string
+  description: string
+  paramsSchema: unknown
+  resultSchema: unknown
+  examples: JsonRpcRequest[]
+}
+
+function discoverPublicRpcMethods(): { methods: RpcMethodDiscovery[] } {
+  return { methods: PUBLIC_RPC_METHOD_DISCOVERY }
+}
+
+const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
+  {
+    method: "rpc.discover",
+    description:
+      "List the public Brunch JSON-RPC methods supported by this host with schemas and example calls.",
+    paramsSchema: NoParamsSchema,
+    resultSchema: Type.Object(
+      { methods: Type.Array(Type.Object({}, { additionalProperties: true })) },
+      { additionalProperties: false },
+    ),
+    examples: [{ jsonrpc: "2.0", id: 1, method: "rpc.discover" }],
+  },
+  {
+    method: "workspace.snapshot",
+    description:
+      "Return the current Brunch workspace/spec/session snapshot for the invocation cwd without changing activation state.",
+    paramsSchema: NoParamsSchema,
+    resultSchema: WorkspaceSnapshotResultSchema,
+    examples: [{ jsonrpc: "2.0", id: 2, method: "workspace.snapshot" }],
+  },
+  {
+    method: "workspace.selectionState",
+    description:
+      "Return the product-shaped workspace inventory and whether the client must choose or create a spec/session before an agent loop can run.",
+    paramsSchema: NoParamsSchema,
+    resultSchema: WorkspaceSelectionStateResultSchema,
+    examples: [{ jsonrpc: "2.0", id: 3, method: "workspace.selectionState" }],
+  },
+  {
+    method: "workspace.activate",
+    description:
+      "Apply an explicit workspace→spec→session activation decision such as continuing, opening a session, creating a session, creating a spec, or cancelling.",
+    paramsSchema: WorkspaceActivationParamsSchema,
+    resultSchema: WorkspaceActivationResultSchema,
+    examples: [
+      {
+        jsonrpc: "2.0",
+        id: 4,
+        method: "workspace.activate",
+        params: { decision: { action: "newSpec", title: "POC spec" } },
+      },
+      {
+        jsonrpc: "2.0",
+        id: 5,
+        method: "workspace.activate",
+        params: {
+          decision: {
+            action: "openSession",
+            specId: "spec-1",
+            sessionFile: ".brunch/sessions/session-1.jsonl",
+          },
+        },
+      },
+    ],
+  },
+  {
+    method: "session.elicitationExchanges",
+    description:
+      "Project structured elicitation exchanges from the selected or explicitly named linear Brunch session transcript.",
+    paramsSchema: SessionProjectionParamsSchema,
+    resultSchema: ElicitationExchangesResultSchema,
+    examples: [
+      {
+        jsonrpc: "2.0",
+        id: 6,
+        method: "session.elicitationExchanges",
+        params: { sessionId: "session-1", specId: "spec-1" },
+      },
+    ],
+  },
+  {
+    method: "session.transcriptDisplay",
+    description:
+      "Project transcript display rows from the selected or explicitly named linear Brunch session transcript.",
+    paramsSchema: SessionProjectionParamsSchema,
+    resultSchema: TranscriptDisplayResultSchema,
+    examples: [
+      {
+        jsonrpc: "2.0",
+        id: 7,
+        method: "session.transcriptDisplay",
+        params: { sessionId: "session-1", specId: "spec-1" },
+      },
+    ],
+  },
+]
 
 type WorkspaceActivationParamsParseResult = {
   ok: true
