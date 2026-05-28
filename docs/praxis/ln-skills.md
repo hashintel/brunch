@@ -34,14 +34,21 @@ ln-consult
 
 The flow is not a checklist. Skip steps whose uncertainty is already retired.
 
-Given the repo's pre-release posture, **the primary vehicle for retiring uncertainty is a thin vertical slice that would break if a load-bearing assumption is wrong** — built through `ln-scope` → `ln-build`. Non-build detours are escape hatches for questions a slice cannot cheaply carry:
+### Tracer-bullet sequencing
 
-- `ln-design` — module shape itself is the uncertain thing and any slice would lock in the wrong seam
-- `ln-oracles` — verification strategy is too uncertain to distinguish a passing slice from a wrong one
-- `ln-spike` — research-grade or external question (third-party API contract, vendor performance characteristic, library behavior under load) where no buildable slice would be cheaper than a probe
-- `ln-prototype` — feel, comparison, or UX-legibility question better answered by playable variants than by real code
+A good tracer-bullet frontier or slice earns its keep on three convergent axes:
 
-`ln-plan`, `ln-design`, `ln-scope`, and `ln-consult` all bias toward attacking uncertainty by building. The escape hatches stay available; they just are not the default.
+- **Proof of life.** Does landing it light up an end-to-end path that did not exist?
+- **Invariants.** Does it locate or stabilize a seam that future slices will aim from?
+- **Uncertainty.** Does it retire a load-bearing assumption from `memory/SPEC.md` §Assumptions?
+
+The strongest next move scores on more than one axis. Prefer a slice that does several at once over one that maximizes a single axis.
+
+- **Reshape, don't defer.** If an assumption blocks a slice, reshape the slice before switching to study.
+- **Spike exception.** Use `ln-spike` only when no buildable tracer bullet can carry the proof — a third-party API contract, vendor characteristic, or research-grade unknown.
+- **Fire the tracer that tells you the most.** Given the repo's pre-release posture, attack uncertainty by building. Spikes, design passes, and prototypes are escape hatches when no slice could carry the proof more cheaply.
+
+`ln-plan`, `ln-design`, `ln-scope`, and `ln-consult` all carry this sequencing pressure.
 
 ## Skill map
 

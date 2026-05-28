@@ -31,7 +31,7 @@ Spawn 3+ sub-agents simultaneously. Each must produce a **radically different** 
 - "Optimize for the most common case"
 - "Take inspiration from [specific paradigm or library]"
 
-Each agent returns: **interface** (types, methods, params, invariants, ordering constraints, error modes, required configuration, and performance characteristics), **usage example**, **what it hides**, **seam / adapter strategy** where relevant, **trade-offs**, **load-bearing claims** (1–3 falsifiable beliefs the design rests on — for each, note whether it is already covered by `memory/SPEC.md` §Assumptions), and **cheapest falsifier** — preferably a thin `ln-scope` slice whose landing would break if the design's load-bearing claim is wrong. Fall back to `ln-spike` only when no buildable slice could carry the proof (external API contract, vendor characteristic, research-grade unknown).
+Each agent returns: **interface** (types, methods, params, invariants, ordering constraints, error modes, required configuration, and performance characteristics), **usage example**, **what it hides**, **seam / adapter strategy** where relevant, **trade-offs**, **load-bearing claims** (1–3 falsifiable beliefs the design rests on — for each, note whether it is already covered by `memory/SPEC.md` §Assumptions), and **cheapest tracer bullet** — the thinnest `ln-scope` slice whose landing would light up the seam and break if the claim is wrong. Fall back to `ln-spike` only when no buildable slice could carry the proof.
 
 ### 3. Present and compare
 
@@ -57,7 +57,7 @@ Present the recommended module shape with rationale, plus:
 
 - the 1–3 load-bearing claims it rests on
 - which of those are already covered by `memory/SPEC.md` §Assumptions and which need to be added there
-- the recommended first proving step — default to a thin `ln-scope` slice that would break if the chosen design's highest load-bearing claim is wrong; recommend `ln-spike` instead only when no slice could carry the proof more cheaply
+- the recommended first tracer bullet — a thin `ln-scope` slice that would light up the seam and break if the chosen design's highest load-bearing claim is wrong; fall back to `ln-spike` only when no slice could carry the proof more cheaply
 
 If `memory/SPEC.md` exists, ensure names align with its lexicon.
 
@@ -74,7 +74,7 @@ After choosing a design, present these options to the user (use `tool-ask-questi
 | 3   | Write a spec  | `ln-spec`  | Module needs a full spec before slicing  |
 | 4   | Grill it more | `ln-grill` | Design choice raised new questions       |
 
-Recommended: **1** — including when a load-bearing claim is low-confidence, because the preferred falsifier is a thin slice that breaks if the claim is wrong. Recommend **2 (Spike first)** only when no buildable slice could carry the proof (external API contract, vendor characteristic, research-grade unknown).
+Recommended: **1** — including when a load-bearing claim is low-confidence, because the preferred falsifier is a tracer-bullet slice that breaks if the claim is wrong. Recommend **2 (Spike first)** only when no buildable slice could carry the proof.
 
 ---
 *Adapted from [mattpocock/skills/design-an-interface](https://github.com/mattpocock/skills/tree/main/design-an-interface).*

@@ -100,26 +100,28 @@ When a frontier completes, remove it from `Sequencing`, add a terse `Recently Co
 
 If live low-confidence assumptions block downstream work, stop the plan at that boundary. Plan spikes or thinner proving frontier items, not fantasy certainty.
 
-### Uncertainty-first sequencing
+### Tracer-bullet sequencing
 
-Sequencing is not only seam-driven. Before fixing `Sequencing`, rank the live assumptions in `memory/SPEC.md` §Assumptions by:
+Sequencing is not only seam-driven. A good tracer-bullet frontier scores on three convergent axes (see `docs/praxis/ln-skills.md` §Tracer-bullet sequencing): **proof of life**, **invariants**, **uncertainty**. The strongest next frontier scores on more than one.
 
-- **blast radius** if the assumption turns out false (how many downstream frontier items rework)
+When ranking candidates, weigh:
+
+- **blast radius** if a load-bearing assumption turns out false
 - **reversibility cost** if discovered late vs early
-- **validation cost** (cheap spike vs expensive end-to-end build)
+- **validation cost** (cheap slice vs expensive end-to-end rework)
 - **load-bearingness** (how many active/next frontiers depend on it)
 
-Given the repo's pre-release posture, prefer **the thinnest vertical frontier item that would break if the load-bearing assumption is wrong**. A frontier whose landing falsifies or confirms the belief is almost always cheaper and more informative than a study-step spike. Verticality of slices still applies; this is a tie-breaker and a re-ordering pressure, not a license to fragment into horizontal investigations.
+Annotate each `Active` / `Next` frontier definition with the relevant axes when they are in play:
 
-Annotate each `Active` / `Next` frontier definition with one of the following lines when assumptions are in play:
+- `Retires: <SPEC assumption id(s)>` — collapses the assumption by landing
+- `Depends on: <SPEC assumption id(s)> (validated enough)` — assumption must be settled first
+- `Blocked by: <SPEC assumption id(s)>` — load-bearing; do not start until retired
+- `Lights up: <pipeline / seam>` — establishes a new end-to-end path
+- `Stabilizes: <invariant id(s) or seam>` — locates or fixes structure others will aim from
 
-- `Retires: <SPEC assumption id(s)>` — this frontier collapses the assumption by landing
-- `Depends on: <SPEC assumption id(s)> (validated enough)` — assumption must be settled before this frontier starts
-- `Blocked by: <SPEC assumption id(s)>` — assumption is live and load-bearing; do not start until retired
+**Spike exception.** Use `ln-spike` only when no buildable frontier could carry the proof. Do not insert ceremonial spikes when a tracer-bullet frontier exists.
 
-Use `ln-spike` only when the question is genuinely outside the buildable surface — for example a third-party API contract, vendor performance characteristic, or research-grade unknown where no vertical frontier could carry the proof cheaper than a probe. Do not insert ceremonial spikes when a thin proving frontier exists.
-
-This sequencing pressure is distinct from "Epistemic horizon": that rule tells the planner to *stop* at fog; this rule tells the planner to *attack the fog* by reordering toward whichever next landed frontier produces the most information.
+This sequencing pressure is distinct from "Epistemic horizon": that rule tells the planner to *stop* at fog; this rule tells the planner to **fire the tracer that tells you the most**.
 
 ## Procedure
 
@@ -171,4 +173,4 @@ After writing the plan, present these options to the user (use `tool-ask-questio
 | 4   | Grill it more     | `ln-grill`   | Planning surfaced unresolved product questions |
 | 5   | Back to triage    | `ln-consult` | Direction needs reassessment |
 
-Recommended: **1** unless uncertainty-first sequencing surfaced a load-bearing assumption whose cheapest retirement is a spike (then **3**).
+Recommended: **1** unless tracer-bullet sequencing surfaced a question that no buildable frontier could answer cheaper than a spike (then **3**).

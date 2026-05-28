@@ -30,7 +30,7 @@ Start the assessment with 2-4 bullets naming:
 - the active frontier item or nearby priority
 - volatile state or manual follow-up from handoff
 - the main open risk
-- the dominant load-bearing uncertainty (which `memory/SPEC.md` §Assumption, if any) and the cheapest way to retire it
+- the cheapest tracer bullet that would score on proof of life, invariants, or uncertainty retirement (see `docs/praxis/ln-skills.md` §Tracer-bullet sequencing)
 
 ## Work-type classification
 
@@ -77,18 +77,18 @@ Only recommend the bounded or direct-build exceptions when all of these are true
 
 Only recommend the bounded serial exception when those same conditions hold and the next several commit-sized steps are obvious enough to queue without fresh planning.
 
-## Uncertainty-first override
+## Tracer-bullet override
 
-When several routes fit the work, prefer the one with the highest information gain per unit of cost. Given the repo's pre-release posture, the default uncertainty-attack vehicle is **a thin vertical slice that would break if the assumption is wrong**, built via `ln-scope` → `ln-build`. That is usually cheaper and more informative than a study-step spike.
+When several routes fit the work, prefer the one that fires the **tracer bullet that tells you the most**. A tracer-bullet slice scores on three convergent axes (see `docs/praxis/ln-skills.md` §Tracer-bullet sequencing): proof of life, invariants, uncertainty. The best next slice scores on more than one.
 
-Recommend a non-build route **only when** the cheapest informative move genuinely is not a slice:
+Given the repo's pre-release posture, attack uncertainty by building. Recommend a non-build route only when no buildable tracer bullet can carry the proof:
 
-- `ln-design` — the module shape itself rests on a low-confidence claim and building any slice would lock in the wrong seam
-- `ln-oracles` — the verification strategy is so uncertain that you cannot tell a passing slice from a wrong one
-- `ln-spike` — the question is research-grade or external (third-party API contract, vendor perf characteristic, library behavior under load) and no vertical slice would be cheaper than a pure probe
-- `ln-prototype` — the question is about feel, comparison, or UX legibility, where playable variants beat real code
+- `ln-design` — module shape itself is uncertain and any slice would lock in the wrong seam
+- `ln-oracles` — verification is too uncertain to distinguish a passing slice from a wrong one
+- `ln-spike` — research-grade or external question (third-party API contract, vendor perf characteristic, library behavior under load)
+- `ln-prototype` — feel, comparison, or UX-legibility question where playable variants beat real code
 
-This override is for **attacking** uncertainty aggressively, not deferring it. If in doubt, build the thinnest slice that would break if the belief is wrong, and let landing it produce the evidence. Spikes are the escape hatch, not the default.
+Spikes are the escape hatch, not the default.
 
 ## Routing table
 
