@@ -1,0 +1,6 @@
+{
+  "extensions": [
+    "-extensions/operational-mode.ts",
+    "-extensions/command-policy.ts"
+  ]
+}
