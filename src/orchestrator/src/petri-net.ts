@@ -68,8 +68,6 @@ export interface NetEventSink {
 
 /** Place names that may retain tokens after clean termination (resource pools, budgets, markers). */
 const BENIGN_RESIDUAL_PLACES = new Set([
-  'test-agent',
-  'code-agent',
   'retry-budget',
   'semantic-budget',
   'completed',
