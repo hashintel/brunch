@@ -6,14 +6,17 @@ import { describe, expect, it } from "vitest"
 
 const execFileAsync = promisify(execFile)
 
-describe("M1 runbook", () => {
+describe("M1 probe script", () => {
   it("runs and prints expected plus actual outputs", async () => {
-    await access("runbooks/verify-m1.sh", constants.X_OK)
+    await access("src/probes/scripts/verify-m1.sh", constants.X_OK)
 
-    const { stdout } = await execFileAsync("./runbooks/verify-m1.sh", {
-      timeout: 120_000,
-      maxBuffer: 1024 * 1024 * 4,
-    })
+    const { stdout } = await execFileAsync(
+      "./src/probes/scripts/verify-m1.sh",
+      {
+        timeout: 120_000,
+        maxBuffer: 1024 * 1024 * 4,
+      },
+    )
 
     expect(stdout).toContain("Expected outputs")
     expect(stdout).toContain("Actual outputs")

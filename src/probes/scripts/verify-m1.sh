@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u -o pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 TSX_LOADER="$ROOT/node_modules/tsx/dist/loader.mjs"
 export ROOT TSX_LOADER
 cd "$ROOT" || exit 1
@@ -33,12 +33,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "# M1 mode shell and fixture driver runbook"
+echo "# M1 mode shell and fixture driver probe"
 echo
 echo "## Expected outputs"
 echo "- Each committed scripted bundle has one brunch.session_binding whose specTitle matches its brief title."
 echo "- Each committed bundle metadata projection summary matches projection from its JSONL transcript."
-echo "- Print mode emits a product-shaped workspace snapshot for a selected runbook spec."
+echo "- Print mode emits a product-shaped workspace snapshot for a selected probe spec."
 echo "- RPC workspace.snapshot and session.elicitationExchanges return product-shaped JSON-RPC results."
 echo "- Human review remains responsible for brief quality and golden-capture representativeness."
 echo
@@ -93,28 +93,28 @@ for (const briefId of briefIds) {
 }
 NODE
 
-TMP_WORKSPACE="$(mktemp -d "${TMPDIR:-/tmp}/brunch-m1-runbook.XXXXXX")"
+TMP_WORKSPACE="$(mktemp -d "${TMPDIR:-/tmp}/brunch-m1-probe.XXXXXX")"
 export TMP_WORKSPACE
 node --import "$TSX_LOADER" --input-type=module <<'NODE'
 import { createWorkspaceSessionCoordinator } from "./src/workspace-session-coordinator.ts"
 
 const cwd = process.env.TMP_WORKSPACE
 const coordinator = createWorkspaceSessionCoordinator({ cwd })
-const workspace = await coordinator.createSetupSession({ specTitle: "M1 runbook smoke" })
+const workspace = await coordinator.createSetupSession({ specTitle: "M1 probe smoke" })
 workspace.session.manager.appendCustomMessageEntry(
   "brunch.elicitation_prompt",
-  "Runbook prompt: confirm the M1 mode shell is product-shaped.",
+  "Probe prompt: confirm the M1 mode shell is product-shaped.",
   true,
 )
-workspace.session.manager.appendMessage({ role: "user", content: "Runbook response" })
+workspace.session.manager.appendMessage({ role: "user", content: "Probe response" })
 await coordinator.bindCurrentSpecToReplacementSession(workspace.session.manager)
 NODE
 
 run_check "Print-mode smoke output" \
-  bash -c 'cd "$TMP_WORKSPACE" && node --import "$TSX_LOADER" "$ROOT/src/brunch.ts" --mode print | tee "$TMP_WORKSPACE/print.out" && grep -q "M1 runbook smoke" "$TMP_WORKSPACE/print.out"'
+  bash -c 'cd "$TMP_WORKSPACE" && node --import "$TSX_LOADER" "$ROOT/src/brunch.ts" --mode print | tee "$TMP_WORKSPACE/print.out" && grep -q "M1 probe smoke" "$TMP_WORKSPACE/print.out"'
 
 run_check "RPC workspace.snapshot smoke output" \
-  bash -c 'cd "$TMP_WORKSPACE" && printf "%s\n" "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"workspace.snapshot\"}" | node --import "$TSX_LOADER" "$ROOT/src/brunch.ts" --mode rpc > "$TMP_WORKSPACE/workspace-rpc.out" && node -e "const fs=require(\"node:fs\"); const path=process.env.TMP_WORKSPACE + \"/workspace-rpc.out\"; console.log(JSON.stringify(JSON.parse(fs.readFileSync(path, \"utf8\")), null, 2))" && grep -q "M1 runbook smoke" "$TMP_WORKSPACE/workspace-rpc.out" && grep -q "\"session\"" "$TMP_WORKSPACE/workspace-rpc.out"'
+  bash -c 'cd "$TMP_WORKSPACE" && printf "%s\n" "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"workspace.snapshot\"}" | node --import "$TSX_LOADER" "$ROOT/src/brunch.ts" --mode rpc > "$TMP_WORKSPACE/workspace-rpc.out" && node -e "const fs=require(\"node:fs\"); const path=process.env.TMP_WORKSPACE + \"/workspace-rpc.out\"; console.log(JSON.stringify(JSON.parse(fs.readFileSync(path, \"utf8\")), null, 2))" && grep -q "M1 probe smoke" "$TMP_WORKSPACE/workspace-rpc.out" && grep -q "\"session\"" "$TMP_WORKSPACE/workspace-rpc.out"'
 
 run_check "RPC session.elicitationExchanges smoke output" \
   bash -c 'cd "$TMP_WORKSPACE" && printf "%s\n" "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"session.elicitationExchanges\"}" | node --import "$TSX_LOADER" "$ROOT/src/brunch.ts" --mode rpc > "$TMP_WORKSPACE/exchanges-rpc.out" && node -e "const fs=require(\"node:fs\"); const path=process.env.TMP_WORKSPACE + \"/exchanges-rpc.out\"; console.log(JSON.stringify(JSON.parse(fs.readFileSync(path, \"utf8\")), null, 2))" && grep -q "\"status\":\"ready\"" "$TMP_WORKSPACE/exchanges-rpc.out" && grep -q "promptEntryIds" "$TMP_WORKSPACE/exchanges-rpc.out"'
@@ -127,9 +127,9 @@ echo "- Product shape: Do print/RPC outputs expose workspace/session/exchange co
 
 if [[ "$failures" -gt 0 ]]; then
   echo
-  echo "Runbook failed with $failures structural failure(s)."
+  echo "Probe failed with $failures structural failure(s)."
   exit 1
 fi
 
 echo
-echo "Runbook structural checks passed; complete the human review prompts above before final M1 acceptance."
+echo "Probe structural checks passed; complete the human review prompts above before final M1 acceptance."

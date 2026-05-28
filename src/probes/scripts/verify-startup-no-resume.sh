@@ -2,11 +2,11 @@
 set -euo pipefail
 
 # Proves FE-744/I22 at the terminal boundary: Brunch TUI startup shows the
-# spec/session picker before any prior transcript is rendered. This runbook uses
+# spec/session picker before any prior transcript is rendered. This probe uses
 # a real pty via `script`; it is intended as a manual/middle-loop oracle rather
 # than part of the default verify gate.
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 WORK_DIR="${WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/brunch-startup-oracle.XXXXXX")}"
 CAPTURE_RAW="$WORK_DIR/startup.raw"
 CAPTURE_STRIPPED="$WORK_DIR/startup.stripped"
