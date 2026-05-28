@@ -35,6 +35,7 @@ dist-ssr
 bun.lock
 .notes.md
 .brunch/
+.cook/
 brunch.db*
 todo.txt
 
@@ -52,3 +53,6 @@ tmp/
 
 # skill quarantine
 .agents/_quarantine
+
+# antigravity cli
+.antigravitycli/

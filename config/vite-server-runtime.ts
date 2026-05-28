@@ -54,6 +54,10 @@ export const createServerRuntimeConfig = <T extends object>({
         },
         closeBundle() {
           copyServerPromptAssets(resolve(rootDir, 'src/server/prompts'), promptAssetsDestinationDir);
+          copyServerPromptAssets(
+            resolve(rootDir, 'src/orchestrator/prompts'),
+            resolve(promptAssetsDestinationDir, '..', 'orchestrator-prompts'),
+          );
         },
       },
     ],

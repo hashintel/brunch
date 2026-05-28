@@ -17,6 +17,8 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 
 The next product arc is the **Conversational Workspace Runtime** umbrella (`docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md`) plus a stronger semantic/generative substrate. The umbrella synthesizes MULTI_CHAT, SIDE_CHAT, PATCH_LEDGER, and CONTINUOUS_WORKSPACE_HYBRID into five sub-tracks: workspace shell (Track 1, shipped as `continuous-workspace` / FE-709), inline secondary-chat runtime over the existing chat/turn substrate (`chat-runtime-secondary-chats`), reconciliation runtime absorption (`reconciliation-runtime`), changeset ledger (`changeset-ledger`), and transcript-first chat context provision (`chat-context-provision`). The shell is now the stable host; schema-level `thread` is deferred until chat/turn proves insufficient. Secondary chats are the near-term runtime primitive for side, reconciliation, qa, and strategy conversations. The chat runtime is the critical unblocker for reconciliation absorption; chat context provision can proceed against chat/turn with explicit transcript snapshots and graph-item handles. The changeset ledger runs in parallel. The umbrella supersedes the independent side-chat V4a persistence horizon — persistent side-chat history becomes inline secondary chats in the workspace. The FE-705 branch contributes an integration substrate — a local agent capability CLI and external LLM-as-user probe harness — that should be reconciled into main before graph-review and scenario-options work depends on generated completed-spec fixtures. After that, the highest-coordination work is intent-graph semantics and the semantic changeset ledger; FE-701 should follow soon after the FE-705 reconciliation because the current schema already carries transitional multi-chat / reconciliation placeholders that only become coherent once `changeset` / `change` owns semantic mutation history. Lower-coordination provider, gitignore, and web-research work can proceed in parallel.
 
+The **orchestrator / Petri-net execution substrate** is committed (2026-05-21) to Petri as the forward execution model, justified by parallelism, simulation, and resume value claims. The dual-engine PoC (FE-730 / PR #143) validated the substrate but left the engine as a serial first-enabled interpreter with hand-compiled nets, collapsed mechanical/semantic completion, and leaked control state outside the net. The next moves evolve the Petri engine through a phased plan: Phase 0 (compiler/interpreter/firing-policy extraction) closes `orchestrator-poc`; Phases 1–2 (`petri-semantic-lanes`, `petri-parallel-execution`) are the near-horizon new frontier items under umbrella H-6476; Phases 3–4 (graph compilation, simulation oracle) are on the horizon pending `intent-graph-semantics` (FE-700) and relation-policy readiness. The north-star design is `docs/next/architecture/plan-graph-petri-orchestration.md`.
+
 The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agent-mutation design notes are reconciled into one direction. `docs/design/MULTI_CHAT.md` is the substrate document. `docs/design/SIDE_CHAT.md` describes side-chat V1 / V2 / V3.0 / V3.1 / V4 phasing on top of that substrate. `docs/design/PATCH_LEDGER.md` remains historical deeper design pressure for semantic mutation history, but canonical future-facing vocabulary is `changeset` / `change`. The product-layer ontology trajectory is split out as `docs/design/INTENT_GRAPH_SEMANTICS.md` and `docs/design/BEHAVIORAL_KERNELS.md`; broader synthesis lives in `docs/archive/design/INTENT_SPEC_EVOLUTION.md`. FE-705's branch-local strategy/proposal notes add scenario options, graph-review oracle, chat-local strategies, and concern/dependency mapping; those notes should become a canonical design doc when the branch is integrated. Coordination uses a substrate-strangler posture: keep existing frontend REST/SSE contracts stable while route adapters and capability adapters converge on shared server-owned handlers, then cut over UI flows only after parity and changeset-backed authority exist. The dev-layer self-tooling trajectory lives in `docs/design/ln-skills/EVOLUTION.md`.
 
 ## Sequencing
@@ -24,16 +26,18 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 ### Active
 
 1. `agent-fixture-substrate` — branch-complete off main, reconciling — FE-705 integration substrate for JSONL agent capability CLI and LLM-as-user probes.
-2. `chat-runtime-secondary-chats` — FE-716; branch `ka/fe-716-chat-runtime-unified-secondary-chats` stacked on `ln/fe-709-reconciliations` (PR #139). **V1 done** — substrate (C0–C9) + unified shell (C11–C16) ship together on the same branch; verify green at 108 test files / 1273 tests; PR submits once #139 merges or per Lu's signal. C7 (agent-run inline) remains deferred until a producer exists.
+2. `chat-runtime-secondary-chats` — FE-716; V1 done — PR #141 merged to main.
 
 ### Next
 
-1. `intent-graph-semantics` — highest-coordination semantic substrate after FE-705 reconciliation.
-2. `changeset-ledger` — Track 4 of the runtime umbrella; parallel with Track 2; semantic history spine needed before canonical proposal acceptance, direct-edit atomicity, and productized scenario options.
-3. `chat-context-provision` — Track 5 of the runtime umbrella recast as transcript-first context; can proceed against chat/turn once secondary-chat entry/anchor shape is settled.
-4. `reconciliation-runtime` — Track 3 of the runtime umbrella; after Track 2 + Track 4 provide the secondary-chat surface and durable attribution.
-5. `graph-review-scenario-options` — artifact-only critique/probe lane; can advance in parallel with FE-700 if it does not commit canonical graph truth.
-6. `productized-scenario-options` — user-facing acceleration surface after FE-700 semantics, FE-701 changesets, and graph-review probes.
+1. `petri-semantic-lanes` — mechanical + semantic two-lane subnet template + §7 event vocabulary; first frontier where petri diverges meaningfully from proc. Follows `orchestrator-poc` Phase 0.
+2. `petri-parallel-execution` — parallel firing, shared resource pools, worktree-per-slice coordination; the categorical break where petri earns its complexity. Decision gate: if petri doesn't beat proc on wall clock, pause petri investment. Follows `petri-semantic-lanes`.
+3. `intent-graph-semantics` — highest-coordination semantic substrate after FE-705 reconciliation.
+4. `changeset-ledger` — Track 4 of the runtime umbrella; parallel with Track 2; semantic history spine needed before canonical proposal acceptance, direct-edit atomicity, and productized scenario options.
+5. `chat-context-provision` — Track 5 of the runtime umbrella recast as transcript-first context; can proceed against chat/turn once secondary-chat entry/anchor shape is settled.
+6. `reconciliation-runtime` — Track 3 of the runtime umbrella; after Track 2 + Track 4 provide the secondary-chat surface and durable attribution.
+7. `graph-review-scenario-options` — artifact-only critique/probe lane; can advance in parallel with FE-700 if it does not commit canonical graph truth.
+8. `productized-scenario-options` — user-facing acceleration surface after FE-700 semantics, FE-701 changesets, and graph-review probes.
 
 ### Parallel / Low-conflict
 
@@ -43,6 +47,8 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ### Horizon
 
+- `petri-graph-compilation` — compile Petri nets from workspace plan-graph + relation policy; depends on `intent-graph-semantics` (FE-700). Extends the existing FE-700 relation-policy registry.
+- `petri-simulation-oracle` — reachability analysis, deadlock detection, resume from durable markings. Planning oracle for plan-shape defects. Depends on `petri-graph-compilation`.
 - `relation-first-observer-enrichment`
 - `architect-generator-loop`
 - `server-mini-library-compartmentalization`
@@ -57,6 +63,47 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - `portability-boundaries`
 
 ## Frontier Definitions
+
+### orchestrator-poc
+
+- **Name:** Orchestrator POC — dual-engine execution with contract tests + compiler extraction
+- **Linear:** FE-730
+- **Kind:** structural / experiment
+- **Status:** done
+- **Objective:** Two interchangeable execution engines (`proc` and `petri`) behind a shared `Orchestrator` seam, driven test-first with fake agents. Takes a plan YAML (epics → slices), dispatches actions inline (registry deferred), runs tests deterministically, writes structured events to `reports.jsonl`. **Phase 0 (closing):** extract `NetCompiler` + `Interpreter` + `FiringPolicy` types from `engine-petri.ts`; define `PetriNet`, `Transition`, `Guard` aligned with the spec doc; implement `compileSliceTddSubnet()` so the TDD inner loop is compiled from a template rather than hand-wired; proc engine calls the same compiler with a serial firing policy; adapter test confirms compiled net for fixture matches expected place/transition count.
+- **Why now / unlocks:** The PoC validated that petri earns its complexity (2026-05-21 commitment). Phase 0 extracts the reusable compiler/interpreter substrate so Phases 1–2 can evolve the net template and firing policy independently without another round of topology bugs. Also: retry budget currently leaks outside the net (`ctx.retries` Map) — Phase 0 should move retry state into places.
+- **Acceptance:** (1) `brunch cook <fixture-dir> --engine=proc` completes Fixture #1 end-to-end. (2) Same with `--engine=petri`. (3) `reports.jsonl` human-readable. (4) Both engines pass same contract suite. (5) Worktree isolation holds. (6) Mid-run halt produces coherent `OrchestratorResult`. **(Phase 0 addendum):** (7) `NetCompiler`, `Interpreter`, `FiringPolicy` are separate modules. (8) Both engines call `compileSliceTddSubnet()`. (9) Retry state is in-net, not on `ctx.retries`.
+- **Verification:** Contract tests (fake agents, both engines identical), adapter tests (per-engine internals, optional in POC), integration fixture run (real pi-agent on Fixture #1). Phase 0: adapter test for compiled net shape.
+- **Traceability:** Requirements 46–50; D155-K–D159-K; I121-K–I123-K.
+- **Design docs:** `docs/design/orchestrator.md`; `docs/next/architecture/plan-graph-petri-orchestration.md` §4–§6; umbrella H-6476.
+
+### petri-semantic-lanes
+
+- **Name:** Petri semantic lanes — mechanical + semantic two-lane subnet template
+- **Linear:** unassigned (create under umbrella H-6476)
+- **Kind:** structural
+- **Status:** not-started
+- **Objective:** Extend the extracted NetCompiler to produce a two-lane subnet template per slice: a mechanical lane (dispatch, artifact production, test execution, verification) and a semantic lane (oracle satisfaction, design exercise, intent establishment, completion claim review). Add the spec §7 structured event vocabulary (`transition_fired`, `oracle_passed`, `graph_revision_stale`, `semantic_review_requested`, `completion_claim_accepted`, `status_projection_suggested`, `net_deadlocked`, …) as the interpreter's durable event model. `TransitionContract` type (spec §6) governs each transition's kind, actor, guard, action binding, and emitted events. Mechanical transitions produce candidate evidence; semantic transitions judge that evidence against graph-derived requirements. `PlanDoneAccepted` is reachable only after both lanes complete.
+- **Why now / unlocks:** First frontier where the Petri engine models a distinction the proc engine cannot express topologically: mechanical completion ≠ semantic completion. Unblocks Phase 2 parallel firing (lanes can fire concurrently) and Phase 3 graph compilation (semantic lane structure maps to relation-policy gates). Without this, the engine remains a serial task runner with token-shaped bookkeeping.
+- **Acceptance:** (1) Compiled subnet has distinct mechanical and semantic places/transitions. (2) `PlanDoneAccepted` is unreachable unless both `VerifyPassed` and `OracleSatisfied` (or equivalent semantic tokens) are present. (3) Event log records §7 vocabulary events per transition firing. (4) `TransitionContract` type covers kind, actor, guard, and emits. (5) Stale-graph detection routes to reconciliation or context rebuild, not a dead-end. (6) Existing contract test suite passes with both engines.
+- **Verification:** Contract tests extended with semantic-lane scenarios (happy-path Prototype A, stale-graph Prototype B, missing-oracle Prototype C from spec §10). Adapter test for two-lane net shape. Event-log assertions for §7 vocabulary.
+- **Traceability:** Requirements 46–50; spec §2 (layer split), §4 (canonical slice-net), §6 (transition contracts), §7 (event model), §8 (failure-mode nets), §10 (prototypes A–C).
+- **Design docs:** `docs/next/architecture/plan-graph-petri-orchestration.md`; `docs/design/orchestrator.md`; umbrella H-6476.
+- **Current execution pointer:** `memory/CARDS.md` — Card 1 (two-lane subnet with semantic completion gate).
+
+### petri-parallel-execution
+
+- **Name:** Petri parallel execution — concurrent firing, resource pools, worktree-per-slice
+- **Linear:** unassigned (create under umbrella H-6476)
+- **Kind:** structural
+- **Status:** not-started
+- **Objective:** Replace the serial `while(true) { transitions.find() }` interpreter with a parallel firing policy that can advance multiple enabled transitions concurrently. Convert per-slice `test-agent`/`code-agent` tokens (already present in PoC at `engine-petri.ts:134-149`) into shared capped resource pools that bound global concurrency. Add worktree-per-slice isolation (one worktree per active slice, not just per run). This is the categorical break where the Petri engine earns its complexity over proc.
+- **Why now / unlocks:** Parallelism is the primary value claim for petri over proc (per PR #143's own verdict and the spec doc's working conclusion). Without it, both engines are serial and proc wins on simplicity. If petri doesn't beat proc on wall clock time for multi-slice plans, the investment should pause.
+- **Acceptance:** (1) Multi-slice plans execute with real parallelism (multiple transitions firing concurrently). (2) Resource pool tokens limit global concurrency to configured agent capacity. (3) Each active slice has its own worktree. (4) No fan-out starvation, dead-place, or unreached-slice bugs (regressions from PoC bug-fix rounds). (5) Wall-clock improvement measurable on a 3+ slice fixture vs serial execution. (6) Contract test suite still passes for both engines (proc remains serial).
+- **Decision gate:** If parallel petri does not beat proc on wall clock for a representative multi-slice fixture, pause further petri investment and revisit the substrate commitment.
+- **Verification:** Contract tests with multi-slice concurrency scenarios. Wall-clock benchmark on 3+ slice fixture. Resource-exhaustion test (more slices than agents). Worktree isolation tests per slice.
+- **Traceability:** Requirements 46–50; spec §3 (token taxonomy — resource tokens), §4 (canonical slice-net terminal join).
+- **Design docs:** `docs/next/architecture/plan-graph-petri-orchestration.md`; `docs/design/orchestrator.md`; umbrella H-6476.
 
 ### continuous-workspace
 
@@ -382,6 +429,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ## Recently Completed
 
+- [2026-05-21] `orchestrator-poc` — Done: FE-730 / PR #143 + Phase 0 compiler extraction. Extracted `PetriNet` interpreter → `petri-net.ts`, net compiler → `net-compiler.ts`, `FiringPolicy` type. Both engines now call shared `compilePlan()`. Retry state moved from `ctx.retries` Map into in-net `retry-budget` places. Adapter tests pin net topology. Verified: `npm run verify` 120/120 files, 1384 tests pass. Watch: proc and petri are currently identical (same compiler + serial policy); Phase 2 re-introduces divergence via parallel firing policy.
 - [2026-05-13] `continuous-workspace` — Done: FE-709 / PR #134. Replaced per-phase InterviewView with ContinuousWorkspaceView (cumulative center pane), extracted `useContinuousWorkspaceController`, added sidebar scroll-spy via WorkspaceFocusContext, extracted shared controller helpers to core, retired route-first test assumptions. Verified: `npm run verify` 1213 / 1214 pass (1 pre-existing flake). Watch: Step 5 route-collapse decision deferred — hybrid works as intended.
 - [2026-05-11] `side-chat-v3-1-agent-grouped-reconciliation` — Done: FE-674 / PR #124 + downstack closed the V3.x arc end-to-end with spec-level classifier route, per-row reset route, agent classification lifecycle, chips, per-class actions, and bulk Confirm-all / Apply-all-suggested. Verified: `npm run verify` 1178 / 1179 pass with one unrelated `side-chat-route` flake. Watch: A88 outer-loop walkthrough on a dense spec remains open to assess legibility vs V3.0's flat list.
 - [2026-05-11] `fe-698-reconciliation-context-pack` — Done: added proposal-only reconciliation prompt/context scenario rendering open reconciliation needs with source/target anchors, reason/status, prompt/context fingerprints, and read-only capability metadata. Verified: `npm run verify`. Watch: next FE-698 work can broaden read-only/proposal-only probes and Pi adapter spike without treating this pack as a resolution agent.
@@ -433,6 +481,14 @@ TRACK E — Low-conflict parallel work
 first-run-provider-setup
 workspace-gitignore-assist
 productized-web-research
+
+TRACK F — Petri-net execution substrate (umbrella H-6476)
+orchestrator-poc (Phase 0: compiler extraction — closing)
+  └──→ petri-semantic-lanes (Phase 1: two-lane subnet + §7 events)
+        └──→ petri-parallel-execution (Phase 2: concurrent firing + resource pools)
+              └──→ petri-graph-compilation (Phase 3: compile from plan-graph + relation policy)
+                    ├──→ depends on intent-graph-semantics (FE-700) for relation-policy gates
+                    └──→ petri-simulation-oracle (Phase 4: reachability, deadlock, resume)
 
 LOWER-PRIORITY / DEFERRED
 side-chat-v4b-item-versioning (depends on changeset-ledger)

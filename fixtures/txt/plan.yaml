@@ -1,0 +1,55 @@
+epics:
+  - id: scaffolding
+    summary: "CLI scaffolding"
+    depends_on: []
+    verification:
+      - kind: integration-test
+        target: "tests/cli-scaffolding.integration.test.ts"
+
+  - id: text-ops
+    summary: "Text operations"
+    depends_on: [scaffolding]
+    verification:
+      - kind: integration-test
+        target: "tests/text-ops-pipe.integration.test.ts"
+
+slices:
+  - id: version-flag
+    epic_id: scaffolding
+    definition: "Add `--version` flag that prints the version from package.json"
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/version.test.ts"
+
+  - id: help-flag
+    epic_id: scaffolding
+    definition: "Add `--help` flag that lists subcommands: reverse, count, slugify"
+    depends_on: [version-flag]
+    verification:
+      - kind: unit-test
+        target: "tests/help.test.ts"
+
+  - id: reverse
+    epic_id: text-ops
+    definition: "Add `reverse` subcommand. Pure function reverses a string. CLI wires it to argv[2]."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/reverse.test.ts"
+
+  - id: count
+    epic_id: text-ops
+    definition: "Add `count` subcommand that counts whitespace-separated words. Empty input returns 0."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/count.test.ts"
+
+  - id: slugify
+    epic_id: text-ops
+    definition: "Add `slugify` subcommand. Lowercase, replace non-alphanumerics with single dash, collapse multiple dashes, trim leading/trailing dashes. Handle unicode by removing diacritics."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/slugify.test.ts"
