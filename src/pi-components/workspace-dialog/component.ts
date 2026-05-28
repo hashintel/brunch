@@ -196,8 +196,9 @@ class WorkspaceDialogComponent implements Component {
       }
       return
     }
-    if (isPrintableInput(data)) {
-      this.#title += data
+    const text = printableInputText(data)
+    if (text) {
+      this.#title += text
     }
   }
 
@@ -413,6 +414,8 @@ function style(
   return theme ? theme.fg(color, text) : text
 }
 
-function isPrintableInput(data: string): boolean {
-  return data.length === 1 && data >= " " && data !== "\u007f"
+function printableInputText(data: string): string {
+  return Array.from(data)
+    .filter((char) => char >= " " && char !== "\u007f")
+    .join("")
 }

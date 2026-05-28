@@ -233,6 +233,22 @@ describe("spec/session picker", () => {
     ])
   })
 
+  it("accepts chunked title input from terminal automation", () => {
+    const decisions: unknown[] = []
+    const component = createWorkspaceDialogComponent({
+      inventory: inventory(),
+      onDecision: (decision) => decisions.push(decision),
+    })
+
+    component.handleInput!("\x1B[B")
+    component.handleInput!("\x1B[B")
+    component.handleInput!("\r")
+    component.handleInput!("Gamma")
+    component.handleInput!("\r")
+
+    expect(decisions).toEqual([{ action: "newSpec", title: "Gamma" }])
+  })
+
   it("backs out one picker stage on escape and cancels from the home stage", () => {
     const decisions: unknown[] = []
     const component = createWorkspaceDialogComponent({
