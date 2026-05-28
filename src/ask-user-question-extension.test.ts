@@ -1,6 +1,6 @@
 import { Text } from "@earendil-works/pi-tui"
 import { describe, expect, it } from "vitest"
-import askUserQuestion from "./ask-user-question.js"
+import askUserQuestion from "../.pi/extensions/ask-user-question.js"
 
 const ansiPattern = new RegExp(
   `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
