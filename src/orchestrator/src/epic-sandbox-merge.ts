@@ -83,6 +83,9 @@ export function sliceIdsForEpicVerifyMerge(plan: Plan, epicId: string): string[]
 /** Reserved under the parent sandbox for merged epic verify trees. */
 const EPIC_MERGE_SEGMENT = '__epic__';
 
+/** Never copy git/brunch metadata when walking slice worktrees for merge/seed. */
+const WALK_SKIP_ENTRIES = new Set(['.git', '.brunch', EPIC_MERGE_SEGMENT]);
+
 function assertSafePathSegment(id: string, label: string): void {
   if (!id || id.includes('..') || id.includes('/') || id.includes('\\')) {
     throw new Error(`Invalid ${label}: ${id}`);
@@ -330,6 +333,7 @@ export function mergeSlicesIntoEpicSandbox(opts: MergeOptions): MergeResult {
 
 function* walkFiles(rootDir: string, dir: string = rootDir): Iterable<string> {
   for (const entry of readdirSync(dir)) {
+    if (WALK_SKIP_ENTRIES.has(entry)) continue;
     const abs = join(dir, entry);
     const st = lstatSync(abs);
     if (st.isSymbolicLink()) continue;

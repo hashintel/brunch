@@ -488,6 +488,21 @@ describe('mergeSlicesIntoEpicSandbox', () => {
     expect(existsSync(join(result.epicSandboxDir, 'epic-1'))).toBe(false);
   });
 
+  it('does not copy .git worktree pointer files from codebase-mode slice worktrees', () => {
+    const parent = makeParent();
+    seedSlice(parent, 'slice-a', { 'src/a.ts': 'A\n' });
+    writeFileSync(join(parent, 'slice-a', '.git'), 'gitdir: /tmp/stale-worktree\n');
+
+    const result = mergeSlicesIntoEpicSandbox({
+      parentSandboxDir: parent,
+      epicId: 'epic-a',
+      sliceIds: ['slice-a'],
+    });
+
+    expect(existsSync(join(result.epicSandboxDir, 'src/a.ts'))).toBe(true);
+    expect(existsSync(join(result.epicSandboxDir, '.git'))).toBe(false);
+  });
+
   it('ignores symlinks when walking slice worktree files', () => {
     const parent = makeParent();
     seedSlice(parent, 'slice-a', { 'src/a.ts': 'A\n' });
