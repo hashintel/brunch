@@ -13,7 +13,9 @@ export type SandboxInfo = {
 
 export type SandboxMode = 'fixture' | 'codebase';
 
-export type CreateSandboxOptions = { mode: 'fixture' } | { mode: 'codebase'; sourceDir: string };
+export type CreateSandboxOptions =
+  | { mode: Extract<SandboxMode, 'fixture'> }
+  | { mode: Extract<SandboxMode, 'codebase'>; sourceDir: string };
 
 /**
  * Create an isolated run directory under `baseDir/.brunch/cook/runs/<runId>/`.
