@@ -23,7 +23,7 @@ The latest planning decision narrows the first proof away from a Brunch-only `br
 
 ## Target seam to prove
 
-### Structured-question result + JSON-editor RPC fallback
+### Structured-exchange result + JSON-editor RPC fallback
 
 1. A registered Pi tool asks a structured Brunch question or questionnaire.
 2. The assistant tool call is preserved as prompt-side transcript context; it is not the only semantic source for projection.
@@ -36,22 +36,22 @@ The latest planning decision narrows the first proof away from a Brunch-only `br
 4. In raw Pi RPC mode, complex shapes degrade through `ctx.ui.editor()` with schema-tagged JSON prefill; simple shapes may use Pi-supported `select`, `confirm`, or `input` where sufficient.
 5. A Brunch-aware public client can render the pending interaction as a product form and translate the answer back into Pi's documented `extension_ui_response`.
 6. The tool returns one terminal result whose `content` is generated from the same details and whose `details` are self-contained: schema/version, status, mode, prompt/questions, options, answers, and transport metadata.
-7. Elicitation-exchange projection classifies terminal structured-question toolResults as response-side entries, while ordinary toolResults remain prompt-side unless typed markers say otherwise.
+7. Elicitation-exchange projection classifies terminal structured-exchange toolResults as response-side entries, while ordinary toolResults remain prompt-side unless typed markers say otherwise.
 8. No graph mutation or review acceptance bypasses `CommandExecutor`; this slice proves interaction capture, not graph writes.
 
 ## Active slice candidate
 
-**Name:** Structured-question result + JSON-editor RPC fallback
+**Name:** Structured-exchange result + JSON-editor RPC fallback
 
 **Goal:** Prove that a transcript-native structured question can replace ambient free input in TUI, stay controllable over Pi RPC, and persist a response payload that Brunch can project without rehydrating semantics solely from assistant tool-call arguments.
 
 **Likely implementation shape:**
 
-- Define a minimal structured-question result details payload with `schema`, `status`, `mode`, `prompt` or `questions`, `options`, `answers`, and `transport`.
+- Define a minimal structured-exchange result details payload with `schema`, `status`, `mode`, `prompt` or `questions`, `options`, `answers`, and `transport`.
 - Add a Brunch-owned TUI helper modeled on Pi's `question.ts` / `questionnaire.ts` examples.
 - Add JSON-prefill / validation helpers for RPC editor fallback.
 - Add a Brunch Pi-RPC relay shim that maps Pi `extension_ui_request(editor)` to public Brunch pending-elicitation events/methods and maps the product answer back to `extension_ui_response`.
-- Update elicitation-exchange projection to recognize typed terminal structured-question toolResults as response-side entries.
+- Update elicitation-exchange projection to recognize typed terminal structured-exchange toolResults as response-side entries.
 
 **Acceptance:**
 
@@ -80,7 +80,7 @@ The latest planning decision narrows the first proof away from a Brunch-only `br
 
 ## Open questions
 
-- Which details schema name/version should become canonical for structured-question toolResults?
+- Which details schema name/version should become canonical for structured-exchange toolResults?
 - Does every structured toolResult carry all options, or can simple cases store only selected options while richer projection references a prompt-side entry? Current SPEC posture says self-contained enough for projection, so default to carrying all prompt/question/option data until evidence says it is too heavy.
 - Should unavailable/no-UI contexts return `status: "unavailable"` instead of an error-shaped content string?
 - What is the thinnest Brunch method/event family for pending elicitation discovery and response submission: `elicitation.pending/respond`, `agent.ui.*`, or a private relay under `agent.*`?
@@ -88,4 +88,4 @@ The latest planning decision narrows the first proof away from a Brunch-only `br
 
 ## Retirement rule
 
-Retire this file only after the structured-question / RPC-relay loop is either implemented and reconciled into `docs/architecture/pi-ui-extension-patterns.md` / SPEC / PLAN, or intentionally moved into a named M5 frontier slice. Do not delete it merely because command containment or chrome work is complete.
+Retire this file only after the structured-exchange / RPC-relay loop is either implemented and reconciled into `docs/architecture/pi-ui-extension-patterns.md` / SPEC / PLAN, or intentionally moved into a named M5 frontier slice. Do not delete it merely because command containment or chrome work is complete.

@@ -13,11 +13,18 @@ import {
 } from "@earendil-works/pi-tui"
 import { Type } from "typebox"
 
-export interface AskOption {
-  label: string
-  value: string
-  description?: string
-}
+import {
+  STRUCTURED_EXCHANGE_RESULT_SCHEMA,
+  type StructuredExchangeAnswer,
+  type StructuredExchangeMode,
+  type StructuredExchangeOption,
+  type StructuredExchangeResultDetails,
+  type StructuredExchangeStatus,
+} from "../../../../structured-exchange.js"
+
+export const STRUCTURED_EXCHANGE_TOOL = "structured_exchange"
+
+export type AskOption = StructuredExchangeOption
 
 interface DisplayOption extends AskOption {
   id: string
@@ -45,22 +52,11 @@ interface OtherAnswer {
   value: string
 }
 
-type AskAnswer = TextAnswer | OptionAnswer | OtherAnswer
-type AskUserQuestionStatus = "answered" | "cancelled" | "unavailable"
-type AskUserQuestionMode = "text" | "single-select" | "multi-select"
+type AskAnswer = StructuredExchangeAnswer
+type StructuredExchangeToolStatus = StructuredExchangeStatus
+type StructuredExchangeToolMode = StructuredExchangeMode
 
-export interface AskUserQuestionResultDetails {
-  status: AskUserQuestionStatus
-  question: string
-  context?: string
-  mode: AskUserQuestionMode
-  options?: AskOption[]
-  answers: AskAnswer[]
-  rejectedOptions?: AskOption[]
-  note?: string
-  transport?: { surface: "tui-custom" | "rpc-editor" | "headless" }
-  message?: string
-}
+export type StructuredExchangeToolResultDetails = StructuredExchangeResultDetails
 
 interface OptionAnswerResult {
   answers: AskAnswer[]
@@ -70,7 +66,7 @@ interface OptionAnswerResult {
 export interface StructuredExchangeEditorPrefillParams {
   question: string
   context?: string
-  mode: Exclude<AskUserQuestionMode, "text">
+  mode: Exclude<StructuredExchangeToolMode, "text">
   options: AskOption[]
 }
 
@@ -98,7 +94,7 @@ const OptionSchema = Type.Object({
   ),
 })
 
-const AskUserQuestionParams = Type.Object({
+const StructuredExchangeParams = Type.Object({
   question: Type.String({
     description:
       "The single question to ask the user. Ask exactly one question per tool call.",
@@ -281,17 +277,19 @@ class PromptQuestionComponent implements Component {
 }
 
 function buildStructuredResult(
-  status: AskUserQuestionStatus,
+  status: StructuredExchangeToolStatus,
   question: string,
-  mode: AskUserQuestionMode,
+  mode: StructuredExchangeToolMode,
   answers: AskAnswer[],
   context?: string,
   message?: string,
   note?: string,
   options?: AskOption[],
-  transport?: AskUserQuestionResultDetails["transport"],
-): AskUserQuestionResultDetails {
-  const result: AskUserQuestionResultDetails = {
+  transport?: StructuredExchangeToolResultDetails["transport"],
+): StructuredExchangeToolResultDetails {
+  const result: StructuredExchangeToolResultDetails = {
+    schema: STRUCTURED_EXCHANGE_RESULT_SCHEMA,
+    schemaVersion: 1,
     status,
     question,
     mode,
@@ -313,7 +311,7 @@ function buildStructuredResult(
 
 function cancelledResult(
   question: string,
-  mode: AskUserQuestionMode,
+  mode: StructuredExchangeToolMode,
   context?: string,
 ) {
   const message = "User cancelled the question"
@@ -332,7 +330,7 @@ function cancelledResult(
 
 function unavailableResult(
   question: string,
-  mode: AskUserQuestionMode,
+  mode: StructuredExchangeToolMode,
   message: string,
   context?: string,
 ) {
@@ -352,11 +350,11 @@ function unavailableResult(
 function buildResult(
   question: string,
   context: string | undefined,
-  mode: AskUserQuestionMode,
+  mode: StructuredExchangeToolMode,
   answers: AskAnswer[],
   note?: string,
   options?: AskOption[],
-  transport?: AskUserQuestionResultDetails["transport"],
+  transport?: StructuredExchangeToolResultDetails["transport"],
 ) {
   let text: string
   if (mode === "text") {
@@ -459,7 +457,7 @@ export function structuredExchangeResultFromEditor(
     return unavailableResult(
       params.question,
       params.mode,
-      "ask_user_question editor fallback returned invalid JSON",
+      "structured_exchange editor fallback returned invalid JSON",
       params.context,
     )
   }
@@ -516,7 +514,7 @@ async function askOptionsWithEditor(
   ctx: any,
   question: string,
   context: string | undefined,
-  mode: Exclude<AskUserQuestionMode, "text">,
+  mode: Exclude<StructuredExchangeToolMode, "text">,
   options: AskOption[],
 ): Promise<OptionAnswerResult | null | "invalid"> {
   if (typeof ctx.ui.editor !== "function") return "invalid"
@@ -969,27 +967,27 @@ function withUILock<T>(fn: () => Promise<T>): Promise<T> {
   return previous.then(fn).finally(() => release?.())
 }
 
-export default function askUserQuestion(pi: ExtensionAPI) {
+export default function registerStructuredExchange(pi: ExtensionAPI) {
   pi.registerTool({
-    name: "ask_user_question",
-    label: "ask_user_question",
+    name: STRUCTURED_EXCHANGE_TOOL,
+    label: "Structured exchange",
     renderShell: "self",
     description:
       "Ask the user a single question and pause execution until they answer. Use this when requirements are ambiguous, user preferences are needed, a decision would materially affect implementation, or you need confirmation before proceeding. Ask exactly one question per tool call, and prefer multiple separate tool calls over bundling unrelated questions together.",
     promptSnippet:
       "Ask exactly one clarifying, preference, confirmation, or decision question before continuing.",
     promptGuidelines: [
-      "Use ask_user_question when a user decision would materially affect the next step.",
-      "Ask exactly one question per ask_user_question tool call.",
-      "Use ask_user_question with multiSelect: true only when multiple answers to the same question are valid.",
-      'ask_user_question always lets the user select "Other" when options are provided.',
+      "Use structured_exchange when a user decision would materially affect the next step.",
+      "Ask exactly one question per structured_exchange tool call.",
+      "Use structured_exchange with multiSelect: true only when multiple answers to the same question are valid.",
+      'structured_exchange always lets the user select "Other" when options are provided.',
     ],
-    parameters: AskUserQuestionParams,
+    parameters: StructuredExchangeParams,
 
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const options = normalizeOptions(params.options)
       const context = params.details?.trim() || undefined
-      const mode: AskUserQuestionMode =
+      const mode: StructuredExchangeToolMode =
         options.length === 0
           ? "text"
           : params.multiSelect
@@ -1004,7 +1002,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
         return unavailableResult(
           params.question,
           mode,
-          "ask_user_question requires interactive mode UI",
+          "structured_exchange requires interactive mode UI",
           context,
         )
       }
@@ -1036,7 +1034,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
             return unavailableResult(
               params.question,
               mode,
-              "ask_user_question editor fallback returned invalid JSON",
+              "structured_exchange editor fallback returned invalid JSON",
               context,
             )
           }
@@ -1070,7 +1068,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
           return unavailableResult(
             params.question,
             mode,
-            "ask_user_question editor fallback returned invalid JSON",
+            "structured_exchange editor fallback returned invalid JSON",
             context,
           )
         }
@@ -1114,7 +1112,8 @@ export default function askUserQuestion(pi: ExtensionAPI) {
     },
 
     renderResult(result, _options, theme, context) {
-      const details = result.details as AskUserQuestionResultDetails | undefined
+      const details =
+        result.details as StructuredExchangeToolResultDetails | undefined
       if (!details) {
         const first = result.content[0]
         return new Text(first?.type === "text" ? first.text : "", 0, 0)
@@ -1132,7 +1131,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
         return new Text(
           theme.fg(
             "warning",
-            details.message || "ask_user_question unavailable",
+            details.message || "structured_exchange unavailable",
           ),
           0,
           0,

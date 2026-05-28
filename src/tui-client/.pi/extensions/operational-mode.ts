@@ -19,15 +19,8 @@ import {
 } from "@earendil-works/pi-coding-agent"
 import { Text } from "@earendil-works/pi-tui"
 
-const READ_ONLY_TOOLS = [
-  "read",
-  "grep",
-  "find",
-  "ls",
-  "present_alternatives",
-  "ask_user_question",
-] as const
-type ReadOnlyToolName = typeof READ_ONLY_TOOLS[number]
+const ELICIT_BLOCKED_TOOLS = ["bash", "edit", "write"] as const
+type ElicitBlockedToolName = typeof ELICIT_BLOCKED_TOOLS[number]
 
 export const BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE =
   "brunch.agent_runtime_state"
@@ -299,9 +292,12 @@ function shortenPath(path: string): string {
   return path
 }
 
-function availableReadOnlyToolNames(pi: ExtensionAPI): ReadOnlyToolName[] {
-  const allToolNames = new Set(pi.getAllTools().map((tool) => tool.name))
-  return READ_ONLY_TOOLS.filter((name) => allToolNames.has(name))
+function elicitToolNames(pi: ExtensionAPI): string[] {
+  const blocked = new Set<string>(ELICIT_BLOCKED_TOOLS)
+  return pi
+    .getAllTools()
+    .map((tool) => tool.name)
+    .filter((name) => !blocked.has(name))
 }
 
 interface SessionManagerLike {
@@ -327,11 +323,17 @@ function supportsBrunchAgentStateEntries(
 function activeToolNamesForState(
   pi: ExtensionAPI,
   state: ResolvedBrunchAgentState,
-): ReadOnlyToolName[] {
+): string[] {
   if (state.operationalModeDefinition.toolPolicyId === "elicit-read-only") {
-    return availableReadOnlyToolNames(pi)
+    return elicitToolNames(pi)
   }
   return []
+}
+
+function isBlockedElicitTool(
+  toolName: string,
+): toolName is ElicitBlockedToolName {
+  return ELICIT_BLOCKED_TOOLS.includes(toolName as ElicitBlockedToolName)
 }
 
 function applyBrunchToolPolicy(
@@ -580,14 +582,13 @@ export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
   })
 
   pi.on("tool_call", async (event) => {
-    const allowedToolNames = new Set(availableReadOnlyToolNames(pi))
-    if (allowedToolNames.has(event.toolName as ReadOnlyToolName)) return
+    if (!isBlockedElicitTool(event.toolName)) return
 
     return {
       block: true,
       reason:
         `Brunch tool policy blocks "${event.toolName}". ` +
-        `Allowed tools: ${Array.from(allowedToolNames).join(", ") || "none"}.`,
+        `Blocked tools in elicit mode: ${ELICIT_BLOCKED_TOOLS.join(", ")}.`,
     }
   })
 
@@ -600,3 +601,5 @@ export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
     },
   }))
 }
+
+export default registerBrunchOperationalModePolicy

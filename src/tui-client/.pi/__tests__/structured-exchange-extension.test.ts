@@ -1,6 +1,6 @@
 import { Text } from "@earendil-works/pi-tui"
 import { describe, expect, it } from "vitest"
-import askUserQuestion from "../extensions/structured-exchange/index.js"
+import registerStructuredExchange from "../extensions/structured-exchange/index.js"
 
 const ansiPattern = new RegExp(
   `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
@@ -13,7 +13,7 @@ function stripAnsi(text: string): string {
 
 function registerAskUserQuestionTool() {
   let tool: any
-  askUserQuestion({
+  registerStructuredExchange({
     registerTool(definition: any) {
       tool = definition
     },
@@ -27,7 +27,7 @@ const theme = {
   bold: (text: string) => text,
 }
 
-describe("ask_user_question experimental renderer", () => {
+describe("structured_exchange renderer", () => {
   it("renders prompt markdown before the question without duplicating options", () => {
     const tool = registerAskUserQuestionTool()
 
@@ -52,7 +52,7 @@ describe("ask_user_question experimental renderer", () => {
     expect(rendered).toContain("Which path should we take?")
     expect(rendered).not.toContain("First path")
     expect(rendered).not.toContain("Second path")
-    expect(rendered).not.toContain("ask_user_question")
+    expect(rendered).not.toContain("structured_exchange")
   })
 
   it("keeps renderCall component reuse type-safe across partial renders", () => {

@@ -1,4 +1,7 @@
-import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent"
+import type {
+  ExtensionAPI,
+  ExtensionUIContext,
+} from "@earendil-works/pi-coding-agent"
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui"
 
 import type {
@@ -157,6 +160,8 @@ export function renderBrunchChrome(
   })
   ui.setTitle(`brunch — ${chrome.spec?.title ?? chrome.cwd}`)
 }
+
+export default function brunchChrome(_pi: ExtensionAPI): void {}
 
 function formatSpec(chrome: BrunchChromeState): string {
   return chrome.spec?.title ?? "no spec selected"

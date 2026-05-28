@@ -153,3 +153,5 @@ function candidateToAutocompleteItem(
       : {}),
   }
 }
+
+export default registerBrunchMentionAutocomplete

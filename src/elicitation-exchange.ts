@@ -12,7 +12,7 @@ import {
   readBrunchSessionEnvelope,
   type BrunchSessionEnvelope,
 } from "./brunch-session-envelope.js"
-import { isTerminalStructuredQuestionResultDetails } from "./structured-question.js"
+import { isTerminalStructuredExchangeResultDetails } from "./structured-exchange.js"
 
 const PROMPT_SIDE_CUSTOM_TYPES = new Set([
   "brunch.elicitation_prompt",
@@ -227,7 +227,7 @@ function isPromptSideEntry(entry: SessionEntry): boolean {
   }
 
   const role = roleOf(entry)
-  if (role === "toolResult" && isTerminalStructuredQuestionToolResult(entry)) {
+  if (role === "toolResult" && isTerminalStructuredExchangeToolResult(entry)) {
     return false
   }
   return role === "assistant" || role === "toolResult"
@@ -237,7 +237,7 @@ function isResponseSideEntry(entry: SessionEntry): boolean {
   if (roleOf(entry) === "user") {
     return true
   }
-  if (isTerminalStructuredQuestionToolResult(entry)) {
+  if (isTerminalStructuredExchangeToolResult(entry)) {
     return true
   }
   return (
@@ -246,11 +246,11 @@ function isResponseSideEntry(entry: SessionEntry): boolean {
   )
 }
 
-function isTerminalStructuredQuestionToolResult(entry: SessionEntry): boolean {
+function isTerminalStructuredExchangeToolResult(entry: SessionEntry): boolean {
   return (
     isMessageEntry(entry) &&
     entry.message.role === "toolResult" &&
-    isTerminalStructuredQuestionResultDetails(
+    isTerminalStructuredExchangeResultDetails(
       (entry.message as { details?: unknown }).details,
     )
   )

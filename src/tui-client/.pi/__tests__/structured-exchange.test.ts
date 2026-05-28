@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import registerStructuredExchange, {
+  STRUCTURED_EXCHANGE_TOOL,
   buildStructuredExchangeEditorPrefill,
   parseStructuredExchangeEditorResponse,
 } from "../extensions/structured-exchange/index.js"
@@ -21,6 +22,7 @@ interface RenderableText {
 
 interface RegisteredTool {
   name: string
+  parameters: unknown
   execute: (
     toolCallId: string,
     params: Record<string, unknown>,
@@ -109,6 +111,15 @@ function optionParams(multiSelect = false): Record<string, unknown> {
 }
 
 describe("structured exchange inline JIT editor", () => {
+  it("registers one provider-valid structured exchange question tool", () => {
+    const tool = registeredTool()
+
+    expect(tool.name).toBe(STRUCTURED_EXCHANGE_TOOL)
+    expect(tool).toMatchObject({
+      parameters: { type: "object" },
+    })
+  })
+
   it("renders one inline optional editor after a single-select listed option", async () => {
     const tool = registeredTool()
     const renders: string[] = []

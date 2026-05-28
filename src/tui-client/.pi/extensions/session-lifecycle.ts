@@ -33,3 +33,5 @@ export function registerBrunchSessionBoundaryRefreshHandlers(
     }
   })
 }
+
+export default registerBrunchSessionBoundaryRefreshHandlers

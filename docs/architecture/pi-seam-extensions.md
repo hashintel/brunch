@@ -145,11 +145,11 @@ Every Brunch session should open with a concrete action or answer surface rather
 
 ### Brunch-owned work
 
-- A structured-question result details payload carrying enough projection data to stand alone: schema/version, status (`answered | skipped | cancelled | unavailable`), mode, prompt/questions, options, answers, and transport metadata.
+- A structured-exchange result details payload carrying enough projection data to stand alone: schema/version, status (`answered | skipped | cancelled | unavailable`), mode, prompt/questions, options, answers, and transport metadata.
 - A Brunch-owned TUI helper built on Pi custom UI patterns for radio, checkbox, questionnaire, and optional freeform input.
 - JSON-prefill / validation helpers for RPC editor fallback. This is a compatibility seam over Pi RPC, not a second Brunch product API.
 - A private Pi RPC adapter that translates `extension_ui_request(editor)` into product-shaped pending elicitation state for Brunch public clients, then translates the product response back into Pi's documented `extension_ui_response`.
-- Elicitation-exchange projection that treats terminal structured-question toolResults as response-side entries when their details carry the typed Brunch payload; ordinary toolResults remain prompt-side by default.
+- Elicitation-exchange projection that treats terminal structured-exchange toolResults as response-side entries when their details carry the typed Brunch payload; ordinary toolResults remain prompt-side by default.
 - Brunch custom entry schemas for product-native offers that are not ordinary questions, such as `brunch.establishment_offer`, `brunch.review_set_proposal`, and later review-cycle responses.
 
 ### Capture-aware response payload
@@ -530,7 +530,7 @@ Concretely, Flue has **no equivalent** for any of:
 
 - `prepareNextTurn` injection of `worldUpdate` between turns.
 - `pi.appendEntry({ deliverAs: "nextTurn" })` for side-chain result delivery. Flue's `session.task()` is awaited inline.
-- Custom-message/tool-result transcript types plus renderers for Brunch structured interaction state (`brunch.establishment_offer`, `brunch.review_set_proposal`, `brunch.lens_switch`, `brunch.spec_switch`, `brunch.side_task_result`, and structured-question toolResult details).
+- Custom-message/tool-result transcript types plus renderers for Brunch structured interaction state (`brunch.establishment_offer`, `brunch.review_set_proposal`, `brunch.lens_switch`, `brunch.spec_switch`, `brunch.side_task_result`, and structured-exchange toolResult details).
 - `pi.registerCommand` for `/lens`, `/spec`, `/compact`-style affordances.
 - `ExtensionUIContext.select | confirm | input | custom` for confirmation-gated writes and overlay UIs.
 - `pi-tui` primitives, including `SessionSelectorComponent` as a model for `SpecSelectorComponent`.

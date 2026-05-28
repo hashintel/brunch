@@ -21,7 +21,6 @@
 		"build:pi-assets": "mkdir -p dist/tui-client/.pi/components/workspace-dialog && cp -R src/tui-client/.pi/components/workspace-dialog/assets dist/tui-client/.pi/components/workspace-dialog/",
 		"build:web": "vite build",
 		"test": "vitest --run",
-		"test:structured-question-rpc-proof": "vitest --run src/structured-question-rpc-proof.test.ts",
 		"test:watch": "vitest",
 		"lint": "oxlint src .pi/extensions",
 		"lint:fix": "oxlint --fix src .pi/extensions",

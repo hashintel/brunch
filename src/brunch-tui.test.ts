@@ -295,8 +295,7 @@ describe("Brunch TUI boot", () => {
       "find",
       "ls",
       "present_alternatives",
-      "brunch_structured_question",
-      "ask_user_question",
+      "structured_exchange",
     ])
     expect(commands.get(BRUNCH_WORKSPACE_COMMAND)?.description).toBe(
       "Open the Brunch spec/session picker",
@@ -691,8 +690,9 @@ describe("Brunch TUI boot", () => {
           "grep",
           "find",
           "ls",
-          "ask_user_question",
+          "structured_exchange",
           "bash",
+          "edit",
           "write",
         ].map((name) => ({
           name,
@@ -706,7 +706,7 @@ describe("Brunch TUI boot", () => {
     expect(registeredTools).toEqual(["read", "grep", "find", "ls"])
     await events.session_start?.({} as never)
     expect(activeTools).toEqual([
-      ["read", "grep", "find", "ls", "ask_user_question"],
+      ["read", "grep", "find", "ls", "structured_exchange"],
     ])
     await expect(
       Promise.resolve(
@@ -714,7 +714,7 @@ describe("Brunch TUI boot", () => {
       ),
     ).resolves.toMatchObject({
       systemPrompt: expect.stringContaining(
-        "Brunch exposes only elicit-safe tools: read, grep, find, ls, ask_user_question.",
+        "Brunch exposes only elicit-safe tools: read, grep, find, ls, structured_exchange.",
       ),
     })
     await expect(

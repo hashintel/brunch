@@ -42,6 +42,18 @@ export function registerBrunchWorkspaceDialog(
   })
 }
 
+export default function brunchWorkspaceDialog(pi: ExtensionAPI): void {
+  pi.registerCommand(BRUNCH_WORKSPACE_COMMAND, {
+    description: "Open the Brunch spec/session picker",
+    handler: async (_args, ctx) => {
+      ctx.ui.notify(
+        "The Brunch workspace picker needs a product coordinator and is only available through the Brunch CLI.",
+        "warning",
+      )
+    },
+  })
+}
+
 export async function runBrunchWorkspaceCommand(
   ctx: ExtensionCommandContext,
   coordinator: SpecSessionActivationCoordinator,

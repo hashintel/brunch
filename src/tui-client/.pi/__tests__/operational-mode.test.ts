@@ -123,7 +123,8 @@ describe("Brunch agent runtime-state projection", () => {
           "grep",
           "find",
           "ls",
-          "ask_user_question",
+          "structured_exchange",
+          "present_alternatives",
           "bash",
           "edit",
           "write",
@@ -145,7 +146,14 @@ describe("Brunch agent runtime-state projection", () => {
     )
 
     expect(activeTools).toEqual([
-      ["read", "grep", "find", "ls", "ask_user_question"],
+      [
+        "read",
+        "grep",
+        "find",
+        "ls",
+        "structured_exchange",
+        "present_alternatives",
+      ],
     ])
     expect(promptResult).toMatchObject({
       systemPrompt: expect.stringContaining("Operational mode: elicit."),
@@ -160,15 +168,24 @@ describe("Brunch agent runtime-state projection", () => {
     })
     expect(promptResult).toMatchObject({
       systemPrompt: expect.stringContaining(
-        "Brunch exposes only elicit-safe tools: read, grep, find, ls, ask_user_question.",
+        "Brunch exposes only elicit-safe tools: read, grep, find, ls, structured_exchange, present_alternatives.",
       ),
     })
+    for (const toolName of ["bash", "edit", "write"]) {
+      await expect(
+        Promise.resolve(events.tool_call?.({ toolName } as never)),
+      ).resolves.toMatchObject({
+        block: true,
+        reason: expect.stringContaining(
+          `Brunch tool policy blocks "${toolName}"`,
+        ),
+      })
+    }
     await expect(
-      Promise.resolve(events.tool_call?.({ toolName: "write" } as never)),
-    ).resolves.toMatchObject({
-      block: true,
-      reason: expect.stringContaining('Brunch tool policy blocks "write"'),
-    })
+      Promise.resolve(
+        events.tool_call?.({ toolName: "structured_exchange" } as never),
+      ),
+    ).resolves.toBeUndefined()
     expect(events.user_bash?.({ command: "rm -rf ." } as never)).toMatchObject({
       result: {
         exitCode: 1,

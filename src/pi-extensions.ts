@@ -12,7 +12,6 @@ import {
 } from "./tui-client/.pi/extensions/mention-autocomplete.js"
 import { registerBrunchOperationalModePolicy } from "./tui-client/.pi/extensions/operational-mode.js"
 import registerBrunchStructuredExchange from "./tui-client/.pi/extensions/structured-exchange/index.js"
-import { registerBrunchStructuredQuestion } from "./tui-client/.pi/extensions/structured-question.js"
 import {
   renderBrunchChrome,
   type BrunchChromeState,
@@ -69,16 +68,6 @@ export {
   type BrunchSessionBoundaryHandler,
 } from "./tui-client/.pi/extensions/session-lifecycle.js"
 export {
-  STRUCTURED_QUESTION_TOOL,
-  answerStructuredQuestionWithTui,
-  buildStructuredQuestionEditorPrefill,
-  createStructuredQuestionTuiComponent,
-  parseStructuredQuestionEditorResponse,
-  registerBrunchStructuredQuestion,
-  structuredQuestionResultFromEditor,
-  type StructuredQuestionTuiResponse,
-} from "./tui-client/.pi/extensions/structured-question.js"
-export {
   BRUNCH_WORKSPACE_COMMAND,
   BRUNCH_WORKSPACE_SHORTCUT,
   registerBrunchWorkspaceDialog,
@@ -113,7 +102,6 @@ export function createBrunchPiExtensionShell(
       options.graphMentionSource ?? FIXTURE_GRAPH_MENTION_SOURCE,
     )
     registerBrunchAlternatives(pi)
-    registerBrunchStructuredQuestion(pi)
     registerBrunchStructuredExchange(pi)
     registerBrunchWorkspaceDialog(pi, options)
   }

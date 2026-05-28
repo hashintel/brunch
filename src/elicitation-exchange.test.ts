@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest"
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
 import { createSessionBindingData } from "./session-binding.js"
-import { buildStructuredQuestionResult } from "./structured-question.js"
+import { STRUCTURED_EXCHANGE_RESULT_SCHEMA } from "./structured-exchange.js"
 import { assistantMessage, userMessage } from "./test-helpers.js"
 import {
   loadJsonlTranscriptEntries,
@@ -39,47 +39,50 @@ const toolResult = {
     isError: false,
   },
 }
-const structuredQuestionToolResult = {
+const structuredExchangeToolResult = {
   id: "sq1",
   type: "message",
   message: {
     role: "toolResult",
-    toolCallId: "call-sq-1",
-    toolName: "brunch_structured_question",
-    content: [{ type: "text", text: "Domain?: Developer tooling" }],
-    details: buildStructuredQuestionResult({
-      params: {
-        id: "domain",
-        mode: "text",
-        prompt: "Domain?",
-      },
+    toolCallId: "call-exchange-1",
+    toolName: "structured_exchange",
+    content: [{ type: "text", text: "User answered: Developer tooling" }],
+    details: {
+      schema: STRUCTURED_EXCHANGE_RESULT_SCHEMA,
+      schemaVersion: 1,
       status: "answered",
+      question: "Domain?",
+      mode: "text",
       answers: [
-        { questionId: "domain", mode: "text", value: "Developer tooling" },
+        {
+          type: "text",
+          label: "Developer tooling",
+          value: "Developer tooling",
+        },
       ],
       transport: { surface: "rpc-editor" },
-    }).details,
+    },
     isError: false,
   },
 }
-const unavailableStructuredQuestionToolResult = {
+const unavailableStructuredExchangeToolResult = {
   id: "sq-unavailable",
   type: "message",
   message: {
     role: "toolResult",
-    toolCallId: "call-sq-2",
-    toolName: "brunch_structured_question",
-    content: [{ type: "text", text: "Structured question unavailable." }],
-    details: buildStructuredQuestionResult({
-      params: {
-        id: "domain",
-        mode: "text",
-        prompt: "Domain?",
-      },
+    toolCallId: "call-exchange-2",
+    toolName: "structured_exchange",
+    content: [{ type: "text", text: "Structured exchange unavailable." }],
+    details: {
+      schema: STRUCTURED_EXCHANGE_RESULT_SCHEMA,
+      schemaVersion: 1,
       status: "unavailable",
+      question: "Domain?",
+      mode: "text",
+      answers: [],
       transport: { surface: "headless" },
-      message: "Structured question UI is unavailable.",
-    }).details,
+      message: "Structured exchange UI is unavailable.",
+    },
     isError: false,
   },
 }
@@ -213,10 +216,10 @@ describe("elicitation exchange projection", () => {
     })
   })
 
-  it("classifies terminal structured-question tool results as response-side entries", () => {
+  it("classifies terminal structured-exchange tool results as response-side entries", () => {
     const projection = projectElicitationExchanges([
       assistant,
-      structuredQuestionToolResult,
+      structuredExchangeToolResult,
     ])
 
     expect(projection.exchanges[0]?.promptEntryIds).toEqual(["a1"])
@@ -228,10 +231,10 @@ describe("elicitation exchange projection", () => {
     expect(projection.openPrompt).toBeNull()
   })
 
-  it("keeps non-terminal structured-question tool results on the prompt side", () => {
+  it("keeps non-terminal structured-exchange tool results on the prompt side", () => {
     const projection = projectElicitationExchanges([
       assistant,
-      unavailableStructuredQuestionToolResult,
+      unavailableStructuredExchangeToolResult,
     ])
 
     expect(projection.exchanges).toEqual([])
@@ -299,30 +302,33 @@ describe("elicitation exchange projection", () => {
     )
   })
 
-  it("loads and projects terminal structured-question tool results as JSONL responses", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-structured-question-"))
+  it("loads and projects terminal structured-exchange tool results as JSONL responses", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-structured-exchange-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
     appendBinding(manager)
     manager.appendMessage(
-      assistantMessage("Please answer the structured question."),
+      assistantMessage("Please answer the structured exchange."),
     )
     manager.appendMessage({
       role: "toolResult",
-      toolCallId: "call-sq-jsonl",
-      toolName: "brunch_structured_question",
-      content: [{ type: "text", text: "Domain?: Developer tooling" }],
-      details: buildStructuredQuestionResult({
-        params: {
-          id: "domain",
-          mode: "text",
-          prompt: "Domain?",
-        },
+      toolCallId: "call-exchange-jsonl",
+      toolName: "structured_exchange",
+      content: [{ type: "text", text: "User answered: Developer tooling" }],
+      details: {
+        schema: STRUCTURED_EXCHANGE_RESULT_SCHEMA,
+        schemaVersion: 1,
         status: "answered",
+        question: "Domain?",
+        mode: "text",
         answers: [
-          { questionId: "domain", mode: "text", value: "Developer tooling" },
+          {
+            type: "text",
+            label: "Developer tooling",
+            value: "Developer tooling",
+          },
         ],
         transport: { surface: "rpc-editor" },
-      }).details,
+      },
       isError: false,
       timestamp: 0,
     })

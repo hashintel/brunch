@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import type { AskUserQuestionResultDetails } from "./tui-client/.pi/extensions/structured-exchange/index.js"
+import type { StructuredExchangeToolResultDetails } from "./tui-client/.pi/extensions/structured-exchange/index.js"
 
 interface ProbeMetadata {
   name: string
@@ -16,7 +16,7 @@ interface FrictionReport {
   frictions: string[]
 }
 
-interface TerminalDetails extends AskUserQuestionResultDetails {
+interface TerminalDetails extends StructuredExchangeToolResultDetails {
   probe: ProbeMetadata
   frictionReport: FrictionReport
 }

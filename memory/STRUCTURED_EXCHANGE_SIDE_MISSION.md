@@ -34,7 +34,7 @@ A throwaway structured-exchange prototype answers whether one inline just-in-tim
 
 ```text
 → local prototype command or narrowly marked prototype branch in structured-exchange tests
-→ option-selection state machine mirroring ask_user_question single/multi modes
+→ option-selection state machine mirroring structured_exchange single/multi modes
 → TUI-like render/input loop with picker focus and inline editor focus
 → payload projection examples for OptionAnswer / OtherAnswer / note
 → prototype verdict captured in this file or handoff
@@ -142,7 +142,7 @@ Option-selection structured exchanges use one inline just-in-time editor whose p
 ### Boundary Crossings
 
 ```text
-→ ask_user_question tool execution
+→ structured_exchange tool execution
 → ctx.ui.custom option component state machine
 → pi-tui Editor rendered inline beneath the picker
 → OptionAnswer / OtherAnswer / note result details
