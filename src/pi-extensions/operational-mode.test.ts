@@ -118,7 +118,16 @@ describe("Brunch agent runtime-state projection", () => {
     registerBrunchOperationalModePolicy({
       registerTool: (_tool: { name: string }) => {},
       getAllTools: () =>
-        ["read", "grep", "find", "ls", "bash", "edit", "write"].map((name) => ({
+        [
+          "read",
+          "grep",
+          "find",
+          "ls",
+          "ask_user_question",
+          "bash",
+          "edit",
+          "write",
+        ].map((name) => ({
           name,
         })),
       setActiveTools: (tools: string[]) => activeTools.push(tools),
@@ -135,7 +144,9 @@ describe("Brunch agent runtime-state projection", () => {
       } as never),
     )
 
-    expect(activeTools).toEqual([["read", "grep", "find", "ls"]])
+    expect(activeTools).toEqual([
+      ["read", "grep", "find", "ls", "ask_user_question"],
+    ])
     expect(promptResult).toMatchObject({
       systemPrompt: expect.stringContaining("Operational mode: elicit."),
     })
@@ -149,7 +160,7 @@ describe("Brunch agent runtime-state projection", () => {
     })
     expect(promptResult).toMatchObject({
       systemPrompt: expect.stringContaining(
-        "Brunch exposes only read-only tools: read, grep, find, ls.",
+        "Brunch exposes only elicit-safe tools: read, grep, find, ls, ask_user_question.",
       ),
     })
     await expect(

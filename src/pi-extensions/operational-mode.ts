@@ -25,6 +25,7 @@ const READ_ONLY_TOOLS = [
   "find",
   "ls",
   "present_alternatives",
+  "ask_user_question",
 ] as const
 type ReadOnlyToolName = typeof READ_ONLY_TOOLS[number]
 
@@ -358,7 +359,7 @@ function composeBrunchAgentStatePrompt(
       ...state.agentRoleDefinition.promptPackIds,
     ].join(", ")}.\n` +
     `\n[Brunch tool policy]\n` +
-    `- Brunch exposes only read-only tools: ${tools}.\n` +
+    `- Brunch exposes only elicit-safe tools: ${tools}.\n` +
     `- Do not attempt to write files, edit code, run shell commands, change git state, install dependencies, start processes, or mutate external systems.\n` +
     `- If the user asks for a side-effecting action, explain that this Brunch prototype is read-only for now.`
   )

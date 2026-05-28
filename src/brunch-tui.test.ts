@@ -232,6 +232,7 @@ describe("Brunch TUI boot", () => {
         }
       },
       registerCommand: (_name: string, _options: unknown) => {},
+      registerTool: (_tool: unknown) => {},
     } as never)
 
     for (const handler of sessionStart) await handler({}, ctx)
@@ -295,6 +296,7 @@ describe("Brunch TUI boot", () => {
       "ls",
       "present_alternatives",
       "brunch_structured_question",
+      "ask_user_question",
     ])
     expect(commands.get(BRUNCH_WORKSPACE_COMMAND)?.description).toBe(
       "Open the Brunch spec/session picker",
@@ -534,6 +536,7 @@ describe("Brunch TUI boot", () => {
         handlers.set(event, handler)
       },
       registerCommand: (_name: string, _options: unknown) => {},
+      registerTool: (_tool: unknown) => {},
     } as never)
 
     await expect(
@@ -683,7 +686,15 @@ describe("Brunch TUI boot", () => {
     registerBrunchOperationalModePolicy({
       registerTool: (tool: { name: string }) => registeredTools.push(tool.name),
       getAllTools: () =>
-        ["read", "grep", "find", "ls", "bash", "write"].map((name) => ({
+        [
+          "read",
+          "grep",
+          "find",
+          "ls",
+          "ask_user_question",
+          "bash",
+          "write",
+        ].map((name) => ({
           name,
         })),
       setActiveTools: (tools: string[]) => activeTools.push(tools),
@@ -694,14 +705,16 @@ describe("Brunch TUI boot", () => {
 
     expect(registeredTools).toEqual(["read", "grep", "find", "ls"])
     await events.session_start?.({} as never)
-    expect(activeTools).toEqual([["read", "grep", "find", "ls"]])
+    expect(activeTools).toEqual([
+      ["read", "grep", "find", "ls", "ask_user_question"],
+    ])
     await expect(
       Promise.resolve(
         events.before_agent_start?.({ systemPrompt: "base" } as never),
       ),
     ).resolves.toMatchObject({
       systemPrompt: expect.stringContaining(
-        "Brunch exposes only read-only tools: read, grep, find, ls.",
+        "Brunch exposes only elicit-safe tools: read, grep, find, ls, ask_user_question.",
       ),
     })
     await expect(
