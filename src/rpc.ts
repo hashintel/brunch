@@ -116,6 +116,10 @@ export function createRpcHandlers(options: {
         )
       }
 
+      if (request.method === "elicitation.respond") {
+        return handleRespondToElicitation(requestId, request.params, options)
+      }
+
       if (request.method === "session.elicitationExchanges") {
         return handleSessionProjection(
           requestId,
@@ -349,6 +353,36 @@ const PendingExchangeResultSchema = Type.Union([
   ),
 ])
 
+const ElicitationRespondParamsSchema = Type.Object(
+  {
+    exchangeId: NonBlankStringSchema,
+    answer: Type.Object({ optionId: NonBlankStringSchema }, {
+      additionalProperties: false,
+    }),
+    note: Type.Optional(Type.String()),
+  },
+  { additionalProperties: false },
+)
+
+const ElicitationRespondResultSchema = Type.Object(
+  {
+    status: Type.Literal("accepted"),
+    exchangeId: NonBlankStringSchema,
+    answer: Type.Object(
+      {
+        optionId: NonBlankStringSchema,
+        label: NonBlankStringSchema,
+      },
+      { additionalProperties: false },
+    ),
+    note: Type.Optional(Type.String()),
+  },
+  { additionalProperties: false },
+)
+
+type ElicitationRespondParams = Static<typeof ElicitationRespondParamsSchema>
+type ElicitationRespondResult = Static<typeof ElicitationRespondResultSchema>
+
 type RpcMethodDiscovery = {
   method: string
   description: string
@@ -470,6 +504,25 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
       },
     ],
   },
+  {
+    method: "elicitation.respond",
+    description:
+      "Submit a listed-option answer for the selected session's current deterministic pending elicitation exchange.",
+    paramsSchema: ElicitationRespondParamsSchema,
+    resultSchema: ElicitationRespondResultSchema,
+    examples: [
+      {
+        jsonrpc: "2.0",
+        id: 11,
+        method: "elicitation.respond",
+        params: {
+          exchangeId: "deterministic-grounding-1",
+          answer: { optionId: "new-from-scratch" },
+          note: "This is a greenfield product.",
+        },
+      },
+    ],
+  },
 ]
 
 type WorkspaceActivationParamsParseResult = {
@@ -576,6 +629,103 @@ async function handleStartElicitation(
     status: "pending",
     exchange: reloaded ?? exchange,
   })
+}
+
+async function handleRespondToElicitation(
+  requestId: JsonRpcId,
+  rawParams: unknown,
+  options: {
+    coordinator: DefaultWorkspaceCoordinator
+    cwd: string
+  },
+): Promise<JsonRpcResponse> {
+  if (!Value.Check(ElicitationRespondParamsSchema, rawParams)) {
+    return createJsonRpcFailure(requestId, -32602, "Invalid params")
+  }
+  const params: ElicitationRespondParams = Value.Parse(
+    ElicitationRespondParamsSchema,
+    rawParams,
+  )
+
+  const state = await options.coordinator.openDefaultWorkspace()
+  if (state.status !== "ready") {
+    return createJsonRpcFailure(requestId, -32001, "No selected Brunch session")
+  }
+
+  const target = await selectedSessionFile(state)
+  if (!target.ok) {
+    return createJsonRpcFailure(requestId, target.code, target.message)
+  }
+
+  let pending: PendingElicitationExchange | null
+  try {
+    pending = pendingExchangeFromEnvelope(target.envelope)
+  } catch (error) {
+    if (error instanceof NonLinearTranscriptError) {
+      return createJsonRpcFailure(requestId, -32002, target.nonLinearMessage)
+    }
+    throw error
+  }
+
+  if (!pending) {
+    return createJsonRpcFailure(
+      requestId,
+      -32008,
+      "No pending elicitation exchange",
+    )
+  }
+
+  if (params.exchangeId !== pending.exchangeId) {
+    return createJsonRpcFailure(
+      requestId,
+      -32006,
+      "Pending elicitation exchange does not match request",
+    )
+  }
+
+  const selectedOption = pending.options.find(
+    (option) => option.id === params.answer.optionId,
+  )
+  if (!selectedOption) {
+    return createJsonRpcFailure(requestId, -32007, "Invalid elicitation option")
+  }
+
+  const result: ElicitationRespondResult = {
+    status: "accepted",
+    exchangeId: pending.exchangeId,
+    answer: { optionId: selectedOption.id, label: selectedOption.label },
+    ...(params.note === undefined ? {} : { note: params.note }),
+  }
+
+  state.session.manager.appendMessage({
+    role: "user",
+    content: responseDisplayText(result),
+    timestamp: 0,
+  })
+  state.session.manager.appendCustomEntry("brunch.elicitation_response", {
+    exchangeId: pending.exchangeId,
+    lens: pending.lens,
+    mode: pending.mode,
+    prompt: pending.prompt,
+    answer: {
+      type: "option",
+      optionId: selectedOption.id,
+      label: selectedOption.label,
+    },
+    ...(params.note === undefined ? {} : { note: params.note }),
+    transport: { surface: "brunch-json-rpc" },
+  })
+  flushSessionEntries(state.session.manager, state.session.file)
+
+  return createJsonRpcSuccess(requestId, result)
+}
+
+function responseDisplayText(response: ElicitationRespondResult): string {
+  const lines = [`Selected: ${response.answer.label}`]
+  if (response.note !== undefined && response.note.length > 0) {
+    lines.push(`Note: ${response.note}`)
+  }
+  return lines.join("\n")
 }
 
 type PendingElicitationExchange = Static<typeof PendingElicitationExchangeSchema>

@@ -203,6 +203,7 @@ describe("JSON-RPC handlers", () => {
       }>
     }).methods
     expect(methods.map((entry) => entry.method).sort()).toEqual([
+      "elicitation.respond",
       "rpc.discover",
       "session.elicitationExchanges",
       "session.pendingExchange",
@@ -709,6 +710,225 @@ describe("JSON-RPC handlers", () => {
         message: "Selected Brunch session transcript is non-linear",
       },
     })
+  })
+
+  it("responds to the deterministic listed-option exchange and closes the projection", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-respond-"))
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
+    const workspace = await coordinatorInstance.createSetupSession({
+      specTitle: "Respond spec",
+    })
+    const handlers = createRpcHandlers({
+      coordinator: coordinatorInstance,
+      cwd,
+    })
+
+    const start = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 53,
+      method: "session.startElicitation",
+    })
+    const exchangeId = (start as {
+      result: { exchange: { exchangeId: string } }
+    }).result.exchange.exchangeId
+
+    const response = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 54,
+      method: "elicitation.respond",
+      params: {
+        exchangeId,
+        answer: { optionId: "new-from-scratch" },
+        note: "This is a greenfield product.",
+      },
+    })
+
+    expect(response).toMatchObject({
+      jsonrpc: "2.0",
+      id: 54,
+      result: {
+        status: "accepted",
+        exchangeId,
+        answer: {
+          optionId: "new-from-scratch",
+          label: "Yes — this is new from scratch",
+        },
+        note: "This is a greenfield product.",
+      },
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 55,
+        method: "session.pendingExchange",
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 55,
+      result: { status: "idle", exchange: null },
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 56,
+        method: "session.elicitationExchanges",
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 56,
+      result: {
+        status: "ready",
+        exchanges: [
+          {
+            promptEntryIds: [expect.any(String)],
+            responseEntryIds: [expect.any(String), expect.any(String)],
+          },
+        ],
+      },
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 57,
+        method: "session.transcriptDisplay",
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 57,
+      result: {
+        rows: [
+          {
+            role: "prompt",
+            text: expect.stringContaining("new product or feature"),
+          },
+          {
+            role: "user",
+            text: expect.stringContaining("Yes — this is new from scratch"),
+          },
+        ],
+      },
+    })
+
+    const sessionText = await readFile(workspace.session.file, "utf8")
+    expect(sessionText).toContain("brunch.elicitation_response")
+    expect(sessionText).toContain("This is a greenfield product.")
+  })
+
+  it("rejects mismatched elicitation response ids without appending transcript entries", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-respond-bad-id-"))
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
+    const workspace = await coordinatorInstance.createSetupSession({
+      specTitle: "Bad id spec",
+    })
+    const handlers = createRpcHandlers({
+      coordinator: coordinatorInstance,
+      cwd,
+    })
+    await handlers.handle({
+      jsonrpc: "2.0",
+      id: 58,
+      method: "session.startElicitation",
+    })
+    const before = await readFile(workspace.session.file, "utf8")
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 59,
+        method: "elicitation.respond",
+        params: {
+          exchangeId: "not-current",
+          answer: { optionId: "new-from-scratch" },
+        },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 59,
+      error: {
+        code: -32006,
+        message: "Pending elicitation exchange does not match request",
+      },
+    })
+    await expect(readFile(workspace.session.file, "utf8")).resolves.toBe(before)
+  })
+
+  it("rejects unknown elicitation option ids without appending transcript entries", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-respond-bad-option-"))
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
+    const workspace = await coordinatorInstance.createSetupSession({
+      specTitle: "Bad option spec",
+    })
+    const handlers = createRpcHandlers({
+      coordinator: coordinatorInstance,
+      cwd,
+    })
+    const start = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 60,
+      method: "session.startElicitation",
+    })
+    const exchangeId = (start as {
+      result: { exchange: { exchangeId: string } }
+    }).result.exchange.exchangeId
+    const before = await readFile(workspace.session.file, "utf8")
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 61,
+        method: "elicitation.respond",
+        params: { exchangeId, answer: { optionId: "missing-option" } },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 61,
+      error: { code: -32007, message: "Invalid elicitation option" },
+    })
+    await expect(readFile(workspace.session.file, "utf8")).resolves.toBe(before)
+  })
+
+  it("guards duplicate elicitation responses without appending transcript entries", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-respond-duplicate-"))
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
+    const workspace = await coordinatorInstance.createSetupSession({
+      specTitle: "Duplicate spec",
+    })
+    const handlers = createRpcHandlers({
+      coordinator: coordinatorInstance,
+      cwd,
+    })
+    const start = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 62,
+      method: "session.startElicitation",
+    })
+    const exchangeId = (start as {
+      result: { exchange: { exchangeId: string } }
+    }).result.exchange.exchangeId
+    await handlers.handle({
+      jsonrpc: "2.0",
+      id: 63,
+      method: "elicitation.respond",
+      params: { exchangeId, answer: { optionId: "existing-codebase" } },
+    })
+    const before = await readFile(workspace.session.file, "utf8")
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 64,
+        method: "elicitation.respond",
+        params: { exchangeId, answer: { optionId: "existing-codebase" } },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 64,
+      error: { code: -32008, message: "No pending elicitation exchange" },
+    })
+    await expect(readFile(workspace.session.file, "utf8")).resolves.toBe(before)
   })
 
   it("resumes an open deterministic elicitation prompt without duplicating transcript entries", async () => {
