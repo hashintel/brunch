@@ -1,16 +1,15 @@
-import {
-  getMarkdownTheme,
-  type ExtensionAPI,
-} from "@earendil-works/pi-coding-agent"
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent"
 import {
   type Component,
   Editor,
   type EditorTheme,
   Key,
   Markdown,
+  type MarkdownTheme,
   Text,
   matchesKey,
   truncateToWidth,
+  wrapTextWithAnsi,
 } from "@earendil-works/pi-tui"
 import { Type } from "typebox"
 
@@ -143,6 +142,34 @@ function createEditorTheme(theme: {
   }
 }
 
+function createPromptMarkdownTheme(theme: {
+  fg(color: string, text: string): string
+  bold?: (text: string) => string
+  italic?: (text: string) => string
+  underline?: (text: string) => string
+  strikethrough?: (text: string) => string
+}): MarkdownTheme {
+  const fg = (color: string) => (text: string) => theme.fg(color, text)
+  const identity = (text: string) => text
+  return {
+    heading: fg("mdHeading"),
+    link: fg("mdLink"),
+    linkUrl: fg("mdLinkUrl"),
+    code: fg("mdCode"),
+    codeBlock: fg("mdCodeBlock"),
+    codeBlockBorder: fg("mdCodeBlockBorder"),
+    quote: fg("mdQuote"),
+    quoteBorder: fg("mdQuoteBorder"),
+    hr: fg("mdHr"),
+    listBullet: fg("mdListBullet"),
+    bold: theme.bold ?? identity,
+    italic: theme.italic ?? identity,
+    underline: theme.underline ?? identity,
+    strikethrough: theme.strikethrough ?? identity,
+    highlightCode: (code: string) => code.split("\n").map(fg("mdCodeBlock")),
+  }
+}
+
 function formatAnswerForModel(answer: AskAnswer): string {
   switch (answer.type) {
     case "text":
@@ -169,13 +196,23 @@ function sortAnswers(answers: AskAnswer[]): AskAnswer[] {
   return [...answers].sort((a, b) => answerSortRank(a) - answerSortRank(b))
 }
 
+function addWrapped(
+  lines: string[],
+  text: string,
+  width: number,
+  indent = "",
+): void {
+  const contentWidth = Math.max(1, width - indent.length)
+  for (const line of wrapTextWithAnsi(text, contentWidth)) {
+    lines.push(truncateToWidth(`${indent}${line}`, width))
+  }
+}
+
 function buildQuestionMarkdown(
   question: string,
   context: string | undefined,
 ): string {
-  const sections = [
-    `## Question\n\n${question}\n\n> **Purpose:** choose the response that best unblocks the next step.`,
-  ]
+  const sections = [`## Question\n\n${question}`]
 
   if (context) {
     sections.unshift(context)
@@ -190,11 +227,7 @@ function optionMatchesAnswer(option: AskOption, answer: AskAnswer): boolean {
 }
 
 function pickerTopBorder(theme: any, width: number): string {
-  const title = " Options "
-  return theme.fg(
-    "accent",
-    `─${title}${"─".repeat(Math.max(0, width - title.length - 1))}`,
-  )
+  return theme.fg("accent", "─".repeat(width))
 }
 
 function pickerBottomBorder(theme: any, width: number): string {
@@ -206,9 +239,9 @@ class PromptQuestionComponent implements Component {
 
   constructor(
     private text: string,
-    private theme: any,
+    markdownTheme: MarkdownTheme,
   ) {
-    this.markdown = new Markdown(text, 0, 0, getMarkdownTheme())
+    this.markdown = new Markdown(text, 0, 0, markdownTheme)
   }
 
   setText(text: string): void {
@@ -221,13 +254,7 @@ class PromptQuestionComponent implements Component {
   }
 
   render(width: number): string[] {
-    const label = " Question "
-    const border = `─${label}${"─".repeat(Math.max(0, width - label.length - 1))}`
-    return [
-      this.theme.bg("customMessageBg", this.theme.fg("muted", border)),
-      "",
-      ...this.markdown.render(width),
-    ]
+    return this.markdown.render(width)
   }
 }
 
@@ -423,7 +450,12 @@ async function askSingleChoice(
           add(`${prefix}${styled}`)
           if (option.description) {
             const descriptionPrefix = selected ? theme.fg("accent", "│ ") : "  "
-            add(`${descriptionPrefix}${theme.fg("muted", option.description)}`)
+            addWrapped(
+              lines,
+              theme.fg("muted", option.description),
+              width,
+              descriptionPrefix,
+            )
           }
         }
 
@@ -634,7 +666,12 @@ async function askMultiChoice(
             const descriptionPrefix = isFocused
               ? theme.fg("accent", "│ ")
               : "  "
-            add(`${descriptionPrefix}${theme.fg("muted", item.description)}`)
+            addWrapped(
+              lines,
+              theme.fg("muted", item.description),
+              width,
+              descriptionPrefix,
+            )
           }
         }
 
@@ -785,7 +822,10 @@ export default function askUserQuestion(pi: ExtensionAPI) {
         prompt.setText(text)
         return prompt
       }
-      return new PromptQuestionComponent(text, _theme)
+      return new PromptQuestionComponent(
+        text,
+        createPromptMarkdownTheme(_theme),
+      )
     },
 
     renderResult(result, _options, theme, context) {
@@ -826,16 +866,11 @@ export default function askUserQuestion(pi: ExtensionAPI) {
       })
       const optionArgs = context?.args as { options?: AskOption[] } | undefined
       const options = normalizeOptions(optionArgs?.options)
-      const rejectedLines = options
-        .filter(
-          (option) =>
-            !details.answers.some((answer) =>
-              optionMatchesAnswer(option, answer),
-            ),
-        )
-        .map((option, index) =>
-          theme.fg("dim", `○ Rejected: ${index + 1}. ${option.label}`),
-        )
+      const rejectedLines = options.flatMap((option, index) =>
+        details.answers.some((answer) => optionMatchesAnswer(option, answer))
+          ? []
+          : [theme.fg("dim", `○ Rejected: ${index + 1}. ${option.label}`)],
+      )
 
       return new Text([...selectedLines, ...rejectedLines].join("\n"), 0, 0)
     },
