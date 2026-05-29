@@ -650,7 +650,7 @@ The intent ontology covers engineering-spec shapes well but is thin on product-f
 
 Framing primarily drives **elicitation, rendering, and context packing** in the POC — not new relation-policy rules. Base kind still drives edge legality and most traversal. Context packs, scope-card UI, and compaction summaries must render a dedicated **Product framing** block so the data does not silently disappear from the agent's view.
 
-Kernel-activation gate: behavioral kernels should not engage in earnest before at least one `product_concept`, one `problem`, one `persona`, and one `non_goal` (or scope boundary) have been captured for the spec. This is the minimum framing bundle required for brief #7 ("Notion meets Linear meets Slack") in the [fixture strategy](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md) to succeed.
+Kernel-activation gate: behavioral kernels should not engage in earnest before at least one `product_concept`, one `problem`, one `persona`, and one `non_goal` (or scope boundary) have been captured for the spec. Future probe scenarios can exercise this bundle through transcript artifacts, but there is no current standalone brief-library gate.
 
 #### Oracle-plane entities (new node types)
 

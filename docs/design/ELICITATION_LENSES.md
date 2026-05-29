@@ -110,7 +110,7 @@ Scenarios are a recurring rendering primitive across lenses with three distingui
 
 All three share a shape: a particular vignette, deliberately under-specified at the boundaries (fat-marker), illustrative not prescriptive, carrying an implicit "vs not-this". A scenario-entry primitive may eventually be worth extracting as a typed custom entry; for now scenarios live as transcript content with role distinguished by context.
 
-**Terminology guard.** Scenarios (user-facing, runtime) are distinct from **briefs** (`.fixtures/briefs/`, dev-only inputs for the agent-as-user fixture driver). Briefs are testing infrastructure; scenarios are product surface. Do not conflate.
+**Terminology guard.** Scenarios are user-facing/runtime examples. Probe inputs are testing infrastructure that only matter when they produce transcript-backed probe runs under `.fixtures/runs/`. Do not turn probe inputs into product scenarios, and do not revive a standalone brief-library subsystem.
 
 ## Establishment offers and intent hints
 

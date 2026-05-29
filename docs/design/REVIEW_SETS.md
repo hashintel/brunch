@@ -67,7 +67,7 @@ Approximate shape (refined during M5 implementation):
 
 A14-L tracks the open assumption: **LLM elicitors must reliably produce graph-structurally-legal payloads** (entity drafts and edges that pass `CommandExecutor` structural validation). This is validated via:
 
-- Fixture replay across briefs exercising generative lenses
+- Probe replay across transcript-backed scenarios exercising generative lenses
 - Dry-run validation reports at proposal time
 
 If LLM reliability proves insufficient, fallbacks are possible without changing the user-facing review-cycle:
