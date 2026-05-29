@@ -1,6 +1,6 @@
 import { mkdtemp, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { basename, dirname, join } from "node:path"
 
 import { describe, expect, it } from "vitest"
 
@@ -11,6 +11,10 @@ describe("public Brunch RPC structured-exchange parity proof", () => {
     const report = await runPublicRpcParityProof()
 
     expect(report).toMatchObject({
+      schemaVersion: 1,
+      probeId: "public-rpc-parity",
+      runId: expect.any(String),
+      generatedAt: expect.any(String),
       mission: expect.stringContaining("public JSON-RPC only"),
       evaluationFocus: expect.stringContaining(
         "tuple transcript/projection parity",
@@ -21,6 +25,7 @@ describe("public Brunch RPC structured-exchange parity proof", () => {
       specId: expect.any(String),
       sessionId: expect.any(String),
     })
+    expect(Date.parse(report.generatedAt)).not.toBeNaN()
     expect(report.toolCoverage).toEqual([
       "present_options",
       "present_question",
@@ -44,30 +49,36 @@ describe("public Brunch RPC structured-exchange parity proof", () => {
 
     const artifacts = report.artifacts
     expect(artifacts).toEqual({
-      runDir: join(fixtureRoot, "runs", "public-rpc-parity", "artifact-test"),
+      runDir: join(fixtureRoot, "runs", "public-rpc-parity", report.runId),
       sessionJsonl: join(
         fixtureRoot,
         "runs",
         "public-rpc-parity",
-        "artifact-test",
+        report.runId,
         "session.jsonl",
       ),
       transcriptMarkdown: join(
         fixtureRoot,
         "runs",
         "public-rpc-parity",
-        "artifact-test",
+        report.runId,
         "transcript.md",
       ),
       reportJson: join(
         fixtureRoot,
         "runs",
         "public-rpc-parity",
-        "artifact-test",
+        report.runId,
         "report.json",
       ),
     })
     if (artifacts === undefined) throw new Error("Expected artifact paths")
+
+    expect(
+      artifacts.runDir.endsWith(join("runs", report.probeId, report.runId)),
+    ).toBe(true)
+    expect(basename(artifacts.runDir)).toBe(report.runId)
+    expect(basename(dirname(artifacts.runDir))).toBe(report.probeId)
 
     const sessionJsonl = await readFile(artifacts.sessionJsonl, "utf8")
     const transcript = await readFile(artifacts.transcriptMarkdown, "utf8")
@@ -81,6 +92,10 @@ describe("public Brunch RPC structured-exchange parity proof", () => {
     expect(transcript).toContain("— prompt (present_")
     expect(transcript).toContain("— response (request_")
     expect(persistedReport).toMatchObject({
+      schemaVersion: 1,
+      probeId: "public-rpc-parity",
+      runId: report.runId,
+      generatedAt: report.generatedAt,
       mission: report.mission,
       completedTurns: 10,
       exchangeIds: report.exchangeIds,

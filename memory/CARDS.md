@@ -62,7 +62,7 @@ Depends on: A23-L — already validated by the public RPC parity proof; this car
 
 ## Card 2 — Add a self-describing parity report envelope
 
-**Status:** next  
+**Status:** done  
 **Weight:** light scope card
 
 ### Objective
@@ -109,7 +109,7 @@ Depends on: A5-L and A23-L — the artifact envelope improves fixture-driver/pro
 
 ## Card 3 — Make transcript rendering Brunch-semantic by default
 
-**Status:** queued  
+**Status:** next  
 **Weight:** light scope card
 
 ### Objective

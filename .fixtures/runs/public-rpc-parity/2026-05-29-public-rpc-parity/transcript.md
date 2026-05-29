@@ -2,16 +2,16 @@
 
 ## Session
 
-- session: 019e7373-6b3d-7bdb-bccb-fbf5d974efea
-- cwd: /var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-public-rpc-parity-E54Gbu
+- session: 019e7391-86fb-78bd-a3b9-e54b48f316af
+- cwd: /var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-public-rpc-parity-ITIRCc
 
 ## Session binding
 
 ```json
 {
   "schemaVersion": 1,
-  "sessionId": "019e7373-6b3d-7bdb-bccb-fbf5d974efea",
-  "specId": "spec-3107835e-7dde-4a30-9f26-7f49d52d31b3",
+  "sessionId": "019e7391-86fb-78bd-a3b9-e54b48f316af",
+  "specId": "spec-9a7e0a75-0932-4caa-a848-285e476dcb85",
   "specTitle": "Public RPC parity spec"
 }
 ```

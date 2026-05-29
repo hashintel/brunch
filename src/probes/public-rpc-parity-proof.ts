@@ -67,6 +67,10 @@ export interface PublicRpcParityProofOptions {
 }
 
 export interface PublicRpcParityProofReport {
+  schemaVersion: 1
+  probeId: "public-rpc-parity"
+  runId: string
+  generatedAt: string
   mission: string
   evaluationFocus: string
   maxTurnBudget: number
@@ -175,6 +179,8 @@ function responseFor(exchange: PendingExchange): ProofResponse {
 export async function runPublicRpcParityProof(
   options: PublicRpcParityProofOptions = {},
 ): Promise<PublicRpcParityProofReport> {
+  const runId = options.runId ?? defaultRunId()
+  const generatedAt = new Date().toISOString()
   const cwd = await mkdtemp(join(tmpdir(), "brunch-public-rpc-parity-"))
   const coordinator = createWorkspaceSessionCoordinator({ cwd })
   const handlers = createRpcHandlers({ coordinator, cwd })
@@ -375,6 +381,10 @@ export async function runPublicRpcParityProof(
   }
 
   const report: PublicRpcParityProofReport = {
+    schemaVersion: 1,
+    probeId: "public-rpc-parity",
+    runId,
+    generatedAt,
     mission:
       "Drive an assistant-first Brunch elicitation session through public JSON-RPC only.",
     evaluationFocus:
@@ -393,7 +403,7 @@ export async function runPublicRpcParityProof(
   if (options.fixtureRoot !== undefined) {
     report.artifacts = await writeProofArtifacts({
       fixtureRoot: options.fixtureRoot,
-      runId: options.runId ?? defaultRunId(),
+      runId,
       sessionText,
       report,
     })
