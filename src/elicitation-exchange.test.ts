@@ -354,31 +354,86 @@ describe("elicitation exchange projection", () => {
     ])
   })
 
-  it("closes present_options with a terminal request_choices result", () => {
-    const presentOptions = {
-      ...presentQuestionToolResult,
-      id: "present-options-1",
+  it.each(["answered", "cancelled", "unavailable"] as const)(
+    "closes present_options with a terminal %s request_choices result",
+    (status) => {
+      const presentOptions = {
+        ...presentQuestionToolResult,
+        id: "present-options-1",
+        message: {
+          ...presentQuestionToolResult.message,
+          toolName: "present_options",
+          details: {
+            ...presentQuestionToolResult.message.details,
+            presentTool: "present_options",
+            kind: "options",
+            expectedRequest: { tool: "request_choices", required: true },
+          },
+        },
+      }
+      const requestChoices = {
+        ...requestChoicesToolResult,
+        id: `request-choices-${status}`,
+        message: {
+          ...requestChoicesToolResult.message,
+          details: {
+            ...requestChoicesToolResult.message.details,
+            status,
+          },
+        },
+      }
+
+      const projection = projectElicitationExchanges([
+        presentOptions,
+        requestChoices,
+      ])
+
+      expect(projection.exchanges[0]?.responseEntryIds).toEqual([
+        `request-choices-${status}`,
+      ])
+      expect(projection.openPrompt).toBeNull()
+    },
+  )
+
+  it("does not close a present when request tuple identity or tool expectations mismatch", () => {
+    const wrongPresentToolRequest = {
+      ...requestAnswerToolResult,
+      id: "request-answer-wrong-present-tool",
       message: {
-        ...presentQuestionToolResult.message,
-        toolName: "present_options",
+        ...requestAnswerToolResult.message,
         details: {
-          ...presentQuestionToolResult.message.details,
-          presentTool: "present_options",
-          kind: "options",
-          expectedRequest: { tool: "request_choices", required: true },
+          ...requestAnswerToolResult.message.details,
+          respondsTo: { exchangeId: "domain", presentTool: "present_options" },
+        },
+      },
+    }
+    const unexpectedRequestTool = {
+      ...requestChoicesToolResult,
+      id: "request-choices-unexpected-tool",
+      message: {
+        ...requestChoicesToolResult.message,
+        details: {
+          ...requestChoicesToolResult.message.details,
+          exchangeId: "domain",
+          respondsTo: {
+            exchangeId: "domain",
+            presentTool: "present_question",
+          },
         },
       },
     }
 
-    const projection = projectElicitationExchanges([
-      presentOptions,
-      requestChoicesToolResult,
-    ])
+    for (const request of [wrongPresentToolRequest, unexpectedRequestTool]) {
+      const projection = projectElicitationExchanges([
+        presentQuestionToolResult,
+        request,
+      ])
 
-    expect(projection.exchanges[0]?.responseEntryIds).toEqual([
-      "request-choices-1",
-    ])
-    expect(projection.openPrompt).toBeNull()
+      expect(projection.exchanges).toEqual([])
+      expect(projection.openPrompt?.promptEntryIds).toEqual([
+        "present-question-1",
+      ])
+    }
   })
 
   it("renders structured-exchange present/request tool markdown as transcript rows", () => {

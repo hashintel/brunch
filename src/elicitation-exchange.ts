@@ -266,7 +266,9 @@ function requestClosesPresent(
   present: StructuredExchangePresentDetails,
 ): boolean {
   return (
-    request.status === "answered" &&
+    (request.status === "answered" ||
+      request.status === "cancelled" ||
+      request.status === "unavailable") &&
     request.exchangeId === present.exchangeId &&
     request.respondsTo.exchangeId === present.exchangeId &&
     request.respondsTo.presentTool === present.presentTool &&

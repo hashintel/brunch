@@ -819,6 +819,114 @@ describe("JSON-RPC handlers", () => {
     })
   })
 
+  it("reports idle pending state after selected and explicit terminal unavailable request tuples", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-unavailable-idle-"))
+    const sessionFile = join(cwd, ".brunch", "sessions", "session.jsonl")
+    await writeExplicitSessionFixture(cwd, [
+      { type: "session", id: "session-1", cwd },
+      sessionBindingEntry(),
+      presentQuestionEntry(),
+      {
+        ...requestAnswerEntry(),
+        id: "request-answer-unavailable",
+        message: {
+          ...requestAnswerEntry().message,
+          details: {
+            ...requestAnswerEntry().message.details,
+            status: "unavailable",
+            message: "Editor unavailable.",
+          },
+        },
+      },
+    ])
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(readyState(sessionFile)),
+      cwd,
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 152,
+        method: "session.pendingExchange",
+      }),
+    ).resolves.toMatchObject({
+      result: { status: "idle", exchange: null },
+    })
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 153,
+        method: "session.pendingExchange",
+        params: { sessionId: "session-1", specId: "spec-1" },
+      }),
+    ).resolves.toMatchObject({
+      result: { status: "idle", exchange: null },
+    })
+  })
+
+  it("reports idle pending state after an explicit terminal cancelled request_choices tuple", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-cancelled-idle-"))
+    await writeExplicitSessionFixture(cwd, [
+      { type: "session", id: "session-1", cwd },
+      sessionBindingEntry(),
+      {
+        ...presentQuestionEntry(),
+        id: "present-options-1",
+        message: {
+          ...presentQuestionEntry().message,
+          toolName: "present_options",
+          details: {
+            ...presentQuestionEntry().message.details,
+            presentTool: "present_options",
+            kind: "options",
+            expectedRequest: { tool: "request_choices", required: true },
+          },
+        },
+      },
+      {
+        id: "request-choices-cancelled",
+        type: "message",
+        parentId: "present-options-1",
+        message: {
+          role: "toolResult",
+          toolCallId: "request-call-choices-cancelled",
+          toolName: "request_choices",
+          content: [{ type: "text", text: "### Response\n\nCancelled." }],
+          details: {
+            schema: "brunch.structured_exchange.request",
+            schemaVersion: 1,
+            exchangeId: "domain",
+            requestTool: "request_choices",
+            status: "cancelled",
+            respondsTo: {
+              exchangeId: "domain",
+              presentTool: "present_options",
+            },
+            message: "User cancelled the selection.",
+            createdAtToolCallId: "request-call-choices-cancelled",
+          },
+          isError: false,
+        },
+      },
+    ])
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(selectSpecState()),
+      cwd,
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 154,
+        method: "session.pendingExchange",
+        params: { sessionId: "session-1", specId: "spec-1" },
+      }),
+    ).resolves.toMatchObject({
+      result: { status: "idle", exchange: null },
+    })
+  })
+
   it("returns a product-shaped no-session error when reading pending without a selected session", async () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator(selectSpecState()),

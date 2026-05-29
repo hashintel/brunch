@@ -57,7 +57,7 @@ Depends on: A23-L — this card strengthens the landed validation of public RPC 
 
 ## Card 2 — Treat matching cancelled and unavailable request tuples as terminal in projections
 
-**Status:** next  
+**Status:** done  
 **Weight:** light scope card
 
 ### Objective
@@ -92,7 +92,7 @@ None — this is a bugfix/hardening against existing SPEC semantics.
 
 ## Card 3 — Preserve option content and rationale through pending/proof projections
 
-**Status:** queued  
+**Status:** next  
 **Weight:** light scope card
 
 ### Objective
