@@ -161,6 +161,20 @@ export function renderBrunchChrome(
   ui.setTitle(`brunch — ${chrome.spec?.title ?? chrome.cwd}`)
 }
 
+export const brunchExtensionMeta = {
+  productStatus: "ready",
+  loadOrder: 20,
+} as const
+
+export function registerBrunchProductExtension(
+  pi: ExtensionAPI,
+  context: { chrome: BrunchChromeState },
+): void {
+  pi.on("session_start", async (_event, ctx) => {
+    renderBrunchChrome(ctx.ui, context.chrome)
+  })
+}
+
 export default function brunchChrome(_pi: ExtensionAPI): void {}
 
 function formatSpec(chrome: BrunchChromeState): string {

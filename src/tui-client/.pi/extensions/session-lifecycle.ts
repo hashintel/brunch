@@ -34,4 +34,22 @@ export function registerBrunchSessionBoundaryRefreshHandlers(
   })
 }
 
+export const brunchExtensionMeta = {
+  productStatus: "ready",
+  loadOrder: 10,
+} as const
+
+export function registerBrunchProductExtension(
+  pi: ExtensionAPI,
+  context: { onSessionBoundary?: BrunchSessionBoundaryHandler },
+): void {
+  pi.on("session_start", async (_event, ctx) => {
+    await bindBrunchSessionBoundary(
+      ctx.sessionManager as SessionManager,
+      context.onSessionBoundary,
+    )
+  })
+  registerBrunchSessionBoundaryRefreshHandlers(pi, context.onSessionBoundary)
+}
+
 export default registerBrunchSessionBoundaryRefreshHandlers

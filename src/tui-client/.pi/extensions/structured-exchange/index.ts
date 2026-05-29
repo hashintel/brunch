@@ -68,6 +68,15 @@ void presentReviewSetTool
 void presentCandidatesTool
 void requestReviewTool
 
+export const brunchExtensionMeta = {
+  productStatus: "ready",
+  loadOrder: 70,
+} as const
+
+export function registerBrunchProductExtension(pi: ExtensionAPI): void {
+  registerStructuredExchange(pi)
+}
+
 export default function registerStructuredExchange(pi: ExtensionAPI) {
   for (const tool of STRUCTURED_EXCHANGE_IMPLEMENTED_TOOLS) {
     pi.registerTool(tool)

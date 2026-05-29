@@ -206,4 +206,11 @@ export function registerBrunchAlternatives(pi: ExtensionAPI) {
   })
 }
 
+export const brunchExtensionMeta = {
+  productStatus: "ready",
+  loadOrder: 60,
+} as const
+
+export const registerBrunchProductExtension = registerBrunchAlternatives
+
 export default registerBrunchAlternatives

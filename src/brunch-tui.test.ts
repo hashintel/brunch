@@ -213,7 +213,7 @@ describe("Brunch TUI boot", () => {
       ctx: FakeExtensionContext,
     ) => Promise<void>> = []
 
-    createBrunchPiExtensionShell(
+    await createBrunchPiExtensionShell(
       chromeStateForWorkspace(readyWorkspace(cwd, manager.getSessionId())),
       (sessionManager) => {
         boundSessionIds.push(sessionManager.getSessionId())
@@ -265,7 +265,7 @@ describe("Brunch TUI boot", () => {
       new Map<string, Omit<RegisteredCommand, "name" | "sourceInfo">>()
     const registeredTools: string[] = []
 
-    createBrunchPiExtensionShell(
+    await createBrunchPiExtensionShell(
       chromeStateForWorkspace(readyWorkspace("/tmp/project", "session-1")),
       undefined,
       {
@@ -527,7 +527,7 @@ describe("Brunch TUI boot", () => {
       ctx: FakeExtensionContext,
     ) => unknown>()
 
-    createBrunchPiExtensionShell(
+    await createBrunchPiExtensionShell(
       chromeStateForWorkspace(readyWorkspace(cwd, manager.getSessionId())),
       undefined,
       { coordinator: noOpWorkspaceCoordinator(cwd) },
@@ -625,7 +625,7 @@ describe("Brunch TUI boot", () => {
       ctx: FakeExtensionContext,
     ) => Promise<void> | void> = []
 
-    createBrunchPiExtensionShell(
+    await createBrunchPiExtensionShell(
       chromeStateForWorkspace(readyWorkspace("/tmp/project", "session-1")),
       undefined,
       { coordinator: noOpWorkspaceCoordinator("/tmp/project") },
