@@ -375,12 +375,12 @@ describe("M1 fixture JSONL replay parity", () => {
 async function loadM1FixtureBundle(
   briefId: typeof M1_FIXTURE_IDS[number],
 ): Promise<M1FixtureBundle> {
-  const bundleDir = join(".brunch-fixtures", briefId, M1_RUN_ID)
+  const bundleDir = join(".fixtures", briefId, M1_RUN_ID)
   const metaPath = join(bundleDir, `${M1_RUN_ID}.meta.json`)
   const meta = JSON.parse(await readFile(metaPath, "utf8")) as M1FixtureMeta
   const jsonlPath = join(dirname(metaPath), meta.artifacts.jsonl)
   const briefPath = join(
-    ".brunch-fixtures",
+    ".fixtures",
     "briefs",
     `${briefId}-${briefSlug(briefId)}.json`,
   )

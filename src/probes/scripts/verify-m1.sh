@@ -51,14 +51,14 @@ import { join } from "node:path"
 import { loadBriefLibrary } from "./src/probes/brief-library.ts"
 import { loadJsonlTranscriptEntries, projectElicitationExchanges } from "./src/elicitation-exchange.ts"
 
-const briefs = await loadBriefLibrary(".brunch-fixtures/briefs")
+const briefs = await loadBriefLibrary(".fixtures/briefs")
 const expected = new Map(briefs.map((brief) => [brief.id, brief.title]))
 const briefIds = ["brief-001", "brief-002", "brief-003"]
 const seenSpecIds = new Set()
 
 for (const briefId of briefIds) {
   const runId = "scripted-001"
-  const runDir = join(".brunch-fixtures", briefId, runId)
+  const runDir = join(".fixtures", briefId, runId)
   const jsonlFile = join(runDir, `${runId}.jsonl`)
   const metaFile = join(runDir, `${runId}.meta.json`)
   const entries = await loadJsonlTranscriptEntries(jsonlFile)

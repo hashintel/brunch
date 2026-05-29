@@ -112,9 +112,7 @@ describe("fixture capture", () => {
       coordinator,
     })
 
-    expect(result.runDir).toBe(
-      join(cwd, ".brunch-fixtures", "brief-001", "run-001"),
-    )
+    expect(result.runDir).toBe(join(cwd, ".fixtures", "brief-001", "run-001"))
     expect(JSON.parse(await readFile(result.metaFile, "utf8"))).toMatchObject({
       schemaVersion: 1,
       briefId: "brief-001",
@@ -147,7 +145,7 @@ describe("fixture capture", () => {
   it("replays captured brief bundles through exchange projection", async () => {
     for (const briefId of ["brief-001", "brief-002", "brief-003"]) {
       const runId = "scripted-001"
-      const runDir = join(".brunch-fixtures", briefId, runId)
+      const runDir = join(".fixtures", briefId, runId)
       const metadata = JSON.parse(
         await readFile(join(runDir, `${runId}.meta.json`), "utf8"),
       ) as {
@@ -178,7 +176,7 @@ describe("fixture capture", () => {
 
     const results = await captureDeterministicBriefRuns({
       cwd,
-      briefsDir: ".brunch-fixtures/briefs",
+      briefsDir: ".fixtures/briefs",
       runId: "scripted-001",
       timestamp: "2026-05-21T00:00:00.000Z",
     })

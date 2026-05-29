@@ -4,7 +4,7 @@ import { loadBriefLibrary } from "./brief-library.js"
 
 describe("fixture brief library", () => {
   it("loads the first three deterministic product briefs", async () => {
-    const briefs = await loadBriefLibrary(".brunch-fixtures/briefs")
+    const briefs = await loadBriefLibrary(".fixtures/briefs")
 
     expect(briefs.map((brief) => brief.id)).toEqual([
       "brief-001",

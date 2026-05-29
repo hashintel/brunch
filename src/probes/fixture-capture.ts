@@ -51,12 +51,7 @@ export async function captureFixtureRun(
     options,
     "session.elicitationExchanges",
   )
-  const runDir = join(
-    options.cwd,
-    ".brunch-fixtures",
-    options.briefId,
-    options.runId,
-  )
+  const runDir = join(options.cwd, ".fixtures", options.briefId, options.runId)
   const jsonlFile = join(runDir, `${options.runId}.jsonl`)
   const metaFile = join(runDir, `${options.runId}.meta.json`)
 
@@ -102,7 +97,7 @@ export async function captureDeterministicBriefRuns(
   options: DeterministicBriefRunOptions,
 ): Promise<FixtureCaptureResult[]> {
   const briefs = await loadBriefLibrary(
-    options.briefsDir ?? join(options.cwd, ".brunch-fixtures", "briefs"),
+    options.briefsDir ?? join(options.cwd, ".fixtures", "briefs"),
   )
   const coordinator = createWorkspaceSessionCoordinator({ cwd: options.cwd })
   const results: FixtureCaptureResult[] = []

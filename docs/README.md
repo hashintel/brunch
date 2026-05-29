@@ -23,8 +23,7 @@ planning state:
 
 ## Fixtures
 
-[`.brunch-fixtures/`](../../.brunch-fixtures/) holds curated briefs and
-captured golden runs. See the directory README for layout and conventions.
+[`.fixtures/`](../.fixtures/) holds curated briefs, captured golden runs, and probe-oracle review bundles. See the directory README for layout and conventions.
 
 ## Behavioral kernels
 

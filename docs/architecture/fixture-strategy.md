@@ -38,7 +38,7 @@ This strategy exists because two things are being remodelled at once during the 
                               ▼
               ╭────────────────────────────────╮
               │  Run fixture bundle            │
-              │  .brunch-fixtures/<brief-id>/  │
+              │  .fixtures/<brief-id>/  │
               │    <run-id>.jsonl              │
               │    <run-id>.graph.json         │
               │    <run-id>.coherence.json     │
@@ -92,7 +92,7 @@ Briefs are short, human-readable, and curated. The run artefacts are the heavy d
 
 ### Brief fixture format
 
-`.brunch-fixtures/briefs/brief-002-state-lifecycle.json`:
+`.fixtures/briefs/brief-002-state-lifecycle.json`:
 
 ```json
 {
@@ -128,7 +128,7 @@ Briefs are short, human-readable, and curated. The run artefacts are the heavy d
 | 6 | **Verified sort algorithm** | Validation/normalization, formal properties only | Narrow but stretches `formal_property` requirements, `Obligation` nodes, `proof` / `model_check` validation methods, and assurance-level computation |
 | 7 | **"Notion meets Linear meets Slack"** | Forces scope-boundary clarification before any kernel can engage | Adversarial; stresses offer-first interaction and scope-card affordance |
 
-Briefs #1–#3 are the first curated M1 seeds under `.brunch-fixtures/briefs/`. They are intentionally thin, human-reviewed product briefs for transcript/projection replay, not final evidence that Brunch's elicitation interaction logic or knowledge-flow model is correct.
+Briefs #1–#3 are the first curated M1 seeds under `.fixtures/briefs/`. They are intentionally thin, human-reviewed product briefs for transcript/projection replay, not final evidence that Brunch's elicitation interaction logic or knowledge-flow model is correct.
 
 ### Brief #7 expectations — "Notion meets Linear meets Slack"
 
@@ -196,7 +196,7 @@ If you change your mind, say so explicitly.
 
 ## Run fixture bundle
 
-A captured run produces four artefacts under `.brunch-fixtures/<brief-id>/<run-id>/`:
+A captured run produces four artefacts under `.fixtures/<brief-id>/<run-id>/`:
 
 | File | Contents |
 | --- | --- |
@@ -232,7 +232,7 @@ The fixture harness threads through the existing milestone ladder; it does not n
 ## Open questions
 
 1. Whether the agent-as-user should be a pi-coding-agent session or a thinner harness (just a model client). The pi-coding-agent path gets transcript capture for free; the thinner path is cheaper to run in CI.
-2. Whether briefs should be stored under `.brunch-fixtures/` in the brunch-next repo, in a sibling repository, or in `docs/architecture/artifacts/` alongside other captured exhibits.
+2. Whether to keep fixture artifacts in this repository long-term or move large post-POC corpora to a sibling repository. For the POC, `.fixtures/` is the canonical in-repo fixture root for both curated briefs and probe-oracle review bundles.
 3. Whether replay regression should attempt full transcript reproduction or only assert that the *graph* matches after a free-running replay. Full reproduction is brittle to model upgrades; graph-only is more durable but loses transcript-level signal.
 4. Whether the agent-as-user should run with the same model as the Brunch session under test, or a deliberately different one (to surface model-dependent kernel-card behaviour).
 5. Whether to surface a `brunch fixtures capture <brief-id>` and `brunch fixtures replay <brief-id> <run-id>` CLI sub-command set, or keep fixture tooling external to the Brunch binary.
