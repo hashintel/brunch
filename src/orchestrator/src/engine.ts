@@ -42,7 +42,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
         return {
           status: 'halted',
           reason: err instanceof Error ? err.message : String(err),
-          reports: ctx.reportIds,
+          reports: [...ctx.reportIds],
           epics: input.plan.epics.map(
             (e) => ctx.epicOutcomes.get(e.id) ?? { epicId: e.id, status: 'halted' as const },
           ),
@@ -75,7 +75,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
       return {
         status: halted ? 'halted' : 'completed',
         reason: haltReason,
-        reports: ctx.reportIds,
+        reports: [...ctx.reportIds],
         epics: input.plan.epics.map((e) => ctx.epicOutcomes.get(e.id)!),
         slices: input.plan.slices.map((s) => ctx.sliceOutcomes.get(s.id)!),
       };
