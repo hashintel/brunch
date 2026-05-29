@@ -579,7 +579,13 @@ describe("JSON-RPC handlers", () => {
           mode: "single-select",
           prompt: expect.stringContaining("new product or feature"),
           options: expect.arrayContaining([
-            expect.objectContaining({ id: "new-from-scratch" }),
+            expect.objectContaining({
+              id: "new-from-scratch",
+              label: "Yes — this is new from scratch",
+              content: "Start a new spec workspace from a blank slate.",
+              rationale:
+                "This keeps the parity run focused on initial grounding.",
+            }),
           ]),
           note: { allowed: true },
         },
@@ -617,6 +623,15 @@ describe("JSON-RPC handlers", () => {
         ],
       },
     })
+    const displayText = (display as {
+      result: { rows: Array<{ text: string }> }
+    }).result.rows[0]!.text
+    expect(displayText).toContain(
+      "Start a new spec workspace from a blank slate.",
+    )
+    expect(displayText).toContain(
+      "This keeps the parity run focused on initial grounding.",
+    )
 
     const sessionText = await readFile(workspace.session.file, "utf8")
     expect(sessionText).toContain("brunch.structured_exchange.present")
@@ -658,6 +673,14 @@ describe("JSON-RPC handlers", () => {
           }).result.exchange.exchangeId,
           prompt: expect.stringContaining("new product or feature"),
           lens: "step-by-step",
+          options: expect.arrayContaining([
+            expect.objectContaining({
+              id: "new-from-scratch",
+              content: "Start a new spec workspace from a blank slate.",
+              rationale:
+                "This keeps the parity run focused on initial grounding.",
+            }),
+          ]),
           note: { allowed: true },
         },
       },

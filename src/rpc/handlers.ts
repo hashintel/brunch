@@ -329,9 +329,15 @@ const PendingElicitationExchangeSchema = Type.Object(
     prompt: NonBlankStringSchema,
     details: Type.Optional(NonBlankStringSchema),
     options: Type.Array(
-      Type.Object({ id: NonBlankStringSchema, label: NonBlankStringSchema }, {
-        additionalProperties: false,
-      }),
+      Type.Object(
+        {
+          id: NonBlankStringSchema,
+          label: NonBlankStringSchema,
+          content: NonBlankStringSchema,
+          rationale: Type.Optional(NonBlankStringSchema),
+        },
+        { additionalProperties: false },
+      ),
     ),
     note: Type.Object({ allowed: Type.Boolean() }, {
       additionalProperties: false,
@@ -866,6 +872,8 @@ function choiceResponseMarkdown(
 interface PendingChoice {
   id: string
   label: string
+  content: string
+  rationale?: string
 }
 
 type PendingElicitationExchange = Static<typeof PendingElicitationExchangeSchema>
@@ -883,11 +891,24 @@ function nextDeterministicElicitationExchange(
       details:
         "Choose the best starting context so later elicitation can ask useful follow-ups.",
       options: [
-        { id: "new-from-scratch", label: "Yes — this is new from scratch" },
-        { id: "existing-codebase", label: "No — this builds on existing code" },
+        {
+          id: "new-from-scratch",
+          label: "Yes — this is new from scratch",
+          content: "Start a new spec workspace from a blank slate.",
+          rationale: "This keeps the parity run focused on initial grounding.",
+        },
+        {
+          id: "existing-codebase",
+          label: "No — this builds on existing code",
+          content: "Ground the spec in existing implementation constraints.",
+          rationale:
+            "Existing code changes what the elicitor should inspect next.",
+        },
         {
           id: "relates-to-existing-spec",
           label: "It relates to an existing spec",
+          content: "Connect this work to a prior specification thread.",
+          rationale: "Continuity matters when prior graph intent exists.",
         },
       ],
       note: { allowed: true },
@@ -910,10 +931,32 @@ function nextDeterministicElicitationExchange(
       details:
         "Select all qualities the deterministic agent-as-user proof should preserve.",
       options: [
-        { id: "transcript", label: "Transcript fidelity" },
-        { id: "projection", label: "Projection fidelity" },
-        { id: "other", label: "Other" },
-        { id: "none", label: "None" },
+        {
+          id: "transcript",
+          label: "Transcript fidelity",
+          content: "Pi JSONL keeps every present/request tuple recoverable.",
+          rationale: "The transcript is the durable source of truth.",
+        },
+        {
+          id: "projection",
+          label: "Projection fidelity",
+          content: "Brunch projections preserve semantic option artifacts.",
+          rationale:
+            "Public clients depend on projected structured exchange data.",
+        },
+        {
+          id: "other",
+          label: "Other",
+          content: "Another proof quality should be captured in the note.",
+          rationale:
+            "Other requires a comment so the transcript stays explicit.",
+        },
+        {
+          id: "none",
+          label: "None",
+          content: "No additional proof qualities matter for this run.",
+          rationale: "None requires a comment to avoid silent dismissal.",
+        },
       ],
       note: { allowed: true },
     },
@@ -964,12 +1007,11 @@ function presentMarkdown(exchange: PendingElicitationExchange): string {
   const lines = [`## ${exchange.prompt}`]
   if (exchange.details) lines.push("", exchange.details)
   exchange.options.forEach((option, index) => {
-    lines.push(
-      "",
-      `### ${index + 1}. ${option.label}`,
-      "",
-      `<!-- option-id: ${option.id} -->`,
-    )
+    lines.push("", `### ${index + 1}. ${option.content}`)
+    if (option.rationale) {
+      lines.push("", `**Rationale:** ${option.rationale}`)
+    }
+    lines.push("", `<!-- option-id: ${option.id} -->`)
   })
   return lines.join("\n")
 }
@@ -1036,29 +1078,78 @@ function pendingExchangeFromStructuredPresent(
           : "single-select",
     prompt,
     ...(detailsText.length > 0 ? { details: detailsText } : {}),
-    options: parsePendingOptions(richDetails.options),
+    options: parsePendingOptions(richDetails.options, markdown),
     note: { allowed: true },
   }
 }
 
-function parsePendingOptions(value: unknown): PendingChoice[] {
-  if (!Array.isArray(value)) return []
-  return value.flatMap((option) => {
-    if (
-      typeof option === "object" &&
-      option !== null &&
-      typeof (option as { id?: unknown }).id === "string" &&
-      typeof (option as { label?: unknown }).label === "string"
-    ) {
-      return [
-        {
-          id: (option as { id: string }).id,
-          label: (option as { label: string }).label,
-        },
-      ]
-    }
-    return []
+function parsePendingOptions(
+  value: unknown,
+  markdown: string = "",
+): PendingChoice[] {
+  if (!Array.isArray(value)) return parseMarkdownPendingOptions(markdown)
+  const options = value.flatMap((option) => {
+    if (typeof option !== "object" || option === null) return []
+    const id = (option as { id?: unknown }).id
+    const label = (option as { label?: unknown }).label
+    const content = (option as { content?: unknown }).content
+    const rationale = (option as { rationale?: unknown }).rationale
+    if (typeof id !== "string") return []
+    const optionContent =
+      typeof content === "string"
+        ? content
+        : typeof label === "string"
+          ? label
+          : undefined
+    if (optionContent === undefined) return []
+    return [
+      {
+        id,
+        label: typeof label === "string" ? label : optionContent,
+        content: optionContent,
+        ...(typeof rationale === "string" ? { rationale } : {}),
+      },
+    ]
   })
+  return options.length > 0 ? options : parseMarkdownPendingOptions(markdown)
+}
+
+function parseMarkdownPendingOptions(markdown: string): PendingChoice[] {
+  const options: PendingChoice[] = []
+  let pending: {
+    content: string
+    rationale?: string
+  } | undefined
+
+  for (const line of markdown.split("\n")) {
+    const heading = /^###\s+\d+\.\s+(.+)$/.exec(line.trim())
+    if (heading) {
+      pending = { content: heading[1]!.trim() }
+      continue
+    }
+
+    const rationale = /^\*\*Rationale:\*\*\s+(.+)$/.exec(line.trim())
+    if (rationale && pending) {
+      pending.rationale = rationale[1]!.trim()
+      continue
+    }
+
+    const optionId = /<!--\s*option-id:\s*([^>]+?)\s*-->/.exec(line.trim())
+    if (optionId && pending) {
+      const content = pending.content
+      options.push({
+        id: optionId[1]!.trim(),
+        label: content,
+        content,
+        ...(pending.rationale === undefined
+          ? {}
+          : { rationale: pending.rationale }),
+      })
+      pending = undefined
+    }
+  }
+
+  return options
 }
 
 function structuredExchangePresentDetails(

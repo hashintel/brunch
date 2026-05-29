@@ -14,6 +14,8 @@ interface JsonRpcSuccess<T> {
 interface PendingOption {
   id: string
   label: string
+  content?: string
+  rationale?: string
 }
 
 interface PendingExchange {
@@ -78,15 +80,24 @@ function success<T>(response: unknown): T {
   )
 }
 
+interface ToolResultOptionDetails {
+  id?: string
+  label?: string
+  content?: string
+  rationale?: string
+}
+
 interface ToolResultDetails {
   exchangeId?: string
   schema?: string
   requestTool?: string
   presentTool?: string
+  options?: ToolResultOptionDetails[]
 }
 
 interface ToolResultEntry {
   toolName: string
+  content: string
   details?: ToolResultDetails
 }
 
@@ -94,6 +105,7 @@ interface JsonlMessageEntry {
   message?: {
     role?: string
     toolName?: string
+    content?: unknown
     details?: unknown
   }
 }
@@ -106,8 +118,23 @@ function toolResultEntries(sessionText: string): ToolResultEntry[] {
     .filter((entry) => entry.message?.role === "toolResult")
     .map((entry) => ({
       toolName: entry.message?.toolName ?? "",
+      content: textContent(entry.message?.content),
       details: entry.message?.details as never,
     }))
+}
+
+function textContent(content: unknown): string {
+  if (typeof content === "string") return content
+  if (!Array.isArray(content)) return ""
+  return content
+    .map((part) =>
+      typeof part === "object" &&
+      part !== null &&
+      typeof (part as { text?: unknown }).text === "string"
+        ? (part as { text: string }).text
+        : "",
+    )
+    .join("\n")
 }
 
 interface ProofResponse {
@@ -201,6 +228,22 @@ export async function runPublicRpcParityProof(): Promise<PublicRpcParityProofRep
         `Turn ${turn + 1}: pendingExchange differed from startElicitation.`,
       )
     }
+    if (started.exchange.mode !== "text") {
+      const richOption = started.exchange.options.find(
+        (option) =>
+          option.content !== undefined && option.rationale !== undefined,
+      )
+      if (!richOption) {
+        throw new Error(
+          `Turn ${turn + 1}: pending options dropped content/rationale`,
+        )
+      }
+      if (richOption.content === richOption.label) {
+        throw new Error(
+          `Turn ${turn + 1}: pending option content collapsed into label`,
+        )
+      }
+    }
     exchangeIds.push(started.exchange.exchangeId)
     const response = responseFor(started.exchange)
     await handlers.handle({
@@ -260,6 +303,41 @@ export async function runPublicRpcParityProof(): Promise<PublicRpcParityProofRep
 
   if (new Set(exchangeIds).size !== exchangeIds.length) {
     throw new Error("Public RPC parity proof reused exchange IDs")
+  }
+
+  const optionPresentResults = tools.filter(
+    (entry) => entry.toolName === "present_options",
+  )
+  for (const entry of optionPresentResults) {
+    const richOption = entry.details?.options?.find(
+      (option) =>
+        option.content !== undefined && option.rationale !== undefined,
+    )
+    if (!richOption) {
+      throw new Error(
+        `Exchange ${entry.details?.exchangeId ?? "unknown"} JSONL option details dropped content/rationale`,
+      )
+    }
+    const optionContent = richOption.content
+    const optionRationale = richOption.rationale
+    if (optionContent === undefined || optionRationale === undefined) {
+      throw new Error(
+        `Exchange ${entry.details?.exchangeId ?? "unknown"} JSONL option details dropped content/rationale`,
+      )
+    }
+    if (optionContent === richOption.label) {
+      throw new Error(
+        `Exchange ${entry.details?.exchangeId ?? "unknown"} JSONL option content collapsed into label`,
+      )
+    }
+    if (
+      !entry.content.includes(optionContent) ||
+      !entry.content.includes(optionRationale)
+    ) {
+      throw new Error(
+        `Exchange ${entry.details?.exchangeId ?? "unknown"} transcript markdown dropped option artifacts`,
+      )
+    }
   }
 
   for (const exchangeId of exchangeIds) {
