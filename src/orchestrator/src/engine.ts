@@ -56,12 +56,16 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
         // callers without a runDir get the existing no-op behavior.
         let eventSink: NetEventSink | undefined;
         if (input.runDir) {
-          const stream = createPetrinautEventStream({
-            runId: input.runId ?? 'unknown',
-            filePath: join(input.runDir, 'petrinaut-events.jsonl'),
-          });
-          stream.emitInitialMarking(blueprint);
-          eventSink = stream.sink;
+          try {
+            const stream = createPetrinautEventStream({
+              runId: input.runId ?? 'unknown',
+              filePath: join(input.runDir, 'petrinaut-events.jsonl'),
+            });
+            stream.emitInitialMarking(blueprint);
+            eventSink = stream.sink;
+          } catch {
+            // Best-effort integration output — don't fail the cook run.
+          }
         }
 
         const net = wireHandlers(blueprint, input, ctx);
