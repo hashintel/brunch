@@ -362,9 +362,18 @@ const PendingExchangeResultSchema = Type.Union([
 const ElicitationRespondParamsSchema = Type.Object(
   {
     exchangeId: NonBlankStringSchema,
-    answer: Type.Object({ optionId: NonBlankStringSchema }, {
-      additionalProperties: false,
-    }),
+    answer: Type.Union([
+      Type.Object({ text: NonBlankStringSchema }, {
+        additionalProperties: false,
+      }),
+      Type.Object({ optionId: NonBlankStringSchema }, {
+        additionalProperties: false,
+      }),
+      Type.Object(
+        { optionIds: Type.Array(NonBlankStringSchema, { minItems: 1 }) },
+        { additionalProperties: false },
+      ),
+    ]),
     note: Type.Optional(Type.String()),
   },
   { additionalProperties: false },
@@ -374,13 +383,7 @@ const ElicitationRespondResultSchema = Type.Object(
   {
     status: Type.Literal("accepted"),
     exchangeId: NonBlankStringSchema,
-    answer: Type.Object(
-      {
-        optionId: NonBlankStringSchema,
-        label: NonBlankStringSchema,
-      },
-      { additionalProperties: false },
-    ),
+    answer: Type.Object({}, { additionalProperties: true }),
     note: Type.Optional(Type.String()),
   },
   { additionalProperties: false },
@@ -513,7 +516,7 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
   {
     method: "elicitation.respond",
     description:
-      "Submit a listed-option answer for the selected session's current deterministic pending elicitation exchange.",
+      "Submit a text, single-choice, or multi-choice answer for the selected session's current deterministic tuple-shaped pending elicitation exchange.",
     paramsSchema: ElicitationRespondParamsSchema,
     resultSchema: ElicitationRespondResultSchema,
     examples: [
@@ -522,7 +525,7 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
         id: 11,
         method: "elicitation.respond",
         params: {
-          exchangeId: "deterministic-grounding-1",
+          exchangeId: "deterministic-grounding-choice",
           answer: { optionId: "new-from-scratch" },
           note: "This is a greenfield product.",
         },
@@ -611,14 +614,12 @@ async function handleStartElicitation(
     })
   }
 
-  const exchange = firstDeterministicElicitationExchange()
-  const manager = state.session.manager
-  manager.appendCustomMessageEntry(
-    "brunch.elicitation_prompt",
-    exchange.prompt,
-    true,
-    exchange,
+  const exchange = nextDeterministicElicitationExchange(
+    projectLinearElicitationExchangeProjection(existingTarget.envelope)
+      .exchanges.length,
   )
+  const manager = state.session.manager
+  manager.appendMessage(presentToolResultMessage(exchange))
   flushSessionEntries(manager, state.session.file)
 
   const reloadedTarget = await selectedSessionFile(state)
@@ -689,71 +690,287 @@ async function handleRespondToElicitation(
     )
   }
 
-  const selectedOption = pending.options.find(
-    (option) => option.id === params.answer.optionId,
-  )
-  if (!selectedOption) {
-    return createJsonRpcFailure(requestId, -32007, "Invalid elicitation option")
+  const accepted = acceptedResponseFromParams(pending, params)
+  if (!accepted.ok) {
+    return createJsonRpcFailure(requestId, -32007, accepted.message)
   }
 
   const result: ElicitationRespondResult = {
     status: "accepted",
     exchangeId: pending.exchangeId,
-    answer: { optionId: selectedOption.id, label: selectedOption.label },
+    answer: accepted.answer,
     ...(params.note === undefined ? {} : { note: params.note }),
   }
 
-  state.session.manager.appendMessage({
-    role: "user",
-    content: responseDisplayText(result),
-    timestamp: 0,
-  })
-  state.session.manager.appendCustomEntry("brunch.elicitation_response", {
-    exchangeId: pending.exchangeId,
-    lens: pending.lens,
-    mode: pending.mode,
-    prompt: pending.prompt,
-    answer: {
-      type: "option",
-      optionId: selectedOption.id,
-      label: selectedOption.label,
-    },
-    ...(params.note === undefined ? {} : { note: params.note }),
-    transport: { surface: "brunch-json-rpc" },
-  })
+  state.session.manager.appendMessage(accepted.toolResultMessage)
   flushSessionEntries(state.session.manager, state.session.file)
 
   return createJsonRpcSuccess(requestId, result)
 }
 
-function responseDisplayText(response: ElicitationRespondResult): string {
-  const lines = [`Selected: ${response.answer.label}`]
-  if (response.note !== undefined && response.note.length > 0) {
-    lines.push(`Note: ${response.note}`)
+interface AcceptedToolTextContent {
+  type: "text"
+  text: string
+}
+
+interface AcceptedToolResultMessage {
+  role: "toolResult"
+  toolCallId: string
+  toolName: string
+  content: AcceptedToolTextContent[]
+  details: Record<string, unknown>
+  isError: false
+  timestamp: 0
+}
+
+type AcceptedResponse = {
+  ok: true
+  answer: Record<string, unknown>
+  toolResultMessage: AcceptedToolResultMessage
+} | {
+  ok: false
+  message: string
+}
+
+function acceptedResponseFromParams(
+  pending: PendingElicitationExchange,
+  params: ElicitationRespondParams,
+): AcceptedResponse {
+  if ("text" in params.answer) {
+    if (pending.mode !== "text") return invalidResponseMode()
+    const details = requestDetailsBase(pending, "request_answer")
+    return {
+      ok: true,
+      answer: { text: params.answer.text },
+      toolResultMessage: {
+        ...toolResultMessageBase(pending, "request_answer"),
+        content: [
+          { type: "text", text: `### Response\n\n${params.answer.text}` },
+        ],
+        details: { ...details, answer: params.answer.text },
+      },
+    }
+  }
+
+  if ("optionId" in params.answer) {
+    if (pending.mode !== "single-select") return invalidResponseMode()
+    const optionId = params.answer.optionId
+    const choice = pending.options.find((option) => option.id === optionId)
+    if (!choice) return { ok: false, message: "Invalid elicitation option" }
+    const details = requestDetailsBase(pending, "request_choice")
+    if (params.note !== undefined && params.note.trim().length > 0) {
+      details.comment = params.note.trim()
+    }
+    return {
+      ok: true,
+      answer: { optionId: choice.id, label: choice.label },
+      toolResultMessage: {
+        ...toolResultMessageBase(pending, "request_choice"),
+        content: [
+          { type: "text", text: choiceResponseMarkdown([choice], params.note) },
+        ],
+        details: { ...details, choice },
+      },
+    }
+  }
+
+  if (pending.mode !== "multi-select") return invalidResponseMode()
+  const selected = params.answer.optionIds.map((id) =>
+    pending.options.find((option) => option.id === id),
+  )
+  if (selected.some((choice) => choice === undefined)) {
+    return { ok: false, message: "Invalid elicitation option" }
+  }
+  const choices = selected as PendingChoice[]
+  if (
+    choices.some((choice) => choice.id === "other" || choice.id === "none") &&
+    (params.note === undefined || params.note.trim().length === 0)
+  ) {
+    return {
+      ok: false,
+      message:
+        "Elicitation response requires a comment for Other or None selections",
+    }
+  }
+  const details = requestDetailsBase(pending, "request_choices")
+  if (params.note !== undefined && params.note.trim().length > 0) {
+    details.comment = params.note.trim()
+  }
+  return {
+    ok: true,
+    answer: { optionIds: choices.map((choice) => choice.id), choices },
+    toolResultMessage: {
+      ...toolResultMessageBase(pending, "request_choices"),
+      content: [
+        { type: "text", text: choiceResponseMarkdown(choices, params.note) },
+      ],
+      details: { ...details, choices },
+    },
+  }
+}
+
+function invalidResponseMode(): AcceptedResponse {
+  return {
+    ok: false,
+    message: "Elicitation response mode does not match pending exchange",
+  }
+}
+
+function requestDetailsBase(
+  pending: PendingElicitationExchange,
+  requestTool: "request_answer" | "request_choice" | "request_choices",
+): Record<string, unknown> {
+  return {
+    schema: "brunch.structured_exchange.request",
+    schemaVersion: 1,
+    exchangeId: pending.exchangeId,
+    requestTool,
+    status: "answered",
+    respondsTo: {
+      exchangeId: pending.exchangeId,
+      presentTool:
+        pending.mode === "text" ? "present_question" : "present_options",
+    },
+    createdAtToolCallId: `${pending.exchangeId}:${requestTool}`,
+  }
+}
+
+function toolResultMessageBase(
+  pending: PendingElicitationExchange,
+  requestTool: "request_answer" | "request_choice" | "request_choices",
+) {
+  return {
+    role: "toolResult" as const,
+    toolCallId: `${pending.exchangeId}:${requestTool}`,
+    toolName: requestTool,
+    isError: false as const,
+    timestamp: 0 as const,
+  }
+}
+
+function choiceResponseMarkdown(
+  choices: Array<{ label: string }>,
+  comment: string | undefined,
+): string {
+  const lines = [
+    "### Response",
+    "",
+    ...choices.map((choice) => `- ${choice.label}`),
+  ]
+  if (comment !== undefined && comment.trim().length > 0) {
+    lines.push("", "Comment:", "", `> ${comment.trim()}`)
   }
   return lines.join("\n")
 }
 
+interface PendingChoice {
+  id: string
+  label: string
+}
+
 type PendingElicitationExchange = Static<typeof PendingElicitationExchangeSchema>
 
-function firstDeterministicElicitationExchange(): PendingElicitationExchange {
+function nextDeterministicElicitationExchange(
+  completedCount: number,
+): PendingElicitationExchange {
+  const script: PendingElicitationExchange[] = [
+    {
+      exchangeId: "deterministic-grounding-choice",
+      lens: "step-by-step",
+      mode: "single-select",
+      prompt: "Is this a new product or feature from scratch?",
+      details:
+        "Choose the best starting context so later elicitation can ask useful follow-ups.",
+      options: [
+        { id: "new-from-scratch", label: "Yes — this is new from scratch" },
+        { id: "existing-codebase", label: "No — this builds on existing code" },
+        {
+          id: "relates-to-existing-spec",
+          label: "It relates to an existing spec",
+        },
+      ],
+      note: { allowed: true },
+    },
+    {
+      exchangeId: "deterministic-grounding-text",
+      lens: "step-by-step",
+      mode: "text",
+      prompt: "What are we specifying?",
+      details:
+        "This starts Brunch's deterministic public-RPC elicitation parity proof for an activated spec/session.",
+      options: [],
+      note: { allowed: true },
+    },
+    {
+      exchangeId: "deterministic-grounding-multi",
+      lens: "step-by-step",
+      mode: "multi-select",
+      prompt: "Which proof qualities matter for this parity run?",
+      details:
+        "Select all qualities the deterministic agent-as-user proof should preserve.",
+      options: [
+        { id: "transcript", label: "Transcript fidelity" },
+        { id: "projection", label: "Projection fidelity" },
+        { id: "other", label: "Other" },
+        { id: "none", label: "None" },
+      ],
+      note: { allowed: true },
+    },
+  ]
+  return script[completedCount % script.length]!
+}
+
+function presentToolResultMessage(exchange: PendingElicitationExchange) {
+  const presentTool =
+    exchange.mode === "text" ? "present_question" : "present_options"
+  const requestTool =
+    exchange.mode === "text"
+      ? "request_answer"
+      : exchange.mode === "multi-select"
+        ? "request_choices"
+        : "request_choice"
+  const toolCallId = `${exchange.exchangeId}:${presentTool}`
   return {
-    exchangeId: "deterministic-grounding-1",
-    lens: "step-by-step",
-    mode: "single-select",
-    prompt: "Is this a new product or feature from scratch?",
-    details:
-      "This starts Brunch's deterministic public-RPC elicitation parity proof for an activated spec/session.",
-    options: [
-      { id: "new-from-scratch", label: "Yes — this is new from scratch" },
-      { id: "existing-codebase", label: "No — this builds on existing code" },
-      {
-        id: "relates-to-existing-spec",
-        label: "It relates to an existing spec",
-      },
-    ],
-    note: { allowed: true },
+    role: "toolResult" as const,
+    toolCallId,
+    toolName: presentTool,
+    content: [{ type: "text" as const, text: presentMarkdown(exchange) }],
+    details: {
+      schema: "brunch.structured_exchange.present",
+      schemaVersion: 1,
+      exchangeId: exchange.exchangeId,
+      presentTool,
+      kind: exchange.mode === "text" ? "question" : "options",
+      status: "presented",
+      expectedRequest: { tool: requestTool, required: true },
+      createdAtToolCallId: toolCallId,
+      prompt: exchange.prompt,
+      details: exchange.details,
+      lens: exchange.lens,
+      options: exchange.options,
+    },
+    isError: false as const,
+    timestamp: 0 as const,
   }
+}
+
+function presentMarkdown(exchange: PendingElicitationExchange): string {
+  if (exchange.mode === "text") {
+    return [`## ${exchange.prompt}`, exchange.details]
+      .filter(Boolean)
+      .join("\n\n")
+  }
+  const lines = [`## ${exchange.prompt}`]
+  if (exchange.details) lines.push("", exchange.details)
+  exchange.options.forEach((option, index) => {
+    lines.push(
+      "",
+      `### ${index + 1}. ${option.label}`,
+      "",
+      `<!-- option-id: ${option.id} -->`,
+    )
+  })
+  return lines.join("\n")
 }
 
 function pendingExchangeFromEnvelope(
@@ -796,6 +1013,17 @@ function pendingExchangeFromStructuredPresent(
   details: StructuredExchangePresentDetails,
   markdown: string,
 ): PendingElicitationExchange {
+  const richDetails = details as StructuredExchangePresentDetails & {
+    prompt?: unknown
+    details?: unknown
+    options?: unknown
+  }
+  const prompt =
+    typeof richDetails.prompt === "string"
+      ? richDetails.prompt
+      : (firstNonEmptyMarkdownLine(markdown) ?? markdown)
+  const detailsText =
+    typeof richDetails.details === "string" ? richDetails.details : markdown
   return {
     exchangeId: details.exchangeId,
     lens: "step-by-step",
@@ -805,11 +1033,31 @@ function pendingExchangeFromStructuredPresent(
         : details.presentTool === "present_question"
           ? "text"
           : "single-select",
-    prompt: firstNonEmptyMarkdownLine(markdown) ?? markdown,
-    ...(markdown.length > 0 ? { details: markdown } : {}),
-    options: [],
+    prompt,
+    ...(detailsText.length > 0 ? { details: detailsText } : {}),
+    options: parsePendingOptions(richDetails.options),
     note: { allowed: true },
   }
+}
+
+function parsePendingOptions(value: unknown): PendingChoice[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((option) => {
+    if (
+      typeof option === "object" &&
+      option !== null &&
+      typeof (option as { id?: unknown }).id === "string" &&
+      typeof (option as { label?: unknown }).label === "string"
+    ) {
+      return [
+        {
+          id: (option as { id: string }).id,
+          label: (option as { label: string }).label,
+        },
+      ]
+    }
+    return []
+  })
 }
 
 function structuredExchangePresentDetails(

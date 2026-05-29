@@ -133,7 +133,7 @@ Session projections recognize unmatched `present_*` tool results as pending exch
 
 ## Card 3 — Move public RPC start/respond onto structured-exchange tuple truth for one deterministic exchange
 
-**Status:** next  
+**Status:** done  
 **Weight:** full scope card
 
 ### Target Behavior
@@ -196,7 +196,7 @@ Session projections recognize unmatched `present_*` tool results as pending exch
 
 ## Card 4 — Add the deterministic ten-turn public-RPC parity proof
 
-**Status:** queued  
+**Status:** next  
 **Weight:** full scope card
 
 ### Target Behavior

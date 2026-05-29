@@ -619,7 +619,8 @@ describe("JSON-RPC handlers", () => {
     })
 
     const sessionText = await readFile(workspace.session.file, "utf8")
-    expect(sessionText).toContain("brunch.elicitation_prompt")
+    expect(sessionText).toContain("brunch.structured_exchange.present")
+    expect(sessionText).toContain("present_options")
     expect(sessionText).toContain(exchangeId)
     expect(sessionText).toContain('"lens":"step-by-step"')
   })
@@ -703,7 +704,7 @@ describe("JSON-RPC handlers", () => {
       id: 49,
       result: {
         status: "pending",
-        exchange: { exchangeId: "deterministic-grounding-1" },
+        exchange: { exchangeId: "deterministic-grounding-choice" },
       },
     })
   })
@@ -931,7 +932,7 @@ describe("JSON-RPC handlers", () => {
         exchanges: [
           {
             promptEntryIds: [expect.any(String)],
-            responseEntryIds: [expect.any(String), expect.any(String)],
+            responseEntryIds: [expect.any(String)],
           },
         ],
       },
@@ -961,8 +962,103 @@ describe("JSON-RPC handlers", () => {
     })
 
     const sessionText = await readFile(workspace.session.file, "utf8")
-    expect(sessionText).toContain("brunch.elicitation_response")
+    expect(sessionText).toContain("brunch.structured_exchange.request")
+    expect(sessionText).toContain("request_choice")
     expect(sessionText).toContain("This is a greenfield product.")
+  })
+
+  it("responds to deterministic text and multi-choice tuple exchanges", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-respond-modes-"))
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd })
+    const workspace = await coordinatorInstance.createSetupSession({
+      specTitle: "Respond modes spec",
+    })
+    const handlers = createRpcHandlers({
+      coordinator: coordinatorInstance,
+      cwd,
+    })
+
+    const first = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 250,
+      method: "session.startElicitation",
+    })
+    const firstExchangeId = (first as {
+      result: { exchange: { exchangeId: string } }
+    }).result.exchange.exchangeId
+    await handlers.handle({
+      jsonrpc: "2.0",
+      id: 251,
+      method: "elicitation.respond",
+      params: {
+        exchangeId: firstExchangeId,
+        answer: { optionId: "new-from-scratch" },
+      },
+    })
+
+    const textStart = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 252,
+      method: "session.startElicitation",
+    })
+    expect(textStart).toMatchObject({
+      result: {
+        exchange: { mode: "text", exchangeId: "deterministic-grounding-text" },
+      },
+    })
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 253,
+        method: "elicitation.respond",
+        params: {
+          exchangeId: "deterministic-grounding-text",
+          answer: { text: "A local product specification workspace." },
+        },
+      }),
+    ).resolves.toMatchObject({
+      result: {
+        status: "accepted",
+        answer: { text: "A local product specification workspace." },
+      },
+    })
+
+    const multiStart = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 254,
+      method: "session.startElicitation",
+    })
+    expect(multiStart).toMatchObject({
+      result: {
+        exchange: {
+          mode: "multi-select",
+          exchangeId: "deterministic-grounding-multi",
+        },
+      },
+    })
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 255,
+        method: "elicitation.respond",
+        params: {
+          exchangeId: "deterministic-grounding-multi",
+          answer: { optionIds: ["transcript", "other"] },
+          note: "Also verify friction reporting.",
+        },
+      }),
+    ).resolves.toMatchObject({
+      result: {
+        status: "accepted",
+        answer: { optionIds: ["transcript", "other"] },
+      },
+    })
+
+    const sessionText = await readFile(workspace.session.file, "utf8")
+    expect(sessionText).toContain("request_answer")
+    expect(sessionText).toContain("request_choices")
+    expect(sessionText).not.toContain("brunch.elicitation_prompt")
+    expect(sessionText).not.toContain("brunch.elicitation_response")
   })
 
   it("rejects mismatched elicitation response ids without appending transcript entries", async () => {
