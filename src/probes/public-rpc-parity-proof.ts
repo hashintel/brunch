@@ -1,8 +1,9 @@
-import { mkdtemp, readFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import { createRpcHandlers } from "../rpc/handlers.js"
+import { renderSessionTranscript } from "../session-transcript.js"
 import { createWorkspaceSessionCoordinator } from "../workspace-session-coordinator.js"
 
 interface JsonRpcSuccess<T> {
@@ -53,6 +54,18 @@ interface PendingResult {
   exchange: PendingExchange
 }
 
+export interface PublicRpcParityProofArtifacts {
+  runDir: string
+  sessionJsonl: string
+  transcriptMarkdown: string
+  reportJson: string
+}
+
+export interface PublicRpcParityProofOptions {
+  fixtureRoot?: string
+  runId?: string
+}
+
 export interface PublicRpcParityProofReport {
   mission: string
   evaluationFocus: string
@@ -65,6 +78,7 @@ export interface PublicRpcParityProofReport {
   toolCoverage: string[]
   exchangeIds: string[]
   transcriptDisplayRows: number
+  artifacts?: PublicRpcParityProofArtifacts
 }
 
 function success<T>(response: unknown): T {
@@ -158,7 +172,9 @@ function responseFor(exchange: PendingExchange): ProofResponse {
   }
 }
 
-export async function runPublicRpcParityProof(): Promise<PublicRpcParityProofReport> {
+export async function runPublicRpcParityProof(
+  options: PublicRpcParityProofOptions = {},
+): Promise<PublicRpcParityProofReport> {
   const cwd = await mkdtemp(join(tmpdir(), "brunch-public-rpc-parity-"))
   const coordinator = createWorkspaceSessionCoordinator({ cwd })
   const handlers = createRpcHandlers({ coordinator, cwd })
@@ -358,7 +374,7 @@ export async function runPublicRpcParityProof(): Promise<PublicRpcParityProofRep
     }
   }
 
-  return {
+  const report: PublicRpcParityProofReport = {
     mission:
       "Drive an assistant-first Brunch elicitation session through public JSON-RPC only.",
     evaluationFocus:
@@ -373,4 +389,58 @@ export async function runPublicRpcParityProof(): Promise<PublicRpcParityProofRep
     exchangeIds,
     transcriptDisplayRows: display.rows.length,
   }
+
+  if (options.fixtureRoot !== undefined) {
+    report.artifacts = await writeProofArtifacts({
+      fixtureRoot: options.fixtureRoot,
+      runId: options.runId ?? defaultRunId(),
+      sessionText,
+      report,
+    })
+  }
+
+  return report
+}
+
+async function writeProofArtifacts(options: {
+  fixtureRoot: string
+  runId: string
+  sessionText: string
+  report: PublicRpcParityProofReport
+}): Promise<PublicRpcParityProofArtifacts> {
+  const runDir = join(
+    options.fixtureRoot,
+    "runs",
+    "public-rpc-parity",
+    options.runId,
+  )
+  const artifacts: PublicRpcParityProofArtifacts = {
+    runDir,
+    sessionJsonl: join(runDir, "session.jsonl"),
+    transcriptMarkdown: join(runDir, "transcript.md"),
+    reportJson: join(runDir, "report.json"),
+  }
+  const persistedReport: PublicRpcParityProofReport = {
+    ...options.report,
+    artifacts,
+  }
+
+  await mkdir(runDir, { recursive: true })
+  await writeFile(artifacts.sessionJsonl, options.sessionText, "utf8")
+  await writeFile(
+    artifacts.transcriptMarkdown,
+    renderSessionTranscript(options.sessionText, { title: "session.jsonl" }),
+    "utf8",
+  )
+  await writeFile(
+    artifacts.reportJson,
+    `${JSON.stringify(persistedReport, null, 2)}\n`,
+    "utf8",
+  )
+
+  return artifacts
+}
+
+function defaultRunId(): string {
+  return new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-")
 }

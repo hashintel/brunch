@@ -1,0 +1,36 @@
+{
+  "mission": "Drive an assistant-first Brunch elicitation session through public JSON-RPC only.",
+  "evaluationFocus": "Ten-turn tuple transcript/projection parity without raw Pi RPC or legacy prompt/response entries.",
+  "maxTurnBudget": 10,
+  "completedTurns": 10,
+  "friction": [],
+  "cwd": "/var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-public-rpc-parity-E54Gbu",
+  "specId": "spec-3107835e-7dde-4a30-9f26-7f49d52d31b3",
+  "sessionId": "019e7373-6b3d-7bdb-bccb-fbf5d974efea",
+  "toolCoverage": [
+    "present_options",
+    "present_question",
+    "request_answer",
+    "request_choice",
+    "request_choices"
+  ],
+  "exchangeIds": [
+    "deterministic-grounding-choice-1",
+    "deterministic-grounding-text-2",
+    "deterministic-grounding-multi-3",
+    "deterministic-grounding-choice-4",
+    "deterministic-grounding-text-5",
+    "deterministic-grounding-multi-6",
+    "deterministic-grounding-choice-7",
+    "deterministic-grounding-text-8",
+    "deterministic-grounding-multi-9",
+    "deterministic-grounding-choice-10"
+  ],
+  "transcriptDisplayRows": 20,
+  "artifacts": {
+    "runDir": ".fixtures/runs/public-rpc-parity/2026-05-29-public-rpc-parity",
+    "sessionJsonl": ".fixtures/runs/public-rpc-parity/2026-05-29-public-rpc-parity/session.jsonl",
+    "transcriptMarkdown": ".fixtures/runs/public-rpc-parity/2026-05-29-public-rpc-parity/transcript.md",
+    "reportJson": ".fixtures/runs/public-rpc-parity/2026-05-29-public-rpc-parity/report.json"
+  }
+}
