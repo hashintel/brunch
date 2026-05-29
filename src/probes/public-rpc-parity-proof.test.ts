@@ -30,6 +30,7 @@ describe("public Brunch RPC structured-exchange parity proof", () => {
     ])
     expect(report.exchangeIds).toHaveLength(10)
     expect(new Set(report.exchangeIds).size).toBe(10)
+    expect(report.artifacts).toBeUndefined()
     expect(report.transcriptDisplayRows).toBeGreaterThanOrEqual(20)
   })
 
@@ -85,5 +86,12 @@ describe("public Brunch RPC structured-exchange parity proof", () => {
       exchangeIds: report.exchangeIds,
       artifacts: report.artifacts,
     })
+    expect(persistedReport.exchangeIds).toEqual(report.exchangeIds)
+    expect(persistedReport.exchangeIds).toHaveLength(10)
+    expect(new Set(persistedReport.exchangeIds).size).toBe(10)
+    for (const exchangeId of persistedReport.exchangeIds) {
+      expect(sessionJsonl).toContain(exchangeId)
+      expect(transcript).toContain(exchangeId)
+    }
   })
 })
