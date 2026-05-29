@@ -272,6 +272,107 @@ describe("web host", () => {
     }
   })
 
+  it("notifies attached web observers after RPC structured-exchange mutations", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-web-rpc-live-"))
+    await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
+      specTitle: "Live web spec",
+    })
+    const host = await startWebHost({
+      cwd,
+      port: 0,
+      coordinator: createWorkspaceSessionCoordinator({ cwd }),
+    })
+    const observer = await openWebSocket(
+      `${host.url.replace(/^http/u, "ws")}/rpc`,
+    )
+    const actor = await openWebSocket(`${host.url.replace(/^http/u, "ws")}/rpc`)
+    try {
+      const observerNotification = nextWebSocketMessage(observer)
+      const actorResponse = nextWebSocketMessage(actor)
+
+      actor.send(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 21,
+          method: "session.startElicitation",
+        }),
+      )
+
+      await expect(actorResponse).resolves.toMatchObject({
+        jsonrpc: "2.0",
+        id: 21,
+        result: {
+          status: "pending",
+          exchange: { exchangeId: "deterministic-grounding-choice-1" },
+        },
+      })
+      await expect(observerNotification).resolves.toEqual({
+        jsonrpc: "2.0",
+        method: "brunch.updated",
+        params: {
+          topics: [
+            "workspace.snapshot",
+            "session.pendingExchange",
+            "session.elicitationExchanges",
+            "session.transcriptDisplay",
+          ],
+        },
+      })
+
+      const responseNotification = nextWebSocketMessage(observer)
+      const respond = await websocketRpc(host.url, {
+        jsonrpc: "2.0",
+        id: 23,
+        method: "elicitation.respond",
+        params: {
+          exchangeId: "deterministic-grounding-choice-1",
+          answer: { optionId: "new-from-scratch" },
+          note: "Observed by the web live-update proof.",
+        },
+      })
+
+      expect(respond).toMatchObject({
+        jsonrpc: "2.0",
+        id: 23,
+        result: { status: "accepted" },
+      })
+      await expect(responseNotification).resolves.toMatchObject({
+        jsonrpc: "2.0",
+        method: "brunch.updated",
+      })
+
+      const display = await websocketRpc(host.url, {
+        jsonrpc: "2.0",
+        id: 22,
+        method: "session.transcriptDisplay",
+      })
+      expect(display).toMatchObject({
+        jsonrpc: "2.0",
+        id: 22,
+        result: {
+          rows: [
+            {
+              role: "prompt",
+              text: expect.stringContaining(
+                "Is this a new product or feature from scratch?",
+              ),
+            },
+            {
+              role: "user",
+              text: expect.stringContaining(
+                "Observed by the web live-update proof.",
+              ),
+            },
+          ],
+        },
+      })
+    } finally {
+      observer.close()
+      actor.close()
+      await host.close()
+    }
+  })
+
   it("multiplexes two JSON-RPC requests over one WebSocket", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-web-rpc-multiplex-"))
     await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
@@ -471,6 +572,21 @@ async function websocketRaw(url: string, message: string): Promise<unknown> {
   } finally {
     socket.close()
   }
+}
+
+function nextWebSocketMessage(socket: WebSocket): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    socket.addEventListener(
+      "message",
+      (event) => resolve(JSON.parse(String(event.data)) as unknown),
+      { once: true },
+    )
+    socket.addEventListener(
+      "error",
+      () => reject(new Error("WebSocket error")),
+      { once: true },
+    )
+  })
 }
 
 function openWebSocket(url: string): Promise<WebSocket> {

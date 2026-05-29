@@ -29,9 +29,14 @@ export function attachWebRpcTransport(options: {
 
   webSocketServer.on("connection", (webSocket) => {
     webSocket.on("message", (data) => {
-      void handleMessage(options.handlers, data).then((response) => {
-        webSocket.send(JSON.stringify(response))
-      })
+      void handleMessage(options.handlers, data).then(
+        ({ response, method }) => {
+          webSocket.send(JSON.stringify(response))
+          if (isProductMutation(method) && !Object.hasOwn(response, "error")) {
+            broadcastProductUpdate()
+          }
+        },
+      )
     })
   })
 
@@ -51,10 +56,52 @@ export function attachWebRpcTransport(options: {
       })
     },
   }
+  function broadcastProductUpdate(): void {
+    const notification = JSON.stringify({
+      jsonrpc: "2.0",
+      method: "brunch.updated",
+      params: {
+        topics: [
+          "workspace.snapshot",
+          "session.pendingExchange",
+          "session.elicitationExchanges",
+          "session.transcriptDisplay",
+        ],
+      },
+    })
+    for (const client of webSocketServer.clients) {
+      client.send(notification)
+    }
+  }
 }
 
 async function handleMessage(handlers: RpcHandlers, data: RawData) {
-  return dispatchJsonRpcMessage(websocketMessageToString(data), handlers)
+  const message = websocketMessageToString(data)
+  return {
+    response: await dispatchJsonRpcMessage(message, handlers),
+    method: requestMethod(message),
+  }
+}
+
+function requestMethod(message: string): string | undefined {
+  try {
+    const value = JSON.parse(message) as unknown
+    return typeof value === "object" &&
+      value !== null &&
+      typeof (value as { method?: unknown }).method === "string"
+      ? (value as { method: string }).method
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function isProductMutation(method: string | undefined): boolean {
+  return (
+    method === "workspace.activate" ||
+    method === "session.startElicitation" ||
+    method === "elicitation.respond"
+  )
 }
 
 function websocketMessageToString(data: RawData): string {
