@@ -299,6 +299,7 @@ describe("Brunch TUI boot", () => {
       "present_options",
       "request_answer",
       "request_choice",
+      "request_choices",
     ])
     expect(commands.get(BRUNCH_WORKSPACE_COMMAND)?.description).toBe(
       "Open the Brunch spec/session picker",
@@ -697,6 +698,7 @@ describe("Brunch TUI boot", () => {
           "present_options",
           "request_answer",
           "request_choice",
+          "request_choices",
           "bash",
           "edit",
           "write",
@@ -721,6 +723,7 @@ describe("Brunch TUI boot", () => {
         "present_options",
         "request_answer",
         "request_choice",
+        "request_choices",
       ],
     ])
     await expect(
@@ -729,7 +732,7 @@ describe("Brunch TUI boot", () => {
       ),
     ).resolves.toMatchObject({
       systemPrompt: expect.stringContaining(
-        "Brunch exposes only elicit-safe tools: read, grep, find, ls, present_question, present_options, request_answer, request_choice.",
+        "Brunch exposes only elicit-safe tools: read, grep, find, ls, present_question, present_options, request_answer, request_choice, request_choices.",
       ),
     })
     await expect(

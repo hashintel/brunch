@@ -55,18 +55,17 @@ export const STRUCTURED_EXCHANGE_IMPLEMENTED_TOOLS = [
   presentOptionsTool,
   requestAnswerTool,
   requestChoiceTool,
+  requestChoicesTool,
 ] as const
 
 export const STRUCTURED_EXCHANGE_STUB_TOOL_NAMES = [
   PRESENT_REVIEW_SET_TOOL,
   PRESENT_CANDIDATES_TOOL,
-  REQUEST_CHOICES_TOOL,
   REQUEST_REVIEW_TOOL,
 ] as const
 
 void presentReviewSetTool
 void presentCandidatesTool
-void requestChoicesTool
 void requestReviewTool
 
 export default function registerStructuredExchange(pi: ExtensionAPI) {

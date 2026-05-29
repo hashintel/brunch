@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import registerStructuredExchange, {
   PRESENT_OPTIONS_TOOL,
   REQUEST_CHOICE_TOOL,
+  REQUEST_CHOICES_TOOL,
 } from "../extensions/structured-exchange/index.js"
 import {
   findIncompleteStructuredExchangePresents,
@@ -67,9 +68,11 @@ describe("structured exchange present/request tools", () => {
       PRESENT_OPTIONS_TOOL,
       "request_answer",
       REQUEST_CHOICE_TOOL,
+      REQUEST_CHOICES_TOOL,
     ])
     expect(tools.get(PRESENT_OPTIONS_TOOL)?.executionMode).toBe("sequential")
     expect(tools.get(REQUEST_CHOICE_TOOL)?.executionMode).toBe("sequential")
+    expect(tools.get(REQUEST_CHOICES_TOOL)?.executionMode).toBe("sequential")
   })
 
   it("persists a present_options result as markdown content plus recoverable details", async () => {
@@ -163,6 +166,112 @@ describe("structured exchange present/request tools", () => {
       choice: { id: "tui", label: "Move under src/tui-client" },
       comment: "Aligns ownership with /reload iteration.",
     })
+  })
+
+  it("persists a request_choices response through the editor fallback", async () => {
+    const request = registeredTools().get(REQUEST_CHOICES_TOOL)
+    if (!request) throw new Error("request_choices was not registered")
+
+    const result = await request.execute(
+      "request-choices-call-1",
+      {
+        exchangeId: "priorities",
+        respondsToPresentTool: PRESENT_OPTIONS_TOOL,
+        prompt: "Select all priorities.",
+        choices: [
+          { id: "speed", label: "Move quickly" },
+          { id: "safety", label: "Keep the transcript safe" },
+        ],
+        allowOther: true,
+        commentPrompt: "Optional comment",
+      },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          editor: async (prefill: string) => {
+            const payload = JSON.parse(prefill)
+            payload.response = {
+              status: "answered",
+              choices: [
+                { id: "speed", label: "Move quickly" },
+                { id: "other", label: "Other" },
+              ],
+              comment: "Also keep the proof deterministic.",
+            }
+            return JSON.stringify(payload)
+          },
+        },
+      } as never,
+    )
+
+    expect(result.content[0]?.text).toContain("### Response")
+    expect(result.content[0]?.text).toContain("Move quickly")
+    expect(result.content[0]?.text).toContain("Other")
+    expect(result.content[0]?.text).toContain(
+      "Also keep the proof deterministic.",
+    )
+    expect(isStructuredExchangeRequestDetails(result.details)).toBe(true)
+    expect(result.details).toMatchObject({
+      schema: "brunch.structured_exchange.request",
+      exchangeId: "priorities",
+      requestTool: REQUEST_CHOICES_TOOL,
+      status: "answered",
+      respondsTo: {
+        exchangeId: "priorities",
+        presentTool: PRESENT_OPTIONS_TOOL,
+      },
+      choices: [
+        { id: "speed", label: "Move quickly" },
+        { id: "other", label: "Other" },
+      ],
+      comment: "Also keep the proof deterministic.",
+      createdAtToolCallId: "request-choices-call-1",
+    })
+  })
+
+  it("rejects request_choices other/none selections without a comment", async () => {
+    const request = registeredTools().get(REQUEST_CHOICES_TOOL)
+    if (!request) throw new Error("request_choices was not registered")
+
+    const result = await request.execute(
+      "request-choices-call-2",
+      {
+        exchangeId: "priorities",
+        respondsToPresentTool: PRESENT_OPTIONS_TOOL,
+        prompt: "Select all priorities.",
+        choices: [{ id: "speed", label: "Move quickly" }],
+        allowOther: true,
+        allowNone: true,
+      },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          editor: async (prefill: string) => {
+            const payload = JSON.parse(prefill)
+            payload.response = {
+              status: "answered",
+              choices: [{ id: "none", label: "None" }],
+              comment: "   ",
+            }
+            return JSON.stringify(payload)
+          },
+        },
+      } as never,
+    )
+
+    expect(result.details).toMatchObject({
+      requestTool: REQUEST_CHOICES_TOOL,
+      status: "unavailable",
+      message:
+        "request_choices requires a comment for Other or None selections",
+    })
+    expect(result.content[0]?.text).toContain(
+      "request_choices requires a comment",
+    )
   })
 
   it("detects an unmatched present result for recovery", () => {
