@@ -163,6 +163,61 @@ function appendBinding(manager: SessionManager): void {
   )
 }
 
+function presentQuestionEntry() {
+  return {
+    id: "present-question-1",
+    type: "message",
+    parentId: "binding-session-1-spec-1",
+    message: {
+      role: "toolResult",
+      toolCallId: "present-call-1",
+      toolName: "present_question",
+      content: [
+        { type: "text", text: "## Domain?\n\nWhat are we specifying?" },
+      ],
+      details: {
+        schema: "brunch.structured_exchange.present",
+        schemaVersion: 1,
+        exchangeId: "domain",
+        presentTool: "present_question",
+        kind: "question",
+        status: "presented",
+        expectedRequest: { tool: "request_answer", required: true },
+        createdAtToolCallId: "present-call-1",
+      },
+      isError: false,
+    },
+  }
+}
+
+function requestAnswerEntry(parentId = "present-question-1") {
+  return {
+    id: "request-answer-1",
+    type: "message",
+    parentId,
+    message: {
+      role: "toolResult",
+      toolCallId: "request-call-1",
+      toolName: "request_answer",
+      content: [{ type: "text", text: "### Response\n\nDeveloper tooling" }],
+      details: {
+        schema: "brunch.structured_exchange.request",
+        schemaVersion: 1,
+        exchangeId: "domain",
+        requestTool: "request_answer",
+        status: "answered",
+        respondsTo: {
+          exchangeId: "domain",
+          presentTool: "present_question",
+        },
+        answer: "Developer tooling",
+        createdAtToolCallId: "request-call-1",
+      },
+      isError: false,
+    },
+  }
+}
+
 function sessionBindingEntry(sessionId = "session-1", specId = "spec-1") {
   return {
     id: `binding-${sessionId}-${specId}`,
@@ -447,7 +502,7 @@ describe("JSON-RPC handlers", () => {
 
     expect(source).not.toContain("workspace-dialog")
     expect(source).not.toContain("createWorkspaceDialogComponent")
-    expect(source).not.toContain("structured-exchange")
+    expect(source).not.toContain("pi --mode rpc")
   })
 
   it("serves a named workspace snapshot method", async () => {
@@ -649,6 +704,96 @@ describe("JSON-RPC handlers", () => {
       result: {
         status: "pending",
         exchange: { exchangeId: "deterministic-grounding-1" },
+      },
+    })
+  })
+
+  it("reads an explicit tuple-shaped pending exchange without a sidecar prompt store", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-tuple-pending-"))
+    await writeExplicitSessionFixture(cwd, [
+      { type: "session", id: "session-1", cwd },
+      sessionBindingEntry(),
+      presentQuestionEntry(),
+    ])
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(selectSpecState()),
+      cwd,
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 149,
+        method: "session.pendingExchange",
+        params: { sessionId: "session-1", specId: "spec-1" },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 149,
+      result: {
+        status: "pending",
+        exchange: {
+          exchangeId: "domain",
+          mode: "text",
+          prompt: "Domain?",
+          details: expect.stringContaining("What are we specifying?"),
+        },
+      },
+    })
+  })
+
+  it("serves tuple-shaped exchange and transcript projections explicitly", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-tuple-projection-"))
+    await writeExplicitSessionFixture(cwd, [
+      { type: "session", id: "session-1", cwd },
+      sessionBindingEntry(),
+      presentQuestionEntry(),
+      requestAnswerEntry(),
+    ])
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(selectSpecState()),
+      cwd,
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 150,
+        method: "session.elicitationExchanges",
+        params: { sessionId: "session-1", specId: "spec-1" },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 150,
+      result: {
+        status: "ready",
+        exchanges: [
+          {
+            promptEntryIds: ["present-question-1"],
+            responseEntryIds: ["request-answer-1"],
+          },
+        ],
+      },
+    })
+
+    await expect(
+      handlers.handle({
+        jsonrpc: "2.0",
+        id: 151,
+        method: "session.transcriptDisplay",
+        params: { sessionId: "session-1", specId: "spec-1" },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: 151,
+      result: {
+        rows: [
+          { role: "prompt", text: expect.stringContaining("Domain?") },
+          {
+            role: "user",
+            text: expect.stringContaining("Developer tooling"),
+          },
+        ],
       },
     })
   })

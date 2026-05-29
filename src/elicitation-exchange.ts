@@ -13,6 +13,14 @@ import {
   type BrunchSessionEnvelope,
 } from "./brunch-session-envelope.js"
 import { isTerminalStructuredExchangeResultDetails } from "./structured-exchange.js"
+import {
+  isStructuredExchangePresentDetails,
+  isStructuredExchangeRequestDetails,
+} from "./tui-client/.pi/extensions/structured-exchange/shared/recovery.js"
+import type {
+  StructuredExchangePresentDetails,
+  StructuredExchangeRequestDetails,
+} from "./tui-client/.pi/extensions/structured-exchange/shared/model.js"
 
 const PROMPT_SIDE_CUSTOM_TYPES = new Set([
   "brunch.elicitation_prompt",
@@ -123,13 +131,23 @@ export function projectTranscriptDisplay(
       continue
     }
 
-    const role = entry.message.role
-    if (role !== "assistant" && role !== "user") {
+    const text = textContent((entry.message as { content?: unknown }).content)
+    if (text.length === 0) {
       continue
     }
 
-    const text = textContent(entry.message.content)
-    if (text.length === 0) {
+    if (isStructuredExchangePresentToolResult(entry)) {
+      rows.push({ id: entry.id, role: "prompt", text })
+      continue
+    }
+
+    if (isStructuredExchangeRequestToolResult(entry)) {
+      rows.push({ id: entry.id, role: "user", text })
+      continue
+    }
+
+    const role = entry.message.role
+    if (role !== "assistant" && role !== "user") {
       continue
     }
 
@@ -144,9 +162,30 @@ export function projectElicitationExchanges(
   const exchanges: ElicitationExchange[] = []
   let promptIds: string[] = []
   let responseIds: string[] = []
+  let openStructuredExchange: StructuredExchangePresentDetails | undefined
 
   for (const entry of entries) {
     if (!isTranscriptEntry(entry)) {
+      continue
+    }
+
+    const presentDetails = structuredExchangePresentDetails(entry)
+    if (presentDetails) {
+      flushResponse()
+      promptIds.push(entry.id)
+      openStructuredExchange = presentDetails
+      continue
+    }
+
+    const requestDetails = structuredExchangeRequestDetails(entry)
+    if (requestDetails) {
+      if (
+        promptIds.length > 0 &&
+        openStructuredExchange !== undefined &&
+        requestClosesPresent(requestDetails, openStructuredExchange)
+      ) {
+        responseIds.push(entry.id)
+      }
       continue
     }
 
@@ -193,6 +232,7 @@ export function projectElicitationExchanges(
     })
     promptIds = []
     responseIds = []
+    openStructuredExchange = undefined
   }
 }
 
@@ -218,6 +258,64 @@ function hasStringOrNullParentId(value: unknown): boolean {
   return (
     (value as { parentId?: unknown }).parentId === null ||
     typeof (value as { parentId?: unknown }).parentId === "string"
+  )
+}
+
+function requestClosesPresent(
+  request: StructuredExchangeRequestDetails,
+  present: StructuredExchangePresentDetails,
+): boolean {
+  return (
+    request.status === "answered" &&
+    request.exchangeId === present.exchangeId &&
+    request.respondsTo.exchangeId === present.exchangeId &&
+    request.respondsTo.presentTool === present.presentTool &&
+    (present.expectedRequest === undefined ||
+      present.expectedRequest.tool === request.requestTool)
+  )
+}
+
+function structuredExchangePresentDetails(
+  entry: SessionEntry,
+): StructuredExchangePresentDetails | undefined {
+  if (!isStructuredExchangePresentToolResult(entry)) return undefined
+  return (entry.message as { details?: unknown })
+    .details as StructuredExchangePresentDetails
+}
+
+function structuredExchangeRequestDetails(
+  entry: SessionEntry,
+): StructuredExchangeRequestDetails | undefined {
+  if (!isStructuredExchangeRequestToolResult(entry)) return undefined
+  return (entry.message as { details?: unknown })
+    .details as StructuredExchangeRequestDetails
+}
+
+function isStructuredExchangePresentToolResult(
+  entry: SessionEntry,
+): entry is SessionMessageEntry & {
+  message: SessionMessageEntry["message"] & { details?: unknown }
+} {
+  return (
+    isMessageEntry(entry) &&
+    entry.message.role === "toolResult" &&
+    isStructuredExchangePresentDetails(
+      (entry.message as { details?: unknown }).details,
+    )
+  )
+}
+
+function isStructuredExchangeRequestToolResult(
+  entry: SessionEntry,
+): entry is SessionMessageEntry & {
+  message: SessionMessageEntry["message"] & { details?: unknown }
+} {
+  return (
+    isMessageEntry(entry) &&
+    entry.message.role === "toolResult" &&
+    isStructuredExchangeRequestDetails(
+      (entry.message as { details?: unknown }).details,
+    )
   )
 }
 

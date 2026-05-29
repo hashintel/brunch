@@ -13,6 +13,8 @@ import {
   projectLinearElicitationExchangeProjection,
   projectLinearTranscriptDisplayProjection,
 } from "../elicitation-exchange.js"
+import { isStructuredExchangePresentDetails } from "../tui-client/.pi/extensions/structured-exchange/shared/recovery.js"
+import type { StructuredExchangePresentDetails } from "../tui-client/.pi/extensions/structured-exchange/shared/model.js"
 import {
   createJsonRpcFailure,
   createJsonRpcSuccess,
@@ -319,7 +321,11 @@ const PendingElicitationExchangeSchema = Type.Object(
   {
     exchangeId: NonBlankStringSchema,
     lens: Type.Literal("step-by-step"),
-    mode: Type.Literal("single-select"),
+    mode: Type.Union([
+      Type.Literal("text"),
+      Type.Literal("single-select"),
+      Type.Literal("multi-select"),
+    ]),
     prompt: NonBlankStringSchema,
     details: Type.Optional(NonBlankStringSchema),
     options: Type.Array(
@@ -771,7 +777,85 @@ function pendingExchangeFromEnvelope(
     }
   }
 
+  for (const entryId of projection.openPrompt.promptEntryIds) {
+    const entry = envelope.entries.find(
+      (candidate) => candidate.type === "message" && candidate.id === entryId,
+    )
+    const details = structuredExchangePresentDetails(entry)
+    if (!details) continue
+    const text = textContent(
+      (entry as { message: { content?: unknown } }).message.content,
+    )
+    return pendingExchangeFromStructuredPresent(details, text)
+  }
+
   return null
+}
+
+function pendingExchangeFromStructuredPresent(
+  details: StructuredExchangePresentDetails,
+  markdown: string,
+): PendingElicitationExchange {
+  return {
+    exchangeId: details.exchangeId,
+    lens: "step-by-step",
+    mode:
+      details.expectedRequest?.tool === "request_choices"
+        ? "multi-select"
+        : details.presentTool === "present_question"
+          ? "text"
+          : "single-select",
+    prompt: firstNonEmptyMarkdownLine(markdown) ?? markdown,
+    ...(markdown.length > 0 ? { details: markdown } : {}),
+    options: [],
+    note: { allowed: true },
+  }
+}
+
+function structuredExchangePresentDetails(
+  entry: unknown,
+): StructuredExchangePresentDetails | undefined {
+  if (
+    typeof entry !== "object" ||
+    entry === null ||
+    (entry as { type?: unknown }).type !== "message"
+  ) {
+    return undefined
+  }
+  const message = (entry as { message?: unknown }).message
+  if (
+    typeof message !== "object" ||
+    message === null ||
+    (message as { role?: unknown }).role !== "toolResult"
+  ) {
+    return undefined
+  }
+  const details = (message as { details?: unknown }).details
+  return isStructuredExchangePresentDetails(details)
+    ? details as StructuredExchangePresentDetails
+    : undefined
+}
+
+function firstNonEmptyMarkdownLine(markdown: string): string | undefined {
+  return markdown
+    .split("\n")
+    .map((line) => line.replace(/^#+\s*/, "").trim())
+    .find((line) => line.length > 0)
+}
+
+function textContent(content: unknown): string {
+  if (typeof content === "string") return content
+  if (!Array.isArray(content)) return ""
+  return content
+    .map((part) =>
+      typeof part === "object" &&
+      part !== null &&
+      typeof (part as { text?: unknown }).text === "string"
+        ? (part as { text: string }).text
+        : "",
+    )
+    .filter((text) => text.length > 0)
+    .join("\n")
 }
 
 function projectPendingElicitationExchange(

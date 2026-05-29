@@ -76,7 +76,7 @@
 
 ## Card 2 — Project present/request structured-exchange tuples as pending and completed elicitation exchanges
 
-**Status:** next  
+**Status:** done  
 **Weight:** full scope card
 
 ### Target Behavior
@@ -133,7 +133,7 @@ Session projections recognize unmatched `present_*` tool results as pending exch
 
 ## Card 3 — Move public RPC start/respond onto structured-exchange tuple truth for one deterministic exchange
 
-**Status:** queued  
+**Status:** next  
 **Weight:** full scope card
 
 ### Target Behavior

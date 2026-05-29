@@ -39,6 +39,96 @@ const toolResult = {
     isError: false,
   },
 }
+const presentQuestionToolResult = {
+  id: "present-question-1",
+  type: "message",
+  parentId: null,
+  message: {
+    role: "toolResult",
+    toolCallId: "present-call-1",
+    toolName: "present_question",
+    content: [{ type: "text", text: "## Domain?\n\nWhat are we specifying?" }],
+    details: {
+      schema: "brunch.structured_exchange.present",
+      schemaVersion: 1,
+      exchangeId: "domain",
+      presentTool: "present_question",
+      kind: "question",
+      status: "presented",
+      expectedRequest: { tool: "request_answer", required: true },
+      createdAtToolCallId: "present-call-1",
+    },
+    isError: false,
+  },
+}
+const requestAnswerToolResult = {
+  id: "request-answer-1",
+  type: "message",
+  parentId: "present-question-1",
+  message: {
+    role: "toolResult",
+    toolCallId: "request-call-1",
+    toolName: "request_answer",
+    content: [{ type: "text", text: "### Response\n\nDeveloper tooling" }],
+    details: {
+      schema: "brunch.structured_exchange.request",
+      schemaVersion: 1,
+      exchangeId: "domain",
+      requestTool: "request_answer",
+      status: "answered",
+      respondsTo: { exchangeId: "domain", presentTool: "present_question" },
+      answer: "Developer tooling",
+      createdAtToolCallId: "request-call-1",
+    },
+    isError: false,
+  },
+}
+const mismatchedRequestAnswerToolResult = {
+  ...requestAnswerToolResult,
+  id: "request-answer-mismatch",
+  message: {
+    ...requestAnswerToolResult.message,
+    details: {
+      ...requestAnswerToolResult.message.details,
+      exchangeId: "other-domain",
+      respondsTo: {
+        exchangeId: "other-domain",
+        presentTool: "present_question",
+      },
+    },
+  },
+}
+const requestChoicesToolResult = {
+  id: "request-choices-1",
+  type: "message",
+  parentId: "present-options-1",
+  message: {
+    role: "toolResult",
+    toolCallId: "request-call-choices-1",
+    toolName: "request_choices",
+    content: [
+      {
+        type: "text",
+        text: "### Response\n\n- Move quickly\n- Other\n\nComment:\n\n> Keep it deterministic.",
+      },
+    ],
+    details: {
+      schema: "brunch.structured_exchange.request",
+      schemaVersion: 1,
+      exchangeId: "domain",
+      requestTool: "request_choices",
+      status: "answered",
+      respondsTo: { exchangeId: "domain", presentTool: "present_options" },
+      choices: [
+        { id: "speed", label: "Move quickly" },
+        { id: "other", label: "Other" },
+      ],
+      comment: "Keep it deterministic.",
+      createdAtToolCallId: "request-call-choices-1",
+    },
+    isError: false,
+  },
+}
 const structuredExchangeToolResult = {
   id: "sq1",
   type: "message",
@@ -214,6 +304,101 @@ describe("elicitation exchange projection", () => {
       start: "a1",
       end: "t1",
     })
+  })
+
+  it("projects an unmatched present tool result as an open prompt", () => {
+    const projection = projectElicitationExchanges([presentQuestionToolResult])
+
+    expect(projection).toEqual({
+      status: "open_prompt",
+      exchanges: [],
+      openPrompt: {
+        promptRange: { start: "present-question-1", end: "present-question-1" },
+        promptEntryIds: ["present-question-1"],
+      },
+    })
+  })
+
+  it("closes a present/request structured-exchange tuple only when request details match", () => {
+    const projection = projectElicitationExchanges([
+      presentQuestionToolResult,
+      requestAnswerToolResult,
+    ])
+
+    expect(projection).toEqual({
+      status: "ready",
+      exchanges: [
+        {
+          promptRange: {
+            start: "present-question-1",
+            end: "present-question-1",
+          },
+          responseRange: { start: "request-answer-1", end: "request-answer-1" },
+          promptEntryIds: ["present-question-1"],
+          responseEntryIds: ["request-answer-1"],
+        },
+      ],
+      openPrompt: null,
+    })
+  })
+
+  it("does not close an open present with a mismatched request tuple", () => {
+    const projection = projectElicitationExchanges([
+      presentQuestionToolResult,
+      mismatchedRequestAnswerToolResult,
+    ])
+
+    expect(projection.exchanges).toEqual([])
+    expect(projection.openPrompt?.promptEntryIds).toEqual([
+      "present-question-1",
+    ])
+  })
+
+  it("closes present_options with a terminal request_choices result", () => {
+    const presentOptions = {
+      ...presentQuestionToolResult,
+      id: "present-options-1",
+      message: {
+        ...presentQuestionToolResult.message,
+        toolName: "present_options",
+        details: {
+          ...presentQuestionToolResult.message.details,
+          presentTool: "present_options",
+          kind: "options",
+          expectedRequest: { tool: "request_choices", required: true },
+        },
+      },
+    }
+
+    const projection = projectElicitationExchanges([
+      presentOptions,
+      requestChoicesToolResult,
+    ])
+
+    expect(projection.exchanges[0]?.responseEntryIds).toEqual([
+      "request-choices-1",
+    ])
+    expect(projection.openPrompt).toBeNull()
+  })
+
+  it("renders structured-exchange present/request tool markdown as transcript rows", () => {
+    const projection = projectTranscriptDisplay([
+      presentQuestionToolResult,
+      requestAnswerToolResult,
+    ])
+
+    expect(projection.rows).toEqual([
+      {
+        id: "present-question-1",
+        role: "prompt",
+        text: "## Domain?\n\nWhat are we specifying?",
+      },
+      {
+        id: "request-answer-1",
+        role: "user",
+        text: "### Response\n\nDeveloper tooling",
+      },
+    ])
   })
 
   it("classifies terminal structured-exchange tool results as response-side entries", () => {
