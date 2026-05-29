@@ -25,7 +25,7 @@ describe("public Brunch RPC structured-exchange parity proof", () => {
       "request_choices",
     ])
     expect(report.exchangeIds).toHaveLength(10)
-    expect(new Set(report.exchangeIds).size).toBeGreaterThanOrEqual(3)
+    expect(new Set(report.exchangeIds).size).toBe(10)
     expect(report.transcriptDisplayRows).toBeGreaterThanOrEqual(20)
   })
 })

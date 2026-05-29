@@ -258,7 +258,11 @@ export async function runPublicRpcParityProof(): Promise<PublicRpcParityProofRep
     }
   }
 
-  for (const exchangeId of new Set(exchangeIds)) {
+  if (new Set(exchangeIds).size !== exchangeIds.length) {
+    throw new Error("Public RPC parity proof reused exchange IDs")
+  }
+
+  for (const exchangeId of exchangeIds) {
     const presentIndex = tools.findIndex(
       (entry) =>
         entry.details?.exchangeId === exchangeId &&

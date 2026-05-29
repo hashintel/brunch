@@ -704,7 +704,7 @@ describe("JSON-RPC handlers", () => {
       id: 49,
       result: {
         status: "pending",
-        exchange: { exchangeId: "deterministic-grounding-choice" },
+        exchange: { exchangeId: "deterministic-grounding-choice-1" },
       },
     })
   })
@@ -1003,16 +1003,22 @@ describe("JSON-RPC handlers", () => {
     })
     expect(textStart).toMatchObject({
       result: {
-        exchange: { mode: "text", exchangeId: "deterministic-grounding-text" },
+        exchange: {
+          mode: "text",
+          exchangeId: "deterministic-grounding-text-2",
+        },
       },
     })
+    const textExchangeId = (textStart as {
+      result: { exchange: { exchangeId: string } }
+    }).result.exchange.exchangeId
     await expect(
       handlers.handle({
         jsonrpc: "2.0",
         id: 253,
         method: "elicitation.respond",
         params: {
-          exchangeId: "deterministic-grounding-text",
+          exchangeId: textExchangeId,
           answer: { text: "A local product specification workspace." },
         },
       }),
@@ -1032,7 +1038,7 @@ describe("JSON-RPC handlers", () => {
       result: {
         exchange: {
           mode: "multi-select",
-          exchangeId: "deterministic-grounding-multi",
+          exchangeId: "deterministic-grounding-multi-3",
         },
       },
     })
@@ -1042,7 +1048,7 @@ describe("JSON-RPC handlers", () => {
         id: 255,
         method: "elicitation.respond",
         params: {
-          exchangeId: "deterministic-grounding-multi",
+          exchangeId: "deterministic-grounding-multi-3",
           answer: { optionIds: ["transcript", "other"] },
           note: "Also verify friction reporting.",
         },

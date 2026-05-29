@@ -873,9 +873,10 @@ type PendingElicitationExchange = Static<typeof PendingElicitationExchangeSchema
 function nextDeterministicElicitationExchange(
   completedCount: number,
 ): PendingElicitationExchange {
+  const turnNumber = completedCount + 1
   const script: PendingElicitationExchange[] = [
     {
-      exchangeId: "deterministic-grounding-choice",
+      exchangeId: `deterministic-grounding-choice-${turnNumber}`,
       lens: "step-by-step",
       mode: "single-select",
       prompt: "Is this a new product or feature from scratch?",
@@ -892,7 +893,7 @@ function nextDeterministicElicitationExchange(
       note: { allowed: true },
     },
     {
-      exchangeId: "deterministic-grounding-text",
+      exchangeId: `deterministic-grounding-text-${turnNumber}`,
       lens: "step-by-step",
       mode: "text",
       prompt: "What are we specifying?",
@@ -902,7 +903,7 @@ function nextDeterministicElicitationExchange(
       note: { allowed: true },
     },
     {
-      exchangeId: "deterministic-grounding-multi",
+      exchangeId: `deterministic-grounding-multi-${turnNumber}`,
       lens: "step-by-step",
       mode: "multi-select",
       prompt: "Which proof qualities matter for this parity run?",
