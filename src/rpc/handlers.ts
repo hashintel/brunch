@@ -498,7 +498,7 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
   {
     method: "session.startElicitation",
     description:
-      "Start or resume the selected session's deterministic assistant-first elicitation loop and return the current pending structured exchange.",
+      "Start or resume the selected session's deterministic structured-exchange permutation loop and return the current pending exchange.",
     paramsSchema: NoParamsSchema,
     resultSchema: StartElicitationResultSchema,
     examples: [{ jsonrpc: "2.0", id: 8, method: "session.startElicitation" }],
@@ -522,7 +522,7 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
   {
     method: "elicitation.respond",
     description:
-      "Submit a text, single-choice, or multi-choice answer for the selected session's current deterministic tuple-shaped pending elicitation exchange.",
+      "Submit a text, single-choice, or multi-choice answer for the selected session's current deterministic tuple-shaped pending structured exchange.",
     paramsSchema: ElicitationRespondParamsSchema,
     resultSchema: ElicitationRespondResultSchema,
     examples: [
@@ -919,7 +919,7 @@ function nextDeterministicElicitationExchange(
       mode: "text",
       prompt: "What are we specifying?",
       details:
-        "This starts Brunch's deterministic public-RPC elicitation parity proof for an activated spec/session.",
+        "This covers the text-answer permutation in Brunch's deterministic public-RPC structured-exchange parity proof.",
       options: [],
       note: { allowed: true },
     },
@@ -929,7 +929,7 @@ function nextDeterministicElicitationExchange(
       mode: "multi-select",
       prompt: "Which proof qualities matter for this parity run?",
       details:
-        "Select all qualities the deterministic agent-as-user proof should preserve.",
+        "Select all qualities the deterministic structured-exchange permutation proof should preserve.",
       options: [
         {
           id: "transcript",

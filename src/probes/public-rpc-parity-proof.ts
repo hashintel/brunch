@@ -6,6 +6,8 @@ import { createRpcHandlers } from "../rpc/handlers.js"
 import { renderSessionTranscript } from "../session-transcript.js"
 import { createWorkspaceSessionCoordinator } from "../workspace-session-coordinator.js"
 
+const PUBLIC_RPC_PARITY_PERMUTATION_COUNT = 3
+
 interface JsonRpcSuccess<T> {
   jsonrpc: "2.0"
   id: number
@@ -110,6 +112,7 @@ interface ToolResultDetails {
   schema?: string
   requestTool?: string
   presentTool?: string
+  prompt?: string
   options?: ToolResultOptionDetails[]
 }
 
@@ -230,7 +233,7 @@ export async function runPublicRpcParityProof(
   }
 
   const exchangeIds: string[] = []
-  for (let turn = 0; turn < 10; turn += 1) {
+  for (let turn = 0; turn < PUBLIC_RPC_PARITY_PERMUTATION_COUNT; turn += 1) {
     const started = success<PendingResult>(
       await handlers.handle({
         jsonrpc: "2.0",
@@ -294,9 +297,9 @@ export async function runPublicRpcParityProof(
       method: "session.transcriptDisplay",
     }),
   )
-  if (exchanges.exchanges.length !== 10) {
+  if (exchanges.exchanges.length !== PUBLIC_RPC_PARITY_PERMUTATION_COUNT) {
     throw new Error(
-      `Expected 10 completed exchanges, got ${exchanges.exchanges.length}`,
+      `Expected ${PUBLIC_RPC_PARITY_PERMUTATION_COUNT} completed exchanges, got ${exchanges.exchanges.length}`,
     )
   }
 
@@ -325,6 +328,16 @@ export async function runPublicRpcParityProof(
 
   if (new Set(exchangeIds).size !== exchangeIds.length) {
     throw new Error("Public RPC parity proof reused exchange IDs")
+  }
+
+  const presentPrompts = tools
+    .filter(
+      (entry) => entry.details?.schema === "brunch.structured_exchange.present",
+    )
+    .map((entry) => entry.details?.prompt)
+    .filter((prompt): prompt is string => prompt !== undefined)
+  if (new Set(presentPrompts).size !== presentPrompts.length) {
+    throw new Error("Public RPC parity proof repeated deterministic prompts")
   }
 
   const optionPresentResults = tools.filter(
@@ -386,10 +399,10 @@ export async function runPublicRpcParityProof(
     runId,
     generatedAt,
     mission:
-      "Drive an assistant-first Brunch elicitation session through public JSON-RPC only.",
+      "Drive deterministic Brunch structured-exchange permutations through public JSON-RPC only.",
     evaluationFocus:
-      "Ten-turn tuple transcript/projection parity without raw Pi RPC or legacy prompt/response entries.",
-    maxTurnBudget: 10,
+      "Tuple transcript/projection parity for current structured-exchange modes without raw Pi RPC or legacy prompt/response entries.",
+    maxTurnBudget: PUBLIC_RPC_PARITY_PERMUTATION_COUNT,
     completedTurns: exchanges.exchanges.length,
     friction,
     cwd,

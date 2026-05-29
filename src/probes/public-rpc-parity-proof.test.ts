@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest"
 import { runPublicRpcParityProof } from "./public-rpc-parity-proof.js"
 
 describe("public Brunch RPC structured-exchange parity proof", () => {
-  it("drives ten assistant-first structured exchanges from a fresh cwd", async () => {
+  it("drives each deterministic structured-exchange permutation from a fresh cwd", async () => {
     const report = await runPublicRpcParityProof()
 
     expect(report).toMatchObject({
@@ -17,10 +17,10 @@ describe("public Brunch RPC structured-exchange parity proof", () => {
       generatedAt: expect.any(String),
       mission: expect.stringContaining("public JSON-RPC only"),
       evaluationFocus: expect.stringContaining(
-        "tuple transcript/projection parity",
+        "Tuple transcript/projection parity",
       ),
-      maxTurnBudget: 10,
-      completedTurns: 10,
+      maxTurnBudget: 3,
+      completedTurns: 3,
       friction: [],
       specId: expect.any(String),
       sessionId: expect.any(String),
@@ -33,10 +33,14 @@ describe("public Brunch RPC structured-exchange parity proof", () => {
       "request_choice",
       "request_choices",
     ])
-    expect(report.exchangeIds).toHaveLength(10)
-    expect(new Set(report.exchangeIds).size).toBe(10)
+    expect(report.exchangeIds).toEqual([
+      "deterministic-grounding-choice-1",
+      "deterministic-grounding-text-2",
+      "deterministic-grounding-multi-3",
+    ])
+    expect(new Set(report.exchangeIds).size).toBe(3)
     expect(report.artifacts).toBeUndefined()
-    expect(report.transcriptDisplayRows).toBeGreaterThanOrEqual(20)
+    expect(report.transcriptDisplayRows).toBeGreaterThanOrEqual(6)
   })
 
   it("writes a reviewable artifact bundle when given a fixture root", async () => {
@@ -97,13 +101,17 @@ describe("public Brunch RPC structured-exchange parity proof", () => {
       runId: report.runId,
       generatedAt: report.generatedAt,
       mission: report.mission,
-      completedTurns: 10,
+      completedTurns: 3,
       exchangeIds: report.exchangeIds,
       artifacts: report.artifacts,
     })
     expect(persistedReport.exchangeIds).toEqual(report.exchangeIds)
-    expect(persistedReport.exchangeIds).toHaveLength(10)
-    expect(new Set(persistedReport.exchangeIds).size).toBe(10)
+    expect(persistedReport.exchangeIds).toHaveLength(3)
+    expect(new Set(persistedReport.exchangeIds).size).toBe(3)
+    expect(
+      transcript.match(/Is this a new product or feature from scratch\?/g) ??
+        [],
+    ).toHaveLength(1)
     for (const exchangeId of persistedReport.exchangeIds) {
       expect(sessionJsonl).toContain(exchangeId)
       expect(transcript).toContain(exchangeId)
