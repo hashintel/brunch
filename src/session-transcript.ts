@@ -162,15 +162,7 @@ function renderToolResult(
     ]
   }
 
-  const body = textContent(message.content)
-  return [
-    `## Tool result: ${message.toolName}`,
-    "",
-    body.length > 0 ? body : "_(empty tool result)_",
-    ...(details === undefined
-      ? []
-      : ["", "```json", JSON.stringify(details, null, 2), "```"]),
-  ]
+  return []
 }
 
 function structuredPresent(value: unknown) {

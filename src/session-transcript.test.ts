@@ -17,6 +17,16 @@ describe("session transcript renderer", () => {
         data: { specId: "spec-1", specTitle: "Demo spec" },
       }),
       line({
+        id: "generic-tool-1",
+        type: "message",
+        message: {
+          role: "toolResult",
+          toolName: "read",
+          content: [{ type: "text", text: "Generic file contents" }],
+          details: { path: "notes.txt" },
+        },
+      }),
+      line({
         id: "present-1",
         type: "message",
         message: {
@@ -86,5 +96,7 @@ describe("session transcript renderer", () => {
       "## Exchange turn-1 — response (request_choice, answered)",
     )
     expect(transcript).toContain("Keep it deterministic.")
+    expect(transcript).not.toContain("## Tool result: read")
+    expect(transcript).not.toContain("Generic file contents")
   })
 })
