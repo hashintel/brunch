@@ -42,18 +42,6 @@ export function registerBrunchWorkspaceDialog(
   })
 }
 
-export const brunchExtensionMeta = {
-  productStatus: "ready",
-  loadOrder: 80,
-} as const
-
-export function registerBrunchProductExtension(
-  pi: ExtensionAPI,
-  context: { options: BrunchSpecSessionPickerOptions },
-): void {
-  registerBrunchWorkspaceDialog(pi, context.options)
-}
-
 export default function brunchWorkspaceDialog(pi: ExtensionAPI): void {
   pi.registerCommand(BRUNCH_WORKSPACE_COMMAND, {
     description: "Open the Brunch spec/session picker",

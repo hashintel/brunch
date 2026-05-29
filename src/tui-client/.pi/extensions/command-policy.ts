@@ -14,11 +14,4 @@ export function registerBrunchBranchPolicyHandlers(pi: ExtensionAPI): void {
   })
 }
 
-export const brunchExtensionMeta = {
-  productStatus: "ready",
-  loadOrder: 30,
-} as const
-
-export const registerBrunchProductExtension = registerBrunchBranchPolicyHandlers
-
 export default registerBrunchBranchPolicyHandlers

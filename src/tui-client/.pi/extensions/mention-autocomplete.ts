@@ -154,16 +154,4 @@ function candidateToAutocompleteItem(
   }
 }
 
-export const brunchExtensionMeta = {
-  productStatus: "ready",
-  loadOrder: 50,
-} as const
-
-export function registerBrunchProductExtension(
-  pi: ExtensionAPI,
-  context: { graphMentionSource: GraphMentionSource },
-): void {
-  registerBrunchMentionAutocomplete(pi, context.graphMentionSource)
-}
-
 export default registerBrunchMentionAutocomplete

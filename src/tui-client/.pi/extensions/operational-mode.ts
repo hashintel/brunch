@@ -602,12 +602,4 @@ export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
   }))
 }
 
-export const brunchExtensionMeta = {
-  productStatus: "ready",
-  loadOrder: 40,
-} as const
-
-export const registerBrunchProductExtension =
-  registerBrunchOperationalModePolicy
-
 export default registerBrunchOperationalModePolicy
