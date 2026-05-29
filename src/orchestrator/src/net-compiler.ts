@@ -196,6 +196,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         onPass: [p(sid, 'spec-ready')],
         onFail: [p(sid, 'failing-tests')],
         budgetPlace: p(sid, 'retry-budget'),
+        maxRetries: policy.maxRetries,
       },
     });
 
@@ -357,7 +358,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
       }
 
       case 'run-tests': {
-        const { sliceId, epicId, target, onPass, onFail, budgetPlace } = h;
+        const { sliceId, epicId, target, onPass, onFail, budgetPlace, maxRetries } = h;
         const baseToken: Token = { sliceId, epicId };
 
         fire = async (consumed) => {
@@ -381,7 +382,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
               { place: budgetPlace, token: { ...baseToken, retryCount: 0 } },
             ];
           }
-          if (retryCount >= policy.maxRetries) {
+          if (retryCount >= maxRetries) {
             ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
             ctx.halted = true;
             ctx.haltReason = `Slice ${sliceId} retry exhaustion`;

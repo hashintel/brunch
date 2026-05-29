@@ -54,6 +54,7 @@ type RunTestsDescriptor = {
   onPass: string[];
   onFail: string[];
   budgetPlace: string;
+  maxRetries: number;
 };
 
 /** Semantic assessment with rework budget. */
