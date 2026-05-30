@@ -2,7 +2,6 @@ import { execSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
-import { VERSION as PI_VERSION } from "@earendil-works/pi-coding-agent"
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent"
 import {
   Key,
@@ -17,6 +16,11 @@ import type {
   SpecSessionActivationDecision,
 } from "../../../../workspace-session-coordinator.js"
 import {
+  formatBrunchProductIdentity,
+  readBrunchAnsiLogo,
+  type BrunchVersionInfo,
+} from "../brunch-identity.js"
+import {
   buildWorkspaceSelectionView,
   selectWorkspaceSelectionOption,
   type WorkspaceSelectionStage,
@@ -24,16 +28,10 @@ import {
 } from "./model.js"
 
 export const WORKSPACE_DIALOG_WIDTH = 80
-const ESC = String.fromCharCode(27)
 const CTRL_C = "\x03"
-const ANSI_SEQUENCE = new RegExp(`^${ESC}\\[[0-9;?]*[ -/]*[@-~]`)
-const ANSI_SEQUENCE_GLOBAL = new RegExp(`${ESC}\\[[0-9;?]*[ -/]*[@-~]`, "g")
 const ASSET_DIR = new URL("./assets/", import.meta.url)
 const PACKAGE_JSON_URL = new URL("../../../../../package.json", import.meta.url)
 const LOCAL_BUILD_TIME = formatBuildTime(new Date())
-
-// Letterform copied from: cfonts "brunch" -f tiny -c candy
-const BRUNCH_WORDMARK = ["█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █", "█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█"]
 
 export type WorkspaceDialogTheme = Pick<Theme, "fg">
 
@@ -116,25 +114,12 @@ class WorkspaceDialogComponent implements Component {
       "dim",
       "Choose or create the spec/session before the agent loop runs.",
     )
-    const logo = readLogo()
-    const version = brunchVersion()
-    const versionLine = style(
-      this.#theme,
-      "accent",
-      `brunch ${version.version}`,
-    )
-    const devLine = version.dev
-      ? style(this.#theme, "success", version.dev)
-      : null
-    const piLine = style(this.#theme, "dim", `built on Pi v${PI_VERSION}`)
     const lines = [
-      ...logo,
-      ...(logo.length > 0 ? [""] : []),
-      ...BRUNCH_WORDMARK.map((line) => style(this.#theme, "muted", line)),
-      "",
-      versionLine,
-      ...(devLine ? [devLine] : []),
-      piLine,
+      ...formatBrunchProductIdentity({
+        logoLines: readLogo(),
+        version: brunchVersion(),
+        theme: this.#theme,
+      }),
       "",
       title,
       subtitle,
@@ -249,11 +234,6 @@ interface PackageJson {
   private?: unknown
 }
 
-interface BrunchVersionInfo {
-  version: string
-  dev: string | null
-}
-
 function formatBuildTime(date: Date): string {
   return date
     .toISOString()
@@ -333,19 +313,10 @@ function bottomBorderLine(
 }
 
 function readLogo(): string[] {
-  const asset = supportsTruecolor()
-    ? "brunch-logo-quad-56x18.ansi"
-    : "brunch-logo-quad-56x18-240.ansi"
-  try {
-    return cropLogo(
-      readFileSync(fileURLToPath(new URL(asset, ASSET_DIR)), "utf8")
-        .replace(new RegExp(`${ESC}\\[\\?25[lh]`, "g"), "")
-        .replace(new RegExp(`${ESC}\\[0m$`, "g"), "")
-        .split("\n"),
-    )
-  } catch {
-    return []
-  }
+  return readBrunchAnsiLogo({
+    assetUrl: ASSET_DIR,
+    truecolor: supportsTruecolor(),
+  })
 }
 
 function supportsTruecolor(): boolean {
@@ -356,54 +327,6 @@ function supportsTruecolor(): boolean {
     colorterm === "24bit" ||
     term.includes("truecolor")
   )
-}
-
-function cropLogo(lines: string[]): string[] {
-  const cropped = [...lines]
-  while (cropped.length > 0 && stripAnsi(cropped[0]!).trim().length === 0)
-    cropped.shift()
-  while (
-    cropped.length > 0 &&
-    stripAnsi(cropped[cropped.length - 1]!).trim().length === 0
-  )
-    cropped.pop()
-  if (cropped.length === 0) return []
-
-  const commonLeft = Math.min(...cropped.map(visibleLeadingSpaces))
-  return cropped.map((line) => removeVisibleColumns(line, commonLeft))
-}
-
-function stripAnsi(text: string): string {
-  return text.replace(ANSI_SEQUENCE_GLOBAL, "")
-}
-
-function visibleLeadingSpaces(line: string): number {
-  const match = stripAnsi(line).match(/^ */)
-  return match?.[0].length ?? 0
-}
-
-function removeVisibleColumns(line: string, columns: number): string {
-  if (columns <= 0) return line
-
-  let output = ""
-  let removed = 0
-  for (let index = 0; index < line.length; index += 1) {
-    if (line[index] === ESC) {
-      const match = line.slice(index).match(ANSI_SEQUENCE)
-      if (match) {
-        output += match[0]
-        index += match[0].length - 1
-        continue
-      }
-    }
-
-    if (removed < columns) {
-      removed += 1
-      continue
-    }
-    output += line[index]!
-  }
-  return output
 }
 
 function style(

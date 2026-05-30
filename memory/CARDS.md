@@ -24,8 +24,8 @@
 
 | Order | Card | Weight | Status |
 | --- | --- | --- | --- |
-| 1 | Shared Brunch TUI identity primitives | Full | next |
-| 2 | Persistent chrome uses Brunch identity | Light | queued |
+| 1 | Shared Brunch TUI identity primitives | Full | done |
+| 2 | Persistent chrome uses Brunch identity | Light | next |
 | 3 | Brunch-host chrome visual evidence | Light | queued |
 | 4 | FE-744 closeout reconciliation | Light | queued |
 
@@ -33,7 +33,7 @@
 
 ## Card 1 — Shared Brunch TUI identity primitives
 
-**Status:** next  
+**Status:** done  
 **Weight:** full scope card
 
 ### Target Behavior
@@ -85,7 +85,7 @@ The startup dialog's Brunch visual identity is provided by a reusable TUI identi
 
 ## Card 2 — Persistent chrome uses Brunch identity
 
-**Status:** queued after Card 1  
+**Status:** next  
 **Weight:** light scope card
 
 ### Objective

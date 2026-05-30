@@ -10,6 +10,10 @@ import {
   selectWorkspaceSelectionOption,
   runWorkspaceDialogPreflight,
 } from "../components/workspace-dialog/index.js"
+import {
+  formatBrunchProductIdentity,
+  readBrunchAnsiLogo,
+} from "../components/brunch-identity.js"
 import type { WorkspaceLaunchInventory } from "../../../workspace-session-coordinator.js"
 
 describe("spec/session picker", () => {
@@ -302,6 +306,49 @@ describe("spec/session picker", () => {
     ).toBe(true)
     expect(lines.some((line) => line.includes("[success](dev"))).toBe(true)
     expect(lines.some((line) => line.includes("built on Pi v"))).toBe(true)
+  })
+
+  it("provides deterministic shared Brunch identity primitives", async () => {
+    const assetUrl = new URL(
+      "../components/workspace-dialog/assets/",
+      import.meta.url,
+    )
+
+    expect(
+      readBrunchAnsiLogo({ assetUrl, truecolor: false }).join("\n"),
+    ).toContain("\x1B[")
+    expect(
+      formatBrunchProductIdentity({
+        logoLines: [],
+        colorMode: "plain",
+        version: { version: "v-test", dev: null },
+        piVersion: "test-pi",
+      }),
+    ).toEqual([
+      "█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █",
+      "█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█",
+      "",
+      "brunch v-test",
+      "built on Pi vtest-pi",
+    ])
+    expect(
+      formatBrunchProductIdentity({
+        logoLines: ["logo"],
+        colorMode: "dark",
+        version: { version: "v-test", dev: "(dev abc)" },
+        theme: { fg: (color, text) => `[${color}]${text}[/${color}]` },
+        piVersion: "test-pi",
+      }),
+    ).toEqual([
+      "logo",
+      "",
+      "[muted]█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █[/muted]",
+      "[muted]█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█[/muted]",
+      "",
+      "[accent]brunch v-test[/accent]",
+      "[success](dev abc)[/success]",
+      "[dim]built on Pi vtest-pi[/dim]",
+    ])
   })
 
   it("keeps logo assets colocated with the private picker component", async () => {
