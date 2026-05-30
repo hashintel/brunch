@@ -69,7 +69,7 @@ Brunch-created Pi settings ignore ambient global/project Pi settings for behavio
 - Do not preserve accidental compatibility with existing local Pi settings.
 - Do not claim A18-L exact slash-command suppression is solved unless a real Pi command/keybinding seam is exercised.
 
-## Card 2 — next — Runtime state transcript contract
+## Card 2 — done — Runtime state transcript contract
 
 ### Target Behavior
 
@@ -119,7 +119,7 @@ Brunch runtime selection is reconstructable from the latest valid `brunch.agent_
 - Keep selected state as one coherent bundle; do not store each knob independently.
 - Keep static types projected from the runtime-state module; do not duplicate DTOs in tests.
 
-## Card 3 — queued — Runtime-state prompt/tool posture wiring
+## Card 3 — next — Runtime-state prompt/tool posture wiring
 
 ### Target Behavior
 

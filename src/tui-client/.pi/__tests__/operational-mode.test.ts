@@ -223,16 +223,83 @@ describe("Brunch agent runtime-state projection", () => {
   it("rejects invalid runtime switch combinations before appending", () => {
     const manager = new FakeRuntimeStateSessionManager()
 
-    expect(() =>
-      appendBrunchAgentRuntimeSwitch(manager, {
+    for (const invalidState of [
+      {
+        schemaVersion: 1,
+        operationalMode: "execute",
+        agentRole: "elicitor",
+        agentStrategy: "step-by-step",
+        agentLens: "step-by-step",
+      },
+      {
+        schemaVersion: 1,
+        operationalMode: "elicit",
+        agentRole: "reviewer",
+        agentStrategy: "step-by-step",
+        agentLens: "step-by-step",
+      },
+      {
         schemaVersion: 1,
         operationalMode: "elicit",
         agentRole: "elicitor",
         agentStrategy: "not-a-strategy",
         agentLens: "step-by-step",
-      } as unknown as BrunchAgentState),
-    ).toThrow("Invalid BrunchAgentState runtime selection.")
+      },
+      {
+        schemaVersion: 1,
+        operationalMode: "elicit",
+        agentRole: "elicitor",
+        agentStrategy: "step-by-step",
+        agentLens: "not-a-lens",
+      },
+    ]) {
+      expect(() =>
+        appendBrunchAgentRuntimeSwitch(
+          manager,
+          invalidState as unknown as BrunchAgentState,
+        ),
+      ).toThrow("Invalid BrunchAgentState runtime selection.")
+    }
     expect(manager.entries).toEqual([])
+  })
+
+  it("does not project invalid runtime mode, role, strategy, or lens entries", () => {
+    for (const invalidState of [
+      {
+        schemaVersion: 1,
+        operationalMode: "execute",
+        agentRole: "elicitor",
+        agentStrategy: "step-by-step",
+        agentLens: "step-by-step",
+      },
+      {
+        schemaVersion: 1,
+        operationalMode: "elicit",
+        agentRole: "reviewer",
+        agentStrategy: "step-by-step",
+        agentLens: "step-by-step",
+      },
+      {
+        schemaVersion: 1,
+        operationalMode: "elicit",
+        agentRole: "elicitor",
+        agentStrategy: "not-a-strategy",
+        agentLens: "step-by-step",
+      },
+      {
+        schemaVersion: 1,
+        operationalMode: "elicit",
+        agentRole: "elicitor",
+        agentStrategy: "step-by-step",
+        agentLens: "not-a-lens",
+      },
+    ]) {
+      expect(
+        projectBrunchAgentState([
+          runtimeEntry(invalidState as unknown as BrunchAgentState),
+        ]),
+      ).toMatchObject(DEFAULT_BRUNCH_AGENT_STATE)
+    }
   })
 
   it("appends runtime init from the extension session-start hook", async () => {
