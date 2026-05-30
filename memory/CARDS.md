@@ -942,7 +942,7 @@ The structured-exchange schema directory contains a README that records the exac
 ## Card 2 — Add shared Zod primitives and JSON Schema export convention
 
 **Weight:** full scope card  
-**Status:** queued
+**Status:** done
 
 ### Target Behavior
 
