@@ -36,6 +36,8 @@ What is wrong, from the developer's perspective.
 
 The target state, from the developer's perspective.
 
+**Notation aid.** Express the structural delta as paired `pseudo` artifacts — `tree` current → `tree` desired, or `graph` current → `graph` desired — under the Problem Statement / Solution headings. The paired form makes the change concrete before commits begin and gives reviewers a single artifact to diff.
+
 ## Commits
 
 Ordered list of tiny commits. Each described in plain English — no file paths or snippets. Each leaves the codebase working.

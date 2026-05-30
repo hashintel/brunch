@@ -91,6 +91,8 @@ Run the project's verification harness. All checks must pass. If the card proved
 
 After verification, reconcile canonical state every time. The reconciliation may end in a no-op, but skipping it is not allowed.
 
+**Notation aid.** When the reconciliation records slice acceptance breakdowns, module sketches, call/dependency shapes, or schema-shaped invariants into canonical docs, use `pseudo` forms (`tree` for obligation decomposition; `chain` for call graphs; `graph` for cross-module relations; `data-shape` for sketched schemas). Preserve any `pseudo` artifacts already present in SPEC/PLAN — do not collapse them back into prose.
+
 Traceability depth is **conditional**, not automatic.
 
 After the build lands and verification passes, ask:

@@ -18,6 +18,8 @@ Use **slice** for the buildable scope card produced by `ln-scope` and implemente
 
 The vertical-slicing instinct still applies at planning time: frontier items should cut through the relevant concerns of `memory/SPEC.md` instead of becoming layer-by-layer chores. The term "frontier" names their canonical/branch role; the term "slice" remains reserved for scoped execution.
 
+**Notation aid.** Express the `Dependencies` block as `pseudo graph` rather than a hand-drawn tree — cross-edges (optional successors, on-promotion edges) and dependency-edge types (`-[hard]->`, `-[optional]->`, `-[on promotion]->`) stay visible, and horizon items go in an `unconnected` group so they're acknowledged without implying spine relations. See `pseudo references/graph.md` worked example "roadmap dependency graph."
+
 ## Plan document shape
 
 Prefer the conflict-resistant mature shape:

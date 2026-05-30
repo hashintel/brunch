@@ -127,6 +127,8 @@ A tracer bullet should *tell you something*. Build it.
 ✓ [test name] — [observable assertion]
 ```
 
+**Notation aid.** When acceptance is more than a handful of leaves, decompose it with `pseudo tree` (obligation decomposition variant) so each leaf maps to one assertion. Use `pseudo lanes` when the slice crosses actor boundaries; `pseudo state-machine` when it changes a lifecycle.
+
 ### Verification Approach
 
 Name the oracle strategy for this slice.

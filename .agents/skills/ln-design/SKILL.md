@@ -33,6 +33,8 @@ Spawn 3+ sub-agents simultaneously. Each must produce a **radically different** 
 
 Each agent returns: **interface** (types, methods, params, invariants, ordering constraints, error modes, required configuration, and performance characteristics), **usage example**, **what it hides**, **seam / adapter strategy** where relevant, **trade-offs**, **load-bearing claims** (1–3 falsifiable beliefs the design rests on — for each, note whether it is already covered by `memory/SPEC.md` §Assumptions), and **cheapest tracer bullet** — the thinnest `ln-scope` slice whose landing would light up the seam and break if the claim is wrong. Fall back to `ln-spike` only when no buildable slice could carry the proof.
 
+**Notation aid.** Express each candidate module shape using `pseudo` (`graph` or `tree` for module relations, `data-shape` for interface shapes, `lanes` for cross-actor seams). Side-by-side `pseudo` artifacts make alternatives directly comparable in the same form rather than as divergent prose.
+
 ### 3. Present and compare
 
 Show each design sequentially, then compare in prose on:

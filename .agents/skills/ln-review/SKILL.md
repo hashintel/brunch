@@ -55,6 +55,8 @@ If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, check whether recent 
 
 Collect gaps as numbered findings (category: `oracle-coverage`).
 
+**Notation aid.** Map test artifacts against acceptance leaves with `pseudo matrix` (coverage variant): rows = obligation leaves from a `pseudo tree` decomposition of the frontier acceptance, columns = test artifacts. Gaps surface as `.` cells; partial coverage as `~`. Compact, scannable, and the matrix itself becomes a coverage artifact reviewers can re-run.
+
 ### Lexicon alignment (category: `naming`)
 
 If `memory/SPEC.md` exists, survey how §Lexicon terms (both method and domain) appear across:
