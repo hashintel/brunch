@@ -29,6 +29,8 @@ import {
   createBrunchSettingsManager,
 } from "./brunch-pi-profile.js"
 export {
+  BRUNCH_SETTINGS_AUDITED_GETTERS,
+  BRUNCH_SETTINGS_POLICY,
   applyBrunchOfflineDefault,
   brunchResourceLoaderOptions,
   createBrunchPiProfile,
