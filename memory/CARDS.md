@@ -999,7 +999,7 @@ The schema layer models the present-side details vocabulary captured above witho
 ## Card 4 — Add request detail Zod schemas
 
 **Weight:** full scope card  
-**Status:** queued
+**Status:** done
 
 ### Target Behavior
 

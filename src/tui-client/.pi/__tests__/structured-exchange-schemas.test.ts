@@ -9,6 +9,13 @@ import {
   zPresentReviewSetDetails,
 } from "../extensions/structured-exchange/schemas/present.js"
 import {
+  zRequestAnswerDetails,
+  zRequestChoiceDetails,
+  zRequestChoicesDetails,
+  zRequestDetails,
+  zRequestReviewDetails,
+} from "../extensions/structured-exchange/schemas/request.js"
+import {
   zCaptureDetailsHeader,
   zCaptureToolMeta,
   zGraphNodeRef,
@@ -238,5 +245,226 @@ describe("structured exchange present schemas", () => {
     expectJsonSchemaExport(zPresentReviewSetDetails)
     expectJsonSchemaExport(zPresentCandidatesDetails)
     expectJsonSchemaExport(zPresentDetails)
+  })
+})
+
+describe("structured exchange request schemas", () => {
+  const answerBase = {
+    schema: "brunch.structured_exchange.request",
+    v: 1,
+    exchange_id: "problem-frame",
+    tool_meta: {
+      prev: "present_question",
+      curr: "request_answer",
+      next: "capture_answer",
+    },
+  }
+
+  it("parses answered, cancelled, and unavailable outcomes", () => {
+    expect(
+      zRequestAnswerDetails.parse({
+        ...answerBase,
+        answered: {
+          text: "The hard part is coherence across sessions.",
+        },
+      }),
+    ).toMatchObject({
+      answered: { text: "The hard part is coherence across sessions." },
+    })
+
+    expect(
+      zRequestAnswerDetails.parse({
+        schema: "brunch.structured_exchange.request",
+        v: 1,
+        exchange_id: "problem-frame",
+        tool_meta: { prev: "present_question", curr: "request_answer" },
+        cancelled: { message: "User cancelled." },
+      }),
+    ).toMatchObject({ cancelled: { message: "User cancelled." } })
+
+    expect(
+      zRequestAnswerDetails.parse({
+        schema: "brunch.structured_exchange.request",
+        v: 1,
+        exchange_id: "problem-frame",
+        tool_meta: { prev: "present_question", curr: "request_answer" },
+        unavailable: { message: "request_answer requires interactive UI." },
+      }),
+    ).toMatchObject({
+      unavailable: { message: "request_answer requires interactive UI." },
+    })
+  })
+
+  it("rejects missing or multiple terminal outcomes", () => {
+    expect(() => zRequestAnswerDetails.parse(answerBase)).toThrow()
+    expect(() =>
+      zRequestAnswerDetails.parse({
+        ...answerBase,
+        answered: { text: "Yes." },
+        cancelled: { message: "User cancelled." },
+      }),
+    ).toThrow()
+  })
+
+  it("keeps comment on answered payloads and message on terminal runtime payloads", () => {
+    expect(
+      zRequestChoiceDetails.parse({
+        schema: "brunch.structured_exchange.request",
+        v: 1,
+        exchange_id: "domain-shape",
+        tool_meta: {
+          prev: "present_options",
+          curr: "request_choice",
+          next: "capture_choice",
+        },
+        answered: {
+          choice: {
+            id: "local-first",
+            label: "Local-first app",
+            kind: "listed",
+          },
+          comment: "This fits the POC constraints.",
+        },
+      }),
+    ).toMatchObject({ answered: { comment: "This fits the POC constraints." } })
+
+    expect(() =>
+      zRequestChoiceDetails.parse({
+        schema: "brunch.structured_exchange.request",
+        v: 1,
+        exchange_id: "domain-shape",
+        tool_meta: { prev: "present_options", curr: "request_choice" },
+        cancelled: { message: "User cancelled." },
+        comment: "human text in the wrong place",
+      }),
+    ).toThrow()
+
+    expect(() =>
+      zRequestChoiceDetails.parse({
+        schema: "brunch.structured_exchange.request",
+        v: 1,
+        exchange_id: "domain-shape",
+        tool_meta: { prev: "present_options", curr: "request_choice" },
+        answered: {
+          choice: {
+            id: "local-first",
+            label: "Local-first app",
+            kind: "listed",
+          },
+          message: "runtime text in the wrong place",
+        },
+      }),
+    ).toThrow()
+  })
+
+  it("supports candidate choices and requires comments for other or none choices", () => {
+    expect(
+      zRequestChoiceDetails.parse({
+        schema: "brunch.structured_exchange.request",
+        v: 1,
+        exchange_id: "candidate-direction",
+        tool_meta: {
+          prev: "present_candidates",
+          curr: "request_choice",
+          next: "capture_candidate",
+        },
+        answered: {
+          choice: {
+            id: "candidate-local-workbench",
+            label: "Local workbench for graph-native specs",
+            kind: "listed",
+          },
+        },
+      }),
+    ).toMatchObject({ tool_meta: { prev: "present_candidates" } })
+
+    expect(() =>
+      zRequestChoiceDetails.parse({
+        schema: "brunch.structured_exchange.request",
+        v: 1,
+        exchange_id: "domain-shape",
+        tool_meta: { prev: "present_options", curr: "request_choice" },
+        answered: {
+          choice: { id: "none", label: "None of these", kind: "none" },
+        },
+      }),
+    ).toThrow()
+  })
+
+  it("parses multiple choices and requires comments for other or none selections", () => {
+    expect(
+      zRequestChoicesDetails.parse({
+        schema: "brunch.structured_exchange.request",
+        v: 1,
+        exchange_id: "open-risks",
+        tool_meta: {
+          prev: "present_options",
+          curr: "request_choices",
+          next: "capture_choices",
+        },
+        answered: {
+          choices: [
+            { id: "transport", label: "Transport contract", kind: "listed" },
+            {
+              id: "other",
+              label: "Schema source-of-truth drift",
+              kind: "other",
+            },
+          ],
+          comment: "Keep schema drift visible.",
+        },
+      }),
+    ).toMatchObject({
+      answered: { choices: [{ id: "transport" }, { id: "other" }] },
+    })
+
+    expect(() =>
+      zRequestChoicesDetails.parse({
+        schema: "brunch.structured_exchange.request",
+        v: 1,
+        exchange_id: "open-risks",
+        tool_meta: { prev: "present_options", curr: "request_choices" },
+        answered: {
+          choices: [{ id: "none", label: "None of these", kind: "none" }],
+        },
+      }),
+    ).toThrow()
+  })
+
+  it("requires a comment for request_changes review decisions", () => {
+    expect(
+      zRequestReviewDetails.parse({
+        schema: "brunch.structured_exchange.request",
+        v: 1,
+        exchange_id: "review-set-17",
+        tool_meta: {
+          prev: "present_review_set",
+          curr: "request_review",
+          next: "capture_review",
+        },
+        answered: {
+          decision: "approve",
+          comment: "This is ready to commit.",
+        },
+      }),
+    ).toMatchObject({ answered: { decision: "approve" } })
+
+    expect(() =>
+      zRequestReviewDetails.parse({
+        schema: "brunch.structured_exchange.request",
+        v: 1,
+        exchange_id: "review-set-17",
+        tool_meta: { prev: "present_review_set", curr: "request_review" },
+        answered: { decision: "request_changes" },
+      }),
+    ).toThrow()
+  })
+
+  it("exports request schemas to JSON Schema", () => {
+    expectJsonSchemaExport(zRequestAnswerDetails)
+    expectJsonSchemaExport(zRequestChoiceDetails)
+    expectJsonSchemaExport(zRequestChoicesDetails)
+    expectJsonSchemaExport(zRequestReviewDetails)
+    expectJsonSchemaExport(zRequestDetails)
   })
 })
