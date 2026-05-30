@@ -18,7 +18,7 @@
 	"scripts": {
 		"dev": "tsx src/brunch.ts",
 		"build": "tsc -p tsconfig.build.json && npm run build:pi-assets && npm run build:web",
-		"build:pi-assets": "mkdir -p dist/tui-client/.pi/components/workspace-dialog && cp -R src/tui-client/.pi/components/workspace-dialog/assets dist/tui-client/.pi/components/workspace-dialog/",
+		"build:pi-assets": "mkdir -p dist/tui-client/.pi/components/workspace-dialog dist/tui-client/.pi/context/prompt-packs && cp -R src/tui-client/.pi/components/workspace-dialog/assets dist/tui-client/.pi/components/workspace-dialog/ && cp src/tui-client/.pi/context/prompt-packs/*.md dist/tui-client/.pi/context/prompt-packs/",
 		"build:web": "vite build",
 		"test": "vitest --run",
 		"test:watch": "vitest",

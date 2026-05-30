@@ -12,6 +12,7 @@ import {
   registerBrunchMentionAutocomplete,
 } from "./.pi/extensions/mention-autocomplete.js"
 import { registerBrunchOperationalModePolicy } from "./.pi/extensions/operational-mode.js"
+import { registerBrunchPrompting } from "./.pi/extensions/prompting.js"
 import { registerBrunchSessionBoundary } from "./.pi/extensions/session-lifecycle.js"
 import { registerStructuredExchange } from "./.pi/extensions/structured-exchange/index.js"
 import { type BrunchChromeState } from "./.pi/extensions/chrome.js"
@@ -30,6 +31,7 @@ export {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
   appendBrunchAgentRuntimeInit,
+  activeToolNamesForBrunchAgentState,
   appendBrunchAgentRuntimeSwitch,
   projectBrunchAgentState,
   registerBrunchOperationalModePolicy,
@@ -44,6 +46,7 @@ export {
   type OperationalModeId,
   type ResolvedBrunchAgentState,
 } from "./.pi/extensions/operational-mode.js"
+export { registerBrunchPrompting } from "./.pi/extensions/prompting.js"
 export {
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
@@ -93,6 +96,7 @@ export function createBrunchPiExtensionShell(
       (api) => registerBrunchChrome(api, chrome),
       registerBrunchBranchPolicyHandlers,
       registerBrunchOperationalModePolicy,
+      registerBrunchPrompting,
       (api) => registerBrunchMentionAutocomplete(api, graphMentionSource),
       registerBrunchAlternatives,
       registerStructuredExchange,

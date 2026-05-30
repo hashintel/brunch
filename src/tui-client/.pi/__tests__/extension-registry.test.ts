@@ -10,6 +10,7 @@ import chrome from "../extensions/chrome.js"
 import commandPolicy from "../extensions/command-policy.js"
 import mentionAutocomplete from "../extensions/mention-autocomplete.js"
 import operationalMode from "../extensions/operational-mode.js"
+import prompting from "../extensions/prompting.js"
 import sessionLifecycle from "../extensions/session-lifecycle.js"
 import structuredExchange, {
   PRESENT_OPTIONS_TOOL,
@@ -28,6 +29,7 @@ const extensionDefaults = {
   "command-policy.ts": commandPolicy,
   "mention-autocomplete.ts": mentionAutocomplete,
   "operational-mode.ts": operationalMode,
+  "prompting.ts": prompting,
   "session-lifecycle.ts": sessionLifecycle,
   "structured-exchange/index.ts": structuredExchange,
   "workspace-dialog.ts": workspaceDialog,
@@ -78,6 +80,7 @@ describe("Brunch explicit Pi extension registry", () => {
       "before_agent_start",
       "tool_call",
       "user_bash",
+      "before_agent_start",
       "before_agent_start",
       "session_start",
     ])

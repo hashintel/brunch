@@ -730,11 +730,7 @@ describe("Brunch TUI boot", () => {
       Promise.resolve(
         events.before_agent_start?.({ systemPrompt: "base" } as never),
       ),
-    ).resolves.toMatchObject({
-      systemPrompt: expect.stringContaining(
-        "Brunch exposes only elicit-safe tools: read, grep, find, ls, present_question, present_options, request_answer, request_choice, request_choices.",
-      ),
-    })
+    ).resolves.toBeUndefined()
     await expect(
       Promise.resolve(events.tool_call?.({ toolName: "write" } as never)),
     ).resolves.toMatchObject({ block: true })

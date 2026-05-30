@@ -155,22 +155,7 @@ describe("Brunch agent runtime-state projection", () => {
         "present_alternatives",
       ],
     ])
-    expect(promptResult).toMatchObject({
-      systemPrompt: expect.stringContaining("Operational mode: elicit."),
-    })
-    expect(promptResult).toMatchObject({
-      systemPrompt: expect.stringContaining("Agent role: elicitor."),
-    })
-    expect(promptResult).toMatchObject({
-      systemPrompt: expect.stringContaining(
-        "Agent strategy: disambiguate-via-examples.",
-      ),
-    })
-    expect(promptResult).toMatchObject({
-      systemPrompt: expect.stringContaining(
-        "Brunch exposes only elicit-safe tools: read, grep, find, ls, structured_exchange, present_alternatives.",
-      ),
-    })
+    expect(promptResult).toBeUndefined()
     for (const toolName of ["bash", "edit", "write"]) {
       await expect(
         Promise.resolve(events.tool_call?.({ toolName } as never)),
