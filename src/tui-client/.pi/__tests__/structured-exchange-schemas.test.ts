@@ -7,32 +7,26 @@ import {
   zCaptureChoiceDetails,
   zCaptureChoicesDetails,
   zCaptureDetails,
+  zCaptureDetailsHeader,
   zCaptureReviewDetails,
-} from "../extensions/structured-exchange/schemas/capture.js"
-import {
+  zCaptureToolMeta,
+  zGraphNodeRef,
+  zMarkdown,
   zPresentCandidatesDetails,
   zPresentDetails,
+  zPresentDetailsHeader,
   zPresentOptionsDetails,
   zPresentQuestionDetails,
   zPresentReviewSetDetails,
-} from "../extensions/structured-exchange/schemas/present.js"
-import {
+  zPresentToolMeta,
   zRequestAnswerDetails,
   zRequestChoiceDetails,
   zRequestChoicesDetails,
   zRequestDetails,
-  zRequestReviewDetails,
-} from "../extensions/structured-exchange/schemas/request.js"
-import {
-  zCaptureDetailsHeader,
-  zCaptureToolMeta,
-  zGraphNodeRef,
-  zMarkdown,
-  zPresentDetailsHeader,
-  zPresentToolMeta,
   zRequestDetailsHeader,
+  zRequestReviewDetails,
   zRequestToolMeta,
-} from "../extensions/structured-exchange/schemas/shared.js"
+} from "../extensions/structured-exchange/schemas/index.js"
 
 function expectJsonSchemaExport(schema: z.ZodType) {
   expect(() =>

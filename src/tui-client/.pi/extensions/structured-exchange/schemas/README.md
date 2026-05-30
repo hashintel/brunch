@@ -384,3 +384,7 @@ capture_candidate:
 ```
 
 `capture_candidate` consumes the selected candidate id from the prior `request_choice`; do not duplicate candidate, user-rubric, or meta-rubric payloads into capture details unless a later design approves that change.
+
+## Known gaps before runtime migration
+
+No additional schema-contract gaps were found while implementing this schema layer. Runtime tools and projection code still use the existing tuple details model until a later migration slice deliberately rewires them to these exports.
