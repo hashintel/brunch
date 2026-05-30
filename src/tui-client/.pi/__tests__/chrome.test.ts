@@ -39,7 +39,8 @@ describe("Brunch chrome projection", () => {
     }
 
     expect(formatBrunchChromeHeaderLines(state)).toEqual([
-      "brunch",
+      "█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █",
+      "█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█",
       "runtime: elicit-default · role elicitor · claude-sonnet · thinking medium · lens step-by-step",
       "spec: Spec One · session: Interview #1 · phase: elicitation",
     ])
@@ -55,18 +56,20 @@ describe("Brunch chrome projection", () => {
     }
 
     expect(formatBrunchChromeHeaderLines(state)).toEqual([
-      "brunch",
+      "█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █",
+      "█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█",
       "runtime: not reported",
       "spec: Spec One · session: Interview #1 · phase: elicitation",
     ])
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      "runtime: not reported · build: not reported",
+      "brunch · runtime: not reported · build: not reported",
       "context: not reported",
       "state: responding-to-elicitation · coherence: unknown · worker: not reported",
       "spec: Spec One · session: Interview #1",
       "",
     ])
     expect(formatChromeWidgetLines(state)).toEqual([
+      "brunch: █▄▄ █▀█ █ █ █▄ █ █▀▀ █ █ / █▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█",
       "cwd: /tmp/project",
       "spec: Spec One",
       "session: Interview #1",
@@ -97,7 +100,7 @@ describe("Brunch chrome projection", () => {
     }
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      "runtime: elicit-default · role elicitor · claude-sonnet · thinking medium · lens step-by-step · build: v0.0.0 dev abc123",
+      "brunch · runtime: elicit-default · role elicitor · claude-sonnet · thinking medium · lens step-by-step · build: v0.0.0 dev abc123",
       "context: [█████░░░░░] 1,024/2,048 tokens (50%)",
       "state: responding-to-elicitation · coherence: needs_review · worker: observer-review/queued",
       "spec: Spec One · session: Interview #1",
@@ -182,6 +185,7 @@ describe("Brunch chrome projection", () => {
     expect(calls.find((call) => call.method === "setWidget")?.args).toEqual([
       "brunch.chrome",
       [
+        "brunch: █▄▄ █▀█ █ █ █▄ █ █▀▀ █ █ / █▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█",
         "cwd: /tmp/project",
         "spec: Spec One",
         "session: session-1",

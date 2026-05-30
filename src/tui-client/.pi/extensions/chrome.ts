@@ -4,6 +4,7 @@ import type {
 } from "@earendil-works/pi-coding-agent"
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui"
 
+import { BRUNCH_COMPACT_WORDMARK } from "../components/brunch-identity.js"
 import type {
   WorkspaceSessionChromeState,
   WorkspaceSessionReadyState,
@@ -57,7 +58,7 @@ export function formatBrunchChromeHeaderLines(
   chrome: BrunchChromeState,
 ): string[] {
   return [
-    "brunch",
+    ...BRUNCH_COMPACT_WORDMARK,
     `runtime: ${formatRuntime(chrome)}`,
     `${formatChromeIdentity(chrome)} · phase: ${chrome.phase}`,
   ]
@@ -73,7 +74,7 @@ export function projectBrunchChromeFooterLines(
   const identity = `${formatChromeIdentity(chrome)}${
     branch ? ` · branch: ${branch}` : ""
   }`
-  const runtime = `runtime: ${formatRuntime(chrome)} · build: ${formatBuild(chrome)}`
+  const runtime = `brunch · runtime: ${formatRuntime(chrome)} · build: ${formatBuild(chrome)}`
   const context = `context: ${formatContextUsage(chrome.contextUsage)}`
   return [
     width === undefined ? runtime : alignChromeColumns(runtime, context, width),
@@ -86,6 +87,7 @@ export function projectBrunchChromeFooterLines(
 
 export function formatChromeWidgetLines(chrome: BrunchChromeState): string[] {
   return [
+    `brunch: ${formatCompactWordmark()}`,
     `cwd: ${chrome.cwd}`,
     `spec: ${formatSpec(chrome)}`,
     `session: ${formatSession(chrome)}`,
@@ -97,6 +99,10 @@ export function formatChromeWidgetLines(chrome: BrunchChromeState): string[] {
 
 function formatChromeIdentity(chrome: BrunchChromeState): string {
   return `spec: ${formatSpec(chrome)} · session: ${formatSession(chrome)}`
+}
+
+function formatCompactWordmark(): string {
+  return BRUNCH_COMPACT_WORDMARK.join(" / ")
 }
 
 function sanitizeChromeStatuses(
