@@ -970,7 +970,7 @@ The schema layer exposes shared Zod primitives for the exact shared vocabulary c
 ## Card 3 — Add present detail Zod schemas
 
 **Weight:** full scope card  
-**Status:** queued
+**Status:** done
 
 ### Target Behavior
 
