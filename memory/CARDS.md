@@ -899,7 +899,7 @@ capture_candidate:
 ## Card 1 — Write schema README from exact captured contract
 
 **Weight:** full scope card  
-**Status:** next
+**Status:** done
 
 ### Target Behavior
 
