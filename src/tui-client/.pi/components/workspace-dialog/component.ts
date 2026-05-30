@@ -118,7 +118,7 @@ class WorkspaceDialogComponent implements Component {
       ...formatBrunchProductIdentity({
         logoLines: readLogo(),
         version: brunchVersion(),
-        theme: this.#theme,
+        ...(this.#theme ? { theme: this.#theme } : {}),
       }),
       "",
       title,

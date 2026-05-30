@@ -10,7 +10,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 WORK_DIR="${WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/brunch-startup-oracle.XXXXXX")}"
 CAPTURE_RAW="$WORK_DIR/startup.raw"
 CAPTURE_STRIPPED="$WORK_DIR/startup.stripped"
+PROBE_TIMEOUT_SECONDS="${PROBE_TIMEOUT_SECONDS:-5}"
 STALE_TEXT="BRUNCH_STALE_TRANSCRIPT_SENTINEL_$(date +%s)_$$"
+BRUNCH_WORDMARK_TOP="█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █"
+BRUNCH_WORDMARK_BOTTOM="█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█"
 
 cd "$ROOT_DIR"
 npm run build >/dev/null
@@ -31,21 +34,40 @@ workspace.session.manager.appendMessage({
 console.log(`Seeded stale transcript: ${workspace.session.file}`)
 NODE
 
-BRUNCH_CMD="cd '$WORK_DIR' && PI_OFFLINE=1 node '$ROOT_DIR/dist/brunch.js' --mode tui"
+BRUNCH_CMD="cd '$WORK_DIR' && (stty rows 50 cols 100 2>/dev/null || true) && PI_OFFLINE=1 node '$ROOT_DIR/dist/brunch.js' --mode tui"
 
 set +e
 if script --version >/dev/null 2>&1; then
-  perl -e 'alarm shift; exec @ARGV' 3 script -q -f -c "$BRUNCH_CMD" "$CAPTURE_RAW"
+  perl -e 'alarm shift; exec @ARGV' "$PROBE_TIMEOUT_SECONDS" script -q -f -c "$BRUNCH_CMD" "$CAPTURE_RAW"
 else
-  perl -e 'alarm shift; exec @ARGV' 3 script -q -F "$CAPTURE_RAW" /bin/sh -lc "$BRUNCH_CMD"
+  perl -e 'alarm shift; exec @ARGV' "$PROBE_TIMEOUT_SECONDS" script -q -F "$CAPTURE_RAW" /bin/sh -lc "$BRUNCH_CMD"
 fi
 set -e
 
-perl -CS -pe 's/\e\[[0-?]*[ -\/]*[@-~]//g; s/\e\][^\a]*(\a|\e\\)//g; s/\eP.*?(\a|\e\\)//g; s/\r/\n/g' \
+perl -pe 's/\e\[[0-?]*[ -\/]*[@-~]//g; s/\e\][^\a]*(\a|\e\\)//g; s/\eP.*?(\a|\e\\)//g; s/\r/\n/g' \
   "$CAPTURE_RAW" > "$CAPTURE_STRIPPED"
 
 if grep -Fq "$STALE_TEXT" "$CAPTURE_STRIPPED"; then
   echo "FAILED: startup rendered stale transcript text before explicit activation" >&2
+  echo "Capture: $CAPTURE_STRIPPED" >&2
+  exit 1
+fi
+
+if ! grep -Fq "$BRUNCH_WORDMARK_TOP" "$CAPTURE_STRIPPED" || \
+  ! grep -Fq "$BRUNCH_WORDMARK_BOTTOM" "$CAPTURE_STRIPPED"; then
+  echo "FAILED: startup capture did not show the compact Brunch wordmark" >&2
+  echo "Capture: $CAPTURE_STRIPPED" >&2
+  exit 1
+fi
+
+if ! grep -Fq "built on Pi v" "$CAPTURE_STRIPPED"; then
+  echo "FAILED: startup capture did not show the Pi version line" >&2
+  echo "Capture: $CAPTURE_STRIPPED" >&2
+  exit 1
+fi
+
+if ! grep -Fq "Choose or create the spec/session before the agent loop runs." "$CAPTURE_STRIPPED"; then
+  echo "FAILED: startup capture did not show the pre-agent-loop selection copy" >&2
   echo "Capture: $CAPTURE_STRIPPED" >&2
   exit 1
 fi
@@ -57,10 +79,10 @@ if ! grep -Eq "Choose a specification|Create new specification|New specification
 fi
 
 cat <<EOF
-Startup no-resume oracle passed.
+Startup branded no-resume oracle passed.
 
 Workspace: $WORK_DIR
 Raw capture: $CAPTURE_RAW
 Stripped capture: $CAPTURE_STRIPPED
-Assertion: stale transcript sentinel was absent before explicit activation.
+Assertion: Brunch identity, version/Pi line, and selection copy rendered while stale transcript sentinel was absent before explicit activation.
 EOF

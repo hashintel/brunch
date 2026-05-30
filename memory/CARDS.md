@@ -26,8 +26,8 @@
 | --- | --- | --- | --- |
 | 1 | Shared Brunch TUI identity primitives | Full | done |
 | 2 | Persistent chrome uses Brunch identity | Light | done |
-| 3 | Brunch-host chrome visual evidence | Light | next |
-| 4 | FE-744 closeout reconciliation | Light | queued |
+| 3 | Brunch-host chrome visual evidence | Light | done |
+| 4 | FE-744 closeout reconciliation | Light | next |
 
 ---
 
@@ -129,7 +129,7 @@ None — A10-L has been retired into `D35-L` / `I22-L`; A18-L command containmen
 
 ## Card 3 — Brunch-host chrome visual evidence
 
-**Status:** next  
+**Status:** done  
 **Weight:** light scope card
 
 ### Objective
@@ -175,7 +175,7 @@ None — this card verifies a frontier closeout condition rather than building a
 
 ## Card 4 — FE-744 closeout reconciliation
 
-**Status:** queued after Card 3  
+**Status:** next  
 **Weight:** light scope card
 
 ### Objective
