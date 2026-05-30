@@ -1031,7 +1031,7 @@ The schema layer models request-side details as exactly-one property-presence te
 ## Card 5 — Add capture detail Zod schemas at the agreed minimum
 
 **Weight:** full scope card  
-**Status:** queued
+**Status:** done
 
 ### Target Behavior
 
