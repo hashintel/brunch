@@ -19,6 +19,7 @@ import {
   createBrunchSettingsManager,
   runBrunchTui,
 } from "./brunch-tui.js"
+import { createBrunchPiProfile } from "./brunch-pi-profile.js"
 import {
   BRUNCH_WORKSPACE_COMMAND,
   BRUNCH_WORKSPACE_SHORTCUT,
@@ -761,6 +762,43 @@ describe("Brunch TUI boot", () => {
       extensionFactories: [extension],
     })
     expect(env.PI_OFFLINE).toBe("1")
+  })
+
+  it("keeps ambient resource suppression and explicit product extensions behind one profile boundary", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-tui-"))
+    const extension = () => {}
+    const profile = createBrunchPiProfile({
+      cwd,
+      agentDir: cwd,
+      extensionFactories: [extension],
+    })
+
+    expect(profile.settingsManager.getQuietStartup()).toBe(true)
+    expect(profile.resourceLoaderOptions).toEqual({
+      noContextFiles: true,
+      noExtensions: true,
+      noPromptTemplates: true,
+      noSkills: true,
+      noThemes: true,
+      extensionFactories: [extension],
+    })
+  })
+
+  it("keeps Pi settings/resource policy out of the TUI launcher", async () => {
+    const launcherSource = await readFile(
+      join(import.meta.dirname, "brunch-tui.ts"),
+      "utf8",
+    )
+    const profileSource = await readFile(
+      join(import.meta.dirname, "brunch-pi-profile.ts"),
+      "utf8",
+    )
+
+    expect(launcherSource).toContain("createBrunchPiProfile")
+    expect(launcherSource).not.toContain("SettingsManager.create")
+    expect(launcherSource).not.toContain("noContextFiles")
+    expect(profileSource).toContain("SettingsManager.create")
+    expect(profileSource).toContain("noContextFiles: true")
   })
 })
 

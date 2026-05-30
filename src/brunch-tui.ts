@@ -6,9 +6,7 @@ import {
   createAgentSessionServices,
   getAgentDir,
   InteractiveMode,
-  SettingsManager,
   type CreateAgentSessionRuntimeFactory,
-  type ExtensionFactory,
 } from "@earendil-works/pi-coding-agent"
 
 import {
@@ -24,6 +22,18 @@ import {
   createBrunchPiExtensionShell,
 } from "./tui-client/pi-extension-shell.js"
 import { runWorkspaceDialogPreflight } from "./tui-client/.pi/components/workspace-dialog.js"
+import {
+  applyBrunchOfflineDefault,
+  brunchResourceLoaderOptions,
+  createBrunchPiProfile,
+  createBrunchSettingsManager,
+} from "./brunch-pi-profile.js"
+export {
+  applyBrunchOfflineDefault,
+  brunchResourceLoaderOptions,
+  createBrunchPiProfile,
+  createBrunchSettingsManager,
+} from "./brunch-pi-profile.js"
 export {
   BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE,
   chromeStateForWorkspace,
@@ -103,12 +113,10 @@ async function launchPiInteractive({
     agentDir: runtimeAgentDir,
     sessionManager,
   }) => {
-    const settingsManager = createBrunchSettingsManager(cwd, runtimeAgentDir)
-    const services = await createAgentSessionServices({
+    const profile = createBrunchPiProfile({
       cwd,
       agentDir: runtimeAgentDir,
-      settingsManager,
-      resourceLoaderOptions: brunchResourceLoaderOptions([
+      extensionFactories: [
         createBrunchPiExtensionShell(
           chromeStateForWorkspace(workspace),
           async (sessionManager) => {
@@ -118,7 +126,13 @@ async function launchPiInteractive({
           },
           { coordinator },
         ),
-      ]),
+      ],
+    })
+    const services = await createAgentSessionServices({
+      cwd,
+      agentDir: runtimeAgentDir,
+      settingsManager: profile.settingsManager,
+      resourceLoaderOptions: profile.resourceLoaderOptions,
     })
     const created = await createAgentSessionFromServices({
       services,
@@ -139,32 +153,4 @@ async function launchPiInteractive({
 
   applyBrunchOfflineDefault()
   await new InteractiveMode(runtime).run()
-}
-
-export function brunchResourceLoaderOptions(
-  extensionFactories: ExtensionFactory[],
-) {
-  return {
-    noContextFiles: true,
-    noExtensions: true,
-    noPromptTemplates: true,
-    noSkills: true,
-    noThemes: true,
-    extensionFactories,
-  }
-}
-
-export function applyBrunchOfflineDefault(
-  env: { PI_OFFLINE?: string } = process.env,
-): void {
-  env.PI_OFFLINE ??= "1"
-}
-
-export function createBrunchSettingsManager(
-  cwd: string,
-  agentDir: string,
-): SettingsManager {
-  const settingsManager = SettingsManager.create(cwd, agentDir)
-  settingsManager.getQuietStartup = () => true
-  return settingsManager
 }
