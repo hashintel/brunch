@@ -3,6 +3,20 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-05-20 Origin
+
+- 2026-05-20 — **Pre-POC archive and reseed** — razed pre-POC implementation, archived legacy docs and planning memory under `archive/`, tagged `next-baseline`, and reseeded `memory/SPEC.md` and `memory/PLAN.md` from the three canonical POC architecture docs. Phase 3 infra bootstrap was folded into `walking-skeleton` rather than remaining an independent frontier.
+
+## 2026-05-22 Sync archive
+
+Archived out of `memory/PLAN.md` when `web-shell` closed and the live frontier advanced to `graph-data-plane`.
+
+- 2026-05-22 — **web-shell judo review fixes** — Session projection reads share a canonical Brunch session envelope, prompt-side custom-entry classification uses an explicit allowlist, and the React shell builds transcript query params from a typed session projection target without non-null assertions. Verified: `npm run verify` after each slice.
+- 2026-05-22 — **web-shell tie-off queue** — Explicit session projection rejects ambiguous self-description (`brunch.session_binding` duplicates, missing/duplicate Pi headers, binding/header session-id mismatch); `session.transcriptDisplay` includes displayable transcript-native `brunch.elicitation_prompt` rows; M3 browser-open smoke debt was adjudicated as environment-blocked after direct HTTP/WebSocket postconditions passed.
+- 2026-05-22 — **web-shell hardening slices** — Shared JSON-RPC protocol helpers, `ws`-backed `/rpc` transport, persistent browser RPC multiplexing, traversal-safe static asset serving, stable React runtime ownership, and explicit read-only session projection by durable session id landed without REST product reads or connection-as-session semantics.
+- 2026-05-21 — **web-shell initial slices** — Linear transcript policy hardening landed before browser consumption, transcript readers fail fast on non-linear Pi JSONL, the minimal native web HTTP shell and WebSocket RPC bridge came online, and the React shell rendered `workspace.snapshot` chrome via one WebSocket RPC client.
+- 2026-05-20 — **walking-skeleton** — Brunch launches through a pi-backed TUI boot path with coordinator-first spec gating, project-local `.brunch/` state, self-describing Pi JSONL sessions, same-spec `/new`, persistent chrome through pi's extension widget seam, a bin shim, and the store-only runbook checker. Verified: `npm run verify`, manual TUI smoke, automated TUI/coordinator tests, and runbook oracle.
+
 ## 2026-05-28 Sync archive
 
 Archived from `memory/PLAN.md` so the live plan only carries active, next, horizon, and recent-completion state.
@@ -52,7 +66,7 @@ Archived from `memory/PLAN.md` so the live plan only carries active, next, horiz
 - **Verification:** Inner — verify gate plus synthetic JSONL projection tests. Middle — JSONL round-trip/property tests for raw payloads, `brunch.session_binding`, structured elicitation entries, defensive branch-shape projection behavior, coordinator-created `/new` sessions, and M1 fixture replay parity. Outer — fixture replay parity across the transcript-first run bundle; no new human review was required because brief content and scripted user notes did not change.
 - **Cross-cutting obligations:** This frontier is the transcript-side proof for the shared event substrate that later carries structured elicitation entries, session binding, lens switches, side-task results, mentions, and `worldUpdate` without inventing a parallel channel or canonical chat/turn store. JSONL viability must validate sessions created through the `WorkspaceSessionCoordinator`, including the first-entry binding and `/new` same-spec behavior.
 - **Traceability:** R7, R8, R16, R17, R19 / D6-L, D11-L, D12-L, D13-L, D18-L, D24-L / I3-L, I8-L, I10-L, I19-L
-- **Design docs:** archived [jsonl-session-viability-note](file:///Users/lunelson/Code/hashintel/brunch-next/archive/archive/docs/architecture/jsonl-session-viability-note.md)
+- **Design docs:** legacy `next/architecture/jsonl-session-viability-note.md` on the `main` branch of `hashintel/brunch`
 - **Current execution pointer:** complete; proceed to `web-shell`.
 
 ### web-shell
