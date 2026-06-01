@@ -3,8 +3,8 @@
  *
  * Canonical reference: docs/design/GRAPH_MODEL.md
  *
- * Phase 1 lock-and-materialize: edges, edge policy, and the
- * reconciliation-need shape. Nodes are deferred to Phase 2.
+ * Phase 1: edges, edge policy, reconciliation-need.
+ * Phase 2: node type definitions.
  */
 
 export type { EdgeId, Lsn, NodeId } from "./atoms.js"
@@ -12,10 +12,28 @@ export type { EdgeId, Lsn, NodeId } from "./atoms.js"
 export type {
   EdgeBasis,
   EdgeCategory,
-  EdgeProvenance,
   EdgeStance,
   GraphEdge,
 } from "./schema/edges.js"
+
+export type {
+  ConstraintDetail,
+  ConstraintSubtype,
+  DecisionDetail,
+  DesignKind,
+  GraphNode,
+  IntentKind,
+  IntentKindCategory,
+  NodeBasis,
+  NodeDetail,
+  NodeKind,
+  NodePlane,
+  OracleKind,
+  PlanKind,
+  TermDetail,
+} from "./schema/nodes.js"
+
+export { intentKindCategory } from "./schema/nodes.js"
 
 export type {
   ReconciliationNeed,

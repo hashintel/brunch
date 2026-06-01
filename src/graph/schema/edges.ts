@@ -49,24 +49,14 @@ export type EdgeStance = "for" | "against"
  */
 export type EdgeBasis = "explicit" | "accepted_review_set"
 
-/**
- * Back-references to the transcript material an edge originated from.
- *
- * `proposalEntryId` is present when `basis = "accepted_review_set"`
- * and identifies the proposal custom entry that was accepted.
- */
-export interface EdgeProvenance {
-  readonly sessionId?: string
-  readonly entryId?: string
-  readonly proposalEntryId?: string
-}
+// EdgeProvenance retired — change_log owns the full audit trail.
 
 /**
  * A structurally-typed edge in the Brunch graph.
  *
  * Immutability after acceptance:
  *  - `category`, `sourceId`, `targetId`, `stance` are immutable.
- *  - `rationale`, `provenance` may be updated (advances `updatedAtLsn`).
+ *  - `rationale` may be updated (advances `updatedAtLsn`).
  *  - To change category: delete and recreate.
  *
  * Stance:
@@ -86,7 +76,6 @@ export interface GraphEdge {
   readonly stance?: EdgeStance
   readonly basis: EdgeBasis
   readonly rationale?: string
-  readonly provenance?: EdgeProvenance
   readonly createdAtLsn: Lsn
   readonly updatedAtLsn: Lsn
 }
