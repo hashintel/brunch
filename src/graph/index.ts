@@ -49,8 +49,14 @@ export {
 
 export { CommandExecutor } from "./command-executor.js"
 export type {
+  BatchEdgeInput,
+  BatchEdgeRef,
+  BatchNodeInput,
   CommandResult,
   CommandSuccess,
+  CommitGraphInput,
+  CommitGraphResult,
+  CommitGraphSuccess,
   CreateNodeInput,
   CreateNodeResult,
   Diagnostic,

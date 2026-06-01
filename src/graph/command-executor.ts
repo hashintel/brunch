@@ -17,10 +17,11 @@
  * even though pre-M6 policy classification is minimal.
  */
 
-import { eq, sql } from "drizzle-orm"
+import { eq, inArray, sql } from "drizzle-orm"
 
 import type { BrunchDb } from "../db/connection.js"
 import * as schema from "../db/schema.js"
+import type { EdgeCategory, EdgeStance } from "./schema/edges.js"
 import type { NodeBasis, NodePlane } from "./schema/nodes.js"
 
 // ---------------------------------------------------------------------------
@@ -61,11 +62,22 @@ export interface VersionConflict {
   readonly status: "version_conflict"
 }
 
+/** Successful commitGraph batch execution. */
+export interface CommitGraphSuccess {
+  readonly status: "success"
+  readonly lsn: number
+  readonly nodes: Readonly<Record<string, number>>
+  readonly edges: readonly number[]
+}
+
 /** Union of all possible command results. */
-export type CommandResult = CommandSuccess | StructuralIllegal | NeedsHuman | PolicyBlocked | VersionConflict
+export type CommandResult = CommandSuccess | CommitGraphSuccess | StructuralIllegal | NeedsHuman | PolicyBlocked | VersionConflict
 
 /** Result of a createNode command. */
 export type CreateNodeResult = CommandSuccess | StructuralIllegal
+
+/** Result of a commitGraph command. */
+export type CommitGraphResult = CommitGraphSuccess | StructuralIllegal
 
 // ---------------------------------------------------------------------------
 // Input types
@@ -80,6 +92,41 @@ export interface CreateNodeInput {
   readonly basis?: NodeBasis | undefined
   readonly source?: string | undefined
   readonly detail?: unknown
+}
+
+// ---------------------------------------------------------------------------
+// Batch input types (commitGraph)
+// ---------------------------------------------------------------------------
+
+/** Reference to a node endpoint in a batch edge. */
+export type BatchEdgeRef = string | { readonly existing: number }
+
+/** A node to create inside a commitGraph batch. */
+export interface BatchNodeInput {
+  readonly ref: string
+  readonly plane: NodePlane
+  readonly kind: string
+  readonly title: string
+  readonly body?: string | undefined
+  readonly basis?: NodeBasis | undefined
+  readonly source?: string | undefined
+  readonly detail?: unknown
+}
+
+/** An edge to create inside a commitGraph batch. */
+export interface BatchEdgeInput {
+  readonly category: string
+  readonly source: BatchEdgeRef
+  readonly target: BatchEdgeRef
+  readonly stance?: string | undefined
+  readonly basis?: NodeBasis | undefined
+  readonly rationale?: string | undefined
+}
+
+/** Input for the commitGraph atomic batch mutation. */
+export interface CommitGraphInput {
+  readonly nodes: readonly BatchNodeInput[]
+  readonly edges: readonly BatchEdgeInput[]
 }
 
 // ---------------------------------------------------------------------------
@@ -220,6 +267,141 @@ function validateTermDetail(detail: unknown, diagnostics: Diagnostic[]): void {
 }
 
 // ---------------------------------------------------------------------------
+// Edge validation
+// ---------------------------------------------------------------------------
+
+const VALID_CATEGORIES = schema.EDGE_CATEGORIES as unknown as string[]
+const STANCE_REQUIRED_CATEGORIES = new Set(["proof", "support"])
+const VALID_STANCES = schema.EDGE_STANCES as unknown as string[]
+
+interface ResolvedEdge {
+  sourceId: number
+  targetId: number
+  category: EdgeCategory
+  stance: EdgeStance | null
+  basis: NodeBasis
+  rationale: string | null
+}
+
+interface EdgeValidationResult {
+  diagnostics: Diagnostic[]
+  resolved?: ResolvedEdge
+}
+
+function validateAndResolveBatchEdge(
+  input: BatchEdgeInput,
+  index: number,
+  refMap: ReadonlyMap<string, number>,
+  existingNodeIds: ReadonlySet<number>,
+): EdgeValidationResult {
+  const diagnostics: Diagnostic[] = []
+  const p = `edges[${index}]`
+
+  // Category must be in the closed set
+  if (!VALID_CATEGORIES.includes(input.category)) {
+    diagnostics.push({
+      field: `${p}.category`,
+      message: `"${input.category}" is not a valid edge category`,
+    })
+    return { diagnostics }
+  }
+
+  // Stance: required iff proof/support, invalid otherwise
+  const stanceRequired = STANCE_REQUIRED_CATEGORIES.has(input.category)
+  if (stanceRequired && input.stance == null) {
+    diagnostics.push({
+      field: `${p}.stance`,
+      message: `stance is required for "${input.category}" edges`,
+    })
+  }
+  if (!stanceRequired && input.stance != null) {
+    diagnostics.push({
+      field: `${p}.stance`,
+      message: `stance is not allowed for "${input.category}" edges`,
+    })
+  }
+  if (input.stance != null && !VALID_STANCES.includes(input.stance)) {
+    diagnostics.push({
+      field: `${p}.stance`,
+      message: `"${input.stance}" is not a valid stance`,
+    })
+  }
+
+  // Resolve source ref
+  let resolvedSourceId: number | undefined
+  if (typeof input.source === "string") {
+    resolvedSourceId = refMap.get(input.source)
+    if (resolvedSourceId === undefined) {
+      diagnostics.push({
+        field: `${p}.source`,
+        message: `unresolvable intra-batch ref "${input.source}"`,
+      })
+    }
+  } else {
+    resolvedSourceId = input.source.existing
+    if (!existingNodeIds.has(resolvedSourceId)) {
+      diagnostics.push({
+        field: `${p}.source`,
+        message: `existing node ${resolvedSourceId} not found`,
+      })
+    }
+  }
+
+  // Resolve target ref
+  let resolvedTargetId: number | undefined
+  if (typeof input.target === "string") {
+    resolvedTargetId = refMap.get(input.target)
+    if (resolvedTargetId === undefined) {
+      diagnostics.push({
+        field: `${p}.target`,
+        message: `unresolvable intra-batch ref "${input.target}"`,
+      })
+    }
+  } else {
+    resolvedTargetId = input.target.existing
+    if (!existingNodeIds.has(resolvedTargetId)) {
+      diagnostics.push({
+        field: `${p}.target`,
+        message: `existing node ${resolvedTargetId} not found`,
+      })
+    }
+  }
+
+  // Self-loop check (only if both resolved)
+  if (
+    resolvedSourceId !== undefined &&
+    resolvedTargetId !== undefined &&
+    resolvedSourceId === resolvedTargetId
+  ) {
+    diagnostics.push({
+      field: p,
+      message: "self-loop: source and target resolve to the same node",
+    })
+  }
+
+  if (diagnostics.length > 0) return { diagnostics }
+
+  return {
+    diagnostics,
+    resolved: {
+      sourceId: resolvedSourceId!,
+      targetId: resolvedTargetId!,
+      category: input.category as EdgeCategory,
+      stance: input.stance as EdgeStance ?? null,
+      basis: input.basis as NodeBasis ?? "explicit",
+      rationale: input.rationale ?? null,
+    },
+  }
+}
+
+/** Thrown inside a transaction to trigger rollback on edge validation failure. */
+class BatchValidationError extends Error {
+  constructor(readonly diagnostics: readonly Diagnostic[]) {
+    super("batch validation failed")
+  }
+}
+
+// ---------------------------------------------------------------------------
 // CommandExecutor
 // ---------------------------------------------------------------------------
 
@@ -283,5 +465,171 @@ export class CommandExecutor {
 
       return { status: "success" as const, nodeId, lsn }
     })
+  }
+
+  /**
+   * Atomic batch creation of nodes and edges (D53-L).
+   *
+   * One transaction, one LSN. Intra-batch refs (strings) resolve to
+   * just-inserted NodeIds; existing refs ({ existing: id }) are verified
+   * against the database. All-or-nothing: if any entry fails structural
+   * validation, the entire batch is rejected (I34-L).
+   */
+  commitGraph(input: CommitGraphInput): CommitGraphResult {
+    // Empty batch is structural_illegal
+    if (input.nodes.length === 0 && input.edges.length === 0) {
+      return {
+        status: "structural_illegal",
+        diagnostics: [
+          { field: "batch", message: "empty batch — nothing to commit" },
+        ],
+      }
+    }
+
+    // --- Pre-transaction: validate all batch nodes (pure checks) ---
+    const preDiagnostics: Diagnostic[] = []
+    const seenRefs = new Set<string>()
+
+    for (let i = 0; i < input.nodes.length; i++) {
+      const bn = input.nodes[i]!
+
+      // Duplicate ref check
+      if (seenRefs.has(bn.ref)) {
+        preDiagnostics.push({
+          field: `nodes[${i}].ref`,
+          message: `duplicate batch ref "${bn.ref}"`,
+        })
+      }
+      seenRefs.add(bn.ref)
+
+      // Structural node validation (reuse)
+      for (const d of validateCreateNode(bn)) {
+        preDiagnostics.push({
+          field: `nodes[${i}].${d.field}`,
+          message: d.message,
+        })
+      }
+    }
+
+    if (preDiagnostics.length > 0) {
+      return { status: "structural_illegal", diagnostics: preDiagnostics }
+    }
+
+    // --- Transaction: insert nodes, resolve refs, validate + insert edges ---
+    try {
+      return this.db.transaction((tx) => {
+        // 1. Allocate ONE LSN
+        const clock = tx
+          .update(schema.graphClock)
+          .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
+          .where(eq(schema.graphClock.id, 1))
+          .returning()
+          .get()
+        const lsn = clock!.lsn
+
+        // 2. Insert all nodes, build ref → id map
+        const refMap = new Map<string, number>()
+        for (const bn of input.nodes) {
+          const row = tx
+            .insert(schema.nodes)
+            .values({
+              plane: bn.plane,
+              kind: bn.kind,
+              title: bn.title,
+              body: bn.body ?? null,
+              basis: bn.basis ?? "explicit",
+              source: bn.source ?? null,
+              detail: bn.detail != null ? JSON.stringify(bn.detail) : null,
+              created_at_lsn: lsn,
+              updated_at_lsn: lsn,
+            })
+            .returning()
+            .get()
+          refMap.set(bn.ref, row!.id)
+        }
+
+        // 3. Collect and verify existing-node references
+        const existingRefs = new Set<number>()
+        for (const edge of input.edges) {
+          if (typeof edge.source !== "string")
+            existingRefs.add(edge.source.existing)
+          if (typeof edge.target !== "string")
+            existingRefs.add(edge.target.existing)
+        }
+
+        const verifiedExisting = new Set<number>()
+        if (existingRefs.size > 0) {
+          const rows = tx
+            .select({ id: schema.nodes.id })
+            .from(schema.nodes)
+            .where(inArray(schema.nodes.id, [...existingRefs]))
+            .all()
+          for (const row of rows) verifiedExisting.add(row.id)
+        }
+
+        // 4. Validate and resolve all edges
+        const edgeDiagnostics: Diagnostic[] = []
+        const resolvedEdges: ResolvedEdge[] = []
+
+        for (let i = 0; i < input.edges.length; i++) {
+          const result = validateAndResolveBatchEdge(
+            input.edges[i]!,
+            i,
+            refMap,
+            verifiedExisting,
+          )
+          edgeDiagnostics.push(...result.diagnostics)
+          if (result.resolved) resolvedEdges.push(result.resolved)
+        }
+
+        if (edgeDiagnostics.length > 0) {
+          throw new BatchValidationError(edgeDiagnostics)
+        }
+
+        // 5. Insert all edges
+        const edgeIds: number[] = []
+        for (const re of resolvedEdges) {
+          const row = tx
+            .insert(schema.edges)
+            .values({
+              category: re.category,
+              source_id: re.sourceId,
+              target_id: re.targetId,
+              stance: re.stance,
+              basis: re.basis,
+              rationale: re.rationale,
+              created_at_lsn: lsn,
+              updated_at_lsn: lsn,
+            })
+            .returning()
+            .get()
+          edgeIds.push(row!.id)
+        }
+
+        // 6. Append one change_log entry for the entire batch
+        tx.insert(schema.changeLog)
+          .values({
+            lsn,
+            operation: "commit_graph",
+            payload: JSON.stringify({
+              nodes: Object.fromEntries(refMap),
+              edges: edgeIds,
+            }),
+          })
+          .run()
+
+        return {
+          status: "success" as const,
+          lsn,
+          nodes: Object.fromEntries(refMap),
+          edges: edgeIds,
+        }
+      })
+    } catch (e) {
+      if (e instanceof BatchValidationError) {
+        return { status: "structural_illegal", diagnostics: e.diagnostics }
+      }
+      throw e
+    }
   }
 }
