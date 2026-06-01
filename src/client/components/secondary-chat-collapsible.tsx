@@ -33,6 +33,7 @@ import {
 import { SecondaryChatSuggestions } from './secondary-chat-suggestions.js';
 import type { SecondaryChatMode } from './secondary-chat-trigger.js';
 import { usePrefersReducedMotion } from './use-prefers-reduced-motion.js';
+import { useTypewriter } from './use-typewriter.js';
 
 type SecondaryChat = z.infer<typeof secondaryChatStateSchema>;
 type SecondaryChatTurn = SecondaryChat['turns'][number];
@@ -320,6 +321,11 @@ function SecondaryChatStreamingAssistant({
   isStreaming: boolean;
   prefersReducedMotion: boolean;
 }) {
+  // Reveal incoming chunks character-by-character so the stream reads smoothly
+  // instead of jumping. Disabled under reduced motion (passes `text` through).
+  // Gate "Thinking…" on the real target so a trailing typewriter never flips
+  // the surface back to the thinking state mid-stream.
+  const displayText = useTypewriter(text, !prefersReducedMotion);
   const hasText = text.length > 0;
   if (!hasText && isStreaming) {
     return (
@@ -337,7 +343,7 @@ function SecondaryChatStreamingAssistant({
   if (prefersReducedMotion) {
     return (
       <div data-testid="secondary-chat-streaming-assistant" className="whitespace-pre-wrap text-sub">
-        {text}
+        {displayText}
       </div>
     );
   }
@@ -349,7 +355,7 @@ function SecondaryChatStreamingAssistant({
       defaultOpen
     >
       <ReasoningTrigger />
-      <ReasoningContent className="mt-1">{text}</ReasoningContent>
+      <ReasoningContent className="mt-1">{displayText}</ReasoningContent>
     </Reasoning>
   );
 }
