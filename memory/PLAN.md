@@ -28,10 +28,13 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 1. `agent-fixture-substrate` — branch-complete off main, reconciling — FE-705 integration substrate for JSONL agent capability CLI and LLM-as-user probes.
 2. `chat-runtime-secondary-chats` — FE-716; V1 done — PR #141 merged to main.
 
+### Recently Completed
+
+- `petri-semantic-lanes` (FE-738) — two-lane subnet, compiler topology/wiring split, engine factory, semantic rework budget, §7 events. PR #148. Criterion (5) stale-graph deferred → `petri-graph-compilation`.
+
 ### Next
 
-1. `petri-semantic-lanes` — mechanical + semantic two-lane subnet template + §7 event vocabulary; first frontier where petri diverges meaningfully from proc. Follows `orchestrator-poc` Phase 0.
-2. `petri-parallel-execution` — parallel firing, shared resource pools, worktree-per-slice coordination; the categorical break where petri earns its complexity. Decision gate: if petri doesn't beat proc on wall clock, pause petri investment. Follows `petri-semantic-lanes`.
+1. `petri-parallel-execution` — parallel firing, shared resource pools, worktree-per-slice coordination; the categorical break where petri earns its complexity. Decision gate: if petri doesn't beat proc on wall clock, pause petri investment. Follows `petri-semantic-lanes`.
 3. `intent-graph-semantics` — highest-coordination semantic substrate after FE-705 reconciliation.
 4. `changeset-ledger` — Track 4 of the runtime umbrella; parallel with Track 2; semantic history spine needed before canonical proposal acceptance, direct-edit atomicity, and productized scenario options.
 5. `chat-context-provision` — Track 5 of the runtime umbrella recast as transcript-first context; can proceed against chat/turn once secondary-chat entry/anchor shape is settled.
@@ -80,16 +83,15 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 ### petri-semantic-lanes
 
 - **Name:** Petri semantic lanes — mechanical + semantic two-lane subnet template
-- **Linear:** unassigned (create under umbrella H-6476)
+- **Linear:** FE-738
 - **Kind:** structural
-- **Status:** not-started
+- **Status:** done (criterion 5 deferred → `petri-graph-compilation`)
 - **Objective:** Extend the extracted NetCompiler to produce a two-lane subnet template per slice: a mechanical lane (dispatch, artifact production, test execution, verification) and a semantic lane (oracle satisfaction, design exercise, intent establishment, completion claim review). Add the spec §7 structured event vocabulary (`transition_fired`, `oracle_passed`, `graph_revision_stale`, `semantic_review_requested`, `completion_claim_accepted`, `status_projection_suggested`, `net_deadlocked`, …) as the interpreter's durable event model. `TransitionContract` type (spec §6) governs each transition's kind, actor, guard, action binding, and emitted events. Mechanical transitions produce candidate evidence; semantic transitions judge that evidence against graph-derived requirements. `PlanDoneAccepted` is reachable only after both lanes complete.
 - **Why now / unlocks:** First frontier where the Petri engine models a distinction the proc engine cannot express topologically: mechanical completion ≠ semantic completion. Unblocks Phase 2 parallel firing (lanes can fire concurrently) and Phase 3 graph compilation (semantic lane structure maps to relation-policy gates). Without this, the engine remains a serial task runner with token-shaped bookkeeping.
-- **Acceptance:** (1) Compiled subnet has distinct mechanical and semantic places/transitions. (2) `PlanDoneAccepted` is unreachable unless both `VerifyPassed` and `OracleSatisfied` (or equivalent semantic tokens) are present. (3) Event log records §7 vocabulary events per transition firing. (4) `TransitionContract` type covers kind, actor, guard, and emits. (5) Stale-graph detection routes to reconciliation or context rebuild, not a dead-end. (6) Existing contract test suite passes with both engines.
-- **Verification:** Contract tests extended with semantic-lane scenarios (happy-path Prototype A, stale-graph Prototype B, missing-oracle Prototype C from spec §10). Adapter test for two-lane net shape. Event-log assertions for §7 vocabulary.
+- **Acceptance:** (1) ✅ Compiled subnet has distinct mechanical and semantic places/transitions. (2) ✅ `PlanDoneAccepted` is unreachable unless both `VerifyPassed` and `OracleSatisfied` (or equivalent semantic tokens) are present. (3) ✅ Event log records §7 vocabulary events per transition firing. (4) ✅ `TransitionContract` type covers kind, actor, guard, and emits. (5) **Deferred → `petri-graph-compilation`**: stale-graph detection requires `GraphRevisionCurrent` tokens and graph revision semantics from `intent-graph-semantics` (FE-700); the current Plan-from-YAML substrate has no mutable graph revision to detect staleness against. (6) ✅ Existing contract test suite passes. (7) ✅ `compileTopology(plan, policy) → NetBlueprint` is pure (no runtime refs); `wireHandlers(blueprint, input, ctx) → PetriNet` attaches closures. (8) ✅ `createOrchestrator(policy)` factory replaces identical engine classes. (9) ✅ `RunCtx` lives in `types.ts`, not compiler. (10) ✅ Semantic rework budget (`semantic-budget` place) prevents infinite rework loops. (11) ✅ `HandlerDescriptor` discriminated union describes each transition's routing recipe declaratively.
+- **Verification:** Contract tests extended with semantic-lane scenarios (happy-path Prototype A, stale-graph Prototype B, missing-oracle Prototype C from spec §10). Adapter test for two-lane net shape via `compileTopology` (pure topology, no runtime bindings needed). Event-log assertions for §7 vocabulary. Semantic rework exhaustion contract test.
 - **Traceability:** Requirements 46–50; spec §2 (layer split), §4 (canonical slice-net), §6 (transition contracts), §7 (event model), §8 (failure-mode nets), §10 (prototypes A–C).
 - **Design docs:** `docs/next/architecture/plan-graph-petri-orchestration.md`; `docs/design/orchestrator.md`; umbrella H-6476.
-- **Current execution pointer:** `memory/CARDS.md` — Card 1 (two-lane subnet with semantic completion gate).
 
 ### petri-parallel-execution
 

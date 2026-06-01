@@ -83,6 +83,8 @@ export interface TestRunner {
 
 export type RunPolicy = {
   maxRetries: number;
+  /** Maximum semantic rework cycles per slice before halting. Defaults to maxRetries. */
+  maxSemanticReworks?: number;
 };
 
 export type OrchestratorInput = {
@@ -115,3 +117,15 @@ export type OrchestratorResult = {
 export interface Orchestrator {
   run(input: OrchestratorInput): Promise<OrchestratorResult>;
 }
+
+// ---------------------------------------------------------------------------
+// Mutable run context — orchestrator-execution bookkeeping
+// ---------------------------------------------------------------------------
+
+export type RunCtx = {
+  reportIds: string[];
+  sliceOutcomes: Map<string, SliceOutcome>;
+  epicOutcomes: Map<string, EpicOutcome>;
+  halted: boolean;
+  haltReason?: string;
+};
