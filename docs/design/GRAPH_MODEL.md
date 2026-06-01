@@ -703,6 +703,24 @@ rubric. Additional prompting heuristics for kinds that need them:
   | is a bet about users/market/value | `thesis` |
   | just helps interpretation | keep as `context` |
 
+### Beyond the schema contract
+
+Two categories of agent-facing guidance live outside this document
+because they evolve faster than the schema:
+
+- **Observer classification / translation tables** — phrase-pattern
+  → kind mappings for post-exchange capture. Seeded in
+  [`src/agents/strategies/README.md`](../../src/agents/strategies/README.md);
+  lands as prompt-pack content with M5 `agent-graph-integration`.
+- **Topology-driven question ranking** — graph-shape heuristics
+  for what to ask next (e.g. "requirement with no incoming proof
+  edge → suggest a criterion"). Seeded in
+  [`src/agents/lenses/README.md`](../../src/agents/lenses/README.md);
+  lands as lens prompt-pack content with M5.
+
+Both draw on the archived
+`/brunch/docs/design/INTENT_GRAPH_SEMANTICS.md` as source material.
+
 ## `framing_as` — retired
 
 The prior `framing_as` orthogonal modality (problem, persona, JTBD,
