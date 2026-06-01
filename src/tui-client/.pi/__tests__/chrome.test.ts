@@ -22,6 +22,20 @@ describe("Brunch chrome projection", () => {
     )
   })
 
+  it("populates session.label from workspace session name when available", () => {
+    const workspace = readyWorkspace(
+      "/tmp/project",
+      "session-abc",
+      "My spec — session 1",
+    )
+    const state = chromeStateForWorkspace(workspace)
+
+    expect(state.session.label).toBe("My spec — session 1")
+    expect(formatBrunchChromeHeaderLines(state).join("\n")).toContain(
+      "My spec — session 1",
+    )
+  })
+
   it("formats chrome header as wordmark plus runtime-state summary", async () => {
     const state = {
       cwd: "/tmp/project",
@@ -204,6 +218,7 @@ describe("Brunch chrome projection", () => {
 function readyWorkspace(
   cwd: string,
   sessionId: string,
+  sessionName?: string,
 ): WorkspaceSessionReadyState {
   const spec = { id: "spec-1", title: "Spec One" }
   return {
@@ -213,6 +228,7 @@ function readyWorkspace(
     session: {
       id: sessionId,
       file: `/sessions/${sessionId}.jsonl`,
+      name: sessionName,
       manager: {} as WorkspaceSessionReadyState["session"]["manager"],
     },
     chrome: {
