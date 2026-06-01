@@ -1,25 +1,24 @@
 # Graph Model
 
 Canonical reference for the Brunch graph data plane (M4 and onward).
-Owns the edge layer end-to-end; defers nodes to Phase 2 (see [§Nodes — deferred](#nodes--deferred-phase-2)).
+Owns both the edge layer and the node layer end-to-end.
 
-This document is the lock for the edge model that supersedes the prior
-"large semantic edge-type catalogue + relation-policy registry"
-direction. It is also the source of truth for the type definitions
-under [`src/graph/`](../../src/graph/) and the per-category policy
-table consumed by snapshot/projection builders and the
-`CommandExecutor`.
+This document is the lock for the graph model that supersedes the
+prior "large semantic edge-type catalogue + relation-policy registry"
+direction and the deferred `framing_as` modality. It is also the
+source of truth for the type definitions under
+[`src/graph/`](../../src/graph/) and the per-category policy table
+consumed by snapshot/projection builders and the `CommandExecutor`.
 
-`memory/SPEC.md` and `memory/PLAN.md` are reconciled to this doc for
-the locked edge layer; if later planning text drifts, treat this
-document as the canonical edge-model contract.
+`memory/SPEC.md` and `memory/PLAN.md` are reconciled to this doc;
+if later planning text drifts, treat this document as the canonical
+graph-model contract.
 
 ## Status
 
-- **Phase 1 (this document):** edges, edge policy, reconciliation-need
-  shape. Locked.
-- **Phase 2 (TBD):** per-plane node kinds, decision/example shape,
-  product framings / theses. Placeholder section near the end.
+- **Phase 1:** edges, edge policy, reconciliation-need shape. Locked.
+- **Phase 2:** per-plane node kinds, node shape, detail schemas,
+  kind categories, `source` field, `provenance` retirement. Locked.
 
 ## Scope and posture
 
@@ -74,16 +73,14 @@ interface GraphEdge {
                                                // INVALID for other categories
   readonly basis:        EdgeBasis
   readonly rationale?:   string
-  readonly provenance?: {
-    readonly sessionId?:       string
-    readonly entryId?:         string
-    readonly proposalEntryId?: string          // present when basis = accepted_review_set
-  }
   readonly createdAtLsn: Lsn
   readonly updatedAtLsn: Lsn                   // metadata only;
                                                // category/source/target/stance are immutable
                                                // (change category = delete + recreate)
 }
+// provenance (sessionId, entryId, proposalEntryId) is retired from
+// the edge shape. The change_log at createdAtLsn owns all audit
+// trail; transcript entry pointers are fragile under compaction.
 ```
 
 ### What this shape does NOT carry
@@ -394,9 +391,12 @@ transaction with one LSN.
 commitGraph({
   nodes: [
     { ref: "n1", kind: "requirement", title: "...", body: "..." },
-    { ref: "n2", kind: "constraint",  title: "...", body: "..." },
+    { ref: "n2", kind: "constraint",  title: "...", body: "...",
+      detail: { subtype: "invariant" } },
     { ref: "n3", kind: "decision",    title: "...", body: "...",
-      chosen_option: "...", rejected: ["..."], rationale: "..." },
+      detail: { chosen_option: "...", rejected: ["..."], rationale: "..." } },
+    { ref: "n4", kind: "term", title: "...",
+      detail: { definition: "...", aliases: ["..."] } },
   ],
   edges: [
     { category: "dependency",   source: "n1",              target: "n2" },
@@ -503,28 +503,169 @@ Category-selection rubric (ask in order; stop at first strong match):
   covers any oracle-bearing witness; *formal_proof* is one rung at
   the strong end of the checkability ladder.
 
-## Nodes — deferred (Phase 2)
+## GraphNode — the single shape
 
-The node layer is deferred to a separate lock-and-materialize pass.
-Phase 2 will cover, at minimum:
+```ts
+interface GraphNode {
+  readonly id:           NodeId
+  readonly plane:        NodePlane
+  readonly kind:         string              // per-plane closed enum (see below)
+  readonly title:        string              // required, non-empty
+  readonly body?:        string              // markdown content
+  readonly basis:        NodeBasis
+  readonly source?:      string              // free-form epistemic attribution
+                                             // convention by prompt, not structural validation
+                                             // e.g. "stakeholder", "regulatory", "derived"
+  readonly detail?:      object              // per-kind validated sub-structure (JSON column)
+  readonly createdAtLsn: Lsn
+  readonly updatedAtLsn: Lsn
+}
 
-- Per-plane node `kind` enumeration (intent / oracle / design / plan)
-- Whether `framing_as` survives the POC or is dropped pending a
-  present reader; whether product **thesis** earns a first-class
-  kind alongside `goal` and `assumption`
-- Subtype enums on `constraint`, `invariant`, `criterion`, `example`
-  vs free-form body text — which earn schema columns
-- Decision node shape (`chosen_option`, `rejected_alternatives`,
-  `rationale`) as fields, not as hyper-edges over alternative nodes
-  (the hyper-edge / reasoning-record promotion is the deliberate
-  M5/M6 escape hatch per `pi-seam-extensions.md §Q1`)
-- Node provenance / basis symmetry with edges
-- Oracle-plane node detail (`check`, `validation_method`, `evidence`,
-  `obligation`)
+type NodePlane = "intent" | "oracle" | "design" | "plan"
+type NodeBasis = "explicit" | "accepted_review_set"
+// Same semantics as EdgeBasis — how the node entered graph truth.
+// No "inferred" basis; low-confidence material stays in preface /
+// capture analysis until promoted.
+```
 
-Nothing in Phase 2 changes the edge model. The two phases are
-independent; landing nodes does not require re-opening this
-document's edge sections.
+### Fields
+
+- **`plane`** — which graph plane owns this node. Structurally
+  validated; determines which `kind` enum applies.
+- **`kind`** — per-plane closed enum. Structurally validated by
+  the `CommandExecutor`. See [§Per-plane node kinds](#per-plane-node-kinds).
+- **`title`** — required, non-empty. The human-readable name of the
+  node. Used for mentions, snapshot display, and search.
+- **`body`** — optional markdown content. Carries the semantic detail
+  the agent authored. Most kinds put their primary content here.
+- **`basis`** — how the node entered graph truth. Same `explicit` /
+  `accepted_review_set` semantics as edges.
+- **`source`** — free-form string for epistemic attribution.
+  Convention by prompt (e.g. "stakeholder", "regulatory", "derived",
+  "domain expert", "market research", "agent synthesis"), not
+  structural validation. Exists for context-snapshot enrichment —
+  it will be transformed back into sparse text in prompt snapshots,
+  not used for policy or filtering.
+- **`detail`** — optional JSON object with per-kind validated
+  sub-structure. See [§Per-kind detail schemas](#per-kind-detail-schemas).
+- **`provenance`** — retired. The `change_log` at `createdAtLsn`
+  owns all audit trail. Transcript entry pointers (sessionId,
+  entryId, proposalEntryId) are fragile under compaction and
+  redundant with `change_log` + `basis`.
+
+## Per-plane node kinds
+
+### Intent plane
+
+Intent kinds fall into three **derived categories** that map to
+spec-grade progression. Category is a pure function of `kind` — it
+is not stored on the node.
+
+| Category | Kind | Description |
+| --- | --- | --- |
+| basic | `goal` | Aspirational intent — what we're trying to achieve |
+| basic | `thesis` | A chosen position or bet — falsifiable, carries "what/who/why/for whom" material (La Carte Blanche style) |
+| basic | `term` | A canonical naming commitment — ubiquitous language / conceptual consistency |
+| structural | `requirement` | A need — what must be true for the system |
+| structural | `assumption` | A dependency the design relies on — may be validated or falsified |
+| structural | `constraint` | A boundary-setting rule — scope, invariant, non-goal, or exclusion (see subtype in detail) |
+| reasoning | `decision` | A committed choice between alternatives (see detail schema) |
+| reasoning | `criterion` | A measurable standard for evaluating a claim |
+| reasoning | `example` | A concrete instance used for illustration, witness, or counterexample |
+
+10 intent kinds, 3 derived categories.
+
+**Category semantics:**
+
+- **`basic`** — grounding material. Establishes what/who/why before
+  structural elicitation can proceed. The spec-grade gate from
+  `grounding_onboarding` toward `elicitation_ready` requires a
+  satisficing threshold of `basic`-category nodes. The gate is
+  LLM-judged with a count floor — the agent assesses readiness,
+  but cannot declare grounding complete with zero basic nodes.
+  Grounding rubric (Walter-style questions: what is it, who is it
+  for, what problem, what value, when used, how measured) lives in
+  the prompt as abstract drivers, not structural enforcement.
+- **`structural`** — core specification material. Requirements,
+  assumptions, and constraints form the structural backbone.
+- **`reasoning`** — decisions, criteria, and evidence. Emerges as
+  the agent and user reason about structural material.
+
+### Oracle plane
+
+| Kind | Description |
+| --- | --- |
+| `check` | A verification action that witnesses or refutes a claim |
+| `validation_method` | How a check is executed (unit test, manual, etc.) |
+| `evidence` | A concrete artifact or observation produced by a check |
+| `obligation` | A verification commitment — what must be checked |
+
+### Design plane
+
+| Kind | Description |
+| --- | --- |
+| `module` | A software component or subsystem |
+| `interface` | A contract between modules |
+
+### Plan plane
+
+| Kind | Description |
+| --- | --- |
+| `milestone` | A bounded phase of work |
+| `frontier` | A named canonical work item within a milestone |
+| `slice` | A thin vertical implementation unit within a frontier |
+
+## Per-kind detail schemas
+
+Most kinds use `title` + `body` only. Three kinds have structured
+`detail` sub-schemas validated by the `CommandExecutor`:
+
+```ts
+// decision: REQUIRED detail
+interface DecisionDetail {
+  readonly chosen_option:  string
+  readonly rejected:       string[]
+  readonly rationale:      string
+}
+
+// term: REQUIRED detail
+interface TermDetail {
+  readonly definition:     string
+  readonly aliases?:       string[]
+}
+
+// constraint: OPTIONAL detail
+interface ConstraintDetail {
+  readonly subtype:        ConstraintSubtype
+}
+type ConstraintSubtype = "scope_rule" | "invariant" | "non_goal" | "exclusion"
+```
+
+**Validation rules:**
+
+- `decision` and `term` nodes REQUIRE `detail`; the CommandExecutor
+  rejects creation without it.
+- `constraint` nodes MAY have `detail`; when present, `subtype`
+  must be from the closed enum.
+- All other kinds: `detail` must be absent or null.
+- Unknown fields in `detail` are rejected (closed validation).
+- `detail` is stored as a JSON column in SQLite — one `nodes`
+  table for all planes and kinds.
+
+## `framing_as` — retired
+
+The prior `framing_as` orthogonal modality (problem, persona, JTBD,
+non-goal, etc.) is retired. Its work is absorbed by:
+
+- **`thesis`** — carries "what/who/why" material (problem framing,
+  persona framing, value proposition framing)
+- **`term`** — carries naming commitments
+- **`constraint` with `subtype: non_goal`** — carries exclusions
+- **`goal`** — carries aspirational intent
+
+The allowed `framing_as` matrix (I7-L) and the "promote when a
+framing demands unique relation policy" escape hatch are both
+retired. No node carries a `framing_as` field.
 
 ## Open questions
 
@@ -561,12 +702,16 @@ This document supersedes:
   this document; the edge-layer content is now canonically here)
 - `archive/docs/design/GRAPH_EDGE_CATEGORIES.md` — the brainstorm
   that produced this document
+- The `framing_as` orthogonal modality and allowed matrix from
+  `memory/SPEC.md` D7-L, A7-L, I7-L — absorbed by `thesis`,
+  `term`, `constraint.subtype`, and `goal`
+- `EdgeProvenance` / node provenance — retired; `change_log` owns
+  audit trail
 
-Outbound references to update via `/ln-sync`:
+Outbound references updated with Phase 2 lock:
 
-- `memory/SPEC.md` D27-L — `edge_drafts` payload language ("relation"
-  becomes "category + stance")
-- `memory/SPEC.md` A7-L — `framing_as` open question gains a Phase 2
-  hook
-- `memory/PLAN.md` `graph-data-plane` — objective language for the
-  edge surface
+- `memory/SPEC.md` — D54-L (node shape), D55-L (provenance
+  retirement), D56-L (intent kind categories), D57-L (grounding
+  gate); A7-L retired; I7-L retired; I36-L, I37-L added
+- `memory/PLAN.md` — `sealed-pi-profile-runtime-state` Phase 2
+  node lock acceptance criteria updated
