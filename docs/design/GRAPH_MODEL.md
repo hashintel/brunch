@@ -391,8 +391,8 @@ transaction with one LSN.
 commitGraph({
   nodes: [
     { ref: "n1", kind: "requirement", title: "...", body: "..." },
-    { ref: "n2", kind: "constraint",  title: "...", body: "...",
-      detail: { subtype: "invariant" } },
+    { ref: "n2", kind: "constraint",  title: "...", body: "..." },
+    { ref: "n5", kind: "invariant",  title: "...", body: "..." },
     { ref: "n3", kind: "decision",    title: "...", body: "...",
       detail: { chosen_option: "...", rejected: ["..."], rationale: "..." } },
     { ref: "n4", kind: "term", title: "...",
@@ -666,6 +666,18 @@ rubric. Additional prompting heuristics for kinds that need them:
   `source` and `basis` fields carry the provenance distinction;
   strategy prompt packs (`step-wise` vs `project-graph`) guide the
   agent on which framing to use.
+- **`decision` capture criteria.** A claim should become a
+  `decision` only if all of the following hold:
+  1. **Plausible alternatives existed** — "we chose A over B"
+  2. **The choice is durable** — it constrains future work
+  3. **The choice is explicit** — stated, not implied
+  4. **Rejected alternatives can be named** — at least one
+  5. **There is a rationale** — "because X"
+
+  The `CommandExecutor` enforces `rejected.length >= 1` in
+  `DecisionDetail`. If none of these criteria hold, the material
+  is probably `context`, `requirement`, or `assumption` — not a
+  decision.
 - **`invariant` vs `constraint`.** A constraint says "don't go
   there" — it bounds the solution space. An invariant says "this
   must always hold" — things break if it's violated. Constraints
