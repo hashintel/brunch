@@ -14,7 +14,7 @@ import {
 import type {
   WorkspaceLaunchInventory,
   SpecSessionActivationDecision,
-} from "../../../../workspace-session-coordinator.js"
+} from "../../../workspace-session-coordinator.js"
 import {
   formatBrunchProductIdentity,
   readBrunchAnsiLogo,

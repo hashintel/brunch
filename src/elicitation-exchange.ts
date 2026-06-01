@@ -16,11 +16,11 @@ import { isTerminalStructuredExchangeResultDetails } from "./structured-exchange
 import {
   isStructuredExchangePresentDetails,
   isStructuredExchangeRequestDetails,
-} from "./tui-client/.pi/extensions/structured-exchange/shared/recovery.js"
+} from "./.pi/extensions/structured-exchange/shared/recovery.js"
 import type {
   StructuredExchangePresentDetails,
   StructuredExchangeRequestDetails,
-} from "./tui-client/.pi/extensions/structured-exchange/shared/model.js"
+} from "./.pi/extensions/structured-exchange/shared/model.js"
 
 const PROMPT_SIDE_CUSTOM_TYPES = new Set([
   "brunch.elicitation_prompt",

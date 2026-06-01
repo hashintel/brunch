@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url"
 
 import { describe, expect, it } from "vitest"
 
-import { createBrunchPiExtensionShell } from "../../pi-extension-shell.js"
+import { createBrunchPiExtensionShell } from "../pi-extension-shell.js"
 import alternatives from "../extensions/alternatives.js"
 import chrome from "../extensions/chrome.js"
 import commandPolicy from "../extensions/command-policy.js"
@@ -36,7 +36,7 @@ const extensionDefaults = {
 }
 
 describe("Brunch explicit Pi extension registry", () => {
-  it("keeps default factory exports for src/tui-client /.pi iteration", () => {
+  it("keeps default factory exports for src/.pi iteration", () => {
     for (const [path, factory] of Object.entries(extensionDefaults)) {
       expect(factory, path).toEqual(expect.any(Function))
     }
@@ -93,7 +93,7 @@ describe("Brunch explicit Pi extension registry", () => {
 
   it("does not retain the filesystem-discovery product-extension protocol", async () => {
     const shell = await readFile(
-      join(projectRoot(), "src/tui-client/pi-extension-shell.ts"),
+      join(projectRoot(), "src/.pi/pi-extension-shell.ts"),
       "utf8",
     )
     const discoveryExport = ["discover", "BrunchProductExtensionEntries"].join(
@@ -186,7 +186,7 @@ function createRecordingExtensionApi() {
 }
 
 async function listExtensionEntrypoints(): Promise<string[]> {
-  const extensionsDir = join(projectRoot(), "src/tui-client/.pi/extensions")
+  const extensionsDir = join(projectRoot(), "src/.pi/extensions")
   const entries = await readdir(extensionsDir, { withFileTypes: true })
   const files: string[] = []
   for (const entry of entries) {
@@ -210,7 +210,5 @@ async function fileExists(file: string): Promise<boolean> {
 }
 
 function projectRoot(): string {
-  return dirname(
-    dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))),
-  )
+  return dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))))
 }

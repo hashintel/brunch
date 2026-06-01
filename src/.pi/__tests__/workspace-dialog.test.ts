@@ -365,10 +365,7 @@ describe("spec/session picker", () => {
 
   it("declares pi-tui as a direct dependency", async () => {
     const manifest = JSON.parse(
-      await readFile(
-        new URL("../../../../package.json", import.meta.url),
-        "utf8",
-      ),
+      await readFile(new URL("../../../package.json", import.meta.url), "utf8"),
     ) as { dependencies?: Record<string, string> }
 
     expect(manifest.dependencies).toHaveProperty("@earendil-works/pi-tui")

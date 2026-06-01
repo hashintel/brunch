@@ -31,7 +31,7 @@ import {
   registerBrunchOperationalModePolicy,
   runBrunchWorkspaceCommand,
   runBrunchWorkspaceAction,
-} from "./tui-client/pi-extension-shell.js"
+} from "./.pi/pi-extension-shell.js"
 import {
   createWorkspaceSessionCoordinator,
   verifyWorkspaceSessionStores,

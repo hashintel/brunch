@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url"
 import type {
   StructuredExchangePresentDetails,
   StructuredExchangeRequestDetails,
-} from "../tui-client/.pi/extensions/structured-exchange/index.js"
+} from "../.pi/extensions/structured-exchange/index.js"
 
 interface OrderingScenario {
   mission: string
@@ -167,9 +167,7 @@ export async function runStructuredExchangeOrderingProof(
 
 async function writeOrderingExtension(cwd: string): Promise<string> {
   const extensionPath = join(cwd, "structured-exchange-ordering-extension.ts")
-  const adapterPath = resolve(
-    "src/tui-client/.pi/extensions/structured-exchange/index.ts",
-  )
+  const adapterPath = resolve("src/.pi/extensions/structured-exchange/index.ts")
   const content = `
     import type { ExtensionAPI } from "@earendil-works/pi-coding-agent"
     import {

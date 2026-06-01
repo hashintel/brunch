@@ -20,8 +20,8 @@ import {
 import {
   chromeStateForWorkspace,
   createBrunchPiExtensionShell,
-} from "./tui-client/pi-extension-shell.js"
-import { runWorkspaceDialogPreflight } from "./tui-client/.pi/components/workspace-dialog.js"
+} from "./.pi/pi-extension-shell.js"
+import { runWorkspaceDialogPreflight } from "./.pi/components/workspace-dialog.js"
 import {
   applyBrunchOfflineDefault,
   brunchResourceLoaderOptions,
@@ -47,8 +47,8 @@ export {
   type BrunchChromeStage,
   type BrunchChromeState,
   type BrunchChromeWorkerStatus,
-} from "./tui-client/pi-extension-shell.js"
-export { runWorkspaceDialogPreflight } from "./tui-client/.pi/components/workspace-dialog.js"
+} from "./.pi/pi-extension-shell.js"
+export { runWorkspaceDialogPreflight } from "./.pi/components/workspace-dialog.js"
 
 export type BrunchTuiCoordinator = SpecSessionActivationCoordinator & WorkspaceSessionBoundaryCoordinator
 

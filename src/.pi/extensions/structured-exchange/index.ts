@@ -18,7 +18,7 @@ import { REQUEST_CHOICE_TOOL, requestChoiceTool } from "./request-choice.js"
 import { REQUEST_CHOICES_TOOL, requestChoicesTool } from "./request-choices.js"
 import { REQUEST_REVIEW_TOOL, requestReviewTool } from "./request-review.js"
 
-export type { StructuredExchangeResultDetails as StructuredExchangeToolResultDetails } from "../../../../structured-exchange.js"
+export type { StructuredExchangeResultDetails as StructuredExchangeToolResultDetails } from "../../../structured-exchange.js"
 
 export {
   buildStructuredExchangeEditorPrefill,

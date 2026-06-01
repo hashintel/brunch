@@ -8,7 +8,7 @@ import { BRUNCH_COMPACT_WORDMARK } from "../components/brunch-identity.js"
 import type {
   WorkspaceSessionChromeState,
   WorkspaceSessionReadyState,
-} from "../../../workspace-session-coordinator.js"
+} from "../../workspace-session-coordinator.js"
 
 export type BrunchChromeStage = "idle" | "streaming" | "observer-review"
 export type BrunchChromeWorkerStatus = "idle" | "queued" | "running" | "blocked"

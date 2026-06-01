@@ -14,7 +14,7 @@ import {
   registerBrunchOperationalModePolicy,
 } from "../extensions/operational-mode.js"
 import { registerBrunchPrompting } from "../extensions/prompting.js"
-import { createBrunchPiExtensionShell } from "../../pi-extension-shell.js"
+import { createBrunchPiExtensionShell } from "../pi-extension-shell.js"
 
 function runtimeEntry(state: BrunchAgentState) {
   return {
@@ -246,15 +246,9 @@ describe("Brunch prompt-pack topology", () => {
 
   it("does not expose private prompt packs through Pi resource discovery", async () => {
     const [promptingSource, composerSource] = await Promise.all([
+      readFile(join(projectRoot(), "src/.pi/extensions/prompting.ts"), "utf8"),
       readFile(
-        join(projectRoot(), "src/tui-client/.pi/extensions/prompting.ts"),
-        "utf8",
-      ),
-      readFile(
-        join(
-          projectRoot(),
-          "src/tui-client/.pi/context/compose-brunch-prompt.ts",
-        ),
+        join(projectRoot(), "src/.pi/context/compose-brunch-prompt.ts"),
         "utf8",
       ),
     ])
@@ -267,7 +261,5 @@ describe("Brunch prompt-pack topology", () => {
 })
 
 function projectRoot(): string {
-  return dirname(
-    dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))),
-  )
+  return dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))))
 }

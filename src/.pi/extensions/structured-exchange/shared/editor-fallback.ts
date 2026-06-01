@@ -3,7 +3,7 @@ import {
   type StructuredExchangeAnswer,
   type StructuredExchangeMode,
   type StructuredExchangeOption,
-} from "../../../../../structured-exchange.js"
+} from "../../../../structured-exchange.js"
 import { isRecord } from "./model.js"
 
 export interface StructuredExchangeEditorPrefillParams {

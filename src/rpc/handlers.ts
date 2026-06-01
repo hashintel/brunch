@@ -13,8 +13,8 @@ import {
   projectLinearElicitationExchangeProjection,
   projectLinearTranscriptDisplayProjection,
 } from "../elicitation-exchange.js"
-import { isStructuredExchangePresentDetails } from "../tui-client/.pi/extensions/structured-exchange/shared/recovery.js"
-import type { StructuredExchangePresentDetails } from "../tui-client/.pi/extensions/structured-exchange/shared/model.js"
+import { isStructuredExchangePresentDetails } from "../.pi/extensions/structured-exchange/shared/recovery.js"
+import type { StructuredExchangePresentDetails } from "../.pi/extensions/structured-exchange/shared/model.js"
 import {
   createJsonRpcFailure,
   createJsonRpcSuccess,
