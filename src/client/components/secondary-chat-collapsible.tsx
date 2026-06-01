@@ -86,14 +86,8 @@ export function SecondaryChatCollapsible({
   const prefersReducedMotion = usePrefersReducedMotion();
   const pinnedAccent = secondaryChat.pinnedItemKind ? kindAccentHex[secondaryChat.pinnedItemKind] : null;
 
-  // Autoscroll on new content only. Primitive deps + `block: 'nearest'` keep
-  // unrelated re-renders (mode toggles, panel expansions) from re-scrolling.
-  const bottomAnchorRef = useRef<HTMLDivElement>(null);
-  const turnCount = secondaryChat.turns.length;
-  const streamingLength = streamingAssistantText?.length ?? 0;
-  useEffect(() => {
-    bottomAnchorRef.current?.scrollIntoView({ block: 'nearest' });
-  }, [turnCount, streamingLength]);
+  // Auto-scroll is owned by the shell scroll container (<UnifiedChatShell>),
+  // which smoothly follows streamed content while the user is near the bottom.
 
   const hasReconciliation = secondaryChat.pinnedReconciliationNeed !== null;
   const hasKickoff = Boolean(kickoffContent);
@@ -147,12 +141,6 @@ export function SecondaryChatCollapsible({
                 )}
               </ConversationContent>
             </Conversation>
-            <div
-              ref={bottomAnchorRef}
-              aria-hidden
-              data-testid="secondary-chat-bottom-anchor"
-              className="h-px"
-            />
           </>
         )}
       </div>

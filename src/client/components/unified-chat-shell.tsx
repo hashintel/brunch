@@ -191,18 +191,61 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
   // Scroll-to-bottom arrow surfaces only past ~50% scroll distance.
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  // Whether the transcript should keep following new content. Set while the
+  // user is at/near the bottom; cleared once they scroll up to read history so
+  // auto-follow never yanks them back.
+  const pinnedRef = useRef(true);
   const handleBodyScroll = useCallback(() => {
     const el = bodyRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     const threshold = Math.max(120, el.clientHeight * 0.5);
     setShowScrollToBottom(distanceFromBottom > threshold);
+    // Tighter band than the arrow's threshold: stay pinned only when genuinely
+    // near the bottom, so a small nudge up doesn't keep dragging the view down.
+    pinnedRef.current = distanceFromBottom <= 80;
   }, []);
   const scrollToBottom = useCallback(() => {
     const el = bodyRef.current;
     if (!el) return;
+    pinnedRef.current = true;
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   }, []);
+
+  const isActiveStreaming = activeChat !== null && streamingChatIds.has(activeChat.chat.id);
+
+  // Smooth auto-follow while the active chat streams. The typewriter reveal
+  // grows the transcript a few pixels per frame, so pinning scrollTop to the
+  // bottom each frame reads as a smooth glide rather than per-chunk jumps —
+  // but only while the user is near the bottom (see `pinnedRef`). A short tail
+  // past stream end keeps the view pinned through the typewriter's final
+  // characters and the swap to the persisted turn.
+  const [followActive, setFollowActive] = useState(false);
+  useEffect(() => {
+    if (isActiveStreaming) {
+      setFollowActive(true);
+      return;
+    }
+    const tail = setTimeout(() => setFollowActive(false), 500);
+    return () => clearTimeout(tail);
+  }, [isActiveStreaming]);
+  useEffect(() => {
+    if (!followActive) return;
+    let frame = requestAnimationFrame(function pin() {
+      const el = bodyRef.current;
+      if (el && pinnedRef.current) el.scrollTop = el.scrollHeight;
+      frame = requestAnimationFrame(pin);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [followActive]);
+
+  // Land at the bottom (and re-arm follow) whenever the active chat changes.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el || activeChatId === null) return;
+    pinnedRef.current = true;
+    el.scrollTop = el.scrollHeight;
+  }, [activeChatId]);
 
   const prefersReducedMotion = usePrefersReducedMotion();
   const fadeSpring = prefersReducedMotion ? { duration: 0 } : CHAT_SHELL_SPRING;
