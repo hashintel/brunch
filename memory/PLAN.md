@@ -116,6 +116,7 @@ The POC should maximize assumption falsification rather than merely implement mi
 
 - **Name:** Agent ↔ graph integration through the shared command layer (M5)
 - **Linear:** [FE-785](https://linear.app/hash/issue/FE-785)
+- **Branch:** `ln/fe-785-agent-graph-integration` (stacked on `ln/fe-776-graph-layer-prep-profile`)
 - **Kind:** structural
 - **Status:** not-started
 - **Objective:** Brunch installs graph tools through pi's extension seams; agent graph operations — including `commitGraph` batch mutations for the `propose-graph` direct-commit path (D53-L, D26-L) — elicitor post-exchange capture writes, reviewer-attributed advisory writes, review-set batch acceptances for `project-graph`, spec readiness grade/posture updates, and the transcript-native establishment/intent-hint surfaces all route exclusively through the Brunch-owned command layer and shared event substrate; web, TUI, and agent all observe the same changes. **The primary A14-L proof runs here:** test whether the LLM can produce structurally-legal `commitGraph` batches against the real CommandExecutor with bounded retry.
