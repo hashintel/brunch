@@ -381,8 +381,61 @@ tool returns `structural_illegal`; the agent should not invent a
 narrower category to force the write through.
 
 These commands land in the M5 `agent-graph-integration` extension
-under `src/tui-client/.pi/extensions/graph/tools/` per the existing
-implementation layout. They are out of scope for Phase 1 stubs.
+under `src/.pi/extensions/graph/tools/` per D52-L. They are out of
+scope for Phase 1 stubs.
+
+### `commitGraph` — atomic batch mutation (D53-L)
+
+The `propose-graph` strategy's load-bearing tool. One tool call
+creates an entire subgraph — nodes and edges — in a single
+transaction with one LSN.
+
+```ts
+commitGraph({
+  nodes: [
+    { ref: "n1", kind: "requirement", title: "...", body: "..." },
+    { ref: "n2", kind: "constraint",  title: "...", body: "..." },
+    { ref: "n3", kind: "decision",    title: "...", body: "...",
+      chosen_option: "...", rejected: ["..."], rationale: "..." },
+  ],
+  edges: [
+    { category: "dependency",   source: "n1",              target: "n2" },
+    { category: "boundary",     source: "n2",              target: "n1" },
+    { category: "realization",  source: "n1",              target: "n3" },
+    { category: "support",      source: { existing: "A12" }, target: "n1",
+                                stance: "for" },
+  ]
+})
+```
+
+Reference modes:
+- **Intra-batch**: `"n1"` — a node defined in the same payload
+- **Existing**: `{ existing: "A12" }` — a node already in the graph
+
+CommandExecutor processing:
+
+```
+commitGraph tool call
+        │
+        ▼
+  1. Validate all nodes structurally
+  2. Assign real NodeIds to each batch ref
+  3. Resolve intra-batch refs on edges
+  4. Resolve existing-node refs (fail if not found)
+  5. Validate all edges (closed categories, stance, acyclicity)
+  6. Allocate ONE Lsn
+  7. Write all nodes + edges + change-log in one transaction
+  8. Return success + created ids
+     OR structural_illegal + diagnostics for retry
+```
+
+All-or-nothing (I34-L): if any node or edge fails, the entire batch
+is rejected. The agent may retry within a bounded budget; the user
+does not see intermediate failures.
+
+`commitGraph` and `acceptReviewSet` (D27-L) are parallel paths to the
+same CommandExecutor — one for direct agent-authored commits after
+concept acceptance, one for user-reviewed batch proposals.
 
 ## Prompting
 
