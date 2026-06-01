@@ -5,6 +5,7 @@
  *
  * Phase 1: edges, edge policy, reconciliation-need.
  * Phase 2: node type definitions.
+ * M4 skeleton: CommandExecutor + result types.
  */
 
 export type { EdgeId, Lsn, NodeId } from "./atoms.js"
@@ -45,3 +46,16 @@ export {
   type ProjectionEffect,
   type ReconNeedTrigger,
 } from "./policy/category-policy.js"
+
+export { CommandExecutor } from "./command-executor.js"
+export type {
+  CommandResult,
+  CommandSuccess,
+  CreateNodeInput,
+  CreateNodeResult,
+  Diagnostic,
+  NeedsHuman,
+  PolicyBlocked,
+  StructuralIllegal,
+  VersionConflict,
+} from "./command-executor.js"

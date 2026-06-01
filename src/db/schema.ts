@@ -86,6 +86,7 @@ export const edges = sqliteTable("edges", {
   basis: text({ enum: NODE_BASES }).notNull().default("explicit"),
   rationale: text(),
   created_at_lsn: integer().notNull(),
+  updated_at_lsn: integer().notNull(),
 })
 
 export const graphClock = sqliteTable("graph_clock", {

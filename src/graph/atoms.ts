@@ -8,11 +8,11 @@
  * lands with the M4 A20-L spike slice.
  */
 
-/** Stable id for a graph node. */
-export type NodeId = string
+/** Stable id for a graph node (SQLite auto-increment integer). */
+export type NodeId = number
 
-/** Stable id for a graph edge. */
-export type EdgeId = string
+/** Stable id for a graph edge (SQLite auto-increment integer). */
+export type EdgeId = number
 
 /** Monotonic logical sequence number; one per CommandExecutor commit. */
 export type Lsn = number
