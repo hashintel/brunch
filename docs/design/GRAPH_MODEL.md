@@ -10,9 +10,9 @@ under [`src/graph/`](../../src/graph/) and the per-category policy
 table consumed by snapshot/projection builders and the
 `CommandExecutor`.
 
-`memory/SPEC.md` is reconciled to this doc through `/ln-sync`. Until
-that pass lands, treat any conflict in SPEC.md as superseded by this
-document for the edge layer specifically.
+`memory/SPEC.md` and `memory/PLAN.md` are reconciled to this doc for
+the locked edge layer; if later planning text drifts, treat this
+document as the canonical edge-model contract.
 
 ## Status
 

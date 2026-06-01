@@ -22,6 +22,11 @@ This pattern is **reusable across generative lenses**: the same mechanism that h
 
 Generative-lens proposals carry **structured entity-draft payloads** in the proposal custom entry. The proposal contains the graph entities and edges that *would* be created on acceptance, in a form `CommandExecutor` can validate without re-parsing.
 
+Edge drafts follow the locked graph contract from [GRAPH_MODEL.md](GRAPH_MODEL.md):
+closed `category` values, optional `stance` only for `proof`/`support`, and
+`basis: "accepted_review_set"` for proposal-time edges. Review-set payloads no
+longer carry a free-form `relation` string.
+
 Approximate shape (refined during M5 implementation):
 
 ```text
@@ -43,7 +48,13 @@ Approximate shape (refined during M5 implementation):
       ...
     ],
     edge_drafts: [
-      { from_draft_id, to_draft_id, relation },
+      {
+        category: "support",
+        source_draft_id: "persona-1",
+        target_draft_id: "requirement-2",
+        stance: "for",
+        basis: "accepted_review_set",
+      },
       ...
     ],
     rubric: {
