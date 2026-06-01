@@ -52,18 +52,13 @@ describe('createPetrinautEventStream — initial_marking', () => {
     if (ev.kind !== 'initial_marking') return; // narrow
 
     expect(ev.runId).toBe('run-1');
+    // FE-784: marking keys are folded to slice-independent roles.
     expect(Object.keys(ev.marking).sort()).toEqual(
-      [
-        'pool:code-agent',
-        'pool:test-agent',
-        'slice:slice-1:eligible',
-        'slice:slice-1:retry-budget',
-        'slice:slice-1:semantic-budget',
-      ].sort(),
+      ['eligible', 'pool:code-agent', 'pool:test-agent', 'retry-budget', 'semantic-budget'].sort(),
     );
 
-    // Every token carries an id; semantic payloads preserved.
-    const retry = ev.marking['slice:slice-1:retry-budget']!;
+    // Every token carries an id; slice colour preserved on the token.
+    const retry = ev.marking['retry-budget']!;
     expect(retry).toHaveLength(1);
     expect(retry[0]!.id).toBeDefined();
     expect(retry[0]!.retryCount).toBe(0);
@@ -96,12 +91,13 @@ describe('createPetrinautEventStream — transition_fired adapter', () => {
     const ev = events[0]! as PetrinautTransitionFiredEvent;
     expect(ev.kind).toBe('transition_fired');
     expect(ev.runId).toBe('run-1');
-    expect(ev.transitionName).toBe('slice-1:evaluate:dispatch');
-    expect(Object.keys(ev.input).sort()).toEqual(['pool:test-agent', 'slice:slice-1:spec-ready']);
-    expect(ev.input['slice:slice-1:spec-ready']).toHaveLength(1);
-    expect(ev.input['slice:slice-1:spec-ready']![0]!.sliceId).toBe('slice-1');
-    expect(Object.keys(ev.output)).toEqual(['slice:slice-1:evaluate:running']);
-    expect(ev.output['slice:slice-1:evaluate:running']![0]!.id).toBeDefined();
+    // FE-784: transition name and arc place keys fold to slice-independent roles.
+    expect(ev.transitionName).toBe('evaluate:dispatch');
+    expect(Object.keys(ev.input).sort()).toEqual(['pool:test-agent', 'spec-ready']);
+    expect(ev.input['spec-ready']).toHaveLength(1);
+    expect(ev.input['spec-ready']![0]!.sliceId).toBe('slice-1');
+    expect(Object.keys(ev.output)).toEqual(['evaluate:running']);
+    expect(ev.output['evaluate:running']![0]!.id).toBeDefined();
   });
 
   it('throws when transition_fired is missing transitionId', () => {
@@ -137,10 +133,10 @@ describe('createPetrinautEventStream — transition_fired adapter', () => {
     });
 
     const ev = events[0]! as PetrinautTransitionFiredEvent;
-    expect(Object.keys(ev.input).sort()).toEqual(['pool:test-agent', 'slice:slice-1:spec-ready']);
-    expect(ev.input['slice:slice-1:spec-ready']).toEqual([]);
+    expect(Object.keys(ev.input).sort()).toEqual(['pool:test-agent', 'spec-ready']);
+    expect(ev.input['spec-ready']).toEqual([]);
     expect(ev.input['pool:test-agent']).toEqual([]);
-    expect(ev.output['slice:slice-1:evaluate:running']).toEqual([]);
+    expect(ev.output['evaluate:running']).toEqual([]);
   });
 
   it('forwards net_halted and net_deadlocked as terminal events', () => {
@@ -212,9 +208,9 @@ describe('createPetrinautEventStream — JSONL file output', () => {
 
     // Transition_fired arcs carry tokens with payload.
     const fired = lines[1] as PetrinautTransitionFiredEvent;
-    expect(fired.transitionName).toBe('slice-1:evaluate:dispatch');
-    expect(fired.input['slice:slice-1:spec-ready']![0]!.sliceId).toBe('slice-1');
-    expect(fired.output['slice:slice-1:evaluate:running']![0]!.id).toBeDefined();
+    expect(fired.transitionName).toBe('evaluate:dispatch');
+    expect(fired.input['spec-ready']![0]!.sliceId).toBe('slice-1');
+    expect(fired.output['evaluate:running']![0]!.id).toBeDefined();
   });
 
   it('disables file output after an append failure without throwing', () => {

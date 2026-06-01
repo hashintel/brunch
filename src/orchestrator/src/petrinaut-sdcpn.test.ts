@@ -101,7 +101,7 @@ describe('toSdcpnFile — envelope', () => {
     const file = toSdcpnFile(realNet(simplePlan), {});
     expect(file.version).toBe(SDCPN_FILE_FORMAT_VERSION);
     expect(file.meta.generator).toBe('brunch');
-    expect(file.meta.generatorVersion).toBe('0.1.0');
+    expect(file.meta.generatorVersion).toBe('0.2.0');
   });
 
   it('defaults the title to the runId and honours an override', () => {
@@ -134,6 +134,7 @@ describe('toSdcpnFile — places', () => {
     const net: PetrinautNet = {
       schemaVersion: '0.1.0',
       runId: 'r',
+      tokenTypes: [],
       places: [
         { id: 'slice:version-flag:spec-ready', label: 'spec-ready' },
         { id: 'pool:test-agent', label: 'pool:test-agent' },
@@ -150,6 +151,7 @@ describe('toSdcpnFile — places', () => {
     const net: PetrinautNet = {
       schemaVersion: '0.1.0',
       runId: 'r',
+      tokenTypes: [],
       places: [
         { id: 'slice-1:done', label: 'done' },
         { id: 'slice-2:done', label: 'done' },
@@ -168,6 +170,7 @@ describe('toSdcpnFile — transitions', () => {
     const net: PetrinautNet = {
       schemaVersion: '0.1.0',
       runId: 'r',
+      tokenTypes: [],
       places: [
         { id: 'a', label: 'a' },
         { id: 'b', label: 'b' },
@@ -193,6 +196,7 @@ describe('toSdcpnFile — initial marking', () => {
     const net: PetrinautNet = {
       schemaVersion: '0.1.0',
       runId: 'r',
+      tokenTypes: [],
       places: [
         { id: 'pool:test-agent', label: 'pool:test-agent' },
         { id: 'slice:s:eligible', label: 'eligible' },
@@ -215,6 +219,7 @@ describe('toSdcpnFile — initial marking', () => {
     const net: PetrinautNet = {
       schemaVersion: '0.1.0',
       runId: 'r',
+      tokenTypes: [],
       places: [{ id: 'a', label: 'a' }],
       transitions: [],
       initialMarking: [],

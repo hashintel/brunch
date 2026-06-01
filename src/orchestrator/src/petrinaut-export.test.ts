@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { compileTopology } from './net-compiler.js';
 import { PETRINAUT_NET_SCHEMA_VERSION, serializeBlueprint, type PetrinautNet } from './petrinaut-export.js';
+import { SLICE_COLOUR_TYPE_ID } from './petrinaut-fold.js';
 import type { Plan } from './types.js';
 
 const simplePlan: Plan = {
@@ -57,109 +58,120 @@ describe('serializeBlueprint — envelope', () => {
     const roundTripped = JSON.parse(JSON.stringify(net)) as PetrinautNet;
     expect(roundTripped).toEqual(net);
   });
-});
 
-describe('serializeBlueprint — places', () => {
-  it('emits one place entry per blueprint place', () => {
+  it('declares the SliceColour token type when slice places are present', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
     const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
-    expect(net.places).toHaveLength(blueprint.places.length);
-    expect(new Set(net.places.map((p) => p.id))).toEqual(new Set(blueprint.places));
-  });
-
-  it('strips slice:<id>: and epic:<id>: prefixes for the short label', () => {
-    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
-    const specReady = net.places.find((p) => p.id === 'slice:slice-1:spec-ready')!;
-    expect(specReady.label).toBe('spec-ready');
-    const epicDone = net.places.find((p) => p.id === 'epic:epic-1:done')!;
-    expect(epicDone.label).toBe('done');
-    // Non-prefixed places (e.g. pools) keep their id as label.
-    const pool = net.places.find((p) => p.id === 'pool:test-agent')!;
-    expect(pool.label).toBe('pool:test-agent');
+    const type = net.tokenTypes.find((t) => t.id === SLICE_COLOUR_TYPE_ID)!;
+    expect(type).toBeDefined();
+    expect(type.dimensions.map((d) => d.name)).toEqual(['sliceId', 'epicId', 'retryCount', 'reworkCount']);
   });
 });
 
-describe('serializeBlueprint — transitions', () => {
-  it('emits one transition entry per blueprint transition with arcs and contract metadata', () => {
-    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
-    expect(net.transitions).toHaveLength(blueprint.transitions.length);
-
-    // FE-761 Slice 4: dispatch transition exists with the right shape.
-    const evalDispatch = net.transitions.find((t) => t.id === 'slice-1:evaluate:dispatch')!;
-    expect(evalDispatch).toBeDefined();
-    expect(evalDispatch.lane).toBe('mechanical');
-    expect(evalDispatch.kind).toBe('structural');
-    expect(evalDispatch.inputs).toEqual(['slice:slice-1:spec-ready', 'pool:test-agent']);
-    expect(evalDispatch.outputs).toEqual(['slice:slice-1:evaluate:running']);
-
-    // Complete transition carries the action descriptor; outputs include
-    // the report-bearing intermediate and the agent pool return.
-    const evalComplete = net.transitions.find((t) => t.id === 'slice-1:evaluate:complete')!;
-    expect(evalComplete).toBeDefined();
-    expect(evalComplete.kind).toBe('mechanical');
-    expect(evalComplete.actor).toBe('evaluator');
-    expect(evalComplete.inputs).toEqual(['slice:slice-1:evaluate:running']);
-    expect(evalComplete.outputs).toEqual(['pool:test-agent', 'slice:slice-1:evaluate:reported'].sort());
+describe('serializeBlueprint — colour fold', () => {
+  it('strips the slice:<id>: prefix from every folded place id', () => {
+    const blueprint = compileTopology(depPlan, { maxRetries: 3 });
+    const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
+    for (const p of net.places) expect(p.id.startsWith('slice:')).toBe(false);
+    expect(net.places.some((p) => p.id === 'spec-ready')).toBe(true);
+    expect(net.places.some((p) => p.id === 'evaluate:running')).toBe(true);
   });
 
-  it('every transition output appears as a declared place', () => {
+  it('collapses the uniform per-slice lifecycle to one node for a 2-slice plan', () => {
+    const blueprint = compileTopology(depPlan, { maxRetries: 3 });
+    const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
+    // Two slices, but the shared lifecycle place/transition appears once.
+    expect(net.places.filter((p) => p.id === 'spec-ready')).toHaveLength(1);
+    expect(net.transitions.filter((t) => t.id === 'evaluate:dispatch')).toHaveLength(1);
+    expect(net.transitions.filter((t) => t.id === 'run-tests:pass')).toHaveLength(1);
+  });
+
+  it('keeps divergent dependency gates at their concrete per-slice ids', () => {
+    const blueprint = compileTopology(depPlan, { maxRetries: 3 });
+    const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
+    const ids = new Set(net.transitions.map((t) => t.id));
+    // slice-b's readiness gate has dep inputs slice-a's lacks → not folded.
+    expect(ids.has('slice-ready:slice-a')).toBe(true);
+    expect(ids.has('slice-ready:slice-b')).toBe(true);
+    expect(ids.has('slice-ready')).toBe(false);
+    // return-done diverges (slice-a emits a dep-signal, slice-b does not).
+    expect(ids.has('slice-a:return-done')).toBe(true);
+    expect(ids.has('slice-b:return-done')).toBe(true);
+    // The per-edge dep-signal place keeps its dependent id (unique role).
+    expect(net.places.some((p) => p.id === 'dep-signal:slice-b')).toBe(true);
+  });
+
+  it('folds transition arcs to folded place ids that all exist as declared places', () => {
     const blueprint = compileTopology(depPlan, { maxRetries: 3 });
     const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
     const placeIds = new Set(net.places.map((p) => p.id));
     for (const t of net.transitions) {
-      for (const out of t.outputs) {
-        expect(placeIds.has(out), `transition ${t.id} emits to undeclared place ${out}`).toBe(true);
+      for (const arc of [...t.inputs, ...t.outputs]) {
+        expect(placeIds.has(arc), `transition ${t.id} references undeclared place ${arc}`).toBe(true);
       }
     }
+  });
+
+  it('tags folded slice places with the slice colour type and leaves pools untyped', () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+    const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
+    expect(net.places.find((p) => p.id === 'spec-ready')!.typeId).toBe(SLICE_COLOUR_TYPE_ID);
+    expect(net.places.find((p) => p.id === 'pool:test-agent')!.typeId).toBeUndefined();
+  });
+});
+
+describe('serializeBlueprint — transitions', () => {
+  it('emits the folded evaluate dispatch/complete pair with arcs and metadata', () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+    const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
+
+    const evalDispatch = net.transitions.find((t) => t.id === 'evaluate:dispatch')!;
+    expect(evalDispatch).toBeDefined();
+    expect(evalDispatch.lane).toBe('mechanical');
+    expect(evalDispatch.kind).toBe('structural');
+    expect(evalDispatch.inputs).toEqual(['spec-ready', 'pool:test-agent']);
+    expect(evalDispatch.outputs).toEqual(['evaluate:running']);
+
+    const evalComplete = net.transitions.find((t) => t.id === 'evaluate:complete')!;
+    expect(evalComplete).toBeDefined();
+    expect(evalComplete.kind).toBe('mechanical');
+    expect(evalComplete.actor).toBe('evaluator');
+    expect(evalComplete.inputs).toEqual(['evaluate:running']);
+    expect(evalComplete.outputs).toEqual(['evaluate:reported', 'pool:test-agent'].sort());
   });
 });
 
 describe('serializeBlueprint — initial marking', () => {
-  it('groups initial tokens by place with a fresh UUID per token', () => {
-    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
+  it('groups initial tokens into folded places, one coloured token per slice', () => {
+    const blueprint = compileTopology(depPlan, { maxRetries: 3 });
+    const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
 
-    // simplePlan seeds:
-    //   pool:test-agent × 1, pool:code-agent × 1 (agentPoolSize defaults to slice count = 1)
-    //   slice:slice-1:semantic-budget × 1, slice:slice-1:retry-budget × 1,
-    //   slice:slice-1:eligible × 1
     const places = net.initialMarking.map((m) => m.place).sort();
-    expect(places).toEqual(
-      [
-        'pool:code-agent',
-        'pool:test-agent',
-        'slice:slice-1:eligible',
-        'slice:slice-1:retry-budget',
-        'slice:slice-1:semantic-budget',
-      ].sort(),
-    );
+    expect(places).toEqual([
+      'eligible',
+      'pool:code-agent',
+      'pool:test-agent',
+      'retry-budget',
+      'semantic-budget',
+    ]);
 
-    // Every token has an id.
-    for (const marking of net.initialMarking) {
-      for (const tok of marking.tokens) {
-        expect(typeof tok.id).toBe('string');
-        expect(tok.id.length).toBeGreaterThan(0);
-      }
-    }
+    // eligible folds both slices' seeds → two coloured tokens.
+    const eligible = net.initialMarking.find((m) => m.place === 'eligible')!;
+    expect(eligible.tokens.map((t) => t.sliceId).sort()).toEqual(['slice-a', 'slice-b']);
 
-    // Semantic budget token carries reworkCount: 0; retry-budget carries retryCount: 0.
-    const semBudget = net.initialMarking.find((m) => m.place === 'slice:slice-1:semantic-budget')!;
-    expect(semBudget.tokens[0]!.reworkCount).toBe(0);
-    expect(semBudget.tokens[0]!.sliceId).toBe('slice-1');
-    expect(semBudget.tokens[0]!.epicId).toBe('epic-1');
-
-    const retryBudget = net.initialMarking.find((m) => m.place === 'slice:slice-1:retry-budget')!;
-    expect(retryBudget.tokens[0]!.retryCount).toBe(0);
-
-    // Pool tokens have no sliceId / epicId (shared pool).
+    // Pool seeds remain runtime-valid tokens, but export without slice colour.
     const poolSeed = blueprint.initialTokens.find((t) => t.place === 'pool:test-agent')!.token;
     expect(poolSeed).toEqual({ sliceId: '', epicId: '' });
 
     const pool = net.initialMarking.find((m) => m.place === 'pool:test-agent')!;
     expect(pool.tokens[0]!.sliceId).toBeUndefined();
-    expect(pool.tokens[0]!.epicId).toBeUndefined();
+  });
+
+  it('carries budget counters on the folded budget places', () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+    const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
+    expect(net.initialMarking.find((m) => m.place === 'semantic-budget')!.tokens[0]!.reworkCount).toBe(0);
+    expect(net.initialMarking.find((m) => m.place === 'retry-budget')!.tokens[0]!.retryCount).toBe(0);
   });
 
   it('emits distinct token ids for every initial token', () => {
@@ -170,8 +182,8 @@ describe('serializeBlueprint — initial marking', () => {
   });
 });
 
-describe('serializeBlueprint — golden counts pinned per fixture', () => {
-  it('simplePlan: 22 places, 19 transitions, 5 places hold initial tokens', () => {
+describe('serializeBlueprint — golden fold counts pinned per fixture', () => {
+  it('simplePlan (1 slice): fold is a relabel — 22 places, 19 transitions, 5 marked', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
     const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
     expect(net.places.length).toBe(22);
@@ -179,12 +191,11 @@ describe('serializeBlueprint — golden counts pinned per fixture', () => {
     expect(net.initialMarking.length).toBe(5);
   });
 
-  it('depPlan: 42 places, 37 transitions, 8 places hold initial tokens', () => {
+  it('depPlan (2 slices): lifecycle collapses — 23 places, 21 transitions, 5 marked', () => {
     const blueprint = compileTopology(depPlan, { maxRetries: 3 });
     const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
-    expect(net.places.length).toBe(42);
-    expect(net.transitions.length).toBe(37);
-    // 2 pools + 2 slices × 3 per-slice seeded places (semantic-budget, retry-budget, eligible)
-    expect(net.initialMarking.length).toBe(8);
+    expect(net.places.length).toBe(23);
+    expect(net.transitions.length).toBe(21);
+    expect(net.initialMarking.length).toBe(5);
   });
 });

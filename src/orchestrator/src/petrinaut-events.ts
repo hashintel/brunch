@@ -36,6 +36,7 @@ import { appendFileSync, writeFileSync } from 'node:fs';
 
 import type { NetBlueprint, TokenSeed } from './net-blueprint.js';
 import type { NetEvent, NetEventSink, Token } from './petri-net.js';
+import { buildTransitionFoldMap, collectSliceIds, foldPlaceId, foldTransitionId } from './petrinaut-fold.js';
 
 export type PetrinautToken = {
   id: string;
@@ -105,6 +106,14 @@ export function createPetrinautEventStream(opts: CreatePetrinautEventStreamOpts)
   const tokenId = opts.tokenIdFn ?? randomUUID;
   let fileOutputDisabled = false;
 
+  // FE-784 colour fold — captured from the blueprint at emitInitialMarking so
+  // live firings map onto the same folded net as the static net.json export.
+  // The fold map knows which transitions diverge (dep-gated `slice-ready`,
+  // dep-signalling `return-done`) and so stay at their concrete ids. Until the
+  // blueprint is seen, fold maps fall back to per-event slice-id derivation.
+  let sliceIds: ReadonlySet<string> = new Set();
+  let transitionFoldMap: Map<string, string> | undefined;
+
   // Initialize the file as empty so the first append produces a well-formed JSONL file.
   if (filePath) writeFileSync(filePath, '');
 
@@ -127,11 +136,11 @@ export function createPetrinautEventStream(opts: CreatePetrinautEventStreamOpts)
     const out: Record<string, PetrinautToken[]> = {};
     if (!places) return out;
     if (!tokens) {
-      for (const place of places) out[place] = [];
+      for (const place of places) out[foldPlaceId(place)] = [];
       return out;
     }
     for (let i = 0; i < places.length; i++) {
-      const place = places[i]!;
+      const place = foldPlaceId(places[i]!);
       const list = out[place] ?? [];
       const token = tokens[i];
       if (token) list.push(tokenToPetrinaut(token, tokenId));
@@ -147,11 +156,20 @@ export function createPetrinautEventStream(opts: CreatePetrinautEventStreamOpts)
           if (!event.transitionId) {
             throw new Error('transition_fired NetEvent missing transitionId');
           }
+          // Fold the concrete firing onto the exported net. Prefer the
+          // blueprint-derived map (knows divergent transitions); otherwise
+          // derive slice ids from this event's own place ids.
+          const effectiveSliceIds = transitionFoldMap
+            ? sliceIds
+            : collectSliceIds([...(event.consumed ?? []), ...(event.produced ?? [])]);
+          const transitionName =
+            transitionFoldMap?.get(event.transitionId) ??
+            foldTransitionId(event.transitionId, effectiveSliceIds);
           publish({
             kind: 'transition_fired',
             ts: event.ts,
             runId,
-            transitionName: event.transitionId,
+            transitionName,
             input: groupTokens(event.consumed, event.consumedTokens),
             output: groupTokens(event.produced, event.producedTokens),
           });
@@ -167,11 +185,16 @@ export function createPetrinautEventStream(opts: CreatePetrinautEventStreamOpts)
   };
 
   function emitInitialMarking(blueprint: NetBlueprint): void {
+    // Capture the fold context so subsequent firings map onto the same net.
+    sliceIds = collectSliceIds(blueprint.places);
+    transitionFoldMap = buildTransitionFoldMap(blueprint.transitions, sliceIds);
+
     const marking: Record<string, PetrinautToken[]> = {};
     for (const { place, token } of blueprint.initialTokens) {
-      const list = marking[place] ?? [];
+      const folded = foldPlaceId(place);
+      const list = marking[folded] ?? [];
       list.push(seedToPetrinaut(token, tokenId()));
-      marking[place] = list;
+      marking[folded] = list;
     }
     publish({
       kind: 'initial_marking',
