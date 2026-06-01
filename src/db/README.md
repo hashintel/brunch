@@ -31,6 +31,26 @@ SPEC decisions: D16-L, D41-L, D52-L
 - `graph/` — the only layer that imports `db/` directly.
   No other layer should import from this directory.
 
+## Enum flow
+
+`db/schema.ts` owns the single `const` arrays (`INTENT_KINDS`,
+`EDGE_CATEGORIES`, `NODE_BASES`, etc.). Other layers derive from them:
+
+```
+db/schema.ts                       const arrays + Drizzle tables
+  │                                (single source of truth)
+  ├──► db/row-schemas.ts           drizzle-typebox insert/select
+  │                                (@sinclair/typebox 0.34)
+  ├──► graph/schema/nodes.ts       type IntentKind = (typeof INTENT_KINDS)[number]
+  │    graph/schema/edges.ts       type EdgeCategory = (typeof EDGE_CATEGORIES)[number]
+  │
+  └──► Pi tool parameter schemas   Type.Union(INTENT_KINDS.map(Type.Literal))
+                                   (typebox v1.x — Pi's package)
+```
+
+Do not redeclare enum literals in `graph/` or tool definitions.
+Import the `const` array from `db/schema.ts` and derive.
+
 ## Stack (settled by A20-L spike)
 
 `drizzle-orm@0.45.2` + `drizzle-kit@0.31.10` + `better-sqlite3@12.8.0`
