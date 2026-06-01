@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import type { NetBlueprint, TransitionSkeleton } from './net-blueprint.js';
+import { compileTopology } from './net-compiler.js';
 import { createNetFolding, SLICE_COLOUR_TYPE_ID } from './petrinaut-fold.js';
+import type { Plan } from './types.js';
 
 // A compact two-slice blueprint exercising every fold rule without depending on
 // the compiler: uniform lifecycle transitions (evaluate:dispatch), a divergent
@@ -127,5 +129,47 @@ describe('createNetFolding — tokenTypes', () => {
   it('declares the SliceColour type when slice places are present', () => {
     const types = createNetFolding(blueprint).tokenTypes();
     expect(types.map((t) => t.id)).toEqual([SLICE_COLOUR_TYPE_ID]);
+  });
+});
+
+describe('createNetFolding — divergence is bounded to dependency gates', () => {
+  // Card #3: the only transitions allowed to keep a per-slice (concrete) id are
+  // the dependency gates whose arcs genuinely differ per slice. Anything else
+  // staying slice-scoped means a uniform lifecycle transition silently failed
+  // to fold — the graph re-expands while reading as "fold worked".
+  const depPlan: Plan = {
+    epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
+    slices: [
+      {
+        id: 'slice-a',
+        epic_id: 'epic-1',
+        definition: 'A',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 'ta' }],
+      },
+      {
+        id: 'slice-b',
+        epic_id: 'epic-1',
+        definition: 'B',
+        depends_on: ['slice-a'],
+        verification: [{ kind: 'unit-test', target: 'tb' }],
+      },
+    ],
+  };
+
+  it('keeps exactly the dependency gates (slice-ready, return-done) concrete and folds everything else', () => {
+    const compiled = compileTopology(depPlan, { maxRetries: 3 });
+    const folding = createNetFolding(compiled);
+    const sliceIds = ['slice-a', 'slice-b'];
+
+    // A folded transition is "still slice-scoped" iff its id carries a slice-id segment.
+    const stillSliceScoped = folding
+      .foldedTransitions()
+      .map((t) => t.id)
+      .filter((id) => id.split(':').some((seg) => sliceIds.includes(seg)));
+
+    expect(new Set(stillSliceScoped)).toEqual(
+      new Set(['slice-ready:slice-a', 'slice-ready:slice-b', 'slice-a:return-done', 'slice-b:return-done']),
+    );
   });
 });
