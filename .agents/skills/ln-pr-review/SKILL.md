@@ -14,7 +14,9 @@ Output a short, plain-English review comment. No jargon. No methodology vocabula
 
 The PR to review: $ARGUMENTS
 
-If unspecified, list PRs where the user is a requested reviewer (`gh-axi pr list --search "review-requested:@me"`) and ask which one.
+If unspecified, list PRs where the user is a requested reviewer (`gh pr list --search "review-requested:@me"`) and ask which one.
+
+This skill assumes `gh` is installed and authenticated. If usage is unclear, run `gh --help` or `gh <subcommand> --help`. Do not depend on `gh-axi` or any other `gh`-related skill.
 
 ## Procedure
 
@@ -22,12 +24,10 @@ This is **interactive and brief**. Target time-to-comment: a few minutes per PR.
 
 ### 1. Load the PR
 
-Use `cli-gh-axi` (preferred over plain `gh`):
-
 ```bash
-env GH_AXI_DISABLE_HOOKS=1 npx -y gh-axi pr view <number> --comments
-env GH_AXI_DISABLE_HOOKS=1 npx -y gh-axi pr diff <number>
-env GH_AXI_DISABLE_HOOKS=1 npx -y gh-axi pr checks <number>
+gh pr view <number> --comments
+gh pr diff <number>
+gh pr checks <number>
 ```
 
 Capture: title, author, description, files changed, additions/deletions, existing review comments, and the diff itself. If the diff is large, sample by directory/feature area rather than reading every line — you are looking for shape, not bugs.
@@ -106,7 +106,7 @@ Show the draft to the user and ask for edits before posting.
 
 ### 6. Post
 
-Write the body to a temp file first (review bodies often contain backticks, single quotes, and code snippets that break heredoc / `--body` inline quoting). Then use plain `gh` with `--body-file` — `gh-axi pr review` has no `--body-file` flag, and `--body` inline breaks on any body containing `'`.
+Write the body to a temp file first (review bodies often contain backticks, single quotes, and code snippets that break heredoc / `--body` inline quoting). Then use `gh` with `--body-file`.
 
 ```bash
 # Write the body
@@ -143,7 +143,7 @@ After posting (or deciding not to), present these options to the user (use `tool
 | #   | Label                  | Target              | Why                                                   |
 | --- | ---------------------- | ------------------- | ----------------------------------------------------- |
 | 1   | Next PR                | `ln-pr-review`      | Continue the review queue                             |
-| 2   | Open a follow-up issue | `cli-gh-axi`        | A concern deserves its own tracked thread             |
+| 2   | Open a follow-up issue | `gh issue create`   | A concern deserves its own tracked thread             |
 | 3   | Scope a local change   | `ln-scope`          | The PR revealed work we should do in our own codebase |
 | 4   | Done                   | —                   | Review session complete                               |
 
