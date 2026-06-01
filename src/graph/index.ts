@@ -17,8 +17,6 @@ export type {
 } from "./schema/edges.js"
 
 export type {
-  ConstraintDetail,
-  ConstraintSubtype,
   DecisionDetail,
   DesignKind,
   GraphNode,

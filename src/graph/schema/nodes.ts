@@ -39,10 +39,10 @@ export type NodeBasis = "explicit" | "accepted_review_set"
 /**
  * Intent-plane kinds, spanning three derived categories:
  *  - basic:      `goal`, `thesis`, `term`
- *  - structural: `requirement`, `assumption`, `constraint`
+ *  - structural: `requirement`, `assumption`, `constraint`, `invariant`
  *  - reasoning:  `decision`, `criterion`, `example`
  */
-export type IntentKind = "goal" | "thesis" | "term" | "requirement" | "assumption" | "constraint" | "decision" | "criterion" | "example"
+export type IntentKind = "goal" | "thesis" | "term" | "requirement" | "assumption" | "constraint" | "invariant" | "decision" | "criterion" | "example"
 
 /** Oracle-plane kinds. */
 export type OracleKind = "check" | "validation_method" | "evidence" | "obligation"
@@ -77,6 +77,7 @@ export function intentKindCategory(kind: IntentKind): IntentKindCategory {
     case "requirement":
     case "assumption":
     case "constraint":
+    case "invariant":
       return "structural"
     case "decision":
     case "criterion":
@@ -102,16 +103,8 @@ export interface TermDetail {
   readonly aliases?: readonly string[]
 }
 
-/** Closed set of constraint subtypes. */
-export type ConstraintSubtype = "scope_rule" | "invariant" | "non_goal" | "exclusion"
-
-/** Detail payload for `constraint` nodes. */
-export interface ConstraintDetail {
-  readonly subtype: ConstraintSubtype
-}
-
 /** Discriminated union of all per-kind detail payloads. */
-export type NodeDetail = DecisionDetail | TermDetail | ConstraintDetail
+export type NodeDetail = DecisionDetail | TermDetail
 
 // ---------------------------------------------------------------------------
 // Main node interface

@@ -561,19 +561,27 @@ Intent kinds fall into three **derived categories** that map to
 spec-grade progression. Category is a pure function of `kind` — it
 is not stored on the node.
 
-| Category | Kind | Description |
-| --- | --- | --- |
-| basic | `goal` | Aspirational intent — what we're trying to achieve |
-| basic | `thesis` | A chosen position or bet — falsifiable, carries "what/who/why/for whom" material (La Carte Blanche style) |
-| basic | `term` | A canonical naming commitment — ubiquitous language / conceptual consistency |
-| structural | `requirement` | A need — what must be true for the system |
-| structural | `assumption` | A dependency the design relies on — may be validated or falsified |
-| structural | `constraint` | A boundary-setting rule — scope, invariant, non-goal, or exclusion (see subtype in detail) |
-| reasoning | `decision` | A committed choice between alternatives (see detail schema) |
-| reasoning | `criterion` | A measurable standard for evaluating a claim |
-| reasoning | `example` | A concrete instance used for illustration, witness, or counterexample |
+| Category | Kind | Modality of claim | Source question |
+| --- | --- | --- | --- |
+| basic | `goal` | Value or outcome claim | "What outcome are we after?" |
+| basic | `thesis` | Position or bet claim | "What do we believe about who this is for and why?" |
+| basic | `term` | Naming commitment | "What do we mean when we say X?" |
+| structural | `requirement` | Obligation claim | "What must the system do?" |
+| structural | `assumption` | Uncertainty claim | "What might be false?" |
+| structural | `constraint` | Boundary claim | "What does this rule out?" |
+| structural | `invariant` | Preservation claim | "What must never be broken?" |
+| reasoning | `decision` | Choice claim | "What did we pick among real alternatives?" |
+| reasoning | `criterion` | Oracle claim | "How will we judge that it holds?" |
+| reasoning | `example` | Witness or disambiguator claim | "What concrete case would settle this?" |
 
 10 intent kinds, 3 derived categories.
+
+The **modality of claim** and **source question** columns are
+agent-facing prompting guidance: they help the agent discriminate
+between kinds when authoring nodes and help the elicitor choose
+which question to ask next. The source question is the abstract
+driver — it is not a literal question to parrot, but a heuristic
+for what kind of material the node captures.
 
 **Category semantics:**
 
@@ -617,7 +625,7 @@ is not stored on the node.
 
 ## Per-kind detail schemas
 
-Most kinds use `title` + `body` only. Three kinds have structured
+Most kinds use `title` + `body` only. Two kinds have structured
 `detail` sub-schemas validated by the `CommandExecutor`:
 
 ```ts
@@ -633,24 +641,42 @@ interface TermDetail {
   readonly definition:     string
   readonly aliases?:       string[]
 }
-
-// constraint: OPTIONAL detail
-interface ConstraintDetail {
-  readonly subtype:        ConstraintSubtype
-}
-type ConstraintSubtype = "scope_rule" | "invariant" | "non_goal" | "exclusion"
 ```
 
 **Validation rules:**
 
 - `decision` and `term` nodes REQUIRE `detail`; the CommandExecutor
   rejects creation without it.
-- `constraint` nodes MAY have `detail`; when present, `subtype`
-  must be from the closed enum.
 - All other kinds: `detail` must be absent or null.
 - Unknown fields in `detail` are rejected (closed validation).
 - `detail` is stored as a JSON column in SQLite — one `nodes`
   table for all planes and kinds.
+
+## Prompting guidance for kind discrimination
+
+The modality-of-claim table (§Intent plane) is the primary agent
+rubric. Additional prompting heuristics for kinds that need them:
+
+- **`requirement` duality.** A requirement may be user-story-shaped
+  (stated directly by a stakeholder, `source: "stakeholder"`,
+  `basis: "explicit"`) or projection-shaped (derived from existing
+  goals/theses/constraints via `project-graph`, `source: "derived"`,
+  `basis: "accepted_review_set"`). Both are obligation claims. The
+  `source` and `basis` fields carry the provenance distinction;
+  strategy prompt packs (`step-wise` vs `project-graph`) guide the
+  agent on which framing to use.
+- **`invariant` vs `constraint`.** A constraint says "don't go
+  there" — it bounds the solution space. An invariant says "this
+  must always hold" — things break if it's violated. Constraints
+  get `boundary` edges; invariants get `dependency` and `proof`
+  edges. If invalidating the source should cascade downstream
+  breakage, it is an invariant; if it merely narrows what's in
+  scope, it is a constraint.
+- **`thesis` carries the grounding material** that a prose spec
+  invests in: who this is for, what problem it solves, what value
+  it creates, what bet we're making. It is not a requirement (a
+  bet, not a need), not a goal (falsifiable, not aspirational),
+  and not an assumption (a chosen position, not a dependency).
 
 ## `framing_as` — retired
 
@@ -660,7 +686,9 @@ non-goal, etc.) is retired. Its work is absorbed by:
 - **`thesis`** — carries "what/who/why" material (problem framing,
   persona framing, value proposition framing)
 - **`term`** — carries naming commitments
-- **`constraint` with `subtype: non_goal`** — carries exclusions
+- **`constraint`** — carries exclusions and boundary claims
+- **`invariant`** — carries preservation claims (was formerly
+  conflated with constraints)
 - **`goal`** — carries aspirational intent
 
 The allowed `framing_as` matrix (I7-L) and the "promote when a
