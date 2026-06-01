@@ -566,6 +566,7 @@ is not stored on the node.
 | basic | `goal` | Value or outcome claim | "What outcome are we after?" |
 | basic | `thesis` | Position or bet claim | "What do we believe about who this is for and why?" |
 | basic | `term` | Naming commitment | "What do we mean when we say X?" |
+| basic | `context` | Descriptive claim | "What is true about the world this lives in?" |
 | structural | `requirement` | Obligation claim | "What must the system do?" |
 | structural | `assumption` | Uncertainty claim | "What might be false?" |
 | structural | `constraint` | Boundary claim | "What does this rule out?" |
@@ -574,7 +575,7 @@ is not stored on the node.
 | reasoning | `criterion` | Oracle claim | "How will we judge that it holds?" |
 | reasoning | `example` | Witness or disambiguator claim | "What concrete case would settle this?" |
 
-10 intent kinds, 3 derived categories.
+11 intent kinds, 3 derived categories.
 
 The **modality of claim** and **source question** columns are
 agent-facing prompting guidance: they help the agent discriminate
@@ -677,6 +678,18 @@ rubric. Additional prompting heuristics for kinds that need them:
   it creates, what bet we're making. It is not a requirement (a
   bet, not a need), not a goal (falsifiable, not aspirational),
   and not an assumption (a chosen position, not a dependency).
+- **`context` promotion heuristic.** Context is the last-resort
+  descriptive bucket — before filing a node as `context`, check
+  whether it should be promoted:
+
+  | If the context… | Promote to… |
+  | --- | --- |
+  | must be true for success | `requirement` or `invariant` |
+  | limits acceptable solutions | `constraint` |
+  | may be false and matters | `assumption` |
+  | chooses among alternatives | `decision` |
+  | is a bet about users/market/value | `thesis` |
+  | just helps interpretation | keep as `context` |
 
 ## `framing_as` — retired
 

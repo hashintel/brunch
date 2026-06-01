@@ -38,11 +38,11 @@ export type NodeBasis = "explicit" | "accepted_review_set"
 
 /**
  * Intent-plane kinds, spanning three derived categories:
- *  - basic:      `goal`, `thesis`, `term`
+ *  - basic:      `goal`, `thesis`, `term`, `context`
  *  - structural: `requirement`, `assumption`, `constraint`, `invariant`
  *  - reasoning:  `decision`, `criterion`, `example`
  */
-export type IntentKind = "goal" | "thesis" | "term" | "requirement" | "assumption" | "constraint" | "invariant" | "decision" | "criterion" | "example"
+export type IntentKind = "goal" | "thesis" | "term" | "context" | "requirement" | "assumption" | "constraint" | "invariant" | "decision" | "criterion" | "example"
 
 /** Oracle-plane kinds. */
 export type OracleKind = "check" | "validation_method" | "evidence" | "obligation"
@@ -73,6 +73,7 @@ export function intentKindCategory(kind: IntentKind): IntentKindCategory {
     case "goal":
     case "thesis":
     case "term":
+    case "context":
       return "basic"
     case "requirement":
     case "assumption":
