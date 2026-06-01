@@ -47,6 +47,15 @@ export {
   type ReconNeedTrigger,
 } from "./policy/category-policy.js"
 
+export { getGraphOverview, getNodeNeighborhood } from "./snapshot.js"
+export type {
+  GraphOverview,
+  NeighborhoodOptions,
+  NeighborhoodNotFound,
+  NeighborhoodResult,
+  NeighborhoodSuccess,
+} from "./snapshot.js"
+
 export { CommandExecutor } from "./command-executor.js"
 export type {
   BatchEdgeInput,
