@@ -42,7 +42,7 @@ All no — pure oracle addition inside the settled fold seam. Stays light.
 
 ## Card #4: SDCPN folded-naming round-trip on a real 2-slice net
 
-**Status:** next
+**Status:** done — added folded-naming + collapse + schema round-trip oracles to petrinaut-sdcpn.test.ts.
 
 ### Objective
 

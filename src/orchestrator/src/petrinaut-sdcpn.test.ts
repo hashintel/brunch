@@ -91,6 +91,26 @@ const simplePlan: Plan = {
   ],
 };
 
+const depPlan: Plan = {
+  epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
+  slices: [
+    {
+      id: 'slice-a',
+      epic_id: 'epic-1',
+      definition: 'A',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'ta' }],
+    },
+    {
+      id: 'slice-b',
+      epic_id: 'epic-1',
+      definition: 'B',
+      depends_on: ['slice-a'],
+      verification: [{ kind: 'unit-test', target: 'tb' }],
+    },
+  ],
+};
+
 /** Build a real PetrinautNet from a plan (the actual `net.json` shape). */
 function realNet(plan: Plan): PetrinautNet {
   return serializeBlueprint(compileTopology(plan, { maxRetries: 3 }), { runId: 'run-1' });
@@ -242,5 +262,36 @@ describe('toSdcpnFile — round-trips through the Petrinaut loader', () => {
         expect(placeIds.has(placeId)).toBe(true);
       }
     }
+  });
+});
+
+describe('toSdcpnFile — folded multi-slice net (FE-784)', () => {
+  // The colour fold's original motivation: clean SDCPN names. Before folding,
+  // every slice produced a `slice:slice-N:spec-ready` place that PascalCased to
+  // the same base, so the name allocator appended collision counters
+  // (SliceSliceSpecReady, SliceSliceSpecReady2, …). After folding, the slice
+  // lifecycle collapses to one copy, so no allocator suffix is needed.
+
+  it('produces collision-free PascalCase names with no allocator digit suffixes', () => {
+    const file = toSdcpnFile(realNet(depPlan), {});
+    // pascalCaseLetters strips digits from the source, so any digit in a final
+    // name can only be an allocator collision counter — there should be none.
+    for (const p of file.places) {
+      expect(p.name, `place ${p.id} got a collision-suffixed name ${p.name}`).not.toMatch(/\d/);
+    }
+    expect(new Set(file.places.map((p) => p.name)).size).toBe(file.places.length);
+  });
+
+  it('collapses the slice lifecycle: one shared place, far fewer than an unfolded 2-slice net', () => {
+    const single = toSdcpnFile(realNet(simplePlan), {}).places.length;
+    const file = toSdcpnFile(realNet(depPlan), {});
+    // Unfolded, two slices would roughly double the single-slice lifecycle.
+    // Folded, the shared lifecycle appears once, so dep stays well under 2×.
+    expect(file.places.length).toBeLessThan(single * 2);
+    expect(file.places.filter((p) => p.id === 'spec-ready')).toHaveLength(1);
+  });
+
+  it('still satisfies the Petrinaut loader schema', () => {
+    expect(sdcpnFileSchema.safeParse(toSdcpnFile(realNet(depPlan), {})).success).toBe(true);
   });
 });
