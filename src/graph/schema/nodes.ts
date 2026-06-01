@@ -8,6 +8,13 @@
  * agent-facing node command surface land with subsequent slices.
  */
 
+import {
+  DESIGN_KINDS,
+  INTENT_KINDS,
+  NODE_BASES,
+  ORACLE_KINDS,
+  PLAN_KINDS,
+} from "../../db/schema.js"
 import type { Lsn, NodeId } from "../atoms.js"
 
 // ---------------------------------------------------------------------------
@@ -28,12 +35,12 @@ export type NodePlane = "intent" | "oracle" | "design" | "plan"
 /**
  * How a node entered graph truth.
  *
- * Mirrors {@link import("./edges.js").EdgeBasis} — same semantics.
+ * Derived from `db/schema.ts` — same semantics as EdgeBasis.
  */
-export type NodeBasis = "explicit" | "accepted_review_set"
+export type NodeBasis = typeof NODE_BASES[number]
 
 // ---------------------------------------------------------------------------
-// Kind taxonomy
+// Kind taxonomy — derived from db/schema.ts const arrays
 // ---------------------------------------------------------------------------
 
 /**
@@ -42,16 +49,16 @@ export type NodeBasis = "explicit" | "accepted_review_set"
  *  - structural: `requirement`, `assumption`, `constraint`, `invariant`
  *  - reasoning:  `decision`, `criterion`, `example`
  */
-export type IntentKind = "goal" | "thesis" | "term" | "context" | "requirement" | "assumption" | "constraint" | "invariant" | "decision" | "criterion" | "example"
+export type IntentKind = typeof INTENT_KINDS[number]
 
 /** Oracle-plane kinds. */
-export type OracleKind = "check" | "validation_method" | "evidence" | "obligation"
+export type OracleKind = typeof ORACLE_KINDS[number]
 
 /** Design-plane kinds. */
-export type DesignKind = "module" | "interface"
+export type DesignKind = typeof DESIGN_KINDS[number]
 
 /** Plan-plane kinds. */
-export type PlanKind = "milestone" | "frontier" | "slice"
+export type PlanKind = typeof PLAN_KINDS[number]
 
 /** Union of every node kind across all planes. */
 export type NodeKind = IntentKind | OracleKind | DesignKind | PlanKind

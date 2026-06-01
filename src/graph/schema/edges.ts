@@ -10,14 +10,13 @@
  * agent-facing link* command surface land with subsequent M4/M5 slices.
  */
 
+import { EDGE_CATEGORIES, EDGE_STANCES, NODE_BASES } from "../../db/schema.js"
 import type { EdgeId, Lsn, NodeId } from "../atoms.js"
 
 /**
  * Closed set of structural edge categories.
  *
- * The category drives all policy. The agent chooses category;
- * tuple-specific labels are derived at projection time and cannot
- * change category policy.
+ * Derived from `db/schema.ts` — the single enum source.
  *
  * - `dependency`   dependency  → dependent      hard upstream; cascade
  * - `proof`        oracle      → claim          witness or refutation (stance required)
@@ -28,7 +27,7 @@ import type { EdgeId, Lsn, NodeId } from "../atoms.js"
  * - `supersession` successor   → predecessor    replacement lineage (acyclic)
  * - `association`  peer        ↔ peer           weak relatedness (symmetric)
  */
-export type EdgeCategory = "dependency" | "proof" | "support" | "realization" | "boundary" | "composition" | "association" | "supersession"
+export type EdgeCategory = typeof EDGE_CATEGORIES[number]
 
 /**
  * Polarity for stance-bearing edges.
@@ -36,7 +35,7 @@ export type EdgeCategory = "dependency" | "proof" | "support" | "realization" | 
  * Required for `proof` and `support`.
  * Invalid (must be omitted) for every other category.
  */
-export type EdgeStance = "for" | "against"
+export type EdgeStance = typeof EDGE_STANCES[number]
 
 /**
  * How an edge entered graph truth.
@@ -47,7 +46,7 @@ export type EdgeStance = "for" | "against"
  * preface or `capture_*` analysis until promoted through a review set
  * (D47-L, D50-L).
  */
-export type EdgeBasis = "explicit" | "accepted_review_set"
+export type EdgeBasis = typeof NODE_BASES[number]
 
 // EdgeProvenance retired — change_log owns the full audit trail.
 
