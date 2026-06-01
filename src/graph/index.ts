@@ -47,7 +47,11 @@ export {
   type ReconNeedTrigger,
 } from "./policy/category-policy.js"
 
-export { getGraphOverview, getNodeNeighborhood } from "./snapshot.js"
+export {
+  getGraphOverview,
+  getNodeNeighborhood,
+  getOpenReconciliationNeeds,
+} from "./snapshot.js"
 export type {
   GraphOverview,
   NeighborhoodOptions,
@@ -68,9 +72,15 @@ export type {
   CommitGraphSuccess,
   CreateNodeInput,
   CreateNodeResult,
+  CreateReconNeedInput,
+  CreateReconNeedResult,
   Diagnostic,
   NeedsHuman,
   PolicyBlocked,
+  ReconNeedResolveSuccess,
+  ReconNeedSuccess,
+  ReconNeedTarget,
+  ResolveReconNeedResult,
   StructuralIllegal,
   VersionConflict,
 } from "./command-executor.js"

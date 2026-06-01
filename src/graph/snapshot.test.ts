@@ -11,7 +11,11 @@ import { beforeEach, describe, expect, it } from "vitest"
 
 import { createDb, type BrunchDb } from "../db/connection.js"
 import { CommandExecutor } from "./command-executor.js"
-import { getGraphOverview, getNodeNeighborhood } from "./snapshot.js"
+import {
+  getGraphOverview,
+  getNodeNeighborhood,
+  getOpenReconciliationNeeds,
+} from "./snapshot.js"
 
 function createTestDb(): BrunchDb {
   return createDb(":memory:")
@@ -280,5 +284,71 @@ describe("getNodeNeighborhood", () => {
     expect(edge.category).toBe("boundary")
     expect(edge.sourceId).toBe(t1Id)
     expect(edge.createdAtLsn).toBeTypeOf("number")
+  })
+})
+
+describe("getOpenReconciliationNeeds", () => {
+  let db: BrunchDb
+  let executor: CommandExecutor
+
+  beforeEach(() => {
+    db = createTestDb()
+    executor = new CommandExecutor(db)
+  })
+
+  it("returns empty array when no needs exist", () => {
+    const needs = getOpenReconciliationNeeds(db)
+    expect(needs).toEqual([])
+  })
+
+  it("returns open needs as typed domain objects", () => {
+    const batch = executor.commitGraph({
+      nodes: [
+        { ref: "r1", plane: "intent", kind: "requirement", title: "R1" },
+        { ref: "a1", plane: "intent", kind: "assumption", title: "A1" },
+      ],
+      edges: [{ category: "dependency", source: "r1", target: "a1" }],
+    })
+    expect(batch.status).toBe("success")
+    if (batch.status !== "success") throw new Error("unreachable")
+
+    const create = executor.createReconciliationNeed({
+      target: { kind: "edge", edgeId: batch.edges[0]! },
+      needKind: "edge_revalidation",
+      reason: "upstream changed",
+    })
+    expect(create.status).toBe("success")
+    if (create.status !== "success") throw new Error("unreachable")
+
+    const needs = getOpenReconciliationNeeds(db)
+    expect(needs).toHaveLength(1)
+    expect(needs[0]!.kind).toBe("edge_revalidation")
+    expect(needs[0]!.target).toEqual({ kind: "edge", edgeId: batch.edges[0]! })
+    expect(needs[0]!.rationale).toBe("upstream changed")
+    expect(needs[0]!.createdAtLsn).toBeTypeOf("number")
+  })
+
+  it("excludes resolved needs", () => {
+    const batch = executor.commitGraph({
+      nodes: [
+        { ref: "r1", plane: "intent", kind: "requirement", title: "R1" },
+        { ref: "a1", plane: "intent", kind: "assumption", title: "A1" },
+      ],
+      edges: [{ category: "dependency", source: "r1", target: "a1" }],
+    })
+    expect(batch.status).toBe("success")
+    if (batch.status !== "success") throw new Error("unreachable")
+
+    const create = executor.createReconciliationNeed({
+      target: { kind: "edge", edgeId: batch.edges[0]! },
+      needKind: "edge_revalidation",
+    })
+    expect(create.status).toBe("success")
+    if (create.status !== "success") throw new Error("unreachable")
+
+    executor.resolveReconciliationNeed(create.id)
+
+    const needs = getOpenReconciliationNeeds(db)
+    expect(needs).toEqual([])
   })
 })

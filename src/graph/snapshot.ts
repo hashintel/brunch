@@ -15,6 +15,10 @@ import type { BrunchDb } from "../db/connection.js"
 import * as schema from "../db/schema.js"
 import type { GraphEdge } from "./schema/edges.js"
 import type { GraphNode, NodeDetail } from "./schema/nodes.js"
+import type {
+  ReconciliationNeed,
+  ReconciliationNeedTarget,
+} from "./schema/reconciliation-need.js"
 
 // ---------------------------------------------------------------------------
 // Return types
@@ -242,4 +246,40 @@ export function getNodeNeighborhood(
     neighbors: neighborNodes,
     edges: edgeNodes,
   }
+}
+
+// ---------------------------------------------------------------------------
+// getOpenReconciliationNeeds
+// ---------------------------------------------------------------------------
+
+function rowToReconNeed(
+  row: typeof schema.reconciliationNeed.$inferSelect,
+): ReconciliationNeed {
+  const target: ReconciliationNeedTarget =
+    row.target_kind === "edge"
+      ? { kind: "edge", edgeId: row.target_edge_id! }
+      : { kind: "node_pair", aId: row.target_a_id!, bId: row.target_b_id! }
+
+  return {
+    id: String(row.id),
+    kind: row.kind as ReconciliationNeed["kind"],
+    target,
+    ...(row.reason != null ? { rationale: row.reason } : {}),
+    createdAtLsn: row.created_at_lsn,
+    ...(row.resolved_at_lsn != null
+      ? { resolvedAtLsn: row.resolved_at_lsn }
+      : {}),
+  }
+}
+
+/**
+ * Return all open (unresolved) reconciliation needs.
+ */
+export function getOpenReconciliationNeeds(db: BrunchDb): ReconciliationNeed[] {
+  const rows = db
+    .select()
+    .from(schema.reconciliationNeed)
+    .where(eq(schema.reconciliationNeed.status, "open"))
+    .all()
+  return rows.map(rowToReconNeed)
 }

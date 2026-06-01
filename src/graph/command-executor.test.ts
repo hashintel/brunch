@@ -743,4 +743,180 @@ describe("CommandExecutor", () => {
       }
     })
   })
+
+  // --- createReconciliationNeed ---
+
+  describe("createReconciliationNeed", () => {
+    it("creates a recon need targeting an edge and returns success with id and lsn", () => {
+      // Seed a node and edge first
+      const batch = executor.commitGraph({
+        nodes: [
+          { ref: "r1", plane: "intent", kind: "requirement", title: "R1" },
+          { ref: "a1", plane: "intent", kind: "assumption", title: "A1" },
+        ],
+        edges: [{ category: "dependency", source: "r1", target: "a1" }],
+      })
+      expect(batch.status).toBe("success")
+      if (batch.status !== "success") throw new Error("unreachable")
+      const edgeId = batch.edges[0]!
+
+      const result = executor.createReconciliationNeed({
+        target: { kind: "edge", edgeId },
+        needKind: "edge_revalidation",
+        reason: "upstream assumption changed",
+      })
+
+      expect(result.status).toBe("success")
+      if (result.status !== "success") throw new Error("unreachable")
+      expect(result.id).toBeTypeOf("number")
+      expect(result.lsn).toBeTypeOf("number")
+    })
+
+    it("creates a recon need targeting a node pair", () => {
+      const batch = executor.commitGraph({
+        nodes: [
+          { ref: "r1", plane: "intent", kind: "requirement", title: "R1" },
+          { ref: "r2", plane: "intent", kind: "requirement", title: "R2" },
+        ],
+        edges: [],
+      })
+      expect(batch.status).toBe("success")
+      if (batch.status !== "success") throw new Error("unreachable")
+      const aId = batch.nodes["r1"]!
+      const bId = batch.nodes["r2"]!
+
+      const result = executor.createReconciliationNeed({
+        target: { kind: "node_pair", aId, bId },
+        needKind: "possible_duplicate",
+      })
+
+      expect(result.status).toBe("success")
+      if (result.status !== "success") throw new Error("unreachable")
+      expect(result.id).toBeTypeOf("number")
+    })
+
+    it("rejects edge target with non-existent edgeId", () => {
+      const result = executor.createReconciliationNeed({
+        target: { kind: "edge", edgeId: 999 },
+        needKind: "edge_revalidation",
+      })
+
+      expect(result.status).toBe("structural_illegal")
+      if (result.status !== "structural_illegal") throw new Error("unreachable")
+      expect(result.diagnostics[0]!.field).toBe("target.edgeId")
+    })
+
+    it("rejects node_pair target with non-existent nodeId", () => {
+      const n = executor.createNode({
+        plane: "intent",
+        kind: "goal",
+        title: "G1",
+      })
+      expect(n.status).toBe("success")
+      if (n.status !== "success") throw new Error("unreachable")
+
+      const result = executor.createReconciliationNeed({
+        target: { kind: "node_pair", aId: n.nodeId, bId: 999 },
+        needKind: "possible_relation",
+      })
+
+      expect(result.status).toBe("structural_illegal")
+      if (result.status !== "structural_illegal") throw new Error("unreachable")
+      expect(result.diagnostics[0]!.field).toBe("target.bId")
+    })
+
+    it("allocates a new LSN for each recon need", () => {
+      const n = executor.createNode({
+        plane: "intent",
+        kind: "goal",
+        title: "G1",
+      })
+      expect(n.status).toBe("success")
+      if (n.status !== "success") throw new Error("unreachable")
+      const n2 = executor.createNode({
+        plane: "intent",
+        kind: "goal",
+        title: "G2",
+      })
+      expect(n2.status).toBe("success")
+      if (n2.status !== "success") throw new Error("unreachable")
+
+      const r1 = executor.createReconciliationNeed({
+        target: { kind: "node_pair", aId: n.nodeId, bId: n2.nodeId },
+        needKind: "possible_relation",
+      })
+      expect(r1.status).toBe("success")
+      if (r1.status !== "success") throw new Error("unreachable")
+
+      const r2 = executor.createReconciliationNeed({
+        target: { kind: "node_pair", aId: n.nodeId, bId: n2.nodeId },
+        needKind: "semantic_conflict",
+      })
+      expect(r2.status).toBe("success")
+      if (r2.status !== "success") throw new Error("unreachable")
+
+      expect(r2.lsn).toBeGreaterThan(r1.lsn)
+    })
+  })
+
+  // --- resolveReconciliationNeed ---
+
+  describe("resolveReconciliationNeed", () => {
+    it("resolves an open need and records resolvedAtLsn", () => {
+      const batch = executor.commitGraph({
+        nodes: [
+          { ref: "r1", plane: "intent", kind: "requirement", title: "R1" },
+          { ref: "a1", plane: "intent", kind: "assumption", title: "A1" },
+        ],
+        edges: [{ category: "dependency", source: "r1", target: "a1" }],
+      })
+      expect(batch.status).toBe("success")
+      if (batch.status !== "success") throw new Error("unreachable")
+
+      const create = executor.createReconciliationNeed({
+        target: { kind: "edge", edgeId: batch.edges[0]! },
+        needKind: "edge_revalidation",
+      })
+      expect(create.status).toBe("success")
+      if (create.status !== "success") throw new Error("unreachable")
+
+      const resolve = executor.resolveReconciliationNeed(create.id)
+      expect(resolve.status).toBe("success")
+      if (resolve.status !== "success") throw new Error("unreachable")
+      expect(resolve.lsn).toBeGreaterThan(create.lsn)
+    })
+
+    it("rejects non-existent need id", () => {
+      const result = executor.resolveReconciliationNeed(999)
+      expect(result.status).toBe("structural_illegal")
+    })
+
+    it("rejects already-resolved need", () => {
+      const batch = executor.commitGraph({
+        nodes: [
+          { ref: "r1", plane: "intent", kind: "requirement", title: "R1" },
+          { ref: "a1", plane: "intent", kind: "assumption", title: "A1" },
+        ],
+        edges: [{ category: "dependency", source: "r1", target: "a1" }],
+      })
+      expect(batch.status).toBe("success")
+      if (batch.status !== "success") throw new Error("unreachable")
+
+      const create = executor.createReconciliationNeed({
+        target: { kind: "edge", edgeId: batch.edges[0]! },
+        needKind: "edge_revalidation",
+      })
+      expect(create.status).toBe("success")
+      if (create.status !== "success") throw new Error("unreachable")
+
+      const resolve1 = executor.resolveReconciliationNeed(create.id)
+      expect(resolve1.status).toBe("success")
+
+      const resolve2 = executor.resolveReconciliationNeed(create.id)
+      expect(resolve2.status).toBe("structural_illegal")
+      if (resolve2.status !== "structural_illegal")
+        throw new Error("unreachable")
+      expect(resolve2.diagnostics[0]!.message).toContain("already resolved")
+    })
+  })
 })

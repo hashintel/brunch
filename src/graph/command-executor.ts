@@ -70,14 +70,33 @@ export interface CommitGraphSuccess {
   readonly edges: readonly number[]
 }
 
+/** Successful reconciliation-need creation. */
+export interface ReconNeedSuccess {
+  readonly status: "success"
+  readonly id: number
+  readonly lsn: number
+}
+
+/** Successful reconciliation-need resolution. */
+export interface ReconNeedResolveSuccess {
+  readonly status: "success"
+  readonly lsn: number
+}
+
 /** Union of all possible command results. */
-export type CommandResult = CommandSuccess | CommitGraphSuccess | StructuralIllegal | NeedsHuman | PolicyBlocked | VersionConflict
+export type CommandResult = CommandSuccess | CommitGraphSuccess | ReconNeedSuccess | ReconNeedResolveSuccess | StructuralIllegal | NeedsHuman | PolicyBlocked | VersionConflict
 
 /** Result of a createNode command. */
 export type CreateNodeResult = CommandSuccess | StructuralIllegal
 
 /** Result of a commitGraph command. */
 export type CommitGraphResult = CommitGraphSuccess | StructuralIllegal
+
+/** Result of a createReconciliationNeed command. */
+export type CreateReconNeedResult = ReconNeedSuccess | StructuralIllegal
+
+/** Result of a resolveReconciliationNeed command. */
+export type ResolveReconNeedResult = ReconNeedResolveSuccess | StructuralIllegal
 
 // ---------------------------------------------------------------------------
 // Input types
@@ -92,6 +111,33 @@ export interface CreateNodeInput {
   readonly basis?: NodeBasis | undefined
   readonly source?: string | undefined
   readonly detail?: unknown
+}
+
+// ---------------------------------------------------------------------------
+// Reconciliation-need input types
+// ---------------------------------------------------------------------------
+
+/** Target for a reconciliation need — edge or node pair. */
+export type ReconNeedTargetEdge = {
+  readonly kind: "edge"
+  readonly edgeId: number
+}
+
+/** Target for a reconciliation need — node pair. */
+export type ReconNeedTargetNodePair = {
+  readonly kind: "node_pair"
+  readonly aId: number
+  readonly bId: number
+}
+
+/** Target for a reconciliation need. */
+export type ReconNeedTarget = ReconNeedTargetEdge | ReconNeedTargetNodePair
+
+/** Input for creating a reconciliation need. */
+export interface CreateReconNeedInput {
+  readonly target: ReconNeedTarget
+  readonly needKind: string
+  readonly reason?: string | undefined
 }
 
 // ---------------------------------------------------------------------------
@@ -631,5 +677,167 @@ export class CommandExecutor {
       }
       throw e
     }
+  }
+
+  /**
+   * Create a reconciliation need.
+   *
+   * Validates that the target (edge or node pair) exists, then inserts
+   * inside one transaction with LSN allocation and change_log append.
+   */
+  createReconciliationNeed(input: CreateReconNeedInput): CreateReconNeedResult {
+    // Validate target references exist
+    return this.db.transaction((tx) => {
+      const diagnostics: Diagnostic[] = []
+
+      if (input.target.kind === "edge") {
+        const row = tx
+          .select({ id: schema.edges.id })
+          .from(schema.edges)
+          .where(eq(schema.edges.id, input.target.edgeId))
+          .get()
+        if (!row) {
+          diagnostics.push({
+            field: "target.edgeId",
+            message: `edge ${input.target.edgeId} does not exist`,
+          })
+        }
+      } else {
+        const aRow = tx
+          .select({ id: schema.nodes.id })
+          .from(schema.nodes)
+          .where(eq(schema.nodes.id, input.target.aId))
+          .get()
+        if (!aRow) {
+          diagnostics.push({
+            field: "target.aId",
+            message: `node ${input.target.aId} does not exist`,
+          })
+        }
+        const bRow = tx
+          .select({ id: schema.nodes.id })
+          .from(schema.nodes)
+          .where(eq(schema.nodes.id, input.target.bId))
+          .get()
+        if (!bRow) {
+          diagnostics.push({
+            field: "target.bId",
+            message: `node ${input.target.bId} does not exist`,
+          })
+        }
+      }
+
+      if (diagnostics.length > 0) {
+        return { status: "structural_illegal" as const, diagnostics }
+      }
+
+      // Allocate LSN
+      const clock = tx
+        .update(schema.graphClock)
+        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
+        .where(eq(schema.graphClock.id, 1))
+        .returning()
+        .get()
+      const lsn = clock!.lsn
+
+      // Insert reconciliation need
+      const row = tx
+        .insert(schema.reconciliationNeed)
+        .values({
+          target_kind: input.target.kind,
+          target_edge_id:
+            input.target.kind === "edge" ? input.target.edgeId : null,
+          target_a_id:
+            input.target.kind === "node_pair" ? input.target.aId : null,
+          target_b_id:
+            input.target.kind === "node_pair" ? input.target.bId : null,
+          kind: input.needKind,
+          reason: input.reason ?? null,
+          created_at_lsn: lsn,
+        })
+        .returning()
+        .get()
+
+      // Append change_log
+      tx.insert(schema.changeLog)
+        .values({
+          lsn,
+          operation: "create_reconciliation_need",
+          payload: JSON.stringify({
+            id: row!.id,
+            target: input.target,
+            kind: input.needKind,
+          }),
+        })
+        .run()
+
+      return { status: "success" as const, id: row!.id, lsn }
+    })
+  }
+
+  /**
+   * Resolve an open reconciliation need.
+   *
+   * Sets status to "resolved" and records the resolvedAtLsn.
+   * Rejects if the need does not exist or is already resolved.
+   */
+  resolveReconciliationNeed(id: number): ResolveReconNeedResult {
+    return this.db.transaction((tx) => {
+      const existing = tx
+        .select()
+        .from(schema.reconciliationNeed)
+        .where(eq(schema.reconciliationNeed.id, id))
+        .get()
+
+      if (!existing) {
+        return {
+          status: "structural_illegal" as const,
+          diagnostics: [
+            {
+              field: "id",
+              message: `reconciliation need ${id} does not exist`,
+            },
+          ],
+        }
+      }
+
+      if (existing.status === "resolved") {
+        return {
+          status: "structural_illegal" as const,
+          diagnostics: [
+            {
+              field: "id",
+              message: `reconciliation need ${id} is already resolved`,
+            },
+          ],
+        }
+      }
+
+      // Allocate LSN
+      const clock = tx
+        .update(schema.graphClock)
+        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
+        .where(eq(schema.graphClock.id, 1))
+        .returning()
+        .get()
+      const lsn = clock!.lsn
+
+      // Update status
+      tx.update(schema.reconciliationNeed)
+        .set({ status: "resolved", resolved_at_lsn: lsn })
+        .where(eq(schema.reconciliationNeed.id, id))
+        .run()
+
+      // Append change_log
+      tx.insert(schema.changeLog)
+        .values({
+          lsn,
+          operation: "resolve_reconciliation_need",
+          payload: JSON.stringify({ id }),
+        })
+        .run()
+
+      return { status: "success" as const, lsn }
+    })
   }
 }
