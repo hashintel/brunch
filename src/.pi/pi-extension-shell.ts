@@ -19,6 +19,10 @@ import { type BrunchChromeState } from "./extensions/chrome.js"
 import { type BrunchSessionBoundaryHandler } from "./extensions/session-lifecycle.js"
 import { type BrunchSpecSessionPickerOptions } from "./extensions/workspace-dialog.js"
 import { registerBrunchWorkspaceDialog } from "./extensions/workspace-dialog.js"
+import {
+  registerBrunchGraph,
+  type BrunchGraphDeps,
+} from "./extensions/graph/index.js"
 
 export { registerBrunchAlternatives } from "./extensions/alternatives.js"
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from "./extensions/command-policy.js"
@@ -74,9 +78,16 @@ export {
   type BrunchSpecSessionPickerOptions,
 } from "./extensions/workspace-dialog.js"
 
+export {
+  registerBrunchGraph,
+  type BrunchGraphDeps,
+  type GraphSnapshotReaders,
+} from "./extensions/graph/index.js"
+
 export interface BrunchPiExtensionShellOptions
   extends BrunchSpecSessionPickerOptions {
   graphMentionSource?: GraphMentionSource
+  graph?: BrunchGraphDeps
 }
 
 type BrunchProductExtensionRegistrar = (
@@ -101,6 +112,9 @@ export function createBrunchPiExtensionShell(
       registerBrunchAlternatives,
       registerStructuredExchange,
       (api) => registerBrunchWorkspaceDialog(api, options),
+      ...(options.graph
+        ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)]
+        : []),
     ]
 
     for (const registerExtension of extensions) {

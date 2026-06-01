@@ -10,6 +10,18 @@
 
 export type { EdgeId, Lsn, NodeId } from "./atoms.js"
 
+// Re-export shared enum const arrays so extensions can build
+// tool parameter schemas without importing db/ directly (I26-L).
+export {
+  EDGE_CATEGORIES,
+  EDGE_STANCES,
+  INTENT_KINDS,
+  ORACLE_KINDS,
+  DESIGN_KINDS,
+  PLAN_KINDS,
+  NODE_BASES,
+} from "../db/schema.js"
+
 export type {
   EdgeBasis,
   EdgeCategory,
