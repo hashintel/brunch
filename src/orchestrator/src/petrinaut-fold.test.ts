@@ -1,51 +1,131 @@
 import { describe, expect, it } from 'vitest';
 
-import { collectSliceIds, foldPlaceId, foldTransitionId } from './petrinaut-fold.js';
+import type { NetBlueprint, TransitionSkeleton } from './net-blueprint.js';
+import { createNetFolding, SLICE_COLOUR_TYPE_ID } from './petrinaut-fold.js';
 
-describe('foldPlaceId', () => {
-  it('strips the slice:<sid>: prefix to the bare role', () => {
-    expect(foldPlaceId('slice:slice-1:spec-ready')).toBe('spec-ready');
-    expect(foldPlaceId('slice:slice-1:evaluate:running')).toBe('evaluate:running');
+// A compact two-slice blueprint exercising every fold rule without depending on
+// the compiler: uniform lifecycle transitions (evaluate:dispatch), a divergent
+// dependency gate (slice-ready, slice-b carries a dep-signal input slice-a
+// lacks), a per-edge dep-signal place, and unfolded epic/pool nodes.
+function tx(id: string, inputs: string[], outputs: string[]): TransitionSkeleton {
+  return {
+    id,
+    inputs,
+    contract: { kind: 'structural', lane: 'mechanical' },
+    handler: { kind: 'passthrough', outputs: outputs.map((place) => ({ place, sliceId: '', epicId: '' })) },
+  };
+}
+
+const blueprint: NetBlueprint = {
+  places: [
+    'pool:test-agent',
+    'slice:slice-a:eligible',
+    'slice:slice-a:spec-ready',
+    'slice:slice-a:evaluate:running',
+    'slice:slice-b:eligible',
+    'slice:slice-b:spec-ready',
+    'slice:slice-b:evaluate:running',
+    'slice:slice-a:dep-signal:slice-b',
+    'epic:epic-1:done',
+  ],
+  transitions: [
+    tx('slice-ready:slice-a', ['slice:slice-a:eligible'], ['slice:slice-a:spec-ready']),
+    tx(
+      'slice-ready:slice-b',
+      ['slice:slice-b:eligible', 'slice:slice-a:dep-signal:slice-b'],
+      ['slice:slice-b:spec-ready'],
+    ),
+    tx(
+      'slice-a:evaluate:dispatch',
+      ['slice:slice-a:spec-ready', 'pool:test-agent'],
+      ['slice:slice-a:evaluate:running'],
+    ),
+    tx(
+      'slice-b:evaluate:dispatch',
+      ['slice:slice-b:spec-ready', 'pool:test-agent'],
+      ['slice:slice-b:evaluate:running'],
+    ),
+    tx(
+      'epic-complete:epic-1',
+      ['slice:slice-a:spec-ready', 'slice:slice-b:spec-ready'],
+      ['epic:epic-1:done'],
+    ),
+  ],
+  initialTokens: [
+    { place: 'slice:slice-a:eligible', token: { sliceId: 'slice-a', epicId: 'epic-1' } },
+    { place: 'slice:slice-b:eligible', token: { sliceId: 'slice-b', epicId: 'epic-1' } },
+    { place: 'pool:test-agent', token: { sliceId: '', epicId: '' } },
+  ],
+};
+
+describe('createNetFolding — foldedPlaces', () => {
+  const folding = createNetFolding(blueprint);
+
+  it('strips slice:<sid>: and dedupes the lifecycle places to one each', () => {
+    const ids = folding.foldedPlaces().map((p) => p.id);
+    expect(ids.filter((id) => id === 'spec-ready')).toHaveLength(1);
+    expect(ids.filter((id) => id === 'evaluate:running')).toHaveLength(1);
+    expect(ids.every((id) => !id.startsWith('slice:'))).toBe(true);
   });
 
-  it('keeps the dependent id on per-edge dep-signal places (folds to a unique role)', () => {
-    expect(foldPlaceId('slice:slice-a:dep-signal:slice-b')).toBe('dep-signal:slice-b');
+  it('keeps per-edge dep-signal and epic/pool places unchanged', () => {
+    const ids = folding.foldedPlaces().map((p) => p.id);
+    expect(ids).toContain('dep-signal:slice-b');
+    expect(ids).toContain('epic:epic-1:done');
+    expect(ids).toContain('pool:test-agent');
   });
 
-  it('leaves epic, pool, and bare places unchanged', () => {
-    expect(foldPlaceId('epic:epic-1:done')).toBe('epic:epic-1:done');
-    expect(foldPlaceId('pool:test-agent')).toBe('pool:test-agent');
-    expect(foldPlaceId('completed')).toBe('completed');
+  it('tags folded slice places with the colour type and leaves pool/epic untyped', () => {
+    const byId = new Map(folding.foldedPlaces().map((p) => [p.id, p]));
+    expect(byId.get('spec-ready')!.typeId).toBe(SLICE_COLOUR_TYPE_ID);
+    expect(byId.get('pool:test-agent')!.typeId).toBeUndefined();
+    expect(byId.get('epic:epic-1:done')!.typeId).toBeUndefined();
   });
 });
 
-describe('collectSliceIds', () => {
-  it('extracts every distinct slice id from slice-prefixed place ids', () => {
-    const ids = collectSliceIds([
-      'slice:slice-1:spec-ready',
-      'slice:slice-1:eligible',
-      'slice:slice-2:spec-ready',
-      'pool:test-agent',
-      'epic:epic-1:done',
-    ]);
-    expect(ids).toEqual(new Set(['slice-1', 'slice-2']));
-  });
-});
+describe('createNetFolding — foldedTransitions / foldTransition', () => {
+  const folding = createNetFolding(blueprint);
 
-describe('foldTransitionId', () => {
-  const sliceIds = new Set(['slice-1', 'slice-a', 'slice-b']);
-
-  it('removes a leading slice-id segment (sid-prefixed transitions)', () => {
-    expect(foldTransitionId('slice-1:evaluate:dispatch', sliceIds)).toBe('evaluate:dispatch');
-    expect(foldTransitionId('slice-1:return-done', sliceIds)).toBe('return-done');
+  it('collapses uniform per-slice transitions to one folded node', () => {
+    const ids = folding.foldedTransitions().map((t) => t.id);
+    expect(ids.filter((id) => id === 'evaluate:dispatch')).toHaveLength(1);
+    const dispatch = folding.foldedTransitions().find((t) => t.id === 'evaluate:dispatch')!;
+    expect(dispatch.inputs).toEqual(['spec-ready', 'pool:test-agent']);
+    expect(dispatch.outputs).toEqual(['evaluate:running']);
+    expect(folding.foldTransition('slice-a:evaluate:dispatch')).toBe('evaluate:dispatch');
+    expect(folding.foldTransition('slice-b:evaluate:dispatch')).toBe('evaluate:dispatch');
   });
 
-  it('removes a trailing slice-id segment (slice-ready gate)', () => {
-    expect(foldTransitionId('slice-ready:slice-a', sliceIds)).toBe('slice-ready');
+  it('keeps divergent dependency gates at their concrete ids', () => {
+    const ids = new Set(folding.foldedTransitions().map((t) => t.id));
+    expect(ids.has('slice-ready:slice-a')).toBe(true);
+    expect(ids.has('slice-ready:slice-b')).toBe(true);
+    expect(ids.has('slice-ready')).toBe(false);
+    expect(folding.foldTransition('slice-ready:slice-a')).toBe('slice-ready:slice-a');
   });
 
   it('leaves epic transitions (no slice-id segment) unchanged', () => {
-    expect(foldTransitionId('epic-deps-met:epic-1', sliceIds)).toBe('epic-deps-met:epic-1');
-    expect(foldTransitionId('epic-verify:epic-1:pass', sliceIds)).toBe('epic-verify:epic-1:pass');
+    expect(folding.foldTransition('epic-complete:epic-1')).toBe('epic-complete:epic-1');
+  });
+});
+
+describe('createNetFolding — foldedMarking', () => {
+  const folding = createNetFolding(blueprint);
+
+  it('merges token lists for places that fold together and preserves empty keys', () => {
+    const folded = folding.foldedMarking([
+      ['slice:slice-a:eligible', ['a']],
+      ['slice:slice-b:eligible', ['b']],
+      ['pool:test-agent', []],
+    ]);
+    expect(folded.get('eligible')).toEqual(['a', 'b']);
+    expect(folded.get('pool:test-agent')).toEqual([]);
+  });
+});
+
+describe('createNetFolding — tokenTypes', () => {
+  it('declares the SliceColour type when slice places are present', () => {
+    const types = createNetFolding(blueprint).tokenTypes();
+    expect(types.map((t) => t.id)).toEqual([SLICE_COLOUR_TYPE_ID]);
   });
 });

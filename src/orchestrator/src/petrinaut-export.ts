@@ -18,17 +18,9 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { enumerateCandidateOutputs } from './net-blueprint.js';
 import type { NetBlueprint, TokenSeed } from './net-blueprint.js';
 import { placeName } from './petri-net.js';
-import {
-  buildTransitionFoldMap,
-  collectSliceIds,
-  foldPlaceId,
-  SLICE_COLOUR_TYPE,
-  SLICE_COLOUR_TYPE_ID,
-  type PetrinautTokenType,
-} from './petrinaut-fold.js';
+import { createNetFolding, type PetrinautTokenType } from './petrinaut-fold.js';
 
 /**
  * Schema version of Brunch's exported net JSON. Bump on any breaking Brunch
@@ -119,68 +111,41 @@ export type SerializeBlueprintOpts = {
  */
 export function serializeBlueprint(blueprint: NetBlueprint, opts: SerializeBlueprintOpts): PetrinautNet {
   const tokenId = opts.tokenIdFn ?? randomUUID;
-  const sliceIds = collectSliceIds(blueprint.places);
+  const folding = createNetFolding(blueprint);
 
-  // Places — fold the `slice:<sid>:` prefix away and dedupe. A folded slice
-  // place holds tokens from every slice, so it carries the slice colour type.
-  const placeById = new Map<string, PetrinautPlace>();
-  for (const id of blueprint.places) {
-    const folded = foldPlaceId(id);
-    if (placeById.has(folded)) continue;
-    const isSliceScoped = id.startsWith('slice:');
-    placeById.set(folded, {
-      id: folded,
-      label: placeName(folded),
-      ...(isSliceScoped ? { typeId: SLICE_COLOUR_TYPE_ID } : {}),
-    });
-  }
-  const places = [...placeById.values()];
+  const places: PetrinautPlace[] = folding.foldedPlaces().map((p) => ({
+    id: p.id,
+    label: placeName(p.id),
+    ...(p.typeId !== undefined ? { typeId: p.typeId } : {}),
+  }));
 
-  // Transitions — uniform per-slice copies collapse to one folded node;
-  // divergent copies (dep-gated `slice-ready`, dep-signalling `return-done`)
-  // keep their concrete id so the projection never misrepresents dep wiring.
-  const foldMap = buildTransitionFoldMap(blueprint.transitions, sliceIds);
-  const transitionById = new Map<string, PetrinautTransition>();
-  for (const t of blueprint.transitions) {
-    const exportedId = foldMap.get(t.id)!;
-    if (transitionById.has(exportedId)) continue;
-    const inputs = [...new Set(t.inputs.map(foldPlaceId))];
-    const outputs = [...new Set([...enumerateCandidateOutputs(t)].map(foldPlaceId))].sort();
-    transitionById.set(exportedId, {
-      id: exportedId,
-      label: exportedId,
-      kind: t.contract.kind,
-      ...(t.contract.lane !== undefined ? { lane: t.contract.lane } : {}),
-      ...(t.contract.actor !== undefined ? { actor: t.contract.actor } : {}),
-      ...(t.contract.guard !== undefined ? { guard: t.contract.guard } : {}),
-      inputs,
-      outputs,
-    });
-  }
-  const transitions = [...transitionById.values()];
+  const transitions: PetrinautTransition[] = folding.foldedTransitions().map((t) => ({
+    id: t.id,
+    label: t.id,
+    kind: t.contract.kind,
+    ...(t.contract.lane !== undefined ? { lane: t.contract.lane } : {}),
+    ...(t.contract.actor !== undefined ? { actor: t.contract.actor } : {}),
+    ...(t.contract.guard !== undefined ? { guard: t.contract.guard } : {}),
+    inputs: [...t.inputs],
+    outputs: [...t.outputs],
+  }));
 
-  // Initial marking — group tokens into folded places; each token keeps its
-  // slice colour (sliceId / epicId / counters).
-  const byPlace = new Map<string, TokenSeed[]>();
-  for (const { place, token } of blueprint.initialTokens) {
-    const folded = foldPlaceId(place);
-    const list = byPlace.get(folded) ?? [];
-    list.push(token);
-    byPlace.set(folded, list);
-  }
+  // Initial marking — fold tokens into folded places (each token keeps its
+  // slice colour), then sort by place and stamp a fresh UUID per token.
+  const byPlace = folding.foldedMarking(
+    blueprint.initialTokens.map(({ place, token }) => [place, [token]] as const),
+  );
   const initialMarking: PetrinautMarking[] = Array.from(byPlace.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([place, tokens]) => ({
+    .map(([place, seeds]) => ({
       place,
-      tokens: tokens.map((seed) => seedToToken(seed, tokenId())),
+      tokens: seeds.map((seed) => seedToToken(seed, tokenId())),
     }));
-
-  const tokenTypes = places.some((p) => p.typeId === SLICE_COLOUR_TYPE_ID) ? [SLICE_COLOUR_TYPE] : [];
 
   return {
     schemaVersion: PETRINAUT_NET_SCHEMA_VERSION,
     runId: opts.runId,
-    tokenTypes,
+    tokenTypes: [...folding.tokenTypes()],
     places,
     transitions,
     initialMarking,

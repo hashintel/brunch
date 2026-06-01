@@ -12,6 +12,7 @@ import {
   type PetrinautEvent,
   type PetrinautTransitionFiredEvent,
 } from './petrinaut-events.js';
+import { createNetFolding } from './petrinaut-fold.js';
 import { InMemoryReportSink } from './report-sink.js';
 import type { ActionContext, ActionHandlers, OrchestratorInput, Plan, RunCtx, TestRunner } from './types.js';
 
@@ -938,6 +939,7 @@ describe('FE-763: Petrinaut event stream on a real run', () => {
     const events: PetrinautEvent[] = [];
     const stream = createPetrinautEventStream({
       runId: 'run-e2e',
+      folding: createNetFolding(blueprint),
       onEvent: (e) => events.push(e),
     });
     stream.emitInitialMarking(blueprint);

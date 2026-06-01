@@ -10,6 +10,7 @@ import {
   type PetrinautEvent,
   type PetrinautTransitionFiredEvent,
 } from './petrinaut-events.js';
+import { createNetFolding } from './petrinaut-fold.js';
 import type { Plan } from './types.js';
 
 const simplePlan: Plan = {
@@ -31,6 +32,9 @@ function deterministicTokenId(): () => string {
   return () => `tok-${++n}`;
 }
 
+/** Shared fold of the simplePlan net — folds the synthetic slice-1 firings below. */
+const folding = createNetFolding(compileTopology(simplePlan, { maxRetries: 3 }));
+
 // ---------------------------------------------------------------------------
 // Unit tests — createPetrinautEventStream as a NetEventSink adapter
 // ---------------------------------------------------------------------------
@@ -41,6 +45,7 @@ describe('createPetrinautEventStream — initial_marking', () => {
     const events: PetrinautEvent[] = [];
     const stream = createPetrinautEventStream({
       runId: 'run-1',
+      folding,
       tokenIdFn: deterministicTokenId(),
       onEvent: (e) => events.push(e),
     });
@@ -71,6 +76,7 @@ describe('createPetrinautEventStream — transition_fired adapter', () => {
     const events: PetrinautEvent[] = [];
     const stream = createPetrinautEventStream({
       runId: 'run-1',
+      folding,
       tokenIdFn: deterministicTokenId(),
       onEvent: (e) => events.push(e),
     });
@@ -103,6 +109,7 @@ describe('createPetrinautEventStream — transition_fired adapter', () => {
   it('throws when transition_fired is missing transitionId', () => {
     const stream = createPetrinautEventStream({
       runId: 'run-1',
+      folding,
       tokenIdFn: deterministicTokenId(),
     });
     expect(() =>
@@ -121,6 +128,7 @@ describe('createPetrinautEventStream — transition_fired adapter', () => {
     const events: PetrinautEvent[] = [];
     const stream = createPetrinautEventStream({
       runId: 'run-1',
+      folding,
       tokenIdFn: deterministicTokenId(),
       onEvent: (e) => events.push(e),
     });
@@ -143,6 +151,7 @@ describe('createPetrinautEventStream — transition_fired adapter', () => {
     const events: PetrinautEvent[] = [];
     const stream = createPetrinautEventStream({
       runId: 'run-1',
+      folding,
       tokenIdFn: deterministicTokenId(),
       onEvent: (e) => events.push(e),
     });
@@ -166,6 +175,7 @@ describe('createPetrinautEventStream — JSONL file output', () => {
 
     const stream = createPetrinautEventStream({
       runId: 'run-jsonl',
+      folding,
       filePath,
       tokenIdFn: deterministicTokenId(),
     });

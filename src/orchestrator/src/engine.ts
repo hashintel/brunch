@@ -5,6 +5,7 @@ import { compileTopology, wireHandlers } from './net-compiler.js';
 import type { FiringPolicy, NetEventSink } from './petri-net.js';
 import { createPetrinautEventStream } from './petrinaut-events.js';
 import { serializeBlueprint } from './petrinaut-export.js';
+import { createNetFolding } from './petrinaut-fold.js';
 import { toSdcpnFile } from './petrinaut-sdcpn.js';
 import type { Orchestrator, OrchestratorInput, OrchestratorResult, RunCtx } from './types.js';
 
@@ -65,6 +66,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
           try {
             const stream = createPetrinautEventStream({
               runId: input.runId ?? 'unknown',
+              folding: createNetFolding(blueprint),
               filePath: join(input.runDir, 'petrinaut-events.jsonl'),
               onError: (message) => ctx.warnings?.push(message),
             });

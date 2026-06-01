@@ -1,24 +1,28 @@
 // ---------------------------------------------------------------------------
-// FE-784 — Colour-fold helpers for the Petrinaut export projection.
+// FE-784 — Colour-fold of a compiled NetBlueprint for the Petrinaut projection.
 //
-// The compiled net (NetBlueprint) emits one concrete subnet per slice
-// (`slice:<sid>:*` places, `<sid>:*` / `slice-ready:<sid>` transitions).
-// Petrinaut's canvas is flat — no hierarchy, subnets, or grouping — so the
-// only way to keep the imported net legible at scale is to collapse the N
-// structurally-identical slice subnets into ONE, carrying slice identity on
-// the token colour instead of in the node id.
+// The compiled net emits one concrete subnet per slice (`slice:<sid>:*` places,
+// `<sid>:*` / `slice-ready:<sid>` transitions). Petrinaut's canvas is flat — no
+// hierarchy, subnets, or grouping — so the only way to keep the imported net
+// legible at scale is to collapse the N structurally-identical slice subnets
+// into ONE, carrying slice identity on the token colour instead of in the node
+// id.
 //
-// This module owns the pure id-folding rules shared by the static export
-// (`petrinaut-export.ts`) and the live event adapter (`petrinaut-events.ts`)
-// so both fold concrete ids the same way.
+// `NetFolding` owns the entire concrete→folded mapping of one blueprint: the
+// folded place set, the folded transition set, the per-place marking fold, and
+// the colour-type classification. Both consumers — the static `net.json` export
+// (`serializeBlueprint`) and the live event adapter (`createPetrinautEventStream`)
+// — go through one folding so the static net and the live event stream fold
+// identically. The id-rule primitives below are private implementation detail.
 //
 // Fidelity: this is a projection only. The runtime net (`petri-net.ts` /
 // `net-compiler.ts`) is untouched; it still fires concrete per-slice
-// transitions. The adapter maps those concrete firings onto the folded net.
+// transitions. The adapter maps those firings onto the folded net.
 // ---------------------------------------------------------------------------
 
 import { enumerateCandidateOutputs } from './net-blueprint.js';
-import type { TransitionSkeleton } from './net-blueprint.js';
+import type { NetBlueprint, TransitionSkeleton } from './net-blueprint.js';
+import type { TransitionContract } from './petri-net.js';
 
 // ---------------------------------------------------------------------------
 // Token colour type — the slice identity that folding pushes onto the token.
@@ -47,11 +51,114 @@ export const SLICE_COLOUR_TYPE: PetrinautTokenType = {
 };
 
 // ---------------------------------------------------------------------------
-// Pure id folding
+// Folded node value shapes (public; the id maps stay private to the object).
+// ---------------------------------------------------------------------------
+
+/** A place in the folded projection. `id` is the slice-independent role. */
+export type FoldedPlace = {
+  id: string;
+  /** Colour type id when this folded place holds slice-coloured tokens. */
+  typeId?: string;
+};
+
+/** A transition in the folded projection. Arcs are already folded. */
+export type FoldedTransition = {
+  /** Exported id: shared folded id for uniform groups, concrete id for divergent members. */
+  id: string;
+  inputs: readonly string[];
+  outputs: readonly string[];
+  contract: TransitionContract;
+};
+
+/**
+ * The colour-fold of one compiled NetBlueprint. Built once via
+ * `createNetFolding`; immutable thereafter and safe to share between the
+ * static export and the live event stream. Callers never touch the underlying
+ * id maps — they only ask the folding to fold things.
+ */
+export type NetFolding = {
+  /** Folded places, deduped, in first-occurrence order. Slice places carry `typeId`. */
+  foldedPlaces(): readonly FoldedPlace[];
+  /** Folded transitions, deduped to their exported id, in first-occurrence order. */
+  foldedTransitions(): readonly FoldedTransition[];
+  /** Exported id for one concrete transition id (folded, or concrete when divergent). */
+  foldTransition(transitionId: string): string;
+  /**
+   * Fold a sequence of (concrete place, tokens) entries into a map keyed by
+   * folded place, merging token lists for places that fold together and
+   * preserving empty-list keys. Pure; does not mutate inputs.
+   */
+  foldedMarking<T>(entries: Iterable<readonly [place: string, tokens: readonly T[]]>): Map<string, T[]>;
+  /** Colour token types referenced by `foldedPlaces()` — `[SLICE_COLOUR_TYPE]` or `[]`. */
+  tokenTypes(): readonly PetrinautTokenType[];
+};
+
+/**
+ * Build the folding for a compiled blueprint. Pure and deterministic: computes
+ * the slice-id set and transition fold map once, O(places + transitions). The
+ * returned folding is only meaningful for ids originating from this blueprint.
+ */
+export function createNetFolding(blueprint: NetBlueprint): NetFolding {
+  const sliceIds = collectSliceIds(blueprint.places);
+  const transitionFoldMap = buildTransitionFoldMap(blueprint.transitions, sliceIds);
+
+  // Folded places — dedupe by folded id; a folded slice place carries the
+  // slice colour type.
+  const placeById = new Map<string, FoldedPlace>();
+  for (const id of blueprint.places) {
+    const folded = foldPlaceId(id);
+    if (placeById.has(folded)) continue;
+    placeById.set(folded, {
+      id: folded,
+      ...(id.startsWith('slice:') ? { typeId: SLICE_COLOUR_TYPE_ID } : {}),
+    });
+  }
+  const places = [...placeById.values()];
+
+  // Folded transitions — one entry per exported id; uniform members collapse,
+  // divergent members keep their concrete id.
+  const transitionById = new Map<string, FoldedTransition>();
+  for (const t of blueprint.transitions) {
+    const exportedId = transitionFoldMap.get(t.id)!;
+    if (transitionById.has(exportedId)) continue;
+    transitionById.set(exportedId, {
+      id: exportedId,
+      inputs: [...new Set(t.inputs.map(foldPlaceId))],
+      outputs: [...new Set([...enumerateCandidateOutputs(t)].map(foldPlaceId))].sort(),
+      contract: t.contract,
+    });
+  }
+  const transitions = [...transitionById.values()];
+
+  const hasSliceColour = places.some((p) => p.typeId === SLICE_COLOUR_TYPE_ID);
+
+  return {
+    foldedPlaces: () => places,
+    foldedTransitions: () => transitions,
+    foldTransition: (transitionId) =>
+      transitionFoldMap.get(transitionId) ?? foldTransitionId(transitionId, sliceIds),
+    foldedMarking<T>(entries: Iterable<readonly [place: string, tokens: readonly T[]]>): Map<string, T[]> {
+      const out = new Map<string, T[]>();
+      for (const [place, tokens] of entries) {
+        const folded = foldPlaceId(place);
+        const list = out.get(folded) ?? [];
+        for (const t of tokens) list.push(t);
+        out.set(folded, list);
+      }
+      return out;
+    },
+    tokenTypes: () => (hasSliceColour ? [SLICE_COLOUR_TYPE] : []),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Private id-folding primitives — the implementation of createNetFolding.
+// Not exported: the only public fold surface is NetFolding, so there is no
+// parallel API that could drift from the folded net.
 // ---------------------------------------------------------------------------
 
 /** Collect the distinct slice ids from `slice:<sid>:…` place ids. */
-export function collectSliceIds(placeIds: Iterable<string>): Set<string> {
+function collectSliceIds(placeIds: Iterable<string>): Set<string> {
   const ids = new Set<string>();
   for (const id of placeIds) {
     const m = id.match(/^slice:([^:]+):/);
@@ -66,7 +173,7 @@ export function collectSliceIds(placeIds: Iterable<string>): Set<string> {
  * dependent id (they are genuinely per-edge, so they fold to a unique role).
  * Epic, pool, and bare places are returned unchanged.
  */
-export function foldPlaceId(placeId: string): string {
+function foldPlaceId(placeId: string): string {
   const m = placeId.match(/^slice:[^:]+:(.+)$/);
   return m ? m[1]! : placeId;
 }
@@ -79,21 +186,22 @@ export function foldPlaceId(placeId: string): string {
  * removing any slice-id segment is safe. Epic transitions carry no slice-id
  * segment and are returned unchanged.
  */
-export function foldTransitionId(transitionId: string, sliceIds: ReadonlySet<string>): string {
-  const segments = transitionId.split(':').filter((seg) => !sliceIds.has(seg));
-  return segments.join(':');
+function foldTransitionId(transitionId: string, sliceIds: ReadonlySet<string>): string {
+  return transitionId
+    .split(':')
+    .filter((seg) => !sliceIds.has(seg))
+    .join(':');
 }
 
-// ---------------------------------------------------------------------------
-// Transition fold map — decides, per concrete transition, the id it folds to
-// in the projection. Members of a folded group whose folded SHAPE (folded
-// arcs + contract metadata) is identical collapse to one folded node; a group
-// whose members diverge (e.g. dep-gated `slice-ready`, dep-signalling
-// `return-done`) keeps each member at its concrete id so the projection never
-// misrepresents the dependency wiring.
-// ---------------------------------------------------------------------------
-
-function foldedShapeSignature(t: TransitionSkeleton, sliceIds: ReadonlySet<string>): string {
+/**
+ * The folded shape that decides fold identity: a transition's folded arcs plus
+ * its contract metadata. Members of a folded group sharing this signature
+ * collapse to one node; a group whose members differ (e.g. dep-gated
+ * `slice-ready`, dep-signalling `return-done`) keeps each member concrete.
+ * `guard` is excluded deliberately — it is role-derived, never the thing that
+ * distinguishes two slices' copies of the same transition.
+ */
+function foldedShapeSignature(t: TransitionSkeleton): string {
   const inputs = [...new Set(t.inputs.map(foldPlaceId))].sort();
   const outputs = [...new Set([...enumerateCandidateOutputs(t)].map(foldPlaceId))].sort();
   const c = t.contract;
@@ -101,11 +209,11 @@ function foldedShapeSignature(t: TransitionSkeleton, sliceIds: ReadonlySet<strin
 }
 
 /**
- * Build a map from each concrete transition id to the id it is exported as.
- * Uniform folded groups map every member to the shared folded id; divergent
- * groups map each member to its own concrete id.
+ * Map each concrete transition id to the id it is exported as. Uniform folded
+ * groups map every member to the shared folded id; divergent groups map each
+ * member to its own concrete id.
  */
-export function buildTransitionFoldMap(
+function buildTransitionFoldMap(
   transitions: readonly TransitionSkeleton[],
   sliceIds: ReadonlySet<string>,
 ): Map<string, string> {
@@ -113,7 +221,7 @@ export function buildTransitionFoldMap(
   for (const t of transitions) {
     const folded = foldTransitionId(t.id, sliceIds);
     const list = groups.get(folded) ?? [];
-    list.push({ id: t.id, sig: foldedShapeSignature(t, sliceIds) });
+    list.push({ id: t.id, sig: foldedShapeSignature(t) });
     groups.set(folded, list);
   }
 
