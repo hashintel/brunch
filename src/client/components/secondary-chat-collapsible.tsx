@@ -86,13 +86,32 @@ export function SecondaryChatCollapsible({
   const prefersReducedMotion = usePrefersReducedMotion();
   const pinnedAccent = secondaryChat.pinnedItemKind ? kindAccentHex[secondaryChat.pinnedItemKind] : null;
 
-  // Auto-scroll is owned by the shell scroll container (<UnifiedChatShell>),
-  // which smoothly follows streamed content while the user is near the bottom.
+  // Auto-scroll is owned by <UnifiedChatShell>'s scroll container.
 
   const hasReconciliation = secondaryChat.pinnedReconciliationNeed !== null;
   const hasKickoff = Boolean(kickoffContent);
   const hasTurns = secondaryChat.turns.length > 0;
-  const hasStreaming = Boolean(isStreaming) && streamingAssistantText !== undefined;
+
+  // Hold the streamed row through the stream→persisted handoff (until a new
+  // persisted assistant turn supersedes it) so it doesn't unmount mid-reveal —
+  // which would flash truncated text and gap until the bundle refetch lands.
+  // Baseline captured on the rising edge of streaming; a later count increase
+  // means the reply persisted.
+  const assistantTurnCount = useMemo(
+    () =>
+      secondaryChat.turns.filter((t) => t.assistant_parts !== null && t.assistant_parts !== undefined).length,
+    [secondaryChat.turns],
+  );
+  const streamBaselineRef = useRef(assistantTurnCount);
+  const wasStreamingRef = useRef(false);
+  useEffect(() => {
+    if (isStreaming && !wasStreamingRef.current) streamBaselineRef.current = assistantTurnCount;
+    wasStreamingRef.current = Boolean(isStreaming);
+  }, [isStreaming, assistantTurnCount]);
+  const streamSuperseded = assistantTurnCount > streamBaselineRef.current;
+  const hasStreamedText = (streamingAssistantText?.length ?? 0) > 0;
+  const hasStreaming =
+    streamingAssistantText !== undefined && (Boolean(isStreaming) || (hasStreamedText && !streamSuperseded));
   const isTurnZero = !hasTurns && !hasStreaming;
 
   return (

@@ -1,33 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 
-// Steady baseline pace for small backlogs — a calm, even typing cadence.
 const MIN_CHARS_PER_SECOND = 90;
-// Upper bound on how far behind the real stream the reveal is allowed to fall.
-// Big chunks accelerate just enough to clear within this window, spread evenly
-// across frames rather than popping in as one block.
+// How far behind the live stream the reveal may fall; big chunks accelerate
+// just enough to clear within this window instead of popping in at once.
 const MAX_CATCHUP_SECONDS = 0.4;
 
 /**
- * Smooths streamed text so it reveals character-by-character instead of
- * jumping a chunk at a time.
+ * Reveals streamed text character-by-character instead of jumping a chunk at a
+ * time. Time-based with sub-character accumulation, so the cadence stays even
+ * regardless of frame timing or chunk batching.
  *
- * The reveal is time-based with sub-character accumulation, so the cadence is
- * even regardless of frame timing or how chunks are batched: it types at a
- * steady {@link MIN_CHARS_PER_SECOND} and only accelerates enough to keep the
- * lag under {@link MAX_CATCHUP_SECONDS}. A 200-char chunk therefore fans out
- * over a few smooth frames instead of appearing all at once.
- *
- * Seeds to whatever `target` is at mount and only animates growth, so a
- * remount mid-stream (or a fully-formed message) shows immediately rather than
- * re-typing from scratch. A shrinking `target` (new message / reset) snaps.
- *
- * Pass `enabled: false` (e.g. prefers-reduced-motion) to pass `target` through
- * untouched.
+ * Seeds to `target` at mount and only animates growth — a remount mid-stream
+ * or a fully-formed message shows immediately; a shrinking `target` snaps.
+ * `enabled: false` (e.g. reduced motion) passes `target` through untouched.
  */
 export function useTypewriter(target: string, enabled = true): string {
   const [display, setDisplay] = useState(target);
-  // Fractional revealed length carried across renders so the cadence stays
-  // even across chunk boundaries and frames resume where we left off.
   const revealedRef = useRef(target.length);
   const frameRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
@@ -44,7 +32,7 @@ export function useTypewriter(target: string, enabled = true): string {
       setDisplay(target);
       return;
     }
-    // Fresh clock for this run so the first frame's delta is ~0, not a jump.
+    // Fresh clock so the first frame's delta is ~0, not a jump.
     lastTimeRef.current = null;
     const animate = (now: number) => {
       if (lastTimeRef.current === null) lastTimeRef.current = now;
@@ -67,5 +55,6 @@ export function useTypewriter(target: string, enabled = true): string {
     };
   }, [target, enabled]);
 
-  return display;
+  // Disabled → synchronous passthrough (no one-render lag while the effect syncs).
+  return enabled ? display : target;
 }
