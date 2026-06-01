@@ -23,6 +23,7 @@ type SecondaryChat = z.infer<typeof secondaryChatStateSchema>;
 
 interface SecondaryChatStreamState {
   readonly isStreaming: boolean;
+  readonly isHandoffPending: boolean;
   readonly assistantText: string;
   /**
    * Text of the in-flight user message — set as soon as the user submits,
@@ -115,6 +116,21 @@ function useSecondaryChatStream(
 
   const isStreaming = status === 'submitted' || status === 'streaming';
   const assistantText = useMemo(() => extractAssistantText(messages.at(-1)), [messages]);
+  const assistantTurnCount = useMemo(
+    () =>
+      secondaryChat.turns.filter(
+        (turn) => turn.assistant_parts !== null && turn.assistant_parts !== undefined,
+      ).length,
+    [secondaryChat.turns],
+  );
+  const streamBaselineRef = useRef(assistantTurnCount);
+  const wasStreamingRef = useRef(false);
+  useEffect(() => {
+    if (isStreaming && !wasStreamingRef.current) streamBaselineRef.current = assistantTurnCount;
+    wasStreamingRef.current = isStreaming;
+  }, [assistantTurnCount, isStreaming]);
+  const isHandoffPending =
+    !isStreaming && assistantText.length > 0 && assistantTurnCount <= streamBaselineRef.current;
   // Surface the in-flight user message until the bundle re-fetch reflects
   // it. The persisted bundle's `turns` is the source of truth once it
   // arrives; this just bridges the submit → onFinish gap.
@@ -167,7 +183,7 @@ function useSecondaryChatStream(
     [sendMessage],
   );
 
-  return { isStreaming, assistantText, pendingUserText, send };
+  return { isStreaming, isHandoffPending, assistantText, pendingUserText, send };
 }
 
 export interface SecondaryChatHostProps {
@@ -336,7 +352,7 @@ export function SecondaryChatHost({
         onSendMessage?.(chatId);
         void stream.send(message);
       }}
-      isStreaming={stream.isStreaming}
+      isStreaming={stream.isStreaming || stream.isHandoffPending}
       mentionableItems={mentionableItems}
       refCodeByItemId={refCodeByItemId}
     />

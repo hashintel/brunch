@@ -60,6 +60,12 @@ interface UseChatCallRecord {
 const { useChatCalls } = vi.hoisted(() => ({
   useChatCalls: [] as UseChatCallRecord[],
 }));
+const { useChatState } = vi.hoisted(() => ({
+  useChatState: {
+    messages: [] as BrunchUIMessage[],
+    status: 'ready',
+  },
+}));
 
 vi.mock('@ai-sdk/react', () => ({
   useChat: (options: {
@@ -75,9 +81,9 @@ vi.mock('@ai-sdk/react', () => ({
     };
     useChatCalls.push(record);
     return {
-      messages: [] as BrunchUIMessage[],
+      messages: useChatState.messages,
       sendMessage: record.sendMessage,
-      status: 'ready' as const,
+      status: useChatState.status,
     };
   },
 }));
@@ -107,6 +113,24 @@ const baseChat: SecondaryChat['chat'] = {
   pinned_reconciliation_need_id: null,
   mode: 'explore',
 };
+
+function makeAssistantTurn(id: number, text: string): SecondaryChat['turns'][number] {
+  return {
+    id,
+    specification_id: 1,
+    parent_turn_id: null,
+    phase: 'grounding',
+    turn_kind: 'question',
+    question: '',
+    why: null,
+    impact: null,
+    answer: null,
+    is_resolution: false,
+    user_parts: null,
+    assistant_parts: text,
+    created_at: '',
+  };
+}
 
 function buildSpec(): SpecificationState {
   return {
@@ -190,6 +214,8 @@ function createHarness(): {
 
 beforeEach(() => {
   useChatCalls.length = 0;
+  useChatState.messages = [];
+  useChatState.status = 'ready';
 });
 
 afterEach(() => {
@@ -245,6 +271,55 @@ describe('SecondaryChatHost — useChat refit', () => {
       expect(lastCall.sendMessage).toHaveBeenCalled();
     });
     expect(lastCall.sendMessage).toHaveBeenCalledWith({ text: 'why?' });
+  });
+
+  it('keeps the composer disabled after stream end until the assistant turn persists', () => {
+    const streamedAssistant: BrunchUIMessage = {
+      id: 'assistant-stream',
+      role: 'assistant',
+      parts: [{ type: 'text', text: 'settled reply' }],
+    };
+    const chat: SecondaryChat = {
+      chat: baseChat,
+      kickoffTurn: null,
+      turns: [],
+      pinnedItemKind: null,
+      pinnedReconciliationNeed: null,
+      anchoredItemIds: [],
+    };
+    const { Wrapper } = createHarness();
+
+    useChatState.status = 'streaming';
+    useChatState.messages = [streamedAssistant];
+    const { rerender } = render(
+      <Wrapper>
+        <SecondaryChatHost secondaryChat={chat} />
+      </Wrapper>,
+    );
+
+    expect((screen.getByTestId('secondary-chat-composer-input') as HTMLTextAreaElement).disabled).toBe(true);
+
+    useChatState.status = 'ready';
+    rerender(
+      <Wrapper>
+        <SecondaryChatHost secondaryChat={chat} />
+      </Wrapper>,
+    );
+
+    expect((screen.getByTestId('secondary-chat-composer-input') as HTMLTextAreaElement).disabled).toBe(true);
+
+    rerender(
+      <Wrapper>
+        <SecondaryChatHost
+          secondaryChat={{
+            ...chat,
+            turns: [makeAssistantTurn(11, 'settled reply')],
+          }}
+        />
+      </Wrapper>,
+    );
+
+    expect((screen.getByTestId('secondary-chat-composer-input') as HTMLTextAreaElement).disabled).toBe(false);
   });
 
   it('invalidates the specification bundle when useChat onFinish fires', async () => {

@@ -33,6 +33,7 @@ import {
 import { SecondaryChatSuggestions } from './secondary-chat-suggestions.js';
 import type { SecondaryChatMode } from './secondary-chat-trigger.js';
 import { usePrefersReducedMotion } from './use-prefers-reduced-motion.js';
+import { useTypewriter } from './use-typewriter.js';
 
 type SecondaryChat = z.infer<typeof secondaryChatStateSchema>;
 type SecondaryChatTurn = SecondaryChat['turns'][number];
@@ -85,19 +86,32 @@ export function SecondaryChatCollapsible({
   const prefersReducedMotion = usePrefersReducedMotion();
   const pinnedAccent = secondaryChat.pinnedItemKind ? kindAccentHex[secondaryChat.pinnedItemKind] : null;
 
-  // Autoscroll on new content only. Primitive deps + `block: 'nearest'` keep
-  // unrelated re-renders (mode toggles, panel expansions) from re-scrolling.
-  const bottomAnchorRef = useRef<HTMLDivElement>(null);
-  const turnCount = secondaryChat.turns.length;
-  const streamingLength = streamingAssistantText?.length ?? 0;
-  useEffect(() => {
-    bottomAnchorRef.current?.scrollIntoView({ block: 'nearest' });
-  }, [turnCount, streamingLength]);
+  // Auto-scroll is owned by <UnifiedChatShell>'s scroll container.
 
   const hasReconciliation = secondaryChat.pinnedReconciliationNeed !== null;
   const hasKickoff = Boolean(kickoffContent);
   const hasTurns = secondaryChat.turns.length > 0;
-  const hasStreaming = Boolean(isStreaming) && streamingAssistantText !== undefined;
+
+  // Hold the streamed row through the stream→persisted handoff (until a new
+  // persisted assistant turn supersedes it) so it doesn't unmount mid-reveal —
+  // which would flash truncated text and gap until the bundle refetch lands.
+  // Baseline captured on the rising edge of streaming; a later count increase
+  // means the reply persisted.
+  const assistantTurnCount = useMemo(
+    () =>
+      secondaryChat.turns.filter((t) => t.assistant_parts !== null && t.assistant_parts !== undefined).length,
+    [secondaryChat.turns],
+  );
+  const streamBaselineRef = useRef(assistantTurnCount);
+  const wasStreamingRef = useRef(false);
+  useEffect(() => {
+    if (isStreaming && !wasStreamingRef.current) streamBaselineRef.current = assistantTurnCount;
+    wasStreamingRef.current = Boolean(isStreaming);
+  }, [isStreaming, assistantTurnCount]);
+  const streamSuperseded = assistantTurnCount > streamBaselineRef.current;
+  const hasStreamedText = (streamingAssistantText?.length ?? 0) > 0;
+  const hasStreaming =
+    streamingAssistantText !== undefined && (Boolean(isStreaming) || (hasStreamedText && !streamSuperseded));
   const isTurnZero = !hasTurns && !hasStreaming;
 
   return (
@@ -146,12 +160,6 @@ export function SecondaryChatCollapsible({
                 )}
               </ConversationContent>
             </Conversation>
-            <div
-              ref={bottomAnchorRef}
-              aria-hidden
-              data-testid="secondary-chat-bottom-anchor"
-              className="h-px"
-            />
           </>
         )}
       </div>
@@ -320,6 +328,11 @@ function SecondaryChatStreamingAssistant({
   isStreaming: boolean;
   prefersReducedMotion: boolean;
 }) {
+  // Reveal incoming chunks character-by-character so the stream reads smoothly
+  // instead of jumping. Disabled under reduced motion (passes `text` through).
+  // Gate "Thinking…" on the real target so a trailing typewriter never flips
+  // the surface back to the thinking state mid-stream.
+  const displayText = useTypewriter(text, !prefersReducedMotion);
   const hasText = text.length > 0;
   if (!hasText && isStreaming) {
     return (
@@ -337,7 +350,7 @@ function SecondaryChatStreamingAssistant({
   if (prefersReducedMotion) {
     return (
       <div data-testid="secondary-chat-streaming-assistant" className="whitespace-pre-wrap text-sub">
-        {text}
+        {displayText}
       </div>
     );
   }
@@ -349,7 +362,7 @@ function SecondaryChatStreamingAssistant({
       defaultOpen
     >
       <ReasoningTrigger />
-      <ReasoningContent className="mt-1">{text}</ReasoningContent>
+      <ReasoningContent className="mt-1">{displayText}</ReasoningContent>
     </Reasoning>
   );
 }

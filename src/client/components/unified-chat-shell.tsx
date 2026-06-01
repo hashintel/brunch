@@ -191,23 +191,68 @@ export function UnifiedChatShell({ layoutMode = 'side-docked', onLayoutModeChang
   // Scroll-to-bottom arrow surfaces only past ~50% scroll distance.
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  // Follow new content only while the user is near the bottom; cleared once
+  // they scroll up so auto-follow never yanks them back.
+  const pinnedRef = useRef(true);
   const handleBodyScroll = useCallback(() => {
     const el = bodyRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     const threshold = Math.max(120, el.clientHeight * 0.5);
     setShowScrollToBottom(distanceFromBottom > threshold);
+    pinnedRef.current = distanceFromBottom <= 80;
   }, []);
   const scrollToBottom = useCallback(() => {
     const el = bodyRef.current;
     if (!el) return;
+    pinnedRef.current = true;
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   }, []);
 
+  const isExpanded = appearance === 'expanded';
+  const isActiveStreaming = activeChat !== null && streamingChatIds.has(activeChat.chat.id);
+  const activeTurnCount = activeChat?.turns.length ?? 0;
+
+  // Smooth auto-follow while streaming: pinning scrollTop each frame tracks the
+  // typewriter's per-frame growth as a glide rather than per-chunk jumps. A
+  // short tail past stream end covers the reveal's last chars and the persisted
+  // swap. Gated on `pinnedRef` (near bottom) and `isExpanded` (has a body).
+  const [followActive, setFollowActive] = useState(false);
+  useEffect(() => {
+    if (isActiveStreaming) {
+      setFollowActive(true);
+      return;
+    }
+    const tail = setTimeout(() => setFollowActive(false), 500);
+    return () => clearTimeout(tail);
+  }, [isActiveStreaming]);
+  useEffect(() => {
+    if (!followActive || !isExpanded) return;
+    let frame = requestAnimationFrame(function pin() {
+      const el = bodyRef.current;
+      if (el && pinnedRef.current) el.scrollTop = el.scrollHeight;
+      frame = requestAnimationFrame(pin);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [followActive, isExpanded]);
+
+  // Snap to bottom + re-arm follow on chat switch or (re-)expand onto a fresh body.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el || activeChatId === null || !isExpanded) return;
+    pinnedRef.current = true;
+    el.scrollTop = el.scrollHeight;
+  }, [activeChatId, isExpanded]);
+
+  // Follow late-arriving turns (e.g. a persisted turn past the streaming tail).
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el || !isExpanded || !pinnedRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [activeTurnCount, isExpanded]);
+
   const prefersReducedMotion = usePrefersReducedMotion();
   const fadeSpring = prefersReducedMotion ? { duration: 0 } : CHAT_SHELL_SPRING;
-
-  const isExpanded = appearance === 'expanded';
 
   // Tab strip shows only the master (Home) tab; item chats route through ChatSwitcher.
   const computedMaxVisibleItems = 0;
