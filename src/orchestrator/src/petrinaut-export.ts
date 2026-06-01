@@ -27,7 +27,7 @@ import { createNetFolding, type PetrinautTokenType } from './petrinaut-fold.js';
  * shape change so Petrinaut loaders can refuse incompatible runs early. This is
  * separate from Petrinaut's SDCPN file-format `version`.
  *
- * 0.2.0 — FE-784: per-slice subnet is colour-folded (one subnet, slice
+ * 0.2.0 — FE-784: per-slice subnet is color-folded (one subnet, slice
  * identity on the token); adds `tokenTypes` + place `typeId`.
  */
 export const PETRINAUT_NET_SCHEMA_VERSION = '0.2.0';
@@ -53,7 +53,7 @@ export type PetrinautPlace = {
   id: string;
   /** Short visual label with the `slice:<id>:` / `epic:<id>:` prefix stripped. */
   label: string;
-  /** Colour type for places that hold slice-coloured tokens (folded slice places). */
+  /** Color type for places that hold slice-colored tokens (folded slice places). */
   typeId?: string;
 };
 
@@ -84,7 +84,7 @@ export type PetrinautMarking = {
 export type PetrinautNet = {
   schemaVersion: string;
   runId: string;
-  /** Token colour types referenced by places via `typeId` (FE-784). */
+  /** Token color types referenced by places via `typeId` (FE-784). */
   tokenTypes: PetrinautTokenType[];
   places: PetrinautPlace[];
   transitions: PetrinautTransition[];
@@ -131,7 +131,7 @@ export function serializeBlueprint(blueprint: NetBlueprint, opts: SerializeBluep
   }));
 
   // Initial marking — fold tokens into folded places (each token keeps its
-  // slice colour), then sort by place and stamp a fresh UUID per token.
+  // slice color), then sort by place and stamp a fresh UUID per token.
   const byPlace = folding.foldedMarking(
     blueprint.initialTokens.map(({ place, token }) => [place, [token]] as const),
   );

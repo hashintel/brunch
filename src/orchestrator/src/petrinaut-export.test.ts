@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { compileTopology } from './net-compiler.js';
 import { PETRINAUT_NET_SCHEMA_VERSION, serializeBlueprint, type PetrinautNet } from './petrinaut-export.js';
-import { SLICE_COLOUR_TYPE_ID } from './petrinaut-fold.js';
+import { SLICE_COLOR_TYPE_ID } from './petrinaut-fold.js';
 import type { Plan } from './types.js';
 
 const simplePlan: Plan = {
@@ -59,16 +59,16 @@ describe('serializeBlueprint — envelope', () => {
     expect(roundTripped).toEqual(net);
   });
 
-  it('declares the SliceColour token type when slice places are present', () => {
+  it('declares the SliceColor token type when slice places are present', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
     const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
-    const type = net.tokenTypes.find((t) => t.id === SLICE_COLOUR_TYPE_ID)!;
+    const type = net.tokenTypes.find((t) => t.id === SLICE_COLOR_TYPE_ID)!;
     expect(type).toBeDefined();
     expect(type.dimensions.map((d) => d.name)).toEqual(['sliceId', 'epicId', 'retryCount', 'reworkCount']);
   });
 });
 
-describe('serializeBlueprint — colour fold', () => {
+describe('serializeBlueprint — color fold', () => {
   it('strips the slice:<id>: prefix from every folded place id', () => {
     const blueprint = compileTopology(depPlan, { maxRetries: 3 });
     const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
@@ -112,10 +112,10 @@ describe('serializeBlueprint — colour fold', () => {
     }
   });
 
-  it('tags folded slice places with the slice colour type and leaves pools untyped', () => {
+  it('tags folded slice places with the slice color type and leaves pools untyped', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
     const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
-    expect(net.places.find((p) => p.id === 'spec-ready')!.typeId).toBe(SLICE_COLOUR_TYPE_ID);
+    expect(net.places.find((p) => p.id === 'spec-ready')!.typeId).toBe(SLICE_COLOR_TYPE_ID);
     expect(net.places.find((p) => p.id === 'pool:test-agent')!.typeId).toBeUndefined();
   });
 });
@@ -142,7 +142,7 @@ describe('serializeBlueprint — transitions', () => {
 });
 
 describe('serializeBlueprint — initial marking', () => {
-  it('groups initial tokens into folded places, one coloured token per slice', () => {
+  it('groups initial tokens into folded places, one colored token per slice', () => {
     const blueprint = compileTopology(depPlan, { maxRetries: 3 });
     const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
 
@@ -155,11 +155,11 @@ describe('serializeBlueprint — initial marking', () => {
       'semantic-budget',
     ]);
 
-    // eligible folds both slices' seeds → two coloured tokens.
+    // eligible folds both slices' seeds → two colored tokens.
     const eligible = net.initialMarking.find((m) => m.place === 'eligible')!;
     expect(eligible.tokens.map((t) => t.sliceId).sort()).toEqual(['slice-a', 'slice-b']);
 
-    // Pool seeds remain runtime-valid tokens, but export without slice colour.
+    // Pool seeds remain runtime-valid tokens, but export without slice color.
     const poolSeed = blueprint.initialTokens.find((t) => t.place === 'pool:test-agent')!.token;
     expect(poolSeed).toEqual({ sliceId: '', epicId: '' });
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { NetBlueprint, TransitionSkeleton } from './net-blueprint.js';
 import { compileTopology } from './net-compiler.js';
-import { createNetFolding, SLICE_COLOUR_TYPE_ID } from './petrinaut-fold.js';
+import { createNetFolding, SLICE_COLOR_TYPE_ID } from './petrinaut-fold.js';
 import type { Plan } from './types.js';
 
 // A compact two-slice blueprint exercising every fold rule without depending on
@@ -77,9 +77,9 @@ describe('createNetFolding — foldedPlaces', () => {
     expect(ids).toContain('pool:test-agent');
   });
 
-  it('tags folded slice places with the colour type and leaves pool/epic untyped', () => {
+  it('tags folded slice places with the color type and leaves pool/epic untyped', () => {
     const byId = new Map(folding.foldedPlaces().map((p) => [p.id, p]));
-    expect(byId.get('spec-ready')!.typeId).toBe(SLICE_COLOUR_TYPE_ID);
+    expect(byId.get('spec-ready')!.typeId).toBe(SLICE_COLOR_TYPE_ID);
     expect(byId.get('pool:test-agent')!.typeId).toBeUndefined();
     expect(byId.get('epic:epic-1:done')!.typeId).toBeUndefined();
   });
@@ -126,9 +126,9 @@ describe('createNetFolding — foldedMarking', () => {
 });
 
 describe('createNetFolding — tokenTypes', () => {
-  it('declares the SliceColour type when slice places are present', () => {
+  it('declares the SliceColor type when slice places are present', () => {
     const types = createNetFolding(blueprint).tokenTypes();
-    expect(types.map((t) => t.id)).toEqual([SLICE_COLOUR_TYPE_ID]);
+    expect(types.map((t) => t.id)).toEqual([SLICE_COLOR_TYPE_ID]);
   });
 });
 

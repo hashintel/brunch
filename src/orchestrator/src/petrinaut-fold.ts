@@ -1,16 +1,16 @@
 // ---------------------------------------------------------------------------
-// FE-784 — Colour-fold of a compiled NetBlueprint for the Petrinaut projection.
+// FE-784 — Color-fold of a compiled NetBlueprint for the Petrinaut projection.
 //
 // The compiled net emits one concrete subnet per slice (`slice:<sid>:*` places,
 // `<sid>:*` / `slice-ready:<sid>` transitions). Petrinaut's canvas is flat — no
 // hierarchy, subnets, or grouping — so the only way to keep the imported net
 // legible at scale is to collapse the N structurally-identical slice subnets
-// into ONE, carrying slice identity on the token colour instead of in the node
+// into ONE, carrying slice identity on the token color instead of in the node
 // id.
 //
 // `NetFolding` owns the entire concrete→folded mapping of one blueprint: the
 // folded place set, the folded transition set, the per-place marking fold, and
-// the colour-type classification. Both consumers — the static `net.json` export
+// the color-type classification. Both consumers — the static `net.json` export
 // (`serializeBlueprint`) and the live event adapter (`createPetrinautEventStream`)
 // — go through one folding so the static net and the live event stream fold
 // identically. The id-rule primitives below are private implementation detail.
@@ -25,9 +25,9 @@ import type { NetBlueprint, TransitionSkeleton } from './net-blueprint.js';
 import type { TransitionContract } from './petri-net.js';
 
 // ---------------------------------------------------------------------------
-// Token colour type — the slice identity that folding pushes onto the token.
+// Token color type — the slice identity that folding pushes onto the token.
 // Emitted in net.json (`tokenTypes`); folded slice places reference it via
-// `typeId`. SDCPN export stays count-fold (uncoloured) until Petrinaut
+// `typeId`. SDCPN export stays count-fold (uncolored) until Petrinaut
 // supports discrete string token dimensions (H-6518/H-6519).
 // ---------------------------------------------------------------------------
 
@@ -37,11 +37,11 @@ export type PetrinautTokenType = {
   dimensions: { name: string; kind: 'discrete' | 'number' }[];
 };
 
-export const SLICE_COLOUR_TYPE_ID = 'slice-colour';
+export const SLICE_COLOR_TYPE_ID = 'slice-color';
 
-export const SLICE_COLOUR_TYPE: PetrinautTokenType = {
-  id: SLICE_COLOUR_TYPE_ID,
-  name: 'SliceColour',
+export const SLICE_COLOR_TYPE: PetrinautTokenType = {
+  id: SLICE_COLOR_TYPE_ID,
+  name: 'SliceColor',
   dimensions: [
     { name: 'sliceId', kind: 'discrete' },
     { name: 'epicId', kind: 'discrete' },
@@ -57,7 +57,7 @@ export const SLICE_COLOUR_TYPE: PetrinautTokenType = {
 /** A place in the folded projection. `id` is the slice-independent role. */
 export type FoldedPlace = {
   id: string;
-  /** Colour type id when this folded place holds slice-coloured tokens. */
+  /** Color type id when this folded place holds slice-colored tokens. */
   typeId?: string;
 };
 
@@ -71,7 +71,7 @@ export type FoldedTransition = {
 };
 
 /**
- * The colour-fold of one compiled NetBlueprint. Built once via
+ * The color-fold of one compiled NetBlueprint. Built once via
  * `createNetFolding`; immutable thereafter and safe to share between the
  * static export and the live event stream. Callers never touch the underlying
  * id maps — they only ask the folding to fold things.
@@ -89,7 +89,7 @@ export type NetFolding = {
    * preserving empty-list keys. Pure; does not mutate inputs.
    */
   foldedMarking<T>(entries: Iterable<readonly [place: string, tokens: readonly T[]]>): Map<string, T[]>;
-  /** Colour token types referenced by `foldedPlaces()` — `[SLICE_COLOUR_TYPE]` or `[]`. */
+  /** Color token types referenced by `foldedPlaces()` — `[SLICE_COLOR_TYPE]` or `[]`. */
   tokenTypes(): readonly PetrinautTokenType[];
 };
 
@@ -103,14 +103,14 @@ export function createNetFolding(blueprint: NetBlueprint): NetFolding {
   const transitionFoldMap = buildTransitionFoldMap(blueprint.transitions, sliceIds);
 
   // Folded places — dedupe by folded id; a folded slice place carries the
-  // slice colour type.
+  // slice color type.
   const placeById = new Map<string, FoldedPlace>();
   for (const id of blueprint.places) {
     const folded = foldPlaceId(id);
     if (placeById.has(folded)) continue;
     placeById.set(folded, {
       id: folded,
-      ...(id.startsWith('slice:') ? { typeId: SLICE_COLOUR_TYPE_ID } : {}),
+      ...(id.startsWith('slice:') ? { typeId: SLICE_COLOR_TYPE_ID } : {}),
     });
   }
   const places = [...placeById.values()];
@@ -130,7 +130,7 @@ export function createNetFolding(blueprint: NetBlueprint): NetFolding {
   }
   const transitions = [...transitionById.values()];
 
-  const hasSliceColour = places.some((p) => p.typeId === SLICE_COLOUR_TYPE_ID);
+  const hasSliceColor = places.some((p) => p.typeId === SLICE_COLOR_TYPE_ID);
 
   return {
     foldedPlaces: () => places,
@@ -147,7 +147,7 @@ export function createNetFolding(blueprint: NetBlueprint): NetFolding {
       }
       return out;
     },
-    tokenTypes: () => (hasSliceColour ? [SLICE_COLOUR_TYPE] : []),
+    tokenTypes: () => (hasSliceColor ? [SLICE_COLOR_TYPE] : []),
   };
 }
 

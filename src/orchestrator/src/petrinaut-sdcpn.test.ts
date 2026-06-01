@@ -129,7 +129,7 @@ describe('toSdcpnFile — envelope', () => {
     expect(toSdcpnFile(realNet(simplePlan), { title: 'My Net' }).title).toBe('My Net');
   });
 
-  it('includes all SDCPN collections (empty for an uncoloured net)', () => {
+  it('includes all SDCPN collections (empty for an uncolored net)', () => {
     const file = toSdcpnFile(realNet(simplePlan), {});
     expect(file.types).toEqual([]);
     expect(file.differentialEquations).toEqual([]);
@@ -139,7 +139,7 @@ describe('toSdcpnFile — envelope', () => {
 });
 
 describe('toSdcpnFile — places', () => {
-  it('preserves every place id as an uncoloured place', () => {
+  it('preserves every place id as an uncolored place', () => {
     const net = realNet(simplePlan);
     const file = toSdcpnFile(net, {});
     expect(file.places.map((p) => p.id).sort()).toEqual(net.places.map((p) => p.id).sort());
@@ -266,7 +266,7 @@ describe('toSdcpnFile — round-trips through the Petrinaut loader', () => {
 });
 
 describe('toSdcpnFile — folded multi-slice net (FE-784)', () => {
-  // The colour fold's original motivation: clean SDCPN names. Before folding,
+  // The color fold's original motivation: clean SDCPN names. Before folding,
   // every slice produced a `slice:slice-N:spec-ready` place that PascalCased to
   // the same base, so the name allocator appended collision counters
   // (SliceSliceSpecReady, SliceSliceSpecReady2, …). After folding, the slice

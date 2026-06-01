@@ -62,7 +62,7 @@ describe('createPetrinautEventStream — initial_marking', () => {
       ['eligible', 'pool:code-agent', 'pool:test-agent', 'retry-budget', 'semantic-budget'].sort(),
     );
 
-    // Every token carries an id; slice colour preserved on the token.
+    // Every token carries an id; slice color preserved on the token.
     const retry = ev.marking['retry-budget']!;
     expect(retry).toHaveLength(1);
     expect(retry[0]!.id).toBeDefined();

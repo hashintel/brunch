@@ -77,7 +77,7 @@ export type PetrinautEvent =
 
 export type CreatePetrinautEventStreamOpts = {
   runId: string;
-  /** The colour fold of the net being run — folds concrete firings onto the folded net (FE-784). */
+  /** The color fold of the net being run — folds concrete firings onto the folded net (FE-784). */
   folding: NetFolding;
   /** When set, every event is appended as one JSON object per line. */
   filePath?: string;
