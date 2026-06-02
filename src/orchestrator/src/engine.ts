@@ -23,6 +23,25 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/**
+ * Combine the slice-3a `onPetrinautEvent` fan-out with the slice-4
+ * `setupPetrinautStream` callback so an engine event reaches both
+ * consumers in one call. Returns `undefined` when neither is set so the
+ * downstream stream constructor can skip wiring `onEvent` entirely.
+ */
+function mergeEventCallbacks(
+  a: ((event: import('./petrinaut-events.js').PetrinautEvent) => void) | undefined,
+  b: ((event: import('./petrinaut-events.js').PetrinautEvent) => void) | undefined,
+): ((event: import('./petrinaut-events.js').PetrinautEvent) => void) | undefined {
+  if (!a && !b) return undefined;
+  if (a && !b) return a;
+  if (!a && b) return b;
+  return (event) => {
+    a!(event);
+    b!(event);
+  };
+}
+
 export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
   return {
     async run(input: OrchestratorInput): Promise<OrchestratorResult> {
@@ -46,22 +65,36 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
         const folding: NetFolding =
           input.petrinautFold === 'color' ? createNetFolding(blueprint) : createIdentityFolding(blueprint);
 
-        // FE-762: write the Petrinaut-format compiled net to <runDir>/net.json
-        // so the Petrinaut team can render the topology of this cook run.
-        // Skipped when runDir is absent (library callers / tests).
+        // FE-762 + FE-764 slice 4: compute the Petrinaut SDCPN file ONCE in
+        // memory. File output is best-effort (failure must not fail the run).
+        // The in-memory `sdcpnFile` is what slice 4's `setupPetrinautStream`
+        // hook needs — decoupling it from `writeFileSync` ensures the live
+        // stream survives even if the disk write fails.
+        const runId = input.runId ?? 'unknown';
+        let sdcpnFile: ReturnType<typeof toSdcpnFile> | undefined;
         if (input.runDir) {
           try {
-            const serialized = serializeBlueprint(blueprint, { runId: input.runId ?? 'unknown', folding });
-            writeFileSync(join(input.runDir, 'net.json'), `${JSON.stringify(serialized, null, 2)}\n`);
-
-            // Also emit a Petrinaut SDCPN import file so the compiled net drops
-            // straight into the Petrinaut editor's file-picker import.
-            const sdcpn = toSdcpnFile(serialized, {});
-            writeFileSync(join(input.runDir, 'net.sdcpn.json'), `${JSON.stringify(sdcpn, null, 2)}\n`);
+            const serialized = serializeBlueprint(blueprint, { runId, folding });
+            sdcpnFile = toSdcpnFile(serialized, {});
+            try {
+              writeFileSync(join(input.runDir, 'net.json'), `${JSON.stringify(serialized, null, 2)}\n`);
+              writeFileSync(join(input.runDir, 'net.sdcpn.json'), `${JSON.stringify(sdcpnFile, null, 2)}\n`);
+            } catch (err) {
+              // Disk write failed — `sdcpnFile` is still valid for streaming.
+              ctx.warnings?.push(`Petrinaut net export disabled: ${errorMessage(err)}`);
+            }
           } catch (err) {
-            // Best-effort integration output — don't fail the cook run.
+            // Compile failed — both disk export and live stream become impossible.
             ctx.warnings?.push(`Petrinaut net export disabled: ${errorMessage(err)}`);
           }
+        }
+
+        // FE-764 slice 4: await the setup hook BEFORE opening the event
+        // stream so any async sink (HTTP/SSE server) is fully listening
+        // before `emitInitialMarking` publishes the first frame.
+        let setupCallback: ((event: import('./petrinaut-events.js').PetrinautEvent) => void) | undefined;
+        if (input.setupPetrinautStream && sdcpnFile) {
+          setupCallback = await input.setupPetrinautStream({ runId, sdcpnFile });
         }
 
         // FE-763: open a Petrinaut event stream when runDir is present.
@@ -71,12 +104,14 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
         let eventSink: NetEventSink | undefined;
         if (input.runDir) {
           try {
+            // Merge the slice-3a fan-out and the slice-4 setup callback so
+            // an engine event reaches both consumers in one call.
+            const fanOut = mergeEventCallbacks(input.onPetrinautEvent, setupCallback);
             const stream = createPetrinautEventStream({
-              runId: input.runId ?? 'unknown',
+              runId,
               folding,
               filePath: join(input.runDir, 'petrinaut-events.jsonl'),
-              // FE-764 slice 3a: optional in-process fan-out for the SSE bus.
-              ...(input.onPetrinautEvent ? { onEvent: input.onPetrinautEvent } : {}),
+              ...(fanOut ? { onEvent: fanOut } : {}),
               onError: (message) => ctx.warnings?.push(message),
             });
             stream.emitInitialMarking(blueprint);

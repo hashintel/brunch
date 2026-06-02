@@ -132,6 +132,21 @@ export type OrchestratorInput = {
    * `petrinaut-events.jsonl` is unaffected.
    */
   onPetrinautEvent?: (event: import('./petrinaut-events.js').PetrinautEvent) => void;
+  /**
+   * Awaited setup hook for the Petrinaut live-stream surface (FE-764 slice 4).
+   * Called once per run after `compileTopology` builds the `SdcpnFile` and
+   * **before** the engine emits the first `initial_marking` event, so the
+   * caller can stand up an SSE server (or any other async sink) bound to
+   * the run's net. The returned callback (if any) is fanned out alongside
+   * `onPetrinautEvent`. Ignored when `runDir` is absent.
+   *
+   * Lifecycle contract: the hook is `await`ed; an error rejects `engine.run`
+   * before any firing happens.
+   */
+  setupPetrinautStream?: (input: {
+    runId: string;
+    sdcpnFile: import('./petrinaut-sdcpn.js').SdcpnFile;
+  }) => Promise<((event: import('./petrinaut-events.js').PetrinautEvent) => void) | undefined>;
 };
 
 export type EpicOutcome = {

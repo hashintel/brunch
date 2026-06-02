@@ -13,6 +13,7 @@ import {
   type PetrinautTransitionFiredEvent,
 } from './petrinaut-events.js';
 import { createNetFolding } from './petrinaut-fold.js';
+import type { SdcpnFile } from './petrinaut-sdcpn.js';
 import { type BrunchExecutionExportFrame, createPetrinautStreamBus } from './petrinaut-stream-bus.js';
 import { reduceBrunchExecutionExport } from './petrinaut-stream-export.js';
 import { InMemoryReportSink } from './report-sink.js';
@@ -1138,6 +1139,59 @@ describe('FE-764: identity-fold engine wiring + frame-replay oracle', () => {
       const lateFrames: BrunchExecutionExportFrame[] = [];
       bus.subscribe((f) => lateFrames.push(f));
       expect(lateFrames.length).toBe(frames.length);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('FE-764 slice 4: awaits setupPetrinautStream before emitting initial_marking; returned callback receives full event sequence', async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-setup-'));
+    try {
+      // Two-phase ordering witness:
+      //  1. Setup hook does async work (microtask) and only resolves after
+      //     flipping `setupResolved = true`.
+      //  2. Engine MUST `await` that resolution before emitting any event.
+      //     If it doesn't, `receivedBeforeSetupResolved` will be > 0 and the
+      //     assertion at the bottom catches the race.
+      let setupResolved = false;
+      let receivedBeforeSetupResolved = 0;
+      const receivedEvents: PetrinautEvent[] = [];
+      let hookSdcpnSeen: SdcpnFile | undefined;
+      let hookRunIdSeen: string | undefined;
+
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: 'run-setup-hook',
+        runDir,
+        petrinautFold: 'identity',
+        setupPetrinautStream: async ({ runId, sdcpnFile }) => {
+          hookRunIdSeen = runId;
+          hookSdcpnSeen = sdcpnFile;
+          // Force a real await turn so a non-awaited engine call-site would
+          // already have emitted initial_marking by the time we return.
+          await new Promise<void>((r) => setTimeout(r, 1));
+          setupResolved = true;
+          return (event) => {
+            if (!setupResolved) receivedBeforeSetupResolved++;
+            receivedEvents.push(event);
+          };
+        },
+      });
+
+      expect(result.status).toBe('completed');
+      expect(hookRunIdSeen).toBe('run-setup-hook');
+      expect(hookSdcpnSeen).toBeDefined();
+      // Full sequence delivered through the returned callback.
+      expect(receivedEvents.length).toBeGreaterThan(0);
+      expect(receivedEvents[0]!.kind).toBe('initial_marking');
+      // Await-ordering invariant: nothing slipped through before setup resolved.
+      expect(receivedBeforeSetupResolved).toBe(0);
     } finally {
       rmSync(runDir, { recursive: true, force: true });
     }

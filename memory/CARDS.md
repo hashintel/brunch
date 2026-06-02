@@ -5,29 +5,19 @@
 
 # Scope cards — FE-764 petri-sync-server
 
-Slices 1 + 2 done — the static export + live event stream now fold through
-one caller-supplied `NetFolding`, the cook CLI selects fold mode via
-`--petrinaut-fold=color|identity` (default `identity`), and an engine-driven
-frame-replay oracle round-trips a real cook run through
-`reduceBrunchExecutionExport`. All work lives on
-`ka/fe-764-petri-sync-server` (stacked on `ka/fe-784`).
+Slices 1 + 2 + 3a + 3b + 4 done — FE-764 now supports `brunch cook <dir>
+--petrinaut-stream` end-to-end: identity-fold default via `--petrinaut-fold`,
+in-process stream bus with replay-on-subscribe, ephemeral localhost SSE
+server bound to the run, multi-tier base-URL resolution (CLI flag >
+`PETRINAUT_BASE_URL` env > hard fail before any cook side effect), URL
+composition via `new URL()` + `searchParams`, auto-open via the `open` npm
+dep (suppressed by `--no-petrinaut-open` or `CI`), and `server.stop()` in
+`finally`. All work lives on `ka/fe-764-petri-sync-server` (stacked on
+`ka/fe-784`).
 
-Slice 3 (ephemeral live stream) shipped as two commits:
-
-- **3a done:** `petrinaut-stream-bus.ts` — pure pub/sub + replay buffer +
-  incremental `PetrinautEvent` → `BrunchExecutionExportFrame` translator.
-  `OrchestratorInput.onPetrinautEvent` engine fan-out hook.
-- **3b done:** `petrinaut-stream-server.ts` — thin HTTP/SSE shell over the
-  3a bus. `createPetrinautStreamServer({ bus, host?, port? })` returns
-  `{ start, stop, connectionCount }`. Localhost-only bind, ephemeral port,
-  one route `GET /stream` returning `text/event-stream`; one bus
-  subscription per connection, response closes after `terminal` frame.
-
-Slice 4 (`--petrinaut-stream` + URL composition + multi-tier base-URL +
-auto-open) is next — wires the 3b server into `runCook` behind the flag
-and composes the Petrinaut launcher URL. Slice 5 (web-UI button +
-endpoint discovery) stays sketched below; promote to a full card once a
-real Petrinaut client has consumed the stream end-to-end.
+Slice 5 (brunch web-UI button + endpoint discovery) stays sketched below;
+promote to a full card once a real Petrinaut client has consumed the
+stream end-to-end at the Bristol demo or a discovery mechanism is chosen.
 
 ---
 
@@ -382,7 +372,7 @@ synchronously, streams live frames, and closes the response with
 
 ## Slice 4: `--petrinaut-stream` cook wiring + URL composition + auto-open
 
-**Status:** scoped (this card). Wires the 3b SSE server into `runCook` behind `--petrinaut-stream`, resolves the multi-tier base URL, composes the Petrinaut launcher URL, and auto-opens it (suppressible). Brings FE-764 to demo-runnable: `brunch cook <dir> --petrinaut-stream` opens Petrinaut on the running session.
+**Status:** done. `petrinaut-launcher-url.ts` (pure resolver + composer, 8 tests), `OrchestratorInput.setupPetrinautStream` awaited hook in engine, `createPetrinautStreamSetup` factory in `cook-cli.ts` (bus + server + open lifecycle, 5 tests + 1 await-ordering invariant test in engine-contract.test.ts), `loadLocalEnvShellWins` local `.env` loader, three new flags (`--petrinaut-stream`, `--petrinaut-base-url=<url>`, `--no-petrinaut-open`) with companion-flag validation, `.env.example` lines for `PETRINAUT_BASE_URL`. Engine refactor decouples stream setup from the FE-762 best-effort file-write block so the stream survives a disk-write failure. `npm run verify` green (1571 tests).
 
 ### Target Behavior
 

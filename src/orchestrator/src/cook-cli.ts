@@ -1,10 +1,14 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { parseEnv } from 'node:util';
 
 import { createOrchestrator } from './engine.js';
 import { FileReportSink } from './file-report-sink.js';
 import type { FiringPolicy } from './petri-net.js';
+import { composeLauncherUrl, resolvePetrinautBaseUrl } from './petrinaut-launcher-url.js';
+import { createPetrinautStreamBus, type PetrinautStreamBus } from './petrinaut-stream-bus.js';
+import { createPetrinautStreamServer, type PetrinautStreamServer } from './petrinaut-stream-server.js';
 import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
 import { BunTestRunner } from './test-runner.js';
@@ -25,6 +29,12 @@ export type CookOptions = {
   maxRetries: number;
   verbose: boolean;
   petrinautFold: PetrinautFoldMode;
+  /** FE-764 slice 4: when true, runCook boots the ephemeral SSE server and composes the launcher URL. */
+  petrinautStream: boolean;
+  /** FE-764 slice 4: optional CLI override for the Petrinaut SPA base URL. */
+  petrinautBaseUrl?: string;
+  /** FE-764 slice 4: whether to auto-launch the system browser; CI=true also suppresses at runtime. */
+  petrinautOpen: boolean;
 };
 
 export function parseCookArgs(args: string[]): CookOptions {
@@ -33,6 +43,11 @@ export function parseCookArgs(args: string[]): CookOptions {
   let maxRetries = 3;
   let verbose = false;
   let petrinautFold: PetrinautFoldMode = 'identity';
+  let petrinautStream = false;
+  let petrinautBaseUrl: string | undefined;
+  let petrinautOpen = true;
+  let sawNoOpen = false;
+  let sawBaseUrl = false;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
@@ -54,6 +69,14 @@ export function parseCookArgs(args: string[]): CookOptions {
         throw new Error(`Unknown --petrinaut-fold value: ${val}. Use color or identity.`);
       }
       petrinautFold = val;
+    } else if (arg === '--petrinaut-stream') {
+      petrinautStream = true;
+    } else if (arg.startsWith('--petrinaut-base-url=')) {
+      petrinautBaseUrl = arg.split('=').slice(1).join('=');
+      sawBaseUrl = true;
+    } else if (arg === '--no-petrinaut-open') {
+      petrinautOpen = false;
+      sawNoOpen = true;
     } else if (arg === '--verbose' || arg === '-v') {
       verbose = true;
     } else if (!arg.startsWith('-')) {
@@ -63,11 +86,125 @@ export function parseCookArgs(args: string[]): CookOptions {
 
   if (!dir) {
     throw new Error(
-      'Usage: brunch cook <dir> [--policy=serial|parallel] [--max-retries=N] [--petrinaut-fold=color|identity] [--verbose]',
+      'Usage: brunch cook <dir> [--policy=serial|parallel] [--max-retries=N] [--petrinaut-fold=color|identity] [--petrinaut-stream [--petrinaut-base-url=<url>] [--no-petrinaut-open]] [--verbose]',
     );
   }
 
-  return { dir: resolve(dir), policy, maxRetries, verbose, petrinautFold };
+  // Companion-flag validation: stream-only flags require --petrinaut-stream.
+  if (sawBaseUrl && !petrinautStream) {
+    throw new Error('--petrinaut-base-url requires --petrinaut-stream');
+  }
+  if (sawNoOpen && !petrinautStream) {
+    throw new Error('--no-petrinaut-open requires --petrinaut-stream');
+  }
+
+  return {
+    dir: resolve(dir),
+    policy,
+    maxRetries,
+    verbose,
+    petrinautFold,
+    petrinautStream,
+    petrinautBaseUrl,
+    petrinautOpen,
+  };
+}
+
+/**
+ * Load `<launchCwd>/.env` into `process.env` with **shell-wins** precedence
+ * (only sets keys that are not already defined). Tolerates a missing `.env`.
+ *
+ * Local copy rather than reusing `src/server/runtime-config.ts` so that
+ * (a) the orchestrator stays self-contained, and (b) precedence matches
+ * standard dotenv tooling — the server helper currently lets `.env`
+ * override the shell, which would let a stale `.env` clobber an explicit
+ * `PETRINAUT_BASE_URL=…` shell prefix.
+ */
+export function loadLocalEnvShellWins(launchCwd: string): void {
+  const envPath = join(launchCwd, '.env');
+  if (!existsSync(envPath)) return;
+  const parsed = parseEnv(readFileSync(envPath, 'utf8'));
+  for (const [key, value] of Object.entries(parsed)) {
+    if (value === '' || value === undefined) continue;
+    if (process.env[key] !== undefined && process.env[key] !== '') continue;
+    process.env[key] = value;
+  }
+}
+
+/**
+ * Default browser-open seam — small wrapper around the `open` npm package
+ * so tests (and `runCook` callers that want a no-op) can inject their own.
+ */
+export async function defaultOpenUrl(url: string): Promise<void> {
+  const { default: open } = await import('open');
+  await open(url);
+}
+
+export type CreatePetrinautStreamSetupOpts = {
+  baseUrl: string;
+  /** Suppress auto-open when false (matches `--no-petrinaut-open` / CI). URL still prints. */
+  shouldOpen: boolean;
+  openUrl: (url: string) => void | Promise<void>;
+  /** Where the composed URL gets printed. Defaults to `console.error` so it shows on the cook banner stream. */
+  log?: (line: string) => void;
+  /** Server factory — exposed for tests. Defaults to the real HTTP server. */
+  createServer?: (bus: PetrinautStreamBus) => PetrinautStreamServer;
+};
+
+export type PetrinautStreamSetupHandle = {
+  /** Pass directly to `OrchestratorInput.setupPetrinautStream`. */
+  setupHook: NonNullable<Parameters<ReturnType<typeof createOrchestrator>['run']>[0]['setupPetrinautStream']>;
+  /** Tear the server down — call from `runCook`'s `finally`. Idempotent. */
+  stop: () => Promise<void>;
+};
+
+/**
+ * Build the FE-764 setup hook + server-stop handle. Pure factory — caller
+ * provides every side-effecting collaborator. The hook itself:
+ *   1. constructs the bus from the engine-supplied `sdcpnFile`
+ *   2. constructs the SSE server over the bus
+ *   3. awaits `server.start()` so it is listening before returning
+ *   4. composes the launcher URL and prints it
+ *   5. invokes `openUrl(url)` unless `shouldOpen === false`; open failure
+ *      logs a warning and continues
+ *   6. returns `bus.publish` as the engine's onEvent fan-out
+ */
+export function createPetrinautStreamSetup(opts: CreatePetrinautStreamSetupOpts): PetrinautStreamSetupHandle {
+  const log = opts.log ?? ((line: string) => console.error(line));
+  const createServer =
+    opts.createServer ?? ((bus: PetrinautStreamBus) => createPetrinautStreamServer({ bus }));
+
+  let server: PetrinautStreamServer | undefined;
+
+  const setupHook: PetrinautStreamSetupHandle['setupHook'] = async ({ runId, sdcpnFile }) => {
+    const bus = createPetrinautStreamBus({ runId, sdcpnFile });
+    server = createServer(bus);
+    const endpoint = await server.start();
+    const launcherUrl = composeLauncherUrl({ baseUrl: opts.baseUrl, runId, streamUrl: endpoint.streamUrl });
+    log('');
+    log(`  Petrinaut live stream`);
+    log(`  ──────────────────────────────────────`);
+    log(`  stream     ${endpoint.streamUrl}`);
+    log(`  launcher   ${launcherUrl}`);
+    log('');
+    if (opts.shouldOpen) {
+      try {
+        await opts.openUrl(launcherUrl);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log(`  !  Couldn't auto-open browser (${msg}); visit ${launcherUrl}`);
+      }
+    }
+    return (event) => bus.publish(event);
+  };
+
+  return {
+    setupHook,
+    stop: async () => {
+      if (!server) return;
+      await server.stop();
+    },
+  };
 }
 
 function fmtDuration(ms: number): string {
@@ -138,6 +275,26 @@ function isCleanGitWorkingTree(dir: string): GitWorkingTreeCheck {
 }
 
 export async function runCook(opts: CookOptions): Promise<void> {
+  const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
+
+  // FE-764 slice 4 pre-flight: when --petrinaut-stream is set, load `.env`
+  // and resolve the base URL BEFORE any cook side effect (banner, plan
+  // load, sandbox creation). Behavior without --petrinaut-stream is
+  // byte-identical to before this slice — no .env read, no env check.
+  let petrinautBaseUrl: string | undefined;
+  if (opts.petrinautStream) {
+    loadLocalEnvShellWins(launchCwd);
+    const resolvedBaseUrl = resolvePetrinautBaseUrl({
+      cliFlag: opts.petrinautBaseUrl,
+      env: { PETRINAUT_BASE_URL: process.env.PETRINAUT_BASE_URL },
+    });
+    if ('error' in resolvedBaseUrl) {
+      console.error(resolvedBaseUrl.error);
+      process.exit(1);
+    }
+    petrinautBaseUrl = resolvedBaseUrl.baseUrl;
+  }
+
   const resolved = resolveCookMode(opts.dir);
   if (resolved.mode === 'error') {
     console.error(resolved.message);
@@ -145,7 +302,6 @@ export async function runCook(opts: CookOptions): Promise<void> {
   }
 
   const plan = loadPlan(resolved.planPath);
-  const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
   const { sandboxDir, runDir, runId } =
     resolved.mode === 'codebase'
       ? createSandbox(launchCwd, undefined, { mode: 'codebase', sourceDir: resolved.sourceDir })
@@ -173,47 +329,67 @@ export async function runCook(opts: CookOptions): Promise<void> {
   const runStart = Date.now();
   const actions = createPiActions({ verbose: opts.verbose, runStart });
 
-  const result = await engine.run({
-    plan,
-    sandboxDir,
-    actions,
-    reports,
-    testRunner,
-    policy: { maxRetries: opts.maxRetries },
-    sandboxMode: resolved.mode === 'codebase' ? 'codebase' : 'fixture',
-    runId,
-    // FE-762: engine writes Petrinaut net.json into the run directory.
-    runDir,
-    // FE-764: picks the NetFolding (identity by default; color collapses subnets).
-    petrinautFold: opts.petrinautFold,
-  });
+  // FE-764 slice 4: stand up the live-stream setup handle (bus + HTTP/SSE
+  // server) when streaming is enabled. Auto-open is suppressed by
+  // `--no-petrinaut-open` OR a truthy `process.env.CI`.
+  const streamSetup =
+    opts.petrinautStream && petrinautBaseUrl
+      ? createPetrinautStreamSetup({
+          baseUrl: petrinautBaseUrl,
+          shouldOpen: opts.petrinautOpen && !process.env.CI,
+          openUrl: defaultOpenUrl,
+        })
+      : undefined;
 
-  const duration = fmtDuration(Date.now() - runStart);
-  const ok = result.status === 'completed';
+  try {
+    const result = await engine.run({
+      plan,
+      sandboxDir,
+      actions,
+      reports,
+      testRunner,
+      policy: { maxRetries: opts.maxRetries },
+      sandboxMode: resolved.mode === 'codebase' ? 'codebase' : 'fixture',
+      runId,
+      // FE-762: engine writes Petrinaut net.json into the run directory.
+      runDir,
+      // FE-764: picks the NetFolding (identity by default; color collapses subnets).
+      petrinautFold: opts.petrinautFold,
+      ...(streamSetup ? { setupPetrinautStream: streamSetup.setupHook } : {}),
+    });
 
-  console.error('');
-  console.error(`  ──────────────────────────────────────`);
-  console.error(
-    `  ${ok ? '✓' : '✗'}  ${result.status}${result.reason ? ` — ${result.reason}` : ''}  (${duration})`,
-  );
-  for (const warning of result.warnings) {
-    console.error(`  !  ${warning}`);
-  }
-  console.error('');
+    const duration = fmtDuration(Date.now() - runStart);
+    const ok = result.status === 'completed';
 
-  for (const e of result.epics) {
-    const icon = e.status === 'completed' ? '✓' : '✗';
-    const slices = result.slices.filter(
-      (s) => plan.slices.find((ps) => ps.id === s.sliceId)?.epic_id === e.epicId,
+    console.error('');
+    console.error(`  ──────────────────────────────────────`);
+    console.error(
+      `  ${ok ? '✓' : '✗'}  ${result.status}${result.reason ? ` — ${result.reason}` : ''}  (${duration})`,
     );
-    const sliceSummary = slices.map((s) => `${s.status === 'completed' ? '✓' : '✗'} ${s.sliceId}`).join('  ');
-    console.error(`  ${icon}  ${e.epicId}`);
-    console.error(`     ${sliceSummary}`);
+    for (const warning of result.warnings) {
+      console.error(`  !  ${warning}`);
+    }
+    console.error('');
+
+    for (const e of result.epics) {
+      const icon = e.status === 'completed' ? '✓' : '✗';
+      const slices = result.slices.filter(
+        (s) => plan.slices.find((ps) => ps.id === s.sliceId)?.epic_id === e.epicId,
+      );
+      const sliceSummary = slices
+        .map((s) => `${s.status === 'completed' ? '✓' : '✗'} ${s.sliceId}`)
+        .join('  ');
+      console.error(`  ${icon}  ${e.epicId}`);
+      console.error(`     ${sliceSummary}`);
+    }
+
+    console.error('');
+    console.error(`  ${result.reports.length} events → ${reportsPath}`);
+    console.error('');
+
+    process.exit(ok ? 0 : 1);
+  } finally {
+    // FE-764 slice 4: always tear down the SSE server, on success or failure.
+    if (streamSetup) await streamSetup.stop();
   }
-
-  console.error('');
-  console.error(`  ${result.reports.length} events → ${reportsPath}`);
-  console.error('');
-
-  process.exit(ok ? 0 : 1);
 }
