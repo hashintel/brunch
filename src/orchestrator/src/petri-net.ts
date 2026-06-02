@@ -68,11 +68,11 @@ export type NetEventKind = 'transition_fired' | 'net_deadlocked' | 'net_halted';
 /**
  * Structured event emitted during net execution.
  *
- * `consumed` / `produced` are place-name lists (one entry per arc). The
- * parallel `consumedTokens` / `producedTokens` carry the actual tokens
- * that traversed each arc, indexed the same way — they are populated for
- * `transition_fired` events so downstream adapters (e.g. the FE-763
- * Petrinaut event stream) can include token payload in the wire format.
+ * `consumed` / `produced` are place-name lists (one entry per arc).
+ * `consumedTokens` / `producedTokens` carry the single token that traversed
+ * each corresponding arc. Brunch currently models one-token-per-arc firing;
+ * if multi-token arcs become real, this contract should change deliberately
+ * with tests that exercise that capability.
  */
 export type NetEvent = {
   kind: NetEventKind;
@@ -80,9 +80,9 @@ export type NetEvent = {
   transitionId?: string;
   contract?: TransitionContract;
   consumed?: string[];
-  consumedTokens?: Token[][];
+  consumedTokens?: Token[];
   produced?: string[];
-  producedTokens?: Token[][];
+  producedTokens?: Token[];
 };
 
 /** Sink for structured net events. Optional — defaults to no-op. */
@@ -111,6 +111,7 @@ export function placeName(placeId: string): string {
 }
 
 type TransitionClaim = { transition: TransitionDef; consumed: Token[] };
+export type ConsumedClaim = { places: string[]; tokens: Token[] };
 
 export class PetriNet {
   private places = new Map<string, Token[]>();
@@ -151,15 +152,12 @@ export class PetriNet {
   scheduleDeferred(
     transitionId: string,
     contract: TransitionContract | undefined,
-    consumedPlaces: string[],
-    consumedTokens: Token[],
+    consumed: ConsumedClaim,
     work: Promise<{ place: string; token: Token }[]>,
   ): void {
     this.pendingDeferred++;
     work
-      .then((outputs) =>
-        this.completeDeferred(transitionId, contract, consumedPlaces, consumedTokens, outputs),
-      )
+      .then((outputs) => this.completeDeferred(transitionId, contract, consumed, outputs))
       .catch((err) => {
         this.deferredError ??= err;
         this.pendingDeferred--;
@@ -170,24 +168,23 @@ export class PetriNet {
   private completeDeferred(
     transitionId: string,
     contract: TransitionContract | undefined,
-    consumedPlaces: string[],
-    consumedTokens: Token[],
+    consumed: ConsumedClaim,
     outputs: { place: string; token: Token }[],
   ): void {
     const producedPlaces: string[] = [];
-    const producedTokens: Token[][] = [];
+    const producedTokens: Token[] = [];
     for (const { place, token } of outputs) {
       this.addToken(place, token);
       producedPlaces.push(place);
-      producedTokens.push([token]);
+      producedTokens.push(token);
     }
     this.deferredEventSink?.emit({
       kind: 'transition_fired',
       ts: new Date().toISOString(),
       transitionId,
       contract,
-      consumed: consumedPlaces,
-      consumedTokens: consumedTokens.map((t) => [t]),
+      consumed: consumed.places,
+      consumedTokens: consumed.tokens,
       produced: producedPlaces,
       producedTokens,
     });
@@ -300,11 +297,11 @@ export class PetriNet {
     eventSink?: NetEventSink,
   ): void {
     const producedPlaces: string[] = [];
-    const producedTokens: Token[][] = [];
+    const producedTokens: Token[] = [];
     for (const { place, token } of outputs) {
       this.addToken(place, token);
       producedPlaces.push(place);
-      producedTokens.push([token]);
+      producedTokens.push(token);
     }
     // Deferred handlers return [] synchronously; their transition_fired
     // event is emitted once from completeDeferred when outputs land.
@@ -315,7 +312,7 @@ export class PetriNet {
       transitionId: transition.id,
       contract: transition.contract,
       consumed: transition.inputs,
-      consumedTokens: consumed.map((t) => [t]),
+      consumedTokens: consumed,
       produced: producedPlaces,
       producedTokens,
     });

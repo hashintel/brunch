@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -84,9 +84,12 @@ describe('createPetrinautEventStream — transition_fired adapter', () => {
       ts: '2026-05-27T00:00:00.000Z',
       transitionId: 'slice-1:evaluate:dispatch',
       consumed: ['slice:slice-1:spec-ready', 'pool:test-agent'],
-      consumedTokens: [[{ sliceId: 'slice-1', epicId: 'epic-1' }], [{ sliceId: '', epicId: '' }]],
+      consumedTokens: [
+        { sliceId: 'slice-1', epicId: 'epic-1' },
+        { sliceId: '', epicId: '' },
+      ],
       produced: ['slice:slice-1:evaluate:running'],
-      producedTokens: [[{ sliceId: 'slice-1', epicId: 'epic-1' }]],
+      producedTokens: [{ sliceId: 'slice-1', epicId: 'epic-1' }],
     });
 
     expect(events).toHaveLength(1);
@@ -111,7 +114,7 @@ describe('createPetrinautEventStream — transition_fired adapter', () => {
         kind: 'transition_fired',
         ts: '2026-05-27T00:00:00.000Z',
         consumed: ['slice:slice-1:spec-ready'],
-        consumedTokens: [[{ sliceId: 'slice-1', epicId: 'epic-1' }]],
+        consumedTokens: [{ sliceId: 'slice-1', epicId: 'epic-1' }],
         produced: [],
         producedTokens: [],
       }),
@@ -182,9 +185,12 @@ describe('createPetrinautEventStream — JSONL file output', () => {
       ts: '2026-05-27T00:00:00.000Z',
       transitionId: 'slice-1:evaluate:dispatch',
       consumed: ['slice:slice-1:spec-ready', 'pool:test-agent'],
-      consumedTokens: [[{ sliceId: 'slice-1', epicId: 'epic-1' }], [{ sliceId: '', epicId: '' }]],
+      consumedTokens: [
+        { sliceId: 'slice-1', epicId: 'epic-1' },
+        { sliceId: '', epicId: '' },
+      ],
       produced: ['slice:slice-1:evaluate:running'],
-      producedTokens: [[{ sliceId: 'slice-1', epicId: 'epic-1' }]],
+      producedTokens: [{ sliceId: 'slice-1', epicId: 'epic-1' }],
     });
 
     // Terminal halt.
@@ -209,5 +215,26 @@ describe('createPetrinautEventStream — JSONL file output', () => {
     expect(fired.transitionName).toBe('slice-1:evaluate:dispatch');
     expect(fired.input['slice:slice-1:spec-ready']![0]!.sliceId).toBe('slice-1');
     expect(fired.output['slice:slice-1:evaluate:running']![0]!.id).toBeDefined();
+  });
+
+  it('disables file output after an append failure without throwing', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'brunch-petrinaut-events-'));
+    const filePath = join(dir, 'petrinaut-events.jsonl');
+    const events: PetrinautEvent[] = [];
+    const warnings: string[] = [];
+
+    const stream = createPetrinautEventStream({
+      runId: 'run-jsonl',
+      filePath,
+      tokenIdFn: deterministicTokenId(),
+      onEvent: (e) => events.push(e),
+      onError: (message) => warnings.push(message),
+    });
+    chmodSync(filePath, 0o444);
+
+    expect(() => stream.sink.emit({ kind: 'net_halted', ts: '2026-05-27T00:00:01.000Z' })).not.toThrow();
+    expect(events.map((e) => e.kind)).toEqual(['net_halted']);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('Petrinaut event stream disabled:');
   });
 });

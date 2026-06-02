@@ -175,6 +175,9 @@ export async function runCook(opts: CookOptions): Promise<void> {
   console.error(
     `  ${ok ? '✓' : '✗'}  ${result.status}${result.reason ? ` — ${result.reason}` : ''}  (${duration})`,
   );
+  for (const warning of result.warnings) {
+    console.error(`  !  ${warning}`);
+  }
   console.error('');
 
   for (const e of result.epics) {

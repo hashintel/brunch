@@ -643,7 +643,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             }
             return out;
           })();
-          net.scheduleDeferred(skel.id, skel.contract, skel.inputs, consumed, deferred);
+          net.scheduleDeferred(skel.id, skel.contract, { places: skel.inputs, tokens: consumed }, deferred);
           return [];
         };
         break;
@@ -740,7 +740,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
               { place: budgetPlace, token: { ...baseToken, retryCount: retryCount + 1 } },
             ];
           })();
-          net.scheduleDeferred(skel.id, skel.contract, skel.inputs, consumed, deferred);
+          net.scheduleDeferred(skel.id, skel.contract, { places: skel.inputs, tokens: consumed }, deferred);
           return [];
         };
         break;
@@ -795,7 +795,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
               { place: budgetPlace, token: { ...baseToken, reworkCount: reworkCount + 1 } },
             ];
           })();
-          net.scheduleDeferred(skel.id, skel.contract, skel.inputs, consumed, deferred);
+          net.scheduleDeferred(skel.id, skel.contract, { places: skel.inputs, tokens: consumed }, deferred);
           return [];
         };
         break;
@@ -877,7 +877,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             // happens in sibling-passthrough transitions downstream.
             return [{ place: intermediatePlace, token: { ...inputToken, reportId } }];
           })();
-          net.scheduleDeferred(skel.id, skel.contract, skel.inputs, consumed, deferred);
+          net.scheduleDeferred(skel.id, skel.contract, { places: skel.inputs, tokens: consumed }, deferred);
           return [];
         };
         break;

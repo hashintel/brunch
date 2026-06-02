@@ -977,6 +977,28 @@ describe('FE-763: Petrinaut event stream on a real run', () => {
     expect(events.filter((e) => e.kind === 'net_halted')).toHaveLength(0);
     expect(events.filter((e) => e.kind === 'net_deadlocked')).toHaveLength(0);
   });
+
+  it('surfaces Petrinaut integration failures as warnings without halting the run', async () => {
+    const fakes = createFakes();
+    const result = await createOrchestrator('serial').run({
+      plan: simplePlan,
+      sandboxDir: '/tmp/fake',
+      actions: fakes.actions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+      runId: 'run-warnings',
+      runDir: join(tmpdir(), 'brunch-missing-run-dir', 'child'),
+    });
+
+    expect(result.status).toBe('completed');
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('Petrinaut net export disabled:'),
+        expect.stringContaining('Petrinaut event stream disabled:'),
+      ]),
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

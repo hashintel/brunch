@@ -18,6 +18,10 @@ import type { Orchestrator, OrchestratorInput, OrchestratorResult, RunCtx } from
 // comes from the halt token itself (`token.haltReason`).
 // ---------------------------------------------------------------------------
 
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
   return {
     async run(input: OrchestratorInput): Promise<OrchestratorResult> {
@@ -25,6 +29,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
         reportIds: [],
         sliceOutcomes: new Map(),
         epicOutcomes: new Map(),
+        warnings: [],
       };
 
       let haltReason: string | undefined;
@@ -45,8 +50,9 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
             // straight into the Petrinaut editor's file-picker import.
             const sdcpn = toSdcpnFile(serialized, {});
             writeFileSync(join(input.runDir, 'net.sdcpn.json'), `${JSON.stringify(sdcpn, null, 2)}\n`);
-          } catch {
+          } catch (err) {
             // Best-effort integration output — don't fail the cook run.
+            ctx.warnings?.push(`Petrinaut net export disabled: ${errorMessage(err)}`);
           }
         }
 
@@ -60,11 +66,13 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
             const stream = createPetrinautEventStream({
               runId: input.runId ?? 'unknown',
               filePath: join(input.runDir, 'petrinaut-events.jsonl'),
+              onError: (message) => ctx.warnings?.push(message),
             });
             stream.emitInitialMarking(blueprint);
             eventSink = stream.sink;
-          } catch {
+          } catch (err) {
             // Best-effort integration output — don't fail the cook run.
+            ctx.warnings?.push(`Petrinaut event stream disabled: ${errorMessage(err)}`);
           }
         }
 
@@ -83,7 +91,8 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
       } catch (err) {
         return {
           status: 'halted',
-          reason: err instanceof Error ? err.message : String(err),
+          reason: errorMessage(err),
+          warnings: ctx.warnings ?? [],
           reports: [...ctx.reportIds],
           epics: input.plan.epics.map(
             (e) => ctx.epicOutcomes.get(e.id) ?? { epicId: e.id, status: 'halted' as const },
@@ -117,6 +126,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
       return {
         status: halted ? 'halted' : 'completed',
         reason: haltReason,
+        warnings: ctx.warnings ?? [],
         reports: [...ctx.reportIds],
         epics: input.plan.epics.map((e) => ctx.epicOutcomes.get(e.id)!),
         slices: input.plan.slices.map((s) => ctx.sliceOutcomes.get(s.id)!),

@@ -25,10 +25,10 @@
 //      These flow naturally through `transition_fired` events as token payload.
 //   2. as a terminal `net_halted` event marking the run's end state.
 //
-// Open coordination item (tracked on FE-763): token UUID lifecycle —
-// today every emission generates fresh UUIDs (no lineage across
-// consume→emit). When Petrinaut decides whether to persist token
-// identity across firings this module is the seam to evolve.
+// Decision needed with Petrinaut before treating token ids as durable
+// identities: today every emission generates fresh UUIDs (no lineage across
+// consume→emit). This module is the seam to evolve once identity semantics are
+// settled.
 // ---------------------------------------------------------------------------
 
 import { randomUUID } from 'node:crypto';
@@ -82,6 +82,8 @@ export type CreatePetrinautEventStreamOpts = {
   tokenIdFn?: () => string;
   /** Fan-out for in-memory consumers (tests, sync-server forwarder). */
   onEvent?: (event: PetrinautEvent) => void;
+  /** Receives best-effort file-output failures without failing the cook run. */
+  onError?: (message: string) => void;
 };
 
 export type PetrinautEventStream = {
@@ -99,20 +101,28 @@ export type PetrinautEventStream = {
  * without re-reading the file.
  */
 export function createPetrinautEventStream(opts: CreatePetrinautEventStreamOpts): PetrinautEventStream {
-  const { runId, filePath, onEvent } = opts;
+  const { runId, filePath, onEvent, onError } = opts;
   const tokenId = opts.tokenIdFn ?? randomUUID;
+  let fileOutputDisabled = false;
 
   // Initialize the file as empty so the first append produces a well-formed JSONL file.
   if (filePath) writeFileSync(filePath, '');
 
   function publish(event: PetrinautEvent): void {
-    if (filePath) appendFileSync(filePath, `${JSON.stringify(event)}\n`);
+    if (filePath && !fileOutputDisabled) {
+      try {
+        appendFileSync(filePath, `${JSON.stringify(event)}\n`);
+      } catch (err) {
+        fileOutputDisabled = true;
+        onError?.(`Petrinaut event stream disabled: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
     onEvent?.(event);
   }
 
   function groupTokens(
     places: string[] | undefined,
-    tokens: Token[][] | undefined,
+    tokens: Token[] | undefined,
   ): Record<string, PetrinautToken[]> {
     const out: Record<string, PetrinautToken[]> = {};
     if (!places) return out;
@@ -122,9 +132,9 @@ export function createPetrinautEventStream(opts: CreatePetrinautEventStreamOpts)
     }
     for (let i = 0; i < places.length; i++) {
       const place = places[i]!;
-      const placeTokens = tokens[i] ?? [];
       const list = out[place] ?? [];
-      for (const t of placeTokens) list.push(tokenToPetrinaut(t, tokenId));
+      const token = tokens[i];
+      if (token) list.push(tokenToPetrinaut(token, tokenId));
       out[place] = list;
     }
     return out;
