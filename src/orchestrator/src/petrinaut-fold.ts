@@ -151,6 +151,42 @@ export function createNetFolding(blueprint: NetBlueprint): NetFolding {
   };
 }
 
+/**
+ * Identity folding — every concrete id maps to itself; no per-slice subnet
+ * collapse, no token color decoration. Produces the unfolded per-slice net
+ * verbatim. Sibling to `createNetFolding`; same `NetFolding` interface, so
+ * `serializeBlueprint` and `createPetrinautEventStream` consume it without
+ * branching on which constructor produced the folding.
+ *
+ * Used by FE-764's `--petrinaut-fold=identity` mode (default) when the demo /
+ * small-N visualization wants the full per-slice lifecycle on canvas rather
+ * than the color-folded shared lifecycle.
+ */
+export function createIdentityFolding(blueprint: NetBlueprint): NetFolding {
+  const places: FoldedPlace[] = blueprint.places.map((id) => ({ id }));
+  const transitions: FoldedTransition[] = blueprint.transitions.map((t) => ({
+    id: t.id,
+    inputs: [...t.inputs],
+    outputs: [...enumerateCandidateOutputs(t)].sort(),
+    contract: t.contract,
+  }));
+  return {
+    foldedPlaces: () => places,
+    foldedTransitions: () => transitions,
+    foldTransition: (transitionId) => transitionId,
+    foldedMarking<T>(entries: Iterable<readonly [place: string, tokens: readonly T[]]>): Map<string, T[]> {
+      const out = new Map<string, T[]>();
+      for (const [place, tokens] of entries) {
+        const list = out.get(place) ?? [];
+        for (const tk of tokens) list.push(tk);
+        out.set(place, list);
+      }
+      return out;
+    },
+    tokenTypes: () => [],
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Private id-folding primitives — the implementation of createNetFolding.
 // Not exported: the only public fold surface is NetFolding, so there is no
