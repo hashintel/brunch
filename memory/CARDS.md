@@ -11,9 +11,36 @@ adds the `createIdentityFolding` constructor and the `--petrinaut-fold` cook
 CLI flag, flipping the default to `identity`. Both slices live on
 `ka/fe-764-petri-sync-server` (stacked on `ka/fe-784`).
 
-Later slices (ephemeral SSE server in the cook process, URL emission +
-auto-open, web-UI button + endpoint discovery) get scoped after these two
-ship and the on-wire contract has held up against an integration test.
+Later slices (ephemeral SSE server in the cook process — slice 3;
+`--petrinaut-stream` flag + URL composition + multi-tier base-URL
+resolution + auto-open — slice 4; web-UI button + endpoint discovery —
+slice 5) get sketched below; they get full scope-card treatment once
+slices 1+2 ship and the on-wire contract has held up against an
+integration test.
+
+---
+
+## Slices 3–5 (sketches — promote to full cards after slice 2 ships)
+
+### Slice 3 — ephemeral SSE server in the cook process
+
+Boot an HTTP server on a free port inside the cook process (`http.createServer` + `listen(0)`); one route `/stream` returns `text/event-stream` and replays `definition` → `initial_marking` → all firings-so-far → live firings → terminal per the `BrunchExecutionExport` contract. Lifecycle: starts at cook init, dies with the process. Buffers prior events in memory so a late joiner gets the full timeline. No persistence, no auth, localhost-only.
+
+### Slice 4 — `--petrinaut-stream` flag + URL composition + multi-tier base-URL + auto-open
+
+- New flag `--petrinaut-stream` on `brunch cook` — opt-in (default off). Without it, cook continues to write JSONL artifacts but doesn't boot slice 3's server. With it, slice 3's server starts and the URL is composed/presented.
+- New flag `--petrinaut-base-url=<url>` — one-off override for the Petrinaut SPA base.
+- New env var `PETRINAUT_BASE_URL` — read via brunch's existing env loader (`.env` is the practical home).
+- New flag `--no-petrinaut-open` — suppress auto-launching the browser; URL still prints. Implicit when `process.env.CI` is set.
+- **Base-URL resolution** (locked in PLAN.md FE-764): CLI flag > env var > **hard fail** with `Petrinaut base URL required: set PETRINAUT_BASE_URL in .env or pass --petrinaut-base-url=<url>`. No baked-in default.
+- URL shape: `{baseUrl}?runId={runId}&mode=actual&sse={localEndpoint}` (exact param names pending Chris — emit speculatively for v1; align before Bristol).
+- `.env.example` gains a `PETRINAUT_BASE_URL=` line (commented or with a placeholder so first-run setup is obvious).
+- Auto-open via `open` / `xdg-open` (npm `open` package — small mature dep). Falls back to print-only on launch failure.
+- Validation runs **before** the cook engine starts so a misconfig fails fast rather than mid-run.
+
+### Slice 5 — brunch web-UI button + endpoint discovery
+
+A persistent UI affordance that opens the live run in Petrinaut. Needs a discovery mechanism: the cook process advertises `{ sessionId, url, port }` somewhere the brunch SPA can read (proposed: `<runDir>/petrinaut-stream.json` written by slice 3 + watched by the SPA; alternative: a brunch-server endpoint `/runs/{runId}/petrinaut` that proxies to the live cook). Decision pending — open coordination item in PLAN.md.
 
 ---
 
