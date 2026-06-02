@@ -214,7 +214,61 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Linear:** FE-764 (parent: FE-760)
 - **Kind:** structural
 - **Status:** active — design settled (2026-06-01 meeting + 2026-06-02 scoping); contract written + a real export validated; implementation next. Pulled forward as the Bristol-demo integration path; supersedes the earlier static single-file bundle idea.
-- **Objective:** Stream an executing cook run into Petrinaut's read-only "actual/live" tab over a single SSE connection. The **cook process hosts its own ephemeral HTTP/SSE server** on a free port; it dies with the run and persists nothing. One stream, **replay-on-connect**: `definition` (once) → `initial_state` (once) → every firing-so-far → then live `transition_firing` events → terminal. Payload is the `BrunchExecutionExport` contract: `definition` = SDCPN topology minus scenario; `initialState` + per-firing `input`/`output` as count `Marking`s (≡ Petrinaut `InitialMarking`, verified against `@hashintel/petrinaut-core`). Brunch mints the session id (**reuse `runId`**) and hands Petrinaut a URL (`endpoint + runId + mode=actual`); **no discovery/list endpoint** — Brunch initiates the session. Two trigger surfaces: (a) a **cook CLI flag** emits/auto-opens the "Open in Petrinaut" URL, and (b) a **brunch web-UI button** (must discover the live run's ephemeral endpoint — open detail).
+- **Objective:** Stream an executing cook run into Petrinaut's read-only "actual/live" tab over a single SSE connection. The **cook process hosts its own ephemeral HTTP/SSE server** on a free port; it dies with the run and persists nothing. One stream, **replay-on-connect**: `definition` (once) → `initial_state` (once) → every firing-so-far → then live `transition_firing` events → terminal. Payload is the `BrunchExecutionExport` contract — see locked schema below. Brunch mints the session id (**reuse `runId`**) and hands Petrinaut a URL (`endpoint + runId + mode=actual`); **no discovery/list endpoint** — Brunch initiates the session. Two trigger surfaces: (a) a **cook CLI flag** emits/auto-opens the "Open in Petrinaut" URL, and (b) a **brunch web-UI button** (must discover the live run's ephemeral endpoint — open detail).
+- **Contract — `BrunchExecutionExport` (locked 2026-06-02):**
+  ```ts
+  type PlaceId = string;
+  type TokenColour = Record<string, number>;
+  // Per-place marking — either a count (uncoloured/identity-fold) or a list of
+  // coloured token instances (colour-fold). Matches Petrinaut's runtime
+  // InitialMarking = number | Record<string, number>[] in @hashintel/petrinaut-core.
+  type Marking = Record<PlaceId, number | TokenColour[]>;
+
+  type SdcpnInputArc  = { placeId: PlaceId; weight: number; type: 'standard' | 'inhibitor' };
+  type SdcpnOutputArc = { placeId: PlaceId; weight: number };
+
+  type SdcpnPlace = {
+    id: PlaceId;
+    name: string;
+    colorId: string | null;
+    dynamicsEnabled: boolean;
+    differentialEquationId: string | null;
+  };
+
+  type SdcpnTransition = {
+    id: string;
+    name: string;
+    inputArcs: SdcpnInputArc[];
+    outputArcs: SdcpnOutputArc[];
+    lambdaType: 'predicate' | 'stochastic';
+    lambdaCode: string;
+    transitionKernelCode: string;
+  };
+
+  // Tight subset of SdcpnFile — drops scenarios, differentialEquations,
+  // parameters, metrics (Petrinaut's "actual" view doesn't read them).
+  type NetDefinition = {
+    version: number;
+    meta: { generator: string; generatorVersion?: string };
+    title: string;
+    places: SdcpnPlace[];
+    transitions: SdcpnTransition[];
+    types: never[];
+  };
+
+  type TransitionFiring = {
+    transitionId: string;
+    input: Marking;
+    output: Marking;
+    ts: string; // preserved verbatim from PetrinautTransitionFiredEvent.ts
+  };
+
+  type BrunchExecutionExport = {
+    definition: NetDefinition;
+    initialState: Marking;
+    transitionFirings: TransitionFiring[];
+  };
+  ```
 - **Why now / unlocks:** Bristol demo. The static bundle was dropped for live streaming (simpler end-to-end; the file is just a full stream replay). FE-761/762/763 + the SDCPN transform have landed, so the net + firing data already exist in memory per run — this frontier adds only the transport + trigger.
 - **Demo posture — fold mode selectable per run, identity is the default:** a new `--petrinaut-fold=color|identity` flag on `brunch cook` picks the projection. `identity` is the **default** (inverts FE-784's prior default; demo-pragmatic for Bristol and for any small-N plan where the unfolded per-slice lifecycle reads better); `color` opts back into FE-784's colour fold for larger plans. Mechanism: a sibling `createIdentityFolding(blueprint)` constructor next to `createNetFolding`, both returning the same `NetFolding` interface — `serializeBlueprint` and the event stream stay branch-free, the CLI picks the constructor at the entry point. Lexicon: extends FE-784's `color fold` / `folded net` with `identity fold`.
 - **Acceptance:** (1) `brunch cook` (with the flag) boots an ephemeral SSE server on a free port and prints/opens the Petrinaut URL carrying `runId` + `mode=actual` + endpoint. (2) A client connecting at any time receives `definition` → `initial_state` → all firings-so-far → live firings → terminal, over one SSE connection. (3) Payload validates against the `BrunchExecutionExport` contract. (4) `--petrinaut-fold=identity` (default) emits the unfolded per-slice net; `--petrinaut-fold=color` reuses `createNetFolding`; both modes flow through the same SSE seam. (5) Killing the cook process ends the stream cleanly; nothing is persisted. (6) Concurrent cook runs on different folders pick distinct free ports without collision. (7) A brunch web-UI button can open the same URL for a live run. (8) Read-only / one-way — no write-back.

@@ -23,7 +23,7 @@ ship and the on-wire contract has held up against an integration test.
 
 ### Target Behavior
 
-A pure function `reduceBrunchExecutionExport({ sdcpnFile, events })` returns a `BrunchExecutionExport` whose `definition` is the input SDCPN file minus its `scenarios` array, whose `initialState` is the count-reduced initial marking from the events, and whose `transitionFirings` are the count-reduced per-place deltas from every `transition_fired` event in arrival order.
+A pure function `reduceBrunchExecutionExport({ sdcpnFile, events })` returns a `BrunchExecutionExport` matching the schema locked in PLAN.md §petri-sync-server: `definition` is a tight `NetDefinition` projection of the input SDCPN file (keeps `version`, `meta`, `title`, `places`, `transitions`, `types`; drops `scenarios`, `differentialEquations`, `parameters`, `metrics`); `initialState` is the marking from the `initial_marking` event reduced into the `Marking` shape (count arm under identity folding; coloured arm passthrough when present); `transitionFirings` are the per-place deltas from every `transition_fired` event in arrival order, with `ts: string` preserved verbatim.
 
 ### Boundary Crossings
 
@@ -58,19 +58,25 @@ No cook-process / filesystem / SSE wiring in this slice. The function is consume
 ### Acceptance Criteria
 
 ```
-✓ `BrunchExecutionExport` and `Marking` exported from petrinaut-stream-export.ts with shapes locked in PLAN.md (definition = SdcpnFile minus scenarios; initialState: Marking; transitionFirings: { transitionId, input: Marking, output: Marking, ts: number }[]).
+✓ All public types (`PlaceId`, `TokenColour`, `Marking`, `SdcpnInputArc`, `SdcpnOutputArc`, `SdcpnPlace`, `SdcpnTransition`, `NetDefinition`, `TransitionFiring`, `BrunchExecutionExport`) exported from petrinaut-stream-export.ts and match the schema locked in PLAN.md §petri-sync-server byte-for-byte.
+
+✓ `Marking = Record<PlaceId, number | TokenColour[]>` — sum type preserved (count + colour arms); identity-fold runs only populate the count arm, but the type permits the colour arm for future colour-fold consumers feeding the same reducer.
+
+✓ `TransitionFiring.ts: string` (preserved verbatim from `PetrinautTransitionFiredEvent.ts` — confirmed in petrinaut-events.ts:60).
 
 ✓ `reduceBrunchExecutionExport(input)` is a pure function — no filesystem, no process exits, no globals.
 
-✓ Reducer drops only `scenarios` from definition; all other top-level SDCPN fields pass through untouched.
+✓ `definition` projection is the tight 6-field NetDefinition: keeps `version`, `meta`, `title`, `places`, `transitions`, `types`; explicitly drops `scenarios`, `differentialEquations`, `parameters`, `metrics`. Not `Omit<SdcpnFile, 'scenarios'>` — an explicit constructor that names every kept field.
 
-✓ Reducer count-reduces every per-place token array to a number under the count arm of Marking (Record<PlaceId, number>); per-place keys with zero tokens are not synthesized (empty places stay absent).
+✓ Reducer count-reduces every per-place token array to a number under the count arm of `Marking` (identity-fold case); per-place keys with zero tokens are not synthesized (empty places stay absent).
 
-✓ test: round-trip on a synthetic 2-slice plan under IDENTITY folding — compile blueprint, drive firings through the live engine seam with `createIdentityFolding`, capture events, reduce, then frame-replay: reconstruct every marking from initialState + transitionFirings deltas, assert no negative marking and final marking equals the live PetriNet's terminal marking. (Note: createIdentityFolding doesn't exist yet at slice 1's start — see slice 2. Slice 1 can either land the constructor as a single-file helper here and slice 2 promotes its CLI plumbing, or slice 1's test uses an inline mock of NetFolding's identity case. Pick at build time; prefer the helper-here approach so slice 2 only adds CLI surface.)
+✓ test: round-trip on a synthetic 2-slice plan under IDENTITY folding — compile blueprint, drive firings through the live engine seam with `createIdentityFolding`, capture events, reduce, then frame-replay: reconstruct every marking from initialState + transitionFirings deltas, assert no negative marking and final marking equals the live PetriNet's terminal marking. (Note: createIdentityFolding doesn't exist yet at slice 1's start — see slice 2. Prefer landing the constructor as a single-file helper here so slice 2 only adds CLI surface; alternative is an inline NetFolding identity mock in the test.)
 
 ✓ test: referential integrity — every place id in initialState and every firing's input/output is present in `definition.places`; every `transitionId` is present in `definition.transitions`.
 
-✓ test: scenario-drop — given an SdcpnFile with a non-empty scenarios array, the returned definition has no `scenarios` field and is structurally equal to the input modulo that one omission.
+✓ test: definition projection — given an SdcpnFile populated with non-empty `scenarios`, `differentialEquations`, `parameters`, `metrics`, the returned `NetDefinition` contains none of those keys and is structurally equal to the input on the 6 kept fields.
+
+✓ test: ts roundtrip — `TransitionFiring.ts` strings match the source events 1:1 (no Date coercion, no number conversion).
 
 ✓ `npm run check` clean (0 errors); `npm run test` includes the new test file and it passes.
 ```
