@@ -31,7 +31,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 
 ### Active
 
-1. `live-graph-observer` — not-started — P0 visual black triangle: TUI writer + web observer + selected-spec graph view over WebSocket RPC.
+1. `live-graph-observer` — in-progress — P0 visual black triangle: TUI writer + web observer + selected-spec graph view over WebSocket RPC.
 
 ### Next
 
@@ -63,10 +63,10 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 ### live-graph-observer
 
 - **Name:** Live selected-spec graph observer over web RPC
-- **Linear:** unassigned
-- **Branch:** to create — `ln/<issue>-live-graph-observer`
+- **Linear:** [FE-795](https://linear.app/hash/issue/FE-795/live-selected-spec-graph-observer-over-web-rpc)
+- **Branch:** `ln/fe-795-live-selected-spec-graph-observer-over-web-rpc`
 - **Kind:** bounded feature / tracer bullet
-- **Status:** not-started
+- **Status:** in-progress
 - **Objective:** Make the graph visible as live product state while the TUI remains the writer. Add product RPC graph reads/subscriptions and a minimal web graph panel so a graph mutation from the TUI/agent path updates the browser's selected-spec graph view.
 - **Why now / unlocks:** This is the primary POC observability mark. Without a simultaneous TUI session and web graph view, the graph-native workspace remains mostly invisible even though persistence and tools exist.
 - **Acceptance:**
