@@ -1,6 +1,6 @@
 # Brunch POC Architecture PRD
 
-This document extracts the final architectural position from [the source transcript](./transcript-of-pi-architecture-review.md). The transcript used the placeholder product name `foobar`; this document maps that proposal onto `brunch` and prefers later corrections over earlier statements when they conflict.
+This document extracts the final architectural position from [the source transcript](../../archive/docs/architecture/artifacts/transcript-of-pi-architecture-review.md) (archived). The transcript used the placeholder product name `foobar`; this document maps that proposal onto `brunch` and prefers later corrections over earlier statements when they conflict.
 
 This is a POC PRD, not a declaration of shipped product truth. Its job is to state the architecture clearly enough that Brunch can prove or falsify the core bets in a deliberate order.
 
@@ -58,7 +58,7 @@ The POC may start intent-first, but storage, transport, and naming should not lo
 
 The transcript store should be treated as a first-class architectural decision, not as an accidental side effect of whichever pi default happens to be present.
 
-The session export in [docs/architecture/artifacts/session-re-extending-sessions.jsonl](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/artifacts/session-re-extending-sessions.jsonl) sharpens the near-term posture:
+The session export in [archive/docs/architecture/artifacts/session-re-extending-sessions.jsonl](../../archive/docs/architecture/artifacts/session-re-extending-sessions.jsonl) (archived) sharpens the near-term posture:
 
 - pi JSONL sessions are richer than a flat append log
 - they already support tree structure, branch summaries, compaction entries, labels, model/thinking changes, `custom` entries, and `custom_message` entries

@@ -34,7 +34,6 @@ Older brief-library examples were retired; future behavioral-kernel evidence sho
 ## Horizon design notes
 
 - [`docs/design/SPEC_INITIATIVE_MODEL.md`](../design/SPEC_INITIATIVE_MODEL.md) — working design proposal for spec as initiative/problem lifecycle, claim as truth-bearing unit, projected current truth, and repo-native branching/merge implications for planning data.
-- [`docs/design/PLANNING_PERSISTENCE_MODEL.md`](../design/PLANNING_PERSISTENCE_MODEL.md) — working design proposal for repo-native canonical planning history, SQLite materialization, markdown projections, and the recommended changeset-oriented persistence posture.
 
 ## Working conventions
 
