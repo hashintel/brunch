@@ -37,14 +37,14 @@ describe('Brunch chrome projection', () => {
         role: 'elicitor',
         model: 'claude-sonnet',
         thinking: 'medium',
-        lens: 'step-by-step',
+        lens: 'intent',
       },
     };
 
     expect(formatBrunchChromeHeaderLines(state)).toEqual([
       '█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █',
       '█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█',
-      'runtime: elicit-default · role elicitor · claude-sonnet · thinking medium · lens step-by-step',
+      'runtime: elicit-default · role elicitor · claude-sonnet · thinking medium · lens intent',
       'spec: Spec One · session: Interview #1 · phase: elicitation',
     ]);
   });
@@ -94,7 +94,7 @@ describe('Brunch chrome projection', () => {
         role: 'elicitor',
         model: 'claude-sonnet',
         thinking: 'medium',
-        lens: 'step-by-step',
+        lens: 'intent',
       },
       build: { version: 'v0.0.0', dev: 'dev abc123' },
       contextUsage: { usedTokens: 1024, maxTokens: 2048 },
@@ -103,7 +103,7 @@ describe('Brunch chrome projection', () => {
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      'brunch · runtime: elicit-default · role elicitor · claude-sonnet · thinking medium · lens step-by-step · build: v0.0.0 dev abc123',
+      'brunch · runtime: elicit-default · role elicitor · claude-sonnet · thinking medium · lens intent · build: v0.0.0 dev abc123',
       'context: [█████░░░░░] 1,024/2,048 tokens (50%)',
       'state: responding-to-elicitation · coherence: needs_review · worker: observer-review/queued',
       'spec: Spec One · session: Interview #1',

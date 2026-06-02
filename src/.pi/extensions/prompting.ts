@@ -39,6 +39,7 @@ export function registerBrunchPrompting(pi: ExtensionAPI): void {
       agentRole: state.agentRole,
       agentStrategy: state.agentStrategy,
       agentLens: state.agentLens,
+      agentGoal: state.agentGoal,
       activeTools,
     });
 

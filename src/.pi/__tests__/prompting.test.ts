@@ -51,8 +51,9 @@ describe('Brunch prompt-pack topology', () => {
     const result = composeBrunchPrompt({
       operationalMode: 'elicit',
       agentRole: 'elicitor',
-      agentStrategy: 'step-by-step',
-      agentLens: 'step-by-step',
+      agentStrategy: 'step-wise-decision-tree',
+      agentLens: 'intent',
+      agentGoal: 'auto',
       activeTools: ['read', 'grep', 'present_options'],
     });
 
@@ -67,6 +68,9 @@ describe('Brunch prompt-pack topology', () => {
     expect(result.prompt).toContain('[Brunch agent state]');
     expect(result.prompt).toContain('Operational mode: elicit.');
     expect(result.prompt).toContain('Agent role: elicitor.');
+    expect(result.prompt).toContain('Agent goal: auto.');
+    expect(result.prompt).toContain('Agent strategy: step-wise-decision-tree.');
+    expect(result.prompt).toContain('Agent lens: intent.');
     expect(result.prompt).toContain('Brunch exposes only elicit-safe tools: read, grep, present_options.');
     expect(result.prompt.indexOf('# Brunch base')).toBeLessThan(
       result.prompt.indexOf('# Operational mode: elicit'),
@@ -85,8 +89,9 @@ describe('Brunch prompt-pack topology', () => {
   it('appends composed Brunch prompting from runtime-state projection', async () => {
     const latestState: BrunchAgentState = {
       ...DEFAULT_BRUNCH_AGENT_STATE,
-      agentStrategy: 'disambiguate-via-examples',
-      agentLens: 'disambiguate-via-examples',
+      agentStrategy: 'step-wise-disambiguate',
+      agentLens: 'design',
+      agentGoal: 'elicit-I',
     };
     const events: Record<string, (event: never, ctx?: never) => unknown> = {};
 
@@ -115,7 +120,7 @@ describe('Brunch prompt-pack topology', () => {
       systemPrompt: expect.stringContaining('base\n\n[Brunch agent state]'),
     });
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('Agent strategy: disambiguate-via-examples.'),
+      systemPrompt: expect.stringContaining('Agent strategy: step-wise-disambiguate.'),
     });
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining(
@@ -159,8 +164,9 @@ describe('Brunch prompt-pack topology', () => {
     );
     const latestState: BrunchAgentState = {
       ...DEFAULT_BRUNCH_AGENT_STATE,
-      agentStrategy: 'disambiguate-via-examples',
-      agentLens: 'disambiguate-via-examples',
+      agentStrategy: 'propose-graph',
+      agentLens: 'oracle',
+      agentGoal: 'commitment-converge',
     };
     appendBrunchAgentRuntimeSwitch(manager, latestState, 'user');
     const switchedPromptResults = await Promise.all(
@@ -185,10 +191,10 @@ describe('Brunch prompt-pack topology', () => {
       ['read', 'grep', 'present_options'],
     ]);
     expect(defaultPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('Agent strategy: step-by-step.'),
+      systemPrompt: expect.stringContaining('Agent strategy: auto.'),
     });
     expect(switchedPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('Agent strategy: disambiguate-via-examples.'),
+      systemPrompt: expect.stringContaining('Agent strategy: propose-graph.'),
     });
   });
 

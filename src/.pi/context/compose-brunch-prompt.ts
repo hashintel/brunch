@@ -8,7 +8,8 @@ export interface BrunchPromptCompositionState {
   operationalMode: string;
   agentRole: string;
   agentStrategy: string;
-  agentLens: string | null;
+  agentLens: string;
+  agentGoal: string;
   activeTools: readonly string[];
 }
 
@@ -55,14 +56,14 @@ const PROMPT_PACKS = PROMPT_PACK_ORDER.map(readPromptPack);
 
 function renderAgentState(state: BrunchPromptCompositionState): string {
   const tools = state.activeTools.join(', ') || 'none';
-  const lens = state.agentLens ?? 'none';
 
   return [
     '[Brunch agent state]',
     `- Operational mode: ${state.operationalMode}.`,
     `- Agent role: ${state.agentRole}.`,
+    `- Agent goal: ${state.agentGoal}.`,
     `- Agent strategy: ${state.agentStrategy}.`,
-    `- Agent lens: ${lens}.`,
+    `- Agent lens: ${state.agentLens}.`,
     `- Prompt packs: ${PROMPT_PACK_ORDER.join(', ')}.`,
     '',
     '[Brunch tool policy]',

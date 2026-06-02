@@ -243,13 +243,13 @@ describe('elicitation exchange projection', () => {
         id: 'offer-1',
         type: 'custom',
         customType: 'brunch.establishment_offer',
-        data: { lens: 'step-by-step' },
+        data: { lens: 'intent' },
       },
       {
         id: 'proposal-1',
         type: 'custom',
         customType: 'brunch.review_set_proposal',
-        data: { lens: 'propose-scenarios-with-tradeoffs' },
+        data: { lens: 'design' },
       },
       user,
     ]);

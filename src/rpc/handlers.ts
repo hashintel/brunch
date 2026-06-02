@@ -303,7 +303,7 @@ const TranscriptDisplayResultSchema = Type.Object(
 const PendingElicitationExchangeSchema = Type.Object(
   {
     exchangeId: NonBlankStringSchema,
-    lens: Type.Literal('step-by-step'),
+    lens: Type.Literal('intent'),
     mode: Type.Union([Type.Literal('text'), Type.Literal('single-select'), Type.Literal('multi-select')]),
     prompt: NonBlankStringSchema,
     details: Type.Optional(NonBlankStringSchema),
@@ -831,7 +831,7 @@ function nextDeterministicElicitationExchange(completedCount: number): PendingEl
   const script: PendingElicitationExchange[] = [
     {
       exchangeId: `deterministic-grounding-choice-${turnNumber}`,
-      lens: 'step-by-step',
+      lens: 'intent',
       mode: 'single-select',
       prompt: 'Is this a new product or feature from scratch?',
       details: 'Choose the best starting context so later elicitation can ask useful follow-ups.',
@@ -859,7 +859,7 @@ function nextDeterministicElicitationExchange(completedCount: number): PendingEl
     },
     {
       exchangeId: `deterministic-grounding-text-${turnNumber}`,
-      lens: 'step-by-step',
+      lens: 'intent',
       mode: 'text',
       prompt: 'What are we specifying?',
       details:
@@ -869,7 +869,7 @@ function nextDeterministicElicitationExchange(completedCount: number): PendingEl
     },
     {
       exchangeId: `deterministic-grounding-multi-${turnNumber}`,
-      lens: 'step-by-step',
+      lens: 'intent',
       mode: 'multi-select',
       prompt: 'Which proof qualities matter for this parity run?',
       details:
@@ -1003,7 +1003,7 @@ function pendingExchangeFromStructuredPresent(
   const detailsText = typeof richDetails.details === 'string' ? richDetails.details : markdown;
   return {
     exchangeId: details.exchangeId,
-    lens: 'step-by-step',
+    lens: 'intent',
     mode:
       details.expectedRequest?.tool === 'request_choices'
         ? 'multi-select'

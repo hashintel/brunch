@@ -551,7 +551,7 @@ describe('JSON-RPC handlers', () => {
         status: 'pending',
         exchange: {
           exchangeId: expect.any(String),
-          lens: 'step-by-step',
+          lens: 'intent',
           mode: 'single-select',
           prompt: expect.stringContaining('new product or feature'),
           options: expect.arrayContaining([
@@ -612,7 +612,7 @@ describe('JSON-RPC handlers', () => {
     expect(sessionText).toContain('brunch.structured_exchange.present');
     expect(sessionText).toContain('present_options');
     expect(sessionText).toContain(exchangeId);
-    expect(sessionText).toContain('"lens":"step-by-step"');
+    expect(sessionText).toContain('"lens":"intent"');
   });
 
   it('reads the selected pending elicitation exchange from transcript truth', async () => {
@@ -649,7 +649,7 @@ describe('JSON-RPC handlers', () => {
             }
           ).result.exchange.exchangeId,
           prompt: expect.stringContaining('new product or feature'),
-          lens: 'step-by-step',
+          lens: 'intent',
           options: expect.arrayContaining([
             expect.objectContaining({
               id: 'new-from-scratch',

@@ -26,8 +26,22 @@ export const BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE = 'brunch.agent_runtime_stat
 
 export type OperationalModeId = 'elicit';
 export type AgentRoleId = 'elicitor';
-export type AgentStrategyId = 'step-by-step' | 'disambiguate-via-examples';
-export type AgentLensId = AgentStrategyId;
+export type AutoAxisSelection = 'auto';
+export type AgentStrategyId =
+  | 'step-wise-decision-tree'
+  | 'step-wise-disambiguate'
+  | 'propose-graph'
+  | 'project-graph';
+export type AgentStrategySelection = AutoAxisSelection | AgentStrategyId;
+export type AgentLensId = 'intent' | 'design' | 'oracle';
+export type AgentLensSelection = AutoAxisSelection | AgentLensId;
+export type AgentGoalId =
+  | 'grounding-advance'
+  | 'elicit-I'
+  | 'elicit-II'
+  | 'commitment-converge'
+  | 'capture-posture';
+export type AgentGoalSelection = AutoAxisSelection | AgentGoalId;
 export type ToolPolicyId = 'elicit-read-only';
 export type PromptPackId = 'brunch-base' | 'elicit' | 'elicitor';
 export type ModelPreference = 'default';
@@ -36,9 +50,9 @@ export type ThinkingLevel = 'low' | 'medium' | 'high';
 export interface BrunchAgentState {
   schemaVersion: 1;
   operationalMode: OperationalModeId;
-  agentRole: AgentRoleId;
-  agentStrategy: AgentStrategyId;
-  agentLens: AgentLensId | null;
+  agentStrategy: AgentStrategySelection;
+  agentLens: AgentLensSelection;
+  agentGoal: AgentGoalSelection;
 }
 
 export interface OperationalModeDefinition {
@@ -52,16 +66,19 @@ export interface OperationalModeDefinition {
 export interface AgentRoleDefinition {
   id: AgentRoleId;
   operationalMode: OperationalModeId;
-  defaultStrategy: AgentStrategyId;
+  defaultStrategy: AgentStrategySelection;
   allowedStrategies: readonly AgentStrategyId[];
-  defaultLens: AgentLensId | null;
+  defaultLens: AgentLensSelection;
   allowedLenses: readonly AgentLensId[];
+  defaultGoal: AgentGoalSelection;
+  allowedGoals: readonly AgentGoalId[];
   promptPackIds: readonly PromptPackId[];
   modelPreference?: ModelPreference;
   thinkingLevel?: ThinkingLevel;
 }
 
 export interface ResolvedBrunchAgentState extends BrunchAgentState {
+  agentRole: AgentRoleId;
   operationalModeDefinition: OperationalModeDefinition;
   agentRoleDefinition: AgentRoleDefinition;
 }
@@ -77,9 +94,9 @@ export interface BrunchAgentStateEntryData {
 export const DEFAULT_BRUNCH_AGENT_STATE: BrunchAgentState = {
   schemaVersion: 1,
   operationalMode: 'elicit',
-  agentRole: 'elicitor',
-  agentStrategy: 'step-by-step',
-  agentLens: 'step-by-step',
+  agentStrategy: 'auto',
+  agentLens: 'auto',
+  agentGoal: 'grounding-advance',
 };
 
 export const OPERATIONAL_MODE_DEFINITIONS: Record<OperationalModeId, OperationalModeDefinition> = {
@@ -96,10 +113,17 @@ export const AGENT_ROLE_DEFINITIONS: Record<AgentRoleId, AgentRoleDefinition> = 
   elicitor: {
     id: 'elicitor',
     operationalMode: 'elicit',
-    defaultStrategy: 'step-by-step',
-    allowedStrategies: ['step-by-step', 'disambiguate-via-examples'],
-    defaultLens: 'step-by-step',
-    allowedLenses: ['step-by-step', 'disambiguate-via-examples'],
+    defaultStrategy: 'auto',
+    allowedStrategies: [
+      'step-wise-decision-tree',
+      'step-wise-disambiguate',
+      'propose-graph',
+      'project-graph',
+    ],
+    defaultLens: 'auto',
+    allowedLenses: ['intent', 'design', 'oracle'],
+    defaultGoal: 'grounding-advance',
+    allowedGoals: ['grounding-advance', 'elicit-I', 'elicit-II', 'commitment-converge', 'capture-posture'],
     promptPackIds: ['elicitor'],
   },
 };
@@ -118,30 +142,33 @@ function isOneOf<T extends string>(value: unknown, allowed: readonly T[]): value
   return typeof value === 'string' && allowed.includes(value as T);
 }
 
+function isAxisSelection<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+): value is AutoAxisSelection | T {
+  return value === 'auto' || isOneOf(value, allowed);
+}
+
 function parseBrunchAgentState(value: unknown): BrunchAgentState | undefined {
   if (!isRecord(value)) return undefined;
   const operationalModes = Object.keys(OPERATIONAL_MODE_DEFINITIONS) as OperationalModeId[];
-  const agentRoles = Object.keys(AGENT_ROLE_DEFINITIONS) as AgentRoleId[];
 
   if (value.schemaVersion !== 1) return undefined;
   if (!isOneOf(value.operationalMode, operationalModes)) return undefined;
-  if (!isOneOf(value.agentRole, agentRoles)) return undefined;
+  if ('agentRole' in value) return undefined;
 
   const mode = OPERATIONAL_MODE_DEFINITIONS[value.operationalMode];
-  const role = AGENT_ROLE_DEFINITIONS[value.agentRole];
-  if (!mode.allowedRoles.includes(value.agentRole)) return undefined;
-  if (role.operationalMode !== value.operationalMode) return undefined;
-  if (!isOneOf(value.agentStrategy, role.allowedStrategies)) return undefined;
-  if (value.agentLens !== null && !isOneOf(value.agentLens, role.allowedLenses)) {
-    return undefined;
-  }
+  const role = AGENT_ROLE_DEFINITIONS[mode.defaultRole];
+  if (!isAxisSelection(value.agentStrategy, role.allowedStrategies)) return undefined;
+  if (!isAxisSelection(value.agentLens, role.allowedLenses)) return undefined;
+  if (!isAxisSelection(value.agentGoal, role.allowedGoals)) return undefined;
 
   return {
     schemaVersion: 1,
     operationalMode: value.operationalMode,
-    agentRole: value.agentRole,
     agentStrategy: value.agentStrategy,
     agentLens: value.agentLens,
+    agentGoal: value.agentGoal,
   };
 }
 
@@ -172,10 +199,13 @@ function parseBrunchAgentStateEntryData(value: unknown): BrunchAgentStateEntryDa
 }
 
 function resolveBrunchAgentState(state: BrunchAgentState): ResolvedBrunchAgentState {
+  const operationalModeDefinition = OPERATIONAL_MODE_DEFINITIONS[state.operationalMode];
+  const agentRole = operationalModeDefinition.defaultRole;
   return {
     ...state,
-    operationalModeDefinition: OPERATIONAL_MODE_DEFINITIONS[state.operationalMode],
-    agentRoleDefinition: AGENT_ROLE_DEFINITIONS[state.agentRole],
+    agentRole,
+    operationalModeDefinition,
+    agentRoleDefinition: AGENT_ROLE_DEFINITIONS[agentRole],
   };
 }
 
@@ -245,9 +275,9 @@ export function appendBrunchAgentRuntimeSwitch(
     previous: {
       schemaVersion: previous.schemaVersion,
       operationalMode: previous.operationalMode,
-      agentRole: previous.agentRole,
       agentStrategy: previous.agentStrategy,
       agentLens: previous.agentLens,
+      agentGoal: previous.agentGoal,
     },
     source,
   });

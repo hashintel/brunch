@@ -51,8 +51,7 @@ The POC should maximize assumption falsification rather than merely implement mi
 
 ### Active
 
-1. `agent-runtime-vocabulary` — fix the session-agent record to the reconciled vocabulary (un-collapse lens, add `propose-graph`/`project-graph`/`goal`, derive role from `op_mode`). Foundational; gates the A14-L proof and the composition layer.
-2. `agent-graph-integration` — M5. Graph tools, synchronous elicitor capture, review-set acceptance, reviewer advisory writes; all writes via the command layer. Its A14-L real-LLM proof (the `propose-graph → commitGraph` path) waits on `agent-runtime-vocabulary`.
+1. `agent-graph-integration` — M5. Graph tools, synchronous elicitor capture, review-set acceptance, reviewer advisory writes; all writes via the command layer. The `propose-graph → commitGraph` runtime vocabulary gate has landed; next M5 work can run the A14-L real-LLM proof, then scope capture/reviewer slices.
 
 ### Next
 
@@ -102,23 +101,23 @@ The POC should maximize assumption falsification rather than merely implement mi
 ### agent-runtime-vocabulary
 
 - **Name:** Session-agent runtime vocabulary fix
-- **Linear:** unassigned (create in FE / brunch when branch opens)
-- **Branch:** to create — `ln/<issue>-agent-runtime-vocabulary`
+- **Linear:** [FE-789](https://linear.app/hash/issue/FE-789/session-agent-runtime-vocabulary-fix)
+- **Branch:** `ln/fe-789-session-agent-runtime-vocabulary-fix`
 - **Kind:** structural (corrects a projected, persisted session-agent custom-entry record to match revised D25-L/D40-L/D59-L)
-- **Status:** active
+- **Status:** done
 - **Objective:** Bring the live `brunch.agent_runtime_state` machinery (`src/.pi/extensions/operational-mode.ts`) into conformance with the reconciled SPEC: **(a)** un-collapse `AgentLensId` from `AgentStrategyId` — lens becomes the orthogonal topical axis `intent | design | oracle`; **(b)** replace the stale strategy vocabulary (`step-by-step`, `disambiguate-via-examples`) with `step-wise-decision-tree | step-wise-disambiguate | propose-graph | project-graph`; **(c)** add the `goal` axis (`grounding-advance | elicit-I | elicit-II | commitment-converge | capture-posture`, grade-derived, AUTO-able) per D59-L; **(d)** make `op_mode` the only WHO field and **derive** the foreground role (`elicitor`) from it, dropping `agentRole` as stored state; **(e)** make `strategy`/`lens`/`goal` optional and `auto`-able. Regenerate `DEFAULT_BRUNCH_AGENT_STATE`, the append/project/switch helpers, and all fixtures.
 - **Why now / unlocks:** The code is the last place still carrying the pre-reconciliation model (collapsed lens, missing `propose-graph`/`project-graph`, role-as-state). `propose-graph` must exist before `agent-graph-integration` can run the A14-L real-LLM proof (the `propose-graph → commitGraph` path is the named proof target), and the orthogonal axes are the precondition for the `agents/` 3-layer composition. Foundational and small.
 - **Acceptance:**
   - `AgentLensId` is independent of `AgentStrategyId`; lens ∈ `intent | design | oracle`.
   - strategy ∈ `step-wise-decision-tree | step-wise-disambiguate | propose-graph | project-graph`; old names gone everywhere.
-  - `goal` axis present with grade-derived default and `auto` accepted; `op_mode` derives the foreground role; no stored `agentRole`.
+  - concrete `AgentStrategyId` / `AgentLensId` / `AgentGoalId` values stay separate from persisted `auto` selections; `goal` has a grade-derived default, and all three objective axes accept `auto`; `op_mode` derives the foreground role; no stored `agentRole`.
   - append/project/switch helpers round-trip the new record; malformed/illegal tuples rejected; I25-L tests updated and green.
   - all fixtures/tests regenerated to the new vocabulary; `npm run verify` green.
 - **Verification:** Inner — runtime-state append/project/switch unit tests over the new axes (I25-L); legal-tuple acceptance / illegal-tuple rejection. Middle — projection round-trip from real JSONL reload. No new outer-loop here; the A14-L behavioral proof rides on `agent-graph-integration`.
 - **Cross-cutting obligations:** Keep state linear-transcript-backed (D40-L); foreground role derived, not stored. Do **not** author prompt packs or build `compose()` here — that is `agents-composition-layer`. If `agents/state.ts` is introduced for the shared enums, keep it to type/enum + legal-combination homes only.
 - **Traceability:** D25-L (revised), D40-L (revised), D59-L, I25-L (revised) / A14-L (sharpens the proof). Retires: collapsed lens, stale strategy vocabulary, role-as-session-state.
 - **Design docs:** `memory/SPEC.md` §Active Decisions (D25-L, D40-L, D58-L, D59-L), Lexicon.
-- **Current execution pointer:** Not started. Likely cards: (1) enums + `BrunchAgentState` shape + `DEFAULT` + projection/switch helpers; (2) fixture/test regeneration + I25-L update.
+- **Current execution pointer:** Done. Reconciled `brunch.agent_runtime_state` now carries `operationalMode`, `agentGoal`, `agentStrategy`, and `agentLens` without stored `agentRole`; role is derived from `op_mode`, concrete axis id unions stay separate from the `auto` selection sentinel, deterministic elicitation lens metadata uses `intent`, and stale strategy/lens names were removed from source/tests. Verified with targeted runtime/prompting/chrome/RPC/exchange tests and `npm run verify`.
 
 ### agents-composition-layer
 
@@ -352,10 +351,10 @@ The POC should maximize assumption falsification rather than merely implement mi
 
 ## Recently Completed
 
+- 2026-06-02 `agent-runtime-vocabulary` (FE-789) — Done: session-agent runtime state uses the reconciled D25-L/D40-L/D59-L axes (`goal`, `strategy`, `lens`) with foreground role derived from `op_mode`; concrete axis id unions stay separate from the `auto` selection sentinel, and all three axes accept `auto`; `propose-graph`/`project-graph` are legal strategies; deterministic elicitation lens metadata now uses `intent`; stale collapsed strategy/lens names and stored `agentRole` are gone from runtime-state entries. Verified: targeted runtime/prompting/chrome/RPC/exchange tests and `npm run verify`.
 - 2026-06-02 `spec-persistence-and-startup` — Done: specs are DB rows with integer ids and `readiness_grade`; `createSpec` / `getSpec` / `updateReadinessGrade` route through `CommandExecutor` with change-log audit; startup scaffolds `.brunch/workspace.json` + `.brunch/data.db`; session binding collapsed to `{schemaVersion,specId}` and is fork-portable; inventory resolves spec names from DB. Verified: `npm run verify` and real `brunch --mode print` against a fresh cwd.
-- 2026-06-01 `graph-data-plane` (FE-741) — Done: all 6 execution steps complete. **(1)** Drizzle schema + `initSchema` DDL push + graph_clock seed. **(2)** `CommandExecutor` result contract, one-transaction LSN/change-log skeleton, `createNode` proof-of-life, I26-L architectural boundary test. **(3)** skipped (subsumed by 4). **(4)** `commitGraph` atomic batch mutation with intra-batch + existing-node ref resolution, edge structural validation, I34-L all-or-nothing. **(5)** graph snapshot readers (`getGraphOverview`, `getNodeNeighborhood`) with superseded-predecessor exclusion, configurable hop depth, typed domain returns (I35-L). **(6)** reconciliation-need substrate (`createReconciliationNeed`, `resolveReconciliationNeed`, `getOpenReconciliationNeeds`) with target validation + LSN invariants; oracle-plane stub acceptance met by existing node kinds. Verified: `npm run verify` after each slice. `agent-graph-integration` (M5) is now unblocked.
+- 2026-06-01 `graph-data-plane` (FE-741) — Done: all 6 execution steps complete. **(1)** Drizzle schema + `initSchema` DDL push + graph_clock seed. **(2)** `CommandExecutor` result contract, one-transaction LSN/change-log skeleton, `createNode` proof-of-life, I26-L architectural boundary test. **(3)** skipped (subsumed by 4). **(4)** `commitGraph` atomic batch mutation with intra-batch + existing-node ref resolution, edge structural validation, I34-L all-or-nothing. **(5)** graph snapshot readers (`getGraphOverview`, `getNodeNeighborhood`) with superseded-predecessor exclusion, configurable hop depth, typed domain returns (I35-L). **(6)** reconciliation-need substrate (`createReconciliationNeed`, `resolveReconciliationNeed`, `getOpenReconciliationNeeds`) with LSN invariants. Verified: `npm run verify`.
 - 2026-06-01 `sealed-pi-profile-runtime-state` (FE-776) — Done: prep envelope tied off. Both strands complete: **(a)** Pi harness sealing including sealed profile, runtime-state transcript projection, session display names via Pi `session_info`; **(b)** graph-model lock-and-materialize with Phase 1 (edges) + Phase 2 (nodes) locked in `docs/design/GRAPH_MODEL.md`, code stubs under `src/graph/`, and A20-L persistence spike validating `drizzle-orm@0.45.2` + `drizzle-typebox@0.3.3` + `better-sqlite3@12.8.0`. `graph-data-plane` (M4 CRUD) is now unblocked. Verified: `npm run verify` after each slice.
-- 2026-06-01 `pi-ui-extension-patterns` (FE-744) — Done. All Pi extension seam evidence for M5/M6/M7 landed. Detailed frontier definition archived to [docs/archive/PLAN_HISTORY.md §2026-06-01 Sync archive](file:///Users/lunelson/Code/hashintel/brunch-next/docs/archive/PLAN_HISTORY.md).
 
 Older history (including `web-shell`, `graph-data-plane` Phase 1 edge lock, `jsonl-session-viability`, `mode-shell-and-fixture-driver`, `walking-skeleton`): `docs/archive/PLAN_HISTORY.md`
 
@@ -366,7 +365,7 @@ nodes:
   sealed-pi-profile-runtime-state   [done]                   (M4 prep envelope: sealing + graph-model lock)
   graph-data-plane                  [done]                   (M4 CRUD proper)
   spec-persistence-and-startup      [done]                   (persistence-model fix + startup regression repair)
-  agent-runtime-vocabulary          [active]                  (session-agent record vocabulary fix)
+  agent-runtime-vocabulary          [done]                    (session-agent record vocabulary fix)
   agents-composition-layer          [next]                    (agents/ 3-layer composition + snapshots + .pi/context migration)
   agent-graph-integration           [in-progress]            (M5)
   subagents-for-proposal-diversity  [deferred · optional]
