@@ -7,6 +7,7 @@ import { loadBriefLibrary, type FixtureBrief } from "./brief-library.js"
 import { runBrunchCli } from "./brunch.js"
 import type { ElicitationExchangeProjection } from "./elicitation-exchange.js"
 import type { WorkspaceSnapshot } from "./print-snapshot.js"
+import type { JsonRpcResponse } from "./json-rpc-protocol.js"
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
@@ -31,14 +32,6 @@ export interface DeterministicBriefRunOptions {
   briefsDir?: string
   runId?: string
   timestamp?: string
-}
-
-interface JsonRpcResponse<T> {
-  result?: T
-  error?: {
-    code: number
-    message: string
-  }
 }
 
 export async function captureFixtureRun(
@@ -168,11 +161,8 @@ async function callRpc<T>(
   })
 
   const response = JSON.parse(chunks.join("")) as JsonRpcResponse<T>
-  if (response.error) {
+  if ("error" in response) {
     throw new Error(response.error.message)
-  }
-  if (response.result === undefined) {
-    throw new Error(`RPC ${method} returned no result`)
   }
   return response.result
 }

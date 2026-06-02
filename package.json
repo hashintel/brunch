@@ -11,11 +11,13 @@
 	},
 	"files": [
 		"dist",
+		"dist-web",
 		"bin"
 	],
 	"scripts": {
 		"dev": "tsx src/brunch.ts",
-		"build": "tsc -p tsconfig.json",
+		"build": "tsc -p tsconfig.json && npm run build:web",
+		"build:web": "vite build",
 		"test": "vitest --run",
 		"test:watch": "vitest",
 		"lint": "oxlint src",
@@ -27,14 +29,27 @@
 		"verify": "npm run check && npm run test && npm run build"
 	},
 	"dependencies": {
-		"@earendil-works/pi-coding-agent": "^0.75.3"
+		"@earendil-works/pi-coding-agent": "^0.75.3",
+		"@tanstack/react-query": "^5.100.11",
+		"@tanstack/react-router": "^1.170.6",
+		"react": "^19.2.6",
+		"react-dom": "^19.2.6",
+		"ws": "^8.20.1"
 	},
 	"devDependencies": {
+		"@testing-library/dom": "^10.4.1",
+		"@testing-library/react": "^16.3.2",
 		"@types/node": "^22.10.0",
+		"@types/react": "^19.2.15",
+		"@types/react-dom": "^19.2.3",
+		"@types/ws": "^8.18.1",
+		"@vitejs/plugin-react": "^4.7.0",
+		"jsdom": "^29.1.1",
 		"oxfmt": "^0.2.0",
 		"oxlint": "^0.18.0",
 		"tsx": "^4.19.0",
 		"typescript": "^5.7.0",
+		"vite": "^5.4.21",
 		"vitest": "^2.1.0"
 	},
 	"engines": {

@@ -21,6 +21,12 @@ Use **gt** (via `/cli-graphite`) for stack-aware operations:
 
 **Why the split matters:** `gt` commands maintain Graphite's internal metadata about branch parentage. Using raw `git checkout -b` or `git rebase` bypasses this metadata and can corrupt the stack. Commits and reads don't touch stack metadata, so plain git is fine for those.
 
+## Frontier setup
+
+Every new plan-level frontier item starts with a Linear issue in the **Frontend (FE)** team and the **brunch** project, unless the user or current plan explicitly says otherwise. Do not parent new post-release issues under FE-531; only set a parent when the user or `memory/PLAN.md` names an active parent.
+
+Then create or track the corresponding Graphite branch. If another tool creates a raw git branch first, immediately `gt track --parent <parent-frontier-branch>` and rename to the standard branch format if needed.
+
 ## Branch granularity
 
 - Branch / Linear-issue granularity follows the containing `memory/PLAN.md` frontier item.

@@ -5,10 +5,14 @@ import { describe, expect, it } from "vitest"
 
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
+import { createSessionBindingData } from "./session-binding.js"
 import {
-  loadActiveBranchTranscriptEntries,
   loadJsonlTranscriptEntries,
+  loadLinearElicitationExchangeProjection,
+  loadLinearTranscriptDisplayProjection,
+  NonLinearTranscriptError,
   projectElicitationExchanges,
+  projectTranscriptDisplay,
 } from "./elicitation-exchange.js"
 
 const assistant = {
@@ -43,6 +47,17 @@ const structuredResponse = {
   type: "custom",
   customType: "brunch.elicitation_response",
   data: { choice: "A" },
+}
+
+function appendBinding(manager: SessionManager): void {
+  manager.appendCustomEntry(
+    "brunch.session_binding",
+    createSessionBindingData({
+      sessionId: manager.getSessionId(),
+      specId: "spec-1",
+      specTitle: "Spec",
+    }),
+  )
 }
 
 describe("elicitation exchange projection", () => {
@@ -82,6 +97,46 @@ describe("elicitation exchange projection", () => {
       ],
       openPrompt: null,
     })
+  })
+
+  it("includes known elicitor custom entries on the prompt side", () => {
+    const projection = projectElicitationExchanges([
+      assistant,
+      {
+        id: "offer-1",
+        type: "custom",
+        customType: "brunch.establishment_offer",
+        data: { lens: "step-by-step" },
+      },
+      {
+        id: "proposal-1",
+        type: "custom",
+        customType: "brunch.review_set_proposal",
+        data: { lens: "propose-scenarios-with-tradeoffs" },
+      },
+      user,
+    ])
+
+    expect(projection.exchanges[0]?.promptEntryIds).toEqual([
+      "a1",
+      "offer-1",
+      "proposal-1",
+    ])
+  })
+
+  it("ignores unknown custom entries even when their type contains prompt", () => {
+    const projection = projectElicitationExchanges([
+      assistant,
+      {
+        id: "operational-1",
+        type: "custom",
+        customType: "brunch.operational_prompt_cache",
+        data: {},
+      },
+      user,
+    ])
+
+    expect(projection.exchanges[0]?.promptEntryIds).toEqual(["a1"])
   })
 
   it("includes structured response entries on the response side", () => {
@@ -149,14 +204,16 @@ describe("elicitation exchange projection", () => {
     })
   })
 
-  it("projects a real SessionManager JSONL assistant/user transcript", async () => {
+  it("loads and projects a real SessionManager JSONL assistant/user transcript through the product helper", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-jsonl-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    appendBinding(manager)
     manager.appendMessage({ role: "assistant", content: "Question" })
     manager.appendMessage({ role: "user", content: "Answer" })
 
-    const entries = await loadJsonlTranscriptEntries(manager.getSessionFile()!)
-    const projection = projectElicitationExchanges(entries)
+    const projection = await loadLinearElicitationExchangeProjection(
+      manager.getSessionFile()!,
+    )
 
     expect(projection.status).toBe("ready")
     expect(projection.exchanges).toHaveLength(1)
@@ -168,54 +225,118 @@ describe("elicitation exchange projection", () => {
     )
   })
 
-  it("jsonl active branch projection excludes abandoned exchange", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-branch-"))
+  it("loads displayable assistant and user transcript rows", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-display-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
-    const abandonedPromptId = manager.appendMessage({
-      role: "assistant",
-      content: "Abandoned prompt",
-    })
-    const abandonedResponseId = manager.appendMessage({
-      role: "user",
-      content: "Abandoned answer",
-    })
-    manager.resetLeaf()
-    const activePromptId = manager.appendMessage({
-      role: "assistant",
-      content: "Active prompt",
-    })
-    const activeResponseId = manager.appendMessage({
-      role: "user",
-      content: "Active answer",
-    })
+    appendBinding(manager)
+    manager.appendMessage({ role: "assistant", content: "Question" })
+    manager.appendMessage({ role: "user", content: "Answer" })
 
-    const fileLinearProjection = projectElicitationExchanges(
-      await loadJsonlTranscriptEntries(manager.getSessionFile()!),
-    )
-    const activeBranchProjection = projectElicitationExchanges(
-      loadActiveBranchTranscriptEntries(manager.getSessionFile()!, { cwd }),
+    const projection = await loadLinearTranscriptDisplayProjection(
+      manager.getSessionFile()!,
     )
 
-    expect(
-      fileLinearProjection.exchanges.map(
-        (exchange) => exchange.responseEntryIds,
-      ),
-    ).toEqual([[abandonedResponseId], [activeResponseId]])
-    expect(activeBranchProjection.exchanges).toHaveLength(1)
-    expect(activeBranchProjection.exchanges[0]?.promptEntryIds).toEqual([
-      activePromptId,
+    expect(projection.rows).toEqual([
+      { id: expect.any(String), role: "assistant", text: "Question" },
+      { id: expect.any(String), role: "user", text: "Answer" },
     ])
-    expect(activeBranchProjection.exchanges[0]?.responseEntryIds).toEqual([
-      activeResponseId,
-    ])
-    expect(
-      activeBranchProjection.exchanges.some((exchange) =>
-        exchange.promptEntryIds.includes(abandonedPromptId),
-      ),
-    ).toBe(false)
   })
 
-  it("jsonl active branch projection preserves selected exchange", async () => {
+  it("loads displayable elicitation prompt custom-message rows without operational custom entries", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-display-prompt-"))
+    const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    appendBinding(manager)
+    manager.appendCustomMessageEntry(
+      "brunch.elicitation_prompt",
+      "Choose the better framing.",
+      true,
+    )
+    manager.appendMessage({
+      role: "assistant",
+      content: "Persistence sentinel",
+    })
+    manager.appendMessage({ role: "user", content: "Option A" })
+
+    const projection = await loadLinearTranscriptDisplayProjection(
+      manager.getSessionFile()!,
+    )
+
+    expect(projection.rows).toEqual([
+      {
+        id: expect.any(String),
+        role: "prompt",
+        text: "Choose the better framing.",
+      },
+      {
+        id: expect.any(String),
+        role: "assistant",
+        text: "Persistence sentinel",
+      },
+      { id: expect.any(String), role: "user", text: "Option A" },
+    ])
+  })
+
+  it("projects only text-bearing elicitation prompt custom messages as prompt display rows", () => {
+    const projection = projectTranscriptDisplay([
+      {
+        id: "binding-1",
+        type: "custom",
+        parentId: null,
+        customType: "brunch.session_binding",
+        data: { sessionId: "session-1" },
+      },
+      {
+        id: "prompt-1",
+        type: "custom_message",
+        parentId: "binding-1",
+        customType: "brunch.elicitation_prompt",
+        content: [{ type: "text", text: "Describe the user." }],
+        display: true,
+      },
+      {
+        id: "side-task-1",
+        type: "custom_message",
+        parentId: "prompt-1",
+        customType: "brunch.side_task_result",
+        content: "Operational note",
+        display: true,
+      },
+    ])
+
+    expect(projection.rows).toEqual([
+      { id: "prompt-1", role: "prompt", text: "Describe the user." },
+    ])
+  })
+
+  it("preserves the non-linear error discriminant through the product helper", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-helper-branch-"))
+    const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    appendBinding(manager)
+    manager.appendMessage({ role: "assistant", content: "Abandoned prompt" })
+    manager.appendMessage({ role: "user", content: "Abandoned answer" })
+    manager.resetLeaf()
+    manager.appendMessage({ role: "assistant", content: "Active prompt" })
+
+    await expect(
+      loadLinearElicitationExchangeProjection(manager.getSessionFile()!),
+    ).rejects.toThrow(NonLinearTranscriptError)
+  })
+
+  it("rejects a Pi JSONL file with multiple children from one parent", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-branch-"))
+    const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    manager.appendMessage({ role: "assistant", content: "Abandoned prompt" })
+    manager.appendMessage({ role: "user", content: "Abandoned answer" })
+    manager.resetLeaf()
+    manager.appendMessage({ role: "assistant", content: "Active prompt" })
+    manager.appendMessage({ role: "user", content: "Active answer" })
+
+    await expect(
+      loadJsonlTranscriptEntries(manager.getSessionFile()!),
+    ).rejects.toThrow(NonLinearTranscriptError)
+  })
+
+  it("rejects a Pi JSONL file with branched sibling responses", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-branch-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
     const sharedPromptId = manager.appendMessage({
@@ -224,86 +345,105 @@ describe("elicitation exchange projection", () => {
     })
     manager.appendMessage({ role: "user", content: "Old path" })
     manager.branch(sharedPromptId)
-    const selectedResponseId = manager.appendMessage({
-      role: "user",
-      content: "Selected path",
-    })
+    manager.appendMessage({ role: "user", content: "Selected path" })
 
-    const activeBranchProjection = projectElicitationExchanges(
-      loadActiveBranchTranscriptEntries(manager.getSessionFile()!, { cwd }),
-    )
-
-    expect(activeBranchProjection).toMatchObject({
-      status: "ready",
-      exchanges: [
-        {
-          promptRange: { start: sharedPromptId, end: sharedPromptId },
-          responseRange: { start: selectedResponseId, end: selectedResponseId },
-          promptEntryIds: [sharedPromptId],
-          responseEntryIds: [selectedResponseId],
-        },
-      ],
-      openPrompt: null,
-    })
+    await expect(
+      loadJsonlTranscriptEntries(manager.getSessionFile()!),
+    ).rejects.toThrow("non-linear Pi transcript branches")
   })
 
-  it("jsonl active branch custom messages enter context only once", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-branch-"))
-    const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
-    const abandonedPromptId = manager.appendCustomMessageEntry(
-      "brunch.elicitation_prompt",
-      "Abandoned custom prompt",
-      true,
-      { promptId: "abandoned" },
+  it("rejects branch-derived sessions and branch summaries before projection", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "brunch-jsonl-branch-derived-"))
+    const branchDerivedFile = join(dir, "branch-derived.jsonl")
+    const branchSummaryFile = join(dir, "branch-summary.jsonl")
+    await writeFile(
+      branchDerivedFile,
+      `${JSON.stringify({
+        type: "session",
+        version: 3,
+        id: "session-1",
+        timestamp: "2026-05-21T00:00:00.000Z",
+        cwd: dir,
+        parentSession: "/tmp/parent.jsonl",
+      })}\n`,
     )
-    manager.appendMessage({ role: "user", content: "Abandoned answer" })
-    manager.resetLeaf()
-    const activePromptId = manager.appendCustomMessageEntry(
-      "brunch.elicitation_prompt",
-      "Active custom prompt",
-      true,
-      { promptId: "active" },
+    await writeFile(
+      branchSummaryFile,
+      `${JSON.stringify({ type: "session", id: "session-1", cwd: dir })}\n${JSON.stringify(
+        {
+          id: "b1",
+          type: "branch_summary",
+          parentId: null,
+          timestamp: "2026-05-21T00:00:00.000Z",
+          fromId: "a1",
+          summary: "Branch summary",
+        },
+      )}\n`,
     )
-    manager.appendMessage({ role: "user", content: "Active answer" })
-    manager.appendMessage({
-      role: "assistant",
-      content: "Persistence sentinel",
-    })
 
-    const reloaded = SessionManager.open(
-      manager.getSessionFile()!,
-      undefined,
-      cwd,
+    await expect(loadJsonlTranscriptEntries(branchDerivedFile)).rejects.toThrow(
+      "branch-derived Pi sessions",
     )
-    const activeBranch = loadActiveBranchTranscriptEntries(
-      manager.getSessionFile()!,
-      {
-        cwd,
-      },
+    await expect(loadJsonlTranscriptEntries(branchSummaryFile)).rejects.toThrow(
+      "branch-summary transcript entries",
     )
-    const projection = projectElicitationExchanges(activeBranch)
-    const contextMessages = reloaded
-      .buildSessionContext()
-      .messages.filter((message) => message.role === "custom")
+  })
 
-    expect(projection.exchanges[0]?.promptEntryIds).toEqual([activePromptId])
-    expect(projection.exchanges[0]?.promptEntryIds).not.toContain(
-      abandonedPromptId,
+  it("rejects file-backed transcripts without exactly one Pi session header", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "brunch-jsonl-header-"))
+    const headerlessFile = join(dir, "headerless.jsonl")
+    const duplicateHeaderFile = join(dir, "duplicate-header.jsonl")
+    const header = { type: "session", id: "session-1", cwd: dir }
+    await writeFile(
+      headerlessFile,
+      `${JSON.stringify(assistant)}\n${JSON.stringify(user)}\n`,
     )
-    expect(contextMessages).toHaveLength(1)
-    expect(contextMessages[0]).toMatchObject({
-      role: "custom",
-      customType: "brunch.elicitation_prompt",
-      content: "Active custom prompt",
-    })
+    await writeFile(
+      duplicateHeaderFile,
+      `${JSON.stringify(header)}\n${JSON.stringify(header)}\n${JSON.stringify({
+        ...assistant,
+        parentId: null,
+      })}\n`,
+    )
+
+    await expect(loadJsonlTranscriptEntries(headerlessFile)).rejects.toThrow(
+      "exactly one Pi session header",
+    )
+    await expect(
+      loadJsonlTranscriptEntries(duplicateHeaderFile),
+    ).rejects.toThrow("exactly one Pi session header")
+  })
+
+  it("rejects malformed non-header Pi JSONL entries before projection", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "brunch-jsonl-shape-"))
+    const file = join(dir, "malformed.jsonl")
+    const header = { type: "session", id: "session-1", cwd: dir }
+    await writeFile(
+      file,
+      `${JSON.stringify(header)}\n${JSON.stringify({ ...assistant, parentId: null })}\n${JSON.stringify(
+        {
+          id: "u1",
+          type: "message",
+          message: { role: "user", content: "A" },
+        },
+      )}\n`,
+    )
+
+    await expect(loadJsonlTranscriptEntries(file)).rejects.toThrow(
+      "string-or-null parentId",
+    )
   })
 
   it("loads newline-delimited Pi transcript entries from disk", async () => {
     const dir = await mkdtemp(join(tmpdir(), "brunch-jsonl-"))
     const file = join(dir, "session.jsonl")
+    const header = { type: "session", id: "session-1", cwd: dir }
     await writeFile(
       file,
-      `${JSON.stringify(assistant)}\n${JSON.stringify(user)}\n`,
+      `${JSON.stringify(header)}\n${JSON.stringify({
+        ...assistant,
+        parentId: null,
+      })}\n${JSON.stringify({ ...user, parentId: "a1" })}\n`,
     )
 
     const entries = await loadJsonlTranscriptEntries(file)

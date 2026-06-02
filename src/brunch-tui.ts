@@ -31,6 +31,9 @@ export interface BrunchTuiOptions {
   launchInteractive?: (context: BrunchTuiLaunchContext) => Promise<void>
 }
 
+export const BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE =
+  "Brunch does not support Pi session branches in this POC. Use /new to continue within the selected spec."
+
 export async function runBrunchTui(
   options: BrunchTuiOptions = {},
 ): Promise<void> {
@@ -86,6 +89,14 @@ export function createBrunchChromeExtension(
       if (event.message.role === "assistant") {
         await onSessionBoundary?.(ctx.sessionManager as SessionManager)
       }
+    })
+    pi.on("session_before_tree", (_event, ctx) => {
+      ctx.ui.notify(BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE, "warning")
+      return { cancel: true }
+    })
+    pi.on("session_before_fork", (_event, ctx) => {
+      ctx.ui.notify(BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE, "warning")
+      return { cancel: true }
     })
   }
 }

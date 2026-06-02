@@ -1,13 +1,24 @@
-import { readFile } from "node:fs/promises"
-
 import {
-  SessionManager,
   type CustomEntry,
   type CustomMessageEntry,
-  type FileEntry,
   type SessionEntry,
   type SessionMessageEntry,
 } from "@earendil-works/pi-coding-agent"
+
+import {
+  assertLinearBrunchSessionEnvelope,
+  loadJsonlTranscriptEntries,
+  NonLinearTranscriptError,
+  readBrunchSessionEnvelope,
+  type BrunchSessionEnvelope,
+} from "./brunch-session-envelope.js"
+
+const PROMPT_SIDE_CUSTOM_TYPES = new Set([
+  "brunch.elicitation_prompt",
+  "brunch.elicitor_intent_hint",
+  "brunch.establishment_offer",
+  "brunch.review_set_proposal",
+])
 
 const STRUCTURED_RESPONSE_TYPES = new Set([
   "brunch.elicitation_response",
@@ -38,30 +49,92 @@ export interface ElicitationExchangeProjection {
   openPrompt: OpenPromptProjection | null
 }
 
-export interface ActiveBranchTranscriptOptions {
-  cwd?: string
-  sessionDir?: string
+export interface TranscriptDisplayRow {
+  id: string
+  role: "prompt" | "assistant" | "user"
+  text: string
 }
 
-export async function loadJsonlTranscriptEntries(
-  file: string,
-): Promise<FileEntry[]> {
-  const content = await readFile(file, "utf8")
-  return content
-    .split("\n")
-    .filter((line) => line.trim().length > 0)
-    .map((line) => JSON.parse(line) as FileEntry)
+export interface TranscriptDisplayProjection {
+  rows: TranscriptDisplayRow[]
 }
 
-export function loadActiveBranchTranscriptEntries(
+export { loadJsonlTranscriptEntries, NonLinearTranscriptError }
+
+export async function loadLinearElicitationExchangeProjection(
   file: string,
-  options?: ActiveBranchTranscriptOptions,
-): SessionEntry[] {
-  return SessionManager.open(
-    file,
-    options?.sessionDir,
-    options?.cwd,
-  ).getBranch()
+): Promise<ElicitationExchangeProjection> {
+  return projectLinearElicitationExchangeProjection(
+    await loadBrunchSessionEnvelope(file),
+  )
+}
+
+export async function loadLinearTranscriptDisplayProjection(
+  file: string,
+): Promise<TranscriptDisplayProjection> {
+  return projectLinearTranscriptDisplayProjection(
+    await loadBrunchSessionEnvelope(file),
+  )
+}
+
+export function projectLinearElicitationExchangeProjection(
+  envelope: BrunchSessionEnvelope,
+): ElicitationExchangeProjection {
+  assertLinearBrunchSessionEnvelope(envelope)
+  return projectElicitationExchanges(envelope.entries)
+}
+
+export function projectLinearTranscriptDisplayProjection(
+  envelope: BrunchSessionEnvelope,
+): TranscriptDisplayProjection {
+  assertLinearBrunchSessionEnvelope(envelope)
+  return projectTranscriptDisplay(envelope.entries)
+}
+
+async function loadBrunchSessionEnvelope(
+  file: string,
+): Promise<BrunchSessionEnvelope> {
+  const readResult = await readBrunchSessionEnvelope(file)
+  if (!readResult.ok) {
+    throw new Error("Brunch session self-description is invalid")
+  }
+  return readResult.envelope
+}
+
+export function projectTranscriptDisplay(
+  entries: readonly unknown[],
+): TranscriptDisplayProjection {
+  const rows: TranscriptDisplayRow[] = []
+  for (const entry of entries) {
+    if (!isSessionEntry(entry)) {
+      continue
+    }
+
+    if (isDisplayableElicitationPrompt(entry)) {
+      const text = textContent(entry.content)
+      if (text.length > 0) {
+        rows.push({ id: entry.id, role: "prompt", text })
+      }
+      continue
+    }
+
+    if (!isMessageEntry(entry)) {
+      continue
+    }
+
+    const role = entry.message.role
+    if (role !== "assistant" && role !== "user") {
+      continue
+    }
+
+    const text = textContent(entry.message.content)
+    if (text.length === 0) {
+      continue
+    }
+
+    rows.push({ id: entry.id, role, text })
+  }
+  return { rows }
 }
 
 export function projectElicitationExchanges(
@@ -136,9 +209,20 @@ function isTranscriptEntry(value: unknown): value is SessionEntry {
   )
 }
 
+function isSessionEntry(value: unknown): value is SessionEntry {
+  return isTranscriptEntry(value) && hasStringOrNullParentId(value)
+}
+
+function hasStringOrNullParentId(value: unknown): boolean {
+  return (
+    (value as { parentId?: unknown }).parentId === null ||
+    typeof (value as { parentId?: unknown }).parentId === "string"
+  )
+}
+
 function isPromptSideEntry(entry: SessionEntry): boolean {
-  if (isCustomTranscriptEntry(entry) && entry.customType.includes("prompt")) {
-    return true
+  if (isCustomTranscriptEntry(entry)) {
+    return PROMPT_SIDE_CUSTOM_TYPES.has(entry.customType)
   }
 
   const role = roleOf(entry)
@@ -161,6 +245,16 @@ function isCustomTranscriptEntry(
   return entry.type === "custom" || entry.type === "custom_message"
 }
 
+function isDisplayableElicitationPrompt(
+  entry: SessionEntry,
+): entry is CustomMessageEntry {
+  return (
+    entry.type === "custom_message" &&
+    entry.customType === "brunch.elicitation_prompt" &&
+    entry.display === true
+  )
+}
+
 function roleOf(
   entry: SessionEntry,
 ): SessionMessageEntry["message"]["role"] | undefined {
@@ -172,4 +266,25 @@ function roleOf(
 
 function isMessageEntry(entry: SessionEntry): entry is SessionMessageEntry {
   return entry.type === "message"
+}
+
+function textContent(content: unknown): string {
+  if (typeof content === "string") {
+    return content
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((part) =>
+        typeof part === "object" &&
+        part !== null &&
+        typeof (part as { text?: unknown }).text === "string"
+          ? (part as { text: string }).text
+          : "",
+      )
+      .filter((text) => text.length > 0)
+      .join("\n")
+  }
+
+  return ""
 }

@@ -7,17 +7,16 @@ import { describe, expect, it } from "vitest"
 
 import {
   SessionManager,
-  type CustomEntry,
   type CustomMessageEntry,
   type SessionEntry,
   type SessionMessageEntry,
 } from "@earendil-works/pi-coding-agent"
 
 import {
-  loadActiveBranchTranscriptEntries,
-  projectElicitationExchanges,
+  loadLinearElicitationExchangeProjection,
   type ElicitationExchangeProjection,
 } from "./elicitation-exchange.js"
+import { isSessionBindingEntry } from "./session-binding.js"
 
 const M1_FIXTURE_IDS = ["brief-001", "brief-002", "brief-003"] as const
 const M1_RUN_ID = "scripted-001"
@@ -25,13 +24,6 @@ const M1_RUN_ID = "scripted-001"
 interface PersistedSessionFixture {
   file: string
   manager: SessionManager
-}
-
-interface SessionBindingData {
-  schemaVersion: 1
-  sessionId: string
-  specId: string
-  specTitle: string
 }
 
 interface M1FixtureMeta {
@@ -336,10 +328,8 @@ describe("M1 fixture JSONL replay parity", () => {
   it("m1 fixture bundle metadata matches reprojected exchanges", async () => {
     for (const briefId of M1_FIXTURE_IDS) {
       const bundle = await loadM1FixtureBundle(briefId)
-      const projection = projectElicitationExchanges(
-        loadActiveBranchTranscriptEntries(bundle.jsonlPath, {
-          cwd: process.cwd(),
-        }),
+      const projection = await loadLinearElicitationExchangeProjection(
+        bundle.jsonlPath,
       )
 
       expect(summaryForProjection(projection)).toEqual(
@@ -357,11 +347,7 @@ describe("M1 fixture JSONL replay parity", () => {
         process.cwd(),
       )
         .getEntries()
-        .filter(
-          (entry): entry is CustomEntry<SessionBindingData> =>
-            entry.type === "custom" &&
-            entry.customType === "brunch.session_binding",
-        )
+        .filter(isSessionBindingEntry)
 
       expect(bindings).toHaveLength(1)
       expect(bindings[0]?.data).toMatchObject({

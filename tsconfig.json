@@ -3,7 +3,8 @@
 		"target": "ES2022",
 		"module": "NodeNext",
 		"moduleResolution": "NodeNext",
-		"lib": ["ES2022"],
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"jsx": "react-jsx",
 		"outDir": "./dist",
 		"rootDir": "./src",
 		"strict": true,
@@ -27,6 +28,7 @@
 	"include": ["src/**/*"],
 	"exclude": [
 		"src/**/*.test.ts",
+		"src/**/*.test.tsx",
 		"node_modules",
 		"dist",
 		"archive",

@@ -2,35 +2,30 @@ import { createInterface } from "node:readline/promises"
 import type { Readable, Writable } from "node:stream"
 
 import {
-  loadActiveBranchTranscriptEntries,
-  projectElicitationExchanges,
+  readBrunchSessionEnvelope,
+  NonLinearTranscriptError,
+  type BrunchSessionEnvelope,
+} from "./brunch-session-envelope.js"
+import {
+  projectLinearElicitationExchangeProjection,
+  projectLinearTranscriptDisplayProjection,
 } from "./elicitation-exchange.js"
+import {
+  createJsonRpcFailure,
+  createJsonRpcSuccess,
+  isJsonRpcRequest,
+  jsonRpcRequestId,
+  dispatchJsonRpcMessage,
+  type JsonRpcId,
+  type JsonRpcResponse,
+} from "./json-rpc-protocol.js"
 import { workspaceSnapshotFromState } from "./print-snapshot.js"
+import {
+  resolveExplicitSessionProjectionTarget,
+  type ExplicitSessionProjectionParams,
+  type SessionProjectionTarget,
+} from "./session-projection-reader.js"
 import type { WorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
-
-interface JsonRpcRequest {
-  jsonrpc: "2.0"
-  id?: string | number | null
-  method: string
-  params?: unknown
-}
-
-interface JsonRpcSuccess {
-  jsonrpc: "2.0"
-  id: string | number | null
-  result: unknown
-}
-
-interface JsonRpcFailure {
-  jsonrpc: "2.0"
-  id: string | number | null
-  error: {
-    code: number
-    message: string
-  }
-}
-
-type JsonRpcResponse = JsonRpcSuccess | JsonRpcFailure
 
 export interface RpcHandlers {
   handle(request: unknown): Promise<JsonRpcResponse>
@@ -38,43 +33,138 @@ export interface RpcHandlers {
 
 export function createRpcHandlers(options: {
   coordinator: WorkspaceSessionCoordinator
+  cwd: string
 }): RpcHandlers {
   return {
     async handle(request) {
       if (!isJsonRpcRequest(request)) {
-        return failure(null, -32600, "Invalid Request")
+        return createJsonRpcFailure(null, -32600, "Invalid Request")
       }
+
+      const requestId = jsonRpcRequestId(request)
 
       if (request.method === "workspace.snapshot") {
         if (request.params !== undefined) {
-          return failure(request.id ?? null, -32602, "Invalid params")
+          return createJsonRpcFailure(requestId, -32602, "Invalid params")
         }
         const state = await options.coordinator.openExisting()
-        return success(request.id ?? null, workspaceSnapshotFromState(state))
+        return createJsonRpcSuccess(
+          requestId,
+          workspaceSnapshotFromState(state),
+        )
       }
 
       if (request.method === "session.elicitationExchanges") {
-        if (request.params !== undefined) {
-          return failure(request.id ?? null, -32602, "Invalid params")
-        }
-
-        const state = await options.coordinator.openExisting()
-        if (state.status !== "ready") {
-          return failure(
-            request.id ?? null,
-            -32001,
-            "No selected Brunch session",
-          )
-        }
-
-        const entries = loadActiveBranchTranscriptEntries(state.session.file, {
-          cwd: state.cwd,
-        })
-        return success(request.id ?? null, projectElicitationExchanges(entries))
+        return handleSessionProjection(
+          requestId,
+          request.params,
+          options,
+          projectLinearElicitationExchangeProjection,
+        )
       }
 
-      return failure(request.id ?? null, -32601, "Method not found")
+      if (request.method === "session.transcriptDisplay") {
+        return handleSessionProjection(
+          requestId,
+          request.params,
+          options,
+          projectLinearTranscriptDisplayProjection,
+        )
+      }
+
+      return createJsonRpcFailure(requestId, -32601, "Method not found")
     },
+  }
+}
+
+async function handleSessionProjection<T>(
+  requestId: JsonRpcId,
+  rawParams: unknown,
+  options: {
+    coordinator: WorkspaceSessionCoordinator
+    cwd: string
+  },
+  loadProjection: (envelope: BrunchSessionEnvelope) => T,
+): Promise<JsonRpcResponse> {
+  const params = parseSessionProjectionParams(rawParams)
+  if (!params.ok) {
+    return createJsonRpcFailure(requestId, -32602, "Invalid params")
+  }
+
+  const target = params.value
+    ? await resolveExplicitSessionProjectionTarget(options.cwd, params.value)
+    : await selectedSessionFile(await options.coordinator.openExisting())
+  if (!target.ok) {
+    return createJsonRpcFailure(requestId, target.code, target.message)
+  }
+
+  try {
+    return createJsonRpcSuccess(requestId, loadProjection(target.envelope))
+  } catch (error) {
+    if (error instanceof NonLinearTranscriptError) {
+      return createJsonRpcFailure(requestId, -32002, target.nonLinearMessage)
+    }
+    throw error
+  }
+}
+
+type SessionProjectionParamsParseResult = {
+  ok: true
+  value: ExplicitSessionProjectionParams | null
+} | { ok: false }
+
+function parseSessionProjectionParams(
+  value: unknown,
+): SessionProjectionParamsParseResult {
+  if (value === undefined) {
+    return { ok: true, value: null }
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return { ok: false }
+  }
+
+  const keys = Object.keys(value)
+  if (!keys.every((key) => key === "sessionId" || key === "specId")) {
+    return { ok: false }
+  }
+
+  const sessionId = (value as { sessionId?: unknown }).sessionId
+  const specId = (value as { specId?: unknown }).specId
+  if (
+    typeof sessionId !== "string" ||
+    sessionId.length === 0 ||
+    (specId !== undefined &&
+      (typeof specId !== "string" || specId.length === 0))
+  ) {
+    return { ok: false }
+  }
+
+  return {
+    ok: true,
+    value: specId === undefined ? { sessionId } : { sessionId, specId },
+  }
+}
+
+async function selectedSessionFile(
+  state: Awaited<ReturnType<WorkspaceSessionCoordinator["openExisting"]>>,
+): Promise<SessionProjectionTarget> {
+  if (state.status !== "ready") {
+    return { ok: false, code: -32001, message: "No selected Brunch session" }
+  }
+
+  const readResult = await readBrunchSessionEnvelope(state.session.file)
+  if (!readResult.ok) {
+    return {
+      ok: false,
+      code: -32005,
+      message: "Brunch session self-description is invalid",
+    }
+  }
+
+  return {
+    ok: true,
+    envelope: readResult.envelope,
+    nonLinearMessage: "Selected Brunch session transcript is non-linear",
   }
 }
 
@@ -89,48 +179,7 @@ export async function runJsonRpcLineServer(options: {
       continue
     }
 
-    let parsed: unknown
-    try {
-      parsed = (JSON.parse(line) as unknown)
-    } catch {
-      options.output.write(
-        `${JSON.stringify(failure(null, -32700, "Parse error"))}\n`,
-      )
-      continue
-    }
-
-    const response = await options.handlers.handle(parsed)
+    const response = await dispatchJsonRpcMessage(line, options.handlers)
     options.output.write(`${JSON.stringify(response)}\n`)
   }
-}
-
-function success(id: string | number | null, result: unknown): JsonRpcSuccess {
-  return { jsonrpc: "2.0", id, result }
-}
-
-function failure(
-  id: string | number | null,
-  code: number,
-  message: string,
-): JsonRpcFailure {
-  return { jsonrpc: "2.0", id, error: { code, message } }
-}
-
-function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    (value as { jsonrpc?: unknown }).jsonrpc !== "2.0" ||
-    typeof (value as { method?: unknown }).method !== "string"
-  ) {
-    return false
-  }
-
-  const id = (value as { id?: unknown }).id
-  return (
-    id === undefined ||
-    id === null ||
-    typeof id === "string" ||
-    typeof id === "number"
-  )
 }

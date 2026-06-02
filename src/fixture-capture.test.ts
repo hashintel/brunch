@@ -5,10 +5,7 @@ import { describe, expect, it } from "vitest"
 
 import type { WorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
 import { createWorkspaceSessionCoordinator } from "./workspace-session-coordinator.js"
-import {
-  loadJsonlTranscriptEntries,
-  projectElicitationExchanges,
-} from "./elicitation-exchange.js"
+import { loadLinearElicitationExchangeProjection } from "./elicitation-exchange.js"
 import {
   captureDeterministicBriefRuns,
   captureFixtureRun,
@@ -180,8 +177,8 @@ describe("fixture capture", () => {
           openPrompt: boolean
         }
       }
-      const projection = projectElicitationExchanges(
-        await loadJsonlTranscriptEntries(join(runDir, `${runId}.jsonl`)),
+      const projection = await loadLinearElicitationExchangeProjection(
+        join(runDir, `${runId}.jsonl`),
       )
 
       expect(metadata.briefId).toBe(briefId)

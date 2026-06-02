@@ -4,16 +4,20 @@ import { join, resolve } from "node:path"
 
 import {
   SessionManager,
-  type CustomEntry,
   type SessionHeader,
 } from "@earendil-works/pi-coding-agent"
+
+import {
+  createSessionBindingData,
+  isSessionBindingEntry,
+  SESSION_BINDING_TYPE,
+  type SessionBindingData,
+} from "./session-binding.js"
 
 const BRUNCH_DIR = ".brunch"
 const STATE_FILE = "state.json"
 const SESSION_DIR = "sessions"
-const SESSION_BINDING_TYPE = "brunch.session_binding"
 const STATE_SCHEMA_VERSION = 1
-const BINDING_SCHEMA_VERSION = 1
 
 export interface WorkspaceSpecState {
   id: string
@@ -24,18 +28,6 @@ interface WorkspaceStateFile {
   schemaVersion: 1
   currentSpec: WorkspaceSpecState
   currentSessionFile?: string
-}
-
-interface SessionBindingData {
-  schemaVersion: 1
-  sessionId: string
-  specId: string
-  specTitle: string
-}
-
-type SessionBindingEntry = CustomEntry<SessionBindingData> & {
-  customType: typeof SESSION_BINDING_TYPE
-  data: SessionBindingData
 }
 
 export interface WorkspaceSessionChromeState {
@@ -215,12 +207,14 @@ function bindSessionToSpec(
 
   const existingBindings = manager.getEntries().filter(isSessionBindingEntry)
   if (existingBindings.length === 0) {
-    manager.appendCustomEntry(SESSION_BINDING_TYPE, {
-      schemaVersion: BINDING_SCHEMA_VERSION,
-      sessionId: manager.getSessionId(),
-      specId: spec.id,
-      specTitle: spec.title,
-    } satisfies SessionBindingData)
+    manager.appendCustomEntry(
+      SESSION_BINDING_TYPE,
+      createSessionBindingData({
+        sessionId: manager.getSessionId(),
+        specId: spec.id,
+        specTitle: spec.title,
+      }),
+    )
   } else if (
     existingBindings.length !== 1 ||
     existingBindings[0]?.data.sessionId !== manager.getSessionId() ||
@@ -444,27 +438,5 @@ function isSessionHeader(value: unknown): value is SessionHeader {
     value !== null &&
     (value as { type?: unknown }).type === "session" &&
     typeof (value as { id?: unknown }).id === "string"
-  )
-}
-
-function isSessionBindingEntry(value: unknown): value is SessionBindingEntry {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    (value as { type?: unknown }).type !== "custom" ||
-    (value as { customType?: unknown }).customType !== SESSION_BINDING_TYPE
-  ) {
-    return false
-  }
-
-  const data = (value as { data?: unknown }).data
-  return (
-    typeof data === "object" &&
-    data !== null &&
-    (data as { schemaVersion?: unknown }).schemaVersion ===
-      BINDING_SCHEMA_VERSION &&
-    typeof (data as { sessionId?: unknown }).sessionId === "string" &&
-    typeof (data as { specId?: unknown }).specId === "string" &&
-    typeof (data as { specTitle?: unknown }).specTitle === "string"
   )
 }
