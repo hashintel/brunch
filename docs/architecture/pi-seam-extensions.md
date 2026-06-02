@@ -7,7 +7,7 @@ The four affordances:
 1. Async "side-chain" sub-agents whose results return at a later turn boundary.
 2. Switchable lenses / strategies for the primary interviewing agent.
 3. A TUI spec selector for opening or switching between specifications.
-4. An assistant-/system-offer-first interaction model with multi-choice answers.
+4. An assistant-/system-offer-first structured interaction model with typed answers.
 
 For each one this document records the pi seams it relies on, the Brunch-owned work it forces, and the residual risks.
 
@@ -128,72 +128,73 @@ Implications:
 - Pi's `SessionManager` is one-directory-per-process. If the POC needs spec-roots outside `.brunch/sessions/`, Brunch must either reconfigure `SessionManager.create(cwd, customDir)` per spec or maintain its own indirection layer above pi's session resolution. This couples directly to the JSONL viability proof in M2.
 - The selector overlay competes with other overlays (model picker, confirmation dialogs). Brunch must own a small overlay-priority policy so a spec switch does not stomp an in-flight confirmation.
 
-## 4. Assistant- and system-offer-first interaction with multi-choice answers
+## 4. Assistant- and system-offer-first structured interaction
 
 ### Need
 
-Every Brunch session should open with a concrete action or answer surface rather than an empty prompt. The user should always be able to either choose from offered actions or answer an offered question, where answers may be single-choice, multi-choice, or freeform-plus-choice. This is a product stance: Brunch is a guided-elicitation product, not an open chat.
+Every Brunch session should open with a concrete action or answer surface rather than an empty prompt. The user should always be responding to a system/assistant-originated question, questionnaire, offer, or proposal, where answers may be single-choice, multi-choice, questionnaire, or freeform-plus-choice. This is a product stance: Brunch is a guided-elicitation product, not an open chat.
 
 ### Pi seams used
 
-- `pi.registerMessageRenderer(customType, renderer)` for rendering a Brunch offer envelope inline in the transcript across TUI, web, and RPC.
-- `pi.sendMessage(...)` and `pi.appendEntry(...)` with `deliverAs: "followUp"` for posting the user's selection back into the active turn without inventing a new transport.
-- `ExtensionUIContext.select`, `confirm`, `input` for the simple cases.
-- `ExtensionUIContext.custom<T>(...)` for the multi-select and freeform-plus-choice cases. The API is generic on `T`, so a multi-select overlay legitimately returns `string[]`.
-- The RPC mode's `extension_ui_request` channel for routing the same UI requests to the web client.
+- Registered Pi tools for basic structured questions/questionnaires. The assistant `toolCall` supplies causal/positional prompt context; the toolResult `content` supplies the model-readable summary; the toolResult `details` can carry Brunch's self-contained structured response payload.
+- `ExtensionUIContext.select`, `confirm`, and `input` for simple RPC-compatible cases.
+- `ExtensionUIContext.custom<T>(...)` for rich TUI response surfaces. Pi's `question.ts` and `questionnaire.ts` examples prove editor-area replacement for single-choice, optional freeform, and tabbed questionnaire flows.
+- `ExtensionUIContext.editor(...)` as the raw Pi-RPC fallback for complex shapes: the tool can send schema-tagged JSON prefill and validate the returned JSON.
+- The RPC mode's documented `extension_ui_request` / `extension_ui_response` channel for routing supported Pi UI requests through a private Brunch adapter.
+- `pi.registerMessageRenderer(customType, renderer)` and Brunch custom entries remain available for establishment offers, review-set proposals, annotations, and product-native displays where a tool result is not the thinnest transcript representation.
 
 ### Brunch-owned work
 
-- A `brunch.offer` custom-message envelope: `{ kind: "actions" | "question", prompt?, options: [{ id, label, value }], multi: boolean, freeform: boolean, allowSkip: boolean, expiresOn?: TurnId | Timestamp, captureHint?: TurnCaptureHint }`.
-- A `brunch.offer_response` custom-message envelope with the user's selection, freeform text, or skip outcome.
-- A single Brunch-owned renderer for `brunch.offer` per mode: TUI overlay, web component, RPC `extension_ui_request` extension method.
-- A `MultiSelectOverlay` component built once on `pi-tui` primitives, returning `string[]`. The same overlay machinery covers both interaction shapes: a **radio** variant (`multi: false`, exactly one selection enforced) and a **checkbox** variant (`multi: true`, any subset including empty if `allowSkip: true`). These are not separate overlays; the visual affordance (`◉ / ◯` vs `☑ / ☐`) is driven by the `multi` field on `brunch.offer`. Keybindings, freeform-plus-choice composition, and `expiresOn` handling are identical across the two variants.
-- A `session_start` hook that synthesizes an initial offer when no transcript history exists, so every fresh session opens with a surface.
-- A protocol extension to the RPC `extension_ui_request` family for `multiSelect` and `freeformWithChoice`, with a corresponding web client implementation. This is additive, not a replacement.
+- A structured-exchange result details payload carrying enough projection data to stand alone: schema/version, status (`answered | skipped | cancelled | unavailable`), mode, prompt/questions, options, answers, and transport metadata.
+- A Brunch-owned TUI helper built on Pi custom UI patterns for radio, checkbox, questionnaire, and optional freeform input.
+- JSON-prefill / validation helpers for RPC editor fallback. This is a compatibility seam over Pi RPC, not a second Brunch product API.
+- A private Pi RPC adapter that translates `extension_ui_request(editor)` into product-shaped pending elicitation state for Brunch public clients, then translates the product response back into Pi's documented `extension_ui_response`.
+- Elicitation-exchange projection that treats terminal structured-exchange toolResults as response-side entries when their details carry the typed Brunch payload; ordinary toolResults remain prompt-side by default.
+- Brunch custom entry schemas for product-native offers that are not ordinary questions, such as `brunch.establishment_offer`, `brunch.review_set_proposal`, and later review-cycle responses.
 
-### Capture-aware offer envelope
+### Capture-aware response payload
 
-The `captureHint` field on `brunch.offer` is a **private side-channel** the interviewer attaches to substantive questions so the observer (the graph-capture pass that processes the user's response) has explicit priors instead of free-associating over the whole graph. The hint is invisible to the user but visible in the transcript.
+For substantive elicitation questions, the structured result may carry observer priors so the graph-capture pass can process the user's response without free-associating over the whole graph. These hints are advisory and visible in transcript truth when present; they are not commands.
 
 ```ts
-type TurnCaptureHint = {
-  expectedKinds: IntentKind[];         // kinds the response is likely to produce
-  candidateRelations?: RelationKind[]; // edges the response may motivate
-  targetItems?: NodeRef[];             // graph items the question is about
-  captureMode:
-    | 'new_item'
-    | 'clarify_existing'
-    | 'choose_option'
-    | 'rank_priority'
-    | 'resolve_need'
-    | 'provide_example';
-  resolvesNeedId?: string;             // reconciliation_need this offer is resolving
-  options?: Array<{
-    label: string;                     // mirrors the user-visible option label
-    mapsTo?: {
-      nodeKind?: IntentKind;
-      relationKind?: RelationKind;
-      targetRef?: NodeRef;
-      framingAs?: string;              // see Product-framing modality
-    };
+type StructuredQuestionResultDetails = {
+  schema: "brunch.structured_question_result";
+  version: 1;
+  status: "answered" | "skipped" | "cancelled" | "unavailable";
+  mode: "single" | "multiple" | "questionnaire" | "freeform_plus_choice";
+  prompt?: string;
+  questions?: Array<{
+    id: string;
+    prompt: string;
+    options?: Array<{ id: string; label: string; description?: string }>;
   }>;
+  answers: Array<{
+    questionId?: string;
+    selectedOptionIds?: string[];
+    freeform?: string;
+  }>;
+  captureHint?: TurnCaptureHint;
+  transport: {
+    surface: "tui_custom" | "rpc_select" | "rpc_input" | "rpc_editor_json" | "product_relay" | "none";
+  };
 };
 ```
 
-The observer treats hints as priors, not commands. The user retains escape hatches (`allowSkip`, freeform) and the observer's abstention rule still applies — if the response does not match any hint, the observer may emit zero mutations rather than force a fit.
+The observer treats `captureHint` as priors, not authority. The user retains escape hatches (`skipped`, `cancelled`, freeform), and the observer's abstention rule still applies — if the response does not match any hint, the observer may emit zero mutations rather than force a fit.
 
 ### Posture
 
-- The offer envelope is durable transcript truth, not ephemeral UI state. Selections are written back as custom messages so the agent can reason over them on the next turn and the transcript reload faithfully reproduces what was offered and what was chosen.
-- The agent is allowed to refuse to chat without an offer. The Brunch system prompt should require the agent to either produce an offer or emit `brunch.needs_human` for cases the agent cannot resolve.
-- In print mode an offer either resolves via an explicit auto-policy or returns a structured `needs_human` outcome. It does not block.
-- Multi-choice answers are first-class. Single-choice is a degenerate multi-choice with `multi: false`.
-- Capture hints are advisory. The observer must abstain rather than force a graph mutation when the user's response does not match the hint.
+- Structured interaction is durable transcript truth, not ephemeral UI state. For ordinary questions/questionnaires, self-contained toolResult details may be the canonical structured response. For product-native offers/proposals, Brunch custom entries remain appropriate.
+- The agent is allowed to refuse ambient chat without an elicitation surface. The Brunch system prompt should require the agent to either produce an elicitation prompt/offer or emit `brunch.needs_human` for cases the agent cannot resolve.
+- In print mode a structured interaction either resolves via an explicit auto-policy or returns a structured `needs_human` / unavailable outcome. It does not block.
+- Multi-choice answers are first-class. Single-choice is a degenerate multi-choice with one selected option.
+- Public clients speak Brunch RPC method families; raw Pi RPC is hidden behind the adapter used for agent-loop mechanics and extension UI.
 
 ### Residual risks
 
-- The offer envelope risks being treated as a replacement for the LLM's natural narrative. Brunch should keep offers as the *interaction* surface while the assistant's prose remains the *explanation* surface. A lens that bypasses offers is allowed only for explicitly free-chat moments.
-- Pi's RPC `extension_ui_request` types are currently fixed. Adding `multiSelect` and `freeformWithChoice` is a Brunch-side protocol extension that the web client must agree on; this is small but non-zero coupling that should be tracked.
+- ToolResult details can become too heavy if every result repeats full prompt/question/option state. Default to self-contained payloads for POC projection clarity; trim only after projection helpers prove a safe prompt-side correlation rule.
+- Schema-tagged JSON in `ctx.ui.editor()` is a compatibility fallback, not acceptable final UX for Brunch-aware clients. The public Brunch relay should render native forms where possible.
+- The offer/proposal envelope risks being treated as a replacement for the LLM's natural narrative. Brunch should keep offers as the *interaction* surface while assistant prose remains the *explanation* surface. A lens that bypasses offers is allowed only for explicitly free-chat moments.
 
 ## 5. Graph-entity mentions and mention staleness
 
@@ -203,27 +204,28 @@ The user (and the agent, on the user's behalf) should be able to refer to graph 
 
 ### Pi seams used
 
-- `pi-tui` input components (the prompt-editor surface), augmented with a Brunch-owned `MentionAutocompleteOverlay` mounted via `ExtensionUIContext.custom<T>(...)`.
-- The custom-entry transcript surface (`pi.appendEntry`, `pi.registerMessageRenderer`) for representing mentions inside user messages as structured spans rather than as raw text.
+- `ctx.ui.addAutocompleteProvider((current) => ...)` over Pi's prompt editor. The autocomplete item's `value` is inserted into the editor; Pi does not persist hidden autocomplete metadata.
+- `before_agent_start` system-prompt injection for teaching the active agent how to interpret Brunch `#` handles and when to call a lookup/re-read tool. The inserted handle is just transcript text unless Brunch adds a later parser/indexer.
+- Brunch custom transcript entries (`pi.appendEntry`, `pi.registerMessageRenderer`) for future mention ledger/staleness records and resolved entity snapshots; these are separate from the autocomplete insertion itself.
 - `prepareNextTurn` for injecting mention-staleness hints into the agent's next-turn context, alongside the existing `worldUpdate` flow.
 - The reconciliation-need substrate and global LSN (see §Reconciliation-need substrate and §Graph clock) for comparing the LSN at which a mention was last *snapshotted into the model's working context* against the entity's current LSN.
 
 ### Brunch-owned work
 
-- A `MentionAutocompleteOverlay` triggered by `#` in the input area, sourced from `SpecRegistry` + current spec's graph index, that resolves either against stable graph `ID` or (fallback) against the entity's current `title`. ID resolution is canonical; title resolution is a UX affordance that always rewrites to an ID-anchored mention on insertion.
-- A `brunch.mention` payload shape attached to user message entries (e.g. as a span array in the message custom payload): `{ id: NodeId, title_at_mention: string, lsn_at_mention: number }`. The `title_at_mention` and `lsn_at_mention` are frozen at insertion time so the transcript carries the historical reference even if the entity is later renamed.
-- A renderer (per mode: TUI, web, RPC) that displays mentions as `#<title>` (current title, not the frozen one) with an indicator when the current title differs from the frozen one.
+- A `#` autocomplete provider sourced from `SpecRegistry` + current spec's graph index. It may search current titles and descriptions, but the inserted `value` must be a stable handle such as `#A12` or `#<node-id>`; popup `label`/`description` are UI-only and are not session metadata.
+- A Brunch mention indexer that parses user/assistant text for stable `#` handles after input and resolves them to `{ id: NodeId, title_at_mention: string, lsn_at_mention: number }` for the session mention ledger. This parsing/indexing step, not Pi autocomplete, is what creates structured mention state.
+- A graph lookup/re-read tool (for example `brunch.entity_reread`) whose prompt guidance tells the agent to resolve `#A12` by passing the handle without the `#` when deeper entity detail matters.
 - A `SessionMentionLedger` in the session-scoped state: for each `id` ever mentioned in this session, the highest `snapshotted_lsn` — i.e. the LSN at which the agent most recently received the full entity payload (either via initial context, a `worldUpdate` cascade, or an explicit re-read tool call). The ledger persists with the session and survives compaction.
 - A staleness check executed during `prepareNextTurn`:
   1. Walk the session's `SessionMentionLedger`.
   2. For every entry where the entity's current LSN > `snapshotted_lsn`, the entity is **stale-in-context** for this session.
   3. Brunch synthesizes a `brunch.mention_staleness_hint` entry (custom message, `deliverAs: "nextTurn"`) summarising the stale set. The hint is **discretionary advice to the agent**, not a forced re-read: it tells the agent "if you intend to reason over `#foo` again, re-read it; the snapshot you have is from LSN 412, current is LSN 487."
   4. The agent decides whether to invoke a re-read tool (which then updates `snapshotted_lsn`) or to proceed with the existing snapshot, accepting the staleness.
-- A `brunch.entity_reread` command (through the shared command layer) that re-snapshots a named entity and updates `snapshotted_lsn` to the LSN observed at re-read.
+- A `brunch.entity_reread` command/tool (through the shared command layer) that re-snapshots a named entity and updates `snapshotted_lsn` to the LSN observed at re-read.
 
 ### Posture
 
-- Mentions are anchored to stable IDs, never to titles. Title-based autocomplete is a UX affordance only.
+- Mentions are anchored to stable handles/IDs, never to titles. Title-based autocomplete is a UX affordance only; the transcript persists the inserted textual handle, not the popup label/description.
 - The mention ledger is **session-scoped**, not transcript-scoped: the question "what has this agent seen at what LSN" is a per-session model-context question, and crossing sessions (via `switchSession`) legitimately resets it.
 - Staleness hints are **discretionary**. The agent's autonomy over its own context is preserved; Brunch merely surfaces the gap. The product stance is that re-read is cheap and worth doing when in doubt, but the framework does not mandate it.
 - Staleness hints reuse the same `worldUpdate` machinery and the same global LSN as the rest of the change-log / reconciliation substrate; this is not a parallel staleness mechanism.
@@ -528,7 +530,7 @@ Concretely, Flue has **no equivalent** for any of:
 
 - `prepareNextTurn` injection of `worldUpdate` between turns.
 - `pi.appendEntry({ deliverAs: "nextTurn" })` for side-chain result delivery. Flue's `session.task()` is awaited inline.
-- Custom-message entry types + `registerMessageRenderer` for `brunch.offer`, `brunch.lens_switch`, `brunch.spec_switch`, `brunch.side_task_result`.
+- Custom-message/tool-result transcript types plus renderers for Brunch structured interaction state (`brunch.establishment_offer`, `brunch.review_set_proposal`, `brunch.lens_switch`, `brunch.spec_switch`, `brunch.side_task_result`, and structured-exchange toolResult details).
 - `pi.registerCommand` for `/lens`, `/spec`, `/compact`-style affordances.
 - `ExtensionUIContext.select | confirm | input | custom` for confirmation-gated writes and overlay UIs.
 - `pi-tui` primitives, including `SessionSelectorComponent` as a model for `SpecSelectorComponent`.
@@ -648,7 +650,7 @@ The intent ontology covers engineering-spec shapes well but is thin on product-f
 
 Framing primarily drives **elicitation, rendering, and context packing** in the POC — not new relation-policy rules. Base kind still drives edge legality and most traversal. Context packs, scope-card UI, and compaction summaries must render a dedicated **Product framing** block so the data does not silently disappear from the agent's view.
 
-Kernel-activation gate: behavioral kernels should not engage in earnest before at least one `product_concept`, one `problem`, one `persona`, and one `non_goal` (or scope boundary) have been captured for the spec. This is the minimum framing bundle required for brief #7 ("Notion meets Linear meets Slack") in the [fixture strategy](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md) to succeed.
+Kernel-activation gate: behavioral kernels should not engage in earnest before at least one `product_concept`, one `problem`, one `persona`, and one `non_goal` (or scope boundary) have been captured for the spec. Future probe scenarios can exercise this bundle through transcript artifacts, but there is no current standalone brief-library gate.
 
 #### Oracle-plane entities (new node types)
 
@@ -788,9 +790,9 @@ By M5/M6, if formal-verification consumers need to query, rebind, or review reas
 
 1. Whether a lens may register its own pi tools at load time or must declare them up front. Up-front declaration keeps `setActiveTools` sufficient but constrains lens authorship.
 2. Whether spec switching is always a session switch or whether one transcript may span several spec roots with lens-mediated framing.
-3. Whether the offer envelope should be a single `brunch.offer` type with a `kind` discriminator or several types (`brunch.action_menu`, `brunch.question`, `brunch.question_freeform`) for sharper renderer typing.
+3. Which product-native structured offers still deserve Brunch custom-entry types now that ordinary questions/questionnaires can use self-contained toolResult details.
 4. Whether side-task results should always go through the shared command layer or whether read-only "advice" side tasks are allowed to produce custom-message results without touching graph state.
-5. Whether the RPC `multiSelect` and `freeformWithChoice` protocol extensions should live in Brunch's own JSON-RPC surface from day one rather than as an extension of pi's `extension_ui_request` family.
+5. What the thinnest Brunch public method/event family should be for relaying Pi extension UI requests (`elicitation.*`, `agent.ui.*`, or another scoped family), while keeping raw Pi RPC private.
 6. Whether before-images should be stored from M4 to simplify later coherence work, accepting the doubled write-time read cost, or deferred to M8 when their consumers exist.
 7. Whether the change-log `op` payload should be free-form JSON keyed only by `target_kind`, or a discriminated union of typed op shapes per graph plane to make change-log replay strongly typed.
 8. When (M-number or brief-count signal) to promote framings from `framing_as` to first-class node kinds. The current rule is "only when a framing repeatedly demands unique relation-policy or coherence behaviour across multiple briefs"; the operational signal for this remains under-specified.

@@ -7,5 +7,5 @@
 	"rules": {
 		"typescript/no-deprecated": "error"
 	},
-	"ignorePatterns": ["dist", "archive", "docs", "memory", ".brunch-fixtures", "scripts"]
+	"ignorePatterns": ["dist", "archive", "docs", "memory", ".fixtures", "scripts"]
 }

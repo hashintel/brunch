@@ -23,10 +23,8 @@ ln-consult
   → ln-grill or ln-disambiguate
   → ln-spec
   → ln-plan
-  → ln-oracles
-  → ln-scope
-  → ln-spike (optional)
-  → ln-build
+  → ln-scope     ← default uncertainty-attack: thin tracer-bullet slice
+  → ln-build       whose landing falsifies the load-bearing belief
   → ln-review
   → ln-witness (optional)
   → ln-refactor (optional)
@@ -35,6 +33,22 @@ ln-consult
 ```
 
 The flow is not a checklist. Skip steps whose uncertainty is already retired.
+
+### Tracer-bullet sequencing
+
+A good tracer-bullet frontier or slice earns its keep on three convergent axes:
+
+- **Proof of life.** Does landing it light up an end-to-end path that did not exist?
+- **Invariants.** Does it locate or stabilize a seam that future slices will aim from?
+- **Uncertainty.** Does it retire a load-bearing assumption from `memory/SPEC.md` §Assumptions?
+
+The strongest next move scores on more than one axis. Prefer a slice that does several at once over one that maximizes a single axis.
+
+- **Reshape, don't defer.** If an assumption blocks a slice, reshape the slice before switching to study.
+- **Spike exception.** Use `ln-spike` only when no buildable tracer bullet can carry the proof — a third-party API contract, vendor characteristic, or research-grade unknown.
+- **Fire the tracer that tells you the most.** Given the repo's pre-release posture, attack uncertainty by building. Spikes, design passes, and prototypes are escape hatches when no slice could carry the proof more cheaply.
+
+`ln-plan`, `ln-design`, `ln-scope`, and `ln-consult` all carry this sequencing pressure.
 
 ## Skill map
 

@@ -31,7 +31,7 @@ class FakeWebSocket {
 
   emit(event: string, data?: string) {
     for (const listener of this.listeners.get(event) ?? []) {
-      listener({ data })
+      listener(data === undefined ? {} : { data })
     }
   }
 }
@@ -87,6 +87,55 @@ describe("browser WebSocket RPC client", () => {
 
     await expect(first).resolves.toBe("first")
     await expect(second).resolves.toBe("second")
+  })
+
+  it("delivers JSON-RPC notifications without disturbing pending requests", async () => {
+    const client = rpcClient()
+    const notifications: unknown[] = []
+    client.subscribe((notification) => notifications.push(notification))
+    const request = client.request("workspace.snapshot")
+    const socket = FakeWebSocket.instances[0]!
+
+    socket.emit("open")
+    socket.emit(
+      "message",
+      JSON.stringify({
+        jsonrpc: "2.0",
+        method: "brunch.updated",
+        params: { topics: ["session.transcriptDisplay"] },
+      }),
+    )
+    socket.emit(
+      "message",
+      JSON.stringify({ jsonrpc: "2.0", id: 1, result: "snapshot" }),
+    )
+
+    await expect(request).resolves.toBe("snapshot")
+    expect(notifications).toEqual([
+      {
+        jsonrpc: "2.0",
+        method: "brunch.updated",
+        params: { topics: ["session.transcriptDisplay"] },
+      },
+    ])
+  })
+
+  it("unsubscribes notification listeners", () => {
+    const client = rpcClient()
+    const notifications: unknown[] = []
+    const unsubscribe = client.subscribe((notification) =>
+      notifications.push(notification),
+    )
+    const socket = FakeWebSocket.instances[0]!
+
+    socket.emit("open")
+    unsubscribe()
+    socket.emit(
+      "message",
+      JSON.stringify({ jsonrpc: "2.0", method: "brunch.updated" }),
+    )
+
+    expect(notifications).toEqual([])
   })
 
   it("rejects JSON-RPC failures with code and message", async () => {

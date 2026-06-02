@@ -18,6 +18,8 @@ Use **slice** for the buildable scope card produced by `ln-scope` and implemente
 
 The vertical-slicing instinct still applies at planning time: frontier items should cut through the relevant concerns of `memory/SPEC.md` instead of becoming layer-by-layer chores. The term "frontier" names their canonical/branch role; the term "slice" remains reserved for scoped execution.
 
+**Notation aid.** Express the `Dependencies` block as `pseudo graph` rather than a hand-drawn tree — cross-edges (optional successors, on-promotion edges) and dependency-edge types (`-[hard]->`, `-[optional]->`, `-[on promotion]->`) stay visible, and horizon items go in an `unconnected` group so they're acknowledged without implying spine relations. See `pseudo references/graph.md` worked example "roadmap dependency graph."
+
 ## Plan document shape
 
 Prefer the conflict-resistant mature shape:
@@ -100,6 +102,29 @@ When a frontier completes, remove it from `Sequencing`, add a terse `Recently Co
 
 If live low-confidence assumptions block downstream work, stop the plan at that boundary. Plan spikes or thinner proving frontier items, not fantasy certainty.
 
+### Tracer-bullet sequencing
+
+Sequencing is not only seam-driven. A good tracer-bullet frontier scores on three convergent axes (see `docs/praxis/ln-skills.md` §Tracer-bullet sequencing): **proof of life**, **invariants**, **uncertainty**. The strongest next frontier scores on more than one.
+
+When ranking candidates, weigh:
+
+- **blast radius** if a load-bearing assumption turns out false
+- **reversibility cost** if discovered late vs early
+- **validation cost** (cheap slice vs expensive end-to-end rework)
+- **load-bearingness** (how many active/next frontiers depend on it)
+
+Annotate each `Active` / `Next` frontier definition with the relevant axes when they are in play:
+
+- `Retires: <SPEC assumption id(s)>` — collapses the assumption by landing
+- `Depends on: <SPEC assumption id(s)> (validated enough)` — assumption must be settled first
+- `Blocked by: <SPEC assumption id(s)>` — load-bearing; do not start until retired
+- `Lights up: <pipeline / seam>` — establishes a new end-to-end path
+- `Stabilizes: <invariant id(s) or seam>` — locates or fixes structure others will aim from
+
+**Spike exception.** Use `ln-spike` only when no buildable frontier could carry the proof. Do not insert ceremonial spikes when a tracer-bullet frontier exists.
+
+This sequencing pressure is distinct from "Epistemic horizon": that rule tells the planner to *stop* at fog; this rule tells the planner to **fire the tracer that tells you the most**.
+
 ## Procedure
 
 1. Read `memory/PLAN.md` if it exists. Identify existing frontier ids and retire/archive stale completed material into `docs/archive/PLAN_HISTORY.md`.
@@ -146,7 +171,8 @@ After writing the plan, present these options to the user (use `tool-ask-questio
 | --- | ----------------- | ------------ | --- |
 | 1   | Scope next slice  | `ln-scope`   | The frontier is clear and ready to scope |
 | 2   | Design oracles    | `ln-oracles` | Verification design needs explicit work |
-| 3   | Grill it more     | `ln-grill`   | Planning surfaced unresolved product questions |
-| 4   | Back to triage    | `ln-consult` | Direction needs reassessment |
+| 3   | Spike first       | `ln-spike`   | A load-bearing assumption should be retired before scoping |
+| 4   | Grill it more     | `ln-grill`   | Planning surfaced unresolved product questions |
+| 5   | Back to triage    | `ln-consult` | Direction needs reassessment |
 
-Recommended: **1**
+Recommended: **1** unless tracer-bullet sequencing surfaced a question that no buildable frontier could answer cheaper than a spike (then **3**).

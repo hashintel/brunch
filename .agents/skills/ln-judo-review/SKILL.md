@@ -44,6 +44,8 @@ Functional core / imperative shell (Gary Bernhardt): when independent work is ne
 
 If yes, name it. Do not settle for a cleaner version of the same messy idea when a much simpler idea is plausible.
 
+**Notation aid.** When proposing a code-judo move, express it as paired `pseudo` artifacts — current shape (`tree` for module structure, `graph` for control/dependency, `chain` for call flow) → desired shape with the deleted branches, helpers, modes, or layers visibly absent. A concrete before/after pair shows whether complexity actually *vanishes* rather than relocates — which is the whole point of judo over rearrangement. Node/edge counts before vs after are honest metrics: a desired-state graph with fewer nodes and fewer edges than the current one is the artifact form of "deletions over rearrangements."
+
 ## Tone
 
 Direct, serious, demanding. Not rude. Do not soften major maintainability issues into mild suggestions. Worked examples of the register:

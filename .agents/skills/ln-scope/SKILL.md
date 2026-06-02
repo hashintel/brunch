@@ -101,10 +101,24 @@ Every boundary the slice passes through, entry to exit:
 
 ```
 - RISK: [what might not work] → MITIGATION: [how to handle it]
-- ASSUMPTION: [what we're assuming] → VALIDATE: [how we'll know] → [→ memory/SPEC.md §Assumptions]
+- ASSUMPTION: [what we're assuming]
+    → IMPACT IF FALSE: [what breaks / rework cost / blast radius across queued cards or other frontiers]
+    → VALIDATE: [cheapest proof — spike, fixture, contract test, prototype]
+    → [→ memory/SPEC.md §Assumptions id]
 ```
 
-High-risk unvalidated assumption → suggest `ln-spike` before `ln-build`.
+### Tracer-bullet check
+
+A good tracer-bullet slice scores on at least one of three convergent axes (see `docs/praxis/ln-skills.md` §Tracer-bullet sequencing): **proof of life** (lights up a new end-to-end path), **invariants** (locates or stabilizes a seam), **uncertainty** (retires a load-bearing assumption from `memory/SPEC.md` §Assumptions). The best slices score on more than one.
+
+If the slice depends on a high-impact assumption that landing it will not retire:
+
+1. **Reshape, don't defer.** Rework the slice so landing it *is* the proof — a tracer bullet that breaks if the assumption is wrong almost always beats a study step in this codebase.
+2. **Spike exception.** Route to `ln-spike` only when no vertical slice would be cheaper than a pure probe (third-party API contract, vendor perf characteristic, research-grade unknown).
+
+"High-impact" means the assumption being false would force rework across more than this slice — invalidating queued cards, changing the chosen module shape from `ln-design`, or forcing a different frontier-level sequencing decision.
+
+A tracer bullet should *tell you something*. Build it.
 
 ### Acceptance Criteria
 
@@ -112,6 +126,8 @@ High-risk unvalidated assumption → suggest `ln-spike` before `ln-build`.
 ✓ [test name] — [observable assertion]
 ✓ [test name] — [observable assertion]
 ```
+
+**Notation aid.** When acceptance is more than a handful of leaves, decompose it with `pseudo tree` (obligation decomposition variant) so each leaf maps to one assertion. Use `pseudo lanes` when the slice crosses actor boundaries; `pseudo state-machine` when it changes a lifecycle.
 
 ### Verification Approach
 
@@ -161,12 +177,22 @@ For light cards, include this section whenever the containing frontier definitio
 - [obligation]
 ```
 
+### Assumption dependency
+
+State one of:
+
+- `None` — this slice's correctness does not hinge on any live `memory/SPEC.md` §Assumptions
+- `Depends on: <SPEC assumption id(s)>` — and a one-line note on why those assumptions are validated enough to build against
+
+If a light card would have to mark `Depends on:` a high-impact unvalidated assumption, promote to a full scope card and apply the **Tracer-bullet check**.
+
 ### Promotion checklist
 
 If any answer is yes, stop treating the work as light and promote it to a full scope card before routing to `ln-build`. Do not quietly carry durable change under a light card.
 
 - [ ] Does this change a requirement?
 - [ ] Does this create, retire, or invalidate an assumption?
+- [ ] Does this slice depend on an unvalidated high-impact assumption?
 - [ ] Does this make or reverse a non-trivial design decision?
 - [ ] Does this establish a new seam-level invariant?
 - [ ] Does this change a frontier-level cross-cutting obligation or verification architecture layer?
@@ -201,4 +227,4 @@ After the scope card is complete, present these options to the user (use `tool-a
 | 5   | Revise plan    | `ln-plan`    | The work no longer fits the current frontier |
 | 6   | Back to triage | `ln-consult` | Scope revealed unclear state |
 
-Recommended: **1** unless the promotion checklist fires or the verification approach is still unclear. If a short prepared queue is warranted, write it to `memory/CARDS.md` and let `ln-build` consume the next ready card from there.
+Recommended: **1** in nearly all cases — including when the **Tracer-bullet check** fires, because the preferred resolution is to reshape, not defer. Recommend **3 (Spike first)** only when no vertical slice would be cheaper than a pure probe. Recommend **2 (Design oracles)** only when verification for the reshaped slice is still genuinely unclear. If a short prepared queue is warranted, write it to `memory/CARDS.md` and let `ln-build` consume the next ready card from there.

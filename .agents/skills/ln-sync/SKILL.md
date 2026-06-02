@@ -31,6 +31,13 @@ Prefer `ln-sync` at these moments:
 | `memory/CARDS.md` | derivative execution queue | only unfinished prepared scope cards inside one frontier item |
 | `memory/REFACTOR.md` | derivative temporary execution plan | only unfinished refactor steps |
 
+**Notation aid.** When refreshing SPEC or PLAN:
+
+- **Preserve existing `pseudo` artifacts** (tree, chain, graph, matrix, state-machine, data-shape, lanes). Do not collapse a `pseudo` form back into prose — these are denser, more diffable, and more agent-navigable than equivalent text.
+- **Consolidate prose into `pseudo` forms** when prose has grown that meets the routing criteria (see `pseudo` SKILL routing chain) — paragraph-length acceptance criteria → `tree`, hand-drawn dependency tree with cross-edges hiding in prose → `graph`, scattered comparison bullets → `matrix`.
+- **Apply smell-to-switch rules** when reshaping. An artifact may have outgrown its current family (e.g. a tree whose siblings now interact → graph).
+- A change that *replaces* prose with an equivalent `pseudo` artifact counts as a sync improvement, not a content edit; surface it as such in the change summary.
+
 ## Procedure
 
 ### 1. Read the current docs

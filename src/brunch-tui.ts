@@ -1,4 +1,3 @@
-import { createInterface } from "node:readline/promises"
 import process from "node:process"
 
 import {
@@ -7,32 +6,54 @@ import {
   createAgentSessionServices,
   getAgentDir,
   InteractiveMode,
-  SessionManager,
+  SettingsManager,
   type CreateAgentSessionRuntimeFactory,
   type ExtensionFactory,
 } from "@earendil-works/pi-coding-agent"
 
 import {
   createWorkspaceSessionCoordinator,
-  type WorkspaceSessionChromeState,
-  type WorkspaceSessionCoordinator,
+  type WorkspaceLaunchInventory,
+  type WorkspaceSessionBoundaryCoordinator,
   type WorkspaceSessionReadyState,
+  type SpecSessionActivationCoordinator,
+  type SpecSessionActivationDecision,
 } from "./workspace-session-coordinator.js"
+import {
+  chromeStateForWorkspace,
+  createBrunchPiExtensionShell,
+} from "./tui-client/pi-extension-shell.js"
+import { runWorkspaceDialogPreflight } from "./tui-client/.pi/components/workspace-dialog.js"
+export {
+  BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE,
+  chromeStateForWorkspace,
+  createBrunchPiExtensionShell,
+  projectBrunchChromeFooterLines,
+  renderBrunchChrome,
+  type BrunchChromeCoherenceVerdict,
+  type BrunchChromeFooterTelemetry,
+  type BrunchChromeStage,
+  type BrunchChromeState,
+  type BrunchChromeWorkerStatus,
+} from "./tui-client/pi-extension-shell.js"
+export { runWorkspaceDialogPreflight } from "./tui-client/.pi/components/workspace-dialog.js"
+
+export type BrunchTuiCoordinator = SpecSessionActivationCoordinator & WorkspaceSessionBoundaryCoordinator
 
 export interface BrunchTuiLaunchContext {
   workspace: WorkspaceSessionReadyState
-  coordinator: WorkspaceSessionCoordinator
+  coordinator: BrunchTuiCoordinator
 }
 
 export interface BrunchTuiOptions {
   cwd?: string
-  coordinator?: WorkspaceSessionCoordinator
+  coordinator?: BrunchTuiCoordinator
   selectSpecTitle?: () => Promise<string | undefined>
+  runWorkspaceDialogPreflight?: (
+    inventory: WorkspaceLaunchInventory,
+  ) => Promise<SpecSessionActivationDecision>
   launchInteractive?: (context: BrunchTuiLaunchContext) => Promise<void>
 }
-
-export const BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE =
-  "Brunch does not support Pi session branches in this POC. Use /new to continue within the selected spec."
 
 export async function runBrunchTui(
   options: BrunchTuiOptions = {},
@@ -41,15 +62,13 @@ export async function runBrunchTui(
   const coordinator =
     options.coordinator ?? createWorkspaceSessionCoordinator({ cwd })
 
-  let workspaceState = await coordinator.openExisting()
-  if (workspaceState.status === "select_spec") {
-    const title = await (options.selectSpecTitle ?? promptForSpecTitle)()
-    if (!title) {
-      return
-    }
-    workspaceState = await coordinator.startOrCreate({ specTitle: title })
-  }
+  const inventory = await coordinator.inspectWorkspace()
+  const decision = await chooseSpecSessionActivationDecision(inventory, options)
+  const workspaceState = await coordinator.activateWorkspace(decision)
 
+  if (workspaceState.status === "cancelled") {
+    return
+  }
   if (workspaceState.status === "needs_human") {
     throw new Error(workspaceState.reason)
   }
@@ -60,56 +79,18 @@ export async function runBrunchTui(
   })
 }
 
-export function formatChromeWidgetLines(
-  chrome: WorkspaceSessionChromeState,
-): string[] {
-  const spec = chrome.spec ? chrome.spec.title : "<none>"
-  return [
-    `brunch  cwd: ${chrome.cwd}`,
-    `        spec: ${spec}  phase: ${chrome.phase}  chat: ${chrome.chatMode}`,
-  ]
-}
-
-export function createBrunchChromeExtension(
-  chrome: WorkspaceSessionChromeState,
-  onSessionBoundary?: (sessionManager: SessionManager) => Promise<void> | void,
-): ExtensionFactory {
-  return (pi) => {
-    pi.on("session_start", async (_event, ctx) => {
-      await onSessionBoundary?.(ctx.sessionManager as SessionManager)
-      ctx.ui.setWidget("brunch.chrome", formatChromeWidgetLines(chrome), {
-        placement: "aboveEditor",
-      })
-      ctx.ui.setTitle(`brunch — ${chrome.spec?.title ?? chrome.cwd}`)
-    })
-    pi.on("before_agent_start", async (_event, ctx) => {
-      await onSessionBoundary?.(ctx.sessionManager as SessionManager)
-    })
-    pi.on("message_start", async (event, ctx) => {
-      if (event.message.role === "assistant") {
-        await onSessionBoundary?.(ctx.sessionManager as SessionManager)
-      }
-    })
-    pi.on("session_before_tree", (_event, ctx) => {
-      ctx.ui.notify(BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE, "warning")
-      return { cancel: true }
-    })
-    pi.on("session_before_fork", (_event, ctx) => {
-      ctx.ui.notify(BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE, "warning")
-      return { cancel: true }
-    })
+async function chooseSpecSessionActivationDecision(
+  inventory: WorkspaceLaunchInventory,
+  options: BrunchTuiOptions,
+): Promise<SpecSessionActivationDecision> {
+  if (options.runWorkspaceDialogPreflight) {
+    return options.runWorkspaceDialogPreflight(inventory)
   }
-}
-
-async function promptForSpecTitle(): Promise<string | undefined> {
-  const rl = createInterface({ input: process.stdin, output: process.stdout })
-  try {
-    const answer = await rl.question("Create/select Brunch spec title: ")
-    const title = answer.trim()
-    return title.length > 0 ? title : undefined
-  } finally {
-    rl.close()
+  if (options.selectSpecTitle && inventory.needsNewSpec) {
+    const title = await options.selectSpecTitle()
+    return title ? { action: "newSpec", title } : { action: "cancel" }
   }
+  return runWorkspaceDialogPreflight(inventory)
 }
 
 async function launchPiInteractive({
@@ -122,19 +103,22 @@ async function launchPiInteractive({
     agentDir: runtimeAgentDir,
     sessionManager,
   }) => {
+    const settingsManager = createBrunchSettingsManager(cwd, runtimeAgentDir)
     const services = await createAgentSessionServices({
       cwd,
       agentDir: runtimeAgentDir,
-      resourceLoaderOptions: {
-        extensionFactories: [
-          createBrunchChromeExtension(
-            workspace.chrome,
-            async (sessionManager) => {
-              await coordinator.bindCurrentSpecToSession(sessionManager)
-            },
-          ),
-        ],
-      },
+      settingsManager,
+      resourceLoaderOptions: brunchResourceLoaderOptions([
+        createBrunchPiExtensionShell(
+          chromeStateForWorkspace(workspace),
+          async (sessionManager) => {
+            await coordinator.bindCurrentSpecToReplacementSession(
+              sessionManager,
+            )
+          },
+          { coordinator },
+        ),
+      ]),
     })
     const created = await createAgentSessionFromServices({
       services,
@@ -153,5 +137,34 @@ async function launchPiInteractive({
     sessionManager: workspace.session.manager,
   })
 
+  applyBrunchOfflineDefault()
   await new InteractiveMode(runtime).run()
+}
+
+export function brunchResourceLoaderOptions(
+  extensionFactories: ExtensionFactory[],
+) {
+  return {
+    noContextFiles: true,
+    noExtensions: true,
+    noPromptTemplates: true,
+    noSkills: true,
+    noThemes: true,
+    extensionFactories,
+  }
+}
+
+export function applyBrunchOfflineDefault(
+  env: { PI_OFFLINE?: string } = process.env,
+): void {
+  env.PI_OFFLINE ??= "1"
+}
+
+export function createBrunchSettingsManager(
+  cwd: string,
+  agentDir: string,
+): SettingsManager {
+  const settingsManager = SettingsManager.create(cwd, agentDir)
+  settingsManager.getQuietStartup = () => true
+  return settingsManager
 }

@@ -62,20 +62,110 @@ export interface WorkspaceSessionNeedsHumanState {
   chrome: WorkspaceSessionChromeState
 }
 
+export interface WorkspaceSessionCancelledState {
+  status: "cancelled"
+  cwd: string
+  chrome: WorkspaceSessionChromeState
+}
+
 export type WorkspaceSessionState = WorkspaceSessionReadyState | WorkspaceSessionSelectSpecState | WorkspaceSessionNeedsHumanState
 
-export interface WorkspaceSessionCoordinator {
-  openExisting(): Promise<WorkspaceSessionState>
-  startOrCreate(options?: {
+export interface WorkspaceContinueDecision {
+  action: "continue"
+  specId: string
+  sessionFile: string
+}
+
+export interface WorkspaceOpenSessionDecision {
+  action: "openSession"
+  specId: string
+  sessionFile: string
+}
+
+export interface WorkspaceNewSessionDecision {
+  action: "newSession"
+  specId: string
+}
+
+export interface WorkspaceNewSpecDecision {
+  action: "newSpec"
+  title: string
+}
+
+export interface WorkspaceCancelDecision {
+  action: "cancel"
+}
+
+export type SpecSessionActivationDecision = WorkspaceContinueDecision | WorkspaceOpenSessionDecision | WorkspaceNewSessionDecision | WorkspaceNewSpecDecision | WorkspaceCancelDecision
+
+export type WorkspaceActivationState = WorkspaceSessionReadyState | WorkspaceSessionNeedsHumanState | WorkspaceSessionCancelledState
+
+export interface WorkspaceLaunchSession {
+  id: string
+  file: string
+  specId: string
+  specTitle: string
+  name?: string
+  available: true
+}
+
+export interface WorkspaceLaunchSpec {
+  spec: WorkspaceSpecState
+  sessions: WorkspaceLaunchSession[]
+}
+
+export type WorkspaceUnavailableSessionReason = "missing_header" | "missing_binding" | "incompatible_binding"
+
+export interface WorkspaceUnavailableSession {
+  file: string
+  reason: WorkspaceUnavailableSessionReason
+  available: false
+}
+
+export interface WorkspaceLaunchInventory {
+  cwd: string
+  currentSpec: WorkspaceSpecState | null
+  currentSessionFile: string | null
+  needsNewSpec: boolean
+  specs: WorkspaceLaunchSpec[]
+  unavailableSessions: WorkspaceUnavailableSession[]
+}
+
+export interface SpecSessionActivationCoordinator {
+  inspectWorkspace(): Promise<WorkspaceLaunchInventory>
+  activateWorkspace(
+    decision: SpecSessionActivationDecision,
+  ): Promise<WorkspaceActivationState>
+}
+
+export interface DefaultWorkspaceCoordinator {
+  openDefaultWorkspace(): Promise<WorkspaceSessionState>
+}
+
+export interface WorkspaceSetupCoordinator {
+  createSetupSession(options?: {
     specTitle?: string
     createNewSpec?: boolean
   }): Promise<WorkspaceSessionReadyState>
-  createNewSessionForCurrentSpec(): Promise<WorkspaceSessionState>
-  bindCurrentSpecToSession(
+  createSetupSessionForCurrentSpec(): Promise<WorkspaceSessionState>
+}
+
+export interface WorkspaceSessionBoundaryCoordinator {
+  bindCurrentSpecToReplacementSession(
     manager: SessionManager,
   ): Promise<WorkspaceSessionReadyState>
-  deriveChromeState(): Promise<WorkspaceSessionChromeState>
 }
+
+export interface WorkspaceDefaultChromeCoordinator {
+  deriveDefaultChromeState(): Promise<WorkspaceSessionChromeState>
+}
+
+export interface WorkspaceSessionCoordinator
+  extends SpecSessionActivationCoordinator,
+    DefaultWorkspaceCoordinator,
+    WorkspaceSetupCoordinator,
+    WorkspaceSessionBoundaryCoordinator,
+    WorkspaceDefaultChromeCoordinator {}
 
 export function createWorkspaceSessionCoordinator(options?: {
   cwd?: string
@@ -91,7 +181,70 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     this.#cwd = cwd
   }
 
-  async openExisting(): Promise<WorkspaceSessionState> {
+  async inspectWorkspace(): Promise<WorkspaceLaunchInventory> {
+    return inspectWorkspaceInventory(this.#cwd)
+  }
+
+  async activateWorkspace(
+    decision: SpecSessionActivationDecision,
+  ): Promise<WorkspaceActivationState> {
+    if (decision.action === "cancel") {
+      const state = await readWorkspaceState(this.#cwd)
+      return {
+        status: "cancelled",
+        cwd: this.#cwd,
+        chrome: chromeState(this.#cwd, state?.currentSpec ?? null),
+      }
+    }
+
+    if (decision.action === "newSpec") {
+      return this.createSetupSession({
+        specTitle: decision.title,
+        createNewSpec: true,
+      })
+    }
+
+    const inventory = await inspectWorkspaceInventory(this.#cwd)
+    const spec = inventory.specs.find(
+      (candidate) => candidate.spec.id === decision.specId,
+    )
+
+    if (!spec) {
+      return needsHumanState(
+        this.#cwd,
+        inventory.currentSpec,
+        "Selected spec is not available in this workspace.",
+      )
+    }
+
+    if (decision.action === "newSession") {
+      const session = await createBoundSession(this.#cwd, spec.spec)
+      await writeCurrentWorkspaceState(this.#cwd, spec.spec, session.file)
+      return readyState(this.#cwd, spec.spec, session)
+    }
+
+    const session = spec.sessions.find(
+      (candidate) => candidate.file === decision.sessionFile,
+    )
+    if (!session) {
+      return needsHumanState(
+        this.#cwd,
+        inventory.currentSpec,
+        "Selected session is not available for the selected spec.",
+      )
+    }
+
+    const manager = SessionManager.open(
+      session.file,
+      sessionDir(this.#cwd),
+      this.#cwd,
+    )
+    const opened = bindSessionToSpec(manager, spec.spec)
+    await writeCurrentWorkspaceState(this.#cwd, spec.spec, opened.file)
+    return readyState(this.#cwd, spec.spec, opened)
+  }
+
+  async openDefaultWorkspace(): Promise<WorkspaceSessionState> {
     const state = await readWorkspaceState(this.#cwd)
     if (!state) {
       return {
@@ -110,7 +263,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     return readyState(this.#cwd, state.currentSpec, session)
   }
 
-  async startOrCreate(options?: {
+  async createSetupSession(options?: {
     specTitle?: string
     createNewSpec?: boolean
   }): Promise<WorkspaceSessionReadyState> {
@@ -125,7 +278,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     return readyState(this.#cwd, spec, session)
   }
 
-  async createNewSessionForCurrentSpec(): Promise<WorkspaceSessionState> {
+  async createSetupSessionForCurrentSpec(): Promise<WorkspaceSessionState> {
     const state = await readWorkspaceState(this.#cwd)
     if (!state) {
       return {
@@ -141,7 +294,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     return readyState(this.#cwd, state.currentSpec, session)
   }
 
-  async bindCurrentSpecToSession(
+  async bindCurrentSpecToReplacementSession(
     manager: SessionManager,
   ): Promise<WorkspaceSessionReadyState> {
     const state = await readWorkspaceState(this.#cwd)
@@ -154,7 +307,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     return readyState(this.#cwd, state.currentSpec, session)
   }
 
-  async deriveChromeState(): Promise<WorkspaceSessionChromeState> {
+  async deriveDefaultChromeState(): Promise<WorkspaceSessionChromeState> {
     const state = await readWorkspaceState(this.#cwd)
     return chromeState(this.#cwd, state?.currentSpec ?? null)
   }
@@ -280,6 +433,96 @@ async function readWorkspaceState(
   }
 }
 
+async function inspectWorkspaceInventory(
+  cwd: string,
+): Promise<WorkspaceLaunchInventory> {
+  const state = await readWorkspaceState(cwd)
+  const files = await listSessionFiles(cwd)
+  const specsById = new Map<string, WorkspaceLaunchSpec>()
+  const unavailableSessions: WorkspaceUnavailableSession[] = []
+
+  if (state) {
+    specsById.set(state.currentSpec.id, {
+      spec: state.currentSpec,
+      sessions: [],
+    })
+  }
+
+  for (const file of files) {
+    const session = await inspectSessionFile(file)
+    if (session.available) {
+      const spec = getOrCreateLaunchSpec(specsById, {
+        id: session.specId,
+        title: session.specTitle,
+      })
+      spec.sessions.push(session)
+    } else {
+      unavailableSessions.push(session)
+    }
+  }
+
+  const specs = [...specsById.values()]
+    .map((spec) => ({
+      ...spec,
+      sessions: spec.sessions.sort((left, right) =>
+        left.file.localeCompare(right.file),
+      ),
+    }))
+    .sort((left, right) => left.spec.title.localeCompare(right.spec.title))
+
+  return {
+    cwd,
+    currentSpec: state?.currentSpec ?? null,
+    currentSessionFile: state?.currentSessionFile ?? null,
+    needsNewSpec: specs.length === 0,
+    specs,
+    unavailableSessions: unavailableSessions.sort((left, right) =>
+      left.file.localeCompare(right.file),
+    ),
+  }
+}
+
+type InspectedSessionFile = WorkspaceLaunchSession | WorkspaceUnavailableSession
+
+async function inspectSessionFile(file: string): Promise<InspectedSessionFile> {
+  const entries = await readJsonl(file)
+  const header = entries.find(isSessionHeader)
+  if (!header) {
+    return { file, reason: "missing_header", available: false }
+  }
+
+  const bindings = entries.filter(isSessionBindingEntry)
+  if (bindings.length === 0) {
+    return { file, reason: "missing_binding", available: false }
+  }
+
+  const binding = bindings[0]!
+  if (bindings.length !== 1 || binding.data.sessionId !== header.id) {
+    return { file, reason: "incompatible_binding", available: false }
+  }
+
+  return {
+    id: header.id,
+    file,
+    specId: binding.data.specId,
+    specTitle: binding.data.specTitle,
+    available: true,
+  }
+}
+
+function getOrCreateLaunchSpec(
+  specsById: Map<string, WorkspaceLaunchSpec>,
+  spec: WorkspaceSpecState,
+): WorkspaceLaunchSpec {
+  const existing = specsById.get(spec.id)
+  if (existing) {
+    return existing
+  }
+  const created = { spec, sessions: [] }
+  specsById.set(spec.id, created)
+  return created
+}
+
 async function writeWorkspaceState(
   cwd: string,
   state: WorkspaceStateFile,
@@ -310,6 +553,19 @@ function readyState(
     cwd,
     spec,
     session,
+    chrome: chromeState(cwd, spec),
+  }
+}
+
+function needsHumanState(
+  cwd: string,
+  spec: WorkspaceSpecState | null,
+  reason: string,
+): WorkspaceSessionNeedsHumanState {
+  return {
+    status: "needs_human",
+    cwd,
+    reason,
     chrome: chromeState(cwd, spec),
   }
 }

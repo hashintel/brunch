@@ -10,7 +10,7 @@ import {
   createRootRouteWithContext,
   createRouter,
 } from "@tanstack/react-router"
-import { Suspense } from "react"
+import { Suspense, useEffect } from "react"
 
 import type { TranscriptDisplayProjection } from "../elicitation-exchange.js"
 import type { WorkspaceSnapshot } from "../print-snapshot.js"
@@ -136,7 +136,20 @@ function unreachableSessionProjectionTarget(): never {
 }
 
 function WorkspaceSnapshotPage() {
-  const { rpcClient } = rootRoute.useRouteContext()
+  const { queryClient, rpcClient } = rootRoute.useRouteContext()
+  useEffect(
+    () =>
+      rpcClient.subscribe((notification) => {
+        if (notification.method !== "brunch.updated") return
+        void queryClient.invalidateQueries({
+          queryKey: ["workspace.snapshot"],
+        })
+        void queryClient.invalidateQueries({
+          queryKey: ["session.transcriptDisplay"],
+        })
+      }),
+    [queryClient, rpcClient],
+  )
   const { data: snapshot } = useSuspenseQuery(
     workspaceSnapshotQueryOptions(rpcClient),
   )

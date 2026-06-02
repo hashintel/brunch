@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { TranscriptDisplayProjection } from "../elicitation-exchange.js"
 import type { WorkspaceSnapshot } from "../print-snapshot.js"
 import { BrunchWebApp, createBrunchWebRuntime } from "./app.js"
-import type { WebSocketRpcClient } from "./rpc-client.js"
+import type {
+  WebSocketRpcClient,
+  WebSocketRpcNotification,
+  WebSocketRpcNotificationListener,
+} from "./rpc-client.js"
 
 interface RpcCall {
   method: string
@@ -44,28 +48,45 @@ const readyProjection: TranscriptDisplayProjection = {
 
 function rpcClient(options?: {
   snapshot?: WorkspaceSnapshot
-  projection?: TranscriptDisplayProjection
+  projection?: TranscriptDisplayProjection | (() => TranscriptDisplayProjection)
   projectionError?: Error
   calls?: RpcCall[]
+  listeners?: Set<WebSocketRpcNotificationListener>
 }): WebSocketRpcClient {
   const snapshot = options?.snapshot ?? readySnapshot
   const projection = options?.projection ?? readyProjection
   const calls = options?.calls
+  const listeners = options?.listeners ?? new Set()
   return {
-    async request(method, params) {
+    async request<T,>(method: string, params?: unknown): Promise<T> {
       calls?.push(params === undefined ? { method } : { method, params })
       if (method === "workspace.snapshot") {
-        return snapshot
+        return snapshot as T
       }
       if (method === "session.transcriptDisplay") {
         if (options?.projectionError) {
           throw options.projectionError
         }
-        return projection
+        return (
+          typeof projection === "function" ? projection() : projection
+        ) as T
       }
       throw new Error(`unexpected RPC method ${method}`)
     },
+    subscribe(listener: WebSocketRpcNotificationListener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
     close: vi.fn(),
+  } as unknown as WebSocketRpcClient
+}
+
+function emitNotification(
+  listeners: Set<WebSocketRpcNotificationListener>,
+  notification: WebSocketRpcNotification,
+): void {
+  for (const listener of listeners) {
+    listener(notification)
   }
 }
 
@@ -109,6 +130,42 @@ describe("Brunch React web app", () => {
     render(<BrunchWebApp runtime={runtime} />)
 
     expect(await screen.findByText("No transcript messages yet.")).toBeTruthy()
+  })
+
+  it("refetches selected session transcript when the RPC client reports a product update", async () => {
+    const listeners = new Set<WebSocketRpcNotificationListener>()
+    let projection: TranscriptDisplayProjection = { rows: [] }
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        listeners,
+        projection: () => projection,
+      }),
+    })
+
+    render(<BrunchWebApp runtime={runtime} />)
+
+    expect(await screen.findByText("No transcript messages yet.")).toBeTruthy()
+
+    projection = {
+      rows: [
+        {
+          id: "prompt-2",
+          role: "prompt",
+          text: "Is this a new product or feature from scratch?",
+        },
+      ],
+    }
+    emitNotification(listeners, {
+      jsonrpc: "2.0",
+      method: "brunch.updated",
+      params: { topics: ["session.transcriptDisplay"] },
+    })
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Is this a new product or feature from scratch?"),
+      ).toBeTruthy(),
+    )
   })
 
   it("does not request session projection when no session is selected", async () => {

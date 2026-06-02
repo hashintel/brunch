@@ -3,10 +3,13 @@
 		"target": "ES2022",
 		"module": "NodeNext",
 		"moduleResolution": "NodeNext",
-		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"lib": [
+			"ES2022",
+			"DOM",
+			"DOM.Iterable"
+		],
 		"jsx": "react-jsx",
-		"outDir": "./dist",
-		"rootDir": "./src",
+		"noEmit": true,
 		"strict": true,
 		"noImplicitAny": true,
 		"noImplicitOverride": true,
@@ -19,22 +22,16 @@
 		"forceConsistentCasingInFileNames": true,
 		"skipLibCheck": true,
 		"resolveJsonModule": true,
-		"declaration": true,
-		"declarationMap": true,
-		"sourceMap": true,
 		"isolatedModules": true,
 		"verbatimModuleSyntax": true
 	},
-	"include": ["src/**/*"],
+	"include": [
+		"src/**/*",
+		".pi/extensions/**/*.ts"
+	],
 	"exclude": [
-		"src/**/*.test.ts",
-		"src/**/*.test.tsx",
 		"node_modules",
 		"dist",
-		"archive",
-		"docs",
-		"memory",
-		"scripts",
-		".brunch-fixtures"
+		"archive"
 	]
 }

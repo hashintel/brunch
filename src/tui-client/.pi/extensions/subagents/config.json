@@ -1,0 +1,5 @@
+{
+  "$comment": "Subagent extension config (D44-L). Reviewable and editable without SPEC churn. Validated through a TypeBox schema when src/pi-extensions/subagents/index.ts lands.",
+  "version": 1,
+  "maxConcurrency": 4
+}

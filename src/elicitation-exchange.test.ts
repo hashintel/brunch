@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest"
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
 import { createSessionBindingData } from "./session-binding.js"
+import { STRUCTURED_EXCHANGE_RESULT_SCHEMA } from "./structured-exchange.js"
+import { assistantMessage, userMessage } from "./test-helpers.js"
 import {
   loadJsonlTranscriptEntries,
   loadLinearElicitationExchangeProjection,
@@ -18,7 +20,7 @@ import {
 const assistant = {
   id: "a1",
   type: "message",
-  message: { role: "assistant", content: "Pick one" },
+  message: assistantMessage("Pick one"),
 }
 const structuredPrompt = {
   id: "p1",
@@ -37,10 +39,147 @@ const toolResult = {
     isError: false,
   },
 }
+const presentQuestionToolResult = {
+  id: "present-question-1",
+  type: "message",
+  parentId: null,
+  message: {
+    role: "toolResult",
+    toolCallId: "present-call-1",
+    toolName: "present_question",
+    content: [{ type: "text", text: "## Domain?\n\nWhat are we specifying?" }],
+    details: {
+      schema: "brunch.structured_exchange.present",
+      schemaVersion: 1,
+      exchangeId: "domain",
+      presentTool: "present_question",
+      kind: "question",
+      status: "presented",
+      expectedRequest: { tool: "request_answer", required: true },
+      createdAtToolCallId: "present-call-1",
+    },
+    isError: false,
+  },
+}
+const requestAnswerToolResult = {
+  id: "request-answer-1",
+  type: "message",
+  parentId: "present-question-1",
+  message: {
+    role: "toolResult",
+    toolCallId: "request-call-1",
+    toolName: "request_answer",
+    content: [{ type: "text", text: "### Response\n\nDeveloper tooling" }],
+    details: {
+      schema: "brunch.structured_exchange.request",
+      schemaVersion: 1,
+      exchangeId: "domain",
+      requestTool: "request_answer",
+      status: "answered",
+      respondsTo: { exchangeId: "domain", presentTool: "present_question" },
+      answer: "Developer tooling",
+      createdAtToolCallId: "request-call-1",
+    },
+    isError: false,
+  },
+}
+const mismatchedRequestAnswerToolResult = {
+  ...requestAnswerToolResult,
+  id: "request-answer-mismatch",
+  message: {
+    ...requestAnswerToolResult.message,
+    details: {
+      ...requestAnswerToolResult.message.details,
+      exchangeId: "other-domain",
+      respondsTo: {
+        exchangeId: "other-domain",
+        presentTool: "present_question",
+      },
+    },
+  },
+}
+const requestChoicesToolResult = {
+  id: "request-choices-1",
+  type: "message",
+  parentId: "present-options-1",
+  message: {
+    role: "toolResult",
+    toolCallId: "request-call-choices-1",
+    toolName: "request_choices",
+    content: [
+      {
+        type: "text",
+        text: "### Response\n\n- Move quickly\n- Other\n\nComment:\n\n> Keep it deterministic.",
+      },
+    ],
+    details: {
+      schema: "brunch.structured_exchange.request",
+      schemaVersion: 1,
+      exchangeId: "domain",
+      requestTool: "request_choices",
+      status: "answered",
+      respondsTo: { exchangeId: "domain", presentTool: "present_options" },
+      choices: [
+        { id: "speed", label: "Move quickly" },
+        { id: "other", label: "Other" },
+      ],
+      comment: "Keep it deterministic.",
+      createdAtToolCallId: "request-call-choices-1",
+    },
+    isError: false,
+  },
+}
+const structuredExchangeToolResult = {
+  id: "sq1",
+  type: "message",
+  message: {
+    role: "toolResult",
+    toolCallId: "call-exchange-1",
+    toolName: "structured_exchange",
+    content: [{ type: "text", text: "User answered: Developer tooling" }],
+    details: {
+      schema: STRUCTURED_EXCHANGE_RESULT_SCHEMA,
+      schemaVersion: 1,
+      status: "answered",
+      question: "Domain?",
+      mode: "text",
+      answers: [
+        {
+          type: "text",
+          label: "Developer tooling",
+          value: "Developer tooling",
+        },
+      ],
+      transport: { surface: "rpc-editor" },
+    },
+    isError: false,
+  },
+}
+const unavailableStructuredExchangeToolResult = {
+  id: "sq-unavailable",
+  type: "message",
+  message: {
+    role: "toolResult",
+    toolCallId: "call-exchange-2",
+    toolName: "structured_exchange",
+    content: [{ type: "text", text: "Structured exchange unavailable." }],
+    details: {
+      schema: STRUCTURED_EXCHANGE_RESULT_SCHEMA,
+      schemaVersion: 1,
+      status: "unavailable",
+      question: "Domain?",
+      mode: "text",
+      answers: [],
+      transport: { surface: "headless" },
+      message: "Structured exchange UI is unavailable.",
+    },
+    isError: false,
+  },
+}
 const user = {
   id: "u1",
   type: "message",
-  message: { role: "user", content: "A" },
+  message: userMessage("A"),
 }
 const structuredResponse = {
   id: "r1",
@@ -70,12 +209,12 @@ describe("elicitation exchange projection", () => {
       {
         id: "a2",
         type: "message",
-        message: { role: "assistant", content: "Why?" },
+        message: assistantMessage("Why?"),
       },
       {
         id: "u2",
         type: "message",
-        message: { role: "user", content: "Because" },
+        message: userMessage("Because"),
       },
     ])
 
@@ -167,6 +306,184 @@ describe("elicitation exchange projection", () => {
     })
   })
 
+  it("projects an unmatched present tool result as an open prompt", () => {
+    const projection = projectElicitationExchanges([presentQuestionToolResult])
+
+    expect(projection).toEqual({
+      status: "open_prompt",
+      exchanges: [],
+      openPrompt: {
+        promptRange: { start: "present-question-1", end: "present-question-1" },
+        promptEntryIds: ["present-question-1"],
+      },
+    })
+  })
+
+  it("closes a present/request structured-exchange tuple only when request details match", () => {
+    const projection = projectElicitationExchanges([
+      presentQuestionToolResult,
+      requestAnswerToolResult,
+    ])
+
+    expect(projection).toEqual({
+      status: "ready",
+      exchanges: [
+        {
+          promptRange: {
+            start: "present-question-1",
+            end: "present-question-1",
+          },
+          responseRange: { start: "request-answer-1", end: "request-answer-1" },
+          promptEntryIds: ["present-question-1"],
+          responseEntryIds: ["request-answer-1"],
+        },
+      ],
+      openPrompt: null,
+    })
+  })
+
+  it("does not close an open present with a mismatched request tuple", () => {
+    const projection = projectElicitationExchanges([
+      presentQuestionToolResult,
+      mismatchedRequestAnswerToolResult,
+    ])
+
+    expect(projection.exchanges).toEqual([])
+    expect(projection.openPrompt?.promptEntryIds).toEqual([
+      "present-question-1",
+    ])
+  })
+
+  it.each(["answered", "cancelled", "unavailable"] as const)(
+    "closes present_options with a terminal %s request_choices result",
+    (status) => {
+      const presentOptions = {
+        ...presentQuestionToolResult,
+        id: "present-options-1",
+        message: {
+          ...presentQuestionToolResult.message,
+          toolName: "present_options",
+          details: {
+            ...presentQuestionToolResult.message.details,
+            presentTool: "present_options",
+            kind: "options",
+            expectedRequest: { tool: "request_choices", required: true },
+          },
+        },
+      }
+      const requestChoices = {
+        ...requestChoicesToolResult,
+        id: `request-choices-${status}`,
+        message: {
+          ...requestChoicesToolResult.message,
+          details: {
+            ...requestChoicesToolResult.message.details,
+            status,
+          },
+        },
+      }
+
+      const projection = projectElicitationExchanges([
+        presentOptions,
+        requestChoices,
+      ])
+
+      expect(projection.exchanges[0]?.responseEntryIds).toEqual([
+        `request-choices-${status}`,
+      ])
+      expect(projection.openPrompt).toBeNull()
+    },
+  )
+
+  it("does not close a present when request tuple identity or tool expectations mismatch", () => {
+    const wrongPresentToolRequest = {
+      ...requestAnswerToolResult,
+      id: "request-answer-wrong-present-tool",
+      message: {
+        ...requestAnswerToolResult.message,
+        details: {
+          ...requestAnswerToolResult.message.details,
+          respondsTo: { exchangeId: "domain", presentTool: "present_options" },
+        },
+      },
+    }
+    const unexpectedRequestTool = {
+      ...requestChoicesToolResult,
+      id: "request-choices-unexpected-tool",
+      message: {
+        ...requestChoicesToolResult.message,
+        details: {
+          ...requestChoicesToolResult.message.details,
+          exchangeId: "domain",
+          respondsTo: {
+            exchangeId: "domain",
+            presentTool: "present_question",
+          },
+        },
+      },
+    }
+
+    for (const request of [wrongPresentToolRequest, unexpectedRequestTool]) {
+      const projection = projectElicitationExchanges([
+        presentQuestionToolResult,
+        request,
+      ])
+
+      expect(projection.exchanges).toEqual([])
+      expect(projection.openPrompt?.promptEntryIds).toEqual([
+        "present-question-1",
+      ])
+    }
+  })
+
+  it("renders structured-exchange present/request tool markdown as transcript rows", () => {
+    const projection = projectTranscriptDisplay([
+      presentQuestionToolResult,
+      requestAnswerToolResult,
+    ])
+
+    expect(projection.rows).toEqual([
+      {
+        id: "present-question-1",
+        role: "prompt",
+        text: "## Domain?\n\nWhat are we specifying?",
+      },
+      {
+        id: "request-answer-1",
+        role: "user",
+        text: "### Response\n\nDeveloper tooling",
+      },
+    ])
+  })
+
+  it("classifies terminal structured-exchange tool results as response-side entries", () => {
+    const projection = projectElicitationExchanges([
+      assistant,
+      structuredExchangeToolResult,
+    ])
+
+    expect(projection.exchanges[0]?.promptEntryIds).toEqual(["a1"])
+    expect(projection.exchanges[0]?.responseEntryIds).toEqual(["sq1"])
+    expect(projection.exchanges[0]?.responseRange).toEqual({
+      start: "sq1",
+      end: "sq1",
+    })
+    expect(projection.openPrompt).toBeNull()
+  })
+
+  it("keeps non-terminal structured-exchange tool results on the prompt side", () => {
+    const projection = projectElicitationExchanges([
+      assistant,
+      unavailableStructuredExchangeToolResult,
+    ])
+
+    expect(projection.exchanges).toEqual([])
+    expect(projection.openPrompt?.promptEntryIds).toEqual([
+      "a1",
+      "sq-unavailable",
+    ])
+  })
+
   it("returns an explicit empty/open shape for incomplete transcripts", () => {
     expect(projectElicitationExchanges([])).toEqual({
       status: "empty",
@@ -190,7 +507,7 @@ describe("elicitation exchange projection", () => {
       {
         id: "a2",
         type: "message",
-        message: { role: "assistant", content: "Later prompt" },
+        message: assistantMessage("Later prompt"),
       },
     ])
 
@@ -208,8 +525,8 @@ describe("elicitation exchange projection", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-jsonl-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
     appendBinding(manager)
-    manager.appendMessage({ role: "assistant", content: "Question" })
-    manager.appendMessage({ role: "user", content: "Answer" })
+    manager.appendMessage(assistantMessage("Question"))
+    manager.appendMessage(userMessage("Answer"))
 
     const projection = await loadLinearElicitationExchangeProjection(
       manager.getSessionFile()!,
@@ -225,12 +542,53 @@ describe("elicitation exchange projection", () => {
     )
   })
 
+  it("loads and projects terminal structured-exchange tool results as JSONL responses", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-structured-exchange-"))
+    const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    appendBinding(manager)
+    manager.appendMessage(
+      assistantMessage("Please answer the structured exchange."),
+    )
+    manager.appendMessage({
+      role: "toolResult",
+      toolCallId: "call-exchange-jsonl",
+      toolName: "structured_exchange",
+      content: [{ type: "text", text: "User answered: Developer tooling" }],
+      details: {
+        schema: STRUCTURED_EXCHANGE_RESULT_SCHEMA,
+        schemaVersion: 1,
+        status: "answered",
+        question: "Domain?",
+        mode: "text",
+        answers: [
+          {
+            type: "text",
+            label: "Developer tooling",
+            value: "Developer tooling",
+          },
+        ],
+        transport: { surface: "rpc-editor" },
+      },
+      isError: false,
+      timestamp: 0,
+    })
+
+    const projection = await loadLinearElicitationExchangeProjection(
+      manager.getSessionFile()!,
+    )
+
+    expect(projection.status).toBe("ready")
+    expect(projection.exchanges).toHaveLength(1)
+    expect(projection.exchanges[0]?.promptEntryIds).toHaveLength(1)
+    expect(projection.exchanges[0]?.responseEntryIds).toHaveLength(1)
+  })
+
   it("loads displayable assistant and user transcript rows", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-display-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
     appendBinding(manager)
-    manager.appendMessage({ role: "assistant", content: "Question" })
-    manager.appendMessage({ role: "user", content: "Answer" })
+    manager.appendMessage(assistantMessage("Question"))
+    manager.appendMessage(userMessage("Answer"))
 
     const projection = await loadLinearTranscriptDisplayProjection(
       manager.getSessionFile()!,
@@ -251,11 +609,8 @@ describe("elicitation exchange projection", () => {
       "Choose the better framing.",
       true,
     )
-    manager.appendMessage({
-      role: "assistant",
-      content: "Persistence sentinel",
-    })
-    manager.appendMessage({ role: "user", content: "Option A" })
+    manager.appendMessage(assistantMessage("Persistence sentinel"))
+    manager.appendMessage(userMessage("Option A"))
 
     const projection = await loadLinearTranscriptDisplayProjection(
       manager.getSessionFile()!,
@@ -312,10 +667,10 @@ describe("elicitation exchange projection", () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-helper-branch-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
     appendBinding(manager)
-    manager.appendMessage({ role: "assistant", content: "Abandoned prompt" })
-    manager.appendMessage({ role: "user", content: "Abandoned answer" })
+    manager.appendMessage(assistantMessage("Abandoned prompt"))
+    manager.appendMessage(userMessage("Abandoned answer"))
     manager.resetLeaf()
-    manager.appendMessage({ role: "assistant", content: "Active prompt" })
+    manager.appendMessage(assistantMessage("Active prompt"))
 
     await expect(
       loadLinearElicitationExchangeProjection(manager.getSessionFile()!),
@@ -325,11 +680,11 @@ describe("elicitation exchange projection", () => {
   it("rejects a Pi JSONL file with multiple children from one parent", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-branch-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
-    manager.appendMessage({ role: "assistant", content: "Abandoned prompt" })
-    manager.appendMessage({ role: "user", content: "Abandoned answer" })
+    manager.appendMessage(assistantMessage("Abandoned prompt"))
+    manager.appendMessage(userMessage("Abandoned answer"))
     manager.resetLeaf()
-    manager.appendMessage({ role: "assistant", content: "Active prompt" })
-    manager.appendMessage({ role: "user", content: "Active answer" })
+    manager.appendMessage(assistantMessage("Active prompt"))
+    manager.appendMessage(userMessage("Active answer"))
 
     await expect(
       loadJsonlTranscriptEntries(manager.getSessionFile()!),
@@ -339,13 +694,12 @@ describe("elicitation exchange projection", () => {
   it("rejects a Pi JSONL file with branched sibling responses", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-branch-"))
     const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
-    const sharedPromptId = manager.appendMessage({
-      role: "assistant",
-      content: "Choose a path",
-    })
-    manager.appendMessage({ role: "user", content: "Old path" })
+    const sharedPromptId = manager.appendMessage(
+      assistantMessage("Choose a path"),
+    )
+    manager.appendMessage(userMessage("Old path"))
     manager.branch(sharedPromptId)
-    manager.appendMessage({ role: "user", content: "Selected path" })
+    manager.appendMessage(userMessage("Selected path"))
 
     await expect(
       loadJsonlTranscriptEntries(manager.getSessionFile()!),
@@ -424,7 +778,7 @@ describe("elicitation exchange projection", () => {
         {
           id: "u1",
           type: "message",
-          message: { role: "user", content: "A" },
+          message: userMessage("A"),
         },
       )}\n`,
     )

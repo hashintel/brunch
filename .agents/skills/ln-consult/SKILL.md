@@ -30,6 +30,7 @@ Start the assessment with 2-4 bullets naming:
 - the active frontier item or nearby priority
 - volatile state or manual follow-up from handoff
 - the main open risk
+- the cheapest tracer bullet that would score on proof of life, invariants, or uncertainty retirement (see `docs/praxis/ln-skills.md` §Tracer-bullet sequencing)
 
 ## Work-type classification
 
@@ -72,8 +73,22 @@ Only recommend the bounded or direct-build exceptions when all of these are true
 - the containing seam is already named in the live docs
 - no durable requirement / assumption / decision / invariant change is expected
 - post-build reconciliation can plausibly be a no-op
+- no high-impact unresolved `memory/SPEC.md` §Assumption is load-bearing for this work
 
 Only recommend the bounded serial exception when those same conditions hold and the next several commit-sized steps are obvious enough to queue without fresh planning.
+
+## Tracer-bullet override
+
+When several routes fit the work, prefer the one that fires the **tracer bullet that tells you the most**. A tracer-bullet slice scores on three convergent axes (see `docs/praxis/ln-skills.md` §Tracer-bullet sequencing): proof of life, invariants, uncertainty. The best next slice scores on more than one.
+
+Given the repo's pre-release posture, attack uncertainty by building. Recommend a non-build route only when no buildable tracer bullet can carry the proof:
+
+- `ln-design` — module shape itself is uncertain and any slice would lock in the wrong seam
+- `ln-oracles` — verification is too uncertain to distinguish a passing slice from a wrong one
+- `ln-spike` — research-grade or external question (third-party API contract, vendor perf characteristic, library behavior under load)
+- `ln-prototype` — feel, comparison, or UX-legibility question where playable variants beat real code
+
+Spikes are the escape hatch, not the default.
 
 ## Routing table
 
@@ -88,7 +103,7 @@ Only recommend the bounded serial exception when those same conditions hold and 
 | One settled frontier item needs several small verified commits in sequence | bounded, hardening | `ln-scope` then serial `ln-build` loop, optionally via `memory/CARDS.md` |
 | Module interface needs exploration | structural | `ln-design` |
 | Full or light scope card exists, ready to code | bounded, hardening, bugfix | `ln-build` |
-| Technical uncertainty blocks progress | any | `ln-spike` |
+| Technical uncertainty blocks progress, or a cheap investigation could invalidate planned work | any | `ln-spike` |
 | Code works but needs restructuring | refactor | `ln-refactor` |
 | Code works but quality / architecture needs audit | any | `ln-review` |
 | Docs are stale, overweight, or milestone context needs cleanup | structural / maintenance | `ln-sync` |

@@ -11,7 +11,7 @@ downstream:
 
 1. [prd.md](./architecture/prd.md) — product thesis, delivery posture, requirements, milestone ladder M0–M9, success criteria.
 2. [pi-seam-extensions.md](./architecture/pi-seam-extensions.md) — the five Brunch-owned subsystems on top of pi (side-tasks, lenses, spec selector, offer-first interaction, mentions + staleness), the graph clock + change log, the reconciliation-need substrate, the oracle plane stub, the Flue evaluation, and framework-alignment / deferred subsystems.
-3. [fixture-strategy.md](./architecture/fixture-strategy.md) — brief library, captured-run fixture format, three-layer assertion model (replay / property / adversarial), agent-as-user driver over JSON-RPC stdio, milestone mapping.
+3. [probes-and-transcripts.md](./architecture/probes-and-transcripts.md) — current probe-run artifact convention, transcript evidence, report shape, and the future path for any brief-based agent-as-user probes.
 
 ## Planning memory
 
@@ -21,16 +21,15 @@ planning state:
 - [memory/SPEC.md](../../memory/SPEC.md) — product contract, capability requirements, live architecture register (assumptions, decisions, invariants), future direction register, lexicon, verification stance.
 - [memory/PLAN.md](../../memory/PLAN.md) — active frontier, near-horizon ordering, dependencies, and the stable-id frontier definitions sequenced against the milestone ladder.
 
-## Fixtures
+## Probe artifacts
 
-[`.brunch-fixtures/`](../../.brunch-fixtures/) holds curated briefs and
-captured golden runs. See the directory README for layout and conventions.
+[`.fixtures/`](../.fixtures/) holds current probe-run artifacts and transcript evidence. See the directory README for layout and conventions.
 
 ## Behavioral kernels
 
 [`docs/design/BEHAVIORAL_KERNELS.md`](../design/BEHAVIORAL_KERNELS.md) is
 the canonical input to the oracle-plane stub and the kernel-activation gate.
-Briefs #1–#3 in the fixture library are worked out in that document.
+Older brief-library examples were retired; future behavioral-kernel evidence should land as probe runs with transcript artifacts.
 
 ## Horizon design notes
 

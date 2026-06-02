@@ -3,9 +3,9 @@ import type {
   JsonRpcId,
   JsonRpcRequest,
   JsonRpcResponse,
-} from "../json-rpc-protocol.js"
+} from "../rpc/protocol.js"
 
-export type { JsonRpcRequest, JsonRpcResponse } from "../json-rpc-protocol.js"
+export type { JsonRpcRequest, JsonRpcResponse } from "../rpc/protocol.js"
 
 type WebSocketEventListener = (event: { data?: unknown }) => void
 
@@ -17,8 +17,19 @@ type WebSocketConstructor = new (url: string) => WebSocketLike
 
 export interface WebSocketRpcClient {
   request<T>(method: string, params?: unknown): Promise<T>
+  subscribe(listener: WebSocketRpcNotificationListener): () => void
   close(): void
 }
+
+export interface WebSocketRpcNotification {
+  jsonrpc: "2.0"
+  method: string
+  params?: unknown
+}
+
+export type WebSocketRpcNotificationListener = (
+  notification: WebSocketRpcNotification,
+) => void
 
 export class JsonRpcClientError extends Error {
   readonly code: number
@@ -37,7 +48,7 @@ type PendingRequest = {
 
 interface ResponseFrameSuccess {
   ok: true
-  value: JsonRpcResponse
+  value: JsonRpcResponse | WebSocketRpcNotification
 }
 
 interface ResponseFrameFailure {
@@ -54,6 +65,7 @@ export function createWebSocketRpcClient(options: {
   const url = options.url ?? defaultRpcUrl()
   const socket = new WebSocketImpl(url)
   const pending = new Map<JsonRpcId, PendingRequest>()
+  const notificationListeners = new Set<WebSocketRpcNotificationListener>()
   const queued: string[] = []
   let nextId = 1
   let isOpen = false
@@ -71,6 +83,13 @@ export function createWebSocketRpcClient(options: {
     const parsed = parseResponseFrame(event.data)
     if (!parsed.ok) {
       failProtocol()
+      return
+    }
+
+    if (isJsonRpcNotification(parsed.value)) {
+      for (const listener of notificationListeners) {
+        listener(parsed.value)
+      }
       return
     }
 
@@ -151,6 +170,13 @@ export function createWebSocketRpcClient(options: {
       })
     },
 
+    subscribe(listener: WebSocketRpcNotificationListener) {
+      notificationListeners.add(listener)
+      return () => {
+        notificationListeners.delete(listener)
+      }
+    },
+
     close() {
       if (isClosed) {
         return
@@ -165,10 +191,24 @@ export function createWebSocketRpcClient(options: {
 function parseResponseFrame(data: unknown): ResponseFrameParseResult {
   try {
     const value = JSON.parse(String(data)) as unknown
-    return isJsonRpcResponse(value) ? { ok: true, value } : { ok: false }
+    return isJsonRpcResponse(value) || isJsonRpcNotification(value)
+      ? { ok: true, value }
+      : { ok: false }
   } catch {
     return { ok: false }
   }
+}
+
+function isJsonRpcNotification(
+  value: unknown,
+): value is WebSocketRpcNotification {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { jsonrpc?: unknown }).jsonrpc === "2.0" &&
+    typeof (value as { method?: unknown }).method === "string" &&
+    !Object.hasOwn(value, "id")
+  )
 }
 
 function isJsonRpcResponse(value: unknown): value is JsonRpcResponse {

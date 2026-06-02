@@ -1,40 +1,45 @@
 {
-	"name": "brunch",
+	"name": "brunch-next",
 	"version": "0.0.0",
-	"description": "Brunch — opinionated specification-workspace product over pi-coding-agent.",
+	"description": "Brunch \u2014 opinionated specification-workspace product over pi-coding-agent.",
 	"private": true,
 	"type": "module",
 	"main": "./dist/brunch.js",
 	"types": "./dist/brunch.d.ts",
 	"bin": {
-		"brunch": "./bin/brunch.js"
+		"brunch-next": "./bin/brunch.js"
 	},
 	"files": [
 		"dist",
 		"dist-web",
-		"bin"
+		"bin",
+		"assets"
 	],
 	"scripts": {
 		"dev": "tsx src/brunch.ts",
-		"build": "tsc -p tsconfig.json && npm run build:web",
+		"build": "tsc -p tsconfig.build.json && npm run build:pi-assets && npm run build:web",
+		"build:pi-assets": "mkdir -p dist/tui-client/.pi/components/workspace-dialog dist/tui-client/.pi/context/prompt-packs && cp -R src/tui-client/.pi/components/workspace-dialog/assets dist/tui-client/.pi/components/workspace-dialog/ && cp src/tui-client/.pi/context/prompt-packs/*.md dist/tui-client/.pi/context/prompt-packs/",
 		"build:web": "vite build",
 		"test": "vitest --run",
 		"test:watch": "vitest",
-		"lint": "oxlint src",
-		"lint:fix": "oxlint --fix src",
-		"fmt": "oxfmt src",
-		"fmt:check": "oxfmt --check src",
+		"lint": "oxlint src .pi/extensions",
+		"lint:fix": "oxlint --fix src .pi/extensions",
+		"fmt": "oxfmt src .pi/extensions",
+		"fmt:check": "oxfmt --check src .pi/extensions",
 		"fix": "npm run lint:fix && npm run fmt",
-		"check": "npm run fmt:check && npm run lint",
-		"verify": "npm run check && npm run test && npm run build"
+		"check": "npm run fmt:check && npm run lint && npm run typecheck",
+		"verify": "npm run check && npm run test && npm run build",
+		"typecheck": "tsc -p tsconfig.json"
 	},
 	"dependencies": {
 		"@earendil-works/pi-coding-agent": "^0.75.3",
+		"@earendil-works/pi-tui": "^0.75.4",
 		"@tanstack/react-query": "^5.100.11",
 		"@tanstack/react-router": "^1.170.6",
 		"react": "^19.2.6",
 		"react-dom": "^19.2.6",
-		"ws": "^8.20.1"
+		"ws": "^8.20.1",
+		"zod": "^4.4.3"
 	},
 	"devDependencies": {
 		"@testing-library/dom": "^10.4.1",

@@ -44,6 +44,8 @@ When assigning the numeric part for a new item:
 
 If `$HOME` is unavailable or the basename is empty, ask the user for the suffix instead of inventing one.
 
+**Notation aid.** Use `pseudo` when sketching module shapes, decomposing acceptance criteria into individually-testable obligations, or capturing schema-shaped invariants. `pseudo tree` for obligation decomposition; `pseudo data-shape` for module data; `pseudo graph` for cross-module relations.
+
 ### SPEC shape
 
 Use the mature SPEC shape unless the existing project clearly predates it and the user only asked for a narrow patch:
