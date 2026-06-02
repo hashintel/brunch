@@ -28,6 +28,7 @@ ln-consult
   → ln-spike (optional)
   → ln-build
   → ln-review
+  → ln-witness (optional)
   → ln-refactor (optional)
   → ln-sync
   → ln-handoff (when stopping or transferring)
@@ -60,6 +61,7 @@ The flow is not a checklist. Skip steps whose uncertainty is already retired.
 | --- | --- | --- |
 | `ln-design` | API shape, module boundary, ownership, or information hiding is uncertain. Use especially before committing to a public seam. | Competing module shapes, chosen direction, rejected tradeoffs. |
 | `ln-oracles` | Verification strategy is uncertain or materially shapes implementation order, especially for LLM, visual, compositional, or multi-surface work. | Oracle strategy by loop tier, observability diagnosis, blind spots. |
+| `ln-witness` | A slice has tests but evidentiary strength is unclear, or tests pass while the spec feels under-witnessed. Post-hoc complement to `ln-oracles`. | Per-test kernel attribution and ladder rung; unwitnessed proof obligations; contrastive rivals tests fail to rule out. |
 | `ln-prototype` | A throwaway playable/model/UI probe would answer design questions faster than production work. | Disposable prototype evidence; no production commitment. |
 | `ln-spike` | One hard technical question blocks a scoped slice or frontier item. | Spike verdict and recommendation; throwaway code unless explicitly promoted. |
 
@@ -83,6 +85,7 @@ These are not always visible in the shortest default path, but they are importan
 | `ln-disambiguate` | Prevents vague requirements by asking contrastive example/counterexample questions where interpretations diverge. |
 | `ln-design` | Prevents shallow modules and accidental public APIs by exploring multiple shapes before implementation. |
 | `ln-oracles` | Prevents fake confidence by designing the right evidence before build work. |
+| `ln-witness` | Prevents fake confidence after the fact: distinguishes tests that witness named claims from tests that merely pass, and surfaces rival interpretations the suite fails to rule out. |
 | `ln-prototype` | Retires UX/state/model uncertainty cheaply before the production seam hardens. |
 | `ln-diagnose` | Keeps debugging scientific and routes durable lessons back into SPEC/PLAN. |
 | `ln-review` | Catches domain-model erosion and agent-navigability problems after code lands. |
@@ -101,6 +104,7 @@ There is currently no project-local `ln-map` skill in `.agents/skills/`. If you 
 | “What is the smallest buildable slice?” | `ln-scope` |
 | “Which module/API shape should we choose?” | `ln-design` |
 | “How will we know this works?” | `ln-oracles` |
+| “What do these tests actually prove?” | `ln-witness` |
 | “Can this technical approach work?” | `ln-spike` |
 | “Can we make the idea tangible before committing?” | `ln-prototype` |
 | “Why is this failing?” | `ln-diagnose` |
@@ -123,6 +127,7 @@ When starting a new frontier item, follow `AGENTS.md` and `docs/praxis/graphite-
 | Per-slice application of oracle strategy | `ln-scope` |
 | TDD and inner-loop execution | `ln-build` |
 | Coverage audit after implementation | `ln-review` |
+| Evidentiary audit of an existing test suite | `ln-witness` |
 
 Default commands:
 

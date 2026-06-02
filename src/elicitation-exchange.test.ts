@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest"
 import { SessionManager } from "@earendil-works/pi-coding-agent"
 
 import {
+  loadActiveBranchTranscriptEntries,
   loadJsonlTranscriptEntries,
   projectElicitationExchanges,
 } from "./elicitation-exchange.js"
@@ -165,6 +166,136 @@ describe("elicitation exchange projection", () => {
     expect(projection.exchanges[0]?.responseEntryIds[0]).toEqual(
       expect.any(String),
     )
+  })
+
+  it("jsonl active branch projection excludes abandoned exchange", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-branch-"))
+    const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    const abandonedPromptId = manager.appendMessage({
+      role: "assistant",
+      content: "Abandoned prompt",
+    })
+    const abandonedResponseId = manager.appendMessage({
+      role: "user",
+      content: "Abandoned answer",
+    })
+    manager.resetLeaf()
+    const activePromptId = manager.appendMessage({
+      role: "assistant",
+      content: "Active prompt",
+    })
+    const activeResponseId = manager.appendMessage({
+      role: "user",
+      content: "Active answer",
+    })
+
+    const fileLinearProjection = projectElicitationExchanges(
+      await loadJsonlTranscriptEntries(manager.getSessionFile()!),
+    )
+    const activeBranchProjection = projectElicitationExchanges(
+      loadActiveBranchTranscriptEntries(manager.getSessionFile()!, { cwd }),
+    )
+
+    expect(
+      fileLinearProjection.exchanges.map(
+        (exchange) => exchange.responseEntryIds,
+      ),
+    ).toEqual([[abandonedResponseId], [activeResponseId]])
+    expect(activeBranchProjection.exchanges).toHaveLength(1)
+    expect(activeBranchProjection.exchanges[0]?.promptEntryIds).toEqual([
+      activePromptId,
+    ])
+    expect(activeBranchProjection.exchanges[0]?.responseEntryIds).toEqual([
+      activeResponseId,
+    ])
+    expect(
+      activeBranchProjection.exchanges.some((exchange) =>
+        exchange.promptEntryIds.includes(abandonedPromptId),
+      ),
+    ).toBe(false)
+  })
+
+  it("jsonl active branch projection preserves selected exchange", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-branch-"))
+    const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    const sharedPromptId = manager.appendMessage({
+      role: "assistant",
+      content: "Choose a path",
+    })
+    manager.appendMessage({ role: "user", content: "Old path" })
+    manager.branch(sharedPromptId)
+    const selectedResponseId = manager.appendMessage({
+      role: "user",
+      content: "Selected path",
+    })
+
+    const activeBranchProjection = projectElicitationExchanges(
+      loadActiveBranchTranscriptEntries(manager.getSessionFile()!, { cwd }),
+    )
+
+    expect(activeBranchProjection).toMatchObject({
+      status: "ready",
+      exchanges: [
+        {
+          promptRange: { start: sharedPromptId, end: sharedPromptId },
+          responseRange: { start: selectedResponseId, end: selectedResponseId },
+          promptEntryIds: [sharedPromptId],
+          responseEntryIds: [selectedResponseId],
+        },
+      ],
+      openPrompt: null,
+    })
+  })
+
+  it("jsonl active branch custom messages enter context only once", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-pi-branch-"))
+    const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+    const abandonedPromptId = manager.appendCustomMessageEntry(
+      "brunch.elicitation_prompt",
+      "Abandoned custom prompt",
+      true,
+      { promptId: "abandoned" },
+    )
+    manager.appendMessage({ role: "user", content: "Abandoned answer" })
+    manager.resetLeaf()
+    const activePromptId = manager.appendCustomMessageEntry(
+      "brunch.elicitation_prompt",
+      "Active custom prompt",
+      true,
+      { promptId: "active" },
+    )
+    manager.appendMessage({ role: "user", content: "Active answer" })
+    manager.appendMessage({
+      role: "assistant",
+      content: "Persistence sentinel",
+    })
+
+    const reloaded = SessionManager.open(
+      manager.getSessionFile()!,
+      undefined,
+      cwd,
+    )
+    const activeBranch = loadActiveBranchTranscriptEntries(
+      manager.getSessionFile()!,
+      {
+        cwd,
+      },
+    )
+    const projection = projectElicitationExchanges(activeBranch)
+    const contextMessages = reloaded
+      .buildSessionContext()
+      .messages.filter((message) => message.role === "custom")
+
+    expect(projection.exchanges[0]?.promptEntryIds).toEqual([activePromptId])
+    expect(projection.exchanges[0]?.promptEntryIds).not.toContain(
+      abandonedPromptId,
+    )
+    expect(contextMessages).toHaveLength(1)
+    expect(contextMessages[0]).toMatchObject({
+      role: "custom",
+      customType: "brunch.elicitation_prompt",
+      content: "Active custom prompt",
+    })
   })
 
   it("loads newline-delimited Pi transcript entries from disk", async () => {

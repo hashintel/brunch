@@ -76,6 +76,27 @@ async function createSessionFile(): Promise<string> {
   return manager.getSessionFile()!
 }
 
+async function createBranchedSessionFile(): Promise<{
+  file: string
+  activePromptId: string
+  abandonedPromptId: string
+}> {
+  const cwd = await mkdtemp(join(tmpdir(), "brunch-rpc-branch-"))
+  const manager = SessionManager.create(cwd, join(cwd, ".brunch/sessions"))
+  const abandonedPromptId = manager.appendMessage({
+    role: "assistant",
+    content: "Abandoned prompt",
+  })
+  manager.appendMessage({ role: "user", content: "Abandoned answer" })
+  manager.resetLeaf()
+  const activePromptId = manager.appendMessage({
+    role: "assistant",
+    content: "Active prompt",
+  })
+  manager.appendMessage({ role: "user", content: "Active answer" })
+  return { file: manager.getSessionFile()!, activePromptId, abandonedPromptId }
+}
+
 describe("JSON-RPC handlers", () => {
   it("serves a named workspace snapshot method", async () => {
     const handlers = createRpcHandlers({ coordinator: coordinator() })
@@ -117,6 +138,30 @@ describe("JSON-RPC handlers", () => {
         exchanges: [{ promptEntryIds: [expect.any(String)] }],
       },
     })
+  })
+
+  it("session.elicitationExchanges uses active branch semantics", async () => {
+    const { file, activePromptId, abandonedPromptId } =
+      await createBranchedSessionFile()
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(readyState(file)),
+    })
+
+    const response = await handlers.handle({
+      jsonrpc: "2.0",
+      id: 8,
+      method: "session.elicitationExchanges",
+    })
+
+    expect(response).toMatchObject({
+      jsonrpc: "2.0",
+      id: 8,
+      result: {
+        status: "ready",
+        exchanges: [{ promptEntryIds: [activePromptId] }],
+      },
+    })
+    expect(JSON.stringify(response)).not.toContain(abandonedPromptId)
   })
 
   it("rejects raw file params on session elicitation exchange RPC", async () => {
