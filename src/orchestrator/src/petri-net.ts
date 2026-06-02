@@ -131,6 +131,12 @@ export class PetriNet {
    * The provided `transitionId` and `contract` are used to emit a
    * `transition_fired` event when the deferred outputs land, so async
    * completions appear in the event stream just like synchronous fires.
+   *
+   * Error semantics are intentionally first-error-wins for now: the next run
+   * loop turn observes `deferredError`, throws it, and leaves any later
+   * settlements as background bookkeeping. Deferred success emits exactly one
+   * event when outputs are deposited; the synchronous producer fire returns []
+   * and does not emit its own transition_fired event.
    */
   scheduleDeferred(
     transitionId: string,

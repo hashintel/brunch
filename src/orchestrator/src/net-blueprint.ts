@@ -36,7 +36,10 @@ export function evalRouteGuard(guard: RouteGuard, report: ReportLine | undefined
 // `isEnabled` time (the firing policy uses it to pick which sibling transition
 // is currently allowed to fire) rather than at fire time. Mutually-exclusive
 // guards over the same intermediate place implement Petri-net-faithful
-// conditional branching via sibling transitions (FE-761 Slice 1).
+// conditional branching via sibling transitions (FE-761 Slice 1). New Petri-net
+// routing should prefer EnablingGuard + sibling transitions; RouteGuard remains
+// only as a compatibility shape for handler descriptors not yet split into
+// explicit branch transitions.
 // ---------------------------------------------------------------------------
 
 export type EnablingGuard =
