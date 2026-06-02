@@ -2,14 +2,16 @@ epics:
   - id: scaffolding
     summary: "CLI scaffolding"
     depends_on: []
-    verification:
-      - kind: integration-test
-        target: "tests/cli-scaffolding.integration.test.ts"
+    # Slice unit tests cover version-flag and help-flag; epic verify deferred until
+    # text-ops slices exist (cli-scaffolding integration spans the full CLI).
+    verification: []
 
   - id: text-ops
     summary: "Text operations"
     depends_on: [scaffolding]
     verification:
+      - kind: integration-test
+        target: "tests/cli-scaffolding.integration.test.ts"
       - kind: integration-test
         target: "tests/text-ops-pipe.integration.test.ts"
 

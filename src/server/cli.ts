@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { runAgentJsonlSession } from './agent-jsonl.js';
 import { createDb } from './db.js';
 import { launch } from './launcher.js';
@@ -11,6 +15,13 @@ const args = new Set(rawArgs);
 const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
 
 loadLocalEnvFile(launchCwd);
+
+if (rawArgs[0] === '--version' || rawArgs[0] === '-V') {
+  const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '../../package.json');
+  const { version } = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version: string };
+  console.log(version);
+  process.exit(0);
+}
 
 if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log('Usage: brunch [command]');

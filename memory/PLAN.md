@@ -30,6 +30,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ### Recently Completed
 
+- `petri-epic-verification-merge` — `verify-epic` now runs against a freshly-merged `<parentSandboxDir>/__epic__/<epicId>/` built from completed slice worktrees (declaration-order wins on path collisions; conflicts surfaced via `epic-sandbox-merged` event). Unblocks multi-slice `cook` runs. Follows FE-743.
 - `petri-parallel-execution` (FE-743) — parallel firing policy, shared resource pool tokens, worktree-per-slice isolation. Decision gate passed: parallel measurably beats serial on wall clock for multi-slice plans. Follows `petri-semantic-lanes` (FE-738).
 - `petri-semantic-lanes` (FE-738) — two-lane subnet, compiler topology/wiring split, engine factory, semantic rework budget, §7 events. PR #148. Criterion (5) stale-graph deferred → `petri-graph-compilation`.
 
@@ -104,7 +105,6 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Open design constraints (from PR #143 / FE-743 review):**
   - **Declarative output arcs:** Current topology declares only input places; output routing lives in fire closures (conditional on report payloads). FE-738's `HandlerDescriptor` declares candidate outputs (`onTrue`/`onFalse`/`onPass`/`onFail`) but selection is runtime. This limits formal analyzability (reachability, deadlock detection, simulation) to input-side structure. Phase 3 should move conditional routing into the topology — explicit guard predicates + declared output arcs per branch — so the compiled net is formally analyzable end-to-end.
   - **Token state enrichment:** Open question whether more metadata should move from reports into tokens (richer typed token payloads per spec §3). FE-738 added `reworkCount`, FE-743 added pool tokens with `agentPoolSize`, but the boundary between control state (tokens) and substantive handoff state (reports) is a design choice this frontier needs to resolve as the token taxonomy gets richer.
-  - **Epic verification sandbox scope:** Per-slice sandbox isolation means `verify-epic` can't see all slices' artifacts. Currently `verify-epic` falls back to the parent sandbox dir. The production fix is to merge per-slice sandboxes into an epic-scoped dir before epic verification runs.
 - **Acceptance:** TBD — depends on FE-700 relation-policy shape.
 - **Verification:** Compiled-net topology tests against plan-graph fixtures; reachability assertions for relation-policy-derived gates; comparison of compiled vs hand-authored net shapes.
 - **Traceability:** Requirements 46–50; spec §5 (relation-policy compilation), §6 (transition contracts).
@@ -505,6 +505,7 @@ TRACK F — Petri-net execution substrate (umbrella H-6476)
 orchestrator-poc (Phase 0: compiler extraction — done)
   └──→ petri-semantic-lanes (Phase 1: two-lane subnet + §7 events — done)
         └──→ petri-parallel-execution (Phase 2: concurrent firing + resource pools — done)
+              ├──→ petri-epic-verification-merge (hardening: merge slice worktrees for verify-epic — done)
               └──→ petri-graph-compilation (Phase 3: compile from plan-graph + relation policy)
                     ├──→ depends on intent-graph-semantics (FE-700) for relation-policy gates
                     └──→ petri-simulation-oracle (Phase 4: reachability, deadlock, resume)

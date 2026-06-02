@@ -268,7 +268,6 @@ export class PetriNet {
       for (const { claim, outputs } of fulfilled) {
         this.depositClaim(claim, outputs, eventSink);
       }
-
       if (shouldHalt?.()) {
         eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
         break;
