@@ -132,6 +132,27 @@ export function loadLocalEnvShellWins(launchCwd: string): void {
 }
 
 /**
+ * Resolve the SSE server's bind port from `PORT`. A set, valid value pins the
+ * port (so the launcher URL / Petrinaut consumer can target a stable endpoint);
+ * unset/blank leaves it dynamic (kernel-chosen ephemeral). Invalid values throw
+ * loudly rather than silently falling back to a random port.
+ *
+ * Note: `PORT` is also the brunch backend's fallback port var
+ * (`resolveBackendPort` in `src/server/runtime-config.ts`). Setting it pins
+ * both; if you run the dev/backend server on the same `PORT`, the stream
+ * server will fail to bind. Prefer a dedicated value when they must differ.
+ */
+export function resolvePetrinautStreamPort(env: { PORT?: string }): number | undefined {
+  const raw = env.PORT?.trim();
+  if (!raw) return undefined;
+  const port = Number(raw);
+  if (!Number.isInteger(port) || port < 0 || port > 65_535) {
+    throw new Error(`Invalid PORT value: ${env.PORT}`);
+  }
+  return port;
+}
+
+/**
  * Default browser-open seam — small wrapper around the `open` npm package
  * so tests (and `runCook` callers that want a no-op) can inject their own.
  */
@@ -147,6 +168,12 @@ export type CreatePetrinautStreamSetupOpts = {
   openUrl: (url: string) => void | Promise<void>;
   /** Where the composed URL gets printed. Defaults to `console.error` so it shows on the cook banner stream. */
   log?: (line: string) => void;
+  /**
+   * Fixed bind port for the SSE server. `undefined` (the default) leaves the
+   * port dynamic — the kernel picks an ephemeral one per run. Resolved from
+   * `PORT` by `resolvePetrinautStreamPort`.
+   */
+  port?: number;
   /** Server factory — exposed for tests. Defaults to the real HTTP server. */
   createServer?: (bus: PetrinautStreamBus) => PetrinautStreamServer;
 };
@@ -172,7 +199,9 @@ export type PetrinautStreamSetupHandle = {
 export function createPetrinautStreamSetup(opts: CreatePetrinautStreamSetupOpts): PetrinautStreamSetupHandle {
   const log = opts.log ?? ((line: string) => console.error(line));
   const createServer =
-    opts.createServer ?? ((bus: PetrinautStreamBus) => createPetrinautStreamServer({ bus }));
+    opts.createServer ??
+    ((bus: PetrinautStreamBus) =>
+      createPetrinautStreamServer({ bus, ...(opts.port !== undefined ? { port: opts.port } : {}) }));
 
   let server: PetrinautStreamServer | undefined;
 
@@ -332,12 +361,16 @@ export async function runCook(opts: CookOptions): Promise<void> {
   // FE-764 slice 4: stand up the live-stream setup handle (bus + HTTP/SSE
   // server) when streaming is enabled. Auto-open is suppressed by
   // `--no-petrinaut-open` OR a truthy `process.env.CI`.
+  const streamPort = opts.petrinautStream
+    ? resolvePetrinautStreamPort({ PORT: process.env.PORT })
+    : undefined;
   const streamSetup =
     opts.petrinautStream && petrinautBaseUrl
       ? createPetrinautStreamSetup({
           baseUrl: petrinautBaseUrl,
           shouldOpen: opts.petrinautOpen && !process.env.CI,
           openUrl: defaultOpenUrl,
+          ...(streamPort !== undefined ? { port: streamPort } : {}),
         })
       : undefined;
 

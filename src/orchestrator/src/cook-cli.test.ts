@@ -5,7 +5,12 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createPetrinautStreamSetup, parseCookArgs, resolveCookMode } from './cook-cli.js';
+import {
+  createPetrinautStreamSetup,
+  parseCookArgs,
+  resolveCookMode,
+  resolvePetrinautStreamPort,
+} from './cook-cli.js';
 import type { PetrinautEvent } from './petrinaut-events.js';
 import type { SdcpnFile } from './petrinaut-sdcpn.js';
 import type { PetrinautStreamBus } from './petrinaut-stream-bus.js';
@@ -113,6 +118,25 @@ describe('parseCookArgs', () => {
     ]);
     expect(opts.petrinautStream).toBe(true);
     expect(opts.petrinautFold).toBe('color');
+  });
+});
+
+describe('resolvePetrinautStreamPort', () => {
+  it('returns undefined (dynamic) when PORT is unset or blank', () => {
+    expect(resolvePetrinautStreamPort({})).toBeUndefined();
+    expect(resolvePetrinautStreamPort({ PORT: '' })).toBeUndefined();
+    expect(resolvePetrinautStreamPort({ PORT: '   ' })).toBeUndefined();
+  });
+
+  it('returns the parsed port when PORT is a valid integer', () => {
+    expect(resolvePetrinautStreamPort({ PORT: '56493' })).toBe(56493);
+    expect(resolvePetrinautStreamPort({ PORT: ' 8080 ' })).toBe(8080);
+  });
+
+  it('throws on a non-integer or out-of-range PORT', () => {
+    expect(() => resolvePetrinautStreamPort({ PORT: 'abc' })).toThrow('Invalid PORT value: abc');
+    expect(() => resolvePetrinautStreamPort({ PORT: '70000' })).toThrow('Invalid PORT value: 70000');
+    expect(() => resolvePetrinautStreamPort({ PORT: '3.5' })).toThrow('Invalid PORT value: 3.5');
   });
 });
 
