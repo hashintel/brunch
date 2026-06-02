@@ -17,6 +17,7 @@ import {
 } from './.pi/brunch-pi-profile.js';
 import { runWorkspaceDialogPreflight } from './.pi/components/workspace-dialog.js';
 import { chromeStateForWorkspace, createBrunchPiExtensionShell } from './.pi/pi-extension-shell.js';
+import { openWorkspaceGraphRuntime } from './graph/index.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceLaunchInventory,
@@ -99,23 +100,22 @@ async function chooseSpecSessionActivationDecision(
   return runWorkspaceDialogPreflight(inventory);
 }
 
-async function launchPiInteractive({ workspace, coordinator }: BrunchTuiLaunchContext): Promise<void> {
-  const agentDir = getAgentDir();
-  const createRuntime: CreateAgentSessionRuntimeFactory = async ({
-    cwd,
-    agentDir: runtimeAgentDir,
-    sessionManager,
-  }) => {
+export function createBrunchAgentSessionRuntimeFactory({
+  workspace,
+  coordinator,
+}: BrunchTuiLaunchContext): CreateAgentSessionRuntimeFactory {
+  return async ({ cwd, agentDir: runtimeAgentDir, sessionManager }) => {
+    const graph = await openWorkspaceGraphRuntime(cwd);
     const profile = createBrunchPiProfile({
       cwd,
       agentDir: runtimeAgentDir,
       extensionFactories: [
         createBrunchPiExtensionShell(
           chromeStateForWorkspace(workspace),
-          async (sessionManager) => {
-            await coordinator.bindCurrentSpecToReplacementSession(sessionManager);
+          async (replacementSessionManager) => {
+            await coordinator.bindCurrentSpecToReplacementSession(replacementSessionManager);
           },
-          { coordinator },
+          { coordinator, graph },
         ),
       ],
     });
@@ -135,11 +135,16 @@ async function launchPiInteractive({ workspace, coordinator }: BrunchTuiLaunchCo
       diagnostics: services.diagnostics,
     };
   };
+}
+
+async function launchPiInteractive(context: BrunchTuiLaunchContext): Promise<void> {
+  const agentDir = getAgentDir();
+  const createRuntime = createBrunchAgentSessionRuntimeFactory(context);
 
   const runtime = await createAgentSessionRuntime(createRuntime, {
-    cwd: workspace.cwd,
+    cwd: context.workspace.cwd,
     agentDir,
-    sessionManager: workspace.session.manager,
+    sessionManager: context.workspace.session.manager,
   });
 
   applyBrunchOfflineDefault();

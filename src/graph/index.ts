@@ -65,7 +65,8 @@ export type {
 } from './snapshot.js';
 
 export { CommandExecutor } from './command-executor.js';
-export { openWorkspaceCommandExecutor } from './workspace-store.js';
+export { openWorkspaceCommandExecutor, openWorkspaceGraphRuntime } from './workspace-store.js';
+export type { WorkspaceGraphRuntime } from './workspace-store.js';
 export type {
   BatchEdgeInput,
   BatchEdgeRef,

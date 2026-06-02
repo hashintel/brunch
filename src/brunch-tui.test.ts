@@ -28,6 +28,7 @@ import {
   applyBrunchOfflineDefault,
   brunchResourceLoaderOptions,
   createBrunchSettingsManager,
+  createBrunchAgentSessionRuntimeFactory,
   runBrunchTui,
 } from './brunch-tui.js';
 import { userMessage } from './probes/test-helpers.js';
@@ -62,6 +63,30 @@ describe('Brunch TUI boot', () => {
     expect(oracle.ok).toBe(true);
     if (!oracle.ok) {
       expect(oracle.errors).toEqual([]);
+    }
+  });
+
+  it('registers graph tools on the default product runtime path', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-graph-runtime-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinator.createSetupSession({
+      specTitle: 'Graph runtime',
+      createNewSpec: true,
+    });
+    const createRuntime = createBrunchAgentSessionRuntimeFactory({ workspace, coordinator });
+    const created = await createRuntime({
+      cwd,
+      agentDir,
+      sessionManager: workspace.session.manager,
+    });
+
+    try {
+      const toolNames = created.session.getAllTools().map((tool) => tool.name);
+      expect(toolNames).toContain('commit_graph');
+      expect(toolNames).toContain('read_graph');
+    } finally {
+      created.session.dispose();
     }
   });
 
