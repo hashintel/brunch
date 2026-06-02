@@ -285,21 +285,108 @@ subscriber receives no further frames.
 
 ---
 
-## Slice 3b (sketch — promote to full card after 3a ships)
+## Slice 3b: HTTP/SSE server mounted on the 3a bus
 
-Mount the 3a bus on an HTTP server inside the cook process.
-`http.createServer` + `listen(0)`; one route `GET /stream` returns
-`Content-Type: text/event-stream`, subscribes to the bus, serializes each
-`BrunchExecutionExportFrame` as one SSE event (`event: <kind>\ndata:
-<json>\n\n`), closes the connection after the `terminal` frame is sent.
-Server boots before `engine.run`, dies with the process (SIGINT/SIGTERM).
-Cook prints the chosen `localhost:<port>/stream` URL on boot; slice 4
-composes the Petrinaut launcher URL on top. No persistence, no auth,
-localhost-only bind.
+**Status:** next. Thin HTTP shell — the load-bearing pub/sub + frame
+translation already lives in `petrinaut-stream-bus.ts`. This slice only
+adds the transport: bind, serialize, manage one subscription per
+connection, close cleanly. Server module is built and tested in
+isolation; `runCook` integration is deferred to slice 4 (the
+`--petrinaut-stream` gate). That keeps 3b pure and slice 4 a one-line
+glue.
 
-Open items to lock when 3b is scoped: keep-alive comment cadence (Petrinaut
-client tolerance), `Last-Event-ID` resume semantics (probably out-of-scope
-for v1 since the buffer is the timeline), CORS posture (probably allow `*`
-since localhost-only — confirm with Chris), test approach for HTTP (real
-`fetch` against bound port vs in-process `http.request` vs a stub
-ResponseStream).
+### Target Behavior
+
+A new module `petrinaut-stream-server.ts` exposes
+`createPetrinautStreamServer({ bus, host?, port? })` returning
+`{ start(): Promise<{ host: string; port: number; streamUrl: string }>, stop(): Promise<void> }`
+where `start()` binds a Node `http.Server` (default `host: '127.0.0.1'`,
+default `port: 0`) and a single route `GET /stream` returns
+`Content-Type: text/event-stream` with one SSE event per
+`BrunchExecutionExportFrame` (`event: <kind>\ndata: <JSON>\n\n`); each
+connection subscribes to the bus on open, replays the buffered timeline
+synchronously, streams live frames, and closes the response with
+`res.end()` immediately after writing the `terminal` frame.
+
+### Boundary Crossings
+
+```
+→ src/orchestrator/src/petrinaut-stream-server.ts (new — pure HTTP shell over the 3a bus)
+→ consumes:
+    src/orchestrator/src/petrinaut-stream-bus.ts (createPetrinautStreamBus → subscribe / publish, BrunchExecutionExportFrame)
+    node:http (createServer, Server, IncomingMessage, ServerResponse)
+→ exits at:
+    src/orchestrator/src/petrinaut-stream-server.test.ts (new — real fetch() against listen(0); SSE wire conformance + lifecycle)
+→ NOT touched in this slice:
+    src/orchestrator/src/cook-cli.ts (server boot stays opt-in via slice 4's --petrinaut-stream flag)
+    src/orchestrator/src/engine.ts (no engine changes — slice 3a already added the onPetrinautEvent fan-out hook)
+```
+
+### Risks and Assumptions
+
+```
+- ASSUMPTION: One bus subscription per HTTP connection is the right model — replay-on-subscribe happens once per connect, live frames flow until terminal or client disconnect.
+  → VALIDATE: tests cover (a) single connection sees definition → initial_state → N firings → terminal, (b) two concurrent connections each see the full timeline independently, (c) client-disconnect mid-stream unsubscribes cleanly.
+
+- ASSUMPTION: SSE wire shape per frame is `event: <kind>\ndata: <json>\n\n` with UTF-8 — matches what every SSE client (Petrinaut included) parses out of the box. No `id:` field (we own the timeline; `Last-Event-ID` resume is out of scope for v1 since the buffer is the timeline and a new connection just re-replays).
+  → VALIDATE: test parses the raw response body and asserts the `event:` / `data:` / blank-line framing per frame.
+
+- ASSUMPTION: Localhost-only bind (`127.0.0.1`) makes auth and CORS posture irrelevant for v1. `Access-Control-Allow-Origin: *` is safe because nothing outside this host can connect.
+  → VALIDATE: server defaults to `host: '127.0.0.1'` (not `0.0.0.0`); test explicitly asserts the bound host. CORS header sent unconditionally on `/stream` and `OPTIONS`.
+
+- ASSUMPTION: Keep-alive comment frames are unnecessary for v1 — Petrinaut consumes the stream over localhost in seconds-to-minutes, well under any reasonable proxy idle timeout. If Petrinaut later loses connection on long-idle runs, slice 4 or later adds `setInterval(() => res.write(': keep-alive\n\n'), 15_000)`.
+  → VALIDATE: slice 3b ships without keep-alive; revisit when a real Petrinaut client connects to a real run.
+
+- RISK: Closing the response immediately after the terminal frame may race with the client's read of the terminal — if `res.end()` happens before the OS has flushed, the client could see a truncated body.
+  → MITIGATION: Node's `res.write()` + `res.end()` flushes through the kernel buffer; for SSE that's effectively atomic. Test explicitly: client reads the full body after `terminal`, then the connection closes.
+
+- RISK: Multiple connections share one bus → if a slow subscriber blocks, every subscriber stalls.
+  → MITIGATION: 3a uses synchronous `for (handler of subscribers) handler(frame)`; the bus does not await. v1 accepts that a misbehaving HTTP write would back up the Node event loop briefly — acceptable for localhost / single-client demos. Production hardening (per-subscriber queue + drop policy) deferred.
+
+- RISK: Test approach for HTTP — fake `Server` / `ServerResponse` mocks tend to drift from real Node behavior.
+  → MITIGATION: tests use real `http.createServer` with `listen(0)` + Node's built-in `fetch()` against `http://127.0.0.1:<port>/stream`. Each test starts and stops one server in `beforeEach` / `afterEach`. No mocks of the HTTP layer.
+```
+
+### Acceptance Criteria
+
+```
+✓ `createPetrinautStreamServer({ bus, host?, port? })` exported from petrinaut-stream-server.ts; returns `{ start, stop }`.
+
+✓ Defaults: `host: '127.0.0.1'`, `port: 0`. `start()` resolves with `{ host, port, streamUrl }` where `streamUrl` = `http://${host}:${port}/stream` and `port` is the kernel-chosen ephemeral port.
+
+✓ test: GET /stream returns 200, Content-Type: text/event-stream, Cache-Control: no-cache, Connection: keep-alive.
+
+✓ test: a pre-subscribed connection (connect before any publish) receives — in order — exactly one `event: definition`, one `event: initial_state`, one `event: transition_firing` per published transition_fired event, and exactly one `event: terminal`, then the response stream closes.
+
+✓ test: each SSE frame's `data:` line parses as JSON whose shape matches the corresponding BrunchExecutionExportFrame variant.
+
+✓ test: a connection opened AFTER the bus has published N firings and a terminal receives the full back-buffer synchronously on connect, then the response closes.
+
+✓ test: two concurrent connections each see the full ordered frame sequence independently; one closing doesn't affect the other.
+
+✓ test: client closing the connection mid-stream (`AbortController.abort()` on the fetch) unsubscribes from the bus (assert via bus internals — e.g. publish one more event after abort, count subscribers).
+
+✓ test: requests to any path other than `/stream` return 404.
+
+✓ test: `OPTIONS /stream` returns 204 with CORS headers (`Access-Control-Allow-Origin: *`, `Access-Control-Allow-Methods: GET, OPTIONS`).
+
+✓ test: `start()` rejects if called twice; `stop()` is idempotent.
+
+✓ test: `stop()` ends any in-flight responses and closes the server (any outstanding fetch reads end cleanly).
+
+✓ `npm run verify` green.
+```
+
+### Verification Approach
+
+```
+- Inner: petrinaut-stream-server.test.ts — real http.createServer + listen(0) + Node fetch() per test, no HTTP mocks. Covers wire conformance, lifecycle, concurrent connections, disconnect, 404, OPTIONS, idempotent stop.
+- Middle: deferred to slice 4 (cook-CLI integration — boot via --petrinaut-stream flag, real cook run streams real frames to a real Petrinaut client mock).
+- Outer: deferred to slice 4 / 5 cross-team check — a real Petrinaut client (Chris's repo) consumes a real cook run end-to-end.
+```
+
+### Notes
+
+- Slice 3b is sequentially obvious from 3a — its scope wouldn't change based on what 3a finds (and didn't). The HTTP shell composes 3a's `subscribe` callback into a `res.write()` per frame; that's it.
+- Slice 4's job is the trigger surface: `--petrinaut-stream` flag flips server boot on, `--petrinaut-base-url` + env + auto-open compose the Petrinaut launcher URL, `runCook` orchestrates the lifecycle.
+- After 3b ships, `/tmp/reduce-export.mjs` is fully obsolete (the bus's replay-equivalence oracle subsumes its frame-replay role).
