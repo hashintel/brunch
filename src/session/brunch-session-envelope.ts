@@ -80,7 +80,7 @@ function assertFileBackedTranscriptEntries(entries: readonly unknown[]): asserts
       continue;
     }
 
-    if (!hasRequiredSessionEntryShape(entry)) {
+    if (!isSessionEntry(entry)) {
       throw new Error(
         'Invalid Pi JSONL transcript: every non-header entry must have a string id, string-or-null parentId, and string type',
       );
@@ -129,10 +129,6 @@ function isPiSessionHeader(value: unknown): value is PiSessionHeader {
 }
 
 function isSessionEntry(value: unknown): value is SessionEntry {
-  return isTranscriptEntry(value) && hasStringOrNullParentId(value);
-}
-
-function hasRequiredSessionEntryShape(value: unknown): value is SessionEntry {
   return isTranscriptEntry(value) && hasStringOrNullParentId(value);
 }
 
