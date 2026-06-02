@@ -203,7 +203,11 @@ export class PetriNet {
    *
    * Successful fires in a batch are committed before checking halt, matching
    * serial semantics where each completed fire persists. Handler rejections
-   * roll back the entire batch to avoid partial net state.
+   * deliberately roll back the entire claimed batch and rethrow the first
+   * rejection: this is an all-or-nothing net-state boundary for FE-743, not
+   * per-slice failure isolation. External handler side effects are not
+   * compensated here; if agent flakiness becomes common, per-claim rollback or
+   * AggregateError collection should be designed as a follow-up.
    */
   private async runParallel(shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
     while (true) {

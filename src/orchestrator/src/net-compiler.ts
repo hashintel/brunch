@@ -330,14 +330,17 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
 
 export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, ctx: RunCtx): PetriNet {
   const net = new PetriNet();
-  const { plan, actions, testRunner, reports, policy } = input;
+  const { plan, actions, testRunner, reports } = input;
 
   // Register places
   for (const place of blueprint.places) {
     net.addPlace(place);
   }
 
-  // Create per-slice sandbox directories
+  // Runtime filesystem preparation lives in wireHandlers for FE-743 so every
+  // action/test cwd exists before any transition can fire. This is the one
+  // intentional side effect in the wiring pass; a future prepareRunFilesystem
+  // step can split it out if more provisioning responsibilities accumulate.
   for (const slice of plan.slices) {
     mkdirSync(sliceSandboxDir(input.sandboxDir, slice.id), { recursive: true });
   }
