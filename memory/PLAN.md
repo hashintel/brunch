@@ -51,7 +51,7 @@ The POC should maximize assumption falsification rather than merely implement mi
 
 ### Active
 
-(none — `graph-data-plane` just completed; `agent-graph-integration` is next)
+1. `spec-persistence-and-startup` — restore DB-on-startup + specs-in-DB, reshape `.brunch/workspace.json`, collapse the session binding; init/startup correct under all foreseeable conditions. Precedes the runtime portion of `agent-graph-integration`.
 
 ### Next
 
@@ -74,6 +74,28 @@ The POC should maximize assumption falsification rather than merely implement mi
 - `geolog-and-petri-execution` — Datalog-shaped intent store and petri-net plan execution. Exploratory; parallel to Brunch proper.
 
 ## Frontier Definitions
+
+### spec-persistence-and-startup
+
+- **Name:** Spec persistence and startup integrity
+- **Linear:** unassigned (create in FE / brunch when branch opens)
+- **Branch:** to create — `ln/<issue>-spec-persistence-startup`
+- **Kind:** structural (persistence-model correction + startup-path regression repair)
+- **Status:** active
+- **Objective:** Restore the DB-on-startup path lost in the rebuild and correct the workspace/spec/session persistence model so Brunch initializes and boots correctly under all foreseeable conditions, reading each fact from its canonical home. Concretely: **(a)** model specs as DB rows (`specs{id:int, name, slug, readiness_grade}`), retiring `elicitation_posture` and `commitment_focus`; **(b)** create `.brunch/data.db` if absent at startup and route spec create/read/grade-update through the `CommandExecutor`; **(c)** rename `.brunch/state.json` → `.brunch/workspace.json` and reshape to `{project:{name,slug}, current:{specId:int, sessionId}, posture:<empty stub>}`, dropping the dead `source` field; **(d)** collapse the `brunch.session_binding` entry to `{specId:int}`, dropping `sessionId`/`specTitle` and the `sessionId !== header.id` self-guard (fork-portable); **(e)** resolve spec names from the DB, not from JSONL or workspace state.
+- **Why now / unlocks:** The rebuild branch regressed two capabilities the prior version had — DB-on-startup and specs-in-DB — because work optimized for green tests over working product runs (`createDb`/`new CommandExecutor` appear only in `:memory:` tests; the TUI shell builds extensions with no graph deps via `{ coordinator }`; no `.brunch/data.db` is ever created at runtime; mention-autocomplete reads `FIXTURE_GRAPH_MENTION_SOURCE`). This frontier repairs that and lands the spec row D45-L already assumes exists, unblocking the runtime portion of `agent-graph-integration` (the A14-L real-LLM proof needs the DB live at startup) and the deferred agent-runtime vocabulary work. Retires the spec-row persistence hole and the unscoped global graph namespace concern.
+- **Acceptance:**
+  - `specs` table exists; spec create/get/grade-update route through `CommandExecutor`; `elicitation_posture` and `commitment_focus` are absent from the model.
+  - Startup creates `.brunch/data.db` if missing and opens it; spec creation writes a `specs` row with an integer id (no `spec-${uuid}` mint).
+  - `.brunch/workspace.json` (renamed from `state.json`) persists `{project:{name,slug}, current:{specId:int, sessionId}, posture}`; first run scaffolds `posture` with empty-string axes; no `source` field; `activation`/`chrome` are not persisted.
+  - `brunch.session_binding` is `{schemaVersion, specId:int}`; the `sessionId !== header.id` guard is gone; a forked session retains its spec linkage through the inherited binding.
+  - The spec picker/inventory resolves spec names from the DB by `specId`.
+  - Init/startup succeeds across the foreseeable condition matrix: no `.brunch/`; workspace.json + DB present; workspace.json present + DB missing; current spec/session missing or stale; multiple specs; new-spec; new-session-for-current-spec; cancel.
+- **Verification:** Inner — verify gate plus spec-`CommandExecutor` unit tests, `workspace.json` read/write/scaffold tests, binding-schema tests. Middle — the startup-condition-matrix integration tests (the north-star oracle), coordinator↔DB integration, picker-name-from-DB, architectural no-bypass (spec writes only via `CommandExecutor`). Outer — a real `brunch` boot/`--mode print` run against a regenerated `.brunch/` proving a live `.brunch/data.db` is created and read.
+- **Cross-cutting obligations:** All spec writes route through `CommandExecutor` (D16-L/D20-L no-bypass). Session identity stays Pi-owned — Brunch contributes only `{specId}`; keep runtime state linear-transcript-backed and fork-portable. Do **not** wire graph-agent tools here — this frontier owns the DB lifecycle; `agent-graph-integration` inherits it to register graph tools. **SPEC reconciliation required (with the build):** retire the `elicitation_posture` half of D45-L, gut/retire D46-L, trim requirement #22, simplify I31-L to grade-only, delete prompt-assembly layer 7, and flip the SPEC §Vocabulary-evolution `posture` note from spec-level → workspace-level (POC-stubbed). Update `src/README.md`, `src/db/README.md`, `src/session/README.md` migration notes.
+- **Traceability:** R22, R28 / D16-L, D20-L, D40-L, D45-L (revise), D46-L (retire), D52-L / I31-L (revise) / A19-L, A20-L. Retires: spec-row persistence hole; DB-on-startup regression.
+- **Design docs:** [GRAPH_MODEL.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/design/GRAPH_MODEL.md) (posture deferral note, §Vocabulary evolution); this session's locked state-model decisions.
+- **Current execution pointer:** card queue → `memory/CARDS.md` (slice 1: spec entity + DB-on-startup foundation; slice 2: coordinator startup on the corrected model).
 
 ### sealed-pi-profile-runtime-state
 
@@ -297,6 +319,7 @@ Older history (including `web-shell`, `graph-data-plane` Phase 1 edge lock, `jso
 nodes:
   sealed-pi-profile-runtime-state   [done]                   (M4 prep envelope: sealing + graph-model lock)
   graph-data-plane                  [done]                   (M4 CRUD proper)
+  spec-persistence-and-startup      [active]                 (persistence-model fix + startup regression repair)
   agent-graph-integration           [in-progress]            (M5)
   subagents-for-proposal-diversity  [deferred · optional]
   authority-model                   [not-started]            (M6)
@@ -308,6 +331,8 @@ nodes:
 edges:
   sealed-pi-profile-runtime-state  -[hard]->         graph-data-plane
   graph-data-plane                 -[hard]->         agent-graph-integration
+  graph-data-plane                 -[hard]->         spec-persistence-and-startup
+  spec-persistence-and-startup     -[hard]->         agent-graph-integration
   agent-graph-integration          -[hard]->         authority-model
   agent-graph-integration          -[hard]->         turn-boundary-reconciliation
   agent-graph-integration          -[optional]->     subagents-for-proposal-diversity
