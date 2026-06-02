@@ -131,6 +131,7 @@ export type SliceOutcome = {
 export type OrchestratorResult = {
   status: 'completed' | 'halted';
   reason?: string;
+  warnings: string[];
   reports: string[];
   epics: EpicOutcome[];
   slices: SliceOutcome[];
@@ -155,4 +156,5 @@ export type RunCtx = {
   reportIds: string[];
   sliceOutcomes: Map<string, SliceOutcome>;
   epicOutcomes: Map<string, EpicOutcome>;
+  warnings?: string[];
 };
