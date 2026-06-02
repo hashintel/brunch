@@ -1,53 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { enumerateCandidateOutputs, evalRouteGuard, type RouteGuard } from './net-blueprint.js';
+import { enumerateCandidateOutputs } from './net-blueprint.js';
 import { compileTopology } from './net-compiler.js';
-import type { Plan, ReportLine } from './types.js';
-
-// ---------------------------------------------------------------------------
-// evalRouteGuard — pure interpreter for declarative routing guards
-// ---------------------------------------------------------------------------
-
-function makeReport(payload: Record<string, unknown>): ReportLine {
-  return {
-    id: 'rpt-x',
-    ts: '2026-05-26T00:00:00.000Z',
-    epicId: 'epic-1',
-    sliceId: 'slice-1',
-    actor: 'test',
-    event: 'test',
-    payload,
-  };
-}
-
-describe('evalRouteGuard', () => {
-  it('always returns true regardless of report', () => {
-    expect(evalRouteGuard({ kind: 'always' }, makeReport({ done: false }))).toBe(true);
-    expect(evalRouteGuard({ kind: 'always' }, makeReport({}))).toBe(true);
-    expect(evalRouteGuard({ kind: 'always' }, undefined)).toBe(true);
-  });
-
-  it('reportFieldTruthy reads the named field and coerces to boolean', () => {
-    const guard = { kind: 'reportFieldTruthy', field: 'done' } as const;
-    expect(evalRouteGuard(guard, makeReport({ done: true }))).toBe(true);
-    expect(evalRouteGuard(guard, makeReport({ done: false }))).toBe(false);
-    expect(evalRouteGuard(guard, makeReport({ done: 'yes' }))).toBe(true);
-    expect(evalRouteGuard(guard, makeReport({ done: 0 }))).toBe(false);
-    expect(evalRouteGuard(guard, makeReport({ other: true }))).toBe(false);
-  });
-
-  it('reportFieldTruthy returns false when the report is missing', () => {
-    const guard = { kind: 'reportFieldTruthy', field: 'done' } as const;
-    expect(evalRouteGuard(guard, undefined)).toBe(false);
-  });
-
-  it('throws on unsupported guard kinds', () => {
-    const guard = { kind: 'unknown' } as unknown as RouteGuard;
-    expect(() => evalRouteGuard(guard, makeReport({ done: true }))).toThrow(
-      'Unsupported RouteGuard kind: unknown',
-    );
-  });
-});
+import type { Plan } from './types.js';
 
 // ---------------------------------------------------------------------------
 // enumerateCandidateOutputs — pure topology consumer

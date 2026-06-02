@@ -7,39 +7,12 @@ import type { TransitionContract } from './petri-net.js';
 import type { ReportLine } from './types.js';
 
 // ---------------------------------------------------------------------------
-// RouteGuard — declarative routing predicate evaluated against a report payload
-//
-// Retained for run-tests / assess-semantic / verify-epic transitions that still
-// branch inside their fire closure (FE-761 Slice 2 will retire these uses too).
-// ---------------------------------------------------------------------------
-
-export type RouteGuard = { kind: 'always' } | { kind: 'reportFieldTruthy'; field: string };
-
-export function evalRouteGuard(guard: RouteGuard, report: ReportLine | undefined): boolean {
-  switch (guard.kind) {
-    case 'always':
-      return true;
-    case 'reportFieldTruthy': {
-      const payload = report?.payload as Record<string, unknown> | undefined;
-      return !!payload?.[guard.field];
-    }
-    default: {
-      const unknown = guard as { kind: string };
-      throw new Error(`Unsupported RouteGuard kind: ${unknown.kind}`);
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
 // EnablingGuard — declarative enabling predicate evaluated against an input
-// token's attached report. Distinct from RouteGuard: the EnablingGuard runs at
-// `isEnabled` time (the firing policy uses it to pick which sibling transition
-// is currently allowed to fire) rather than at fire time. Mutually-exclusive
-// guards over the same intermediate place implement Petri-net-faithful
-// conditional branching via sibling transitions (FE-761 Slice 1). New Petri-net
-// routing should prefer EnablingGuard + sibling transitions; RouteGuard remains
-// only as a compatibility shape for handler descriptors not yet split into
-// explicit branch transitions.
+// token's attached report. The guard runs at `isEnabled` time, so the firing
+// policy picks which sibling transition is currently allowed to fire without
+// branching inside the fire closure. Mutually-exclusive guards over the same
+// intermediate place implement Petri-net-faithful conditional branching via
+// sibling transitions (FE-761 Slice 1).
 // ---------------------------------------------------------------------------
 
 export type EnablingGuard =
