@@ -53,7 +53,7 @@ export function renderPlainResult(result: ToolResultLike) {
 }
 
 export function markdownEscape(text: string): string {
-  return text.replace(/([\\`*_{}\[\]()#+\-.!|>])/g, '\\$1');
+  return text.replace(/([\\`*_{}[\]()#+\-.!|>])/g, '\\$1');
 }
 
 export function normalizeOptionalText(value: unknown): string | undefined {

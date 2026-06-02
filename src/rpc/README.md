@@ -21,7 +21,10 @@ canonical stores:
     edges
     change_log
     reconciliation_needs
+
+  deferred graph-adjacent store
     coherence_state
+      not yet defined; do not expose a durable coherence contract until modeled
 
   Pi JSONL transcript
     session_binding
@@ -173,7 +176,8 @@ session.submitExchangeResponse
 agent continues after acceptance
   -> agent calls commitGraph({ nodes, edges }) internally
   -> CommandExecutor validates and commits atomically
-  -> graph/coherence projections update
+  -> graph projections update
+  -> future graph.coherenceSummary updates only after coherence semantics are defined
 ```
 
 The user reviews the concept-level proposal. The graph becomes product truth only after the internal `commitGraph` path succeeds.

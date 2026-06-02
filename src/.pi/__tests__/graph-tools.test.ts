@@ -169,7 +169,7 @@ describe('graph tools end-to-end', () => {
 
   it('commit_graph returns diagnostics on invalid batch', () => {
     const input = translateCommitGraph({
-      nodes: [{ ref: 'n1', plane: 'intent', kind: 'not_a_kind', title: 'Bad' }],
+      nodes: [{ ref: 'n1', plane: 'intent', kind: 'not_a_kind' as never, title: 'Bad' }],
       edges: [],
     });
     const result = executor.commitGraph(input);

@@ -18,8 +18,8 @@ describe('structured-exchange ordering proof', () => {
     expect(proof.eventOrder).toEqual([
       'present_options:start',
       'present_options:end',
-      'ui:select',
       'request_choice:start',
+      'ui:select',
       'ui:input',
       'request_choice:end',
     ]);

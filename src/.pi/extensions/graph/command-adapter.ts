@@ -16,41 +16,10 @@ import type {
   CommitGraphInput,
   CommitGraphResult,
   CommitGraphSuccess,
-  Diagnostic,
   StructuralIllegal,
 } from '../../../graph/command-executor.js';
 import type { GraphOverview, NeighborhoodResult } from '../../../graph/snapshot.js';
-
-// ---------------------------------------------------------------------------
-// commit-graph: Pi params → CommitGraphInput
-// ---------------------------------------------------------------------------
-
-/** Shape of a node as received from the LLM tool call. */
-export interface ToolCommitNode {
-  readonly ref: string;
-  readonly plane: string;
-  readonly kind: string;
-  readonly title: string;
-  readonly body?: string;
-  readonly basis?: string;
-  readonly source?: string;
-  readonly detail?: unknown;
-}
-
-/** Shape of an edge as received from the LLM tool call. */
-export interface ToolCommitEdge {
-  readonly category: string;
-  readonly source: string | { readonly existing: number };
-  readonly target: string | { readonly existing: number };
-  readonly stance?: string;
-  readonly rationale?: string;
-}
-
-/** Shape of the commit_graph tool params from the LLM. */
-export interface ToolCommitGraphParams {
-  readonly nodes: readonly ToolCommitNode[];
-  readonly edges: readonly ToolCommitEdge[];
-}
+import type { ToolCommitGraphParams } from './tool-schemas.js';
 
 /**
  * Translate Pi tool params into a CommandExecutor CommitGraphInput.

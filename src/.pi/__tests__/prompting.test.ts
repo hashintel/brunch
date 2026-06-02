@@ -204,9 +204,9 @@ describe('Brunch prompt-pack topology', () => {
     await createBrunchPiExtensionShell(
       {
         cwd: '/tmp/brunch',
-        chatMode: 'interactive',
-        phase: 'ready',
-        spec: { id: 'spec-1', title: 'Spec' },
+        chatMode: 'responding-to-elicitation',
+        phase: 'elicitation',
+        spec: { id: 1, title: 'Spec' },
         session: { id: 'session-1', label: 'Session' },
       },
       undefined,

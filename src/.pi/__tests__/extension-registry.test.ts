@@ -109,10 +109,10 @@ describe('Brunch explicit Pi extension registry', () => {
 
 const brunchChromeFixture = {
   cwd: '/tmp/brunch',
-  chatMode: 'interactive' as const,
-  phase: 'ready' as const,
+  chatMode: 'responding-to-elicitation' as const,
+  phase: 'elicitation' as const,
   spec: {
-    id: 'spec-1',
+    id: 1,
     title: 'Fixture spec',
   },
   session: {

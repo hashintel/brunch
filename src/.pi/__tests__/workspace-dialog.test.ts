@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { type Terminal } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
-import type { WorkspaceLaunchInventory } from '../../../workspace-session-coordinator.js';
+import type { WorkspaceLaunchInventory } from '../../session/workspace-session-coordinator.js';
 import { formatBrunchProductIdentity, readBrunchAnsiLogo } from '../components/brunch-identity.js';
 import {
   buildWorkspaceSelectionView,
@@ -35,7 +35,7 @@ describe('spec/session picker', () => {
     expect(selectWorkspaceSelectionOption(view, 0)).toEqual({
       decision: {
         action: 'continue',
-        specId: 'spec-alpha',
+        specId: 1,
         sessionFile: '/sessions/alpha-current.jsonl',
       },
     });
@@ -59,14 +59,14 @@ describe('spec/session picker', () => {
       'Resume existing session',
     ]);
     expect(selectWorkspaceSelectionOption(specAction.view, 0)).toEqual({
-      decision: { action: 'newSession', specId: 'spec-alpha' },
+      decision: { action: 'newSession', specId: 1 },
     });
   });
 
   it('emits open-session only after a session is selected', () => {
     const sessionList = buildWorkspaceSelectionView(inventory(), {
       stage: 'sessionList',
-      specId: 'spec-alpha',
+      specId: 1,
     });
 
     expect(sessionList.options.map((option) => option.label)).toEqual([
@@ -76,7 +76,7 @@ describe('spec/session picker', () => {
     expect(selectWorkspaceSelectionOption(sessionList, 1)).toEqual({
       decision: {
         action: 'openSession',
-        specId: 'spec-alpha',
+        specId: 1,
         sessionFile: '/sessions/alpha-older.jsonl',
       },
     });
@@ -99,7 +99,7 @@ describe('spec/session picker', () => {
   it('only shows resume-existing-session when the chosen spec has sessions', () => {
     const view = buildWorkspaceSelectionView(emptySessionInventory(), {
       stage: 'specAction',
-      specId: 'spec-empty',
+      specId: 3,
     });
 
     expect(view.options.map((option) => option.label)).toEqual(['Create new session']);
@@ -150,7 +150,7 @@ describe('spec/session picker', () => {
     expect(decisions).toEqual([
       {
         action: 'continue',
-        specId: 'spec-alpha',
+        specId: 1,
         sessionFile: '/sessions/alpha-current.jsonl',
       },
     ]);
@@ -168,7 +168,7 @@ describe('spec/session picker', () => {
     component.handleInput!('\r');
     component.handleInput!('\r');
 
-    expect(decisions).toEqual([{ action: 'newSession', specId: 'spec-alpha' }]);
+    expect(decisions).toEqual([{ action: 'newSession', specId: 1 }]);
   });
 
   it('returns open-session through the hierarchical keyboard path', () => {
@@ -189,7 +189,7 @@ describe('spec/session picker', () => {
     expect(decisions).toEqual([
       {
         action: 'openSession',
-        specId: 'spec-alpha',
+        specId: 1,
         sessionFile: '/sessions/alpha-older.jsonl',
       },
     ]);
@@ -414,10 +414,10 @@ function emptyInventory(): WorkspaceLaunchInventory {
 function emptySessionInventory(): WorkspaceLaunchInventory {
   return {
     cwd: '/project',
-    currentSpec: { id: 'spec-empty', title: 'Empty' },
+    currentSpec: { id: 3, title: 'Empty' },
     currentSessionFile: null,
     needsNewSpec: false,
-    specs: [{ spec: { id: 'spec-empty', title: 'Empty' }, sessions: [] }],
+    specs: [{ spec: { id: 3, title: 'Empty' }, sessions: [] }],
     unavailableSessions: [],
   };
 }
@@ -425,36 +425,36 @@ function emptySessionInventory(): WorkspaceLaunchInventory {
 function inventory(): WorkspaceLaunchInventory {
   return {
     cwd: '/project',
-    currentSpec: { id: 'spec-alpha', title: 'Alpha' },
+    currentSpec: { id: 1, title: 'Alpha' },
     currentSessionFile: '/sessions/alpha-current.jsonl',
     needsNewSpec: false,
     specs: [
       {
-        spec: { id: 'spec-alpha', title: 'Alpha' },
+        spec: { id: 1, title: 'Alpha' },
         sessions: [
           {
             id: 'session-alpha-current',
             file: '/sessions/alpha-current.jsonl',
-            specId: 'spec-alpha',
+            specId: 1,
             specTitle: 'Alpha',
             available: true,
           },
           {
             id: 'session-alpha-older',
             file: '/sessions/alpha-older.jsonl',
-            specId: 'spec-alpha',
+            specId: 1,
             specTitle: 'Alpha',
             available: true,
           },
         ],
       },
       {
-        spec: { id: 'spec-beta', title: 'Beta' },
+        spec: { id: 2, title: 'Beta' },
         sessions: [
           {
             id: 'session-beta',
             file: '/sessions/beta.jsonl',
-            specId: 'spec-beta',
+            specId: 2,
             specTitle: 'Beta',
             available: true,
           },

@@ -78,6 +78,7 @@ export const BRUNCH_SETTINGS_AUDITED_GETTERS = [
   'getNpmCommand',
   'getCollapseChangelog',
   'getEnableInstallTelemetry',
+  'getHttpIdleTimeoutMs',
   'getPackages',
   'getExtensionPaths',
   'getSkillPaths',

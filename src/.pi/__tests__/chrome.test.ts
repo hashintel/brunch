@@ -1,7 +1,7 @@
 import type { ExtensionUIContext } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import type { WorkspaceSessionReadyState } from '../../../workspace-session-coordinator.js';
+import type { WorkspaceSessionReadyState } from '../../session/workspace-session-coordinator.js';
 import {
   chromeStateForWorkspace,
   formatBrunchChromeHeaderLines,
@@ -28,7 +28,7 @@ describe('Brunch chrome projection', () => {
   it('formats chrome header as wordmark plus runtime-state summary', async () => {
     const state = {
       cwd: '/tmp/project',
-      spec: { id: 'spec-1', title: 'Spec One' },
+      spec: { id: 1, title: 'Spec One' },
       session: { id: 'session-1', label: 'Interview #1' },
       phase: 'elicitation' as const,
       chatMode: 'responding-to-elicitation' as const,
@@ -52,7 +52,7 @@ describe('Brunch chrome projection', () => {
   it('formats honest Brunch chrome from one product-state snapshot', async () => {
     const state = {
       cwd: '/tmp/project',
-      spec: { id: 'spec-1', title: 'Spec One' },
+      spec: { id: 1, title: 'Spec One' },
       session: { id: 'session-1', label: 'Interview #1' },
       phase: 'elicitation' as const,
       chatMode: 'responding-to-elicitation' as const,
@@ -85,7 +85,7 @@ describe('Brunch chrome projection', () => {
   it('formats rich optional runtime and context metadata without fabricating missing fields', () => {
     const state = {
       cwd: '/tmp/project',
-      spec: { id: 'spec-1', title: 'Spec One' },
+      spec: { id: 1, title: 'Spec One' },
       session: { id: 'session-1', label: 'Interview #1' },
       phase: 'elicitation' as const,
       chatMode: 'responding-to-elicitation' as const,
@@ -116,7 +116,7 @@ describe('Brunch chrome projection', () => {
     const footer = projectBrunchChromeFooterLines(
       {
         cwd: '/tmp/project',
-        spec: { id: 'spec-1', title: 'Spec One' },
+        spec: { id: 1, title: 'Spec One' },
         session: { id: 'session-1', label: 'Interview #1' },
         phase: 'elicitation',
         chatMode: 'responding-to-elicitation',
@@ -162,7 +162,7 @@ describe('Brunch chrome projection', () => {
 
     renderBrunchChrome(ui, {
       cwd: '/tmp/project',
-      spec: { id: 'spec-1', title: 'Spec One' },
+      spec: { id: 1, title: 'Spec One' },
       session: { id: 'session-1' },
       phase: 'elicitation',
       chatMode: 'responding-to-elicitation',
@@ -189,7 +189,7 @@ describe('Brunch chrome projection', () => {
 });
 
 function readyWorkspace(cwd: string, sessionId: string, sessionName?: string): WorkspaceSessionReadyState {
-  const spec = { id: 'spec-1', title: 'Spec One' };
+  const spec = { id: 1, title: 'Spec One' };
   return {
     status: 'ready',
     cwd,

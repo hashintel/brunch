@@ -19,6 +19,7 @@
     "tmp/**",
     "dist-web/**",
     "bin/**",
-    "dist/**"
+    "dist/**",
+    "drizzle/**"
   ]
 }

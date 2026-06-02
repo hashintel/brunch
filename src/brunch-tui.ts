@@ -9,12 +9,7 @@ import {
   type CreateAgentSessionRuntimeFactory,
 } from '@earendil-works/pi-coding-agent';
 
-import {
-  applyBrunchOfflineDefault,
-  brunchResourceLoaderOptions,
-  createBrunchPiProfile,
-  createBrunchSettingsManager,
-} from './.pi/brunch-pi-profile.js';
+import { applyBrunchOfflineDefault, createBrunchPiProfile } from './.pi/brunch-pi-profile.js';
 import { runWorkspaceDialogPreflight } from './.pi/components/workspace-dialog.js';
 import { chromeStateForWorkspace, createBrunchPiExtensionShell } from './.pi/pi-extension-shell.js';
 import { openWorkspaceGraphRuntime } from './graph/index.js';

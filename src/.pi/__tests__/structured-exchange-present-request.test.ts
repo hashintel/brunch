@@ -273,9 +273,6 @@ describe('structured exchange present/request tools', () => {
         type: 'message',
         message: {
           role: 'toolResult',
-          toolName: PRESENT_OPTIONS_TOOL,
-          toolCallId: 'present-call-1',
-          content: [{ type: 'text', text: '## Offer' }],
           details: {
             schema: 'brunch.structured_exchange.present',
             schemaVersion: 1,
@@ -286,7 +283,6 @@ describe('structured exchange present/request tools', () => {
             expectedRequest: { tool: REQUEST_CHOICE_TOOL, required: true },
             createdAtToolCallId: 'present-call-1',
           },
-          isError: false,
         },
       },
     ]);

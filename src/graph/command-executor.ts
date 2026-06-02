@@ -527,7 +527,7 @@ export class CommandExecutor {
     if (!isReadinessGrade(readinessGrade)) {
       diagnostics.push({
         field: 'readinessGrade',
-        message: `"${readinessGrade}" is not a valid readiness grade`,
+        message: `"${String(readinessGrade)}" is not a valid readiness grade`,
       });
     }
     if (diagnostics.length > 0) return { status: 'structural_illegal', diagnostics };
@@ -579,7 +579,7 @@ export class CommandExecutor {
         diagnostics: [
           {
             field: 'readinessGrade',
-            message: `"${input.readinessGrade}" is not a valid readiness grade`,
+            message: `"${String(input.readinessGrade)}" is not a valid readiness grade`,
           },
         ],
       };

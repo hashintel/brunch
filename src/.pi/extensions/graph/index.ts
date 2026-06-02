@@ -10,20 +10,9 @@
  * dependencies from the extension shell.
  */
 
-import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { Type } from 'typebox';
 
 import type { CommandExecutor } from '../../../graph/command-executor.js';
-import {
-  INTENT_KINDS,
-  ORACLE_KINDS,
-  DESIGN_KINDS,
-  PLAN_KINDS,
-  EDGE_CATEGORIES,
-  EDGE_STANCES,
-  NODE_BASES,
-} from '../../../graph/index.js';
 import type { GraphOverview, NeighborhoodResult } from '../../../graph/snapshot.js';
 import {
   translateCommitGraph,
@@ -31,6 +20,7 @@ import {
   formatGraphOverview,
   formatNeighborhoodResult,
 } from './command-adapter.js';
+import { CommitGraphParams, ReadGraphParams } from './tool-schemas.js';
 
 // ---------------------------------------------------------------------------
 // Dependencies injected by the extension shell
@@ -46,68 +36,6 @@ export interface BrunchGraphDeps {
   readonly commandExecutor: CommandExecutor;
   readonly snapshots: GraphSnapshotReaders;
 }
-
-// ---------------------------------------------------------------------------
-// Tool parameter schemas (TypeBox v1.x / Pi's typebox)
-// ---------------------------------------------------------------------------
-
-const ALL_KINDS = [...INTENT_KINDS, ...ORACLE_KINDS, ...DESIGN_KINDS, ...PLAN_KINDS] as const;
-
-const CommitNodeSchema = Type.Object({
-  ref: Type.String({
-    description: "Temporary batch reference id (e.g. 'n1', 'n2')",
-  }),
-  plane: StringEnum(['intent', 'oracle', 'design', 'plan'] as const),
-  kind: StringEnum([...ALL_KINDS]),
-  title: Type.String({ description: 'Node title — must be non-empty' }),
-  body: Type.Optional(Type.String({ description: 'Extended description' })),
-  basis: Type.Optional(StringEnum([...NODE_BASES])),
-  source: Type.Optional(
-    Type.String({
-      description: "Epistemic attribution (e.g. 'stakeholder', 'derived')",
-    }),
-  ),
-  detail: Type.Optional(
-    Type.Unknown({
-      description:
-        'Per-kind detail: decision requires {chosen_option, rejected, rationale}; term requires {definition, aliases?}',
-    }),
-  ),
-});
-
-const EdgeRefSchema = Type.Union([
-  Type.String({ description: "Intra-batch ref (e.g. 'n1')" }),
-  Type.Object({
-    existing: Type.Number({ description: 'Id of an existing node' }),
-  }),
-]);
-
-const CommitEdgeSchema = Type.Object({
-  category: StringEnum([...EDGE_CATEGORIES]),
-  source: EdgeRefSchema,
-  target: EdgeRefSchema,
-  stance: Type.Optional(StringEnum([...EDGE_STANCES])),
-  rationale: Type.Optional(Type.String()),
-});
-
-const CommitGraphParams = Type.Object({
-  nodes: Type.Array(CommitNodeSchema, {
-    description: 'Nodes to create in this batch',
-  }),
-  edges: Type.Array(CommitEdgeSchema, {
-    description: 'Edges to create, referencing batch refs or existing node ids',
-  }),
-});
-
-const ReadGraphParams = Type.Object({
-  mode: StringEnum(['overview', 'neighborhood'] as const),
-  node_id: Type.Optional(
-    Type.Number({
-      description: 'Required for neighborhood mode — the anchor node id',
-    }),
-  ),
-  hops: Type.Optional(Type.Number({ description: 'Neighborhood traversal depth (default: 1)' })),
-});
 
 // ---------------------------------------------------------------------------
 // Registrar
