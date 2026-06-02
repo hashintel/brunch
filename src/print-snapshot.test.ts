@@ -9,7 +9,7 @@ function readyState(): WorkspaceSessionState {
   return {
     status: 'ready',
     cwd,
-    spec: { id: 'spec-1', title: 'Alpha spec' },
+    spec: { id: 1, title: 'Alpha spec' },
     session: {
       id: 'session-1',
       file: '/tmp/brunch-project/.brunch/sessions/session-1.jsonl',
@@ -17,7 +17,7 @@ function readyState(): WorkspaceSessionState {
     },
     chrome: {
       cwd,
-      spec: { id: 'spec-1', title: 'Alpha spec' },
+      spec: { id: 1, title: 'Alpha spec' },
       phase: 'elicitation',
       chatMode: 'responding-to-elicitation',
     },
@@ -31,7 +31,7 @@ describe('print snapshot', () => {
     expect(snapshot).toEqual({
       status: 'ready',
       cwd,
-      spec: { id: 'spec-1', title: 'Alpha spec' },
+      spec: { id: 1, title: 'Alpha spec' },
       session: {
         id: 'session-1',
         file: '/tmp/brunch-project/.brunch/sessions/session-1.jsonl',
@@ -42,7 +42,7 @@ describe('print snapshot', () => {
       },
     });
     expect(renderWorkspaceSnapshot(snapshot)).toContain('status: ready');
-    expect(renderWorkspaceSnapshot(snapshot)).toContain('spec: Alpha spec (spec-1)');
+    expect(renderWorkspaceSnapshot(snapshot)).toContain('spec: Alpha spec (1)');
     expect(renderWorkspaceSnapshot(snapshot)).toContain('session: session-1');
   });
 

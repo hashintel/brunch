@@ -42,17 +42,17 @@ function coordinator(
 function launchInventory(): WorkspaceLaunchInventory {
   return {
     cwd: '/tmp/brunch-project',
-    currentSpec: { id: 'spec-1', title: 'Alpha spec' },
+    currentSpec: { id: 1, title: 'Alpha spec' },
     currentSessionFile: '/tmp/brunch-project/.brunch/sessions/session-1.jsonl',
     needsNewSpec: false,
     specs: [
       {
-        spec: { id: 'spec-1', title: 'Alpha spec' },
+        spec: { id: 1, title: 'Alpha spec' },
         sessions: [
           {
             id: 'session-1',
             file: '/tmp/brunch-project/.brunch/sessions/session-1.jsonl',
-            specId: 'spec-1',
+            specId: 1,
             specTitle: 'Alpha spec',
             available: true,
           },
@@ -75,7 +75,7 @@ function cancelledState(): WorkspaceActivationState {
     cwd: '/tmp/brunch-project',
     chrome: {
       cwd: '/tmp/brunch-project',
-      spec: { id: 'spec-1', title: 'Alpha spec' },
+      spec: { id: 1, title: 'Alpha spec' },
       phase: 'elicitation',
       chatMode: 'responding-to-elicitation',
     },
@@ -86,7 +86,7 @@ function readyState(sessionFile: string): WorkspaceSessionReadyState {
   return {
     status: 'ready',
     cwd: '/tmp/brunch-project',
-    spec: { id: 'spec-1', title: 'Alpha spec' },
+    spec: { id: 1, title: 'Alpha spec' },
     session: {
       id: 'session-1',
       file: sessionFile,
@@ -94,7 +94,7 @@ function readyState(sessionFile: string): WorkspaceSessionReadyState {
     },
     chrome: {
       cwd: '/tmp/brunch-project',
-      spec: { id: 'spec-1', title: 'Alpha spec' },
+      spec: { id: 1, title: 'Alpha spec' },
       phase: 'elicitation',
       chatMode: 'responding-to-elicitation',
     },
@@ -148,9 +148,7 @@ function appendBinding(manager: SessionManager): void {
   manager.appendCustomEntry(
     'brunch.session_binding',
     createSessionBindingData({
-      sessionId: manager.getSessionId(),
-      specId: 'spec-1',
-      specTitle: 'Spec',
+      specId: 1,
     }),
   );
 }
@@ -208,16 +206,14 @@ function requestAnswerEntry(parentId = 'present-question-1') {
   };
 }
 
-function sessionBindingEntry(sessionId = 'session-1', specId = 'spec-1') {
+function sessionBindingEntry(sessionId = 'session-1', specId = 1) {
   return {
     id: `binding-${sessionId}-${specId}`,
     type: 'custom',
     parentId: null,
     customType: 'brunch.session_binding',
     data: createSessionBindingData({
-      sessionId,
       specId,
-      specTitle: 'Spec',
     }),
   };
 }
@@ -393,9 +389,9 @@ describe('JSON-RPC handlers', () => {
         status: 'select_spec',
         requiresSelection: true,
         cwd: '/tmp/brunch-project',
-        currentSpec: { id: 'spec-1', title: 'Alpha spec' },
+        currentSpec: { id: 1, title: 'Alpha spec' },
         currentSessionFile: '/tmp/brunch-project/.brunch/sessions/session-1.jsonl',
-        specs: [{ spec: { id: 'spec-1' }, sessions: [{ id: 'session-1' }] }],
+        specs: [{ spec: { id: 1 }, sessions: [{ id: 'session-1' }] }],
         unavailableSessions: [{ reason: 'missing_header' }],
       },
     });
@@ -419,15 +415,15 @@ describe('JSON-RPC handlers', () => {
     const validDecisions: SpecSessionActivationDecision[] = [
       { action: 'cancel' },
       { action: 'newSpec', title: 'New spec' },
-      { action: 'newSession', specId: 'spec-1' },
+      { action: 'newSession', specId: 1 },
       {
         action: 'continue',
-        specId: 'spec-1',
+        specId: 1,
         sessionFile: 'session-1.jsonl',
       },
       {
         action: 'openSession',
-        specId: 'spec-1',
+        specId: 1,
         sessionFile: 'session-2.jsonl',
       },
     ];
@@ -445,10 +441,10 @@ describe('JSON-RPC handlers', () => {
         id: 21 + index,
         result:
           decision.action === 'cancel'
-            ? { status: 'cancelled', spec: { id: 'spec-1' } }
+            ? { status: 'cancelled', spec: { id: 1 } }
             : {
                 status: 'ready',
-                spec: { id: 'spec-1' },
+                spec: { id: 1 },
                 session: { id: 'session-1' },
               },
       });
@@ -468,7 +464,7 @@ describe('JSON-RPC handlers', () => {
         jsonrpc: '2.0',
         id: 22,
         method: 'workspace.activate',
-        params: { decision: { action: 'openSession', specId: 'spec-1' } },
+        params: { decision: { action: 'openSession', specId: 1 } },
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -502,7 +498,7 @@ describe('JSON-RPC handlers', () => {
       id: 1,
       result: {
         status: 'ready',
-        spec: { id: 'spec-1', title: 'Alpha spec' },
+        spec: { id: 1, title: 'Alpha spec' },
         session: { id: 'session-1' },
       },
     });
@@ -727,7 +723,7 @@ describe('JSON-RPC handlers', () => {
         jsonrpc: '2.0',
         id: 149,
         method: 'session.pendingExchange',
-        params: { sessionId: 'session-1', specId: 'spec-1' },
+        params: { sessionId: 'session-1', specId: 1 },
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -762,7 +758,7 @@ describe('JSON-RPC handlers', () => {
         jsonrpc: '2.0',
         id: 150,
         method: 'session.elicitationExchanges',
-        params: { sessionId: 'session-1', specId: 'spec-1' },
+        params: { sessionId: 'session-1', specId: 1 },
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -783,7 +779,7 @@ describe('JSON-RPC handlers', () => {
         jsonrpc: '2.0',
         id: 151,
         method: 'session.transcriptDisplay',
-        params: { sessionId: 'session-1', specId: 'spec-1' },
+        params: { sessionId: 'session-1', specId: 1 },
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -859,7 +855,7 @@ describe('JSON-RPC handlers', () => {
         jsonrpc: '2.0',
         id: 153,
         method: 'session.pendingExchange',
-        params: { sessionId: 'session-1', specId: 'spec-1' },
+        params: { sessionId: 'session-1', specId: 1 },
       }),
     ).resolves.toMatchObject({
       result: { status: 'idle', exchange: null },
@@ -921,7 +917,7 @@ describe('JSON-RPC handlers', () => {
         jsonrpc: '2.0',
         id: 154,
         method: 'session.pendingExchange',
-        params: { sessionId: 'session-1', specId: 'spec-1' },
+        params: { sessionId: 'session-1', specId: 1 },
       }),
     ).resolves.toMatchObject({
       result: { status: 'idle', exchange: null },
@@ -1476,7 +1472,7 @@ describe('JSON-RPC handlers', () => {
         jsonrpc: '2.0',
         id: 10,
         method: 'session.elicitationExchanges',
-        params: { sessionId: workspace.session.id, specId: 'spec-other' },
+        params: { sessionId: workspace.session.id, specId: 9999 },
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -1563,13 +1559,13 @@ describe('JSON-RPC handlers', () => {
       jsonrpc: '2.0',
       id: 19,
       error: {
-        code: -32005,
-        message: 'Brunch session self-description is invalid',
+        code: -32004,
+        message: 'Brunch session not found',
       },
     });
   });
 
-  it('returns a product-shaped error when explicit binding and Pi header session ids disagree', async () => {
+  it('resolves explicit forked sessions by Pi header id with inherited binding', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-header-mismatch-'));
     await writeExplicitSessionFixture(cwd, [
       { type: 'session', id: 'session-header', cwd },
@@ -1585,14 +1581,13 @@ describe('JSON-RPC handlers', () => {
         jsonrpc: '2.0',
         id: 18,
         method: 'session.elicitationExchanges',
-        params: { sessionId: 'session-binding' },
+        params: { sessionId: 'session-header' },
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
       id: 18,
-      error: {
-        code: -32005,
-        message: 'Brunch session self-description is invalid',
+      result: {
+        exchanges: [],
       },
     });
   });

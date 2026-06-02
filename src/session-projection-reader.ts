@@ -5,7 +5,7 @@ import { readBrunchSessionEnvelope, type BrunchSessionEnvelope } from './brunch-
 
 export interface ExplicitSessionProjectionParams {
   sessionId: string;
-  specId?: string;
+  specId?: number;
 }
 
 export type SessionProjectionTarget =
@@ -53,7 +53,7 @@ export async function resolveExplicitSessionProjectionTarget(
 }
 
 function sessionIds(readResult: Awaited<ReturnType<typeof readBrunchSessionEnvelope>>): string[] {
-  return readResult.ok ? [readResult.envelope.binding.sessionId] : readResult.observedSessionIds;
+  return readResult.ok ? [readResult.envelope.header.id] : readResult.observedSessionIds;
 }
 
 function invalidSessionSelfDescription(): SessionProjectionTarget {

@@ -20,7 +20,7 @@ interface RpcCall {
 const readySnapshot: WorkspaceSnapshot = {
   status: 'ready',
   cwd: '/tmp/brunch-project',
-  spec: { id: 'spec-1', title: 'Web spec' },
+  spec: { id: 1, title: 'Web spec' },
   session: { id: 'session-1', file: '/tmp/session.jsonl' },
   chrome: {
     phase: 'elicitation',
@@ -116,7 +116,7 @@ describe('Brunch React web app', () => {
     expect(calls).toContainEqual({ method: 'workspace.snapshot' });
     expect(calls).toContainEqual({
       method: 'session.transcriptDisplay',
-      params: { sessionId: 'session-1', specId: 'spec-1' },
+      params: { sessionId: 'session-1', specId: 1 },
     });
   });
 

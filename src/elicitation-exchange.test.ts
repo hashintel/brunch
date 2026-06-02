@@ -192,9 +192,7 @@ function appendBinding(manager: SessionManager): void {
   manager.appendCustomEntry(
     'brunch.session_binding',
     createSessionBindingData({
-      sessionId: manager.getSessionId(),
-      specId: 'spec-1',
-      specTitle: 'Spec',
+      specId: 1,
     }),
   );
 }

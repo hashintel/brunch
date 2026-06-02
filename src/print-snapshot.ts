@@ -4,7 +4,7 @@ export interface WorkspaceSnapshot {
   status: WorkspaceSessionState['status'];
   cwd: string;
   spec: {
-    id: string;
+    id: number;
     title: string;
   } | null;
   session?: {

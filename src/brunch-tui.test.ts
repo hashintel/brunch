@@ -898,7 +898,7 @@ async function writeHostilePiSettings(cwd: string, agentDir: string): Promise<vo
 }
 
 function readyWorkspace(cwd: string, sessionId: string): WorkspaceSessionReadyState {
-  const spec = { id: 'spec-1', title: 'Spec One' };
+  const spec = { id: 1, title: 'Spec One' };
   return {
     status: 'ready',
     cwd,

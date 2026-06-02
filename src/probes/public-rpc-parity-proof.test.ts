@@ -20,7 +20,7 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
       maxTurnBudget: 3,
       completedTurns: 3,
       friction: [],
-      specId: expect.any(String),
+      specId: expect.any(Number),
       sessionId: expect.any(String),
     });
     expect(Date.parse(report.generatedAt)).not.toBeNaN();

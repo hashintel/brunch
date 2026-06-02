@@ -14,7 +14,7 @@ describe('session transcript renderer', () => {
         id: 'binding-1',
         type: 'custom',
         customType: 'brunch.session_binding',
-        data: { specId: 'spec-1', specTitle: 'Demo spec' },
+        data: { schemaVersion: 1, specId: 1 },
       }),
       line({
         id: 'generic-tool-1',

@@ -38,21 +38,12 @@ export async function readBrunchSessionEnvelope(file: string): Promise<BrunchSes
   if (headers.length !== 1 || bindings.length !== 1) {
     return {
       ok: false,
-      observedSessionIds: uniqueStrings([
-        ...headers.map((header) => header.id),
-        ...bindings.map((binding) => binding.sessionId),
-      ]),
+      observedSessionIds: uniqueStrings(headers.map((header) => header.id)),
     };
   }
 
   const header = headers[0]!;
   const binding = bindings[0]!;
-  if (binding.sessionId !== header.id) {
-    return {
-      ok: false,
-      observedSessionIds: uniqueStrings([header.id, binding.sessionId]),
-    };
-  }
 
   assertFileBackedTranscriptEntries(entries);
   return { ok: true, envelope: { header, binding, entries } };

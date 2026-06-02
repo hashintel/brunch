@@ -14,9 +14,10 @@ plus the coordination logic for workspace/spec/session lifecycle.
   span + response-side span, per D13-L.
 
 - **Workspace coordination** — boot flow, spec/session selection,
-  `.brunch/state.json` management. The `WorkspaceSessionCoordinator`
+  `.brunch/workspace.json` management. The `WorkspaceSessionCoordinator`
   is the only module that creates/opens Pi sessions for Brunch user flows
-  and writes `brunch.session_binding`.
+  and writes collapsed `brunch.session_binding` entries (`{schemaVersion,
+  specId}`).
 
 - **Session binding** — session↔spec binding entries in JSONL.
 

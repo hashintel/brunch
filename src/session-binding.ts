@@ -5,9 +5,7 @@ export const SESSION_BINDING_SCHEMA_VERSION = 1;
 
 export interface SessionBindingData {
   schemaVersion: typeof SESSION_BINDING_SCHEMA_VERSION;
-  sessionId: string;
-  specId: string;
-  specTitle: string;
+  specId: number;
 }
 
 export type SessionBindingEntry = CustomEntry<SessionBindingData> & {
@@ -15,16 +13,10 @@ export type SessionBindingEntry = CustomEntry<SessionBindingData> & {
   data: SessionBindingData;
 };
 
-export function createSessionBindingData(options: {
-  sessionId: string;
-  specId: string;
-  specTitle: string;
-}): SessionBindingData {
+export function createSessionBindingData(options: { specId: number }): SessionBindingData {
   return {
     schemaVersion: SESSION_BINDING_SCHEMA_VERSION,
-    sessionId: options.sessionId,
     specId: options.specId,
-    specTitle: options.specTitle,
   };
 }
 
@@ -47,8 +39,7 @@ export function isSessionBindingData(value: unknown): value is SessionBindingDat
     typeof value === 'object' &&
     value !== null &&
     (value as { schemaVersion?: unknown }).schemaVersion === SESSION_BINDING_SCHEMA_VERSION &&
-    typeof (value as { sessionId?: unknown }).sessionId === 'string' &&
-    typeof (value as { specId?: unknown }).specId === 'string' &&
-    typeof (value as { specTitle?: unknown }).specTitle === 'string'
+    typeof (value as { specId?: unknown }).specId === 'number' &&
+    Number.isInteger((value as { specId: number }).specId)
   );
 }

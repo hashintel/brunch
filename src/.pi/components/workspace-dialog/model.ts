@@ -13,11 +13,11 @@ export type WorkspaceSelectionStage =
   | { stage: 'specList' }
   | {
       stage: 'specAction';
-      specId: string;
+      specId: number;
     }
   | {
       stage: 'sessionList';
-      specId: string;
+      specId: number;
     };
 
 export interface WorkspaceSelectionOption {
@@ -41,7 +41,7 @@ export interface WorkspaceSelectionView {
   stage: WorkspaceSelectionStage['stage'];
   title: string;
   options: WorkspaceSelectionOption[];
-  specId?: string;
+  specId?: number;
 }
 
 export interface WorkspaceSelectionViewOptions {
@@ -239,7 +239,7 @@ function findCurrentSession(inventory: WorkspaceLaunchInventory): WorkspaceLaunc
 
 function findSpec(
   inventory: WorkspaceLaunchInventory,
-  specId: string,
+  specId: number,
 ): WorkspaceLaunchInventory['specs'][number] | undefined {
   return inventory.specs.find((candidate) => candidate.spec.id === specId);
 }

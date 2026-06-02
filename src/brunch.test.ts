@@ -21,7 +21,7 @@ function coordinator(sessionFile?: string): WorkspaceSessionCoordinator {
         ...(sessionFile
           ? {
               status: 'ready' as const,
-              spec: { id: 'spec-1', title: 'Alpha spec' },
+              spec: { id: 1, title: 'Alpha spec' },
               session: {
                 id: 'session-1',
                 file: sessionFile,
@@ -29,7 +29,7 @@ function coordinator(sessionFile?: string): WorkspaceSessionCoordinator {
               },
               chrome: {
                 cwd: '/tmp/brunch-project',
-                spec: { id: 'spec-1', title: 'Alpha spec' },
+                spec: { id: 1, title: 'Alpha spec' },
                 phase: 'elicitation' as const,
                 chatMode: 'responding-to-elicitation' as const,
               },
@@ -113,9 +113,7 @@ describe('Brunch CLI dispatch', () => {
     manager.appendCustomEntry(
       'brunch.session_binding',
       createSessionBindingData({
-        sessionId: manager.getSessionId(),
-        specId: 'spec-1',
-        specTitle: 'Spec',
+        specId: 1,
       }),
     );
     manager.appendMessage(assistantMessage('Question'));

@@ -79,7 +79,7 @@ export interface PublicRpcParityProofReport {
   completedTurns: number;
   friction: string[];
   cwd: string;
-  specId: string;
+  specId: number;
   sessionId: string;
   toolCoverage: string[];
   exchangeIds: string[];

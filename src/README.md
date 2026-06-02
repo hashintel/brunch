@@ -56,7 +56,8 @@ Rules:
 Some files currently at `src/` root belong in `src/session/` per this layout
 (workspace-session-coordinator, session-binding, session-projection-reader,
 brunch-session-envelope, session-transcript, elicitation-exchange,
-structured-exchange). Move incrementally as each file is touched.
+structured-exchange). The active workspace file is `.brunch/workspace.json`
+(`state.json` is retired). Move files incrementally as each file is touched.
 
 Prompt composition currently under `src/tui-client/.pi/context/` migrates
 to `src/agents/` per D52-L. The `.pi/context/` README describes the

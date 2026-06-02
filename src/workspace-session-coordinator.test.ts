@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -29,7 +29,7 @@ describe('WorkspaceSessionCoordinator', () => {
 
     expect(result.status).toBe('ready');
     expect(result.chrome.cwd).toBe(cwd);
-    expect(result.chrome.spec?.id).toMatch(/^spec-/u);
+    expect(result.chrome.spec?.id).toBeTypeOf('number');
     expect(result.chrome.spec?.title).toBe('Scratch spec');
     expect(result.chrome.phase).toBe('elicitation');
     expect(result.chrome.chatMode).toBe('responding-to-elicitation');
@@ -74,10 +74,10 @@ describe('WorkspaceSessionCoordinator', () => {
       .find((entry) => isCustomEntry(entry) && entry.customType === SESSION_BINDING_TYPE);
 
     expect(firstBinding).toMatchObject({
-      data: { specId: first.spec.id, specTitle: 'Scratch spec' },
+      data: { specId: first.spec.id },
     });
     expect(secondBinding).toMatchObject({
-      data: { specId: first.spec.id, specTitle: 'Scratch spec' },
+      data: { specId: first.spec.id },
     });
 
     const oracle = await verifyWorkspaceSessionStores({
@@ -109,9 +109,7 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(bindings[0]).toMatchObject({
       customType: SESSION_BINDING_TYPE,
       data: {
-        sessionId: result.session.id,
         specId: result.spec.id,
-        specTitle: result.spec.title,
       },
     });
   });
@@ -161,9 +159,7 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(bindings).toHaveLength(1);
     expect(bindings[0]).toMatchObject({
       data: {
-        sessionId: result.session.id,
         specId: result.spec.id,
-        specTitle: 'Scratch spec',
       },
     });
   });
@@ -249,7 +245,7 @@ describe('WorkspaceSessionCoordinator', () => {
       specTitle: 'Beta',
       createNewSpec: true,
     });
-    const beforeState = await readFile(join(cwd, '.brunch', 'state.json'), 'utf8');
+    const beforeState = await readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8');
     const beforeFirst = await readFile(first.session.file, 'utf8');
     const beforeSecond = await readFile(second.session.file, 'utf8');
 
@@ -279,7 +275,7 @@ describe('WorkspaceSessionCoordinator', () => {
       }),
     ]);
     expect(inventory.unavailableSessions).toEqual([]);
-    await expect(readFile(join(cwd, '.brunch', 'state.json'), 'utf8')).resolves.toBe(beforeState);
+    await expect(readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8')).resolves.toBe(beforeState);
     await expect(readFile(first.session.file, 'utf8')).resolves.toBe(beforeFirst);
     await expect(readFile(second.session.file, 'utf8')).resolves.toBe(beforeSecond);
   });
@@ -321,9 +317,7 @@ describe('WorkspaceSessionCoordinator', () => {
         customType: SESSION_BINDING_TYPE,
         data: {
           schemaVersion: 1,
-          sessionId: 'other-session',
           specId: ready.spec.id,
-          specTitle: ready.spec.title,
         },
       })}\n`,
       'utf8',
@@ -334,12 +328,9 @@ describe('WorkspaceSessionCoordinator', () => {
     const inventory = await coordinator.inspectWorkspace();
 
     expect(inventory.specs).toHaveLength(1);
-    expect(inventory.specs[0]?.sessions).toHaveLength(1);
+    expect(inventory.specs[0]?.sessions).toHaveLength(2);
+    expect(inventory.specs[0]?.sessions.map((session) => session.file)).toContain(mismatchedFile);
     expect(inventory.unavailableSessions).toEqual([
-      expect.objectContaining({
-        file: mismatchedFile,
-        reason: 'incompatible_binding',
-      }),
       expect.objectContaining({ file: unboundFile, reason: 'missing_binding' }),
     ]);
     await expect(readFile(unboundFile, 'utf8')).resolves.toBe(beforeUnbound);
@@ -382,9 +373,8 @@ describe('WorkspaceSessionCoordinator', () => {
     }
     expect(continued.spec).toEqual(second.spec);
     expect(continued.session.id).toBe(second.session.id);
-    expect(JSON.parse(await readFile(join(cwd, '.brunch', 'state.json'), 'utf8'))).toMatchObject({
-      currentSpec: second.spec,
-      currentSessionFile: second.session.file,
+    expect(JSON.parse(await readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8'))).toMatchObject({
+      current: { specId: second.spec.id, sessionId: second.session.id },
     });
   });
 
@@ -443,13 +433,13 @@ describe('WorkspaceSessionCoordinator', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
     const ready = await coordinator.createSetupSession({ specTitle: 'Alpha' });
-    const beforeState = await readFile(join(cwd, '.brunch', 'state.json'), 'utf8');
+    const beforeState = await readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8');
     const beforeSession = await readFile(ready.session.file, 'utf8');
 
     const result = await coordinator.activateWorkspace({ action: 'cancel' });
 
     expect(result.status).toBe('cancelled');
-    await expect(readFile(join(cwd, '.brunch', 'state.json'), 'utf8')).resolves.toBe(beforeState);
+    await expect(readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8')).resolves.toBe(beforeState);
     await expect(readFile(ready.session.file, 'utf8')).resolves.toBe(beforeSession);
   });
 
@@ -471,7 +461,7 @@ describe('WorkspaceSessionCoordinator', () => {
     });
     const mismatched = await coordinator.activateWorkspace({
       action: 'openSession',
-      specId: 'spec-missing',
+      specId: 9999,
       sessionFile: ready.session.file,
     });
 
@@ -479,9 +469,8 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(mismatched.status).toBe('needs_human');
   });
 
-  it('asks for spec selection when no current spec exists and creation is not allowed', async () => {
+  it('scaffolds workspace.json and data.db when no current spec exists', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
-    await mkdir(join(cwd, '.brunch'), { recursive: true });
 
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
     const result = await coordinator.openDefaultWorkspace();
@@ -489,6 +478,19 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(result.status).toBe('select_spec');
     expect(result.chrome.cwd).toBe(cwd);
     expect(result.chrome.spec).toBeNull();
+    await expect(stat(join(cwd, '.brunch', 'data.db'))).resolves.toMatchObject({});
+    expect(JSON.parse(await readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8'))).toMatchObject({
+      project: expect.objectContaining({ name: expect.any(String), slug: expect.any(String) }),
+      current: null,
+      posture: {
+        certainty: '',
+        stakes: '',
+        audience: '',
+        horizon: '',
+        migration: '',
+        sourcing: '',
+      },
+    });
   });
 
   it('generates a display name for new sessions and persists it as session_info', async () => {

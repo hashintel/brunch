@@ -19,7 +19,7 @@ type RouterContext = {
 
 type SessionProjectionTarget = {
   sessionId: string;
-  specId: string;
+  specId: number;
 };
 
 export interface BrunchWebRuntime {

@@ -169,12 +169,13 @@ function workspaceActivationSnapshotFromState(state: WorkspaceActivationState):
 }
 
 const NonBlankStringSchema = Type.String({ minLength: 1, pattern: '\\S' });
+const PositiveIntegerSchema = Type.Integer({ minimum: 1 });
 
 export const SpecSessionActivationDecisionSchema = Type.Union([
   Type.Object(
     {
       action: Type.Literal('continue'),
-      specId: NonBlankStringSchema,
+      specId: PositiveIntegerSchema,
       sessionFile: NonBlankStringSchema,
     },
     { additionalProperties: false },
@@ -182,7 +183,7 @@ export const SpecSessionActivationDecisionSchema = Type.Union([
   Type.Object(
     {
       action: Type.Literal('openSession'),
-      specId: NonBlankStringSchema,
+      specId: PositiveIntegerSchema,
       sessionFile: NonBlankStringSchema,
     },
     { additionalProperties: false },
@@ -190,7 +191,7 @@ export const SpecSessionActivationDecisionSchema = Type.Union([
   Type.Object(
     {
       action: Type.Literal('newSession'),
-      specId: NonBlankStringSchema,
+      specId: PositiveIntegerSchema,
     },
     { additionalProperties: false },
   ),
@@ -445,7 +446,7 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
         params: {
           decision: {
             action: 'openSession',
-            specId: 'spec-1',
+            specId: 1,
             sessionFile: '.brunch/sessions/session-1.jsonl',
           },
         },
@@ -463,7 +464,7 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
         jsonrpc: '2.0',
         id: 6,
         method: 'session.elicitationExchanges',
-        params: { sessionId: 'session-1', specId: 'spec-1' },
+        params: { sessionId: 'session-1', specId: 1 },
       },
     ],
   },
@@ -478,7 +479,7 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
         jsonrpc: '2.0',
         id: 7,
         method: 'session.transcriptDisplay',
-        params: { sessionId: 'session-1', specId: 'spec-1' },
+        params: { sessionId: 'session-1', specId: 1 },
       },
     ],
   },
@@ -502,7 +503,7 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
         jsonrpc: '2.0',
         id: 10,
         method: 'session.pendingExchange',
-        params: { sessionId: 'session-1', specId: 'spec-1' },
+        params: { sessionId: 'session-1', specId: 1 },
       },
     ],
   },
@@ -1162,7 +1163,7 @@ function parseSessionProjectionParams(value: unknown): SessionProjectionParamsPa
   if (
     typeof sessionId !== 'string' ||
     sessionId.length === 0 ||
-    (specId !== undefined && (typeof specId !== 'string' || specId.length === 0))
+    (specId !== undefined && (typeof specId !== 'number' || !Number.isInteger(specId) || specId < 1))
   ) {
     return { ok: false };
   }
