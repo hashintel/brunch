@@ -22,8 +22,9 @@ import { enumerateCandidateOutputs } from './net-blueprint.js';
 import type { NetBlueprint, TokenSeed } from './net-blueprint.js';
 
 /**
- * Schema version of the exported JSON. Bump on any breaking shape change so
- * Petrinaut loaders can refuse incompatible runs early.
+ * Schema version of Brunch's exported net JSON. Bump on any breaking Brunch
+ * shape change so Petrinaut loaders can refuse incompatible runs early. This is
+ * separate from Petrinaut's SDCPN file-format `version`.
  */
 export const PETRINAUT_NET_SCHEMA_VERSION = '0.1.0';
 
@@ -95,6 +96,10 @@ export type SerializeBlueprintOpts = {
  * the candidate output set for each transition is computed via
  * `enumerateCandidateOutputs`. Initial marking is grouped by place and each
  * token gets a fresh UUID.
+ *
+ * The downstream SDCPN import projection is intentionally lossy for v1: it keeps
+ * topology and initial counts but does not encode Brunch guard semantics or
+ * token payloads into executable SDCPN colour/kernel logic.
  */
 export function serializeBlueprint(blueprint: NetBlueprint, opts: SerializeBlueprintOpts): PetrinautNet {
   const tokenId = opts.tokenIdFn ?? randomUUID;

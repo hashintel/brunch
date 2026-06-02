@@ -20,11 +20,17 @@
 //     empty kernel (uncoloured output places are auto-populated by Petrinaut).
 //   - Initial marking maps to a single `per_place` scenario keyed by place ID
 //     (Petrinaut's per_place content is keyed by ID, not name).
+//   - This is therefore a visualization/import projection, not a lossless
+//     executable SDCPN semantics export. Brunch remains the execution authority;
+//     Petrinaut uses this file to render topology and replay observed firings.
 // ---------------------------------------------------------------------------
 
 import type { PetrinautNet } from './petrinaut-export.js';
 
-/** Petrinaut SDCPN file format version this module targets. */
+/**
+ * Petrinaut SDCPN file format version this module targets. This is Petrinaut's
+ * loader envelope version, not Brunch's generated-net contract version.
+ */
 export const SDCPN_FILE_FORMAT_VERSION = 1;
 
 /** Predicate lambda that always enables the transition (presence-gated firing). */
@@ -63,6 +69,7 @@ export type SdcpnScenario = {
 
 export type SdcpnFile = {
   version: number;
+  /** generatorVersion carries Brunch's exported-net schema version. */
   meta: { generator: string; generatorVersion?: string };
   title: string;
   places: SdcpnPlace[];
@@ -107,6 +114,9 @@ export function toSdcpnFile(net: PetrinautNet, opts: ToSdcpnFileOpts): SdcpnFile
 
   return {
     version: SDCPN_FILE_FORMAT_VERSION,
+    // Keep the two version axes distinct:
+    // - `version` is Petrinaut's SDCPN file-format version.
+    // - `meta.generatorVersion` is the Brunch `PetrinautNet.schemaVersion`.
     meta: { generator: 'brunch', generatorVersion: net.schemaVersion },
     title: opts.title ?? `Cook run ${net.runId}`,
     places,
