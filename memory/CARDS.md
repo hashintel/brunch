@@ -9,23 +9,27 @@ Slices 1 + 2 done — the static export + live event stream now fold through
 one caller-supplied `NetFolding`, the cook CLI selects fold mode via
 `--petrinaut-fold=color|identity` (default `identity`), and an engine-driven
 frame-replay oracle round-trips a real cook run through
-`reduceBrunchExecutionExport`. Both slices live on `ka/fe-764-petri-sync-server`
-(stacked on `ka/fe-784`).
+`reduceBrunchExecutionExport`. All work lives on
+`ka/fe-764-petri-sync-server` (stacked on `ka/fe-784`).
 
-Later slices (ephemeral SSE server in the cook process — slice 3;
-`--petrinaut-stream` flag + URL composition + multi-tier base-URL
-resolution + auto-open — slice 4; web-UI button + endpoint discovery —
-slice 5) are sketched below; promote to full scope cards once slice 3
-has a concrete shape and the on-wire contract has held up against an
-integration test.
+Slice 3 (ephemeral live stream) is split into two card-sized commits:
+
+- **3a (next):** event-bus + replay buffer + incremental frame translator
+  (`PetrinautEvent` → `BrunchExecutionExport` frames). Pure, no HTTP. Wired
+  into the engine via a new `onPetrinautEvent` fan-out hook on
+  `OrchestratorInput`.
+- **3b (sequentially obvious):** HTTP server (`http.createServer` +
+  `listen(0)`) + `/stream` (text/event-stream) mounted on the 3a bus.
+  Connection lifecycle, port advertisement, process-death cleanup.
+
+Slices 4 (`--petrinaut-stream` + URL composition + multi-tier base-URL +
+auto-open) and 5 (web-UI button + endpoint discovery) stay sketched below;
+promote to full scope cards once 3a + 3b ship and a real Petrinaut client
+has consumed the stream end-to-end.
 
 ---
 
-## Slices 3–5 (sketches — promote to full cards after slice 2 ships)
-
-### Slice 3 — ephemeral SSE server in the cook process
-
-Boot an HTTP server on a free port inside the cook process (`http.createServer` + `listen(0)`); one route `/stream` returns `text/event-stream` and replays `definition` → `initial_marking` → all firings-so-far → live firings → terminal per the `BrunchExecutionExport` contract. Lifecycle: starts at cook init, dies with the process. Buffers prior events in memory so a late joiner gets the full timeline. No persistence, no auth, localhost-only.
+## Slices 4–5 (sketches — promote to full cards after slice 3b ships)
 
 ### Slice 4 — `--petrinaut-stream` flag + URL composition + multi-tier base-URL + auto-open
 
@@ -183,3 +187,109 @@ No cook-process / filesystem / SSE wiring in this slice. The function is consume
 
 - Slice 2 IS sequentially obvious from slice 1 — its scope wouldn't change based on what slice 1 finds. Keeping both pre-scoped per the prepared-queue rule.
 - Once both land, `/tmp/reduce-export.mjs` and `HANDOFF.md` can be deleted (HANDOFF retirement rule fires: branch decision recorded, FE-764 work committed, next-slice scope card exists).
+
+---
+
+## Slice 3a: event-bus + replay buffer + incremental frame translator
+
+**Status:** next. Pure data-shape work — no HTTP yet. Establishes the
+in-process pub/sub that slice 3b will mount its `/stream` route on.
+
+### Target Behavior
+
+A new pure module `petrinaut-stream-bus.ts` exposes
+`createPetrinautStreamBus({ runId, sdcpnFile })` returning
+`{ publish(event: PetrinautEvent), subscribe(handler): unsubscribe }` where
+every subscriber — including a late subscriber that attaches after firings
+have already published — observes the full ordered sequence of
+`BrunchExecutionExportFrame` values: exactly one `definition` frame, then
+exactly one `initial_state` frame, then zero or more `transition_firing`
+frames in publish order, then at most one `terminal` frame after which the
+subscriber receives no further frames.
+
+### Boundary Crossings
+
+```
+→ src/orchestrator/src/petrinaut-stream-bus.ts (new — pure pub/sub + replay buffer + frame translator)
+→ src/orchestrator/src/petrinaut-stream-export.ts (existing — extract per-event `eventToTransitionFiring(event): TransitionFiring` so the bus and the static reducer share one transform)
+→ src/orchestrator/src/types.ts (existing — add `onPetrinautEvent?: (event: PetrinautEvent) => void` fan-out hook on OrchestratorInput)
+→ src/orchestrator/src/engine.ts (existing — pass `input.onPetrinautEvent` into createPetrinautEventStream as the `onEvent` callback so engine-emitted events fan out to the bus without engine knowing the bus exists)
+→ exits at:
+    src/orchestrator/src/petrinaut-stream-bus.test.ts (new — pub/sub + replay-on-subscribe + frame translation + terminal closure)
+    src/orchestrator/src/engine-contract.test.ts (existing — extend FE-764 block: drive engine with `onPetrinautEvent` set, attach bus subscriber, assert replay-on-connect invariant on a real run)
+```
+
+### Risks and Assumptions
+
+```
+- ASSUMPTION: The `BrunchExecutionExportFrame` discriminated-union shape is the right SSE wire format — one logical frame per SSE `data:` payload, frame kinds disjoint from PetrinautEvent kinds.
+  → VALIDATE: `Frame = { kind: 'definition'; definition: NetDefinition } | { kind: 'initial_state'; initialState: Marking } | { kind: 'transition_firing'; firing: TransitionFiring } | { kind: 'terminal' }` is structurally equivalent to walking `BrunchExecutionExport` field-by-field. Type-level check in tests: reducing the captured frame sequence reconstructs a `BrunchExecutionExport` byte-equal to `reduceBrunchExecutionExport({ sdcpnFile, events })`.
+  → If the cross-team Petrinaut team specifies a different envelope (e.g. always-named `event:` SSE field, batched frames), slice 3b adapts the HTTP serializer; this slice's shape stays.
+
+- ASSUMPTION: A late subscriber gets the full buffered timeline *before* any further live frames. No interleaving — replay completes synchronously on subscribe, then live frames flow.
+  → VALIDATE: test where subscriber attaches after 3 firings have published; subscriber receives `definition`, `initial_state`, all 3 `transition_firing` frames synchronously, then live firings appear in order.
+
+- ASSUMPTION: The bus owns the timeline. The engine remains the sole publisher; subscribers are read-only. No backpressure (a slow subscriber doesn't pause the engine — it queues per-subscriber).
+  → VALIDATE: per-subscriber queue is unbounded for now (in-process, small N); slice 3b revisits if necessary when real HTTP backpressure matters.
+
+- RISK: Mixing replay and live publish risks a race — if `publish()` is called concurrently with `subscribe()`, the late subscriber could either double-receive a frame or miss one at the boundary.
+  → MITIGATION: bus is single-threaded JS; replay and the subscribe-mark-live happen in one synchronous tick before publish() can next fire. Test explicitly: `subscribe()` immediately followed by `publish()` produces exactly one delivery of the new frame.
+
+- RISK: The static reducer (`reduceBrunchExecutionExport`) currently does its own per-event transform inline; factoring it into a shared helper risks regressing slice-1 tests.
+  → MITIGATION: extract `eventToTransitionFiring` first as a no-op refactor, run all 11 slice-1 tests green, then build the bus on top.
+```
+
+### Acceptance Criteria
+
+```
+✓ `createPetrinautStreamBus({ runId, sdcpnFile })` exported from petrinaut-stream-bus.ts; returns `{ publish, subscribe }`; pure (no I/O, no globals, no timers).
+
+✓ `BrunchExecutionExportFrame` discriminated union exported from petrinaut-stream-bus.ts: `definition` | `initial_state` | `transition_firing` | `terminal`. Type-level pin test mirroring slice-1's locked-schema test.
+
+✓ test: subscriber attached *before* any publish observes — in order — exactly one `definition` frame, exactly one `initial_state` frame after the first `initial_marking` PetrinautEvent, one `transition_firing` per `transition_fired` PetrinautEvent in publish order, and exactly one `terminal` frame after the first `net_halted` or `net_deadlocked` PetrinautEvent.
+
+✓ test: subscriber attached *after* N firings and a terminal have published receives the full back-buffer (`definition`, `initial_state`, N × `transition_firing`, `terminal`) synchronously on subscribe, then no further frames.
+
+✓ test: subscriber attached between firings receives the buffered frames synchronously, then the subsequent live firings; no firing is dropped, no firing is delivered twice.
+
+✓ test: `unsubscribe()` halts delivery to that handler; other subscribers continue receiving frames.
+
+✓ test: replay-equivalence oracle — collect every frame from one subscriber attached pre-publish, fold them back into a `BrunchExecutionExport`, assert byte-equal to `reduceBrunchExecutionExport({ sdcpnFile, events })`.
+
+✓ `OrchestratorInput.onPetrinautEvent?: (event: PetrinautEvent) => void` added to types.ts; engine.ts threads it into createPetrinautEventStream's `onEvent` opt (no other engine changes).
+
+✓ test: engine-driven integration in engine-contract.test.ts — run cook with `onPetrinautEvent` wired to the bus, subscribe before run, assert replay-equivalence after run completes.
+
+✓ Refactor: `eventToTransitionFiring(event)` extracted into petrinaut-stream-export.ts and reused by both `reduceBrunchExecutionExport` and the bus; all 11 existing slice-1 tests still pass.
+
+✓ `npm run verify` green.
+```
+
+### Verification Approach
+
+```
+- Inner: unit tests on createPetrinautStreamBus (pre-subscribe, post-subscribe, mid-stream subscribe, unsubscribe, terminal closure, replay-equivalence oracle).
+- Middle: engine-contract.test.ts integration — real cook run with onPetrinautEvent wired into the bus; assert replay-equivalence on captured frames.
+- Outer: deferred to slice 3b (real HTTP client reading SSE).
+```
+
+---
+
+## Slice 3b (sketch — promote to full card after 3a ships)
+
+Mount the 3a bus on an HTTP server inside the cook process.
+`http.createServer` + `listen(0)`; one route `GET /stream` returns
+`Content-Type: text/event-stream`, subscribes to the bus, serializes each
+`BrunchExecutionExportFrame` as one SSE event (`event: <kind>\ndata:
+<json>\n\n`), closes the connection after the `terminal` frame is sent.
+Server boots before `engine.run`, dies with the process (SIGINT/SIGTERM).
+Cook prints the chosen `localhost:<port>/stream` URL on boot; slice 4
+composes the Petrinaut launcher URL on top. No persistence, no auth,
+localhost-only bind.
+
+Open items to lock when 3b is scoped: keep-alive comment cadence (Petrinaut
+client tolerance), `Last-Event-ID` resume semantics (probably out-of-scope
+for v1 since the buffer is the timeline), CORS posture (probably allow `*`
+since localhost-only — confirm with Chris), test approach for HTTP (real
+`fetch` against bound port vs in-process `http.request` vs a stub
+ResponseStream).
