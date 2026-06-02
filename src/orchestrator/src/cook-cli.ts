@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -59,22 +60,77 @@ function fmtDuration(ms: number): string {
   return `${m}m ${rem.toFixed(0)}s`;
 }
 
-export async function runCook(opts: CookOptions): Promise<void> {
-  const planPath = join(opts.dir, 'plan.yaml');
-  if (!existsSync(planPath)) {
-    const codebasePlanPath = join(opts.dir, '.cook', 'plan.yaml');
-    if (existsSync(codebasePlanPath)) {
-      console.error('Codebase mode (brownfield) is not yet implemented.');
-      console.error('POC supports fixture mode only: place plan.yaml at the root of <dir>.');
-      process.exit(1);
+export type ResolvedCookMode =
+  | { mode: 'fixture'; planPath: string }
+  | { mode: 'codebase'; planPath: string; sourceDir: string }
+  | { mode: 'error'; message: string };
+
+/**
+ * Resolve cook's run mode by inspecting `<dir>`:
+ *   - `<dir>/plan.yaml` exists           → fixture mode (greenfield).
+ *   - `<dir>/.brunch/cook/plan.yaml`     → codebase mode (brownfield); requires
+ *                                          `<dir>` to be a git repo with a clean
+ *                                          working tree.
+ *   - neither                            → error.
+ *
+ * Pure function — no process exits, no side effects beyond filesystem reads.
+ */
+export function resolveCookMode(dir: string): ResolvedCookMode {
+  const fixturePath = join(dir, 'plan.yaml');
+  if (existsSync(fixturePath)) {
+    return { mode: 'fixture', planPath: fixturePath };
+  }
+
+  const codebasePath = join(dir, '.brunch', 'cook', 'plan.yaml');
+  if (existsSync(codebasePath)) {
+    const gitCheck = isCleanGitWorkingTree(dir);
+    if (gitCheck.kind === 'not-git') {
+      return { mode: 'error', message: `Codebase mode requires <dir> to be a git repo: ${dir}` };
     }
-    console.error(`No plan found at ${planPath}`);
+    if (gitCheck.kind === 'dirty') {
+      return {
+        mode: 'error',
+        message: `Codebase mode refuses to run against an uncommitted working tree:\n${gitCheck.status}`,
+      };
+    }
+    return { mode: 'codebase', planPath: codebasePath, sourceDir: dir };
+  }
+
+  return { mode: 'error', message: `No plan found at ${fixturePath} or ${codebasePath}` };
+}
+
+type GitWorkingTreeCheck = { kind: 'clean' } | { kind: 'dirty'; status: string } | { kind: 'not-git' };
+
+function isCleanGitWorkingTree(dir: string): GitWorkingTreeCheck {
+  // `--untracked-files=no` so a user authoring `<dir>/.brunch/cook/plan.yaml`
+  // (which is untracked by definition) does not trip the gate. The gate only
+  // refuses on modified or staged tracked files — the things cook could lose.
+  const result = spawnSync('git', ['status', '--porcelain', '--untracked-files=no'], {
+    cwd: dir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (result.status !== 0) {
+    return { kind: 'not-git' };
+  }
+  const status = result.stdout.trim();
+  if (status === '') return { kind: 'clean' };
+  return { kind: 'dirty', status };
+}
+
+export async function runCook(opts: CookOptions): Promise<void> {
+  const resolved = resolveCookMode(opts.dir);
+  if (resolved.mode === 'error') {
+    console.error(resolved.message);
     process.exit(1);
   }
 
-  const plan = loadPlan(planPath);
+  const plan = loadPlan(resolved.planPath);
   const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
-  const { sandboxDir, runDir } = createSandbox(launchCwd);
+  const { sandboxDir, runDir, runId } =
+    resolved.mode === 'codebase'
+      ? createSandbox(launchCwd, undefined, { mode: 'codebase', sourceDir: resolved.sourceDir })
+      : createSandbox(launchCwd);
   const reportsPath = join(runDir, 'reports.jsonl');
 
   const epicCount = plan.epics.length;
@@ -105,6 +161,8 @@ export async function runCook(opts: CookOptions): Promise<void> {
     reports,
     testRunner,
     policy: { maxRetries: opts.maxRetries },
+    sandboxMode: resolved.mode === 'codebase' ? 'codebase' : 'fixture',
+    runId,
   });
 
   const duration = fmtDuration(Date.now() - runStart);

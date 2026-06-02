@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -8,13 +9,14 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   epicIdsForEpicVerifyMerge,
   mergeSlicesIntoEpicSandbox,
+  seedSliceFromParentWorktree,
   seedSliceSandboxFromDeps,
   sliceIdsForEpicVerifyMerge,
 } from './epic-sandbox-merge.js';
@@ -203,6 +205,129 @@ describe('seedSliceSandboxFromDeps', () => {
   });
 });
 
+describe('seedSliceFromParentWorktree', () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    dirs.length = 0;
+  });
+
+  const singleSlicePlan: Plan = {
+    epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
+    slices: [{ id: 'only', epic_id: 'e1', definition: '', depends_on: [], verification: [] }],
+  };
+
+  /**
+   * Create a tmp dir initialised as a git worktree of a fresh repo at HEAD,
+   * mimicking the structure cook produces via createSandbox in codebase mode:
+   * the "parent" is itself a `git worktree add` of a separate "source" repo,
+   * checked out on a `cook/<runId>` branch.
+   */
+  function makeGitParentWorktree(runId: string): {
+    parent: string;
+    source: string;
+    addUntracked: (relPath: string, content: string) => void;
+  } {
+    const source = mkdtempSync(join(tmpdir(), 'cook-source-'));
+    dirs.push(source);
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: source });
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: source });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: source });
+    writeFileSync(join(source, 'README.md'), '# project\n');
+    mkdirSync(join(source, 'src'));
+    writeFileSync(join(source, 'src', 'a.ts'), 'export const a = 1;\n');
+    execFileSync('git', ['add', '.'], { cwd: source });
+    execFileSync('git', ['commit', '-q', '-m', 'initial'], { cwd: source });
+
+    const runDir = mkdtempSync(join(tmpdir(), 'cook-run-'));
+    dirs.push(runDir);
+    const parent = join(runDir, 'worktree');
+    execFileSync('git', ['worktree', 'add', '-q', '-b', `cook/${runId}`, parent, 'HEAD'], { cwd: source });
+
+    return {
+      parent,
+      source,
+      addUntracked: (relPath, content) => {
+        const abs = join(parent, relPath);
+        mkdirSync(dirname(abs), { recursive: true });
+        writeFileSync(abs, content);
+      },
+    };
+  }
+
+  it('tracked content arrives via git worktree checkout', () => {
+    const { parent } = makeGitParentWorktree('r1');
+
+    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan, 'r1');
+
+    expect(sliceDir).toBe(join(parent, 'only'));
+    expect(readFileSync(join(sliceDir, 'README.md'), 'utf8')).toBe('# project\n');
+    expect(readFileSync(join(sliceDir, 'src/a.ts'), 'utf8')).toBe('export const a = 1;\n');
+  });
+
+  it('untracked content arrives via CoW copy from the parent', () => {
+    const { parent, addUntracked } = makeGitParentWorktree('r2');
+    // Simulate node_modules / generated artifacts present in the parent
+    // worktree but NOT tracked by git.
+    addUntracked('node_modules/dep/index.js', 'module.exports = 1;\n');
+    addUntracked('dist/bundle.js', 'console.log("bundle");\n');
+
+    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan, 'r2');
+
+    expect(readFileSync(join(sliceDir, 'node_modules/dep/index.js'), 'utf8')).toBe('module.exports = 1;\n');
+    expect(readFileSync(join(sliceDir, 'dist/bundle.js'), 'utf8')).toBe('console.log("bundle");\n');
+  });
+
+  it('slice worktree is checked out on a slice-level cook branch', () => {
+    const { parent } = makeGitParentWorktree('r3');
+
+    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan, 'r3');
+
+    const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: sliceDir,
+      encoding: 'utf8',
+    }).trim();
+    expect(branch).toBe('cook-slice/r3/only');
+  });
+
+  it('excludes sibling slice subdirs from the untracked copy', () => {
+    const { parent, addUntracked } = makeGitParentWorktree('r4');
+    const planTwo: Plan = {
+      epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
+      slices: [
+        { id: 'first', epic_id: 'e1', definition: '', depends_on: [], verification: [] },
+        { id: 'second', epic_id: 'e1', definition: '', depends_on: [], verification: [] },
+      ],
+    };
+    addUntracked('first/already-cooked.txt', 'first slice output\n');
+
+    const sliceDir = seedSliceFromParentWorktree(parent, 'second', planTwo, 'r4');
+
+    expect(existsSync(join(sliceDir, 'first'))).toBe(false);
+  });
+
+  it('excludes __epic__ reserved dir from the untracked copy', () => {
+    const { parent, addUntracked } = makeGitParentWorktree('r5');
+    addUntracked('__epic__/e1/leftover.txt', 'leftover\n');
+
+    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan, 'r5');
+
+    expect(existsSync(join(sliceDir, '__epic__'))).toBe(false);
+  });
+
+  it('rejects slice ids that collide with top-level repo entries', () => {
+    const { parent } = makeGitParentWorktree('r6');
+    const plan: Plan = {
+      epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
+      slices: [{ id: 'src', epic_id: 'e1', definition: '', depends_on: [], verification: [] }],
+    };
+
+    expect(() => seedSliceFromParentWorktree(parent, 'src', plan, 'r6')).toThrow(
+      'Slice id "src" collides with an existing entry in the parent worktree',
+    );
+  });
+});
+
 describe('mergeSlicesIntoEpicSandbox', () => {
   const dirs: string[] = [];
   afterEach(() => {
@@ -361,6 +486,21 @@ describe('mergeSlicesIntoEpicSandbox', () => {
 
     expect(existsSync(join(result.epicSandboxDir, 'src/a.ts'))).toBe(true);
     expect(existsSync(join(result.epicSandboxDir, 'epic-1'))).toBe(false);
+  });
+
+  it('does not copy .git worktree pointer files from codebase-mode slice worktrees', () => {
+    const parent = makeParent();
+    seedSlice(parent, 'slice-a', { 'src/a.ts': 'A\n' });
+    writeFileSync(join(parent, 'slice-a', '.git'), 'gitdir: /tmp/stale-worktree\n');
+
+    const result = mergeSlicesIntoEpicSandbox({
+      parentSandboxDir: parent,
+      epicId: 'epic-a',
+      sliceIds: ['slice-a'],
+    });
+
+    expect(existsSync(join(result.epicSandboxDir, 'src/a.ts'))).toBe(true);
+    expect(existsSync(join(result.epicSandboxDir, '.git'))).toBe(false);
   });
 
   it('ignores symlinks when walking slice worktree files', () => {

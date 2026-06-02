@@ -17,9 +17,11 @@
 // epic, its transitive epic dependencies, and any transitive slice dependencies
 // owned by other epics. It never walks filesystem state to discover more scope.
 
+import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
+import { copyMissingTopLevelEntries } from './cow-copy.js';
 import type { Plan, Slice } from './types.js';
 
 export type MergeConflict = {
@@ -80,6 +82,9 @@ export function sliceIdsForEpicVerifyMerge(plan: Plan, epicId: string): string[]
 
 /** Reserved under the parent sandbox for merged epic verify trees. */
 const EPIC_MERGE_SEGMENT = '__epic__';
+
+/** Never copy git/brunch metadata when walking slice worktrees for merge/seed. */
+const WALK_SKIP_ENTRIES = new Set(['.git', '.brunch', EPIC_MERGE_SEGMENT]);
 
 function assertSafePathSegment(id: string, label: string): void {
   if (!id || id.includes('..') || id.includes('/') || id.includes('\\')) {
@@ -186,6 +191,75 @@ function pruneEmptyDirs(rootDir: string, dir: string = rootDir): void {
   }
 }
 
+function assertSliceWorktreePathAvailable(parentSandboxDir: string, sliceId: string): void {
+  const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
+  if (existsSync(sliceDir)) {
+    throw new Error(`Slice id "${sliceId}" collides with an existing entry in the parent worktree`);
+  }
+}
+
+/**
+ * Codebase-mode seed: prepare the per-slice worktree as a real `git worktree`
+ * checked out on a slice-level branch (`cook-slice/<runId>/<sliceId>`) off
+ * the run-level cook branch, then CoW-copy any untracked/gitignored content
+ * from the parent worktree (e.g. `node_modules/`, `dist/`) so pi-actions can
+ * run `npm test` / `bun test` / build steps that depend on runtime deps.
+ *
+ * The slice branches live in a sibling namespace `cook-slice/` rather than
+ * nested under `cook/<runId>/` because git refs are leaf-or-directory: with
+ * `cook/<runId>` already a leaf branch, `cook/<runId>/<sliceId>` would fail
+ * with "cannot lock ref ... 'refs/heads/cook/<runId>' exists."
+ *
+ * Excluded from the untracked CoW step:
+ *   - sibling slice subdirs (other entries in `plan.slices`)
+ *   - the `__epic__/` reserved merge dir
+ *   - `.git` (the parent's worktree pointer; the new worktree gets its own)
+ *   - any entry already created by `git worktree add` (tracked content)
+ *
+ * Returns the slice sandbox path. NOT safe to re-invoke against an existing
+ * slice worktree — `git worktree add` would fail with "already exists." The
+ * caller must remove the prior worktree first if re-seeding.
+ *
+ * TODO(cook-artifact-lifecycle follow-on, separate frontier): the slice branch
+ * exists but is never committed to. After this lands, a future frontier should
+ * add slice-completion commits, replace `mergeSlicesIntoEpicSandbox`'s file-copy
+ * with a git merge of slice branches into an epic branch, and surface real
+ * merge conflicts (today's file-copy is silent last-slice-wins). That work
+ * earns the "discoverable cook artifact" criterion via `git merge cook/<runId>`
+ * promotion semantics.
+ */
+export function seedSliceFromParentWorktree(
+  parentSandboxDir: string,
+  sliceId: string,
+  plan: Plan,
+  runId: string,
+): string {
+  assertSliceWorktreePathAvailable(parentSandboxDir, sliceId);
+  const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
+
+  // 1. Real git worktree: tracked content arrives via git checkout, slice
+  //    branch is `cook/<runId>/<sliceId>` off the parent worktree's HEAD
+  //    (which is the run-level `cook/<runId>` branch). Shares the source
+  //    repo's `.git/` object database via hardlinks — no full git copy.
+  execFileSync(
+    'git',
+    ['worktree', 'add', '--quiet', '-b', `cook-slice/${runId}/${sliceId}`, sliceDir, 'HEAD'],
+    {
+      cwd: parentSandboxDir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+
+  // 2. CoW-copy whatever's in the parent worktree but NOT in the slice
+  //    worktree yet — i.e. untracked / gitignored content (`node_modules/`,
+  //    `dist/`, etc.) that pi-actions might need at runtime.
+  const excludedNames = new Set<string>(['.git', '.brunch', EPIC_MERGE_SEGMENT]);
+  for (const s of plan.slices) excludedNames.add(s.id);
+  copyMissingTopLevelEntries(parentSandboxDir, sliceDir, excludedNames);
+
+  return sliceDir;
+}
+
 /** Copy completed dependency slice worktrees into `slice`'s sandbox (plan order). */
 export function seedSliceSandboxFromDeps(
   parentSandboxDir: string,
@@ -259,6 +333,7 @@ export function mergeSlicesIntoEpicSandbox(opts: MergeOptions): MergeResult {
 
 function* walkFiles(rootDir: string, dir: string = rootDir): Iterable<string> {
   for (const entry of readdirSync(dir)) {
+    if (WALK_SKIP_ENTRIES.has(entry)) continue;
     const abs = join(dir, entry);
     const st = lstatSync(abs);
     if (st.isSymbolicLink()) continue;

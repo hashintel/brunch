@@ -221,23 +221,23 @@ Cook decides between **fixture mode** (greenfield) and **codebase mode** (brownf
 | Plan location | Mode | Worktree behavior | POC status |
 |---|---|---|---|
 | `<dir>/plan.yaml` | Fixture (greenfield) | Empty worktree | Implemented |
-| `<dir>/.cook/plan.yaml` | Codebase (brownfield) | Worktree seeded from `<dir>` | Reserved; seed implementation deferred |
+| `<dir>/.brunch/cook/plan.yaml` | Codebase (brownfield) | `git worktree add` on `cook/<runId>`, plus CoW copy of missing top-level runtime deps | Implemented |
 
-Naming intuition: a **fixture** *is* a plan with supporting artifacts (`plan.yaml` at root, like a manifest); a **codebase** *has* a plan as configuration (`.cook/plan.yaml`, like `.eslintrc` or `.github/`).
+Naming intuition: a **fixture** *is* a plan with supporting artifacts (`plan.yaml` at root, like a manifest); a **codebase** *has* a plan as configuration (`.brunch/cook/plan.yaml`, alongside other brunch workspace state).
 
 The plan may declare `mode: greenfield | brownfield` to override the default inferred from location.
 
-POC implements fixture mode end-to-end; codebase mode returns a structured "not yet implemented" error on the reserved resolver branch. The seed step (likely `git worktree add` when `.git` exists; filtered copy fallback otherwise) is the only meaningful added work to enable brownfield — engine, registry, agents, and reports are mode-agnostic.
+POC implements fixture mode end-to-end and codebase mode for git repositories. In codebase mode, cook creates a fresh `cook/<runId>` branch with `git worktree add`, then CoW-copies missing top-level runtime dependencies such as `node_modules/`. If filesystem clone/reflink support is unavailable, the copy helper falls back to a normal recursive copy: slower and larger on disk, but semantically equivalent.
 
 ## 8. Worktree isolation
 
-Each run gets an isolated worktree at `<cwd>/.cook/runs/<runId>/worktree/`, where `<cwd>` is the directory the user invoked `brunch cook` from (not the fixture/plan directory). Reports land alongside at `<cwd>/.cook/runs/<runId>/reports.jsonl`. Agents write freely inside the worktree; the fixture directory (`<dir>`) and the invoking repo are never mutated. No commits, no pushes. Recovery = throw the worktree away and start a new run.
+Each run gets an isolated worktree at `<cwd>/.brunch/cook/runs/<runId>/worktree/`, where `<cwd>` is the directory the user invoked `brunch cook` from (not the fixture/plan directory). Reports land alongside at `<cwd>/.brunch/cook/runs/<runId>/reports.jsonl`. Agents write freely inside the worktree; the fixture directory (`<dir>`) and the invoking repo are never mutated. Codebase-mode agents may commit on the generated `cook/<runId>` branch, but cook never pushes. Recovery = throw the worktree away and start a new run.
 
 The run location is cwd-scoped rather than fixture-scoped so that:
 
 - **Fixtures stay pristine.** Checked-in fixture directories (e.g. `fixtures/txt/`) contain only `plan.yaml` and are byte-identical before and after a run.
 - **No path traversal.** Because the worktree is not a descendant of the fixture dir, agents cannot accidentally read or write fixture-level files.
-- **Easy cleanup.** `rm -rf .cook/runs/` in the invoking directory clears all run history. `.cook/` is gitignored at the repo level.
+- **Easy cleanup.** `rm -rf .brunch/cook/runs/` in the invoking directory clears run artifacts. Codebase mode also creates a git worktree and branch, so full cleanup is `git worktree remove .brunch/cook/runs/<runId>/worktree` and `git branch -D cook/<runId>`. `.brunch/` is gitignored at the repo level.
 
 `--worktree <path>` overrides the default location for explicit pinning.
 
@@ -284,8 +284,8 @@ The design above is the target shape. The POC builds a deliberate subset and def
 | Design element | Full design | POC posture |
 |---|---|---|
 | **Action dispatch** | `ActionRegistry` registers handlers by name; engines look up by name; new actions (e.g. `lint`, `human-review`, `research`) register without engine surgery. | Inline handler dispatch per engine (e.g. a record literal or switch). Promote to a real registry when a 3rd action type lands. |
-| **Plan resolver** | Dual-mode by plan location: `<dir>/plan.yaml` → fixture (greenfield); `<dir>/.cook/plan.yaml` → codebase (brownfield). | Fixture mode only. CLI takes `<fixture-dir>` directly; codebase branch is documented here, not coded. |
-| **Brownfield seed** | When codebase mode is used and `<dir>/.git` exists, prefer `git worktree add`; otherwise filtered copy (`rsync` excluding `.git`, `node_modules`, `dist`, `.cook/runs/`). | Not implemented. Greenfield-only execution; `mkdir` creates an empty worktree. |
+| **Plan resolver** | Dual-mode by plan location: `<dir>/plan.yaml` → fixture (greenfield); `<dir>/.brunch/cook/plan.yaml` → codebase (brownfield). | Implemented for fixture mode and git-backed codebase mode. |
+| **Brownfield seed** | When codebase mode is used and `<dir>/.git` exists, prefer `git worktree add`; copy missing runtime deps with CoW/reflink where possible. | Implemented for git-backed repos; non-git filtered copy remains deferred. |
 | **Token-pointer discipline** | Universal rule: tokens between transitions carry only `{ reportId, sliceId, epicId }` pointers; all event content lives in `reports.jsonl`. Applied across both engines. | Petrinet engine enforces this internally (it's a hard constraint of the substrate). Procedural engine is free to pass data through normal function calls — each engine handles its own state shape, the shared seam is just inputs and outputs. |
 | **Layer 2 adapter tests** | Per-engine internal tests (net compilation / solver / transition firing for petrinet; topo sort / inner-loop state transitions / retry counter for procedural). | Optional. Defer until a debugging need surfaces. Layer 1 (contract) + Layer 3 (integration) are mandatory; Layer 2 is added if and when it pays for itself. |
 | **Streaming UX formatting** | Compact per-event lines like `[slice-1 ▸ test-writer] tests-written → 3 files`. | Implemented: elapsed timing, icons (▸/✓/✗/●/○), structured header/footer, `--verbose` for raw pi output. JSON stays in `reports.jsonl` only. |
@@ -315,4 +315,4 @@ Full comparison table in the POC summary doc.
 | **report** | One structured event line in `reports.jsonl`. Carries the durable content; tokens carry only pointers to reports. |
 | **worktree** | Isolated filesystem location where agents write during a run. Per-run; ephemeral. |
 | **fixture mode** | Greenfield execution: plan at `<dir>/plan.yaml`, empty worktree. POC default. |
-| **codebase mode** | Brownfield execution: plan at `<dir>/.cook/plan.yaml`, worktree seeded from `<dir>`. Reserved, not implemented in POC. |
+| **codebase mode** | Brownfield execution: plan at `<dir>/.brunch/cook/plan.yaml`, worktree seeded from `<dir>` on generated `cook/<runId>` branch. |
