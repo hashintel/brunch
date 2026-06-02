@@ -337,6 +337,29 @@ describe('WorkspaceSessionCoordinator', () => {
     await expect(readFile(mismatchedFile, 'utf8')).resolves.toBe(beforeMismatched);
   });
 
+  it('reports malformed session files without aborting inventory or store verification', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    await coordinator.createSetupSession({ specTitle: 'Alpha' });
+    const corruptedFile = join(cwd, '.brunch', 'sessions', 'corrupted.jsonl');
+    await writeFile(
+      corruptedFile,
+      `${JSON.stringify({ type: 'session', id: 'corrupted-session', cwd })}\n{not json}\n`,
+      'utf8',
+    );
+
+    const inventory = await coordinator.inspectWorkspace();
+    const oracle = await verifyWorkspaceSessionStores({ cwd, expectedSessionCount: 2 });
+
+    expect(inventory.unavailableSessions).toEqual([
+      expect.objectContaining({ file: corruptedFile, reason: 'unreadable' }),
+    ]);
+    expect(oracle.ok).toBe(false);
+    if (!oracle.ok) {
+      expect(oracle.errors).toEqual([expect.stringContaining(`${corruptedFile} is unreadable`)]);
+    }
+  });
+
   it('activates explicit open and continue decisions as the current workspace', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });

@@ -144,7 +144,11 @@ export interface WorkspaceLaunchSpec {
   sessions: WorkspaceLaunchSession[];
 }
 
-export type WorkspaceUnavailableSessionReason = 'missing_header' | 'missing_binding' | 'incompatible_binding';
+export type WorkspaceUnavailableSessionReason =
+  | 'missing_header'
+  | 'missing_binding'
+  | 'incompatible_binding'
+  | 'unreadable';
 
 export interface WorkspaceUnavailableSession {
   file: string;
@@ -604,7 +608,16 @@ async function inspectWorkspaceInventory(cwd: string): Promise<WorkspaceLaunchIn
 type InspectedSessionFile = Omit<WorkspaceLaunchSession, 'specTitle'> | WorkspaceUnavailableSession;
 
 async function inspectSessionFile(file: string): Promise<InspectedSessionFile> {
-  const entries = await readJsonl(file);
+  let entries: unknown[];
+  try {
+    entries = await readJsonl(file);
+  } catch (error) {
+    if (isJsonParseError(error)) {
+      return { file, reason: 'unreadable', available: false };
+    }
+    throw error;
+  }
+
   const header = entries.find(isSessionHeader);
   if (!header) {
     return { file, reason: 'missing_header', available: false };
@@ -743,7 +756,17 @@ export async function verifyWorkspaceSessionStores(
   const sessions: WorkspaceStoreOracleSuccess['sessions'] = [];
 
   for (const file of files) {
-    const entries = await readJsonl(file);
+    let entries: unknown[];
+    try {
+      entries = await readJsonl(file);
+    } catch (error) {
+      if (isJsonParseError(error)) {
+        errors.push(`${file} is unreadable`);
+        continue;
+      }
+      throw error;
+    }
+
     const header = entries.find(isSessionHeader);
     const bindings = entries.filter(isSessionBindingEntry);
     if (!header) {
@@ -792,6 +815,10 @@ async function readJsonl(file: string): Promise<unknown[]> {
     .split('\n')
     .filter((line) => line.trim().length > 0)
     .map((line) => JSON.parse(line) as unknown);
+}
+
+function isJsonParseError(error: unknown): error is SyntaxError {
+  return error instanceof SyntaxError;
 }
 
 function isSessionHeader(value: unknown): value is SessionHeader {
