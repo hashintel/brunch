@@ -17,7 +17,9 @@ plus the coordination logic for workspace/spec/session lifecycle.
   `.brunch/workspace.json` management. The `WorkspaceSessionCoordinator`
   is the only module that creates/opens Pi sessions for Brunch user flows
   and writes collapsed `brunch.session_binding` entries (`{schemaVersion,
-  specId}`).
+  specId}`). Its private `workspace-session-coordinator/` subtree owns
+  coordinator-shaped boot/probe helpers such as canonical session-file
+  classification; external callers import only the public root module.
 
 - **Session binding** — session↔spec binding entries in JSONL.
 

@@ -1,7 +1,7 @@
-import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
-import { SessionManager, type SessionHeader } from '@earendil-works/pi-coding-agent';
+import { SessionManager } from '@earendil-works/pi-coding-agent';
 
 import { openWorkspaceCommandExecutor, type SpecRecord } from '../graph/index.js';
 import { discoverProjectIdentity } from './project-identity.js';
@@ -11,6 +11,10 @@ import {
   SESSION_BINDING_TYPE,
   type SessionBindingData,
 } from './session-binding.js';
+import {
+  inspectCanonicalSessionFiles,
+  verifyCanonicalSessionStore,
+} from './workspace-session-coordinator/boot-session-store.js';
 
 const BRUNCH_DIR = '.brunch';
 const STATE_FILE = 'workspace.json';
@@ -379,15 +383,8 @@ async function createBoundSession(
 }
 
 async function countSessionsForSpec(cwd: string, specId: number): Promise<number> {
-  const files = await listSessionFiles(cwd);
-  let count = 0;
-  for (const file of files) {
-    const session = await inspectSessionFile(file);
-    if (session.available && session.specId === specId) {
-      count++;
-    }
-  }
-  return count;
+  const sessions = await inspectCanonicalSessionFiles(cwd);
+  return sessions.filter((session) => session.available && session.specId === specId).length;
 }
 
 async function openCurrentSession(
@@ -396,11 +393,10 @@ async function openCurrentSession(
   currentSessionId: string,
 ): Promise<WorkspaceSessionReadyState['session'] | null> {
   await ensureWorkspaceDirs(cwd);
-  const files = await listSessionFiles(cwd);
-  for (const file of files) {
-    const inspected = await inspectSessionFile(file);
-    if (inspected.available && inspected.id === currentSessionId && inspected.specId === spec.id) {
-      const manager = SessionManager.open(file, sessionDir(cwd), cwd);
+  const sessions = await inspectCanonicalSessionFiles(cwd);
+  for (const session of sessions) {
+    if (session.available && session.id === currentSessionId && session.specId === spec.id) {
+      const manager = SessionManager.open(session.file, sessionDir(cwd), cwd);
       return bindSessionToSpec(manager, spec);
     }
   }
@@ -556,7 +552,7 @@ function emptyWorkspacePosture(): WorkspacePostureState {
 
 async function inspectWorkspaceInventory(cwd: string): Promise<WorkspaceLaunchInventory> {
   const state = await readOrCreateWorkspaceState(cwd);
-  const files = await listSessionFiles(cwd);
+  const sessions = await inspectCanonicalSessionFiles(cwd);
   const specsById = new Map<number, WorkspaceLaunchSpec>();
   const unavailableSessions: WorkspaceUnavailableSession[] = [];
   const currentSpec = await currentSpecFromState(cwd, state);
@@ -568,12 +564,11 @@ async function inspectWorkspaceInventory(cwd: string): Promise<WorkspaceLaunchIn
     });
   }
 
-  for (const file of files) {
-    const session = await inspectSessionFile(file);
+  for (const session of sessions) {
     if (session.available) {
       const dbSpec = await getSpecState(cwd, session.specId);
       if (!dbSpec) {
-        unavailableSessions.push({ file, reason: 'incompatible_binding', available: false });
+        unavailableSessions.push({ file: session.file, reason: 'incompatible_binding', available: false });
         continue;
       }
       const spec = getOrCreateLaunchSpec(specsById, dbSpec);
@@ -602,50 +597,6 @@ async function inspectWorkspaceInventory(cwd: string): Promise<WorkspaceLaunchIn
     needsNewSpec: specs.length === 0,
     specs,
     unavailableSessions: unavailableSessions.sort((left, right) => left.file.localeCompare(right.file)),
-  };
-}
-
-type InspectedSessionFile = Omit<WorkspaceLaunchSession, 'specTitle'> | WorkspaceUnavailableSession;
-
-async function inspectSessionFile(file: string): Promise<InspectedSessionFile> {
-  let entries: unknown[];
-  try {
-    entries = await readJsonl(file);
-  } catch (error) {
-    if (isJsonParseError(error)) {
-      return { file, reason: 'unreadable', available: false };
-    }
-    throw error;
-  }
-
-  const header = entries.find(isSessionHeader);
-  if (!header) {
-    return { file, reason: 'missing_header', available: false };
-  }
-
-  const bindings = entries.filter(isSessionBindingEntry);
-  if (bindings.length === 0) {
-    return { file, reason: 'missing_binding', available: false };
-  }
-
-  const binding = bindings[0]!;
-  if (bindings.length !== 1) {
-    return { file, reason: 'incompatible_binding', available: false };
-  }
-
-  const sessionInfoEntries = entries.filter(isSessionInfoEntry);
-  const lastInfo =
-    sessionInfoEntries.length > 0
-      ? (sessionInfoEntries[sessionInfoEntries.length - 1] as { name?: string })
-      : undefined;
-  const name = lastInfo?.name;
-
-  return {
-    id: header.id,
-    file,
-    specId: binding.data.specId,
-    ...(name != null ? { name } : {}),
-    available: true,
   };
 }
 
@@ -742,94 +693,14 @@ export async function verifyWorkspaceSessionStores(
   options: WorkspaceStoreOracleOptions,
 ): Promise<WorkspaceStoreOracleResult> {
   const cwd = resolve(options.cwd);
-  const errors: string[] = [];
   const state = await readWorkspaceState(cwd);
   if (!state) {
     return { ok: false, errors: ['Missing or invalid .brunch/workspace.json'] };
   }
 
-  const files = await listSessionFiles(cwd);
-  if (options.expectedSessionCount !== undefined && files.length !== options.expectedSessionCount) {
-    errors.push(`Expected ${options.expectedSessionCount} session file(s), found ${files.length}`);
-  }
-
-  const sessions: WorkspaceStoreOracleSuccess['sessions'] = [];
-
-  for (const file of files) {
-    let entries: unknown[];
-    try {
-      entries = await readJsonl(file);
-    } catch (error) {
-      if (isJsonParseError(error)) {
-        errors.push(`${file} is unreadable`);
-        continue;
-      }
-      throw error;
-    }
-
-    const header = entries.find(isSessionHeader);
-    const bindings = entries.filter(isSessionBindingEntry);
-    if (!header) {
-      errors.push(`${file} has no session header`);
-      continue;
-    }
-    if (bindings.length !== 1) {
-      errors.push(`${file} has ${bindings.length} ${SESSION_BINDING_TYPE} entries`);
-      continue;
-    }
-    const binding = bindings[0]!.data;
-    if (state.current && binding.specId !== state.current.specId) {
-      errors.push(`${file} binding spec ${binding.specId} does not match state ${state.current.specId}`);
-    }
-    sessions.push({
-      file,
-      sessionId: header.id,
-      bindingCount: bindings.length,
-      binding,
-    });
-  }
-
-  return errors.length === 0
-    ? { ok: true, specId: state.current?.specId ?? null, sessions }
-    : { ok: false, errors };
-}
-
-async function listSessionFiles(cwd: string): Promise<string[]> {
-  try {
-    const entries = await readdir(sessionDir(cwd), { withFileTypes: true });
-    return entries
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
-      .map((entry) => join(sessionDir(cwd), entry.name))
-      .sort();
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return [];
-    }
-    throw error;
-  }
-}
-
-async function readJsonl(file: string): Promise<unknown[]> {
-  const content = await readFile(file, 'utf8');
-  return content
-    .split('\n')
-    .filter((line) => line.trim().length > 0)
-    .map((line) => JSON.parse(line) as unknown);
-}
-
-function isJsonParseError(error: unknown): error is SyntaxError {
-  return error instanceof SyntaxError;
-}
-
-function isSessionHeader(value: unknown): value is SessionHeader {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as { type?: unknown }).type === 'session' &&
-    typeof (value as { id?: unknown }).id === 'string'
-  );
-}
-
-function isSessionInfoEntry(value: unknown): boolean {
-  return typeof value === 'object' && value !== null && (value as { type?: unknown }).type === 'session_info';
+  return verifyCanonicalSessionStore({
+    cwd,
+    expectedSessionCount: options.expectedSessionCount,
+    currentSpecId: state.current?.specId ?? null,
+  });
 }
