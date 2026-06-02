@@ -51,11 +51,13 @@ The POC should maximize assumption falsification rather than merely implement mi
 
 ### Active
 
-1. `agent-graph-integration` — M5. Graph tools, synchronous elicitor capture, review-set acceptance, and reviewer advisory writes through pi extension seams; all writes via the shared command layer.
+1. `agent-runtime-vocabulary` — fix the session-agent record to the reconciled vocabulary (un-collapse lens, add `propose-graph`/`project-graph`/`goal`, derive role from `op_mode`). Foundational; gates the A14-L proof and the composition layer.
+2. `agent-graph-integration` — M5. Graph tools, synchronous elicitor capture, review-set acceptance, reviewer advisory writes; all writes via the command layer. Its A14-L real-LLM proof (the `propose-graph → commitGraph` path) waits on `agent-runtime-vocabulary`.
 
 ### Next
 
-1. `probes-and-transcripts-evolution` — keep probe/transcript artifacts honest as new seams need evidence.
+1. `agents-composition-layer` — the `agents/` 3-layer prompt composition (D58-L), goal/strategy/lens packs + AUTO selector, snapshot pull/render/surface (D60-L), and the `.pi/context → agents/` migration. Depends on `agent-runtime-vocabulary`.
+2. `probes-and-transcripts-evolution` — keep probe/transcript artifacts honest as new seams need evidence.
 
 ### Parallel / Low-conflict
 
@@ -96,6 +98,49 @@ The POC should maximize assumption falsification rather than merely implement mi
 - **Traceability:** R22, R28 / D16-L, D20-L, D40-L, D45-L (revise), D46-L (retire), D52-L / I31-L (revise) / A19-L, A20-L. Retires: spec-row persistence hole; DB-on-startup regression.
 - **Design docs:** [GRAPH_MODEL.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/design/GRAPH_MODEL.md) (posture deferral note, §Vocabulary evolution); this session's locked state-model decisions.
 - **Current execution pointer:** Done. Card queue exhausted and removed after Card 1 (spec table + CommandExecutor create/read/grade update) and Card 2 (DB-backed startup, `.brunch/workspace.json`, collapsed binding, picker names from DB). Verified with `npm run verify` plus real `brunch --mode print` against a fresh cwd.
+
+### agent-runtime-vocabulary
+
+- **Name:** Session-agent runtime vocabulary fix
+- **Linear:** unassigned (create in FE / brunch when branch opens)
+- **Branch:** to create — `ln/<issue>-agent-runtime-vocabulary`
+- **Kind:** structural (corrects a projected, persisted session-agent custom-entry record to match revised D25-L/D40-L/D59-L)
+- **Status:** active
+- **Objective:** Bring the live `brunch.agent_runtime_state` machinery (`src/.pi/extensions/operational-mode.ts`) into conformance with the reconciled SPEC: **(a)** un-collapse `AgentLensId` from `AgentStrategyId` — lens becomes the orthogonal topical axis `intent | design | oracle`; **(b)** replace the stale strategy vocabulary (`step-by-step`, `disambiguate-via-examples`) with `step-wise-decision-tree | step-wise-disambiguate | propose-graph | project-graph`; **(c)** add the `goal` axis (`grounding-advance | elicit-I | elicit-II | commitment-converge | capture-posture`, grade-derived, AUTO-able) per D59-L; **(d)** make `op_mode` the only WHO field and **derive** the foreground role (`elicitor`) from it, dropping `agentRole` as stored state; **(e)** make `strategy`/`lens`/`goal` optional and `auto`-able. Regenerate `DEFAULT_BRUNCH_AGENT_STATE`, the append/project/switch helpers, and all fixtures.
+- **Why now / unlocks:** The code is the last place still carrying the pre-reconciliation model (collapsed lens, missing `propose-graph`/`project-graph`, role-as-state). `propose-graph` must exist before `agent-graph-integration` can run the A14-L real-LLM proof (the `propose-graph → commitGraph` path is the named proof target), and the orthogonal axes are the precondition for the `agents/` 3-layer composition. Foundational and small.
+- **Acceptance:**
+  - `AgentLensId` is independent of `AgentStrategyId`; lens ∈ `intent | design | oracle`.
+  - strategy ∈ `step-wise-decision-tree | step-wise-disambiguate | propose-graph | project-graph`; old names gone everywhere.
+  - `goal` axis present with grade-derived default and `auto` accepted; `op_mode` derives the foreground role; no stored `agentRole`.
+  - append/project/switch helpers round-trip the new record; malformed/illegal tuples rejected; I25-L tests updated and green.
+  - all fixtures/tests regenerated to the new vocabulary; `npm run verify` green.
+- **Verification:** Inner — runtime-state append/project/switch unit tests over the new axes (I25-L); legal-tuple acceptance / illegal-tuple rejection. Middle — projection round-trip from real JSONL reload. No new outer-loop here; the A14-L behavioral proof rides on `agent-graph-integration`.
+- **Cross-cutting obligations:** Keep state linear-transcript-backed (D40-L); foreground role derived, not stored. Do **not** author prompt packs or build `compose()` here — that is `agents-composition-layer`. If `agents/state.ts` is introduced for the shared enums, keep it to type/enum + legal-combination homes only.
+- **Traceability:** D25-L (revised), D40-L (revised), D59-L, I25-L (revised) / A14-L (sharpens the proof). Retires: collapsed lens, stale strategy vocabulary, role-as-session-state.
+- **Design docs:** `memory/SPEC.md` §Active Decisions (D25-L, D40-L, D58-L, D59-L), Lexicon.
+- **Current execution pointer:** Not started. Likely cards: (1) enums + `BrunchAgentState` shape + `DEFAULT` + projection/switch helpers; (2) fixture/test regeneration + I25-L update.
+
+### agents-composition-layer
+
+- **Name:** agents/ 3-layer prompt composition, snapshot tiers, and .pi/context migration
+- **Linear:** unassigned
+- **Branch:** to create — `ln/<issue>-agents-composition-layer`
+- **Kind:** structural (new composition seam + held Class-B migration; spans `agents/`, `graph/`, `session/`, `.pi/extensions/`)
+- **Status:** next
+- **Objective:** Build the `agents/` layer per D58-L/D59-L/D60-L and migrate `.pi/context/` into it. **(1)** `agents/state.ts` — the legal `(op_mode × goal × strategy × lens)` combination table + shared axis enums. **(2)** `agents/compose.ts` — the per-agent 3-layer selector: Layer-1 agent definition (identity + model/thinking + mode-gated tool authority + allow-lists), Layer-2 objective-config packs (`goal`/`strategy`/`lens`; AUTO ⇒ selection-guidance injection over the allowed set), Layer-3 capabilities as gated Pi skills; replaces the fixed `PROMPT_PACK_ORDER` concatenation. **(3)** `agents/{definitions,strategies,lenses,goals}/` packs — author the (currently absent) strategy/lens/goal packs; rehome `brunch-base`/`elicit`/`elicitor` as Layer-1, convert `structured-exchange`/`capture-analysis`/`candidate-proposals` to Layer-3 skills. **(4)** `agents/contexts/` — snapshot RENDER (D60-L): LLM-string/JSON from typed pulls, scaled by lens-plane + grade-depth; wire `snapshot-*` Pi tool wrappers (SURFACE) over the renderer; PULL stays read-only in `graph/snapshot.ts` (+ a `session/` cwd-overview pull). **(5)** Migrate `src/.pi/context/* → src/agents/` (the held Class-B move) and delete the old composer.
+- **Why now / unlocks:** Turns the locked composition model into a real selector so mode/strategy/lens/goal actually drive the prompt body (today they only change a header sentence), and finally injects the M4 graph snapshots into context. Unblocks grade-gated, goal-driven elicitation behavior.
+- **Acceptance:**
+  - `compose(agentId, sessionState, spec, workspace, snapshot)` selects packs by axes and gates by mode/grade/allow-list; output varies by axis, not just a header line.
+  - AUTO on `goal`/`strategy`/`lens` injects selection guidance listing exactly the agent's allowed set.
+  - `agents/state.ts` accepts every legal tuple, rejects illegal; a pack exists for each `strategies`/`lenses`/`goals` enum value.
+  - Layer-3 capabilities resolve as Pi skills gated by allow-list ∩ `op_mode` ∩ grade.
+  - snapshot RENDER scales by lens-plane + grade-depth; `snapshot-{cwd,graph,nodes}` tools wrap the renderer (markdown in `content`, typed JSON in `details`); PULL stays read-only in `graph/`/`session/`.
+  - `src/.pi/context/` removed; composition lives in `src/agents/`; `npm run verify` green.
+- **Verification:** Inner — `compose()` output assertions (pack set/order/gating per axes; AUTO-guidance injection); `agents/state.ts` legal/illegal tuple tests (model-based); snapshot render-scaling + pull round-trip. Middle — migration differential (old vs new composer equivalence for fixed states, throwaway cutover gate); AUTO-choice legality as a probe fitness metric (not a gate). Outer — manual review of composed prompts + the A14-L behavioral proof (rides on `agent-graph-integration`). **Oracle pass pending** — see SPEC §Verification Design once `ln-oracles` completes.
+- **Cross-cutting obligations:** Layers 1–2 = prompt packs; Layer 3 = Pi skills (D58-L/§311). PULL never returns strings; LLM-string RENDER lives only in `agents/contexts/`; reserve "snapshot" for agent-context, keep `workspace.snapshot` for product/UI (D60-L). Honor D52-L dependency direction (`agents/` imports `graph/`+`session/`).
+- **Traceability:** D58-L, D59-L, D60-L, D25-L, D40-L, D52-L / I18-L, I33-L, I35-L / A14-L (behavioral). Retires: fixed `PROMPT_PACK_ORDER`; empty `agents/contexts/` stubs; the `src/.pi/context/` location.
+- **Design docs:** `memory/SPEC.md` §Active Decisions (D58-L/D59-L/D60-L), §Prompt/runtime profile architecture, Lexicon; this session's locked composition model.
+- **Current execution pointer:** Not started. Oracle diagnostic + claims drafted this session (machinery = structural inner-loop; AUTO-choice = middle-loop fitness; agent behavior = outer A14-L) but `ln-oracles` was not completed — finish it before scoping. Likely first slice: `agents/state.ts` + `compose.ts` skeleton over the fixed vocabulary, then pack authoring, then snapshots, then migration.
 
 ### sealed-pi-profile-runtime-state
 
@@ -321,6 +366,8 @@ nodes:
   sealed-pi-profile-runtime-state   [done]                   (M4 prep envelope: sealing + graph-model lock)
   graph-data-plane                  [done]                   (M4 CRUD proper)
   spec-persistence-and-startup      [done]                   (persistence-model fix + startup regression repair)
+  agent-runtime-vocabulary          [active]                  (session-agent record vocabulary fix)
+  agents-composition-layer          [next]                    (agents/ 3-layer composition + snapshots + .pi/context migration)
   agent-graph-integration           [in-progress]            (M5)
   subagents-for-proposal-diversity  [deferred · optional]
   authority-model                   [not-started]            (M6)
@@ -334,6 +381,9 @@ edges:
   graph-data-plane                 -[hard]->         agent-graph-integration
   graph-data-plane                 -[hard]->         spec-persistence-and-startup
   spec-persistence-and-startup     -[hard]->         agent-graph-integration
+  spec-persistence-and-startup     -[hard]->         agent-runtime-vocabulary
+  agent-runtime-vocabulary         -[hard]->         agents-composition-layer
+  agent-runtime-vocabulary         -[hard]->         agent-graph-integration
   agent-graph-integration          -[hard]->         authority-model
   agent-graph-integration          -[hard]->         turn-boundary-reconciliation
   agent-graph-integration          -[optional]->     subagents-for-proposal-diversity
