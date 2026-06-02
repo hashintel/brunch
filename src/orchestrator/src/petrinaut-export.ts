@@ -20,6 +20,7 @@ import { randomUUID } from 'node:crypto';
 
 import { enumerateCandidateOutputs } from './net-blueprint.js';
 import type { NetBlueprint, TokenSeed } from './net-blueprint.js';
+import { placeName } from './petri-net.js';
 
 /**
  * Schema version of Brunch's exported net JSON. Bump on any breaking Brunch
@@ -106,7 +107,7 @@ export function serializeBlueprint(blueprint: NetBlueprint, opts: SerializeBluep
 
   const places: PetrinautPlace[] = blueprint.places.map((id) => ({
     id,
-    label: shortPlaceLabel(id),
+    label: placeName(id),
   }));
 
   const transitions: PetrinautTransition[] = blueprint.transitions.map((t) => {
@@ -150,17 +151,13 @@ export function serializeBlueprint(blueprint: NetBlueprint, opts: SerializeBluep
 function seedToToken(seed: TokenSeed, id: string): PetrinautToken {
   return {
     id,
-    ...(seed.sliceId !== undefined ? { sliceId: seed.sliceId } : {}),
-    ...(seed.epicId !== undefined ? { epicId: seed.epicId } : {}),
+    ...(hasScopedId(seed.sliceId) ? { sliceId: seed.sliceId } : {}),
+    ...(hasScopedId(seed.epicId) ? { epicId: seed.epicId } : {}),
     ...(seed.retryCount !== undefined ? { retryCount: seed.retryCount } : {}),
     ...(seed.reworkCount !== undefined ? { reworkCount: seed.reworkCount } : {}),
   };
 }
 
-function shortPlaceLabel(placeId: string): string {
-  const sliceMatch = placeId.match(/^slice:[^:]+:(.+)$/);
-  if (sliceMatch) return sliceMatch[1]!;
-  const epicMatch = placeId.match(/^epic:[^:]+:(.+)$/);
-  if (epicMatch) return epicMatch[1]!;
-  return placeId;
+function hasScopedId(value: string): boolean {
+  return value !== '';
 }

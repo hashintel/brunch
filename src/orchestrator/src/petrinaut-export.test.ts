@@ -155,7 +155,7 @@ describe('serializeBlueprint — initial marking', () => {
 
     // Pool tokens have no sliceId / epicId (shared pool).
     const poolSeed = blueprint.initialTokens.find((t) => t.place === 'pool:test-agent')!.token;
-    expect(poolSeed).toEqual({});
+    expect(poolSeed).toEqual({ sliceId: '', epicId: '' });
 
     const pool = net.initialMarking.find((m) => m.place === 'pool:test-agent')!;
     expect(pool.tokens[0]!.sliceId).toBeUndefined();
