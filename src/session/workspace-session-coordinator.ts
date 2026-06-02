@@ -574,7 +574,7 @@ async function inspectWorkspaceInventory(cwd: string): Promise<WorkspaceLaunchIn
       const spec = getOrCreateLaunchSpec(specsById, dbSpec);
       spec.sessions.push({ ...session, specTitle: dbSpec.title });
     } else {
-      unavailableSessions.push(session);
+      unavailableSessions.push({ file: session.file, reason: session.reason, available: false });
     }
   }
 

@@ -18,7 +18,11 @@ interface BoundSessionFile extends Omit<WorkspaceLaunchSession, 'specTitle'> {
   bindingCount: 1;
 }
 
-type CanonicalSessionFile = BoundSessionFile | WorkspaceUnavailableSession;
+interface UnavailableSessionFile extends WorkspaceUnavailableSession {
+  bindingCount?: number;
+}
+
+type CanonicalSessionFile = BoundSessionFile | UnavailableSessionFile;
 
 export async function inspectCanonicalSessionFiles(cwd: string): Promise<CanonicalSessionFile[]> {
   const files = await listSessionFiles(cwd);
@@ -92,12 +96,12 @@ async function inspectCanonicalSessionFile(file: string): Promise<CanonicalSessi
 
   const bindings = entries.filter(isSessionBindingEntry);
   if (bindings.length === 0) {
-    return { file, reason: 'missing_binding', available: false };
+    return { file, reason: 'missing_binding', bindingCount: 0, available: false };
   }
 
   const binding = bindings[0]!;
   if (bindings.length !== 1) {
-    return { file, reason: 'incompatible_binding', available: false };
+    return { file, reason: 'incompatible_binding', bindingCount: bindings.length, available: false };
   }
 
   const name = latestSessionName(entries);
@@ -146,14 +150,14 @@ function latestSessionName(entries: unknown[]): string | undefined {
   return name;
 }
 
-function formatUnavailableSessionError(session: WorkspaceUnavailableSession): string {
+function formatUnavailableSessionError(session: UnavailableSessionFile): string {
   switch (session.reason) {
     case 'missing_header':
       return `${session.file} has no session header`;
     case 'missing_binding':
-      return `${session.file} has 0 ${SESSION_BINDING_TYPE} entries`;
+      return `${session.file} has ${session.bindingCount ?? 0} ${SESSION_BINDING_TYPE} entries`;
     case 'incompatible_binding':
-      return `${session.file} has incompatible ${SESSION_BINDING_TYPE} entries`;
+      return `${session.file} has ${session.bindingCount ?? 'incompatible'} ${SESSION_BINDING_TYPE} entries`;
     case 'unreadable':
       return `${session.file} is unreadable`;
   }

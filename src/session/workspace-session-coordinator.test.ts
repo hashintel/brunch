@@ -305,36 +305,54 @@ describe('WorkspaceSessionCoordinator', () => {
     const ready = await coordinator.createSetupSession({ specTitle: 'Alpha' });
     const unboundFile = join(cwd, '.brunch', 'sessions', 'unbound.jsonl');
     const mismatchedFile = join(cwd, '.brunch', 'sessions', 'mismatched.jsonl');
+    const duplicateBindingFile = join(cwd, '.brunch', 'sessions', 'duplicate-binding.jsonl');
     await writeFile(
       unboundFile,
       `${JSON.stringify({ type: 'session', id: 'unbound-session', cwd })}\n`,
       'utf8',
     );
+    const bindingEntry = JSON.stringify({
+      type: 'custom',
+      customType: SESSION_BINDING_TYPE,
+      data: {
+        schemaVersion: 1,
+        specId: ready.spec.id,
+      },
+    });
     await writeFile(
       mismatchedFile,
-      `${JSON.stringify({ type: 'session', id: 'header-session', cwd })}\n${JSON.stringify({
-        type: 'custom',
-        customType: SESSION_BINDING_TYPE,
-        data: {
-          schemaVersion: 1,
-          specId: ready.spec.id,
-        },
-      })}\n`,
+      `${JSON.stringify({ type: 'session', id: 'header-session', cwd })}\n${bindingEntry}\n`,
+      'utf8',
+    );
+    await writeFile(
+      duplicateBindingFile,
+      `${JSON.stringify({ type: 'session', id: 'duplicate-binding-session', cwd })}\n${bindingEntry}\n${bindingEntry}\n`,
       'utf8',
     );
     const beforeUnbound = await readFile(unboundFile, 'utf8');
     const beforeMismatched = await readFile(mismatchedFile, 'utf8');
+    const beforeDuplicateBinding = await readFile(duplicateBindingFile, 'utf8');
 
     const inventory = await coordinator.inspectWorkspace();
+    const oracle = await verifyWorkspaceSessionStores({ cwd, expectedSessionCount: 4 });
 
     expect(inventory.specs).toHaveLength(1);
     expect(inventory.specs[0]?.sessions).toHaveLength(2);
     expect(inventory.specs[0]?.sessions.map((session) => session.file)).toContain(mismatchedFile);
     expect(inventory.unavailableSessions).toEqual([
+      expect.objectContaining({ file: duplicateBindingFile, reason: 'incompatible_binding' }),
       expect.objectContaining({ file: unboundFile, reason: 'missing_binding' }),
     ]);
+    expect(oracle.ok).toBe(false);
+    if (!oracle.ok) {
+      expect(oracle.errors).toEqual([
+        expect.stringContaining(`${duplicateBindingFile} has 2 ${SESSION_BINDING_TYPE} entries`),
+        expect.stringContaining(`${unboundFile} has 0 ${SESSION_BINDING_TYPE} entries`),
+      ]);
+    }
     await expect(readFile(unboundFile, 'utf8')).resolves.toBe(beforeUnbound);
     await expect(readFile(mismatchedFile, 'utf8')).resolves.toBe(beforeMismatched);
+    await expect(readFile(duplicateBindingFile, 'utf8')).resolves.toBe(beforeDuplicateBinding);
   });
 
   it('reports malformed session files without aborting inventory or store verification', async () => {
