@@ -11,8 +11,6 @@ import {
   type StructuralIllegal,
 } from '../../../graph/index.js';
 
-export const REVIEW_SET_PROPOSAL_CUSTOM_TYPE = 'brunch.review_set_proposal';
-
 export type ReviewSetLens = 'intent' | 'design' | 'oracle';
 export type EpistemicStatus = 'inferred' | 'assumed' | 'asserted' | 'observed';
 
@@ -55,24 +53,16 @@ export interface ReviewSetProposalDraft {
   readonly supersedes?: string;
 }
 
-export interface ReviewSetProposalData extends ReviewSetProposalDraft {
+export interface ReviewSetProposalPayload extends ReviewSetProposalDraft {
   readonly validation: CommitGraphDryRunResult;
-  readonly source: 'agent' | 'system' | 'extension';
 }
 
-export interface ReviewableReviewSetProposalEntry {
-  readonly status: 'reviewable';
-  readonly customType: typeof REVIEW_SET_PROPOSAL_CUSTOM_TYPE;
-  readonly content: string;
-  readonly display: true;
-  readonly data: ReviewSetProposalData;
+export interface ReviewSetProposalValidationSuccess {
+  readonly status: 'success';
+  readonly proposal: ReviewSetProposalPayload;
 }
 
-export interface CustomEntryLike {
-  readonly type?: unknown;
-  readonly customType?: unknown;
-  readonly data?: unknown;
-}
+export type ReviewSetProposalValidationResult = ReviewSetProposalValidationSuccess | StructuralIllegal;
 
 const VALID_LENSES = ['intent', 'design', 'oracle'] as const;
 const VALID_EPISTEMIC_STATUSES = ['inferred', 'assumed', 'asserted', 'observed'] as const;
@@ -104,11 +94,10 @@ export function translateReviewSetProposalToCommitGraph(proposal: ReviewSetPropo
   };
 }
 
-export function buildReviewableReviewSetProposalEntry(options: {
+export function validateReviewSetProposalPayload(options: {
   readonly proposal: ReviewSetProposalDraft;
   readonly commandExecutor: CommandExecutor;
-  readonly source: ReviewSetProposalData['source'];
-}): ReviewableReviewSetProposalEntry | StructuralIllegal {
+}): ReviewSetProposalValidationResult {
   const diagnostics = validateReviewSetProposalDraft(options.proposal);
   if (diagnostics.length > 0) {
     return { status: 'structural_illegal', diagnostics };
@@ -122,43 +111,11 @@ export function buildReviewableReviewSetProposalEntry(options: {
   }
 
   return {
-    status: 'reviewable',
-    customType: REVIEW_SET_PROPOSAL_CUSTOM_TYPE,
-    content: renderReviewSetProposalContent(options.proposal),
-    display: true,
-    data: {
+    status: 'success',
+    proposal: {
       ...options.proposal,
       validation,
-      source: options.source,
     },
-  };
-}
-
-export function projectLatestReviewableReviewSetProposal(
-  entries: readonly CustomEntryLike[],
-): ReviewSetProposalData | undefined {
-  let latest: ReviewSetProposalData | undefined;
-  for (const entry of entries) {
-    if (entry.type !== 'custom' || entry.customType !== REVIEW_SET_PROPOSAL_CUSTOM_TYPE) {
-      continue;
-    }
-    const data = parseReviewSetProposalData(entry.data);
-    if (data) latest = data;
-  }
-  return latest;
-}
-
-function parseReviewSetProposalData(value: unknown): ReviewSetProposalData | undefined {
-  if (!isRecord(value)) return undefined;
-  if (!isRecord(value.validation) || value.validation.status !== 'success') return undefined;
-  const proposal = value as unknown as ReviewSetProposalDraft;
-  if (validateReviewSetProposalDraft(proposal).length > 0) return undefined;
-  const source = value.source;
-  if (source !== 'agent' && source !== 'system' && source !== 'extension') return undefined;
-  return {
-    ...proposal,
-    validation: { status: 'success' },
-    source,
   };
 }
 
@@ -272,18 +229,6 @@ function validateEdgeDrafts(value: unknown, diagnostics: Diagnostic[]): void {
       diagnostics.push({ field: `${path}.targetDraftId`, message: 'targetDraftId must be non-empty' });
     }
   });
-}
-
-function renderReviewSetProposalContent(proposal: ReviewSetProposalDraft): string {
-  return [
-    `## ${proposal.pitch.title}`,
-    '',
-    proposal.pitch.narrative,
-    '',
-    `Epistemic status: ${proposal.epistemicStatus}`,
-    `Lens: ${proposal.lens}`,
-    `Drafts: ${proposal.entityDrafts.length} entities, ${proposal.edgeDrafts.length} edges`,
-  ].join('\n');
 }
 
 function isNonEmptyStringArray(value: unknown): value is readonly string[] {

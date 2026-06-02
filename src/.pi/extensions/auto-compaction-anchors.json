@@ -23,11 +23,6 @@
       "rationale": "D25-L — observer/reviewer routing and prompt composition depend on the active lens; the latest switch is the authoritative lens marker post-compaction."
     },
     {
-      "kind": "brunch.review_set_proposal",
-      "select": "active-leaves",
-      "rationale": "D27-L, D28-L — proposals not yet accepted/rejected and not superseded must remain reviewable after compaction; superseded ancestors do not."
-    },
-    {
       "kind": "brunch.side_task_result",
       "select": "all-unresolved",
       "rationale": "D15-L, I12-L — succeeded side-task results awaiting next-turn-boundary delivery must remain deliverable after compaction; mid-turn delivery remains forbidden."

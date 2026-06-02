@@ -4,9 +4,8 @@ import { createDb } from '../../db/connection.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
 import { getGraphOverview } from '../../graph/snapshot.js';
 import {
-  buildReviewableReviewSetProposalEntry,
-  projectLatestReviewableReviewSetProposal,
   translateReviewSetProposalToCommitGraph,
+  validateReviewSetProposalPayload,
   type ReviewSetProposalDraft,
 } from '../extensions/graph/review-set-proposal.js';
 
@@ -63,18 +62,17 @@ function validProposal(overrides: Partial<ReviewSetProposalDraft> = {}): ReviewS
 }
 
 describe('review-set proposal dry-run gate', () => {
-  it('surfaces dry-run-valid review-set proposals as transcript entries', () => {
+  it('validates dry-run-valid review-set proposal payloads for structured exchanges', () => {
     const db = createDb(':memory:');
     const executor = new CommandExecutor(db);
-    const entry = buildReviewableReviewSetProposalEntry({
+    const result = validateReviewSetProposalPayload({
       proposal: validProposal(),
       commandExecutor: executor,
-      source: 'agent',
     });
 
-    expect(entry).toMatchObject({
-      customType: 'brunch.review_set_proposal',
-      data: {
+    expect(result).toMatchObject({
+      status: 'success',
+      proposal: {
         schemaVersion: 1,
         lens: 'design',
         epistemicStatus: 'inferred',
@@ -82,16 +80,12 @@ describe('review-set proposal dry-run gate', () => {
       },
     });
     expect(getGraphOverview(db)).toMatchObject({ nodeCount: 0, edgeCount: 0, lsn: 0 });
-    expect(projectLatestReviewableReviewSetProposal([{ type: 'custom', ...entry }])).toMatchObject({
-      pitch: { title: 'Launch readiness review set' },
-      validation: { status: 'success' },
-    });
   });
 
-  it('does not surface structurally invalid review-set proposals', () => {
+  it('rejects structurally invalid review-set proposal payloads', () => {
     const db = createDb(':memory:');
     const executor = new CommandExecutor(db);
-    const entry = buildReviewableReviewSetProposalEntry({
+    const result = validateReviewSetProposalPayload({
       proposal: validProposal({
         edgeDrafts: [
           {
@@ -102,17 +96,13 @@ describe('review-set proposal dry-run gate', () => {
         ],
       }),
       commandExecutor: executor,
-      source: 'agent',
     });
 
-    expect(entry).toMatchObject({
+    expect(result).toMatchObject({
       status: 'structural_illegal',
       diagnostics: [{ field: 'edges[0].stance', message: expect.stringContaining('required') }],
     });
     expect(getGraphOverview(db)).toMatchObject({ nodeCount: 0, edgeCount: 0, lsn: 0 });
-    expect(
-      projectLatestReviewableReviewSetProposal([{ type: 'custom', customType: 'other', data: entry }]),
-    ).toBeUndefined();
   });
 
   it('rejects proposal schema drift before CommandExecutor dry-run', () => {
@@ -134,10 +124,9 @@ describe('review-set proposal dry-run gate', () => {
         ],
       },
     ]) {
-      const result = buildReviewableReviewSetProposalEntry({
+      const result = validateReviewSetProposalPayload({
         proposal: proposal as unknown as ReviewSetProposalDraft,
         commandExecutor: executor,
-        source: 'agent',
       });
       expect(result.status).toBe('structural_illegal');
     }
@@ -147,12 +136,11 @@ describe('review-set proposal dry-run gate', () => {
     const db = createDb(':memory:');
     const executor = new CommandExecutor(db);
     const proposal = validProposal();
-    const entry = buildReviewableReviewSetProposalEntry({
+    const entry = validateReviewSetProposalPayload({
       proposal,
       commandExecutor: executor,
-      source: 'agent',
     });
-    expect(entry.status).toBe('reviewable');
+    expect(entry.status).toBe('success');
 
     const commitResult = executor.commitGraph(translateReviewSetProposalToCommitGraph(proposal));
     expect(commitResult).toMatchObject({ status: 'success' });

@@ -236,7 +236,7 @@ describe('elicitation exchange projection', () => {
     });
   });
 
-  it('includes known elicitor custom entries on the prompt side', () => {
+  it('includes known standalone elicitor custom entries on the prompt side', () => {
     const projection = projectElicitationExchanges([
       assistant,
       {
@@ -245,16 +245,10 @@ describe('elicitation exchange projection', () => {
         customType: 'brunch.establishment_offer',
         data: { lens: 'intent' },
       },
-      {
-        id: 'proposal-1',
-        type: 'custom',
-        customType: 'brunch.review_set_proposal',
-        data: { lens: 'design' },
-      },
       user,
     ]);
 
-    expect(projection.exchanges[0]?.promptEntryIds).toEqual(['a1', 'offer-1', 'proposal-1']);
+    expect(projection.exchanges[0]?.promptEntryIds).toEqual(['a1', 'offer-1']);
   });
 
   it('ignores unknown custom entries even when their type contains prompt', () => {

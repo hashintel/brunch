@@ -28,7 +28,6 @@ const PROMPT_SIDE_CUSTOM_TYPES = new Set([
   'brunch.elicitation_prompt',
   'brunch.elicitor_intent_hint',
   'brunch.establishment_offer',
-  'brunch.review_set_proposal',
 ]);
 
 const STRUCTURED_RESPONSE_TYPES = new Set([
