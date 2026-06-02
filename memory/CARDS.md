@@ -12,23 +12,22 @@ frame-replay oracle round-trips a real cook run through
 `reduceBrunchExecutionExport`. All work lives on
 `ka/fe-764-petri-sync-server` (stacked on `ka/fe-784`).
 
-Slice 3 (ephemeral live stream) is split into two card-sized commits:
+Slice 3 (ephemeral live stream) shipped as two commits:
 
-- **3a done:** `petrinaut-stream-bus.ts` exposes
-  `createPetrinautStreamBus({ runId, sdcpnFile })` with a replay buffer;
-  engine fan-out hook `OrchestratorInput.onPetrinautEvent` feeds events into
-  it without the engine knowing the bus exists. Frame translation reuses
-  `eventToTransitionFiring` / `reduceMarking` / `projectNetDefinition`
-  shared with the static reducer; engine-driven replay-equivalence oracle
-  in `engine-contract.test.ts`.
-- **3b (next, sequentially obvious):** HTTP server (`http.createServer` +
-  `listen(0)`) + `/stream` (text/event-stream) mounted on the 3a bus.
-  Connection lifecycle, port advertisement, process-death cleanup.
+- **3a done:** `petrinaut-stream-bus.ts` — pure pub/sub + replay buffer +
+  incremental `PetrinautEvent` → `BrunchExecutionExportFrame` translator.
+  `OrchestratorInput.onPetrinautEvent` engine fan-out hook.
+- **3b done:** `petrinaut-stream-server.ts` — thin HTTP/SSE shell over the
+  3a bus. `createPetrinautStreamServer({ bus, host?, port? })` returns
+  `{ start, stop, connectionCount }`. Localhost-only bind, ephemeral port,
+  one route `GET /stream` returning `text/event-stream`; one bus
+  subscription per connection, response closes after `terminal` frame.
 
-Slices 4 (`--petrinaut-stream` + URL composition + multi-tier base-URL +
-auto-open) and 5 (web-UI button + endpoint discovery) stay sketched below;
-promote to full scope cards once 3a + 3b ship and a real Petrinaut client
-has consumed the stream end-to-end.
+Slice 4 (`--petrinaut-stream` + URL composition + multi-tier base-URL +
+auto-open) is next — wires the 3b server into `runCook` behind the flag
+and composes the Petrinaut launcher URL. Slice 5 (web-UI button +
+endpoint discovery) stays sketched below; promote to a full card once a
+real Petrinaut client has consumed the stream end-to-end.
 
 ---
 
@@ -287,13 +286,13 @@ subscriber receives no further frames.
 
 ## Slice 3b: HTTP/SSE server mounted on the 3a bus
 
-**Status:** next. Thin HTTP shell — the load-bearing pub/sub + frame
-translation already lives in `petrinaut-stream-bus.ts`. This slice only
-adds the transport: bind, serialize, manage one subscription per
-connection, close cleanly. Server module is built and tested in
-isolation; `runCook` integration is deferred to slice 4 (the
-`--petrinaut-stream` gate). That keeps 3b pure and slice 4 a one-line
-glue.
+**Status:** done. `petrinaut-stream-server.ts` + 13-test suite. Real
+`http.createServer` + `listen(0)` per test; covers wire conformance,
+replay-on-connect (both terminated and mid-stream buses), concurrent
+connections, AbortController-disconnect-unsubscribes,
+404-on-unknown-routes, CORS preflight, idempotent `stop()`, in-flight
+response cleanup on `stop()`. `runCook` integration deferred to slice 4
+as planned. `npm run verify` green (1551 tests).
 
 ### Target Behavior
 
