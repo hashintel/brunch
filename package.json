@@ -50,7 +50,7 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.18.1",
-    "@vitejs/plugin-react": "^4.7.0",
+    "@vitejs/plugin-react": "^6.0.2",
     "better-sqlite3": "^12.8.0",
     "drizzle-kit": "^0.18.1",
     "drizzle-orm": "^0.45.2",
