@@ -386,7 +386,7 @@ synchronously, streams live frames, and closes the response with
 
 ### Target Behavior
 
-`brunch cook <dir> --petrinaut-stream` boots an ephemeral SSE server on `127.0.0.1` (kernel-chosen port) before the engine starts firing, subscribes the engine's `PetrinautEvent` stream to the bus, prints the composed Petrinaut launcher URL (`{baseUrl}?runId={runId}&mode=actual&sse={streamUrl}`), auto-opens it in the default browser unless `--no-petrinaut-open` or `process.env.CI` is set, leaves the SSE server alive for the entire `engine.run()`, and stops the server after the run completes (success or failure). Without `--petrinaut-stream`, cook behaviour is byte-identical to today (no server, no URL, no open). The base URL resolves CLI flag > env var > hard-fail before any cook side effects (no sandbox created, no engine started).
+`brunch cook <dir> --petrinaut-stream` ensures an ephemeral SSE server is **listening on `127.0.0.1` (kernel-chosen port) before the engine emits the first Petrinaut event (`initial_marking`)**, subscribes the engine's `PetrinautEvent` stream to the bus, prints the composed Petrinaut launcher URL, auto-opens it in the default browser unless `--no-petrinaut-open` or `process.env.CI` is set, leaves the SSE server alive for the entire `engine.run()`, and stops the server in `finally` after the run completes (success, failure, or thrown). Without `--petrinaut-stream`, cook behaviour is **byte-identical to today** (no server, no URL, no open, no `.env` load). When `--petrinaut-stream` is set, base URL resolution (CLI flag > env var > hard fail) runs **before** any cook side effects — no banner, no plan load, no sandbox, no run dir.
 
 ### Boundary Crossings
 
@@ -394,36 +394,38 @@ synchronously, streams live frames, and closes the response with
 → src/orchestrator/src/cook-cli.ts (existing)
     - new fields on CookOptions: petrinautStream, petrinautBaseUrl, petrinautOpen
     - new flag parsing: --petrinaut-stream, --petrinaut-base-url=<url>, --no-petrinaut-open
+    - companion-flag validation: --petrinaut-base-url and --no-petrinaut-open without --petrinaut-stream → hard error in parseCookArgs
     - usage string + help text update
-    - runCook: load .env via loadLocalEnvFile(launchCwd); resolve base URL pre-flight; on --petrinaut-stream, create bus + server, wire bus.publish to OrchestratorInput.onPetrinautEvent, start server, compose + print URL, auto-open; ensure stop() in finally
+    - runCook (only when opts.petrinautStream === true): load .env via loadLocalEnvFile(launchCwd); resolve base URL; on error, print and exit(1) BEFORE banner/loadPlan/createSandbox. Then pass setupPetrinautStream into engine input; setup hook creates bus + server, awaits server.start(), composes URL via new URL() + searchParams, prints URL, auto-opens (unless suppressed), and RETURNS a publisher callback. Ensure server.stop() in finally.
 → src/orchestrator/src/petrinaut-launcher-url.ts (new — pure URL composer + base-URL resolver)
     - export resolvePetrinautBaseUrl({ cliFlag, env }) → { baseUrl } | { error: string }
-    - export composeLauncherUrl({ baseUrl, runId, streamUrl }) → string
+    - export composeLauncherUrl({ baseUrl, runId, streamUrl }) → string  (uses new URL() + searchParams.set so existing query params and encoding are correct)
 → src/orchestrator/src/types.ts (existing)
-    - OrchestratorInput already carries onPetrinautEvent; no change.
-    - NEW: optional onPetrinautBus?(bus: PetrinautStreamBus): void so engine hands the constructed bus back to cook-cli for HTTP wiring (bus needs sdcpnFile, which engine.ts builds — bus must be constructed inside engine).
+    - REPLACE the existing onPetrinautEvent posture with an awaited setup hook:
+      setupPetrinautStream?: (input: { runId: string; sdcpnFile: SdcpnFile }) => Promise<((event: PetrinautEvent) => void) | undefined>
+    - The hook is awaited BEFORE the engine emits initial_marking. The returned callback (if any) becomes the onEvent for createPetrinautEventStream. (onPetrinautEvent from slice 3a stays as-is for callers that want a fire-and-forget hook without lifecycle setup; setupPetrinautStream is additive — when both are set, both fire.)
 → src/orchestrator/src/engine.ts (existing)
-    - When input.onPetrinautBus is set AND runDir is set: construct bus via createPetrinautStreamBus({ runId, sdcpnFile }) inside the existing FE-762 sdcpn block, call input.onPetrinautBus(bus), and use bus.publish as the onEvent for createPetrinautEventStream. When onPetrinautBus is unset, behaviour is byte-identical to today.
+    - DECOUPLE stream setup from the FE-762 best-effort file-write block. Compute serialized + sdcpnFile ONCE in memory; FE-762 file writes stay best-effort and independent. Then: await input.setupPetrinautStream?.({ runId, sdcpnFile }) before createPetrinautEventStream, and merge the returned callback (if any) into onEvent alongside any existing onPetrinautEvent. Then emitInitialMarking. When setupPetrinautStream is unset, behaviour is byte-identical to today.
 → src/server/runtime-config.ts (existing)
-    - loadLocalEnvFile(cwd) already exported; reuse from cook-cli.ts. No change to runtime-config itself.
+    - loadLocalEnvFile(cwd) already exported; reuse from cook-cli.ts. (Helper currently overrides set env values silently — see Risks; document the precedence in cook-cli or copy/adapt the helper locally if precedence needs to flip.)
 → .env.example (existing)
     - add line: PETRINAUT_BASE_URL=
 → package.json (existing)
     - 'open' dependency already declared (open ^11). No change.
 → exits at:
     src/orchestrator/src/petrinaut-launcher-url.test.ts (new — pure tests for base-URL resolution + URL composition)
-    src/orchestrator/src/cook-cli.test.ts (existing — extend parseCookArgs cases for the three new flags + .env loading + URL composition; do not invoke the cook binary)
-    src/orchestrator/src/engine-contract.test.ts (existing — extend FE-764 block: run engine with onPetrinautBus, attach an HTTP client to the returned bus's server, assert end-to-end frame delivery on a real cook run)
+    src/orchestrator/src/cook-cli.test.ts (existing — extend: flag parsing (all 3 flags + companion validation), runCook lifecycle via injected seams (openUrl, createServer / setupPetrinautStream), env-load gating, server stop in finally)
+    src/orchestrator/src/engine-contract.test.ts (existing — extend FE-764 block ONLY to assert: setupPetrinautStream is awaited before initial_marking; returned callback receives full event sequence. NO real HTTP in this test — transport coverage stays in petrinaut-stream-server.test.ts.)
 ```
 
 ### Risks and Assumptions
 
 ```
-- ASSUMPTION: The bus needs the SdcpnFile, which is built inside engine.ts after compileTopology. So the bus must be constructed inside engine and handed back via a callback — cook-cli cannot construct it pre-flight. `onPetrinautBus` is that callback.
-  → VALIDATE: engine.ts builds bus only when `input.onPetrinautBus` is set; existing callers without the callback see byte-identical behavior. Test: existing engine tests without onPetrinautBus pass unchanged.
+- ASSUMPTION: The bus needs the SdcpnFile, which is built inside engine.ts after compileTopology. Engine is the source of truth for compile/fold/sdcpn; CLI must not duplicate that. Seam choice: an **awaited setup hook** (`setupPetrinautStream`) — engine builds sdcpnFile, awaits the hook, the hook stands the bus + HTTP server up and resolves with a publisher callback. This guarantees the server is listening BEFORE `initial_marking` is emitted. A sync `onPetrinautBus(bus): void` callback was rejected because it cannot await `server.start()`, creating a race where the first events publish before the HTTP server accepts connections.
+  → VALIDATE: engine awaits the hook before any `createPetrinautEventStream` / `emitInitialMarking` call; tests verify the await ordering. Existing callers without the hook see byte-identical behavior.
 
-- ASSUMPTION: `loadLocalEnvFile(launchCwd)` (currently used by `src/server/cli.ts`) is the right reuse target for cook-cli — it only sets unset env vars, never overrides shell env, and tolerates a missing .env.
-  → VALIDATE: import directly from `../../server/runtime-config.js` (cross-mini-library import already done elsewhere?). If the import direction is wrong per AGENTS.md's mini-library posture, extract the loader to a shared module (e.g. `src/shared/load-local-env.ts`) and have both callers consume it. Confirm at build time; prefer reuse over duplication.
+- ASSUMPTION: `loadLocalEnvFile(launchCwd)` (currently used by `src/server/cli.ts`) is the right reuse target for cook-cli. Note: it **overrides** existing env vars silently (it sets `process.env[key] = value` unconditionally for any non-empty parsed value), which means `.env` wins over the shell. That's the opposite of what most tools do (shell wins over `.env`).
+  → DECIDE in build: either (a) accept current precedence and document it in cook-cli help text + risk surface, or (b) copy a tiny local helper (`loadLocalEnvFile` ~10 lines) into orchestrator that only sets unset keys (shell wins). Recommendation: (b) — shell-wins matches every common dotenv tool and prevents the surprise of a stale `.env` clobbering an explicit `PETRINAUT_BASE_URL=...` shell prefix. Either way, **`.env` loading happens ONLY when `--petrinaut-stream` is set** (no behavior change for non-stream runs).
 
 - ASSUMPTION: The `open` npm package (already a dep) launches the system browser cross-platform and resolves whether or not the browser actually opens.
   → VALIDATE: invoke `open(url)` inside a try/catch; failure prints a "Couldn't auto-open browser; visit {url}" warning and continues. Test: auto-open is suppressed in tests by injecting an `openUrl` seam (default = npm `open`) so we never spawn a real browser in CI.
@@ -450,9 +452,11 @@ synchronously, streams live frames, and closes the response with
 ### Acceptance Criteria
 
 ```
-✓ `parseCookArgs` accepts `--petrinaut-stream` (boolean, default false), `--petrinaut-base-url=<url>` (string, default undefined), `--no-petrinaut-open` (boolean, default false). Usage string updated. Unknown values exit non-zero with a clear error (existing pattern).
+✓ `parseCookArgs` accepts `--petrinaut-stream` (boolean), `--petrinaut-base-url=<url>` (string), `--no-petrinaut-open` (boolean). Usage string updated. Unknown values exit non-zero with a clear error (existing pattern).
 
-✓ `CookOptions` gains: `petrinautStream: boolean`, `petrinautBaseUrl?: string`, `petrinautOpen: boolean` (resolves the flag + CI default at parse time? — no, leave CI check in runCook so parseCookArgs stays pure).
+✓ Companion-flag validation in parseCookArgs: `--petrinaut-base-url` or `--no-petrinaut-open` set WITHOUT `--petrinaut-stream` → hard error ("--petrinaut-base-url requires --petrinaut-stream" / "--no-petrinaut-open requires --petrinaut-stream"). Test: each combination raises.
+
+✓ `CookOptions` gains: `petrinautStream: boolean`, `petrinautBaseUrl?: string`, `petrinautOpen: boolean` (CI env check stays in runCook so parseCookArgs remains pure).
 
 ✓ test: parseCookArgs round-trips each new flag with correct precedence (no flag → defaults; `--no-petrinaut-open` → petrinautOpen=false; etc.).
 
@@ -460,23 +464,30 @@ synchronously, streams live frames, and closes the response with
 
 ✓ test: all three resolution branches (CLI > env > error) verified, including the exact error message string.
 
-✓ `composeLauncherUrl({ baseUrl, runId, streamUrl })` exported from petrinaut-launcher-url.ts: returns `${baseUrl}?runId=${runId}&mode=actual&sse=${encodeURIComponent(streamUrl)}` (URL-encodes `sse` since it contains a URL). Pure function.
+✓ `composeLauncherUrl({ baseUrl, runId, streamUrl })` exported from petrinaut-launcher-url.ts: uses `new URL(baseUrl)` + `searchParams.set('runId', runId)` + `searchParams.set('mode', 'actual')` + `searchParams.set('sse', streamUrl)` so existing query params on `baseUrl` survive and encoding is correct. Pure function.
 
-✓ test: composer handles baseUrl with and without trailing slash; URL-encodes the sse parameter; preserves runId verbatim.
+✓ test: composer handles baseUrl with and without trailing slash; baseUrl with pre-existing query params (they survive); URL-encodes the sse parameter automatically via searchParams; preserves runId verbatim.
 
 ✓ `runCook` (when `opts.petrinautStream === true`):
-    1. Calls `loadLocalEnvFile(launchCwd)` early (before base-URL resolution).
-    2. Resolves base URL via `resolvePetrinautBaseUrl({ cliFlag: opts.petrinautBaseUrl, env: process.env })`. On error: prints message to stderr and `process.exit(1)` — before createSandbox / loadPlan side effects.
-    3. Creates the bus + server via `onPetrinautBus` callback inside engine; `server.start()` returns `{ streamUrl }`.
-    4. Composes launcher URL via `composeLauncherUrl(...)`, prints to stderr.
-    5. Auto-opens via the npm `open` package unless `opts.petrinautOpen === false` or `process.env.CI` is set; on open failure, warns and continues (doesn't fail the cook run).
-    6. Calls `server.stop()` in a `finally` (success, failure, or thrown error all cleanup).
+    1. Calls `loadLocalEnvFile(launchCwd)` BEFORE base-URL resolution. (Skipped entirely when petrinautStream is false.)
+    2. Resolves base URL via `resolvePetrinautBaseUrl({ cliFlag: opts.petrinautBaseUrl, env: process.env })`. On error: prints message to stderr and `process.exit(1)` — BEFORE banner, loadPlan, createSandbox.
+    3. Constructs a `setupPetrinautStream` hook (closure capturing the openUrl seam and shouldOpen flag) and passes it as `OrchestratorInput.setupPetrinautStream`. The hook: creates bus, creates server, awaits `server.start()` → `{ streamUrl }`. If `server.start()` rejects, the hook rejects → engine.run rejects → exit non-zero before any firing.
+    4. Inside the hook (after server.start resolves): composes launcher URL via `composeLauncherUrl(...)`, prints to stderr, calls openUrl unless `opts.petrinautOpen === false` or `process.env.CI` truthy. On openUrl failure: warns and continues (doesn't fail the cook run). Returns `bus.publish` as the publisher callback.
+    5. Calls `server.stop()` in a `finally` (success, failure, or thrown error all cleanup). connectionCount() returns 0 after stop.
 
-✓ test (cook-cli.test.ts): with `--petrinaut-stream` and a base URL set via env, runCook (via an injected seam — testable subset, not a real binary spawn) calls openUrl with the composed launcher URL. With `--no-petrinaut-open`, openUrl is not called but the URL is printed. With `CI=1`, openUrl is not called.
+✓ test (cook-cli.test.ts): with `--petrinaut-stream` and a base URL set via env, runCook (via injected `openUrl` seam) calls openUrl with the composed launcher URL. With `--no-petrinaut-open`, openUrl is not called but the URL is printed. With `process.env.CI='1'`, openUrl is not called.
 
-✓ test (engine-contract.test.ts): a real cook run with `onPetrinautBus` wired produces a bus that, when fed to `createPetrinautStreamServer` and connected to via Node fetch(), delivers `definition` → `initial_state` → all firings → `terminal` to an HTTP client. Asserts replay-equivalence at the SSE layer.
+✓ test (cook-cli.test.ts): without `--petrinaut-stream`, loadLocalEnvFile is NOT called; no setupPetrinautStream is passed to engine; no URL is printed. Behavior byte-identical to today (regression guard).
 
-✓ `OrchestratorInput.onPetrinautBus?: (bus: PetrinautStreamBus) => void` added to types.ts; engine.ts wires it inside the existing FE-762 sdcpn block; existing tests without the callback still pass.
+✓ test (cook-cli.test.ts): `server.start()` rejection (simulated via injected seam) hard-fails the run before any firing; server.stop() is still attempted in finally (idempotent).
+
+✓ test (engine-contract.test.ts): `setupPetrinautStream` is **awaited before** the first PetrinautEvent (no firings or initial_marking observed before the hook resolves); the returned callback receives the full event sequence (initial_marking → N transition_fired → terminal). NO real HTTP in this test — transport coverage stays in `petrinaut-stream-server.test.ts`.
+
+✓ `OrchestratorInput.setupPetrinautStream?: (input: { runId: string; sdcpnFile: SdcpnFile }) => Promise<((event: PetrinautEvent) => void) | undefined>` added to types.ts. Existing `onPetrinautEvent` stays additive (when both are present, both fire). engine.ts decouples stream setup from the FE-762 best-effort file-write block.
+
+✓ Fold interaction: `--petrinaut-stream --petrinaut-fold=color` and `--petrinaut-stream --petrinaut-fold=identity` both work; the stream carries whatever fold the engine produces. Test: parse both combos cleanly; no extra coupling.
+
+✓ runDir outputs: slice 4 writes NO new file under runDir (no `petrinaut-stream.json` discovery file — that's slice 5).
 
 ✓ `.env.example` gains `PETRINAUT_BASE_URL=` (empty placeholder so first-run setup is obvious).
 
@@ -486,8 +497,8 @@ synchronously, streams live frames, and closes the response with
 ### Verification Approach
 
 ```
-- Inner: petrinaut-launcher-url.test.ts unit tests for base-URL resolution + URL composition (pure); cook-cli.test.ts extension for the three new flags; engine.ts unchanged for callers without onPetrinautBus.
-- Middle: engine-contract.test.ts extension — real http.Server over the bus, fetch() asserts SSE frames end-to-end on a real cook run.
+- Inner: petrinaut-launcher-url.test.ts unit tests for base-URL resolution + URL composition (pure); cook-cli.test.ts for flag parsing + companion validation + runCook lifecycle via injected seams (openUrl, setupPetrinautStream factory); engine.ts unchanged for callers without setupPetrinautStream.
+- Middle: engine-contract.test.ts extension — assert await-ordering invariant (hook resolves before first event) using a direct setupPetrinautStream that records ordering; NO real HTTP (that lives in petrinaut-stream-server.test.ts from slice 3b).
 - Outer: deferred to slice 5 / cross-team validation — Chris's Petrinaut client connects to a real cook run and renders the "actual" view. Bristol-demo readiness gate.
 ```
 
