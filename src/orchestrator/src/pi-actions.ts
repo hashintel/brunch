@@ -1,6 +1,9 @@
-import { spawnSync } from 'node:child_process';
+import { exec, spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+
+const execAsync = promisify(exec);
 
 import { createReport } from './report-helpers.js';
 import type { ActionContext, ActionHandlers } from './types.js';
@@ -41,58 +44,98 @@ function logVerbose(output: string): void {
 // Pi dispatch
 // ---------------------------------------------------------------------------
 
+const PI_TIMEOUT_MS = 300_000;
+const PI_MAX_BUFFER = 10 * 1024 * 1024;
+
+// Async on purpose: `pi` runs for tens of seconds per call. A synchronous
+// `spawnSync` would freeze the shared event loop, starving the FE-764 SSE
+// stream server (which lives on the same loop) of the chance to flush frames
+// while a slice is being worked. Awaiting an async child keeps the loop free
+// so transition firings stream live.
 function runPi(opts: {
   label: string;
   model: string;
   promptFile: string;
   task: string;
   sandboxDir: string;
-}): string {
+}): Promise<string> {
   const start = Date.now();
 
-  const result = spawnSync(
-    'pi',
-    [
-      '-p',
-      '--no-session',
-      '--no-context-files',
-      '--mode',
-      'text',
-      '--provider',
-      'anthropic',
-      '--model',
-      opts.model,
-      '--system-prompt',
-      '',
-      '--append-system-prompt',
-      opts.promptFile,
-      '--tools',
-      'read,write,edit,bash',
-      opts.task,
-    ],
-    {
-      cwd: opts.sandboxDir,
-      encoding: 'utf8',
-      timeout: 300_000,
-      maxBuffer: 10 * 1024 * 1024,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
-  );
+  return new Promise<string>((resolve, reject) => {
+    const child = spawn(
+      'pi',
+      [
+        '-p',
+        '--no-session',
+        '--no-context-files',
+        '--mode',
+        'text',
+        '--provider',
+        'anthropic',
+        '--model',
+        opts.model,
+        '--system-prompt',
+        '',
+        '--append-system-prompt',
+        opts.promptFile,
+        '--tools',
+        'read,write,edit,bash',
+        opts.task,
+      ],
+      { cwd: opts.sandboxDir, stdio: ['ignore', 'pipe', 'pipe'] },
+    );
 
-  const dur = ((Date.now() - start) / 1000).toFixed(1);
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    let stdoutLen = 0;
+    let settled = false;
 
-  if (result.error) {
-    throw new Error(`pi failed to start: ${result.error.message}`);
-  }
-  if (result.status !== 0) {
-    const stderr = result.stderr?.trim() ?? '';
-    throw new Error(`pi exited ${result.status}${stderr ? `: ${stderr}` : ''}`);
-  }
+    const settle = (fn: () => void): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn();
+    };
 
-  log('✓', `${opts.label} (${dur}s)`);
-  logVerbose(result.stdout);
+    const timer = setTimeout(() => {
+      settle(() => {
+        child.kill('SIGTERM');
+        reject(new Error(`pi timed out after ${PI_TIMEOUT_MS / 1000}s`));
+      });
+    }, PI_TIMEOUT_MS);
 
-  return result.stdout;
+    child.stdout?.on('data', (chunk: Buffer) => {
+      stdoutLen += chunk.length;
+      if (stdoutLen > PI_MAX_BUFFER) {
+        settle(() => {
+          child.kill('SIGTERM');
+          reject(new Error('pi output exceeded 10MB buffer'));
+        });
+        return;
+      }
+      stdoutChunks.push(chunk);
+    });
+    child.stderr?.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
+
+    child.on('error', (err) => {
+      settle(() => reject(new Error(`pi failed to start: ${err.message}`)));
+    });
+
+    child.on('close', (code) => {
+      settle(() => {
+        const stdout = Buffer.concat(stdoutChunks).toString('utf8');
+        if (code !== 0) {
+          const stderr = Buffer.concat(stderrChunks).toString('utf8').trim();
+          reject(new Error(`pi exited ${code}${stderr ? `: ${stderr}` : ''}`));
+          return;
+        }
+        const dur = ((Date.now() - start) / 1000).toFixed(1);
+        log('✓', `${opts.label} (${dur}s)`);
+        logVerbose(stdout);
+        resolve(stdout);
+      });
+    });
+  });
 }
 
 /** Try to extract a JSON object from pi's text output. */
@@ -124,7 +167,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
       const task = `Evaluate slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => v.target).join(', ')}\nDetermine if all verification targets are satisfied. Respond with a JSON object: { "done": true/false, "reasoning": "..." }`;
 
       try {
-        const raw = runPi({
+        const raw = await runPi({
           label: `evaluate  ${ctx.slice.id}`,
           model: 'claude-haiku-4-5',
           promptFile: join(promptsDir, 'evaluator.md'),
@@ -151,7 +194,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
       log('▸', `tests     ${ctx.slice.id}`);
       const task = `Write failing tests for slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ')}\nWrite test files that will initially fail. Use bun test conventions.`;
 
-      runPi({
+      await runPi({
         label: `tests     ${ctx.slice.id}`,
         model: 'claude-sonnet-4-6',
         promptFile: join(promptsDir, 'test-writer.md'),
@@ -169,7 +212,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
       log('▸', `code      ${ctx.slice.id}`);
       const task = `Write code to make tests pass for slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ')}\nImplement the minimum code to make all tests pass.`;
 
-      runPi({
+      await runPi({
         label: `code      ${ctx.slice.id}`,
         model: 'claude-sonnet-4-6',
         promptFile: join(promptsDir, 'code-writer.md'),
@@ -194,7 +237,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
 
       const writeTask = `Write an integration test for epic "${ctx.epic.id}": ${ctx.epic.summary}\nThis test should verify that all slices in this epic work together correctly.\nVerification targets: ${targets}\nWrite the test file(s) using bun test conventions. Then run them with "bun test" to verify they pass.`;
 
-      runPi({
+      await runPi({
         label: `verify    ${ctx.epic.id} (write)`,
         model: 'claude-sonnet-4-6',
         promptFile: join(promptsDir, 'test-writer.md'),
@@ -205,15 +248,13 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
       let allPassed = true;
       for (const v of ctx.epic.verification) {
         try {
-          const { execSync } = await import('node:child_process');
-          const output = execSync(`bun test ${v.target}`, {
+          const { stdout } = await execAsync(`bun test ${v.target}`, {
             cwd: ctx.sandboxDir,
             encoding: 'utf8',
             timeout: 60_000,
-            stdio: ['ignore', 'pipe', 'pipe'],
           });
           log('✓', `verify    ${v.target}`);
-          logVerbose(output);
+          logVerbose(stdout);
         } catch (err) {
           log('✗', `verify    ${v.target}`);
           if (_verbose && err && typeof err === 'object' && 'stdout' in err) {
