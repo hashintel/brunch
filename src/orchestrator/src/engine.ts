@@ -1,5 +1,10 @@
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { compileTopology, wireHandlers } from './net-compiler.js';
 import type { FiringPolicy } from './petri-net.js';
+import { serializeBlueprint } from './petrinaut-export.js';
+import { toSdcpnFile } from './petrinaut-sdcpn.js';
 import type { Orchestrator, OrchestratorInput, OrchestratorResult, RunCtx } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -26,6 +31,24 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
 
       try {
         const blueprint = compileTopology(input.plan, input.policy);
+
+        // FE-762: write the Petrinaut-format compiled net to <runDir>/net.json
+        // so the Petrinaut team can render the topology of this cook run.
+        // Skipped when runDir is absent (library callers / tests).
+        if (input.runDir) {
+          try {
+            const serialized = serializeBlueprint(blueprint, { runId: input.runId ?? 'unknown' });
+            writeFileSync(join(input.runDir, 'net.json'), `${JSON.stringify(serialized, null, 2)}\n`);
+
+            // Also emit a Petrinaut SDCPN import file so the compiled net drops
+            // straight into the Petrinaut editor's file-picker import.
+            const sdcpn = toSdcpnFile(serialized, {});
+            writeFileSync(join(input.runDir, 'net.sdcpn.json'), `${JSON.stringify(sdcpn, null, 2)}\n`);
+          } catch {
+            // Best-effort integration output — don't fail the cook run.
+          }
+        }
+
         const net = wireHandlers(blueprint, input, ctx);
         await net.run(firingPolicy, () => net.hasHaltToken());
 

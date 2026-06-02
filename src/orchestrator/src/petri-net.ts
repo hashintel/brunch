@@ -92,7 +92,7 @@ const BENIGN_RESIDUAL_PLACES = new Set([
   'halted',
 ]);
 
-function placeName(placeId: string): string {
+export function placeName(placeId: string): string {
   const sliceMatch = placeId.match(/^slice:[^:]+:(.+)$/);
   if (sliceMatch) return sliceMatch[1]!;
   const epicMatch = placeId.match(/^epic:[^:]+:(.+)$/);

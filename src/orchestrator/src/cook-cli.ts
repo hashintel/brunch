@@ -163,6 +163,8 @@ export async function runCook(opts: CookOptions): Promise<void> {
     policy: { maxRetries: opts.maxRetries },
     sandboxMode: resolved.mode === 'codebase' ? 'codebase' : 'fixture',
     runId,
+    // FE-762: engine writes Petrinaut net.json into the run directory.
+    runDir,
   });
 
   const duration = fmtDuration(Date.now() - runStart);
