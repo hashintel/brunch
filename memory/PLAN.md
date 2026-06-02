@@ -78,8 +78,8 @@ The POC should maximize assumption falsification rather than merely implement mi
 ### spec-persistence-and-startup
 
 - **Name:** Spec persistence and startup integrity
-- **Linear:** unassigned (create in FE / brunch when branch opens)
-- **Branch:** to create — `ln/<issue>-spec-persistence-startup`
+- **Linear:** none — folded into FE-785 (`agent-graph-integration`); no separate issue created.
+- **Branch:** landed on `ln/fe-785-agent-graph-integration` (commits `c1053963`, `5e5cf1a1`); not branched separately, contrary to the one-branch-per-frontier default.
 - **Kind:** structural (persistence-model correction + startup-path regression repair)
 - **Status:** done
 - **Objective:** Restore the DB-on-startup path lost in the rebuild and correct the workspace/spec/session persistence model so Brunch initializes and boots correctly under all foreseeable conditions, reading each fact from its canonical home. Concretely: **(a)** model specs as DB rows (`specs{id:int, name, slug, readiness_grade}`), retiring `elicitation_posture` and `commitment_focus`; **(b)** create `.brunch/data.db` if absent at startup and route spec create/read/grade-update through the `CommandExecutor`; **(c)** rename `.brunch/state.json` → `.brunch/workspace.json` and reshape to `{project:{name,slug}, current:{specId:int, sessionId}, posture:<empty stub>}`, dropping the dead `source` field; **(d)** collapse the `brunch.session_binding` entry to `{specId:int}`, dropping `sessionId`/`specTitle` and the `sessionId !== header.id` self-guard (fork-portable); **(e)** resolve spec names from the DB, not from JSONL or workspace state.

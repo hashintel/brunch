@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import { assistantMessage, userMessage } from '../probes/test-helpers.js';
 import {
   loadJsonlTranscriptEntries,
   loadLinearElicitationExchangeProjection,
@@ -15,7 +16,6 @@ import {
 } from './elicitation-exchange.js';
 import { createSessionBindingData } from './session-binding.js';
 import { STRUCTURED_EXCHANGE_RESULT_SCHEMA } from './structured-exchange.js';
-import { assistantMessage, userMessage } from './test-helpers.js';
 
 const assistant = {
   id: 'a1',

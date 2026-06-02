@@ -8,11 +8,11 @@ import {
 import type {
   StructuredExchangePresentDetails,
   StructuredExchangeRequestDetails,
-} from './.pi/extensions/structured-exchange/shared/model.js';
+} from '../.pi/extensions/structured-exchange/shared/model.js';
 import {
   isStructuredExchangePresentDetails,
   isStructuredExchangeRequestDetails,
-} from './.pi/extensions/structured-exchange/shared/recovery.js';
+} from '../.pi/extensions/structured-exchange/shared/recovery.js';
 import {
   assertLinearBrunchSessionEnvelope,
   loadJsonlTranscriptEntries,

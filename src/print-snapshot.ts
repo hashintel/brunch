@@ -1,4 +1,4 @@
-import type { WorkspaceSessionState } from './workspace-session-coordinator.js';
+import type { WorkspaceSessionState } from './session/workspace-session-coordinator.js';
 
 export interface WorkspaceSnapshot {
   status: WorkspaceSessionState['status'];

@@ -6,21 +6,21 @@ import { Value } from 'typebox/value';
 
 import type { StructuredExchangePresentDetails } from '../.pi/extensions/structured-exchange/shared/model.js';
 import { isStructuredExchangePresentDetails } from '../.pi/extensions/structured-exchange/shared/recovery.js';
+import { workspaceSnapshotFromState } from '../print-snapshot.js';
 import {
   readBrunchSessionEnvelope,
   NonLinearTranscriptError,
   type BrunchSessionEnvelope,
-} from '../brunch-session-envelope.js';
+} from '../session/brunch-session-envelope.js';
 import {
   projectLinearElicitationExchangeProjection,
   projectLinearTranscriptDisplayProjection,
-} from '../elicitation-exchange.js';
-import { workspaceSnapshotFromState } from '../print-snapshot.js';
+} from '../session/elicitation-exchange.js';
 import {
   resolveExplicitSessionProjectionTarget,
   type ExplicitSessionProjectionParams,
   type SessionProjectionTarget,
-} from '../session-projection-reader.js';
+} from '../session/session-projection-reader.js';
 import type {
   DefaultWorkspaceCoordinator,
   WorkspaceActivationState,
@@ -28,7 +28,7 @@ import type {
   WorkspaceSessionState,
   SpecSessionActivationCoordinator,
   SpecSessionActivationDecision,
-} from '../workspace-session-coordinator.js';
+} from '../session/workspace-session-coordinator.js';
 import {
   createJsonRpcFailure,
   createJsonRpcSuccess,

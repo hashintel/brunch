@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import process from 'node:process';
 
-import { verifyWorkspaceSessionStores } from '../workspace-session-coordinator.js';
+import { verifyWorkspaceSessionStores } from '../session/workspace-session-coordinator.js';
 
 const cwd = process.argv[2];
 const expectedSessionCount = process.argv[3] ? Number(process.argv[3]) : undefined;

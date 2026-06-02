@@ -3,9 +3,9 @@ import { createServer, type Server } from 'node:http';
 import { dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createRpcHandlers } from './rpc/handlers.js';
-import { attachWebRpcTransport } from './rpc/websocket.js';
-import type { WorkspaceSessionCoordinator } from './workspace-session-coordinator.js';
+import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
+import { createRpcHandlers } from './handlers.js';
+import { attachWebRpcTransport } from './websocket.js';
 
 export interface WebHostOptions {
   cwd: string;
@@ -107,7 +107,7 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
 }
 
 function defaultWebAssetRoot(): string {
-  return resolve(dirname(fileURLToPath(import.meta.url)), '..', 'dist-web');
+  return resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'dist-web');
 }
 
 interface ResolvedAssetRequest {

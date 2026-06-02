@@ -9,14 +9,14 @@ import {
   type CreateAgentSessionRuntimeFactory,
 } from '@earendil-works/pi-coding-agent';
 
-import { runWorkspaceDialogPreflight } from './.pi/components/workspace-dialog.js';
-import { chromeStateForWorkspace, createBrunchPiExtensionShell } from './.pi/pi-extension-shell.js';
 import {
   applyBrunchOfflineDefault,
   brunchResourceLoaderOptions,
   createBrunchPiProfile,
   createBrunchSettingsManager,
-} from './brunch-pi-profile.js';
+} from './.pi/brunch-pi-profile.js';
+import { runWorkspaceDialogPreflight } from './.pi/components/workspace-dialog.js';
+import { chromeStateForWorkspace, createBrunchPiExtensionShell } from './.pi/pi-extension-shell.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceLaunchInventory,
@@ -24,7 +24,7 @@ import {
   type WorkspaceSessionReadyState,
   type SpecSessionActivationCoordinator,
   type SpecSessionActivationDecision,
-} from './workspace-session-coordinator.js';
+} from './session/workspace-session-coordinator.js';
 export {
   BRUNCH_SETTINGS_AUDITED_GETTERS,
   BRUNCH_SETTINGS_POLICY,
@@ -32,7 +32,7 @@ export {
   brunchResourceLoaderOptions,
   createBrunchPiProfile,
   createBrunchSettingsManager,
-} from './brunch-pi-profile.js';
+} from './.pi/brunch-pi-profile.js';
 export {
   BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE,
   chromeStateForWorkspace,

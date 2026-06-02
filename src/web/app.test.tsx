@@ -3,8 +3,8 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { TranscriptDisplayProjection } from '../elicitation-exchange.js';
 import type { WorkspaceSnapshot } from '../print-snapshot.js';
+import type { TranscriptDisplayProjection } from '../session/elicitation-exchange.js';
 import { BrunchWebApp, createBrunchWebRuntime } from './app.js';
 import type {
   WebSocketRpcClient,

@@ -14,7 +14,7 @@ import type {
 import {
   isStructuredExchangePresentDetails,
   isStructuredExchangeRequestDetails,
-} from './.pi/extensions/structured-exchange/shared/recovery.js';
+} from '../.pi/extensions/structured-exchange/shared/recovery.js';
 
 type TranscriptEntry = FileEntry;
 

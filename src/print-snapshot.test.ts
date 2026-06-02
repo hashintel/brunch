@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { renderWorkspaceSnapshot, workspaceSnapshotFromState } from './print-snapshot.js';
-import type { WorkspaceSessionState } from './workspace-session-coordinator.js';
+import type { WorkspaceSessionState } from './session/workspace-session-coordinator.js';
 
 const cwd = '/tmp/brunch-project';
 

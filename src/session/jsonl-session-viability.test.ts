@@ -11,7 +11,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import { assistantMessage, userMessage } from './test-helpers.js';
+import { assistantMessage, userMessage } from '../probes/test-helpers.js';
 
 interface PersistedSessionFixture {
   file: string;

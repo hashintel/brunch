@@ -53,12 +53,14 @@ Rules:
 
 ## Migration notes
 
-Some files currently at `src/` root belong in `src/session/` per this layout
-(workspace-session-coordinator, session-binding, session-projection-reader,
-brunch-session-envelope, session-transcript, elicitation-exchange,
-structured-exchange). The active workspace file is `.brunch/workspace.json`
-(`state.json` is retired). Move files incrementally as each file is touched.
+The session-domain files (workspace-session-coordinator, session-binding,
+session-projection-reader, brunch-session-envelope, session-transcript,
+elicitation-exchange, structured-exchange, project-identity) now live in
+`src/session/`; `brunch-pi-profile.ts` in `src/.pi/`; `web-host` in `src/rpc/`;
+the React client in `src/web/` (formerly `web-client/`); shared test helpers
+in `src/probes/`. The active workspace file is `.brunch/workspace.json`
+(`state.json` is retired).
 
-Prompt composition currently under `src/tui-client/.pi/context/` migrates
-to `src/agents/` per D52-L. The `.pi/context/` README describes the
-current interim layout.
+Still pending: prompt composition under `src/.pi/context/` migrates to
+`src/agents/` per D52-L — deferred until the agent-runtime vocabulary work,
+since that move reconciles the strategy/lens model rather than just relocating it.

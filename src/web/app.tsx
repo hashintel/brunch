@@ -8,8 +8,8 @@ import {
 import { RouterProvider, createRootRouteWithContext, createRouter } from '@tanstack/react-router';
 import { Suspense, useEffect } from 'react';
 
-import type { TranscriptDisplayProjection } from '../elicitation-exchange.js';
 import type { WorkspaceSnapshot } from '../print-snapshot.js';
+import type { TranscriptDisplayProjection } from '../session/elicitation-exchange.js';
 import type { WebSocketRpcClient } from './rpc-client.js';
 
 type RouterContext = {

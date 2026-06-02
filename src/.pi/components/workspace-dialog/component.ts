@@ -8,7 +8,7 @@ import { Key, matchesKey, truncateToWidth, visibleWidth, type Component } from '
 import type {
   WorkspaceLaunchInventory,
   SpecSessionActivationDecision,
-} from '../../../workspace-session-coordinator.js';
+} from '../../../session/workspace-session-coordinator.js';
 import {
   formatBrunchProductIdentity,
   readBrunchAnsiLogo,

@@ -4,7 +4,7 @@ import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 import type {
   WorkspaceSessionChromeState,
   WorkspaceSessionReadyState,
-} from '../../workspace-session-coordinator.js';
+} from '../../session/workspace-session-coordinator.js';
 import { BRUNCH_COMPACT_WORDMARK } from '../components/brunch-identity.js';
 
 export type BrunchChromeStage = 'idle' | 'streaming' | 'observer-review';

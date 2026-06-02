@@ -11,6 +11,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import { createBrunchPiProfile } from './.pi/brunch-pi-profile.js';
 import {
   BRUNCH_WORKSPACE_COMMAND,
   BRUNCH_WORKSPACE_SHORTCUT,
@@ -21,7 +22,6 @@ import {
   runBrunchWorkspaceCommand,
   runBrunchWorkspaceAction,
 } from './.pi/pi-extension-shell.js';
-import { createBrunchPiProfile } from './brunch-pi-profile.js';
 import {
   BRUNCH_SETTINGS_AUDITED_GETTERS,
   BRUNCH_SETTINGS_POLICY,
@@ -30,13 +30,13 @@ import {
   createBrunchSettingsManager,
   runBrunchTui,
 } from './brunch-tui.js';
-import { userMessage } from './test-helpers.js';
+import { userMessage } from './probes/test-helpers.js';
 import {
   createWorkspaceSessionCoordinator,
   verifyWorkspaceSessionStores,
   type WorkspaceLaunchInventory,
   type WorkspaceSessionReadyState,
-} from './workspace-session-coordinator.js';
+} from './session/workspace-session-coordinator.js';
 
 describe('Brunch TUI boot', () => {
   it('gates spec selection through the coordinator before launching interactive mode', async () => {
@@ -790,7 +790,7 @@ describe('Brunch TUI boot', () => {
 
   it('keeps Pi settings/resource policy out of the TUI launcher', async () => {
     const launcherSource = await readFile(join(import.meta.dirname, 'brunch-tui.ts'), 'utf8');
-    const profileSource = await readFile(join(import.meta.dirname, 'brunch-pi-profile.ts'), 'utf8');
+    const profileSource = await readFile(join(import.meta.dirname, '.pi', 'brunch-pi-profile.ts'), 'utf8');
 
     expect(launcherSource).toContain('createBrunchPiProfile');
     expect(launcherSource).not.toContain('SettingsManager.create');
@@ -801,7 +801,7 @@ describe('Brunch TUI boot', () => {
 
   it('keeps the Brunch settings override and audit list in the profile boundary', async () => {
     const launcherSource = await readFile(join(import.meta.dirname, 'brunch-tui.ts'), 'utf8');
-    const profileSource = await readFile(join(import.meta.dirname, 'brunch-pi-profile.ts'), 'utf8');
+    const profileSource = await readFile(join(import.meta.dirname, '.pi', 'brunch-pi-profile.ts'), 'utf8');
     const settingsManagerTypes = await readFile(
       join(
         import.meta.dirname,

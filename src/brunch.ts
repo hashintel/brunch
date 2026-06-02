@@ -5,11 +5,11 @@ import { fileURLToPath } from 'node:url';
 import { runBrunchTui } from './brunch-tui.js';
 import { renderWorkspaceSnapshot, workspaceSnapshotFromState } from './print-snapshot.js';
 import { createRpcHandlers, runJsonRpcLineServer } from './rpc/handlers.js';
-import { startWebHost } from './web-host.js';
+import { startWebHost } from './rpc/web-host.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
-} from './workspace-session-coordinator.js';
+} from './session/workspace-session-coordinator.js';
 
 export interface WebHostRunnerOptions {
   cwd: string;

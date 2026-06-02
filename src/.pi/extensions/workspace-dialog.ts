@@ -4,7 +4,7 @@ import {
   type WorkspaceSessionReadyState,
   type SpecSessionActivationCoordinator,
   type SpecSessionActivationDecision,
-} from '../../workspace-session-coordinator.js';
+} from '../../session/workspace-session-coordinator.js';
 import {
   WORKSPACE_DIALOG_WIDTH,
   createWorkspaceDialogComponent,

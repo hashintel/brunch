@@ -7,9 +7,9 @@ import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
-import { createSessionBindingData } from '../session-binding.js';
-import { assistantMessage, userMessage } from '../test-helpers.js';
-import { createWorkspaceSessionCoordinator } from '../workspace-session-coordinator.js';
+import { assistantMessage, userMessage } from '../probes/test-helpers.js';
+import { createSessionBindingData } from '../session/session-binding.js';
+import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import type {
   DefaultWorkspaceCoordinator,
   WorkspaceActivationState,
@@ -18,7 +18,7 @@ import type {
   WorkspaceSessionState,
   SpecSessionActivationCoordinator,
   SpecSessionActivationDecision,
-} from '../workspace-session-coordinator.js';
+} from '../session/workspace-session-coordinator.js';
 import { createRpcHandlers, runJsonRpcLineServer } from './handlers.js';
 
 function coordinator(

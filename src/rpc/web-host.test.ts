@@ -6,12 +6,12 @@ import { join } from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import { assistantMessage, userMessage } from './test-helpers.js';
-import { startWebHost } from './web-host.js';
+import { assistantMessage, userMessage } from '../probes/test-helpers.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
-} from './workspace-session-coordinator.js';
+} from '../session/workspace-session-coordinator.js';
+import { startWebHost } from './web-host.js';
 
 function text(response: Response): Promise<string> {
   return response.text();

@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createRpcHandlers } from '../rpc/handlers.js';
-import { renderSessionTranscript } from '../session-transcript.js';
-import { createWorkspaceSessionCoordinator } from '../workspace-session-coordinator.js';
+import { renderSessionTranscript } from '../session/session-transcript.js';
+import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 
 const PUBLIC_RPC_PARITY_PERMUTATION_COUNT = 3;
 

@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 
 import { SessionManager, type SessionHeader } from '@earendil-works/pi-coding-agent';
 
-import { openWorkspaceCommandExecutor, type SpecRecord } from './graph/index.js';
+import { openWorkspaceCommandExecutor, type SpecRecord } from '../graph/index.js';
 import { discoverProjectIdentity } from './project-identity.js';
 import {
   createSessionBindingData,
@@ -601,7 +601,7 @@ async function inspectWorkspaceInventory(cwd: string): Promise<WorkspaceLaunchIn
   };
 }
 
-type InspectedSessionFile = WorkspaceLaunchSession | WorkspaceUnavailableSession;
+type InspectedSessionFile = Omit<WorkspaceLaunchSession, 'specTitle'> | WorkspaceUnavailableSession;
 
 async function inspectSessionFile(file: string): Promise<InspectedSessionFile> {
   const entries = await readJsonl(file);
@@ -631,7 +631,6 @@ async function inspectSessionFile(file: string): Promise<InspectedSessionFile> {
     id: header.id,
     file,
     specId: binding.data.specId,
-    specTitle: '',
     ...(name != null ? { name } : {}),
     available: true,
   };

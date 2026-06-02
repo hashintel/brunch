@@ -7,12 +7,12 @@ import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
 import { runBrunchCli, type WebHostRunnerOptions } from './brunch.js';
-import { createSessionBindingData } from './session-binding.js';
-import { assistantMessage, userMessage } from './test-helpers.js';
+import { assistantMessage, userMessage } from './probes/test-helpers.js';
+import { createSessionBindingData } from './session/session-binding.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
-} from './workspace-session-coordinator.js';
+} from './session/workspace-session-coordinator.js';
 
 function coordinator(sessionFile?: string): WorkspaceSessionCoordinator {
   return {

@@ -5,9 +5,9 @@ import { join } from 'node:path';
 import { SessionManager, type SessionEntry } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import { assistantMessage, userMessage, isCustomEntry } from '../probes/test-helpers.js';
 import { projectElicitationExchanges } from './elicitation-exchange.js';
 import { SESSION_BINDING_TYPE } from './session-binding.js';
-import { assistantMessage, userMessage, isCustomEntry } from './test-helpers.js';
 import {
   createWorkspaceSessionCoordinator,
   verifyWorkspaceSessionStores,
