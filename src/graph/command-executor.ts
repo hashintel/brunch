@@ -72,6 +72,11 @@ export interface CommitGraphSuccess {
   readonly edges: readonly number[];
 }
 
+/** Successful dry-run validation without mutation. */
+export interface DryRunSuccess {
+  readonly status: 'success';
+}
+
 /** Successful reconciliation-need creation. */
 export interface ReconNeedSuccess {
   readonly status: 'success';
@@ -124,6 +129,9 @@ export type CreateNodeResult = CommandSuccess | StructuralIllegal;
 
 /** Result of a commitGraph command. */
 export type CommitGraphResult = CommitGraphSuccess | StructuralIllegal;
+
+/** Result of a commitGraph dry-run validation. */
+export type CommitGraphDryRunResult = DryRunSuccess | StructuralIllegal;
 
 /** Result of a createReconciliationNeed command. */
 export type CreateReconNeedResult = ReconNeedSuccess | StructuralIllegal;
@@ -675,6 +683,17 @@ export class CommandExecutor {
   }
 
   /**
+   * Validate a commitGraph batch without mutating graph truth.
+   *
+   * This is the product gate for review-set proposals: a user-reviewable
+   * proposal must pass the same structural checks as the eventual commit.
+   */
+  dryRunCommitGraph(input: CommitGraphInput): CommitGraphDryRunResult {
+    const diagnostics = this.validateCommitGraphInput(input);
+    return diagnostics.length > 0 ? { status: 'structural_illegal', diagnostics } : { status: 'success' };
+  }
+
+  /**
    * Atomic batch creation of nodes and edges (D53-L).
    *
    * One transaction, one LSN. Intra-batch refs (strings) resolve to
@@ -683,41 +702,9 @@ export class CommandExecutor {
    * validation, the entire batch is rejected (I34-L).
    */
   commitGraph(input: CommitGraphInput): CommitGraphResult {
-    // Empty batch is structural_illegal
-    if (input.nodes.length === 0 && input.edges.length === 0) {
-      return {
-        status: 'structural_illegal',
-        diagnostics: [{ field: 'batch', message: 'empty batch — nothing to commit' }],
-      };
-    }
-
-    // --- Pre-transaction: validate all batch nodes (pure checks) ---
-    const preDiagnostics: Diagnostic[] = [];
-    const seenRefs = new Set<string>();
-
-    for (let i = 0; i < input.nodes.length; i++) {
-      const bn = input.nodes[i]!;
-
-      // Duplicate ref check
-      if (seenRefs.has(bn.ref)) {
-        preDiagnostics.push({
-          field: `nodes[${i}].ref`,
-          message: `duplicate batch ref "${bn.ref}"`,
-        });
-      }
-      seenRefs.add(bn.ref);
-
-      // Structural node validation (reuse)
-      for (const d of validateCreateNode(bn)) {
-        preDiagnostics.push({
-          field: `nodes[${i}].${d.field}`,
-          message: d.message,
-        });
-      }
-    }
-
-    if (preDiagnostics.length > 0) {
-      return { status: 'structural_illegal', diagnostics: preDiagnostics };
+    const diagnostics = this.validateCommitGraphInput(input);
+    if (diagnostics.length > 0) {
+      return { status: 'structural_illegal', diagnostics };
     }
 
     // --- Transaction: insert nodes, resolve refs, validate + insert edges ---
@@ -829,6 +816,57 @@ export class CommandExecutor {
       }
       throw e;
     }
+  }
+
+  private validateCommitGraphInput(input: CommitGraphInput): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    if (input.nodes.length === 0 && input.edges.length === 0) {
+      diagnostics.push({ field: 'batch', message: 'empty batch — nothing to commit' });
+      return diagnostics;
+    }
+
+    const refMap = new Map<string, number>();
+    for (let i = 0; i < input.nodes.length; i++) {
+      const bn = input.nodes[i]!;
+      if (refMap.has(bn.ref)) {
+        diagnostics.push({
+          field: `nodes[${i}].ref`,
+          message: `duplicate batch ref "${bn.ref}"`,
+        });
+      }
+      refMap.set(bn.ref, -(i + 1));
+
+      for (const diagnostic of validateCreateNode(bn)) {
+        diagnostics.push({
+          field: `nodes[${i}].${diagnostic.field}`,
+          message: diagnostic.message,
+        });
+      }
+    }
+    if (diagnostics.length > 0) return diagnostics;
+
+    const existingRefs = new Set<number>();
+    for (const edge of input.edges) {
+      if (typeof edge.source !== 'string') existingRefs.add(edge.source.existing);
+      if (typeof edge.target !== 'string') existingRefs.add(edge.target.existing);
+    }
+
+    const verifiedExisting = new Set<number>();
+    if (existingRefs.size > 0) {
+      const rows = this.db
+        .select({ id: schema.nodes.id })
+        .from(schema.nodes)
+        .where(inArray(schema.nodes.id, [...existingRefs]))
+        .all();
+      for (const row of rows) verifiedExisting.add(row.id);
+    }
+
+    for (let i = 0; i < input.edges.length; i++) {
+      diagnostics.push(
+        ...validateAndResolveBatchEdge(input.edges[i]!, i, refMap, verifiedExisting).diagnostics,
+      );
+    }
+    return diagnostics;
   }
 
   /**
