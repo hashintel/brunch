@@ -29,8 +29,8 @@ Gates that condition composition but are not session-agent axes:
 ```
 spec.readiness_grade   grounding_onboarding → elicitation_ready
                          → commitments_ready → planning_ready   (forward gate, D45-L)
-workspace posture      no persisted home in the POC (D57-L: off the spec row and graph);
-                         surfaced when known, confirmed via the capture-posture goal
+workspace posture      persisted in .brunch/workspace.json as workspace-scoped state;
+                         surfaced in the runtime header and refined via capture-posture
 agent allow-list       per-definition: which goals/strategies/lenses/methods are legal
 ```
 
