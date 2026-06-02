@@ -3,6 +3,12 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-06-02 Delivery-cut archive
+
+Archived from `memory/PLAN.md` when the live plan shifted from concept/frontier proving to the POC delivery spine. The delivery plan now keeps only the P0/P1 marks and the last few completed summaries live.
+
+- 2026-06-01 — **sealed-pi-profile-runtime-state** (FE-776) — Prep envelope tied off. Brunch now runs through a sealed Pi profile with programmatic resource/settings policy, transcript-backed runtime state projection, explicit product extension shell under `src/.pi/`, and session display names via Pi `session_info`. Graph-model prep locked the closed edge contract, common node shape, 11 intent kinds, retired `provenance`/`framing_as`, and validated the A20 persistence line (`drizzle-orm@0.45.2` + `drizzle-typebox@0.3.3` + `better-sqlite3@12.8.0`). Verified with profile/runtime/schema/persistence tests and repeated `npm run verify`. Residue: strict built-in command suppression remains an A18-L Pi API seam; runtime prompt composition moved to the delivery-critical `agents-composition-layer` frontier.
+
 ## 2026-05-20 Origin
 
 - 2026-05-20 — **Pre-POC archive and reseed** — razed pre-POC implementation, archived legacy docs and planning memory under `archive/`, tagged `next-baseline`, and reseeded `memory/SPEC.md` and `memory/PLAN.md` from the three canonical POC architecture docs. Phase 3 infra bootstrap was folded into `walking-skeleton` rather than remaining an independent frontier.
