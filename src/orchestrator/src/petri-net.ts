@@ -67,12 +67,7 @@ export interface NetEventSink {
 }
 
 /** Place names that may retain tokens after clean termination (resource pools, budgets, markers). */
-const BENIGN_RESIDUAL_PLACES = new Set([
-  'retry-budget',
-  'semantic-budget',
-  'completed',
-  'done',
-]);
+const BENIGN_RESIDUAL_PLACES = new Set(['retry-budget', 'semantic-budget', 'completed', 'done']);
 
 function placeName(placeId: string): string {
   const sliceMatch = placeId.match(/^slice:[^:]+:(.+)$/);
