@@ -161,6 +161,13 @@ export type NetBlueprint = {
 // enumerateCandidateOutputs — topology-only enumeration of reachable
 // output places for one transition. Pure: no actions, no reports, no runner.
 // Used by static analyzers (reachability, deadlock detection, simulation).
+//
+// Limitation by design (I125-K): this enumerates nominal declarative outputs
+// from the current HandlerDescriptor shape. It does not model halt outputs
+// produced inside budget-exhaustion / verify-failure closures, nor token
+// transforms such as reportId attachment or counter propagation. Future
+// behavior oracles that need halt/dead-end precision should add explicit
+// declarative halt enumeration rather than inferring it from this helper alone.
 // ---------------------------------------------------------------------------
 
 export function enumerateCandidateOutputs(transition: TransitionSkeleton): Set<string> {
