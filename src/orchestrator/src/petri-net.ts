@@ -67,12 +67,7 @@ export interface NetEventSink {
 }
 
 /** Place names that may retain tokens after clean termination (resource pools, budgets, markers). */
-const BENIGN_RESIDUAL_PLACES = new Set([
-  'retry-budget',
-  'semantic-budget',
-  'completed',
-  'done',
-]);
+const BENIGN_RESIDUAL_PLACES = new Set(['retry-budget', 'semantic-budget', 'completed', 'done']);
 
 function placeName(placeId: string): string {
   const sliceMatch = placeId.match(/^slice:[^:]+:(.+)$/);
@@ -246,6 +241,7 @@ export class PetriNet {
         })),
       );
 
+      let hasRejection = false;
       let firstError: unknown;
       const fulfilled: { claim: TransitionClaim; outputs: { place: string; token: Token }[] }[] = [];
 
@@ -253,11 +249,12 @@ export class PetriNet {
         if (result.status === 'fulfilled') {
           fulfilled.push(result.value);
         } else {
+          hasRejection = true;
           firstError ??= result.reason;
         }
       }
 
-      if (firstError) {
+      if (hasRejection) {
         for (const claim of claims) {
           this.restoreClaim(claim);
         }
