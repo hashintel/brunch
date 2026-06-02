@@ -44,8 +44,8 @@ export function evalEnablingGuard(guard: EnablingGuard, report: ReportLine | und
 // ---------------------------------------------------------------------------
 
 export type TokenSeed = {
-  sliceId: string;
-  epicId: string;
+  sliceId?: string;
+  epicId?: string;
   retryCount?: number;
   reworkCount?: number;
 };

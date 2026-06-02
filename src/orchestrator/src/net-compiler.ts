@@ -50,10 +50,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
 
   const poolSize = policy.agentPoolSize ?? plan.slices.length;
   for (let i = 0; i < poolSize; i++) {
-    initialTokens.push(
-      { place: poolTestAgent, token: { sliceId: '', epicId: '' } },
-      { place: poolCodeAgent, token: { sliceId: '', epicId: '' } },
-    );
+    initialTokens.push({ place: poolTestAgent, token: {} }, { place: poolCodeAgent, token: {} });
   }
 
   // Epic-level places

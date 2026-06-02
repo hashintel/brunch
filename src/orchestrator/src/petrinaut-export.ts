@@ -150,8 +150,8 @@ export function serializeBlueprint(blueprint: NetBlueprint, opts: SerializeBluep
 function seedToToken(seed: TokenSeed, id: string): PetrinautToken {
   return {
     id,
-    ...(seed.sliceId ? { sliceId: seed.sliceId } : {}),
-    ...(seed.epicId ? { epicId: seed.epicId } : {}),
+    ...(seed.sliceId !== undefined ? { sliceId: seed.sliceId } : {}),
+    ...(seed.epicId !== undefined ? { epicId: seed.epicId } : {}),
     ...(seed.retryCount !== undefined ? { retryCount: seed.retryCount } : {}),
     ...(seed.reworkCount !== undefined ? { reworkCount: seed.reworkCount } : {}),
   };
