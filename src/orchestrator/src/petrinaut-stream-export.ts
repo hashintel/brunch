@@ -19,7 +19,7 @@
 // run 904d205d (75 firings, 0 negative-marking violations, sane final state).
 // ---------------------------------------------------------------------------
 
-import type { PetrinautEvent } from './petrinaut-events.js';
+import type { PetrinautEvent, PetrinautTransitionFiredEvent } from './petrinaut-events.js';
 import type { SdcpnFile } from './petrinaut-sdcpn.js';
 
 // ---------------------------------------------------------------------------
@@ -126,7 +126,7 @@ export type ReduceBrunchExecutionExportInput = {
  *   arm of Marking; per-place keys with zero tokens are not synthesized.
  */
 export function reduceBrunchExecutionExport(input: ReduceBrunchExecutionExportInput): BrunchExecutionExport {
-  const definition = projectDefinition(input.sdcpnFile);
+  const definition = projectNetDefinition(input.sdcpnFile);
 
   const initial = input.events.find((e) => e.kind === 'initial_marking');
   if (!initial || initial.kind !== 'initial_marking') {
@@ -137,15 +137,24 @@ export function reduceBrunchExecutionExport(input: ReduceBrunchExecutionExportIn
   const transitionFirings: TransitionFiring[] = [];
   for (const event of input.events) {
     if (event.kind !== 'transition_fired') continue;
-    transitionFirings.push({
-      transitionId: event.transitionName,
-      input: reduceMarking(event.input),
-      output: reduceMarking(event.output),
-      ts: event.ts,
-    });
+    transitionFirings.push(eventToTransitionFiring(event));
   }
 
   return { definition, initialState, transitionFirings };
+}
+
+/**
+ * Project a single `transition_fired` PetrinautEvent into its contract-side
+ * `TransitionFiring`. Shared by the static reducer above and the live stream
+ * bus (`createPetrinautStreamBus`) so both paths produce identical firings.
+ */
+export function eventToTransitionFiring(event: PetrinautTransitionFiredEvent): TransitionFiring {
+  return {
+    transitionId: event.transitionName,
+    input: reduceMarking(event.input),
+    output: reduceMarking(event.output),
+    ts: event.ts,
+  };
 }
 
 /**
@@ -154,7 +163,7 @@ export function reduceBrunchExecutionExport(input: ReduceBrunchExecutionExportIn
  * `differentialEquations`, `parameters`, and `metrics`, none of which
  * Petrinaut's "actual" view reads.
  */
-function projectDefinition(sdcpnFile: SdcpnFile): NetDefinition {
+export function projectNetDefinition(sdcpnFile: SdcpnFile): NetDefinition {
   return {
     version: sdcpnFile.version,
     meta: sdcpnFile.meta,
@@ -169,8 +178,11 @@ function projectDefinition(sdcpnFile: SdcpnFile): NetDefinition {
  * Count-reduce a per-place token map onto the count arm of Marking. Empty
  * places (zero tokens) are not synthesized into the result so frame-replay
  * doesn't need to distinguish "absent" from "zero".
+ *
+ * Exported so the live stream bus (`createPetrinautStreamBus`) reduces the
+ * `initial_marking` event identically to the static reducer.
  */
-function reduceMarking(byPlace: Record<string, readonly unknown[]>): Marking {
+export function reduceMarking(byPlace: Record<string, readonly unknown[]>): Marking {
   const out: Marking = {};
   for (const [place, tokens] of Object.entries(byPlace)) {
     if (tokens.length > 0) out[place] = tokens.length;

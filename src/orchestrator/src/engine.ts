@@ -75,6 +75,8 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
               runId: input.runId ?? 'unknown',
               folding,
               filePath: join(input.runDir, 'petrinaut-events.jsonl'),
+              // FE-764 slice 3a: optional in-process fan-out for the SSE bus.
+              ...(input.onPetrinautEvent ? { onEvent: input.onPetrinautEvent } : {}),
               onError: (message) => ctx.warnings?.push(message),
             });
             stream.emitInitialMarking(blueprint);

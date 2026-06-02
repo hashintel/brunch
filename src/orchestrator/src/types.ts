@@ -123,6 +123,15 @@ export type OrchestratorInput = {
    * slice identity on the token color. Ignored when `runDir` is absent.
    */
   petrinautFold?: 'color' | 'identity';
+  /**
+   * In-process fan-out for the Petrinaut event stream (FE-764 slice 3a).
+   * When set, every event the engine emits is forwarded to this callback so
+   * an out-of-band consumer (e.g. `createPetrinautStreamBus` feeding the
+   * cook's `/stream` SSE endpoint) can subscribe without the engine knowing
+   * the consumer exists. Ignored when `runDir` is absent. File output to
+   * `petrinaut-events.jsonl` is unaffected.
+   */
+  onPetrinautEvent?: (event: import('./petrinaut-events.js').PetrinautEvent) => void;
 };
 
 export type EpicOutcome = {

@@ -14,11 +14,14 @@ frame-replay oracle round-trips a real cook run through
 
 Slice 3 (ephemeral live stream) is split into two card-sized commits:
 
-- **3a (next):** event-bus + replay buffer + incremental frame translator
-  (`PetrinautEvent` → `BrunchExecutionExport` frames). Pure, no HTTP. Wired
-  into the engine via a new `onPetrinautEvent` fan-out hook on
-  `OrchestratorInput`.
-- **3b (sequentially obvious):** HTTP server (`http.createServer` +
+- **3a done:** `petrinaut-stream-bus.ts` exposes
+  `createPetrinautStreamBus({ runId, sdcpnFile })` with a replay buffer;
+  engine fan-out hook `OrchestratorInput.onPetrinautEvent` feeds events into
+  it without the engine knowing the bus exists. Frame translation reuses
+  `eventToTransitionFiring` / `reduceMarking` / `projectNetDefinition`
+  shared with the static reducer; engine-driven replay-equivalence oracle
+  in `engine-contract.test.ts`.
+- **3b (next, sequentially obvious):** HTTP server (`http.createServer` +
   `listen(0)`) + `/stream` (text/event-stream) mounted on the 3a bus.
   Connection lifecycle, port advertisement, process-death cleanup.
 
@@ -192,8 +195,15 @@ No cook-process / filesystem / SSE wiring in this slice. The function is consume
 
 ## Slice 3a: event-bus + replay buffer + incremental frame translator
 
-**Status:** next. Pure data-shape work — no HTTP yet. Establishes the
-in-process pub/sub that slice 3b will mount its `/stream` route on.
+**Status:** done. `petrinaut-stream-bus.ts` + `petrinaut-stream-bus.test.ts`
+(12 unit tests). `eventToTransitionFiring`, `reduceMarking`,
+`projectNetDefinition` extracted from `petrinaut-stream-export.ts` and
+shared by the static reducer + the bus. `OrchestratorInput.onPetrinautEvent`
+fan-out hook plumbed through `engine.ts` (no engine-level branching — just
+threads the callback into `createPetrinautEventStream`'s existing `onEvent`).
+Engine-driven replay-equivalence oracle in `engine-contract.test.ts` runs a
+real cook with the bus subscribed pre-publish and a late subscriber. `npm
+run verify` green (1538 tests).
 
 ### Target Behavior
 

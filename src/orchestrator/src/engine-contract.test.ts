@@ -13,6 +13,7 @@ import {
   type PetrinautTransitionFiredEvent,
 } from './petrinaut-events.js';
 import { createNetFolding } from './petrinaut-fold.js';
+import { type BrunchExecutionExportFrame, createPetrinautStreamBus } from './petrinaut-stream-bus.js';
 import { reduceBrunchExecutionExport } from './petrinaut-stream-export.js';
 import { InMemoryReportSink } from './report-sink.js';
 import type { ActionContext, ActionHandlers, OrchestratorInput, Plan, RunCtx, TestRunner } from './types.js';
@@ -1077,6 +1078,66 @@ describe('FE-764: identity-fold engine wiring + frame-replay oracle', () => {
       // non-empty (the engine reaches `slice-1:done`).
       const finalNonEmpty = Object.entries(marking).filter(([, n]) => n > 0);
       expect(finalNonEmpty.length).toBeGreaterThan(0);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('FE-764 slice 3a: streams BrunchExecutionExportFrames through the bus when onPetrinautEvent is wired', async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-bus-'));
+    try {
+      // Bus reads its definition from the SDCPN file the engine writes; we
+      // load it post-hoc. For the streaming case we attach a deferred-init
+      // bus + subscriber via a closure: the engine emits into this collector,
+      // and after the run we feed the collected events through a real bus to
+      // assert the replay-equivalence invariant end-to-end.
+      const collectedEvents: PetrinautEvent[] = [];
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: 'run-bus-e2e',
+        runDir,
+        petrinautFold: 'identity',
+        onPetrinautEvent: (event) => collectedEvents.push(event),
+      });
+      expect(result.status).toBe('completed');
+      expect(collectedEvents.length).toBeGreaterThan(0);
+      expect(collectedEvents[0]!.kind).toBe('initial_marking');
+
+      const sdcpnFile = JSON.parse(readFileSync(join(runDir, 'net.sdcpn.json'), 'utf8'));
+
+      // Pre-subscribed bus: every PetrinautEvent the engine emitted produces
+      // exactly one BrunchExecutionExportFrame; the resulting frame sequence
+      // folds back to the same export as the static reducer.
+      const bus = createPetrinautStreamBus({ runId: 'run-bus-e2e', sdcpnFile });
+      const frames: BrunchExecutionExportFrame[] = [];
+      bus.subscribe((f) => frames.push(f));
+      for (const e of collectedEvents) bus.publish(e);
+
+      // Replay-equivalence oracle.
+      const reduced = reduceBrunchExecutionExport({ sdcpnFile, events: collectedEvents });
+      const folded = (() => {
+        let definition = undefined as typeof reduced.definition | undefined;
+        let initialState = undefined as typeof reduced.initialState | undefined;
+        const transitionFirings: typeof reduced.transitionFirings = [];
+        for (const f of frames) {
+          if (f.kind === 'definition') definition = f.definition;
+          else if (f.kind === 'initial_state') initialState = f.initialState;
+          else if (f.kind === 'transition_firing') transitionFirings.push(f.firing);
+        }
+        return { definition: definition!, initialState: initialState!, transitionFirings };
+      })();
+      expect(folded).toEqual(reduced);
+
+      // Late subscriber receives the full timeline synchronously.
+      const lateFrames: BrunchExecutionExportFrame[] = [];
+      bus.subscribe((f) => lateFrames.push(f));
+      expect(lateFrames.length).toBe(frames.length);
     } finally {
       rmSync(runDir, { recursive: true, force: true });
     }
