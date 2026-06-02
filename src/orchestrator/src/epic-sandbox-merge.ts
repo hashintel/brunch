@@ -3,6 +3,19 @@
 // declaration order among included slices; later slices overwrite earlier ones
 // on the same path and the collision is reported. Source worktrees are not
 // mutated. The verify dir is rebuilt fresh on every call.
+//
+// Parallel-safety contract:
+// - slice sandboxes are the only mutable roots during action/test/assess fires;
+// - dependency seeding copies from already-completed dependency slice roots and
+//   never mutates those source roots;
+// - post-action validation uses preserveExisting, so dependency overlays add
+//   missing inputs without deleting the current slice's own in-flight work;
+// - rework/reset paths prune only the current slice sandbox outside the copied
+//   dependency baseline.
+//
+// Merge breadth is bounded by plan topology: verify-epic includes the target
+// epic, its transitive epic dependencies, and any transitive slice dependencies
+// owned by other epics. It never walks filesystem state to discover more scope.
 
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
