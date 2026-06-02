@@ -91,7 +91,7 @@ describe('Brunch prompt-pack topology', () => {
       ...DEFAULT_BRUNCH_AGENT_STATE,
       agentStrategy: 'step-wise-disambiguate',
       agentLens: 'design',
-      agentGoal: 'elicit-I',
+      agentGoal: 'elicit-expand',
     };
     const events: Record<string, (event: never, ctx?: never) => unknown> = {};
 
@@ -166,7 +166,7 @@ describe('Brunch prompt-pack topology', () => {
       ...DEFAULT_BRUNCH_AGENT_STATE,
       agentStrategy: 'propose-graph',
       agentLens: 'oracle',
-      agentGoal: 'commitment-converge',
+      agentGoal: 'commit-converge',
     };
     appendBrunchAgentRuntimeSwitch(manager, latestState, 'user');
     const switchedPromptResults = await Promise.all(

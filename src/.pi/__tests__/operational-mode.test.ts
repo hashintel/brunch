@@ -123,7 +123,7 @@ describe('Brunch agent runtime-state projection', () => {
       operationalMode: 'elicit',
       agentStrategy: 'project-graph',
       agentLens: 'oracle',
-      agentGoal: 'elicit-II',
+      agentGoal: 'commit-converge',
     };
     const events: Record<string, (event: never, ctx?: never) => unknown> = {};
     const activeTools: string[][] = [];
@@ -259,6 +259,27 @@ describe('Brunch agent runtime-state projection', () => {
         agentLens: 'intent',
         agentGoal: 'not-a-goal',
       },
+      {
+        schemaVersion: 1,
+        operationalMode: 'elicit',
+        agentStrategy: 'step-wise-decision-tree',
+        agentLens: 'intent',
+        agentGoal: 'elicit-I',
+      },
+      {
+        schemaVersion: 1,
+        operationalMode: 'elicit',
+        agentStrategy: 'step-wise-decision-tree',
+        agentLens: 'intent',
+        agentGoal: 'elicit-II',
+      },
+      {
+        schemaVersion: 1,
+        operationalMode: 'elicit',
+        agentStrategy: 'step-wise-decision-tree',
+        agentLens: 'intent',
+        agentGoal: 'commitment-converge',
+      },
     ]) {
       expect(() =>
         appendBrunchAgentRuntimeSwitch(manager, invalidState as unknown as BrunchAgentState),
@@ -304,6 +325,27 @@ describe('Brunch agent runtime-state projection', () => {
         agentStrategy: 'step-wise-decision-tree',
         agentLens: 'intent',
         agentGoal: 'not-a-goal',
+      },
+      {
+        schemaVersion: 1,
+        operationalMode: 'elicit',
+        agentStrategy: 'step-wise-decision-tree',
+        agentLens: 'intent',
+        agentGoal: 'elicit-I',
+      },
+      {
+        schemaVersion: 1,
+        operationalMode: 'elicit',
+        agentStrategy: 'step-wise-decision-tree',
+        agentLens: 'intent',
+        agentGoal: 'elicit-II',
+      },
+      {
+        schemaVersion: 1,
+        operationalMode: 'elicit',
+        agentStrategy: 'step-wise-decision-tree',
+        agentLens: 'intent',
+        agentGoal: 'commitment-converge',
       },
     ]) {
       expect(

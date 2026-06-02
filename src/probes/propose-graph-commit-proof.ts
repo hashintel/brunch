@@ -116,7 +116,7 @@ export async function runProposeGraphCommitProof(
     operationalMode: 'elicit',
     agentStrategy: 'propose-graph',
     agentLens: 'intent',
-    agentGoal: 'commitment-converge',
+    agentGoal: 'commit-converge',
   };
   appendBrunchAgentRuntimeSwitch(workspace.session.manager, runtimeState, 'extension');
   const agentDir = options.agentDir ?? getAgentDir();

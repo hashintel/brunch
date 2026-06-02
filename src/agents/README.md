@@ -17,7 +17,7 @@ Projected from linear `brunch.agent_runtime_state` entries at turn start
 ```
 op_mode      = elicit | execute (future)        ← the only stored WHO field
                  foreground role (elicitor) is DERIVED from op_mode, never stored
-goal         = grounding-advance | elicit-I | elicit-II | commitment-converge
+goal         = grounding-advance | elicit-expand | commit-converge
                  | capture-posture               [pinned | AUTO]   grade-derived (D59-L)
 strategy     = step-wise-decision-tree | step-wise-disambiguate
                  | propose-graph | project-graph  [pinned | AUTO]   (D25-L)
@@ -68,7 +68,7 @@ agents/
 ├── definitions/      keyed agents; frontmatter = model/thinking + tool authority + allow-lists,
 │   ├── elicitor.md     body = system prompt
 │   └── reviewer.md
-├── goals/            grounding-advance, elicit-I, elicit-II, commitment-converge, capture-posture
+├── goals/            grounding-advance, elicit-expand, commit-converge, capture-posture
 ├── strategies/       step-wise-decision-tree, step-wise-disambiguate, propose-graph, project-graph
 ├── lenses/           intent, design, oracle
 ├── methods/          run-structured-exchange, infer-and-capture, generate-proposal,

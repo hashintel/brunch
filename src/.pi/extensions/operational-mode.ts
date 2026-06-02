@@ -35,12 +35,7 @@ export type AgentStrategyId =
 export type AgentStrategySelection = AutoAxisSelection | AgentStrategyId;
 export type AgentLensId = 'intent' | 'design' | 'oracle';
 export type AgentLensSelection = AutoAxisSelection | AgentLensId;
-export type AgentGoalId =
-  | 'grounding-advance'
-  | 'elicit-I'
-  | 'elicit-II'
-  | 'commitment-converge'
-  | 'capture-posture';
+export type AgentGoalId = 'grounding-advance' | 'elicit-expand' | 'commit-converge' | 'capture-posture';
 export type AgentGoalSelection = AutoAxisSelection | AgentGoalId;
 export type ToolPolicyId = 'elicit-read-only';
 export type PromptPackId = 'brunch-base' | 'elicit' | 'elicitor';
@@ -123,7 +118,7 @@ export const AGENT_ROLE_DEFINITIONS: Record<AgentRoleId, AgentRoleDefinition> = 
     defaultLens: 'auto',
     allowedLenses: ['intent', 'design', 'oracle'],
     defaultGoal: 'grounding-advance',
-    allowedGoals: ['grounding-advance', 'elicit-I', 'elicit-II', 'commitment-converge', 'capture-posture'],
+    allowedGoals: ['grounding-advance', 'elicit-expand', 'commit-converge', 'capture-posture'],
     promptPackIds: ['elicitor'],
   },
 };
