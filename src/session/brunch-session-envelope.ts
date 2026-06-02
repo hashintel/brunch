@@ -128,11 +128,11 @@ function isPiSessionHeader(value: unknown): value is PiSessionHeader {
   );
 }
 
-function isSessionEntry(value: unknown): value is SessionEntry {
+export function isSessionEntry(value: unknown): value is SessionEntry {
   return isTranscriptEntry(value) && hasStringOrNullParentId(value);
 }
 
-function isTranscriptEntry(value: unknown): value is SessionEntry {
+export function isTranscriptEntry(value: unknown): value is SessionEntry {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -142,7 +142,7 @@ function isTranscriptEntry(value: unknown): value is SessionEntry {
   );
 }
 
-function hasStringOrNullParentId(value: unknown): boolean {
+export function hasStringOrNullParentId(value: unknown): boolean {
   return (
     (value as { parentId?: unknown }).parentId === null ||
     typeof (value as { parentId?: unknown }).parentId === 'string'

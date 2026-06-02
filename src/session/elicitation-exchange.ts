@@ -16,6 +16,8 @@ import {
 import {
   assertLinearBrunchSessionEnvelope,
   loadJsonlTranscriptEntries,
+  isSessionEntry,
+  isTranscriptEntry,
   NonLinearTranscriptError,
   readBrunchSessionEnvelope,
   type BrunchSessionEnvelope,
@@ -228,27 +230,6 @@ export function projectElicitationExchanges(entries: readonly unknown[]): Elicit
 
 function rangeFor(ids: string[]): EntryRange {
   return { start: ids[0]!, end: ids[ids.length - 1]! };
-}
-
-function isTranscriptEntry(value: unknown): value is SessionEntry {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as { type?: unknown }).type !== 'session' &&
-    typeof (value as { id?: unknown }).id === 'string' &&
-    typeof (value as { type?: unknown }).type === 'string'
-  );
-}
-
-function isSessionEntry(value: unknown): value is SessionEntry {
-  return isTranscriptEntry(value) && hasStringOrNullParentId(value);
-}
-
-function hasStringOrNullParentId(value: unknown): boolean {
-  return (
-    (value as { parentId?: unknown }).parentId === null ||
-    typeof (value as { parentId?: unknown }).parentId === 'string'
-  );
 }
 
 function requestClosesPresent(
