@@ -2,20 +2,25 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-export type WorktreeInfo = {
+export type SandboxInfo = {
   runId: string;
   runDir: string;
-  worktreeDir: string;
+  sandboxDir: string;
 };
 
 /**
  * Create an isolated run directory under `baseDir/.cook/runs/<runId>/`.
  * `baseDir` should be cwd (not the fixture directory) so fixtures stay pristine.
+ *
+ * The public API says "sandbox" because callers should treat this as an
+ * isolated execution root. The on-disk child remains named `worktree` for FE-743
+ * compatibility with existing cook artifacts; rename the artifact only when the
+ * run-directory lifecycle is revisited.
  */
-export function createWorktree(baseDir: string, runId?: string): WorktreeInfo {
+export function createSandbox(baseDir: string, runId?: string): SandboxInfo {
   const id = runId ?? randomUUID();
   const runDir = join(baseDir, '.cook', 'runs', id);
-  const worktreeDir = join(runDir, 'worktree');
-  mkdirSync(worktreeDir, { recursive: true });
-  return { runId: id, runDir, worktreeDir };
+  const sandboxDir = join(runDir, 'worktree');
+  mkdirSync(sandboxDir, { recursive: true });
+  return { runId: id, runDir, sandboxDir };
 }

@@ -11,6 +11,11 @@ describe('parseCookArgs', () => {
     expect(opts.verbose).toBe(false);
   });
 
+  it('parses --policy=parallel', () => {
+    const opts = parseCookArgs(['./f', '--policy=parallel']);
+    expect(opts.policy).toBe('parallel');
+  });
+
   it('parses --policy=serial', () => {
     const opts = parseCookArgs(['./f', '--policy=serial']);
     expect(opts.policy).toBe('serial');

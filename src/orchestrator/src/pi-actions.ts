@@ -46,7 +46,7 @@ function runPi(opts: {
   model: string;
   promptFile: string;
   task: string;
-  worktreeDir: string;
+  sandboxDir: string;
 }): string {
   const start = Date.now();
 
@@ -71,7 +71,7 @@ function runPi(opts: {
       opts.task,
     ],
     {
-      cwd: opts.worktreeDir,
+      cwd: opts.sandboxDir,
       encoding: 'utf8',
       timeout: 300_000,
       maxBuffer: 10 * 1024 * 1024,
@@ -129,7 +129,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
           model: 'claude-haiku-4-5',
           promptFile: join(promptsDir, 'evaluator.md'),
           task,
-          worktreeDir: ctx.worktreeDir,
+          sandboxDir: ctx.sandboxDir,
         });
         const parsed = extractJson(raw) as { done?: boolean; reasoning?: string } | undefined;
         const done = !!parsed?.done;
@@ -156,7 +156,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
         model: 'claude-sonnet-4-6',
         promptFile: join(promptsDir, 'test-writer.md'),
         task,
-        worktreeDir: ctx.worktreeDir,
+        sandboxDir: ctx.sandboxDir,
       });
 
       return report(ctx, 'test-writer', 'tests-written', {
@@ -174,7 +174,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
         model: 'claude-sonnet-4-6',
         promptFile: join(promptsDir, 'code-writer.md'),
         task,
-        worktreeDir: ctx.worktreeDir,
+        sandboxDir: ctx.sandboxDir,
       });
 
       return report(ctx, 'code-writer', 'code-written', {
@@ -199,7 +199,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
         model: 'claude-sonnet-4-6',
         promptFile: join(promptsDir, 'test-writer.md'),
         task: writeTask,
-        worktreeDir: ctx.worktreeDir,
+        sandboxDir: ctx.sandboxDir,
       });
 
       let allPassed = true;
@@ -207,7 +207,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
         try {
           const { execSync } = await import('node:child_process');
           const output = execSync(`bun test ${v.target}`, {
-            cwd: ctx.worktreeDir,
+            cwd: ctx.sandboxDir,
             encoding: 'utf8',
             timeout: 60_000,
             stdio: ['ignore', 'pipe', 'pipe'],

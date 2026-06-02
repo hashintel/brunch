@@ -5,6 +5,9 @@
 //   3. compilePlan(input, ctx) → PetriNet            (convenience wrapper)
 // ---------------------------------------------------------------------------
 
+import { mkdirSync } from 'node:fs';
+import { resolve, sep } from 'node:path';
+
 import type { NetBlueprint, TokenSeed, TransitionSkeleton } from './net-blueprint.js';
 import { PetriNet } from './petri-net.js';
 import type { Token } from './petri-net.js';
@@ -23,6 +26,19 @@ function ep(epicId: string, place: string): string {
   return `epic:${epicId}:${place}`;
 }
 
+/** Resolve a per-slice sandbox under the run root; reject path-escape ids. */
+function sliceSandboxDir(rootSandboxDir: string, sliceId: string): string {
+  if (!sliceId || sliceId.includes('..') || sliceId.includes('/') || sliceId.includes('\\')) {
+    throw new Error(`Invalid slice id: ${sliceId}`);
+  }
+  const root = resolve(rootSandboxDir);
+  const dir = resolve(root, sliceId);
+  if (dir !== root && !dir.startsWith(root + sep)) {
+    throw new Error(`Invalid slice id: ${sliceId}`);
+  }
+  return dir;
+}
+
 // ---------------------------------------------------------------------------
 // Pass 1 — compileTopology: pure function, no closures over runtime state.
 // Same Plan + Policy → same blueprint. Trivially snapshot-testable.
@@ -32,6 +48,19 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
   const places: string[] = [];
   const transitions: TransitionSkeleton[] = [];
   const initialTokens: { place: string; token: TokenSeed }[] = [];
+
+  // Shared agent resource pool places
+  const poolTestAgent = 'pool:test-agent';
+  const poolCodeAgent = 'pool:code-agent';
+  places.push(poolTestAgent, poolCodeAgent);
+
+  const poolSize = policy.agentPoolSize ?? plan.slices.length;
+  for (let i = 0; i < poolSize; i++) {
+    initialTokens.push(
+      { place: poolTestAgent, token: { sliceId: '', epicId: '' } },
+      { place: poolCodeAgent, token: { sliceId: '', epicId: '' } },
+    );
+  }
 
   // Epic-level places
   for (const epic of plan.epics) {
@@ -65,11 +94,9 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
     const sid = slice.id;
     const base: TokenSeed = { sliceId: sid, epicId: epic.id };
 
-    // Places — mechanical lane
+    // Places — mechanical lane (agent tokens are in shared pools, not per-slice)
     for (const name of [
       'spec-ready',
-      'test-agent',
-      'code-agent',
       'failing-tests',
       'untested-code',
       'needs-more',
@@ -83,16 +110,12 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
     places.push(p(sid, 'semantic-budget'));
     places.push(p(sid, 'semantic-satisfied'));
 
-    // Retry + semantic budget places
+    // Retry budget + eligibility gate
     places.push(p(sid, 'retry-budget'));
-
-    // Eligibility gate
     places.push(p(sid, 'eligible'));
 
-    // Initial tokens
+    // Initial tokens (agent tokens seeded in pools above)
     initialTokens.push(
-      { place: p(sid, 'test-agent'), token: { ...base } },
-      { place: p(sid, 'code-agent'), token: { ...base } },
       { place: p(sid, 'semantic-budget'), token: { ...base, reworkCount: 0 } },
       { place: p(sid, 'retry-budget'), token: { ...base, retryCount: 0 } },
     );
@@ -127,7 +150,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
     // Evaluate
     transitions.push({
       id: `${sid}:evaluate`,
-      inputs: [p(sid, 'spec-ready'), p(sid, 'test-agent')],
+      inputs: [p(sid, 'spec-ready'), poolTestAgent],
       contract: {
         kind: 'mechanical',
         lane: 'mechanical',
@@ -142,14 +165,14 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         routeField: 'done',
         onTrue: [p(sid, 'done-spec')],
         onFalse: [p(sid, 'needs-more')],
-        agentReturnPlace: p(sid, 'test-agent'),
+        agentReturnPlace: poolTestAgent,
       },
     });
 
     // Write tests
     transitions.push({
       id: `${sid}:write-tests`,
-      inputs: [p(sid, 'needs-more'), p(sid, 'test-agent')],
+      inputs: [p(sid, 'needs-more'), poolTestAgent],
       contract: { kind: 'mechanical', lane: 'mechanical', actor: 'test-agent' },
       handler: {
         kind: 'action',
@@ -158,14 +181,14 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         epicId: epic.id,
         onTrue: [p(sid, 'failing-tests')],
         onFalse: [],
-        agentReturnPlace: p(sid, 'test-agent'),
+        agentReturnPlace: poolTestAgent,
       },
     });
 
     // Write code
     transitions.push({
       id: `${sid}:write-code`,
-      inputs: [p(sid, 'failing-tests'), p(sid, 'code-agent')],
+      inputs: [p(sid, 'failing-tests'), poolCodeAgent],
       contract: { kind: 'mechanical', lane: 'mechanical', actor: 'coding-agent' },
       handler: {
         kind: 'action',
@@ -174,7 +197,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         epicId: epic.id,
         onTrue: [p(sid, 'untested-code')],
         onFalse: [],
-        agentReturnPlace: p(sid, 'code-agent'),
+        agentReturnPlace: poolCodeAgent,
       },
     });
 
@@ -307,11 +330,19 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
 
 export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, ctx: RunCtx): PetriNet {
   const net = new PetriNet();
-  const { plan, actions, testRunner, reports, policy } = input;
+  const { plan, actions, testRunner, reports } = input;
 
   // Register places
   for (const place of blueprint.places) {
     net.addPlace(place);
+  }
+
+  // Runtime filesystem preparation lives in wireHandlers for FE-743 so every
+  // action/test cwd exists before any transition can fire. This is the one
+  // intentional side effect in the wiring pass; a future prepareRunFilesystem
+  // step can split it out if more provisioning responsibilities accumulate.
+  for (const slice of plan.slices) {
+    mkdirSync(sliceSandboxDir(input.sandboxDir, slice.id), { recursive: true });
   }
 
   // Register transitions with wired fire handlers
@@ -331,7 +362,13 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         const { actionKey, sliceId, epicId, routeField, onTrue, onFalse, agentReturnPlace } = h;
         const slice = plan.slices.find((s) => s.id === sliceId)!;
         const epic = plan.epics.find((e) => e.id === epicId)!;
-        const actCtx: ActionContext = { slice, epic, plan, worktreeDir: input.worktreeDir, reports };
+        const actCtx: ActionContext = {
+          slice,
+          epic,
+          plan,
+          sandboxDir: sliceSandboxDir(input.sandboxDir, sliceId),
+          reports,
+        };
         const baseToken: Token = { sliceId, epicId };
 
         fire = async (consumed) => {
@@ -365,7 +402,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           const retryToken = consumed[1]!;
           const retryCount = retryToken.retryCount ?? 0;
 
-          const result = await testRunner.run(target, input.worktreeDir);
+          const result = await testRunner.run(target, sliceSandboxDir(input.sandboxDir, sliceId));
           const reportId = createReport(reports, {
             epicId,
             sliceId,
@@ -400,7 +437,13 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         const { actionKey, sliceId, epicId, onSatisfied, onRejected, budgetPlace, maxReworks } = h;
         const slice = plan.slices.find((s) => s.id === sliceId)!;
         const epic = plan.epics.find((e) => e.id === epicId)!;
-        const actCtx: ActionContext = { slice, epic, plan, worktreeDir: input.worktreeDir, reports };
+        const actCtx: ActionContext = {
+          slice,
+          epic,
+          plan,
+          sandboxDir: sliceSandboxDir(input.sandboxDir, sliceId),
+          reports,
+        };
         const baseToken: Token = { sliceId, epicId };
 
         fire = async (consumed) => {
@@ -461,7 +504,16 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         const { actionKey, epicId, representativeSliceId, onPassOutputs } = h;
         const epic = plan.epics.find((e) => e.id === epicId)!;
         const slice = plan.slices.find((s) => s.id === representativeSliceId)!;
-        const actCtx: ActionContext = { slice, epic, plan, worktreeDir: input.worktreeDir, reports };
+        // Epic verification runs against the parent sandbox (not a per-slice dir)
+        // so it can see artifacts from all slices. TODO: merge per-slice sandboxes
+        // into an epic-scoped dir once parallel slice isolation is production-ready.
+        const actCtx: ActionContext = {
+          slice,
+          epic,
+          plan,
+          sandboxDir: input.sandboxDir,
+          reports,
+        };
 
         fire = async () => {
           const reportId = await actions[actionKey]!(actCtx);

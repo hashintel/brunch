@@ -6,8 +6,7 @@ export type Token = {
   reportId?: string;
   sliceId: string;
   epicId: string;
-  /** Retry counter — carried on retry-budget tokens. Phase 0 extension
-   *  to move retry state into the net instead of leaking to ctx.retries. */
+  /** Retry counter — carried on retry-budget tokens. */
   retryCount?: number;
   /** Semantic rework counter — carried on semantic-budget tokens.
    *  Prevents infinite rework loops when assess-semantic always rejects. */
@@ -40,10 +39,10 @@ export type TransitionDef = {
 
 /**
  * Firing policy determines how the interpreter selects the next enabled
- * transition.  Phase 0 ships only `serial` (first-enabled); Phase 2 will
- * add `parallel` (all-enabled concurrently).
+ * transition.  `serial` fires first-enabled one at a time; `parallel`
+ * fires all enabled transitions concurrently via greedy token claiming.
  */
-export type FiringPolicy = 'serial';
+export type FiringPolicy = 'serial' | 'parallel';
 
 // ---------------------------------------------------------------------------
 // §7 Event vocabulary — structured events emitted by the interpreter.
@@ -68,14 +67,7 @@ export interface NetEventSink {
 }
 
 /** Place names that may retain tokens after clean termination (resource pools, budgets, markers). */
-const BENIGN_RESIDUAL_PLACES = new Set([
-  'test-agent',
-  'code-agent',
-  'retry-budget',
-  'semantic-budget',
-  'completed',
-  'done',
-]);
+const BENIGN_RESIDUAL_PLACES = new Set(['retry-budget', 'semantic-budget', 'completed', 'done']);
 
 function placeName(placeId: string): string {
   const sliceMatch = placeId.match(/^slice:[^:]+:(.+)$/);
@@ -84,6 +76,8 @@ function placeName(placeId: string): string {
   if (epicMatch) return epicMatch[1]!;
   return placeId;
 }
+
+type TransitionClaim = { transition: TransitionDef; consumed: Token[] };
 
 export class PetriNet {
   private places = new Map<string, Token[]>();
@@ -103,11 +97,6 @@ export class PetriNet {
     this.transitions.push(def);
   }
 
-  hasTokens(placeId: string): boolean {
-    const tokens = this.places.get(placeId);
-    return !!tokens && tokens.length > 0;
-  }
-
   /** Returns the number of registered places. */
   get placeCount(): number {
     return this.places.size;
@@ -123,10 +112,19 @@ export class PetriNet {
     return this.transitions;
   }
 
+  /** True when every input place of `t` has at least one token. */
+  private isEnabled(t: TransitionDef): boolean {
+    return t.inputs.every((p) => {
+      const tokens = this.places.get(p);
+      return tokens && tokens.length > 0;
+    });
+  }
+
   /** True when any non-resource place still holds tokens (actual deadlock, not clean completion). */
   private hasWorkBearingTokens(): boolean {
     for (const [placeId, tokens] of this.places) {
       if (tokens.length === 0) continue;
+      if (placeId.startsWith('pool:')) continue;
       const name = placeName(placeId);
       if (BENIGN_RESIDUAL_PLACES.has(name)) continue;
       return true;
@@ -134,20 +132,49 @@ export class PetriNet {
     return false;
   }
 
-  async run(_policy: FiringPolicy, shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
-    // Phase 0: only serial policy — find first enabled, fire, repeat.
+  private restoreClaim({ transition, consumed }: TransitionClaim): void {
+    for (let i = 0; i < transition.inputs.length; i++) {
+      this.addToken(transition.inputs[i]!, consumed[i]!);
+    }
+  }
+
+  private depositClaim(
+    { transition, consumed: _consumed }: TransitionClaim,
+    outputs: { place: string; token: Token }[],
+    eventSink?: NetEventSink,
+  ): void {
+    const producedPlaces: string[] = [];
+    for (const { place, token } of outputs) {
+      this.addToken(place, token);
+      producedPlaces.push(place);
+    }
+    eventSink?.emit({
+      kind: 'transition_fired',
+      ts: new Date().toISOString(),
+      transitionId: transition.id,
+      contract: transition.contract,
+      consumed: transition.inputs,
+      produced: producedPlaces,
+    });
+  }
+
+  async run(policy: FiringPolicy, shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
+    if (policy === 'serial') {
+      await this.runSerial(shouldHalt, eventSink);
+    } else {
+      await this.runParallel(shouldHalt, eventSink);
+    }
+  }
+
+  /** Serial policy — find first enabled transition, fire, repeat. */
+  private async runSerial(shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
     while (true) {
       if (shouldHalt?.()) {
         eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
         break;
       }
 
-      const enabled = this.transitions.find((t) =>
-        t.inputs.every((p) => {
-          const tokens = this.places.get(p);
-          return tokens && tokens.length > 0;
-        }),
-      );
+      const enabled = this.transitions.find((t) => this.isEnabled(t));
       if (!enabled) {
         if (this.hasWorkBearingTokens()) {
           eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
@@ -155,29 +182,97 @@ export class PetriNet {
         break;
       }
 
-      // Consume one token per input place
-      const consumed: Token[] = [];
+      const claim: TransitionClaim = { transition: enabled, consumed: [] };
       for (const p of enabled.inputs) {
-        consumed.push(this.places.get(p)!.shift()!);
+        claim.consumed.push(this.places.get(p)!.shift()!);
       }
 
-      // Fire — handler decides outputs
-      const outputs = await enabled.fire(consumed);
-      const producedPlaces: string[] = [];
-      for (const { place, token } of outputs) {
-        this.addToken(place, token);
-        producedPlaces.push(place);
+      try {
+        const outputs = await enabled.fire(claim.consumed);
+        this.depositClaim(claim, outputs, eventSink);
+      } catch (err) {
+        this.restoreClaim(claim);
+        throw err;
+      }
+    }
+  }
+
+  /**
+   * Parallel policy — find all enabled transitions, claim tokens greedily,
+   * fire all claimed transitions concurrently via Promise.allSettled, repeat.
+   *
+   * Successful fires in a batch are committed before checking halt, matching
+   * serial semantics where each completed fire persists. Handler rejections
+   * deliberately roll back the entire claimed batch and rethrow the first
+   * rejection: this is an all-or-nothing net-state boundary for FE-743, not
+   * per-slice failure isolation. External handler side effects are not
+   * compensated here; if agent flakiness becomes common, per-claim rollback or
+   * AggregateError collection should be designed as a follow-up.
+   */
+  private async runParallel(shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
+    while (true) {
+      if (shouldHalt?.()) {
+        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
+        break;
       }
 
-      // Emit transition_fired event
-      eventSink?.emit({
-        kind: 'transition_fired',
-        ts: new Date().toISOString(),
-        transitionId: enabled.id,
-        contract: enabled.contract,
-        consumed: enabled.inputs,
-        produced: producedPlaces,
-      });
+      const allEnabled = this.transitions.filter((t) => this.isEnabled(t));
+
+      if (allEnabled.length === 0) {
+        if (this.hasWorkBearingTokens()) {
+          eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
+        }
+        break;
+      }
+
+      const claims: TransitionClaim[] = [];
+      for (const t of allEnabled) {
+        if (!this.isEnabled(t)) continue;
+
+        const consumed: Token[] = [];
+        for (const p of t.inputs) {
+          consumed.push(this.places.get(p)!.shift()!);
+        }
+        claims.push({ transition: t, consumed });
+      }
+
+      if (claims.length === 0) break;
+
+      const results = await Promise.allSettled(
+        claims.map(async (claim) => ({
+          claim,
+          outputs: await claim.transition.fire(claim.consumed),
+        })),
+      );
+
+      let hasRejection = false;
+      let firstError: unknown;
+      const fulfilled: { claim: TransitionClaim; outputs: { place: string; token: Token }[] }[] = [];
+
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          fulfilled.push(result.value);
+        } else {
+          hasRejection = true;
+          firstError ??= result.reason;
+        }
+      }
+
+      if (hasRejection) {
+        for (const claim of claims) {
+          this.restoreClaim(claim);
+        }
+        throw firstError;
+      }
+
+      for (const { claim, outputs } of fulfilled) {
+        this.depositClaim(claim, outputs, eventSink);
+      }
+
+      if (shouldHalt?.()) {
+        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
+        break;
+      }
     }
   }
 }

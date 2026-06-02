@@ -55,7 +55,7 @@ export type ActionContext = {
   slice: Slice;
   epic: Epic;
   plan: Plan;
-  worktreeDir: string;
+  sandboxDir: string;
   reports: ReportSink;
 };
 
@@ -74,7 +74,7 @@ export type TestResult = {
 };
 
 export interface TestRunner {
-  run(target: string, worktreeDir: string): Promise<TestResult>;
+  run(target: string, sandboxDir: string): Promise<TestResult>;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,11 +85,14 @@ export type RunPolicy = {
   maxRetries: number;
   /** Maximum semantic rework cycles per slice before halting. Defaults to maxRetries. */
   maxSemanticReworks?: number;
+  /** Number of tokens per shared agent pool (test-agent, code-agent).
+   *  Defaults to slice count (unbounded — one token per slice). */
+  agentPoolSize?: number;
 };
 
 export type OrchestratorInput = {
   plan: Plan;
-  worktreeDir: string;
+  sandboxDir: string;
   actions: ActionHandlers;
   reports: ReportSink;
   testRunner: TestRunner;
