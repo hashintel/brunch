@@ -20,11 +20,11 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 
 ### Active
 
-1. `mode-shell-and-fixture-driver` — Adds `--mode print` and `--mode rpc` over thin named RPC method families, lands the first agent-as-user fixture-capture run end-to-end, seeds the first three briefs from BEHAVIORAL_KERNELS.md.
+1. `jsonl-session-viability` — Proves whether pi JSONL sessions can hold raw payloads, Brunch session binding, structured elicitation entries, and continuity metadata faithfully across reload.
 
 ### Next
 
-1. `jsonl-session-viability` — Proves whether pi JSONL sessions can hold raw payloads, Brunch session binding, structured elicitation entries, and continuity metadata faithfully across reload.
+1. `web-shell` — M3. Browser as thin remote head over the same host, TanStack Router + Query, one WebSocket RPC client, no REST read model.
 
 ### Parallel / Low-conflict
 
@@ -33,7 +33,6 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 
 ### Horizon
 
-- `web-shell` — M3. Browser as thin remote head over the same host, TanStack Router + Query, one WebSocket RPC client, no REST read model.
 - `graph-data-plane` — M4. SQLite-backed graph persistence; intent-plane nodes/edges; graph clock; change log; coherence-state homes.
 - `agent-graph-integration` — M5. Graph tools and observer extraction through pi extension seams; all writes via the shared command layer.
 - `authority-model` — M6. Three-tier policy (autonomous / requires-confirmation / human-only) end-to-end across modes.
@@ -66,16 +65,18 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 ### mode-shell-and-fixture-driver
 
 - **Name:** Mode shell (print + rpc) and first fixture driver
-- **Linear:** unassigned
+- **Linear:** [FE-735](https://linear.app/hash/issue/FE-735/mode-shell-and-fixture-driver-m1) (sub-issue of FE-702)
+- **Branch:** `ln/fe-735-mode-shell-fixture-driver` (stacked on `ln/fe-729-walking-skeleton`)
 - **Kind:** structural
-- **Status:** not-started
-- **Objective:** Add `--mode print` and `--mode rpc` dispatchers over the same Brunch host and named RPC method-family handlers; land the agent-as-user JSON-RPC stdio driver; prove transcript projection of elicitation exchanges; and capture the first replay-regression fixtures for at least briefs #1–#3.
+- **Status:** done
+- **Objective:** Add `--mode print` and `--mode rpc` transport dispatchers over the same Brunch host and named RPC method-family handlers; land the agent-as-user JSON-RPC stdio driver; prove transcript projection of elicitation exchanges; and capture the first replay-regression fixtures for at least briefs #1–#3. For M1, print mode is a snapshot renderer/proof-of-life, not a single-turn agent run.
 - **Why now / unlocks:** Proves D5-L (JSON-RPC primary) and unlocks the fixture-driven feedback loop. Without this milestone, every downstream milestone has only manual TUI evidence.
-- **Acceptance:** `brunch --mode print` and `brunch --mode rpc` boot from the same host setup; the first `session.*` / `workspace.*` RPC handlers are named product methods rather than a generic read gateway; an agent-as-user driver completes at least one brief end-to-end over stdio by responding to elicitation prompts; captured JSONL can be projected into prompt/response elicitation exchanges; a `.jsonl` + `.meta.json` bundle is written under `.brunch-fixtures/`; the first three briefs from BEHAVIORAL_KERNELS.md are captured.
-- **Verification:** Inner — verify gate plus projection-handler unit tests for elicitation exchange ranges. Middle — deterministic first captured run, stdio RPC handler contract tests, and replay-regression fixture(s) asserting transcript reproduction/projection parity (SPEC §Oracle Strategy by Loop Tier). Outer — the three-layer fixture model is established in skeleton form here; property and adversarial layers come online as later milestones supply graph/coherence substrates.
-- **Cross-cutting obligations:** Keep the captured-run format forward-compatible with later `.graph.json` and `.coherence.json` artefacts; establish exchange projection over Pi JSONL without creating canonical chat/turn tables; keep read/subscription architecture thin — named RPC method families and projection handlers over canonical stores, not a generic read-model platform; this frontier establishes the first layer of the canonical replay/property/adversarial fixture architecture rather than a one-off harness.
+- **Acceptance:** `brunch --mode print` and `brunch --mode rpc` boot from the same host setup; the first `session.*` / `workspace.*` RPC handlers are named product methods rather than a generic read gateway; an agent-as-user driver completes at least one brief end-to-end over stdio by responding to elicitation prompts; captured JSONL can be projected into prompt/response elicitation exchanges; a `.jsonl` + `.meta.json` bundle is written under `.brunch-fixtures/`; the first three curated briefs are captured.
+- **Verification:** Inner — verify gate plus projection-handler unit tests for elicitation exchange ranges. Middle — deterministic first captured run, stdio RPC handler contract tests, replay-regression fixture(s) asserting transcript reproduction/projection parity, and `./runbooks/verify-m1.sh` for store/projection/manual-smoke evidence (SPEC §Oracle Strategy by Loop Tier). Outer — the three-layer fixture model is established in skeleton form here; property and adversarial layers come online as later milestones supply graph/coherence substrates; brief quality and golden-capture representativeness remain explicit human review prompts in the runbook.
+- **Cross-cutting obligations:** Keep transport mode distinct from agent modes/lenses; do not make print mode select or imply an agent strategy in M1. Keep the captured-run format forward-compatible with later `.graph.json` and `.coherence.json` artefacts; establish exchange projection over Pi JSONL without creating canonical chat/turn tables; keep read/subscription architecture thin — named RPC method families and projection handlers over canonical stores, not a generic read-model platform; this frontier establishes the first layer of the canonical replay/property/adversarial fixture architecture rather than a one-off harness.
 - **Traceability:** R4, R5, R11, R16, R17, R20 / D5-L, D12-L, D13-L, D18-L, D19-L / I3-L, I10-L, I13-L / A1-L, A5-L, A12-L
 - **Design docs:** [fixture-strategy.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)
+- **Current execution pointer:** complete after M1 review fixes; proceed to `jsonl-session-viability`.
 
 ### jsonl-session-viability
 
@@ -189,9 +190,9 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 - **Linear:** unassigned
 - **Kind:** bounded feature
 - **Status:** not-started
-- **Objective:** Author and review briefs #4–#7 plus the adversarial second tier per fixture-strategy. Outputs are YAML briefs and one or two reviewer notes.
+- **Objective:** Author and review briefs #4–#7 plus the adversarial second tier per fixture-strategy. Outputs are JSON briefs and one or two reviewer notes.
 - **Acceptance:** Briefs #1–#7 present in `.brunch-fixtures/briefs/`; adversarial briefs present with documented targets; expectations for brief #7 satisfied per fixture-strategy.
-- **Verification:** Doc review against fixture-strategy expectations; schema/checker validation for brief YAML once available; spot-replay if the relevant harness milestone has landed.
+- **Verification:** Doc review against fixture-strategy expectations; schema/checker validation for brief JSON once available; spot-replay if the relevant harness milestone has landed.
 - **Cross-cutting obligations:** Keep the brief corpus aligned with the canonical replay/property/adversarial fixture model rather than letting it drift into a loose examples folder.
 - **Traceability:** R20 / A5-L
 - **Design docs:** [fixture-strategy.md §Brief library](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/fixture-strategy.md)
@@ -258,6 +259,7 @@ Brunch-next is starting from a deliberately razed slate on the `next` branch (ta
 
 ## Recently Completed
 
+- 2026-05-21 `mode-shell-and-fixture-driver` — Done: print and RPC transport modes boot through the Brunch host; named `workspace.snapshot` and `session.elicitationExchanges` handlers project coordinator-selected session state; fixture capture copies the same selected Pi JSONL session projected by RPC; brief metadata is Brunch-owned and marks graph/coherence artifacts deferred; briefs #1–#3 have scripted deterministic replay bundles under `.brunch-fixtures/<brief-id>/scripted-001/`. Verified: `npm run verify`, RPC/print parity smoke, exchange projection tests, fixture replay/projection parity tests, `./runbooks/verify-m1.sh`, and human inspection that briefs/captures/product-shaped outputs are good on their current terms. Watch: M2 should use these captured transcripts as JSONL reload evidence without turning them into a parallel chat/turn store; later elicitation work must revisit the encoded interaction logic, expectations, and knowledge-flow assumptions rather than treating the scripted M1 exchange shape as final product behavior.
 - 2026-05-20 `walking-skeleton` — Done: Brunch now launches through a real pi-backed TUI boot path with coordinator-first spec gating, project-local `.brunch/` state, self-describing Pi JSONL sessions via exactly one `brunch.session_binding`, same-spec `/new` coverage, persistent cwd / spec / phase / chat-mode chrome through pi's extension widget seam, a bin shim, store-only runbook checker, and type-ownership hardening against Pi exported types. Verified: `npm run verify`, manual TUI smoke in a scratch project, automated TUI/coordinator tests, store-only runbook oracle, and manual file inspection. Watch: M1 should reuse the coordinator/session truth rather than recreating boot/session mechanics.
 - 2026-05-20 `pre-poc-archive-and-reseed` — Done: razed pre-POC implementation, archived legacy docs and planning memory under `archive/`, tagged `next-baseline`, reseeded `memory/SPEC.md` and `memory/PLAN.md` from the three canonical POC architecture docs. Verified: `git log --oneline` shows three clean buckets; `archive/` contains all prior material. Watch: Phase 3 infra bootstrap is folded into `walking-skeleton`, not a separate frontier.
 

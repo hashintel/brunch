@@ -92,47 +92,43 @@ Briefs are short, human-readable, and curated. The run artefacts are the heavy d
 
 ### Brief fixture format
 
-```yaml
-# .brunch-fixtures/briefs/offline-kanban.yaml
-id: offline-kanban
-title: Offline Kanban Editing
-brief: |
-  We want to build a Kanban tool that engineering teams can use offline.
-  Multiple people edit the same board. Cards move through workflow states.
-  Some columns have WIP limits.
-persona:
-  style: collaborative           # terse | verbose | collaborative | indecisive
-  domain_literacy: high          # low | medium | high
-  patience: medium               # affects how many follow-ups before frustration
-  change_mind_probability: 0.1   # per-turn probability of revising an earlier answer
-expected_kernels:
-  - state_lifecycle
-  - containment_topology
-  - concurrency_collaboration
-  - resource_accounting
-  - derived_data_views
-  - temporal_history
-expected_entity_coverage:
-  intent: [requirement, assumption, invariant, decision, example]
-  oracle: [check, validation_method]
-known_branch_points:
-  - "What should happen on offline-edit conflict?"
-known_invalidations: []
+`.brunch-fixtures/briefs/brief-002-state-lifecycle.json`:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "brief-002",
+  "title": "Approval workflow for vendor invoices",
+  "kernelTags": ["state-lifecycle", "authority-capability"],
+  "productBrief": "A finance team needs invoices to move from draft to submitted to approved or rejected. Only budget owners can approve, and rejected invoices can be revised and resubmitted.",
+  "expectedStructuralObservations": [
+    "Invoice states and legal transitions must be explicit.",
+    "Approval authority depends on the budget owner role."
+  ],
+  "scriptedUserNotes": [
+    "Rejected invoices are not terminal; they can go back to draft.",
+    "Approved invoices should not be edited without reopening the workflow."
+  ],
+  "deferredExpectations": {
+    "graph": "Later graph fixtures should capture lifecycle states, transitions, and authority predicates.",
+    "coherence": "Later coherence checks should flag contradictory terminality claims."
+  }
+}
 ```
 
 ### Starter set (seven briefs)
 
 | # | Brief | Active kernels (expected) | Stretches |
 | --- | --- | --- | --- |
-| 1 | **Offline Kanban** | State/lifecycle, containment, concurrency, resource accounting, derived data, temporal | Kernel doc's flagship; broad behavioral coverage |
-| 2 | **Role-based document sharing** | Identity, authority, containment, temporal (revocation), observability, change/migration | Authority cascades; nested inheritance |
-| 3 | **Subscription billing** | Resource accounting, state/lifecycle, transactions, external effects, error/recovery, temporal | Transaction + external-effects boundary; assurance-level pressure |
+| 1 | **Team knowledge cards** | Identity/reference, containment topology | Stable identity versus mutable titles; links that must survive renames |
+| 2 | **Approval workflow for vendor invoices** | State/lifecycle, authority/capability | Non-terminal rejection, reopening approved work, role-gated transitions |
+| 3 | **Project dashboard rollups** | Derived-data views, temporal history | Stale projections, source evidence for rollups and decisions |
 | 4 | **Calendar scheduling with notifications** | Concurrency (overlap), authority, external effects, error/recovery | External-effects + recovery semantics |
 | 5 | **Knowledge-graph editor (meta)** | Identity, containment, change/migration, observability, validation | Brunch describing itself; sanity check on the modelling |
 | 6 | **Verified sort algorithm** | Validation/normalization, formal properties only | Narrow but stretches `formal_property` requirements, `Obligation` nodes, `proof` / `model_check` validation methods, and assurance-level computation |
 | 7 | **"Notion meets Linear meets Slack"** | Forces scope-boundary clarification before any kernel can engage | Adversarial; stresses offer-first interaction and scope-card affordance |
 
-Briefs 1–3 are already worked out in [`BEHAVIORAL_KERNELS.md`](file:///Users/lunelson/Code/hashintel/brunch-next/docs/design/BEHAVIORAL_KERNELS.md); they should be the first three captured.
+Briefs #1–#3 are the first curated M1 seeds under `.brunch-fixtures/briefs/`. They are intentionally thin, human-reviewed product briefs for transcript/projection replay, not final evidence that Brunch's elicitation interaction logic or knowledge-flow model is correct.
 
 ### Brief #7 expectations — "Notion meets Linear meets Slack"
 
@@ -217,8 +213,8 @@ The fixture harness threads through the existing milestone ladder; it does not n
 
 | Milestone | Fixture work |
 | --- | --- |
-| **M0** (walking skeleton + TUI) | Begin capturing briefs as YAML. Manually-driven runs at the TUI produce first JSONL captures. Briefs cost nothing to write; the longer the library, the more leverage later. |
-| **M1** (mode shell: print + rpc) | Stand up the agent-as-user harness against `brunch --mode rpc`. First **replay regression** fixtures land here, asserting transcript reproduction only. Graph plane does not yet exist; assertions are transcript-shaped. |
+| **M0** (walking skeleton + TUI) | Begin curating briefs as JSON. Manually-driven runs at the TUI produce first JSONL captures. Briefs cost nothing to write; the longer the library, the more leverage later. |
+| **M1** (mode shell: print + rpc) | Stand up the first fixture-capture path against `brunch --mode rpc`. First **replay regression** fixtures land here, asserting transcript reproduction/projection only. Graph plane does not yet exist; assertions are transcript-shaped, and scripted exchange shape should not be treated as final elicitation behavior. |
 | **M2** (JSONL session viability) | The captured transcripts *are* the JSONL session files. The fixture library's reproducibility is part of M2's evidence. |
 | **M3** (web shell) | The same offer-response fixtures drive the web client through its WebSocket; free coverage of the web shell against known-good runs. |
 | **M4** (graph data plane) | Graph snapshots become part of the run-fixture bundle. The first **property regression** assertions land here. |
