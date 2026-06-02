@@ -565,4 +565,43 @@ describe("WorkspaceSessionCoordinator", () => {
     expect(result.chrome.cwd).toBe(cwd)
     expect(result.chrome.spec).toBeNull()
   })
+
+  it("generates a display name for new sessions and persists it as session_info", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+
+    const first = await coordinator.createSetupSession({
+      specTitle: "Scratch spec",
+    })
+
+    // Session should have a display name derived from spec title
+    const manager1 = SessionManager.open(first.session.file, undefined, cwd)
+    expect(manager1.getSessionName()).toBe("Scratch spec — session 1")
+
+    // Second session for same spec gets ordinal 2
+    const second = await coordinator.createSetupSessionForCurrentSpec()
+    expect(second.status).toBe("ready")
+    if (second.status !== "ready") return
+
+    const manager2 = SessionManager.open(second.session.file, undefined, cwd)
+    expect(manager2.getSessionName()).toBe("Scratch spec — session 2")
+  })
+
+  it("preserves existing display name on session resume", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-ws-"))
+    const coordinator = createWorkspaceSessionCoordinator({ cwd })
+
+    await coordinator.createSetupSession({
+      specTitle: "My spec",
+    })
+
+    // Reopen the same session
+    const reopened = await coordinator.openDefaultWorkspace()
+    expect(reopened.status).toBe("ready")
+    if (reopened.status !== "ready") return
+
+    // Name should be unchanged
+    const manager = SessionManager.open(reopened.session.file, undefined, cwd)
+    expect(manager.getSessionName()).toBe("My spec — session 1")
+  })
 })

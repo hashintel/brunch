@@ -6,8 +6,12 @@ import { describe, expect, it } from "vitest"
 
 import { composeBrunchPrompt } from "../context/compose-brunch-prompt.js"
 import {
+  BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
+  appendBrunchAgentRuntimeSwitch,
   type BrunchAgentState,
+  type BrunchAgentStateEntryData,
+  registerBrunchOperationalModePolicy,
 } from "../extensions/operational-mode.js"
 import { registerBrunchPrompting } from "../extensions/prompting.js"
 import { createBrunchPiExtensionShell } from "../../pi-extension-shell.js"
@@ -22,6 +26,23 @@ function runtimeEntry(state: BrunchAgentState) {
       state,
       source: "user",
     },
+  }
+}
+
+class FakeRuntimeStateSessionManager {
+  entries: Array<{
+    type: "custom"
+    customType: string
+    data: BrunchAgentStateEntryData
+  }> = []
+
+  getEntries() {
+    return this.entries
+  }
+
+  appendCustomEntry(customType: string, data: BrunchAgentStateEntryData) {
+    this.entries.push({ type: "custom", customType, data })
+    return `entry-${this.entries.length}`
   }
 }
 
@@ -104,6 +125,77 @@ describe("Brunch prompt-pack topology", () => {
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining(
         "Brunch exposes only elicit-safe tools: read, grep, present_options.",
+      ),
+    })
+  })
+
+  it("derives prompt and active tools from the same transcript-backed runtime state", async () => {
+    const manager = new FakeRuntimeStateSessionManager()
+    const events: Record<string, Array<(
+      event: never,
+      ctx?: never,
+    ) => unknown>> = {}
+    const activeTools: string[][] = []
+
+    const pi = {
+      on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
+        events[event] ??= []
+        events[event].push(handler)
+      },
+      registerTool: (_tool: { name: string }) => {},
+      getAllTools: () =>
+        ["read", "grep", "bash", "edit", "write", "present_options"].map(
+          (name) => ({ name }),
+        ),
+      setActiveTools: (tools: string[]) => activeTools.push(tools),
+    }
+    registerBrunchOperationalModePolicy(pi as never)
+    registerBrunchPrompting(pi as never)
+
+    for (const handler of events.session_start ?? []) {
+      await handler({} as never, { sessionManager: manager } as never)
+    }
+    const defaultPromptResults = await Promise.all(
+      (events.before_agent_start ?? []).map((handler) =>
+        Promise.resolve(
+          handler({ systemPrompt: "base" } as never, {
+            sessionManager: manager,
+          } as never),
+        ),
+      ),
+    )
+    const latestState: BrunchAgentState = {
+      ...DEFAULT_BRUNCH_AGENT_STATE,
+      agentStrategy: "disambiguate-via-examples",
+      agentLens: "disambiguate-via-examples",
+    }
+    appendBrunchAgentRuntimeSwitch(manager, latestState, "user")
+    const switchedPromptResults = await Promise.all(
+      (events.before_agent_start ?? []).map((handler) =>
+        Promise.resolve(
+          handler({ systemPrompt: "base" } as never, {
+            sessionManager: manager,
+          } as never),
+        ),
+      ),
+    )
+    const defaultPrompt = defaultPromptResults.find(Boolean)
+    const switchedPrompt = switchedPromptResults.find(Boolean)
+
+    expect(manager.entries[0]?.customType).toBe(
+      BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+    )
+    expect(activeTools).toEqual([
+      ["read", "grep", "present_options"],
+      ["read", "grep", "present_options"],
+      ["read", "grep", "present_options"],
+    ])
+    expect(defaultPrompt).toMatchObject({
+      systemPrompt: expect.stringContaining("Agent strategy: step-by-step."),
+    })
+    expect(switchedPrompt).toMatchObject({
+      systemPrompt: expect.stringContaining(
+        "Agent strategy: disambiguate-via-examples.",
       ),
     })
   })

@@ -1,7 +1,7 @@
 {
 	"name": "brunch-next",
 	"version": "0.0.0",
-	"description": "Brunch \u2014 opinionated specification-workspace product over pi-coding-agent.",
+	"description": "Brunch — opinionated specification-workspace product over pi-coding-agent.",
 	"private": true,
 	"type": "module",
 	"main": "./dist/brunch.js",
@@ -42,13 +42,19 @@
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
+		"@sinclair/typebox": "^0.34.14",
 		"@testing-library/dom": "^10.4.1",
 		"@testing-library/react": "^16.3.2",
+		"@types/better-sqlite3": "^7.6.13",
 		"@types/node": "^22.10.0",
 		"@types/react": "^19.2.15",
 		"@types/react-dom": "^19.2.3",
 		"@types/ws": "^8.18.1",
 		"@vitejs/plugin-react": "^4.7.0",
+		"better-sqlite3": "^12.8.0",
+		"drizzle-kit": "^0.31.10",
+		"drizzle-orm": "^0.45.2",
+		"drizzle-typebox": "^0.3.3",
 		"jsdom": "^29.1.1",
 		"oxfmt": "^0.2.0",
 		"oxlint": "^0.18.0",
@@ -59,5 +65,8 @@
 	},
 	"engines": {
 		"node": ">=20"
+	},
+	"allowScripts": {
+		"better-sqlite3@12.8.0": true
 	}
 }

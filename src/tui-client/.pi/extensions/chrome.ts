@@ -132,7 +132,7 @@ export function chromeStateForWorkspace(
     ...workspace.chrome,
     session: {
       id: workspace.session.id,
-      label: workspace.session.id,
+      label: workspace.session.name ?? workspace.session.id,
     },
   }
 }

@@ -44,6 +44,7 @@ export interface WorkspaceSessionReadyState {
   session: {
     id: string
     file: string
+    name?: string
     manager: SessionManager
   }
   chrome: WorkspaceSessionChromeState
@@ -322,12 +323,28 @@ async function createBoundSession(
   spec: WorkspaceSpecState,
 ): Promise<WorkspaceSessionReadyState["session"]> {
   await ensureWorkspaceDirs(cwd)
+  const existingSessionCount = await countSessionsForSpec(cwd, spec.id)
   const manager = SessionManager.create(cwd, sessionDir(cwd))
   const sessionFile = manager.getSessionFile()
   if (!sessionFile) {
     throw new Error("Pi SessionManager did not create a persisted session file")
   }
-  return bindSessionToSpec(manager, spec)
+  return bindSessionToSpec(manager, spec, existingSessionCount + 1)
+}
+
+async function countSessionsForSpec(
+  cwd: string,
+  specId: string,
+): Promise<number> {
+  const files = await listSessionFiles(cwd)
+  let count = 0
+  for (const file of files) {
+    const session = await inspectSessionFile(file)
+    if (session.available && session.specId === specId) {
+      count++
+    }
+  }
+  return count
 }
 
 async function openCurrentSession(
@@ -352,6 +369,7 @@ async function openCurrentSession(
 function bindSessionToSpec(
   manager: SessionManager,
   spec: WorkspaceSpecState,
+  sessionOrdinal?: number,
 ): WorkspaceSessionReadyState["session"] {
   const sessionFile = manager.getSessionFile()
   if (!sessionFile) {
@@ -368,6 +386,11 @@ function bindSessionToSpec(
         specTitle: spec.title,
       }),
     )
+    // Generate and persist a display name for new sessions
+    if (sessionOrdinal !== undefined) {
+      const displayName = sessionDisplayName(spec.title, sessionOrdinal)
+      manager.appendSessionInfo(displayName)
+    }
   } else if (
     existingBindings.length !== 1 ||
     existingBindings[0]?.data.sessionId !== manager.getSessionId() ||
@@ -379,7 +402,17 @@ function bindSessionToSpec(
   }
 
   flushSessionWithoutAssistant(manager)
-  return { id: manager.getSessionId(), file: sessionFile, manager }
+  const sessionName = manager.getSessionName()
+  return {
+    id: manager.getSessionId(),
+    file: sessionFile,
+    ...(sessionName != null ? { name: sessionName } : {}),
+    manager,
+  }
+}
+
+export function sessionDisplayName(specTitle: string, ordinal: number): string {
+  return `${specTitle} — session ${ordinal}`
 }
 
 interface FlushableSessionManager {
@@ -501,11 +534,19 @@ async function inspectSessionFile(file: string): Promise<InspectedSessionFile> {
     return { file, reason: "incompatible_binding", available: false }
   }
 
+  const sessionInfoEntries = entries.filter(isSessionInfoEntry)
+  const lastInfo =
+    sessionInfoEntries.length > 0
+      ? sessionInfoEntries[sessionInfoEntries.length - 1] as { name?: string }
+      : undefined
+  const name = lastInfo?.name
+
   return {
     id: header.id,
     file,
     specId: binding.data.specId,
     specTitle: binding.data.specTitle,
+    ...(name != null ? { name } : {}),
     available: true,
   }
 }
@@ -694,5 +735,13 @@ function isSessionHeader(value: unknown): value is SessionHeader {
     value !== null &&
     (value as { type?: unknown }).type === "session" &&
     typeof (value as { id?: unknown }).id === "string"
+  )
+}
+
+function isSessionInfoEntry(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { type?: unknown }).type === "session_info"
   )
 }

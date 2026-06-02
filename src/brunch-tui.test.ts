@@ -1,5 +1,5 @@
 import { userMessage } from "./test-helpers.js"
-import { mkdtemp, readFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -14,11 +14,14 @@ import {
 } from "@earendil-works/pi-coding-agent"
 
 import {
+  BRUNCH_SETTINGS_AUDITED_GETTERS,
+  BRUNCH_SETTINGS_POLICY,
   applyBrunchOfflineDefault,
   brunchResourceLoaderOptions,
   createBrunchSettingsManager,
   runBrunchTui,
 } from "./brunch-tui.js"
+import { createBrunchPiProfile } from "./brunch-pi-profile.js"
 import {
   BRUNCH_WORKSPACE_COMMAND,
   BRUNCH_WORKSPACE_SHORTCUT,
@@ -762,7 +765,226 @@ describe("Brunch TUI boot", () => {
     })
     expect(env.PI_OFFLINE).toBe("1")
   })
+
+  it("ignores hostile ambient Pi settings for behavior-shaping profile policy", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-tui-"))
+    const agentDir = join(cwd, "home-pi")
+    await writeHostilePiSettings(cwd, agentDir)
+
+    const settingsManager = createBrunchSettingsManager(cwd, agentDir)
+
+    expect(settingsManager.getShellPath()).toBeUndefined()
+    expect(settingsManager.getShellCommandPrefix()).toBeUndefined()
+    expect(settingsManager.getNpmCommand()).toBeUndefined()
+    expect(settingsManager.getPackages()).toEqual([])
+    expect(settingsManager.getExtensionPaths()).toEqual([])
+    expect(settingsManager.getSkillPaths()).toEqual([])
+    expect(settingsManager.getPromptTemplatePaths()).toEqual([])
+    expect(settingsManager.getThemePaths()).toEqual([])
+    expect(settingsManager.getEnableSkillCommands()).toBe(false)
+    expect(settingsManager.getDoubleEscapeAction()).toBe("none")
+    expect(settingsManager.getCompactionSettings()).toEqual({
+      enabled: true,
+      reserveTokens: 16384,
+      keepRecentTokens: 20000,
+    })
+    expect(settingsManager.getRetrySettings()).toEqual({
+      enabled: true,
+      maxRetries: 3,
+      baseDelayMs: 2000,
+    })
+    expect(settingsManager.getProviderRetrySettings()).toEqual({
+      timeoutMs: undefined,
+      maxRetries: undefined,
+      maxRetryDelayMs: 60000,
+    })
+    expect(settingsManager.getShowImages()).toBe(true)
+    expect(settingsManager.getImageWidthCells()).toBe(60)
+    expect(settingsManager.getClearOnShrink()).toBe(false)
+    expect(settingsManager.getShowTerminalProgress()).toBe(false)
+    expect(settingsManager.getImageAutoResize()).toBe(true)
+    expect(settingsManager.getBlockImages()).toBe(false)
+    expect(settingsManager.getTransport()).toBe("auto")
+    expect(settingsManager.getTheme()).toBeUndefined()
+    expect(settingsManager.getLastChangelogVersion()).toBeUndefined()
+    expect(settingsManager.getCollapseChangelog()).toBe(false)
+    expect(settingsManager.getEnableInstallTelemetry()).toBe(false)
+    expect(settingsManager.getShowHardwareCursor()).toBe(false)
+    expect(settingsManager.getEditorPaddingX()).toBe(0)
+    expect(settingsManager.getAutocompleteMaxVisible()).toBe(5)
+  })
+
+  it("keeps sealed Brunch settings after Pi settings reload", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-tui-"))
+    const agentDir = join(cwd, "home-pi")
+    await writeHostilePiSettings(cwd, agentDir)
+    const settingsManager = createBrunchSettingsManager(cwd, agentDir)
+
+    await settingsManager.reload()
+
+    expect(settingsManager.getQuietStartup()).toBe(true)
+    expect(settingsManager.getPackages()).toEqual([])
+    expect(settingsManager.getExtensionPaths()).toEqual([])
+    expect(settingsManager.getSkillPaths()).toEqual([])
+    expect(settingsManager.getPromptTemplatePaths()).toEqual([])
+    expect(settingsManager.getThemePaths()).toEqual([])
+    expect(settingsManager.getEnableSkillCommands()).toBe(false)
+    expect(settingsManager.getDoubleEscapeAction()).toBe("none")
+    expect(settingsManager.getShellPath()).toBeUndefined()
+    expect(settingsManager.getNpmCommand()).toBeUndefined()
+  })
+
+  it("keeps ambient resource suppression and explicit product extensions behind one profile boundary", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "brunch-tui-"))
+    const extension = () => {}
+    const profile = createBrunchPiProfile({
+      cwd,
+      agentDir: cwd,
+      extensionFactories: [extension],
+    })
+
+    expect(profile.settingsManager.getQuietStartup()).toBe(true)
+    expect(profile.resourceLoaderOptions).toEqual({
+      noContextFiles: true,
+      noExtensions: true,
+      noPromptTemplates: true,
+      noSkills: true,
+      noThemes: true,
+      extensionFactories: [extension],
+    })
+  })
+
+  it("keeps Pi settings/resource policy out of the TUI launcher", async () => {
+    const launcherSource = await readFile(
+      join(import.meta.dirname, "brunch-tui.ts"),
+      "utf8",
+    )
+    const profileSource = await readFile(
+      join(import.meta.dirname, "brunch-pi-profile.ts"),
+      "utf8",
+    )
+
+    expect(launcherSource).toContain("createBrunchPiProfile")
+    expect(launcherSource).not.toContain("SettingsManager.create")
+    expect(launcherSource).not.toContain("noContextFiles")
+    expect(profileSource).toContain("SettingsManager.inMemory")
+    expect(profileSource).toContain("noContextFiles: true")
+  })
+
+  it("keeps the Brunch settings override and audit list in the profile boundary", async () => {
+    const launcherSource = await readFile(
+      join(import.meta.dirname, "brunch-tui.ts"),
+      "utf8",
+    )
+    const profileSource = await readFile(
+      join(import.meta.dirname, "brunch-pi-profile.ts"),
+      "utf8",
+    )
+    const settingsManagerTypes = await readFile(
+      join(
+        import.meta.dirname,
+        "..",
+        "node_modules",
+        "@earendil-works",
+        "pi-coding-agent",
+        "dist",
+        "core",
+        "settings-manager.d.ts",
+      ),
+      "utf8",
+    )
+    const getterNames = Array.from(
+      settingsManagerTypes.matchAll(/\n    (get[A-Z][A-Za-z0-9]+)\(/g),
+      (match) => match[1]!,
+    )
+
+    expect(BRUNCH_SETTINGS_POLICY).toMatchObject({
+      quietStartup: true,
+      packages: [],
+      extensions: [],
+      skills: [],
+      prompts: [],
+      themes: [],
+      enableSkillCommands: false,
+      doubleEscapeAction: "none",
+    })
+    expect(getterNames.sort()).toEqual(
+      [...BRUNCH_SETTINGS_AUDITED_GETTERS].sort(),
+    )
+    expect(launcherSource).not.toContain("SettingsManager.inMemory")
+    expect(profileSource).toContain("BRUNCH_SETTINGS_POLICY")
+    expect(profileSource).toContain("SettingsManager.inMemory")
+  })
 })
+
+async function writeHostilePiSettings(
+  cwd: string,
+  agentDir: string,
+): Promise<void> {
+  const hostileSettings = {
+    lastChangelogVersion: "999.0.0-hostile",
+    defaultProvider: "hostile-provider",
+    defaultModel: "hostile-model",
+    transport: "websocket",
+    theme: "hostile-theme",
+    compaction: {
+      enabled: false,
+      reserveTokens: 1,
+      keepRecentTokens: 2,
+    },
+    branchSummary: {
+      reserveTokens: 3,
+      skipPrompt: true,
+    },
+    retry: {
+      enabled: false,
+      maxRetries: 99,
+      baseDelayMs: 1,
+      provider: {
+        timeoutMs: 1,
+        maxRetries: 99,
+        maxRetryDelayMs: 2,
+      },
+    },
+    shellPath: "/tmp/hostile-shell",
+    quietStartup: false,
+    shellCommandPrefix: "hostile-prefix",
+    npmCommand: ["hostile-npm"],
+    collapseChangelog: true,
+    enableInstallTelemetry: true,
+    packages: ["hostile-package"],
+    extensions: ["hostile-extension"],
+    skills: ["hostile-skill"],
+    prompts: ["hostile-prompt"],
+    themes: ["hostile-theme-path"],
+    enableSkillCommands: true,
+    terminal: {
+      showImages: false,
+      imageWidthCells: 1,
+      clearOnShrink: true,
+      showTerminalProgress: true,
+    },
+    images: {
+      autoResize: false,
+      blockImages: true,
+    },
+    doubleEscapeAction: "tree",
+    showHardwareCursor: true,
+    editorPaddingX: 3,
+    autocompleteMaxVisible: 20,
+  }
+
+  await mkdir(agentDir, { recursive: true })
+  await mkdir(join(cwd, ".pi"), { recursive: true })
+  await writeFile(
+    join(agentDir, "settings.json"),
+    JSON.stringify(hostileSettings, null, 2),
+  )
+  await writeFile(
+    join(cwd, ".pi", "settings.json"),
+    JSON.stringify(hostileSettings, null, 2),
+  )
+}
 
 function readyWorkspace(
   cwd: string,
