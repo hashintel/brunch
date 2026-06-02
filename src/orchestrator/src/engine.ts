@@ -6,6 +6,10 @@ import type { Orchestrator, OrchestratorInput, OrchestratorResult, RunCtx } from
 // createOrchestrator — single factory. Two-pass compilation pipeline:
 //   1. compileTopology(plan, policy) → NetBlueprint (pure data)
 //   2. wireHandlers(blueprint, input, ctx) → PetriNet (fire closures)
+//
+// FE-761 Slice 2b: halt is observed via `net.hasHaltToken()` / halt tokens
+// on `:halted` places rather than `ctx.halted` mutation. The halt reason
+// comes from the halt token itself (`token.haltReason`).
 // ---------------------------------------------------------------------------
 
 export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
@@ -15,18 +19,30 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
         reportIds: [],
         sliceOutcomes: new Map(),
         epicOutcomes: new Map(),
-        halted: false,
       };
+
+      let haltReason: string | undefined;
+      let hasStructuralHalt = false;
 
       try {
         const blueprint = compileTopology(input.plan, input.policy);
         const net = wireHandlers(blueprint, input, ctx);
-        await net.run(firingPolicy, () => ctx.halted);
+        await net.run(firingPolicy, () => net.hasHaltToken());
+
+        hasStructuralHalt = net.hasHaltToken();
+        // Derive halt reason from any halt token deposited during the run.
+        const haltTokens = net.getHaltTokens();
+        for (const { token } of haltTokens) {
+          if (token.haltReason) {
+            haltReason = token.haltReason;
+            break;
+          }
+        }
       } catch (err) {
         return {
           status: 'halted',
           reason: err instanceof Error ? err.message : String(err),
-          reports: ctx.reportIds,
+          reports: [...ctx.reportIds],
           epics: input.plan.epics.map(
             (e) => ctx.epicOutcomes.get(e.id) ?? { epicId: e.id, status: 'halted' as const },
           ),
@@ -36,26 +52,30 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
         };
       }
 
-      // Fill in any slices/epics not yet in outcomes (e.g. never reached)
+      // Fill in any slices/epics not yet in outcomes (e.g. never reached).
+      let neverReached = false;
       for (const slice of input.plan.slices) {
         if (!ctx.sliceOutcomes.has(slice.id)) {
           ctx.sliceOutcomes.set(slice.id, { sliceId: slice.id, status: 'halted' });
-          ctx.halted = true;
-          ctx.haltReason ??= 'Some slices were never reached';
+          neverReached = true;
         }
       }
       for (const epic of input.plan.epics) {
         if (!ctx.epicOutcomes.has(epic.id)) {
           ctx.epicOutcomes.set(epic.id, { epicId: epic.id, status: 'halted' });
-          ctx.halted = true;
-          ctx.haltReason ??= 'Some epics were never reached';
+          neverReached = true;
         }
       }
+      if (neverReached && !haltReason) {
+        haltReason = 'Some slices or epics were never reached';
+      }
+
+      const halted = hasStructuralHalt || haltReason !== undefined;
 
       return {
-        status: ctx.halted ? 'halted' : 'completed',
-        reason: ctx.haltReason,
-        reports: ctx.reportIds,
+        status: halted ? 'halted' : 'completed',
+        reason: haltReason,
+        reports: [...ctx.reportIds],
         epics: input.plan.epics.map((e) => ctx.epicOutcomes.get(e.id)!),
         slices: input.plan.slices.map((s) => ctx.sliceOutcomes.get(s.id)!),
       };

@@ -7,26 +7,34 @@ import type { TransitionContract } from './petri-net.js';
 import type { ReportLine } from './types.js';
 
 // ---------------------------------------------------------------------------
-// RouteGuard — declarative routing predicate evaluated against a report payload
-//
-// Extension shape: add a new `kind` variant here and a matching case in
-// evalRouteGuard. Keep guards pure data so a static analyzer can reason about
-// reachable markings without executing fire closures.
+// EnablingGuard — declarative enabling predicate evaluated against an input
+// token's attached report. The guard runs at `isEnabled` time, so the firing
+// policy picks which sibling transition is currently allowed to fire without
+// branching inside the fire closure. Mutually-exclusive guards over the same
+// intermediate place implement Petri-net-faithful conditional branching via
+// sibling transitions (FE-761 Slice 1).
 // ---------------------------------------------------------------------------
 
-export type RouteGuard = { kind: 'always' } | { kind: 'reportFieldTruthy'; field: string };
+export type EnablingGuard =
+  | { kind: 'always' }
+  | { kind: 'tokenReportFieldTruthy'; field: string }
+  | { kind: 'tokenReportFieldFalsy'; field: string };
 
-export function evalRouteGuard(guard: RouteGuard, report: ReportLine | undefined): boolean {
+export function evalEnablingGuard(guard: EnablingGuard, report: ReportLine | undefined): boolean {
   switch (guard.kind) {
     case 'always':
       return true;
-    case 'reportFieldTruthy': {
+    case 'tokenReportFieldTruthy': {
       const payload = report?.payload as Record<string, unknown> | undefined;
       return !!payload?.[guard.field];
     }
+    case 'tokenReportFieldFalsy': {
+      const payload = report?.payload as Record<string, unknown> | undefined;
+      return !payload?.[guard.field];
+    }
     default: {
       const unknown = guard as { kind: string };
-      throw new Error(`Unsupported RouteGuard kind: ${unknown.kind}`);
+      throw new Error(`Unsupported EnablingGuard kind: ${unknown.kind}`);
     }
   }
 }
@@ -53,48 +61,113 @@ type PassthroughDescriptor = {
 };
 
 /**
- * Call an action handler, route declaratively on guard evaluation.
- * Covers: evaluate, write-tests, write-code.
+ * Dispatch — synchronous front-half of a long-running producer (FE-761
+ * Slice 4 explicit topology split). Consumes the producer's original
+ * inputs (work token + optional agent / budget) and emits a single
+ * `running:*` sentinel token to make the in-flight phase visible at the
+ * net level (Petrinaut compatibility / FE-762).
+ *
+ * The companion `complete` transition (one of action / run-tests /
+ * assess-semantic / verify-epic, now consuming only the running:* place)
+ * runs the deferred handler and emits the report-bearing outputs. Budget
+ * metadata (retryCount / reworkCount) is stashed on the running token by
+ * the dispatch so the complete phase can read it back.
+ */
+type DispatchDescriptor = {
+  kind: 'dispatch';
+  sliceId: string;
+  epicId: string;
+  /** Place to deposit the running:* sentinel token. */
+  runningPlace: string;
+};
+
+/**
+ * Call an action handler, attach the resulting reportId to the output token,
+ * and emit to a single fixed output set. Conditional branching is expressed
+ * downstream via sibling-passthrough transitions reading the attached report.
+ *
+ * Covers: evaluate (with intermediate place + 2 siblings), write-tests,
+ * write-code (single output, no siblings).
  */
 type ActionDescriptor = {
   kind: 'action';
   actionKey: string;
   sliceId: string;
   epicId: string;
-  /** RouteGuard evaluated against the action's report; selects onTrue vs onFalse. */
-  guard: RouteGuard;
-  /** Places to emit to when guard evaluates true. */
-  onTrue: string[];
-  /** Places to emit to when guard evaluates false. */
-  onFalse: string[];
+  /** Single fixed output set. */
+  outputs: string[];
   /** Place to return a fresh agent-resource token to. */
   agentReturnPlace?: string;
 };
 
-/** Test runner with retry budget — 3-way routing on declarative guard. */
+/**
+ * Sibling passthrough — consumes a report-bearing token from an intermediate
+ * place, evaluates its enabling guard against the token's attached report,
+ * and (when enabled) emits to a single fixed output set. Pairs of siblings
+ * over one intermediate place implement Petri-net-faithful branching:
+ * complementary guards ensure exactly one sibling is enabled per token.
+ *
+ * Optional `onFire` declares a side effect the sibling performs in addition
+ * to forwarding the token. Variants:
+ *   - `mark-epic-completed` — used by the verify-epic pass sibling to record
+ *     the epic outcome in `ctx.epicOutcomes`.
+ *   - `attach-halt-reason` — used by halt-emitting siblings (e.g. the
+ *     verify-epic fail sibling) to stamp `haltReason` on the forwarded
+ *     token so the engine can surface it via `result.reason`. The sibling
+ *     emits to a halted:* place (FE-761 Slice 2b: halted-as-place).
+ */
+type SiblingPassthroughDescriptor = {
+  kind: 'sibling-passthrough';
+  sliceId: string;
+  epicId: string;
+  /** The intermediate place this sibling reads from. */
+  input: string;
+  /** Fixed output set this sibling emits to when enabled. */
+  outputs: string[];
+  /** Predicate evaluated against the token's attached report. */
+  enablingGuard: EnablingGuard;
+  /** Optional fire-time side effect (epic completion mark / halt reason). */
+  onFire?: { kind: 'mark-epic-completed' } | { kind: 'attach-halt-reason'; reason: string };
+};
+
+/**
+ * Test runner with retry budget — producer. Runs tests synchronously,
+ * attaches the test-run report to the output token, and emits to a single
+ * intermediate place plus the retry-budget place. Sibling-passthrough
+ * transitions downstream route by the report's `passed` field. On budget
+ * exhaustion the producer instead emits a halt token (carrying its own
+ * `haltReason`) to `slice:<sid>:halted` — FE-761 Slice 2b: halted-as-place.
+ */
 type RunTestsDescriptor = {
   kind: 'run-tests';
   sliceId: string;
   epicId: string;
   target: string;
-  /** RouteGuard evaluated against the tests-run report; selects onPass vs onFail. */
-  passGuard: RouteGuard;
-  onPass: string[];
-  onFail: string[];
+  /** Single intermediate output place; siblings route from here. */
+  intermediatePlace: string;
+  /** Place to emit the (decremented or reset) retry-budget token to. */
   budgetPlace: string;
   maxRetries: number;
 };
 
-/** Semantic assessment with rework budget; routing is declarative. */
+/**
+ * Semantic assessment with rework budget — producer. Runs assessment
+ * synchronously, attaches the assess-semantic report to the output token,
+ * and emits to a single intermediate place. On rejection the budget place
+ * receives an incremented rework token; on satisfaction the budget is
+ * consumed and not returned. Sibling-passthrough transitions downstream
+ * route by the report's `satisfied` field. On rework-budget exhaustion the
+ * producer instead emits a halt token (carrying its own `haltReason`) to
+ * `slice:<sid>:halted` — FE-761 Slice 2b: halted-as-place.
+ */
 type AssessSemanticDescriptor = {
   kind: 'assess-semantic';
   actionKey: string;
   sliceId: string;
   epicId: string;
-  /** RouteGuard evaluated against the semantic-assessed report; selects onSatisfied vs onRejected. */
-  satisfiedGuard: RouteGuard;
-  onSatisfied: string[];
-  onRejected: string[];
+  /** Single intermediate output place; siblings route from here. */
+  intermediatePlace: string;
+  /** Place to emit the (incremented) rework-budget token to on rejection. */
   budgetPlace: string;
   maxReworks: number;
 };
@@ -116,20 +189,28 @@ type CompleteEpicDescriptor = {
   depSignals: string[];
 };
 
-/** Verify epic — action call + pass/fail routing + halt on fail. */
+/**
+ * Verify epic — producer. Runs verification synchronously against the
+ * merged epic sandbox, attaches the verify-epic report to the output
+ * token, and emits to a single intermediate place. Sibling-passthrough
+ * transitions downstream route by the report's `passed` field — pass
+ * marks the epic completed and emits done + dep-signals; fail halts.
+ */
 type VerifyEpicDescriptor = {
   kind: 'verify-epic';
   actionKey: string;
   epicId: string;
   /** A representative slice for ActionContext. */
   representativeSliceId: string;
-  /** Outputs on pass (done place + dep-signals). */
-  onPassOutputs: { place: string; sliceId: string; epicId: string }[];
+  /** Single intermediate output place; siblings route from here. */
+  intermediatePlace: string;
 };
 
 export type HandlerDescriptor =
   | PassthroughDescriptor
+  | DispatchDescriptor
   | ActionDescriptor
+  | SiblingPassthroughDescriptor
   | RunTestsDescriptor
   | AssessSemanticDescriptor
   | CompleteSliceDescriptor
@@ -177,20 +258,25 @@ export function enumerateCandidateOutputs(transition: TransitionSkeleton): Set<s
     case 'passthrough':
       for (const o of h.outputs) out.add(o.place);
       return out;
+    case 'dispatch':
+      out.add(h.runningPlace);
+      return out;
     case 'action':
-      for (const p of h.onTrue) out.add(p);
-      for (const p of h.onFalse) out.add(p);
+      for (const p of h.outputs) out.add(p);
       if (h.agentReturnPlace) out.add(h.agentReturnPlace);
       return out;
+    case 'sibling-passthrough':
+      for (const p of h.outputs) out.add(p);
+      return out;
     case 'run-tests':
-      for (const p of h.onPass) out.add(p);
-      for (const p of h.onFail) out.add(p);
+      out.add(h.intermediatePlace);
       out.add(h.budgetPlace);
+      out.add(`slice:${h.sliceId}:halted`);
       return out;
     case 'assess-semantic':
-      for (const p of h.onSatisfied) out.add(p);
-      for (const p of h.onRejected) out.add(p);
+      out.add(h.intermediatePlace);
       out.add(h.budgetPlace);
+      out.add(`slice:${h.sliceId}:halted`);
       return out;
     case 'complete-slice':
       out.add(h.completedPlace);
@@ -201,7 +287,7 @@ export function enumerateCandidateOutputs(transition: TransitionSkeleton): Set<s
       for (const p of h.depSignals) out.add(p);
       return out;
     case 'verify-epic':
-      for (const o of h.onPassOutputs) out.add(o.place);
+      out.add(h.intermediatePlace);
       return out;
   }
 }

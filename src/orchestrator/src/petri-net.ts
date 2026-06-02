@@ -11,6 +11,12 @@ export type Token = {
   /** Semantic rework counter — carried on semantic-budget tokens.
    *  Prevents infinite rework loops when assess-semantic always rejects. */
   reworkCount?: number;
+  /**
+   * FE-761 Slice 2b: halt reason carried on tokens emitted to `:halted`
+   * places. Engine derives `result.reason` from this field. Replaces the
+   * retired `ctx.haltReason` mutation seam.
+   */
+  haltReason?: string;
 };
 
 /**
@@ -34,6 +40,14 @@ export type TransitionDef = {
   inputs: string[];
   /** Optional typed metadata — does not affect firing semantics. */
   contract?: TransitionContract;
+  /**
+   * Optional peek-time enabling guard. Evaluated against the first token in
+   * each input place (peeked, not consumed) before the transition is
+   * considered enabled. Returns true to allow firing, false to defer.
+   * Used by FE-761 sibling transitions to express mutually-exclusive
+   * conditional branching at the topology level.
+   */
+  guard?: (peeked: Token[]) => boolean;
   fire: (consumed: Token[]) => Promise<{ place: string; token: Token }[]>;
 };
 
@@ -67,7 +81,16 @@ export interface NetEventSink {
 }
 
 /** Place names that may retain tokens after clean termination (resource pools, budgets, markers). */
-const BENIGN_RESIDUAL_PLACES = new Set(['retry-budget', 'semantic-budget', 'completed', 'done']);
+const BENIGN_RESIDUAL_PLACES = new Set([
+  'retry-budget',
+  'semantic-budget',
+  'completed',
+  'done',
+  // FE-761 Slice 2a: halt sink — receives a token when a slice/epic halts.
+  // Treated as benign so the engine reports net_halted (via ctx) rather than
+  // a spurious net_deadlocked.
+  'halted',
+]);
 
 function placeName(placeId: string): string {
   const sliceMatch = placeId.match(/^slice:[^:]+:(.+)$/);
@@ -82,6 +105,86 @@ type TransitionClaim = { transition: TransitionDef; consumed: Token[] };
 export class PetriNet {
   private places = new Map<string, Token[]>();
   private transitions: TransitionDef[] = [];
+
+  // ------------------------------------------------------------------
+  // FE-761 Slice 3: async dispatch / deferred completion plumbing.
+  //
+  // A producer fire closure may return its synchronous outputs (e.g.
+  // returning an agent token to its pool) AND additionally enqueue
+  // asynchronous follow-up work via `scheduleDeferred(work)`. The
+  // deferred Promise resolves with the eventual output tokens, which
+  // are then deposited as if a separate fire had produced them. The
+  // run loop awaits at least one deferred completion whenever no
+  // transition is immediately enabled, so the engine continues to
+  // step other independent slices while a handler is in flight.
+  // ------------------------------------------------------------------
+  private pendingDeferred = 0;
+  private deferredWaiters: Array<() => void> = [];
+  private deferredEventSink?: NetEventSink;
+  private deferredError?: unknown;
+
+  /**
+   * Enqueue asynchronous follow-up work whose resolved tokens should be
+   * deposited into the net once the Promise settles. Used by producer
+   * fire closures to decouple handler invocation from synchronous emit.
+   *
+   * The provided `transitionId` and `contract` are used to emit a
+   * `transition_fired` event when the deferred outputs land, so async
+   * completions appear in the event stream just like synchronous fires.
+   *
+   * Error semantics are intentionally first-error-wins for now: the next run
+   * loop turn observes `deferredError`, throws it, and leaves any later
+   * settlements as background bookkeeping. Deferred success emits exactly one
+   * event when outputs are deposited; the synchronous producer fire returns []
+   * and does not emit its own transition_fired event.
+   */
+  scheduleDeferred(
+    transitionId: string,
+    contract: TransitionContract | undefined,
+    consumedPlaces: string[],
+    work: Promise<{ place: string; token: Token }[]>,
+  ): void {
+    this.pendingDeferred++;
+    work
+      .then((outputs) => this.completeDeferred(transitionId, contract, consumedPlaces, outputs))
+      .catch((err) => {
+        this.deferredError ??= err;
+        this.pendingDeferred--;
+        this.wakeOneWaiter();
+      });
+  }
+
+  private completeDeferred(
+    transitionId: string,
+    contract: TransitionContract | undefined,
+    consumedPlaces: string[],
+    outputs: { place: string; token: Token }[],
+  ): void {
+    const producedPlaces: string[] = [];
+    for (const { place, token } of outputs) {
+      this.addToken(place, token);
+      producedPlaces.push(place);
+    }
+    this.deferredEventSink?.emit({
+      kind: 'transition_fired',
+      ts: new Date().toISOString(),
+      transitionId,
+      contract,
+      consumed: consumedPlaces,
+      produced: producedPlaces,
+    });
+    this.pendingDeferred--;
+    this.wakeOneWaiter();
+  }
+
+  private wakeOneWaiter(): void {
+    const wake = this.deferredWaiters.shift();
+    if (wake) wake();
+  }
+
+  private async waitForOneDeferred(): Promise<void> {
+    return new Promise((resolve) => this.deferredWaiters.push(resolve));
+  }
 
   addPlace(id: string): void {
     this.places.set(id, []);
@@ -112,12 +215,47 @@ export class PetriNet {
     return this.transitions;
   }
 
-  /** True when every input place of `t` has at least one token. */
+  /**
+   * FE-761 Slice 2b: place-level halt introspection. Returns true when any
+   * place whose name ends in `:halted` currently holds tokens. The engine
+   * uses this as the structural halt signal in place of the retired
+   * `ctx.halted` mutation.
+   */
+  hasHaltToken(): boolean {
+    for (const [placeId, tokens] of this.places) {
+      if (tokens.length === 0) continue;
+      if (placeName(placeId) === 'halted') return true;
+    }
+    return false;
+  }
+
+  /**
+   * FE-761 Slice 2b: return all tokens currently sitting on halt-sink places.
+   * Engine reads these to derive `result.reason` and per-scope halt status.
+   */
+  getHaltTokens(): { placeId: string; token: Token }[] {
+    const out: { placeId: string; token: Token }[] = [];
+    for (const [placeId, tokens] of this.places) {
+      if (placeName(placeId) !== 'halted') continue;
+      for (const token of tokens) out.push({ placeId, token });
+    }
+    return out;
+  }
+
+  /**
+   * True when every input place of `t` has at least one token AND, if `t`
+   * defines a peek-time enabling guard, that guard returns true for the
+   * first token at each input place.
+   */
   private isEnabled(t: TransitionDef): boolean {
-    return t.inputs.every((p) => {
+    const peeked: Token[] = [];
+    for (const p of t.inputs) {
       const tokens = this.places.get(p);
-      return tokens && tokens.length > 0;
-    });
+      if (!tokens || tokens.length === 0) return false;
+      peeked.push(tokens[0]!);
+    }
+    if (t.guard && !t.guard(peeked)) return false;
+    return true;
   }
 
   /** True when any non-resource place still holds tokens (actual deadlock, not clean completion). */
@@ -148,6 +286,9 @@ export class PetriNet {
       this.addToken(place, token);
       producedPlaces.push(place);
     }
+    // Deferred handlers return [] synchronously; their transition_fired
+    // event is emitted once from completeDeferred when outputs land.
+    if (producedPlaces.length === 0) return;
     eventSink?.emit({
       kind: 'transition_fired',
       ts: new Date().toISOString(),
@@ -168,7 +309,9 @@ export class PetriNet {
 
   /** Serial policy — find first enabled transition, fire, repeat. */
   private async runSerial(shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
+    this.deferredEventSink = eventSink;
     while (true) {
+      if (this.deferredError) throw this.deferredError;
       if (shouldHalt?.()) {
         eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
         break;
@@ -176,6 +319,14 @@ export class PetriNet {
 
       const enabled = this.transitions.find((t) => this.isEnabled(t));
       if (!enabled) {
+        // FE-761 Slice 3: when nothing is immediately enabled, wait for any
+        // in-flight deferred completion to deposit its outputs before
+        // re-evaluating enablement. Only declare deadlock when both the
+        // step list AND the pending-completion queue are empty.
+        if (this.pendingDeferred > 0) {
+          await this.waitForOneDeferred();
+          continue;
+        }
         if (this.hasWorkBearingTokens()) {
           eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
         }
@@ -210,7 +361,9 @@ export class PetriNet {
    * AggregateError collection should be designed as a follow-up.
    */
   private async runParallel(shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
+    this.deferredEventSink = eventSink;
     while (true) {
+      if (this.deferredError) throw this.deferredError;
       if (shouldHalt?.()) {
         eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
         break;
@@ -219,6 +372,12 @@ export class PetriNet {
       const allEnabled = this.transitions.filter((t) => this.isEnabled(t));
 
       if (allEnabled.length === 0) {
+        // FE-761 Slice 3: same deferred-await behavior as serial mode —
+        // wait for an in-flight async completion before declaring deadlock.
+        if (this.pendingDeferred > 0) {
+          await this.waitForOneDeferred();
+          continue;
+        }
         if (this.hasWorkBearingTokens()) {
           eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
         }

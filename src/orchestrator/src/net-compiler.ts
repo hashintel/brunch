@@ -14,7 +14,7 @@ import {
   seedSliceSandboxFromDeps,
   sliceIdsForEpicVerifyMerge,
 } from './epic-sandbox-merge.js';
-import { evalRouteGuard } from './net-blueprint.js';
+import { evalEnablingGuard } from './net-blueprint.js';
 import type { NetBlueprint, TokenSeed, TransitionSkeleton } from './net-blueprint.js';
 import { PetriNet } from './petri-net.js';
 import type { Token } from './petri-net.js';
@@ -96,6 +96,24 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       'needs-more',
       'done-spec',
       'completed',
+      // FE-761 Slice 1: intermediate report-bearing places between
+      // conditional producers and their sibling passthroughs.
+      'evaluate:reported',
+      'run-tests:reported',
+      // FE-761 Slice 4: explicit dispatch/running/complete topology
+      // split for every long-running producer. The running:* place
+      // is the in-flight sentinel between dispatch and complete; it
+      // makes the async phase visible at the net level (Petrinaut
+      // compatibility / FE-762).
+      'evaluate:running',
+      'write-tests:running',
+      'write-code:running',
+      'run-tests:running',
+      'assess-semantic:running',
+      // FE-761 Slice 2a: halt sink — receives a halt-token from any halt
+      // path inside this slice (retry exhaustion, semantic rework
+      // exhaustion). Halt becomes observable at topology level.
+      'halted',
     ]) {
       places.push(p(sid, name));
     }
@@ -103,6 +121,9 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
     // Places — semantic lane
     places.push(p(sid, 'semantic-budget'));
     places.push(p(sid, 'semantic-satisfied'));
+    // FE-761 Slice 1: intermediate report-bearing place for assess-semantic
+    // producer + sibling passthroughs (satisfied / rejected).
+    places.push(p(sid, 'assess-semantic:reported'));
 
     // Retry budget + eligibility gate
     places.push(p(sid, 'retry-budget'));
@@ -141,106 +162,253 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       });
     }
 
-    // Evaluate
+    // Evaluate — FE-761 Slice 4 explicit topology split:
+    //   dispatch (sync, consumes work + agent) → running → complete (deferred handler).
     transitions.push({
-      id: `${sid}:evaluate`,
+      id: `${sid}:evaluate:dispatch`,
       inputs: [p(sid, 'spec-ready'), poolTestAgent],
+      contract: {
+        kind: 'structural',
+        lane: 'mechanical',
+        guard: 'spec-ready + test-agent available',
+      },
+      handler: {
+        kind: 'dispatch',
+        sliceId: sid,
+        epicId: epic.id,
+        runningPlace: p(sid, 'evaluate:running'),
+      },
+    });
+    transitions.push({
+      id: `${sid}:evaluate:complete`,
+      inputs: [p(sid, 'evaluate:running')],
       contract: {
         kind: 'mechanical',
         lane: 'mechanical',
         actor: 'evaluator',
-        guard: 'spec-ready + test-agent available',
+        guard: 'evaluate handler complete',
       },
       handler: {
         kind: 'action',
         actionKey: 'evaluate-done',
         sliceId: sid,
         epicId: epic.id,
-        guard: { kind: 'reportFieldTruthy', field: 'done' },
-        onTrue: [p(sid, 'done-spec')],
-        onFalse: [p(sid, 'needs-more')],
+        outputs: [p(sid, 'evaluate:reported')],
         agentReturnPlace: poolTestAgent,
       },
     });
 
-    // Write tests
+    // Evaluate — sibling passthroughs. Complementary enabling guards over the
+    // token's attached report decide which sibling fires per token.
     transitions.push({
-      id: `${sid}:write-tests`,
+      id: `${sid}:evaluate:done`,
+      inputs: [p(sid, 'evaluate:reported')],
+      contract: { kind: 'structural', lane: 'mechanical', guard: 'report.done truthy' },
+      handler: {
+        kind: 'sibling-passthrough',
+        sliceId: sid,
+        epicId: epic.id,
+        input: p(sid, 'evaluate:reported'),
+        outputs: [p(sid, 'done-spec')],
+        enablingGuard: { kind: 'tokenReportFieldTruthy', field: 'done' },
+      },
+    });
+    transitions.push({
+      id: `${sid}:evaluate:more`,
+      inputs: [p(sid, 'evaluate:reported')],
+      contract: { kind: 'structural', lane: 'mechanical', guard: 'report.done falsy' },
+      handler: {
+        kind: 'sibling-passthrough',
+        sliceId: sid,
+        epicId: epic.id,
+        input: p(sid, 'evaluate:reported'),
+        outputs: [p(sid, 'needs-more')],
+        enablingGuard: { kind: 'tokenReportFieldFalsy', field: 'done' },
+      },
+    });
+
+    // Write tests — FE-761 Slice 4 explicit dispatch/running/complete split.
+    transitions.push({
+      id: `${sid}:write-tests:dispatch`,
       inputs: [p(sid, 'needs-more'), poolTestAgent],
+      contract: { kind: 'structural', lane: 'mechanical', guard: 'needs-more + test-agent' },
+      handler: {
+        kind: 'dispatch',
+        sliceId: sid,
+        epicId: epic.id,
+        runningPlace: p(sid, 'write-tests:running'),
+      },
+    });
+    transitions.push({
+      id: `${sid}:write-tests:complete`,
+      inputs: [p(sid, 'write-tests:running')],
       contract: { kind: 'mechanical', lane: 'mechanical', actor: 'test-agent' },
       handler: {
         kind: 'action',
         actionKey: 'write-tests',
         sliceId: sid,
         epicId: epic.id,
-        guard: { kind: 'always' },
-        onTrue: [p(sid, 'failing-tests')],
-        onFalse: [],
+        outputs: [p(sid, 'failing-tests')],
         agentReturnPlace: poolTestAgent,
       },
     });
 
-    // Write code
+    // Write code — FE-761 Slice 4 explicit dispatch/running/complete split.
     transitions.push({
-      id: `${sid}:write-code`,
+      id: `${sid}:write-code:dispatch`,
       inputs: [p(sid, 'failing-tests'), poolCodeAgent],
+      contract: { kind: 'structural', lane: 'mechanical', guard: 'failing-tests + code-agent' },
+      handler: {
+        kind: 'dispatch',
+        sliceId: sid,
+        epicId: epic.id,
+        runningPlace: p(sid, 'write-code:running'),
+      },
+    });
+    transitions.push({
+      id: `${sid}:write-code:complete`,
+      inputs: [p(sid, 'write-code:running')],
       contract: { kind: 'mechanical', lane: 'mechanical', actor: 'coding-agent' },
       handler: {
         kind: 'action',
         actionKey: 'write-code',
         sliceId: sid,
         epicId: epic.id,
-        guard: { kind: 'always' },
-        onTrue: [p(sid, 'untested-code')],
-        onFalse: [],
+        outputs: [p(sid, 'untested-code')],
         agentReturnPlace: poolCodeAgent,
       },
     });
 
-    // Run tests
+    // Run tests — FE-761 Slice 4 explicit dispatch/running/complete split.
+    // Dispatch stashes retryCount on the running token so complete can
+    // read it back at handler time (budget remains "checked out").
     transitions.push({
-      id: `${sid}:run-tests`,
+      id: `${sid}:run-tests:dispatch`,
       inputs: [p(sid, 'untested-code'), p(sid, 'retry-budget')],
+      contract: {
+        kind: 'structural',
+        lane: 'mechanical',
+        guard: 'untested-code + retry-budget available',
+      },
+      handler: {
+        kind: 'dispatch',
+        sliceId: sid,
+        epicId: epic.id,
+        runningPlace: p(sid, 'run-tests:running'),
+      },
+    });
+    transitions.push({
+      id: `${sid}:run-tests:complete`,
+      inputs: [p(sid, 'run-tests:running')],
       contract: {
         kind: 'mechanical',
         lane: 'mechanical',
         actor: 'test-runner',
-        guard: 'untested-code + retry-budget available',
+        guard: 'run-tests handler complete',
       },
       handler: {
         kind: 'run-tests',
         sliceId: sid,
         epicId: epic.id,
         target: slice.verification[0]?.target ?? '',
-        passGuard: { kind: 'reportFieldTruthy', field: 'passed' },
-        onPass: [p(sid, 'spec-ready')],
-        onFail: [p(sid, 'failing-tests')],
+        intermediatePlace: p(sid, 'run-tests:reported'),
         budgetPlace: p(sid, 'retry-budget'),
         maxRetries: policy.maxRetries,
       },
     });
 
-    // Assess semantic
+    // Run tests — sibling passthroughs route by report.passed.
+    transitions.push({
+      id: `${sid}:run-tests:pass`,
+      inputs: [p(sid, 'run-tests:reported')],
+      contract: { kind: 'structural', lane: 'mechanical', guard: 'report.passed truthy' },
+      handler: {
+        kind: 'sibling-passthrough',
+        sliceId: sid,
+        epicId: epic.id,
+        input: p(sid, 'run-tests:reported'),
+        outputs: [p(sid, 'spec-ready')],
+        enablingGuard: { kind: 'tokenReportFieldTruthy', field: 'passed' },
+      },
+    });
+    transitions.push({
+      id: `${sid}:run-tests:fail`,
+      inputs: [p(sid, 'run-tests:reported')],
+      contract: { kind: 'structural', lane: 'mechanical', guard: 'report.passed falsy' },
+      handler: {
+        kind: 'sibling-passthrough',
+        sliceId: sid,
+        epicId: epic.id,
+        input: p(sid, 'run-tests:reported'),
+        outputs: [p(sid, 'failing-tests')],
+        enablingGuard: { kind: 'tokenReportFieldFalsy', field: 'passed' },
+      },
+    });
+
+    // Assess semantic — FE-761 Slice 4 explicit dispatch/running/complete split.
+    // Dispatch stashes reworkCount on the running token so complete can
+    // read it back at handler time (budget remains "checked out").
     const maxSemantic = policy.maxSemanticReworks ?? policy.maxRetries;
     transitions.push({
-      id: `${sid}:assess-semantic`,
+      id: `${sid}:assess-semantic:dispatch`,
       inputs: [p(sid, 'done-spec'), p(sid, 'semantic-budget')],
+      contract: {
+        kind: 'structural',
+        lane: 'semantic',
+        guard: 'done-spec + semantic-budget available',
+      },
+      handler: {
+        kind: 'dispatch',
+        sliceId: sid,
+        epicId: epic.id,
+        runningPlace: p(sid, 'assess-semantic:running'),
+      },
+    });
+    transitions.push({
+      id: `${sid}:assess-semantic:complete`,
+      inputs: [p(sid, 'assess-semantic:running')],
       contract: {
         kind: 'semantic',
         lane: 'semantic',
         actor: 'semantic-assessor',
-        guard: 'done-spec + semantic-budget available',
+        guard: 'assess-semantic handler complete',
       },
       handler: {
         kind: 'assess-semantic',
         actionKey: 'assess-semantic',
         sliceId: sid,
         epicId: epic.id,
-        satisfiedGuard: { kind: 'reportFieldTruthy', field: 'satisfied' },
-        onSatisfied: [p(sid, 'semantic-satisfied')],
-        onRejected: [p(sid, 'needs-more')],
+        intermediatePlace: p(sid, 'assess-semantic:reported'),
         budgetPlace: p(sid, 'semantic-budget'),
         maxReworks: maxSemantic,
+      },
+    });
+
+    // Assess semantic — sibling passthroughs route by report.satisfied.
+    transitions.push({
+      id: `${sid}:assess-semantic:satisfied`,
+      inputs: [p(sid, 'assess-semantic:reported')],
+      contract: { kind: 'structural', lane: 'semantic', guard: 'report.satisfied truthy' },
+      handler: {
+        kind: 'sibling-passthrough',
+        sliceId: sid,
+        epicId: epic.id,
+        input: p(sid, 'assess-semantic:reported'),
+        outputs: [p(sid, 'semantic-satisfied')],
+        enablingGuard: { kind: 'tokenReportFieldTruthy', field: 'satisfied' },
+      },
+    });
+    transitions.push({
+      id: `${sid}:assess-semantic:rejected`,
+      inputs: [p(sid, 'assess-semantic:reported')],
+      contract: { kind: 'structural', lane: 'semantic', guard: 'report.satisfied falsy' },
+      handler: {
+        kind: 'sibling-passthrough',
+        sliceId: sid,
+        epicId: epic.id,
+        input: p(sid, 'assess-semantic:reported'),
+        outputs: [p(sid, 'needs-more')],
+        enablingGuard: { kind: 'tokenReportFieldFalsy', field: 'satisfied' },
       },
     });
 
@@ -291,7 +459,12 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       });
     } else {
       const verifyPlace = ep(epic.id, 'verify-ready');
-      places.push(verifyPlace);
+      const verifyReportedPlace = ep(epic.id, 'verify:reported');
+      // FE-761 Slice 4: in-flight sentinel for the verify dispatch/complete split.
+      const verifyRunningPlace = ep(epic.id, 'verify:running');
+      // FE-761 Slice 2a: halt sink for epic verification failure.
+      const epicHaltedPlace = ep(epic.id, 'halted');
+      places.push(verifyPlace, verifyReportedPlace, verifyRunningPlace, epicHaltedPlace);
 
       transitions.push({
         id: `epic-slices-done:${epic.id}`,
@@ -300,20 +473,67 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         handler: { kind: 'passthrough', outputs: [{ place: verifyPlace, sliceId: '', epicId: epic.id }] },
       });
 
-      const onPassOutputs = [
-        { place: ep(epic.id, 'done'), sliceId: '', epicId: epic.id },
-        ...depSignals.map((sig) => ({ place: sig, sliceId: '', epicId: epic.id })),
-      ];
+      // Verify-epic — FE-761 Slice 4 explicit dispatch/running/complete split.
       transitions.push({
-        id: `epic-verify:${epic.id}`,
+        id: `epic-verify:${epic.id}:dispatch`,
         inputs: [verifyPlace],
-        contract: { kind: 'mechanical', lane: 'epic', actor: 'orchestrator', guard: 'verify-ready' },
+        contract: { kind: 'structural', lane: 'epic', guard: 'verify-ready' },
+        handler: {
+          kind: 'dispatch',
+          sliceId: '',
+          epicId: epic.id,
+          runningPlace: verifyRunningPlace,
+        },
+      });
+      transitions.push({
+        id: `epic-verify:${epic.id}:complete`,
+        inputs: [verifyRunningPlace],
+        contract: {
+          kind: 'mechanical',
+          lane: 'epic',
+          actor: 'orchestrator',
+          guard: 'verify handler complete',
+        },
         handler: {
           kind: 'verify-epic',
           actionKey: 'verify-epic',
           epicId: epic.id,
           representativeSliceId: epicSlices[0]!.id,
-          onPassOutputs,
+          intermediatePlace: verifyReportedPlace,
+        },
+      });
+
+      // Verify-epic — pass sibling: emits to done + dep-signals, marks epic completed.
+      transitions.push({
+        id: `epic-verify:${epic.id}:pass`,
+        inputs: [verifyReportedPlace],
+        contract: { kind: 'structural', lane: 'epic', guard: 'report.passed truthy' },
+        handler: {
+          kind: 'sibling-passthrough',
+          sliceId: '',
+          epicId: epic.id,
+          input: verifyReportedPlace,
+          outputs: [ep(epic.id, 'done'), ...depSignals],
+          enablingGuard: { kind: 'tokenReportFieldTruthy', field: 'passed' },
+          onFire: { kind: 'mark-epic-completed' },
+        },
+      });
+
+      // Verify-epic — fail halt-sibling: emits to the epic halted place
+      // with a haltReason stamped on the forwarded token (FE-761 Slice 2b:
+      // halted-as-place, halt reason carried by the token rather than ctx).
+      transitions.push({
+        id: `epic-verify:${epic.id}:fail`,
+        inputs: [verifyReportedPlace],
+        contract: { kind: 'structural', lane: 'epic', guard: 'report.passed falsy' },
+        handler: {
+          kind: 'sibling-passthrough',
+          sliceId: '',
+          epicId: epic.id,
+          input: verifyReportedPlace,
+          outputs: [epicHaltedPlace],
+          enablingGuard: { kind: 'tokenReportFieldFalsy', field: 'passed' },
+          onFire: { kind: 'attach-halt-reason', reason: `Epic ${epic.id} verification failed` },
         },
       });
     }
@@ -367,124 +587,216 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         break;
       }
 
-      case 'action': {
-        const { actionKey, sliceId, epicId, guard, onTrue, onFalse, agentReturnPlace } = h;
-        const slice = plan.slices.find((s) => s.id === sliceId)!;
-        const epic = plan.epics.find((e) => e.id === epicId)!;
-        const baseToken: Token = { sliceId, epicId };
-
+      case 'dispatch': {
+        // FE-761 Slice 4: synchronous front-half. Forward the work token
+        // (consumed[0]) to the running:* sentinel place, stashing budget
+        // metadata (retryCount / reworkCount) from any companion budget
+        // token (consumed[1]) so the complete-phase handler can read it
+        // back without an extra input arc.
+        const { runningPlace } = h;
         fire = async (consumed) => {
-          const actCtx: ActionContext = {
-            slice,
-            epic,
-            plan,
-            sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
-              preserveExisting: true,
-            }),
-            reports,
-          };
-          const reportId = await actions[actionKey]!(actCtx);
-          ctx.reportIds.push(reportId);
-          const tok: Token = { ...consumed[0]!, reportId };
-
-          const route = evalRouteGuard(guard, reports.getById(reportId)) ? onTrue : onFalse;
-
-          const outputs: { place: string; token: Token }[] = route.map((pl) => ({ place: pl, token: tok }));
-          if (agentReturnPlace) {
-            outputs.push({ place: agentReturnPlace, token: { ...baseToken } });
-          }
-          return outputs;
+          const workToken = consumed[0]!;
+          const companion = consumed[1];
+          const running: Token = { ...workToken };
+          if (companion?.retryCount !== undefined) running.retryCount = companion.retryCount;
+          if (companion?.reworkCount !== undefined) running.reworkCount = companion.reworkCount;
+          return [{ place: runningPlace, token: running }];
         };
         break;
       }
 
-      case 'run-tests': {
-        const { sliceId, epicId, target, passGuard, onPass, onFail, budgetPlace, maxRetries } = h;
+      case 'action': {
+        const { actionKey, sliceId, epicId, outputs: outputPlaces, agentReturnPlace } = h;
+        const slice = plan.slices.find((s) => s.id === sliceId)!;
+        const epic = plan.epics.find((e) => e.id === epicId)!;
         const baseToken: Token = { sliceId, epicId };
 
+        // FE-761 Slice 3: dispatch / deferred-completion split. The
+        // synchronous part returns no tokens — the agent stays "checked
+        // out" of its pool until the handler completes, preserving the
+        // pool-size = handler-concurrency-limit invariant. The handler
+        // invocation, report-bearing output, and agent return are all
+        // deferred, freeing the run loop to step other independent
+        // transitions (e.g. those that don't need this agent) while the
+        // handler is in flight.
         fire = async (consumed) => {
-          const retryToken = consumed[1]!;
-          const retryCount = retryToken.retryCount ?? 0;
+          const inputToken = consumed[0]!;
+          const deferred = (async () => {
+            const actCtx: ActionContext = {
+              slice,
+              epic,
+              plan,
+              sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
+                preserveExisting: true,
+              }),
+              reports,
+            };
+            const reportId = await actions[actionKey]!(actCtx);
+            ctx.reportIds.push(reportId);
+            const tok: Token = { ...inputToken, reportId };
+            const out: { place: string; token: Token }[] = outputPlaces.map((pl) => ({
+              place: pl,
+              token: tok,
+            }));
+            if (agentReturnPlace) {
+              out.push({ place: agentReturnPlace, token: { ...baseToken } });
+            }
+            return out;
+          })();
+          net.scheduleDeferred(skel.id, skel.contract, skel.inputs, deferred);
+          return [];
+        };
+        break;
+      }
 
-          const slice = plan.slices.find((s) => s.id === sliceId)!;
-          const sandboxDir = seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
-            preserveExisting: true,
-          });
-          const result = await testRunner.run(target, sandboxDir);
-          const reportId = createReport(reports, {
-            epicId,
-            sliceId,
-            actor: 'test-runner',
-            event: 'tests-run',
-            payload: { passed: result.passed, output: result.output },
-          });
-          ctx.reportIds.push(reportId);
+      case 'sibling-passthrough': {
+        const { outputs: outputPlaces, enablingGuard, onFire, epicId } = h;
+        fire = async (consumed) => {
+          // Apply optional fire-time side effect before emitting outputs.
+          let forwarded = consumed[0]!;
+          if (onFire?.kind === 'mark-epic-completed') {
+            ctx.epicOutcomes.set(epicId, { epicId, status: 'completed' });
+          } else if (onFire?.kind === 'attach-halt-reason') {
+            // FE-761 Slice 2b: halted-as-place — the epic outcome is marked
+            // halted and the halt reason is stamped on the forwarded token
+            // so the engine can derive `result.reason` from the halted:*
+            // place via `net.getHaltTokens()`.
+            ctx.epicOutcomes.set(epicId, { epicId, status: 'halted' });
+            forwarded = { ...forwarded, haltReason: onFire.reason };
+          }
+          // Sibling fires by forwarding the (possibly halt-stamped) token
+          // to its single fixed output set. Enabling-guard mutual exclusion
+          // is enforced upstream in PetriNet.isEnabled (peek-time).
+          return outputPlaces.map((pl) => ({ place: pl, token: forwarded }));
+        };
+        // Peek-time guard reads the token's attached reportId and evaluates
+        // the enabling predicate against the report's payload. Mutually-
+        // exclusive guards across siblings ensure exactly one sibling fires
+        // per intermediate token.
+        const peekGuard = (peeked: Token[]) => {
+          const tok = peeked[0]!;
+          const report = tok.reportId ? reports.getById(tok.reportId) : undefined;
+          return evalEnablingGuard(enablingGuard, report);
+        };
+        net.addTransition({
+          id: skel.id,
+          inputs: skel.inputs,
+          contract: skel.contract,
+          guard: peekGuard,
+          fire,
+        });
+        continue;
+      }
 
-          const tok: Token = { ...consumed[0]!, reportId };
-          if (evalRouteGuard(passGuard, reports.getById(reportId))) {
+      case 'run-tests': {
+        const { sliceId, epicId, target, intermediatePlace, budgetPlace, maxRetries } = h;
+        const baseToken: Token = { sliceId, epicId };
+
+        // FE-761 Slice 3: deferred-completion split. The synchronous part
+        // returns no outputs (budget stays "checked out" until the test
+        // run completes, which preserves retry-budget semantics). The
+        // test-runner invocation + outcome routing is deferred.
+        // FE-761 Slice 4: complete now consumes a single running:* token
+        // whose retryCount was stashed by the dispatch phase.
+        fire = async (consumed) => {
+          const inputToken = consumed[0]!;
+          const retryCount = inputToken.retryCount ?? 0;
+
+          const deferred = (async () => {
+            const slice = plan.slices.find((s) => s.id === sliceId)!;
+            const sandboxDir = seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
+              preserveExisting: true,
+            });
+            const result = await testRunner.run(target, sandboxDir);
+            const reportId = createReport(reports, {
+              epicId,
+              sliceId,
+              actor: 'test-runner',
+              event: 'tests-run',
+              payload: { passed: result.passed, output: result.output },
+            });
+            ctx.reportIds.push(reportId);
+
+            const tok: Token = { ...inputToken, reportId };
+            if (result.passed) {
+              return [
+                { place: intermediatePlace, token: tok },
+                { place: budgetPlace, token: { ...baseToken, retryCount: 0 } },
+              ];
+            }
+            if (retryCount >= maxRetries) {
+              // FE-761 Slice 2b: structural halt — emit a halt token
+              // carrying its own reason.
+              ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
+              return [
+                {
+                  place: p(sliceId, 'halted'),
+                  token: { ...tok, haltReason: `Slice ${sliceId} retry exhaustion` },
+                },
+              ];
+            }
             return [
-              ...onPass.map((pl) => ({ place: pl, token: tok })),
-              { place: budgetPlace, token: { ...baseToken, retryCount: 0 } },
+              { place: intermediatePlace, token: tok },
+              { place: budgetPlace, token: { ...baseToken, retryCount: retryCount + 1 } },
             ];
-          }
-          if (retryCount >= maxRetries) {
-            ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
-            ctx.halted = true;
-            ctx.haltReason = `Slice ${sliceId} retry exhaustion`;
-            return [];
-          }
-          return [
-            ...onFail.map((pl) => ({ place: pl, token: tok })),
-            { place: budgetPlace, token: { ...baseToken, retryCount: retryCount + 1 } },
-          ];
+          })();
+          net.scheduleDeferred(skel.id, skel.contract, skel.inputs, deferred);
+          return [];
         };
         break;
       }
 
       case 'assess-semantic': {
-        const {
-          actionKey,
-          sliceId,
-          epicId,
-          satisfiedGuard,
-          onSatisfied,
-          onRejected,
-          budgetPlace,
-          maxReworks,
-        } = h;
+        const { actionKey, sliceId, epicId, intermediatePlace, budgetPlace, maxReworks } = h;
         const slice = plan.slices.find((s) => s.id === sliceId)!;
         const epic = plan.epics.find((e) => e.id === epicId)!;
         const baseToken: Token = { sliceId, epicId };
 
+        // FE-761 Slice 3: deferred-completion split. Semantic budget stays
+        // checked out for the duration of the assess-semantic handler.
+        // FE-761 Slice 4: complete now consumes a single running:* token
+        // whose reworkCount was stashed by the dispatch phase.
         fire = async (consumed) => {
-          const budgetToken = consumed[1]!;
-          const reworkCount = budgetToken.reworkCount ?? 0;
+          const inputToken = consumed[0]!;
+          const reworkCount = inputToken.reworkCount ?? 0;
 
-          const actCtx: ActionContext = {
-            slice,
-            epic,
-            plan,
-            sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
-              preserveExisting: true,
-            }),
-            reports,
-          };
-          const reportId = await actions[actionKey]!(actCtx);
-          ctx.reportIds.push(reportId);
+          const deferred = (async () => {
+            const actCtx: ActionContext = {
+              slice,
+              epic,
+              plan,
+              sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
+                preserveExisting: true,
+              }),
+              reports,
+            };
+            const reportId = await actions[actionKey]!(actCtx);
+            ctx.reportIds.push(reportId);
 
-          if (evalRouteGuard(satisfiedGuard, reports.getById(reportId))) {
-            return onSatisfied.map((pl) => ({ place: pl, token: { ...consumed[0]!, reportId } }));
-          }
-          if (reworkCount >= maxReworks) {
-            ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
-            ctx.halted = true;
-            ctx.haltReason = `Slice ${sliceId} semantic rework exhaustion`;
-            return [];
-          }
-          return [
-            ...onRejected.map((pl) => ({ place: pl, token: { ...consumed[0]!, reportId } })),
-            { place: budgetPlace, token: { ...baseToken, reworkCount: reworkCount + 1 } },
-          ];
+            const report = reports.getById(reportId);
+            const satisfied = !!(report?.payload as { satisfied?: boolean } | undefined)?.satisfied;
+            const tok: Token = { ...inputToken, reportId };
+
+            if (satisfied) {
+              // Budget is consumed and not returned on satisfaction.
+              return [{ place: intermediatePlace, token: tok }];
+            }
+            if (reworkCount >= maxReworks) {
+              ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
+              return [
+                {
+                  place: p(sliceId, 'halted'),
+                  token: { ...tok, haltReason: `Slice ${sliceId} semantic rework exhaustion` },
+                },
+              ];
+            }
+            return [
+              { place: intermediatePlace, token: tok },
+              { place: budgetPlace, token: { ...baseToken, reworkCount: reworkCount + 1 } },
+            ];
+          })();
+          net.scheduleDeferred(skel.id, skel.contract, skel.inputs, deferred);
+          return [];
         };
         break;
       }
@@ -518,57 +830,54 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
       }
 
       case 'verify-epic': {
-        const { actionKey, epicId, representativeSliceId, onPassOutputs } = h;
+        const { actionKey, epicId, representativeSliceId, intermediatePlace } = h;
         const epic = plan.epics.find((e) => e.id === epicId)!;
         const slice = plan.slices.find((s) => s.id === representativeSliceId)!;
         // Epic verification runs against a freshly-merged `__epic__/<epicId>/`
         // dir built from completed slice worktrees (cross-epic slice deps included).
         const sliceIdsInMergeOrder = sliceIdsForEpicVerifyMerge(plan, epicId);
 
-        fire = async () => {
-          const mergeSliceIds = sliceIdsInMergeOrder.filter(
-            (sid) => ctx.sliceOutcomes.get(sid)?.status === 'completed',
-          );
-          const merge = mergeSlicesIntoEpicSandbox({
-            parentSandboxDir: input.sandboxDir,
-            epicId,
-            sliceIds: mergeSliceIds,
-          });
-          ctx.reportIds.push(
-            createReport(reports, {
+        // FE-761 Slice 3: deferred-completion split. Merge + verification
+        // both happen asynchronously after dispatch returns.
+        fire = async (consumed) => {
+          const inputToken = consumed[0]!;
+          const deferred = (async () => {
+            const mergeSliceIds = sliceIdsInMergeOrder.filter(
+              (sid) => ctx.sliceOutcomes.get(sid)?.status === 'completed',
+            );
+            const merge = mergeSlicesIntoEpicSandbox({
+              parentSandboxDir: input.sandboxDir,
               epicId,
-              sliceId: '',
-              actor: 'orchestrator',
-              event: 'epic-sandbox-merged',
-              payload: {
-                epicSandboxDir: merge.epicSandboxDir,
-                sliceIds: mergeSliceIds,
-                conflicts: merge.conflicts,
-              },
-            }),
-          );
+              sliceIds: mergeSliceIds,
+            });
+            ctx.reportIds.push(
+              createReport(reports, {
+                epicId,
+                sliceId: '',
+                actor: 'orchestrator',
+                event: 'epic-sandbox-merged',
+                payload: {
+                  epicSandboxDir: merge.epicSandboxDir,
+                  sliceIds: mergeSliceIds,
+                  conflicts: merge.conflicts,
+                },
+              }),
+            );
 
-          const actCtx: ActionContext = {
-            slice,
-            epic,
-            plan,
-            sandboxDir: merge.epicSandboxDir,
-            reports,
-          };
-          const reportId = await actions[actionKey]!(actCtx);
-          ctx.reportIds.push(reportId);
-          const report = reports.getById(reportId);
-          const passed = !!(report?.payload as { passed?: boolean })?.passed;
-          if (passed) {
-            ctx.epicOutcomes.set(epicId, { epicId, status: 'completed' });
-            return onPassOutputs.map((o) => ({
-              place: o.place,
-              token: { sliceId: o.sliceId, epicId: o.epicId },
-            }));
-          }
-          ctx.epicOutcomes.set(epicId, { epicId, status: 'halted' });
-          ctx.halted = true;
-          ctx.haltReason = `Epic ${epicId} verification failed`;
+            const actCtx: ActionContext = {
+              slice,
+              epic,
+              plan,
+              sandboxDir: merge.epicSandboxDir,
+              reports,
+            };
+            const reportId = await actions[actionKey]!(actCtx);
+            ctx.reportIds.push(reportId);
+            // Producer emits to the intermediate place; pass/fail routing
+            // happens in sibling-passthrough transitions downstream.
+            return [{ place: intermediatePlace, token: { ...inputToken, reportId } }];
+          })();
+          net.scheduleDeferred(skel.id, skel.contract, skel.inputs, deferred);
           return [];
         };
         break;

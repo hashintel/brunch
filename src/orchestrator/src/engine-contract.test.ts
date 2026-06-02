@@ -733,17 +733,28 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // Epic places: epic:epic-1:done = 1
     // Mechanical places: spec-ready, failing-tests, untested-code,
     //                    needs-more, done-spec, completed, eligible,
-    //                    retry-budget = 8
-    // Semantic places: semantic-budget, semantic-satisfied = 2
-    // Total places: 13
-    expect(blueprint.places.length).toBe(13);
+    //                    retry-budget, evaluate:reported, run-tests:reported,
+    //                    halted (FE-761 Slice 2a),
+    //                    evaluate:running, write-tests:running,
+    //                    write-code:running, run-tests:running,
+    //                    assess-semantic:running (FE-761 Slice 4) = 16
+    // Semantic places: semantic-budget, semantic-satisfied, assess-semantic:reported = 3
+    // Total places: 22
+    expect(blueprint.places.length).toBe(22);
 
-    // Transitions:
-    //   slice-ready:slice-1, slice-1:evaluate, slice-1:write-tests,
-    //   slice-1:write-code, slice-1:run-tests, slice-1:assess-semantic,
+    // Transitions (FE-761 Slice 4: every producer split into dispatch + complete):
+    //   slice-ready:slice-1,
+    //   slice-1:evaluate:dispatch, slice-1:evaluate:complete,
+    //   slice-1:evaluate:done, slice-1:evaluate:more,
+    //   slice-1:write-tests:dispatch, slice-1:write-tests:complete,
+    //   slice-1:write-code:dispatch, slice-1:write-code:complete,
+    //   slice-1:run-tests:dispatch, slice-1:run-tests:complete,
+    //   slice-1:run-tests:pass, slice-1:run-tests:fail,
+    //   slice-1:assess-semantic:dispatch, slice-1:assess-semantic:complete,
+    //   slice-1:assess-semantic:satisfied, slice-1:assess-semantic:rejected,
     //   slice-1:return-done, epic-complete:epic-1
-    // Total: 8
-    expect(blueprint.transitions.length).toBe(8);
+    // Total: 19
+    expect(blueprint.transitions.length).toBe(19);
   });
 
   it('simplePlan transitions carry correct contract metadata', () => {
@@ -762,7 +773,8 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // Semantic-lane transitions
     const semantic = transitions.filter((t) => t.contract.lane === 'semantic');
     expect(semantic.length).toBeGreaterThanOrEqual(1); // assess-semantic, return-done
-    const assessSemantic = transitions.find((t) => t.id.endsWith(':assess-semantic'));
+    // FE-761 Slice 4: the semantic-lane handler descriptor lives on :complete.
+    const assessSemantic = transitions.find((t) => t.id.endsWith(':assess-semantic:complete'));
     expect(assessSemantic?.contract.kind).toBe('semantic');
     expect(assessSemantic?.contract.actor).toBe('semantic-assessor');
   });
@@ -773,25 +785,39 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // depPlan: 1 epic, 2 slices (slice-b depends on slice-a)
     // Pool places: pool:test-agent, pool:code-agent = 2
     // Epic places: epic:epic-1:done = 1
-    // Slice-a places: 10 (6 mechanical + eligible + retry-budget + semantic-budget + semantic-satisfied)
-    // Slice-b places: 10 (same)
+    // Slice-a places: 19 (6 mechanical + eligible + retry-budget + semantic-budget + semantic-satisfied
+    //                     + evaluate:reported + run-tests:reported + assess-semantic:reported
+    //                     + halted (FE-761 Slice 2a)
+    //                     + evaluate:running + write-tests:running + write-code:running
+    //                     + run-tests:running + assess-semantic:running (FE-761 Slice 4))
+    // Slice-b places: 19 (same)
     // Dep-signal places: slice:slice-a:dep-signal:slice-b = 1
-    // Total: 24
-    expect(blueprint.places.length).toBe(24);
+    // Total: 42
+    expect(blueprint.places.length).toBe(42);
 
-    // Transitions:
-    //   slice-a: slice-ready, evaluate, write-tests, write-code, run-tests, assess-semantic, return-done = 7
-    //   slice-b: slice-ready (with dep gate), evaluate, write-tests, write-code, run-tests, assess-semantic, return-done = 7
+    // Transitions (FE-761 Slice 4: each producer split into dispatch + complete):
+    //   slice-a: slice-ready,
+    //            evaluate:dispatch, evaluate:complete, evaluate:done, evaluate:more,
+    //            write-tests:dispatch, write-tests:complete,
+    //            write-code:dispatch, write-code:complete,
+    //            run-tests:dispatch, run-tests:complete, run-tests:pass, run-tests:fail,
+    //            assess-semantic:dispatch, assess-semantic:complete,
+    //            assess-semantic:satisfied, assess-semantic:rejected,
+    //            return-done = 18
+    //   slice-b: same = 18
     //   epic-complete:epic-1 = 1
-    // Total: 15
-    expect(blueprint.transitions.length).toBe(15);
+    // Total: 37
+    expect(blueprint.transitions.length).toBe(37);
   });
 
   it('blueprint handler descriptors cover all transition kinds', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
     const kinds = new Set(blueprint.transitions.map((t) => t.handler.kind));
     expect(kinds).toContain('passthrough');
+    // FE-761 Slice 4: explicit dispatch/complete topology split adds dispatch descriptors.
+    expect(kinds).toContain('dispatch');
     expect(kinds).toContain('action');
+    expect(kinds).toContain('sibling-passthrough');
     expect(kinds).toContain('run-tests');
     expect(kinds).toContain('assess-semantic');
     expect(kinds).toContain('complete-slice');
@@ -810,8 +836,6 @@ describe('Adapter: §7 event vocabulary', () => {
       reportIds: [],
       sliceOutcomes: new Map(),
       epicOutcomes: new Map(),
-
-      halted: false,
     };
     const input: OrchestratorInput = {
       plan: simplePlan,
@@ -824,7 +848,7 @@ describe('Adapter: §7 event vocabulary', () => {
 
     const net = compilePlan(input, ctx);
     const events: NetEvent[] = [];
-    await net.run('serial', () => ctx.halted, { emit: (e) => events.push(e) });
+    await net.run('serial', () => net.hasHaltToken(), { emit: (e) => events.push(e) });
 
     // All events should be transition_fired (happy path, no deadlock/halt)
     const fired = events.filter((e) => e.kind === 'transition_fired');
@@ -833,8 +857,11 @@ describe('Adapter: §7 event vocabulary', () => {
     // Check transition IDs appear in order
     const ids = fired.map((e) => e.transitionId);
     expect(ids).toContain('slice-ready:slice-1');
-    expect(ids).toContain('slice-1:evaluate');
-    expect(ids).toContain('slice-1:assess-semantic');
+    // FE-761 Slice 4: producers split into dispatch + complete — both fire.
+    expect(ids).toContain('slice-1:evaluate:dispatch');
+    expect(ids).toContain('slice-1:evaluate:complete');
+    expect(ids).toContain('slice-1:assess-semantic:dispatch');
+    expect(ids).toContain('slice-1:assess-semantic:complete');
     expect(ids).toContain('slice-1:return-done');
     expect(ids).toContain('epic-complete:epic-1');
 
@@ -856,8 +883,6 @@ describe('Adapter: §7 event vocabulary', () => {
       reportIds: [],
       sliceOutcomes: new Map(),
       epicOutcomes: new Map(),
-
-      halted: false,
     };
     const input: OrchestratorInput = {
       plan: simplePlan,
@@ -870,9 +895,12 @@ describe('Adapter: §7 event vocabulary', () => {
 
     const net = compilePlan(input, ctx);
     const events: NetEvent[] = [];
-    await net.run('serial', () => ctx.halted, { emit: (e) => events.push(e) });
+    // FE-761 Slice 2b: halt is observed via net.hasHaltToken() reading
+    // tokens on `:halted` places, not via the retired ctx.halted mutation.
+    await net.run('serial', () => net.hasHaltToken(), { emit: (e) => events.push(e) });
 
-    // Should have a net_halted event (ctx.halted becomes true after retry exhaustion)
+    // Should have a net_halted event once the retry-exhaustion halt token
+    // lands on slice:slice-1:halted and the next loop iteration observes it.
     const halted = events.filter((e) => e.kind === 'net_halted');
     expect(halted.length).toBe(1);
   });
@@ -929,7 +957,12 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
     expect(tracker.maxConcurrent).toBeGreaterThan(1);
   });
 
-  it('serial: action handlers execute one at a time', async () => {
+  it('serial: transitions fire one at a time, handlers run concurrently within agent-pool bounds', async () => {
+    // FE-761 Slice 3: under async dispatch, "serial" means *transition
+    // firing* is serial — but handlers run asynchronously after dispatch,
+    // so multiple handlers can be in flight concurrently as long as the
+    // agent pool has enough tokens. The agent pool (default = slices count
+    // = 3 here) bounds handler concurrency.
     const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
     const { tracked, tracker } = withConcurrencyTracking(fakes.actions);
 
@@ -944,10 +977,17 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
     });
 
     expect(result.status).toBe('completed');
-    expect(tracker.maxConcurrent).toBe(1);
+    // Pre-Slice 3 this was hardcoded to 1 because fire() awaited the handler
+    // inline. Now handlers complete asynchronously after dispatch.
+    expect(tracker.maxConcurrent).toBeGreaterThan(1);
+    expect(tracker.maxConcurrent).toBeLessThanOrEqual(threeSlicePlan.slices.length);
   });
 
-  it('parallel: wall-clock time is faster than serial for independent slices', async () => {
+  it('serial and parallel have comparable wall-clock for handler-bound work (async dispatch)', async () => {
+    // FE-761 Slice 3: with async dispatch, both serial and parallel
+    // policies let handlers run concurrently — the difference is only in
+    // *transition* firing batching. For handler-bound work, both policies
+    // complete in roughly the same wall-clock time.
     const DELAY_MS = 20;
 
     function createDelayedFakes() {
@@ -988,8 +1028,10 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
     });
     const parallelMs = Date.now() - t1;
 
-    // Parallel should be measurably faster — at least 20% improvement
-    expect(parallelMs).toBeLessThan(serialMs * 0.85);
+    // Parallel should be no slower than serial (they're effectively equal
+    // now that async dispatch lets handlers overlap in both policies).
+    // Allow a small constant slack for scheduling jitter.
+    expect(parallelMs).toBeLessThan(serialMs + 25);
   });
 });
 

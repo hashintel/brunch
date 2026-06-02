@@ -27,6 +27,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 1. `agent-fixture-substrate` — branch-complete off main, reconciling — FE-705 integration substrate for JSONL agent capability CLI and LLM-as-user probes.
 2. `chat-runtime-secondary-chats` — FE-716; V1 done — PR #141 merged to main.
+3. **Petrinaut integration sub-track (2026-05-26)** — umbrella **FE-760** (Orchestrator <> Petrinaut Integration); four sequenced sub-issues committed after cross-team alignment with the Petrinaut team: `petri-petrinaut-semantics` (FE-761) → `petri-blueprint-export` (FE-762) + `petri-event-stream` (FE-763) (parallel) → `petri-sync-server` (FE-764). Replaces the POC interpreter's visualization role with Petrinaut as canonical surface.
 
 ### Recently Completed
 
@@ -143,6 +144,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Traceability:** Requirements 46, 47, 48; D156-K (Phase-3-prep refinement of FE-738 HandlerDescriptor design); candidate new invariant on build: "Topology output-place candidates are fully declared in `HandlerDescriptor`; `wireHandlers` introduces no new output places at fire time."
 - **Design docs:** `docs/next/architecture/plan-graph-petri-orchestration.md` §6 (transition contracts), §10 (prototypes); umbrella H-6476.
 
+
 ### cook-codebase-mode
 
 - **Name:** Cook codebase-mode — brownfield resolver for `brunch cook` against an existing repo
@@ -165,6 +167,57 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Verification:** `brownfield-smoke.integration.test.ts` constructs a seeded git repo in tmpdir at test setup (NOT committed under `fixtures/` — nested `.git/` creates submodule weirdness), authors a `.brunch/cook/plan.yaml` carrying one slice that modifies an existing file, runs engine.run with fake actions, asserts (a) source branch unchanged, (b) modification landed in the slice worktree, (c) parent worktree is on `cook/<runId>`. CLI unit tests pin `resolveCookMode` + clean-tree gate. `worktree.test.ts` + `epic-sandbox-merge.test.ts` pin the codebase-mode seam components. Existing greenfield tests untouched.
 - **Traceability:** SPEC §D50 (reserved codebase-mode resolver); §A49 (worktree isolation at `<cwd>/.brunch/cook/runs/<runId>/worktree/`); Requirement 49.
 - **Design docs:** SPEC §D50 + §A49; `docs/next/architecture/plan-graph-petri-orchestration.md` (worktree section).
+
+### petri-petrinaut-semantics
+
+- **Name:** Petri-net semantic alignment for Petrinaut visualization
+- **Linear:** FE-761 (parent: FE-760)
+- **Kind:** structural
+- **Status:** not-started (blocker for the Petrinaut integration sub-track)
+- **Objective:** Refactor the substrate so compiled nets satisfy the Petri-net semantics Petrinaut requires. Two refactors: **(a) sibling transitions for conditional branching** — the four conditional-output transitions per slice (`evaluate`, `run-tests`, `assess-semantic`, `verify-epic`) split into multiple sibling transitions with complementary enabling guards; each transition emits to a fixed output set rather than selecting via `onTrue`/`onFalse`/`onPass`/`onFail`/`onSatisfied`/`onRejected` from FE-747. **(b) start/end pairs for agent dispatch** — every long-running agent-dispatching transition (≈5 per slice) splits into a `dispatch:*` start (instantaneous; parks the token in a new `running:*` place; kicks off the agent task async) and one or more `complete:*:<outcome>` ends (instantaneous; fires when the agent task signals completion). Multi-output fan-out transitions (`complete-slice`, `complete-epic`, passthroughs) stay single — already compliant with "all declared outputs fire" semantics. Token enrichment in the transition kernel is explicitly retained.
+- **Why now / unlocks:** Petrinaut requires (1) every transition emits to *all* declared output places (multi-output is fan-out, not selection), and (2) transitions are instantaneous events. Today's FE-747 `HandlerDescriptor` selects between output sets, and the `action`/`run-tests`/`assess-semantic`/`verify-epic` handlers block during fire. Both violate Petri-net semantics. Without this refactor, any blueprint or event stream shipped to Petrinaut is structurally unrenderable. **Blocker for FE-762 and FE-763.**
+- **Acceptance:** (1) `ActionDescriptor` / `RunTestsDescriptor` / `AssessSemanticDescriptor` / `VerifyEpicDescriptor` no longer select between output sets; each `TransitionSkeleton` has one fixed output set. (2) Conditional branching expressed as sibling transitions; choice between siblings decided by enabling guards over input markings + token-attached report data, not by output selection. (3) Every long-running transition decomposes into `dispatch:*` + `complete:*:<outcome>` siblings around a `running:*:<sliceId>` place. (4) Engine contract suite (≈120 tests) green — runtime equivalence preserved. (5) `enumerateCandidateOutputs(transition)` returns one set per transition. (6) Halt outcomes decided — proposed: explicit `halted:*:<sliceId>` place (proposal, not cross-team-required).
+- **Verification:** Adapter tests pinning refactored topology shape; end-to-end smoke on `fixtures/txt/`; updated `enumerateCandidateOutputs` literal-fixture goldens; halt-as-place tests if that path lands.
+- **Open / pending coordination:** Read-arc concurrency semantics — pending Petrinaut team confirmation. Today's pool/budget tokens use consume+return for capacity-bounding; naive read-arc migration would break that.
+- **Context:** Cross-team alignment with the Petrinaut team (2026-05-26) committed brunch to producing Petri-net-faithful blueprints and event streams.
+- **Traceability:** Spec §6 (transition contracts); refines FE-747 D156-K.
+
+### petri-blueprint-export
+
+- **Name:** Petrinaut-format JSON export of the compiled net
+- **Linear:** FE-762 (parent: FE-760)
+- **Kind:** structural
+- **Status:** not-started (depends on `petri-petrinaut-semantics`)
+- **Objective:** Serialize the refactored `NetBlueprint` into Petrinaut's expected JSON format and write to `<runDir>/net.json` per cook run. Tokens encoded as `{ id: UUID, ...payload }` per the agreed payload shape: `id` is a per-instance UUID, semantic fields (`sliceId`, `epicId`, `reportId`, `retryCount`, `reworkCount`) live as payload. Discrete-type system follows Petrinaut's H-6519 (uuid/boolean/int) plus any string type the Petrinaut team adds.
+- **Why now / unlocks:** First half of what Petrinaut needs from brunch alongside FE-763. The Petrinaut team is waiting on a sample `net.json` for `fixtures/txt/` to begin their work.
+- **Acceptance:** (1) `<runDir>/net.json` written at compile time; round-trips through Petrinaut's loader. (2) Token payload shape matches cross-team-agreed shape. (3) `schemaVersion` field for forward-compatibility (proposal, not cross-team-required). (4) Representation of `sliceId`/`epicId` decided. (5) Place naming convention agreed.
+- **Verification:** Schema validation against Petrinaut loader; sample `net.json` for `fixtures/txt/` shared async; round-trip equality tests.
+- **Open / pending coordination:** Petrinaut JSON schema spec (Petrinaut team); string discrete-type availability (Petrinaut team); place naming convention.
+- **Traceability:** H-6518/H-6519.
+
+### petri-event-stream
+
+- **Name:** Petrinaut event stream — initial markings + transition firings
+- **Linear:** FE-763 (parent: FE-760)
+- **Kind:** structural
+- **Status:** not-started (depends on `petri-petrinaut-semantics`)
+- **Objective:** Emit the runtime events Petrinaut needs to visualize a live cook run: (a) initial markings at run start; (b) transition-firing events in the cross-team-agreed shape — `{ transitionName, input: { place: [{ id, ... }] }, output: { place: [{ id, ... }] } }`. Token UUIDs generated at emission; semantic IDs live as payload fields. `runId` namespaces every event.
+- **Why now / unlocks:** Second half of the Petrinaut integration alongside FE-762. Decouples visualization from `reports.jsonl`.
+- **Acceptance:** (1) Initial markings emitted at run start. (2) Every transition firing emits an event in agreed shape. (3) Token UUID lifecycle decided — persist across consume→emit (proposed) or refresh per emission. (4) `runId` on every event. (5) Halt outcomes emit structured event matching `halted:*` topology decision.
+- **Verification:** Event-stream replay tests; coherence checks (every output token in event N reappears as input in some later firing or terminates); fixture capture for `fixtures/txt/` shared with Petrinaut team.
+- **Open / pending coordination:** Token UUID lifecycle (persist vs refresh).
+- **Context:** Cross-team alignment (2026-05-26) settled v1 as one-way brunch → Petrinaut. Event payload shape was agreed cross-team.
+
+### petri-sync-server
+
+- **Name:** Brunch → Petrinaut sync server (transport for blueprint + event stream)
+- **Linear:** FE-764 (parent: FE-760)
+- **Kind:** structural
+- **Status:** not-started (depends on FE-762 + FE-763)
+- **Objective:** Transport layer that exposes `net.json` and streams firing events. **One-way for v1.** Transport (HTTP/SSE/WebSocket/file watch) pending Petrinaut team's preference. Scaffolding can default to JSONL on disk + simple HTTP endpoint tailing it. Brunch's Petri interpreter stays execution authority; Petrinaut renders only.
+- **Acceptance:** (1) Petrinaut can fetch `net.json` for `runId`. (2) Firing events stream live. (3) Transport choice agreed + implemented. (4) Connection lifecycle defined. (5) Local-only auth model for v1.
+- **Scope limits (v1):** Read-only from Petrinaut's perspective. Bidirectional comm, edit-back affordances, multi-user sessions all out of scope. **Graph editing during live ("actual") run explicitly rejected.** Non-actual-mode edit affordances would flow through a future brunch-owned plan-modification API; that API is out of scope for v1 and captured here as known follow-up only. Decision deferred until cross-team consensus on edit-affordance shape exists and a user-facing case justifies the work.
+- **Open / pending coordination:** Transport choice; auth model.
 
 ### continuous-workspace
 
@@ -549,6 +602,10 @@ orchestrator-poc (Phase 0: compiler extraction — done)
         └──→ petri-parallel-execution (Phase 2: concurrent firing + resource pools — done)
               ├──→ petri-epic-verification-merge (hardening: merge slice worktrees for verify-epic — done)
               └──→ petri-declarative-routing (Phase-3-prep: topology-level Guard predicates; FE-700-independent — done)
+                    ├──→ petri-petrinaut-semantics (FE-761: Petri-net-faithful refactor of FE-747 conditional outputs + start/end pairs for agent dispatch; per cross-team alignment 2026-05-26)
+                    │     ├──→ petri-blueprint-export (FE-762: Petrinaut-format JSON of NetBlueprint per run)
+                    │     └──→ petri-event-stream (FE-763: initial markings + transition firings in the cross-team-agreed payload shape)
+                    │           └──→ petri-sync-server (FE-764: transport — brunch → Petrinaut, one-way v1)
                     ├──→ petri-graph-compilation (Phase 3: compile from plan-graph + relation policy; needs FE-700)
                     └──→ petri-simulation-oracle (Phase 4: reachability, deadlock, resume; declarative-routing structural prerequisite now satisfied; Phase 3 still needed for graph-derived gates)
 
