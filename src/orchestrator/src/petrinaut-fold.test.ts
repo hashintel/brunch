@@ -72,9 +72,47 @@ describe('createNetFolding — foldedPlaces', () => {
 
   it('keeps per-edge dep-signal and epic/pool places unchanged', () => {
     const ids = folding.foldedPlaces().map((p) => p.id);
-    expect(ids).toContain('dep-signal:slice-b');
+    expect(ids).toContain('dep-signal:slice-a:slice-b');
     expect(ids).toContain('epic:epic-1:done');
     expect(ids).toContain('pool:test-agent');
+  });
+
+  it('keeps dep-signal edges distinct when one slice has multiple upstream dependencies', () => {
+    const multiDepPlan: Plan = {
+      epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
+      slices: [
+        {
+          id: 'slice-a',
+          epic_id: 'epic-1',
+          definition: 'A',
+          depends_on: [],
+          verification: [{ kind: 'unit-test', target: 'ta' }],
+        },
+        {
+          id: 'slice-b',
+          epic_id: 'epic-1',
+          definition: 'B',
+          depends_on: [],
+          verification: [{ kind: 'unit-test', target: 'tb' }],
+        },
+        {
+          id: 'slice-c',
+          epic_id: 'epic-1',
+          definition: 'C',
+          depends_on: ['slice-a', 'slice-b'],
+          verification: [{ kind: 'unit-test', target: 'tc' }],
+        },
+      ],
+    };
+    const folding = createNetFolding(compileTopology(multiDepPlan, { maxRetries: 3 }));
+    const placeIds = folding.foldedPlaces().map((p) => p.id);
+
+    expect(placeIds).toContain('dep-signal:slice-a:slice-c');
+    expect(placeIds).toContain('dep-signal:slice-b:slice-c');
+    expect(placeIds.filter((id) => id.endsWith(':slice-c'))).toHaveLength(2);
+
+    const readyC = folding.foldedTransitions().find((t) => t.id === 'slice-ready:slice-c')!;
+    expect(readyC.inputs).toEqual(['eligible', 'dep-signal:slice-a:slice-c', 'dep-signal:slice-b:slice-c']);
   });
 
   it('tags folded slice places with the color type and leaves pool/epic untyped', () => {

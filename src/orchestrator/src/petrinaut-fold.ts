@@ -169,11 +169,14 @@ function collectSliceIds(placeIds: Iterable<string>): Set<string> {
 
 /**
  * Fold a place id to its slice-independent role by stripping the
- * `slice:<sid>:` prefix. Per-edge `dep-signal:<dependent>` places keep the
- * dependent id (they are genuinely per-edge, so they fold to a unique role).
- * Epic, pool, and bare places are returned unchanged.
+ * `slice:<sid>:` prefix. Per-edge dep-signal places preserve both endpoints as
+ * `dep-signal:<upstream>:<dependent>` so a dependent with multiple upstream
+ * slices keeps one folded gate input per concrete dependency edge. Epic, pool,
+ * and bare places are returned unchanged.
  */
 function foldPlaceId(placeId: string): string {
+  const depSignal = placeId.match(/^slice:([^:]+):dep-signal:([^:]+)$/);
+  if (depSignal) return `dep-signal:${depSignal[1]!}:${depSignal[2]!}`;
   const m = placeId.match(/^slice:[^:]+:(.+)$/);
   return m ? m[1]! : placeId;
 }

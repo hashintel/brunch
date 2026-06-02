@@ -97,8 +97,8 @@ describe('serializeBlueprint — color fold', () => {
     // return-done diverges (slice-a emits a dep-signal, slice-b does not).
     expect(ids.has('slice-a:return-done')).toBe(true);
     expect(ids.has('slice-b:return-done')).toBe(true);
-    // The per-edge dep-signal place keeps its dependent id (unique role).
-    expect(net.places.some((p) => p.id === 'dep-signal:slice-b')).toBe(true);
+    // The per-edge dep-signal place keeps both endpoints (unique role).
+    expect(net.places.some((p) => p.id === 'dep-signal:slice-a:slice-b')).toBe(true);
   });
 
   it('folds transition arcs to folded place ids that all exist as declared places', () => {
@@ -157,7 +157,10 @@ describe('serializeBlueprint — initial marking', () => {
 
     // eligible folds both slices' seeds → two colored tokens.
     const eligible = net.initialMarking.find((m) => m.place === 'eligible')!;
-    expect(eligible.tokens.map((t) => t.sliceId).sort()).toEqual(['slice-a', 'slice-b']);
+    expect(eligible.tokens.map((t) => t.sliceId).sort((a, b) => String(a).localeCompare(String(b)))).toEqual([
+      'slice-a',
+      'slice-b',
+    ]);
 
     // Pool seeds remain runtime-valid tokens, but export without slice color.
     const poolSeed = blueprint.initialTokens.find((t) => t.place === 'pool:test-agent')!.token;
