@@ -231,6 +231,7 @@ describe('createPetrinautEventStream — JSONL file output', () => {
 
     const stream = createPetrinautEventStream({
       runId: 'run-jsonl',
+      folding,
       filePath,
       tokenIdFn: deterministicTokenId(),
       onEvent: (e) => events.push(e),
