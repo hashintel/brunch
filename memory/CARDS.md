@@ -5,17 +5,18 @@
 
 # Scope cards — FE-764 petri-sync-server
 
-Two-slice prepared queue. Slice 1 promotes the export reducer prototype into
-`src/orchestrator/src/` + tests under the existing `NetFolding` seam. Slice 2
-adds the `createIdentityFolding` constructor and the `--petrinaut-fold` cook
-CLI flag, flipping the default to `identity`. Both slices live on
-`ka/fe-764-petri-sync-server` (stacked on `ka/fe-784`).
+Slices 1 + 2 done — the static export + live event stream now fold through
+one caller-supplied `NetFolding`, the cook CLI selects fold mode via
+`--petrinaut-fold=color|identity` (default `identity`), and an engine-driven
+frame-replay oracle round-trips a real cook run through
+`reduceBrunchExecutionExport`. Both slices live on `ka/fe-764-petri-sync-server`
+(stacked on `ka/fe-784`).
 
 Later slices (ephemeral SSE server in the cook process — slice 3;
 `--petrinaut-stream` flag + URL composition + multi-tier base-URL
 resolution + auto-open — slice 4; web-UI button + endpoint discovery —
-slice 5) get sketched below; they get full scope-card treatment once
-slices 1+2 ship and the on-wire contract has held up against an
+slice 5) are sketched below; promote to full scope cards once slice 3
+has a concrete shape and the on-wire contract has held up against an
 integration test.
 
 ---
@@ -122,7 +123,7 @@ No cook-process / filesystem / SSE wiring in this slice. The function is consume
 
 ## Slice 2: identity fold wiring + `--petrinaut-fold` cook CLI flag
 
-**Status:** next. Slice 1 already landed `createIdentityFolding` in `petrinaut-fold.ts`; slice 2 just adds the CLI flag, threads it through the cook entry to pick the constructor, extends `serializeBlueprint` (currently hard-codes `createNetFolding`) to accept a `folding` opt, updates SPEC §Lexicon with `identity fold`, and adds an engine-driven version of the frame-replay oracle exercising the identity path end-to-end.
+**Status:** done. `--petrinaut-fold=color|identity` (default `identity`) parsed in `cook-cli.ts` → `OrchestratorInput.petrinautFold` → `engine.ts` constructs one folding (identity or color) and shares it between `serializeBlueprint` (now requires `folding: NetFolding` opt) and `createPetrinautEventStream`. SPEC §Lexicon gained `identity fold`. Engine-driven frame-replay oracle landed in `engine-contract.test.ts` covering both modes. `npm run verify` green (1525 tests).
 
 ### Target Behavior
 

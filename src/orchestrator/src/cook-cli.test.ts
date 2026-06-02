@@ -43,6 +43,22 @@ describe('parseCookArgs', () => {
     expect(parseCookArgs(['./f', '--verbose']).verbose).toBe(true);
     expect(parseCookArgs(['./f', '-v']).verbose).toBe(true);
   });
+
+  it("defaults --petrinaut-fold to 'identity'", () => {
+    expect(parseCookArgs(['./f']).petrinautFold).toBe('identity');
+  });
+
+  it('parses --petrinaut-fold=color', () => {
+    expect(parseCookArgs(['./f', '--petrinaut-fold=color']).petrinautFold).toBe('color');
+  });
+
+  it('parses --petrinaut-fold=identity', () => {
+    expect(parseCookArgs(['./f', '--petrinaut-fold=identity']).petrinautFold).toBe('identity');
+  });
+
+  it('throws on unknown --petrinaut-fold value', () => {
+    expect(() => parseCookArgs(['./f', '--petrinaut-fold=banana'])).toThrow(/petrinaut-fold/i);
+  });
 });
 
 describe('resolveCookMode', () => {

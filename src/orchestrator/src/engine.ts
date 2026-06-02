@@ -5,7 +5,7 @@ import { compileTopology, wireHandlers } from './net-compiler.js';
 import type { FiringPolicy, NetEventSink } from './petri-net.js';
 import { createPetrinautEventStream } from './petrinaut-events.js';
 import { serializeBlueprint } from './petrinaut-export.js';
-import { createNetFolding } from './petrinaut-fold.js';
+import { createIdentityFolding, createNetFolding, type NetFolding } from './petrinaut-fold.js';
 import { toSdcpnFile } from './petrinaut-sdcpn.js';
 import type { Orchestrator, OrchestratorInput, OrchestratorResult, RunCtx } from './types.js';
 
@@ -39,12 +39,19 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
       try {
         const blueprint = compileTopology(input.plan, input.policy);
 
+        // FE-764: one folding per cook run, shared by the static export and
+        // the live event stream so they fold identically. Default is the
+        // identity fold (unfolded per-slice net) — the demo / small-N case;
+        // `--petrinaut-fold=color` selects the color fold for large-N runs.
+        const folding: NetFolding =
+          input.petrinautFold === 'color' ? createNetFolding(blueprint) : createIdentityFolding(blueprint);
+
         // FE-762: write the Petrinaut-format compiled net to <runDir>/net.json
         // so the Petrinaut team can render the topology of this cook run.
         // Skipped when runDir is absent (library callers / tests).
         if (input.runDir) {
           try {
-            const serialized = serializeBlueprint(blueprint, { runId: input.runId ?? 'unknown' });
+            const serialized = serializeBlueprint(blueprint, { runId: input.runId ?? 'unknown', folding });
             writeFileSync(join(input.runDir, 'net.json'), `${JSON.stringify(serialized, null, 2)}\n`);
 
             // Also emit a Petrinaut SDCPN import file so the compiled net drops
@@ -66,7 +73,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
           try {
             const stream = createPetrinautEventStream({
               runId: input.runId ?? 'unknown',
-              folding: createNetFolding(blueprint),
+              folding,
               filePath: join(input.runDir, 'petrinaut-events.jsonl'),
               onError: (message) => ctx.warnings?.push(message),
             });

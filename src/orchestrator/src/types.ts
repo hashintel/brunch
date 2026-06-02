@@ -116,6 +116,13 @@ export type OrchestratorInput = {
    * library callers that do not need on-disk export can omit it.
    */
   runDir?: string;
+  /**
+   * Which `NetFolding` constructor to use for Petrinaut export and the live
+   * event stream (FE-764). `'identity'` (default) keeps the unfolded per-slice
+   * net; `'color'` collapses N structurally-identical slice subnets and carries
+   * slice identity on the token color. Ignored when `runDir` is absent.
+   */
+  petrinautFold?: 'color' | 'identity';
 };
 
 export type EpicOutcome = {

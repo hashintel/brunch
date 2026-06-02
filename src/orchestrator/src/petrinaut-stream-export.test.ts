@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { compileTopology } from './net-compiler.js';
 import { type PetrinautEvent } from './petrinaut-events.js';
 import { PETRINAUT_NET_SCHEMA_VERSION, serializeBlueprint } from './petrinaut-export.js';
+import { createIdentityFolding } from './petrinaut-fold.js';
 import { toSdcpnFile, type SdcpnFile } from './petrinaut-sdcpn.js';
 import {
   type BrunchExecutionExport,
@@ -30,18 +31,14 @@ const simplePlan: Plan = {
 };
 
 /**
- * Build an SdcpnFile from a Plan via the existing FE-762/784 export pipeline.
- * Today `serializeBlueprint` hard-codes `createNetFolding`, so the resulting
- * SdcpnFile carries color-folded place ids. Slice 2 will extend
- * `serializeBlueprint` to accept a `folding` opt so identity-fold runs are
- * round-trippable through this same path. For slice 1 the reducer is
- * fold-agnostic by design — the frame-replay oracle (below) hand-crafts a
- * minimal consistent fixture so the test doesn't depend on which fold mode
- * the static export uses.
+ * Build an SdcpnFile from a Plan via the static FE-762/784 export pipeline
+ * under the FE-764 default identity fold (concrete per-slice place ids).
+ * The reducer itself is fold-agnostic; the engine-driven oracle below
+ * exercises the identity-fold path end-to-end.
  */
 function buildSdcpnFile(plan: Plan): SdcpnFile {
   const blueprint = compileTopology(plan, { maxRetries: 3 });
-  const net = serializeBlueprint(blueprint, { runId: 'run-test' });
+  const net = serializeBlueprint(blueprint, { runId: 'run-test', folding: createIdentityFolding(blueprint) });
   return toSdcpnFile(net, {});
 }
 

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -13,6 +13,7 @@ import {
   type PetrinautTransitionFiredEvent,
 } from './petrinaut-events.js';
 import { createNetFolding } from './petrinaut-fold.js';
+import { reduceBrunchExecutionExport } from './petrinaut-stream-export.js';
 import { InMemoryReportSink } from './report-sink.js';
 import type { ActionContext, ActionHandlers, OrchestratorInput, Plan, RunCtx, TestRunner } from './types.js';
 
@@ -1002,6 +1003,111 @@ describe('FE-763: Petrinaut event stream on a real run', () => {
         expect.stringContaining('Petrinaut event stream disabled:'),
       ]),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FE-764 — engine wires `petrinautFold` into both the static export and the
+// live event stream; identity fold preserves concrete per-slice place ids.
+// Engine-driven frame-replay oracle: drives a real cook run with
+// petrinautFold='identity', reads the SDCPN + JSONL events from disk, reduces
+// them via reduceBrunchExecutionExport, and asserts replay invariants.
+// ---------------------------------------------------------------------------
+
+describe('FE-764: identity-fold engine wiring + frame-replay oracle', () => {
+  it("emits transition_fired events under concrete per-slice ids when petrinautFold='identity'", async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-identity-'));
+    try {
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: 'run-id-fold',
+        runDir,
+        petrinautFold: 'identity',
+      });
+      expect(result.status).toBe('completed');
+
+      const sdcpnFile = JSON.parse(readFileSync(join(runDir, 'net.sdcpn.json'), 'utf8'));
+      const events: PetrinautEvent[] = readFileSync(join(runDir, 'petrinaut-events.jsonl'), 'utf8')
+        .split('\n')
+        .filter((l) => l.length > 0)
+        .map((l) => JSON.parse(l));
+
+      // Identity-fold marker: at least one slice place is exported under its
+      // concrete `slice:<sid>:…` id (color fold would strip the prefix).
+      const sliceColoredPlaces = (sdcpnFile.places as { id: string }[])
+        .map((p) => p.id)
+        .filter((id) => id.startsWith('slice:'));
+      expect(sliceColoredPlaces.length).toBeGreaterThan(0);
+
+      // The reducer round-trips every event into a referentially-clean export.
+      const exportPayload = reduceBrunchExecutionExport({ sdcpnFile, events });
+      const placeIds = new Set(exportPayload.definition.places.map((p) => p.id));
+      const transitionIds = new Set(exportPayload.definition.transitions.map((t) => t.id));
+      for (const p of Object.keys(exportPayload.initialState)) expect(placeIds.has(p)).toBe(true);
+      for (const f of exportPayload.transitionFirings) {
+        expect(transitionIds.has(f.transitionId)).toBe(true);
+        for (const p of Object.keys(f.input)) expect(placeIds.has(p)).toBe(true);
+        for (const p of Object.keys(f.output)) expect(placeIds.has(p)).toBe(true);
+      }
+
+      // Frame-replay: starting from initialState, apply each firing's deltas;
+      // no place count may go negative at any frame.
+      const marking: Record<string, number> = {};
+      for (const [p, v] of Object.entries(exportPayload.initialState)) {
+        if (typeof v === 'number') marking[p] = v;
+      }
+      for (const firing of exportPayload.transitionFirings) {
+        for (const [p, n] of Object.entries(firing.input)) {
+          if (typeof n !== 'number') continue;
+          marking[p] = (marking[p] ?? 0) - n;
+          expect(marking[p], `place ${p} negative after ${firing.transitionId}`).toBeGreaterThanOrEqual(0);
+        }
+        for (const [p, n] of Object.entries(firing.output)) {
+          if (typeof n !== 'number') continue;
+          marking[p] = (marking[p] ?? 0) + n;
+        }
+      }
+      // Sanity: the run completed with at least one firing landing somewhere
+      // non-empty (the engine reaches `slice-1:done`).
+      const finalNonEmpty = Object.entries(marking).filter(([, n]) => n > 0);
+      expect(finalNonEmpty.length).toBeGreaterThan(0);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it("collapses slice place ids when petrinautFold='color'", async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-color-'));
+    try {
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: 'run-color-fold',
+        runDir,
+        petrinautFold: 'color',
+      });
+      expect(result.status).toBe('completed');
+
+      const sdcpnFile = JSON.parse(readFileSync(join(runDir, 'net.sdcpn.json'), 'utf8'));
+      // Color fold strips the `slice:<sid>:` prefix from every slice place.
+      const sliceColoredPlaces = (sdcpnFile.places as { id: string }[])
+        .map((p) => p.id)
+        .filter((id) => id.startsWith('slice:'));
+      expect(sliceColoredPlaces).toHaveLength(0);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
   });
 });
 

@@ -20,7 +20,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { NetBlueprint, TokenSeed } from './net-blueprint.js';
 import { placeName } from './petri-net.js';
-import { createNetFolding, type PetrinautTokenType } from './petrinaut-fold.js';
+import type { NetFolding, PetrinautTokenType } from './petrinaut-fold.js';
 
 /**
  * Schema version of Brunch's exported net JSON. Bump on any breaking Brunch
@@ -93,6 +93,13 @@ export type PetrinautNet = {
 
 export type SerializeBlueprintOpts = {
   runId: string;
+  /**
+   * Fold to project the blueprint through. Caller-supplied so the static
+   * `net.json` and the live event stream (`createPetrinautEventStream`) can
+   * share one folding instance per cook run — both seams thus fold identically.
+   * See `createNetFolding` (color fold) and `createIdentityFolding`.
+   */
+  folding: NetFolding;
   /** Override the per-token UUID generator (tests use a deterministic stub). */
   tokenIdFn?: () => string;
 };
@@ -111,7 +118,7 @@ export type SerializeBlueprintOpts = {
  */
 export function serializeBlueprint(blueprint: NetBlueprint, opts: SerializeBlueprintOpts): PetrinautNet {
   const tokenId = opts.tokenIdFn ?? randomUUID;
-  const folding = createNetFolding(blueprint);
+  const { folding } = opts;
 
   const places: PetrinautPlace[] = folding.foldedPlaces().map((p) => ({
     id: p.id,

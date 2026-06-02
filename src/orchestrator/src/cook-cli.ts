@@ -10,11 +10,21 @@ import { loadPlan } from './plan-loader.js';
 import { BunTestRunner } from './test-runner.js';
 import { createSandbox } from './worktree.js';
 
+/**
+ * Which `NetFolding` constructor the cook run uses for Petrinaut export
+ * (`net.json`, SDCPN file, live event stream). `identity` (default) keeps
+ * the unfolded per-slice net so the demo / small-N visualization shows the
+ * full per-slice lifecycle; `color` collapses N structurally-identical slice
+ * subnets into one and carries slice identity on the token color.
+ */
+export type PetrinautFoldMode = 'color' | 'identity';
+
 export type CookOptions = {
   dir: string;
   policy: FiringPolicy;
   maxRetries: number;
   verbose: boolean;
+  petrinautFold: PetrinautFoldMode;
 };
 
 export function parseCookArgs(args: string[]): CookOptions {
@@ -22,6 +32,7 @@ export function parseCookArgs(args: string[]): CookOptions {
   let policy: FiringPolicy = 'serial';
   let maxRetries = 3;
   let verbose = false;
+  let petrinautFold: PetrinautFoldMode = 'identity';
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
@@ -37,6 +48,12 @@ export function parseCookArgs(args: string[]): CookOptions {
         throw new Error(`Invalid --max-retries value: ${arg.split('=')[1]}. Must be a non-negative integer.`);
       }
       maxRetries = parsed;
+    } else if (arg.startsWith('--petrinaut-fold=')) {
+      const val = arg.split('=')[1]!;
+      if (val !== 'color' && val !== 'identity') {
+        throw new Error(`Unknown --petrinaut-fold value: ${val}. Use color or identity.`);
+      }
+      petrinautFold = val;
     } else if (arg === '--verbose' || arg === '-v') {
       verbose = true;
     } else if (!arg.startsWith('-')) {
@@ -45,10 +62,12 @@ export function parseCookArgs(args: string[]): CookOptions {
   }
 
   if (!dir) {
-    throw new Error('Usage: brunch cook <dir> [--policy=serial|parallel] [--max-retries=N] [--verbose]');
+    throw new Error(
+      'Usage: brunch cook <dir> [--policy=serial|parallel] [--max-retries=N] [--petrinaut-fold=color|identity] [--verbose]',
+    );
   }
 
-  return { dir: resolve(dir), policy, maxRetries, verbose };
+  return { dir: resolve(dir), policy, maxRetries, verbose, petrinautFold };
 }
 
 function fmtDuration(ms: number): string {
@@ -165,6 +184,8 @@ export async function runCook(opts: CookOptions): Promise<void> {
     runId,
     // FE-762: engine writes Petrinaut net.json into the run directory.
     runDir,
+    // FE-764: picks the NetFolding (identity by default; color collapses subnets).
+    petrinautFold: opts.petrinautFold,
   });
 
   const duration = fmtDuration(Date.now() - runStart);
