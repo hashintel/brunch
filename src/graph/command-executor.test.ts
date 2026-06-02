@@ -8,7 +8,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
-import { graphClock, changeLog, edges, nodes } from '../db/schema.js';
+import { graphClock, changeLog, edges, nodes, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
 import type { CommitGraphInput } from './command-executor.js';
 
@@ -332,6 +332,74 @@ describe('CommandExecutor', () => {
     });
 
     expect(result.status).toBe('success');
+  });
+
+  // ==========================================================================
+  // specs
+  // ==========================================================================
+
+  describe('specs', () => {
+    it('creates a spec row and returns an integer id', () => {
+      const result = executor.createSpec({
+        name: 'Brunch POC',
+        slug: 'brunch-poc',
+        readinessGrade: 'grounding_onboarding',
+      });
+
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+      expect(result.specId).toBeTypeOf('number');
+      expect(result.lsn).toBe(1);
+
+      const row = db.select().from(specs).all()[0]!;
+      expect(row.id).toBe(result.specId);
+      expect(row.name).toBe('Brunch POC');
+      expect(row.slug).toBe('brunch-poc');
+      expect(row.readiness_grade).toBe('grounding_onboarding');
+    });
+
+    it('reads a spec row by integer id', () => {
+      const created = executor.createSpec({ name: 'Spec A', slug: 'spec-a' });
+      if (created.status !== 'success') throw new Error('unreachable');
+
+      const spec = executor.getSpec(created.specId);
+
+      expect(spec).toEqual({
+        id: created.specId,
+        name: 'Spec A',
+        slug: 'spec-a',
+        readinessGrade: 'grounding_onboarding',
+      });
+    });
+
+    it('updates readiness grade through the command boundary', () => {
+      const created = executor.createSpec({ name: 'Spec A', slug: 'spec-a' });
+      if (created.status !== 'success') throw new Error('unreachable');
+
+      const result = executor.updateReadinessGrade({
+        specId: created.specId,
+        readinessGrade: 'elicitation_ready',
+      });
+
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+      expect(result.lsn).toBe(2);
+      expect(executor.getSpec(created.specId)?.readinessGrade).toBe('elicitation_ready');
+    });
+
+    it('rejects an invalid readiness grade without writing', () => {
+      const created = executor.createSpec({ name: 'Spec A', slug: 'spec-a' });
+      if (created.status !== 'success') throw new Error('unreachable');
+
+      const result = executor.updateReadinessGrade({
+        specId: created.specId,
+        readinessGrade: 'pinning' as never,
+      });
+
+      expect(result.status).toBe('structural_illegal');
+      expect(executor.getSpec(created.specId)?.readinessGrade).toBe('grounding_onboarding');
+      expect(db.select().from(changeLog).all()).toHaveLength(1);
+    });
   });
 
   // ==========================================================================

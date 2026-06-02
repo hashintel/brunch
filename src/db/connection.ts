@@ -39,6 +39,13 @@ export function createDb(path: string): BrunchDb {
  */
 function initSchema(sqlite: Database.Database): void {
   sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS specs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      readiness_grade TEXT NOT NULL DEFAULT 'grounding_onboarding'
+    );
+
     CREATE TABLE IF NOT EXISTS nodes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       plane TEXT NOT NULL,

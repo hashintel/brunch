@@ -24,6 +24,8 @@ import * as schema from '../db/schema.js';
 import type { EdgeCategory, EdgeStance } from './schema/edges.js';
 import type { NodeBasis, NodePlane } from './schema/nodes.js';
 
+export type ReadinessGrade = (typeof schema.READINESS_GRADES)[number];
+
 // ---------------------------------------------------------------------------
 // Result types
 // ---------------------------------------------------------------------------
@@ -83,12 +85,35 @@ export interface ReconNeedResolveSuccess {
   readonly lsn: number;
 }
 
+/** Successful spec creation. */
+export interface CreateSpecSuccess {
+  readonly status: 'success';
+  readonly specId: number;
+  readonly lsn: number;
+}
+
+/** Successful spec readiness-grade update. */
+export interface UpdateReadinessGradeSuccess {
+  readonly status: 'success';
+  readonly lsn: number;
+}
+
+/** Spec row returned by CommandExecutor reads. */
+export interface SpecRecord {
+  readonly id: number;
+  readonly name: string;
+  readonly slug: string;
+  readonly readinessGrade: ReadinessGrade;
+}
+
 /** Union of all possible command results. */
 export type CommandResult =
   | CommandSuccess
   | CommitGraphSuccess
   | ReconNeedSuccess
   | ReconNeedResolveSuccess
+  | CreateSpecSuccess
+  | UpdateReadinessGradeSuccess
   | StructuralIllegal
   | NeedsHuman
   | PolicyBlocked
@@ -106,9 +131,28 @@ export type CreateReconNeedResult = ReconNeedSuccess | StructuralIllegal;
 /** Result of a resolveReconciliationNeed command. */
 export type ResolveReconNeedResult = ReconNeedResolveSuccess | StructuralIllegal;
 
+/** Result of a createSpec command. */
+export type CreateSpecResult = CreateSpecSuccess | StructuralIllegal;
+
+/** Result of an updateReadinessGrade command. */
+export type UpdateReadinessGradeResult = UpdateReadinessGradeSuccess | StructuralIllegal;
+
 // ---------------------------------------------------------------------------
 // Input types
 // ---------------------------------------------------------------------------
+
+/** Input for creating a spec row. */
+export interface CreateSpecInput {
+  readonly name: string;
+  readonly slug: string;
+  readonly readinessGrade?: ReadinessGrade | undefined;
+}
+
+/** Input for updating a spec readiness grade. */
+export interface UpdateReadinessGradeInput {
+  readonly specId: number;
+  readonly readinessGrade: ReadinessGrade;
+}
 
 /** Input for creating a single graph node. */
 export interface CreateNodeInput {
@@ -195,6 +239,11 @@ const VALID_KINDS_BY_PLANE: Record<string, readonly string[]> = {
 };
 
 const KINDS_REQUIRING_DETAIL = new Set<string>(['decision', 'term']);
+const VALID_READINESS_GRADES = schema.READINESS_GRADES as unknown as string[];
+
+function isReadinessGrade(value: string): value is ReadinessGrade {
+  return VALID_READINESS_GRADES.includes(value);
+}
 
 function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
@@ -457,6 +506,114 @@ class BatchValidationError extends Error {
 
 export class CommandExecutor {
   constructor(private readonly db: BrunchDb) {}
+
+  /** Create a spec row through the command boundary. */
+  createSpec(input: CreateSpecInput): CreateSpecResult {
+    const diagnostics: Diagnostic[] = [];
+    const name = input.name.trim();
+    const slug = input.slug.trim();
+    const readinessGrade = input.readinessGrade ?? 'grounding_onboarding';
+
+    if (!name) diagnostics.push({ field: 'name', message: 'name must be non-empty' });
+    if (!slug) diagnostics.push({ field: 'slug', message: 'slug must be non-empty' });
+    if (!isReadinessGrade(readinessGrade)) {
+      diagnostics.push({
+        field: 'readinessGrade',
+        message: `"${readinessGrade}" is not a valid readiness grade`,
+      });
+    }
+    if (diagnostics.length > 0) return { status: 'structural_illegal', diagnostics };
+
+    return this.db.transaction((tx) => {
+      const clock = tx
+        .update(schema.graphClock)
+        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
+        .where(eq(schema.graphClock.id, 1))
+        .returning()
+        .get();
+      const lsn = clock!.lsn;
+
+      const row = tx
+        .insert(schema.specs)
+        .values({ name, slug, readiness_grade: readinessGrade })
+        .returning()
+        .get();
+
+      tx.insert(schema.changeLog)
+        .values({
+          lsn,
+          operation: 'create_spec',
+          payload: JSON.stringify({ specId: row!.id, name, slug, readinessGrade }),
+        })
+        .run();
+
+      return { status: 'success' as const, specId: row!.id, lsn };
+    });
+  }
+
+  /** Read a spec row by id. */
+  getSpec(specId: number): SpecRecord | undefined {
+    const row = this.db.select().from(schema.specs).where(eq(schema.specs.id, specId)).get();
+    if (!row) return undefined;
+    return {
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      readinessGrade: row.readiness_grade,
+    };
+  }
+
+  /** Update a spec's readiness grade through the command boundary. */
+  updateReadinessGrade(input: UpdateReadinessGradeInput): UpdateReadinessGradeResult {
+    if (!isReadinessGrade(input.readinessGrade)) {
+      return {
+        status: 'structural_illegal',
+        diagnostics: [
+          {
+            field: 'readinessGrade',
+            message: `"${input.readinessGrade}" is not a valid readiness grade`,
+          },
+        ],
+      };
+    }
+
+    return this.db.transaction((tx) => {
+      const existing = tx
+        .select({ id: schema.specs.id })
+        .from(schema.specs)
+        .where(eq(schema.specs.id, input.specId))
+        .get();
+      if (!existing) {
+        return {
+          status: 'structural_illegal' as const,
+          diagnostics: [{ field: 'specId', message: `spec ${input.specId} does not exist` }],
+        };
+      }
+
+      const clock = tx
+        .update(schema.graphClock)
+        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
+        .where(eq(schema.graphClock.id, 1))
+        .returning()
+        .get();
+      const lsn = clock!.lsn;
+
+      tx.update(schema.specs)
+        .set({ readiness_grade: input.readinessGrade })
+        .where(eq(schema.specs.id, input.specId))
+        .run();
+
+      tx.insert(schema.changeLog)
+        .values({
+          lsn,
+          operation: 'update_spec_readiness_grade',
+          payload: JSON.stringify({ specId: input.specId, readinessGrade: input.readinessGrade }),
+        })
+        .run();
+
+      return { status: 'success' as const, lsn };
+    });
+  }
 
   /**
    * Create a single graph node.

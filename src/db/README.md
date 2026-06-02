@@ -4,11 +4,13 @@ SPEC decisions: D16-L, D41-L, D52-L
 
 ## Owns
 
-- **Drizzle table definitions** (`schema.ts`) — nodes, edges, change_log,
-  graph_clock, reconciliation_need. Canonical column-level source of truth
-  for persisted shapes. Exports shared enum `const` arrays (`INTENT_KINDS`,
-  `EDGE_CATEGORIES`, etc.) reused by `graph/` domain types and Pi tool
-  parameter schemas.
+- **Drizzle table definitions** (`schema.ts`) — specs, nodes, edges,
+  change_log, graph_clock, reconciliation_need. Canonical column-level source
+  of truth for persisted shapes. `specs` stores `{id, name, slug,
+  readiness_grade}` only; `elicitation_posture` and `commitment_focus` are
+  retired. Exports shared enum `const` arrays (`INTENT_KINDS`,
+  `READINESS_GRADES`, `EDGE_CATEGORIES`, etc.) reused by `graph/` domain types
+  and Pi tool parameter schemas.
 
 - **Row schema derivation** (`row-schemas.ts`) — runtime insert/select
   schemas derived from Drizzle tables via `drizzle-typebox`. Do not

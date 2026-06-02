@@ -28,4 +28,19 @@ describe('I26-L architectural boundary', () => {
 
     expect(importingFiles).toEqual([]);
   });
+
+  it('spec writes live only in CommandExecutor', () => {
+    const result = execSync(
+      `rg --files-with-matches "\\.(insert|update|delete)\\(schema\\.specs\\)|\\.(insert|update|delete)\\(specs\\)" src/ --glob '*.ts' --glob '!*.test.*' || true`,
+      { cwd: process.cwd(), encoding: 'utf-8' },
+    );
+
+    const writingFiles = result
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .filter((f) => f !== 'src/graph/command-executor.ts');
+
+    expect(writingFiles).toEqual([]);
+  });
 });

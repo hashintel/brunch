@@ -10,7 +10,11 @@
 
 import { createInsertSchema, createSelectSchema } from 'drizzle-typebox';
 
-import { changeLog, edges, graphClock, nodes, reconciliationNeed } from './schema.js';
+import { changeLog, edges, graphClock, nodes, reconciliationNeed, specs } from './schema.js';
+
+// --- Spec schemas ---
+export const insertSpecSchema = createInsertSchema(specs);
+export const selectSpecSchema = createSelectSchema(specs);
 
 // --- Node schemas ---
 export const insertNodeSchema = createInsertSchema(nodes);

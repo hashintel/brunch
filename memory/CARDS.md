@@ -31,7 +31,7 @@ binding                       # lives: Pi JSONL (brunch.session_binding)
 
 ---
 
-## Card 1 — Spec entity + DB-on-startup foundation  [status: next]
+## Card 1 — Spec entity + DB-on-startup foundation  [status: done]
 
 ### Target Behavior
 
@@ -99,7 +99,7 @@ Scores on **uncertainty** (retires the spec-row persistence hole) and **proof of
 
 ---
 
-## Card 2 — Coordinator startup on the corrected model  [status: queued — after Card 1]
+## Card 2 — Coordinator startup on the corrected model  [status: next]
 
 ### Target Behavior
 

@@ -51,9 +51,23 @@ export const EDGE_CATEGORIES = [
 
 export const EDGE_STANCES = ['for', 'against'] as const;
 
+export const READINESS_GRADES = [
+  'grounding_onboarding',
+  'elicitation_ready',
+  'commitments_ready',
+  'planning_ready',
+] as const;
+
 // ---------------------------------------------------------------------------
 // Tables
 // ---------------------------------------------------------------------------
+
+export const specs = sqliteTable('specs', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull(),
+  slug: text().notNull(),
+  readiness_grade: text({ enum: READINESS_GRADES }).notNull().default('grounding_onboarding'),
+});
 
 export const nodes = sqliteTable('nodes', {
   id: integer().primaryKey({ autoIncrement: true }),

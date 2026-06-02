@@ -20,6 +20,7 @@ export {
   DESIGN_KINDS,
   PLAN_KINDS,
   NODE_BASES,
+  READINESS_GRADES,
 } from '../db/schema.js';
 
 export type { EdgeBasis, EdgeCategory, EdgeStance, GraphEdge } from './schema/edges.js';
@@ -76,14 +77,22 @@ export type {
   CreateNodeInput,
   CreateNodeResult,
   CreateReconNeedInput,
+  CreateSpecInput,
+  CreateSpecResult,
+  CreateSpecSuccess,
   CreateReconNeedResult,
   Diagnostic,
   NeedsHuman,
   PolicyBlocked,
+  ReadinessGrade,
   ReconNeedResolveSuccess,
   ReconNeedSuccess,
   ReconNeedTarget,
   ResolveReconNeedResult,
+  SpecRecord,
   StructuralIllegal,
+  UpdateReadinessGradeInput,
+  UpdateReadinessGradeResult,
+  UpdateReadinessGradeSuccess,
   VersionConflict,
 } from './command-executor.js';
