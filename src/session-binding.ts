@@ -1,59 +1,54 @@
-import type { CustomEntry } from "@earendil-works/pi-coding-agent"
+import type { CustomEntry } from '@earendil-works/pi-coding-agent';
 
-export const SESSION_BINDING_TYPE = "brunch.session_binding"
-export const SESSION_BINDING_SCHEMA_VERSION = 1
+export const SESSION_BINDING_TYPE = 'brunch.session_binding';
+export const SESSION_BINDING_SCHEMA_VERSION = 1;
 
 export interface SessionBindingData {
-  schemaVersion: typeof SESSION_BINDING_SCHEMA_VERSION
-  sessionId: string
-  specId: string
-  specTitle: string
+  schemaVersion: typeof SESSION_BINDING_SCHEMA_VERSION;
+  sessionId: string;
+  specId: string;
+  specTitle: string;
 }
 
 export type SessionBindingEntry = CustomEntry<SessionBindingData> & {
-  customType: typeof SESSION_BINDING_TYPE
-  data: SessionBindingData
-}
+  customType: typeof SESSION_BINDING_TYPE;
+  data: SessionBindingData;
+};
 
 export function createSessionBindingData(options: {
-  sessionId: string
-  specId: string
-  specTitle: string
+  sessionId: string;
+  specId: string;
+  specTitle: string;
 }): SessionBindingData {
   return {
     schemaVersion: SESSION_BINDING_SCHEMA_VERSION,
     sessionId: options.sessionId,
     specId: options.specId,
     specTitle: options.specTitle,
-  }
+  };
 }
 
-export function isSessionBindingEntry(
-  value: unknown,
-): value is SessionBindingEntry {
+export function isSessionBindingEntry(value: unknown): value is SessionBindingEntry {
   if (
-    typeof value !== "object" ||
+    typeof value !== 'object' ||
     value === null ||
-    (value as { type?: unknown }).type !== "custom" ||
+    (value as { type?: unknown }).type !== 'custom' ||
     (value as { customType?: unknown }).customType !== SESSION_BINDING_TYPE
   ) {
-    return false
+    return false;
   }
 
-  const data = (value as { data?: unknown }).data
-  return isSessionBindingData(data)
+  const data = (value as { data?: unknown }).data;
+  return isSessionBindingData(data);
 }
 
-export function isSessionBindingData(
-  value: unknown,
-): value is SessionBindingData {
+export function isSessionBindingData(value: unknown): value is SessionBindingData {
   return (
-    typeof value === "object" &&
+    typeof value === 'object' &&
     value !== null &&
-    (value as { schemaVersion?: unknown }).schemaVersion ===
-      SESSION_BINDING_SCHEMA_VERSION &&
-    typeof (value as { sessionId?: unknown }).sessionId === "string" &&
-    typeof (value as { specId?: unknown }).specId === "string" &&
-    typeof (value as { specTitle?: unknown }).specTitle === "string"
-  )
+    (value as { schemaVersion?: unknown }).schemaVersion === SESSION_BINDING_SCHEMA_VERSION &&
+    typeof (value as { sessionId?: unknown }).sessionId === 'string' &&
+    typeof (value as { specId?: unknown }).specId === 'string' &&
+    typeof (value as { specTitle?: unknown }).specTitle === 'string'
+  );
 }

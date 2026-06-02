@@ -27,17 +27,17 @@
  * consume this table in subsequent M4/M5 slices.
  */
 
-import type { EdgeCategory } from "../schema/edges.js"
+import type { EdgeCategory } from '../schema/edges.js';
 
-export type ReconNeedTrigger = false | "advisory" | true
+export type ReconNeedTrigger = false | 'advisory' | true;
 
-export type ProjectionEffect = "none" | "hide_predecessor_from_active_context"
+export type ProjectionEffect = 'none' | 'hide_predecessor_from_active_context';
 
 export interface CategoryPolicy {
-  readonly cascadeOnSourceChange: boolean
-  readonly reconNeedOnSourceChange: ReconNeedTrigger
-  readonly criteriaHelpSignal: boolean
-  readonly projectionEffect: ProjectionEffect
+  readonly cascadeOnSourceChange: boolean;
+  readonly reconNeedOnSourceChange: ReconNeedTrigger;
+  readonly criteriaHelpSignal: boolean;
+  readonly projectionEffect: ProjectionEffect;
 }
 
 export const CATEGORY_POLICY: Readonly<Record<EdgeCategory, CategoryPolicy>> = {
@@ -45,48 +45,48 @@ export const CATEGORY_POLICY: Readonly<Record<EdgeCategory, CategoryPolicy>> = {
     cascadeOnSourceChange: true,
     reconNeedOnSourceChange: true,
     criteriaHelpSignal: false,
-    projectionEffect: "none",
+    projectionEffect: 'none',
   },
   proof: {
     cascadeOnSourceChange: false,
-    reconNeedOnSourceChange: "advisory",
+    reconNeedOnSourceChange: 'advisory',
     criteriaHelpSignal: true,
-    projectionEffect: "none",
+    projectionEffect: 'none',
   },
   support: {
     cascadeOnSourceChange: false,
-    reconNeedOnSourceChange: "advisory",
+    reconNeedOnSourceChange: 'advisory',
     criteriaHelpSignal: false,
-    projectionEffect: "none",
+    projectionEffect: 'none',
   },
   realization: {
     cascadeOnSourceChange: false,
-    reconNeedOnSourceChange: "advisory",
+    reconNeedOnSourceChange: 'advisory',
     criteriaHelpSignal: false,
-    projectionEffect: "none",
+    projectionEffect: 'none',
   },
   boundary: {
     cascadeOnSourceChange: false,
     reconNeedOnSourceChange: true,
     criteriaHelpSignal: false,
-    projectionEffect: "none",
+    projectionEffect: 'none',
   },
   composition: {
     cascadeOnSourceChange: false,
     reconNeedOnSourceChange: false,
     criteriaHelpSignal: false,
-    projectionEffect: "none",
+    projectionEffect: 'none',
   },
   association: {
     cascadeOnSourceChange: false,
     reconNeedOnSourceChange: false,
     criteriaHelpSignal: false,
-    projectionEffect: "none",
+    projectionEffect: 'none',
   },
   supersession: {
     cascadeOnSourceChange: false,
     reconNeedOnSourceChange: false,
     criteriaHelpSignal: false,
-    projectionEffect: "hide_predecessor_from_active_context",
+    projectionEffect: 'hide_predecessor_from_active_context',
   },
-}
+};

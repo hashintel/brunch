@@ -1,24 +1,24 @@
 {
-	"$schema": "./node_modules/oxlint/configuration_schema.json",
-	"options": {
-		"typeAware": true,
-		"typeCheck": true
-	},
-	"rules": {
-		"typescript/no-deprecated": "error"
-	},
-	"ignorePatterns": [
-		".agents/**",
-		".github/**",
-		".claude/**",
-		"*.md",
-		"docs/**",
-		"memory/**",
-		".fixtures/**",
-		"@types/**",
-		"tmp/**",
-		"dist-web/**",
-		"bin/**",
-		"dist/**"
-	]
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "options": {
+    "typeAware": true,
+    "typeCheck": true
+  },
+  "rules": {
+    "typescript/no-deprecated": "error"
+  },
+  "ignorePatterns": [
+    ".agents/**",
+    ".github/**",
+    ".claude/**",
+    "*.md",
+    "docs/**",
+    "memory/**",
+    ".fixtures/**",
+    "@types/**",
+    "tmp/**",
+    "dist-web/**",
+    "bin/**",
+    "dist/**"
+  ]
 }

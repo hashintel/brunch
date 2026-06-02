@@ -5,12 +5,12 @@
  * Stack: drizzle-orm@0.45.2 + better-sqlite3@12.8.0
  */
 
-import Database from "better-sqlite3"
-import { drizzle } from "drizzle-orm/better-sqlite3"
+import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
 
-import * as schema from "./schema.js"
+import * as schema from './schema.js';
 
-export type BrunchDb = ReturnType<typeof drizzle<typeof schema>>
+export type BrunchDb = ReturnType<typeof drizzle<typeof schema>>;
 
 /**
  * Create a Brunch database connection with schema initialized.
@@ -22,11 +22,11 @@ export type BrunchDb = ReturnType<typeof drizzle<typeof schema>>
  * replace `initSchema` with `drizzle-kit`-managed migrations.
  */
 export function createDb(path: string): BrunchDb {
-  const sqlite = new Database(path)
-  sqlite.pragma("journal_mode = WAL")
-  sqlite.pragma("foreign_keys = ON")
-  initSchema(sqlite)
-  return drizzle(sqlite, { schema })
+  const sqlite = new Database(path);
+  sqlite.pragma('journal_mode = WAL');
+  sqlite.pragma('foreign_keys = ON');
+  initSchema(sqlite);
+  return drizzle(sqlite, { schema });
 }
 
 /**
@@ -90,5 +90,5 @@ function initSchema(sqlite: Database.Database): void {
     );
 
     INSERT OR IGNORE INTO graph_clock (id, lsn) VALUES (1, 0);
-  `)
+  `);
 }

@@ -1,10 +1,10 @@
-import { readFile } from "node:fs/promises"
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
+import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from 'vitest';
 
-import { composeBrunchPrompt } from "../context/compose-brunch-prompt.js"
+import { composeBrunchPrompt } from '../context/compose-brunch-prompt.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -12,204 +12,196 @@ import {
   type BrunchAgentState,
   type BrunchAgentStateEntryData,
   registerBrunchOperationalModePolicy,
-} from "../extensions/operational-mode.js"
-import { registerBrunchPrompting } from "../extensions/prompting.js"
-import { createBrunchPiExtensionShell } from "../pi-extension-shell.js"
+} from '../extensions/operational-mode.js';
+import { registerBrunchPrompting } from '../extensions/prompting.js';
+import { createBrunchPiExtensionShell } from '../pi-extension-shell.js';
 
 function runtimeEntry(state: BrunchAgentState) {
   return {
-    type: "custom",
-    customType: "brunch.agent_runtime_state",
+    type: 'custom',
+    customType: 'brunch.agent_runtime_state',
     data: {
       schemaVersion: 1,
-      reason: "switch",
+      reason: 'switch',
       state,
-      source: "user",
+      source: 'user',
     },
-  }
+  };
 }
 
 class FakeRuntimeStateSessionManager {
   entries: Array<{
-    type: "custom"
-    customType: string
-    data: BrunchAgentStateEntryData
-  }> = []
+    type: 'custom';
+    customType: string;
+    data: BrunchAgentStateEntryData;
+  }> = [];
 
   getEntries() {
-    return this.entries
+    return this.entries;
   }
 
   appendCustomEntry(customType: string, data: BrunchAgentStateEntryData) {
-    this.entries.push({ type: "custom", customType, data })
-    return `entry-${this.entries.length}`
+    this.entries.push({ type: 'custom', customType, data });
+    return `entry-${this.entries.length}`;
   }
 }
 
-describe("Brunch prompt-pack topology", () => {
-  it("composes deterministic private prompt packs in stable order", () => {
+describe('Brunch prompt-pack topology', () => {
+  it('composes deterministic private prompt packs in stable order', () => {
     const result = composeBrunchPrompt({
-      operationalMode: "elicit",
-      agentRole: "elicitor",
-      agentStrategy: "step-by-step",
-      agentLens: "step-by-step",
-      activeTools: ["read", "grep", "present_options"],
-    })
+      operationalMode: 'elicit',
+      agentRole: 'elicitor',
+      agentStrategy: 'step-by-step',
+      agentLens: 'step-by-step',
+      activeTools: ['read', 'grep', 'present_options'],
+    });
 
     expect(result.packIds).toEqual([
-      "brunch-base",
-      "elicit",
-      "elicitor",
-      "structured-exchange",
-      "candidate-proposals",
-      "capture-analysis",
-    ])
-    expect(result.prompt).toContain("[Brunch agent state]")
-    expect(result.prompt).toContain("Operational mode: elicit.")
-    expect(result.prompt).toContain("Agent role: elicitor.")
+      'brunch-base',
+      'elicit',
+      'elicitor',
+      'structured-exchange',
+      'candidate-proposals',
+      'capture-analysis',
+    ]);
+    expect(result.prompt).toContain('[Brunch agent state]');
+    expect(result.prompt).toContain('Operational mode: elicit.');
+    expect(result.prompt).toContain('Agent role: elicitor.');
+    expect(result.prompt).toContain('Brunch exposes only elicit-safe tools: read, grep, present_options.');
+    expect(result.prompt.indexOf('# Brunch base')).toBeLessThan(
+      result.prompt.indexOf('# Operational mode: elicit'),
+    );
+    expect(result.prompt.indexOf('# Structured exchanges')).toBeLessThan(
+      result.prompt.indexOf('# Candidate proposals'),
+    );
+    expect(result.prompt).toContain('Request outcomes are an exactly-one property-presence union');
     expect(result.prompt).toContain(
-      "Brunch exposes only elicit-safe tools: read, grep, present_options.",
-    )
-    expect(result.prompt.indexOf("# Brunch base")).toBeLessThan(
-      result.prompt.indexOf("# Operational mode: elicit"),
-    )
-    expect(result.prompt.indexOf("# Structured exchanges")).toBeLessThan(
-      result.prompt.indexOf("# Candidate proposals"),
-    )
-    expect(result.prompt).toContain(
-      "Request outcomes are an exactly-one property-presence union",
-    )
-    expect(result.prompt).toContain(
-      "`graph_refs` are per-candidate and strictly existing graph node references",
-    )
-    expect(result.prompt).toContain(
-      "Capture is transcript-native analysis, not graph mutation.",
-    )
-    expect(result.prompt).not.toContain("CommandExecutor result shapes")
-  })
+      '`graph_refs` are per-candidate and strictly existing graph node references',
+    );
+    expect(result.prompt).toContain('Capture is transcript-native analysis, not graph mutation.');
+    expect(result.prompt).not.toContain('CommandExecutor result shapes');
+  });
 
-  it("appends composed Brunch prompting from runtime-state projection", async () => {
+  it('appends composed Brunch prompting from runtime-state projection', async () => {
     const latestState: BrunchAgentState = {
       ...DEFAULT_BRUNCH_AGENT_STATE,
-      agentStrategy: "disambiguate-via-examples",
-      agentLens: "disambiguate-via-examples",
-    }
-    const events: Record<string, (event: never, ctx?: never) => unknown> = {}
+      agentStrategy: 'disambiguate-via-examples',
+      agentLens: 'disambiguate-via-examples',
+    };
+    const events: Record<string, (event: never, ctx?: never) => unknown> = {};
 
     registerBrunchPrompting({
       on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
-        events[event] = handler
+        events[event] = handler;
       },
       getAllTools: () =>
-        ["read", "grep", "bash", "write", "present_options"].map((name) => ({
+        ['read', 'grep', 'bash', 'write', 'present_options'].map((name) => ({
           name,
         })),
-    } as never)
+    } as never);
 
     const result = await Promise.resolve(
-      events.before_agent_start?.({ systemPrompt: "base" } as never, {
-        sessionManager: {
-          getEntries: () => [runtimeEntry(latestState)],
-        },
-      } as never),
-    )
+      events.before_agent_start?.(
+        { systemPrompt: 'base' } as never,
+        {
+          sessionManager: {
+            getEntries: () => [runtimeEntry(latestState)],
+          },
+        } as never,
+      ),
+    );
 
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining("base\n\n[Brunch agent state]"),
-    })
+      systemPrompt: expect.stringContaining('base\n\n[Brunch agent state]'),
+    });
+    expect(result).toMatchObject({
+      systemPrompt: expect.stringContaining('Agent strategy: disambiguate-via-examples.'),
+    });
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining(
-        "Agent strategy: disambiguate-via-examples.",
+        'Brunch exposes only elicit-safe tools: read, grep, present_options.',
       ),
-    })
-    expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining(
-        "Brunch exposes only elicit-safe tools: read, grep, present_options.",
-      ),
-    })
-  })
+    });
+  });
 
-  it("derives prompt and active tools from the same transcript-backed runtime state", async () => {
-    const manager = new FakeRuntimeStateSessionManager()
-    const events: Record<string, Array<(
-      event: never,
-      ctx?: never,
-    ) => unknown>> = {}
-    const activeTools: string[][] = []
+  it('derives prompt and active tools from the same transcript-backed runtime state', async () => {
+    const manager = new FakeRuntimeStateSessionManager();
+    const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
+    const activeTools: string[][] = [];
 
     const pi = {
       on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
-        events[event] ??= []
-        events[event].push(handler)
+        events[event] ??= [];
+        events[event].push(handler);
       },
       registerTool: (_tool: { name: string }) => {},
       getAllTools: () =>
-        ["read", "grep", "bash", "edit", "write", "present_options"].map(
-          (name) => ({ name }),
-        ),
+        ['read', 'grep', 'bash', 'edit', 'write', 'present_options'].map((name) => ({ name })),
       setActiveTools: (tools: string[]) => activeTools.push(tools),
-    }
-    registerBrunchOperationalModePolicy(pi as never)
-    registerBrunchPrompting(pi as never)
+    };
+    registerBrunchOperationalModePolicy(pi as never);
+    registerBrunchPrompting(pi as never);
 
     for (const handler of events.session_start ?? []) {
-      await handler({} as never, { sessionManager: manager } as never)
+      await handler({} as never, { sessionManager: manager } as never);
     }
     const defaultPromptResults = await Promise.all(
       (events.before_agent_start ?? []).map((handler) =>
         Promise.resolve(
-          handler({ systemPrompt: "base" } as never, {
-            sessionManager: manager,
-          } as never),
+          handler(
+            { systemPrompt: 'base' } as never,
+            {
+              sessionManager: manager,
+            } as never,
+          ),
         ),
       ),
-    )
+    );
     const latestState: BrunchAgentState = {
       ...DEFAULT_BRUNCH_AGENT_STATE,
-      agentStrategy: "disambiguate-via-examples",
-      agentLens: "disambiguate-via-examples",
-    }
-    appendBrunchAgentRuntimeSwitch(manager, latestState, "user")
+      agentStrategy: 'disambiguate-via-examples',
+      agentLens: 'disambiguate-via-examples',
+    };
+    appendBrunchAgentRuntimeSwitch(manager, latestState, 'user');
     const switchedPromptResults = await Promise.all(
       (events.before_agent_start ?? []).map((handler) =>
         Promise.resolve(
-          handler({ systemPrompt: "base" } as never, {
-            sessionManager: manager,
-          } as never),
+          handler(
+            { systemPrompt: 'base' } as never,
+            {
+              sessionManager: manager,
+            } as never,
+          ),
         ),
       ),
-    )
-    const defaultPrompt = defaultPromptResults.find(Boolean)
-    const switchedPrompt = switchedPromptResults.find(Boolean)
+    );
+    const defaultPrompt = defaultPromptResults.find(Boolean);
+    const switchedPrompt = switchedPromptResults.find(Boolean);
 
-    expect(manager.entries[0]?.customType).toBe(
-      BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
-    )
+    expect(manager.entries[0]?.customType).toBe(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE);
     expect(activeTools).toEqual([
-      ["read", "grep", "present_options"],
-      ["read", "grep", "present_options"],
-      ["read", "grep", "present_options"],
-    ])
+      ['read', 'grep', 'present_options'],
+      ['read', 'grep', 'present_options'],
+      ['read', 'grep', 'present_options'],
+    ]);
     expect(defaultPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining("Agent strategy: step-by-step."),
-    })
+      systemPrompt: expect.stringContaining('Agent strategy: step-by-step.'),
+    });
     expect(switchedPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining(
-        "Agent strategy: disambiguate-via-examples.",
-      ),
-    })
-  })
+      systemPrompt: expect.stringContaining('Agent strategy: disambiguate-via-examples.'),
+    });
+  });
 
-  it("is registered by the explicit shell after operational-mode policy", async () => {
-    const eventNames: string[] = []
+  it('is registered by the explicit shell after operational-mode policy', async () => {
+    const eventNames: string[] = [];
 
     await createBrunchPiExtensionShell(
       {
-        cwd: "/tmp/brunch",
-        chatMode: "interactive",
-        phase: "ready",
-        spec: { id: "spec-1", title: "Spec" },
-        session: { id: "session-1", label: "Session" },
+        cwd: '/tmp/brunch',
+        chatMode: 'interactive',
+        phase: 'ready',
+        spec: { id: 'spec-1', title: 'Spec' },
+        session: { id: 'session-1', label: 'Session' },
       },
       undefined,
       {
@@ -223,43 +215,34 @@ describe("Brunch prompt-pack topology", () => {
       registerShortcut() {},
       registerMessageRenderer() {},
       sendMessage() {},
-      getAllTools: () => ["read", "bash", "write"].map((name) => ({ name })),
+      getAllTools: () => ['read', 'bash', 'write'].map((name) => ({ name })),
       setActiveTools() {},
-    } as never)
+    } as never);
 
-    const operationalToolPolicyIndex = eventNames.indexOf("tool_call")
-    const userBashPolicyIndex = eventNames.indexOf("user_bash")
-    const promptingIndex = eventNames.indexOf(
-      "before_agent_start",
-      userBashPolicyIndex + 1,
-    )
-    const nextBeforeAgentStartIndex = eventNames.indexOf(
-      "before_agent_start",
-      promptingIndex + 1,
-    )
+    const operationalToolPolicyIndex = eventNames.indexOf('tool_call');
+    const userBashPolicyIndex = eventNames.indexOf('user_bash');
+    const promptingIndex = eventNames.indexOf('before_agent_start', userBashPolicyIndex + 1);
+    const nextBeforeAgentStartIndex = eventNames.indexOf('before_agent_start', promptingIndex + 1);
 
-    expect(operationalToolPolicyIndex).toBeGreaterThan(-1)
-    expect(userBashPolicyIndex).toBeGreaterThan(operationalToolPolicyIndex)
-    expect(promptingIndex).toBeGreaterThan(userBashPolicyIndex)
-    expect(promptingIndex).toBeLessThan(nextBeforeAgentStartIndex)
-  })
+    expect(operationalToolPolicyIndex).toBeGreaterThan(-1);
+    expect(userBashPolicyIndex).toBeGreaterThan(operationalToolPolicyIndex);
+    expect(promptingIndex).toBeGreaterThan(userBashPolicyIndex);
+    expect(promptingIndex).toBeLessThan(nextBeforeAgentStartIndex);
+  });
 
-  it("does not expose private prompt packs through Pi resource discovery", async () => {
+  it('does not expose private prompt packs through Pi resource discovery', async () => {
     const [promptingSource, composerSource] = await Promise.all([
-      readFile(join(projectRoot(), "src/.pi/extensions/prompting.ts"), "utf8"),
-      readFile(
-        join(projectRoot(), "src/.pi/context/compose-brunch-prompt.ts"),
-        "utf8",
-      ),
-    ])
+      readFile(join(projectRoot(), 'src/.pi/extensions/prompting.ts'), 'utf8'),
+      readFile(join(projectRoot(), 'src/.pi/context/compose-brunch-prompt.ts'), 'utf8'),
+    ]);
 
-    expect(promptingSource).not.toContain("resources_discover")
-    expect(promptingSource).not.toContain("promptPaths")
-    expect(composerSource).not.toContain("resources_discover")
-    expect(composerSource).not.toContain("promptPaths")
-  })
-})
+    expect(promptingSource).not.toContain('resources_discover');
+    expect(promptingSource).not.toContain('promptPaths');
+    expect(composerSource).not.toContain('resources_discover');
+    expect(composerSource).not.toContain('promptPaths');
+  });
+});
 
 function projectRoot(): string {
-  return dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))))
+  return dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 }

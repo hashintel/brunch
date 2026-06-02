@@ -17,7 +17,7 @@
  * with subsequent M4 slices.
  */
 
-import type { EdgeId, Lsn, NodeId } from "../atoms.js"
+import type { EdgeId, Lsn, NodeId } from '../atoms.js';
 
 /**
  * What sort of impasse this need records.
@@ -25,7 +25,11 @@ import type { EdgeId, Lsn, NodeId } from "../atoms.js"
  * Open extension — new kinds may be added as concrete needs surface.
  * Most needs are `edge_revalidation`.
  */
-export type ReconciliationNeedKind = "edge_revalidation" | "possible_relation" | "possible_duplicate" | "semantic_conflict"
+export type ReconciliationNeedKind =
+  | 'edge_revalidation'
+  | 'possible_relation'
+  | 'possible_duplicate'
+  | 'semantic_conflict';
 
 /**
  * What this need is about.
@@ -37,20 +41,22 @@ export type ReconciliationNeedKind = "edge_revalidation" | "possible_relation" |
  * duplicate, possible relation). When such a need resolves to
  * "yes, edge exists," create the edge and close the need.
  */
-export type ReconciliationNeedTarget = {
-  readonly kind: "edge"
-  readonly edgeId: EdgeId
-} | {
-  readonly kind: "node_pair"
-  readonly aId: NodeId
-  readonly bId: NodeId
-}
+export type ReconciliationNeedTarget =
+  | {
+      readonly kind: 'edge';
+      readonly edgeId: EdgeId;
+    }
+  | {
+      readonly kind: 'node_pair';
+      readonly aId: NodeId;
+      readonly bId: NodeId;
+    };
 
 export interface ReconciliationNeed {
-  readonly id: string
-  readonly kind: ReconciliationNeedKind
-  readonly target: ReconciliationNeedTarget
-  readonly rationale?: string
-  readonly createdAtLsn: Lsn
-  readonly resolvedAtLsn?: Lsn
+  readonly id: string;
+  readonly kind: ReconciliationNeedKind;
+  readonly target: ReconciliationNeedTarget;
+  readonly rationale?: string;
+  readonly createdAtLsn: Lsn;
+  readonly resolvedAtLsn?: Lsn;
 }

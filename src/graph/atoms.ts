@@ -9,10 +9,10 @@
  */
 
 /** Stable id for a graph node (SQLite auto-increment integer). */
-export type NodeId = number
+export type NodeId = number;
 
 /** Stable id for a graph edge (SQLite auto-increment integer). */
-export type EdgeId = number
+export type EdgeId = number;
 
 /** Monotonic logical sequence number; one per CommandExecutor commit. */
-export type Lsn = number
+export type Lsn = number;

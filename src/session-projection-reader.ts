@@ -1,86 +1,81 @@
-import { readdir } from "node:fs/promises"
-import { join, resolve } from "node:path"
+import { readdir } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 
-import {
-  readBrunchSessionEnvelope,
-  type BrunchSessionEnvelope,
-} from "./brunch-session-envelope.js"
+import { readBrunchSessionEnvelope, type BrunchSessionEnvelope } from './brunch-session-envelope.js';
 
 export interface ExplicitSessionProjectionParams {
-  sessionId: string
-  specId?: string
+  sessionId: string;
+  specId?: string;
 }
 
-export type SessionProjectionTarget = {
-  ok: true
-  envelope: BrunchSessionEnvelope
-  nonLinearMessage: string
-} | {
-  ok: false
-  code: number
-  message: string
-}
+export type SessionProjectionTarget =
+  | {
+      ok: true;
+      envelope: BrunchSessionEnvelope;
+      nonLinearMessage: string;
+    }
+  | {
+      ok: false;
+      code: number;
+      message: string;
+    };
 
 export async function resolveExplicitSessionProjectionTarget(
   cwd: string,
   params: ExplicitSessionProjectionParams,
 ): Promise<SessionProjectionTarget> {
-  const files = await listSessionFiles(cwd)
+  const files = await listSessionFiles(cwd);
   for (const file of files) {
-    const readResult = await readBrunchSessionEnvelope(file)
+    const readResult = await readBrunchSessionEnvelope(file);
     if (!sessionIds(readResult).includes(params.sessionId)) {
-      continue
+      continue;
     }
     if (!readResult.ok) {
-      return invalidSessionSelfDescription()
+      return invalidSessionSelfDescription();
     }
 
-    const binding = readResult.envelope.binding
+    const binding = readResult.envelope.binding;
     if (params.specId && binding.specId !== params.specId) {
       return {
         ok: false,
         code: -32003,
-        message: "Brunch session does not belong to requested spec",
-      }
+        message: 'Brunch session does not belong to requested spec',
+      };
     }
     return {
       ok: true,
       envelope: readResult.envelope,
-      nonLinearMessage: "Brunch session transcript is non-linear",
-    }
+      nonLinearMessage: 'Brunch session transcript is non-linear',
+    };
   }
 
-  return { ok: false, code: -32004, message: "Brunch session not found" }
+  return { ok: false, code: -32004, message: 'Brunch session not found' };
 }
 
-function sessionIds(
-  readResult: Awaited<ReturnType<typeof readBrunchSessionEnvelope>>,
-): string[] {
-  return readResult.ok
-    ? [readResult.envelope.binding.sessionId]
-    : readResult.observedSessionIds
+function sessionIds(readResult: Awaited<ReturnType<typeof readBrunchSessionEnvelope>>): string[] {
+  return readResult.ok ? [readResult.envelope.binding.sessionId] : readResult.observedSessionIds;
 }
 
 function invalidSessionSelfDescription(): SessionProjectionTarget {
   return {
     ok: false,
     code: -32005,
-    message: "Brunch session self-description is invalid",
-  }
+    message: 'Brunch session self-description is invalid',
+  };
 }
 
 async function listSessionFiles(cwd: string): Promise<string[]> {
-  const sessionRoot = join(resolve(cwd), ".brunch", "sessions")
+  const sessionRoot = join(resolve(cwd), '.brunch', 'sessions');
   try {
-    const entries = await readdir(sessionRoot, { withFileTypes: true })
+    const entries = await readdir(sessionRoot, { withFileTypes: true });
     return entries
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".jsonl"))
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
       .map((entry) => join(sessionRoot, entry.name))
-      .sort()
+      .sort();
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return []
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return [];
     }
-    throw error
+    throw error;
   }
 }

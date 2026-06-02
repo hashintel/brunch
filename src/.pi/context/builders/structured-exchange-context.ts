@@ -1,9 +1,7 @@
 export interface StructuredExchangeContextSnapshot {
-  pendingExchangeId?: string
+  pendingExchangeId?: string;
 }
 
-export function renderStructuredExchangeContext(
-  _snapshot?: StructuredExchangeContextSnapshot,
-): string {
-  return ""
+export function renderStructuredExchangeContext(_snapshot?: StructuredExchangeContextSnapshot): string {
+  return '';
 }

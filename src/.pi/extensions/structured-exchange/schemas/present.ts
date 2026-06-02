@@ -1,6 +1,6 @@
-import * as z from "zod"
+import * as z from 'zod';
 
-import { zGraphNodeRef, zMarkdown, zPresentDetailsHeader } from "./shared.js"
+import { zGraphNodeRef, zMarkdown, zPresentDetailsHeader } from './shared.js';
 
 export const zPresentDisplay = z
   .object({
@@ -8,28 +8,27 @@ export const zPresentDisplay = z
     body: zMarkdown.optional(),
     preface: zMarkdown.optional(),
   })
-  .strict()
-export type PresentDisplay = z.infer<typeof zPresentDisplay>
+  .strict();
+export type PresentDisplay = z.infer<typeof zPresentDisplay>;
 export const PresentDisplaySchema = z.toJSONSchema(zPresentDisplay, {
-  unrepresentable: "throw",
-})
+  unrepresentable: 'throw',
+});
 
 export const zPresentQuestionDetails = zPresentDetailsHeader
   .extend({
     tool_meta: z
       .object({
-        curr: z.literal("present_question"),
-        next: z.literal("request_answer"),
+        curr: z.literal('present_question'),
+        next: z.literal('request_answer'),
       })
       .strict(),
     display: zPresentDisplay,
   })
-  .strict()
-export type PresentQuestionDetails = z.infer<typeof zPresentQuestionDetails>
-export const PresentQuestionDetailsSchema = z.toJSONSchema(
-  zPresentQuestionDetails,
-  { unrepresentable: "throw" },
-)
+  .strict();
+export type PresentQuestionDetails = z.infer<typeof zPresentQuestionDetails>;
+export const PresentQuestionDetailsSchema = z.toJSONSchema(zPresentQuestionDetails, {
+  unrepresentable: 'throw',
+});
 
 export const zPresentOption = z
   .object({
@@ -37,36 +36,35 @@ export const zPresentOption = z
     content: zMarkdown,
     rationale: zMarkdown.optional(),
   })
-  .strict()
-export type PresentOption = z.infer<typeof zPresentOption>
+  .strict();
+export type PresentOption = z.infer<typeof zPresentOption>;
 export const PresentOptionSchema = z.toJSONSchema(zPresentOption, {
-  unrepresentable: "throw",
-})
+  unrepresentable: 'throw',
+});
 
 export const zPresentOptionsDetails = zPresentDetailsHeader
   .extend({
     tool_meta: z
       .object({
-        curr: z.literal("present_options"),
-        next: z.enum(["request_choice", "request_choices"]),
+        curr: z.literal('present_options'),
+        next: z.enum(['request_choice', 'request_choices']),
       })
       .strict(),
     display: zPresentDisplay,
     options: z.array(zPresentOption).min(1),
   })
-  .strict()
-export type PresentOptionsDetails = z.infer<typeof zPresentOptionsDetails>
-export const PresentOptionsDetailsSchema = z.toJSONSchema(
-  zPresentOptionsDetails,
-  { unrepresentable: "throw" },
-)
+  .strict();
+export type PresentOptionsDetails = z.infer<typeof zPresentOptionsDetails>;
+export const PresentOptionsDetailsSchema = z.toJSONSchema(zPresentOptionsDetails, {
+  unrepresentable: 'throw',
+});
 
 export const zPresentReviewSetDetails = zPresentDetailsHeader
   .extend({
     tool_meta: z
       .object({
-        curr: z.literal("present_review_set"),
-        next: z.literal("request_review"),
+        curr: z.literal('present_review_set'),
+        next: z.literal('request_review'),
       })
       .strict(),
     display: zPresentDisplay,
@@ -76,12 +74,11 @@ export const zPresentReviewSetDetails = zPresentDetailsHeader
       })
       .strict(),
   })
-  .strict()
-export type PresentReviewSetDetails = z.infer<typeof zPresentReviewSetDetails>
-export const PresentReviewSetDetailsSchema = z.toJSONSchema(
-  zPresentReviewSetDetails,
-  { unrepresentable: "throw" },
-)
+  .strict();
+export type PresentReviewSetDetails = z.infer<typeof zPresentReviewSetDetails>;
+export const PresentReviewSetDetailsSchema = z.toJSONSchema(zPresentReviewSetDetails, {
+  unrepresentable: 'throw',
+});
 
 export const zCandidateUserRubric = z
   .object({
@@ -93,11 +90,11 @@ export const zCandidateUserRubric = z
     lock_in_constraints: zMarkdown,
     recommendation: zMarkdown.optional(),
   })
-  .strict()
-export type CandidateUserRubric = z.infer<typeof zCandidateUserRubric>
+  .strict();
+export type CandidateUserRubric = z.infer<typeof zCandidateUserRubric>;
 export const CandidateUserRubricSchema = z.toJSONSchema(zCandidateUserRubric, {
-  unrepresentable: "throw",
-})
+  unrepresentable: 'throw',
+});
 
 export const zCandidateMetaRubric = z
   .object({
@@ -106,11 +103,11 @@ export const zCandidateMetaRubric = z
     coverage_range: zMarkdown.optional(),
     commitment: zMarkdown.optional(),
   })
-  .strict()
-export type CandidateMetaRubric = z.infer<typeof zCandidateMetaRubric>
+  .strict();
+export type CandidateMetaRubric = z.infer<typeof zCandidateMetaRubric>;
 export const CandidateMetaRubricSchema = z.toJSONSchema(zCandidateMetaRubric, {
-  unrepresentable: "throw",
-})
+  unrepresentable: 'throw',
+});
 
 export const zPresentedCandidate = z
   .object({
@@ -120,18 +117,18 @@ export const zPresentedCandidate = z
     meta_rubric: zCandidateMetaRubric,
     graph_refs: z.array(zGraphNodeRef),
   })
-  .strict()
-export type PresentedCandidate = z.infer<typeof zPresentedCandidate>
+  .strict();
+export type PresentedCandidate = z.infer<typeof zPresentedCandidate>;
 export const PresentedCandidateSchema = z.toJSONSchema(zPresentedCandidate, {
-  unrepresentable: "throw",
-})
+  unrepresentable: 'throw',
+});
 
 export const zPresentCandidatesDetails = zPresentDetailsHeader
   .extend({
     tool_meta: z
       .object({
-        curr: z.literal("present_candidates"),
-        next: z.literal("request_choice"),
+        curr: z.literal('present_candidates'),
+        next: z.literal('request_choice'),
       })
       .strict(),
     display: z
@@ -142,20 +139,19 @@ export const zPresentCandidatesDetails = zPresentDetailsHeader
       .strict(),
     candidates: z.array(zPresentedCandidate).min(1),
   })
-  .strict()
-export type PresentCandidatesDetails = z.infer<typeof zPresentCandidatesDetails>
-export const PresentCandidatesDetailsSchema = z.toJSONSchema(
-  zPresentCandidatesDetails,
-  { unrepresentable: "throw" },
-)
+  .strict();
+export type PresentCandidatesDetails = z.infer<typeof zPresentCandidatesDetails>;
+export const PresentCandidatesDetailsSchema = z.toJSONSchema(zPresentCandidatesDetails, {
+  unrepresentable: 'throw',
+});
 
 export const zPresentDetails = z.union([
   zPresentQuestionDetails,
   zPresentOptionsDetails,
   zPresentReviewSetDetails,
   zPresentCandidatesDetails,
-])
-export type PresentDetails = z.infer<typeof zPresentDetails>
+]);
+export type PresentDetails = z.infer<typeof zPresentDetails>;
 export const PresentDetailsSchema = z.toJSONSchema(zPresentDetails, {
-  unrepresentable: "throw",
-})
+  unrepresentable: 'throw',
+});

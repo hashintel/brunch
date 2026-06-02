@@ -1,72 +1,72 @@
 {
-	"name": "brunch-next",
-	"version": "0.0.0",
-	"description": "Brunch — opinionated specification-workspace product over pi-coding-agent.",
-	"private": true,
-	"type": "module",
-	"main": "./dist/brunch.js",
-	"types": "./dist/brunch.d.ts",
-	"bin": {
-		"brunch-next": "./bin/brunch.js"
-	},
-	"files": [
-		"dist",
-		"dist-web",
-		"bin",
-		"assets"
-	],
-	"scripts": {
-		"dev": "tsx src/brunch.ts",
-		"build": "tsc -p tsconfig.build.json && npm run build:pi-assets && npm run build:web",
-		"build:pi-assets": "mkdir -p dist/.pi/components/workspace-dialog dist/.pi/context/prompt-packs && cp -R src/.pi/components/workspace-dialog/assets dist/.pi/components/workspace-dialog/ && cp src/.pi/context/prompt-packs/*.md dist/.pi/context/prompt-packs/",
-		"build:web": "vite build",
-		"test": "vitest --run",
-		"test:watch": "vitest",
-		"lint": "oxlint",
-		"lint:fix": "oxlint --fix",
-		"fmt": "oxfmt",
-		"fmt:check": "oxfmt --check",
-		"fix": "npm run lint:fix && npm run fmt",
-		"check": "npm run fmt:check && npm run lint && npm run typecheck",
-		"verify": "npm run check && npm run test && npm run build",
-		"typecheck": "tsc -p tsconfig.json"
-	},
-	"dependencies": {
-		"@earendil-works/pi-coding-agent": "^0.75.3",
-		"@earendil-works/pi-tui": "^0.75.4",
-		"@tanstack/react-query": "^5.100.11",
-		"@tanstack/react-router": "^1.170.6",
-		"react": "^19.2.6",
-		"react-dom": "^19.2.6",
-		"ws": "^8.20.1",
-		"zod": "^4.4.3"
-	},
-	"devDependencies": {
-		"@sinclair/typebox": "^0.34.14",
-		"@testing-library/dom": "^10.4.1",
-		"@testing-library/react": "^16.3.2",
-		"@types/better-sqlite3": "^7.6.13",
-		"@types/node": "^22.10.0",
-		"@types/react": "^19.2.15",
-		"@types/react-dom": "^19.2.3",
-		"@types/ws": "^8.18.1",
-		"@vitejs/plugin-react": "^4.7.0",
-		"better-sqlite3": "^12.8.0",
-		"drizzle-kit": "^0.18.1",
-		"drizzle-orm": "^0.45.2",
-		"drizzle-typebox": "^0.3.3",
-		"jsdom": "^29.1.1",
-		"oxfmt": "latest",
-		"oxlint": "latest",
-		"tsx": "^4.19.0",
-		"typescript": "^5.7.0",
-		"vite": "^8.0.16",
-		"vitest": "^4.1.8"
-	},
-	"engines": {
-		"node": ">=20"
-	},
-	"allowScripts": {
-		"better-sqlite3@12.8.0": true
-	}
+  "name": "brunch-next",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Brunch — opinionated specification-workspace product over pi-coding-agent.",
+  "bin": {
+    "brunch-next": "./bin/brunch.js"
+  },
+  "files": [
+    "dist",
+    "dist-web",
+    "bin",
+    "assets"
+  ],
+  "type": "module",
+  "main": "./dist/brunch.js",
+  "types": "./dist/brunch.d.ts",
+  "scripts": {
+    "dev": "tsx src/brunch.ts",
+    "build": "tsc -p tsconfig.build.json && npm run build:pi-assets && npm run build:web",
+    "build:pi-assets": "mkdir -p dist/.pi/components/workspace-dialog dist/.pi/context/prompt-packs && cp -R src/.pi/components/workspace-dialog/assets dist/.pi/components/workspace-dialog/ && cp src/.pi/context/prompt-packs/*.md dist/.pi/context/prompt-packs/",
+    "build:web": "vite build",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "fix": "npm run lint:fix && npm run fmt",
+    "check": "npm run fmt:check && npm run lint && npm run typecheck",
+    "verify": "npm run check && npm run test && npm run build",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.75.3",
+    "@earendil-works/pi-tui": "^0.75.4",
+    "@tanstack/react-query": "^5.100.11",
+    "@tanstack/react-router": "^1.170.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "ws": "^8.20.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@sinclair/typebox": "^0.34.14",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^4.7.0",
+    "better-sqlite3": "^12.8.0",
+    "drizzle-kit": "^0.18.1",
+    "drizzle-orm": "^0.45.2",
+    "drizzle-typebox": "^0.3.3",
+    "jsdom": "^29.1.1",
+    "oxfmt": "latest",
+    "oxlint": "latest",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.8.0": true
+  }
 }

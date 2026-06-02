@@ -1,22 +1,22 @@
 {
-	"$schema": "./node_modules/oxfmt/configuration_schema.json",
-	"printWidth": 110,
-	"singleQuote": true,
-	"sortImports": true,
-	"sortPackageJson": true,
-	"sortTailwindcss": true,
-	"ignorePatterns": [
-		".agents/**",
-		".github/**",
-		".claude/**",
-		"*.md",
-		"docs/**",
-		"memory/**",
-		".fixtures/**",
-		"@types/**",
-		"tmp/**",
-		"dist-web/**",
-		"bin/**",
-		"dist/**"
-	]
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 110,
+  "singleQuote": true,
+  "sortImports": true,
+  "sortPackageJson": true,
+  "sortTailwindcss": true,
+  "ignorePatterns": [
+    ".agents/**",
+    ".github/**",
+    ".claude/**",
+    "*.md",
+    "docs/**",
+    "memory/**",
+    ".fixtures/**",
+    "@types/**",
+    "tmp/**",
+    "dist-web/**",
+    "bin/**",
+    "dist/**"
+  ]
 }

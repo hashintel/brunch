@@ -8,7 +8,7 @@
  * M4 skeleton: CommandExecutor + result types.
  */
 
-export type { EdgeId, Lsn, NodeId } from "./atoms.js"
+export type { EdgeId, Lsn, NodeId } from './atoms.js';
 
 // Re-export shared enum const arrays so extensions can build
 // tool parameter schemas without importing db/ directly (I26-L).
@@ -20,14 +20,9 @@ export {
   DESIGN_KINDS,
   PLAN_KINDS,
   NODE_BASES,
-} from "../db/schema.js"
+} from '../db/schema.js';
 
-export type {
-  EdgeBasis,
-  EdgeCategory,
-  EdgeStance,
-  GraphEdge,
-} from "./schema/edges.js"
+export type { EdgeBasis, EdgeCategory, EdgeStance, GraphEdge } from './schema/edges.js';
 
 export type {
   DecisionDetail,
@@ -42,37 +37,33 @@ export type {
   OracleKind,
   PlanKind,
   TermDetail,
-} from "./schema/nodes.js"
+} from './schema/nodes.js';
 
-export { intentKindCategory } from "./schema/nodes.js"
+export { intentKindCategory } from './schema/nodes.js';
 
 export type {
   ReconciliationNeed,
   ReconciliationNeedKind,
   ReconciliationNeedTarget,
-} from "./schema/reconciliation-need.js"
+} from './schema/reconciliation-need.js';
 
 export {
   CATEGORY_POLICY,
   type CategoryPolicy,
   type ProjectionEffect,
   type ReconNeedTrigger,
-} from "./policy/category-policy.js"
+} from './policy/category-policy.js';
 
-export {
-  getGraphOverview,
-  getNodeNeighborhood,
-  getOpenReconciliationNeeds,
-} from "./snapshot.js"
+export { getGraphOverview, getNodeNeighborhood, getOpenReconciliationNeeds } from './snapshot.js';
 export type {
   GraphOverview,
   NeighborhoodOptions,
   NeighborhoodNotFound,
   NeighborhoodResult,
   NeighborhoodSuccess,
-} from "./snapshot.js"
+} from './snapshot.js';
 
-export { CommandExecutor } from "./command-executor.js"
+export { CommandExecutor } from './command-executor.js';
 export type {
   BatchEdgeInput,
   BatchEdgeRef,
@@ -95,4 +86,4 @@ export type {
   ResolveReconNeedResult,
   StructuralIllegal,
   VersionConflict,
-} from "./command-executor.js"
+} from './command-executor.js';

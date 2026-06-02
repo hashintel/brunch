@@ -15,12 +15,8 @@ import type {
   ThinkingContent,
   ToolCall,
   UserMessage,
-} from "@earendil-works/pi-ai"
-import type {
-  CustomEntry,
-  CustomMessageEntry,
-  SessionEntry,
-} from "@earendil-works/pi-coding-agent"
+} from '@earendil-works/pi-ai';
+import type { CustomEntry, CustomMessageEntry, SessionEntry } from '@earendil-works/pi-coding-agent';
 
 const ZERO_USAGE = {
   input: 0,
@@ -29,13 +25,10 @@ const ZERO_USAGE = {
   cacheWrite: 0,
   totalTokens: 0,
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-} as const
+} as const;
 
-export function userMessage(
-  content: string | (TextContent | ImageContent)[],
-  timestamp = 0,
-): UserMessage {
-  return { role: "user", content, timestamp }
+export function userMessage(content: string | (TextContent | ImageContent)[], timestamp = 0): UserMessage {
+  return { role: 'user', content, timestamp };
 }
 
 export function assistantMessage(
@@ -43,25 +36,23 @@ export function assistantMessage(
   timestamp = 0,
 ): AssistantMessage {
   const content: (TextContent | ThinkingContent | ToolCall)[] =
-    typeof text === "string" ? [{ type: "text", text }] : text
+    typeof text === 'string' ? [{ type: 'text', text }] : text;
   return {
-    role: "assistant",
+    role: 'assistant',
     content,
-    api: "openai-completions",
-    provider: "openai",
-    model: "test-model",
+    api: 'openai-completions',
+    provider: 'openai',
+    model: 'test-model',
     usage: { ...ZERO_USAGE, cost: { ...ZERO_USAGE.cost } },
-    stopReason: "stop",
+    stopReason: 'stop',
     timestamp,
-  }
+  };
 }
 
 export function isCustomEntry(entry: SessionEntry): entry is CustomEntry {
-  return entry.type === "custom"
+  return entry.type === 'custom';
 }
 
-export function isCustomMessageEntry(
-  entry: SessionEntry,
-): entry is CustomMessageEntry {
-  return entry.type === "custom_message"
+export function isCustomMessageEntry(entry: SessionEntry): entry is CustomMessageEntry {
+  return entry.type === 'custom_message';
 }

@@ -1,275 +1,233 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from 'vitest';
 
-import { JsonRpcClientError, createWebSocketRpcClient } from "./rpc-client.js"
+import { JsonRpcClientError, createWebSocketRpcClient } from './rpc-client.js';
 
-type Listener = (event: { data?: string }) => void
+type Listener = (event: { data?: string }) => void;
 
 class FakeWebSocket {
-  static instances: FakeWebSocket[] = []
+  static instances: FakeWebSocket[] = [];
 
-  readonly sent: string[] = []
-  readonly listeners = new Map<string, Listener[]>()
-  closed = false
+  readonly sent: string[] = [];
+  readonly listeners = new Map<string, Listener[]>();
+  closed = false;
 
   constructor(readonly url: string) {
-    FakeWebSocket.instances.push(this)
+    FakeWebSocket.instances.push(this);
   }
 
   send(message: string) {
-    this.sent.push(message)
+    this.sent.push(message);
   }
 
   close() {
-    this.closed = true
+    this.closed = true;
   }
 
   addEventListener(event: string, listener: Listener) {
-    const listeners = this.listeners.get(event) ?? []
-    listeners.push(listener)
-    this.listeners.set(event, listeners)
+    const listeners = this.listeners.get(event) ?? [];
+    listeners.push(listener);
+    this.listeners.set(event, listeners);
   }
 
   emit(event: string, data?: string) {
     for (const listener of this.listeners.get(event) ?? []) {
-      listener(data === undefined ? {} : { data })
+      listener(data === undefined ? {} : { data });
     }
   }
 }
 
 function rpcClient() {
-  FakeWebSocket.instances = []
+  FakeWebSocket.instances = [];
   return createWebSocketRpcClient({
-    url: "ws://brunch.test/rpc",
+    url: 'ws://brunch.test/rpc',
     WebSocketImpl: FakeWebSocket,
-  })
+  });
 }
 
-describe("browser WebSocket RPC client", () => {
-  it("opens one persistent socket and queues requests until open", async () => {
-    const client = rpcClient()
-    const first = client.request("workspace.snapshot")
-    const second = client.request("session.elicitationExchanges")
+describe('browser WebSocket RPC client', () => {
+  it('opens one persistent socket and queues requests until open', async () => {
+    const client = rpcClient();
+    const first = client.request('workspace.snapshot');
+    const second = client.request('session.elicitationExchanges');
 
-    expect(FakeWebSocket.instances).toHaveLength(1)
-    const socket = FakeWebSocket.instances[0]!
-    expect(socket.sent).toHaveLength(0)
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    const socket = FakeWebSocket.instances[0]!;
+    expect(socket.sent).toHaveLength(0);
 
-    socket.emit("open")
+    socket.emit('open');
 
-    expect(socket.sent).toHaveLength(2)
+    expect(socket.sent).toHaveLength(2);
+    socket.emit('message', JSON.stringify({ jsonrpc: '2.0', id: 1, result: 'first' }));
+    socket.emit('message', JSON.stringify({ jsonrpc: '2.0', id: 2, result: 'second' }));
+    await expect(first).resolves.toBe('first');
+    await expect(second).resolves.toBe('second');
+  });
+
+  it('resolves concurrent requests by response id, not response order', async () => {
+    const client = rpcClient();
+    const first = client.request('workspace.snapshot');
+    const second = client.request('workspace.snapshot');
+    const socket = FakeWebSocket.instances[0]!;
+
+    socket.emit('open');
+    socket.emit('message', JSON.stringify({ jsonrpc: '2.0', id: 2, result: 'second' }));
+    socket.emit('message', JSON.stringify({ jsonrpc: '2.0', id: 1, result: 'first' }));
+
+    await expect(first).resolves.toBe('first');
+    await expect(second).resolves.toBe('second');
+  });
+
+  it('delivers JSON-RPC notifications without disturbing pending requests', async () => {
+    const client = rpcClient();
+    const notifications: unknown[] = [];
+    client.subscribe((notification) => notifications.push(notification));
+    const request = client.request('workspace.snapshot');
+    const socket = FakeWebSocket.instances[0]!;
+
+    socket.emit('open');
     socket.emit(
-      "message",
-      JSON.stringify({ jsonrpc: "2.0", id: 1, result: "first" }),
-    )
-    socket.emit(
-      "message",
-      JSON.stringify({ jsonrpc: "2.0", id: 2, result: "second" }),
-    )
-    await expect(first).resolves.toBe("first")
-    await expect(second).resolves.toBe("second")
-  })
-
-  it("resolves concurrent requests by response id, not response order", async () => {
-    const client = rpcClient()
-    const first = client.request("workspace.snapshot")
-    const second = client.request("workspace.snapshot")
-    const socket = FakeWebSocket.instances[0]!
-
-    socket.emit("open")
-    socket.emit(
-      "message",
-      JSON.stringify({ jsonrpc: "2.0", id: 2, result: "second" }),
-    )
-    socket.emit(
-      "message",
-      JSON.stringify({ jsonrpc: "2.0", id: 1, result: "first" }),
-    )
-
-    await expect(first).resolves.toBe("first")
-    await expect(second).resolves.toBe("second")
-  })
-
-  it("delivers JSON-RPC notifications without disturbing pending requests", async () => {
-    const client = rpcClient()
-    const notifications: unknown[] = []
-    client.subscribe((notification) => notifications.push(notification))
-    const request = client.request("workspace.snapshot")
-    const socket = FakeWebSocket.instances[0]!
-
-    socket.emit("open")
-    socket.emit(
-      "message",
+      'message',
       JSON.stringify({
-        jsonrpc: "2.0",
-        method: "brunch.updated",
-        params: { topics: ["session.transcriptDisplay"] },
+        jsonrpc: '2.0',
+        method: 'brunch.updated',
+        params: { topics: ['session.transcriptDisplay'] },
       }),
-    )
-    socket.emit(
-      "message",
-      JSON.stringify({ jsonrpc: "2.0", id: 1, result: "snapshot" }),
-    )
+    );
+    socket.emit('message', JSON.stringify({ jsonrpc: '2.0', id: 1, result: 'snapshot' }));
 
-    await expect(request).resolves.toBe("snapshot")
+    await expect(request).resolves.toBe('snapshot');
     expect(notifications).toEqual([
       {
-        jsonrpc: "2.0",
-        method: "brunch.updated",
-        params: { topics: ["session.transcriptDisplay"] },
+        jsonrpc: '2.0',
+        method: 'brunch.updated',
+        params: { topics: ['session.transcriptDisplay'] },
       },
-    ])
-  })
+    ]);
+  });
 
-  it("unsubscribes notification listeners", () => {
-    const client = rpcClient()
-    const notifications: unknown[] = []
-    const unsubscribe = client.subscribe((notification) =>
-      notifications.push(notification),
-    )
-    const socket = FakeWebSocket.instances[0]!
+  it('unsubscribes notification listeners', () => {
+    const client = rpcClient();
+    const notifications: unknown[] = [];
+    const unsubscribe = client.subscribe((notification) => notifications.push(notification));
+    const socket = FakeWebSocket.instances[0]!;
 
-    socket.emit("open")
-    unsubscribe()
+    socket.emit('open');
+    unsubscribe();
+    socket.emit('message', JSON.stringify({ jsonrpc: '2.0', method: 'brunch.updated' }));
+
+    expect(notifications).toEqual([]);
+  });
+
+  it('rejects JSON-RPC failures with code and message', async () => {
+    const client = rpcClient();
+    const request = client.request('workspace.snapshot');
+    const socket = FakeWebSocket.instances[0]!;
+
+    socket.emit('open');
     socket.emit(
-      "message",
-      JSON.stringify({ jsonrpc: "2.0", method: "brunch.updated" }),
-    )
-
-    expect(notifications).toEqual([])
-  })
-
-  it("rejects JSON-RPC failures with code and message", async () => {
-    const client = rpcClient()
-    const request = client.request("workspace.snapshot")
-    const socket = FakeWebSocket.instances[0]!
-
-    socket.emit("open")
-    socket.emit(
-      "message",
+      'message',
       JSON.stringify({
-        jsonrpc: "2.0",
+        jsonrpc: '2.0',
         id: 1,
-        error: { code: -32603, message: "Internal error" },
+        error: { code: -32603, message: 'Internal error' },
       }),
-    )
+    );
 
     await expect(request).rejects.toMatchObject({
-      name: "JsonRpcClientError",
+      name: 'JsonRpcClientError',
       code: -32603,
-      message: "Internal error",
-    } satisfies Partial<JsonRpcClientError>)
-  })
+      message: 'Internal error',
+    } satisfies Partial<JsonRpcClientError>);
+  });
 
-  it("rejects all pending requests and later calls on malformed response frames", async () => {
-    const client = rpcClient()
-    const first = client.request("workspace.snapshot")
-    const second = client.request("session.elicitationExchanges")
-    const socket = FakeWebSocket.instances[0]!
+  it('rejects all pending requests and later calls on malformed response frames', async () => {
+    const client = rpcClient();
+    const first = client.request('workspace.snapshot');
+    const second = client.request('session.elicitationExchanges');
+    const socket = FakeWebSocket.instances[0]!;
 
-    socket.emit("open")
-    socket.emit("message", "not json")
+    socket.emit('open');
+    socket.emit('message', 'not json');
 
-    await expect(first).rejects.toThrow("Brunch WebSocket RPC protocol failure")
-    await expect(second).rejects.toThrow(
-      "Brunch WebSocket RPC protocol failure",
-    )
-    await expect(client.request("workspace.snapshot")).rejects.toThrow(
-      "Brunch WebSocket RPC protocol failure",
-    )
-  })
+    await expect(first).rejects.toThrow('Brunch WebSocket RPC protocol failure');
+    await expect(second).rejects.toThrow('Brunch WebSocket RPC protocol failure');
+    await expect(client.request('workspace.snapshot')).rejects.toThrow(
+      'Brunch WebSocket RPC protocol failure',
+    );
+  });
 
-  it("rejects all pending requests and later calls on invalid response frames", async () => {
-    const client = rpcClient()
-    const first = client.request("workspace.snapshot")
-    const second = client.request("session.elicitationExchanges")
-    const socket = FakeWebSocket.instances[0]!
+  it('rejects all pending requests and later calls on invalid response frames', async () => {
+    const client = rpcClient();
+    const first = client.request('workspace.snapshot');
+    const second = client.request('session.elicitationExchanges');
+    const socket = FakeWebSocket.instances[0]!;
 
-    socket.emit("open")
-    socket.emit(
-      "message",
-      JSON.stringify({ jsonrpc: "2.0", result: "missing id" }),
-    )
+    socket.emit('open');
+    socket.emit('message', JSON.stringify({ jsonrpc: '2.0', result: 'missing id' }));
 
-    await expect(first).rejects.toThrow("Brunch WebSocket RPC protocol failure")
-    await expect(second).rejects.toThrow(
-      "Brunch WebSocket RPC protocol failure",
-    )
-    await expect(client.request("workspace.snapshot")).rejects.toThrow(
-      "Brunch WebSocket RPC protocol failure",
-    )
-  })
+    await expect(first).rejects.toThrow('Brunch WebSocket RPC protocol failure');
+    await expect(second).rejects.toThrow('Brunch WebSocket RPC protocol failure');
+    await expect(client.request('workspace.snapshot')).rejects.toThrow(
+      'Brunch WebSocket RPC protocol failure',
+    );
+  });
 
-  it("rejects all pending requests and later calls on unknown response IDs", async () => {
-    const client = rpcClient()
-    const first = client.request("workspace.snapshot")
-    const second = client.request("session.elicitationExchanges")
-    const socket = FakeWebSocket.instances[0]!
+  it('rejects all pending requests and later calls on unknown response IDs', async () => {
+    const client = rpcClient();
+    const first = client.request('workspace.snapshot');
+    const second = client.request('session.elicitationExchanges');
+    const socket = FakeWebSocket.instances[0]!;
 
-    socket.emit("open")
-    socket.emit(
-      "message",
-      JSON.stringify({ jsonrpc: "2.0", id: 999, result: "unknown" }),
-    )
+    socket.emit('open');
+    socket.emit('message', JSON.stringify({ jsonrpc: '2.0', id: 999, result: 'unknown' }));
 
-    await expect(first).rejects.toThrow("Brunch WebSocket RPC protocol failure")
-    await expect(second).rejects.toThrow(
-      "Brunch WebSocket RPC protocol failure",
-    )
-    await expect(client.request("workspace.snapshot")).rejects.toThrow(
-      "Brunch WebSocket RPC protocol failure",
-    )
-  })
+    await expect(first).rejects.toThrow('Brunch WebSocket RPC protocol failure');
+    await expect(second).rejects.toThrow('Brunch WebSocket RPC protocol failure');
+    await expect(client.request('workspace.snapshot')).rejects.toThrow(
+      'Brunch WebSocket RPC protocol failure',
+    );
+  });
 
-  it("rejects all pending requests on socket close", async () => {
-    const client = rpcClient()
-    const first = client.request("workspace.snapshot")
-    const second = client.request("session.elicitationExchanges")
-    const socket = FakeWebSocket.instances[0]!
+  it('rejects all pending requests on socket close', async () => {
+    const client = rpcClient();
+    const first = client.request('workspace.snapshot');
+    const second = client.request('session.elicitationExchanges');
+    const socket = FakeWebSocket.instances[0]!;
 
-    socket.emit("open")
-    socket.emit("close")
+    socket.emit('open');
+    socket.emit('close');
 
-    await expect(first).rejects.toThrow(
-      "Brunch WebSocket RPC connection closed",
-    )
-    await expect(second).rejects.toThrow(
-      "Brunch WebSocket RPC connection closed",
-    )
-  })
+    await expect(first).rejects.toThrow('Brunch WebSocket RPC connection closed');
+    await expect(second).rejects.toThrow('Brunch WebSocket RPC connection closed');
+  });
 
-  it("treats socket errors as terminal connection failures", async () => {
-    const client = rpcClient()
-    const first = client.request("workspace.snapshot")
-    const second = client.request("session.elicitationExchanges")
-    const socket = FakeWebSocket.instances[0]!
+  it('treats socket errors as terminal connection failures', async () => {
+    const client = rpcClient();
+    const first = client.request('workspace.snapshot');
+    const second = client.request('session.elicitationExchanges');
+    const socket = FakeWebSocket.instances[0]!;
 
-    socket.emit("open")
-    socket.emit("error")
-    socket.emit("close")
+    socket.emit('open');
+    socket.emit('error');
+    socket.emit('close');
 
-    await expect(first).rejects.toThrow(
-      "Brunch WebSocket RPC connection failed",
-    )
-    await expect(second).rejects.toThrow(
-      "Brunch WebSocket RPC connection failed",
-    )
-    await expect(client.request("workspace.snapshot")).rejects.toThrow(
-      "Brunch WebSocket RPC connection failed",
-    )
-  })
+    await expect(first).rejects.toThrow('Brunch WebSocket RPC connection failed');
+    await expect(second).rejects.toThrow('Brunch WebSocket RPC connection failed');
+    await expect(client.request('workspace.snapshot')).rejects.toThrow(
+      'Brunch WebSocket RPC connection failed',
+    );
+  });
 
-  it("exposes close and rejects later requests", async () => {
-    const client = rpcClient()
-    const pending = client.request("workspace.snapshot")
-    const socket = FakeWebSocket.instances[0]!
-    socket.emit("open")
+  it('exposes close and rejects later requests', async () => {
+    const client = rpcClient();
+    const pending = client.request('workspace.snapshot');
+    const socket = FakeWebSocket.instances[0]!;
+    socket.emit('open');
 
-    client.close()
+    client.close();
 
-    expect(socket.closed).toBe(true)
-    await expect(pending).rejects.toThrow("Brunch WebSocket RPC client closed")
-    await expect(client.request("workspace.snapshot")).rejects.toThrow(
-      "Brunch WebSocket RPC client closed",
-    )
-  })
-})
+    expect(socket.closed).toBe(true);
+    await expect(pending).rejects.toThrow('Brunch WebSocket RPC client closed');
+    await expect(client.request('workspace.snapshot')).rejects.toThrow('Brunch WebSocket RPC client closed');
+  });
+});

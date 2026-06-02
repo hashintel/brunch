@@ -8,33 +8,25 @@
  * derived source for insert/select validation inside db/ and graph/.
  */
 
-import { createInsertSchema, createSelectSchema } from "drizzle-typebox"
+import { createInsertSchema, createSelectSchema } from 'drizzle-typebox';
 
-import {
-  changeLog,
-  edges,
-  graphClock,
-  nodes,
-  reconciliationNeed,
-} from "./schema.js"
+import { changeLog, edges, graphClock, nodes, reconciliationNeed } from './schema.js';
 
 // --- Node schemas ---
-export const insertNodeSchema = createInsertSchema(nodes)
-export const selectNodeSchema = createSelectSchema(nodes)
+export const insertNodeSchema = createInsertSchema(nodes);
+export const selectNodeSchema = createSelectSchema(nodes);
 
 // --- Edge schemas ---
-export const insertEdgeSchema = createInsertSchema(edges)
-export const selectEdgeSchema = createSelectSchema(edges)
+export const insertEdgeSchema = createInsertSchema(edges);
+export const selectEdgeSchema = createSelectSchema(edges);
 
 // --- Change log schemas ---
-export const insertChangeLogSchema = createInsertSchema(changeLog)
-export const selectChangeLogSchema = createSelectSchema(changeLog)
+export const insertChangeLogSchema = createInsertSchema(changeLog);
+export const selectChangeLogSchema = createSelectSchema(changeLog);
 
 // --- Graph clock schemas ---
-export const insertGraphClockSchema = createInsertSchema(graphClock)
+export const insertGraphClockSchema = createInsertSchema(graphClock);
 
 // --- Reconciliation need schemas ---
-export const insertReconciliationNeedSchema =
-  createInsertSchema(reconciliationNeed)
-export const selectReconciliationNeedSchema =
-  createSelectSchema(reconciliationNeed)
+export const insertReconciliationNeedSchema = createInsertSchema(reconciliationNeed);
+export const selectReconciliationNeedSchema = createSelectSchema(reconciliationNeed);

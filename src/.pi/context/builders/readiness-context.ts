@@ -1,10 +1,8 @@
 export interface ReadinessContextSnapshot {
-  readinessGrade?: string
-  elicitationPosture?: string
+  readinessGrade?: string;
+  elicitationPosture?: string;
 }
 
-export function renderReadinessContext(
-  _snapshot?: ReadinessContextSnapshot,
-): string {
-  return ""
+export function renderReadinessContext(_snapshot?: ReadinessContextSnapshot): string {
+  return '';
 }

@@ -2,7 +2,7 @@ export {
   WORKSPACE_DIALOG_WIDTH,
   createWorkspaceDialogComponent,
   type WorkspaceDialogComponentOptions,
-} from "./component.js"
+} from './component.js';
 export {
   buildWorkspaceSelectionView,
   selectWorkspaceSelectionOption,
@@ -10,5 +10,5 @@ export {
   type WorkspaceSelectionResult,
   type WorkspaceSelectionStage,
   type WorkspaceSelectionView,
-} from "./model.js"
-export { runWorkspaceDialogPreflight } from "./preflight.js"
+} from './model.js';
+export { runWorkspaceDialogPreflight } from './preflight.js';

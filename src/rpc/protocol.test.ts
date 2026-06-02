@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from 'vitest';
 
 import {
   createJsonRpcFailure,
@@ -7,94 +7,83 @@ import {
   dispatchJsonRpcMessage,
   isJsonRpcRequest,
   parseJsonRpcMessage,
-} from "./protocol.js"
+} from './protocol.js';
 
-describe("JSON-RPC protocol helpers", () => {
-  it("recognizes valid request IDs and rejects invalid request shapes", () => {
+describe('JSON-RPC protocol helpers', () => {
+  it('recognizes valid request IDs and rejects invalid request shapes', () => {
     expect(
       isJsonRpcRequest({
-        jsonrpc: "2.0",
-        id: "abc",
-        method: "workspace.snapshot",
+        jsonrpc: '2.0',
+        id: 'abc',
+        method: 'workspace.snapshot',
       }),
-    ).toBe(true)
-    expect(
-      isJsonRpcRequest({ jsonrpc: "2.0", id: 1, method: "workspace.snapshot" }),
-    ).toBe(true)
+    ).toBe(true);
+    expect(isJsonRpcRequest({ jsonrpc: '2.0', id: 1, method: 'workspace.snapshot' })).toBe(true);
     expect(
       isJsonRpcRequest({
-        jsonrpc: "2.0",
+        jsonrpc: '2.0',
         id: null,
-        method: "workspace.snapshot",
+        method: 'workspace.snapshot',
       }),
-    ).toBe(true)
+    ).toBe(true);
     expect(
       isJsonRpcRequest({
-        jsonrpc: "2.0",
+        jsonrpc: '2.0',
         id: { bad: true },
-        method: "workspace.snapshot",
+        method: 'workspace.snapshot',
       }),
-    ).toBe(false)
-    expect(isJsonRpcRequest({ jsonrpc: "2.0", id: 1 })).toBe(false)
-  })
+    ).toBe(false);
+    expect(isJsonRpcRequest({ jsonrpc: '2.0', id: 1 })).toBe(false);
+  });
 
-  it("creates success, failure, method-not-found, and parse-error responses", () => {
+  it('creates success, failure, method-not-found, and parse-error responses', () => {
     expect(createJsonRpcSuccess(1, { ok: true })).toEqual({
-      jsonrpc: "2.0",
+      jsonrpc: '2.0',
       id: 1,
       result: { ok: true },
-    })
-    expect(
-      createJsonRpcFailure("request-1", -32601, "Method not found"),
-    ).toEqual({
-      jsonrpc: "2.0",
-      id: "request-1",
-      error: { code: -32601, message: "Method not found" },
-    })
+    });
+    expect(createJsonRpcFailure('request-1', -32601, 'Method not found')).toEqual({
+      jsonrpc: '2.0',
+      id: 'request-1',
+      error: { code: -32601, message: 'Method not found' },
+    });
     expect(createJsonRpcParseError()).toEqual({
-      jsonrpc: "2.0",
+      jsonrpc: '2.0',
       id: null,
-      error: { code: -32700, message: "Parse error" },
-    })
-  })
+      error: { code: -32700, message: 'Parse error' },
+    });
+  });
 
-  it("dispatches parse failures and handler throws without attaching product semantics", async () => {
+  it('dispatches parse failures and handler throws without attaching product semantics', async () => {
     await expect(
-      dispatchJsonRpcMessage("not json", {
+      dispatchJsonRpcMessage('not json', {
         async handle() {
-          throw new Error("should not handle malformed JSON")
+          throw new Error('should not handle malformed JSON');
         },
       }),
-    ).resolves.toEqual(createJsonRpcParseError())
+    ).resolves.toEqual(createJsonRpcParseError());
 
     await expect(
-      dispatchJsonRpcMessage(
-        '{"jsonrpc":"2.0","id":7,"method":"workspace.snapshot"}',
-        {
-          async handle() {
-            throw new Error("boom")
-          },
+      dispatchJsonRpcMessage('{"jsonrpc":"2.0","id":7,"method":"workspace.snapshot"}', {
+        async handle() {
+          throw new Error('boom');
         },
-      ),
+      }),
     ).resolves.toEqual({
-      jsonrpc: "2.0",
+      jsonrpc: '2.0',
       id: 7,
-      error: { code: -32603, message: "Internal error" },
-    })
-  })
+      error: { code: -32603, message: 'Internal error' },
+    });
+  });
 
-  it("parses protocol messages without attaching product semantics", () => {
-    expect(
-      parseJsonRpcMessage(
-        '{"jsonrpc":"2.0","id":1,"method":"workspace.snapshot"}',
-      ),
-    ).toEqual({
+  it('parses protocol messages without attaching product semantics', () => {
+    expect(parseJsonRpcMessage('{"jsonrpc":"2.0","id":1,"method":"workspace.snapshot"}')).toEqual({
       ok: true,
-      value: { jsonrpc: "2.0", id: 1, method: "workspace.snapshot" },
-    })
-    expect(parseJsonRpcMessage("not json")).toEqual({
+      value: { jsonrpc: '2.0', id: 1, method: 'workspace.snapshot' },
+    });
+    expect(parseJsonRpcMessage('not json')).toEqual({
       ok: false,
       response: createJsonRpcParseError(),
-    })
-  })
-})
+    });
+  });
+});
