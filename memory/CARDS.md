@@ -46,7 +46,9 @@ A persistent UI affordance that opens the live run in Petrinaut. Needs a discove
 
 ## Slice 1: export reducer — `BrunchExecutionExport` from run artifacts
 
-**Status:** next.
+**Status:** done — commit `a41db69f`. `reduceBrunchExecutionExport` + locked contract types live in `src/orchestrator/src/petrinaut-stream-export.ts` with 11 passing tests (schema, markings, frame-replay oracle, type pins). `createIdentityFolding(blueprint)` landed in `petrinaut-fold.ts` as sibling to `createNetFolding` per the slice queue's note — slice 2 only needs to add CLI surface + SPEC lexicon entry.
+
+**Deferred to slice 2:** engine-driven version of the frame-replay oracle. `serializeBlueprint` currently hard-codes `createNetFolding`; slice 2 widens it to accept a folding opt so an identity-fold end-to-end run becomes round-trippable through the same path.
 
 ### Target Behavior
 
@@ -118,9 +120,9 @@ No cook-process / filesystem / SSE wiring in this slice. The function is consume
 
 ---
 
-## Slice 2: identity fold constructor + `--petrinaut-fold` cook CLI flag
+## Slice 2: identity fold wiring + `--petrinaut-fold` cook CLI flag
 
-**Status:** queued (sequentially obvious; defines no new behaviour beyond slice 1's contract).
+**Status:** next. Slice 1 already landed `createIdentityFolding` in `petrinaut-fold.ts`; slice 2 just adds the CLI flag, threads it through the cook entry to pick the constructor, extends `serializeBlueprint` (currently hard-codes `createNetFolding`) to accept a `folding` opt, updates SPEC §Lexicon with `identity fold`, and adds an engine-driven version of the frame-replay oracle exercising the identity path end-to-end.
 
 ### Target Behavior
 
