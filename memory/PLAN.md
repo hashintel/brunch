@@ -55,7 +55,7 @@ The POC should maximize assumption falsification rather than merely implement mi
 
 ### Next
 
-1. `agents-composition-layer` — the `agents/` 3-layer prompt composition (D58-L), goal/strategy/lens packs + AUTO selector, snapshot pull/render/surface (D60-L), and the `.pi/context → agents/` migration. Depends on `agent-runtime-vocabulary`.
+1. `agents-composition-layer` — the `agents/` 3-layer prompt composition (D58-L), goal/strategy/lens packs + AUTO selector, snapshot pull/render/surface (D60-L), and the `.pi/context → agents/` migration. Depends on the runtime-vocabulary slice now folded into `agent-graph-integration`.
 2. `probes-and-transcripts-evolution` — keep probe/transcript artifacts honest as new seams need evidence.
 
 ### Parallel / Low-conflict
@@ -101,10 +101,10 @@ The POC should maximize assumption falsification rather than merely implement mi
 ### agent-runtime-vocabulary
 
 - **Name:** Session-agent runtime vocabulary fix
-- **Linear:** [FE-789](https://linear.app/hash/issue/FE-789/session-agent-runtime-vocabulary-fix)
-- **Branch:** `ln/fe-789-session-agent-runtime-vocabulary-fix`
-- **Kind:** structural (corrects a projected, persisted session-agent custom-entry record to match revised D25-L/D40-L/D59-L)
-- **Status:** done
+- **Linear:** none — folded into FE-785 (`agent-graph-integration`); FE-789 is no longer planned as a separate frontier/PR.
+- **Branch:** landed as a small enabling slice on the FE-785 stack; do not submit a separate FE-789 PR.
+- **Kind:** structural sub-slice inside `agent-graph-integration` (corrects a projected, persisted session-agent custom-entry record to match revised D25-L/D40-L/D59-L)
+- **Status:** folded into `agent-graph-integration`
 - **Objective:** Bring the live `brunch.agent_runtime_state` machinery (`src/.pi/extensions/operational-mode.ts`) into conformance with the reconciled SPEC: **(a)** un-collapse `AgentLensId` from `AgentStrategyId` — lens becomes the orthogonal topical axis `intent | design | oracle`; **(b)** replace the stale strategy vocabulary (`step-by-step`, `disambiguate-via-examples`) with `step-wise-decision-tree | step-wise-disambiguate | propose-graph | project-graph`; **(c)** add the `goal` axis (`grounding-advance | elicit-I | elicit-II | commitment-converge | capture-posture`, grade-derived, AUTO-able) per D59-L; **(d)** make `op_mode` the only WHO field and **derive** the foreground role (`elicitor`) from it, dropping `agentRole` as stored state; **(e)** make `strategy`/`lens`/`goal` optional and `auto`-able. Regenerate `DEFAULT_BRUNCH_AGENT_STATE`, the append/project/switch helpers, and all fixtures.
 - **Why now / unlocks:** The code is the last place still carrying the pre-reconciliation model (collapsed lens, missing `propose-graph`/`project-graph`, role-as-state). `propose-graph` must exist before `agent-graph-integration` can run the A14-L real-LLM proof (the `propose-graph → commitGraph` path is the named proof target), and the orthogonal axes are the precondition for the `agents/` 3-layer composition. Foundational and small.
 - **Acceptance:**
@@ -182,7 +182,7 @@ The POC should maximize assumption falsification rather than merely implement mi
 
 - **Name:** Agent ↔ graph integration through the shared command layer (M5)
 - **Linear:** [FE-785](https://linear.app/hash/issue/FE-785)
-- **Branch:** `ln/fe-785-agent-graph-integration` (stacked on `ln/fe-776-graph-layer-prep-profile`)
+- **Branch:** `ln/fe-785-agent-graph-integration` (stacked on `ln/fe-776-graph-layer-prep-profile`; includes the folded runtime-vocabulary slice formerly tracked as FE-789)
 - **Kind:** structural
 - **Status:** in-progress
 - **Objective:** Brunch installs graph tools through pi's extension seams; agent graph operations — including `commitGraph` batch mutations for the `propose-graph` direct-commit path (D53-L, D26-L) — elicitor post-exchange capture writes, reviewer-attributed advisory writes, review-set batch acceptances for `project-graph`, spec readiness grade/posture updates, and the transcript-native establishment/intent-hint surfaces all route exclusively through the Brunch-owned command layer and shared event substrate; web, TUI, and agent all observe the same changes. **The primary A14-L proof runs here:** test whether the LLM can produce structurally-legal `commitGraph` batches against the real CommandExecutor with bounded retry.
@@ -223,7 +223,7 @@ The POC should maximize assumption falsification rather than merely implement mi
 - **Cross-cutting obligations:** Preserve the single-authority mutation rule for primary-agent, elicitor-capture, reviewer, side-task, and batch-acceptance flows by making the `CommandExecutor` the only mutation entry; deferred observer/auditor jobs, if introduced, are operational backstops keyed to transcript anchors, not a revived chat/turn store or privileged primary extraction path; reviewer is advisory and writes only to `reconciliation_need`; lens metadata on elicitor-emitted entries routes capture/reviewer/future-auditor consumption; establishment offers remain orientation artifacts for chrome/web surfaces rather than a default exhaustive lens picker.
 - **Traceability:** R10, R13, R17, R21, R22, R23 / D4-L, D13-L, D15-L, D18-L, D20-L, D25-L, D26-L, D27-L, D28-L, D29-L, D30-L, D32-L, D45-L, D46-L, D47-L, D50-L / I2-L, I11-L, I14-L, I15-L, I16-L, I17-L, I18-L, I20-L, I30-L, I31-L, I33-L / A3-L, A11-L, A13-L, A14-L, A16-L, A22-L
 - **Design docs:** [prd.md §M5, §Authority Model](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md), [pi-seam-extensions.md §1 Async side-chain sub-agents](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md#1-async-side-chain-sub-agents), [ELICITATION_LENSES.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/design/ELICITATION_LENSES.md), [REVIEW_SETS.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/design/REVIEW_SETS.md)
-- **Current execution pointer:** **(1)** ✓ Source topology move: `src/tui-client/.pi/` → `src/.pi/` per D52-L. **(2)** ✓ `commit_graph` and `read_graph` Pi tools wired through `CommandExecutor` and pre-bound `GraphSnapshotReaders` via `src/.pi/extensions/graph/`; command-adapter translation seam, TypeBox parameter schemas, I26-L-compliant enum re-exports from `graph/index.ts`, extension shell conditional wiring; 9 integration tests. **(3)** ✓ A14-L `propose-graph → commitGraph` product-path proof: the default Brunch runtime factory now opens the workspace graph runtime and registers `read_graph`/`commit_graph`, `src/probes/propose-graph-commit-proof.ts` records retry/diagnostic evidence, and the real run in `.fixtures/runs/propose-graph-commit/2026-06-02-propose-graph-commit/` persisted 4 nodes + 4 edges on the first attempt. **(4)** ✓ Review-set dry-run gate: `CommandExecutor.dryRunCommitGraph` shares validation with `commitGraph`; `src/.pi/extensions/graph/review-set-proposal.ts` validates review-set proposal metadata, translates drafts to graph batches, and only surfaces dry-run-valid `brunch.review_set_proposal` entries. Next: wire real `project-graph` agent proposal generation or scope synchronous elicitor capture.
+- **Current execution pointer:** **(0)** ✓ Runtime vocabulary enabling slice folded into this frontier: `brunch.agent_runtime_state` now has the reconciled goal/strategy/lens/op-mode tuple and legal `propose-graph`/`project-graph` strategies. **(1)** ✓ Source topology move: `src/tui-client/.pi/` → `src/.pi/` per D52-L. **(2)** ✓ `commit_graph` and `read_graph` Pi tools wired through `CommandExecutor` and pre-bound `GraphSnapshotReaders` via `src/.pi/extensions/graph/`; command-adapter translation seam, TypeBox parameter schemas, I26-L-compliant enum re-exports from `graph/index.ts`, extension shell conditional wiring; 9 integration tests. **(3)** ✓ A14-L `propose-graph → commitGraph` product-path proof: the default Brunch runtime factory now opens the workspace graph runtime and registers `read_graph`/`commit_graph`, `src/probes/propose-graph-commit-proof.ts` records retry/diagnostic evidence, and the real run in `.fixtures/runs/propose-graph-commit/2026-06-02-propose-graph-commit/` persisted 4 nodes + 4 edges on the first attempt. **(4)** ✓ Review-set dry-run gate: `CommandExecutor.dryRunCommitGraph` shares validation with `commitGraph`; `src/.pi/extensions/graph/review-set-proposal.ts` validates review-set proposal metadata, translates drafts to graph batches, and only surfaces dry-run-valid `brunch.review_set_proposal` entries. Next: wire real `project-graph` agent proposal generation or scope synchronous elicitor capture.
 
 ### subagents-for-proposal-diversity
 
@@ -351,7 +351,6 @@ The POC should maximize assumption falsification rather than merely implement mi
 
 ## Recently Completed
 
-- 2026-06-02 `agent-runtime-vocabulary` (FE-789) — Done: session-agent runtime state uses the reconciled D25-L/D40-L/D59-L axes (`goal`, `strategy`, `lens`) with foreground role derived from `op_mode`; concrete axis id unions stay separate from the `auto` selection sentinel, and all three axes accept `auto`; `propose-graph`/`project-graph` are legal strategies; deterministic elicitation lens metadata now uses `intent`; stale collapsed strategy/lens names and stored `agentRole` are gone from runtime-state entries. Verified: targeted runtime/prompting/chrome/RPC/exchange tests and `npm run verify`.
 - 2026-06-02 `spec-persistence-and-startup` — Done: specs are DB rows with integer ids and `readiness_grade`; `createSpec` / `getSpec` / `updateReadinessGrade` route through `CommandExecutor` with change-log audit; startup scaffolds `.brunch/workspace.json` + `.brunch/data.db`; session binding collapsed to `{schemaVersion,specId}` and is fork-portable; inventory resolves spec names from DB. Verified: `npm run verify` and real `brunch --mode print` against a fresh cwd.
 - 2026-06-01 `graph-data-plane` (FE-741) — Done: all 6 execution steps complete. **(1)** Drizzle schema + `initSchema` DDL push + graph_clock seed. **(2)** `CommandExecutor` result contract, one-transaction LSN/change-log skeleton, `createNode` proof-of-life, I26-L architectural boundary test. **(3)** skipped (subsumed by 4). **(4)** `commitGraph` atomic batch mutation with intra-batch + existing-node ref resolution, edge structural validation, I34-L all-or-nothing. **(5)** graph snapshot readers (`getGraphOverview`, `getNodeNeighborhood`) with superseded-predecessor exclusion, configurable hop depth, typed domain returns (I35-L). **(6)** reconciliation-need substrate (`createReconciliationNeed`, `resolveReconciliationNeed`, `getOpenReconciliationNeeds`) with LSN invariants. Verified: `npm run verify`.
 - 2026-06-01 `sealed-pi-profile-runtime-state` (FE-776) — Done: prep envelope tied off. Both strands complete: **(a)** Pi harness sealing including sealed profile, runtime-state transcript projection, session display names via Pi `session_info`; **(b)** graph-model lock-and-materialize with Phase 1 (edges) + Phase 2 (nodes) locked in `docs/design/GRAPH_MODEL.md`, code stubs under `src/graph/`, and A20-L persistence spike validating `drizzle-orm@0.45.2` + `drizzle-typebox@0.3.3` + `better-sqlite3@12.8.0`. `graph-data-plane` (M4 CRUD) is now unblocked. Verified: `npm run verify` after each slice.
@@ -365,7 +364,6 @@ nodes:
   sealed-pi-profile-runtime-state   [done]                   (M4 prep envelope: sealing + graph-model lock)
   graph-data-plane                  [done]                   (M4 CRUD proper)
   spec-persistence-and-startup      [done]                   (persistence-model fix + startup regression repair)
-  agent-runtime-vocabulary          [done]                    (session-agent record vocabulary fix)
   agents-composition-layer          [next]                    (agents/ 3-layer composition + snapshots + .pi/context migration)
   agent-graph-integration           [in-progress]            (M5)
   subagents-for-proposal-diversity  [deferred · optional]
@@ -380,9 +378,7 @@ edges:
   graph-data-plane                 -[hard]->         agent-graph-integration
   graph-data-plane                 -[hard]->         spec-persistence-and-startup
   spec-persistence-and-startup     -[hard]->         agent-graph-integration
-  spec-persistence-and-startup     -[hard]->         agent-runtime-vocabulary
-  agent-runtime-vocabulary         -[hard]->         agents-composition-layer
-  agent-runtime-vocabulary         -[hard]->         agent-graph-integration
+  agent-graph-integration          -[hard]->         agents-composition-layer
   agent-graph-integration          -[hard]->         authority-model
   agent-graph-integration          -[hard]->         turn-boundary-reconciliation
   agent-graph-integration          -[optional]->     subagents-for-proposal-diversity
