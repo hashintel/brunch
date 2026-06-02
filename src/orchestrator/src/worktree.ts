@@ -30,6 +30,8 @@ export type CreateSandboxOptions =
  * - **codebase mode:** the sandbox worktree is a `git worktree add` of
  *   `opts.sourceDir` on a fresh branch `cook/<runId>`. The source branch in
  *   `sourceDir` is left untouched; agent commits land on the cook branch.
+ *   Branch/worktree cleanup is intentionally operator-owned for now:
+ *   `git worktree remove <sandboxDir>` and `git branch -D cook/<runId>`.
  */
 export function createSandbox(
   baseDir: string,
@@ -55,6 +57,8 @@ export function createSandbox(
     // `git worktree add` only materializes tracked files; CoW-copy untracked /
     // gitignored top-level dirs (e.g. `node_modules/`) from the source cwd so
     // slice seeding and pi-actions see the same runtime deps as the developer tree.
+    // If reflinks/clonefile are unavailable, cowCopy falls back to a normal copy:
+    // slower and larger on disk, but semantically equivalent.
     copyMissingTopLevelEntries(opts.sourceDir, sandboxDir);
   } else {
     mkdirSync(sandboxDir, { recursive: true });
