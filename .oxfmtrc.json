@@ -3,5 +3,20 @@
 	"printWidth": 110,
 	"singleQuote": true,
 	"sortImports": true,
-	"ignorePatterns": ["*.md", "docs/**", "memory/**", "archive/**", ".fixtures/**", "dist/**"]
+	"sortPackageJson": true,
+	"sortTailwindcss": true,
+	"ignorePatterns": [
+		".agents/**",
+		".github/**",
+		".claude/**",
+		"*.md",
+		"docs/**",
+		"memory/**",
+		".fixtures/**",
+		"@types/**",
+		"tmp/**",
+		"dist-web/**",
+		"bin/**",
+		"dist/**"
+	]
 }

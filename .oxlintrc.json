@@ -7,5 +7,18 @@
 	"rules": {
 		"typescript/no-deprecated": "error"
 	},
-	"ignorePatterns": ["dist", "archive", "docs", "memory", ".fixtures", "scripts"]
+	"ignorePatterns": [
+		".agents/**",
+		".github/**",
+		".claude/**",
+		"*.md",
+		"docs/**",
+		"memory/**",
+		".fixtures/**",
+		"@types/**",
+		"tmp/**",
+		"dist-web/**",
+		"bin/**",
+		"dist/**"
+	]
 }
