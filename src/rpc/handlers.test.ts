@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import { SessionManager } from '@earendil-works/pi-coding-agent';
+import type { TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
@@ -421,7 +422,7 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('discovers numeric spec ids for graph and session projection wire shapes', async () => {
+  it('discovers exact session projection wire shapes', async () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator(),
       cwd: '/tmp/brunch-project',
@@ -438,26 +439,37 @@ describe('JSON-RPC handlers', () => {
       response.result as {
         methods: Array<{
           method: string;
-          paramsSchema: { properties?: Record<string, unknown> };
+          paramsSchema: TSchema & { properties?: Record<string, unknown> };
           examples: Array<{ params?: unknown }>;
         }>;
       }
     ).methods;
-    const sessionProjectionMethods = methods.filter(
-      (entry) =>
-        entry.method === 'session.exchanges' ||
-        entry.method === 'session.runtimeState' ||
-        entry.method === 'session.pendingExchange',
-    );
+    const exchanges = methods.find((entry) => entry.method === 'session.exchanges');
+    const pending = methods.find((entry) => entry.method === 'session.pendingExchange');
+    const runtimeState = methods.find((entry) => entry.method === 'session.runtimeState');
 
-    for (const entry of sessionProjectionMethods) {
+    for (const entry of [exchanges, pending]) {
+      if (!entry) throw new Error('expected discovered selected-session projection method');
       expect(entry.paramsSchema.properties?.specId).toMatchObject({
         type: 'integer',
         minimum: 1,
       });
+      expect(Value.Check(entry.paramsSchema, { sessionId: 'session-1' })).toBe(true);
+      expect(Value.Check(entry.paramsSchema, { sessionId: 'session-1', specId: 1 })).toBe(true);
       for (const example of entry.examples.filter((example) => example.params !== undefined)) {
         expect(Value.Check(entry.paramsSchema, example.params)).toBe(true);
       }
+    }
+
+    if (!runtimeState) throw new Error('expected discovered session.runtimeState method');
+    expect(runtimeState.paramsSchema.properties?.specId).toMatchObject({
+      type: 'integer',
+      minimum: 1,
+    });
+    expect(Value.Check(runtimeState.paramsSchema, { sessionId: 'session-1' })).toBe(false);
+    expect(Value.Check(runtimeState.paramsSchema, { sessionId: 'session-1', specId: 1 })).toBe(true);
+    for (const example of runtimeState.examples.filter((example) => example.params !== undefined)) {
+      expect(Value.Check(runtimeState.paramsSchema, example.params)).toBe(true);
     }
   });
 

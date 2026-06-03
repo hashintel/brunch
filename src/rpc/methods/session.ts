@@ -44,6 +44,14 @@ const SessionProjectionParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
+const RuntimeStateParamsSchema = Type.Object(
+  {
+    sessionId: NonBlankStringSchema,
+    specId: PositiveIntegerSchema,
+  },
+  { additionalProperties: false },
+);
+
 const SessionExchangesResultSchema = Type.Object(
   {
     status: Type.String(),
@@ -256,7 +264,7 @@ export const sessionRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
     access: 'read',
     description:
       'Return flattened transcript-backed runtime posture, mention, world-watermark, and lifecycle state for an explicit Brunch session.',
-    paramsSchema: SessionProjectionParamsSchema,
+    paramsSchema: RuntimeStateParamsSchema,
     resultSchema: RuntimeStateResultSchema,
     examples: [
       {
