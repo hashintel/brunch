@@ -29,13 +29,18 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log('Launch the Brunch web UI in the current project directory.');
   console.log('');
   console.log('Commands:');
-  console.log('  agent              Run a JSONL capability session on stdin/stdout.');
-  console.log('  cook <dir> [flags] Run the orchestrator on a plan directory.');
+  console.log('  agent                     Run a JSONL capability session on stdin/stdout.');
+  console.log('  cook <dir> [flags]        Run the orchestrator on a plan directory.');
+  console.log('  plan <snapshot.json> [flags]  Emit .brunch/cook/plan.yaml from a completed-spec snapshot.');
   console.log('');
   console.log('Cook flags:');
   console.log('  --policy=serial|parallel  Firing policy (default: serial)');
-  console.log('  --max-retries=N      Retry budget per slice (default: 3)');
-  console.log('  --verbose, -v        Show raw pi-agent output');
+  console.log('  --max-retries=N           Retry budget per slice (default: 3)');
+  console.log('  --verbose, -v             Show raw pi-agent output');
+  console.log('');
+  console.log('Plan flags:');
+  console.log('  --out=<dir>               Output directory (default: cwd)');
+  console.log('  --verbose, -v             Verbose output');
   process.exit(0);
 }
 
@@ -44,6 +49,13 @@ if (rawArgs[0] === 'cook') {
   const opts = parseCookArgs(rawArgs.slice(1));
   runCook(opts).catch((error) => {
     console.error('Failed to run brunch cook:', error);
+    process.exit(1);
+  });
+} else if (rawArgs[0] === 'plan') {
+  const { parsePlanArgs, runPlan } = await import('../orchestrator/src/plan-cli.js');
+  const opts = parsePlanArgs(rawArgs.slice(1));
+  runPlan(opts).catch((error) => {
+    console.error('Failed to run brunch plan:', error);
     process.exit(1);
   });
 } else if (rawArgs[0] === 'agent') {

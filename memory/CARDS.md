@@ -661,3 +661,112 @@ This slice deliberately does NOT touch:
   planning + reconciliation, an integration test feeds a real cook run.
 - Outer: deferred to slice 4 / Bristol-demo end-to-end run.
 ```
+
+---
+
+## Slice 4: CLI wiring — `brunch plan` composes projection + planning + reconciliation, writes `.brunch/cook/plan.yaml`, surfaces warnings
+
+**Status:** done. `src/orchestrator/src/cook-plan-emitter.ts` exports
+the pure composition `emitCookPlanFromSnapshot(snapshot, { runModel? })`;
+`src/orchestrator/src/plan-cli.ts` exports `parsePlanArgs` + `runPlan`;
+`src/server/cli.ts` dispatches `brunch plan <snapshot.json>
+[--out=<dir>] [--verbose]` to it. Emitter falls back to an empty
+enrichment when the LLM throws so a usable (orderless) plan still
+emits. Warnings print on stderr with a `  !  ` prefix and human-readable
+per-code format. 9 unit tests across
+`cook-plan-emitter.test.ts` (3) and `plan-cli.test.ts` (6) cover the
+success path, LLM-failure fallback, YAML round-trip, arg parsing,
+end-to-end YAML emission, and warning surfacing. `npm run verify`
+green (known unrelated `src/server/app.test.ts` flake reproduced once
+and cleared on retry, as expected per slice 1/2 notes).
+
+### Scope-weight
+
+Light scope card. The containing seam (`brunch` CLI dispatch in
+`src/server/cli.ts` + the orchestrator's `cook-cli.ts` pattern) is
+settled; the three composition stages already exist as pure modules
+(slices 1, 2, 3); the LLM seam is already in place via slice 2's
+injectable `runModel` (default = anthropic). The remaining work is
+**glue**: one pure composition function + one CLI command that calls
+it, writes YAML, and prints warnings. No new seam, no decision
+reversal, no invariant change.
+
+### Objective
+
+Provide a `brunch plan <snapshot.json> [--out=<dir>] [--verbose]`
+command that loads a `CompletedSpecSnapshot` from a JSON file, runs
+projection → LLM planning → reconciliation, writes the resulting plan
+to `<dir>/.brunch/cook/plan.yaml` (default `<dir>` = current working
+directory), and surfaces every `ReconciliationWarning` on stderr so a
+reviewer can audit slice 2's output before the plan drives `brunch
+cook`.
+
+### Acceptance Criteria
+
+```
+✓ A new pure composition function `emitCookPlanFromSnapshot(snapshot, {
+  runModel })` exported from `src/orchestrator/src/cook-plan-emitter.ts`
+  returns `{ plan, warnings, planningResult }`. The `runModel` is
+  injectable so unit tests can drive the function without an LLM call.
+
+✓ test: `emitCookPlanFromSnapshot` with an injected `runModel` that
+  returns a hand-crafted enrichment composes the three stages and
+  returns a reconciled plan whose slice ids come from the snapshot's
+  requirements, whose every slice has the synthesized unit-test target,
+  and whose `warnings` array carries the reconciliation warnings.
+
+✓ test: when the injected `runModel` throws (LLM failure), the function
+  surfaces the `{ status: 'failed', reason }` from slice 2 in
+  `planningResult` AND still returns a usable plan by reconciling the
+  projected slices against an empty enrichment (so the CLI can still
+  emit a plan with no inferred ordering rather than failing the whole
+  command).
+
+✓ A new `brunch plan <snapshot.json> [--out=<dir>] [--verbose]` command
+  reads the JSON, calls `emitCookPlanFromSnapshot` with
+  `defaultRunModel`, writes `<dir>/.brunch/cook/plan.yaml` (creating
+  the `.brunch/cook/` directory if missing; default `<dir>` = cwd),
+  and prints every warning prefixed with `  !  ` on stderr.
+
+✓ test: `parsePlanArgs(args)` parses `<snapshot.json>`, `--out=<dir>`,
+  `--verbose`, and throws a usage error when the snapshot path is
+  missing.
+
+✓ test: the emitted plan round-trips through `loadPlan` — write to a
+  tmp file via `emitCookPlanFromSnapshot` + `stringifyYaml`, reload
+  via `loadPlan`, assert structural equality.
+
+✓ `brunch --help` lists the `plan` command.
+
+✓ `npm run verify` green.
+```
+
+### Verification Approach
+
+```
+- Inner: `cook-plan-emitter.test.ts` unit tests over the composition
+  function with an injected `runModel` (stubbed success + stubbed
+  failure). `parsePlanArgs` unit tests in a small CLI-test file under
+  the orchestrator package.
+- Middle: deferred — once the snapshot builder lands (separate slice),
+  an integration test feeds a real DB-derived snapshot through the
+  pipeline. For now, the brunch_graphs fixture snapshot is exercised
+  by the existing slice-3 corpus test.
+- Outer: deferred to the Bristol-demo end-to-end (`brunch plan` →
+  `brunch cook --petrinaut-stream`) run; this slice opens that door
+  but does not run it as part of CI.
+```
+
+### Promotion checklist
+
+- [ ] Change a requirement? — no.
+- [ ] Create/retire/invalidate an assumption? — no (uses slice-3
+  assumptions as-is).
+- [ ] Make a non-trivial design decision? — no (composition order +
+  CLI surface follow established cook-cli pattern).
+- [ ] Establish a new seam-level invariant? — no.
+- [ ] Cross more than two major seams? — no (orchestrator + CLI shell).
+- [ ] First touch in an unfamiliar seam from a fresh thread? — no.
+- [ ] Cannot name the containing seam? — no.
+
+Stays light.
