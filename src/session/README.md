@@ -62,7 +62,7 @@ These files migrated here on 2026-06-02:
 | `brunch-session-envelope.ts`      | session envelope reader            |
 | `session-projection-reader.ts`    | JSONL projection target resolution |
 | `session-transcript.ts`           | transcript row projection          |
-| `exchange-projection.ts`         | exchange extraction                |
+| `exchange-projection.ts`          | exchange extraction                |
 | `runtime-state.ts`                | runtime state projection           |
 | `structured-exchange.ts`          | structured exchange schemas/types  |
 | `structured-exchange-loop.ts`     | deterministic exchange loop helpers|

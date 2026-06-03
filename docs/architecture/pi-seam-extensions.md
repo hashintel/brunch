@@ -149,7 +149,7 @@ Every Brunch session should open with a concrete action or answer surface rather
 - A Brunch-owned TUI helper built on Pi custom UI patterns for radio, checkbox, questionnaire, and optional freeform input.
 - JSON-prefill / validation helpers for RPC editor fallback. This is a compatibility seam over Pi RPC, not a second Brunch product API.
 - A private Pi RPC adapter that translates `extension_ui_request(editor)` into product-shaped pending elicitation state for Brunch public clients, then translates the product response back into Pi's documented `extension_ui_response`.
-- Elicitation-exchange projection that treats terminal structured-exchange toolResults as response-side entries when their details carry the typed Brunch payload; ordinary toolResults remain prompt-side by default.
+- Session-exchange projection that treats terminal structured-exchange toolResults as response-side entries when their details carry the typed Brunch payload; ordinary toolResults remain prompt-side by default.
 - Brunch custom entry schemas for product-native offers that are not ordinary questions, such as `brunch.establishment_offer`, `brunch.review_set_proposal`, and later review-cycle responses.
 
 ### Capture-aware response payload
