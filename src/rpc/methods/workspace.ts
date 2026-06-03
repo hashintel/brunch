@@ -14,7 +14,6 @@ import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
 import { NoParamsSchema, NonBlankStringSchema, PositiveIntegerSchema } from './schemas.js';
 
 export const SpecSessionActivationDecisionSchema = Type.Union([
-  Type.Object({ action: Type.Literal('continue') }, { additionalProperties: false }),
   Type.Object(
     {
       action: Type.Literal('continue'),

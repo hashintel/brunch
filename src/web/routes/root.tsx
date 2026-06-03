@@ -6,7 +6,6 @@ import { workspaceSnapshotQueryOptions } from '../queries/workspace.js';
 import type { WebSocketRpcClient } from '../rpc-client.js';
 import { useBrunchUpdateSubscription } from '../subscriptions/brunch-updates.js';
 
-
 export type SessionProjectionTarget = {
   sessionId: string;
   specId: number;
@@ -91,10 +90,7 @@ export function WorkspaceChrome(options: { snapshot: WorkspaceSnapshot; fallback
   );
 }
 
-export function SessionPanel(options: {
-  snapshot: WorkspaceSnapshot;
-  viewedSpecId?: number;
-}) {
+export function SessionPanel(options: { snapshot: WorkspaceSnapshot; viewedSpecId?: number }) {
   if (!options.snapshot.session || !options.snapshot.spec) {
     return (
       <section aria-label="Session">
@@ -122,4 +118,3 @@ export function SessionPanel(options: {
     </section>
   );
 }
-

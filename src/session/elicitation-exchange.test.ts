@@ -11,7 +11,7 @@ import {
   loadLinearElicitationExchangeProjection,
   loadLinearTranscriptDisplayProjection,
   NonLinearTranscriptError,
-  projectExchanges,
+  projectElicitationExchanges,
   projectTranscriptDisplay,
 } from './elicitation-exchange.js';
 import { createSessionBindingData } from './session-binding.js';
@@ -199,7 +199,7 @@ function appendBinding(manager: SessionManager): void {
 
 describe('elicitation exchange projection', () => {
   it('projects assistant prompt spans and user response spans with stable ranges', () => {
-    const exchanges = projectExchanges([
+    const exchanges = projectElicitationExchanges([
       { id: 's1', type: 'session' },
       assistant,
       structuredPrompt,
@@ -237,7 +237,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('includes known standalone elicitor custom entries on the prompt side', () => {
-    const projection = projectExchanges([
+    const projection = projectElicitationExchanges([
       assistant,
       {
         id: 'offer-1',
@@ -252,7 +252,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('ignores unknown custom entries even when their type contains prompt', () => {
-    const projection = projectExchanges([
+    const projection = projectElicitationExchanges([
       assistant,
       {
         id: 'operational-1',
@@ -267,7 +267,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('includes structured response entries on the response side', () => {
-    const projection = projectExchanges([assistant, user, structuredResponse]);
+    const projection = projectElicitationExchanges([assistant, user, structuredResponse]);
 
     expect(projection.exchanges[0]?.responseEntryIds).toEqual(['u1', 'r1']);
     expect(projection.exchanges[0]?.responseRange).toEqual({
@@ -277,7 +277,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('includes Pi toolResult messages on the prompt side', () => {
-    const projection = projectExchanges([assistant, toolResult, user]);
+    const projection = projectElicitationExchanges([assistant, toolResult, user]);
 
     expect(projection.exchanges[0]?.promptEntryIds).toEqual(['a1', 't1']);
     expect(projection.exchanges[0]?.promptRange).toEqual({
@@ -287,7 +287,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('projects an unmatched present tool result as an open prompt', () => {
-    const projection = projectExchanges([presentQuestionToolResult]);
+    const projection = projectElicitationExchanges([presentQuestionToolResult]);
 
     expect(projection).toEqual({
       status: 'open_prompt',
@@ -300,7 +300,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('closes a present/request structured-exchange tuple only when request details match', () => {
-    const projection = projectExchanges([presentQuestionToolResult, requestAnswerToolResult]);
+    const projection = projectElicitationExchanges([presentQuestionToolResult, requestAnswerToolResult]);
 
     expect(projection).toEqual({
       status: 'ready',
@@ -320,7 +320,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('does not close an open present with a mismatched request tuple', () => {
-    const projection = projectExchanges([
+    const projection = projectElicitationExchanges([
       presentQuestionToolResult,
       mismatchedRequestAnswerToolResult,
     ]);
@@ -358,7 +358,7 @@ describe('elicitation exchange projection', () => {
         },
       };
 
-      const projection = projectExchanges([presentOptions, requestChoices]);
+      const projection = projectElicitationExchanges([presentOptions, requestChoices]);
 
       expect(projection.exchanges[0]?.responseEntryIds).toEqual([`request-choices-${status}`]);
       expect(projection.openPrompt).toBeNull();
@@ -394,7 +394,7 @@ describe('elicitation exchange projection', () => {
     };
 
     for (const request of [wrongPresentToolRequest, unexpectedRequestTool]) {
-      const projection = projectExchanges([presentQuestionToolResult, request]);
+      const projection = projectElicitationExchanges([presentQuestionToolResult, request]);
 
       expect(projection.exchanges).toEqual([]);
       expect(projection.openPrompt?.promptEntryIds).toEqual(['present-question-1']);
@@ -419,7 +419,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('classifies terminal structured-exchange tool results as response-side entries', () => {
-    const projection = projectExchanges([assistant, structuredExchangeToolResult]);
+    const projection = projectElicitationExchanges([assistant, structuredExchangeToolResult]);
 
     expect(projection.exchanges[0]?.promptEntryIds).toEqual(['a1']);
     expect(projection.exchanges[0]?.responseEntryIds).toEqual(['sq1']);
@@ -431,20 +431,20 @@ describe('elicitation exchange projection', () => {
   });
 
   it('keeps non-terminal structured-exchange tool results on the prompt side', () => {
-    const projection = projectExchanges([assistant, unavailableStructuredExchangeToolResult]);
+    const projection = projectElicitationExchanges([assistant, unavailableStructuredExchangeToolResult]);
 
     expect(projection.exchanges).toEqual([]);
     expect(projection.openPrompt?.promptEntryIds).toEqual(['a1', 'sq-unavailable']);
   });
 
   it('returns an explicit empty/open shape for incomplete transcripts', () => {
-    expect(projectExchanges([])).toEqual({
+    expect(projectElicitationExchanges([])).toEqual({
       status: 'empty',
       exchanges: [],
       openPrompt: null,
     });
 
-    expect(projectExchanges([assistant])).toEqual({
+    expect(projectElicitationExchanges([assistant])).toEqual({
       status: 'open_prompt',
       exchanges: [],
       openPrompt: {
@@ -455,7 +455,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('ignores orphan user responses before a prompt', () => {
-    const projection = projectExchanges([
+    const projection = projectElicitationExchanges([
       user,
       {
         id: 'a2',
@@ -720,6 +720,6 @@ describe('elicitation exchange projection', () => {
 
     const entries = await loadJsonlTranscriptEntries(file);
 
-    expect(projectExchanges(entries).exchanges).toHaveLength(1);
+    expect(projectElicitationExchanges(entries).exchanges).toHaveLength(1);
   });
 });

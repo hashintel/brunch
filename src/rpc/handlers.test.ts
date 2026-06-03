@@ -910,7 +910,6 @@ describe('JSON-RPC handlers', () => {
         ],
       },
     });
-
   });
 
   it('reports idle pending state when the selected session has no open prompt', async () => {
@@ -1530,7 +1529,6 @@ describe('JSON-RPC handlers', () => {
       },
       cwd,
     });
-
   });
 
   it('serves runtime state by explicit spec and session id without opening selected session', async () => {

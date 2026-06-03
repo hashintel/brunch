@@ -99,7 +99,6 @@ function rpcClient(options?: {
   } as unknown as WebSocketRpcClient;
 }
 
-
 afterEach(() => {
   cleanup();
   window.history.pushState(null, '', '/');

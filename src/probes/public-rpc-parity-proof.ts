@@ -38,7 +38,6 @@ interface RpcExchangeProjection {
   exchanges: RpcExchange[];
 }
 
-
 interface WorkspaceSelectionResult {
   requiresSelection: boolean;
 }

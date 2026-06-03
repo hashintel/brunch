@@ -18,4 +18,3 @@ export function sessionRuntimeStateQueryOptions(
     queryFn: () => rpcClient.request<RuntimeStateProjection>('session.runtimeState', target),
   };
 }
-

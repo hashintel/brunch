@@ -6,7 +6,7 @@ import { SessionManager, type SessionEntry } from '@earendil-works/pi-coding-age
 import { describe, expect, it } from 'vitest';
 
 import { assistantMessage, userMessage, isCustomEntry } from '../probes/test-helpers.js';
-import { projectExchanges } from './elicitation-exchange.js';
+import { projectElicitationExchanges } from './elicitation-exchange.js';
 import { SESSION_BINDING_TYPE } from './session-binding.js';
 import {
   createWorkspaceSessionCoordinator,
@@ -202,8 +202,8 @@ describe('WorkspaceSessionCoordinator', () => {
     result.session.manager.appendMessage(assistantMessage('Question'));
     result.session.manager.appendMessage(userMessage('Answer'));
 
-    const beforeReload = projectExchanges(result.session.manager.getBranch());
-    const afterReload = projectExchanges(
+    const beforeReload = projectElicitationExchanges(result.session.manager.getBranch());
+    const afterReload = projectElicitationExchanges(
       SessionManager.open(result.session.file, undefined, cwd).getBranch(),
     );
 
