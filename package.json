@@ -1,10 +1,10 @@
 {
-  "name": "brunch-next",
-  "version": "0.0.0",
+  "name": "brunch-cli",
+  "version": "0.1.0",
   "private": true,
   "description": "Brunch — opinionated specification-workspace product over pi-coding-agent.",
   "bin": {
-    "brunch-next": "./bin/brunch.js"
+    "brunch-cli": "./bin/brunch-cli.js"
   },
   "files": [
     "dist",
