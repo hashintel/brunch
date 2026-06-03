@@ -45,6 +45,20 @@ This is not permission for unrelated rewrites: keep changes scoped to the active
 
 Use a lightweight fractal sub-tree pattern when a file outgrows its current mini-library boundary. Keep the original file as the public entry point (for example, `context-pack.ts`) and place private implementation modules in a same-named folder (for example, `context-pack/observer-capture.ts`). External consumers should continue importing from the public root file; only that root file should import from its private sub-tree. Split along semantic purpose, not file shape, and avoid speculative folder scaffolding until the file has real pressure.
 
+## topology READMEs
+
+Directory-level `README.md` files under `src/**/` are **canonical documentation co-located with the code they describe**. They materialize architectural intent into the file topology: what the directory owns and does not own, its dependency direction, the SPEC decision IDs (`D52-L`, `D40-L`, …) that lock its layout, the resource taxonomy or layout sketch, and any in-flight migration state. Treat them as drift-prone canonical artifacts alongside `memory/SPEC.md` and `memory/PLAN.md` — not as ambient prose.
+
+Common drift sources:
+
+- a SPEC decision cited by the README is renumbered, retired, or rewritten
+- a file or module the README names is moved, renamed, retired, or replaced
+- the dependency direction the README asserts no longer matches actual imports
+- migration notes describe state that has since shipped or been abandoned
+- the directory layout sketch no longer matches the directory's contents
+
+Skills that touch canonical state (`/ln-sync`, `/ln-build`, `/ln-spec`, `/ln-review`, `/ln-refactor`) include topology READMEs in their drift checks and reconciliation. New topology READMEs should follow the established shape: short ownership statement, SPEC decision references, dependency rules, layout sketch when useful, and migration notes when relevant. Keep them short — they are an orientation surface, not a design doc; deep rationale belongs in `memory/SPEC.md` or `docs/`.
+
 ## planning
 
 Two canonical documents in `memory/`:

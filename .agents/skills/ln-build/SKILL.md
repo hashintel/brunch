@@ -130,6 +130,7 @@ After the build lands and verification passes, ask:
 - [ ] Did this retire or create an assumption?
 - [ ] Did this establish a new seam-level invariant?
 - [ ] Did this change a frontier-level cross-cutting obligation or verification architecture layer?
+- [ ] Did this change the topology of a directory that owns a `README.md` (moved/renamed/retired files, changed dependency direction, completed or invalidated a migration note, or shipped a state previously described as pending)?
 
 ### If all answers are no
 
@@ -172,11 +173,17 @@ Update only the touched traceability items.
    - same seam-level invariant gained coverage → update
    - genuinely independent seam/rule/proof → add
 
+5. **Topology READMEs** (when the topology question is `yes`)
+   - update the `README.md` of every touched directory that owns one — ownership statement, layout sketch, dependency-direction assertion, and migration notes
+   - if a SPEC decision cited by the README was renumbered or retired during reconciliation, repair the citation in the same commit
+   - if a directory the build retires owned a README, delete the README with the directory
+   - if a new directory introduced by this slice will be a long-lived seam (multiple files, named in SPEC, or imported by other layers), draft a minimal topology README following the shape in `AGENTS.md` §topology READMEs — do not speculate; describe what exists
+
 When uncertain between merge and add, add. When uncertain between update and no-op, update.
 
 If uncertain whether the seam is actually settled, promote — do not silently keep the work light.
 
-Before finishing reconciliation, perform a quick cross-skill check: if a later agent read only `memory/SPEC.md`, `memory/PLAN.md`, and the touched frontier definition, would they miss a durable design choice or verification commitment that this build changed or relied on? If yes, reconcile it before stopping.
+Before finishing reconciliation, perform a quick cross-skill check: if a later agent read only `memory/SPEC.md`, `memory/PLAN.md`, the touched frontier definition, and the touched directory READMEs, would they miss a durable design choice or verification commitment that this build changed or relied on? If yes, reconcile it before stopping.
 
 ### Retire derivative artifacts
 

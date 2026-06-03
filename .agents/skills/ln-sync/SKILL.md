@@ -30,6 +30,7 @@ Prefer `ln-sync` at these moments:
 | `HANDOFF.md` | derivative volatile transfer | only unfinished chat state not yet reconciled |
 | `memory/cards/<frontier-id>--<slug>.md` | derivative scope files | only unfinished prepared scope cards; one file per concern; multiple files per frontier permitted for independent concerns |
 | `memory/REFACTOR.md` | derivative temporary execution plan | only unfinished refactor steps |
+| `src/**/README.md` | canonical topology documentation | ownership statement, SPEC decision references, dependency rules, layout sketch, live migration notes (see `AGENTS.md` §topology READMEs) |
 
 **Notation aid.** When refreshing SPEC or PLAN:
 
@@ -149,6 +150,7 @@ Scan recent code / commits for:
 - cross-cutting subsystems that appear only in glossary/design-doc links but are required by multiple active/next frontiers
 - verification strategy that is present in canonical docs or frontier definitions but absent from `memory/SPEC.md` §Verification Design
 - chosen module/API shapes or seam obligations from `ln-design` output that active frontier work still depends on
+- **topology READMEs under `src/**/` out of sync with reality**: SPEC decision IDs cited in a README that this sync just renumbered or retired; named files/modules that have moved, been renamed, or been retired; dependency-direction assertions that no longer match actual imports; layout sketches whose entries no longer match the directory's contents; migration notes describing state that has since shipped or been abandoned (see `AGENTS.md` §topology READMEs)
 
 ### 6. Garbage-collect derivative artifacts
 
@@ -190,6 +192,7 @@ Before finishing, perform a cross-skill preservation check:
 - If a later agent read only `memory/SPEC.md` and `memory/PLAN.md`, what durable design choices from `ln-design` would they miss?
 - What verification architecture or loop-tier strategy from `ln-oracles` or canonical docs would they miss?
 - What cross-cutting obligations would disappear because they are carried only by links, not by live rows or frontier definitions?
+- Do any topology READMEs under `src/**/` still cite SPEC IDs or describe topology this sync just changed? Reconcile those READMEs as part of the sync, not as a follow-up.
 
 If any answer is non-empty, sync is incomplete.
 

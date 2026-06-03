@@ -88,6 +88,18 @@ Concrete cues to look for:
 
 Collect findings as numbered items (category: `topography`). Frame each as: what the reader sees today, what they would have to internalize to find things, and the smallest topographic move that would make the tree teach itself. Routing for coordinated layout changes goes through `ln-refactor`; a single misplaced file can be a `ln-scope` slice.
 
+### Topology README accuracy (category: `topography`)
+
+Directory `README.md` files under `src/**/` are canonical topology documentation (see `AGENTS.md` §topology READMEs). For each touched area, open the nearest README and check:
+
+- **Ownership statement** still matches what the directory actually owns and does not own
+- **SPEC decision IDs** cited (e.g. `D52-L`) still exist in `memory/SPEC.md` and still mean what the README implies they mean
+- **Dependency-direction assertions** ("`graph/` imports from `db/`; no other layer imports `db/` directly") match the actual import graph in the touched files
+- **Layout sketches** still match the directory's contents — no retired files still listed, no new files unmentioned
+- **Migration notes** describe state that is still pending; shipped or abandoned migrations are stale and should retire
+
+Collect mismatches as numbered findings. Frame each as: which README, which claim, what the code now says. Routing for coordinated README updates clusters with other topographic findings into `ln-refactor`; a single stale citation can be a `ln-scope` slice (or, if the change is mechanical, an `ln-build` direct fix).
+
 ## Output
 
 Present findings as numbered candidates. Use the compact form for ordinary findings:
