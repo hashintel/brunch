@@ -48,7 +48,7 @@
 - **Cross-cutting obligations:** [optional: subsystem / invariant / verification-layer obligations this frontier must preserve or establish]
 - **Traceability:** [→ SPEC.md requirement / assumption / decision / invariant if needed]
 - **Design docs:** [links if relevant]
-- **Current execution pointer:** [optional: `memory/CARDS.md` or next intended scope card; omit when not needed]
+- **Current execution pointer:** [optional: active scope file path(s) under `memory/cards/` for this frontier — list all active; omit when not needed]
 
 ## Recently Completed
 

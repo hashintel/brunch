@@ -28,7 +28,7 @@ Prefer `ln-sync` at these moments:
 | `memory/PLAN.md` | what's next | sequencing, frontier definitions, near-horizon items, recent completions |
 | `docs/archive/PLAN_HISTORY.md` | historical ledger | older completed phases and retired plan history |
 | `HANDOFF.md` | derivative volatile transfer | only unfinished chat state not yet reconciled |
-| `memory/CARDS.md` | derivative execution queue | only unfinished prepared scope cards inside one frontier item |
+| `memory/cards/<frontier-id>--<slug>.md` | derivative scope files | only unfinished prepared scope cards; one file per concern; multiple files per frontier permitted for independent concerns |
 | `memory/REFACTOR.md` | derivative temporary execution plan | only unfinished refactor steps |
 
 **Notation aid.** When refreshing SPEC or PLAN:
@@ -50,7 +50,7 @@ Ask whether each file is still serving re-entry.
 
 - If `memory/SPEC.md` is carrying embedded truths, old implementation detail, closed historical debates, or validated assumptions that no longer shape frontier work, prune it.
 - If `memory/PLAN.md` is mostly completed history, collapse it to a rolling frontier and archive the rest.
-- If `HANDOFF.md`, `memory/CARDS.md`, or `memory/REFACTOR.md` no longer carry live temporary state, delete them.
+- If `HANDOFF.md`, any scope file under `memory/cards/`, or `memory/REFACTOR.md` no longer carries live temporary state, delete it. For `memory/cards/`, delete per-file with literal paths — never bulk-operate on the directory.
 
 ### 3. SPEC pass — keep only live architecture
 
@@ -127,7 +127,7 @@ Rules:
 - treat **frontier items** as the canonical plan/Linear/branch units
 - treat **slices** as scoped execution units from `ln-scope` / `ln-build`, usually inside one frontier item
 - edit `Sequencing` for ordering/status churn; do not move or rewrite `Frontier Definitions` merely to reorder work
-- keep detailed scope-card queues out of `memory/PLAN.md`; use `memory/CARDS.md` for temporary slice execution queues and at most a lightweight pointer from the frontier definition
+- keep detailed scope-card chains out of `memory/PLAN.md`; use scope files under `memory/cards/` for temporary slice execution chains and at most a lightweight pointer from the frontier definition listing active scope file path(s)
 - move older completed items to `docs/archive/PLAN_HISTORY.md`
 - keep only the last 2-3 completed items live
 - only active / next frontier definitions need detailed acceptance or traceability
@@ -144,7 +144,7 @@ Scan recent code / commits for:
 - active work not represented in `memory/PLAN.md` sequencing or frontier definitions
 - stale references between `memory/PLAN.md` and `memory/SPEC.md`, especially PLAN links to retired assumptions / decisions / invariants
 - equivalent facts that should merge instead of coexisting
-- prepared cards in `memory/CARDS.md` that should be retired, re-scoped, or reconciled into the next thread's live state
+- prepared cards in scope files under `memory/cards/` that should be retired, re-scoped, or reconciled into the next thread's live state
 - stale derivative artifacts that should be deleted after reconciliation
 - cross-cutting subsystems that appear only in glossary/design-doc links but are required by multiple active/next frontiers
 - verification strategy that is present in canonical docs or frontier definitions but absent from `memory/SPEC.md` §Verification Design
@@ -155,7 +155,7 @@ Scan recent code / commits for:
 Delete exhausted temporary artifacts after their useful state has been reconciled:
 
 - remove stale `HANDOFF.md` files instead of preserving them as archive breadcrumbs
-- remove exhausted `memory/CARDS.md` queues instead of letting old prepared cards masquerade as live work
+- remove exhausted scope files under `memory/cards/` (per-file, literal paths) instead of letting old prepared cards masquerade as live work
 - remove completed `memory/REFACTOR.md` files instead of leaving completion notes or pointers
 - if an ad hoc planning/status file was created with explicit permission and is now exhausted, reconcile any durable facts, then delete it unless the user asked to keep it
 

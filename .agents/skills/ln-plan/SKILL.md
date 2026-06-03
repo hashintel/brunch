@@ -8,7 +8,7 @@ argument-hint: "[feature or project area to plan]"
 
 Plan the **rolling frontier**, not the whole historical timeline.
 
-`memory/PLAN.md` is the canonical record of what's next. `docs/archive/PLAN_HISTORY.md` is the only sanctioned archive for retired plan history. `memory/CARDS.md` is the sanctioned derivative queue for multiple prepared scope cards inside one frontier item; it is not canonical planning state. Do not invent other sidecar plan docs, milestone ledgers, or alternate memory locations without explicit permission.
+`memory/PLAN.md` is the canonical record of what's next. `docs/archive/PLAN_HISTORY.md` is the only sanctioned archive for retired plan history. `memory/cards/` is the sanctioned derivative location for prepared scope cards; one file per concern, named `<frontier-id>--<slug>.md` (or `dev--<slug>.md`, `tooling--<slug>.md`, `docs--<slug>.md` for non-frontier work). Scope files are not canonical planning state. Do not invent other sidecar plan docs, milestone ledgers, or alternate memory locations without explicit permission.
 
 ## Frontier vs slice vocabulary
 
@@ -39,7 +39,7 @@ Within `Sequencing`, use:
 
 Archive deeper history to `docs/archive/PLAN_HISTORY.md` instead of keeping it live in `memory/PLAN.md`.
 
-Treat frontier items as branch-sized work, not commit-sized work. If one frontier item will unfold as several consecutive verified slices, keep that execution queue in `memory/CARDS.md` or in session context instead of fragmenting `memory/PLAN.md` into a commit ledger. `memory/PLAN.md` may carry at most a lightweight pointer such as `current card queue: memory/CARDS.md`; detailed discretionary sub-slicing belongs in `memory/CARDS.md`.
+Treat frontier items as branch-sized work, not commit-sized work. If one frontier item will unfold as several consecutive verified slices, keep that chain in a `Mode: chain` scope file under `memory/cards/` or in session context instead of fragmenting `memory/PLAN.md` into a commit ledger. `memory/PLAN.md` may carry at most a lightweight pointer such as `current execution pointer: memory/cards/<frontier-id>--<slug>.md`; detailed discretionary sub-slicing belongs in the scope file itself.
 
 ## Input
 
@@ -135,7 +135,7 @@ This sequencing pressure is distinct from "Epistemic horizon": that rule tells t
 6. Add `Why now / unlocks` in a frontier definition when ordering would otherwise be opaque to a fresh thread.
 7. Keep `Recently Completed` to 2-3 terse items max. Move older history to `docs/archive/PLAN_HISTORY.md`, not to handoff files or ad hoc notes.
 8. Update `Dependencies` to reflect only active / next items, by frontier id.
-9. If several commit-sized execution steps are already obvious inside one frontier item, keep them out of `memory/PLAN.md`; they belong in `memory/CARDS.md` or in the active thread as derivative execution detail.
+9. If several commit-sized execution steps are already obvious inside one frontier item, keep them out of `memory/PLAN.md`; they belong in a scope file under `memory/cards/` or in the active thread as derivative execution detail.
 
 ### Cross-cutting obligations
 

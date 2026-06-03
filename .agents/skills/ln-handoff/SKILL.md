@@ -10,7 +10,7 @@ Capture what lives in chat but not on disk. Git can reconstruct file changes. Bu
 
 The handoff must let a new thread act immediately without asking clarifying questions.
 
-`HANDOFF.md` is derivative and temporary. It is never canonical planning state: durable truth belongs in `memory/SPEC.md` and `memory/PLAN.md`, prepared multi-card execution queues may live temporarily in `memory/CARDS.md`, and retired history belongs only in `docs/archive/PLAN_HISTORY.md`.
+`HANDOFF.md` is derivative and temporary. It is never canonical planning state: durable truth belongs in `memory/SPEC.md` and `memory/PLAN.md`, prepared scope cards may live temporarily as scope files under `memory/cards/`, and retired history belongs only in `docs/archive/PLAN_HISTORY.md`.
 
 Default to one `HANDOFF.md` at the workspace root. Overwrite or replace the prior handoff; do not create numbered handoff archives, breadcrumb files, or completion tombstones without explicit permission.
 
@@ -35,7 +35,7 @@ Be precise about state:
 This is the critical step. Scan the conversation for volatile artifacts — information discussed but **not yet persisted to disk**:
 
 - **Scope cards** from `ln-scope` — target behavior, boundary crossings, acceptance criteria
-- **Queued scope cards** already persisted in `memory/CARDS.md` — capture only what is still volatile about them: which card is next, whether the queue is still valid, and any card-level corrections that have not been written back yet
+- **Queued scope cards** already persisted in scope files under `memory/cards/` — capture only what is still volatile about them: which file is active, which card is next, whether the chain is still valid, and any card-level corrections that have not been written back yet
 - **Plan drafts** from `ln-plan` — slice lists, ordering decisions, dependency reasoning not yet in `memory/PLAN.md`
 - **Design outputs** from `ln-design` — alternative module shapes considered, the chosen shape, and rejected tradeoffs
 - **Oracle design outputs** from `ln-oracles` — O/R/C assessment, selected oracle families, per-frontier or per-slice verification approaches, acknowledged blind spots, and whether verification design is complete / pending / stale relative to the code
@@ -57,7 +57,7 @@ What IS on disk:
 - **Git**: branch, recent commits (last 3-5), dirty/staged files
 - **Test status**: run the verification command if fast (<30s), otherwise note last known status
 - **Artifacts**: which of `memory/SPEC.md`, `memory/PLAN.md` exist? Are they current relative to what was discussed in conversation, or stale?
-- **Derivative queues**: does `memory/CARDS.md` exist, and if so, is it still the live execution queue or already stale?
+- **Derivative scope files**: do any files exist under `memory/cards/`, and if so, which are still live and which are already stale?
 - **Mini-sync triggers**: did manual verification happen, did frontier status change, or did residual risk surface without a doc update? If yes, name the exact drift the next thread must reconcile.
 
 ### 4. Produce handoff

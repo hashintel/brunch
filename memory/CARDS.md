@@ -165,7 +165,7 @@ Scores on two axes. Build it.
 
 ## Card 3 — Cross-reference sweep across ln-* skills, praxis docs, AGENTS.md
 
-**Status:** next (depends on wording landed by Cards 1+2; scope is pre-scopable as mechanical sweep)
+**Status:** done (queue-file cleanup pending user decision)
 
 ### Objective
 
