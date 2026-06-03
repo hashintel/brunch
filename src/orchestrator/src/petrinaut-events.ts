@@ -16,14 +16,14 @@
 //     { kind, ts, runId,
 //       marking: { <place>: [{ id: <UUID>, ...payload }] } }
 //
-//   net_halted / net_deadlocked:
+//   net_completed / net_halted / net_deadlocked:
 //     { kind, ts, runId }
 //
 // Halt outcomes appear in two complementary forms:
 //   1. structurally — as halt tokens on `slice:<sid>:halted` / `epic:<eid>:halted`
 //      places (deposited by the FE-761 Slice 2b halted-as-place refactor).
 //      These flow naturally through `transition_fired` events as token payload.
-//   2. as a terminal `net_halted` event marking the run's end state.
+//   2. as a terminal event marking the run's end state.
 //
 // Decision needed with Petrinaut before treating token ids as durable
 // identities: today every emission generates fresh UUIDs (no lineage across
@@ -65,7 +65,7 @@ export type PetrinautTransitionFiredEvent = {
 };
 
 export type PetrinautTerminalEvent = {
-  kind: 'net_halted' | 'net_deadlocked';
+  kind: 'net_completed' | 'net_halted' | 'net_deadlocked';
   ts: string;
   runId: string;
 };
@@ -158,6 +158,7 @@ export function createPetrinautEventStream(opts: CreatePetrinautEventStreamOpts)
           });
           return;
         }
+        case 'net_completed':
         case 'net_halted':
         case 'net_deadlocked': {
           publish({ kind: event.kind, ts: event.ts, runId });

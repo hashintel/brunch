@@ -859,7 +859,7 @@ describe('Adapter: §7 event vocabulary', () => {
     const events: NetEvent[] = [];
     await net.run('serial', () => net.hasHaltToken(), { emit: (e) => events.push(e) });
 
-    // All events should be transition_fired (happy path, no deadlock/halt)
+    // Happy path fires transitions and then emits explicit completion.
     const fired = events.filter((e) => e.kind === 'transition_fired');
     expect(fired.length).toBeGreaterThan(0);
 
@@ -881,6 +881,8 @@ describe('Adapter: §7 event vocabulary', () => {
       expect(e.produced).toBeDefined();
     }
 
+    expect(events.at(-1)?.kind).toBe('net_completed');
+    expect(events.filter((e) => e.kind === 'net_completed')).toHaveLength(1);
     // No halt or false-deadlock events (happy path)
     expect(events.filter((e) => e.kind === 'net_halted').length).toBe(0);
     expect(events.filter((e) => e.kind === 'net_deadlocked').length).toBe(0);
@@ -976,11 +978,12 @@ describe('Petrinaut event stream on a real run', () => {
       }
     }
 
-    // 5. happy path: no net_halted / net_deadlocked emitted (engine exits
-    //    the loop cleanly when nothing remains enabled). When the cook
-    //    fails — retry exhaustion etc. — Petrinaut sees the halt token
-    //    travel through the topology as a transition_fired event landing
+    // 5. happy path: explicit completion, no net_halted / net_deadlocked.
+    //    When the cook fails — retry exhaustion etc. — Petrinaut sees the halt
+    //    token travel through the topology as a transition_fired event landing
     //    in `slice:<sid>:halted`, plus the engine emits net_halted.
+    expect(events.at(-1)?.kind).toBe('net_completed');
+    expect(events.filter((e) => e.kind === 'net_completed')).toHaveLength(1);
     expect(events.filter((e) => e.kind === 'net_halted')).toHaveLength(0);
     expect(events.filter((e) => e.kind === 'net_deadlocked')).toHaveLength(0);
   });
@@ -1190,6 +1193,7 @@ describe('identity-fold engine wiring + frame-replay oracle', () => {
       // Full sequence delivered through the returned callback.
       expect(receivedEvents.length).toBeGreaterThan(0);
       expect(receivedEvents[0]!.kind).toBe('initial_marking');
+      expect(receivedEvents.at(-1)?.kind).toBe('net_completed');
       // Await-ordering invariant: nothing slipped through before setup resolved.
       expect(receivedBeforeSetupResolved).toBe(0);
     } finally {

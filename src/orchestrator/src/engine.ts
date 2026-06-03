@@ -121,6 +121,8 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
             // (HTTP/SSE server) is fully listening before `initial_marking`.
             if (input.setupPetrinautStream && sdcpnFile) {
               setupCallback = await input.setupPetrinautStream({ runId, sdcpnFile });
+            } else if (input.setupPetrinautStream) {
+              ctx.warnings?.push('Petrinaut live stream disabled: SDCPN file was not available');
             }
             try {
               stream.emitInitialMarking(blueprint);

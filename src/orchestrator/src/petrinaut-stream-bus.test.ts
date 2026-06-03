@@ -86,6 +86,11 @@ const halted: PetrinautEvent = {
   ts: '2026-06-02T00:00:00.500Z',
   runId: 'run-bus',
 };
+const completed: PetrinautEvent = {
+  kind: 'net_completed',
+  ts: '2026-06-02T00:00:00.500Z',
+  runId: 'run-bus',
+};
 
 const allEvents: PetrinautEvent[] = [initialEvent, consumeA, consumeB, emitC, halted];
 
@@ -146,6 +151,16 @@ describe('createPetrinautStreamBus — frame translation (pre-subscribed)', () =
     bus.publish({ kind: 'net_deadlocked', ts: '2026-06-02T00:00:00.600Z', runId: 'run-bus' });
 
     expect(frames.filter((f) => f.kind === 'terminal')).toHaveLength(1);
+  });
+
+  it('emits a terminal frame when a completed run publishes net_completed', () => {
+    const bus = createPetrinautStreamBus({ runId: 'run-bus', sdcpnFile });
+    const frames: BrunchExecutionExportFrame[] = [];
+    bus.subscribe((f) => frames.push(f));
+    bus.publish(initialEvent);
+    bus.publish(completed);
+
+    expect(frames.map((f) => f.kind)).toEqual(['definition', 'initial_state', 'terminal']);
   });
 
   it('does not deliver further frames to a subscriber after the terminal frame', () => {

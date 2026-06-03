@@ -9,7 +9,7 @@
 //   definition (once, on subscribe)
 //   → initial_state (after the run's `initial_marking` PetrinautEvent)
 //   → N × transition_firing (one per `transition_fired` PetrinautEvent)
-//   → terminal (after the first `net_halted` or `net_deadlocked`)
+//   → terminal (after the first terminal net event)
 //
 // Pure: no I/O, no globals, no timers. The HTTP `/stream` route mounts on
 // top, serializing each frame as one SSE event.
@@ -96,6 +96,7 @@ export function createPetrinautStreamBus(opts: CreatePetrinautStreamBusOpts): Pe
         case 'transition_fired':
           broadcast({ kind: 'transition_firing', firing: eventToTransitionFiring(event) });
           return;
+        case 'net_completed':
         case 'net_halted':
         case 'net_deadlocked':
           terminalEmitted = true;
