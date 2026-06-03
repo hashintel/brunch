@@ -37,6 +37,42 @@ const selectSpecSnapshot: WorkspaceSnapshot = {
     chatMode: 'select-spec',
   },
 };
+const selectedSpecWithoutSessionSnapshot: WorkspaceSnapshot = {
+  status: 'select_spec',
+  cwd: '/tmp/brunch-project',
+  spec: { id: 2, title: 'Spec without session' },
+  chrome: {
+    phase: 'select_spec',
+    chatMode: 'select-spec',
+  },
+};
+
+const emptyGraphOverview = {
+  nodes: [],
+  edges: [],
+  nodeCount: 0,
+  edgeCount: 0,
+  lsn: 0,
+};
+
+const populatedGraphOverview = {
+  nodes: [
+    {
+      id: 10,
+      specId: 1,
+      plane: 'intent',
+      kind: 'requirement',
+      title: 'Spec A requirement',
+      basis: 'explicit',
+      createdAtLsn: 1,
+      updatedAtLsn: 1,
+    },
+  ],
+  edges: [],
+  nodeCount: 1,
+  edgeCount: 0,
+  lsn: 1,
+};
 
 const readyProjection: TranscriptDisplayProjection = {
   rows: [
@@ -49,6 +85,7 @@ const readyProjection: TranscriptDisplayProjection = {
 function rpcClient(options?: {
   snapshot?: WorkspaceSnapshot;
   projection?: TranscriptDisplayProjection | (() => TranscriptDisplayProjection);
+  graphOverview?: typeof emptyGraphOverview | typeof populatedGraphOverview;
   projectionError?: Error;
   calls?: RpcCall[];
   listeners?: Set<WebSocketRpcNotificationListener>;
@@ -69,6 +106,9 @@ function rpcClient(options?: {
         }
         return (typeof projection === 'function' ? projection() : projection) as T;
       }
+      if (method === 'graph.overview') {
+        return (options?.graphOverview ?? emptyGraphOverview) as T;
+      }
       throw new Error(`unexpected RPC method ${method}`);
     },
     subscribe(listener: WebSocketRpcNotificationListener) {
@@ -88,7 +128,10 @@ function emitNotification(
   }
 }
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  window.history.pushState(null, '', '/');
+});
 
 describe('Brunch React web app', () => {
   it('renders workspace chrome from workspace.snapshot via the RPC client', async () => {
@@ -118,6 +161,41 @@ describe('Brunch React web app', () => {
       method: 'session.transcriptDisplay',
       params: { sessionId: 'session-1', specId: 1 },
     });
+  });
+
+  it('loads the spec route through Query-backed graph RPC options', async () => {
+    window.history.pushState(null, '', '/spec/1');
+    const calls: RpcCall[] = [];
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({ calls, graphOverview: populatedGraphOverview }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Graph overview')).toBeTruthy();
+    expect(screen.getByText('Spec A requirement')).toBeTruthy();
+    expect(calls).toContainEqual({ method: 'workspace.snapshot' });
+    expect(calls).toContainEqual({ method: 'graph.overview', params: { specId: 1 } });
+  });
+
+  it('loads the spec route without requesting session data when no session is selected', async () => {
+    window.history.pushState(null, '', '/spec/2');
+    const calls: RpcCall[] = [];
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        snapshot: selectedSpecWithoutSessionSnapshot,
+        calls,
+        graphOverview: emptyGraphOverview,
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Spec without session')).toBeTruthy();
+    expect(screen.getByText('No graph nodes yet.')).toBeTruthy();
+    expect(calls).toContainEqual({ method: 'workspace.snapshot' });
+    expect(calls).toContainEqual({ method: 'graph.overview', params: { specId: 2 } });
+    expect(calls).not.toContainEqual(expect.objectContaining({ method: 'session.transcriptDisplay' }));
   });
 
   it('renders an empty transcript display state', async () => {

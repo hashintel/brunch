@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { createRpcHandlers } from './handlers.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from './product-updates.js';
-import { attachWebRpcTransport } from './websocket.js';
+import { attachWebRpcTransport, type WebRpcTransport } from './websocket.js';
 
 export interface WebHostOptions {
   cwd: string;
@@ -80,7 +80,7 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
     response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('Not found');
   });
-  let rpcTransport: ReturnType<typeof attachWebRpcTransport> | null = null;
+  let rpcTransport: WebRpcTransport | null = null;
   if (options.coordinator) {
     const productUpdates = options.productUpdates ?? createProductUpdatePublisher();
     rpcTransport = attachWebRpcTransport({

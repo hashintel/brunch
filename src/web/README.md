@@ -23,18 +23,43 @@ web/
     close()
 
   app.tsx
-    creates QueryClient + TanStack Router runtime
-    root route loader ensureQueryData(workspace.snapshot)
-    current proof UI:
+    app/runtime/router assembly:
+      createBrunchWebRuntime
+      createBrunchWebRouter
+      BrunchWebApp shell
+
+  query-client.ts
+    per-runtime QueryClient defaults
+
+  query-keys.ts
+    method-shaped product query keys:
       workspace.snapshot
-      session.transcriptDisplay  # proof-era method; rename debt per rpc/README
-      brunch.updated notification -> invalidate relevant queries
+      session.runtimeState
+      graph.overview
+      graph.nodeNeighborhood
+
+  queries/
+    workspace.ts -> workspace.snapshot query options
+    session.ts   -> session transcript/runtime query options
+    graph.ts     -> graph overview/neighborhood query options
+
+  subscriptions/
+    brunch-updates.ts
+      brunch.updated -> exact Query invalidation where possible
+
+  routes/
+    root.tsx
+      root subscription + `/` workspace/session proof route
+    spec.tsx
+      `/spec/$specId` loader primes workspace.snapshot + graph.overview
+
+  features/graph/GraphOverview.tsx
+    read-only selected-spec graph projection
 
   *.test.tsx / *.test.ts
-    component and transport oracles for current web proof
-```
+    component, route/cache, and transport oracles for current web proof
 
-Current `app.tsx` intentionally keeps query options in-file because the surface is still tiny. Split to the topology below as soon as a second route, mutation, or graph projection lands.
+```
 
 ## Host / asset boundary
 
@@ -123,7 +148,7 @@ web/
     generic WebSocket JSON-RPC transport
 
   query-client.ts
-    QueryClient factory/defaults once defaults matter outside tests
+    QueryClient factory/defaults per runtime
 
   query-keys.ts
     one stable key factory object for all product resources
@@ -159,7 +184,7 @@ web/
 
   subscriptions/
     brunch-updates.ts
-      useBrunchUpdateInvalidation(rpc, queryClient)
+      useBrunchUpdateSubscription(queryClient, rpc)
       maps notification topics/LSNs -> exact Query keys
 
   routes/

@@ -183,17 +183,7 @@ function workspaceSelectionStateFromInventory(
   };
 }
 
-function workspaceActivationSnapshotFromState(state: WorkspaceActivationState):
-  | ReturnType<typeof workspaceSnapshotFromState>
-  | {
-      status: 'cancelled';
-      cwd: string;
-      spec: WorkspaceActivationState['chrome']['spec'];
-      chrome: {
-        phase: 'select_spec' | 'elicitation';
-        chatMode: 'select-spec' | 'responding-to-elicitation';
-      };
-    } {
+function workspaceActivationSnapshotFromState(state: WorkspaceActivationState) {
   if (state.status === 'cancelled') {
     return {
       status: 'cancelled',

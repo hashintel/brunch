@@ -51,7 +51,7 @@ Tailwind/shadcn/lucide-heavy visual system unless a later UI slice chooses it
 large generated `routeTree.gen.ts` / router plugin setup before a second real route needs it
 ```
 
-## Card 1 — next — Web client topology is Query/Router/RPC shaped
+## Card 1 — done — Web client topology is Query/Router/RPC shaped
 
 ### Target Behavior
 
