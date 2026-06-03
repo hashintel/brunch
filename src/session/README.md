@@ -13,6 +13,11 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **Exchange extraction** — elicitation exchange projection: prompt-side
   span + response-side span, per D13-L.
 
+- **Runtime-state projection** — flattened transcript-backed agent posture,
+  mention, world-watermark, and lifecycle slots from linear Brunch session
+  envelopes. `.pi` may append operational-mode entries, but the pure projection
+  lives here.
+
 - **Workspace coordination** — boot flow, spec/session selection,
   `.brunch/workspace.json` management. The `WorkspaceSessionCoordinator`
   is the only module that creates/opens Pi sessions for Brunch user flows
@@ -50,8 +55,9 @@ These files migrated here on 2026-06-02:
 | `workspace-session-coordinator.ts`| boot, spec/session selection       |
 | `session-binding.ts`              | session↔spec binding               |
 | `brunch-session-envelope.ts`      | session envelope reader            |
-| `session-projection-reader.ts`    | JSONL projection                   |
+| `session-projection-reader.ts`    | JSONL projection target resolution |
 | `session-transcript.ts`           | transcript row projection          |
 | `elicitation-exchange.ts`         | exchange extraction                |
+| `runtime-state.ts`                | runtime state projection           |
 | `structured-exchange.ts`          | structured exchange schemas/types  |
 | `project-identity.ts`             | workspace identity (cwd discovery) |

@@ -76,10 +76,10 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
   - The TUI remains the writer; the web surface is read-only unless a later explicit product command changes that.
   - Multi-spec discipline: graph reads target the selected/current spec; no workspace-global graph projection is introduced.
 - **Verification:** Inner — RPC handler/discovery/schema tests; web query/render tests around empty graph and populated graph. Middle — integration test or probe that performs a real `commitGraph`/graph-tool write and observes WebSocket/stdio `brunch.updated` notification/refetch over the public RPC surface. Outer — manual TUI + web smoke: fresh cwd, activate spec/session in TUI, open web dashboard, create/commit graph, see web update.
-- **Topology materialization:** `graph/` remains the read/domain owner; `rpc/` owns graph method handlers plus the process-local product update publisher; `web/` owns graph rendering, route loaders, Query keys, and notification invalidation; no `web/` or `.pi/` import of `db/`; no duplicate graph DTOs outside projected/read-model types.
-- **Cross-cutting obligations:** Preserve D19-L thin named RPC methods, D33-L client attachment semantics, D35-L product chrome/projection discipline, and D52-L source dependency direction. `brunch.updated` is an invalidation hint over transports, not canonical truth or a durable event store. Do not introduce a generic read gateway or view store.
-- **Traceability:** R7, R10, R11, R12 / D5-L, D10-L, D19-L, D33-L, D52-L, D60-L / I21-L, I35-L / A3-L, A4-L.
-- **Design docs:** `memory/SPEC.md` D19-L, D33-L, D52-L, D60-L; `src/rpc/README.md`; `src/web/README.md`; `docs/design/GRAPH_MODEL.md`.
+- **Topology materialization:** `graph/` remains the read/domain owner; `session/` owns transcript-backed runtime-state projection; `rpc/` owns graph/session method handlers plus the process-local product update publisher; `web/` owns graph rendering, route loaders, Query keys, and notification invalidation; no `web/` or `.pi/` import of `db/`; no duplicate graph/runtime DTOs outside projected/read-model types.
+- **Cross-cutting obligations:** Preserve D19-L thin named RPC methods, D33-L client attachment semantics, D35-L product chrome/projection discipline, D40-L transcript-backed runtime state, and D52-L source dependency direction. `brunch.updated` is an invalidation hint over transports, not canonical truth or a durable event store. Do not introduce a generic read gateway or view store.
+- **Traceability:** R7, R10, R11, R12 / D5-L, D10-L, D19-L, D33-L, D40-L, D52-L, D60-L / I21-L, I25-L, I35-L / A3-L, A4-L.
+- **Design docs:** `memory/SPEC.md` D19-L, D33-L, D40-L, D52-L, D60-L; `src/rpc/README.md`; `src/session/README.md`; `src/web/README.md`; `docs/design/GRAPH_MODEL.md`.
 
 ### agents-composition-layer
 

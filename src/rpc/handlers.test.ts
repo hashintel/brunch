@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 import { openWorkspaceGraphRuntime } from '../graph/workspace-store.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
+import { BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, type BrunchAgentState } from '../session/runtime-state.js';
 import { createSessionBindingData } from '../session/session-binding.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import type {
@@ -297,6 +298,7 @@ describe('JSON-RPC handlers', () => {
       'rpc.discover',
       'session.elicitationExchanges',
       'session.pendingExchange',
+      'session.runtimeState',
       'session.startElicitation',
       'session.transcriptDisplay',
       'workspace.activate',
@@ -445,6 +447,7 @@ describe('JSON-RPC handlers', () => {
     const sessionProjectionMethods = methods.filter(
       (entry) =>
         entry.method === 'session.elicitationExchanges' ||
+        entry.method === 'session.runtimeState' ||
         entry.method === 'session.transcriptDisplay' ||
         entry.method === 'session.pendingExchange',
     );
@@ -555,6 +558,7 @@ describe('JSON-RPC handlers', () => {
       { topic: 'session.pendingExchange', specId: 1, sessionId: 'session-1' },
       { topic: 'session.elicitationExchanges', specId: 1, sessionId: 'session-1' },
       { topic: 'session.transcriptDisplay', specId: 1, sessionId: 'session-1' },
+      { topic: 'session.runtimeState', specId: 1, sessionId: 'session-1' },
     ]);
   });
 
@@ -1614,6 +1618,88 @@ describe('JSON-RPC handlers', () => {
           { role: 'user', text: 'Display answer' },
         ],
       },
+    });
+  });
+
+  it('serves runtime state by explicit spec and session id without opening selected session', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-runtime-state-'));
+    const latestState: BrunchAgentState = {
+      schemaVersion: 1,
+      operationalMode: 'elicit',
+      agentStrategy: 'propose-graph',
+      agentLens: 'design',
+      agentGoal: 'capture-posture',
+    };
+    await writeExplicitSessionFixture(cwd, [
+      { type: 'session', id: 'session-1', cwd },
+      sessionBindingEntry('session-1', 1),
+      {
+        id: 'runtime-state-1',
+        type: 'custom',
+        parentId: 'binding-session-1-1',
+        customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+        data: {
+          schemaVersion: 1,
+          reason: 'switch',
+          state: latestState,
+          source: 'user',
+        },
+      },
+    ]);
+    const handlers = createRpcHandlers({
+      coordinator: {
+        ...coordinator(),
+        async openDefaultWorkspace() {
+          throw new Error('explicit reads must not open selected session');
+        },
+      },
+      cwd,
+    });
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 14,
+        method: 'session.runtimeState',
+        params: { sessionId: 'session-1', specId: 1 },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: '2.0',
+      id: 14,
+      result: {
+        status: 'ready',
+        specId: 1,
+        sessionId: 'session-1',
+        agent: {
+          operationalMode: 'elicit',
+          role: 'elicitor',
+          strategy: 'propose-graph',
+          lens: 'design',
+          goal: 'capture-posture',
+        },
+        mentions: { graphNodes: [], files: [] },
+        world: { graph: { latestLsn: null, latestChangeset: null }, git: { head: null } },
+      },
+    });
+  });
+
+  it('requires an explicit spec id for runtime state reads', async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp/brunch-project',
+    });
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 15,
+        method: 'session.runtimeState',
+        params: { sessionId: 'session-1' },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: '2.0',
+      id: 15,
+      error: { code: -32602, message: 'Invalid params' },
     });
   });
 

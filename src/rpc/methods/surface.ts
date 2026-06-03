@@ -5,6 +5,7 @@ export const READ_RPC_METHODS = new Set<string>([
   'session.pendingExchange',
   'session.elicitationExchanges',
   'session.transcriptDisplay',
+  'session.runtimeState',
   'graph.overview',
   'graph.nodeNeighborhood',
 ]);

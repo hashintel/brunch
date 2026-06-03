@@ -22,260 +22,43 @@ import { Text } from '@earendil-works/pi-tui';
 const ELICIT_BLOCKED_TOOLS = ['bash', 'edit', 'write'] as const;
 type ElicitBlockedToolName = (typeof ELICIT_BLOCKED_TOOLS)[number];
 
-export const BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE = 'brunch.agent_runtime_state';
-
-export type OperationalModeId = 'elicit';
-export type AgentRoleId = 'elicitor';
-export type AutoAxisSelection = 'auto';
-export type AgentStrategyId =
-  | 'step-wise-decision-tree'
-  | 'step-wise-disambiguate'
-  | 'propose-graph'
-  | 'project-graph';
-export type AgentStrategySelection = AutoAxisSelection | AgentStrategyId;
-export type AgentLensId = 'intent' | 'design' | 'oracle';
-export type AgentLensSelection = AutoAxisSelection | AgentLensId;
-export type AgentGoalId = 'grounding-advance' | 'elicit-expand' | 'commit-converge' | 'capture-posture';
-export type AgentGoalSelection = AutoAxisSelection | AgentGoalId;
-export type ToolPolicyId = 'elicit-read-only';
-export type PromptPackId = 'brunch-base' | 'elicit' | 'elicitor';
-export type ModelPreference = 'default';
-export type ThinkingLevel = 'low' | 'medium' | 'high';
-
-export interface BrunchAgentState {
-  schemaVersion: 1;
-  operationalMode: OperationalModeId;
-  agentStrategy: AgentStrategySelection;
-  agentLens: AgentLensSelection;
-  agentGoal: AgentGoalSelection;
-}
-
-export interface OperationalModeDefinition {
-  id: OperationalModeId;
-  defaultRole: AgentRoleId;
-  allowedRoles: readonly AgentRoleId[];
-  toolPolicyId: ToolPolicyId;
-  promptPackIds: readonly PromptPackId[];
-}
-
-export interface AgentRoleDefinition {
-  id: AgentRoleId;
-  operationalMode: OperationalModeId;
-  defaultStrategy: AgentStrategySelection;
-  allowedStrategies: readonly AgentStrategyId[];
-  defaultLens: AgentLensSelection;
-  allowedLenses: readonly AgentLensId[];
-  defaultGoal: AgentGoalSelection;
-  allowedGoals: readonly AgentGoalId[];
-  promptPackIds: readonly PromptPackId[];
-  modelPreference?: ModelPreference;
-  thinkingLevel?: ThinkingLevel;
-}
-
-export interface ResolvedBrunchAgentState extends BrunchAgentState {
-  agentRole: AgentRoleId;
-  operationalModeDefinition: OperationalModeDefinition;
-  agentRoleDefinition: AgentRoleDefinition;
-}
-
-export interface BrunchAgentStateEntryData {
-  schemaVersion: 1;
-  reason: 'init' | 'switch';
-  state: BrunchAgentState;
-  previous?: BrunchAgentState;
-  source: 'system' | 'user' | 'agent' | 'extension';
-}
-
-export const DEFAULT_BRUNCH_AGENT_STATE: BrunchAgentState = {
-  schemaVersion: 1,
-  operationalMode: 'elicit',
-  agentStrategy: 'auto',
-  agentLens: 'auto',
-  agentGoal: 'grounding-advance',
-};
-
-export const OPERATIONAL_MODE_DEFINITIONS: Record<OperationalModeId, OperationalModeDefinition> = {
-  elicit: {
-    id: 'elicit',
-    defaultRole: 'elicitor',
-    allowedRoles: ['elicitor'],
-    toolPolicyId: 'elicit-read-only',
-    promptPackIds: ['brunch-base', 'elicit'],
-  },
-};
-
-export const AGENT_ROLE_DEFINITIONS: Record<AgentRoleId, AgentRoleDefinition> = {
-  elicitor: {
-    id: 'elicitor',
-    operationalMode: 'elicit',
-    defaultStrategy: 'auto',
-    allowedStrategies: [
-      'step-wise-decision-tree',
-      'step-wise-disambiguate',
-      'propose-graph',
-      'project-graph',
-    ],
-    defaultLens: 'auto',
-    allowedLenses: ['intent', 'design', 'oracle'],
-    defaultGoal: 'grounding-advance',
-    allowedGoals: ['grounding-advance', 'elicit-expand', 'commit-converge', 'capture-posture'],
-    promptPackIds: ['elicitor'],
-  },
-};
+export {
+  BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+  DEFAULT_BRUNCH_AGENT_STATE,
+  appendBrunchAgentRuntimeInit,
+  appendBrunchAgentRuntimeSwitch,
+  projectBrunchAgentState,
+  type AgentGoalId,
+  type AgentGoalSelection,
+  type AgentLensId,
+  type AgentLensSelection,
+  type AgentRoleId,
+  type AgentRoleDefinition,
+  type AgentStrategyId,
+  type AgentStrategySelection,
+  type AutoAxisSelection,
+  type BrunchAgentState,
+  type BrunchAgentStateEntryData,
+  type BrunchAgentStateEntrySessionManager,
+  type ModelPreference,
+  type OperationalModeDefinition,
+  type OperationalModeId,
+  type PromptPackId,
+  type ResolvedBrunchAgentState,
+  type ThinkingLevel,
+  type ToolPolicyId,
+} from '../../session/runtime-state.js';
+import {
+  appendBrunchAgentRuntimeInit,
+  projectBrunchAgentState,
+  type ResolvedBrunchAgentState,
+  type BrunchAgentStateEntrySessionManager,
+} from '../../session/runtime-state.js';
 
 interface CustomEntryLike {
   type?: unknown;
   customType?: unknown;
   data?: unknown;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function isOneOf<T extends string>(value: unknown, allowed: readonly T[]): value is T {
-  return typeof value === 'string' && allowed.includes(value as T);
-}
-
-function isAxisSelection<T extends string>(
-  value: unknown,
-  allowed: readonly T[],
-): value is AutoAxisSelection | T {
-  return value === 'auto' || isOneOf(value, allowed);
-}
-
-function parseBrunchAgentState(value: unknown): BrunchAgentState | undefined {
-  if (!isRecord(value)) return undefined;
-  const operationalModes = Object.keys(OPERATIONAL_MODE_DEFINITIONS) as OperationalModeId[];
-
-  if (value.schemaVersion !== 1) return undefined;
-  if (!isOneOf(value.operationalMode, operationalModes)) return undefined;
-  if ('agentRole' in value) return undefined;
-
-  const mode = OPERATIONAL_MODE_DEFINITIONS[value.operationalMode];
-  const role = AGENT_ROLE_DEFINITIONS[mode.defaultRole];
-  if (!isAxisSelection(value.agentStrategy, role.allowedStrategies)) return undefined;
-  if (!isAxisSelection(value.agentLens, role.allowedLenses)) return undefined;
-  if (!isAxisSelection(value.agentGoal, role.allowedGoals)) return undefined;
-
-  return {
-    schemaVersion: 1,
-    operationalMode: value.operationalMode,
-    agentStrategy: value.agentStrategy,
-    agentLens: value.agentLens,
-    agentGoal: value.agentGoal,
-  };
-}
-
-function parseBrunchAgentStateEntryData(value: unknown): BrunchAgentStateEntryData | undefined {
-  if (!isRecord(value)) return undefined;
-  if (value.schemaVersion !== 1) return undefined;
-  if (value.reason !== 'init' && value.reason !== 'switch') return undefined;
-  if (
-    value.source !== 'system' &&
-    value.source !== 'user' &&
-    value.source !== 'agent' &&
-    value.source !== 'extension'
-  ) {
-    return undefined;
-  }
-  const state = parseBrunchAgentState(value.state);
-  if (!state) return undefined;
-  const previous = value.previous === undefined ? undefined : parseBrunchAgentState(value.previous);
-  if (value.previous !== undefined && !previous) return undefined;
-
-  return {
-    schemaVersion: 1,
-    reason: value.reason,
-    state,
-    ...(previous ? { previous } : {}),
-    source: value.source,
-  };
-}
-
-function resolveBrunchAgentState(state: BrunchAgentState): ResolvedBrunchAgentState {
-  const operationalModeDefinition = OPERATIONAL_MODE_DEFINITIONS[state.operationalMode];
-  const agentRole = operationalModeDefinition.defaultRole;
-  return {
-    ...state,
-    agentRole,
-    operationalModeDefinition,
-    agentRoleDefinition: AGENT_ROLE_DEFINITIONS[agentRole],
-  };
-}
-
-function latestValidBrunchAgentStateEntryData(
-  entries: readonly CustomEntryLike[],
-): BrunchAgentStateEntryData | undefined {
-  let latest: BrunchAgentStateEntryData | undefined;
-
-  for (const entry of entries) {
-    if (entry.type !== 'custom' || entry.customType !== BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE) {
-      continue;
-    }
-    const data = parseBrunchAgentStateEntryData(entry.data);
-    if (data) latest = data;
-  }
-
-  return latest;
-}
-
-export function projectBrunchAgentState(entries: readonly CustomEntryLike[]): ResolvedBrunchAgentState {
-  return resolveBrunchAgentState(
-    latestValidBrunchAgentStateEntryData(entries)?.state ?? DEFAULT_BRUNCH_AGENT_STATE,
-  );
-}
-
-export interface BrunchAgentStateEntrySessionManager {
-  getEntries(): readonly CustomEntryLike[];
-  appendCustomEntry(customType: string, data: BrunchAgentStateEntryData): string;
-}
-
-function requireValidBrunchAgentState(state: BrunchAgentState): BrunchAgentState {
-  const valid = parseBrunchAgentState(state);
-  if (!valid) {
-    throw new Error('Invalid BrunchAgentState runtime selection.');
-  }
-  return valid;
-}
-
-export function appendBrunchAgentRuntimeInit(
-  sessionManager: BrunchAgentStateEntrySessionManager,
-  source: BrunchAgentStateEntryData['source'] = 'extension',
-): string | undefined {
-  if (latestValidBrunchAgentStateEntryData(sessionManager.getEntries())) {
-    return undefined;
-  }
-
-  return sessionManager.appendCustomEntry(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, {
-    schemaVersion: 1,
-    reason: 'init',
-    state: DEFAULT_BRUNCH_AGENT_STATE,
-    source,
-  });
-}
-
-export function appendBrunchAgentRuntimeSwitch(
-  sessionManager: BrunchAgentStateEntrySessionManager,
-  state: BrunchAgentState,
-  source: BrunchAgentStateEntryData['source'] = 'user',
-): string {
-  const validState = requireValidBrunchAgentState(state);
-  const previous = projectBrunchAgentState(sessionManager.getEntries());
-
-  return sessionManager.appendCustomEntry(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, {
-    schemaVersion: 1,
-    reason: 'switch',
-    state: validState,
-    previous: {
-      schemaVersion: previous.schemaVersion,
-      operationalMode: previous.operationalMode,
-      agentStrategy: previous.agentStrategy,
-      agentLens: previous.agentLens,
-      agentGoal: previous.agentGoal,
-    },
-    source,
-  });
 }
 
 function shortenPath(path: string): string {
@@ -493,7 +276,7 @@ export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
 
   pi.on('session_start', async (_event, ctx) => {
     if (supportsBrunchAgentStateEntries(ctx?.sessionManager)) {
-      appendBrunchAgentRuntimeInit(ctx.sessionManager);
+      appendBrunchAgentRuntimeInit(ctx.sessionManager as BrunchAgentStateEntrySessionManager);
     }
     const state = projectBrunchAgentStateFromSessionManager(ctx?.sessionManager);
     applyBrunchToolPolicy(pi, state);

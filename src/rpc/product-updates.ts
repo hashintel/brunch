@@ -77,6 +77,7 @@ export function selectedSessionProductUpdates(target?: {
     productUpdate('session.pendingExchange', target),
     productUpdate('session.elicitationExchanges', target),
     productUpdate('session.transcriptDisplay', target),
+    productUpdate('session.runtimeState', target),
   ];
 }
 

@@ -1,6 +1,7 @@
 import type { QueryObserverOptions } from '@tanstack/react-query';
 
 import type { TranscriptDisplayProjection } from '../../session/elicitation-exchange.js';
+import type { RuntimeStateProjection } from '../../session/runtime-state.js';
 import { queryKeys } from '../query-keys.js';
 import type { WebSocketRpcClient } from '../rpc-client.js';
 
@@ -8,10 +9,6 @@ export type SessionProjectionTarget = {
   sessionId: string;
   specId: number;
 };
-
-export interface SessionRuntimeStateProjection {
-  readonly [key: string]: unknown;
-}
 
 export function sessionTranscriptDisplayQueryOptions(
   rpcClient: WebSocketRpcClient,
@@ -32,10 +29,10 @@ export function sessionTranscriptDisplayQueryOptions(
 export function sessionRuntimeStateQueryOptions(
   rpcClient: WebSocketRpcClient,
   target: SessionProjectionTarget,
-) {
+): QueryObserverOptions<RuntimeStateProjection> {
   return {
     queryKey: queryKeys.session.runtimeState(target),
-    queryFn: () => rpcClient.request<SessionRuntimeStateProjection>('session.runtimeState', target),
+    queryFn: () => rpcClient.request<RuntimeStateProjection>('session.runtimeState', target),
   };
 }
 

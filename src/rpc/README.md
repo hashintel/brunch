@@ -49,6 +49,7 @@ brunch.updated:
       - session.pendingExchange
       - session.elicitationExchanges
       - session.transcriptDisplay
+      - session.runtimeState
     updates:
       - {topic, specId?, sessionId?, nodeId?, lsn?}
 ```
@@ -66,6 +67,7 @@ full RPC host:
     session.pendingExchange
     session.elicitationExchanges
     session.transcriptDisplay
+    session.runtimeState
     graph.overview
     graph.nodeNeighborhood
   mutations:
@@ -81,6 +83,7 @@ TUI-started web sidecar:
     session.pendingExchange
     session.elicitationExchanges
     session.transcriptDisplay
+    session.runtimeState
     graph.overview
     graph.nodeNeighborhood
   rejected as method-not-found:
@@ -138,6 +141,13 @@ session.submitMessage
 
 session.exchanges
   Projects structured exchange history from transcript truth.
+
+session.runtimeState
+  Projects flattened transcript-backed runtime state for explicit `{specId,sessionId}`:
+    agent posture: op mode, derived role, strategy, lens, goal
+    mentions: graph node and file slots
+    world watermarks: latest graph LSN/changeset and git head slots
+    lifecycle facts when transcript-backed entries make them computable
 
 graph.overview
   Returns the canonical selected-spec graph overview for explicit `{specId}`:

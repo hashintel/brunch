@@ -16,6 +16,7 @@ import {
   projectLinearElicitationExchangeProjection,
   projectLinearTranscriptDisplayProjection,
 } from '../session/elicitation-exchange.js';
+import { projectSessionRuntimeState } from '../session/runtime-state.js';
 import {
   resolveExplicitSessionProjectionTarget,
   type ExplicitSessionProjectionParams,
@@ -160,6 +161,12 @@ function createRpcHandlersForSurface(
           options,
           projectLinearTranscriptDisplayProjection,
         );
+      }
+
+      if (request.method === 'session.runtimeState') {
+        return handleSessionProjection(requestId, request.params, options, projectSessionRuntimeState, {
+          requireExplicitSpec: true,
+        });
       }
 
       if (request.method === 'graph.overview') {
@@ -407,6 +414,25 @@ const TranscriptDisplayResultSchema = Type.Object(
   { additionalProperties: true },
 );
 
+const RuntimeStateResultSchema = Type.Object(
+  {
+    status: Type.Literal('ready'),
+    specId: PositiveIntegerSchema,
+    sessionId: NonBlankStringSchema,
+    agent: Type.Object({}, { additionalProperties: true }),
+    mentions: Type.Object(
+      {
+        graphNodes: Type.Array(Type.Object({}, { additionalProperties: true })),
+        files: Type.Array(Type.Object({}, { additionalProperties: true })),
+      },
+      { additionalProperties: false },
+    ),
+    world: Type.Object({}, { additionalProperties: true }),
+    lifecycle: Type.Object({}, { additionalProperties: true }),
+  },
+  { additionalProperties: false },
+);
+
 const PendingElicitationExchangeSchema = Type.Object(
   {
     exchangeId: NonBlankStringSchema,
@@ -625,6 +651,21 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
     ],
   },
   {
+    method: 'session.runtimeState',
+    description:
+      'Return flattened transcript-backed runtime posture, mention, world-watermark, and lifecycle state for an explicit Brunch session.',
+    paramsSchema: SessionProjectionParamsSchema,
+    resultSchema: RuntimeStateResultSchema,
+    examples: [
+      {
+        jsonrpc: '2.0',
+        id: 14,
+        method: 'session.runtimeState',
+        params: { sessionId: 'session-1', specId: 1 },
+      },
+    ],
+  },
+  {
     method: 'session.startElicitation',
     description:
       "Start or resume the selected session's deterministic structured-exchange permutation loop and return the current pending exchange.",
@@ -720,9 +761,10 @@ async function handleSessionProjection<T>(
     cwd: string;
   },
   loadProjection: (envelope: BrunchSessionEnvelope) => T,
+  policy: { requireExplicitSpec?: boolean } = {},
 ): Promise<JsonRpcResponse> {
   const params = parseSessionProjectionParams(rawParams);
-  if (!params.ok) {
+  if (!params.ok || (policy.requireExplicitSpec && params.value?.specId === undefined)) {
     return createJsonRpcFailure(requestId, -32602, 'Invalid params');
   }
 
