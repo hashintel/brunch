@@ -8,7 +8,12 @@ import { stringify as stringifyYaml } from 'yaml';
 
 import type { PlanningEnrichment } from './cook-plan-llm-planning.js';
 import { projectCookPlanFromSpec, type CompletedSpecSnapshot } from './cook-plan-projection.js';
-import { reconcileCookPlan } from './cook-plan-reconciliation.js';
+import {
+  formatReconciliationWarning,
+  reconcileCookPlan,
+  reconciliationWarningCategory,
+  type ReconciliationWarning,
+} from './cook-plan-reconciliation.js';
 import { loadPlan } from './plan-loader.js';
 import type { Plan } from './types.js';
 
@@ -370,4 +375,97 @@ describe('reconcileCookPlan', () => {
     // representative slices for this corpus check.
     void rest;
   });
+});
+
+describe('reconciliationWarningCategory', () => {
+  // One example per code so a new warning code in the union forces an
+  // exhaustive-switch update in `reconciliationWarningCategory` AND a
+  // matching expectation here.
+  const examples: { warning: ReconciliationWarning; expected: 'transformation' | 'synthesis' }[] = [
+    {
+      warning: { code: 'synthesized-verification-target', sliceId: 'req-1', target: 'tests/req-1.test.ts' },
+      expected: 'synthesis',
+    },
+    {
+      warning: { code: 'dropped-dependency-nonexistent-id', sliceId: 'req-1', missingId: 'ghost' },
+      expected: 'transformation',
+    },
+    {
+      warning: { code: 'dropped-self-loop', sliceId: 'req-1' },
+      expected: 'transformation',
+    },
+    {
+      warning: { code: 'cycle-break-dropped-edge', sliceId: 'req-a', droppedDependsOn: 'req-b' },
+      expected: 'transformation',
+    },
+    {
+      warning: { code: 'dropped-dependency-on-non-buildable', sliceId: 'req-1', nonBuildableId: 'req-2' },
+      expected: 'transformation',
+    },
+    {
+      warning: { code: 'dropped-non-buildable-slice', sliceId: 'req-2', definition: 'Never lose data' },
+      expected: 'transformation',
+    },
+    {
+      warning: { code: 'dropped-empty-epic', epicId: 'orphan', epicSummary: 'Orphan' },
+      expected: 'transformation',
+    },
+    {
+      warning: { code: 'orphan-slice-assigned-to-default-epic', sliceId: 'req-1' },
+      expected: 'transformation',
+    },
+  ];
+
+  for (const { warning, expected } of examples) {
+    it(`classifies '${warning.code}' as '${expected}'`, () => {
+      expect(reconciliationWarningCategory(warning)).toBe(expected);
+    });
+  }
+});
+
+describe('formatReconciliationWarning', () => {
+  const examples: { warning: ReconciliationWarning; mustContain: string[] }[] = [
+    {
+      warning: { code: 'synthesized-verification-target', sliceId: 'req-1', target: 'tests/req-1.test.ts' },
+      mustContain: ['synthesized-verification-target', 'req-1', 'tests/req-1.test.ts'],
+    },
+    {
+      warning: { code: 'dropped-dependency-nonexistent-id', sliceId: 'req-1', missingId: 'ghost' },
+      mustContain: ['dropped-dependency-nonexistent-id', 'req-1', 'ghost'],
+    },
+    {
+      warning: { code: 'dropped-self-loop', sliceId: 'req-1' },
+      mustContain: ['dropped-self-loop', 'req-1'],
+    },
+    {
+      warning: { code: 'cycle-break-dropped-edge', sliceId: 'req-a', droppedDependsOn: 'req-b' },
+      mustContain: ['cycle-break-dropped-edge', 'req-a', 'req-b'],
+    },
+    {
+      warning: { code: 'dropped-dependency-on-non-buildable', sliceId: 'req-1', nonBuildableId: 'req-2' },
+      mustContain: ['dropped-dependency-on-non-buildable', 'req-1', 'req-2'],
+    },
+    {
+      warning: { code: 'dropped-non-buildable-slice', sliceId: 'req-2', definition: 'Never lose data' },
+      mustContain: ['dropped-non-buildable-slice', 'req-2'],
+    },
+    {
+      warning: { code: 'dropped-empty-epic', epicId: 'orphan', epicSummary: 'Orphan' },
+      mustContain: ['dropped-empty-epic', 'orphan', 'Orphan'],
+    },
+    {
+      warning: { code: 'orphan-slice-assigned-to-default-epic', sliceId: 'req-1' },
+      mustContain: ['orphan-slice-assigned-to-default-epic', 'req-1'],
+    },
+  ];
+
+  for (const { warning, mustContain } of examples) {
+    it(`renders '${warning.code}' as a non-empty line containing code + key fields`, () => {
+      const line = formatReconciliationWarning(warning);
+      expect(line.length).toBeGreaterThan(0);
+      for (const fragment of mustContain) {
+        expect(line).toContain(fragment);
+      }
+    });
+  }
 });

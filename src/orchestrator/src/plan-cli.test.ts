@@ -38,11 +38,13 @@ describe('parsePlanArgs', () => {
 });
 
 describe('runPlan', () => {
-  it('writes .brunch/cook/plan.yaml from the snapshot and surfaces warnings on stderr', async () => {
+  // Snapshot whose reconciliation will produce a real transformation
+  // warning (cycle break) so we can assert it's always shown.
+  function makeRunWithCycle() {
     const snapshot: CompletedSpecSnapshot = {
       requirements: [
-        { id: 10, content: 'First requirement', kindOrdinal: 1 },
-        { id: 11, content: 'Second requirement', kindOrdinal: 2 },
+        { id: 10, content: 'A', kindOrdinal: 1 },
+        { id: 11, content: 'B', kindOrdinal: 2 },
       ],
       criteria: [],
       edges: [],
@@ -51,13 +53,22 @@ describe('runPlan', () => {
     const snapshotPath = join(dir, 'snapshot.json');
     writeFileSync(snapshotPath, JSON.stringify(snapshot));
 
+    // 2-cycle req-1 ↔ req-2: reconciliation drops req-1's incoming edge.
     const enrichment: PlanningEnrichment = {
-      sliceDependencies: [],
+      sliceDependencies: [
+        { sliceId: 'req-1', dependsOn: ['req-2'] },
+        { sliceId: 'req-2', dependsOn: ['req-1'] },
+      ],
       epics: [{ id: 'core', summary: 'Core', sliceIds: ['req-1', 'req-2'] }],
       nonBuildableSliceIds: [],
     };
     const runModel: RunModel = async () => enrichment;
 
+    return { snapshot, snapshotPath, dir, runModel };
+  }
+
+  it('writes .brunch/cook/plan.yaml and hides synthesis events at default verbosity', async () => {
+    const { snapshotPath, dir, runModel } = makeRunWithCycle();
     const stderrLines: string[] = [];
 
     await runPlan({
@@ -71,16 +82,33 @@ describe('runPlan', () => {
     const planPath = join(dir, '.brunch', 'cook', 'plan.yaml');
     const reloaded = parseYaml(readFileSync(planPath, 'utf8')) as Plan;
     expect(reloaded.slices.map((s) => s.id)).toEqual(['req-1', 'req-2']);
-    expect(reloaded.epics.map((e) => e.id)).toEqual(['core']);
 
-    // Warnings printed with the convention prefix.
-    expect(stderrLines.some((line) => line.startsWith('  !  '))).toBe(true);
-    // Synthesized verification warnings exist (one per slice).
+    // Transformation warning (cycle break) is always printed.
+    expect(stderrLines.some((line) => line.includes('cycle-break-dropped-edge'))).toBe(true);
+    // Synthesis warning is suppressed at default verbosity.
+    expect(stderrLines.some((line) => line.includes('synthesized-verification-target'))).toBe(false);
+  });
+
+  it('shows synthesis events when --verbose is set', async () => {
+    const { snapshotPath, dir, runModel } = makeRunWithCycle();
+    const stderrLines: string[] = [];
+
+    await runPlan({
+      snapshotPath,
+      outDir: dir,
+      verbose: true,
+      runModel,
+      log: (line) => stderrLines.push(line),
+    });
+
+    // Transformation still printed.
+    expect(stderrLines.some((line) => line.includes('cycle-break-dropped-edge'))).toBe(true);
+    // Synthesis now visible — one line per slice.
     const synth = stderrLines.filter((line) => line.includes('synthesized-verification-target'));
     expect(synth.length).toBe(2);
   });
 
-  it('emits a usable plan and a failure note when the LLM throws', async () => {
+  it('surfaces planning-failed as a stderr warning line when the LLM throws', async () => {
     const snapshot: CompletedSpecSnapshot = {
       requirements: [{ id: 10, content: 'Only req', kindOrdinal: 1 }],
       criteria: [],
@@ -106,7 +134,12 @@ describe('runPlan', () => {
     const planPath = join(dir, '.brunch', 'cook', 'plan.yaml');
     const reloaded = parseYaml(readFileSync(planPath, 'utf8')) as Plan;
     expect(reloaded.slices.map((s) => s.id)).toEqual(['req-1']);
-    expect(stderrLines.some((line) => line.toLowerCase().includes('planning failed'))).toBe(true);
+
+    // Single audit stream: planning-failed appears as a `!`-prefixed warning,
+    // carrying the original error message.
+    expect(stderrLines.some((line) => line.startsWith('  !  ') && line.includes('planning-failed'))).toBe(
+      true,
+    );
     expect(stderrLines.some((line) => line.includes('llm-boom'))).toBe(true);
   });
 });

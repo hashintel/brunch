@@ -184,6 +184,57 @@ export function reconcileCookPlan(
   return { plan: { epics: outputEpics, slices: outputSlices }, warnings };
 }
 
+/**
+ * Classify a warning by audit weight so the CLI / display layer can
+ * route `'transformation'` (something happened to the LLM output the
+ * reviewer should see) versus `'synthesis'` (deterministic completion
+ * that happens for every surviving slice and is predictable from the
+ * slice id alone). Exhaustive switch — adding a new warning code is
+ * a build break here.
+ */
+export function reconciliationWarningCategory(
+  warning: ReconciliationWarning,
+): 'transformation' | 'synthesis' {
+  switch (warning.code) {
+    case 'synthesized-verification-target':
+      return 'synthesis';
+    case 'dropped-dependency-nonexistent-id':
+    case 'dropped-self-loop':
+    case 'cycle-break-dropped-edge':
+    case 'dropped-dependency-on-non-buildable':
+    case 'dropped-non-buildable-slice':
+    case 'dropped-empty-epic':
+    case 'orphan-slice-assigned-to-default-epic':
+      return 'transformation';
+  }
+}
+
+/**
+ * Render a warning as a single human-readable line. Co-located with
+ * the warning union so a new code adds its formatter in the same diff
+ * as its type definition.
+ */
+export function formatReconciliationWarning(warning: ReconciliationWarning): string {
+  switch (warning.code) {
+    case 'synthesized-verification-target':
+      return `synthesized-verification-target  ${warning.sliceId} → ${warning.target}`;
+    case 'dropped-dependency-nonexistent-id':
+      return `dropped-dependency-nonexistent-id  ${warning.sliceId} → ${warning.missingId}`;
+    case 'dropped-self-loop':
+      return `dropped-self-loop  ${warning.sliceId}`;
+    case 'cycle-break-dropped-edge':
+      return `cycle-break-dropped-edge  ${warning.sliceId} → ${warning.droppedDependsOn}`;
+    case 'dropped-dependency-on-non-buildable':
+      return `dropped-dependency-on-non-buildable  ${warning.sliceId} → ${warning.nonBuildableId}`;
+    case 'dropped-non-buildable-slice':
+      return `dropped-non-buildable-slice  ${warning.sliceId}`;
+    case 'dropped-empty-epic':
+      return `dropped-empty-epic  ${warning.epicId} (${warning.epicSummary})`;
+    case 'orphan-slice-assigned-to-default-epic':
+      return `orphan-slice-assigned-to-default-epic  ${warning.sliceId}`;
+  }
+}
+
 function enrichDefinitionWithCriteria(slice: Slice): string {
   const criterionTexts = slice.verification
     .filter((entry) => entry.kind === 'criterion')

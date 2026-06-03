@@ -1,21 +1,25 @@
 // FE-800 slice 4: `brunch plan` CLI surface.
+// FE-800 slice 5: severity-aware warning display (failure +
+// transformation always; synthesis only with --verbose).
 //
 // Reads a `CompletedSpecSnapshot` from a JSON file, threads it through
 // the FE-800 emitter (projection → planning → reconciliation), writes
 // the resulting plan to `<outDir>/.brunch/cook/plan.yaml`, and prints
-// every reconciliation warning on stderr. Mirrors the convention from
-// `cook-cli.ts` for argument parsing and banner output.
+// every emitter warning on stderr partitioned by audit weight.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
-// `yaml` is already a runtime dep used by `loadPlan` / cook-plan-projection tests.
 import { stringify as stringifyYaml } from 'yaml';
 
-import { emitCookPlanFromSnapshot } from './cook-plan-emitter.js';
+import {
+  emitCookPlanFromSnapshot,
+  emitterWarningCategory,
+  formatEmitterWarning,
+  type EmitterWarning,
+} from './cook-plan-emitter.js';
 import type { RunModel } from './cook-plan-llm-planning.js';
 import type { CompletedSpecSnapshot } from './cook-plan-projection.js';
-import type { ReconciliationWarning } from './cook-plan-reconciliation.js';
 
 export type PlanOptions = {
   snapshotPath: string;
@@ -75,38 +79,21 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
   log(`     ${result.plan.epics.length} epics, ${result.plan.slices.length} slices`);
   log('');
 
-  if (result.planningResult.status === 'failed') {
-    log(`  !  planning failed — ${result.planningResult.reason}`);
-    log(`  !  emitted a plan with no inferred ordering (reconciliation against empty enrichment)`);
-    log('');
-  }
-
-  if (result.warnings.length > 0) {
-    log(`  ${result.warnings.length} reconciliation warnings:`);
-    for (const warning of result.warnings) {
-      log(`  !  ${formatWarning(warning)}`);
+  // Audit-weight display: failure + transformation always; synthesis
+  // only when --verbose. The header counts only what we print so the
+  // number on screen matches the lines below it.
+  const printed = result.warnings.filter((w) => shouldPrint(w, args.verbose));
+  if (printed.length > 0) {
+    log(`  ${printed.length} warnings:`);
+    for (const warning of printed) {
+      log(`  !  ${formatEmitterWarning(warning)}`);
     }
     log('');
   }
 }
 
-function formatWarning(warning: ReconciliationWarning): string {
-  switch (warning.code) {
-    case 'synthesized-verification-target':
-      return `synthesized-verification-target  ${warning.sliceId} → ${warning.target}`;
-    case 'dropped-dependency-nonexistent-id':
-      return `dropped-dependency-nonexistent-id  ${warning.sliceId} → ${warning.missingId}`;
-    case 'dropped-self-loop':
-      return `dropped-self-loop  ${warning.sliceId}`;
-    case 'cycle-break-dropped-edge':
-      return `cycle-break-dropped-edge  ${warning.sliceId} → ${warning.droppedDependsOn}`;
-    case 'dropped-dependency-on-non-buildable':
-      return `dropped-dependency-on-non-buildable  ${warning.sliceId} → ${warning.nonBuildableId}`;
-    case 'dropped-non-buildable-slice':
-      return `dropped-non-buildable-slice  ${warning.sliceId}`;
-    case 'dropped-empty-epic':
-      return `dropped-empty-epic  ${warning.epicId} (${warning.epicSummary})`;
-    case 'orphan-slice-assigned-to-default-epic':
-      return `orphan-slice-assigned-to-default-epic  ${warning.sliceId}`;
-  }
+function shouldPrint(warning: EmitterWarning, verbose: boolean): boolean {
+  const category = emitterWarningCategory(warning);
+  if (category === 'synthesis') return verbose;
+  return true;
 }

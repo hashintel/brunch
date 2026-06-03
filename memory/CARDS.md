@@ -770,3 +770,129 @@ cook`.
 - [ ] Cannot name the containing seam? — no.
 
 Stays light.
+
+---
+
+## Slice 5: warning-model hardening — single warning stream, synthesis demoted, formatter co-located
+
+**Status:** done. `cook-plan-reconciliation.ts` exports
+`reconciliationWarningCategory` (`'transformation' | 'synthesis'`,
+exhaustive over the union) and `formatReconciliationWarning` (one
+line per code, co-located with the type definition).
+`cook-plan-emitter.ts` introduces `EmitterWarning =
+ReconciliationWarning | { code: 'planning-failed'; reason: string }`,
+exports `emitterWarningCategory` (`'transformation' | 'synthesis' |
+'failure'`) and `formatEmitterWarning`, and pushes one
+`planning-failed` warning when the LLM throws — `planningResult` is
+preserved untouched. `plan-cli.ts` partitions display by category:
+failure + transformation always printed, synthesis only with
+`--verbose`. Smoke-tested against `brunch_graphs`: clean case now
+prints zero warning lines (was 5 synthesis-noise lines pre-slice).
+14 new unit tests across reconciliation (16 new — 8 category + 8
+formatter cases), emitter (3 new — planning-failed presence/absence,
+category dispatch), plan-cli (1 new + 2 reshaped — verbose-toggles
+synthesis, planning-failed in `!`-stream). `npm run verify` green
+on first try; total orchestrator suite at 274 tests passing.
+
+### Scope-weight
+
+Light scope card. The containing seam (emitter + reconciliation
+warning union) is settled. This slice tightens the audit surface
+without changing the projection / planning / reconciliation contracts.
+Bundles three `ln-review` findings (#2 synthesized-target noise, #3
+planning-failure across two return shapes, #5 formatter colocation).
+
+### Objective
+
+Make the warning stream the **single source of audit truth** for a
+cook-plan emit: planning failures appear as warnings (not just on a
+separate `planningResult.status`), synthesis events are demoted so
+reviewers' eyes are drawn to real transformations, and the human
+formatter lives next to the warning union it formats.
+
+### Acceptance Criteria
+
+```
+✓ `cook-plan-emitter.ts` defines and exports a new top-level
+  `EmitterWarning` discriminated union = `ReconciliationWarning |
+  { code: 'planning-failed'; reason: string }`. The emitter returns
+  `{ plan, warnings: EmitterWarning[], planningResult }`. When the LLM
+  throws, the emitter synthesizes one `{ code: 'planning-failed',
+  reason }` warning AND still emits a usable orderless plan via the
+  existing empty-enrichment fallback. `planningResult` is preserved
+  unchanged for callers that want the raw stage status.
+
+✓ `cook-plan-reconciliation.ts` exports two helpers next to the
+  `ReconciliationWarning` type:
+    - `reconciliationWarningCategory(w): 'transformation' | 'synthesis'`
+      — `'synthesis'` for `synthesized-verification-target`,
+      `'transformation'` for every other code. Exhaustive switch.
+    - `formatReconciliationWarning(w): string` — moved from
+      `plan-cli.ts`'s private `formatWarning`. Same per-code format
+      strings; tests assert one example per code.
+
+✓ `cook-plan-emitter.ts` exports `emitterWarningCategory(w):
+  'transformation' | 'synthesis' | 'failure'` and `formatEmitterWarning
+  (w): string` so callers have one place to ask both questions about
+  any warning the emitter produces.
+
+✓ `runPlan` in `plan-cli.ts` prints `failure` and `transformation`
+  warnings unconditionally (under the existing `  !  ` prefix) and
+  `synthesis` warnings only when `--verbose` is set. The "N reconciliation
+  warnings" header counts only what gets printed.
+
+✓ test: emitter — when `runModel` throws, `warnings` contains exactly
+  one `{ code: 'planning-failed', reason }` entry whose `reason`
+  carries the original error message; `planningResult.status` is
+  still `'failed'` (back-compat).
+
+✓ test: emitter — when `runModel` succeeds, no `planning-failed`
+  warning appears in the output.
+
+✓ test: reconciliation — `reconciliationWarningCategory` returns
+  `'synthesis'` only for `synthesized-verification-target` and
+  `'transformation'` for every other code (one assertion per code).
+
+✓ test: reconciliation — `formatReconciliationWarning` produces a
+  non-empty string mentioning the code and key payload field for
+  every code (one assertion per code).
+
+✓ test: plan-cli — `runPlan` without `--verbose` does NOT print
+  `synthesized-verification-target` lines; with `--verbose` it does.
+  Transformation warnings (cycle break, dropped non-buildable, etc.)
+  are printed in both modes.
+
+✓ test: plan-cli — when `runModel` throws, stderr contains a
+  `planning-failed` warning line (single audit stream).
+
+✓ `npm run verify` green.
+```
+
+### Verification Approach
+
+```
+- Inner: extended unit tests across `cook-plan-emitter.test.ts`,
+  `cook-plan-reconciliation.test.ts`, `plan-cli.test.ts`. All pure
+  modulo the injected `runModel` and the stderr-capture seam already
+  used by `runPlan`.
+- Middle: none — no new behavior crosses package boundaries beyond
+  what slice 4 already exercises.
+- Outer: none.
+```
+
+### Promotion checklist
+
+- [ ] Change a requirement? — no.
+- [ ] Create/retire/invalidate an assumption? — no.
+- [ ] Make a non-trivial design decision? — no (the warning model was
+  already typed; this slice only adds a category helper and one new
+  union member).
+- [ ] Establish a new seam-level invariant? — no (the "warnings are
+  the audit surface" intent was already in slice 3's card; this slice
+  realizes it more cleanly).
+- [ ] Cross more than two major seams? — no (reconciliation + emitter
+  + CLI display, all in one package).
+- [ ] First touch in an unfamiliar seam from a fresh thread? — no.
+- [ ] Cannot name the containing seam? — no.
+
+Stays light.

@@ -5,7 +5,11 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { stringify as stringifyYaml } from 'yaml';
 
-import { emitCookPlanFromSnapshot } from './cook-plan-emitter.js';
+import {
+  emitCookPlanFromSnapshot,
+  emitterWarningCategory,
+  formatEmitterWarning,
+} from './cook-plan-emitter.js';
 import type { PlanningEnrichment, RunModel } from './cook-plan-llm-planning.js';
 import type { CompletedSpecSnapshot } from './cook-plan-projection.js';
 import { loadPlan } from './plan-loader.js';
@@ -57,6 +61,50 @@ describe('emitCookPlanFromSnapshot', () => {
       expect(slice.depends_on).toEqual([]);
       expect(slice.verification).toEqual([{ kind: 'unit-test', target: `tests/${slice.id}.test.ts` }]);
     }
+  });
+
+  it('pushes exactly one planning-failed warning when the runModel throws (single audit stream)', async () => {
+    const runModel: RunModel = async () => {
+      throw new Error('llm-down');
+    };
+
+    const result = await emitCookPlanFromSnapshot(snapshot, { runModel });
+
+    const failures = result.warnings.filter((w) => w.code === 'planning-failed');
+    expect(failures).toHaveLength(1);
+    expect(failures[0]!.code).toBe('planning-failed');
+    if (failures[0]!.code === 'planning-failed') {
+      expect(failures[0]!.reason).toContain('llm-down');
+    }
+  });
+
+  it('does not push a planning-failed warning when the runModel succeeds', async () => {
+    const runModel: RunModel = async () => ({
+      sliceDependencies: [],
+      epics: [],
+      nonBuildableSliceIds: [],
+    });
+
+    const result = await emitCookPlanFromSnapshot(snapshot, { runModel });
+
+    expect(result.warnings.some((w) => w.code === 'planning-failed')).toBe(false);
+  });
+
+  it('categorizes planning-failed as failure and delegates other codes to reconciliation', async () => {
+    const failure = await emitCookPlanFromSnapshot(snapshot, {
+      runModel: async () => {
+        throw new Error('x');
+      },
+    });
+    const failureWarning = failure.warnings.find((w) => w.code === 'planning-failed')!;
+    expect(emitterWarningCategory(failureWarning)).toBe('failure');
+    expect(formatEmitterWarning(failureWarning)).toContain('planning-failed');
+
+    const success = await emitCookPlanFromSnapshot(snapshot, {
+      runModel: async () => ({ sliceDependencies: [], epics: [], nonBuildableSliceIds: [] }),
+    });
+    const synthesis = success.warnings.find((w) => w.code === 'synthesized-verification-target')!;
+    expect(emitterWarningCategory(synthesis)).toBe('synthesis');
   });
 
   it('round-trips through loadPlan after YAML serialization', async () => {
