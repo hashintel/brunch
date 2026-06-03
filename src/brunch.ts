@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { runBrunchTui } from './brunch-tui.js';
 import { renderWorkspaceSnapshot, workspaceSnapshotFromState } from './print-snapshot.js';
 import { createRpcHandlers, runJsonRpcLineServer } from './rpc/handlers.js';
+import { createProductUpdatePublisher } from './rpc/product-updates.js';
 import { startWebHost } from './rpc/web-host.js';
 import {
   createWorkspaceSessionCoordinator,
@@ -40,10 +41,12 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
   }
 
   if (mode === 'rpc') {
+    const productUpdates = createProductUpdatePublisher();
     await runJsonRpcLineServer({
       input: options.stdin ?? process.stdin,
       output: stdoutStream(options.stdout),
-      handlers: createRpcHandlers({ coordinator, cwd }),
+      handlers: createRpcHandlers({ coordinator, cwd, productUpdates }),
+      productUpdates,
     });
     return 0;
   }

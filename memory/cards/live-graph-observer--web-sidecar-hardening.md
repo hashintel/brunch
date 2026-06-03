@@ -142,7 +142,7 @@ src/web/
 └── subscriptions/brunch-updates.ts   ?
 ```
 
-## Card 3 — next — Real CLI RPC uses the product update publisher
+## Card 3 — done — Real CLI RPC uses the product update publisher
 
 ### Objective
 

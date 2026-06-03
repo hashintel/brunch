@@ -156,6 +156,68 @@ describe('Brunch CLI dispatch', () => {
     });
   });
 
+  it('shares one product update publisher between RPC handlers and the stdio line server', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cli-rpc-updates-'));
+    const workspace = await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
+      specTitle: 'RPC updates',
+    });
+    const stdout = new PassThrough();
+    const chunks = collectStream(stdout);
+
+    const code = await runBrunchCli({
+      argv: ['--mode=rpc'],
+      cwd,
+      coordinator: createWorkspaceSessionCoordinator({ cwd }),
+      stdin: rpcRequest('session.startElicitation', 7),
+      stdout,
+    });
+
+    const messages = chunks
+      .join('')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as unknown);
+
+    expect(code).toBe(0);
+    expect(messages).toContainEqual({
+      jsonrpc: '2.0',
+      method: 'brunch.updated',
+      params: {
+        topics: [
+          'workspace.snapshot',
+          'session.pendingExchange',
+          'session.elicitationExchanges',
+          'session.transcriptDisplay',
+        ],
+        updates: [
+          { topic: 'workspace.snapshot', specId: workspace.spec.id, sessionId: workspace.session.id },
+          {
+            topic: 'session.pendingExchange',
+            specId: workspace.spec.id,
+            sessionId: workspace.session.id,
+          },
+          {
+            topic: 'session.elicitationExchanges',
+            specId: workspace.spec.id,
+            sessionId: workspace.session.id,
+          },
+          {
+            topic: 'session.transcriptDisplay',
+            specId: workspace.spec.id,
+            sessionId: workspace.session.id,
+          },
+        ],
+      },
+    });
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        jsonrpc: '2.0',
+        id: 7,
+        result: expect.objectContaining({ status: 'pending' }),
+      }),
+    );
+  });
+
   it('routes --mode rpc through the named JSON-RPC stdio adapter', async () => {
     const stdout = new PassThrough();
     const chunks = collectStream(stdout);
