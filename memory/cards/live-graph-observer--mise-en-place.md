@@ -1,7 +1,7 @@
 # Live graph observer mise en place
 
 Frontier: live-graph-observer | n/a
-Status:   active
+Status:   active — Card 2 is the only remaining open card
 Mode:     chain
 Created:  2026-06-03
 
@@ -9,7 +9,7 @@ Created:  2026-06-03
 
 - Containing seam: product launch/setup around the `live-graph-observer` frontier; these cards prepare the branch identity and local manual loop without touching graph/RPC/web core paths.
 - Frontier item: `live-graph-observer` (FE-795). This is branch-local mise en place, not a separate Linear issue or Graphite branch.
-- Volatile handoff state: the user clarified the canonical identity is `brunch-cli` for both package and bin; scope cards belong under `memory/cards/`.
+- Current card state: Card 1 is done; Card 2 remains open and may be filled from the final browser smoke loop rather than built first.
 - Main open risk: feedback-loop tooling can sprawl into a dev-platform project. Keep the workbench/tooling concrete enough to launch and observe the POC only.
 - Cross-cutting obligations: preserve `.brunch/` as cwd-scoped durable state; do not commit generated `.brunch/data.db` or sessions; do not add compatibility aliases unless explicitly requested.
 
@@ -65,7 +65,7 @@ src/brunch.test.ts                   ?
 - [ ] Is this the first touch in an unfamiliar seam from a fresh thread?
 - [ ] Can you not name the containing seam or current rationale from the live docs?
 
-## Card 2 — next — Browser feedback loop decision
+## Card 2 — open — Browser feedback loop decision
 
 ### Objective
 
