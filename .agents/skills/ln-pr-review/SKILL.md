@@ -14,23 +14,40 @@ Output a short, plain-English review comment. No jargon. No methodology vocabula
 
 The PR to review: $ARGUMENTS
 
-If unspecified, list PRs where the user is a requested reviewer (`gh pr list --search "review-requested:@me"`) and ask which one.
+If unspecified, list PRs where the user is a requested reviewer:
+
+```bash
+gh pr list --search "review-requested:@me"
+```
+
+If the list is empty, stop and say there are no review-requested PRs to review. Do not guess a PR number.
 
 This skill assumes `gh` is installed and authenticated. If usage is unclear, run `gh --help` or `gh <subcommand> --help`. Do not depend on `gh-axi` or any other `gh`-related skill.
 
 ## Procedure
 
-This is **interactive and brief**. Target time-to-comment: a few minutes per PR. Do not produce a finished review in one pass — present, discuss, then post.
+This is **interactive and brief**. Do not produce a finished review in one pass — present, discuss, then post.
 
-### 1. Load the PR
+### 1. Bind and load the PR
+
+Resolve the selected PR to one stable command token before reading or posting:
+
+- Keep a full PR URL as the `<pr>` token when the user supplied one.
+- For a bare number from the current checkout's repository, use that number as `<pr>`.
+- For a bare number that belongs to another repository, use `-R <owner/repo>` on every `gh pr ...` command.
+- If the target repository is ambiguous, stop and ask for the PR URL.
+
+Use the same `<pr>` token and `-R <owner/repo>` option, if needed, for view, diff, checks, and final review submission.
 
 ```bash
-gh pr view <number> --comments
-gh pr diff <number>
-gh pr checks <number>
+gh pr view <pr> --comments
+gh pr diff <pr>
+gh pr checks <pr>
 ```
 
-Capture: title, author, description, files changed, additions/deletions, existing review comments, and the diff itself. If the diff is large, sample by directory/feature area rather than reading every line — you are looking for shape, not bugs.
+Capture: title, author, description, files changed, additions/deletions, existing review comments, and the diff itself. If any load command fails, if the PR target is ambiguous, or if the diff is unavailable or empty, stop and report that the PR could not be reviewed from trustworthy evidence. Do not compose or post a review until the PR loads correctly.
+
+If the diff is large, sample by directory/feature area rather than reading every line — you are looking for shape, not bugs.
 
 If `memory/SPEC.md` or `memory/PLAN.md` exist in the local checkout and the PR touches their active areas, skim them for current precedent. **Do not require them**; most projects don't have such docs and the lens still works.
 
@@ -83,11 +100,13 @@ Present the change shape and 0–5 candidate concerns to the user, compactly:
 <approve-with-comment | request-changes-with-comment | comment-only (rare)>
 ```
 
-Ask the user: which concerns are worth raising, which should be dropped or merged, and whether the verdict feels right. Two or three concise concerns usually beats five hedged ones. If none of the lens questions fired, recommend a plain approval — silence is a valid review outcome.
+Ask the user: which concerns are worth raising, which should be dropped or merged, and whether the verdict feels right. Two or three concise concerns usually beats five hedged ones.
 
-**Verdict is binary by default**: **approve** if there is no reason to object, **request-changes** if there is. The decision turns on a single test: *would I be fine with this landing as-is?* If yes — even when there are architectural reflections worth flagging — the verdict is **approve with comment**. If no — there's something the author should actually address before merge — the verdict is **request-changes with comment**. The reflections still go in the comment either way; what changes is whether you're gating the merge on them.
+**Verdict is binary by default**: **approve** if there is no reason to object, **request-changes** if there is. The decision turns on a single test: *would I be fine with this landing as-is?* If yes — even when there are architectural reflections worth flagging — the verdict is **approve with comment**. If no — there's something the author should actually address before merge — the verdict is **request-changes with comment**. A request-changes verdict is a merge gate: the author should change something before the PR lands. The reflections still go in the comment either way; what changes is whether you're gating the merge on them.
 
 Use **comment-only** only when the answer is genuinely ambiguous and you need the author's response before deciding — e.g., a concern that might be a blocker depending on how they justify a design choice. This should be rare. Reserve **request-changes** for things the author should fix; do not use it for soft suggestions you'd be fine seeing land without.
+
+If none of the lens questions fired for a review-requested PR, recommend a plain approval. Silence in the public comment body is fine, but do not silently skip clearing the review request unless the user explicitly decides not to review.
 
 ### 5. Compose the comment
 
@@ -96,7 +115,7 @@ Write **one summary comment** by default. Multiple inline comments are heavier t
 Style rules:
 
 - Plain English. No skill names, no methodology jargon, no rules-of-three citations.
-- Frame as questions or observations, not directives — you are flagging things for the author's judgment, not gating the merge.
+- Frame soft reflections as questions or observations. Do not phrase them as directives unless the selected verdict is request-changes.
 - Cite specific files/areas. "In `src/foo/bar.ts`" beats "in the auth layer."
 - Keep it under ~200 words unless the user explicitly asks for more.
 - Lead with what works or what the change accomplishes when there's a real concern to raise — the author should know you read it.
@@ -104,29 +123,31 @@ Style rules:
 
 Show the draft to the user and ask for edits before posting.
 
-### 6. Post
+### 6. Post a formal review
 
-Write the body to a temp file first (review bodies often contain backticks, single quotes, and code snippets that break heredoc / `--body` inline quoting). Then use `gh` with `--body-file`.
+Use `gh pr review` for the final outcome so a requested-review assignment is cleared. Do not use `gh pr comment` as the review outcome; it creates a conversation comment, not a submitted review.
+
+Write non-empty review bodies to a temp file first because review text often contains backticks, quotes, and code snippets. Use your file-write/editor tool, not a shell heredoc, so a line like `EOF` in the review cannot truncate the body or execute trailing text.
 
 ```bash
-# Write the body
-cat > /tmp/prNNN-review.md <<'EOF'
-<comment body>
-EOF
+# Create /tmp/prNNN-review.md with your file-write/editor tool when posting a body.
 
-# Approve with comment (the common case for reflective reviews)
-gh pr review <number> --approve --body-file /tmp/prNNN-review.md
+# Approve with an optional comment.
+gh pr review <pr> --approve --body-file /tmp/prNNN-review.md
 
-# Comment-only (when concerns might block and you want author response first)
-gh pr review <number> --comment --body-file /tmp/prNNN-review.md
+# Plain approval when no public comment is needed.
+gh pr review <pr> --approve
 
-# Request changes (rare — real architectural blockers only)
-gh pr review <number> --request-changes --body-file /tmp/prNNN-review.md
+# Comment-only when concerns might block and you want author response first.
+gh pr review <pr> --comment --body-file /tmp/prNNN-review.md
+
+# Request changes for real blockers.
+gh pr review <pr> --request-changes --body-file /tmp/prNNN-review.md
 ```
 
-For a plain non-review comment (no approval state change), use `gh pr comment <number> --body-file ...` instead.
+If the selected PR required `-R <owner/repo>` while loading, include that same option in the chosen post command.
 
-After posting, confirm the comment URL back to the user.
+After posting, confirm the review URL back to the user.
 
 ## What not to do
 
@@ -134,11 +155,12 @@ After posting, confirm the comment URL back to the user.
 - Do not hunt for bugs line-by-line — that's also the bot's job and the author's.
 - Do not post anything without the user confirming the draft.
 - Do not introduce skill-family vocabulary into public PR comments.
-- Do not write a long review when a short one or no review would do.
+- Do not write a long review when a short one or no body text would do.
+- Do not leave a requested-review PR without a `gh pr review` verdict unless the user explicitly declines to submit a review.
 
 ## Routing
 
-After posting (or deciding not to), present these options to the user (use `tool-ask-question`):
+After posting (or after the user explicitly declines to review), present these options to the user (use `tool-ask-question`):
 
 | #   | Label                  | Target              | Why                                                   |
 | --- | ---------------------- | ------------------- | ----------------------------------------------------- |
