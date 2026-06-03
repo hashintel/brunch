@@ -420,6 +420,46 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
+  it('discovers numeric spec ids for graph and session projection wire shapes', async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp/brunch-project',
+    });
+
+    const response = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 35,
+      method: 'rpc.discover',
+    });
+    if (!('result' in response)) throw new Error('expected success response');
+
+    const methods = (
+      response.result as {
+        methods: Array<{
+          method: string;
+          paramsSchema: { properties?: Record<string, unknown> };
+          examples: Array<{ params?: unknown }>;
+        }>;
+      }
+    ).methods;
+    const sessionProjectionMethods = methods.filter(
+      (entry) =>
+        entry.method === 'session.elicitationExchanges' ||
+        entry.method === 'session.transcriptDisplay' ||
+        entry.method === 'session.pendingExchange',
+    );
+
+    for (const entry of sessionProjectionMethods) {
+      expect(entry.paramsSchema.properties?.specId).toMatchObject({
+        type: 'integer',
+        minimum: 1,
+      });
+      for (const example of entry.examples.filter((example) => example.params !== undefined)) {
+        expect(Value.Check(entry.paramsSchema, example.params)).toBe(true);
+      }
+    }
+  });
+
   it('serves discovery examples that are valid JSON-RPC requests for advertised methods', async () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator(),

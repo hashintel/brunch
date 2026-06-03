@@ -363,7 +363,7 @@ const GraphNodeNeighborhoodResultSchema = Type.Union([
 const SessionProjectionParamsSchema = Type.Object(
   {
     sessionId: NonBlankStringSchema,
-    specId: Type.Optional(NonBlankStringSchema),
+    specId: Type.Optional(PositiveIntegerSchema),
   },
   { additionalProperties: false },
 );

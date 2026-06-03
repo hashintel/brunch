@@ -408,6 +408,7 @@ src/brunch.ts                        ?
 - D40-L: runtime state is transcript-backed, not hidden extension memory.
 - D52-L: long-term pure state definitions move toward `agents/`; this card may reuse existing projector but must not deepen `.pi` ownership.
 - D33-L: explicit session target; no transport-derived durable identity.
+- `src/rpc/handlers.ts` is becoming a pressure point; if this card makes local edits unsafe, split private session/graph/protocol modules behind the public `handlers.ts` entry point rather than widening this hardening chain.
 
 ### Expected touched paths (tentative)
 
