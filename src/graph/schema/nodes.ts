@@ -8,14 +8,8 @@
  * agent-facing node command surface land with subsequent slices.
  */
 
-import {
-  DESIGN_KINDS,
-  INTENT_KINDS,
-  NODE_BASES,
-  ORACLE_KINDS,
-  PLAN_KINDS,
-} from "../../db/schema.js"
-import type { Lsn, NodeId } from "../atoms.js"
+import { DESIGN_KINDS, INTENT_KINDS, NODE_BASES, ORACLE_KINDS, PLAN_KINDS } from '../../db/schema.js';
+import type { Lsn, NodeId } from '../atoms.js';
 
 // ---------------------------------------------------------------------------
 // Planes & basis
@@ -30,14 +24,14 @@ import type { Lsn, NodeId } from "../atoms.js"
  *  - `design`  how it's shaped
  *  - `plan`    how it's sequenced
  */
-export type NodePlane = "intent" | "oracle" | "design" | "plan"
+export type NodePlane = 'intent' | 'oracle' | 'design' | 'plan';
 
 /**
  * How a node entered graph truth.
  *
  * Derived from `db/schema.ts` — same semantics as EdgeBasis.
  */
-export type NodeBasis = typeof NODE_BASES[number]
+export type NodeBasis = (typeof NODE_BASES)[number];
 
 // ---------------------------------------------------------------------------
 // Kind taxonomy — derived from db/schema.ts const arrays
@@ -49,19 +43,19 @@ export type NodeBasis = typeof NODE_BASES[number]
  *  - structural: `requirement`, `assumption`, `constraint`, `invariant`
  *  - reasoning:  `decision`, `criterion`, `example`
  */
-export type IntentKind = typeof INTENT_KINDS[number]
+export type IntentKind = (typeof INTENT_KINDS)[number];
 
 /** Oracle-plane kinds. */
-export type OracleKind = typeof ORACLE_KINDS[number]
+export type OracleKind = (typeof ORACLE_KINDS)[number];
 
 /** Design-plane kinds. */
-export type DesignKind = typeof DESIGN_KINDS[number]
+export type DesignKind = (typeof DESIGN_KINDS)[number];
 
 /** Plan-plane kinds. */
-export type PlanKind = typeof PLAN_KINDS[number]
+export type PlanKind = (typeof PLAN_KINDS)[number];
 
 /** Union of every node kind across all planes. */
-export type NodeKind = IntentKind | OracleKind | DesignKind | PlanKind
+export type NodeKind = IntentKind | OracleKind | DesignKind | PlanKind;
 
 // ---------------------------------------------------------------------------
 // Intent kind categories (derived, not stored)
@@ -72,25 +66,25 @@ export type NodeKind = IntentKind | OracleKind | DesignKind | PlanKind
  *
  * Never persisted — computed via {@link intentKindCategory}.
  */
-export type IntentKindCategory = "basic" | "structural" | "reasoning"
+export type IntentKindCategory = 'basic' | 'structural' | 'reasoning';
 
 /** Pure derivation: intent kind → category. */
 export function intentKindCategory(kind: IntentKind): IntentKindCategory {
   switch (kind) {
-    case "goal":
-    case "thesis":
-    case "term":
-    case "context":
-      return "basic"
-    case "requirement":
-    case "assumption":
-    case "constraint":
-    case "invariant":
-      return "structural"
-    case "decision":
-    case "criterion":
-    case "example":
-      return "reasoning"
+    case 'goal':
+    case 'thesis':
+    case 'term':
+    case 'context':
+      return 'basic';
+    case 'requirement':
+    case 'assumption':
+    case 'constraint':
+    case 'invariant':
+      return 'structural';
+    case 'decision':
+    case 'criterion':
+    case 'example':
+      return 'reasoning';
   }
 }
 
@@ -100,19 +94,19 @@ export function intentKindCategory(kind: IntentKind): IntentKindCategory {
 
 /** Detail payload for `decision` nodes. */
 export interface DecisionDetail {
-  readonly chosen_option: string
-  readonly rejected: readonly string[]
-  readonly rationale: string
+  readonly chosen_option: string;
+  readonly rejected: readonly string[];
+  readonly rationale: string;
 }
 
 /** Detail payload for `term` nodes. */
 export interface TermDetail {
-  readonly definition: string
-  readonly aliases?: readonly string[]
+  readonly definition: string;
+  readonly aliases?: readonly string[];
 }
 
 /** Discriminated union of all per-kind detail payloads. */
-export type NodeDetail = DecisionDetail | TermDetail
+export type NodeDetail = DecisionDetail | TermDetail;
 
 // ---------------------------------------------------------------------------
 // Main node interface
@@ -130,14 +124,14 @@ export type NodeDetail = DecisionDetail | TermDetail
  * Stale nodes surface as `ReconciliationNeed` records.
  */
 export interface GraphNode {
-  readonly id: NodeId
-  readonly plane: NodePlane
-  readonly kind: NodeKind
-  readonly title: string
-  readonly body?: string
-  readonly basis: NodeBasis
-  readonly source?: string
-  readonly detail?: NodeDetail
-  readonly createdAtLsn: Lsn
-  readonly updatedAtLsn: Lsn
+  readonly id: NodeId;
+  readonly plane: NodePlane;
+  readonly kind: NodeKind;
+  readonly title: string;
+  readonly body?: string;
+  readonly basis: NodeBasis;
+  readonly source?: string;
+  readonly detail?: NodeDetail;
+  readonly createdAtLsn: Lsn;
+  readonly updatedAtLsn: Lsn;
 }

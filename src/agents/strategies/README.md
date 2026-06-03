@@ -1,4 +1,4 @@
-# strategies/ — Interaction-shape prompt packs
+# strategies/ — Interaction-shape prompt resources
 
 SPEC decisions: D25-L, D26-L, D53-L
 
@@ -15,10 +15,10 @@ the user experiences.
 | `propose-graph`           | direct commit   | concept → user accepts → commitGraph |
 | `project-graph`           | review-set      | derive from existing graph          |
 
-## Prompt pack contents
+## Prompt resource contents
 
-Each `.md` file in this directory is a prompt pack injected when
-the strategy is active. It should contain:
+Each `.md` file in this directory is a prompt resource the agent reads
+(advertised via the D58-L `<available_strategies>` manifest) when the strategy is active. It should contain:
 
 - What the agent is doing in this strategy
 - How to structure the turn
@@ -28,7 +28,7 @@ the strategy is active. It should contain:
 
 ## Observer classification guide (M5 input)
 
-When `agent-graph-integration` lands prompt packs, seed each
+When `agents-composition-layer` authors the strategy resources, seed each
 strategy's prompt with the observer classification rules from
 the earlier `INTENT_GRAPH_SEMANTICS.md` translation table:
 

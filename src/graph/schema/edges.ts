@@ -10,8 +10,8 @@
  * agent-facing link* command surface land with subsequent M4/M5 slices.
  */
 
-import { EDGE_CATEGORIES, EDGE_STANCES, NODE_BASES } from "../../db/schema.js"
-import type { EdgeId, Lsn, NodeId } from "../atoms.js"
+import { EDGE_CATEGORIES, EDGE_STANCES, NODE_BASES } from '../../db/schema.js';
+import type { EdgeId, Lsn, NodeId } from '../atoms.js';
 
 /**
  * Closed set of structural edge categories.
@@ -27,7 +27,7 @@ import type { EdgeId, Lsn, NodeId } from "../atoms.js"
  * - `supersession` successor   → predecessor    replacement lineage (acyclic)
  * - `association`  peer        ↔ peer           weak relatedness (symmetric)
  */
-export type EdgeCategory = typeof EDGE_CATEGORIES[number]
+export type EdgeCategory = (typeof EDGE_CATEGORIES)[number];
 
 /**
  * Polarity for stance-bearing edges.
@@ -35,7 +35,7 @@ export type EdgeCategory = typeof EDGE_CATEGORIES[number]
  * Required for `proof` and `support`.
  * Invalid (must be omitted) for every other category.
  */
-export type EdgeStance = typeof EDGE_STANCES[number]
+export type EdgeStance = (typeof EDGE_STANCES)[number];
 
 /**
  * How an edge entered graph truth.
@@ -46,7 +46,7 @@ export type EdgeStance = typeof EDGE_STANCES[number]
  * preface or `capture_*` analysis until promoted through a review set
  * (D47-L, D50-L).
  */
-export type EdgeBasis = typeof NODE_BASES[number]
+export type EdgeBasis = (typeof NODE_BASES)[number];
 
 // EdgeProvenance retired — change_log owns the full audit trail.
 
@@ -68,13 +68,13 @@ export type EdgeBasis = typeof NODE_BASES[number]
  * the edge (see `src/graph/schema/reconciliation-need.ts`).
  */
 export interface GraphEdge {
-  readonly id: EdgeId
-  readonly category: EdgeCategory
-  readonly sourceId: NodeId
-  readonly targetId: NodeId
-  readonly stance?: EdgeStance
-  readonly basis: EdgeBasis
-  readonly rationale?: string
-  readonly createdAtLsn: Lsn
-  readonly updatedAtLsn: Lsn
+  readonly id: EdgeId;
+  readonly category: EdgeCategory;
+  readonly sourceId: NodeId;
+  readonly targetId: NodeId;
+  readonly stance?: EdgeStance;
+  readonly basis: EdgeBasis;
+  readonly rationale?: string;
+  readonly createdAtLsn: Lsn;
+  readonly updatedAtLsn: Lsn;
 }

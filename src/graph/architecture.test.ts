@@ -7,24 +7,40 @@
  * SPEC: D52-L, I26-L
  */
 
-import { execSync } from "node:child_process"
-import { describe, expect, it } from "vitest"
+import { execSync } from 'node:child_process';
 
-describe("I26-L architectural boundary", () => {
-  it("no src/ module outside graph/ imports from db/", () => {
+import { describe, expect, it } from 'vitest';
+
+describe('I26-L architectural boundary', () => {
+  it('no src/ module outside graph/ imports from db/', () => {
     // Find all .ts files importing from db/ (excluding graph/, db/ itself,
     // and test files within graph/)
     const result = execSync(
       `rg --files-with-matches "from ['\\"]\\.\\./db/|from ['\\"]\\.\\./\\.\\./db/|from ['\\"]\\./db/" src/ --glob '*.ts' --glob '!*.test.*' || true`,
-      { cwd: process.cwd(), encoding: "utf-8" },
-    )
+      { cwd: process.cwd(), encoding: 'utf-8' },
+    );
 
     const importingFiles = result
       .trim()
-      .split("\n")
+      .split('\n')
       .filter(Boolean)
-      .filter((f) => !f.startsWith("src/graph/") && !f.startsWith("src/db/"))
+      .filter((f) => !f.startsWith('src/graph/') && !f.startsWith('src/db/'));
 
-    expect(importingFiles).toEqual([])
-  })
-})
+    expect(importingFiles).toEqual([]);
+  });
+
+  it('spec writes live only in CommandExecutor', () => {
+    const result = execSync(
+      `rg --files-with-matches "\\.(insert|update|delete)\\(schema\\.specs\\)|\\.(insert|update|delete)\\(specs\\)" src/ --glob '*.ts' --glob '!*.test.*' || true`,
+      { cwd: process.cwd(), encoding: 'utf-8' },
+    );
+
+    const writingFiles = result
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .filter((f) => f !== 'src/graph/command-executor.ts');
+
+    expect(writingFiles).toEqual([]);
+  });
+});

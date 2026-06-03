@@ -1,37 +1,26 @@
 {
-	"compilerOptions": {
-		"target": "ES2022",
-		"module": "NodeNext",
-		"moduleResolution": "NodeNext",
-		"lib": [
-			"ES2022",
-			"DOM",
-			"DOM.Iterable"
-		],
-		"jsx": "react-jsx",
-		"noEmit": true,
-		"strict": true,
-		"noImplicitAny": true,
-		"noImplicitOverride": true,
-		"noUncheckedIndexedAccess": true,
-		"noFallthroughCasesInSwitch": true,
-		"noImplicitReturns": true,
-		"useUnknownInCatchVariables": true,
-		"exactOptionalPropertyTypes": true,
-		"esModuleInterop": true,
-		"forceConsistentCasingInFileNames": true,
-		"skipLibCheck": true,
-		"resolveJsonModule": true,
-		"isolatedModules": true,
-		"verbatimModuleSyntax": true
-	},
-	"include": [
-		"src/**/*",
-		".pi/extensions/**/*.ts"
-	],
-	"exclude": [
-		"node_modules",
-		"dist",
-		"archive"
-	]
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "useUnknownInCatchVariables": true,
+    "exactOptionalPropertyTypes": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["src/**/*", ".pi/extensions/**/*.ts"],
+  "exclude": ["node_modules", "dist", "archive"]
 }

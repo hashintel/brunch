@@ -1,97 +1,120 @@
 # agents/ — Agent intelligence layer
 
-SPEC decisions: D25-L, D40-L, D52-L
+SPEC decisions: D25-L, D40-L, D52-L, D58-L, D59-L, D60-L
 
 ## Owns
 
-Everything that shapes what the LLM sees and does: state definitions,
-prompt composition, strategy/lens content, and context snapshot orchestration.
+Everything that shapes what the LLM sees and does: the session-agent state
+definitions and legal-combination table, per-turn prompt composition, the
+Brunch-owned prompt resources (markdown the agent reads on demand), and the
+snapshot render layer.
 
-### Agent state hierarchy
+## Session-agent state (D40-L, D59-L)
 
-```
-spec.grade
-  grounding → elicitation I,II → commitment → export
-
-session.mode          = elicitation | execution (future) | reconciliation (deferred)
-session.agent         = elicitor | planner (future) | reconciler (deferred)
-session.strategy      = per-agent interaction shape
-session.lens          = per-mode topical focus
-session.sub-agents    = research, explore, design, oracle, review, reconcile
-```
-
-### Strategy × lens (D25-L)
-
-Strategies describe the interaction shape. Lenses describe topical focus.
-The combination maps to the prior "lens catalogue" names:
-
-| Strategy                 | Commitment path    | Example lens combinations          |
-|--------------------------|--------------------|------------------------------------|
-| `step-wise-decision-tree`| single-exchange    | any lens                           |
-| `step-wise-disambiguate` | single-exchange    | any lens                           |
-| `propose-graph`          | direct commit      | intent, design, oracle             |
-| `project-graph`          | review-set         | intent                             |
-
-### Context building
-
-Snapshot functions live in `contexts/`. They orchestrate *which* snapshots
-to inject based on mode/role/strategy/lens/grade, by calling into:
+Projected from linear `brunch.agent_runtime_state` entries at turn start
+(last-writer-wins). One WHO field, three optional objective axes:
 
 ```
-agents/contexts/
-    │
-    ├──▶  graph/   →  snapshotGraph(detail), snapshotNode(id, hops)
-    │
-    └──▶  session/ →  workspace/spec envelope
+op_mode      = elicit | execute (future)        ← the only stored WHO field
+                 foreground role (elicitor) is DERIVED from op_mode, never stored
+goal         = grounding-advance | elicit-expand | commit-converge
+                 | capture-posture               [pinned | AUTO]   grade-derived (D59-L)
+strategy     = step-wise-decision-tree | step-wise-disambiguate
+                 | propose-graph | project-graph  [pinned | AUTO]   (D25-L)
+lens         = intent | design | oracle           [pinned | AUTO]   (future: plan/sync/scope)
 ```
 
-Graph snapshots support multiple detail levels (I35-L):
-- **Cursory** — compact full-graph overview for orientation
-- **Neighborhood** — detailed node + N-hop expansion for focused work
+Gates that condition composition but are not session-agent axes:
+
+```
+spec.readiness_grade   grounding_onboarding → elicitation_ready
+                         → commitments_ready → planning_ready   (forward gate, D45-L)
+workspace posture      persisted in .brunch/workspace.json as workspace-scoped state;
+                         surfaced in the runtime header and refined via capture-posture
+agent allow-list       per-definition: which goals/strategies/lenses/methods are legal
+```
+
+The legal `(op_mode × goal × strategy × lens)` tuple table lives in `state.ts`.
+
+## Composition model (D58-L) — thin header + gated manifest, not eager packs
+
+`compose(agentId, sessionState, spec, workspace, snapshots)` is **projection,
+not a state machine**. It runs before Pi provider requests and emits:
+
+1. **agent control header** — identity, model/thinking, role derived from `op_mode`, tool authority.
+2. **runtime-state header** — current pinned/AUTO `goal`/`strategy`/`lens`, `readiness_grade`, posture.
+3. **resource manifests** — `<available_goals>`, `<available_strategies>`, `<available_lenses>`,
+   `<available_methods>`: each entry `{name, description, location}`, filtered by tuple/grade/`op_mode`/allow-list.
+4. **compact pushed context** — minimal snapshot summary/handles (detail governed by D60-L).
+
+Detailed goal/strategy/lens/method bodies are **markdown the agent loads with
+`read`** when detail matters — the same mechanism Pi uses for skills. The
+composer never concatenates large semantic bodies on the agent's behalf.
+
+- **AUTO** axis → the manifest lists exactly the legal set; a router rule tells the agent to
+  choose only from that manifest. **Pinned** axis → the manifest points at the pinned resource.
+- Manifest `{name, description, location}` metadata is **code-owned in `state.ts`**, never
+  filesystem-discovered (honors the D39-L profile seal).
 
 ## Directory layout
 
 ```
 agents/
 ├── README.md
-├── state.ts              mode/role/strategy/lens type defs + valid combos
-├── compose.ts            prompt orchestrator: reads state, picks packs, calls snapshots
-├── modes/
-│   └── elicit.md         elicitation mode rules, tool authority
-├── strategies/
-│   ├── step-wise-decision-tree.md
-│   ├── step-wise-disambiguate.md
-│   ├── propose-graph.md    ← graph vocabulary, category rubric, batch format
-│   └── project-graph.md
-├── lenses/
-│   ├── intent.md
-│   ├── design.md
-│   └── oracle.md
-└── contexts/
-    ├── graph-context.ts    calls graph/ snapshot fns, formats for prompt
-    └── readiness-context.ts
+├── state.ts          axis enums + legal (op_mode × goal × strategy × lens) tuple table;
+│                       also owns each resource's {name, description, location} manifest entry
+├── compose.ts        projection → runtime header + gated manifest
+├── index.ts          public entry / resource registry
+├── definitions/      keyed agents; frontmatter = model/thinking + tool authority + allow-lists,
+│   ├── elicitor.md     body = system prompt
+│   └── reviewer.md
+├── goals/            grounding-advance, elicit-expand, commit-converge, capture-posture
+├── strategies/       step-wise-decision-tree, step-wise-disambiguate, propose-graph, project-graph
+├── lenses/           intent, design, oracle
+├── methods/          run-structured-exchange, infer-and-capture, generate-proposal,
+│                       read-snapshot, commit-graph, review-for-gaps
+└── contexts/         snapshot RENDER (D60-L) — TypeScript, NOT a manifest resource family
+    ├── cwd.ts
+    ├── graph.ts
+    └── node.ts
 ```
+
+## Snapshots (D60-L) — pull / render / surface
+
+- **PULL** — typed, read-only; owned by the data layer (`graph/snapshot.ts` for graph/node,
+  `session/` for cwd). The typed value *is* the JSON form. `agents/` never re-implements pulls.
+- **RENDER** — `agents/contexts/*.ts` turn a typed snapshot into an LLM string, scaled by
+  lens-plane and grade-depth (I35-L). This is the only place LLM-string rendering lives.
+- **SURFACE** — *pushed* (compose injects the compact summary) or *pulled* (`snapshot-{cwd,graph,nodes}`
+  Pi tools wrap the renderer: markdown in `toolResult.content`, typed JSON in `toolResult.details`).
+
+`contexts/` is render-only and carries no `<available_*>` manifest family. Reserve
+"snapshot" for this agent-context family; `workspace.snapshot` is product/UI state (D60-L).
 
 ## Does NOT own
 
-- Pi extension registration, tool definitions — those live in `.pi/extensions/`.
-- Graph domain logic, CommandExecutor — those live in `graph/`.
-- Session projection, transcript reading — those live in `session/`.
+- Pi extension registration, tool definitions, `snapshot-*` tool wrappers — `.pi/extensions/`.
+- Graph domain logic, CommandExecutor, snapshot PULL — `graph/`.
+- Session projection, transcript reading, cwd PULL — `session/`.
 
 ## Imported by
 
-- `.pi/extensions/prompting.ts` — calls compose.ts at turn boundaries
-- `.pi/extensions/operational-mode.ts` — reads state definitions
+- `.pi/extensions/` prompt registrar — calls `compose()` at turn boundaries.
+- `.pi/extensions/operational-mode.ts` — reads the state enums from `state.ts`.
 
-## Migration from .pi/context/
+## Migration from .pi/context/ (owned by frontier work, not yet done)
 
-The current `src/tui-client/.pi/context/` layout migrates here:
+`state.ts` enums land with **agent-runtime-vocabulary**; everything else (compose,
+resources, contexts, the migration itself) lands with **agents-composition-layer**.
 
-| Current location                          | Target                        |
-|-------------------------------------------|-------------------------------|
-| `.pi/context/compose-brunch-prompt.ts`    | `agents/compose.ts`           |
-| `.pi/context/prompt-packs/*.md`           | `agents/modes/`, `strategies/`, `lenses/` |
-| `.pi/context/builders/graph-context.ts`   | `agents/contexts/graph-context.ts` |
-| `.pi/context/builders/readiness-context.ts`| `agents/contexts/readiness-context.ts` |
-
-Move incrementally as prompt composition is refactored.
+| Current (.pi/context/)                          | Target                              | Kind     |
+|-------------------------------------------------|-------------------------------------|----------|
+| `compose-brunch-prompt.ts`                      | `agents/compose.ts`                 | rewrite  |
+| `prompt-packs/{brunch-base,elicit,elicitor}.md` | `agents/definitions/elicitor.md`    | fold     |
+| `prompt-packs/structured-exchange.md`           | `agents/methods/run-structured-exchange.md` | fold |
+| `prompt-packs/capture-analysis.md`              | `agents/methods/infer-and-capture.md` | rehome |
+| `prompt-packs/candidate-proposals.md`           | `agents/methods/generate-proposal.md` | rehome |
+| `builders/graph-context.ts`                     | `agents/contexts/graph.ts`          | rewrite  |
+| `builders/readiness-context.ts`                 | (folded into compose runtime header)| retire   |
+| `builders/structured-exchange-context.ts`       | `methods/run-structured-exchange.md`| retire/fold |
+| —                                               | `state.ts`, `index.ts`, `goals/*`, `methods/{read-snapshot,commit-graph,review-for-gaps}.md`, `definitions/reviewer.md`, `contexts/{cwd,node}.ts` | new |

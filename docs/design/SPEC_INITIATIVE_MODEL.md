@@ -1,12 +1,12 @@
 # Spec Initiative Model
 
-> Status: **working design proposal**.
+> Status: **vocabulary locked (D61-L); richer model deferred as Future Direction**.
 > Date: 2026-05-20.
 > Scope: the horizon model for how Brunch should represent specifications, claims, planning lifecycles, and collaboration over time.
 >
 > This note captures a design conclusion that emerged while pressure-testing the current `ln-*` workflow against the product direction in [`docs/architecture/prd.md`](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md), [`docs/architecture/pi-seam-extensions.md`](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md), and [`memory/SPEC.md`](file:///Users/lunelson/Code/hashintel/brunch-next/memory/SPEC.md): a **single start-to-finish spec for the whole product** is a naive and impractical model.
 >
-> This document does not yet change the canonical architecture register. It is a design note intended to sharpen the next round of architecture and planning decisions.
+> The spec-as-initiative identity and the spec↔claim vocabulary are now locked in [`memory/SPEC.md`](file:///Users/lunelson/Code/hashintel/brunch-next/memory/SPEC.md) (D61-L, plus Lexicon `Spec` / `Claim`). The richer model below — cross-spec claim survival/adoption, initiative-status lifecycle, spec-to-spec relationships, current-truth-as-projection — remains a deferred directional bet (SPEC §Future Direction → Spec initiative & claim model), not yet product contract.
 
 ## Why this note exists
 

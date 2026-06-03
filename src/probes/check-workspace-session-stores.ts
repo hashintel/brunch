@@ -1,26 +1,24 @@
 #!/usr/bin/env node
-import process from "node:process"
+import process from 'node:process';
 
-import { verifyWorkspaceSessionStores } from "../workspace-session-coordinator.js"
+import { verifyWorkspaceSessionStores } from '../session/workspace-session-coordinator.js';
 
-const cwd = process.argv[2]
-const expectedSessionCount = process.argv[3]
-  ? Number(process.argv[3])
-  : undefined
+const cwd = process.argv[2];
+const expectedSessionCount = process.argv[3] ? Number(process.argv[3]) : undefined;
 
 if (!cwd || Number.isNaN(expectedSessionCount)) {
   process.stderr.write(
-    "Usage: tsx src/probes/check-workspace-session-stores.ts <cwd> [expected-session-count]\n",
-  )
-  process.exit(2)
+    'Usage: tsx src/probes/check-workspace-session-stores.ts <cwd> [expected-session-count]\n',
+  );
+  process.exit(2);
 }
 
 const result = await verifyWorkspaceSessionStores(
   expectedSessionCount === undefined ? { cwd } : { cwd, expectedSessionCount },
-)
+);
 if (!result.ok) {
-  process.stderr.write(`${result.errors.join("\n")}\n`)
-  process.exit(1)
+  process.stderr.write(`${result.errors.join('\n')}\n`);
+  process.exit(1);
 }
 
 process.stdout.write(
@@ -38,4 +36,4 @@ process.stdout.write(
     null,
     2,
   )}\n`,
-)
+);

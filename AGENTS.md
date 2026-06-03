@@ -67,17 +67,21 @@ Verification boundary: /ln-spec owns inner-loop verification (commands, policy).
 
 ### verification
 
-**Inner loop** (run after every meaningful edit): `npm run fix` — lint-fixes then auto-formats.
+**Inner loop** (run after every meaningful edit): `npm run fix` — lint:fix then format.
 
-**Gate** (run before committing): `npm run verify` — check (fmt + lint, no writes) → test → build. All must pass.
+**Gate** (run before committing): `npm run verify` — fix → test → build. The gate auto-applies inner-loop fixes; if anything else fails, stop and fix it.
 
-| Script | Purpose | Writes? |
+**CI / read-only check**: `npm run check` — lint then fmt:check, no writes. Use this where the gate must not mutate the worktree.
+
+| Script | Steps | Writes? |
 | --- | --- | --- |
-| `npm run fix` | lint:fix + fmt (inner loop) | yes |
-| `npm run check` | fmt:check + lint (CI gate) | no |
-| `npm run verify` | check + test + build (full gate) | no |
+| `npm run fix` | lint:fix → fmt | yes |
+| `npm run check` | lint → fmt:check | no |
+| `npm run verify` | fix → test → build | yes (via fix) |
 
-Tooling: oxlint (lint + type-aware + type-check via tsgolint), oxfmt (format). Verification strategy details in SPEC.md §Verification Design.
+Ordering rationale: `fix` must run lint:fix before fmt because lint fixes can rewrite code that then needs reformatting. `check` mirrors that order (lint before fmt:check) so both scripts read as the same recipe in different modes.
+
+Type-checking is done by oxlint via tsgolint (`.oxlintrc.json` sets `typeAware: true` and `typeCheck: true`); there is no separate `typecheck` script. Tooling: oxlint (lint + type-aware + type-check via tsgolint), oxfmt (format), vitest (test). Verification strategy details in SPEC.md §Verification Design.
 
 ## critical file-safety rule
 

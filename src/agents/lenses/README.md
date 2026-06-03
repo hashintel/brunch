@@ -1,4 +1,4 @@
-# lenses/ — Topical-focus prompt packs
+# lenses/ — Topical-focus prompt resources
 
 SPEC decisions: D25-L, D56-L
 
@@ -17,7 +17,7 @@ Future execute-mode lenses (`plan`, `sync`, `scope`) are deferred.
 
 ## Topology-driven question ranking (M5 input)
 
-When `agent-graph-integration` lands prompt packs, each lens
+When `agents-composition-layer` authors the lens resources, each lens
 should include topology-driven heuristics for what to ask next.
 These heuristics read graph shape, not templates:
 

@@ -1,26 +1,24 @@
-import type { WorkspaceSessionState } from "./workspace-session-coordinator.js"
+import type { WorkspaceSessionState } from './session/workspace-session-coordinator.js';
 
 export interface WorkspaceSnapshot {
-  status: WorkspaceSessionState["status"]
-  cwd: string
+  status: WorkspaceSessionState['status'];
+  cwd: string;
   spec: {
-    id: string
-    title: string
-  } | null
+    id: number;
+    title: string;
+  } | null;
   session?: {
-    id: string
-    file: string
-  }
+    id: string;
+    file: string;
+  };
   chrome: {
-    phase: "select_spec" | "elicitation"
-    chatMode: "select-spec" | "responding-to-elicitation"
-  }
-  reason?: string
+    phase: 'select_spec' | 'elicitation';
+    chatMode: 'select-spec' | 'responding-to-elicitation';
+  };
+  reason?: string;
 }
 
-export function workspaceSnapshotFromState(
-  state: WorkspaceSessionState,
-): WorkspaceSnapshot {
+export function workspaceSnapshotFromState(state: WorkspaceSessionState): WorkspaceSnapshot {
   const base = {
     status: state.status,
     cwd: state.cwd,
@@ -29,44 +27,39 @@ export function workspaceSnapshotFromState(
       phase: state.chrome.phase,
       chatMode: state.chrome.chatMode,
     },
-  }
+  };
 
-  if (state.status === "ready") {
+  if (state.status === 'ready') {
     return {
       ...base,
       spec: state.spec,
       session: { id: state.session.id, file: state.session.file },
-    }
+    };
   }
 
-  if (state.status === "needs_human") {
-    return { ...base, reason: state.reason }
+  if (state.status === 'needs_human') {
+    return { ...base, reason: state.reason };
   }
 
-  return base
+  return base;
 }
 
 export function renderWorkspaceSnapshot(snapshot: WorkspaceSnapshot): string {
   const lines = [
-    "Brunch workspace snapshot",
+    'Brunch workspace snapshot',
     `status: ${snapshot.status}`,
     `cwd: ${snapshot.cwd}`,
-    `spec: ${
-      snapshot.spec ? `${snapshot.spec.title} (${snapshot.spec.id})` : "<none>"
-    }`,
+    `spec: ${snapshot.spec ? `${snapshot.spec.title} (${snapshot.spec.id})` : '<none>'}`,
     `phase: ${snapshot.chrome.phase}`,
     `chatMode: ${snapshot.chrome.chatMode}`,
-  ]
+  ];
 
   if (snapshot.session) {
-    lines.push(
-      `session: ${snapshot.session.id}`,
-      `sessionFile: ${snapshot.session.file}`,
-    )
+    lines.push(`session: ${snapshot.session.id}`, `sessionFile: ${snapshot.session.file}`);
   }
   if (snapshot.reason) {
-    lines.push(`reason: ${snapshot.reason}`)
+    lines.push(`reason: ${snapshot.reason}`);
   }
 
-  return `${lines.join("\n")}\n`
+  return `${lines.join('\n')}\n`;
 }

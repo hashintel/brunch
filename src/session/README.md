@@ -14,9 +14,12 @@ plus the coordination logic for workspace/spec/session lifecycle.
   span + response-side span, per D13-L.
 
 - **Workspace coordination** — boot flow, spec/session selection,
-  `.brunch/state.json` management. The `WorkspaceSessionCoordinator`
+  `.brunch/workspace.json` management. The `WorkspaceSessionCoordinator`
   is the only module that creates/opens Pi sessions for Brunch user flows
-  and writes `brunch.session_binding`.
+  and writes collapsed `brunch.session_binding` entries (`{schemaVersion,
+  specId}`). Its private `workspace-session-coordinator/` subtree owns
+  coordinator-shaped boot/probe helpers such as canonical session-file
+  classification; external callers import only the public root module.
 
 - **Session binding** — session↔spec binding entries in JSONL.
 
@@ -38,11 +41,11 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - `rpc/` — for session.* and workspace.* RPC handlers
 - `.pi/extensions/` — for session lifecycle hooks
 
-## Migration from src/ root
+## Moved from src/ root
 
-These files currently at `src/` root migrate here incrementally:
+These files migrated here on 2026-06-02:
 
-| Current file                      | Session concern                    |
+| File                              | Session concern                    |
 |-----------------------------------|------------------------------------|
 | `workspace-session-coordinator.ts`| boot, spec/session selection       |
 | `session-binding.ts`              | session↔spec binding               |
@@ -51,6 +54,4 @@ These files currently at `src/` root migrate here incrementally:
 | `session-transcript.ts`           | transcript row projection          |
 | `elicitation-exchange.ts`         | exchange extraction                |
 | `structured-exchange.ts`          | structured exchange schemas/types  |
-
-Move each file when it is next touched for substantive work, not as a
-bulk rename. Update imports at the call sites.
+| `project-identity.ts`             | workspace identity (cwd discovery) |

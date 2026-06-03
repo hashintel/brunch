@@ -5,69 +5,136 @@ SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L
 
 ## Owns
 
-- **CommandExecutor** — the single mutation boundary for all graph writes.
-  Hides validation, LSN allocation, change-log append, transaction mechanics.
-  Returns structured results: `ok`, `needs_human`, `policy_blocked`,
-  `version_conflict`, `structural_illegal`.
+- **CommandExecutor** (`command-executor.ts`) — the single mutation boundary for
+  graph/spec writes. It hides structural validation, transaction mechanics, LSN
+  allocation, change-log append, and structured command results.
 
-- **commitGraph** (D53-L) — atomic batch mutation accepting `{ nodes, edges }`
-  with intra-batch refs (`"n1"`) and existing-node refs. One tool call,
-  one LSN, all-or-nothing (I34-L). The load-bearing tool for propose-graph.
+- **commitGraph** — atomic batch mutation for `propose-graph`: one tool call,
+  one transaction, one LSN, all-or-nothing. It accepts product command input
+  (`nodes[]` with batch refs, `edges[]` with batch/existing refs), not raw DB
+  rows.
 
-- **Readers / snapshot functions** — graph queries at multiple detail levels:
-  cursory full-graph overview, node-neighborhood with configurable hops (I35-L).
-  Called by `agents/contexts/` for prompt injection.
+- **Readers / snapshot functions** (`snapshot.ts`) — graph projections at
+  multiple detail levels: full overview, node neighborhood, and open
+  reconciliation needs. These return typed domain objects, not Drizzle rows.
 
-- **Policy** — per-category edge policy (cascade, recon-need triggers,
-  criteria-help signals, projection effects).
+- **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
+  `ReconciliationNeed`, kind/category types, and derived intent-kind grouping.
 
-- **Validators** — structural legality checks: closed edge-category set,
-  stance rules, supersession acyclicity, framing matrix, intra-batch
-  reference resolution.
+- **Policy** (`policy/category-policy.ts`) — edge-category semantics such as
+  cascade behavior, reconciliation triggers, and projection effects.
 
-- **Change-log replay** — ordered mutation history keyed by LSN.
-
-- **Reconciliation-need substrate** — separate from graph edges;
-  target is `{kind:'edge', edgeId}` or `{kind:'node_pair', aId, bId}`.
+- **Workspace graph runtime** (`workspace-store.ts`) — opens `.brunch/data.db`
+  through `db/connection.ts` and returns a `CommandExecutor` plus bound snapshot
+  readers for adapters.
 
 ## Imports from
 
-- `db/` — Drizzle table definitions, connection handle.
-  This is the only layer that touches `db/` directly.
+- `db/` — Drizzle table definitions, enum arrays, and connection handle.
+  `graph/` is the only application layer that should import `db/` directly.
 
 ## Imported by
 
-- `.pi/extensions/graph/` — Pi tool adapters call CommandExecutor
-- `rpc/` — graph.* RPC handlers call readers and CommandExecutor
-- `agents/contexts/` — snapshot functions for prompt context
+- `.pi/extensions/graph/` — Pi tool adapters for `commit_graph` and `read_graph`.
+- `rpc/` — future `graph.*` projection handlers and graph-adjacent state.
+- `agents/contexts/` — future prompt context renderers.
+- `probes/` — graph proof drivers.
 
-## Current state (Phase 1 stubs)
+## Current topology
 
-```
+```pseudo
 graph/
-├── atoms.ts                  NodeId, EdgeId, Lsn type aliases
-├── index.ts                  public re-exports
-├── schema/
-│   ├── edges.ts              GraphEdge, EdgeCategory, EdgeStance, EdgeBasis
-│   └── reconciliation-need.ts  ReconciliationNeed types
-└── policy/
-    └── category-policy.ts    CATEGORY_POLICY table
+  atoms.ts
+    NodeId / EdgeId / Lsn aliases
+
+  index.ts
+    public graph-layer export barrel
+    re-exports enum arrays for non-db consumers
+
+  command-executor.ts
+    CommandExecutor
+    command input/result types
+    createSpec
+    updateReadinessGrade
+    createNode
+    commitGraph / dryRunCommitGraph
+    create/resolve reconciliation need
+
+  snapshot.ts
+    getGraphOverview
+    getNodeNeighborhood
+    getOpenReconciliationNeeds
+    row -> domain mapping
+
+  workspace-store.ts
+    openWorkspaceGraphRuntime(cwd)
+    openWorkspaceCommandExecutor(cwd)
+
+  schema/
+    nodes.ts
+    edges.ts
+    reconciliation-need.ts
+
+  policy/
+    category-policy.ts
 ```
 
-## Target state (after M4)
+## Boundary flow
 
+```pseudo
+db/schema.ts
+  Drizzle rows + enum literals
+      │
+      ▼
+graph/schema/*.ts
+  domain types derived from enum literals
+      │
+      ▼
+CommandExecutor
+  validates product command input
+  writes rows transactionally
+  appends change_log
+      │
+      ├─► .pi/extensions/graph
+      │     agent tool adapter
+      │
+      ├─► rpc/ future graph handlers
+      │     public product projections
+      │
+      └─► agents/contexts future renderers
+            prompt context snapshots
 ```
-graph/
-├── atoms.ts
-├── index.ts
-├── command-executor.ts       CommandExecutor + result types
-├── commit-graph.ts           batch validation + intra-batch ref resolution
-├── readers.ts                snapshot queries (cursory, neighborhood)
-├── change-log.ts             replay, changesSince
-├── schema/
-│   ├── edges.ts
-│   ├── nodes.ts              Phase 2 — per-plane node kinds
-│   └── reconciliation-need.ts
-└── policy/
-    └── category-policy.ts
+
+## Fractal split points
+
+Keep `command-executor.ts` and `snapshot.ts` as public entry points. When either
+file needs to split, use same-named private folders rather than exposing more
+entry points:
+
+```pseudo
+graph/command-executor/
+  commit-graph.ts
+  specs.ts
+  reconciliation-needs.ts
+  diagnostics.ts
+  lsn.ts
+  change-log.ts
+
+graph/snapshot/
+  row-mappers.ts
+  overview.ts
+  neighborhood.ts
+  reconciliation-needs.ts
+  changes-since.ts
 ```
+
+Do not create these files until pressure is real or an importer/test names the
+seam. The desired shape is documented here so future splits preserve topology.
+
+## Known near-term schema pressure
+
+- Add spec scoping before stable `graph.*` RPC / multi-spec UI projections.
+  The current table set has `specs`, but graph rows are not yet scoped to a spec.
+- Keep `coherence_state` deferred until its durable semantics are defined.
+- Begin consuming `db/row-schemas.ts` at persistence-facing validation seams;
+  do not use row schemas as public RPC or agent-tool object contracts.

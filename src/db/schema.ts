@@ -8,8 +8,8 @@
  * and by Pi tool parameter schemas (via typebox v1.x).
  */
 
-import { sql } from "drizzle-orm"
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
+import { sql } from 'drizzle-orm';
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
 // Shared enum arrays — the single source for text enum columns,
@@ -17,63 +17,72 @@ import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 // ---------------------------------------------------------------------------
 
 export const INTENT_KINDS = [
-  "goal",
-  "thesis",
-  "term",
-  "context",
-  "requirement",
-  "assumption",
-  "constraint",
-  "invariant",
-  "decision",
-  "criterion",
-  "example",
-] as const
+  'goal',
+  'thesis',
+  'term',
+  'context',
+  'requirement',
+  'assumption',
+  'constraint',
+  'invariant',
+  'decision',
+  'criterion',
+  'example',
+] as const;
 
-export const ORACLE_KINDS = [
-  "check",
-  "validation_method",
-  "evidence",
-  "obligation",
-] as const
+export const ORACLE_KINDS = ['check', 'validation_method', 'evidence', 'obligation'] as const;
 
-export const DESIGN_KINDS = ["module", "interface"] as const
+export const DESIGN_KINDS = ['module', 'interface'] as const;
 
-export const PLAN_KINDS = ["milestone", "frontier", "slice"] as const
+export const PLAN_KINDS = ['milestone', 'frontier', 'slice'] as const;
 
-export const NODE_BASES = ["explicit", "accepted_review_set"] as const
+export const NODE_BASES = ['explicit', 'accepted_review_set'] as const;
 
 export const EDGE_CATEGORIES = [
-  "dependency",
-  "proof",
-  "support",
-  "realization",
-  "boundary",
-  "composition",
-  "association",
-  "supersession",
-] as const
+  'dependency',
+  'proof',
+  'support',
+  'realization',
+  'boundary',
+  'composition',
+  'association',
+  'supersession',
+] as const;
 
-export const EDGE_STANCES = ["for", "against"] as const
+export const EDGE_STANCES = ['for', 'against'] as const;
+
+export const READINESS_GRADES = [
+  'grounding_onboarding',
+  'elicitation_ready',
+  'commitments_ready',
+  'planning_ready',
+] as const;
 
 // ---------------------------------------------------------------------------
 // Tables
 // ---------------------------------------------------------------------------
 
-export const nodes = sqliteTable("nodes", {
+export const specs = sqliteTable('specs', {
   id: integer().primaryKey({ autoIncrement: true }),
-  plane: text({ enum: ["intent", "oracle", "design", "plan"] }).notNull(),
+  name: text().notNull(),
+  slug: text().notNull(),
+  readiness_grade: text({ enum: READINESS_GRADES }).notNull().default('grounding_onboarding'),
+});
+
+export const nodes = sqliteTable('nodes', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  plane: text({ enum: ['intent', 'oracle', 'design', 'plan'] }).notNull(),
   kind: text().notNull(), // validated at domain layer against plane-specific enum
   title: text().notNull(),
   body: text(),
-  basis: text({ enum: NODE_BASES }).notNull().default("explicit"),
+  basis: text({ enum: NODE_BASES }).notNull().default('explicit'),
   source: text(),
   detail: text(), // JSON column: decision → {chosen_option, rejected, rationale}, term → {definition, aliases?}
   created_at_lsn: integer().notNull(),
   updated_at_lsn: integer().notNull(),
-})
+});
 
-export const edges = sqliteTable("edges", {
+export const edges = sqliteTable('edges', {
   id: integer().primaryKey({ autoIncrement: true }),
   category: text({ enum: EDGE_CATEGORIES }).notNull(),
   source_id: integer()
@@ -83,36 +92,38 @@ export const edges = sqliteTable("edges", {
     .notNull()
     .references(() => nodes.id),
   stance: text({ enum: EDGE_STANCES }),
-  basis: text({ enum: NODE_BASES }).notNull().default("explicit"),
+  basis: text({ enum: NODE_BASES }).notNull().default('explicit'),
   rationale: text(),
   created_at_lsn: integer().notNull(),
   updated_at_lsn: integer().notNull(),
-})
+});
 
-export const graphClock = sqliteTable("graph_clock", {
+export const graphClock = sqliteTable('graph_clock', {
   id: integer().primaryKey(), // always row 1
   lsn: integer().notNull().default(0),
-})
+});
 
-export const changeLog = sqliteTable("change_log", {
+export const changeLog = sqliteTable('change_log', {
   lsn: integer().primaryKey(),
   operation: text().notNull(),
   payload: text().notNull(), // JSON summary of the mutation
-  created_at: text().notNull().default(sql`(datetime('now'))`),
-})
+  created_at: text()
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
 
-export const reconciliationNeed = sqliteTable("reconciliation_need", {
+export const reconciliationNeed = sqliteTable('reconciliation_need', {
   id: integer().primaryKey({ autoIncrement: true }),
   // target is {kind:'edge', edgeId} or {kind:'node_pair', aId, bId}
-  target_kind: text({ enum: ["edge", "node_pair"] }).notNull(),
+  target_kind: text({ enum: ['edge', 'node_pair'] }).notNull(),
   target_edge_id: integer().references(() => edges.id),
   target_a_id: integer().references(() => nodes.id),
   target_b_id: integer().references(() => nodes.id),
   kind: text().notNull(), // substantive taxonomy deferred per A8-L
-  status: text({ enum: ["open", "resolved"] })
+  status: text({ enum: ['open', 'resolved'] })
     .notNull()
-    .default("open"),
+    .default('open'),
   reason: text(),
   created_at_lsn: integer().notNull(),
   resolved_at_lsn: integer(),
-})
+});
