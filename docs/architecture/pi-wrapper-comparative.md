@@ -172,13 +172,13 @@ Brunch currently depends on private-ish Pi behavior — `_rewriteFile()`, `setSe
 - **Owning SPEC items**: A1-L (Pi seam sufficiency), D1-L (depend on `pi-coding-agent`), D17-L (Pi transcript substrate).
 - **Mitigation**: convert each private call site into a Brunch-side adapter with a single chokepoint, and either upstream a stable seam to Pi or write a contract test that fails on Pi upgrades that change the observable behavior we rely on.
 
-### R2. Public RPC name drift (severity: medium-high)
+### R2. Public RPC vocabulary drift (resolved)
 
-`src/rpc/README.md` lists target vocabulary (`session.promptExchange`, `session.submitExchangeResponse`, `session.exchanges`, etc.) but current handlers still expose proof-era names (`session.startElicitation`, `elicitation.respond`, `session.elicitationExchanges`, `session.transcriptDisplay`). SPEC D19-L treats these explicitly as rename debt.
+`src/rpc/README.md` is now the canonical method contract, and dispatch/discovery are generated from one registry. The active public session names are `session.triggerExchange`, `session.pendingExchange`, `session.submitExchangeResponse`, `session.exchanges`, and `session.runtimeState`; removed names are quarantined in the RPC README's absent-name list and are not compatibility aliases.
 
-- **Why it matters**: every external client and probe written against the current names becomes a constraint on future renames. The longer this drifts, the more clients we will have to migrate at once.
+- **Why it mattered**: every external client and probe written against stale names would have become a constraint on future renames.
 - **Owning SPEC items**: D5-L (single public protocol), D19-L (named method families), R11 (JSON-RPC primary), R27 (Brunch-owned discovery).
-- **Mitigation**: lock the target vocabulary, ship aliases with deprecation warnings reachable via `rpc.discover`, and treat the proof-era names as removable in a near-term cleanup window.
+- **Resolved by**: FE-795 RPC registry refactor; no aliases or deprecation adapters were added under Brunch's pre-release/free-rewrite posture.
 
 ### R3. Pi lifecycle/timing coupling (severity: medium-high)
 
@@ -248,7 +248,7 @@ In recommended order; each links back to risks above.
 
 1. **Pay down R1 — private `SessionManager` flush dependency.** Centralize the call sites behind a single Brunch-side adapter; add a contract test that exercises pre-assistant flush ordering against the installed Pi version. If the seam is genuinely necessary, open the upstream conversation. This is the single most fragile point of contact with Pi.
 
-2. **Pay down R2 — finish RPC naming convergence.** Lock the target vocabulary in `src/rpc/README.md`, ship aliases for the proof-era names with deprecation marks, ensure `rpc.discover` returns the target names as canonical, and migrate internal probes. Set a deletion window for the aliases.
+2. **Keep R2 resolved — do not reopen RPC compatibility aliases.** The canonical vocabulary now lives in `src/rpc/README.md`, dispatch/discovery share one registry, and retired names are absent rather than aliased. Future client work should use the discovered canonical names and keep retired names only in the RPC README's absent-name list.
 
 3. **Pay down R3 — make Pi lifecycle dependencies legible.** Enumerate every Pi behavior we depend on (timing, ordering, hook semantics) in `docs/architecture/pi-seam-extensions.md` and back each with a probe under `src/probes/*`. This turns a class of silent breakage into a class of loud breakage.
 
@@ -276,6 +276,6 @@ These are not new rules. They are the things this comparison reaffirmed; pinning
 - `memory/SPEC.md` — canonical specification; particularly Capability Requirements R8, R11, R12, R27 and Active Decisions D1-L, D2-L, D3-L, D4-L, D5-L, D17-L, D19-L, D20-L, D23-L, D33-L, D39-L, D40-L, D51-L.
 - `docs/architecture/prd.md` — product requirements.
 - `docs/architecture/pi-seam-extensions.md` — Pi seam inventory and Brunch-owned extensions.
-- `src/rpc/README.md` — current RPC surface and target vocabulary.
+- `src/rpc/README.md` — current RPC surface, discovery contract, and absent-name list.
 - `src/.pi/README.md` — extension/profile sealing notes.
 - howcode source ([github.com/IgorWarzocha/howcode](https://github.com/IgorWarzocha/howcode)) — comparative reference, especially `desktop/pi-module.ts`, `desktop/runtime-host/live-runtime-service.ts`, `desktop/runtime/composer-state.ts`, `src/electron/preload/create-desktop-api.ts`.

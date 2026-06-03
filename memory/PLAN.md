@@ -64,7 +64,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 
 - **Name:** Live selected-spec graph observer over web RPC
 - **Linear:** [FE-795](https://linear.app/hash/issue/FE-795/live-selected-spec-graph-observer-over-web-rpc)
-- **Branch:** `ln/fe-795-live-selected-spec-graph-observer-over-web-rpc`
+- **Branch:** `ln/fe-795-live-over-web-rpc`
 - **Kind:** bounded feature / tracer bullet
 - **Status:** in-progress
 - **Objective:** Make the graph visible as live product state while the TUI remains the writer. Add product RPC graph reads/subscriptions and a minimal web graph panel so a graph mutation from the TUI/agent path updates the browser's selected-spec graph view.

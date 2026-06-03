@@ -244,7 +244,7 @@ Pi source/docs already give strong evidence for the primitive:
 - `examples/extensions/rpc-demo.ts` and `examples/rpc-extension-ui.ts` prove Pi RPC can carry supported extension UI requests, including `editor`, through `extension_ui_request` / `extension_ui_response`.
 - `examples/extensions/message-renderer.ts` proves custom transcript display, but display alone does not collect a response.
 
-The seam Brunch has now proven is the product relay and parity loop around that composition: assistant structured-exchange tools → pending Brunch elicitation state/event over the single public RPC surface → product response from a CLI probe over Brunch RPC → durable present/request tool results in Pi JSONL → response-side exchange projection → browser observer invalidation/refetch from canonical projection handlers. TUI-originated observation remains acceptable only if it reuses the same product invalidation path rather than inventing a parallel browser view store.
+The seam Brunch has now proven is the product relay and parity loop around that composition: assistant structured-exchange tools → pending Brunch structured-exchange state/event over the single public RPC surface → product response from a CLI probe over Brunch RPC → durable present/request tool results in Pi JSONL → response-side exchange projection → browser observer invalidation/refetch from canonical projection handlers. TUI-originated observation remains acceptable only if it reuses the same product invalidation path rather than inventing a parallel browser view store.
 
 | Residual affordance | Current posture | Carry-forward obligation |
 | --- | --- | --- |
