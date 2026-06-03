@@ -161,8 +161,8 @@ web/
     session.ts
       pendingExchangeQueryOptions(rpc, specId, sessionId)
       sessionExchangesQueryOptions(rpc, specId, sessionId)
-      # proof-era compatibility may live here temporarily:
-      transcriptDisplayQueryOptions(rpc, specId, sessionId)
+      # diagnostic-only transcript display projection, absent from normal sidecar product flow:
+      sessionDisplayQueryOptions(rpc, specId, sessionId)
 
     graph.ts
       graphOverviewQueryOptions(rpc, specId)
@@ -178,7 +178,7 @@ web/
       activateWorkspaceMutationOptions(rpc)
 
     session.ts
-      promptExchangeMutationOptions(rpc)
+      triggerExchangeMutationOptions(rpc)
       submitExchangeResponseMutationOptions(rpc)
       submitMessageMutationOptions(rpc)
 
@@ -234,8 +234,8 @@ queryKeys = {
     exchanges: (specId, sessionId) =>
       ['session.exchanges', specId, sessionId],
 
-    transcriptDisplay: (specId, sessionId) =>
-      ['session.transcriptDisplay', specId, sessionId], # proof-era only
+    sessionDisplay: (specId, sessionId) =>
+      ['debug.sessionTranscriptDisplay', specId, sessionId], # diagnostic-only
   },
 
   graph: {
@@ -284,8 +284,8 @@ workspace.activate
   Purpose: apply explicit workspace -> spec -> session decision.
   On success: invalidate workspace.snapshot, workspace.selectionState, session/graph keys for selected resources.
 
-session.promptExchange
-  promptExchangeMutationOptions(rpc)
+session.triggerExchange
+  triggerExchangeMutationOptions(rpc)
   Purpose: start/resume/advance assistant-first loop until pending exchange, idle, needs_human, or blocker.
   On success: invalidate session.pendingExchange and session.exchanges.
 

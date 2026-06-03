@@ -47,8 +47,8 @@ brunch.updated:
       - graph.nodeNeighborhood
       - workspace.snapshot
       - session.pendingExchange
-      - session.elicitationExchanges
-      - session.transcriptDisplay
+      - session.exchanges
+      - debug.sessionTranscriptDisplay
       - session.runtimeState
     updates:
       - {topic, specId?, sessionId?, nodeId?, lsn?}
@@ -65,15 +65,15 @@ full RPC host:
     workspace.snapshot
     workspace.selectionState
     session.pendingExchange
-    session.elicitationExchanges
-    session.transcriptDisplay
+    session.exchanges
+    debug.sessionTranscriptDisplay
     session.runtimeState
     graph.overview
     graph.nodeNeighborhood
   mutations:
     workspace.activate
-    session.startElicitation
-    elicitation.respond
+    session.triggerExchange
+    session.submitExchangeResponse
 
 TUI-started web sidecar:
   reads:
@@ -81,15 +81,15 @@ TUI-started web sidecar:
     workspace.snapshot
     workspace.selectionState
     session.pendingExchange
-    session.elicitationExchanges
-    session.transcriptDisplay
+    session.exchanges
+    debug.sessionTranscriptDisplay
     session.runtimeState
     graph.overview
     graph.nodeNeighborhood
   rejected as method-not-found:
     workspace.activate
-    session.startElicitation
-    elicitation.respond
+    session.triggerExchange
+    session.submitExchangeResponse
 ```
 
 The sidecar discovery result lists only methods the sidecar accepts. This preserves the POC one-writer/many-read-attachments rule: the TUI/agent session remains the writer; attached browsers refetch canonical projections from read methods after `brunch.updated`.
@@ -116,7 +116,7 @@ workspace.selectionState
 workspace.activate
   Applies an explicit workspace -> spec -> session decision.
 
-session.promptExchange
+session.triggerExchange
   Starts, resumes, or advances the assistant-first session loop until one of:
     pending structured exchange
     idle/completed state
@@ -174,13 +174,13 @@ These names are proof-era, stale, or too narrow for the stable product contract:
 
 ```pseudo
 session.startElicitation
-  too mode/lifecycle specific; use session.promptExchange
+  proof-era lifecycle name; use session.triggerExchange
 
 elicitation.respond
-  too mode-specific and too narrow; use session.submitExchangeResponse
+  stale non-session public family; use session.submitExchangeResponse
 
 session.elicitationExchanges
-  too mode-specific; use session.exchanges
+  proof-era projection name; use session.exchanges
 
 session.transcriptDisplay
   render/debug concern, not a core web-product state API
@@ -229,7 +229,7 @@ if session.pendingExchange returns pending:
   do not also treat freeform text as ambient chat
 
 if no exchange is pending:
-  session.promptExchange may ask the agent for the next exchange
+  session.triggerExchange may ask the agent for the next exchange
   session.submitMessage may append ordinary user text or an explicit interruption
 ```
 
@@ -240,7 +240,7 @@ if no exchange is pending:
 In `propose-graph`, the browser does not submit graph nodes or edges and does not call `commitGraph` directly.
 
 ```pseudo
-session.promptExchange
+session.triggerExchange
   -> agent presents a concept proposal as a structured exchange
 
 session.pendingExchange
