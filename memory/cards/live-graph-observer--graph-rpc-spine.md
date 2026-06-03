@@ -111,6 +111,52 @@ src/.pi/__tests__/graph-tools.test.ts ~
 src/session/workspace-session-coordinator.ts ?
 ```
 
+
+## Card 1A — done — Review hardening for selected-spec graph authority
+
+### Objective
+
+Graph authority paths reject stale or cross-spec writes in the remaining Card 1 review gaps.
+
+### Acceptance Criteria
+
+✓ `resolve reconciliation need spec guard` — resolving a reconciliation need requires `{specId,id}` and rejects the same need id under any other spec without mutating it.
+✓ `dry-run spec parity` — `dryRunCommitGraph` returns `structural_illegal` for a nonexistent `specId`, matching `commitGraph`.
+✓ `runtime graph binding` — a runtime created after an in-session workspace switch binds graph tools to the coordinator's current spec rather than the factory's initial spec.
+✓ `active docs` — graph and CLI docs no longer teach the retired review state (`graph.*` missing spec scoping) or retired `brunch-next` / `brunch --mode` launch identity.
+
+### Verification Approach
+
+- Inner: targeted graph/TUI/package tests — spec-guard regression, dry-run/commit parity, runtime factory selected-spec binding, package identity.
+- Middle: active-doc text scan — confirms stale launch/naming instructions are gone from active docs.
+
+### Cross-cutting obligations
+
+- D20-L: every graph-adjacent mutation remains behind `CommandExecutor`.
+- D52-L: `.pi`, `rpc`, and `web` adapters do not import `db/` directly.
+- D61-L: graph truth and graph-adjacent reconciliation needs are selected-spec owned; no workspace-global graph mutation path remains.
+- A14-L review-set dry-run remains a real commit gate: user-reviewable proposals must fail dry-run when the eventual commit would fail.
+
+### Assumption dependency
+
+None — this card closes discovered review gaps inside already-established selected-spec graph ownership.
+
+### Expected touched paths (tentative)
+
+```pseudo
+src/graph/
+├── command-executor.ts              ~
+├── command-executor.test.ts         ~
+├── snapshot.test.ts                 ~
+├── spec-ownership.test.ts           ~
+└── README.md                        ~
+src/brunch-tui.ts                    ~
+src/brunch-tui.test.ts               ~
+docs/
+├── README.md                        ~
+└── architecture/                    ?
+```
+
 ## Card 2 — next — Discoverable selected-spec graph RPC reads
 
 ### Target Behavior

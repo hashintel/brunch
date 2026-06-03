@@ -17,7 +17,7 @@
  * even though pre-M6 policy classification is minimal.
  */
 
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
@@ -200,6 +200,12 @@ export interface CreateReconNeedInput {
   readonly target: ReconNeedTarget;
   readonly needKind: string;
   readonly reason?: string | undefined;
+}
+
+/** Input for resolving a reconciliation need. */
+export interface ResolveReconNeedInput {
+  readonly specId: number;
+  readonly id: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -885,6 +891,16 @@ export class CommandExecutor {
       return diagnostics;
     }
 
+    const specRow = this.db
+      .select({ id: schema.specs.id })
+      .from(schema.specs)
+      .where(eq(schema.specs.id, input.specId))
+      .get();
+    if (!specRow) {
+      diagnostics.push({ field: 'specId', message: `spec ${input.specId} does not exist` });
+      return diagnostics;
+    }
+
     const refMap = new Map<string, number>();
     for (let i = 0; i < input.nodes.length; i++) {
       const bn = input.nodes[i]!;
@@ -1055,12 +1071,17 @@ export class CommandExecutor {
    * Sets status to "resolved" and records the resolvedAtLsn.
    * Rejects if the need does not exist or is already resolved.
    */
-  resolveReconciliationNeed(id: number): ResolveReconNeedResult {
+  resolveReconciliationNeed(input: ResolveReconNeedInput): ResolveReconNeedResult {
     return this.db.transaction((tx) => {
       const existing = tx
         .select()
         .from(schema.reconciliationNeed)
-        .where(eq(schema.reconciliationNeed.id, id))
+        .where(
+          and(
+            eq(schema.reconciliationNeed.id, input.id),
+            eq(schema.reconciliationNeed.spec_id, input.specId),
+          ),
+        )
         .get();
 
       if (!existing) {
@@ -1069,7 +1090,7 @@ export class CommandExecutor {
           diagnostics: [
             {
               field: 'id',
-              message: `reconciliation need ${id} does not exist`,
+              message: `reconciliation need ${input.id} does not exist for spec ${input.specId}`,
             },
           ],
         };
@@ -1081,7 +1102,7 @@ export class CommandExecutor {
           diagnostics: [
             {
               field: 'id',
-              message: `reconciliation need ${id} is already resolved`,
+              message: `reconciliation need ${input.id} is already resolved`,
             },
           ],
         };
@@ -1099,7 +1120,12 @@ export class CommandExecutor {
       // Update status
       tx.update(schema.reconciliationNeed)
         .set({ status: 'resolved', resolved_at_lsn: lsn })
-        .where(eq(schema.reconciliationNeed.id, id))
+        .where(
+          and(
+            eq(schema.reconciliationNeed.id, input.id),
+            eq(schema.reconciliationNeed.spec_id, input.specId),
+          ),
+        )
         .run();
 
       // Append change_log
@@ -1107,7 +1133,7 @@ export class CommandExecutor {
         .values({
           lsn,
           operation: 'resolve_reconciliation_need',
-          payload: JSON.stringify({ id }),
+          payload: JSON.stringify({ id: input.id, specId: input.specId }),
         })
         .run();
 

@@ -133,8 +133,10 @@ seam. The desired shape is documented here so future splits preserve topology.
 
 ## Known near-term schema pressure
 
-- Add spec scoping before stable `graph.*` RPC / multi-spec UI projections.
-  The current table set has `specs`, but graph rows are not yet scoped to a spec.
+- Keep spec scoping mandatory for stable `graph.*` RPC / multi-spec UI projections:
+  graph rows and graph-adjacent reconciliation needs are spec-owned, and
+  remaining graph read/write surfaces must preserve explicit selected-spec
+  authority.
 - Keep `coherence_state` deferred until its durable semantics are defined.
 - Begin consuming `db/row-schemas.ts` at persistence-facing validation seams;
   do not use row schemas as public RPC or agent-tool object contracts.

@@ -31,6 +31,7 @@ import {
   createBrunchAgentSessionRuntimeFactory,
   runBrunchTui,
 } from './brunch-tui.js';
+import { openWorkspaceGraphRuntime } from './graph/index.js';
 import { userMessage } from './probes/test-helpers.js';
 import {
   createWorkspaceSessionCoordinator,
@@ -85,6 +86,64 @@ describe('Brunch TUI boot', () => {
       const toolNames = created.session.getAllTools().map((tool) => tool.name);
       expect(toolNames).toContain('commit_graph');
       expect(toolNames).toContain('read_graph');
+    } finally {
+      created.session.dispose();
+    }
+  });
+
+  it('binds graph tools to the coordinator current spec when the runtime factory is reused after a switch', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-graph-switch-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const first = await coordinator.createSetupSession({
+      specTitle: 'First spec',
+      createNewSpec: true,
+    });
+    const createRuntime = createBrunchAgentSessionRuntimeFactory({ workspace: first, coordinator });
+    const second = await coordinator.createSetupSession({
+      specTitle: 'Second spec',
+      createNewSpec: true,
+    });
+
+    const created = await createRuntime({
+      cwd,
+      agentDir,
+      sessionManager: second.session.manager,
+    });
+
+    try {
+      const commitGraph = created.session.getToolDefinition('commit_graph') as
+        | {
+            execute: (
+              id: string,
+              params: unknown,
+              signal?: AbortSignal,
+              onUpdate?: unknown,
+              ctx?: unknown,
+            ) => unknown;
+          }
+        | undefined;
+      expect(commitGraph).toBeDefined();
+
+      await commitGraph!.execute(
+        'commit-after-switch',
+        {
+          nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'Second current goal' }],
+          edges: [],
+        },
+        undefined,
+        undefined,
+        undefined,
+      );
+
+      const graph = await openWorkspaceGraphRuntime(cwd);
+      expect(graph.forSpec(first.spec.id).getGraphOverview().nodeCount).toBe(0);
+      expect(
+        graph
+          .forSpec(second.spec.id)
+          .getGraphOverview()
+          .nodes.map((node) => node.title),
+      ).toEqual(['Second current goal']);
     } finally {
       created.session.dispose();
     }

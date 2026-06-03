@@ -9,7 +9,7 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it, beforeEach } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
-import { graphClock, changeLog, edges, nodes, specs } from '../db/schema.js';
+import { graphClock, changeLog, edges, nodes, reconciliationNeed, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
 import type { CommitGraphInput } from './command-executor.js';
 
@@ -710,6 +710,28 @@ describe('CommandExecutor', () => {
       expect(result.status).toBe('structural_illegal');
     });
 
+    it('dry-run rejects nonexistent spec before review-set proposals can be surfaced', () => {
+      const missingSpecId = specId + 10_000;
+      const input: CommitGraphInput = {
+        specId: missingSpecId,
+        nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'Missing spec goal' }],
+        edges: [],
+      };
+
+      const dryRun = executor.dryRunCommitGraph(input);
+      const commit = executor.commitGraph(input);
+
+      expect(dryRun).toMatchObject({
+        status: 'structural_illegal',
+        diagnostics: [{ field: 'specId' }],
+      });
+      expect(commit).toMatchObject({
+        status: 'structural_illegal',
+        diagnostics: [{ field: 'specId' }],
+      });
+      expect(db.select().from(nodes).all()).toHaveLength(0);
+    });
+
     // --- mixed refs ---
 
     it('edges can mix intra-batch source with existing target', () => {
@@ -894,15 +916,52 @@ describe('CommandExecutor', () => {
       expect(create.status).toBe('success');
       if (create.status !== 'success') throw new Error('unreachable');
 
-      const resolve = executor.resolveReconciliationNeed(create.id);
+      const resolve = executor.resolveReconciliationNeed({ specId, id: create.id });
       expect(resolve.status).toBe('success');
       if (resolve.status !== 'success') throw new Error('unreachable');
       expect(resolve.lsn).toBeGreaterThan(create.lsn);
     });
 
     it('rejects non-existent need id', () => {
-      const result = executor.resolveReconciliationNeed(999);
+      const result = executor.resolveReconciliationNeed({ specId, id: 999 });
       expect(result.status).toBe('structural_illegal');
+    });
+
+    it('rejects a need id that belongs to another spec without resolving it', () => {
+      const otherSpec = executor.createSpec({ name: 'Other Spec', slug: 'other-spec' });
+      expect(otherSpec.status).toBe('success');
+      if (otherSpec.status !== 'success') throw new Error('unreachable');
+      const batch = executor.commitGraph({
+        specId,
+        nodes: [
+          { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
+          { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'A1' },
+        ],
+        edges: [{ category: 'dependency', source: 'r1', target: 'a1' }],
+      });
+      expect(batch.status).toBe('success');
+      if (batch.status !== 'success') throw new Error('unreachable');
+      const create = executor.createReconciliationNeed({
+        specId,
+        target: { kind: 'edge', edgeId: batch.edges[0]! },
+        needKind: 'edge_revalidation',
+      });
+      expect(create.status).toBe('success');
+      if (create.status !== 'success') throw new Error('unreachable');
+
+      const wrongSpecResolve = executor.resolveReconciliationNeed({
+        specId: otherSpec.specId,
+        id: create.id,
+      });
+
+      expect(wrongSpecResolve.status).toBe('structural_illegal');
+      expect(
+        db
+          .select({ status: reconciliationNeed.status, resolvedAtLsn: reconciliationNeed.resolved_at_lsn })
+          .from(reconciliationNeed)
+          .where(eq(reconciliationNeed.id, create.id))
+          .get(),
+      ).toEqual({ status: 'open', resolvedAtLsn: null });
     });
 
     it('rejects already-resolved need', () => {
@@ -925,10 +984,10 @@ describe('CommandExecutor', () => {
       expect(create.status).toBe('success');
       if (create.status !== 'success') throw new Error('unreachable');
 
-      const resolve1 = executor.resolveReconciliationNeed(create.id);
+      const resolve1 = executor.resolveReconciliationNeed({ specId, id: create.id });
       expect(resolve1.status).toBe('success');
 
-      const resolve2 = executor.resolveReconciliationNeed(create.id);
+      const resolve2 = executor.resolveReconciliationNeed({ specId, id: create.id });
       expect(resolve2.status).toBe('structural_illegal');
       if (resolve2.status !== 'structural_illegal') throw new Error('unreachable');
       expect(resolve2.diagnostics[0]!.message).toContain('already resolved');

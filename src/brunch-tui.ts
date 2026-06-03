@@ -96,14 +96,15 @@ async function chooseSpecSessionActivationDecision(
 }
 
 export function createBrunchAgentSessionRuntimeFactory({
-  workspace,
   coordinator,
 }: BrunchTuiLaunchContext): CreateAgentSessionRuntimeFactory {
   return async ({ cwd, agentDir: runtimeAgentDir, sessionManager }) => {
+    const currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(sessionManager);
     const graph = await openWorkspaceGraphRuntime(cwd);
-    // Bind graph snapshot readers to the selected spec (D61-L). The
-    // agent-facing tools must never see a workspace-global graph.
-    const specId = workspace.spec.id;
+    // Bind graph snapshot readers to the coordinator's current spec (D61-L).
+    // The same runtime factory can be reused after /brunch switches sessions,
+    // so never close over the spec that happened to launch the factory.
+    const specId = currentWorkspace.spec.id;
     const graphDeps = {
       specId,
       commandExecutor: graph.commandExecutor,
@@ -114,7 +115,7 @@ export function createBrunchAgentSessionRuntimeFactory({
       agentDir: runtimeAgentDir,
       extensionFactories: [
         createBrunchPiExtensionShell(
-          chromeStateForWorkspace(workspace),
+          chromeStateForWorkspace(currentWorkspace),
           async (replacementSessionManager) => {
             await coordinator.bindCurrentSpecToReplacementSession(replacementSessionManager);
           },

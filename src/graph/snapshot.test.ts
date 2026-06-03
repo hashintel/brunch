@@ -361,7 +361,7 @@ describe('getOpenReconciliationNeeds', () => {
     expect(create.status).toBe('success');
     if (create.status !== 'success') throw new Error('unreachable');
 
-    executor.resolveReconciliationNeed(create.id);
+    executor.resolveReconciliationNeed({ specId, id: create.id });
 
     const needs = getOpenReconciliationNeeds(db, specId);
     expect(needs).toEqual([]);

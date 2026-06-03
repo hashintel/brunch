@@ -183,11 +183,20 @@ describe('graph items are owned by spec', () => {
     });
     expect(crossPair.status).toBe('structural_illegal');
 
-    // Listing scoped to spec
+    // Resolve scoped to spec
+    if (ok.status !== 'success') throw new Error('unreachable');
+    const wrongSpecResolve = executor.resolveReconciliationNeed({ specId: specB, id: ok.id });
+    expect(wrongSpecResolve.status).toBe('structural_illegal');
+
+    // Listing scoped to spec and wrong-spec resolve leaves the need open
     const needsA = getOpenReconciliationNeeds(db, specA);
     const needsB = getOpenReconciliationNeeds(db, specB);
     expect(needsA).toHaveLength(1);
     expect(needsB).toHaveLength(0);
+
+    const rightSpecResolve = executor.resolveReconciliationNeed({ specId: specA, id: ok.id });
+    expect(rightSpecResolve.status).toBe('success');
+    expect(getOpenReconciliationNeeds(db, specA)).toHaveLength(0);
   });
 });
 
