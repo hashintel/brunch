@@ -68,8 +68,12 @@ const VALID_LENSES = ['intent', 'design', 'oracle'] as const;
 const VALID_EPISTEMIC_STATUSES = ['inferred', 'assumed', 'asserted', 'observed'] as const;
 const VALID_PLANES = ['intent', 'oracle', 'design', 'plan'] as const;
 
-export function translateReviewSetProposalToCommitGraph(proposal: ReviewSetProposalDraft): CommitGraphInput {
+export function translateReviewSetProposalToCommitGraph(
+  proposal: ReviewSetProposalDraft,
+  specId: number,
+): CommitGraphInput {
   return {
+    specId,
     nodes: proposal.entityDrafts.map(
       (draft): BatchNodeInput => ({
         ref: draft.draftId,
@@ -97,6 +101,7 @@ export function translateReviewSetProposalToCommitGraph(proposal: ReviewSetPropo
 export function validateReviewSetProposalPayload(options: {
   readonly proposal: ReviewSetProposalDraft;
   readonly commandExecutor: CommandExecutor;
+  readonly specId: number;
 }): ReviewSetProposalValidationResult {
   const diagnostics = validateReviewSetProposalDraft(options.proposal);
   if (diagnostics.length > 0) {
@@ -104,7 +109,7 @@ export function validateReviewSetProposalPayload(options: {
   }
 
   const validation = options.commandExecutor.dryRunCommitGraph(
-    translateReviewSetProposalToCommitGraph(options.proposal),
+    translateReviewSetProposalToCommitGraph(options.proposal, options.specId),
   );
   if (validation.status !== 'success') {
     return validation;

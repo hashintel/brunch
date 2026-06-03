@@ -25,8 +25,11 @@ import type { ToolCommitGraphParams } from './tool-schemas.js';
  * Translate Pi tool params into a CommandExecutor CommitGraphInput.
  *
  * The translation is thin — structural validation happens in the CommandExecutor.
+ * `specId` is injected by the registrar from the selected session/spec context
+ * so the agent-facing tool schema never asks the LLM for a workspace-global
+ * graph target (D61-L).
  */
-export function translateCommitGraph(params: ToolCommitGraphParams): CommitGraphInput {
+export function translateCommitGraph(params: ToolCommitGraphParams, specId: number): CommitGraphInput {
   const nodes: BatchNodeInput[] = params.nodes.map((n) => ({
     ref: n.ref,
     plane: n.plane as BatchNodeInput['plane'],
@@ -46,7 +49,7 @@ export function translateCommitGraph(params: ToolCommitGraphParams): CommitGraph
     rationale: e.rationale,
   }));
 
-  return { nodes, edges };
+  return { specId, nodes, edges };
 }
 
 function resolveEdgeRef(ref: string | { readonly existing: number }): BatchEdgeRef {

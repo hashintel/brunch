@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { createDb } from '../../db/connection.js';
+import type { BrunchDb } from '../../db/connection.js';
+import { specs } from '../../db/schema.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
 import { getGraphOverview } from '../../graph/snapshot.js';
 import {
@@ -8,6 +10,11 @@ import {
   validateReviewSetProposalPayload,
   type ReviewSetProposalDraft,
 } from '../extensions/graph/review-set-proposal.js';
+
+function seedSpec(db: BrunchDb): number {
+  db.insert(specs).values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' }).run();
+  return db.select({ id: specs.id }).from(specs).get()!.id;
+}
 
 function validProposal(overrides: Partial<ReviewSetProposalDraft> = {}): ReviewSetProposalDraft {
   return {
@@ -65,7 +72,9 @@ describe('review-set proposal dry-run gate', () => {
   it('validates dry-run-valid review-set proposal payloads for structured exchanges', () => {
     const db = createDb(':memory:');
     const executor = new CommandExecutor(db);
+    const specId = seedSpec(db);
     const result = validateReviewSetProposalPayload({
+      specId,
       proposal: validProposal(),
       commandExecutor: executor,
     });
@@ -79,13 +88,15 @@ describe('review-set proposal dry-run gate', () => {
         validation: { status: 'success' },
       },
     });
-    expect(getGraphOverview(db)).toMatchObject({ nodeCount: 0, edgeCount: 0, lsn: 0 });
+    expect(getGraphOverview(db, specId)).toMatchObject({ nodeCount: 0, edgeCount: 0, lsn: 0 });
   });
 
   it('rejects structurally invalid review-set proposal payloads', () => {
     const db = createDb(':memory:');
     const executor = new CommandExecutor(db);
+    const specId = seedSpec(db);
     const result = validateReviewSetProposalPayload({
+      specId,
       proposal: validProposal({
         edgeDrafts: [
           {
@@ -102,12 +113,13 @@ describe('review-set proposal dry-run gate', () => {
       status: 'structural_illegal',
       diagnostics: [{ field: 'edges[0].stance', message: expect.stringContaining('required') }],
     });
-    expect(getGraphOverview(db)).toMatchObject({ nodeCount: 0, edgeCount: 0, lsn: 0 });
+    expect(getGraphOverview(db, specId)).toMatchObject({ nodeCount: 0, edgeCount: 0, lsn: 0 });
   });
 
   it('rejects proposal schema drift before CommandExecutor dry-run', () => {
     const db = createDb(':memory:');
     const executor = new CommandExecutor(db);
+    const specId = seedSpec(db);
 
     for (const proposal of [
       { ...validProposal(), epistemicStatus: undefined },
@@ -125,6 +137,7 @@ describe('review-set proposal dry-run gate', () => {
       },
     ]) {
       const result = validateReviewSetProposalPayload({
+        specId,
         proposal: proposal as unknown as ReviewSetProposalDraft,
         commandExecutor: executor,
       });
@@ -135,15 +148,17 @@ describe('review-set proposal dry-run gate', () => {
   it('keeps dry-run validation in parity with commitGraph validation', () => {
     const db = createDb(':memory:');
     const executor = new CommandExecutor(db);
+    const specId = seedSpec(db);
     const proposal = validProposal();
     const entry = validateReviewSetProposalPayload({
+      specId,
       proposal,
       commandExecutor: executor,
     });
     expect(entry.status).toBe('success');
 
-    const commitResult = executor.commitGraph(translateReviewSetProposalToCommitGraph(proposal));
+    const commitResult = executor.commitGraph(translateReviewSetProposalToCommitGraph(proposal, specId));
     expect(commitResult).toMatchObject({ status: 'success' });
-    expect(getGraphOverview(db)).toMatchObject({ nodeCount: 3, edgeCount: 2 });
+    expect(getGraphOverview(db, specId)).toMatchObject({ nodeCount: 3, edgeCount: 2 });
   });
 });

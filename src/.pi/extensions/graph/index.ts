@@ -32,7 +32,15 @@ export interface GraphSnapshotReaders {
   readonly getNodeNeighborhood: (nodeId: number, options?: { hops?: number }) => NeighborhoodResult;
 }
 
+/**
+ * Selected-spec-bound dependencies for the Brunch graph extension.
+ *
+ * The shell pre-binds these to the workspace's active spec (D61-L) so the
+ * agent-facing `commit_graph` / `read_graph` tools never receive `specId`
+ * from the LLM and cannot reach into another spec's graph truth.
+ */
 export interface BrunchGraphDeps {
+  readonly specId: number;
   readonly commandExecutor: CommandExecutor;
   readonly snapshots: GraphSnapshotReaders;
 }
@@ -42,7 +50,7 @@ export interface BrunchGraphDeps {
 // ---------------------------------------------------------------------------
 
 export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): void {
-  const { commandExecutor, snapshots } = deps;
+  const { specId, commandExecutor, snapshots } = deps;
 
   // ── commit_graph ────────────────────────────────────────────────────
   pi.registerTool({
@@ -64,7 +72,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
     parameters: CommitGraphParams,
 
     async execute(_toolCallId, params) {
-      const input = translateCommitGraph(params);
+      const input = translateCommitGraph(params, specId);
       const result = commandExecutor.commitGraph(input);
       const text = formatCommitGraphResult(result);
 

@@ -101,6 +101,14 @@ export function createBrunchAgentSessionRuntimeFactory({
 }: BrunchTuiLaunchContext): CreateAgentSessionRuntimeFactory {
   return async ({ cwd, agentDir: runtimeAgentDir, sessionManager }) => {
     const graph = await openWorkspaceGraphRuntime(cwd);
+    // Bind graph snapshot readers to the selected spec (D61-L). The
+    // agent-facing tools must never see a workspace-global graph.
+    const specId = workspace.spec.id;
+    const graphDeps = {
+      specId,
+      commandExecutor: graph.commandExecutor,
+      snapshots: graph.forSpec(specId),
+    };
     const profile = createBrunchPiProfile({
       cwd,
       agentDir: runtimeAgentDir,
@@ -110,7 +118,7 @@ export function createBrunchAgentSessionRuntimeFactory({
           async (replacementSessionManager) => {
             await coordinator.bindCurrentSpecToReplacementSession(replacementSessionManager);
           },
-          { coordinator, graph },
+          { coordinator, graph: graphDeps },
         ),
       ],
     });

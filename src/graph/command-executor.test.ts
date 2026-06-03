@@ -5,6 +5,7 @@
  * Scope card: CommandExecutor skeleton with single-node proof-of-life
  */
 
+import { eq } from 'drizzle-orm';
 import { describe, expect, it, beforeEach } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
@@ -19,10 +20,15 @@ function createTestDb(): BrunchDb {
 describe('CommandExecutor', () => {
   let db: BrunchDb;
   let executor: CommandExecutor;
+  let specId: number;
 
   beforeEach(() => {
     db = createTestDb();
     executor = new CommandExecutor(db);
+    db.insert(specs)
+      .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
+      .run();
+    specId = db.select({ id: specs.id }).from(specs).get()!.id;
   });
 
   // --- graph_clock initialization ---
@@ -37,6 +43,7 @@ describe('CommandExecutor', () => {
 
   it('creates a valid intent node and returns success with nodeId and lsn', () => {
     const result = executor.createNode({
+      specId,
       plane: 'intent',
       kind: 'requirement',
       title: 'System must be offline-capable',
@@ -50,11 +57,7 @@ describe('CommandExecutor', () => {
   });
 
   it("defaults basis to 'explicit' when omitted", () => {
-    executor.createNode({
-      plane: 'intent',
-      kind: 'goal',
-      title: 'Some goal',
-    });
+    executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Some goal' });
 
     const row = db.select().from(nodes).all()[0];
     expect(row!.basis).toBe('explicit');
@@ -62,6 +65,7 @@ describe('CommandExecutor', () => {
 
   it('stores optional body and source fields', () => {
     executor.createNode({
+      specId,
       plane: 'intent',
       kind: 'context',
       title: 'Target market',
@@ -76,6 +80,7 @@ describe('CommandExecutor', () => {
 
   it('creates a decision node with required detail', () => {
     const result = executor.createNode({
+      specId,
       plane: 'intent',
       kind: 'decision',
       title: 'Use SQLite for persistence',
@@ -96,6 +101,7 @@ describe('CommandExecutor', () => {
 
   it('creates a term node with required detail', () => {
     const result = executor.createNode({
+      specId,
       plane: 'intent',
       kind: 'term',
       title: 'Reconciliation Need',
@@ -116,6 +122,7 @@ describe('CommandExecutor', () => {
 
   it('rejects invalid kind for plane', () => {
     const result = executor.createNode({
+      specId,
       plane: 'intent',
       kind: 'check', // oracle-plane kind, not intent
       title: 'Wrong plane',
@@ -127,11 +134,7 @@ describe('CommandExecutor', () => {
   });
 
   it('rejects decision without detail', () => {
-    const result = executor.createNode({
-      plane: 'intent',
-      kind: 'decision',
-      title: 'Some decision',
-    });
+    const result = executor.createNode({ specId, plane: 'intent', kind: 'decision', title: 'Some decision' });
 
     expect(result.status).toBe('structural_illegal');
     if (result.status !== 'structural_illegal') throw new Error('unreachable');
@@ -139,11 +142,7 @@ describe('CommandExecutor', () => {
   });
 
   it('rejects term without detail', () => {
-    const result = executor.createNode({
-      plane: 'intent',
-      kind: 'term',
-      title: 'Some term',
-    });
+    const result = executor.createNode({ specId, plane: 'intent', kind: 'term', title: 'Some term' });
 
     expect(result.status).toBe('structural_illegal');
     if (result.status !== 'structural_illegal') throw new Error('unreachable');
@@ -152,6 +151,7 @@ describe('CommandExecutor', () => {
 
   it('rejects non-decision/term node with detail present', () => {
     const result = executor.createNode({
+      specId,
       plane: 'intent',
       kind: 'requirement',
       title: 'Some requirement',
@@ -165,6 +165,7 @@ describe('CommandExecutor', () => {
 
   it('rejects decision with empty rejected array', () => {
     const result = executor.createNode({
+      specId,
       plane: 'intent',
       kind: 'decision',
       title: 'Bad decision',
@@ -182,6 +183,7 @@ describe('CommandExecutor', () => {
 
   it('rejects decision detail with unknown fields', () => {
     const result = executor.createNode({
+      specId,
       plane: 'intent',
       kind: 'decision',
       title: 'Leaky decision',
@@ -201,16 +203,8 @@ describe('CommandExecutor', () => {
   // --- LSN / graph_clock ---
 
   it('increments graph_clock atomically per command', () => {
-    executor.createNode({
-      plane: 'intent',
-      kind: 'goal',
-      title: 'First',
-    });
-    executor.createNode({
-      plane: 'intent',
-      kind: 'goal',
-      title: 'Second',
-    });
+    executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'First' });
+    executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Second' });
 
     const [clock] = db.select().from(graphClock).all();
     expect(clock!.lsn).toBe(2);
@@ -218,6 +212,7 @@ describe('CommandExecutor', () => {
 
   it('assigns matching created_at_lsn and updated_at_lsn on new nodes', () => {
     const result = executor.createNode({
+      specId,
       plane: 'intent',
       kind: 'assumption',
       title: 'Pi exposes enough seams',
@@ -232,11 +227,7 @@ describe('CommandExecutor', () => {
   it('LSN is strictly monotonic across multiple creates', () => {
     const lsns: number[] = [];
     for (let i = 0; i < 10; i++) {
-      const result = executor.createNode({
-        plane: 'intent',
-        kind: 'context',
-        title: `Context ${i}`,
-      });
+      const result = executor.createNode({ specId, plane: 'intent', kind: 'context', title: `Context ${i}` });
       if (result.status !== 'success') throw new Error('unreachable');
       lsns.push(result.lsn);
     }
@@ -249,11 +240,7 @@ describe('CommandExecutor', () => {
   // --- change_log ---
 
   it('appends exactly one change_log entry per successful command', () => {
-    executor.createNode({
-      plane: 'intent',
-      kind: 'requirement',
-      title: 'Must persist',
-    });
+    executor.createNode({ specId, plane: 'intent', kind: 'requirement', title: 'Must persist' });
 
     const logs = db.select().from(changeLog).all();
     expect(logs).toHaveLength(1);
@@ -262,6 +249,7 @@ describe('CommandExecutor', () => {
 
   it('change_log payload contains nodeId, plane, and kind', () => {
     const result = executor.createNode({
+      specId,
       plane: 'intent',
       kind: 'invariant',
       title: 'LSN monotonicity',
@@ -276,11 +264,7 @@ describe('CommandExecutor', () => {
   });
 
   it("change_log.lsn matches the command's allocated LSN", () => {
-    const result = executor.createNode({
-      plane: 'intent',
-      kind: 'goal',
-      title: 'Test',
-    });
+    const result = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Test' });
 
     if (result.status !== 'success') throw new Error('unreachable');
     const [log] = db.select().from(changeLog).all();
@@ -291,6 +275,7 @@ describe('CommandExecutor', () => {
 
   it('writes nothing on validation failure (no LSN bump, no change_log)', () => {
     executor.createNode({
+      specId,
       plane: 'intent',
       kind: 'check', // invalid kind for intent plane
       title: 'Should fail',
@@ -306,6 +291,7 @@ describe('CommandExecutor', () => {
 
   it('creates oracle-plane nodes', () => {
     const result = executor.createNode({
+      specId,
       plane: 'oracle',
       kind: 'check',
       title: 'Verify LSN monotonicity',
@@ -315,21 +301,13 @@ describe('CommandExecutor', () => {
   });
 
   it('creates design-plane nodes', () => {
-    const result = executor.createNode({
-      plane: 'design',
-      kind: 'module',
-      title: 'CommandExecutor',
-    });
+    const result = executor.createNode({ specId, plane: 'design', kind: 'module', title: 'CommandExecutor' });
 
     expect(result.status).toBe('success');
   });
 
   it('creates plan-plane nodes', () => {
-    const result = executor.createNode({
-      plane: 'plan',
-      kind: 'slice',
-      title: 'M4 skeleton',
-    });
+    const result = executor.createNode({ specId, plane: 'plan', kind: 'slice', title: 'M4 skeleton' });
 
     expect(result.status).toBe('success');
   });
@@ -351,7 +329,7 @@ describe('CommandExecutor', () => {
       expect(result.specId).toBeTypeOf('number');
       expect(result.lsn).toBe(1);
 
-      const row = db.select().from(specs).all()[0]!;
+      const row = db.select().from(specs).where(eq(specs.id, result.specId)).get()!;
       expect(row.id).toBe(result.specId);
       expect(row.name).toBe('Brunch POC');
       expect(row.slug).toBe('brunch-poc');
@@ -411,6 +389,7 @@ describe('CommandExecutor', () => {
 
     it('creates multiple nodes + edges in one transaction with one LSN', () => {
       const input: CommitGraphInput = {
+        specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'requirement', title: 'Req A' },
           { ref: 'n2', plane: 'intent', kind: 'constraint', title: 'Con B' },
@@ -433,6 +412,7 @@ describe('CommandExecutor', () => {
 
     it('resolves intra-batch refs to real NodeIds', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'a', plane: 'intent', kind: 'assumption', title: 'A1' },
           {
@@ -458,14 +438,11 @@ describe('CommandExecutor', () => {
 
     it('resolves existing-node refs to verified NodeIds', () => {
       // Pre-create a node
-      const pre = executor.createNode({
-        plane: 'intent',
-        kind: 'goal',
-        title: 'Existing goal',
-      });
+      const pre = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Existing goal' });
       if (pre.status !== 'success') throw new Error('unreachable');
 
       const result = executor.commitGraph({
+        specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'requirement', title: 'New req' }],
         edges: [
           {
@@ -486,6 +463,7 @@ describe('CommandExecutor', () => {
 
     it('returns nodes mapping and edges array in success result', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'x', plane: 'intent', kind: 'context', title: 'Ctx' },
           { ref: 'y', plane: 'intent', kind: 'thesis', title: 'Thesis' },
@@ -502,6 +480,7 @@ describe('CommandExecutor', () => {
 
     it('appends one change_log entry for the entire batch', () => {
       executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'goal', title: 'G1' },
           { ref: 'n2', plane: 'intent', kind: 'goal', title: 'G2' },
@@ -521,6 +500,7 @@ describe('CommandExecutor', () => {
 
     it('rejects edge with invalid category', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'goal', title: 'G' },
           { ref: 'n2', plane: 'intent', kind: 'goal', title: 'G2' },
@@ -535,6 +515,7 @@ describe('CommandExecutor', () => {
 
     it('rejects proof edge without stance', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'criterion', title: 'Cr' },
           { ref: 'n2', plane: 'intent', kind: 'invariant', title: 'Inv' },
@@ -549,6 +530,7 @@ describe('CommandExecutor', () => {
 
     it('rejects support edge without stance', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'context', title: 'Ctx' },
           { ref: 'n2', plane: 'intent', kind: 'requirement', title: 'Req' },
@@ -561,6 +543,7 @@ describe('CommandExecutor', () => {
 
     it('rejects non-proof/non-support edge with stance', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'assumption', title: 'A' },
           { ref: 'n2', plane: 'intent', kind: 'requirement', title: 'R' },
@@ -575,6 +558,7 @@ describe('CommandExecutor', () => {
 
     it('rejects edge referencing non-existent existing node', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'G' }],
         edges: [{ category: 'dependency', source: { existing: 9999 }, target: 'n1' }],
       });
@@ -586,6 +570,7 @@ describe('CommandExecutor', () => {
 
     it('rejects edge with unresolvable intra-batch ref', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'G' }],
         edges: [{ category: 'dependency', source: 'n1', target: 'missing_ref' }],
       });
@@ -597,6 +582,7 @@ describe('CommandExecutor', () => {
 
     it('rejects self-loop edge', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'G' }],
         edges: [{ category: 'association', source: 'n1', target: 'n1' }],
       });
@@ -610,6 +596,7 @@ describe('CommandExecutor', () => {
 
     it('rejects batch node with invalid kind-for-plane', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'check', title: 'Wrong' }],
         edges: [],
       });
@@ -621,6 +608,7 @@ describe('CommandExecutor', () => {
 
     it('rejects batch decision without detail', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'decision', title: 'D' }],
         edges: [],
       });
@@ -632,6 +620,7 @@ describe('CommandExecutor', () => {
 
     it('if any node fails validation, entire batch rejected — nothing written', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'goal', title: 'Valid' },
           { ref: 'n2', plane: 'intent', kind: 'check', title: 'Invalid kind' },
@@ -647,6 +636,7 @@ describe('CommandExecutor', () => {
 
     it('if any edge fails validation, no nodes written', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'goal', title: 'Valid goal' },
           { ref: 'n2', plane: 'intent', kind: 'context', title: 'Valid ctx' },
@@ -665,6 +655,7 @@ describe('CommandExecutor', () => {
 
     it('diagnostics include which entry failed', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'OK' }],
         edges: [{ category: 'dependency', source: 'n1', target: { existing: 9999 } }],
       });
@@ -676,19 +667,12 @@ describe('CommandExecutor', () => {
     // --- edge cases ---
 
     it('edge-only batch between existing nodes', () => {
-      const a = executor.createNode({
-        plane: 'intent',
-        kind: 'requirement',
-        title: 'R1',
-      });
-      const b = executor.createNode({
-        plane: 'intent',
-        kind: 'assumption',
-        title: 'A1',
-      });
+      const a = executor.createNode({ specId, plane: 'intent', kind: 'requirement', title: 'R1' });
+      const b = executor.createNode({ specId, plane: 'intent', kind: 'assumption', title: 'A1' });
       if (a.status !== 'success' || b.status !== 'success') throw new Error('unreachable');
 
       const result = executor.commitGraph({
+        specId,
         nodes: [],
         edges: [
           {
@@ -707,6 +691,7 @@ describe('CommandExecutor', () => {
 
     it('node-only batch (no edges)', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'context', title: 'C1' },
           { ref: 'n2', plane: 'intent', kind: 'context', title: 'C2' },
@@ -721,21 +706,18 @@ describe('CommandExecutor', () => {
     });
 
     it('empty batch → structural_illegal', () => {
-      const result = executor.commitGraph({ nodes: [], edges: [] });
+      const result = executor.commitGraph({ specId, nodes: [], edges: [] });
       expect(result.status).toBe('structural_illegal');
     });
 
     // --- mixed refs ---
 
     it('edges can mix intra-batch source with existing target', () => {
-      const pre = executor.createNode({
-        plane: 'intent',
-        kind: 'goal',
-        title: 'Existing',
-      });
+      const pre = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Existing' });
       if (pre.status !== 'success') throw new Error('unreachable');
 
       const result = executor.commitGraph({
+        specId,
         nodes: [{ ref: 'new', plane: 'intent', kind: 'requirement', title: 'New' }],
         edges: [
           {
@@ -757,6 +739,7 @@ describe('CommandExecutor', () => {
 
     it('uses one LSN for the entire batch (not per-entity)', () => {
       const result = executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'goal', title: 'G1' },
           { ref: 'n2', plane: 'intent', kind: 'goal', title: 'G2' },
@@ -783,6 +766,7 @@ describe('CommandExecutor', () => {
     it('creates a recon need targeting an edge and returns success with id and lsn', () => {
       // Seed a node and edge first
       const batch = executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
           { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'A1' },
@@ -794,6 +778,7 @@ describe('CommandExecutor', () => {
       const edgeId = batch.edges[0]!;
 
       const result = executor.createReconciliationNeed({
+        specId,
         target: { kind: 'edge', edgeId },
         needKind: 'edge_revalidation',
         reason: 'upstream assumption changed',
@@ -807,6 +792,7 @@ describe('CommandExecutor', () => {
 
     it('creates a recon need targeting a node pair', () => {
       const batch = executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
           { ref: 'r2', plane: 'intent', kind: 'requirement', title: 'R2' },
@@ -819,6 +805,7 @@ describe('CommandExecutor', () => {
       const bId = batch.nodes['r2']!;
 
       const result = executor.createReconciliationNeed({
+        specId,
         target: { kind: 'node_pair', aId, bId },
         needKind: 'possible_duplicate',
       });
@@ -830,6 +817,7 @@ describe('CommandExecutor', () => {
 
     it('rejects edge target with non-existent edgeId', () => {
       const result = executor.createReconciliationNeed({
+        specId,
         target: { kind: 'edge', edgeId: 999 },
         needKind: 'edge_revalidation',
       });
@@ -840,15 +828,12 @@ describe('CommandExecutor', () => {
     });
 
     it('rejects node_pair target with non-existent nodeId', () => {
-      const n = executor.createNode({
-        plane: 'intent',
-        kind: 'goal',
-        title: 'G1',
-      });
+      const n = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'G1' });
       expect(n.status).toBe('success');
       if (n.status !== 'success') throw new Error('unreachable');
 
       const result = executor.createReconciliationNeed({
+        specId,
         target: { kind: 'node_pair', aId: n.nodeId, bId: 999 },
         needKind: 'possible_relation',
       });
@@ -859,22 +844,15 @@ describe('CommandExecutor', () => {
     });
 
     it('allocates a new LSN for each recon need', () => {
-      const n = executor.createNode({
-        plane: 'intent',
-        kind: 'goal',
-        title: 'G1',
-      });
+      const n = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'G1' });
       expect(n.status).toBe('success');
       if (n.status !== 'success') throw new Error('unreachable');
-      const n2 = executor.createNode({
-        plane: 'intent',
-        kind: 'goal',
-        title: 'G2',
-      });
+      const n2 = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'G2' });
       expect(n2.status).toBe('success');
       if (n2.status !== 'success') throw new Error('unreachable');
 
       const r1 = executor.createReconciliationNeed({
+        specId,
         target: { kind: 'node_pair', aId: n.nodeId, bId: n2.nodeId },
         needKind: 'possible_relation',
       });
@@ -882,6 +860,7 @@ describe('CommandExecutor', () => {
       if (r1.status !== 'success') throw new Error('unreachable');
 
       const r2 = executor.createReconciliationNeed({
+        specId,
         target: { kind: 'node_pair', aId: n.nodeId, bId: n2.nodeId },
         needKind: 'semantic_conflict',
       });
@@ -897,6 +876,7 @@ describe('CommandExecutor', () => {
   describe('resolveReconciliationNeed', () => {
     it('resolves an open need and records resolvedAtLsn', () => {
       const batch = executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
           { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'A1' },
@@ -907,6 +887,7 @@ describe('CommandExecutor', () => {
       if (batch.status !== 'success') throw new Error('unreachable');
 
       const create = executor.createReconciliationNeed({
+        specId,
         target: { kind: 'edge', edgeId: batch.edges[0]! },
         needKind: 'edge_revalidation',
       });
@@ -926,6 +907,7 @@ describe('CommandExecutor', () => {
 
     it('rejects already-resolved need', () => {
       const batch = executor.commitGraph({
+        specId,
         nodes: [
           { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
           { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'A1' },
@@ -936,6 +918,7 @@ describe('CommandExecutor', () => {
       if (batch.status !== 'success') throw new Error('unreachable');
 
       const create = executor.createReconciliationNeed({
+        specId,
         target: { kind: 'edge', edgeId: batch.edges[0]! },
         needKind: 'edge_revalidation',
       });

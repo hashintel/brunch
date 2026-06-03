@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "9a22b1aa-7dfa-4f47-95f8-5dd93ffcf7c1",
+  "id": "48abb3fa-9eca-4194-b9ff-343f96ed32cf",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "change_log": {
@@ -52,6 +52,13 @@
           "primaryKey": true,
           "notNull": true,
           "autoincrement": true
+        },
+        "spec_id": {
+          "name": "spec_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         },
         "category": {
           "name": "category",
@@ -113,12 +120,29 @@
       },
       "indexes": {},
       "foreignKeys": {
+        "edges_spec_id_specs_id_fk": {
+          "name": "edges_spec_id_specs_id_fk",
+          "tableFrom": "edges",
+          "tableTo": "specs",
+          "columnsFrom": [
+            "spec_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "edges_source_id_nodes_id_fk": {
           "name": "edges_source_id_nodes_id_fk",
           "tableFrom": "edges",
           "tableTo": "nodes",
-          "columnsFrom": ["source_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "source_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -126,8 +150,12 @@
           "name": "edges_target_id_nodes_id_fk",
           "tableFrom": "edges",
           "tableTo": "nodes",
-          "columnsFrom": ["target_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "target_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -170,6 +198,13 @@
           "primaryKey": true,
           "notNull": true,
           "autoincrement": true
+        },
+        "spec_id": {
+          "name": "spec_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         },
         "plane": {
           "name": "plane",
@@ -237,7 +272,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "nodes_spec_id_specs_id_fk": {
+          "name": "nodes_spec_id_specs_id_fk",
+          "tableFrom": "nodes",
+          "tableTo": "specs",
+          "columnsFrom": [
+            "spec_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -251,6 +300,13 @@
           "primaryKey": true,
           "notNull": true,
           "autoincrement": true
+        },
+        "spec_id": {
+          "name": "spec_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         },
         "target_kind": {
           "name": "target_kind",
@@ -319,12 +375,29 @@
       },
       "indexes": {},
       "foreignKeys": {
+        "reconciliation_need_spec_id_specs_id_fk": {
+          "name": "reconciliation_need_spec_id_specs_id_fk",
+          "tableFrom": "reconciliation_need",
+          "tableTo": "specs",
+          "columnsFrom": [
+            "spec_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "reconciliation_need_target_edge_id_edges_id_fk": {
           "name": "reconciliation_need_target_edge_id_edges_id_fk",
           "tableFrom": "reconciliation_need",
           "tableTo": "edges",
-          "columnsFrom": ["target_edge_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "target_edge_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -332,8 +405,12 @@
           "name": "reconciliation_need_target_a_id_nodes_id_fk",
           "tableFrom": "reconciliation_need",
           "tableTo": "nodes",
-          "columnsFrom": ["target_a_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "target_a_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -341,8 +418,12 @@
           "name": "reconciliation_need_target_b_id_nodes_id_fk",
           "tableFrom": "reconciliation_need",
           "tableTo": "nodes",
-          "columnsFrom": ["target_b_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "target_b_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

@@ -54,6 +54,7 @@ export type ReconciliationNeedTarget =
 
 export interface ReconciliationNeed {
   readonly id: string;
+  readonly specId: number;
   readonly kind: ReconciliationNeedKind;
   readonly target: ReconciliationNeedTarget;
   readonly rationale?: string;
