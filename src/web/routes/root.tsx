@@ -1,13 +1,16 @@
-import { useQuery, useSuspenseQuery, type QueryClient, type UseQueryResult } from '@tanstack/react-query';
+import { useSuspenseQuery, type QueryClient } from '@tanstack/react-query';
 import { Outlet, createRootRouteWithContext, createRoute } from '@tanstack/react-router';
 
 import type { WorkspaceSnapshot } from '../../print-snapshot.js';
-import type { TranscriptDisplayProjection } from '../../session/elicitation-exchange.js';
-import { sessionTranscriptDisplayQueryOptions, type SessionProjectionTarget } from '../queries/session.js';
 import { workspaceSnapshotQueryOptions } from '../queries/workspace.js';
 import type { WebSocketRpcClient } from '../rpc-client.js';
 import { useBrunchUpdateSubscription } from '../subscriptions/brunch-updates.js';
 
+
+export type SessionProjectionTarget = {
+  sessionId: string;
+  specId: number;
+};
 export interface BrunchWebRouterContext {
   queryClient: QueryClient;
   rpcClient: WebSocketRpcClient;
@@ -47,14 +50,12 @@ function RootLayout() {
 function WorkspaceSnapshotPage() {
   const { rpcClient } = indexRoute.useRouteContext();
   const { data: snapshot } = useSuspenseQuery(workspaceSnapshotQueryOptions(rpcClient));
-  const target = sessionProjectionTargetFromSnapshot(snapshot);
-  const projection = useQuery(sessionTranscriptDisplayQueryOptions(rpcClient, target));
 
   return (
     <main>
       <p>Brunch workspace</p>
       <WorkspaceChrome snapshot={snapshot} />
-      <TranscriptPanel snapshot={snapshot} projection={projection} />
+      <SessionPanel snapshot={snapshot} />
     </main>
   );
 }
@@ -90,15 +91,14 @@ export function WorkspaceChrome(options: { snapshot: WorkspaceSnapshot; fallback
   );
 }
 
-export function TranscriptPanel(options: {
+export function SessionPanel(options: {
   snapshot: WorkspaceSnapshot;
-  projection: UseQueryResult<TranscriptDisplayProjection>;
   viewedSpecId?: number;
 }) {
   if (!options.snapshot.session || !options.snapshot.spec) {
     return (
-      <section aria-label="Session transcript">
-        <h2>Session transcript</h2>
+      <section aria-label="Session">
+        <h2>Session</h2>
         <p>No Brunch session selected.</p>
       </section>
     );
@@ -106,51 +106,20 @@ export function TranscriptPanel(options: {
 
   if (options.viewedSpecId !== undefined && options.snapshot.spec.id !== options.viewedSpecId) {
     return (
-      <section aria-label="Session transcript">
-        <h2>Session transcript</h2>
+      <section aria-label="Session">
+        <h2>Session</h2>
         <p>{`No session is attached for viewed Spec ${options.viewedSpecId}.`}</p>
         <p>{`The TUI is active in Spec ${options.snapshot.spec.id}/${options.snapshot.session.id}.`}</p>
       </section>
     );
   }
 
-  if (options.projection.isError) {
-    return (
-      <section aria-label="Session transcript">
-        <h2>Session transcript</h2>
-        <p>{`Transcript unavailable: ${errorMessage(options.projection.error)}`}</p>
-      </section>
-    );
-  }
-
-  if (!options.projection.data) {
-    return (
-      <section aria-busy="true" aria-label="Session transcript">
-        <h2>Session transcript</h2>
-        <p>Loading transcript…</p>
-      </section>
-    );
-  }
-
-  const projection = options.projection.data;
   return (
-    <section aria-label="Session transcript">
-      <h2>Session transcript</h2>
-      {projection.rows.length === 0 ? <p>No transcript messages yet.</p> : null}
-      <ol>
-        {projection.rows.map((row) => (
-          <li key={row.id}>
-            <article aria-label={`${row.role} message`}>
-              <strong>{row.role}</strong>
-              <p>{row.text}</p>
-            </article>
-          </li>
-        ))}
-      </ol>
+    <section aria-label="Session">
+      <h2>Session</h2>
+      <p>{`Attached session: ${options.snapshot.session.id}`}</p>
+      <p>{`Spec ${options.snapshot.spec.id}`}</p>
     </section>
   );
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}

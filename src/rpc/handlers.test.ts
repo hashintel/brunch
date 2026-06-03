@@ -299,7 +299,6 @@ describe('JSON-RPC handlers', () => {
       'session.pendingExchange',
       'session.runtimeState',
       'session.submitExchangeResponse',
-      'session.transcriptDisplay',
       'session.triggerExchange',
       'workspace.activate',
       'workspace.selectionState',
@@ -448,7 +447,6 @@ describe('JSON-RPC handlers', () => {
       (entry) =>
         entry.method === 'session.exchanges' ||
         entry.method === 'session.runtimeState' ||
-        entry.method === 'session.transcriptDisplay' ||
         entry.method === 'session.pendingExchange',
     );
 
@@ -557,7 +555,6 @@ describe('JSON-RPC handlers', () => {
       { topic: 'workspace.snapshot', specId: 1, sessionId: 'session-1' },
       { topic: 'session.pendingExchange', specId: 1, sessionId: 'session-1' },
       { topic: 'session.exchanges', specId: 1, sessionId: 'session-1' },
-      { topic: 'session.transcriptDisplay', specId: 1, sessionId: 'session-1' },
       { topic: 'session.runtimeState', specId: 1, sessionId: 'session-1' },
     ]);
   });
@@ -748,31 +745,6 @@ describe('JSON-RPC handlers', () => {
       result: { status: 'open_prompt', openPrompt: expect.any(Object) },
     });
 
-    const display = await handlers.handle({
-      jsonrpc: '2.0',
-      id: 42,
-      method: 'session.transcriptDisplay',
-    });
-    expect(display).toMatchObject({
-      jsonrpc: '2.0',
-      id: 42,
-      result: {
-        rows: [
-          {
-            role: 'prompt',
-            text: expect.stringContaining('new product or feature'),
-          },
-        ],
-      },
-    });
-    const displayText = (
-      display as {
-        result: { rows: Array<{ text: string }> };
-      }
-    ).result.rows[0]!.text;
-    expect(displayText).toContain('Start a new spec workspace from a blank slate.');
-    expect(displayText).toContain('This keeps the parity run focused on initial grounding.');
-
     const sessionText = await readFile(workspace.session.file, 'utf8');
     expect(sessionText).toContain('brunch.structured_exchange.present');
     expect(sessionText).toContain('present_options');
@@ -939,26 +911,6 @@ describe('JSON-RPC handlers', () => {
       },
     });
 
-    await expect(
-      handlers.handle({
-        jsonrpc: '2.0',
-        id: 151,
-        method: 'session.transcriptDisplay',
-        params: { sessionId: 'session-1', specId: 1 },
-      }),
-    ).resolves.toMatchObject({
-      jsonrpc: '2.0',
-      id: 151,
-      result: {
-        rows: [
-          { role: 'prompt', text: expect.stringContaining('Domain?') },
-          {
-            role: 'user',
-            text: expect.stringContaining('Developer tooling'),
-          },
-        ],
-      },
-    });
   });
 
   it('reports idle pending state when the selected session has no open prompt', async () => {
@@ -1205,29 +1157,6 @@ describe('JSON-RPC handlers', () => {
           {
             promptEntryIds: [expect.any(String)],
             responseEntryIds: [expect.any(String)],
-          },
-        ],
-      },
-    });
-
-    await expect(
-      handlers.handle({
-        jsonrpc: '2.0',
-        id: 57,
-        method: 'session.transcriptDisplay',
-      }),
-    ).resolves.toMatchObject({
-      jsonrpc: '2.0',
-      id: 57,
-      result: {
-        rows: [
-          {
-            role: 'prompt',
-            text: expect.stringContaining('new product or feature'),
-          },
-          {
-            role: 'user',
-            text: expect.stringContaining('Yes — this is new from scratch'),
           },
         ],
       },
@@ -1602,23 +1531,6 @@ describe('JSON-RPC handlers', () => {
       cwd,
     });
 
-    await expect(
-      handlers.handle({
-        jsonrpc: '2.0',
-        id: 13,
-        method: 'session.transcriptDisplay',
-        params: { sessionId: workspace.session.id, specId: workspace.spec.id },
-      }),
-    ).resolves.toMatchObject({
-      jsonrpc: '2.0',
-      id: 13,
-      result: {
-        rows: [
-          { role: 'assistant', text: 'Display question' },
-          { role: 'user', text: 'Display answer' },
-        ],
-      },
-    });
   });
 
   it('serves runtime state by explicit spec and session id without opening selected session', async () => {
@@ -1776,7 +1688,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 17,
-        method: 'session.transcriptDisplay',
+        method: 'session.exchanges',
         params: { sessionId: 'session-1' },
       }),
     ).resolves.toMatchObject({
@@ -1799,7 +1711,7 @@ describe('JSON-RPC handlers', () => {
       headerlessHandlers.handle({
         jsonrpc: '2.0',
         id: 19,
-        method: 'session.transcriptDisplay',
+        method: 'session.exchanges',
         params: { sessionId: 'session-1' },
       }),
     ).resolves.toMatchObject({

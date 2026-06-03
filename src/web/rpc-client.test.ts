@@ -90,7 +90,7 @@ describe('browser WebSocket RPC client', () => {
       JSON.stringify({
         jsonrpc: '2.0',
         method: 'brunch.updated',
-        params: { topics: ['session.transcriptDisplay'] },
+        params: { topics: ['session.runtimeState'] },
       }),
     );
     socket.emit('message', JSON.stringify({ jsonrpc: '2.0', id: 1, result: 'snapshot' }));
@@ -100,7 +100,7 @@ describe('browser WebSocket RPC client', () => {
       {
         jsonrpc: '2.0',
         method: 'brunch.updated',
-        params: { topics: ['session.transcriptDisplay'] },
+        params: { topics: ['session.runtimeState'] },
       },
     ]);
   });

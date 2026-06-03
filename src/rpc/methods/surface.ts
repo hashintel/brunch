@@ -4,7 +4,6 @@ export const READ_RPC_METHODS = new Set<string>([
   'workspace.selectionState',
   'session.pendingExchange',
   'session.exchanges',
-  'session.transcriptDisplay',
   'session.runtimeState',
   'graph.overview',
   'graph.nodeNeighborhood',

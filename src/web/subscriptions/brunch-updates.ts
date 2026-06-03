@@ -79,10 +79,6 @@ function invalidateTopic(queryClient: QueryClient, topic: string): void {
     invalidateExact(queryClient, queryKeys.workspace.snapshot());
     return;
   }
-  if (topic === 'session.transcriptDisplay') {
-    void queryClient.invalidateQueries({ queryKey: ['session.transcriptDisplay'] });
-    return;
-  }
   if (topic === 'session.runtimeState') {
     void queryClient.invalidateQueries({ queryKey: ['session.runtimeState'] });
     return;

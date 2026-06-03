@@ -187,7 +187,6 @@ describe('Brunch CLI dispatch', () => {
           'workspace.snapshot',
           'session.pendingExchange',
           'session.exchanges',
-          'session.transcriptDisplay',
           'session.runtimeState',
         ],
         updates: [
@@ -199,11 +198,6 @@ describe('Brunch CLI dispatch', () => {
           },
           {
             topic: 'session.exchanges',
-            specId: workspace.spec.id,
-            sessionId: workspace.session.id,
-          },
-          {
-            topic: 'session.transcriptDisplay',
             specId: workspace.spec.id,
             sessionId: workspace.session.id,
           },

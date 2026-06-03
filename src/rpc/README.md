@@ -48,7 +48,6 @@ brunch.updated:
       - workspace.snapshot
       - session.pendingExchange
       - session.exchanges
-      - debug.sessionTranscriptDisplay
       - session.runtimeState
     updates:
       - {topic, specId?, sessionId?, nodeId?, lsn?}
@@ -66,7 +65,6 @@ full RPC host:
     workspace.selectionState
     session.pendingExchange
     session.exchanges
-    debug.sessionTranscriptDisplay
     session.runtimeState
     graph.overview
     graph.nodeNeighborhood
@@ -82,7 +80,6 @@ TUI-started web sidecar:
     workspace.selectionState
     session.pendingExchange
     session.exchanges
-    debug.sessionTranscriptDisplay
     session.runtimeState
     graph.overview
     graph.nodeNeighborhood

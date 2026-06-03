@@ -12,10 +12,7 @@ import {
   NonLinearTranscriptError,
   type BrunchSessionEnvelope,
 } from '../session/brunch-session-envelope.js';
-import {
-  projectLinearElicitationExchangeProjection,
-  projectLinearTranscriptDisplayProjection,
-} from '../session/elicitation-exchange.js';
+import { projectLinearElicitationExchangeProjection } from '../session/elicitation-exchange.js';
 import { projectSessionRuntimeState } from '../session/runtime-state.js';
 import {
   resolveExplicitSessionProjectionTarget,
@@ -151,15 +148,6 @@ function createRpcHandlersForSurface(
           request.params,
           options,
           projectLinearElicitationExchangeProjection,
-        );
-      }
-
-      if (request.method === 'session.transcriptDisplay') {
-        return handleSessionProjection(
-          requestId,
-          request.params,
-          options,
-          projectLinearTranscriptDisplayProjection,
         );
       }
 
@@ -407,12 +395,6 @@ const SessionExchangesResultSchema = Type.Object(
   { additionalProperties: true },
 );
 
-const TranscriptDisplayResultSchema = Type.Object(
-  {
-    rows: Type.Array(Type.Object({}, { additionalProperties: true })),
-  },
-  { additionalProperties: true },
-);
 
 const RuntimeStateResultSchema = Type.Object(
   {
@@ -631,21 +613,6 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
         jsonrpc: '2.0',
         id: 6,
         method: 'session.exchanges',
-        params: { sessionId: 'session-1', specId: 1 },
-      },
-    ],
-  },
-  {
-    method: 'session.transcriptDisplay',
-    description:
-      'Project transcript display rows from the selected or explicitly named linear Brunch session transcript.',
-    paramsSchema: SessionProjectionParamsSchema,
-    resultSchema: TranscriptDisplayResultSchema,
-    examples: [
-      {
-        jsonrpc: '2.0',
-        id: 7,
-        method: 'session.transcriptDisplay',
         params: { sessionId: 'session-1', specId: 1 },
       },
     ],

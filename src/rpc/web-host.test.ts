@@ -249,12 +249,6 @@ describe('web host', () => {
         method: 'session.exchanges',
         params: { sessionId: first.session.id, specId: first.spec.id },
       });
-      const display = await websocketRpc(host.url, {
-        jsonrpc: '2.0',
-        id: 15,
-        method: 'session.transcriptDisplay',
-        params: { sessionId: first.session.id, specId: first.spec.id },
-      });
 
       expect(response).toMatchObject({
         jsonrpc: '2.0',
@@ -262,17 +256,6 @@ describe('web host', () => {
         result: {
           status: 'ready',
           exchanges: [{ promptEntryIds: expect.arrayContaining([expect.any(String)]) }],
-        },
-      });
-      expect(display).toMatchObject({
-        jsonrpc: '2.0',
-        id: 15,
-        result: {
-          rows: [
-            { role: 'assistant', text: 'First question' },
-            { role: 'prompt', text: 'Pick an explicit session direction.' },
-            { role: 'user', text: 'First answer' },
-          ],
         },
       });
     } finally {
@@ -315,7 +298,6 @@ describe('web host', () => {
             expect.objectContaining({ method: 'workspace.selectionState' }),
             expect.objectContaining({ method: 'session.pendingExchange' }),
             expect.objectContaining({ method: 'session.exchanges' }),
-            expect.objectContaining({ method: 'session.transcriptDisplay' }),
             expect.objectContaining({ method: 'graph.overview' }),
             expect.objectContaining({ method: 'graph.nodeNeighborhood' }),
           ]),
@@ -375,22 +357,6 @@ describe('web host', () => {
         jsonrpc: '2.0',
         id: 20,
         result: { nodes: [expect.objectContaining({ title: 'Visible goal' })] },
-      });
-      const display = await websocketRpc(host.url, {
-        jsonrpc: '2.0',
-        id: 24,
-        method: 'session.transcriptDisplay',
-        params: { sessionId: workspace.session.id, specId: workspace.spec.id },
-      });
-      expect(display).toMatchObject({
-        jsonrpc: '2.0',
-        id: 24,
-        result: {
-          rows: [
-            { role: 'assistant', text: 'Question' },
-            { role: 'user', text: 'Answer' },
-          ],
-        },
       });
       const sessionText = await readFile(workspace.session.file, 'utf8');
       expect(sessionText).not.toContain('deterministic-grounding-choice');

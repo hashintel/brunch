@@ -5,7 +5,6 @@ export type ProductUpdateTopic =
   | 'workspace.selectionState'
   | 'session.pendingExchange'
   | 'session.exchanges'
-  | 'session.transcriptDisplay'
   | 'session.runtimeState'
   | 'graph.overview'
   | 'graph.nodeNeighborhood';
@@ -76,7 +75,6 @@ export function selectedSessionProductUpdates(target?: {
     productUpdate('workspace.snapshot', target),
     productUpdate('session.pendingExchange', target),
     productUpdate('session.exchanges', target),
-    productUpdate('session.transcriptDisplay', target),
     productUpdate('session.runtimeState', target),
   ];
 }

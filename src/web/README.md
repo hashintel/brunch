@@ -161,8 +161,6 @@ web/
     session.ts
       pendingExchangeQueryOptions(rpc, specId, sessionId)
       sessionExchangesQueryOptions(rpc, specId, sessionId)
-      # diagnostic-only transcript display projection, absent from normal sidecar product flow:
-      sessionDisplayQueryOptions(rpc, specId, sessionId)
 
     graph.ts
       graphOverviewQueryOptions(rpc, specId)
@@ -234,8 +232,6 @@ queryKeys = {
     exchanges: (specId, sessionId) =>
       ['session.exchanges', specId, sessionId],
 
-    sessionDisplay: (specId, sessionId) =>
-      ['debug.sessionTranscriptDisplay', specId, sessionId], # diagnostic-only
   },
 
   graph: {

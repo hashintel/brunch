@@ -3,8 +3,6 @@ export const queryKeys = {
     snapshot: () => ['workspace.snapshot'] as const,
   },
   session: {
-    transcriptDisplay: (target: { specId: number; sessionId: string } | null) =>
-      ['session.transcriptDisplay', target?.specId ?? null, target?.sessionId ?? null] as const,
     runtimeState: (target: { specId: number; sessionId: string }) =>
       ['session.runtimeState', target.specId, target.sessionId] as const,
   },

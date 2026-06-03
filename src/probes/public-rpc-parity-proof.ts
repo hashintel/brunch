@@ -38,14 +38,6 @@ interface RpcExchangeProjection {
   exchanges: RpcExchange[];
 }
 
-interface TranscriptDisplayRow {
-  role: string;
-  text: string;
-}
-
-interface TranscriptDisplayProjection {
-  rows: TranscriptDisplayRow[];
-}
 
 interface WorkspaceSelectionResult {
   requiresSelection: boolean;
@@ -83,7 +75,6 @@ export interface PublicRpcParityProofReport {
   sessionId: string;
   toolCoverage: string[];
   exchangeIds: string[];
-  transcriptDisplayRows: number;
   artifacts?: PublicRpcParityProofArtifacts;
 }
 
@@ -191,7 +182,6 @@ export async function runPublicRpcParityProof(
     'session.pendingExchange',
     'session.submitExchangeResponse',
     'session.exchanges',
-    'session.transcriptDisplay',
   ]) {
     if (!discovery.methods.some((entry) => entry.method === method)) {
       throw new Error(`rpc.discover did not include ${method}`);
@@ -271,13 +261,6 @@ export async function runPublicRpcParityProof(
       jsonrpc: '2.0',
       id: 50,
       method: 'session.exchanges',
-    }),
-  );
-  const display = success<TranscriptDisplayProjection>(
-    await handlers.handle({
-      jsonrpc: '2.0',
-      id: 51,
-      method: 'session.transcriptDisplay',
     }),
   );
   if (exchanges.exchanges.length !== PUBLIC_RPC_PARITY_PERMUTATION_COUNT) {
@@ -380,7 +363,6 @@ export async function runPublicRpcParityProof(
     sessionId: workspace.session.id,
     toolCoverage,
     exchangeIds,
-    transcriptDisplayRows: display.rows.length,
   };
 
   if (options.fixtureRoot !== undefined) {
