@@ -96,7 +96,7 @@ Scores on all three. Build it.
 
 ## Card 2 — Rewrite `ln-build` for multi-file consumption and stale-downstream invalidation
 
-**Status:** next (independent of Card 1)
+**Status:** done
 
 ### Target Behavior
 
