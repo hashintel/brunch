@@ -82,11 +82,21 @@ session.submitMessage
 session.exchanges
   Projects structured exchange history from transcript truth.
 
-future graph projection methods
-  graph.overview
-  graph.nodeNeighborhood
-  graph.changesSince / graph.recentChanges
+graph.overview
+  Returns the canonical selected-spec graph overview for explicit `{specId}`:
+    nodes
+    edges
+    nodeCount
+    edgeCount
+    lsn
 
+graph.nodeNeighborhood
+  Returns a focused same-spec graph read for explicit `{specId,nodeId,hops?}`:
+    success with anchor/neighbors/edges
+    not_found when the node is absent from that spec
+
+future graph projection methods
+  graph.changesSince / graph.recentChanges
 future graph-adjacent coherence projection method
   graph.coherenceSummary
 ```

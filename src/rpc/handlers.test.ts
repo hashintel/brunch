@@ -7,6 +7,7 @@ import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
+import { openWorkspaceGraphRuntime } from '../graph/workspace-store.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
 import { createSessionBindingData } from '../session/session-binding.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
@@ -153,6 +154,49 @@ function appendBinding(manager: SessionManager): void {
   );
 }
 
+async function createGraphRpcFixture(): Promise<{
+  cwd: string;
+  specAId: number;
+  specBId: number;
+  specANodeId: number;
+  specBNodeId: number;
+  finalLsn: number;
+}> {
+  const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-graph-'));
+  const graph = await openWorkspaceGraphRuntime(cwd);
+  const specA = graph.commandExecutor.createSpec({ name: 'Spec A', slug: 'spec-a' });
+  const specB = graph.commandExecutor.createSpec({ name: 'Spec B', slug: 'spec-b' });
+  if (specA.status !== 'success' || specB.status !== 'success') {
+    throw new Error('failed to create graph RPC fixture specs');
+  }
+
+  const commitA = graph.commandExecutor.commitGraph({
+    specId: specA.specId,
+    nodes: [
+      { ref: 'requirement', plane: 'intent', kind: 'requirement', title: 'Spec A requirement' },
+      { ref: 'constraint', plane: 'intent', kind: 'constraint', title: 'Spec A constraint' },
+    ],
+    edges: [{ category: 'dependency', source: 'requirement', target: 'constraint' }],
+  });
+  const commitB = graph.commandExecutor.commitGraph({
+    specId: specB.specId,
+    nodes: [{ ref: 'goal', plane: 'intent', kind: 'goal', title: 'Spec B goal' }],
+    edges: [],
+  });
+  if (commitA.status !== 'success' || commitB.status !== 'success') {
+    throw new Error('failed to create graph RPC fixture graph');
+  }
+
+  return {
+    cwd,
+    specAId: specA.specId,
+    specBId: specB.specId,
+    specANodeId: commitA.nodes.requirement!,
+    specBNodeId: commitB.nodes.goal!,
+    finalLsn: commitB.lsn,
+  };
+}
+
 function presentQuestionEntry() {
   return {
     id: 'present-question-1',
@@ -247,6 +291,8 @@ describe('JSON-RPC handlers', () => {
     ).methods;
     expect(methods.map((entry) => entry.method).sort()).toEqual([
       'elicitation.respond',
+      'graph.nodeNeighborhood',
+      'graph.overview',
       'rpc.discover',
       'session.elicitationExchanges',
       'session.pendingExchange',
@@ -324,6 +370,53 @@ describe('JSON-RPC handlers', () => {
     for (const action of ['continue', 'openSession', 'newSession', 'newSpec', 'cancel']) {
       expect(activationSchema).toContain(action);
     }
+  });
+
+  it('discovers selected-spec graph read methods with schemas and examples', async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp/brunch-project',
+    });
+
+    const response = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 34,
+      method: 'rpc.discover',
+    });
+    if (!('result' in response)) throw new Error('expected success response');
+
+    const methods = (
+      response.result as {
+        methods: Array<{
+          method: string;
+          description: string;
+          paramsSchema: unknown;
+          resultSchema: unknown;
+          examples: unknown[];
+        }>;
+      }
+    ).methods;
+    const overview = methods.find((entry) => entry.method === 'graph.overview');
+    const neighborhood = methods.find((entry) => entry.method === 'graph.nodeNeighborhood');
+
+    expect(overview).toBeDefined();
+    expect(neighborhood).toBeDefined();
+    expect(JSON.stringify(overview?.paramsSchema)).toContain('specId');
+    expect(JSON.stringify(overview?.resultSchema)).toContain('nodeCount');
+    expect(JSON.stringify(neighborhood?.paramsSchema)).toContain('nodeId');
+    expect(JSON.stringify(neighborhood?.resultSchema)).toContain('not_found');
+    expect(overview?.examples).toContainEqual({
+      jsonrpc: '2.0',
+      id: expect.any(Number),
+      method: 'graph.overview',
+      params: { specId: expect.any(Number) },
+    });
+    expect(neighborhood?.examples).toContainEqual({
+      jsonrpc: '2.0',
+      id: expect.any(Number),
+      method: 'graph.nodeNeighborhood',
+      params: { specId: expect.any(Number), nodeId: expect.any(Number), hops: expect.any(Number) },
+    });
   });
 
   it('serves discovery examples that are valid JSON-RPC requests for advertised methods', async () => {
@@ -1719,6 +1812,101 @@ describe('JSON-RPC handlers', () => {
       jsonrpc: '2.0',
       id: 2,
       error: { code: -32601, message: 'Method not found' },
+    });
+  });
+
+  it('serves selected-spec graph overview and node neighborhoods through public RPC', async () => {
+    const fixture = await createGraphRpcFixture();
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: fixture.cwd,
+    });
+
+    const overviewA = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 50,
+      method: 'graph.overview',
+      params: { specId: fixture.specAId },
+    });
+    expect(overviewA).toMatchObject({
+      jsonrpc: '2.0',
+      id: 50,
+      result: {
+        nodeCount: 2,
+        edgeCount: 1,
+        lsn: fixture.finalLsn,
+      },
+    });
+    if (!('result' in overviewA)) throw new Error('expected graph overview');
+    expect(JSON.stringify(overviewA.result)).toContain('Spec A requirement');
+    expect(JSON.stringify(overviewA.result)).not.toContain('Spec B goal');
+
+    const overviewB = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 51,
+      method: 'graph.overview',
+      params: { specId: fixture.specBId },
+    });
+    expect(overviewB).toMatchObject({
+      jsonrpc: '2.0',
+      id: 51,
+      result: { nodeCount: 1, edgeCount: 0, lsn: fixture.finalLsn },
+    });
+
+    const crossSpecNeighborhood = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 52,
+      method: 'graph.nodeNeighborhood',
+      params: { specId: fixture.specAId, nodeId: fixture.specBNodeId },
+    });
+    expect(crossSpecNeighborhood).toEqual({
+      jsonrpc: '2.0',
+      id: 52,
+      result: { status: 'not_found' },
+    });
+
+    const neighborhood = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 53,
+      method: 'graph.nodeNeighborhood',
+      params: { specId: fixture.specAId, nodeId: fixture.specANodeId, hops: 1 },
+    });
+    expect(neighborhood).toMatchObject({
+      jsonrpc: '2.0',
+      id: 53,
+      result: {
+        status: 'success',
+        anchor: { id: fixture.specANodeId, specId: fixture.specAId },
+        neighbors: [{ title: 'Spec A constraint', specId: fixture.specAId }],
+        edges: [{ category: 'dependency', specId: fixture.specAId }],
+      },
+    });
+  });
+
+  it('requires explicit params for selected-spec graph RPC reads', async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp/brunch-project',
+    });
+
+    await expect(
+      handlers.handle({ jsonrpc: '2.0', id: 54, method: 'graph.overview' }),
+    ).resolves.toMatchObject({
+      jsonrpc: '2.0',
+      id: 54,
+      error: { code: -32602, message: 'Invalid params' },
+    });
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 55,
+        method: 'graph.nodeNeighborhood',
+        params: { specId: 1 },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: '2.0',
+      id: 55,
+      error: { code: -32602, message: 'Invalid params' },
     });
   });
 

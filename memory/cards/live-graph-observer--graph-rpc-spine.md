@@ -157,7 +157,7 @@ docs/
 └── architecture/                    ?
 ```
 
-## Card 2 — next — Discoverable selected-spec graph RPC reads
+## Card 2 — done — Discoverable selected-spec graph RPC reads
 
 ### Target Behavior
 
