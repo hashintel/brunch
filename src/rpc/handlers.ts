@@ -130,22 +130,22 @@ function createRpcHandlersForSurface(
         return createJsonRpcSuccess(requestId, response);
       }
 
-      if (request.method === 'session.startElicitation') {
+      if (request.method === 'session.triggerExchange') {
         if (request.params !== undefined) {
           return createJsonRpcFailure(requestId, -32602, 'Invalid params');
         }
-        return handleStartElicitation(requestId, options);
+        return handleTriggerExchange(requestId, options);
       }
 
       if (request.method === 'session.pendingExchange') {
         return handleSessionProjection(requestId, request.params, options, projectPendingElicitationExchange);
       }
 
-      if (request.method === 'elicitation.respond') {
-        return handleRespondToElicitation(requestId, request.params, options);
+      if (request.method === 'session.submitExchangeResponse') {
+        return handleSubmitExchangeResponse(requestId, request.params, options);
       }
 
-      if (request.method === 'session.elicitationExchanges') {
+      if (request.method === 'session.exchanges') {
         return handleSessionProjection(
           requestId,
           request.params,
@@ -399,7 +399,7 @@ const SessionProjectionParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
-const ElicitationExchangesResultSchema = Type.Object(
+const SessionExchangesResultSchema = Type.Object(
   {
     status: Type.String(),
     exchanges: Type.Array(Type.Object({}, { additionalProperties: true })),
@@ -461,7 +461,7 @@ const PendingElicitationExchangeSchema = Type.Object(
   { additionalProperties: false },
 );
 
-const StartElicitationResultSchema = Type.Object(
+const TriggerExchangeResultSchema = Type.Object(
   {
     status: Type.Literal('pending'),
     exchange: PendingElicitationExchangeSchema,
@@ -470,7 +470,7 @@ const StartElicitationResultSchema = Type.Object(
 );
 
 const PendingExchangeResultSchema = Type.Union([
-  StartElicitationResultSchema,
+  TriggerExchangeResultSchema,
   Type.Object(
     {
       status: Type.Literal('idle'),
@@ -480,7 +480,7 @@ const PendingExchangeResultSchema = Type.Union([
   ),
 ]);
 
-const ElicitationRespondParamsSchema = Type.Object(
+const ExchangeResponseParamsSchema = Type.Object(
   {
     exchangeId: NonBlankStringSchema,
     answer: Type.Union([
@@ -506,7 +506,7 @@ const ElicitationRespondParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
-const ElicitationRespondResultSchema = Type.Object(
+const ExchangeResponseResultSchema = Type.Object(
   {
     status: Type.Literal('accepted'),
     exchangeId: NonBlankStringSchema,
@@ -516,8 +516,8 @@ const ElicitationRespondResultSchema = Type.Object(
   { additionalProperties: false },
 );
 
-type ElicitationRespondParams = Static<typeof ElicitationRespondParamsSchema>;
-type ElicitationRespondResult = Static<typeof ElicitationRespondResultSchema>;
+type ExchangeResponseParams = Static<typeof ExchangeResponseParamsSchema>;
+type ExchangeResponseResult = Static<typeof ExchangeResponseResultSchema>;
 
 type RpcMethodDiscovery = {
   method: string;
@@ -621,16 +621,16 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
     ],
   },
   {
-    method: 'session.elicitationExchanges',
+    method: 'session.exchanges',
     description:
       'Project structured elicitation exchanges from the selected or explicitly named linear Brunch session transcript.',
     paramsSchema: SessionProjectionParamsSchema,
-    resultSchema: ElicitationExchangesResultSchema,
+    resultSchema: SessionExchangesResultSchema,
     examples: [
       {
         jsonrpc: '2.0',
         id: 6,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: 'session-1', specId: 1 },
       },
     ],
@@ -666,12 +666,12 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
     ],
   },
   {
-    method: 'session.startElicitation',
+    method: 'session.triggerExchange',
     description:
       "Start or resume the selected session's deterministic structured-exchange permutation loop and return the current pending exchange.",
     paramsSchema: NoParamsSchema,
-    resultSchema: StartElicitationResultSchema,
-    examples: [{ jsonrpc: '2.0', id: 8, method: 'session.startElicitation' }],
+    resultSchema: TriggerExchangeResultSchema,
+    examples: [{ jsonrpc: '2.0', id: 8, method: 'session.triggerExchange' }],
   },
   {
     method: 'session.pendingExchange',
@@ -690,16 +690,16 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
     ],
   },
   {
-    method: 'elicitation.respond',
+    method: 'session.submitExchangeResponse',
     description:
       "Submit a text, single-choice, or multi-choice answer for the selected session's current deterministic tuple-shaped pending structured exchange.",
-    paramsSchema: ElicitationRespondParamsSchema,
-    resultSchema: ElicitationRespondResultSchema,
+    paramsSchema: ExchangeResponseParamsSchema,
+    resultSchema: ExchangeResponseResultSchema,
     examples: [
       {
         jsonrpc: '2.0',
         id: 11,
-        method: 'elicitation.respond',
+        method: 'session.submitExchangeResponse',
         params: {
           exchangeId: 'deterministic-grounding-choice',
           answer: { optionId: 'new-from-scratch' },
@@ -785,7 +785,7 @@ async function handleSessionProjection<T>(
   }
 }
 
-async function handleStartElicitation(
+async function handleTriggerExchange(
   requestId: JsonRpcId,
   options: {
     coordinator: DefaultWorkspaceCoordinator;
@@ -832,7 +832,7 @@ async function handleStartElicitation(
   return createJsonRpcSuccess(requestId, result);
 }
 
-async function handleRespondToElicitation(
+async function handleSubmitExchangeResponse(
   requestId: JsonRpcId,
   rawParams: unknown,
   options: {
@@ -841,10 +841,10 @@ async function handleRespondToElicitation(
     productUpdates?: ProductUpdatePublisher;
   },
 ): Promise<JsonRpcResponse> {
-  if (!Value.Check(ElicitationRespondParamsSchema, rawParams)) {
+  if (!Value.Check(ExchangeResponseParamsSchema, rawParams)) {
     return createJsonRpcFailure(requestId, -32602, 'Invalid params');
   }
-  const params: ElicitationRespondParams = Value.Parse(ElicitationRespondParamsSchema, rawParams);
+  const params: ExchangeResponseParams = Value.Parse(ExchangeResponseParamsSchema, rawParams);
 
   const state = await options.coordinator.openDefaultWorkspace();
   if (state.status !== 'ready') {
@@ -879,7 +879,7 @@ async function handleRespondToElicitation(
     return createJsonRpcFailure(requestId, -32007, accepted.message);
   }
 
-  const result: ElicitationRespondResult = {
+  const result: ExchangeResponseResult = {
     status: 'accepted',
     exchangeId: pending.exchangeId,
     answer: accepted.answer,
@@ -921,7 +921,7 @@ type AcceptedResponse =
 
 function acceptedResponseFromParams(
   pending: PendingElicitationExchange,
-  params: ElicitationRespondParams,
+  params: ExchangeResponseParams,
 ): AcceptedResponse {
   if ('text' in params.answer) {
     if (pending.mode !== 'text') return invalidResponseMode();

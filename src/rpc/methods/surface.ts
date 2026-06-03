@@ -3,7 +3,7 @@ export const READ_RPC_METHODS = new Set<string>([
   'workspace.snapshot',
   'workspace.selectionState',
   'session.pendingExchange',
-  'session.elicitationExchanges',
+  'session.exchanges',
   'session.transcriptDisplay',
   'session.runtimeState',
   'graph.overview',

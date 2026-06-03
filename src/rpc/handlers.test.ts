@@ -292,15 +292,15 @@ describe('JSON-RPC handlers', () => {
       }
     ).methods;
     expect(methods.map((entry) => entry.method).sort()).toEqual([
-      'session.submitExchangeResponse',
       'graph.nodeNeighborhood',
       'graph.overview',
       'rpc.discover',
       'session.exchanges',
       'session.pendingExchange',
       'session.runtimeState',
-      'session.triggerExchange',
+      'session.submitExchangeResponse',
       'session.transcriptDisplay',
+      'session.triggerExchange',
       'workspace.activate',
       'workspace.selectionState',
       'workspace.snapshot',
