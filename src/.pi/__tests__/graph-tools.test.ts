@@ -14,13 +14,14 @@ import type { BrunchDb } from '../../db/connection.js';
 import { specs } from '../../db/schema.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
 import { getGraphOverview, getNodeNeighborhood } from '../../graph/snapshot.js';
+import { createProductUpdatePublisher } from '../../rpc/product-updates.js';
 import {
   translateCommitGraph,
   formatCommitGraphResult,
   formatGraphOverview,
   formatNeighborhoodResult,
 } from '../extensions/graph/command-adapter.js';
-import type { GraphSnapshotReaders } from '../extensions/graph/index.js';
+import { registerBrunchGraph, type GraphSnapshotReaders } from '../extensions/graph/index.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -180,6 +181,31 @@ describe('graph tools end-to-end', () => {
     expect(text).toContain('Build auth');
     expect(text).toContain('JWT tokens');
     expect(text).toContain('dependency');
+  });
+
+  it('commit_graph publishes selected-spec graph update topics after successful commits', async () => {
+    const productUpdates = createProductUpdatePublisher();
+    const observed: unknown[] = [];
+    const tools = new Map<string, { execute(toolCallId: string, params: unknown): Promise<unknown> }>();
+    productUpdates.subscribe((updates) => observed.push(...updates));
+    registerBrunchGraph(
+      {
+        registerTool(tool: { name: string; execute(toolCallId: string, params: unknown): Promise<unknown> }) {
+          tools.set(tool.name, tool);
+        },
+      } as never,
+      { specId, commandExecutor: executor, snapshots, productUpdates },
+    );
+
+    await tools.get('commit_graph')!.execute('call-1', {
+      nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'Observable goal' }],
+      edges: [],
+    });
+
+    expect(observed).toEqual([
+      { topic: 'graph.overview', specId, lsn: 1 },
+      { topic: 'graph.nodeNeighborhood', specId, lsn: 1 },
+    ]);
   });
 
   it('commit_graph returns diagnostics on invalid batch', () => {

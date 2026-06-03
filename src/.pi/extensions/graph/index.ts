@@ -14,6 +14,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import type { CommandExecutor } from '../../../graph/command-executor.js';
 import type { GraphOverview, NeighborhoodResult } from '../../../graph/snapshot.js';
+import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
 import {
   translateCommitGraph,
   formatCommitGraphResult,
@@ -43,6 +44,7 @@ export interface BrunchGraphDeps {
   readonly specId: number;
   readonly commandExecutor: CommandExecutor;
   readonly snapshots: GraphSnapshotReaders;
+  readonly productUpdates?: ProductUpdatePublisher;
 }
 
 // ---------------------------------------------------------------------------
@@ -75,6 +77,9 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
       const input = translateCommitGraph(params, specId);
       const result = commandExecutor.commitGraph(input);
       const text = formatCommitGraphResult(result);
+      if (result.status === 'success') {
+        deps.productUpdates?.publish(graphMutationProductUpdates({ specId, lsn: result.lsn }));
+      }
 
       return {
         content: [{ type: 'text' as const, text }],

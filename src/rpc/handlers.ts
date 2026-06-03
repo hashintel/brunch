@@ -1,4 +1,3 @@
-import { createInterface } from 'node:readline/promises';
 import type { Readable, Writable } from 'node:stream';
 
 import { Type, type Static } from 'typebox';
@@ -31,6 +30,11 @@ import type {
   SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
 import {
+  createProductUpdateNotification,
+  selectedSessionProductUpdates,
+  type ProductUpdatePublisher,
+} from './product-updates.js';
+import {
   createJsonRpcFailure,
   createJsonRpcSuccess,
   isJsonRpcRequest,
@@ -48,6 +52,7 @@ export interface RpcHandlers {
 export function createRpcHandlers(options: {
   coordinator: DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator;
   cwd: string;
+  productUpdates?: ProductUpdatePublisher;
 }): RpcHandlers {
   let graphRuntime: Promise<WorkspaceGraphRuntime> | null = null;
   const getGraphRuntime = () => {
@@ -95,7 +100,9 @@ export function createRpcHandlers(options: {
           return createJsonRpcFailure(requestId, -32602, 'Invalid params');
         }
         const state = await options.coordinator.activateWorkspace(decision.value);
-        return createJsonRpcSuccess(requestId, workspaceActivationSnapshotFromState(state));
+        const response = workspaceActivationSnapshotFromState(state);
+        publishSelectedSessionUpdates(options.productUpdates, state);
+        return createJsonRpcSuccess(requestId, response);
       }
 
       if (request.method === 'session.startElicitation') {
@@ -723,6 +730,7 @@ async function handleStartElicitation(
   options: {
     coordinator: DefaultWorkspaceCoordinator;
     cwd: string;
+    productUpdates?: ProductUpdatePublisher;
   },
 ): Promise<JsonRpcResponse> {
   const state = await options.coordinator.openDefaultWorkspace();
@@ -756,10 +764,12 @@ async function handleStartElicitation(
   }
   const reloaded = pendingExchangeFromEnvelope(reloadedTarget.envelope);
 
-  return createJsonRpcSuccess(requestId, {
-    status: 'pending',
+  const result = {
+    status: 'pending' as const,
     exchange: reloaded ?? exchange,
-  });
+  };
+  publishSelectedSessionUpdates(options.productUpdates, state);
+  return createJsonRpcSuccess(requestId, result);
 }
 
 async function handleRespondToElicitation(
@@ -768,6 +778,7 @@ async function handleRespondToElicitation(
   options: {
     coordinator: DefaultWorkspaceCoordinator;
     cwd: string;
+    productUpdates?: ProductUpdatePublisher;
   },
 ): Promise<JsonRpcResponse> {
   if (!Value.Check(ElicitationRespondParamsSchema, rawParams)) {
@@ -818,6 +829,7 @@ async function handleRespondToElicitation(
   state.session.manager.appendMessage(accepted.toolResultMessage);
   flushSessionEntries(state.session.manager, state.session.file);
 
+  publishSelectedSessionUpdates(options.productUpdates, state);
   return createJsonRpcSuccess(requestId, result);
 }
 
@@ -1339,18 +1351,62 @@ async function selectedSessionFile(state: WorkspaceSessionState): Promise<Sessio
   };
 }
 
+function publishSelectedSessionUpdates(
+  publisher: ProductUpdatePublisher | undefined,
+  state: WorkspaceActivationState | WorkspaceSessionState,
+): void {
+  if (!publisher || state.status !== 'ready') {
+    return;
+  }
+  publisher.publish(
+    selectedSessionProductUpdates({
+      specId: state.spec.id,
+      sessionId: state.session.id,
+    }),
+  );
+}
+
 export async function runJsonRpcLineServer(options: {
   input: Readable;
   output: Writable;
   handlers: RpcHandlers;
+  productUpdates?: ProductUpdatePublisher;
 }): Promise<void> {
-  const lines = createInterface({ input: options.input });
-  for await (const line of lines) {
-    if (line.trim().length === 0) {
-      continue;
+  const unsubscribe = options.productUpdates?.subscribe((updates) => {
+    options.output.write(`${JSON.stringify(createProductUpdateNotification(updates))}\n`);
+  });
+  let buffered = '';
+  try {
+    for await (const chunk of options.input) {
+      buffered += Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+      let newlineIndex = buffered.indexOf('\n');
+      while (newlineIndex >= 0) {
+        const line = buffered.slice(0, newlineIndex);
+        buffered = buffered.slice(newlineIndex + 1);
+        await dispatchJsonRpcLine(line, options);
+        newlineIndex = buffered.indexOf('\n');
+      }
     }
 
-    const response = await dispatchJsonRpcMessage(line, options.handlers);
-    options.output.write(`${JSON.stringify(response)}\n`);
+    if (buffered.length > 0) {
+      await dispatchJsonRpcLine(buffered, options);
+    }
+  } finally {
+    unsubscribe?.();
   }
+}
+
+async function dispatchJsonRpcLine(
+  line: string,
+  options: {
+    output: Writable;
+    handlers: RpcHandlers;
+  },
+): Promise<void> {
+  if (line.trim().length === 0) {
+    return;
+  }
+
+  const response = await dispatchJsonRpcMessage(line, options.handlers);
+  options.output.write(`${JSON.stringify(response)}\n`);
 }

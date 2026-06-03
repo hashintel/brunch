@@ -221,7 +221,7 @@ src/graph/
 └── snapshot.test.ts                 ?
 ```
 
-## Card 3 — next — Product update notifications span transports
+## Card 3 — done — Product update notifications span transports
 
 ### Target Behavior
 

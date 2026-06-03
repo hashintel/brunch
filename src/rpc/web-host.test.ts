@@ -11,6 +11,7 @@ import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
 } from '../session/workspace-session-coordinator.js';
+import { createProductUpdatePublisher } from './product-updates.js';
 import { startWebHost } from './web-host.js';
 
 function text(response: Response): Promise<string> {
@@ -301,6 +302,12 @@ describe('web host', () => {
             'session.elicitationExchanges',
             'session.transcriptDisplay',
           ],
+          updates: [
+            { topic: 'workspace.snapshot', specId: 1, sessionId: expect.any(String) },
+            { topic: 'session.pendingExchange', specId: 1, sessionId: expect.any(String) },
+            { topic: 'session.elicitationExchanges', specId: 1, sessionId: expect.any(String) },
+            { topic: 'session.transcriptDisplay', specId: 1, sessionId: expect.any(String) },
+          ],
         },
       });
 
@@ -350,6 +357,37 @@ describe('web host', () => {
     } finally {
       observer.close();
       actor.close();
+      await host.close();
+    }
+  });
+
+  it('broadcasts product update bus events to attached web observers without a request mutation path', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-rpc-bus-'));
+    await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
+      specTitle: 'Live bus spec',
+    });
+    const productUpdates = createProductUpdatePublisher();
+    const host = await startWebHost({
+      cwd,
+      port: 0,
+      coordinator: createWorkspaceSessionCoordinator({ cwd }),
+      productUpdates,
+    });
+    const observer = await openWebSocket(`${host.url.replace(/^http/u, 'ws')}/rpc`);
+    try {
+      const notification = nextWebSocketMessage(observer);
+      productUpdates.publish({ topic: 'graph.overview', specId: 1, lsn: 7 });
+
+      await expect(notification).resolves.toEqual({
+        jsonrpc: '2.0',
+        method: 'brunch.updated',
+        params: {
+          topics: ['graph.overview'],
+          updates: [{ topic: 'graph.overview', specId: 1, lsn: 7 }],
+        },
+      });
+    } finally {
+      observer.close();
       await host.close();
     }
   });

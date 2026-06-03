@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { createRpcHandlers } from './handlers.js';
+import { createProductUpdatePublisher, type ProductUpdatePublisher } from './product-updates.js';
 import { attachWebRpcTransport } from './websocket.js';
 
 export interface WebHostOptions {
@@ -13,6 +14,7 @@ export interface WebHostOptions {
   hostname?: string;
   coordinator?: WorkspaceSessionCoordinator;
   webAssetRoot?: string;
+  productUpdates?: ProductUpdatePublisher;
 }
 
 export interface RunningWebHost {
@@ -78,17 +80,20 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
     response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('Not found');
   });
-
-  const rpcTransport = options.coordinator
-    ? attachWebRpcTransport({
-        server,
-        path: '/rpc',
-        handlers: createRpcHandlers({
-          coordinator: options.coordinator,
-          cwd: options.cwd,
-        }),
-      })
-    : null;
+  let rpcTransport: ReturnType<typeof attachWebRpcTransport> | null = null;
+  if (options.coordinator) {
+    const productUpdates = options.productUpdates ?? createProductUpdatePublisher();
+    rpcTransport = attachWebRpcTransport({
+      server,
+      path: '/rpc',
+      handlers: createRpcHandlers({
+        coordinator: options.coordinator,
+        cwd: options.cwd,
+        productUpdates,
+      }),
+      productUpdates,
+    });
+  }
 
   const hostname = options.hostname ?? '127.0.0.1';
   await listen(server, options.port ?? 0, hostname);

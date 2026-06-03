@@ -3,6 +3,7 @@ import type { Server as HttpServer } from 'node:http';
 import { WebSocketServer, type RawData } from 'ws';
 
 import type { RpcHandlers } from './handlers.js';
+import { createProductUpdateNotification, type ProductUpdatePublisher } from './product-updates.js';
 import { dispatchJsonRpcMessage } from './protocol.js';
 
 export interface WebRpcTransport {
@@ -13,8 +14,26 @@ export function attachWebRpcTransport(options: {
   server: HttpServer;
   path: string;
   handlers: RpcHandlers;
+  productUpdates?: ProductUpdatePublisher;
 }): WebRpcTransport {
   const webSocketServer = new WebSocketServer({ noServer: true });
+  let activeRequests = 0;
+  const deferredNotifications: string[] = [];
+  const flushDeferredNotifications = () => {
+    for (const notification of deferredNotifications.splice(0)) {
+      broadcastProductUpdate(notification);
+    }
+  };
+  const publishNotification = (notification: string) => {
+    if (activeRequests > 0) {
+      deferredNotifications.push(notification);
+      return;
+    }
+    broadcastProductUpdate(notification);
+  };
+  const unsubscribe = options.productUpdates?.subscribe((updates) => {
+    publishNotification(JSON.stringify(createProductUpdateNotification(updates)));
+  });
 
   options.server.on('upgrade', (request, socket, head) => {
     if (request.url !== options.path) {
@@ -29,10 +48,12 @@ export function attachWebRpcTransport(options: {
 
   webSocketServer.on('connection', (webSocket) => {
     webSocket.on('message', (data) => {
-      void handleMessage(options.handlers, data).then(({ response, method }) => {
+      activeRequests += 1;
+      void handleMessage(options.handlers, data).then((response) => {
         webSocket.send(JSON.stringify(response));
-        if (isProductMutation(method) && !Object.hasOwn(response, 'error')) {
-          broadcastProductUpdate();
+        activeRequests -= 1;
+        if (activeRequests === 0) {
+          flushDeferredNotifications();
         }
       });
     });
@@ -40,6 +61,7 @@ export function attachWebRpcTransport(options: {
 
   return {
     async close() {
+      unsubscribe?.();
       for (const client of webSocketServer.clients) {
         client.close();
       }
@@ -54,19 +76,7 @@ export function attachWebRpcTransport(options: {
       });
     },
   };
-  function broadcastProductUpdate(): void {
-    const notification = JSON.stringify({
-      jsonrpc: '2.0',
-      method: 'brunch.updated',
-      params: {
-        topics: [
-          'workspace.snapshot',
-          'session.pendingExchange',
-          'session.elicitationExchanges',
-          'session.transcriptDisplay',
-        ],
-      },
-    });
+  function broadcastProductUpdate(notification: string): void {
     for (const client of webSocketServer.clients) {
       client.send(notification);
     }
@@ -75,31 +85,7 @@ export function attachWebRpcTransport(options: {
 
 async function handleMessage(handlers: RpcHandlers, data: RawData) {
   const message = websocketMessageToString(data);
-  return {
-    response: await dispatchJsonRpcMessage(message, handlers),
-    method: requestMethod(message),
-  };
-}
-
-function requestMethod(message: string): string | undefined {
-  try {
-    const value = JSON.parse(message) as unknown;
-    return typeof value === 'object' &&
-      value !== null &&
-      typeof (value as { method?: unknown }).method === 'string'
-      ? (value as { method: string }).method
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function isProductMutation(method: string | undefined): boolean {
-  return (
-    method === 'workspace.activate' ||
-    method === 'session.startElicitation' ||
-    method === 'elicitation.respond'
-  );
+  return dispatchJsonRpcMessage(message, handlers);
 }
 
 function websocketMessageToString(data: RawData): string {

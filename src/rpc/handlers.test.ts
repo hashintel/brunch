@@ -21,6 +21,7 @@ import type {
   SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
 import { createRpcHandlers, runJsonRpcLineServer } from './handlers.js';
+import { createProductUpdatePublisher } from './product-updates.js';
 
 function coordinator(
   state: WorkspaceSessionState = readyState('/tmp/brunch-project/.brunch/sessions/session-1.jsonl'),
@@ -488,6 +489,33 @@ describe('JSON-RPC handlers', () => {
         unavailableSessions: [{ reason: 'missing_header' }],
       },
     });
+  });
+
+  it('publishes workspace mutation invalidation through the shared product update bus', async () => {
+    const productUpdates = createProductUpdatePublisher();
+    const observed: unknown[] = [];
+    productUpdates.subscribe((updates) => observed.push(...updates));
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp/brunch-project',
+      productUpdates,
+    });
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 35,
+        method: 'workspace.activate',
+        params: { decision: { action: 'continue', specId: 1, sessionFile: 'session-1.jsonl' } },
+      }),
+    ).resolves.toMatchObject({ jsonrpc: '2.0', id: 35, result: { status: 'ready' } });
+
+    expect(observed).toEqual([
+      { topic: 'workspace.snapshot', specId: 1, sessionId: 'session-1' },
+      { topic: 'session.pendingExchange', specId: 1, sessionId: 'session-1' },
+      { topic: 'session.elicitationExchanges', specId: 1, sessionId: 'session-1' },
+      { topic: 'session.transcriptDisplay', specId: 1, sessionId: 'session-1' },
+    ]);
   });
 
   it('activates valid spec/session decisions and returns serializable product snapshots', async () => {
@@ -1983,6 +2011,64 @@ describe('JSON-RPC handlers', () => {
       jsonrpc: '2.0',
       id: 1,
       result: { status: 'ready' },
+    });
+  });
+
+  it('writes product update notifications over stdio independently from responses', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const productUpdates = createProductUpdatePublisher();
+    const chunks: string[] = [];
+    output.on('data', (chunk) => chunks.push(String(chunk)));
+
+    const done = runJsonRpcLineServer({
+      input,
+      output,
+      handlers: createRpcHandlers({
+        coordinator: coordinator(),
+        cwd: '/tmp/brunch-project',
+      }),
+      productUpdates,
+    });
+
+    productUpdates.publish({ topic: 'graph.overview', specId: 1, lsn: 4 });
+    input.end();
+    await done;
+
+    expect(JSON.parse(chunks.join(''))).toEqual({
+      jsonrpc: '2.0',
+      method: 'brunch.updated',
+      params: {
+        topics: ['graph.overview'],
+        updates: [{ topic: 'graph.overview', specId: 1, lsn: 4 }],
+      },
+    });
+  });
+
+  it('parses stdio input as LF-framed JSON-RPC without splitting U+2028 inside strings', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const chunks: string[] = [];
+    output.on('data', (chunk) => chunks.push(String(chunk)));
+
+    const done = runJsonRpcLineServer({
+      input,
+      output,
+      handlers: createRpcHandlers({
+        coordinator: coordinator(),
+        cwd: '/tmp/brunch-project',
+      }),
+    });
+
+    input.end(
+      `${JSON.stringify({ jsonrpc: '2.0', id: 99, method: 'unknown.method', params: { text: 'a b' } })}\n`,
+    );
+    await done;
+
+    expect(JSON.parse(chunks.join(''))).toEqual({
+      jsonrpc: '2.0',
+      id: 99,
+      error: { code: -32601, message: 'Method not found' },
     });
   });
 });

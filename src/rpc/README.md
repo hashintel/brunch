@@ -35,6 +35,26 @@ canonical stores:
 
 RPC handlers must not become a generic records API, REST read model, or canonical view store. Reads are named projections over the store that owns the fact. Mutations route through the owning product seam: session transcript operations through `session.*`, graph mutations through the agent/tool or `CommandExecutor` path that owns them.
 
+## Product update notifications
+
+`brunch.updated` is a JSON-RPC notification, not a request/response method. It carries process-local invalidation hints only; clients refetch canonical projections through named RPC methods.
+
+```pseudo
+brunch.updated:
+  params:
+    topics:
+      - graph.overview
+      - graph.nodeNeighborhood
+      - workspace.snapshot
+      - session.pendingExchange
+      - session.elicitationExchanges
+      - session.transcriptDisplay
+    updates:
+      - {topic, specId?, sessionId?, nodeId?, lsn?}
+```
+
+WebSocket and stdio transports both carry these notifications independently from request responses. The notification payload is owned by `rpc/`; graph and session mutation adapters receive only a narrow product-update publisher.
+
 ## Product method vocabulary
 
 Use these names in product design, SPEC text, and new public handlers:
