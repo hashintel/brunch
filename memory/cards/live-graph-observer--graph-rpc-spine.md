@@ -1,4 +1,4 @@
-# Selected-spec graph RPC observer spine
+# Selected-spec graph RPC web attachment spine
 
 Frontier: live-graph-observer | n/a
 Status:   active
@@ -7,11 +7,11 @@ Created:  2026-06-03
 
 ## Orientation
 
-- Containing seam: `db/` + `graph/` + `.pi/extensions/graph/` + `rpc/` + TUI launch. This is the core black-triangle spine: TUI/agent writes selected-spec graph truth; RPC/web observers read and refetch it.
+- Containing seam: `db/` + `graph/` + `.pi/extensions/graph/` + `rpc/` + TUI launch. This is the core black-triangle spine: TUI/agent writes selected-spec graph truth; RPC/web attachments read and refetch it.
 - Frontier item: `live-graph-observer` (FE-795). The user clarified that all graph items, including future plan/oracle/design graph items, are owned by one spec.
 - Volatile handoff state: current code has DB-backed `specs`, but graph rows/readers are workspace-global; current WebSocket updates broadcast only after WebSocket-originated mutations; current stdio RPC returns only responses and uses Node `readline`.
 - Pi RPC context: Pi RPC is not JSON-RPC; it is LF-framed JSONL commands/responses/events. Brunch can keep JSON-RPC method envelopes, but should mirror the semantic rule that responses and asynchronous notifications share the transport stream.
-- Main open risk: current modes are mutually exclusive. A real TUI-writer/web-observer proof needs the TUI-launched product process to expose an observer web/RPC endpoint, or else a separately designed cross-process event bridge.
+- Main open risk: current modes are mutually exclusive. A real TUI-writer/web-attachment proof needs the TUI-launched product process to expose a web sidecar endpoint, or else a separately designed cross-process event bridge.
 - Cross-cutting obligations: preserve D4-L/D20-L command-layer mutation authority, D19-L thin named RPC methods, D33-L attachments-not-sessions, D52-L dependency direction, and D61-L no workspace-global graph.
 
 ## Pi RPC context notes to carry into implementation
@@ -246,7 +246,7 @@ Graph/session/workspace mutations publish product update notifications to every 
   → MITIGATION: `rpc/` owns JSON-RPC notification shape; graph/TUI adapters receive or call a narrow publisher interface after successful `CommandExecutor` results.
 - RISK: Generalizing into a canonical event store violates the frontier non-goal.
   → MITIGATION: no durable event spine; this is process-local invalidation only. Canonical truth stays in graph/session/workspace stores.
-- ASSUMPTION: For F1, one process owns the writer and observer host; cross-process DB polling/event relay is out of scope.
+- ASSUMPTION: For F1, one process owns the writer and web attachment host; cross-process DB polling/event relay is out of scope.
   → IMPACT IF FALSE: a separate web-mode process will not receive TUI-process notifications without polling or IPC.
   → VALIDATE: Card 4 runs the web transport in the same process as the graph tool writer.
 
@@ -268,7 +268,7 @@ Graph/session/workspace mutations publish product update notifications to every 
 
 - Inner: rpc transport tests — request/response correlation plus independent notifications; LF framing test if stdio parser changes.
 - Middle: in-process integration — call graph tool/CommandExecutor adapter and observe notification topic then refetch `graph.overview`.
-- Outer: manual browser smoke after TUI observer host lands.
+- Outer: manual browser smoke after TUI web sidecar lands.
 
 ### Cross-cutting obligations
 
@@ -295,59 +295,59 @@ src/brunch.ts                        ?
 src/brunch.test.ts                   ?
 ```
 
-## Card 4 — done — TUI launches an observer-capable web/RPC attachment host
+## Card 4 — done — TUI launches a web sidecar attachment host
 
 ### Target Behavior
 
-A TUI writer session can expose a local read-only web/RPC observer endpoint from the same Brunch process.
+A TUI writer session can expose a local read-only web/RPC attachment endpoint from the same Brunch process.
 
 ### Boundary Crossings
 
 ```pseudo
 → brunch-cli --mode tui
 → WorkspaceSessionCoordinator activation
-→ observer web host start with shared coordinator/update publisher
+→ web sidecar host start with shared coordinator/update publisher
 → Pi InteractiveMode writer session
 → graph commit via TUI/agent tool
 → product update publisher
-→ WebSocket browser observer
+→ WebSocket browser attachment
 → graph.overview refetch
 ```
 
 ### Risks and Assumptions
 
 - RISK: Current `--mode web` and `--mode tui` are mutually exclusive, so manual two-process testing would miss in-process event wiring.
-  → MITIGATION: start the observer web host from TUI mode for F1, or provide an explicit `--observer-web` flag if always-on web is too intrusive.
+  → MITIGATION: start the web sidecar host from TUI mode for F1, or provide an explicit web-attachment flag if always-on web is too intrusive.
 - RISK: Sharing mutable coordinator/session objects between TUI and web could imply two writers.
   → MITIGATION: web graph/session surfaces remain read-only in this frontier; only selected session activation/projections are exposed unless a later card adds write authority.
-- RISK: Port allocation/browser URL handling distracts from the observer proof.
+- RISK: Port allocation/browser URL handling distracts from the web attachment proof.
   → MITIGATION: random localhost port and printed URL is enough; browser auto-open is optional.
-- ASSUMPTION: Same-process observer host is the desired POC proof path.
+- ASSUMPTION: Same-process web attachment host is the desired POC proof path.
   → IMPACT IF FALSE: replace this card with a cross-process polling/IPC design before implementation.
-  → VALIDATE: manual runbook proves one writer process with attached observers, not separate product daemons.
+  → VALIDATE: manual runbook proves one writer process with attached web clients, not separate product daemons.
 
 ### Tracer-bullet check
 
-- Proof of life: the actual TUI launch path also owns the web observer path; no harness secretly wires the web host.
-- Invariants: preserves one-writer/many-observer local model.
+- Proof of life: the actual TUI launch path also owns the web attachment path; no harness secretly wires the web host.
+- Invariants: preserves one-writer/many-read-attachments local model.
 
 ### Acceptance Criteria
 
-✓ TUI launch — after spec/session activation, starts or advertises a WebSocket-backed observer URL without blocking `InteractiveMode.run()`.
+✓ TUI launch — after spec/session activation, starts or advertises a WebSocket-backed web sidecar URL without blocking `InteractiveMode.run()`.
 ✓ Shared update bus — graph commits from the TUI graph tool notify browser clients attached to that URL.
 ✓ Read-only web — browser can read workspace/session/graph projections but does not expose graph mutation controls in F1.
-✓ Shutdown — closing TUI closes the observer host cleanly enough for tests/manual reruns.
-✓ Test — launch path test verifies the observer host runner is invoked after activation and before/alongside interactive launch.
+✓ Shutdown — closing TUI closes the web sidecar cleanly enough for tests/manual reruns.
+✓ Test — launch path test verifies the web sidecar runner is invoked after activation and before/alongside interactive launch.
 
 ### Verification Approach
 
 - Inner: `src/brunch-tui.test.ts` — launch sequencing and shared publisher injection.
-- Middle: local integration/manual smoke in workbench — TUI writer, browser observer, graph commit/refetch.
+- Middle: local integration/manual smoke in workbench — TUI writer, browser attachment, graph commit/refetch.
 
 ### Cross-cutting obligations
 
 - D33-L: browser/WebSocket is an attachment, not a Brunch session.
-- One writer: TUI remains the writer; web remains observer/read-only unless explicitly scoped later.
+- One writer: TUI remains the writer; web remains a read-only attachment unless explicitly scoped later.
 - No cross-process event bus or daemon in F1.
 
 ### Expected touched paths (tentative)

@@ -188,7 +188,7 @@ src/
 - [ ] Is this the first touch in an unfamiliar seam from a fresh thread?
 - [ ] Can you not name the containing seam or current rationale from the live docs?
 
-## Card 4 — next — Rename observer terminology to web sidecar / attachment host
+## Card 4 — done — Rename observer terminology to web sidecar / attachment host
 
 ### Objective
 
