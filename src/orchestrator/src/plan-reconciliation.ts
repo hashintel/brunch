@@ -6,7 +6,7 @@
 // redirects, breaks, or synthesizes a value surfaces as a typed
 // ReconciliationWarning so the reviewer can audit slice 2's output.
 
-import type { PlanningEnrichment } from './cook-plan-llm-planning.js';
+import type { PlanningEnrichment } from './plan-llm-planning.js';
 import type { Epic, Plan, Slice } from './types.js';
 
 export type ReconciliationWarning =
@@ -22,7 +22,7 @@ export type ReconciliationWarning =
 const DEFAULT_EPIC_ID = 'default';
 const DEFAULT_EPIC_SUMMARY = 'All requirements';
 
-export function reconcileCookPlan(
+export function reconcilePlan(
   projected: Plan,
   enrichment: PlanningEnrichment,
 ): { plan: Plan; warnings: ReconciliationWarning[] } {

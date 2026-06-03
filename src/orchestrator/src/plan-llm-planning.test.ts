@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { defaultRunModel, planExecutionOrdering } from './cook-plan-llm-planning.js';
-import { projectCookPlanFromSpec, type CompletedSpecSnapshot } from './cook-plan-projection.js';
+import { defaultRunModel, planExecutionOrdering } from './plan-llm-planning.js';
+import { projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projection.js';
 import type { Plan } from './types.js';
 
 const samplePlan: Plan = {
@@ -136,7 +136,7 @@ describe('planExecutionOrdering', () => {
   // ANTHROPIC_API_KEY are set, so it stays out of CI and the default
   // local `npm run verify`. Run with:
   //   PLANNING_REAL_LLM=1 ANTHROPIC_API_KEY=… npx vitest run \
-  //     src/orchestrator/src/cook-plan-llm-planning.test.ts
+  //     src/orchestrator/src/plan-llm-planning.test.ts
   const realLlmEnabled = process.env.PLANNING_REAL_LLM === '1' && Boolean(process.env.ANTHROPIC_API_KEY);
   const itReal = realLlmEnabled ? it : it.skip;
 
@@ -149,7 +149,7 @@ describe('planExecutionOrdering', () => {
         'brunch-graphs-snapshot.json',
       );
       const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as CompletedSpecSnapshot;
-      const projected = projectCookPlanFromSpec(fixture);
+      const projected = projectPlanFromSpec(fixture);
 
       const result = await planExecutionOrdering(projected, defaultRunModel);
 

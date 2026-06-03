@@ -5,9 +5,9 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
-import type { PlanningEnrichment, RunModel } from './cook-plan-llm-planning.js';
-import type { CompletedSpecSnapshot } from './cook-plan-projection.js';
 import { parsePlanArgs, runPlan } from './plan-cli.js';
+import type { PlanningEnrichment, RunModel } from './plan-llm-planning.js';
+import type { CompletedSpecSnapshot } from './plan-projection.js';
 import type { Plan } from './types.js';
 
 describe('parsePlanArgs', () => {

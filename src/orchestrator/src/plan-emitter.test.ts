@@ -5,14 +5,10 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { stringify as stringifyYaml } from 'yaml';
 
-import {
-  emitCookPlanFromSnapshot,
-  emitterWarningCategory,
-  formatEmitterWarning,
-} from './cook-plan-emitter.js';
-import type { PlanningEnrichment, RunModel } from './cook-plan-llm-planning.js';
-import type { CompletedSpecSnapshot } from './cook-plan-projection.js';
+import { emitPlanFromSnapshot, emitterWarningCategory, formatEmitterWarning } from './plan-emitter.js';
+import type { PlanningEnrichment, RunModel } from './plan-llm-planning.js';
 import { loadPlan } from './plan-loader.js';
+import type { CompletedSpecSnapshot } from './plan-projection.js';
 
 const snapshot: CompletedSpecSnapshot = {
   requirements: [
@@ -23,7 +19,7 @@ const snapshot: CompletedSpecSnapshot = {
   edges: [{ fromItemId: 20, toItemId: 10, relation: 'verifies' }],
 };
 
-describe('emitCookPlanFromSnapshot', () => {
+describe('emitPlanFromSnapshot', () => {
   it('composes projection + planning + reconciliation with an injected runModel', async () => {
     const enrichment: PlanningEnrichment = {
       sliceDependencies: [{ sliceId: 'req-2', dependsOn: ['req-1'] }],
@@ -32,7 +28,7 @@ describe('emitCookPlanFromSnapshot', () => {
     };
     const runModel: RunModel = async () => enrichment;
 
-    const result = await emitCookPlanFromSnapshot(snapshot, { runModel });
+    const result = await emitPlanFromSnapshot(snapshot, { runModel });
 
     expect(result.planningResult.status).toBe('succeeded');
     expect(result.plan.slices.map((s) => s.id)).toEqual(['req-1', 'req-2']);
@@ -49,7 +45,7 @@ describe('emitCookPlanFromSnapshot', () => {
       throw new Error('boom');
     };
 
-    const result = await emitCookPlanFromSnapshot(snapshot, { runModel });
+    const result = await emitPlanFromSnapshot(snapshot, { runModel });
 
     expect(result.planningResult.status).toBe('failed');
     if (result.planningResult.status === 'failed') {
@@ -68,7 +64,7 @@ describe('emitCookPlanFromSnapshot', () => {
       throw new Error('llm-down');
     };
 
-    const result = await emitCookPlanFromSnapshot(snapshot, { runModel });
+    const result = await emitPlanFromSnapshot(snapshot, { runModel });
 
     const failures = result.warnings.filter((w) => w.code === 'planning-failed');
     expect(failures).toHaveLength(1);
@@ -85,13 +81,13 @@ describe('emitCookPlanFromSnapshot', () => {
       nonBuildableSliceIds: [],
     });
 
-    const result = await emitCookPlanFromSnapshot(snapshot, { runModel });
+    const result = await emitPlanFromSnapshot(snapshot, { runModel });
 
     expect(result.warnings.some((w) => w.code === 'planning-failed')).toBe(false);
   });
 
   it('categorizes planning-failed as failure and delegates other codes to reconciliation', async () => {
-    const failure = await emitCookPlanFromSnapshot(snapshot, {
+    const failure = await emitPlanFromSnapshot(snapshot, {
       runModel: async () => {
         throw new Error('x');
       },
@@ -100,7 +96,7 @@ describe('emitCookPlanFromSnapshot', () => {
     expect(emitterWarningCategory(failureWarning)).toBe('failure');
     expect(formatEmitterWarning(failureWarning)).toContain('planning-failed');
 
-    const success = await emitCookPlanFromSnapshot(snapshot, {
+    const success = await emitPlanFromSnapshot(snapshot, {
       runModel: async () => ({ sliceDependencies: [], epics: [], nonBuildableSliceIds: [] }),
     });
     const synthesis = success.warnings.find((w) => w.code === 'synthesized-verification-target')!;
@@ -114,9 +110,9 @@ describe('emitCookPlanFromSnapshot', () => {
       nonBuildableSliceIds: [],
     });
 
-    const result = await emitCookPlanFromSnapshot(snapshot, { runModel });
+    const result = await emitPlanFromSnapshot(snapshot, { runModel });
 
-    const dir = mkdtempSync(join(tmpdir(), 'cook-plan-emitter-'));
+    const dir = mkdtempSync(join(tmpdir(), 'plan-emitter-'));
     const yamlPath = join(dir, 'plan.yaml');
     writeFileSync(yamlPath, stringifyYaml(result.plan));
     const reloaded = loadPlan(yamlPath);

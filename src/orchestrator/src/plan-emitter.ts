@@ -23,14 +23,14 @@ import {
   type PlanningEnrichment,
   type PlanningResult,
   type RunModel,
-} from './cook-plan-llm-planning.js';
-import { projectCookPlanFromSpec, type CompletedSpecSnapshot } from './cook-plan-projection.js';
+} from './plan-llm-planning.js';
+import { projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projection.js';
 import {
   formatReconciliationWarning,
-  reconcileCookPlan,
+  reconcilePlan,
   reconciliationWarningCategory,
   type ReconciliationWarning,
-} from './cook-plan-reconciliation.js';
+} from './plan-reconciliation.js';
 import type { Plan } from './types.js';
 
 const EMPTY_ENRICHMENT: PlanningEnrichment = {
@@ -46,13 +46,13 @@ const EMPTY_ENRICHMENT: PlanningEnrichment = {
  */
 export type EmitterWarning = ReconciliationWarning | { code: 'planning-failed'; reason: string };
 
-export type EmitCookPlanResult = {
+export type EmitPlanResult = {
   plan: Plan;
   warnings: EmitterWarning[];
   planningResult: PlanningResult;
 };
 
-export type EmitCookPlanOptions = {
+export type EmitPlanOptions = {
   /**
    * LLM seam used by the planning stage. Defaults to the production
    * anthropic adapter (`defaultRunModel`). Tests inject a stub.
@@ -60,16 +60,16 @@ export type EmitCookPlanOptions = {
   runModel?: RunModel;
 };
 
-export async function emitCookPlanFromSnapshot(
+export async function emitPlanFromSnapshot(
   snapshot: CompletedSpecSnapshot,
-  options: EmitCookPlanOptions = {},
-): Promise<EmitCookPlanResult> {
+  options: EmitPlanOptions = {},
+): Promise<EmitPlanResult> {
   const runModel = options.runModel ?? defaultRunModel;
 
-  const projected = projectCookPlanFromSpec(snapshot);
+  const projected = projectPlanFromSpec(snapshot);
   const planningResult = await planExecutionOrdering(projected, runModel);
   const enrichment = planningResult.status === 'succeeded' ? planningResult.enrichment : EMPTY_ENRICHMENT;
-  const { plan, warnings: reconciliationWarnings } = reconcileCookPlan(projected, enrichment);
+  const { plan, warnings: reconciliationWarnings } = reconcilePlan(projected, enrichment);
 
   const warnings: EmitterWarning[] = [];
   if (planningResult.status === 'failed') {

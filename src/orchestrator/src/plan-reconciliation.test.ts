@@ -6,15 +6,15 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { stringify as stringifyYaml } from 'yaml';
 
-import type { PlanningEnrichment } from './cook-plan-llm-planning.js';
-import { projectCookPlanFromSpec, type CompletedSpecSnapshot } from './cook-plan-projection.js';
+import type { PlanningEnrichment } from './plan-llm-planning.js';
+import { loadPlan } from './plan-loader.js';
+import { projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projection.js';
 import {
   formatReconciliationWarning,
-  reconcileCookPlan,
+  reconcilePlan,
   reconciliationWarningCategory,
   type ReconciliationWarning,
-} from './cook-plan-reconciliation.js';
-import { loadPlan } from './plan-loader.js';
+} from './plan-reconciliation.js';
 import type { Plan } from './types.js';
 
 const emptyEnrichment: PlanningEnrichment = {
@@ -28,9 +28,9 @@ const emptyPlan: Plan = {
   slices: [],
 };
 
-describe('reconcileCookPlan', () => {
+describe('reconcilePlan', () => {
   it('returns an empty plan and zero warnings when both inputs are empty', () => {
-    const result = reconcileCookPlan(emptyPlan, emptyEnrichment);
+    const result = reconcilePlan(emptyPlan, emptyEnrichment);
 
     expect(result.warnings).toEqual([]);
     expect(result.plan.slices).toEqual([]);
@@ -50,7 +50,7 @@ describe('reconcileCookPlan', () => {
       ],
     };
 
-    const result = reconcileCookPlan(projected, emptyEnrichment);
+    const result = reconcilePlan(projected, emptyEnrichment);
 
     expect(result.plan.slices).toHaveLength(2);
     for (const slice of result.plan.slices) {
@@ -77,7 +77,7 @@ describe('reconcileCookPlan', () => {
       ],
     };
 
-    const result = reconcileCookPlan(projected, emptyEnrichment);
+    const result = reconcilePlan(projected, emptyEnrichment);
 
     const slice = result.plan.slices[0]!;
     expect(slice.definition).toContain('First requirement');
@@ -99,7 +99,7 @@ describe('reconcileCookPlan', () => {
       nonBuildableSliceIds: [],
     };
 
-    const result = reconcileCookPlan(projected, enrichment);
+    const result = reconcilePlan(projected, enrichment);
 
     expect(result.plan.slices[0]!.depends_on).toEqual([]);
     expect(result.warnings).toContainEqual({
@@ -120,7 +120,7 @@ describe('reconcileCookPlan', () => {
       nonBuildableSliceIds: [],
     };
 
-    const result = reconcileCookPlan(projected, enrichment);
+    const result = reconcilePlan(projected, enrichment);
 
     expect(result.plan.slices[0]!.depends_on).toEqual([]);
     expect(result.warnings).toContainEqual({
@@ -155,7 +155,7 @@ describe('reconcileCookPlan', () => {
       nonBuildableSliceIds: ['req-2'],
     };
 
-    const result = reconcileCookPlan(projected, enrichment);
+    const result = reconcilePlan(projected, enrichment);
 
     expect(result.plan.slices.map((s) => s.id)).toEqual(['req-1']);
     expect(result.plan.slices[0]!.depends_on).toEqual([]);
@@ -188,7 +188,7 @@ describe('reconcileCookPlan', () => {
       nonBuildableSliceIds: [],
     };
 
-    const result = reconcileCookPlan(projected, enrichment);
+    const result = reconcilePlan(projected, enrichment);
 
     const bySliceId = new Map(result.plan.slices.map((s) => [s.id, s] as const));
     // Lex-smallest is 'req-a': drop its incoming dep edge (req-a depends on req-b).
@@ -220,8 +220,8 @@ describe('reconcileCookPlan', () => {
       nonBuildableSliceIds: [],
     };
 
-    const first = reconcileCookPlan(projected, enrichment);
-    const second = reconcileCookPlan(projected, enrichment);
+    const first = reconcilePlan(projected, enrichment);
+    const second = reconcilePlan(projected, enrichment);
 
     expect(first).toEqual(second);
 
@@ -260,7 +260,7 @@ describe('reconcileCookPlan', () => {
       nonBuildableSliceIds: [],
     };
 
-    const result = reconcileCookPlan(projected, enrichment);
+    const result = reconcilePlan(projected, enrichment);
 
     const epicIds = result.plan.epics.map((e) => e.id);
     expect(epicIds).toContain('core');
@@ -293,7 +293,7 @@ describe('reconcileCookPlan', () => {
       nonBuildableSliceIds: [],
     };
 
-    const result = reconcileCookPlan(projected, enrichment);
+    const result = reconcilePlan(projected, enrichment);
 
     expect(result.plan.epics.map((e) => e.id)).toEqual(['core']);
     expect(result.warnings.some((w) => w.code === 'orphan-slice-assigned-to-default-epic')).toBe(false);
@@ -319,7 +319,7 @@ describe('reconcileCookPlan', () => {
       nonBuildableSliceIds: [],
     };
 
-    expect(reconcileCookPlan(projected, enrichment)).toEqual(reconcileCookPlan(projected, enrichment));
+    expect(reconcilePlan(projected, enrichment)).toEqual(reconcilePlan(projected, enrichment));
   });
 
   it('brunch_graphs corpus end-to-end — round-trips through loadPlan after reconciliation', () => {
@@ -329,7 +329,7 @@ describe('reconcileCookPlan', () => {
       'brunch-graphs-snapshot.json',
     );
     const snapshot = JSON.parse(readFileSync(fixturePath, 'utf8')) as CompletedSpecSnapshot;
-    const projected = projectCookPlanFromSpec(snapshot);
+    const projected = projectPlanFromSpec(snapshot);
     expect(projected.slices.length).toBeGreaterThan(2);
 
     // Hand-craft a representative enrichment: one dep edge, one non-buildable
@@ -342,7 +342,7 @@ describe('reconcileCookPlan', () => {
       nonBuildableSliceIds: [thirdSlice!.id],
     };
 
-    const result = reconcileCookPlan(projected, enrichment);
+    const result = reconcilePlan(projected, enrichment);
 
     // (a) Non-buildable slice removed.
     expect(result.plan.slices.map((s) => s.id)).not.toContain(thirdSlice!.id);
@@ -359,7 +359,7 @@ describe('reconcileCookPlan', () => {
     });
 
     // (d) YAML round-trip via loadPlan preserves the reconciled plan.
-    const dir = mkdtempSync(join(tmpdir(), 'cook-plan-reconciliation-'));
+    const dir = mkdtempSync(join(tmpdir(), 'plan-reconciliation-'));
     const yamlPath = join(dir, 'plan.yaml');
     writeFileSync(yamlPath, stringifyYaml(result.plan));
     const reloaded = loadPlan(yamlPath);

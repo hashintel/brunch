@@ -27,7 +27,7 @@ export interface KnowledgeEdgeSnapshot {
 const DEFAULT_EPIC_ID = 'default';
 const DEFAULT_EPIC_SUMMARY = 'All requirements';
 
-export function projectCookPlanFromSpec(snapshot: CompletedSpecSnapshot): Plan {
+export function projectPlanFromSpec(snapshot: CompletedSpecSnapshot): Plan {
   const orderedRequirements = [...snapshot.requirements].sort(byKindOrdinal);
   const criteriaById = new Map(snapshot.criteria.map((criterion) => [criterion.id, criterion]));
 

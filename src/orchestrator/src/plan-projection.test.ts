@@ -6,10 +6,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { stringify as stringifyYaml } from 'yaml';
 
-import { projectCookPlanFromSpec, type CompletedSpecSnapshot } from './cook-plan-projection.js';
 import { loadPlan } from './plan-loader.js';
+import { projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projection.js';
 
-describe('projectCookPlanFromSpec', () => {
+describe('projectPlanFromSpec', () => {
   it('returns a single default epic and zero slices for an empty snapshot', () => {
     const snapshot: CompletedSpecSnapshot = {
       requirements: [],
@@ -17,7 +17,7 @@ describe('projectCookPlanFromSpec', () => {
       edges: [],
     };
 
-    const plan = projectCookPlanFromSpec(snapshot);
+    const plan = projectPlanFromSpec(snapshot);
 
     expect(plan.epics).toHaveLength(1);
     expect(plan.epics[0]!.id).toBe('default');
@@ -37,7 +37,7 @@ describe('projectCookPlanFromSpec', () => {
       edges: [],
     };
 
-    const plan = projectCookPlanFromSpec(snapshot);
+    const plan = projectPlanFromSpec(snapshot);
 
     expect(plan.slices).toHaveLength(3);
     expect(plan.slices.map((slice) => slice.id)).toEqual(['req-1', 'req-2', 'req-3']);
@@ -66,7 +66,7 @@ describe('projectCookPlanFromSpec', () => {
       ],
     };
 
-    const plan = projectCookPlanFromSpec(snapshot);
+    const plan = projectPlanFromSpec(snapshot);
 
     expect(plan.slices).toHaveLength(1);
     expect(plan.slices[0]!.verification).toEqual([
@@ -89,7 +89,7 @@ describe('projectCookPlanFromSpec', () => {
       edges: [{ fromItemId: 11, toItemId: 10, relation: 'depends_on' }],
     };
 
-    const plan = projectCookPlanFromSpec(snapshot);
+    const plan = projectPlanFromSpec(snapshot);
 
     for (const slice of plan.slices) {
       expect(slice.depends_on).toEqual([]);
@@ -106,7 +106,7 @@ describe('projectCookPlanFromSpec', () => {
       edges: [{ fromItemId: 20, toItemId: 10, relation: 'verifies' }],
     };
 
-    expect(projectCookPlanFromSpec(snapshot)).toEqual(projectCookPlanFromSpec(snapshot));
+    expect(projectPlanFromSpec(snapshot)).toEqual(projectPlanFromSpec(snapshot));
   });
 
   it('round-trips through loadPlan — projected Plan survives YAML serialise + parse', () => {
@@ -119,9 +119,9 @@ describe('projectCookPlanFromSpec', () => {
       edges: [{ fromItemId: 20, toItemId: 10, relation: 'verifies' }],
     };
 
-    const projected = projectCookPlanFromSpec(snapshot);
+    const projected = projectPlanFromSpec(snapshot);
 
-    const dir = mkdtempSync(join(tmpdir(), 'cook-plan-projection-'));
+    const dir = mkdtempSync(join(tmpdir(), 'plan-projection-'));
     const yamlPath = join(dir, 'plan.yaml');
     writeFileSync(yamlPath, stringifyYaml(projected));
 
@@ -149,7 +149,7 @@ describe('projectCookPlanFromSpec', () => {
     );
     const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as CompletedSpecSnapshot;
 
-    const plan = projectCookPlanFromSpec(fixture);
+    const plan = projectPlanFromSpec(fixture);
 
     expect(plan.slices).toHaveLength(fixture.requirements.length);
     for (const slice of plan.slices) {

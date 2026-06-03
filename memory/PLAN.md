@@ -288,7 +288,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ### spec-to-cook-plan
 
-- **Name:** Spec → cook-plan emitter — project + plan a `brunch cook` plan.yaml from a completed intent graph
+- **Name:** Spec → orchestrator plan emitter — project + plan a `brunch cook` plan.yaml from a completed intent graph
 - **Linear:** FE-800 (standalone; not parented under FE-760)
 - **Kind:** structural
 - **Status:** active — slices 1 (deterministic projection) + 2 (LLM planning pass) + 3 (deterministic reconciliation — id existence, self-loops, cycle break via Kahn lex-tie-break, non-buildable slice + dep dropping, epic grouping with default-epic fallback, synthesized unit-test verification targets, all transformations surfaced as typed `ReconciliationWarning[]`) + 4 (CLI wiring — `brunch plan <snapshot.json> [--out=<dir>] [--verbose]` composes the three stages, writes `<dir>/.brunch/cook/plan.yaml`, surfaces warnings on stderr; emitter falls back to empty enrichment when the LLM throws so a usable orderless plan still emits) landed. Next scope target: **snapshot builder** (server-side query that turns a completed brunch specification into a `CompletedSpecSnapshot`), which is the last piece before the Bristol-demo end-to-end (`brunch plan` → `brunch cook --petrinaut-stream`). Two proving spikes done 2026-06-03 (see memory `spec-to-cook-plan-spike`); branch stacks on FE-764

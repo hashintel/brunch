@@ -13,13 +13,13 @@ import { dirname, join, resolve } from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
 
 import {
-  emitCookPlanFromSnapshot,
+  emitPlanFromSnapshot,
   emitterWarningCategory,
   formatEmitterWarning,
   type EmitterWarning,
-} from './cook-plan-emitter.js';
-import type { RunModel } from './cook-plan-llm-planning.js';
-import type { CompletedSpecSnapshot } from './cook-plan-projection.js';
+} from './plan-emitter.js';
+import type { RunModel } from './plan-llm-planning.js';
+import type { CompletedSpecSnapshot } from './plan-projection.js';
 
 export type PlanOptions = {
   snapshotPath: string;
@@ -69,7 +69,7 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
   log('');
 
   const emitOptions = args.runModel ? { runModel: args.runModel } : {};
-  const result = await emitCookPlanFromSnapshot(snapshot, emitOptions);
+  const result = await emitPlanFromSnapshot(snapshot, emitOptions);
 
   const planPath = join(args.outDir, '.brunch', 'cook', 'plan.yaml');
   mkdirSync(dirname(planPath), { recursive: true });

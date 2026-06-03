@@ -16,8 +16,8 @@ prior slice.
 
 ## Slice 1: deterministic projection — completed spec → cook-valid plan.yaml skeleton
 
-**Status:** done. `src/orchestrator/src/cook-plan-projection.ts` exports
-`projectCookPlanFromSpec(snapshot) → Plan` + `CompletedSpecSnapshot`
+**Status:** done. `src/orchestrator/src/plan-projection.ts` exports
+`projectPlanFromSpec(snapshot) → Plan` + `CompletedSpecSnapshot`
 type; 7 tests (empty snapshot, N-requirement slice generation with
 stable `req-<kindOrdinal>` ids, `verifies`-edge linkage, drop of
 requirement→requirement `depends_on`, determinism, `loadPlan` YAML
@@ -29,7 +29,7 @@ isolation and is not touched by FE-800).
 
 ### Target Behavior
 
-A pure function `projectCookPlanFromSpec(snapshot)` takes a
+A pure function `projectPlanFromSpec(snapshot)` takes a
 `CompletedSpecSnapshot` (a structural shape — see Boundary Crossings
 below — that the caller assembles from the brunch server's knowledge
 tables) and returns a `Plan` (the existing
@@ -43,7 +43,7 @@ default epic that every slice attaches to.
 ### Boundary Crossings
 
 ```
-→ src/orchestrator/src/cook-plan-projection.ts (new — pure projector)
+→ src/orchestrator/src/plan-projection.ts (new — pure projector)
 → consumes:
     CompletedSpecSnapshot (new structural type, declared in this module):
       {
@@ -55,7 +55,7 @@ default epic that every slice attaches to.
       }
     Plan / Epic / Slice / Verification (existing — src/orchestrator/src/types.ts)
 → exits at:
-    src/orchestrator/src/cook-plan-projection.test.ts (new — unit tests
+    src/orchestrator/src/plan-projection.test.ts (new — unit tests
       + Plan-shape round-trip through structural conformance, not via
       filesystem)
 ```
@@ -139,10 +139,10 @@ This slice deliberately does NOT touch:
 ### Acceptance Criteria
 
 ```
-✓ `projectCookPlanFromSpec(snapshot)` exported from
-  `cook-plan-projection.ts`; pure (no I/O, no globals, no LLM).
+✓ `projectPlanFromSpec(snapshot)` exported from
+  `plan-projection.ts`; pure (no I/O, no globals, no LLM).
 
-✓ `CompletedSpecSnapshot` type exported from `cook-plan-projection.ts`
+✓ `CompletedSpecSnapshot` type exported from `plan-projection.ts`
   with the shape declared in Boundary Crossings.
 
 ✓ test: empty snapshot ({ requirements: [], criteria: [], edges: [] })
@@ -188,7 +188,7 @@ This slice deliberately does NOT touch:
 ### Verification Approach
 
 ```
-- Inner: cook-plan-projection.test.ts unit tests (empty snapshot, slice
+- Inner: plan-projection.test.ts unit tests (empty snapshot, slice
   generation, edge handling, depends_on drop, determinism,
   loadPlan round-trip, brunch_graphs corpus fixture).
 - Middle: deferred — server-side snapshot builder + orchestrator↔server
@@ -224,7 +224,7 @@ Open decisions still deferred (slice 3 or later):
 
 ## Slice 2: LLM planning pass — execution-order DAG + epic grouping + non-buildable detection
 
-**Status:** done. `src/orchestrator/src/cook-plan-llm-planning.ts`
+**Status:** done. `src/orchestrator/src/plan-llm-planning.ts`
 exports `planExecutionOrdering(plan, runModel) → PlanningResult`,
 `planningEnrichmentSchema` (Zod), `PlanningEnrichment` /
 `PlanningResult` / `RunModel` types, and `defaultRunModel` (Anthropic
@@ -255,7 +255,7 @@ reconciliation.
 ### Boundary Crossings
 
 ```
-→ src/orchestrator/src/cook-plan-llm-planning.ts (new — pure logic +
+→ src/orchestrator/src/plan-llm-planning.ts (new — pure logic +
    injected LLM seam, mirroring the reconciliation-agent pattern at
    src/server/reconciliation-agent.ts:61)
 → consumes:
@@ -266,14 +266,14 @@ reconciliation.
     @ai-sdk/anthropic + ai (generateText + Output.object) — already used
        by src/server/reconciliation-agent.ts, src/server/observer.ts
 → exits at:
-    src/orchestrator/src/cook-plan-llm-planning.test.ts (new — stubbed
+    src/orchestrator/src/plan-llm-planning.test.ts (new — stubbed
        runModel for inner-loop; opt-in real-LLM test gated on
        PLANNING_REAL_LLM=1)
 ```
 
 This slice deliberately does NOT touch:
 
-- `src/orchestrator/src/cook-plan-projection.ts` — the projector stays
+- `src/orchestrator/src/plan-projection.ts` — the projector stays
   pure-pure; this slice composes after it but does not modify it.
 - `src/orchestrator/src/cook-cli.ts` — no CLI surface yet; slice 4 or
   later wires the full pipeline (projection → LLM → reconciliation →
@@ -291,7 +291,7 @@ This slice deliberately does NOT touch:
   cleanly to the orchestrator package. The orchestrator already imports
   `@ai-sdk/anthropic` transitively via pi-actions (`pi` subprocess);
   importing it directly in slice 2 follows the same dependency surface.
-  → VALIDATE: cook-plan-llm-planning.ts imports the same packages and
+  → VALIDATE: plan-llm-planning.ts imports the same packages and
     pattern as reconciliation-agent.ts; unit tests run without any
     provider key (stubbed runModel); the real-LLM opt-in test only
     runs when PLANNING_REAL_LLM=1 + ANTHROPIC_API_KEY are set.
@@ -306,7 +306,7 @@ This slice deliberately does NOT touch:
     (parses through the Zod schema, no exceptions); spike rerun
     expected to land within the same token order.
 
-- ASSUMPTION: Inline prompt string in cook-plan-llm-planning.ts is the
+- ASSUMPTION: Inline prompt string in plan-llm-planning.ts is the
   right shape for slice 2 (orchestrator doesn't have a renderPromptAsset
   loader; pi-actions reads prompt files for subprocesses, not in-process
   LLM calls). Promote to a sibling .md file + a tiny renderer if the
@@ -368,7 +368,7 @@ This slice deliberately does NOT touch:
 
 ```
 ✓ `planExecutionOrdering(plan, runModel)` exported from
-  `cook-plan-llm-planning.ts`. Signature:
+  `plan-llm-planning.ts`. Signature:
     (plan: Plan, runModel: (prompt: string) => Promise<unknown>)
       => Promise<PlanningResult>
   where PlanningResult =
@@ -416,7 +416,7 @@ This slice deliberately does NOT touch:
 ✓ Opt-in real-LLM integration test gated on
   `process.env.PLANNING_REAL_LLM === '1'` AND `process.env.ANTHROPIC_API_KEY`:
   loads the brunch_graphs corpus fixture (slice 1 added it), projects
-  via projectCookPlanFromSpec, runs planExecutionOrdering with
+  via projectPlanFromSpec, runs planExecutionOrdering with
   defaultRunModel, asserts result.status === 'succeeded', and asserts
   at least one slice has a non-empty dependsOn or appears in
   nonBuildableSliceIds (proves the model is actually doing useful
@@ -428,7 +428,7 @@ This slice deliberately does NOT touch:
 ### Verification Approach
 
 ```
-- Inner: cook-plan-llm-planning.test.ts unit tests with stubbed
+- Inner: plan-llm-planning.test.ts unit tests with stubbed
   runModel. Covers success, semantic-passthrough, parse failure, thrown
   failure, empty plan, prompt content.
 - Middle: opt-in real-LLM integration test against the brunch_graphs
@@ -444,13 +444,13 @@ This slice deliberately does NOT touch:
 
 ## Slice 3: deterministic reconciliation — projected Plan + LLM enrichment → cook-runnable Plan
 
-**Status:** done. `src/orchestrator/src/cook-plan-reconciliation.ts`
-exports `reconcileCookPlan(projected, enrichment) → { plan, warnings }`
+**Status:** done. `src/orchestrator/src/plan-reconciliation.ts`
+exports `reconcilePlan(projected, enrichment) → { plan, warnings }`
 with the full `ReconciliationWarning` discriminated union (synthesized
 verification, self-loops, nonexistent ids, cycle-break edges,
 non-buildable slices + deps, empty epics, orphan→default).
 Acceptance criteria covered by 12 unit tests in
-`src/orchestrator/src/cook-plan-reconciliation.test.ts`, including the
+`src/orchestrator/src/plan-reconciliation.test.ts`, including the
 2-cycle / 3-cycle determinism pin and a brunch_graphs corpus
 end-to-end test that round-trips the reconciled plan through
 `loadPlan`. `npm run verify` green. Slice 4 (CLI wiring +
@@ -458,7 +458,7 @@ plan.yaml emission + warning surfacing) is next.
 
 ### Target Behavior
 
-A pure function `reconcileCookPlan(projected, enrichment) → { plan, warnings }`
+A pure function `reconcilePlan(projected, enrichment) → { plan, warnings }`
 takes slice 1's projected Plan plus slice 2's `PlanningEnrichment` and
 returns a cook-runnable Plan whose `depends_on` graph is acyclic and
 references only existing slice ids, whose epics partition the surviving
@@ -473,20 +473,20 @@ structured `ReconciliationWarning[]` rather than silently swallowed.
 ### Boundary Crossings
 
 ```
-→ src/orchestrator/src/cook-plan-reconciliation.ts (new — pure)
+→ src/orchestrator/src/plan-reconciliation.ts (new — pure)
 → consumes:
     Plan (existing — src/orchestrator/src/types.ts)
-    PlanningEnrichment (slice 2 — src/orchestrator/src/cook-plan-llm-planning.ts)
+    PlanningEnrichment (slice 2 — src/orchestrator/src/plan-llm-planning.ts)
 → exits at:
-    src/orchestrator/src/cook-plan-reconciliation.test.ts (new — unit
+    src/orchestrator/src/plan-reconciliation.test.ts (new — unit
        tests over hand-crafted Plan+enrichment pairs covering each
        reconciliation rule + the brunch_graphs corpus end-to-end)
 ```
 
 This slice deliberately does NOT touch:
 
-- `src/orchestrator/src/cook-plan-projection.ts` — projector stays untouched.
-- `src/orchestrator/src/cook-plan-llm-planning.ts` — planning pass
+- `src/orchestrator/src/plan-projection.ts` — projector stays untouched.
+- `src/orchestrator/src/plan-llm-planning.ts` — planning pass
   contract stays untouched; reconciliation consumes its output.
 - `src/orchestrator/src/cook-cli.ts` — no CLI surface yet (slice 4).
 - `src/orchestrator/src/net-compiler.ts` — cook engine unchanged;
@@ -585,8 +585,8 @@ This slice deliberately does NOT touch:
 ### Acceptance Criteria
 
 ```
-✓ `reconcileCookPlan(projected, enrichment)` exported from
-  `cook-plan-reconciliation.ts`; pure; returns
+✓ `reconcilePlan(projected, enrichment)` exported from
+  `plan-reconciliation.ts`; pure; returns
   `{ plan: Plan; warnings: ReconciliationWarning[] }`.
 
 ✓ `ReconciliationWarning` exported as a discriminated union including
@@ -644,7 +644,7 @@ This slice deliberately does NOT touch:
   serialise, (b) every slice has the synthesized verification target,
   (c) the non-buildable slice is gone, (d) warnings are non-empty.
 
-✓ test: determinism — calling `reconcileCookPlan` twice on the same
+✓ test: determinism — calling `reconcilePlan` twice on the same
   inputs returns structurally-equal outputs (plan + warnings).
 
 ✓ `npm run verify` green.
@@ -653,7 +653,7 @@ This slice deliberately does NOT touch:
 ### Verification Approach
 
 ```
-- Inner: cook-plan-reconciliation.test.ts unit tests over hand-crafted
+- Inner: plan-reconciliation.test.ts unit tests over hand-crafted
   Plan+enrichment pairs, one per reconciliation rule, plus a corpus
   end-to-end test against the brunch_graphs fixture. All pure, no I/O
   beyond the YAML round-trip.
@@ -666,15 +666,15 @@ This slice deliberately does NOT touch:
 
 ## Slice 4: CLI wiring — `brunch plan` composes projection + planning + reconciliation, writes `.brunch/cook/plan.yaml`, surfaces warnings
 
-**Status:** done. `src/orchestrator/src/cook-plan-emitter.ts` exports
-the pure composition `emitCookPlanFromSnapshot(snapshot, { runModel? })`;
+**Status:** done. `src/orchestrator/src/plan-emitter.ts` exports
+the pure composition `emitPlanFromSnapshot(snapshot, { runModel? })`;
 `src/orchestrator/src/plan-cli.ts` exports `parsePlanArgs` + `runPlan`;
 `src/server/cli.ts` dispatches `brunch plan <snapshot.json>
 [--out=<dir>] [--verbose]` to it. Emitter falls back to an empty
 enrichment when the LLM throws so a usable (orderless) plan still
 emits. Warnings print on stderr with a `  !  ` prefix and human-readable
 per-code format. 9 unit tests across
-`cook-plan-emitter.test.ts` (3) and `plan-cli.test.ts` (6) cover the
+`plan-emitter.test.ts` (3) and `plan-cli.test.ts` (6) cover the
 success path, LLM-failure fallback, YAML round-trip, arg parsing,
 end-to-end YAML emission, and warning surfacing. `npm run verify`
 green (known unrelated `src/server/app.test.ts` flake reproduced once
@@ -704,12 +704,12 @@ cook`.
 ### Acceptance Criteria
 
 ```
-✓ A new pure composition function `emitCookPlanFromSnapshot(snapshot, {
-  runModel })` exported from `src/orchestrator/src/cook-plan-emitter.ts`
+✓ A new pure composition function `emitPlanFromSnapshot(snapshot, {
+  runModel })` exported from `src/orchestrator/src/plan-emitter.ts`
   returns `{ plan, warnings, planningResult }`. The `runModel` is
   injectable so unit tests can drive the function without an LLM call.
 
-✓ test: `emitCookPlanFromSnapshot` with an injected `runModel` that
+✓ test: `emitPlanFromSnapshot` with an injected `runModel` that
   returns a hand-crafted enrichment composes the three stages and
   returns a reconciled plan whose slice ids come from the snapshot's
   requirements, whose every slice has the synthesized unit-test target,
@@ -723,7 +723,7 @@ cook`.
   command).
 
 ✓ A new `brunch plan <snapshot.json> [--out=<dir>] [--verbose]` command
-  reads the JSON, calls `emitCookPlanFromSnapshot` with
+  reads the JSON, calls `emitPlanFromSnapshot` with
   `defaultRunModel`, writes `<dir>/.brunch/cook/plan.yaml` (creating
   the `.brunch/cook/` directory if missing; default `<dir>` = cwd),
   and prints every warning prefixed with `  !  ` on stderr.
@@ -733,7 +733,7 @@ cook`.
   missing.
 
 ✓ test: the emitted plan round-trips through `loadPlan` — write to a
-  tmp file via `emitCookPlanFromSnapshot` + `stringifyYaml`, reload
+  tmp file via `emitPlanFromSnapshot` + `stringifyYaml`, reload
   via `loadPlan`, assert structural equality.
 
 ✓ `brunch --help` lists the `plan` command.
@@ -744,7 +744,7 @@ cook`.
 ### Verification Approach
 
 ```
-- Inner: `cook-plan-emitter.test.ts` unit tests over the composition
+- Inner: `plan-emitter.test.ts` unit tests over the composition
   function with an injected `runModel` (stubbed success + stubbed
   failure). `parsePlanArgs` unit tests in a small CLI-test file under
   the orchestrator package.
@@ -775,11 +775,11 @@ Stays light.
 
 ## Slice 5: warning-model hardening — single warning stream, synthesis demoted, formatter co-located
 
-**Status:** done. `cook-plan-reconciliation.ts` exports
+**Status:** done. `plan-reconciliation.ts` exports
 `reconciliationWarningCategory` (`'transformation' | 'synthesis'`,
 exhaustive over the union) and `formatReconciliationWarning` (one
 line per code, co-located with the type definition).
-`cook-plan-emitter.ts` introduces `EmitterWarning =
+`plan-emitter.ts` introduces `EmitterWarning =
 ReconciliationWarning | { code: 'planning-failed'; reason: string }`,
 exports `emitterWarningCategory` (`'transformation' | 'synthesis' |
 'failure'`) and `formatEmitterWarning`, and pushes one
@@ -805,7 +805,7 @@ planning-failure across two return shapes, #5 formatter colocation).
 ### Objective
 
 Make the warning stream the **single source of audit truth** for a
-cook-plan emit: planning failures appear as warnings (not just on a
+plan emit: planning failures appear as warnings (not just on a
 separate `planningResult.status`), synthesis events are demoted so
 reviewers' eyes are drawn to real transformations, and the human
 formatter lives next to the warning union it formats.
@@ -813,7 +813,7 @@ formatter lives next to the warning union it formats.
 ### Acceptance Criteria
 
 ```
-✓ `cook-plan-emitter.ts` defines and exports a new top-level
+✓ `plan-emitter.ts` defines and exports a new top-level
   `EmitterWarning` discriminated union = `ReconciliationWarning |
   { code: 'planning-failed'; reason: string }`. The emitter returns
   `{ plan, warnings: EmitterWarning[], planningResult }`. When the LLM
@@ -822,7 +822,7 @@ formatter lives next to the warning union it formats.
   existing empty-enrichment fallback. `planningResult` is preserved
   unchanged for callers that want the raw stage status.
 
-✓ `cook-plan-reconciliation.ts` exports two helpers next to the
+✓ `plan-reconciliation.ts` exports two helpers next to the
   `ReconciliationWarning` type:
     - `reconciliationWarningCategory(w): 'transformation' | 'synthesis'`
       — `'synthesis'` for `synthesized-verification-target`,
@@ -831,7 +831,7 @@ formatter lives next to the warning union it formats.
       `plan-cli.ts`'s private `formatWarning`. Same per-code format
       strings; tests assert one example per code.
 
-✓ `cook-plan-emitter.ts` exports `emitterWarningCategory(w):
+✓ `plan-emitter.ts` exports `emitterWarningCategory(w):
   'transformation' | 'synthesis' | 'failure'` and `formatEmitterWarning
   (w): string` so callers have one place to ask both questions about
   any warning the emitter produces.
@@ -871,8 +871,8 @@ formatter lives next to the warning union it formats.
 ### Verification Approach
 
 ```
-- Inner: extended unit tests across `cook-plan-emitter.test.ts`,
-  `cook-plan-reconciliation.test.ts`, `plan-cli.test.ts`. All pure
+- Inner: extended unit tests across `plan-emitter.test.ts`,
+  `plan-reconciliation.test.ts`, `plan-cli.test.ts`. All pure
   modulo the injected `runModel` and the stderr-capture seam already
   used by `runPlan`.
 - Middle: none — no new behavior crosses package boundaries beyond
