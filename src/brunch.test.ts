@@ -90,6 +90,22 @@ describe('Brunch CLI dispatch', () => {
     expect(launchedWith).toMatchObject({ cwd: '/tmp/brunch-project' });
   });
 
+  it('routes empty argv to the TUI launch path', async () => {
+    let launchedTui = false;
+
+    const code = await runBrunchCli({
+      argv: [],
+      cwd: '/tmp/brunch-project',
+      coordinator: coordinator(),
+      launchTui: async () => {
+        launchedTui = true;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(launchedTui).toBe(true);
+  });
+
   it('routes --mode print through the coordinator snapshot and exits', async () => {
     let output = '';
 

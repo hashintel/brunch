@@ -206,7 +206,7 @@ describe('Brunch TUI boot', () => {
     expect(events).toEqual(['inspect', 'preflight', 'activate:continue', 'launch:session-ready']);
   });
 
-  it('starts an observer web host with the shared update publisher before interactive mode', async () => {
+  it('starts a web sidecar on the active spec route with the shared update publisher before interactive mode', async () => {
     const events: string[] = [];
     const workspace = readyWorkspace('/tmp/project', 'session-ready');
     let sharedPublisher:
@@ -244,8 +244,8 @@ describe('Brunch TUI boot', () => {
           sessionFile: workspace.session.file,
         };
       },
-      observerWebHostRunner: async ({ cwd, productUpdates }) => {
-        events.push(`observer:${cwd}`);
+      webSidecarRunner: async ({ cwd, productUpdates, routePath }) => {
+        events.push(`sidecar:${cwd}:${routePath}`);
         sharedPublisher = productUpdates;
         const unsubscribe = productUpdates.subscribe((updates) => {
           events.push(`update:${updates[0]?.topic}`);
@@ -254,7 +254,7 @@ describe('Brunch TUI boot', () => {
           url: 'http://127.0.0.1:49152',
           async close() {
             unsubscribe();
-            events.push('observer-close');
+            events.push('sidecar-close');
           },
         };
       },
@@ -269,10 +269,62 @@ describe('Brunch TUI boot', () => {
       'inspect',
       'preflight',
       'activate:continue',
-      'observer:/tmp/project',
+      'sidecar:/tmp/project:/spec/1',
       'launch',
       'update:graph.overview',
-      'observer-close',
+      'sidecar-close',
+    ]);
+  });
+
+  it('can disable browser auto-open while still advertising the active spec sidecar route', async () => {
+    const events: string[] = [];
+    const workspace = readyWorkspace('/tmp/project', 'session-ready');
+
+    await runBrunchTui({
+      cwd: '/tmp/project',
+      autoOpen: false,
+      coordinator: {
+        inspectWorkspace: async () => ({
+          cwd: '/tmp/project',
+          currentSpec: workspace.spec,
+          currentSessionFile: workspace.session.file,
+          needsNewSpec: false,
+          specs: [],
+          unavailableSessions: [],
+        }),
+        activateWorkspace: async () => workspace,
+        bindCurrentSpecToReplacementSession: async () => workspace,
+      },
+      runWorkspaceDialogPreflight: async () => ({
+        action: 'continue',
+        specId: workspace.spec.id,
+        sessionFile: workspace.session.file,
+      }),
+      webSidecarRunner: async ({ routePath }) => {
+        events.push(`sidecar:${routePath}`);
+        return {
+          url: 'http://127.0.0.1:49152',
+          async close() {
+            events.push('sidecar-close');
+          },
+        };
+      },
+      openBrowser: async (url) => {
+        events.push(`open:${url}`);
+      },
+      advertiseWebSidecar: (url) => {
+        events.push(`advertise:${url}`);
+      },
+      launchInteractive: async () => {
+        events.push('launch');
+      },
+    });
+
+    expect(events).toEqual([
+      'sidecar:/spec/1',
+      'advertise:http://127.0.0.1:49152/spec/1',
+      'launch',
+      'sidecar-close',
     ]);
   });
 

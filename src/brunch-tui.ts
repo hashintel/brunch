@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import process from 'node:process';
 
 import {
@@ -48,13 +49,14 @@ export { runWorkspaceDialogPreflight } from './.pi/components/workspace-dialog.j
 
 export type BrunchTuiCoordinator = SpecSessionActivationCoordinator & WorkspaceSessionBoundaryCoordinator;
 
-export interface BrunchObserverWebHostRunnerOptions {
+export interface BrunchWebSidecarRunnerOptions {
   cwd: string;
   coordinator: BrunchTuiCoordinator;
   productUpdates: ProductUpdatePublisher;
+  routePath: string;
 }
 
-export type BrunchObserverWebHost = Pick<RunningWebHost, 'url' | 'close'>;
+export type BrunchWebSidecar = Pick<RunningWebHost, 'url' | 'close'>;
 
 export interface BrunchTuiLaunchContext {
   workspace: WorkspaceSessionReadyState;
@@ -70,9 +72,10 @@ export interface BrunchTuiOptions {
     inventory: WorkspaceLaunchInventory,
   ) => Promise<SpecSessionActivationDecision>;
   launchInteractive?: (context: BrunchTuiLaunchContext) => Promise<void>;
-  observerWebHostRunner?: (
-    options: BrunchObserverWebHostRunnerOptions,
-  ) => Promise<BrunchObserverWebHost | null>;
+  webSidecarRunner?: (options: BrunchWebSidecarRunnerOptions) => Promise<BrunchWebSidecar | null>;
+  autoOpen?: boolean;
+  openBrowser?: (url: string) => Promise<void>;
+  advertiseWebSidecar?: (url: string) => void;
 }
 
 export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void> {
@@ -91,11 +94,20 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
     throw new Error(workspaceState.reason);
   }
 
-  const observerHost = await (options.observerWebHostRunner ?? startDefaultObserverWebHost)({
+  const routePath = webSidecarRoutePath(workspaceState.spec.id);
+  const webSidecar = await (options.webSidecarRunner ?? startDefaultWebSidecar)({
     cwd,
     coordinator,
     productUpdates,
+    routePath,
   });
+  const webSidecarUrl = webSidecar ? `${webSidecar.url}${routePath}` : null;
+  if (webSidecarUrl) {
+    (options.advertiseWebSidecar ?? advertiseWebSidecar)(webSidecarUrl);
+    if (options.autoOpen !== false) {
+      await (options.openBrowser ?? openBrowser)(webSidecarUrl);
+    }
+  }
   try {
     await (options.launchInteractive ?? launchPiInteractive)({
       workspace: workspaceState,
@@ -103,7 +115,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
       productUpdates,
     });
   } finally {
-    await observerHost?.close();
+    await webSidecar?.close();
   }
 }
 
@@ -169,18 +181,34 @@ export function createBrunchAgentSessionRuntimeFactory({
   };
 }
 
-async function startDefaultObserverWebHost({
+async function startDefaultWebSidecar({
   cwd,
   coordinator,
   productUpdates,
-}: BrunchObserverWebHostRunnerOptions): Promise<BrunchObserverWebHost> {
+}: BrunchWebSidecarRunnerOptions): Promise<BrunchWebSidecar> {
   const host = await startWebHost({
     cwd,
     coordinator: coordinator as WorkspaceSessionCoordinator,
     productUpdates,
   });
-  process.stdout.write(`Brunch observer listening on ${host.url}\n`);
   return host;
+}
+
+function webSidecarRoutePath(specId: number): string {
+  return `/spec/${specId}`;
+}
+
+function advertiseWebSidecar(url: string): void {
+  process.stdout.write(`Brunch web sidecar listening on ${url}\n`);
+}
+
+async function openBrowser(url: string): Promise<void> {
+  const command = process.platform === 'darwin' ? 'open' : 'xdg-open';
+  const child = spawn(command, [url], {
+    detached: true,
+    stdio: 'ignore',
+  });
+  child.unref();
 }
 
 async function launchPiInteractive(context: BrunchTuiLaunchContext): Promise<void> {

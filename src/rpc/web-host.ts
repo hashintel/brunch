@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { createServer, type Server } from 'node:http';
+import { createServer, type Server, type ServerResponse } from 'node:http';
 import { dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,23 +29,8 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
   void options.cwd;
   const webAssetRoot = options.webAssetRoot ?? defaultWebAssetRoot();
   const server = createServer((request, response) => {
-    if (request.method === 'GET' && request.url === '/') {
-      void readFile(resolve(webAssetRoot, 'index.html')).then(
-        (asset) => {
-          response.writeHead(200, {
-            'content-type': 'text/html; charset=utf-8',
-            'cache-control': 'no-store',
-          });
-          response.end(asset);
-        },
-        () => {
-          response.writeHead(500, {
-            'content-type': 'text/plain; charset=utf-8',
-            'cache-control': 'no-store',
-          });
-          response.end(MISSING_WEB_BUNDLE_MESSAGE);
-        },
-      );
+    if (request.method === 'GET' && isSpaFallbackRequest(request.url)) {
+      serveIndexHtml(response, webAssetRoot);
       return;
     }
 
@@ -115,6 +100,37 @@ function defaultWebAssetRoot(): string {
   return resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'dist-web');
 }
 
+function isSpaFallbackRequest(requestUrl: string | undefined): boolean {
+  if (!requestUrl) {
+    return false;
+  }
+  let pathname: string;
+  try {
+    pathname = new URL(requestUrl, 'http://brunch.local').pathname;
+  } catch {
+    return false;
+  }
+  return pathname === '/' || pathname.startsWith('/spec/');
+}
+
+function serveIndexHtml(response: ServerResponse, webAssetRoot: string): void {
+  void readFile(resolve(webAssetRoot, 'index.html')).then(
+    (asset) => {
+      response.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+      });
+      response.end(asset);
+    },
+    () => {
+      response.writeHead(500, {
+        'content-type': 'text/plain; charset=utf-8',
+        'cache-control': 'no-store',
+      });
+      response.end(MISSING_WEB_BUNDLE_MESSAGE);
+    },
+  );
+}
 interface ResolvedAssetRequest {
   file: string;
   relativePath: string;
