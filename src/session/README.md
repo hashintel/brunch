@@ -10,7 +10,7 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **Transcript projection** — reading Pi JSONL, projecting Brunch-relevant
   structure (assistant/user rows, custom entries, tool results).
 
-- **Exchange extraction** — elicitation exchange projection: prompt-side
+- **Exchange extraction** — session exchange projection: prompt-side
   span + response-side span, per D13-L.
 
 - **Runtime-state projection** — flattened transcript-backed agent posture,
@@ -62,7 +62,7 @@ These files migrated here on 2026-06-02:
 | `brunch-session-envelope.ts`      | session envelope reader            |
 | `session-projection-reader.ts`    | JSONL projection target resolution |
 | `session-transcript.ts`           | transcript row projection          |
-| `elicitation-exchange.ts`         | exchange extraction                |
+| `exchange-projection.ts`         | exchange extraction                |
 | `runtime-state.ts`                | runtime state projection           |
 | `structured-exchange.ts`          | structured exchange schemas/types  |
 | `structured-exchange-loop.ts`     | deterministic exchange loop helpers|

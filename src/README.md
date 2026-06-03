@@ -55,7 +55,7 @@ Rules:
 
 The session-domain files (workspace-session-coordinator, session-binding,
 session-projection-reader, brunch-session-envelope, session-transcript,
-elicitation-exchange, structured-exchange, project-identity) now live in
+exchange-projection, structured-exchange, project-identity) now live in
 `src/session/`; `brunch-pi-profile.ts` in `src/.pi/`; `web-host` in `src/rpc/`;
 the React client in `src/web/` (formerly `web-client/`); shared test helpers
 in `src/probes/`. The active workspace file is `.brunch/workspace.json`

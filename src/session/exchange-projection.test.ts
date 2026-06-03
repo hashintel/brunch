@@ -8,12 +8,12 @@ import { describe, expect, it } from 'vitest';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
 import {
   loadJsonlTranscriptEntries,
-  loadLinearElicitationExchangeProjection,
+  loadLinearSessionExchangeProjection,
   loadLinearTranscriptDisplayProjection,
   NonLinearTranscriptError,
-  projectElicitationExchanges,
+  projectSessionExchanges,
   projectTranscriptDisplay,
-} from './elicitation-exchange.js';
+} from './exchange-projection.js';
 import { createSessionBindingData } from './session-binding.js';
 import { STRUCTURED_EXCHANGE_RESULT_SCHEMA } from './structured-exchange.js';
 
@@ -197,9 +197,9 @@ function appendBinding(manager: SessionManager): void {
   );
 }
 
-describe('elicitation exchange projection', () => {
+describe('session exchange projection', () => {
   it('projects assistant prompt spans and user response spans with stable ranges', () => {
-    const exchanges = projectElicitationExchanges([
+    const exchanges = projectSessionExchanges([
       { id: 's1', type: 'session' },
       assistant,
       structuredPrompt,
@@ -237,7 +237,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('includes known standalone elicitor custom entries on the prompt side', () => {
-    const projection = projectElicitationExchanges([
+    const projection = projectSessionExchanges([
       assistant,
       {
         id: 'offer-1',
@@ -252,7 +252,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('ignores unknown custom entries even when their type contains prompt', () => {
-    const projection = projectElicitationExchanges([
+    const projection = projectSessionExchanges([
       assistant,
       {
         id: 'operational-1',
@@ -267,7 +267,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('includes structured response entries on the response side', () => {
-    const projection = projectElicitationExchanges([assistant, user, structuredResponse]);
+    const projection = projectSessionExchanges([assistant, user, structuredResponse]);
 
     expect(projection.exchanges[0]?.responseEntryIds).toEqual(['u1', 'r1']);
     expect(projection.exchanges[0]?.responseRange).toEqual({
@@ -277,7 +277,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('includes Pi toolResult messages on the prompt side', () => {
-    const projection = projectElicitationExchanges([assistant, toolResult, user]);
+    const projection = projectSessionExchanges([assistant, toolResult, user]);
 
     expect(projection.exchanges[0]?.promptEntryIds).toEqual(['a1', 't1']);
     expect(projection.exchanges[0]?.promptRange).toEqual({
@@ -287,7 +287,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('projects an unmatched present tool result as an open prompt', () => {
-    const projection = projectElicitationExchanges([presentQuestionToolResult]);
+    const projection = projectSessionExchanges([presentQuestionToolResult]);
 
     expect(projection).toEqual({
       status: 'open_prompt',
@@ -300,7 +300,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('closes a present/request structured-exchange tuple only when request details match', () => {
-    const projection = projectElicitationExchanges([presentQuestionToolResult, requestAnswerToolResult]);
+    const projection = projectSessionExchanges([presentQuestionToolResult, requestAnswerToolResult]);
 
     expect(projection).toEqual({
       status: 'ready',
@@ -320,7 +320,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('does not close an open present with a mismatched request tuple', () => {
-    const projection = projectElicitationExchanges([
+    const projection = projectSessionExchanges([
       presentQuestionToolResult,
       mismatchedRequestAnswerToolResult,
     ]);
@@ -358,7 +358,7 @@ describe('elicitation exchange projection', () => {
         },
       };
 
-      const projection = projectElicitationExchanges([presentOptions, requestChoices]);
+      const projection = projectSessionExchanges([presentOptions, requestChoices]);
 
       expect(projection.exchanges[0]?.responseEntryIds).toEqual([`request-choices-${status}`]);
       expect(projection.openPrompt).toBeNull();
@@ -394,7 +394,7 @@ describe('elicitation exchange projection', () => {
     };
 
     for (const request of [wrongPresentToolRequest, unexpectedRequestTool]) {
-      const projection = projectElicitationExchanges([presentQuestionToolResult, request]);
+      const projection = projectSessionExchanges([presentQuestionToolResult, request]);
 
       expect(projection.exchanges).toEqual([]);
       expect(projection.openPrompt?.promptEntryIds).toEqual(['present-question-1']);
@@ -419,7 +419,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('classifies terminal structured-exchange tool results as response-side entries', () => {
-    const projection = projectElicitationExchanges([assistant, structuredExchangeToolResult]);
+    const projection = projectSessionExchanges([assistant, structuredExchangeToolResult]);
 
     expect(projection.exchanges[0]?.promptEntryIds).toEqual(['a1']);
     expect(projection.exchanges[0]?.responseEntryIds).toEqual(['sq1']);
@@ -431,20 +431,20 @@ describe('elicitation exchange projection', () => {
   });
 
   it('keeps non-terminal structured-exchange tool results on the prompt side', () => {
-    const projection = projectElicitationExchanges([assistant, unavailableStructuredExchangeToolResult]);
+    const projection = projectSessionExchanges([assistant, unavailableStructuredExchangeToolResult]);
 
     expect(projection.exchanges).toEqual([]);
     expect(projection.openPrompt?.promptEntryIds).toEqual(['a1', 'sq-unavailable']);
   });
 
   it('returns an explicit empty/open shape for incomplete transcripts', () => {
-    expect(projectElicitationExchanges([])).toEqual({
+    expect(projectSessionExchanges([])).toEqual({
       status: 'empty',
       exchanges: [],
       openPrompt: null,
     });
 
-    expect(projectElicitationExchanges([assistant])).toEqual({
+    expect(projectSessionExchanges([assistant])).toEqual({
       status: 'open_prompt',
       exchanges: [],
       openPrompt: {
@@ -455,7 +455,7 @@ describe('elicitation exchange projection', () => {
   });
 
   it('ignores orphan user responses before a prompt', () => {
-    const projection = projectElicitationExchanges([
+    const projection = projectSessionExchanges([
       user,
       {
         id: 'a2',
@@ -481,7 +481,7 @@ describe('elicitation exchange projection', () => {
     manager.appendMessage(assistantMessage('Question'));
     manager.appendMessage(userMessage('Answer'));
 
-    const projection = await loadLinearElicitationExchangeProjection(manager.getSessionFile()!);
+    const projection = await loadLinearSessionExchangeProjection(manager.getSessionFile()!);
 
     expect(projection.status).toBe('ready');
     expect(projection.exchanges).toHaveLength(1);
@@ -518,7 +518,7 @@ describe('elicitation exchange projection', () => {
       timestamp: 0,
     });
 
-    const projection = await loadLinearElicitationExchangeProjection(manager.getSessionFile()!);
+    const projection = await loadLinearSessionExchangeProjection(manager.getSessionFile()!);
 
     expect(projection.status).toBe('ready');
     expect(projection.exchanges).toHaveLength(1);
@@ -605,7 +605,7 @@ describe('elicitation exchange projection', () => {
     manager.resetLeaf();
     manager.appendMessage(assistantMessage('Active prompt'));
 
-    await expect(loadLinearElicitationExchangeProjection(manager.getSessionFile()!)).rejects.toThrow(
+    await expect(loadLinearSessionExchangeProjection(manager.getSessionFile()!)).rejects.toThrow(
       NonLinearTranscriptError,
     );
   });
@@ -720,6 +720,6 @@ describe('elicitation exchange projection', () => {
 
     const entries = await loadJsonlTranscriptEntries(file);
 
-    expect(projectElicitationExchanges(entries).exchanges).toHaveLength(1);
+    expect(projectSessionExchanges(entries).exchanges).toHaveLength(1);
   });
 });

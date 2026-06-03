@@ -4,11 +4,11 @@ import { Value } from 'typebox/value';
 import type { StructuredExchangePresentDetails } from '../.pi/extensions/structured-exchange/shared/model.js';
 import { isStructuredExchangePresentDetails } from '../.pi/extensions/structured-exchange/shared/recovery.js';
 import type { BrunchSessionEnvelope } from './brunch-session-envelope.js';
-import { projectLinearElicitationExchangeProjection } from './elicitation-exchange.js';
+import { projectLinearSessionExchangeProjection } from './exchange-projection.js';
 
 const NonBlankStringSchema = Type.String({ minLength: 1 });
 
-export const PendingElicitationExchangeSchema = Type.Object(
+export const PendingStructuredExchangeSchema = Type.Object(
   {
     exchangeId: NonBlankStringSchema,
     lens: Type.Literal('intent'),
@@ -74,7 +74,7 @@ export interface AcceptedToolResultMessage {
   timestamp: 0;
 }
 
-export type PendingElicitationExchange = Static<typeof PendingElicitationExchangeSchema>;
+export type PendingStructuredExchange = Static<typeof PendingStructuredExchangeSchema>;
 
 export type AcceptedStructuredExchangeResponse =
   | {
@@ -94,9 +94,9 @@ interface PendingChoice {
   rationale?: string;
 }
 
-export function nextDeterministicElicitationExchange(completedCount: number): PendingElicitationExchange {
+export function nextDeterministicStructuredExchange(completedCount: number): PendingStructuredExchange {
   const turnNumber = completedCount + 1;
-  const script: PendingElicitationExchange[] = [
+  const script: PendingStructuredExchange[] = [
     {
       exchangeId: `deterministic-grounding-choice-${turnNumber}`,
       lens: 'intent',
@@ -174,7 +174,7 @@ export function nextDeterministicElicitationExchange(completedCount: number): Pe
   return script[completedCount % script.length]!;
 }
 
-export function presentToolResultMessage(exchange: PendingElicitationExchange) {
+export function presentToolResultMessage(exchange: PendingStructuredExchange) {
   const presentTool = exchange.mode === 'text' ? 'present_question' : 'present_options';
   const requestTool =
     exchange.mode === 'text'
@@ -209,8 +209,8 @@ export function presentToolResultMessage(exchange: PendingElicitationExchange) {
 
 export function pendingExchangeFromEnvelope(
   envelope: BrunchSessionEnvelope,
-): PendingElicitationExchange | null {
-  const projection = projectLinearElicitationExchangeProjection(envelope);
+): PendingStructuredExchange | null {
+  const projection = projectLinearSessionExchangeProjection(envelope);
   if (!projection.openPrompt) {
     return null;
   }
@@ -221,10 +221,10 @@ export function pendingExchangeFromEnvelope(
         candidate.type === 'custom_message' &&
         candidate.id === entryId &&
         candidate.customType === 'brunch.elicitation_prompt' &&
-        Value.Check(PendingElicitationExchangeSchema, candidate.details),
+        Value.Check(PendingStructuredExchangeSchema, candidate.details),
     );
     if (entry?.type === 'custom_message') {
-      return Value.Parse(PendingElicitationExchangeSchema, entry.details);
+      return Value.Parse(PendingStructuredExchangeSchema, entry.details);
     }
   }
 
@@ -241,9 +241,9 @@ export function pendingExchangeFromEnvelope(
   return null;
 }
 
-export function projectPendingElicitationExchange(
+export function projectPendingStructuredExchange(
   envelope: BrunchSessionEnvelope,
-): { status: 'pending'; exchange: PendingElicitationExchange } | { status: 'idle'; exchange: null } {
+): { status: 'pending'; exchange: PendingStructuredExchange } | { status: 'idle'; exchange: null } {
   const exchange = pendingExchangeFromEnvelope(envelope);
   if (!exchange) {
     return { status: 'idle', exchange: null };
@@ -252,7 +252,7 @@ export function projectPendingElicitationExchange(
 }
 
 export function acceptedResponseFromParams(
-  pending: PendingElicitationExchange,
+  pending: PendingStructuredExchange,
   params: StructuredExchangeResponseInput,
 ): AcceptedStructuredExchangeResponse {
   if ('text' in params.answer) {
@@ -327,7 +327,7 @@ function invalidResponseMode(): AcceptedStructuredExchangeResponse {
 }
 
 function requestDetailsBase(
-  pending: PendingElicitationExchange,
+  pending: PendingStructuredExchange,
   requestTool: 'request_answer' | 'request_choice' | 'request_choices',
 ): Record<string, unknown> {
   return {
@@ -345,7 +345,7 @@ function requestDetailsBase(
 }
 
 function toolResultMessageBase(
-  pending: PendingElicitationExchange,
+  pending: PendingStructuredExchange,
   requestTool: 'request_answer' | 'request_choice' | 'request_choices',
 ) {
   return {
@@ -365,7 +365,7 @@ function choiceResponseMarkdown(choices: Array<{ label: string }>, comment: stri
   return lines.join('\n');
 }
 
-function presentMarkdown(exchange: PendingElicitationExchange): string {
+function presentMarkdown(exchange: PendingStructuredExchange): string {
   if (exchange.mode === 'text') {
     return [`## ${exchange.prompt}`, exchange.details].filter(Boolean).join('\n\n');
   }
@@ -384,7 +384,7 @@ function presentMarkdown(exchange: PendingElicitationExchange): string {
 function pendingExchangeFromStructuredPresent(
   details: StructuredExchangePresentDetails,
   markdown: string,
-): PendingElicitationExchange {
+): PendingStructuredExchange {
   const richDetails = details as StructuredExchangePresentDetails & {
     prompt?: unknown;
     details?: unknown;

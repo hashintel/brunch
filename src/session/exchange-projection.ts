@@ -41,7 +41,7 @@ export interface EntryRange {
   end: string;
 }
 
-export interface ElicitationExchange {
+export interface SessionExchange {
   promptRange: EntryRange;
   responseRange: EntryRange;
   promptEntryIds: string[];
@@ -53,9 +53,9 @@ export interface OpenPromptProjection {
   promptEntryIds: string[];
 }
 
-export interface ElicitationExchangeProjection {
+export interface SessionExchangeProjection {
   status: 'empty' | 'open_prompt' | 'ready';
-  exchanges: ElicitationExchange[];
+  exchanges: SessionExchange[];
   openPrompt: OpenPromptProjection | null;
 }
 
@@ -71,10 +71,8 @@ export interface TranscriptDisplayProjection {
 
 export { loadJsonlTranscriptEntries, NonLinearTranscriptError };
 
-export async function loadLinearElicitationExchangeProjection(
-  file: string,
-): Promise<ElicitationExchangeProjection> {
-  return projectLinearElicitationExchangeProjection(await loadBrunchSessionEnvelope(file));
+export async function loadLinearSessionExchangeProjection(file: string): Promise<SessionExchangeProjection> {
+  return projectLinearSessionExchangeProjection(await loadBrunchSessionEnvelope(file));
 }
 
 export async function loadLinearTranscriptDisplayProjection(
@@ -83,11 +81,11 @@ export async function loadLinearTranscriptDisplayProjection(
   return projectLinearTranscriptDisplayProjection(await loadBrunchSessionEnvelope(file));
 }
 
-export function projectLinearElicitationExchangeProjection(
+export function projectLinearSessionExchangeProjection(
   envelope: BrunchSessionEnvelope,
-): ElicitationExchangeProjection {
+): SessionExchangeProjection {
   assertLinearBrunchSessionEnvelope(envelope);
-  return projectElicitationExchanges(envelope.entries);
+  return projectSessionExchanges(envelope.entries);
 }
 
 export function projectLinearTranscriptDisplayProjection(
@@ -149,8 +147,8 @@ export function projectTranscriptDisplay(entries: readonly unknown[]): Transcrip
   return { rows };
 }
 
-export function projectElicitationExchanges(entries: readonly unknown[]): ElicitationExchangeProjection {
-  const exchanges: ElicitationExchange[] = [];
+export function projectSessionExchanges(entries: readonly unknown[]): SessionExchangeProjection {
+  const exchanges: SessionExchange[] = [];
   let promptIds: string[] = [];
   let responseIds: string[] = [];
   let openStructuredExchange: StructuredExchangePresentDetails | undefined;

@@ -678,7 +678,7 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('serves session elicitation exchanges from the coordinator-selected session', async () => {
+  it('serves session exchanges from the coordinator-selected session', async () => {
     const sessionFile = await createSessionFile();
     const handlers = createRpcHandlers({
       coordinator: coordinator(readyState(sessionFile)),
@@ -764,7 +764,7 @@ describe('JSON-RPC handlers', () => {
     expect(sessionText).toContain('"lens":"intent"');
   });
 
-  it('reads the selected pending elicitation exchange from transcript truth', async () => {
+  it('reads the selected pending structured exchange from transcript truth', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-pending-'));
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
     await coordinatorInstance.createSetupSession({
@@ -1315,7 +1315,7 @@ describe('JSON-RPC handlers', () => {
       id: 59,
       error: {
         code: -32006,
-        message: 'Pending elicitation exchange does not match request',
+        message: 'Pending structured exchange does not match request',
       },
     });
     await expect(readFile(workspace.session.file, 'utf8')).resolves.toBe(before);
@@ -1396,7 +1396,7 @@ describe('JSON-RPC handlers', () => {
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
       id: 64,
-      error: { code: -32008, message: 'No pending elicitation exchange' },
+      error: { code: -32008, message: 'No pending structured exchange' },
     });
     await expect(readFile(workspace.session.file, 'utf8')).resolves.toBe(before);
   });
@@ -1485,7 +1485,7 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('serves session elicitation exchanges by durable session id without opening the selected workspace session', async () => {
+  it('serves session exchanges by durable session id without opening the selected workspace session', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-explicit-session-'));
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
     const first = await coordinatorInstance.createSetupSession({
@@ -1820,7 +1820,7 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('rejects raw file params on session elicitation exchange RPC', async () => {
+  it('rejects raw file params on session session exchange RPC', async () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator(),
       cwd: '/tmp/brunch-project',

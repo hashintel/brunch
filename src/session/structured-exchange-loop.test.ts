@@ -4,7 +4,7 @@ import type { BrunchSessionEnvelope } from './brunch-session-envelope.js';
 import { createSessionBindingData } from './session-binding.js';
 import {
   acceptedResponseFromParams,
-  nextDeterministicElicitationExchange,
+  nextDeterministicStructuredExchange,
   pendingExchangeFromEnvelope,
 } from './structured-exchange-loop.js';
 
@@ -21,7 +21,7 @@ const bindingEntry = {
 
 describe('structured exchange loop helpers', () => {
   it('materializes accepted text responses as request_answer tool results', () => {
-    const pending = nextDeterministicElicitationExchange(1);
+    const pending = nextDeterministicStructuredExchange(1);
 
     const accepted = acceptedResponseFromParams(pending, {
       exchangeId: pending.exchangeId,
@@ -47,7 +47,7 @@ describe('structured exchange loop helpers', () => {
   });
 
   it('materializes accepted single-select responses as request_choice tool results', () => {
-    const pending = nextDeterministicElicitationExchange(0);
+    const pending = nextDeterministicStructuredExchange(0);
 
     const accepted = acceptedResponseFromParams(pending, {
       exchangeId: pending.exchangeId,
@@ -71,7 +71,7 @@ describe('structured exchange loop helpers', () => {
   });
 
   it('materializes accepted multi-select responses and requires comments for Other or None', () => {
-    const pending = nextDeterministicElicitationExchange(2);
+    const pending = nextDeterministicStructuredExchange(2);
 
     expect(
       acceptedResponseFromParams(pending, {
@@ -105,7 +105,7 @@ describe('structured exchange loop helpers', () => {
   });
 
   it('rejects response mode and option mismatches without materializing a tool result', () => {
-    const pending = nextDeterministicElicitationExchange(0);
+    const pending = nextDeterministicStructuredExchange(0);
 
     expect(
       acceptedResponseFromParams(pending, {

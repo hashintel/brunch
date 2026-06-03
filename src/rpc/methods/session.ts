@@ -6,7 +6,7 @@ import {
   NonLinearTranscriptError,
   type BrunchSessionEnvelope,
 } from '../../session/brunch-session-envelope.js';
-import { projectLinearElicitationExchangeProjection } from '../../session/elicitation-exchange.js';
+import { projectLinearSessionExchangeProjection } from '../../session/exchange-projection.js';
 import { projectSessionRuntimeState } from '../../session/runtime-state.js';
 import {
   resolveExplicitSessionProjectionTarget,
@@ -15,14 +15,14 @@ import {
 } from '../../session/session-projection-reader.js';
 import {
   acceptedResponseFromParams,
-  nextDeterministicElicitationExchange,
+  nextDeterministicStructuredExchange,
   pendingExchangeFromEnvelope,
-  PendingElicitationExchangeSchema,
+  PendingStructuredExchangeSchema,
   presentToolResultMessage,
-  projectPendingElicitationExchange,
+  projectPendingStructuredExchange,
 } from '../../session/structured-exchange-loop.js';
 import type {
-  PendingElicitationExchange,
+  PendingStructuredExchange,
   StructuredExchangeResponseInput,
 } from '../../session/structured-exchange-loop.js';
 import type {
@@ -161,7 +161,7 @@ const RuntimeStateResultSchema = Type.Object(
 const TriggerExchangeResultSchema = Type.Object(
   {
     status: Type.Literal('pending'),
-    exchange: PendingElicitationExchangeSchema,
+    exchange: PendingStructuredExchangeSchema,
   },
   { additionalProperties: false },
 );
@@ -221,7 +221,7 @@ export const sessionRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
     method: 'session.exchanges',
     access: 'read',
     description:
-      'Project structured elicitation exchanges from the selected or explicitly named linear Brunch session transcript.',
+      'Project session exchanges from the selected or explicitly named linear Brunch session transcript.',
     paramsSchema: SessionProjectionParamsSchema,
     resultSchema: SessionExchangesResultSchema,
     examples: [
@@ -237,7 +237,7 @@ export const sessionRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
         jsonRpcRequestId(request),
         request.params,
         context,
-        projectLinearElicitationExchangeProjection,
+        projectLinearSessionExchangeProjection,
       );
     },
   },
@@ -286,7 +286,7 @@ export const sessionRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
     method: 'session.pendingExchange',
     access: 'read',
     description:
-      'Read the current transcript-backed pending elicitation exchange from the selected or explicitly named linear Brunch session.',
+      'Read the current transcript-backed pending structured exchange from the selected or explicitly named linear Brunch session.',
     paramsSchema: SessionProjectionParamsSchema,
     resultSchema: PendingExchangeResultSchema,
     examples: [
@@ -303,7 +303,7 @@ export const sessionRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
         jsonRpcRequestId(request),
         request.params,
         context,
-        projectPendingElicitationExchange,
+        projectPendingStructuredExchange,
       );
     },
   },
@@ -389,8 +389,8 @@ async function handleTriggerExchange(
     });
   }
 
-  const exchange = nextDeterministicElicitationExchange(
-    projectLinearElicitationExchangeProjection(existingTarget.envelope).exchanges.length,
+  const exchange = nextDeterministicStructuredExchange(
+    projectLinearSessionExchangeProjection(existingTarget.envelope).exchanges.length,
   );
   const manager = state.session.manager;
   manager.appendMessage(presentToolResultMessage(exchange));
@@ -434,7 +434,7 @@ async function handleSubmitExchangeResponse(
     return createJsonRpcFailure(requestId, target.code, target.message);
   }
 
-  let pending: PendingElicitationExchange | null;
+  let pending: PendingStructuredExchange | null;
   try {
     pending = pendingExchangeFromEnvelope(target.envelope);
   } catch (error) {
@@ -445,11 +445,11 @@ async function handleSubmitExchangeResponse(
   }
 
   if (!pending) {
-    return createJsonRpcFailure(requestId, -32008, 'No pending elicitation exchange');
+    return createJsonRpcFailure(requestId, -32008, 'No pending structured exchange');
   }
 
   if (params.exchangeId !== pending.exchangeId) {
-    return createJsonRpcFailure(requestId, -32006, 'Pending elicitation exchange does not match request');
+    return createJsonRpcFailure(requestId, -32006, 'Pending structured exchange does not match request');
   }
 
   const accepted = acceptedResponseFromParams(pending, params);
