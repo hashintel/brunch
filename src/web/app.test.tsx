@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { WorkspaceSnapshot } from '../print-snapshot.js';
@@ -62,10 +62,32 @@ const populatedGraphOverview = {
       createdAtLsn: 1,
       updatedAtLsn: 1,
     },
+    {
+      id: 11,
+      specId: 1,
+      plane: 'intent',
+      kind: 'assumption',
+      title: 'Spec A assumption',
+      basis: 'explicit',
+      createdAtLsn: 1,
+      updatedAtLsn: 1,
+    },
   ],
-  edges: [],
-  nodeCount: 1,
-  edgeCount: 0,
+  edges: [
+    {
+      id: 20,
+      specId: 1,
+      category: 'support',
+      sourceId: 11,
+      targetId: 10,
+      stance: 'supports',
+      basis: 'explicit',
+      createdAtLsn: 1,
+      updatedAtLsn: 1,
+    },
+  ],
+  nodeCount: 2,
+  edgeCount: 1,
   lsn: 1,
 };
 function rpcClient(options?: {
@@ -117,7 +139,7 @@ describe('Brunch React web app', () => {
     expect(screen.getByText('responding-to-elicitation')).toBeTruthy();
   });
 
-  it('renders selected session identity without requesting transcript display', async () => {
+  it('renders selected session identity without requesting session projections', async () => {
     const calls: RpcCall[] = [];
     const runtime = createBrunchWebRuntime({ rpcClient: rpcClient({ calls }) });
 
@@ -126,7 +148,7 @@ describe('Brunch React web app', () => {
     expect(await screen.findByText('Attached session: session-1')).toBeTruthy();
     expect(screen.getByText('Spec 1')).toBeTruthy();
     expect(calls).toContainEqual({ method: 'workspace.snapshot' });
-    expect(calls).not.toContainEqual(expect.objectContaining({ method: 'session.transcriptDisplay' }));
+    expect(calls.some((call) => call.method.startsWith('session.'))).toBe(false);
   });
 
   it('loads the spec route through Query-backed graph RPC options', async () => {
@@ -139,9 +161,37 @@ describe('Brunch React web app', () => {
     render(<BrunchWebApp runtime={runtime} />);
 
     expect(await screen.findByText('Graph overview')).toBeTruthy();
+    expect(screen.getByText('Spec A assumption')).toBeTruthy();
+    expect(screen.getAllByText('intent / assumption').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('intent / requirement').length).toBeGreaterThan(0);
+    expect(screen.getByText('support: 1')).toBeTruthy();
+    fireEvent.click(screen.getAllByText('Focus node')[0]!);
+    expect(screen.getByText('Focused read pending: graph.nodeNeighborhood(1, 11, 1)')).toBeTruthy();
+  });
+
+  it('invalidates the exact selected-spec graph overview query on graph notifications', async () => {
+    window.history.pushState(null, '', '/spec/1');
+    const calls: RpcCall[] = [];
+    const listeners = new Set<WebSocketRpcNotificationListener>();
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({ calls, listeners, graphOverview: populatedGraphOverview }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Spec A requirement')).toBeTruthy();
+    calls.length = 0;
+    for (const listener of listeners) {
+      listener({
+        jsonrpc: '2.0',
+        method: 'brunch.updated',
+        params: { updates: [{ topic: 'graph.overview', specId: 1 }] },
+      });
+    }
+
+    await waitFor(() => expect(calls).toContainEqual({ method: 'graph.overview', params: { specId: 1 } }));
     expect(screen.getByText('Spec A requirement')).toBeTruthy();
-    expect(calls).toContainEqual({ method: 'workspace.snapshot' });
-    expect(calls).toContainEqual({ method: 'graph.overview', params: { specId: 1 } });
+    expect(calls).toEqual([{ method: 'graph.overview', params: { specId: 1 } }]);
   });
 
   it('treats the spec route as client-local view state without borrowing the TUI session transcript', async () => {
@@ -159,10 +209,7 @@ describe('Brunch React web app', () => {
     expect(await screen.findByText('No session is attached for viewed Spec 2.')).toBeTruthy();
     expect(screen.getByText('The TUI is active in Spec 1/session-1.')).toBeTruthy();
     expect(calls).toContainEqual({ method: 'graph.overview', params: { specId: 2 } });
-    expect(calls).not.toContainEqual({
-      method: 'session.transcriptDisplay',
-      params: { sessionId: 'session-1', specId: 1 },
-    });
+    expect(calls.some((call) => call.method.startsWith('session.'))).toBe(false);
     expect(calls).not.toContainEqual(expect.objectContaining({ method: 'workspace.activate' }));
   });
 
@@ -180,10 +227,10 @@ describe('Brunch React web app', () => {
     render(<BrunchWebApp runtime={runtime} />);
 
     expect(await screen.findByText('Spec without session')).toBeTruthy();
-    expect(screen.getByText('No graph nodes yet.')).toBeTruthy();
+    expect(screen.getByText('No graph nodes yet. LSN 0; 0 nodes; 0 edges.')).toBeTruthy();
     expect(calls).toContainEqual({ method: 'workspace.snapshot' });
     expect(calls).toContainEqual({ method: 'graph.overview', params: { specId: 2 } });
-    expect(calls).not.toContainEqual(expect.objectContaining({ method: 'session.transcriptDisplay' }));
+    expect(calls.some((call) => call.method.startsWith('session.'))).toBe(false);
   });
 
   it('does not request session projection when no session is selected', async () => {
