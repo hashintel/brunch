@@ -27,6 +27,11 @@ import type {
   SpecSessionActivationCoordinator,
   SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
+import {
+  discoverRpcMethods,
+  registryByMethod,
+  type RpcMethodDefinition,
+} from './methods/registry.js';
 import { methodAllowedOnSurface, READ_RPC_METHODS, type RpcHandlerSurface } from './methods/surface.js';
 import {
   createProductUpdateNotification,
@@ -40,9 +45,16 @@ import {
   jsonRpcRequestId,
   dispatchJsonRpcMessage,
   type JsonRpcId,
-  type JsonRpcRequest,
   type JsonRpcResponse,
 } from './protocol.js';
+
+interface RpcMethodContext {
+  readonly coordinator: DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator;
+  readonly cwd: string;
+  readonly productUpdates?: ProductUpdatePublisher;
+  readonly getGraphRuntime: () => Promise<WorkspaceGraphRuntime>;
+  readonly discoveryRegistry: readonly RpcMethodDefinition<RpcMethodContext>[];
+}
 
 export interface RpcHandlers {
   handle(request: unknown): Promise<JsonRpcResponse>;
@@ -73,10 +85,20 @@ function createRpcHandlersForSurface(
   surface: RpcHandlerSurface,
 ): RpcHandlers {
   let graphRuntime: Promise<WorkspaceGraphRuntime> | null = null;
+
   const getGraphRuntime = () => {
     graphRuntime ??= openWorkspaceGraphRuntime(options.cwd);
     return graphRuntime;
   };
+  const context: RpcMethodContext = {
+    ...options,
+    getGraphRuntime,
+    discoveryRegistry:
+      surface === 'readOnly'
+        ? FULL_RPC_METHOD_REGISTRY.filter((method) => READ_RPC_METHODS.has(method.method))
+        : FULL_RPC_METHOD_REGISTRY,
+  };
+  const registry = registryByMethod(FULL_RPC_METHOD_REGISTRY);
 
   return {
     async handle(request) {
@@ -85,105 +107,16 @@ function createRpcHandlersForSurface(
       }
 
       const requestId = jsonRpcRequestId(request);
-
-      if (!methodAllowedOnSurface(request.method, surface)) {
+      const definition = registry.get(request.method);
+      if (definition === undefined) {
         return createJsonRpcFailure(requestId, -32601, 'Method not found');
       }
 
-      if (request.method === 'rpc.discover') {
-        if (request.params !== undefined) {
-          return createJsonRpcFailure(requestId, -32602, 'Invalid params');
-        }
-        return createJsonRpcSuccess(requestId, discoverPublicRpcMethods(surface));
+      if (!methodAllowedOnSurface(definition.method, surface)) {
+        return createJsonRpcFailure(requestId, -32601, 'Method not found');
       }
 
-      if (request.method === 'workspace.snapshot') {
-        if (request.params !== undefined) {
-          return createJsonRpcFailure(requestId, -32602, 'Invalid params');
-        }
-        const state = await options.coordinator.openDefaultWorkspace();
-        return createJsonRpcSuccess(requestId, workspaceSnapshotFromState(state));
-      }
-
-      if (request.method === 'workspace.selectionState') {
-        if (request.params !== undefined) {
-          return createJsonRpcFailure(requestId, -32602, 'Invalid params');
-        }
-        const [state, inventory] = await Promise.all([
-          options.coordinator.openDefaultWorkspace(),
-          options.coordinator.inspectWorkspace(),
-        ]);
-        return createJsonRpcSuccess(requestId, workspaceSelectionStateFromInventory(state, inventory));
-      }
-
-      if (request.method === 'workspace.activate') {
-        const decision = parseWorkspaceActivationParams(request.params);
-        if (!decision.ok) {
-          return createJsonRpcFailure(requestId, -32602, 'Invalid params');
-        }
-        const state = await options.coordinator.activateWorkspace(decision.value);
-        const response = workspaceActivationSnapshotFromState(state);
-        publishSelectedSessionUpdates(options.productUpdates, state);
-        return createJsonRpcSuccess(requestId, response);
-      }
-
-      if (request.method === 'session.triggerExchange') {
-        if (request.params !== undefined) {
-          return createJsonRpcFailure(requestId, -32602, 'Invalid params');
-        }
-        return handleTriggerExchange(requestId, options);
-      }
-
-      if (request.method === 'session.pendingExchange') {
-        return handleSessionProjection(requestId, request.params, options, projectPendingElicitationExchange);
-      }
-
-      if (request.method === 'session.submitExchangeResponse') {
-        return handleSubmitExchangeResponse(requestId, request.params, options);
-      }
-
-      if (request.method === 'session.exchanges') {
-        return handleSessionProjection(
-          requestId,
-          request.params,
-          options,
-          projectLinearElicitationExchangeProjection,
-        );
-      }
-
-      if (request.method === 'session.runtimeState') {
-        return handleSessionProjection(requestId, request.params, options, projectSessionRuntimeState, {
-          requireExplicitSpec: true,
-        });
-      }
-
-      if (request.method === 'graph.overview') {
-        const params = parseGraphOverviewParams(request.params);
-        if (!params.ok) {
-          return createJsonRpcFailure(requestId, -32602, 'Invalid params');
-        }
-        const graph = await getGraphRuntime();
-        return createJsonRpcSuccess(requestId, graph.forSpec(params.value.specId).getGraphOverview());
-      }
-
-      if (request.method === 'graph.nodeNeighborhood') {
-        const params = parseGraphNodeNeighborhoodParams(request.params);
-        if (!params.ok) {
-          return createJsonRpcFailure(requestId, -32602, 'Invalid params');
-        }
-        const graph = await getGraphRuntime();
-        return createJsonRpcSuccess(
-          requestId,
-          graph
-            .forSpec(params.value.specId)
-            .getNodeNeighborhood(
-              params.value.nodeId,
-              params.value.hops === undefined ? undefined : { hops: params.value.hops },
-            ),
-        );
-      }
-
-      return createJsonRpcFailure(requestId, -32601, 'Method not found');
+      return definition.handle(context, request);
     },
   };
 }
@@ -501,25 +434,10 @@ const ExchangeResponseResultSchema = Type.Object(
 type ExchangeResponseParams = Static<typeof ExchangeResponseParamsSchema>;
 type ExchangeResponseResult = Static<typeof ExchangeResponseResultSchema>;
 
-type RpcMethodDiscovery = {
-  method: string;
-  description: string;
-  paramsSchema: unknown;
-  resultSchema: unknown;
-  examples: JsonRpcRequest[];
-};
-
-function discoverPublicRpcMethods(surface: RpcHandlerSurface = 'full'): { methods: RpcMethodDiscovery[] } {
-  const methods =
-    surface === 'readOnly'
-      ? PUBLIC_RPC_METHOD_DISCOVERY.filter((method) => READ_RPC_METHODS.has(method.method))
-      : PUBLIC_RPC_METHOD_DISCOVERY;
-  return { methods };
-}
-
-const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
+const FULL_RPC_METHOD_REGISTRY: readonly RpcMethodDefinition<RpcMethodContext>[] = [
   {
     method: 'rpc.discover',
+    access: 'read',
     description:
       'List the public Brunch JSON-RPC methods supported by this host with schemas and example calls.',
     paramsSchema: NoParamsSchema,
@@ -528,25 +446,54 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
       { additionalProperties: false },
     ),
     examples: [{ jsonrpc: '2.0', id: 1, method: 'rpc.discover' }],
+    async handle(context, request) {
+      const requestId = jsonRpcRequestId(request);
+      if (request.params !== undefined) {
+        return createJsonRpcFailure(requestId, -32602, 'Invalid params');
+      }
+      return createJsonRpcSuccess(requestId, discoverRpcMethods(context.discoveryRegistry));
+    },
   },
   {
     method: 'workspace.snapshot',
+    access: 'read',
     description:
       'Return the current Brunch workspace/spec/session snapshot for the invocation cwd without changing activation state.',
     paramsSchema: NoParamsSchema,
     resultSchema: WorkspaceSnapshotResultSchema,
     examples: [{ jsonrpc: '2.0', id: 2, method: 'workspace.snapshot' }],
+    async handle(context, request) {
+      const requestId = jsonRpcRequestId(request);
+      if (request.params !== undefined) {
+        return createJsonRpcFailure(requestId, -32602, 'Invalid params');
+      }
+      const state = await context.coordinator.openDefaultWorkspace();
+      return createJsonRpcSuccess(requestId, workspaceSnapshotFromState(state));
+    },
   },
   {
     method: 'workspace.selectionState',
+    access: 'read',
     description:
       'Return the product-shaped workspace inventory and whether the client must choose or create a spec/session before an agent loop can run.',
     paramsSchema: NoParamsSchema,
     resultSchema: WorkspaceSelectionStateResultSchema,
     examples: [{ jsonrpc: '2.0', id: 3, method: 'workspace.selectionState' }],
+    async handle(context, request) {
+      const requestId = jsonRpcRequestId(request);
+      if (request.params !== undefined) {
+        return createJsonRpcFailure(requestId, -32602, 'Invalid params');
+      }
+      const [state, inventory] = await Promise.all([
+        context.coordinator.openDefaultWorkspace(),
+        context.coordinator.inspectWorkspace(),
+      ]);
+      return createJsonRpcSuccess(requestId, workspaceSelectionStateFromInventory(state, inventory));
+    },
   },
   {
     method: 'workspace.activate',
+    access: 'write',
     description:
       'Apply an explicit workspace→spec→session activation decision such as continuing, opening a session, creating a session, creating a spec, or cancelling.',
     paramsSchema: WorkspaceActivationParamsSchema,
@@ -571,9 +518,21 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
         },
       },
     ],
+    async handle(context, request) {
+      const requestId = jsonRpcRequestId(request);
+      const decision = parseWorkspaceActivationParams(request.params);
+      if (!decision.ok) {
+        return createJsonRpcFailure(requestId, -32602, 'Invalid params');
+      }
+      const state = await context.coordinator.activateWorkspace(decision.value);
+      const response = workspaceActivationSnapshotFromState(state);
+      publishSelectedSessionUpdates(context.productUpdates, state);
+      return createJsonRpcSuccess(requestId, response);
+    },
   },
   {
     method: 'graph.overview',
+    access: 'read',
     description:
       'Return the canonical selected-spec graph overview with nodes, edges, counts, and current graph LSN.',
     paramsSchema: GraphOverviewParamsSchema,
@@ -586,9 +545,19 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
         params: { specId: 1 },
       },
     ],
+    async handle(context, request) {
+      const requestId = jsonRpcRequestId(request);
+      const params = parseGraphOverviewParams(request.params);
+      if (!params.ok) {
+        return createJsonRpcFailure(requestId, -32602, 'Invalid params');
+      }
+      const graph = await context.getGraphRuntime();
+      return createJsonRpcSuccess(requestId, graph.forSpec(params.value.specId).getGraphOverview());
+    },
   },
   {
     method: 'graph.nodeNeighborhood',
+    access: 'read',
     description:
       'Return a focused same-spec graph neighborhood around one node, or not_found when the node is absent from that spec.',
     paramsSchema: GraphNodeNeighborhoodParamsSchema,
@@ -601,9 +570,27 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
         params: { specId: 1, nodeId: 10, hops: 1 },
       },
     ],
+    async handle(context, request) {
+      const requestId = jsonRpcRequestId(request);
+      const params = parseGraphNodeNeighborhoodParams(request.params);
+      if (!params.ok) {
+        return createJsonRpcFailure(requestId, -32602, 'Invalid params');
+      }
+      const graph = await context.getGraphRuntime();
+      return createJsonRpcSuccess(
+        requestId,
+        graph
+          .forSpec(params.value.specId)
+          .getNodeNeighborhood(
+            params.value.nodeId,
+            params.value.hops === undefined ? undefined : { hops: params.value.hops },
+          ),
+      );
+    },
   },
   {
     method: 'session.exchanges',
+    access: 'read',
     description:
       'Project structured elicitation exchanges from the selected or explicitly named linear Brunch session transcript.',
     paramsSchema: SessionProjectionParamsSchema,
@@ -616,9 +603,18 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
         params: { sessionId: 'session-1', specId: 1 },
       },
     ],
+    async handle(context, request) {
+      return handleSessionProjection(
+        jsonRpcRequestId(request),
+        request.params,
+        context,
+        projectLinearElicitationExchangeProjection,
+      );
+    },
   },
   {
     method: 'session.runtimeState',
+    access: 'read',
     description:
       'Return flattened transcript-backed runtime posture, mention, world-watermark, and lifecycle state for an explicit Brunch session.',
     paramsSchema: SessionProjectionParamsSchema,
@@ -631,17 +627,35 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
         params: { sessionId: 'session-1', specId: 1 },
       },
     ],
+    async handle(context, request) {
+      return handleSessionProjection(
+        jsonRpcRequestId(request),
+        request.params,
+        context,
+        projectSessionRuntimeState,
+        { requireExplicitSpec: true },
+      );
+    },
   },
   {
     method: 'session.triggerExchange',
+    access: 'write',
     description:
       "Start or resume the selected session's deterministic structured-exchange permutation loop and return the current pending exchange.",
     paramsSchema: NoParamsSchema,
     resultSchema: TriggerExchangeResultSchema,
     examples: [{ jsonrpc: '2.0', id: 8, method: 'session.triggerExchange' }],
+    async handle(context, request) {
+      const requestId = jsonRpcRequestId(request);
+      if (request.params !== undefined) {
+        return createJsonRpcFailure(requestId, -32602, 'Invalid params');
+      }
+      return handleTriggerExchange(requestId, context);
+    },
   },
   {
     method: 'session.pendingExchange',
+    access: 'read',
     description:
       'Read the current transcript-backed pending elicitation exchange from the selected or explicitly named linear Brunch session.',
     paramsSchema: SessionProjectionParamsSchema,
@@ -655,9 +669,18 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
         params: { sessionId: 'session-1', specId: 1 },
       },
     ],
+    async handle(context, request) {
+      return handleSessionProjection(
+        jsonRpcRequestId(request),
+        request.params,
+        context,
+        projectPendingElicitationExchange,
+      );
+    },
   },
   {
     method: 'session.submitExchangeResponse',
+    access: 'write',
     description:
       "Submit a text, single-choice, or multi-choice answer for the selected session's current deterministic tuple-shaped pending structured exchange.",
     paramsSchema: ExchangeResponseParamsSchema,
@@ -674,8 +697,12 @@ const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
         },
       },
     ],
+    async handle(context, request) {
+      return handleSubmitExchangeResponse(jsonRpcRequestId(request), request.params, context);
+    },
   },
 ];
+
 
 type WorkspaceActivationParamsParseResult =
   | {
