@@ -295,7 +295,7 @@ src/brunch.ts                        ?
 src/brunch.test.ts                   ?
 ```
 
-## Card 4 — next — TUI launches an observer-capable web/RPC attachment host
+## Card 4 — done — TUI launches an observer-capable web/RPC attachment host
 
 ### Target Behavior
 

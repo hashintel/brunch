@@ -13,10 +13,13 @@ import { applyBrunchOfflineDefault, createBrunchPiProfile } from './.pi/brunch-p
 import { runWorkspaceDialogPreflight } from './.pi/components/workspace-dialog.js';
 import { chromeStateForWorkspace, createBrunchPiExtensionShell } from './.pi/pi-extension-shell.js';
 import { openWorkspaceGraphRuntime } from './graph/index.js';
+import { createProductUpdatePublisher, type ProductUpdatePublisher } from './rpc/product-updates.js';
+import { startWebHost, type RunningWebHost } from './rpc/web-host.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceLaunchInventory,
   type WorkspaceSessionBoundaryCoordinator,
+  type WorkspaceSessionCoordinator,
   type WorkspaceSessionReadyState,
   type SpecSessionActivationCoordinator,
   type SpecSessionActivationDecision,
@@ -45,9 +48,18 @@ export { runWorkspaceDialogPreflight } from './.pi/components/workspace-dialog.j
 
 export type BrunchTuiCoordinator = SpecSessionActivationCoordinator & WorkspaceSessionBoundaryCoordinator;
 
+export interface BrunchObserverWebHostRunnerOptions {
+  cwd: string;
+  coordinator: BrunchTuiCoordinator;
+  productUpdates: ProductUpdatePublisher;
+}
+
+export type BrunchObserverWebHost = Pick<RunningWebHost, 'url' | 'close'>;
+
 export interface BrunchTuiLaunchContext {
   workspace: WorkspaceSessionReadyState;
   coordinator: BrunchTuiCoordinator;
+  productUpdates?: ProductUpdatePublisher;
 }
 
 export interface BrunchTuiOptions {
@@ -58,12 +70,16 @@ export interface BrunchTuiOptions {
     inventory: WorkspaceLaunchInventory,
   ) => Promise<SpecSessionActivationDecision>;
   launchInteractive?: (context: BrunchTuiLaunchContext) => Promise<void>;
+  observerWebHostRunner?: (
+    options: BrunchObserverWebHostRunnerOptions,
+  ) => Promise<BrunchObserverWebHost | null>;
 }
 
 export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void> {
   const cwd = options.cwd ?? process.cwd();
   const coordinator = options.coordinator ?? createWorkspaceSessionCoordinator({ cwd });
 
+  const productUpdates = createProductUpdatePublisher();
   const inventory = await coordinator.inspectWorkspace();
   const decision = await chooseSpecSessionActivationDecision(inventory, options);
   const workspaceState = await coordinator.activateWorkspace(decision);
@@ -75,10 +91,20 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
     throw new Error(workspaceState.reason);
   }
 
-  await (options.launchInteractive ?? launchPiInteractive)({
-    workspace: workspaceState,
+  const observerHost = await (options.observerWebHostRunner ?? startDefaultObserverWebHost)({
+    cwd,
     coordinator,
+    productUpdates,
   });
+  try {
+    await (options.launchInteractive ?? launchPiInteractive)({
+      workspace: workspaceState,
+      coordinator,
+      productUpdates,
+    });
+  } finally {
+    await observerHost?.close();
+  }
 }
 
 async function chooseSpecSessionActivationDecision(
@@ -97,6 +123,7 @@ async function chooseSpecSessionActivationDecision(
 
 export function createBrunchAgentSessionRuntimeFactory({
   coordinator,
+  productUpdates,
 }: BrunchTuiLaunchContext): CreateAgentSessionRuntimeFactory {
   return async ({ cwd, agentDir: runtimeAgentDir, sessionManager }) => {
     const currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(sessionManager);
@@ -109,6 +136,7 @@ export function createBrunchAgentSessionRuntimeFactory({
       specId,
       commandExecutor: graph.commandExecutor,
       snapshots: graph.forSpec(specId),
+      ...(productUpdates ? { productUpdates } : {}),
     };
     const profile = createBrunchPiProfile({
       cwd,
@@ -139,6 +167,20 @@ export function createBrunchAgentSessionRuntimeFactory({
       diagnostics: services.diagnostics,
     };
   };
+}
+
+async function startDefaultObserverWebHost({
+  cwd,
+  coordinator,
+  productUpdates,
+}: BrunchObserverWebHostRunnerOptions): Promise<BrunchObserverWebHost> {
+  const host = await startWebHost({
+    cwd,
+    coordinator: coordinator as WorkspaceSessionCoordinator,
+    productUpdates,
+  });
+  process.stdout.write(`Brunch observer listening on ${host.url}\n`);
+  return host;
 }
 
 async function launchPiInteractive(context: BrunchTuiLaunchContext): Promise<void> {
