@@ -1201,6 +1201,34 @@ describe('identity-fold engine wiring + frame-replay oracle', () => {
     }
   });
 
+  it('emits a terminal live-stream event when net execution throws', async () => {
+    const fakes = createFakes({ throwOnAction: 'write-tests' });
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-throw-terminal-'));
+    try {
+      const receivedEvents: PetrinautEvent[] = [];
+
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: 'run-throw-terminal',
+        runDir,
+        petrinautFold: 'identity',
+        setupPetrinautStream: async () => (event) => receivedEvents.push(event),
+      });
+
+      expect(result.status).toBe('halted');
+      expect(result.reason).toContain('write-tests failed');
+      expect(receivedEvents.length).toBeGreaterThan(0);
+      expect(receivedEvents.at(-1)?.kind).toBe('net_halted');
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
   it('does not start live-stream setup when the event stream cannot initialize', async () => {
     const fakes = createFakes();
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-stream-init-'));

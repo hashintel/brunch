@@ -54,6 +54,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
 
       let haltReason: string | undefined;
       let hasStructuralHalt = false;
+      let eventSink: NetEventSink | undefined;
 
       try {
         const blueprint = compileTopology(input.plan, input.policy);
@@ -89,7 +90,6 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
 
         // Open a Petrinaut event stream when runDir is present. Library
         // callers without a runDir get the existing no-op behavior.
-        let eventSink: NetEventSink | undefined;
         if (input.runDir) {
           let setupCallback: ((event: import('./petrinaut-events.js').PetrinautEvent) => void) | undefined;
           // The live setup callback is assigned only after the stream has
@@ -147,6 +147,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
           }
         }
       } catch (err) {
+        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
         return {
           status: 'halted',
           reason: errorMessage(err),
