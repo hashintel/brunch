@@ -1,7 +1,7 @@
 # Live graph observer mise en place
 
 Frontier: live-graph-observer | n/a
-Status:   active — Card 2 is the only remaining open card
+Status:   active — Card 2 is documented; browser-observable smoke is blocked locally
 Mode:     chain
 Created:  2026-06-03
 
@@ -9,7 +9,7 @@ Created:  2026-06-03
 
 - Containing seam: product launch/setup around the `live-graph-observer` frontier; these cards prepare the branch identity and local manual loop without touching graph/RPC/web core paths.
 - Frontier item: `live-graph-observer` (FE-795). This is branch-local mise en place, not a separate Linear issue or Graphite branch.
-- Current card state: Card 1 is done; Card 2 remains open and may be filled from the final browser smoke loop rather than built first.
+- Current card state: Card 1 is done; Card 2 has a documented CDP-first browser loop, but local browser automation is blocked until a Chrome/Playwright backend works.
 - Main open risk: feedback-loop tooling can sprawl into a dev-platform project. Keep the workbench/tooling concrete enough to launch and observe the POC only.
 - Cross-cutting obligations: preserve `.brunch/` as cwd-scoped durable state; do not commit generated `.brunch/data.db` or sessions; do not add compatibility aliases unless explicitly requested.
 
@@ -65,7 +65,7 @@ src/brunch.test.ts                   ?
 - [ ] Is this the first touch in an unfamiliar seam from a fresh thread?
 - [ ] Can you not name the containing seam or current rationale from the live docs?
 
-## Card 2 — open — Browser feedback loop decision
+## Card 2 — blocked — Browser feedback loop decision
 
 ### Objective
 
@@ -74,15 +74,16 @@ The branch has one documented, runnable browser feedback loop for the web observ
 ### Acceptance Criteria
 
 ✓ Feedback-loop choice is explicit in the workbench README: recommended command(s), expected port/URL shape, and how to inspect browser console/network/accessibility state.
-✓ If using Chrome DevTools tooling, the command is verified locally against a running `brunch-cli --mode web` or TUI-started observer host.
+! Chrome/CDP command verification is blocked locally: the web host launches and prints a URL, but browser automation could not attach until a local Chrome/Playwright backend works.
 ✓ Browser automation/inspection tooling and `agentation` are treated as complementary: Chrome/CDP-style tooling observes the browser; `agentation` annotates the running browser so the agent can fetch annotations through its CLI.
-✓ If `agentation` is enabled, this card records the required dependency/import change and stops for the web architecture card to own any `src/web/*` edit.
+n/a `agentation` is not enabled in this card, so no dependency/import change is recorded and no `src/web/*` edit is needed.
 ✓ No feedback-loop tool becomes product runtime behavior or a required POC dependency.
 
 ### Verification Approach
 
-- Inner: file-scoped lint/build for changed package/web files if a dev dependency or import is added.
+- Inner: doc/format verification for README/card changes; file-scoped lint/build for changed package/web files if a dev dependency or import is added.
 - Middle: manual smoke in the workbench — launch host, open browser tooling, confirm the page is observable.
+- Current observed state: `npm run build` passed and `brunch-cli --mode web` launched from the workbench; page-observable browser smoke is pending a working local browser backend.
 
 ### Cross-cutting obligations
 

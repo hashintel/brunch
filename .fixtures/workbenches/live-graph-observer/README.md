@@ -48,7 +48,69 @@ repo root. That state is per-cwd by design and must not be committed.
 - `--mode web` — standalone web host; useful for web-only iteration before the
   TUI-hosted observer path is wired in.
 
-The exact verified manual smoke sequence for browser observation (which web
-inspection / annotation tooling, expected port, etc.) is owned by the
-`live-graph-observer--mise-en-place.md` Card 2 (browser feedback loop decision)
-and will be recorded here once that card lands.
+## Browser feedback loop
+
+Use Chrome DevTools Protocol tooling as the primary browser observer. Playwright
+can still be useful for future scripted cross-browser checks, but the branch's
+manual feedback loop is CDP-first because it gives quick console, network, and
+accessibility-tree inspection without becoming product runtime behavior.
+
+Launch the web host from this workbench:
+
+```sh
+# Terminal A: standalone web observer host
+( cd .fixtures/workbenches/live-graph-observer && node ../../../bin/brunch-cli.js --mode web )
+```
+
+The host prints a localhost URL such as:
+
+```text
+Brunch web sidecar listening on http://127.0.0.1:<port>/spec/<specId>
+```
+
+or, when no selected spec route is available yet:
+
+```text
+Brunch web sidecar listening on http://127.0.0.1:<port>
+```
+
+Open and inspect that URL with `cdp-cli`:
+
+```sh
+# Terminal B: browser observer
+cdp-cli launch
+cdp-cli new "http://127.0.0.1:<port>/spec/<specId>"
+cdp-cli tabs
+
+# Accessibility tree / page content
+cdp-cli snapshot "127.0.0.1"
+cdp-cli snapshot "127.0.0.1" --format text
+
+# Runtime signals
+cdp-cli console "127.0.0.1" -t error -d 2
+cdp-cli network "127.0.0.1" -d 2 -t fetch
+```
+
+If the page title or URL is ambiguous, use the page id from `cdp-cli tabs`
+instead of the `127.0.0.1` title/URL substring in later commands.
+
+### Annotation tooling
+
+`agentation`, if used, is complementary to CDP tooling: CDP observes the browser
+(console, network, accessibility tree, screenshots), while `agentation` annotates
+a running browser so an agent can fetch human/agent notes through its own CLI.
+This card does not enable `agentation`, add a dependency, or import it into
+`src/web/*`. If a future slice wants annotated web UI feedback inside product
+code, that slice owns the dependency/import change.
+
+### Current verification note
+
+- `npm run build` passed during the Card 2 builder attempt.
+- `brunch-cli --mode web` launched from this workbench and printed a localhost
+  URL.
+- Browser automation is still pending on this machine until a local browser
+  backend works. Observed blockers: harness Chromium crashed, Playwright's
+  default Chrome path crashed under macOS sandbox/framework loading,
+  WebKit/Firefox were not installed, and the Chromium browser install attempt
+  was interrupted. Until that is fixed, the documented CDP loop is the intended
+  command path but the page-observable browser smoke is not yet complete.
