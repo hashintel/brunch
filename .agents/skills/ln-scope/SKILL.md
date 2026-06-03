@@ -6,12 +6,14 @@ argument-hint: "[behavior to deliver in this slice]"
 
 # Ln Scope
 
-Define **one** buildable scope card. The card always describes one slice, but it can carry one of two weights:
+Define one or more buildable scope cards in a **scope file** under `memory/cards/`. Each card describes one slice; the file groups cards intended to be built together.
+
+A card carries one of two weights:
 
 - a **full scope card** for structural work
 - a **light scope card** for bounded feature or hardening work inside settled seams
 
-If the target behavior needs "and", split it.
+If a single card's target behavior needs "and", split it into separate cards (which may live in the same file).
 
 Apply the repo's pre-release posture while scoping: prefer correcting the model and regenerating fixtures over preserving accidental compatibility, unless live docs or the user require migration support. Include deletion/retirement work in the slice when obsolete code, data, or terminology would otherwise linger.
 
@@ -32,36 +34,86 @@ If this is a fresh thread or an unfamiliar area, also read `HANDOFF.md` if prese
 Write a 2-4 bullet orientation note naming the containing seam, the relevant frontier item, volatile handoff state, and the main open risk.
 Also name any frontier-level cross-cutting obligations that this slice must preserve or establish (for example a shared command-layer invariant, a side-task/event-substrate rule, or a replay/property/adversarial verification layer).
 
-Do not create new planning documents or scratch scope files without explicit permission. The canonical planning state remains `memory/SPEC.md` and `memory/PLAN.md`. The sanctioned derivative exception is `memory/CARDS.md`, which may hold several prepared scope cards for one frontier item while that execution queue is still live.
+Do not create new planning documents or scratch scope stores without explicit permission. The canonical planning state remains `memory/SPEC.md` and `memory/PLAN.md`. The sanctioned derivative location for scope cards is `memory/cards/`, described below.
 
 If scoping reveals that one frontier item needs multiple sequential slices, keep them nested under that same frontier item unless the plan-level frontier must change. Do not silently turn slices into separate tracker / branch work items.
 
-## Prepared card queue
+## Scope file storage
 
-When the containing seam is already settled and several next commit-sized steps are obvious, `ln-scope` may prepare a short queue of consecutive scope cards in `memory/CARDS.md` instead of stopping after exactly one card.
+All scope cards — single or multi — live in a **scope file** under `memory/cards/`.
 
-Use this queue only when all of these are true:
+### File naming
 
-- the work stays inside one existing frontier item
-- each queued card is still small enough to verify and commit independently
-- no queued card is expected to change requirements, assumptions, decisions, or invariants
+```
+memory/cards/<frontier-id>--<slug>.md
+```
+
+- `<frontier-id>` is the stable id from `memory/PLAN.md` §Frontier Definitions when one applies (for example `live-graph-observer--observer-loop.md`).
+- When the work is not a `memory/PLAN.md` frontier item (dev-workflow rework, tooling, repo hygiene), use a category prefix instead: `dev--<slug>.md`, `tooling--<slug>.md`, `docs--<slug>.md`. Pick whichever reads true; do not invent narrow ad-hoc categories.
+- `<slug>` is short kebab-case (≤ ~5 words) capturing the concern. Discretion is fine — files are deleted when exhausted, so slug names need not be permanent.
+- Double-dash `--` separates frontier from slug for readability.
+
+### File metadata header
+
+Every scope file starts with this header:
+
+```md
+# <human-readable title>
+
+Frontier: <frontier-id> | n/a
+Status:   active | superseded | done
+Mode:     single | chain
+Created:  YYYY-MM-DD
+```
+
+`Mode: single` means one card in this file. `Mode: chain` means several cards intended as a sequential mini-queue. Independent concerns belong in **separate files**, not separate sections within one file.
+
+### Why one file per concern, not one file for everything
+
+The `memory/cards/` directory is a scoping inbox where multiple agents can deposit independent scope files in parallel without colliding on a single shared file. Each file is the unit of execution context that one `ln-build` invocation consumes.
+
+Multiple scope files per frontier are permitted — they represent independent concerns that happen to land on the same branch. They do **not** imply multiple Linear issues or multiple Graphite branches; the frontier item remains the tracker/branch boundary.
+
+## Multi-card scope files
+
+When the containing seam is settled and the next 2–5 commit-sized steps are obvious, write them as a `Mode: chain` scope file rather than forcing repeated rescoping.
+
+**Hard anti-speculation gate (this rule comes first):** no card in a chain may depend on implementation findings from earlier cards in the same chain. If card B's scope would shift based on what you learn while building card A, stop after A. Pre-scoped chains are for already-legible follow-through, not for guessing ahead.
+
+A chain is appropriate only when all of these are true:
+
+- the work stays inside one existing frontier item (or one coherent dev/tooling concern)
+- each card is still small enough to verify and commit independently
+- no card is expected to change requirements, assumptions, decisions, or invariants
 - the next few cards are sequentially obvious enough that pre-scoping them reduces churn rather than hiding uncertainty
-- later queued cards are **not expected to change shape based on the implementation findings of earlier cards**
+- later cards remain valid even if implementation of earlier cards surprises you
 
-A short serial queue is for already-legible follow-through, not for guessing ahead. If card B or C depends on what you learn while building card A, stop after scoping card A (or at most the last card whose validity is still implementation-independent).
+Multi-card preparation is a **bias when these conditions hold**, not a default to maximize. Prefer fewer cards over more. If in doubt, write one card.
 
-Queue discipline:
+Chain discipline:
 
-- keep the queue short — usually 2-5 cards
+- keep chains short — typically 2–5 cards
 - keep each card in full or light scope-card format
-- mark status clearly (`next`, `in progress`, `done`, `dropped`)
-- do **not** pre-scope speculative downstream cards just because the work is serial; only queue cards whose scope would still be valid if you paused before building the earlier one
-- overwrite or delete `memory/CARDS.md` when the queue is exhausted or superseded
-- if any queued card trips the promotion checklist, reveals a frontier split, or turns out to depend on unknown results from an earlier card, stop the queue and route back through `ln-spec` or `ln-plan` as appropriate
+- mark card status clearly (`next`, `in progress`, `done`, `dropped`)
+- if any card trips the promotion checklist, reveals a frontier split, or turns out to depend on unknown results from an earlier card, stop the chain and route back through `ln-spec` or `ln-plan` as appropriate
+- delete the scope file when its chain is exhausted or superseded (per-file deletion only)
+
+## Overlap-as-independence-test
+
+When considering whether to write *another* scope file for the same frontier alongside an existing one, apply the overlap test: compare declared **Expected touched paths** across the two proposed files.
+
+If their primary write paths overlap, the concerns are not independent. Resolve before writing:
+
+- **merge** them into one file (`Mode: chain`) if the work is naturally sequential, or
+- **reshape** the boundary so the two files own disjoint write paths
+
+Shared read-only paths or shared test-fixture paths are not overlap. The test applies to files the cards will create, modify, or delete as primary write targets.
+
+Path overlap declared at scope time = collision at build time. The touched-paths section is a manifest, not just navigation.
 
 ## Scope-weight decision
 
-Choose one before writing the scope card.
+Choose one before writing each scope card.
 
 ### Full scope card
 
@@ -148,6 +200,24 @@ List any shared subsystem, invariant, or verification-layer obligations inherite
 - [obligation]
 ```
 
+### Expected touched paths (tentative)
+
+Required. Declare the directories and files this card will create, modify, or delete, using `pseudo tree` notation with overlay markers (`+` add, `~` modify, `-` delete, `?` uncertain).
+
+Scope to directory/file level — not function-level. Show the focused subtree, not the whole repo. The paths are **tentative** — `ln-build` may diverge during red/green, but the declared set is the manifest used by the overlap-as-independence-test and by parallel agents to detect collision.
+
+Example:
+
+```
+src/observer/
+├── loop.ts            ~
+├── loop.test.ts       ~
+└── handlers/
+    ├── tool.ts        +
+    └── tool.test.ts   +
+src/legacy/observer.ts ?
+```
+
 ## Light scope card
 
 ### Objective
@@ -186,6 +256,12 @@ State one of:
 
 If a light card would have to mark `Depends on:` a high-impact unvalidated assumption, promote to a full scope card and apply the **Tracer-bullet check**.
 
+### Expected touched paths (tentative)
+
+Required when the card creates or deletes files, crosses a seam, or expects to touch more than ~3 paths. Optional for genuinely tiny edits (one or two files inside a settled module).
+
+Use the same `pseudo tree` form as full scope cards.
+
 ### Promotion checklist
 
 If any answer is yes, stop treating the work as light and promote it to a full scope card before routing to `ln-build`. Do not quietly carry durable change under a light card.
@@ -206,7 +282,7 @@ Canonical reconciliation is **mandatory**; durable updates are **conditional**.
 
 - Full scope card: update `memory/SPEC.md` / `memory/PLAN.md` as needed during or after scoping.
 - Light scope card: run the promotion checklist explicitly. If it stays light, canonical reconciliation may be a no-op; if it promotes, reconcile the durable change before build.
-- Multi-card queue: keep the queue itself in `memory/CARDS.md`, but do not mirror those queued slice cards into `memory/PLAN.md` unless the frontier item itself changes. At most, add a lightweight `Current execution pointer` in the frontier definition.
+- Multi-card scope file: keep the cards inside the scope file itself; do not mirror them into `memory/PLAN.md` unless the frontier item itself changes. At most, add a lightweight `Current execution pointer` in the frontier definition listing the active scope file path(s).
 
 Do not let the scope card strip away cross-cutting obligations just because the implementation slice is narrow. The card should make visible any shared architecture or verification rule the builder must carry while working locally.
 
@@ -216,15 +292,17 @@ When adding or updating an assumption, apply the same-item test first:
 
 ## Routing
 
-After the scope card is complete, present these options to the user (use `tool-ask-question`):
+After the scope file is complete, present these options to the user (use `tool-ask-question`):
 
 | #   | Label          | Target       | Why |
 | --- | -------------- | ------------ | --- |
-| 1   | Build it       | `ln-build`   | The scope card is defined and verified enough to implement |
+| 1   | Build it       | `ln-build`   | The scope file is defined and verified enough to implement |
 | 2   | Design oracles | `ln-oracles` | The verification strategy still needs explicit design |
 | 3   | Spike first    | `ln-spike`   | Technical uncertainty should be retired before coding |
 | 4   | Revise spec    | `ln-spec`    | Scoping revealed a durable architectural change |
 | 5   | Revise plan    | `ln-plan`    | The work no longer fits the current frontier |
 | 6   | Back to triage | `ln-consult` | Scope revealed unclear state |
 
-Recommended: **1** in nearly all cases — including when the **Tracer-bullet check** fires, because the preferred resolution is to reshape, not defer. Recommend **3 (Spike first)** only when no vertical slice would be cheaper than a pure probe. Recommend **2 (Design oracles)** only when verification for the reshaped slice is still genuinely unclear. If a short prepared queue is warranted, write it to `memory/CARDS.md` and let `ln-build` consume the next ready card from there.
+Recommended: **1** in nearly all cases — including when the **Tracer-bullet check** fires, because the preferred resolution is to reshape, not defer. Recommend **3 (Spike first)** only when no vertical slice would be cheaper than a pure probe. Recommend **2 (Design oracles)** only when verification for the reshaped slice is still genuinely unclear.
+
+When routing to `ln-build`, name the scope file path explicitly (for example: "build `memory/cards/<frontier-id>--<slug>.md`"). `ln-build` uses a hybrid selection policy and prefers an explicit path argument.
