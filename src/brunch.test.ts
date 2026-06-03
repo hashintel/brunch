@@ -141,7 +141,7 @@ describe('Brunch CLI dispatch', () => {
       argv: ['--mode=rpc'],
       cwd: '/tmp/brunch-project',
       coordinator: coordinator(manager.getSessionFile()!),
-      stdin: rpcRequest('session.elicitationExchanges', 2),
+      stdin: rpcRequest('session.exchanges', 2),
       stdout,
     });
 
@@ -168,7 +168,7 @@ describe('Brunch CLI dispatch', () => {
       argv: ['--mode=rpc'],
       cwd,
       coordinator: createWorkspaceSessionCoordinator({ cwd }),
-      stdin: rpcRequest('session.startElicitation', 7),
+      stdin: rpcRequest('session.triggerExchange', 7),
       stdout,
     });
 
@@ -186,7 +186,7 @@ describe('Brunch CLI dispatch', () => {
         topics: [
           'workspace.snapshot',
           'session.pendingExchange',
-          'session.elicitationExchanges',
+          'session.exchanges',
           'session.transcriptDisplay',
           'session.runtimeState',
         ],
@@ -198,7 +198,7 @@ describe('Brunch CLI dispatch', () => {
             sessionId: workspace.session.id,
           },
           {
-            topic: 'session.elicitationExchanges',
+            topic: 'session.exchanges',
             specId: workspace.spec.id,
             sessionId: workspace.session.id,
           },

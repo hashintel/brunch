@@ -292,14 +292,14 @@ describe('JSON-RPC handlers', () => {
       }
     ).methods;
     expect(methods.map((entry) => entry.method).sort()).toEqual([
-      'elicitation.respond',
+      'session.submitExchangeResponse',
       'graph.nodeNeighborhood',
       'graph.overview',
       'rpc.discover',
-      'session.elicitationExchanges',
+      'session.exchanges',
       'session.pendingExchange',
       'session.runtimeState',
-      'session.startElicitation',
+      'session.triggerExchange',
       'session.transcriptDisplay',
       'workspace.activate',
       'workspace.selectionState',
@@ -446,7 +446,7 @@ describe('JSON-RPC handlers', () => {
     ).methods;
     const sessionProjectionMethods = methods.filter(
       (entry) =>
-        entry.method === 'session.elicitationExchanges' ||
+        entry.method === 'session.exchanges' ||
         entry.method === 'session.runtimeState' ||
         entry.method === 'session.transcriptDisplay' ||
         entry.method === 'session.pendingExchange',
@@ -556,7 +556,7 @@ describe('JSON-RPC handlers', () => {
     expect(observed).toEqual([
       { topic: 'workspace.snapshot', specId: 1, sessionId: 'session-1' },
       { topic: 'session.pendingExchange', specId: 1, sessionId: 'session-1' },
-      { topic: 'session.elicitationExchanges', specId: 1, sessionId: 'session-1' },
+      { topic: 'session.exchanges', specId: 1, sessionId: 'session-1' },
       { topic: 'session.transcriptDisplay', specId: 1, sessionId: 'session-1' },
       { topic: 'session.runtimeState', specId: 1, sessionId: 'session-1' },
     ]);
@@ -680,7 +680,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 3,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -706,7 +706,7 @@ describe('JSON-RPC handlers', () => {
     const start = await handlers.handle({
       jsonrpc: '2.0',
       id: 40,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
 
     expect(start).toMatchObject({
@@ -740,7 +740,7 @@ describe('JSON-RPC handlers', () => {
     const exchanges = await handlers.handle({
       jsonrpc: '2.0',
       id: 41,
-      method: 'session.elicitationExchanges',
+      method: 'session.exchanges',
     });
     expect(exchanges).toMatchObject({
       jsonrpc: '2.0',
@@ -794,7 +794,7 @@ describe('JSON-RPC handlers', () => {
     const start = await handlers.handle({
       jsonrpc: '2.0',
       id: 46,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const pending = await handlers.handle({
       jsonrpc: '2.0',
@@ -841,7 +841,7 @@ describe('JSON-RPC handlers', () => {
     await startHandlers.handle({
       jsonrpc: '2.0',
       id: 48,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
 
     const handlers = createRpcHandlers({
@@ -922,7 +922,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 150,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: 'session-1', specId: 1 },
       }),
     ).resolves.toMatchObject({
@@ -1145,7 +1145,7 @@ describe('JSON-RPC handlers', () => {
     const start = await handlers.handle({
       jsonrpc: '2.0',
       id: 53,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const exchangeId = (
       start as {
@@ -1156,7 +1156,7 @@ describe('JSON-RPC handlers', () => {
     const response = await handlers.handle({
       jsonrpc: '2.0',
       id: 54,
-      method: 'elicitation.respond',
+      method: 'session.submitExchangeResponse',
       params: {
         exchangeId,
         answer: { optionId: 'new-from-scratch' },
@@ -1194,7 +1194,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 56,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -1253,7 +1253,7 @@ describe('JSON-RPC handlers', () => {
     const first = await handlers.handle({
       jsonrpc: '2.0',
       id: 250,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const firstExchangeId = (
       first as {
@@ -1263,7 +1263,7 @@ describe('JSON-RPC handlers', () => {
     await handlers.handle({
       jsonrpc: '2.0',
       id: 251,
-      method: 'elicitation.respond',
+      method: 'session.submitExchangeResponse',
       params: {
         exchangeId: firstExchangeId,
         answer: { optionId: 'new-from-scratch' },
@@ -1273,7 +1273,7 @@ describe('JSON-RPC handlers', () => {
     const textStart = await handlers.handle({
       jsonrpc: '2.0',
       id: 252,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     expect(textStart).toMatchObject({
       result: {
@@ -1292,7 +1292,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 253,
-        method: 'elicitation.respond',
+        method: 'session.submitExchangeResponse',
         params: {
           exchangeId: textExchangeId,
           answer: { text: 'A local product specification workspace.' },
@@ -1308,7 +1308,7 @@ describe('JSON-RPC handlers', () => {
     const multiStart = await handlers.handle({
       jsonrpc: '2.0',
       id: 254,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     expect(multiStart).toMatchObject({
       result: {
@@ -1322,7 +1322,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 255,
-        method: 'elicitation.respond',
+        method: 'session.submitExchangeResponse',
         params: {
           exchangeId: 'deterministic-grounding-multi-3',
           answer: { optionIds: ['transcript', 'other'] },
@@ -1356,7 +1356,7 @@ describe('JSON-RPC handlers', () => {
     await handlers.handle({
       jsonrpc: '2.0',
       id: 58,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const before = await readFile(workspace.session.file, 'utf8');
 
@@ -1364,7 +1364,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 59,
-        method: 'elicitation.respond',
+        method: 'session.submitExchangeResponse',
         params: {
           exchangeId: 'not-current',
           answer: { optionId: 'new-from-scratch' },
@@ -1394,7 +1394,7 @@ describe('JSON-RPC handlers', () => {
     const start = await handlers.handle({
       jsonrpc: '2.0',
       id: 60,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const exchangeId = (
       start as {
@@ -1407,7 +1407,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 61,
-        method: 'elicitation.respond',
+        method: 'session.submitExchangeResponse',
         params: { exchangeId, answer: { optionId: 'missing-option' } },
       }),
     ).resolves.toMatchObject({
@@ -1431,7 +1431,7 @@ describe('JSON-RPC handlers', () => {
     const start = await handlers.handle({
       jsonrpc: '2.0',
       id: 62,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const exchangeId = (
       start as {
@@ -1441,7 +1441,7 @@ describe('JSON-RPC handlers', () => {
     await handlers.handle({
       jsonrpc: '2.0',
       id: 63,
-      method: 'elicitation.respond',
+      method: 'session.submitExchangeResponse',
       params: { exchangeId, answer: { optionId: 'existing-codebase' } },
     });
     const before = await readFile(workspace.session.file, 'utf8');
@@ -1450,7 +1450,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 64,
-        method: 'elicitation.respond',
+        method: 'session.submitExchangeResponse',
         params: { exchangeId, answer: { optionId: 'existing-codebase' } },
       }),
     ).resolves.toMatchObject({
@@ -1475,14 +1475,14 @@ describe('JSON-RPC handlers', () => {
     const first = await handlers.handle({
       jsonrpc: '2.0',
       id: 43,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const before = await readFile(workspace.session.file, 'utf8');
 
     const second = await handlers.handle({
       jsonrpc: '2.0',
       id: 44,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const after = await readFile(workspace.session.file, 'utf8');
 
@@ -1513,7 +1513,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 45,
-        method: 'session.startElicitation',
+        method: 'session.triggerExchange',
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -1533,7 +1533,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 8,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -1571,7 +1571,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 9,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: first.session.id },
       }),
     ).resolves.toMatchObject({
@@ -1718,7 +1718,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 10,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: workspace.session.id, specId: 9999 },
       }),
     ).resolves.toMatchObject({
@@ -1747,7 +1747,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 16,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: 'session-1' },
       }),
     ).resolves.toMatchObject({
@@ -1827,7 +1827,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 18,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: 'session-header' },
       }),
     ).resolves.toMatchObject({
@@ -1852,7 +1852,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 11,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: 'session-does-not-exist' },
       }),
     ).resolves.toMatchObject({
@@ -1885,7 +1885,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 12,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: workspace.session.id },
       }),
     ).resolves.toMatchObject({
@@ -1908,7 +1908,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 4,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { file: '/tmp/not-a-product-param.jsonl' },
       }),
     ).resolves.toMatchObject({
@@ -1928,7 +1928,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 5,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',

@@ -187,10 +187,10 @@ export async function runPublicRpcParityProof(
   for (const method of [
     'workspace.selectionState',
     'workspace.activate',
-    'session.startElicitation',
+    'session.triggerExchange',
     'session.pendingExchange',
-    'elicitation.respond',
-    'session.elicitationExchanges',
+    'session.submitExchangeResponse',
+    'session.exchanges',
     'session.transcriptDisplay',
   ]) {
     if (!discovery.methods.some((entry) => entry.method === method)) {
@@ -228,7 +228,7 @@ export async function runPublicRpcParityProof(
       await handlers.handle({
         jsonrpc: '2.0',
         id: 10 + turn * 3,
-        method: 'session.startElicitation',
+        method: 'session.triggerExchange',
       }),
     );
     const pending = success<PendingResult>(
@@ -239,7 +239,7 @@ export async function runPublicRpcParityProof(
       }),
     );
     if (pending.exchange.exchangeId !== started.exchange.exchangeId) {
-      friction.push(`Turn ${turn + 1}: pendingExchange differed from startElicitation.`);
+      friction.push(`Turn ${turn + 1}: pendingExchange differed from triggerExchange.`);
     }
     if (started.exchange.mode !== 'text') {
       const richOption = started.exchange.options.find(
@@ -257,7 +257,7 @@ export async function runPublicRpcParityProof(
     await handlers.handle({
       jsonrpc: '2.0',
       id: 12 + turn * 3,
-      method: 'elicitation.respond',
+      method: 'session.submitExchangeResponse',
       params: {
         exchangeId: started.exchange.exchangeId,
         answer: response.answer,
@@ -270,7 +270,7 @@ export async function runPublicRpcParityProof(
     await handlers.handle({
       jsonrpc: '2.0',
       id: 50,
-      method: 'session.elicitationExchanges',
+      method: 'session.exchanges',
     }),
   );
   const display = success<TranscriptDisplayProjection>(

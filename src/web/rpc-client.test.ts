@@ -48,7 +48,7 @@ describe('browser WebSocket RPC client', () => {
   it('opens one persistent socket and queues requests until open', async () => {
     const client = rpcClient();
     const first = client.request('workspace.snapshot');
-    const second = client.request('session.elicitationExchanges');
+    const second = client.request('session.exchanges');
 
     expect(FakeWebSocket.instances).toHaveLength(1);
     const socket = FakeWebSocket.instances[0]!;
@@ -143,7 +143,7 @@ describe('browser WebSocket RPC client', () => {
   it('rejects all pending requests and later calls on malformed response frames', async () => {
     const client = rpcClient();
     const first = client.request('workspace.snapshot');
-    const second = client.request('session.elicitationExchanges');
+    const second = client.request('session.exchanges');
     const socket = FakeWebSocket.instances[0]!;
 
     socket.emit('open');
@@ -159,7 +159,7 @@ describe('browser WebSocket RPC client', () => {
   it('rejects all pending requests and later calls on invalid response frames', async () => {
     const client = rpcClient();
     const first = client.request('workspace.snapshot');
-    const second = client.request('session.elicitationExchanges');
+    const second = client.request('session.exchanges');
     const socket = FakeWebSocket.instances[0]!;
 
     socket.emit('open');
@@ -175,7 +175,7 @@ describe('browser WebSocket RPC client', () => {
   it('rejects all pending requests and later calls on unknown response IDs', async () => {
     const client = rpcClient();
     const first = client.request('workspace.snapshot');
-    const second = client.request('session.elicitationExchanges');
+    const second = client.request('session.exchanges');
     const socket = FakeWebSocket.instances[0]!;
 
     socket.emit('open');
@@ -191,7 +191,7 @@ describe('browser WebSocket RPC client', () => {
   it('rejects all pending requests on socket close', async () => {
     const client = rpcClient();
     const first = client.request('workspace.snapshot');
-    const second = client.request('session.elicitationExchanges');
+    const second = client.request('session.exchanges');
     const socket = FakeWebSocket.instances[0]!;
 
     socket.emit('open');
@@ -204,7 +204,7 @@ describe('browser WebSocket RPC client', () => {
   it('treats socket errors as terminal connection failures', async () => {
     const client = rpcClient();
     const first = client.request('workspace.snapshot');
-    const second = client.request('session.elicitationExchanges');
+    const second = client.request('session.exchanges');
     const socket = FakeWebSocket.instances[0]!;
 
     socket.emit('open');

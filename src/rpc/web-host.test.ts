@@ -202,7 +202,7 @@ describe('web host', () => {
       const exchanges = await websocketRpc(host.url, {
         jsonrpc: '2.0',
         id: 2,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
       });
 
       expect(snapshot).toMatchObject({
@@ -246,7 +246,7 @@ describe('web host', () => {
       const response = await websocketRpc(host.url, {
         jsonrpc: '2.0',
         id: 14,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: first.session.id, specId: first.spec.id },
       });
       const display = await websocketRpc(host.url, {
@@ -314,7 +314,7 @@ describe('web host', () => {
             expect.objectContaining({ method: 'workspace.snapshot' }),
             expect.objectContaining({ method: 'workspace.selectionState' }),
             expect.objectContaining({ method: 'session.pendingExchange' }),
-            expect.objectContaining({ method: 'session.elicitationExchanges' }),
+            expect.objectContaining({ method: 'session.exchanges' }),
             expect.objectContaining({ method: 'session.transcriptDisplay' }),
             expect.objectContaining({ method: 'graph.overview' }),
             expect.objectContaining({ method: 'graph.nodeNeighborhood' }),
@@ -325,8 +325,8 @@ describe('web host', () => {
         discovery as { result: { methods: Array<{ method: string }> } }
       ).result.methods.map((method) => method.method);
       expect(discoveredMethods).not.toContain('workspace.activate');
-      expect(discoveredMethods).not.toContain('session.startElicitation');
-      expect(discoveredMethods).not.toContain('elicitation.respond');
+      expect(discoveredMethods).not.toContain('session.triggerExchange');
+      expect(discoveredMethods).not.toContain('session.submitExchangeResponse');
 
       await expect(
         websocketRpc(host.url, {
@@ -344,7 +344,7 @@ describe('web host', () => {
         websocketRpc(host.url, {
           jsonrpc: '2.0',
           id: 18,
-          method: 'session.startElicitation',
+          method: 'session.triggerExchange',
         }),
       ).resolves.toEqual({
         jsonrpc: '2.0',
@@ -355,7 +355,7 @@ describe('web host', () => {
         websocketRpc(host.url, {
           jsonrpc: '2.0',
           id: 19,
-          method: 'elicitation.respond',
+          method: 'session.submitExchangeResponse',
           params: { exchangeId: 'missing', answer: { text: 'nope' } },
         }),
       ).resolves.toEqual({
@@ -418,7 +418,7 @@ describe('web host', () => {
         JSON.stringify({
           jsonrpc: '2.0',
           id: 21,
-          method: 'session.startElicitation',
+          method: 'session.triggerExchange',
         }),
       );
 
@@ -583,7 +583,7 @@ describe('web host', () => {
       const response = await websocketRpc(host.url, {
         jsonrpc: '2.0',
         id: 4,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
       });
 
       expect(response).toEqual({
