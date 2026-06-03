@@ -31,8 +31,8 @@ import {
   discoverRpcMethods,
   registryByMethod,
   type RpcMethodDefinition,
+  type RpcMethodRegistry,
 } from './methods/registry.js';
-import { methodAllowedOnSurface, READ_RPC_METHODS, type RpcHandlerSurface } from './methods/surface.js';
 import {
   createProductUpdateNotification,
   selectedSessionProductUpdates,
@@ -65,7 +65,7 @@ export function createReadOnlyRpcHandlers(options: {
   cwd: string;
   productUpdates?: ProductUpdatePublisher;
 }): RpcHandlers {
-  return createRpcHandlersForSurface(options, 'readOnly');
+  return createRpcHandlersForRegistry(options, READ_ONLY_RPC_METHOD_REGISTRY);
 }
 
 export function createRpcHandlers(options: {
@@ -73,16 +73,16 @@ export function createRpcHandlers(options: {
   cwd: string;
   productUpdates?: ProductUpdatePublisher;
 }): RpcHandlers {
-  return createRpcHandlersForSurface(options, 'full');
+  return createRpcHandlersForRegistry(options, FULL_RPC_METHOD_REGISTRY);
 }
 
-function createRpcHandlersForSurface(
+function createRpcHandlersForRegistry(
   options: {
     coordinator: DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator;
     cwd: string;
     productUpdates?: ProductUpdatePublisher;
   },
-  surface: RpcHandlerSurface,
+  registryDefinitions: RpcMethodRegistry<RpcMethodContext>,
 ): RpcHandlers {
   let graphRuntime: Promise<WorkspaceGraphRuntime> | null = null;
 
@@ -93,12 +93,9 @@ function createRpcHandlersForSurface(
   const context: RpcMethodContext = {
     ...options,
     getGraphRuntime,
-    discoveryRegistry:
-      surface === 'readOnly'
-        ? FULL_RPC_METHOD_REGISTRY.filter((method) => READ_RPC_METHODS.has(method.method))
-        : FULL_RPC_METHOD_REGISTRY,
+    discoveryRegistry: registryDefinitions,
   };
-  const registry = registryByMethod(FULL_RPC_METHOD_REGISTRY);
+  const registry = registryByMethod(registryDefinitions);
 
   return {
     async handle(request) {
@@ -109,10 +106,6 @@ function createRpcHandlersForSurface(
       const requestId = jsonRpcRequestId(request);
       const definition = registry.get(request.method);
       if (definition === undefined) {
-        return createJsonRpcFailure(requestId, -32601, 'Method not found');
-      }
-
-      if (!methodAllowedOnSurface(definition.method, surface)) {
         return createJsonRpcFailure(requestId, -32601, 'Method not found');
       }
 
@@ -699,9 +692,14 @@ const FULL_RPC_METHOD_REGISTRY: readonly RpcMethodDefinition<RpcMethodContext>[]
     ],
     async handle(context, request) {
       return handleSubmitExchangeResponse(jsonRpcRequestId(request), request.params, context);
+
     },
   },
 ];
+
+const READ_ONLY_RPC_METHOD_REGISTRY = FULL_RPC_METHOD_REGISTRY.filter(
+  (definition) => definition.access === 'read',
+);
 
 
 type WorkspaceActivationParamsParseResult =
