@@ -84,7 +84,6 @@ export interface RuntimeStateProjection {
   world: {
     graph: {
       latestLsn: number | null;
-      latestChangeset: Record<string, unknown> | null;
     };
     git: {
       head: string | null;
@@ -365,7 +364,6 @@ function projectMentions(entries: readonly FileEntry[]): RuntimeStateProjection[
 function projectWorld(entries: readonly FileEntry[]): RuntimeStateProjection['world'] {
   let latestGraph: RuntimeStateProjection['world']['graph'] = {
     latestLsn: null,
-    latestChangeset: null,
   };
   let gitHead: string | null = null;
 
@@ -378,7 +376,6 @@ function projectWorld(entries: readonly FileEntry[]): RuntimeStateProjection['wo
     const lsn = integerField(details.currentLsn) ?? integerField(details.changedSinceLsn) ?? null;
     latestGraph = {
       latestLsn: lsn,
-      latestChangeset: details,
     };
     gitHead = stringField(details.gitHead) ?? gitHead;
   }

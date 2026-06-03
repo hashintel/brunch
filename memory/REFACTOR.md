@@ -191,10 +191,12 @@ Remaining:
 ```pseudo
 todo:
   9 tighten session.runtimeState result schema:
-    status: not started
+    status: done
     notes:
-      - Current extraction preserved existing runtime-state behavior/schema.
-      - Next step should explicitly shape or omit transcript/world detail bags.
+      - `session.runtimeState` now omits raw worldUpdate detail bags from the
+        public projection and discovery schema.
+      - Runtime-state result schema now names agent, mention, world-watermark,
+        and lifecycle fields instead of accepting arbitrary bags.
 
   10 final ln-sync-style drift pass:
     status: not started

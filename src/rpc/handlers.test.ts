@@ -1588,7 +1588,7 @@ describe('JSON-RPC handlers', () => {
           goal: 'capture-posture',
         },
         mentions: { graphNodes: [], files: [] },
-        world: { graph: { latestLsn: null, latestChangeset: null }, git: { head: null } },
+        world: { graph: { latestLsn: null }, git: { head: null } },
       },
     });
   });

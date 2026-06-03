@@ -29,7 +29,7 @@ import {
   type JsonRpcResponse,
 } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
-import { NoParamsSchema, NonBlankStringSchema, PositiveIntegerSchema } from './schemas.js';
+import { NoParamsSchema, NonBlankStringSchema, NonNegativeIntegerSchema, PositiveIntegerSchema } from './schemas.js';
 
 const SessionProjectionParamsSchema = Type.Object(
   {
@@ -52,16 +52,85 @@ const RuntimeStateResultSchema = Type.Object(
     status: Type.Literal('ready'),
     specId: PositiveIntegerSchema,
     sessionId: NonBlankStringSchema,
-    agent: Type.Object({}, { additionalProperties: true }),
-    mentions: Type.Object(
+    agent: Type.Object(
       {
-        graphNodes: Type.Array(Type.Object({}, { additionalProperties: true })),
-        files: Type.Array(Type.Object({}, { additionalProperties: true })),
+        operationalMode: Type.Literal('elicit'),
+        role: Type.Literal('elicitor'),
+        strategy: Type.Union([
+          Type.Literal('auto'),
+          Type.Literal('step-wise-decision-tree'),
+          Type.Literal('step-wise-disambiguate'),
+          Type.Literal('propose-graph'),
+          Type.Literal('project-graph'),
+        ]),
+        lens: Type.Union([
+          Type.Literal('auto'),
+          Type.Literal('intent'),
+          Type.Literal('design'),
+          Type.Literal('oracle'),
+        ]),
+        goal: Type.Union([
+          Type.Literal('auto'),
+          Type.Literal('grounding-advance'),
+          Type.Literal('elicit-expand'),
+          Type.Literal('commit-converge'),
+          Type.Literal('capture-posture'),
+        ]),
       },
       { additionalProperties: false },
     ),
-    world: Type.Object({}, { additionalProperties: true }),
-    lifecycle: Type.Object({}, { additionalProperties: true }),
+    mentions: Type.Object(
+      {
+        graphNodes: Type.Array(
+          Type.Object(
+            {
+              id: NonBlankStringSchema,
+              handle: Type.Optional(NonBlankStringSchema),
+              title: Type.Optional(NonBlankStringSchema),
+              seenLsn: Type.Optional(PositiveIntegerSchema),
+            },
+            { additionalProperties: false },
+          ),
+        ),
+        files: Type.Array(
+          Type.Object(
+            {
+              path: NonBlankStringSchema,
+              seenGitHead: Type.Optional(NonBlankStringSchema),
+            },
+            { additionalProperties: false },
+          ),
+        ),
+      },
+      { additionalProperties: false },
+    ),
+    world: Type.Object(
+      {
+        graph: Type.Object(
+          {
+            latestLsn: Type.Union([NonNegativeIntegerSchema, Type.Null()]),
+          },
+          { additionalProperties: false },
+        ),
+        git: Type.Object(
+          {
+            head: Type.Union([NonBlankStringSchema, Type.Null()]),
+          },
+          { additionalProperties: false },
+        ),
+      },
+      { additionalProperties: false },
+    ),
+    lifecycle: Type.Object(
+      {
+        specOrigin: Type.Union([Type.Literal('new'), Type.Literal('existing'), Type.Null()]),
+        sessionOrigin: Type.Union([Type.Literal('new'), Type.Literal('resumed'), Type.Null()]),
+        sessionIndexInSpec: Type.Union([PositiveIntegerSchema, Type.Null()]),
+        isFirstSessionForSpec: Type.Union([Type.Boolean(), Type.Null()]),
+        isTenthSessionForSpec: Type.Union([Type.Boolean(), Type.Null()]),
+      },
+      { additionalProperties: false },
+    ),
   },
   { additionalProperties: false },
 );

@@ -56,7 +56,7 @@ describe('session runtime-state projection', () => {
         goal: DEFAULT_BRUNCH_AGENT_STATE.agentGoal,
       },
       mentions: { graphNodes: [], files: [] },
-      world: { graph: { latestLsn: null, latestChangeset: null }, git: { head: null } },
+      world: { graph: { latestLsn: null }, git: { head: null } },
       lifecycle: {
         specOrigin: null,
         sessionOrigin: null,
@@ -106,7 +106,12 @@ describe('session runtime-state projection', () => {
             type: 'custom',
             parentId: 'file-mention-1',
             customType: 'worldUpdate',
-            details: { changedSinceLsn: 12, items: [{ id: 'node-1' }], gitHead: 'def456' },
+            details: {
+              changedSinceLsn: 12,
+              items: [{ id: 'node-1' }],
+              gitHead: 'def456',
+              rawBag: { hidden: true },
+            },
           } as never,
           {
             id: 'lifecycle-1',
@@ -133,7 +138,6 @@ describe('session runtime-state projection', () => {
       world: {
         graph: {
           latestLsn: 12,
-          latestChangeset: { changedSinceLsn: 12, items: [{ id: 'node-1' }], gitHead: 'def456' },
         },
         git: { head: 'def456' },
       },
