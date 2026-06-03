@@ -155,7 +155,7 @@ The spec route renders an empty or populated selected-spec graph overview from `
 
 ### Assumption dependency
 
-Depends on: selected-spec graph RPC methods from `live-graph-observer--rpc-event-spine.md` or an equivalent prior card.
+Depends on: already-landed selected-spec graph RPC methods (`graph.overview`, `graph.nodeNeighborhood`) in `src/rpc/methods/graph.ts`.
 
 ### Expected touched paths (tentative)
 

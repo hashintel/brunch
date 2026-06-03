@@ -29,7 +29,12 @@ import {
   type JsonRpcResponse,
 } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
-import { NoParamsSchema, NonBlankStringSchema, NonNegativeIntegerSchema, PositiveIntegerSchema } from './schemas.js';
+import {
+  NoParamsSchema,
+  NonBlankStringSchema,
+  NonNegativeIntegerSchema,
+  PositiveIntegerSchema,
+} from './schemas.js';
 
 const SessionProjectionParamsSchema = Type.Object(
   {
