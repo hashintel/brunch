@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { runAgentJsonlSession } from './agent-jsonl.js';
-import { createDb } from './db.js';
+import { createDb, getSpecification } from './db.js';
 import { buildCompletedSpecSnapshot } from './db/completed-spec-snapshot.js';
 import { launch } from './launcher.js';
 import { resolveBrunchProject } from './project.js';
@@ -54,19 +54,33 @@ if (rawArgs[0] === 'cook') {
   });
 } else if (rawArgs[0] === 'plan') {
   const { parsePlanArgs, runPlan } = await import('./plan-runner.js');
-  const opts = parsePlanArgs(rawArgs.slice(1));
-  const project = resolveBrunchProject(launchCwd);
-  const db = createDb(project.dbPath);
-  const snapshot = buildCompletedSpecSnapshot(db, opts.specId);
-  runPlan({ specId: opts.specId, snapshot, outDir: opts.outDir, verbose: opts.verbose })
-    .then(() => {
-      db.$client.close();
-    })
-    .catch((error) => {
-      db.$client.close();
-      console.error('Failed to run brunch plan:', error);
-      process.exit(1);
+  let db: ReturnType<typeof createDb> | undefined;
+  try {
+    const opts = parsePlanArgs(rawArgs.slice(1));
+    const project = resolveBrunchProject(launchCwd);
+    db = createDb(project.dbPath);
+    if (!getSpecification(db, opts.specificationId)) {
+      throw new Error(`specification ${opts.specificationId} not found`);
+    }
+    const snapshot = buildCompletedSpecSnapshot(db, opts.specificationId);
+    if (snapshot.requirements.length === 0) {
+      throw new Error(
+        `specification ${opts.specificationId} has no accepted requirements — confirm the requirements phase before planning`,
+      );
+    }
+    await runPlan({
+      specificationId: opts.specificationId,
+      snapshot,
+      outDir: opts.outDir,
+      verbose: opts.verbose,
     });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to run brunch plan: ${message}`);
+    process.exit(1);
+  } finally {
+    db?.$client.close();
+  }
 } else if (rawArgs[0] === 'agent') {
   const project = resolveBrunchProject(launchCwd);
   const db = createDb(project.dbPath);

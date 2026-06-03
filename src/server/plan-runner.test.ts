@@ -22,7 +22,7 @@ describe('parsePlanArgs', () => {
   it('parses <specId>, --out=<dir>, --verbose', () => {
     const opts = parsePlanArgs(['2', '--out=/tmp/x', '--verbose']);
 
-    expect(opts.specId).toBe(2);
+    expect(opts.specificationId).toBe(2);
     expect(opts.outDir.endsWith('/tmp/x') || opts.outDir.endsWith('\\tmp\\x')).toBe(true);
     expect(opts.verbose).toBe(true);
   });
@@ -47,7 +47,17 @@ describe('parsePlanArgs', () => {
   it('rejects non-numeric and non-positive spec ids', () => {
     expect(() => parsePlanArgs(['abc'])).toThrow(/spec id/i);
     expect(() => parsePlanArgs(['0'])).toThrow(/spec id/i);
-    expect(() => parsePlanArgs(['-1'])).toThrow(/spec id|specId/i);
+  });
+
+  it('rejects unknown flags instead of silently swallowing them', () => {
+    expect(() => parsePlanArgs(['2', '--bogus'])).toThrow(/--bogus/);
+    expect(() => parsePlanArgs(['2', '--out'])).toThrow(/--out/);
+    // `-1` looks like a flag, not a positional — caught by the unknown-flag arm.
+    expect(() => parsePlanArgs(['-1'])).toThrow(/-1/);
+  });
+
+  it('rejects a second positional argument instead of overwriting the first', () => {
+    expect(() => parsePlanArgs(['2', '3'])).toThrow(/positional|"3"/);
   });
 });
 
@@ -82,7 +92,7 @@ describe('runPlan', () => {
     const stderrLines: string[] = [];
 
     await runPlan({
-      specId: 2,
+      specificationId: 2,
       snapshot,
       outDir: dir,
       verbose: false,
@@ -107,7 +117,7 @@ describe('runPlan', () => {
     const stderrLines: string[] = [];
 
     await runPlan({
-      specId: 2,
+      specificationId: 2,
       snapshot,
       outDir: dir,
       verbose: true,
@@ -134,7 +144,7 @@ describe('runPlan', () => {
     const stderrLines: string[] = [];
 
     await runPlan({
-      specId: 2,
+      specificationId: 2,
       snapshot,
       outDir: dir,
       verbose: false,

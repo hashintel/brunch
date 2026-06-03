@@ -38,31 +38,31 @@ afterEach(() => {
 });
 
 function seedCompletedSpec() {
-  const project = getOrCreateSpecification(db);
+  const specification = getOrCreateSpecification(db);
 
-  const groundingTurn = createTurn(db, project.id, {
+  const groundingTurn = createTurn(db, specification.id, {
     phase: 'grounding',
     question: 'What is the goal?',
     answer: 'A demo spec',
   });
-  advanceHead(db, project.id, groundingTurn.id);
+  advanceHead(db, specification.id, groundingTurn.id);
   createConfirmedPhaseOutcome(db, {
-    specificationId: project.id,
+    specificationId: specification.id,
     phase: 'grounding',
     proposal_turn_id: groundingTurn.id,
     confirmation_turn_id: groundingTurn.id,
     summary: 'Grounding captured.',
   });
 
-  const designTurn = createTurn(db, project.id, {
+  const designTurn = createTurn(db, specification.id, {
     phase: 'design',
     parent_turn_id: groundingTurn.id,
     question: 'Any design notes?',
     answer: 'None.',
   });
-  advanceHead(db, project.id, designTurn.id);
+  advanceHead(db, specification.id, designTurn.id);
   createConfirmedPhaseOutcome(db, {
-    specificationId: project.id,
+    specificationId: specification.id,
     phase: 'design',
     proposal_turn_id: designTurn.id,
     confirmation_turn_id: designTurn.id,
@@ -70,14 +70,14 @@ function seedCompletedSpec() {
   });
 
   // Two requirements; only the first one is accepted in the reviewed set.
-  const acceptedReq1 = createKnowledgeItem(db, project.id, 'requirement', 'Requirement one');
-  const acceptedReq2 = createKnowledgeItem(db, project.id, 'requirement', 'Requirement two');
-  const draftReq = createKnowledgeItem(db, project.id, 'requirement', 'Draft requirement');
+  const acceptedReq1 = createKnowledgeItem(db, specification.id, 'requirement', 'Requirement one');
+  const acceptedReq2 = createKnowledgeItem(db, specification.id, 'requirement', 'Requirement two');
+  const draftReq = createKnowledgeItem(db, specification.id, 'requirement', 'Draft requirement');
   linkKnowledgeItemToTurn(db, acceptedReq1.id, designTurn.id, 'captured');
   linkKnowledgeItemToTurn(db, acceptedReq2.id, designTurn.id, 'captured');
   linkKnowledgeItemToTurn(db, draftReq.id, designTurn.id, 'captured');
 
-  const requirementsReviewTurn = createTurn(db, project.id, {
+  const requirementsReviewTurn = createTurn(db, specification.id, {
     phase: 'requirements',
     parent_turn_id: designTurn.id,
     question: 'Please review the current requirement set.',
@@ -86,30 +86,30 @@ function seedCompletedSpec() {
   linkKnowledgeItemToTurn(db, acceptedReq1.id, requirementsReviewTurn.id, 'reviewed');
   linkKnowledgeItemToTurn(db, acceptedReq2.id, requirementsReviewTurn.id, 'reviewed');
   // draftReq intentionally NOT reviewed → stays out of the accepted set.
-  advanceHead(db, project.id, requirementsReviewTurn.id);
+  advanceHead(db, specification.id, requirementsReviewTurn.id);
   createConfirmedPhaseOutcome(db, {
-    specificationId: project.id,
+    specificationId: specification.id,
     phase: 'requirements',
     proposal_turn_id: requirementsReviewTurn.id,
     confirmation_turn_id: requirementsReviewTurn.id,
     summary: 'Requirements accepted.',
   });
 
-  const acceptedCrit = createKnowledgeItem(db, project.id, 'criterion', 'Verifying criterion');
-  const draftCrit = createKnowledgeItem(db, project.id, 'criterion', 'Draft criterion');
+  const acceptedCrit = createKnowledgeItem(db, specification.id, 'criterion', 'Verifying criterion');
+  const draftCrit = createKnowledgeItem(db, specification.id, 'criterion', 'Draft criterion');
   linkKnowledgeItemToTurn(db, acceptedCrit.id, requirementsReviewTurn.id, 'captured');
   linkKnowledgeItemToTurn(db, draftCrit.id, requirementsReviewTurn.id, 'captured');
 
-  const criteriaReviewTurn = createTurn(db, project.id, {
+  const criteriaReviewTurn = createTurn(db, specification.id, {
     phase: 'criteria',
     parent_turn_id: requirementsReviewTurn.id,
     question: 'Please review the current criterion set.',
     answer: 'Accept review',
   });
   linkKnowledgeItemToTurn(db, acceptedCrit.id, criteriaReviewTurn.id, 'reviewed');
-  advanceHead(db, project.id, criteriaReviewTurn.id);
+  advanceHead(db, specification.id, criteriaReviewTurn.id);
   createConfirmedPhaseOutcome(db, {
-    specificationId: project.id,
+    specificationId: specification.id,
     phase: 'criteria',
     proposal_turn_id: criteriaReviewTurn.id,
     confirmation_turn_id: criteriaReviewTurn.id,
@@ -125,7 +125,7 @@ function seedCompletedSpec() {
   addKnowledgeRelationship(db, acceptedReq2.id, acceptedReq1.id, 'depends_on');
 
   return {
-    projectId: project.id,
+    specificationId: specification.id,
     acceptedReq1,
     acceptedReq2,
     acceptedCrit,
@@ -136,9 +136,9 @@ function seedCompletedSpec() {
 
 describe('buildCompletedSpecSnapshot', () => {
   it('includes only accepted requirements and criteria with stable kindOrdinal mapping', () => {
-    const { projectId, acceptedReq1, acceptedReq2, acceptedCrit } = seedCompletedSpec();
+    const { specificationId, acceptedReq1, acceptedReq2, acceptedCrit } = seedCompletedSpec();
 
-    const snapshot = buildCompletedSpecSnapshot(db, projectId);
+    const snapshot = buildCompletedSpecSnapshot(db, specificationId);
 
     expect(snapshot.requirements).toEqual([
       { id: acceptedReq1.id, content: 'Requirement one', kindOrdinal: 1 },
@@ -150,9 +150,9 @@ describe('buildCompletedSpecSnapshot', () => {
   });
 
   it('drops edges whose endpoints reference non-accepted items and preserves the relation enum', () => {
-    const { projectId, acceptedReq1, acceptedReq2, acceptedCrit } = seedCompletedSpec();
+    const { specificationId, acceptedReq1, acceptedReq2, acceptedCrit } = seedCompletedSpec();
 
-    const snapshot = buildCompletedSpecSnapshot(db, projectId);
+    const snapshot = buildCompletedSpecSnapshot(db, specificationId);
 
     expect(snapshot.edges).toEqual(
       expect.arrayContaining([
@@ -164,9 +164,9 @@ describe('buildCompletedSpecSnapshot', () => {
   });
 
   it('returns an empty snapshot when no items are accepted for the specification', () => {
-    const project = getOrCreateSpecification(db);
+    const specification = getOrCreateSpecification(db);
 
-    const snapshot = buildCompletedSpecSnapshot(db, project.id);
+    const snapshot = buildCompletedSpecSnapshot(db, specification.id);
 
     expect(snapshot).toEqual({ requirements: [], criteria: [], edges: [] });
   });

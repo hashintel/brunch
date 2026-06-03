@@ -24,13 +24,15 @@ import type { RunModel } from '../orchestrator/src/plan-llm-planning.js';
 import type { CompletedSpecSnapshot } from '../orchestrator/src/plan-projection.js';
 
 export type PlanOptions = {
-  specId: number;
+  specificationId: number;
   outDir: string;
   verbose: boolean;
 };
 
+const USAGE = 'Usage: brunch plan <specId> [--out=<dir>] [--verbose]';
+
 export function parsePlanArgs(args: string[]): PlanOptions {
-  let specIdRaw = '';
+  let specIdRaw: string | undefined;
   let outDir = process.cwd();
   let verbose = false;
 
@@ -39,25 +41,29 @@ export function parsePlanArgs(args: string[]): PlanOptions {
       outDir = resolve(arg.slice('--out='.length));
     } else if (arg === '--verbose' || arg === '-v') {
       verbose = true;
-    } else if (!arg.startsWith('-')) {
+    } else if (arg.startsWith('-')) {
+      throw new Error(`Unknown flag "${arg}". ${USAGE}`);
+    } else if (specIdRaw === undefined) {
       specIdRaw = arg;
+    } else {
+      throw new Error(`Unexpected positional argument "${arg}". ${USAGE}`);
     }
   }
 
-  if (!specIdRaw) {
-    throw new Error('Usage: brunch plan <specId> [--out=<dir>] [--verbose]');
+  if (specIdRaw === undefined) {
+    throw new Error(`Missing spec id. ${USAGE}`);
   }
 
-  const specId = Number(specIdRaw);
-  if (!Number.isInteger(specId) || specId <= 0) {
+  const specificationId = Number(specIdRaw);
+  if (!Number.isInteger(specificationId) || specificationId <= 0) {
     throw new Error(`Invalid spec id "${specIdRaw}" — expected a positive integer.`);
   }
 
-  return { specId, outDir, verbose };
+  return { specificationId, outDir, verbose };
 }
 
 export type RunPlanArgs = {
-  specId: number;
+  specificationId: number;
   snapshot: CompletedSpecSnapshot;
   outDir: string;
   verbose: boolean;
@@ -73,7 +79,7 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
   log('');
   log('  brunch plan');
   log('  ──────────────────────────────────────');
-  log(`  spec       ${args.specId}`);
+  log(`  spec       ${args.specificationId}`);
   log(`  out        ${args.outDir}`);
   log('');
 
