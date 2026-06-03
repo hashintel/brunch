@@ -27,8 +27,12 @@ export const indexRoute = createRoute({
 
 export function sessionProjectionTargetFromSnapshot(
   snapshot: WorkspaceSnapshot,
+  viewedSpecId?: number,
 ): SessionProjectionTarget | null {
   if (!snapshot.session || !snapshot.spec) {
+    return null;
+  }
+  if (viewedSpecId !== undefined && snapshot.spec.id !== viewedSpecId) {
     return null;
   }
   return { sessionId: snapshot.session.id, specId: snapshot.spec.id };
@@ -89,12 +93,23 @@ export function WorkspaceChrome(options: { snapshot: WorkspaceSnapshot; fallback
 export function TranscriptPanel(options: {
   snapshot: WorkspaceSnapshot;
   projection: UseQueryResult<TranscriptDisplayProjection>;
+  viewedSpecId?: number;
 }) {
   if (!options.snapshot.session || !options.snapshot.spec) {
     return (
       <section aria-label="Session transcript">
         <h2>Session transcript</h2>
         <p>No Brunch session selected.</p>
+      </section>
+    );
+  }
+
+  if (options.viewedSpecId !== undefined && options.snapshot.spec.id !== options.viewedSpecId) {
+    return (
+      <section aria-label="Session transcript">
+        <h2>Session transcript</h2>
+        <p>{`No session is attached for viewed Spec ${options.viewedSpecId}.`}</p>
+        <p>{`The TUI is active in Spec ${options.snapshot.spec.id}/${options.snapshot.session.id}.`}</p>
       </section>
     );
   }

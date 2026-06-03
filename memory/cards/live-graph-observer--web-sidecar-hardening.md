@@ -82,7 +82,7 @@ memory/cards/
 └── live-graph-observer--graph-rpc-spine.md ?
 ```
 
-## Card 2 — next — Client-local spec viewing does not borrow the TUI session transcript
+## Card 2 — done — Client-local spec viewing does not borrow the TUI session transcript
 
 ### Target Behavior
 

@@ -178,6 +178,28 @@ describe('Brunch React web app', () => {
     expect(calls).toContainEqual({ method: 'graph.overview', params: { specId: 1 } });
   });
 
+  it('treats the spec route as client-local view state without borrowing the TUI session transcript', async () => {
+    window.history.pushState(null, '', '/spec/2');
+    const calls: RpcCall[] = [];
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        calls,
+        graphOverview: emptyGraphOverview,
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('No session is attached for viewed Spec 2.')).toBeTruthy();
+    expect(screen.getByText('The TUI is active in Spec 1/session-1.')).toBeTruthy();
+    expect(calls).toContainEqual({ method: 'graph.overview', params: { specId: 2 } });
+    expect(calls).not.toContainEqual({
+      method: 'session.transcriptDisplay',
+      params: { sessionId: 'session-1', specId: 1 },
+    });
+    expect(calls).not.toContainEqual(expect.objectContaining({ method: 'workspace.activate' }));
+  });
+
   it('loads the spec route without requesting session data when no session is selected', async () => {
     window.history.pushState(null, '', '/spec/2');
     const calls: RpcCall[] = [];
