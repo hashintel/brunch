@@ -28,6 +28,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 1. `agent-fixture-substrate` — branch-complete off main, reconciling — FE-705 integration substrate for JSONL agent capability CLI and LLM-as-user probes.
 2. `chat-runtime-secondary-chats` — FE-716; V1 done — PR #141 merged to main.
 3. **Petrinaut integration sub-track** — umbrella **FE-760** (Orchestrator ⇄ Petrinaut). FE-761 (semantics), FE-762 (`net.json` + SDCPN export), FE-763 (event stream), and FE-784 (colour fold) have **landed**. **`petri-sync-server` (FE-764)** is the active piece, reshaped (2026-06-01 meeting) into an **ephemeral cook-hosted SSE live stream** for the Bristol demo — no-colour, replay-on-connect, brunch-initiated session, supersedes the dropped static-bundle idea. Replaces the POC interpreter's visualization role with Petrinaut as canonical surface.
+4. `spec-to-cook-plan` — **FE-800**; **missing front-half of the Bristol end-to-end demo** (SPEC → generated plan → cook → Petri → Petrinaut). Two proving spikes done 2026-06-03; ready to scope. Emitter = projection (deterministic) + planning pass (LLM) + reconciliation (deterministic). Not blocked by FE-700/FE-701/FE-705; real completed spec 2 ("brunch_graphs") is a usable input today. Branch stacks on FE-764.
 
 ### Recently Completed
 
@@ -283,6 +284,21 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Open / pending coordination:** exact URL param names + `mode` value (joint with Chris/Petrinaut — no scheme exists yet); how the web-UI button discovers the ephemeral endpoint (e.g. cook advertises `{ sessionId, url, port }` to a known location the SPA reads); whether to emit a `net_completed` terminal (today only `net_halted` / `net_deadlocked`); `meta.generatorVersion` semantics (export-schema vs tool version).
 - **Artifacts:** contract `src/orchestrator/src/petrinaut-stream-contract.ts` + `docs/petrinaut-stream-contract.md`; validated sample export from run `904d205d`.
 - **Traceability:** §Lexicon `folded net` (export reuse; demo deviates via identity fold); I122-K (tokens are pointers → per-place counts suffice for marking deltas); execution-authority posture (Petrinaut renders; brunch's interpreter runs the net).
+
+### spec-to-cook-plan
+
+- **Name:** Spec → cook-plan emitter — project + plan a `brunch cook` plan.yaml from a completed intent graph
+- **Linear:** FE-800 (standalone; not parented under FE-760)
+- **Kind:** structural
+- **Status:** not-started — two proving spikes done 2026-06-03 (see memory `spec-to-cook-plan-spike`); branch stacks on FE-764
+- **Objective:** Emit a `brunch cook` plan.yaml from a completed brunch specification's intent graph. Three-stage emitter: **projection** (deterministic) — `requirement` items → slices, `criterion --verifies--> requirement` edges → per-slice verification linkage, stable slice ids; **planning pass** (LLM) — infer the execution-order `depends_on` DAG + epic grouping + non-buildable-constraint detection, since execution order is not spec truth and reads as zero from the graph; **reconciliation** (deterministic) — validate the LLM output for cook (drop/redirect deps onto non-buildable constraints, guarantee acyclicity, synthesize conventional verification targets, flag contradictions). Output is a reviewable artifact, not a silent input.
+- **Why now / unlocks:** The missing front-half of the Bristol end-to-end demo (SPEC → generated plan → cook → Petri → Petrinaut). TRACK F execution + Petrinaut visualization are done/active (FE-760 umbrella, FE-764 streaming) and `cook-codebase-mode` runs brownfield, but every cook run still starts from a hand-authored plan.yaml. This is the smallest bridge from "fixture-driven orchestrator" to "brunch spec drives the orchestrator."
+- **Spike findings (2026-06-03, against real completed spec 2 "brunch_graphs"):** (1) projection works today; verification linkage fully covered (every requirement has ≥1 verifying criterion). (2) graph-read dependency synthesis yields **zero** — requirements are only sinks of epistemic `depends_on`; **not fixable by FE-700** (it types relations, it doesn't make the observer emit execution order). (3) one `generateObject` call (claude-sonnet-4, ~900/640 tokens) produced a credible acyclic DAG + free non-buildable detection, but dangled deps onto constraints → requires the reconciliation stage. Not blocked by FE-700/FE-701/FE-705; spec 2 is a usable demo input that exists now.
+- **Acceptance:** (1) `brunch` emits `<dir>/.brunch/cook/plan.yaml` from a completed specification (all phases confirmed). (2) Projection is deterministic: requirements → slices, verifies edges → verification linkage, stable slice ids. (3) Planning pass produces an acyclic `depends_on` DAG and flags non-buildable constraint-style requirements. (4) Reconciliation guarantees no dangling/cyclic deps and emits cook-valid schema (epics/slices/depends_on/verification). (5) The generated plan round-trips through `loadPlan` and drives a `brunch cook <repo> --petrinaut-stream` run end-to-end against a brownfield fixture. (6) Demo mode: ordering can be authored/overridden deterministically (reviewable) instead of LLM-generated, for a controlled Bristol run.
+- **Open / pending decisions:** ordering LLM-by-default vs authored-by-default for the demo; whether the emitter lives server-side (capability contract) or in the orchestrator package; brownfield verification-target convention (criterion prose → runnable test path is synthesized, agent authors the test).
+- **Verification:** projection golden tests (spec fixture → plan.yaml); planning-pass acyclicity/contract tests (mock + opt-in real-provider); reconciliation tests (dangling-dep redirect, cycle break, non-buildable handling); end-to-end integration feeding a generated plan into the existing brownfield-smoke harness.
+- **Traceability:** Requirements 46–50; D155-K–D160-K (new D160-K); A97 (validated); resolves SPEC §Constraints non-goal tension via D160-K. Spike memory: `spec-to-cook-plan-spike`.
+- **Design docs:** `docs/design/orchestrator.md`; `docs/next/architecture/plan-graph-petri-orchestration.md`; umbrella H-6476.
 
 ### petrinaut-colour-fold
 
@@ -685,6 +701,7 @@ orchestrator-poc (Phase 0: compiler extraction — done)
                     │     └──→ petri-event-stream (FE-763: initial markings + transition firings — done)
                     │           ├──→ petrinaut-colour-fold (FE-784: colour-fold export projection — done; set aside for the no-colour demo)
                     │           └──→ petri-sync-server (FE-764: ACTIVE — ephemeral cook-hosted SSE live stream; replay-on-connect; brunch-initiated session; Bristol demo)
+                    ├──→ spec-to-cook-plan (demo front-half: completed intent graph → cook plan.yaml; projection + LLM planning pass + reconciliation; spikes done; feeds FE-764 stream; NOT blocked by FE-700)
                     ├──→ petri-graph-compilation (Phase 3: compile from plan-graph + relation policy; needs FE-700)
                     └──→ petri-simulation-oracle (Phase 4: reachability, deadlock, resume; declarative-routing structural prerequisite now satisfied; Phase 3 still needed for graph-derived gates)
 
