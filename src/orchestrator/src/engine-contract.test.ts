@@ -1197,6 +1197,39 @@ describe('FE-764: identity-fold engine wiring + frame-replay oracle', () => {
     }
   });
 
+  it('FE-764 slice 4: does not start live-stream setup when the event stream cannot initialize', async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-stream-init-'));
+    try {
+      // Make the JSONL event stream path unwritable while leaving runDir valid
+      // for net.json and net.sdcpn.json.
+      mkdirSync(join(runDir, 'petrinaut-events.jsonl'));
+      let setupCalls = 0;
+
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: 'run-stream-init-failure',
+        runDir,
+        petrinautFold: 'identity',
+        setupPetrinautStream: async () => {
+          setupCalls++;
+          return () => undefined;
+        },
+      });
+
+      expect(result.status).toBe('completed');
+      expect(result.warnings).toEqual([expect.stringMatching(/^Petrinaut event stream disabled:/)]);
+      expect(setupCalls).toBe(0);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
   it("collapses slice place ids when petrinautFold='color'", async () => {
     const fakes = createFakes();
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-color-'));

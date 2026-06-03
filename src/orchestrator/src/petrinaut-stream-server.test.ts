@@ -255,6 +255,7 @@ describe('createPetrinautStreamServer — routing', () => {
     const base = ctx.streamUrl!.replace('/stream', '');
     const res = await fetch(`${base}/anything-else`);
     expect(res.status).toBe(404);
+    expect(res.headers.get('access-control-allow-origin')).toBeNull();
     await res.text();
   });
 

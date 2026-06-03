@@ -118,7 +118,7 @@ export function createPetrinautStreamServer(opts: CreatePetrinautStreamServerOpt
       handleStream(req, res);
       return;
     }
-    res.writeHead(404, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not Found');
   }
 

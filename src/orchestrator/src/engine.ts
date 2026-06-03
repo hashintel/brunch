@@ -89,36 +89,52 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
           }
         }
 
-        // FE-764 slice 4: await the setup hook BEFORE opening the event
-        // stream so any async sink (HTTP/SSE server) is fully listening
-        // before `emitInitialMarking` publishes the first frame.
-        let setupCallback: ((event: import('./petrinaut-events.js').PetrinautEvent) => void) | undefined;
-        if (input.setupPetrinautStream && sdcpnFile) {
-          setupCallback = await input.setupPetrinautStream({ runId, sdcpnFile });
-        }
-
         // FE-763: open a Petrinaut event stream when runDir is present.
         // Emits an initial_marking event up-front, then transition_fired /
         // net_halted / net_deadlocked events as the net runs. Library
         // callers without a runDir get the existing no-op behavior.
         let eventSink: NetEventSink | undefined;
         if (input.runDir) {
+          let setupCallback: ((event: import('./petrinaut-events.js').PetrinautEvent) => void) | undefined;
+          // Merge the slice-3a fan-out and the slice-4 setup callback so an
+          // engine event reaches both consumers in one call. The setup callback
+          // is assigned only after the stream has initialized and setup has
+          // resolved; events are not emitted before that point.
+          const setupFanOut = input.setupPetrinautStream
+            ? (event: import('./petrinaut-events.js').PetrinautEvent) => setupCallback?.(event)
+            : undefined;
+          const fanOut = mergeEventCallbacks(input.onPetrinautEvent, setupFanOut);
+          let stream: ReturnType<typeof createPetrinautEventStream> | undefined;
           try {
-            // Merge the slice-3a fan-out and the slice-4 setup callback so
-            // an engine event reaches both consumers in one call.
-            const fanOut = mergeEventCallbacks(input.onPetrinautEvent, setupCallback);
-            const stream = createPetrinautEventStream({
+            // Construct the event stream before starting any live-stream
+            // server. If the event stream cannot initialize, no launcher URL
+            // is advertised with an unwired bus behind it.
+            stream = createPetrinautEventStream({
               runId,
               folding,
               filePath: join(input.runDir, 'petrinaut-events.jsonl'),
               ...(fanOut ? { onEvent: fanOut } : {}),
               onError: (message) => ctx.warnings?.push(message),
             });
-            stream.emitInitialMarking(blueprint);
-            eventSink = stream.sink;
           } catch (err) {
             // Best-effort integration output — don't fail the cook run.
             ctx.warnings?.push(`Petrinaut event stream disabled: ${errorMessage(err)}`);
+          }
+
+          if (stream) {
+            // FE-764 slice 4: await the setup hook BEFORE emitting the first
+            // event so any async sink (HTTP/SSE server) is fully listening
+            // before `emitInitialMarking` publishes the first frame.
+            if (input.setupPetrinautStream && sdcpnFile) {
+              setupCallback = await input.setupPetrinautStream({ runId, sdcpnFile });
+            }
+            try {
+              stream.emitInitialMarking(blueprint);
+              eventSink = stream.sink;
+            } catch (err) {
+              // Best-effort integration output — don't fail the cook run.
+              ctx.warnings?.push(`Petrinaut event stream disabled: ${errorMessage(err)}`);
+            }
           }
         }
 
