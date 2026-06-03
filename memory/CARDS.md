@@ -6,10 +6,11 @@
 # Scope cards — FE-800 spec-to-cook-plan
 
 FE-764 queue (slices 1–4) shipped on `ka/fe-764-petri-sync-server`; that
-queue is retired. FE-800 now owns this file. Slice 1 (deterministic
-projection) landed; slice 2 (LLM planning pass) is the next card. Slices
-3+ (reconciliation, end-to-end wiring, demo override) are NOT pre-queued
-— each depends on shape findings from the prior slice.
+queue is retired. FE-800 now owns this file. Slices 1 (deterministic
+projection) and 2 (LLM planning pass) landed; slice 3 (deterministic
+reconciliation) is the next card. Slices 4+ (end-to-end wiring, demo
+override) are NOT pre-queued — each depends on shape findings from the
+prior slice.
 
 ---
 
@@ -437,4 +438,226 @@ This slice deliberately does NOT touch:
 - Outer: deferred to slice 4 / end-to-end wiring. Once reconciliation
   (slice 3) and CLI wiring (slice 4) land, an end-to-end cook run
   consuming the generated plan provides the real outer-loop signal.
+```
+
+---
+
+## Slice 3: deterministic reconciliation — projected Plan + LLM enrichment → cook-runnable Plan
+
+**Status:** done. `src/orchestrator/src/cook-plan-reconciliation.ts`
+exports `reconcileCookPlan(projected, enrichment) → { plan, warnings }`
+with the full `ReconciliationWarning` discriminated union (synthesized
+verification, self-loops, nonexistent ids, cycle-break edges,
+non-buildable slices + deps, empty epics, orphan→default).
+Acceptance criteria covered by 12 unit tests in
+`src/orchestrator/src/cook-plan-reconciliation.test.ts`, including the
+2-cycle / 3-cycle determinism pin and a brunch_graphs corpus
+end-to-end test that round-trips the reconciled plan through
+`loadPlan`. `npm run verify` green. Slice 4 (CLI wiring +
+plan.yaml emission + warning surfacing) is next.
+
+### Target Behavior
+
+A pure function `reconcileCookPlan(projected, enrichment) → { plan, warnings }`
+takes slice 1's projected Plan plus slice 2's `PlanningEnrichment` and
+returns a cook-runnable Plan whose `depends_on` graph is acyclic and
+references only existing slice ids, whose epics partition the surviving
+slices, whose non-buildable slices are removed (their definition text
+preserved in the warnings), and whose every surviving slice has exactly
+one `kind: 'unit-test'` verification entry with `target: 'tests/<sliceId>.test.ts'`
+plus a `definition` enriched with the slice's verifying-criteria text so
+the pi-agent has enough context to author the test file. Anything that
+gets dropped, redirected, broken, or synthesized is captured in a
+structured `ReconciliationWarning[]` rather than silently swallowed.
+
+### Boundary Crossings
+
+```
+→ src/orchestrator/src/cook-plan-reconciliation.ts (new — pure)
+→ consumes:
+    Plan (existing — src/orchestrator/src/types.ts)
+    PlanningEnrichment (slice 2 — src/orchestrator/src/cook-plan-llm-planning.ts)
+→ exits at:
+    src/orchestrator/src/cook-plan-reconciliation.test.ts (new — unit
+       tests over hand-crafted Plan+enrichment pairs covering each
+       reconciliation rule + the brunch_graphs corpus end-to-end)
+```
+
+This slice deliberately does NOT touch:
+
+- `src/orchestrator/src/cook-plan-projection.ts` — projector stays untouched.
+- `src/orchestrator/src/cook-plan-llm-planning.ts` — planning pass
+  contract stays untouched; reconciliation consumes its output.
+- `src/orchestrator/src/cook-cli.ts` — no CLI surface yet (slice 4).
+- `src/orchestrator/src/net-compiler.ts` — cook engine unchanged;
+  slice 3's output is already shape-compatible with cook's existing
+  `Plan` consumer (`verification[0]?.target` at net-compiler.ts:313).
+
+### Risks and Assumptions
+
+```
+- ASSUMPTION: Dropping non-buildable slices entirely (rather than
+  retaining them as informational) is the right semantics for cook.
+  Cook builds every slice; a slice it can't act on would either run
+  forever or surface a confusing failure. Dropping with a warning
+  preserves reviewer awareness without polluting the build graph.
+  → VALIDATE: test fixture with one non-buildable slice asserts that
+    slice is gone from the output Plan AND a warning carries its
+    definition text. If the user later wants constraint-style slices
+    represented in the cook plan, that's a follow-on (e.g. constraint
+    annotations passed to pi-agent prompts), not slice 3 territory.
+
+- ASSUMPTION: Cycle-break rule = Kahn's algorithm with deterministic
+  tie-breaking by lexicographic sliceId. When no in-degree-zero node
+  remains but slices remain, take the lexicographically-smallest
+  remaining sliceId, drop all its incoming dependsOn edges (warning
+  each), and continue. This is purely deterministic, breaks every
+  cycle, and the warning surfaces what got dropped.
+  → VALIDATE: test fixture with a 2-cycle (A→B, B→A) and a 3-cycle
+    asserts both cycles break, output topo-sortable, warnings name the
+    dropped edges; deterministic across re-runs (call twice, identical
+    warnings).
+
+- ASSUMPTION: Verification synthesis = exactly one `{ kind: 'unit-test',
+  target: 'tests/<sliceId>.test.ts' }` per surviving slice, regardless
+  of how many criterion verifications slice 1 emitted. Cook's
+  net-compiler reads only the first verification's target
+  (net-compiler.ts:313); collapsing to one entry matches cook's actual
+  reader and the existing fixture convention (fixtures/txt/plan.yaml
+  has one verification per slice). The criterion text moves into
+  `slice.definition` so the pi-agent still sees what to test.
+  → VALIDATE: test asserts every output slice has exactly one
+    verification, kind `unit-test`, target `tests/<sliceId>.test.ts`.
+    Separate test asserts the slice's definition was enriched with
+    criterion text when the projection carried `kind: 'criterion'`
+    verifications.
+
+- ASSUMPTION: A slice present in the projected Plan but absent from
+  every LLM-proposed epic is placed in a default epic (id `default`,
+  summary `All requirements`). Mirrors slice 1's default-epic fallback
+  so the contract is consistent.
+  → VALIDATE: test fixture with an LLM enrichment that omits one
+    surviving slice from every epic asserts that slice lands in the
+    default epic; default epic is created on-demand only when needed
+    (no empty default-epic in the output when LLM covers everything).
+
+- ASSUMPTION: Epic ids that appear in the LLM enrichment but contain
+  zero surviving slices are dropped entirely (no orphan epics in the
+  output). Cook's plan-loader doesn't require empty epics to be
+  preserved.
+  → VALIDATE: test fixture where the LLM proposed three epics but only
+    two have surviving slices after non-buildable removal asserts the
+    output has exactly two epics + a third "dropped empty epic"
+    warning.
+
+- ASSUMPTION: `ReconciliationWarning` is a typed discriminated union
+  with `code` (machine label), `message` (human prose), and per-kind
+  payload (e.g. `{ code: 'cycle-break-dropped-edge', from, to }`). Slice
+  4 will surface the warnings to the user when writing plan.yaml.
+  → VALIDATE: warning shape tested directly; warnings are stable
+    enough that slice 4's serialization layer can rely on them.
+
+- ASSUMPTION: dependsOn edges between two slices where one is
+  non-buildable get DROPPED (not redirected through the dep graph).
+  Redirection would silently rewire ordering in ways the reviewer
+  didn't author. A dropped edge with a clear warning is auditable.
+  → VALIDATE: test fixture with slice A depending on non-buildable
+    slice B asserts A's dependsOn is empty in output and a warning
+    names the drop.
+
+- RISK: Slice id collisions across the synthesized default epic and
+  any LLM-proposed epic with id `default`. The LLM was told to use
+  kebab-case slugs but might pick `default`.
+  → MITIGATION: if the LLM proposed an epic id `default`, preserve it
+    (merge with the fallback bucket). The id-as-key behavior collapses
+    naturally; warn if a merge happens.
+
+- RISK: Definition enrichment with criterion text could grow the
+  definition string past whatever budget the pi-agent prompt template
+  imposes downstream. The current pi-agent prompt design hasn't been
+  audited for length.
+  → MITIGATION: cap the enriched definition at a reasonable size (e.g.
+    drop after N criteria with an ellipsis warning) only if a real
+    fixture hits the cap. For slice 3, just enrich without truncation;
+    add capping in a hardening slice if it bites.
+```
+
+### Acceptance Criteria
+
+```
+✓ `reconcileCookPlan(projected, enrichment)` exported from
+  `cook-plan-reconciliation.ts`; pure; returns
+  `{ plan: Plan; warnings: ReconciliationWarning[] }`.
+
+✓ `ReconciliationWarning` exported as a discriminated union including
+  at minimum:
+    - `{ code: 'dropped-dependency-nonexistent-id', sliceId, missingId }`
+    - `{ code: 'dropped-self-loop', sliceId }`
+    - `{ code: 'cycle-break-dropped-edge', sliceId, droppedDependsOn }`
+    - `{ code: 'dropped-dependency-on-non-buildable', sliceId, nonBuildableId }`
+    - `{ code: 'dropped-non-buildable-slice', sliceId, definition }`
+    - `{ code: 'dropped-empty-epic', epicId, epicSummary }`
+    - `{ code: 'orphan-slice-assigned-to-default-epic', sliceId }`
+    - `{ code: 'synthesized-verification-target', sliceId, target }`
+
+✓ test: every output slice has exactly one verification entry, kind
+  `unit-test`, target `tests/<sliceId>.test.ts`; a
+  `synthesized-verification-target` warning is recorded per slice.
+
+✓ test: a slice whose projected verifications had `kind: 'criterion'`
+  entries gets those criterion texts enriched into its `definition`
+  (verifiable by substring assertion); the output `verification` array
+  contains ONLY the synthesized unit-test entry.
+
+✓ test: a dependsOn edge referencing a sliceId that doesn't exist in
+  the projected Plan is dropped from the output with a
+  `dropped-dependency-nonexistent-id` warning.
+
+✓ test: a dependsOn edge from slice A to slice A (self-loop) is dropped
+  with a `dropped-self-loop` warning.
+
+✓ test: a 2-cycle (A depends on B, B depends on A) is broken
+  deterministically by dropping the incoming edges of the
+  lexicographically-smallest sliceId; output is acyclic; warnings name
+  the dropped edges; identical across re-runs.
+
+✓ test: a 3-cycle (A→B→C→A) is broken by the same rule; output is
+  acyclic; deterministic across re-runs.
+
+✓ test: a dependsOn edge onto a non-buildable slice is dropped with a
+  `dropped-dependency-on-non-buildable` warning; the non-buildable
+  slice itself is removed from the output Plan with a
+  `dropped-non-buildable-slice` warning carrying its definition.
+
+✓ test: an LLM-proposed epic with zero surviving slices is dropped
+  from the output with a `dropped-empty-epic` warning.
+
+✓ test: a surviving slice not assigned to any LLM-proposed epic lands
+  in a default epic (`id: 'default'`, `summary: 'All requirements'`);
+  warning recorded. Default epic is NOT created when every slice is
+  already covered.
+
+✓ test: brunch_graphs corpus end-to-end — load the slice-1 fixture,
+  project, hand-craft a representative PlanningEnrichment (with one
+  dep edge, one non-buildable flag, one orphan slice), reconcile,
+  assert (a) output plan round-trips through `loadPlan` after YAML
+  serialise, (b) every slice has the synthesized verification target,
+  (c) the non-buildable slice is gone, (d) warnings are non-empty.
+
+✓ test: determinism — calling `reconcileCookPlan` twice on the same
+  inputs returns structurally-equal outputs (plan + warnings).
+
+✓ `npm run verify` green.
+```
+
+### Verification Approach
+
+```
+- Inner: cook-plan-reconciliation.test.ts unit tests over hand-crafted
+  Plan+enrichment pairs, one per reconciliation rule, plus a corpus
+  end-to-end test against the brunch_graphs fixture. All pure, no I/O
+  beyond the YAML round-trip.
+- Middle: deferred to slice 4 — once CLI wiring composes projection +
+  planning + reconciliation, an integration test feeds a real cook run.
+- Outer: deferred to slice 4 / Bristol-demo end-to-end run.
 ```
