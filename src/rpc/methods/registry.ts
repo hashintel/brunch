@@ -1,3 +1,9 @@
+import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
+import type {
+  DefaultWorkspaceCoordinator,
+  SpecSessionActivationCoordinator,
+} from '../../session/workspace-session-coordinator.js';
+import type { ProductUpdatePublisher } from '../product-updates.js';
 import type { JsonRpcRequest, JsonRpcResponse } from '../protocol.js';
 
 export type RpcMethodAccess = 'read' | 'write';
@@ -10,6 +16,14 @@ export interface RpcMethodDefinition<Context> {
   readonly resultSchema: unknown;
   readonly examples: readonly JsonRpcRequest[];
   handle(context: Context, request: JsonRpcRequest): Promise<JsonRpcResponse>;
+}
+
+export interface RpcMethodContext {
+  readonly coordinator: DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator;
+  readonly cwd: string;
+  readonly productUpdates?: ProductUpdatePublisher;
+  readonly getGraphRuntime: () => Promise<WorkspaceGraphRuntime>;
+  readonly discoveryRegistry: readonly RpcMethodDefinition<RpcMethodContext>[];
 }
 
 export type RpcMethodRegistry<Context> = readonly RpcMethodDefinition<Context>[];
