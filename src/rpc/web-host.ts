@@ -4,7 +4,7 @@ import { dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
-import { createRpcHandlers } from './handlers.js';
+import { createReadOnlyRpcHandlers } from './handlers.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from './product-updates.js';
 import { attachWebRpcTransport, type WebRpcTransport } from './websocket.js';
 
@@ -71,7 +71,7 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
     rpcTransport = attachWebRpcTransport({
       server,
       path: '/rpc',
-      handlers: createRpcHandlers({
+      handlers: createReadOnlyRpcHandlers({
         coordinator: options.coordinator,
         cwd: options.cwd,
         productUpdates,

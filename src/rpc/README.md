@@ -4,7 +4,7 @@ This directory owns Brunch's public JSON-RPC boundary. This README is the findab
 
 ## Boundary
 
-Brunch exposes one product RPC surface over stdio, WebSocket, and in-process handlers. Browser clients, CLI probes, TUI adapters, and future relays speak Brunch method names; they do not coordinate raw Pi RPC plus Brunch product RPC themselves.
+Brunch exposes two handler surfaces over stdio, WebSocket, and in-process handlers. The full CLI/RPC host includes mutation-capable session/workspace methods. The TUI-started web sidecar uses the read-attachment surface: projection/read methods plus `rpc.discover`, with mutation methods rejected at the RPC boundary. Browser clients, CLI probes, TUI adapters, and future relays speak Brunch method names; they do not coordinate raw Pi RPC plus Brunch product RPC themselves.
 
 RPC handlers project from canonical stores:
 
@@ -54,6 +54,43 @@ brunch.updated:
 ```
 
 WebSocket and stdio transports both carry these notifications independently from request responses. The notification payload is owned by `rpc/`; graph and session mutation adapters receive only a narrow product-update publisher.
+
+## Handler surfaces
+
+```pseudo
+full RPC host:
+  reads:
+    rpc.discover
+    workspace.snapshot
+    workspace.selectionState
+    session.pendingExchange
+    session.elicitationExchanges
+    session.transcriptDisplay
+    graph.overview
+    graph.nodeNeighborhood
+  mutations:
+    workspace.activate
+    session.startElicitation
+    elicitation.respond
+
+TUI-started web sidecar:
+  reads:
+    rpc.discover
+    workspace.snapshot
+    workspace.selectionState
+    session.pendingExchange
+    session.elicitationExchanges
+    session.transcriptDisplay
+    graph.overview
+    graph.nodeNeighborhood
+  rejected as method-not-found:
+    workspace.activate
+    session.startElicitation
+    elicitation.respond
+```
+
+The sidecar discovery result lists only methods the sidecar accepts. This preserves the POC one-writer/many-read-attachments rule: the TUI/agent session remains the writer; attached browsers refetch canonical projections from read methods after `brunch.updated`.
+
 
 ## Product method vocabulary
 

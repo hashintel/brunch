@@ -360,55 +360,60 @@ src/rpc/product-updates.ts           ~
 src/brunch.ts                        ?
 ```
 
-## Card 5 — next — Session runtime state RPC projection
+## Card 5 — done — RPC method-family split and read-only web sidecar surface
 
 ### Target Behavior
 
-`session.runtimeState` returns the flattened Brunch session-agent runtime state for an explicit selected session.
+The TUI-started web sidecar exposes only read/projection RPC methods while the full CLI/RPC host keeps the existing mutation-capable surface.
 
 ### Boundary Crossings
 
 ```pseudo
-→ JSON-RPC request `{specId, sessionId}`
-→ rpc/ session runtime-state handler
-→ session/ linear transcript envelope reader
-→ .pi operational-mode state projector or session-owned equivalent
-→ JSON-RPC result
+→ TUI web sidecar startup
+→ rpc/ read-attachment handler surface
+→ WebSocket transport
+→ browser RPC request
+→ graph/session/workspace projection owner
+→ JSON-RPC response or method-not-found for mutation methods
 ```
 
 ### Risks and Assumptions
 
-- RISK: Web parsing raw transcript rows duplicates session projection logic.
-  → MITIGATION: expose a thin named RPC projection; web renders result only in the web architecture card.
-- RISK: Runtime-state projection lives under `.pi/extensions/operational-mode.ts`, which is adapter-ish.
-  → MITIGATION: for F1, reuse the existing projector if cheap; if the builder needs to move pure projection code under `session/` or `agents/state.ts`, keep the move narrow and update README boundaries.
-- ASSUMPTION: `brunch.agent_runtime_state` entries remain the transcript truth for this projection until `agents-composition-layer` relocates state definitions.
-  → IMPACT IF FALSE: this card should wait for the agents frontier.
-  → VALIDATE: tests feed cumulative init/switch custom entries and assert last-writer-wins projection.
+- RISK: Implementing sidecar read-only behavior as scattered `if (method === ...)` checks makes `handlers.ts` more tangled.
+  → MITIGATION: split method-family modules or handler composition behind the existing public `createRpcHandlers` entry point; sidecar uses the read/projection composition, full RPC uses read + mutation composition.
+- RISK: Accidentally changing `brunch-cli --mode rpc` or proof-era public RPC probes would break existing mutation proofs.
+  → MITIGATION: full handler construction remains mutation-capable; only the TUI-started web sidecar swaps to the read-only attachment handler.
+- RISK: Discovery could advertise mutations on a sidecar that rejects them.
+  → MITIGATION: sidecar `rpc.discover` returns only methods that the sidecar handler will accept.
+- ASSUMPTION: For F1, web sidecar writes should be rejected at the RPC boundary, not merely hidden in React UI.
+  → IMPACT IF FALSE: if browser-side structured exchange driving becomes part of this frontier, a narrower write policy will need a separate explicit design.
+  → VALIDATE: WebSocket tests call sidecar mutation methods and receive `Method not found` while read methods still work.
 
 ### Tracer-bullet check
 
-- Proof of life: RPC can show live runtime posture, not just graph data.
-- Invariants: session state is transcript-backed and flattened by a product projection.
+- Invariants: enforces one-writer/many-read-attachments at the product boundary rather than as UI convention.
+- Uncertainty: retires the review concern that the web sidecar can secretly mutate the TUI-selected workspace/session.
 
 ### Acceptance Criteria
 
-✓ `rpc.discover` — lists `session.runtimeState` with params/result schema and example.
-✓ Projection — returns default state for no entries and latest valid switch after cumulative entries.
-✓ Explicit target — requires/uses `{specId, sessionId}` and rejects mismatched/non-linear transcripts like other session projections.
-✓ Notifications — session runtime-state changes publish/invalidate `session.runtimeState` for the selected session.
+✓ Handler split — `src/rpc/handlers.ts` remains the public entry point, but method families/protocol pieces are split enough that adding Card 6 does not grow it further as a 1400-line mega-module.
+✓ Full RPC unchanged — `brunch-cli --mode rpc` and existing RPC handler tests still allow `workspace.activate`, `session.startElicitation`, and `elicitation.respond`.
+✓ Sidecar reads work — TUI-started sidecar WebSocket accepts `rpc.discover`, `workspace.snapshot`, `workspace.selectionState`, `session.pendingExchange`, `session.elicitationExchanges`, `session.transcriptDisplay`, `graph.overview`, and `graph.nodeNeighborhood` where their params are valid.
+✓ Sidecar mutations rejected — TUI-started sidecar WebSocket rejects `workspace.activate`, `session.startElicitation`, and `elicitation.respond` without mutating workspace/session/transcript state.
+✓ Sidecar discovery honest — sidecar `rpc.discover` omits mutation methods it rejects.
+✓ Update fanout preserved — graph commits from TUI graph tools still publish `brunch.updated` to sidecar clients over the same process-local bus.
 
 ### Verification Approach
 
-- Inner: session/rpc projection tests.
-- Middle: fixture custom entries prove the projection until a runtime-switch UI exists.
+- Inner: `src/rpc/*` tests — method family dispatch, discovery subsets, full-vs-read-only handler behavior, no CLI RPC regression.
+- Middle: `src/rpc/web-host.test.ts` or `src/brunch-tui.test.ts` — TUI sidecar uses the read-only handler while retaining live update fanout.
 
 ### Cross-cutting obligations
 
-- D40-L: runtime state is transcript-backed, not hidden extension memory.
-- D52-L: long-term pure state definitions move toward `agents/`; this card may reuse existing projector but must not deepen `.pi` ownership.
-- D33-L: explicit session target; no transport-derived durable identity.
-- `src/rpc/handlers.ts` is becoming a pressure point; if this card makes local edits unsafe, split private session/graph/protocol modules behind the public `handlers.ts` entry point rather than widening this hardening chain.
+- D19-L: concrete named methods; no generic read gateway and no second public product protocol.
+- D33-L: browser/WebSocket is an attachment, not a Brunch session or writer.
+- Keep sidecar read-only for F1; do not introduce a broad mutation-policy framework before a concrete browser write is scoped.
+- Preserve the existing `createRpcHandlers` import path for external callers; split private implementation modules behind it.
 
 ### Expected touched paths (tentative)
 
@@ -416,9 +421,97 @@ src/brunch.ts                        ?
 src/rpc/
 ├── handlers.ts                      ~
 ├── handlers.test.ts                 ~
+├── methods/
+│   ├── discovery.ts                 +
+│   ├── graph.ts                     +
+│   ├── session.ts                   +
+│   └── workspace.ts                 +
+├── protocol.ts                      ?
+├── web-host.ts                      ~
+├── web-host.test.ts                 ~
 └── README.md                        ~
+src/brunch-tui.ts                    ?
+src/brunch-tui.test.ts               ?
+src/brunch.test.ts                   ?
+```
+
+## Card 6 — next — Broader session runtime state RPC projection
+
+### Target Behavior
+
+`session.runtimeState` returns flattened transcript-backed state for agent posture, mentions, world-update watermarks, and session lifecycle facts for an explicit selected session.
+
+### Boundary Crossings
+
+```pseudo
+→ JSON-RPC request `{specId, sessionId}`
+→ rpc/ read-method handler
+→ session/ linear transcript envelope reader
+→ session runtime-state projector
+→ .pi operational-mode state entry parser or session-owned equivalent
+→ JSON-RPC result
+```
+
+### Risks and Assumptions
+
+- RISK: Web parsing raw transcript rows duplicates session projection logic.
+  → MITIGATION: expose a thin named RPC projection; web renders result only in the web architecture card.
+- RISK: A single `session.runtimeState` blob becomes a hidden mutable god object.
+  → MITIGATION: model it as one read projection over several small transcript entry families; absent future entry families return explicit empty/default slots.
+- RISK: Runtime-state projection currently lives under `.pi/extensions/operational-mode.ts`, which is adapter-ish.
+  → MITIGATION: move or wrap pure projection under `session/` where practical; `.pi` may retain entry append/tool-policy adapter code.
+- ASSUMPTION: `brunch.agent_runtime_state` entries remain the transcript truth for agent posture until `agents-composition-layer` relocates state definitions.
+  → IMPACT IF FALSE: this card should wait for the agents frontier.
+  → VALIDATE: tests feed cumulative init/switch custom entries and assert last-writer-wins posture projection.
+- ASSUMPTION: Mentions, world-update watermarks, and lifecycle facts can be shaped now with defaults/placeholders even if producers are not all landed.
+  → IMPACT IF FALSE: consumers would churn when those producers land.
+  → VALIDATE: tests assert default empty slots plus fixture-backed slots for any currently available entry family.
+
+### Tracer-bullet check
+
+- Proof of life: RPC can show live runtime posture and session context, not just graph data.
+- Invariants: session runtime state is transcript-backed and flattened by a product projection; web does not parse raw transcript rows.
+
+### Acceptance Criteria
+
+✓ `rpc.discover` — full RPC and read-only sidecar discovery list `session.runtimeState` with params/result schema and example.
+✓ Agent posture — projection returns current op mode, derived role, strategy, lens, and goal from cumulative `brunch.agent_runtime_state` entries, defaulting cleanly when none exist.
+✓ Mentions slots — result includes `mentions.graphNodes` and `mentions.files` arrays, empty when no mention entries exist, shaped for later stale-hint comparison.
+✓ World-update slots — result includes latest known graph LSN/changeset and git head watermark slots when entries exist, with null/defaults when absent.
+✓ Lifecycle facts — result includes transcript-backed lifecycle facts where available: new spec vs existing spec, new vs resumed session, `sessionIndexInSpec`, `isFirstSessionForSpec`, and `isTenthSessionForSpec` when computable from current coordinator/session facts without a new durable table.
+✓ Explicit target — requires/uses `{specId, sessionId}` and rejects mismatched/non-linear transcripts like other session projections.
+✓ Notifications — entries that affect runtime state publish/invalidate `session.runtimeState` for the selected session.
+
+### Verification Approach
+
+- Inner: `src/session/runtime-state.test.ts` — transcript fixtures for defaults, cumulative posture switches, mention/world/lifecycle entry families, non-linear rejection through projection readers.
+- Inner: `src/rpc/handlers.test.ts` or split method tests — method discovery, invalid params, explicit target mismatch, read-only sidecar availability.
+- Middle: fixture custom entries prove the projection until runtime-switch and world-update producers are richer.
+
+### Cross-cutting obligations
+
+- D40-L: runtime state is transcript-backed, not hidden extension memory.
+- D52-L: long-term pure state definitions move toward `agents/`; this card should not deepen `.pi` ownership.
+- D33-L: explicit session target; no transport-derived durable identity.
+- Do not implement full staleness detection, automatic re-snapshotting, or rich TUI rendering in this card unless already trivial from existing data.
+
+### Expected touched paths (tentative)
+
+```pseudo
 src/session/
-├── runtime-state.ts                 ?
-└── README.md                        ?
+├── runtime-state.ts                 +
+├── runtime-state.test.ts            +
+└── README.md                        ~
+src/rpc/
+├── handlers.ts                      ~
+├── handlers.test.ts                 ~
+├── methods/
+│   ├── discovery.ts                 ~
+│   └── session.ts                   ~
+└── README.md                        ~
 src/.pi/extensions/operational-mode.ts ?
+src/.pi/__tests__/operational-mode.test.ts ?
+src/web/
+├── queries/session.ts               ~
+└── query-keys.ts                    ?
 ```

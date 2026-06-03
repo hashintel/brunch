@@ -29,6 +29,7 @@ import type {
   SpecSessionActivationCoordinator,
   SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
+import { methodAllowedOnSurface, READ_RPC_METHODS, type RpcHandlerSurface } from './methods/surface.js';
 import {
   createProductUpdateNotification,
   selectedSessionProductUpdates,
@@ -49,11 +50,30 @@ export interface RpcHandlers {
   handle(request: unknown): Promise<JsonRpcResponse>;
 }
 
+export function createReadOnlyRpcHandlers(options: {
+  coordinator: DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator;
+  cwd: string;
+  productUpdates?: ProductUpdatePublisher;
+}): RpcHandlers {
+  return createRpcHandlersForSurface(options, 'readOnly');
+}
+
 export function createRpcHandlers(options: {
   coordinator: DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator;
   cwd: string;
   productUpdates?: ProductUpdatePublisher;
 }): RpcHandlers {
+  return createRpcHandlersForSurface(options, 'full');
+}
+
+function createRpcHandlersForSurface(
+  options: {
+    coordinator: DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator;
+    cwd: string;
+    productUpdates?: ProductUpdatePublisher;
+  },
+  surface: RpcHandlerSurface,
+): RpcHandlers {
   let graphRuntime: Promise<WorkspaceGraphRuntime> | null = null;
   const getGraphRuntime = () => {
     graphRuntime ??= openWorkspaceGraphRuntime(options.cwd);
@@ -68,11 +88,15 @@ export function createRpcHandlers(options: {
 
       const requestId = jsonRpcRequestId(request);
 
+      if (!methodAllowedOnSurface(request.method, surface)) {
+        return createJsonRpcFailure(requestId, -32601, 'Method not found');
+      }
+
       if (request.method === 'rpc.discover') {
         if (request.params !== undefined) {
           return createJsonRpcFailure(requestId, -32602, 'Invalid params');
         }
-        return createJsonRpcSuccess(requestId, discoverPublicRpcMethods());
+        return createJsonRpcSuccess(requestId, discoverPublicRpcMethods(surface));
       }
 
       if (request.method === 'workspace.snapshot') {
@@ -477,8 +501,12 @@ type RpcMethodDiscovery = {
   examples: JsonRpcRequest[];
 };
 
-function discoverPublicRpcMethods(): { methods: RpcMethodDiscovery[] } {
-  return { methods: PUBLIC_RPC_METHOD_DISCOVERY };
+function discoverPublicRpcMethods(surface: RpcHandlerSurface = 'full'): { methods: RpcMethodDiscovery[] } {
+  const methods =
+    surface === 'readOnly'
+      ? PUBLIC_RPC_METHOD_DISCOVERY.filter((method) => READ_RPC_METHODS.has(method.method))
+      : PUBLIC_RPC_METHOD_DISCOVERY;
+  return { methods };
 }
 
 const PUBLIC_RPC_METHOD_DISCOVERY: RpcMethodDiscovery[] = [
