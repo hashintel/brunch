@@ -6,10 +6,10 @@
 # Scope cards — FE-800 spec-to-cook-plan
 
 FE-764 queue (slices 1–4) shipped on `ka/fe-764-petri-sync-server`; that
-queue is retired. FE-800 now owns this file. Only slice 1 is fully
-scoped — slice 2 (LLM planning pass) and beyond depend on what slice 1's
-projection shape ends up looking like, so they are not safe to pre-queue
-per the ln-scope prepared-queue rule.
+queue is retired. FE-800 now owns this file. Slice 1 (deterministic
+projection) landed; slice 2 (LLM planning pass) is the next card. Slices
+3+ (reconciliation, end-to-end wiring, demo override) are NOT pre-queued
+— each depends on shape findings from the prior slice.
 
 ---
 
@@ -201,17 +201,240 @@ This slice deliberately does NOT touch:
 
 ### Promotion / open decisions for the next slice
 
-After slice 1 ships, the next ln-scope pass owns these decisions before
-slice 2 (LLM planning pass) is scoped:
+Slice 1's open decisions resolved by slice 2's scoping:
+
+- **Epic grouping**: part of the same single LLM round-trip (per the
+  spike's one-call shape). Not a separate clustering step.
+- **Write-back vs delta**: slice 2 emits a typed `PlanningEnrichment`
+  delta and does NOT mutate the input Plan. Apply + reconciliation is
+  slice 3.
+
+Open decisions still deferred (slice 3 or later):
 
 - Where the snapshot builder lives (server-side endpoint vs. CLI
-  subcommand exporting JSON) and whether the orchestrator reads it via
-  filesystem or HTTP.
-- Whether epic grouping is part of the LLM call or a separate
-  deterministic clustering step.
-- Whether the LLM planning pass writes back over the projector's Plan
-  (mutating epic / depends_on / verification.target fields) or emits a
-  delta that the reconciliation stage applies.
+  subcommand exporting JSON) and the orchestrator↔server transport.
 - Whether the demo-mode override is "authored plan-yaml file overrides
   LLM output" (file-based escape hatch) or "deterministic depends_on
   inference rule" (no LLM at all).
+- ID-existence + cycle + dangling-dep-onto-constraint reconciliation
+  (slice 3's whole subject).
+
+---
+
+## Slice 2: LLM planning pass — execution-order DAG + epic grouping + non-buildable detection
+
+**Status:** done. `src/orchestrator/src/cook-plan-llm-planning.ts`
+exports `planExecutionOrdering(plan, runModel) → PlanningResult`,
+`planningEnrichmentSchema` (Zod), `PlanningEnrichment` /
+`PlanningResult` / `RunModel` types, and `defaultRunModel` (Anthropic
+`generateText` + `Output.object`, model knob via
+`SPEC_TO_COOK_PLAN_MODEL` env). 7 unit tests + 1 opt-in real-LLM test
+skipped unless `PLANNING_REAL_LLM=1 + ANTHROPIC_API_KEY` (covers
+success, semantic-passthrough of hallucinated ids, missing-field +
+wrong-type parse failures, thrown-runModel failure, empty-plan
+short-circuit, prompt content). `npm run verify` green (1592 tests, 1
+skipped; one unrelated transient flake on retry in
+`src/server/app.test.ts` — different test from slice 1's flake but
+same parallel-test pattern, passes in isolation, not FE-800-related).
+
+### Target Behavior
+
+A function `planExecutionOrdering(projectedPlan, runModel)` takes the
+slice-1 projected Plan plus an injected `runModel` LLM seam, performs
+one structured LLM round-trip, and returns a `PlanningResult` discriminated
+union: on success a typed `PlanningEnrichment` carrying per-slice
+`dependsOn` arrays, proposed epic grouping with assigned slice ids, and
+the set of slice ids the model flagged as non-buildable constraints; on
+failure a `{ status: 'failed'; reason: string }` shape so slice 3 can
+fall back deterministically. The function does NOT mutate the input
+Plan, does NOT validate id existence, does NOT check for cycles, and
+does NOT redirect dangling deps — all of that is slice 3's deterministic
+reconciliation.
+
+### Boundary Crossings
+
+```
+→ src/orchestrator/src/cook-plan-llm-planning.ts (new — pure logic +
+   injected LLM seam, mirroring the reconciliation-agent pattern at
+   src/server/reconciliation-agent.ts:61)
+→ consumes:
+    Plan (existing — src/orchestrator/src/types.ts)
+    zod/v4 (already in deps via @ai-sdk/anthropic transitive — confirm
+       at build; orchestrator already uses zod in pi-actions area or
+       can adopt the same version as the server)
+    @ai-sdk/anthropic + ai (generateText + Output.object) — already used
+       by src/server/reconciliation-agent.ts, src/server/observer.ts
+→ exits at:
+    src/orchestrator/src/cook-plan-llm-planning.test.ts (new — stubbed
+       runModel for inner-loop; opt-in real-LLM test gated on
+       PLANNING_REAL_LLM=1)
+```
+
+This slice deliberately does NOT touch:
+
+- `src/orchestrator/src/cook-plan-projection.ts` — the projector stays
+  pure-pure; this slice composes after it but does not modify it.
+- `src/orchestrator/src/cook-cli.ts` — no CLI surface yet; slice 4 or
+  later wires the full pipeline (projection → LLM → reconciliation →
+  write plan.yaml) behind a flag.
+- `src/server/*` — the snapshot builder + transport stays a separate
+  slice; this slice's tests use slice 1's projector against the
+  in-package brunch_graphs fixture.
+
+### Risks and Assumptions
+
+```
+- ASSUMPTION: The reconciliation-agent pattern (injected
+  `runModel: (prompt: string) => Promise<unknown>` + `defaultRunModel`
+  using `generateText` + `Output.object` + Zod schema) translates
+  cleanly to the orchestrator package. The orchestrator already imports
+  `@ai-sdk/anthropic` transitively via pi-actions (`pi` subprocess);
+  importing it directly in slice 2 follows the same dependency surface.
+  → VALIDATE: cook-plan-llm-planning.ts imports the same packages and
+    pattern as reconciliation-agent.ts; unit tests run without any
+    provider key (stubbed runModel); the real-LLM opt-in test only
+    runs when PLANNING_REAL_LLM=1 + ANTHROPIC_API_KEY are set.
+
+- ASSUMPTION: One single `generateText` + `Output.object` round-trip
+  is enough to produce depends_on + epic grouping + non-buildable
+  flagging together. The 2026-06-03 spike against completed spec 2
+  (~900 input / 640 output tokens with claude-sonnet-4) confirmed
+  this empirically.
+  → VALIDATE: opt-in real-LLM test against the brunch_graphs corpus
+    fixture asserts the model returns a well-formed PlanningEnrichment
+    (parses through the Zod schema, no exceptions); spike rerun
+    expected to land within the same token order.
+
+- ASSUMPTION: Inline prompt string in cook-plan-llm-planning.ts is the
+  right shape for slice 2 (orchestrator doesn't have a renderPromptAsset
+  loader; pi-actions reads prompt files for subprocesses, not in-process
+  LLM calls). Promote to a sibling .md file + a tiny renderer if the
+  prompt grows past ~50 lines or needs structured variable substitution.
+  → VALIDATE: the prompt fits inline; slice 3 or a later slice can
+    promote without touching the contract.
+
+- ASSUMPTION: The Zod schema for the LLM output enforces SHAPE only —
+  arrays/strings/objects — and does NOT semantically validate that
+  referenced slice ids exist in the input Plan, that the depends_on
+  graph is acyclic, that epics partition slices cleanly, or that
+  non-buildable slice ids are real. All four checks are slice 3's job.
+  → VALIDATE: slice 2 unit tests pin that the parser ACCEPTS a
+    well-typed but semantically wrong LLM output (e.g. a depends_on
+    referring to a nonexistent slice id); a separate test pins that the
+    parser REJECTS structurally malformed output (missing required
+    field, wrong type) by returning `{ status: 'failed' }`.
+
+- ASSUMPTION: Structurally-recoverable failure shape mirrors
+  reconciliation-agent.ts's pattern. LLM exceptions, parse errors, and
+  schema violations all collapse to
+  `{ status: 'failed'; reason: string }` so slice 3 can choose
+  deterministic fallback (empty depends_on, single default epic) rather
+  than crashing the pipeline.
+  → VALIDATE: tests for (a) thrown runModel, (b) malformed model
+    output, (c) zod parse error each return the failed shape with a
+    non-empty reason string.
+
+- RISK: LLM hallucinated slice ids in depends_on or epic assignments.
+  Slice 2 deliberately lets these pass the parser (semantic check =
+  slice 3). If slice 3 then drops them silently, the user can lose
+  ordering signal without warning.
+  → MITIGATION: slice 3 will surface drops via explicit warnings;
+    slice 2 carries no extra burden. Document the deferral in the
+    PlanningEnrichment doc comment.
+
+- RISK: LLM emits cycles in depends_on. Same posture — slice 2 parses,
+  slice 3 breaks cycles + warns.
+  → MITIGATION: same as above; documented as a deferred concern.
+
+- RISK: The orchestrator package adopting `zod/v4` directly creates a
+  second zod consumer (server already uses zod/v4). If the version
+  drifts, the schemas diverge.
+  → MITIGATION: pin to whatever zod/v4 the server's package.json
+    already uses (no new dep declaration; share via root). If the root
+    package.json doesn't expose it, declare it once and align with the
+    server's import path.
+
+- RISK: Inner-loop tests that import `@ai-sdk/anthropic` may load the
+  Anthropic provider (which reads env vars at module init) and break
+  in CI where ANTHROPIC_API_KEY is unset.
+  → MITIGATION: keep the `defaultRunModel` import in a function body or
+    behind a lazy import so unit tests that pass a stubbed runModel
+    never touch the provider. The reconciliation-agent pattern already
+    works this way — emulate it.
+```
+
+### Acceptance Criteria
+
+```
+✓ `planExecutionOrdering(plan, runModel)` exported from
+  `cook-plan-llm-planning.ts`. Signature:
+    (plan: Plan, runModel: (prompt: string) => Promise<unknown>)
+      => Promise<PlanningResult>
+  where PlanningResult =
+    | { status: 'succeeded'; enrichment: PlanningEnrichment }
+    | { status: 'failed'; reason: string }
+
+✓ `PlanningEnrichment` exported and typed as:
+    {
+      sliceDependencies: { sliceId: string; dependsOn: string[] }[];
+      epics: { id: string; summary: string; sliceIds: string[] }[];
+      nonBuildableSliceIds: string[];
+    }
+  Zod schema enforces shape; existence/cycle/coverage checks deferred
+  to slice 3.
+
+✓ test: stubbed runModel returning a well-formed object produces
+  `{ status: 'succeeded', enrichment }` with the expected delta.
+
+✓ test: stubbed runModel returning a well-typed but semantically wrong
+  object (depends_on references a slice id NOT present in the input
+  Plan) still parses as `succeeded` — slice 2 does not enforce
+  semantic correctness.
+
+✓ test: stubbed runModel returning malformed JSON-equivalent (missing
+  required field, wrong type) returns `{ status: 'failed', reason }`
+  with a non-empty reason string.
+
+✓ test: stubbed runModel throwing an error returns
+  `{ status: 'failed', reason }` carrying the error message.
+
+✓ test: empty Plan (zero slices) — slice 2 still calls the LLM (or
+  short-circuits to empty enrichment, decided in build) and returns a
+  well-formed result. Pick whichever is simpler at build time; pin the
+  chosen behaviour with a test.
+
+✓ test: the prompt string includes every slice's id and definition
+  (asserted by capturing the prompt the stubbed runModel was called
+  with).
+
+✓ `defaultRunModel` exported and uses
+  `generateText({ model: anthropic(process.env.SPEC_TO_COOK_PLAN_MODEL
+    || 'claude-sonnet-4-20250514'), prompt, output: Output.object({ schema }) })`
+  mirroring reconciliation-agent.ts:114.
+
+✓ Opt-in real-LLM integration test gated on
+  `process.env.PLANNING_REAL_LLM === '1'` AND `process.env.ANTHROPIC_API_KEY`:
+  loads the brunch_graphs corpus fixture (slice 1 added it), projects
+  via projectCookPlanFromSpec, runs planExecutionOrdering with
+  defaultRunModel, asserts result.status === 'succeeded', and asserts
+  at least one slice has a non-empty dependsOn or appears in
+  nonBuildableSliceIds (proves the model is actually doing useful
+  work). Skipped by default in CI.
+
+✓ `npm run verify` green.
+```
+
+### Verification Approach
+
+```
+- Inner: cook-plan-llm-planning.test.ts unit tests with stubbed
+  runModel. Covers success, semantic-passthrough, parse failure, thrown
+  failure, empty plan, prompt content.
+- Middle: opt-in real-LLM integration test against the brunch_graphs
+  fixture (PLANNING_REAL_LLM=1). Validates the spike's claim survives
+  contact with the production prompt + schema shape. Cost: ~1 round-
+  trip per local run when enabled.
+- Outer: deferred to slice 4 / end-to-end wiring. Once reconciliation
+  (slice 3) and CLI wiring (slice 4) land, an end-to-end cook run
+  consuming the generated plan provides the real outer-loop signal.
+```
