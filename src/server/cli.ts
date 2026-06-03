@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import { runAgentJsonlSession } from './agent-jsonl.js';
 import { createDb } from './db.js';
+import { buildCompletedSpecSnapshot } from './db/completed-spec-snapshot.js';
 import { launch } from './launcher.js';
 import { resolveBrunchProject } from './project.js';
 import { loadLocalEnvFile } from './runtime-config.js';
@@ -31,7 +32,7 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log('Commands:');
   console.log('  agent                     Run a JSONL capability session on stdin/stdout.');
   console.log('  cook <dir> [flags]        Run the orchestrator on a plan directory.');
-  console.log('  plan <snapshot.json> [flags]  Emit .brunch/cook/plan.yaml from a completed-spec snapshot.');
+  console.log('  plan <specId> [flags]     Emit .brunch/cook/plan.yaml from a completed specification.');
   console.log('');
   console.log('Cook flags:');
   console.log('  --policy=serial|parallel  Firing policy (default: serial)');
@@ -52,12 +53,20 @@ if (rawArgs[0] === 'cook') {
     process.exit(1);
   });
 } else if (rawArgs[0] === 'plan') {
-  const { parsePlanArgs, runPlan } = await import('../orchestrator/src/plan-cli.js');
+  const { parsePlanArgs, runPlan } = await import('./plan-runner.js');
   const opts = parsePlanArgs(rawArgs.slice(1));
-  runPlan(opts).catch((error) => {
-    console.error('Failed to run brunch plan:', error);
-    process.exit(1);
-  });
+  const project = resolveBrunchProject(launchCwd);
+  const db = createDb(project.dbPath);
+  const snapshot = buildCompletedSpecSnapshot(db, opts.specId);
+  runPlan({ specId: opts.specId, snapshot, outDir: opts.outDir, verbose: opts.verbose })
+    .then(() => {
+      db.$client.close();
+    })
+    .catch((error) => {
+      db.$client.close();
+      console.error('Failed to run brunch plan:', error);
+      process.exit(1);
+    });
 } else if (rawArgs[0] === 'agent') {
   const project = resolveBrunchProject(launchCwd);
   const db = createDb(project.dbPath);

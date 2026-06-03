@@ -1,13 +1,15 @@
-// FE-800 slice 4: `brunch plan` CLI surface.
-// FE-800 slice 5: severity-aware warning display (failure +
-// transformation always; synthesis only with --verbose).
+// FE-800 slice 6: server-side `brunch plan <specId>` driver.
 //
-// Reads a `CompletedSpecSnapshot` from a JSON file, threads it through
-// the FE-800 emitter (projection → planning → reconciliation), writes
-// the resulting plan to `<outDir>/.brunch/cook/plan.yaml`, and prints
-// every emitter warning on stderr partitioned by audit weight.
+// Replaces the orchestrator-side `plan-cli.ts` (snapshot JSON file path).
+// Lives in `src/server/` because it needs DB access to resolve the
+// `<specId>` argument into a `CompletedSpecSnapshot`. The orchestrator
+// package remains pure: this file imports the emitter + warning
+// helpers but the reverse never happens.
+//
+// Display rules unchanged from slice 5: failure + transformation
+// warnings always printed; synthesis warnings only with `--verbose`.
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 import { stringify as stringifyYaml } from 'yaml';
@@ -17,18 +19,18 @@ import {
   emitterWarningCategory,
   formatEmitterWarning,
   type EmitterWarning,
-} from './plan-emitter.js';
-import type { RunModel } from './plan-llm-planning.js';
-import type { CompletedSpecSnapshot } from './plan-projection.js';
+} from '../orchestrator/src/plan-emitter.js';
+import type { RunModel } from '../orchestrator/src/plan-llm-planning.js';
+import type { CompletedSpecSnapshot } from '../orchestrator/src/plan-projection.js';
 
 export type PlanOptions = {
-  snapshotPath: string;
+  specId: number;
   outDir: string;
   verbose: boolean;
 };
 
 export function parsePlanArgs(args: string[]): PlanOptions {
-  let snapshotPath = '';
+  let specIdRaw = '';
   let outDir = process.cwd();
   let verbose = false;
 
@@ -38,18 +40,27 @@ export function parsePlanArgs(args: string[]): PlanOptions {
     } else if (arg === '--verbose' || arg === '-v') {
       verbose = true;
     } else if (!arg.startsWith('-')) {
-      snapshotPath = resolve(arg);
+      specIdRaw = arg;
     }
   }
 
-  if (!snapshotPath) {
-    throw new Error('Usage: brunch plan <snapshot.json> [--out=<dir>] [--verbose]');
+  if (!specIdRaw) {
+    throw new Error('Usage: brunch plan <specId> [--out=<dir>] [--verbose]');
   }
 
-  return { snapshotPath, outDir, verbose };
+  const specId = Number(specIdRaw);
+  if (!Number.isInteger(specId) || specId <= 0) {
+    throw new Error(`Invalid spec id "${specIdRaw}" — expected a positive integer.`);
+  }
+
+  return { specId, outDir, verbose };
 }
 
-export type RunPlanArgs = PlanOptions & {
+export type RunPlanArgs = {
+  specId: number;
+  snapshot: CompletedSpecSnapshot;
+  outDir: string;
+  verbose: boolean;
   /** Injectable LLM seam. Defaults to the production anthropic adapter via the emitter. */
   runModel?: RunModel;
   /** Injectable stderr writer. Defaults to `console.error`. */
@@ -59,17 +70,15 @@ export type RunPlanArgs = PlanOptions & {
 export async function runPlan(args: RunPlanArgs): Promise<void> {
   const log = args.log ?? ((line: string) => console.error(line));
 
-  const snapshot = JSON.parse(readFileSync(args.snapshotPath, 'utf8')) as CompletedSpecSnapshot;
-
   log('');
   log('  brunch plan');
   log('  ──────────────────────────────────────');
-  log(`  snapshot   ${args.snapshotPath}`);
+  log(`  spec       ${args.specId}`);
   log(`  out        ${args.outDir}`);
   log('');
 
   const emitOptions = args.runModel ? { runModel: args.runModel } : {};
-  const result = await emitPlanFromSnapshot(snapshot, emitOptions);
+  const result = await emitPlanFromSnapshot(args.snapshot, emitOptions);
 
   const planPath = join(args.outDir, '.brunch', 'cook', 'plan.yaml');
   mkdirSync(dirname(planPath), { recursive: true });
@@ -82,7 +91,7 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
   // Audit-weight display: failure + transformation always; synthesis
   // only when --verbose. The header counts only what we print so the
   // number on screen matches the lines below it.
-  const printed = result.warnings.filter((w) => shouldPrint(w, args.verbose));
+  const printed = result.warnings.filter((warning) => shouldPrint(warning, args.verbose));
   if (printed.length > 0) {
     log(`  ${printed.length} warnings:`);
     for (const warning of printed) {
