@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// FE-764 Slice 3a — In-process Petrinaut stream bus.
+// In-process Petrinaut stream bus.
 //
 // Bridges the engine's PetrinautEvent stream into the SSE wire shape Petrinaut
 // consumes (`BrunchExecutionExportFrame`). Owns the replay buffer so that any
@@ -11,8 +11,8 @@
 //   → N × transition_firing (one per `transition_fired` PetrinautEvent)
 //   → terminal (after the first `net_halted` or `net_deadlocked`)
 //
-// Pure: no I/O, no globals, no timers. Slice 3b will mount the HTTP `/stream`
-// route on top, serializing each frame as one SSE event.
+// Pure: no I/O, no globals, no timers. The HTTP `/stream` route mounts on
+// top, serializing each frame as one SSE event.
 //
 // Frame translation re-uses the same `eventToTransitionFiring` /
 // `reduceMarking` / `projectNetDefinition` helpers as the static reducer

@@ -140,7 +140,7 @@ describe('resolvePetrinautStreamPort', () => {
   });
 });
 
-describe('createPetrinautStreamSetup (FE-764 slice 4)', () => {
+describe('createPetrinautStreamSetup', () => {
   // Minimal SdcpnFile fixture — the setup hook treats it opaquely (passes
   // through to createPetrinautStreamBus), so an empty net is enough to
   // exercise the open / no-open / CI / failure paths.
@@ -302,9 +302,8 @@ describe('createPetrinautStreamSetup (FE-764 slice 4)', () => {
     expect(capturedBus).toHaveLength(1);
 
     // Subscriber attached after setup but before publish sees the initial
-    // `definition` frame from the bus's eager materialization (slice 3a
-    // invariant). After publishing a terminal event we expect a terminal
-    // frame too.
+    // `definition` frame from the bus's eager materialization. After
+    // publishing a terminal event we expect a terminal frame too.
     const seenKinds: string[] = [];
     capturedBus[0]!.subscribe((f) => seenKinds.push(f.kind));
     expect(seenKinds[0]).toBe('definition');

@@ -31,10 +31,9 @@ const simplePlan: Plan = {
 };
 
 /**
- * Build an SdcpnFile from a Plan via the static FE-762/784 export pipeline
- * under the FE-764 default identity fold (concrete per-slice place ids).
- * The reducer itself is fold-agnostic; the engine-driven oracle below
- * exercises the identity-fold path end-to-end.
+ * Build an SdcpnFile from a Plan under the default identity fold (concrete
+ * per-slice place ids). The reducer itself is fold-agnostic; the
+ * engine-driven oracle below exercises the identity-fold path end-to-end.
  */
 function buildSdcpnFile(plan: Plan): SdcpnFile {
   const blueprint = compileTopology(plan, { maxRetries: 3 });
@@ -236,10 +235,9 @@ describe('reduceBrunchExecutionExport — markings + firings', () => {
 // that exercises (a) consume-then-produce flow, (b) tokens flowing to a
 // terminal place, (c) referential integrity, (d) replay invariants.
 //
-// Hand-crafted (not engine-driven) because for slice 1 the reducer is the
-// unit under test, not the engine. Slice 2 will widen `serializeBlueprint`
-// to accept a folding opt; an end-to-end engine-driven version of this
-// oracle lands then (where it can exercise the identity-fold default).
+// Hand-crafted rather than engine-driven because the reducer is the unit under
+// test here. Engine-driven oracles elsewhere exercise the identity-fold
+// default end to end.
 // ---------------------------------------------------------------------------
 
 describe('reduceBrunchExecutionExport — frame-replay oracle', () => {

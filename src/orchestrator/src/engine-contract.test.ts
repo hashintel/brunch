@@ -743,15 +743,15 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // Mechanical places: spec-ready, failing-tests, untested-code,
     //                    needs-more, done-spec, completed, eligible,
     //                    retry-budget, evaluate:reported, run-tests:reported,
-    //                    halted (FE-761 Slice 2a),
+    //                    halted,
     //                    evaluate:running, write-tests:running,
     //                    write-code:running, run-tests:running,
-    //                    assess-semantic:running (FE-761 Slice 4) = 16
+    //                    assess-semantic:running = 16
     // Semantic places: semantic-budget, semantic-satisfied, assess-semantic:reported = 3
     // Total places: 22
     expect(blueprint.places.length).toBe(22);
 
-    // Transitions (FE-761 Slice 4: every producer split into dispatch + complete):
+    // Transitions (every producer splits into dispatch + complete):
     //   slice-ready:slice-1,
     //   slice-1:evaluate:dispatch, slice-1:evaluate:complete,
     //   slice-1:evaluate:done, slice-1:evaluate:more,
@@ -782,7 +782,7 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // Semantic-lane transitions
     const semantic = transitions.filter((t) => t.contract.lane === 'semantic');
     expect(semantic.length).toBeGreaterThanOrEqual(1); // assess-semantic, return-done
-    // FE-761 Slice 4: the semantic-lane handler descriptor lives on :complete.
+    // The semantic-lane handler descriptor lives on :complete.
     const assessSemantic = transitions.find((t) => t.id.endsWith(':assess-semantic:complete'));
     expect(assessSemantic?.contract.kind).toBe('semantic');
     expect(assessSemantic?.contract.actor).toBe('semantic-assessor');
@@ -796,15 +796,15 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // Epic places: epic:epic-1:done = 1
     // Slice-a places: 19 (6 mechanical + eligible + retry-budget + semantic-budget + semantic-satisfied
     //                     + evaluate:reported + run-tests:reported + assess-semantic:reported
-    //                     + halted (FE-761 Slice 2a)
+    //                     + halted
     //                     + evaluate:running + write-tests:running + write-code:running
-    //                     + run-tests:running + assess-semantic:running (FE-761 Slice 4))
+    //                     + run-tests:running + assess-semantic:running)
     // Slice-b places: 19 (same)
     // Dep-signal places: slice:slice-a:dep-signal:slice-b = 1
     // Total: 42
     expect(blueprint.places.length).toBe(42);
 
-    // Transitions (FE-761 Slice 4: each producer split into dispatch + complete):
+    // Transitions (each producer splits into dispatch + complete):
     //   slice-a: slice-ready,
     //            evaluate:dispatch, evaluate:complete, evaluate:done, evaluate:more,
     //            write-tests:dispatch, write-tests:complete,
@@ -823,7 +823,7 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
     const kinds = new Set(blueprint.transitions.map((t) => t.handler.kind));
     expect(kinds).toContain('passthrough');
-    // FE-761 Slice 4: explicit dispatch/complete topology split adds dispatch descriptors.
+    // The explicit dispatch/complete topology split adds dispatch descriptors.
     expect(kinds).toContain('dispatch');
     expect(kinds).toContain('action');
     expect(kinds).toContain('sibling-passthrough');
@@ -866,7 +866,7 @@ describe('Adapter: §7 event vocabulary', () => {
     // Check transition IDs appear in order
     const ids = fired.map((e) => e.transitionId);
     expect(ids).toContain('slice-ready:slice-1');
-    // FE-761 Slice 4: producers split into dispatch + complete — both fire.
+    // Producers split into dispatch + complete, and both fire.
     expect(ids).toContain('slice-1:evaluate:dispatch');
     expect(ids).toContain('slice-1:evaluate:complete');
     expect(ids).toContain('slice-1:assess-semantic:dispatch');
@@ -904,8 +904,8 @@ describe('Adapter: §7 event vocabulary', () => {
 
     const net = compilePlan(input, ctx);
     const events: NetEvent[] = [];
-    // FE-761 Slice 2b: halt is observed via net.hasHaltToken() reading
-    // tokens on `:halted` places, not via the retired ctx.halted mutation.
+    // Halt is observed via net.hasHaltToken() reading tokens on `:halted`
+    // places, not via the retired ctx.halted mutation.
     await net.run('serial', () => net.hasHaltToken(), { emit: (e) => events.push(e) });
 
     // Should have a net_halted event once the retry-exhaustion halt token
@@ -916,10 +916,10 @@ describe('Adapter: §7 event vocabulary', () => {
 });
 
 // ---------------------------------------------------------------------------
-// FE-763 — Petrinaut event stream end-to-end on the orchestrator
+// Petrinaut event stream end-to-end on the orchestrator
 // ---------------------------------------------------------------------------
 
-describe('FE-763: Petrinaut event stream on a real run', () => {
+describe('Petrinaut event stream on a real run', () => {
   it('emits initial_marking + transition_fired (with token payload) for simplePlan happy path', async () => {
     const fakes = createFakes();
     const ctx: RunCtx = {
@@ -954,10 +954,10 @@ describe('FE-763: Petrinaut event stream on a real run', () => {
     // 2. every event carries the runId.
     expect(events.every((e) => 'runId' in e && e.runId === 'run-e2e')).toBe(true);
 
-    // 3. transition_fired events expose the FE-761 Slice 4 dispatch/complete
-    //    topology directly in Petrinaut's wire format.
-    //    FE-784: names are color-folded to slice-independent roles (the
-    //    firing slice lives on the token color, not the transition name).
+    // 3. transition_fired events expose the dispatch/complete topology
+    //    directly in Petrinaut's wire format. Names are color-folded to
+    //    slice-independent roles (the firing slice lives on the token color,
+    //    not the transition name).
     const fired = events.filter((e): e is PetrinautTransitionFiredEvent => e.kind === 'transition_fired');
     const names = fired.map((e) => e.transitionName);
     expect(names).toContain('evaluate:dispatch');
@@ -1009,14 +1009,14 @@ describe('FE-763: Petrinaut event stream on a real run', () => {
 });
 
 // ---------------------------------------------------------------------------
-// FE-764 — engine wires `petrinautFold` into both the static export and the
-// live event stream; identity fold preserves concrete per-slice place ids.
+// Engine wires `petrinautFold` into both the static export and the live event
+// stream; identity fold preserves concrete per-slice place ids.
 // Engine-driven frame-replay oracle: drives a real cook run with
 // petrinautFold='identity', reads the SDCPN + JSONL events from disk, reduces
 // them via reduceBrunchExecutionExport, and asserts replay invariants.
 // ---------------------------------------------------------------------------
 
-describe('FE-764: identity-fold engine wiring + frame-replay oracle', () => {
+describe('identity-fold engine wiring + frame-replay oracle', () => {
   it("emits transition_fired events under concrete per-slice ids when petrinautFold='identity'", async () => {
     const fakes = createFakes();
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-identity-'));
@@ -1084,7 +1084,7 @@ describe('FE-764: identity-fold engine wiring + frame-replay oracle', () => {
     }
   });
 
-  it('FE-764 slice 3a: streams BrunchExecutionExportFrames through the bus when onPetrinautEvent is wired', async () => {
+  it('streams BrunchExecutionExportFrames through the bus when onPetrinautEvent is wired', async () => {
     const fakes = createFakes();
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-bus-'));
     try {
@@ -1144,7 +1144,7 @@ describe('FE-764: identity-fold engine wiring + frame-replay oracle', () => {
     }
   });
 
-  it('FE-764 slice 4: awaits setupPetrinautStream before emitting initial_marking; returned callback receives full event sequence', async () => {
+  it('awaits setupPetrinautStream before emitting initial_marking; returned callback receives full event sequence', async () => {
     const fakes = createFakes();
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-setup-'));
     try {
@@ -1197,7 +1197,7 @@ describe('FE-764: identity-fold engine wiring + frame-replay oracle', () => {
     }
   });
 
-  it('FE-764 slice 4: does not start live-stream setup when the event stream cannot initialize', async () => {
+  it('does not start live-stream setup when the event stream cannot initialize', async () => {
     const fakes = createFakes();
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-stream-init-'));
     try {
@@ -1311,11 +1311,10 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
   });
 
   it('serial: transitions fire one at a time, handlers run concurrently within agent-pool bounds', async () => {
-    // FE-761 Slice 3: under async dispatch, "serial" means *transition
-    // firing* is serial — but handlers run asynchronously after dispatch,
-    // so multiple handlers can be in flight concurrently as long as the
-    // agent pool has enough tokens. The agent pool (default = slices count
-    // = 3 here) bounds handler concurrency.
+    // Under async dispatch, "serial" means *transition firing* is serial, but
+    // handlers run asynchronously after dispatch, so multiple handlers can be
+    // in flight concurrently as long as the agent pool has enough tokens. The
+    // agent pool (default = slices count = 3 here) bounds handler concurrency.
     const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
     const { tracked, tracker } = withConcurrencyTracking(fakes.actions);
 
@@ -1330,17 +1329,17 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
     });
 
     expect(result.status).toBe('completed');
-    // Pre-Slice 3 this was hardcoded to 1 because fire() awaited the handler
-    // inline. Now handlers complete asynchronously after dispatch.
+    // This used to be hardcoded to 1 because fire() awaited the handler inline.
+    // Now handlers complete asynchronously after dispatch.
     expect(tracker.maxConcurrent).toBeGreaterThan(1);
     expect(tracker.maxConcurrent).toBeLessThanOrEqual(threeSlicePlan.slices.length);
   });
 
   it('serial and parallel have comparable wall-clock for handler-bound work (async dispatch)', async () => {
-    // FE-761 Slice 3: with async dispatch, both serial and parallel
-    // policies let handlers run concurrently — the difference is only in
-    // *transition* firing batching. For handler-bound work, both policies
-    // complete in roughly the same wall-clock time.
+    // With async dispatch, both serial and parallel policies let handlers run
+    // concurrently. The difference is only in *transition* firing batching.
+    // For handler-bound work, both policies complete in roughly the same
+    // wall-clock time.
     const DELAY_MS = 20;
 
     function createDelayedFakes() {

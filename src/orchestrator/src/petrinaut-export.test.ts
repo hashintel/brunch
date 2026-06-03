@@ -7,10 +7,8 @@ import { createNetFolding, SLICE_COLOR_TYPE_ID } from './petrinaut-fold.js';
 import type { Plan } from './types.js';
 
 /**
- * These tests pin the color-fold export shape — every call constructs the
- * color fold explicitly (FE-764 made the folding caller-supplied). The
- * identity fold is exercised by petrinaut-stream-export.test.ts's
- * engine-driven oracle.
+ * These tests pin the color-fold export shape. The identity fold is exercised
+ * by petrinaut-stream-export.test.ts's engine-driven oracle.
  */
 function colorFold(blueprint: NetBlueprint) {
   return createNetFolding(blueprint);

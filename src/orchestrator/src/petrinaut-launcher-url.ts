@@ -1,10 +1,10 @@
 // ---------------------------------------------------------------------------
-// FE-764 Slice 4 — pure helpers for the Petrinaut launcher URL surface.
+// Pure helpers for the Petrinaut launcher URL surface.
 //
-// `resolvePetrinautBaseUrl` implements the multi-tier base-URL policy locked
-// in PLAN.md §petri-sync-server: CLI flag wins over env var, env var wins
-// over nothing, and "nothing" is a hard failure with one fixed message. No
-// baked-in localhost default — a wrong default silently opens the wrong tab.
+// `resolvePetrinautBaseUrl` implements the multi-tier base-URL policy: CLI
+// flag wins over env var, env var wins over nothing, and "nothing" is a hard
+// failure with one fixed message. No baked-in localhost default — a wrong
+// default silently opens the wrong tab.
 //
 // `composeLauncherUrl` produces the URL brunch hands to Petrinaut for a live
 // run: `{baseUrl}?runId=…&mode=actual&sse=…`. Uses the WHATWG `URL` API +
@@ -21,7 +21,7 @@ export type ResolvePetrinautBaseUrlInput = {
 
 export type ResolvePetrinautBaseUrlResult = { baseUrl: string } | { error: string };
 
-/** Locked error message — exact wording cited in CARDS.md / PLAN.md. */
+/** Locked error message — tests assert exact wording. */
 export const PETRINAUT_BASE_URL_MISSING_MESSAGE =
   'Petrinaut base URL required: set PETRINAUT_BASE_URL in .env or pass --petrinaut-base-url=<url>';
 

@@ -48,10 +48,10 @@ const PI_TIMEOUT_MS = 300_000;
 const PI_MAX_BUFFER = 10 * 1024 * 1024;
 
 // Async on purpose: `pi` runs for tens of seconds per call. A synchronous
-// `spawnSync` would freeze the shared event loop, starving the FE-764 SSE
-// stream server (which lives on the same loop) of the chance to flush frames
-// while a slice is being worked. Awaiting an async child keeps the loop free
-// so transition firings stream live.
+// `spawnSync` would freeze the shared event loop, starving the SSE stream
+// server of the chance to flush frames while a slice is being worked.
+// Awaiting an async child keeps the loop free so transition firings stream
+// live.
 function runPi(opts: {
   label: string;
   model: string;

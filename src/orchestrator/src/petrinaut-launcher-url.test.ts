@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// FE-764 Slice 4 — pure base-URL resolution + launcher URL composition.
+// Pure base-URL resolution + launcher URL composition.
 //
 // Two pure functions; no fs, no env reads (env is passed in), no process exits.
 // Covers (a) multi-tier base URL resolution (CLI > env > hard fail) and

@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// FE-784 — Color-fold of a compiled NetBlueprint for the Petrinaut projection.
+// Color-fold of a compiled NetBlueprint for the Petrinaut projection.
 //
 // The compiled net emits one concrete subnet per slice (`slice:<sid>:*` places,
 // `<sid>:*` / `slice-ready:<sid>` transitions). Petrinaut's canvas is flat — no
@@ -158,9 +158,9 @@ export function createNetFolding(blueprint: NetBlueprint): NetFolding {
  * `serializeBlueprint` and `createPetrinautEventStream` consume it without
  * branching on which constructor produced the folding.
  *
- * Used by FE-764's `--petrinaut-fold=identity` mode (default) when the demo /
- * small-N visualization wants the full per-slice lifecycle on canvas rather
- * than the color-folded shared lifecycle.
+ * Used by `--petrinaut-fold=identity` (default) when the demo / small-N
+ * visualization wants the full per-slice lifecycle on canvas rather than the
+ * color-folded shared lifecycle.
  */
 export function createIdentityFolding(blueprint: NetBlueprint): NetFolding {
   const places: FoldedPlace[] = blueprint.places.map((id) => ({ id }));

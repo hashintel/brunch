@@ -14,9 +14,9 @@ import type { Orchestrator, OrchestratorInput, OrchestratorResult, RunCtx } from
 //   1. compileTopology(plan, policy) → NetBlueprint (pure data)
 //   2. wireHandlers(blueprint, input, ctx) → PetriNet (fire closures)
 //
-// FE-761 Slice 2b: halt is observed via `net.hasHaltToken()` / halt tokens
-// on `:halted` places rather than `ctx.halted` mutation. The halt reason
-// comes from the halt token itself (`token.haltReason`).
+// Halt is observed via `net.hasHaltToken()` / halt tokens on `:halted`
+// places rather than `ctx.halted` mutation. The halt reason comes from the
+// halt token itself (`token.haltReason`).
 // ---------------------------------------------------------------------------
 
 function errorMessage(err: unknown): string {
@@ -24,10 +24,10 @@ function errorMessage(err: unknown): string {
 }
 
 /**
- * Combine the slice-3a `onPetrinautEvent` fan-out with the slice-4
- * `setupPetrinautStream` callback so an engine event reaches both
- * consumers in one call. Returns `undefined` when neither is set so the
- * downstream stream constructor can skip wiring `onEvent` entirely.
+ * Combine the general Petrinaut event fan-out with the optional live-stream
+ * callback so an engine event reaches both consumers in one call. Returns
+ * `undefined` when neither is set so the downstream stream constructor can
+ * skip wiring `onEvent` entirely.
  */
 function mergeEventCallbacks(
   a: ((event: import('./petrinaut-events.js').PetrinautEvent) => void) | undefined,
@@ -58,18 +58,16 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
       try {
         const blueprint = compileTopology(input.plan, input.policy);
 
-        // FE-764: one folding per cook run, shared by the static export and
-        // the live event stream so they fold identically. Default is the
-        // identity fold (unfolded per-slice net) — the demo / small-N case;
+        // One folding per cook run, shared by the static export and the live
+        // event stream so they fold identically. Default is the identity fold
+        // (unfolded per-slice net) — the demo / small-N case;
         // `--petrinaut-fold=color` selects the color fold for large-N runs.
         const folding: NetFolding =
           input.petrinautFold === 'color' ? createNetFolding(blueprint) : createIdentityFolding(blueprint);
 
-        // FE-762 + FE-764 slice 4: compute the Petrinaut SDCPN file ONCE in
-        // memory. File output is best-effort (failure must not fail the run).
-        // The in-memory `sdcpnFile` is what slice 4's `setupPetrinautStream`
-        // hook needs — decoupling it from `writeFileSync` ensures the live
-        // stream survives even if the disk write fails.
+        // Compute the Petrinaut SDCPN file once in memory. File output is
+        // best-effort (failure must not fail the run), but the live stream can
+        // still use the in-memory `sdcpnFile` if disk writes fail.
         const runId = input.runId ?? 'unknown';
         let sdcpnFile: ReturnType<typeof toSdcpnFile> | undefined;
         if (input.runDir) {
@@ -89,17 +87,14 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
           }
         }
 
-        // FE-763: open a Petrinaut event stream when runDir is present.
-        // Emits an initial_marking event up-front, then transition_fired /
-        // net_halted / net_deadlocked events as the net runs. Library
+        // Open a Petrinaut event stream when runDir is present. Library
         // callers without a runDir get the existing no-op behavior.
         let eventSink: NetEventSink | undefined;
         if (input.runDir) {
           let setupCallback: ((event: import('./petrinaut-events.js').PetrinautEvent) => void) | undefined;
-          // Merge the slice-3a fan-out and the slice-4 setup callback so an
-          // engine event reaches both consumers in one call. The setup callback
-          // is assigned only after the stream has initialized and setup has
-          // resolved; events are not emitted before that point.
+          // The live setup callback is assigned only after the stream has
+          // initialized and setup has resolved; events are not emitted before
+          // that point.
           const setupFanOut = input.setupPetrinautStream
             ? (event: import('./petrinaut-events.js').PetrinautEvent) => setupCallback?.(event)
             : undefined;
@@ -122,9 +117,8 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
           }
 
           if (stream) {
-            // FE-764 slice 4: await the setup hook BEFORE emitting the first
-            // event so any async sink (HTTP/SSE server) is fully listening
-            // before `emitInitialMarking` publishes the first frame.
+            // Await setup before emitting the first event so any async sink
+            // (HTTP/SSE server) is fully listening before `initial_marking`.
             if (input.setupPetrinautStream && sdcpnFile) {
               setupCallback = await input.setupPetrinautStream({ runId, sdcpnFile });
             }

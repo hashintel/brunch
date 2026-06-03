@@ -1,22 +1,21 @@
 // ---------------------------------------------------------------------------
-// FE-764 — Brunch → Petrinaut live stream contract + export reducer.
+// Brunch → Petrinaut live stream contract + export reducer.
 //
 // Reduces an in-flight or finished cook run's brunch-emitted artifacts (an
 // SdcpnFile + the captured PetrinautEvent sequence) into the
 // `BrunchExecutionExport` payload that the SSE stream serves to Petrinaut's
 // read-only "actual/live" tab.
 //
-// Pure function: no filesystem side effects. The SSE server (later slice)
-// composes the wire frames from a reducer output; tests consume it directly
-// and validate via the frame-replay oracle.
+// Pure function: no filesystem side effects. The stream bus composes wire
+// frames from the same reducer output; tests consume it directly and validate
+// via the frame-replay oracle.
 //
-// Contract is the locked schema in memory/PLAN.md §petri-sync-server — every
-// type below mirrors it byte-for-byte. The TokenColour / Marking sum type is
-// preserved so the same reducer feeds both identity-folded (count arm) and
-// color-folded (TokenColour[] arm) runs without a type widen later.
+// The TokenColour / Marking sum type is preserved so the same reducer feeds
+// both identity-folded (count arm) and color-folded (TokenColour[] arm) runs
+// without a type widen later.
 //
-// Reference implementation: /tmp/reduce-export.mjs, validated against real
-// run 904d205d (75 firings, 0 negative-marking violations, sane final state).
+// Validated against real run 904d205d: 75 firings, no negative-marking
+// violations, sane final state.
 // ---------------------------------------------------------------------------
 
 import type { PetrinautEvent, PetrinautTransitionFiredEvent } from './petrinaut-events.js';

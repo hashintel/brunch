@@ -29,11 +29,11 @@ export type CookOptions = {
   maxRetries: number;
   verbose: boolean;
   petrinautFold: PetrinautFoldMode;
-  /** FE-764 slice 4: when true, runCook boots the ephemeral SSE server and composes the launcher URL. */
+  /** When true, runCook boots the ephemeral SSE server and composes the launcher URL. */
   petrinautStream: boolean;
-  /** FE-764 slice 4: optional CLI override for the Petrinaut SPA base URL. */
+  /** Optional CLI override for the Petrinaut SPA base URL. */
   petrinautBaseUrl?: string;
-  /** FE-764 slice 4: whether to auto-launch the system browser; CI=true also suppresses at runtime. */
+  /** Whether to auto-launch the system browser; CI=true also suppresses at runtime. */
   petrinautOpen: boolean;
 };
 
@@ -186,8 +186,8 @@ export type PetrinautStreamSetupHandle = {
 };
 
 /**
- * Build the FE-764 setup hook + server-stop handle. Pure factory — caller
- * provides every side-effecting collaborator. The hook itself:
+ * Build the live-stream setup hook + server-stop handle. Pure factory —
+ * caller provides every side-effecting collaborator. The hook itself:
  *   1. constructs the bus from the engine-supplied `sdcpnFile`
  *   2. constructs the SSE server over the bus
  *   3. awaits `server.start()` so it is listening before returning
@@ -306,10 +306,9 @@ function isCleanGitWorkingTree(dir: string): GitWorkingTreeCheck {
 export async function runCook(opts: CookOptions): Promise<void> {
   const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
 
-  // FE-764 slice 4 pre-flight: when --petrinaut-stream is set, load `.env`
-  // and resolve the base URL BEFORE any cook side effect (banner, plan
-  // load, sandbox creation). Behavior without --petrinaut-stream is
-  // byte-identical to before this slice — no .env read, no env check.
+  // Streaming pre-flight happens before any cook side effect (banner, plan
+  // load, sandbox creation). Without --petrinaut-stream there is no .env read
+  // and no Petrinaut base-url check.
   let petrinautBaseUrl: string | undefined;
   if (opts.petrinautStream) {
     loadLocalEnvShellWins(launchCwd);
@@ -358,9 +357,8 @@ export async function runCook(opts: CookOptions): Promise<void> {
   const runStart = Date.now();
   const actions = createPiActions({ verbose: opts.verbose, runStart });
 
-  // FE-764 slice 4: stand up the live-stream setup handle (bus + HTTP/SSE
-  // server) when streaming is enabled. Auto-open is suppressed by
-  // `--no-petrinaut-open` OR a truthy `process.env.CI`.
+  // Stand up the live-stream setup handle when streaming is enabled.
+  // Auto-open is suppressed by `--no-petrinaut-open` or CI.
   const streamPort = opts.petrinautStream
     ? resolvePetrinautStreamPort({ PORT: process.env.PORT })
     : undefined;
@@ -384,9 +382,8 @@ export async function runCook(opts: CookOptions): Promise<void> {
       policy: { maxRetries: opts.maxRetries },
       sandboxMode: resolved.mode === 'codebase' ? 'codebase' : 'fixture',
       runId,
-      // FE-762: engine writes Petrinaut net.json into the run directory.
       runDir,
-      // FE-764: picks the NetFolding (identity by default; color collapses subnets).
+      // Pick the shared NetFolding (identity by default; color collapses subnets).
       petrinautFold: opts.petrinautFold,
       ...(streamSetup ? { setupPetrinautStream: streamSetup.setupHook } : {}),
     });
@@ -422,7 +419,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
 
     process.exit(ok ? 0 : 1);
   } finally {
-    // FE-764 slice 4: always tear down the SSE server, on success or failure.
+    // Always tear down the SSE server, on success or failure.
     if (streamSetup) await streamSetup.stop();
   }
 }

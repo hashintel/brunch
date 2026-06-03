@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
-// FE-764 Slice 3b — Ephemeral HTTP/SSE server for the Petrinaut live stream.
+// Ephemeral HTTP/SSE server for the Petrinaut live stream.
 //
-// Thin transport shell over the 3a bus (`createPetrinautStreamBus`). One
-// route — `GET /stream` — returns `text/event-stream` and turns every
+// Thin transport shell over `createPetrinautStreamBus`. One route —
+// `GET /stream` — returns `text/event-stream` and turns every
 // `BrunchExecutionExportFrame` published on the bus into one SSE event,
 // closing the response immediately after the terminal frame.
 //
@@ -13,10 +13,6 @@
 //     handles replay so a connection opened mid-run synchronously replays
 //     the full back-buffer before live frames flow.
 //   - `stop()` ends every in-flight response and closes the server.
-//
-// Slice 3b is the transport module only. Boot from `runCook` lives in
-// slice 4 behind the `--petrinaut-stream` flag.
-//
 // `Last-Event-ID` resume / SSE keep-alive comments are deliberately omitted
 // for v1: the buffer is the timeline (a reconnect just re-replays), and
 // localhost runs finish in seconds-to-minutes — no proxy idle window to
