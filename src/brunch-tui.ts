@@ -149,6 +149,7 @@ export function createBrunchAgentSessionRuntimeFactory({
         getGraphOverview: () => graph.forSpec(currentWorkspace.spec.id).getGraphOverview(),
         getNodeNeighborhood: (nodeId: number, options?: { hops?: number }) =>
           graph.forSpec(currentWorkspace.spec.id).getNodeNeighborhood(nodeId, options),
+        resolveNodeCode: (code: string) => graph.forSpec(currentWorkspace.spec.id).resolveNodeCode(code),
       },
       ...(productUpdates ? { productUpdates } : {}),
     };

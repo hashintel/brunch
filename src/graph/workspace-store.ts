@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { createDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
-import { getGraphOverview, getNodeNeighborhood } from './snapshot.js';
+import { getGraphOverview, getNodeNeighborhood, resolveGraphNodeCode } from './snapshot.js';
 import type { GraphOverview, NeighborhoodOptions, NeighborhoodResult } from './snapshot.js';
 
 const BRUNCH_DIR = '.brunch';
@@ -17,6 +17,7 @@ const DATA_DB_FILE = 'data.db';
 export interface SpecScopedReaders {
   readonly getGraphOverview: () => GraphOverview;
   readonly getNodeNeighborhood: (nodeId: number, options?: NeighborhoodOptions) => NeighborhoodResult;
+  readonly resolveNodeCode: (code: string) => number | undefined;
 }
 
 export interface WorkspaceGraphRuntime {
@@ -33,6 +34,7 @@ export async function openWorkspaceGraphRuntime(cwd: string): Promise<WorkspaceG
       return {
         getGraphOverview: () => getGraphOverview(db, specId),
         getNodeNeighborhood: (nodeId, options) => getNodeNeighborhood(db, specId, nodeId, options),
+        resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
       };
     },
   };

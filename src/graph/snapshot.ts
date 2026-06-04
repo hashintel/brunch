@@ -15,7 +15,7 @@ import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
 import type { Lsn } from './atoms.js';
 import type { GraphEdge } from './schema/edges.js';
-import type { GraphNode, NodeDetail } from './schema/nodes.js';
+import { parseGraphNodeCode, type GraphNode, type NodeDetail } from './schema/nodes.js';
 import type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reconciliation-need.js';
 
 // ---------------------------------------------------------------------------
@@ -118,6 +118,22 @@ function getSupersededIds(db: BrunchDb, specId: number): Set<number> {
 }
 
 // ---------------------------------------------------------------------------
+export function resolveGraphNodeCode(db: BrunchDb, specId: number, code: string): number | undefined {
+  const parsed = parseGraphNodeCode(code);
+  if (!parsed) return undefined;
+  return db
+    .select({ id: schema.nodes.id })
+    .from(schema.nodes)
+    .where(
+      and(
+        eq(schema.nodes.spec_id, specId),
+        eq(schema.nodes.kind, parsed.kind),
+        eq(schema.nodes.kind_ordinal, parsed.kindOrdinal),
+      ),
+    )
+    .get()?.id;
+}
+
 // getGraphOverview
 // ---------------------------------------------------------------------------
 

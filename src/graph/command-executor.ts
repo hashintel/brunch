@@ -22,7 +22,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
 import type { EdgeCategory, EdgeStance } from './schema/edges.js';
-import { parseGraphNodeCode, type NodeBasis, type NodePlane } from './schema/nodes.js';
+import { formatGraphNodeCode, type NodeBasis, type NodeKind, type NodePlane } from './schema/nodes.js';
 
 export type ReadinessGrade = (typeof schema.READINESS_GRADES)[number];
 
@@ -69,6 +69,7 @@ export interface CommitGraphSuccess {
   readonly status: 'success';
   readonly lsn: number;
   readonly nodes: Readonly<Record<string, number>>;
+  readonly nodeCodes?: Readonly<Record<string, string>>;
   readonly edges: readonly number[];
 }
 
@@ -213,7 +214,7 @@ export interface ResolveReconNeedInput {
 // ---------------------------------------------------------------------------
 
 /** Reference to a node endpoint in a batch edge. */
-export type BatchEdgeRef = string | { readonly existing: number } | { readonly existingCode: string };
+export type BatchEdgeRef = string | { readonly existing: number };
 
 /** A node to create inside a commitGraph batch. */
 export interface BatchNodeInput {
@@ -403,29 +404,12 @@ interface EdgeValidationResult {
   resolved?: ResolvedEdge;
 }
 
-function resolveExistingRefId(
-  db: Pick<BrunchDb, 'select'>,
-  ref: { readonly existing: number } | { readonly existingCode: string },
-  specId: number,
-): number | undefined {
-  if ('existing' in ref) return ref.existing;
-  const parsed = parseGraphNodeCode(ref.existingCode);
-  if (!parsed) return undefined;
-  return db
-    .select({ id: schema.nodes.id })
-    .from(schema.nodes)
-    .where(
-      and(
-        eq(schema.nodes.spec_id, specId),
-        eq(schema.nodes.kind, parsed.kind),
-        eq(schema.nodes.kind_ordinal, parsed.kindOrdinal),
-      ),
-    )
-    .get()?.id;
+function resolveExistingRefId(ref: { readonly existing: number }): number {
+  return ref.existing;
 }
 
 function resolveEndpointRef(
-  db: Pick<BrunchDb, 'select'>,
+  _db: Pick<BrunchDb, 'select'>,
   ref: BatchEdgeRef,
   specId: number,
   refMap: ReadonlyMap<string, number>,
@@ -442,11 +426,7 @@ function resolveEndpointRef(
     return id;
   }
 
-  const id = resolveExistingRefId(db, ref, specId);
-  if (id === undefined) {
-    diagnostics.push({ field, message: 'existing node reference not found' });
-    return undefined;
-  }
+  const id = resolveExistingRefId(ref);
   if (crossSpecExisting.has(id)) {
     diagnostics.push({
       field,
@@ -459,14 +439,13 @@ function resolveEndpointRef(
 }
 
 function addExistingRefId(
-  db: Pick<BrunchDb, 'select'>,
+  _db: Pick<BrunchDb, 'select'>,
   ref: BatchEdgeRef,
-  specId: number,
+  _specId: number,
   refs: Set<number>,
 ): void {
   if (typeof ref === 'string') return;
-  const id = resolveExistingRefId(db, ref, specId);
-  if (id !== undefined) refs.add(id);
+  refs.add(resolveExistingRefId(ref));
 }
 
 function findSupersessionCycle(
@@ -889,6 +868,7 @@ export class CommandExecutor {
 
         // 3. Insert all nodes, build ref → id map
         const refMap = new Map<string, number>();
+        const nodeCodeMap = new Map<string, string>();
         for (const bn of input.nodes) {
           const kindOrdinal = this.allocateNodeKindOrdinal(tx, input.specId, bn.plane, bn.kind);
           const row = tx
@@ -909,6 +889,7 @@ export class CommandExecutor {
             .returning()
             .get();
           refMap.set(bn.ref, row!.id);
+          nodeCodeMap.set(bn.ref, formatGraphNodeCode(row!.kind as NodeKind, row!.kind_ordinal));
         }
 
         // 4. Collect and verify existing-node references — must be same spec
@@ -1001,6 +982,7 @@ export class CommandExecutor {
           status: 'success' as const,
           lsn,
           nodes: Object.fromEntries(refMap),
+          nodeCodes: Object.fromEntries(nodeCodeMap),
           edges: edgeIds,
         };
       });

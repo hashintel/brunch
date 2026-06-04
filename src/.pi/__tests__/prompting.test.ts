@@ -106,6 +106,7 @@ const promptContext = {
       ],
     }),
     getNodeNeighborhood: () => ({ status: 'not_found' as const }),
+    resolveNodeCode: () => undefined,
   },
 };
 
@@ -243,6 +244,7 @@ describe('Brunch prompt-pack topology', () => {
               edges: [],
             }),
             getNodeNeighborhood: () => ({ status: 'not_found' as const }),
+            resolveNodeCode: () => undefined,
           },
         }),
       },

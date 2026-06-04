@@ -18,9 +18,11 @@ import type {
   CommitGraphSuccess,
   StructuralIllegal,
 } from '../../../graph/command-executor.js';
-import { formatGraphNodeCode } from '../../../graph/schema/nodes.js';
+import { formatGraphNodeCode, parseGraphNodeCode } from '../../../graph/schema/nodes.js';
 import type { GraphOverview, NeighborhoodResult } from '../../../graph/snapshot.js';
 import type { ToolCommitGraphParams } from './tool-schemas.js';
+
+export type ResolveGraphNodeCode = (code: string) => number | undefined;
 
 /**
  * Translate Pi tool params into a CommandExecutor CommitGraphInput.
@@ -30,7 +32,11 @@ import type { ToolCommitGraphParams } from './tool-schemas.js';
  * so the agent-facing tool schema never asks the LLM for a workspace-global
  * graph target (D61-L).
  */
-export function translateCommitGraph(params: ToolCommitGraphParams, specId: number): CommitGraphInput {
+export function translateCommitGraph(
+  params: ToolCommitGraphParams,
+  specId: number,
+  resolveGraphNodeCode: ResolveGraphNodeCode = () => undefined,
+): CommitGraphInput {
   const nodes: BatchNodeInput[] = params.nodes.map((n) => ({
     ref: n.ref,
     plane: n.plane as BatchNodeInput['plane'],
@@ -43,8 +49,8 @@ export function translateCommitGraph(params: ToolCommitGraphParams, specId: numb
 
   const edges: BatchEdgeInput[] = params.edges.map((e) => ({
     category: e.category,
-    source: resolveEdgeRef(e.source),
-    target: resolveEdgeRef(e.target),
+    source: resolveEdgeRef(e.source, resolveGraphNodeCode),
+    target: resolveEdgeRef(e.target, resolveGraphNodeCode),
     stance: e.stance,
     rationale: e.rationale,
   }));
@@ -53,11 +59,18 @@ export function translateCommitGraph(params: ToolCommitGraphParams, specId: numb
 }
 
 function resolveEdgeRef(
-  ref: string | { readonly existing: number } | { readonly existingCode: string },
+  ref: string | { readonly existingCode: string },
+  resolveGraphNodeCode: ResolveGraphNodeCode,
 ): BatchEdgeRef {
   if (typeof ref === 'string') return ref;
-  if ('existingCode' in ref) return { existingCode: ref.existingCode };
-  return { existing: ref.existing };
+  if (!parseGraphNodeCode(ref.existingCode)) {
+    throw new Error(`Malformed graph node code "${ref.existingCode}"`);
+  }
+  const nodeId = resolveGraphNodeCode(ref.existingCode);
+  if (nodeId === undefined) {
+    throw new Error(`Graph node code "${ref.existingCode}" does not resolve in the selected spec`);
+  }
+  return { existing: nodeId };
 }
 
 // ---------------------------------------------------------------------------
@@ -82,7 +95,8 @@ function formatCommitSuccess(result: CommitGraphSuccess): string {
   const lines: string[] = [`Graph committed successfully (LSN ${result.lsn}).`];
 
   if (nodeEntries.length > 0) {
-    lines.push(`Nodes created: ${nodeEntries.map(([ref, id]) => `${ref} → #${id}`).join(', ')}`);
+    const createdNodes = nodeEntries.map(([ref, id]) => `${ref} → ${result.nodeCodes?.[ref] ?? `#${id}`}`);
+    lines.push(`Nodes created: ${createdNodes.join(', ')}`);
   }
   if (result.edges.length > 0) {
     lines.push(`Edges created: ${result.edges.map((id) => `#${id}`).join(', ')}`);

@@ -16,8 +16,8 @@ SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L
   rows.
 - **Readers / snapshot functions** (`snapshot.ts`) — graph projections at
   multiple detail levels: active-context and graph-truth overview, node
-  neighborhood, and open reconciliation needs. These return typed domain objects,
-  not Drizzle rows.
+  neighborhood, selected-spec graph-code lookup, and open reconciliation needs.
+  These return typed domain objects or internal ids, not Drizzle rows.
 
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
   `ReconciliationNeed`, kind/category types, per-kind node ordinals, and derived
@@ -66,6 +66,7 @@ graph/
   snapshot.ts
     getGraphOverview
     getNodeNeighborhood
+    resolveGraphNodeCode
     getOpenReconciliationNeeds
     row -> domain mapping
 
@@ -138,7 +139,8 @@ seam. The desired shape is documented here so future splits preserve topology.
 
 - `kind_ordinal` is now the stored half of projected graph node codes. Keep
   rendered code strings out of graph tables; adapters and prompt renderers should
-  project them from `kind` + `kindOrdinal`.
+  project them from `kind` + `kindOrdinal`, then resolve existing-code handles
+  through selected-spec graph readers before calling `CommandExecutor`.
 - Keep spec scoping mandatory for stable `graph.*` RPC / multi-spec UI
   projections: graph rows and graph-adjacent reconciliation needs are
   spec-owned, and remaining graph read/write surfaces must preserve explicit
