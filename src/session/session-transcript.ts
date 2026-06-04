@@ -109,9 +109,7 @@ function renderTextBlocks(content: Array<TextContent | ImageContent | ThinkingCo
   return rendered.length > 0 ? interleaveBlankLines(rendered) : [];
 }
 
-function isTextContent(
-  block: TextContent | ImageContent | ThinkingContent | ToolCall,
-): block is TextContent {
+function isTextContent(block: TextContent | ImageContent | ThinkingContent | ToolCall): block is TextContent {
   return block.type === 'text';
 }
 

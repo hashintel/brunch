@@ -133,7 +133,7 @@ _None._
 - **Cross-cutting obligations:** Avoid harness-as-false-proof: the probe must exercise the same default Brunch runtime factory and registered tools that the product uses. Record fitness, not just pass/fail. Preserve D62-L/D63-L/D64-L as graph-wide contracts rather than adapter-local conveniences.
 - **Traceability:** D4-L, D20-L, D51-L, D53-L, D60-L, D62-L, D63-L, D64-L / I34-L, I35-L, I39-L, I40-L, I41-L / A14-L, A5-L.
 - **Design docs:** `docs/architecture/probes-and-transcripts.md`; `docs/design/GRAPH_MODEL.md`.
-- **Current execution pointer:** Graph write contract materialization chain completed and removed from `memory/cards/`; remaining frontier work is direct product-path probe coverage for existing-code refs, retry diagnostics, and no-overcommit behavior.
+- **Current execution pointer:** `memory/cards/graph-tool-resilience--closure-chain.md` scopes the cleanup and remaining product-path probe closure chain for FE-808.
 
 ### project-graph-review-cycle
 
