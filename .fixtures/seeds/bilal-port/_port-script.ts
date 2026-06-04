@@ -73,6 +73,12 @@
  *
  * Re-run safely: each <slug>.json is overwritten on each run.
  *
+ * Self-validating: before writing each file, the assembled seed is run
+ * through the real loader (src/graph/seed-fixtures.ts) against a throwaway
+ * in-memory DB, which exercises the same structural validation commitGraph
+ * enforces. A seed that would not commit cleanly aborts the run instead of
+ * being written, so every <slug>.json on disk is guaranteed loadable.
+ *
  * Reproducible: reads from the vendored ./_originals/ tree, not an external
  * checkout. Anyone can regenerate the seed contracts from this directory alone.
  */
@@ -80,6 +86,10 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { createDb } from '../../../src/db/connection.js';
+import { CommandExecutor } from '../../../src/graph/command-executor.js';
+import { seedFixture, type SeedFixture } from '../../../src/graph/seed-fixtures.js';
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -673,14 +683,30 @@ function portSpec(sourceName: string, slug: string, displayName: string): SpecPo
 // Write output
 // ---------------------------------------------------------------------------
 
-function writeSpec(result: SpecPortResult, displayName: string): void {
-  // Consolidated seed contract — one file per spec, atomic seed unit.
-  const seed = {
+/** Assemble the consolidated seed contract — one file per spec, atomic seed unit. */
+function buildSeed(result: SpecPortResult, displayName: string): SeedFixture {
+  return {
     spec: { slug: result.slug, name: displayName, readiness_grade: 'commitments_ready' },
     nodes: result.brunchNodes,
     edges: result.brunchEdges,
   };
-  writeFileSync(resolve(OUTPUT_ROOT, `${result.slug}.json`), JSON.stringify(seed, null, 2) + '\n');
+}
+
+/**
+ * Validate a seed against the real loader before it is written, so every
+ * <slug>.json on disk is guaranteed to commit cleanly. This reuses the exact
+ * structural checks commitGraph enforces — seedFixture → CommandExecutor
+ * .createSpec + .commitGraph → planCommitGraph (node kind/plane/detail and
+ * edge category/stance/ref/cycle validation) — against a throwaway in-memory
+ * DB. seedFixture throws with diagnostics on any structural rejection.
+ */
+function validateSeed(seed: SeedFixture): void {
+  const executor = new CommandExecutor(createDb(':memory:'));
+  seedFixture(executor, seed);
+}
+
+function writeSpec(seed: SeedFixture): void {
+  writeFileSync(resolve(OUTPUT_ROOT, `${seed.spec.slug}.json`), JSON.stringify(seed, null, 2) + '\n');
 }
 
 function writeReadme(results: { slug: string; displayName: string; stats: Record<string, number> }[]): void {
@@ -784,7 +810,9 @@ function main(): void {
   for (const spec of SPECS) {
     console.log(`Porting ${spec.source} → ${spec.slug}.json...`);
     const result = portSpec(spec.source, spec.slug, spec.displayName);
-    writeSpec(result, spec.displayName);
+    const seed = buildSeed(result, spec.displayName);
+    validateSeed(seed); // throws if the seed would not commit cleanly
+    writeSpec(seed);
     summaries.push({ slug: spec.slug, displayName: spec.displayName, stats: result.stats });
     console.log(`  ${JSON.stringify(result.stats)}`);
   }
