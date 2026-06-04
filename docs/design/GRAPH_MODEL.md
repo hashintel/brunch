@@ -19,6 +19,10 @@ graph-model contract.
 - **Phase 1:** edges, edge policy, reconciliation-need shape. Locked.
 - **Phase 2:** per-plane node kinds, node shape, detail schemas,
   kind categories, `source` field, `provenance` retirement. Locked.
+- **Current lock:** stable node reference codes, `basis` as
+  approval strength (`explicit | implicit`), non-exclusive
+  readiness bands, supersession acyclicity, and snapshot
+  graph-truth vs active-context separation. Locked.
 
 ## Scope and posture
 
@@ -43,10 +47,39 @@ policy.
 ## Atoms
 
 ```ts
-type NodeId = string
-type EdgeId = string
-type Lsn    = number   // monotonic, one per commit
+type SpecId      = number
+type NodeId      = number   // SQLite integer primary key / FK
+type EdgeId      = number   // SQLite integer primary key / FK
+type KindOrdinal = number   // monotonic per (spec, plane, kind)
+type Lsn         = number   // monotonic, one per commit
 ```
+
+`NodeId` and `EdgeId` are internal storage identities. The database
+stores `kindOrdinal`, not a rendered reference-code string. Human
+and agent-facing references use projected codes such as `R3`, derived
+from `node.kind` plus `kindOrdinal` through a hard-coded presentation
+lookup (see [§Stable node reference codes](#stable-node-reference-codes)).
+
+## Graph basis — approval strength, not mutation path
+
+```ts
+type GraphBasis = "explicit" | "implicit"
+```
+
+`basis` is shared by nodes and edges. It records whether the exact
+accepted graph item was user-approved:
+
+- **`explicit`** — the user directly stated the node/edge, or
+  approved that exact node/edge in a review set.
+- **`implicit`** — the user accepted a concept/proposal, and the
+  agent materialized specific graph items to match it without
+  per-item review (the `propose-graph` direct-commit path).
+
+`basis` does **not** record the mutation pathway. The pathway lives
+in `change_log.operation` and payload (`commit_graph`,
+`accept_review_set`, post-exchange capture, etc.). Low-confidence
+inferred material still stays outside graph truth until clarified or
+accepted.
 
 ## GraphEdge — the single shape
 
@@ -62,10 +95,11 @@ type EdgeCategory =
   | "supersession"
 
 type EdgeStance = "for" | "against"           // required for proof | support
-type EdgeBasis  = "explicit" | "accepted_review_set"
+type EdgeBasis  = GraphBasis
 
 interface GraphEdge {
   readonly id:           EdgeId
+  readonly specId:       SpecId
   readonly category:     EdgeCategory
   readonly sourceId:     NodeId
   readonly targetId:     NodeId
@@ -100,8 +134,10 @@ named successor home; nothing is lost, the substrates are different.
 | `family`                  | Implied by category                                                  |
 | Per-relation policy axes  | Per-category policy table below                                      |
 
-Authority for edge writes lives in the `change_log` keyed by
-`createdAtLsn` / `updatedAtLsn`. Edges do not denormalize authority.
+Audit for edge writes lives in the `change_log` keyed by
+`createdAtLsn` / `updatedAtLsn`. Edges do not denormalize transcript
+pointers or mutation pathway. Their `basis` only records item-level
+approval strength.
 
 ## Edge categories — directional first
 
@@ -212,8 +248,8 @@ M_sqlite_store    : module        -[composition]->  M_sqlite_helper: module
 M_sqlite_store    : module        -[dependency]->   M_pi_session   : module
 
 # Plan (M5+ stub)
-MS_graph     : milestone   -[composition]->         FE_700         : frontier
-FE_700       : frontier    -[composition]->         SL_persist     : slice
+MS_graph     : milestone   -[composition]->         FR_graph_data  : frontier
+FR_graph_data: frontier    -[composition]->         SL_persist     : slice
 R_offline    : requirement -[realization]->         SL_persist     : slice
 SL_persist   : slice       -[supersession]->        SL_persist_v0  : slice
 ```
@@ -304,33 +340,61 @@ more realization sub-clusters that demand distinct cascade or
 projection policy, split `realization` into siblings (see
 [§Open questions](#open-questions)).
 
-## Snapshot bucketing
+## Snapshot projections and bucketing
 
 Snapshot buckets come from category and endpoint role, not from the
-derived label string. A neighborhood snapshot of an intent node:
+derived label string. Snapshot callers must also choose which
+projection they want:
+
+- **`graph_truth`** — accepted graph truth records. Superseded
+  predecessors and their edges may still appear because they are
+  part of auditably accepted graph state.
+- **`active_context`** — the context the agent/user should treat as
+  current. Superseded predecessor nodes are hidden, and edges whose
+  endpoints are hidden are also omitted so active-context snapshots
+  never contain dangling references.
+
+The read family should stay product-shaped and close to observed
+needs, not become a generic records API:
+
+```ts
+listNodes({ kinds?, readinessBands?, basis?, activeOnly? })
+
+relatedNodes({
+  anchors,
+  edgeCategories?,
+  direction: "incoming" | "outgoing" | "both",
+  hops?,
+  projection?: "graph_truth" | "active_context",
+})
+
+overview({ projection: "graph_truth" | "active_context" })
+```
+
+A neighborhood snapshot of an intent node:
 
 ```text
-anchor: R_offline : requirement
+anchor: R1 : requirement
 
 hard dependencies:
-  A_no_network         depends on assumption
+  A1                  depends on assumption
 
 support:
-  P_field_users        motivated by context
+  CTX2                motivated by context
 
 proof:
-  CR_airplane          witnessed by criterion
-  E_typical            witnessed by example
+  CR1                 witnessed by criterion
+  EX1                 witnessed by example
 
 realized by:
-  M_sqlite_store       realized by design module
-  SL_persist           established by plan slice
+  M1                  realized by design module
+  SL1                 established by plan slice
 
 boundaries:
-  C_no_cloud           bounded by constraint
+  CON1                bounded by constraint
 
 supersedes:
-  R_offline_v0         supersedes prior requirement
+  R0                  supersedes prior requirement
 ```
 
 ## Structural invariants
@@ -339,21 +403,32 @@ supersedes:
   relation strings.
 - Every edge has exactly one category.
 - `stance` is required iff `category ∈ { proof, support }`.
+- `basis` is exactly `explicit | implicit` for accepted nodes and
+  edges; mutation path is recovered from `change_log`, not from
+  `basis`.
+- Every node has a stable `kindOrdinal`; rendered reference codes are
+  a projection from `kind` + `kindOrdinal`, not stored graph state.
+- `(specId, plane, kind, kindOrdinal)` is unique, and ordinals are
+  monotonic / never reused for that tuple.
 - `association` is symmetric at the product level even if stored
   with `sourceId` / `targetId` columns.
-- `supersession` chains are acyclic.
+- `supersession` chains are acyclic. CommandExecutor validation
+  checks proposed supersession edges together with existing edges.
 - Accepted graph edges are graph truth. Candidate or low-confidence
   edges live outside graph truth (preface / capture analysis /
   review-set drafts) until accepted.
 - Tuple-label lookup cannot change category policy.
 - Snapshot bucket assignment comes from category and endpoint role,
   not from label strings.
+- Active-context snapshots omit superseded nodes and any edge whose
+  endpoint is omitted.
 - `composition` does not imply sequencing or dependency.
 - `support` does not imply blocking / staleness by default.
 - Only `dependency` triggers automatic cascades; other categories
   surface as `ReconciliationNeed` records when policy says so.
 - Cross-plane freedom: node `kind` does not constrain edge
   category legality.
+- Readiness bands do not constrain node creation legality.
 
 ## Agent-facing command surface
 
@@ -375,7 +450,10 @@ linkSupersession({ successor, predecessor, basis, rationale })
 The command layer owns structural validation. If a tuple is
 structurally illegal (missing stance, supersession cycle, etc.) the
 tool returns `structural_illegal`; the agent should not invent a
-narrower category to force the write through.
+narrower category to force the write through. In most agent-facing
+flows, `basis` is supplied by the strategy adapter or execution
+context (`explicit` for exact user/review approval, `implicit` for
+`propose-graph` materialization), not improvised per edge.
 
 These commands land in the M5 `agent-graph-integration` extension
 under `src/.pi/extensions/graph/tools/` per D52-L. They are out of
@@ -385,32 +463,42 @@ scope for Phase 1 stubs.
 
 The `propose-graph` strategy's load-bearing tool. One tool call
 creates an entire subgraph — nodes and edges — in a single
-transaction with one LSN.
+transaction with one LSN. Direct `propose-graph` commits use
+`basis: "implicit"` because the user accepted a concept, not each
+individual item. Review-set acceptance is a parallel path to the
+same executor and uses `basis: "explicit"` because the user approved
+the exact reviewed items.
 
 ```ts
 commitGraph({
+  basis: "implicit",
   nodes: [
-    { ref: "n1", kind: "requirement", title: "...", body: "..." },
-    { ref: "n2", kind: "constraint",  title: "...", body: "..." },
-    { ref: "n5", kind: "invariant",  title: "...", body: "..." },
-    { ref: "n3", kind: "decision",    title: "...", body: "...",
+    { ref: "n1", plane: "intent", kind: "requirement", title: "...", body: "..." },
+    { ref: "n2", plane: "intent", kind: "constraint",  title: "...", body: "..." },
+    { ref: "n5", plane: "intent", kind: "invariant",  title: "...", body: "..." },
+    { ref: "n3", plane: "intent", kind: "decision",    title: "...", body: "...",
       detail: { chosen_option: "...", rejected: ["..."], rationale: "..." } },
-    { ref: "n4", kind: "term", title: "...",
+    { ref: "n4", plane: "intent", kind: "term", title: "...",
       detail: { definition: "...", aliases: ["..."] } },
   ],
   edges: [
-    { category: "dependency",   source: "n1",              target: "n2" },
-    { category: "boundary",     source: "n2",              target: "n1" },
-    { category: "realization",  source: "n1",              target: "n3" },
-    { category: "support",      source: { existing: "A12" }, target: "n1",
+    { category: "dependency",   source: "n1",                    target: "n2" },
+    { category: "boundary",     source: "n2",                    target: "n1" },
+    { category: "realization",  source: "n1",                    target: "n3" },
+    { category: "support",      source: { existingCode: "A1" },  target: "n1",
                                 stance: "for" },
   ]
 })
 ```
 
 Reference modes:
-- **Intra-batch**: `"n1"` — a node defined in the same payload
-- **Existing**: `{ existing: "A12" }` — a node already in the graph
+
+- **Intra-batch**: `"n1"` — a node defined in the same payload.
+- **Existing**: `{ existingCode: "A1" }` — a node already in the
+  selected spec, addressed by a projected reference code. Tool
+  adapters parse this to `kind` + `kindOrdinal` and resolve the
+  numeric `NodeId` before calling lower-level executor helpers; graph
+  tables do not store the rendered code string.
 
 CommandExecutor processing:
 
@@ -419,13 +507,14 @@ commitGraph tool call
         │
         ▼
   1. Validate all nodes structurally
-  2. Assign real NodeIds to each batch ref
-  3. Resolve intra-batch refs on edges
-  4. Resolve existing-node refs (fail if not found)
-  5. Validate all edges (closed categories, stance, acyclicity)
-  6. Allocate ONE Lsn
-  7. Write all nodes + edges + change-log in one transaction
-  8. Return success + created ids
+  2. Allocate ONE Lsn
+  3. Allocate per-kind ordinals
+  4. Insert nodes and build batch ref → NodeId/kindOrdinal map
+  5. Resolve intra-batch refs on edges
+  6. Resolve existing-node refs (fail if not found or wrong spec)
+  7. Validate all edges (closed categories, stance, supersession acyclicity)
+  8. Write all nodes + edges + change-log in one transaction
+  9. Return success + created ids/kindOrdinals (adapters may render codes)
      OR structural_illegal + diagnostics for retry
 ```
 
@@ -456,13 +545,21 @@ reconciliation_need.
 
 Use one edge for the strongest operational role between two nodes. Do not create multiple
 edges merely because several English paraphrases are possible.
+
+Basis rule: use explicit only when the user directly stated the item or approved the exact
+node/edge in a review set. Use implicit for propose-graph commits where the user accepted
+the concept but did not review each graph item. Do not use accepted_review_set as a basis.
+
+Readiness rule: readiness grade and readiness bands guide what to ask for next; they do not
+forbid capturing clear requirements, criteria, checks, or design nodes early.
 ```
 
 Category-selection rubric (ask in order; stop at first strong match):
 
 ```text
 0. Should this be graph truth now?
-   - explicit user statement, accepted review set, or high-confidence extraction -> continue
+   - explicit user statement, exact accepted review set item, high-confidence extraction,
+     or accepted propose-graph concept with clear materialization -> continue
    - weak inference, possible relation, possible duplicate, unresolved ambiguity -> no accepted edge
 
 1. Is a newer item intentionally replacing an older item for overlapping scope?
@@ -507,29 +604,38 @@ Category-selection rubric (ask in order; stop at first strong match):
 
 ```ts
 interface GraphNode {
-  readonly id:           NodeId
+  readonly id:           NodeId             // internal SQLite identity
+  readonly specId:       SpecId
+  readonly kindOrdinal:  KindOrdinal        // per (spec, plane, kind)
   readonly plane:        NodePlane
-  readonly kind:         string              // per-plane closed enum (see below)
-  readonly title:        string              // required, non-empty
-  readonly body?:        string              // markdown content
+  readonly kind:         string             // per-plane closed enum (see below)
+  readonly title:        string             // required, non-empty
+  readonly body?:        string             // markdown content
   readonly basis:        NodeBasis
-  readonly source?:      string              // free-form epistemic attribution
+  readonly source?:      string             // free-form epistemic attribution
                                              // convention by prompt, not structural validation
                                              // e.g. "stakeholder", "regulatory", "derived"
-  readonly detail?:      object              // per-kind validated sub-structure (JSON column)
+  readonly detail?:      object             // per-kind validated sub-structure (JSON column)
   readonly createdAtLsn: Lsn
   readonly updatedAtLsn: Lsn
 }
 
 type NodePlane = "intent" | "oracle" | "design" | "plan"
-type NodeBasis = "explicit" | "accepted_review_set"
-// Same semantics as EdgeBasis — how the node entered graph truth.
+type NodeBasis = GraphBasis
+// Same semantics as EdgeBasis — item-level approval strength.
 // No "inferred" basis; low-confidence material stays in preface /
 // capture analysis until promoted.
 ```
 
 ### Fields
 
+- **`id`** — internal storage/FK identity. It is stable, but not the
+  primary human or agent-facing handle.
+- **`specId`** — selected-spec owner. Ordinals and projected
+  reference codes are scoped by spec.
+- **`kindOrdinal`** — monotonic integer per `(specId, plane, kind)`;
+  never reused after deletion or supersession. The rendered human
+  reference code is derived later from `kind` + `kindOrdinal`.
 - **`plane`** — which graph plane owns this node. Structurally
   validated; determines which `kind` enum applies.
 - **`kind`** — per-plane closed enum. Structurally validated by
@@ -538,8 +644,8 @@ type NodeBasis = "explicit" | "accepted_review_set"
   node. Used for mentions, snapshot display, and search.
 - **`body`** — optional markdown content. Carries the semantic detail
   the agent authored. Most kinds put their primary content here.
-- **`basis`** — how the node entered graph truth. Same `explicit` /
-  `accepted_review_set` semantics as edges.
+- **`basis`** — item-level approval strength: `explicit` or
+  `implicit`. See [§Graph basis](#graph-basis--approval-strength-not-mutation-path).
 - **`source`** — free-form string for epistemic attribution.
   Convention by prompt (e.g. "stakeholder", "regulatory", "derived",
   "domain expert", "market research", "agent synthesis"), not
@@ -553,13 +659,46 @@ type NodeBasis = "explicit" | "accepted_review_set"
   entryId, proposalEntryId) are fragile under compaction and
   redundant with `change_log` + `basis`.
 
+## Stable node reference codes
+
+Node reference codes are the human/agent handle for accepted graph
+nodes. They are spec-scoped and stable for the life of the node, but
+they are **not stored** in the graph tables:
+
+```ts
+referenceCode = NODE_KIND_LABELS[node.kind] + node.kindOrdinal
+```
+
+`NODE_KIND_LABELS` is a hard-coded presentation lookup used by UI,
+prompt-context renderers, and agent-tool adapters. If code needs an
+internal key for lookup, use the canonical `node.kind` string plus
+`kindOrdinal`, not the rendered reference-code string.
+
+Allocation rules:
+
+1. Prefix labels are presentation metadata and unique across all node
+   kinds so `#`-mention parsing can use longest-prefix matching.
+2. `kindOrdinal` is allocated monotonically per `(specId, plane,
+   kind)` inside the same CommandExecutor transaction that creates
+   the node.
+3. Allocation uses a counter table (`node_kind_counters` or
+   equivalent), not `MAX(kind_ordinal)+1`, so deletion and
+   supersession cannot reuse ordinals.
+4. DB constraints enforce `unique(spec_id, plane, kind, kind_ordinal)`.
+   There is no `code` column and no `unique(spec_id, code)` database
+   constraint.
+5. Snapshots and prompts render projected codes as primary handles.
+   Raw IDs may appear in diagnostics, but product/agent references
+   should use projected codes.
+
 ## Per-plane node kinds
 
 ### Intent plane
 
-Intent kinds fall into three **derived categories** that map to
-spec-grade progression. Category is a pure function of `kind` — it
-is not stored on the node.
+Intent kinds fall into three **derived semantic categories**.
+Category is a pure function of `kind` — it is not stored on the node.
+These semantic categories are distinct from the cross-plane
+readiness bands in [§Node kind metadata](#node-kind-metadata-codes-and-readiness-bands).
 
 | Category | Kind | Modality of claim | Source question |
 | --- | --- | --- | --- |
@@ -587,14 +726,11 @@ for what kind of material the node captures.
 **Category semantics:**
 
 - **`basic`** — grounding material. Establishes what/who/why before
-  structural elicitation can proceed. The spec-grade gate from
-  `grounding_onboarding` toward `elicitation_ready` requires a
-  satisficing threshold of `basic`-category nodes. The gate is
-  LLM-judged with a count floor — the agent assesses readiness,
-  but cannot declare grounding complete with zero basic nodes.
-  Grounding rubric (Walter-style questions: what is it, who is it
-  for, what problem, what value, when used, how measured) lives in
-  the prompt as abstract drivers, not structural enforcement.
+  structural elicitation can proceed. It is semantic, not a creation
+  gate. The spec-grade gate from `grounding_onboarding` toward
+  `elicitation_ready` uses readiness-band evidence with a count
+  floor; basic intent nodes are central evidence, and
+  grounding-relevant constraints may also count.
 - **`structural`** — core specification material. Requirements,
   assumptions, and constraints form the structural backbone.
 - **`reasoning`** — decisions, criteria, and evidence. Emerges as
@@ -623,6 +759,52 @@ for what kind of material the node captures.
 | `milestone` | A bounded phase of work |
 | `frontier` | A named canonical work item within a milestone |
 | `slice` | A thin vertical implementation unit within a frontier |
+
+## Node kind metadata: codes and readiness bands
+
+Metadata is a pure function of `(plane, kind)`. It is not stored as a
+nested object on each node. Readiness-band membership is consumed by
+snapshot / prompt filters; reference-code labels are consumed by
+presentation code that combines the label with stored `kindOrdinal`.
+
+Readiness bands are **non-exclusive**. They guide elicitor goals,
+snapshot filters, and grade-advancement rubrics; they do not make any
+node kind illegal at earlier grades. If the user clearly states a
+requirement or criterion during grounding, capture it as graph truth
+with the right `basis`; it simply does not by itself prove the
+readiness threshold.
+
+| Plane | Kind | Prefix | Readiness bands |
+| --- | --- | --- | --- |
+| intent | `goal` | `G` | grounding |
+| intent | `thesis` | `TH` | grounding |
+| intent | `term` | `T` | grounding |
+| intent | `context` | `CTX` | grounding |
+| intent | `assumption` | `A` | elicitation |
+| intent | `constraint` | `CON` | grounding, elicitation |
+| intent | `invariant` | `I` | elicitation |
+| intent | `decision` | `D` | elicitation |
+| intent | `example` | `EX` | elicitation |
+| intent | `criterion` | `CR` | commitment |
+| intent | `requirement` | `R` | commitment |
+| oracle | `validation_method` | `VM` | elicitation |
+| oracle | `obligation` | `OB` | elicitation |
+| oracle | `evidence` | `EV` | commitment |
+| oracle | `check` | `CH` | commitment |
+| design | `module` | `M` | elicitation |
+| design | `interface` | `IF` | elicitation |
+| plan | `milestone` | `MS` | commitment |
+| plan | `frontier` | `FR` | commitment |
+| plan | `slice` | `SL` | commitment |
+
+Notes:
+
+- `criterion` uses `CR`, not the previous app's legacy `AC`, because
+  Brunch-next treats it as an intent/oracle claim rather than a
+  phase-specific acceptance-criteria record.
+- Prefixes are 1–3 capital letters and must remain globally unique
+  across node kinds. If a new kind would collide by prefix, choose a
+  longer prefix rather than changing existing codes.
 
 ## Per-kind detail schemas
 
@@ -662,10 +844,12 @@ rubric. Additional prompting heuristics for kinds that need them:
   (stated directly by a stakeholder, `source: "stakeholder"`,
   `basis: "explicit"`) or projection-shaped (derived from existing
   goals/theses/constraints via `project-graph`, `source: "derived"`,
-  `basis: "accepted_review_set"`). Both are obligation claims. The
-  `source` and `basis` fields carry the provenance distinction;
-  strategy prompt packs (`step-wise` vs `project-graph`) guide the
-  agent on which framing to use.
+  `basis: "explicit"` after exact review-set approval). A
+  `propose-graph` requirement is also an obligation claim, but its
+  `basis` is `implicit` because the user accepted the concept rather
+  than each item. `source` carries epistemic attribution;
+  `basis` carries item-level approval strength; `change_log` carries
+  the mutation path.
 - **`decision` capture criteria.** A claim should become a
   `decision` only if all of the following hold:
   1. **Plausible alternatives existed** — "we chose A over B"
@@ -801,14 +985,21 @@ This document supersedes:
   that produced this document
 - The `framing_as` orthogonal modality and allowed matrix from
   `memory/SPEC.md` D7-L, A7-L, I7-L — absorbed by `thesis`,
-  `term`, `constraint.subtype`, and `goal`
+  `term`, `constraint`, and `goal`
 - `EdgeProvenance` / node provenance — retired; `change_log` owns
   audit trail
+- The former `basis: accepted_review_set` path value — replaced by
+  `basis: explicit | implicit`, with mutation path in `change_log`
+- String-shaped `NodeId` examples — replaced by integer internal ids
+  plus projected human reference-code handles derived from `kind` +
+  `kindOrdinal`
 
-Outbound references updated with Phase 2 lock:
+Outbound references updated with current graph-model lock:
 
-- `memory/SPEC.md` — D54-L (node shape), D55-L (provenance
-  retirement), D56-L (intent kind categories), D57-L (grounding
-  gate); A7-L retired; I7-L retired; I36-L, I37-L added
-- `memory/PLAN.md` — `sealed-pi-profile-runtime-state` Phase 2
-  node lock acceptance criteria updated
+- `memory/SPEC.md` — D51-L (edge shape), D54-L (node shape), D55-L
+  (provenance retirement), D56-L (intent kind categories), D57-L
+  (grounding gate), D62-L (projected node reference codes), D63-L (basis), D64-L
+  (readiness bands); A7-L retired; I7-L retired; I36-L, I37-L,
+  I39-L, I40-L, I41-L added
+- `memory/PLAN.md` — frontier traceability still points at the graph
+  write/capture/review-cycle work that must materialize these locks
