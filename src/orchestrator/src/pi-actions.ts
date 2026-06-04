@@ -48,6 +48,17 @@ function logVerbose(output: string): void {
 const PI_TIMEOUT_MS = 300_000;
 const PI_MAX_BUFFER = 10 * 1024 * 1024;
 
+// Per-action tool scoping. The evaluator observes, it does not produce: a
+// read-only toolset means `evaluate-done` cannot fix code during evaluation and
+// short-circuit the write-tests → write-code → evaluate loop. Code-producing
+// actions keep the full toolset.
+const WRITE_TOOLS = 'read,write,edit,bash';
+const READ_ONLY_TOOLS = 'read';
+
+export function toolsForAction(action: string): string {
+  return action === 'evaluate-done' ? READ_ONLY_TOOLS : WRITE_TOOLS;
+}
+
 // Async on purpose: `pi` runs for tens of seconds per call. A synchronous
 // `spawnSync` would freeze the shared event loop, starving the SSE stream
 // server of the chance to flush frames while a slice is being worked.
@@ -59,6 +70,7 @@ function runPi(opts: {
   promptFile: string;
   task: string;
   sandboxDir: string;
+  tools: string;
 }): Promise<string> {
   const start = Date.now();
 
@@ -80,7 +92,7 @@ function runPi(opts: {
         '--append-system-prompt',
         opts.promptFile,
         '--tools',
-        'read,write,edit,bash',
+        opts.tools,
         opts.task,
       ],
       { cwd: opts.sandboxDir, stdio: ['ignore', 'pipe', 'pipe'] },
@@ -175,6 +187,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
           promptFile: join(promptsDir, 'evaluator.md'),
           task,
           sandboxDir: ctx.sandboxDir,
+          tools: toolsForAction('evaluate-done'),
         });
         const parsed = extractJson(raw) as { done?: boolean; reasoning?: string } | undefined;
         const done = !!parsed?.done;
@@ -203,6 +216,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
         promptFile: join(promptsDir, 'test-writer.md'),
         task,
         sandboxDir: ctx.sandboxDir,
+        tools: toolsForAction('write-tests'),
       });
 
       return report(ctx, 'test-writer', 'tests-written', {
@@ -222,6 +236,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
         promptFile: join(promptsDir, 'code-writer.md'),
         task,
         sandboxDir: ctx.sandboxDir,
+        tools: toolsForAction('write-code'),
       });
 
       return report(ctx, 'code-writer', 'code-written', {
@@ -248,6 +263,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
         promptFile: join(promptsDir, 'test-writer.md'),
         task: writeTask,
         sandboxDir: ctx.sandboxDir,
+        tools: toolsForAction('verify-epic'),
       });
 
       let allPassed = true;

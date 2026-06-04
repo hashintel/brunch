@@ -29,6 +29,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 2. `chat-runtime-secondary-chats` — FE-716; V1 done — PR #141 merged to main.
 3. **Petrinaut integration sub-track** — umbrella **FE-760** (Orchestrator ⇄ Petrinaut). FE-761 (semantics), FE-762 (`net.json` + SDCPN export), FE-763 (event stream), and FE-784 (colour fold) have **landed**. **`petri-sync-server` (FE-764)** is the active piece, reshaped (2026-06-01 meeting) into an **ephemeral cook-hosted SSE live stream** for the Bristol demo — no-colour, replay-on-connect, brunch-initiated session, supersedes the dropped static-bundle idea. Replaces the POC interpreter's visualization role with Petrinaut as canonical surface.
 4. `spec-to-cook-plan` — **FE-800**; **done — branch-complete off FE-764**, PR #167 pending re-description. Six slices landed: 1 (deterministic projection) + 2 (LLM planning pass) + 3 (deterministic reconciliation) + 4 (CLI wiring) + 5 (warning-model hardening) + 6 (read from spec id — `brunch plan <specId>`, server-side snapshot builder `buildCompletedSpecSnapshot` over `getEntitiesForSpecificationOnActivePath`, plan driver moved into `src/server/plan-runner.ts`, orchestrator `plan-cli.ts` deleted). Bristol-demo front half (`brunch plan <specId>` → `.brunch/cook/plan.yaml` → `brunch cook --petrinaut-stream`) is now operational against any completed spec in the project DB. Two proving spikes done 2026-06-03. Move to **Recently Completed** on PR merge.
+5. `cook-harness-fidelity` — make the cook execution harness's per-slice "done" signal trustworthy: the evaluator must *observe, not mutate*, and "done" must come from running verification targets, not an LLM verdict. Opening slice (evaluator read-only) is the documented `cook-codebase-mode` TDD-collapse follow-on; complements `spec-to-cook-plan`'s integration-blind-verification follow-on.
 
 ### Recently Completed
 
@@ -169,6 +170,21 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Verification:** `brownfield-smoke.integration.test.ts` constructs a seeded git repo in tmpdir at test setup (NOT committed under `fixtures/` — nested `.git/` creates submodule weirdness), authors a `.brunch/cook/plan.yaml` carrying one slice that modifies an existing file, runs engine.run with fake actions, asserts (a) source branch unchanged, (b) modification landed in the slice worktree, (c) parent worktree is on `cook/<runId>`. CLI unit tests pin `resolveCookMode` + clean-tree gate. `worktree.test.ts` + `epic-sandbox-merge.test.ts` pin the codebase-mode seam components. Existing greenfield tests untouched.
 - **Traceability:** SPEC §D50 (reserved codebase-mode resolver); §A49 (worktree isolation at `<cwd>/.brunch/cook/runs/<runId>/worktree/`); Requirement 49.
 - **Design docs:** SPEC §D50 + §A49; `docs/next/architecture/plan-graph-petri-orchestration.md` (worktree section).
+
+### cook-harness-fidelity
+
+- **Name:** Cook harness fidelity — a trustworthy per-slice completion signal
+- **Linear:** unassigned (create on start)
+- **Kind:** structural
+- **Status:** active — Slice 1 (evaluator read-only via per-action `toolsForAction`; unit-tested) done + verified 2026-06-04; Slice 2 (evaluate-done executes verification targets) next. SPEC invariant promotion deferred until both halves land.
+- **Objective:** Make the cook execution harness's per-slice "done" signal trustworthy. The evaluator must **observe, not produce**: (a) `evaluate-done` runs `pi` with **read-only** tools so it cannot fix code during evaluation (today `pi-actions.ts` hands every action `read,write,edit,bash`); (b) "done" is decided by **executing** the slice's verification targets — mirroring `verify-epic`'s `execAsync('bun test …')` gate on real pass/fail — instead of an LLM verdict over prose. Establishes the invariant: *the evaluator never mutates the sandbox; completion reflects real test execution.*
+- **Why now / unlocks:** The 2026-05-26 brownfield smoke caught `evaluate-done` fixing the file during evaluation and reporting `done:true` on the first call, so write-tests/write-code/run never executed; and "done" is a soft LLM judgment with no requisite variety — it let orphan code pass (2026-06-04). The harness's success signal is untrustworthy across **every** run, so no downstream oracle work (integration oracle, simulation oracle) can be trusted until completion means something. Highest-leverage harness fix.
+- **Build order (slices — keep in CARDS/session, do not fragment):** (1) evaluator read-only — per-action tool scoping, `evaluate-done` → `read` [bugfix; the documented `cook-codebase-mode` follow-on]; (2) `evaluate-done` executes the slice's verification targets and gates `done` on real results, not an LLM verdict.
+- **Acceptance:** (1) per-action tool scoping; `toolsForAction('evaluate-done') === 'read'`; write-tests/write-code/verify-epic keep write-capable tools. (2) `evaluate-done` reports `done` from executed verification targets, not LLM judgment. (3) brownfield smoke: the TDD loop runs end-to-end (the evaluator no longer short-circuits). (4) engine contract suite green on both engines.
+- **Verification:** unit test on a pure `toolsForAction` map; adapter/contract test that `evaluate-done` gates on executed-target results; outer-loop brownfield smoke replaying the 2026-05-26 regression.
+- **Depends on:** `orchestrator-poc` (done), `cook-codebase-mode` (done). Complements `spec-to-cook-plan`'s integration-blind-verification follow-on (the emitter emits integration-demanding targets; this frontier makes the harness actually *run* them); upstream of any future integration oracle.
+- **Lexicon:** `evaluator` = read-only observer of verification results, distinct from the test-runner / code-writer; ties to `ln-oracles` "requisite variety."
+- **Design docs:** `docs/design/orchestrator.md`; SPEC §Verification Design.
 
 ### petri-petrinaut-semantics
 
