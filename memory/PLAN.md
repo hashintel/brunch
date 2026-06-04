@@ -35,8 +35,8 @@ _None._
 
 ### Next
 
-1. `capture-response-to-graph` — P0 product loop: structured exchange answer → narrow high-confidence capture → `CommandExecutor` commit → web graph update.
-2. `graph-tool-resilience` — P0 hardening: broaden the A14 proof beyond the single happy path and capture retry/diagnostic evidence.
+1. `graph-tool-resilience` — P0 structural hardening: materialize the locked graph write contract (projected node codes, explicit/implicit basis, supersession acyclicity) before more graph-writing frontiers build on stale schema.
+2. `capture-response-to-graph` — P0 product loop: structured exchange answer → narrow high-confidence capture → `CommandExecutor` commit → web graph update.
 3. `project-graph-review-cycle` — P1 unless demo narrative promotes it: real `project-graph` review-set proposal/approval loop.
 4. `minimal-authority-shell` — P1 safety: thin POC authority posture over already-existing command-result seams and `elicit` tool policy.
 5. `poc-live-ship-gate` — P1 final gate: fresh-cwd runbook exercising the composed product path end to end.
@@ -88,39 +88,52 @@ _None._
 - **Branch:** to create — `ln/fe-807-capture-response-to-graph`
 - **Kind:** structural / tracer bullet
 - **Status:** next
+- **Certainty:** proving
+- **Stabilizes:** I30-L, I31-L, I39-L, I40-L — capture must aim at the selected-spec graph through stable projected node-code/basis semantics rather than raw ids or path-shaped basis values.
+- **Lights up:** structured exchange response → explicit-basis graph truth → selected-spec web observer update.
 - **Objective:** Prove the single-exchange path: a typed structured-exchange response is captured synchronously into high-confidence graph mutations through `CommandExecutor`, and the resulting graph change is visible through web/TUI projections.
 - **Why now / unlocks:** Structured exchanges and graph commits work separately. This frontier makes elicitation actually graph-native for the POC. It directly attacks A22-L while preserving the single mutation authority.
 - **Acceptance:**
   - A narrow capture path exists for 2–4 high-confidence intent facts, starting with basic/grounding kinds such as `goal`, `context`, `constraint`, `criterion`, or `assumption`; low-confidence implications remain out of graph truth and can be rendered as preface/disambiguation material.
   - Capture targets the spec bound to the session's `brunch.session_binding`; it never writes to a workspace-global graph or an unbound/default spec.
-  - Captured graph mutations route only through `CommandExecutor` and produce normal LSN/change-log entries.
+  - Captured graph mutations route only through `CommandExecutor`, write directly stated/exactly captured items with `basis: explicit`, allocate stable kind ordinals, and produce normal LSN/change-log entries.
   - The transcript retains the source structured exchange; graph readers expose the committed nodes/edges; the live web observer updates after capture.
   - Capture failures are loud and diagnosable (`structural_illegal`, policy/authority result, or explicit no-capture), not silent partial writes.
 - **Verification:** Inner — capture classification fixtures; command-input shape tests; no-bypass tests. Middle — replay a structured-exchange response fixture through capture and assert graph/change-log/projection results; negative fixtures for low-confidence material and malformed responses. Outer — manual/probe run: user answers a structured prompt, capture commits a small graph slice, web observer updates.
 - **Topology materialization:** `session/` owns transcript/exchange extraction; `graph/capture/` owns capture-to-command translation and structural/domain policy; `.pi/extensions/structured-exchange` remains an adapter; `.pi/extensions/graph` remains a tool adapter; `rpc/` and `web/` observe through projection handlers only.
-- **Cross-cutting obligations:** Preserve D4-L/D20-L single-authority mutation; keep capture synchronous and bounded for POC; do not introduce deferred observer/auditor queues or canonical chat/turn tables here. Capture must respect D61-L: claims are node-level truth inside the selected spec.
-- **Traceability:** R10, R16, R17, R21, R22 / D4-L, D17-L, D18-L, D20-L, D21-L, D45-L, D52-L, D54-L, D56-L, D57-L, D61-L / I30-L, I31-L / A22-L, A3-L.
+- **Cross-cutting obligations:** Preserve D4-L/D20-L single-authority mutation; keep capture synchronous and bounded for POC; do not introduce deferred observer/auditor queues or canonical chat/turn tables here. Capture must respect D61-L: claims are node-level truth inside the selected spec. Preserve D62-L/D63-L/D64-L: projected codes are presentation handles, basis is approval strength, and readiness bands guide capture objectives without becoming kind whitelists.
+- **Traceability:** R10, R16, R17, R21, R22 / D4-L, D17-L, D18-L, D20-L, D21-L, D45-L, D52-L, D54-L, D56-L, D57-L, D61-L, D62-L, D63-L, D64-L / I30-L, I31-L, I39-L, I40-L / A22-L, A3-L.
 - **Design docs:** `docs/design/GRAPH_MODEL.md`; `docs/design/ELICITATION_LENSES.md`; `memory/SPEC.md` D17-L/D18-L/D61-L.
 
 ### graph-tool-resilience
 
-- **Name:** Broaden direct graph-tool proof beyond the A14 happy path
+- **Name:** Materialize graph write contract and broaden direct graph-tool proof
 - **Linear:** [FE-808](https://linear.app/hash/issue/FE-808/broaden-direct-graph-tool-proof-beyond-the-a14-happy-path)
 - **Branch:** to create — `ln/fe-808-graph-tool-resilience`
-- **Kind:** hardening / tracer bullet
+- **Kind:** structural hardening / tracer bullet
 - **Status:** next
-- **Objective:** Extend the real `read_graph`/`commit_graph` product-path proof to cover representative failure and complexity cases: existing-node references, structural-illegal diagnostics with bounded retry, and an ambiguity/no-overcommit case.
-- **Why now / unlocks:** The A14 commitGraph subclaim is partially validated by one successful run. The POC needs confidence that the direct-commit path is not a handcrafted probe artifact.
+- **Certainty:** proving
+- **Stabilizes:** I34-L, I39-L, I40-L, I41-L — graph writes need stable node handles, correct approval basis, and supersession acyclicity before capture/review frontiers build on them.
+- **Lights up:** real `read_graph` / `commit_graph` path with projected existing-node references, diagnostics/retry, and no-overcommit behavior through the default Brunch runtime factory.
+- **Objective:** Materialize the locked graph write contract in schema, domain types, CommandExecutor validation, tool adapters, and snapshots, then extend the real `read_graph`/`commit_graph` product-path proof to representative failure and complexity cases.
+- **Why now / unlocks:** The A14 commitGraph subclaim is partially validated by one successful run, but the canonical graph contract has moved: projected node codes, `basis: explicit | implicit`, per-kind ordinal allocation, and supersession acyclicity are now structural invariants. Capture and review-cycle work should not land against the old raw-id / `accepted_review_set` model.
 - **Acceptance:**
+  - DB/domain schema stores `kind_ordinal`, allocates it monotonically per `(spec_id, plane, kind)` through `CommandExecutor` counter rows or equivalent, and rejects duplicate `(spec_id, plane, kind, kind_ordinal)` tuples.
+  - Graph node metadata owns globally unique 1–3 letter presentation labels plus non-exclusive readiness-band membership; snapshots/prompts/tools render projected codes without storing code strings.
+  - Accepted nodes/edges use only `basis: explicit | implicit`; `propose-graph` direct commits are `implicit`, exact user/reviewed writes are `explicit`, and retired `accepted_review_set` values are rejected.
+  - `commitGraph` accepts one approval basis for the batch, returns created ids/kind ordinals, resolves existing-node references from projected codes through adapters, and no longer requires agents to use raw DB ids.
+  - Supersession edge creation validates acyclicity against existing same-spec supersession edges plus proposed batch edges, including intra-batch and mixed cycles.
+  - Graph-truth vs active-context reads are explicit enough that active-context snapshots do not return dangling edges to hidden superseded nodes.
   - At least three additional probe scenarios land under `.fixtures/runs/`: existing-node reference, illegal edge/category/stance with retry, and ambiguous prompt where the agent should avoid overcommitting or ask/emit no-op diagnostics according to strategy guidance.
   - Probe reports record attempts, retry count, diagnostics seen, final graph counts/LSN, and friction.
   - Tool guidance and `structural_illegal` diagnostics are sufficient for at least one corrected retry path; if not, the report names the gap.
   - Existing-node refs target the selected spec's graph only.
-- **Verification:** Inner — tool schema/adapter tests if guidance changes. Middle/Outer — real model probe runs with transcript/report artifacts; no artificial injection of the module under test that bypasses the default Brunch runtime factory.
+- **Verification:** Inner — schema/domain/CommandExecutor tests for ordinal allocation, basis enum rejection, existing-code resolution, supersession acyclicity, active-context filtering, and tool adapter schema/results. Middle/Outer — real model probe runs with transcript/report artifacts; no artificial injection of the module under test that bypasses the default Brunch runtime factory.
 - **Topology materialization:** Keep probes in `src/probes/` and `.fixtures/runs/`; keep tool adapter code in `src/.pi/extensions/graph/`; keep validators/diagnostics in `src/graph/`; no probe-only graph runtime wiring that product launch does not use.
-- **Cross-cutting obligations:** Avoid harness-as-false-proof: the probe must exercise the same default Brunch runtime factory and registered tools that the product uses. Record fitness, not just pass/fail.
-- **Traceability:** D4-L, D20-L, D51-L, D53-L / I34-L, I35-L / A14-L, A5-L.
+- **Cross-cutting obligations:** Avoid harness-as-false-proof: the probe must exercise the same default Brunch runtime factory and registered tools that the product uses. Record fitness, not just pass/fail. Preserve D62-L/D63-L/D64-L as graph-wide contracts rather than adapter-local conveniences.
+- **Traceability:** D4-L, D20-L, D51-L, D53-L, D60-L, D62-L, D63-L, D64-L / I34-L, I35-L, I39-L, I40-L, I41-L / A14-L, A5-L.
 - **Design docs:** `docs/architecture/probes-and-transcripts.md`; `docs/design/GRAPH_MODEL.md`.
+- **Current execution pointer:** `memory/cards/graph-tool-resilience--graph-write-contract.md` scopes the graph write contract materialization chain; build this before capture/review frontiers.
 
 ### project-graph-review-cycle
 
@@ -129,18 +142,21 @@ _None._
 - **Branch:** to create — `ln/fe-809-project-graph-review-cycle`
 - **Kind:** structural / bounded feature
 - **Status:** next
+- **Certainty:** proving
+- **Stabilizes:** I34-L, I40-L — exact review approval must become one explicit-basis atomic graph batch, not a path-shaped basis value or partial commit.
+- **Lights up:** `project-graph` proposal → dry-run-valid `present_review_set` → approval → `acceptReviewSet` graph commit.
 - **Objective:** Wire the `project-graph` strategy from real agent proposal generation through `present_review_set` / `request_review`, dry-run gating, approve/request-changes/reject response handling, and atomic `acceptReviewSet` commit.
 - **Why now / unlocks:** This is the P1 proposal/review story. It is only P0 if the POC demo requires user-reviewed batch graph commitments rather than direct `propose-graph` and capture paths.
 - **Acceptance:**
   - The agent can generate a review-set payload with required lens, epistemic status, and grounding/support metadata.
   - Only dry-run-valid proposals surface as reviewable; invalid generations remain internal to retry/regeneration.
-  - Approve commits the entire batch through one `CommandExecutor` call, one LSN, one change-log entry; partial acceptance is not representable.
+  - Approve commits the entire batch through one `CommandExecutor` call, one LSN, one change-log entry, and `basis: explicit`; partial acceptance is not representable.
   - Request-changes and reject are transcript-visible outcomes; request-changes can trigger a successor proposal or an explicit deferred path.
   - Web/TUI can observe the proposal/decision state enough for the POC; full review UX polish may remain thin.
 - **Verification:** Inner — review-set schema tests, dry-run/real-run differential tests, accept atomicity tests. Middle — structured-exchange review-cycle fixture; no-bypass checks. Outer — targeted probe: `project-graph` proposes, user approves, graph updates and web observer sees it.
 - **Topology materialization:** Review payload schemas/renderers live under `.pi/extensions/structured-exchange` or `.pi/extensions/graph` only as adapter surfaces; proposal validation/translation lives in `graph/` review modules; agent strategy resource lives in `agents/strategies/project-graph.md`; web observes via RPC projections.
-- **Cross-cutting obligations:** Preserve D27-L: review-set proposal is a structured-exchange payload, not a standalone public review-set entity. Reviewer advisory writes remain deferred unless explicitly scoped.
-- **Traceability:** R21, R23 / D4-L, D20-L, D26-L, D27-L, D51-L, D53-L / I11-L, I34-L / A14-L, A16-L.
+- **Cross-cutting obligations:** Preserve D27-L: review-set proposal is a structured-exchange payload, not a standalone public review-set entity. Reviewer advisory writes remain deferred unless explicitly scoped. Existing-node references and review payloads use projected graph codes at adapter/UI boundaries, not raw DB ids.
+- **Traceability:** R21, R23 / D4-L, D20-L, D26-L, D27-L, D51-L, D53-L, D62-L, D63-L / I11-L, I34-L, I40-L / A14-L, A16-L.
 - **Design docs:** `docs/design/REVIEW_SETS.md`; `docs/design/GRAPH_MODEL.md`; `memory/SPEC.md` D27-L.
 
 ### minimal-authority-shell
@@ -150,6 +166,8 @@ _None._
 - **Branch:** to create — `ln/fe-810-minimal-authority-shell`
 - **Kind:** hardening
 - **Status:** next
+- **Certainty:** proving
+- **Stabilizes:** D20-L/D40-L command-result and elicit-mode authority seams for the current POC graph/session paths.
 - **Objective:** Fill only the authority behavior required for a credible POC: graph writes keep returning structured command results, `elicit` suppresses obvious side-effecting tools, and headless/RPC paths surface structured `needs_human` where the POC actually reaches human-only actions.
 - **Why now / unlocks:** Full M6 can remain horizon, but the POC must not look unsafe or mode-specific when graph/capture/review paths are exercised.
 - **Acceptance:**
@@ -170,6 +188,9 @@ _None._
 - **Branch:** to create — `ln/fe-811-poc-live-ship-gate`
 - **Kind:** hardening / release gate
 - **Status:** next
+- **Certainty:** proving
+- **Lights up:** fresh-cwd composed product path across TUI, web observer, runtime posture, structured exchange, and graph write surfaces.
+- **Stabilizes:** harness-as-false-proof guard for I22-L, I35-L, I38-L, I39-L, I40-L.
 - **Objective:** Create and pass the final POC runbook that exercises the real entrypoints together: fresh cwd, multi-spec selection, TUI session, web observer, runtime switch, structured exchange, capture/commit, graph update, and probe artifacts.
 - **Why now / unlocks:** This is the harness-as-false-proof guard. If a test path had to inject modules the product never wires, the POC is not shipped.
 - **Acceptance:**
@@ -182,7 +203,7 @@ _None._
 - **Verification:** Middle/Outer — executable where practical, manual where TUI/browser interaction is unavoidable. Pair every visual assertion with a durable artifact or projection query when possible.
 - **Topology materialization:** Runbook/probe code lives in `src/probes/` and `.fixtures/runs/`; it must launch product entrypoints rather than import private modules to fake the product path.
 - **Cross-cutting obligations:** Keep the gate small and real. Do not turn it into a generic e2e framework or use it to backfill unrelated polish.
-- **Traceability:** R4, R7, R10, R11, R12, R16, R19, R24, R28 / D5-L, D11-L, D19-L, D21-L, D33-L, D36-L, D52-L, D61-L / I22-L, I32-L, I35-L, I38-L / A5-L.
+- **Traceability:** R4, R7, R10, R11, R12, R16, R19, R24, R28 / D5-L, D11-L, D19-L, D21-L, D33-L, D36-L, D52-L, D61-L, D62-L, D63-L, D64-L / I22-L, I32-L, I35-L, I38-L, I39-L, I40-L / A5-L.
 - **Design docs:** `docs/architecture/probes-and-transcripts.md`; `docs/architecture/pi-ui-extension-patterns.md`; `memory/SPEC.md` verification stance.
 
 ### probes-and-transcripts-evolution
@@ -227,9 +248,8 @@ Older history (including `sealed-pi-profile-runtime-state`, `pi-ui-extension-pat
 
 ```text
 nodes:
-  agents-composition-layer       [active · P0]       makes runtime goal/strategy/lens behavior real
+  graph-tool-resilience          [next · P0]         materializes graph write contract and broadens A14 proof
   capture-response-to-graph      [next · P0]         structured answer -> graph truth -> observer update
-  graph-tool-resilience          [next · P0]         broadens A14 direct graph tool proof
   project-graph-review-cycle     [next · P1]         real project-graph review-set approval loop
   minimal-authority-shell        [next · P1]         thin safety posture for current POC paths
   poc-live-ship-gate             [next · P1]         final fresh-cwd composed product runbook
@@ -237,9 +257,8 @@ nodes:
   topology-readmes-and-boundaries  [parallel]        attach-to-frontier topology hardening
 
 edges:
-  agents-composition-layer  -[hard]->         capture-response-to-graph
-  agents-composition-layer  -[hard]->         graph-tool-resilience
-  agents-composition-layer  -[hard]->         project-graph-review-cycle
+  graph-tool-resilience     -[hard]->         capture-response-to-graph
+  graph-tool-resilience     -[hard]->         project-graph-review-cycle
   capture-response-to-graph -[hard]->         poc-live-ship-gate
   graph-tool-resilience     -[hard]->         poc-live-ship-gate
   project-graph-review-cycle -[optional]->    poc-live-ship-gate
@@ -260,7 +279,7 @@ horizon:
   geolog-and-petri-execution
 
 notes:
-  - Completed prerequisite: `live-graph-observer` now supplies the read-only web observer path expected by `capture-response-to-graph` and `poc-live-ship-gate`.
+  - Completed prerequisites: `agents-composition-layer` supplies runtime prompt/resource posture, and `live-graph-observer` supplies the read-only web observer path expected by `capture-response-to-graph` and `poc-live-ship-gate`.
   - `project-graph-review-cycle` is P1 unless the POC demo narrative requires batch proposal/review as a central story; promote it to P0 if so.
   - `topology-readmes-and-boundaries` is not a license for abstract cleanup; it rides with concrete delivery seams.
   - Multi-spec workspace discipline applies throughout: target the selected/current spec explicitly; no workspace-global graph truth in the POC.
