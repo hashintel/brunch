@@ -40,9 +40,13 @@
 - **Name:** [Human-readable frontier name]
 - **Linear:** [FE-XXX if known, or `unassigned`]
 - **Kind:** [structural | bounded feature | hardening | bugfix | refactor]
+- **Certainty:** [proving | earned — default inherits from `.pi/POSTURE.md`; annotate when this frontier diverges]
 - **Status:** [not-started | in-progress | branch-complete | blocked | done]
 - **Objective:** [what this frontier changes]
 - **Why now / unlocks:** [why this belongs on the frontier and what it unlocks]
+- **Posture annotations:** [required — use the field set from the matching posture reference]
+  - Proving: one or more of `Retires:`, `Depends on:`, `Blocked by:`, `Lights up:`, `Stabilizes:`
+  - Earned: one or more of `Closes:`, `Materializes:`, `Canonicalizes:`, `Deletes / retires:`, `Locks in:`
 - **Acceptance:** [observable frontier-level outcome]
 - **Verification:** [inner / middle / outer summary]
 - **Cross-cutting obligations:** [optional: subsystem / invariant / verification-layer obligations this frontier must preserve or establish]

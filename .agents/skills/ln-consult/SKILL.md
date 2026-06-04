@@ -30,7 +30,7 @@ Start the assessment with 2-4 bullets naming:
 - the active frontier item or nearby priority
 - volatile state or manual follow-up from handoff
 - the main open risk
-- the cheapest tracer bullet that would score on proof of life, invariants, or uncertainty retirement (see `docs/praxis/ln-skills.md` §Tracer-bullet sequencing)
+- the inherited **certainty posture** for the active frontier (see `docs/praxis/ln-skills.md` §Operating posture). Under `proving`, also name the cheapest tracer bullet that would score on proof of life, invariants, or uncertainty retirement. Under `earned`, name the closure target (what dual shape, ambiguity, or open decision does the next move close?).
 
 ## Work-type classification
 
@@ -77,11 +77,15 @@ Only recommend the bounded or direct-build exceptions when all of these are true
 
 Only recommend the bounded serial exception when those same conditions hold and the next several commit-sized steps are obvious enough to queue without fresh planning.
 
-## Tracer-bullet override
+## Posture-aware route override
 
-When several routes fit the work, prefer the one that fires the **tracer bullet that tells you the most**. A tracer-bullet slice scores on three convergent axes (see `docs/praxis/ln-skills.md` §Tracer-bullet sequencing): proof of life, invariants, uncertainty. The best next slice scores on more than one.
+When several routes fit the work, the preferred route depends on the active frontier's certainty posture (see `docs/praxis/ln-skills.md` §Operating posture).
 
-Given the repo's pre-release posture, attack uncertainty by building. Recommend a non-build route only when no buildable tracer bullet can carry the proof:
+**Proving posture.** Prefer the route that fires the **tracer bullet that tells you the most**. A tracer-bullet slice scores on three convergent axes: proof of life, invariants, uncertainty. The best next slice scores on more than one.
+
+**Earned posture.** Prefer the route that lands the **closure that the recent slices have been deferring**. Closure slices answer: what dual shape closes, what topology materializes, what name canonicalizes, what carrier retires, what shape locks in. If the closure target is named and a single slice can land it, route directly to `ln-scope` / `ln-build` rather than to further planning.
+
+Under proving posture, attack uncertainty by building. Recommend a non-build route only when no buildable tracer bullet can carry the proof:
 
 - `ln-design` — module shape itself is uncertain and any slice would lock in the wrong seam
 - `ln-oracles` — verification is too uncertain to distinguish a passing slice from a wrong one
