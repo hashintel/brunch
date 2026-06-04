@@ -225,7 +225,7 @@ src/agents/contexts/
 
 ## Card 4 — Enforce supersession acyclicity
 
-Status: next
+Status: done
 
 ### Target Behavior
 

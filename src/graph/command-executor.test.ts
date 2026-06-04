@@ -809,10 +809,90 @@ describe('CommandExecutor', () => {
       });
 
       expect(result.status).toBe('structural_illegal');
-      // Transaction rolled back — no nodes either
       expect(db.select().from(nodes).all()).toHaveLength(0);
       const [clock] = db.select().from(graphClock).all();
       expect(clock!.lsn).toBe(0);
+    });
+
+    it('rejects supersession cycles against existing edges', () => {
+      const newer = executor.createNode({ specId, plane: 'intent', kind: 'requirement', title: 'R2' });
+      const older = executor.createNode({ specId, plane: 'intent', kind: 'requirement', title: 'R1' });
+      if (newer.status !== 'success' || older.status !== 'success') throw new Error('unreachable');
+      expect(
+        executor.commitGraph({
+          specId,
+          nodes: [],
+          edges: [
+            {
+              category: 'supersession',
+              source: { existing: newer.nodeId },
+              target: { existing: older.nodeId },
+            },
+          ],
+        }).status,
+      ).toBe('success');
+
+      const result = executor.commitGraph({
+        specId,
+        nodes: [],
+        edges: [
+          {
+            category: 'supersession',
+            source: { existing: older.nodeId },
+            target: { existing: newer.nodeId },
+          },
+        ],
+      });
+
+      expect(result.status).toBe('structural_illegal');
+      expect(db.select().from(edges).all()).toHaveLength(1);
+    });
+
+    it('rejects intra-batch supersession cycles', () => {
+      const result = executor.commitGraph({
+        specId,
+        nodes: [
+          { ref: 'a', plane: 'intent', kind: 'requirement', title: 'A' },
+          { ref: 'b', plane: 'intent', kind: 'requirement', title: 'B' },
+        ],
+        edges: [
+          { category: 'supersession', source: 'a', target: 'b' },
+          { category: 'supersession', source: 'b', target: 'a' },
+        ],
+      });
+
+      expect(result.status).toBe('structural_illegal');
+      expect(db.select().from(nodes).all()).toHaveLength(0);
+      expect(db.select().from(edges).all()).toHaveLength(0);
+      expect(db.select().from(changeLog).all()).toHaveLength(0);
+    });
+
+    it('rejects mixed existing and batch supersession cycles', () => {
+      const a = executor.createNode({ specId, plane: 'intent', kind: 'requirement', title: 'A' });
+      const b = executor.createNode({ specId, plane: 'intent', kind: 'requirement', title: 'B' });
+      if (a.status !== 'success' || b.status !== 'success') throw new Error('unreachable');
+      expect(
+        executor.commitGraph({
+          specId,
+          nodes: [],
+          edges: [
+            { category: 'supersession', source: { existing: a.nodeId }, target: { existing: b.nodeId } },
+          ],
+        }).status,
+      ).toBe('success');
+
+      const result = executor.commitGraph({
+        specId,
+        nodes: [{ ref: 'c', plane: 'intent', kind: 'requirement', title: 'C' }],
+        edges: [
+          { category: 'supersession', source: { existing: b.nodeId }, target: 'c' },
+          { category: 'supersession', source: 'c', target: { existing: a.nodeId } },
+        ],
+      });
+
+      expect(result.status).toBe('structural_illegal');
+      expect(db.select().from(nodes).all()).toHaveLength(2);
+      expect(db.select().from(edges).all()).toHaveLength(1);
     });
 
     it('if post-insert edge validation fails, no nodes, change log, or counter state is written', () => {

@@ -469,6 +469,57 @@ function addExistingRefId(
   if (id !== undefined) refs.add(id);
 }
 
+function findSupersessionCycle(
+  db: Pick<BrunchDb, 'select'>,
+  specId: number,
+  proposedEdges: readonly ResolvedEdge[],
+): Diagnostic | undefined {
+  const supersessionEdges = proposedEdges.filter((edge) => edge.category === 'supersession');
+  if (supersessionEdges.length === 0) return undefined;
+
+  const adjacency = new Map<number, number[]>();
+  const addEdge = (source: number, target: number) => {
+    const targets = adjacency.get(source);
+    if (targets) {
+      targets.push(target);
+    } else {
+      adjacency.set(source, [target]);
+    }
+  };
+
+  for (const edge of db
+    .select({ sourceId: schema.edges.source_id, targetId: schema.edges.target_id })
+    .from(schema.edges)
+    .where(and(eq(schema.edges.spec_id, specId), eq(schema.edges.category, 'supersession')))
+    .all()) {
+    addEdge(edge.sourceId, edge.targetId);
+  }
+  for (const edge of supersessionEdges) {
+    addEdge(edge.sourceId, edge.targetId);
+  }
+
+  const visiting = new Set<number>();
+  const visited = new Set<number>();
+  const hasCycle = (nodeId: number): boolean => {
+    if (visiting.has(nodeId)) return true;
+    if (visited.has(nodeId)) return false;
+    visiting.add(nodeId);
+    for (const targetId of adjacency.get(nodeId) ?? []) {
+      if (hasCycle(targetId)) return true;
+    }
+    visiting.delete(nodeId);
+    visited.add(nodeId);
+    return false;
+  };
+
+  for (const nodeId of adjacency.keys()) {
+    if (hasCycle(nodeId)) {
+      return { field: 'edges', message: 'supersession edges must be acyclic within one spec' };
+    }
+  }
+  return undefined;
+}
+
 function validateAndResolveBatchEdge(
   input: BatchEdgeInput,
   index: number,
@@ -904,6 +955,11 @@ export class CommandExecutor {
 
         if (edgeDiagnostics.length > 0) {
           throw new BatchValidationError(edgeDiagnostics);
+        }
+
+        const cycleDiagnostic = findSupersessionCycle(tx, input.specId, resolvedEdges);
+        if (cycleDiagnostic) {
+          throw new BatchValidationError([cycleDiagnostic]);
         }
 
         // 6. Insert all edges
