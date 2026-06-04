@@ -1,4 +1,5 @@
 import type { ResolvedBrunchAgentState } from '../session/runtime-state.js';
+import type { WorkspacePostureState } from '../session/workspace-session-coordinator.js';
 import {
   AGENT_PROMPT_DEFINITIONS,
   manifestsForState,
@@ -14,7 +15,7 @@ export interface AgentPromptSpecContext {
 
 export interface AgentPromptWorkspaceContext {
   cwd: string;
-  posture?: Record<string, string | undefined>;
+  posture?: Partial<WorkspacePostureState>;
 }
 
 export interface AgentPromptSnapshotContext {

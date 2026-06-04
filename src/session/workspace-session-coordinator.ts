@@ -31,7 +31,7 @@ interface WorkspaceProjectState {
   slug: string;
 }
 
-interface WorkspacePostureState {
+export interface WorkspacePostureState {
   certainty: string;
   stakes: string;
   audience: string;

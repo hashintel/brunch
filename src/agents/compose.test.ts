@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_BRUNCH_AGENT_STATE, projectBrunchAgentState } from '../session/runtime-state.js';
+import type { WorkspacePostureState } from '../session/workspace-session-coordinator.js';
 import { composeAgentPrompt } from './compose.js';
 
 const projectRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
@@ -23,15 +24,19 @@ const elicitationSpec = {
 
 const workspace = {
   cwd: '/work/brunch',
-  posture: {
+  posture: workspacePosture({
     certainty: 'proving',
     stakes: 'high',
     audience: 'internal',
     horizon: 'current-milestone',
     migration: 'free-rewrite',
     sourcing: 'strip-or-build',
-  },
+  }),
 };
+
+function workspacePosture(posture: WorkspacePostureState): WorkspacePostureState {
+  return posture;
+}
 
 const snapshots = {
   contextHandles: ['graph-overview: compact selected-spec graph summary available via snapshot tools'],

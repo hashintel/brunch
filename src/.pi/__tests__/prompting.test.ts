@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { composeAgentPrompt } from '../../agents/compose.js';
+import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -51,14 +52,14 @@ const promptContext = {
   spec: { id: 1, name: 'Spec', readinessGrade: 'commitments_ready' as const },
   workspace: {
     cwd: '/tmp/brunch',
-    posture: {
+    posture: workspacePosture({
       certainty: 'proving',
       stakes: 'high',
       audience: 'internal',
       horizon: 'current-milestone',
       migration: 'free-rewrite',
       sourcing: 'strip-or-build',
-    },
+    }),
   },
   session: { id: 'session-1', label: 'Session' },
   graphSnapshots: {
@@ -104,6 +105,10 @@ const promptContext = {
     getNodeNeighborhood: () => ({ status: 'not_found' as const }),
   },
 };
+
+function workspacePosture(posture: WorkspacePostureState): WorkspacePostureState {
+  return posture;
+}
 
 describe('Brunch prompt-pack topology', () => {
   it('composes gated Brunch resource manifests instead of eager private prompt packs', () => {

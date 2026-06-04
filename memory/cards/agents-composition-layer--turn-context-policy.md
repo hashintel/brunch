@@ -82,7 +82,7 @@ src/session/
 
 ## Card 2 — Light scope — Use session-owned posture type in agent prompt context
 
-Status: next
+Status: done
 
 ### Objective
 
