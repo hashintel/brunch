@@ -12,7 +12,8 @@
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
-import { renderNodeContext } from '../../../agents/contexts/node.js';
+import { formatNeighborhood } from '../../../graph/format/neighborhood.js';
+import { projectNeighborhood } from '../../../graph/project/neighborhood.js';
 import type { CommandExecutor } from '../../../graph/command-executor.js';
 import type { GraphOverview, NeighborhoodResult } from '../../../graph/snapshot.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
@@ -121,7 +122,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
           nodeId,
           params.hops != null ? { hops: params.hops } : undefined,
         );
-        text = renderNodeContext(neighborhood);
+        text = formatNeighborhood(projectNeighborhood(neighborhood));
         details = neighborhood;
       }
 

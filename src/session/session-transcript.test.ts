@@ -138,21 +138,39 @@ describe('session transcript renderer', () => {
       title: 'session.jsonl',
     });
 
-    expect(transcript).toContain('# Transcript — session.jsonl');
-    expect(transcript).toContain('## 1. User');
-    expect(transcript).toContain('hello custom');
-    expect(transcript).toContain('## 2. Tool result: read');
-    expect(transcript).toContain('Generic file contents');
-    expect(transcript).toContain('## 3. Tool result: present_options');
-    expect(transcript).toContain('**Rationale:** validates the seam.');
-    expect(transcript).toContain('## 4. Tool result: request_choice');
-    expect(transcript).toContain('Keep it deterministic.');
-    expect(transcript).toContain('## 5. Assistant');
-    expect(transcript).toContain('I will inspect the workspace.');
-    expect(transcript).not.toContain('Session binding');
-    expect(transcript).not.toContain('turn-1');
-    expect(transcript).not.toContain('private chain of thought');
-    expect(transcript).not.toContain('Tool call: read');
-    expect(transcript).not.toContain('"path": "notes.txt"');
+    expect(transcript).toMatchInlineSnapshot(`
+      "# Transcript — session.jsonl
+
+      ## 1. User
+
+      hello custom
+
+      ## 2. Tool result: read
+
+      Generic file contents
+
+      ## 3. Tool result: present_options
+
+      ## Which direction?
+
+      ### 1. Fast
+
+      **Rationale:** validates the seam.
+
+      ## 4. Tool result: request_choice
+
+      ### Response
+
+      - Fast
+
+      Comment:
+
+      > Keep it deterministic.
+
+      ## 5. Assistant
+
+      I will inspect the workspace.
+      "
+    `);
   });
 });

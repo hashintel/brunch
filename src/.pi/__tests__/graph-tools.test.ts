@@ -448,8 +448,13 @@ describe('graph tools end-to-end', () => {
       details: unknown;
     };
 
-    expect(result.content[0]?.text).toContain('[Selected-spec node context]');
-    expect(result.content[0]?.text).toContain('Tool-visible goal');
+    expect(result.content[0]?.text).toMatchInlineSnapshot(`
+      "[Selected-spec node context]
+      - anchor: [G1] intent/goal: Tool-visible goal
+      - anchor body: Selected body
+      - neighbors: none within requested hops
+      - edges: none"
+    `);
     expect(result.details).toMatchObject({
       status: 'success',
       anchor: { title: 'Tool-visible goal' },

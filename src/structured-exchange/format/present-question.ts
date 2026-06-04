@@ -8,4 +8,10 @@
  * - durable prompt-side markdown for toolResult.content
  */
 
-export {};
+import { joinMarkdownBlocks, markdownHeading } from '../../render/markdown.js';
+
+import type { PresentQuestionProjection } from '../project/present-question.js';
+
+export function formatPresentQuestion(projection: PresentQuestionProjection): string {
+  return joinMarkdownBlocks(markdownHeading(2, projection.heading), projection.body);
+}

@@ -12,4 +12,26 @@
  * - structured-exchange/format/*
  */
 
-export {};
+export function markdownHeading(level: number, text: string): string {
+  return `${'#'.repeat(level)} ${text.trim()}`;
+}
+
+export function markdownBullet(text: string): string {
+  return `- ${text}`;
+}
+
+export function markdownQuote(text: string): string {
+  return text
+    .trim()
+    .split('\n')
+    .map((line) => `> ${line}`)
+    .join('\n');
+}
+
+export function joinMarkdownBlocks(...blocks: Array<string | null | undefined | false>): string {
+  return blocks
+    .filter((block): block is string => typeof block === 'string')
+    .map((block) => block.trim())
+    .filter((block) => block.length > 0)
+    .join('\n\n');
+}
