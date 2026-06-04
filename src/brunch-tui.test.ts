@@ -13,8 +13,12 @@ import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiProfile } from './.pi/brunch-pi-profile.js';
 import {
-  BRUNCH_WORKSPACE_COMMAND,
-  BRUNCH_WORKSPACE_SHORTCUT,
+  BRUNCH_CONTINUE_COMMAND,
+  BRUNCH_LENS_COMMAND,
+  BRUNCH_MODE_COMMAND,
+  BRUNCH_STRATEGY_COMMAND,
+  BRUNCH_SWITCH_COMMAND,
+  BRUNCH_SWITCH_SHORTCUT,
   chromeStateForWorkspace,
   createBrunchPiExtensionShell,
   registerBrunchAlternatives,
@@ -499,20 +503,46 @@ describe('Brunch TUI boot', () => {
       'request_choice',
       'request_choices',
     ]);
-    expect(commands.get(BRUNCH_WORKSPACE_COMMAND)?.description).toBe('Open the Brunch spec/session picker');
+    expect(commands.get(BRUNCH_SWITCH_COMMAND)?.description).toBe('Open the Brunch spec/session picker');
     const retiredWorkspaceCommand = ['brunch', 'workspace'].join('-');
     expect(commands.has(retiredWorkspaceCommand)).toBe(false);
-    expect(shortcuts.get(BRUNCH_WORKSPACE_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
+    expect(commands.has('brunch')).toBe(false);
+    for (const stubCommand of [
+      BRUNCH_CONTINUE_COMMAND,
+      BRUNCH_LENS_COMMAND,
+      BRUNCH_STRATEGY_COMMAND,
+      BRUNCH_MODE_COMMAND,
+    ]) {
+      expect(commands.has(stubCommand)).toBe(true);
+    }
+    expect(shortcuts.get(BRUNCH_SWITCH_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
     expect(shortcuts.has('ctrl+b')).toBe(false);
 
     const shortcutEvents: string[] = [];
-    const shortcut = shortcuts.get(BRUNCH_WORKSPACE_SHORTCUT);
+    const shortcut = shortcuts.get(BRUNCH_SWITCH_SHORTCUT);
     expect(shortcut).toBeDefined();
     const shortcutHandler = shortcut!.handler as (ctx: unknown) => Promise<void> | void;
     await shortcutHandler({
       ui: fakeUi((method, type) => shortcutEvents.push(`${method}:${type}`)),
     });
     expect(shortcutEvents).toEqual(['notify:warning']);
+
+    const stubEvents: string[] = [];
+    const stubCtx = {
+      ui: fakeUi((method, type) => stubEvents.push(`${method}:${type}`)),
+    };
+    for (const stubCommand of [
+      BRUNCH_CONTINUE_COMMAND,
+      BRUNCH_LENS_COMMAND,
+      BRUNCH_STRATEGY_COMMAND,
+      BRUNCH_MODE_COMMAND,
+    ]) {
+      const stub = commands.get(stubCommand);
+      expect(stub).toBeDefined();
+      const stubHandler = stub!.handler as (args: string, ctx: unknown) => Promise<void> | void;
+      await stubHandler('', stubCtx);
+    }
+    expect(stubEvents).toEqual(['notify:info', 'notify:info', 'notify:info', 'notify:info']);
   });
 
   it('opens the spec/session picker from the Brunch command', async () => {

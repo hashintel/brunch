@@ -7,6 +7,13 @@ import { describe, expect, it } from 'vitest';
 import alternatives from '../extensions/alternatives.js';
 import chrome from '../extensions/chrome.js';
 import commandPolicy from '../extensions/command-policy.js';
+import commands, {
+  BRUNCH_CONTINUE_COMMAND,
+  BRUNCH_LENS_COMMAND,
+  BRUNCH_MODE_COMMAND,
+  BRUNCH_STRATEGY_COMMAND,
+  BRUNCH_SWITCH_COMMAND,
+} from '../extensions/commands.js';
 import mentionAutocomplete from '../extensions/mention-autocomplete.js';
 import operationalMode from '../extensions/operational-mode.js';
 import prompting from '../extensions/prompting.js';
@@ -18,19 +25,18 @@ import structuredExchange, {
   REQUEST_CHOICE_TOOL,
   REQUEST_CHOICES_TOOL,
 } from '../extensions/structured-exchange/index.js';
-import workspaceDialog, { BRUNCH_WORKSPACE_COMMAND } from '../extensions/workspace-dialog.js';
 import { createBrunchPiExtensionShell } from '../pi-extension-shell.js';
 
 const extensionDefaults = {
   'alternatives.ts': alternatives,
   'chrome.ts': chrome,
   'command-policy.ts': commandPolicy,
+  'commands.ts': commands,
   'mention-autocomplete.ts': mentionAutocomplete,
   'operational-mode.ts': operationalMode,
   'prompting.ts': prompting,
   'session-lifecycle.ts': sessionLifecycle,
   'structured-exchange/index.ts': structuredExchange,
-  'workspace-dialog.ts': workspaceDialog,
 };
 
 describe('Brunch explicit Pi extension registry', () => {
@@ -60,7 +66,13 @@ describe('Brunch explicit Pi extension registry', () => {
       REQUEST_CHOICE_TOOL,
       REQUEST_CHOICES_TOOL,
     ]);
-    expect(recording.commandNames).toEqual([BRUNCH_WORKSPACE_COMMAND]);
+    expect(recording.commandNames).toEqual([
+      BRUNCH_SWITCH_COMMAND,
+      BRUNCH_CONTINUE_COMMAND,
+      BRUNCH_LENS_COMMAND,
+      BRUNCH_STRATEGY_COMMAND,
+      BRUNCH_MODE_COMMAND,
+    ]);
     expect(recording.messageRenderers).toEqual(['alternatives-card-set']);
     expect(recording.shortcuts).toEqual(['ctrl+shift+b']);
     expect(recording.eventNames).toEqual([

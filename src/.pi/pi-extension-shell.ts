@@ -4,6 +4,7 @@ import { registerBrunchAlternatives } from './extensions/alternatives.js';
 import { registerBrunchChrome } from './extensions/chrome.js';
 import { type BrunchChromeState } from './extensions/chrome.js';
 import { registerBrunchBranchPolicyHandlers } from './extensions/command-policy.js';
+import { registerBrunchCommands, type BrunchCommandsOptions } from './extensions/commands.js';
 import { registerBrunchGraph, type BrunchGraphDeps } from './extensions/graph/index.js';
 import { type GraphMentionSource } from './extensions/mention-autocomplete.js';
 import {
@@ -15,8 +16,6 @@ import { registerBrunchPrompting, type BrunchPromptContextProvider } from './ext
 import { registerBrunchSessionBoundary } from './extensions/session-lifecycle.js';
 import { type BrunchSessionBoundaryHandler } from './extensions/session-lifecycle.js';
 import { registerStructuredExchange } from './extensions/structured-exchange/index.js';
-import { type BrunchSpecSessionPickerOptions } from './extensions/workspace-dialog.js';
-import { registerBrunchWorkspaceDialog } from './extensions/workspace-dialog.js';
 
 export { registerBrunchAlternatives } from './extensions/alternatives.js';
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from './extensions/command-policy.js';
@@ -69,9 +68,17 @@ export {
   type BrunchSessionBoundaryHandler,
 } from './extensions/session-lifecycle.js';
 export {
-  BRUNCH_WORKSPACE_COMMAND,
-  BRUNCH_WORKSPACE_SHORTCUT,
-  registerBrunchWorkspaceDialog,
+  BRUNCH_COMMAND_PREFIX,
+  BRUNCH_CONTINUE_COMMAND,
+  BRUNCH_LENS_COMMAND,
+  BRUNCH_MODE_COMMAND,
+  BRUNCH_STRATEGY_COMMAND,
+  BRUNCH_SWITCH_COMMAND,
+  BRUNCH_SWITCH_SHORTCUT,
+  registerBrunchCommands,
+  type BrunchCommandsOptions,
+} from './extensions/commands.js';
+export {
   runBrunchWorkspaceAction,
   runBrunchWorkspaceCommand,
   type BrunchSpecSessionPickerOptions,
@@ -83,7 +90,7 @@ export {
   type GraphSnapshotReaders,
 } from './extensions/graph/index.js';
 
-export interface BrunchPiExtensionShellOptions extends BrunchSpecSessionPickerOptions {
+export interface BrunchPiExtensionShellOptions extends BrunchCommandsOptions {
   graphMentionSource?: GraphMentionSource;
   graph?: BrunchGraphDeps;
   promptContext?: BrunchPromptContextProvider;
@@ -107,7 +114,7 @@ export function createBrunchPiExtensionShell(
       (api) => registerBrunchMentionAutocomplete(api, graphMentionSource),
       registerBrunchAlternatives,
       registerStructuredExchange,
-      (api) => registerBrunchWorkspaceDialog(api, options),
+      (api) => registerBrunchCommands(api, options),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)] : []),
     ];
 
