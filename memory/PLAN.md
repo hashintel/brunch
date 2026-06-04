@@ -31,7 +31,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 
 ### Active
 
-1. `live-graph-observer` — in-progress — P0 visual black triangle: TUI writer + web observer + selected-spec graph view over WebSocket RPC.
+- None — `live-graph-observer` is tied off on FE-795; next action is to start `agents-composition-layer` on its Graphite branch.
 
 ### Next
 
@@ -66,7 +66,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 - **Linear:** [FE-795](https://linear.app/hash/issue/FE-795/live-selected-spec-graph-observer-over-web-rpc)
 - **Branch:** `ln/fe-795-live-over-web-rpc`
 - **Kind:** bounded feature / tracer bullet
-- **Status:** in-progress
+- **Status:** done — tied off 2026-06-04.
 - **Objective:** Make the graph visible as live product state while the TUI remains the writer. Add product RPC graph reads/subscriptions and a minimal web graph panel so a graph mutation from the TUI/agent path updates the browser's selected-spec graph view.
 - **Why now / unlocks:** This is the primary POC observability mark. Without a simultaneous TUI session and web graph view, the graph-native workspace remains mostly invisible even though persistence and tools exist.
 - **Acceptance:**
@@ -75,7 +75,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
   - A graph commit made through the real product path invalidates/notifies the web client, which refetches from canonical graph readers and shows the updated selected-spec graph without page reload.
   - The TUI remains the writer; the web surface is read-only unless a later explicit product command changes that.
   - Multi-spec discipline: graph reads target the selected/current spec; no workspace-global graph projection is introduced.
-- **Verification:** Inner — RPC handler/discovery/schema tests; web query/render tests around empty graph and populated graph. Middle — integration test or probe that performs a real `commitGraph`/graph-tool write and observes WebSocket/stdio `brunch.updated` notification/refetch over the public RPC surface. Outer — manual TUI + web smoke: fresh cwd, activate spec/session in TUI, open web dashboard, create/commit graph, see web update.
+- **Verification:** Inner — RPC handler/discovery/schema tests; web query/render tests around empty graph and populated graph. Middle — integration test/probe evidence performs a real graph-tool write and observes `brunch.updated` notification/refetch over the public RPC surface. Outer — 2026-06-04 browser-observable `agent-browser` smoke opened a fresh selected-spec web dashboard, observed empty graph state, committed a node through the default Brunch runtime `commit_graph` tool path with the shared product-update bus, and observed the browser update without page reload. Literal keyboard-driven TUI smoke was not rerun at tie-off; `brunch-tui.test.ts` covers the TUI launch path starting the same read-only sidecar with the shared publisher.
 - **Topology materialization:** `graph/` remains the read/domain owner; `session/` owns transcript-backed runtime-state projection; `rpc/` owns graph/session method handlers plus the process-local product update publisher; `web/` owns graph rendering, route loaders, Query keys, and notification invalidation; no `web/` or `.pi/` import of `db/`; no duplicate graph/runtime DTOs outside projected/read-model types.
 - **Cross-cutting obligations:** Preserve D19-L thin named RPC methods, D33-L client attachment semantics, D35-L product chrome/projection discipline, D40-L transcript-backed runtime state, and D52-L source dependency direction. `brunch.updated` is an invalidation hint over transports, not canonical truth or a durable event store. Do not introduce a generic read gateway or view store.
 - **Traceability:** R7, R10, R11, R12 / D5-L, D10-L, D19-L, D33-L, D40-L, D52-L, D60-L / I21-L, I25-L, I35-L / A3-L, A4-L.
@@ -84,8 +84,8 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 ### agents-composition-layer
 
 - **Name:** Agent prompt-resource composition, runtime manifests, and snapshot contexts
-- **Linear:** unassigned
-- **Branch:** to create — `ln/<issue>-agents-composition-layer`
+- **Linear:** [FE-806](https://linear.app/hash/issue/FE-806/agent-prompt-resource-composition-runtime-manifests-and-snapshot)
+- **Branch:** to create — `ln/fe-806-agents-composition-layer`
 - **Kind:** structural
 - **Status:** next
 - **Objective:** Build the D58-L/D59-L/D60-L `agents/` layer so runtime state changes behavior: `agents/state.ts` legal tuples and resource manifest metadata; `agents/compose.ts` runtime header + gated manifests; Brunch-owned markdown resources for definitions/goals/strategies/lenses/methods; agent-context snapshot renderers; and migration/deletion of the old `src/.pi/context` composer.
@@ -106,8 +106,8 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 ### capture-response-to-graph
 
 - **Name:** Structured response capture into selected-spec graph truth
-- **Linear:** unassigned
-- **Branch:** to create — `ln/<issue>-capture-response-to-graph`
+- **Linear:** [FE-807](https://linear.app/hash/issue/FE-807/structured-response-capture-into-selected-spec-graph-truth)
+- **Branch:** to create — `ln/fe-807-capture-response-to-graph`
 - **Kind:** structural / tracer bullet
 - **Status:** next
 - **Objective:** Prove the single-exchange path: a typed structured-exchange response is captured synchronously into high-confidence graph mutations through `CommandExecutor`, and the resulting graph change is visible through web/TUI projections.
@@ -127,8 +127,8 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 ### graph-tool-resilience
 
 - **Name:** Broaden direct graph-tool proof beyond the A14 happy path
-- **Linear:** unassigned
-- **Branch:** to create — `ln/<issue>-graph-tool-resilience`
+- **Linear:** [FE-808](https://linear.app/hash/issue/FE-808/broaden-direct-graph-tool-proof-beyond-the-a14-happy-path)
+- **Branch:** to create — `ln/fe-808-graph-tool-resilience`
 - **Kind:** hardening / tracer bullet
 - **Status:** next
 - **Objective:** Extend the real `read_graph`/`commit_graph` product-path proof to cover representative failure and complexity cases: existing-node references, structural-illegal diagnostics with bounded retry, and an ambiguity/no-overcommit case.
@@ -147,8 +147,8 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 ### project-graph-review-cycle
 
 - **Name:** Project-graph review-set proposal and atomic acceptance
-- **Linear:** unassigned
-- **Branch:** to create — `ln/<issue>-project-graph-review-cycle`
+- **Linear:** [FE-809](https://linear.app/hash/issue/FE-809/project-graph-review-set-proposal-and-atomic-acceptance)
+- **Branch:** to create — `ln/fe-809-project-graph-review-cycle`
 - **Kind:** structural / bounded feature
 - **Status:** next
 - **Objective:** Wire the `project-graph` strategy from real agent proposal generation through `present_review_set` / `request_review`, dry-run gating, approve/request-changes/reject response handling, and atomic `acceptReviewSet` commit.
@@ -168,8 +168,8 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 ### minimal-authority-shell
 
 - **Name:** Minimal POC authority shell over graph/session actions
-- **Linear:** unassigned
-- **Branch:** to create — `ln/<issue>-minimal-authority-shell`
+- **Linear:** [FE-810](https://linear.app/hash/issue/FE-810/minimal-poc-authority-shell-over-graphsession-actions)
+- **Branch:** to create — `ln/fe-810-minimal-authority-shell`
 - **Kind:** hardening
 - **Status:** next
 - **Objective:** Fill only the authority behavior required for a credible POC: graph writes keep returning structured command results, `elicit` suppresses obvious side-effecting tools, and headless/RPC paths surface structured `needs_human` where the POC actually reaches human-only actions.
@@ -188,8 +188,8 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 ### poc-live-ship-gate
 
 - **Name:** POC live ship gate and runbook oracle
-- **Linear:** unassigned
-- **Branch:** to create — `ln/<issue>-poc-live-ship-gate`
+- **Linear:** [FE-811](https://linear.app/hash/issue/FE-811/poc-live-ship-gate-and-runbook-oracle)
+- **Branch:** to create — `ln/fe-811-poc-live-ship-gate`
 - **Kind:** hardening / release gate
 - **Status:** next
 - **Objective:** Create and pass the final POC runbook that exercises the real entrypoints together: fresh cwd, multi-spec selection, TUI session, web observer, runtime switch, structured exchange, capture/commit, graph update, and probe artifacts.
@@ -238,6 +238,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 
 ## Recently Completed
 
+- 2026-06-04 `live-graph-observer` (FE-795) — Done: `graph.overview` and `graph.nodeNeighborhood` are discoverable selected-spec RPC reads; graph readers remain in `graph/`; TUI/agent `commit_graph` publishes graph invalidation topics through the shared product-update bus; the TUI launch path starts a read-only web sidecar over the same bus; the React web app attaches over one WebSocket RPC client, renders the selected-spec graph overview, and invalidates/refetches canonical graph readers on `brunch.updated`. Verified: targeted FE-795 test set (`src/rpc/handlers.test.ts`, `src/rpc/web-host.test.ts`, `src/web/app.test.tsx`, `src/brunch-tui.test.ts`, `src/graph/snapshot.test.ts`, `src/graph/spec-ownership.test.ts`), `npm run build`, and a 2026-06-04 `agent-browser` smoke that observed empty graph state then a `commit_graph`-created node in the browser without reload. Watch: richer node-neighborhood UI remains optional polish; the current proof exposes/query-backs the focused read and renders the overview.
 - 2026-06-02 `agent-graph-integration` enabling slices — Done inside FE-785: runtime vocabulary fixed; source moved from `src/tui-client/.pi` to `src/.pi`; real `read_graph`/`commit_graph` Pi tools route through `CommandExecutor`; default Brunch runtime factory registers graph tools; A14 `propose-graph → commitGraph` probe persisted 4 nodes + 4 edges on first attempt; review-set dry-run gate validates/filters proposal payloads. Verified: targeted tests, `.fixtures/runs/propose-graph-commit/2026-06-02-propose-graph-commit/`, and `npm run verify`. Watch: broad FE-785 bucket is now split into delivery frontiers above.
 - 2026-06-02 `spec-persistence-and-startup` — Done: specs are DB rows with integer ids and `readiness_grade`; `createSpec` / `getSpec` / `updateReadinessGrade` route through `CommandExecutor` with change-log audit; startup scaffolds `.brunch/workspace.json` + `.brunch/data.db`; session binding collapsed to `{schemaVersion,specId}` and is fork-portable; inventory resolves spec names from DB. Verified: `npm run verify` and real `brunch --mode print` against a fresh cwd. Watch: richer multi-spec initiative/claim model remains deferred by D61-L.
 - 2026-06-01 `graph-data-plane` (FE-741) — Done: Drizzle schema/init, graph clock seed, `CommandExecutor` result contract, one-transaction LSN/change-log skeleton, `commitGraph` atomic batch mutation, graph snapshot readers, and reconciliation-need substrate. Verified: `npm run verify`. Watch: graph is now real but must be surfaced by `live-graph-observer` and exercised by capture/review frontiers.
@@ -248,7 +249,7 @@ Older history (including `sealed-pi-profile-runtime-state`, `pi-ui-extension-pat
 
 ```text
 nodes:
-  live-graph-observer            [active · P0]       lights up TUI-writer/web-observer graph visibility
+  live-graph-observer            [done · P0]         lights up TUI-writer/web-observer graph visibility
   agents-composition-layer       [next · P0]         makes runtime goal/strategy/lens behavior real
   capture-response-to-graph      [next · P0]         structured answer -> graph truth -> observer update
   graph-tool-resilience          [next · P0]         broadens A14 direct graph tool proof
