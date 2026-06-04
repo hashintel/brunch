@@ -15,9 +15,9 @@
 
 Brunch-next is now in a **POC delivery cut**. The earlier concept-driven frontier work proved the host, transcript, public RPC, sealed Pi profile, SQLite graph data plane, `CommandExecutor`, real graph tools, and one real `propose-graph → commitGraph` agent proof. The remaining POC work is not to prove Brunch is good at specification work in the broad product-quality sense; that belongs beyond this POC. The delivery question is narrower and stricter: can the real product entrypoints compose without the harness secretly supplying wiring?
 
-The black triangles for this cut are:
+The delivery cut's black triangles are (live graph observability is now landed; the rest remain in sequence):
 
-1. **Live graph observability:** the TUI remains the writer/agent session while the web app attaches over Brunch WebSocket RPC and shows the selected spec's graph changing.
+1. **Live graph observability (landed):** the TUI remains the writer/agent session while the web app attaches over Brunch WebSocket RPC and shows the selected spec's graph changing.
 2. **Behavioral runtime posture:** operational goal/strategy/lens state changes the actual prompt/resource/tool posture, not just a stored label.
 3. **Capture to graph truth:** a structured elicitation response can become high-confidence graph truth through `CommandExecutor`, visible to web/TUI projections.
 4. **Graph tool resilience:** the direct agent graph path survives more than the one A14 happy path: existing-node refs, structural-illegal diagnostics/retry, and ambiguity/no-overcommit cases.
@@ -31,16 +31,15 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 
 ### Active
 
-- None — `live-graph-observer` is tied off on FE-795; next action is to start `agents-composition-layer` on its Graphite branch.
+1. `agents-composition-layer` — in-progress — P0 behavior black triangle: make goal/strategy/lens/grade/posture change prompt manifests and agent posture; retire `src/.pi/context` into `src/agents`.
 
 ### Next
 
-1. `agents-composition-layer` — P0 behavior black triangle: make goal/strategy/lens/grade/posture change prompt manifests and agent posture; retire `src/.pi/context` into `src/agents`.
-2. `capture-response-to-graph` — P0 product loop: structured exchange answer → narrow high-confidence capture → `CommandExecutor` commit → web graph update.
-3. `graph-tool-resilience` — P0 hardening: broaden the A14 proof beyond the single happy path and capture retry/diagnostic evidence.
-4. `project-graph-review-cycle` — P1 unless demo narrative promotes it: real `project-graph` review-set proposal/approval loop.
-5. `minimal-authority-shell` — P1 safety: thin POC authority posture over already-existing command-result seams and `elicit` tool policy.
-6. `poc-live-ship-gate` — P1 final gate: fresh-cwd runbook exercising the composed product path end to end.
+1. `capture-response-to-graph` — P0 product loop: structured exchange answer → narrow high-confidence capture → `CommandExecutor` commit → web graph update.
+2. `graph-tool-resilience` — P0 hardening: broaden the A14 proof beyond the single happy path and capture retry/diagnostic evidence.
+3. `project-graph-review-cycle` — P1 unless demo narrative promotes it: real `project-graph` review-set proposal/approval loop.
+4. `minimal-authority-shell` — P1 safety: thin POC authority posture over already-existing command-result seams and `elicit` tool policy.
+5. `poc-live-ship-gate` — P1 final gate: fresh-cwd runbook exercising the composed product path end to end.
 
 ### Parallel / Low-conflict
 
@@ -60,34 +59,13 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 
 ## Frontier Definitions
 
-### live-graph-observer
-
-- **Name:** Live selected-spec graph observer over web RPC
-- **Linear:** [FE-795](https://linear.app/hash/issue/FE-795/live-selected-spec-graph-observer-over-web-rpc)
-- **Branch:** `ln/fe-795-live-over-web-rpc`
-- **Kind:** bounded feature / tracer bullet
-- **Status:** done — tied off 2026-06-04.
-- **Objective:** Make the graph visible as live product state while the TUI remains the writer. Add product RPC graph reads/subscriptions and a minimal web graph panel so a graph mutation from the TUI/agent path updates the browser's selected-spec graph view.
-- **Why now / unlocks:** This is the primary POC observability mark. Without a simultaneous TUI session and web graph view, the graph-native workspace remains mostly invisible even though persistence and tools exist.
-- **Acceptance:**
-  - `graph.overview` and a focused graph read such as `graph.nodeNeighborhood` or equivalent target names are exposed through Brunch JSON-RPC discovery with schemas/examples.
-  - Web attaches over the existing WebSocket RPC client, selects/uses explicit `{specId, sessionId?}` product resources, and renders a minimal intelligible graph projection (list/table/graph visualization is acceptable; polish is not the point).
-  - A graph commit made through the real product path invalidates/notifies the web client, which refetches from canonical graph readers and shows the updated selected-spec graph without page reload.
-  - The TUI remains the writer; the web surface is read-only unless a later explicit product command changes that.
-  - Multi-spec discipline: graph reads target the selected/current spec; no workspace-global graph projection is introduced.
-- **Verification:** Inner — RPC handler/discovery/schema tests; web query/render tests around empty graph and populated graph. Middle — integration test/probe evidence performs a real graph-tool write and observes `brunch.updated` notification/refetch over the public RPC surface. Outer — 2026-06-04 browser-observable `agent-browser` smoke opened a fresh selected-spec web dashboard, observed empty graph state, committed a node through the default Brunch runtime `commit_graph` tool path with the shared product-update bus, and observed the browser update without page reload. Literal keyboard-driven TUI smoke was not rerun at tie-off; `brunch-tui.test.ts` covers the TUI launch path starting the same read-only sidecar with the shared publisher.
-- **Topology materialization:** `graph/` remains the read/domain owner; `session/` owns transcript-backed runtime-state projection; `rpc/` owns graph/session method handlers plus the process-local product update publisher; `web/` owns graph rendering, route loaders, Query keys, and notification invalidation; no `web/` or `.pi/` import of `db/`; no duplicate graph/runtime DTOs outside projected/read-model types.
-- **Cross-cutting obligations:** Preserve D19-L thin named RPC methods, D33-L client attachment semantics, D35-L product chrome/projection discipline, D40-L transcript-backed runtime state, and D52-L source dependency direction. `brunch.updated` is an invalidation hint over transports, not canonical truth or a durable event store. Do not introduce a generic read gateway or view store.
-- **Traceability:** R7, R10, R11, R12 / D5-L, D10-L, D19-L, D33-L, D40-L, D52-L, D60-L / I21-L, I25-L, I35-L / A3-L, A4-L.
-- **Design docs:** `memory/SPEC.md` D19-L, D33-L, D40-L, D52-L, D60-L; `src/rpc/README.md`; `src/session/README.md`; `src/web/README.md`; `docs/design/GRAPH_MODEL.md`.
-
 ### agents-composition-layer
 
 - **Name:** Agent prompt-resource composition, runtime manifests, and snapshot contexts
 - **Linear:** [FE-806](https://linear.app/hash/issue/FE-806/agent-prompt-resource-composition-runtime-manifests-and-snapshot)
-- **Branch:** to create — `ln/fe-806-agents-composition-layer`
+- **Branch:** `ln/fe-806-agents-composition-layer`
 - **Kind:** structural
-- **Status:** next
+- **Status:** in-progress
 - **Objective:** Build the D58-L/D59-L/D60-L `agents/` layer so runtime state changes behavior: `agents/state.ts` legal tuples and resource manifest metadata; `agents/compose.ts` runtime header + gated manifests; Brunch-owned markdown resources for definitions/goals/strategies/lenses/methods; agent-context snapshot renderers; and migration/deletion of the old `src/.pi/context` composer.
 - **Why now / unlocks:** Runtime vocabulary has landed, but stored axes are not enough. The POC needs switchable strategies/lenses/goals to change prompt posture and available resources before capture and review-cycle behavior can be judged plausibly.
 - **Acceptance:**
@@ -241,7 +219,6 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 - 2026-06-04 `live-graph-observer` (FE-795) — Done: `graph.overview` and `graph.nodeNeighborhood` are discoverable selected-spec RPC reads; graph readers remain in `graph/`; TUI/agent `commit_graph` publishes graph invalidation topics through the shared product-update bus; the TUI launch path starts a read-only web sidecar over the same bus; the React web app attaches over one WebSocket RPC client, renders the selected-spec graph overview, and invalidates/refetches canonical graph readers on `brunch.updated`. Verified: targeted FE-795 test set (`src/rpc/handlers.test.ts`, `src/rpc/web-host.test.ts`, `src/web/app.test.tsx`, `src/brunch-tui.test.ts`, `src/graph/snapshot.test.ts`, `src/graph/spec-ownership.test.ts`), `npm run build`, and a 2026-06-04 `agent-browser` smoke that observed empty graph state then a `commit_graph`-created node in the browser without reload. Watch: richer node-neighborhood UI remains optional polish; the current proof exposes/query-backs the focused read and renders the overview.
 - 2026-06-02 `agent-graph-integration` enabling slices — Done inside FE-785: runtime vocabulary fixed; source moved from `src/tui-client/.pi` to `src/.pi`; real `read_graph`/`commit_graph` Pi tools route through `CommandExecutor`; default Brunch runtime factory registers graph tools; A14 `propose-graph → commitGraph` probe persisted 4 nodes + 4 edges on first attempt; review-set dry-run gate validates/filters proposal payloads. Verified: targeted tests, `.fixtures/runs/propose-graph-commit/2026-06-02-propose-graph-commit/`, and `npm run verify`. Watch: broad FE-785 bucket is now split into delivery frontiers above.
 - 2026-06-02 `spec-persistence-and-startup` — Done: specs are DB rows with integer ids and `readiness_grade`; `createSpec` / `getSpec` / `updateReadinessGrade` route through `CommandExecutor` with change-log audit; startup scaffolds `.brunch/workspace.json` + `.brunch/data.db`; session binding collapsed to `{schemaVersion,specId}` and is fork-portable; inventory resolves spec names from DB. Verified: `npm run verify` and real `brunch --mode print` against a fresh cwd. Watch: richer multi-spec initiative/claim model remains deferred by D61-L.
-- 2026-06-01 `graph-data-plane` (FE-741) — Done: Drizzle schema/init, graph clock seed, `CommandExecutor` result contract, one-transaction LSN/change-log skeleton, `commitGraph` atomic batch mutation, graph snapshot readers, and reconciliation-need substrate. Verified: `npm run verify`. Watch: graph is now real but must be surfaced by `live-graph-observer` and exercised by capture/review frontiers.
 
 Older history (including `sealed-pi-profile-runtime-state`, `pi-ui-extension-patterns`, `web-shell`, `jsonl-session-viability`, `mode-shell-and-fixture-driver`, `walking-skeleton`): `docs/archive/PLAN_HISTORY.md`
 
@@ -249,8 +226,7 @@ Older history (including `sealed-pi-profile-runtime-state`, `pi-ui-extension-pat
 
 ```text
 nodes:
-  live-graph-observer            [done · P0]         lights up TUI-writer/web-observer graph visibility
-  agents-composition-layer       [next · P0]         makes runtime goal/strategy/lens behavior real
+  agents-composition-layer       [active · P0]       makes runtime goal/strategy/lens behavior real
   capture-response-to-graph      [next · P0]         structured answer -> graph truth -> observer update
   graph-tool-resilience          [next · P0]         broadens A14 direct graph tool proof
   project-graph-review-cycle     [next · P1]         real project-graph review-set approval loop
@@ -260,8 +236,6 @@ nodes:
   topology-readmes-and-boundaries  [parallel]        attach-to-frontier topology hardening
 
 edges:
-  live-graph-observer       -[hard]->         capture-response-to-graph
-  live-graph-observer       -[hard]->         poc-live-ship-gate
   agents-composition-layer  -[hard]->         capture-response-to-graph
   agents-composition-layer  -[hard]->         graph-tool-resilience
   agents-composition-layer  -[hard]->         project-graph-review-cycle
@@ -285,6 +259,7 @@ horizon:
   geolog-and-petri-execution
 
 notes:
+  - Completed prerequisite: `live-graph-observer` now supplies the read-only web observer path expected by `capture-response-to-graph` and `poc-live-ship-gate`.
   - `project-graph-review-cycle` is P1 unless the POC demo narrative requires batch proposal/review as a central story; promote it to P0 if so.
   - `topology-readmes-and-boundaries` is not a license for abstract cleanup; it rides with concrete delivery seams.
   - Multi-spec workspace discipline applies throughout: target the selected/current spec explicitly; no workspace-global graph truth in the POC.

@@ -50,10 +50,11 @@ repo root. That state is per-cwd by design and must not be committed.
 
 ## Browser feedback loop
 
-Use Chrome DevTools Protocol tooling as the primary browser observer. Playwright
-can still be useful for future scripted cross-browser checks, but the branch's
-manual feedback loop is CDP-first because it gives quick console, network, and
-accessibility-tree inspection without becoming product runtime behavior.
+Use `agent-browser` as the primary browser observer inside the agent-safehouse
+sandbox. It keeps a daemon-backed Chrome instance alive across shell calls and
+gives the agent accessibility-tree snapshots, clicks, form input, and screenshots
+without becoming product runtime behavior. CDP-style tools remain useful for
+console/network detail when needed.
 
 Launch the web host from this workbench:
 
@@ -74,17 +75,26 @@ or, when no selected spec route is available yet:
 Brunch web sidecar listening on http://127.0.0.1:<port>
 ```
 
-Open and inspect that URL with `cdp-cli`:
+Open and inspect that URL with `agent-browser`:
 
 ```sh
 # Terminal B: browser observer
-cdp-cli launch
-cdp-cli new "http://127.0.0.1:<port>/spec/<specId>"
-cdp-cli tabs
+agent-browser close 2>/dev/null || true
+agent-browser --args "--no-sandbox,--ignore-certificate-errors" open "http://127.0.0.1:<port>/spec/<specId>"
 
-# Accessibility tree / page content
-cdp-cli snapshot "127.0.0.1"
-cdp-cli snapshot "127.0.0.1" --format text
+# Accessibility tree / page content with stable refs such as @e1, @e2, ...
+agent-browser snapshot
+
+# Optional interaction and visual capture
+agent-browser click @e2
+agent-browser screenshot /tmp/brunch-live-graph-observer.png
+```
+
+If you need console or network detail rather than interaction/page structure,
+attach a CDP-style tool to the same URL:
+
+```sh
+cdp-cli tabs
 
 # Runtime signals
 cdp-cli console "127.0.0.1" -t error -d 2
@@ -105,12 +115,9 @@ code, that slice owns the dependency/import change.
 
 ### Current verification note
 
-- `npm run build` passed during the Card 2 builder attempt.
-- `brunch-cli --mode web` launched from this workbench and printed a localhost
-  URL.
-- Browser automation is still pending on this machine until a local browser
-  backend works. Observed blockers: harness Chromium crashed, Playwright's
-  default Chrome path crashed under macOS sandbox/framework loading,
-  WebKit/Firefox were not installed, and the Chromium browser install attempt
-  was interrupted. Until that is fixed, the documented CDP loop is the intended
-  command path but the page-observable browser smoke is not yet complete.
+- `npm run build` passed during the FE-795 tie-off check.
+- `agent-browser` was verified on 2026-06-04 with the sandbox launch args above.
+- A browser-observable FE-795 smoke opened a fresh selected-spec web dashboard,
+  observed empty graph state, committed a node through the default Brunch
+  runtime `commit_graph` tool path with the shared product-update bus, and
+  observed the browser update without page reload.
