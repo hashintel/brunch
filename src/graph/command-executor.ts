@@ -216,9 +216,14 @@ const VALID_KINDS_BY_PLANE: Record<string, readonly string[]> = {
 
 const KINDS_REQUIRING_DETAIL = new Set<string>(['decision', 'term']);
 const VALID_READINESS_GRADES = schema.READINESS_GRADES as unknown as string[];
+const VALID_NODE_BASES = schema.NODE_BASES as unknown as string[];
 
 function isReadinessGrade(value: string): value is ReadinessGrade {
   return VALID_READINESS_GRADES.includes(value);
+}
+
+function isNodeBasis(value: string): value is NodeBasis {
+  return VALID_NODE_BASES.includes(value);
 }
 
 function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
@@ -227,6 +232,13 @@ function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
   // Title must be non-empty
   if (!input.title.trim()) {
     diagnostics.push({ field: 'title', message: 'title must be non-empty' });
+  }
+
+  if (input.basis !== undefined && !isNodeBasis(input.basis)) {
+    diagnostics.push({
+      field: 'basis',
+      message: 'basis must be explicit or implicit',
+    });
   }
 
   // Kind must be valid for the given plane

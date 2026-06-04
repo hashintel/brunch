@@ -9,7 +9,7 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it, beforeEach } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
-import { graphClock, changeLog, nodes, reconciliationNeed, specs } from '../db/schema.js';
+import { graphClock, changeLog, nodes, nodeKindCounters, reconciliationNeed, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
 
 function createTestDb(): BrunchDb {
@@ -197,6 +197,49 @@ describe('CommandExecutor', () => {
     expect(result.status).toBe('structural_illegal');
     if (result.status !== 'structural_illegal') throw new Error('unreachable');
     expect(result.diagnostics.some((d) => d.field === 'detail.extra_field')).toBe(true);
+  });
+
+  it('rejects retired createNode basis values before allocating graph state', () => {
+    const result = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'goal',
+      title: 'Legacy basis should fail',
+      basis: 'accepted_review_set' as never,
+    });
+
+    expect(result.status).toBe('structural_illegal');
+    if (result.status !== 'structural_illegal') throw new Error('unreachable');
+    expect(result.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ field: 'basis' })]));
+    expect(db.select().from(nodes).all()).toHaveLength(0);
+    expect(db.select().from(changeLog).all()).toHaveLength(0);
+    expect(db.select().from(nodeKindCounters).all()).toHaveLength(0);
+    expect(db.select().from(graphClock).all()[0]!.lsn).toBe(0);
+  });
+
+  it('persists explicit and implicit createNode basis values unchanged', () => {
+    executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'goal',
+      title: 'Explicit node',
+      basis: 'explicit',
+    });
+    executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'goal',
+      title: 'Implicit node',
+      basis: 'implicit',
+    });
+
+    expect(
+      db
+        .select()
+        .from(nodes)
+        .all()
+        .map((row) => row.basis),
+    ).toEqual(['explicit', 'implicit']);
   });
 
   // --- LSN / graph_clock ---
