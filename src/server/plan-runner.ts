@@ -10,7 +10,7 @@
 // warnings always printed; synthesis warnings only with `--verbose`.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 import { stringify as stringifyYaml } from 'yaml';
 
@@ -22,6 +22,7 @@ import {
 } from '../orchestrator/src/plan-emitter.js';
 import type { RunModel } from '../orchestrator/src/plan-llm-planning.js';
 import type { CompletedSpecSnapshot } from '../orchestrator/src/plan-projection.js';
+import { parseSpecId, specPlanPath } from '../orchestrator/src/spec-plan-paths.js';
 
 export type PlanOptions = {
   specificationId: number;
@@ -54,10 +55,7 @@ export function parsePlanArgs(args: string[]): PlanOptions {
     throw new Error(`Missing spec id. ${USAGE}`);
   }
 
-  const specificationId = Number(specIdRaw);
-  if (!Number.isInteger(specificationId) || specificationId <= 0) {
-    throw new Error(`Invalid spec id "${specIdRaw}" — expected a positive integer.`);
-  }
+  const specificationId = parseSpecId(specIdRaw, 'spec id');
 
   return { specificationId, outDir, verbose };
 }
@@ -91,8 +89,8 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
   // cook` resolves either by `--spec=<id>` or by auto-picking the most
   // recently emitted plan; the legacy `<dir>/.brunch/cook/plan.yaml`
   // path stays in cook's resolver as the authored-single-plan fallback
-  // (this command never writes there).
-  const planPath = join(args.outDir, '.brunch', 'cook', 'specs', String(args.specificationId), 'plan.yaml');
+  // (this command never writes there). Layout owned by spec-plan-paths.
+  const planPath = specPlanPath(args.outDir, args.specificationId);
   mkdirSync(dirname(planPath), { recursive: true });
   writeFileSync(planPath, stringifyYaml(result.plan));
 

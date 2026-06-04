@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -470,9 +470,9 @@ describe('resolveCookMode', () => {
     mkdirSync(newer, { recursive: true });
     writeFileSync(join(older, 'plan.yaml'), 'epics: []\nslices: []\n');
     writeFileSync(join(newer, 'plan.yaml'), 'epics: []\nslices: []\n');
-    // Force mtime ordering: older < newer.
+    // Force mtime ordering deterministically: older = 60s ago.
     const past = new Date(Date.now() - 60_000);
-    execFileSync('touch', ['-t', formatTouchTime(past), join(older, 'plan.yaml')]);
+    utimesSync(join(older, 'plan.yaml'), past, past);
 
     const result = resolveCookMode(d);
     expect(result.mode).toBe('codebase');
@@ -510,8 +510,3 @@ describe('resolveCookMode', () => {
     }
   });
 });
-
-function formatTouchTime(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}.${pad(d.getSeconds())}`;
-}

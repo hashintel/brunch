@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 
@@ -11,6 +11,7 @@ import { createPetrinautStreamBus, type PetrinautStreamBus } from './petrinaut-s
 import { createPetrinautStreamServer, type PetrinautStreamServer } from './petrinaut-stream-server.js';
 import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
+import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
 import { BunTestRunner } from './test-runner.js';
 import { createSandbox } from './worktree.js';
 
@@ -60,12 +61,7 @@ export function parseCookArgs(args: string[]): CookOptions {
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
     if (arg.startsWith('--spec=')) {
-      const raw = arg.split('=').slice(1).join('=');
-      const parsed = Number(raw);
-      if (!Number.isInteger(parsed) || parsed <= 0) {
-        throw new Error(`Invalid --spec value: "${raw}". Must be a positive integer.`);
-      }
-      specId = parsed;
+      specId = parseSpecId(arg.split('=').slice(1).join('='), '--spec');
     } else if (arg.startsWith('--policy=')) {
       const val = arg.split('=')[1]!;
       if (val !== 'serial' && val !== 'parallel') {
@@ -289,23 +285,17 @@ export function resolveCookMode(dir: string, specId?: number): ResolvedCookMode 
     return { mode: 'fixture', planPath: fixturePath };
   }
 
-  const specsDir = join(dir, '.brunch', 'cook', 'specs');
   const legacyPath = join(dir, '.brunch', 'cook', 'plan.yaml');
 
   let codebasePath: string | undefined;
   if (specId !== undefined) {
-    const explicit = join(specsDir, String(specId), 'plan.yaml');
+    const explicit = specPlanPath(dir, specId);
     if (!existsSync(explicit)) {
       return { mode: 'error', message: `No plan emitted for spec ${specId}: ${explicit}` };
     }
     codebasePath = explicit;
   } else {
-    const newestSpecPlan = findNewestSpecPlan(specsDir);
-    if (newestSpecPlan) {
-      codebasePath = newestSpecPlan;
-    } else if (existsSync(legacyPath)) {
-      codebasePath = legacyPath;
-    }
+    codebasePath = resolveLatestSpecPlanPath(dir) ?? (existsSync(legacyPath) ? legacyPath : undefined);
   }
 
   if (codebasePath) {
@@ -324,32 +314,8 @@ export function resolveCookMode(dir: string, specId?: number): ResolvedCookMode 
 
   return {
     mode: 'error',
-    message: `No plan found at ${fixturePath}, ${specsDir}/<id>/plan.yaml, or ${legacyPath}`,
+    message: `No plan found at ${fixturePath}, ${specsRootDir(dir)}/<id>/plan.yaml, or ${legacyPath}`,
   };
-}
-
-/**
- * Scan `<dir>/.brunch/cook/specs/*\/plan.yaml` and return the most recently
- * modified `plan.yaml` by mtime, or `undefined` if none exist. Directory
- * entries whose names are not positive integers are ignored so this matches
- * the layout written by `brunch plan <specId>`.
- */
-function findNewestSpecPlan(specsDir: string): string | undefined {
-  if (!existsSync(specsDir)) return undefined;
-
-  let newest: { path: string; mtimeMs: number } | undefined;
-  for (const entry of readdirSync(specsDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const parsed = Number(entry.name);
-    if (!Number.isInteger(parsed) || parsed <= 0) continue;
-    const planPath = join(specsDir, entry.name, 'plan.yaml');
-    if (!existsSync(planPath)) continue;
-    const mtimeMs = statSync(planPath).mtimeMs;
-    if (!newest || mtimeMs > newest.mtimeMs) {
-      newest = { path: planPath, mtimeMs };
-    }
-  }
-  return newest?.path;
 }
 
 type GitWorkingTreeCheck = { kind: 'clean' } | { kind: 'dirty'; status: string } | { kind: 'not-git' };

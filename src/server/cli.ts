@@ -43,7 +43,9 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log('  --verbose, -v             Show raw pi-agent output');
   console.log('');
   console.log('Plan flags:');
-  console.log('  --out=<dir>               Output directory (default: cwd)');
+  console.log(
+    '  --out=<dir>               Output directory (default: cwd); plan lands under .brunch/cook/specs/<specId>/',
+  );
   console.log('  --verbose, -v             Verbose output');
   process.exit(0);
 }
