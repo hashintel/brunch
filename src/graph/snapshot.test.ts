@@ -141,13 +141,17 @@ describe('getGraphOverview', () => {
     });
     expect(batch.status).toBe('success');
 
-    const overview = getGraphOverview(db, specId);
-    // R_offline_v0 should be excluded (it is a superseded predecessor)
-    const titles = overview.nodes.map((n) => n.title);
-    expect(titles).toContain('R_offline_v1');
-    expect(titles).not.toContain('R_offline_v0');
-    // The supersession edge should still be present
-    expect(overview.edges).toHaveLength(1);
+    const activeOverview = getGraphOverview(db, specId);
+    const activeTitles = activeOverview.nodes.map((n) => n.title);
+    expect(activeTitles).toContain('R_offline_v1');
+    expect(activeTitles).not.toContain('R_offline_v0');
+    expect(activeOverview.edges).toHaveLength(0);
+
+    const truthOverview = getGraphOverview(db, specId, { projection: 'graph_truth' });
+    expect(truthOverview.nodes.map((n) => n.title)).toEqual(
+      expect.arrayContaining(['R_offline_v0', 'R_offline_v1']),
+    );
+    expect(truthOverview.edges).toHaveLength(1);
   });
 });
 

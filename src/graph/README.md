@@ -14,10 +14,10 @@ SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L
   one transaction, one LSN, all-or-nothing. It accepts product command input
   (`nodes[]` with batch refs, `edges[]` with batch/existing refs), not raw DB
   rows.
-
 - **Readers / snapshot functions** (`snapshot.ts`) — graph projections at
-  multiple detail levels: full overview, node neighborhood, and open
-  reconciliation needs. These return typed domain objects, not Drizzle rows.
+  multiple detail levels: active-context and graph-truth overview, node
+  neighborhood, and open reconciliation needs. These return typed domain objects,
+  not Drizzle rows.
 
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
   `ReconciliationNeed`, kind/category types, per-kind node ordinals, and derived

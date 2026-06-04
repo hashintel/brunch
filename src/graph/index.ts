@@ -60,6 +60,8 @@ export {
 export { getGraphOverview, getNodeNeighborhood, getOpenReconciliationNeeds } from './snapshot.js';
 export type {
   GraphOverview,
+  GraphOverviewOptions,
+  GraphProjection,
   NeighborhoodOptions,
   NeighborhoodNotFound,
   NeighborhoodResult,
