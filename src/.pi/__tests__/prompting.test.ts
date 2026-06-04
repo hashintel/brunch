@@ -186,6 +186,89 @@ describe('Brunch prompt-pack topology', () => {
     });
   });
 
+  it('refreshes selected-spec prompt context through the shell session-boundary path before composing', async () => {
+    const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
+    let selected = {
+      spec: { id: 1, name: 'Launch spec', readinessGrade: 'commitments_ready' as const },
+      session: { id: 'launch-session', label: 'Launch session' },
+      nodeTitles: ['Launch-only node'],
+    };
+
+    await createBrunchPiExtensionShell(
+      {
+        cwd: '/tmp/brunch',
+        chatMode: 'responding-to-elicitation',
+        phase: 'elicitation',
+        spec: { id: 1, title: 'Launch spec' },
+        session: { id: 'launch-session', label: 'Launch session' },
+      },
+      async () => {
+        selected = {
+          spec: { id: 2, name: 'Switched spec', readinessGrade: 'commitments_ready' as const },
+          session: { id: 'switched-session', label: 'Switched session' },
+          nodeTitles: ['Switched current node'],
+        };
+      },
+      {
+        coordinator: {} as never,
+        graphMentionSource: { listMentionCandidates: () => [] },
+        promptContext: () => ({
+          spec: selected.spec,
+          workspace: promptContext.workspace,
+          session: selected.session,
+          graphSnapshots: {
+            getGraphOverview: () => ({
+              lsn: 1,
+              nodeCount: selected.nodeTitles.length,
+              edgeCount: 0,
+              nodes: selected.nodeTitles.map((title, index) => ({
+                id: index + 1,
+                specId: selected.spec.id,
+                plane: 'intent' as const,
+                kind: 'goal' as const,
+                title,
+                basis: 'explicit' as const,
+                createdAtLsn: 1,
+                updatedAtLsn: 1,
+              })),
+              edges: [],
+            }),
+            getNodeNeighborhood: () => ({ status: 'not_found' as const }),
+          },
+        }),
+      },
+    )({
+      on: (eventName: string, handler: (event: never, ctx?: never) => unknown) => {
+        events[eventName] ??= [];
+        events[eventName].push(handler);
+      },
+      registerTool() {},
+      registerCommand() {},
+      registerShortcut() {},
+      registerMessageRenderer() {},
+      sendMessage() {},
+      getAllTools: () => ['read', 'grep'].map((name) => ({ name })),
+      setActiveTools() {},
+    } as never);
+
+    const results: unknown[] = [];
+    for (const handler of events.before_agent_start ?? []) {
+      results.push(
+        await Promise.resolve(
+          handler({ systemPrompt: 'base' } as never, { sessionManager: { getEntries: () => [] } } as never),
+        ),
+      );
+    }
+    const promptResult = results.find(
+      (result) => typeof (result as { systemPrompt?: unknown } | undefined)?.systemPrompt === 'string',
+    ) as { systemPrompt: string } | undefined;
+
+    expect(promptResult?.systemPrompt).toContain('- spec: Switched spec (#2)');
+    expect(promptResult?.systemPrompt).toContain('Switched current node');
+    expect(promptResult?.systemPrompt).not.toContain('Launch spec (#1)');
+    expect(promptResult?.systemPrompt).not.toContain('Launch-only node');
+  });
+
   it('derives prompt and active tools from the same transcript-backed runtime state', async () => {
     const manager = new FakeRuntimeStateSessionManager();
     const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};

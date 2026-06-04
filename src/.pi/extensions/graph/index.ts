@@ -52,7 +52,7 @@ export interface BrunchGraphDeps {
 // ---------------------------------------------------------------------------
 
 export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): void {
-  const { specId, commandExecutor, snapshots } = deps;
+  const { commandExecutor, snapshots } = deps;
 
   // ── commit_graph ────────────────────────────────────────────────────
   pi.registerTool({
@@ -74,6 +74,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
     parameters: CommitGraphParams,
 
     async execute(_toolCallId, params) {
+      const specId = deps.specId;
       const input = translateCommitGraph(params, specId);
       const result = commandExecutor.commitGraph(input);
       const text = formatCommitGraphResult(result);
