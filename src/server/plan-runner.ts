@@ -86,7 +86,13 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
   const emitOptions = args.runModel ? { runModel: args.runModel } : {};
   const result = await emitPlanFromSnapshot(args.snapshot, emitOptions);
 
-  const planPath = join(args.outDir, '.brunch', 'cook', 'plan.yaml');
+  // Spec-scoped output path. Each spec gets its own subdir so multiple
+  // specs can live side-by-side on the same project / branch. `brunch
+  // cook` resolves either by `--spec=<id>` or by auto-picking the most
+  // recently emitted plan; the legacy `<dir>/.brunch/cook/plan.yaml`
+  // path stays in cook's resolver as the authored-single-plan fallback
+  // (this command never writes there).
+  const planPath = join(args.outDir, '.brunch', 'cook', 'specs', String(args.specificationId), 'plan.yaml');
   mkdirSync(dirname(planPath), { recursive: true });
   writeFileSync(planPath, stringifyYaml(result.plan));
 

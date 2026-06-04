@@ -32,9 +32,12 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log('Commands:');
   console.log('  agent                     Run a JSONL capability session on stdin/stdout.');
   console.log('  cook <dir> [flags]        Run the orchestrator on a plan directory.');
-  console.log('  plan <specId> [flags]     Emit .brunch/cook/plan.yaml from a completed specification.');
+  console.log(
+    '  plan <specId> [flags]     Emit .brunch/cook/specs/<specId>/plan.yaml from a completed specification.',
+  );
   console.log('');
   console.log('Cook flags:');
+  console.log('  --spec=<id>               Pick .brunch/cook/specs/<id>/plan.yaml (default: newest spec)');
   console.log('  --policy=serial|parallel  Firing policy (default: serial)');
   console.log('  --max-retries=N           Retry budget per slice (default: 3)');
   console.log('  --verbose, -v             Show raw pi-agent output');

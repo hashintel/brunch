@@ -100,7 +100,7 @@ describe('runPlan', () => {
       log: (line) => stderrLines.push(line),
     });
 
-    const planPath = join(dir, '.brunch', 'cook', 'plan.yaml');
+    const planPath = join(dir, '.brunch', 'cook', 'specs', '2', 'plan.yaml');
     const reloaded = parseYaml(readFileSync(planPath, 'utf8')) as Plan;
     expect(reloaded.slices.map((slice) => slice.id)).toEqual(['req-1', 'req-2']);
 
@@ -152,7 +152,7 @@ describe('runPlan', () => {
       log: (line) => stderrLines.push(line),
     });
 
-    const planPath = join(dir, '.brunch', 'cook', 'plan.yaml');
+    const planPath = join(dir, '.brunch', 'cook', 'specs', '2', 'plan.yaml');
     const reloaded = parseYaml(readFileSync(planPath, 'utf8')) as Plan;
     expect(reloaded.slices.map((slice) => slice.id)).toEqual(['req-1']);
 

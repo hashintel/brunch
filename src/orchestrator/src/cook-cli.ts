@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 
@@ -35,6 +35,13 @@ export type CookOptions = {
   petrinautBaseUrl?: string;
   /** Whether to auto-launch the system browser; CI=true also suppresses at runtime. */
   petrinautOpen: boolean;
+  /**
+   * Explicit specification id whose emitted plan (under
+   * `<dir>/.brunch/cook/specs/<id>/plan.yaml`) should be cooked.
+   * When omitted, `resolveCookMode` auto-picks the most recently
+   * emitted spec plan (or falls back to legacy paths).
+   */
+  specId?: number;
 };
 
 export function parseCookArgs(args: string[]): CookOptions {
@@ -46,12 +53,20 @@ export function parseCookArgs(args: string[]): CookOptions {
   let petrinautStream = false;
   let petrinautBaseUrl: string | undefined;
   let petrinautOpen = true;
+  let specId: number | undefined;
   let sawNoOpen = false;
   let sawBaseUrl = false;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
-    if (arg.startsWith('--policy=')) {
+    if (arg.startsWith('--spec=')) {
+      const raw = arg.split('=').slice(1).join('=');
+      const parsed = Number(raw);
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        throw new Error(`Invalid --spec value: "${raw}". Must be a positive integer.`);
+      }
+      specId = parsed;
+    } else if (arg.startsWith('--policy=')) {
       const val = arg.split('=')[1]!;
       if (val !== 'serial' && val !== 'parallel') {
         throw new Error(`Unknown policy: ${val}. Use serial or parallel.`);
@@ -86,7 +101,7 @@ export function parseCookArgs(args: string[]): CookOptions {
 
   if (!dir) {
     throw new Error(
-      'Usage: brunch cook <dir> [--policy=serial|parallel] [--max-retries=N] [--petrinaut-fold=color|identity] [--petrinaut-stream [--petrinaut-base-url=<url>] [--no-petrinaut-open]] [--verbose]',
+      'Usage: brunch cook <dir> [--spec=<id>] [--policy=serial|parallel] [--max-retries=N] [--petrinaut-fold=color|identity] [--petrinaut-stream [--petrinaut-base-url=<url>] [--no-petrinaut-open]] [--verbose]',
     );
   }
 
@@ -107,6 +122,7 @@ export function parseCookArgs(args: string[]): CookOptions {
     petrinautStream,
     petrinautBaseUrl,
     petrinautOpen,
+    ...(specId !== undefined ? { specId } : {}),
   };
 }
 
@@ -252,23 +268,47 @@ export type ResolvedCookMode =
   | { mode: 'error'; message: string };
 
 /**
- * Resolve cook's run mode by inspecting `<dir>`:
- *   - `<dir>/plan.yaml` exists           → fixture mode (greenfield).
- *   - `<dir>/.brunch/cook/plan.yaml`     → codebase mode (brownfield); requires
- *                                          `<dir>` to be a git repo with a clean
- *                                          working tree.
- *   - neither                            → error.
+ * Resolve cook's run mode by inspecting `<dir>` in precedence order:
+ *
+ *   1. `<dir>/plan.yaml` exists                                  → fixture mode (greenfield).
+ *   2. Explicit `specId`:
+ *        `<dir>/.brunch/cook/specs/<id>/plan.yaml` exists        → codebase mode.
+ *        missing                                                 → error.
+ *   3. No `specId`, any `<dir>/.brunch/cook/specs/<n>/plan.yaml` → newest by mtime, codebase mode.
+ *   4. Legacy `<dir>/.brunch/cook/plan.yaml`                     → codebase mode.
+ *   5. None of the above                                         → error.
+ *
+ * Codebase modes additionally require `<dir>` to be a git repo with a clean
+ * working tree (untracked files ignored).
  *
  * Pure function — no process exits, no side effects beyond filesystem reads.
  */
-export function resolveCookMode(dir: string): ResolvedCookMode {
+export function resolveCookMode(dir: string, specId?: number): ResolvedCookMode {
   const fixturePath = join(dir, 'plan.yaml');
   if (existsSync(fixturePath)) {
     return { mode: 'fixture', planPath: fixturePath };
   }
 
-  const codebasePath = join(dir, '.brunch', 'cook', 'plan.yaml');
-  if (existsSync(codebasePath)) {
+  const specsDir = join(dir, '.brunch', 'cook', 'specs');
+  const legacyPath = join(dir, '.brunch', 'cook', 'plan.yaml');
+
+  let codebasePath: string | undefined;
+  if (specId !== undefined) {
+    const explicit = join(specsDir, String(specId), 'plan.yaml');
+    if (!existsSync(explicit)) {
+      return { mode: 'error', message: `No plan emitted for spec ${specId}: ${explicit}` };
+    }
+    codebasePath = explicit;
+  } else {
+    const newestSpecPlan = findNewestSpecPlan(specsDir);
+    if (newestSpecPlan) {
+      codebasePath = newestSpecPlan;
+    } else if (existsSync(legacyPath)) {
+      codebasePath = legacyPath;
+    }
+  }
+
+  if (codebasePath) {
     const gitCheck = isCleanGitWorkingTree(dir);
     if (gitCheck.kind === 'not-git') {
       return { mode: 'error', message: `Codebase mode requires <dir> to be a git repo: ${dir}` };
@@ -282,7 +322,34 @@ export function resolveCookMode(dir: string): ResolvedCookMode {
     return { mode: 'codebase', planPath: codebasePath, sourceDir: dir };
   }
 
-  return { mode: 'error', message: `No plan found at ${fixturePath} or ${codebasePath}` };
+  return {
+    mode: 'error',
+    message: `No plan found at ${fixturePath}, ${specsDir}/<id>/plan.yaml, or ${legacyPath}`,
+  };
+}
+
+/**
+ * Scan `<dir>/.brunch/cook/specs/*\/plan.yaml` and return the most recently
+ * modified `plan.yaml` by mtime, or `undefined` if none exist. Directory
+ * entries whose names are not positive integers are ignored so this matches
+ * the layout written by `brunch plan <specId>`.
+ */
+function findNewestSpecPlan(specsDir: string): string | undefined {
+  if (!existsSync(specsDir)) return undefined;
+
+  let newest: { path: string; mtimeMs: number } | undefined;
+  for (const entry of readdirSync(specsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const parsed = Number(entry.name);
+    if (!Number.isInteger(parsed) || parsed <= 0) continue;
+    const planPath = join(specsDir, entry.name, 'plan.yaml');
+    if (!existsSync(planPath)) continue;
+    const mtimeMs = statSync(planPath).mtimeMs;
+    if (!newest || mtimeMs > newest.mtimeMs) {
+      newest = { path: planPath, mtimeMs };
+    }
+  }
+  return newest?.path;
 }
 
 type GitWorkingTreeCheck = { kind: 'clean' } | { kind: 'dirty'; status: string } | { kind: 'not-git' };
@@ -326,7 +393,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
     streamPort = resolvePetrinautStreamPort({ PORT: process.env.PORT });
   }
 
-  const resolved = resolveCookMode(opts.dir);
+  const resolved = resolveCookMode(opts.dir, opts.specId);
   if (resolved.mode === 'error') {
     console.error(resolved.message);
     process.exit(1);

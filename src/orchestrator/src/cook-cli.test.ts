@@ -110,6 +110,21 @@ describe('parseCookArgs', () => {
     );
   });
 
+  it('parses --spec=<id> and exposes it on opts', () => {
+    expect(parseCookArgs(['./f', '--spec=42']).specId).toBe(42);
+  });
+
+  it('omits specId when --spec is not passed', () => {
+    expect(parseCookArgs(['./f']).specId).toBeUndefined();
+  });
+
+  it('rejects non-integer, zero, and negative --spec values', () => {
+    expect(() => parseCookArgs(['./f', '--spec=abc'])).toThrow(/--spec/i);
+    expect(() => parseCookArgs(['./f', '--spec=0'])).toThrow(/--spec/i);
+    expect(() => parseCookArgs(['./f', '--spec=-3'])).toThrow(/--spec/i);
+    expect(() => parseCookArgs(['./f', '--spec=1.5'])).toThrow(/--spec/i);
+  });
+
   it('allows --petrinaut-stream + --petrinaut-fold=color together', () => {
     const opts = parseCookArgs([
       './f',
@@ -420,4 +435,83 @@ describe('resolveCookMode', () => {
       expect(result.message).toMatch(/plan/i);
     }
   });
+
+  it('resolves explicit --spec=<id> from .brunch/cook/specs/<id>/plan.yaml', () => {
+    const d = makeTmpDir();
+    initCleanGitRepo(d);
+    const specDir = join(d, '.brunch', 'cook', 'specs', '7');
+    mkdirSync(specDir, { recursive: true });
+    writeFileSync(join(specDir, 'plan.yaml'), 'epics: []\nslices: []\n');
+
+    const result = resolveCookMode(d, 7);
+    expect(result.mode).toBe('codebase');
+    if (result.mode === 'codebase') {
+      expect(result.planPath).toBe(join(specDir, 'plan.yaml'));
+    }
+  });
+
+  it('errors when explicit --spec=<id> plan is missing', () => {
+    const d = makeTmpDir();
+    initCleanGitRepo(d);
+
+    const result = resolveCookMode(d, 99);
+    expect(result.mode).toBe('error');
+    if (result.mode === 'error') {
+      expect(result.message).toMatch(/spec 99/);
+    }
+  });
+
+  it('auto-picks the newest spec plan by mtime when no --spec is given', () => {
+    const d = makeTmpDir();
+    initCleanGitRepo(d);
+    const older = join(d, '.brunch', 'cook', 'specs', '1');
+    const newer = join(d, '.brunch', 'cook', 'specs', '2');
+    mkdirSync(older, { recursive: true });
+    mkdirSync(newer, { recursive: true });
+    writeFileSync(join(older, 'plan.yaml'), 'epics: []\nslices: []\n');
+    writeFileSync(join(newer, 'plan.yaml'), 'epics: []\nslices: []\n');
+    // Force mtime ordering: older < newer.
+    const past = new Date(Date.now() - 60_000);
+    execFileSync('touch', ['-t', formatTouchTime(past), join(older, 'plan.yaml')]);
+
+    const result = resolveCookMode(d);
+    expect(result.mode).toBe('codebase');
+    if (result.mode === 'codebase') {
+      expect(result.planPath).toBe(join(newer, 'plan.yaml'));
+    }
+  });
+
+  it('falls back to legacy .brunch/cook/plan.yaml when no spec plans exist', () => {
+    const d = makeTmpDir();
+    initCleanGitRepo(d);
+    mkdirSync(join(d, '.brunch', 'cook'), { recursive: true });
+    writeFileSync(join(d, '.brunch', 'cook', 'plan.yaml'), 'epics: []\nslices: []\n');
+
+    const result = resolveCookMode(d);
+    expect(result.mode).toBe('codebase');
+    if (result.mode === 'codebase') {
+      expect(result.planPath).toBe(join(d, '.brunch', 'cook', 'plan.yaml'));
+    }
+  });
+
+  it('prefers a newer spec plan over the legacy top-level plan', () => {
+    const d = makeTmpDir();
+    initCleanGitRepo(d);
+    mkdirSync(join(d, '.brunch', 'cook'), { recursive: true });
+    writeFileSync(join(d, '.brunch', 'cook', 'plan.yaml'), 'epics: []\nslices: []\n');
+    const specDir = join(d, '.brunch', 'cook', 'specs', '5');
+    mkdirSync(specDir, { recursive: true });
+    writeFileSync(join(specDir, 'plan.yaml'), 'epics: []\nslices: []\n');
+
+    const result = resolveCookMode(d);
+    expect(result.mode).toBe('codebase');
+    if (result.mode === 'codebase') {
+      expect(result.planPath).toBe(join(specDir, 'plan.yaml'));
+    }
+  });
 });
+
+function formatTouchTime(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}.${pad(d.getSeconds())}`;
+}
