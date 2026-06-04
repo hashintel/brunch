@@ -45,6 +45,7 @@ _None._
 
 - `probes-and-transcripts-evolution` — continuous probe/report/transcript hardening as each delivery frontier lands evidence.
 - `topology-readmes-and-boundaries` — small doc/test hardening when a frontier moves files or exposes a boundary; should remain attached to the frontier when possible rather than becoming an abstract cleanup project.
+- `dev-seed-fixtures` — rich, real seed data for local dev / manual / observer testing: the consolidated seed contract, the `npm run seed` loader, and growing/enhancing fixture sets (Bilal-port + legacy).
 
 ### Horizon
 
@@ -235,6 +236,27 @@ _None._
 - **Traceability:** D52-L, D39-L, D4-L.
 - **Design docs:** `src/README.md`; `src/.pi/README.md`; `src/agents/README.md`; `src/db/README.md`; `src/graph/README.md`; `src/rpc/README.md`; `src/session/README.md`; `src/web/README.md`.
 
+### dev-seed-fixtures
+
+- **Name:** Development seed-fixture substrate (Bilal-port + legacy specs)
+- **Linear:** unassigned
+- **Kind:** tooling / dev-substrate
+- **Status:** parallel / continuous
+- **Objective:** Maintain rich, real seed data for local dev and manual/observer testing: the consolidated `{spec,nodes,edges}` seed contract under `.fixtures/seeds/<set>/<slug>.json`, the `src/graph/seed-fixtures.ts` loader (`npm run seed`) that commits each fixture through `CommandExecutor`, and the throwaway per-set port scripts that produce seed files. Grow set coverage and graph quality as delivery frontiers need data to exercise.
+- **Why now / unlocks:** Delivery frontiers (`capture-response-to-graph`, the live-graph observer follow-on, `poc-live-ship-gate`) need real multi-spec graph data to exercise UI/agent/observer behavior without hand-authoring. The Bilal port already provides three loadable specs; enhancing them surfaces under-represented planes/kinds (notably `thesis`/`goal`) for richer capture and observer demos.
+- **Acceptance:**
+  - Seed contract stays loadable: each set's port script self-validates every `<slug>.json` through the real loader (same structural checks `commitGraph` enforces) before writing.
+  - `npm run seed` loads every `.fixtures/seeds/<set>/<slug>.json` into the workspace DB through `CommandExecutor` (never direct row inserts), preserving graph clock / change log / lsn coherence.
+  - New seed sets follow the established shape: vendored `_originals/`, throwaway `_port-script.ts`, consolidated `<slug>.json`, generated `README.md`.
+- **Enhancement backlog (captured, not yet scoped):**
+  1. Enhance Bilal-port fixtures *through Brunch itself* by feeding the original briefs Bilal authored, to recover `thesis`/`goal` structure the current ported graphs under-express.
+  2. Port and enhance the earlier product version's fixtures (the legacy walkthrough scenarios in `docs/praxis/manual-testing.md`), raising quality through better semantic definition (kinds, detail) and internal connection (edges).
+- **Verification:** Inner — `src/graph/seed-fixtures.test.ts` seeds a real fixture into an in-memory DB and asserts spec/node/edge counts plus change-log/clock coherence, and rejects non-`explicit` basis; port-script self-validation gates output. Outer — `npm run seed` smoke against a fresh cwd.
+- **Topology materialization:** Seed data and throwaway prep scripts live under `.fixtures/seeds/`; the loader lives in `src/graph/seed-fixtures.ts` (graph/ owns `CommandExecutor` orchestration; db/ is imported only by graph/, never the reverse); no seed-only graph runtime the product launch does not use.
+- **Cross-cutting obligations:** Seeds commit only through `CommandExecutor`; directly-authored items use `basis: explicit` (the retired `accepted_review_set` value is not a basis). Respect multi-spec discipline — each fixture is one spec's own graph (D61-L). Pre-release posture: regenerate fixtures when the schema moves rather than preserving stale shapes. **Known drift:** `docs/praxis/manual-testing.md` still describes the earlier seed system (scenario-arg `npm run seed`, `.brunch/brunch.db`); reconcile it to the current loader (all-sets `npm run seed`, `.brunch/data.db`) when the legacy port (backlog item 2) lands — coordinate with the doc-reconciliation track rather than double-editing.
+- **Traceability:** D4-L, D20-L, D52-L, D61-L, D62-L, D63-L / A14-L.
+- **Design docs:** `.fixtures/seeds/bilal-port/README.md`; `docs/design/GRAPH_MODEL.md`; `docs/praxis/manual-testing.md`.
+
 ## Recently Completed
 - 2026-06-04 `graph-tool-resilience` (FE-808) — Done: graph nodes persist per-kind ordinals and expose projected codes; `commitGraph` applies one explicit/implicit batch basis, returns one created-node identity shape, and shares dry-run/commit structural planning; adapters resolve selected-spec existing-node codes into structured diagnostics instead of throwing; same-spec supersession cycles are rejected atomically; active-context graph reads omit hidden superseded nodes and dangling edges while graph-truth reads remain available; product-path probes landed existing-code, retry-diagnostics, and ambiguity/no-overcommit evidence under `.fixtures/runs/propose-graph-commit/`.
 
@@ -256,6 +278,7 @@ nodes:
   poc-live-ship-gate             [next · P1]         final fresh-cwd composed product runbook
   probes-and-transcripts-evolution [parallel]        continuous evidence substrate
   topology-readmes-and-boundaries  [parallel]        attach-to-frontier topology hardening
+  dev-seed-fixtures                [parallel]        rich seed data substrate for dev/observer testing
 
 edges:
   graph-tool-resilience     -[hard]->         capture-response-to-graph
@@ -268,6 +291,7 @@ edges:
 parallel obligations:
   probes-and-transcripts-evolution -[evidence]-> every P0/P1 frontier
   topology-readmes-and-boundaries  -[boundary]-> every frontier that moves/claims source topology
+  dev-seed-fixtures                -[data]->     capture-response-to-graph, poc-live-ship-gate (real multi-spec graphs to exercise observer/capture)
 
 horizon:
   turn-boundary-reconciliation
