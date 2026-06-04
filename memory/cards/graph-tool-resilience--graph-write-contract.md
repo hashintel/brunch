@@ -14,7 +14,7 @@ Created:  2026-06-04
 
 ## Card 1 — Persist per-kind node ordinals
 
-Status: next
+Status: done
 
 ### Target Behavior
 

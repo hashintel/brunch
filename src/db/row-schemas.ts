@@ -10,7 +10,15 @@
 
 import { createInsertSchema, createSelectSchema } from 'drizzle-typebox';
 
-import { changeLog, edges, graphClock, nodes, reconciliationNeed, specs } from './schema.js';
+import {
+  changeLog,
+  edges,
+  graphClock,
+  nodeKindCounters,
+  nodes,
+  reconciliationNeed,
+  specs,
+} from './schema.js';
 
 // --- Spec schemas ---
 export const insertSpecSchema = createInsertSchema(specs);
@@ -31,6 +39,9 @@ export const selectChangeLogSchema = createSelectSchema(changeLog);
 // --- Graph clock schemas ---
 export const insertGraphClockSchema = createInsertSchema(graphClock);
 
+// --- Node kind counter schemas ---
+export const insertNodeKindCounterSchema = createInsertSchema(nodeKindCounters);
+export const selectNodeKindCounterSchema = createSelectSchema(nodeKindCounters);
 // --- Reconciliation need schemas ---
 export const insertReconciliationNeedSchema = createInsertSchema(reconciliationNeed);
 export const selectReconciliationNeedSchema = createSelectSchema(reconciliationNeed);

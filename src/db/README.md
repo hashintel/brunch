@@ -1,6 +1,6 @@
 # db/ — Persistence substrate
 
-SPEC decisions: D16-L, D41-L, D52-L
+SPEC decisions: D16-L, D41-L, D52-L, D54-L, D62-L
 
 ## Owns
 
@@ -92,13 +92,14 @@ owned by their boundary.
 
 ## Current schema posture
 
-The current tables are the M4 graph substrate: `specs`, `nodes`, `edges`,
-`graph_clock`, `change_log`, and `reconciliation_need`.
+The current graph tables are spec-scoped: `specs`, `nodes`, `edges`,
+`node_kind_counters`, `graph_clock`, `change_log`, and
+`reconciliation_need`.
 
-Multi-spec is the product direction, but graph rows are not yet spec-scoped in
-this schema. Before stable `graph.*` RPC or multi-spec UI work lands, add
-spec-scoping columns and update graph readers/commands so projections cannot mix
-initiative-local graph truth.
+`nodes.kind_ordinal` is persisted as the storage half of the D62-L projected-code
+contract. `node_kind_counters` owns monotonic per-`(spec_id, plane, kind)`
+ordinal allocation; the rendered reference-code string is deliberately not
+stored in graph tables.
 
 `coherence_state` is intentionally not present yet. Coherence is a product
 concept, but the durable table/result contract is still undefined.

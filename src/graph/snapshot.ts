@@ -61,6 +61,7 @@ function rowToNode(row: typeof schema.nodes.$inferSelect): GraphNode {
     specId: row.spec_id,
     plane: row.plane as GraphNode['plane'],
     kind: row.kind as GraphNode['kind'],
+    kindOrdinal: row.kind_ordinal,
     title: row.title,
     ...(row.body != null ? { body: row.body } : {}),
     basis: row.basis as GraphNode['basis'],

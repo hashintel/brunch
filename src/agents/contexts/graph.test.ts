@@ -75,6 +75,7 @@ function node(
     specId: 1,
     plane,
     kind,
+    kindOrdinal: id,
     title,
     basis: 'explicit',
     createdAtLsn: id,

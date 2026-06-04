@@ -109,9 +109,9 @@ _None._
 
 - **Name:** Materialize graph write contract and broaden direct graph-tool proof
 - **Linear:** [FE-808](https://linear.app/hash/issue/FE-808/broaden-direct-graph-tool-proof-beyond-the-a14-happy-path)
-- **Branch:** to create — `ln/fe-808-graph-tool-resilience`
+- **Branch:** `ln/fe-808-graph-tool-resilience`
 - **Kind:** structural hardening / tracer bullet
-- **Status:** next
+- **Status:** in progress
 - **Certainty:** proving
 - **Stabilizes:** I34-L, I39-L, I40-L, I41-L — graph writes need stable node handles, correct approval basis, and supersession acyclicity before capture/review frontiers build on them.
 - **Lights up:** real `read_graph` / `commit_graph` path with projected existing-node references, diagnostics/retry, and no-overcommit behavior through the default Brunch runtime factory.

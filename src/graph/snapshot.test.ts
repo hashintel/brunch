@@ -78,6 +78,7 @@ describe('getGraphOverview', () => {
     });
     expect(node.createdAtLsn).toBe(1);
     expect(node.updatedAtLsn).toBe(1);
+    expect(node.kindOrdinal).toBe(1);
   });
 
   it('returns nodes and edges with correct counts', () => {

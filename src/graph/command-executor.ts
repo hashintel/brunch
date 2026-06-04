@@ -536,6 +536,39 @@ class BatchValidationError extends Error {
 export class CommandExecutor {
   constructor(private readonly db: BrunchDb) {}
 
+  private allocateNodeKindOrdinal(
+    tx: Pick<BrunchDb, 'select' | 'insert' | 'update'>,
+    specId: number,
+    plane: NodePlane,
+    kind: string,
+  ): number {
+    const existing = tx
+      .select({
+        id: schema.nodeKindCounters.id,
+        nextOrdinal: schema.nodeKindCounters.next_ordinal,
+      })
+      .from(schema.nodeKindCounters)
+      .where(
+        and(
+          eq(schema.nodeKindCounters.spec_id, specId),
+          eq(schema.nodeKindCounters.plane, plane),
+          eq(schema.nodeKindCounters.kind, kind),
+        ),
+      )
+      .get();
+
+    if (!existing) {
+      tx.insert(schema.nodeKindCounters).values({ spec_id: specId, plane, kind, next_ordinal: 2 }).run();
+      return 1;
+    }
+
+    tx.update(schema.nodeKindCounters)
+      .set({ next_ordinal: existing.nextOrdinal + 1 })
+      .where(eq(schema.nodeKindCounters.id, existing.id))
+      .run();
+    return existing.nextOrdinal;
+  }
+
   /** Create a spec row through the command boundary. */
   createSpec(input: CreateSpecInput): CreateSpecResult {
     const diagnostics: Diagnostic[] = [];
@@ -680,6 +713,7 @@ export class CommandExecutor {
         .returning()
         .get();
       const lsn = clock!.lsn;
+      const kindOrdinal = this.allocateNodeKindOrdinal(tx, input.specId, input.plane, input.kind);
 
       // 3. Insert node
       const node = tx
@@ -688,6 +722,7 @@ export class CommandExecutor {
           spec_id: input.specId,
           plane: input.plane,
           kind: input.kind,
+          kind_ordinal: kindOrdinal,
           title: input.title,
           body: input.body ?? null,
           basis: input.basis ?? 'explicit',
@@ -771,12 +806,14 @@ export class CommandExecutor {
         // 3. Insert all nodes, build ref → id map
         const refMap = new Map<string, number>();
         for (const bn of input.nodes) {
+          const kindOrdinal = this.allocateNodeKindOrdinal(tx, input.specId, bn.plane, bn.kind);
           const row = tx
             .insert(schema.nodes)
             .values({
               spec_id: input.specId,
               plane: bn.plane,
               kind: bn.kind,
+              kind_ordinal: kindOrdinal,
               title: bn.title,
               body: bn.body ?? null,
               basis: bn.basis ?? 'explicit',

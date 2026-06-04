@@ -9,7 +9,15 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it, beforeEach } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
-import { graphClock, changeLog, edges, nodes, reconciliationNeed, specs } from '../db/schema.js';
+import {
+  graphClock,
+  changeLog,
+  edges,
+  nodeKindCounters,
+  nodes,
+  reconciliationNeed,
+  specs,
+} from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
 import type { CommitGraphInput } from './command-executor.js';
 
@@ -410,6 +418,100 @@ describe('CommandExecutor', () => {
       expect(db.select().from(edges).all()).toHaveLength(1);
     });
 
+    it('allocates kind ordinals per spec, plane, and kind within multi-node batches', () => {
+      const otherSpec = executor.createSpec({ name: 'Other Spec', slug: 'other' });
+      if (otherSpec.status !== 'success') throw new Error('unreachable');
+
+      executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Existing goal' });
+      const firstBatch = executor.commitGraph({
+        specId,
+        nodes: [
+          { ref: 'goal', plane: 'intent', kind: 'goal', title: 'Batch goal' },
+          { ref: 'requirement', plane: 'intent', kind: 'requirement', title: 'Batch req' },
+          { ref: 'oracle-goal', plane: 'oracle', kind: 'check', title: 'Oracle check' },
+        ],
+        edges: [],
+      });
+      const otherSpecBatch = executor.commitGraph({
+        specId: otherSpec.specId,
+        nodes: [{ ref: 'goal', plane: 'intent', kind: 'goal', title: 'Other goal' }],
+        edges: [],
+      });
+
+      expect(firstBatch.status).toBe('success');
+      expect(otherSpecBatch.status).toBe('success');
+      const rows = db
+        .select({
+          specId: nodes.spec_id,
+          plane: nodes.plane,
+          kind: nodes.kind,
+          title: nodes.title,
+          kindOrdinal: nodes.kind_ordinal,
+        })
+        .from(nodes)
+        .all();
+
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            specId,
+            plane: 'intent',
+            kind: 'goal',
+            title: 'Existing goal',
+            kindOrdinal: 1,
+          }),
+          expect.objectContaining({
+            specId,
+            plane: 'intent',
+            kind: 'goal',
+            title: 'Batch goal',
+            kindOrdinal: 2,
+          }),
+          expect.objectContaining({
+            specId,
+            plane: 'intent',
+            kind: 'requirement',
+            title: 'Batch req',
+            kindOrdinal: 1,
+          }),
+          expect.objectContaining({
+            specId,
+            plane: 'oracle',
+            kind: 'check',
+            title: 'Oracle check',
+            kindOrdinal: 1,
+          }),
+          expect.objectContaining({
+            specId: otherSpec.specId,
+            plane: 'intent',
+            kind: 'goal',
+            title: 'Other goal',
+            kindOrdinal: 1,
+          }),
+        ]),
+      );
+    });
+
+    it('rejects duplicate stored kind ordinals for one spec, plane, and kind', () => {
+      executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'G1' });
+
+      expect(() =>
+        db
+          .insert(nodes)
+          .values({
+            spec_id: specId,
+            plane: 'intent',
+            kind: 'goal',
+            kind_ordinal: 1,
+            title: 'Duplicate G1',
+            basis: 'explicit',
+            created_at_lsn: 1,
+            updated_at_lsn: 1,
+          })
+          .run(),
+      ).toThrow();
+    });
+
     it('resolves intra-batch refs to real NodeIds', () => {
       const result = executor.commitGraph({
         specId,
@@ -651,6 +753,23 @@ describe('CommandExecutor', () => {
       expect(db.select().from(nodes).all()).toHaveLength(0);
       const [clock] = db.select().from(graphClock).all();
       expect(clock!.lsn).toBe(0);
+    });
+
+    it('if post-insert edge validation fails, no nodes, change log, or counter state is written', () => {
+      const result = executor.commitGraph({
+        specId,
+        nodes: [
+          { ref: 'n1', plane: 'intent', kind: 'goal', title: 'Valid goal' },
+          { ref: 'n2', plane: 'intent', kind: 'context', title: 'Valid ctx' },
+        ],
+        edges: [{ category: 'proof', source: 'n1', target: 'n2' }],
+      });
+
+      expect(result.status).toBe('structural_illegal');
+      expect(db.select().from(nodes).all()).toHaveLength(0);
+      expect(db.select().from(edges).all()).toHaveLength(0);
+      expect(db.select().from(changeLog).all()).toHaveLength(0);
+      expect(db.select().from(nodeKindCounters).all()).toHaveLength(0);
     });
 
     it('diagnostics include which entry failed', () => {

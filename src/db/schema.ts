@@ -9,7 +9,7 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
 // Shared enum arrays — the single source for text enum columns,
@@ -69,21 +69,33 @@ export const specs = sqliteTable('specs', {
   readiness_grade: text({ enum: READINESS_GRADES }).notNull().default('grounding_onboarding'),
 });
 
-export const nodes = sqliteTable('nodes', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  spec_id: integer()
-    .notNull()
-    .references(() => specs.id),
-  plane: text({ enum: ['intent', 'oracle', 'design', 'plan'] }).notNull(),
-  kind: text().notNull(), // validated at domain layer against plane-specific enum
-  title: text().notNull(),
-  body: text(),
-  basis: text({ enum: NODE_BASES }).notNull().default('explicit'),
-  source: text(),
-  detail: text(), // JSON column: decision → {chosen_option, rejected, rationale}, term → {definition, aliases?}
-  created_at_lsn: integer().notNull(),
-  updated_at_lsn: integer().notNull(),
-});
+export const nodes = sqliteTable(
+  'nodes',
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    spec_id: integer()
+      .notNull()
+      .references(() => specs.id),
+    plane: text({ enum: ['intent', 'oracle', 'design', 'plan'] }).notNull(),
+    kind: text().notNull(), // validated at domain layer against plane-specific enum
+    kind_ordinal: integer().notNull(),
+    title: text().notNull(),
+    body: text(),
+    basis: text({ enum: NODE_BASES }).notNull().default('explicit'),
+    source: text(),
+    detail: text(), // JSON column: decision → {chosen_option, rejected, rationale}, term → {definition, aliases?}
+    created_at_lsn: integer().notNull(),
+    updated_at_lsn: integer().notNull(),
+  },
+  (table) => [
+    uniqueIndex('nodes_spec_plane_kind_ordinal_unique').on(
+      table.spec_id,
+      table.plane,
+      table.kind,
+      table.kind_ordinal,
+    ),
+  ],
+);
 
 export const edges = sqliteTable('edges', {
   id: integer().primaryKey({ autoIncrement: true }),
@@ -108,6 +120,22 @@ export const graphClock = sqliteTable('graph_clock', {
   id: integer().primaryKey(), // always row 1
   lsn: integer().notNull().default(0),
 });
+
+export const nodeKindCounters = sqliteTable(
+  'node_kind_counters',
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    spec_id: integer()
+      .notNull()
+      .references(() => specs.id),
+    plane: text({ enum: ['intent', 'oracle', 'design', 'plan'] }).notNull(),
+    kind: text().notNull(),
+    next_ordinal: integer().notNull().default(1),
+  },
+  (table) => [
+    uniqueIndex('node_kind_counters_spec_plane_kind_unique').on(table.spec_id, table.plane, table.kind),
+  ],
+);
 
 export const changeLog = sqliteTable('change_log', {
   lsn: integer().primaryKey(),

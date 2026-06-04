@@ -1,13 +1,14 @@
 # graph/ — Graph domain layer
 
 Canonical reference: `docs/design/GRAPH_MODEL.md`
-SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L
+SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L
 
 ## Owns
 
 - **CommandExecutor** (`command-executor.ts`) — the single mutation boundary for
   graph/spec writes. It hides structural validation, transaction mechanics, LSN
-  allocation, change-log append, and structured command results.
+  allocation, per-kind node ordinal allocation, change-log append, and
+  structured command results.
 
 - **commitGraph** — atomic batch mutation for `propose-graph`: one tool call,
   one transaction, one LSN, all-or-nothing. It accepts product command input
@@ -19,7 +20,8 @@ SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L
   reconciliation needs. These return typed domain objects, not Drizzle rows.
 
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
-  `ReconciliationNeed`, kind/category types, and derived intent-kind grouping.
+  `ReconciliationNeed`, kind/category types, per-kind node ordinals, and derived
+  intent-kind grouping.
 
 - **Policy** (`policy/category-policy.ts`) — edge-category semantics such as
   cascade behavior, reconciliation triggers, and projection effects.
@@ -57,6 +59,7 @@ graph/
     createSpec
     updateReadinessGrade
     createNode
+    per-kind node ordinal allocation
     commitGraph / dryRunCommitGraph
     create/resolve reconciliation need
 
@@ -133,10 +136,13 @@ seam. The desired shape is documented here so future splits preserve topology.
 
 ## Known near-term schema pressure
 
-- Keep spec scoping mandatory for stable `graph.*` RPC / multi-spec UI projections:
-  graph rows and graph-adjacent reconciliation needs are spec-owned, and
-  remaining graph read/write surfaces must preserve explicit selected-spec
-  authority.
+- `kind_ordinal` is now the stored half of projected graph node codes. Keep
+  rendered code strings out of graph tables; adapters and prompt renderers should
+  project them from `kind` + `kindOrdinal`.
+- Keep spec scoping mandatory for stable `graph.*` RPC / multi-spec UI
+  projections: graph rows and graph-adjacent reconciliation needs are
+  spec-owned, and remaining graph read/write surfaces must preserve explicit
+  selected-spec authority.
 - Keep `coherence_state` deferred until its durable semantics are defined.
 - Begin consuming `db/row-schemas.ts` at persistence-facing validation seams;
   do not use row schemas as public RPC or agent-tool object contracts.

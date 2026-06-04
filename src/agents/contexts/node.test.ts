@@ -63,6 +63,7 @@ function node(
     specId: 1,
     plane,
     kind,
+    kindOrdinal: id,
     title,
     ...(body ? { body } : {}),
     basis: 'explicit',

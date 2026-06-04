@@ -128,6 +128,7 @@ export interface GraphNode {
   readonly specId: number;
   readonly plane: NodePlane;
   readonly kind: NodeKind;
+  readonly kindOrdinal: number;
   readonly title: string;
   readonly body?: string;
   readonly basis: NodeBasis;
