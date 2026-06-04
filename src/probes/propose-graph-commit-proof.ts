@@ -22,7 +22,7 @@ import { createWorkspaceSessionCoordinator } from '../session/workspace-session-
 const PROBE_ID = 'propose-graph-commit' as const;
 const DEFAULT_MAX_ATTEMPTS = 2;
 
-export type ProposeGraphCommitScenarioId = 'direct-commit' | 'existing-code-ref';
+export type ProposeGraphCommitScenarioId = 'direct-commit' | 'existing-code-ref' | 'retry-diagnostics';
 
 export interface ProposeGraphCommitProofOptions {
   cwd?: string;
@@ -278,6 +278,12 @@ export function summarizeProposeGraphCommitProof(
       projectedCodeEvidence.usedInCommitParams &&
       projectedCodeEvidence.existingCodeEdgePresent === true;
   }
+  if (scenarioId === 'retry-diagnostics') {
+    success =
+      attempts.some((attempt) => attempt.status === 'structural_illegal') &&
+      successfulAttempt !== undefined &&
+      input.overview.nodeCount > 0;
+  }
 
   if (attempts.length === 0) {
     friction.push('No commit_graph tool result was recorded.');
@@ -318,7 +324,9 @@ export function summarizeProposeGraphCommitProof(
     evaluationFocus:
       scenarioId === 'existing-code-ref'
         ? 'A14-L selected-spec projected-code reference through the default runtime.'
-        : 'A14-L structural legality for direct commitGraph batches.',
+        : scenarioId === 'retry-diagnostics'
+          ? 'A14-L retry behavior after structured commit_graph diagnostics.'
+          : 'A14-L structural legality for direct commitGraph batches.',
     scenarioId,
     success,
     cwd: input.cwd,
@@ -534,6 +542,11 @@ function defaultProofPrompt(scenarioId: ProposeGraphCommitScenarioId): string {
 
 Use read_graph once in overview mode. Find the projected code for the existing launch-readiness goal, then use commit_graph to create one new requirement node titled "Rollback path is documented" and one legal edge connecting that new requirement to the existing goal by using the existing node's projected code as {existingCode: "G1"}. Do not recreate the existing goal. Stop after a successful commit_graph result.`;
   }
+  if (scenarioId === 'retry-diagnostics') {
+    return `Brunch A14-L retry diagnostics probe.
+
+Use read_graph once in overview mode. Then intentionally make exactly one structurally illegal commit_graph attempt by creating two intent-plane nodes and a proof edge between them without the required stance field. Read the STRUCTURAL_ILLEGAL diagnostics. Then retry once with a corrected complete batch that creates the same two nodes and a legal proof edge with stance "for". Stop after the corrected commit_graph succeeds.`;
+  }
 
   return `Brunch A14-L probe: the user has accepted the following concept-level proposal and asked you to persist it now.\n\nConcept: A Brunch specification workspace needs an explicit launch-readiness subgraph that records the launch goal, the rollback requirement, the operator visibility criterion, and the assumption that users can recover from a failed launch.\n\nUse the read_graph tool once in overview mode, then use commit_graph to persist a coherent intent-plane graph. Requirements for the commit_graph call:\n- create at least four intent-plane nodes\n- include at least one goal, one requirement, one criterion, and one assumption\n- create at least three edges connecting the nodes\n- use only legal edge categories from the tool guidance\n- include stance only on support or proof edges\n- avoid decision and term nodes for this proof so detail schemas are not needed\n\nIf commit_graph returns STRUCTURAL_ILLEGAL, read the diagnostics and retry once with a corrected complete batch. Stop after a successful commit_graph result.`;
 }
@@ -577,7 +590,11 @@ function parseCliArgs(argv: readonly string[]): ProposeGraphCommitProofOptions {
       options.prompt = requiredValue(argv, (index += 1), arg);
     } else if (arg === '--scenario') {
       const scenarioId = requiredValue(argv, (index += 1), arg);
-      if (scenarioId !== 'direct-commit' && scenarioId !== 'existing-code-ref') {
+      if (
+        scenarioId !== 'direct-commit' &&
+        scenarioId !== 'existing-code-ref' &&
+        scenarioId !== 'retry-diagnostics'
+      ) {
         throw new Error(`Unsupported scenario ${scenarioId}`);
       }
       options.scenarioId = scenarioId;

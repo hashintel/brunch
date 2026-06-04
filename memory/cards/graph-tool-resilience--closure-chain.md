@@ -256,7 +256,7 @@ src/probes/
 
 ## Card 4 — Retry-diagnostics product-path probe
 
-Status: next
+Status: done
 
 ### Target Behavior
 

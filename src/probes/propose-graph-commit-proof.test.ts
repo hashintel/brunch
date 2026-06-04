@@ -167,6 +167,52 @@ describe('propose-graph commit proof report', () => {
     ]);
   });
 
+  it('classifies retry-diagnostics scenario first/final statuses and diagnostics', () => {
+    const sessionText = [
+      messageEntry(
+        'commit_graph',
+        {
+          status: 'structural_illegal',
+          diagnostics: [{ field: 'edges[0].stance', message: 'stance is required for proof edges' }],
+        },
+        'STRUCTURAL_ILLEGAL',
+      ),
+      messageEntry(
+        'commit_graph',
+        {
+          status: 'success',
+          lsn: 2,
+          createdNodes: { p1: { id: 1, code: 'CR1' }, p2: { id: 2, code: 'G1' } },
+          edges: [1],
+        },
+        'Graph committed successfully',
+      ),
+    ].join('\n');
+
+    const report = summarizeProposeGraphCommitProof({
+      runId: 'retry-run',
+      generatedAt: '2026-06-04T00:00:00.000Z',
+      cwd: '/tmp/brunch-proof',
+      specId: 7,
+      sessionId: 'session-1',
+      maxAttempts: 2,
+      sessionText,
+      overview: successfulOverview,
+      prompt: 'Retry after diagnostics.',
+      scenarioId: 'retry-diagnostics',
+    });
+
+    expect(report.success).toBe(true);
+    expect(report.firstAttemptStatus).toBe('structural_illegal');
+    expect(report.finalStatus).toBe('success');
+    expect(report.retryCount).toBe(1);
+    expect(report.attempts[0]?.diagnostics).toEqual([
+      { field: 'edges[0].stance', message: 'stance is required for proof edges' },
+    ]);
+    expect(report.finalGraph).toMatchObject({ nodeCount: 2, edgeCount: 1, lsn: 1 });
+    expect(report.friction).toEqual([]);
+  });
+
   it('fails closed when no commit_graph attempt succeeds', () => {
     const sessionText = messageEntry(
       'commit_graph',
