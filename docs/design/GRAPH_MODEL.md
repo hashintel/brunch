@@ -703,6 +703,32 @@ rubric. Additional prompting heuristics for kinds that need them:
   | is a bet about users/market/value | `thesis` |
   | just helps interpretation | keep as `context` |
 
+- **Interrogative content normalization.** Brunch has no
+  `question` kind — every intent node is a declarative claim.
+  When elicitation produces interrogative material ("Open
+  question: …", "Should we …?", "Is X true?"), rewrite into the
+  underlying declarative claim before authoring. Reserve graph
+  truth for what the question is *about*; track the question
+  itself, if it needs tracking, outside the graph as a worklist
+  or capture artifact, not as a node. Common rewrites:
+
+  | If the question is about… | Author as… |
+  | --- | --- |
+  | a possibly-false premise downstream depends on | `assumption` (rewrite as the latent premise) |
+  | how success or correctness will be judged | `criterion` (rewrite as the judgment claim) |
+  | which option to take among alternatives, still open | `context` (state that the choice is unresolved; preserve original wording in `body`) |
+  | a follow-up task with no stable declarative content yet | keep outside graph truth |
+
+  When such an unresolved-state `context` node is later resolved,
+  create a fresh `decision` and link
+  `decision -[supersession]-> context`. This preserves the
+  discovery-to-resolution arc without mutating either node and
+  without a dedicated `question` kind. Note that interrogative
+  rewriting is independent of the
+  `present_question` / `present_options` structured-exchange
+  surface — interrogatives are valid at the *prompt* layer; this
+  rule constrains only what enters the *graph*.
+
 ### Beyond the schema contract
 
 Two categories of agent-facing guidance live outside this document
