@@ -275,6 +275,48 @@ describe('graph tools end-to-end', () => {
     }
   });
 
+  it('read_graph neighborhood returns node-context markdown and typed details through the tool path', async () => {
+    const input = translateCommitGraph(
+      {
+        nodes: [
+          { ref: 'n1', plane: 'intent', kind: 'goal', title: 'Tool-visible goal', body: 'Selected body' },
+        ],
+        edges: [],
+      },
+      specId,
+    );
+    const commitResult = executor.commitGraph(input);
+    expect(commitResult.status).toBe('success');
+    if (commitResult.status !== 'success') return;
+
+    const tools = new Map<string, { execute(toolCallId: string, params: unknown): Promise<unknown> }>();
+    registerBrunchGraph(
+      {
+        registerTool(tool: { name: string; execute(toolCallId: string, params: unknown): Promise<unknown> }) {
+          tools.set(tool.name, tool);
+        },
+      } as never,
+      { specId, commandExecutor: executor, snapshots },
+    );
+
+    const result = (await tools.get('read_graph')!.execute('read-1', {
+      mode: 'neighborhood',
+      node_id: commitResult.nodes['n1'],
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+
+    expect(result.content[0]?.text).toContain('[Selected-spec node context]');
+    expect(result.content[0]?.text).toContain('Tool-visible goal');
+    expect(result.details).toMatchObject({
+      status: 'success',
+      anchor: { title: 'Tool-visible goal' },
+      neighbors: [],
+      edges: [],
+    });
+  });
+
   it('read_graph neighborhood for missing node returns not_found', () => {
     const result = snapshots.getNodeNeighborhood(999);
     const text = formatNeighborhoodResult(result);

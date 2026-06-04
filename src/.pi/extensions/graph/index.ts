@@ -12,15 +12,11 @@
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
+import { renderNodeContext } from '../../../agents/contexts/node.js';
 import type { CommandExecutor } from '../../../graph/command-executor.js';
 import type { GraphOverview, NeighborhoodResult } from '../../../graph/snapshot.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
-import {
-  translateCommitGraph,
-  formatCommitGraphResult,
-  formatGraphOverview,
-  formatNeighborhoodResult,
-} from './command-adapter.js';
+import { translateCommitGraph, formatCommitGraphResult, formatGraphOverview } from './command-adapter.js';
 import { CommitGraphParams, ReadGraphParams } from './tool-schemas.js';
 
 // ---------------------------------------------------------------------------
@@ -106,24 +102,27 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
 
     async execute(_toolCallId, params) {
       let text: string;
+      let details: GraphOverview | NeighborhoodResult;
 
       if (params.mode === 'overview') {
-        text = formatGraphOverview(snapshots.getGraphOverview());
+        const overview = snapshots.getGraphOverview();
+        text = formatGraphOverview(overview);
+        details = overview;
       } else {
         if (params.node_id == null) {
           throw new Error('node_id is required for neighborhood mode');
         }
-        text = formatNeighborhoodResult(
-          snapshots.getNodeNeighborhood(
-            params.node_id,
-            params.hops != null ? { hops: params.hops } : undefined,
-          ),
+        const neighborhood = snapshots.getNodeNeighborhood(
+          params.node_id,
+          params.hops != null ? { hops: params.hops } : undefined,
         );
+        text = renderNodeContext(neighborhood);
+        details = neighborhood;
       }
 
       return {
         content: [{ type: 'text' as const, text }],
-        details: {},
+        details,
       };
     },
   });
