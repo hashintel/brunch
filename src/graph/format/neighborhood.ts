@@ -13,7 +13,6 @@
  */
 
 import { markdownBullet } from '../../render/markdown.js';
-
 import type { ProjectedNeighborhood } from '../project/neighborhood.js';
 
 export function formatNeighborhood(projection: ProjectedNeighborhood): string {

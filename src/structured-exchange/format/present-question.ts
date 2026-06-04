@@ -9,7 +9,6 @@
  */
 
 import { joinMarkdownBlocks, markdownHeading } from '../../render/markdown.js';
-
 import type { PresentQuestionProjection } from '../project/present-question.js';
 
 export function formatPresentQuestion(projection: PresentQuestionProjection): string {

@@ -1,9 +1,9 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
-import { renderMarkdownResult } from './shared/markdown.js';
 import { formatPresentQuestion } from '../../../structured-exchange/format/present-question.js';
 import { projectPresentQuestion } from '../../../structured-exchange/project/present-question.js';
+import { renderMarkdownResult } from './shared/markdown.js';
 
 export const PRESENT_QUESTION_TOOL = 'present_question' as const;
 

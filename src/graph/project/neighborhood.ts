@@ -90,10 +90,7 @@ export function projectNeighborhood(
   };
 }
 
-function formatEdgeEndpoint(
-  id: number,
-  node: Pick<GraphNode, 'kind' | 'kindOrdinal'> | undefined,
-): string {
+function formatEdgeEndpoint(id: number, node: Pick<GraphNode, 'kind' | 'kindOrdinal'> | undefined): string {
   return node ? formatGraphNodeCode(node.kind, node.kindOrdinal) : `#${id}`;
 }
 

@@ -13,13 +13,7 @@
  * - any future transcript artifact or transcript-equivalence probes
  */
 
-import type {
-  ImageContent,
-  Message,
-  TextContent,
-  ThinkingContent,
-  ToolCall,
-} from '@earendil-works/pi-ai';
+import type { ImageContent, Message, TextContent, ThinkingContent, ToolCall } from '@earendil-works/pi-ai';
 import type { FileEntry, SessionEntry } from '@earendil-works/pi-coding-agent';
 import { buildSessionContext, convertToLlm } from '@earendil-works/pi-coding-agent';
 
@@ -46,7 +40,9 @@ function renderMarkdown(message: Message): string[] {
   }
 }
 
-function renderUserContent(content: Message['content'] | Extract<Message, { role: 'toolResult' }>['content']): string[] {
+function renderUserContent(
+  content: Message['content'] | Extract<Message, { role: 'toolResult' }>['content'],
+): string[] {
   if (typeof content === 'string') {
     return renderTextBlock(content);
   }
