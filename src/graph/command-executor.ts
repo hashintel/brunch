@@ -24,34 +24,43 @@ import * as schema from '../db/schema.js';
 import {
   formatCreatedGraphNode,
   planCommitGraphBatch,
-  type CreatedGraphNodes,
   type PlannedBatchEndpoint,
 } from './command-executor/commit-graph-batch.js';
+import type {
+  CommitGraphDryRunResult,
+  CommitGraphInput,
+  CommitGraphResult,
+  CommitGraphSuccess,
+  Diagnostic,
+  StructuralIllegal,
+} from './command-executor/commit-graph-types.js';
 import { type NodeBasis, type NodePlane } from './schema/nodes.js';
 
 export type ReadinessGrade = (typeof schema.READINESS_GRADES)[number];
+export type {
+  BatchEdgeInput,
+  BatchEdgeRef,
+  BatchNodeInput,
+  CommitGraphDryRunResult,
+  CommitGraphInput,
+  CommitGraphResult,
+  CommitGraphSuccess,
+  CreatedGraphNodeResult,
+  CreatedGraphNodes,
+  Diagnostic,
+  DryRunSuccess,
+  StructuralIllegal,
+} from './command-executor/commit-graph-types.js';
 
 // ---------------------------------------------------------------------------
 // Result types
 // ---------------------------------------------------------------------------
-
-/** A single validation problem discovered during structural checks. */
-export interface Diagnostic {
-  readonly field: string;
-  readonly message: string;
-}
 
 /** Successful command execution. */
 export interface CommandSuccess {
   readonly status: 'success';
   readonly nodeId: number;
   readonly lsn: number;
-}
-
-/** Structurally invalid input — validation failed before any write. */
-export interface StructuralIllegal {
-  readonly status: 'structural_illegal';
-  readonly diagnostics: readonly Diagnostic[];
 }
 
 /** Action requires human confirmation (M6 placeholder). */
@@ -67,19 +76,6 @@ export interface PolicyBlocked {
 /** Optimistic concurrency conflict (M6 placeholder). */
 export interface VersionConflict {
   readonly status: 'version_conflict';
-}
-
-/** Successful commitGraph batch execution. */
-export interface CommitGraphSuccess {
-  readonly status: 'success';
-  readonly lsn: number;
-  readonly createdNodes: CreatedGraphNodes;
-  readonly edges: readonly number[];
-}
-
-/** Successful dry-run validation without mutation. */
-export interface DryRunSuccess {
-  readonly status: 'success';
 }
 
 /** Successful reconciliation-need creation. */
@@ -131,12 +127,6 @@ export type CommandResult =
 
 /** Result of a createNode command. */
 export type CreateNodeResult = CommandSuccess | StructuralIllegal;
-
-/** Result of a commitGraph command. */
-export type CommitGraphResult = CommitGraphSuccess | StructuralIllegal;
-
-/** Result of a commitGraph dry-run validation. */
-export type CommitGraphDryRunResult = DryRunSuccess | StructuralIllegal;
 
 /** Result of a createReconciliationNeed command. */
 export type CreateReconNeedResult = ReconNeedSuccess | StructuralIllegal;
@@ -211,41 +201,6 @@ export interface CreateReconNeedInput {
 export interface ResolveReconNeedInput {
   readonly specId: number;
   readonly id: number;
-}
-
-// ---------------------------------------------------------------------------
-// Batch input types (commitGraph)
-// ---------------------------------------------------------------------------
-
-/** Reference to a node endpoint in a batch edge. */
-export type BatchEdgeRef = string | { readonly existing: number };
-
-/** A node to create inside a commitGraph batch. */
-export interface BatchNodeInput {
-  readonly ref: string;
-  readonly plane: NodePlane;
-  readonly kind: string;
-  readonly title: string;
-  readonly body?: string | undefined;
-  readonly source?: string | undefined;
-  readonly detail?: unknown;
-}
-
-/** An edge to create inside a commitGraph batch. */
-export interface BatchEdgeInput {
-  readonly category: string;
-  readonly source: BatchEdgeRef;
-  readonly target: BatchEdgeRef;
-  readonly stance?: string | undefined;
-  readonly rationale?: string | undefined;
-}
-
-/** Input for the commitGraph atomic batch mutation. */
-export interface CommitGraphInput {
-  readonly specId: number;
-  readonly basis?: NodeBasis | undefined;
-  readonly nodes: readonly BatchNodeInput[];
-  readonly edges: readonly BatchEdgeInput[];
 }
 
 // ---------------------------------------------------------------------------
@@ -633,11 +588,6 @@ export class CommandExecutor {
    * validation, the entire batch is rejected (I34-L).
    */
   commitGraph(input: CommitGraphInput): CommitGraphResult {
-    const preflight = this.planCommitGraph(input, this.db);
-    if (preflight.status === 'structural_illegal') {
-      return { status: 'structural_illegal', diagnostics: preflight.diagnostics };
-    }
-
     return this.db.transaction((tx) => {
       const planned = this.planCommitGraph(input, tx);
       if (planned.status === 'structural_illegal') {

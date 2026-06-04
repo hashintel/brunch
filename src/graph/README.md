@@ -65,6 +65,8 @@ graph/
     create/resolve reconciliation need
 
   command-executor/
+    commit-graph-types.ts
+      commitGraph input/result/diagnostic types re-exported by command-executor.ts
     commit-graph-batch.ts
       private commitGraph batch planner
       dry-run/commit structural parity
@@ -127,6 +129,8 @@ folder scaffolding until pressure is real.
 
 ```pseudo
 graph/command-executor/
+  commit-graph-types.ts
+    commitGraph input/result/diagnostic types re-exported by command-executor.ts
   commit-graph-batch.ts
     planned edge endpoints
     existing/batch ref validation

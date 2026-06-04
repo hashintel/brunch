@@ -49,28 +49,38 @@ export function translateCommitGraph(
   }));
 
   const diagnostics: Diagnostic[] = [];
-  const edges: BatchEdgeInput[] = params.edges.map((e, index) => ({
-    category: e.category,
-    source: resolveEdgeRef(e.source, resolveGraphNodeCode, `edges[${index}].source`, diagnostics),
-    target: resolveEdgeRef(e.target, resolveGraphNodeCode, `edges[${index}].target`, diagnostics),
-    stance: e.stance,
-    rationale: e.rationale,
-  }));
+  const edges: BatchEdgeInput[] = [];
+  for (const [index, e] of params.edges.entries()) {
+    const source = normalizeEdgeRef(e.source, resolveGraphNodeCode, `edges[${index}].source`, diagnostics);
+    const target = normalizeEdgeRef(e.target, resolveGraphNodeCode, `edges[${index}].target`, diagnostics);
+    if (source.status === 'invalid' || target.status === 'invalid') continue;
+    edges.push({
+      category: e.category,
+      source: source.ref,
+      target: target.ref,
+      stance: e.stance,
+      rationale: e.rationale,
+    });
+  }
 
   if (diagnostics.length > 0) return { status: 'structural_illegal', diagnostics };
   return { specId, basis: 'implicit', nodes, edges };
 }
 
-function resolveEdgeRef(
+type EdgeRefNormalization =
+  | { readonly status: 'valid'; readonly ref: BatchEdgeRef }
+  | { readonly status: 'invalid' };
+
+function normalizeEdgeRef(
   ref: string | { readonly existingCode: string },
   resolveGraphNodeCode: ResolveGraphNodeCode,
   field: string,
   diagnostics: Diagnostic[],
-): BatchEdgeRef {
-  if (typeof ref === 'string') return ref;
+): EdgeRefNormalization {
+  if (typeof ref === 'string') return { status: 'valid', ref };
   if (!parseGraphNodeCode(ref.existingCode)) {
     diagnostics.push({ field, message: `malformed graph node code "${ref.existingCode}"` });
-    return '__invalid_existing_code__';
+    return { status: 'invalid' };
   }
   const nodeId = resolveGraphNodeCode(ref.existingCode);
   if (nodeId === undefined) {
@@ -78,9 +88,9 @@ function resolveEdgeRef(
       field,
       message: `graph node code "${ref.existingCode}" does not resolve in the selected spec`,
     });
-    return '__unresolved_existing_code__';
+    return { status: 'invalid' };
   }
-  return { existing: nodeId };
+  return { status: 'valid', ref: { existing: nodeId } };
 }
 
 // ---------------------------------------------------------------------------

@@ -2,9 +2,15 @@ import { and, eq, inArray } from 'drizzle-orm';
 
 import type { BrunchDb } from '../../db/connection.js';
 import * as schema from '../../db/schema.js';
-import type { BatchEdgeInput, BatchEdgeRef, CommitGraphInput, Diagnostic } from '../command-executor.js';
 import type { EdgeCategory, EdgeStance } from '../schema/edges.js';
 import { formatGraphNodeCode, type NodeKind } from '../schema/nodes.js';
+import type {
+  BatchEdgeInput,
+  BatchEdgeRef,
+  CommitGraphInput,
+  CreatedGraphNodeResult,
+  Diagnostic,
+} from './commit-graph-types.js';
 
 const VALID_CATEGORIES = schema.EDGE_CATEGORIES as unknown as string[];
 const STANCE_REQUIRED_CATEGORIES = new Set(['proof', 'support']);
@@ -27,13 +33,6 @@ export interface PlannedBatchEdge {
 export interface CommitGraphBatchPlan {
   readonly edges: readonly PlannedBatchEdge[];
 }
-
-export interface CreatedGraphNodeResult {
-  readonly id: number;
-  readonly code: string;
-}
-
-export type CreatedGraphNodes = Readonly<Record<string, CreatedGraphNodeResult>>;
 
 export interface InsertedNodeRow {
   readonly id: number;

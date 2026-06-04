@@ -65,6 +65,29 @@ describe('CommandExecutor commitGraph', () => {
       expect(db.select().from(edges).all()).toHaveLength(1);
     });
 
+    it('plans commits inside the transaction before allocating an LSN', () => {
+      const guardedDb = db as BrunchDb & { select: BrunchDb['select'] };
+      const originalSelect = guardedDb.select;
+      let result: ReturnType<CommandExecutor['commitGraph']> | undefined;
+
+      guardedDb.select = (() => {
+        throw new Error('commitGraph planned outside its transaction');
+      }) as BrunchDb['select'];
+      try {
+        result = executor.commitGraph({
+          specId,
+          nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'Goal' }],
+          edges: [],
+        });
+      } finally {
+        guardedDb.select = originalSelect;
+      }
+
+      expect(result?.status).toBe('success');
+      expect(db.select().from(graphClock).get()!.lsn).toBe(1);
+      expect(db.select().from(nodes).all()).toHaveLength(1);
+    });
+
     it('allocates kind ordinals per spec, plane, and kind within multi-node batches', () => {
       const otherSpec = executor.createSpec({ name: 'Other Spec', slug: 'other' });
       if (otherSpec.status !== 'success') throw new Error('unreachable');
