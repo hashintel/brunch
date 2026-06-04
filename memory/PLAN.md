@@ -31,7 +31,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 
 ### Active
 
-1. `agents-composition-layer` — in-progress — P0 behavior black triangle: make goal/strategy/lens/grade/posture change prompt manifests and agent posture; retire `src/.pi/context` into `src/agents`.
+_None._
 
 ### Next
 
@@ -65,7 +65,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 - **Linear:** [FE-806](https://linear.app/hash/issue/FE-806/agent-prompt-resource-composition-runtime-manifests-and-snapshot)
 - **Branch:** `ln/fe-806-agents-composition-layer`
 - **Kind:** structural
-- **Status:** in-progress
+- **Status:** done
 - **Objective:** Build the D58-L/D59-L/D60-L `agents/` layer so runtime state changes behavior: `agents/state.ts` legal tuples and resource manifest metadata; `agents/compose.ts` runtime header + gated manifests; Brunch-owned markdown resources for definitions/goals/strategies/lenses/methods; agent-context snapshot renderers; and migration/deletion of the old `src/.pi/context` composer.
 - **Why now / unlocks:** Runtime vocabulary has landed, but stored axes are not enough. The POC needs switchable strategies/lenses/goals to change prompt posture and available resources before capture and review-cycle behavior can be judged plausibly.
 - **Acceptance:**
@@ -79,7 +79,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 - **Cross-cutting obligations:** Preserve D39-L sealed resource policy: manifest metadata is code-owned, not filesystem-discovered. Workspace posture is workspace-scoped header input, not spec/session/graph truth. Multi-spec discipline: composition reads the selected spec's grade/graph snapshots only.
 - **Traceability:** D25-L, D39-L, D40-L, D52-L, D58-L, D59-L, D60-L / I18-L, I33-L, I35-L, I38-L / A14-L, A22-L.
 - **Design docs:** `memory/SPEC.md` §Prompt/runtime profile architecture; `src/agents/README.md`; `src/.pi/README.md`.
-- **Current execution pointer:** Prompt manifests, selected-spec context renderers, product prompt-path snapshot wiring, and legacy `.pi/context` deletion are landed. Remaining slice: deterministic runtime-posture proof that transcript-backed strategy/lens switches produce materially different real product prompt posture.
+- **Current execution pointer:** Complete. Prompt manifests, selected-spec context renderers, product prompt-path snapshot wiring, legacy `.pi/context` deletion, and deterministic runtime-posture proof are landed.
 
 ### capture-response-to-graph
 
@@ -216,6 +216,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 
 ## Recently Completed
 
+- 2026-06-04 `agents-composition-layer` (FE-806) — Done: `agents/state.ts`/`compose.ts` emit runtime headers and gated prompt-resource manifests; `agents/contexts/{cwd,graph,node}.ts` renders selected-spec context with lens-specific emphasis; the real `.pi` `before_agent_start` product path supplies selected-spec-bound graph snapshots from the Brunch runtime factory; the legacy `src/.pi/context/` prompt-pack subtree is deleted after folding its useful guidance into `src/agents/methods/*.md`; deterministic product-path proof records strategy/lens posture differences and accepted blind spots. Verified: context/compose/prompting/architecture tests and `npm run verify`. Watch: prompt quality is fitness evidence only; graph-write resilience and capture quality remain with the next P0 frontiers.
 - 2026-06-04 `live-graph-observer` (FE-795) — Done: `graph.overview` and `graph.nodeNeighborhood` are discoverable selected-spec RPC reads; graph readers remain in `graph/`; TUI/agent `commit_graph` publishes graph invalidation topics through the shared product-update bus; the TUI launch path starts a read-only web sidecar over the same bus; the React web app attaches over one WebSocket RPC client, renders the selected-spec graph overview, and invalidates/refetches canonical graph readers on `brunch.updated`. Verified: targeted FE-795 test set (`src/rpc/handlers.test.ts`, `src/rpc/web-host.test.ts`, `src/web/app.test.tsx`, `src/brunch-tui.test.ts`, `src/graph/snapshot.test.ts`, `src/graph/spec-ownership.test.ts`), `npm run build`, and a 2026-06-04 `agent-browser` smoke that observed empty graph state then a `commit_graph`-created node in the browser without reload. Watch: richer node-neighborhood UI remains optional polish; the current proof exposes/query-backs the focused read and renders the overview.
 - 2026-06-02 `agent-graph-integration` enabling slices — Done inside FE-785: runtime vocabulary fixed; source moved from `src/tui-client/.pi` to `src/.pi`; real `read_graph`/`commit_graph` Pi tools route through `CommandExecutor`; default Brunch runtime factory registers graph tools; A14 `propose-graph → commitGraph` probe persisted 4 nodes + 4 edges on first attempt; review-set dry-run gate validates/filters proposal payloads. Verified: targeted tests, `.fixtures/runs/propose-graph-commit/2026-06-02-propose-graph-commit/`, and `npm run verify`. Watch: broad FE-785 bucket is now split into delivery frontiers above.
 - 2026-06-02 `spec-persistence-and-startup` — Done: specs are DB rows with integer ids and `readiness_grade`; `createSpec` / `getSpec` / `updateReadinessGrade` route through `CommandExecutor` with change-log audit; startup scaffolds `.brunch/workspace.json` + `.brunch/data.db`; session binding collapsed to `{schemaVersion,specId}` and is fork-portable; inventory resolves spec names from DB. Verified: `npm run verify` and real `brunch --mode print` against a fresh cwd. Watch: richer multi-spec initiative/claim model remains deferred by D61-L.

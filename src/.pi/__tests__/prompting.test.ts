@@ -330,6 +330,89 @@ describe('Brunch prompt-pack topology', () => {
     });
   });
 
+  it('proves transcript-backed strategy and lens switches change product prompt posture', async () => {
+    const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
+
+    await createBrunchPiExtensionShell(
+      {
+        cwd: '/tmp/brunch',
+        chatMode: 'responding-to-elicitation',
+        phase: 'elicitation',
+        spec: { id: 1, title: 'Spec' },
+        session: { id: 'session-1', label: 'Session' },
+      },
+      undefined,
+      {
+        coordinator: {} as never,
+        graphMentionSource: { listMentionCandidates: () => [] },
+        promptContext,
+      },
+    )({
+      on: (eventName: string, handler: (event: never, ctx?: never) => unknown) => {
+        events[eventName] ??= [];
+        events[eventName].push(handler);
+      },
+      registerTool() {},
+      registerCommand() {},
+      registerShortcut() {},
+      registerMessageRenderer() {},
+      sendMessage() {},
+      getAllTools: () => ['read', 'grep', 'present_options'].map((name) => ({ name })),
+      setActiveTools() {},
+    } as never);
+
+    async function promptFor(state: BrunchAgentState): Promise<string> {
+      const results = await Promise.all(
+        (events.before_agent_start ?? []).map((handler) =>
+          Promise.resolve(
+            handler(
+              { systemPrompt: 'base' } as never,
+              { sessionManager: { getEntries: () => [runtimeEntry(state)] } } as never,
+            ),
+          ),
+        ),
+      );
+      const promptResult = results.find(
+        (result) => typeof (result as { systemPrompt?: unknown } | undefined)?.systemPrompt === 'string',
+      ) as { systemPrompt: string } | undefined;
+      return promptResult?.systemPrompt ?? '';
+    }
+
+    const disambiguateIntentPrompt = await promptFor({
+      ...DEFAULT_BRUNCH_AGENT_STATE,
+      agentStrategy: 'step-wise-disambiguate',
+      agentLens: 'intent',
+      agentGoal: 'elicit-expand',
+    });
+    const proposeDesignPrompt = await promptFor({
+      ...DEFAULT_BRUNCH_AGENT_STATE,
+      agentStrategy: 'propose-graph',
+      agentLens: 'design',
+      agentGoal: 'elicit-expand',
+    });
+    const acceptedBlindSpots = [
+      'prompt/body quality is fitness evidence',
+      'graph-write reliability remains with graph-tool-resilience',
+      'capture quality remains with capture-response-to-graph',
+    ];
+
+    expect(disambiguateIntentPrompt).toContain('name="step-wise-disambiguate"');
+    expect(disambiguateIntentPrompt).not.toContain('name="propose-graph"');
+    expect(proposeDesignPrompt).toContain('name="propose-graph"');
+    expect(proposeDesignPrompt).not.toContain('name="step-wise-disambiguate"');
+    expect(disambiguateIntentPrompt).toContain('[Selected-spec graph context · intent lens]');
+    expect(disambiguateIntentPrompt).toContain('intent claims, terms, assumptions');
+    expect(proposeDesignPrompt).toContain('[Selected-spec graph context · design lens]');
+    expect(proposeDesignPrompt).toContain('design modules/interfaces');
+    expect(disambiguateIntentPrompt).toContain('Clarify Brunch prompt posture');
+    expect(proposeDesignPrompt).toContain('Clarify Brunch prompt posture');
+    expect(acceptedBlindSpots).toEqual([
+      'prompt/body quality is fitness evidence',
+      'graph-write reliability remains with graph-tool-resilience',
+      'capture quality remains with capture-response-to-graph',
+    ]);
+  });
+
   it('does not expose prompt manifests through Pi resource discovery or legacy context imports', async () => {
     const [promptingSource, shellSource] = await Promise.all([
       readFile(join(projectRoot(), 'src/.pi/extensions/prompting.ts'), 'utf8'),
