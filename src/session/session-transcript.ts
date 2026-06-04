@@ -2,23 +2,19 @@ import { readFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { ToolResultMessage } from '@earendil-works/pi-ai';
 import type {
-  CustomEntry,
-  CustomMessageEntry,
-  FileEntry,
-  SessionHeader,
-  SessionMessageEntry,
-} from '@earendil-works/pi-coding-agent';
-
-import {
-  isStructuredExchangePresentDetails,
-  isStructuredExchangeRequestDetails,
-} from '../.pi/extensions/structured-exchange/shared/recovery.js';
+  ImageContent,
+  Message,
+  TextContent,
+  ThinkingContent,
+  ToolCall,
+  ToolResultMessage,
+  UserMessage,
+} from '@earendil-works/pi-ai';
+import type { FileEntry, SessionEntry } from '@earendil-works/pi-coding-agent';
+import { buildSessionContext, convertToLlm } from '@earendil-works/pi-coding-agent';
 
 type TranscriptEntry = FileEntry;
-
-type TranscriptToolResultMessage = ToolResultMessage<unknown>;
 
 export async function renderSessionTranscriptFile(sessionFile: string): Promise<string> {
   const text = await readFile(sessionFile, 'utf8');
@@ -27,10 +23,11 @@ export async function renderSessionTranscriptFile(sessionFile: string): Promise<
 
 export function renderSessionTranscript(jsonl: string, options: { title?: string } = {}): string {
   const entries = parseJsonl(jsonl);
+  const messages = renderableMessages(llmMessages(entries));
   const lines: string[] = [`# Transcript${options.title ? ` — ${options.title}` : ''}`];
 
-  for (const entry of entries) {
-    lines.push('', ...renderEntry(entry));
+  for (const [index, message] of messages.entries()) {
+    lines.push('', ...renderMessage(message, index + 1));
   }
 
   return `${lines.join('\n').trimEnd()}\n`;
@@ -50,131 +47,88 @@ function parseJsonl(jsonl: string): FileEntry[] {
     });
 }
 
-function renderEntry(entry: TranscriptEntry): string[] {
-  if (isSessionHeaderEntry(entry)) {
-    return renderSessionHeader(entry);
+function llmMessages(entries: TranscriptEntry[]): Message[] {
+  const sessionEntries = entries.filter((entry): entry is SessionEntry => entry.type !== 'session');
+  return convertToLlm(buildSessionContext(sessionEntries).messages);
+}
+
+function renderableMessages(messages: Message[]): Message[] {
+  return messages.filter((message) => renderMarkdown(message).length > 0);
+}
+
+function renderMessage(message: Message, index: number): string[] {
+  switch (message.role) {
+    case 'user':
+      return renderUserMessage(message, index);
+    case 'assistant':
+      return renderAssistantMessage(message, index);
+    case 'toolResult':
+      return renderToolResult(message, index);
   }
+}
 
-  if (isCustomTranscriptEntry(entry)) {
-    return renderCustomEntry(entry);
+function renderUserMessage(message: UserMessage, index: number): string[] {
+  return [`## ${index}. User`, '', ...renderUserContent(message.content)];
+}
+
+function renderAssistantMessage(message: Extract<Message, { role: 'assistant' }>, index: number): string[] {
+  return [`## ${index}. Assistant`, '', ...renderMarkdown(message)];
+}
+
+function renderToolResult(message: ToolResultMessage<unknown>, index: number): string[] {
+  return [`## ${index}. Tool result: ${message.toolName}`, '', ...renderMarkdown(message)];
+}
+
+function renderUserContent(
+  content: UserMessage['content'] | ToolResultMessage<unknown>['content'],
+): string[] {
+  if (typeof content === 'string') {
+    return renderTextBlock(content);
   }
+  return renderTextBlocks(content);
+}
 
-  if (isMessageEntry(entry)) {
-    return renderMessageEntry(entry);
+function renderMarkdown(message: Message): string[] {
+  switch (message.role) {
+    case 'user':
+      return renderUserContent(message.content);
+    case 'assistant':
+      return renderTextBlocks(message.content);
+    case 'toolResult':
+      return renderUserContent(message.content);
   }
-
-  return [`## Entry ${entryId(entry)}`, '', '```json', JSON.stringify(entry, null, 2), '```'];
 }
 
-function renderSessionHeader(entry: SessionHeader): string[] {
-  const fields = [
-    typeof entry.id === 'string' ? `- session: ${entry.id}` : undefined,
-    typeof entry.cwd === 'string' ? `- cwd: ${entry.cwd}` : undefined,
-  ].filter((line): line is string => line !== undefined);
-  return ['## Session', '', ...(fields.length > 0 ? fields : ['- session metadata present'])];
+function renderTextBlocks(content: Array<TextContent | ImageContent | ThinkingContent | ToolCall>): string[] {
+  const rendered = content.flatMap((block) => {
+    if (!isTextContent(block)) {
+      return [];
+    }
+    return renderTextBlock(block.text);
+  });
+  return rendered.length > 0 ? interleaveBlankLines(rendered) : [];
 }
 
-function renderCustomEntry(entry: CustomEntry | CustomMessageEntry): string[] {
-  const customType = typeof entry.customType === 'string' ? entry.customType : 'custom';
-  const title = customType === 'brunch.session_binding' ? 'Session binding' : `Custom: ${customType}`;
-  const payload = entry.type === 'custom_message' ? entry.details : entry.data;
-  const text = textContent(entry.type === 'custom_message' ? entry.content : undefined);
-  const body: string[] = [];
-  if (text.length > 0) body.push(text);
-  if (payload !== undefined) {
-    body.push('```json', JSON.stringify(payload, null, 2), '```');
+function isTextContent(
+  block: TextContent | ImageContent | ThinkingContent | ToolCall,
+): block is TextContent {
+  return block.type === 'text';
+}
+
+function renderTextBlock(text: string): string[] {
+  const trimmed = text.trim();
+  return trimmed.length > 0 ? [trimmed] : ['_(empty)_'];
+}
+
+function interleaveBlankLines(lines: string[]): string[] {
+  const output: string[] = [];
+  for (const line of lines) {
+    if (output.length > 0 && line !== '' && output.at(-1) !== '') {
+      output.push('');
+    }
+    output.push(line);
   }
-  return [`## ${title}`, '', ...(body.length > 0 ? body : ['_(no display content)_'])];
-}
-
-function renderMessageEntry(entry: SessionMessageEntry): string[] {
-  const message = entry.message;
-  if (!message || typeof message !== 'object') {
-    return [`## Message ${entryId(entry)}`, '', '_(missing message payload)_'];
-  }
-
-  if (isToolResultMessage(message)) {
-    return renderToolResult(entry, message);
-  }
-
-  const role = typeof message.role === 'string' ? titleCase(message.role) : 'Message';
-  const text = textContent((message as unknown as Record<string, unknown>).content);
-  return [`## ${role}`, '', text.length > 0 ? text : '_(empty)_'];
-}
-
-function renderToolResult(_entry: SessionMessageEntry, message: TranscriptToolResultMessage): string[] {
-  const details = message.details;
-  const present = structuredPresent(details);
-  if (present) {
-    const expected =
-      present.expectedRequest && typeof present.expectedRequest.tool === 'string'
-        ? ` → ${present.expectedRequest.tool}`
-        : '';
-    return [
-      `## Exchange ${present.exchangeId} — prompt (${present.presentTool}${expected})`,
-      '',
-      textContent(message.content) || '_(empty prompt)_',
-    ];
-  }
-
-  const request = structuredRequest(details);
-  if (request) {
-    return [
-      `## Exchange ${request.exchangeId} — response (${request.requestTool}, ${request.status})`,
-      '',
-      textContent(message.content) || '_(empty response)_',
-    ];
-  }
-
-  return [];
-}
-
-function structuredPresent(value: unknown) {
-  return isStructuredExchangePresentDetails(value) ? value : null;
-}
-
-function structuredRequest(value: unknown) {
-  return isStructuredExchangeRequestDetails(value) ? value : null;
-}
-
-function textContent(content: unknown): string {
-  if (typeof content === 'string') return content.trim();
-  if (!Array.isArray(content)) return '';
-  return content
-    .map((part) => (isRecord(part) && typeof part.text === 'string' ? part.text : ''))
-    .filter((text) => text.length > 0)
-    .join('\n')
-    .trim();
-}
-
-function isSessionHeaderEntry(entry: TranscriptEntry): entry is SessionHeader {
-  return entry.type === 'session';
-}
-
-function isCustomTranscriptEntry(entry: TranscriptEntry): entry is CustomEntry | CustomMessageEntry {
-  return entry.type === 'custom' || entry.type === 'custom_message';
-}
-
-function isMessageEntry(entry: TranscriptEntry): entry is SessionMessageEntry {
-  return entry.type === 'message';
-}
-
-function isToolResultMessage(
-  message: SessionMessageEntry['message'],
-): message is TranscriptToolResultMessage {
-  return message.role === 'toolResult';
-}
-
-function entryId(entry: TranscriptEntry): string {
-  return typeof entry.id === 'string' ? entry.id : '(unknown)';
-}
-
-function titleCase(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return output;
 }
 
 async function main(): Promise<void> {

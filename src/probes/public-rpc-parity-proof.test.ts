@@ -67,9 +67,10 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
 
     expect(sessionJsonl).toContain('"toolName":"present_options"');
     expect(transcript).toContain('# Transcript — session.jsonl');
-    expect(transcript).toContain('## Exchange');
-    expect(transcript).toContain('— prompt (present_');
-    expect(transcript).toContain('— response (request_');
+    expect(transcript).toContain('Tool result: present_options');
+    expect(transcript).toContain('Tool result: request_choice');
+    expect(transcript).toContain('Tool result: request_answer');
+    expect(transcript).toContain('Tool result: request_choices');
     expect(persistedReport).toMatchObject({
       schemaVersion: 1,
       probeId: 'public-rpc-parity',
@@ -86,7 +87,6 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
     expect(transcript.match(/Is this a new product or feature from scratch\?/g) ?? []).toHaveLength(1);
     for (const exchangeId of persistedReport.exchangeIds) {
       expect(sessionJsonl).toContain(exchangeId);
-      expect(transcript).toContain(exchangeId);
     }
   });
 });
