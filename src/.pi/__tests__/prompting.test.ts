@@ -4,11 +4,12 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { composeBrunchPrompt } from '../context/compose-brunch-prompt.js';
+import { composeAgentPrompt } from '../../agents/compose.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
   appendBrunchAgentRuntimeSwitch,
+  projectBrunchAgentState,
   type BrunchAgentState,
   type BrunchAgentStateEntryData,
   registerBrunchOperationalModePolicy,
@@ -46,44 +47,50 @@ class FakeRuntimeStateSessionManager {
   }
 }
 
+const promptContext = {
+  spec: { id: 1, name: 'Spec', readinessGrade: 'commitments_ready' as const },
+  workspace: {
+    cwd: '/tmp/brunch',
+    posture: {
+      certainty: 'proving',
+      stakes: 'high',
+      audience: 'internal',
+      horizon: 'current-milestone',
+      migration: 'free-rewrite',
+      sourcing: 'strip-or-build',
+    },
+  },
+};
+
 describe('Brunch prompt-pack topology', () => {
-  it('composes deterministic private prompt packs in stable order', () => {
-    const result = composeBrunchPrompt({
-      operationalMode: 'elicit',
-      agentRole: 'elicitor',
-      agentStrategy: 'step-wise-decision-tree',
-      agentLens: 'intent',
-      agentGoal: 'auto',
+  it('composes gated Brunch resource manifests instead of eager private prompt packs', () => {
+    const result = composeAgentPrompt({
+      agentId: 'elicitor',
+      sessionState: projectBrunchAgentState([
+        runtimeEntry({
+          ...DEFAULT_BRUNCH_AGENT_STATE,
+          agentStrategy: 'step-wise-decision-tree',
+          agentLens: 'intent',
+          agentGoal: 'auto',
+        }),
+      ]),
+      spec: promptContext.spec,
+      workspace: promptContext.workspace,
       activeTools: ['read', 'grep', 'present_options'],
     });
 
-    expect(result.packIds).toEqual([
-      'brunch-base',
-      'elicit',
-      'elicitor',
-      'structured-exchange',
-      'candidate-proposals',
-      'capture-analysis',
-    ]);
-    expect(result.prompt).toContain('[Brunch agent state]');
-    expect(result.prompt).toContain('Operational mode: elicit.');
-    expect(result.prompt).toContain('Agent role: elicitor.');
-    expect(result.prompt).toContain('Agent goal: auto.');
-    expect(result.prompt).toContain('Agent strategy: step-wise-decision-tree.');
-    expect(result.prompt).toContain('Agent lens: intent.');
-    expect(result.prompt).toContain('Brunch exposes only elicit-safe tools: read, grep, present_options.');
-    expect(result.prompt.indexOf('# Brunch base')).toBeLessThan(
-      result.prompt.indexOf('# Operational mode: elicit'),
-    );
-    expect(result.prompt.indexOf('# Structured exchanges')).toBeLessThan(
-      result.prompt.indexOf('# Candidate proposals'),
-    );
-    expect(result.prompt).toContain('Request outcomes are an exactly-one property-presence union');
-    expect(result.prompt).toContain(
-      '`graph_refs` are per-candidate and strictly existing graph node references',
-    );
-    expect(result.prompt).toContain('Capture is transcript-native analysis, not graph mutation.');
-    expect(result.prompt).not.toContain('CommandExecutor result shapes');
+    expect(result.prompt).toContain('[Brunch agent control]');
+    expect(result.prompt).toContain('- op_mode: elicit');
+    expect(result.prompt).toContain('- goal: auto');
+    expect(result.prompt).toContain('- strategy: step-wise-decision-tree');
+    expect(result.prompt).toContain('- lens: intent');
+    expect(result.prompt).toContain('<available_goals>');
+    expect(result.prompt).toContain('<available_strategies>');
+    expect(result.prompt).toContain('<available_lenses>');
+    expect(result.prompt).toContain('<available_methods>');
+    expect(result.prompt).toContain('name="step-wise-decision-tree"');
+    expect(result.prompt).not.toContain('# Brunch base');
+    expect(result.prompt).not.toContain('Request outcomes are an exactly-one property-presence union');
   });
 
   it('appends composed Brunch prompting from runtime-state projection', async () => {
@@ -95,15 +102,18 @@ describe('Brunch prompt-pack topology', () => {
     };
     const events: Record<string, (event: never, ctx?: never) => unknown> = {};
 
-    registerBrunchPrompting({
-      on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
-        events[event] = handler;
-      },
-      getAllTools: () =>
-        ['read', 'grep', 'bash', 'write', 'present_options'].map((name) => ({
-          name,
-        })),
-    } as never);
+    registerBrunchPrompting(
+      {
+        on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
+          events[event] = handler;
+        },
+        getAllTools: () =>
+          ['read', 'grep', 'bash', 'write', 'present_options'].map((name) => ({
+            name,
+          })),
+      } as never,
+      promptContext,
+    );
 
     const result = await Promise.resolve(
       events.before_agent_start?.(
@@ -117,15 +127,13 @@ describe('Brunch prompt-pack topology', () => {
     );
 
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('base\n\n[Brunch agent state]'),
+      systemPrompt: expect.stringContaining('base\n\n[Brunch agent control]'),
     });
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('Agent strategy: step-wise-disambiguate.'),
+      systemPrompt: expect.stringContaining('- strategy: step-wise-disambiguate'),
     });
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining(
-        'Brunch exposes only elicit-safe tools: read, grep, present_options.',
-      ),
+      systemPrompt: expect.stringContaining('- active tools: read, grep, present_options'),
     });
   });
 
@@ -145,7 +153,7 @@ describe('Brunch prompt-pack topology', () => {
       setActiveTools: (tools: string[]) => activeTools.push(tools),
     };
     registerBrunchOperationalModePolicy(pi as never);
-    registerBrunchPrompting(pi as never);
+    registerBrunchPrompting(pi as never, promptContext);
 
     for (const handler of events.session_start ?? []) {
       await handler({} as never, { sessionManager: manager } as never);
@@ -191,15 +199,16 @@ describe('Brunch prompt-pack topology', () => {
       ['read', 'grep', 'present_options'],
     ]);
     expect(defaultPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('Agent strategy: auto.'),
+      systemPrompt: expect.stringContaining('- strategy: auto'),
     });
     expect(switchedPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('Agent strategy: propose-graph.'),
+      systemPrompt: expect.stringContaining('- strategy: propose-graph'),
     });
   });
 
-  it('is registered by the explicit shell after operational-mode policy', async () => {
+  it('is registered by the explicit shell after operational-mode policy and appends composed manifests', async () => {
     const eventNames: string[] = [];
+    const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
 
     await createBrunchPiExtensionShell(
       {
@@ -213,9 +222,14 @@ describe('Brunch prompt-pack topology', () => {
       {
         coordinator: {} as never,
         graphMentionSource: { listMentionCandidates: () => [] },
+        promptContext,
       },
     )({
-      on: (eventName: string) => eventNames.push(eventName),
+      on: (eventName: string, handler: (event: never, ctx?: never) => unknown) => {
+        eventNames.push(eventName);
+        events[eventName] ??= [];
+        events[eventName].push(handler);
+      },
       registerTool() {},
       registerCommand() {},
       registerShortcut() {},
@@ -229,23 +243,48 @@ describe('Brunch prompt-pack topology', () => {
     const userBashPolicyIndex = eventNames.indexOf('user_bash');
     const promptingIndex = eventNames.indexOf('before_agent_start', userBashPolicyIndex + 1);
     const nextBeforeAgentStartIndex = eventNames.indexOf('before_agent_start', promptingIndex + 1);
+    const switchedState: BrunchAgentState = {
+      ...DEFAULT_BRUNCH_AGENT_STATE,
+      agentStrategy: 'step-wise-disambiguate',
+      agentLens: 'design',
+      agentGoal: 'elicit-expand',
+    };
+    const promptResults = await Promise.all(
+      (events.before_agent_start ?? []).map((handler) =>
+        Promise.resolve(
+          handler(
+            { systemPrompt: 'base' } as never,
+            { sessionManager: { getEntries: () => [runtimeEntry(switchedState)] } } as never,
+          ),
+        ),
+      ),
+    );
+    const promptResult = promptResults.find(
+      (result) => typeof (result as { systemPrompt?: unknown } | undefined)?.systemPrompt === 'string',
+    );
 
     expect(operationalToolPolicyIndex).toBeGreaterThan(-1);
     expect(userBashPolicyIndex).toBeGreaterThan(operationalToolPolicyIndex);
     expect(promptingIndex).toBeGreaterThan(userBashPolicyIndex);
     expect(promptingIndex).toBeLessThan(nextBeforeAgentStartIndex);
+    expect(promptResult).toMatchObject({
+      systemPrompt: expect.stringContaining('<available_strategies>'),
+    });
+    expect(promptResult).toMatchObject({
+      systemPrompt: expect.stringContaining('name="step-wise-disambiguate"'),
+    });
   });
 
-  it('does not expose private prompt packs through Pi resource discovery', async () => {
-    const [promptingSource, composerSource] = await Promise.all([
+  it('does not expose prompt manifests through Pi resource discovery or legacy context imports', async () => {
+    const [promptingSource, shellSource] = await Promise.all([
       readFile(join(projectRoot(), 'src/.pi/extensions/prompting.ts'), 'utf8'),
-      readFile(join(projectRoot(), 'src/.pi/context/compose-brunch-prompt.ts'), 'utf8'),
+      readFile(join(projectRoot(), 'src/.pi/pi-extension-shell.ts'), 'utf8'),
     ]);
 
     expect(promptingSource).not.toContain('resources_discover');
     expect(promptingSource).not.toContain('promptPaths');
-    expect(composerSource).not.toContain('resources_discover');
-    expect(composerSource).not.toContain('promptPaths');
+    expect(promptingSource).not.toContain('compose-brunch-prompt');
+    expect(shellSource).not.toContain('compose-brunch-prompt');
   });
 });
 

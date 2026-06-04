@@ -159,7 +159,24 @@ export function createBrunchAgentSessionRuntimeFactory({
           async (replacementSessionManager) => {
             await coordinator.bindCurrentSpecToReplacementSession(replacementSessionManager);
           },
-          { coordinator, graph: graphDeps },
+          {
+            coordinator,
+            graph: graphDeps,
+            promptContext: () => {
+              const selectedSpec = graph.commandExecutor.getSpec(specId);
+              if (!selectedSpec) {
+                throw new Error(`No selected spec found for Brunch prompt context: ${specId}`);
+              }
+              return {
+                spec: {
+                  id: selectedSpec.id,
+                  name: selectedSpec.name,
+                  readinessGrade: selectedSpec.readinessGrade,
+                },
+                workspace: { cwd },
+              };
+            },
+          },
         ),
       ],
     });

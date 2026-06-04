@@ -79,7 +79,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 - **Cross-cutting obligations:** Preserve D39-L sealed resource policy: manifest metadata is code-owned, not filesystem-discovered. Workspace posture is workspace-scoped header input, not spec/session/graph truth. Multi-spec discipline: composition reads the selected spec's grade/graph snapshots only.
 - **Traceability:** D25-L, D39-L, D40-L, D52-L, D58-L, D59-L, D60-L / I18-L, I33-L, I35-L, I38-L / A14-L, A22-L.
 - **Design docs:** `memory/SPEC.md` §Prompt/runtime profile architecture; `src/agents/README.md`; `src/.pi/README.md`.
-- **Current execution pointer:** First slice should be `agents/state.ts` + `compose.ts` skeleton over the landed runtime vocabulary, then minimal P0 resource authoring, then snapshots, then deletion of `src/.pi/context`.
+- **Current execution pointer:** Prompt manifest skeleton is landed on the product `before_agent_start` path: `agents/state.ts`, `agents/compose.ts`, first P0 resource files, readable manifest tests, and `.pi` prompting adapter wiring. Remaining slices: snapshot/context renderers, fuller resource authoring, and deletion of legacy `src/.pi/context` files once their content is rehomed.
 
 ### capture-response-to-graph
 

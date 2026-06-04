@@ -11,7 +11,7 @@ import {
   registerBrunchMentionAutocomplete,
 } from './extensions/mention-autocomplete.js';
 import { registerBrunchOperationalModePolicy } from './extensions/operational-mode.js';
-import { registerBrunchPrompting } from './extensions/prompting.js';
+import { registerBrunchPrompting, type BrunchPromptContextProvider } from './extensions/prompting.js';
 import { registerBrunchSessionBoundary } from './extensions/session-lifecycle.js';
 import { type BrunchSessionBoundaryHandler } from './extensions/session-lifecycle.js';
 import { registerStructuredExchange } from './extensions/structured-exchange/index.js';
@@ -86,6 +86,7 @@ export {
 export interface BrunchPiExtensionShellOptions extends BrunchSpecSessionPickerOptions {
   graphMentionSource?: GraphMentionSource;
   graph?: BrunchGraphDeps;
+  promptContext?: BrunchPromptContextProvider;
 }
 
 type BrunchProductExtensionRegistrar = (pi: ExtensionAPI) => void | Promise<void>;
@@ -102,7 +103,7 @@ export function createBrunchPiExtensionShell(
       (api) => registerBrunchChrome(api, chrome),
       registerBrunchBranchPolicyHandlers,
       registerBrunchOperationalModePolicy,
-      registerBrunchPrompting,
+      (api) => registerBrunchPrompting(api, options.promptContext),
       (api) => registerBrunchMentionAutocomplete(api, graphMentionSource),
       registerBrunchAlternatives,
       registerStructuredExchange,

@@ -61,6 +61,7 @@ the React client in `src/web/` (formerly `web-client/`); shared test helpers
 in `src/probes/`. The active workspace file is `.brunch/workspace.json`
 (`state.json` is retired).
 
-Still pending: prompt composition under `src/.pi/context/` migrates to
-`src/agents/` per D52-L — deferred until the agent-runtime vocabulary work,
-since that move reconciles the strategy/lens model rather than just relocating it.
+Prompt composition has moved to `src/agents/compose.ts` per D52-L/D58-L. The
+remaining `src/.pi/context/` files are legacy source material only; product code
+must not import that composer while the rest of the frontier rehomes/deletes old
+prompt-pack content.

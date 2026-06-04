@@ -102,14 +102,16 @@ agents/
 - `.pi/extensions/` prompt registrar — calls `compose()` at turn boundaries.
 - `.pi/extensions/operational-mode.ts` — reads the state enums from `state.ts`.
 
-## Migration from .pi/context/ (owned by frontier work, not yet done)
+## Migration from .pi/context/ (in progress)
 
-`state.ts` enums land with **agent-runtime-vocabulary**; everything else (compose,
-resources, contexts, the migration itself) lands with **agents-composition-layer**.
+`state.ts`, `compose.ts`, `index.ts`, and the first code-owned resource manifests
+now live here. Product prompting imports `agents/compose.ts`; remaining
+`src/.pi/context/` files are legacy source material until later cards rehome or
+delete their content.
 
 | Current (.pi/context/)                          | Target                              | Kind     |
 |-------------------------------------------------|-------------------------------------|----------|
-| `compose-brunch-prompt.ts`                      | `agents/compose.ts`                 | rewrite  |
+| `compose-brunch-prompt.ts`                      | `agents/compose.ts`                 | product path moved; legacy file pending deletion |
 | `prompt-packs/{brunch-base,elicit,elicitor}.md` | `agents/definitions/elicitor.md`    | fold     |
 | `prompt-packs/structured-exchange.md`           | `agents/methods/run-structured-exchange.md` | fold |
 | `prompt-packs/capture-analysis.md`              | `agents/methods/infer-and-capture.md` | rehome |

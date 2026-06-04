@@ -1,0 +1,20 @@
+export {
+  composeAgentPrompt,
+  type AgentPromptSpecContext,
+  type AgentPromptWorkspaceContext,
+  type ComposeAgentPromptInput,
+  type ComposeAgentPromptResult,
+} from './compose.js';
+export {
+  AGENT_PROMPT_DEFINITIONS,
+  GOAL_RESOURCES,
+  LENS_RESOURCES,
+  METHOD_RESOURCES,
+  STRATEGY_RESOURCES,
+  manifestsForState,
+  type AgentPromptDefinition,
+  type MethodId,
+  type PromptManifests,
+  type PromptResourceManifestEntry,
+  type ReadinessGrade,
+} from './state.js';

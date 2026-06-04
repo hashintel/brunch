@@ -425,7 +425,13 @@ describe('Brunch TUI boot', () => {
       (sessionManager) => {
         boundSessionIds.push(sessionManager.getSessionId());
       },
-      { coordinator: noOpWorkspaceCoordinator(cwd) },
+      {
+        coordinator: noOpWorkspaceCoordinator(cwd),
+        promptContext: {
+          spec: { id: 1, name: 'Spec One', readinessGrade: 'grounding_onboarding' },
+          workspace: { cwd },
+        },
+      },
     )({
       on: (event: string, handler: never) => {
         if (event === 'session_start') {

@@ -10,3 +10,5 @@ pi
 ```
 
 Production Brunch does not rely on ambient discovery from the repository root. The product shell imports these modules explicitly; tests for extensions/components live in `.pi/__tests__/`, not inside auto-discovered resource directories.
+
+Prompting is adapter-only here: `extensions/prompting.ts` handles Pi `before_agent_start` and delegates composition to `src/agents/compose.ts` with explicit selected-spec/workspace context. Legacy `src/.pi/context/` files are not a product prompt path.
