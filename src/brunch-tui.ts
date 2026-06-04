@@ -174,6 +174,11 @@ export function createBrunchAgentSessionRuntimeFactory({
                   readinessGrade: selectedSpec.readinessGrade,
                 },
                 workspace: { cwd },
+                session: {
+                  id: currentWorkspace.session.id,
+                  ...(currentWorkspace.session.name ? { label: currentWorkspace.session.name } : {}),
+                },
+                graphSnapshots: graphDeps.snapshots,
               };
             },
           },

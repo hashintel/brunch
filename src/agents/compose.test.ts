@@ -35,6 +35,7 @@ const workspace = {
 
 const snapshots = {
   contextHandles: ['graph-overview: compact selected-spec graph summary available via snapshot tools'],
+  renderedContexts: ['[Selected-spec graph context · intent lens]\n- lsn: 7; nodes: 1; edges: 0'],
 };
 
 describe('composeAgentPrompt', () => {
@@ -55,8 +56,9 @@ describe('composeAgentPrompt', () => {
     expect(result.prompt).toContain(
       '- workspace posture: certainty=proving; stakes=high; audience=internal; horizon=current-milestone; migration=free-rewrite; sourcing=strip-or-build',
     );
-    expect(result.prompt).toContain('[Brunch context handles]');
-    expect(result.prompt).toContain('graph-overview: compact selected-spec graph summary');
+    expect(result.prompt).toContain('[Brunch pushed context]');
+    expect(result.prompt).toContain('handle: graph-overview: compact selected-spec graph summary');
+    expect(result.prompt).toContain('[Selected-spec graph context · intent lens]');
     expect(result.prompt).toContain('<available_goals>');
     expect(result.prompt).toContain('<available_strategies>');
     expect(result.prompt).toContain('<available_lenses>');
@@ -64,6 +66,65 @@ describe('composeAgentPrompt', () => {
     expect(result.prompt).toContain('name="grounding-advance"');
     expect(result.prompt).not.toContain('name="capture-posture"');
     expect(result.prompt).not.toContain('name="commit-converge"');
+  });
+
+  it('surfaces rendered snapshot text and preserves manifest legality when lens changes', () => {
+    const intent = composeAgentPrompt({
+      agentId: 'elicitor',
+      sessionState: projectBrunchAgentState([
+        {
+          type: 'custom',
+          customType: 'brunch.agent_runtime_state',
+          data: {
+            schemaVersion: 1,
+            reason: 'switch',
+            source: 'user',
+            state: {
+              ...DEFAULT_BRUNCH_AGENT_STATE,
+              agentLens: 'intent',
+            },
+          },
+        },
+      ]),
+      spec: elicitationSpec,
+      workspace,
+      snapshots: {
+        renderedContexts: ['[Selected-spec graph context · intent lens]\n- emphasis: intent claims'],
+      },
+      activeTools: ['read'],
+    });
+    const design = composeAgentPrompt({
+      agentId: 'elicitor',
+      sessionState: projectBrunchAgentState([
+        {
+          type: 'custom',
+          customType: 'brunch.agent_runtime_state',
+          data: {
+            schemaVersion: 1,
+            reason: 'switch',
+            source: 'user',
+            state: {
+              ...DEFAULT_BRUNCH_AGENT_STATE,
+              agentLens: 'design',
+            },
+          },
+        },
+      ]),
+      spec: elicitationSpec,
+      workspace,
+      snapshots: {
+        renderedContexts: ['[Selected-spec graph context · design lens]\n- emphasis: design modules'],
+      },
+      activeTools: ['read'],
+    });
+
+    expect(intent.prompt).toContain('[Selected-spec graph context · intent lens]');
+    expect(design.prompt).toContain('[Selected-spec graph context · design lens]');
+    expect(intent.manifests.methods.map((entry) => entry.name)).toEqual(
+      design.manifests.methods.map((entry) => entry.name),
+    );
+    expect(intent.manifests.lenses.map((entry) => entry.name)).toEqual(['intent']);
+    expect(design.manifests.lenses.map((entry) => entry.name)).toEqual(['design']);
   });
 
   it('filters AUTO axes by grade and allow-list, while pinned legal axes point at only the pinned resource', () => {

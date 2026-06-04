@@ -60,6 +60,49 @@ const promptContext = {
       sourcing: 'strip-or-build',
     },
   },
+  session: { id: 'session-1', label: 'Session' },
+  graphSnapshots: {
+    getGraphOverview: () => ({
+      lsn: 4,
+      nodeCount: 2,
+      edgeCount: 1,
+      nodes: [
+        {
+          id: 1,
+          specId: 1,
+          plane: 'intent' as const,
+          kind: 'goal' as const,
+          title: 'Clarify Brunch prompt posture',
+          basis: 'explicit' as const,
+          createdAtLsn: 2,
+          updatedAtLsn: 2,
+        },
+        {
+          id: 2,
+          specId: 1,
+          plane: 'design' as const,
+          kind: 'module' as const,
+          title: 'Agent context renderer',
+          basis: 'explicit' as const,
+          createdAtLsn: 3,
+          updatedAtLsn: 3,
+        },
+      ],
+      edges: [
+        {
+          id: 1,
+          specId: 1,
+          category: 'realization' as const,
+          sourceId: 2,
+          targetId: 1,
+          basis: 'explicit' as const,
+          createdAtLsn: 4,
+          updatedAtLsn: 4,
+        },
+      ],
+    }),
+    getNodeNeighborhood: () => ({ status: 'not_found' as const }),
+  },
 };
 
 describe('Brunch prompt-pack topology', () => {
@@ -135,6 +178,12 @@ describe('Brunch prompt-pack topology', () => {
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining('- active tools: read, grep, present_options'),
     });
+    expect(result).toMatchObject({
+      systemPrompt: expect.stringContaining('[Selected-spec graph context · design lens]'),
+    });
+    expect(result).toMatchObject({
+      systemPrompt: expect.stringContaining('design modules/interfaces'),
+    });
   });
 
   it('derives prompt and active tools from the same transcript-backed runtime state', async () => {
@@ -203,6 +252,12 @@ describe('Brunch prompt-pack topology', () => {
     });
     expect(switchedPrompt).toMatchObject({
       systemPrompt: expect.stringContaining('- strategy: propose-graph'),
+    });
+    expect(defaultPrompt).toMatchObject({
+      systemPrompt: expect.stringContaining('[Selected-spec graph context · auto lens]'),
+    });
+    expect(switchedPrompt).toMatchObject({
+      systemPrompt: expect.stringContaining('[Selected-spec graph context · oracle lens]'),
     });
   });
 

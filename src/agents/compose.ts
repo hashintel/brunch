@@ -19,6 +19,7 @@ export interface AgentPromptWorkspaceContext {
 
 export interface AgentPromptSnapshotContext {
   contextHandles?: readonly string[];
+  renderedContexts?: readonly string[];
 }
 
 export interface ComposeAgentPromptInput {
@@ -47,7 +48,7 @@ export function composeAgentPrompt(input: ComposeAgentPromptInput): ComposeAgent
   const prompt = joinSections([
     renderAgentControl(input, definition),
     renderRuntimeState(input),
-    renderContextHandles(input.snapshots),
+    renderPushedContext(input.snapshots),
     renderManifestFamily('available_goals', manifests.goals),
     renderManifestFamily('available_strategies', manifests.strategies),
     renderManifestFamily('available_lenses', manifests.lenses),
@@ -94,12 +95,23 @@ function renderPosture(posture: AgentPromptWorkspaceContext['posture']): string 
   return entries.length > 0 ? entries.map(([key, value]) => `${key}=${value}`).join('; ') : 'unrecorded';
 }
 
-function renderContextHandles(snapshots: AgentPromptSnapshotContext | undefined): string {
+function renderPushedContext(snapshots: AgentPromptSnapshotContext | undefined): string {
   const handles = snapshots?.contextHandles ?? [];
+  const renderedContexts = snapshots?.renderedContexts ?? [];
   return [
-    '[Brunch context handles]',
-    ...(handles.length ? handles.map((handle) => `- ${handle}`) : ['- none pushed']),
+    '[Brunch pushed context]',
+    ...(handles.length ? handles.map((handle) => `- handle: ${handle}`) : ['- handles: none pushed']),
+    ...(renderedContexts.length
+      ? ['- rendered snapshots:', ...renderedContexts.map(indentBlock)]
+      : ['- rendered snapshots: none pushed']),
   ].join('\n');
+}
+
+function indentBlock(value: string): string {
+  return value
+    .split('\n')
+    .map((line) => `  ${line}`)
+    .join('\n');
 }
 
 function renderManifestFamily(tag: string, entries: PromptManifests[keyof PromptManifests]): string {
