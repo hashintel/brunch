@@ -1,6 +1,6 @@
 // Cook display polish: derive a short, deterministic, human-readable
 // suffix from a slice's `definition` so live progress lines read
-// `req-4 · drag-nodes-reposition` instead of bare `req-4`.
+// `req-4 · users-can-drag-nodes` instead of bare `req-4`.
 //
 // Display-only. The slice id stays the canonical key for branches
 // (`cook-slice/<runId>/<id>`), `depends_on`, `reports.jsonl`, and any
@@ -33,10 +33,11 @@ const CLAUSE_BOUNDARY = /[,;.:]/;
 /**
  * `${slice.id}` when the definition yields no usable slug; otherwise
  * `${slice.id} · ${slug}` where the slug is derived from the first
- * significant words of `slice.definition` (leading stop words dropped,
- * non-alphanumeric stripped, capped to {@link MAX_WORDS} words and
- * {@link MAX_SLUG_CHARS} characters on a word boundary). Pure function
- * — same input always returns the same output.
+ * significant words of `slice.definition` — non-alphanumeric stripped,
+ * stop words and sub-3-char fragments dropped wherever they appear,
+ * capped to {@link MAX_WORDS} words and {@link MAX_SLUG_CHARS}
+ * characters on a word boundary. Pure function — same input always
+ * returns the same output.
  */
 export function sliceLabel(slice: { id: string; definition?: string }): string {
   const slug = deriveSlug(slice.definition);

@@ -230,7 +230,8 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
     },
 
     'assess-semantic': async (ctx: ActionContext) => {
-      log('?', `semantic  ${sliceLabel(ctx.slice)}`);
+      const label = sliceLabel(ctx.slice);
+      log('?', `semantic  ${label}`);
       // POC: auto-satisfy — real semantic assessment requires graph-derived gates (Phase 3)
       return report(ctx, 'semantic-assessor', 'semantic-assessed', { satisfied: true });
     },

@@ -136,6 +136,25 @@ describe('projectPlanFromSpec', () => {
     }
   });
 
+  it('emits a non-empty definition on every slice (display + LLM-prompt invariant)', () => {
+    // sliceLabel and the pi-agent task prompts both read slice.definition;
+    // pin that projection never emits an empty one so cook progress
+    // lines stay legible and pi never receives a content-free task.
+    const fixturePath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      '__fixtures__',
+      'brunch-graphs-snapshot.json',
+    );
+    const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as CompletedSpecSnapshot;
+
+    const plan = projectPlanFromSpec(fixture);
+
+    expect(plan.slices.length).toBeGreaterThan(0);
+    for (const slice of plan.slices) {
+      expect(slice.definition.trim().length).toBeGreaterThan(0);
+    }
+  });
+
   it('preserves the brunch_graphs spike oracle — every requirement gets ≥1 verifying criterion', () => {
     // Pin the spike's positive finding (2026-06-03 against completed
     // spec 2 'brunch_graphs', memory/PLAN.md §spec-to-cook-plan):
