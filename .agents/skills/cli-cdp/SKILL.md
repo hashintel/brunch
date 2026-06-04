@@ -11,14 +11,55 @@ debugging.
 
 ## Prerequisites
 
-Chrome must be running with `--remote-debugging-port`:
+Chrome must be running with `--remote-debugging-port`. **First check whether
+you can launch it yourself or must ask the user to launch it externally.**
+
+### Step 1: Detect the sandbox
 
 ```bash
-cdp-cli launch                  # macOS: launches Chrome with debugging on :9223
+echo "${APP_SANDBOX_CONTAINER_ID:-none}"
 ```
 
-Or start Chrome manually with `--remote-debugging-port=9222` and pass
-`--cdp-url http://localhost:9222`.
+- **`none` (unsandboxed)** — you can run `cdp-cli launch` yourself; it spawns
+  Chrome on port 9223 with a clean profile under `$TMPDIR`.
+- **`agent-safehouse` (or any other sandbox)** — `cdp-cli launch` reports
+  `{"success":true}` but the Chrome it spawns crashes silently with SIGABRT
+  because its launch args lack `--no-sandbox` and there is no flag to add
+  one. **You must use attach mode** (Step 2).
+
+### Step 2a: Unsandboxed — self-launch
+
+```bash
+cdp-cli launch
+cdp-cli tabs                    # confirm a page is listed
+```
+
+### Step 2b: Sandboxed — ask the user to launch Chrome externally
+
+Stop and ask the user to run this in a **non-sandboxed Terminal window**
+(Terminal.app or iTerm, not cmux):
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --remote-debugging-port=9223 \
+  --user-data-dir="$HOME/.chrome-debug-profile" \
+  about:blank
+```
+
+The separate `--user-data-dir` keeps it isolated from the user's main Chrome
+profile so both can run at the same time. Tell the user to leave that
+terminal window open — closing it kills Chrome.
+
+After they confirm Chrome is open, verify connectivity from your shell:
+
+```bash
+curl -s http://localhost:9223/json/version | head -3   # should return JSON
+cdp-cli tabs                                           # should list the page
+```
+
+From here every other `cdp-cli` command works normally — TCP to localhost
+is allowed through the sandbox; only Chrome's own dlopen and process spawn
+are blocked.
 
 ## Page Identification
 
