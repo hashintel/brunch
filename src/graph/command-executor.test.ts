@@ -585,7 +585,6 @@ describe('CommandExecutor', () => {
     });
 
     it('resolves existing-node refs to verified NodeIds', () => {
-      // Pre-create a node
       const pre = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Existing goal' });
       if (pre.status !== 'success') throw new Error('unreachable');
 
@@ -607,6 +606,21 @@ describe('CommandExecutor', () => {
       const edgeRow = db.select().from(edges).all()[0]!;
       expect(edgeRow.source_id).toBe(pre.nodeId);
       expect(edgeRow.target_id).toBe(result.nodes['n1']);
+    });
+
+    it('resolves existing-node refs from projected codes within the selected spec', () => {
+      const existing = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Existing goal' });
+      if (existing.status !== 'success') throw new Error('unreachable');
+
+      const result = executor.commitGraph({
+        specId,
+        nodes: [{ ref: 'n1', plane: 'intent', kind: 'requirement', title: 'New req' }],
+        edges: [{ category: 'realization', source: { existingCode: 'G1' }, target: 'n1' }],
+      });
+
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+      expect(db.select().from(edges).all()[0]!.source_id).toBe(existing.nodeId);
     });
 
     it('returns nodes mapping and edges array in success result', () => {

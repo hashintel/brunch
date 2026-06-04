@@ -22,7 +22,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
 import type { EdgeCategory, EdgeStance } from './schema/edges.js';
-import type { NodeBasis, NodePlane } from './schema/nodes.js';
+import { parseGraphNodeCode, type NodeBasis, type NodePlane } from './schema/nodes.js';
 
 export type ReadinessGrade = (typeof schema.READINESS_GRADES)[number];
 
@@ -213,7 +213,7 @@ export interface ResolveReconNeedInput {
 // ---------------------------------------------------------------------------
 
 /** Reference to a node endpoint in a batch edge. */
-export type BatchEdgeRef = string | { readonly existing: number };
+export type BatchEdgeRef = string | { readonly existing: number } | { readonly existingCode: string };
 
 /** A node to create inside a commitGraph batch. */
 export interface BatchNodeInput {
@@ -403,18 +403,84 @@ interface EdgeValidationResult {
   resolved?: ResolvedEdge;
 }
 
+function resolveExistingRefId(
+  db: Pick<BrunchDb, 'select'>,
+  ref: { readonly existing: number } | { readonly existingCode: string },
+  specId: number,
+): number | undefined {
+  if ('existing' in ref) return ref.existing;
+  const parsed = parseGraphNodeCode(ref.existingCode);
+  if (!parsed) return undefined;
+  return db
+    .select({ id: schema.nodes.id })
+    .from(schema.nodes)
+    .where(
+      and(
+        eq(schema.nodes.spec_id, specId),
+        eq(schema.nodes.kind, parsed.kind),
+        eq(schema.nodes.kind_ordinal, parsed.kindOrdinal),
+      ),
+    )
+    .get()?.id;
+}
+
+function resolveEndpointRef(
+  db: Pick<BrunchDb, 'select'>,
+  ref: BatchEdgeRef,
+  specId: number,
+  refMap: ReadonlyMap<string, number>,
+  existingNodeIds: ReadonlySet<number>,
+  crossSpecExisting: ReadonlySet<number>,
+  field: string,
+  diagnostics: Diagnostic[],
+): number | undefined {
+  if (typeof ref === 'string') {
+    const id = refMap.get(ref);
+    if (id === undefined) {
+      diagnostics.push({ field, message: `unresolvable intra-batch ref "${ref}"` });
+    }
+    return id;
+  }
+
+  const id = resolveExistingRefId(db, ref, specId);
+  if (id === undefined) {
+    diagnostics.push({ field, message: 'existing node reference not found' });
+    return undefined;
+  }
+  if (crossSpecExisting.has(id)) {
+    diagnostics.push({
+      field,
+      message: `existing node ${id} belongs to a different spec (command spec ${specId})`,
+    });
+  } else if (!existingNodeIds.has(id)) {
+    diagnostics.push({ field, message: `existing node ${id} not found` });
+  }
+  return id;
+}
+
+function addExistingRefId(
+  db: Pick<BrunchDb, 'select'>,
+  ref: BatchEdgeRef,
+  specId: number,
+  refs: Set<number>,
+): void {
+  if (typeof ref === 'string') return;
+  const id = resolveExistingRefId(db, ref, specId);
+  if (id !== undefined) refs.add(id);
+}
+
 function validateAndResolveBatchEdge(
   input: BatchEdgeInput,
   index: number,
   refMap: ReadonlyMap<string, number>,
   existingNodeIds: ReadonlySet<number>,
   crossSpecExisting: ReadonlySet<number>,
+  db: Pick<BrunchDb, 'select'>,
   specId: number,
 ): EdgeValidationResult {
   const diagnostics: Diagnostic[] = [];
   const p = `edges[${index}]`;
 
-  // Category must be in the closed set
   if (!VALID_CATEGORIES.includes(input.category)) {
     diagnostics.push({
       field: `${p}.category`,
@@ -423,7 +489,6 @@ function validateAndResolveBatchEdge(
     return { diagnostics };
   }
 
-  // Stance: required iff proof/support, invalid otherwise
   const stanceRequired = STANCE_REQUIRED_CATEGORIES.has(input.category);
   if (stanceRequired && input.stance == null) {
     diagnostics.push({
@@ -444,57 +509,27 @@ function validateAndResolveBatchEdge(
     });
   }
 
-  // Resolve source ref
-  let resolvedSourceId: number | undefined;
-  if (typeof input.source === 'string') {
-    resolvedSourceId = refMap.get(input.source);
-    if (resolvedSourceId === undefined) {
-      diagnostics.push({
-        field: `${p}.source`,
-        message: `unresolvable intra-batch ref "${input.source}"`,
-      });
-    }
-  } else {
-    resolvedSourceId = input.source.existing;
-    if (crossSpecExisting.has(resolvedSourceId)) {
-      diagnostics.push({
-        field: `${p}.source`,
-        message: `existing node ${resolvedSourceId} belongs to a different spec (command spec ${specId})`,
-      });
-    } else if (!existingNodeIds.has(resolvedSourceId)) {
-      diagnostics.push({
-        field: `${p}.source`,
-        message: `existing node ${resolvedSourceId} not found`,
-      });
-    }
-  }
+  const resolvedSourceId = resolveEndpointRef(
+    db,
+    input.source,
+    specId,
+    refMap,
+    existingNodeIds,
+    crossSpecExisting,
+    `${p}.source`,
+    diagnostics,
+  );
+  const resolvedTargetId = resolveEndpointRef(
+    db,
+    input.target,
+    specId,
+    refMap,
+    existingNodeIds,
+    crossSpecExisting,
+    `${p}.target`,
+    diagnostics,
+  );
 
-  // Resolve target ref
-  let resolvedTargetId: number | undefined;
-  if (typeof input.target === 'string') {
-    resolvedTargetId = refMap.get(input.target);
-    if (resolvedTargetId === undefined) {
-      diagnostics.push({
-        field: `${p}.target`,
-        message: `unresolvable intra-batch ref "${input.target}"`,
-      });
-    }
-  } else {
-    resolvedTargetId = input.target.existing;
-    if (crossSpecExisting.has(resolvedTargetId)) {
-      diagnostics.push({
-        field: `${p}.target`,
-        message: `existing node ${resolvedTargetId} belongs to a different spec (command spec ${specId})`,
-      });
-    } else if (!existingNodeIds.has(resolvedTargetId)) {
-      diagnostics.push({
-        field: `${p}.target`,
-        message: `existing node ${resolvedTargetId} not found`,
-      });
-    }
-  }
-
-  // Self-loop check (only if both resolved)
   if (
     resolvedSourceId !== undefined &&
     resolvedTargetId !== undefined &&
@@ -828,8 +863,8 @@ export class CommandExecutor {
         // 4. Collect and verify existing-node references — must be same spec
         const existingRefs = new Set<number>();
         for (const edge of input.edges) {
-          if (typeof edge.source !== 'string') existingRefs.add(edge.source.existing);
-          if (typeof edge.target !== 'string') existingRefs.add(edge.target.existing);
+          addExistingRefId(tx, edge.source, input.specId, existingRefs);
+          addExistingRefId(tx, edge.target, input.specId, existingRefs);
         }
 
         const verifiedExisting = new Set<number>();
@@ -860,6 +895,7 @@ export class CommandExecutor {
             refMap,
             verifiedExisting,
             crossSpecExisting,
+            tx,
             input.specId,
           );
           edgeDiagnostics.push(...result.diagnostics);
@@ -966,8 +1002,8 @@ export class CommandExecutor {
 
     const existingRefs = new Set<number>();
     for (const edge of input.edges) {
-      if (typeof edge.source !== 'string') existingRefs.add(edge.source.existing);
-      if (typeof edge.target !== 'string') existingRefs.add(edge.target.existing);
+      addExistingRefId(this.db, edge.source, input.specId, existingRefs);
+      addExistingRefId(this.db, edge.target, input.specId, existingRefs);
     }
 
     const verifiedExisting = new Set<number>();
@@ -995,6 +1031,7 @@ export class CommandExecutor {
           refMap,
           verifiedExisting,
           crossSpecExisting,
+          this.db,
           input.specId,
         ).diagnostics,
       );

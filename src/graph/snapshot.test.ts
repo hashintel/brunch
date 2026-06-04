@@ -12,12 +12,26 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type BrunchDb } from '../db/connection.js';
 import { specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
+import { NODE_KIND_METADATA, parseGraphNodeCode } from './schema/nodes.js';
 import { getGraphOverview, getNodeNeighborhood, getOpenReconciliationNeeds } from './snapshot.js';
 
 function createTestDb(): BrunchDb {
   return createDb(':memory:');
 }
 
+describe('graph node code metadata', () => {
+  it('uses globally unique 1-3 letter labels and parses by longest prefix', () => {
+    const labels = Object.values(NODE_KIND_METADATA).map((metadata) => metadata.label);
+    expect(new Set(labels).size).toBe(labels.length);
+    expect(labels.every((label) => /^[A-Z]{1,3}$/.test(label))).toBe(true);
+    expect(Object.values(NODE_KIND_METADATA).every((metadata) => metadata.readinessBands.length > 0)).toBe(
+      true,
+    );
+    expect(parseGraphNodeCode('A1')).toEqual({ kind: 'assumption', kindOrdinal: 1 });
+    expect(parseGraphNodeCode('CON2')).toEqual({ kind: 'constraint', kindOrdinal: 2 });
+    expect(parseGraphNodeCode('CR3')).toEqual({ kind: 'criterion', kindOrdinal: 3 });
+  });
+});
 describe('getGraphOverview', () => {
   let db: BrunchDb;
   let executor: CommandExecutor;

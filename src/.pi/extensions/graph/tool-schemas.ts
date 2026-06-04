@@ -46,6 +46,9 @@ export const EdgeRefSchema = Type.Union([
   Type.Object({
     existing: Type.Number({ description: 'Id of an existing node' }),
   }),
+  Type.Object({
+    existingCode: Type.String({ description: 'Projected code of an existing node, e.g. G1 or CON2' }),
+  }),
 ]);
 
 export const CommitEdgeSchema = Type.Object({
@@ -61,7 +64,7 @@ export const CommitGraphParams = Type.Object({
     description: 'Nodes to create in this batch',
   }),
   edges: Type.Array(CommitEdgeSchema, {
-    description: 'Edges to create, referencing batch refs or existing node ids',
+    description: 'Edges to create, referencing batch refs or existing node codes',
   }),
 });
 

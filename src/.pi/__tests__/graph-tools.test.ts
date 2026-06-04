@@ -83,6 +83,15 @@ describe('translateCommitGraph', () => {
     expect(input.basis).toBe('implicit');
     expect(input.nodes[0]).not.toHaveProperty('basis');
     expect(input.edges[0]).not.toHaveProperty('basis');
+    expect(
+      translateCommitGraph(
+        {
+          nodes: [],
+          edges: [{ category: 'dependency', source: { existingCode: 'G1' }, target: { existing: 42 } }],
+        },
+        7,
+      ).edges[0]!.source,
+    ).toEqual({ existingCode: 'G1' });
   });
 });
 

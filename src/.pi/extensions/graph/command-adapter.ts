@@ -18,6 +18,7 @@ import type {
   CommitGraphSuccess,
   StructuralIllegal,
 } from '../../../graph/command-executor.js';
+import { formatGraphNodeCode } from '../../../graph/schema/nodes.js';
 import type { GraphOverview, NeighborhoodResult } from '../../../graph/snapshot.js';
 import type { ToolCommitGraphParams } from './tool-schemas.js';
 
@@ -51,8 +52,11 @@ export function translateCommitGraph(params: ToolCommitGraphParams, specId: numb
   return { specId, basis: 'implicit', nodes, edges };
 }
 
-function resolveEdgeRef(ref: string | { readonly existing: number }): BatchEdgeRef {
+function resolveEdgeRef(
+  ref: string | { readonly existing: number } | { readonly existingCode: string },
+): BatchEdgeRef {
   if (typeof ref === 'string') return ref;
+  if ('existingCode' in ref) return { existingCode: ref.existingCode };
   return { existing: ref.existing };
 }
 
@@ -116,17 +120,24 @@ export function formatGraphOverview(overview: GraphOverview): string {
     `Graph overview (LSN ${overview.lsn}): ${overview.nodeCount} node(s), ${overview.edgeCount} edge(s).`,
     '',
   ];
+  const nodesById = new Map(overview.nodes.map((node) => [node.id, node]));
 
   for (const node of overview.nodes) {
     const detail = node.detail ? ` [has detail]` : '';
-    lines.push(`- [#${node.id}] ${node.plane}/${node.kind}: "${node.title}"${detail}`);
+    lines.push(
+      `- [${formatGraphNodeCode(node.kind, node.kindOrdinal)}] ${node.plane}/${node.kind}: "${node.title}"${detail}`,
+    );
   }
 
   if (overview.edges.length > 0) {
     lines.push('');
     for (const edge of overview.edges) {
       const stance = edge.stance ? ` (${edge.stance})` : '';
-      lines.push(`- Edge #${edge.id}: #${edge.sourceId} —[${edge.category}${stance}]→ #${edge.targetId}`);
+      const source = nodesById.get(edge.sourceId);
+      const target = nodesById.get(edge.targetId);
+      const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${edge.sourceId}`;
+      const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${edge.targetId}`;
+      lines.push(`- Edge #${edge.id}: ${sourceCode} —[${edge.category}${stance}]→ ${targetCode}`);
     }
   }
 
@@ -142,8 +153,9 @@ export function formatNeighborhoodResult(result: NeighborhoodResult): string {
   }
 
   const { anchor, neighbors, edges } = result;
+  const nodesById = new Map([[anchor.id, anchor], ...neighbors.map((node) => [node.id, node] as const)]);
   const lines: string[] = [
-    `Neighborhood of [#${anchor.id}] ${anchor.plane}/${anchor.kind}: "${anchor.title}"`,
+    `Neighborhood of [${formatGraphNodeCode(anchor.kind, anchor.kindOrdinal)}] ${anchor.plane}/${anchor.kind}: "${anchor.title}"`,
   ];
 
   if (anchor.body) {
@@ -153,7 +165,7 @@ export function formatNeighborhoodResult(result: NeighborhoodResult): string {
   if (neighbors.length > 0) {
     lines.push('', 'Neighbors:');
     for (const n of neighbors) {
-      lines.push(`  - [#${n.id}] ${n.plane}/${n.kind}: "${n.title}"`);
+      lines.push(`  - [${formatGraphNodeCode(n.kind, n.kindOrdinal)}] ${n.plane}/${n.kind}: "${n.title}"`);
     }
   }
 
@@ -161,7 +173,11 @@ export function formatNeighborhoodResult(result: NeighborhoodResult): string {
     lines.push('', 'Edges:');
     for (const e of edges) {
       const stance = e.stance ? ` (${e.stance})` : '';
-      lines.push(`  - #${e.id}: #${e.sourceId} —[${e.category}${stance}]→ #${e.targetId}`);
+      const source = nodesById.get(e.sourceId);
+      const target = nodesById.get(e.targetId);
+      const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${e.sourceId}`;
+      const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${e.targetId}`;
+      lines.push(`  - #${e.id}: ${sourceCode} —[${e.category}${stance}]→ ${targetCode}`);
     }
   }
 

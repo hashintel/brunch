@@ -152,7 +152,7 @@ src/.pi/extensions/graph/
 
 ## Card 3 — Resolve existing graph refs by projected code
 
-Status: next
+Status: done
 
 ### Target Behavior
 
