@@ -78,7 +78,7 @@ describe('graph items are owned by spec', () => {
       edges: [],
     });
     if (seed.status !== 'success') throw new Error('seed failed');
-    const aNodeId = seed.nodes['n1']!;
+    const aNodeId = seed.createdNodes['n1']!.id;
 
     const attempt = executor.commitGraph({
       specId: specB,
@@ -111,8 +111,8 @@ describe('graph items are owned by spec', () => {
     if (seedA.status !== 'success' || seedB.status !== 'success') {
       throw new Error('seed failed');
     }
-    const aNodeId = seedA.nodes['n1']!;
-    const bNodeId = seedB.nodes['m1']!;
+    const aNodeId = seedA.createdNodes['n1']!.id;
+    const bNodeId = seedB.createdNodes['m1']!.id;
 
     // Attempt edge across specs (both endpoints existing)
     const attempt = executor.commitGraph({
@@ -137,7 +137,7 @@ describe('graph items are owned by spec', () => {
       edges: [],
     });
     if (seedA.status !== 'success') throw new Error('seed failed');
-    const aNodeId = seedA.nodes['n1']!;
+    const aNodeId = seedA.createdNodes['n1']!.id;
 
     const wrongSpec = getNodeNeighborhood(db, specB, aNodeId);
     expect(wrongSpec.status).toBe('not_found');
@@ -164,8 +164,8 @@ describe('graph items are owned by spec', () => {
       throw new Error('seed failed');
     }
     const aEdgeId = seedA.edges[0]!;
-    const bNodeId = seedB.nodes['m1']!;
-    const aNodeId = seedA.nodes['n1']!;
+    const bNodeId = seedB.createdNodes['m1']!.id;
+    const aNodeId = seedA.createdNodes['n1']!.id;
 
     // Valid same-spec need
     const ok = executor.createReconciliationNeed({
@@ -213,10 +213,8 @@ describe('tool guard: agent-facing graph tool schemas do not expose specId', () 
 
   it('ReadGraphParams has no top-level specId field', async () => {
     const mod = await import('../.pi/extensions/graph/tool-schemas.js');
-    const schema = mod.ReadGraphParams as unknown as {
-      properties: Record<string, unknown>;
-    };
-    expect(Object.keys(schema.properties)).not.toContain('specId');
-    expect(Object.keys(schema.properties)).not.toContain('spec_id');
+    const { Value } = await import('typebox/value');
+    expect(Value.Check(mod.ReadGraphParams, { mode: 'overview', specId: 1 })).toBe(false);
+    expect(Value.Check(mod.ReadGraphParams, { mode: 'overview', spec_id: 1 })).toBe(false);
   });
 });

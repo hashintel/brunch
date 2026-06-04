@@ -17,12 +17,17 @@
  * even though pre-M6 policy classification is minimal.
  */
 
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
-import type { EdgeCategory, EdgeStance } from './schema/edges.js';
-import { formatGraphNodeCode, type NodeBasis, type NodeKind, type NodePlane } from './schema/nodes.js';
+import {
+  formatCreatedGraphNode,
+  planCommitGraphBatch,
+  type CreatedGraphNodes,
+  type PlannedBatchEndpoint,
+} from './command-executor/commit-graph-batch.js';
+import { type NodeBasis, type NodePlane } from './schema/nodes.js';
 
 export type ReadinessGrade = (typeof schema.READINESS_GRADES)[number];
 
@@ -68,8 +73,7 @@ export interface VersionConflict {
 export interface CommitGraphSuccess {
   readonly status: 'success';
   readonly lsn: number;
-  readonly nodes: Readonly<Record<string, number>>;
-  readonly nodeCodes?: Readonly<Record<string, string>>;
+  readonly createdNodes: CreatedGraphNodes;
   readonly edges: readonly number[];
 }
 
@@ -383,216 +387,6 @@ function validateTermDetail(detail: unknown, diagnostics: Diagnostic[]): void {
 }
 
 // ---------------------------------------------------------------------------
-// Edge validation
-// ---------------------------------------------------------------------------
-
-const VALID_CATEGORIES = schema.EDGE_CATEGORIES as unknown as string[];
-const STANCE_REQUIRED_CATEGORIES = new Set(['proof', 'support']);
-const VALID_STANCES = schema.EDGE_STANCES as unknown as string[];
-const VALID_BASES = schema.NODE_BASES as unknown as string[];
-
-interface ResolvedEdge {
-  sourceId: number;
-  targetId: number;
-  category: EdgeCategory;
-  stance: EdgeStance | null;
-  rationale: string | null;
-}
-
-interface EdgeValidationResult {
-  diagnostics: Diagnostic[];
-  resolved?: ResolvedEdge;
-}
-
-function resolveExistingRefId(ref: { readonly existing: number }): number {
-  return ref.existing;
-}
-
-function resolveEndpointRef(
-  _db: Pick<BrunchDb, 'select'>,
-  ref: BatchEdgeRef,
-  specId: number,
-  refMap: ReadonlyMap<string, number>,
-  existingNodeIds: ReadonlySet<number>,
-  crossSpecExisting: ReadonlySet<number>,
-  field: string,
-  diagnostics: Diagnostic[],
-): number | undefined {
-  if (typeof ref === 'string') {
-    const id = refMap.get(ref);
-    if (id === undefined) {
-      diagnostics.push({ field, message: `unresolvable intra-batch ref "${ref}"` });
-    }
-    return id;
-  }
-
-  const id = resolveExistingRefId(ref);
-  if (crossSpecExisting.has(id)) {
-    diagnostics.push({
-      field,
-      message: `existing node ${id} belongs to a different spec (command spec ${specId})`,
-    });
-  } else if (!existingNodeIds.has(id)) {
-    diagnostics.push({ field, message: `existing node ${id} not found` });
-  }
-  return id;
-}
-
-function addExistingRefId(
-  _db: Pick<BrunchDb, 'select'>,
-  ref: BatchEdgeRef,
-  _specId: number,
-  refs: Set<number>,
-): void {
-  if (typeof ref === 'string') return;
-  refs.add(resolveExistingRefId(ref));
-}
-
-function findSupersessionCycle(
-  db: Pick<BrunchDb, 'select'>,
-  specId: number,
-  proposedEdges: readonly ResolvedEdge[],
-): Diagnostic | undefined {
-  const supersessionEdges = proposedEdges.filter((edge) => edge.category === 'supersession');
-  if (supersessionEdges.length === 0) return undefined;
-
-  const adjacency = new Map<number, number[]>();
-  const addEdge = (source: number, target: number) => {
-    const targets = adjacency.get(source);
-    if (targets) {
-      targets.push(target);
-    } else {
-      adjacency.set(source, [target]);
-    }
-  };
-
-  for (const edge of db
-    .select({ sourceId: schema.edges.source_id, targetId: schema.edges.target_id })
-    .from(schema.edges)
-    .where(and(eq(schema.edges.spec_id, specId), eq(schema.edges.category, 'supersession')))
-    .all()) {
-    addEdge(edge.sourceId, edge.targetId);
-  }
-  for (const edge of supersessionEdges) {
-    addEdge(edge.sourceId, edge.targetId);
-  }
-
-  const visiting = new Set<number>();
-  const visited = new Set<number>();
-  const hasCycle = (nodeId: number): boolean => {
-    if (visiting.has(nodeId)) return true;
-    if (visited.has(nodeId)) return false;
-    visiting.add(nodeId);
-    for (const targetId of adjacency.get(nodeId) ?? []) {
-      if (hasCycle(targetId)) return true;
-    }
-    visiting.delete(nodeId);
-    visited.add(nodeId);
-    return false;
-  };
-
-  for (const nodeId of adjacency.keys()) {
-    if (hasCycle(nodeId)) {
-      return { field: 'edges', message: 'supersession edges must be acyclic within one spec' };
-    }
-  }
-  return undefined;
-}
-
-function validateAndResolveBatchEdge(
-  input: BatchEdgeInput,
-  index: number,
-  refMap: ReadonlyMap<string, number>,
-  existingNodeIds: ReadonlySet<number>,
-  crossSpecExisting: ReadonlySet<number>,
-  db: Pick<BrunchDb, 'select'>,
-  specId: number,
-): EdgeValidationResult {
-  const diagnostics: Diagnostic[] = [];
-  const p = `edges[${index}]`;
-
-  if (!VALID_CATEGORIES.includes(input.category)) {
-    diagnostics.push({
-      field: `${p}.category`,
-      message: `"${input.category}" is not a valid edge category`,
-    });
-    return { diagnostics };
-  }
-
-  const stanceRequired = STANCE_REQUIRED_CATEGORIES.has(input.category);
-  if (stanceRequired && input.stance == null) {
-    diagnostics.push({
-      field: `${p}.stance`,
-      message: `stance is required for "${input.category}" edges`,
-    });
-  }
-  if (!stanceRequired && input.stance != null) {
-    diagnostics.push({
-      field: `${p}.stance`,
-      message: `stance is not allowed for "${input.category}" edges`,
-    });
-  }
-  if (input.stance != null && !VALID_STANCES.includes(input.stance)) {
-    diagnostics.push({
-      field: `${p}.stance`,
-      message: `"${input.stance}" is not a valid stance`,
-    });
-  }
-
-  const resolvedSourceId = resolveEndpointRef(
-    db,
-    input.source,
-    specId,
-    refMap,
-    existingNodeIds,
-    crossSpecExisting,
-    `${p}.source`,
-    diagnostics,
-  );
-  const resolvedTargetId = resolveEndpointRef(
-    db,
-    input.target,
-    specId,
-    refMap,
-    existingNodeIds,
-    crossSpecExisting,
-    `${p}.target`,
-    diagnostics,
-  );
-
-  if (
-    resolvedSourceId !== undefined &&
-    resolvedTargetId !== undefined &&
-    resolvedSourceId === resolvedTargetId
-  ) {
-    diagnostics.push({
-      field: p,
-      message: 'self-loop: source and target resolve to the same node',
-    });
-  }
-
-  if (diagnostics.length > 0) return { diagnostics };
-
-  return {
-    diagnostics,
-    resolved: {
-      sourceId: resolvedSourceId!,
-      targetId: resolvedTargetId!,
-      category: input.category as EdgeCategory,
-      stance: (input.stance as EdgeStance) ?? null,
-      rationale: input.rationale ?? null,
-    },
-  };
-}
-
-/** Thrown inside a transaction to trigger rollback on edge validation failure. */
-class BatchValidationError extends Error {
-  constructor(readonly diagnostics: readonly Diagnostic[]) {
-    super('batch validation failed');
-  }
-}
-
-// ---------------------------------------------------------------------------
 // CommandExecutor
 // ---------------------------------------------------------------------------
 
@@ -823,8 +617,10 @@ export class CommandExecutor {
    * proposal must pass the same structural checks as the eventual commit.
    */
   dryRunCommitGraph(input: CommitGraphInput): CommitGraphDryRunResult {
-    const diagnostics = this.validateCommitGraphInput(input);
-    return diagnostics.length > 0 ? { status: 'structural_illegal', diagnostics } : { status: 'success' };
+    const result = this.planCommitGraph(input, this.db);
+    return result.status === 'structural_illegal'
+      ? { status: 'structural_illegal', diagnostics: result.diagnostics }
+      : { status: 'success' };
   }
 
   /**
@@ -837,244 +633,103 @@ export class CommandExecutor {
    * validation, the entire batch is rejected (I34-L).
    */
   commitGraph(input: CommitGraphInput): CommitGraphResult {
-    const diagnostics = this.validateCommitGraphInput(input);
-    if (diagnostics.length > 0) {
-      return { status: 'structural_illegal', diagnostics };
+    const preflight = this.planCommitGraph(input, this.db);
+    if (preflight.status === 'structural_illegal') {
+      return { status: 'structural_illegal', diagnostics: preflight.diagnostics };
     }
 
-    // --- Transaction: insert nodes, resolve refs, validate + insert edges ---
-    try {
-      return this.db.transaction((tx) => {
-        // 1. Verify spec exists
-        const specRow = tx
-          .select({ id: schema.specs.id })
-          .from(schema.specs)
-          .where(eq(schema.specs.id, input.specId))
-          .get();
-        if (!specRow) {
-          throw new BatchValidationError([
-            { field: 'specId', message: `spec ${input.specId} does not exist` },
-          ]);
-        }
+    return this.db.transaction((tx) => {
+      const planned = this.planCommitGraph(input, tx);
+      if (planned.status === 'structural_illegal') {
+        return { status: 'structural_illegal' as const, diagnostics: planned.diagnostics };
+      }
 
-        // 2. Allocate ONE LSN
-        const clock = tx
-          .update(schema.graphClock)
-          .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
-          .where(eq(schema.graphClock.id, 1))
+      const clock = tx
+        .update(schema.graphClock)
+        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
+        .where(eq(schema.graphClock.id, 1))
+        .returning()
+        .get();
+      const lsn = clock!.lsn;
+
+      const createdNodes: Record<string, { id: number; code: string }> = {};
+      for (const bn of input.nodes) {
+        const kindOrdinal = this.allocateNodeKindOrdinal(tx, input.specId, bn.plane, bn.kind);
+        const row = tx
+          .insert(schema.nodes)
+          .values({
+            spec_id: input.specId,
+            plane: bn.plane,
+            kind: bn.kind,
+            kind_ordinal: kindOrdinal,
+            title: bn.title,
+            body: bn.body ?? null,
+            basis: input.basis ?? 'explicit',
+            source: bn.source ?? null,
+            detail: bn.detail != null ? JSON.stringify(bn.detail) : null,
+            created_at_lsn: lsn,
+            updated_at_lsn: lsn,
+          })
           .returning()
           .get();
-        const lsn = clock!.lsn;
-
-        // 3. Insert all nodes, build ref → id map
-        const refMap = new Map<string, number>();
-        const nodeCodeMap = new Map<string, string>();
-        for (const bn of input.nodes) {
-          const kindOrdinal = this.allocateNodeKindOrdinal(tx, input.specId, bn.plane, bn.kind);
-          const row = tx
-            .insert(schema.nodes)
-            .values({
-              spec_id: input.specId,
-              plane: bn.plane,
-              kind: bn.kind,
-              kind_ordinal: kindOrdinal,
-              title: bn.title,
-              body: bn.body ?? null,
-              basis: input.basis ?? 'explicit',
-              source: bn.source ?? null,
-              detail: bn.detail != null ? JSON.stringify(bn.detail) : null,
-              created_at_lsn: lsn,
-              updated_at_lsn: lsn,
-            })
-            .returning()
-            .get();
-          refMap.set(bn.ref, row!.id);
-          nodeCodeMap.set(bn.ref, formatGraphNodeCode(row!.kind as NodeKind, row!.kind_ordinal));
-        }
-
-        // 4. Collect and verify existing-node references — must be same spec
-        const existingRefs = new Set<number>();
-        for (const edge of input.edges) {
-          addExistingRefId(tx, edge.source, input.specId, existingRefs);
-          addExistingRefId(tx, edge.target, input.specId, existingRefs);
-        }
-
-        const verifiedExisting = new Set<number>();
-        const crossSpecExisting = new Set<number>();
-        if (existingRefs.size > 0) {
-          const rows = tx
-            .select({ id: schema.nodes.id, spec_id: schema.nodes.spec_id })
-            .from(schema.nodes)
-            .where(inArray(schema.nodes.id, [...existingRefs]))
-            .all();
-          for (const row of rows) {
-            if (row.spec_id === input.specId) {
-              verifiedExisting.add(row.id);
-            } else {
-              crossSpecExisting.add(row.id);
-            }
-          }
-        }
-
-        // 5. Validate and resolve all edges
-        const edgeDiagnostics: Diagnostic[] = [];
-        const resolvedEdges: ResolvedEdge[] = [];
-
-        for (let i = 0; i < input.edges.length; i++) {
-          const result = validateAndResolveBatchEdge(
-            input.edges[i]!,
-            i,
-            refMap,
-            verifiedExisting,
-            crossSpecExisting,
-            tx,
-            input.specId,
-          );
-          edgeDiagnostics.push(...result.diagnostics);
-          if (result.resolved) resolvedEdges.push(result.resolved);
-        }
-
-        if (edgeDiagnostics.length > 0) {
-          throw new BatchValidationError(edgeDiagnostics);
-        }
-
-        const cycleDiagnostic = findSupersessionCycle(tx, input.specId, resolvedEdges);
-        if (cycleDiagnostic) {
-          throw new BatchValidationError([cycleDiagnostic]);
-        }
-
-        // 6. Insert all edges
-        const edgeIds: number[] = [];
-        for (const re of resolvedEdges) {
-          const row = tx
-            .insert(schema.edges)
-            .values({
-              spec_id: input.specId,
-              category: re.category,
-              source_id: re.sourceId,
-              target_id: re.targetId,
-              stance: re.stance,
-              basis: input.basis ?? 'explicit',
-              rationale: re.rationale,
-              created_at_lsn: lsn,
-              updated_at_lsn: lsn,
-            })
-            .returning()
-            .get();
-          edgeIds.push(row!.id);
-        }
-
-        // 7. Append one change_log entry for the entire batch
-        tx.insert(schema.changeLog)
-          .values({
-            lsn,
-            operation: 'commit_graph',
-            payload: JSON.stringify({
-              basis: input.basis ?? 'explicit',
-              specId: input.specId,
-              nodes: Object.fromEntries(refMap),
-              edges: edgeIds,
-            }),
-          })
-          .run();
-
-        return {
-          status: 'success' as const,
-          lsn,
-          nodes: Object.fromEntries(refMap),
-          nodeCodes: Object.fromEntries(nodeCodeMap),
-          edges: edgeIds,
-        };
-      });
-    } catch (e) {
-      if (e instanceof BatchValidationError) {
-        return { status: 'structural_illegal', diagnostics: e.diagnostics };
+        createdNodes[bn.ref] = formatCreatedGraphNode(row!);
       }
-      throw e;
-    }
+
+      const resolvePlannedEndpoint = (endpoint: PlannedBatchEndpoint): number => {
+        if (endpoint.kind === 'existing') return endpoint.ref as number;
+        return createdNodes[endpoint.ref as string]!.id;
+      };
+
+      const edgeIds: number[] = [];
+      for (const edge of planned.plan.edges) {
+        const row = tx
+          .insert(schema.edges)
+          .values({
+            spec_id: input.specId,
+            category: edge.category,
+            source_id: resolvePlannedEndpoint(edge.source),
+            target_id: resolvePlannedEndpoint(edge.target),
+            stance: edge.stance,
+            basis: input.basis ?? 'explicit',
+            rationale: edge.rationale,
+            created_at_lsn: lsn,
+            updated_at_lsn: lsn,
+          })
+          .returning()
+          .get();
+        edgeIds.push(row!.id);
+      }
+
+      tx.insert(schema.changeLog)
+        .values({
+          lsn,
+          operation: 'commit_graph',
+          payload: JSON.stringify({
+            basis: input.basis ?? 'explicit',
+            specId: input.specId,
+            nodes: Object.fromEntries(Object.entries(createdNodes).map(([ref, node]) => [ref, node.id])),
+            edges: edgeIds,
+          }),
+        })
+        .run();
+
+      return {
+        status: 'success' as const,
+        lsn,
+        createdNodes,
+        edges: edgeIds,
+      };
+    });
   }
 
-  private validateCommitGraphInput(input: CommitGraphInput): Diagnostic[] {
-    const diagnostics: Diagnostic[] = [];
-    if (input.nodes.length === 0 && input.edges.length === 0) {
-      diagnostics.push({ field: 'batch', message: 'empty batch — nothing to commit' });
-      return diagnostics;
-    }
-    if (input.basis != null && !VALID_BASES.includes(input.basis)) {
-      diagnostics.push({
-        field: 'basis',
-        message: `"${String(input.basis)}" is not a valid graph approval basis`,
-      });
-    }
-
-    const specRow = this.db
-      .select({ id: schema.specs.id })
-      .from(schema.specs)
-      .where(eq(schema.specs.id, input.specId))
-      .get();
-    if (!specRow) {
-      diagnostics.push({ field: 'specId', message: `spec ${input.specId} does not exist` });
-      return diagnostics;
-    }
-
-    const refMap = new Map<string, number>();
-    for (let i = 0; i < input.nodes.length; i++) {
-      const bn = input.nodes[i]!;
-      if (refMap.has(bn.ref)) {
-        diagnostics.push({
-          field: `nodes[${i}].ref`,
-          message: `duplicate batch ref "${bn.ref}"`,
-        });
-      }
-      refMap.set(bn.ref, -(i + 1));
-
-      // Node validation reuses createNode rules; specId comes from the batch.
-      for (const diagnostic of validateCreateNode({ ...bn, specId: input.specId })) {
-        diagnostics.push({
-          field: `nodes[${i}].${diagnostic.field}`,
-          message: diagnostic.message,
-        });
-      }
-    }
-    if (diagnostics.length > 0) return diagnostics;
-
-    const existingRefs = new Set<number>();
-    for (const edge of input.edges) {
-      addExistingRefId(this.db, edge.source, input.specId, existingRefs);
-      addExistingRefId(this.db, edge.target, input.specId, existingRefs);
-    }
-
-    const verifiedExisting = new Set<number>();
-    const crossSpecExisting = new Set<number>();
-    if (existingRefs.size > 0) {
-      const rows = this.db
-        .select({ id: schema.nodes.id, spec_id: schema.nodes.spec_id })
-        .from(schema.nodes)
-        .where(inArray(schema.nodes.id, [...existingRefs]))
-        .all();
-      for (const row of rows) {
-        if (row.spec_id === input.specId) {
-          verifiedExisting.add(row.id);
-        } else {
-          crossSpecExisting.add(row.id);
-        }
-      }
-    }
-
-    for (let i = 0; i < input.edges.length; i++) {
-      diagnostics.push(
-        ...validateAndResolveBatchEdge(
-          input.edges[i]!,
-          i,
-          refMap,
-          verifiedExisting,
-          crossSpecExisting,
-          this.db,
-          input.specId,
-        ).diagnostics,
-      );
-    }
-    return diagnostics;
+  private planCommitGraph(input: CommitGraphInput, db: Pick<BrunchDb, 'select'>) {
+    return planCommitGraphBatch(db, input, (nodeIndex) => {
+      const node = input.nodes[nodeIndex]!;
+      return validateCreateNode({ ...node, specId: input.specId }).map((diagnostic) => ({
+        field: `nodes[${nodeIndex}].${diagnostic.field}`,
+        message: diagnostic.message,
+      }));
+    });
   }
 
   /**

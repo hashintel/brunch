@@ -86,6 +86,8 @@ describe('translateCommitGraph', () => {
       (code) => (code === 'G1' ? 42 : undefined),
     );
 
+    expect('status' in input).toBe(false);
+    if ('status' in input) throw new Error('unreachable');
     expect(input.specId).toBe(7);
     expect(input.nodes).toHaveLength(2);
     expect(input.nodes[0]!.ref).toBe('n1');
@@ -96,8 +98,8 @@ describe('translateCommitGraph', () => {
     expect(input.nodes[0]).not.toHaveProperty('basis');
     expect(input.edges[0]).not.toHaveProperty('basis');
   });
-  it('fails loudly when projected codes are malformed or absent from the selected spec', () => {
-    expect(() =>
+  it('normalizes projected-code failures into structured diagnostics', () => {
+    expect(
       translateCommitGraph(
         {
           nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'Test goal' }],
@@ -106,9 +108,12 @@ describe('translateCommitGraph', () => {
         7,
         () => undefined,
       ),
-    ).toThrow('Malformed graph node code "bad"');
+    ).toMatchObject({
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'edges[0].source' }],
+    });
 
-    expect(() =>
+    expect(
       translateCommitGraph(
         {
           nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'Test goal' }],
@@ -117,7 +122,10 @@ describe('translateCommitGraph', () => {
         7,
         () => undefined,
       ),
-    ).toThrow('Graph node code "G99" does not resolve in the selected spec');
+    ).toMatchObject({
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'edges[0].source' }],
+    });
   });
 });
 
@@ -151,8 +159,7 @@ describe('formatCommitGraphResult', () => {
     const text = formatCommitGraphResult({
       status: 'success',
       lsn: 5,
-      nodes: { n1: 1, n2: 2 },
-      nodeCodes: { n1: 'G1', n2: 'R1' },
+      createdNodes: { n1: { id: 1, code: 'G1' }, n2: { id: 2, code: 'R1' } },
       edges: [10, 11],
     });
 
@@ -229,7 +236,9 @@ describe('graph tools end-to-end', () => {
         edges: [{ category: 'dependency', source: 'n2', target: 'n1' }],
       },
       specId,
+      () => undefined,
     );
+    if ('status' in input) throw new Error('unreachable');
     const result = executor.commitGraph(input);
     expect(result.status).toBe('success');
 
@@ -294,7 +303,7 @@ describe('graph tools end-to-end', () => {
 
     expect(result.content[0]?.text).toContain('n1 → R1');
     expect(result.content[0]?.text).not.toContain('n1 → #');
-    expect(result.details).toMatchObject({ status: 'success', nodeCodes: { n1: 'R1' } });
+    expect(result.details).toMatchObject({ status: 'success', createdNodes: { n1: { code: 'R1' } } });
     expect(db.select().from(edges).all()[0]!.source_id).toBe(existing.nodeId);
   });
 
@@ -319,12 +328,19 @@ describe('graph tools end-to-end', () => {
       { specId, commandExecutor: executor, snapshots },
     );
 
-    await expect(
-      tools.get('commit_graph')!.execute('commit-1', {
-        nodes: [{ ref: 'n1', plane: 'intent', kind: 'requirement', title: 'New req' }],
-        edges: [{ category: 'realization', source: { existingCode: 'G1' }, target: 'n1' }],
-      }),
-    ).rejects.toThrow('Graph node code "G1" does not resolve in the selected spec');
+    const result = (await tools.get('commit_graph')!.execute('commit-1', {
+      nodes: [{ ref: 'n1', plane: 'intent', kind: 'requirement', title: 'New req' }],
+      edges: [{ category: 'realization', source: { existingCode: 'G1' }, target: 'n1' }],
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+
+    expect(result.content[0]?.text).toContain('STRUCTURAL_ILLEGAL');
+    expect(result.details).toMatchObject({
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'edges[0].source' }],
+    });
   });
 
   it('graph tool prompt guidance names projected codes rather than raw node ids', () => {
@@ -356,7 +372,9 @@ describe('graph tools end-to-end', () => {
         edges: [],
       },
       specId,
+      () => undefined,
     );
+    if ('status' in input) throw new Error('unreachable');
     const result = executor.commitGraph(input);
     expect(result.status).toBe('structural_illegal');
 
@@ -377,7 +395,9 @@ describe('graph tools end-to-end', () => {
         ],
       },
       specId,
+      () => undefined,
     );
+    if ('status' in input) throw new Error('unreachable');
     const result = executor.commitGraph(input);
     expect(result.status).toBe('structural_illegal');
 
@@ -402,12 +422,14 @@ describe('graph tools end-to-end', () => {
         edges: [],
       },
       specId,
+      () => undefined,
     );
+    if ('status' in input) throw new Error('unreachable');
     const commitResult = executor.commitGraph(input);
     expect(commitResult.status).toBe('success');
 
     if (commitResult.status === 'success') {
-      const nodeId = commitResult.nodes['n1']!;
+      const nodeId = commitResult.createdNodes['n1']!.id;
       const result = snapshots.getNodeNeighborhood(nodeId);
       const text = formatNeighborhoodResult(result);
 
@@ -425,7 +447,9 @@ describe('graph tools end-to-end', () => {
         edges: [],
       },
       specId,
+      () => undefined,
     );
+    if ('status' in input) throw new Error('unreachable');
     const commitResult = executor.commitGraph(input);
     expect(commitResult.status).toBe('success');
     if (commitResult.status !== 'success') return;

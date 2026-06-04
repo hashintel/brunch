@@ -194,8 +194,8 @@ async function createGraphRpcFixture(): Promise<{
     cwd,
     specAId: specA.specId,
     specBId: specB.specId,
-    specANodeId: commitA.nodes.requirement!,
-    specBNodeId: commitB.nodes.goal!,
+    specANodeId: commitA.createdNodes.requirement!.id,
+    specBNodeId: commitB.createdNodes.goal!.id,
     finalLsn: commitB.lsn,
   };
 }

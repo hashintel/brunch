@@ -93,41 +93,63 @@ src/agents/contexts/
 └── node.test.ts           ~
 ```
 
-## Card 2 — Unify commitGraph planning for dry-run and commit
+## Card 2 — Normalize graph tool outcomes and unify commitGraph planning
 
-Status: next
+Status: done
 
 ### Target Behavior
 
-A single commit-graph batch planner produces every structural diagnostic used by both dry-run and commit execution.
+Every graph-tool structural failure travels through the same structured diagnostic path used by commitGraph dry-run and commit execution.
 
 ### Boundary Crossings
 
 ```pseudo
-CommandExecutor.dryRunCommitGraph / CommandExecutor.commitGraph
+commit_graph / read_graph Pi tool params
+→ adapter normalization over projected codes
+→ CommandExecutor.dryRunCommitGraph / CommandExecutor.commitGraph
 → private commit-graph batch planner
 → graph structural validators + selected-spec reference checks
-→ transaction writer
+→ transaction writer / structured tool result
+```
+
+### Build order inside this card
+
+```pseudo
+1. adapter normalization: no thrown Error for malformed/missing codes; return structured diagnostics
+2. result identity: replace `nodes` + optional `nodeCodes` with one created-node result shape
+3. tool params: make `ReadGraphParams` a discriminated union so neighborhood requires `nodeCode`
+4. resolver contract: require the selected-spec code resolver at the graph tool boundary
+5. planner extraction: make dry-run and commit share the full commitGraph planner, including supersession acyclicity
 ```
 
 ### Risks and Assumptions
 
+- RISK: adapter code currently throws before the agent receives a `structural_illegal`-style tool result.
+  → MITIGATION: normalize projected-code failures into the same diagnostic envelope that `formatCommitGraphResult` renders for agent self-correction.
+- RISK: `CommitGraphSuccess` currently represents identity twice (`nodes: ref → id` plus optional `nodeCodes`).
+  → MITIGATION: make one created-node result shape such as `createdNodes: { [ref]: { id, code } }`; keep raw ids internal/diagnostic, never as the primary rendered handle.
+- RISK: `ReadGraphParams` currently permits `{ mode: "neighborhood" }` and rejects it imperatively.
+  → MITIGATION: use a discriminated union so overview and neighborhood params make invalid states unrepresentable at the schema/type boundary.
 - RISK: supersession acyclicity currently depends on resolved endpoints after insertion setup.
   → MITIGATION: plan against temporary batch endpoint keys plus existing NodeIds before writing; commit maps the already-planned batch refs to inserted rows.
 - RISK: this cleanup could become a broad executor rewrite.
-  → MITIGATION: split only commitGraph batch planning/validation behind the existing `CommandExecutor` public method; leave unrelated spec/recon-need commands alone.
-- ASSUMPTION: dry-run and commit should be structurally identical except for persistence.
-    → IMPACT IF FALSE: review-set proposals can pass dry-run and fail on approval, breaking D27-L/D53-L.
-    → VALIDATE: paired dry-run/commit differential tests for every current structural-illegal family.
+  → MITIGATION: split only graph-tool normalization and commitGraph batch planning/validation; leave unrelated spec/recon-need commands alone.
+- ASSUMPTION: dry-run, commit, and graph-tool normalization should be structurally identical except for persistence.
+    → IMPACT IF FALSE: review-set proposals can pass dry-run and fail on approval, or agent probes can crash instead of producing retryable diagnostics, breaking D27-L/D53-L/A14-L.
+    → VALIDATE: paired adapter/dry-run/commit differential tests for current structural-illegal families.
 
 ### Posture check
 
-This is an invariant tracer: it closes the dry-run/commit gap before FE-809 review-cycle work depends on dry-run as a product gate.
+This is an invariant tracer: it closes the adapter-exception and dry-run/commit gaps before FE-808 probes and FE-809 review-cycle work depend on these diagnostics as product evidence.
 
 ### Acceptance Criteria
 
 ```pseudo
-✓ dry-run/commit parity tests — invalid basis, missing existing code/id, invalid category/stance, self-loop, and detail-shape errors produce matching diagnostics
+✓ graph-tool adapter tests — malformed, missing, and wrong-spec projected codes produce structured diagnostic tool results, not thrown exceptions
+✓ graph-tool schema tests — `ReadGraphParams` is an overview/neighborhood discriminated union; neighborhood requires `nodeCode`, and raw `node_id` stays rejected
+✓ graph-tool adapter tests — selected-spec code resolver is required at the boundary; no default `() => undefined` resolver remains
+✓ result-shape tests — commit success exposes one created-node identity shape with both internal id and projected code; formatting renders codes as primary handles with no optional `#id` fallback for created nodes
+✓ dry-run/commit parity tests — invalid basis, missing existing ref/code, invalid category/stance, self-loop, and detail-shape errors produce matching diagnostics
 ✓ dry-run/commit parity tests — existing, intra-batch, and mixed supersession cycles are rejected by dry-run before any write path runs
 ✓ transaction tests — failed commitGraph batches do not persist nodes, edges, change-log rows, or counter rows
 ✓ topology/file-size check — commitGraph batch planning lives in a private `src/graph/command-executor/*` module imported only by the public command-executor entrypoint
@@ -136,6 +158,7 @@ This is an invariant tracer: it closes the dry-run/commit gap before FE-809 revi
 
 ### Verification Approach
 
+- Inner: adapter/schema tests — prove graph-tool normalization returns structured diagnostics and code-only params make invalid states unrepresentable.
 - Inner: unit/differential tests over the batch planner and public `CommandExecutor` methods.
 - Middle: review-set dry-run tests keep using the public `dryRunCommitGraph` path.
 
@@ -143,21 +166,28 @@ This is an invariant tracer: it closes the dry-run/commit gap before FE-809 revi
 
 - Preserve `CommandExecutor` as the public mutation boundary; the new planner is private implementation.
 - Do not add a standalone authority service or second write path.
-- Keep the split semantic, not file-shape theatre: extract commitGraph batch planning only.
+- Keep projected codes out of DB storage; raw ids may remain in typed internals/details but not as primary agent-facing handles.
+- Keep the split semantic, not file-shape theatre: extract graph-tool normalization and commitGraph batch planning only.
 
 ### Expected touched paths (tentative)
 
 ```pseudo
+src/.pi/extensions/graph/
+├── command-adapter.ts           ~
+├── index.ts                     ~
+├── tool-schemas.ts              ~
+└── review-set-proposal.ts       ?
+src/.pi/__tests__/
+├── graph-tools.test.ts          ~
+└── review-set-proposal.test.ts  ~
 src/graph/
 ├── command-executor.ts              ~
 ├── command-executor.test.ts         ~
+├── snapshot.ts                      ?
+├── workspace-store.ts               ?
 └── command-executor/
     ├── commit-graph-batch.ts        +
     └── commit-graph-batch.test.ts   +
-src/.pi/__tests__/
-└── review-set-proposal.test.ts      ~
-src/.pi/extensions/graph/
-└── review-set-proposal.ts           ?
 src/graph/README.md                 ~
 ```
 

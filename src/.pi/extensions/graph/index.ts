@@ -12,12 +12,17 @@
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
+import type { CommandExecutor } from '../../../graph/command-executor.js';
 import { formatNeighborhood } from '../../../graph/format/neighborhood.js';
 import { projectNeighborhood } from '../../../graph/project/neighborhood.js';
-import type { CommandExecutor } from '../../../graph/command-executor.js';
 import type { GraphOverview, NeighborhoodResult } from '../../../graph/snapshot.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
-import { translateCommitGraph, formatCommitGraphResult, formatGraphOverview } from './command-adapter.js';
+import {
+  translateCommitGraph,
+  formatCommitGraphResult,
+  formatGraphOverview,
+  formatStructuralIllegal,
+} from './command-adapter.js';
 import { CommitGraphParams, ReadGraphParams } from './tool-schemas.js';
 
 // ---------------------------------------------------------------------------
@@ -74,7 +79,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
     async execute(_toolCallId, params) {
       const specId = deps.specId;
       const input = translateCommitGraph(params, specId, snapshots.resolveNodeCode);
-      const result = commandExecutor.commitGraph(input);
+      const result = 'status' in input ? input : commandExecutor.commitGraph(input);
       const text = formatCommitGraphResult(result);
       if (result.status === 'success') {
         deps.productUpdates?.publish(graphMutationProductUpdates({ specId, lsn: result.lsn }));
@@ -104,26 +109,45 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
 
     async execute(_toolCallId, params) {
       let text: string;
-      let details: GraphOverview | NeighborhoodResult;
+      let details:
+        | GraphOverview
+        | NeighborhoodResult
+        | {
+            readonly status: 'structural_illegal';
+            readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
+          };
 
       if (params.mode === 'overview') {
         const overview = snapshots.getGraphOverview();
         text = formatGraphOverview(overview);
         details = overview;
+      } else if (params.nodeCode == null) {
+        details = {
+          status: 'structural_illegal',
+          diagnostics: [{ field: 'nodeCode', message: 'nodeCode is required for neighborhood mode' }],
+        };
+        text = formatStructuralIllegal(details);
       } else {
-        if (params.nodeCode == null) {
-          throw new Error('nodeCode is required for neighborhood mode');
-        }
         const nodeId = snapshots.resolveNodeCode(params.nodeCode);
         if (nodeId === undefined) {
-          throw new Error(`nodeCode ${params.nodeCode} does not resolve in the selected spec`);
+          details = {
+            status: 'structural_illegal',
+            diagnostics: [
+              {
+                field: 'nodeCode',
+                message: `nodeCode ${params.nodeCode} does not resolve in the selected spec`,
+              },
+            ],
+          };
+          text = formatStructuralIllegal(details);
+        } else {
+          const neighborhood = snapshots.getNodeNeighborhood(
+            nodeId,
+            params.hops != null ? { hops: params.hops } : undefined,
+          );
+          text = formatNeighborhood(projectNeighborhood(neighborhood));
+          details = neighborhood;
         }
-        const neighborhood = snapshots.getNodeNeighborhood(
-          nodeId,
-          params.hops != null ? { hops: params.hops } : undefined,
-        );
-        text = formatNeighborhood(projectNeighborhood(neighborhood));
-        details = neighborhood;
       }
 
       return {

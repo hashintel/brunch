@@ -190,7 +190,7 @@ describe('getNodeNeighborhood', () => {
     expect(batch.status).toBe('success');
     if (batch.status !== 'success') throw new Error('unreachable');
 
-    const r1Id = batch.nodes['r1']!;
+    const r1Id = batch.createdNodes['r1']!.id;
     const result = getNodeNeighborhood(db, specId, r1Id);
     expect(result.status).toBe('success');
     if (result.status !== 'success') throw new Error('unreachable');
@@ -220,7 +220,7 @@ describe('getNodeNeighborhood', () => {
     expect(batch.status).toBe('success');
     if (batch.status !== 'success') throw new Error('unreachable');
 
-    const g1Id = batch.nodes['g1']!;
+    const g1Id = batch.createdNodes['g1']!.id;
 
     // 1 hop: only R1
     const hop1 = getNodeNeighborhood(db, specId, g1Id, { hops: 1 });
@@ -257,7 +257,7 @@ describe('getNodeNeighborhood', () => {
     expect(batch.status).toBe('success');
     if (batch.status !== 'success') throw new Error('unreachable');
 
-    const r1Id = batch.nodes['r1']!;
+    const r1Id = batch.createdNodes['r1']!.id;
 
     // Neighborhood of R_v1: should include A1 but exclude R_v0
     const result = getNodeNeighborhood(db, specId, r1Id);
@@ -293,7 +293,7 @@ describe('getNodeNeighborhood', () => {
     expect(batch.status).toBe('success');
     if (batch.status !== 'success') throw new Error('unreachable');
 
-    const t1Id = batch.nodes['t1']!;
+    const t1Id = batch.createdNodes['t1']!.id;
     const result = getNodeNeighborhood(db, specId, t1Id);
     expect(result.status).toBe('success');
     if (result.status !== 'success') throw new Error('unreachable');

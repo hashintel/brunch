@@ -79,19 +79,25 @@ export const CommitGraphParams = Type.Object(
   { additionalProperties: false },
 );
 
-export const ReadGraphParams = Type.Object(
+const ReadGraphOverviewParams = Type.Object(
   {
-    mode: StringEnum(['overview', 'neighborhood'] as const),
-    nodeCode: Type.Optional(
-      Type.String({
-        description:
-          'Required for neighborhood mode — projected code of the anchor node in the selected spec, e.g. G1 or CON2',
-      }),
-    ),
+    mode: Type.Literal('overview'),
+  },
+  { additionalProperties: false },
+);
+
+const ReadGraphNeighborhoodParams = Type.Object(
+  {
+    mode: Type.Literal('neighborhood'),
+    nodeCode: Type.String({
+      description: 'Projected code of the anchor node in the selected spec, e.g. G1 or CON2',
+    }),
     hops: Type.Optional(Type.Number({ description: 'Neighborhood traversal depth (default: 1)' })),
   },
   { additionalProperties: false },
 );
+
+export const ReadGraphParams = Type.Union([ReadGraphOverviewParams, ReadGraphNeighborhoodParams]);
 
 export type ToolCommitNode = Static<typeof CommitNodeSchema>;
 export type ToolCommitEdge = Static<typeof CommitEdgeSchema>;

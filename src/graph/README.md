@@ -1,7 +1,7 @@
 # graph/ — Graph domain layer
 
 Canonical reference: `docs/design/GRAPH_MODEL.md`
-SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L
+SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
 
 ## Owns
 
@@ -13,7 +13,8 @@ SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L
 - **commitGraph** — atomic batch mutation for `propose-graph`: one tool call,
   one transaction, one LSN, all-or-nothing. It accepts product command input
   (`nodes[]` with batch refs, `edges[]` with batch/existing refs), not raw DB
-  rows.
+  rows. `command-executor/commit-graph-batch.ts` owns the private shared planner
+  used by both dry-run and commit before any batch writes occur.
 - **Readers / snapshot functions** (`snapshot.ts`) — graph projections at
   multiple detail levels: active-context and graph-truth overview, node
   neighborhood, selected-spec graph-code lookup, and open reconciliation needs.
@@ -63,6 +64,12 @@ graph/
     commitGraph / dryRunCommitGraph
     create/resolve reconciliation need
 
+  command-executor/
+    commit-graph-batch.ts
+      private commitGraph batch planner
+      dry-run/commit structural parity
+      temporary endpoint graph for supersession acyclicity
+
   snapshot.ts
     getGraphOverview
     getNodeNeighborhood
@@ -111,18 +118,20 @@ CommandExecutor
 
 ## Fractal split points
 
-Keep `command-executor.ts` and `snapshot.ts` as public entry points. When either
-file needs to split, use same-named private folders rather than exposing more
-entry points:
+Keep `command-executor.ts` and `snapshot.ts` as public entry points. The first
+real split is now `command-executor/commit-graph-batch.ts`: private planner code
+for the commitGraph seam, imported only by the public `command-executor.ts`
+entrypoint. Future splits should follow the same pattern: split by semantic
+responsibility, keep external imports pointed at the root entrypoint, and avoid
+folder scaffolding until pressure is real.
 
 ```pseudo
 graph/command-executor/
-  commit-graph.ts
-  specs.ts
-  reconciliation-needs.ts
-  diagnostics.ts
-  lsn.ts
-  change-log.ts
+  commit-graph-batch.ts
+    planned edge endpoints
+    existing/batch ref validation
+    supersession-cycle detection over existing ids + temporary batch keys
+    created-node result formatter
 
 graph/snapshot/
   row-mappers.ts
@@ -131,9 +140,6 @@ graph/snapshot/
   reconciliation-needs.ts
   changes-since.ts
 ```
-
-Do not create these files until pressure is real or an importer/test names the
-seam. The desired shape is documented here so future splits preserve topology.
 
 ## Known near-term schema pressure
 

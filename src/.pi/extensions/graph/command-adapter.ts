@@ -16,6 +16,7 @@ import type {
   CommitGraphInput,
   CommitGraphResult,
   CommitGraphSuccess,
+  Diagnostic,
   StructuralIllegal,
 } from '../../../graph/command-executor.js';
 import { formatGraphNodeCode, parseGraphNodeCode } from '../../../graph/schema/nodes.js';
@@ -35,8 +36,8 @@ export type ResolveGraphNodeCode = (code: string) => number | undefined;
 export function translateCommitGraph(
   params: ToolCommitGraphParams,
   specId: number,
-  resolveGraphNodeCode: ResolveGraphNodeCode = () => undefined,
-): CommitGraphInput {
+  resolveGraphNodeCode: ResolveGraphNodeCode,
+): CommitGraphInput | StructuralIllegal {
   const nodes: BatchNodeInput[] = params.nodes.map((n) => ({
     ref: n.ref,
     plane: n.plane as BatchNodeInput['plane'],
@@ -47,28 +48,37 @@ export function translateCommitGraph(
     detail: n.detail,
   }));
 
-  const edges: BatchEdgeInput[] = params.edges.map((e) => ({
+  const diagnostics: Diagnostic[] = [];
+  const edges: BatchEdgeInput[] = params.edges.map((e, index) => ({
     category: e.category,
-    source: resolveEdgeRef(e.source, resolveGraphNodeCode),
-    target: resolveEdgeRef(e.target, resolveGraphNodeCode),
+    source: resolveEdgeRef(e.source, resolveGraphNodeCode, `edges[${index}].source`, diagnostics),
+    target: resolveEdgeRef(e.target, resolveGraphNodeCode, `edges[${index}].target`, diagnostics),
     stance: e.stance,
     rationale: e.rationale,
   }));
 
+  if (diagnostics.length > 0) return { status: 'structural_illegal', diagnostics };
   return { specId, basis: 'implicit', nodes, edges };
 }
 
 function resolveEdgeRef(
   ref: string | { readonly existingCode: string },
   resolveGraphNodeCode: ResolveGraphNodeCode,
+  field: string,
+  diagnostics: Diagnostic[],
 ): BatchEdgeRef {
   if (typeof ref === 'string') return ref;
   if (!parseGraphNodeCode(ref.existingCode)) {
-    throw new Error(`Malformed graph node code "${ref.existingCode}"`);
+    diagnostics.push({ field, message: `malformed graph node code "${ref.existingCode}"` });
+    return '__invalid_existing_code__';
   }
   const nodeId = resolveGraphNodeCode(ref.existingCode);
   if (nodeId === undefined) {
-    throw new Error(`Graph node code "${ref.existingCode}" does not resolve in the selected spec`);
+    diagnostics.push({
+      field,
+      message: `graph node code "${ref.existingCode}" does not resolve in the selected spec`,
+    });
+    return '__unresolved_existing_code__';
   }
   return { existing: nodeId };
 }
@@ -87,15 +97,15 @@ export function formatCommitGraphResult(result: CommitGraphResult): string {
   if (result.status === 'success') {
     return formatCommitSuccess(result);
   }
-  return formatDiagnostics(result);
+  return formatStructuralIllegal(result);
 }
 
 function formatCommitSuccess(result: CommitGraphSuccess): string {
-  const nodeEntries = Object.entries(result.nodes);
+  const nodeEntries = Object.entries(result.createdNodes);
   const lines: string[] = [`Graph committed successfully (LSN ${result.lsn}).`];
 
   if (nodeEntries.length > 0) {
-    const createdNodes = nodeEntries.map(([ref, id]) => `${ref} → ${result.nodeCodes?.[ref] ?? `#${id}`}`);
+    const createdNodes = nodeEntries.map(([ref, node]) => `${ref} → ${node.code}`);
     lines.push(`Nodes created: ${createdNodes.join(', ')}`);
   }
   if (result.edges.length > 0) {
@@ -105,7 +115,7 @@ function formatCommitSuccess(result: CommitGraphSuccess): string {
   return lines.join('\n');
 }
 
-function formatDiagnostics(result: StructuralIllegal): string {
+export function formatStructuralIllegal(result: StructuralIllegal): string {
   const lines: string[] = [
     'STRUCTURAL_ILLEGAL: The batch was rejected. Fix the following issues and retry:',
     '',

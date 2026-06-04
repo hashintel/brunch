@@ -311,7 +311,9 @@ function commitGraphAttemptFromMessage(
     index,
     status,
     ...(typeof details?.lsn === 'number' ? { lsn: details.lsn } : {}),
-    ...(isNumberRecord(details?.nodes) ? { nodeRefs: details.nodes } : {}),
+    ...(isCreatedNodeRecord(details?.createdNodes)
+      ? { nodeRefs: mapCreatedNodeIds(details.createdNodes) }
+      : {}),
     ...(isNumberArray(details?.edges) ? { edgeIds: details.edges } : {}),
     ...(isDiagnosticArray(details?.diagnostics) ? { diagnostics: details.diagnostics } : {}),
     ...textContent(message.content),
@@ -340,8 +342,14 @@ function isDiagnosticArray(value: unknown): value is Diagnostic[] {
   );
 }
 
-function isNumberRecord(value: unknown): value is Record<string, number> {
-  return isRecord(value) && Object.values(value).every((entry): entry is number => typeof entry === 'number');
+function isCreatedNodeRecord(value: unknown): value is Record<string, { id: number }> {
+  return (
+    isRecord(value) && Object.values(value).every((entry) => isRecord(entry) && typeof entry.id === 'number')
+  );
+}
+
+function mapCreatedNodeIds(value: Record<string, { id: number }>): Record<string, number> {
+  return Object.fromEntries(Object.entries(value).map(([ref, node]) => [ref, node.id]));
 }
 
 function isNumberArray(value: unknown): value is number[] {
