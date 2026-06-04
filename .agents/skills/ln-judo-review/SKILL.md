@@ -10,6 +10,8 @@ Look for **code judo**: restructurings that preserve behavior while making the i
 
 This is a strict maintainability audit, not a cleanup pass. Do not stop at "this could be a bit cleaner." Do not rubber-stamp working code that leaves the codebase messier. Use the repo's pre-release posture: retire stale concepts, obsolete code paths, and compatibility scaffolding rather than protecting them.
 
+Do not apply deletion-judo to intentional topology stubs. A comment-rich `export {}` source file may be a planned public seam / topology contract; see `AGENTS.md` §intentional topology stubs. Deleting it is a valid judo move only when the documented intent is obsolete or absorbed, not merely because the file is unused today.
+
 ## Input
 
 What to review: $ARGUMENTS

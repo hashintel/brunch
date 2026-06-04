@@ -10,6 +10,8 @@ Explore the codebase. Surface structural improvement opportunities. Be opinionat
 
 Use the repo's pre-release posture: reward conceptual clarity over compatibility scaffolding, and treat unnecessary preservation as review debt. Look for stale code, obsolete fixtures, legacy terms, and compatibility paths that should be deleted rather than protected.
 
+Deletion guard: before recommending deletion of a source file that has no runtime exports/imports but does have explanatory comments, apply `AGENTS.md` §intentional topology stubs. Do not treat `export {}`, zero imports, or passing import/build checks as proof of false topology. A deletion finding for such a file must name the contradicted/retired SPEC/PLAN/README claim, or the implemented replacement that absorbs the documented seam; otherwise route it as an intent-verification question, not a delete recommendation.
+
 ## Input
 
 What to review: $ARGUMENTS

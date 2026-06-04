@@ -13,7 +13,7 @@ This is not "proving-posture sequencing with bigger steps." The decision kernel 
 - **Materialize** — make a settled architectural decision visible in topology: file or directory placement, sub-tree split per [AGENTS.md](../../../../AGENTS.md) §fractal sub-tree pattern, or a topology README that locks a SPEC decision to a directory.
 - **Consolidate** — bring scattered cognates of the same concept into one canonical site.
 - **Name canonically** — collapse aliases, near-synonyms, or drift terms to one term; update callers, docs, and tests in the same slice.
-- **Delete-as-progress** — retire obsolete code paths, fixtures, dummy data, compatibility shims, and superseded docs. Deletion is a first-class closure outcome, not janitorial overflow.
+- **Delete-as-progress** — retire obsolete code paths, fixtures, dummy data, compatibility shims, and superseded docs. Deletion is a first-class closure outcome, not janitorial overflow. Comment-rich `export {}` source files are not deletion candidates on unusedness alone; apply `AGENTS.md` §intentional topology stubs and prove the documented seam is obsolete or absorbed.
 - **Retire bridges / aliases / dual paths** — under `migration: free-rewrite`, eliminate adapters, shims, and expand/contract scaffolds that have outlived their crossing. The migration scheme is not the system. (See `~/.pi/agent/APPEND_SYSTEM.md` §bridge-as-permanence.)
 - **Take the bigger step** — landing a multi-file or multi-layer closure in one slice when the thinness instinct is producing redundant proof rather than closure.
 
