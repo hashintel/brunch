@@ -36,7 +36,6 @@ export function translateCommitGraph(params: ToolCommitGraphParams, specId: numb
     kind: n.kind,
     title: n.title,
     body: n.body,
-    basis: n.basis as BatchNodeInput['basis'],
     source: n.source,
     detail: n.detail,
   }));
@@ -49,7 +48,7 @@ export function translateCommitGraph(params: ToolCommitGraphParams, specId: numb
     rationale: e.rationale,
   }));
 
-  return { specId, nodes, edges };
+  return { specId, basis: 'implicit', nodes, edges };
 }
 
 function resolveEdgeRef(ref: string | { readonly existing: number }): BatchEdgeRef {

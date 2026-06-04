@@ -222,7 +222,6 @@ export interface BatchNodeInput {
   readonly kind: string;
   readonly title: string;
   readonly body?: string | undefined;
-  readonly basis?: NodeBasis | undefined;
   readonly source?: string | undefined;
   readonly detail?: unknown;
 }
@@ -233,13 +232,13 @@ export interface BatchEdgeInput {
   readonly source: BatchEdgeRef;
   readonly target: BatchEdgeRef;
   readonly stance?: string | undefined;
-  readonly basis?: NodeBasis | undefined;
   readonly rationale?: string | undefined;
 }
 
 /** Input for the commitGraph atomic batch mutation. */
 export interface CommitGraphInput {
   readonly specId: number;
+  readonly basis?: NodeBasis | undefined;
   readonly nodes: readonly BatchNodeInput[];
   readonly edges: readonly BatchEdgeInput[];
 }
@@ -389,13 +388,13 @@ function validateTermDetail(detail: unknown, diagnostics: Diagnostic[]): void {
 const VALID_CATEGORIES = schema.EDGE_CATEGORIES as unknown as string[];
 const STANCE_REQUIRED_CATEGORIES = new Set(['proof', 'support']);
 const VALID_STANCES = schema.EDGE_STANCES as unknown as string[];
+const VALID_BASES = schema.NODE_BASES as unknown as string[];
 
 interface ResolvedEdge {
   sourceId: number;
   targetId: number;
   category: EdgeCategory;
   stance: EdgeStance | null;
-  basis: NodeBasis;
   rationale: string | null;
 }
 
@@ -516,7 +515,6 @@ function validateAndResolveBatchEdge(
       targetId: resolvedTargetId!,
       category: input.category as EdgeCategory,
       stance: (input.stance as EdgeStance) ?? null,
-      basis: (input.basis as NodeBasis) ?? 'explicit',
       rationale: input.rationale ?? null,
     },
   };
@@ -816,7 +814,7 @@ export class CommandExecutor {
               kind_ordinal: kindOrdinal,
               title: bn.title,
               body: bn.body ?? null,
-              basis: bn.basis ?? 'explicit',
+              basis: input.basis ?? 'explicit',
               source: bn.source ?? null,
               detail: bn.detail != null ? JSON.stringify(bn.detail) : null,
               created_at_lsn: lsn,
@@ -883,7 +881,7 @@ export class CommandExecutor {
               source_id: re.sourceId,
               target_id: re.targetId,
               stance: re.stance,
-              basis: re.basis,
+              basis: input.basis ?? 'explicit',
               rationale: re.rationale,
               created_at_lsn: lsn,
               updated_at_lsn: lsn,
@@ -899,6 +897,7 @@ export class CommandExecutor {
             lsn,
             operation: 'commit_graph',
             payload: JSON.stringify({
+              basis: input.basis ?? 'explicit',
               specId: input.specId,
               nodes: Object.fromEntries(refMap),
               edges: edgeIds,
@@ -926,6 +925,12 @@ export class CommandExecutor {
     if (input.nodes.length === 0 && input.edges.length === 0) {
       diagnostics.push({ field: 'batch', message: 'empty batch — nothing to commit' });
       return diagnostics;
+    }
+    if (input.basis != null && !VALID_BASES.includes(input.basis)) {
+      diagnostics.push({
+        field: 'basis',
+        message: `"${String(input.basis)}" is not a valid graph approval basis`,
+      });
     }
 
     const specRow = this.db

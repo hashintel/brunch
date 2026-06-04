@@ -40,11 +40,9 @@ export type EdgeStance = (typeof EDGE_STANCES)[number];
 /**
  * How an edge entered graph truth.
  *
- * `explicit` is a direct user statement; `accepted_review_set` is a
- * batch acceptance through `acceptReviewSet` (D27-L). Inferred edges
- * do NOT live in graph truth — they live in structured-exchange
- * preface or `capture_*` analysis until promoted through a review set
- * (D47-L, D50-L).
+ * `explicit` means the graph item was directly stated or exact-review approved;
+ * `implicit` means an approved concept was materialized without per-item review.
+ * The mutation path lives in `change_log.operation`, not in `basis` (D63-L).
  */
 export type EdgeBasis = (typeof NODE_BASES)[number];
 

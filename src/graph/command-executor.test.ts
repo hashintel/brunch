@@ -538,6 +538,52 @@ describe('CommandExecutor', () => {
       expect(edgeRow.target_id).toBe(result.nodes['b']);
     });
 
+    it('applies one batch approval basis to all created nodes and edges', () => {
+      const result = executor.commitGraph({
+        specId,
+        basis: 'implicit',
+        nodes: [
+          { ref: 'n1', plane: 'intent', kind: 'goal', title: 'G1' },
+          { ref: 'n2', plane: 'intent', kind: 'requirement', title: 'R1' },
+        ],
+        edges: [{ category: 'realization', source: 'n1', target: 'n2' }],
+      });
+
+      expect(result.status).toBe('success');
+      expect(
+        db
+          .select()
+          .from(nodes)
+          .all()
+          .map((row) => row.basis),
+      ).toEqual(['implicit', 'implicit']);
+      expect(
+        db
+          .select()
+          .from(edges)
+          .all()
+          .map((row) => row.basis),
+      ).toEqual(['implicit']);
+      expect(JSON.parse(db.select().from(changeLog).all()[0]!.payload).basis).toBe('implicit');
+    });
+
+    it('rejects retired accepted_review_set basis at the command boundary', () => {
+      const result = executor.commitGraph({
+        specId,
+        basis: 'accepted_review_set' as never,
+        nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'G1' }],
+        edges: [],
+      });
+
+      expect(result.status).toBe('structural_illegal');
+      if (result.status !== 'structural_illegal') throw new Error('unreachable');
+      expect(result.diagnostics).toEqual(
+        expect.arrayContaining([expect.objectContaining({ field: 'basis' })]),
+      );
+      expect(db.select().from(nodes).all()).toHaveLength(0);
+      expect(db.select().from(changeLog).all()).toHaveLength(0);
+    });
+
     it('resolves existing-node refs to verified NodeIds', () => {
       // Pre-create a node
       const pre = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Existing goal' });

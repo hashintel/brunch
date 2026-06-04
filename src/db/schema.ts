@@ -36,7 +36,7 @@ export const DESIGN_KINDS = ['module', 'interface'] as const;
 
 export const PLAN_KINDS = ['milestone', 'frontier', 'slice'] as const;
 
-export const NODE_BASES = ['explicit', 'accepted_review_set'] as const;
+export const NODE_BASES = ['explicit', 'implicit'] as const;
 
 export const EDGE_CATEGORIES = [
   'dependency',

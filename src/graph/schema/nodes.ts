@@ -27,7 +27,8 @@ import type { Lsn, NodeId } from '../atoms.js';
 export type NodePlane = 'intent' | 'oracle' | 'design' | 'plan';
 
 /**
- * How a node entered graph truth.
+ * Whether this exact graph item was approved (`explicit`) or materialized from
+ * an approved concept without per-item review (`implicit`).
  *
  * Derived from `db/schema.ts` — same semantics as EdgeBasis.
  */

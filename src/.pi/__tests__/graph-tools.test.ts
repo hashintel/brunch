@@ -80,6 +80,9 @@ describe('translateCommitGraph', () => {
     expect(input.edges).toHaveLength(2);
     expect(input.edges[0]!.source).toBe('n2');
     expect(input.edges[1]!.source).toEqual({ existing: 42 });
+    expect(input.basis).toBe('implicit');
+    expect(input.nodes[0]).not.toHaveProperty('basis');
+    expect(input.edges[0]).not.toHaveProperty('basis');
   });
 });
 

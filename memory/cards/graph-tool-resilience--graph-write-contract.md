@@ -83,7 +83,7 @@ src/graph/
 
 ## Card 2 — Replace path-shaped graph basis with approval basis
 
-Status: next
+Status: done
 
 ### Target Behavior
 

@@ -157,8 +157,15 @@ describe('review-set proposal dry-run gate', () => {
     });
     expect(entry.status).toBe('success');
 
-    const commitResult = executor.commitGraph(translateReviewSetProposalToCommitGraph(proposal, specId));
+    const command = translateReviewSetProposalToCommitGraph(proposal, specId);
+    expect(command.basis).toBe('explicit');
+    expect(command.nodes.every((node) => !('basis' in node))).toBe(true);
+    expect(command.edges.every((edge) => !('basis' in edge))).toBe(true);
+
+    const commitResult = executor.commitGraph(command);
     expect(commitResult).toMatchObject({ status: 'success' });
+    expect(getGraphOverview(db, specId).nodes.every((node) => node.basis === 'explicit')).toBe(true);
+    expect(getGraphOverview(db, specId).edges.every((edge) => edge.basis === 'explicit')).toBe(true);
     expect(getGraphOverview(db, specId)).toMatchObject({ nodeCount: 3, edgeCount: 2 });
   });
 });

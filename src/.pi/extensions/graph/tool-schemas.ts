@@ -14,7 +14,6 @@ import {
   EDGE_CATEGORIES,
   EDGE_STANCES,
   INTENT_KINDS,
-  NODE_BASES,
   ORACLE_KINDS,
   PLAN_KINDS,
 } from '../../../graph/index.js';
@@ -29,7 +28,6 @@ export const CommitNodeSchema = Type.Object({
   kind: StringEnum([...ALL_KINDS]),
   title: Type.String({ description: 'Node title — must be non-empty' }),
   body: Type.Optional(Type.String({ description: 'Extended description' })),
-  basis: Type.Optional(StringEnum([...NODE_BASES])),
   source: Type.Optional(
     Type.String({
       description: "Epistemic attribution (e.g. 'stakeholder', 'derived')",
