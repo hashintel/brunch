@@ -9,10 +9,12 @@ src/
 │   └── extensions/         Pi registrars: agent tools, TUI commands, enhancements
 │
 ├── agents/               Agent intelligence layer
-│   ├── modes/              operational mode prompts and rules
-│   ├── strategies/         interaction-shape prompts (propose-graph, project-graph, etc.)
-│   ├── lenses/             topical-focus prompts (intent, design, oracle, etc.)
-│   └── contexts/           snapshot orchestration (calls graph/ and session/)
+│   ├── definitions/        keyed agent prompt definitions
+│   ├── goals/              runtime goal resources
+│   ├── strategies/         interaction-shape resources (propose-graph, project-graph, etc.)
+│   ├── lenses/             topical-focus resources (intent, design, oracle, etc.)
+│   ├── methods/            tool-routing and sequencing resources
+│   └── contexts/           snapshot rendering over graph/session typed pulls
 │
 ├── db/                   Persistence substrate
 │                           Drizzle schema, migrations, connection lifecycle
@@ -61,7 +63,6 @@ the React client in `src/web/` (formerly `web-client/`); shared test helpers
 in `src/probes/`. The active workspace file is `.brunch/workspace.json`
 (`state.json` is retired).
 
-Prompt composition has moved to `src/agents/compose.ts` per D52-L/D58-L. The
-remaining `src/.pi/context/` files are legacy source material only; product code
-must not import that composer while the rest of the frontier rehomes/deletes old
-prompt-pack content.
+Prompt composition and prompt resources live in `src/agents/` per D52-L/D58-L.
+The old `src/.pi/context/` prompt-pack subtree is retired; `.pi/` remains an
+adapter layer only.

@@ -101,7 +101,9 @@ src/brunch-tui.test.ts                 ?
 
 ## Card 2 — Light scope — Fold and delete legacy prompt context
 
-Status: next
+Status: done
+
+Result: Folded structured-exchange, capture-analysis, and candidate-proposal prompt-pack specifics into `src/agents/methods/*.md`; deleted `src/.pi/context/`; added an agents topology test for resource coverage and no legacy prompt-path imports; reconciled topology READMEs plus SPEC/PLAN prompt-topology notes.
 
 ### Objective
 
