@@ -151,14 +151,45 @@ function runPi(opts: {
   });
 }
 
-/** Try to extract a JSON object from pi's text output. */
-function extractJson(raw: string): Record<string, unknown> | undefined {
-  const match = raw.match(/\{[\s\S]*?\}/);
-  if (!match) return undefined;
+/**
+ * Decide whether a slice is done by executing its verification targets. `done`
+ * requires at least one target and every target passing — a slice with no
+ * runnable verification cannot be proven done (no requisite variety). This is
+ * the real oracle: it replaces the prior LLM verdict over criterion prose,
+ * which a standalone component or Ladle story could satisfy without the
+ * feature working.
+ */
+export async function evaluateVerificationTargets(
+  targets: readonly { target: string }[],
+  runTarget: (target: string) => Promise<boolean>,
+): Promise<{ done: boolean; results: Array<{ target: string; passed: boolean }> }> {
+  const results: Array<{ target: string; passed: boolean }> = [];
+  for (const t of targets) {
+    let passed = false;
+    try {
+      passed = await runTarget(t.target);
+    } catch {
+      passed = false;
+    }
+    results.push({ target: t.target, passed });
+  }
+  return { done: results.length > 0 && results.every((r) => r.passed), results };
+}
+
+async function runBunTest(target: string, sandboxDir: string): Promise<boolean> {
   try {
-    return JSON.parse(match[0]) as Record<string, unknown>;
-  } catch {
-    return undefined;
+    const { stdout } = await execAsync(`bun test ${target}`, {
+      cwd: sandboxDir,
+      encoding: 'utf8',
+      timeout: 60_000,
+    });
+    logVerbose(stdout);
+    return true;
+  } catch (err) {
+    if (_verbose && err && typeof err === 'object' && 'stdout' in err) {
+      logVerbose(String((err as { stdout: unknown }).stdout));
+    }
+    return false;
   }
 }
 
@@ -178,31 +209,14 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
     'evaluate-done': async (ctx: ActionContext) => {
       const label = sliceLabel(ctx.slice);
       log('?', `evaluate  ${label}`);
-      const task = `Evaluate slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => v.target).join(', ')}\nDetermine if all verification targets are satisfied. Respond with a JSON object: { "done": true/false, "reasoning": "..." }`;
-
-      try {
-        const raw = await runPi({
-          label: `evaluate  ${label}`,
-          model: 'claude-haiku-4-5',
-          promptFile: join(promptsDir, 'evaluator.md'),
-          task,
-          sandboxDir: ctx.sandboxDir,
-          tools: toolsForAction('evaluate-done'),
-        });
-        const parsed = extractJson(raw) as { done?: boolean; reasoning?: string } | undefined;
-        const done = !!parsed?.done;
-        log(done ? '●' : '○', `verdict   ${label} → ${done ? 'DONE' : 'NEEDS WORK'}`);
-        return report(ctx, 'evaluator', 'eval-done', {
-          done,
-          reasoning: parsed?.reasoning ?? raw.slice(0, 200),
-        });
-      } catch (err) {
-        log('✗', `evaluate  ${label} — ${err instanceof Error ? err.message : err}`);
-        return report(ctx, 'evaluator', 'eval-done', {
-          done: false,
-          reasoning: `evaluation failed: ${err instanceof Error ? err.message : String(err)}`,
-        });
+      const { done, results } = await evaluateVerificationTargets(ctx.slice.verification, (target) =>
+        runBunTest(target, ctx.sandboxDir),
+      );
+      for (const r of results) {
+        log(r.passed ? '✓' : '✗', `verify    ${r.target}`);
       }
+      log(done ? '●' : '○', `verdict   ${label} → ${done ? 'DONE' : 'NEEDS WORK'}`);
+      return report(ctx, 'evaluator', 'eval-done', { done, results });
     },
 
     'write-tests': async (ctx: ActionContext) => {
