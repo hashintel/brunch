@@ -22,7 +22,13 @@ import { createWorkspaceSessionCoordinator } from '../session/workspace-session-
 const PROBE_ID = 'propose-graph-commit' as const;
 const DEFAULT_MAX_ATTEMPTS = 2;
 
-export type ProposeGraphCommitScenarioId = 'direct-commit' | 'existing-code-ref' | 'retry-diagnostics';
+export type ProposeGraphCommitScenarioId =
+  | 'direct-commit'
+  | 'existing-code-ref'
+  | 'retry-diagnostics'
+  | 'ambiguity-no-overcommit';
+
+export type AmbiguityNoOvercommitOutcome = 'no_op_or_clarification' | 'overcommit' | 'unexpected_tool_use';
 
 export interface ProposeGraphCommitProofOptions {
   cwd?: string;
@@ -92,6 +98,7 @@ export interface ProposeGraphCommitProofReport {
     usedInCommitParams: boolean;
     existingCodeEdgePresent?: boolean;
   };
+  ambiguityOutcome?: AmbiguityNoOvercommitOutcome;
   friction: string[];
   artifacts?: ProposeGraphCommitProofArtifacts;
 }
@@ -278,14 +285,24 @@ export function summarizeProposeGraphCommitProof(
       projectedCodeEvidence.usedInCommitParams &&
       projectedCodeEvidence.existingCodeEdgePresent === true;
   }
+  const ambiguityOutcome =
+    scenarioId === 'ambiguity-no-overcommit'
+      ? ambiguityNoOvercommitOutcome(input.sessionText, attempts, input.overview)
+      : undefined;
   if (scenarioId === 'retry-diagnostics') {
     success =
       attempts.some((attempt) => attempt.status === 'structural_illegal') &&
       successfulAttempt !== undefined &&
       input.overview.nodeCount > 0;
   }
+  if (scenarioId === 'ambiguity-no-overcommit') {
+    success =
+      ambiguityOutcome === 'no_op_or_clarification' &&
+      input.overview.nodeCount === 0 &&
+      input.overview.edgeCount === 0;
+  }
 
-  if (attempts.length === 0) {
+  if (attempts.length === 0 && scenarioId !== 'ambiguity-no-overcommit') {
     friction.push('No commit_graph tool result was recorded.');
   }
   if (attempts.length > input.maxAttempts) {
@@ -314,6 +331,22 @@ export function summarizeProposeGraphCommitProof(
       );
     }
   }
+  if (scenarioId === 'retry-diagnostics') {
+    if (!attempts.some((attempt) => attempt.status === 'structural_illegal')) {
+      friction.push('Retry diagnostics scenario did not record a structural_illegal first attempt.');
+    }
+    if (successfulAttempt === undefined) {
+      friction.push('Retry diagnostics scenario did not record a corrected successful retry.');
+    }
+  }
+  if (scenarioId === 'ambiguity-no-overcommit') {
+    if (ambiguityOutcome !== 'no_op_or_clarification') {
+      friction.push(`Ambiguity scenario outcome was ${ambiguityOutcome ?? 'unknown'}.`);
+    }
+    if (input.overview.nodeCount > 0 || input.overview.edgeCount > 0) {
+      friction.push('Ambiguity scenario wrote graph state despite underspecified prompt.');
+    }
+  }
 
   return {
     schemaVersion: 1,
@@ -326,7 +359,9 @@ export function summarizeProposeGraphCommitProof(
         ? 'A14-L selected-spec projected-code reference through the default runtime.'
         : scenarioId === 'retry-diagnostics'
           ? 'A14-L retry behavior after structured commit_graph diagnostics.'
-          : 'A14-L structural legality for direct commitGraph batches.',
+          : scenarioId === 'ambiguity-no-overcommit'
+            ? 'A14-L ambiguity handling without unsupported graph overcommit.'
+            : 'A14-L structural legality for direct commitGraph batches.',
     scenarioId,
     success,
     cwd: input.cwd,
@@ -347,8 +382,33 @@ export function summarizeProposeGraphCommitProof(
     committedNodeTitles,
     committedNodes,
     projectedCodeEvidence,
+    ...(ambiguityOutcome !== undefined ? { ambiguityOutcome } : {}),
     friction,
   };
+}
+
+function ambiguityNoOvercommitOutcome(
+  sessionText: string,
+  attempts: readonly CommitGraphAttemptReport[],
+  overview: GraphOverview,
+): AmbiguityNoOvercommitOutcome {
+  if (
+    attempts.some((attempt) => attempt.status === 'success') ||
+    overview.nodeCount > 0 ||
+    overview.edgeCount > 0
+  ) {
+    return 'overcommit';
+  }
+  if (attempts.length > 0) return 'unexpected_tool_use';
+  const normalized = sessionText.toLowerCase();
+  return normalized.includes('clarif') ||
+    normalized.includes('cannot commit') ||
+    normalized.includes('can’t commit') ||
+    normalized.includes('insufficient') ||
+    normalized.includes('need more') ||
+    normalized.includes('not enough')
+    ? 'no_op_or_clarification'
+    : 'unexpected_tool_use';
 }
 
 function projectedCodeEvidenceFromSummaryInput(
@@ -547,6 +607,13 @@ Use read_graph once in overview mode. Find the projected code for the existing l
 
 Use read_graph once in overview mode. Then intentionally make exactly one structurally illegal commit_graph attempt by creating two intent-plane nodes and a proof edge between them without the required stance field. Read the STRUCTURAL_ILLEGAL diagnostics. Then retry once with a corrected complete batch that creates the same two nodes and a legal proof edge with stance "for". Stop after the corrected commit_graph succeeds.`;
   }
+  if (scenarioId === 'ambiguity-no-overcommit') {
+    return `Brunch A14-L ambiguity/no-overcommit probe.
+
+The user says: "Maybe our launch process has some risk somewhere; please update the spec graph if that seems useful."
+
+Use read_graph once in overview mode. Because the prompt does not provide a concrete accepted graph fact, do not call commit_graph. Instead, respond with a concise clarification request or explanation that there is not enough accepted graph truth to commit yet.`;
+  }
 
   return `Brunch A14-L probe: the user has accepted the following concept-level proposal and asked you to persist it now.\n\nConcept: A Brunch specification workspace needs an explicit launch-readiness subgraph that records the launch goal, the rollback requirement, the operator visibility criterion, and the assumption that users can recover from a failed launch.\n\nUse the read_graph tool once in overview mode, then use commit_graph to persist a coherent intent-plane graph. Requirements for the commit_graph call:\n- create at least four intent-plane nodes\n- include at least one goal, one requirement, one criterion, and one assumption\n- create at least three edges connecting the nodes\n- use only legal edge categories from the tool guidance\n- include stance only on support or proof edges\n- avoid decision and term nodes for this proof so detail schemas are not needed\n\nIf commit_graph returns STRUCTURAL_ILLEGAL, read the diagnostics and retry once with a corrected complete batch. Stop after a successful commit_graph result.`;
 }
@@ -593,7 +660,8 @@ function parseCliArgs(argv: readonly string[]): ProposeGraphCommitProofOptions {
       if (
         scenarioId !== 'direct-commit' &&
         scenarioId !== 'existing-code-ref' &&
-        scenarioId !== 'retry-diagnostics'
+        scenarioId !== 'retry-diagnostics' &&
+        scenarioId !== 'ambiguity-no-overcommit'
       ) {
         throw new Error(`Unsupported scenario ${scenarioId}`);
       }

@@ -213,6 +213,60 @@ describe('propose-graph commit proof report', () => {
     expect(report.friction).toEqual([]);
   });
 
+  it('classifies ambiguity no-overcommit as clarification without graph writes', () => {
+    const sessionText = JSON.stringify({
+      type: 'message',
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'I need more concrete accepted facts before I can commit graph truth.' },
+        ],
+      },
+    });
+
+    const report = summarizeProposeGraphCommitProof({
+      runId: 'ambiguity-run',
+      generatedAt: '2026-06-04T00:00:00.000Z',
+      cwd: '/tmp/brunch-proof',
+      specId: 7,
+      sessionId: 'session-1',
+      maxAttempts: 2,
+      sessionText,
+      overview: { ...successfulOverview, nodes: [], edges: [], nodeCount: 0, edgeCount: 0, lsn: 1 },
+      prompt: 'Maybe update the graph if useful.',
+      scenarioId: 'ambiguity-no-overcommit',
+    });
+
+    expect(report.success).toBe(true);
+    expect(report.ambiguityOutcome).toBe('no_op_or_clarification');
+    expect(report.attemptCount).toBe(0);
+    expect(report.finalGraph).toMatchObject({ nodeCount: 0, edgeCount: 0, lsn: 1 });
+    expect(report.friction).toEqual([]);
+  });
+
+  it('classifies ambiguity overcommit when unsupported graph writes succeed', () => {
+    const report = summarizeProposeGraphCommitProof({
+      runId: 'ambiguity-overcommit-run',
+      generatedAt: '2026-06-04T00:00:00.000Z',
+      cwd: '/tmp/brunch-proof',
+      specId: 7,
+      sessionId: 'session-1',
+      maxAttempts: 2,
+      sessionText: messageEntry(
+        'commit_graph',
+        { status: 'success', lsn: 1, createdNodes: { g1: { id: 1, code: 'G1' } }, edges: [] },
+        'Graph committed successfully',
+      ),
+      overview: successfulOverview,
+      prompt: 'Maybe update the graph if useful.',
+      scenarioId: 'ambiguity-no-overcommit',
+    });
+
+    expect(report.success).toBe(false);
+    expect(report.ambiguityOutcome).toBe('overcommit');
+    expect(report.friction).toContain('Ambiguity scenario outcome was overcommit.');
+  });
+
   it('fails closed when no commit_graph attempt succeeds', () => {
     const sessionText = messageEntry(
       'commit_graph',

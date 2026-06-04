@@ -111,7 +111,7 @@ _None._
 - **Linear:** [FE-808](https://linear.app/hash/issue/FE-808/broaden-direct-graph-tool-proof-beyond-the-a14-happy-path)
 - **Branch:** `ln/fe-808-graph-tool-resilience`
 - **Kind:** structural hardening / tracer bullet
-- **Status:** in progress
+- **Status:** done
 - **Certainty:** proving
 - **Stabilizes:** I34-L, I39-L, I40-L, I41-L — graph writes need stable node handles, correct approval basis, and supersession acyclicity before capture/review frontiers build on them.
 - **Lights up:** real `read_graph` / `commit_graph` path with projected existing-node references, diagnostics/retry, and no-overcommit behavior through the default Brunch runtime factory.
@@ -124,16 +124,16 @@ _None._
   - `commitGraph` accepts one approval basis for the batch, returns created ids/kind ordinals, resolves existing-node references from projected codes through adapters, and no longer requires agents to use raw DB ids.
   - Supersession edge creation validates acyclicity against existing same-spec supersession edges plus proposed batch edges, including intra-batch and mixed cycles.
   - Graph-truth vs active-context reads are explicit enough that active-context snapshots do not return dangling edges to hidden superseded nodes.
-  - At least three additional probe scenarios land under `.fixtures/runs/`: existing-node reference (landed: `.fixtures/runs/propose-graph-commit/2026-06-04-existing-code-ref/`), illegal proof-edge retry (landed: `.fixtures/runs/propose-graph-commit/2026-06-04-retry-diagnostics/`), and ambiguous prompt where the agent should avoid overcommitting or ask/emit no-op diagnostics according to strategy guidance.
-  - Probe reports record scenario id, attempts, retry count, diagnostics seen, final graph counts/LSN, committed code/title summaries, projected-code usage evidence, and friction.
-  - Tool guidance and `structural_illegal` diagnostics are sufficient for at least one corrected retry path (`2026-06-04-retry-diagnostics`); remaining ambiguity probe should still record any gap as friction rather than hiding it.
+  - Additional probe scenarios landed under `.fixtures/runs/`: existing-node reference (`2026-06-04-existing-code-ref`), illegal proof-edge retry (`2026-06-04-retry-diagnostics`), and ambiguity/no-overcommit (`2026-06-04-ambiguity-no-overcommit`).
+  - Probe reports record scenario id, attempts, retry count, diagnostics seen, final graph counts/LSN, committed code/title summaries, projected-code/ambiguity outcome evidence, and friction.
+  - Tool guidance and `structural_illegal` diagnostics are sufficient for at least one corrected retry path (`2026-06-04-retry-diagnostics`); ambiguity probe records no unsupported graph writes.
   - Existing-node refs target the selected spec's graph only.
 - **Verification:** Inner — schema/domain/CommandExecutor tests for ordinal allocation, basis enum rejection, existing-code resolution, supersession acyclicity, active-context filtering, and tool adapter schema/results. Middle/Outer — real model probe runs with transcript/report artifacts; no artificial injection of the module under test that bypasses the default Brunch runtime factory.
 - **Topology materialization:** Keep probes in `src/probes/` and `.fixtures/runs/`; keep tool adapter code in `src/.pi/extensions/graph/`; keep validators/diagnostics in `src/graph/`; no probe-only graph runtime wiring that product launch does not use.
 - **Cross-cutting obligations:** Avoid harness-as-false-proof: the probe must exercise the same default Brunch runtime factory and registered tools that the product uses. Record fitness, not just pass/fail. Preserve D62-L/D63-L/D64-L as graph-wide contracts rather than adapter-local conveniences.
 - **Traceability:** D4-L, D20-L, D51-L, D53-L, D60-L, D62-L, D63-L, D64-L / I34-L, I35-L, I39-L, I40-L, I41-L / A14-L, A5-L.
 - **Design docs:** `docs/architecture/probes-and-transcripts.md`; `docs/design/GRAPH_MODEL.md`.
-- **Current execution pointer:** `memory/cards/graph-tool-resilience--closure-chain.md` scopes the cleanup and remaining product-path probe closure chain for FE-808.
+- **Current execution pointer:** FE-808 closure chain completed; no active scope file remains.
 
 ### project-graph-review-cycle
 
@@ -236,7 +236,7 @@ _None._
 - **Design docs:** `src/README.md`; `src/.pi/README.md`; `src/agents/README.md`; `src/db/README.md`; `src/graph/README.md`; `src/rpc/README.md`; `src/session/README.md`; `src/web/README.md`.
 
 ## Recently Completed
-- 2026-06-04 `graph-tool-resilience` graph write contract chain — Done: graph nodes persist per-kind ordinals and expose projected codes; `commitGraph` applies one explicit/implicit batch basis; adapters resolve existing-node codes inside the selected spec; same-spec supersession cycles are rejected atomically; active-context graph reads omit hidden superseded nodes and dangling edges while graph-truth reads remain available.
+- 2026-06-04 `graph-tool-resilience` (FE-808) — Done: graph nodes persist per-kind ordinals and expose projected codes; `commitGraph` applies one explicit/implicit batch basis, returns one created-node identity shape, and shares dry-run/commit structural planning; adapters resolve selected-spec existing-node codes into structured diagnostics instead of throwing; same-spec supersession cycles are rejected atomically; active-context graph reads omit hidden superseded nodes and dangling edges while graph-truth reads remain available; product-path probes landed existing-code, retry-diagnostics, and ambiguity/no-overcommit evidence under `.fixtures/runs/propose-graph-commit/`.
 
 - 2026-06-04 `agents-composition-layer` (FE-806) — Done: `agents/state.ts`/`compose.ts` emit runtime headers and gated prompt-resource manifests; `agents/contexts/{cwd,graph,node}.ts` renders selected-spec context with lens-specific emphasis; the real `.pi` `before_agent_start` product path supplies selected-spec-bound graph snapshots from the Brunch runtime factory; the legacy `src/.pi/context/` prompt-pack subtree is deleted after folding its useful guidance into `src/agents/methods/*.md`; deterministic product-path proof records strategy/lens posture differences and accepted blind spots. Verified: context/compose/prompting/architecture tests and `npm run verify`. Watch: prompt quality is fitness evidence only; graph-write resilience and capture quality remain with the next P0 frontiers.
 - 2026-06-04 `live-graph-observer` (FE-795) — Done: `graph.overview` and `graph.nodeNeighborhood` are discoverable selected-spec RPC reads; graph readers remain in `graph/`; TUI/agent `commit_graph` publishes graph invalidation topics through the shared product-update bus; the TUI launch path starts a read-only web sidecar over the same bus; the React web app attaches over one WebSocket RPC client, renders the selected-spec graph overview, and invalidates/refetches canonical graph readers on `brunch.updated`. Verified: targeted FE-795 test set (`src/rpc/handlers.test.ts`, `src/rpc/web-host.test.ts`, `src/web/app.test.tsx`, `src/brunch-tui.test.ts`, `src/graph/snapshot.test.ts`, `src/graph/spec-ownership.test.ts`), `npm run build`, and a 2026-06-04 `agent-browser` smoke that observed empty graph state then a `commit_graph`-created node in the browser without reload. Watch: richer node-neighborhood UI remains optional polish; the current proof exposes/query-backs the focused read and renders the overview.
@@ -249,7 +249,7 @@ Older history (including `sealed-pi-profile-runtime-state`, `pi-ui-extension-pat
 
 ```text
 nodes:
-  graph-tool-resilience          [next · P0]         materializes graph write contract and broadens A14 proof
+  graph-tool-resilience          [done · P0]         materialized graph write contract and broadened A14 proof
   capture-response-to-graph      [next · P0]         structured answer -> graph truth -> observer update
   project-graph-review-cycle     [next · P1]         real project-graph review-set approval loop
   minimal-authority-shell        [next · P1]         thin safety posture for current POC paths
