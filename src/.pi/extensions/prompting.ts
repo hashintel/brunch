@@ -61,8 +61,11 @@ export function registerBrunchPrompting(
     const state = projectState(ctx as BeforeAgentStartContextLike | undefined);
     const activeTools =
       typeof (pi as Partial<ExtensionAPI>).getAllTools === 'function'
-        ? activeToolNamesForBrunchAgentState(pi, state)
+        ? activeToolNamesForBrunchAgentState(pi, state, resolvedPromptContext.spec.readinessGrade)
         : [];
+    if (typeof (pi as Partial<ExtensionAPI>).setActiveTools === 'function') {
+      pi.setActiveTools(activeTools);
+    }
     const snapshots = snapshotsForPromptContext(resolvedPromptContext, state);
     const { prompt } = composeAgentPrompt({
       agentId: state.agentRole,

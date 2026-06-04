@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { composeAgentPrompt } from '../../agents/compose.js';
+import type { ReadinessGrade } from '../../agents/state.js';
 import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
@@ -286,7 +287,9 @@ describe('Brunch prompt-pack topology', () => {
       },
       registerTool: (_tool: { name: string }) => {},
       getAllTools: () =>
-        ['read', 'grep', 'bash', 'edit', 'write', 'present_options'].map((name) => ({ name })),
+        ['read', 'grep', 'bash', 'edit', 'write', 'present_options', 'read_graph', 'commit_graph'].map(
+          (name) => ({ name }),
+        ),
       setActiveTools: (tools: string[]) => activeTools.push(tools),
     };
     registerBrunchOperationalModePolicy(pi as never);
@@ -331,9 +334,11 @@ describe('Brunch prompt-pack topology', () => {
 
     expect(manager.entries[0]?.customType).toBe(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE);
     expect(activeTools).toEqual([
-      ['read', 'grep', 'present_options'],
-      ['read', 'grep', 'present_options'],
-      ['read', 'grep', 'present_options'],
+      ['read', 'grep', 'present_options', 'read_graph'],
+      ['read', 'grep', 'present_options', 'read_graph'],
+      ['read', 'grep', 'present_options', 'read_graph', 'commit_graph'],
+      ['read', 'grep', 'present_options', 'read_graph'],
+      ['read', 'grep', 'present_options', 'read_graph', 'commit_graph'],
     ]);
     expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining('- strategy: auto'),
@@ -342,11 +347,47 @@ describe('Brunch prompt-pack topology', () => {
       systemPrompt: expect.stringContaining('- strategy: propose-graph'),
     });
     expect(defaultPrompt).toMatchObject({
+      systemPrompt: expect.stringContaining(
+        '- active tools: read, grep, present_options, read_graph, commit_graph',
+      ),
+    });
+    expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining('[Selected-spec graph context · auto lens]'),
     });
     expect(switchedPrompt).toMatchObject({
       systemPrompt: expect.stringContaining('[Selected-spec graph context · oracle lens]'),
     });
+  });
+
+  it('applies the selected-spec grade to commit_graph tool activation', async () => {
+    async function activeToolsForGrade(readinessGrade: ReadinessGrade) {
+      const events: Record<string, (event: never, ctx?: never) => unknown> = {};
+      const activeTools: string[][] = [];
+      registerBrunchPrompting(
+        {
+          on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
+            events[event] = handler;
+          },
+          getAllTools: () => ['read', 'grep', 'read_graph', 'commit_graph'].map((name) => ({ name })),
+          setActiveTools: (tools: string[]) => activeTools.push(tools),
+        } as never,
+        {
+          ...promptContext,
+          spec: { ...promptContext.spec, readinessGrade },
+        },
+      );
+
+      await Promise.resolve(
+        events.before_agent_start?.(
+          { systemPrompt: 'base' } as never,
+          { sessionManager: { getEntries: () => [] } } as never,
+        ),
+      );
+      return activeTools.at(-1) ?? [];
+    }
+
+    await expect(activeToolsForGrade('grounding_onboarding')).resolves.not.toContain('commit_graph');
+    await expect(activeToolsForGrade('elicitation_ready')).resolves.toContain('commit_graph');
   });
 
   it('is registered by the explicit shell after operational-mode policy and appends composed manifests', async () => {

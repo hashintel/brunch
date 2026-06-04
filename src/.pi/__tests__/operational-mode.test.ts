@@ -136,8 +136,10 @@ describe('Brunch agent runtime-state projection', () => {
           'grep',
           'find',
           'ls',
-          'structured_exchange',
-          'present_alternatives',
+          'present_question',
+          'present_options',
+          'read_graph',
+          'commit_graph',
           'bash',
           'edit',
           'write',
@@ -162,7 +164,7 @@ describe('Brunch agent runtime-state projection', () => {
     );
 
     expect(activeTools).toEqual([
-      ['read', 'grep', 'find', 'ls', 'structured_exchange', 'present_alternatives'],
+      ['read', 'grep', 'find', 'ls', 'present_question', 'present_options', 'read_graph'],
     ]);
     expect(promptResult).toBeUndefined();
     for (const toolName of ['bash', 'edit', 'write']) {
@@ -172,7 +174,7 @@ describe('Brunch agent runtime-state projection', () => {
       });
     }
     await expect(
-      Promise.resolve(events.tool_call?.({ toolName: 'structured_exchange' } as never)),
+      Promise.resolve(events.tool_call?.({ toolName: 'read_graph' } as never)),
     ).resolves.toBeUndefined();
     expect(events.user_bash?.({ command: 'rm -rf .' } as never)).toMatchObject({
       result: {

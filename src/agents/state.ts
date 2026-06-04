@@ -44,6 +44,12 @@ export interface PromptManifests {
   methods: readonly PromptResourceManifestEntry[];
 }
 
+export interface BrunchPostureToolPolicyInput {
+  registeredToolNames: readonly string[];
+  state: ResolvedBrunchAgentState;
+  readinessGrade: ReadinessGrade;
+}
+
 const GRADE_RANK: Record<ReadinessGrade, number> = {
   grounding_onboarding: 0,
   elicitation_ready: 1,
@@ -79,6 +85,15 @@ const METHOD_MIN_GRADE: Record<MethodId, ReadinessGrade> = {
   'generate-proposal': 'commitments_ready',
   'review-for-gaps': 'commitments_ready',
 };
+
+const METHOD_TOOL_NAMES: Partial<Record<MethodId, readonly string[]>> = {
+  'run-structured-exchange': ['present_question', 'present_options'],
+  'read-snapshot': ['read_graph'],
+  'commit-graph': ['commit_graph'],
+};
+
+const ELICIT_BASE_TOOL_NAMES = ['read', 'grep', 'find', 'ls'] as const;
+const ELICIT_BLOCKED_TOOL_NAMES = ['bash', 'edit', 'write'] as const;
 
 export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition> = {
   elicitor: {
@@ -243,10 +258,36 @@ export function manifestsForState(
       readinessGrade,
       state,
     }),
-    methods: definition.allowedMethods
-      .filter((method) => isGradeLegal(method, readinessGrade, METHOD_MIN_GRADE))
-      .map((method) => METHOD_RESOURCES[method]),
+    methods: methodIdsForState(state, readinessGrade).map((method) => METHOD_RESOURCES[method]),
   };
+}
+
+export function methodIdsForState(
+  state: ResolvedBrunchAgentState,
+  readinessGrade: ReadinessGrade,
+): readonly MethodId[] {
+  const definition = AGENT_PROMPT_DEFINITIONS[state.agentRole];
+  if (!definition || definition.id !== state.agentRole || state.operationalMode !== 'elicit') return [];
+  return definition.allowedMethods.filter((method) => isGradeLegal(method, readinessGrade, METHOD_MIN_GRADE));
+}
+
+export function activeToolNamesForPosture({
+  registeredToolNames,
+  state,
+  readinessGrade,
+}: BrunchPostureToolPolicyInput): string[] {
+  if (state.operationalModeDefinition.toolPolicyId !== 'elicit-read-only') return [];
+
+  const legalTools = new Set<string>(ELICIT_BASE_TOOL_NAMES);
+  for (const method of methodIdsForState(state, readinessGrade)) {
+    for (const toolName of METHOD_TOOL_NAMES[method] ?? []) {
+      legalTools.add(toolName);
+    }
+  }
+
+  const blockedTools = new Set<string>(ELICIT_BLOCKED_TOOL_NAMES);
+
+  return registeredToolNames.filter((toolName) => legalTools.has(toolName) && !blockedTools.has(toolName));
 }
 
 function selectAxisResources<TId extends string>({
