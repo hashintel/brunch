@@ -1,19 +1,21 @@
 /**
- * One-off port of Bilal's spec-elicitation-prototype graph data into
- * brunch-shaped node/edge JSON fixtures.
+ * One-off prep step: convert Bilal's spec-elicitation-prototype graph data
+ * into the brunch-shaped consolidated seed contract.
  *
- * Lives co-located with its output under .fixtures/seed-specs/bilal-port/
- * (the .fixtures/** tree is excluded from oxlint/oxfmt by project config —
- * this script does not pass through the project verification harness).
+ * Throwaway data-prep, not product code. Lives co-located with the data it
+ * vendors and produces, under .fixtures/seeds/bilal-port/ (the .fixtures/**
+ * tree is excluded from oxlint/oxfmt/build by project config). The product
+ * seed loader (src/graph/seed-fixtures.ts) reads ONLY the consolidated <slug>.json
+ * output and never knows Bilal's format exists.
  *
  * Run with:
- *   npx tsx .fixtures/seed-specs/bilal-port/_port-script.ts
+ *   npx tsx .fixtures/seeds/bilal-port/_port-script.ts
  *
- * Source (read-only):
- *   /Users/lunelson/Code/hashintel/bilal-spec-elicitation-proto/spec/<spec>/graph/{nodes,edges}.json
+ * Source (vendored, read-only):
+ *   ./_originals/<slug>/{nodes,edges}.json
  *
- * Output (sibling per-spec subdirectories):
- *   .fixtures/seed-specs/bilal-port/<spec-slug>/{nodes,edges,spec}.json
+ * Output (consolidated seed contract, one file per spec):
+ *   ./<slug>.json   →  { spec, nodes, edges }
  *
  * Mapping rules (derived in thread T-019e91ee, summarized below):
  *
@@ -57,24 +59,25 @@
  *   Field translation:
  *     authority → source ("stakeholder" | "technical" | "external" |
  *                         "derived")
- *     epistemicStatus:
- *       inferred → basis: "accepted_review_set"
- *       asserted, observed, assumed → basis: "explicit"
- *       (epistemic flavor concatenated to source: e.g.
- *        "stakeholder-observed", "external-asserted")
+ *     epistemicStatus: does NOT affect basis. Every ported node is
+ *       basis: "explicit" — Bilal authored each item directly, which is
+ *       exact per-item approval (brunch "implicit" basis is reserved for
+ *       propose-graph-concept acceptance, a notion Bilal's data lacks).
+ *       The epistemic flavor survives as source text instead: it is
+ *       concatenated to source when not "asserted" (e.g.
+ *        "stakeholder-observed", "external-inferred").
  *     displayId → preserved as bracket suffix in source: "stakeholder [Q9]"
  *
  *   Discarded: phase, frameId, lifecycle (all active), reviewStatus
  *     (all clean), provenance (already empty), createdAt.
  *
- * Re-run safely: output dir is wiped per spec on each run.
+ * Re-run safely: each <slug>.json is overwritten on each run.
  *
- * Note: this script reads from an absolute external path on the
- * author's machine. It is not portable across machines without
- * adjusting BILAL_ROOT or providing the source data at that path.
+ * Reproducible: reads from the vendored ./_originals/ tree, not an external
+ * checkout. Anyone can regenerate the seed contracts from this directory alone.
  */
 
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -83,7 +86,7 @@ import { fileURLToPath } from 'node:url';
 // ---------------------------------------------------------------------------
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const BILAL_ROOT = '/Users/lunelson/Code/hashintel/bilal-spec-elicitation-proto/spec';
+const ORIGINALS_ROOT = resolve(SCRIPT_DIR, '_originals');
 const OUTPUT_ROOT = SCRIPT_DIR;
 
 const SPECS: { source: string; slug: string; displayName: string }[] = [
@@ -160,7 +163,7 @@ interface BrunchNodeFixture {
   kind: string;
   title: string;
   body: string | null;
-  basis: 'explicit' | 'accepted_review_set';
+  basis: 'explicit';
   source: string | null;
   detail: Record<string, unknown> | null;
 }
@@ -178,7 +181,7 @@ interface BrunchEdgeFixture {
   source_local_id: number;
   target_local_id: number;
   stance: 'for' | 'against' | null;
-  basis: 'explicit' | 'accepted_review_set';
+  basis: 'explicit';
   rationale: string | null;
 }
 
@@ -208,13 +211,19 @@ function deriveTitle(text: string, max = 140): string {
   return candidate.slice(0, max - 1).trimEnd() + '…';
 }
 
-/** Project Bilal authority + epistemicStatus into brunch source + basis. */
+/**
+ * Project Bilal authority + epistemicStatus into brunch source + basis.
+ *
+ * basis is always "explicit": Bilal authored each item directly (exact
+ * per-item approval). The epistemic flavor is preserved in source text,
+ * not basis. brunch "implicit" basis is reserved for propose-graph-concept
+ * acceptance, which Bilal's data has no notion of.
+ */
 function projectProvenance(node: BilalNode): {
-  basis: 'explicit' | 'accepted_review_set';
+  basis: 'explicit';
   source: string | null;
 } {
-  const basis: 'explicit' | 'accepted_review_set' =
-    node.epistemicStatus === 'inferred' ? 'accepted_review_set' : 'explicit';
+  const basis = 'explicit' as const;
 
   const parts: string[] = [];
   if (node.authority) parts.push(node.authority);
@@ -466,7 +475,7 @@ interface SpecPortResult {
 }
 
 function portSpec(sourceName: string, slug: string, displayName: string): SpecPortResult {
-  const sourceDir = resolve(BILAL_ROOT, sourceName, 'graph');
+  const sourceDir = resolve(ORIGINALS_ROOT, sourceName);
   const nodes = JSON.parse(readFileSync(resolve(sourceDir, 'nodes.json'), 'utf8')) as BilalNode[];
   const edges = JSON.parse(readFileSync(resolve(sourceDir, 'edges.json'), 'utf8')) as BilalEdge[];
 
@@ -497,7 +506,7 @@ function portSpec(sourceName: string, slug: string, displayName: string): SpecPo
       body:
         `Synthetic parent check representing the manual code-audit pass during which ` +
         `evidence nodes were authored. Generated by ` +
-        `.fixtures/seed-specs/bilal-port/_port-script.ts to give imported evidence ` +
+        `.fixtures/seeds/bilal-port/_port-script.ts to give imported evidence ` +
         `a structural parent on the oracle plane.`,
       basis: 'explicit',
       source: 'derived-port-synthetic',
@@ -665,35 +674,35 @@ function portSpec(sourceName: string, slug: string, displayName: string): SpecPo
 // ---------------------------------------------------------------------------
 
 function writeSpec(result: SpecPortResult, displayName: string): void {
-  const outDir = resolve(OUTPUT_ROOT, result.slug);
-  if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true });
-  mkdirSync(outDir, { recursive: true });
-
-  writeFileSync(
-    resolve(outDir, 'spec.json'),
-    JSON.stringify({ slug: result.slug, name: displayName, readiness_grade: 'commitments_ready' }, null, 2) +
-      '\n',
-  );
-  writeFileSync(resolve(outDir, 'nodes.json'), JSON.stringify(result.brunchNodes, null, 2) + '\n');
-  writeFileSync(resolve(outDir, 'edges.json'), JSON.stringify(result.brunchEdges, null, 2) + '\n');
+  // Consolidated seed contract — one file per spec, atomic seed unit.
+  const seed = {
+    spec: { slug: result.slug, name: displayName, readiness_grade: 'commitments_ready' },
+    nodes: result.brunchNodes,
+    edges: result.brunchEdges,
+  };
+  writeFileSync(resolve(OUTPUT_ROOT, `${result.slug}.json`), JSON.stringify(seed, null, 2) + '\n');
 }
 
 function writeReadme(results: { slug: string; displayName: string; stats: Record<string, number> }[]): void {
   const lines: string[] = [
-    '# `.fixtures/seed-specs/bilal-port/`',
+    '# `.fixtures/seeds/bilal-port/`',
     '',
     "Ported spec graphs from Bilal's spec-elicitation prototype, transformed",
     'to the brunch graph model. Intended as development seed data — rich,',
     'real spec material to populate a dev SQLite database for UI / agent work.',
     '',
-    'Not probe-run artifacts; sits alongside `.fixtures/runs/` rather than inside it.',
+    'Not probe-run artifacts; sits under `.fixtures/seeds/` alongside',
+    '`.fixtures/runs/` rather than inside it.',
     '',
     '## Provenance',
     '',
-    'Source: `/Users/lunelson/Code/hashintel/bilal-spec-elicitation-proto/spec/<spec>/graph/`',
+    'Source: vendored under [`_originals/`](./_originals/) — copied from',
+    "Bilal's spec-elicitation prototype `spec/<slug>/graph/{nodes,edges}.json`.",
     '',
-    'Generated by [`_port-script.ts`](./_port-script.ts) (co-located in this directory).',
-    'Re-runnable; each run wipes and re-emits per-spec subdirectories.',
+    'Each `<slug>.json` is generated from `_originals/` by',
+    '[`_port-script.ts`](./_port-script.ts) (a throwaway data-prep step,',
+    'not product code). Re-runnable from this directory alone; each run',
+    'overwrites the `<slug>.json` files.',
     '',
     '## Transformation rules',
     '',
@@ -723,18 +732,28 @@ function writeReadme(results: { slug: string; displayName: string; stats: Record
     '```',
     'bilal-port/',
     '├── README.md         # this file (generated)',
-    '├── _port-script.ts   # the porting script itself (re-runnable)',
-    '├── <spec-slug>/',
-    '│   ├── spec.json     # → specs table seed row',
-    '│   ├── nodes.json    # → nodes table seed rows (local_id placeholder for autoincrement)',
-    '│   └── edges.json    # → edges table seed rows (source/target reference local_id)',
+    '├── _port-script.ts   # throwaway prep: _originals/ → <slug>.json',
+    '├── _originals/       # vendored Bilal source (reproducibility)',
+    '│   └── <slug>/{nodes,edges}.json',
+    '└── <slug>.json       # consolidated seed contract (× 3)',
     '```',
     '',
-    'Field shape mirrors [`src/db/schema.ts`](../../../src/db/schema.ts) column names',
-    '(plane, kind, title, body, basis, source, detail).',
-    'No LSNs or change-log entries are pre-baked — a seed loader is expected',
-    'to wrap inserts in one `commitGraph`-style transaction so the graph clock,',
-    "change log, and lsn columns stay coherent under brunch's mutation contract.",
+    'Each `<slug>.json` is the seed contract consumed by the loader:',
+    '',
+    '```',
+    '{',
+    '  "spec":  { "slug", "name", "readiness_grade" },',
+    '  "nodes": [ { "local_id", "plane", "kind", "title", "body?", "basis", "source?", "detail?" } ],',
+    '  "edges": [ { "category", "source_local_id", "target_local_id", "stance?", "basis", "rationale?" } ]',
+    '}',
+    '```',
+    '',
+    'Node/edge field shape mirrors [`src/db/schema.ts`](../../../src/db/schema.ts)',
+    'column names. `local_id` is a placeholder for autoincrement; edges reference',
+    'nodes by `local_id`. No LSNs or change-log entries are pre-baked — the loader',
+    '([`src/graph/seed-fixtures.ts`](../../../src/graph/seed-fixtures.ts)) wraps each spec',
+    'in one `commitGraph` transaction so the graph clock, change log, and lsn',
+    "columns stay coherent under brunch's mutation contract.",
     '',
     '## Stats',
     '',
@@ -756,15 +775,14 @@ function writeReadme(results: { slug: string; displayName: string; stats: Record
 // ---------------------------------------------------------------------------
 
 function main(): void {
-  if (!existsSync(BILAL_ROOT)) {
-    console.error(`Bilal source directory not found at ${BILAL_ROOT}`);
+  if (!existsSync(ORIGINALS_ROOT)) {
+    console.error(`Vendored originals not found at ${ORIGINALS_ROOT}`);
     process.exit(1);
   }
-  mkdirSync(OUTPUT_ROOT, { recursive: true });
 
   const summaries: { slug: string; displayName: string; stats: Record<string, number> }[] = [];
   for (const spec of SPECS) {
-    console.log(`Porting ${spec.source} → ${spec.slug}...`);
+    console.log(`Porting ${spec.source} → ${spec.slug}.json...`);
     const result = portSpec(spec.source, spec.slug, spec.displayName);
     writeSpec(result, spec.displayName);
     summaries.push({ slug: spec.slug, displayName: spec.displayName, stats: result.stats });
