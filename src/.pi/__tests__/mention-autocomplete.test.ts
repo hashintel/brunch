@@ -9,9 +9,8 @@ import {
 
 describe('Brunch mention autocomplete', () => {
   it('adds graph mention prompt guidance', async () => {
-    const beforeAgentStart: Array<
-      (event: { systemPrompt: string }, ctx: FakeExtensionContext) => Promise<unknown> | unknown
-    > = [];
+    const beforeAgentStart: Array<(event: { systemPrompt: string }, ctx: FakeExtensionContext) => unknown> =
+      [];
 
     registerBrunchMentionAutocomplete({
       on: (event: string, handler: never) => {

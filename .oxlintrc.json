@@ -5,7 +5,8 @@
     "typeCheck": true
   },
   "rules": {
-    "typescript/no-deprecated": "error"
+    "typescript/no-deprecated": "error",
+    "unicorn/no-empty-file": "off"
   },
   "ignorePatterns": [
     ".agents/**",

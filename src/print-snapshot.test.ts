@@ -1,3 +1,4 @@
+import type { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
 import { renderWorkspaceSnapshot, workspaceSnapshotFromState } from './print-snapshot.js';
@@ -13,7 +14,7 @@ function readyState(): WorkspaceSessionState {
     session: {
       id: 'session-1',
       file: '/tmp/brunch-project/.brunch/sessions/session-1.jsonl',
-      manager: {} as WorkspaceSessionState & never,
+      manager: {} as SessionManager,
     },
     chrome: {
       cwd,
