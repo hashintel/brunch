@@ -81,7 +81,7 @@ describe('propose-graph commit proof report', () => {
         {
           status: 'success',
           lsn: 1,
-          nodes: { goal: 1, rollback: 2 },
+          createdNodes: { goal: { id: 1, code: 'G1' }, rollback: { id: 2, code: 'R1' } },
           edges: [1],
         },
         'Graph committed successfully',
@@ -110,6 +110,60 @@ describe('propose-graph commit proof report', () => {
     expect(report.committedNodeTitles).toEqual(['Clarify launch readiness', 'Expose rollback criteria']);
     expect(report.attempts[0]?.diagnostics).toEqual([
       { field: 'edges[0].stance', message: 'stance is required for support edges' },
+    ]);
+  });
+
+  it('classifies existing-code scenario evidence from transcript and final graph', () => {
+    const sessionText = [
+      messageEntry(
+        'read_graph',
+        { nodeCount: 1 },
+        '- [G1] intent/goal: "Selected-spec launch readiness goal"',
+      ),
+      JSON.stringify({
+        type: 'message',
+        message: {
+          role: 'assistant',
+          content: 'Calling commit_graph with {"source":{"existingCode":"G1"},"target":"r1"}',
+        },
+      }),
+      messageEntry(
+        'commit_graph',
+        {
+          status: 'success',
+          lsn: 2,
+          createdNodes: { r1: { id: 2, code: 'R1' } },
+          edges: [1],
+        },
+        'Graph committed successfully',
+      ),
+    ].join('\n');
+
+    const report = summarizeProposeGraphCommitProof({
+      runId: 'existing-code-run',
+      generatedAt: '2026-06-04T00:00:00.000Z',
+      cwd: '/tmp/brunch-proof',
+      specId: 7,
+      sessionId: 'session-1',
+      maxAttempts: 2,
+      sessionText,
+      overview: successfulOverview,
+      prompt: 'Use G1 as an existingCode.',
+      scenarioId: 'existing-code-ref',
+      expectedExistingCode: 'G1',
+    });
+
+    expect(report.success).toBe(true);
+    expect(report.scenarioId).toBe('existing-code-ref');
+    expect(report.projectedCodeEvidence).toEqual({
+      codes: ['G1'],
+      seenInTranscript: true,
+      usedInCommitParams: true,
+      existingCodeEdgePresent: true,
+    });
+    expect(report.committedNodes).toEqual([
+      { code: 'G1', title: 'Clarify launch readiness' },
+      { code: 'R1', title: 'Expose rollback criteria' },
     ]);
   });
 
@@ -160,9 +214,16 @@ describe('propose-graph commit proof report', () => {
       retryCount: 0,
       firstAttemptStatus: 'success',
       finalStatus: 'success',
+      scenarioId: 'direct-commit',
       attempts: [{ index: 1, status: 'success', lsn: 1, nodeRefs: { goal: 1 }, edgeIds: [] }],
       finalGraph: { nodeCount: 1, edgeCount: 0, lsn: 1 },
       committedNodeTitles: ['Clarify launch readiness'],
+      committedNodes: [{ code: 'G1', title: 'Clarify launch readiness' }],
+      projectedCodeEvidence: {
+        codes: ['G1'],
+        seenInTranscript: true,
+        usedInCommitParams: true,
+      },
       friction: [],
     };
 
@@ -171,7 +232,7 @@ describe('propose-graph commit proof report', () => {
       runId: report.runId,
       sessionText: messageEntry(
         'commit_graph',
-        { status: 'success', lsn: 1, nodes: { goal: 1 }, edges: [] },
+        { status: 'success', lsn: 1, createdNodes: { goal: { id: 1, code: 'G1' } }, edges: [] },
         'Graph committed successfully',
       ),
       report,

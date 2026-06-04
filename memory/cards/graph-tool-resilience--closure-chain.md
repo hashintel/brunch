@@ -193,7 +193,7 @@ src/graph/README.md                 ~
 
 ## Card 3 — Existing-code product-path probe
 
-Status: next
+Status: done
 
 ### Target Behavior
 

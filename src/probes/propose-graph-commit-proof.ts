@@ -14,12 +14,15 @@ import {
   type Diagnostic,
   type StructuralIllegal,
 } from '../graph/index.js';
+import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import type { GraphOverview } from '../graph/snapshot.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 
 const PROBE_ID = 'propose-graph-commit' as const;
 const DEFAULT_MAX_ATTEMPTS = 2;
+
+export type ProposeGraphCommitScenarioId = 'direct-commit' | 'existing-code-ref';
 
 export interface ProposeGraphCommitProofOptions {
   cwd?: string;
@@ -28,6 +31,7 @@ export interface ProposeGraphCommitProofOptions {
   maxAttempts?: number;
   prompt?: string;
   agentDir?: string;
+  scenarioId?: ProposeGraphCommitScenarioId;
 }
 
 export interface ProposeGraphCommitProofArtifacts {
@@ -62,6 +66,7 @@ export interface ProposeGraphCommitProofReport {
   generatedAt: string;
   mission: string;
   evaluationFocus: string;
+  scenarioId: ProposeGraphCommitScenarioId;
   success: boolean;
   cwd: string;
   specId: number;
@@ -80,6 +85,13 @@ export interface ProposeGraphCommitProofReport {
     lsn: number;
   };
   committedNodeTitles: string[];
+  committedNodes: Array<{ code: string; title: string }>;
+  projectedCodeEvidence: {
+    codes: string[];
+    seenInTranscript: boolean;
+    usedInCommitParams: boolean;
+    existingCodeEdgePresent?: boolean;
+  };
   friction: string[];
   artifacts?: ProposeGraphCommitProofArtifacts;
 }
@@ -95,6 +107,8 @@ export interface ProposeGraphCommitProofSummaryInput {
   overview: GraphOverview;
   prompt: string;
   model?: string;
+  scenarioId?: ProposeGraphCommitScenarioId;
+  expectedExistingCode?: string;
   friction?: readonly string[];
 }
 
@@ -104,7 +118,8 @@ export async function runProposeGraphCommitProof(
   const cwd = options.cwd ?? (await mkdtemp(join(tmpdir(), 'brunch-propose-graph-commit-')));
   const runId = options.runId ?? defaultRunId();
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
-  const prompt = options.prompt ?? defaultProofPrompt();
+  const scenarioId = options.scenarioId ?? 'direct-commit';
+  const prompt = options.prompt ?? defaultProofPrompt(scenarioId);
   const generatedAt = new Date().toISOString();
   const coordinator = createWorkspaceSessionCoordinator({ cwd });
   const workspace = await coordinator.createSetupSession({
@@ -119,6 +134,16 @@ export async function runProposeGraphCommitProof(
     agentGoal: 'commit-converge',
   };
   appendBrunchAgentRuntimeSwitch(workspace.session.manager, runtimeState, 'extension');
+  const graph = await openWorkspaceGraphRuntime(cwd);
+  const gradeResult = graph.commandExecutor.updateReadinessGrade({
+    specId: workspace.spec.id,
+    readinessGrade: 'elicitation_ready',
+  });
+  if (gradeResult.status !== 'success') {
+    throw new Error('failed to advance probe spec to elicitation_ready');
+  }
+  const expectedExistingCode = seedScenarioGraph(graph, workspace.spec.id, scenarioId);
+  const specSnapshots = graph.forSpec(workspace.spec.id);
   const agentDir = options.agentDir ?? getAgentDir();
   const createRuntime = createBrunchAgentSessionRuntimeFactory({ workspace, coordinator });
   const created = await createRuntime({
@@ -128,8 +153,6 @@ export async function runProposeGraphCommitProof(
   });
   const session = created.session;
   const friction = created.diagnostics.map((diagnostic) => `${diagnostic.type}: ${diagnostic.message}`);
-  const graph = await openWorkspaceGraphRuntime(cwd);
-  const specSnapshots = graph.forSpec(workspace.spec.id);
 
   try {
     await session.sendUserMessage(prompt);
@@ -145,6 +168,8 @@ export async function runProposeGraphCommitProof(
       sessionFile: workspace.session.file,
       overview: specSnapshots.getGraphOverview(),
       prompt,
+      scenarioId,
+      ...(expectedExistingCode !== undefined ? { expectedExistingCode } : {}),
       ...(session.model?.id !== undefined ? { model: session.model.id } : {}),
       friction,
     });
@@ -162,6 +187,8 @@ export async function runProposeGraphCommitProof(
         sessionFile: workspace.session.file,
         overview: specSnapshots.getGraphOverview(),
         prompt,
+        scenarioId,
+        ...(expectedExistingCode !== undefined ? { expectedExistingCode } : {}),
         ...(session.model?.id !== undefined ? { model: session.model.id } : {}),
         friction,
       });
@@ -194,6 +221,8 @@ async function summarizeCurrentRun(options: {
   overview: GraphOverview;
   prompt: string;
   model?: string;
+  scenarioId?: ProposeGraphCommitScenarioId;
+  expectedExistingCode?: string;
   friction: readonly string[];
 }): Promise<ProposeGraphCommitProofReport> {
   return summarizeProposeGraphCommitProof({
@@ -206,6 +235,10 @@ async function summarizeCurrentRun(options: {
     sessionText: await readFile(options.sessionFile, 'utf8'),
     overview: options.overview,
     prompt: options.prompt,
+    ...(options.scenarioId !== undefined ? { scenarioId: options.scenarioId } : {}),
+    ...(options.expectedExistingCode !== undefined
+      ? { expectedExistingCode: options.expectedExistingCode }
+      : {}),
     ...(options.model !== undefined ? { model: options.model } : {}),
     friction: options.friction,
   });
@@ -224,14 +257,27 @@ export function summarizeProposeGraphCommitProof(
   const firstAttemptStatus = attempts[0]?.status ?? 'not_called';
   const finalStatus = attempts.at(-1)?.status ?? 'not_called';
   const successfulAttempt = lastSuccessfulAttempt(attempts);
+  const scenarioId = input.scenarioId ?? 'direct-commit';
   const finalGraph = {
     nodeCount: input.overview.nodeCount,
     edgeCount: input.overview.edgeCount,
     lsn: input.overview.lsn,
   };
-  const committedNodeTitles = input.overview.nodes.map((node) => node.title);
+  const committedNodes = input.overview.nodes.map((node) => ({
+    code: formatGraphNodeCode(node.kind, node.kindOrdinal),
+    title: node.title,
+  }));
+  const committedNodeTitles = committedNodes.map((node) => node.title);
+  const projectedCodeEvidence = projectedCodeEvidenceFromSummaryInput(input);
   const friction = [...(input.friction ?? [])];
-  const success = successfulAttempt !== undefined && input.overview.nodeCount > 0;
+  let success = successfulAttempt !== undefined && input.overview.nodeCount > 0;
+  if (scenarioId === 'existing-code-ref') {
+    success =
+      success &&
+      projectedCodeEvidence.seenInTranscript &&
+      projectedCodeEvidence.usedInCommitParams &&
+      projectedCodeEvidence.existingCodeEdgePresent === true;
+  }
 
   if (attempts.length === 0) {
     friction.push('No commit_graph tool result was recorded.');
@@ -245,6 +291,23 @@ export function summarizeProposeGraphCommitProof(
   if (successfulAttempt !== undefined && input.overview.nodeCount === 0) {
     friction.push('commit_graph reported success but graph overview is empty.');
   }
+  if (scenarioId === 'existing-code-ref') {
+    if (!projectedCodeEvidence.seenInTranscript) {
+      friction.push(
+        `Expected projected code ${input.expectedExistingCode ?? '<unknown>'} was not visible in the transcript.`,
+      );
+    }
+    if (!projectedCodeEvidence.usedInCommitParams) {
+      friction.push(
+        `No commit_graph call used expected existingCode ${input.expectedExistingCode ?? '<unknown>'}.`,
+      );
+    }
+    if (projectedCodeEvidence.existingCodeEdgePresent !== true) {
+      friction.push(
+        `Final graph does not contain an edge incident to expected existing code ${input.expectedExistingCode ?? '<unknown>'}.`,
+      );
+    }
+  }
 
   return {
     schemaVersion: 1,
@@ -252,7 +315,11 @@ export function summarizeProposeGraphCommitProof(
     runId: input.runId,
     generatedAt: input.generatedAt,
     mission: 'Prove the propose-graph strategy can commit graph truth through commit_graph.',
-    evaluationFocus: 'A14-L structural legality for direct commitGraph batches.',
+    evaluationFocus:
+      scenarioId === 'existing-code-ref'
+        ? 'A14-L selected-spec projected-code reference through the default runtime.'
+        : 'A14-L structural legality for direct commitGraph batches.',
+    scenarioId,
     success,
     cwd: input.cwd,
     specId: input.specId,
@@ -270,7 +337,48 @@ export function summarizeProposeGraphCommitProof(
     attempts,
     finalGraph,
     committedNodeTitles,
+    committedNodes,
+    projectedCodeEvidence,
     friction,
+  };
+}
+
+function projectedCodeEvidenceFromSummaryInput(
+  input: ProposeGraphCommitProofSummaryInput,
+): ProposeGraphCommitProofReport['projectedCodeEvidence'] {
+  const expectedCode = input.expectedExistingCode;
+  const nodeById = new Map(
+    input.overview.nodes.map((node) => [node.id, formatGraphNodeCode(node.kind, node.kindOrdinal)]),
+  );
+  const codes = [
+    ...new Set([...nodeById.values()].filter((code) => expectedCode === undefined || code === expectedCode)),
+  ];
+  const seenInTranscript = expectedCode === undefined || input.sessionText.includes(expectedCode);
+  const usedInCommitParams =
+    expectedCode === undefined ||
+    input.sessionText.includes(`"existingCode":"${expectedCode}"`) ||
+    input.sessionText.includes(`"existingCode": "${expectedCode}"`) ||
+    input.sessionText.includes(`\\"existingCode\\":\\"${expectedCode}\\"`) ||
+    input.sessionText.includes(`\\"existingCode\\": \\"${expectedCode}\\"`);
+  const existingNodeIds = new Set(
+    input.overview.nodes
+      .filter(
+        (node) =>
+          expectedCode === undefined || formatGraphNodeCode(node.kind, node.kindOrdinal) === expectedCode,
+      )
+      .map((node) => node.id),
+  );
+  const existingCodeEdgePresent =
+    expectedCode === undefined
+      ? undefined
+      : input.overview.edges.some(
+          (edge) => existingNodeIds.has(edge.sourceId) || existingNodeIds.has(edge.targetId),
+        );
+  return {
+    codes,
+    seenInTranscript,
+    usedInCommitParams,
+    ...(existingCodeEdgePresent !== undefined ? { existingCodeEdgePresent } : {}),
   };
 }
 
@@ -401,7 +509,32 @@ export async function writeProposeGraphCommitProofArtifacts(options: {
   return artifacts;
 }
 
-function defaultProofPrompt(): string {
+function seedScenarioGraph(
+  graph: Awaited<ReturnType<typeof openWorkspaceGraphRuntime>>,
+  specId: number,
+  scenarioId: ProposeGraphCommitScenarioId,
+): string | undefined {
+  if (scenarioId !== 'existing-code-ref') return undefined;
+  const result = graph.commandExecutor.createNode({
+    specId,
+    plane: 'intent',
+    kind: 'goal',
+    title: 'Selected-spec launch readiness goal',
+    body: 'Pre-existing graph node seeded so the product-path probe must reference it by projected code.',
+  });
+  if (result.status !== 'success') {
+    throw new Error('failed to seed existing-code-ref graph node');
+  }
+  return 'G1';
+}
+
+function defaultProofPrompt(scenarioId: ProposeGraphCommitScenarioId): string {
+  if (scenarioId === 'existing-code-ref') {
+    return `Brunch A14-L probe: the selected specification graph already contains a launch-readiness goal.
+
+Use read_graph once in overview mode. Find the projected code for the existing launch-readiness goal, then use commit_graph to create one new requirement node titled "Rollback path is documented" and one legal edge connecting that new requirement to the existing goal by using the existing node's projected code as {existingCode: "G1"}. Do not recreate the existing goal. Stop after a successful commit_graph result.`;
+  }
+
   return `Brunch A14-L probe: the user has accepted the following concept-level proposal and asked you to persist it now.\n\nConcept: A Brunch specification workspace needs an explicit launch-readiness subgraph that records the launch goal, the rollback requirement, the operator visibility criterion, and the assumption that users can recover from a failed launch.\n\nUse the read_graph tool once in overview mode, then use commit_graph to persist a coherent intent-plane graph. Requirements for the commit_graph call:\n- create at least four intent-plane nodes\n- include at least one goal, one requirement, one criterion, and one assumption\n- create at least three edges connecting the nodes\n- use only legal edge categories from the tool guidance\n- include stance only on support or proof edges\n- avoid decision and term nodes for this proof so detail schemas are not needed\n\nIf commit_graph returns STRUCTURAL_ILLEGAL, read the diagnostics and retry once with a corrected complete batch. Stop after a successful commit_graph result.`;
 }
 
@@ -442,6 +575,12 @@ function parseCliArgs(argv: readonly string[]): ProposeGraphCommitProofOptions {
       options.maxAttempts = Number(requiredValue(argv, (index += 1), arg));
     } else if (arg === '--prompt') {
       options.prompt = requiredValue(argv, (index += 1), arg);
+    } else if (arg === '--scenario') {
+      const scenarioId = requiredValue(argv, (index += 1), arg);
+      if (scenarioId !== 'direct-commit' && scenarioId !== 'existing-code-ref') {
+        throw new Error(`Unsupported scenario ${scenarioId}`);
+      }
+      options.scenarioId = scenarioId;
     }
   }
   return options;

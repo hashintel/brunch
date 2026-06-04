@@ -79,27 +79,25 @@ export const CommitGraphParams = Type.Object(
   { additionalProperties: false },
 );
 
-const ReadGraphOverviewParams = Type.Object(
-  {
-    mode: Type.Literal('overview'),
-  },
-  { additionalProperties: false },
-);
-
-const ReadGraphNeighborhoodParams = Type.Object(
-  {
-    mode: Type.Literal('neighborhood'),
-    nodeCode: Type.String({
+export const ReadGraphParams = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['mode'],
+  properties: {
+    mode: { enum: ['overview', 'neighborhood'] },
+    nodeCode: {
+      type: 'string',
       description: 'Projected code of the anchor node in the selected spec, e.g. G1 or CON2',
-    }),
-    hops: Type.Optional(Type.Number({ description: 'Neighborhood traversal depth (default: 1)' })),
+    },
+    hops: { type: 'number', description: 'Neighborhood traversal depth (default: 1)' },
   },
-  { additionalProperties: false },
-);
-
-export const ReadGraphParams = Type.Union([ReadGraphOverviewParams, ReadGraphNeighborhoodParams]);
+  description:
+    'Read graph overview or a selected-spec node neighborhood. For neighborhood mode, nodeCode is required by the typed adapter contract and missing values return STRUCTURAL_ILLEGAL diagnostics.',
+} as const;
 
 export type ToolCommitNode = Static<typeof CommitNodeSchema>;
 export type ToolCommitEdge = Static<typeof CommitEdgeSchema>;
 export type ToolCommitGraphParams = Static<typeof CommitGraphParams>;
-export type ToolReadGraphParams = Static<typeof ReadGraphParams>;
+export type ToolReadGraphParams =
+  | { readonly mode: 'overview' }
+  | { readonly mode: 'neighborhood'; readonly nodeCode: string; readonly hops?: number };
