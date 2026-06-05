@@ -19,6 +19,7 @@ import {
   getAcceptedCriterionEntitiesForSpecification,
   getAcceptedRequirementEntitiesForSpecification,
   getEntitiesForSpecificationOnActivePath,
+  getCurrentWorkflowState,
 } from '../db.js';
 import type { DB } from '../db.js';
 
@@ -52,4 +53,28 @@ export function buildCompletedSpecSnapshot(db: DB, specificationId: number): Com
         relation: relationship.type,
       })),
   };
+}
+
+export function assertCompletedSpecReadyForPlanning(
+  db: DB,
+  specificationId: number,
+  snapshot: CompletedSpecSnapshot,
+): void {
+  if (snapshot.requirements.length === 0) {
+    throw new Error(
+      `specification ${specificationId} has no accepted requirements — confirm the requirements phase before planning`,
+    );
+  }
+
+  if (getCurrentWorkflowState(db, specificationId).phases.criteria.status !== 'closed') {
+    throw new Error(
+      `specification ${specificationId} criteria are not confirmed — confirm the criteria phase before planning`,
+    );
+  }
+
+  if (snapshot.criteria.length === 0) {
+    throw new Error(
+      `specification ${specificationId} has no accepted criteria — confirm the criteria phase before planning`,
+    );
+  }
 }

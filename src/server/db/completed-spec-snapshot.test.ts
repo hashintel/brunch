@@ -25,7 +25,10 @@ import {
   linkKnowledgeItemToTurn,
   type DB,
 } from '../db.js';
-import { buildCompletedSpecSnapshot } from './completed-spec-snapshot.js';
+import {
+  assertCompletedSpecReadyForPlanning,
+  buildCompletedSpecSnapshot,
+} from './completed-spec-snapshot.js';
 
 let db: DB;
 
@@ -169,5 +172,45 @@ describe('buildCompletedSpecSnapshot', () => {
     const snapshot = buildCompletedSpecSnapshot(db, specification.id);
 
     expect(snapshot).toEqual({ requirements: [], criteria: [], edges: [] });
+  });
+
+  it('rejects planning when the criteria phase has not been confirmed', () => {
+    const specification = getOrCreateSpecification(db);
+    const snapshot = {
+      requirements: [{ id: 10, content: 'Requirement one', kindOrdinal: 1 }],
+      criteria: [{ id: 20, content: 'Criterion one', kindOrdinal: 1 }],
+      edges: [],
+    };
+
+    expect(() => assertCompletedSpecReadyForPlanning(db, specification.id, snapshot)).toThrow(
+      /confirm the criteria phase before planning/,
+    );
+  });
+
+  it('rejects planning when confirmed criteria contain no accepted criteria', () => {
+    const specification = getOrCreateSpecification(db);
+    const turn = createTurn(db, specification.id, {
+      phase: 'criteria',
+      question: 'Please review the current criterion set.',
+      answer: 'Accept review',
+    });
+    advanceHead(db, specification.id, turn.id);
+    createConfirmedPhaseOutcome(db, {
+      specificationId: specification.id,
+      phase: 'criteria',
+      proposal_turn_id: turn.id,
+      confirmation_turn_id: turn.id,
+      summary: 'Criteria accepted.',
+    });
+
+    const snapshot = {
+      requirements: [{ id: 10, content: 'Requirement one', kindOrdinal: 1 }],
+      criteria: [],
+      edges: [],
+    };
+
+    expect(() => assertCompletedSpecReadyForPlanning(db, specification.id, snapshot)).toThrow(
+      /has no accepted criteria/,
+    );
   });
 });

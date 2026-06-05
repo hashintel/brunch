@@ -6,7 +6,10 @@ import { fileURLToPath } from 'node:url';
 
 import { runAgentJsonlSession } from './agent-jsonl.js';
 import { createDb, getSpecification } from './db.js';
-import { buildCompletedSpecSnapshot } from './db/completed-spec-snapshot.js';
+import {
+  assertCompletedSpecReadyForPlanning,
+  buildCompletedSpecSnapshot,
+} from './db/completed-spec-snapshot.js';
 import { launch } from './launcher.js';
 import { resolveBrunchProject } from './project.js';
 import { loadLocalEnvFile } from './runtime-config.js';
@@ -68,11 +71,7 @@ if (rawArgs[0] === 'cook') {
       throw new Error(`specification ${opts.specificationId} not found`);
     }
     const snapshot = buildCompletedSpecSnapshot(db, opts.specificationId);
-    if (snapshot.requirements.length === 0) {
-      throw new Error(
-        `specification ${opts.specificationId} has no accepted requirements — confirm the requirements phase before planning`,
-      );
-    }
+    assertCompletedSpecReadyForPlanning(db, opts.specificationId, snapshot);
     await runPlan({
       specificationId: opts.specificationId,
       snapshot,
