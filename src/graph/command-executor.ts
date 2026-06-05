@@ -17,7 +17,7 @@
  * even though pre-M6 policy classification is minimal.
  */
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
@@ -366,30 +366,31 @@ function specRecordFromRow(row: typeof schema.specs.$inferSelect): SpecRecord {
 // CommandExecutor
 // ---------------------------------------------------------------------------
 
+class GraphClockInvariantError extends Error {
+  constructor(specId: number) {
+    super(`graph_clock invariant failed: spec ${specId} has no clock row`);
+    this.name = 'GraphClockInvariantError';
+  }
+}
+
 export class CommandExecutor {
   constructor(private readonly db: BrunchDb) {}
 
-  private allocateGraphLsn(tx: Pick<BrunchDb, 'select' | 'insert' | 'update'>, specId: number): number {
-    const existing = tx
-      .select({
-        lsn: schema.graphClock.lsn,
-      })
-      .from(schema.graphClock)
-      .where(eq(schema.graphClock.spec_id, specId))
-      .get();
+  private createInitialSpecClock(tx: Pick<BrunchDb, 'insert'>, specId: number): number {
+    tx.insert(schema.graphClock).values({ spec_id: specId, lsn: 1 }).run();
+    return 1;
+  }
 
-    if (!existing) {
-      tx.insert(schema.graphClock).values({ spec_id: specId, lsn: 1 }).run();
-      return 1;
-    }
-
+  private bumpExistingSpecLsn(tx: Pick<BrunchDb, 'update'>, specId: number): number {
     const clock = tx
       .update(schema.graphClock)
-      .set({ lsn: existing.lsn + 1 })
+      .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
       .where(eq(schema.graphClock.spec_id, specId))
-      .returning()
+      .returning({ lsn: schema.graphClock.lsn })
       .get();
-    return clock!.lsn;
+
+    if (!clock) throw new GraphClockInvariantError(specId);
+    return clock.lsn;
   }
 
   private allocateNodeKindOrdinal(
@@ -449,7 +450,7 @@ export class CommandExecutor {
         .returning()
         .get();
 
-      const lsn = this.allocateGraphLsn(tx, row!.id);
+      const lsn = this.createInitialSpecClock(tx, row!.id);
 
       tx.insert(schema.changeLog)
         .values({
@@ -502,7 +503,7 @@ export class CommandExecutor {
         };
       }
 
-      const lsn = this.allocateGraphLsn(tx, input.specId);
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
       tx.update(schema.specs)
         .set({ readiness_grade: input.readinessGrade })
         .where(eq(schema.specs.id, input.specId))
@@ -550,7 +551,7 @@ export class CommandExecutor {
       }
 
       // 2. Allocate spec-local LSN (atomic within this transaction)
-      const lsn = this.allocateGraphLsn(tx, input.specId);
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
       const kindOrdinal = this.allocateNodeKindOrdinal(tx, input.specId, input.plane, input.kind);
 
       // 3. Insert node
@@ -621,7 +622,7 @@ export class CommandExecutor {
         return { status: 'structural_illegal' as const, diagnostics: planned.diagnostics };
       }
 
-      const lsn = this.allocateGraphLsn(tx, input.specId);
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
 
       const createdNodes: Record<string, { id: number; code: string }> = {};
       for (const bn of input.nodes) {
@@ -767,7 +768,7 @@ export class CommandExecutor {
       }
 
       // Allocate spec-local LSN
-      const lsn = this.allocateGraphLsn(tx, input.specId);
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
 
       // Insert reconciliation need
       const row = tx
@@ -848,7 +849,7 @@ export class CommandExecutor {
       }
 
       // Allocate spec-local LSN
-      const lsn = this.allocateGraphLsn(tx, input.specId);
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
 
       // Update status
       tx.update(schema.reconciliationNeed)

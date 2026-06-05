@@ -12,6 +12,10 @@ FROM `specs`
 LEFT JOIN (
 	SELECT `spec_id`, max(`lsn`) AS `lsn`
 	FROM (
+		SELECT CAST(json_extract(`payload`, '$.specId') AS integer) AS `spec_id`, `lsn`
+		FROM `change_log`
+		WHERE json_extract(`payload`, '$.specId') IS NOT NULL
+		UNION ALL
 		SELECT `spec_id`, `created_at_lsn` AS `lsn` FROM `nodes`
 		UNION ALL
 		SELECT `spec_id`, `updated_at_lsn` AS `lsn` FROM `nodes`
@@ -25,8 +29,7 @@ LEFT JOIN (
 		SELECT `spec_id`, `resolved_at_lsn` AS `lsn` FROM `reconciliation_need` WHERE `resolved_at_lsn` IS NOT NULL
 	)
 	GROUP BY `spec_id`
-) `max_lsn_by_spec` ON `max_lsn_by_spec`.`spec_id` = `specs`.`id`
-WHERE `max_lsn_by_spec`.`lsn` IS NOT NULL;
+) `max_lsn_by_spec` ON `max_lsn_by_spec`.`spec_id` = `specs`.`id`;
 --> statement-breakpoint
 DROP TABLE `graph_clock`;
 --> statement-breakpoint

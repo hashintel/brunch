@@ -12,7 +12,7 @@ import { describe, beforeEach, it, expect } from 'vitest';
 
 import { createDb } from '../../db/connection.js';
 import type { BrunchDb } from '../../db/connection.js';
-import { edges, specs } from '../../db/schema.js';
+import { edges, graphClock, specs } from '../../db/schema.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
 import { getGraphOverview, getNodeNeighborhood, resolveGraphNodeCode } from '../../graph/snapshot.js';
 import { createProductUpdatePublisher } from '../../rpc/product-updates.js';
@@ -43,6 +43,7 @@ function seedSpec(db: BrunchDb): number {
     })
     .returning({ id: specs.id })
     .get();
+  db.insert(graphClock).values({ spec_id: row!.id, lsn: 0 }).run();
   return row!.id;
 }
 

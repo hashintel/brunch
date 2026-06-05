@@ -38,11 +38,14 @@ SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
 
 ## Clock and audit posture
 
-`graph_clock` and `change_log` are spec-scoped. `CommandExecutor` allocates the
-next LSN from the target spec's clock, appends a `change_log` row keyed by
-`(spec_id, lsn)`, and writes the same local LSN to that spec's graph rows or
-reconciliation needs. Product updates therefore carry `{specId, lsn}`; callers
-must not compare bare LSN values across sibling specs.
+`graph_clock` and `change_log` are spec-scoped. `CommandExecutor.createSpec`
+creates the spec's initial `graph_clock` row at LSN 1 with the `create_spec`
+audit entry. Later graph/spec mutations use an update-only bump on the target
+spec's existing clock row, append a `change_log` row keyed by `(spec_id, lsn)`,
+and write the same local LSN to that spec's graph rows or reconciliation needs.
+Missing clock rows for existing specs are invariant failures; runtime code does
+not repair them. Product updates therefore carry `{specId, lsn}`; callers must
+not compare bare LSN values across sibling specs.
 
 ## Imports from
 

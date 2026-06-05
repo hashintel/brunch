@@ -34,13 +34,15 @@ describe('CommandExecutor', () => {
       .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
       .run();
     specId = db.select({ id: specs.id }).from(specs).get()!.id;
+    db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
   });
 
   // --- graph_clock initialization ---
 
-  it('does not initialize a workspace-global graph_clock row', () => {
-    expect(db.select().from(graphClock).all()).toEqual([]);
-    expect(graphClockLsn(db, specId)).toBe(0);
+  it('stores a spec-local graph clock row for the persisted test spec', () => {
+    expect(db.select({ specId: graphClock.spec_id, lsn: graphClock.lsn }).from(graphClock).all()).toEqual([
+      { specId, lsn: 0 },
+    ]);
   });
 
   // --- createNode: success path ---
@@ -381,6 +383,20 @@ describe('CommandExecutor', () => {
       expect(row.readiness_grade).toBe('grounding_onboarding');
     });
 
+    it('creates exactly one graph clock row for a new spec at LSN 1', () => {
+      const result = executor.createSpec({ name: 'Clocked Spec', slug: 'clocked-spec' });
+
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+      expect(
+        db
+          .select({ specId: graphClock.spec_id, lsn: graphClock.lsn })
+          .from(graphClock)
+          .where(eq(graphClock.spec_id, result.specId))
+          .all(),
+      ).toEqual([{ specId: result.specId, lsn: 1 }]);
+    });
+
     it('scopes create_spec audit LSNs to the newly created spec', () => {
       const specA = executor.createSpec({ name: 'Spec A', slug: 'spec-a' });
       const specB = executor.createSpec({ name: 'Spec B', slug: 'spec-b' });
@@ -447,6 +463,21 @@ describe('CommandExecutor', () => {
       if (result.status !== 'success') throw new Error('unreachable');
       expect(result.lsn).toBe(2);
       expect(executor.getSpec(created.specId)?.readinessGrade).toBe('elicitation_ready');
+    });
+
+    it('fails loud when an existing spec is missing its graph clock row', () => {
+      const created = executor.createSpec({ name: 'Corrupt Spec', slug: 'corrupt-spec' });
+      if (created.status !== 'success') throw new Error('unreachable');
+      db.delete(graphClock).where(eq(graphClock.spec_id, created.specId)).run();
+
+      expect(() =>
+        executor.createNode({
+          specId: created.specId,
+          plane: 'intent',
+          kind: 'goal',
+          title: 'This mutation should not repair storage',
+        }),
+      ).toThrow(/graph_clock invariant failed/);
     });
 
     it('rejects an invalid readiness grade without writing', () => {

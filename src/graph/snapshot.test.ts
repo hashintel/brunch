@@ -10,7 +10,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
-import { specs } from '../db/schema.js';
+import { graphClock, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
 import { NODE_KIND_METADATA, parseGraphNodeCode } from './schema/nodes.js';
 import { getGraphOverview, getNodeNeighborhood, getOpenReconciliationNeeds } from './snapshot.js';
@@ -44,6 +44,7 @@ describe('getGraphOverview', () => {
       .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
       .run();
     specId = db.select({ id: specs.id }).from(specs).get()!.id;
+    db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
   });
 
   it('returns empty arrays and zero counts on an empty graph', () => {
@@ -180,6 +181,7 @@ describe('getNodeNeighborhood', () => {
       .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
       .run();
     specId = db.select({ id: specs.id }).from(specs).get()!.id;
+    db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
   });
 
   it('returns error for non-existent nodeId', () => {
@@ -337,6 +339,7 @@ describe('getOpenReconciliationNeeds', () => {
       .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
       .run();
     specId = db.select({ id: specs.id }).from(specs).get()!.id;
+    db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
   });
 
   it('returns empty array when no needs exist', () => {

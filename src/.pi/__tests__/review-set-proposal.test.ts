@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createDb } from '../../db/connection.js';
 import type { BrunchDb } from '../../db/connection.js';
-import { specs } from '../../db/schema.js';
+import { graphClock, specs } from '../../db/schema.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
 import { getGraphOverview } from '../../graph/snapshot.js';
 import {
@@ -13,7 +13,9 @@ import {
 
 function seedSpec(db: BrunchDb): number {
   db.insert(specs).values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' }).run();
-  return db.select({ id: specs.id }).from(specs).get()!.id;
+  const specId = db.select({ id: specs.id }).from(specs).get()!.id;
+  db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
+  return specId;
 }
 
 function validProposal(overrides: Partial<ReviewSetProposalDraft> = {}): ReviewSetProposalDraft {

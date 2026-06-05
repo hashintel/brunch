@@ -291,7 +291,8 @@ A commit is the unit of advance, not a row. LSNs are local to the spec being
 mutated:
 
 - A `graph_clock` table keyed by `spec_id`, carrying that spec's current `lsn`.
-- Each transaction allocates exactly one LSN for its target spec via `UPDATE graph_clock SET lsn = lsn + 1 WHERE spec_id = ? RETURNING lsn` (or inserts LSN 1 for the first mutation).
+- `createSpec` inserts the spec's initial clock row at LSN 1 alongside the `create_spec` audit entry; every later selected-spec mutation allocates exactly one LSN via `UPDATE graph_clock SET lsn = lsn + 1 WHERE spec_id = ? RETURNING lsn`.
+- A missing clock row for an existing spec is storage corruption, not a first-mutation case; runtime code fails loud instead of recreating it.
 - A `change_log` table keyed by `(spec_id, lsn)`.
 - Every entity row keeps its existing `spec_id` plus local `created_at_lsn` / `updated_at_lsn`; a bare LSN is comparable only inside that spec.
 
@@ -336,17 +337,17 @@ db.transaction((tx) => {
 // 6. post-commit fanout to subscribers (TUI redraw, WS broadcast)
 ```
 
-This shape stays correct as long as the invariant holds: **every mutation goes through this helper, inside one transaction, with the target-spec LSN bump and the spec-scoped change-log insert as siblings of the data write.** The risk is not the mechanism; it is socialization of the rule.
+This shape stays correct as long as the invariant holds: **`createSpec` creates the target spec's clock row, every later mutation uses the update-only LSN bump inside one transaction, and the spec-scoped change-log insert is a sibling of the data write.** The risk is not the mechanism; it is socialization of the rule.
 
 ### Enforcing the invariant
 
-To make "command layer is the only entry point" enforceable rather than aspirational:
+To make "command layer is the only live entry point" enforceable rather than aspirational:
 
 - The graph Drizzle client is not exported as a public symbol from the graph subsystem. Only a `GraphCommands` facade is exported.
 - Tests assert that no source file outside `graph/commands/*` imports the raw Drizzle client for graph tables. A simple grep-based check in CI is sufficient for the POC and can be promoted later.
 - Pi tools that need to mutate graph state register thin shims that call `GraphCommands.*`. They never receive a database handle.
 - Side tasks, lenses, RPC clients, web mutations, and TUI slash commands all call the same `GraphCommands` facade. There is no per-caller specialization of write paths.
-- Schema migrations themselves use `GraphCommands` for any data movement; they may add or alter tables outside the command layer, but they may not write graph data without participating in the LSN/change-log protocol.
+- Pre-release schema migrations may reshape scratch data directly when schema truth moves, including graph-clock/change-log backfills. Live graph/spec mutations still route through the command layer and must not repair missing clock rows as a compatibility fallback.
 - The post-commit fanout is the only legal way to learn about changes. Subscribers must not poll the change log without going through the subsystem's subscription API.
 
 This rule is the social load-bearing piece. The mechanism is small; the discipline is the architecture.
