@@ -138,6 +138,9 @@ describe('Brunch agent runtime-state projection', () => {
           'ls',
           'present_question',
           'present_options',
+          'request_answer',
+          'request_choice',
+          'request_choices',
           'read_graph',
           'commit_graph',
           'bash',
@@ -164,7 +167,18 @@ describe('Brunch agent runtime-state projection', () => {
     );
 
     expect(activeTools).toEqual([
-      ['read', 'grep', 'find', 'ls', 'present_question', 'present_options', 'read_graph'],
+      [
+        'read',
+        'grep',
+        'find',
+        'ls',
+        'present_question',
+        'present_options',
+        'request_answer',
+        'request_choice',
+        'request_choices',
+        'read_graph',
+      ],
     ]);
     expect(promptResult).toBeUndefined();
     for (const toolName of ['bash', 'edit', 'write']) {
