@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { createDb } from '../../db/connection.js';
 import type { BrunchDb } from '../../db/connection.js';
-import { graphClock, specs } from '../../db/schema.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
 import { getGraphOverview } from '../../graph/snapshot.js';
 import {
@@ -12,10 +11,9 @@ import {
 } from '../extensions/graph/review-set-proposal.js';
 
 function seedSpec(db: BrunchDb): number {
-  db.insert(specs).values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' }).run();
-  const specId = db.select({ id: specs.id }).from(specs).get()!.id;
-  db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
-  return specId;
+  const result = new CommandExecutor(db).createSpec({ name: 'Test Spec', slug: 'test' });
+  if (result.status !== 'success') throw new Error('Unable to create test spec');
+  return result.specId;
 }
 
 function validProposal(overrides: Partial<ReviewSetProposalDraft> = {}): ReviewSetProposalDraft {
@@ -90,7 +88,7 @@ describe('review-set proposal dry-run gate', () => {
         validation: { status: 'success' },
       },
     });
-    expect(getGraphOverview(db, specId)).toMatchObject({ nodeCount: 0, edgeCount: 0, lsn: 0 });
+    expect(getGraphOverview(db, specId)).toMatchObject({ nodeCount: 0, edgeCount: 0, lsn: 1 });
   });
 
   it('rejects structurally invalid review-set proposal payloads', () => {
@@ -115,7 +113,7 @@ describe('review-set proposal dry-run gate', () => {
       status: 'structural_illegal',
       diagnostics: [{ field: 'edges[0].stance', message: expect.stringContaining('required') }],
     });
-    expect(getGraphOverview(db, specId)).toMatchObject({ nodeCount: 0, edgeCount: 0, lsn: 0 });
+    expect(getGraphOverview(db, specId)).toMatchObject({ nodeCount: 0, edgeCount: 0, lsn: 1 });
   });
 
   it('rejects proposal schema drift before CommandExecutor dry-run', () => {
