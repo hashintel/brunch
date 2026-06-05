@@ -8,5 +8,20 @@ CREATE TABLE `node_kind_counters` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `node_kind_counters_spec_plane_kind_unique` ON `node_kind_counters` (`spec_id`,`plane`,`kind`);--> statement-breakpoint
-ALTER TABLE `nodes` ADD `kind_ordinal` integer NOT NULL;--> statement-breakpoint
+UPDATE `nodes` SET `basis` = 'explicit' WHERE `basis` = 'accepted_review_set';--> statement-breakpoint
+UPDATE `edges` SET `basis` = 'explicit' WHERE `basis` = 'accepted_review_set';--> statement-breakpoint
+ALTER TABLE `nodes` ADD `kind_ordinal` integer;--> statement-breakpoint
+UPDATE `nodes`
+SET `kind_ordinal` = (
+	SELECT count(*)
+	FROM `nodes` `prior_nodes`
+	WHERE `prior_nodes`.`spec_id` = `nodes`.`spec_id`
+		AND `prior_nodes`.`plane` = `nodes`.`plane`
+		AND `prior_nodes`.`kind` = `nodes`.`kind`
+		AND `prior_nodes`.`id` <= `nodes`.`id`
+);--> statement-breakpoint
+INSERT INTO `node_kind_counters` (`spec_id`, `plane`, `kind`, `next_ordinal`)
+SELECT `spec_id`, `plane`, `kind`, max(`kind_ordinal`) + 1
+FROM `nodes`
+GROUP BY `spec_id`, `plane`, `kind`;--> statement-breakpoint
 CREATE UNIQUE INDEX `nodes_spec_plane_kind_ordinal_unique` ON `nodes` (`spec_id`,`plane`,`kind`,`kind_ordinal`);
