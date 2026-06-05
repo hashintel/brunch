@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 
 import { openWorkspaceCommandExecutor, type SpecRecord } from '../graph/index.js';
-import { discoverProjectIdentity } from './project-identity.js';
+import { discoverProjectIdentity, slugify } from './project-identity.js';
 import {
   createSessionBindingData,
   isSessionBindingEntry,
@@ -26,7 +26,7 @@ export interface WorkspaceSpecState {
   title: string;
 }
 
-interface WorkspaceProjectState {
+export interface WorkspaceProjectState {
   name: string;
   slug: string;
 }
@@ -54,6 +54,7 @@ interface WorkspaceStateFile {
 
 export interface WorkspaceSessionChromeState {
   cwd: string;
+  project?: WorkspaceProjectState;
   spec: WorkspaceSpecState | null;
   phase: 'select_spec' | 'elicitation';
   chatMode: 'select-spec' | 'responding-to-elicitation';
@@ -162,6 +163,7 @@ export interface WorkspaceUnavailableSession {
 
 export interface WorkspaceLaunchInventory {
   cwd: string;
+  project?: WorkspaceProjectState;
   currentSpec: WorkspaceSpecState | null;
   currentSessionFile: string | null;
   needsNewSpec: boolean;
@@ -225,7 +227,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
       return {
         status: 'cancelled',
         cwd: this.#cwd,
-        chrome: chromeState(this.#cwd, spec),
+        chrome: chromeState(this.#cwd, spec, state?.project),
       };
     }
 
@@ -244,13 +246,14 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
         this.#cwd,
         inventory.currentSpec,
         'Selected spec is not available in this workspace.',
+        inventory.project,
       );
     }
 
     if (decision.action === 'newSession') {
       const session = await createBoundSession(this.#cwd, spec.spec);
       await writeWorkspaceDefaults(this.#cwd, spec.spec, session.id);
-      return readyState(this.#cwd, spec.spec, session);
+      return readyState(this.#cwd, spec.spec, session, inventory.project);
     }
 
     const session = spec.sessions.find((candidate) => candidate.file === decision.sessionFile);
@@ -259,13 +262,14 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
         this.#cwd,
         inventory.currentSpec,
         'Selected session is not available for the selected spec.',
+        inventory.project,
       );
     }
 
     const manager = SessionManager.open(session.file, sessionDir(this.#cwd), this.#cwd);
     const opened = bindSessionToSpec(manager, spec.spec);
     await writeWorkspaceDefaults(this.#cwd, spec.spec, opened.id);
-    return readyState(this.#cwd, spec.spec, opened);
+    return readyState(this.#cwd, spec.spec, opened, inventory.project);
   }
 
   async openDefaultWorkspace(): Promise<WorkspaceSessionState> {
@@ -275,21 +279,26 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
       return {
         status: 'select_spec',
         cwd: this.#cwd,
-        chrome: chromeState(this.#cwd, null),
+        chrome: chromeState(this.#cwd, null, state.project),
       };
     }
 
     const spec = await getSpecState(this.#cwd, defaults.specId);
     if (!spec) {
-      return needsHumanState(this.#cwd, null, 'Default spec is missing from the workspace database.');
+      return needsHumanState(
+        this.#cwd,
+        null,
+        'Default spec is missing from the workspace database.',
+        state.project,
+      );
     }
 
     const session = await openDefaultSession(this.#cwd, spec, defaults.sessionId);
     if (!session) {
-      return needsHumanState(this.#cwd, spec, 'Default session is missing or stale.');
+      return needsHumanState(this.#cwd, spec, 'Default session is missing or stale.', state.project);
     }
     await writeWorkspaceDefaults(this.#cwd, spec, session.id);
-    return readyState(this.#cwd, spec, session);
+    return readyState(this.#cwd, spec, session, state.project);
   }
 
   async createSetupSession(options?: {
@@ -302,7 +311,7 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     const spec = existing ?? (await createSpec(this.#cwd, options?.specTitle));
     const session = await createBoundSession(this.#cwd, spec);
     await writeWorkspaceDefaults(this.#cwd, spec, session.id);
-    return readyState(this.#cwd, spec, session);
+    return readyState(this.#cwd, spec, session, state.project);
   }
 
   async createSetupSessionForCurrentSpec(): Promise<WorkspaceSessionState> {
@@ -313,13 +322,13 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
         status: 'needs_human',
         cwd: this.#cwd,
         reason: 'No default spec is selected for this workspace.',
-        chrome: chromeState(this.#cwd, null),
+        chrome: chromeState(this.#cwd, null, state?.project),
       };
     }
 
     const session = await createBoundSession(this.#cwd, spec);
     await writeWorkspaceDefaults(this.#cwd, spec, session.id);
-    return readyState(this.#cwd, spec, session);
+    return readyState(this.#cwd, spec, session, state?.project);
   }
 
   async bindCurrentSpecToReplacementSession(manager: SessionManager): Promise<WorkspaceSessionReadyState> {
@@ -331,13 +340,13 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
 
     const session = bindSessionToSpec(manager, spec);
     await writeWorkspaceDefaults(this.#cwd, spec, session.id);
-    return readyState(this.#cwd, spec, session);
+    return readyState(this.#cwd, spec, session, state?.project);
   }
 
   async deriveDefaultChromeState(): Promise<WorkspaceSessionChromeState> {
     const state = await readWorkspaceState(this.#cwd);
     const spec = state ? await defaultSpecFromState(this.#cwd, state) : null;
-    return chromeState(this.#cwd, spec);
+    return chromeState(this.#cwd, spec, state?.project);
   }
 }
 
@@ -597,6 +606,7 @@ async function inspectWorkspaceInventory(cwd: string): Promise<WorkspaceLaunchIn
 
   return {
     cwd,
+    project: state.project,
     currentSpec,
     currentSessionFile,
     needsNewSpec: specs.length === 0,
@@ -639,13 +649,14 @@ function readyState(
   cwd: string,
   spec: WorkspaceSpecState,
   session: WorkspaceSessionReadyState['session'],
+  project?: WorkspaceProjectState,
 ): WorkspaceSessionReadyState {
   return {
     status: 'ready',
     cwd,
     spec,
     session,
-    chrome: chromeState(cwd, spec),
+    chrome: chromeState(cwd, spec, project),
   };
 }
 
@@ -653,22 +664,33 @@ function needsHumanState(
   cwd: string,
   spec: WorkspaceSpecState | null,
   reason: string,
+  project?: WorkspaceProjectState,
 ): WorkspaceSessionNeedsHumanState {
   return {
     status: 'needs_human',
     cwd,
     reason,
-    chrome: chromeState(cwd, spec),
+    chrome: chromeState(cwd, spec, project),
   };
 }
 
-function chromeState(cwd: string, spec: WorkspaceSpecState | null): WorkspaceSessionChromeState {
+function chromeState(
+  cwd: string,
+  spec: WorkspaceSpecState | null,
+  project?: WorkspaceProjectState,
+): WorkspaceSessionChromeState {
   return {
     cwd,
+    project: project ?? projectStateFromCwd(cwd),
     spec,
     phase: spec ? 'elicitation' : 'select_spec',
     chatMode: spec ? 'responding-to-elicitation' : 'select-spec',
   };
+}
+
+function projectStateFromCwd(cwd: string): WorkspaceProjectState {
+  const name = cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? 'project';
+  return { name, slug: slugify(name) };
 }
 
 export interface WorkspaceStoreOracleOptions {

@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import {
   SessionManager,
@@ -462,8 +462,8 @@ describe('Brunch TUI boot', () => {
     }
 
     expect(boundSessionIds).toEqual([manager.getSessionId(), manager.getSessionId(), manager.getSessionId()]);
-    expect(widgets.get('brunch.chrome')?.join('\n')).toContain('chat mode: responding-to-elicitation');
-    expect(titles).toEqual(['brunch — Spec One']);
+    expect(widgets.has('brunch.chrome')).toBe(false);
+    expect(titles).toEqual([`brunch — ${basename(cwd)} · Spec One`]);
   });
 
   it('registers the Brunch spec/session picker command and shortcut', async () => {
@@ -615,9 +615,7 @@ describe('Brunch TUI boot', () => {
       'custom',
       'activate:openSession',
       `switch:${target.session.file}`,
-      'replacement:setHeader',
       'replacement:setFooter',
-      'replacement:setWidget',
       'replacement:setTitle',
       'replacement:notify',
     ]);

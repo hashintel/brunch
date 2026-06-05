@@ -276,7 +276,8 @@ describe('spec/session picker', () => {
     expect(lines[0]).toContain('╭');
     expect(lines[1]).toMatch(/^\[borderMuted\]│\[\/borderMuted\]\s+\[borderMuted\]│\[\/borderMuted\]$/);
     expect(lines.some((line) => line.includes('Choose a specification'))).toBe(true);
-    expect(lines.some((line) => line.includes('[accent]brunch v0.0.0[/accent]'))).toBe(true);
+    expect(lines.some((line) => line.includes('brunch v0.1.0'))).toBe(true);
+    expect(lines.some((line) => line.includes('brunch v0.0.0'))).toBe(false);
     expect(lines.some((line) => line.includes('[success](dev'))).toBe(true);
     expect(lines.some((line) => line.includes('built on Pi v'))).toBe(true);
   });

@@ -24,7 +24,7 @@ import {
 export const WORKSPACE_DIALOG_WIDTH = 80;
 const CTRL_C = '\x03';
 const ASSET_DIR = new URL('./assets/', import.meta.url);
-const PACKAGE_JSON_URL = new URL('../../../../../package.json', import.meta.url);
+const PACKAGE_JSON_URL = new URL('../../../../package.json', import.meta.url);
 const LOCAL_BUILD_TIME = formatBuildTime(new Date());
 
 export type WorkspaceDialogTheme = Pick<Theme, 'fg'>;
