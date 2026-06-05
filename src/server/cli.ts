@@ -40,10 +40,30 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   );
   console.log('');
   console.log('Cook flags:');
-  console.log('  --spec=<id>               Pick .brunch/cook/specs/<id>/plan.yaml (default: newest spec)');
-  console.log('  --policy=serial|parallel  Firing policy (default: serial)');
-  console.log('  --max-retries=N           Retry budget per slice (default: 3)');
-  console.log('  --verbose, -v             Show raw pi-agent output');
+  console.log(
+    '  --spec=<id>                      Pick .brunch/cook/specs/<id>/plan.yaml (default: newest spec)',
+  );
+  console.log('  --policy=serial|parallel         Firing policy (default: serial)');
+  console.log('  --max-retries=N                  Retry budget per slice (default: 3)');
+  console.log('  --petrinaut-fold=color|identity  Petri-net projection mode (default: identity)');
+  console.log(
+    '  --petrinaut-stream               Stream the live run to Petrinaut over SSE (opt-in; default off)',
+  );
+  console.log(
+    '  --petrinaut-base-url=<url>       Petrinaut /brunch base URL (requires --petrinaut-stream; else PETRINAUT_BASE_URL env)',
+  );
+  console.log(
+    "  --no-petrinaut-open              Don't auto-open the browser (requires --petrinaut-stream; URL still prints)",
+  );
+  console.log('  --verbose, -v                    Show raw pi-agent output');
+  console.log('');
+  console.log('Cook env:');
+  console.log(
+    '  PETRINAUT_BASE_URL               Petrinaut /brunch base URL for --petrinaut-stream (overridden by --petrinaut-base-url)',
+  );
+  console.log(
+    '  PORT                             Pin the SSE server port (default: ephemeral); avoid browser-blocked ports (e.g. 6000)',
+  );
   console.log('');
   console.log('Plan flags:');
   console.log(

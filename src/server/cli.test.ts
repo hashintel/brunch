@@ -183,6 +183,21 @@ describe('published CLI entrypoint', () => {
     expect(result.stdout).toContain('Usage: brunch');
     expect(result.stdout).toContain('Launch the Brunch web UI in the current project directory.');
     expect(result.stdout).toContain('plan <specId>');
+    // Help must list every cook flag the parser accepts — guards against the
+    // drift where Petrinaut flags existed but went undocumented.
+    for (const flag of [
+      '--spec=',
+      '--policy=',
+      '--max-retries=',
+      '--petrinaut-fold=',
+      '--petrinaut-stream',
+      '--petrinaut-base-url=',
+      '--no-petrinaut-open',
+      '--verbose, -v',
+    ]) {
+      expect(result.stdout).toContain(flag);
+    }
+    expect(result.stdout).toContain('PETRINAUT_BASE_URL');
   });
 
   it('rejects `brunch plan` invocations with no spec id', async () => {
