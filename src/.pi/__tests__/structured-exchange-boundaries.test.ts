@@ -73,4 +73,27 @@ describe('structured-exchange source boundaries', () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it('keeps structured-exchange TypeBox usage quarantined to the Pi schema adapter', () => {
+    const offenders = [
+      ...sourceFilesUnder(STRUCTURED_EXCHANGE_EXTENSION),
+      ...sourceFilesUnder('src/session'),
+    ].filter((file) => {
+      if (ALLOWED_TYPEBOX_FILES.has(file)) return false;
+      const source = readSource(file);
+      return source.includes("from 'typebox'") || source.includes('from "typebox"');
+    });
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('keeps tool_meta atoms single-sourced in schemas/shared.ts', () => {
+    const offenders = sourceFilesUnder(STRUCTURED_EXCHANGE_SCHEMAS).filter((file) => {
+      if (file.endsWith('/shared.ts')) return false;
+      const source = readSource(file);
+      return source.includes('curr: z.literal(') || source.includes('prev: z.literal(');
+    });
+
+    expect(offenders).toEqual([]);
+  });
 });

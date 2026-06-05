@@ -15,8 +15,8 @@ const PresentCandidatesDetailsSchema = z.toJSONSchema(zPresentCandidatesDetails)
 
 - Zod source values use the `z` prefix and are not named `*Schema`.
 - Inferred TypeScript types use the bare domain name.
-- `*Schema` means JSON-Schema-shaped output: either generated with `z.toJSONSchema(...)` or authored directly with TypeBox.
-- If TypeBox source values need a prefix in non-boundary helpers, use `tb*`.
+- `*Schema` means JSON-Schema-shaped output generated from Zod with `z.toJSONSchema(...)`.
+- TypeBox is not a schema authoring layer for this seam; the only permitted TypeBox reference is the Pi `TSchema` cast adapter in `../pi-schema.ts`.
 - `Details`, `Params`, `Payload`, and `Result` are data-type name parts, not schema-library markers.
 
 ## File layout
@@ -28,10 +28,27 @@ schemas/
   present.ts
   request.ts
   capture.ts
+  params.ts
   index.ts
 ```
 
-The organization is layer-first: shared vocabulary, present details, request details, capture details, and one public export barrel.
+The organization is layer-first: shared vocabulary, tool parameter schemas, present details, request details, capture details, and one public export barrel.
+
+## Source boundaries
+
+```pseudo
+chain active Pi tool
+  -> parse params with schemas/params.ts Zod schema
+  -> structured-exchange/project/* constructs details
+  -> relevant details Zod schema parses result
+  -> formatter renders durable markdown
+```
+
+- Active `.pi/extensions/structured-exchange/*.ts` files own Pi registration and UI collection only.
+- `../pi-schema.ts` is the only Zod JSON Schema to Pi `TSchema` adapter.
+- `structured-exchange/project/*` is the only construction boundary for active present/request `toolResult.details`.
+- Session pending exchange recovery projects from canonical present/request details; it does not author a TypeBox semantic schema.
+- The proof-era `brunch.structured_exchange.result` details model is retired.
 
 ## Global details header
 
