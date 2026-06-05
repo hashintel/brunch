@@ -158,7 +158,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 - **Cross-cutting obligations:** Preserve D27-L: review-set proposal is a structured-exchange payload, not a standalone public review-set entity. Reviewer advisory writes remain deferred unless explicitly scoped. Existing-node references and review payloads use projected graph codes at adapter/UI boundaries, not raw DB ids.
 - **Traceability:** R21, R23 / D4-L, D20-L, D26-L, D27-L, D51-L, D53-L, D62-L, D63-L / I11-L, I34-L, I40-L / A14-L, A16-L.
 - **Design docs:** `docs/design/REVIEW_SETS.md`; `docs/design/GRAPH_MODEL.md`; `memory/SPEC.md` D27-L.
-- **Current execution pointer:** Active; first FE-809 scope card pending.
+- **Current execution pointer:** Active; first FE-809 scope chain: `memory/cards/project-graph-review-cycle--review-cycle-core.md`.
 
 ### minimal-authority-shell
 
