@@ -11,9 +11,11 @@ import worktreeExtension, {
   cleanForkedSessionHeader,
   createRelocatedSession,
   createSiblingWorktree,
+  parseWorktreePorcelain,
   planSiblingWorktree,
   resolveSwitchTarget,
   runSwitchWorktree,
+  selectableSwitchWorktrees,
   validateGitWorktree,
   WORKTREE_CREATE_COMMAND,
   WORKTREE_CREATE_TOOL,
@@ -164,6 +166,142 @@ describe('project-local worktree Pi extension', () => {
     });
   });
 
+  it('parses git worktree porcelain entries and filters the caller worktree from switch choices', () => {
+    const entries = parseWorktreePorcelain(
+      [
+        'worktree /tmp/repo',
+        'HEAD abc123',
+        'branch refs/heads/main',
+        '',
+        'worktree /tmp/repo-linked',
+        'HEAD def456',
+        'branch refs/heads/feature/demo',
+        '',
+        'worktree /tmp/repo-detached',
+        'HEAD fed789',
+        'detached',
+        '',
+      ].join('\n'),
+    );
+
+    expect(entries).toEqual([
+      { path: '/tmp/repo', head: 'abc123', branch: 'main', detached: false },
+      { path: '/tmp/repo-linked', head: 'def456', branch: 'feature/demo', detached: false },
+      { path: '/tmp/repo-detached', head: 'fed789', detached: true },
+    ]);
+    expect(selectableSwitchWorktrees(entries, '/tmp/repo')).toEqual([
+      {
+        path: '/tmp/repo-linked',
+        label: '/tmp/repo-linked (branch feature/demo)',
+      },
+      {
+        path: '/tmp/repo-detached',
+        label: '/tmp/repo-detached (detached fed789)',
+      },
+    ]);
+  });
+
+  it('cancels a no-arg switch cleanly when the selector is dismissed', async () => {
+    await withTempDir(async (dir) => {
+      const main = join(dir, 'repo');
+      await initRepo(main);
+      const linked = join(dir, 'repo-linked');
+      await git(main, 'worktree', 'add', '-b', 'linked', linked, 'HEAD');
+      const ctx = createSwitchContext({
+        cwd: main,
+        sourceSession: join(dir, 'source.jsonl'),
+        sessionDir: join(dir, 'sessions'),
+        confirm: true,
+        select: undefined,
+      });
+
+      const result = await runSwitchWorktree('', ctx);
+
+      expect(result).toEqual({
+        status: 'cancelled',
+        targetPath: '',
+        reason: 'worktree selection cancelled',
+      });
+      expect(ctx.selections).toHaveLength(1);
+      expect(ctx.confirmations).toHaveLength(0);
+      expect(ctx.switchedSessionFile).toBeUndefined();
+    });
+  });
+
+  it('uses no-arg switch selection before the existing validated and confirmed relocation path', async () => {
+    await withTempDir(async (dir) => {
+      const main = join(dir, 'repo');
+      await initRepo(main);
+      const linked = join(dir, 'repo-linked');
+      await git(main, 'worktree', 'add', '-b', 'linked', linked, 'HEAD');
+      const linkedRoot = await gitOutput(linked, 'rev-parse', '--show-toplevel');
+      const sourceSession = join(dir, 'source.jsonl');
+      const sessionDir = join(dir, 'sessions');
+      await writeFile(
+        sourceSession,
+        `${JSON.stringify({ type: 'session', version: 3, id: 's1', timestamp: '2026-06-05T00:00:00.000Z', cwd: main })}\n${JSON.stringify({ type: 'message', id: 'm1', parentId: null, timestamp: '2026-06-05T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'hello' }], timestamp: 0 } })}\n`,
+      );
+      const ctx = createSwitchContext({
+        cwd: main,
+        sourceSession,
+        sessionDir,
+        confirm: true,
+        select: 'first',
+      });
+
+      const result = await runSwitchWorktree('', ctx, { sessionDir });
+
+      expect(result).toMatchObject({ status: 'switched', targetPath: linkedRoot });
+      expect(ctx.selections).toEqual([
+        {
+          title: 'Switch Pi worktree',
+          options: [`${linkedRoot} (branch linked)`],
+        },
+      ]);
+      expect(ctx.confirmations).toHaveLength(1);
+      expect(ctx.switchedSessionFile).toContain(sessionDir);
+      expect(ctx.replacementMessages).toEqual([
+        `Continue in the relocated Pi session from cwd: ${linkedRoot}`,
+      ]);
+    });
+  });
+
+  it('notifies when no-arg switch is run outside a git repository or without other worktrees', async () => {
+    await withTempDir(async (dir) => {
+      const outside = createSwitchContext({
+        cwd: dir,
+        sourceSession: join(dir, 'source.jsonl'),
+        sessionDir: join(dir, 'sessions'),
+        confirm: true,
+        select: 'first',
+      });
+      await expect(runSwitchWorktree('', outside)).resolves.toMatchObject({
+        status: 'failed',
+        targetPath: '',
+      });
+      expect(outside.notifications.at(-1)?.message).toContain('Could not list git worktrees.');
+
+      const repo = join(dir, 'repo');
+      await initRepo(repo);
+      const only = createSwitchContext({
+        cwd: repo,
+        sourceSession: join(dir, 'source.jsonl'),
+        sessionDir: join(dir, 'sessions'),
+        confirm: true,
+        select: 'first',
+      });
+      await expect(runSwitchWorktree('', only)).resolves.toEqual({
+        status: 'failed',
+        targetPath: '',
+        reason: 'no other git worktrees available',
+      });
+      expect(only.notifications.at(-1)).toEqual({
+        message: 'No other git worktrees are available for this repository.',
+        type: 'info',
+      });
+    });
+  });
+
   it('plans sibling defaults from the caller worktree root and skips path and branch collisions', async () => {
     await withTempDir(async (dir) => {
       const repo = join(dir, 'repo');
@@ -300,15 +438,18 @@ function createSwitchContext({
   sourceSession,
   sessionDir,
   confirm,
+  select,
 }: {
   cwd: string;
   sourceSession: string;
   sessionDir: string;
   confirm: boolean;
+  select?: 'first' | undefined;
 }) {
   const confirmations: string[] = [];
   const notifications: Array<{ message: string; type: 'info' | 'warning' | 'error' | undefined }> = [];
   const replacementMessages: string[] = [];
+  const selections: Array<{ title: string; options: string[] }> = [];
   const ctx = {
     cwd,
     hasUI: true,
@@ -321,6 +462,10 @@ function createSwitchContext({
         notifications.push({ message, type });
       },
       setEditorText() {},
+      select: async (title: string, options: string[]) => {
+        selections.push({ title, options });
+        return select === 'first' ? options[0] : undefined;
+      },
     },
     sessionManager: {
       getSessionFile: () => sourceSession,
@@ -348,6 +493,7 @@ function createSwitchContext({
     confirmations,
     notifications,
     replacementMessages,
+    selections,
   };
   return ctx as typeof ctx & ExtensionCommandContext;
 }

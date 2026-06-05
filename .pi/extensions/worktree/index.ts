@@ -110,6 +110,18 @@ export type CreateSiblingWorktreeResultDetails =
       readonly stderr?: string;
     };
 
+export interface ListedWorktree {
+  readonly path: string;
+  readonly head?: string;
+  readonly branch?: string;
+  readonly detached: boolean;
+}
+
+export interface SwitchableWorktree {
+  readonly path: string;
+  readonly label: string;
+}
+
 interface GitProbeResult {
   readonly ok: boolean;
   readonly stdout: string;
@@ -161,6 +173,81 @@ export async function validateGitWorktree(targetPath: string): Promise<WorktreeV
   }
 
   return { ok: true, cwd: targetPath };
+}
+
+export function parseWorktreePorcelain(output: string): ListedWorktree[] {
+  const entries: ListedWorktree[] = [];
+  let currentPath: string | undefined;
+  let currentHead: string | undefined;
+  let currentBranch: string | undefined;
+  let currentDetached = false;
+
+  for (const line of output.split(/\r?\n/)) {
+    if (line.length === 0) continue;
+
+    if (line.startsWith('worktree ')) {
+      if (currentPath !== undefined) {
+        const entry = {
+          path: currentPath,
+          detached: currentDetached,
+          ...(currentHead === undefined ? {} : { head: currentHead }),
+          ...(currentBranch === undefined ? {} : { branch: currentBranch }),
+        };
+        entries.push(entry);
+      }
+      currentPath = line.slice('worktree '.length);
+      currentHead = undefined;
+      currentBranch = undefined;
+      currentDetached = false;
+      continue;
+    }
+
+    if (line.startsWith('HEAD ')) {
+      currentHead = line.slice('HEAD '.length);
+      continue;
+    }
+
+    if (line.startsWith('branch ')) {
+      const branch = line.slice('branch '.length);
+      currentBranch = branch.startsWith('refs/heads/') ? branch.slice('refs/heads/'.length) : branch;
+      continue;
+    }
+
+    if (line === 'detached') {
+      currentDetached = true;
+    }
+  }
+
+  if (currentPath !== undefined) {
+    const entry = {
+      path: currentPath,
+      detached: currentDetached,
+      ...(currentHead === undefined ? {} : { head: currentHead }),
+      ...(currentBranch === undefined ? {} : { branch: currentBranch }),
+    };
+    entries.push(entry);
+  }
+
+  return entries;
+}
+
+export function selectableSwitchWorktrees(
+  entries: readonly ListedWorktree[],
+  callerRoot: string,
+): SwitchableWorktree[] {
+  return entries
+    .filter((entry) => entry.path !== callerRoot)
+    .map((entry) => {
+      let labelSuffix: string;
+      if (entry.detached) {
+        labelSuffix = `detached ${entry.head ?? 'unknown HEAD'}`;
+      } else if (entry.branch !== undefined) {
+        labelSuffix = `branch ${entry.branch}`;
+      } else {
+        labelSuffix = `HEAD ${entry.head ?? 'unknown'}`;
+      }
+      return { path: entry.path, label: `${entry.path} (${labelSuffix})` };
+    });
 }
 
 export async function planSiblingWorktree(options: SiblingWorktreePlanOptions): Promise<SiblingWorktreePlan> {
@@ -320,12 +407,13 @@ export async function cleanForkedSessionHeader(sessionFile: string): Promise<voi
 export async function runSwitchWorktree(
   targetPath: string,
   ctx: ExtensionCommandContext,
-  options: SwitchWorktreeOptions = {},
+  switchOptions: SwitchWorktreeOptions = {},
 ): Promise<SwitchWorktreeResultDetails> {
   const resolvedTarget = resolveSwitchTarget(targetPath, ctx.cwd);
   if (resolvedTarget.length === 0) {
-    ctx.ui.notify('Usage: /worktree:switch <path>', 'error');
-    return { status: 'failed', targetPath: resolvedTarget, reason: 'missing target path' };
+    const selectedTarget = await selectSwitchWorktreeTarget(ctx);
+    if (selectedTarget.status !== 'selected') return selectedTarget;
+    return runSwitchWorktree(selectedTarget.targetPath, ctx, switchOptions);
   }
 
   const validation = await validateGitWorktree(resolvedTarget);
@@ -356,7 +444,7 @@ export async function runSwitchWorktree(
   const relocatedSessionFile = await createRelocatedSession(
     sourceSessionFile,
     validation.cwd,
-    options.sessionDir,
+    switchOptions.sessionDir,
   );
   const continuation = continuationPrompt(validation.cwd);
   const result = await ctx.switchSession(relocatedSessionFile, {
@@ -474,6 +562,56 @@ export default function registerWorktreeExtension(pi: ExtensionAPI): void {
       };
     },
   });
+}
+
+interface SelectedSwitchTarget {
+  readonly status: 'selected';
+  readonly targetPath: string;
+}
+
+async function selectSwitchWorktreeTarget(
+  ctx: ExtensionCommandContext,
+): Promise<SelectedSwitchTarget | SwitchWorktreeResultDetails> {
+  const rootProbe = await gitProbe(ctx.cwd, 'rev-parse', '--show-toplevel');
+  if (!rootProbe.ok) {
+    const reason = gitFailureReason('Could not list git worktrees.', rootProbe);
+    ctx.ui.notify(reason, 'error');
+    return { status: 'failed', targetPath: '', reason };
+  }
+
+  const listProbe = await gitProbe(ctx.cwd, 'worktree', 'list', '--porcelain');
+  if (!listProbe.ok) {
+    const reason = gitFailureReason('Could not list git worktrees.', listProbe);
+    ctx.ui.notify(reason, 'error');
+    return { status: 'failed', targetPath: '', reason };
+  }
+
+  const options = selectableSwitchWorktrees(
+    parseWorktreePorcelain(listProbe.stdout),
+    rootProbe.stdout.trim(),
+  );
+  if (options.length === 0) {
+    const reason = 'no other git worktrees available';
+    ctx.ui.notify('No other git worktrees are available for this repository.', 'info');
+    return { status: 'failed', targetPath: '', reason };
+  }
+
+  const selectedLabel = await ctx.ui.select(
+    'Switch Pi worktree',
+    options.map((option) => option.label),
+  );
+  if (selectedLabel === undefined) {
+    return { status: 'cancelled', targetPath: '', reason: 'worktree selection cancelled' };
+  }
+
+  const selected = options.find((option) => option.label === selectedLabel);
+  if (selected === undefined) {
+    const reason = 'selected worktree is no longer available';
+    ctx.ui.notify(reason, 'error');
+    return { status: 'failed', targetPath: '', reason };
+  }
+
+  return { status: 'selected', targetPath: selected.path };
 }
 
 function continuationPrompt(targetCwd: string): string {
