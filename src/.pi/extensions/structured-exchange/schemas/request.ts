@@ -1,6 +1,13 @@
 import * as z from 'zod';
 
-import { zMarkdown, zRequestDetailsHeader } from './shared.js';
+import {
+  zMarkdown,
+  zRequestAnswerToolMeta,
+  zRequestChoiceToolMeta,
+  zRequestChoicesToolMeta,
+  zRequestDetailsHeader,
+  zRequestReviewToolMeta,
+} from './shared.js';
 
 export const zCancelledOutcome = z
   .object({
@@ -93,13 +100,7 @@ export type RequestChoicesAnswered = z.infer<typeof zRequestChoicesAnswered>;
 export const zRequestAnswerDetails = z.union([
   zRequestDetailsHeader
     .extend({
-      tool_meta: z
-        .object({
-          prev: z.literal('present_question'),
-          curr: z.literal('request_answer'),
-          next: z.literal('capture_answer').optional(),
-        })
-        .strict(),
+      tool_meta: zRequestAnswerToolMeta,
       answered: z
         .object({
           text: zMarkdown,
@@ -109,23 +110,13 @@ export const zRequestAnswerDetails = z.union([
     .strict(),
   zRequestDetailsHeader
     .extend({
-      tool_meta: z
-        .object({
-          prev: z.literal('present_question'),
-          curr: z.literal('request_answer'),
-        })
-        .strict(),
+      tool_meta: zRequestAnswerToolMeta.omit({ next: true }),
       cancelled: zCancelledOutcome.shape.cancelled,
     })
     .strict(),
   zRequestDetailsHeader
     .extend({
-      tool_meta: z
-        .object({
-          prev: z.literal('present_question'),
-          curr: z.literal('request_answer'),
-        })
-        .strict(),
+      tool_meta: zRequestAnswerToolMeta.omit({ next: true }),
       unavailable: zUnavailableOutcome.shape.unavailable,
     })
     .strict(),
@@ -136,60 +127,19 @@ export const RequestAnswerDetailsSchema = z.toJSONSchema(zRequestAnswerDetails, 
 export const zRequestChoiceDetails = z.union([
   zRequestDetailsHeader
     .extend({
-      tool_meta: z.union([
-        z
-          .object({
-            prev: z.literal('present_options'),
-            curr: z.literal('request_choice'),
-            next: z.literal('capture_choice').optional(),
-          })
-          .strict(),
-        z
-          .object({
-            prev: z.literal('present_candidates'),
-            curr: z.literal('request_choice'),
-            next: z.literal('capture_candidate').optional(),
-          })
-          .strict(),
-      ]),
+      tool_meta: zRequestChoiceToolMeta,
       answered: zRequestChoiceAnswered,
     })
     .strict(),
   zRequestDetailsHeader
     .extend({
-      tool_meta: z.union([
-        z
-          .object({
-            prev: z.literal('present_options'),
-            curr: z.literal('request_choice'),
-          })
-          .strict(),
-        z
-          .object({
-            prev: z.literal('present_candidates'),
-            curr: z.literal('request_choice'),
-          })
-          .strict(),
-      ]),
+      tool_meta: zRequestChoiceToolMeta,
       cancelled: zCancelledOutcome.shape.cancelled,
     })
     .strict(),
   zRequestDetailsHeader
     .extend({
-      tool_meta: z.union([
-        z
-          .object({
-            prev: z.literal('present_options'),
-            curr: z.literal('request_choice'),
-          })
-          .strict(),
-        z
-          .object({
-            prev: z.literal('present_candidates'),
-            curr: z.literal('request_choice'),
-          })
-          .strict(),
-      ]),
+      tool_meta: zRequestChoiceToolMeta,
       unavailable: zUnavailableOutcome.shape.unavailable,
     })
     .strict(),
@@ -200,35 +150,19 @@ export const RequestChoiceDetailsSchema = z.toJSONSchema(zRequestChoiceDetails, 
 export const zRequestChoicesDetails = z.union([
   zRequestDetailsHeader
     .extend({
-      tool_meta: z
-        .object({
-          prev: z.literal('present_options'),
-          curr: z.literal('request_choices'),
-          next: z.literal('capture_choices').optional(),
-        })
-        .strict(),
+      tool_meta: zRequestChoicesToolMeta,
       answered: zRequestChoicesAnswered,
     })
     .strict(),
   zRequestDetailsHeader
     .extend({
-      tool_meta: z
-        .object({
-          prev: z.literal('present_options'),
-          curr: z.literal('request_choices'),
-        })
-        .strict(),
+      tool_meta: zRequestChoicesToolMeta.omit({ next: true }),
       cancelled: zCancelledOutcome.shape.cancelled,
     })
     .strict(),
   zRequestDetailsHeader
     .extend({
-      tool_meta: z
-        .object({
-          prev: z.literal('present_options'),
-          curr: z.literal('request_choices'),
-        })
-        .strict(),
+      tool_meta: zRequestChoicesToolMeta.omit({ next: true }),
       unavailable: zUnavailableOutcome.shape.unavailable,
     })
     .strict(),
@@ -272,35 +206,19 @@ export type RequestReviewAnswered = z.infer<typeof zRequestReviewAnswered>;
 export const zRequestReviewDetails = z.union([
   zRequestDetailsHeader
     .extend({
-      tool_meta: z
-        .object({
-          prev: z.literal('present_review_set'),
-          curr: z.literal('request_review'),
-          next: z.literal('capture_review').optional(),
-        })
-        .strict(),
+      tool_meta: zRequestReviewToolMeta,
       answered: zRequestReviewAnswered,
     })
     .strict(),
   zRequestDetailsHeader
     .extend({
-      tool_meta: z
-        .object({
-          prev: z.literal('present_review_set'),
-          curr: z.literal('request_review'),
-        })
-        .strict(),
+      tool_meta: zRequestReviewToolMeta.omit({ next: true }),
       cancelled: zCancelledOutcome.shape.cancelled,
     })
     .strict(),
   zRequestDetailsHeader
     .extend({
-      tool_meta: z
-        .object({
-          prev: z.literal('present_review_set'),
-          curr: z.literal('request_review'),
-        })
-        .strict(),
+      tool_meta: zRequestReviewToolMeta.omit({ next: true }),
       unavailable: zUnavailableOutcome.shape.unavailable,
     })
     .strict(),

@@ -1,34 +1,25 @@
 import * as z from 'zod';
 
-import { zGraphNodeRef, zMarkdown, zPresentDetailsHeader } from './shared.js';
+import {
+  zDisplayBase,
+  zGraphNodeRef,
+  zMarkdown,
+  zPresentCandidatesToolMeta,
+  zPresentDetailsHeader,
+  zPresentOptionsToolMeta,
+  zPresentQuestionToolMeta,
+  zPresentReviewSetToolMeta,
+} from './shared.js';
 
-export const zPresentDisplay = z
-  .object({
-    heading: z.string().min(1),
-    body: zMarkdown.optional(),
-    preface: zMarkdown.optional(),
-  })
-  .strict();
+export const zPresentDisplay = zDisplayBase.extend({ preface: zMarkdown.optional() }).strict();
 export type PresentDisplay = z.infer<typeof zPresentDisplay>;
 export const PresentDisplaySchema = z.toJSONSchema(zPresentDisplay, {
   unrepresentable: 'throw',
 });
 
-const zReviewSetDisplay = z
-  .object({
-    heading: z.string().min(1),
-    body: zMarkdown.optional(),
-  })
-  .strict();
-
 export const zPresentQuestionDetails = zPresentDetailsHeader
   .extend({
-    tool_meta: z
-      .object({
-        curr: z.literal('present_question'),
-        next: z.literal('request_answer'),
-      })
-      .strict(),
+    tool_meta: zPresentQuestionToolMeta,
     display: zPresentDisplay,
   })
   .strict();
@@ -51,12 +42,7 @@ export const PresentOptionSchema = z.toJSONSchema(zPresentOption, {
 
 export const zPresentOptionsDetails = zPresentDetailsHeader
   .extend({
-    tool_meta: z
-      .object({
-        curr: z.literal('present_options'),
-        next: z.enum(['request_choice', 'request_choices']),
-      })
-      .strict(),
+    tool_meta: zPresentOptionsToolMeta,
     display: zPresentDisplay,
     options: z.array(zPresentOption).min(1),
   })
@@ -117,13 +103,8 @@ export const ReviewSetDetailsPayloadSchema = z.toJSONSchema(zReviewSetDetailsPay
 
 export const zPresentReviewSetDetails = zPresentDetailsHeader
   .extend({
-    tool_meta: z
-      .object({
-        curr: z.literal('present_review_set'),
-        next: z.literal('request_review'),
-      })
-      .strict(),
-    display: zReviewSetDisplay,
+    tool_meta: zPresentReviewSetToolMeta,
+    display: zDisplayBase,
     review_set: zReviewSetDetailsPayload,
   })
   .strict();
@@ -177,18 +158,8 @@ export const PresentedCandidateSchema = z.toJSONSchema(zPresentedCandidate, {
 
 export const zPresentCandidatesDetails = zPresentDetailsHeader
   .extend({
-    tool_meta: z
-      .object({
-        curr: z.literal('present_candidates'),
-        next: z.literal('request_choice'),
-      })
-      .strict(),
-    display: z
-      .object({
-        heading: z.string().min(1),
-        body: zMarkdown.optional(),
-      })
-      .strict(),
+    tool_meta: zPresentCandidatesToolMeta,
+    display: zDisplayBase,
     candidates: z.array(zPresentedCandidate).min(1),
   })
   .strict();

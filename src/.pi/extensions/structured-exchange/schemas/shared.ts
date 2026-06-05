@@ -7,15 +7,11 @@ export const STRUCTURED_EXCHANGE_DETAILS_VERSION = 1 as const;
 
 export const zMarkdown = z.string();
 export type Markdown = z.infer<typeof zMarkdown>;
-export const MarkdownSchema = z.toJSONSchema(zMarkdown, {
-  unrepresentable: 'throw',
-});
+export const MarkdownSchema = z.toJSONSchema(zMarkdown, { unrepresentable: 'throw' });
 
 export const zGraphNodeRef = z.object({ node_id: z.string().min(1) }).strict();
 export type GraphNodeRef = z.infer<typeof zGraphNodeRef>;
-export const GraphNodeRefSchema = z.toJSONSchema(zGraphNodeRef, {
-  unrepresentable: 'throw',
-});
+export const GraphNodeRefSchema = z.toJSONSchema(zGraphNodeRef, { unrepresentable: 'throw' });
 
 export const zPresentToolName = z.enum([
   'present_question',
@@ -24,9 +20,7 @@ export const zPresentToolName = z.enum([
   'present_candidates',
 ]);
 export type PresentToolName = z.infer<typeof zPresentToolName>;
-export const PresentToolNameSchema = z.toJSONSchema(zPresentToolName, {
-  unrepresentable: 'throw',
-});
+export const PresentToolNameSchema = z.toJSONSchema(zPresentToolName, { unrepresentable: 'throw' });
 
 export const zRequestToolName = z.enum([
   'request_answer',
@@ -35,9 +29,7 @@ export const zRequestToolName = z.enum([
   'request_review',
 ]);
 export type RequestToolName = z.infer<typeof zRequestToolName>;
-export const RequestToolNameSchema = z.toJSONSchema(zRequestToolName, {
-  unrepresentable: 'throw',
-});
+export const RequestToolNameSchema = z.toJSONSchema(zRequestToolName, { unrepresentable: 'throw' });
 
 export const zCaptureToolName = z.enum([
   'capture_answer',
@@ -47,146 +39,129 @@ export const zCaptureToolName = z.enum([
   'capture_candidate',
 ]);
 export type CaptureToolName = z.infer<typeof zCaptureToolName>;
-export const CaptureToolNameSchema = z.toJSONSchema(zCaptureToolName, {
-  unrepresentable: 'throw',
-});
+export const CaptureToolNameSchema = z.toJSONSchema(zCaptureToolName, { unrepresentable: 'throw' });
+
+const zDetailsHeaderFields = {
+  v: z.literal(STRUCTURED_EXCHANGE_DETAILS_VERSION),
+  exchange_id: z.string().min(1),
+} as const;
 
 export const zPresentDetailsHeader = z
-  .object({
-    schema: z.literal(STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA),
-    v: z.literal(STRUCTURED_EXCHANGE_DETAILS_VERSION),
-    exchange_id: z.string().min(1),
-  })
+  .object({ schema: z.literal(STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA), ...zDetailsHeaderFields })
   .strict();
 export type PresentDetailsHeader = z.infer<typeof zPresentDetailsHeader>;
 export const PresentDetailsHeaderSchema = z.toJSONSchema(zPresentDetailsHeader, { unrepresentable: 'throw' });
 
 export const zRequestDetailsHeader = z
-  .object({
-    schema: z.literal(STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA),
-    v: z.literal(STRUCTURED_EXCHANGE_DETAILS_VERSION),
-    exchange_id: z.string().min(1),
-  })
+  .object({ schema: z.literal(STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA), ...zDetailsHeaderFields })
   .strict();
 export type RequestDetailsHeader = z.infer<typeof zRequestDetailsHeader>;
 export const RequestDetailsHeaderSchema = z.toJSONSchema(zRequestDetailsHeader, { unrepresentable: 'throw' });
 
 export const zCaptureDetailsHeader = z
-  .object({
-    schema: z.literal(STRUCTURED_EXCHANGE_CAPTURE_DETAILS_SCHEMA),
-    v: z.literal(STRUCTURED_EXCHANGE_DETAILS_VERSION),
-    exchange_id: z.string().min(1),
-  })
+  .object({ schema: z.literal(STRUCTURED_EXCHANGE_CAPTURE_DETAILS_SCHEMA), ...zDetailsHeaderFields })
   .strict();
 export type CaptureDetailsHeader = z.infer<typeof zCaptureDetailsHeader>;
 export const CaptureDetailsHeaderSchema = z.toJSONSchema(zCaptureDetailsHeader, { unrepresentable: 'throw' });
 
+export const zDisplayBase = z.object({ heading: z.string().min(1), body: zMarkdown.optional() }).strict();
+export type DisplayBase = z.infer<typeof zDisplayBase>;
+export const DisplayBaseSchema = z.toJSONSchema(zDisplayBase, { unrepresentable: 'throw' });
+
+export const zPresentQuestionToolMeta = z
+  .object({ curr: z.literal('present_question'), next: z.literal('request_answer') })
+  .strict();
+export const zPresentOptionsToolMeta = z
+  .object({ curr: z.literal('present_options'), next: z.enum(['request_choice', 'request_choices']) })
+  .strict();
+export const zPresentReviewSetToolMeta = z
+  .object({ curr: z.literal('present_review_set'), next: z.literal('request_review') })
+  .strict();
+export const zPresentCandidatesToolMeta = z
+  .object({ curr: z.literal('present_candidates'), next: z.literal('request_choice') })
+  .strict();
+
 export const zPresentToolMeta = z.discriminatedUnion('curr', [
-  z
-    .object({
-      curr: z.literal('present_question'),
-      next: z.literal('request_answer'),
-    })
-    .strict(),
-  z
-    .object({
-      curr: z.literal('present_options'),
-      next: z.enum(['request_choice', 'request_choices']),
-    })
-    .strict(),
-  z
-    .object({
-      curr: z.literal('present_review_set'),
-      next: z.literal('request_review'),
-    })
-    .strict(),
-  z
-    .object({
-      curr: z.literal('present_candidates'),
-      next: z.literal('request_choice'),
-    })
-    .strict(),
+  zPresentQuestionToolMeta,
+  zPresentOptionsToolMeta,
+  zPresentReviewSetToolMeta,
+  zPresentCandidatesToolMeta,
 ]);
 export type PresentToolMeta = z.infer<typeof zPresentToolMeta>;
-export const PresentToolMetaSchema = z.toJSONSchema(zPresentToolMeta, {
-  unrepresentable: 'throw',
-});
+export const PresentToolMetaSchema = z.toJSONSchema(zPresentToolMeta, { unrepresentable: 'throw' });
 
+export const zRequestAnswerToolMeta = z
+  .object({
+    prev: z.literal('present_question'),
+    curr: z.literal('request_answer'),
+    next: z.literal('capture_answer').optional(),
+  })
+  .strict();
+export const zRequestChoiceFromOptionsToolMeta = z
+  .object({
+    prev: z.literal('present_options'),
+    curr: z.literal('request_choice'),
+    next: z.literal('capture_choice').optional(),
+  })
+  .strict();
+export const zRequestChoiceFromCandidatesToolMeta = z
+  .object({
+    prev: z.literal('present_candidates'),
+    curr: z.literal('request_choice'),
+    next: z.literal('capture_candidate').optional(),
+  })
+  .strict();
+export const zRequestChoicesToolMeta = z
+  .object({
+    prev: z.literal('present_options'),
+    curr: z.literal('request_choices'),
+    next: z.literal('capture_choices').optional(),
+  })
+  .strict();
+export const zRequestReviewToolMeta = z
+  .object({
+    prev: z.literal('present_review_set'),
+    curr: z.literal('request_review'),
+    next: z.literal('capture_review').optional(),
+  })
+  .strict();
+
+export const zRequestChoiceToolMeta = z.union([
+  zRequestChoiceFromOptionsToolMeta,
+  zRequestChoiceFromCandidatesToolMeta,
+]);
 export const zRequestToolMeta = z.union([
-  z
-    .object({
-      prev: z.literal('present_question'),
-      curr: z.literal('request_answer'),
-      next: z.literal('capture_answer').optional(),
-    })
-    .strict(),
-  z
-    .object({
-      prev: z.literal('present_options'),
-      curr: z.literal('request_choice'),
-      next: z.literal('capture_choice').optional(),
-    })
-    .strict(),
-  z
-    .object({
-      prev: z.literal('present_candidates'),
-      curr: z.literal('request_choice'),
-      next: z.literal('capture_candidate').optional(),
-    })
-    .strict(),
-  z
-    .object({
-      prev: z.literal('present_options'),
-      curr: z.literal('request_choices'),
-      next: z.literal('capture_choices').optional(),
-    })
-    .strict(),
-  z
-    .object({
-      prev: z.literal('present_review_set'),
-      curr: z.literal('request_review'),
-      next: z.literal('capture_review').optional(),
-    })
-    .strict(),
+  zRequestAnswerToolMeta,
+  zRequestChoiceFromOptionsToolMeta,
+  zRequestChoiceFromCandidatesToolMeta,
+  zRequestChoicesToolMeta,
+  zRequestReviewToolMeta,
 ]);
 export type RequestToolMeta = z.infer<typeof zRequestToolMeta>;
-export const RequestToolMetaSchema = z.toJSONSchema(zRequestToolMeta, {
-  unrepresentable: 'throw',
-});
+export const RequestToolMetaSchema = z.toJSONSchema(zRequestToolMeta, { unrepresentable: 'throw' });
+
+export const zCaptureAnswerToolMeta = z
+  .object({ prev: z.literal('request_answer'), curr: z.literal('capture_answer') })
+  .strict();
+export const zCaptureChoiceToolMeta = z
+  .object({ prev: z.literal('request_choice'), curr: z.literal('capture_choice') })
+  .strict();
+export const zCaptureChoicesToolMeta = z
+  .object({ prev: z.literal('request_choices'), curr: z.literal('capture_choices') })
+  .strict();
+export const zCaptureReviewToolMeta = z
+  .object({ prev: z.literal('request_review'), curr: z.literal('capture_review') })
+  .strict();
+export const zCaptureCandidateToolMeta = z
+  .object({ prev: z.literal('request_choice'), curr: z.literal('capture_candidate') })
+  .strict();
 
 export const zCaptureToolMeta = z.union([
-  z
-    .object({
-      prev: z.literal('request_answer'),
-      curr: z.literal('capture_answer'),
-    })
-    .strict(),
-  z
-    .object({
-      prev: z.literal('request_choice'),
-      curr: z.literal('capture_choice'),
-    })
-    .strict(),
-  z
-    .object({
-      prev: z.literal('request_choices'),
-      curr: z.literal('capture_choices'),
-    })
-    .strict(),
-  z
-    .object({
-      prev: z.literal('request_review'),
-      curr: z.literal('capture_review'),
-    })
-    .strict(),
-  z
-    .object({
-      prev: z.literal('request_choice'),
-      curr: z.literal('capture_candidate'),
-    })
-    .strict(),
+  zCaptureAnswerToolMeta,
+  zCaptureChoiceToolMeta,
+  zCaptureChoicesToolMeta,
+  zCaptureReviewToolMeta,
+  zCaptureCandidateToolMeta,
 ]);
 export type CaptureToolMeta = z.infer<typeof zCaptureToolMeta>;
-export const CaptureToolMetaSchema = z.toJSONSchema(zCaptureToolMeta, {
-  unrepresentable: 'throw',
-});
+export const CaptureToolMetaSchema = z.toJSONSchema(zCaptureToolMeta, { unrepresentable: 'throw' });
