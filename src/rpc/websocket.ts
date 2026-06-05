@@ -48,13 +48,10 @@ export function attachWebRpcTransport(options: {
 
   webSocketServer.on('connection', (webSocket) => {
     webSocket.on('message', (data) => {
-      activeRequests += 1;
+      recordRequestStarted();
       void handleMessage(options.handlers, data).then((response) => {
-        webSocket.send(JSON.stringify(response));
-        activeRequests -= 1;
-        if (activeRequests === 0) {
-          flushDeferredNotifications();
-        }
+        sendRpcResponse(webSocket, response);
+        recordRequestFinished();
       });
     });
   });
@@ -76,6 +73,24 @@ export function attachWebRpcTransport(options: {
       });
     },
   };
+  function recordRequestStarted(): void {
+    activeRequests += 1;
+  }
+
+  function recordRequestFinished(): void {
+    activeRequests -= 1;
+    if (activeRequests === 0) {
+      flushDeferredNotifications();
+    }
+  }
+
+  function sendRpcResponse(
+    client: Parameters<Parameters<typeof webSocketServer.on>[1]>[0],
+    response: Awaited<ReturnType<typeof handleMessage>>,
+  ): void {
+    client.send(JSON.stringify(response));
+  }
+
   function broadcastProductUpdate(notification: string): void {
     for (const client of webSocketServer.clients) {
       client.send(notification);
