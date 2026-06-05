@@ -1,7 +1,7 @@
 import { execFile as execFileCallback } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
@@ -10,9 +10,13 @@ import { describe, expect, it } from 'vitest';
 import worktreeExtension, {
   cleanForkedSessionHeader,
   createRelocatedSession,
+  createSiblingWorktree,
+  planSiblingWorktree,
   resolveSwitchTarget,
   runSwitchWorktree,
   validateGitWorktree,
+  WORKTREE_CREATE_COMMAND,
+  WORKTREE_CREATE_TOOL,
   WORKTREE_SWITCH_COMMAND,
   WORKTREE_SWITCH_TOOL,
 } from '../../../.pi/extensions/worktree/index.js';
@@ -25,8 +29,8 @@ describe('project-local worktree Pi extension', () => {
 
     worktreeExtension(recording.api);
 
-    expect(recording.commandNames).toEqual([WORKTREE_SWITCH_COMMAND]);
-    expect(recording.toolNames).toEqual([WORKTREE_SWITCH_TOOL]);
+    expect(recording.commandNames).toEqual([WORKTREE_SWITCH_COMMAND, WORKTREE_CREATE_COMMAND]);
+    expect(recording.toolNames).toEqual([WORKTREE_SWITCH_TOOL, WORKTREE_CREATE_TOOL]);
     expect(recording.tools[0]?.promptGuidelines).toContain(
       'Call switch_worktree only after the user explicitly asks to move this Pi session to another git worktree.',
     );
@@ -151,6 +155,110 @@ describe('project-local worktree Pi extension', () => {
       expect(JSON.parse(customLine ?? '{}')).toHaveProperty('data.parentSession', 'kept');
     });
   });
+
+  it('plans sibling defaults from the caller worktree root and skips path and branch collisions', async () => {
+    await withTempDir(async (dir) => {
+      const repo = join(dir, 'repo');
+      await initRepo(repo);
+      await mkdir(join(dir, 'repo-alpha'));
+      await git(repo, 'branch', 'repo-beta');
+
+      await expect(
+        planSiblingWorktree({
+          sourceRoot: repo,
+          branchExists: async (branch) => branch === 'repo-beta',
+          pathExists: async (path) => path === join(dir, 'repo-alpha'),
+          greekWords: ['alpha', 'beta', 'gamma'],
+          chooseStartIndex: () => 0,
+        }),
+      ).resolves.toEqual({
+        path: join(dir, 'repo-gamma'),
+        branch: 'repo-gamma',
+        attempted: ['repo-alpha', 'repo-beta', 'repo-gamma'],
+      });
+    });
+  });
+
+  it('creates sibling worktrees from caller HEAD in main and linked worktrees', async () => {
+    await withTempDir(async (dir) => {
+      const main = join(dir, 'repo');
+      await initRepo(main);
+      const mainHead = await gitOutput(main, 'rev-parse', 'HEAD');
+
+      const linked = join(dir, 'repo-linked');
+      await git(main, 'worktree', 'add', '-b', 'linked', linked, 'HEAD');
+      await writeFile(join(linked, 'linked.txt'), 'linked\n');
+      await git(linked, 'add', 'linked.txt');
+      await git(
+        linked,
+        '-c',
+        'user.email=test@example.com',
+        '-c',
+        'user.name=Test',
+        'commit',
+        '-m',
+        'linked',
+      );
+      const linkedHead = await gitOutput(linked, 'rev-parse', 'HEAD');
+
+      const mainCtx = createWorktreeCreationContext(main);
+      const mainResult = await createSiblingWorktree(mainCtx, {
+        greekWords: ['alpha'],
+        chooseStartIndex: () => 0,
+      });
+      if (mainResult.status !== 'created') throw new Error(mainResult.reason);
+      expect(mainResult).toMatchObject({
+        status: 'created',
+        sourceCommit: mainHead,
+        branch: 'repo-alpha',
+        path: join(dirname(mainResult.sourceRoot), 'repo-alpha'),
+      });
+      expect(await gitOutput(mainResult.path, 'rev-parse', 'HEAD')).toBe(mainHead);
+      expect(mainCtx.editorText).toBe(`/switch-worktree ${mainResult.path}`);
+
+      const linkedCtx = createWorktreeCreationContext(linked);
+      const linkedResult = await createSiblingWorktree(linkedCtx, {
+        greekWords: ['beta'],
+        chooseStartIndex: () => 0,
+      });
+      if (linkedResult.status !== 'created') throw new Error(linkedResult.reason);
+      expect(linkedResult).toMatchObject({
+        status: 'created',
+        sourceCommit: linkedHead,
+        branch: 'repo-linked-beta',
+        path: join(dirname(linkedResult.sourceRoot), 'repo-linked-beta'),
+      });
+      expect(await gitOutput(linkedResult.path, 'rev-parse', 'HEAD')).toBe(linkedHead);
+      expect(linkedCtx.editorText).toBe(`/switch-worktree ${linkedResult.path}`);
+    });
+  }, 15000);
+
+  it('warns when the caller worktree is dirty but still creates from committed HEAD', async () => {
+    await withTempDir(async (dir) => {
+      const repo = join(dir, 'repo');
+      await initRepo(repo);
+      const head = await gitOutput(repo, 'rev-parse', 'HEAD');
+      await writeFile(join(repo, 'dirty.txt'), 'not committed\n');
+      const ctx = createWorktreeCreationContext(repo);
+
+      const result = await createSiblingWorktree(ctx, { greekWords: ['delta'], chooseStartIndex: () => 0 });
+      if (result.status !== 'created') throw new Error(result.reason);
+
+      expect(result).toMatchObject({
+        status: 'created',
+        sourceCommit: head,
+        dirty: true,
+        dirtyWarning:
+          'Caller worktree has uncommitted changes; the new worktree was created from committed HEAD only.',
+      });
+      expect(ctx.notifications).toContainEqual({
+        message:
+          'Caller worktree has uncommitted changes; the new worktree was created from committed HEAD only.',
+        type: 'warning',
+      });
+      await expect(stat(join(result.path, 'dirty.txt'))).rejects.toMatchObject({ code: 'ENOENT' });
+    });
+  });
 });
 
 function createRecordingApi() {
@@ -226,6 +334,25 @@ function createSwitchContext({
   return ctx as typeof ctx & ExtensionCommandContext;
 }
 
+function createWorktreeCreationContext(cwd: string) {
+  const notifications: Array<{ message: string; type: 'info' | 'warning' | 'error' | undefined }> = [];
+  const ctx = {
+    cwd,
+    hasUI: true,
+    editorText: undefined as string | undefined,
+    ui: {
+      notify: (message: string, type?: 'info' | 'warning' | 'error') => {
+        notifications.push({ message, type });
+      },
+      setEditorText: (text: string) => {
+        ctx.editorText = text;
+      },
+    },
+    notifications,
+  };
+  return ctx;
+}
+
 async function withTempDir(run: (dir: string) => Promise<void>): Promise<void> {
   const dir = await mkdtemp(join(tmpdir(), 'brunch-pi-worktree-'));
   try {
@@ -233,6 +360,18 @@ async function withTempDir(run: (dir: string) => Promise<void>): Promise<void> {
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+}
+
+async function initRepo(path: string): Promise<void> {
+  await git(dirname(path), 'init', basename(path));
+  await writeFile(join(path, 'tracked.txt'), 'tracked\n');
+  await git(path, 'add', 'tracked.txt');
+  await git(path, '-c', 'user.email=test@example.com', '-c', 'user.name=Test', 'commit', '-m', 'initial');
+}
+
+async function gitOutput(cwd: string, ...args: string[]): Promise<string> {
+  const { stdout } = await execFile('git', args, { cwd });
+  return stdout.trim();
 }
 
 async function git(cwd: string, ...args: string[]): Promise<void> {

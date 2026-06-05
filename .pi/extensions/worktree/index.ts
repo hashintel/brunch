@@ -1,6 +1,7 @@
 import { execFile as execFileCallback } from 'node:child_process';
+import type { Stats } from 'node:fs';
 import { readFile, stat, writeFile } from 'node:fs/promises';
-import { isAbsolute, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 import {
@@ -14,6 +15,38 @@ const execFile = promisify(execFileCallback);
 
 export const WORKTREE_SWITCH_COMMAND = 'switch-worktree';
 export const WORKTREE_SWITCH_TOOL = 'switch_worktree';
+export const WORKTREE_CREATE_COMMAND = 'create-worktree';
+export const WORKTREE_CREATE_TOOL = 'create_worktree';
+
+const DIRTY_WORKTREE_WARNING =
+  'Caller worktree has uncommitted changes; the new worktree was created from committed HEAD only.';
+
+const DEFAULT_GREEK_WORDS = [
+  'alpha',
+  'beta',
+  'gamma',
+  'delta',
+  'epsilon',
+  'zeta',
+  'eta',
+  'theta',
+  'iota',
+  'kappa',
+  'lambda',
+  'mu',
+  'nu',
+  'xi',
+  'omicron',
+  'pi',
+  'rho',
+  'sigma',
+  'tau',
+  'upsilon',
+  'phi',
+  'chi',
+  'psi',
+  'omega',
+] as const;
 
 export type WorktreeValidationResult =
   | { readonly ok: true; readonly cwd: string }
@@ -34,6 +67,49 @@ export interface SwitchWorktreeOptions {
   readonly sessionDir?: string;
 }
 
+export interface SiblingWorktreePlan {
+  readonly path: string;
+  readonly branch: string;
+  readonly attempted: readonly string[];
+}
+
+export interface SiblingWorktreePlanOptions {
+  readonly sourceRoot: string;
+  readonly greekWords?: readonly string[];
+  readonly chooseStartIndex?: (candidateCount: number) => number;
+  readonly pathExists: (path: string) => Promise<boolean>;
+  readonly branchExists: (branch: string) => Promise<boolean>;
+}
+
+export interface CreateSiblingWorktreeOptions {
+  readonly greekWords?: readonly string[];
+  readonly chooseStartIndex?: (candidateCount: number) => number;
+}
+
+export type CreateSiblingWorktreeResultDetails =
+  | {
+      readonly status: 'created';
+      readonly sourceRoot: string;
+      readonly sourceCommit: string;
+      readonly path: string;
+      readonly branch: string;
+      readonly dirty: boolean;
+      readonly dirtyWarning?: string;
+      readonly stdout: string;
+      readonly stderr: string;
+    }
+  | {
+      readonly status: 'failed';
+      readonly reason: string;
+      readonly sourceRoot?: string;
+      readonly sourceCommit?: string;
+      readonly path?: string;
+      readonly branch?: string;
+      readonly attempted?: readonly string[];
+      readonly stdout?: string;
+      readonly stderr?: string;
+    };
+
 interface GitProbeResult {
   readonly ok: boolean;
   readonly stdout: string;
@@ -47,6 +123,15 @@ interface ReplacementMessageContext {
   };
 }
 
+interface WorktreeCreationContext {
+  readonly cwd: string;
+  readonly hasUI?: boolean;
+  readonly ui: {
+    readonly notify: (message: string, type?: 'info' | 'warning' | 'error') => void;
+    readonly setEditorText?: (text: string) => void;
+  };
+}
+
 export function resolveSwitchTarget(targetPath: string, cwd: string): string {
   const trimmed = targetPath.trim();
   if (trimmed.length === 0) return '';
@@ -54,7 +139,7 @@ export function resolveSwitchTarget(targetPath: string, cwd: string): string {
 }
 
 export async function validateGitWorktree(targetPath: string): Promise<WorktreeValidationResult> {
-  let targetStat;
+  let targetStat: Stats;
   try {
     targetStat = await stat(targetPath);
   } catch {
@@ -76,6 +161,134 @@ export async function validateGitWorktree(targetPath: string): Promise<WorktreeV
   }
 
   return { ok: true, cwd: targetPath };
+}
+
+export async function planSiblingWorktree(options: SiblingWorktreePlanOptions): Promise<SiblingWorktreePlan> {
+  const words = options.greekWords ?? DEFAULT_GREEK_WORDS;
+  if (words.length === 0) throw new Error('No Greek suffix words configured.');
+
+  const startIndex = normalizeStartIndex(
+    options.chooseStartIndex?.(words.length) ?? randomStartIndex(words.length),
+    words.length,
+  );
+  const parentDir = dirname(options.sourceRoot);
+  const sourceBasename = basename(options.sourceRoot);
+  const attempted: string[] = [];
+
+  for (let offset = 0; offset < words.length; offset += 1) {
+    const word = words[(startIndex + offset) % words.length];
+    if (!word) continue;
+    const name = `${sourceBasename}-${word}`;
+    attempted.push(name);
+
+    const path = join(parentDir, name);
+    if (await options.pathExists(path)) continue;
+    if (await options.branchExists(name)) continue;
+
+    return { path, branch: name, attempted };
+  }
+
+  throw new Error(`No available sibling worktree name. Attempted: ${attempted.join(', ')}`);
+}
+
+export async function createSiblingWorktree(
+  ctx: WorktreeCreationContext,
+  options: CreateSiblingWorktreeOptions = {},
+): Promise<CreateSiblingWorktreeResultDetails> {
+  const rootProbe = await gitProbe(ctx.cwd, 'rev-parse', '--show-toplevel');
+  if (!rootProbe.ok) {
+    const reason = gitFailureReason('Could not resolve caller git worktree root.', rootProbe);
+    ctx.ui.notify(reason, 'error');
+    return { status: 'failed', reason, stdout: rootProbe.stdout, stderr: rootProbe.stderr };
+  }
+  const sourceRoot = rootProbe.stdout.trim();
+
+  const headProbe = await gitProbe(ctx.cwd, 'rev-parse', 'HEAD');
+  if (!headProbe.ok) {
+    const reason = gitFailureReason('Could not resolve caller HEAD.', headProbe);
+    ctx.ui.notify(reason, 'error');
+    return { status: 'failed', reason, sourceRoot, stdout: headProbe.stdout, stderr: headProbe.stderr };
+  }
+  const sourceCommit = headProbe.stdout.trim();
+
+  const dirtyProbe = await gitProbe(ctx.cwd, 'status', '--porcelain');
+  if (!dirtyProbe.ok) {
+    const reason = gitFailureReason('Could not inspect caller worktree status.', dirtyProbe);
+    ctx.ui.notify(reason, 'error');
+    return {
+      status: 'failed',
+      reason,
+      sourceRoot,
+      sourceCommit,
+      stdout: dirtyProbe.stdout,
+      stderr: dirtyProbe.stderr,
+    };
+  }
+  const dirty = dirtyProbe.stdout.trim().length > 0;
+
+  let plan: SiblingWorktreePlan;
+  try {
+    plan = await planSiblingWorktree({
+      sourceRoot,
+      ...(options.greekWords === undefined ? {} : { greekWords: options.greekWords }),
+      ...(options.chooseStartIndex === undefined ? {} : { chooseStartIndex: options.chooseStartIndex }),
+      pathExists,
+      branchExists: (branch) => branchExists(sourceRoot, branch),
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Could not plan sibling worktree.';
+    ctx.ui.notify(reason, 'error');
+    return { status: 'failed', reason, sourceRoot, sourceCommit };
+  }
+
+  const addProbe = await gitProbe(sourceRoot, 'worktree', 'add', '-b', plan.branch, plan.path, sourceCommit);
+  if (!addProbe.ok) {
+    const reason = gitFailureReason('Could not create sibling git worktree.', addProbe);
+    ctx.ui.notify(reason, 'error');
+    return {
+      status: 'failed',
+      reason,
+      sourceRoot,
+      sourceCommit,
+      path: plan.path,
+      branch: plan.branch,
+      attempted: plan.attempted,
+      stdout: addProbe.stdout,
+      stderr: addProbe.stderr,
+    };
+  }
+
+  const validation = await validateGitWorktree(plan.path);
+  if (!validation.ok) {
+    const reason = validationReason(validation);
+    ctx.ui.notify(reason, 'error');
+    return {
+      status: 'failed',
+      reason,
+      sourceRoot,
+      sourceCommit,
+      path: plan.path,
+      branch: plan.branch,
+      attempted: plan.attempted,
+    };
+  }
+
+  const switchCommand = `/${WORKTREE_SWITCH_COMMAND} ${validation.cwd}`;
+  if (ctx.hasUI) ctx.ui.setEditorText?.(switchCommand);
+  if (dirty) ctx.ui.notify(DIRTY_WORKTREE_WARNING, 'warning');
+  ctx.ui.notify(`Created git worktree ${validation.cwd} at ${sourceCommit}.`, 'info');
+
+  const created = {
+    status: 'created' as const,
+    sourceRoot,
+    sourceCommit,
+    path: validation.cwd,
+    branch: plan.branch,
+    dirty,
+    stdout: addProbe.stdout,
+    stderr: addProbe.stderr,
+  };
+  return dirty ? { ...created, dirtyWarning: DIRTY_WORKTREE_WARNING } : created;
 }
 
 export async function createRelocatedSession(
@@ -173,6 +386,13 @@ export default function registerWorktreeExtension(pi: ExtensionAPI): void {
     },
   });
 
+  pi.registerCommand(WORKTREE_CREATE_COMMAND, {
+    description: 'Create a sibling git worktree from this cwd HEAD and stage a worktree switch',
+    handler: async (_args, ctx) => {
+      await createSiblingWorktree(ctx);
+    },
+  });
+
   pi.registerTool({
     name: WORKTREE_SWITCH_TOOL,
     label: 'Switch worktree',
@@ -218,6 +438,42 @@ export default function registerWorktreeExtension(pi: ExtensionAPI): void {
       };
     },
   });
+
+  pi.registerTool({
+    name: WORKTREE_CREATE_TOOL,
+    label: 'Create sibling worktree',
+    description:
+      'Create a sibling git worktree from the caller cwd HEAD, then stage /switch-worktree <new-path> for explicit relocation.',
+    promptSnippet:
+      'create_worktree creates a sibling git worktree from the current cwd committed HEAD and stages /switch-worktree <path>; it never deletes or prunes worktrees.',
+    promptGuidelines: [
+      'Call create_worktree only when the user explicitly asks to create a sibling git worktree.',
+      'The created worktree is based on the caller cwd HEAD; warn that uncommitted changes are excluded when the caller worktree is dirty.',
+      'Do not delete, prune, clean up, or manage existing worktrees after creation.',
+      'After create_worktree stages /switch-worktree <path>, tell the user to press Enter if they want to relocate the Pi session.',
+    ],
+    parameters: Type.Object({}),
+    async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+      const details = await createSiblingWorktree(ctx);
+      if (details.status === 'failed') {
+        return {
+          content: [{ type: 'text' as const, text: details.reason }],
+          details,
+        };
+      }
+
+      const warning = details.dirtyWarning ? `\n\nWarning: ${details.dirtyWarning}` : '';
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Created ${details.path} on branch ${details.branch} from ${details.sourceCommit}. Staged /switch-worktree ${details.path}.${warning}`,
+          },
+        ],
+        details,
+      };
+    },
+  });
 }
 
 function continuationPrompt(targetCwd: string): string {
@@ -237,6 +493,35 @@ function validationReason(validation: Extract<WorktreeValidationResult, { ok: fa
   }
 }
 
+function normalizeStartIndex(candidate: number, candidateCount: number): number {
+  if (!Number.isFinite(candidate) || candidateCount <= 0) return 0;
+  const whole = Math.trunc(candidate);
+  return ((whole % candidateCount) + candidateCount) % candidateCount;
+}
+
+function randomStartIndex(candidateCount: number): number {
+  return Math.floor(Math.random() * candidateCount);
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch (error) {
+    return !isNodeError(error) || error.code !== 'ENOENT';
+  }
+}
+
+async function branchExists(cwd: string, branch: string): Promise<boolean> {
+  const result = await gitProbe(cwd, 'show-ref', '--verify', '--quiet', `refs/heads/${branch}`);
+  return result.ok;
+}
+
+function gitFailureReason(prefix: string, result: GitProbeResult): string {
+  const output = [result.stderr.trim(), result.stdout.trim()].filter((part) => part.length > 0).join('\n');
+  return output.length > 0 ? `${prefix}\n${output}` : prefix;
+}
+
 async function gitProbe(cwd: string, ...args: string[]): Promise<GitProbeResult> {
   try {
     const { stdout, stderr } = await execFile('git', args, { cwd });
@@ -249,4 +534,8 @@ async function gitProbe(cwd: string, ...args: string[]): Promise<GitProbeResult>
       stderr: typeof result.stderr === 'string' ? result.stderr : '',
     };
   }
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error;
 }
