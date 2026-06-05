@@ -28,29 +28,13 @@ describe('structured-exchange RPC proof', () => {
       ],
     });
     expect(proof.terminalDetails).toMatchObject({
-      status: 'answered',
-      mode: 'multi-select',
-      question: 'Which implementation path should the evaluator choose?',
-      context: 'Scenario: prove option answers plus notes over Pi RPC.',
-      options: [
-        { label: 'Ship RPC fallback', value: 'rpc-fallback' },
-        { label: 'Wait for web relay', value: 'wait-web' },
-        { label: 'Escalate blocker', value: 'blocker' },
-      ],
-      answers: [
-        {
-          type: 'option',
-          label: 'Ship RPC fallback',
-          value: 'rpc-fallback',
-          index: 1,
-        },
-      ],
-      rejectedOptions: [
-        { label: 'Wait for web relay', value: 'wait-web' },
-        { label: 'Escalate blocker', value: 'blocker' },
-      ],
-      note: 'Proceed, but report any relay friction separately.',
-      transport: { surface: 'rpc-editor' },
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      tool_meta: { prev: 'present_options', curr: 'request_choices', next: 'capture_choices' },
+      answered: {
+        choices: [{ id: 'rpc-fallback', label: 'Ship RPC fallback', kind: 'listed' }],
+        comment: 'Proceed, but report any relay friction separately.',
+      },
       probe: {
         name: 'structured-exchange-rpc-proof',
         transport: 'pi-rpc-editor',

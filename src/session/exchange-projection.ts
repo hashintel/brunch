@@ -19,7 +19,6 @@ import {
   readBrunchSessionEnvelope,
   type BrunchSessionEnvelope,
 } from './brunch-session-envelope.js';
-import { isTerminalStructuredExchangeResultDetails } from './structured-exchange.js';
 
 const PROMPT_SIDE_CUSTOM_TYPES = new Set([
   'brunch.elicitation_prompt',
@@ -287,11 +286,7 @@ function isResponseSideEntry(entry: SessionEntry): boolean {
 }
 
 function isTerminalStructuredExchangeToolResult(entry: SessionEntry): boolean {
-  return (
-    isMessageEntry(entry) &&
-    entry.message.role === 'toolResult' &&
-    isTerminalStructuredExchangeResultDetails((entry.message as { details?: unknown }).details)
-  );
+  return isStructuredExchangeRequestToolResult(entry);
 }
 
 function isCustomTranscriptEntry(entry: SessionEntry): entry is CustomEntry | CustomMessageEntry {

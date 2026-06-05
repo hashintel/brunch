@@ -1,14 +1,24 @@
-import {
-  STRUCTURED_EXCHANGE_RESULT_SCHEMA,
-  type StructuredExchangeAnswer,
-  type StructuredExchangeMode,
-  type StructuredExchangeOption,
-} from '../../../../session/structured-exchange.js';
+import { projectRequestChoice } from '../../../../structured-exchange/project/request-choice.js';
+import { projectRequestChoices } from '../../../../structured-exchange/project/request-choices.js';
+import type { SelectedChoice } from '../schemas/index.js';
+
+export type StructuredExchangeMode = 'single-select' | 'multi-select';
+
+export interface StructuredExchangeOption {
+  label: string;
+  value: string;
+  description?: string;
+}
+
+export type StructuredExchangeAnswer =
+  | { type: 'option'; label: string; value: string; index: number }
+  | { type: 'other'; label: string; value: string };
 
 export interface StructuredExchangeEditorPrefillParams {
   question: string;
   context?: string;
-  mode: Exclude<StructuredExchangeMode, 'text'>;
+  exchangeId?: string;
+  mode: StructuredExchangeMode;
   options: StructuredExchangeOption[];
 }
 
@@ -23,14 +33,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function answerSortRank(answer: StructuredExchangeAnswer): number {
-  switch (answer.type) {
-    case 'option':
-      return answer.index;
-    case 'other':
-      return Number.MAX_SAFE_INTEGER - 1;
-    case 'text':
-      return Number.MAX_SAFE_INTEGER;
-  }
+  return answer.type === 'option' ? answer.index : Number.MAX_SAFE_INTEGER - 1;
 }
 
 function sortAnswers(answers: StructuredExchangeAnswer[]): StructuredExchangeAnswer[] {
@@ -50,70 +53,38 @@ function parseEditorAnswer(value: unknown): StructuredExchangeAnswer | null {
     ) {
       return null;
     }
-    return {
-      type: 'option',
-      label: value.label,
-      value: value.value,
-      index: value.index,
-    };
+    return { type: 'option', label: value.label, value: value.value, index: value.index };
   }
 
   if (value.type === 'other') {
-    if (typeof value.label !== 'string' || typeof value.value !== 'string') {
-      return null;
-    }
+    if (typeof value.label !== 'string' || typeof value.value !== 'string') return null;
     return { type: 'other', label: value.label, value: value.value };
   }
 
   return null;
 }
 
-function buildLegacyResult(
+function selectedChoice(answer: StructuredExchangeAnswer): SelectedChoice {
+  if (answer.type === 'other') return { id: 'other', label: answer.label, kind: 'other' };
+  return { id: answer.value, label: answer.label, kind: 'listed' };
+}
+
+function responseText(
   status: 'answered' | 'cancelled' | 'unavailable',
-  params: StructuredExchangeEditorPrefillParams,
   answers: StructuredExchangeAnswer[],
   note: string,
   message?: string,
-) {
+): string {
   const selected = answers
     .map((answer) =>
-      answer.type === 'option'
-        ? `${answer.index}. ${answer.label}`
-        : answer.type === 'other'
-          ? `Other: ${answer.label}`
-          : answer.label,
+      answer.type === 'option' ? `${answer.index}. ${answer.label}` : `Other: ${answer.label}`,
     )
     .join('\n');
-  const text =
-    status === 'answered'
-      ? [`User selected:${selected ? `\n${selected}` : ''}`, note ? `Note: ${note}` : undefined]
-          .filter(Boolean)
-          .join('\n')
-      : (message ?? `User ${status} the question`);
-
-  return {
-    content: [{ type: 'text' as const, text }],
-    details: {
-      schema: STRUCTURED_EXCHANGE_RESULT_SCHEMA,
-      schemaVersion: 1 as const,
-      status,
-      question: params.question,
-      ...(params.context !== undefined ? { context: params.context } : {}),
-      mode: params.mode,
-      options: params.options,
-      answers,
-      rejectedOptions: params.options.filter(
-        (option) =>
-          !answers.some(
-            (answer) =>
-              answer.type === 'option' && answer.label === option.label && answer.value === option.value,
-          ),
-      ),
-      note,
-      transport: { surface: 'rpc-editor' as const },
-      ...(message !== undefined ? { message } : {}),
-    },
-  };
+  return status === 'answered'
+    ? [`User selected:${selected ? `\n${selected}` : ''}`, note ? `Note: ${note}` : undefined]
+        .filter(Boolean)
+        .join('\n')
+    : (message ?? `User ${status} the question`);
 }
 
 export function buildStructuredExchangeEditorPrefill(params: StructuredExchangeEditorPrefillParams): string {
@@ -153,20 +124,16 @@ export function parseStructuredExchangeEditorResponse(
   if (!isRecord(parsed)) return null;
   const response = parsed.response;
   if (!isRecord(response)) return null;
-
-  if (response.status === 'cancelled') {
-    return { status: 'cancelled', answers: [], note: '' };
-  }
+  if (response.status === 'cancelled') return { status: 'cancelled', answers: [], note: '' };
   if (response.status !== 'answered') return null;
-  if (!Array.isArray(response.answers)) return null;
-  if (typeof response.note !== 'string') return null;
+  if (!Array.isArray(response.answers) || typeof response.note !== 'string') return null;
 
   const answers = response.answers.map(parseEditorAnswer);
   if (answers.some((answer) => answer === null)) return null;
   return {
     status: 'answered',
     answers: sortAnswers(answers as StructuredExchangeAnswer[]),
-    note: response.note.trim(),
+    note: response.note,
   };
 }
 
@@ -175,17 +142,67 @@ export function structuredExchangeResultFromEditor(
   edited: string | undefined,
 ) {
   const response = parseStructuredExchangeEditorResponse(edited ?? '');
+  const exchangeId = params.exchangeId ?? `rpc-editor:${params.question}`;
   if (edited === undefined || response?.status === 'cancelled') {
-    return buildLegacyResult('cancelled', params, [], '', 'User cancelled the question');
+    const details =
+      params.mode === 'multi-select'
+        ? projectRequestChoices({ exchangeId, status: 'cancelled' })
+        : projectRequestChoice({ exchangeId, respondsToPresentTool: 'present_options', status: 'cancelled' });
+    return {
+      content: [
+        { type: 'text' as const, text: responseText('cancelled', [], '', 'User cancelled the question') },
+      ],
+      details,
+    };
   }
-  if (!response) {
-    return buildLegacyResult(
-      'unavailable',
-      params,
-      [],
-      '',
-      'structured_exchange editor fallback returned invalid JSON',
-    );
+
+  if (!response || response.answers.length === 0) {
+    const details =
+      params.mode === 'multi-select'
+        ? projectRequestChoices({
+            exchangeId,
+            status: 'unavailable',
+            message: 'Editor response did not include a valid answer',
+          })
+        : projectRequestChoice({
+            exchangeId,
+            respondsToPresentTool: 'present_options',
+            status: 'unavailable',
+            message: 'Editor response did not include a valid answer',
+          });
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: responseText('unavailable', [], '', 'Editor response did not include a valid answer'),
+        },
+      ],
+      details,
+    };
   }
-  return buildLegacyResult('answered', params, response.answers, response.note);
+
+  if (params.mode === 'multi-select') {
+    const details = projectRequestChoices({
+      exchangeId,
+      status: 'answered',
+      choices: response.answers.map(selectedChoice),
+      comment: response.note.trim() || undefined,
+    });
+    return {
+      content: [{ type: 'text' as const, text: responseText('answered', response.answers, response.note) }],
+      details,
+    };
+  }
+
+  const details = projectRequestChoice({
+    exchangeId,
+    respondsToPresentTool: 'present_options',
+    status: 'answered',
+    choice: selectedChoice(response.answers[0]!),
+    comment: response.note.trim() || undefined,
+  });
+  return {
+    content: [{ type: 'text' as const, text: responseText('answered', response.answers, response.note) }],
+    details,
+  };
 }

@@ -1,46 +1,39 @@
-import { Type, type Static } from 'typebox';
-import { Value } from 'typebox/value';
+import * as z from 'zod';
 
 import type { PresentDetails } from '../.pi/extensions/structured-exchange/schemas/index.js';
 import { isStructuredExchangePresentDetails } from '../.pi/extensions/structured-exchange/shared/recovery.js';
+import { projectRequestAnswer } from '../structured-exchange/project/request-answer.js';
+import { projectRequestChoice } from '../structured-exchange/project/request-choice.js';
+import { projectRequestChoices } from '../structured-exchange/project/request-choices.js';
 import type { BrunchSessionEnvelope } from './brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from './exchange-projection.js';
 
-const NonBlankStringSchema = Type.String({ minLength: 1 });
+const zNonBlankString = z.string().min(1);
 
-export const PendingStructuredExchangeSchema = Type.Object(
-  {
-    exchangeId: NonBlankStringSchema,
-    lens: Type.Literal('intent'),
-    mode: Type.Union([
-      Type.Literal('text'),
-      Type.Literal('single-select'),
-      Type.Literal('multi-select'),
-      Type.Literal('review'),
-    ]),
-    prompt: NonBlankStringSchema,
-    details: Type.Optional(NonBlankStringSchema),
-    options: Type.Array(
-      Type.Object(
-        {
-          id: NonBlankStringSchema,
-          label: NonBlankStringSchema,
-          content: NonBlankStringSchema,
-          rationale: Type.Optional(NonBlankStringSchema),
-        },
-        { additionalProperties: false },
-      ),
+export const zPendingStructuredExchange = z
+  .object({
+    exchangeId: zNonBlankString,
+    lens: z.literal('intent'),
+    mode: z.enum(['text', 'single-select', 'multi-select', 'review']),
+    prompt: zNonBlankString,
+    details: zNonBlankString.optional(),
+    options: z.array(
+      z
+        .object({
+          id: zNonBlankString,
+          label: zNonBlankString,
+          content: zNonBlankString,
+          rationale: zNonBlankString.optional(),
+        })
+        .strict(),
     ),
-    note: Type.Object(
-      { allowed: Type.Boolean() },
-      {
-        additionalProperties: false,
-      },
-    ),
-    reviewSet: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
-  },
-  { additionalProperties: false },
-);
+    note: z.object({ allowed: z.boolean() }).strict(),
+    reviewSet: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict();
+export const PendingStructuredExchangeSchema = z.toJSONSchema(zPendingStructuredExchange, {
+  unrepresentable: 'throw',
+});
 
 export interface StructuredExchangeTextResponseInput {
   exchangeId: string;
@@ -80,7 +73,7 @@ export interface AcceptedToolResultMessage {
   timestamp: 0;
 }
 
-export type PendingStructuredExchange = Static<typeof PendingStructuredExchangeSchema>;
+export type PendingStructuredExchange = z.infer<typeof zPendingStructuredExchange>;
 
 export type AcceptedStructuredExchangeResponse =
   | {
@@ -232,10 +225,10 @@ export function pendingExchangeFromEnvelope(
         candidate.type === 'custom_message' &&
         candidate.id === entryId &&
         candidate.customType === 'brunch.elicitation_prompt' &&
-        Value.Check(PendingStructuredExchangeSchema, candidate.details),
+        zPendingStructuredExchange.safeParse(candidate.details).success,
     );
     if (entry?.type === 'custom_message') {
-      return Value.Parse(PendingStructuredExchangeSchema, entry.details);
+      return zPendingStructuredExchange.parse(entry.details);
     }
   }
 
@@ -274,7 +267,11 @@ export function acceptedResponseFromParams(
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_answer'),
         content: [{ type: 'text', text: `### Response\n\n${params.answer.text}` }],
-        details: { ...requestDetailsBase(pending, 'request_answer'), answered: { text: params.answer.text } },
+        details: projectRequestAnswer({
+          exchangeId: pending.exchangeId,
+          status: 'answered',
+          answer: params.answer.text,
+        }),
       },
     };
   }
@@ -291,13 +288,13 @@ export function acceptedResponseFromParams(
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_choice'),
         content: [{ type: 'text', text: choiceResponseMarkdown([choice], params.note) }],
-        details: {
-          ...requestDetailsBase(pending, 'request_choice'),
-          answered: {
-            choice: { id: choice.id, label: choice.label, kind: choiceKind(choice.id) },
-            ...(comment ? { comment } : {}),
-          },
-        },
+        details: projectRequestChoice({
+          exchangeId: pending.exchangeId,
+          respondsToPresentTool: 'present_options',
+          status: 'answered',
+          choice: { id: choice.id, label: choice.label, kind: choiceKind(choice.id) },
+          comment,
+        }),
       },
     };
   }
@@ -324,17 +321,16 @@ export function acceptedResponseFromParams(
     toolResultMessage: {
       ...toolResultMessageBase(pending, 'request_choices'),
       content: [{ type: 'text', text: choiceResponseMarkdown(choices, params.note) }],
-      details: {
-        ...requestDetailsBase(pending, 'request_choices'),
-        answered: {
-          choices: choices.map((choice) => ({
-            id: choice.id,
-            label: choice.label,
-            kind: choiceKind(choice.id),
-          })),
-          ...(comment ? { comment } : {}),
-        },
-      },
+      details: projectRequestChoices({
+        exchangeId: pending.exchangeId,
+        status: 'answered',
+        choices: choices.map((choice) => ({
+          id: choice.id,
+          label: choice.label,
+          kind: choiceKind(choice.id),
+        })),
+        comment,
+      }),
     },
   };
 }
@@ -343,21 +339,6 @@ function invalidResponseMode(): AcceptedStructuredExchangeResponse {
   return {
     ok: false,
     message: 'Elicitation response mode does not match pending exchange',
-  };
-}
-
-function requestDetailsBase(
-  pending: PendingStructuredExchange,
-  requestTool: 'request_answer' | 'request_choice' | 'request_choices',
-): Record<string, unknown> {
-  return {
-    schema: 'brunch.structured_exchange.request',
-    v: 1,
-    exchange_id: pending.exchangeId,
-    tool_meta: {
-      prev: pending.mode === 'text' ? 'present_question' : 'present_options',
-      curr: requestTool,
-    },
   };
 }
 

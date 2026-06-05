@@ -13,8 +13,6 @@ import { REQUEST_CHOICE_TOOL, requestChoiceTool } from './request-choice.js';
 import { REQUEST_CHOICES_TOOL, requestChoicesTool } from './request-choices.js';
 import { REQUEST_REVIEW_TOOL, requestReviewTool } from './request-review.js';
 
-export type { StructuredExchangeResultDetails as StructuredExchangeToolResultDetails } from '../../../session/structured-exchange.js';
-
 export {
   buildStructuredExchangeEditorPrefill,
   parseStructuredExchangeEditorResponse,
@@ -32,6 +30,7 @@ export {
   type PresentDetails as StructuredExchangePresentDetails,
   type PresentToolName,
   type RequestDetails as StructuredExchangeRequestDetails,
+  type RequestChoiceDetails as StructuredExchangeToolResultDetails,
   type RequestToolName,
 } from './schemas/index.js';
 export {

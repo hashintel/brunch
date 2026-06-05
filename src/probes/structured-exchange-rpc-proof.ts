@@ -16,10 +16,10 @@ interface FrictionReport {
   frictions: string[];
 }
 
-interface TerminalDetails extends StructuredExchangeToolResultDetails {
+type TerminalDetails = StructuredExchangeToolResultDetails & {
   probe: ProbeMetadata;
   frictionReport: FrictionReport;
-}
+};
 
 interface ProofResultEntry {
   customType: string;

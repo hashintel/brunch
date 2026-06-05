@@ -15,7 +15,6 @@ import {
   projectTranscriptDisplay,
 } from './exchange-projection.js';
 import { createSessionBindingData } from './session-binding.js';
-import { STRUCTURED_EXCHANGE_RESULT_SCHEMA } from './structured-exchange.js';
 
 const assistant = {
   id: 'a1',
@@ -172,22 +171,14 @@ const structuredExchangeToolResult = {
   message: {
     role: 'toolResult',
     toolCallId: 'call-exchange-1',
-    toolName: 'structured_exchange',
+    toolName: 'request_answer',
     content: [{ type: 'text', text: 'User answered: Developer tooling' }],
     details: {
-      schema: STRUCTURED_EXCHANGE_RESULT_SCHEMA,
-      schemaVersion: 1,
-      status: 'answered',
-      question: 'Domain?',
-      mode: 'text',
-      answers: [
-        {
-          type: 'text',
-          label: 'Developer tooling',
-          value: 'Developer tooling',
-        },
-      ],
-      transport: { surface: 'rpc-editor' },
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'domain',
+      tool_meta: { prev: 'present_question', curr: 'request_answer', next: 'capture_answer' },
+      answered: { text: 'Developer tooling' },
     },
     isError: false,
   },
@@ -198,17 +189,14 @@ const unavailableStructuredExchangeToolResult = {
   message: {
     role: 'toolResult',
     toolCallId: 'call-exchange-2',
-    toolName: 'structured_exchange',
+    toolName: 'request_answer',
     content: [{ type: 'text', text: 'Structured exchange unavailable.' }],
     details: {
-      schema: STRUCTURED_EXCHANGE_RESULT_SCHEMA,
-      schemaVersion: 1,
-      status: 'unavailable',
-      question: 'Domain?',
-      mode: 'text',
-      answers: [],
-      transport: { surface: 'headless' },
-      message: 'Structured exchange UI is unavailable.',
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'domain',
+      tool_meta: { prev: 'present_question', curr: 'request_answer' },
+      unavailable: { message: 'Structured exchange UI is unavailable.' },
     },
     isError: false,
   },
@@ -475,9 +463,9 @@ describe('session exchange projection', () => {
   });
 
   it('classifies terminal structured-exchange tool results as response-side entries', () => {
-    const projection = projectSessionExchanges([assistant, structuredExchangeToolResult]);
+    const projection = projectSessionExchanges([presentQuestionToolResult, structuredExchangeToolResult]);
 
-    expect(projection.exchanges[0]?.promptEntryIds).toEqual(['a1']);
+    expect(projection.exchanges[0]?.promptEntryIds).toEqual(['present-question-1']);
     expect(projection.exchanges[0]?.responseEntryIds).toEqual(['sq1']);
     expect(projection.exchanges[0]?.responseRange).toEqual({
       start: 'sq1',
@@ -486,11 +474,14 @@ describe('session exchange projection', () => {
     expect(projection.openPrompt).toBeNull();
   });
 
-  it('keeps non-terminal structured-exchange tool results on the prompt side', () => {
-    const projection = projectSessionExchanges([assistant, unavailableStructuredExchangeToolResult]);
+  it('classifies unavailable canonical request results as response-side entries', () => {
+    const projection = projectSessionExchanges([
+      presentQuestionToolResult,
+      unavailableStructuredExchangeToolResult,
+    ]);
 
-    expect(projection.exchanges).toEqual([]);
-    expect(projection.openPrompt?.promptEntryIds).toEqual(['a1', 'sq-unavailable']);
+    expect(projection.exchanges[0]?.promptEntryIds).toEqual(['present-question-1']);
+    expect(projection.exchanges[0]?.responseEntryIds).toEqual(['sq-unavailable']);
   });
 
   it('returns an explicit empty/open shape for incomplete transcripts', () => {
@@ -552,23 +543,30 @@ describe('session exchange projection', () => {
     manager.appendMessage(assistantMessage('Please answer the structured exchange.'));
     manager.appendMessage({
       role: 'toolResult',
+      toolCallId: 'present-jsonl',
+      toolName: 'present_question',
+      content: [{ type: 'text', text: '## Domain?' }],
+      details: {
+        schema: 'brunch.structured_exchange.present',
+        v: 1,
+        exchange_id: 'jsonl-text',
+        tool_meta: { curr: 'present_question', next: 'request_answer' },
+        display: { heading: 'Domain?' },
+      },
+      isError: false,
+      timestamp: 0,
+    });
+    manager.appendMessage({
+      role: 'toolResult',
       toolCallId: 'call-exchange-jsonl',
-      toolName: 'structured_exchange',
+      toolName: 'request_answer',
       content: [{ type: 'text', text: 'User answered: Developer tooling' }],
       details: {
-        schema: STRUCTURED_EXCHANGE_RESULT_SCHEMA,
-        schemaVersion: 1,
-        status: 'answered',
-        question: 'Domain?',
-        mode: 'text',
-        answers: [
-          {
-            type: 'text',
-            label: 'Developer tooling',
-            value: 'Developer tooling',
-          },
-        ],
-        transport: { surface: 'rpc-editor' },
+        schema: 'brunch.structured_exchange.request',
+        v: 1,
+        exchange_id: 'jsonl-text',
+        tool_meta: { prev: 'present_question', curr: 'request_answer', next: 'capture_answer' },
+        answered: { text: 'Developer tooling' },
       },
       isError: false,
       timestamp: 0,
@@ -578,7 +576,7 @@ describe('session exchange projection', () => {
 
     expect(projection.status).toBe('ready');
     expect(projection.exchanges).toHaveLength(1);
-    expect(projection.exchanges[0]?.promptEntryIds).toHaveLength(1);
+    expect(projection.exchanges[0]?.promptEntryIds).toHaveLength(2);
     expect(projection.exchanges[0]?.responseEntryIds).toHaveLength(1);
   });
 
