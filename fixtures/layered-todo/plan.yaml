@@ -1,0 +1,79 @@
+# Fixture 2 · layered-todo — the diamond (flagship)
+# Thesis: a real fan-out → join (types → {store, validation} → service) plus a
+# cross-epic gate (cli depends_on core) — the dependency shape a flat plan cannot
+# represent. Spec: docs/design/orchestrator-demo-fixtures.md
+#
+# Demo:
+#   brunch cook fixtures/layered-todo --policy=parallel --agentPoolSize=3 --petrinaut-stream
+# `service` is unreachable until both `store` and `validation` tokens arrive;
+# `cli` can't begin until `core`'s epic gate clears.
+
+epics:
+  - id: core
+    summary: "In-memory todo domain: types, store, validation, service"
+    depends_on: []
+    verification: []
+
+  - id: cli
+    summary: "Command surface over the todo service"
+    depends_on: [core]
+    verification:
+      - kind: integration-test
+        target: "tests/todo-e2e.integration.test.ts"
+
+slices:
+  - id: types
+    epic_id: core
+    definition: "Add src/types.ts: `Todo` (id: string, title: string, done: boolean) and an `id()` generator. The root of the domain."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/types.test.ts"
+
+  - id: store
+    epic_id: core
+    definition: "Add src/store.ts: an in-memory `TodoStore` with add/get/list/update/remove over the `Todo` type from src/types.ts."
+    depends_on: [types]
+    verification:
+      - kind: unit-test
+        target: "tests/store.test.ts"
+
+  - id: validation
+    epic_id: core
+    definition: "Add src/validation.ts: `validateTitle(title: string)` (non-empty, <= 200 chars) and `validateTodo(t: Todo)`, throwing on invalid input. Uses the `Todo` type from src/types.ts."
+    depends_on: [types]
+    verification:
+      - kind: unit-test
+        target: "tests/validation.test.ts"
+
+  - id: service
+    epic_id: core
+    definition: "Add src/service.ts: a `TodoService` composing the store (src/store.ts) and validation (src/validation.ts) — addTodo validates then stores; listTodos/completeTodo delegate to the store."
+    depends_on: [store, validation]
+    verification:
+      - kind: unit-test
+        target: "tests/service.test.ts"
+
+  - id: cmd-add
+    epic_id: cli
+    definition: "Add src/commands/add.ts: `add(service, title)` creating a todo via the service and returning its id."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/cmd-add.test.ts"
+
+  - id: cmd-list
+    epic_id: cli
+    definition: "Add src/commands/list.ts: `list(service)` returning formatted lines for each todo (`[ ]`/`[x]` + title)."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/cmd-list.test.ts"
+
+  - id: cmd-done
+    epic_id: cli
+    definition: "Add src/commands/done.ts: `done(service, id)` marking a todo complete via the service; throws if the id is unknown."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/cmd-done.test.ts"

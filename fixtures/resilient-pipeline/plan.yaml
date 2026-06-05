@@ -1,0 +1,50 @@
+# Fixture 3 · resilient-pipeline — failure isolation + the Phase-4 story
+# Thesis: one slice is seeded with a contradictory spec → it exhausts its rework
+# budget and deposits a halt token. parse + transform-a complete; the join
+# (serialize) becomes provably UNREACHABLE. A linear agent just stalls.
+# Spec: docs/design/orchestrator-demo-fixtures.md
+#
+# Demo (keep the budget low so it halts fast):
+#   brunch cook fixtures/resilient-pipeline --policy=parallel --max-retries=2 --petrinaut-stream
+# In Petrinaut: parse + transform-a reach done, transform-b lands on :halted,
+# serialize waits forever — the blocked frontier, drawn live.
+
+epics:
+  - id: pipeline
+    summary: "A small parse → transform → serialize data pipeline"
+    depends_on: []
+    verification: []
+
+slices:
+  - id: parse
+    epic_id: pipeline
+    definition: "Add src/parse.ts: `parse(input: string): Record<string, string>[]` parsing simple CSV (header row + comma-separated rows) into row objects."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/parse.test.ts"
+
+  - id: transform-a
+    epic_id: pipeline
+    definition: "Add src/transform-a.ts: `selectColumns(rows, cols: string[])` returning each row narrowed to the given columns."
+    depends_on: [parse]
+    verification:
+      - kind: unit-test
+        target: "tests/transform-a.test.ts"
+
+  # SEEDED FAILURE — intentionally over-constrained to demonstrate halt isolation.
+  - id: transform-b
+    epic_id: pipeline
+    definition: "Add src/transform-b.ts: `normalize(value: string): string` that MUST satisfy BOTH of these at once, for every input: (A) return the value completely unchanged; (B) return the value upper-cased. These cannot both hold — this slice is expected to halt."
+    depends_on: [parse]
+    verification:
+      - kind: unit-test
+        target: "tests/transform-b.test.ts"
+
+  - id: serialize
+    epic_id: pipeline
+    definition: "Add src/serialize.ts: `serialize(rows): string` rendering rows back to CSV, combining the outputs of transform-a and transform-b."
+    depends_on: [transform-a, transform-b]
+    verification:
+      - kind: unit-test
+        target: "tests/serialize.test.ts"

@@ -1,0 +1,94 @@
+# Fixture 1 · parallel-utils — the wall-clock proof
+# Thesis: N independent slices, pool-bounded → 3 fire at once; a linear loop does
+# them one-by-one. Spec: docs/design/orchestrator-demo-fixtures.md
+#
+# Demo:
+#   brunch cook fixtures/parallel-utils --policy=serial
+#   brunch cook fixtures/parallel-utils --policy=parallel --agentPoolSize=3 --petrinaut-stream
+# Watch pool:code-agent drain to zero and refill in Petrinaut.
+
+epics:
+  - id: scaffold
+    summary: "Library scaffolding"
+    depends_on: []
+    verification: []
+
+  - id: utils
+    summary: "Independent zero-dependency utility functions"
+    depends_on: [scaffold]
+    verification:
+      - kind: integration-test
+        target: "tests/barrel.integration.test.ts"
+
+slices:
+  - id: package-setup
+    epic_id: scaffold
+    definition: "Set up package.json (type: module, bun test), tsconfig.json, and src/index.ts as a barrel that re-exports every util. The barrel starts empty and each util slice adds its own export."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/scaffold.test.ts"
+
+  - id: chunk
+    epic_id: utils
+    definition: "Add `chunk<T>(arr: T[], size: number): T[][]` in src/chunk.ts splitting an array into size-N groups (last group may be shorter). size <= 0 throws."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/chunk.test.ts"
+
+  - id: unique
+    epic_id: utils
+    definition: "Add `unique<T>(arr: T[]): T[]` in src/unique.ts returning elements in first-seen order with duplicates removed (SameValueZero equality)."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/unique.test.ts"
+
+  - id: group-by
+    epic_id: utils
+    definition: "Add `groupBy<T>(arr: T[], key: (x: T) => string): Record<string, T[]>` in src/group-by.ts."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/group-by.test.ts"
+
+  - id: debounce
+    epic_id: utils
+    definition: "Add `debounce<F extends (...a: any[]) => void>(fn: F, ms: number): F` in src/debounce.ts that delays invocation until ms after the last call. Use fake timers in the test."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/debounce.test.ts"
+
+  - id: retry
+    epic_id: utils
+    definition: "Add `retry<T>(fn: () => Promise<T>, times: number): Promise<T>` in src/retry.ts that retries a rejecting promise up to `times` times before rejecting with the last error."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/retry.test.ts"
+
+  - id: clamp
+    epic_id: utils
+    definition: "Add `clamp(n: number, min: number, max: number): number` in src/clamp.ts. Throws if min > max."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/clamp.test.ts"
+
+  - id: slugify
+    epic_id: utils
+    definition: "Add `slugify(s: string): string` in src/slugify.ts: lowercase, non-alphanumerics → single dash, collapse repeats, trim leading/trailing dashes."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/slugify.test.ts"
+
+  - id: deep-equal
+    epic_id: utils
+    definition: "Add `deepEqual(a: unknown, b: unknown): boolean` in src/deep-equal.ts doing structural equality for plain objects, arrays, and primitives."
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/deep-equal.test.ts"
