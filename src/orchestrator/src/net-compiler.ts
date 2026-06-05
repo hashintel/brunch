@@ -310,7 +310,7 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         kind: 'run-tests',
         sliceId: sid,
         epicId: epic.id,
-        target: slice.verification[0]?.target ?? '',
+        targets: slice.verification.map((v) => v.target),
         intermediatePlace: p(sid, 'run-tests:reported'),
         budgetPlace: p(sid, 'retry-budget'),
         maxRetries: policy.maxRetries,
@@ -689,7 +689,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
       }
 
       case 'run-tests': {
-        const { sliceId, epicId, target, intermediatePlace, budgetPlace, maxRetries } = h;
+        const { sliceId, epicId, targets, intermediatePlace, budgetPlace, maxRetries } = h;
         const baseToken: Token = { sliceId, epicId };
 
         // FE-761 Slice 3: deferred-completion split. The synchronous part
@@ -707,18 +707,23 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             const sandboxDir = seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
               preserveExisting: true,
             });
-            const result = await testRunner.run(target, sandboxDir);
+            const results = [];
+            for (const target of targets) {
+              results.push({ target, ...(await testRunner.run(target, sandboxDir)) });
+            }
+            const passed = results.length > 0 && results.every((result) => result.passed);
+            const output = results.map((result) => result.output).join('\n');
             const reportId = createReport(reports, {
               epicId,
               sliceId,
               actor: 'test-runner',
               event: 'tests-run',
-              payload: { passed: result.passed, output: result.output },
+              payload: { passed, output, results },
             });
             ctx.reportIds.push(reportId);
 
             const tok: Token = { ...inputToken, reportId };
-            if (result.passed) {
+            if (passed) {
               return [
                 { place: intermediatePlace, token: tok },
                 { place: budgetPlace, token: { ...baseToken, retryCount: 0 } },

@@ -1,6 +1,12 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
-import { evaluateVerificationTargets, toolsForAction } from './pi-actions.js';
+import { createPiActions, evaluateVerificationTargets, toolsForAction } from './pi-actions.js';
+import { InMemoryReportSink } from './report-sink.js';
+import type { ActionContext } from './types.js';
 
 describe('evaluateVerificationTargets — done reflects real test execution', () => {
   it('done only when at least one target exists and every target passes', async () => {
@@ -49,6 +55,55 @@ describe('pi-actions tool scoping', () => {
       expect(tools).toContain('write');
       expect(tools).toContain('edit');
       expect(tools).toContain('bash');
+    }
+  });
+});
+
+describe('createPiActions evaluate-done', () => {
+  it('runs verification target paths with spaces and shell metacharacters without shell splitting', async () => {
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-pi-actions-'));
+    try {
+      mkdirSync(join(sandboxDir, 'tests'));
+      const target = 'tests/path with spaces; false.test.ts';
+      writeFileSync(
+        join(sandboxDir, target),
+        "import { expect, test } from 'bun:test';\n\ntest('runs', () => expect(1).toBe(1));\n",
+      );
+      const reports = new InMemoryReportSink();
+      const ctx: ActionContext = {
+        sandboxDir,
+        reports,
+        plan: {
+          epics: [{ id: 'epic-1', summary: 'Epic', depends_on: [], verification: [] }],
+          slices: [
+            {
+              id: 'slice-1',
+              epic_id: 'epic-1',
+              definition: 'Run a spaced test path',
+              depends_on: [],
+              verification: [{ kind: 'unit-test', target }],
+            },
+          ],
+        },
+        epic: { id: 'epic-1', summary: 'Epic', depends_on: [], verification: [] },
+        slice: {
+          id: 'slice-1',
+          epic_id: 'epic-1',
+          definition: 'Run a spaced test path',
+          depends_on: [],
+          verification: [{ kind: 'unit-test', target }],
+        },
+      };
+
+      const reportId = await createPiActions()['evaluate-done']!(ctx);
+      const report = reports.getById(reportId);
+
+      expect(report?.payload).toMatchObject({
+        done: true,
+        results: [{ target, passed: true }],
+      });
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
     }
   });
 });

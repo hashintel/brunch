@@ -91,6 +91,22 @@ const depPlan: Plan = {
   ],
 };
 
+const multiTargetPlan: Plan = {
+  epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
+  slices: [
+    {
+      id: 'slice-1',
+      epic_id: 'epic-1',
+      definition: 'D',
+      depends_on: [],
+      verification: [
+        { kind: 'unit-test', target: 'tests/a.test.ts' },
+        { kind: 'integration-test', target: 'tests/b.test.ts' },
+      ],
+    },
+  ],
+};
+
 describe('enumerateCandidateOutputs', () => {
   it('returns a non-empty output set for every transition in simplePlan', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
@@ -137,6 +153,16 @@ describe('enumerateCandidateOutputs', () => {
       'slice:slice-1:halted',
     ]);
     expect(enumerateCandidateOutputs(runTests!)).toEqual(expected);
+  });
+
+  it('run-tests producer carries every slice verification target', () => {
+    const blueprint = compileTopology(multiTargetPlan, { maxRetries: 3 });
+    const runTests = blueprint.transitions.find((t) => t.id === 'slice-1:run-tests:complete');
+    expect(runTests).toBeDefined();
+    const handler = runTests!.handler;
+    if (handler.kind !== 'run-tests') throw new Error('expected run-tests descriptor');
+
+    expect(handler.targets).toEqual(['tests/a.test.ts', 'tests/b.test.ts']);
   });
 
   it('assess-semantic producer enumerates intermediatePlace plus budgetPlace', () => {

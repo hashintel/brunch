@@ -1,9 +1,6 @@
-import { exec, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
-
-const execAsync = promisify(exec);
 
 import { createReport } from './report-helpers.js';
 import { sliceLabel } from './slice-label.js';
@@ -177,20 +174,34 @@ export async function evaluateVerificationTargets(
 }
 
 async function runBunTest(target: string, sandboxDir: string): Promise<boolean> {
-  try {
-    const { stdout } = await execAsync(`bun test ${target}`, {
+  return new Promise<boolean>((resolve) => {
+    const child = spawn('bun', ['test', target], {
       cwd: sandboxDir,
-      encoding: 'utf8',
-      timeout: 60_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
-    logVerbose(stdout);
-    return true;
-  } catch (err) {
-    if (_verbose && err && typeof err === 'object' && 'stdout' in err) {
-      logVerbose(String((err as { stdout: unknown }).stdout));
-    }
-    return false;
-  }
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    let settled = false;
+
+    const finish = (passed: boolean): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const output = Buffer.concat([...stdoutChunks, ...stderrChunks]).toString('utf8');
+      logVerbose(output);
+      resolve(passed);
+    };
+
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM');
+      finish(false);
+    }, 60_000);
+
+    child.stdout?.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
+    child.stderr?.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
+    child.on('error', () => finish(false));
+    child.on('close', (code) => finish(code === 0));
+  });
 }
 
 function report(ctx: ActionContext, actor: string, event: string, payload: Record<string, unknown>): string {
@@ -282,21 +293,9 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
 
       let allPassed = true;
       for (const v of ctx.epic.verification) {
-        try {
-          const { stdout } = await execAsync(`bun test ${v.target}`, {
-            cwd: ctx.sandboxDir,
-            encoding: 'utf8',
-            timeout: 60_000,
-          });
-          log('✓', `verify    ${v.target}`);
-          logVerbose(stdout);
-        } catch (err) {
-          log('✗', `verify    ${v.target}`);
-          if (_verbose && err && typeof err === 'object' && 'stdout' in err) {
-            logVerbose(String((err as { stdout: unknown }).stdout));
-          }
-          allPassed = false;
-        }
+        const passed = await runBunTest(v.target, ctx.sandboxDir);
+        log(passed ? '✓' : '✗', `verify    ${v.target}`);
+        allPassed &&= passed;
       }
 
       log(allPassed ? '●' : '✗', `epic      ${ctx.epic.id} → ${allPassed ? 'PASS' : 'FAIL'}`);
