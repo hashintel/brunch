@@ -4,6 +4,8 @@ import { createRoot } from 'react-dom/client';
 import { BrunchWebApp, createBrunchWebRuntime } from './app.js';
 import { createWebSocketRpcClient } from './rpc-client.js';
 
+import './styles.css';
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error('Brunch web shell requires a #root element');

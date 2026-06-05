@@ -33,10 +33,12 @@ function InvalidSpecRoutePage() {
   const { rpcClient } = specRoute.useRouteContext();
   const { data: snapshot } = useSuspenseQuery(workspaceSnapshotQueryOptions(rpcClient));
   return (
-    <main>
-      <p>Brunch workspace</p>
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-5 py-8 sm:px-8 lg:px-10">
+      <p className="text-brunch-muted font-mono text-xs tracking-[0.35em] uppercase">Brunch workspace</p>
       <WorkspaceChrome snapshot={snapshot} />
-      <p>Invalid spec id.</p>
+      <p className="border-brunch-accent/40 text-brunch-accent rounded-[1.5rem] border bg-white/60 p-5">
+        Invalid spec id.
+      </p>
     </main>
   );
 }
@@ -47,8 +49,8 @@ function ValidSpecRoutePage({ specId }: { specId: number }) {
   const { data: overview } = useSuspenseQuery(graphOverviewQueryOptions(rpcClient, specId));
 
   return (
-    <main>
-      <p>Brunch workspace</p>
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-5 py-8 sm:px-8 lg:px-10">
+      <p className="text-brunch-muted font-mono text-xs tracking-[0.35em] uppercase">Brunch workspace</p>
       <WorkspaceChrome snapshot={snapshot} fallbackSpecId={specId} />
       <GraphOverviewPanel overview={overview} />
       <SessionPanel snapshot={snapshot} viewedSpecId={specId} />
