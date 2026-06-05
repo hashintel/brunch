@@ -238,6 +238,30 @@ describe('Brunch CLI dispatch', () => {
     });
   });
 
+  it('gates dev RPC methods in CLI rpc mode behind BRUNCH_DEV_RPC=1', async () => {
+    const previous = process.env.BRUNCH_DEV_RPC;
+    const stdout = new PassThrough();
+    const chunks = collectStream(stdout);
+    process.env.BRUNCH_DEV_RPC = '1';
+    try {
+      const code = await runBrunchCli({
+        argv: ['--mode=rpc'],
+        cwd: '/tmp/brunch-project',
+        coordinator: coordinator(),
+        stdin: rpcRequest('rpc.discover'),
+        stdout,
+      });
+
+      expect(code).toBe(0);
+      expect(JSON.stringify(JSON.parse(chunks.join('')))).toContain('dev.graph.commitGraph');
+    } finally {
+      if (previous === undefined) {
+        delete process.env.BRUNCH_DEV_RPC;
+      } else {
+        process.env.BRUNCH_DEV_RPC = previous;
+      }
+    }
+  });
   it('exposes matching print and RPC workspace snapshots from a real coordinator store', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-parity-'));
     await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({

@@ -253,7 +253,8 @@ _None._
 - **Verification:** Inner — `src/graph/seed-fixtures.test.ts` seeds a real fixture into an in-memory DB and asserts spec/node/edge counts plus change-log/clock coherence, and rejects non-`explicit` basis; port-script self-validation gates output. Outer — `npm run seed` smoke against a fresh cwd.
 - **Topology materialization:** Seed data and throwaway prep scripts live under `.fixtures/seeds/`; the loader lives in `src/graph/seed-fixtures.ts` (graph/ owns `CommandExecutor` orchestration; db/ is imported only by graph/, never the reverse); no seed-only graph runtime the product launch does not use.
 - **Cross-cutting obligations:** Seeds commit only through `CommandExecutor`; directly-authored items use `basis: explicit` (the retired `accepted_review_set` value is not a basis). Respect multi-spec discipline — each fixture is one spec's own graph (D61-L). Pre-release posture: regenerate fixtures when the schema moves rather than preserving stale shapes. **Known drift:** `docs/praxis/manual-testing.md` still describes the earlier seed system (scenario-arg `npm run seed`, `.brunch/brunch.db`); reconcile it to the current loader (all-sets `npm run seed`, `.brunch/data.db`) when the legacy port (backlog item 2) lands — coordinate with the doc-reconciliation track rather than double-editing.
-- **Traceability:** D4-L, D20-L, D52-L, D61-L, D62-L, D63-L / A14-L.
+- **Current execution pointer:** `dev.graph.commitGraph` harness is landed for explicitly enabled local fixture curation; next `dev-seed-fixtures` scope should use it to prove whether base-variant/export curation needs a richer primitive.
+- **Traceability:** D4-L, D19-L, D20-L, D52-L, D61-L, D62-L, D63-L / A14-L.
 - **Design docs:** `.fixtures/seeds/bilal-port/README.md`; `docs/design/GRAPH_MODEL.md`; `docs/praxis/manual-testing.md`.
 
 ## Recently Completed

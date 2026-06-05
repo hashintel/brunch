@@ -45,7 +45,12 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
     await runJsonRpcLineServer({
       input: options.stdin ?? process.stdin,
       output: stdoutStream(options.stdout),
-      handlers: createRpcHandlers({ coordinator, cwd, productUpdates }),
+      handlers: createRpcHandlers({
+        coordinator,
+        cwd,
+        productUpdates,
+        devRpc: process.env.BRUNCH_DEV_RPC === '1',
+      }),
       productUpdates,
     });
     return 0;

@@ -44,7 +44,7 @@ canonical stores:
     worldUpdate entries
 ```
 
-RPC handlers must not become a generic records API, REST read model, or canonical view store. Reads are named projections over the store that owns the fact. Mutations route through the owning product seam: session transcript operations through `session.*`, graph mutations through the agent/tool or `CommandExecutor` path that owns them.
+RPC handlers must not become a generic records API, REST read model, or canonical view store. Reads are named projections over the store that owns the fact. Mutations route through the owning product seam: session transcript operations through `session.*`, graph mutations through the agent/tool or `CommandExecutor` path that owns them. `dev.*` is the only exception family: methods in that namespace are explicitly gated local harnesses, absent from default discovery and absent from the read-only sidecar.
 
 ## Method registry
 
@@ -53,14 +53,16 @@ Method discovery and dispatch come from the same registry. A method not present 
 ```pseudo
 rpc/
 ├── handlers.ts
-│   ├── createRpcHandlers(...)         -> full registry
-│   ├── createReadOnlyRpcHandlers(...) -> read-only registry
+│   ├── createRpcHandlers(...)         -> default full registry
+│   ├── createRpcHandlers({devRpc})    -> full registry plus gated dev.* harnesses
+│   ├── createReadOnlyRpcHandlers(...) -> read-only registry, never dev.*
 │   └── rpc.discover                   -> discovery over active registry
 └── methods/
     ├── registry.ts                    -> method definition + discovery shape
     ├── workspace.ts                   -> workspace.* handlers
     ├── session.ts                     -> session.* handlers
     ├── graph.ts                       -> graph.* handlers
+    ├── dev-graph.ts                   -> gated dev.graph.* fixture-curation harness
     └── schemas.ts                     -> shared protocol schemas
 ```
 
@@ -81,6 +83,15 @@ full RPC host:
     workspace.activate
     session.triggerExchange
     session.submitExchangeResponse
+
+dev-enabled full RPC host only:
+  writes:
+    dev.graph.commitGraph
+  absent unless:
+    createRpcHandlers({devRpc: true}) or BRUNCH_DEV_RPC=1 in CLI rpc mode
+  still absent from:
+    default full RPC discovery
+    TUI-started web sidecar
 
 TUI-started web sidecar:
   reads:
@@ -179,6 +190,19 @@ graph.nodeNeighborhood
   params: {specId, nodeId, hops?}
   result: success(anchor, neighbors, edges) | not_found
   source: SQLite graph reader for the explicit spec
+
+dev.graph.commitGraph
+  access: write
+  params:
+    specId
+    basis: explicit | implicit
+    nodes: [{ref, plane, kind, title, body?, source?, detail?}]
+    edges: [{category, source, target, stance?, rationale?}]
+      source/target: batch ref | {existingCode}
+  result: success(lsn, createdNodes, edges) | structural_illegal(diagnostics)
+  effects: commits atomically through CommandExecutor and publishes graph projection invalidations
+  gate: explicit local harness only; absent from default public RPC and read-only sidecars
+  caveat: fixture curation helper, not evidence that propose-graph's real agent commit_graph tool path works
 ```
 
 ## Product update notifications

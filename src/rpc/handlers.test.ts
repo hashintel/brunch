@@ -22,7 +22,7 @@ import type {
   SpecSessionActivationCoordinator,
   SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
-import { createRpcHandlers, runJsonRpcLineServer } from './handlers.js';
+import { createReadOnlyRpcHandlers, createRpcHandlers, runJsonRpcLineServer } from './handlers.js';
 import { createProductUpdatePublisher } from './product-updates.js';
 
 function coordinator(
@@ -1997,6 +1997,250 @@ describe('JSON-RPC handlers', () => {
       id: 55,
       error: { code: -32602, message: 'Invalid params' },
     });
+  });
+
+  it('keeps dev graph commit RPC absent unless explicitly enabled', async () => {
+    const fixture = await createGraphRpcFixture();
+    const defaultHandlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: fixture.cwd,
+    });
+    const readOnlyHandlers = createReadOnlyRpcHandlers({
+      coordinator: coordinator(),
+      cwd: fixture.cwd,
+    });
+    const devHandlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: fixture.cwd,
+      devRpc: true,
+    });
+
+    await expect(
+      defaultHandlers.handle({ jsonrpc: '2.0', id: 56, method: 'dev.graph.commitGraph', params: {} }),
+    ).resolves.toMatchObject({
+      jsonrpc: '2.0',
+      id: 56,
+      error: { code: -32601, message: 'Method not found' },
+    });
+
+    const defaultDiscovery = await defaultHandlers.handle({ jsonrpc: '2.0', id: 57, method: 'rpc.discover' });
+    const readOnlyDiscovery = await readOnlyHandlers.handle({
+      jsonrpc: '2.0',
+      id: 58,
+      method: 'rpc.discover',
+    });
+    const devDiscovery = await devHandlers.handle({ jsonrpc: '2.0', id: 59, method: 'rpc.discover' });
+    if (!('result' in defaultDiscovery) || !('result' in readOnlyDiscovery) || !('result' in devDiscovery)) {
+      throw new Error('expected discovery success');
+    }
+
+    const methodNames = (response: typeof defaultDiscovery) =>
+      (
+        response.result as {
+          methods: Array<{ method: string }>;
+        }
+      ).methods.map((entry) => entry.method);
+
+    expect(methodNames(defaultDiscovery)).not.toContain('dev.graph.commitGraph');
+    expect(methodNames(readOnlyDiscovery)).not.toContain('dev.graph.commitGraph');
+    expect(methodNames(devDiscovery)).toContain('dev.graph.commitGraph');
+    expect(JSON.stringify(devDiscovery.result)).toContain('existingCode');
+    expect(JSON.stringify(devDiscovery.result)).toContain('explicit');
+    expect(JSON.stringify(devDiscovery.result)).toContain('implicit');
+  });
+
+  it('commits explicit graph batches through dev RPC and reads them back through public graph RPC', async () => {
+    const fixture = await createGraphRpcFixture();
+    const productUpdates = createProductUpdatePublisher();
+    const updates: unknown[] = [];
+    productUpdates.subscribe((batch) => updates.push(...batch));
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: fixture.cwd,
+      productUpdates,
+      devRpc: true,
+    });
+
+    const response = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 60,
+      method: 'dev.graph.commitGraph',
+      params: {
+        specId: fixture.specAId,
+        basis: 'explicit',
+        nodes: [{ ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Dev RPC thesis' }],
+        edges: [{ category: 'support', source: { existingCode: 'R1' }, target: 'thesis', stance: 'for' }],
+      },
+    });
+
+    expect(response).toMatchObject({
+      jsonrpc: '2.0',
+      id: 60,
+      result: {
+        status: 'success',
+        lsn: expect.any(Number),
+        createdNodes: { thesis: { id: expect.any(Number), code: 'TH1' } },
+        edges: [expect.any(Number)],
+      },
+    });
+    if (!('result' in response)) throw new Error('expected commit success');
+    const commitResult = response.result as { readonly lsn: number };
+
+    expect(updates).toEqual([
+      { topic: 'graph.overview', specId: fixture.specAId, lsn: commitResult.lsn },
+      { topic: 'graph.nodeNeighborhood', specId: fixture.specAId, lsn: commitResult.lsn },
+    ]);
+
+    const overview = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 61,
+      method: 'graph.overview',
+      params: { specId: fixture.specAId },
+    });
+    expect(overview).toMatchObject({
+      jsonrpc: '2.0',
+      id: 61,
+      result: {
+        nodeCount: 3,
+        edgeCount: 2,
+        lsn: commitResult.lsn,
+        nodes: expect.arrayContaining([expect.objectContaining({ title: 'Dev RPC thesis' })]),
+        edges: expect.arrayContaining([expect.objectContaining({ category: 'support', stance: 'for' })]),
+      },
+    });
+  });
+
+  it('rejects invalid dev graph commits without partial persistence', async () => {
+    const fixture = await createGraphRpcFixture();
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: fixture.cwd,
+      devRpc: true,
+    });
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 62,
+        method: 'dev.graph.commitGraph',
+        params: {
+          specId: fixture.specAId,
+          basis: 'accepted_review_set',
+          nodes: [],
+          edges: [],
+        },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: '2.0',
+      id: 62,
+      error: { code: -32602, message: 'Invalid params' },
+    });
+
+    const invalid = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 63,
+      method: 'dev.graph.commitGraph',
+      params: {
+        specId: fixture.specAId,
+        basis: 'explicit',
+        nodes: [{ ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Invalid dev RPC thesis' }],
+        edges: [{ category: 'proof', source: { existingCode: 'R1' }, target: 'thesis' }],
+      },
+    });
+
+    expect(invalid).toMatchObject({
+      jsonrpc: '2.0',
+      id: 63,
+      result: {
+        status: 'structural_illegal',
+        diagnostics: expect.arrayContaining([
+          expect.objectContaining({ field: 'edges[0].stance', message: expect.any(String) }),
+        ]),
+      },
+    });
+
+    const overview = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 64,
+      method: 'graph.overview',
+      params: { specId: fixture.specAId },
+    });
+    expect(overview).toMatchObject({
+      jsonrpc: '2.0',
+      id: 64,
+      result: {
+        nodeCount: 2,
+        edgeCount: 1,
+        lsn: fixture.finalLsn,
+      },
+    });
+    if (!('result' in overview)) throw new Error('expected overview success');
+    expect(JSON.stringify(overview.result)).not.toContain('Invalid dev RPC thesis');
+  });
+
+  it('enables dev graph commits over newline-delimited JSON-RPC streams', async () => {
+    const fixture = await createGraphRpcFixture();
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const productUpdates = createProductUpdatePublisher();
+    const chunks: string[] = [];
+    output.on('data', (chunk) => chunks.push(String(chunk)));
+
+    const done = runJsonRpcLineServer({
+      input,
+      output,
+      handlers: createRpcHandlers({
+        coordinator: coordinator(),
+        cwd: fixture.cwd,
+        productUpdates,
+        devRpc: true,
+      }),
+      productUpdates,
+    });
+
+    input.end(
+      [
+        {
+          jsonrpc: '2.0',
+          id: 65,
+          method: 'dev.graph.commitGraph',
+          params: {
+            specId: fixture.specAId,
+            basis: 'explicit',
+            nodes: [{ ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Line RPC thesis' }],
+            edges: [{ category: 'support', source: { existingCode: 'R1' }, target: 'thesis', stance: 'for' }],
+          },
+        },
+        { jsonrpc: '2.0', id: 66, method: 'graph.overview', params: { specId: fixture.specAId } },
+      ]
+        .map((message) => JSON.stringify(message))
+        .join('\n') + '\n',
+    );
+    await done;
+
+    const messages = chunks
+      .join('')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    expect(messages).toHaveLength(3);
+    expect(messages[0]).toMatchObject({
+      jsonrpc: '2.0',
+      method: 'brunch.updated',
+      params: {
+        topics: ['graph.overview', 'graph.nodeNeighborhood'],
+        updates: [
+          { topic: 'graph.overview', specId: fixture.specAId, lsn: expect.any(Number) },
+          { topic: 'graph.nodeNeighborhood', specId: fixture.specAId, lsn: expect.any(Number) },
+        ],
+      },
+    });
+    expect(messages[1]).toMatchObject({
+      jsonrpc: '2.0',
+      id: 65,
+      result: { status: 'success', createdNodes: { thesis: { code: 'TH1' } } },
+    });
+    expect(JSON.stringify(messages[2])).toContain('Line RPC thesis');
   });
 
   it('returns parse errors over newline-delimited JSON-RPC streams', async () => {
