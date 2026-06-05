@@ -68,6 +68,14 @@ brunch_rpc '{"jsonrpc":"2.0","id":1,"method":"rpc.discover"}' \
   | jq 'select(.id == 1).result.methods[].method'
 ```
 
+For one-shot command-line work, prefer the dev helper. It sets `BRUNCH_DEV_RPC=1`, sends one request, filters notifications, and prints only the response result:
+
+```bash
+"$REPO/node_modules/.bin/tsx" "$REPO/src/dev/workspace-rpc.ts" \
+  --workspace "$DEV_WORKSPACE" \
+  graph.overview '{"specId":4}'
+```
+
 ## 3. Inspect seeded specs
 
 ```bash
@@ -137,6 +145,26 @@ Sibling specs should keep their own overview LSN after this commit:
 SIBLING_SPEC_ID=2
 brunch_rpc "{\"jsonrpc\":\"2.0\",\"id\":92,\"method\":\"graph.overview\",\"params\":{\"specId\":$SIBLING_SPEC_ID}}" \
   | jq 'select(.id == 92).result | {nodeCount, edgeCount, lsn}'
+```
+
+### Capture a curated DB back to a seed fixture
+
+After manual refinement, export the persisted spec graph back into the consolidated seed contract. The exporter defaults to `graph_truth` projection so superseded predecessors that remain in accepted graph history are preserved.
+
+```bash
+"$REPO/node_modules/.bin/tsx" "$REPO/src/graph/export-fixtures.ts" \
+  --workspace "$DEV_WORKSPACE" \
+  --spec-id "$SPEC_ID" \
+  --out "$REPO/.fixtures/seeds/<set>/<slug>.json"
+```
+
+For inspection without writing:
+
+```bash
+"$REPO/node_modules/.bin/tsx" "$REPO/src/graph/export-fixtures.ts" \
+  --workspace "$DEV_WORKSPACE" \
+  --spec-id "$SPEC_ID" \
+  | jq '{spec, nodeCount:(.nodes|length), edgeCount:(.edges|length)}'
 ```
 
 ### Basis rule of thumb
