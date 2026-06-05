@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "probeId": "fixture-curation",
+  "runId": "fixture-curation-2026-06-05T104440Z",
+  "generatedAt": "2026-06-05T08:44:38.258Z",
+  "seedSet": "bilal-port-variants",
+  "seedSlug": "macro-view-grounded-intent",
+  "selectedBaseProfile": "grounded-intent",
+  "cwd": "/var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-fixture-curation-vg9Eo2",
+  "specId": 1,
+  "sessionId": "019e96f4-ae08-762d-9783-ddd94163e7b3",
+  "prompt": "Brunch fixture-curation tracer: the selected spec is a Bilal-derived explicit base seed named \"macro-view-grounded-intent\".\n\nUse read_graph once in overview mode. Then use commit_graph exactly once to add a small intent-plane expansion that improves launch/usefulness of this existing spec without duplicating base nodes. Create one to three new intent-plane nodes, connect them legally to existing graph truth when possible, use basis implicit through the propose-graph tool path, and stop after a successful commit_graph result.",
+  "runtimeState": {
+    "operationalMode": "elicit",
+    "agentStrategy": "propose-graph",
+    "agentLens": "intent",
+    "agentGoal": "commit-converge"
+  },
+  "model": "gpt-5.5",
+  "success": true,
+  "commitGraphAttemptCount": 1,
+  "commitGraphAttempts": [
+    {
+      "index": 1,
+      "status": "success",
+      "lsn": 3,
+      "nodeRefs": {
+        "n1": 71,
+        "n2": 72
+      },
+      "edgeIds": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "content": "Graph committed successfully (LSN 3).\nNodes created: n1 → R1, n2 → R2\nEdges created: #7, #8, #9, #10, #11, #12"
+    }
+  ],
+  "createdNodes": [
+    {
+      "id": 71,
+      "code": "R1",
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "On initial load, the macro view should fit the fully expanded derivation graph into view.",
+      "basis": "implicit"
+    },
+    {
+      "id": 72,
+      "code": "R2",
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "When artifact data is missing or unrendereable, the macro view should show a read-only diagnostic state instead of a blank canvas.",
+      "basis": "implicit"
+    }
+  ],
+  "finalGraph": {
+    "nodeCount": 72,
+    "edgeCount": 12,
+    "lsn": 3,
+    "explicitNodeCount": 70,
+    "implicitNodeCount": 2,
+    "explicitEdgeCount": 6,
+    "implicitEdgeCount": 6
+  },
+  "friction": [],
+  "artifacts": {
+    "runDir": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z",
+    "sessionJsonl": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/session.jsonl",
+    "transcriptMarkdown": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/transcript.md",
+    "reportJson": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/report.json",
+    "graphSnapshotJson": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/graph-snapshot.json"
+  }
+}
