@@ -1,4 +1,4 @@
-import type { GraphNode } from '../../graph/schema/nodes.js';
+import { formatGraphNodeCode, type GraphNode } from '../../graph/schema/nodes.js';
 import type { GraphOverview } from '../../graph/snapshot.js';
 import type { AgentLensSelection } from '../../session/runtime-state.js';
 
@@ -18,6 +18,7 @@ export function renderGraphContext(overview: GraphOverview, options: RenderGraph
     const byLens = lensScore(b, options.lens) - lensScore(a, options.lens);
     return byLens || a.id - b.id;
   });
+  const nodesById = new Map(overview.nodes.map((node) => [node.id, node]));
 
   const lines = [
     `[Selected-spec graph context · ${options.lens} lens]`,
@@ -42,7 +43,11 @@ export function renderGraphContext(overview: GraphOverview, options: RenderGraph
     lines.push('- edges:');
     for (const edge of overview.edges.slice(0, maxEdges)) {
       const stance = edge.stance ? `/${edge.stance}` : '';
-      lines.push(`  - #${edge.sourceId} -[${edge.category}${stance}]-> #${edge.targetId}`);
+      const source = nodesById.get(edge.sourceId);
+      const target = nodesById.get(edge.targetId);
+      const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${edge.sourceId}`;
+      const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${edge.targetId}`;
+      lines.push(`  - ${sourceCode} -[${edge.category}${stance}]-> ${targetCode}`);
     }
     if (overview.edges.length > maxEdges) {
       lines.push(`  - …${overview.edges.length - maxEdges} more edge(s) omitted`);
@@ -75,7 +80,7 @@ function lensEmphasis(lens: AgentLensSelection): string {
 
 function formatNode(node: GraphNode): string {
   const body = node.body ? ` — ${truncate(node.body, 120)}` : '';
-  return `[#${node.id}] ${node.plane}/${node.kind}: ${node.title}${body}`;
+  return `[${formatGraphNodeCode(node.kind, node.kindOrdinal)}] ${node.plane}/${node.kind}: ${node.title}${body}`;
 }
 
 function truncate(value: string, maxLength: number): string {

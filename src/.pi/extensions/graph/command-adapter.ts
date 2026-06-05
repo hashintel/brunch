@@ -16,10 +16,14 @@ import type {
   CommitGraphInput,
   CommitGraphResult,
   CommitGraphSuccess,
+  Diagnostic,
   StructuralIllegal,
 } from '../../../graph/command-executor.js';
+import { formatGraphNodeCode, parseGraphNodeCode } from '../../../graph/schema/nodes.js';
 import type { GraphOverview, NeighborhoodResult } from '../../../graph/snapshot.js';
 import type { ToolCommitGraphParams } from './tool-schemas.js';
+
+export type ResolveGraphNodeCode = (code: string) => number | undefined;
 
 /**
  * Translate Pi tool params into a CommandExecutor CommitGraphInput.
@@ -29,32 +33,64 @@ import type { ToolCommitGraphParams } from './tool-schemas.js';
  * so the agent-facing tool schema never asks the LLM for a workspace-global
  * graph target (D61-L).
  */
-export function translateCommitGraph(params: ToolCommitGraphParams, specId: number): CommitGraphInput {
+export function translateCommitGraph(
+  params: ToolCommitGraphParams,
+  specId: number,
+  resolveGraphNodeCode: ResolveGraphNodeCode,
+): CommitGraphInput | StructuralIllegal {
   const nodes: BatchNodeInput[] = params.nodes.map((n) => ({
     ref: n.ref,
     plane: n.plane as BatchNodeInput['plane'],
     kind: n.kind,
     title: n.title,
     body: n.body,
-    basis: n.basis as BatchNodeInput['basis'],
     source: n.source,
     detail: n.detail,
   }));
 
-  const edges: BatchEdgeInput[] = params.edges.map((e) => ({
-    category: e.category,
-    source: resolveEdgeRef(e.source),
-    target: resolveEdgeRef(e.target),
-    stance: e.stance,
-    rationale: e.rationale,
-  }));
+  const diagnostics: Diagnostic[] = [];
+  const edges: BatchEdgeInput[] = [];
+  for (const [index, e] of params.edges.entries()) {
+    const source = normalizeEdgeRef(e.source, resolveGraphNodeCode, `edges[${index}].source`, diagnostics);
+    const target = normalizeEdgeRef(e.target, resolveGraphNodeCode, `edges[${index}].target`, diagnostics);
+    if (source.status === 'invalid' || target.status === 'invalid') continue;
+    edges.push({
+      category: e.category,
+      source: source.ref,
+      target: target.ref,
+      stance: e.stance,
+      rationale: e.rationale,
+    });
+  }
 
-  return { specId, nodes, edges };
+  if (diagnostics.length > 0) return { status: 'structural_illegal', diagnostics };
+  return { specId, basis: 'implicit', nodes, edges };
 }
 
-function resolveEdgeRef(ref: string | { readonly existing: number }): BatchEdgeRef {
-  if (typeof ref === 'string') return ref;
-  return { existing: ref.existing };
+type EdgeRefNormalization =
+  | { readonly status: 'valid'; readonly ref: BatchEdgeRef }
+  | { readonly status: 'invalid' };
+
+function normalizeEdgeRef(
+  ref: string | { readonly existingCode: string },
+  resolveGraphNodeCode: ResolveGraphNodeCode,
+  field: string,
+  diagnostics: Diagnostic[],
+): EdgeRefNormalization {
+  if (typeof ref === 'string') return { status: 'valid', ref };
+  if (!parseGraphNodeCode(ref.existingCode)) {
+    diagnostics.push({ field, message: `malformed graph node code "${ref.existingCode}"` });
+    return { status: 'invalid' };
+  }
+  const nodeId = resolveGraphNodeCode(ref.existingCode);
+  if (nodeId === undefined) {
+    diagnostics.push({
+      field,
+      message: `graph node code "${ref.existingCode}" does not resolve in the selected spec`,
+    });
+    return { status: 'invalid' };
+  }
+  return { status: 'valid', ref: { existing: nodeId } };
 }
 
 // ---------------------------------------------------------------------------
@@ -71,15 +107,16 @@ export function formatCommitGraphResult(result: CommitGraphResult): string {
   if (result.status === 'success') {
     return formatCommitSuccess(result);
   }
-  return formatDiagnostics(result);
+  return formatStructuralIllegal(result);
 }
 
 function formatCommitSuccess(result: CommitGraphSuccess): string {
-  const nodeEntries = Object.entries(result.nodes);
+  const nodeEntries = Object.entries(result.createdNodes);
   const lines: string[] = [`Graph committed successfully (LSN ${result.lsn}).`];
 
   if (nodeEntries.length > 0) {
-    lines.push(`Nodes created: ${nodeEntries.map(([ref, id]) => `${ref} → #${id}`).join(', ')}`);
+    const createdNodes = nodeEntries.map(([ref, node]) => `${ref} → ${node.code}`);
+    lines.push(`Nodes created: ${createdNodes.join(', ')}`);
   }
   if (result.edges.length > 0) {
     lines.push(`Edges created: ${result.edges.map((id) => `#${id}`).join(', ')}`);
@@ -88,7 +125,7 @@ function formatCommitSuccess(result: CommitGraphSuccess): string {
   return lines.join('\n');
 }
 
-function formatDiagnostics(result: StructuralIllegal): string {
+export function formatStructuralIllegal(result: StructuralIllegal): string {
   const lines: string[] = [
     'STRUCTURAL_ILLEGAL: The batch was rejected. Fix the following issues and retry:',
     '',
@@ -117,17 +154,24 @@ export function formatGraphOverview(overview: GraphOverview): string {
     `Graph overview (LSN ${overview.lsn}): ${overview.nodeCount} node(s), ${overview.edgeCount} edge(s).`,
     '',
   ];
+  const nodesById = new Map(overview.nodes.map((node) => [node.id, node]));
 
   for (const node of overview.nodes) {
     const detail = node.detail ? ` [has detail]` : '';
-    lines.push(`- [#${node.id}] ${node.plane}/${node.kind}: "${node.title}"${detail}`);
+    lines.push(
+      `- [${formatGraphNodeCode(node.kind, node.kindOrdinal)}] ${node.plane}/${node.kind}: "${node.title}"${detail}`,
+    );
   }
 
   if (overview.edges.length > 0) {
     lines.push('');
     for (const edge of overview.edges) {
       const stance = edge.stance ? ` (${edge.stance})` : '';
-      lines.push(`- Edge #${edge.id}: #${edge.sourceId} —[${edge.category}${stance}]→ #${edge.targetId}`);
+      const source = nodesById.get(edge.sourceId);
+      const target = nodesById.get(edge.targetId);
+      const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${edge.sourceId}`;
+      const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${edge.targetId}`;
+      lines.push(`- Edge #${edge.id}: ${sourceCode} —[${edge.category}${stance}]→ ${targetCode}`);
     }
   }
 
@@ -143,8 +187,9 @@ export function formatNeighborhoodResult(result: NeighborhoodResult): string {
   }
 
   const { anchor, neighbors, edges } = result;
+  const nodesById = new Map([[anchor.id, anchor], ...neighbors.map((node) => [node.id, node] as const)]);
   const lines: string[] = [
-    `Neighborhood of [#${anchor.id}] ${anchor.plane}/${anchor.kind}: "${anchor.title}"`,
+    `Neighborhood of [${formatGraphNodeCode(anchor.kind, anchor.kindOrdinal)}] ${anchor.plane}/${anchor.kind}: "${anchor.title}"`,
   ];
 
   if (anchor.body) {
@@ -154,7 +199,7 @@ export function formatNeighborhoodResult(result: NeighborhoodResult): string {
   if (neighbors.length > 0) {
     lines.push('', 'Neighbors:');
     for (const n of neighbors) {
-      lines.push(`  - [#${n.id}] ${n.plane}/${n.kind}: "${n.title}"`);
+      lines.push(`  - [${formatGraphNodeCode(n.kind, n.kindOrdinal)}] ${n.plane}/${n.kind}: "${n.title}"`);
     }
   }
 
@@ -162,7 +207,11 @@ export function formatNeighborhoodResult(result: NeighborhoodResult): string {
     lines.push('', 'Edges:');
     for (const e of edges) {
       const stance = e.stance ? ` (${e.stance})` : '';
-      lines.push(`  - #${e.id}: #${e.sourceId} —[${e.category}${stance}]→ #${e.targetId}`);
+      const source = nodesById.get(e.sourceId);
+      const target = nodesById.get(e.targetId);
+      const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${e.sourceId}`;
+      const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${e.targetId}`;
+      lines.push(`  - #${e.id}: ${sourceCode} —[${e.category}${stance}]→ ${targetCode}`);
     }
   }
 

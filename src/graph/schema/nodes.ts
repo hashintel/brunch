@@ -27,7 +27,8 @@ import type { Lsn, NodeId } from '../atoms.js';
 export type NodePlane = 'intent' | 'oracle' | 'design' | 'plan';
 
 /**
- * How a node entered graph truth.
+ * Whether this exact graph item was approved (`explicit`) or materialized from
+ * an approved concept without per-item review (`implicit`).
  *
  * Derived from `db/schema.ts` — same semantics as EdgeBasis.
  */
@@ -67,6 +68,62 @@ export type NodeKind = IntentKind | OracleKind | DesignKind | PlanKind;
  * Never persisted — computed via {@link intentKindCategory}.
  */
 export type IntentKindCategory = 'basic' | 'structural' | 'reasoning';
+
+export type ReadinessBand = 'grounding' | 'elicitation' | 'commitment';
+
+export interface NodeKindMetadata {
+  readonly label: string;
+  readonly readinessBands: readonly ReadinessBand[];
+}
+
+export const NODE_KIND_METADATA: Record<NodeKind, NodeKindMetadata> = {
+  goal: { label: 'G', readinessBands: ['grounding'] },
+  thesis: { label: 'TH', readinessBands: ['grounding'] },
+  term: { label: 'T', readinessBands: ['grounding', 'elicitation'] },
+  context: { label: 'CTX', readinessBands: ['grounding'] },
+  requirement: { label: 'R', readinessBands: ['elicitation', 'commitment'] },
+  assumption: { label: 'A', readinessBands: ['grounding', 'elicitation'] },
+  constraint: { label: 'CON', readinessBands: ['grounding', 'elicitation'] },
+  invariant: { label: 'INV', readinessBands: ['commitment'] },
+  decision: { label: 'D', readinessBands: ['commitment'] },
+  criterion: { label: 'CR', readinessBands: ['elicitation', 'commitment'] },
+  example: { label: 'EX', readinessBands: ['elicitation'] },
+  check: { label: 'CHK', readinessBands: ['commitment'] },
+  validation_method: { label: 'VM', readinessBands: ['commitment'] },
+  evidence: { label: 'E', readinessBands: ['commitment'] },
+  obligation: { label: 'O', readinessBands: ['commitment'] },
+  module: { label: 'M', readinessBands: ['elicitation'] },
+  interface: { label: 'IF', readinessBands: ['elicitation'] },
+  milestone: { label: 'MS', readinessBands: ['commitment'] },
+  frontier: { label: 'F', readinessBands: ['commitment'] },
+  slice: { label: 'SL', readinessBands: ['commitment'] },
+};
+
+export interface ParsedGraphNodeCode {
+  readonly kind: NodeKind;
+  readonly kindOrdinal: number;
+}
+
+const NODE_KIND_BY_LABEL = new Map(
+  Object.entries(NODE_KIND_METADATA).map(([kind, metadata]) => [metadata.label, kind as NodeKind]),
+);
+
+export function formatGraphNodeCode(kind: NodeKind, kindOrdinal: number): string {
+  return `${NODE_KIND_METADATA[kind].label}${kindOrdinal}`;
+}
+
+export function parseGraphNodeCode(code: string): ParsedGraphNodeCode | undefined {
+  const normalized = code.trim().toUpperCase();
+  for (let prefixLength = Math.min(3, normalized.length - 1); prefixLength > 0; prefixLength--) {
+    const label = normalized.slice(0, prefixLength);
+    const kind = NODE_KIND_BY_LABEL.get(label);
+    if (!kind) continue;
+    const ordinalText = normalized.slice(prefixLength);
+    if (!/^[1-9]\d*$/.test(ordinalText)) return undefined;
+    return { kind, kindOrdinal: Number(ordinalText) };
+  }
+  return undefined;
+}
 
 /** Pure derivation: intent kind → category. */
 export function intentKindCategory(kind: IntentKind): IntentKindCategory {
@@ -128,6 +185,7 @@ export interface GraphNode {
   readonly specId: number;
   readonly plane: NodePlane;
   readonly kind: NodeKind;
+  readonly kindOrdinal: number;
   readonly title: string;
   readonly body?: string;
   readonly basis: NodeBasis;

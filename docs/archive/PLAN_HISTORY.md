@@ -3,6 +3,13 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-06-04 FE-808 closeout archive
+
+Archived from `memory/PLAN.md` when FE-808 closed out and the live frontier advanced to `capture-response-to-graph`.
+
+- 2026-06-02 — **agent-graph-integration** enabling slices — Done inside FE-785: runtime vocabulary fixed; source moved from `src/tui-client/.pi` to `src/.pi`; real `read_graph`/`commit_graph` Pi tools route through `CommandExecutor`; default Brunch runtime factory registers graph tools; A14 `propose-graph → commitGraph` probe persisted 4 nodes + 4 edges on first attempt; review-set dry-run gate validates/filters proposal payloads. Verified: targeted tests, `.fixtures/runs/propose-graph-commit/2026-06-02-propose-graph-commit/`, and `npm run verify`. Watch: broad FE-785 bucket is now split into delivery frontiers above.
+- 2026-06-02 — **spec-persistence-and-startup** — Done: specs are DB rows with integer ids and `readiness_grade`; `createSpec` / `getSpec` / `updateReadinessGrade` route through `CommandExecutor` with change-log audit; startup scaffolds `.brunch/workspace.json` + `.brunch/data.db`; session binding collapsed to `{schemaVersion,specId}` and is fork-portable; inventory resolves spec names from DB. Verified: `npm run verify` and real `brunch --mode print` against a fresh cwd. Watch: richer multi-spec initiative/claim model remains deferred by D61-L.
+
 ## 2026-06-04 Rolling completion archive
 
 Archived from `memory/PLAN.md` when FE-795 tied off and the live frontier advanced to `agents-composition-layer`.

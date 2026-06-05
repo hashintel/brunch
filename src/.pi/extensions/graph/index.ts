@@ -12,11 +12,17 @@
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
-import { renderNodeContext } from '../../../agents/contexts/node.js';
 import type { CommandExecutor } from '../../../graph/command-executor.js';
+import { formatNeighborhood } from '../../../graph/format/neighborhood.js';
+import { projectNeighborhood } from '../../../graph/project/neighborhood.js';
 import type { GraphOverview, NeighborhoodResult } from '../../../graph/snapshot.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
-import { translateCommitGraph, formatCommitGraphResult, formatGraphOverview } from './command-adapter.js';
+import {
+  translateCommitGraph,
+  formatCommitGraphResult,
+  formatGraphOverview,
+  formatStructuralIllegal,
+} from './command-adapter.js';
 import { CommitGraphParams, ReadGraphParams } from './tool-schemas.js';
 
 // ---------------------------------------------------------------------------
@@ -27,6 +33,7 @@ import { CommitGraphParams, ReadGraphParams } from './tool-schemas.js';
 export interface GraphSnapshotReaders {
   readonly getGraphOverview: () => GraphOverview;
   readonly getNodeNeighborhood: (nodeId: number, options?: { hops?: number }) => NeighborhoodResult;
+  readonly resolveNodeCode: (code: string) => number | undefined;
 }
 
 /**
@@ -57,12 +64,12 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
     description:
       'Atomically create a batch of nodes and edges in the specification graph. ' +
       "Each node gets a temporary batch ref (e.g. 'n1') that edges can reference. " +
-      'Edges can also reference existing nodes by id via {existing: <id>}. ' +
+      'Edges can also reference existing nodes by projected code via {existingCode: "G1"}. ' +
       'The entire batch succeeds or fails atomically.',
     promptSnippet: 'Atomically commit nodes and edges to the specification graph',
     promptGuidelines: [
       'Use commit_graph to persist specification elements (goals, requirements, decisions, etc.) after the user has accepted the concept.',
-      'Each node must have a unique batch `ref` string. Edges reference nodes by their `ref` or by `{existing: <id>}` for nodes already in the graph.',
+      'Each node must have a unique batch `ref` string. Edges reference nodes by their `ref` or by `{existingCode: "G1"}` for nodes already in the selected spec.',
       'If commit_graph returns STRUCTURAL_ILLEGAL, read the diagnostics, fix the issues, and retry. Do not show intermediate failures to the user.',
       'The `stance` field is required on `proof` and `support` edges, and invalid on all other categories.',
       'Node kinds `decision` and `term` require a `detail` object; all other kinds must omit `detail`.',
@@ -71,8 +78,8 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
 
     async execute(_toolCallId, params) {
       const specId = deps.specId;
-      const input = translateCommitGraph(params, specId);
-      const result = commandExecutor.commitGraph(input);
+      const input = translateCommitGraph(params, specId, snapshots.resolveNodeCode);
+      const result = 'status' in input ? input : commandExecutor.commitGraph(input);
       const text = formatCommitGraphResult(result);
       if (result.status === 'success') {
         deps.productUpdates?.publish(graphMutationProductUpdates({ specId, lsn: result.lsn }));
@@ -92,32 +99,55 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
     description:
       'Read the current specification graph. ' +
       "Use mode 'overview' for a full graph summary, or " +
-      "mode 'neighborhood' with a node_id to see a specific node and its neighbors.",
+      "mode 'neighborhood' with nodeCode to see a specific node and its neighbors.",
     promptSnippet: 'Read the specification graph (overview or node neighborhood)',
     promptGuidelines: [
       "Use read_graph with mode 'overview' to see all nodes and edges before committing new graph elements.",
-      "Use read_graph with mode 'neighborhood' and a node_id to inspect a specific node and its connections.",
+      "Use read_graph with mode 'neighborhood' and a projected nodeCode such as G1 or CON2 to inspect a specific node and its connections.",
     ],
     parameters: ReadGraphParams,
 
     async execute(_toolCallId, params) {
       let text: string;
-      let details: GraphOverview | NeighborhoodResult;
+      let details:
+        | GraphOverview
+        | NeighborhoodResult
+        | {
+            readonly status: 'structural_illegal';
+            readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
+          };
 
       if (params.mode === 'overview') {
         const overview = snapshots.getGraphOverview();
         text = formatGraphOverview(overview);
         details = overview;
+      } else if (params.nodeCode == null) {
+        details = {
+          status: 'structural_illegal',
+          diagnostics: [{ field: 'nodeCode', message: 'nodeCode is required for neighborhood mode' }],
+        };
+        text = formatStructuralIllegal(details);
       } else {
-        if (params.node_id == null) {
-          throw new Error('node_id is required for neighborhood mode');
+        const nodeId = snapshots.resolveNodeCode(params.nodeCode);
+        if (nodeId === undefined) {
+          details = {
+            status: 'structural_illegal',
+            diagnostics: [
+              {
+                field: 'nodeCode',
+                message: `nodeCode ${params.nodeCode} does not resolve in the selected spec`,
+              },
+            ],
+          };
+          text = formatStructuralIllegal(details);
+        } else {
+          const neighborhood = snapshots.getNodeNeighborhood(
+            nodeId,
+            params.hops != null ? { hops: params.hops } : undefined,
+          );
+          text = formatNeighborhood(projectNeighborhood(neighborhood));
+          details = neighborhood;
         }
-        const neighborhood = snapshots.getNodeNeighborhood(
-          params.node_id,
-          params.hops != null ? { hops: params.hops } : undefined,
-        );
-        text = renderNodeContext(neighborhood);
-        details = neighborhood;
       }
 
       return {

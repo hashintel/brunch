@@ -21,6 +21,7 @@
     "build": "tsc -p tsconfig.build.json && npm run build:pi-assets && npm run build:web",
     "build:pi-assets": "mkdir -p dist/.pi/components/workspace-dialog dist/agents && cp -R src/.pi/components/workspace-dialog/assets dist/.pi/components/workspace-dialog/ && cp -R src/agents/definitions src/agents/goals src/agents/strategies src/agents/lenses src/agents/methods dist/agents/",
     "build:web": "vite build",
+    "seed": "tsx src/graph/seed-fixtures.ts",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "test": "vitest --run",

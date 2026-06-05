@@ -103,6 +103,8 @@ Honor the repo's pre-release posture: if the current schema, fixture shape, dumm
 
 No speculative abstractions. Only extract when two concrete cases force it. Do not anticipate later tests or build shape-only scaffolding; let the current behavioral test pull the interface into existence.
 
+Do not delete comment-rich empty source files as cleanup unless the current card names them or the deletion proof in `AGENTS.md` §intentional topology stubs is satisfied. Passing import/build checks is insufficient proof; ask the user when the topology intent is unclear.
+
 The card's Expected touched paths are tentative, not binding. If the build needs to diverge — a path you didn't anticipate, a file the work doesn't actually need — proceed and note the divergence briefly when updating the card's status. Significant divergence (touching new directories or seams not declared) is a signal to pause and re-check the overlap-as-independence-test against other active scope files for the same frontier.
 
 ## Refactor
@@ -202,7 +204,7 @@ Other volatile artifacts are **review-before-delete**, not automatic cleanup:
 - `memory/REFACTOR.md` — delete only when every listed refactor step is done/dropped and no future sequence depends on it.
 - Provisional docs outside `memory/` (for example `docs/**/provisional*.md`, handoff plans, spike plans, or exploration inventories) — do **not** delete during `ln-build` cleanup unless the user explicitly asks or you first prove that all remaining future-facing inventory has been absorbed elsewhere. If only the current card is done but the artifact still contains later affordances, open questions, or scoping input, update it instead of deleting it.
 
-Before deleting any file, name the file, state why no future agent would need it, and prefer asking the user when uncertain. Do not create archive copies, numbered handoffs, or completion-pointer files.
+Before deleting any file, name the file, state why no future agent would need it, and prefer asking the user when uncertain. For source files whose only runtime content is `export {}` plus comments, read the comments as design payload and apply `AGENTS.md` §intentional topology stubs before proposing deletion. Do not create archive copies, numbered handoffs, or completion-pointer files.
 
 ## Routing
 

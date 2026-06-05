@@ -12,12 +12,26 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type BrunchDb } from '../db/connection.js';
 import { specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
+import { NODE_KIND_METADATA, parseGraphNodeCode } from './schema/nodes.js';
 import { getGraphOverview, getNodeNeighborhood, getOpenReconciliationNeeds } from './snapshot.js';
 
 function createTestDb(): BrunchDb {
   return createDb(':memory:');
 }
 
+describe('graph node code metadata', () => {
+  it('uses globally unique 1-3 letter labels and parses by longest prefix', () => {
+    const labels = Object.values(NODE_KIND_METADATA).map((metadata) => metadata.label);
+    expect(new Set(labels).size).toBe(labels.length);
+    expect(labels.every((label) => /^[A-Z]{1,3}$/.test(label))).toBe(true);
+    expect(Object.values(NODE_KIND_METADATA).every((metadata) => metadata.readinessBands.length > 0)).toBe(
+      true,
+    );
+    expect(parseGraphNodeCode('A1')).toEqual({ kind: 'assumption', kindOrdinal: 1 });
+    expect(parseGraphNodeCode('CON2')).toEqual({ kind: 'constraint', kindOrdinal: 2 });
+    expect(parseGraphNodeCode('CR3')).toEqual({ kind: 'criterion', kindOrdinal: 3 });
+  });
+});
 describe('getGraphOverview', () => {
   let db: BrunchDb;
   let executor: CommandExecutor;
@@ -78,6 +92,7 @@ describe('getGraphOverview', () => {
     });
     expect(node.createdAtLsn).toBe(1);
     expect(node.updatedAtLsn).toBe(1);
+    expect(node.kindOrdinal).toBe(1);
   });
 
   it('returns nodes and edges with correct counts', () => {
@@ -126,13 +141,17 @@ describe('getGraphOverview', () => {
     });
     expect(batch.status).toBe('success');
 
-    const overview = getGraphOverview(db, specId);
-    // R_offline_v0 should be excluded (it is a superseded predecessor)
-    const titles = overview.nodes.map((n) => n.title);
-    expect(titles).toContain('R_offline_v1');
-    expect(titles).not.toContain('R_offline_v0');
-    // The supersession edge should still be present
-    expect(overview.edges).toHaveLength(1);
+    const activeOverview = getGraphOverview(db, specId);
+    const activeTitles = activeOverview.nodes.map((n) => n.title);
+    expect(activeTitles).toContain('R_offline_v1');
+    expect(activeTitles).not.toContain('R_offline_v0');
+    expect(activeOverview.edges).toHaveLength(0);
+
+    const truthOverview = getGraphOverview(db, specId, { projection: 'graph_truth' });
+    expect(truthOverview.nodes.map((n) => n.title)).toEqual(
+      expect.arrayContaining(['R_offline_v0', 'R_offline_v1']),
+    );
+    expect(truthOverview.edges).toHaveLength(1);
   });
 });
 
@@ -171,7 +190,7 @@ describe('getNodeNeighborhood', () => {
     expect(batch.status).toBe('success');
     if (batch.status !== 'success') throw new Error('unreachable');
 
-    const r1Id = batch.nodes['r1']!;
+    const r1Id = batch.createdNodes['r1']!.id;
     const result = getNodeNeighborhood(db, specId, r1Id);
     expect(result.status).toBe('success');
     if (result.status !== 'success') throw new Error('unreachable');
@@ -201,7 +220,7 @@ describe('getNodeNeighborhood', () => {
     expect(batch.status).toBe('success');
     if (batch.status !== 'success') throw new Error('unreachable');
 
-    const g1Id = batch.nodes['g1']!;
+    const g1Id = batch.createdNodes['g1']!.id;
 
     // 1 hop: only R1
     const hop1 = getNodeNeighborhood(db, specId, g1Id, { hops: 1 });
@@ -238,7 +257,7 @@ describe('getNodeNeighborhood', () => {
     expect(batch.status).toBe('success');
     if (batch.status !== 'success') throw new Error('unreachable');
 
-    const r1Id = batch.nodes['r1']!;
+    const r1Id = batch.createdNodes['r1']!.id;
 
     // Neighborhood of R_v1: should include A1 but exclude R_v0
     const result = getNodeNeighborhood(db, specId, r1Id);
@@ -274,7 +293,7 @@ describe('getNodeNeighborhood', () => {
     expect(batch.status).toBe('success');
     if (batch.status !== 'success') throw new Error('unreachable');
 
-    const t1Id = batch.nodes['t1']!;
+    const t1Id = batch.createdNodes['t1']!.id;
     const result = getNodeNeighborhood(db, specId, t1Id);
     expect(result.status).toBe('success');
     if (result.status !== 'success') throw new Error('unreachable');

@@ -74,6 +74,7 @@ export function translateReviewSetProposalToCommitGraph(
 ): CommitGraphInput {
   return {
     specId,
+    basis: 'explicit',
     nodes: proposal.entityDrafts.map(
       (draft): BatchNodeInput => ({
         ref: draft.draftId,
@@ -81,7 +82,6 @@ export function translateReviewSetProposalToCommitGraph(
         kind: draft.kind,
         title: draft.title,
         ...(draft.body !== undefined ? { body: draft.body } : {}),
-        basis: 'accepted_review_set',
         ...(draft.detail !== undefined ? { detail: draft.detail } : {}),
       }),
     ),
@@ -90,7 +90,6 @@ export function translateReviewSetProposalToCommitGraph(
         category: draft.category,
         source: draft.sourceDraftId,
         target: draft.targetDraftId,
-        basis: 'accepted_review_set',
         ...(draft.stance !== undefined ? { stance: draft.stance } : {}),
         ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
       }),

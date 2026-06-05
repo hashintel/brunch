@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "probeId": "propose-graph-commit",
+  "runId": "2026-06-04-ambiguity-no-overcommit",
+  "generatedAt": "2026-06-04T14:50:13.707Z",
+  "mission": "Prove the propose-graph strategy can commit graph truth through commit_graph.",
+  "evaluationFocus": "A14-L ambiguity handling without unsupported graph overcommit.",
+  "scenarioId": "ambiguity-no-overcommit",
+  "success": true,
+  "cwd": "/var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-propose-graph-commit-qHP5ki",
+  "specId": 1,
+  "sessionId": "019e931d-0757-7c85-874a-186bffe8dea6",
+  "prompt": "Brunch A14-L ambiguity/no-overcommit probe.\n\nThe user says: \"Maybe our launch process has some risk somewhere; please update the spec graph if that seems useful.\"\n\nUse read_graph once in overview mode. Because the prompt does not provide a concrete accepted graph fact, do not call commit_graph. Instead, respond with a concise clarification request or explanation that there is not enough accepted graph truth to commit yet.",
+  "model": "gpt-5.5",
+  "maxAttempts": 2,
+  "attemptCount": 0,
+  "retryCount": 0,
+  "firstAttemptStatus": "not_called",
+  "finalStatus": "not_called",
+  "attempts": [],
+  "finalGraph": {
+    "nodeCount": 0,
+    "edgeCount": 0,
+    "lsn": 2
+  },
+  "committedNodeTitles": [],
+  "committedNodes": [],
+  "projectedCodeEvidence": {
+    "codes": [],
+    "seenInTranscript": true,
+    "usedInCommitParams": true
+  },
+  "ambiguityOutcome": "no_op_or_clarification",
+  "friction": [],
+  "artifacts": {
+    "runDir": ".fixtures/runs/propose-graph-commit/2026-06-04-ambiguity-no-overcommit",
+    "sessionJsonl": ".fixtures/runs/propose-graph-commit/2026-06-04-ambiguity-no-overcommit/session.jsonl",
+    "transcriptMarkdown": ".fixtures/runs/propose-graph-commit/2026-06-04-ambiguity-no-overcommit/transcript.md",
+    "reportJson": ".fixtures/runs/propose-graph-commit/2026-06-04-ambiguity-no-overcommit/report.json"
+  }
+}

@@ -35,16 +35,16 @@ _None._
 
 ### Next
 
-1. `graph-tool-resilience` — P0 structural hardening: materialize the locked graph write contract (projected node codes, explicit/implicit basis, supersession acyclicity) before more graph-writing frontiers build on stale schema.
-2. `capture-response-to-graph` — P0 product loop: structured exchange answer → narrow high-confidence capture → `CommandExecutor` commit → web graph update.
-3. `project-graph-review-cycle` — P1 unless demo narrative promotes it: real `project-graph` review-set proposal/approval loop.
-4. `minimal-authority-shell` — P1 safety: thin POC authority posture over already-existing command-result seams and `elicit` tool policy.
-5. `poc-live-ship-gate` — P1 final gate: fresh-cwd runbook exercising the composed product path end to end.
+1. `capture-response-to-graph` — P0 product loop: structured exchange answer → narrow high-confidence capture → `CommandExecutor` commit → web graph update.
+2. `project-graph-review-cycle` — P1 unless demo narrative promotes it: real `project-graph` review-set proposal/approval loop.
+3. `minimal-authority-shell` — P1 safety: thin POC authority posture over already-existing command-result seams and `elicit` tool policy.
+4. `poc-live-ship-gate` — P1 final gate: fresh-cwd runbook exercising the composed product path end to end.
 
 ### Parallel / Low-conflict
 
 - `probes-and-transcripts-evolution` — continuous probe/report/transcript hardening as each delivery frontier lands evidence.
 - `topology-readmes-and-boundaries` — small doc/test hardening when a frontier moves files or exposes a boundary; should remain attached to the frontier when possible rather than becoming an abstract cleanup project.
+- `dev-seed-fixtures` — rich, real seed data for local dev / manual / observer testing: the consolidated seed contract, the `npm run seed` loader, and growing/enhancing fixture sets (Bilal-port + legacy).
 
 ### Horizon
 
@@ -109,9 +109,9 @@ _None._
 
 - **Name:** Materialize graph write contract and broaden direct graph-tool proof
 - **Linear:** [FE-808](https://linear.app/hash/issue/FE-808/broaden-direct-graph-tool-proof-beyond-the-a14-happy-path)
-- **Branch:** to create — `ln/fe-808-graph-tool-resilience`
+- **Branch:** `ln/fe-808-graph-tool-resilience`
 - **Kind:** structural hardening / tracer bullet
-- **Status:** next
+- **Status:** done
 - **Certainty:** proving
 - **Stabilizes:** I34-L, I39-L, I40-L, I41-L — graph writes need stable node handles, correct approval basis, and supersession acyclicity before capture/review frontiers build on them.
 - **Lights up:** real `read_graph` / `commit_graph` path with projected existing-node references, diagnostics/retry, and no-overcommit behavior through the default Brunch runtime factory.
@@ -124,16 +124,16 @@ _None._
   - `commitGraph` accepts one approval basis for the batch, returns created ids/kind ordinals, resolves existing-node references from projected codes through adapters, and no longer requires agents to use raw DB ids.
   - Supersession edge creation validates acyclicity against existing same-spec supersession edges plus proposed batch edges, including intra-batch and mixed cycles.
   - Graph-truth vs active-context reads are explicit enough that active-context snapshots do not return dangling edges to hidden superseded nodes.
-  - At least three additional probe scenarios land under `.fixtures/runs/`: existing-node reference, illegal edge/category/stance with retry, and ambiguous prompt where the agent should avoid overcommitting or ask/emit no-op diagnostics according to strategy guidance.
-  - Probe reports record attempts, retry count, diagnostics seen, final graph counts/LSN, and friction.
-  - Tool guidance and `structural_illegal` diagnostics are sufficient for at least one corrected retry path; if not, the report names the gap.
+  - Additional probe scenarios landed under `.fixtures/runs/`: existing-node reference (`2026-06-04-existing-code-ref`), illegal proof-edge retry (`2026-06-04-retry-diagnostics`), and ambiguity/no-overcommit (`2026-06-04-ambiguity-no-overcommit`).
+  - Probe reports record scenario id, attempts, retry count, diagnostics seen, final graph counts/LSN, committed code/title summaries, projected-code/ambiguity outcome evidence, and friction.
+  - Tool guidance and `structural_illegal` diagnostics are sufficient for at least one corrected retry path (`2026-06-04-retry-diagnostics`); ambiguity probe records no unsupported graph writes.
   - Existing-node refs target the selected spec's graph only.
 - **Verification:** Inner — schema/domain/CommandExecutor tests for ordinal allocation, basis enum rejection, existing-code resolution, supersession acyclicity, active-context filtering, and tool adapter schema/results. Middle/Outer — real model probe runs with transcript/report artifacts; no artificial injection of the module under test that bypasses the default Brunch runtime factory.
 - **Topology materialization:** Keep probes in `src/probes/` and `.fixtures/runs/`; keep tool adapter code in `src/.pi/extensions/graph/`; keep validators/diagnostics in `src/graph/`; no probe-only graph runtime wiring that product launch does not use.
 - **Cross-cutting obligations:** Avoid harness-as-false-proof: the probe must exercise the same default Brunch runtime factory and registered tools that the product uses. Record fitness, not just pass/fail. Preserve D62-L/D63-L/D64-L as graph-wide contracts rather than adapter-local conveniences.
 - **Traceability:** D4-L, D20-L, D51-L, D53-L, D60-L, D62-L, D63-L, D64-L / I34-L, I35-L, I39-L, I40-L, I41-L / A14-L, A5-L.
 - **Design docs:** `docs/architecture/probes-and-transcripts.md`; `docs/design/GRAPH_MODEL.md`.
-- **Current execution pointer:** `memory/cards/graph-tool-resilience--graph-write-contract.md` scopes the graph write contract materialization chain; build this before capture/review frontiers.
+- **Current execution pointer:** FE-808 closure chain completed; no active scope file remains.
 
 ### project-graph-review-cycle
 
@@ -235,26 +235,46 @@ _None._
 - **Traceability:** D52-L, D39-L, D4-L.
 - **Design docs:** `src/README.md`; `src/.pi/README.md`; `src/agents/README.md`; `src/db/README.md`; `src/graph/README.md`; `src/rpc/README.md`; `src/session/README.md`; `src/web/README.md`.
 
+### dev-seed-fixtures
+
+- **Name:** Development seed-fixture substrate (Bilal-port + legacy specs)
+- **Linear:** unassigned
+- **Kind:** tooling / dev-substrate
+- **Status:** parallel / continuous
+- **Objective:** Maintain rich, real seed data for local dev and manual/observer testing: the consolidated `{spec,nodes,edges}` seed contract under `.fixtures/seeds/<set>/<slug>.json`, the `src/graph/seed-fixtures.ts` loader (`npm run seed`) that commits each fixture through `CommandExecutor`, and the throwaway per-set port scripts that produce seed files. Grow set coverage and graph quality as delivery frontiers need data to exercise.
+- **Why now / unlocks:** Delivery frontiers (`capture-response-to-graph`, the live-graph observer follow-on, `poc-live-ship-gate`) need real multi-spec graph data to exercise UI/agent/observer behavior without hand-authoring. The Bilal port already provides three loadable specs; enhancing them surfaces under-represented planes/kinds (notably `thesis`/`goal`) for richer capture and observer demos.
+- **Acceptance:**
+  - Seed contract stays loadable: each set's port script self-validates every `<slug>.json` through the real loader (same structural checks `commitGraph` enforces) before writing.
+  - `npm run seed` loads every `.fixtures/seeds/<set>/<slug>.json` into the workspace DB through `CommandExecutor` (never direct row inserts), preserving graph clock / change log / lsn coherence.
+  - New seed sets follow the established shape: vendored `_originals/`, throwaway `_port-script.ts`, consolidated `<slug>.json`, generated `README.md`.
+- **Enhancement backlog (captured, not yet scoped):**
+  1. Enhance Bilal-port fixtures *through Brunch itself* by feeding the original briefs Bilal authored, to recover `thesis`/`goal` structure the current ported graphs under-express.
+  2. Port and enhance the earlier product version's fixtures (the legacy walkthrough scenarios in `docs/praxis/manual-testing.md`), raising quality through better semantic definition (kinds, detail) and internal connection (edges).
+- **Verification:** Inner — `src/graph/seed-fixtures.test.ts` seeds a real fixture into an in-memory DB and asserts spec/node/edge counts plus change-log/clock coherence, and rejects non-`explicit` basis; port-script self-validation gates output. Outer — `npm run seed` smoke against a fresh cwd.
+- **Topology materialization:** Seed data and throwaway prep scripts live under `.fixtures/seeds/`; the loader lives in `src/graph/seed-fixtures.ts` (graph/ owns `CommandExecutor` orchestration; db/ is imported only by graph/, never the reverse); no seed-only graph runtime the product launch does not use.
+- **Cross-cutting obligations:** Seeds commit only through `CommandExecutor`; directly-authored items use `basis: explicit` (the retired `accepted_review_set` value is not a basis). Respect multi-spec discipline — each fixture is one spec's own graph (D61-L). Pre-release posture: regenerate fixtures when the schema moves rather than preserving stale shapes. **Known drift:** `docs/praxis/manual-testing.md` still describes the earlier seed system (scenario-arg `npm run seed`, `.brunch/brunch.db`); reconcile it to the current loader (all-sets `npm run seed`, `.brunch/data.db`) when the legacy port (backlog item 2) lands — coordinate with the doc-reconciliation track rather than double-editing.
+- **Traceability:** D4-L, D20-L, D52-L, D61-L, D62-L, D63-L / A14-L.
+- **Design docs:** `.fixtures/seeds/bilal-port/README.md`; `docs/design/GRAPH_MODEL.md`; `docs/praxis/manual-testing.md`.
+
 ## Recently Completed
+- 2026-06-04 `graph-tool-resilience` (FE-808) — Done: graph nodes persist per-kind ordinals and expose projected codes; `commitGraph` applies one explicit/implicit batch basis, returns one created-node identity shape, plans once inside the transaction before LSN allocation/writes, and shares dry-run/commit structural validation; adapters resolve selected-spec existing-node codes into structured diagnostics without sentinel endpoint refs or thrown errors; single-node `createNode` rejects retired basis values before LSN/counter/node/change-log allocation; same-spec supersession cycles are rejected atomically; active-context graph reads omit hidden superseded nodes and dangling edges while graph-truth reads remain available; product-path probes landed existing-code, retry-diagnostics, and ambiguity/no-overcommit evidence under `.fixtures/runs/propose-graph-commit/`.
 
 - 2026-06-04 `agents-composition-layer` (FE-806) — Done: `agents/state.ts`/`compose.ts` emit runtime headers and gated prompt-resource manifests; `agents/contexts/{cwd,graph,node}.ts` renders selected-spec context with lens-specific emphasis; the real `.pi` `before_agent_start` product path supplies selected-spec-bound graph snapshots from the Brunch runtime factory; the legacy `src/.pi/context/` prompt-pack subtree is deleted after folding its useful guidance into `src/agents/methods/*.md`; deterministic product-path proof records strategy/lens posture differences and accepted blind spots. Verified: context/compose/prompting/architecture tests and `npm run verify`. Watch: prompt quality is fitness evidence only; graph-write resilience and capture quality remain with the next P0 frontiers.
 - 2026-06-04 `live-graph-observer` (FE-795) — Done: `graph.overview` and `graph.nodeNeighborhood` are discoverable selected-spec RPC reads; graph readers remain in `graph/`; TUI/agent `commit_graph` publishes graph invalidation topics through the shared product-update bus; the TUI launch path starts a read-only web sidecar over the same bus; the React web app attaches over one WebSocket RPC client, renders the selected-spec graph overview, and invalidates/refetches canonical graph readers on `brunch.updated`. Verified: targeted FE-795 test set (`src/rpc/handlers.test.ts`, `src/rpc/web-host.test.ts`, `src/web/app.test.tsx`, `src/brunch-tui.test.ts`, `src/graph/snapshot.test.ts`, `src/graph/spec-ownership.test.ts`), `npm run build`, and a 2026-06-04 `agent-browser` smoke that observed empty graph state then a `commit_graph`-created node in the browser without reload. Watch: richer node-neighborhood UI remains optional polish; the current proof exposes/query-backs the focused read and renders the overview.
-- 2026-06-02 `agent-graph-integration` enabling slices — Done inside FE-785: runtime vocabulary fixed; source moved from `src/tui-client/.pi` to `src/.pi`; real `read_graph`/`commit_graph` Pi tools route through `CommandExecutor`; default Brunch runtime factory registers graph tools; A14 `propose-graph → commitGraph` probe persisted 4 nodes + 4 edges on first attempt; review-set dry-run gate validates/filters proposal payloads. Verified: targeted tests, `.fixtures/runs/propose-graph-commit/2026-06-02-propose-graph-commit/`, and `npm run verify`. Watch: broad FE-785 bucket is now split into delivery frontiers above.
-- 2026-06-02 `spec-persistence-and-startup` — Done: specs are DB rows with integer ids and `readiness_grade`; `createSpec` / `getSpec` / `updateReadinessGrade` route through `CommandExecutor` with change-log audit; startup scaffolds `.brunch/workspace.json` + `.brunch/data.db`; session binding collapsed to `{schemaVersion,specId}` and is fork-portable; inventory resolves spec names from DB. Verified: `npm run verify` and real `brunch --mode print` against a fresh cwd. Watch: richer multi-spec initiative/claim model remains deferred by D61-L.
-
-Older history (including `sealed-pi-profile-runtime-state`, `pi-ui-extension-patterns`, `web-shell`, `jsonl-session-viability`, `mode-shell-and-fixture-driver`, `walking-skeleton`): `docs/archive/PLAN_HISTORY.md`
+Older history (including `agent-graph-integration`, `spec-persistence-and-startup`, `sealed-pi-profile-runtime-state`, `pi-ui-extension-patterns`, `web-shell`, `jsonl-session-viability`, `mode-shell-and-fixture-driver`, `walking-skeleton`): `docs/archive/PLAN_HISTORY.md`
 
 ## Dependencies
 
 ```text
 nodes:
-  graph-tool-resilience          [next · P0]         materializes graph write contract and broadens A14 proof
+  graph-tool-resilience          [done · P0]         materialized graph write contract and broadened A14 proof
   capture-response-to-graph      [next · P0]         structured answer -> graph truth -> observer update
   project-graph-review-cycle     [next · P1]         real project-graph review-set approval loop
   minimal-authority-shell        [next · P1]         thin safety posture for current POC paths
   poc-live-ship-gate             [next · P1]         final fresh-cwd composed product runbook
   probes-and-transcripts-evolution [parallel]        continuous evidence substrate
   topology-readmes-and-boundaries  [parallel]        attach-to-frontier topology hardening
+  dev-seed-fixtures                [parallel]        rich seed data substrate for dev/observer testing
 
 edges:
   graph-tool-resilience     -[hard]->         capture-response-to-graph
@@ -267,6 +287,7 @@ edges:
 parallel obligations:
   probes-and-transcripts-evolution -[evidence]-> every P0/P1 frontier
   topology-readmes-and-boundaries  -[boundary]-> every frontier that moves/claims source topology
+  dev-seed-fixtures                -[data]->     capture-response-to-graph, poc-live-ship-gate (real multi-spec graphs to exercise observer/capture)
 
 horizon:
   turn-boundary-reconciliation

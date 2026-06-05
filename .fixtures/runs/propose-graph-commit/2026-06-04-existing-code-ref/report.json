@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "probeId": "propose-graph-commit",
+  "runId": "2026-06-04-existing-code-ref",
+  "generatedAt": "2026-06-04T14:43:47.399Z",
+  "mission": "Prove the propose-graph strategy can commit graph truth through commit_graph.",
+  "evaluationFocus": "A14-L selected-spec projected-code reference through the default runtime.",
+  "scenarioId": "existing-code-ref",
+  "success": true,
+  "cwd": "/var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-propose-graph-commit-7xu0IC",
+  "specId": 1,
+  "sessionId": "019e9317-2252-7279-9f8c-37344e811041",
+  "prompt": "Brunch A14-L probe: the selected specification graph already contains a launch-readiness goal.\n\nUse read_graph once in overview mode. Find the projected code for the existing launch-readiness goal, then use commit_graph to create one new requirement node titled \"Rollback path is documented\" and one legal edge connecting that new requirement to the existing goal by using the existing node's projected code as {existingCode: \"G1\"}. Do not recreate the existing goal. Stop after a successful commit_graph result.",
+  "model": "gpt-5.5",
+  "maxAttempts": 2,
+  "attemptCount": 1,
+  "retryCount": 0,
+  "firstAttemptStatus": "success",
+  "finalStatus": "success",
+  "attempts": [
+    {
+      "index": 1,
+      "status": "success",
+      "lsn": 4,
+      "nodeRefs": {
+        "n1": 2
+      },
+      "edgeIds": [
+        1
+      ],
+      "content": "Graph committed successfully (LSN 4).\nNodes created: n1 → R1\nEdges created: #1"
+    }
+  ],
+  "finalGraph": {
+    "nodeCount": 2,
+    "edgeCount": 1,
+    "lsn": 4
+  },
+  "committedNodeTitles": [
+    "Selected-spec launch readiness goal",
+    "Rollback path is documented"
+  ],
+  "committedNodes": [
+    {
+      "code": "G1",
+      "title": "Selected-spec launch readiness goal"
+    },
+    {
+      "code": "R1",
+      "title": "Rollback path is documented"
+    }
+  ],
+  "projectedCodeEvidence": {
+    "codes": [
+      "G1"
+    ],
+    "seenInTranscript": true,
+    "usedInCommitParams": true,
+    "existingCodeEdgePresent": true
+  },
+  "friction": [],
+  "artifacts": {
+    "runDir": ".fixtures/runs/propose-graph-commit/2026-06-04-existing-code-ref",
+    "sessionJsonl": ".fixtures/runs/propose-graph-commit/2026-06-04-existing-code-ref/session.jsonl",
+    "transcriptMarkdown": ".fixtures/runs/propose-graph-commit/2026-06-04-existing-code-ref/transcript.md",
+    "reportJson": ".fixtures/runs/propose-graph-commit/2026-06-04-existing-code-ref/report.json"
+  }
+}

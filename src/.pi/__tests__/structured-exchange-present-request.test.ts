@@ -75,6 +75,39 @@ describe('structured exchange present/request tools', () => {
     expect(tools.get(REQUEST_CHOICES_TOOL)?.executionMode).toBe('sequential');
   });
 
+  it('persists a present_question result through the shared project and format seam', async () => {
+    const present = registeredTools().get('present_question');
+    if (!present) throw new Error('present_question was not registered');
+
+    const result = await present.execute(
+      'present-question-call-1',
+      {
+        exchangeId: 'problem-frame',
+        heading: 'What problem are we solving?',
+        body: 'Keep the answer grounded in current Brunch session behavior.',
+        expectedRequestTool: 'request_answer',
+      },
+      undefined,
+      undefined,
+      {} as never,
+    );
+
+    expect(result.content[0]?.text).toMatchInlineSnapshot(`
+      "## What problem are we solving?
+
+      Keep the answer grounded in current Brunch session behavior."
+    `);
+    expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
+    expect(result.details).toMatchObject({
+      exchangeId: 'problem-frame',
+      presentTool: 'present_question',
+      kind: 'question',
+      status: 'presented',
+      expectedRequest: { tool: 'request_answer', required: true },
+      createdAtToolCallId: 'present-question-call-1',
+    });
+  });
+
   it('persists a present_options result as markdown content plus recoverable details', async () => {
     const present = registeredTools().get(PRESENT_OPTIONS_TOOL);
     if (!present) throw new Error('present_options was not registered');

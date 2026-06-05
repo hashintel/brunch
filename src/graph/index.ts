@@ -32,15 +32,17 @@ export type {
   IntentKind,
   IntentKindCategory,
   NodeBasis,
+  NodeKindMetadata,
   NodeDetail,
   NodeKind,
   NodePlane,
   OracleKind,
   PlanKind,
   TermDetail,
+  ReadinessBand,
 } from './schema/nodes.js';
 
-export { intentKindCategory } from './schema/nodes.js';
+export { formatGraphNodeCode, intentKindCategory, parseGraphNodeCode } from './schema/nodes.js';
 
 export type {
   ReconciliationNeed,
@@ -58,6 +60,8 @@ export {
 export { getGraphOverview, getNodeNeighborhood, getOpenReconciliationNeeds } from './snapshot.js';
 export type {
   GraphOverview,
+  GraphOverviewOptions,
+  GraphProjection,
   NeighborhoodOptions,
   NeighborhoodNotFound,
   NeighborhoodResult,

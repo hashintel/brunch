@@ -45,6 +45,16 @@ This is not permission for unrelated rewrites: keep changes scoped to the active
 
 Use a lightweight fractal sub-tree pattern when a file outgrows its current mini-library boundary. Keep the original file as the public entry point (for example, `context-pack.ts`) and place private implementation modules in a same-named folder (for example, `context-pack/observer-capture.ts`). External consumers should continue importing from the public root file; only that root file should import from its private sub-tree. Split along semantic purpose, not file shape, and avoid speculative folder scaffolding until the file has real pressure.
 
+## intentional topology stubs
+
+Some source files intentionally contain only a design comment plus `export {}`. Treat these as topology contracts / planned public seams when the comment names ownership, input/output shape, future callers, migration state, or a SPEC/PLAN/README decision. The comment is the payload; the empty export only keeps the file a TypeScript module.
+
+`export {}` plus zero imports/usages is not evidence that the file is false topology. Import/build checks prove only that deletion is mechanically safe today; they do not prove the documented topology intent is wrong.
+
+Delete or retire an intentional topology stub only when the active scope, SPEC, PLAN, or nearest topology README says the seam is obsolete, or when the same slice implements/absorbs the documented intent elsewhere and updates the canonical references. If uncertain, ask the user and name the exact path.
+
+This is not permission to add speculative scaffolding. New stubs must be current-milestone topology, concise, and tied to an active seam; prefer `Owns` / `Input` / `Output` / `Used by` or `Future callers` bullets plus a decision/frontier id when available.
+
 ## topology READMEs
 
 Directory-level `README.md` files under `src/**/` are **canonical documentation co-located with the code they describe**. They materialize architectural intent into the file topology: what the directory owns and does not own, its dependency direction, the SPEC decision IDs (`D52-L`, `D40-L`, …) that lock its layout, the resource taxonomy or layout sketch, and any in-flight migration state. Treat them as drift-prone canonical artifacts alongside `memory/SPEC.md` and `memory/PLAN.md` — not as ambient prose.

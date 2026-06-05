@@ -17,7 +17,7 @@ A committed probe run lives at:
 ```
 .fixtures/runs/<probe-id>/<run-id>/
 ├── session.jsonl      # source transcript / canonical run evidence
-├── transcript.md      # Brunch-semantic human rendering
+├── transcript.md      # probe-focused markdown rendering of Pi-derived LLM context
 └── report.json        # probe metadata, oracle summary, artifact paths
 ```
 

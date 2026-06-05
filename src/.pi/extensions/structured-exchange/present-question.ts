@@ -1,8 +1,9 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
+import { formatPresentQuestion } from '../../../structured-exchange/format/present-question.js';
+import { projectPresentQuestion } from '../../../structured-exchange/project/present-question.js';
 import { renderMarkdownResult } from './shared/markdown.js';
-import { STRUCTURED_EXCHANGE_PRESENT_SCHEMA, type StructuredExchangePresentDetails } from './shared/model.js';
 
 export const PRESENT_QUESTION_TOOL = 'present_question' as const;
 
@@ -33,24 +34,17 @@ export const presentQuestionTool = defineTool({
   executionMode: 'sequential',
 
   async execute(toolCallId, params) {
-    const body = params.body?.trim();
-    const markdown = [`## ${params.heading.trim()}`, body ? `\n${body}` : undefined]
-      .filter(Boolean)
-      .join('\n');
-    const details: StructuredExchangePresentDetails = {
-      schema: STRUCTURED_EXCHANGE_PRESENT_SCHEMA,
-      schemaVersion: 1,
+    const projection = projectPresentQuestion({
+      toolCallId,
       exchangeId: params.exchangeId,
-      presentTool: PRESENT_QUESTION_TOOL,
-      kind: 'question',
-      status: 'presented',
-      expectedRequest: {
-        tool: params.expectedRequestTool ?? 'request_answer',
-        required: true,
-      },
-      createdAtToolCallId: toolCallId,
+      heading: params.heading,
+      body: params.body,
+      expectedRequestTool: params.expectedRequestTool,
+    });
+    return {
+      content: [{ type: 'text' as const, text: formatPresentQuestion(projection) }],
+      details: projection.details,
     };
-    return { content: [{ type: 'text' as const, text: markdown }], details };
   },
 
   renderCall() {

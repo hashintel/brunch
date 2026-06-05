@@ -13,8 +13,9 @@ import { and, eq, or, inArray } from 'drizzle-orm';
 
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
+import type { Lsn } from './atoms.js';
 import type { GraphEdge } from './schema/edges.js';
-import type { GraphNode, NodeDetail } from './schema/nodes.js';
+import { parseGraphNodeCode, type GraphNode, type NodeDetail } from './schema/nodes.js';
 import type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reconciliation-need.js';
 
 // ---------------------------------------------------------------------------
@@ -22,13 +23,19 @@ import type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reco
 // ---------------------------------------------------------------------------
 
 /** Full-graph cursory overview. */
+export type GraphProjection = 'active_context' | 'graph_truth';
+
+/** Full-graph cursory overview. */
 export interface GraphOverview {
   readonly nodes: readonly GraphNode[];
   readonly edges: readonly GraphEdge[];
   readonly nodeCount: number;
   readonly edgeCount: number;
-  /** Current LSN from graph_clock. */
-  readonly lsn: number;
+  readonly lsn: Lsn;
+}
+
+export interface GraphOverviewOptions {
+  readonly projection?: GraphProjection;
 }
 
 /** Successful neighborhood result. */
@@ -61,6 +68,7 @@ function rowToNode(row: typeof schema.nodes.$inferSelect): GraphNode {
     specId: row.spec_id,
     plane: row.plane as GraphNode['plane'],
     kind: row.kind as GraphNode['kind'],
+    kindOrdinal: row.kind_ordinal,
     title: row.title,
     ...(row.body != null ? { body: row.body } : {}),
     basis: row.basis as GraphNode['basis'],
@@ -110,6 +118,22 @@ function getSupersededIds(db: BrunchDb, specId: number): Set<number> {
 }
 
 // ---------------------------------------------------------------------------
+export function resolveGraphNodeCode(db: BrunchDb, specId: number, code: string): number | undefined {
+  const parsed = parseGraphNodeCode(code);
+  if (!parsed) return undefined;
+  return db
+    .select({ id: schema.nodes.id })
+    .from(schema.nodes)
+    .where(
+      and(
+        eq(schema.nodes.spec_id, specId),
+        eq(schema.nodes.kind, parsed.kind),
+        eq(schema.nodes.kind_ordinal, parsed.kindOrdinal),
+      ),
+    )
+    .get()?.id;
+}
+
 // getGraphOverview
 // ---------------------------------------------------------------------------
 
@@ -120,15 +144,28 @@ function getSupersededIds(db: BrunchDb, specId: number): Set<number> {
  * Superseded predecessors are excluded from the node list per
  * CATEGORY_POLICY.supersession.projectionEffect.
  */
-export function getGraphOverview(db: BrunchDb, specId: number): GraphOverview {
-  const supersededIds = getSupersededIds(db, specId);
+export function getGraphOverview(
+  db: BrunchDb,
+  specId: number,
+  options: GraphOverviewOptions = {},
+): GraphOverview {
+  const projection = options.projection ?? 'active_context';
+  const supersededIds = projection === 'active_context' ? getSupersededIds(db, specId) : new Set<number>();
 
   const allNodeRows = db.select().from(schema.nodes).where(eq(schema.nodes.spec_id, specId)).all();
+  const visibleNodeRows = allNodeRows.filter((r) => !supersededIds.has(r.id));
+  const visibleNodeIds = new Set(visibleNodeRows.map((row) => row.id));
   const allEdgeRows = db.select().from(schema.edges).where(eq(schema.edges.spec_id, specId)).all();
 
-  const nodes = allNodeRows.filter((r) => !supersededIds.has(r.id)).map(rowToNode);
+  const nodes = visibleNodeRows.map(rowToNode);
 
-  const edges = allEdgeRows.map(rowToEdge);
+  const edges = allEdgeRows
+    .filter(
+      (edge) =>
+        projection === 'graph_truth' ||
+        (visibleNodeIds.has(edge.source_id) && visibleNodeIds.has(edge.target_id)),
+    )
+    .map(rowToEdge);
 
   const clockRow = db.select().from(schema.graphClock).get();
   const lsn = clockRow?.lsn ?? 0;
@@ -217,6 +254,7 @@ export function getNodeNeighborhood(
   // Fetch neighbor nodes (exclude anchor) — restrict to same spec defensively
   const neighborIds = [...visited].filter((id) => id !== nodeId);
   const neighborNodes: GraphNode[] = [];
+  const visibleIds = new Set([nodeId, ...neighborIds]);
   if (neighborIds.length > 0) {
     const rows = db
       .select()
@@ -231,7 +269,9 @@ export function getNodeNeighborhood(
   const edgeNodes: GraphEdge[] = [];
   if (edgeIdArr.length > 0) {
     const rows = db.select().from(schema.edges).where(inArray(schema.edges.id, edgeIdArr)).all();
-    edgeNodes.push(...rows.map(rowToEdge));
+    edgeNodes.push(
+      ...rows.filter((row) => visibleIds.has(row.source_id) && visibleIds.has(row.target_id)).map(rowToEdge),
+    );
   }
 
   return {
