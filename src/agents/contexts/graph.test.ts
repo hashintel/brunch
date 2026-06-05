@@ -47,6 +47,7 @@ describe('renderGraphContext', () => {
     expect(intent).toContain('[Selected-spec graph context · intent lens]');
     expect(design).toContain('[Selected-spec graph context · design lens]');
     expect(oracle).toContain('[Selected-spec graph context · oracle lens]');
+    expect(intent).toContain('- selected-spec lsn: 7; nodes: 4; edges: 2');
     expect(intent).toContain('intent claims, terms, assumptions');
     expect(design).toContain('design modules/interfaces');
     expect(oracle).toContain('verification checks, evidence');

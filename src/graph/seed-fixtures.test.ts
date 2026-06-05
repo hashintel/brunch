@@ -23,6 +23,12 @@ function loadFixture(slug: string, set = 'bilal-port'): SeedFixture {
   return JSON.parse(readFileSync(path, 'utf8')) as SeedFixture;
 }
 
+function graphClockLsn(db: BrunchDb, specId: number): number {
+  return (
+    db.select({ lsn: graphClock.lsn }).from(graphClock).where(eq(graphClock.spec_id, specId)).get()?.lsn ?? 0
+  );
+}
+
 describe('seedFixture', () => {
   it('seeds the code-health fixture into a real DB via the command layer', () => {
     const db: BrunchDb = createDb(':memory:');
@@ -49,16 +55,15 @@ describe('seedFixture', () => {
     expect(edgeRows).toHaveLength(fixture.edges.length);
     expect(nodeRows.every((row) => row.basis === 'explicit')).toBe(true);
 
-    // Graph clock advanced once per command: createSpec + commitGraph = lsn 2.
-    expect(db.select().from(graphClock).get()!.lsn).toBe(2);
+    // Graph clock advanced once per command for this spec: createSpec + commitGraph = lsn 2.
+    expect(graphClockLsn(db, result.specId)).toBe(2);
 
-    // Change log records both mutations in order.
-    const ops = db
-      .select()
-      .from(changeLog)
-      .all()
-      .map((row) => row.operation);
-    expect(ops).toEqual(['create_spec', 'commit_graph']);
+    // Change log records both mutations in order for this spec.
+    const logs = db.select().from(changeLog).all();
+    expect(logs.map((row) => [row.spec_id, row.operation])).toEqual([
+      [result.specId, 'create_spec'],
+      [result.specId, 'commit_graph'],
+    ]);
   });
 
   it('loads the macro-view grounded-intent variant as explicit intent-only seed truth', () => {
@@ -78,6 +83,27 @@ describe('seedFixture', () => {
     expect(nodeRows).toHaveLength(fixture.nodes.length);
     expect(edgeRows).toHaveLength(fixture.edges.length);
     expect(nodeRows.every((row) => row.plane === 'intent' && row.basis === 'explicit')).toBe(true);
+  });
+
+  it('keeps seeded spec LSNs coherent independent of seed order', () => {
+    const db: BrunchDb = createDb(':memory:');
+    const executor = new CommandExecutor(db);
+    const first = seedFixture(executor, loadFixture('code-health'));
+    const second = seedFixture(executor, loadFixture('macro-view-grounded-intent', 'bilal-port-variants'));
+
+    expect(graphClockLsn(db, first.specId)).toBe(2);
+    expect(graphClockLsn(db, second.specId)).toBe(2);
+    expect(
+      db
+        .select({ specId: changeLog.spec_id, lsn: changeLog.lsn, operation: changeLog.operation })
+        .from(changeLog)
+        .all(),
+    ).toEqual([
+      { specId: first.specId, lsn: 1, operation: 'create_spec' },
+      { specId: first.specId, lsn: 2, operation: 'commit_graph' },
+      { specId: second.specId, lsn: 1, operation: 'create_spec' },
+      { specId: second.specId, lsn: 2, operation: 'commit_graph' },
+    ]);
   });
 
   it('rejects fixtures carrying a non-explicit basis', () => {

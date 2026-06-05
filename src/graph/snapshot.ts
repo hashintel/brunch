@@ -167,7 +167,7 @@ export function getGraphOverview(
     )
     .map(rowToEdge);
 
-  const clockRow = db.select().from(schema.graphClock).get();
+  const clockRow = db.select().from(schema.graphClock).where(eq(schema.graphClock.spec_id, specId)).get();
   const lsn = clockRow?.lsn ?? 0;
 
   return {

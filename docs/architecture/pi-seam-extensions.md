@@ -208,18 +208,18 @@ The user (and the agent, on the user's behalf) should be able to refer to graph 
 - `before_agent_start` system-prompt injection for teaching the active agent how to interpret Brunch `#` handles and when to call a lookup/re-read tool. The inserted handle is just transcript text unless Brunch adds a later parser/indexer.
 - Brunch custom transcript entries (`pi.appendEntry`, `pi.registerMessageRenderer`) for future mention ledger/staleness records and resolved entity snapshots; these are separate from the autocomplete insertion itself.
 - `prepareNextTurn` for injecting mention-staleness hints into the agent's next-turn context, alongside the existing `worldUpdate` flow.
-- The reconciliation-need substrate and global LSN (see §Reconciliation-need substrate and §Graph clock) for comparing the LSN at which a mention was last *snapshotted into the model's working context* against the entity's current LSN.
+- The reconciliation-need substrate and spec-local LSN (see §Reconciliation-need substrate and §Graph clock) for comparing the `{specId, lsn}` at which a mention was last *snapshotted into the model's working context* against the entity's current LSN.
 
 ### Brunch-owned work
 
 - A `#` autocomplete provider sourced from `SpecRegistry` + current spec's graph index. It may search current titles and descriptions, but the inserted `value` must be a stable handle such as `#A12` or `#<node-id>`; popup `label`/`description` are UI-only and are not session metadata.
-- A Brunch mention indexer that parses user/assistant text for stable `#` handles after input and resolves them to `{ id: NodeId, title_at_mention: string, lsn_at_mention: number }` for the session mention ledger. This parsing/indexing step, not Pi autocomplete, is what creates structured mention state.
+- A Brunch mention indexer that parses user/assistant text for stable `#` handles after input and resolves them to `{ specId, id: NodeId, title_at_mention: string, lsn_at_mention: number }` for the session mention ledger. This parsing/indexing step, not Pi autocomplete, is what creates structured mention state.
 - A graph lookup/re-read tool (for example `brunch.entity_reread`) whose prompt guidance tells the agent to resolve `#A12` by passing the handle without the `#` when deeper entity detail matters.
-- A `SessionMentionLedger` in the session-scoped state: for each `id` ever mentioned in this session, the highest `snapshotted_lsn` — i.e. the LSN at which the agent most recently received the full entity payload (either via initial context, a `worldUpdate` cascade, or an explicit re-read tool call). The ledger persists with the session and survives compaction.
+- A `SessionMentionLedger` in the session-scoped state: for each `{specId, id}` ever mentioned in this session, the highest `snapshotted_lsn` — i.e. the spec-local LSN at which the agent most recently received the full entity payload (either via initial context, a `worldUpdate` cascade, or an explicit re-read tool call). The ledger persists with the session and survives compaction.
 - A staleness check executed during `prepareNextTurn`:
   1. Walk the session's `SessionMentionLedger`.
-  2. For every entry where the entity's current LSN > `snapshotted_lsn`, the entity is **stale-in-context** for this session.
-  3. Brunch synthesizes a `brunch.mention_staleness_hint` entry (custom message, `deliverAs: "nextTurn"`) summarising the stale set. The hint is **discretionary advice to the agent**, not a forced re-read: it tells the agent "if you intend to reason over `#foo` again, re-read it; the snapshot you have is from LSN 412, current is LSN 487."
+  2. For every entry where the entity's current `{specId, lsn}` is newer than `snapshotted_lsn` for that same spec, the entity is **stale-in-context** for this session.
+  3. Brunch synthesizes a `brunch.mention_staleness_hint` entry (custom message, `deliverAs: "nextTurn"`) summarising the stale set. The hint is **discretionary advice to the agent**, not a forced re-read: it tells the agent "if you intend to reason over `#foo` again, re-read it; the snapshot you have is from spec-local LSN 412, current is LSN 487."
   4. The agent decides whether to invoke a re-read tool (which then updates `snapshotted_lsn`) or to proceed with the existing snapshot, accepting the staleness.
 - A `brunch.entity_reread` command/tool (through the shared command layer) that re-snapshots a named entity and updates `snapshotted_lsn` to the LSN observed at re-read.
 
@@ -228,7 +228,7 @@ The user (and the agent, on the user's behalf) should be able to refer to graph 
 - Mentions are anchored to stable handles/IDs, never to titles. Title-based autocomplete is a UX affordance only; the transcript persists the inserted textual handle, not the popup label/description.
 - The mention ledger is **session-scoped**, not transcript-scoped: the question "what has this agent seen at what LSN" is a per-session model-context question, and crossing sessions (via `switchSession`) legitimately resets it.
 - Staleness hints are **discretionary**. The agent's autonomy over its own context is preserved; Brunch merely surfaces the gap. The product stance is that re-read is cheap and worth doing when in doubt, but the framework does not mandate it.
-- Staleness hints reuse the same `worldUpdate` machinery and the same global LSN as the rest of the change-log / reconciliation substrate; this is not a parallel staleness mechanism.
+- Staleness hints reuse the same `worldUpdate` machinery and the same spec-local `{specId, lsn}` watermark as the rest of the change-log / reconciliation substrate; this is not a parallel staleness mechanism.
 
 ### Residual risks
 
@@ -266,61 +266,55 @@ The PRD asserts that every durable graph mutation advances a monotonic graph rev
 
 ### The non-negotiable invariant
 
-**The graph clock and change log must remain absolutely consistent.** Every durable mutation to spec-workspace graph state must:
+**Each spec's graph clock and change log must remain absolutely consistent.** Every durable mutation to selected-spec graph state must:
 
-1. Advance the graph clock by exactly one LSN per commit.
-2. Append change-log entries tagged with that LSN inside the same SQLite transaction as the data writes.
+1. Advance that spec's graph clock by exactly one LSN per commit.
+2. Append change-log entries tagged with `{spec_id, lsn}` inside the same SQLite transaction as the data writes.
 3. Carry per-entity optimistic concurrency information so concurrent writers see explicit conflicts rather than lost updates.
 
-Any code path that mutates graph state without participating in this protocol is a defect, not a feature. There is no escape hatch, no "internal-only" write path, no maintenance script that bypasses the command layer. Schema migrations that move data must themselves allocate LSNs and emit change-log entries.
+Any code path that mutates graph state without participating in this protocol is a defect, not a feature. There is no escape hatch, no "internal-only" write path, no maintenance script that bypasses the command layer. Pre-release schema migrations may reshape scratch data directly, but live graph/spec mutations still route through the command layer.
 
 ### ORM: Drizzle
 
 Brunch will use Drizzle on top of `better-sqlite3` for graph persistence. The reasoning:
 
-- Drizzle keeps SQL explicit; the LSN-bump and change-log insert remain visible in the command-layer code rather than hidden in middleware.
-- Drizzle supports `RETURNING` clauses, which makes the single-statement LSN bump (`UPDATE graph_clock SET lsn = lsn + 1 WHERE id = 1 RETURNING lsn`) idiomatic.
-- Drizzle's transaction API gives the command layer one explicit boundary inside which all of (precondition check, entity writes, version bumps, LSN allocation, change-log insert) must happen.
+- Drizzle keeps SQL explicit; the spec-local LSN bump and change-log insert remain visible in the command-layer code rather than hidden in middleware.
+- Drizzle supports `RETURNING` clauses, which makes the target-spec LSN bump (`UPDATE graph_clock SET lsn = lsn + 1 WHERE spec_id = ? RETURNING lsn`) idiomatic.
+- Drizzle's transaction API gives the command layer one explicit boundary inside which all of (precondition check, entity writes, version bumps, spec-local LSN allocation, change-log insert) must happen.
 - Drizzle has no built-in change-tracking middleware competing with this scheme, unlike ORMs that try to provide "automatic audit trails."
 
 ORMs that promise automatic change tracking (Prisma middleware, TypeORM subscribers, sequelize hooks) are explicitly rejected for this layer. Their hooks run at the wrong time relative to LSN allocation and would create a second, weaker mutation path the command layer cannot enforce.
 
-### Single LSN per commit
+### Single selected-spec LSN per commit
 
-A commit is the unit of advance, not a row. The shape:
+A commit is the unit of advance, not a row. LSNs are local to the spec being
+mutated:
 
-- A `graph_clock` table with a single row carrying the current `lsn` value.
-- Each transaction allocates exactly one LSN via `UPDATE graph_clock SET lsn = lsn + 1 RETURNING lsn`.
-- A `change_log` table keyed by `(lsn, seq)` where `seq` orders multiple ops within the same commit.
-- Every entity row carries `version INTEGER NOT NULL` for optimistic concurrency, separate from the LSN.
+- A `graph_clock` table keyed by `spec_id`, carrying that spec's current `lsn`.
+- Each transaction allocates exactly one LSN for its target spec via `UPDATE graph_clock SET lsn = lsn + 1 WHERE spec_id = ? RETURNING lsn` (or inserts LSN 1 for the first mutation).
+- A `change_log` table keyed by `(spec_id, lsn)`.
+- Every entity row keeps its existing `spec_id` plus local `created_at_lsn` / `updated_at_lsn`; a bare LSN is comparable only inside that spec.
 
 Schema sketch:
 
 ```sql
 CREATE TABLE graph_clock (
-  id      INTEGER PRIMARY KEY CHECK (id = 1),
-  lsn     INTEGER NOT NULL
+  spec_id INTEGER PRIMARY KEY REFERENCES specs(id),
+  lsn     INTEGER NOT NULL DEFAULT 0
 );
-INSERT INTO graph_clock (id, lsn) VALUES (1, 0);
 
 CREATE TABLE change_log (
-  lsn         INTEGER NOT NULL,
-  seq         INTEGER NOT NULL,
-  ts          INTEGER NOT NULL,
-  actor       TEXT NOT NULL,            -- 'user' | 'agent:<turnId>' | 'side_task:<id>'
-  turn_id     TEXT,                     -- nullable; present for agent-attributed writes
-  target_kind TEXT NOT NULL,            -- 'node' | 'edge' | 'coherence' | ...
-  target_id   TEXT NOT NULL,
-  op          TEXT NOT NULL,            -- 'create' | 'update' | 'delete' | ...
-  before_json TEXT,                     -- optional; see "before-images" below
-  after_json  TEXT,
-  PRIMARY KEY (lsn, seq)
+  spec_id    INTEGER NOT NULL REFERENCES specs(id),
+  lsn        INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  operation  TEXT NOT NULL,
+  payload    TEXT NOT NULL,
+  PRIMARY KEY (spec_id, lsn)
 );
-CREATE INDEX change_log_target_idx ON change_log (target_id, lsn);
-CREATE INDEX change_log_lsn_idx    ON change_log (lsn);
+CREATE INDEX change_log_lsn_idx ON change_log (spec_id, lsn);
 ```
 
-`change_log(lsn, seq)` as a composite key gives Brunch the right shape on day one and avoids a painful migration later from a per-row-LSN model.
+`change_log(spec_id, lsn)` makes selected-spec freshness explicit and prevents sibling-spec mutations from making an unchanged spec appear stale.
 
 ### LSN-per-commit correctness
 
@@ -330,19 +324,19 @@ In the POC, the Brunch host is a single-process single-writer over the SQLite da
 db.transaction((tx) => {
   // 1. precondition checks (ifVersion guards, structural legality)
   // 2. entity writes (UPDATE ... WHERE id = ? AND version = ? ; bump version)
-  // 3. allocate the LSN:
+  // 3. allocate the target spec's LSN:
   const [{ lsn }] = tx
     .update(graphClock)
     .set({ lsn: sql`${graphClock.lsn} + 1` })
-    .where(eq(graphClock.id, 1))
+    .where(eq(graphClock.spec_id, specId))
     .returning({ lsn: graphClock.lsn });
-  // 4. insert change_log rows tagged with `lsn` and ordered by `seq`
+  // 4. insert change_log rows tagged with `spec_id` + `lsn`
   // 5. update coherence_state if dirty-set changed
 });
 // 6. post-commit fanout to subscribers (TUI redraw, WS broadcast)
 ```
 
-This shape stays correct as long as the invariant holds: **every mutation goes through this helper, inside one transaction, with the LSN bump and the change-log insert as siblings of the data write.** The risk is not the mechanism; it is socialization of the rule.
+This shape stays correct as long as the invariant holds: **every mutation goes through this helper, inside one transaction, with the target-spec LSN bump and the spec-scoped change-log insert as siblings of the data write.** The risk is not the mechanism; it is socialization of the rule.
 
 ### Enforcing the invariant
 
@@ -404,9 +398,9 @@ The mechanism itself is small: schema is ~30 lines, the `applyMutation` helper i
 
 ### Milestone implications for the change log
 
-- **M4 (graph data plane)** introduces the `graph_clock`, `change_log`, and `coherence_state` schema, the `GraphCommands` facade, single-LSN-per-commit allocation, per-entity `ifVersion`, and post-commit fanout. Before-images may be deferred.
+- **M4 (graph data plane)** introduces the `graph_clock`, `change_log`, and `coherence_state` schema, the `GraphCommands` facade, selected-spec LSN-per-commit allocation, per-entity `ifVersion`, and post-commit fanout. Before-images may be deferred.
 - **M5 (agent ↔ graph integration)** requires that every agent graph tool route through `GraphCommands` rather than touching Drizzle directly.
-- **M7 (detection, relevance, turn-boundary reconciliation)** consumes the change log via `prepareNextTurn` and depends on the `lsn` and `target_id` indexes existing.
+- **M7 (detection, relevance, turn-boundary reconciliation)** consumes the change log via `prepareNextTurn` and depends on `{spec_id, lsn}` watermarks and target indexes existing.
 - **M8 (coherence)** likely turns on before-images and adds semantic-coherence validation that itself allocates LSNs through the command layer.
 - **M9 (compaction-aware continuity)** must preserve session-scoped `lastSeenLsn` across compaction so interest filtering against the change log remains correct after long sessions.
 
@@ -456,10 +450,10 @@ CREATE INDEX recon_need_target_idx ON reconciliation_need (spec_id, plane);
 
 ### Mutation invariant
 
-Needs are mutated through a `ReconciliationCommands` facade alongside `GraphCommands` and under the same global LSN + change-log discipline:
+Needs are mutated through a `ReconciliationCommands` facade alongside `GraphCommands` and under the same spec-local LSN + change-log discipline:
 
-- Every need create/update/resolve/supersede allocates an LSN via the same `graph_clock` table.
-- Every need mutation appends a `change_log` entry with `target_kind = 'reconciliation_need'`.
+- Every need create/update/resolve/supersede allocates an LSN via the target spec's `graph_clock` row.
+- Every need mutation appends a `change_log` entry keyed by `{spec_id, lsn}` with `target_kind = 'reconciliation_need'`.
 - Needs and graph nodes may be mutated in the **same transaction** when the interviewer resolves a need inline as part of an ordinary turn's commit. This is desirable: a question whose answer both writes a new invariant and closes a `possible_observation` need should commit atomically.
 - Side tasks raise needs through the same facade; attribution remains clean (`raised_by_actor = 'side_task:<id>'`).
 

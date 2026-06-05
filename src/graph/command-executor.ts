@@ -8,7 +8,7 @@
  * Every graph mutation routes through this class. The executor owns:
  *  - structural validation
  *  - one SQLite transaction per command
- *  - monotonic LSN allocation from graph_clock
+ *  - monotonic spec-local LSN allocation from graph_clock
  *  - change_log append
  *  - structured result return
  *
@@ -17,7 +17,7 @@
  * even though pre-M6 policy classification is minimal.
  */
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
@@ -369,6 +369,29 @@ function specRecordFromRow(row: typeof schema.specs.$inferSelect): SpecRecord {
 export class CommandExecutor {
   constructor(private readonly db: BrunchDb) {}
 
+  private allocateGraphLsn(tx: Pick<BrunchDb, 'select' | 'insert' | 'update'>, specId: number): number {
+    const existing = tx
+      .select({
+        lsn: schema.graphClock.lsn,
+      })
+      .from(schema.graphClock)
+      .where(eq(schema.graphClock.spec_id, specId))
+      .get();
+
+    if (!existing) {
+      tx.insert(schema.graphClock).values({ spec_id: specId, lsn: 1 }).run();
+      return 1;
+    }
+
+    const clock = tx
+      .update(schema.graphClock)
+      .set({ lsn: existing.lsn + 1 })
+      .where(eq(schema.graphClock.spec_id, specId))
+      .returning()
+      .get();
+    return clock!.lsn;
+  }
+
   private allocateNodeKindOrdinal(
     tx: Pick<BrunchDb, 'select' | 'insert' | 'update'>,
     specId: number,
@@ -420,22 +443,17 @@ export class CommandExecutor {
     if (diagnostics.length > 0) return { status: 'structural_illegal', diagnostics };
 
     return this.db.transaction((tx) => {
-      const clock = tx
-        .update(schema.graphClock)
-        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
-        .where(eq(schema.graphClock.id, 1))
-        .returning()
-        .get();
-      const lsn = clock!.lsn;
-
       const row = tx
         .insert(schema.specs)
         .values({ name, slug, readiness_grade: readinessGrade })
         .returning()
         .get();
 
+      const lsn = this.allocateGraphLsn(tx, row!.id);
+
       tx.insert(schema.changeLog)
         .values({
+          spec_id: row!.id,
           lsn,
           operation: 'create_spec',
           payload: JSON.stringify({ specId: row!.id, name, slug, readinessGrade }),
@@ -484,14 +502,7 @@ export class CommandExecutor {
         };
       }
 
-      const clock = tx
-        .update(schema.graphClock)
-        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
-        .where(eq(schema.graphClock.id, 1))
-        .returning()
-        .get();
-      const lsn = clock!.lsn;
-
+      const lsn = this.allocateGraphLsn(tx, input.specId);
       tx.update(schema.specs)
         .set({ readiness_grade: input.readinessGrade })
         .where(eq(schema.specs.id, input.specId))
@@ -499,6 +510,7 @@ export class CommandExecutor {
 
       tx.insert(schema.changeLog)
         .values({
+          spec_id: input.specId,
           lsn,
           operation: 'update_spec_readiness_grade',
           payload: JSON.stringify({ specId: input.specId, readinessGrade: input.readinessGrade }),
@@ -537,14 +549,8 @@ export class CommandExecutor {
         };
       }
 
-      // 2. Allocate LSN (atomic increment)
-      const clock = tx
-        .update(schema.graphClock)
-        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
-        .where(eq(schema.graphClock.id, 1))
-        .returning()
-        .get();
-      const lsn = clock!.lsn;
+      // 2. Allocate spec-local LSN (atomic within this transaction)
+      const lsn = this.allocateGraphLsn(tx, input.specId);
       const kindOrdinal = this.allocateNodeKindOrdinal(tx, input.specId, input.plane, input.kind);
 
       // 3. Insert node
@@ -570,6 +576,7 @@ export class CommandExecutor {
       // 4. Append change_log
       tx.insert(schema.changeLog)
         .values({
+          spec_id: input.specId,
           lsn,
           operation: 'create_node',
           payload: JSON.stringify({
@@ -614,13 +621,7 @@ export class CommandExecutor {
         return { status: 'structural_illegal' as const, diagnostics: planned.diagnostics };
       }
 
-      const clock = tx
-        .update(schema.graphClock)
-        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
-        .where(eq(schema.graphClock.id, 1))
-        .returning()
-        .get();
-      const lsn = clock!.lsn;
+      const lsn = this.allocateGraphLsn(tx, input.specId);
 
       const createdNodes: Record<string, { id: number; code: string }> = {};
       for (const bn of input.nodes) {
@@ -672,6 +673,7 @@ export class CommandExecutor {
 
       tx.insert(schema.changeLog)
         .values({
+          spec_id: input.specId,
           lsn,
           operation: 'commit_graph',
           payload: JSON.stringify({
@@ -764,14 +766,8 @@ export class CommandExecutor {
         return { status: 'structural_illegal' as const, diagnostics };
       }
 
-      // Allocate LSN
-      const clock = tx
-        .update(schema.graphClock)
-        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
-        .where(eq(schema.graphClock.id, 1))
-        .returning()
-        .get();
-      const lsn = clock!.lsn;
+      // Allocate spec-local LSN
+      const lsn = this.allocateGraphLsn(tx, input.specId);
 
       // Insert reconciliation need
       const row = tx
@@ -792,6 +788,7 @@ export class CommandExecutor {
       // Append change_log
       tx.insert(schema.changeLog)
         .values({
+          spec_id: input.specId,
           lsn,
           operation: 'create_reconciliation_need',
           payload: JSON.stringify({
@@ -850,14 +847,8 @@ export class CommandExecutor {
         };
       }
 
-      // Allocate LSN
-      const clock = tx
-        .update(schema.graphClock)
-        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
-        .where(eq(schema.graphClock.id, 1))
-        .returning()
-        .get();
-      const lsn = clock!.lsn;
+      // Allocate spec-local LSN
+      const lsn = this.allocateGraphLsn(tx, input.specId);
 
       // Update status
       tx.update(schema.reconciliationNeed)
@@ -873,6 +864,7 @@ export class CommandExecutor {
       // Append change_log
       tx.insert(schema.changeLog)
         .values({
+          spec_id: input.specId,
           lsn,
           operation: 'resolve_reconciliation_need',
           payload: JSON.stringify({ id: input.id, specId: input.specId }),

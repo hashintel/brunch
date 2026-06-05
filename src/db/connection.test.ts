@@ -24,7 +24,7 @@ describe('createDb', () => {
 
       const reopened = createDb(dbPath);
       expect(reopened.select().from(specs).all()).toHaveLength(1);
-      expect(reopened.select().from(graphClock).all()[0]!.lsn).toBe(0);
+      expect(reopened.select().from(graphClock).all()).toEqual([]);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

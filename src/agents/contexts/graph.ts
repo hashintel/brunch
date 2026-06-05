@@ -22,7 +22,7 @@ export function renderGraphContext(overview: GraphOverview, options: RenderGraph
 
   const lines = [
     `[Selected-spec graph context · ${options.lens} lens]`,
-    `- lsn: ${overview.lsn}; nodes: ${overview.nodeCount}; edges: ${overview.edgeCount}`,
+    `- selected-spec lsn: ${overview.lsn}; nodes: ${overview.nodeCount}; edges: ${overview.edgeCount}`,
     `- emphasis: ${lensEmphasis(options.lens)}`,
   ];
 

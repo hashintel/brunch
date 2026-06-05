@@ -9,7 +9,7 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
 // Shared enum arrays — the single source for text enum columns,
@@ -117,7 +117,9 @@ export const edges = sqliteTable('edges', {
 });
 
 export const graphClock = sqliteTable('graph_clock', {
-  id: integer().primaryKey(), // always row 1
+  spec_id: integer()
+    .primaryKey()
+    .references(() => specs.id),
   lsn: integer().notNull().default(0),
 });
 
@@ -137,14 +139,21 @@ export const nodeKindCounters = sqliteTable(
   ],
 );
 
-export const changeLog = sqliteTable('change_log', {
-  lsn: integer().primaryKey(),
-  operation: text().notNull(),
-  payload: text().notNull(), // JSON summary of the mutation
-  created_at: text()
-    .notNull()
-    .default(sql`(datetime('now'))`),
-});
+export const changeLog = sqliteTable(
+  'change_log',
+  {
+    spec_id: integer()
+      .notNull()
+      .references(() => specs.id),
+    lsn: integer().notNull(),
+    operation: text().notNull(),
+    payload: text().notNull(), // JSON summary of the mutation
+    created_at: text()
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [primaryKey({ columns: [table.spec_id, table.lsn], name: 'change_log_spec_lsn_pk' })],
+);
 
 export const reconciliationNeed = sqliteTable('reconciliation_need', {
   id: integer().primaryKey({ autoIncrement: true }),

@@ -6,15 +6,15 @@ SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
 ## Owns
 
 - **CommandExecutor** (`command-executor.ts`) — the single mutation boundary for
-  graph/spec writes. It hides structural validation, transaction mechanics, LSN
-  allocation, per-kind node ordinal allocation, change-log append, and
-  structured command results.
+  graph/spec writes. It hides structural validation, transaction mechanics,
+  spec-local LSN allocation, per-kind node ordinal allocation, change-log append,
+  and structured command results.
 
 - **commitGraph** — atomic batch mutation for `propose-graph`: one tool call,
-  one transaction, one LSN, all-or-nothing. It accepts product command input
-  (`nodes[]` with batch refs, `edges[]` with batch/existing refs), not raw DB
-  rows. `command-executor/commit-graph-batch.ts` owns the private shared planner
-  used by both dry-run and commit before any batch writes occur.
+  one transaction, one selected-spec LSN, all-or-nothing. It accepts product
+  command input (`nodes[]` with batch refs, `edges[]` with batch/existing refs),
+  not raw DB rows. `command-executor/commit-graph-batch.ts` owns the private
+  shared planner used by both dry-run and commit before any batch writes occur.
 
 - **Capture translators** (`capture/`) — narrow, high-confidence structured
   response translators that turn transcript-native answers into `commitGraph`
@@ -35,6 +35,14 @@ SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
 - **Workspace graph runtime** (`workspace-store.ts`) — opens `.brunch/data.db`
   through `db/connection.ts` and returns a `CommandExecutor` plus bound snapshot
   readers for adapters.
+
+## Clock and audit posture
+
+`graph_clock` and `change_log` are spec-scoped. `CommandExecutor` allocates the
+next LSN from the target spec's clock, appends a `change_log` row keyed by
+`(spec_id, lsn)`, and writes the same local LSN to that spec's graph rows or
+reconciliation needs. Product updates therefore carry `{specId, lsn}`; callers
+must not compare bare LSN values across sibling specs.
 
 ## Imports from
 

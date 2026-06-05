@@ -90,6 +90,10 @@ brunch_rpc "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"graph.overview\",\"params
 
 Projected node codes are not stored in the DB. They are rendered from `kind` + `kindOrdinal` using the graph labels (`G1`, `TH1`, `T1`, `CTX1`, `R1`, `CR1`, etc.). Use `graph.overview` to find the current `kindOrdinal` before referencing existing nodes by code.
 
+`lsn` is the selected spec's local graph-clock value. Compare freshness as
+`{specId, lsn}`; seeded spec ids and bare LSN values do not imply workspace-wide
+ordering.
+
 ## 4. Activate a session when session methods matter
 
 Graph reads and `dev.graph.commitGraph` take explicit `specId` and do not require a selected session. Session methods do.
@@ -125,6 +129,14 @@ Read back the mutation:
 ```bash
 brunch_rpc "{\"jsonrpc\":\"2.0\",\"id\":91,\"method\":\"graph.overview\",\"params\":{\"specId\":$SPEC_ID}}" \
   | jq 'select(.id == 91).result.nodes[] | select(.source == "manual-dev-rpc")'
+```
+
+Sibling specs should keep their own overview LSN after this commit:
+
+```bash
+SIBLING_SPEC_ID=2
+brunch_rpc "{\"jsonrpc\":\"2.0\",\"id\":92,\"method\":\"graph.overview\",\"params\":{\"specId\":$SIBLING_SPEC_ID}}" \
+  | jq 'select(.id == 92).result | {nodeCount, edgeCount, lsn}'
 ```
 
 ### Basis rule of thumb

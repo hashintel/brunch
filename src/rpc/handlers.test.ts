@@ -163,7 +163,8 @@ async function createGraphRpcFixture(): Promise<{
   specBId: number;
   specANodeId: number;
   specBNodeId: number;
-  finalLsn: number;
+  specALsn: number;
+  specBLsn: number;
 }> {
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-graph-'));
   const graph = await openWorkspaceGraphRuntime(cwd);
@@ -196,7 +197,8 @@ async function createGraphRpcFixture(): Promise<{
     specBId: specB.specId,
     specANodeId: commitA.createdNodes.requirement!.id,
     specBNodeId: commitB.createdNodes.goal!.id,
-    finalLsn: commitB.lsn,
+    specALsn: commitA.lsn,
+    specBLsn: commitB.lsn,
   };
 }
 
@@ -2056,7 +2058,7 @@ describe('JSON-RPC handlers', () => {
       result: {
         nodeCount: 2,
         edgeCount: 1,
-        lsn: fixture.finalLsn,
+        lsn: fixture.specALsn,
       },
     });
     if (!('result' in overviewA)) throw new Error('expected graph overview');
@@ -2072,7 +2074,7 @@ describe('JSON-RPC handlers', () => {
     expect(overviewB).toMatchObject({
       jsonrpc: '2.0',
       id: 51,
-      result: { nodeCount: 1, edgeCount: 0, lsn: fixture.finalLsn },
+      result: { nodeCount: 1, edgeCount: 0, lsn: fixture.specBLsn },
     });
 
     const crossSpecNeighborhood = await handlers.handle({
@@ -2241,6 +2243,22 @@ describe('JSON-RPC handlers', () => {
         edges: expect.arrayContaining([expect.objectContaining({ category: 'support', stance: 'for' })]),
       },
     });
+
+    const siblingOverview = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 62,
+      method: 'graph.overview',
+      params: { specId: fixture.specBId },
+    });
+    expect(siblingOverview).toMatchObject({
+      jsonrpc: '2.0',
+      id: 62,
+      result: {
+        nodeCount: 1,
+        edgeCount: 0,
+        lsn: fixture.specBLsn,
+      },
+    });
   });
 
   it('rejects invalid dev graph commits without partial persistence', async () => {
@@ -2304,7 +2322,7 @@ describe('JSON-RPC handlers', () => {
       result: {
         nodeCount: 2,
         edgeCount: 1,
-        lsn: fixture.finalLsn,
+        lsn: fixture.specALsn,
       },
     });
     if (!('result' in overview)) throw new Error('expected overview success');

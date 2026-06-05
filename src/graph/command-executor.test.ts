@@ -16,6 +16,12 @@ function createTestDb(): BrunchDb {
   return createDb(':memory:');
 }
 
+function graphClockLsn(db: BrunchDb, specId: number): number {
+  return (
+    db.select({ lsn: graphClock.lsn }).from(graphClock).where(eq(graphClock.spec_id, specId)).get()?.lsn ?? 0
+  );
+}
+
 describe('CommandExecutor', () => {
   let db: BrunchDb;
   let executor: CommandExecutor;
@@ -32,10 +38,9 @@ describe('CommandExecutor', () => {
 
   // --- graph_clock initialization ---
 
-  it('initializes graph_clock with lsn=0', () => {
-    const rows = db.select().from(graphClock).all();
-    expect(rows).toHaveLength(1);
-    expect(rows[0]!.lsn).toBe(0);
+  it('does not initialize a workspace-global graph_clock row', () => {
+    expect(db.select().from(graphClock).all()).toEqual([]);
+    expect(graphClockLsn(db, specId)).toBe(0);
   });
 
   // --- createNode: success path ---
@@ -214,7 +219,7 @@ describe('CommandExecutor', () => {
     expect(db.select().from(nodes).all()).toHaveLength(0);
     expect(db.select().from(changeLog).all()).toHaveLength(0);
     expect(db.select().from(nodeKindCounters).all()).toHaveLength(0);
-    expect(db.select().from(graphClock).all()[0]!.lsn).toBe(0);
+    expect(graphClockLsn(db, specId)).toBe(0);
   });
 
   it('persists explicit and implicit createNode basis values unchanged', () => {
@@ -248,8 +253,7 @@ describe('CommandExecutor', () => {
     executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'First' });
     executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Second' });
 
-    const [clock] = db.select().from(graphClock).all();
-    expect(clock!.lsn).toBe(2);
+    expect(graphClockLsn(db, specId)).toBe(2);
   });
 
   it('assigns matching created_at_lsn and updated_at_lsn on new nodes', () => {
@@ -323,8 +327,7 @@ describe('CommandExecutor', () => {
       title: 'Should fail',
     });
 
-    const [clock] = db.select().from(graphClock).all();
-    expect(clock!.lsn).toBe(0);
+    expect(graphClockLsn(db, specId)).toBe(0);
     expect(db.select().from(nodes).all()).toHaveLength(0);
     expect(db.select().from(changeLog).all()).toHaveLength(0);
   });
@@ -376,6 +379,45 @@ describe('CommandExecutor', () => {
       expect(row.name).toBe('Brunch POC');
       expect(row.slug).toBe('brunch-poc');
       expect(row.readiness_grade).toBe('grounding_onboarding');
+    });
+
+    it('scopes create_spec audit LSNs to the newly created spec', () => {
+      const specA = executor.createSpec({ name: 'Spec A', slug: 'spec-a' });
+      const specB = executor.createSpec({ name: 'Spec B', slug: 'spec-b' });
+      if (specA.status !== 'success' || specB.status !== 'success') throw new Error('unreachable');
+
+      expect(specA.lsn).toBe(1);
+      expect(specB.lsn).toBe(1);
+      expect(graphClockLsn(db, specA.specId)).toBe(1);
+      expect(graphClockLsn(db, specB.specId)).toBe(1);
+      expect(
+        db
+          .select({ specId: changeLog.spec_id, lsn: changeLog.lsn, operation: changeLog.operation })
+          .from(changeLog)
+          .all(),
+      ).toEqual([
+        { specId: specA.specId, lsn: 1, operation: 'create_spec' },
+        { specId: specB.specId, lsn: 1, operation: 'create_spec' },
+      ]);
+    });
+
+    it('mutating one spec does not advance sibling spec clocks', () => {
+      const specA = executor.createSpec({ name: 'Spec A', slug: 'spec-a' });
+      const specB = executor.createSpec({ name: 'Spec B', slug: 'spec-b' });
+      if (specA.status !== 'success' || specB.status !== 'success') throw new Error('unreachable');
+
+      const result = executor.createNode({
+        specId: specA.specId,
+        plane: 'intent',
+        kind: 'goal',
+        title: 'Spec A goal',
+      });
+
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+      expect(result.lsn).toBe(2);
+      expect(graphClockLsn(db, specA.specId)).toBe(2);
+      expect(graphClockLsn(db, specB.specId)).toBe(1);
     });
 
     it('reads a spec row by integer id', () => {

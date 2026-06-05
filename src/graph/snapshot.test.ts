@@ -62,6 +62,19 @@ describe('getGraphOverview', () => {
     expect(overview.lsn).toBe(2);
   });
 
+  it('returns the selected spec LSN without sibling-spec mutations', () => {
+    const specA = executor.createSpec({ name: 'Spec A', slug: 'spec-a' });
+    const specB = executor.createSpec({ name: 'Spec B', slug: 'spec-b' });
+    if (specA.status !== 'success' || specB.status !== 'success') throw new Error('unreachable');
+
+    const before = getGraphOverview(db, specA.specId);
+    executor.createNode({ specId: specB.specId, plane: 'intent', kind: 'goal', title: 'Spec B goal' });
+    const after = getGraphOverview(db, specA.specId);
+
+    expect(before.lsn).toBe(1);
+    expect(after.lsn).toBe(1);
+  });
+
   it('returns typed domain objects with parsed detail JSON', () => {
     executor.createNode({
       specId,

@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import { describe, expect, it, beforeEach } from 'vitest';
 
 import { createDb, type BrunchDb } from '../../db/connection.js';
@@ -7,6 +8,12 @@ import type { CommitGraphInput, CommitGraphResult } from '../command-executor.js
 
 function createTestDb(): BrunchDb {
   return createDb(':memory:');
+}
+
+function graphClockLsn(db: BrunchDb, specId: number): number {
+  return (
+    db.select({ lsn: graphClock.lsn }).from(graphClock).where(eq(graphClock.spec_id, specId)).get()?.lsn ?? 0
+  );
 }
 
 function expectMatchingStructuralDiagnostics(
@@ -84,7 +91,7 @@ describe('CommandExecutor commitGraph', () => {
       }
 
       expect(result?.status).toBe('success');
-      expect(db.select().from(graphClock).get()!.lsn).toBe(1);
+      expect(graphClockLsn(db, specId)).toBe(1);
       expect(db.select().from(nodes).all()).toHaveLength(1);
     });
 
@@ -461,8 +468,7 @@ describe('CommandExecutor commitGraph', () => {
 
       expect(result.status).toBe('structural_illegal');
       expect(db.select().from(nodes).all()).toHaveLength(0);
-      const [clock] = db.select().from(graphClock).all();
-      expect(clock!.lsn).toBe(0);
+      expect(graphClockLsn(db, specId)).toBe(0);
     });
 
     it('if any edge fails validation, no nodes written', () => {
@@ -479,8 +485,31 @@ describe('CommandExecutor commitGraph', () => {
 
       expect(result.status).toBe('structural_illegal');
       expect(db.select().from(nodes).all()).toHaveLength(0);
-      const [clock] = db.select().from(graphClock).all();
-      expect(clock!.lsn).toBe(0);
+      expect(graphClockLsn(db, specId)).toBe(0);
+    });
+
+    it('does not advance the target spec clock when a batch rolls back after sibling-spec mutations', () => {
+      const otherSpec = executor.createSpec({ name: 'Other Spec', slug: 'other' });
+      if (otherSpec.status !== 'success') throw new Error('unreachable');
+      executor.commitGraph({
+        specId: otherSpec.specId,
+        nodes: [{ ref: 'other-goal', plane: 'intent', kind: 'goal', title: 'Other goal' }],
+        edges: [],
+      });
+
+      const before = graphClockLsn(db, specId);
+      const result = executor.commitGraph({
+        specId,
+        nodes: [
+          { ref: 'valid', plane: 'intent', kind: 'goal', title: 'Valid goal' },
+          { ref: 'invalid', plane: 'intent', kind: 'check', title: 'Invalid kind' },
+        ],
+        edges: [],
+      });
+
+      expect(result.status).toBe('structural_illegal');
+      expect(graphClockLsn(db, specId)).toBe(before);
+      expect(graphClockLsn(db, otherSpec.specId)).toBe(2);
     });
 
     it('rejects supersession cycles against existing edges', () => {

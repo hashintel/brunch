@@ -40,7 +40,9 @@ function workspacePosture(posture: WorkspacePostureState): WorkspacePostureState
 
 const snapshots = {
   contextHandles: ['graph-overview: compact selected-spec graph summary available via snapshot tools'],
-  renderedContexts: ['[Selected-spec graph context · intent lens]\n- lsn: 7; nodes: 1; edges: 0'],
+  renderedContexts: [
+    '[Selected-spec graph context · intent lens]\n- selected-spec lsn: 7; nodes: 1; edges: 0',
+  ],
 };
 
 describe('composeAgentPrompt', () => {
