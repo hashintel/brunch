@@ -9,21 +9,31 @@ import type { GraphOverview, NeighborhoodOptions, NeighborhoodResult } from './s
 const BRUNCH_DIR = '.brunch';
 const DATA_DB_FILE = 'data.db';
 
+/**
+ * Spec-scoped snapshot readers. Returned by `WorkspaceGraphRuntime.forSpec`
+ * so callers (Pi extensions, RPC handlers, probes) interact with a single
+ * spec's graph without ever needing to thread `specId` through every call.
+ */
+export interface SpecScopedReaders {
+  readonly getGraphOverview: () => GraphOverview;
+  readonly getNodeNeighborhood: (nodeId: number, options?: NeighborhoodOptions) => NeighborhoodResult;
+}
+
 export interface WorkspaceGraphRuntime {
   readonly commandExecutor: CommandExecutor;
-  readonly snapshots: {
-    readonly getGraphOverview: () => GraphOverview;
-    readonly getNodeNeighborhood: (nodeId: number, options?: NeighborhoodOptions) => NeighborhoodResult;
-  };
+  /** Bind snapshot readers to a single spec (D61-L). */
+  readonly forSpec: (specId: number) => SpecScopedReaders;
 }
 
 export async function openWorkspaceGraphRuntime(cwd: string): Promise<WorkspaceGraphRuntime> {
   const db = await openWorkspaceDb(cwd);
   return {
     commandExecutor: new CommandExecutor(db),
-    snapshots: {
-      getGraphOverview: () => getGraphOverview(db),
-      getNodeNeighborhood: (nodeId, options) => getNodeNeighborhood(db, nodeId, options),
+    forSpec(specId: number): SpecScopedReaders {
+      return {
+        getGraphOverview: () => getGraphOverview(db, specId),
+        getNodeNeighborhood: (nodeId, options) => getNodeNeighborhood(db, specId, nodeId, options),
+      };
     },
   };
 }

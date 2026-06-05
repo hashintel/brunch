@@ -23,18 +23,43 @@ web/
     close()
 
   app.tsx
-    creates QueryClient + TanStack Router runtime
-    root route loader ensureQueryData(workspace.snapshot)
-    current proof UI:
+    app/runtime/router assembly:
+      createBrunchWebRuntime
+      createBrunchWebRouter
+      BrunchWebApp shell
+
+  query-client.ts
+    per-runtime QueryClient defaults
+
+  query-keys.ts
+    method-shaped product query keys:
       workspace.snapshot
-      session.transcriptDisplay  # proof-era method; rename debt per rpc/README
-      brunch.updated notification -> invalidate relevant queries
+      session.runtimeState
+      graph.overview
+      graph.nodeNeighborhood
+
+  queries/
+    workspace.ts -> workspace.snapshot query options
+    session.ts   -> session.runtimeState query options
+    graph.ts     -> graph overview/neighborhood query options
+
+  subscriptions/
+    brunch-updates.ts
+      brunch.updated -> exact Query invalidation where possible
+
+  routes/
+    root.tsx
+      root subscription + `/` workspace/session proof route
+    spec.tsx
+      `/spec/$specId` loader primes workspace.snapshot + graph.overview
+
+  features/graph/GraphOverview.tsx
+    read-only selected-spec graph projection
 
   *.test.tsx / *.test.ts
-    component and transport oracles for current web proof
-```
+    component, route/cache, and transport oracles for current web proof
 
-Current `app.tsx` intentionally keeps query options in-file because the surface is still tiny. Split to the topology below as soon as a second route, mutation, or graph projection lands.
+```
 
 ## Host / asset boundary
 
@@ -123,7 +148,7 @@ web/
     generic WebSocket JSON-RPC transport
 
   query-client.ts
-    QueryClient factory/defaults once defaults matter outside tests
+    QueryClient factory/defaults per runtime
 
   query-keys.ts
     one stable key factory object for all product resources
@@ -134,10 +159,9 @@ web/
       workspaceSelectionStateQueryOptions(rpc)
 
     session.ts
-      pendingExchangeQueryOptions(rpc, specId, sessionId)
-      sessionExchangesQueryOptions(rpc, specId, sessionId)
-      # proof-era compatibility may live here temporarily:
-      transcriptDisplayQueryOptions(rpc, specId, sessionId)
+      sessionRuntimeStateQueryOptions(rpc, target)
+      pendingExchangeQueryOptions(rpc, target)       # target, when exchange UI lands
+      sessionExchangesQueryOptions(rpc, target)      # target, when exchange history lands
 
     graph.ts
       graphOverviewQueryOptions(rpc, specId)
@@ -153,13 +177,13 @@ web/
       activateWorkspaceMutationOptions(rpc)
 
     session.ts
-      promptExchangeMutationOptions(rpc)
+      triggerExchangeMutationOptions(rpc)
       submitExchangeResponseMutationOptions(rpc)
       submitMessageMutationOptions(rpc)
 
   subscriptions/
     brunch-updates.ts
-      useBrunchUpdateInvalidation(rpc, queryClient)
+      useBrunchUpdateSubscription(queryClient, rpc)
       maps notification topics/LSNs -> exact Query keys
 
   routes/
@@ -203,14 +227,14 @@ queryKeys = {
   },
 
   session: {
+    runtimeState: (specId, sessionId) =>
+      ['session.runtimeState', specId, sessionId],
+
     pendingExchange: (specId, sessionId) =>
-      ['session.pendingExchange', specId, sessionId],
+      ['session.pendingExchange', specId, sessionId],     # target
 
     exchanges: (specId, sessionId) =>
-      ['session.exchanges', specId, sessionId],
-
-    transcriptDisplay: (specId, sessionId) =>
-      ['session.transcriptDisplay', specId, sessionId], # proof-era only
+      ['session.exchanges', specId, sessionId],           # target
   },
 
   graph: {
@@ -237,67 +261,71 @@ Avoid:
 
 ## RPC methods to web hooks
 
-Method names follow `src/rpc/README.md`. Existing proof-era methods may remain until renamed, but new web work should use the stable vocabulary below.
+Method names follow `src/rpc/README.md`. The TUI-started web sidecar is read-only today: current web code should use query options only. Mutation hook names below describe the expected TanStack Query shape for a future write-capable web/client surface; the current sidecar rejects those RPC methods.
 
 ```pseudo
-rpc.discover
-  useRpcDiscoveryQuery(rpc)
-  Purpose: optional capability/schema introspection for debug panels and adaptive clients.
+current implemented hooks:
+  workspace.snapshot
+    workspaceSnapshotQueryOptions(rpc)
+    query key: ['workspace.snapshot']
+    route loader: root and spec routes
 
-workspace.snapshot
-  workspaceSnapshotQueryOptions(rpc)
-  Purpose: cwd product state, project/posture, current/default spec/session, chrome state.
-  Route loader: root route.
+  session.runtimeState
+    sessionRuntimeStateQueryOptions(rpc, target)
+    query key: ['session.runtimeState', specId, sessionId]
+    route status: query option exists; panel not yet rendered
 
-workspace.selectionState
-  workspaceSelectionStateQueryOptions(rpc)
-  Purpose: boot/picker inventory and whether explicit activation is required.
-  Route: workspace/spec-session picker.
+  graph.overview
+    graphOverviewQueryOptions(rpc, specId)
+    query key: ['graph.overview', specId]
+    route loader: spec route
 
-workspace.activate
-  activateWorkspaceMutationOptions(rpc)
-  Purpose: apply explicit workspace -> spec -> session decision.
-  On success: invalidate workspace.snapshot, workspace.selectionState, session/graph keys for selected resources.
+  graph.nodeNeighborhood
+    graphNodeNeighborhoodQueryOptions(rpc, specId, nodeId, hops)
+    query key: ['graph.nodeNeighborhood', specId, nodeId, hops]
+    route status: query option exists; selection UI not yet wired
 
-session.promptExchange
-  promptExchangeMutationOptions(rpc)
-  Purpose: start/resume/advance assistant-first loop until pending exchange, idle, needs_human, or blocker.
-  On success: invalidate session.pendingExchange and session.exchanges.
+planned read hooks:
+  rpc.discover
+    rpcDiscoveryQueryOptions(rpc)
+    Purpose: optional capability/schema introspection for debug panels and adaptive clients.
 
-session.pendingExchange
-  pendingExchangeQueryOptions(rpc, specId, sessionId)
-  Purpose: current unresolved structured exchange.
-  Route: session/propose-graph panel.
+  workspace.selectionState
+    workspaceSelectionStateQueryOptions(rpc)
+    Purpose: boot/picker inventory and whether explicit activation is required.
 
-session.submitExchangeResponse
-  submitExchangeResponseMutationOptions(rpc)
-  Purpose: submit terminal response for one pending structured exchange.
-  On success: invalidate session.pendingExchange, session.exchanges, graph.overview, graph.coherenceSummary as applicable.
+  session.pendingExchange
+    pendingExchangeQueryOptions(rpc, target)
+    Purpose: current unresolved structured exchange.
 
-session.submitMessage
-  submitMessageMutationOptions(rpc)
-  Purpose: ordinary non-exchange user text or explicit interruption.
-  Must not silently answer a pending exchange.
+  session.exchanges
+    sessionExchangesQueryOptions(rpc, target)
+    Purpose: transcript-derived structured exchange history.
 
-session.exchanges
-  sessionExchangesQueryOptions(rpc, specId, sessionId)
-  Purpose: transcript-derived structured exchange history.
+planned mutation hooks (not sidecar-accepted today):
+  workspace.activate
+    activateWorkspaceMutationOptions(rpc)
+    On success: invalidate workspace.snapshot, workspace.selectionState, session/graph keys for selected resources.
 
-future graph.overview
-  graphOverviewQueryOptions(rpc, specId)
-  Purpose: committed graph projection, node/edge counts, LSN.
+  session.triggerExchange
+    triggerExchangeMutationOptions(rpc)
+    On success: invalidate session.pendingExchange, session.exchanges, and session.runtimeState.
 
-future graph.nodeNeighborhood
-  graphNodeNeighborhoodQueryOptions(rpc, specId, nodeId, hops)
-  Purpose: focused graph context around selected/mentioned node.
+  session.submitExchangeResponse
+    submitExchangeResponseMutationOptions(rpc)
+    On success: invalidate session.pendingExchange, session.exchanges, session.runtimeState; graph projections update only after agent-internal graph commit publishes graph topics.
 
-future graph.recentChanges / graph.changesSince
-  graphRecentChangesQueryOptions(rpc, specId, sinceLsn)
-  Purpose: worldUpdate panels and cache patching.
+reserved future method:
+  session.submitMessage
+    submitMessageMutationOptions(rpc)
+    Must not silently answer a pending exchange.
 
-future graph.coherenceSummary
-  graphCoherenceSummaryQueryOptions(rpc, specId)
-  Purpose: coherence banner/badges after durable semantics are defined.
+future graph projections:
+  graph.recentChanges / graph.changesSince
+    graphRecentChangesQueryOptions(rpc, specId, sinceLsn)
+
+  graph.coherenceSummary
+    graphCoherenceSummaryQueryOptions(rpc, specId)
 ```
 
 ## Subscription / notification bridge

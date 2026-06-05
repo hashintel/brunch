@@ -1,11 +1,12 @@
 import { readFile } from 'node:fs/promises';
-import { createServer, type Server } from 'node:http';
+import { createServer, type Server, type ServerResponse } from 'node:http';
 import { dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
-import { createRpcHandlers } from './handlers.js';
-import { attachWebRpcTransport } from './websocket.js';
+import { createReadOnlyRpcHandlers } from './handlers.js';
+import { createProductUpdatePublisher, type ProductUpdatePublisher } from './product-updates.js';
+import { attachWebRpcTransport, type WebRpcTransport } from './websocket.js';
 
 export interface WebHostOptions {
   cwd: string;
@@ -13,6 +14,7 @@ export interface WebHostOptions {
   hostname?: string;
   coordinator?: WorkspaceSessionCoordinator;
   webAssetRoot?: string;
+  productUpdates?: ProductUpdatePublisher;
 }
 
 export interface RunningWebHost {
@@ -27,23 +29,8 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
   void options.cwd;
   const webAssetRoot = options.webAssetRoot ?? defaultWebAssetRoot();
   const server = createServer((request, response) => {
-    if (request.method === 'GET' && request.url === '/') {
-      void readFile(resolve(webAssetRoot, 'index.html')).then(
-        (asset) => {
-          response.writeHead(200, {
-            'content-type': 'text/html; charset=utf-8',
-            'cache-control': 'no-store',
-          });
-          response.end(asset);
-        },
-        () => {
-          response.writeHead(500, {
-            'content-type': 'text/plain; charset=utf-8',
-            'cache-control': 'no-store',
-          });
-          response.end(MISSING_WEB_BUNDLE_MESSAGE);
-        },
-      );
+    if (request.method === 'GET' && isSpaFallbackRequest(request.url)) {
+      serveIndexHtml(response, webAssetRoot);
       return;
     }
 
@@ -78,17 +65,20 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
     response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('Not found');
   });
-
-  const rpcTransport = options.coordinator
-    ? attachWebRpcTransport({
-        server,
-        path: '/rpc',
-        handlers: createRpcHandlers({
-          coordinator: options.coordinator,
-          cwd: options.cwd,
-        }),
-      })
-    : null;
+  let rpcTransport: WebRpcTransport | null = null;
+  if (options.coordinator) {
+    const productUpdates = options.productUpdates ?? createProductUpdatePublisher();
+    rpcTransport = attachWebRpcTransport({
+      server,
+      path: '/rpc',
+      handlers: createReadOnlyRpcHandlers({
+        coordinator: options.coordinator,
+        cwd: options.cwd,
+        productUpdates,
+      }),
+      productUpdates,
+    });
+  }
 
   const hostname = options.hostname ?? '127.0.0.1';
   await listen(server, options.port ?? 0, hostname);
@@ -110,6 +100,37 @@ function defaultWebAssetRoot(): string {
   return resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'dist-web');
 }
 
+function isSpaFallbackRequest(requestUrl: string | undefined): boolean {
+  if (!requestUrl) {
+    return false;
+  }
+  let pathname: string;
+  try {
+    pathname = new URL(requestUrl, 'http://brunch.local').pathname;
+  } catch {
+    return false;
+  }
+  return pathname === '/' || pathname.startsWith('/spec/');
+}
+
+function serveIndexHtml(response: ServerResponse, webAssetRoot: string): void {
+  void readFile(resolve(webAssetRoot, 'index.html')).then(
+    (asset) => {
+      response.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+      });
+      response.end(asset);
+    },
+    () => {
+      response.writeHead(500, {
+        'content-type': 'text/plain; charset=utf-8',
+        'cache-control': 'no-store',
+      });
+      response.end(MISSING_WEB_BUNDLE_MESSAGE);
+    },
+  );
+}
 interface ResolvedAssetRequest {
   file: string;
   relativePath: string;

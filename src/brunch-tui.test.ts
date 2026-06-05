@@ -31,7 +31,9 @@ import {
   createBrunchAgentSessionRuntimeFactory,
   runBrunchTui,
 } from './brunch-tui.js';
+import { openWorkspaceGraphRuntime } from './graph/index.js';
 import { userMessage } from './probes/test-helpers.js';
+import { createProductUpdatePublisher } from './rpc/product-updates.js';
 import {
   createWorkspaceSessionCoordinator,
   verifyWorkspaceSessionStores,
@@ -90,6 +92,80 @@ describe('Brunch TUI boot', () => {
     }
   });
 
+  it('binds graph tools to the coordinator current spec when the runtime factory is reused after a switch', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-graph-switch-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const first = await coordinator.createSetupSession({
+      specTitle: 'First spec',
+      createNewSpec: true,
+    });
+    const productUpdates = createProductUpdatePublisher();
+    const observedUpdates: Array<readonly unknown[]> = [];
+    const unsubscribe = productUpdates.subscribe((updates) => {
+      observedUpdates.push(updates);
+    });
+    const createRuntime = createBrunchAgentSessionRuntimeFactory({
+      workspace: first,
+      coordinator,
+      productUpdates,
+    });
+    const second = await coordinator.createSetupSession({
+      specTitle: 'Second spec',
+      createNewSpec: true,
+    });
+
+    const created = await createRuntime({
+      cwd,
+      agentDir,
+      sessionManager: second.session.manager,
+    });
+
+    try {
+      const commitGraph = created.session.getToolDefinition('commit_graph') as
+        | {
+            execute: (
+              id: string,
+              params: unknown,
+              signal?: AbortSignal,
+              onUpdate?: unknown,
+              ctx?: unknown,
+            ) => unknown;
+          }
+        | undefined;
+      expect(commitGraph).toBeDefined();
+
+      await commitGraph!.execute(
+        'commit-after-switch',
+        {
+          nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'Second current goal' }],
+          edges: [],
+        },
+        undefined,
+        undefined,
+        undefined,
+      );
+
+      const graph = await openWorkspaceGraphRuntime(cwd);
+      expect(graph.forSpec(first.spec.id).getGraphOverview().nodeCount).toBe(0);
+      expect(
+        graph
+          .forSpec(second.spec.id)
+          .getGraphOverview()
+          .nodes.map((node) => node.title),
+      ).toEqual(['Second current goal']);
+      expect(observedUpdates).toEqual([
+        [
+          { topic: 'graph.overview', specId: second.spec.id, lsn: expect.any(Number) },
+          { topic: 'graph.nodeNeighborhood', specId: second.spec.id, lsn: expect.any(Number) },
+        ],
+      ]);
+    } finally {
+      unsubscribe();
+      created.session.dispose();
+    }
+  });
+
   it('runs inspect, preflight, and activation before launching interactive mode', async () => {
     const events: string[] = [];
     const workspace = readyWorkspace('/tmp/project', 'session-ready');
@@ -128,6 +204,128 @@ describe('Brunch TUI boot', () => {
     });
 
     expect(events).toEqual(['inspect', 'preflight', 'activate:continue', 'launch:session-ready']);
+  });
+
+  it('starts a web sidecar on the active spec route with the shared update publisher before interactive mode', async () => {
+    const events: string[] = [];
+    const workspace = readyWorkspace('/tmp/project', 'session-ready');
+    let sharedPublisher:
+      | {
+          publish(update: unknown): void;
+          subscribe(listener: (updates: readonly unknown[]) => void): () => void;
+        }
+      | undefined;
+
+    await runBrunchTui({
+      cwd: '/tmp/project',
+      coordinator: {
+        inspectWorkspace: async () => {
+          events.push('inspect');
+          return {
+            cwd: '/tmp/project',
+            currentSpec: workspace.spec,
+            currentSessionFile: workspace.session.file,
+            needsNewSpec: false,
+            specs: [],
+            unavailableSessions: [],
+          };
+        },
+        activateWorkspace: async (decision) => {
+          events.push(`activate:${decision.action}`);
+          return workspace;
+        },
+        bindCurrentSpecToReplacementSession: async () => workspace,
+      },
+      runWorkspaceDialogPreflight: async () => {
+        events.push('preflight');
+        return {
+          action: 'continue',
+          specId: workspace.spec.id,
+          sessionFile: workspace.session.file,
+        };
+      },
+      webSidecarRunner: async ({ cwd, productUpdates, routePath }) => {
+        events.push(`sidecar:${cwd}:${routePath}`);
+        sharedPublisher = productUpdates;
+        const unsubscribe = productUpdates.subscribe((updates) => {
+          events.push(`update:${updates[0]?.topic}`);
+        });
+        return {
+          url: 'http://127.0.0.1:49152',
+          async close() {
+            unsubscribe();
+            events.push('sidecar-close');
+          },
+        };
+      },
+      launchInteractive: async ({ productUpdates }) => {
+        events.push('launch');
+        expect(productUpdates).toBe(sharedPublisher);
+        productUpdates!.publish({ topic: 'graph.overview', specId: 1, lsn: 11 });
+      },
+    });
+
+    expect(events).toEqual([
+      'inspect',
+      'preflight',
+      'activate:continue',
+      'sidecar:/tmp/project:/spec/1',
+      'launch',
+      'update:graph.overview',
+      'sidecar-close',
+    ]);
+  });
+
+  it('can disable browser auto-open while still advertising the active spec sidecar route', async () => {
+    const events: string[] = [];
+    const workspace = readyWorkspace('/tmp/project', 'session-ready');
+
+    await runBrunchTui({
+      cwd: '/tmp/project',
+      autoOpen: false,
+      coordinator: {
+        inspectWorkspace: async () => ({
+          cwd: '/tmp/project',
+          currentSpec: workspace.spec,
+          currentSessionFile: workspace.session.file,
+          needsNewSpec: false,
+          specs: [],
+          unavailableSessions: [],
+        }),
+        activateWorkspace: async () => workspace,
+        bindCurrentSpecToReplacementSession: async () => workspace,
+      },
+      runWorkspaceDialogPreflight: async () => ({
+        action: 'continue',
+        specId: workspace.spec.id,
+        sessionFile: workspace.session.file,
+      }),
+      webSidecarRunner: async ({ routePath }) => {
+        events.push(`sidecar:${routePath}`);
+        return {
+          url: 'http://127.0.0.1:49152',
+          async close() {
+            events.push('sidecar-close');
+          },
+        };
+      },
+      openBrowser: async (url) => {
+        events.push(`open:${url}`);
+      },
+      advertiseWebSidecar: (url) => {
+        events.push(`advertise:${url}`);
+      },
+      launchInteractive: async () => {
+        events.push('launch');
+      },
+    });
+
+    expect(events).toEqual([
+      'sidecar:/spec/1',
+      'advertise:http://127.0.0.1:49152/spec/1',
+      'launch',
+      'sidecar-close',
+    ]);
   });
 
   it('does not launch interactive mode when startup preflight is cancelled', async () => {

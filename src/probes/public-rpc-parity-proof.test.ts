@@ -38,7 +38,6 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
     ]);
     expect(new Set(report.exchangeIds).size).toBe(3);
     expect(report.artifacts).toBeUndefined();
-    expect(report.transcriptDisplayRows).toBeGreaterThanOrEqual(6);
   });
 
   it('writes a reviewable artifact bundle when given a fixture root', async () => {

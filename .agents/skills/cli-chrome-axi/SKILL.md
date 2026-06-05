@@ -5,6 +5,17 @@ description: 'Uses the chrome-devtools-axi CLI for browser automation, accessibi
 
 # chrome-devtools-axi
 
+## Sandbox Compatibility — Check First
+
+Run `echo "${APP_SANDBOX_CONTAINER_ID:-none}"` before using this skill.
+
+- **`agent-safehouse`**: **DO NOT use this skill.** The CLI's persistent
+  bridge daemon cannot detach from the Bash subprocess under Seatbelt and
+  times out at startup (`Bridge failed to start within 30s`). Use
+  [cli-agent-browser](../cli-agent-browser/SKILL.md) for daemon-style
+  browser work or [cli-playwright](../cli-playwright/SKILL.md) for one-shots.
+- **`none` (unsandboxed)**: this skill works as documented below.
+
 Use `chrome-devtools-axi` when you want Chrome DevTools automation from the shell with agent-friendly output and stable accessibility refs.
 
 ## Why This CLI

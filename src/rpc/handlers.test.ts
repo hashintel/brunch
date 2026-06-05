@@ -4,10 +4,13 @@ import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import { SessionManager } from '@earendil-works/pi-coding-agent';
+import type { TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
+import { openWorkspaceGraphRuntime } from '../graph/workspace-store.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
+import { BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, type BrunchAgentState } from '../session/runtime-state.js';
 import { createSessionBindingData } from '../session/session-binding.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import type {
@@ -20,6 +23,7 @@ import type {
   SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
 import { createRpcHandlers, runJsonRpcLineServer } from './handlers.js';
+import { createProductUpdatePublisher } from './product-updates.js';
 
 function coordinator(
   state: WorkspaceSessionState = readyState('/tmp/brunch-project/.brunch/sessions/session-1.jsonl'),
@@ -153,6 +157,49 @@ function appendBinding(manager: SessionManager): void {
   );
 }
 
+async function createGraphRpcFixture(): Promise<{
+  cwd: string;
+  specAId: number;
+  specBId: number;
+  specANodeId: number;
+  specBNodeId: number;
+  finalLsn: number;
+}> {
+  const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-graph-'));
+  const graph = await openWorkspaceGraphRuntime(cwd);
+  const specA = graph.commandExecutor.createSpec({ name: 'Spec A', slug: 'spec-a' });
+  const specB = graph.commandExecutor.createSpec({ name: 'Spec B', slug: 'spec-b' });
+  if (specA.status !== 'success' || specB.status !== 'success') {
+    throw new Error('failed to create graph RPC fixture specs');
+  }
+
+  const commitA = graph.commandExecutor.commitGraph({
+    specId: specA.specId,
+    nodes: [
+      { ref: 'requirement', plane: 'intent', kind: 'requirement', title: 'Spec A requirement' },
+      { ref: 'constraint', plane: 'intent', kind: 'constraint', title: 'Spec A constraint' },
+    ],
+    edges: [{ category: 'dependency', source: 'requirement', target: 'constraint' }],
+  });
+  const commitB = graph.commandExecutor.commitGraph({
+    specId: specB.specId,
+    nodes: [{ ref: 'goal', plane: 'intent', kind: 'goal', title: 'Spec B goal' }],
+    edges: [],
+  });
+  if (commitA.status !== 'success' || commitB.status !== 'success') {
+    throw new Error('failed to create graph RPC fixture graph');
+  }
+
+  return {
+    cwd,
+    specAId: specA.specId,
+    specBId: specB.specId,
+    specANodeId: commitA.nodes.requirement!,
+    specBNodeId: commitB.nodes.goal!,
+    finalLsn: commitB.lsn,
+  };
+}
+
 function presentQuestionEntry() {
   return {
     id: 'present-question-1',
@@ -246,12 +293,14 @@ describe('JSON-RPC handlers', () => {
       }
     ).methods;
     expect(methods.map((entry) => entry.method).sort()).toEqual([
-      'elicitation.respond',
+      'graph.nodeNeighborhood',
+      'graph.overview',
       'rpc.discover',
-      'session.elicitationExchanges',
+      'session.exchanges',
       'session.pendingExchange',
-      'session.startElicitation',
-      'session.transcriptDisplay',
+      'session.runtimeState',
+      'session.submitExchangeResponse',
+      'session.triggerExchange',
       'workspace.activate',
       'workspace.selectionState',
       'workspace.snapshot',
@@ -326,6 +375,104 @@ describe('JSON-RPC handlers', () => {
     }
   });
 
+  it('discovers selected-spec graph read methods with schemas and examples', async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp/brunch-project',
+    });
+
+    const response = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 34,
+      method: 'rpc.discover',
+    });
+    if (!('result' in response)) throw new Error('expected success response');
+
+    const methods = (
+      response.result as {
+        methods: Array<{
+          method: string;
+          description: string;
+          paramsSchema: unknown;
+          resultSchema: unknown;
+          examples: unknown[];
+        }>;
+      }
+    ).methods;
+    const overview = methods.find((entry) => entry.method === 'graph.overview');
+    const neighborhood = methods.find((entry) => entry.method === 'graph.nodeNeighborhood');
+
+    expect(overview).toBeDefined();
+    expect(neighborhood).toBeDefined();
+    expect(JSON.stringify(overview?.paramsSchema)).toContain('specId');
+    expect(JSON.stringify(overview?.resultSchema)).toContain('nodeCount');
+    expect(JSON.stringify(neighborhood?.paramsSchema)).toContain('nodeId');
+    expect(JSON.stringify(neighborhood?.resultSchema)).toContain('not_found');
+    expect(overview?.examples).toContainEqual({
+      jsonrpc: '2.0',
+      id: expect.any(Number),
+      method: 'graph.overview',
+      params: { specId: expect.any(Number) },
+    });
+    expect(neighborhood?.examples).toContainEqual({
+      jsonrpc: '2.0',
+      id: expect.any(Number),
+      method: 'graph.nodeNeighborhood',
+      params: { specId: expect.any(Number), nodeId: expect.any(Number), hops: expect.any(Number) },
+    });
+  });
+
+  it('discovers exact session projection wire shapes', async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp/brunch-project',
+    });
+
+    const response = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 35,
+      method: 'rpc.discover',
+    });
+    if (!('result' in response)) throw new Error('expected success response');
+
+    const methods = (
+      response.result as {
+        methods: Array<{
+          method: string;
+          paramsSchema: TSchema & { properties?: Record<string, unknown> };
+          examples: Array<{ params?: unknown }>;
+        }>;
+      }
+    ).methods;
+    const exchanges = methods.find((entry) => entry.method === 'session.exchanges');
+    const pending = methods.find((entry) => entry.method === 'session.pendingExchange');
+    const runtimeState = methods.find((entry) => entry.method === 'session.runtimeState');
+
+    for (const entry of [exchanges, pending]) {
+      if (!entry) throw new Error('expected discovered selected-session projection method');
+      expect(entry.paramsSchema.properties?.specId).toMatchObject({
+        type: 'integer',
+        minimum: 1,
+      });
+      expect(Value.Check(entry.paramsSchema, { sessionId: 'session-1' })).toBe(true);
+      expect(Value.Check(entry.paramsSchema, { sessionId: 'session-1', specId: 1 })).toBe(true);
+      for (const example of entry.examples.filter((example) => example.params !== undefined)) {
+        expect(Value.Check(entry.paramsSchema, example.params)).toBe(true);
+      }
+    }
+
+    if (!runtimeState) throw new Error('expected discovered session.runtimeState method');
+    expect(runtimeState.paramsSchema.properties?.specId).toMatchObject({
+      type: 'integer',
+      minimum: 1,
+    });
+    expect(Value.Check(runtimeState.paramsSchema, { sessionId: 'session-1' })).toBe(false);
+    expect(Value.Check(runtimeState.paramsSchema, { sessionId: 'session-1', specId: 1 })).toBe(true);
+    for (const example of runtimeState.examples.filter((example) => example.params !== undefined)) {
+      expect(Value.Check(runtimeState.paramsSchema, example.params)).toBe(true);
+    }
+  });
+
   it('serves discovery examples that are valid JSON-RPC requests for advertised methods', async () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator(),
@@ -395,6 +542,33 @@ describe('JSON-RPC handlers', () => {
         unavailableSessions: [{ reason: 'missing_header' }],
       },
     });
+  });
+
+  it('publishes workspace mutation invalidation through the shared product update bus', async () => {
+    const productUpdates = createProductUpdatePublisher();
+    const observed: unknown[] = [];
+    productUpdates.subscribe((updates) => observed.push(...updates));
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp/brunch-project',
+      productUpdates,
+    });
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 35,
+        method: 'workspace.activate',
+        params: { decision: { action: 'continue', specId: 1, sessionFile: 'session-1.jsonl' } },
+      }),
+    ).resolves.toMatchObject({ jsonrpc: '2.0', id: 35, result: { status: 'ready' } });
+
+    expect(observed).toEqual([
+      { topic: 'workspace.snapshot', specId: 1, sessionId: 'session-1' },
+      { topic: 'session.pendingExchange', specId: 1, sessionId: 'session-1' },
+      { topic: 'session.exchanges', specId: 1, sessionId: 'session-1' },
+      { topic: 'session.runtimeState', specId: 1, sessionId: 'session-1' },
+    ]);
   });
 
   it('activates valid spec/session decisions and returns serializable product snapshots', async () => {
@@ -504,7 +678,7 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('serves session elicitation exchanges from the coordinator-selected session', async () => {
+  it('serves session exchanges from the coordinator-selected session', async () => {
     const sessionFile = await createSessionFile();
     const handlers = createRpcHandlers({
       coordinator: coordinator(readyState(sessionFile)),
@@ -515,7 +689,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 3,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -541,7 +715,7 @@ describe('JSON-RPC handlers', () => {
     const start = await handlers.handle({
       jsonrpc: '2.0',
       id: 40,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
 
     expect(start).toMatchObject({
@@ -575,38 +749,13 @@ describe('JSON-RPC handlers', () => {
     const exchanges = await handlers.handle({
       jsonrpc: '2.0',
       id: 41,
-      method: 'session.elicitationExchanges',
+      method: 'session.exchanges',
     });
     expect(exchanges).toMatchObject({
       jsonrpc: '2.0',
       id: 41,
       result: { status: 'open_prompt', openPrompt: expect.any(Object) },
     });
-
-    const display = await handlers.handle({
-      jsonrpc: '2.0',
-      id: 42,
-      method: 'session.transcriptDisplay',
-    });
-    expect(display).toMatchObject({
-      jsonrpc: '2.0',
-      id: 42,
-      result: {
-        rows: [
-          {
-            role: 'prompt',
-            text: expect.stringContaining('new product or feature'),
-          },
-        ],
-      },
-    });
-    const displayText = (
-      display as {
-        result: { rows: Array<{ text: string }> };
-      }
-    ).result.rows[0]!.text;
-    expect(displayText).toContain('Start a new spec workspace from a blank slate.');
-    expect(displayText).toContain('This keeps the parity run focused on initial grounding.');
 
     const sessionText = await readFile(workspace.session.file, 'utf8');
     expect(sessionText).toContain('brunch.structured_exchange.present');
@@ -615,7 +764,7 @@ describe('JSON-RPC handlers', () => {
     expect(sessionText).toContain('"lens":"intent"');
   });
 
-  it('reads the selected pending elicitation exchange from transcript truth', async () => {
+  it('reads the selected pending structured exchange from transcript truth', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-pending-'));
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
     await coordinatorInstance.createSetupSession({
@@ -629,7 +778,7 @@ describe('JSON-RPC handlers', () => {
     const start = await handlers.handle({
       jsonrpc: '2.0',
       id: 46,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const pending = await handlers.handle({
       jsonrpc: '2.0',
@@ -676,7 +825,7 @@ describe('JSON-RPC handlers', () => {
     await startHandlers.handle({
       jsonrpc: '2.0',
       id: 48,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
 
     const handlers = createRpcHandlers({
@@ -757,7 +906,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 150,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: 'session-1', specId: 1 },
       }),
     ).resolves.toMatchObject({
@@ -769,27 +918,6 @@ describe('JSON-RPC handlers', () => {
           {
             promptEntryIds: ['present-question-1'],
             responseEntryIds: ['request-answer-1'],
-          },
-        ],
-      },
-    });
-
-    await expect(
-      handlers.handle({
-        jsonrpc: '2.0',
-        id: 151,
-        method: 'session.transcriptDisplay',
-        params: { sessionId: 'session-1', specId: 1 },
-      }),
-    ).resolves.toMatchObject({
-      jsonrpc: '2.0',
-      id: 151,
-      result: {
-        rows: [
-          { role: 'prompt', text: expect.stringContaining('Domain?') },
-          {
-            role: 'user',
-            text: expect.stringContaining('Developer tooling'),
           },
         ],
       },
@@ -980,7 +1108,7 @@ describe('JSON-RPC handlers', () => {
     const start = await handlers.handle({
       jsonrpc: '2.0',
       id: 53,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const exchangeId = (
       start as {
@@ -991,7 +1119,7 @@ describe('JSON-RPC handlers', () => {
     const response = await handlers.handle({
       jsonrpc: '2.0',
       id: 54,
-      method: 'elicitation.respond',
+      method: 'session.submitExchangeResponse',
       params: {
         exchangeId,
         answer: { optionId: 'new-from-scratch' },
@@ -1029,7 +1157,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 56,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -1040,29 +1168,6 @@ describe('JSON-RPC handlers', () => {
           {
             promptEntryIds: [expect.any(String)],
             responseEntryIds: [expect.any(String)],
-          },
-        ],
-      },
-    });
-
-    await expect(
-      handlers.handle({
-        jsonrpc: '2.0',
-        id: 57,
-        method: 'session.transcriptDisplay',
-      }),
-    ).resolves.toMatchObject({
-      jsonrpc: '2.0',
-      id: 57,
-      result: {
-        rows: [
-          {
-            role: 'prompt',
-            text: expect.stringContaining('new product or feature'),
-          },
-          {
-            role: 'user',
-            text: expect.stringContaining('Yes — this is new from scratch'),
           },
         ],
       },
@@ -1088,7 +1193,7 @@ describe('JSON-RPC handlers', () => {
     const first = await handlers.handle({
       jsonrpc: '2.0',
       id: 250,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const firstExchangeId = (
       first as {
@@ -1098,7 +1203,7 @@ describe('JSON-RPC handlers', () => {
     await handlers.handle({
       jsonrpc: '2.0',
       id: 251,
-      method: 'elicitation.respond',
+      method: 'session.submitExchangeResponse',
       params: {
         exchangeId: firstExchangeId,
         answer: { optionId: 'new-from-scratch' },
@@ -1108,7 +1213,7 @@ describe('JSON-RPC handlers', () => {
     const textStart = await handlers.handle({
       jsonrpc: '2.0',
       id: 252,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     expect(textStart).toMatchObject({
       result: {
@@ -1127,7 +1232,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 253,
-        method: 'elicitation.respond',
+        method: 'session.submitExchangeResponse',
         params: {
           exchangeId: textExchangeId,
           answer: { text: 'A local product specification workspace.' },
@@ -1143,7 +1248,7 @@ describe('JSON-RPC handlers', () => {
     const multiStart = await handlers.handle({
       jsonrpc: '2.0',
       id: 254,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     expect(multiStart).toMatchObject({
       result: {
@@ -1157,7 +1262,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 255,
-        method: 'elicitation.respond',
+        method: 'session.submitExchangeResponse',
         params: {
           exchangeId: 'deterministic-grounding-multi-3',
           answer: { optionIds: ['transcript', 'other'] },
@@ -1191,7 +1296,7 @@ describe('JSON-RPC handlers', () => {
     await handlers.handle({
       jsonrpc: '2.0',
       id: 58,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const before = await readFile(workspace.session.file, 'utf8');
 
@@ -1199,7 +1304,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 59,
-        method: 'elicitation.respond',
+        method: 'session.submitExchangeResponse',
         params: {
           exchangeId: 'not-current',
           answer: { optionId: 'new-from-scratch' },
@@ -1210,7 +1315,7 @@ describe('JSON-RPC handlers', () => {
       id: 59,
       error: {
         code: -32006,
-        message: 'Pending elicitation exchange does not match request',
+        message: 'Pending structured exchange does not match request',
       },
     });
     await expect(readFile(workspace.session.file, 'utf8')).resolves.toBe(before);
@@ -1229,7 +1334,7 @@ describe('JSON-RPC handlers', () => {
     const start = await handlers.handle({
       jsonrpc: '2.0',
       id: 60,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const exchangeId = (
       start as {
@@ -1242,7 +1347,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 61,
-        method: 'elicitation.respond',
+        method: 'session.submitExchangeResponse',
         params: { exchangeId, answer: { optionId: 'missing-option' } },
       }),
     ).resolves.toMatchObject({
@@ -1266,7 +1371,7 @@ describe('JSON-RPC handlers', () => {
     const start = await handlers.handle({
       jsonrpc: '2.0',
       id: 62,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const exchangeId = (
       start as {
@@ -1276,7 +1381,7 @@ describe('JSON-RPC handlers', () => {
     await handlers.handle({
       jsonrpc: '2.0',
       id: 63,
-      method: 'elicitation.respond',
+      method: 'session.submitExchangeResponse',
       params: { exchangeId, answer: { optionId: 'existing-codebase' } },
     });
     const before = await readFile(workspace.session.file, 'utf8');
@@ -1285,13 +1390,13 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 64,
-        method: 'elicitation.respond',
+        method: 'session.submitExchangeResponse',
         params: { exchangeId, answer: { optionId: 'existing-codebase' } },
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
       id: 64,
-      error: { code: -32008, message: 'No pending elicitation exchange' },
+      error: { code: -32008, message: 'No pending structured exchange' },
     });
     await expect(readFile(workspace.session.file, 'utf8')).resolves.toBe(before);
   });
@@ -1310,14 +1415,14 @@ describe('JSON-RPC handlers', () => {
     const first = await handlers.handle({
       jsonrpc: '2.0',
       id: 43,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const before = await readFile(workspace.session.file, 'utf8');
 
     const second = await handlers.handle({
       jsonrpc: '2.0',
       id: 44,
-      method: 'session.startElicitation',
+      method: 'session.triggerExchange',
     });
     const after = await readFile(workspace.session.file, 'utf8');
 
@@ -1348,7 +1453,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 45,
-        method: 'session.startElicitation',
+        method: 'session.triggerExchange',
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -1368,7 +1473,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 8,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -1380,7 +1485,7 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('serves session elicitation exchanges by durable session id without opening the selected workspace session', async () => {
+  it('serves session exchanges by durable session id without opening the selected workspace session', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-explicit-session-'));
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
     const first = await coordinatorInstance.createSetupSession({
@@ -1406,7 +1511,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 9,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: first.session.id },
       }),
     ).resolves.toMatchObject({
@@ -1436,23 +1541,87 @@ describe('JSON-RPC handlers', () => {
       },
       cwd,
     });
+  });
+
+  it('serves runtime state by explicit spec and session id without opening selected session', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-runtime-state-'));
+    const latestState: BrunchAgentState = {
+      schemaVersion: 1,
+      operationalMode: 'elicit',
+      agentStrategy: 'propose-graph',
+      agentLens: 'design',
+      agentGoal: 'capture-posture',
+    };
+    await writeExplicitSessionFixture(cwd, [
+      { type: 'session', id: 'session-1', cwd },
+      sessionBindingEntry('session-1', 1),
+      {
+        id: 'runtime-state-1',
+        type: 'custom',
+        parentId: 'binding-session-1-1',
+        customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+        data: {
+          schemaVersion: 1,
+          reason: 'switch',
+          state: latestState,
+          source: 'user',
+        },
+      },
+    ]);
+    const handlers = createRpcHandlers({
+      coordinator: {
+        ...coordinator(),
+        async openDefaultWorkspace() {
+          throw new Error('explicit reads must not open selected session');
+        },
+      },
+      cwd,
+    });
 
     await expect(
       handlers.handle({
         jsonrpc: '2.0',
-        id: 13,
-        method: 'session.transcriptDisplay',
-        params: { sessionId: workspace.session.id, specId: workspace.spec.id },
+        id: 14,
+        method: 'session.runtimeState',
+        params: { sessionId: 'session-1', specId: 1 },
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
-      id: 13,
+      id: 14,
       result: {
-        rows: [
-          { role: 'assistant', text: 'Display question' },
-          { role: 'user', text: 'Display answer' },
-        ],
+        status: 'ready',
+        specId: 1,
+        sessionId: 'session-1',
+        agent: {
+          operationalMode: 'elicit',
+          role: 'elicitor',
+          strategy: 'propose-graph',
+          lens: 'design',
+          goal: 'capture-posture',
+        },
+        mentions: { graphNodes: [], files: [] },
+        world: { graph: { latestLsn: null }, git: { head: null } },
       },
+    });
+  });
+
+  it('requires an explicit spec id for runtime state reads', async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp/brunch-project',
+    });
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 15,
+        method: 'session.runtimeState',
+        params: { sessionId: 'session-1' },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: '2.0',
+      id: 15,
+      error: { code: -32602, message: 'Invalid params' },
     });
   });
 
@@ -1471,7 +1640,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 10,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: workspace.session.id, specId: 9999 },
       }),
     ).resolves.toMatchObject({
@@ -1500,7 +1669,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 16,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: 'session-1' },
       }),
     ).resolves.toMatchObject({
@@ -1529,7 +1698,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 17,
-        method: 'session.transcriptDisplay',
+        method: 'session.exchanges',
         params: { sessionId: 'session-1' },
       }),
     ).resolves.toMatchObject({
@@ -1552,7 +1721,7 @@ describe('JSON-RPC handlers', () => {
       headerlessHandlers.handle({
         jsonrpc: '2.0',
         id: 19,
-        method: 'session.transcriptDisplay',
+        method: 'session.exchanges',
         params: { sessionId: 'session-1' },
       }),
     ).resolves.toMatchObject({
@@ -1580,7 +1749,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 18,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: 'session-header' },
       }),
     ).resolves.toMatchObject({
@@ -1605,7 +1774,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 11,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: 'session-does-not-exist' },
       }),
     ).resolves.toMatchObject({
@@ -1638,7 +1807,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 12,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { sessionId: workspace.session.id },
       }),
     ).resolves.toMatchObject({
@@ -1651,7 +1820,7 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('rejects raw file params on session elicitation exchange RPC', async () => {
+  it('rejects raw file params on session session exchange RPC', async () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator(),
       cwd: '/tmp/brunch-project',
@@ -1661,7 +1830,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 4,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
         params: { file: '/tmp/not-a-product-param.jsonl' },
       }),
     ).resolves.toMatchObject({
@@ -1681,7 +1850,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: 5,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -1719,6 +1888,101 @@ describe('JSON-RPC handlers', () => {
       jsonrpc: '2.0',
       id: 2,
       error: { code: -32601, message: 'Method not found' },
+    });
+  });
+
+  it('serves selected-spec graph overview and node neighborhoods through public RPC', async () => {
+    const fixture = await createGraphRpcFixture();
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: fixture.cwd,
+    });
+
+    const overviewA = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 50,
+      method: 'graph.overview',
+      params: { specId: fixture.specAId },
+    });
+    expect(overviewA).toMatchObject({
+      jsonrpc: '2.0',
+      id: 50,
+      result: {
+        nodeCount: 2,
+        edgeCount: 1,
+        lsn: fixture.finalLsn,
+      },
+    });
+    if (!('result' in overviewA)) throw new Error('expected graph overview');
+    expect(JSON.stringify(overviewA.result)).toContain('Spec A requirement');
+    expect(JSON.stringify(overviewA.result)).not.toContain('Spec B goal');
+
+    const overviewB = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 51,
+      method: 'graph.overview',
+      params: { specId: fixture.specBId },
+    });
+    expect(overviewB).toMatchObject({
+      jsonrpc: '2.0',
+      id: 51,
+      result: { nodeCount: 1, edgeCount: 0, lsn: fixture.finalLsn },
+    });
+
+    const crossSpecNeighborhood = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 52,
+      method: 'graph.nodeNeighborhood',
+      params: { specId: fixture.specAId, nodeId: fixture.specBNodeId },
+    });
+    expect(crossSpecNeighborhood).toEqual({
+      jsonrpc: '2.0',
+      id: 52,
+      result: { status: 'not_found' },
+    });
+
+    const neighborhood = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 53,
+      method: 'graph.nodeNeighborhood',
+      params: { specId: fixture.specAId, nodeId: fixture.specANodeId, hops: 1 },
+    });
+    expect(neighborhood).toMatchObject({
+      jsonrpc: '2.0',
+      id: 53,
+      result: {
+        status: 'success',
+        anchor: { id: fixture.specANodeId, specId: fixture.specAId },
+        neighbors: [{ title: 'Spec A constraint', specId: fixture.specAId }],
+        edges: [{ category: 'dependency', specId: fixture.specAId }],
+      },
+    });
+  });
+
+  it('requires explicit params for selected-spec graph RPC reads', async () => {
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp/brunch-project',
+    });
+
+    await expect(
+      handlers.handle({ jsonrpc: '2.0', id: 54, method: 'graph.overview' }),
+    ).resolves.toMatchObject({
+      jsonrpc: '2.0',
+      id: 54,
+      error: { code: -32602, message: 'Invalid params' },
+    });
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 55,
+        method: 'graph.nodeNeighborhood',
+        params: { specId: 1 },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: '2.0',
+      id: 55,
+      error: { code: -32602, message: 'Invalid params' },
     });
   });
 
@@ -1795,6 +2059,64 @@ describe('JSON-RPC handlers', () => {
       jsonrpc: '2.0',
       id: 1,
       result: { status: 'ready' },
+    });
+  });
+
+  it('writes product update notifications over stdio independently from responses', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const productUpdates = createProductUpdatePublisher();
+    const chunks: string[] = [];
+    output.on('data', (chunk) => chunks.push(String(chunk)));
+
+    const done = runJsonRpcLineServer({
+      input,
+      output,
+      handlers: createRpcHandlers({
+        coordinator: coordinator(),
+        cwd: '/tmp/brunch-project',
+      }),
+      productUpdates,
+    });
+
+    productUpdates.publish({ topic: 'graph.overview', specId: 1, lsn: 4 });
+    input.end();
+    await done;
+
+    expect(JSON.parse(chunks.join(''))).toEqual({
+      jsonrpc: '2.0',
+      method: 'brunch.updated',
+      params: {
+        topics: ['graph.overview'],
+        updates: [{ topic: 'graph.overview', specId: 1, lsn: 4 }],
+      },
+    });
+  });
+
+  it('parses stdio input as LF-framed JSON-RPC without splitting U+2028 inside strings', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const chunks: string[] = [];
+    output.on('data', (chunk) => chunks.push(String(chunk)));
+
+    const done = runJsonRpcLineServer({
+      input,
+      output,
+      handlers: createRpcHandlers({
+        coordinator: coordinator(),
+        cwd: '/tmp/brunch-project',
+      }),
+    });
+
+    input.end(
+      `${JSON.stringify({ jsonrpc: '2.0', id: 99, method: 'unknown.method', params: { text: 'a b' } })}\n`,
+    );
+    await done;
+
+    expect(JSON.parse(chunks.join(''))).toEqual({
+      jsonrpc: '2.0',
+      id: 99,
+      error: { code: -32601, message: 'Method not found' },
     });
   });
 });

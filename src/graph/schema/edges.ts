@@ -69,6 +69,7 @@ export type EdgeBasis = (typeof NODE_BASES)[number];
  */
 export interface GraphEdge {
   readonly id: EdgeId;
+  readonly specId: number;
   readonly category: EdgeCategory;
   readonly sourceId: NodeId;
   readonly targetId: NodeId;

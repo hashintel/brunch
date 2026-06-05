@@ -81,7 +81,7 @@ Update `memory/SPEC.md` §Verification Design:
 Update `memory/PLAN.md` frontier annotations:
 
 - Add or refresh the `Verification` line in each in-scope frontier definition with oracle family, loop tier, and cross-reference to `memory/SPEC.md` sections
-- Keep slice-level oracle detail in the current `ln-scope` card or `memory/CARDS.md` queue unless it changes the frontier definition
+- Keep slice-level oracle detail in the current `ln-scope` card or its scope file under `memory/cards/` unless it changes the frontier definition
 
 ### Cross-reference integrity
 

@@ -98,10 +98,10 @@ If they can, JSONL remains the transcript authority for the POC. If they cannot,
 
 Brunch should expose one local product with four presentation modes:
 
-1. `brunch` - default TUI over the local agent host.
-2. `brunch --mode web` - launches a local HTTP server and browser UI over the same host.
-3. `brunch --mode rpc` - exposes the local host over stdio JSON-RPC for other programs.
-4. `brunch --mode print` - runs one-shot, headless prompts for scripting and pipelines.
+1. `brunch-cli` - default TUI over the local agent host.
+2. `brunch-cli --mode web` - launches a local HTTP server and browser UI over the same host.
+3. `brunch-cli --mode rpc` - exposes the local host over stdio JSON-RPC for other programs.
+4. `brunch-cli --mode print` - runs one-shot, headless prompts for scripting and pipelines.
 
 These modes are not four different products. They are four ways of driving one Brunch host.
 

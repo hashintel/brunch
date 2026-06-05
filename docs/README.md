@@ -1,4 +1,4 @@
-# brunch-next
+# brunch
 
 This is the canonical line for the Brunch POC over `pi-coding-agent`. Prior
 implementation, planning memory, and design docs have been archived under

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,11 +6,13 @@ import { join } from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import { openWorkspaceGraphRuntime } from '../graph/workspace-store.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
 } from '../session/workspace-session-coordinator.js';
+import { createProductUpdatePublisher } from './product-updates.js';
 import { startWebHost } from './web-host.js';
 
 function text(response: Response): Promise<string> {
@@ -73,6 +75,25 @@ describe('web host', () => {
       expect(html).toContain('data-built-shell="true"');
       expect(html).toContain('/assets/brunch-web.js');
       expect(html).not.toContain('pi-web-ui');
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('serves index.html for client-side spec routes as an SPA fallback', async () => {
+    const assetRoot = await builtWebAssets();
+    const host = await startWebHost({
+      cwd: '/tmp/brunch-project',
+      port: 0,
+      webAssetRoot: assetRoot,
+    });
+    try {
+      const response = await fetch(`${host.url}/spec/42`);
+      const html = await text(response);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toContain('text/html');
+      expect(html).toContain('data-built-shell="true"');
     } finally {
       await host.close();
     }
@@ -181,7 +202,7 @@ describe('web host', () => {
       const exchanges = await websocketRpc(host.url, {
         jsonrpc: '2.0',
         id: 2,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
       });
 
       expect(snapshot).toMatchObject({
@@ -225,13 +246,7 @@ describe('web host', () => {
       const response = await websocketRpc(host.url, {
         jsonrpc: '2.0',
         id: 14,
-        method: 'session.elicitationExchanges',
-        params: { sessionId: first.session.id, specId: first.spec.id },
-      });
-      const display = await websocketRpc(host.url, {
-        jsonrpc: '2.0',
-        id: 15,
-        method: 'session.transcriptDisplay',
+        method: 'session.exchanges',
         params: { sessionId: first.session.id, specId: first.spec.id },
       });
 
@@ -243,23 +258,114 @@ describe('web host', () => {
           exchanges: [{ promptEntryIds: expect.arrayContaining([expect.any(String)]) }],
         },
       });
-      expect(display).toMatchObject({
-        jsonrpc: '2.0',
-        id: 15,
-        result: {
-          rows: [
-            { role: 'assistant', text: 'First question' },
-            { role: 'prompt', text: 'Pick an explicit session direction.' },
-            { role: 'user', text: 'First answer' },
-          ],
-        },
-      });
     } finally {
       await host.close();
     }
   });
 
-  it('notifies attached web observers after RPC structured-exchange mutations', async () => {
+  it('exposes the web sidecar as a read-only RPC attachment surface', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-rpc-read-only-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinator.createSetupSession({
+      specTitle: 'Read-only web spec',
+    });
+    workspace.session.manager.appendMessage(assistantMessage('Question'));
+    workspace.session.manager.appendMessage(userMessage('Answer'));
+    const graph = await openWorkspaceGraphRuntime(cwd);
+    const commit = graph.commandExecutor.commitGraph({
+      specId: workspace.spec.id,
+      nodes: [{ ref: 'goal', plane: 'intent', kind: 'goal', title: 'Visible goal' }],
+      edges: [],
+    });
+    if (commit.status !== 'success') throw new Error('failed to seed graph');
+    const host = await startWebHost({
+      cwd,
+      port: 0,
+      coordinator: createWorkspaceSessionCoordinator({ cwd }),
+    });
+    try {
+      const discovery = await websocketRpc(host.url, {
+        jsonrpc: '2.0',
+        id: 16,
+        method: 'rpc.discover',
+      });
+      expect(discovery).toMatchObject({
+        jsonrpc: '2.0',
+        id: 16,
+        result: {
+          methods: expect.arrayContaining([
+            expect.objectContaining({ method: 'workspace.snapshot' }),
+            expect.objectContaining({ method: 'workspace.selectionState' }),
+            expect.objectContaining({ method: 'session.pendingExchange' }),
+            expect.objectContaining({ method: 'session.exchanges' }),
+            expect.objectContaining({ method: 'graph.overview' }),
+            expect.objectContaining({ method: 'graph.nodeNeighborhood' }),
+          ]),
+        },
+      });
+      const discoveredMethods = (
+        discovery as { result: { methods: Array<{ method: string }> } }
+      ).result.methods.map((method) => method.method);
+      expect(discoveredMethods).not.toContain('workspace.activate');
+      expect(discoveredMethods).not.toContain('session.triggerExchange');
+      expect(discoveredMethods).not.toContain('session.submitExchangeResponse');
+
+      await expect(
+        websocketRpc(host.url, {
+          jsonrpc: '2.0',
+          id: 17,
+          method: 'workspace.activate',
+          params: { decision: { action: 'continue' } },
+        }),
+      ).resolves.toEqual({
+        jsonrpc: '2.0',
+        id: 17,
+        error: { code: -32601, message: 'Method not found' },
+      });
+      await expect(
+        websocketRpc(host.url, {
+          jsonrpc: '2.0',
+          id: 18,
+          method: 'session.triggerExchange',
+        }),
+      ).resolves.toEqual({
+        jsonrpc: '2.0',
+        id: 18,
+        error: { code: -32601, message: 'Method not found' },
+      });
+      await expect(
+        websocketRpc(host.url, {
+          jsonrpc: '2.0',
+          id: 19,
+          method: 'session.submitExchangeResponse',
+          params: { exchangeId: 'missing', answer: { text: 'nope' } },
+        }),
+      ).resolves.toEqual({
+        jsonrpc: '2.0',
+        id: 19,
+        error: { code: -32601, message: 'Method not found' },
+      });
+
+      await expect(
+        websocketRpc(host.url, {
+          jsonrpc: '2.0',
+          id: 20,
+          method: 'graph.overview',
+          params: { specId: workspace.spec.id },
+        }),
+      ).resolves.toMatchObject({
+        jsonrpc: '2.0',
+        id: 20,
+        result: { nodes: [expect.objectContaining({ title: 'Visible goal' })] },
+      });
+      const sessionText = await readFile(workspace.session.file, 'utf8');
+      expect(sessionText).not.toContain('deterministic-grounding-choice');
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('rejects sidecar structured-exchange mutations without publishing product updates', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-rpc-live-'));
     await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
       specTitle: 'Live web spec',
@@ -272,84 +378,56 @@ describe('web host', () => {
     const observer = await openWebSocket(`${host.url.replace(/^http/u, 'ws')}/rpc`);
     const actor = await openWebSocket(`${host.url.replace(/^http/u, 'ws')}/rpc`);
     try {
-      const observerNotification = nextWebSocketMessage(observer);
       const actorResponse = nextWebSocketMessage(actor);
 
       actor.send(
         JSON.stringify({
           jsonrpc: '2.0',
           id: 21,
-          method: 'session.startElicitation',
+          method: 'session.triggerExchange',
         }),
       );
 
-      await expect(actorResponse).resolves.toMatchObject({
+      await expect(actorResponse).resolves.toEqual({
         jsonrpc: '2.0',
         id: 21,
-        result: {
-          status: 'pending',
-          exchange: { exchangeId: 'deterministic-grounding-choice-1' },
-        },
+        error: { code: -32601, message: 'Method not found' },
       });
-      await expect(observerNotification).resolves.toEqual({
+      expect(observer.readyState).toBe(WebSocket.OPEN);
+    } finally {
+      observer.close();
+      actor.close();
+      await host.close();
+    }
+  });
+
+  it('broadcasts product update bus events to attached web observers without a request mutation path', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-rpc-bus-'));
+    await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
+      specTitle: 'Live bus spec',
+    });
+    const productUpdates = createProductUpdatePublisher();
+    const host = await startWebHost({
+      cwd,
+      port: 0,
+      coordinator: createWorkspaceSessionCoordinator({ cwd }),
+      productUpdates,
+    });
+    const observer = await openWebSocket(`${host.url.replace(/^http/u, 'ws')}/rpc`);
+    try {
+      const notification = nextWebSocketMessage(observer);
+      productUpdates.publish({ topic: 'graph.overview', specId: 1, lsn: 7 });
+
+      await expect(notification).resolves.toEqual({
         jsonrpc: '2.0',
         method: 'brunch.updated',
         params: {
-          topics: [
-            'workspace.snapshot',
-            'session.pendingExchange',
-            'session.elicitationExchanges',
-            'session.transcriptDisplay',
-          ],
-        },
-      });
-
-      const responseNotification = nextWebSocketMessage(observer);
-      const respond = await websocketRpc(host.url, {
-        jsonrpc: '2.0',
-        id: 23,
-        method: 'elicitation.respond',
-        params: {
-          exchangeId: 'deterministic-grounding-choice-1',
-          answer: { optionId: 'new-from-scratch' },
-          note: 'Observed by the web live-update proof.',
-        },
-      });
-
-      expect(respond).toMatchObject({
-        jsonrpc: '2.0',
-        id: 23,
-        result: { status: 'accepted' },
-      });
-      await expect(responseNotification).resolves.toMatchObject({
-        jsonrpc: '2.0',
-        method: 'brunch.updated',
-      });
-
-      const display = await websocketRpc(host.url, {
-        jsonrpc: '2.0',
-        id: 22,
-        method: 'session.transcriptDisplay',
-      });
-      expect(display).toMatchObject({
-        jsonrpc: '2.0',
-        id: 22,
-        result: {
-          rows: [
-            {
-              role: 'prompt',
-              text: expect.stringContaining('Is this a new product or feature from scratch?'),
-            },
-            {
-              role: 'user',
-              text: expect.stringContaining('Observed by the web live-update proof.'),
-            },
-          ],
+          topics: ['graph.overview'],
+          updates: [{ topic: 'graph.overview', specId: 1, lsn: 7 }],
         },
       });
     } finally {
       observer.close();
-      actor.close();
       await host.close();
     }
   });
@@ -471,7 +549,7 @@ describe('web host', () => {
       const response = await websocketRpc(host.url, {
         jsonrpc: '2.0',
         id: 4,
-        method: 'session.elicitationExchanges',
+        method: 'session.exchanges',
       });
 
       expect(response).toEqual({

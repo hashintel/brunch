@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { runBrunchTui } from './brunch-tui.js';
 import { renderWorkspaceSnapshot, workspaceSnapshotFromState } from './print-snapshot.js';
 import { createRpcHandlers, runJsonRpcLineServer } from './rpc/handlers.js';
+import { createProductUpdatePublisher } from './rpc/product-updates.js';
 import { startWebHost } from './rpc/web-host.js';
 import {
   createWorkspaceSessionCoordinator,
@@ -23,6 +24,7 @@ export interface BrunchCliOptions {
   stdin?: Readable;
   stdout?: Writable | ((chunk: string) => void);
   webHostRunner?: (options: WebHostRunnerOptions) => Promise<void>;
+  launchTui?: typeof runBrunchTui;
 }
 
 export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<number> {
@@ -39,10 +41,12 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
   }
 
   if (mode === 'rpc') {
+    const productUpdates = createProductUpdatePublisher();
     await runJsonRpcLineServer({
       input: options.stdin ?? process.stdin,
       output: stdoutStream(options.stdout),
-      handlers: createRpcHandlers({ coordinator, cwd }),
+      handlers: createRpcHandlers({ coordinator, cwd, productUpdates }),
+      productUpdates,
     });
     return 0;
   }
@@ -53,7 +57,11 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
   }
 
   if (mode === 'tui') {
-    await runBrunchTui({ cwd, coordinator });
+    await (options.launchTui ?? runBrunchTui)({
+      cwd,
+      coordinator,
+      autoOpen: parseAutoOpen(argv),
+    });
     return 0;
   }
 
@@ -106,6 +114,14 @@ function parseMode(argv: string[]): string {
   }
 
   return 'tui';
+}
+
+function parseAutoOpen(argv: string[]): boolean {
+  const autoOpenEquals = argv.find((arg) => arg.startsWith('--auto-open='));
+  if (!autoOpenEquals) {
+    return true;
+  }
+  return autoOpenEquals.slice('--auto-open='.length) !== 'false';
 }
 
 async function main(): Promise<void> {

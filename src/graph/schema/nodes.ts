@@ -125,6 +125,7 @@ export type NodeDetail = DecisionDetail | TermDetail;
  */
 export interface GraphNode {
   readonly id: NodeId;
+  readonly specId: number;
   readonly plane: NodePlane;
   readonly kind: NodeKind;
   readonly title: string;

@@ -129,6 +129,7 @@ export async function runProposeGraphCommitProof(
   const session = created.session;
   const friction = created.diagnostics.map((diagnostic) => `${diagnostic.type}: ${diagnostic.message}`);
   const graph = await openWorkspaceGraphRuntime(cwd);
+  const specSnapshots = graph.forSpec(workspace.spec.id);
 
   try {
     await session.sendUserMessage(prompt);
@@ -142,7 +143,7 @@ export async function runProposeGraphCommitProof(
       sessionId: workspace.session.id,
       maxAttempts,
       sessionFile: workspace.session.file,
-      overview: graph.snapshots.getGraphOverview(),
+      overview: specSnapshots.getGraphOverview(),
       prompt,
       ...(session.model?.id !== undefined ? { model: session.model.id } : {}),
       friction,
@@ -159,7 +160,7 @@ export async function runProposeGraphCommitProof(
         sessionId: workspace.session.id,
         maxAttempts,
         sessionFile: workspace.session.file,
-        overview: graph.snapshots.getGraphOverview(),
+        overview: specSnapshots.getGraphOverview(),
         prompt,
         ...(session.model?.id !== undefined ? { model: session.model.id } : {}),
         friction,

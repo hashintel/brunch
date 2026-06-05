@@ -11,7 +11,7 @@ If context is unclear, ask **one** clarifying question — then recommend.
 
 The canonical rule is simple: durable planning state lives only in `memory/SPEC.md` and `memory/PLAN.md`, and new or uncertain work defaults to the canonical flow until a narrow exception is clearly justified.
 
-Do not invent new planning documents, sidecar ledgers, or alternate storage locations without explicit user permission. If a fact matters beyond the current step, reconcile it into `memory/SPEC.md` or `memory/PLAN.md`; if it is temporary transfer state, keep it in `HANDOFF.md`; if it is a temporary multi-card execution queue inside one frontier item, keep it in `memory/CARDS.md`; if it is a temporary refactor execution plan, keep it in `memory/REFACTOR.md`. Derivative files stay live only while they still carry unfinished work.
+Do not invent new planning documents, sidecar ledgers, or alternate storage locations without explicit user permission. If a fact matters beyond the current step, reconcile it into `memory/SPEC.md` or `memory/PLAN.md`; if it is temporary transfer state, keep it in `HANDOFF.md`; if it is one or more prepared scope cards for a frontier item, keep them in a scope file under `memory/cards/`; if it is a temporary refactor execution plan, keep it in `memory/REFACTOR.md`. Derivative files stay live only while they still carry unfinished work.
 
 Orient, then classify.
 
@@ -62,7 +62,7 @@ Bounded exception:
 
 Bounded serial exception:
 
-`ln-scope → ln-build → commit → ln-build ...` inside one already-settled frontier item, optionally with the prepared queue persisted in `memory/CARDS.md`
+`ln-scope → ln-build → commit → ln-build ...` inside one already-settled frontier item, optionally with the prepared chain persisted as a `Mode: chain` scope file under `memory/cards/`
 
 Direct-build exception:
 
@@ -100,7 +100,7 @@ Spikes are the escape hatch, not the default.
 | Spec exists, needs work sequencing | structural | `ln-plan` |
 | Verification strategy is the main uncertainty | structural | `ln-oracles` |
 | Next work item needs precise boundaries | structural or bounded | `ln-scope` |
-| One settled frontier item needs several small verified commits in sequence | bounded, hardening | `ln-scope` then serial `ln-build` loop, optionally via `memory/CARDS.md` |
+| One settled frontier item needs several small verified commits in sequence | bounded, hardening | `ln-scope` then serial `ln-build` loop, optionally via a `Mode: chain` scope file under `memory/cards/` |
 | Module interface needs exploration | structural | `ln-design` |
 | Full or light scope card exists, ready to code | bounded, hardening, bugfix | `ln-build` |
 | Technical uncertainty blocks progress, or a cheap investigation could invalidate planned work | any | `ln-spike` |

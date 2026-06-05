@@ -27,6 +27,7 @@ const successfulOverview: GraphOverview = {
   nodes: [
     {
       id: 1,
+      specId: 1,
       plane: 'intent',
       kind: 'goal',
       title: 'Clarify launch readiness',
@@ -36,6 +37,7 @@ const successfulOverview: GraphOverview = {
     },
     {
       id: 2,
+      specId: 1,
       plane: 'intent',
       kind: 'requirement',
       title: 'Expose rollback criteria',
@@ -47,6 +49,7 @@ const successfulOverview: GraphOverview = {
   edges: [
     {
       id: 1,
+      specId: 1,
       category: 'dependency',
       sourceId: 2,
       targetId: 1,

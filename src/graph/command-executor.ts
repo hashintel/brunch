@@ -17,7 +17,7 @@
  * even though pre-M6 policy classification is minimal.
  */
 
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
@@ -164,6 +164,7 @@ export interface UpdateReadinessGradeInput {
 
 /** Input for creating a single graph node. */
 export interface CreateNodeInput {
+  readonly specId: number;
   readonly plane: NodePlane;
   readonly kind: string;
   readonly title: string;
@@ -195,9 +196,16 @@ export type ReconNeedTarget = ReconNeedTargetEdge | ReconNeedTargetNodePair;
 
 /** Input for creating a reconciliation need. */
 export interface CreateReconNeedInput {
+  readonly specId: number;
   readonly target: ReconNeedTarget;
   readonly needKind: string;
   readonly reason?: string | undefined;
+}
+
+/** Input for resolving a reconciliation need. */
+export interface ResolveReconNeedInput {
+  readonly specId: number;
+  readonly id: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -231,6 +239,7 @@ export interface BatchEdgeInput {
 
 /** Input for the commitGraph atomic batch mutation. */
 export interface CommitGraphInput {
+  readonly specId: number;
   readonly nodes: readonly BatchNodeInput[];
   readonly edges: readonly BatchEdgeInput[];
 }
@@ -400,6 +409,8 @@ function validateAndResolveBatchEdge(
   index: number,
   refMap: ReadonlyMap<string, number>,
   existingNodeIds: ReadonlySet<number>,
+  crossSpecExisting: ReadonlySet<number>,
+  specId: number,
 ): EdgeValidationResult {
   const diagnostics: Diagnostic[] = [];
   const p = `edges[${index}]`;
@@ -446,7 +457,12 @@ function validateAndResolveBatchEdge(
     }
   } else {
     resolvedSourceId = input.source.existing;
-    if (!existingNodeIds.has(resolvedSourceId)) {
+    if (crossSpecExisting.has(resolvedSourceId)) {
+      diagnostics.push({
+        field: `${p}.source`,
+        message: `existing node ${resolvedSourceId} belongs to a different spec (command spec ${specId})`,
+      });
+    } else if (!existingNodeIds.has(resolvedSourceId)) {
       diagnostics.push({
         field: `${p}.source`,
         message: `existing node ${resolvedSourceId} not found`,
@@ -466,7 +482,12 @@ function validateAndResolveBatchEdge(
     }
   } else {
     resolvedTargetId = input.target.existing;
-    if (!existingNodeIds.has(resolvedTargetId)) {
+    if (crossSpecExisting.has(resolvedTargetId)) {
+      diagnostics.push({
+        field: `${p}.target`,
+        message: `existing node ${resolvedTargetId} belongs to a different spec (command spec ${specId})`,
+      });
+    } else if (!existingNodeIds.has(resolvedTargetId)) {
       diagnostics.push({
         field: `${p}.target`,
         message: `existing node ${resolvedTargetId} not found`,
@@ -627,7 +648,7 @@ export class CommandExecutor {
    * Create a single graph node.
    *
    * Validates structurally, then executes inside one transaction:
-   * allocate LSN → insert node → append change_log → return result.
+   * verify spec exists → allocate LSN → insert node → append change_log → return result.
    *
    * On validation failure, nothing is written.
    */
@@ -638,7 +659,20 @@ export class CommandExecutor {
     }
 
     return this.db.transaction((tx) => {
-      // 1. Allocate LSN (atomic increment)
+      // 1. Verify spec exists
+      const specRow = tx
+        .select({ id: schema.specs.id })
+        .from(schema.specs)
+        .where(eq(schema.specs.id, input.specId))
+        .get();
+      if (!specRow) {
+        return {
+          status: 'structural_illegal' as const,
+          diagnostics: [{ field: 'specId', message: `spec ${input.specId} does not exist` }],
+        };
+      }
+
+      // 2. Allocate LSN (atomic increment)
       const clock = tx
         .update(schema.graphClock)
         .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
@@ -647,10 +681,11 @@ export class CommandExecutor {
         .get();
       const lsn = clock!.lsn;
 
-      // 2. Insert node
+      // 3. Insert node
       const node = tx
         .insert(schema.nodes)
         .values({
+          spec_id: input.specId,
           plane: input.plane,
           kind: input.kind,
           title: input.title,
@@ -665,13 +700,14 @@ export class CommandExecutor {
         .get();
       const nodeId = node!.id;
 
-      // 3. Append change_log
+      // 4. Append change_log
       tx.insert(schema.changeLog)
         .values({
           lsn,
           operation: 'create_node',
           payload: JSON.stringify({
             nodeId,
+            specId: input.specId,
             plane: input.plane,
             kind: input.kind,
           }),
@@ -698,7 +734,8 @@ export class CommandExecutor {
    *
    * One transaction, one LSN. Intra-batch refs (strings) resolve to
    * just-inserted NodeIds; existing refs ({ existing: id }) are verified
-   * against the database. All-or-nothing: if any entry fails structural
+   * against the database AND must belong to the command's spec
+   * (D61-L spec ownership). All-or-nothing: if any entry fails structural
    * validation, the entire batch is rejected (I34-L).
    */
   commitGraph(input: CommitGraphInput): CommitGraphResult {
@@ -710,7 +747,19 @@ export class CommandExecutor {
     // --- Transaction: insert nodes, resolve refs, validate + insert edges ---
     try {
       return this.db.transaction((tx) => {
-        // 1. Allocate ONE LSN
+        // 1. Verify spec exists
+        const specRow = tx
+          .select({ id: schema.specs.id })
+          .from(schema.specs)
+          .where(eq(schema.specs.id, input.specId))
+          .get();
+        if (!specRow) {
+          throw new BatchValidationError([
+            { field: 'specId', message: `spec ${input.specId} does not exist` },
+          ]);
+        }
+
+        // 2. Allocate ONE LSN
         const clock = tx
           .update(schema.graphClock)
           .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
@@ -719,12 +768,13 @@ export class CommandExecutor {
           .get();
         const lsn = clock!.lsn;
 
-        // 2. Insert all nodes, build ref → id map
+        // 3. Insert all nodes, build ref → id map
         const refMap = new Map<string, number>();
         for (const bn of input.nodes) {
           const row = tx
             .insert(schema.nodes)
             .values({
+              spec_id: input.specId,
               plane: bn.plane,
               kind: bn.kind,
               title: bn.title,
@@ -740,7 +790,7 @@ export class CommandExecutor {
           refMap.set(bn.ref, row!.id);
         }
 
-        // 3. Collect and verify existing-node references
+        // 4. Collect and verify existing-node references — must be same spec
         const existingRefs = new Set<number>();
         for (const edge of input.edges) {
           if (typeof edge.source !== 'string') existingRefs.add(edge.source.existing);
@@ -748,21 +798,35 @@ export class CommandExecutor {
         }
 
         const verifiedExisting = new Set<number>();
+        const crossSpecExisting = new Set<number>();
         if (existingRefs.size > 0) {
           const rows = tx
-            .select({ id: schema.nodes.id })
+            .select({ id: schema.nodes.id, spec_id: schema.nodes.spec_id })
             .from(schema.nodes)
             .where(inArray(schema.nodes.id, [...existingRefs]))
             .all();
-          for (const row of rows) verifiedExisting.add(row.id);
+          for (const row of rows) {
+            if (row.spec_id === input.specId) {
+              verifiedExisting.add(row.id);
+            } else {
+              crossSpecExisting.add(row.id);
+            }
+          }
         }
 
-        // 4. Validate and resolve all edges
+        // 5. Validate and resolve all edges
         const edgeDiagnostics: Diagnostic[] = [];
         const resolvedEdges: ResolvedEdge[] = [];
 
         for (let i = 0; i < input.edges.length; i++) {
-          const result = validateAndResolveBatchEdge(input.edges[i]!, i, refMap, verifiedExisting);
+          const result = validateAndResolveBatchEdge(
+            input.edges[i]!,
+            i,
+            refMap,
+            verifiedExisting,
+            crossSpecExisting,
+            input.specId,
+          );
           edgeDiagnostics.push(...result.diagnostics);
           if (result.resolved) resolvedEdges.push(result.resolved);
         }
@@ -771,12 +835,13 @@ export class CommandExecutor {
           throw new BatchValidationError(edgeDiagnostics);
         }
 
-        // 5. Insert all edges
+        // 6. Insert all edges
         const edgeIds: number[] = [];
         for (const re of resolvedEdges) {
           const row = tx
             .insert(schema.edges)
             .values({
+              spec_id: input.specId,
               category: re.category,
               source_id: re.sourceId,
               target_id: re.targetId,
@@ -791,12 +856,13 @@ export class CommandExecutor {
           edgeIds.push(row!.id);
         }
 
-        // 6. Append one change_log entry for the entire batch
+        // 7. Append one change_log entry for the entire batch
         tx.insert(schema.changeLog)
           .values({
             lsn,
             operation: 'commit_graph',
             payload: JSON.stringify({
+              specId: input.specId,
               nodes: Object.fromEntries(refMap),
               edges: edgeIds,
             }),
@@ -825,6 +891,16 @@ export class CommandExecutor {
       return diagnostics;
     }
 
+    const specRow = this.db
+      .select({ id: schema.specs.id })
+      .from(schema.specs)
+      .where(eq(schema.specs.id, input.specId))
+      .get();
+    if (!specRow) {
+      diagnostics.push({ field: 'specId', message: `spec ${input.specId} does not exist` });
+      return diagnostics;
+    }
+
     const refMap = new Map<string, number>();
     for (let i = 0; i < input.nodes.length; i++) {
       const bn = input.nodes[i]!;
@@ -836,7 +912,8 @@ export class CommandExecutor {
       }
       refMap.set(bn.ref, -(i + 1));
 
-      for (const diagnostic of validateCreateNode(bn)) {
+      // Node validation reuses createNode rules; specId comes from the batch.
+      for (const diagnostic of validateCreateNode({ ...bn, specId: input.specId })) {
         diagnostics.push({
           field: `nodes[${i}].${diagnostic.field}`,
           message: diagnostic.message,
@@ -852,18 +929,32 @@ export class CommandExecutor {
     }
 
     const verifiedExisting = new Set<number>();
+    const crossSpecExisting = new Set<number>();
     if (existingRefs.size > 0) {
       const rows = this.db
-        .select({ id: schema.nodes.id })
+        .select({ id: schema.nodes.id, spec_id: schema.nodes.spec_id })
         .from(schema.nodes)
         .where(inArray(schema.nodes.id, [...existingRefs]))
         .all();
-      for (const row of rows) verifiedExisting.add(row.id);
+      for (const row of rows) {
+        if (row.spec_id === input.specId) {
+          verifiedExisting.add(row.id);
+        } else {
+          crossSpecExisting.add(row.id);
+        }
+      }
     }
 
     for (let i = 0; i < input.edges.length; i++) {
       diagnostics.push(
-        ...validateAndResolveBatchEdge(input.edges[i]!, i, refMap, verifiedExisting).diagnostics,
+        ...validateAndResolveBatchEdge(
+          input.edges[i]!,
+          i,
+          refMap,
+          verifiedExisting,
+          crossSpecExisting,
+          input.specId,
+        ).diagnostics,
       );
     }
     return diagnostics;
@@ -876,13 +967,23 @@ export class CommandExecutor {
    * inside one transaction with LSN allocation and change_log append.
    */
   createReconciliationNeed(input: CreateReconNeedInput): CreateReconNeedResult {
-    // Validate target references exist
+    // Validate spec + target references exist and share the same spec.
     return this.db.transaction((tx) => {
       const diagnostics: Diagnostic[] = [];
 
+      const specRow = tx
+        .select({ id: schema.specs.id })
+        .from(schema.specs)
+        .where(eq(schema.specs.id, input.specId))
+        .get();
+      if (!specRow) {
+        diagnostics.push({ field: 'specId', message: `spec ${input.specId} does not exist` });
+        return { status: 'structural_illegal' as const, diagnostics };
+      }
+
       if (input.target.kind === 'edge') {
         const row = tx
-          .select({ id: schema.edges.id })
+          .select({ id: schema.edges.id, spec_id: schema.edges.spec_id })
           .from(schema.edges)
           .where(eq(schema.edges.id, input.target.edgeId))
           .get();
@@ -891,30 +992,30 @@ export class CommandExecutor {
             field: 'target.edgeId',
             message: `edge ${input.target.edgeId} does not exist`,
           });
+        } else if (row.spec_id !== input.specId) {
+          diagnostics.push({
+            field: 'target.edgeId',
+            message: `edge ${input.target.edgeId} belongs to a different spec (command spec ${input.specId})`,
+          });
         }
       } else {
-        const aRow = tx
-          .select({ id: schema.nodes.id })
-          .from(schema.nodes)
-          .where(eq(schema.nodes.id, input.target.aId))
-          .get();
-        if (!aRow) {
-          diagnostics.push({
-            field: 'target.aId',
-            message: `node ${input.target.aId} does not exist`,
-          });
-        }
-        const bRow = tx
-          .select({ id: schema.nodes.id })
-          .from(schema.nodes)
-          .where(eq(schema.nodes.id, input.target.bId))
-          .get();
-        if (!bRow) {
-          diagnostics.push({
-            field: 'target.bId',
-            message: `node ${input.target.bId} does not exist`,
-          });
-        }
+        const checkNode = (id: number, field: 'target.aId' | 'target.bId'): void => {
+          const row = tx
+            .select({ id: schema.nodes.id, spec_id: schema.nodes.spec_id })
+            .from(schema.nodes)
+            .where(eq(schema.nodes.id, id))
+            .get();
+          if (!row) {
+            diagnostics.push({ field, message: `node ${id} does not exist` });
+          } else if (row.spec_id !== input.specId) {
+            diagnostics.push({
+              field,
+              message: `node ${id} belongs to a different spec (command spec ${input.specId})`,
+            });
+          }
+        };
+        checkNode(input.target.aId, 'target.aId');
+        checkNode(input.target.bId, 'target.bId');
       }
 
       if (diagnostics.length > 0) {
@@ -934,6 +1035,7 @@ export class CommandExecutor {
       const row = tx
         .insert(schema.reconciliationNeed)
         .values({
+          spec_id: input.specId,
           target_kind: input.target.kind,
           target_edge_id: input.target.kind === 'edge' ? input.target.edgeId : null,
           target_a_id: input.target.kind === 'node_pair' ? input.target.aId : null,
@@ -952,6 +1054,7 @@ export class CommandExecutor {
           operation: 'create_reconciliation_need',
           payload: JSON.stringify({
             id: row!.id,
+            specId: input.specId,
             target: input.target,
             kind: input.needKind,
           }),
@@ -968,12 +1071,17 @@ export class CommandExecutor {
    * Sets status to "resolved" and records the resolvedAtLsn.
    * Rejects if the need does not exist or is already resolved.
    */
-  resolveReconciliationNeed(id: number): ResolveReconNeedResult {
+  resolveReconciliationNeed(input: ResolveReconNeedInput): ResolveReconNeedResult {
     return this.db.transaction((tx) => {
       const existing = tx
         .select()
         .from(schema.reconciliationNeed)
-        .where(eq(schema.reconciliationNeed.id, id))
+        .where(
+          and(
+            eq(schema.reconciliationNeed.id, input.id),
+            eq(schema.reconciliationNeed.spec_id, input.specId),
+          ),
+        )
         .get();
 
       if (!existing) {
@@ -982,7 +1090,7 @@ export class CommandExecutor {
           diagnostics: [
             {
               field: 'id',
-              message: `reconciliation need ${id} does not exist`,
+              message: `reconciliation need ${input.id} does not exist for spec ${input.specId}`,
             },
           ],
         };
@@ -994,7 +1102,7 @@ export class CommandExecutor {
           diagnostics: [
             {
               field: 'id',
-              message: `reconciliation need ${id} is already resolved`,
+              message: `reconciliation need ${input.id} is already resolved`,
             },
           ],
         };
@@ -1012,7 +1120,12 @@ export class CommandExecutor {
       // Update status
       tx.update(schema.reconciliationNeed)
         .set({ status: 'resolved', resolved_at_lsn: lsn })
-        .where(eq(schema.reconciliationNeed.id, id))
+        .where(
+          and(
+            eq(schema.reconciliationNeed.id, input.id),
+            eq(schema.reconciliationNeed.spec_id, input.specId),
+          ),
+        )
         .run();
 
       // Append change_log
@@ -1020,7 +1133,7 @@ export class CommandExecutor {
         .values({
           lsn,
           operation: 'resolve_reconciliation_need',
-          payload: JSON.stringify({ id }),
+          payload: JSON.stringify({ id: input.id, specId: input.specId }),
         })
         .run();
 

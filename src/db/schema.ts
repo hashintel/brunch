@@ -71,6 +71,9 @@ export const specs = sqliteTable('specs', {
 
 export const nodes = sqliteTable('nodes', {
   id: integer().primaryKey({ autoIncrement: true }),
+  spec_id: integer()
+    .notNull()
+    .references(() => specs.id),
   plane: text({ enum: ['intent', 'oracle', 'design', 'plan'] }).notNull(),
   kind: text().notNull(), // validated at domain layer against plane-specific enum
   title: text().notNull(),
@@ -84,6 +87,9 @@ export const nodes = sqliteTable('nodes', {
 
 export const edges = sqliteTable('edges', {
   id: integer().primaryKey({ autoIncrement: true }),
+  spec_id: integer()
+    .notNull()
+    .references(() => specs.id),
   category: text({ enum: EDGE_CATEGORIES }).notNull(),
   source_id: integer()
     .notNull()
@@ -114,6 +120,9 @@ export const changeLog = sqliteTable('change_log', {
 
 export const reconciliationNeed = sqliteTable('reconciliation_need', {
   id: integer().primaryKey({ autoIncrement: true }),
+  spec_id: integer()
+    .notNull()
+    .references(() => specs.id),
   // target is {kind:'edge', edgeId} or {kind:'node_pair', aId, bId}
   target_kind: text({ enum: ['edge', 'node_pair'] }).notNull(),
   target_edge_id: integer().references(() => edges.id),

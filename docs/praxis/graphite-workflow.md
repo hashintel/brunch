@@ -32,7 +32,7 @@ Then create or track the corresponding Graphite branch. If another tool creates 
 - Branch / Linear-issue granularity follows the containing `memory/PLAN.md` frontier item.
 - A frontier item is the plan-level work item; scope cards and implementation slices are execution detail inside it.
 - `ln-scope` may narrow one frontier item into multiple buildable slices or consecutive scope cards; keep them on one branch.
-- If several consecutive scope cards are prepared ahead of time, keep that execution queue in `memory/CARDS.md`; do not split branches or duplicate detailed slice history in `memory/PLAN.md` just to mirror commit-sized steps.
+- If several consecutive scope cards are prepared ahead of time, keep that chain in a single `Mode: chain` scope file under `memory/cards/`. Multiple scope files for the same frontier (independent concerns) do **not** imply multiple branches, and detailed slice history does not belong in `memory/PLAN.md`.
 - Only create a new branch when starting a different frontier item, or after `ln-plan` explicitly splits the frontier into separate PLAN.md items that should stack independently.
 - If scoping shows the current frontier item is too large, revise `memory/PLAN.md` first, then align the branch stack to the revised frontier.
 

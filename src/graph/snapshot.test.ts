@@ -10,6 +10,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
+import { specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
 import { getGraphOverview, getNodeNeighborhood, getOpenReconciliationNeeds } from './snapshot.js';
 
@@ -20,14 +21,19 @@ function createTestDb(): BrunchDb {
 describe('getGraphOverview', () => {
   let db: BrunchDb;
   let executor: CommandExecutor;
+  let specId: number;
 
   beforeEach(() => {
     db = createTestDb();
     executor = new CommandExecutor(db);
+    db.insert(specs)
+      .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
+      .run();
+    specId = db.select({ id: specs.id }).from(specs).get()!.id;
   });
 
   it('returns empty arrays and zero counts on an empty graph', () => {
-    const overview = getGraphOverview(db);
+    const overview = getGraphOverview(db, specId);
     expect(overview.nodes).toEqual([]);
     expect(overview.edges).toEqual([]);
     expect(overview.nodeCount).toBe(0);
@@ -36,14 +42,15 @@ describe('getGraphOverview', () => {
   });
 
   it('returns current LSN from graph_clock', () => {
-    executor.createNode({ plane: 'intent', kind: 'goal', title: 'G1' });
-    executor.createNode({ plane: 'intent', kind: 'thesis', title: 'T1' });
-    const overview = getGraphOverview(db);
+    executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'G1' });
+    executor.createNode({ specId, plane: 'intent', kind: 'thesis', title: 'T1' });
+    const overview = getGraphOverview(db, specId);
     expect(overview.lsn).toBe(2);
   });
 
   it('returns typed domain objects with parsed detail JSON', () => {
     executor.createNode({
+      specId,
       plane: 'intent',
       kind: 'decision',
       title: 'Use SQLite',
@@ -55,7 +62,7 @@ describe('getGraphOverview', () => {
       },
     });
 
-    const overview = getGraphOverview(db);
+    const overview = getGraphOverview(db, specId);
     expect(overview.nodes).toHaveLength(1);
     const node = overview.nodes[0]!;
     expect(node.id).toBeTypeOf('number');
@@ -75,6 +82,7 @@ describe('getGraphOverview', () => {
 
   it('returns nodes and edges with correct counts', () => {
     const batch = executor.commitGraph({
+      specId,
       nodes: [
         { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
         { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'A1' },
@@ -83,7 +91,7 @@ describe('getGraphOverview', () => {
     });
     expect(batch.status).toBe('success');
 
-    const overview = getGraphOverview(db);
+    const overview = getGraphOverview(db, specId);
     expect(overview.nodeCount).toBe(2);
     expect(overview.edgeCount).toBe(1);
     expect(overview.nodes).toHaveLength(2);
@@ -93,16 +101,13 @@ describe('getGraphOverview', () => {
 
   it('excludes superseded predecessors from overview', () => {
     // Create R_v0, then R_v1 that supersedes R_v0
-    const r0 = executor.createNode({
-      plane: 'intent',
-      kind: 'requirement',
-      title: 'R_offline_v0',
-    });
+    const r0 = executor.createNode({ specId, plane: 'intent', kind: 'requirement', title: 'R_offline_v0' });
     expect(r0.status).toBe('success');
     if (r0.status !== 'success') throw new Error('unreachable');
     const r0Id = r0.nodeId;
 
     const batch = executor.commitGraph({
+      specId,
       nodes: [
         {
           ref: 'r1',
@@ -121,7 +126,7 @@ describe('getGraphOverview', () => {
     });
     expect(batch.status).toBe('success');
 
-    const overview = getGraphOverview(db);
+    const overview = getGraphOverview(db, specId);
     // R_offline_v0 should be excluded (it is a superseded predecessor)
     const titles = overview.nodes.map((n) => n.title);
     expect(titles).toContain('R_offline_v1');
@@ -134,19 +139,25 @@ describe('getGraphOverview', () => {
 describe('getNodeNeighborhood', () => {
   let db: BrunchDb;
   let executor: CommandExecutor;
+  let specId: number;
 
   beforeEach(() => {
     db = createTestDb();
     executor = new CommandExecutor(db);
+    db.insert(specs)
+      .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
+      .run();
+    specId = db.select({ id: specs.id }).from(specs).get()!.id;
   });
 
   it('returns error for non-existent nodeId', () => {
-    const result = getNodeNeighborhood(db, 999);
+    const result = getNodeNeighborhood(db, specId, 999);
     expect(result.status).toBe('not_found');
   });
 
   it('returns anchor node and directly connected nodes/edges at 1 hop (default)', () => {
     const batch = executor.commitGraph({
+      specId,
       nodes: [
         { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
         { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'A1' },
@@ -161,7 +172,7 @@ describe('getNodeNeighborhood', () => {
     if (batch.status !== 'success') throw new Error('unreachable');
 
     const r1Id = batch.nodes['r1']!;
-    const result = getNodeNeighborhood(db, r1Id);
+    const result = getNodeNeighborhood(db, specId, r1Id);
     expect(result.status).toBe('success');
     if (result.status !== 'success') throw new Error('unreachable');
 
@@ -176,6 +187,7 @@ describe('getNodeNeighborhood', () => {
   it('reaches 2-hop neighbors', () => {
     // G1 -> R1 -> A1 (chain of depth 2 from G1)
     const batch = executor.commitGraph({
+      specId,
       nodes: [
         { ref: 'g1', plane: 'intent', kind: 'goal', title: 'G1' },
         { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
@@ -192,13 +204,13 @@ describe('getNodeNeighborhood', () => {
     const g1Id = batch.nodes['g1']!;
 
     // 1 hop: only R1
-    const hop1 = getNodeNeighborhood(db, g1Id, { hops: 1 });
+    const hop1 = getNodeNeighborhood(db, specId, g1Id, { hops: 1 });
     expect(hop1.status).toBe('success');
     if (hop1.status !== 'success') throw new Error('unreachable');
     expect(hop1.neighbors.map((n) => n.title)).toEqual(['R1']);
 
     // 2 hops: R1 and A1
-    const hop2 = getNodeNeighborhood(db, g1Id, { hops: 2 });
+    const hop2 = getNodeNeighborhood(db, specId, g1Id, { hops: 2 });
     expect(hop2.status).toBe('success');
     if (hop2.status !== 'success') throw new Error('unreachable');
     const titles = hop2.neighbors.map((n) => n.title).sort();
@@ -207,16 +219,13 @@ describe('getNodeNeighborhood', () => {
 
   it('excludes superseded predecessors from neighborhood (unless anchor)', () => {
     // R_v0 superseded by R_v1, with A1 depending on R_v1
-    const r0 = executor.createNode({
-      plane: 'intent',
-      kind: 'requirement',
-      title: 'R_v0',
-    });
+    const r0 = executor.createNode({ specId, plane: 'intent', kind: 'requirement', title: 'R_v0' });
     expect(r0.status).toBe('success');
     if (r0.status !== 'success') throw new Error('unreachable');
     const r0Id = r0.nodeId;
 
     const batch = executor.commitGraph({
+      specId,
       nodes: [
         { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R_v1' },
         { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'A1' },
@@ -232,7 +241,7 @@ describe('getNodeNeighborhood', () => {
     const r1Id = batch.nodes['r1']!;
 
     // Neighborhood of R_v1: should include A1 but exclude R_v0
-    const result = getNodeNeighborhood(db, r1Id);
+    const result = getNodeNeighborhood(db, specId, r1Id);
     expect(result.status).toBe('success');
     if (result.status !== 'success') throw new Error('unreachable');
 
@@ -241,7 +250,7 @@ describe('getNodeNeighborhood', () => {
     expect(neighborTitles).not.toContain('R_v0');
 
     // But if R_v0 is the anchor, it should still be returned
-    const r0Result = getNodeNeighborhood(db, r0Id);
+    const r0Result = getNodeNeighborhood(db, specId, r0Id);
     expect(r0Result.status).toBe('success');
     if (r0Result.status !== 'success') throw new Error('unreachable');
     expect(r0Result.anchor.title).toBe('R_v0');
@@ -249,6 +258,7 @@ describe('getNodeNeighborhood', () => {
 
   it('returns typed GraphNode and GraphEdge domain objects', () => {
     const batch = executor.commitGraph({
+      specId,
       nodes: [
         {
           ref: 't1',
@@ -265,7 +275,7 @@ describe('getNodeNeighborhood', () => {
     if (batch.status !== 'success') throw new Error('unreachable');
 
     const t1Id = batch.nodes['t1']!;
-    const result = getNodeNeighborhood(db, t1Id);
+    const result = getNodeNeighborhood(db, specId, t1Id);
     expect(result.status).toBe('success');
     if (result.status !== 'success') throw new Error('unreachable');
 
@@ -286,19 +296,25 @@ describe('getNodeNeighborhood', () => {
 describe('getOpenReconciliationNeeds', () => {
   let db: BrunchDb;
   let executor: CommandExecutor;
+  let specId: number;
 
   beforeEach(() => {
     db = createTestDb();
     executor = new CommandExecutor(db);
+    db.insert(specs)
+      .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
+      .run();
+    specId = db.select({ id: specs.id }).from(specs).get()!.id;
   });
 
   it('returns empty array when no needs exist', () => {
-    const needs = getOpenReconciliationNeeds(db);
+    const needs = getOpenReconciliationNeeds(db, specId);
     expect(needs).toEqual([]);
   });
 
   it('returns open needs as typed domain objects', () => {
     const batch = executor.commitGraph({
+      specId,
       nodes: [
         { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
         { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'A1' },
@@ -309,6 +325,7 @@ describe('getOpenReconciliationNeeds', () => {
     if (batch.status !== 'success') throw new Error('unreachable');
 
     const create = executor.createReconciliationNeed({
+      specId,
       target: { kind: 'edge', edgeId: batch.edges[0]! },
       needKind: 'edge_revalidation',
       reason: 'upstream changed',
@@ -316,7 +333,7 @@ describe('getOpenReconciliationNeeds', () => {
     expect(create.status).toBe('success');
     if (create.status !== 'success') throw new Error('unreachable');
 
-    const needs = getOpenReconciliationNeeds(db);
+    const needs = getOpenReconciliationNeeds(db, specId);
     expect(needs).toHaveLength(1);
     expect(needs[0]!.kind).toBe('edge_revalidation');
     expect(needs[0]!.target).toEqual({ kind: 'edge', edgeId: batch.edges[0]! });
@@ -326,6 +343,7 @@ describe('getOpenReconciliationNeeds', () => {
 
   it('excludes resolved needs', () => {
     const batch = executor.commitGraph({
+      specId,
       nodes: [
         { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
         { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'A1' },
@@ -336,15 +354,16 @@ describe('getOpenReconciliationNeeds', () => {
     if (batch.status !== 'success') throw new Error('unreachable');
 
     const create = executor.createReconciliationNeed({
+      specId,
       target: { kind: 'edge', edgeId: batch.edges[0]! },
       needKind: 'edge_revalidation',
     });
     expect(create.status).toBe('success');
     if (create.status !== 'success') throw new Error('unreachable');
 
-    executor.resolveReconciliationNeed(create.id);
+    executor.resolveReconciliationNeed({ specId, id: create.id });
 
-    const needs = getOpenReconciliationNeeds(db);
+    const needs = getOpenReconciliationNeeds(db, specId);
     expect(needs).toEqual([]);
   });
 });

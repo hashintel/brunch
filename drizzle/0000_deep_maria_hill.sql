@@ -7,6 +7,7 @@ CREATE TABLE `change_log` (
 --> statement-breakpoint
 CREATE TABLE `edges` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`spec_id` integer NOT NULL,
 	`category` text NOT NULL,
 	`source_id` integer NOT NULL,
 	`target_id` integer NOT NULL,
@@ -15,6 +16,7 @@ CREATE TABLE `edges` (
 	`rationale` text,
 	`created_at_lsn` integer NOT NULL,
 	`updated_at_lsn` integer NOT NULL,
+	FOREIGN KEY (`spec_id`) REFERENCES `specs`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`source_id`) REFERENCES `nodes`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`target_id`) REFERENCES `nodes`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -28,6 +30,7 @@ INSERT INTO `graph_clock` (`id`, `lsn`) VALUES (1, 0);
 --> statement-breakpoint
 CREATE TABLE `nodes` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`spec_id` integer NOT NULL,
 	`plane` text NOT NULL,
 	`kind` text NOT NULL,
 	`title` text NOT NULL,
@@ -36,11 +39,13 @@ CREATE TABLE `nodes` (
 	`source` text,
 	`detail` text,
 	`created_at_lsn` integer NOT NULL,
-	`updated_at_lsn` integer NOT NULL
+	`updated_at_lsn` integer NOT NULL,
+	FOREIGN KEY (`spec_id`) REFERENCES `specs`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE TABLE `reconciliation_need` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`spec_id` integer NOT NULL,
 	`target_kind` text NOT NULL,
 	`target_edge_id` integer,
 	`target_a_id` integer,
@@ -50,6 +55,7 @@ CREATE TABLE `reconciliation_need` (
 	`reason` text,
 	`created_at_lsn` integer NOT NULL,
 	`resolved_at_lsn` integer,
+	FOREIGN KEY (`spec_id`) REFERENCES `specs`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`target_edge_id`) REFERENCES `edges`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`target_a_id`) REFERENCES `nodes`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`target_b_id`) REFERENCES `nodes`(`id`) ON UPDATE no action ON DELETE no action

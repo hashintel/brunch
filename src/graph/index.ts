@@ -92,6 +92,7 @@ export type {
   ReconNeedResolveSuccess,
   ReconNeedSuccess,
   ReconNeedTarget,
+  ResolveReconNeedInput,
   ResolveReconNeedResult,
   SpecRecord,
   StructuralIllegal,

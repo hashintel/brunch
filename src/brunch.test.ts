@@ -90,6 +90,22 @@ describe('Brunch CLI dispatch', () => {
     expect(launchedWith).toMatchObject({ cwd: '/tmp/brunch-project' });
   });
 
+  it('routes empty argv to the TUI launch path', async () => {
+    let launchedTui = false;
+
+    const code = await runBrunchCli({
+      argv: [],
+      cwd: '/tmp/brunch-project',
+      coordinator: coordinator(),
+      launchTui: async () => {
+        launchedTui = true;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(launchedTui).toBe(true);
+  });
+
   it('routes --mode print through the coordinator snapshot and exits', async () => {
     let output = '';
 
@@ -125,7 +141,7 @@ describe('Brunch CLI dispatch', () => {
       argv: ['--mode=rpc'],
       cwd: '/tmp/brunch-project',
       coordinator: coordinator(manager.getSessionFile()!),
-      stdin: rpcRequest('session.elicitationExchanges', 2),
+      stdin: rpcRequest('session.exchanges', 2),
       stdout,
     });
 
@@ -138,6 +154,68 @@ describe('Brunch CLI dispatch', () => {
         exchanges: [{ promptEntryIds: [expect.any(String)] }],
       },
     });
+  });
+
+  it('shares one product update publisher between RPC handlers and the stdio line server', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cli-rpc-updates-'));
+    const workspace = await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
+      specTitle: 'RPC updates',
+    });
+    const stdout = new PassThrough();
+    const chunks = collectStream(stdout);
+
+    const code = await runBrunchCli({
+      argv: ['--mode=rpc'],
+      cwd,
+      coordinator: createWorkspaceSessionCoordinator({ cwd }),
+      stdin: rpcRequest('session.triggerExchange', 7),
+      stdout,
+    });
+
+    const messages = chunks
+      .join('')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as unknown);
+
+    expect(code).toBe(0);
+    expect(messages).toContainEqual({
+      jsonrpc: '2.0',
+      method: 'brunch.updated',
+      params: {
+        topics: [
+          'workspace.snapshot',
+          'session.pendingExchange',
+          'session.exchanges',
+          'session.runtimeState',
+        ],
+        updates: [
+          { topic: 'workspace.snapshot', specId: workspace.spec.id, sessionId: workspace.session.id },
+          {
+            topic: 'session.pendingExchange',
+            specId: workspace.spec.id,
+            sessionId: workspace.session.id,
+          },
+          {
+            topic: 'session.exchanges',
+            specId: workspace.spec.id,
+            sessionId: workspace.session.id,
+          },
+          {
+            topic: 'session.runtimeState',
+            specId: workspace.spec.id,
+            sessionId: workspace.session.id,
+          },
+        ],
+      },
+    });
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        jsonrpc: '2.0',
+        id: 7,
+        result: expect.objectContaining({ status: 'pending' }),
+      }),
+    );
   });
 
   it('routes --mode rpc through the named JSON-RPC stdio adapter', async () => {

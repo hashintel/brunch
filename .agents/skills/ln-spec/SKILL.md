@@ -125,6 +125,7 @@ Every amendment must close its reference chain as far as the current lifecycle s
 - **New future direction** → has: PLAN frontier/horizon pointer or design-doc pointer; not full acceptance detail unless already active
 - **New constraint** → has: rationale for exclusion
 - **New inner-loop oracle item** → names the invariant(s) it protects
+- **Retired, renumbered, or materially rewritten ID** → grep topology READMEs under `src/**/` for the affected ID (`rg -l 'D52-L|A47-L|I12-L' src`); repair stale citations in this pass, do not leave them for `ln-sync`. See `AGENTS.md` §topology READMEs.
 
 ### Cross-skill preservation check
 

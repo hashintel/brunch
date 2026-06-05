@@ -1,10 +1,10 @@
 {
-  "name": "brunch-next",
-  "version": "0.0.0",
+  "name": "brunch-cli",
+  "version": "0.1.0",
   "private": true,
   "description": "Brunch — opinionated specification-workspace product over pi-coding-agent.",
   "bin": {
-    "brunch-next": "./bin/brunch.js"
+    "brunch-cli": "./bin/brunch-cli.js"
   },
   "files": [
     "dist",
@@ -65,6 +65,7 @@
     "oxlint-tsgolint": "^0.23.0",
     "tsx": "^4.22.4",
     "typescript": "^5.7.0",
+    "typescript-language-server": "^5.3.0",
     "vite": "^8.0.16",
     "vitest": "^4.1.8"
   },

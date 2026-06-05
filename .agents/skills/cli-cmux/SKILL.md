@@ -5,6 +5,21 @@ description: 'Deep expertise in cmux — the terminal multiplexer with native br
 
 # cmux — Terminal Multiplexer with Native Browser
 
+## Sandbox Compatibility — Check First
+
+Run `echo "${APP_SANDBOX_CONTAINER_ID:-none}"` and `echo "${CMUX_SURFACE_ID:-none}"`
+before using this skill.
+
+- **`agent-safehouse` and/or `CMUX_SURFACE_ID=none`**: **DO NOT use this skill.**
+  The `cmux` CLI is not reachable from inside the `agent-safehouse` sandbox
+  (its install path is denied), and the `CMUX_WORKSPACE_ID` / `CMUX_SURFACE_ID`
+  env vars assumed below are not injected. For browser tasks, use
+  [cli-agent-browser](../cli-agent-browser/SKILL.md). For terminal/pane
+  interactions you actually need from inside the sandbox, ask the user to
+  run the cmux commands directly.
+- **Unsandboxed cmux pane (both env vars present)**: this skill works as
+  documented below.
+
 cmux manages terminal panes and browser views through a Unix socket CLI.
 You are already running inside cmux — your current pane has env vars
 `CMUX_WORKSPACE_ID` and `CMUX_SURFACE_ID` set automatically.

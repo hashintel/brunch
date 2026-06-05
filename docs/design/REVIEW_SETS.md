@@ -160,8 +160,8 @@ The reviewer is an agent-mode mirror of observer, instantiated to handle batch-a
 
 | Property | Observer | Reviewer |
 |---|---|---|
-| Trigger | completion of single elicitation exchange | acceptance of batch proposal |
-| Scope | one elicitation exchange | the accepted batch + its graph neighborhood |
+| Trigger | completion of a single session exchange | acceptance of batch proposal |
+| Scope | one session exchange | the accepted batch + its graph neighborhood |
 | Extracts | implicit info → small graph mutations or reconciliation needs | coherence / completeness / gap analysis |
 | Latency posture | async, per-exchange job | async, per-batch job |
 | Job key | `(session_id, exchange_entry_range)` | `(session_id, batch_acceptance_entry_id)` |

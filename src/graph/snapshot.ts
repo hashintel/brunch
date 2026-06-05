@@ -9,7 +9,7 @@
  * edge) are excluded per CATEGORY_POLICY projectionEffect.
  */
 
-import { eq, or, inArray } from 'drizzle-orm';
+import { and, eq, or, inArray } from 'drizzle-orm';
 
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
@@ -58,6 +58,7 @@ export interface NeighborhoodOptions {
 function rowToNode(row: typeof schema.nodes.$inferSelect): GraphNode {
   return {
     id: row.id,
+    specId: row.spec_id,
     plane: row.plane as GraphNode['plane'],
     kind: row.kind as GraphNode['kind'],
     title: row.title,
@@ -73,6 +74,7 @@ function rowToNode(row: typeof schema.nodes.$inferSelect): GraphNode {
 function rowToEdge(row: typeof schema.edges.$inferSelect): GraphEdge {
   const base = {
     id: row.id,
+    specId: row.spec_id,
     category: row.category as GraphEdge['category'],
     sourceId: row.source_id,
     targetId: row.target_id,
@@ -97,12 +99,12 @@ function rowToEdge(row: typeof schema.edges.$inferSelect): GraphEdge {
 // Supersession helpers
 // ---------------------------------------------------------------------------
 
-/** Return the set of node ids that are superseded predecessors. */
-function getSupersededIds(db: BrunchDb): Set<number> {
+/** Return the set of node ids that are superseded predecessors within a spec. */
+function getSupersededIds(db: BrunchDb, specId: number): Set<number> {
   const rows = db
     .select({ targetId: schema.edges.target_id })
     .from(schema.edges)
-    .where(eq(schema.edges.category, 'supersession'))
+    .where(and(eq(schema.edges.category, 'supersession'), eq(schema.edges.spec_id, specId)))
     .all();
   return new Set(rows.map((r) => r.targetId));
 }
@@ -112,17 +114,17 @@ function getSupersededIds(db: BrunchDb): Set<number> {
 // ---------------------------------------------------------------------------
 
 /**
- * Cursory full-graph overview.
+ * Cursory selected-spec graph overview (D61-L).
  *
- * Returns all accepted nodes and edges with current LSN.
- * Superseded predecessors are excluded from the node list
- * per CATEGORY_POLICY.supersession.projectionEffect.
+ * Returns all accepted nodes and edges for the given spec with current LSN.
+ * Superseded predecessors are excluded from the node list per
+ * CATEGORY_POLICY.supersession.projectionEffect.
  */
-export function getGraphOverview(db: BrunchDb): GraphOverview {
-  const supersededIds = getSupersededIds(db);
+export function getGraphOverview(db: BrunchDb, specId: number): GraphOverview {
+  const supersededIds = getSupersededIds(db, specId);
 
-  const allNodeRows = db.select().from(schema.nodes).all();
-  const allEdgeRows = db.select().from(schema.edges).all();
+  const allNodeRows = db.select().from(schema.nodes).where(eq(schema.nodes.spec_id, specId)).all();
+  const allEdgeRows = db.select().from(schema.edges).where(eq(schema.edges.spec_id, specId)).all();
 
   const nodes = allNodeRows.filter((r) => !supersededIds.has(r.id)).map(rowToNode);
 
@@ -145,31 +147,38 @@ export function getGraphOverview(db: BrunchDb): GraphOverview {
 // ---------------------------------------------------------------------------
 
 /**
- * Neighborhood snapshot around a given node.
+ * Neighborhood snapshot around a given node, scoped to a single spec (D61-L).
  *
- * Returns the anchor node, all reachable neighbors within `hops`
- * distance (default 1), and the edges connecting them.
- * Superseded predecessors are excluded from neighbors
- * (unless the predecessor is the anchor itself).
+ * Returns `not_found` if the anchor does not exist or belongs to a different
+ * spec. Returns the anchor node, all reachable same-spec neighbors within
+ * `hops` distance (default 1), and the edges connecting them. Superseded
+ * predecessors are excluded from neighbors (unless the predecessor is the
+ * anchor itself).
  */
 export function getNodeNeighborhood(
   db: BrunchDb,
+  specId: number,
   nodeId: number,
   options?: NeighborhoodOptions,
 ): NeighborhoodResult {
   const hops = options?.hops ?? 1;
 
-  // Verify anchor exists
-  const anchorRow = db.select().from(schema.nodes).where(eq(schema.nodes.id, nodeId)).get();
+  // Verify anchor exists in the requested spec
+  const anchorRow = db
+    .select()
+    .from(schema.nodes)
+    .where(and(eq(schema.nodes.id, nodeId), eq(schema.nodes.spec_id, specId)))
+    .get();
 
   if (!anchorRow) {
     return { status: 'not_found' };
   }
 
-  const supersededIds = getSupersededIds(db);
+  const supersededIds = getSupersededIds(db, specId);
   const anchor = rowToNode(anchorRow);
 
-  // BFS traversal: collect reachable node ids within hop distance
+  // BFS traversal: collect reachable node ids within hop distance.
+  // Edges are spec-scoped, so endpoints discovered here are also spec-scoped.
   const visited = new Set<number>([nodeId]);
   let frontier = new Set<number>([nodeId]);
   const collectedEdgeIds = new Set<number>();
@@ -177,12 +186,17 @@ export function getNodeNeighborhood(
   for (let hop = 0; hop < hops; hop++) {
     if (frontier.size === 0) break;
 
-    // Find all edges touching frontier nodes
+    // Find all edges touching frontier nodes (within this spec)
     const frontierArr = [...frontier];
     const edgeRows = db
       .select()
       .from(schema.edges)
-      .where(or(inArray(schema.edges.source_id, frontierArr), inArray(schema.edges.target_id, frontierArr)))
+      .where(
+        and(
+          eq(schema.edges.spec_id, specId),
+          or(inArray(schema.edges.source_id, frontierArr), inArray(schema.edges.target_id, frontierArr)),
+        ),
+      )
       .all();
 
     const nextFrontier = new Set<number>();
@@ -200,11 +214,15 @@ export function getNodeNeighborhood(
     frontier = nextFrontier;
   }
 
-  // Fetch neighbor nodes (exclude anchor)
+  // Fetch neighbor nodes (exclude anchor) — restrict to same spec defensively
   const neighborIds = [...visited].filter((id) => id !== nodeId);
   const neighborNodes: GraphNode[] = [];
   if (neighborIds.length > 0) {
-    const rows = db.select().from(schema.nodes).where(inArray(schema.nodes.id, neighborIds)).all();
+    const rows = db
+      .select()
+      .from(schema.nodes)
+      .where(and(inArray(schema.nodes.id, neighborIds), eq(schema.nodes.spec_id, specId)))
+      .all();
     neighborNodes.push(...rows.map(rowToNode));
   }
 
@@ -236,6 +254,7 @@ function rowToReconNeed(row: typeof schema.reconciliationNeed.$inferSelect): Rec
 
   return {
     id: String(row.id),
+    specId: row.spec_id,
     kind: row.kind as ReconciliationNeed['kind'],
     target,
     ...(row.reason != null ? { rationale: row.reason } : {}),
@@ -245,13 +264,13 @@ function rowToReconNeed(row: typeof schema.reconciliationNeed.$inferSelect): Rec
 }
 
 /**
- * Return all open (unresolved) reconciliation needs.
+ * Return all open (unresolved) reconciliation needs for a single spec.
  */
-export function getOpenReconciliationNeeds(db: BrunchDb): ReconciliationNeed[] {
+export function getOpenReconciliationNeeds(db: BrunchDb, specId: number): ReconciliationNeed[] {
   const rows = db
     .select()
     .from(schema.reconciliationNeed)
-    .where(eq(schema.reconciliationNeed.status, 'open'))
+    .where(and(eq(schema.reconciliationNeed.status, 'open'), eq(schema.reconciliationNeed.spec_id, specId)))
     .all();
   return rows.map(rowToReconNeed);
 }
