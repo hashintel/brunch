@@ -313,7 +313,7 @@ planned mutation hooks (not sidecar-accepted today):
 
   session.submitExchangeResponse
     submitExchangeResponseMutationOptions(rpc)
-    On success: invalidate session.pendingExchange, session.exchanges, session.runtimeState; graph projections update only after agent-internal graph commit publishes graph topics.
+    On success: invalidate session.pendingExchange, session.exchanges, session.runtimeState; captured labeled text answers also publish graph.overview / graph.nodeNeighborhood topics for the transcript-bound spec.
 
 reserved future method:
   session.submitMessage
