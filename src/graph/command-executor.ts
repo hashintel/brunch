@@ -353,6 +353,15 @@ function validateTermDetail(detail: unknown, diagnostics: Diagnostic[]): void {
   }
 }
 
+function specRecordFromRow(row: typeof schema.specs.$inferSelect): SpecRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    readinessGrade: row.readiness_grade,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // CommandExecutor
 // ---------------------------------------------------------------------------
@@ -437,16 +446,15 @@ export class CommandExecutor {
     });
   }
 
+  /** Read all spec rows. */
+  listSpecs(): SpecRecord[] {
+    return this.db.select().from(schema.specs).all().map(specRecordFromRow);
+  }
+
   /** Read a spec row by id. */
   getSpec(specId: number): SpecRecord | undefined {
     const row = this.db.select().from(schema.specs).where(eq(schema.specs.id, specId)).get();
-    if (!row) return undefined;
-    return {
-      id: row.id,
-      name: row.name,
-      slug: row.slug,
-      readinessGrade: row.readiness_grade,
-    };
+    return row ? specRecordFromRow(row) : undefined;
   }
 
   /** Update a spec's readiness grade through the command boundary. */
