@@ -36,7 +36,9 @@ export function invalidateBrunchUpdate(
   const updates = Array.isArray(params.updates) ? params.updates : [];
   if (updates.length > 0) {
     for (const update of updates) {
-      invalidateProductUpdate(queryClient, update as ProductUpdate);
+      if (isProductUpdate(update)) {
+        invalidateProductUpdate(queryClient, update);
+      }
     }
     return;
   }
@@ -96,6 +98,16 @@ function invalidateExact(queryClient: QueryClient, queryKey: QueryKey): void {
   void queryClient.invalidateQueries({ queryKey, exact: true });
 }
 
+function isProductUpdate(value: unknown): value is ProductUpdate {
+  if (!isRecord(value)) return false;
+  if (value.topic === 'workspace.snapshot') return true;
+  if (value.topic === 'graph.overview') return typeof value.specId === 'number';
+  if (value.topic === 'graph.nodeNeighborhood') {
+    return typeof value.specId === 'number' && typeof value.nodeId === 'number';
+  }
+  return typeof value.topic === 'string';
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

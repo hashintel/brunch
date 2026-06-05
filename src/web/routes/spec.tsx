@@ -10,7 +10,10 @@ export const specRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/spec/$specId',
   loader: ({ context, params }) => {
-    const specId = Number(params.specId);
+    const specId = parseSpecRouteId(params.specId);
+    if (specId === undefined) {
+      return context.queryClient.ensureQueryData(workspaceSnapshotQueryOptions(context.rpcClient));
+    }
     return Promise.all([
       context.queryClient.ensureQueryData(workspaceSnapshotQueryOptions(context.rpcClient)),
       context.queryClient.ensureQueryData(graphOverviewQueryOptions(context.rpcClient, specId)),
@@ -20,18 +23,41 @@ export const specRoute = createRoute({
 });
 
 function SpecRoutePage() {
-  const { rpcClient } = specRoute.useRouteContext();
   const { specId } = specRoute.useParams();
-  const parsedSpecId = Number(specId);
+  const parsedSpecId = parseSpecRouteId(specId);
+  if (parsedSpecId === undefined) return <InvalidSpecRoutePage />;
+  return <ValidSpecRoutePage specId={parsedSpecId} />;
+}
+
+function InvalidSpecRoutePage() {
+  const { rpcClient } = specRoute.useRouteContext();
   const { data: snapshot } = useSuspenseQuery(workspaceSnapshotQueryOptions(rpcClient));
-  const { data: overview } = useSuspenseQuery(graphOverviewQueryOptions(rpcClient, parsedSpecId));
+  return (
+    <main>
+      <p>Brunch workspace</p>
+      <WorkspaceChrome snapshot={snapshot} />
+      <p>Invalid spec id.</p>
+    </main>
+  );
+}
+
+function ValidSpecRoutePage({ specId }: { specId: number }) {
+  const { rpcClient } = specRoute.useRouteContext();
+  const { data: snapshot } = useSuspenseQuery(workspaceSnapshotQueryOptions(rpcClient));
+  const { data: overview } = useSuspenseQuery(graphOverviewQueryOptions(rpcClient, specId));
 
   return (
     <main>
       <p>Brunch workspace</p>
-      <WorkspaceChrome snapshot={snapshot} fallbackSpecId={parsedSpecId} />
+      <WorkspaceChrome snapshot={snapshot} fallbackSpecId={specId} />
       <GraphOverviewPanel overview={overview} />
-      <SessionPanel snapshot={snapshot} viewedSpecId={parsedSpecId} />
+      <SessionPanel snapshot={snapshot} viewedSpecId={specId} />
     </main>
   );
+}
+
+function parseSpecRouteId(value: string): number | undefined {
+  if (!/^[1-9]\d*$/u.test(value)) return undefined;
+  const specId = Number(value);
+  return Number.isSafeInteger(specId) ? specId : undefined;
 }
