@@ -21,9 +21,11 @@ import sessionLifecycle from '../extensions/session-lifecycle.js';
 import structuredExchange, {
   PRESENT_OPTIONS_TOOL,
   PRESENT_QUESTION_TOOL,
+  PRESENT_REVIEW_SET_TOOL,
   REQUEST_ANSWER_TOOL,
   REQUEST_CHOICE_TOOL,
   REQUEST_CHOICES_TOOL,
+  REQUEST_REVIEW_TOOL,
 } from '../extensions/structured-exchange/index.js';
 import { createBrunchPiExtensionShell } from '../pi-extension-shell.js';
 
@@ -62,9 +64,11 @@ describe('Brunch explicit Pi extension registry', () => {
       'present_alternatives',
       PRESENT_QUESTION_TOOL,
       PRESENT_OPTIONS_TOOL,
+      PRESENT_REVIEW_SET_TOOL,
       REQUEST_ANSWER_TOOL,
       REQUEST_CHOICE_TOOL,
       REQUEST_CHOICES_TOOL,
+      REQUEST_REVIEW_TOOL,
     ]);
     expect(recording.commandNames).toEqual([
       BRUNCH_SWITCH_COMMAND,

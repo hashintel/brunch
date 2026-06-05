@@ -59,6 +59,64 @@ export const PresentOptionsDetailsSchema = z.toJSONSchema(zPresentOptionsDetails
   unrepresentable: 'throw',
 });
 
+const zReviewSetEndpointRef = z.union([
+  z.object({ draft_id: z.string().min(1) }).strict(),
+  z.object({ existing_code: z.string().min(1) }).strict(),
+]);
+
+export const zReviewSetPayload = z
+  .object({
+    schema_version: z.literal(1),
+    lens: z.enum(['intent', 'design', 'oracle']),
+    epistemic_status: z.enum(['inferred', 'assumed', 'asserted', 'observed']),
+    grounding: z
+      .object({
+        summary: zMarkdown,
+        support: z.array(zMarkdown).min(1),
+      })
+      .strict(),
+    pitch: z
+      .object({
+        title: z.string().min(1),
+        narrative: zMarkdown,
+      })
+      .strict(),
+    entity_drafts: z
+      .array(
+        z
+          .object({
+            draft_id: z.string().min(1),
+            plane: z.enum(['intent', 'oracle', 'design', 'plan']),
+            kind: z.string().min(1),
+            title: z.string().min(1),
+            body: zMarkdown.optional(),
+            detail: z.unknown().optional(),
+          })
+          .strict(),
+      )
+      .min(1),
+    edge_drafts: z
+      .array(
+        z
+          .object({
+            category: z.string().min(1),
+            source: zReviewSetEndpointRef,
+            target: zReviewSetEndpointRef,
+            stance: z.enum(['for', 'against']).optional(),
+            rationale: zMarkdown.optional(),
+          })
+          .strict(),
+      )
+      .min(1),
+    proposal_version: z.number().int().positive().optional(),
+    supersedes: z.string().min(1).optional(),
+  })
+  .strict();
+export type ReviewSetPayload = z.infer<typeof zReviewSetPayload>;
+export const ReviewSetPayloadSchema = z.toJSONSchema(zReviewSetPayload, {
+  unrepresentable: 'throw',
+});
+
 export const zPresentReviewSetDetails = zPresentDetailsHeader
   .extend({
     tool_meta: z
@@ -70,7 +128,8 @@ export const zPresentReviewSetDetails = zPresentDetailsHeader
     display: zPresentDisplay,
     review_set: z
       .object({
-        proposal_entry_id: z.string().min(1),
+        proposal_entry_id: z.string().min(1).optional(),
+        payload: zReviewSetPayload,
       })
       .strict(),
   })

@@ -149,6 +149,9 @@ export interface AcceptReviewSetSuccess extends CommitGraphSuccess {}
 /** Result of an acceptReviewSet command. */
 export type AcceptReviewSetResult = AcceptReviewSetSuccess | StructuralIllegal;
 
+/** Result of validating a review-set payload before user presentation. */
+export type AcceptReviewSetDryRunResult = { readonly status: 'success' } | StructuralIllegal;
+
 // ---------------------------------------------------------------------------
 // Input types
 // ---------------------------------------------------------------------------
@@ -640,6 +643,23 @@ export class CommandExecutor {
 
       return this.writePlannedGraphBatch(tx, input, planned.plan.edges, 'commit_graph');
     });
+  }
+
+  /**
+   * Validate a review-set payload before it becomes user-reviewable.
+   *
+   * This performs the same payload translation and graph batch structural
+   * checks as `acceptReviewSet`, but does not allocate an LSN or mutate graph
+   * truth.
+   */
+  dryRunAcceptReviewSet(input: AcceptReviewSetInput): AcceptReviewSetDryRunResult {
+    const translated = translateReviewSetPayloadToCommitGraph({
+      db: this.db,
+      specId: input.specId,
+      payload: input.payload,
+    });
+    if (translated.status === 'structural_illegal') return translated;
+    return this.dryRunCommitGraph(translated.command);
   }
 
   /**

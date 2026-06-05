@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { createDb } from '../../db/connection.js';
+import { CommandExecutor } from '../../graph/command-executor.js';
 import registerStructuredExchange, {
   PRESENT_OPTIONS_TOOL,
+  PRESENT_REVIEW_SET_TOOL,
   REQUEST_CHOICE_TOOL,
   REQUEST_CHOICES_TOOL,
+  REQUEST_REVIEW_TOOL,
 } from '../extensions/structured-exchange/index.js';
 import {
   findIncompleteStructuredExchangePresents,
@@ -49,14 +53,54 @@ const theme: FakeTheme = {
   bold: (text) => text,
 };
 
-function registeredTools(): Map<string, RegisteredTool> {
+function registeredTools(
+  options: Parameters<typeof registerStructuredExchange>[1] = {},
+): Map<string, RegisteredTool> {
   const tools = new Map<string, RegisteredTool>();
-  registerStructuredExchange({
-    registerTool(tool: RegisteredTool) {
-      tools.set(tool.name, tool);
-    },
-  } as never);
+  registerStructuredExchange(
+    {
+      registerTool(tool: RegisteredTool) {
+        tools.set(tool.name, tool);
+      },
+    } as never,
+    options,
+  );
   return tools;
+}
+
+function reviewDeps() {
+  const db = createDb(':memory:');
+  const commandExecutor = new CommandExecutor(db);
+  const spec = commandExecutor.createSpec({ name: 'Review Spec', slug: 'review-spec' });
+  if (spec.status !== 'success') throw new Error('Unable to create review spec');
+  return { specId: spec.specId, commandExecutor };
+}
+
+function validReviewPayload() {
+  return {
+    schemaVersion: 1,
+    lens: 'intent',
+    epistemicStatus: 'inferred',
+    grounding: {
+      summary: 'The user described a launch review flow.',
+      support: ['The transcript asks for exact approval before graph mutation.'],
+    },
+    pitch: {
+      title: 'Review cycle wiring',
+      narrative: 'Commit review-set approvals as explicit graph truth only after user review.',
+    },
+    entityDrafts: [
+      { draftId: 'goal-review', plane: 'intent', kind: 'goal', title: 'Review graph proposals' },
+      { draftId: 'req-approve', plane: 'intent', kind: 'requirement', title: 'Approval is atomic' },
+    ],
+    edgeDrafts: [
+      {
+        category: 'dependency',
+        source: { draftId: 'req-approve' },
+        target: { draftId: 'goal-review' },
+      },
+    ],
+  };
 }
 
 describe('structured exchange present/request tools', () => {
@@ -66,13 +110,17 @@ describe('structured exchange present/request tools', () => {
     expect([...tools.keys()]).toEqual([
       'present_question',
       PRESENT_OPTIONS_TOOL,
+      PRESENT_REVIEW_SET_TOOL,
       'request_answer',
       REQUEST_CHOICE_TOOL,
       REQUEST_CHOICES_TOOL,
+      REQUEST_REVIEW_TOOL,
     ]);
     expect(tools.get(PRESENT_OPTIONS_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(REQUEST_CHOICE_TOOL)?.executionMode).toBe('sequential');
+    expect(tools.get(PRESENT_REVIEW_SET_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(REQUEST_CHOICES_TOOL)?.executionMode).toBe('sequential');
+    expect(tools.get(REQUEST_REVIEW_TOOL)?.executionMode).toBe('sequential');
   });
 
   it('persists a present_question result through the shared project and format seam', async () => {
@@ -197,6 +245,128 @@ describe('structured exchange present/request tools', () => {
       choice: { id: 'tui', label: 'Move under src/tui-client' },
       comment: 'Aligns ownership with /reload iteration.',
     });
+  });
+
+  it('presents a dry-run-valid review-set payload as durable markdown and recoverable details', async () => {
+    const present = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
+    if (!present) throw new Error('present_review_set was not registered');
+
+    const payload = validReviewPayload();
+    const result = await present.execute(
+      'present-review-call-1',
+      { exchangeId: 'review-cycle-1', proposalEntryId: 'proposal-entry-1', payload },
+      undefined,
+      undefined,
+      {} as never,
+    );
+
+    expect(result.content[0]?.text).toContain('## Review cycle wiring');
+    expect(result.content[0]?.text).toContain('Epistemic status: inferred');
+    expect(result.content[0]?.text).toContain('### Entity drafts');
+    expect(result.content[0]?.text).toContain('Approval is atomic');
+    expect(result.content[0]?.text).toContain('### Edge drafts');
+    expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
+    expect(result.details).toMatchObject({
+      exchangeId: 'review-cycle-1',
+      presentTool: PRESENT_REVIEW_SET_TOOL,
+      kind: 'review_set',
+      expectedRequest: { tool: REQUEST_REVIEW_TOOL, required: true },
+      reviewSet: { proposalEntryId: 'proposal-entry-1', payload },
+    });
+  });
+
+  it('keeps structurally illegal review-set proposals non-reviewable', async () => {
+    const present = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
+    if (!present) throw new Error('present_review_set was not registered');
+
+    const result = await present.execute(
+      'present-review-call-bad',
+      { exchangeId: 'review-cycle-bad', payload: { ...validReviewPayload(), epistemicStatus: undefined } },
+      undefined,
+      undefined,
+      {} as never,
+    );
+
+    expect(result.details).toMatchObject({ status: 'structural_illegal' });
+    expect(isStructuredExchangePresentDetails(result.details)).toBe(false);
+    expect(
+      findIncompleteStructuredExchangePresents([
+        { type: 'message', message: { role: 'toolResult', details: result.details } },
+      ]),
+    ).toEqual([]);
+  });
+
+  it('persists request_review approve, change-request, and reject responses', async () => {
+    const request = registeredTools().get(REQUEST_REVIEW_TOOL);
+    if (!request) throw new Error('request_review was not registered');
+
+    for (const [selected, review, comment] of [
+      ['Approve', 'approve', 'Looks right.'],
+      ['Request changes', 'request_changes', 'Tighten the grounding.'],
+      ['Reject', 'reject', 'Wrong direction.'],
+    ] as const) {
+      const result = await request.execute(
+        `request-review-${review}`,
+        { exchangeId: 'review-cycle-1', prompt: 'Review proposal' },
+        undefined,
+        undefined,
+        { hasUI: true, ui: { select: async () => selected, input: async () => comment } } as never,
+      );
+
+      expect(result.content[0]?.text).toContain('### Review decision');
+      expect(result.details).toMatchObject({
+        exchangeId: 'review-cycle-1',
+        requestTool: REQUEST_REVIEW_TOOL,
+        status: 'answered',
+        respondsTo: { exchangeId: 'review-cycle-1', presentTool: PRESENT_REVIEW_SET_TOOL },
+        review,
+        comment,
+      });
+    }
+  });
+
+  it('requires request_review change requests to carry a non-empty comment', async () => {
+    const request = registeredTools().get(REQUEST_REVIEW_TOOL);
+    if (!request) throw new Error('request_review was not registered');
+
+    const result = await request.execute(
+      'request-review-empty-change',
+      { exchangeId: 'review-cycle-1', prompt: 'Review proposal' },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { select: async () => 'Request changes', input: async () => '   ' } } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      requestTool: REQUEST_REVIEW_TOOL,
+      status: 'unavailable',
+      message: 'request_review request_changes requires a comment',
+    });
+  });
+
+  it('records request_review cancellation and unavailable UI as terminal outcomes', async () => {
+    const request = registeredTools().get(REQUEST_REVIEW_TOOL);
+    if (!request) throw new Error('request_review was not registered');
+
+    const cancelled = await request.execute(
+      'request-review-cancelled',
+      { exchangeId: 'review-cycle-1', prompt: 'Review proposal' },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { select: async () => undefined } } as never,
+    );
+    const unavailable = await request.execute(
+      'request-review-unavailable',
+      { exchangeId: 'review-cycle-1', prompt: 'Review proposal' },
+      undefined,
+      undefined,
+      { hasUI: false, ui: {} } as never,
+    );
+
+    expect(cancelled.details).toMatchObject({ status: 'cancelled', requestTool: REQUEST_REVIEW_TOOL });
+    expect(unavailable.details).toMatchObject({ status: 'unavailable', requestTool: REQUEST_REVIEW_TOOL });
+    expect(isStructuredExchangeRequestDetails(cancelled.details)).toBe(true);
+    expect(isStructuredExchangeRequestDetails(unavailable.details)).toBe(true);
   });
 
   it('persists a request_choices response through the editor fallback', async () => {

@@ -44,7 +44,7 @@ export interface StructuredExchangeRequestDetails {
   choice?: StructuredExchangeChoice;
   choices?: StructuredExchangeChoice[];
   answer?: string;
-  review?: 'approve' | 'change-request' | 'reject';
+  review?: 'approve' | 'request_changes' | 'reject';
   comment?: string;
   message?: string;
   createdAtToolCallId: string;

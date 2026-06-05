@@ -180,7 +180,29 @@ describe('structured exchange present schemas', () => {
         exchange_id: 'review-set-17',
         tool_meta: { curr: 'present_review_set', next: 'request_review' },
         display: { heading: 'Review proposed requirements' },
-        review_set: { proposal_entry_id: 'entry-review-proposal-17' },
+        review_set: {
+          proposal_entry_id: 'entry-review-proposal-17',
+          payload: {
+            schema_version: 1,
+            lens: 'intent',
+            epistemic_status: 'inferred',
+            grounding: { summary: 'Grounded in transcript.', support: ['User asked for exact review.'] },
+            pitch: {
+              title: 'Review proposed requirements',
+              narrative: 'Approve the batch or request changes.',
+            },
+            entity_drafts: [
+              { draft_id: 'req-approval', plane: 'intent', kind: 'requirement', title: 'Approval is atomic' },
+            ],
+            edge_drafts: [
+              {
+                category: 'dependency',
+                source: { draft_id: 'req-approval' },
+                target: { existing_code: 'G1' },
+              },
+            ],
+          },
+        },
       }),
     ).toMatchObject({
       review_set: { proposal_entry_id: 'entry-review-proposal-17' },

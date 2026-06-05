@@ -159,6 +159,30 @@ display:
   body: "Approve the set, request changes, or reject it."
 review_set:
   proposal_entry_id: "entry-review-proposal-17"
+  payload:
+    schema_version: 1
+    lens: intent | design | oracle
+    epistemic_status: inferred | assumed | asserted | observed
+    grounding:
+      summary: markdown
+      support:
+        - markdown
+    pitch:
+      title: "Review proposed requirements"
+      narrative: markdown
+    entity_drafts:
+      - draft_id: "req-approval"
+        plane: intent
+        kind: requirement
+        title: "Approval is atomic"
+        body?: markdown
+        detail?: object
+    edge_drafts:
+      - category: dependency | proof | support | realization | boundary | composition | association | supersession
+        source: { draft_id: "req-approval" } | { existing_code: "G1" }
+        target: { draft_id: "goal-review" } | { existing_code: "G1" }
+        stance?: for | against
+        rationale?: markdown
 ```
 
 ### `present_candidates`

@@ -124,6 +124,57 @@ describe('structured exchange loop helpers', () => {
     ).toEqual({ ok: false, message: 'Invalid elicitation option' });
   });
 
+  it('reconstructs a review-mode pending exchange from present_review_set details', () => {
+    const payload = {
+      schemaVersion: 1,
+      lens: 'intent',
+      epistemicStatus: 'inferred',
+      grounding: { summary: 'Grounded in transcript.', support: ['User asked for review.'] },
+      pitch: { title: 'Review cycle wiring', narrative: 'Review this graph proposal.' },
+      entityDrafts: [{ draftId: 'g1', plane: 'intent', kind: 'goal', title: 'Review graph proposals' }],
+      edgeDrafts: [],
+    };
+    const envelope: BrunchSessionEnvelope = {
+      header: header as unknown as BrunchSessionEnvelope['header'],
+      binding,
+      entries: [
+        header,
+        bindingEntry,
+        {
+          id: 'present-review-set-1',
+          type: 'message',
+          parentId: 'binding-1',
+          timestamp: 0,
+          message: {
+            role: 'toolResult',
+            toolCallId: 'present-review-call-1',
+            toolName: 'present_review_set',
+            content: [{ type: 'text', text: '## Review cycle wiring\n\nReview this graph proposal.' }],
+            details: {
+              schema: 'brunch.structured_exchange.present',
+              schemaVersion: 1,
+              exchangeId: 'review-cycle',
+              presentTool: 'present_review_set',
+              kind: 'review_set',
+              status: 'presented',
+              expectedRequest: { tool: 'request_review', required: true },
+              createdAtToolCallId: 'present-review-call-1',
+              reviewSet: { proposalEntryId: 'proposal-entry-1', payload },
+            },
+            isError: false,
+          },
+        },
+      ] as unknown as BrunchSessionEnvelope['entries'],
+    };
+
+    expect(pendingExchangeFromEnvelope(envelope)).toMatchObject({
+      exchangeId: 'review-cycle',
+      mode: 'review',
+      prompt: 'Review cycle wiring',
+      reviewSet: { proposalEntryId: 'proposal-entry-1', payload },
+    });
+  });
+
   it('reconstructs pending options from structured present markdown when details omit options', () => {
     const envelope: BrunchSessionEnvelope = {
       header: header as unknown as BrunchSessionEnvelope['header'],

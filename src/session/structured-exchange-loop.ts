@@ -12,7 +12,12 @@ export const PendingStructuredExchangeSchema = Type.Object(
   {
     exchangeId: NonBlankStringSchema,
     lens: Type.Literal('intent'),
-    mode: Type.Union([Type.Literal('text'), Type.Literal('single-select'), Type.Literal('multi-select')]),
+    mode: Type.Union([
+      Type.Literal('text'),
+      Type.Literal('single-select'),
+      Type.Literal('multi-select'),
+      Type.Literal('review'),
+    ]),
     prompt: NonBlankStringSchema,
     details: Type.Optional(NonBlankStringSchema),
     options: Type.Array(
@@ -32,6 +37,7 @@ export const PendingStructuredExchangeSchema = Type.Object(
         additionalProperties: false,
       },
     ),
+    reviewSet: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
   },
   { additionalProperties: false },
 );
@@ -389,12 +395,26 @@ function pendingExchangeFromStructuredPresent(
     prompt?: unknown;
     details?: unknown;
     options?: unknown;
+    reviewSet?: unknown;
   };
   const prompt =
     typeof richDetails.prompt === 'string'
       ? richDetails.prompt
       : (firstNonEmptyMarkdownLine(markdown) ?? markdown);
   const detailsText = typeof richDetails.details === 'string' ? richDetails.details : markdown;
+  if (details.presentTool === 'present_review_set') {
+    return {
+      exchangeId: details.exchangeId,
+      lens: 'intent',
+      mode: 'review',
+      prompt,
+      ...(detailsText.length > 0 ? { details: detailsText } : {}),
+      options: [],
+      note: { allowed: true },
+      ...(isRecord(richDetails.reviewSet) ? { reviewSet: richDetails.reviewSet } : {}),
+    };
+  }
+
   return {
     exchangeId: details.exchangeId,
     lens: 'intent',
@@ -489,6 +509,10 @@ function structuredExchangePresentDetails(entry: unknown): StructuredExchangePre
   return isStructuredExchangePresentDetails(details)
     ? (details as StructuredExchangePresentDetails)
     : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 function firstNonEmptyMarkdownLine(markdown: string): string | undefined {

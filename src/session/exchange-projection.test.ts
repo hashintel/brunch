@@ -98,6 +98,50 @@ const mismatchedRequestAnswerToolResult = {
     },
   },
 };
+const presentReviewSetToolResult = {
+  id: 'present-review-set-1',
+  type: 'message',
+  parentId: null,
+  message: {
+    role: 'toolResult',
+    toolCallId: 'present-review-call-1',
+    toolName: 'present_review_set',
+    content: [{ type: 'text', text: '## Review cycle wiring\n\nReview this graph proposal.' }],
+    details: {
+      schema: 'brunch.structured_exchange.present',
+      schemaVersion: 1,
+      exchangeId: 'review-cycle',
+      presentTool: 'present_review_set',
+      kind: 'review_set',
+      status: 'presented',
+      expectedRequest: { tool: 'request_review', required: true },
+      createdAtToolCallId: 'present-review-call-1',
+    },
+    isError: false,
+  },
+};
+const requestReviewToolResult = {
+  id: 'request-review-1',
+  type: 'message',
+  parentId: 'present-review-set-1',
+  message: {
+    role: 'toolResult',
+    toolCallId: 'request-review-call-1',
+    toolName: 'request_review',
+    content: [{ type: 'text', text: '### Review decision\n\nApproved.' }],
+    details: {
+      schema: 'brunch.structured_exchange.request',
+      schemaVersion: 1,
+      exchangeId: 'review-cycle',
+      requestTool: 'request_review',
+      status: 'answered',
+      respondsTo: { exchangeId: 'review-cycle', presentTool: 'present_review_set' },
+      review: 'approve',
+      createdAtToolCallId: 'request-review-call-1',
+    },
+    isError: false,
+  },
+};
 const requestChoicesToolResult = {
   id: 'request-choices-1',
   type: 'message',
@@ -313,6 +357,21 @@ describe('session exchange projection', () => {
           responseRange: { start: 'request-answer-1', end: 'request-answer-1' },
           promptEntryIds: ['present-question-1'],
           responseEntryIds: ['request-answer-1'],
+        },
+      ],
+      openPrompt: null,
+    });
+  });
+
+  it('closes present_review_set only with the matching terminal request_review result', () => {
+    const projection = projectSessionExchanges([presentReviewSetToolResult, requestReviewToolResult]);
+
+    expect(projection).toMatchObject({
+      status: 'ready',
+      exchanges: [
+        {
+          promptEntryIds: ['present-review-set-1'],
+          responseEntryIds: ['request-review-1'],
         },
       ],
       openPrompt: null,

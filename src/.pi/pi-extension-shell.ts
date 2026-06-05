@@ -112,7 +112,12 @@ export function createBrunchPiExtensionShell(
       registerBrunchOperationalModePolicy,
       (api) => registerBrunchMentionAutocomplete(api, graphMentionSource),
       registerBrunchAlternatives,
-      registerStructuredExchange,
+      (api) =>
+        registerStructuredExchange(api, {
+          review: options.graph
+            ? { specId: options.graph.specId, commandExecutor: options.graph.commandExecutor }
+            : undefined,
+        }),
       (api) => registerBrunchCommands(api, options),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)] : []),
     ];
