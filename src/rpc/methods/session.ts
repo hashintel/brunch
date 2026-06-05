@@ -1,6 +1,9 @@
 import { Type, type Static } from 'typebox';
 import { Value } from 'typebox/value';
 
+import { captureStructuredResponseFacts } from '../../graph/capture/structured-response.js';
+import type { StructuredResponseCaptureOutcome } from '../../graph/capture/structured-response.js';
+import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import {
   readBrunchSessionEnvelope,
   NonLinearTranscriptError,
@@ -30,7 +33,11 @@ import type {
   WorkspaceActivationState,
   WorkspaceSessionState,
 } from '../../session/workspace-session-coordinator.js';
-import { selectedSessionProductUpdates, type ProductUpdatePublisher } from '../product-updates.js';
+import {
+  graphMutationProductUpdates,
+  selectedSessionProductUpdates,
+  type ProductUpdatePublisher,
+} from '../product-updates.js';
 import {
   createJsonRpcFailure,
   createJsonRpcSuccess,
@@ -203,18 +210,47 @@ const ExchangeResponseParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
+const ExchangeResponseCaptureResultSchema = Type.Union([
+  Type.Object(
+    {
+      status: Type.Literal('captured'),
+      lsn: PositiveIntegerSchema,
+      nodeCount: NonNegativeIntegerSchema,
+      createdNodes: Type.Object({}, { additionalProperties: true }),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      status: Type.Literal('no_capture'),
+      reason: NonBlankStringSchema,
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      status: Type.Literal('structural_illegal'),
+      diagnostics: Type.Array(Type.Object({}, { additionalProperties: true })),
+    },
+    { additionalProperties: false },
+  ),
+]);
+
 const ExchangeResponseResultSchema = Type.Object(
   {
     status: Type.Literal('accepted'),
     exchangeId: NonBlankStringSchema,
     answer: Type.Object({}, { additionalProperties: true }),
+    capture: ExchangeResponseCaptureResultSchema,
     note: Type.Optional(Type.String()),
   },
   { additionalProperties: false },
 );
 
 type ExchangeResponseParams = StructuredExchangeResponseInput;
-type ExchangeResponseResult = Static<typeof ExchangeResponseResultSchema>;
+type ExchangeResponseResult = Omit<Static<typeof ExchangeResponseResultSchema>, 'capture'> & {
+  readonly capture: StructuredResponseCaptureOutcome;
+};
 
 export const sessionRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[] = [
   {
@@ -417,6 +453,7 @@ async function handleSubmitExchangeResponse(
     coordinator: DefaultWorkspaceCoordinator;
     cwd: string;
     productUpdates?: ProductUpdatePublisher;
+    getGraphRuntime: () => Promise<WorkspaceGraphRuntime>;
   },
 ): Promise<JsonRpcResponse> {
   if (!Value.Check(ExchangeResponseParamsSchema, rawParams)) {
@@ -457,17 +494,31 @@ async function handleSubmitExchangeResponse(
     return createJsonRpcFailure(requestId, -32007, accepted.message);
   }
 
+  const graph = await options.getGraphRuntime();
+  const capture = captureStructuredResponseFacts({
+    specId: target.envelope.binding.specId,
+    exchangeId: pending.exchangeId,
+    answer: accepted.answer,
+    commandExecutor: graph.commandExecutor,
+  });
+
   const result: ExchangeResponseResult = {
     status: 'accepted',
     exchangeId: pending.exchangeId,
     answer: accepted.answer,
+    capture,
     ...(params.note === undefined ? {} : { note: params.note }),
   };
 
   state.session.manager.appendMessage(accepted.toolResultMessage);
   flushSessionEntries(state.session.manager, state.session.file);
 
-  publishSelectedSessionUpdates(options.productUpdates, state);
+  publishSelectedSessionUpdates(options.productUpdates, state, target.envelope.binding.specId);
+  if (capture.status === 'captured') {
+    options.productUpdates?.publish(
+      graphMutationProductUpdates({ specId: target.envelope.binding.specId, lsn: capture.lsn }),
+    );
+  }
   return createJsonRpcSuccess(requestId, result);
 }
 
@@ -542,13 +593,14 @@ async function selectedSessionFile(state: WorkspaceSessionState): Promise<Sessio
 function publishSelectedSessionUpdates(
   publisher: ProductUpdatePublisher | undefined,
   state: WorkspaceActivationState | WorkspaceSessionState,
+  bindingSpecId?: number,
 ): void {
   if (!publisher || state.status !== 'ready') {
     return;
   }
   publisher.publish(
     selectedSessionProductUpdates({
-      specId: state.spec.id,
+      specId: bindingSpecId ?? state.spec.id,
       sessionId: state.session.id,
     }),
   );

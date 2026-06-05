@@ -44,7 +44,7 @@ canonical stores:
     worldUpdate entries
 ```
 
-RPC handlers must not become a generic records API, REST read model, or canonical view store. Reads are named projections over the store that owns the fact. Mutations route through the owning product seam: session transcript operations through `session.*`, graph mutations through the agent/tool or `CommandExecutor` path that owns them. `dev.*` is the only exception family: methods in that namespace are explicitly gated local harnesses, absent from default discovery and absent from the read-only sidecar.
+RPC handlers must not become a generic records API, REST read model, or canonical view store. Reads are named projections over the store that owns the fact. Mutations route through the owning product seam: session transcript operations through `session.*`, synchronous high-confidence response capture through `session.submitExchangeResponse` → `graph/capture` → `CommandExecutor`, and other graph mutations through the agent/tool or `CommandExecutor` path that owns them. `dev.*` is the only exception family: methods in that namespace are explicitly gated local harnesses, absent from default discovery and absent from the read-only sidecar.
 
 ## Method registry
 
@@ -171,8 +171,12 @@ session.submitExchangeResponse
     exchangeId
     answer: {text} | {optionId} | {optionIds}
     note?
-  result: accepted terminal response
-  effects: appends request_* toolResult response and publishes selected-session invalidations
+  result: accepted terminal response plus capture outcome
+    capture:
+      captured(lsn, nodeCount, createdNodes)
+      | no_capture(reason)
+      | structural_illegal(diagnostics)
+  effects: appends request_* toolResult response, publishes selected-session invalidations, and when captured publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
 
 graph.overview
   access: read
@@ -251,7 +255,7 @@ query key families:
 | `session.exchanges` | `sessionExchangesQueryOptions(rpc, target)` | target; no current web history panel | `session.exchanges` |
 | `session.runtimeState` | `sessionRuntimeStateQueryOptions(rpc, target)` | implemented query option; not yet route-rendered | `session.runtimeState` |
 | `session.triggerExchange` | `triggerExchangeMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state |
-| `session.submitExchangeResponse` | `submitExchangeResponseMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state; graph updates arrive after agent commit |
+| `session.submitExchangeResponse` | `submitExchangeResponseMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state; captured text answers additionally invalidate `graph.overview(specId)` / `graph.nodeNeighborhood(specId)` |
 | `graph.overview` | `graphOverviewQueryOptions(rpc, specId)` | implemented; spec route loader primes it | exact `graph.overview(specId)` when `specId` is present |
 | `graph.nodeNeighborhood` | `graphNodeNeighborhoodQueryOptions(rpc, specId, nodeId, hops?)` | implemented query option; graph panel selection not yet wired | exact/prefix neighborhood invalidation when `nodeId` is present; broad topic fallback otherwise |
 
@@ -295,8 +299,18 @@ capture_* toolResult (future)
     transcript evidence
     possible semantic candidates
     no graph mutation
-```
 
+synchronous response capture (current POC tracer)
+  request_answer text with direct labels:
+    Goal: ...
+    Context: ...
+    Constraint: ...
+    Criterion: ...
+  -> graph/capture translator
+  -> CommandExecutor.commitGraph({basis: explicit})
+  -> selected-spec graph truth
+
+```
 Payload facets such as establishment offers, elicitor intent hints, and review/proposal material belong inside structured exchange payloads when they are part of an exchange. They are not separate public RPC entities.
 
 ## Web UI rules

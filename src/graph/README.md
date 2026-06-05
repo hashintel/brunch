@@ -15,6 +15,11 @@ SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
   (`nodes[]` with batch refs, `edges[]` with batch/existing refs), not raw DB
   rows. `command-executor/commit-graph-batch.ts` owns the private shared planner
   used by both dry-run and commit before any batch writes occur.
+
+- **Capture translators** (`capture/`) — narrow, high-confidence structured
+  response translators that turn transcript-native answers into `commitGraph`
+  command input. They do not write DB rows directly and do not own session
+  projection.
 - **Readers / snapshot functions** (`snapshot.ts`) — graph projections at
   multiple detail levels: active-context and graph-truth overview, node
   neighborhood, selected-spec graph-code lookup, and open reconciliation needs.
@@ -39,7 +44,7 @@ SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
 ## Imported by
 
 - `.pi/extensions/graph/` — Pi tool adapters for `commit_graph` and `read_graph`.
-- `rpc/` — future `graph.*` projection handlers and graph-adjacent state.
+- `rpc/` — graph projection handlers and synchronous response-capture wiring.
 - `agents/contexts/` — future prompt context renderers.
 - `probes/` — graph proof drivers.
 
@@ -71,6 +76,10 @@ graph/
       private commitGraph batch planner
       dry-run/commit structural parity
       temporary endpoint graph for supersession acyclicity
+
+  capture/
+    structured-response.ts
+      deterministic labeled-answer capture to explicit-basis commitGraph input
 
   snapshot.ts
     getGraphOverview
@@ -111,8 +120,9 @@ CommandExecutor
       ├─► .pi/extensions/graph
       │     agent tool adapter
       │
-      ├─► rpc/ future graph handlers
+      ├─► rpc/
       │     public product projections
+      │     session.submitExchangeResponse capture wiring
       │
       └─► agents/contexts future renderers
             prompt context snapshots

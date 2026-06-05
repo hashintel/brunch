@@ -35,10 +35,9 @@ _None._
 
 ### Next
 
-1. `capture-response-to-graph` — P0 product loop: structured exchange answer → narrow high-confidence capture → `CommandExecutor` commit → web graph update.
-2. `project-graph-review-cycle` — P1 unless demo narrative promotes it: real `project-graph` review-set proposal/approval loop.
-3. `minimal-authority-shell` — P1 safety: thin POC authority posture over already-existing command-result seams and `elicit` tool policy.
-4. `poc-live-ship-gate` — P1 final gate: fresh-cwd runbook exercising the composed product path end to end.
+1. `project-graph-review-cycle` — P1 unless demo narrative promotes it: real `project-graph` review-set proposal/approval loop.
+2. `minimal-authority-shell` — P1 safety: thin POC authority posture over already-existing command-result seams and `elicit` tool policy.
+3. `poc-live-ship-gate` — P1 final gate: fresh-cwd runbook exercising the composed product path end to end.
 
 ### Parallel / Low-conflict
 
@@ -85,9 +84,9 @@ _None._
 
 - **Name:** Structured response capture into selected-spec graph truth
 - **Linear:** [FE-807](https://linear.app/hash/issue/FE-807/structured-response-capture-into-selected-spec-graph-truth)
-- **Branch:** to create — `ln/fe-807-capture-response-to-graph`
+- **Branch:** `ln/fe-807-capture-response-to-graph`
 - **Kind:** structural / tracer bullet
-- **Status:** next
+- **Status:** done
 - **Certainty:** proving
 - **Stabilizes:** I30-L, I31-L, I39-L, I40-L — capture must aim at the selected-spec graph through stable projected node-code/basis semantics rather than raw ids or path-shaped basis values.
 - **Lights up:** structured exchange response → explicit-basis graph truth → selected-spec web observer update.
@@ -104,6 +103,8 @@ _None._
 - **Cross-cutting obligations:** Preserve D4-L/D20-L single-authority mutation; keep capture synchronous and bounded for POC; do not introduce deferred observer/auditor queues or canonical chat/turn tables here. Capture must respect D61-L: claims are node-level truth inside the selected spec. Preserve D62-L/D63-L/D64-L: projected codes are presentation handles, basis is approval strength, and readiness bands guide capture objectives without becoming kind whitelists.
 - **Traceability:** R10, R16, R17, R21, R22 / D4-L, D17-L, D18-L, D20-L, D21-L, D45-L, D52-L, D54-L, D56-L, D57-L, D61-L, D62-L, D63-L, D64-L / I30-L, I31-L, I39-L, I40-L / A22-L, A3-L.
 - **Design docs:** `docs/design/GRAPH_MODEL.md`; `docs/design/ELICITATION_LENSES.md`; `memory/SPEC.md` D17-L/D18-L/D61-L.
+- **Current execution pointer:** Complete. `session.submitExchangeResponse` now appends the terminal structured-exchange response, synchronously captures directly labeled text facts via `graph/capture/structured-response.ts`, commits selected-spec `basis: explicit` graph nodes through `CommandExecutor`, returns `captured | no_capture | structural_illegal`, and publishes graph invalidations. Broader LLM extraction quality, reconciliation-need capture, and readiness-grade capture remain future fitness/work.
+
 
 ### graph-tool-resilience
 
@@ -259,6 +260,8 @@ _None._
 - **Design docs:** `.fixtures/seeds/bilal-port/README.md`; `docs/design/GRAPH_MODEL.md`; `docs/praxis/manual-testing.md`.
 
 ## Recently Completed
+- 2026-06-05 `capture-response-to-graph` (FE-807) — Done: synchronous response-capture tracer. Added a narrow labeled-text translator for `Goal:`, `Context:`, `Constraint:`, and `Criterion:` facts; wired public `session.submitExchangeResponse` to capture through the transcript binding's spec and `CommandExecutor.commitGraph({basis: explicit})`; returned loud capture outcomes; published graph invalidations; and added a public-RPC proof that activation/trigger/submit/overview exposes captured projected codes. Verified: `src/graph/capture/structured-response.test.ts`, `src/rpc/handlers.test.ts`, `src/probes/capture-response-to-graph-proof.test.ts`.
+
 - 2026-06-05 `dev-seed-fixtures` — Done: first product-driven fixture curation tracer. Added deterministic `bilal-port-variants/macro-view-grounded-intent` explicit-only intent base, a `fixture-curation` probe runner/report summarizer, and run artifacts proving `gpt-5.5` used real `read_graph`/`commit_graph` product tools to persist two implicit requirement nodes plus six implicit edges through `CommandExecutor`. Verified: `src/probes/fixture-curation-loop.test.ts`, `src/graph/seed-fixtures.test.ts`, real run `.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/`.
 
 - 2026-06-04 `graph-tool-resilience` (FE-808) — Done: graph nodes persist per-kind ordinals and expose projected codes; `commitGraph` applies one explicit/implicit batch basis, returns one created-node identity shape, plans once inside the transaction before LSN allocation/writes, and shares dry-run/commit structural validation; adapters resolve selected-spec existing-node codes into structured diagnostics without sentinel endpoint refs or thrown errors; single-node `createNode` rejects retired basis values before LSN/counter/node/change-log allocation; same-spec supersession cycles are rejected atomically; active-context graph reads omit hidden superseded nodes and dangling edges while graph-truth reads remain available; product-path probes landed existing-code, retry-diagnostics, and ambiguity/no-overcommit evidence under `.fixtures/runs/propose-graph-commit/`.
@@ -272,7 +275,7 @@ Older history (including `agent-graph-integration`, `spec-persistence-and-startu
 ```text
 nodes:
   graph-tool-resilience          [done · P0]         materialized graph write contract and broadened A14 proof
-  capture-response-to-graph      [next · P0]         structured answer -> graph truth -> observer update
+  capture-response-to-graph      [done · P0]         structured answer -> graph truth -> observer update
   project-graph-review-cycle     [next · P1]         real project-graph review-set approval loop
   minimal-authority-shell        [next · P1]         thin safety posture for current POC paths
   poc-live-ship-gate             [next · P1]         final fresh-cwd composed product runbook

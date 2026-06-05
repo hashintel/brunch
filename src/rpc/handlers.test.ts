@@ -440,6 +440,7 @@ describe('JSON-RPC handlers', () => {
         methods: Array<{
           method: string;
           paramsSchema: TSchema & { properties?: Record<string, unknown> };
+          resultSchema: TSchema & { properties?: Record<string, unknown> };
           examples: Array<{ params?: unknown }>;
         }>;
       }
@@ -447,6 +448,7 @@ describe('JSON-RPC handlers', () => {
     const exchanges = methods.find((entry) => entry.method === 'session.exchanges');
     const pending = methods.find((entry) => entry.method === 'session.pendingExchange');
     const runtimeState = methods.find((entry) => entry.method === 'session.runtimeState');
+    const submit = methods.find((entry) => entry.method === 'session.submitExchangeResponse');
 
     for (const entry of [exchanges, pending]) {
       if (!entry) throw new Error('expected discovered selected-session projection method');
@@ -471,6 +473,11 @@ describe('JSON-RPC handlers', () => {
     for (const example of runtimeState.examples.filter((example) => example.params !== undefined)) {
       expect(Value.Check(runtimeState.paramsSchema, example.params)).toBe(true);
     }
+
+    if (!submit) throw new Error('expected discovered session.submitExchangeResponse method');
+    expect(JSON.stringify(submit.resultSchema.properties?.capture)).toContain('captured');
+    expect(JSON.stringify(submit.resultSchema.properties?.capture)).toContain('no_capture');
+    expect(JSON.stringify(submit.resultSchema.properties?.capture)).toContain('structural_illegal');
   });
 
   it('serves discovery examples that are valid JSON-RPC requests for advertised methods', async () => {
@@ -1281,6 +1288,132 @@ describe('JSON-RPC handlers', () => {
     expect(sessionText).toContain('request_choices');
     expect(sessionText).not.toContain('brunch.elicitation_prompt');
     expect(sessionText).not.toContain('brunch.elicitation_response');
+  });
+
+  it('captures explicit labeled text answers into the transcript-bound spec graph and publishes graph invalidations', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-response-capture-'));
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinatorInstance.createSetupSession({
+      specTitle: 'Transcript-bound spec',
+    });
+    const graph = await openWorkspaceGraphRuntime(cwd);
+    const wrongSpec = graph.commandExecutor.createSpec({ name: 'Wrong default spec', slug: 'wrong-default' });
+    if (wrongSpec.status !== 'success') throw new Error('failed to create wrong-spec fixture');
+    const productUpdates = createProductUpdatePublisher();
+    const updates: unknown[] = [];
+    productUpdates.subscribe((batch) => updates.push(...batch));
+    const handlers = createRpcHandlers({
+      coordinator: coordinator({
+        ...workspace,
+        spec: { id: wrongSpec.specId, title: 'Wrong default spec' },
+      }),
+      cwd,
+      productUpdates,
+    });
+
+    const first = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 270,
+      method: 'session.triggerExchange',
+    });
+    const firstExchangeId = (
+      first as {
+        result: { exchange: { exchangeId: string } };
+      }
+    ).result.exchange.exchangeId;
+    await handlers.handle({
+      jsonrpc: '2.0',
+      id: 271,
+      method: 'session.submitExchangeResponse',
+      params: { exchangeId: firstExchangeId, answer: { optionId: 'new-from-scratch' } },
+    });
+    await handlers.handle({
+      jsonrpc: '2.0',
+      id: 272,
+      method: 'session.triggerExchange',
+    });
+
+    const response = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 273,
+      method: 'session.submitExchangeResponse',
+      params: {
+        exchangeId: 'deterministic-grounding-text-2',
+        answer: {
+          text: [
+            'Goal: Help product teams turn elicitation answers into graph truth.',
+            'Context: Designers will observe the graph from a web UI.',
+            'Constraint: Use the selected session binding, not workspace defaults.',
+            'Criterion: The selected spec overview shows projected graph codes.',
+          ].join('\n'),
+        },
+      },
+    });
+
+    expect(response).toMatchObject({
+      jsonrpc: '2.0',
+      id: 273,
+      result: {
+        status: 'accepted',
+        capture: {
+          status: 'captured',
+          lsn: expect.any(Number),
+          nodeCount: 4,
+          createdNodes: {
+            goal: { code: 'G1' },
+            context: { code: 'CTX1' },
+            constraint: { code: 'CON1' },
+            criterion: { code: 'CR1' },
+          },
+        },
+      },
+    });
+    if (!('result' in response)) throw new Error('expected capture response');
+    const lsn = (response.result as { capture: { lsn: number } }).capture.lsn;
+    expect(updates).toContainEqual({ topic: 'graph.overview', specId: workspace.spec.id, lsn });
+    expect(updates).toContainEqual({
+      topic: 'graph.nodeNeighborhood',
+      specId: workspace.spec.id,
+      lsn,
+    });
+
+    const overview = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 274,
+      method: 'graph.overview',
+      params: { specId: workspace.spec.id },
+    });
+    expect(overview).toMatchObject({
+      result: {
+        nodeCount: 4,
+        nodes: expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'goal',
+            kindOrdinal: 1,
+            basis: 'explicit',
+            source: 'structured_exchange_response:deterministic-grounding-text-2',
+          }),
+          expect.objectContaining({
+            kind: 'criterion',
+            kindOrdinal: 1,
+            basis: 'explicit',
+          }),
+        ]),
+      },
+    });
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 275,
+        method: 'graph.overview',
+        params: { specId: wrongSpec.specId },
+      }),
+    ).resolves.toMatchObject({
+      result: {
+        nodeCount: 0,
+      },
+    });
   });
 
   it('rejects mismatched elicitation response ids without appending transcript entries', async () => {
