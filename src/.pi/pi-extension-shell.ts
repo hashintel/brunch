@@ -105,18 +105,20 @@ export function createBrunchPiExtensionShell(
 ): ExtensionFactory {
   return async (pi) => {
     const graphMentionSource = options.graphMentionSource ?? FIXTURE_GRAPH_MENTION_SOURCE;
-    const extensions: readonly BrunchProductExtensionRegistrar[] = [
+    const extensions: BrunchProductExtensionRegistrar[] = [
       (api) => registerBrunchSessionBoundary(api, onSessionBoundary),
       (api) => registerBrunchChrome(api, chrome),
       registerBrunchBranchPolicyHandlers,
       registerBrunchOperationalModePolicy,
-      (api) => registerBrunchPrompting(api, options.promptContext),
       (api) => registerBrunchMentionAutocomplete(api, graphMentionSource),
       registerBrunchAlternatives,
       registerStructuredExchange,
       (api) => registerBrunchCommands(api, options),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)] : []),
     ];
+    if (options.promptContext) {
+      extensions.splice(4, 0, (api) => registerBrunchPrompting(api, options.promptContext!));
+    }
 
     for (const registerExtension of extensions) {
       await registerExtension(pi);

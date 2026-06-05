@@ -87,7 +87,6 @@ describe('Brunch explicit Pi extension registry', () => {
       'tool_call',
       'user_bash',
       'before_agent_start',
-      'before_agent_start',
       'session_start',
     ]);
 

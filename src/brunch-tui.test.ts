@@ -911,7 +911,19 @@ describe('Brunch TUI boot', () => {
 
     expect(registeredTools).toEqual(['read', 'grep', 'find', 'ls']);
     await events.session_start?.({} as never);
-    expect(activeTools).toEqual([['read', 'grep', 'find', 'ls', 'present_question', 'present_options']]);
+    expect(activeTools).toEqual([
+      [
+        'read',
+        'grep',
+        'find',
+        'ls',
+        'present_question',
+        'present_options',
+        'request_answer',
+        'request_choice',
+        'request_choices',
+      ],
+    ]);
     await expect(
       Promise.resolve(events.before_agent_start?.({ systemPrompt: 'base' } as never)),
     ).resolves.toBeUndefined();
