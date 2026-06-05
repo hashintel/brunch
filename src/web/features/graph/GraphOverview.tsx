@@ -76,10 +76,15 @@ function groupNodes(nodes: GraphOverview['nodes']): Array<{
   label: string;
   nodes: GraphOverview['nodes'];
 }> {
-  const groups = new Map<string, GraphOverview['nodes']>();
+  const groups = new Map<string, Array<GraphOverview['nodes'][number]>>();
   for (const node of nodes) {
     const label = `${node.plane} / ${node.kind}`;
-    groups.set(label, [...(groups.get(label) ?? []), node]);
+    const group = groups.get(label);
+    if (group) {
+      group.push(node);
+    } else {
+      groups.set(label, [node]);
+    }
   }
   return [...groups.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
