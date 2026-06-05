@@ -25,6 +25,7 @@ import {
   formatCreatedGraphNode,
   planCommitGraphBatch,
   type PlannedBatchEndpoint,
+  type PlannedBatchEdge,
 } from './command-executor/commit-graph-batch.js';
 import type {
   CommitGraphDryRunResult,
@@ -34,6 +35,7 @@ import type {
   Diagnostic,
   StructuralIllegal,
 } from './command-executor/commit-graph-types.js';
+import { translateReviewSetPayloadToCommitGraph } from './review-set.js';
 import { type NodeBasis, type NodePlane } from './schema/nodes.js';
 
 export type ReadinessGrade = (typeof schema.READINESS_GRADES)[number];
@@ -116,6 +118,7 @@ export interface SpecRecord {
 export type CommandResult =
   | CommandSuccess
   | CommitGraphSuccess
+  | AcceptReviewSetSuccess
   | ReconNeedSuccess
   | ReconNeedResolveSuccess
   | CreateSpecSuccess
@@ -140,6 +143,12 @@ export type CreateSpecResult = CreateSpecSuccess | StructuralIllegal;
 /** Result of an updateReadinessGrade command. */
 export type UpdateReadinessGradeResult = UpdateReadinessGradeSuccess | StructuralIllegal;
 
+/** Successful accepted review-set graph batch execution. */
+export interface AcceptReviewSetSuccess extends CommitGraphSuccess {}
+
+/** Result of an acceptReviewSet command. */
+export type AcceptReviewSetResult = AcceptReviewSetSuccess | StructuralIllegal;
+
 // ---------------------------------------------------------------------------
 // Input types
 // ---------------------------------------------------------------------------
@@ -155,6 +164,13 @@ export interface CreateSpecInput {
 export interface UpdateReadinessGradeInput {
   readonly specId: number;
   readonly readinessGrade: ReadinessGrade;
+}
+
+/** Input for accepting an exact user-reviewed graph batch. */
+export interface AcceptReviewSetInput {
+  readonly specId: number;
+  readonly proposalEntryId?: string | undefined;
+  readonly payload: unknown;
 }
 
 /** Input for creating a single graph node. */
@@ -622,77 +638,116 @@ export class CommandExecutor {
         return { status: 'structural_illegal' as const, diagnostics: planned.diagnostics };
       }
 
-      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
+      return this.writePlannedGraphBatch(tx, input, planned.plan.edges, 'commit_graph');
+    });
+  }
 
-      const createdNodes: Record<string, { id: number; code: string }> = {};
-      for (const bn of input.nodes) {
-        const kindOrdinal = this.allocateNodeKindOrdinal(tx, input.specId, bn.plane, bn.kind);
-        const row = tx
-          .insert(schema.nodes)
-          .values({
-            spec_id: input.specId,
-            plane: bn.plane,
-            kind: bn.kind,
-            kind_ordinal: kindOrdinal,
-            title: bn.title,
-            body: bn.body ?? null,
-            basis: input.basis ?? 'explicit',
-            source: bn.source ?? null,
-            detail: bn.detail != null ? JSON.stringify(bn.detail) : null,
-            created_at_lsn: lsn,
-            updated_at_lsn: lsn,
-          })
-          .returning()
-          .get();
-        createdNodes[bn.ref] = formatCreatedGraphNode(row!);
+  /**
+   * Atomic acceptance of an exact review-set payload (D27-L/I15-L).
+   *
+   * Review-set payloads use projected existing-node codes at the product
+   * boundary. This command resolves them for the selected spec, validates the
+   * resulting explicit-basis graph batch, and writes one transaction/change-log
+   * row with operation `accept_review_set`.
+   */
+  acceptReviewSet(input: AcceptReviewSetInput): AcceptReviewSetResult {
+    const translated = translateReviewSetPayloadToCommitGraph({
+      db: this.db,
+      specId: input.specId,
+      payload: input.payload,
+    });
+    if (translated.status === 'structural_illegal') return translated;
+
+    return this.db.transaction((tx) => {
+      const planned = this.planCommitGraph(translated.command, tx);
+      if (planned.status === 'structural_illegal') {
+        return { status: 'structural_illegal' as const, diagnostics: planned.diagnostics };
       }
 
-      const resolvePlannedEndpoint = (endpoint: PlannedBatchEndpoint): number => {
-        if (endpoint.kind === 'existing') return endpoint.ref as number;
-        return createdNodes[endpoint.ref as string]!.id;
-      };
+      return this.writePlannedGraphBatch(tx, translated.command, planned.plan.edges, 'accept_review_set', {
+        proposalEntryId: input.proposalEntryId,
+      });
+    });
+  }
 
-      const edgeIds: number[] = [];
-      for (const edge of planned.plan.edges) {
-        const row = tx
-          .insert(schema.edges)
-          .values({
-            spec_id: input.specId,
-            category: edge.category,
-            source_id: resolvePlannedEndpoint(edge.source),
-            target_id: resolvePlannedEndpoint(edge.target),
-            stance: edge.stance,
-            basis: input.basis ?? 'explicit',
-            rationale: edge.rationale,
-            created_at_lsn: lsn,
-            updated_at_lsn: lsn,
-          })
-          .returning()
-          .get();
-        edgeIds.push(row!.id);
-      }
+  private writePlannedGraphBatch(
+    tx: Pick<BrunchDb, 'select' | 'insert' | 'update'>,
+    input: CommitGraphInput,
+    plannedEdges: readonly PlannedBatchEdge[],
+    operation: 'commit_graph' | 'accept_review_set',
+    payloadExtras: Record<string, unknown> = {},
+  ): CommitGraphSuccess {
+    const lsn = this.bumpExistingSpecLsn(tx, input.specId);
 
-      tx.insert(schema.changeLog)
+    const createdNodes: Record<string, { id: number; code: string }> = {};
+    for (const bn of input.nodes) {
+      const kindOrdinal = this.allocateNodeKindOrdinal(tx, input.specId, bn.plane, bn.kind);
+      const row = tx
+        .insert(schema.nodes)
         .values({
           spec_id: input.specId,
-          lsn,
-          operation: 'commit_graph',
-          payload: JSON.stringify({
-            basis: input.basis ?? 'explicit',
-            specId: input.specId,
-            nodes: Object.fromEntries(Object.entries(createdNodes).map(([ref, node]) => [ref, node.id])),
-            edges: edgeIds,
-          }),
+          plane: bn.plane,
+          kind: bn.kind,
+          kind_ordinal: kindOrdinal,
+          title: bn.title,
+          body: bn.body ?? null,
+          basis: input.basis ?? 'explicit',
+          source: bn.source ?? null,
+          detail: bn.detail != null ? JSON.stringify(bn.detail) : null,
+          created_at_lsn: lsn,
+          updated_at_lsn: lsn,
         })
-        .run();
+        .returning()
+        .get();
+      createdNodes[bn.ref] = formatCreatedGraphNode(row!);
+    }
 
-      return {
-        status: 'success' as const,
+    const resolvePlannedEndpoint = (endpoint: PlannedBatchEndpoint): number => {
+      if (endpoint.kind === 'existing') return endpoint.ref as number;
+      return createdNodes[endpoint.ref as string]!.id;
+    };
+
+    const edgeIds: number[] = [];
+    for (const edge of plannedEdges) {
+      const row = tx
+        .insert(schema.edges)
+        .values({
+          spec_id: input.specId,
+          category: edge.category,
+          source_id: resolvePlannedEndpoint(edge.source),
+          target_id: resolvePlannedEndpoint(edge.target),
+          stance: edge.stance,
+          basis: input.basis ?? 'explicit',
+          rationale: edge.rationale,
+          created_at_lsn: lsn,
+          updated_at_lsn: lsn,
+        })
+        .returning()
+        .get();
+      edgeIds.push(row!.id);
+    }
+
+    tx.insert(schema.changeLog)
+      .values({
+        spec_id: input.specId,
         lsn,
-        createdNodes,
-        edges: edgeIds,
-      };
-    });
+        operation,
+        payload: JSON.stringify({
+          ...payloadExtras,
+          basis: input.basis ?? 'explicit',
+          specId: input.specId,
+          nodes: Object.fromEntries(Object.entries(createdNodes).map(([ref, node]) => [ref, node.id])),
+          edges: edgeIds,
+        }),
+      })
+      .run();
+
+    return {
+      status: 'success',
+      lsn,
+      createdNodes,
+      edges: edgeIds,
+    };
   }
 
   private planCommitGraph(input: CommitGraphInput, db: Pick<BrunchDb, 'select'>) {

@@ -1,7 +1,7 @@
 # graph/ — Graph domain layer
 
 Canonical reference: `docs/design/GRAPH_MODEL.md`
-SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
+SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
 
 ## Owns
 
@@ -15,6 +15,12 @@ SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
   command input (`nodes[]` with batch refs, `edges[]` with batch/existing refs),
   not raw DB rows. `command-executor/commit-graph-batch.ts` owns the private
   shared planner used by both dry-run and commit before any batch writes occur.
+
+- **review-set payload translation** (`review-set.ts`) — validates exact
+  user-reviewable review-set payloads, resolves projected existing-node codes
+  inside the selected spec, and translates them to explicit-basis graph batches.
+  `CommandExecutor.acceptReviewSet` is the only graph mutation entrypoint for
+  accepted review sets and records `operation: "accept_review_set"`.
 
 - **Capture translators** (`capture/`) — narrow, high-confidence structured
   response translators that turn transcript-native answers into `commitGraph`
@@ -78,6 +84,7 @@ graph/
     createNode
     per-kind node ordinal allocation
     commitGraph / dryRunCommitGraph
+    acceptReviewSet
     create/resolve reconciliation need
 
   command-executor/
@@ -87,6 +94,11 @@ graph/
       private commitGraph batch planner
       dry-run/commit structural parity
       temporary endpoint graph for supersession acyclicity
+
+  review-set.ts
+    review-set payload contract
+    selected-spec projected-code resolution
+    explicit-basis command translation
 
   capture/
     structured-response.ts

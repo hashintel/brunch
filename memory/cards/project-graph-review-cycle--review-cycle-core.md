@@ -9,8 +9,8 @@ Created:  2026-06-05
 
 - Containing seam: FE-809 `project-graph-review-cycle`, specifically the review-set payload / structured-exchange / graph-command seam that turns `project-graph` proposals into exact user-reviewed graph truth.
 - Relevant frontier item: `project-graph-review-cycle` ([FE-809](https://linear.app/hash/issue/FE-809/project-graph-review-set-proposal-and-atomic-acceptance)); this scope narrows that branch/issue, it does not create a new frontier.
-- Volatile handoff state: no `HANDOFF.md`; `memory/PLAN.md` says the first FE-809 scope card was pending. The existing `tooling--worktree-command-ux.md` card is unrelated and has disjoint write paths.
-- Main open risk: D27-L says review-set proposals are structured-exchange payloads, but runtime `present_review_set` / `request_review` tools are still stubs; the graph acceptance seam should land before real LLM proposal probes so invalid generations can stay internal to retry/regeneration.
+- Volatile handoff state: no `HANDOFF.md`; Card 1 is complete at the graph layer and the spec-scoped LSN hardening appears reconciled in `memory/PLAN.md`. The current worktree also has unrelated protected chrome/web changes, so Card 2 verification should stay file-scoped unless the user clears broader worktree ownership.
+- Main open risk: D27-L says review-set proposals are structured-exchange payloads, but runtime `present_review_set` / `request_review` tools are still stubs. Card 2 must wire those stubs to the new graph-owned `src/graph/review-set.ts` payload validation without reintroducing adapter-local review-set logic.
 
 Posture: proving (inherited from `project-graph-review-cycle`).
 
@@ -20,18 +20,19 @@ Frontier-level cross-cutting obligations this chain carries:
 - Preserve D27-L/D28-L: review sets live in structured-exchange transcript payloads and successor proposal entries, not as standalone public review-set entities.
 - Preserve D61-L/D62-L: review payloads resolve selected-spec projected graph codes at adapter/UI boundaries and never accept raw DB ids from the agent/user.
 - Preserve D63-L/I40-L: exact review-set approval writes `basis: explicit`; mutation pathway is recorded in `change_log.operation`, not persisted as a basis value.
+- Preserve the spec-scoped LSN invariant: accepted review sets get one selected-spec/local LSN and one change-log row keyed by `{specId, lsn}`; proposal-time dry-run/presentation must not allocate an LSN or write a change-log row.
 - Preserve harness-as-false-proof guard: later probes must exercise the default Brunch runtime factory and registered tools, not import private helpers as a substitute for product wiring.
 
-The chain intentionally stops before the real LLM `project-graph` probe. Whether approval wiring should be driven primarily by the `request_review` Pi tool, public `session.submitExchangeResponse`, or a shared session-domain handler should be decided after Cards 1–2 make the production payload and tuple shape concrete.
+The chain intentionally stops before approval commit wiring and the real LLM `project-graph` probe. Whether approval should be driven primarily by the `request_review` Pi tool, public `session.submitExchangeResponse`, or a shared session-domain handler should be decided after Card 2 makes the production tuple shape concrete.
 
 ## Card 1 — Graph-layer review-set acceptance command
 
-Status: next
+Status: done
 Weight: full
 
 ### Target Behavior
 
-A dry-run-valid review-set payload can be accepted through `CommandExecutor.acceptReviewSet` as one explicit-basis atomic graph batch.
+A dry-run-valid review-set payload can be accepted through `CommandExecutor.acceptReviewSet` as one selected-spec, explicit-basis atomic graph batch.
 
 ### Boundary Crossings
 
@@ -40,6 +41,7 @@ A dry-run-valid review-set payload can be accepted through `CommandExecutor.acce
 → graph/review-set payload validation and selected-spec code resolution
 → CommandExecutor dry-run planning
 → CommandExecutor.acceptReviewSet
+→ selected-spec LSN allocator
 → SQLite nodes / edges / change_log
 ```
 
@@ -61,7 +63,7 @@ A dry-run-valid review-set payload can be accepted through `CommandExecutor.acce
 
 ### Posture check
 
-This is a proving tracer on the invariant axis. Landing it stabilizes I15-L/I20-L/I40-L for review-set acceptance and retires the non-LLM uncertainty that a reviewed exact payload can commit atomically as explicit graph truth. It deliberately does not claim to retire the remaining A14-L real-agent generation subclaim.
+This is a proving tracer on the invariant axis. Landing it stabilizes I15-L/I20-L/I40-L for review-set acceptance against the spec-scoped LSN model and retires the non-LLM uncertainty that a reviewed exact payload can commit atomically as explicit graph truth. It deliberately does not claim to retire the remaining A14-L real-agent generation subclaim.
 
 ### Acceptance Criteria
 
@@ -73,15 +75,15 @@ review-set validation
 
 atomic acceptance
 ├── ✓ src/graph/command-executor/accept-review-set.test.ts — `acceptReviewSet` writes all reviewed nodes/edges with `basis: explicit`
-├── ✓ src/graph/command-executor/accept-review-set.test.ts — acceptance uses one LSN and one `change_log` row with `operation: "accept_review_set"` and `proposalEntryId` audit metadata
-├── ✓ src/graph/command-executor/accept-review-set.test.ts — structural failure leaves node/edge counts, graph clock, and kind counters unchanged
+├── ✓ src/graph/command-executor/accept-review-set.test.ts — acceptance uses one selected-spec LSN and one `change_log` row with `operation: "accept_review_set"` plus `proposalEntryId` audit metadata
+├── ✓ src/graph/command-executor/accept-review-set.test.ts — structural failure leaves node/edge counts, selected-spec graph clock, sibling-spec graph clocks, and kind counters unchanged
 └── ✓ src/graph/command-executor/accept-review-set.test.ts — per-item basis and retired `accepted_review_set` values are not accepted as proposal payload fields
 ```
 
 ### Verification Approach
 
 - Inner: graph-layer unit tests for payload validation, selected-spec existing-code resolution, explicit-basis acceptance, and failed-accept rollback.
-- Middle: dry-run/real-run differential assertions over the same payload prove proposal-time validation and acceptance-time validation stay in parity.
+- Middle: dry-run/real-run differential assertions over the same payload prove proposal-time validation and acceptance-time validation stay in parity under spec-scoped LSN semantics.
 - Outer: none in this card; product-path proof waits for structured-exchange wiring.
 
 ### Cross-cutting obligations
@@ -111,6 +113,12 @@ src/.pi/__tests__/
 └── review-set-proposal.test.ts                        -
 ```
 
+### Result
+
+- Landed graph-owned review-set validation/translation in `src/graph/review-set.ts`; the retired adapter-local helper/test were deleted rather than preserved as aliases.
+- Added `CommandExecutor.acceptReviewSet`, sharing the commit planner/transaction writer while recording `operation: "accept_review_set"` plus `proposalEntryId` audit metadata.
+- Verified selected-spec projected-code resolution, raw DB-id rejection, explicit-basis atomic acceptance, dry-run/no-mutation behavior, and rollback of graph rows/clock/kind counters on structural failure.
+
 ## Card 2 — Review-set structured-exchange tuple
 
 Status: next
@@ -137,7 +145,7 @@ A dry-run-valid review-set proposal appears as a recoverable `present_review_set
 - RISK: The target Zod details schema currently names only a `proposal_entry_id`, while D27-L requires the structured exchange payload to carry the exact entity/edge drafts the user reviews.
   → MITIGATION: reconcile only the review-set schema/runtime shape needed for this card; do not migrate unrelated `present_*` / `request_*` tools in the same slice.
 - RISK: Adding graph validation to `present_review_set` could make structured-exchange tools import DB state or hidden workspace globals.
-  → MITIGATION: pass explicit selected-spec review-set dependencies through the extension shell, mirroring the existing `registerBrunchGraph` dependency injection; no direct `db/` imports in `.pi/extensions/`.
+  → MITIGATION: pass explicit selected-spec review-set dependencies through the extension shell, mirroring the existing `registerBrunchGraph` dependency injection; no direct `db/` imports in `.pi/extensions/`; reuse or lightly adapt `src/graph/review-set.ts` rather than recreating validation in the adapter.
 - RISK: Invalid generated proposals could become user-visible review UI instead of internal retry feedback.
   → MITIGATION: invalid proposal tool results must be non-reviewable `structural_illegal` diagnostics; session pending-exchange recovery should treat only validated present-review-set details as an open review request.
 - ASSUMPTION: Implementing the runtime review tuple against the existing structured-exchange runtime model is cheaper than migrating every structured-exchange tool to the newer Zod-authored `v: 1` model first.
@@ -214,6 +222,11 @@ src/structured-exchange/
 └── format/
     ├── present-review-set.ts                          ~
     └── request-review.ts                              ~
+
+src/graph/
+├── review-set.ts                                      ?
+├── review-set.test.ts                                 ?
+└── index.ts                                           ?
 
 src/session/
 ├── exchange-projection.test.ts                        ~

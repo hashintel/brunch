@@ -143,7 +143,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 - **Kind:** structural / bounded feature
 - **Status:** active
 - **Certainty:** proving
-- **Stabilizes:** I34-L, I40-L — exact review approval must become one explicit-basis atomic graph batch, not a path-shaped basis value or partial commit.
+- **Stabilizes:** I15-L, I20-L, I34-L, I40-L — exact review approval must become one explicit-basis atomic graph batch, not a path-shaped basis value or partial commit; only structurally valid review payloads may become user-reviewable.
 - **Lights up:** `project-graph` proposal → dry-run-valid `present_review_set` → approval → `acceptReviewSet` graph commit.
 - **Objective:** Wire the `project-graph` strategy from real agent proposal generation through `present_review_set` / `request_review`, dry-run gating, approve/request-changes/reject response handling, and atomic `acceptReviewSet` commit.
 - **Why now / unlocks:** This is the P1 proposal/review story. It is only P0 if the POC demo requires user-reviewed batch graph commitments rather than direct `propose-graph` and capture paths.
@@ -156,9 +156,9 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 - **Verification:** Inner — review-set schema tests, dry-run/real-run differential tests, accept atomicity tests. Middle — structured-exchange review-cycle fixture; no-bypass checks. Outer — targeted probe: `project-graph` proposes, user approves, graph updates and web observer sees it.
 - **Topology materialization:** Review payload schemas/renderers live under `.pi/extensions/structured-exchange` or `.pi/extensions/graph` only as adapter surfaces; proposal validation/translation lives in `graph/` review modules; agent strategy resource lives in `agents/strategies/project-graph.md`; web observes via RPC projections.
 - **Cross-cutting obligations:** Preserve D27-L: review-set proposal is a structured-exchange payload, not a standalone public review-set entity. Reviewer advisory writes remain deferred unless explicitly scoped. Existing-node references and review payloads use projected graph codes at adapter/UI boundaries, not raw DB ids.
-- **Traceability:** R21, R23 / D4-L, D20-L, D26-L, D27-L, D51-L, D53-L, D62-L, D63-L / I11-L, I34-L, I40-L / A14-L, A16-L.
+- **Traceability:** R21, R23 / D4-L, D20-L, D26-L, D27-L, D51-L, D53-L, D62-L, D63-L / I11-L, I15-L, I20-L, I34-L, I40-L / A14-L, A16-L.
 - **Design docs:** `docs/design/REVIEW_SETS.md`; `docs/design/GRAPH_MODEL.md`; `memory/SPEC.md` D27-L.
-- **Current execution pointer:** Active; first FE-809 scope chain: `memory/cards/project-graph-review-cycle--review-cycle-core.md`.
+- **Current execution pointer:** Active; `memory/cards/project-graph-review-cycle--review-cycle-core.md` Card 1 is complete at the graph layer (`src/graph/review-set.ts`, `CommandExecutor.acceptReviewSet`); Card 2 is next for `present_review_set` / `request_review` structured-exchange wiring.
 
 ### minimal-authority-shell
 
