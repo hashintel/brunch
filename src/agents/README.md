@@ -102,19 +102,21 @@ agents/
 - `.pi/extensions/` prompt registrar — calls `compose()` at turn boundaries.
 - `.pi/extensions/operational-mode.ts` — reads the state enums from `state.ts`.
 
-## Migration from .pi/context/ (owned by frontier work, not yet done)
+## Migration from .pi/context/ (complete)
 
-`state.ts` enums land with **agent-runtime-vocabulary**; everything else (compose,
-resources, contexts, the migration itself) lands with **agents-composition-layer**.
+Product prompting imports `agents/compose.ts`; prompt-resource metadata is
+code-owned in `state.ts`; detailed prompt resources live under
+`definitions/`, `goals/`, `strategies/`, `lenses/`, and `methods/`; context
+rendering lives under `contexts/`. The old `src/.pi/context/` prompt-pack
+subtree is deleted rather than retained as a compatibility path.
 
-| Current (.pi/context/)                          | Target                              | Kind     |
-|-------------------------------------------------|-------------------------------------|----------|
-| `compose-brunch-prompt.ts`                      | `agents/compose.ts`                 | rewrite  |
-| `prompt-packs/{brunch-base,elicit,elicitor}.md` | `agents/definitions/elicitor.md`    | fold     |
-| `prompt-packs/structured-exchange.md`           | `agents/methods/run-structured-exchange.md` | fold |
-| `prompt-packs/capture-analysis.md`              | `agents/methods/infer-and-capture.md` | rehome |
-| `prompt-packs/candidate-proposals.md`           | `agents/methods/generate-proposal.md` | rehome |
-| `builders/graph-context.ts`                     | `agents/contexts/graph.ts`          | rewrite  |
-| `builders/readiness-context.ts`                 | (folded into compose runtime header)| retire   |
-| `builders/structured-exchange-context.ts`       | `methods/run-structured-exchange.md`| retire/fold |
-| —                                               | `state.ts`, `index.ts`, `goals/*`, `methods/{read-snapshot,commit-graph,review-for-gaps}.md`, `definitions/reviewer.md`, `contexts/{cwd,node}.ts` | new |
+| Former (.pi/context/)                           | Current home                        |
+|-------------------------------------------------|-------------------------------------|
+| `compose-brunch-prompt.ts`                      | `agents/compose.ts`                 |
+| `prompt-packs/{brunch-base,elicit,elicitor}.md` | `agents/definitions/elicitor.md`    |
+| `prompt-packs/structured-exchange.md`           | `agents/methods/run-structured-exchange.md` |
+| `prompt-packs/capture-analysis.md`              | `agents/methods/infer-and-capture.md` |
+| `prompt-packs/candidate-proposals.md`           | `agents/methods/generate-proposal.md` |
+| `builders/graph-context.ts`                     | `agents/contexts/graph.ts`          |
+| `builders/readiness-context.ts`                 | `agents/compose.ts` runtime header  |
+| `builders/structured-exchange-context.ts`       | `agents/methods/run-structured-exchange.md` |

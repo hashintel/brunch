@@ -41,6 +41,23 @@ Archive deeper history to `docs/archive/PLAN_HISTORY.md` instead of keeping it l
 
 Treat frontier items as branch-sized work, not commit-sized work. If one frontier item will unfold as several consecutive verified slices, keep that chain in a `Mode: chain` scope file under `memory/cards/` or in session context instead of fragmenting `memory/PLAN.md` into a commit ledger. `memory/PLAN.md` may carry at most a lightweight pointer such as `current execution pointer: memory/cards/<frontier-id>--<slug>.md`; detailed discretionary sub-slicing belongs in the scope file itself.
 
+## Operating posture
+
+Sequencing pressure depends on the active frontier's **certainty posture**. Read `.pi/POSTURE.md` (if present) for the project default, then check each `Active` / `Next` frontier definition for an explicit `Certainty:` override.
+
+| Certainty | Ask | Optimize for | Reference |
+| --- | --- | --- | --- |
+| `proving` | What does landing this *tell us*? | information gain | [`references/proving.md`](references/proving.md) |
+| `earned` | What does landing this *close*? | closure gain | [`references/earned.md`](references/earned.md) |
+
+The posture is **per frontier**, not per project. A mostly-earned repo can carry a fresh proving seam; a settled seam can regress to proving on a new unknown. The project posture in `.pi/POSTURE.md` is only the default — annotate the frontier when it diverges.
+
+Posture annotations are **required** on every `Active` / `Next` frontier (see the matching reference for the field set). If no posture-specific annotation applies, the frontier is not earning its slot — reshape, reclassify, or demote it.
+
+When implementation later reveals the posture was wrong, treat that as a state transition (downgrade earned → proving, reshape the slice, route back through `ln-plan` if the frontier itself splits). Do not invent a third permanent posture.
+
+Defensive parsing: depend primarily on `.pi/POSTURE.md`'s `certainty:` field; tolerate extra or mismatched fields rather than failing on schema drift.
+
 ## Input
 
 The feature or project area: $ARGUMENTS
@@ -98,35 +115,18 @@ When the meaning, acceptance, verification, traceability, or design-doc referenc
 
 When a frontier completes, remove it from `Sequencing`, add a terse `Recently Completed` entry, and archive older completion history if needed. Keep the definition only if it still carries live rationale for nearby work; otherwise archive/retire it.
 
-### Epistemic horizon
+### Posture-dependent sequencing
 
-If live low-confidence assumptions block downstream work, stop the plan at that boundary. Plan spikes or thinner proving frontier items, not fantasy certainty.
+Sequencing pressures and required annotation fields depend on the active frontier's posture:
 
-### Tracer-bullet sequencing
+- **Proving frontiers** → load [`references/proving.md`](references/proving.md). Covers tracer-bullet axes (proof of life, invariants, uncertainty), epistemic horizon, spike exception, reshape-don't-defer, and the `Retires` / `Depends on` / `Blocked by` / `Lights up` / `Stabilizes` annotation set.
+- **Earned frontiers** → load [`references/earned.md`](references/earned.md). Covers the closure move-set (materialize, consolidate, name canonically, delete-as-progress, retire bridges, take-the-bigger-step), the "circling" recognition heuristic, sprawl guardrails, regression handling, and the `Closes` / `Materializes` / `Canonicalizes` / `Deletes/retires` / `Locks in` annotation set.
 
-Sequencing is not only seam-driven. A good tracer-bullet frontier scores on three convergent axes (see `docs/praxis/ln-skills.md` §Tracer-bullet sequencing): **proof of life**, **invariants**, **uncertainty**. The strongest next frontier scores on more than one.
-
-When ranking candidates, weigh:
-
-- **blast radius** if a load-bearing assumption turns out false
-- **reversibility cost** if discovered late vs early
-- **validation cost** (cheap slice vs expensive end-to-end rework)
-- **load-bearingness** (how many active/next frontiers depend on it)
-
-Annotate each `Active` / `Next` frontier definition with the relevant axes when they are in play:
-
-- `Retires: <SPEC assumption id(s)>` — collapses the assumption by landing
-- `Depends on: <SPEC assumption id(s)> (validated enough)` — assumption must be settled first
-- `Blocked by: <SPEC assumption id(s)>` — load-bearing; do not start until retired
-- `Lights up: <pipeline / seam>` — establishes a new end-to-end path
-- `Stabilizes: <invariant id(s) or seam>` — locates or fixes structure others will aim from
-
-**Spike exception.** Use `ln-spike` only when no buildable frontier could carry the proof. Do not insert ceremonial spikes when a tracer-bullet frontier exists.
-
-This sequencing pressure is distinct from "Epistemic horizon": that rule tells the planner to *stop* at fog; this rule tells the planner to **fire the tracer that tells you the most**.
+A plan may contain a mix of postures across its `Active` / `Next` frontiers. Load both references when planning a mixed plan.
 
 ## Procedure
 
+0. Read `.pi/POSTURE.md` if present for the project's default certainty posture. For each `Active` / `Next` frontier, check for an explicit `Certainty:` override and load the matching reference (`references/proving.md` or `references/earned.md`). Load both when the plan is mixed.
 1. Read `memory/PLAN.md` if it exists. Identify existing frontier ids and retire/archive stale completed material into `docs/archive/PLAN_HISTORY.md`.
 2. Read `memory/SPEC.md` if it exists. Pull only the live requirements, assumptions, decisions, and invariants that still constrain forward work.
 3. Explore the codebase enough to understand real boundaries.

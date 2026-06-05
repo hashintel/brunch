@@ -138,29 +138,51 @@ export function createBrunchAgentSessionRuntimeFactory({
   productUpdates,
 }: BrunchTuiLaunchContext): CreateAgentSessionRuntimeFactory {
   return async ({ cwd, agentDir: runtimeAgentDir, sessionManager }) => {
-    const currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(sessionManager);
+    let currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(sessionManager);
     const graph = await openWorkspaceGraphRuntime(cwd);
-    // Bind graph snapshot readers to the coordinator's current spec (D61-L).
-    // The same runtime factory can be reused after /brunch switches sessions,
-    // so never close over the spec that happened to launch the factory.
-    const specId = currentWorkspace.spec.id;
     const graphDeps = {
-      specId,
+      get specId() {
+        return currentWorkspace.spec.id;
+      },
       commandExecutor: graph.commandExecutor,
-      snapshots: graph.forSpec(specId),
+      snapshots: {
+        getGraphOverview: () => graph.forSpec(currentWorkspace.spec.id).getGraphOverview(),
+        getNodeNeighborhood: (nodeId: number, options?: { hops?: number }) =>
+          graph.forSpec(currentWorkspace.spec.id).getNodeNeighborhood(nodeId, options),
+      },
       ...(productUpdates ? { productUpdates } : {}),
+    };
+    const bindCurrentWorkspace = async (replacementSessionManager: typeof sessionManager) => {
+      currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(replacementSessionManager);
     };
     const profile = createBrunchPiProfile({
       cwd,
       agentDir: runtimeAgentDir,
       extensionFactories: [
-        createBrunchPiExtensionShell(
-          chromeStateForWorkspace(currentWorkspace),
-          async (replacementSessionManager) => {
-            await coordinator.bindCurrentSpecToReplacementSession(replacementSessionManager);
+        createBrunchPiExtensionShell(chromeStateForWorkspace(currentWorkspace), bindCurrentWorkspace, {
+          coordinator,
+          graph: graphDeps,
+          promptContext: () => {
+            const specId = currentWorkspace.spec.id;
+            const selectedSpec = graph.commandExecutor.getSpec(specId);
+            if (!selectedSpec) {
+              throw new Error(`No selected spec found for Brunch prompt context: ${specId}`);
+            }
+            return {
+              spec: {
+                id: selectedSpec.id,
+                name: selectedSpec.name,
+                readinessGrade: selectedSpec.readinessGrade,
+              },
+              workspace: { cwd },
+              session: {
+                id: currentWorkspace.session.id,
+                ...(currentWorkspace.session.name ? { label: currentWorkspace.session.name } : {}),
+              },
+              graphSnapshots: graphDeps.snapshots,
+            };
           },
-          { coordinator, graph: graphDeps },
-        ),
+        }),
       ],
     });
     const services = await createAgentSessionServices({

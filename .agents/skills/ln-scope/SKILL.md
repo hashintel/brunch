@@ -34,6 +34,8 @@ If this is a fresh thread or an unfamiliar area, also read `HANDOFF.md` if prese
 Write a 2-4 bullet orientation note naming the containing seam, the relevant frontier item, volatile handoff state, and the main open risk.
 Also name any frontier-level cross-cutting obligations that this slice must preserve or establish (for example a shared command-layer invariant, a side-task/event-substrate rule, or a replay/property/adversarial verification layer).
 
+Name the inherited **certainty posture** explicitly: `Posture: proving (inherited from <frontier-id>)` or `Posture: earned (inherited from <frontier-id>)`. If scoping reveals the posture is wrong for this slice (most commonly: an earned frontier surfaces a real unknown), downgrade to `proving` and route back through `ln-plan` if the frontier definition itself must shift. Do not silently scope earned-mode slices over fog.
+
 Do not create new planning documents or scratch scope stores without explicit permission. The canonical planning state remains `memory/SPEC.md` and `memory/PLAN.md`. The sanctioned derivative location for scope cards is `memory/cards/`, described below.
 
 If scoping reveals that one frontier item needs multiple sequential slices, keep them nested under that same frontier item unless the plan-level frontier must change. Do not silently turn slices into separate tracker / branch work items.
@@ -159,9 +161,11 @@ Every boundary the slice passes through, entry to exit:
     → [→ memory/SPEC.md §Assumptions id]
 ```
 
-### Tracer-bullet check
+### Posture check
 
-A good tracer-bullet slice scores on at least one of three convergent axes (see `docs/praxis/ln-skills.md` §Tracer-bullet sequencing): **proof of life** (lights up a new end-to-end path), **invariants** (locates or stabilizes a seam), **uncertainty** (retires a load-bearing assumption from `memory/SPEC.md` §Assumptions). The best slices score on more than one.
+Apply the check matching the inherited certainty posture. See [`ln-plan/references/proving.md`](../ln-plan/references/proving.md) and [`ln-plan/references/earned.md`](../ln-plan/references/earned.md) for the full posture doctrine.
+
+**Proving posture.** A good tracer-bullet slice scores on at least one of three convergent axes: **proof of life** (lights up a new end-to-end path), **invariants** (locates or stabilizes a seam), **uncertainty** (retires a load-bearing assumption from `memory/SPEC.md` §Assumptions). The best slices score on more than one.
 
 If the slice depends on a high-impact assumption that landing it will not retire:
 
@@ -171,6 +175,20 @@ If the slice depends on a high-impact assumption that landing it will not retire
 "High-impact" means the assumption being false would force rework across more than this slice — invalidating queued cards, changing the chosen module shape from `ln-design`, or forcing a different frontier-level sequencing decision.
 
 A tracer bullet should *tell you something*. Build it.
+
+**Earned posture.** A good closure slice answers at least one of:
+
+- What dual shape, ambiguity, or open decision does landing this **close**?
+- What settled decision does it **materialize** into topology (file/directory placement, sub-tree split, topology README)?
+- What term, API, or location does it **canonicalize**?
+- What obsolete code path, fixture, doc, or bridge does it **delete / retire**?
+- What invariant, contract, or shape does it **lock in** as the completion test?
+
+If the answer is "none of these — it just incrementally proves something already proved," you are circling. Either reshape the slice into a closure move, or recognize that the frontier itself has become an earned closure that the proving slices have been deferring.
+
+Earned slices may legitimately span multiple files or layers — "take the bigger step" is licensed under earned posture — but the guardrails in `references/earned.md` still bind: one named seam, named closure target, declared touched paths, no auto-implementation of adjacent work.
+
+If scoping surfaces a real unknown that closure depended on, downgrade the slice to proving and re-run the proving branch above.
 
 ### Acceptance Criteria
 
@@ -254,7 +272,7 @@ State one of:
 - `None` — this slice's correctness does not hinge on any live `memory/SPEC.md` §Assumptions
 - `Depends on: <SPEC assumption id(s)>` — and a one-line note on why those assumptions are validated enough to build against
 
-If a light card would have to mark `Depends on:` a high-impact unvalidated assumption, promote to a full scope card and apply the **Tracer-bullet check**.
+If a light card would have to mark `Depends on:` a high-impact unvalidated assumption, promote to a full scope card and apply the **Posture check** (the proving-posture branch in particular).
 
 ### Expected touched paths (tentative)
 
@@ -303,6 +321,6 @@ After the scope file is complete, present these options to the user (use `tool-a
 | 5   | Revise plan    | `ln-plan`    | The work no longer fits the current frontier |
 | 6   | Back to triage | `ln-consult` | Scope revealed unclear state |
 
-Recommended: **1** in nearly all cases — including when the **Tracer-bullet check** fires, because the preferred resolution is to reshape, not defer. Recommend **3 (Spike first)** only when no vertical slice would be cheaper than a pure probe. Recommend **2 (Design oracles)** only when verification for the reshaped slice is still genuinely unclear.
+Recommended: **1** in nearly all cases — including when the **Posture check** fires under proving posture, because the preferred resolution is to reshape, not defer. Under earned posture, recommend **1** when the closure target is named and the slice answers at least one closure question; recommend **5 (Revise plan)** when the slice exposes that the frontier itself has become a different closure than the plan describes. Recommend **3 (Spike first)** only when no vertical slice would be cheaper than a pure probe. Recommend **2 (Design oracles)** only when verification for the reshaped slice is still genuinely unclear.
 
 When routing to `ln-build`, name the scope file path explicitly (for example: "build `memory/cards/<frontier-id>--<slug>.md`"). `ln-build` uses a hybrid selection policy and prefers an explicit path argument.

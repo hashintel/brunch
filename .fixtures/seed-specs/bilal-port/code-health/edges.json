@@ -1,0 +1,4162 @@
+[
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 12,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 22,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 28,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 37,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 40,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 49,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 58,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 60,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 66,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 86,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 93,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 96,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 100,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 102,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 113,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 115,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 117,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 132,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 150,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 151,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 154,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 156,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 164,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 165,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 169,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 188,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 204,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 214,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 216,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 218,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 226,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 236,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 240,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 243,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 246,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 252,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 253,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "realization",
+    "source_local_id": 1,
+    "target_local_id": 254,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 10,
+    "target_local_id": 164,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 47,
+    "target_local_id": 96,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 258,
+    "target_local_id": 15,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 176,
+    "target_local_id": 153,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 170,
+    "target_local_id": 257,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 264,
+    "target_local_id": 250,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 91,
+    "target_local_id": 276,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 265,
+    "target_local_id": 192,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 147,
+    "target_local_id": 253,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 255,
+    "target_local_id": 15,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 42,
+    "target_local_id": 271,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 167,
+    "target_local_id": 259,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 149,
+    "target_local_id": 65,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 17,
+    "target_local_id": 276,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 257,
+    "target_local_id": 49,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 267,
+    "target_local_id": 146,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 81,
+    "target_local_id": 264,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 161,
+    "target_local_id": 261,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 75,
+    "target_local_id": 248,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 51,
+    "target_local_id": 266,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 108,
+    "target_local_id": 150,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 255,
+    "target_local_id": 158,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 265,
+    "target_local_id": 113,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 68,
+    "target_local_id": 260,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 265,
+    "target_local_id": 200,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 18,
+    "target_local_id": 96,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 44,
+    "target_local_id": 130,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 56,
+    "target_local_id": 28,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 233,
+    "target_local_id": 26,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 255,
+    "target_local_id": 150,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 227,
+    "target_local_id": 196,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 275,
+    "target_local_id": 15,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 263,
+    "target_local_id": 193,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 230,
+    "target_local_id": 132,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 275,
+    "target_local_id": 101,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 222,
+    "target_local_id": 237,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 122,
+    "target_local_id": 19,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 128,
+    "target_local_id": 266,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 64,
+    "target_local_id": 171,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 10,
+    "target_local_id": 100,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 274,
+    "target_local_id": 66,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 179,
+    "target_local_id": 270,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 84,
+    "target_local_id": 268,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 265,
+    "target_local_id": 87,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 143,
+    "target_local_id": 248,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 127,
+    "target_local_id": 117,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 255,
+    "target_local_id": 243,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 222,
+    "target_local_id": 265,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 174,
+    "target_local_id": 225,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 109,
+    "target_local_id": 64,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 195,
+    "target_local_id": 87,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 162,
+    "target_local_id": 28,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 274,
+    "target_local_id": 4,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 255,
+    "target_local_id": 158,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 134,
+    "target_local_id": 221,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 174,
+    "target_local_id": 250,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 5,
+    "target_local_id": 97,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 259,
+    "target_local_id": 215,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 272,
+    "target_local_id": 115,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 79,
+    "target_local_id": 277,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 2,
+    "target_local_id": 265,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 274,
+    "target_local_id": 16,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 10,
+    "target_local_id": 183,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 210,
+    "target_local_id": 190,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 77,
+    "target_local_id": 19,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 268,
+    "target_local_id": 106,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 258,
+    "target_local_id": 214,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 274,
+    "target_local_id": 163,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 178,
+    "target_local_id": 273,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 203,
+    "target_local_id": 245,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 265,
+    "target_local_id": 171,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 244,
+    "target_local_id": 276,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 265,
+    "target_local_id": 245,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 147,
+    "target_local_id": 74,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 227,
+    "target_local_id": 267,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 262,
+    "target_local_id": 87,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 108,
+    "target_local_id": 255,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 177,
+    "target_local_id": 274,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 167,
+    "target_local_id": 88,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 210,
+    "target_local_id": 51,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 181,
+    "target_local_id": 140,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 231,
+    "target_local_id": 185,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 270,
+    "target_local_id": 37,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 181,
+    "target_local_id": 107,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 269,
+    "target_local_id": 47,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 184,
+    "target_local_id": 253,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 63,
+    "target_local_id": 262,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 47,
+    "target_local_id": 162,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 271,
+    "target_local_id": 183,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 264,
+    "target_local_id": 272,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 116,
+    "target_local_id": 93,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 263,
+    "target_local_id": 37,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 36,
+    "target_local_id": 110,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 190,
+    "target_local_id": 266,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 11,
+    "target_local_id": 207,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 135,
+    "target_local_id": 145,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 91,
+    "target_local_id": 114,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 92,
+    "target_local_id": 90,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 210,
+    "target_local_id": 266,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 62,
+    "target_local_id": 264,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 261,
+    "target_local_id": 99,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 176,
+    "target_local_id": 71,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 266,
+    "target_local_id": 151,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 35,
+    "target_local_id": 85,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 122,
+    "target_local_id": 262,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 201,
+    "target_local_id": 273,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 242,
+    "target_local_id": 142,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 191,
+    "target_local_id": 82,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 39,
+    "target_local_id": 262,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 266,
+    "target_local_id": 139,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 255,
+    "target_local_id": 253,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 201,
+    "target_local_id": 166,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 230,
+    "target_local_id": 256,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 271,
+    "target_local_id": 100,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 201,
+    "target_local_id": 273,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 247,
+    "target_local_id": 272,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 70,
+    "target_local_id": 255,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 189,
+    "target_local_id": 185,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 51,
+    "target_local_id": 266,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 268,
+    "target_local_id": 21,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 265,
+    "target_local_id": 165,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 256,
+    "target_local_id": 132,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 260,
+    "target_local_id": 173,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 70,
+    "target_local_id": 155,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 267,
+    "target_local_id": 146,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 265,
+    "target_local_id": 236,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 23,
+    "target_local_id": 277,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 161,
+    "target_local_id": 102,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 276,
+    "target_local_id": 239,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 168,
+    "target_local_id": 155,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 7,
+    "target_local_id": 259,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 128,
+    "target_local_id": 151,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 274,
+    "target_local_id": 66,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 273,
+    "target_local_id": 166,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 259,
+    "target_local_id": 144,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 181,
+    "target_local_id": 34,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 18,
+    "target_local_id": 55,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 259,
+    "target_local_id": 126,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 255,
+    "target_local_id": 252,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 262,
+    "target_local_id": 207,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 264,
+    "target_local_id": 225,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 112,
+    "target_local_id": 156,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 39,
+    "target_local_id": 142,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 244,
+    "target_local_id": 276,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 195,
+    "target_local_id": 77,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 17,
+    "target_local_id": 114,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 79,
+    "target_local_id": 277,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 268,
+    "target_local_id": 259,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 191,
+    "target_local_id": 50,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 269,
+    "target_local_id": 199,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 44,
+    "target_local_id": 272,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 271,
+    "target_local_id": 192,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 255,
+    "target_local_id": 58,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 108,
+    "target_local_id": 15,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 230,
+    "target_local_id": 256,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 119,
+    "target_local_id": 274,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 116,
+    "target_local_id": 272,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 268,
+    "target_local_id": 185,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 258,
+    "target_local_id": 118,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 167,
+    "target_local_id": 85,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 266,
+    "target_local_id": 151,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 272,
+    "target_local_id": 223,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 136,
+    "target_local_id": 107,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 89,
+    "target_local_id": 270,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 108,
+    "target_local_id": 243,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 143,
+    "target_local_id": 270,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 266,
+    "target_local_id": 152,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 261,
+    "target_local_id": 102,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 3,
+    "target_local_id": 269,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 53,
+    "target_local_id": 180,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 182,
+    "target_local_id": 265,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 241,
+    "target_local_id": 152,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 122,
+    "target_local_id": 192,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 108,
+    "target_local_id": 86,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 89,
+    "target_local_id": 75,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 227,
+    "target_local_id": 267,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 92,
+    "target_local_id": 250,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 272,
+    "target_local_id": 216,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 257,
+    "target_local_id": 183,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 43,
+    "target_local_id": 255,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 267,
+    "target_local_id": 196,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 277,
+    "target_local_id": 187,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 137,
+    "target_local_id": 58,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 160,
+    "target_local_id": 183,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 52,
+    "target_local_id": 33,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 137,
+    "target_local_id": 255,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 94,
+    "target_local_id": 95,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 75,
+    "target_local_id": 270,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 108,
+    "target_local_id": 252,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 168,
+    "target_local_id": 255,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 213,
+    "target_local_id": 199,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 255,
+    "target_local_id": 60,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 128,
+    "target_local_id": 51,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 277,
+    "target_local_id": 133,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 54,
+    "target_local_id": 197,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 91,
+    "target_local_id": 121,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 277,
+    "target_local_id": 187,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 178,
+    "target_local_id": 217,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 268,
+    "target_local_id": 41,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 179,
+    "target_local_id": 75,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 27,
+    "target_local_id": 126,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 255,
+    "target_local_id": 155,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 270,
+    "target_local_id": 276,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 249,
+    "target_local_id": 31,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 268,
+    "target_local_id": 24,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 134,
+    "target_local_id": 212,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 110,
+    "target_local_id": 262,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 64,
+    "target_local_id": 265,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 27,
+    "target_local_id": 259,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 275,
+    "target_local_id": 15,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 138,
+    "target_local_id": 151,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 189,
+    "target_local_id": 268,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 167,
+    "target_local_id": 31,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 273,
+    "target_local_id": 235,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 94,
+    "target_local_id": 98,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 42,
+    "target_local_id": 118,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 259,
+    "target_local_id": 85,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 227,
+    "target_local_id": 146,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 256,
+    "target_local_id": 253,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 119,
+    "target_local_id": 163,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 149,
+    "target_local_id": 145,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 174,
+    "target_local_id": 264,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 259,
+    "target_local_id": 126,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 82,
+    "target_local_id": 113,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 264,
+    "target_local_id": 250,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 265,
+    "target_local_id": 46,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 189,
+    "target_local_id": 24,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 271,
+    "target_local_id": 164,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 174,
+    "target_local_id": 264,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 75,
+    "target_local_id": 270,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 92,
+    "target_local_id": 264,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 36,
+    "target_local_id": 192,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 42,
+    "target_local_id": 192,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 272,
+    "target_local_id": 216,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 265,
+    "target_local_id": 118,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 148,
+    "target_local_id": 266,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 176,
+    "target_local_id": 263,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 262,
+    "target_local_id": 211,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 77,
+    "target_local_id": 87,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 256,
+    "target_local_id": 132,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 262,
+    "target_local_id": 142,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 143,
+    "target_local_id": 121,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 209,
+    "target_local_id": 259,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 191,
+    "target_local_id": 113,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 110,
+    "target_local_id": 165,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 2,
+    "target_local_id": 30,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 255,
+    "target_local_id": 74,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 269,
+    "target_local_id": 28,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 274,
+    "target_local_id": 112,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 160,
+    "target_local_id": 164,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 276,
+    "target_local_id": 248,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 72,
+    "target_local_id": 14,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 274,
+    "target_local_id": 57,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 242,
+    "target_local_id": 39,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 147,
+    "target_local_id": 255,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 44,
+    "target_local_id": 272,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 143,
+    "target_local_id": 276,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 108,
+    "target_local_id": 188,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 274,
+    "target_local_id": 107,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 70,
+    "target_local_id": 255,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 179,
+    "target_local_id": 143,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 3,
+    "target_local_id": 55,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 9,
+    "target_local_id": 263,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 208,
+    "target_local_id": 275,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 257,
+    "target_local_id": 32,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 77,
+    "target_local_id": 262,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 255,
+    "target_local_id": 188,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 5,
+    "target_local_id": 238,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 43,
+    "target_local_id": 154,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 7,
+    "target_local_id": 126,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 277,
+    "target_local_id": 103,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 55,
+    "target_local_id": 73,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 47,
+    "target_local_id": 175,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 261,
+    "target_local_id": 102,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 147,
+    "target_local_id": 255,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 201,
+    "target_local_id": 199,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 231,
+    "target_local_id": 268,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 233,
+    "target_local_id": 193,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 136,
+    "target_local_id": 163,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 265,
+    "target_local_id": 50,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 54,
+    "target_local_id": 29,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 277,
+    "target_local_id": 273,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 160,
+    "target_local_id": 271,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 52,
+    "target_local_id": 129,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 116,
+    "target_local_id": 272,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 219,
+    "target_local_id": 103,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 258,
+    "target_local_id": 251,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 159,
+    "target_local_id": 255,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 274,
+    "target_local_id": 120,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 259,
+    "target_local_id": 204,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 272,
+    "target_local_id": 59,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 6,
+    "target_local_id": 200,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 219,
+    "target_local_id": 277,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 262,
+    "target_local_id": 165,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 241,
+    "target_local_id": 266,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 220,
+    "target_local_id": 61,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 213,
+    "target_local_id": 201,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 177,
+    "target_local_id": 66,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 51,
+    "target_local_id": 139,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 259,
+    "target_local_id": 215,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 262,
+    "target_local_id": 46,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 81,
+    "target_local_id": 25,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 276,
+    "target_local_id": 40,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 274,
+    "target_local_id": 57,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 56,
+    "target_local_id": 55,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 259,
+    "target_local_id": 215,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 138,
+    "target_local_id": 241,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 241,
+    "target_local_id": 266,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 217,
+    "target_local_id": 273,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 189,
+    "target_local_id": 268,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 108,
+    "target_local_id": 60,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 264,
+    "target_local_id": 25,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 209,
+    "target_local_id": 167,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 82,
+    "target_local_id": 262,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 143,
+    "target_local_id": 276,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 23,
+    "target_local_id": 277,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 217,
+    "target_local_id": 166,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 264,
+    "target_local_id": 274,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 220,
+    "target_local_id": 11,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 135,
+    "target_local_id": 104,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 271,
+    "target_local_id": 117,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 128,
+    "target_local_id": 241,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 264,
+    "target_local_id": 223,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 184,
+    "target_local_id": 256,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 270,
+    "target_local_id": 248,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 257,
+    "target_local_id": 49,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 76,
+    "target_local_id": 45,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 208,
+    "target_local_id": 101,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 84,
+    "target_local_id": 106,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 127,
+    "target_local_id": 271,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 258,
+    "target_local_id": 15,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 217,
+    "target_local_id": 103,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 269,
+    "target_local_id": 28,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 260,
+    "target_local_id": 20,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 184,
+    "target_local_id": 132,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 62,
+    "target_local_id": 169,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 42,
+    "target_local_id": 166,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 267,
+    "target_local_id": 251,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 189,
+    "target_local_id": 25,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 263,
+    "target_local_id": 26,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 184,
+    "target_local_id": 256,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 269,
+    "target_local_id": 73,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 63,
+    "target_local_id": 122,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 255,
+    "target_local_id": 228,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 222,
+    "target_local_id": 200,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 44,
+    "target_local_id": 216,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 18,
+    "target_local_id": 258,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 190,
+    "target_local_id": 266,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 265,
+    "target_local_id": 142,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 9,
+    "target_local_id": 263,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 160,
+    "target_local_id": 100,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 72,
+    "target_local_id": 71,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 244,
+    "target_local_id": 205,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 270,
+    "target_local_id": 248,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 167,
+    "target_local_id": 259,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 268,
+    "target_local_id": 144,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 260,
+    "target_local_id": 254,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 233,
+    "target_local_id": 263,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 262,
+    "target_local_id": 61,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 255,
+    "target_local_id": 86,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 275,
+    "target_local_id": 205,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 76,
+    "target_local_id": 69,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 233,
+    "target_local_id": 263,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 276,
+    "target_local_id": 121,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 257,
+    "target_local_id": 71,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 217,
+    "target_local_id": 273,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 10,
+    "target_local_id": 160,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 91,
+    "target_local_id": 40,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 264,
+    "target_local_id": 90,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 176,
+    "target_local_id": 263,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 194,
+    "target_local_id": 202,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 82,
+    "target_local_id": 211,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 275,
+    "target_local_id": 258,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 262,
+    "target_local_id": 200,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 271,
+    "target_local_id": 118,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 11,
+    "target_local_id": 262,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 231,
+    "target_local_id": 268,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 259,
+    "target_local_id": 31,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 203,
+    "target_local_id": 265,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 56,
+    "target_local_id": 269,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 249,
+    "target_local_id": 85,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 116,
+    "target_local_id": 59,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 111,
+    "target_local_id": 190,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 262,
+    "target_local_id": 19,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 36,
+    "target_local_id": 262,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 83,
+    "target_local_id": 244,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 35,
+    "target_local_id": 31,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 161,
+    "target_local_id": 99,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 265,
+    "target_local_id": 226,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 82,
+    "target_local_id": 50,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 271,
+    "target_local_id": 164,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 76,
+    "target_local_id": 33,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 182,
+    "target_local_id": 245,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 112,
+    "target_local_id": 66,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 272,
+    "target_local_id": 115,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 48,
+    "target_local_id": 224,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 23,
+    "target_local_id": 133,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 52,
+    "target_local_id": 80,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 7,
+    "target_local_id": 27,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 68,
+    "target_local_id": 254,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 255,
+    "target_local_id": 154,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 190,
+    "target_local_id": 139,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 136,
+    "target_local_id": 274,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 222,
+    "target_local_id": 125,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 53,
+    "target_local_id": 155,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 79,
+    "target_local_id": 133,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 273,
+    "target_local_id": 199,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 64,
+    "target_local_id": 265,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 272,
+    "target_local_id": 130,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 116,
+    "target_local_id": 115,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 35,
+    "target_local_id": 249,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 249,
+    "target_local_id": 259,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 6,
+    "target_local_id": 222,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 127,
+    "target_local_id": 271,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 167,
+    "target_local_id": 144,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 268,
+    "target_local_id": 41,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 241,
+    "target_local_id": 151,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 274,
+    "target_local_id": 66,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 174,
+    "target_local_id": 223,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 70,
+    "target_local_id": 253,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 262,
+    "target_local_id": 192,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 266,
+    "target_local_id": 141,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 271,
+    "target_local_id": 117,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 203,
+    "target_local_id": 265,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 67,
+    "target_local_id": 153,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 276,
+    "target_local_id": 40,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 201,
+    "target_local_id": 235,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 147,
+    "target_local_id": 228,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 109,
+    "target_local_id": 265,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 119,
+    "target_local_id": 57,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 17,
+    "target_local_id": 91,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 272,
+    "target_local_id": 93,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 231,
+    "target_local_id": 206,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 261,
+    "target_local_id": 175,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 110,
+    "target_local_id": 192,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 11,
+    "target_local_id": 61,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 257,
+    "target_local_id": 49,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 110,
+    "target_local_id": 262,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 210,
+    "target_local_id": 159,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 208,
+    "target_local_id": 205,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 266,
+    "target_local_id": 141,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 274,
+    "target_local_id": 120,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 194,
+    "target_local_id": 259,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 91,
+    "target_local_id": 276,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 82,
+    "target_local_id": 19,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 83,
+    "target_local_id": 276,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 8,
+    "target_local_id": 143,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 263,
+    "target_local_id": 193,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 265,
+    "target_local_id": 19,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 162,
+    "target_local_id": 96,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 208,
+    "target_local_id": 22,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 182,
+    "target_local_id": 203,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 213,
+    "target_local_id": 273,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 108,
+    "target_local_id": 255,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 122,
+    "target_local_id": 46,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 262,
+    "target_local_id": 265,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 8,
+    "target_local_id": 75,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 261,
+    "target_local_id": 102,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 276,
+    "target_local_id": 239,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 122,
+    "target_local_id": 262,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 274,
+    "target_local_id": 156,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 148,
+    "target_local_id": 71,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 123,
+    "target_local_id": 229,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 92,
+    "target_local_id": 264,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 159,
+    "target_local_id": 255,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 273,
+    "target_local_id": 235,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 62,
+    "target_local_id": 264,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 277,
+    "target_local_id": 187,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 208,
+    "target_local_id": 275,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 170,
+    "target_local_id": 49,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 160,
+    "target_local_id": 271,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 27,
+    "target_local_id": 259,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 276,
+    "target_local_id": 114,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 247,
+    "target_local_id": 130,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 186,
+    "target_local_id": 141,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 265,
+    "target_local_id": 171,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 42,
+    "target_local_id": 271,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 42,
+    "target_local_id": 185,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 84,
+    "target_local_id": 268,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 263,
+    "target_local_id": 193,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "dependency",
+    "source_local_id": 268,
+    "target_local_id": 206,
+    "stance": null,
+    "basis": "explicit",
+    "rationale": null
+  },
+  {
+    "category": "support",
+    "source_local_id": 260,
+    "target_local_id": 254,
+    "stance": "for",
+    "basis": "explicit",
+    "rationale": null
+  }
+]

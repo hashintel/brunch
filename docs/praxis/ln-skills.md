@@ -34,7 +34,16 @@ ln-consult
 
 The flow is not a checklist. Skip steps whose uncertainty is already retired.
 
-### Tracer-bullet sequencing
+### Operating posture
+
+Planning and scoping pressures depend on each frontier's **certainty posture**. The project default lives in `.pi/POSTURE.md` (`certainty: proving | earned`); individual frontiers in `memory/PLAN.md` may carry an explicit `Certainty:` override. Posture is **per-frontier**, not per-project — a mostly-earned repo can carry a fresh proving seam, and a settled seam can regress to proving on a new unknown.
+
+| Certainty | Ask | Optimize for | Reference |
+| --- | --- | --- | --- |
+| `proving` | What does landing this *tell us*? | information gain | `.agents/skills/ln-plan/references/proving.md` |
+| `earned` | What does landing this *close*? | closure gain | `.agents/skills/ln-plan/references/earned.md` |
+
+#### Proving posture (tracer-bullet sequencing)
 
 A good tracer-bullet frontier or slice earns its keep on three convergent axes:
 
@@ -46,9 +55,27 @@ The strongest next move scores on more than one axis. Prefer a slice that does s
 
 - **Reshape, don't defer.** If an assumption blocks a slice, reshape the slice before switching to study.
 - **Spike exception.** Use `ln-spike` only when no buildable tracer bullet can carry the proof — a third-party API contract, vendor characteristic, or research-grade unknown.
-- **Fire the tracer that tells you the most.** Given the repo's pre-release posture, attack uncertainty by building. Spikes, design passes, and prototypes are escape hatches when no slice could carry the proof more cheaply.
+- **Fire the tracer that tells you the most.** Under proving posture, attack uncertainty by building. Spikes, design passes, and prototypes are escape hatches when no slice could carry the proof more cheaply.
 
-`ln-plan`, `ln-design`, `ln-scope`, and `ln-consult` all carry this sequencing pressure.
+Required annotation fields on Active/Next frontiers: at least one of `Retires`, `Depends on`, `Blocked by`, `Lights up`, `Stabilizes`.
+
+#### Earned posture (closure sequencing)
+
+A good closure frontier or slice eliminates open shape, hardens a settled decision into topology, or retires an obsolete carrier. The decision kernel changes — the planner asks *what does this close?*, not *what does this tell us?*
+
+Closure move-set: **materialize, consolidate, name canonically, delete-as-progress, retire bridges/aliases/dual paths, take-the-bigger-step.**
+
+The "circling" recognition heuristic: when each new slice attaches an incremental proof to changes whose meaning is already established, and "caution" is the planner's stated reason but no specific risk can be named, switch posture and plan the closure move the proving slices have been deferring.
+
+Required annotation fields on Active/Next frontiers: at least one of `Closes`, `Materializes`, `Canonicalizes`, `Deletes / retires`, `Locks in`.
+
+Earned posture is not a license for sprawl — guardrails (one named seam, named closure target, declared touched paths, no auto-implementation of adjacent work) still bind. Topology READMEs and fractal sub-tree splits fire only when the seam is understood and structure carries real architectural meaning, not as ritual.
+
+Regression earned → proving is a state transition, not a third mode: downgrade the frontier or slice, reshape as a tracer, route back through `ln-plan` if the frontier itself splits.
+
+#### Posture distribution across skills
+
+`ln-plan`, `ln-design`, `ln-scope`, and `ln-consult` all carry posture-dependent sequencing pressure. `ln-plan` reads posture and loads the matching reference; `ln-scope` inherits posture from the containing frontier and applies the matching posture check. `ln-refactor` owns closure as safe mechanics (when an earned frontier is principally restructuring); `ln-sync` owns closure as canonical garbage collection (when artifacts the planner is already done with need cleanup).
 
 ## Skill map
 

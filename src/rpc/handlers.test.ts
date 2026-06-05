@@ -1541,6 +1541,19 @@ describe('JSON-RPC handlers', () => {
       },
       cwd,
     });
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 10,
+        method: 'session.exchanges',
+        params: { sessionId: workspace.session.id },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: '2.0',
+      id: 10,
+      result: { status: 'ready' },
+    });
   });
 
   it('serves runtime state by explicit spec and session id without opening selected session', async () => {

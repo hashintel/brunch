@@ -95,6 +95,7 @@ function rpcClient(options?: {
   graphOverview?: typeof emptyGraphOverview | typeof populatedGraphOverview;
   calls?: RpcCall[];
   listeners?: Set<WebSocketRpcNotificationListener>;
+  close?: ReturnType<typeof vi.fn>;
 }): WebSocketRpcClient {
   const snapshot = options?.snapshot ?? readySnapshot;
   const calls = options?.calls;
@@ -117,7 +118,7 @@ function rpcClient(options?: {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    close: vi.fn(),
+    close: options?.close ?? vi.fn(),
   } as unknown as WebSocketRpcClient;
 }
 
@@ -259,11 +260,12 @@ describe('Brunch React web app', () => {
   });
 
   it('disposes the root-owned RPC client', () => {
-    const client = rpcClient();
+    const close = vi.fn();
+    const client = rpcClient({ close });
     const runtime = createBrunchWebRuntime({ rpcClient: client });
 
     runtime.dispose();
 
-    expect(client.close).toHaveBeenCalledOnce();
+    expect(close).toHaveBeenCalledOnce();
   });
 });

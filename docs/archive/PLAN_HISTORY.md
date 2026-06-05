@@ -3,6 +3,12 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-06-04 Rolling completion archive
+
+Archived from `memory/PLAN.md` when FE-795 tied off and the live frontier advanced to `agents-composition-layer`.
+
+- 2026-06-01 — **graph-data-plane** (FE-741) — Drizzle schema/init, graph clock seed, `CommandExecutor` result contract, one-transaction LSN/change-log skeleton, `commitGraph` atomic batch mutation, graph snapshot readers, and reconciliation-need substrate landed. Verified: `npm run verify`. Follow-on observer/capture/review pressure moved into the delivery frontiers that now consume the graph plane.
+
 ## 2026-06-02 Delivery-cut archive
 
 Archived from `memory/PLAN.md` when the live plan shifted from concept/frontier proving to the POC delivery spine. The delivery plan now keeps only the P0/P1 marks and the last few completed summaries live.

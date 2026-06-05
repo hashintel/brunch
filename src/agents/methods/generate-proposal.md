@@ -1,6 +1,12 @@
-# Candidate proposals
+# Method: generate-proposal
 
-- Internally reason using the D31-L meta-rubric axes: `legibility_cost_of_knowing`, `failure_modes`, `coverage_range`, and `commitment`.
+Generate proposal material as a coherent batch with explicit claims, edges, and rationale. Keep proposed material separate from accepted graph truth.
+
+Before presenting a review set, ensure it is structurally valid enough for the user to review rather than debug.
+
+Candidate-proposal constraints:
+
+- Internally reason with the D31-L meta-rubric axes: `legibility_cost_of_knowing`, `failure_modes`, `coverage_range`, and `commitment`.
 - Derive user-facing `present_candidates` fields: `core_bet`, `best_fit`, `cost_complexity`, `covers_well`, `main_risks`, `lock_in_constraints`, and optional `recommendation`.
 - `core_bet` is the candidate headline or thesis.
 - Avoid fake low/medium/high scalar ratings for cost, risk, confidence, timeline, or verification.

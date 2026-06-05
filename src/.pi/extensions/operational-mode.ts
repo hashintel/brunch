@@ -19,6 +19,8 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
 
+import { activeToolNamesForPosture, type ReadinessGrade } from '../../agents/state.js';
+
 const ELICIT_BLOCKED_TOOLS = ['bash', 'edit', 'write'] as const;
 type ElicitBlockedToolName = (typeof ELICIT_BLOCKED_TOOLS)[number];
 
@@ -67,14 +69,6 @@ function shortenPath(path: string): string {
   return path;
 }
 
-function elicitToolNames(pi: ExtensionAPI): string[] {
-  const blocked = new Set<string>(ELICIT_BLOCKED_TOOLS);
-  return pi
-    .getAllTools()
-    .map((tool) => tool.name)
-    .filter((name) => !blocked.has(name));
-}
-
 interface SessionManagerLike {
   getEntries(): readonly CustomEntryLike[];
 }
@@ -97,11 +91,13 @@ function supportsBrunchAgentStateEntries(
 export function activeToolNamesForBrunchAgentState(
   pi: ExtensionAPI,
   state: ResolvedBrunchAgentState,
+  readinessGrade: ReadinessGrade = 'grounding_onboarding',
 ): string[] {
-  if (state.operationalModeDefinition.toolPolicyId === 'elicit-read-only') {
-    return elicitToolNames(pi);
-  }
-  return [];
+  return activeToolNamesForPosture({
+    registeredToolNames: pi.getAllTools().map((tool) => tool.name),
+    state,
+    readinessGrade,
+  });
 }
 
 function isBlockedElicitTool(toolName: string): toolName is ElicitBlockedToolName {

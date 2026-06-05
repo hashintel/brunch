@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
+import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
 import {
   type WorkspaceSessionReadyState,
@@ -11,44 +11,8 @@ import {
 } from '../components/workspace-dialog/index.js';
 import { chromeStateForWorkspace, renderBrunchChrome } from './chrome.js';
 
-export const BRUNCH_WORKSPACE_COMMAND = 'brunch';
-export const BRUNCH_WORKSPACE_SHORTCUT = 'ctrl+shift+b';
-
 export interface BrunchSpecSessionPickerOptions {
   coordinator: SpecSessionActivationCoordinator;
-}
-
-export function registerBrunchWorkspaceDialog(
-  pi: ExtensionAPI,
-  { coordinator }: BrunchSpecSessionPickerOptions,
-): void {
-  pi.registerCommand(BRUNCH_WORKSPACE_COMMAND, {
-    description: 'Open the Brunch spec/session picker',
-    handler: async (_args, ctx) => {
-      await runBrunchWorkspaceCommand(ctx, coordinator);
-    },
-  });
-  pi.registerShortcut?.(BRUNCH_WORKSPACE_SHORTCUT, {
-    description: 'Open the Brunch spec/session picker',
-    handler: async (ctx) => {
-      ctx.ui.notify(
-        'Use /brunch to switch specs or sessions; Pi shortcut contexts cannot switch sessions yet.',
-        'warning',
-      );
-    },
-  });
-}
-
-export default function brunchWorkspaceDialog(pi: ExtensionAPI): void {
-  pi.registerCommand(BRUNCH_WORKSPACE_COMMAND, {
-    description: 'Open the Brunch spec/session picker',
-    handler: async (_args, ctx) => {
-      ctx.ui.notify(
-        'The Brunch workspace picker needs a product coordinator and is only available through the Brunch CLI.',
-        'warning',
-      );
-    },
-  });
 }
 
 export async function runBrunchWorkspaceCommand(
@@ -111,7 +75,7 @@ async function switchToActivatedWorkspace(
 ): Promise<void> {
   if (typeof ctx.switchSession !== 'function') {
     ctx.ui.notify(
-      'Use /brunch to switch specs or sessions; this Pi context cannot switch sessions.',
+      'Use /brunch:switch to switch specs or sessions; this Pi context cannot switch sessions.',
       'warning',
     );
     return;

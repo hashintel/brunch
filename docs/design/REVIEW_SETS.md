@@ -20,40 +20,40 @@ This pattern is **reusable across generative lenses**: the same mechanism that h
 
 ## Proposal payload shape
 
-Generative-lens proposals carry **structured entity-draft payloads** in the proposal custom entry. The proposal contains the graph entities and edges that *would* be created on acceptance, in a form `CommandExecutor` can validate without re-parsing.
+Generative-lens proposals carry **structured entity-draft payloads** inside the `present_review_set` / `request_review` structured exchange. The proposal contains the graph entities and edges that *would* be created on acceptance, in a form `CommandExecutor` can validate without re-parsing.
 
 Edge drafts follow the locked graph contract from [GRAPH_MODEL.md](GRAPH_MODEL.md):
 closed `category` values, optional `stance` only for `proof`/`support`, and
-`basis: "accepted_review_set"` for proposal-time edges. Review-set payloads no
-longer carry a free-form `relation` string.
+projected existing-node codes at adapter/UI boundaries instead of raw DB ids.
+Review-set payloads no longer carry a free-form `relation` string or a
+`basis: "accepted_review_set"` path value. Acceptance commits exact reviewed
+items with `basis: "explicit"`; the mutation path lives in `change_log`.
 
 Approximate shape (refined during M5 implementation):
 
 ```text
 {
-  customType: "brunch.review_set_proposal",
-  payload: {
+  present_review_set: {
     lens: "propose-scenarios-with-tradeoffs",
     epistemic_status: "asserted",
     proposal_version: 2,
-    supersedes: "<entry-id of v1>",   // null on first proposal
+    supersedes: "<prior proposal id>",   // null on first proposal
     pitch: {
       name: "...",
       narrative: "...",
       anchor_scenarios: [ { title, vignette }, ... ]
     },
     entity_drafts: [
-      { draft_id, kind: "intent_node", framing_as: "problem", title, body },
-      { draft_id, kind: "intent_node", framing_as: "persona", title, body },
+      { draft_id, plane: "intent", kind: "thesis", title, body },
+      { draft_id, plane: "intent", kind: "requirement", title, body },
       ...
     ],
     edge_drafts: [
       {
         category: "support",
-        source_draft_id: "persona-1",
+        source_draft_id: "thesis-1",
         target_draft_id: "requirement-2",
         stance: "for",
-        basis: "accepted_review_set",
       },
       ...
     ],
