@@ -14,6 +14,13 @@ export const PresentDisplaySchema = z.toJSONSchema(zPresentDisplay, {
   unrepresentable: 'throw',
 });
 
+const zReviewSetDisplay = z
+  .object({
+    heading: z.string().min(1),
+    body: zMarkdown.optional(),
+  })
+  .strict();
+
 export const zPresentQuestionDetails = zPresentDetailsHeader
   .extend({
     tool_meta: z
@@ -59,61 +66,52 @@ export const PresentOptionsDetailsSchema = z.toJSONSchema(zPresentOptionsDetails
   unrepresentable: 'throw',
 });
 
-const zReviewSetEndpointRef = z.union([
+export const zReviewSetEndpointRef = z.union([
   z.object({ draft_id: z.string().min(1) }).strict(),
   z.object({ existing_code: z.string().min(1) }).strict(),
 ]);
+export type ReviewSetEndpointRef = z.infer<typeof zReviewSetEndpointRef>;
+export const ReviewSetEndpointRefSchema = z.toJSONSchema(zReviewSetEndpointRef, {
+  unrepresentable: 'throw',
+});
 
-export const zReviewSetPayload = z
+export const zReviewSetNodeDraft = z
   .object({
-    schema_version: z.literal(1),
-    lens: z.enum(['intent', 'design', 'oracle']),
-    epistemic_status: z.enum(['inferred', 'assumed', 'asserted', 'observed']),
-    grounding: z
-      .object({
-        summary: zMarkdown,
-        support: z.array(zMarkdown).min(1),
-      })
-      .strict(),
-    pitch: z
-      .object({
-        title: z.string().min(1),
-        narrative: zMarkdown,
-      })
-      .strict(),
-    entity_drafts: z
-      .array(
-        z
-          .object({
-            draft_id: z.string().min(1),
-            plane: z.enum(['intent', 'oracle', 'design', 'plan']),
-            kind: z.string().min(1),
-            title: z.string().min(1),
-            body: zMarkdown.optional(),
-            detail: z.unknown().optional(),
-          })
-          .strict(),
-      )
-      .min(1),
-    edge_drafts: z
-      .array(
-        z
-          .object({
-            category: z.string().min(1),
-            source: zReviewSetEndpointRef,
-            target: zReviewSetEndpointRef,
-            stance: z.enum(['for', 'against']).optional(),
-            rationale: zMarkdown.optional(),
-          })
-          .strict(),
-      )
-      .min(1),
-    proposal_version: z.number().int().positive().optional(),
-    supersedes: z.string().min(1).optional(),
+    draft_id: z.string().min(1),
+    plane: z.enum(['intent', 'oracle', 'design', 'plan']),
+    kind: z.string().min(1),
+    title: z.string().min(1),
+    body: zMarkdown.optional(),
+    detail: z.unknown().optional(),
   })
   .strict();
-export type ReviewSetPayload = z.infer<typeof zReviewSetPayload>;
-export const ReviewSetPayloadSchema = z.toJSONSchema(zReviewSetPayload, {
+export type ReviewSetNodeDraft = z.infer<typeof zReviewSetNodeDraft>;
+export const ReviewSetNodeDraftSchema = z.toJSONSchema(zReviewSetNodeDraft, {
+  unrepresentable: 'throw',
+});
+
+export const zReviewSetEdgeDraft = z
+  .object({
+    category: z.string().min(1),
+    source: zReviewSetEndpointRef,
+    target: zReviewSetEndpointRef,
+    stance: z.enum(['for', 'against']).optional(),
+    rationale: zMarkdown.optional(),
+  })
+  .strict();
+export type ReviewSetEdgeDraft = z.infer<typeof zReviewSetEdgeDraft>;
+export const ReviewSetEdgeDraftSchema = z.toJSONSchema(zReviewSetEdgeDraft, {
+  unrepresentable: 'throw',
+});
+
+export const zReviewSetDetailsPayload = z
+  .object({
+    nodes: z.array(zReviewSetNodeDraft).min(1),
+    edges: z.array(zReviewSetEdgeDraft),
+  })
+  .strict();
+export type ReviewSetDetailsPayload = z.infer<typeof zReviewSetDetailsPayload>;
+export const ReviewSetDetailsPayloadSchema = z.toJSONSchema(zReviewSetDetailsPayload, {
   unrepresentable: 'throw',
 });
 
@@ -125,13 +123,8 @@ export const zPresentReviewSetDetails = zPresentDetailsHeader
         next: z.literal('request_review'),
       })
       .strict(),
-    display: zPresentDisplay,
-    review_set: z
-      .object({
-        proposal_entry_id: z.string().min(1).optional(),
-        payload: zReviewSetPayload,
-      })
-      .strict(),
+    display: zReviewSetDisplay,
+    review_set: zReviewSetDetailsPayload,
   })
   .strict();
 export type PresentReviewSetDetails = z.infer<typeof zPresentReviewSetDetails>;

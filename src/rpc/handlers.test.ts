@@ -214,13 +214,10 @@ function presentQuestionEntry() {
       content: [{ type: 'text', text: '## Domain?\n\nWhat are we specifying?' }],
       details: {
         schema: 'brunch.structured_exchange.present',
-        schemaVersion: 1,
-        exchangeId: 'domain',
-        presentTool: 'present_question',
-        kind: 'question',
-        status: 'presented',
-        expectedRequest: { tool: 'request_answer', required: true },
-        createdAtToolCallId: 'present-call-1',
+        v: 1,
+        exchange_id: 'domain',
+        tool_meta: { curr: 'present_question', next: 'request_answer' },
+        display: { heading: 'Domain?', body: 'What are we specifying?' },
       },
       isError: false,
     },
@@ -239,16 +236,10 @@ function requestAnswerEntry(parentId = 'present-question-1') {
       content: [{ type: 'text', text: '### Response\n\nDeveloper tooling' }],
       details: {
         schema: 'brunch.structured_exchange.request',
-        schemaVersion: 1,
-        exchangeId: 'domain',
-        requestTool: 'request_answer',
-        status: 'answered',
-        respondsTo: {
-          exchangeId: 'domain',
-          presentTool: 'present_question',
-        },
-        answer: 'Developer tooling',
-        createdAtToolCallId: 'request-call-1',
+        v: 1,
+        exchange_id: 'domain',
+        tool_meta: { prev: 'present_question', curr: 'request_answer' },
+        answered: { text: 'Developer tooling' },
       },
       isError: false,
     },
@@ -740,7 +731,7 @@ describe('JSON-RPC handlers', () => {
           options: expect.arrayContaining([
             expect.objectContaining({
               id: 'new-from-scratch',
-              label: 'Yes — this is new from scratch',
+              label: 'Start a new spec workspace from a blank slate.',
               content: 'Start a new spec workspace from a blank slate.',
               rationale: 'This keeps the parity run focused on initial grounding.',
             }),
@@ -770,7 +761,6 @@ describe('JSON-RPC handlers', () => {
     expect(sessionText).toContain('brunch.structured_exchange.present');
     expect(sessionText).toContain('present_options');
     expect(sessionText).toContain(exchangeId);
-    expect(sessionText).toContain('"lens":"intent"');
   });
 
   it('reads the selected pending structured exchange from transcript truth', async () => {
@@ -966,9 +956,11 @@ describe('JSON-RPC handlers', () => {
         message: {
           ...requestAnswerEntry().message,
           details: {
-            ...requestAnswerEntry().message.details,
-            status: 'unavailable',
-            message: 'Editor unavailable.',
+            schema: 'brunch.structured_exchange.request',
+            v: 1,
+            exchange_id: 'domain',
+            tool_meta: { prev: 'present_question', curr: 'request_answer' },
+            unavailable: { message: 'Editor unavailable.' },
           },
         },
       },
@@ -1011,10 +1003,12 @@ describe('JSON-RPC handlers', () => {
           ...presentQuestionEntry().message,
           toolName: 'present_options',
           details: {
-            ...presentQuestionEntry().message.details,
-            presentTool: 'present_options',
-            kind: 'options',
-            expectedRequest: { tool: 'request_choices', required: true },
+            schema: 'brunch.structured_exchange.present',
+            v: 1,
+            exchange_id: 'domain',
+            tool_meta: { curr: 'present_options', next: 'request_choices' },
+            display: { heading: 'Choose priorities' },
+            options: [{ id: 'speed', content: 'Move quickly' }],
           },
         },
       },
@@ -1029,16 +1023,10 @@ describe('JSON-RPC handlers', () => {
           content: [{ type: 'text', text: '### Response\n\nCancelled.' }],
           details: {
             schema: 'brunch.structured_exchange.request',
-            schemaVersion: 1,
-            exchangeId: 'domain',
-            requestTool: 'request_choices',
-            status: 'cancelled',
-            respondsTo: {
-              exchangeId: 'domain',
-              presentTool: 'present_options',
-            },
-            message: 'User cancelled the selection.',
-            createdAtToolCallId: 'request-call-choices-cancelled',
+            v: 1,
+            exchange_id: 'domain',
+            tool_meta: { prev: 'present_options', curr: 'request_choices' },
+            cancelled: { message: 'User cancelled the selection.' },
           },
           isError: false,
         },
@@ -1144,7 +1132,7 @@ describe('JSON-RPC handlers', () => {
         exchangeId,
         answer: {
           optionId: 'new-from-scratch',
-          label: 'Yes — this is new from scratch',
+          label: 'Start a new spec workspace from a blank slate.',
         },
         note: 'This is a greenfield product.',
       },

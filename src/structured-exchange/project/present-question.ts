@@ -2,10 +2,10 @@
  * Canonical projection for `present_question` content.
  *
  * Input:
- * - StructuredExchangePresentDetails or equivalent domain prompt state
+ * - domain prompt state for a Brunch structured question
  *
  * Output:
- * - normalized heading/body projection for durable prompt-side content
+ * - normalized heading/body projection plus canonical Zod-authored details
  *
  * Used by:
  * - structured-exchange/format/present-question.ts
@@ -13,23 +13,19 @@
  * - .pi/extensions/structured-exchange/present-question.ts
  */
 
-import {
-  STRUCTURED_EXCHANGE_PRESENT_SCHEMA,
-  type StructuredExchangePresentDetails,
-} from '../../.pi/extensions/structured-exchange/shared/model.js';
+import type { PresentQuestionDetails } from '../../.pi/extensions/structured-exchange/schemas/index.js';
+import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../../.pi/extensions/structured-exchange/schemas/index.js';
 
 export interface PresentQuestionProjection {
   readonly heading: string;
   readonly body?: string;
-  readonly details: StructuredExchangePresentDetails;
+  readonly details: PresentQuestionDetails;
 }
 
 export interface ProjectPresentQuestionInput {
-  readonly toolCallId: string;
   readonly exchangeId: string;
   readonly heading: string;
   readonly body?: string | undefined;
-  readonly expectedRequestTool?: 'request_answer' | undefined;
 }
 
 export function projectPresentQuestion(input: ProjectPresentQuestionInput): PresentQuestionProjection {
@@ -39,17 +35,17 @@ export function projectPresentQuestion(input: ProjectPresentQuestionInput): Pres
     heading,
     ...(body ? { body } : {}),
     details: {
-      schema: STRUCTURED_EXCHANGE_PRESENT_SCHEMA,
-      schemaVersion: 1,
-      exchangeId: input.exchangeId,
-      presentTool: 'present_question',
-      kind: 'question',
-      status: 'presented',
-      expectedRequest: {
-        tool: input.expectedRequestTool ?? 'request_answer',
-        required: true,
+      schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
+      v: 1,
+      exchange_id: input.exchangeId,
+      tool_meta: {
+        curr: 'present_question',
+        next: 'request_answer',
       },
-      createdAtToolCallId: input.toolCallId,
+      display: {
+        heading,
+        ...(body ? { body } : {}),
+      },
     },
   };
 }

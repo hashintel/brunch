@@ -50,13 +50,13 @@ const presentQuestionToolResult = {
     content: [{ type: 'text', text: '## Domain?\n\nWhat are we specifying?' }],
     details: {
       schema: 'brunch.structured_exchange.present',
-      schemaVersion: 1,
-      exchangeId: 'domain',
-      presentTool: 'present_question',
-      kind: 'question',
-      status: 'presented',
-      expectedRequest: { tool: 'request_answer', required: true },
-      createdAtToolCallId: 'present-call-1',
+      v: 1,
+      exchange_id: 'domain',
+      tool_meta: { curr: 'present_question', next: 'request_answer' },
+      display: {
+        heading: 'Domain?',
+        body: 'What are we specifying?',
+      },
     },
     isError: false,
   },
@@ -72,13 +72,10 @@ const requestAnswerToolResult = {
     content: [{ type: 'text', text: '### Response\n\nDeveloper tooling' }],
     details: {
       schema: 'brunch.structured_exchange.request',
-      schemaVersion: 1,
-      exchangeId: 'domain',
-      requestTool: 'request_answer',
-      status: 'answered',
-      respondsTo: { exchangeId: 'domain', presentTool: 'present_question' },
-      answer: 'Developer tooling',
-      createdAtToolCallId: 'request-call-1',
+      v: 1,
+      exchange_id: 'domain',
+      tool_meta: { prev: 'present_question', curr: 'request_answer' },
+      answered: { text: 'Developer tooling' },
     },
     isError: false,
   },
@@ -90,11 +87,7 @@ const mismatchedRequestAnswerToolResult = {
     ...requestAnswerToolResult.message,
     details: {
       ...requestAnswerToolResult.message.details,
-      exchangeId: 'other-domain',
-      respondsTo: {
-        exchangeId: 'other-domain',
-        presentTool: 'present_question',
-      },
+      exchange_id: 'other-domain',
     },
   },
 };
@@ -109,13 +102,17 @@ const presentReviewSetToolResult = {
     content: [{ type: 'text', text: '## Review cycle wiring\n\nReview this graph proposal.' }],
     details: {
       schema: 'brunch.structured_exchange.present',
-      schemaVersion: 1,
-      exchangeId: 'review-cycle',
-      presentTool: 'present_review_set',
-      kind: 'review_set',
-      status: 'presented',
-      expectedRequest: { tool: 'request_review', required: true },
-      createdAtToolCallId: 'present-review-call-1',
+      v: 1,
+      exchange_id: 'review-cycle',
+      tool_meta: { curr: 'present_review_set', next: 'request_review' },
+      display: {
+        heading: 'Review cycle wiring',
+        body: 'Review this graph proposal.',
+      },
+      review_set: {
+        nodes: [{ draft_id: 'goal-review', plane: 'intent', kind: 'goal', title: 'Review graph proposals' }],
+        edges: [],
+      },
     },
     isError: false,
   },
@@ -131,13 +128,10 @@ const requestReviewToolResult = {
     content: [{ type: 'text', text: '### Review decision\n\nApproved.' }],
     details: {
       schema: 'brunch.structured_exchange.request',
-      schemaVersion: 1,
-      exchangeId: 'review-cycle',
-      requestTool: 'request_review',
-      status: 'answered',
-      respondsTo: { exchangeId: 'review-cycle', presentTool: 'present_review_set' },
-      review: 'approve',
-      createdAtToolCallId: 'request-review-call-1',
+      v: 1,
+      exchange_id: 'review-cycle',
+      tool_meta: { prev: 'present_review_set', curr: 'request_review' },
+      answered: { decision: 'approve' },
     },
     isError: false,
   },
@@ -158,17 +152,16 @@ const requestChoicesToolResult = {
     ],
     details: {
       schema: 'brunch.structured_exchange.request',
-      schemaVersion: 1,
-      exchangeId: 'domain',
-      requestTool: 'request_choices',
-      status: 'answered',
-      respondsTo: { exchangeId: 'domain', presentTool: 'present_options' },
-      choices: [
-        { id: 'speed', label: 'Move quickly' },
-        { id: 'other', label: 'Other' },
-      ],
-      comment: 'Keep it deterministic.',
-      createdAtToolCallId: 'request-call-choices-1',
+      v: 1,
+      exchange_id: 'domain',
+      tool_meta: { prev: 'present_options', curr: 'request_choices' },
+      answered: {
+        choices: [
+          { id: 'speed', label: 'Move quickly', kind: 'listed' },
+          { id: 'other', label: 'Other', kind: 'other' },
+        ],
+        comment: 'Keep it deterministic.',
+      },
     },
     isError: false,
   },
@@ -398,10 +391,15 @@ describe('session exchange projection', () => {
           ...presentQuestionToolResult.message,
           toolName: 'present_options',
           details: {
-            ...presentQuestionToolResult.message.details,
-            presentTool: 'present_options',
-            kind: 'options',
-            expectedRequest: { tool: 'request_choices', required: true },
+            schema: 'brunch.structured_exchange.present',
+            v: 1,
+            exchange_id: 'domain',
+            tool_meta: { curr: 'present_options', next: 'request_choices' },
+            display: { heading: 'Choose priorities' },
+            options: [
+              { id: 'speed', content: 'Move quickly' },
+              { id: 'other', content: 'Other' },
+            ],
           },
         },
       };
@@ -410,10 +408,16 @@ describe('session exchange projection', () => {
         id: `request-choices-${status}`,
         message: {
           ...requestChoicesToolResult.message,
-          details: {
-            ...requestChoicesToolResult.message.details,
-            status,
-          },
+          details:
+            status === 'answered'
+              ? requestChoicesToolResult.message.details
+              : {
+                  schema: 'brunch.structured_exchange.request',
+                  v: 1,
+                  exchange_id: 'domain',
+                  tool_meta: { prev: 'present_options', curr: 'request_choices' },
+                  [status]: status === 'cancelled' ? {} : { message: 'request_choices unavailable' },
+                },
         },
       };
 
@@ -432,7 +436,7 @@ describe('session exchange projection', () => {
         ...requestAnswerToolResult.message,
         details: {
           ...requestAnswerToolResult.message.details,
-          respondsTo: { exchangeId: 'domain', presentTool: 'present_options' },
+          exchange_id: 'other-domain',
         },
       },
     };
@@ -441,14 +445,7 @@ describe('session exchange projection', () => {
       id: 'request-choices-unexpected-tool',
       message: {
         ...requestChoicesToolResult.message,
-        details: {
-          ...requestChoicesToolResult.message.details,
-          exchangeId: 'domain',
-          respondsTo: {
-            exchangeId: 'domain',
-            presentTool: 'present_question',
-          },
-        },
+        details: requestChoicesToolResult.message.details,
       },
     };
 

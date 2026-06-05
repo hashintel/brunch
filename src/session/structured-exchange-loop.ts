@@ -1,7 +1,7 @@
 import { Type, type Static } from 'typebox';
 import { Value } from 'typebox/value';
 
-import type { StructuredExchangePresentDetails } from '../.pi/extensions/structured-exchange/shared/model.js';
+import type { PresentDetails } from '../.pi/extensions/structured-exchange/schemas/index.js';
 import { isStructuredExchangePresentDetails } from '../.pi/extensions/structured-exchange/shared/recovery.js';
 import type { BrunchSessionEnvelope } from './brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from './exchange-projection.js';
@@ -196,17 +196,22 @@ export function presentToolResultMessage(exchange: PendingStructuredExchange) {
     content: [{ type: 'text' as const, text: presentMarkdown(exchange) }],
     details: {
       schema: 'brunch.structured_exchange.present',
-      schemaVersion: 1,
-      exchangeId: exchange.exchangeId,
-      presentTool,
-      kind: exchange.mode === 'text' ? 'question' : 'options',
-      status: 'presented',
-      expectedRequest: { tool: requestTool, required: true },
-      createdAtToolCallId: toolCallId,
-      prompt: exchange.prompt,
-      details: exchange.details,
-      lens: exchange.lens,
-      options: exchange.options,
+      v: 1,
+      exchange_id: exchange.exchangeId,
+      tool_meta: { curr: presentTool, next: requestTool },
+      display: {
+        heading: exchange.prompt,
+        ...(exchange.details !== undefined ? { body: exchange.details } : {}),
+      },
+      ...(exchange.mode === 'text'
+        ? {}
+        : {
+            options: exchange.options.map((option) => ({
+              id: option.id,
+              content: option.content,
+              ...(option.rationale !== undefined ? { rationale: option.rationale } : {}),
+            })),
+          }),
     },
     isError: false as const,
     timestamp: 0 as const,
@@ -263,14 +268,13 @@ export function acceptedResponseFromParams(
 ): AcceptedStructuredExchangeResponse {
   if ('text' in params.answer) {
     if (pending.mode !== 'text') return invalidResponseMode();
-    const details = requestDetailsBase(pending, 'request_answer');
     return {
       ok: true,
       answer: { text: params.answer.text },
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_answer'),
         content: [{ type: 'text', text: `### Response\n\n${params.answer.text}` }],
-        details: { ...details, answer: params.answer.text },
+        details: { ...requestDetailsBase(pending, 'request_answer'), answered: { text: params.answer.text } },
       },
     };
   }
@@ -280,17 +284,20 @@ export function acceptedResponseFromParams(
     const optionId = params.answer.optionId;
     const choice = pending.options.find((option) => option.id === optionId);
     if (!choice) return { ok: false, message: 'Invalid elicitation option' };
-    const details = requestDetailsBase(pending, 'request_choice');
-    if (params.note !== undefined && params.note.trim().length > 0) {
-      details.comment = params.note.trim();
-    }
+    const comment = params.note?.trim();
     return {
       ok: true,
       answer: { optionId: choice.id, label: choice.label },
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_choice'),
         content: [{ type: 'text', text: choiceResponseMarkdown([choice], params.note) }],
-        details: { ...details, choice },
+        details: {
+          ...requestDetailsBase(pending, 'request_choice'),
+          answered: {
+            choice: { id: choice.id, label: choice.label, kind: choiceKind(choice.id) },
+            ...(comment ? { comment } : {}),
+          },
+        },
       },
     };
   }
@@ -310,17 +317,24 @@ export function acceptedResponseFromParams(
       message: 'Elicitation response requires a comment for Other or None selections',
     };
   }
-  const details = requestDetailsBase(pending, 'request_choices');
-  if (params.note !== undefined && params.note.trim().length > 0) {
-    details.comment = params.note.trim();
-  }
+  const comment = params.note?.trim();
   return {
     ok: true,
     answer: { optionIds: choices.map((choice) => choice.id), choices },
     toolResultMessage: {
       ...toolResultMessageBase(pending, 'request_choices'),
       content: [{ type: 'text', text: choiceResponseMarkdown(choices, params.note) }],
-      details: { ...details, choices },
+      details: {
+        ...requestDetailsBase(pending, 'request_choices'),
+        answered: {
+          choices: choices.map((choice) => ({
+            id: choice.id,
+            label: choice.label,
+            kind: choiceKind(choice.id),
+          })),
+          ...(comment ? { comment } : {}),
+        },
+      },
     },
   };
 }
@@ -338,16 +352,19 @@ function requestDetailsBase(
 ): Record<string, unknown> {
   return {
     schema: 'brunch.structured_exchange.request',
-    schemaVersion: 1,
-    exchangeId: pending.exchangeId,
-    requestTool,
-    status: 'answered',
-    respondsTo: {
-      exchangeId: pending.exchangeId,
-      presentTool: pending.mode === 'text' ? 'present_question' : 'present_options',
+    v: 1,
+    exchange_id: pending.exchangeId,
+    tool_meta: {
+      prev: pending.mode === 'text' ? 'present_question' : 'present_options',
+      curr: requestTool,
     },
-    createdAtToolCallId: `${pending.exchangeId}:${requestTool}`,
   };
+}
+
+function choiceKind(id: string): 'listed' | 'other' | 'none' {
+  if (id === 'other') return 'other';
+  if (id === 'none') return 'none';
+  return 'listed';
 }
 
 function toolResultMessageBase(
@@ -388,47 +405,49 @@ function presentMarkdown(exchange: PendingStructuredExchange): string {
 }
 
 function pendingExchangeFromStructuredPresent(
-  details: StructuredExchangePresentDetails,
+  details: PresentDetails,
   markdown: string,
 ): PendingStructuredExchange {
-  const richDetails = details as StructuredExchangePresentDetails & {
-    prompt?: unknown;
-    details?: unknown;
-    options?: unknown;
-    reviewSet?: unknown;
-  };
-  const prompt =
-    typeof richDetails.prompt === 'string'
-      ? richDetails.prompt
-      : (firstNonEmptyMarkdownLine(markdown) ?? markdown);
-  const detailsText = typeof richDetails.details === 'string' ? richDetails.details : markdown;
-  if (details.presentTool === 'present_review_set') {
+  const prompt = details.display.heading;
+  const detailsText = presentDetailsText(details, markdown);
+  if ('review_set' in details) {
     return {
-      exchangeId: details.exchangeId,
+      exchangeId: details.exchange_id,
       lens: 'intent',
       mode: 'review',
       prompt,
       ...(detailsText.length > 0 ? { details: detailsText } : {}),
       options: [],
       note: { allowed: true },
-      ...(isRecord(richDetails.reviewSet) ? { reviewSet: richDetails.reviewSet } : {}),
+      reviewSet: details.review_set,
     };
   }
 
   return {
-    exchangeId: details.exchangeId,
+    exchangeId: details.exchange_id,
     lens: 'intent',
     mode:
-      details.expectedRequest?.tool === 'request_choices'
+      details.tool_meta.next === 'request_choices'
         ? 'multi-select'
-        : details.presentTool === 'present_question'
+        : details.tool_meta.curr === 'present_question'
           ? 'text'
           : 'single-select',
     prompt,
     ...(detailsText.length > 0 ? { details: detailsText } : {}),
-    options: parsePendingOptions(richDetails.options, markdown),
+    options:
+      'options' in details
+        ? parsePendingOptions(details.options, markdown)
+        : parsePendingOptions(undefined, markdown),
     note: { allowed: true },
   };
+}
+
+function presentDetailsText(details: PresentDetails, markdown: string): string {
+  if ('preface' in details.display && details.display.preface && details.display.body) {
+    return `${details.display.preface}\n\n${details.display.body}`;
+  }
+  if ('preface' in details.display && details.display.preface) return details.display.preface;
+  return details.display.body ?? markdown;
 }
 
 function parsePendingOptions(value: unknown, markdown: string = ''): PendingChoice[] {
@@ -493,7 +512,7 @@ function parseMarkdownPendingOptions(markdown: string): PendingChoice[] {
   return options;
 }
 
-function structuredExchangePresentDetails(entry: unknown): StructuredExchangePresentDetails | undefined {
+function structuredExchangePresentDetails(entry: unknown): PresentDetails | undefined {
   if (typeof entry !== 'object' || entry === null || (entry as { type?: unknown }).type !== 'message') {
     return undefined;
   }
@@ -506,20 +525,7 @@ function structuredExchangePresentDetails(entry: unknown): StructuredExchangePre
     return undefined;
   }
   const details = (message as { details?: unknown }).details;
-  return isStructuredExchangePresentDetails(details)
-    ? (details as StructuredExchangePresentDetails)
-    : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function firstNonEmptyMarkdownLine(markdown: string): string | undefined {
-  return markdown
-    .split('\n')
-    .map((line) => line.replace(/^#+\s*/, '').trim())
-    .find((line) => line.length > 0);
+  return isStructuredExchangePresentDetails(details) ? (details as PresentDetails) : undefined;
 }
 
 function textContent(content: unknown): string {

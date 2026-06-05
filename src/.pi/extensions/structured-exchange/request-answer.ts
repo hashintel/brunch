@@ -1,8 +1,9 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
+import type { RequestAnswerDetails } from './schemas/index.js';
+import { STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from './schemas/index.js';
 import { renderMarkdownResult } from './shared/markdown.js';
-import { STRUCTURED_EXCHANGE_REQUEST_SCHEMA, type StructuredExchangeRequestDetails } from './shared/model.js';
 
 export const REQUEST_ANSWER_TOOL = 'request_answer' as const;
 
@@ -16,12 +17,22 @@ export const RequestAnswerParams = Type.Object({
   }),
 });
 
-function responseMarkdown(details: StructuredExchangeRequestDetails): string {
-  if (details.status === 'cancelled') return '### Response\n\n_User cancelled the request._';
-  if (details.status === 'unavailable') {
-    return `### Response\n\n_${details.message ?? 'Response UI unavailable.'}_`;
-  }
-  return ['### Response', '', details.answer ?? ''].join('\n');
+function responseMarkdown(details: RequestAnswerDetails): string {
+  if ('cancelled' in details) return '### Response\n\n_User cancelled the request._';
+  if ('unavailable' in details) return `### Response\n\n_${details.unavailable.message}_`;
+  return ['### Response', '', details.answered.text].join('\n');
+}
+
+function base(exchangeId: string) {
+  return {
+    schema: STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
+    v: 1 as const,
+    exchange_id: exchangeId,
+    tool_meta: {
+      prev: 'present_question' as const,
+      curr: REQUEST_ANSWER_TOOL,
+    },
+  };
 }
 
 export const requestAnswerTool = defineTool({
@@ -37,24 +48,11 @@ export const requestAnswerTool = defineTool({
   parameters: RequestAnswerParams,
   executionMode: 'sequential',
 
-  async execute(toolCallId, params, _signal, _onUpdate, ctx) {
-    const base = {
-      schema: STRUCTURED_EXCHANGE_REQUEST_SCHEMA,
-      schemaVersion: 1 as const,
-      exchangeId: params.exchangeId,
-      requestTool: REQUEST_ANSWER_TOOL,
-      respondsTo: {
-        exchangeId: params.exchangeId,
-        presentTool: params.respondsToPresentTool ?? 'present_question',
-      },
-      createdAtToolCallId: toolCallId,
-    };
-
+  async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
     if (!ctx.hasUI || typeof ctx.ui.editor !== 'function') {
-      const details: StructuredExchangeRequestDetails = {
-        ...base,
-        status: 'unavailable',
-        message: 'request_answer requires interactive UI',
+      const details: RequestAnswerDetails = {
+        ...base(params.exchangeId),
+        unavailable: { message: 'request_answer requires interactive UI' },
       };
       return {
         content: [{ type: 'text' as const, text: responseMarkdown(details) }],
@@ -64,9 +62,9 @@ export const requestAnswerTool = defineTool({
 
     const answer = await ctx.ui.editor(params.prompt);
     if (answer === undefined) {
-      const details: StructuredExchangeRequestDetails = {
-        ...base,
-        status: 'cancelled',
+      const details: RequestAnswerDetails = {
+        ...base(params.exchangeId),
+        cancelled: {},
       };
       return {
         content: [{ type: 'text' as const, text: responseMarkdown(details) }],
@@ -74,10 +72,10 @@ export const requestAnswerTool = defineTool({
       };
     }
 
-    const details: StructuredExchangeRequestDetails = {
-      ...base,
-      status: 'answered',
-      answer: answer.trim(),
+    const details: RequestAnswerDetails = {
+      ...base(params.exchangeId),
+      tool_meta: { ...base(params.exchangeId).tool_meta, next: 'capture_answer' },
+      answered: { text: answer.trim() },
     };
     return {
       content: [{ type: 'text' as const, text: responseMarkdown(details) }],

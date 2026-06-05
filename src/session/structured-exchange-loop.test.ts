@@ -37,10 +37,9 @@ describe('structured exchange loop helpers', () => {
         content: [{ text: '### Response\n\nA local product specification workspace.' }],
         details: {
           schema: 'brunch.structured_exchange.request',
-          exchangeId: pending.exchangeId,
-          requestTool: 'request_answer',
-          status: 'answered',
-          answer: 'A local product specification workspace.',
+          exchange_id: pending.exchangeId,
+          tool_meta: { curr: 'request_answer' },
+          answered: { text: 'A local product specification workspace.' },
         },
       },
     });
@@ -62,9 +61,11 @@ describe('structured exchange loop helpers', () => {
         toolName: 'request_choice',
         content: [{ text: expect.stringContaining('> This is greenfield.') }],
         details: {
-          requestTool: 'request_choice',
-          comment: 'This is greenfield.',
-          choice: { id: 'new-from-scratch' },
+          tool_meta: { curr: 'request_choice' },
+          answered: {
+            comment: 'This is greenfield.',
+            choice: { id: 'new-from-scratch', kind: 'listed' },
+          },
         },
       },
     });
@@ -96,9 +97,11 @@ describe('structured exchange loop helpers', () => {
         toolName: 'request_choices',
         content: [{ text: expect.stringContaining('> Also verify friction reporting.') }],
         details: {
-          requestTool: 'request_choices',
-          comment: 'Also verify friction reporting.',
-          choices: [{ id: 'transcript' }, { id: 'other' }],
+          tool_meta: { curr: 'request_choices' },
+          answered: {
+            comment: 'Also verify friction reporting.',
+            choices: [{ id: 'transcript' }, { id: 'other', kind: 'other' }],
+          },
         },
       },
     });
@@ -125,14 +128,9 @@ describe('structured exchange loop helpers', () => {
   });
 
   it('reconstructs a review-mode pending exchange from present_review_set details', () => {
-    const payload = {
-      schemaVersion: 1,
-      lens: 'intent',
-      epistemicStatus: 'inferred',
-      grounding: { summary: 'Grounded in transcript.', support: ['User asked for review.'] },
-      pitch: { title: 'Review cycle wiring', narrative: 'Review this graph proposal.' },
-      entityDrafts: [{ draftId: 'g1', plane: 'intent', kind: 'goal', title: 'Review graph proposals' }],
-      edgeDrafts: [],
+    const reviewSet = {
+      nodes: [{ draft_id: 'g1', plane: 'intent', kind: 'goal', title: 'Review graph proposals' }],
+      edges: [],
     };
     const envelope: BrunchSessionEnvelope = {
       header: header as unknown as BrunchSessionEnvelope['header'],
@@ -152,14 +150,11 @@ describe('structured exchange loop helpers', () => {
             content: [{ type: 'text', text: '## Review cycle wiring\n\nReview this graph proposal.' }],
             details: {
               schema: 'brunch.structured_exchange.present',
-              schemaVersion: 1,
-              exchangeId: 'review-cycle',
-              presentTool: 'present_review_set',
-              kind: 'review_set',
-              status: 'presented',
-              expectedRequest: { tool: 'request_review', required: true },
-              createdAtToolCallId: 'present-review-call-1',
-              reviewSet: { proposalEntryId: 'proposal-entry-1', payload },
+              v: 1,
+              exchange_id: 'review-cycle',
+              tool_meta: { curr: 'present_review_set', next: 'request_review' },
+              display: { heading: 'Review cycle wiring', body: 'Review this graph proposal.' },
+              review_set: reviewSet,
             },
             isError: false,
           },
@@ -171,11 +166,11 @@ describe('structured exchange loop helpers', () => {
       exchangeId: 'review-cycle',
       mode: 'review',
       prompt: 'Review cycle wiring',
-      reviewSet: { proposalEntryId: 'proposal-entry-1', payload },
+      reviewSet,
     });
   });
 
-  it('reconstructs pending options from structured present markdown when details omit options', () => {
+  it('reconstructs pending options from canonical structured present details', () => {
     const envelope: BrunchSessionEnvelope = {
       header: header as unknown as BrunchSessionEnvelope['header'],
       binding,
@@ -207,13 +202,17 @@ describe('structured exchange loop helpers', () => {
             ],
             details: {
               schema: 'brunch.structured_exchange.present',
-              schemaVersion: 1,
-              exchangeId: 'quality',
-              presentTool: 'present_options',
-              kind: 'options',
-              status: 'presented',
-              expectedRequest: { tool: 'request_choice', required: true },
-              createdAtToolCallId: 'present-call-1',
+              v: 1,
+              exchange_id: 'quality',
+              tool_meta: { curr: 'present_options', next: 'request_choice' },
+              display: { heading: 'Choose proof quality' },
+              options: [
+                {
+                  id: 'transcript',
+                  content: 'Transcript fidelity',
+                  rationale: 'Pi JSONL keeps truth recoverable.',
+                },
+              ],
             },
             isError: false,
           },

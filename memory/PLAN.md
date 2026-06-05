@@ -158,7 +158,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 - **Cross-cutting obligations:** Preserve D27-L: review-set proposal is a structured-exchange payload, not a standalone public review-set entity. Reviewer advisory writes remain deferred unless explicitly scoped. Existing-node references and review payloads use projected graph codes at adapter/UI boundaries, not raw DB ids.
 - **Traceability:** R21, R23 / D4-L, D20-L, D26-L, D27-L, D51-L, D53-L, D62-L, D63-L / I11-L, I15-L, I20-L, I34-L, I40-L / A14-L, A16-L.
 - **Design docs:** `docs/design/REVIEW_SETS.md`; `docs/design/GRAPH_MODEL.md`; `memory/SPEC.md` D27-L.
-- **Current execution pointer:** Active scope file `memory/cards/project-graph-review-cycle--structured-exchange-schema-lock.md`. Review-cycle core tracer is complete at graph and initial structured-exchange layers, but user review found schema drift/invention risk; lock all structured-exchange tool result details in Zod before approval-to-commit product wiring or the real `project-graph` proposal probe.
+- **Current execution pointer:** Structured-exchange schema lock complete: present/request/capture `toolResult.details` now use canonical Zod-authored `schema`/`v`/snake_case shapes, `present_review_set.review_set` is locked to `nodes`/`edges`, and runtime/projection/recovery/tests consume those shapes. Remaining FE-809 work is approval-to-`acceptReviewSet` product wiring and the real `project-graph` proposal probe.
 
 ### minimal-authority-shell
 

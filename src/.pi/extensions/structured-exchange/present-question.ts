@@ -17,7 +17,6 @@ export const PresentQuestionParams = Type.Object({
       description: 'Markdown body for context before the answer request.',
     }),
   ),
-  expectedRequestTool: Type.Optional(Type.Literal('request_answer')),
 });
 
 export const presentQuestionTool = defineTool({
@@ -33,13 +32,11 @@ export const presentQuestionTool = defineTool({
   parameters: PresentQuestionParams,
   executionMode: 'sequential',
 
-  async execute(toolCallId, params) {
+  async execute(_toolCallId, params) {
     const projection = projectPresentQuestion({
-      toolCallId,
       exchangeId: params.exchangeId,
       heading: params.heading,
       body: params.body,
-      expectedRequestTool: params.expectedRequestTool,
     });
     return {
       content: [{ type: 'text' as const, text: formatPresentQuestion(projection) }],

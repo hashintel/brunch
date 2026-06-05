@@ -133,7 +133,6 @@ describe('structured exchange present/request tools', () => {
         exchangeId: 'problem-frame',
         heading: 'What problem are we solving?',
         body: 'Keep the answer grounded in current Brunch session behavior.',
-        expectedRequestTool: 'request_answer',
       },
       undefined,
       undefined,
@@ -147,12 +146,12 @@ describe('structured exchange present/request tools', () => {
     `);
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
-      exchangeId: 'problem-frame',
-      presentTool: 'present_question',
-      kind: 'question',
-      status: 'presented',
-      expectedRequest: { tool: 'request_answer', required: true },
-      createdAtToolCallId: 'present-question-call-1',
+      exchange_id: 'problem-frame',
+      tool_meta: { curr: 'present_question', next: 'request_answer' },
+      display: {
+        heading: 'What problem are we solving?',
+        body: 'Keep the answer grounded in current Brunch session behavior.',
+      },
     });
   });
 
@@ -189,12 +188,13 @@ describe('structured exchange present/request tools', () => {
     expect(result.content[0]?.text).toContain('Clearer ownership.');
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
-      exchangeId: 'shell-location',
-      presentTool: PRESENT_OPTIONS_TOOL,
-      kind: 'options',
-      status: 'presented',
-      expectedRequest: { tool: REQUEST_CHOICE_TOOL, required: true },
-      createdAtToolCallId: 'present-call-1',
+      exchange_id: 'shell-location',
+      tool_meta: { curr: PRESENT_OPTIONS_TOOL, next: REQUEST_CHOICE_TOOL },
+      display: {
+        heading: 'Where should the shell live?',
+        body: 'Choose the module boundary for Brunch Pi extensions.',
+      },
+      options: [{ id: 'root' }, { id: 'tui', rationale: 'Clearer ownership.' }],
     });
 
     const rendered = result.content[0] ? present.renderResult(result, {}, theme).render?.(80).join('\n') : '';
@@ -235,15 +235,12 @@ describe('structured exchange present/request tools', () => {
     expect(result.content[0]?.text).not.toContain('Clearer ownership');
     expect(isStructuredExchangeRequestDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
-      exchangeId: 'shell-location',
-      requestTool: REQUEST_CHOICE_TOOL,
-      status: 'answered',
-      respondsTo: {
-        exchangeId: 'shell-location',
-        presentTool: PRESENT_OPTIONS_TOOL,
+      exchange_id: 'shell-location',
+      tool_meta: { prev: PRESENT_OPTIONS_TOOL, curr: REQUEST_CHOICE_TOOL },
+      answered: {
+        choice: { id: 'tui', label: 'Move under src/tui-client', kind: 'listed' },
+        comment: 'Aligns ownership with /reload iteration.',
       },
-      choice: { id: 'tui', label: 'Move under src/tui-client' },
-      comment: 'Aligns ownership with /reload iteration.',
     });
   });
 
@@ -267,11 +264,12 @@ describe('structured exchange present/request tools', () => {
     expect(result.content[0]?.text).toContain('### Edge drafts');
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
-      exchangeId: 'review-cycle-1',
-      presentTool: PRESENT_REVIEW_SET_TOOL,
-      kind: 'review_set',
-      expectedRequest: { tool: REQUEST_REVIEW_TOOL, required: true },
-      reviewSet: { proposalEntryId: 'proposal-entry-1', payload },
+      exchange_id: 'review-cycle-1',
+      tool_meta: { curr: PRESENT_REVIEW_SET_TOOL, next: REQUEST_REVIEW_TOOL },
+      review_set: {
+        nodes: [{ draft_id: 'goal-review' }, { draft_id: 'req-approve' }],
+        edges: [{ source: { draft_id: 'req-approve' }, target: { draft_id: 'goal-review' } }],
+      },
     });
   });
 
@@ -315,12 +313,9 @@ describe('structured exchange present/request tools', () => {
 
       expect(result.content[0]?.text).toContain('### Review decision');
       expect(result.details).toMatchObject({
-        exchangeId: 'review-cycle-1',
-        requestTool: REQUEST_REVIEW_TOOL,
-        status: 'answered',
-        respondsTo: { exchangeId: 'review-cycle-1', presentTool: PRESENT_REVIEW_SET_TOOL },
-        review,
-        comment,
+        exchange_id: 'review-cycle-1',
+        tool_meta: { prev: PRESENT_REVIEW_SET_TOOL, curr: REQUEST_REVIEW_TOOL },
+        answered: { decision: review, comment },
       });
     }
   });
@@ -338,9 +333,8 @@ describe('structured exchange present/request tools', () => {
     );
 
     expect(result.details).toMatchObject({
-      requestTool: REQUEST_REVIEW_TOOL,
-      status: 'unavailable',
-      message: 'request_review request_changes requires a comment',
+      tool_meta: { curr: REQUEST_REVIEW_TOOL },
+      unavailable: { message: 'request_review request_changes requires a comment' },
     });
   });
 
@@ -363,8 +357,8 @@ describe('structured exchange present/request tools', () => {
       { hasUI: false, ui: {} } as never,
     );
 
-    expect(cancelled.details).toMatchObject({ status: 'cancelled', requestTool: REQUEST_REVIEW_TOOL });
-    expect(unavailable.details).toMatchObject({ status: 'unavailable', requestTool: REQUEST_REVIEW_TOOL });
+    expect(cancelled.details).toMatchObject({ cancelled: {}, tool_meta: { curr: REQUEST_REVIEW_TOOL } });
+    expect(unavailable.details).toMatchObject({ unavailable: {}, tool_meta: { curr: REQUEST_REVIEW_TOOL } });
     expect(isStructuredExchangeRequestDetails(cancelled.details)).toBe(true);
     expect(isStructuredExchangeRequestDetails(unavailable.details)).toBe(true);
   });
@@ -414,19 +408,15 @@ describe('structured exchange present/request tools', () => {
     expect(isStructuredExchangeRequestDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       schema: 'brunch.structured_exchange.request',
-      exchangeId: 'priorities',
-      requestTool: REQUEST_CHOICES_TOOL,
-      status: 'answered',
-      respondsTo: {
-        exchangeId: 'priorities',
-        presentTool: PRESENT_OPTIONS_TOOL,
+      exchange_id: 'priorities',
+      tool_meta: { prev: PRESENT_OPTIONS_TOOL, curr: REQUEST_CHOICES_TOOL },
+      answered: {
+        choices: [
+          { id: 'speed', label: 'Move quickly', kind: 'listed' },
+          { id: 'other', label: 'Other', kind: 'other' },
+        ],
+        comment: 'Also keep the proof deterministic.',
       },
-      choices: [
-        { id: 'speed', label: 'Move quickly' },
-        { id: 'other', label: 'Other' },
-      ],
-      comment: 'Also keep the proof deterministic.',
-      createdAtToolCallId: 'request-choices-call-1',
     });
   });
 
@@ -463,9 +453,8 @@ describe('structured exchange present/request tools', () => {
     );
 
     expect(result.details).toMatchObject({
-      requestTool: REQUEST_CHOICES_TOOL,
-      status: 'unavailable',
-      message: 'request_choices requires a comment for Other or None selections',
+      tool_meta: { curr: REQUEST_CHOICES_TOOL },
+      unavailable: { message: 'request_choices requires a comment for Other or None selections' },
     });
     expect(result.content[0]?.text).toContain('request_choices requires a comment');
   });
@@ -478,19 +467,17 @@ describe('structured exchange present/request tools', () => {
           role: 'toolResult',
           details: {
             schema: 'brunch.structured_exchange.present',
-            schemaVersion: 1,
-            exchangeId: 'shell-location',
-            presentTool: PRESENT_OPTIONS_TOOL,
-            kind: 'options',
-            status: 'presented',
-            expectedRequest: { tool: REQUEST_CHOICE_TOOL, required: true },
-            createdAtToolCallId: 'present-call-1',
+            v: 1,
+            exchange_id: 'shell-location',
+            tool_meta: { curr: PRESENT_OPTIONS_TOOL, next: REQUEST_CHOICE_TOOL },
+            display: { heading: 'Where should the shell live?' },
+            options: [{ id: 'root', content: 'Keep src/pi-extensions.ts' }],
           },
         },
       },
     ]);
 
     expect(incomplete).toHaveLength(1);
-    expect(incomplete[0]?.details.exchangeId).toBe('shell-location');
+    expect(incomplete[0]?.details.exchange_id).toBe('shell-location');
   });
 });

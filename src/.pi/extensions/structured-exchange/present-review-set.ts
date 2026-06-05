@@ -4,10 +4,8 @@ import { Type } from 'typebox';
 import type { CommandExecutor, StructuralIllegal } from '../../../graph/command-executor.js';
 import type { ReviewSetProposalPayload } from '../../../graph/review-set.js';
 import { formatPresentReviewSet } from '../../../structured-exchange/format/present-review-set.js';
-import {
-  projectPresentReviewSet,
-  type PresentReviewSetDetails,
-} from '../../../structured-exchange/project/present-review-set.js';
+import { projectPresentReviewSet } from '../../../structured-exchange/project/present-review-set.js';
+import type { PresentReviewSetDetails } from './schemas/index.js';
 import { renderMarkdownResult } from './shared/markdown.js';
 
 export const PRESENT_REVIEW_SET_TOOL = 'present_review_set' as const;
@@ -73,9 +71,7 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
       }
 
       const projection = projectPresentReviewSet({
-        toolCallId,
         exchangeId: params.exchangeId,
-        proposalEntryId: params.proposalEntryId,
         payload: params.payload as ReviewSetProposalPayload,
       });
       return {

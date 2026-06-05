@@ -1,6 +1,6 @@
 # Structured-exchange schema contract
 
-This directory owns the Zod-authored, JSON-Schema-exportable details model for structured-exchange transcript tool results. It records the exact contract for the schema pass; runtime migration is separate work.
+This directory owns the Zod-authored, JSON-Schema-exportable details model for structured-exchange transcript tool results. Runtime tools, session projection, pending-exchange recovery, and tests consume these schemas as the semantic source of truth.
 
 ## Naming
 
@@ -158,32 +158,27 @@ display:
   heading: "Review proposed requirements"
   body: "Approve the set, request changes, or reject it."
 review_set:
-  proposal_entry_id: "entry-review-proposal-17"
-  payload:
-    schema_version: 1
-    lens: intent | design | oracle
-    epistemic_status: inferred | assumed | asserted | observed
-    grounding:
-      summary: markdown
-      support:
-        - markdown
-    pitch:
-      title: "Review proposed requirements"
-      narrative: markdown
-    entity_drafts:
-      - draft_id: "req-approval"
-        plane: intent
-        kind: requirement
-        title: "Approval is atomic"
-        body?: markdown
-        detail?: object
-    edge_drafts:
-      - category: dependency | proof | support | realization | boundary | composition | association | supersession
-        source: { draft_id: "req-approval" } | { existing_code: "G1" }
-        target: { draft_id: "goal-review" } | { existing_code: "G1" }
-        stance?: for | against
-        rationale?: markdown
+  nodes:
+    - draft_id: "req-approval"
+      plane: intent
+      kind: requirement
+      title: "Approval is atomic"
+      body?: markdown
+      detail?: object
+  edges:
+    - category: dependency | proof | support | realization | boundary | composition | association | supersession
+      source: { draft_id: "req-approval" } | { existing_code: "G1" }
+      target: { draft_id: "goal-review" } | { existing_code: "G1" }
+      stance?: for | against
+      rationale?: markdown
 ```
+
+Rules:
+
+- `review_set` contains only `nodes` and `edges` in transcript details.
+- Proposal audit ids and graph command payloads stay outside `toolResult.details`; later acceptance derives graph commands at the graph adapter/domain boundary.
+- Do not add `proposal_entry_id`, `pitch`, `user_rubric`, `meta_rubric`, `graph_drafts`, `entity_drafts`, `edge_drafts`, `command_payload`, per-item `basis`, or raw DB ids to this details shape.
+- Candidate rubrics are candidate-specific; do not copy candidate comparison facets into review-set details.
 
 ### `present_candidates`
 

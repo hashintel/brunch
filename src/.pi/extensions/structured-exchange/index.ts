@@ -27,13 +27,13 @@ export {
   isStructuredExchangeRequestDetails,
 } from './shared/recovery.js';
 export {
-  STRUCTURED_EXCHANGE_PRESENT_SCHEMA,
-  STRUCTURED_EXCHANGE_REQUEST_SCHEMA,
+  STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA as STRUCTURED_EXCHANGE_PRESENT_SCHEMA,
+  STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA as STRUCTURED_EXCHANGE_REQUEST_SCHEMA,
+  type PresentDetails as StructuredExchangePresentDetails,
   type PresentToolName,
+  type RequestDetails as StructuredExchangeRequestDetails,
   type RequestToolName,
-  type StructuredExchangePresentDetails,
-  type StructuredExchangeRequestDetails,
-} from './shared/model.js';
+} from './schemas/index.js';
 export {
   PRESENT_CANDIDATES_TOOL,
   PRESENT_OPTIONS_TOOL,

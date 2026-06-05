@@ -1,18 +1,16 @@
-import type { StructuredExchangeRequestDetails } from '../../.pi/extensions/structured-exchange/shared/model.js';
+import type { RequestReviewDetails } from '../../.pi/extensions/structured-exchange/schemas/index.js';
 
-export function formatRequestReview(details: StructuredExchangeRequestDetails): string {
-  if (details.status === 'cancelled') return '### Review decision\n\n_User cancelled the review request._';
-  if (details.status === 'unavailable') {
-    return `### Review decision\n\n_${details.message ?? 'Review UI unavailable.'}_`;
-  }
+export function formatRequestReview(details: RequestReviewDetails): string {
+  if ('cancelled' in details) return '### Review decision\n\n_User cancelled the review request._';
+  if ('unavailable' in details) return `### Review decision\n\n_${details.unavailable.message}_`;
 
   const label =
-    details.review === 'approve'
+    details.answered.decision === 'approve'
       ? 'Approved'
-      : details.review === 'request_changes'
+      : details.answered.decision === 'request_changes'
         ? 'Changes requested'
         : 'Rejected';
   const lines = ['### Review decision', '', label];
-  if (details.comment) lines.push('', 'Comment:', '', `> ${details.comment}`);
+  if (details.answered.comment) lines.push('', 'Comment:', '', `> ${details.answered.comment}`);
   return lines.join('\n');
 }

@@ -1,8 +1,9 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
+import type { PresentOptionsDetails } from './schemas/index.js';
+import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from './schemas/index.js';
 import { markdownEscape, renderMarkdownResult } from './shared/markdown.js';
-import { STRUCTURED_EXCHANGE_PRESENT_SCHEMA, type StructuredExchangePresentDetails } from './shared/model.js';
 
 export const PRESENT_OPTIONS_TOOL = 'present_options' as const;
 
@@ -70,20 +71,27 @@ export const presentOptionsTool = defineTool({
   parameters: PresentOptionsParams,
   executionMode: 'sequential',
 
-  async execute(toolCallId, params) {
+  async execute(_toolCallId, params) {
+    const heading = params.heading.trim();
+    const body = params.body?.trim();
     const markdown = optionsMarkdown(params);
-    const details: StructuredExchangePresentDetails = {
-      schema: STRUCTURED_EXCHANGE_PRESENT_SCHEMA,
-      schemaVersion: 1,
-      exchangeId: params.exchangeId,
-      presentTool: PRESENT_OPTIONS_TOOL,
-      kind: 'options',
-      status: 'presented',
-      expectedRequest: {
-        tool: params.expectedRequestTool ?? 'request_choice',
-        required: true,
+    const details: PresentOptionsDetails = {
+      schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
+      v: 1,
+      exchange_id: params.exchangeId,
+      tool_meta: {
+        curr: PRESENT_OPTIONS_TOOL,
+        next: params.expectedRequestTool ?? 'request_choice',
       },
-      createdAtToolCallId: toolCallId,
+      display: {
+        heading,
+        ...(body ? { body } : {}),
+      },
+      options: params.options.map((option) => ({
+        id: option.id,
+        content: option.content,
+        ...(option.rationale !== undefined ? { rationale: option.rationale } : {}),
+      })),
     };
     return { content: [{ type: 'text' as const, text: markdown }], details };
   },

@@ -4,7 +4,6 @@ import {
   type StructuredExchangeMode,
   type StructuredExchangeOption,
 } from '../../../../session/structured-exchange.js';
-import { isRecord } from './model.js';
 
 export interface StructuredExchangeEditorPrefillParams {
   question: string;
@@ -17,6 +16,10 @@ interface StructuredExchangeEditorResponse {
   status: 'answered' | 'cancelled';
   answers: StructuredExchangeAnswer[];
   note: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 function answerSortRank(answer: StructuredExchangeAnswer): number {

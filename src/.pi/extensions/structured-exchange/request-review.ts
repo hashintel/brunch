@@ -42,9 +42,9 @@ export const requestReviewTool = defineTool({
   parameters: RequestReviewParams,
   executionMode: 'sequential',
 
-  async execute(toolCallId, params, _signal, _onUpdate, ctx) {
+  async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
     const terminal = (status: 'cancelled' | 'unavailable', message?: string) => {
-      const details = projectRequestReview({ toolCallId, exchangeId: params.exchangeId, status, message });
+      const details = projectRequestReview({ exchangeId: params.exchangeId, status, message });
       return { content: [{ type: 'text' as const, text: formatRequestReview(details) }], details };
     };
 
@@ -69,7 +69,6 @@ export const requestReviewTool = defineTool({
     }
 
     const details = projectRequestReview({
-      toolCallId,
       exchangeId: params.exchangeId,
       status: 'answered',
       review,

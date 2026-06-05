@@ -26,21 +26,21 @@ describe('structured-exchange ordering proof', () => {
     expect(proof.jsonlToolResultOrder).toEqual(['present_options', 'request_choice']);
     expect(proof.presentDetails).toMatchObject({
       schema: 'brunch.structured_exchange.present',
-      exchangeId: 'ordering-proof',
-      presentTool: 'present_options',
-      expectedRequest: { tool: 'request_choice', required: true },
+      exchange_id: 'ordering-proof',
+      tool_meta: { curr: 'present_options', next: 'request_choice' },
+      options: [
+        { id: 'root', content: 'Keep src/pi-extensions.ts' },
+        { id: 'tui', content: 'Move under src/tui-client' },
+      ],
     });
     expect(proof.requestDetails).toMatchObject({
       schema: 'brunch.structured_exchange.request',
-      exchangeId: 'ordering-proof',
-      requestTool: 'request_choice',
-      status: 'answered',
-      respondsTo: {
-        exchangeId: 'ordering-proof',
-        presentTool: 'present_options',
+      exchange_id: 'ordering-proof',
+      tool_meta: { prev: 'present_options', curr: 'request_choice' },
+      answered: {
+        choice: { id: 'tui', label: 'Move under src/tui-client', kind: 'listed' },
+        comment: 'Sequential ordering looks safe for the next parity proof.',
       },
-      choice: { id: 'tui', label: 'Move under src/tui-client' },
-      comment: 'Sequential ordering looks safe for the next parity proof.',
     });
   }, 20_000);
 });
