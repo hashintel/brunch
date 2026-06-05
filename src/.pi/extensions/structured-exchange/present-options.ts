@@ -1,34 +1,12 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
+import { formatPresentOptions } from '../../../structured-exchange/format/present-options.js';
 import { projectPresentOptions } from '../../../structured-exchange/project/present-options.js';
 import { piSchema } from './pi-schema.js';
 import { zPresentOptionsParams, type PresentOptionsParams } from './schemas/index.js';
-import { markdownEscape, renderMarkdownResult } from './shared/markdown.js';
+import { renderMarkdownResult } from './shared/markdown.js';
 
 export const PRESENT_OPTIONS_TOOL = 'present_options' as const;
-
-interface OptionsMarkdownParams {
-  heading: string;
-  body?: string | undefined;
-  options: Array<{
-    id: string;
-    content: string;
-    rationale?: string | undefined;
-  }>;
-}
-
-function optionsMarkdown(params: OptionsMarkdownParams): string {
-  const lines = [`## ${params.heading.trim()}`];
-  const body = params.body?.trim();
-  if (body) lines.push('', body);
-  params.options.forEach((option, index) => {
-    lines.push('', `### ${index + 1}. ${option.content.trim()}`);
-    const rationale = option.rationale?.trim();
-    if (rationale) lines.push('', `**Rationale:** ${rationale}`);
-    lines.push('', `<!-- option-id: ${markdownEscape(option.id)} -->`);
-  });
-  return lines.join('\n');
-}
 
 export const presentOptionsTool = defineTool({
   name: PRESENT_OPTIONS_TOOL,
@@ -47,16 +25,7 @@ export const presentOptionsTool = defineTool({
     const params = zPresentOptionsParams.parse(rawParams) satisfies PresentOptionsParams;
     const projection = projectPresentOptions(params);
     return {
-      content: [
-        {
-          type: 'text' as const,
-          text: optionsMarkdown({
-            heading: projection.heading,
-            ...(projection.body !== undefined ? { body: projection.body } : {}),
-            options: projection.details.options,
-          }),
-        },
-      ],
+      content: [{ type: 'text' as const, text: formatPresentOptions(projection) }],
       details: projection.details,
     };
   },

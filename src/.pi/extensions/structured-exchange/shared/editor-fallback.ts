@@ -1,3 +1,5 @@
+import { formatRequestChoice } from '../../../../structured-exchange/format/request-choice.js';
+import { formatRequestChoices } from '../../../../structured-exchange/format/request-choices.js';
 import { projectRequestChoice } from '../../../../structured-exchange/project/request-choice.js';
 import { projectRequestChoices } from '../../../../structured-exchange/project/request-choices.js';
 import type { SelectedChoice } from '../schemas/index.js';
@@ -69,24 +71,6 @@ function selectedChoice(answer: StructuredExchangeAnswer): SelectedChoice {
   return { id: answer.value, label: answer.label, kind: 'listed' };
 }
 
-function responseText(
-  status: 'answered' | 'cancelled' | 'unavailable',
-  answers: StructuredExchangeAnswer[],
-  note: string,
-  message?: string,
-): string {
-  const selected = answers
-    .map((answer) =>
-      answer.type === 'option' ? `${answer.index}. ${answer.label}` : `Other: ${answer.label}`,
-    )
-    .join('\n');
-  return status === 'answered'
-    ? [`User selected:${selected ? `\n${selected}` : ''}`, note ? `Note: ${note}` : undefined]
-        .filter(Boolean)
-        .join('\n')
-    : (message ?? `User ${status} the question`);
-}
-
 export function buildStructuredExchangeEditorPrefill(params: StructuredExchangeEditorPrefillParams): string {
   const payload: Record<string, unknown> = {
     schema: 'brunch.structured_exchange.editor',
@@ -144,41 +128,34 @@ export function structuredExchangeResultFromEditor(
   const response = parseStructuredExchangeEditorResponse(edited ?? '');
   const exchangeId = params.exchangeId ?? `rpc-editor:${params.question}`;
   if (edited === undefined || response?.status === 'cancelled') {
-    const details =
-      params.mode === 'multi-select'
-        ? projectRequestChoices({ exchangeId, status: 'cancelled' })
-        : projectRequestChoice({ exchangeId, respondsToPresentTool: 'present_options', status: 'cancelled' });
-    return {
-      content: [
-        { type: 'text' as const, text: responseText('cancelled', [], '', 'User cancelled the question') },
-      ],
-      details,
-    };
+    if (params.mode === 'multi-select') {
+      const details = projectRequestChoices({ exchangeId, status: 'cancelled' });
+      return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };
+    }
+    const details = projectRequestChoice({
+      exchangeId,
+      respondsToPresentTool: 'present_options',
+      status: 'cancelled',
+    });
+    return { content: [{ type: 'text' as const, text: formatRequestChoice(details) }], details };
   }
 
   if (!response || response.answers.length === 0) {
-    const details =
-      params.mode === 'multi-select'
-        ? projectRequestChoices({
-            exchangeId,
-            status: 'unavailable',
-            message: 'Editor response did not include a valid answer',
-          })
-        : projectRequestChoice({
-            exchangeId,
-            respondsToPresentTool: 'present_options',
-            status: 'unavailable',
-            message: 'Editor response did not include a valid answer',
-          });
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: responseText('unavailable', [], '', 'Editor response did not include a valid answer'),
-        },
-      ],
-      details,
-    };
+    if (params.mode === 'multi-select') {
+      const details = projectRequestChoices({
+        exchangeId,
+        status: 'unavailable',
+        message: 'Editor response did not include a valid answer',
+      });
+      return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };
+    }
+    const details = projectRequestChoice({
+      exchangeId,
+      respondsToPresentTool: 'present_options',
+      status: 'unavailable',
+      message: 'Editor response did not include a valid answer',
+    });
+    return { content: [{ type: 'text' as const, text: formatRequestChoice(details) }], details };
   }
 
   if (params.mode === 'multi-select') {
@@ -189,7 +166,7 @@ export function structuredExchangeResultFromEditor(
       comment: response.note.trim() || undefined,
     });
     return {
-      content: [{ type: 'text' as const, text: responseText('answered', response.answers, response.note) }],
+      content: [{ type: 'text' as const, text: formatRequestChoices(details) }],
       details,
     };
   }
@@ -202,7 +179,7 @@ export function structuredExchangeResultFromEditor(
     comment: response.note.trim() || undefined,
   });
   return {
-    content: [{ type: 'text' as const, text: responseText('answered', response.answers, response.note) }],
+    content: [{ type: 'text' as const, text: formatRequestChoice(details) }],
     details,
   };
 }

@@ -1,15 +1,15 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
+import { formatRequestChoices } from '../../../structured-exchange/format/request-choices.js';
 import { projectRequestChoices } from '../../../structured-exchange/project/request-choices.js';
 import { piSchema } from './pi-schema.js';
 import {
   zRequestChoicesParams,
   type RequestChoiceParam,
-  type RequestChoicesDetails,
   type RequestChoicesParams,
   type SelectedChoice,
 } from './schemas/index.js';
-import { markdownEscape, normalizeOptionalText, renderMarkdownResult } from './shared/markdown.js';
+import { normalizeOptionalText, renderMarkdownResult } from './shared/markdown.js';
 
 export const REQUEST_CHOICES_TOOL = 'request_choices' as const;
 
@@ -86,18 +86,6 @@ function parseEditorResponse(value: string): EditorResponse | null {
   return { status: 'answered', choices: choices as EditorChoice[], comment: response.comment };
 }
 
-function requestMarkdown(details: RequestChoicesDetails): string {
-  if ('cancelled' in details) return '### Response\n\n_User cancelled the request._';
-  if ('unavailable' in details) return `### Response\n\n_${details.unavailable.message}_`;
-
-  const lines = ['### Response'];
-  if (details.answered.choices.length > 0) {
-    lines.push('', ...details.answered.choices.map((choice) => `- ${markdownEscape(choice.label)}`));
-  }
-  if (details.answered.comment) lines.push('', 'Comment:', '', `> ${details.answered.comment}`);
-  return lines.join('\n');
-}
-
 function matchSelectedChoices(
   selected: readonly EditorChoice[],
   params: {
@@ -144,7 +132,7 @@ export const requestChoicesTool = defineTool({
     const choices = params.choices.map((choice) => ({ id: choice.id, label: choice.label }));
     const terminal = (status: 'cancelled' | 'unavailable', message?: string) => {
       const details = projectRequestChoices({ exchangeId: params.exchangeId, status, message });
-      return { content: [{ type: 'text' as const, text: requestMarkdown(details) }], details };
+      return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };
     };
 
     if (!ctx.hasUI || typeof ctx.ui.editor !== 'function') {
@@ -184,7 +172,7 @@ export const requestChoicesTool = defineTool({
       choices: matched,
       comment,
     });
-    return { content: [{ type: 'text' as const, text: requestMarkdown(details) }], details };
+    return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };
   },
 
   renderCall() {

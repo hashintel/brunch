@@ -7,6 +7,10 @@ const ROOT = process.cwd();
 const STRUCTURED_EXCHANGE_EXTENSION = 'src/.pi/extensions/structured-exchange';
 const STRUCTURED_EXCHANGE_PROJECT = 'src/structured-exchange/project';
 const STRUCTURED_EXCHANGE_SCHEMAS = 'src/.pi/extensions/structured-exchange/schemas';
+const STRUCTURED_EXCHANGE_EMISSION_BOUNDARIES = [
+  STRUCTURED_EXCHANGE_EXTENSION,
+  'src/session/structured-exchange-loop.ts',
+];
 const ACTIVE_PROJECTORS = new Set([
   'src/structured-exchange/project/present-options.ts',
   'src/structured-exchange/project/present-question.ts',
@@ -34,6 +38,10 @@ function sourceFilesUnder(path: string): string[] {
   return files.sort();
 }
 
+function sourceFilesForPath(path: string): string[] {
+  return path.endsWith('.ts') ? [path] : sourceFilesUnder(path);
+}
+
 function readSource(path: string): string {
   return readFileSync(join(ROOT, path), 'utf8');
 }
@@ -50,14 +58,17 @@ describe('structured-exchange source boundaries', () => {
   });
 
   it('keeps tool result details construction inside canonical projectors', () => {
-    const offenders = sourceFilesUnder(STRUCTURED_EXCHANGE_EXTENSION).filter((file) => {
+    const offenders = STRUCTURED_EXCHANGE_EMISSION_BOUNDARIES.flatMap(sourceFilesForPath).filter((file) => {
       if (file.startsWith(STRUCTURED_EXCHANGE_SCHEMAS)) return false;
       const source = readSource(file);
       return (
         source.includes('tool_meta:') ||
         source.includes('schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA') ||
         source.includes('schema: STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA') ||
-        source.includes('schema: STRUCTURED_EXCHANGE_CAPTURE_DETAILS_SCHEMA')
+        source.includes('schema: STRUCTURED_EXCHANGE_CAPTURE_DETAILS_SCHEMA') ||
+        source.includes("schema: 'brunch.structured_exchange.present'") ||
+        source.includes("schema: 'brunch.structured_exchange.request'") ||
+        source.includes("schema: 'brunch.structured_exchange.capture'")
       );
     });
 

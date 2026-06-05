@@ -2,6 +2,10 @@ import * as z from 'zod';
 
 import type { PresentDetails } from '../.pi/extensions/structured-exchange/schemas/index.js';
 import { isStructuredExchangePresentDetails } from '../.pi/extensions/structured-exchange/shared/recovery.js';
+import { formatPresentOptions } from '../structured-exchange/format/present-options.js';
+import { formatPresentQuestion } from '../structured-exchange/format/present-question.js';
+import { projectPresentOptions } from '../structured-exchange/project/present-options.js';
+import { projectPresentQuestion } from '../structured-exchange/project/present-question.js';
 import { projectRequestAnswer } from '../structured-exchange/project/request-answer.js';
 import { projectRequestChoice } from '../structured-exchange/project/request-choice.js';
 import { projectRequestChoices } from '../structured-exchange/project/request-choices.js';
@@ -174,40 +178,47 @@ export function nextDeterministicStructuredExchange(completedCount: number): Pen
 }
 
 export function presentToolResultMessage(exchange: PendingStructuredExchange) {
-  const presentTool = exchange.mode === 'text' ? 'present_question' : 'present_options';
-  const requestTool =
-    exchange.mode === 'text'
-      ? 'request_answer'
-      : exchange.mode === 'multi-select'
-        ? 'request_choices'
-        : 'request_choice';
-  const toolCallId = `${exchange.exchangeId}:${presentTool}`;
+  const projection = presentProjection(exchange);
   return {
     role: 'toolResult' as const,
-    toolCallId,
-    toolName: presentTool,
-    content: [{ type: 'text' as const, text: presentMarkdown(exchange) }],
-    details: {
-      schema: 'brunch.structured_exchange.present',
-      v: 1,
-      exchange_id: exchange.exchangeId,
-      tool_meta: { curr: presentTool, next: requestTool },
-      display: {
-        heading: exchange.prompt,
-        ...(exchange.details !== undefined ? { body: exchange.details } : {}),
-      },
-      ...(exchange.mode === 'text'
-        ? {}
-        : {
-            options: exchange.options.map((option) => ({
-              id: option.id,
-              content: option.content,
-              ...(option.rationale !== undefined ? { rationale: option.rationale } : {}),
-            })),
-          }),
-    },
+    toolCallId: `${exchange.exchangeId}:${projection.toolName}`,
+    toolName: projection.toolName,
+    content: [{ type: 'text' as const, text: projection.markdown }],
+    details: projection.details,
     isError: false as const,
     timestamp: 0 as const,
+  };
+}
+
+function presentProjection(exchange: PendingStructuredExchange): {
+  toolName: 'present_question' | 'present_options';
+  markdown: string;
+  details: PresentDetails;
+} {
+  if (exchange.mode === 'text') {
+    const projection = projectPresentQuestion({
+      exchangeId: exchange.exchangeId,
+      heading: exchange.prompt,
+      body: exchange.details,
+    });
+    return {
+      toolName: 'present_question',
+      markdown: formatPresentQuestion(projection),
+      details: projection.details,
+    };
+  }
+
+  const projection = projectPresentOptions({
+    exchangeId: exchange.exchangeId,
+    heading: exchange.prompt,
+    body: exchange.details,
+    options: exchange.options,
+    expectedRequestTool: exchange.mode === 'multi-select' ? 'request_choices' : 'request_choice',
+  });
+  return {
+    toolName: 'present_options',
+    markdown: formatPresentOptions(projection),
+    details: projection.details,
   };
 }
 
@@ -366,22 +377,6 @@ function choiceResponseMarkdown(choices: Array<{ label: string }>, comment: stri
   if (comment !== undefined && comment.trim().length > 0) {
     lines.push('', 'Comment:', '', `> ${comment.trim()}`);
   }
-  return lines.join('\n');
-}
-
-function presentMarkdown(exchange: PendingStructuredExchange): string {
-  if (exchange.mode === 'text') {
-    return [`## ${exchange.prompt}`, exchange.details].filter(Boolean).join('\n\n');
-  }
-  const lines = [`## ${exchange.prompt}`];
-  if (exchange.details) lines.push('', exchange.details);
-  exchange.options.forEach((option, index) => {
-    lines.push('', `### ${index + 1}. ${option.content}`);
-    if (option.rationale) {
-      lines.push('', `**Rationale:** ${option.rationale}`);
-    }
-    lines.push('', `<!-- option-id: ${option.id} -->`);
-  });
   return lines.join('\n');
 }
 

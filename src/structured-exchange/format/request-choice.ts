@@ -1,11 +1,9 @@
-/**
- * Formats projected `request_choice` response data into durable markdown.
- *
- * Input:
- * - projected output from structured-exchange/project/request-choice.ts
- *
- * Output:
- * - durable response markdown for toolResult.content
- */
+import type { RequestChoiceDetails } from '../../.pi/extensions/structured-exchange/schemas/index.js';
 
-export {};
+export function formatRequestChoice(details: RequestChoiceDetails): string {
+  if ('cancelled' in details) return '### Response\n\n_User cancelled the request._';
+  if ('unavailable' in details) return `### Response\n\n_${details.unavailable.message}_`;
+  const lines = ['### Response', '', `Selected: **${details.answered.choice.label}**`];
+  if (details.answered.comment) lines.push('', 'Comment:', '', `> ${details.answered.comment}`);
+  return lines.join('\n');
+}

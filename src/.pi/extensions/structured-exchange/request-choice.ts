@@ -1,10 +1,10 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
+import { formatRequestChoice } from '../../../structured-exchange/format/request-choice.js';
 import { projectRequestChoice } from '../../../structured-exchange/project/request-choice.js';
 import { piSchema } from './pi-schema.js';
 import {
   zRequestChoiceParams,
-  type RequestChoiceDetails,
   type RequestChoiceParam,
   type RequestChoiceParams,
   type SelectedChoice,
@@ -14,14 +14,6 @@ import { normalizeOptionalText, renderMarkdownResult } from './shared/markdown.j
 export const REQUEST_CHOICE_TOOL = 'request_choice' as const;
 
 type StructuredExchangeChoice = RequestChoiceParam;
-
-function responseMarkdown(details: RequestChoiceDetails): string {
-  if ('cancelled' in details) return '### Response\n\n_User cancelled the request._';
-  if ('unavailable' in details) return `### Response\n\n_${details.unavailable.message}_`;
-  const lines = ['### Response', '', `Selected: **${details.answered.choice.label}**`];
-  if (details.answered.comment) lines.push('', 'Comment:', '', `> ${details.answered.comment}`);
-  return lines.join('\n');
-}
 
 function choiceByLabel(
   choices: readonly StructuredExchangeChoice[],
@@ -57,7 +49,7 @@ export const requestChoiceTool = defineTool({
         status,
         message,
       });
-      return { content: [{ type: 'text' as const, text: responseMarkdown(details) }], details };
+      return { content: [{ type: 'text' as const, text: formatRequestChoice(details) }], details };
     };
 
     if (!ctx.hasUI || typeof ctx.ui.select !== 'function') {
@@ -91,7 +83,7 @@ export const requestChoiceTool = defineTool({
       choice,
       comment: normalizeOptionalText(comment),
     });
-    return { content: [{ type: 'text' as const, text: responseMarkdown(details) }], details };
+    return { content: [{ type: 'text' as const, text: formatRequestChoice(details) }], details };
   },
 
   renderCall() {

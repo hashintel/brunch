@@ -1,21 +1,12 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
+import { formatRequestAnswer } from '../../../structured-exchange/format/request-answer.js';
 import { projectRequestAnswer } from '../../../structured-exchange/project/request-answer.js';
 import { piSchema } from './pi-schema.js';
-import {
-  zRequestAnswerParams,
-  type RequestAnswerParams,
-  type RequestAnswerDetails,
-} from './schemas/index.js';
+import { zRequestAnswerParams, type RequestAnswerParams } from './schemas/index.js';
 import { renderMarkdownResult } from './shared/markdown.js';
 
 export const REQUEST_ANSWER_TOOL = 'request_answer' as const;
-
-function responseMarkdown(details: RequestAnswerDetails): string {
-  if ('cancelled' in details) return '### Response\n\n_User cancelled the request._';
-  if ('unavailable' in details) return `### Response\n\n_${details.unavailable.message}_`;
-  return ['### Response', '', details.answered.text].join('\n');
-}
 
 export const requestAnswerTool = defineTool({
   name: REQUEST_ANSWER_TOOL,
@@ -38,7 +29,7 @@ export const requestAnswerTool = defineTool({
         status: 'unavailable',
         message: 'request_answer requires interactive UI',
       });
-      return { content: [{ type: 'text' as const, text: responseMarkdown(details) }], details };
+      return { content: [{ type: 'text' as const, text: formatRequestAnswer(details) }], details };
     }
 
     const answer = await ctx.ui.editor(params.prompt);
@@ -46,7 +37,7 @@ export const requestAnswerTool = defineTool({
       answer === undefined
         ? projectRequestAnswer({ exchangeId: params.exchangeId, status: 'cancelled' })
         : projectRequestAnswer({ exchangeId: params.exchangeId, status: 'answered', answer });
-    return { content: [{ type: 'text' as const, text: responseMarkdown(details) }], details };
+    return { content: [{ type: 'text' as const, text: formatRequestAnswer(details) }], details };
   },
 
   renderCall() {
