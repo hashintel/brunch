@@ -14,7 +14,10 @@
  */
 
 import type { PresentQuestionDetails } from '../../.pi/extensions/structured-exchange/schemas/index.js';
-import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../../.pi/extensions/structured-exchange/schemas/index.js';
+import {
+  STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
+  zPresentQuestionDetails,
+} from '../../.pi/extensions/structured-exchange/schemas/index.js';
 
 export interface PresentQuestionProjection {
   readonly heading: string;
@@ -31,22 +34,23 @@ export interface ProjectPresentQuestionInput {
 export function projectPresentQuestion(input: ProjectPresentQuestionInput): PresentQuestionProjection {
   const heading = input.heading.trim();
   const body = normalizeOptionalText(input.body);
+  const details = zPresentQuestionDetails.parse({
+    schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
+    v: 1,
+    exchange_id: input.exchangeId,
+    tool_meta: {
+      curr: 'present_question',
+      next: 'request_answer',
+    },
+    display: {
+      heading,
+      ...(body ? { body } : {}),
+    },
+  });
   return {
     heading,
     ...(body ? { body } : {}),
-    details: {
-      schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
-      v: 1,
-      exchange_id: input.exchangeId,
-      tool_meta: {
-        curr: 'present_question',
-        next: 'request_answer',
-      },
-      display: {
-        heading,
-        ...(body ? { body } : {}),
-      },
-    },
+    details,
   };
 }
 

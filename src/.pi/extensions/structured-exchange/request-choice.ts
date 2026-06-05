@@ -1,46 +1,19 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
-import { Type } from 'typebox';
 
-import type { RequestChoiceDetails, SelectedChoice } from './schemas/index.js';
-import { STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from './schemas/index.js';
+import { projectRequestChoice } from '../../../structured-exchange/project/request-choice.js';
+import { piSchema } from './pi-schema.js';
+import {
+  zRequestChoiceParams,
+  type RequestChoiceDetails,
+  type RequestChoiceParam,
+  type RequestChoiceParams,
+  type SelectedChoice,
+} from './schemas/index.js';
 import { normalizeOptionalText, renderMarkdownResult } from './shared/markdown.js';
 
 export const REQUEST_CHOICE_TOOL = 'request_choice' as const;
 
-type RequestChoicePresentTool = 'present_options' | 'present_candidates';
-
-interface StructuredExchangeChoice {
-  readonly id: string;
-  readonly label: string;
-}
-
-const ChoiceSchema = Type.Object({
-  id: Type.String({
-    description: 'Stable choice id from the corresponding present_* entry.',
-  }),
-  label: Type.String({
-    description: 'Short choice label shown in the live selection UI.',
-  }),
-});
-
-export const RequestChoiceParams = Type.Object({
-  exchangeId: Type.String({
-    description: 'The structured exchange id from the corresponding present_* entry.',
-  }),
-  respondsToPresentTool: Type.Union([Type.Literal('present_options'), Type.Literal('present_candidates')]),
-  prompt: Type.String({
-    description: 'Short live-input prompt. Do not repeat the presented content.',
-  }),
-  choices: Type.Array(ChoiceSchema, {
-    description: 'Choices available for this response.',
-  }),
-  allowOther: Type.Optional(Type.Boolean({ description: 'Whether the user may choose Other.' })),
-  commentPrompt: Type.Optional(
-    Type.String({
-      description: 'Prompt for optional comment after a listed choice.',
-    }),
-  ),
-});
+type StructuredExchangeChoice = RequestChoiceParam;
 
 function responseMarkdown(details: RequestChoiceDetails): string {
   if ('cancelled' in details) return '### Response\n\n_User cancelled the request._';
@@ -61,18 +34,6 @@ function selectedChoice(choice: StructuredExchangeChoice, kind: SelectedChoice['
   return { id: choice.id, label: choice.label, kind };
 }
 
-function base(exchangeId: string, prev: RequestChoicePresentTool) {
-  return {
-    schema: STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
-    v: 1 as const,
-    exchange_id: exchangeId,
-    tool_meta: {
-      prev,
-      curr: REQUEST_CHOICE_TOOL,
-    },
-  };
-}
-
 export const requestChoiceTool = defineTool({
   name: REQUEST_CHOICE_TOOL,
   label: 'Request choice',
@@ -83,41 +44,29 @@ export const requestChoiceTool = defineTool({
     'Use request_choice only after the matching present_options or present_candidates tool.',
     'Do not repeat the present_* markdown content in request_choice parameters; reference it by exchangeId.',
   ],
-  parameters: RequestChoiceParams,
+  parameters: piSchema(zRequestChoiceParams),
   executionMode: 'sequential',
 
-  async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-    const choices: StructuredExchangeChoice[] = params.choices.map((choice) => ({
-      id: choice.id,
-      label: choice.label,
-    }));
-    const unavailable = (message: string) => {
-      const details: RequestChoiceDetails = {
-        ...base(params.exchangeId, params.respondsToPresentTool),
-        unavailable: { message },
-      };
-      return {
-        content: [{ type: 'text' as const, text: responseMarkdown(details) }],
-        details,
-      };
+  async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
+    const params = zRequestChoiceParams.parse(rawParams) satisfies RequestChoiceParams;
+    const choices = params.choices.map((choice) => ({ id: choice.id, label: choice.label }));
+    const terminal = (status: 'cancelled' | 'unavailable', message?: string) => {
+      const details = projectRequestChoice({
+        exchangeId: params.exchangeId,
+        respondsToPresentTool: params.respondsToPresentTool,
+        status,
+        message,
+      });
+      return { content: [{ type: 'text' as const, text: responseMarkdown(details) }], details };
     };
 
     if (!ctx.hasUI || typeof ctx.ui.select !== 'function') {
-      return unavailable('request_choice requires interactive UI');
+      return terminal('unavailable', 'request_choice requires interactive UI');
     }
 
     const labels = [...choices.map((choice) => choice.label), ...(params.allowOther ? ['Other'] : [])];
     const selected = await ctx.ui.select(params.prompt, labels);
-    if (selected === undefined) {
-      const details: RequestChoiceDetails = {
-        ...base(params.exchangeId, params.respondsToPresentTool),
-        cancelled: {},
-      };
-      return {
-        content: [{ type: 'text' as const, text: responseMarkdown(details) }],
-        details,
-      };
-    }
+    if (selected === undefined) return terminal('cancelled');
 
     const picked = choiceByLabel(choices, selected);
     let choice: SelectedChoice;
@@ -125,16 +74,7 @@ export const requestChoiceTool = defineTool({
     if (!picked) {
       const other =
         typeof ctx.ui.input === 'function' ? await ctx.ui.input('Other', 'Describe your answer') : undefined;
-      if (other === undefined || other.trim().length === 0) {
-        const details: RequestChoiceDetails = {
-          ...base(params.exchangeId, params.respondsToPresentTool),
-          cancelled: {},
-        };
-        return {
-          content: [{ type: 'text' as const, text: responseMarkdown(details) }],
-          details,
-        };
-      }
+      if (other === undefined || other.trim().length === 0) return terminal('cancelled');
       choice = { id: 'other', label: other.trim(), kind: 'other' };
       comment = other.trim();
     } else {
@@ -144,20 +84,14 @@ export const requestChoiceTool = defineTool({
       }
     }
 
-    const normalizedComment = normalizeOptionalText(comment);
-    const baseDetails = base(params.exchangeId, params.respondsToPresentTool);
-    const details: RequestChoiceDetails = {
-      ...baseDetails,
-      tool_meta: baseDetails.tool_meta,
-      answered: {
-        choice,
-        ...(normalizedComment !== undefined ? { comment: normalizedComment } : {}),
-      },
-    };
-    return {
-      content: [{ type: 'text' as const, text: responseMarkdown(details) }],
-      details,
-    };
+    const details = projectRequestChoice({
+      exchangeId: params.exchangeId,
+      respondsToPresentTool: params.respondsToPresentTool,
+      status: 'answered',
+      choice,
+      comment: normalizeOptionalText(comment),
+    });
+    return { content: [{ type: 'text' as const, text: responseMarkdown(details) }], details };
   },
 
   renderCall() {

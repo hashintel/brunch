@@ -1,23 +1,15 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
-import { Type } from 'typebox';
 
 import { formatRequestReview } from '../../../structured-exchange/format/request-review.js';
 import {
   projectRequestReview,
   type ReviewDecision,
 } from '../../../structured-exchange/project/request-review.js';
+import { piSchema } from './pi-schema.js';
+import { zRequestReviewParams, type RequestReviewParams } from './schemas/index.js';
 import { normalizeOptionalText, renderMarkdownResult } from './shared/markdown.js';
 
 export const REQUEST_REVIEW_TOOL = 'request_review' as const;
-
-export const RequestReviewParams = Type.Object({
-  exchangeId: Type.String({
-    description: 'The structured exchange id from the corresponding present_review_set entry.',
-  }),
-  prompt: Type.Optional(
-    Type.String({ description: 'Short live-input prompt. Do not repeat the review set.' }),
-  ),
-});
 
 const REVIEW_LABELS = ['Approve', 'Request changes', 'Reject'] as const;
 
@@ -39,10 +31,11 @@ export const requestReviewTool = defineTool({
     'Do not repeat the presented review-set markdown in request_review parameters; reference it by exchangeId.',
     'Request-changes decisions require a concrete user comment.',
   ],
-  parameters: RequestReviewParams,
+  parameters: piSchema(zRequestReviewParams),
   executionMode: 'sequential',
 
-  async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+  async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
+    const params = zRequestReviewParams.parse(rawParams) satisfies RequestReviewParams;
     const terminal = (status: 'cancelled' | 'unavailable', message?: string) => {
       const details = projectRequestReview({ exchangeId: params.exchangeId, status, message });
       return { content: [{ type: 'text' as const, text: formatRequestReview(details) }], details };

@@ -1,11 +1,15 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
-import { Type } from 'typebox';
 
 import type { CommandExecutor, StructuralIllegal } from '../../../graph/command-executor.js';
 import type { ReviewSetProposalPayload } from '../../../graph/review-set.js';
 import { formatPresentReviewSet } from '../../../structured-exchange/format/present-review-set.js';
 import { projectPresentReviewSet } from '../../../structured-exchange/project/present-review-set.js';
-import type { PresentReviewSetDetails } from './schemas/index.js';
+import { piSchema } from './pi-schema.js';
+import {
+  zPresentReviewSetParams,
+  type PresentReviewSetDetails,
+  type PresentReviewSetParams,
+} from './schemas/index.js';
 import { renderMarkdownResult } from './shared/markdown.js';
 
 export const PRESENT_REVIEW_SET_TOOL = 'present_review_set' as const;
@@ -17,20 +21,7 @@ export interface ReviewSetStructuredExchangeDeps {
 
 type PresentReviewSetToolDetails = StructuralIllegal | PresentReviewSetDetails;
 
-export const PresentReviewSetParams = Type.Object({
-  exchangeId: Type.String({
-    description: 'Stable id tying this review-set proposal to the later request_review response.',
-  }),
-  proposalEntryId: Type.Optional(
-    Type.String({
-      description: 'Optional transcript/proposal entry id to carry into later acceptance audit.',
-    }),
-  ),
-  payload: Type.Any({
-    description:
-      'Canonical review-set proposal payload with lens, epistemicStatus, grounding, pitch, entityDrafts, and edgeDrafts.',
-  }),
-});
+const PresentReviewSetParams = piSchema(zPresentReviewSetParams);
 
 export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDeps) {
   return defineTool<typeof PresentReviewSetParams, PresentReviewSetToolDetails>({
@@ -47,7 +38,8 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
     parameters: PresentReviewSetParams,
     executionMode: 'sequential',
 
-    async execute(toolCallId, params) {
+    async execute(_toolCallId, rawParams) {
+      const params = zPresentReviewSetParams.parse(rawParams) satisfies PresentReviewSetParams;
       if (!deps) {
         const details = {
           status: 'structural_illegal' as const,

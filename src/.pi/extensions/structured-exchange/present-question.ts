@@ -1,23 +1,12 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
-import { Type } from 'typebox';
 
 import { formatPresentQuestion } from '../../../structured-exchange/format/present-question.js';
 import { projectPresentQuestion } from '../../../structured-exchange/project/present-question.js';
+import { piSchema } from './pi-schema.js';
+import { zPresentQuestionParams, type PresentQuestionParams } from './schemas/index.js';
 import { renderMarkdownResult } from './shared/markdown.js';
 
 export const PRESENT_QUESTION_TOOL = 'present_question' as const;
-
-export const PresentQuestionParams = Type.Object({
-  exchangeId: Type.String({
-    description: 'Stable id tying this question to the later request_answer response.',
-  }),
-  heading: Type.String({ description: 'Question heading.' }),
-  body: Type.Optional(
-    Type.String({
-      description: 'Markdown body for context before the answer request.',
-    }),
-  ),
-});
 
 export const presentQuestionTool = defineTool({
   name: PRESENT_QUESTION_TOOL,
@@ -29,15 +18,12 @@ export const presentQuestionTool = defineTool({
     'Use present_question before request_answer.',
     'The durable user-visible question is this tool result, not renderCall.',
   ],
-  parameters: PresentQuestionParams,
+  parameters: piSchema(zPresentQuestionParams),
   executionMode: 'sequential',
 
-  async execute(_toolCallId, params) {
-    const projection = projectPresentQuestion({
-      exchangeId: params.exchangeId,
-      heading: params.heading,
-      body: params.body,
-    });
+  async execute(_toolCallId, rawParams) {
+    const params = zPresentQuestionParams.parse(rawParams) satisfies PresentQuestionParams;
+    const projection = projectPresentQuestion(params);
     return {
       content: [{ type: 'text' as const, text: formatPresentQuestion(projection) }],
       details: projection.details,

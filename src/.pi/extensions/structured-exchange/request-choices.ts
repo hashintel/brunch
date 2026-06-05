@@ -1,45 +1,19 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
-import { Type } from 'typebox';
 
-import type { RequestChoicesDetails, SelectedChoice } from './schemas/index.js';
-import { STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from './schemas/index.js';
+import { projectRequestChoices } from '../../../structured-exchange/project/request-choices.js';
+import { piSchema } from './pi-schema.js';
+import {
+  zRequestChoicesParams,
+  type RequestChoiceParam,
+  type RequestChoicesDetails,
+  type RequestChoicesParams,
+  type SelectedChoice,
+} from './schemas/index.js';
 import { markdownEscape, normalizeOptionalText, renderMarkdownResult } from './shared/markdown.js';
 
 export const REQUEST_CHOICES_TOOL = 'request_choices' as const;
 
-interface StructuredExchangeChoice {
-  readonly id: string;
-  readonly label: string;
-}
-
-const ChoiceSchema = Type.Object({
-  id: Type.String({
-    description: 'Stable choice id from the corresponding present_* entry.',
-  }),
-  label: Type.String({
-    description: 'Short choice label shown in the live selection UI.',
-  }),
-});
-
-export const RequestChoicesParams = Type.Object({
-  exchangeId: Type.String({
-    description: 'The structured exchange id from the corresponding present_options entry.',
-  }),
-  respondsToPresentTool: Type.Literal('present_options'),
-  prompt: Type.String({
-    description: 'Short live-input prompt. Do not repeat the presented content.',
-  }),
-  choices: Type.Array(ChoiceSchema, {
-    description: 'Listed choices available for this multi-choice response.',
-  }),
-  allowOther: Type.Optional(Type.Boolean({ description: 'Whether the user may choose Other.' })),
-  allowNone: Type.Optional(Type.Boolean({ description: 'Whether the user may choose None.' })),
-  commentPrompt: Type.Optional(
-    Type.String({
-      description: 'Prompt for an optional comment. Required when Other or None is selected.',
-    }),
-  ),
-});
+type StructuredExchangeChoice = RequestChoiceParam;
 
 interface EditorChoice {
   id: string;
@@ -96,9 +70,7 @@ function parseEditorResponse(value: string): EditorResponse | null {
   const response = parsed.response;
   if (!isRecord(response)) return null;
 
-  if (response.status === 'cancelled') {
-    return { status: 'cancelled', choices: [], comment: '' };
-  }
+  if (response.status === 'cancelled') return { status: 'cancelled', choices: [], comment: '' };
   if (response.status !== 'answered') return null;
   if (!Array.isArray(response.choices)) return null;
   if (typeof response.comment !== 'string') return null;
@@ -111,11 +83,7 @@ function parseEditorResponse(value: string): EditorResponse | null {
     };
   });
   if (choices.some((choice) => choice === null)) return null;
-  return {
-    status: 'answered',
-    choices: choices as EditorChoice[],
-    comment: response.comment,
-  };
+  return { status: 'answered', choices: choices as EditorChoice[], comment: response.comment };
 }
 
 function requestMarkdown(details: RequestChoicesDetails): string {
@@ -128,29 +96,6 @@ function requestMarkdown(details: RequestChoicesDetails): string {
   }
   if (details.answered.comment) lines.push('', 'Comment:', '', `> ${details.answered.comment}`);
   return lines.join('\n');
-}
-
-function base(exchangeId: string) {
-  return {
-    schema: STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
-    v: 1 as const,
-    exchange_id: exchangeId,
-    tool_meta: {
-      prev: 'present_options' as const,
-      curr: REQUEST_CHOICES_TOOL,
-    },
-  };
-}
-
-function unavailable(baseDetails: ReturnType<typeof base>, message: string) {
-  const details: RequestChoicesDetails = {
-    ...baseDetails,
-    unavailable: { message },
-  };
-  return {
-    content: [{ type: 'text' as const, text: requestMarkdown(details) }],
-    details,
-  };
 }
 
 function matchSelectedChoices(
@@ -191,82 +136,55 @@ export const requestChoicesTool = defineTool({
     'Do not repeat the present_options markdown content in request_choices parameters; reference it by exchangeId.',
     'Require a comment when the response selects Other or None.',
   ],
-  parameters: RequestChoicesParams,
+  parameters: piSchema(zRequestChoicesParams),
   executionMode: 'sequential',
 
-  async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-    const choices: StructuredExchangeChoice[] = params.choices.map((choice) => ({
-      id: choice.id,
-      label: choice.label,
-    }));
-    const baseDetails = base(params.exchangeId);
+  async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
+    const params = zRequestChoicesParams.parse(rawParams) satisfies RequestChoicesParams;
+    const choices = params.choices.map((choice) => ({ id: choice.id, label: choice.label }));
+    const terminal = (status: 'cancelled' | 'unavailable', message?: string) => {
+      const details = projectRequestChoices({ exchangeId: params.exchangeId, status, message });
+      return { content: [{ type: 'text' as const, text: requestMarkdown(details) }], details };
+    };
 
     if (!ctx.hasUI || typeof ctx.ui.editor !== 'function') {
-      return unavailable(baseDetails, 'request_choices requires interactive UI');
+      return terminal('unavailable', 'request_choices requires interactive UI');
     }
 
-    const editorPrefillParams: Parameters<typeof buildEditorPrefill>[0] = {
-      prompt: params.prompt,
-      choices,
-    };
+    const editorPrefillParams: Parameters<typeof buildEditorPrefill>[0] = { prompt: params.prompt, choices };
     if (params.allowOther !== undefined) editorPrefillParams.allowOther = params.allowOther;
     if (params.allowNone !== undefined) editorPrefillParams.allowNone = params.allowNone;
     if (params.commentPrompt !== undefined) editorPrefillParams.commentPrompt = params.commentPrompt;
 
     const edited = await ctx.ui.editor(buildEditorPrefill(editorPrefillParams));
-    if (edited === undefined) {
-      const details: RequestChoicesDetails = {
-        ...baseDetails,
-        cancelled: {},
-      };
-      return {
-        content: [{ type: 'text' as const, text: requestMarkdown(details) }],
-        details,
-      };
-    }
+    if (edited === undefined) return terminal('cancelled');
 
     const response = parseEditorResponse(edited);
-    if (!response) {
-      return unavailable(baseDetails, 'request_choices editor fallback returned invalid JSON');
-    }
-    if (response.status === 'cancelled') {
-      const details: RequestChoicesDetails = {
-        ...baseDetails,
-        cancelled: {},
-      };
-      return {
-        content: [{ type: 'text' as const, text: requestMarkdown(details) }],
-        details,
-      };
-    }
+    if (!response) return terminal('unavailable', 'request_choices editor fallback returned invalid JSON');
+    if (response.status === 'cancelled') return terminal('cancelled');
 
     const matchParams: Parameters<typeof matchSelectedChoices>[1] = { choices };
     if (params.allowOther !== undefined) matchParams.allowOther = params.allowOther;
     if (params.allowNone !== undefined) matchParams.allowNone = params.allowNone;
 
     const matched = matchSelectedChoices(response.choices, matchParams);
-    if (typeof matched === 'string') return unavailable(baseDetails, matched);
+    if (typeof matched === 'string') return terminal('unavailable', matched);
 
     const comment = normalizeOptionalText(response.comment);
     if (
       matched.some((choice) => choice.kind === 'other' || choice.kind === 'none') &&
       comment === undefined
     ) {
-      return unavailable(baseDetails, 'request_choices requires a comment for Other or None selections');
+      return terminal('unavailable', 'request_choices requires a comment for Other or None selections');
     }
 
-    const details: RequestChoicesDetails = {
-      ...baseDetails,
-      tool_meta: { ...baseDetails.tool_meta, next: 'capture_choices' },
-      answered: {
-        choices: matched,
-        ...(comment !== undefined ? { comment } : {}),
-      },
-    };
-    return {
-      content: [{ type: 'text' as const, text: requestMarkdown(details) }],
-      details,
-    };
+    const details = projectRequestChoices({
+      exchangeId: params.exchangeId,
+      status: 'answered',
+      choices: matched,
+      comment,
+    });
+    return { content: [{ type: 'text' as const, text: requestMarkdown(details) }], details };
   },
 
   renderCall() {
