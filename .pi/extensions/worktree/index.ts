@@ -13,9 +13,9 @@ import { Type } from 'typebox';
 
 const execFile = promisify(execFileCallback);
 
-export const WORKTREE_SWITCH_COMMAND = 'switch-worktree';
+export const WORKTREE_SWITCH_COMMAND = 'worktree:switch';
 export const WORKTREE_SWITCH_TOOL = 'switch_worktree';
-export const WORKTREE_CREATE_COMMAND = 'create-worktree';
+export const WORKTREE_CREATE_COMMAND = 'worktree:create';
 export const WORKTREE_CREATE_TOOL = 'create_worktree';
 
 const DIRTY_WORKTREE_WARNING =
@@ -324,7 +324,7 @@ export async function runSwitchWorktree(
 ): Promise<SwitchWorktreeResultDetails> {
   const resolvedTarget = resolveSwitchTarget(targetPath, ctx.cwd);
   if (resolvedTarget.length === 0) {
-    ctx.ui.notify('Usage: /switch-worktree <path>', 'error');
+    ctx.ui.notify('Usage: /worktree:switch <path>', 'error');
     return { status: 'failed', targetPath: resolvedTarget, reason: 'missing target path' };
   }
 
@@ -397,13 +397,13 @@ export default function registerWorktreeExtension(pi: ExtensionAPI): void {
     name: WORKTREE_SWITCH_TOOL,
     label: 'Switch worktree',
     description:
-      'Validate a target git worktree and stage /switch-worktree <path> in the editor so the user can explicitly relocate this Pi session.',
+      'Validate a target git worktree and stage /worktree:switch <path> in the editor so the user can explicitly relocate this Pi session.',
     promptSnippet:
-      'switch_worktree validates a target git worktree and stages a /switch-worktree command for user-confirmed Pi session relocation.',
+      'switch_worktree validates a target git worktree and stages a /worktree:switch command for user-confirmed Pi session relocation.',
     promptGuidelines: [
       'Call switch_worktree only after the user explicitly asks to move this Pi session to another git worktree.',
       'Do not use switch_worktree to create, delete, prune, or clean up worktrees.',
-      'After switch_worktree stages /switch-worktree <path>, tell the user to press Enter if they want to relocate the session.',
+      'After switch_worktree stages /worktree:switch <path>, tell the user to press Enter if they want to relocate the session.',
     ],
     parameters: Type.Object({
       path: Type.String({ description: 'Absolute or relative path to the target git worktree.' }),
@@ -443,14 +443,14 @@ export default function registerWorktreeExtension(pi: ExtensionAPI): void {
     name: WORKTREE_CREATE_TOOL,
     label: 'Create sibling worktree',
     description:
-      'Create a sibling git worktree from the caller cwd HEAD, then stage /switch-worktree <new-path> for explicit relocation.',
+      'Create a sibling git worktree from the caller cwd HEAD, then stage /worktree:switch <new-path> for explicit relocation.',
     promptSnippet:
-      'create_worktree creates a sibling git worktree from the current cwd committed HEAD and stages /switch-worktree <path>; it never deletes or prunes worktrees.',
+      'create_worktree creates a sibling git worktree from the current cwd committed HEAD and stages /worktree:switch <path>; it never deletes or prunes worktrees.',
     promptGuidelines: [
       'Call create_worktree only when the user explicitly asks to create a sibling git worktree.',
       'The created worktree is based on the caller cwd HEAD; warn that uncommitted changes are excluded when the caller worktree is dirty.',
       'Do not delete, prune, clean up, or manage existing worktrees after creation.',
-      'After create_worktree stages /switch-worktree <path>, tell the user to press Enter if they want to relocate the Pi session.',
+      'After create_worktree stages /worktree:switch <path>, tell the user to press Enter if they want to relocate the Pi session.',
     ],
     parameters: Type.Object({}),
     async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
@@ -467,7 +467,7 @@ export default function registerWorktreeExtension(pi: ExtensionAPI): void {
         content: [
           {
             type: 'text' as const,
-            text: `Created ${details.path} on branch ${details.branch} from ${details.sourceCommit}. Staged /switch-worktree ${details.path}.${warning}`,
+            text: `Created ${details.path} on branch ${details.branch} from ${details.sourceCommit}. Staged /worktree:switch ${details.path}.${warning}`,
           },
         ],
         details,

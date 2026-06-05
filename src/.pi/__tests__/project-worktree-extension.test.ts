@@ -29,11 +29,19 @@ describe('project-local worktree Pi extension', () => {
 
     worktreeExtension(recording.api);
 
-    expect(recording.commandNames).toEqual([WORKTREE_SWITCH_COMMAND, WORKTREE_CREATE_COMMAND]);
+    expect(WORKTREE_SWITCH_COMMAND).toBe('worktree:switch');
+    expect(WORKTREE_CREATE_COMMAND).toBe('worktree:create');
+    expect(recording.commandNames).toEqual(['worktree:switch', 'worktree:create']);
+    expect(recording.commandNames).not.toContain('switch-worktree');
+    expect(recording.commandNames).not.toContain('create-worktree');
     expect(recording.toolNames).toEqual([WORKTREE_SWITCH_TOOL, WORKTREE_CREATE_TOOL]);
     expect(recording.tools[0]?.promptGuidelines).toContain(
       'Call switch_worktree only after the user explicitly asks to move this Pi session to another git worktree.',
     );
+    expect(recording.tools[0]?.description).toContain('/worktree:switch <path>');
+    expect(recording.tools[0]?.description).not.toContain('/switch-worktree');
+    expect(recording.tools[1]?.promptSnippet).toContain('/worktree:switch <path>');
+    expect(recording.tools[1]?.promptSnippet).not.toContain('/switch-worktree');
   });
 
   it('normalizes targets against the caller cwd and validates git worktrees', async () => {
@@ -214,7 +222,7 @@ describe('project-local worktree Pi extension', () => {
         path: join(dirname(mainResult.sourceRoot), 'repo-alpha'),
       });
       expect(await gitOutput(mainResult.path, 'rev-parse', 'HEAD')).toBe(mainHead);
-      expect(mainCtx.editorText).toBe(`/switch-worktree ${mainResult.path}`);
+      expect(mainCtx.editorText).toBe(`/worktree:switch ${mainResult.path}`);
 
       const linkedCtx = createWorktreeCreationContext(linked);
       const linkedResult = await createSiblingWorktree(linkedCtx, {
@@ -229,7 +237,7 @@ describe('project-local worktree Pi extension', () => {
         path: join(dirname(linkedResult.sourceRoot), 'repo-linked-beta'),
       });
       expect(await gitOutput(linkedResult.path, 'rev-parse', 'HEAD')).toBe(linkedHead);
-      expect(linkedCtx.editorText).toBe(`/switch-worktree ${linkedResult.path}`);
+      expect(linkedCtx.editorText).toBe(`/worktree:switch ${linkedResult.path}`);
     });
   }, 15000);
 
@@ -264,12 +272,22 @@ describe('project-local worktree Pi extension', () => {
 function createRecordingApi() {
   const commandNames: string[] = [];
   const toolNames: string[] = [];
-  const tools: Array<{ name: string; promptGuidelines?: string[] }> = [];
+  const tools: Array<{
+    name: string;
+    description?: string;
+    promptSnippet?: string;
+    promptGuidelines?: string[];
+  }> = [];
   const api = {
     registerCommand(name: string) {
       commandNames.push(name);
     },
-    registerTool(tool: { name: string; promptGuidelines?: string[] }) {
+    registerTool(tool: {
+      name: string;
+      description?: string;
+      promptSnippet?: string;
+      promptGuidelines?: string[];
+    }) {
       toolNames.push(tool.name);
       tools.push(tool);
     },
