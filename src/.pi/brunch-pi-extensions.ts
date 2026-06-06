@@ -108,11 +108,16 @@ export function createBrunchPiExtensions(
 ): ExtensionFactory {
   return async (pi) => {
     const graphMentionSource = options.graphMentionSource ?? FIXTURE_GRAPH_MENTION_SOURCE;
+    const promptContext = options.promptContext;
     const extensions: BrunchProductExtensionRegistrar[] = [
       (api) => registerBrunchSessionBoundary(api, onSessionBoundary),
       (api) => registerBrunchChrome(api, chrome),
       registerBrunchBranchPolicyHandlers,
       registerBrunchOperationalModePolicy,
+      // Prompting registers immediately after operational-mode policy and
+      // before mention autocomplete when prompt context is provided; its
+      // position in this list is the registration order, not a splice index.
+      ...(promptContext ? [(api: ExtensionAPI) => registerBrunchPrompting(api, promptContext)] : []),
       (api) => registerBrunchMentionAutocomplete(api, graphMentionSource),
       registerBrunchAlternatives,
       (api) =>
@@ -124,9 +129,6 @@ export function createBrunchPiExtensions(
       (api) => registerBrunchCommands(api, options),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)] : []),
     ];
-    if (options.promptContext) {
-      extensions.splice(4, 0, (api) => registerBrunchPrompting(api, options.promptContext!));
-    }
 
     for (const registerExtension of extensions) {
       await registerExtension(pi);
