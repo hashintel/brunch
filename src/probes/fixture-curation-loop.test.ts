@@ -189,13 +189,19 @@ describe('fixture curation loop report', () => {
       graphSnapshot: mixedBasisOverview,
     });
 
-    expect(artifacts.runDir).toBe(join(fixtureRoot, 'runs', 'fixture-curation', 'fixture-curation-test'));
-    await expect(readFile(artifacts.sessionJsonl, 'utf8')).resolves.toContain('"toolName":"commit_graph"');
-    await expect(readFile(artifacts.transcriptMarkdown, 'utf8')).resolves.toContain('## Raw session JSONL');
-    await expect(readFile(artifacts.reportJson, 'utf8')).resolves.toContain(
+    expect(artifacts.runDir).toBe('runs/fixture-curation/fixture-curation-test');
+    await expect(readFile(join(fixtureRoot, artifacts.sessionJsonl), 'utf8')).resolves.toContain(
+      '"toolName":"commit_graph"',
+    );
+    await expect(readFile(join(fixtureRoot, artifacts.transcriptMarkdown), 'utf8')).resolves.toContain(
+      '## Raw session JSONL',
+    );
+    await expect(readFile(join(fixtureRoot, artifacts.reportJson), 'utf8')).resolves.toContain(
       '"seedSlug": "macro-view-grounded-intent"',
     );
-    await expect(readFile(artifacts.graphSnapshotJson, 'utf8')).resolves.toContain('"basis": "implicit"');
+    await expect(readFile(join(fixtureRoot, artifacts.graphSnapshotJson), 'utf8')).resolves.toContain(
+      '"basis": "implicit"',
+    );
   });
 
   it('persists portable, fixture-relative artifact references in report JSON', async () => {

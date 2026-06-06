@@ -36,7 +36,7 @@
         11,
         12
       ],
-      "content": "Graph committed successfully (LSN 3).\nNodes created: n1 → R1, n2 → R2\nEdges created: #7, #8, #9, #10, #11, #12"
+      "content": "Graph committed successfully (LSN 3).\nNodes created: n1 \u2192 R1, n2 \u2192 R2\nEdges created: #7, #8, #9, #10, #11, #12"
     }
   ],
   "createdNodes": [
@@ -68,10 +68,10 @@
   },
   "friction": [],
   "artifacts": {
-    "runDir": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z",
-    "sessionJsonl": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/session.jsonl",
-    "transcriptMarkdown": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/transcript.md",
-    "reportJson": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/report.json",
-    "graphSnapshotJson": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/graph-snapshot.json"
+    "runDir": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z",
+    "sessionJsonl": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z/session.jsonl",
+    "transcriptMarkdown": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z/transcript.md",
+    "reportJson": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z/report.json",
+    "graphSnapshotJson": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z/graph-snapshot.json"
   }
 }

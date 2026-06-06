@@ -283,25 +283,33 @@ export async function writeFixtureCurationArtifacts(options: {
   readonly report: FixtureCurationReport;
   readonly graphSnapshot: GraphOverview;
 }): Promise<FixtureCurationArtifacts> {
-  const runDir = join(options.fixtureRoot, 'runs', PROBE_ID, options.runId);
+  // Persisted artifact references are fixture-root-relative so committed
+  // reports stay portable; the disk paths used for writing are resolved
+  // against the (possibly absolute) fixture root.
+  const runDirRef = `runs/${PROBE_ID}/${options.runId}`;
   const artifacts: FixtureCurationArtifacts = {
-    runDir,
-    sessionJsonl: join(runDir, 'session.jsonl'),
-    transcriptMarkdown: join(runDir, 'transcript.md'),
-    reportJson: join(runDir, 'report.json'),
-    graphSnapshotJson: join(runDir, 'graph-snapshot.json'),
+    runDir: runDirRef,
+    sessionJsonl: `${runDirRef}/session.jsonl`,
+    transcriptMarkdown: `${runDirRef}/transcript.md`,
+    reportJson: `${runDirRef}/report.json`,
+    graphSnapshotJson: `${runDirRef}/graph-snapshot.json`,
   };
+  const diskPath = (ref: string) => resolve(options.fixtureRoot, ref);
   const report = { ...options.report, artifacts };
 
-  await mkdir(runDir, { recursive: true });
-  await writeFile(artifacts.sessionJsonl, options.sessionText, 'utf8');
+  await mkdir(diskPath(artifacts.runDir), { recursive: true });
+  await writeFile(diskPath(artifacts.sessionJsonl), options.sessionText, 'utf8');
   await writeFile(
-    artifacts.transcriptMarkdown,
+    diskPath(artifacts.transcriptMarkdown),
     `${renderSessionTranscript(options.sessionText, { title: 'session.jsonl' })}\n\n## Raw session JSONL\n\n\`\`\`jsonl\n${options.sessionText.trimEnd()}\n\`\`\`\n`,
     'utf8',
   );
-  await writeFile(artifacts.reportJson, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  await writeFile(artifacts.graphSnapshotJson, `${JSON.stringify(options.graphSnapshot, null, 2)}\n`, 'utf8');
+  await writeFile(diskPath(artifacts.reportJson), `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  await writeFile(
+    diskPath(artifacts.graphSnapshotJson),
+    `${JSON.stringify(options.graphSnapshot, null, 2)}\n`,
+    'utf8',
+  );
 
   return artifacts;
 }

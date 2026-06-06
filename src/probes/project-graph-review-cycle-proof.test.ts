@@ -257,11 +257,17 @@ describe('project-graph review-cycle proof report', () => {
       graphSnapshot: approvedOverview,
     });
 
-    expect(artifacts.runDir).toBe(join(fixtureRoot, 'runs', 'project-graph-review-cycle', 'artifact-run'));
-    await expect(readFile(artifacts.sessionJsonl, 'utf8')).resolves.toContain('present_review_set');
-    await expect(readFile(artifacts.transcriptMarkdown, 'utf8')).resolves.toContain('## Raw session JSONL');
-    await expect(readFile(artifacts.reportJson, 'utf8')).resolves.toContain('project-graph-review-cycle');
-    await expect(readFile(artifacts.graphSnapshotJson, 'utf8')).resolves.toContain(
+    expect(artifacts.runDir).toBe('runs/project-graph-review-cycle/artifact-run');
+    await expect(readFile(join(fixtureRoot, artifacts.sessionJsonl), 'utf8')).resolves.toContain(
+      'present_review_set',
+    );
+    await expect(readFile(join(fixtureRoot, artifacts.transcriptMarkdown), 'utf8')).resolves.toContain(
+      '## Raw session JSONL',
+    );
+    await expect(readFile(join(fixtureRoot, artifacts.reportJson), 'utf8')).resolves.toContain(
+      'project-graph-review-cycle',
+    );
+    await expect(readFile(join(fixtureRoot, artifacts.graphSnapshotJson), 'utf8')).resolves.toContain(
       'Macro view names impasse resolution state',
     );
   });
