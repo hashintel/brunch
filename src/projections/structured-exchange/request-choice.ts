@@ -28,6 +28,10 @@ export function projectRequestChoice(input: {
     const comment = normalizeOptionalText(input.comment);
     return zRequestChoiceDetails.parse({
       ...base,
+      tool_meta: {
+        ...base.tool_meta,
+        next: captureToolForPresentTool(input.respondsToPresentTool),
+      },
       answered: {
         choice: input.choice,
         ...(comment !== undefined ? { comment } : {}),
@@ -41,6 +45,17 @@ export function projectRequestChoice(input: {
     ...base,
     unavailable: { message: input.message ?? 'request_choice unavailable' },
   });
+}
+
+/**
+ * The capture tool that answers a request_choice depends on which present tool
+ * the request responds to: option lists capture as a plain choice, candidate
+ * lists capture as a candidate selection.
+ */
+function captureToolForPresentTool(
+  presentTool: RequestChoicePresentTool,
+): 'capture_choice' | 'capture_candidate' {
+  return presentTool === 'present_candidates' ? 'capture_candidate' : 'capture_choice';
 }
 
 function normalizeOptionalText(value: string | undefined): string | undefined {
