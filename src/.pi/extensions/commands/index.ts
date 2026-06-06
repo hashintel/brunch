@@ -26,7 +26,7 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
-import { type BrunchSpecSessionPickerOptions, runBrunchWorkspaceAction } from './workspace-dialog.js';
+import { type BrunchSpecSessionPickerOptions, runBrunchWorkspaceAction } from '../workspace/index.js';
 
 export const BRUNCH_COMMAND_PREFIX = 'brunch:';
 export const BRUNCH_SWITCH_COMMAND = 'brunch:switch';

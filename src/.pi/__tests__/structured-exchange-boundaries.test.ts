@@ -4,9 +4,9 @@ import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const ROOT = process.cwd();
-const STRUCTURED_EXCHANGE_EXTENSION = 'src/.pi/extensions/structured-exchange';
+const STRUCTURED_EXCHANGE_EXTENSION = 'src/.pi/extensions/exchanges';
 const STRUCTURED_EXCHANGE_PROJECT = 'src/structured-exchange/project';
-const STRUCTURED_EXCHANGE_SCHEMAS = 'src/.pi/extensions/structured-exchange/schemas';
+const STRUCTURED_EXCHANGE_SCHEMAS = 'src/.pi/extensions/exchanges/schemas';
 const STRUCTURED_EXCHANGE_EMISSION_BOUNDARIES = [
   STRUCTURED_EXCHANGE_EXTENSION,
   'src/session/structured-exchange-loop.ts',
@@ -20,7 +20,7 @@ const ACTIVE_PROJECTORS = new Set([
   'src/structured-exchange/project/request-choices.ts',
   'src/structured-exchange/project/request-review.ts',
 ]);
-const ALLOWED_TYPEBOX_FILES = new Set(['src/.pi/extensions/structured-exchange/pi-schema.ts']);
+const ALLOWED_TYPEBOX_FILES = new Set(['src/.pi/extensions/exchanges/pi-schema.ts']);
 
 function sourceFilesUnder(path: string): string[] {
   const full = join(ROOT, path);

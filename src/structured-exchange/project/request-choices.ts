@@ -1,11 +1,8 @@
-import type {
-  RequestChoicesDetails,
-  SelectedChoice,
-} from '../../.pi/extensions/structured-exchange/schemas/index.js';
+import type { RequestChoicesDetails, SelectedChoice } from '../../.pi/extensions/exchanges/schemas/index.js';
 import {
   STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
   zRequestChoicesDetails,
-} from '../../.pi/extensions/structured-exchange/schemas/index.js';
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 
 export function projectRequestChoices(input: {
   readonly exchangeId: string;

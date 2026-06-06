@@ -1,11 +1,11 @@
 import type {
   PresentReviewSetDetails,
   ReviewSetDetailsPayload,
-} from '../../.pi/extensions/structured-exchange/schemas/index.js';
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 import {
   STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
   zPresentReviewSetDetails,
-} from '../../.pi/extensions/structured-exchange/schemas/index.js';
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
 
 export interface PresentReviewSetProjection {

@@ -15,7 +15,7 @@ import type { ExtensionAPI, ThemeColor } from '@earendil-works/pi-coding-agent';
 import { Container, Text } from '@earendil-works/pi-tui';
 import { Type } from 'typebox';
 
-import { CardComponent, ResponsiveColumns, chunk } from '../components/cards.js';
+import { CardComponent, ResponsiveColumns, chunk } from './cards.js';
 
 // ── Types & schema ─────────────────────────────────────────────────────
 const FLAVOR = StringEnum(['accent', 'success', 'warning', 'muted'] as const);

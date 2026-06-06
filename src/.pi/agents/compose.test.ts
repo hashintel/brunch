@@ -4,11 +4,11 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_BRUNCH_AGENT_STATE, projectBrunchAgentState } from '../session/runtime-state.js';
-import type { WorkspacePostureState } from '../session/workspace-session-coordinator.js';
+import { DEFAULT_BRUNCH_AGENT_STATE, projectBrunchAgentState } from '../../session/runtime-state.js';
+import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
 import { composeAgentPrompt } from './compose.js';
 
-const projectRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
+const projectRoot = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 
 const groundingSpec = {
   id: 1,
@@ -226,7 +226,7 @@ describe('composeAgentPrompt', () => {
     );
   });
 
-  it('advertises only readable src/agents resources without filesystem discovery', async () => {
+  it('advertises only readable .pi prompt resources without filesystem discovery', async () => {
     const result = composeAgentPrompt({
       agentId: 'elicitor',
       sessionState: projectBrunchAgentState([]),
@@ -236,7 +236,7 @@ describe('composeAgentPrompt', () => {
     });
 
     for (const entry of Object.values(result.manifests).flat()) {
-      expect(relative(projectRoot, entry.location).startsWith('src/agents/')).toBe(true);
+      expect(relative(projectRoot, entry.location).startsWith('src/.pi/')).toBe(true);
       await expect(access(entry.location)).resolves.toBeUndefined();
     }
   });

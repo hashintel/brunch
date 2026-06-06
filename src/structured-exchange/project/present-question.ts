@@ -10,14 +10,14 @@
  * Used by:
  * - structured-exchange/format/present-question.ts
  * - session/structured-exchange-loop.ts
- * - .pi/extensions/structured-exchange/present-question.ts
+ * - .pi/extensions/exchanges/present-question.ts
  */
 
-import type { PresentQuestionDetails } from '../../.pi/extensions/structured-exchange/schemas/index.js';
+import type { PresentQuestionDetails } from '../../.pi/extensions/exchanges/schemas/index.js';
 import {
   STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
   zPresentQuestionDetails,
-} from '../../.pi/extensions/structured-exchange/schemas/index.js';
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 
 export interface PresentQuestionProjection {
   readonly heading: string;

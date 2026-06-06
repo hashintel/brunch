@@ -1,8 +1,8 @@
-import type { RequestReviewDetails } from '../../.pi/extensions/structured-exchange/schemas/index.js';
+import type { RequestReviewDetails } from '../../.pi/extensions/exchanges/schemas/index.js';
 import {
   STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
   zRequestReviewDetails,
-} from '../../.pi/extensions/structured-exchange/schemas/index.js';
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 
 export type ReviewDecision = 'approve' | 'request_changes' | 'reject';
 

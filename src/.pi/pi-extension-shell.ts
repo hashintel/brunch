@@ -1,29 +1,32 @@
 import { type ExtensionAPI, type ExtensionFactory } from '@earendil-works/pi-coding-agent';
 
-import { registerBrunchAlternatives } from './extensions/alternatives.js';
-import { registerBrunchChrome } from './extensions/chrome.js';
-import { type BrunchChromeState } from './extensions/chrome.js';
-import { registerBrunchBranchPolicyHandlers } from './extensions/command-policy.js';
-import { registerBrunchCommands, type BrunchCommandsOptions } from './extensions/commands.js';
+import { registerBrunchAlternatives } from './components/alternatives.js';
+import { registerBrunchChrome } from './extensions/chrome/index.js';
+import { type BrunchChromeState } from './extensions/chrome/index.js';
+import { registerBrunchCommands, type BrunchCommandsOptions } from './extensions/commands/index.js';
+import { registerBrunchBranchPolicyHandlers } from './extensions/commands/policy.js';
+import { registerStructuredExchange } from './extensions/exchanges/index.js';
 import { registerBrunchGraph, type BrunchGraphDeps } from './extensions/graph/index.js';
-import { type GraphMentionSource } from './extensions/mention-autocomplete.js';
+import { type GraphMentionSource } from './extensions/mentions/index.js';
 import {
   FIXTURE_GRAPH_MENTION_SOURCE,
   registerBrunchMentionAutocomplete,
-} from './extensions/mention-autocomplete.js';
-import { registerBrunchOperationalModePolicy } from './extensions/operational-mode.js';
-import { registerBrunchPrompting, type BrunchPromptContextProvider } from './extensions/prompting.js';
-import { registerBrunchSessionBoundary } from './extensions/session-lifecycle.js';
-import { type BrunchSessionBoundaryHandler } from './extensions/session-lifecycle.js';
-import { registerStructuredExchange } from './extensions/structured-exchange/index.js';
+} from './extensions/mentions/index.js';
+import { registerBrunchOperationalModePolicy } from './extensions/runtime/index.js';
+import { registerBrunchSessionBoundary } from './extensions/session/lifecycle.js';
+import { type BrunchSessionBoundaryHandler } from './extensions/session/lifecycle.js';
+import {
+  registerBrunchPrompting,
+  type BrunchPromptContextProvider,
+} from './extensions/system-prompts/index.js';
 
-export { registerBrunchAlternatives } from './extensions/alternatives.js';
-export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from './extensions/command-policy.js';
+export { registerBrunchAlternatives } from './components/alternatives.js';
+export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from './extensions/commands/policy.js';
 export {
   registerBrunchMentionAutocomplete,
   type GraphMentionCandidate,
   type GraphMentionSource,
-} from './extensions/mention-autocomplete.js';
+} from './extensions/mentions/index.js';
 export {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -47,8 +50,8 @@ export {
   type OperationalModeDefinition,
   type OperationalModeId,
   type ResolvedBrunchAgentState,
-} from './extensions/operational-mode.js';
-export { registerBrunchPrompting } from './extensions/prompting.js';
+} from './extensions/runtime/index.js';
+export { registerBrunchPrompting } from './extensions/system-prompts/index.js';
 export {
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
@@ -60,13 +63,13 @@ export {
   type BrunchChromeState,
   type BrunchChromeUi,
   type BrunchChromeWorkerStatus,
-} from './extensions/chrome.js';
+} from './extensions/chrome/index.js';
 export {
   bindBrunchSessionBoundary,
   registerBrunchSessionBoundary,
   registerBrunchSessionBoundaryRefreshHandlers,
   type BrunchSessionBoundaryHandler,
-} from './extensions/session-lifecycle.js';
+} from './extensions/session/lifecycle.js';
 export {
   BRUNCH_COMMAND_PREFIX,
   BRUNCH_CONTINUE_COMMAND,
@@ -77,12 +80,12 @@ export {
   BRUNCH_SWITCH_SHORTCUT,
   registerBrunchCommands,
   type BrunchCommandsOptions,
-} from './extensions/commands.js';
+} from './extensions/commands/index.js';
 export {
   runBrunchWorkspaceAction,
   runBrunchWorkspaceCommand,
   type BrunchSpecSessionPickerOptions,
-} from './extensions/workspace-dialog.js';
+} from './extensions/workspace/index.js';
 
 export {
   registerBrunchGraph,

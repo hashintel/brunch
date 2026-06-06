@@ -1,13 +1,13 @@
 import { fileURLToPath } from 'node:url';
 
-import type { ReadinessGrade } from '../graph/index.js';
+import type { ReadinessGrade } from '../../graph/index.js';
 import type {
   AgentGoalId,
   AgentLensId,
   AgentRoleId,
   AgentStrategyId,
   ResolvedBrunchAgentState,
-} from '../session/runtime-state.js';
+} from '../../session/runtime-state.js';
 
 export type { ReadinessGrade };
 export type PromptResourceFamily = 'goals' | 'strategies' | 'lenses' | 'methods' | 'definitions';
@@ -331,6 +331,11 @@ function isGradeLegal<TId extends string>(
   return GRADE_RANK[readinessGrade] >= GRADE_RANK[minGrades[id]];
 }
 
+function promptResourceLocation(family: PromptResourceFamily, id: string): string {
+  const root = family === 'definitions' ? './agents' : './skills';
+  return fileURLToPath(new URL(`../${root}/${family}/${id}.md`, import.meta.url));
+}
+
 function resource(
   family: PromptResourceFamily,
   id: string,
@@ -339,6 +344,6 @@ function resource(
   return {
     name: id,
     description,
-    location: fileURLToPath(new URL(`./${family}/${id}.md`, import.meta.url)),
+    location: promptResourceLocation(family, id),
   };
 }

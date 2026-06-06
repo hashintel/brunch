@@ -1,5 +1,5 @@
-import type { ResolvedBrunchAgentState } from '../session/runtime-state.js';
-import type { WorkspacePostureState } from '../session/workspace-session-coordinator.js';
+import type { ResolvedBrunchAgentState } from '../../session/runtime-state.js';
+import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
 import {
   AGENT_PROMPT_DEFINITIONS,
   manifestsForState,

@@ -4,7 +4,7 @@ import {
   buildStructuredExchangeEditorPrefill,
   parseStructuredExchangeEditorResponse,
   structuredExchangeResultFromEditor,
-} from '../extensions/structured-exchange/index.js';
+} from '../extensions/exchanges/index.js';
 
 describe('structured exchange JSON-editor fallback compatibility helpers', () => {
   it('builds schema-tagged editor prefill for the raw Pi RPC fallback proof', () => {

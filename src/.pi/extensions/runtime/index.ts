@@ -49,13 +49,13 @@ export {
   type ResolvedBrunchAgentState,
   type ThinkingLevel,
   type ToolPolicyId,
-} from '../../session/runtime-state.js';
+} from '../../../session/runtime-state.js';
 import {
   appendBrunchAgentRuntimeInit,
   projectBrunchAgentState,
   type ResolvedBrunchAgentState,
   type BrunchAgentStateEntrySessionManager,
-} from '../../session/runtime-state.js';
+} from '../../../session/runtime-state.js';
 
 interface CustomEntryLike {
   type?: unknown;

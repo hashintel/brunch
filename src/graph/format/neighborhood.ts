@@ -8,7 +8,7 @@
  * - markdown-framed TOON or equivalent compact text for LLM consumption
  *
  * Replaces/adapts:
- * - agents/contexts/node.ts
+ * - .pi/agents/contexts/node.ts
  * - .pi/extensions/graph/index.ts neighborhood result formatting
  */
 

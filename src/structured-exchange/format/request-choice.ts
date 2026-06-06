@@ -1,4 +1,4 @@
-import type { RequestChoiceDetails } from '../../.pi/extensions/structured-exchange/schemas/index.js';
+import type { RequestChoiceDetails } from '../../.pi/extensions/exchanges/schemas/index.js';
 
 export function formatRequestChoice(details: RequestChoiceDetails): string {
   if ('cancelled' in details) return '### Response\n\n_User cancelled the request._';

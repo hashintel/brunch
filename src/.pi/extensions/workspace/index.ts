@@ -4,12 +4,12 @@ import {
   type WorkspaceSessionReadyState,
   type SpecSessionActivationCoordinator,
   type SpecSessionActivationDecision,
-} from '../../session/workspace-session-coordinator.js';
+} from '../../../session/workspace-session-coordinator.js';
 import {
   WORKSPACE_DIALOG_WIDTH,
   createWorkspaceDialogComponent,
-} from '../components/workspace-dialog/index.js';
-import { chromeStateForWorkspace, renderBrunchChrome } from './chrome.js';
+} from '../../components/workspace-dialog/index.js';
+import { chromeStateForWorkspace, renderBrunchChrome } from '../chrome/index.js';
 
 export interface BrunchSpecSessionPickerOptions {
   coordinator: SpecSessionActivationCoordinator;

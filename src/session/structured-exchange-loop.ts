@@ -1,7 +1,7 @@
 import * as z from 'zod';
 
-import type { PresentDetails } from '../.pi/extensions/structured-exchange/schemas/index.js';
-import { isStructuredExchangePresentDetails } from '../.pi/extensions/structured-exchange/shared/recovery.js';
+import type { PresentDetails } from '../.pi/extensions/exchanges/schemas/index.js';
+import { isStructuredExchangePresentDetails } from '../.pi/extensions/exchanges/shared/recovery.js';
 import { formatPresentOptions } from '../structured-exchange/format/present-options.js';
 import { formatPresentQuestion } from '../structured-exchange/format/present-question.js';
 import { projectPresentOptions } from '../structured-exchange/project/present-options.js';

@@ -6,7 +6,7 @@ import {
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
   renderBrunchChrome,
-} from '../extensions/chrome.js';
+} from '../extensions/chrome/index.js';
 
 describe('Brunch chrome projection', () => {
   it('uses activated session state instead of fabricating unbound', async () => {

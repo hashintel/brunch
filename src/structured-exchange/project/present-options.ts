@@ -1,9 +1,9 @@
-import type { PresentOptionsDetails } from '../../.pi/extensions/structured-exchange/schemas/index.js';
+import type { PresentOptionsDetails } from '../../.pi/extensions/exchanges/schemas/index.js';
 import {
   STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
   zPresentOptionsDetails,
   type PresentOptionsParams,
-} from '../../.pi/extensions/structured-exchange/schemas/index.js';
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 
 export interface PresentOptionsProjection {
   readonly heading: string;

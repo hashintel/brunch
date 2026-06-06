@@ -1,4 +1,4 @@
-import type { RequestChoicesDetails } from '../../.pi/extensions/structured-exchange/schemas/index.js';
+import type { RequestChoicesDetails } from '../../.pi/extensions/exchanges/schemas/index.js';
 
 function markdownEscape(text: string): string {
   return text.replace(/([\\`*_{}[\]()#+\-.!|>])/g, '\\$1');

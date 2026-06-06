@@ -1,4 +1,4 @@
-import type { RequestReviewDetails } from '../../.pi/extensions/structured-exchange/schemas/index.js';
+import type { RequestReviewDetails } from '../../.pi/extensions/exchanges/schemas/index.js';
 
 export function formatRequestReview(details: RequestReviewDetails): string {
   if ('cancelled' in details) return '### Review decision\n\n_User cancelled the review request._';

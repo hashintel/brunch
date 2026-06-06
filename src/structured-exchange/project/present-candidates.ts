@@ -9,7 +9,7 @@
  *
  * Future users:
  * - structured-exchange/format/present-candidates.ts
- * - .pi/extensions/structured-exchange/present-candidates.ts
+ * - .pi/extensions/exchanges/present-candidates.ts
  */
 
 export {};

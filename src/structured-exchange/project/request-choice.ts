@@ -1,11 +1,8 @@
-import type {
-  RequestChoiceDetails,
-  SelectedChoice,
-} from '../../.pi/extensions/structured-exchange/schemas/index.js';
+import type { RequestChoiceDetails, SelectedChoice } from '../../.pi/extensions/exchanges/schemas/index.js';
 import {
   STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
   zRequestChoiceDetails,
-} from '../../.pi/extensions/structured-exchange/schemas/index.js';
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 
 export type RequestChoicePresentTool = 'present_options' | 'present_candidates';
 

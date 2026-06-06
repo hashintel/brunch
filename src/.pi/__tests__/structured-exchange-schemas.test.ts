@@ -29,7 +29,7 @@ import {
   zRequestDetailsHeader,
   zRequestReviewDetails,
   zRequestToolMeta,
-} from '../extensions/structured-exchange/schemas/index.js';
+} from '../extensions/exchanges/schemas/index.js';
 
 function expectJsonSchemaExport(schema: z.ZodType) {
   expect(() => z.toJSONSchema(schema, { unrepresentable: 'throw' })).not.toThrow();
@@ -621,7 +621,7 @@ describe('structured exchange capture schemas', () => {
 
 describe('structured exchange schema source boundary', () => {
   it('keeps semantic details contracts in the Zod schemas directory', () => {
-    const extensionRoot = join(process.cwd(), 'src/.pi/extensions/structured-exchange');
+    const extensionRoot = join(process.cwd(), 'src/.pi/extensions/exchanges');
     const legacyModel = join(extensionRoot, 'shared/model.ts');
     expect(existsSync(legacyModel)).toBe(false);
 

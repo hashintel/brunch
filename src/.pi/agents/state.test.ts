@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { projectBrunchAgentState } from '../session/runtime-state.js';
+import { projectBrunchAgentState } from '../../session/runtime-state.js';
 import { activeToolNamesForPosture, manifestsForState } from './state.js';
 
 const registeredToolNames = [

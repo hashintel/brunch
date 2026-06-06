@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { GraphNode } from '../../graph/schema/nodes.js';
-import type { NeighborhoodResult } from '../../graph/snapshot.js';
+import type { GraphNode } from '../../../graph/schema/nodes.js';
+import type { NeighborhoodResult } from '../../../graph/snapshot.js';
 import { renderNodeContext } from './node.js';
 
 const neighborhood: NeighborhoodResult = {

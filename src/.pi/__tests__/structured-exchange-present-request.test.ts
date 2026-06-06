@@ -8,12 +8,12 @@ import registerStructuredExchange, {
   REQUEST_CHOICE_TOOL,
   REQUEST_CHOICES_TOOL,
   REQUEST_REVIEW_TOOL,
-} from '../extensions/structured-exchange/index.js';
+} from '../extensions/exchanges/index.js';
 import {
   findIncompleteStructuredExchangePresents,
   isStructuredExchangePresentDetails,
   isStructuredExchangeRequestDetails,
-} from '../extensions/structured-exchange/shared/recovery.js';
+} from '../extensions/exchanges/shared/recovery.js';
 
 interface ToolTextContent {
   type: 'text';

@@ -1,4 +1,4 @@
-# Top-level projections and formatters topology
+# Top-level projections and renderers topology
 
 Frontier: topology-readmes-and-boundaries
 Status:   active
@@ -10,16 +10,16 @@ Created:  2026-06-05
 - Containing seam: source topology after FE-809 made projection and formatting real cross-cutting seams rather than local helper folders.
 - Relevant frontier item: `topology-readmes-and-boundaries`; this supersedes the earlier local cleanup card that framed `project/` vs `format/` mostly as hollow-layer deletion.
 - Volatile handoff state: `HANDOFF.md` remains untracked review context; FE-809 schema/emission closure has landed, so this card no longer needs to defer around dirty structured-exchange work.
-- Main open risk: top-level `projections/` and `formatters/` could become vague utility buckets. The migration must define them as narrow boundary layers with import rules, not as places to put any reusable function.
+- Main open risk: top-level `projections/` and `renderers/` could become vague utility buckets. The migration must define them as narrow boundary layers with import rules, not as places to put any reusable function.
 
 Posture: proving (inherited from `topology-readmes-and-boundaries`).
 
 Frontier-level cross-cutting obligations this slice carries:
 
-- Preserve D52-L dependency direction: graph owns graph truth and may import `db/`; session owns Pi JSONL/session semantics; `.pi`, `rpc`, and app entrypoints adapt product seams rather than owning domain logic.
-- Preserve D37-L/D41-L structured-exchange schema lock: details construction remains Zod/projector-owned; markdown remains formatter-owned; `.pi` remains adapter/UI registration.
+- Preserve D52-L dependency direction: graph owns graph truth and may import `db/`; session owns Pi JSONL/session semantics; `.pi` owns the sealed Pi-harness runtime surface; `rpc` and app entrypoints adapt product seams rather than owning domain logic.
+- Preserve D37-L/D41-L structured-exchange schema lock: details construction remains Zod/projector-owned; markdown remains renderer-owned; `.pi/extensions/exchanges` remains adapter/UI registration.
 - Preserve topology README authority: every moved directory with a README gets updated in the same commit that changes its ownership or layout.
-- Preserve free-rewrite posture: move imports directly and delete old paths; do not leave compatibility barrels for old `project/` / `format/` locations unless removed in the same slice.
+- Preserve free-rewrite posture: move imports directly and delete old paths; do not leave compatibility barrels for old `project/` / `format/` / `src/agents/` locations.
 - Preserve overlap discipline: this card touches broad topology and is not parallel-safe with other cards moving `src/{graph,session,structured-exchange,.pi}` files.
 
 ## Target topology sketch
@@ -35,42 +35,46 @@ src/
 │   ├── graph/
 │   ├── session/
 │   ├── workspace/
-│   └── structured-exchange/
-├── formatters/       [lossy text/markdown/toon/tool content]
+│   └── exchanges/
+├── renderers/       [lossy text/markdown/toon/tool content]
 │   ├── markdown.ts
 │   ├── toon.ts       ? [only if current code already needs it]
 │   ├── graph/
 │   ├── session/
-│   └── structured-exchange/
-├── .pi/              [Pi adapters]
-├── rpc/              [JSON-RPC transport/method handlers]
-├── web/              [React client]
-├── agents/           [prompt/resource composition]
-├── probes/           [product-path probes]
-└── db/               [persistence substrate]
+│   └── exchanges/
+├── .pi/             [sealed Pi-harness runtime surface]
+│   ├── agents/      [prompt assembly, agent definitions, context orchestration]
+│   ├── skills/      [goal/strategy/lens/method resources]
+│   ├── components/  [Pi TUI/message components]
+│   └── extensions/  [Pi registrars and runtime adapters]
+├── rpc/             [JSON-RPC transport/method handlers]
+├── web/             [React client]
+├── probes/          [product-path probes]
+└── db/              [persistence substrate]
 ```
 
 Layer rules to prove during build:
 
 ```pseudo
 rules:
-  graph/          -> db/                  [allowed]
-  projections/*   -> graph/, session/      [read/domain imports allowed]
-  formatters/*    -> projections/, graph/, session/ as needed for input types
-  .pi/, rpc/, app/ -> graph/, session/, projections/, formatters/, agents/
+  graph/          -> db/                         [allowed]
+  projections/*   -> graph/, session/             [read/domain imports allowed]
+  renderers/*     -> projections/, graph/, session/ as needed for input types
+  .pi/            -> graph/, session/, projections/, renderers/ [Pi runtime surface]
+  rpc/, app/      -> graph/, session/, projections/, renderers/
   graph/, session/ x> .pi/, rpc/, app/, web/
   projections/    x> .pi/, rpc/, app/, web/
-  formatters/     x> .pi/, rpc/, app/, web/
+  renderers/      x> .pi/, rpc/, app/, web/
 ```
 
 ## Card 1 — Lock the top-level topology decision
 
-Status: next
+Status: done
 Weight: full
 
 ### Target Behavior
 
-The canonical topology documentation names `app/`, `workspace/`, `scripts/`, `projections/`, and `formatters/` as first-class source layers.
+The canonical topology documentation names `app/`, `workspace/`, `scripts/`, `projections/`, and `renderers/` as first-class source layers.
 
 ### Boundary Crossings
 
@@ -87,7 +91,7 @@ The canonical topology documentation names `app/`, `workspace/`, `scripts/`, `pr
   → MITIGATION: mark the migration state explicitly: layers are canonical target, with later cards materializing files.
 - RISK: `projectors` vs `projections` naming remains unsettled.
   → MITIGATION: choose `projections/` unless the build uncovers an existing convention that makes `projectors/` materially clearer; update docs once, not both.
-- ASSUMPTION: Top-level projection/formatter layers improve navigation more than domain-local `project/` / `format/` subtrees now that multiple domains share the pattern.
+- ASSUMPTION: Top-level projection/renderer layers improve navigation more than domain-local `project/` / `format/` subtrees now that multiple domains share the pattern.
   → IMPACT IF FALSE: later cards should stop after docs and keep local folders, leaving only root-entrypoint cleanup.
   → VALIDATE: import/call-site audit included in this card's build report before moving code.
 
@@ -97,7 +101,7 @@ This proving slice establishes the target topology and makes the migration audit
 
 ### Acceptance Criteria
 
-✓ `memory/SPEC.md` D52-L (or the current topology decision) describes `app/`, `workspace/`, `scripts/`, `projections/`, and `formatters/` with dependency direction.
+✓ `memory/SPEC.md` D52-L (or the current topology decision) describes `app/`, `workspace/`, `scripts/`, `projections/`, and `renderers/` with dependency direction.
 ✓ `src/README.md` matches the new target topology and names any not-yet-moved directories as migration state rather than current truth.
 ✓ This scope file no longer asks builders to merely collapse `project/` layers; it scopes a top-level topology migration.
 ✓ A call-site audit in the build summary identifies which current `project/` and `format/` files will move, collapse, or remain intentionally local.
@@ -107,6 +111,60 @@ This proving slice establishes the target topology and makes the migration audit
 - Inner: docs/readme review — proves topology claims are precise and do not overclaim completed moves.
 - Inner: grep/import audit — proves the proposed moved sets are finite and not mixed with adapter-only code.
 - Middle: `npm run check` — catches formatting/lint drift from documentation edits.
+
+### Card 1 build summary
+
+```pseudo
+audit: current projection/renderer migration inputs
+
+current owner                                  | files / callers                                      | next disposition
+-----------------------------------------------|------------------------------------------------------|-----------------
+src/graph/project/*                            | 4 DTO projectors; used by graph renderers, .pi graph tool, .pi agent context | move confirmed reusable DTOs to projections/graph/
+src/graph/format/*                             | 4 text renderers; used by .pi graph tool and .pi agent context               | move confirmed reusable text renderers to renderers/graph/
+src/session/project/transcript-context.ts      | transcript DTO; used by session transcript formatter                         | move to projections/session/ if still reusable
+src/session/format/transcript.ts               | transcript markdown artifact renderer                                        | move to renderers/session/ if still reusable
+src/structured-exchange/project/*              | active present/request projectors plus capture/candidate topology stubs       | move active DTO constructors to projections/structured-exchange/; preserve/delete stubs only under topology-stub rules
+src/structured-exchange/format/*               | active present/request renderers plus capture/candidate topology stubs        | move active markdown renderers to renderers/structured-exchange/; preserve/delete stubs only under topology-stub rules
+src/render/markdown.ts                         | shared markdown helpers for graph/structured-exchange renderers               | move to renderers/markdown.ts if callers remain
+src/render/toon.ts                             | comment-only compact-data renderer stub                                      | move only if graph renderer still needs it; otherwise apply topology-stub deletion rules
+src/.pi/extensions/*                           | Pi registrars/hooks/UI wrappers; no db/ imports observed                     | keep adapter-local; import projections/renderers after Card 3
+src/.pi/agents/contexts/*                      | agent-context orchestration over typed pulls                                  | remain .pi-agent-owned; may call top-level renderers, but not a renderer bucket
+```
+
+Confirmed doc delta: `memory/SPEC.md` D52-L, `src/README.md`,
+`src/.pi/README.md`, `src/.pi/extensions/README.md`, `src/.pi/agents/README.md`,
+`src/.pi/skills/README.md`, and `memory/PLAN.md` now name the target topology
+and distinguish migration state from current file placement.
+
+### Applied topology move — Pi harness consolidation
+
+Status: done
+
+```pseudo
+move summary:
+  src/agents/                         -> src/.pi/agents/
+  src/.pi/agents/goals/               -> src/.pi/skills/goals/
+  src/.pi/agents/strategies/          -> src/.pi/skills/strategies/
+  src/.pi/agents/lenses/              -> src/.pi/skills/lenses/
+  src/.pi/agents/methods/             -> src/.pi/skills/methods/
+  src/.pi/extensions/alternatives.ts  -> src/.pi/components/alternatives.ts
+  src/.pi/extensions/chrome.ts        -> src/.pi/extensions/chrome/index.ts
+  src/.pi/extensions/command-policy.ts -> src/.pi/extensions/commands/policy.ts
+  src/.pi/extensions/commands.ts      -> src/.pi/extensions/commands/index.ts
+  src/.pi/extensions/mention-autocomplete.ts -> src/.pi/extensions/mentions/index.ts
+  src/.pi/extensions/operational-mode.ts -> src/.pi/extensions/runtime/index.ts
+  src/.pi/extensions/prompting.ts     -> src/.pi/extensions/system-prompts/index.ts
+  src/.pi/extensions/session-lifecycle.ts -> src/.pi/extensions/session/lifecycle.ts
+  src/.pi/extensions/snapshot-cwd.ts  -> src/.pi/extensions/context/get-cwd.ts
+  src/.pi/extensions/structured-exchange/ -> src/.pi/extensions/exchanges/
+  src/.pi/extensions/workspace-dialog.ts -> src/.pi/extensions/workspace/index.ts
+  src/.pi/extensions/auto-compaction-anchors.json -> src/.pi/extensions/compaction/index.ts
+```
+
+Rationale: these agents and resources exist only inside the Pi harness, so the
+topology now treats `.pi/` as the sealed Pi runtime surface rather than a thin
+extension-only adapter folder. This supersedes Card 1's earlier top-level
+`src/agents/` target.
 
 ### Cross-cutting obligations
 
@@ -216,21 +274,21 @@ bin/                                                    ?
 tsconfig*.json                                          ?
 ```
 
-## Card 3 — Hoist reusable projections and formatters
+## Card 3 — Hoist reusable projections and renderers
 
 Status: next
 Weight: full
 
 ### Target Behavior
 
-Reusable projection and formatting modules live under top-level `src/projections/` and `src/formatters/` instead of domain-local `project/` and `format/` folders.
+Reusable projection and formatting modules live under top-level `src/projections/` and `src/renderers/` instead of domain-local `project/` and `format/` folders.
 
 ### Boundary Crossings
 
 ```pseudo
 → graph/session/structured-exchange project/format modules
-→ top-level projections/formatters import rules
-→ .pi/rpc/agents/probes call sites
+→ top-level projections/renderers import rules
+→ .pi / rpc / .pi/agents / probes call sites
 → topology READMEs
 → architecture/source-boundary tests
 ```
@@ -243,21 +301,21 @@ Reusable projection and formatting modules live under top-level `src/projections
   → MITIGATION: preserve the current schema-lock direction until a separate schema-ownership card changes it; document this as current migration state if needed.
 - RISK: Large import churn hides behavior changes.
   → MITIGATION: move one family at a time inside the card and run focused tests after each family.
-- ASSUMPTION: Current `graph/project`, `session/project`, and `structured-exchange/project` modules are projection-layer concerns, while current `*/format` modules are formatter-layer concerns.
+- ASSUMPTION: Current `graph/project`, `session/project`, and `structured-exchange/project` modules are projection-layer concerns, while current `*/format` modules are renderer-layer concerns.
   → IMPACT IF FALSE: move only the confirmed subset and mark the remainder as stale for rescoping.
   → VALIDATE: call-site audit from Card 1 and compiler/test failures during breakage-driven repair.
 
 ### Posture check
 
-This slice materializes the projection/formatter boundary in code. It scores on invariants, topology, and deletion: old local `project/` / `format/` folders disappear unless a local owner still has a current reason to keep one.
+This slice materializes the projection/renderer boundary in code. It scores on invariants, topology, and deletion: old local `project/` / `format/` folders disappear unless a local owner still has a current reason to keep one.
 
 ### Acceptance Criteria
 
 ✓ `src/projections/{graph,session,structured-exchange}/` owns every surviving reusable non-text projection module.
-✓ `src/formatters/{graph,session,structured-exchange}/` owns every surviving text/markdown formatter module, and `src/formatters/markdown.ts` replaces `src/render/markdown.ts` if that helper is still needed.
+✓ `src/renderers/{graph,session,structured-exchange}/` owns every surviving text/markdown formatter module, and `src/renderers/markdown.ts` replaces `src/render/markdown.ts` if that helper is still needed.
 ✓ Old `src/**/project/` and `src/**/format/` folders touched by this card are deleted unless a README names why a local folder remains.
-✓ `.pi`, `rpc`, `agents`, `session`, `graph`, and probes import from the new top-level layers without compatibility barrels.
-✓ Boundary tests or README rules make it clear that projections/formatters must not import adapters, app entrypoints, web, or RPC handlers.
+✓ `.pi`, `rpc`, `.pi/agents`, `session`, `graph`, and probes import from the new top-level layers without compatibility barrels.
+✓ Boundary tests or README rules make it clear that projections/renderers must not import adapters, app entrypoints, web, or RPC handlers.
 
 ### Verification Approach
 
@@ -270,7 +328,7 @@ This slice materializes the projection/formatter boundary in code. It scores on 
 
 - Do not change structured-exchange details schemas, graph command semantics, or session exchange projection semantics while moving files.
 - Do not use barrels to preserve old import paths.
-- Do not move web-specific formatting into top-level formatters unless it is shared outside web.
+- Do not move web-specific formatting into top-level renderers unless it is shared outside web.
 
 ### Expected touched paths (tentative)
 
@@ -293,7 +351,7 @@ src/
 │       ├── request-choice.ts                            +
 │       ├── request-choices.ts                           +
 │       └── request-review.ts                            +
-├── formatters/                                          +
+├── renderers/                                          +
 │   ├── README.md                                        +
 │   ├── markdown.ts                                      +?
 │   ├── graph/                                           +
@@ -325,7 +383,6 @@ src/
 │   └── format/                                          -?
 ├── .pi/                                                 ~
 ├── rpc/                                                 ~
-├── agents/                                              ~
 └── probes/                                              ~
 
 src/.pi/__tests__/structured-exchange-boundaries.test.ts ~

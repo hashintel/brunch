@@ -4,20 +4,16 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import alternatives from '../extensions/alternatives.js';
-import chrome from '../extensions/chrome.js';
-import commandPolicy from '../extensions/command-policy.js';
+import alternatives from '../components/alternatives.js';
+import chrome from '../extensions/chrome/index.js';
 import commands, {
   BRUNCH_CONTINUE_COMMAND,
   BRUNCH_LENS_COMMAND,
   BRUNCH_MODE_COMMAND,
   BRUNCH_STRATEGY_COMMAND,
   BRUNCH_SWITCH_COMMAND,
-} from '../extensions/commands.js';
-import mentionAutocomplete from '../extensions/mention-autocomplete.js';
-import operationalMode from '../extensions/operational-mode.js';
-import prompting from '../extensions/prompting.js';
-import sessionLifecycle from '../extensions/session-lifecycle.js';
+} from '../extensions/commands/index.js';
+import commandPolicy from '../extensions/commands/policy.js';
 import structuredExchange, {
   PRESENT_OPTIONS_TOOL,
   PRESENT_QUESTION_TOOL,
@@ -26,19 +22,23 @@ import structuredExchange, {
   REQUEST_CHOICE_TOOL,
   REQUEST_CHOICES_TOOL,
   REQUEST_REVIEW_TOOL,
-} from '../extensions/structured-exchange/index.js';
+} from '../extensions/exchanges/index.js';
+import mentionAutocomplete from '../extensions/mentions/index.js';
+import operationalMode from '../extensions/runtime/index.js';
+import sessionLifecycle from '../extensions/session/lifecycle.js';
+import prompting from '../extensions/system-prompts/index.js';
 import { createBrunchPiExtensionShell } from '../pi-extension-shell.js';
 
 const extensionDefaults = {
-  'alternatives.ts': alternatives,
-  'chrome.ts': chrome,
-  'command-policy.ts': commandPolicy,
-  'commands.ts': commands,
-  'mention-autocomplete.ts': mentionAutocomplete,
-  'operational-mode.ts': operationalMode,
-  'prompting.ts': prompting,
-  'session-lifecycle.ts': sessionLifecycle,
-  'structured-exchange/index.ts': structuredExchange,
+  'components/alternatives.ts': alternatives,
+  'chrome/index.ts': chrome,
+  'commands/policy.ts': commandPolicy,
+  'commands/index.ts': commands,
+  'mentions/index.ts': mentionAutocomplete,
+  'runtime/index.ts': operationalMode,
+  'system-prompts/index.ts': prompting,
+  'session/lifecycle.ts': sessionLifecycle,
+  'exchanges/index.ts': structuredExchange,
 };
 
 describe('Brunch explicit Pi extension registry', () => {

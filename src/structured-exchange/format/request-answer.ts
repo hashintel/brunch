@@ -1,4 +1,4 @@
-import type { RequestAnswerDetails } from '../../.pi/extensions/structured-exchange/schemas/index.js';
+import type { RequestAnswerDetails } from '../../.pi/extensions/exchanges/schemas/index.js';
 
 export function formatRequestAnswer(details: RequestAnswerDetails): string {
   if ('cancelled' in details) return '### Response\n\n_User cancelled the request._';

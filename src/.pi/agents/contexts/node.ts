@@ -1,6 +1,6 @@
-import { formatNeighborhood } from '../../graph/format/neighborhood.js';
-import { projectNeighborhood } from '../../graph/project/neighborhood.js';
-import type { NeighborhoodResult } from '../../graph/snapshot.js';
+import { formatNeighborhood } from '../../../graph/format/neighborhood.js';
+import { projectNeighborhood } from '../../../graph/project/neighborhood.js';
+import type { NeighborhoodResult } from '../../../graph/snapshot.js';
 
 export interface RenderNodeContextOptions {
   readonly maxNeighbors?: number;

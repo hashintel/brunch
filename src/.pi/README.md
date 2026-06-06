@@ -1,14 +1,55 @@
-# Brunch Pi extension iteration
+# .pi/ — Brunch Pi runtime surface
 
-This directory is intentionally shaped like a project-local Pi resource tree so Brunch-owned extensions can be hot-reloaded while developing TUI affordances.
+SPEC decisions: D25-L, D34-L, D35-L, D37-L, D39-L, D40-L, D52-L, D58-L, D59-L, D60-L
 
-```bash
-cd src
-pi
-# edit .pi/extensions/... or .pi/components/...
-/reload
+This directory is Brunch's sealed Pi-harness surface. It contains the agent personas/resources, Pi-native skill resources, product extension registrars, and reusable TUI components that run inside the embedded Pi coding-agent harness.
+
+## Owns
+
+- Pi-facing agent prompt assembly and runtime prompt resources.
+- Pi extension registration: tools, lifecycle hooks, command handlers, autocomplete, TUI chrome, workspace dialogs.
+- Pi-native skills/resources that the agent reads on demand.
+- Reusable Pi TUI components used by those extensions.
+
+## Does NOT own
+
+- Graph truth, mutation policy, readers, or graph DTOs — `graph/` and target `projections/graph/`.
+- Pi JSONL/session semantics and workspace/session coordination — `session/`.
+- Product JSON-RPC handlers — `rpc/`.
+- React client UI — `web/`.
+- Reusable product projection/rendering once hoisted — target `projections/` and `renderers/` seams.
+
+## Layout
+
+```text
+.pi/
+├── README.md
+├── settings.json                 dev Pi settings for local `.pi` iteration
+├── pi-extension-shell.ts          explicit Brunch extension factory; no ambient discovery
+├── brunch-pi-profile.ts           sealed profile/settings policy
+├── agents/                        agent roles + stateful prompt assembly code
+│   ├── definitions/                 role prompt resources
+│   └── contexts/                    agent-context selection/render orchestration
+├── skills/                        goal/strategy/lens/method resources read by the agent
+│   ├── goals/
+│   ├── strategies/
+│   ├── lenses/
+│   └── methods/
+├── components/                    reusable Pi TUI/message components
+└── extensions/                    Pi registrars and runtime adapters
 ```
 
-Production Brunch does not rely on ambient discovery from the repository root. The product shell imports these modules explicitly; tests for extensions/components live in `.pi/__tests__/`, not inside auto-discovered resource directories.
+## Boundary rules
 
-Prompting is adapter-only here: `extensions/prompting.ts` handles Pi `before_agent_start` and delegates composition to `src/agents/compose.ts` with explicit selected-spec/workspace context. Prompt resources and context renderers live under `src/agents/`; `.pi/` must not carry prompt-pack sources.
+```pseudo
+rules:
+  .pi/agents/      -> session/, graph/                     [state projection + snapshot pulls]
+  .pi/skills/      x> TypeScript imports                   [markdown resources only]
+  .pi/extensions/  -> .pi/agents/, .pi/components/, graph/, session/, rpc/ [adapter imports]
+  .pi/extensions/  x> db/                                  [no direct storage]
+  graph/, session/ x> .pi/                                 [domain layers never import Pi]
+```
+
+Production Brunch does not rely on ambient discovery from the repository root. The product shell imports extension factories explicitly; tests for extensions/components live in `.pi/__tests__/`.
+
+`SYSTEM.md` / `APPEND_SYSTEM.md` are Pi's static ambient prompt files. Brunch's dynamic selected-spec/runtime prompt contribution is per-turn and therefore uses `before_agent_start` in `extensions/system-prompts/`, appending to the already assembled Pi system prompt by returning `systemPrompt: event.systemPrompt + brunchPrompt`.

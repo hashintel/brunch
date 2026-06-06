@@ -1,8 +1,8 @@
-import type { RequestAnswerDetails } from '../../.pi/extensions/structured-exchange/schemas/index.js';
+import type { RequestAnswerDetails } from '../../.pi/extensions/exchanges/schemas/index.js';
 import {
   STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
   zRequestAnswerDetails,
-} from '../../.pi/extensions/structured-exchange/schemas/index.js';
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 
 export function projectRequestAnswer(input: {
   readonly exchangeId: string;

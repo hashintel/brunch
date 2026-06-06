@@ -1,6 +1,6 @@
-import { formatGraphNodeCode, type GraphNode } from '../../graph/schema/nodes.js';
-import type { GraphOverview } from '../../graph/snapshot.js';
-import type { AgentLensSelection } from '../../session/runtime-state.js';
+import { formatGraphNodeCode, type GraphNode } from '../../../graph/schema/nodes.js';
+import type { GraphOverview } from '../../../graph/snapshot.js';
+import type { AgentLensSelection } from '../../../session/runtime-state.js';
 
 export interface RenderGraphContextOptions {
   readonly lens: AgentLensSelection;

@@ -15,12 +15,12 @@ import {
   type AgentStrategySelection,
   type OperationalModeId,
   type ResolvedBrunchAgentState,
-} from '../../session/runtime-state.js';
+} from '../../../session/runtime-state.js';
 import type {
   WorkspaceProjectState,
   WorkspaceSessionChromeState,
   WorkspaceSessionReadyState,
-} from '../../session/workspace-session-coordinator.js';
+} from '../../../session/workspace-session-coordinator.js';
 
 export type BrunchChromeStage = 'idle' | 'streaming' | 'observer-review';
 export type BrunchChromeWorkerStatus = 'idle' | 'queued' | 'running' | 'blocked';

@@ -4,9 +4,9 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { composeAgentPrompt } from '../../agents/compose.js';
-import type { ReadinessGrade } from '../../agents/state.js';
 import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
+import { composeAgentPrompt } from '../agents/compose.js';
+import type { ReadinessGrade } from '../agents/state.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -15,8 +15,8 @@ import {
   type BrunchAgentState,
   type BrunchAgentStateEntryData,
   registerBrunchOperationalModePolicy,
-} from '../extensions/operational-mode.js';
-import { registerBrunchPrompting } from '../extensions/prompting.js';
+} from '../extensions/runtime/index.js';
+import { registerBrunchPrompting } from '../extensions/system-prompts/index.js';
 import { createBrunchPiExtensionShell } from '../pi-extension-shell.js';
 
 function runtimeEntry(state: BrunchAgentState) {
@@ -604,7 +604,7 @@ describe('Brunch prompt-pack topology', () => {
 
   it('does not expose prompt manifests through Pi resource discovery or legacy context imports', async () => {
     const [promptingSource, shellSource] = await Promise.all([
-      readFile(join(projectRoot(), 'src/.pi/extensions/prompting.ts'), 'utf8'),
+      readFile(join(projectRoot(), 'src/.pi/extensions/system-prompts/index.ts'), 'utf8'),
       readFile(join(projectRoot(), 'src/.pi/pi-extension-shell.ts'), 'utf8'),
     ]);
 

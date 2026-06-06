@@ -62,7 +62,7 @@ not compare bare LSN values across sibling specs.
 
 - `.pi/extensions/graph/` — Pi tool adapters for `commit_graph` and `read_graph`.
 - `rpc/` — graph projection handlers and synchronous response-capture wiring.
-- `agents/contexts/` — future prompt context renderers.
+- `.pi/agents/contexts/` — future prompt context renderers.
 - `probes/` — graph proof drivers.
 
 ## Current topology
@@ -140,14 +140,14 @@ CommandExecutor
   writes rows transactionally
   appends change_log
       │
-      ├─► .pi/extensions/graph
+      ├─►.pi/extensions/graph
       │     agent tool adapter
       │
       ├─► rpc/
       │     public product projections
       │     session.submitExchangeResponse capture wiring
       │
-      └─► agents/contexts future renderers
+      └─► .pi/agents/contexts future context orchestration
             prompt context snapshots
 ```
 

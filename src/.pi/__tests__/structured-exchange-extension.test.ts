@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import registerStructuredExchange, {
   PRESENT_OPTIONS_TOOL,
   REQUEST_CHOICE_TOOL,
-} from '../extensions/structured-exchange/index.js';
+} from '../extensions/exchanges/index.js';
 
 const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g');
 

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-const projectRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
+const projectRoot = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const legacyContextPath = join(projectRoot, 'src/.pi/context');
 
 const legacyImportNeedles = [
@@ -16,21 +16,21 @@ const legacyImportNeedles = [
 
 const resourceExpectations = [
   {
-    file: 'src/agents/methods/run-structured-exchange.md',
+    file: 'src/.pi/skills/methods/run-structured-exchange.md',
     needles: ['details.schema', 'schema` plus `v', 'answered`, `cancelled`, or `unavailable`'],
   },
   {
-    file: 'src/agents/methods/infer-and-capture.md',
+    file: 'src/.pi/skills/methods/infer-and-capture.md',
     needles: ['transcript-native analysis', 'not graph mutation', 'must never imply a graph bypass'],
   },
   {
-    file: 'src/agents/methods/generate-proposal.md',
+    file: 'src/.pi/skills/methods/generate-proposal.md',
     needles: ['legibility_cost_of_knowing', 'core_bet', 'graph_refs', '`{ node_id: string }` only'],
   },
 ];
 
 describe('agents topology', () => {
-  it('keeps prompt guidance in src/agents resources and removes the legacy .pi context source', async () => {
+  it('keeps prompt guidance in .pi resources and removes the legacy .pi context source', async () => {
     await expect(readdir(legacyContextPath)).rejects.toThrow();
 
     for (const expectation of resourceExpectations) {

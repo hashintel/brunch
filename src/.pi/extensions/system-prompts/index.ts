@@ -9,8 +9,8 @@ import {
   type AgentPromptSpecContext,
   type AgentPromptWorkspaceContext,
 } from '../../agents/index.js';
-import type { GraphSnapshotReaders } from './graph/index.js';
-import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from './operational-mode.js';
+import type { GraphSnapshotReaders } from '../graph/index.js';
+import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
 
 type BrunchAgentStateEntries = Parameters<typeof projectBrunchAgentState>[0];
 
