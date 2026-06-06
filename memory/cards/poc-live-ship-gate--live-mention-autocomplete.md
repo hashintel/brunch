@@ -36,7 +36,7 @@ Typing `#` in a Brunch TUI session lists graph nodes from the currently selected
 ✓ Production code no longer exports or defaults to `FIXTURE_GRAPH_MENTION_SOURCE` / `#D12 #I9 #A10` fixture candidates.
 ✓ Autocomplete suggestions include projected codes built from live `overview.nodes` (`formatGraphNodeCode(node.kind, node.kindOrdinal)`) and insert only `#CODE`.
 ✓ When graph deps are absent, mention autocomplete yields no Brunch graph candidates rather than falling back to dummy data.
-✓ No mention ledger, staleness hints, DB imports, or new `graph/project/*` projection module are introduced.
+✓ No mention ledger, staleness hints, DB imports, or new reusable projection module are introduced.
 
 ### Verification Approach
 
