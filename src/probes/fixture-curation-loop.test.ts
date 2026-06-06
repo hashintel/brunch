@@ -197,4 +197,53 @@ describe('fixture curation loop report', () => {
     );
     await expect(readFile(artifacts.graphSnapshotJson, 'utf8')).resolves.toContain('"basis": "implicit"');
   });
+
+  it('persists portable, fixture-relative artifact references in report JSON', async () => {
+    const fixtureRoot = await mkdtemp(join(tmpdir(), 'brunch-fixture-curation-portable-'));
+    const report: FixtureCurationReport = summarizeFixtureCurationRun({
+      runId: 'portable-run',
+      generatedAt: '2026-06-05T00:00:00.000Z',
+      cwd: fixtureRoot,
+      seedSlug: 'macro-view-grounded-intent',
+      selectedBaseProfile: 'grounded-intent',
+      specId: 7,
+      sessionId: 'session-1',
+      prompt: 'Please curate the graph.',
+      runtimeState: {
+        operationalMode: 'elicit',
+        agentStrategy: 'propose-graph',
+        agentLens: 'intent',
+        agentGoal: 'commit-converge',
+      },
+      sessionText: toolResultEntry('commit_graph', {
+        status: 'success',
+        lsn: 3,
+        createdNodes: { node: { id: 2 } },
+      }),
+      overview: mixedBasisOverview,
+    });
+
+    const artifacts = await writeFixtureCurationArtifacts({
+      fixtureRoot,
+      runId: 'portable-run',
+      sessionText: toolResultEntry('commit_graph', { status: 'success' }),
+      report,
+      graphSnapshot: mixedBasisOverview,
+    });
+
+    const expectedRefs = {
+      runDir: 'runs/fixture-curation/portable-run',
+      sessionJsonl: 'runs/fixture-curation/portable-run/session.jsonl',
+      transcriptMarkdown: 'runs/fixture-curation/portable-run/transcript.md',
+      reportJson: 'runs/fixture-curation/portable-run/report.json',
+      graphSnapshotJson: 'runs/fixture-curation/portable-run/graph-snapshot.json',
+    };
+    expect(artifacts).toEqual(expectedRefs);
+
+    const persisted = JSON.parse(await readFile(join(fixtureRoot, expectedRefs.reportJson), 'utf8')) as {
+      artifacts: typeof expectedRefs;
+    };
+    expect(persisted.artifacts).toEqual(expectedRefs);
+    expect(JSON.stringify(persisted.artifacts)).not.toContain(fixtureRoot);
+  });
 });

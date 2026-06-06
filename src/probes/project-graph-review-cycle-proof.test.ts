@@ -265,4 +265,46 @@ describe('project-graph review-cycle proof report', () => {
       'Macro view names impasse resolution state',
     );
   });
+
+  it('persists portable, fixture-relative artifact references in report JSON', async () => {
+    const fixtureRoot = await mkdtemp(join(tmpdir(), 'brunch-project-graph-review-portable-'));
+    const report: ProjectGraphReviewCycleReport = summarizeProjectGraphReviewCycleProof({
+      runId: 'portable-run',
+      generatedAt: '2026-06-06T00:00:00.000Z',
+      cwd: fixtureRoot,
+      seedSlug: 'macro-view-grounded-intent',
+      specId: 7,
+      sessionId: 'session-1',
+      prompt: 'Present a review set.',
+      runtimeState,
+      sessionText: [presentReviewSetEntry(), requestReviewEntry()].join('\n'),
+      baseOverview,
+      finalOverview: approvedOverview,
+      pendingResponse: pendingReviewResponse(),
+      approvalResponse: approvedResponse(),
+    });
+
+    const artifacts = await writeProjectGraphReviewCycleArtifacts({
+      fixtureRoot,
+      runId: report.runId,
+      sessionText: [presentReviewSetEntry(), requestReviewEntry()].join('\n'),
+      report,
+      graphSnapshot: approvedOverview,
+    });
+
+    const expectedRefs = {
+      runDir: 'runs/project-graph-review-cycle/portable-run',
+      sessionJsonl: 'runs/project-graph-review-cycle/portable-run/session.jsonl',
+      transcriptMarkdown: 'runs/project-graph-review-cycle/portable-run/transcript.md',
+      reportJson: 'runs/project-graph-review-cycle/portable-run/report.json',
+      graphSnapshotJson: 'runs/project-graph-review-cycle/portable-run/graph-snapshot.json',
+    };
+    expect(artifacts).toEqual(expectedRefs);
+
+    const persisted = JSON.parse(await readFile(join(fixtureRoot, expectedRefs.reportJson), 'utf8')) as {
+      artifacts: typeof expectedRefs;
+    };
+    expect(persisted.artifacts).toEqual(expectedRefs);
+    expect(JSON.stringify(persisted.artifacts)).not.toContain(fixtureRoot);
+  });
 });
