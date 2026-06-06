@@ -6,6 +6,7 @@ import {
   acceptedResponseFromParams,
   nextDeterministicStructuredExchange,
   pendingExchangeFromEnvelope,
+  type PendingStructuredExchange,
 } from './structured-exchange-loop.js';
 
 const header = { type: 'session', id: 'session-1', cwd: '/tmp/brunch-project', timestamp: 0 } as const;
@@ -167,6 +168,45 @@ describe('structured exchange loop helpers', () => {
       mode: 'review',
       prompt: 'Review cycle wiring',
       reviewSet,
+    });
+  });
+
+  it('materializes review decisions as request_review tool results and requires change comments', () => {
+    const pending = {
+      exchangeId: 'review-cycle',
+      lens: 'intent',
+      mode: 'review',
+      prompt: 'Review cycle wiring',
+      options: [],
+      note: { allowed: true },
+      reviewSet: {
+        nodes: [{ draft_id: 'g1', plane: 'intent', kind: 'goal', title: 'Review graph proposals' }],
+        edges: [],
+      },
+    } satisfies PendingStructuredExchange;
+
+    expect(
+      acceptedResponseFromParams(pending, {
+        exchangeId: 'review-cycle',
+        answer: { review: { decision: 'request_changes' } },
+      }),
+    ).toEqual({ ok: false, message: 'Review request_changes requires a comment' });
+
+    expect(
+      acceptedResponseFromParams(pending, {
+        exchangeId: 'review-cycle',
+        answer: { review: { decision: 'reject', comment: 'Not this batch.' } },
+      }),
+    ).toMatchObject({
+      ok: true,
+      answer: { review: { decision: 'reject', comment: 'Not this batch.' } },
+      toolResultMessage: {
+        toolName: 'request_review',
+        details: {
+          tool_meta: { prev: 'present_review_set', curr: 'request_review' },
+          answered: { decision: 'reject', comment: 'Not this batch.' },
+        },
+      },
     });
   });
 

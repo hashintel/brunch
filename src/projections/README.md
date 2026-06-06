@@ -14,7 +14,7 @@ Projection modules preserve information; they do not render markdown, perform Pi
 projections/
   graph/                 graph read/command DTO projection
   session/               transcript-context and runtime-state DTO projection
-  structured-exchange/   canonical toolResult.details construction
+  structured-exchange/   canonical toolResult.details construction and transcript details → domain DTO adapters
   workspace/             workspace/session snapshot DTO projection
 ```
 

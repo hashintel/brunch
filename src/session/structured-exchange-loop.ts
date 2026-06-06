@@ -7,6 +7,7 @@ import { projectPresentQuestion } from '../projections/structured-exchange/prese
 import { projectRequestAnswer } from '../projections/structured-exchange/request-answer.js';
 import { projectRequestChoice } from '../projections/structured-exchange/request-choice.js';
 import { projectRequestChoices } from '../projections/structured-exchange/request-choices.js';
+import { projectRequestReview } from '../projections/structured-exchange/request-review.js';
 import { formatPresentOptions } from '../renderers/structured-exchange/present-options.js';
 import { formatPresentQuestion } from '../renderers/structured-exchange/present-question.js';
 import type { BrunchSessionEnvelope } from './brunch-session-envelope.js';
@@ -57,10 +58,17 @@ export interface StructuredExchangeMultiChoiceResponseInput {
   note?: string | undefined;
 }
 
+export interface StructuredExchangeReviewResponseInput {
+  exchangeId: string;
+  answer: { review: { decision: 'approve' | 'request_changes' | 'reject'; comment?: string | undefined } };
+  note?: string | undefined;
+}
+
 export type StructuredExchangeResponseInput =
   | StructuredExchangeTextResponseInput
   | StructuredExchangeSingleChoiceResponseInput
-  | StructuredExchangeMultiChoiceResponseInput;
+  | StructuredExchangeMultiChoiceResponseInput
+  | StructuredExchangeReviewResponseInput;
 
 export interface AcceptedToolTextContent {
   type: 'text';
@@ -310,6 +318,34 @@ export function acceptedResponseFromParams(
     };
   }
 
+  if ('review' in params.answer) {
+    if (pending.mode !== 'review') return invalidResponseMode();
+    const review = params.answer.review;
+    const comment = review.comment?.trim();
+    if (review.decision === 'request_changes' && (comment === undefined || comment.length === 0)) {
+      return { ok: false, message: 'Review request_changes requires a comment' };
+    }
+    return {
+      ok: true,
+      answer: {
+        review: {
+          decision: review.decision,
+          ...(comment !== undefined ? { comment } : {}),
+        },
+      },
+      toolResultMessage: {
+        ...toolResultMessageBase(pending, 'request_review'),
+        content: [{ type: 'text', text: reviewResponseMarkdown(review.decision, comment) }],
+        details: projectRequestReview({
+          exchangeId: pending.exchangeId,
+          status: 'answered',
+          review: review.decision,
+          comment,
+        }),
+      },
+    };
+  }
+
   if (pending.mode !== 'multi-select') return invalidResponseMode();
   const selected = params.answer.optionIds.map((id) => pending.options.find((option) => option.id === id));
   if (selected.some((choice) => choice === undefined)) {
@@ -361,7 +397,7 @@ function choiceKind(id: string): 'listed' | 'other' | 'none' {
 
 function toolResultMessageBase(
   pending: PendingStructuredExchange,
-  requestTool: 'request_answer' | 'request_choice' | 'request_choices',
+  requestTool: 'request_answer' | 'request_choice' | 'request_choices' | 'request_review',
 ) {
   return {
     role: 'toolResult' as const,
@@ -376,6 +412,19 @@ function choiceResponseMarkdown(choices: Array<{ label: string }>, comment: stri
   const lines = ['### Response', '', ...choices.map((choice) => `- ${choice.label}`)];
   if (comment !== undefined && comment.trim().length > 0) {
     lines.push('', 'Comment:', '', `> ${comment.trim()}`);
+  }
+  return lines.join('\n');
+}
+
+function reviewResponseMarkdown(
+  decision: 'approve' | 'request_changes' | 'reject',
+  comment: string | undefined,
+): string {
+  const label =
+    decision === 'approve' ? 'Approved' : decision === 'request_changes' ? 'Requested changes' : 'Rejected';
+  const lines = ['### Review decision', '', label];
+  if (comment !== undefined && comment.length > 0) {
+    lines.push('', 'Comment:', '', `> ${comment}`);
   }
   return lines.join('\n');
 }

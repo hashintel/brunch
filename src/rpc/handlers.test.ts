@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 import { openWorkspaceGraphRuntime } from '../graph/workspace-store.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
+import { projectPresentReviewSet } from '../projections/structured-exchange/present-review-set.js';
 import { BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, type BrunchAgentState } from '../session/runtime-state.js';
 import { createSessionBindingData } from '../session/session-binding.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
@@ -1278,6 +1279,109 @@ describe('JSON-RPC handlers', () => {
     expect(sessionText).toContain('request_choices');
     expect(sessionText).not.toContain('brunch.elicitation_prompt');
     expect(sessionText).not.toContain('brunch.elicitation_response');
+  });
+
+  it('approves a pending review exchange into the selected spec graph and publishes graph invalidations', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-review-approve-'));
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinatorInstance.createSetupSession({ specTitle: 'Review approval spec' });
+    const graph = await openWorkspaceGraphRuntime(cwd);
+    const existing = graph.commandExecutor.commitGraph({
+      specId: workspace.spec.id,
+      nodes: [{ ref: 'goal', plane: 'intent', kind: 'goal', title: 'Existing selected-spec goal' }],
+      edges: [],
+    });
+    if (existing.status !== 'success') throw new Error('failed to create existing graph node');
+    const payload = {
+      schemaVersion: 1,
+      lens: 'intent',
+      epistemicStatus: 'asserted',
+      grounding: { summary: 'User asked to approve requirement graph facts.', support: ['Transcript'] },
+      pitch: { title: 'Approve reviewed graph facts', narrative: 'Creates one reviewed requirement.' },
+      entityDrafts: [
+        {
+          draftId: 'requirement-draft',
+          plane: 'intent',
+          kind: 'requirement',
+          title: 'Reviewed requirement',
+          body: 'This exact reviewed node should be accepted.',
+        },
+      ],
+      edgeDrafts: [
+        {
+          category: 'support',
+          stance: 'for',
+          source: { draftId: 'requirement-draft' },
+          target: { existingCode: 'G1' },
+          rationale: 'The reviewed requirement supports the selected-spec goal.',
+        },
+      ],
+    } as const;
+    const projection = projectPresentReviewSet({ exchangeId: 'review-cycle', payload });
+    workspace.session.manager.appendMessage({
+      role: 'toolResult',
+      toolCallId: 'present-review-call-1',
+      toolName: 'present_review_set',
+      content: [{ type: 'text', text: '## Approve reviewed graph facts' }],
+      details: projection.details,
+      isError: false,
+      timestamp: 0,
+    });
+    (workspace.session.manager as unknown as { _rewriteFile(): void })._rewriteFile();
+    const productUpdates = createProductUpdatePublisher();
+    const updates: unknown[] = [];
+    productUpdates.subscribe((batch) => updates.push(...batch));
+    const handlers = createRpcHandlers({ coordinator: coordinatorInstance, cwd, productUpdates });
+
+    const response = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 276,
+      method: 'session.submitExchangeResponse',
+      params: {
+        exchangeId: 'review-cycle',
+        answer: { review: { decision: 'approve', comment: 'Looks correct.' } },
+      },
+    });
+
+    expect(response).toMatchObject({
+      jsonrpc: '2.0',
+      id: 276,
+      result: {
+        status: 'accepted',
+        exchangeId: 'review-cycle',
+        answer: { review: { decision: 'approve', comment: 'Looks correct.' } },
+        review: {
+          status: 'approved',
+          lsn: expect.any(Number),
+          createdNodes: { 'requirement-draft': { id: expect.any(Number), code: 'R1' } },
+        },
+        capture: { status: 'no_capture' },
+      },
+    });
+    if (!('result' in response)) throw new Error('expected review approval response');
+    const lsn = (response.result as { review: { lsn: number } }).review.lsn;
+    expect(updates).toContainEqual({ topic: 'graph.overview', specId: workspace.spec.id, lsn });
+    expect(updates).toContainEqual({ topic: 'graph.nodeNeighborhood', specId: workspace.spec.id, lsn });
+
+    const overview = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 277,
+      method: 'graph.overview',
+      params: { specId: workspace.spec.id },
+    });
+    expect(overview).toMatchObject({
+      result: {
+        nodeCount: 2,
+        nodes: expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'requirement',
+            title: 'Reviewed requirement',
+            basis: 'explicit',
+          }),
+        ]),
+      },
+    });
+    await expect(readFile(workspace.session.file, 'utf8')).resolves.toContain('request_review');
   });
 
   it('captures explicit labeled text answers into the transcript-bound spec graph and publishes graph invalidations', async () => {
