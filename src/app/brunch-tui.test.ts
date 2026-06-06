@@ -52,6 +52,7 @@ describe('Brunch TUI boot', () => {
 
     await runBrunchTui({
       cwd,
+      autoOpen: false,
       selectSpecTitle: async () => {
         events.push('select-spec');
         return 'Gated spec';
@@ -176,6 +177,7 @@ describe('Brunch TUI boot', () => {
 
     await runBrunchTui({
       cwd: '/tmp/project',
+      autoOpen: false,
       coordinator: {
         inspectWorkspace: async () => {
           events.push('inspect');
@@ -222,6 +224,7 @@ describe('Brunch TUI boot', () => {
 
     await runBrunchTui({
       cwd: '/tmp/project',
+      autoOpen: false,
       coordinator: {
         inspectWorkspace: async () => {
           events.push('inspect');
@@ -280,6 +283,53 @@ describe('Brunch TUI boot', () => {
     ]);
   });
 
+  it('opens the advertised sidecar route only through the injected opener', async () => {
+    const events: string[] = [];
+    const workspace = readyWorkspace('/tmp/project', 'session-ready');
+
+    await runBrunchTui({
+      cwd: '/tmp/project',
+      coordinator: {
+        inspectWorkspace: async () => ({
+          cwd: '/tmp/project',
+          currentSpec: workspace.spec,
+          currentSessionFile: workspace.session.file,
+          needsNewSpec: false,
+          specs: [],
+          unavailableSessions: [],
+        }),
+        activateWorkspace: async () => workspace,
+        bindCurrentSpecToReplacementSession: async () => workspace,
+      },
+      runWorkspaceDialogPreflight: async () => ({
+        action: 'continue',
+        specId: workspace.spec.id,
+        sessionFile: workspace.session.file,
+      }),
+      webSidecarRunner: async () => ({
+        url: 'http://127.0.0.1:49152',
+        async close() {
+          events.push('sidecar-close');
+        },
+      }),
+      advertiseWebSidecar: (url) => {
+        events.push(`advertise:${url}`);
+      },
+      openBrowser: async (url) => {
+        events.push(`open:${url}`);
+      },
+      launchInteractive: async () => {
+        events.push('launch');
+      },
+    });
+
+    expect(events).toEqual([
+      'advertise:http://127.0.0.1:49152/spec/1',
+      'open:http://127.0.0.1:49152/spec/1',
+      'launch',
+      'sidecar-close',
+    ]);
+  });
   it('can disable browser auto-open while still advertising the active spec sidecar route', async () => {
     const events: string[] = [];
     const workspace = readyWorkspace('/tmp/project', 'session-ready');
@@ -384,6 +434,7 @@ describe('Brunch TUI boot', () => {
 
     await runBrunchTui({
       cwd,
+      autoOpen: false,
       coordinator,
       runWorkspaceDialogPreflight: async () => ({
         action: 'newSession',
