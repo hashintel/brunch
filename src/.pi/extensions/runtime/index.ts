@@ -1,11 +1,9 @@
 /**
  * Brunch operational-mode policy.
  *
- * The current product runtime has one safe state: `elicit`. In that state the
- * embedded Pi harness exposes only Brunch's read-only inspection tools and
- * blocks side-effecting tools (`bash`, `edit`, `write`, etc.) at multiple Pi
- * seams. Later cards replace this fixed posture with transcript-backed
- * BrunchAgentState projection, but the policy remains operational-mode owned.
+ * Runtime state is transcript-backed: `.pi` registers concrete Pi tools and
+ * applies active/blocked names from the projected Brunch runtime policy rather
+ * than owning a second authority list.
  */
 
 import { homedir } from 'node:os';
@@ -19,10 +17,11 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
 
+import {
+  isToolBlockedForRuntimeState,
+  toolPolicyForRuntimeState,
+} from '../../../projections/session/runtime-policy.js';
 import { activeToolNamesForPosture, type ReadinessGrade } from '../../agents/state.js';
-
-const ELICIT_BLOCKED_TOOLS = ['bash', 'edit', 'write'] as const;
-type ElicitBlockedToolName = (typeof ELICIT_BLOCKED_TOOLS)[number];
 
 export {
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -104,10 +103,6 @@ export function activeToolNamesForBrunchAgentState(
     state,
     readinessGrade,
   });
-}
-
-function isBlockedElicitTool(toolName: string): toolName is ElicitBlockedToolName {
-  return ELICIT_BLOCKED_TOOLS.includes(toolName as ElicitBlockedToolName);
 }
 
 function applyBrunchToolPolicy(pi: ExtensionAPI, state: ResolvedBrunchAgentState): void {
@@ -289,25 +284,33 @@ export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
     applyBrunchToolPolicy(pi, state);
   });
 
-  pi.on('tool_call', async (event) => {
-    if (!isBlockedElicitTool(event.toolName)) return;
+  pi.on('tool_call', async (event, ctx) => {
+    const state = projectBrunchAgentStateFromSessionManager(ctx?.sessionManager);
+    if (!isToolBlockedForRuntimeState(state, event.toolName)) return;
+    const blockedToolNames = toolPolicyForRuntimeState(state).blockedToolNames.join(', ');
 
     return {
       block: true,
       reason:
         `Brunch tool policy blocks "${event.toolName}". ` +
-        `Blocked tools in elicit mode: ${ELICIT_BLOCKED_TOOLS.join(', ')}.`,
+        `Blocked tools in ${state.operationalMode} mode: ${blockedToolNames}.`,
     };
   });
 
-  pi.on('user_bash', (event) => ({
-    result: {
-      output: `Brunch tool policy blocks shell commands: ${event.command}`,
-      exitCode: 1,
-      cancelled: false,
-      truncated: false,
-    },
-  }));
+  pi.on('user_bash', (event, ctx) => {
+    const state = projectBrunchAgentStateFromSessionManager(ctx?.sessionManager);
+    const blockedToolNames = toolPolicyForRuntimeState(state).blockedToolNames.join(', ');
+    return {
+      result: {
+        output:
+          `Brunch tool policy blocks shell commands in ${state.operationalMode} mode ` +
+          `(${blockedToolNames}): ${event.command}`,
+        exitCode: 1,
+        cancelled: false,
+        truncated: false,
+      },
+    };
+  });
 }
 
 export default registerBrunchOperationalModePolicy;

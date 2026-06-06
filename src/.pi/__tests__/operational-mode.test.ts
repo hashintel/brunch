@@ -193,7 +193,7 @@ describe('Brunch agent runtime-state projection', () => {
     expect(events.user_bash?.({ command: 'rm -rf .' } as never)).toMatchObject({
       result: {
         exitCode: 1,
-        output: 'Brunch tool policy blocks shell commands: rm -rf .',
+        output: 'Brunch tool policy blocks shell commands in elicit mode (bash, edit, write): rm -rf .',
       },
     });
   });

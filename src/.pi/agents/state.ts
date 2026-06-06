@@ -1,7 +1,10 @@
 import { fileURLToPath } from 'node:url';
 
 import type { ReadinessGrade } from '../../graph/index.js';
-import type { ResolvedBrunchAgentState } from '../../projections/session/runtime-state.js';
+import {
+  toolPolicyForRuntimeState,
+  type ResolvedBrunchAgentState,
+} from '../../projections/session/runtime-policy.js';
 import type { AgentGoalId, AgentLensId, AgentRoleId, AgentStrategyId } from '../../session/runtime-state.js';
 
 export type { ReadinessGrade };
@@ -92,9 +95,6 @@ const METHOD_TOOL_NAMES: Partial<Record<MethodId, readonly string[]>> = {
   'read-snapshot': ['read_graph'],
   'commit-graph': ['commit_graph'],
 };
-
-const ELICIT_BASE_TOOL_NAMES = ['read', 'grep', 'find', 'ls'] as const;
-const ELICIT_BLOCKED_TOOL_NAMES = ['bash', 'edit', 'write'] as const;
 
 export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition> = {
   elicitor: {
@@ -277,16 +277,15 @@ export function activeToolNamesForPosture({
   state,
   readinessGrade,
 }: BrunchPostureToolPolicyInput): string[] {
-  if (state.operationalModeDefinition.toolPolicyId !== 'elicit-read-only') return [];
-
-  const legalTools = new Set<string>(ELICIT_BASE_TOOL_NAMES);
+  const toolPolicy = toolPolicyForRuntimeState(state);
+  const legalTools = new Set<string>(toolPolicy.baseAllowedToolNames);
   for (const method of methodIdsForState(state, readinessGrade)) {
     for (const toolName of METHOD_TOOL_NAMES[method] ?? []) {
       legalTools.add(toolName);
     }
   }
 
-  const blockedTools = new Set<string>(ELICIT_BLOCKED_TOOL_NAMES);
+  const blockedTools = new Set<string>(toolPolicy.blockedToolNames);
 
   return registeredToolNames.filter((toolName) => legalTools.has(toolName) && !blockedTools.has(toolName));
 }

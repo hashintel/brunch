@@ -14,6 +14,12 @@ import type {
   ToolPolicyId,
 } from '../../session/runtime-state.js';
 
+export interface ToolPolicyDefinition {
+  id: ToolPolicyId;
+  baseAllowedToolNames: readonly string[];
+  blockedToolNames: readonly string[];
+}
+
 export interface OperationalModeDefinition {
   id: OperationalModeId;
   defaultRole: AgentRoleId;
@@ -70,3 +76,19 @@ export const AGENT_ROLE_DEFINITIONS: Record<AgentRoleId, AgentRoleDefinition> = 
     promptPackIds: ['elicitor'],
   },
 };
+
+export const TOOL_POLICY_DEFINITIONS: Record<ToolPolicyId, ToolPolicyDefinition> = {
+  'elicit-read-only': {
+    id: 'elicit-read-only',
+    baseAllowedToolNames: ['read', 'grep', 'find', 'ls'],
+    blockedToolNames: ['bash', 'edit', 'write'],
+  },
+};
+
+export function toolPolicyForRuntimeState(state: ResolvedBrunchAgentState): ToolPolicyDefinition {
+  return TOOL_POLICY_DEFINITIONS[state.operationalModeDefinition.toolPolicyId];
+}
+
+export function isToolBlockedForRuntimeState(state: ResolvedBrunchAgentState, toolName: string): boolean {
+  return toolPolicyForRuntimeState(state).blockedToolNames.includes(toolName);
+}
