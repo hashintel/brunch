@@ -90,6 +90,7 @@ import { fileURLToPath } from 'node:url';
 import { createDb } from '../../../src/db/connection.js';
 import { CommandExecutor } from '../../../src/graph/command-executor.js';
 import { seedFixture, type SeedFixture } from '../../../src/graph/seed-fixtures.js';
+import { dedupeSeedEdgesByPrecedence, type OriginTaggedEdge } from './duplicate-edge-policy.js';
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -610,9 +611,11 @@ function portSpec(sourceName: string, slug: string, displayName: string): SpecPo
     });
   }
 
-  // Phase 3: emit brunch edges
-  const brunchEdges: BrunchEdgeFixture[] = [];
-  const emittedEdgeKeys = new Set<string>();
+  // Phase 3: collect edge candidates, then resolve duplicates by precedence.
+  // Synthetic fill-in edges (the audit-check realization edges) are tagged
+  // `synthetic`; ported source edges are tagged `source`. On a key collision
+  // the source edge wins, so synthetic fill-ins never hide ported rationale.
+  const edgeCandidates: OriginTaggedEdge<BrunchEdgeFixture>[] = [];
   const stats = {
     nodes_in: nodes.length,
     edges_in: edges.length,
@@ -624,29 +627,22 @@ function portSpec(sourceName: string, slug: string, displayName: string): SpecPo
     edges_dropped_duplicate_after_collapse: 0,
   };
 
-  const emitEdge = (edge: BrunchEdgeFixture): void => {
-    const key = `${edge.source_local_id}\0${edge.target_local_id}\0${edge.category}\0${edge.stance ?? ''}`;
-    if (emittedEdgeKeys.has(key)) {
-      stats.edges_dropped_duplicate_after_collapse++;
-      return;
-    }
-    emittedEdgeKeys.add(key);
-    brunchEdges.push(edge);
-  };
-
   // 3a. synthesize one realization edge per evidence node, from the audit check
   if (auditCheckLocalId !== null) {
     for (const node of nodes) {
       if (node.kind !== 'content' || node.semanticRole !== 'evidence') continue;
       const evidenceLocalId = bilalUuidToLocalId.get(node.id);
       if (evidenceLocalId === undefined) continue;
-      emitEdge({
-        category: 'realization',
-        source_local_id: auditCheckLocalId,
-        target_local_id: evidenceLocalId,
-        stance: null,
-        basis: 'explicit',
-        rationale: null,
+      edgeCandidates.push({
+        origin: 'synthetic',
+        edge: {
+          category: 'realization',
+          source_local_id: auditCheckLocalId,
+          target_local_id: evidenceLocalId,
+          stance: null,
+          basis: 'explicit',
+          rationale: null,
+        },
       });
     }
   }
@@ -677,15 +673,22 @@ function portSpec(sourceName: string, slug: string, displayName: string): SpecPo
       stats.edges_absorbed++;
       continue;
     }
-    emitEdge({
-      category: mapping.category,
-      source_local_id: sourceLocalId,
-      target_local_id: targetLocalId,
-      stance: mapping.stance,
-      basis: 'explicit',
-      rationale: edge.rationale,
+    edgeCandidates.push({
+      origin: 'source',
+      edge: {
+        category: mapping.category,
+        source_local_id: sourceLocalId,
+        target_local_id: targetLocalId,
+        stance: mapping.stance,
+        basis: 'explicit',
+        rationale: edge.rationale,
+      },
     });
   }
+
+  const deduped = dedupeSeedEdgesByPrecedence(edgeCandidates);
+  const brunchEdges = deduped.edges;
+  stats.edges_dropped_duplicate_after_collapse = deduped.duplicatesDropped;
   stats.edges_emitted = brunchEdges.length;
 
   return { slug, brunchNodes, brunchEdges, stats, bilalDisplayIdByLocalId };
