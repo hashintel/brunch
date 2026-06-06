@@ -295,7 +295,7 @@ tsconfig*.json                                          ?
 
 ## Card 3 — Hoist reusable projections and renderers
 
-Status: next
+Status: done
 Weight: full
 
 ### Target Behavior
@@ -345,6 +345,25 @@ This slice materializes the projection/renderer boundary in code. It scores on i
 - Inner: focused tests for graph formatting, session transcript formatting, workspace snapshot projection/rendering, structured-exchange formatting, and boundary tests.
 - Middle: `npm run check` plus targeted `npm run test -- structured-exchange graph session workspace-snapshot` as applicable.
 - Gate: `npm run verify` before commit.
+
+### Card 3 build summary
+
+```pseudo
+move summary:
+  src/graph/project/*                 -> src/projections/graph/*
+  src/graph/format/*                  -> src/renderers/graph/*
+  src/session/project/transcript-context.ts -> src/projections/session/transcript-context.ts
+  src/session/format/transcript.ts    -> src/renderers/session/transcript.ts
+  src/structured-exchange/project/*   -> src/projections/structured-exchange/*
+  src/structured-exchange/format/*    -> src/renderers/structured-exchange/*
+  src/render/markdown.ts              -> src/renderers/markdown.ts
+  src/render/toon.ts                  -> src/renderers/toon.ts
+  src/scripts/print-snapshot.ts       -> src/projections/workspace/workspace-snapshot.ts
+  src/scripts/print-snapshot.ts       -> src/renderers/workspace/workspace-snapshot.ts
+  src/scripts/print-snapshot.test.ts  -> src/renderers/workspace/workspace-snapshot.test.ts
+```
+
+New `src/projections/README.md` and `src/renderers/README.md` define the top-level seam and import direction. `src/projections/topology-boundaries.test.ts` guards reusable projection/renderer imports away from `.pi`, `rpc`, `app`, and `web`; the structured-exchange schema-lock exception remains documented because D37-L/D41-L still source active detail schemas from `.pi/extensions/exchanges/schemas/`.
 
 ### Cross-cutting obligations
 

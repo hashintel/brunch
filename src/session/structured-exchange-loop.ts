@@ -2,13 +2,13 @@ import * as z from 'zod';
 
 import type { PresentDetails } from '../.pi/extensions/exchanges/schemas/index.js';
 import { isStructuredExchangePresentDetails } from '../.pi/extensions/exchanges/shared/recovery.js';
-import { formatPresentOptions } from '../structured-exchange/format/present-options.js';
-import { formatPresentQuestion } from '../structured-exchange/format/present-question.js';
-import { projectPresentOptions } from '../structured-exchange/project/present-options.js';
-import { projectPresentQuestion } from '../structured-exchange/project/present-question.js';
-import { projectRequestAnswer } from '../structured-exchange/project/request-answer.js';
-import { projectRequestChoice } from '../structured-exchange/project/request-choice.js';
-import { projectRequestChoices } from '../structured-exchange/project/request-choices.js';
+import { projectPresentOptions } from '../projections/structured-exchange/present-options.js';
+import { projectPresentQuestion } from '../projections/structured-exchange/present-question.js';
+import { projectRequestAnswer } from '../projections/structured-exchange/request-answer.js';
+import { projectRequestChoice } from '../projections/structured-exchange/request-choice.js';
+import { projectRequestChoices } from '../projections/structured-exchange/request-choices.js';
+import { formatPresentOptions } from '../renderers/structured-exchange/present-options.js';
+import { formatPresentQuestion } from '../renderers/structured-exchange/present-question.js';
 import type { BrunchSessionEnvelope } from './brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from './exchange-projection.js';
 

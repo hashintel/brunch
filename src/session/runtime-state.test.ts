@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import { projectSessionRuntimeState } from '../projections/session/runtime-state.js';
 import { NonLinearTranscriptError, type BrunchSessionEnvelope } from './brunch-session-envelope.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
-  projectSessionRuntimeState,
   type BrunchAgentState,
 } from './runtime-state.js';
 import { createSessionBindingData } from './session-binding.js';

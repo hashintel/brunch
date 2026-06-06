@@ -2,10 +2,11 @@ import process from 'node:process';
 import type { Readable, Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
+import { workspaceSnapshotFromState } from '../projections/workspace/workspace-snapshot.js';
+import { renderWorkspaceSnapshot } from '../renderers/workspace/workspace-snapshot.js';
 import { createRpcHandlers, runJsonRpcLineServer } from '../rpc/handlers.js';
 import { createProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost } from '../rpc/web-host.js';
-import { renderWorkspaceSnapshot, workspaceSnapshotFromState } from '../scripts/print-snapshot.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,

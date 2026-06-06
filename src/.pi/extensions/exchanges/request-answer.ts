@@ -1,7 +1,7 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
-import { formatRequestAnswer } from '../../../structured-exchange/format/request-answer.js';
-import { projectRequestAnswer } from '../../../structured-exchange/project/request-answer.js';
+import { projectRequestAnswer } from '../../../projections/structured-exchange/request-answer.js';
+import { formatRequestAnswer } from '../../../renderers/structured-exchange/request-answer.js';
 import { piSchema } from './pi-schema.js';
 import { zRequestAnswerParams, type RequestAnswerParams } from './schemas/index.js';
 import { renderMarkdownResult } from './shared/markdown.js';

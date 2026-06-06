@@ -13,9 +13,9 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import type { CommandExecutor } from '../../../graph/command-executor.js';
-import { formatNeighborhood } from '../../../graph/format/neighborhood.js';
-import { projectNeighborhood } from '../../../graph/project/neighborhood.js';
 import type { GraphOverview, NeighborhoodResult } from '../../../graph/snapshot.js';
+import { projectNeighborhood } from '../../../projections/graph/neighborhood.js';
+import { formatNeighborhood } from '../../../renderers/graph/neighborhood.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
 import {
   translateCommitGraph,

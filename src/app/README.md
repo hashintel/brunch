@@ -21,4 +21,4 @@ Current entrypoints:
 
 ## Dependency direction
 
-`app/` may import from `.pi/`, `graph/`, `session/`, `rpc/`, `projections/`, `renderers/`, and `scripts/` to compose product modes. Domain layers must not import `app/`.
+`app/` may import from `.pi/`, `graph/`, `session/`, `rpc/`, `projections/`, and `renderers/` to compose product modes. Domain layers must not import `app/`.

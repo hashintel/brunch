@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 import type { FileEntry } from '@earendil-works/pi-coding-agent';
 
-import { formatTranscript } from './format/transcript.js';
-import { projectTranscriptContext } from './project/transcript-context.js';
+import { projectTranscriptContext } from '../projections/session/transcript-context.js';
+import { formatTranscript } from '../renderers/session/transcript.js';
 
 type TranscriptEntry = FileEntry;
 

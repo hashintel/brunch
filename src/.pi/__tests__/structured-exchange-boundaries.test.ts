@@ -5,20 +5,20 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = process.cwd();
 const STRUCTURED_EXCHANGE_EXTENSION = 'src/.pi/extensions/exchanges';
-const STRUCTURED_EXCHANGE_PROJECT = 'src/structured-exchange/project';
+const STRUCTURED_EXCHANGE_PROJECT = 'src/projections/structured-exchange';
 const STRUCTURED_EXCHANGE_SCHEMAS = 'src/.pi/extensions/exchanges/schemas';
 const STRUCTURED_EXCHANGE_EMISSION_BOUNDARIES = [
   STRUCTURED_EXCHANGE_EXTENSION,
   'src/session/structured-exchange-loop.ts',
 ];
 const ACTIVE_PROJECTORS = new Set([
-  'src/structured-exchange/project/present-options.ts',
-  'src/structured-exchange/project/present-question.ts',
-  'src/structured-exchange/project/present-review-set.ts',
-  'src/structured-exchange/project/request-answer.ts',
-  'src/structured-exchange/project/request-choice.ts',
-  'src/structured-exchange/project/request-choices.ts',
-  'src/structured-exchange/project/request-review.ts',
+  'src/projections/structured-exchange/present-options.ts',
+  'src/projections/structured-exchange/present-question.ts',
+  'src/projections/structured-exchange/present-review-set.ts',
+  'src/projections/structured-exchange/request-answer.ts',
+  'src/projections/structured-exchange/request-choice.ts',
+  'src/projections/structured-exchange/request-choices.ts',
+  'src/projections/structured-exchange/request-review.ts',
 ]);
 const ALLOWED_TYPEBOX_FILES = new Set(['src/.pi/extensions/exchanges/pi-schema.ts']);
 

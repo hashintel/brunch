@@ -10,8 +10,8 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 
 - Agent prompt-resource semantics or manifest composition — `.pi/agents/` and `.pi/skills/`.
 - Graph truth, graph mutation policy, or graph readers — `graph/`.
-- Pi JSONL/session semantics, runtime-state projection, workspace coordination, or transcript exchange projection — `session/`.
-- Reusable DTO projection or reusable markdown/text rendering — target top-level `projections/` and `renderers/` seams; current domain-local `*/project/` and `*/format/` folders are migration inputs.
+- Pi JSONL/session semantics, runtime-state projection, workspace coordination, or transcript exchange projection — `session/` until the runtime-state follow-up split lands.
+- Reusable DTO projection or reusable markdown/text rendering — top-level `projections/` and `renderers/`.
 - Product transport handlers — `rpc/`, `app/`, and `web/`.
 
 ## Directory layout

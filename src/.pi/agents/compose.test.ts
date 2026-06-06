@@ -4,7 +4,10 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_BRUNCH_AGENT_STATE, projectBrunchAgentState } from '../../session/runtime-state.js';
+import {
+  DEFAULT_BRUNCH_AGENT_STATE,
+  projectBrunchAgentState,
+} from '../../projections/session/runtime-state.js';
 import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
 import { composeAgentPrompt } from './compose.js';
 

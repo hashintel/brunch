@@ -1,12 +1,12 @@
 # src/ — Brunch source topology
 
-Decision D52-L in `memory/SPEC.md` locks the target layout. Some layers are still mid-migration; migration notes below distinguish current files from final ownership.
+Decision D52-L in `memory/SPEC.md` locks the target layout. Runtime-state projection remains a planned follow-up split under Cards 4–5 of the active topology chain.
 
 ```text
 src/
-├── app/                  Product host entrypoints and wiring                  [target]
-├── workspace/            Cwd/package/workspace identity helpers               [target]
-├── scripts/              Local executable utilities                           [target]
+├── app/                  Product host entrypoints and wiring
+├── workspace/            Cwd/package/workspace identity helpers
+├── scripts/              Local executable utilities
 │
 ├── .pi/                  Sealed Pi-harness runtime surface
 │   ├── agents/             Pi session-agent prompt assembly and definitions
@@ -25,8 +25,8 @@ src/
 │                           transcript projection, exchange extraction,
 │                           workspace coordination, session binding, LSN staleness
 │
-├── projections/          Structured DTOs derived from domain/session/tool facts [target]
-├── renderers/            Lossy text/markdown/toon/tool-content rendering       [target]
+├── projections/          Structured DTOs derived from domain/session/tool facts
+├── renderers/            Lossy text/markdown/toon/tool-content rendering
 │
 ├── rpc/                  Brunch JSON-RPC handlers
 │                           protocol, method handlers, WebSocket adapter
@@ -44,7 +44,7 @@ rules:
   renderers/*     -> projections/, graph/, session/ as needed for input types
   .pi/            -> graph/, session/, projections/, renderers/ [Pi runtime adapters/resources]
   rpc/           -> graph/, session/, projections/, renderers/
-  app/           -> graph/, session/, projections/, renderers/, scripts/
+  app/           -> graph/, session/, projections/, renderers/
   graph/, session/ x> .pi/, rpc/, app/, web/
   projections/    x> .pi/, rpc/, app/, web/
   renderers/      x> .pi/, rpc/, app/, web/
@@ -62,11 +62,12 @@ Rules:
 
 ## Migration notes
 
-Product entrypoints now live in `app/`, print-mode utility code lives in `scripts/`, and package identity tests live in `workspace/`. No compatibility root files remain for the old `src/brunch*`, `src/print-snapshot*`, or `src/package-identity*` paths.
+Product entrypoints now live in `app/`, package identity tests live in `workspace/`, reusable workspace snapshot DTOs live in `projections/workspace/`, and reusable print-mode snapshot text lives in `renderers/workspace/`. No compatibility root files remain for the old `src/brunch*`, `src/print-snapshot*`, or `src/package-identity*` paths.
 
-Temporary drift: `src/scripts/print-snapshot.ts` still contains reusable workspace snapshot DTO/rendering code consumed by `rpc/` and `web/`. The next projection/renderer migration should move those shared pieces to `projections/workspace/` and `renderers/workspace/`, leaving `scripts/` as local utility shell code only.
-Current `src/{graph,session,structured-exchange}/project/` folders are planned inputs to top-level `projections/` when they represent reusable DTO boundaries.
+The old domain-local `src/{graph,session,structured-exchange}/project/` folders now live under `projections/{graph,session,structured-exchange}/`.
 
-Current `src/{graph,session,structured-exchange}/format/` folders and `src/render/` are planned inputs to top-level `renderers/` when they represent reusable lossy text/markdown boundaries. Collapse single-caller helpers instead of creating bucket-like top-level files.
+The old domain-local `src/{graph,session,structured-exchange}/format/` folders and `src/render/` now live under `renderers/{graph,session,structured-exchange}/` and `renderers/`.
+
+Runtime-state transcript entry facts live in `session/runtime-state.ts`; reusable flattened runtime-state projection/policy now lives in `projections/session/runtime-state.ts` and `projections/session/runtime-policy.ts`.
 
 The old `src/agents/` top-level prompt subtree has moved under `src/.pi/{agents,skills}/` because these agents/resources live only inside the Pi harness. The old `src/.pi/context/` prompt-pack subtree remains retired.

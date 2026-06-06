@@ -6,16 +6,14 @@ SPEC decisions: D52-L
 
 Local executable utilities and script-facing helpers that are not product domain layers.
 
-Current utilities:
-
-- `print-snapshot.ts` — projects a workspace/session state into the CLI print-mode snapshot text.
+Current utilities: none. Print-mode snapshot projection/rendering moved to `projections/workspace/` and `renderers/workspace/`; `app/` now calls those shared seams directly.
 
 ## Does not own
 
 - Durable graph or session semantics.
 - Product host lifecycle and mode dispatch — `app/`.
-- Reusable text renderers intended for multiple layers — target `renderers/` when that seam is materialized.
-
+- Reusable DTO projection — `projections/`.
+- Reusable text renderers intended for multiple layers — `renderers/`.
 ## Dependency direction
 
-`scripts/` may import domain/session types needed to produce utility output. Domain layers must not import `scripts/`.
+`scripts/` may import domain/session types needed to produce utility output. Domain layers, adapters, RPC, and web must not import `scripts/`.

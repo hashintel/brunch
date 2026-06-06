@@ -11,10 +11,12 @@ import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 
 import {
   projectBrunchAgentState,
-  type AgentLensSelection,
-  type AgentStrategySelection,
-  type OperationalModeId,
   type ResolvedBrunchAgentState,
+} from '../../../projections/session/runtime-state.js';
+import type {
+  AgentLensSelection,
+  AgentStrategySelection,
+  OperationalModeId,
 } from '../../../session/runtime-state.js';
 import type {
   WorkspaceProjectState,

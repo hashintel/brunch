@@ -1,13 +1,8 @@
 import { fileURLToPath } from 'node:url';
 
 import type { ReadinessGrade } from '../../graph/index.js';
-import type {
-  AgentGoalId,
-  AgentLensId,
-  AgentRoleId,
-  AgentStrategyId,
-  ResolvedBrunchAgentState,
-} from '../../session/runtime-state.js';
+import type { ResolvedBrunchAgentState } from '../../projections/session/runtime-state.js';
+import type { AgentGoalId, AgentLensId, AgentRoleId, AgentStrategyId } from '../../session/runtime-state.js';
 
 export type { ReadinessGrade };
 export type PromptResourceFamily = 'goals' | 'strategies' | 'lenses' | 'methods' | 'definitions';

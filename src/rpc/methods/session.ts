@@ -4,13 +4,13 @@ import { Value } from 'typebox/value';
 import { captureStructuredResponseFacts } from '../../graph/capture/structured-response.js';
 import type { StructuredResponseCaptureOutcome } from '../../graph/capture/structured-response.js';
 import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
+import { projectSessionRuntimeState } from '../../projections/session/runtime-state.js';
 import {
   readBrunchSessionEnvelope,
   NonLinearTranscriptError,
   type BrunchSessionEnvelope,
 } from '../../session/brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from '../../session/exchange-projection.js';
-import { projectSessionRuntimeState } from '../../session/runtime-state.js';
 import {
   resolveExplicitSessionProjectionTarget,
   type ExplicitSessionProjectionParams,

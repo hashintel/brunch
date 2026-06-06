@@ -1,7 +1,7 @@
-import { formatRequestChoice } from '../../../../structured-exchange/format/request-choice.js';
-import { formatRequestChoices } from '../../../../structured-exchange/format/request-choices.js';
-import { projectRequestChoice } from '../../../../structured-exchange/project/request-choice.js';
-import { projectRequestChoices } from '../../../../structured-exchange/project/request-choices.js';
+import { projectRequestChoice } from '../../../../projections/structured-exchange/request-choice.js';
+import { projectRequestChoices } from '../../../../projections/structured-exchange/request-choices.js';
+import { formatRequestChoice } from '../../../../renderers/structured-exchange/request-choice.js';
+import { formatRequestChoices } from '../../../../renderers/structured-exchange/request-choices.js';
 import type { SelectedChoice } from '../schemas/index.js';
 
 export type StructuredExchangeMode = 'single-select' | 'multi-select';

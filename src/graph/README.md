@@ -62,6 +62,8 @@ not compare bare LSN values across sibling specs.
 
 - `.pi/extensions/graph/` — Pi tool adapters for `commit_graph` and `read_graph`.
 - `rpc/` — graph projection handlers and synchronous response-capture wiring.
+- `projections/graph/` — reusable DTO projection over graph reader/command outputs.
+- `renderers/graph/` — reusable lossy markdown/text rendering over projected graph DTOs.
 - `.pi/agents/contexts/` — future prompt context renderers.
 - `probes/` — graph proof drivers.
 

@@ -25,17 +25,23 @@ const ELICIT_BLOCKED_TOOLS = ['bash', 'edit', 'write'] as const;
 type ElicitBlockedToolName = (typeof ELICIT_BLOCKED_TOOLS)[number];
 
 export {
-  BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
+  projectBrunchAgentState,
+  type ResolvedBrunchAgentState,
+} from '../../../projections/session/runtime-state.js';
+export type {
+  AgentRoleDefinition,
+  OperationalModeDefinition,
+} from '../../../projections/session/runtime-policy.js';
+export {
+  BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   appendBrunchAgentRuntimeInit,
   appendBrunchAgentRuntimeSwitch,
-  projectBrunchAgentState,
   type AgentGoalId,
   type AgentGoalSelection,
   type AgentLensId,
   type AgentLensSelection,
   type AgentRoleId,
-  type AgentRoleDefinition,
   type AgentStrategyId,
   type AgentStrategySelection,
   type AutoAxisSelection,
@@ -43,17 +49,17 @@ export {
   type BrunchAgentStateEntryData,
   type BrunchAgentStateEntrySessionManager,
   type ModelPreference,
-  type OperationalModeDefinition,
   type OperationalModeId,
   type PromptPackId,
-  type ResolvedBrunchAgentState,
   type ThinkingLevel,
   type ToolPolicyId,
 } from '../../../session/runtime-state.js';
 import {
-  appendBrunchAgentRuntimeInit,
   projectBrunchAgentState,
   type ResolvedBrunchAgentState,
+} from '../../../projections/session/runtime-state.js';
+import {
+  appendBrunchAgentRuntimeInit,
   type BrunchAgentStateEntrySessionManager,
 } from '../../../session/runtime-state.js';
 

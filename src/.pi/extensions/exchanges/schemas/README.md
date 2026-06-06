@@ -39,15 +39,15 @@ The organization is layer-first: shared vocabulary, tool parameter schemas, pres
 ```pseudo
 chain active Pi tool / session trigger / RPC editor relay
   -> parse params or relay payload at the entry boundary
-  -> exchanges/project/* constructs details
+  -> projections/structured-exchange/* constructs details
   -> relevant details Zod schema parses result
-  -> exchanges/format/* renders durable markdown
+  -> renderers/structured-exchange/* renders durable markdown
 ```
 
 - Active `.pi/extensions/exchanges/*.ts` files own Pi registration and UI collection only.
 - `../pi-schema.ts` is the only Zod JSON Schema to Pi `TSchema` adapter.
-- `exchanges/project/*` is the only construction boundary for active present/request `toolResult.details`.
-- `exchanges/format/*` owns durable markdown for active present/request emissions.
+- `projections/structured-exchange/*` is the only construction boundary for active present/request `toolResult.details`.
+- `renderers/structured-exchange/*` owns durable markdown for active present/request emissions.
 - Session pending exchange recovery projects from canonical present/request details; it does not author a TypeBox semantic schema.
 - The RPC/editor relay is an intentional current product fallback and must still emit canonical details through projectors.
 - The proof-era `brunch.structured_exchange.result` details model is retired.

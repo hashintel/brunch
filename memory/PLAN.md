@@ -158,7 +158,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 - **Cross-cutting obligations:** Preserve D27-L: review-set proposal is a structured-exchange payload, not a standalone public review-set entity. Reviewer advisory writes remain deferred unless explicitly scoped. Existing-node references and review payloads use projected graph codes at adapter/UI boundaries, not raw DB ids.
 - **Traceability:** R21, R23 / D4-L, D20-L, D26-L, D27-L, D51-L, D53-L, D62-L, D63-L / I11-L, I15-L, I20-L, I34-L, I40-L / A14-L, A16-L.
 - **Design docs:** `docs/design/REVIEW_SETS.md`; `docs/design/GRAPH_MODEL.md`; `memory/SPEC.md` D27-L.
-- **Current execution pointer:** Structured-exchange schema/emission lock complete and structurally guarded: active details/params are Zod-authored; the only Pi `TSchema` accommodation is `src/.pi/extensions/exchanges/pi-schema.ts`; active Pi tools, session-triggered present/request emissions, and the intentional RPC/editor relay route details through canonical projectors and durable markdown through `src/exchanges/format/*`; source-boundary tests guard against inline detail construction, scattered TypeBox, duplicate `tool_meta`, and missing projector parse validation. Remaining FE-809 work is approval-to-`acceptReviewSet` product wiring and the real `project-graph` proposal probe.
+- **Current execution pointer:** Structured-exchange schema/emission lock complete and structurally guarded: active details/params are Zod-authored; the only Pi `TSchema` accommodation is `src/.pi/extensions/exchanges/pi-schema.ts`; active Pi tools, session-triggered present/request emissions, and the intentional RPC/editor relay route details through canonical `src/projections/structured-exchange/*` projectors and durable markdown through `src/renderers/structured-exchange/*`; source-boundary tests guard against inline detail construction, scattered TypeBox, duplicate `tool_meta`, and missing projector parse validation. Remaining FE-809 work is approval-to-`acceptReviewSet` product wiring and the real `project-graph` proposal probe.
 
 ### minimal-authority-shell
 
@@ -234,7 +234,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 - **Topology materialization:** This frontier should usually be implemented as part of the frontier that caused the topology change; keep it separate only for doc/test-only hardening with low conflict. The active projection/renderer chain is tracked in `memory/cards/topology-readmes-and-boundaries--projection-format-boundaries.md`.
 - **Cross-cutting obligations:** Do not create speculative folders. A directory earns existence by carrying present code/resources or by making an already-used seam legible.
 - **Traceability:** D52-L, D39-L, D4-L.
-- **Design docs:** `src/README.md`; `src/.pi/README.md`; `src/.pi/agents/README.md`; `src/.pi/skills/README.md`; `src/.pi/extensions/README.md`; `src/db/README.md`; `src/graph/README.md`; `src/rpc/README.md`; `src/session/README.md`; `src/web/README.md`.
+- **Design docs:** `src/README.md`; `src/.pi/README.md`; `src/.pi/agents/README.md`; `src/.pi/skills/README.md`; `src/.pi/extensions/README.md`; `src/db/README.md`; `src/graph/README.md`; `src/projections/README.md`; `src/renderers/README.md`; `src/rpc/README.md`; `src/session/README.md`; `src/web/README.md`.
 
 ### dev-seed-fixtures
 
