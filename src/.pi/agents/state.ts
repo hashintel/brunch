@@ -94,6 +94,7 @@ const METHOD_TOOL_NAMES: Partial<Record<MethodId, readonly string[]>> = {
   ],
   'read-snapshot': ['read_graph'],
   'commit-graph': ['commit_graph'],
+  'generate-proposal': ['present_review_set', 'request_review'],
 };
 
 export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition> = {

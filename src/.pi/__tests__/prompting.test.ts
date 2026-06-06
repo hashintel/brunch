@@ -302,6 +302,8 @@ describe('Brunch prompt-pack topology', () => {
           'request_answer',
           'request_choice',
           'request_choices',
+          'present_review_set',
+          'request_review',
           'read_graph',
           'commit_graph',
         ].map((name) => ({ name })),
@@ -374,6 +376,8 @@ describe('Brunch prompt-pack topology', () => {
         'request_answer',
         'request_choice',
         'request_choices',
+        'present_review_set',
+        'request_review',
         'read_graph',
         'commit_graph',
       ],
@@ -393,6 +397,8 @@ describe('Brunch prompt-pack topology', () => {
         'request_answer',
         'request_choice',
         'request_choices',
+        'present_review_set',
+        'request_review',
         'read_graph',
         'commit_graph',
       ],
@@ -405,7 +411,7 @@ describe('Brunch prompt-pack topology', () => {
     });
     expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining(
-        '- active tools: read, grep, present_options, request_answer, request_choice, request_choices, read_graph, commit_graph',
+        '- active tools: read, grep, present_options, request_answer, request_choice, request_choices, present_review_set, request_review, read_graph, commit_graph',
       ),
     });
     expect(defaultPrompt).toMatchObject({
@@ -425,7 +431,10 @@ describe('Brunch prompt-pack topology', () => {
           on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
             events[event] = handler;
           },
-          getAllTools: () => ['read', 'grep', 'read_graph', 'commit_graph'].map((name) => ({ name })),
+          getAllTools: () =>
+            ['read', 'grep', 'read_graph', 'commit_graph', 'present_review_set', 'request_review'].map(
+              (name) => ({ name }),
+            ),
           setActiveTools: (tools: string[]) => activeTools.push(tools),
         } as never,
         {
@@ -445,6 +454,8 @@ describe('Brunch prompt-pack topology', () => {
 
     await expect(activeToolsForGrade('grounding_onboarding')).resolves.not.toContain('commit_graph');
     await expect(activeToolsForGrade('elicitation_ready')).resolves.toContain('commit_graph');
+    await expect(activeToolsForGrade('elicitation_ready')).resolves.not.toContain('present_review_set');
+    await expect(activeToolsForGrade('commitments_ready')).resolves.toContain('present_review_set');
   });
 
   it('is registered by the explicit shell after operational-mode policy and appends composed manifests', async () => {

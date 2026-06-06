@@ -16,6 +16,8 @@ const registeredToolNames = [
   'request_answer',
   'request_choice',
   'request_choices',
+  'present_review_set',
+  'request_review',
   'read_graph',
   'commit_graph',
 ];
@@ -61,5 +63,7 @@ describe('agent posture policy', () => {
     expect(elicitationTools).toContain('commit_graph');
     expect(commitmentsMethods).toContain('generate-proposal');
     expect(commitmentsTools).toContain('commit_graph');
+    expect(commitmentsTools).toEqual(expect.arrayContaining(['present_review_set', 'request_review']));
+    expect(elicitationTools).not.toContain('present_review_set');
   });
 });
