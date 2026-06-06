@@ -11,7 +11,6 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import { createBrunchPiProfile } from './.pi/brunch-pi-profile.js';
 import {
   BRUNCH_CONTINUE_COMMAND,
   BRUNCH_LENS_COMMAND,
@@ -20,12 +19,13 @@ import {
   BRUNCH_SWITCH_COMMAND,
   BRUNCH_SWITCH_SHORTCUT,
   chromeStateForWorkspace,
-  createBrunchPiExtensionShell,
+  createBrunchPiExtensions,
   registerBrunchAlternatives,
   registerBrunchOperationalModePolicy,
   runBrunchWorkspaceCommand,
   runBrunchWorkspaceAction,
-} from './.pi/pi-extension-shell.js';
+} from './.pi/brunch-pi-extensions.js';
+import { createBrunchPiSettings } from './.pi/brunch-pi-settings.js';
 import {
   BRUNCH_SETTINGS_AUDITED_GETTERS,
   BRUNCH_SETTINGS_POLICY,
@@ -424,7 +424,7 @@ describe('Brunch TUI boot', () => {
     const beforeAgentStart: Array<(event: unknown, ctx: FakeExtensionContext) => Promise<void>> = [];
     const messageStart: Array<(event: unknown, ctx: FakeExtensionContext) => Promise<void>> = [];
 
-    await createBrunchPiExtensionShell(
+    await createBrunchPiExtensions(
       chromeStateForWorkspace(readyWorkspace(cwd, manager.getSessionId())),
       (sessionManager) => {
         boundSessionIds.push(sessionManager.getSessionId());
@@ -471,7 +471,7 @@ describe('Brunch TUI boot', () => {
     const shortcuts = new Map<string, Omit<RegisteredCommand, 'name' | 'sourceInfo'>>();
     const registeredTools: string[] = [];
 
-    await createBrunchPiExtensionShell(
+    await createBrunchPiExtensions(
       chromeStateForWorkspace(readyWorkspace('/tmp/project', 'session-1')),
       undefined,
       {
@@ -744,7 +744,7 @@ describe('Brunch TUI boot', () => {
     };
     const handlers = new Map<string, (event: unknown, ctx: FakeExtensionContext) => unknown>();
 
-    await createBrunchPiExtensionShell(
+    await createBrunchPiExtensions(
       chromeStateForWorkspace(readyWorkspace(cwd, manager.getSessionId())),
       undefined,
       { coordinator: noOpWorkspaceCoordinator(cwd) },
@@ -827,7 +827,7 @@ describe('Brunch TUI boot', () => {
     let providerFactory: ((current: FakeAutocompleteProvider) => FakeAutocompleteProvider) | undefined;
     const sessionStart: Array<(event: unknown, ctx: FakeExtensionContext) => Promise<void> | void> = [];
 
-    await createBrunchPiExtensionShell(
+    await createBrunchPiExtensions(
       chromeStateForWorkspace(readyWorkspace('/tmp/project', 'session-1')),
       undefined,
       { coordinator: noOpWorkspaceCoordinator('/tmp/project') },
@@ -1027,17 +1027,17 @@ describe('Brunch TUI boot', () => {
     expect(settingsManager.getNpmCommand()).toBeUndefined();
   });
 
-  it('keeps ambient resource suppression and explicit product extensions behind one profile boundary', async () => {
+  it('keeps ambient resource suppression and explicit product extensions behind one settings boundary', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
     const extension = () => {};
-    const profile = createBrunchPiProfile({
+    const settings = createBrunchPiSettings({
       cwd,
       agentDir: cwd,
       extensionFactories: [extension],
     });
 
-    expect(profile.settingsManager.getQuietStartup()).toBe(true);
-    expect(profile.resourceLoaderOptions).toEqual({
+    expect(settings.settingsManager.getQuietStartup()).toBe(true);
+    expect(settings.resourceLoaderOptions).toEqual({
       noContextFiles: true,
       noExtensions: true,
       noPromptTemplates: true,
@@ -1049,18 +1049,18 @@ describe('Brunch TUI boot', () => {
 
   it('keeps Pi settings/resource policy out of the TUI launcher', async () => {
     const launcherSource = await readFile(join(import.meta.dirname, 'brunch-tui.ts'), 'utf8');
-    const profileSource = await readFile(join(import.meta.dirname, '.pi', 'brunch-pi-profile.ts'), 'utf8');
+    const settingsSource = await readFile(join(import.meta.dirname, '.pi', 'brunch-pi-settings.ts'), 'utf8');
 
-    expect(launcherSource).toContain('createBrunchPiProfile');
+    expect(launcherSource).toContain('createBrunchPiSettings');
     expect(launcherSource).not.toContain('SettingsManager.create');
     expect(launcherSource).not.toContain('noContextFiles');
-    expect(profileSource).toContain('SettingsManager.inMemory');
-    expect(profileSource).toContain('noContextFiles: true');
+    expect(settingsSource).toContain('SettingsManager.inMemory');
+    expect(settingsSource).toContain('noContextFiles: true');
   });
 
-  it('keeps the Brunch settings override and audit list in the profile boundary', async () => {
+  it('keeps the Brunch settings override and audit list in the settings boundary', async () => {
     const launcherSource = await readFile(join(import.meta.dirname, 'brunch-tui.ts'), 'utf8');
-    const profileSource = await readFile(join(import.meta.dirname, '.pi', 'brunch-pi-profile.ts'), 'utf8');
+    const settingsSource = await readFile(join(import.meta.dirname, '.pi', 'brunch-pi-settings.ts'), 'utf8');
     const settingsManagerTypes = await readFile(
       join(
         import.meta.dirname,
@@ -1091,8 +1091,8 @@ describe('Brunch TUI boot', () => {
     });
     expect(getterNames.sort()).toEqual([...BRUNCH_SETTINGS_AUDITED_GETTERS].sort());
     expect(launcherSource).not.toContain('SettingsManager.inMemory');
-    expect(profileSource).toContain('BRUNCH_SETTINGS_POLICY');
-    expect(profileSource).toContain('SettingsManager.inMemory');
+    expect(settingsSource).toContain('BRUNCH_SETTINGS_POLICY');
+    expect(settingsSource).toContain('SettingsManager.inMemory');
   });
 });
 

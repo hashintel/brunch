@@ -19,7 +19,7 @@ Frontier-level cross-cutting obligations this slice carries:
 - Preserve D14-L/D62-L: inserted mention text is only `#<projected graph code>` from stable kind + ordinal; labels/descriptions remain UI-only.
 - Preserve D52-L: `.pi/extensions/` adapts Pi seams and may consume selected-spec graph readers injected by the product shell; it must not import `db/` or own graph truth.
 - Preserve the M7 caveat: no mention ledger, staleness hint, or `prepareNextTurn` machinery is added in this slice.
-- Preserve co-tenancy: `src/.pi/pi-extension-shell.ts` is currently modified by adjacent FE-809 work; coordinate before building this card on the same worktree.
+- Preserve co-tenancy: `src/.pi/brunch-pi-extensions.ts` is modified by adjacent Pi-extension topology work; coordinate before building this card on the same worktree.
 
 ## Card 1 — Replace fixture-backed mention candidates with live selected-spec nodes
 
@@ -62,7 +62,7 @@ src/.pi/
 │   └── mention-autocomplete.test.ts              ~
 ├── extensions/
 │   └── mention-autocomplete.ts                   ~
-└── pi-extension-shell.ts                         ~  ! concurrent FE-809 edits present
+└── brunch-pi-extensions.ts                       ~  ! concurrent Pi-extension topology edits present
 
 src/
 ├── brunch-tui.test.ts                            ~

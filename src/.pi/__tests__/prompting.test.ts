@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
 import { composeAgentPrompt } from '../agents/compose.js';
 import type { ReadinessGrade } from '../agents/state.js';
+import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -17,7 +18,6 @@ import {
   registerBrunchOperationalModePolicy,
 } from '../extensions/runtime/index.js';
 import { registerBrunchPrompting } from '../extensions/system-prompts/index.js';
-import { createBrunchPiExtensionShell } from '../pi-extension-shell.js';
 
 function runtimeEntry(state: BrunchAgentState) {
   return {
@@ -203,7 +203,7 @@ describe('Brunch prompt-pack topology', () => {
       nodeTitles: ['Launch-only node'],
     };
 
-    await createBrunchPiExtensionShell(
+    await createBrunchPiExtensions(
       {
         cwd: '/tmp/brunch',
         chatMode: 'responding-to-elicitation',
@@ -451,7 +451,7 @@ describe('Brunch prompt-pack topology', () => {
     const eventNames: string[] = [];
     const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
 
-    await createBrunchPiExtensionShell(
+    await createBrunchPiExtensions(
       {
         cwd: '/tmp/brunch',
         chatMode: 'responding-to-elicitation',
@@ -519,7 +519,7 @@ describe('Brunch prompt-pack topology', () => {
   it('proves transcript-backed strategy and lens switches change product prompt posture', async () => {
     const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
 
-    await createBrunchPiExtensionShell(
+    await createBrunchPiExtensions(
       {
         cwd: '/tmp/brunch',
         chatMode: 'responding-to-elicitation',
@@ -605,7 +605,7 @@ describe('Brunch prompt-pack topology', () => {
   it('does not expose prompt manifests through Pi resource discovery or legacy context imports', async () => {
     const [promptingSource, shellSource] = await Promise.all([
       readFile(join(projectRoot(), 'src/.pi/extensions/system-prompts/index.ts'), 'utf8'),
-      readFile(join(projectRoot(), 'src/.pi/pi-extension-shell.ts'), 'utf8'),
+      readFile(join(projectRoot(), 'src/.pi/brunch-pi-extensions.ts'), 'utf8'),
     ]);
 
     expect(promptingSource).not.toContain('resources_discover');

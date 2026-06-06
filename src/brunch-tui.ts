@@ -10,9 +10,9 @@ import {
   type CreateAgentSessionRuntimeFactory,
 } from '@earendil-works/pi-coding-agent';
 
-import { applyBrunchOfflineDefault, createBrunchPiProfile } from './.pi/brunch-pi-profile.js';
+import { chromeStateForWorkspace, createBrunchPiExtensions } from './.pi/brunch-pi-extensions.js';
+import { applyBrunchOfflineDefault, createBrunchPiSettings } from './.pi/brunch-pi-settings.js';
 import { runWorkspaceDialogPreflight } from './.pi/components/workspace-dialog.js';
-import { chromeStateForWorkspace, createBrunchPiExtensionShell } from './.pi/pi-extension-shell.js';
 import { openWorkspaceGraphRuntime } from './graph/index.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from './rpc/product-updates.js';
 import { startWebHost, type RunningWebHost } from './rpc/web-host.js';
@@ -30,13 +30,13 @@ export {
   BRUNCH_SETTINGS_POLICY,
   applyBrunchOfflineDefault,
   brunchResourceLoaderOptions,
-  createBrunchPiProfile,
+  createBrunchPiSettings,
   createBrunchSettingsManager,
-} from './.pi/brunch-pi-profile.js';
+} from './.pi/brunch-pi-settings.js';
 export {
   BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE,
   chromeStateForWorkspace,
-  createBrunchPiExtensionShell,
+  createBrunchPiExtensions,
   projectBrunchChromeFooterLines,
   renderBrunchChrome,
   type BrunchChromeCoherenceVerdict,
@@ -44,7 +44,7 @@ export {
   type BrunchChromeStage,
   type BrunchChromeState,
   type BrunchChromeWorkerStatus,
-} from './.pi/pi-extension-shell.js';
+} from './.pi/brunch-pi-extensions.js';
 export { runWorkspaceDialogPreflight } from './.pi/components/workspace-dialog.js';
 
 export type BrunchTuiCoordinator = SpecSessionActivationCoordinator & WorkspaceSessionBoundaryCoordinator;
@@ -156,11 +156,11 @@ export function createBrunchAgentSessionRuntimeFactory({
     const bindCurrentWorkspace = async (replacementSessionManager: typeof sessionManager) => {
       currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(replacementSessionManager);
     };
-    const profile = createBrunchPiProfile({
+    const profile = createBrunchPiSettings({
       cwd,
       agentDir: runtimeAgentDir,
       extensionFactories: [
-        createBrunchPiExtensionShell(chromeStateForWorkspace(currentWorkspace), bindCurrentWorkspace, {
+        createBrunchPiExtensions(chromeStateForWorkspace(currentWorkspace), bindCurrentWorkspace, {
           coordinator,
           graph: graphDeps,
           promptContext: () => {

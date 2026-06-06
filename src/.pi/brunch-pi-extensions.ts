@@ -93,7 +93,7 @@ export {
   type GraphSnapshotReaders,
 } from './extensions/graph/index.js';
 
-export interface BrunchPiExtensionShellOptions extends BrunchCommandsOptions {
+export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
   graphMentionSource?: GraphMentionSource;
   graph?: BrunchGraphDeps;
   promptContext?: BrunchPromptContextProvider;
@@ -101,10 +101,10 @@ export interface BrunchPiExtensionShellOptions extends BrunchCommandsOptions {
 
 type BrunchProductExtensionRegistrar = (pi: ExtensionAPI) => void | Promise<void>;
 
-export function createBrunchPiExtensionShell(
+export function createBrunchPiExtensions(
   chrome: BrunchChromeState,
   onSessionBoundary: BrunchSessionBoundaryHandler | undefined,
-  options: BrunchPiExtensionShellOptions,
+  options: BrunchPiExtensionsOptions,
 ): ExtensionFactory {
   return async (pi) => {
     const graphMentionSource = options.graphMentionSource ?? FIXTURE_GRAPH_MENTION_SOURCE;

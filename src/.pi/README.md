@@ -25,8 +25,8 @@ This directory is Brunch's sealed Pi-harness surface. It contains the agent pers
 .pi/
 ├── README.md
 ├── settings.json                 dev Pi settings for local `.pi` iteration
-├── pi-extension-shell.ts          explicit Brunch extension factory; no ambient discovery
-├── brunch-pi-profile.ts           sealed profile/settings policy
+├── brunch-pi-settings.ts        sealed Pi settings/resource-loader policy
+├── brunch-pi-extensions.ts      explicit Brunch extension factory; no ambient discovery
 ├── agents/                        agent roles + stateful prompt assembly code
 │   ├── definitions/                 role prompt resources
 │   └── contexts/                    agent-context selection/render orchestration

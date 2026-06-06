@@ -102,13 +102,13 @@ export const BRUNCH_SETTINGS_AUDITED_GETTERS = [
   'getWarnings',
 ] as const;
 
-export interface BrunchPiProfileOptions {
+export interface BrunchPiSettingsOptions {
   cwd: string;
   agentDir: string;
   extensionFactories: ExtensionFactory[];
 }
 
-export interface BrunchPiProfile {
+export interface BrunchPiSettings {
   settingsManager: SettingsManager;
   resourceLoaderOptions: BrunchResourceLoaderOptions;
 }
@@ -122,11 +122,11 @@ export interface BrunchResourceLoaderOptions {
   extensionFactories: ExtensionFactory[];
 }
 
-export function createBrunchPiProfile({
+export function createBrunchPiSettings({
   cwd,
   agentDir,
   extensionFactories,
-}: BrunchPiProfileOptions): BrunchPiProfile {
+}: BrunchPiSettingsOptions): BrunchPiSettings {
   return {
     settingsManager: createBrunchSettingsManager(cwd, agentDir),
     resourceLoaderOptions: brunchResourceLoaderOptions(extensionFactories),
