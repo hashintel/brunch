@@ -1,8 +1,8 @@
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import type { WorkspaceSessionState } from '../session/workspace-session-coordinator.js';
 import { renderWorkspaceSnapshot, workspaceSnapshotFromState } from './print-snapshot.js';
-import type { WorkspaceSessionState } from './session/workspace-session-coordinator.js';
 
 const cwd = '/tmp/brunch-project';
 

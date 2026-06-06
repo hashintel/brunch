@@ -24,8 +24,17 @@ import {
   registerBrunchOperationalModePolicy,
   runBrunchWorkspaceCommand,
   runBrunchWorkspaceAction,
-} from './.pi/brunch-pi-extensions.js';
-import { createBrunchPiSettings } from './.pi/brunch-pi-settings.js';
+} from '../.pi/brunch-pi-extensions.js';
+import { createBrunchPiSettings } from '../.pi/brunch-pi-settings.js';
+import { openWorkspaceGraphRuntime } from '../graph/index.js';
+import { userMessage } from '../probes/test-helpers.js';
+import { createProductUpdatePublisher } from '../rpc/product-updates.js';
+import {
+  createWorkspaceSessionCoordinator,
+  verifyWorkspaceSessionStores,
+  type WorkspaceLaunchInventory,
+  type WorkspaceSessionReadyState,
+} from '../session/workspace-session-coordinator.js';
 import {
   BRUNCH_SETTINGS_AUDITED_GETTERS,
   BRUNCH_SETTINGS_POLICY,
@@ -35,15 +44,6 @@ import {
   createBrunchAgentSessionRuntimeFactory,
   runBrunchTui,
 } from './brunch-tui.js';
-import { openWorkspaceGraphRuntime } from './graph/index.js';
-import { userMessage } from './probes/test-helpers.js';
-import { createProductUpdatePublisher } from './rpc/product-updates.js';
-import {
-  createWorkspaceSessionCoordinator,
-  verifyWorkspaceSessionStores,
-  type WorkspaceLaunchInventory,
-  type WorkspaceSessionReadyState,
-} from './session/workspace-session-coordinator.js';
 
 describe('Brunch TUI boot', () => {
   it('gates spec selection through the coordinator before launching interactive mode', async () => {
@@ -1049,7 +1049,10 @@ describe('Brunch TUI boot', () => {
 
   it('keeps Pi settings/resource policy out of the TUI launcher', async () => {
     const launcherSource = await readFile(join(import.meta.dirname, 'brunch-tui.ts'), 'utf8');
-    const settingsSource = await readFile(join(import.meta.dirname, '.pi', 'brunch-pi-settings.ts'), 'utf8');
+    const settingsSource = await readFile(
+      join(import.meta.dirname, '..', '.pi', 'brunch-pi-settings.ts'),
+      'utf8',
+    );
 
     expect(launcherSource).toContain('createBrunchPiSettings');
     expect(launcherSource).not.toContain('SettingsManager.create');
@@ -1060,10 +1063,14 @@ describe('Brunch TUI boot', () => {
 
   it('keeps the Brunch settings override and audit list in the settings boundary', async () => {
     const launcherSource = await readFile(join(import.meta.dirname, 'brunch-tui.ts'), 'utf8');
-    const settingsSource = await readFile(join(import.meta.dirname, '.pi', 'brunch-pi-settings.ts'), 'utf8');
+    const settingsSource = await readFile(
+      join(import.meta.dirname, '..', '.pi', 'brunch-pi-settings.ts'),
+      'utf8',
+    );
     const settingsManagerTypes = await readFile(
       join(
         import.meta.dirname,
+        '..',
         '..',
         'node_modules',
         '@earendil-works',

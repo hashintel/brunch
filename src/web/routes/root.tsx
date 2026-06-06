@@ -2,7 +2,7 @@ import { useSuspenseQuery, type QueryClient } from '@tanstack/react-query';
 import { Outlet, createRootRouteWithContext, createRoute } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
-import type { WorkspaceSnapshot } from '../../print-snapshot.js';
+import type { WorkspaceSnapshot } from '../../scripts/print-snapshot.js';
 import { workspaceSnapshotQueryOptions } from '../queries/workspace.js';
 import type { WebSocketRpcClient } from '../rpc-client.js';
 import { useBrunchUpdateSubscription } from '../subscriptions/brunch-updates.js';

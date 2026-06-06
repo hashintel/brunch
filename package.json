@@ -14,10 +14,10 @@
     "assets"
   ],
   "type": "module",
-  "main": "./dist/brunch.js",
-  "types": "./dist/brunch.d.ts",
+  "main": "./dist/app/brunch.js",
+  "types": "./dist/app/brunch.d.ts",
   "scripts": {
-    "dev": "tsx src/brunch.ts",
+    "dev": "tsx src/app/brunch.ts",
     "build": "tsc -p tsconfig.build.json && npm run build:pi-assets && npm run build:web",
     "build:pi-assets": "mkdir -p dist/.pi/components/workspace-dialog dist/.pi/agents dist/.pi/skills && cp -R src/.pi/components/workspace-dialog/assets dist/.pi/components/workspace-dialog/ && cp -R src/.pi/agents/definitions dist/.pi/agents/ && cp -R src/.pi/skills/goals src/.pi/skills/strategies src/.pi/skills/lenses src/.pi/skills/methods dist/.pi/skills/",
     "build:web": "vite build",

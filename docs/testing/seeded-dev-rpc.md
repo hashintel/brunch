@@ -54,7 +54,7 @@ brunch_rpc() {
   (
     cd "$DEV_WORKSPACE"
     printf '%s\n' "$payload" | \
-      BRUNCH_DEV_RPC=1 "$REPO/node_modules/.bin/tsx" "$REPO/src/brunch.ts" --mode=rpc
+      BRUNCH_DEV_RPC=1 "$REPO/node_modules/.bin/tsx" "$REPO/src/app/brunch.ts" --mode=rpc
   )
 }
 ```
@@ -128,7 +128,7 @@ JSON
 
 (
   cd "$DEV_WORKSPACE"
-  BRUNCH_DEV_RPC=1 "$REPO/node_modules/.bin/tsx" "$REPO/src/brunch.ts" --mode=rpc < /tmp/brunch-dev-commit.json
+  BRUNCH_DEV_RPC=1 "$REPO/node_modules/.bin/tsx" "$REPO/src/app/brunch.ts" --mode=rpc < /tmp/brunch-dev-commit.json
 ) | jq 'select(.id == 90)'
 ```
 

@@ -43,7 +43,8 @@ rules:
   projections/*   -> graph/, session/, workspace/ [read/domain imports allowed]
   renderers/*     -> projections/, graph/, session/ as needed for input types
   .pi/            -> graph/, session/, projections/, renderers/ [Pi runtime adapters/resources]
-  rpc/, app/      -> graph/, session/, projections/, renderers/
+  rpc/           -> graph/, session/, projections/, renderers/
+  app/           -> graph/, session/, projections/, renderers/, scripts/
   graph/, session/ x> .pi/, rpc/, app/, web/
   projections/    x> .pi/, rpc/, app/, web/
   renderers/      x> .pi/, rpc/, app/, web/
@@ -61,8 +62,9 @@ Rules:
 
 ## Migration notes
 
-Current root-level `brunch*`, `print-snapshot*`, and `package-identity*` files are planned inputs to `app/`, `scripts/`, and `workspace/` respectively. They remain at `src/` root until the entrypoint migration card moves them without compatibility barrels.
+Product entrypoints now live in `app/`, print-mode utility code lives in `scripts/`, and package identity tests live in `workspace/`. No compatibility root files remain for the old `src/brunch*`, `src/print-snapshot*`, or `src/package-identity*` paths.
 
+Temporary drift: `src/scripts/print-snapshot.ts` still contains reusable workspace snapshot DTO/rendering code consumed by `rpc/` and `web/`. The next projection/renderer migration should move those shared pieces to `projections/workspace/` and `renderers/workspace/`, leaving `scripts/` as local utility shell code only.
 Current `src/{graph,session,structured-exchange}/project/` folders are planned inputs to top-level `projections/` when they represent reusable DTO boundaries.
 
 Current `src/{graph,session,structured-exchange}/format/` folders and `src/render/` are planned inputs to top-level `renderers/` when they represent reusable lossy text/markdown boundaries. Collapse single-caller helpers instead of creating bucket-like top-level files.

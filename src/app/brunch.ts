@@ -2,15 +2,15 @@ import process from 'node:process';
 import type { Readable, Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
-import { runBrunchTui } from './brunch-tui.js';
-import { renderWorkspaceSnapshot, workspaceSnapshotFromState } from './print-snapshot.js';
-import { createRpcHandlers, runJsonRpcLineServer } from './rpc/handlers.js';
-import { createProductUpdatePublisher } from './rpc/product-updates.js';
-import { startWebHost } from './rpc/web-host.js';
+import { createRpcHandlers, runJsonRpcLineServer } from '../rpc/handlers.js';
+import { createProductUpdatePublisher } from '../rpc/product-updates.js';
+import { startWebHost } from '../rpc/web-host.js';
+import { renderWorkspaceSnapshot, workspaceSnapshotFromState } from '../scripts/print-snapshot.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
-} from './session/workspace-session-coordinator.js';
+} from '../session/workspace-session-coordinator.js';
+import { runBrunchTui } from './brunch-tui.js';
 
 export interface WebHostRunnerOptions {
   cwd: string;

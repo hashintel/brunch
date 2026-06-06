@@ -1,7 +1,7 @@
 /**
  * One-shot Brunch workspace RPC helper for local development.
  *
- * It hides the JSON-RPC stdio ceremony used by `src/brunch.ts --mode=rpc` and
+ * It hides the JSON-RPC stdio ceremony used by `src/app/brunch.ts --mode=rpc` and
  * prints only the response result, filtering product-update notifications.
  */
 
@@ -103,7 +103,7 @@ function runRpc(args: CliArgs): JsonRpcResponse {
 
   const child = spawnSync(
     resolve(root, 'node_modules/.bin/tsx'),
-    [resolve(root, 'src/brunch.ts'), '--mode=rpc'],
+    [resolve(root, 'src/app/brunch.ts'), '--mode=rpc'],
     {
       cwd: resolve(args.workspace),
       input: `${JSON.stringify(request)}\n`,

@@ -34,7 +34,7 @@ workspace.session.manager.appendMessage({
 console.log(`Seeded stale transcript: ${workspace.session.file}`)
 NODE
 
-BRUNCH_CMD="cd '$WORK_DIR' && (stty rows 50 cols 100 2>/dev/null || true) && PI_OFFLINE=1 node '$ROOT_DIR/dist/brunch.js' --mode tui"
+BRUNCH_CMD="cd '$WORK_DIR' && (stty rows 50 cols 100 2>/dev/null || true) && PI_OFFLINE=1 node '$ROOT_DIR/dist/app/brunch.js' --mode tui"
 
 set +e
 if script --version >/dev/null 2>&1; then

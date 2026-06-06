@@ -40,7 +40,7 @@ Typing `#` in a Brunch TUI session lists graph nodes from the currently selected
 
 ### Verification Approach
 
-- Inner: `npm test -- src/.pi/__tests__/mention-autocomplete.test.ts src/brunch-tui.test.ts -t mention` — proves provider mechanics and shell wiring against live injected graph overview data.
+- Inner: `npm test -- src/.pi/__tests__/mention-autocomplete.test.ts src/app/brunch-tui.test.ts -t mention` — proves provider mechanics and shell wiring against live injected graph overview data.
 - Inner: targeted negative assertion — proves `D12/I9/A10` do not appear unless an explicit test fake source supplies them.
 - Middle: optional seeded workbench smoke — launch/reload against `.fixtures/workbenches/seeded-dev-rpc` and observe `#` suggestions from `Macro View — grounded intent base` nodes.
 

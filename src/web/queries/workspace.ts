@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 
-import type { WorkspaceSnapshot } from '../../print-snapshot.js';
+import type { WorkspaceSnapshot } from '../../scripts/print-snapshot.js';
 import { queryKeys } from '../query-keys.js';
 import type { WebSocketRpcClient } from '../rpc-client.js';
 

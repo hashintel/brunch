@@ -10,12 +10,12 @@ import {
   type CreateAgentSessionRuntimeFactory,
 } from '@earendil-works/pi-coding-agent';
 
-import { chromeStateForWorkspace, createBrunchPiExtensions } from './.pi/brunch-pi-extensions.js';
-import { applyBrunchOfflineDefault, createBrunchPiSettings } from './.pi/brunch-pi-settings.js';
-import { runWorkspaceDialogPreflight } from './.pi/components/workspace-dialog.js';
-import { openWorkspaceGraphRuntime } from './graph/index.js';
-import { createProductUpdatePublisher, type ProductUpdatePublisher } from './rpc/product-updates.js';
-import { startWebHost, type RunningWebHost } from './rpc/web-host.js';
+import { chromeStateForWorkspace, createBrunchPiExtensions } from '../.pi/brunch-pi-extensions.js';
+import { applyBrunchOfflineDefault, createBrunchPiSettings } from '../.pi/brunch-pi-settings.js';
+import { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
+import { openWorkspaceGraphRuntime } from '../graph/index.js';
+import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
+import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceLaunchInventory,
@@ -24,7 +24,7 @@ import {
   type WorkspaceSessionReadyState,
   type SpecSessionActivationCoordinator,
   type SpecSessionActivationDecision,
-} from './session/workspace-session-coordinator.js';
+} from '../session/workspace-session-coordinator.js';
 export {
   BRUNCH_SETTINGS_AUDITED_GETTERS,
   BRUNCH_SETTINGS_POLICY,
@@ -32,7 +32,7 @@ export {
   brunchResourceLoaderOptions,
   createBrunchPiSettings,
   createBrunchSettingsManager,
-} from './.pi/brunch-pi-settings.js';
+} from '../.pi/brunch-pi-settings.js';
 export {
   BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE,
   chromeStateForWorkspace,
@@ -44,8 +44,8 @@ export {
   type BrunchChromeStage,
   type BrunchChromeState,
   type BrunchChromeWorkerStatus,
-} from './.pi/brunch-pi-extensions.js';
-export { runWorkspaceDialogPreflight } from './.pi/components/workspace-dialog.js';
+} from '../.pi/brunch-pi-extensions.js';
+export { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
 
 export type BrunchTuiCoordinator = SpecSessionActivationCoordinator & WorkspaceSessionBoundaryCoordinator;
 
