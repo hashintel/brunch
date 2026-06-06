@@ -30,7 +30,7 @@ export {
   type PresentDetails as StructuredExchangePresentDetails,
   type PresentToolName,
   type RequestDetails as StructuredExchangeRequestDetails,
-  type RequestChoiceDetails as StructuredExchangeToolResultDetails,
+  type RequestDetails as StructuredExchangeToolResultDetails,
   type RequestToolName,
 } from './schemas/index.js';
 export {
