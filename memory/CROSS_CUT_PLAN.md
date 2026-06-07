@@ -92,7 +92,7 @@ DoD: every ● row is `have` or `built`.
 | --- | --- | --- | --- | --- | --- |
 | `commit_graph` atomic batch **create** | have | ● | — | — | implicit basis |
 | `present_review_set`/`request_review` → `acceptReviewSet` | have | ● | — | — | explicit basis |
-| auto-capture (synchronous, labeled-text) | partial | ● | proving | tied to D66-L generalized capture | only `Goal:`/`Context:`/`Constraint:`/`Criterion:` |
+| auto-capture (synchronous, labeled-text) | built | ● | — | done — `session.submitMessage` capture (5f5e6ac8) | shared explicit-text core reused on ordinary-message path; D66-L |
 | generalized graph mutation (create/patch/delete) engine | spec | ○ | proving | card `dev-seed-fixtures--semantic-graph-mutations` | follow-on #4 owns agent patch/delete (Q5) |
 | agent-facing `commit_graph` patch/delete | new | ○ | proving | Q5 | default lean: agent stays creation-only |
 | spec title/description update tool | new | ○ | earned | later | none exists |
@@ -108,7 +108,7 @@ DoD: every ● row is `have` or `built`.
 | --- | --- | --- | --- | --- | --- |
 | goals / strategies / lenses scaffolding + legal-tuple gating | have | ● | — | — | `.pi/agents/state.ts` |
 | goal/strategy/lens **content depth** | partial | ● | earned | content pass | scaffolding present, bodies thin |
-| `freestyle` strategy | spec | ● | proving | D66-L (one slice w/ generalized capture) | now a strategy, not op_mode |
+| `freestyle` strategy | built | ● | — | done — pin-only strategy (8de7f166) | AUTO-excluded, no added authority; D66-L |
 | "what to ask next" driver | spec | ● | proving | D65-L `elicitation_backlog` | resolves the homeless-driver gap |
 
 ### Seam 3b — KNOW / mechanics (methods)
@@ -119,8 +119,8 @@ DoD: every ● row is `have` or `built`.
 | --- | --- | --- | --- | --- | --- |
 | 6 method resources scaffolding | have | ● | — | — | run-structured-exchange, infer-and-capture, commit-graph, read-snapshot, generate-proposal, review-for-gaps |
 | method **content depth** | partial | ● | earned | content pass | bodies thin |
-| generalized capture (free text, files, refs; iterative passes) | spec | ● | proving | D66-L; vehicle = `capture_*` ANALYSIS family | `infer-and-capture` prompt overpromises vs labeled-text code path |
-| exchange-tool `.description()` / `promptGuidelines` | partial | ● | earned | cheap fix | copy `commit_graph` pattern |
+| generalized capture (free text, files, refs; iterative passes) | built | ● | — | done — labeled-text core on `session.submitMessage` (5f5e6ac8) | POC bar = directly-labeled facts; richer free-text/files/refs remain A22-L fitness evidence; D66-L |
+| exchange-tool `.description()` / `promptGuidelines` | built | ● | — | done — all 7 exchange tools carry both (drift correction 2026-06-07) | `src/.pi/extensions/exchanges/*` already match the `commit_graph` pattern |
 | skill-commands (`gap-review`, `arbitrary-enhance`) | new | ○ | proving | Q6 (deferred) | off critical path |
 
 ### Renderer feedback-loop note
@@ -251,11 +251,18 @@ order is coverage-driven: close ● ledger rows seam by seam.
       54ae7f86, `workspace_overview` in 3642b777; design fork resolved → agent-context read).
    - Deferred READ row (not POC-critical): auto-feed / pushed surface (○).
 3. **Seam 2 WRITE** ● rows — generalized capture (D66-L, one slice with `freestyle`).
+   **COMPLETE** (all ● rows built): `session.submitMessage` reuses the shared explicit-text
+   capture core (5f5e6ac8), and `freestyle` is a pin-only AUTO-excluded strategy (8de7f166).
+   This also closed the Seam 3a `freestyle` and Seam 3b generalized-capture ● rows.
    No posture-switch tool to build (Q4 dissolved); user/system posture surface is
    deferred to the Q-state affordance reducer.
-4. **Seam 3a/3b content pass** — `freestyle` strategy + `elicitation_backlog`-driven
-   "what to ask next" (D65-L); goal/strategy/lens/method body depth; exchange-tool
-   `.description()` / `promptGuidelines` fix. Skill-commands (Q6) stay deferred.
+4. **Seam 3a/3b content pass** — `freestyle` strategy (**built**, 8de7f166) +
+   `elicitation_backlog`-driven "what to ask next" (D65-L); goal/strategy/lens/method body
+   depth; exchange-tool `.description()` / `promptGuidelines` fix (**built** — drift correction;
+   all 7 exchange tools already carry both). Skill-commands (Q6) stay deferred. **Scoped:**
+   `memory/cards/crosscut-know--elicitation-backlog.md` (D65-L substrate tracer; the per-turn
+   driver + capture-reflection stay an unscoped follow-on) and
+   `memory/cards/crosscut-know--resource-body-depth.md` (the goal/strategy/lens/method body pass).
 5. **Spec reconcile** — promote the D40-L/D59-L one-line refinements (on confirmation),
    land Q1 negative-query touch, fold D65-L/D66-L outcomes into SPEC/PLAN.
 
