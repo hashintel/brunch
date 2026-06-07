@@ -146,7 +146,7 @@ If you cannot close the enumeration, it is not a coverage frontier — stay trac
 
 Each ledger row declares its own **fill mode** — `proving` if the row still carries an unknown, `earned` if it is settled-but-unbuilt. `ln-build` closes rows; the frontier completes when no `●` row remains in a `spec` / `new` / `partial` state — the ledger DoD, not a single tracer claim.
 
-**Maturity gate.** The coverage shape is young: the seed instance is the non-canonical `memory/CROSS_CUT_PLAN.md`. Treat it as a recognized scope-file mode, **not** a canonical posture or doc type. Promote it to first-class (a `references/coverage.md` posture, a canonical coverage store) only on rule-of-three — at least three real coverage cases *and* a recurring need for row-level mechanics beyond "closed ledger + per-row proving/earned." Until then, do not add a third posture reference or an alternate planning store.
+**Maturity gate.** The coverage shape is young. Treat it as a recognized scope-file mode, **not** a canonical posture or doc type. Promote it to first-class (a `references/coverage.md` posture, a canonical coverage store) only on rule-of-three — at least three real coverage cases *and* a recurring need for row-level mechanics beyond "closed ledger + per-row proving/earned." Until then, do not add a third posture reference or an alternate planning store.
 
 ## Procedure
 
