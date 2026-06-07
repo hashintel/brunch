@@ -15,6 +15,7 @@ import commands, {
   BRUNCH_SWITCH_COMMAND,
 } from '../extensions/commands/index.js';
 import commandPolicy from '../extensions/commands/policy.js';
+import context from '../extensions/context/index.js';
 import structuredExchange, {
   PRESENT_OPTIONS_TOOL,
   PRESENT_QUESTION_TOOL,
@@ -34,6 +35,7 @@ const extensionDefaults = {
   'chrome/index.ts': chrome,
   'commands/policy.ts': commandPolicy,
   'commands/index.ts': commands,
+  'context/index.ts': context,
   'mentions/index.ts': mentionAutocomplete,
   'runtime/index.ts': operationalMode,
   'system-prompts/index.ts': prompting,
@@ -61,6 +63,7 @@ describe('Brunch explicit Pi extension registry', () => {
       'grep',
       'find',
       'ls',
+      'read_session_context',
       'present_alternatives',
       PRESENT_QUESTION_TOOL,
       PRESENT_OPTIONS_TOOL,

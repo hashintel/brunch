@@ -19,6 +19,7 @@ const registeredToolNames = [
   'present_review_set',
   'request_review',
   'read_graph',
+  'read_session_context',
   'commit_graph',
 ];
 
@@ -54,6 +55,7 @@ describe('agent posture policy', () => {
     expect(groundingMethods).not.toContain('commit-graph');
     expect(groundingTools).not.toContain('commit_graph');
     expect(groundingTools).toContain('read_graph');
+    expect(groundingTools).toContain('read_session_context');
     expect(groundingTools).not.toContain('bash');
     expect(groundingTools).toEqual(
       expect.arrayContaining(['present_question', 'present_options', 'request_answer']),

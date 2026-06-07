@@ -142,6 +142,7 @@ describe('Brunch agent runtime-state projection', () => {
           'request_choice',
           'request_choices',
           'read_graph',
+          'read_session_context',
           'commit_graph',
           'bash',
           'edit',
@@ -178,6 +179,7 @@ describe('Brunch agent runtime-state projection', () => {
         'request_choice',
         'request_choices',
         'read_graph',
+        'read_session_context',
       ],
     ]);
     expect(promptResult).toBeUndefined();

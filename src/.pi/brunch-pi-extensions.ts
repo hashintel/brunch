@@ -5,6 +5,7 @@ import { registerBrunchChrome } from './extensions/chrome/index.js';
 import { type BrunchChromeState } from './extensions/chrome/index.js';
 import { registerBrunchCommands, type BrunchCommandsOptions } from './extensions/commands/index.js';
 import { registerBrunchBranchPolicyHandlers } from './extensions/commands/policy.js';
+import { registerBrunchContext } from './extensions/context/index.js';
 import { registerStructuredExchange } from './extensions/exchanges/index.js';
 import { registerBrunchGraph, type BrunchGraphDeps } from './extensions/graph/index.js';
 import { type GraphMentionSource } from './extensions/mentions/index.js';
@@ -52,6 +53,7 @@ export {
   type ResolvedBrunchAgentState,
 } from './extensions/runtime/index.js';
 export { registerBrunchPrompting } from './extensions/system-prompts/index.js';
+export { registerBrunchContext } from './extensions/context/index.js';
 export {
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
@@ -114,6 +116,7 @@ export function createBrunchPiExtensions(
       (api) => registerBrunchChrome(api, chrome),
       registerBrunchBranchPolicyHandlers,
       registerBrunchOperationalModePolicy,
+      registerBrunchContext,
       // Prompting registers immediately after operational-mode policy and
       // before mention autocomplete when prompt context is provided; its
       // position in this list is the registration order, not a splice index.

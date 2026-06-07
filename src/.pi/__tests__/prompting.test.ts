@@ -321,6 +321,7 @@ describe('Brunch prompt-pack topology', () => {
           'present_review_set',
           'request_review',
           'read_graph',
+          'read_session_context',
           'commit_graph',
         ].map((name) => ({ name })),
       setActiveTools: (tools: string[]) => activeTools.push(tools),
@@ -375,6 +376,7 @@ describe('Brunch prompt-pack topology', () => {
         'request_choice',
         'request_choices',
         'read_graph',
+        'read_session_context',
       ],
       [
         'read',
@@ -384,6 +386,7 @@ describe('Brunch prompt-pack topology', () => {
         'request_choice',
         'request_choices',
         'read_graph',
+        'read_session_context',
       ],
       [
         'read',
@@ -395,6 +398,7 @@ describe('Brunch prompt-pack topology', () => {
         'present_review_set',
         'request_review',
         'read_graph',
+        'read_session_context',
         'commit_graph',
       ],
       [
@@ -405,6 +409,7 @@ describe('Brunch prompt-pack topology', () => {
         'request_choice',
         'request_choices',
         'read_graph',
+        'read_session_context',
       ],
       [
         'read',
@@ -416,6 +421,7 @@ describe('Brunch prompt-pack topology', () => {
         'present_review_set',
         'request_review',
         'read_graph',
+        'read_session_context',
         'commit_graph',
       ],
     ]);
@@ -427,7 +433,7 @@ describe('Brunch prompt-pack topology', () => {
     });
     expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining(
-        '- active tools: read, grep, present_options, request_answer, request_choice, request_choices, present_review_set, request_review, read_graph, commit_graph',
+        '- active tools: read, grep, present_options, request_answer, request_choice, request_choices, present_review_set, request_review, read_graph, read_session_context, commit_graph',
       ),
     });
     expect(defaultPrompt).toMatchObject({
@@ -448,9 +454,15 @@ describe('Brunch prompt-pack topology', () => {
             events[event] = handler;
           },
           getAllTools: () =>
-            ['read', 'grep', 'read_graph', 'commit_graph', 'present_review_set', 'request_review'].map(
-              (name) => ({ name }),
-            ),
+            [
+              'read',
+              'grep',
+              'read_graph',
+              'read_session_context',
+              'commit_graph',
+              'present_review_set',
+              'request_review',
+            ].map((name) => ({ name })),
           setActiveTools: (tools: string[]) => activeTools.push(tools),
         } as never,
         {
