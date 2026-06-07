@@ -7,6 +7,7 @@ import {
   getGraphOverview,
   getGraphSliceByKinds,
   getGraphSliceByReadinessBands,
+  getRelatedNodes,
   getNodeNeighborhood,
   resolveGraphNodeCode,
 } from './snapshot.js';
@@ -17,6 +18,8 @@ import type {
   GraphSliceByReadinessBandsOptions,
   NeighborhoodOptions,
   NeighborhoodResult,
+  RelatedNodesOptions,
+  RelatedNodesResult,
 } from './snapshot.js';
 
 const BRUNCH_DIR = '.brunch';
@@ -31,6 +34,7 @@ export interface SpecScopedReaders {
   readonly getGraphOverview: (options?: GraphOverviewOptions) => GraphOverview;
   readonly getGraphSliceByKinds: (options: GraphSliceByKindsOptions) => GraphOverview;
   readonly getGraphSliceByReadinessBands: (options: GraphSliceByReadinessBandsOptions) => GraphOverview;
+  readonly getRelatedNodes: (options: RelatedNodesOptions) => RelatedNodesResult;
   readonly getNodeNeighborhood: (nodeId: number, options?: NeighborhoodOptions) => NeighborhoodResult;
   readonly resolveNodeCode: (code: string) => number | undefined;
 }
@@ -50,6 +54,7 @@ export async function openWorkspaceGraphRuntime(cwd: string): Promise<WorkspaceG
         getGraphOverview: (options) => getGraphOverview(db, specId, options),
         getGraphSliceByKinds: (options) => getGraphSliceByKinds(db, specId, options),
         getGraphSliceByReadinessBands: (options) => getGraphSliceByReadinessBands(db, specId, options),
+        getRelatedNodes: (options) => getRelatedNodes(db, specId, options),
         getNodeNeighborhood: (nodeId, options) => getNodeNeighborhood(db, specId, nodeId, options),
         resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
       };

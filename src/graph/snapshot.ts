@@ -53,6 +53,15 @@ export interface GraphSliceByReadinessBandsOptions extends GraphOverviewOptions 
   readonly readinessBands: readonly string[];
 }
 
+export type RelatedDirection = 'outgoing' | 'incoming' | 'both';
+
+export interface RelatedNodesOptions extends GraphOverviewOptions {
+  readonly anchorIds: readonly number[];
+  readonly edgeCategory: GraphEdge['category'];
+  readonly direction?: RelatedDirection;
+  readonly hops?: number;
+}
+
 /** Successful neighborhood result. */
 export interface NeighborhoodSuccess {
   readonly status: 'success';
@@ -68,11 +77,23 @@ export interface NeighborhoodNotFound {
 
 export type NeighborhoodResult = NeighborhoodSuccess | NeighborhoodNotFound;
 
+export interface RelatedNodesSuccess {
+  readonly status: 'success';
+  readonly anchors: readonly GraphNode[];
+  readonly relatedNodes: readonly GraphNode[];
+  readonly edges: readonly GraphEdge[];
+}
+
+export type RelatedNodesResult = RelatedNodesSuccess | NeighborhoodNotFound;
+
 export interface NeighborhoodOptions {
   /** Number of hops from the anchor node. Defaults to 1. */
   readonly hops?: number;
   readonly projection?: GraphProjection;
 }
+
+const DEFAULT_RELATED_HOPS = 1;
+const MAX_RELATED_HOPS = 3;
 
 // ---------------------------------------------------------------------------
 // Row → domain mapping
@@ -293,6 +314,119 @@ export function getGraphSliceByReadinessBands(
   );
 
   return withClock(db, specId, buildGraphSlice(projectionState, projection, matchingNodeIds));
+}
+
+export function getRelatedNodes(
+  db: BrunchDb,
+  specId: number,
+  options: RelatedNodesOptions,
+): RelatedNodesResult {
+  const projection = options.projection ?? 'active_context';
+  const direction = options.direction ?? 'both';
+  const hops = Math.max(
+    DEFAULT_RELATED_HOPS,
+    Math.min(options.hops ?? DEFAULT_RELATED_HOPS, MAX_RELATED_HOPS),
+  );
+
+  const anchorRows = db
+    .select()
+    .from(schema.nodes)
+    .where(and(eq(schema.nodes.spec_id, specId), inArray(schema.nodes.id, [...options.anchorIds])))
+    .all();
+
+  if (anchorRows.length !== options.anchorIds.length) {
+    return { status: 'not_found' };
+  }
+
+  const projectionState = getProjectionState(db, specId, projection);
+  const hiddenNodeIds = new Set(
+    projectionState.allNodeRows
+      .filter((row) => !projectionState.visibleNodeIds.has(row.id))
+      .map((row) => row.id),
+  );
+  const anchorIds = new Set(options.anchorIds);
+  const visited = new Set<number>(options.anchorIds);
+  let frontier = new Set<number>(options.anchorIds);
+  const collectedRelatedIds = new Set<number>();
+  const collectedEdgeIds = new Set<number>();
+
+  for (let hop = 0; hop < hops; hop++) {
+    if (frontier.size === 0) break;
+
+    const frontierIds = [...frontier];
+    const edgeRows = db
+      .select()
+      .from(schema.edges)
+      .where(
+        and(
+          eq(schema.edges.spec_id, specId),
+          eq(schema.edges.category, options.edgeCategory),
+          direction === 'outgoing'
+            ? inArray(schema.edges.source_id, frontierIds)
+            : direction === 'incoming'
+              ? inArray(schema.edges.target_id, frontierIds)
+              : or(
+                  inArray(schema.edges.source_id, frontierIds),
+                  inArray(schema.edges.target_id, frontierIds),
+                ),
+        ),
+      )
+      .all();
+
+    const nextFrontier = new Set<number>();
+    for (const edge of edgeRows) {
+      const candidateIds =
+        direction === 'outgoing'
+          ? [edge.target_id]
+          : direction === 'incoming'
+            ? [edge.source_id]
+            : frontier.has(edge.source_id)
+              ? [edge.target_id]
+              : frontier.has(edge.target_id)
+                ? [edge.source_id]
+                : [edge.source_id, edge.target_id];
+
+      for (const candidateId of candidateIds) {
+        if (candidateId === edge.source_id && !frontier.has(edge.target_id) && direction === 'both') continue;
+        if (hiddenNodeIds.has(candidateId) && !anchorIds.has(candidateId)) continue;
+
+        collectedEdgeIds.add(edge.id);
+        if (!visited.has(candidateId)) {
+          visited.add(candidateId);
+          if (!anchorIds.has(candidateId)) {
+            collectedRelatedIds.add(candidateId);
+          }
+          nextFrontier.add(candidateId);
+        }
+      }
+    }
+    frontier = nextFrontier;
+  }
+
+  const visibleIds = new Set([...anchorIds, ...collectedRelatedIds]);
+  const nodesById = new Map(
+    db
+      .select()
+      .from(schema.nodes)
+      .where(and(eq(schema.nodes.spec_id, specId), inArray(schema.nodes.id, [...visibleIds])))
+      .all()
+      .map((row) => [row.id, rowToNode(row)] as const),
+  );
+
+  const edges = db
+    .select()
+    .from(schema.edges)
+    .where(and(eq(schema.edges.spec_id, specId), inArray(schema.edges.id, [...collectedEdgeIds])))
+    .all()
+    .filter((edge) => visibleIds.has(edge.source_id) && visibleIds.has(edge.target_id))
+    .map(rowToEdge);
+
+  return {
+    status: 'success',
+    anchors: options.anchorIds.map((anchorId) => nodesById.get(anchorId)!).filter(Boolean),
+    relatedNodes: [...collectedRelatedIds].map((nodeId) => nodesById.get(nodeId)!).filter(Boolean),
+    edges,
+  };
 }
 
 // ---------------------------------------------------------------------------

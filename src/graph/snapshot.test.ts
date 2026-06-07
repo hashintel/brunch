@@ -18,6 +18,7 @@ import {
   getGraphSliceByKinds,
   getGraphSliceByReadinessBands,
   getNodeNeighborhood,
+  getRelatedNodes,
   getOpenReconciliationNeeds,
 } from './snapshot.js';
 
@@ -445,6 +446,143 @@ describe('getNodeNeighborhood', () => {
     expect(edge.category).toBe('boundary');
     expect(edge.sourceId).toBe(t1Id);
     expect(edge.createdAtLsn).toBeTypeOf('number');
+  });
+});
+
+describe('getRelatedNodes', () => {
+  let db: BrunchDb;
+  let executor: CommandExecutor;
+  let specId: number;
+
+  beforeEach(() => {
+    db = createTestDb();
+    executor = new CommandExecutor(db);
+    db.insert(specs)
+      .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
+      .run();
+    specId = db.select({ id: specs.id }).from(specs).get()!.id;
+    db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
+  });
+
+  it('finds related nodes by category, direction, and bounded hops', () => {
+    const batch = executor.commitGraph({
+      specId,
+      nodes: [
+        { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'Anchor requirement' },
+        { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'Direct assumption' },
+        { ref: 'c1', plane: 'intent', kind: 'constraint', title: 'Two-hop constraint' },
+      ],
+      edges: [
+        { category: 'dependency', source: 'r1', target: 'a1' },
+        { category: 'dependency', source: 'a1', target: 'c1' },
+      ],
+    });
+    expect(batch.status).toBe('success');
+    if (batch.status !== 'success') throw new Error('unreachable');
+
+    const outgoing = getRelatedNodes(db, specId, {
+      anchorIds: [batch.createdNodes['r1']!.id],
+      edgeCategory: 'dependency',
+      direction: 'outgoing',
+      hops: 1,
+    });
+    expect(outgoing.status).toBe('success');
+    if (outgoing.status !== 'success') throw new Error('unreachable');
+    expect(outgoing.relatedNodes.map((node) => node.title)).toEqual(['Direct assumption']);
+
+    const twoHop = getRelatedNodes(db, specId, {
+      anchorIds: [batch.createdNodes['r1']!.id],
+      edgeCategory: 'dependency',
+      direction: 'outgoing',
+      hops: 2,
+    });
+    expect(twoHop.status).toBe('success');
+    if (twoHop.status !== 'success') throw new Error('unreachable');
+    expect(twoHop.relatedNodes.map((node) => node.title).sort()).toEqual([
+      'Direct assumption',
+      'Two-hop constraint',
+    ]);
+    expect(twoHop.edges).toHaveLength(2);
+
+    const incoming = getRelatedNodes(db, specId, {
+      anchorIds: [batch.createdNodes['c1']!.id],
+      edgeCategory: 'dependency',
+      direction: 'incoming',
+      hops: 1,
+    });
+    expect(incoming.status).toBe('success');
+    if (incoming.status !== 'success') throw new Error('unreachable');
+    expect(incoming.relatedNodes.map((node) => node.title)).toEqual(['Direct assumption']);
+  });
+
+  it('omits superseded related nodes in active_context but includes them in graph_truth', () => {
+    const legacy = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'requirement',
+      title: 'Legacy requirement',
+    });
+    expect(legacy.status).toBe('success');
+    if (legacy.status !== 'success') throw new Error('unreachable');
+
+    const batch = executor.commitGraph({
+      specId,
+      nodes: [
+        { ref: 'g1', plane: 'intent', kind: 'goal', title: 'Anchor goal' },
+        { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'Current requirement' },
+      ],
+      edges: [
+        { category: 'support', source: 'g1', target: 'r1', stance: 'for' },
+        { category: 'support', source: 'g1', target: { existing: legacy.nodeId }, stance: 'for' },
+        { category: 'supersession', source: 'r1', target: { existing: legacy.nodeId } },
+      ],
+    });
+    expect(batch.status).toBe('success');
+    if (batch.status !== 'success') throw new Error('unreachable');
+
+    const active = getRelatedNodes(db, specId, {
+      anchorIds: [batch.createdNodes['g1']!.id],
+      edgeCategory: 'support',
+      direction: 'outgoing',
+      projection: 'active_context',
+    });
+    expect(active.status).toBe('success');
+    if (active.status !== 'success') throw new Error('unreachable');
+    expect(active.relatedNodes.map((node) => node.title)).toEqual(['Current requirement']);
+
+    const truth = getRelatedNodes(db, specId, {
+      anchorIds: [batch.createdNodes['g1']!.id],
+      edgeCategory: 'support',
+      direction: 'outgoing',
+      projection: 'graph_truth',
+    });
+    expect(truth.status).toBe('success');
+    if (truth.status !== 'success') throw new Error('unreachable');
+    expect(truth.relatedNodes.map((node) => node.title).sort()).toEqual([
+      'Current requirement',
+      'Legacy requirement',
+    ]);
+  });
+
+  it('returns not_found when any anchor does not belong to the selected spec', () => {
+    const otherSpec = executor.createSpec({ name: 'Other Spec', slug: 'other-spec' });
+    expect(otherSpec.status).toBe('success');
+    if (otherSpec.status !== 'success') throw new Error('unreachable');
+    const otherNode = executor.createNode({
+      specId: otherSpec.specId,
+      plane: 'intent',
+      kind: 'goal',
+      title: 'Foreign anchor',
+    });
+    expect(otherNode.status).toBe('success');
+    if (otherNode.status !== 'success') throw new Error('unreachable');
+
+    expect(
+      getRelatedNodes(db, specId, {
+        anchorIds: [otherNode.nodeId],
+        edgeCategory: 'dependency',
+      }),
+    ).toEqual({ status: 'not_found' });
   });
 });
 

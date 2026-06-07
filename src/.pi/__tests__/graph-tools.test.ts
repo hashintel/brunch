@@ -19,6 +19,7 @@ import {
   getGraphSliceByKinds,
   getGraphSliceByReadinessBands,
   getNodeNeighborhood,
+  getRelatedNodes,
   resolveGraphNodeCode,
 } from '../../graph/snapshot.js';
 import { createProductUpdatePublisher } from '../../rpc/product-updates.js';
@@ -27,6 +28,7 @@ import {
   formatCommitGraphResult,
   formatGraphOverview,
   formatNeighborhoodResult,
+  formatRelatedNodesResult,
 } from '../extensions/graph/command-adapter.js';
 import { registerBrunchGraph, type GraphSnapshotReaders } from '../extensions/graph/index.js';
 import { CommitGraphParams, ReadGraphParams } from '../extensions/graph/tool-schemas.js';
@@ -53,6 +55,7 @@ function createSnapshots(db: BrunchDb, specId: number): GraphSnapshotReaders {
     getGraphOverview: (options) => getGraphOverview(db, specId, options),
     getGraphSliceByKinds: (options) => getGraphSliceByKinds(db, specId, options),
     getGraphSliceByReadinessBands: (options) => getGraphSliceByReadinessBands(db, specId, options),
+    getRelatedNodes: (options) => getRelatedNodes(db, specId, options),
     getNodeNeighborhood: (nodeId, options) => getNodeNeighborhood(db, specId, nodeId, options),
     resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
   };
@@ -165,6 +168,18 @@ describe('graph tool schemas', () => {
       Value.Check(ReadGraphParams, {
         mode: 'list_by_band',
         readinessBands: ['grounding', 'elicitation'],
+      }),
+    ).toBe(true);
+  });
+
+  it('accepts related mode with anchor codes, category, direction, and hops', () => {
+    expect(
+      Value.Check(ReadGraphParams, {
+        mode: 'related',
+        anchorCodes: ['R1'],
+        edgeCategory: 'dependency',
+        direction: 'outgoing',
+        hops: 2,
       }),
     ).toBe(true);
   });
@@ -593,10 +608,114 @@ describe('graph tools end-to-end', () => {
     expect(result.details).toMatchObject({ nodeCount: 0, edgeCount: 0, nodes: [], edges: [] });
   });
 
+  it('read_graph related mode returns related nodes and structural_illegal for unknown anchors', async () => {
+    const commitResult = executor.commitGraph({
+      specId,
+      basis: 'implicit',
+      nodes: [
+        { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'Anchor requirement' },
+        { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'Direct assumption' },
+      ],
+      edges: [{ category: 'dependency', source: 'r1', target: 'a1' }],
+    });
+    expect(commitResult.status).toBe('success');
+    if (commitResult.status !== 'success') return;
+
+    const tools = new Map<string, { execute(toolCallId: string, params: unknown): Promise<unknown> }>();
+    registerBrunchGraph(
+      {
+        registerTool(tool: { name: string; execute(toolCallId: string, params: unknown): Promise<unknown> }) {
+          tools.set(tool.name, tool);
+        },
+      } as never,
+      { specId, commandExecutor: executor, snapshots },
+    );
+
+    const related = (await tools.get('read_graph')!.execute('read-related', {
+      mode: 'related',
+      anchorCodes: ['R1'],
+      edgeCategory: 'dependency',
+      direction: 'outgoing',
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(related.content[0]?.text).toContain('Related nodes');
+    expect(related.content[0]?.text).toContain('dependency/outgoing');
+    expect(related.content[0]?.text).toContain('[A1]');
+    expect(related.details).toMatchObject({
+      status: 'success',
+      anchors: [{ title: 'Anchor requirement' }],
+      relatedNodes: [{ title: 'Direct assumption' }],
+    });
+
+    const missingAnchor = (await tools.get('read_graph')!.execute('read-related-missing', {
+      mode: 'related',
+      anchorCodes: ['R99'],
+      edgeCategory: 'dependency',
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(missingAnchor.content[0]?.text).toContain('STRUCTURAL_ILLEGAL');
+    expect(missingAnchor.details).toMatchObject({
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'anchorCodes' }],
+    });
+  });
+
   it('read_graph neighborhood for missing node returns not_found', () => {
     const result = snapshots.getNodeNeighborhood(999);
     const text = formatNeighborhoodResult(result);
 
     expect(text).toContain('not found');
+  });
+
+  it('formats related-node results with projected codes and directions', () => {
+    const text = formatRelatedNodesResult({
+      status: 'success',
+      anchors: [
+        {
+          id: 1,
+          specId: 1,
+          plane: 'intent',
+          kind: 'requirement',
+          kindOrdinal: 1,
+          title: 'Anchor requirement',
+          basis: 'explicit',
+          createdAtLsn: 1,
+          updatedAtLsn: 1,
+        },
+      ],
+      relatedNodes: [
+        {
+          id: 2,
+          specId: 1,
+          plane: 'intent',
+          kind: 'assumption',
+          kindOrdinal: 1,
+          title: 'Related assumption',
+          basis: 'explicit',
+          createdAtLsn: 1,
+          updatedAtLsn: 1,
+        },
+      ],
+      edges: [
+        {
+          id: 1,
+          specId: 1,
+          category: 'dependency',
+          sourceId: 1,
+          targetId: 2,
+          basis: 'explicit',
+          createdAtLsn: 1,
+          updatedAtLsn: 1,
+        },
+      ],
+    });
+
+    expect(text).toContain('Anchors: [R1] Anchor requirement');
+    expect(text).toContain('[A1] intent/assumption');
+    expect(text).toContain('R1 -[dependency/outgoing]-> A1');
   });
 });

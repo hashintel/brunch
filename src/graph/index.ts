@@ -61,6 +61,7 @@ export {
   getGraphOverview,
   getGraphSliceByKinds,
   getGraphSliceByReadinessBands,
+  getRelatedNodes,
   getNodeNeighborhood,
   getOpenReconciliationNeeds,
 } from './snapshot.js';
@@ -74,6 +75,10 @@ export type {
   NeighborhoodNotFound,
   NeighborhoodResult,
   NeighborhoodSuccess,
+  RelatedDirection,
+  RelatedNodesOptions,
+  RelatedNodesResult,
+  RelatedNodesSuccess,
 } from './snapshot.js';
 
 export { CommandExecutor } from './command-executor.js';

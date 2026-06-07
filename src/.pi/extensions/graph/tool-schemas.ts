@@ -17,6 +17,7 @@ import {
   ORACLE_KINDS,
   PLAN_KINDS,
   type GraphProjection,
+  type RelatedDirection,
 } from '../../../graph/index.js';
 
 const ALL_KINDS = [...INTENT_KINDS, ...ORACLE_KINDS, ...DESIGN_KINDS, ...PLAN_KINDS] as const;
@@ -85,7 +86,7 @@ export const ReadGraphParams = {
   additionalProperties: false,
   required: ['mode'],
   properties: {
-    mode: { enum: ['overview', 'neighborhood', 'list_by_kind', 'list_by_band'] },
+    mode: { enum: ['overview', 'neighborhood', 'list_by_kind', 'list_by_band', 'related'] },
     projection: {
       enum: ['active_context', 'graph_truth'] satisfies readonly GraphProjection[],
       description: 'Graph projection to read (default: active_context)',
@@ -106,9 +107,22 @@ export const ReadGraphParams = {
       description:
         'One or more readiness bands for list_by_band mode (grounding, elicitation, commitment); unknown bands produce an empty slice',
     },
+    anchorCodes: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Projected codes of anchor nodes in the selected spec for related mode',
+    },
+    edgeCategory: {
+      enum: [...EDGE_CATEGORIES],
+      description: 'Edge category to follow in related mode',
+    },
+    direction: {
+      enum: ['outgoing', 'incoming', 'both'] satisfies readonly RelatedDirection[],
+      description: 'Traversal direction for related mode (default: both)',
+    },
   },
   description:
-    'Read a graph overview, selected-spec node neighborhood, or projection-aware flat graph slice. Neighborhood mode requires nodeCode. List modes accept kind or readiness-band filters and return an empty slice for empty or unknown filters.',
+    'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, or nodes related to anchor codes. Neighborhood mode requires nodeCode. List modes accept kind or readiness-band filters and return an empty slice for empty or unknown filters.',
 } as const;
 
 export type ToolCommitNode = Static<typeof CommitNodeSchema>;
@@ -130,5 +144,13 @@ export type ToolReadGraphParams =
   | {
       readonly mode: 'list_by_band';
       readonly readinessBands: readonly string[];
+      readonly projection?: GraphProjection;
+    }
+  | {
+      readonly mode: 'related';
+      readonly anchorCodes: readonly string[];
+      readonly edgeCategory: (typeof EDGE_CATEGORIES)[number];
+      readonly direction?: RelatedDirection;
+      readonly hops?: number;
       readonly projection?: GraphProjection;
     };

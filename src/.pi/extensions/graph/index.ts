@@ -13,7 +13,13 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import type { CommandExecutor } from '../../../graph/command-executor.js';
-import type { GraphOverview, GraphProjection, NeighborhoodResult } from '../../../graph/snapshot.js';
+import type {
+  GraphOverview,
+  GraphProjection,
+  NeighborhoodResult,
+  RelatedDirection,
+  RelatedNodesResult,
+} from '../../../graph/snapshot.js';
 import { projectNeighborhood } from '../../../projections/graph/neighborhood.js';
 import { formatNeighborhood } from '../../../renderers/graph/neighborhood.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
@@ -21,6 +27,7 @@ import {
   translateCommitGraph,
   formatCommitGraphResult,
   formatGraphOverview,
+  formatRelatedNodesResult,
   formatStructuralIllegal,
 } from './command-adapter.js';
 import { CommitGraphParams, ReadGraphParams } from './tool-schemas.js';
@@ -40,6 +47,13 @@ export interface GraphSnapshotReaders {
     projection?: GraphProjection;
     readinessBands: readonly string[];
   }) => GraphOverview;
+  readonly getRelatedNodes: (options: {
+    anchorIds: readonly number[];
+    edgeCategory: GraphOverview['edges'][number]['category'];
+    direction?: RelatedDirection;
+    hops?: number;
+    projection?: GraphProjection;
+  }) => RelatedNodesResult;
   readonly getNodeNeighborhood: (
     nodeId: number,
     options?: { hops?: number; projection?: GraphProjection },
@@ -126,6 +140,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
       let details:
         | GraphOverview
         | NeighborhoodResult
+        | RelatedNodesResult
         | {
             readonly status: 'structural_illegal';
             readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
@@ -151,6 +166,39 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
         });
         text = formatGraphOverview(overview, 'Graph slice by readiness band');
         details = overview;
+      } else if (params.mode === 'related') {
+        const anchorCodes = params.anchorCodes ?? [];
+        const anchorIds = anchorCodes
+          .map((code) => ({ code, nodeId: snapshots.resolveNodeCode(code) }))
+          .filter((candidate) => candidate.nodeId != null);
+        if (anchorIds.length !== anchorCodes.length) {
+          details = {
+            status: 'structural_illegal',
+            diagnostics: anchorCodes
+              .filter((code) => snapshots.resolveNodeCode(code) == null)
+              .map((code) => ({
+                field: 'anchorCodes',
+                message: `anchor code ${code} does not resolve in the selected spec`,
+              })),
+          };
+          text = formatStructuralIllegal(details);
+        } else if (params.edgeCategory == null) {
+          details = {
+            status: 'structural_illegal',
+            diagnostics: [{ field: 'edgeCategory', message: 'edgeCategory is required for related mode' }],
+          };
+          text = formatStructuralIllegal(details);
+        } else {
+          const related = snapshots.getRelatedNodes({
+            anchorIds: anchorIds.map((candidate) => candidate.nodeId!),
+            edgeCategory: params.edgeCategory,
+            ...(params.direction != null ? { direction: params.direction } : {}),
+            ...(params.hops != null ? { hops: params.hops } : {}),
+            ...(params.projection != null ? { projection: params.projection } : {}),
+          });
+          text = formatRelatedNodesResult(related);
+          details = related;
+        }
       } else if (params.nodeCode == null) {
         details = {
           status: 'structural_illegal',

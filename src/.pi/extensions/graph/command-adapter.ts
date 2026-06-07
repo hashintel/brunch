@@ -20,7 +20,7 @@ import type {
   StructuralIllegal,
 } from '../../../graph/command-executor.js';
 import { formatGraphNodeCode, parseGraphNodeCode } from '../../../graph/schema/nodes.js';
-import type { GraphOverview, NeighborhoodResult } from '../../../graph/snapshot.js';
+import type { GraphOverview, NeighborhoodResult, RelatedNodesResult } from '../../../graph/snapshot.js';
 import type { ToolCommitGraphParams } from './tool-schemas.js';
 
 export type ResolveGraphNodeCode = (code: string) => number | undefined;
@@ -212,6 +212,50 @@ export function formatNeighborhoodResult(result: NeighborhoodResult): string {
       const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${e.sourceId}`;
       const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${e.targetId}`;
       lines.push(`  - #${e.id}: ${sourceCode} —[${e.category}${stance}]→ ${targetCode}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+export function formatRelatedNodesResult(result: RelatedNodesResult): string {
+  if (result.status === 'not_found') {
+    return 'One or more anchor nodes were not found in the selected spec.';
+  }
+
+  const nodesById = new Map([
+    ...result.anchors.map((node) => [node.id, node] as const),
+    ...result.relatedNodes.map((node) => [node.id, node] as const),
+  ]);
+  const lines = [
+    `Related nodes: ${result.relatedNodes.length} node(s), ${result.edges.length} edge(s).`,
+    `Anchors: ${result.anchors.map((anchor) => `[${formatGraphNodeCode(anchor.kind, anchor.kindOrdinal)}] ${anchor.title}`).join(', ')}`,
+  ];
+
+  if (result.relatedNodes.length === 0) {
+    lines.push('Related: none');
+  } else {
+    lines.push('Related:');
+    for (const node of result.relatedNodes) {
+      lines.push(
+        `  - [${formatGraphNodeCode(node.kind, node.kindOrdinal)}] ${node.plane}/${node.kind}: "${node.title}"`,
+      );
+    }
+  }
+
+  if (result.edges.length === 0) {
+    lines.push('Edges: none');
+  } else {
+    lines.push('Edges:');
+    for (const edge of result.edges) {
+      const source = nodesById.get(edge.sourceId);
+      const target = nodesById.get(edge.targetId);
+      const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${edge.sourceId}`;
+      const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${edge.targetId}`;
+      const direction = result.anchors.some((anchor) => anchor.id === edge.sourceId)
+        ? 'outgoing'
+        : 'incoming';
+      lines.push(`  - ${sourceCode} -[${edge.category}/${direction}]-> ${targetCode}`);
     }
   }
 
