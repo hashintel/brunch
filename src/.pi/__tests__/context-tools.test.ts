@@ -1,9 +1,64 @@
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { createSessionBindingData } from '../../session/session-binding.js';
 import { registerBrunchContext } from '../extensions/context/index.js';
 
 describe('context tools', () => {
+  it('read_workspace_context returns a gitignore-aware cwd snapshot', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-context-tool-'));
+    await mkdir(join(cwd, '.brunch', 'sessions'), { recursive: true });
+    await mkdir(join(cwd, 'visible'), { recursive: true });
+    await mkdir(join(cwd, 'ignored-dir'), { recursive: true });
+    await writeFile(join(cwd, '.gitignore'), ['ignored-dir/', 'ignored.md'].join('\n'));
+    await writeFile(join(cwd, 'README.md'), '# Context\n');
+    await writeFile(join(cwd, 'ignored.md'), '# Hidden\n');
+    await writeFile(join(cwd, 'visible', 'guide.md'), 'Guide\n');
+    await writeFile(
+      join(cwd, '.brunch', 'sessions', 'session-1.jsonl'),
+      [
+        JSON.stringify({ type: 'session', id: 'session-1', cwd }),
+        JSON.stringify({
+          id: 'binding-1',
+          type: 'custom',
+          parentId: null,
+          customType: 'brunch.session_binding',
+          data: createSessionBindingData({ specId: 1 }),
+        }),
+      ].join('\n') + '\n',
+    );
+
+    const tools = new Map<string, { execute: (...args: any[]) => Promise<unknown> }>();
+    registerBrunchContext({
+      registerTool(tool: { name: string; execute: (...args: any[]) => Promise<unknown> }) {
+        tools.set(tool.name, tool);
+      },
+    } as never);
+
+    const result = (await tools
+      .get('read_workspace_context')!
+      .execute('context-cwd', { mode: 'cwd_snapshot' }, undefined, undefined, {
+        sessionManager: {
+          getEntries: () => [{ type: 'session', id: 'session-1', cwd }],
+        },
+      })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: { mode: 'cwd_snapshot'; snapshot: { markdownFiles: Array<{ path: string }> } };
+    };
+
+    expect(result.content[0]?.text).toContain('[Workspace cwd snapshot]');
+    expect(result.content[0]?.text).toContain('existing .brunch state detected');
+    expect(result.content[0]?.text).toContain('session-1.jsonl');
+    expect(result.details.mode).toBe('cwd_snapshot');
+    expect(result.details.snapshot.markdownFiles.map((file) => file.path)).toEqual([
+      'README.md',
+      'visible/guide.md',
+    ]);
+  });
+
   it('read_session_context returns runtime-frame markdown plus typed details', async () => {
     const tools = new Map<string, { execute: (...args: any[]) => Promise<unknown> }>();
 

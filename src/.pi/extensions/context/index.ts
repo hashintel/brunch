@@ -13,12 +13,59 @@ import {
   type BrunchSessionEnvelope,
 } from '../../../session/brunch-session-envelope.js';
 import { isSessionBindingEntry } from '../../../session/session-binding.js';
+import { readWorkspaceCwdContext } from './get-cwd.js';
 
 interface SessionManagerLike {
   getEntries(): readonly FileEntry[];
 }
 
 export function registerBrunchContext(pi: ExtensionAPI): void {
+  pi.registerTool({
+    name: 'read_workspace_context',
+    label: 'Read Workspace Context',
+    description:
+      'Read a deterministic kickoff snapshot of the current workspace cwd: .brunch presence, session-file sizes, visible top-level tree, and markdown sizes.',
+    promptSnippet: 'Read the current workspace cwd kickoff snapshot',
+    promptGuidelines: [
+      'Use read_workspace_context when you need filesystem kickoff context rather than graph or session state.',
+      'This is a deterministic workspace snapshot: .brunch presence, session-file sizes, visible top-level tree, and markdown sizes.',
+      'The tree is gitignore-aware and read-only; ignored paths are excluded from counts and listings.',
+    ],
+    parameters: {
+      type: 'object',
+      properties: {
+        mode: {
+          type: 'string',
+          enum: ['cwd_snapshot'],
+        },
+      },
+      required: ['mode'],
+      additionalProperties: false,
+    },
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      if (params.mode !== 'cwd_snapshot') {
+        const details = {
+          status: 'structural_illegal' as const,
+          diagnostics: [
+            { field: 'mode', message: `unsupported workspace context mode: ${String(params.mode)}` },
+          ],
+        };
+        return {
+          content: [
+            { type: 'text' as const, text: `STRUCTURAL_ILLEGAL\n- mode: ${details.diagnostics[0]!.message}` },
+          ],
+          details,
+        };
+      }
+
+      const result = await readWorkspaceCwdContext(ctx?.sessionManager);
+      return {
+        content: [{ type: 'text' as const, text: result.text }],
+        details: result.details,
+      };
+    },
+  });
+
   pi.registerTool({
     name: 'read_session_context',
     label: 'Read Session Context',
