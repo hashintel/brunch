@@ -36,14 +36,14 @@ export function registerBrunchContext(pi: ExtensionAPI): void {
       properties: {
         mode: {
           type: 'string',
-          enum: ['cwd_snapshot'],
+          enum: ['cwd_snapshot', 'workspace_overview'],
         },
       },
       required: ['mode'],
       additionalProperties: false,
     },
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      if (params.mode !== 'cwd_snapshot') {
+      if (params.mode !== 'cwd_snapshot' && params.mode !== 'workspace_overview') {
         const details = {
           status: 'structural_illegal' as const,
           diagnostics: [
@@ -58,7 +58,7 @@ export function registerBrunchContext(pi: ExtensionAPI): void {
         };
       }
 
-      const result = await readWorkspaceCwdContext(ctx?.sessionManager);
+      const result = await readWorkspaceCwdContext(params.mode, ctx?.sessionManager);
       return {
         content: [{ type: 'text' as const, text: result.text }],
         details: result.details,

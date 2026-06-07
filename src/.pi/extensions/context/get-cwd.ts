@@ -4,20 +4,28 @@ import type { FileEntry } from '@earendil-works/pi-coding-agent';
 
 import {
   projectWorkspaceCwdContext,
+  projectWorkspaceOverviewContext,
   type WorkspaceContextProjection,
 } from '../../../projections/workspace/workspace-context.js';
 import { renderWorkspaceContext } from '../../../renderers/workspace/workspace-context.js';
-import { inspectWorkspaceCwdSnapshot } from '../../../session/workspace-context.js';
+import {
+  inspectWorkspaceCwdSnapshot,
+  inspectWorkspaceOverviewSnapshot,
+} from '../../../session/workspace-context.js';
 
 interface SessionManagerLike {
   getEntries(): readonly FileEntry[];
 }
 
 export async function readWorkspaceCwdContext(
+  mode: 'cwd_snapshot' | 'workspace_overview',
   sessionManager?: SessionManagerLike,
 ): Promise<{ readonly text: string; readonly details: WorkspaceContextProjection }> {
   const cwd = resolveWorkspaceCwd(sessionManager);
-  const details = projectWorkspaceCwdContext(await inspectWorkspaceCwdSnapshot(cwd));
+  const details =
+    mode === 'workspace_overview'
+      ? projectWorkspaceOverviewContext(await inspectWorkspaceOverviewSnapshot(cwd))
+      : projectWorkspaceCwdContext(await inspectWorkspaceCwdSnapshot(cwd));
   return {
     text: renderWorkspaceContext(details),
     details,

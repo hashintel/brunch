@@ -2,11 +2,14 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { openWorkspaceCommandExecutor } from '../graph/index.js';
+import { seedFixture, type SeedFixture } from '../graph/seed-fixtures.js';
 import { createSessionBindingData } from './session-binding.js';
-import { inspectWorkspaceCwdSnapshot } from './workspace-context.js';
+import { inspectWorkspaceCwdSnapshot, inspectWorkspaceOverviewSnapshot } from './workspace-context.js';
 
 describe('inspectWorkspaceCwdSnapshot', () => {
   it('returns a gitignore-aware kickoff snapshot with session and markdown sizes', async () => {
@@ -66,4 +69,70 @@ describe('inspectWorkspaceCwdSnapshot', () => {
     expect(snapshot.sessionFiles).toEqual([]);
     expect(snapshot.topLevelEntries).toEqual([{ name: 'README.md', kind: 'file', fileCount: 1 }]);
   });
+
+  it('returns a workspace overview with spec node counts and session turn counts', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-workspace-overview-'));
+    const executor = await openWorkspaceCommandExecutor(cwd);
+    const alpha = seedFixture(executor, await loadFixture('alpha-grounding', 'workspace-spread'));
+    const beta = seedFixture(executor, await loadFixture('beta-commitments', 'workspace-spread'));
+
+    await mkdir(join(cwd, '.brunch', 'sessions'), { recursive: true });
+    await writeBoundSession(cwd, 'alpha-session', alpha.specId, [{ type: 'user', id: 'u1' }]);
+    await writeBoundSession(cwd, 'beta-session', beta.specId, [
+      { type: 'user', id: 'u1' },
+      { type: 'assistant', id: 'a1' },
+    ]);
+
+    const snapshot = await inspectWorkspaceOverviewSnapshot(cwd);
+
+    expect(snapshot.specs).toEqual([
+      { id: alpha.specId, title: 'Alpha Grounding', nodeCount: 4, sessionCount: 1 },
+      { id: beta.specId, title: 'Beta Commitments', nodeCount: 5, sessionCount: 1 },
+    ]);
+    expect(snapshot.sessions).toEqual([
+      {
+        id: 'alpha-session',
+        file: 'alpha-session.jsonl',
+        specId: alpha.specId,
+        specTitle: 'Alpha Grounding',
+        turnCount: 1,
+        readinessGrade: 'grounding_onboarding',
+      },
+      {
+        id: 'beta-session',
+        file: 'beta-session.jsonl',
+        specId: beta.specId,
+        specTitle: 'Beta Commitments',
+        turnCount: 2,
+        readinessGrade: 'commitments_ready',
+      },
+    ]);
+  });
 });
+
+async function loadFixture(slug: string, set = 'bilal-port'): Promise<SeedFixture> {
+  const fixturePath = fileURLToPath(new URL(`../../.fixtures/seeds/${set}/${slug}.json`, import.meta.url));
+  return JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(fixturePath, 'utf8')));
+}
+
+async function writeBoundSession(
+  cwd: string,
+  sessionId: string,
+  specId: number,
+  entries: Array<{ type: 'user' | 'assistant'; id: string }>,
+): Promise<void> {
+  await writeFile(
+    join(cwd, '.brunch', 'sessions', `${sessionId}.jsonl`),
+    [
+      JSON.stringify({ type: 'session', id: sessionId, cwd }),
+      JSON.stringify({
+        id: `${sessionId}-binding`,
+        type: 'custom',
+        parentId: null,
+        customType: 'brunch.session_binding',
+        data: createSessionBindingData({ specId }),
+      }),
+      ...entries.map((entry) => JSON.stringify(entry)),
+    ].join('\n') + '\n',
+  );
+}

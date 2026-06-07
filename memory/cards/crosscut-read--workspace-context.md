@@ -1,7 +1,7 @@
 # Seam 1 READ — workspace context
 
 Frontier: n/a (cross-cut READ seam; see `memory/CROSS_CUT_PLAN.md` §Seam 1)
-Status:   active
+Status:   done
 Mode:     chain
 Created:  2026-06-07
 
@@ -31,12 +31,10 @@ Created:  2026-06-07
   `boot-session-store` enumeration path) as its own test harness — do **not** widen
   `SeedFixture` to carry sessions.
 - **Posture:** proving — each card lights up a new agent read path.
-- **Open design fork (resolve in Card B):** D60-L separates the *agent-context* `cwd` subject
-  from the *workspace projection* (`workspace.snapshot`, product/UI state). The specs/sessions
-  *overview* needs DB reads and is richer than the filesystem `cwd` heuristic. Decide whether
-  it is (a) a new agent-context workspace pull rendered for the elicitor, or (b) a reuse/
-  extension of the workspace projection. Lean: (a) — the elicitor needs it to orient; it may
-  share underlying readers with the product projection but renders to LLM text, not UI state.
+- **Design fork (resolved in Card B):** the specs/sessions overview stays an **agent-context
+  pull** rendered for the elicitor, not a widening of `workspace.snapshot`. It reuses the same
+  session-owned readers and the `read_workspace_context` tool surface introduced by Card A,
+  but remains distinct from product/UI workspace projection state.
 - **Cross-cutting obligations:** reads are read-only (no `CommandExecutor`); render projected
   handles (D62-L) where node identities appear; keep the read surface bounded to the three
   observed shapes (D60-L), not a generic workspace-query API.
@@ -97,7 +95,7 @@ src/renderers/workspace/             ?    (cwd snapshot renderer)
 
 ---
 
-## Card B — specs & sessions overview (DB-backed) — `next after Card A`
+## Card B — specs & sessions overview (DB-backed) — `done`
 
 ### Objective
 

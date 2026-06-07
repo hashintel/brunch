@@ -1,9 +1,12 @@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { openWorkspaceCommandExecutor } from '../../graph/index.js';
+import { seedFixture, type SeedFixture } from '../../graph/seed-fixtures.js';
 import { createSessionBindingData } from '../../session/session-binding.js';
 import { registerBrunchContext } from '../extensions/context/index.js';
 
@@ -151,4 +154,76 @@ describe('context tools', () => {
       sessionId: 'session-1',
     });
   });
+
+  it('read_workspace_context returns a workspace overview for bound specs and sessions', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-context-overview-'));
+    const executor = await openWorkspaceCommandExecutor(cwd);
+    const alpha = seedFixture(executor, await loadFixture('alpha-grounding', 'workspace-spread'));
+    const beta = seedFixture(executor, await loadFixture('beta-commitments', 'workspace-spread'));
+
+    await mkdir(join(cwd, '.brunch', 'sessions'), { recursive: true });
+    await writeBoundSession(cwd, 'alpha-session', alpha.specId, [{ type: 'user', id: 'u1' }]);
+    await writeBoundSession(cwd, 'beta-session', beta.specId, [
+      { type: 'user', id: 'u1' },
+      { type: 'assistant', id: 'a1' },
+    ]);
+
+    const tools = new Map<string, { execute: (...args: any[]) => Promise<unknown> }>();
+    registerBrunchContext({
+      registerTool(tool: { name: string; execute: (...args: any[]) => Promise<unknown> }) {
+        tools.set(tool.name, tool);
+      },
+    } as never);
+
+    const result = (await tools
+      .get('read_workspace_context')!
+      .execute('context-overview', { mode: 'workspace_overview' }, undefined, undefined, {
+        sessionManager: {
+          getEntries: () => [{ type: 'session', id: 'session-1', cwd }],
+        },
+      })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: {
+        mode: 'workspace_overview';
+        snapshot: { specs: Array<{ title: string }>; sessions: Array<{ turnCount: number }> };
+      };
+    };
+
+    expect(result.content[0]?.text).toContain('[Workspace overview]');
+    expect(result.content[0]?.text).toContain('Alpha Grounding');
+    expect(result.content[0]?.text).toContain('Beta Commitments');
+    expect(result.details.mode).toBe('workspace_overview');
+    expect(result.details.snapshot.specs.map((spec) => spec.title)).toEqual([
+      'Alpha Grounding',
+      'Beta Commitments',
+    ]);
+    expect(result.details.snapshot.sessions.map((session) => session.turnCount)).toEqual([1, 2]);
+  });
 });
+
+async function loadFixture(slug: string, set = 'bilal-port'): Promise<SeedFixture> {
+  const fixturePath = fileURLToPath(new URL(`../../../.fixtures/seeds/${set}/${slug}.json`, import.meta.url));
+  return JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(fixturePath, 'utf8')));
+}
+
+async function writeBoundSession(
+  cwd: string,
+  sessionId: string,
+  specId: number,
+  entries: Array<{ type: 'user' | 'assistant'; id: string }>,
+): Promise<void> {
+  await writeFile(
+    join(cwd, '.brunch', 'sessions', `${sessionId}.jsonl`),
+    [
+      JSON.stringify({ type: 'session', id: sessionId, cwd }),
+      JSON.stringify({
+        id: `${sessionId}-binding`,
+        type: 'custom',
+        parentId: null,
+        customType: 'brunch.session_binding',
+        data: createSessionBindingData({ specId }),
+      }),
+      ...entries.map((entry) => JSON.stringify(entry)),
+    ].join('\n') + '\n',
+  );
+}
