@@ -73,6 +73,10 @@ Earned posture is not a license for sprawl — guardrails (one named seam, named
 
 Regression earned → proving is a state transition, not a third mode: downgrade the frontier or slice, reshape as a tracer, route back through `ln-plan` if the frontier itself splits.
 
+#### Coverage frontiers (a frontier shape, not a posture)
+
+Posture ranks the next *vertical* slice; it has no completeness test, so vertical tracers can leave a horizontal capability layer permanently shallow while every slice is "done." A **coverage frontier** closes that gap with a layer-level **aggregate DoD** — "no required row in a closed enumerated inventory is left open" — while each row still builds under `proving` or `earned`. It is therefore a different frontier *shape*, not a third posture, and it does not relax the anti-sprawl norm: it fires only over a **closed, enumerated** surface (named load-bearing layer, up-front inventory, required-vs-deferred marking). `ln-plan` recognizes and bounds it; the row ledger lives in a `Mode: coverage` scope file under `memory/cards/` (authored via `ln-scope`); `ln-build` closes rows. Seed instance: the non-canonical `memory/CROSS_CUT_PLAN.md`. Do not promote it to a canonical posture or doc type before rule-of-three.
+
 #### Posture distribution across skills
 
 `ln-plan`, `ln-design`, `ln-scope`, and `ln-consult` all carry posture-dependent sequencing pressure. `ln-plan` reads posture and loads the matching reference; `ln-scope` inherits posture from the containing frontier and applies the matching posture check. `ln-refactor` owns closure as safe mechanics (when an earned frontier is principally restructuring); `ln-sync` owns closure as canonical garbage collection (when artifacts the planner is already done with need cleanup).
@@ -142,6 +146,7 @@ There is currently no project-local `ln-map` skill in `.agents/skills/`. If you 
 | “Which interpretation is intended?” | `ln-disambiguate` |
 | “What should the canonical truth say?” | `ln-spec` |
 | “What work items should exist?” | `ln-plan` |
+| “Is a whole capability layer going shallow under vertical slicing?” | `ln-plan` (coverage frontier) |
 | “What is the smallest buildable slice?” | `ln-scope` |
 | “Which module/API shape should we choose?” | `ln-design` |
 | “How will we know this works?” | `ln-oracles` |

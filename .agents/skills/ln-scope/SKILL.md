@@ -64,11 +64,11 @@ Every scope file starts with this header:
 
 Frontier: <frontier-id> | n/a
 Status:   active | superseded | done
-Mode:     single | chain
+Mode:     single | chain | coverage
 Created:  YYYY-MM-DD
 ```
 
-`Mode: single` means one card in this file. `Mode: chain` means several cards intended as a sequential mini-queue. Independent concerns belong in **separate files**, not separate sections within one file.
+`Mode: single` means one card in this file. `Mode: chain` means several cards intended as a sequential mini-queue. `Mode: coverage` means the file holds a **closed enumerated ledger** for a horizontal coverage frontier (see [§Coverage scope files](#coverage-scope-files-mode-coverage)). Independent concerns belong in **separate files**, not separate sections within one file.
 
 ### Why one file per concern, not one file for everything
 
@@ -99,6 +99,32 @@ Chain discipline:
 - mark card status clearly (`next`, `in progress`, `done`, `dropped`, `stale`)
 - if any card trips the promotion checklist, reveals a frontier split, or turns out to depend on unknown results from an earlier card, stop the chain and route back through `ln-spec` or `ln-plan` as appropriate
 - delete the scope file when its chain is exhausted or superseded (per-file deletion only)
+
+## Coverage scope files (`Mode: coverage`)
+
+A `Mode: coverage` scope file is the execution artifact for a **horizontal coverage frontier** (see [`ln-plan`](../ln-plan/SKILL.md) §Horizontal coverage frontiers). Where `single` / `chain` files group *vertical* slices, a coverage file holds a **closed enumerated ledger** of one capability layer, and its definition of done is *aggregate*: every required row closed.
+
+Write one only when `ln-plan` has established a coverage frontier whose three-part gate is satisfied — a named layer that is load-bearing as a whole, a closeable enumeration, and required-vs-deferred marking. If you cannot close the enumeration, do not use this mode; write ordinary vertical cards instead.
+
+### Ledger shape
+
+The file body is a coverage ledger — one table per sub-seam if the layer splits:
+
+| Capability | Status | Req | Fill | Owner / next | Notes |
+| --- | --- | --- | --- | --- | --- |
+| *one capability the layer must contain* | `have` \| `partial` \| `spec` \| `new` \| `built` | `●` \| `○` | `proving` \| `earned` | *card / decision / pointer* | *links* |
+
+- **Status:** `have` (in code) · `partial` (exists, incomplete vs target) · `spec` (designed, not built) · `new` (beyond spec, needs a decision first) · `built` (closed this push).
+- **Req:** `●` required for the DoD · `○` deferred. The DoD is "every `●` row is `have` or `built`."
+- **Fill:** the posture each row's build inherits — `proving` if the row still carries an unknown, `earned` if it is settled-but-unbuilt. A `new` row usually needs a micro-decision (`ln-disambiguate` / `ln-spec`) before it can be filled.
+
+### Each row is still a vertical fill
+
+The file is horizontal; each **row** is built as an ordinary thin slice under its declared fill posture. `ln-build` implements rows and flips their Status to `built`; the row's target *is* the acceptance criterion. A row whose scope turns out to need its own full card may spawn a sibling `single` file — leave a pointer in that row's Owner / next cell rather than fattening the ledger.
+
+### Anti-sprawl boundary
+
+The ledger is a **closed list**, not a generative one. "Fill the layer" means *close these enumerated rows*, never "do everything that rhymes" (global `AGENTS.md` §completionist sprawl). Add a row mid-flight only when a genuinely-missing capability is discovered — record it with Status `new` and a one-line justification, never as completionist symmetry.
 
 ## Overlap-as-independence-test
 

@@ -54,7 +54,7 @@ The posture is **per frontier**, not per project. A mostly-earned repo can carry
 
 Posture annotations are **required** on every `Active` / `Next` frontier (see the matching reference for the field set). If no posture-specific annotation applies, the frontier is not earning its slot — reshape, reclassify, or demote it.
 
-When implementation later reveals the posture was wrong, treat that as a state transition (downgrade earned → proving, reshape the slice, route back through `ln-plan` if the frontier itself splits). Do not invent a third permanent posture.
+When implementation later reveals the posture was wrong, treat that as a state transition (downgrade earned → proving, reshape the slice, route back through `ln-plan` if the frontier itself splits). Do not invent a third permanent posture. (A horizontal **coverage frontier** is a frontier *shape*, not a third posture — see [§Horizontal coverage frontiers](#horizontal-coverage-frontiers-frontier-shape-not-a-posture).)
 
 Defensive parsing: depend primarily on `.pi/POSTURE.md`'s `certainty:` field; tolerate extra or mismatched fields rather than failing on schema drift.
 
@@ -123,6 +123,30 @@ Sequencing pressures and required annotation fields depend on the active frontie
 - **Earned frontiers** → load [`references/earned.md`](references/earned.md). Covers the closure move-set (materialize, consolidate, name canonically, delete-as-progress, retire bridges, take-the-bigger-step), the "circling" recognition heuristic, sprawl guardrails, regression handling, and the `Closes` / `Materializes` / `Canonicalizes` / `Deletes/retires` / `Locks in` annotation set.
 
 A plan may contain a mix of postures across its `Active` / `Next` frontiers. Load both references when planning a mixed plan.
+
+### Horizontal coverage frontiers (frontier *shape*, not a posture)
+
+Posture answers *how to rank the next vertical slice*; it carries **no completeness test**. Vertical tracers touch a horizontal capability layer (for example "the agent's READ tools as a whole") only as far as each claim needs, so a load-bearing layer can stay permanently shallow while every individual slice is still "done."
+
+A **coverage frontier** fills that gap. It is a different frontier *shape*, not a third posture: it adds no row-level execution mechanics — each row is still built under `proving` or `earned`. What it adds is a layer-level **aggregate definition of done**: *no required row in a closed enumerated inventory is left open.*
+
+**Recognition trigger.** Reach for a coverage frontier only when all three hold:
+
+1. a **named layer is load-bearing as a whole** — its value *is* its breadth (an agent's capability surface, a public API's method set, a renderer family), not just one claim it proves;
+2. you can **author a closed, enumerated inventory** up front of what the layer must contain; and
+3. rows can be marked **required vs deferred** (e.g. POC `●` / later `○`).
+
+If you cannot close the enumeration, it is not a coverage frontier — stay tracer-shallow. Most product layers should (correct YAGNI). Coverage mode is safe *only because the surface is a closed list*; without this gate it degenerates into completionist sprawl (global `AGENTS.md` §completionist sprawl).
+
+**Frontier definition fields.** A coverage frontier names:
+
+- the **layer boundary** — what is in the layer and explicitly what is out;
+- the **aggregate DoD** — "every `●` row is closed";
+- a pointer to the **`Mode: coverage` scope file** under `memory/cards/` that holds the row ledger (authored via `ln-scope`).
+
+Each ledger row declares its own **fill mode** — `proving` if the row still carries an unknown, `earned` if it is settled-but-unbuilt. `ln-build` closes rows; the frontier completes when no `●` row remains in a `spec` / `new` / `partial` state — the ledger DoD, not a single tracer claim.
+
+**Maturity gate.** The coverage shape is young: the seed instance is the non-canonical `memory/CROSS_CUT_PLAN.md`. Treat it as a recognized scope-file mode, **not** a canonical posture or doc type. Promote it to first-class (a `references/coverage.md` posture, a canonical coverage store) only on rule-of-three — at least three real coverage cases *and* a recurring need for row-level mechanics beyond "closed ledger + per-row proving/earned." Until then, do not add a third posture reference or an alternate planning store.
 
 ## Procedure
 
