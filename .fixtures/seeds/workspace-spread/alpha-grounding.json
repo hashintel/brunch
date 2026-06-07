@@ -1,0 +1,17 @@
+{
+  "spec": {
+    "slug": "alpha-grounding",
+    "name": "Alpha Grounding",
+    "readiness_grade": "grounding_onboarding"
+  },
+  "nodes": [
+    { "local_id": 1, "plane": "intent", "kind": "goal", "title": "Help a user orient inside one workspace", "basis": "explicit", "source": "fixture" },
+    { "local_id": 2, "plane": "intent", "kind": "context", "title": "A workspace may hold multiple specs", "basis": "explicit", "source": "fixture" },
+    { "local_id": 3, "plane": "intent", "kind": "constraint", "title": "Selection must stay scoped to the chosen spec", "basis": "explicit", "source": "fixture" },
+    { "local_id": 4, "plane": "intent", "kind": "term", "title": "Selected spec", "basis": "explicit", "source": "fixture", "detail": { "definition": "The one spec whose graph and sessions a current interaction targets." } }
+  ],
+  "edges": [
+    { "category": "support", "source_local_id": 2, "target_local_id": 1, "stance": "for", "basis": "explicit" },
+    { "category": "boundary", "source_local_id": 3, "target_local_id": 1, "basis": "explicit" }
+  ]
+}

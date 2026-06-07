@@ -12,8 +12,9 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
-import { changeLog, edges, graphClock, nodes, specs } from '../db/schema.js';
+import { EDGE_CATEGORIES, changeLog, edges, graphClock, nodes, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
+import { NODE_KIND_METADATA, type ReadinessBand } from './schema/nodes.js';
 import { seedFixture, type SeedFixture } from './seed-fixtures.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -85,6 +86,51 @@ describe('seedFixture', () => {
     expect(nodeRows.every((row) => row.plane === 'intent' && row.basis === 'explicit')).toBe(true);
   });
 
+  it('loads the kind-band spread fixture with every node kind and all readiness bands represented', () => {
+    const db: BrunchDb = createDb(':memory:');
+    const executor = new CommandExecutor(db);
+    const fixture = loadFixture('coverage-matrix', 'kind-band-spread');
+
+    const result = seedFixture(executor, fixture);
+    const nodeRows = db.select().from(nodes).where(eq(nodes.spec_id, result.specId)).all();
+
+    expect(new Set(nodeRows.map((row) => row.kind))).toEqual(new Set(Object.keys(NODE_KIND_METADATA)));
+    expect(new Set(readinessBandsFor(nodeRows.map((row) => row.kind)))).toEqual(
+      new Set<ReadinessBand>(['grounding', 'elicitation', 'commitment']),
+    );
+  });
+
+  it('loads the edge-spread fixture with every edge category and a thesis absence case', () => {
+    const db: BrunchDb = createDb(':memory:');
+    const executor = new CommandExecutor(db);
+    const fixture = loadFixture('category-directions', 'edge-spread');
+
+    const result = seedFixture(executor, fixture);
+    const specEdges = db.select().from(edges).where(eq(edges.spec_id, result.specId)).all();
+    const specNodes = db.select().from(nodes).where(eq(nodes.spec_id, result.specId)).all();
+    const thesisId = specNodes.find((row) => row.title === 'Unproven thesis exemplar')?.id;
+
+    expect(new Set(specEdges.map((row) => row.category))).toEqual(new Set(EDGE_CATEGORIES));
+    expect(thesisId).toBeDefined();
+    expect(specEdges.some((row) => row.category === 'proof' && row.target_id === thesisId)).toBe(false);
+  });
+
+  it('loads the workspace-spread fixtures into one DB with distinct slugs and readiness grades', () => {
+    const db: BrunchDb = createDb(':memory:');
+    const executor = new CommandExecutor(db);
+    const alpha = seedFixture(executor, loadFixture('alpha-grounding', 'workspace-spread'));
+    const beta = seedFixture(executor, loadFixture('beta-commitments', 'workspace-spread'));
+
+    const specRows = db.select({ slug: specs.slug, readinessGrade: specs.readiness_grade }).from(specs).all();
+
+    expect(specRows).toEqual([
+      { slug: 'alpha-grounding', readinessGrade: 'grounding_onboarding' },
+      { slug: 'beta-commitments', readinessGrade: 'commitments_ready' },
+    ]);
+    expect(graphClockLsn(db, alpha.specId)).toBe(2);
+    expect(graphClockLsn(db, beta.specId)).toBe(2);
+  });
+
   it('keeps seeded spec LSNs coherent independent of seed order', () => {
     const db: BrunchDb = createDb(':memory:');
     const executor = new CommandExecutor(db);
@@ -118,3 +164,7 @@ describe('seedFixture', () => {
     expect(() => seedFixture(executor, fixture)).toThrow(/only "explicit" basis/);
   });
 });
+
+function readinessBandsFor(kinds: string[]): ReadinessBand[] {
+  return kinds.flatMap((kind) => NODE_KIND_METADATA[kind as keyof typeof NODE_KIND_METADATA].readinessBands);
+}
