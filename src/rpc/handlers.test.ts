@@ -294,6 +294,7 @@ describe('JSON-RPC handlers', () => {
       'session.pendingExchange',
       'session.runtimeState',
       'session.submitExchangeResponse',
+      'session.submitMessage',
       'session.triggerExchange',
       'workspace.activate',
       'workspace.selectionState',
@@ -442,6 +443,7 @@ describe('JSON-RPC handlers', () => {
     const exchanges = methods.find((entry) => entry.method === 'session.exchanges');
     const pending = methods.find((entry) => entry.method === 'session.pendingExchange');
     const runtimeState = methods.find((entry) => entry.method === 'session.runtimeState');
+    const submitMessage = methods.find((entry) => entry.method === 'session.submitMessage');
     const submit = methods.find((entry) => entry.method === 'session.submitExchangeResponse');
 
     for (const entry of [exchanges, pending]) {
@@ -472,6 +474,16 @@ describe('JSON-RPC handlers', () => {
     expect(JSON.stringify(submit.resultSchema.properties?.capture)).toContain('captured');
     expect(JSON.stringify(submit.resultSchema.properties?.capture)).toContain('no_capture');
     expect(JSON.stringify(submit.resultSchema.properties?.capture)).toContain('structural_illegal');
+
+    if (!submitMessage) throw new Error('expected discovered session.submitMessage method');
+    expect(JSON.stringify(submitMessage.paramsSchema.properties?.text)).toContain('string');
+    expect(JSON.stringify(submitMessage.paramsSchema.properties?.interruption)).toContain('boolean');
+    expect(JSON.stringify(submitMessage.resultSchema.properties?.capture)).toContain('captured');
+    expect(JSON.stringify(submitMessage.resultSchema.properties?.capture)).toContain('no_capture');
+    expect(JSON.stringify(submitMessage.resultSchema.properties?.capture)).toContain('structural_illegal');
+    for (const example of submitMessage.examples.filter((example) => example.params !== undefined)) {
+      expect(Value.Check(submitMessage.paramsSchema, example.params)).toBe(true);
+    }
   });
 
   it('serves discovery examples that are valid JSON-RPC requests for advertised methods', async () => {
@@ -1506,6 +1518,192 @@ describe('JSON-RPC handlers', () => {
     ).resolves.toMatchObject({
       result: {
         nodeCount: 0,
+      },
+    });
+  });
+
+  it('captures explicit labeled ordinary messages into the transcript-bound spec graph and publishes graph invalidations', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-message-capture-'));
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinatorInstance.createSetupSession({
+      specTitle: 'Ordinary message capture spec',
+    });
+    const graph = await openWorkspaceGraphRuntime(cwd);
+    const sibling = graph.commandExecutor.createSpec({ name: 'Sibling spec', slug: 'sibling-spec' });
+    if (sibling.status !== 'success') throw new Error('failed to create sibling spec fixture');
+    const productUpdates = createProductUpdatePublisher();
+    const updates: unknown[] = [];
+    productUpdates.subscribe((batch) => updates.push(...batch));
+    const handlers = createRpcHandlers({
+      coordinator: coordinator({
+        ...workspace,
+        spec: { id: sibling.specId, title: 'Sibling spec' },
+      }),
+      cwd,
+      productUpdates,
+    });
+
+    const before = await readFile(workspace.session.file, 'utf8');
+    const response = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 280,
+      method: 'session.submitMessage',
+      params: {
+        text: [
+          'Goal: Keep ordinary messages on the same selected-spec capture path.',
+          'Context: Users may say this outside a structured exchange.',
+          'Constraint: Do not silently answer pending structured requests.',
+          'Criterion: Graph updates still publish selected-spec invalidations.',
+        ].join('\n'),
+      },
+    });
+
+    expect(response).toMatchObject({
+      jsonrpc: '2.0',
+      id: 280,
+      result: {
+        status: 'accepted',
+        interruption: false,
+        capture: {
+          status: 'captured',
+          lsn: expect.any(Number),
+          nodeCount: 4,
+          createdNodes: {
+            goal: { code: 'G1' },
+            context: { code: 'CTX1' },
+            constraint: { code: 'CON1' },
+            criterion: { code: 'CR1' },
+          },
+        },
+      },
+    });
+    if (!('result' in response)) throw new Error('expected submitMessage response');
+    const lsn = (response.result as { capture: { lsn: number } }).capture.lsn;
+    expect(updates).toContainEqual({ topic: 'graph.overview', specId: workspace.spec.id, lsn });
+    expect(updates).toContainEqual({ topic: 'graph.nodeNeighborhood', specId: workspace.spec.id, lsn });
+
+    const overview = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 281,
+      method: 'graph.overview',
+      params: { specId: workspace.spec.id },
+    });
+    expect(overview).toMatchObject({
+      result: {
+        nodeCount: 4,
+        nodes: expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'goal',
+            basis: 'explicit',
+            source: expect.stringContaining('session_message:'),
+          }),
+        ]),
+      },
+    });
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 282,
+        method: 'graph.overview',
+        params: { specId: sibling.specId },
+      }),
+    ).resolves.toMatchObject({ result: { nodeCount: 0 } });
+    const after = await readFile(workspace.session.file, 'utf8');
+    expect(after.length).toBeGreaterThan(before.length);
+    expect(after).toContain('Keep ordinary messages on the same selected-spec capture path.');
+  });
+
+  it('rejects ordinary messages while a structured exchange is pending unless they are explicit interruptions', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-message-pending-'));
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinatorInstance.createSetupSession({
+      specTitle: 'Pending message guard spec',
+    });
+    const handlers = createRpcHandlers({
+      coordinator: coordinatorInstance,
+      cwd,
+    });
+    await handlers.handle({
+      jsonrpc: '2.0',
+      id: 283,
+      method: 'session.triggerExchange',
+    });
+    const before = await readFile(workspace.session.file, 'utf8');
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 284,
+        method: 'session.submitMessage',
+        params: { text: 'This should not answer the pending exchange.' },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: '2.0',
+      id: 284,
+      error: {
+        code: -32009,
+        message:
+          'Pending structured exchange requires session.submitExchangeResponse unless this message is an explicit interruption',
+      },
+    });
+    await expect(readFile(workspace.session.file, 'utf8')).resolves.toBe(before);
+  });
+
+  it('records explicit interruptions transcript-visibly without answering the pending structured exchange', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-message-interruption-'));
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinatorInstance.createSetupSession({ specTitle: 'Interruption spec' });
+    const handlers = createRpcHandlers({
+      coordinator: coordinatorInstance,
+      cwd,
+    });
+    const pending = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 285,
+      method: 'session.triggerExchange',
+    });
+    const exchangeId = (
+      pending as {
+        result: { exchange: { exchangeId: string } };
+      }
+    ).result.exchange.exchangeId;
+
+    const response = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 286,
+      method: 'session.submitMessage',
+      params: {
+        text: 'Pause this question and let me clarify a broader constraint first.',
+        interruption: true,
+      },
+    });
+
+    expect(response).toMatchObject({
+      jsonrpc: '2.0',
+      id: 286,
+      result: {
+        status: 'accepted',
+        interruption: true,
+        capture: {
+          status: 'no_capture',
+          reason: 'explicit interruptions are transcript-visible only and do not run synchronous capture',
+        },
+      },
+    });
+    const sessionText = await readFile(workspace.session.file, 'utf8');
+    expect(sessionText).toContain('Pause this question and let me clarify a broader constraint first.');
+    expect(sessionText).toContain('brunch.session_interruption');
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 287,
+        method: 'session.pendingExchange',
+      }),
+    ).resolves.toMatchObject({
+      result: {
+        status: 'pending',
+        exchange: { exchangeId },
       },
     });
   });

@@ -83,6 +83,7 @@ full RPC host:
     workspace.activate
     session.triggerExchange
     session.submitExchangeResponse
+    session.submitMessage
 
 dev-enabled full RPC host only:
   writes:
@@ -107,6 +108,7 @@ TUI-started web sidecar:
     workspace.activate
     session.triggerExchange
     session.submitExchangeResponse
+    session.submitMessage
 ```
 
 ## Method overview
@@ -182,6 +184,18 @@ session.submitExchangeResponse
       | rejected
       | structural_illegal(diagnostics)
   effects: appends request_* toolResult response, publishes selected-session invalidations, and when captured or approved publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
+
+session.submitMessage
+  access: write
+  params:
+    text
+    interruption?
+  result: accepted ordinary user message plus capture outcome
+    capture:
+      captured(lsn, nodeCount, createdNodes)
+      | no_capture(reason)
+      | structural_illegal(diagnostics)
+  effects: appends a user message to the selected session transcript, rejects ordinary text while a structured exchange is pending unless interruption=true, and when captured publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
 
 graph.overview
   access: read
@@ -328,10 +342,8 @@ if session.pendingExchange returns pending:
 
 if no exchange is pending:
   session.triggerExchange may ask the agent for the next exchange
-  future session.submitMessage may append ordinary user text or an explicit interruption
+  session.submitMessage may append ordinary user text or an explicit interruption
 ```
-
-`session.submitMessage` is reserved for a future real method. It is not exposed in current discovery. When implemented, it must not silently answer a pending exchange; interruptions should be explicit in the payload and transcript-visible.
 
 ## `propose-graph` flow
 
@@ -372,9 +384,6 @@ command.*                       -> internal authority seam, not a browser RPC pr
 Reserved future names:
 
 ```pseudo
-session.submitMessage
-  ordinary non-exchange user text or explicit interruption; absent until real behavior is scoped
-
 graph.changesSince / graph.recentChanges
   future graph update projection
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { CommandExecutor } from '../command-executor.js';
 import type { CommitGraphInput, CommitGraphResult } from '../command-executor/commit-graph-types.js';
-import { captureStructuredResponseFacts } from './structured-response.js';
+import { captureExplicitTextFacts, captureStructuredResponseFacts } from './structured-response.js';
 
 class RecordingExecutor {
   readonly calls: CommitGraphInput[] = [];
@@ -185,5 +185,50 @@ describe('captureStructuredResponseFacts', () => {
 
     expect(outcome.status).toBe('no_capture');
     expect(executor.calls).toEqual([]);
+  });
+});
+
+describe('captureExplicitTextFacts', () => {
+  it('reuses the same labeled-text capture core with a caller-provided source prefix', () => {
+    const executor = new RecordingExecutor({
+      status: 'success',
+      lsn: 9,
+      createdNodes: {
+        goal: { id: 31, code: 'G1' },
+      },
+      edges: [],
+    });
+
+    const outcome = captureExplicitTextFacts({
+      specId: 42,
+      text: 'Goal: Capture ordinary user text too.',
+      source: 'session_message:message-1',
+      commandExecutor: executor as unknown as CommandExecutor,
+    });
+
+    expect(outcome).toEqual({
+      status: 'captured',
+      lsn: 9,
+      nodeCount: 1,
+      createdNodes: {
+        goal: { id: 31, code: 'G1' },
+      },
+    });
+    expect(executor.calls).toEqual([
+      {
+        specId: 42,
+        basis: 'explicit',
+        nodes: [
+          {
+            ref: 'goal',
+            plane: 'intent',
+            kind: 'goal',
+            title: 'Capture ordinary user text too.',
+            source: 'session_message:message-1',
+          },
+        ],
+        edges: [],
+      },
+    ]);
   });
 });
