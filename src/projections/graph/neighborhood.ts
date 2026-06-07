@@ -83,7 +83,7 @@ export function projectNeighborhood(
         const rationale = edge.rationale ? ` — ${truncate(edge.rationale, 100)}` : '';
         const source = nodesById.get(edge.sourceId);
         const target = nodesById.get(edge.targetId);
-        return `#${edge.id}: ${formatEdgeEndpoint(edge.sourceId, source)} -[${edge.category}${stance}]-> ${formatEdgeEndpoint(edge.targetId, target)}${rationale}`;
+        return `${formatEdgeEndpoint(edge.sourceId, source)} -[${edge.category}${stance}]-> ${formatEdgeEndpoint(edge.targetId, target)}${rationale}`;
       }),
       omittedCount: Math.max(0, result.edges.length - maxEdges),
     },
