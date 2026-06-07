@@ -21,6 +21,12 @@ Created:  2026-06-07
   `reconciliation_need` shape so the retrospective register can later materialize symmetrically.
   `createSpec` ([command-executor.ts#L449](file:///Users/lunelson/Code/hashintel/brunch-next/src/graph/command-executor.ts#L449))
   is the seed point — it already runs a transaction allocating a spec-local LSN + `change_log` row.
+- **Topology note (post-35eff395):** the `snapshot` architecture noun is retired. The `read | project
+  | render` split now governs: **domain read/query logic stays in the owning domain**
+  ([src/graph/queries.ts](file:///Users/lunelson/Code/hashintel/brunch-next/src/graph/queries.ts), formerly
+  `snapshot.ts`); `src/projections/` is reserved for **reusable multi-consumer/multi-source DTOs**.
+  So the backlog read-back lives in `graph/` (single-owner domain read), **not** `src/projections/`
+  — add a projection only if a later consumer (RPC/web) actually reuses the shape.
 - **Main open risk:** D65-L lists three open scope-design items. This card resolves two and
   defers one (below). The load-bearing assumption A24-L (a flat table suffices, no graph plane)
   is exactly what landing this tracer tests.
@@ -42,7 +48,8 @@ Frontier-level cross-cutting obligations this slice carries:
 - **D16-L/A4-L:** each mutation allocates exactly one `{specId, lsn}` through the spec's `graph_clock`.
 - **D63-L:** `basis` is provenance-directness — a user-raised need is `explicit`, an
   agent-inferred need is `implicit`; do not overload it as a mutation-path field.
-- **D52-L:** `graph/` owns the table + mutation; `db/` is imported only by `graph/`; projections read.
+- **D52-L:** `graph/` owns the table + mutation **and the read** (domain query in `queries.ts`);
+  `db/` is imported only by `graph/`. A `src/projections/` DTO is added only if a consumer reuses it.
 - **D65-L shape lock:** flat table only — FK pointers (`arose_from`, `resolved_by`), filter
   attributes (plane/lens affinity, grade band, `open|closed`); **no** graph node/plane, no
   unknown→unknown edges. Keep it forward-compatible with promotion to a plane, do not pre-build one.
@@ -50,7 +57,7 @@ Frontier-level cross-cutting obligations this slice carries:
 ### Target Behavior
 
 A flat `elicitation_backlog` table is materialized through `CommandExecutor`, seeded with
-grounding-band questions at spec creation, and read back per spec through the command/projection boundary.
+grounding-band questions at spec creation, and read back per spec through the command and domain-read boundary.
 
 ### Boundary Crossings
 
@@ -59,7 +66,7 @@ grounding-band questions at spec creation, and read back per spec through the co
 → graph/schema/elicitation-backlog.ts domain types (mirror reconciliation-need shape)
 → CommandExecutor: create-entry / close-entry mutations (one spec-local LSN + change_log each)
 → createSpec seed hook (grounding-band questions on new spec)
-→ projection/read: list open backlog entries for a spec
+→ domain read (graph/queries.ts): list open backlog entries for a spec
 → SPEC reconciliation (A24-L progress; D65-L routing/seed forks resolved)
 ```
 
@@ -124,7 +131,7 @@ elicitation_backlog substrate
 ```
 - Inner: CommandExecutor unit tests — create/close mutation, LSN/change_log, structural_illegal, spec scoping.
 - Inner: migration/schema test — table present; seed-on-createSpec count and field assertions.
-- Middle: read projection test — seeded entries read back per spec; sibling-spec isolation.
+- Middle: domain-read test (graph/queries) — seeded entries read back per spec; sibling-spec isolation.
 ```
 
 ### Cross-cutting obligations
@@ -150,9 +157,10 @@ src/graph/
 ├── command-executor.test.ts                  ~
 ├── command-executor/
 │   └── elicitation-backlog-types.ts          +?
+├── queries.ts                                ~   (domain read: list backlog entries per spec)
+├── queries.test.ts                           ~
 └── index.ts                                  ~
-src/projections/
-└── elicitation-backlog.ts                    +?  (read projection)
+src/projections/                              ?   (only if a consumer reuses the read shape — not by default)
 memory/SPEC.md                                ~   (A24-L progress; D65-L routing/seed forks resolved)
 docs/design/GRAPH_MODEL.md                    ?   (if the need-register section gains a prospective sibling note)
 ```
