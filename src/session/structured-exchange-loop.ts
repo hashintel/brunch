@@ -34,6 +34,11 @@ export const zPendingStructuredExchange = z
     ),
     note: z.object({ allowed: z.boolean() }).strict(),
     reviewSet: z.record(z.string(), z.unknown()).optional(),
+    // Which present tool opened a single-select exchange. Candidate lists and
+    // option lists both answer via request_choice but capture differently
+    // (capture_candidate vs capture_choice), so the provenance must round-trip
+    // rather than be assumed. Absent ⇒ present_options.
+    respondsToPresentTool: z.enum(['present_options', 'present_candidates']).optional(),
   })
   .strict();
 export const PendingStructuredExchangeSchema = z.toJSONSchema(zPendingStructuredExchange, {
@@ -309,7 +314,7 @@ export function acceptedResponseFromParams(
         content: [{ type: 'text', text: choiceResponseMarkdown([choice], params.note) }],
         details: projectRequestChoice({
           exchangeId: pending.exchangeId,
-          respondsToPresentTool: 'present_options',
+          respondsToPresentTool: pending.respondsToPresentTool ?? 'present_options',
           status: 'answered',
           choice: { id: choice.id, label: choice.label, kind: choiceKind(choice.id) },
           comment,
@@ -448,15 +453,17 @@ function pendingExchangeFromStructuredPresent(
     };
   }
 
+  const mode =
+    details.tool_meta.next === 'request_choices'
+      ? 'multi-select'
+      : details.tool_meta.curr === 'present_question'
+        ? 'text'
+        : 'single-select';
+
   return {
     exchangeId: details.exchange_id,
     lens: 'intent',
-    mode:
-      details.tool_meta.next === 'request_choices'
-        ? 'multi-select'
-        : details.tool_meta.curr === 'present_question'
-          ? 'text'
-          : 'single-select',
+    mode,
     prompt,
     ...(detailsText.length > 0 ? { details: detailsText } : {}),
     options:
@@ -464,6 +471,11 @@ function pendingExchangeFromStructuredPresent(
         ? parsePendingOptions(details.options, markdown)
         : parsePendingOptions(undefined, markdown),
     note: { allowed: true },
+    // Preserve which present tool opened a single-select exchange so the answer
+    // captures as the matching tool (candidate vs choice).
+    ...(mode === 'single-select' && details.tool_meta.curr === 'present_candidates'
+      ? { respondsToPresentTool: 'present_candidates' as const }
+      : {}),
   };
 }
 
