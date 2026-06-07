@@ -40,7 +40,7 @@ Weight: full
 → semantic mutation planner / structural validation
 → CommandExecutor transaction boundary
 → SQLite graph rows + spec-local graph_clock/change_log
-→ graph snapshots / existing product callers
+→ graph readers / existing product callers
 → graph topology docs + SPEC/GRAPH_MODEL reconciliation
 ```
 
@@ -64,7 +64,7 @@ Weight: full
 This proving slice is a tracer bullet on two axes:
 
 - **Invariants:** it stabilizes the command-layer shape required to edit seed truth without bypassing `CommandExecutor`.
-- **Proof of life:** a mixed create/update/delete batch must be visible through normal graph snapshots and later exportable as seed JSON.
+- **Proof of life:** a mixed create/update/delete batch must be visible through normal graph readers and later exportable as seed JSON.
 
 It deliberately does not attempt a full UI curation workflow or write leases. Those are adjacent surfaces, not required to prove the mutation seam.
 
@@ -102,7 +102,7 @@ semantic graph mutation command
 ### Verification Approach
 
 - Inner: `CommandExecutor` unit/regression tests — prove validation, all-or-nothing writes, spec scoping, LSN/change-log behavior, and immutable-field rules.
-- Inner: snapshot/export cross-check — after a mixed mutation, `getGraphOverview(..., graph_truth)` and `exportSeedFixture` reflect the post-mutation graph.
+- Inner: graph-read/export cross-check — after a mixed mutation, `getGraphOverview(..., graph_truth)` and `exportSeedFixture` reflect the post-mutation graph.
 - Middle: compile/import repair over existing graph callers — proves the old creation path did not keep an unmaintained validation fork.
 
 ### Cross-cutting obligations

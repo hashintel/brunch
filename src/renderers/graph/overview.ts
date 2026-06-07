@@ -1,5 +1,5 @@
 /**
- * Formats projected graph overview snapshots into model-facing text.
+ * Formats projected graph overview context into model-facing text.
  *
  * Input:
  * - projected output from projections/graph/overview.ts

@@ -15,22 +15,22 @@ describe('JSON-RPC protocol helpers', () => {
       isJsonRpcRequest({
         jsonrpc: '2.0',
         id: 'abc',
-        method: 'workspace.snapshot',
+        method: 'workspace.state',
       }),
     ).toBe(true);
-    expect(isJsonRpcRequest({ jsonrpc: '2.0', id: 1, method: 'workspace.snapshot' })).toBe(true);
+    expect(isJsonRpcRequest({ jsonrpc: '2.0', id: 1, method: 'workspace.state' })).toBe(true);
     expect(
       isJsonRpcRequest({
         jsonrpc: '2.0',
         id: null,
-        method: 'workspace.snapshot',
+        method: 'workspace.state',
       }),
     ).toBe(true);
     expect(
       isJsonRpcRequest({
         jsonrpc: '2.0',
         id: { bad: true },
-        method: 'workspace.snapshot',
+        method: 'workspace.state',
       }),
     ).toBe(false);
     expect(isJsonRpcRequest({ jsonrpc: '2.0', id: 1 })).toBe(false);
@@ -64,7 +64,7 @@ describe('JSON-RPC protocol helpers', () => {
     ).resolves.toEqual(createJsonRpcParseError());
 
     await expect(
-      dispatchJsonRpcMessage('{"jsonrpc":"2.0","id":7,"method":"workspace.snapshot"}', {
+      dispatchJsonRpcMessage('{"jsonrpc":"2.0","id":7,"method":"workspace.state"}', {
         async handle() {
           throw new Error('boom');
         },
@@ -77,9 +77,9 @@ describe('JSON-RPC protocol helpers', () => {
   });
 
   it('parses protocol messages without attaching product semantics', () => {
-    expect(parseJsonRpcMessage('{"jsonrpc":"2.0","id":1,"method":"workspace.snapshot"}')).toEqual({
+    expect(parseJsonRpcMessage('{"jsonrpc":"2.0","id":1,"method":"workspace.state"}')).toEqual({
       ok: true,
-      value: { jsonrpc: '2.0', id: 1, method: 'workspace.snapshot' },
+      value: { jsonrpc: '2.0', id: 1, method: 'workspace.state' },
     });
     expect(parseJsonRpcMessage('not json')).toEqual({
       ok: false,

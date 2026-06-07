@@ -14,7 +14,7 @@ Created:  2026-06-07
 - **Relevant frontier item:** none in `memory/PLAN.md`; this is the earned content half of
   cross-cut working-order step 4. Card lives under `crosscut-know--`. No new Linear/branch.
 - **Volatile state:** the bodies are genuinely thin — every resource is ~5 lines
-  (`goals/*`, `lenses/*`, `methods/{commit-graph,read-snapshot,review-for-gaps}`, all four
+  (`goals/*`, `lenses/*`, `methods/{commit-graph,read-context,review-for-gaps}`, all four
   non-freestyle `strategies/*`); only `methods/{infer-and-capture,generate-proposal,run-structured-exchange}`
   reach 12–15 lines. The contracts for what each body should contain already exist in the
   family READMEs ([strategies/README.md](file:///Users/lunelson/Code/hashintel/brunch-next/src/.pi/skills/strategies/README.md)
@@ -89,7 +89,7 @@ src/.pi/skills/
 ├── goals/{grounding-advance,elicit-expand,commit-converge,capture-posture}.md   ~
 ├── strategies/{step-wise-decision-tree,step-wise-disambiguate,propose-graph,project-graph}.md   ~
 ├── lenses/{intent,design,oracle}.md                                             ~
-└── methods/{run-structured-exchange,infer-and-capture,commit-graph,read-snapshot,generate-proposal,review-for-gaps}.md   ~
+└── methods/{run-structured-exchange,infer-and-capture,commit-graph,read-context,generate-proposal,review-for-gaps}.md   ~
 src/.pi/agents/state.ts            ?   (only if a manifest description needs to match a deepened body)
 src/.pi/agents/compose.test.ts     ?   (only if a light structural/readability assertion is added)
 ```

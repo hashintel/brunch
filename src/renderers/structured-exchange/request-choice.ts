@@ -1,4 +1,4 @@
-import type { RequestChoiceDetails } from '../../projections/structured-exchange/request-choice.js';
+import type { RequestChoiceDetails } from '../../projections/exchanges/request-choice.js';
 
 export function formatRequestChoice(details: RequestChoiceDetails): string {
   if ('cancelled' in details) return '### Response\n\n_User cancelled the request._';

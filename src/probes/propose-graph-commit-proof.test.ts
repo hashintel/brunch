@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { GraphOverview } from '../graph/snapshot.js';
+import type { GraphOverview } from '../graph/queries.js';
 import {
   summarizeProposeGraphCommitProof,
   writeProposeGraphCommitProofArtifacts,

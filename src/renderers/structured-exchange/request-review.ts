@@ -1,4 +1,4 @@
-import type { RequestReviewDetails } from '../../projections/structured-exchange/request-review.js';
+import type { RequestReviewDetails } from '../../projections/exchanges/request-review.js';
 
 export function formatRequestReview(details: RequestReviewDetails): string {
   if ('cancelled' in details) return '### Review decision\n\n_User cancelled the review request._';

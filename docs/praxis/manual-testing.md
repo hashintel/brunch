@@ -5,7 +5,7 @@ Outer-loop verification for slices that touch the user-facing boundary. Manual t
 ## Setup
 
 1. **Dev server**: use `/cli-cmux` to open a terminal pane, run `npm run dev` there. Do NOT use cmux for browser panes.
-2. **Browser**: use `/cli-cdp` to launch Chrome with DevTools Protocol, open the dev URL, and interact (snapshot, fill, click, eval, console).
+2. **Browser**: use `/cli-cdp` to launch Chrome with DevTools Protocol, open the dev URL, and interact (inspect, fill, click, eval, console).
 
 This keeps the dev server and browser observable without leaving the agent session.
 
@@ -88,7 +88,7 @@ This keeps golden fixtures runtime-shaped without hand-authoring JSON or redoing
 
 ## Recommended walkthrough seeds
 
-Prefer the richer `issue-tracker-*` fixtures for manual walkthroughs. They now cover the main phase-transition states explicitly instead of relying on ambiguous mid-stream snapshots.
+Prefer the richer `issue-tracker-*` fixtures for manual walkthroughs. They now cover the main phase-transition states explicitly instead of relying on ambiguous mid-stream states.
 
 - `issue-tracker-kickoff-ready` — empty grounding-entry workspace and resume from a seeded blank project
 - `issue-tracker-grounding-closure-pending` — closure proposal visible and awaiting explicit confirmation

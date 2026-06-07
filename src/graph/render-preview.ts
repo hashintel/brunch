@@ -6,8 +6,8 @@ import { createDb } from '../db/connection.js';
 import { projectNeighborhood } from '../projections/graph/neighborhood.js';
 import { formatNeighborhood } from '../renderers/graph/neighborhood.js';
 import { CommandExecutor } from './command-executor.js';
+import { getNodeNeighborhood, resolveGraphNodeCode } from './queries.js';
 import { seedFixture, type SeedFixture } from './seed-fixtures.js';
-import { getNodeNeighborhood, resolveGraphNodeCode } from './snapshot.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SEEDS_ROOT = resolve(HERE, '../../.fixtures/seeds');

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { GraphOverview } from '../../../graph/snapshot.js';
+import type { GraphOverview } from '../../../graph/queries.js';
 import { renderGraphContext } from './graph.js';
 
 const overview: GraphOverview = {

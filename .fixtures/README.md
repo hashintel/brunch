@@ -25,7 +25,7 @@ for the current architecture.
             ├── session.jsonl        # Source transcript / canonical run evidence
             ├── transcript.md        # Human-readable semantic rendering
             ├── report.json          # Probe report and artifact paths
-            └── graph-snapshot.json  # Optional graph readback when graph truth is the proof target
+            └── graph-overview.json  # Optional graph readback when graph truth is the proof target
 ```
 
 ## Current runs

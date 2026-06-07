@@ -13,7 +13,7 @@ export type MethodId =
   | 'run-structured-exchange'
   | 'infer-and-capture'
   | 'commit-graph'
-  | 'read-snapshot'
+  | 'read-context'
   | 'generate-proposal'
   | 'review-for-gaps';
 
@@ -81,7 +81,7 @@ const LENS_MIN_GRADE: Record<AgentLensId, ReadinessGrade> = {
 const METHOD_MIN_GRADE: Record<MethodId, ReadinessGrade> = {
   'run-structured-exchange': 'grounding_onboarding',
   'infer-and-capture': 'grounding_onboarding',
-  'read-snapshot': 'grounding_onboarding',
+  'read-context': 'grounding_onboarding',
   'commit-graph': 'elicitation_ready',
   'generate-proposal': 'commitments_ready',
   'review-for-gaps': 'commitments_ready',
@@ -95,7 +95,7 @@ const METHOD_TOOL_NAMES: Partial<Record<MethodId, readonly string[]>> = {
     'request_choice',
     'request_choices',
   ],
-  'read-snapshot': ['read_graph', 'read_session_context'],
+  'read-context': ['read_graph', 'read_session_context'],
   'commit-graph': ['commit_graph'],
   'generate-proposal': ['present_review_set', 'request_review'],
 };
@@ -122,7 +122,7 @@ export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition
       'run-structured-exchange',
       'infer-and-capture',
       'commit-graph',
-      'read-snapshot',
+      'read-context',
       'generate-proposal',
       'review-for-gaps',
     ],
@@ -210,10 +210,10 @@ export const METHOD_RESOURCES: Record<MethodId, PromptResourceManifestEntry> = {
     'commit-graph',
     'Commit graph truth only through Brunch graph tools and CommandExecutor-backed results.',
   ),
-  'read-snapshot': resource(
+  'read-context': resource(
     'methods',
-    'read-snapshot',
-    'Use pushed context handles and snapshot tools for selected-spec context.',
+    'read-context',
+    'Use pushed context handles and read-only context tools for selected-spec context.',
   ),
   'generate-proposal': resource(
     'methods',

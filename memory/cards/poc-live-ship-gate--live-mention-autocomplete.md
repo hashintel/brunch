@@ -47,12 +47,12 @@ Typing `#` in a Brunch TUI session lists graph nodes from the currently selected
 ### Cross-cutting obligations
 
 - Keep autocomplete as presentation/handle insertion only; ledger/staleness remains M7.
-- Keep selected-spec authority explicit through already-bound `graphDeps.snapshots.getGraphOverview()`.
+- Keep selected-spec authority explicit through already-bound `graphDeps.reads.getGraphOverview()`.
 - Keep projection trivial and local unless another surface needs the same structured candidate shape.
 
 ### Assumption dependency
 
-None — this slice builds against already-landed selected-spec graph snapshots and Pi autocomplete provider seams.
+None — this slice builds against already-landed selected-spec graph readers and Pi autocomplete provider seams.
 
 ### Expected touched paths (tentative)
 

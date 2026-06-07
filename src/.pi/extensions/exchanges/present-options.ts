@@ -1,6 +1,6 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
-import { projectPresentOptions } from '../../../projections/structured-exchange/present-options.js';
+import { projectPresentOptions } from '../../../projections/exchanges/present-options.js';
 import { formatPresentOptions } from '../../../renderers/structured-exchange/present-options.js';
 import { piSchema } from './pi-schema.js';
 import { zPresentOptionsParams, type PresentOptionsParams } from './schemas/index.js';

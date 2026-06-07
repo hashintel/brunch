@@ -8,7 +8,7 @@ prior "large semantic edge-type catalogue + relation-policy registry"
 direction and the deferred `framing_as` modality. It is also the
 source of truth for the type definitions under
 [`src/graph/`](../../src/graph/) and the per-category policy table
-consumed by snapshot/projection builders and the `CommandExecutor`.
+consumed by query/projection builders and the `CommandExecutor`.
 
 `memory/SPEC.md` and `memory/PLAN.md` are reconciled to this doc;
 if later planning text drifts, treat this document as the canonical
@@ -21,8 +21,8 @@ graph-model contract.
   kind categories, `source` field, `provenance` retirement. Locked.
 - **Current lock:** stable node reference codes, `basis` as
   approval strength (`explicit | implicit`), non-exclusive
-  readiness bands, supersession acyclicity, and snapshot
-  graph-truth vs active-context separation. Locked.
+  readiness bands, supersession acyclicity, and graph-context
+  read separation. Locked.
 
 ## Scope and posture
 
@@ -33,7 +33,7 @@ proposals, and reviewer findings. Two pressures follow from that:
 1. **Authoring burden must be low.** The agent should not be asked
    to choose among many named relation kinds, each with its own
    tuple-specific legality and its own projection policy.
-2. **Interpretation burden at snapshot time must be low.** Context
+2. **Interpretation burden at read/render time must be low.** Context
    builders should derive dependency/dependent/support/realization
    buckets from the stored edge's category and endpoint roles, not
    from a per-relation policy registry.
@@ -190,7 +190,7 @@ Notes on the categories most likely to be confused:
 ## Per-category policy
 
 The category drives all policy. The `CommandExecutor` enforces
-structural legality at write time; snapshot/projection builders use
+structural legality at write time; query/projection builders use
 this table to bucket edges; coherence triggers use the cascade
 column.
 
@@ -215,7 +215,7 @@ Legend:
 - **criteria-help** — used by the interviewer to suggest criteria
   for the target node ("requirement with no `proof` incoming →
   suggest criterion").
-- **projection effect** — how snapshot/neighborhood builders treat
+- **projection effect** — how query/neighborhood builders treat
   the edge in active-context views.
 
 Only `dependency` triggers automatic cascades. Other categories
@@ -298,7 +298,7 @@ deferred.
 ## Tuple-label lookup
 
 Tuple-label lookup is a presentation concern only. It produces
-plain-language phrasing for graph snapshots, UI, and prompt
+plain-language phrasing for graph context, UI, and prompt
 context. It does not change category policy; it only renders the
 stored edge readably from one endpoint's perspective.
 
@@ -340,10 +340,10 @@ more realization sub-clusters that demand distinct cascade or
 projection policy, split `realization` into siblings (see
 [§Open questions](#open-questions)).
 
-## Snapshot projections and bucketing
+## Context projections and bucketing
 
-Snapshot buckets come from category and endpoint role, not from the
-derived label string. Snapshot callers must also choose which
+Context buckets come from category and endpoint role, not from the
+derived label string. Callers must also choose which
 projection they want:
 
 - **`graph_truth`** — accepted graph truth records. Superseded
@@ -351,7 +351,7 @@ projection they want:
   part of auditably accepted graph state.
 - **`active_context`** — the context the agent/user should treat as
   current. Superseded predecessor nodes are hidden, and edges whose
-  endpoints are hidden are also omitted so active-context snapshots
+  endpoints are hidden are also omitted so active-context reads
   never contain dangling references.
 
 The read family should stay product-shaped and close to observed
@@ -371,7 +371,7 @@ relatedNodes({
 overview({ projection: "graph_truth" | "active_context" })
 ```
 
-A neighborhood snapshot of an intent node:
+A rendered neighborhood context of an intent node:
 
 ```text
 anchor: R1 : requirement
@@ -418,9 +418,9 @@ supersedes:
   edges live outside graph truth (preface / capture analysis /
   review-set drafts) until accepted.
 - Tuple-label lookup cannot change category policy.
-- Snapshot bucket assignment comes from category and endpoint role,
+- Context bucket assignment comes from category and endpoint role,
   not from label strings.
-- Active-context snapshots omit superseded nodes and any edge whose
+- Active-context reads omit superseded nodes and any edge whose
   endpoint is omitted.
 - `composition` does not imply sequencing or dependency.
 - `support` does not imply blocking / staleness by default.
@@ -641,7 +641,7 @@ type NodeBasis = GraphBasis
 - **`kind`** — per-plane closed enum. Structurally validated by
   the `CommandExecutor`. See [§Per-plane node kinds](#per-plane-node-kinds).
 - **`title`** — required, non-empty. The human-readable name of the
-  node. Used for mentions, snapshot display, and search.
+  node. Used for mentions, context display, and search.
 - **`body`** — optional markdown content. Carries the semantic detail
   the agent authored. Most kinds put their primary content here.
 - **`basis`** — item-level approval strength: `explicit` or
@@ -649,8 +649,8 @@ type NodeBasis = GraphBasis
 - **`source`** — free-form string for epistemic attribution.
   Convention by prompt (e.g. "stakeholder", "regulatory", "derived",
   "domain expert", "market research", "agent synthesis"), not
-  structural validation. Exists for context-snapshot enrichment —
-  it will be transformed back into sparse text in prompt snapshots,
+  structural validation. Exists for context-render enrichment —
+  it will be transformed back into sparse text in prompt context,
   not used for policy or filtering.
 - **`detail`** — optional JSON object with per-kind validated
   sub-structure. See [§Per-kind detail schemas](#per-kind-detail-schemas).
@@ -687,7 +687,7 @@ Allocation rules:
 4. DB constraints enforce `unique(spec_id, plane, kind, kind_ordinal)`.
    There is no `code` column and no `unique(spec_id, code)` database
    constraint.
-5. Snapshots and prompts render projected codes as primary handles.
+5. Context renders and prompts use projected codes as primary handles.
    Raw IDs may appear in diagnostics, but product/agent references
    should use projected codes.
 
@@ -764,11 +764,11 @@ for what kind of material the node captures.
 
 Metadata is a pure function of `(plane, kind)`. It is not stored as a
 nested object on each node. Readiness-band membership is consumed by
-snapshot / prompt filters; reference-code labels are consumed by
+context / prompt filters; reference-code labels are consumed by
 presentation code that combines the label with stored `kindOrdinal`.
 
 Readiness bands are **non-exclusive**. They guide elicitor goals,
-snapshot filters, and grade-advancement rubrics; they do not make any
+context filters, and grade-advancement rubrics; they do not make any
 node kind illegal at earlier grades. If the user clearly states a
 requirement or criterion during grounding, capture it as graph truth
 with the right `basis`; it simply does not by itself prove the

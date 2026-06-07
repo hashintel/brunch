@@ -106,7 +106,7 @@ describe('Brunch CLI dispatch', () => {
     expect(launchedTui).toBe(true);
   });
 
-  it('routes --mode print through the coordinator snapshot and exits', async () => {
+  it('routes --mode print through the coordinator state and exits', async () => {
     let output = '';
 
     const code = await runBrunchCli({
@@ -183,14 +183,9 @@ describe('Brunch CLI dispatch', () => {
       jsonrpc: '2.0',
       method: 'brunch.updated',
       params: {
-        topics: [
-          'workspace.snapshot',
-          'session.pendingExchange',
-          'session.exchanges',
-          'session.runtimeState',
-        ],
+        topics: ['workspace.state', 'session.pendingExchange', 'session.exchanges', 'session.runtimeState'],
         updates: [
-          { topic: 'workspace.snapshot', specId: workspace.spec.id, sessionId: workspace.session.id },
+          { topic: 'workspace.state', specId: workspace.spec.id, sessionId: workspace.session.id },
           {
             topic: 'session.pendingExchange',
             specId: workspace.spec.id,
@@ -226,7 +221,7 @@ describe('Brunch CLI dispatch', () => {
       argv: ['--mode=rpc'],
       cwd: '/tmp/brunch-project',
       coordinator: coordinator(),
-      stdin: rpcRequest('workspace.snapshot'),
+      stdin: rpcRequest('workspace.state'),
       stdout,
     });
 
@@ -262,7 +257,7 @@ describe('Brunch CLI dispatch', () => {
       }
     }
   });
-  it('exposes matching print and RPC workspace snapshots from a real coordinator store', async () => {
+  it('exposes matching print and RPC workspace states from a real coordinator store', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-parity-'));
     await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
       specTitle: 'Parity spec',
@@ -281,17 +276,17 @@ describe('Brunch CLI dispatch', () => {
     await runBrunchCli({
       argv: ['--mode=rpc'],
       cwd,
-      stdin: rpcRequest('workspace.snapshot'),
+      stdin: rpcRequest('workspace.state'),
       stdout: rpcOutput,
     });
 
-    const rpcSnapshot = JSON.parse(rpcChunks.join('')).result;
+    const rpcState = JSON.parse(rpcChunks.join('')).result;
     expect(printOutput).toContain('status: ready');
-    expect(printOutput).toContain(`cwd: ${rpcSnapshot.cwd}`);
+    expect(printOutput).toContain(`cwd: ${rpcState.cwd}`);
     expect(printOutput).toContain('spec: Parity spec');
-    expect(printOutput).toContain(`phase: ${rpcSnapshot.chrome.phase}`);
-    expect(printOutput).toContain(`chatMode: ${rpcSnapshot.chrome.chatMode}`);
-    expect(rpcSnapshot).toMatchObject({
+    expect(printOutput).toContain(`phase: ${rpcState.chrome.phase}`);
+    expect(printOutput).toContain(`chatMode: ${rpcState.chrome.chatMode}`);
+    expect(rpcState).toMatchObject({
       status: 'ready',
       cwd,
       spec: { title: 'Parity spec' },

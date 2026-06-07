@@ -1,6 +1,6 @@
 import type { WorkspaceSessionState } from '../../session/workspace-session-coordinator.js';
 
-export interface WorkspaceSnapshot {
+export interface WorkspaceState {
   status: WorkspaceSessionState['status'];
   cwd: string;
   spec: {
@@ -18,7 +18,7 @@ export interface WorkspaceSnapshot {
   reason?: string;
 }
 
-export function workspaceSnapshotFromState(state: WorkspaceSessionState): WorkspaceSnapshot {
+export function projectWorkspaceState(state: WorkspaceSessionState): WorkspaceState {
   const base = {
     status: state.status,
     cwd: state.cwd,

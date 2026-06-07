@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import type { GraphOverview } from '../graph/queries.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
-import type { GraphOverview } from '../graph/snapshot.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../rpc/product-updates.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';

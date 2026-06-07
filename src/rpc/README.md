@@ -72,7 +72,7 @@ rpc/
 full RPC host:
   reads:
     rpc.discover
-    workspace.snapshot
+    workspace.state
     workspace.selectionState
     session.pendingExchange
     session.exchanges
@@ -97,7 +97,7 @@ dev-enabled full RPC host only:
 TUI-started web sidecar:
   reads:
     rpc.discover
-    workspace.snapshot
+    workspace.state
     workspace.selectionState
     session.pendingExchange
     session.exchanges
@@ -120,7 +120,7 @@ rpc.discover
   result: supported methods with descriptions, schemas, and examples
   source: active method registry
 
-workspace.snapshot
+workspace.state
   access: read
   params: none
   result: cwd-scoped workspace product state
@@ -140,7 +140,7 @@ workspace.activate
   access: write
   params: {decision}
     continue | openSession | newSession | newSpec | cancel
-  result: workspace snapshot or cancelled activation state
+  result: workspace state or cancelled activation state
   effects: creates/opens selected spec/session and publishes selected-session invalidations
 
 session.pendingExchange
@@ -236,7 +236,7 @@ dev.graph.commitGraph
 brunch.updated:
   params:
     topics:
-      - workspace.snapshot
+      - workspace.state
       - workspace.selectionState
       - session.pendingExchange
       - session.exchanges
@@ -255,7 +255,7 @@ Current web code only uses the read sidecar. Write hooks are named here as the e
 
 ```pseudo
 query key families:
-  workspace.snapshot       -> ['workspace.snapshot']
+  workspace.state       -> ['workspace.state']
   workspace.selectionState -> ['workspace.selectionState']        # target, not yet implemented in web queryKeys
   session.pendingExchange  -> ['session.pendingExchange', specId, sessionId]  # target
   session.exchanges        -> ['session.exchanges', specId, sessionId]        # target
@@ -267,7 +267,7 @@ query key families:
 | RPC method | Web Query/Mutation mapping | Current web status | Invalidation source |
 | --- | --- | --- | --- |
 | `rpc.discover` | `rpcDiscoveryQueryOptions(rpc)` | not implemented; optional debug/adaptive UI only | none |
-| `workspace.snapshot` | `workspaceSnapshotQueryOptions(rpc)` | implemented; root/spec loaders prime it | exact `workspace.snapshot` |
+| `workspace.state` | `workspaceStateQueryOptions(rpc)` | implemented; root/spec loaders prime it | exact `workspace.state` |
 | `workspace.selectionState` | `workspaceSelectionStateQueryOptions(rpc)` | target; picker route not built | `workspace.selectionState` or activation success |
 | `workspace.activate` | `activateWorkspaceMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates workspace + selected session resources |
 | `session.pendingExchange` | `pendingExchangeQueryOptions(rpc, target)` | target; no current web panel | `session.pendingExchange` |

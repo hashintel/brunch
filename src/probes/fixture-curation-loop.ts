@@ -57,7 +57,7 @@ export interface FixtureCurationArtifacts {
   readonly sessionJsonl: string;
   readonly transcriptMarkdown: string;
   readonly reportJson: string;
-  readonly graphSnapshotJson: string;
+  readonly graphOverviewJson: string;
 }
 
 export interface FixtureCurationCommitAttempt {
@@ -203,7 +203,7 @@ export async function runFixtureCurationLoop(
         runId,
         sessionText,
         report,
-        graphSnapshot: overview,
+        graphOverview: overview,
       }),
     };
     return report;
@@ -282,7 +282,7 @@ export async function writeFixtureCurationArtifacts(options: {
   readonly runId: string;
   readonly sessionText: string;
   readonly report: FixtureCurationReport;
-  readonly graphSnapshot: GraphOverview;
+  readonly graphOverview: GraphOverview;
 }): Promise<FixtureCurationArtifacts> {
   // Persisted artifact references are fixture-root-relative so committed
   // reports stay portable; the disk paths used for writing are resolved
@@ -293,7 +293,7 @@ export async function writeFixtureCurationArtifacts(options: {
     sessionJsonl: `${runDirRef}/session.jsonl`,
     transcriptMarkdown: `${runDirRef}/transcript.md`,
     reportJson: `${runDirRef}/report.json`,
-    graphSnapshotJson: `${runDirRef}/graph-snapshot.json`,
+    graphOverviewJson: `${runDirRef}/graph-overview.json`,
   };
   const diskPath = (ref: string) => resolve(options.fixtureRoot, ref);
   const report = { ...options.report, cwd: portableCwd(options.report.cwd), artifacts };
@@ -307,8 +307,8 @@ export async function writeFixtureCurationArtifacts(options: {
   );
   await writeFile(diskPath(artifacts.reportJson), `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   await writeFile(
-    diskPath(artifacts.graphSnapshotJson),
-    `${JSON.stringify(options.graphSnapshot, null, 2)}\n`,
+    diskPath(artifacts.graphOverviewJson),
+    `${JSON.stringify(options.graphOverview, null, 2)}\n`,
     'utf8',
   );
 

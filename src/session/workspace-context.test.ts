@@ -9,10 +9,10 @@ import { describe, expect, it } from 'vitest';
 import { openWorkspaceCommandExecutor } from '../graph/index.js';
 import { seedFixture, type SeedFixture } from '../graph/seed-fixtures.js';
 import { createSessionBindingData } from './session-binding.js';
-import { inspectWorkspaceCwdSnapshot, inspectWorkspaceOverviewSnapshot } from './workspace-context.js';
+import { inspectWorkspaceCwdInventory, inspectWorkspaceOverview } from './workspace-context.js';
 
-describe('inspectWorkspaceCwdSnapshot', () => {
-  it('returns a gitignore-aware kickoff snapshot with session and markdown sizes', async () => {
+describe('inspectWorkspaceCwdInventory', () => {
+  it('returns a gitignore-aware kickoff inventory with session and markdown sizes', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-workspace-context-'));
     await mkdir(join(cwd, '.brunch', 'sessions'), { recursive: true });
     await mkdir(join(cwd, 'src', 'nested'), { recursive: true });
@@ -40,34 +40,34 @@ describe('inspectWorkspaceCwdSnapshot', () => {
       ].join('\n') + '\n',
     );
 
-    const snapshot = await inspectWorkspaceCwdSnapshot(cwd);
+    const inventory = await inspectWorkspaceCwdInventory(cwd);
 
-    expect(snapshot.status).toBe('ready');
-    expect(snapshot.hasBrunchDir).toBe(true);
-    expect(snapshot.sessionFiles).toEqual([
+    expect(inventory.status).toBe('ready');
+    expect(inventory.hasBrunchDir).toBe(true);
+    expect(inventory.sessionFiles).toEqual([
       { file: 'session-1.jsonl', lineCount: 3, byteCount: expect.any(Number) },
     ]);
-    expect(snapshot.topLevelEntries).toEqual([
+    expect(inventory.topLevelEntries).toEqual([
       { name: '.brunch', kind: 'directory', fileCount: 1 },
       { name: '.gitignore', kind: 'file', fileCount: 1 },
       { name: 'README.md', kind: 'file', fileCount: 1 },
       { name: 'src', kind: 'directory', fileCount: 2 },
     ]);
-    expect(snapshot.markdownFiles).toEqual([
+    expect(inventory.markdownFiles).toEqual([
       { path: 'README.md', lineCount: 3, byteCount: expect.any(Number) },
       { path: 'src/nested/guide.md', lineCount: 2, byteCount: expect.any(Number) },
     ]);
   });
 
-  it('returns a coherent fresh-workspace snapshot when .brunch is absent', async () => {
+  it('returns a coherent fresh-workspace inventory when .brunch is absent', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-workspace-context-'));
     await writeFile(join(cwd, 'README.md'), 'Fresh workspace\n');
 
-    const snapshot = await inspectWorkspaceCwdSnapshot(cwd);
+    const inventory = await inspectWorkspaceCwdInventory(cwd);
 
-    expect(snapshot.hasBrunchDir).toBe(false);
-    expect(snapshot.sessionFiles).toEqual([]);
-    expect(snapshot.topLevelEntries).toEqual([{ name: 'README.md', kind: 'file', fileCount: 1 }]);
+    expect(inventory.hasBrunchDir).toBe(false);
+    expect(inventory.sessionFiles).toEqual([]);
+    expect(inventory.topLevelEntries).toEqual([{ name: 'README.md', kind: 'file', fileCount: 1 }]);
   });
 
   it('returns a workspace overview with spec node counts and session turn counts', async () => {
@@ -83,13 +83,13 @@ describe('inspectWorkspaceCwdSnapshot', () => {
       { type: 'assistant', id: 'a1' },
     ]);
 
-    const snapshot = await inspectWorkspaceOverviewSnapshot(cwd);
+    const overview = await inspectWorkspaceOverview(cwd);
 
-    expect(snapshot.specs).toEqual([
+    expect(overview.specs).toEqual([
       { id: alpha.specId, title: 'Alpha Grounding', nodeCount: 4, sessionCount: 1 },
       { id: beta.specId, title: 'Beta Commitments', nodeCount: 5, sessionCount: 1 },
     ]);
-    expect(snapshot.sessions).toEqual([
+    expect(overview.sessions).toEqual([
       {
         id: 'alpha-session',
         file: 'alpha-session.jsonl',

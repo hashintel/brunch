@@ -53,8 +53,8 @@ export function invalidateBrunchUpdate(
 }
 
 function invalidateProductUpdate(queryClient: QueryClient, update: ProductUpdate): void {
-  if (update.topic === 'workspace.snapshot') {
-    invalidateExact(queryClient, queryKeys.workspace.snapshot());
+  if (update.topic === 'workspace.state') {
+    invalidateExact(queryClient, queryKeys.workspace.state());
     return;
   }
   if (update.topic === 'graph.overview' && typeof update.specId === 'number') {
@@ -77,8 +77,8 @@ function invalidateProductUpdate(queryClient: QueryClient, update: ProductUpdate
 }
 
 function invalidateTopic(queryClient: QueryClient, topic: string): void {
-  if (topic === 'workspace.snapshot') {
-    invalidateExact(queryClient, queryKeys.workspace.snapshot());
+  if (topic === 'workspace.state') {
+    invalidateExact(queryClient, queryKeys.workspace.state());
     return;
   }
   if (topic === 'session.runtimeState') {
@@ -100,7 +100,7 @@ function invalidateExact(queryClient: QueryClient, queryKey: QueryKey): void {
 
 function isProductUpdate(value: unknown): value is ProductUpdate {
   if (!isRecord(value)) return false;
-  if (value.topic === 'workspace.snapshot') return true;
+  if (value.topic === 'workspace.state') return true;
   if (value.topic === 'graph.overview') return typeof value.specId === 'number';
   if (value.topic === 'graph.nodeNeighborhood') {
     return typeof value.specId === 'number' && typeof value.nodeId === 'number';

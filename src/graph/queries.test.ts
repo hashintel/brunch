@@ -1,8 +1,8 @@
 /**
- * Graph snapshot reader tests — acceptance criteria for I35-L.
+ * Graph read helper tests — acceptance criteria for I35-L.
  *
  * SPEC: D52-L (graph/ reads db/), I35-L (cursory + neighborhood)
- * Scope card: Graph snapshot readers at cursory and neighborhood detail levels
+ * Scope card: Graph reads at cursory and neighborhood detail levels
  *
  * All graph state is seeded via CommandExecutor (no direct db writes).
  */
@@ -12,7 +12,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type BrunchDb } from '../db/connection.js';
 import { graphClock, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
-import { NODE_KIND_METADATA, parseGraphNodeCode } from './schema/nodes.js';
 import {
   getGraphGaps,
   getGraphOverview,
@@ -21,7 +20,8 @@ import {
   getNodeNeighborhood,
   getRelatedNodes,
   getOpenReconciliationNeeds,
-} from './snapshot.js';
+} from './queries.js';
+import { NODE_KIND_METADATA, parseGraphNodeCode } from './schema/nodes.js';
 
 function createTestDb(): BrunchDb {
   return createDb(':memory:');

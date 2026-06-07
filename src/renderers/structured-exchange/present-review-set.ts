@@ -1,4 +1,4 @@
-import type { PresentReviewSetProjection } from '../../projections/structured-exchange/present-review-set.js';
+import type { PresentReviewSetProjection } from '../../projections/exchanges/present-review-set.js';
 
 export function formatPresentReviewSet(projection: PresentReviewSetProjection): string {
   const payload = projection.payload;

@@ -44,7 +44,7 @@ export interface ProjectGraphReviewCycleArtifacts {
   readonly sessionJsonl: string;
   readonly transcriptMarkdown: string;
   readonly reportJson: string;
-  readonly graphSnapshotJson: string;
+  readonly graphOverviewJson: string;
 }
 
 export interface ReviewCycleToolEvidence {
@@ -279,7 +279,7 @@ export async function runProjectGraphReviewCycleProof(
         runId,
         sessionText,
         report,
-        graphSnapshot: finalOverview,
+        graphOverview: finalOverview,
       }),
     };
     return report;
@@ -398,7 +398,7 @@ export async function writeProjectGraphReviewCycleArtifacts(options: {
   readonly runId: string;
   readonly sessionText: string;
   readonly report: ProjectGraphReviewCycleReport;
-  readonly graphSnapshot: GraphOverview;
+  readonly graphOverview: GraphOverview;
 }): Promise<ProjectGraphReviewCycleArtifacts> {
   // Persisted artifact references are fixture-root-relative so committed
   // reports stay portable; the disk paths used for writing are resolved
@@ -409,7 +409,7 @@ export async function writeProjectGraphReviewCycleArtifacts(options: {
     sessionJsonl: `${runDirRef}/session.jsonl`,
     transcriptMarkdown: `${runDirRef}/transcript.md`,
     reportJson: `${runDirRef}/report.json`,
-    graphSnapshotJson: `${runDirRef}/graph-snapshot.json`,
+    graphOverviewJson: `${runDirRef}/graph-overview.json`,
   };
   const diskPath = (ref: string) => resolve(options.fixtureRoot, ref);
   const report = { ...options.report, cwd: portableCwd(options.report.cwd), artifacts };
@@ -423,8 +423,8 @@ export async function writeProjectGraphReviewCycleArtifacts(options: {
   );
   await writeFile(diskPath(artifacts.reportJson), `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   await writeFile(
-    diskPath(artifacts.graphSnapshotJson),
-    `${JSON.stringify(options.graphSnapshot, null, 2)}\n`,
+    diskPath(artifacts.graphOverviewJson),
+    `${JSON.stringify(options.graphOverview, null, 2)}\n`,
     'utf8',
   );
 

@@ -11,7 +11,7 @@ import { createSessionBindingData } from '../../session/session-binding.js';
 import { registerBrunchContext } from '../extensions/context/index.js';
 
 describe('context tools', () => {
-  it('read_workspace_context returns a gitignore-aware cwd snapshot', async () => {
+  it('read_workspace_context returns a gitignore-aware cwd inventory', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-context-tool-'));
     await mkdir(join(cwd, '.brunch', 'sessions'), { recursive: true });
     await mkdir(join(cwd, 'visible'), { recursive: true });
@@ -43,20 +43,20 @@ describe('context tools', () => {
 
     const result = (await tools
       .get('read_workspace_context')!
-      .execute('context-cwd', { mode: 'cwd_snapshot' }, undefined, undefined, {
+      .execute('context-cwd', { mode: 'cwd_inventory' }, undefined, undefined, {
         sessionManager: {
           getEntries: () => [{ type: 'session', id: 'session-1', cwd }],
         },
       })) as {
       content: Array<{ type: 'text'; text: string }>;
-      details: { mode: 'cwd_snapshot'; snapshot: { markdownFiles: Array<{ path: string }> } };
+      details: { mode: 'cwd_inventory'; data: { markdownFiles: Array<{ path: string }> } };
     };
 
-    expect(result.content[0]?.text).toContain('[Workspace cwd snapshot]');
+    expect(result.content[0]?.text).toContain('[Workspace cwd inventory]');
     expect(result.content[0]?.text).toContain('existing .brunch state detected');
     expect(result.content[0]?.text).toContain('session-1.jsonl');
-    expect(result.details.mode).toBe('cwd_snapshot');
-    expect(result.details.snapshot.markdownFiles.map((file) => file.path)).toEqual([
+    expect(result.details.mode).toBe('cwd_inventory');
+    expect(result.details.data.markdownFiles.map((file) => file.path)).toEqual([
       'README.md',
       'visible/guide.md',
     ]);
@@ -185,7 +185,7 @@ describe('context tools', () => {
       content: Array<{ type: 'text'; text: string }>;
       details: {
         mode: 'workspace_overview';
-        snapshot: { specs: Array<{ title: string }>; sessions: Array<{ turnCount: number }> };
+        data: { specs: Array<{ title: string }>; sessions: Array<{ turnCount: number }> };
       };
     };
 
@@ -193,11 +193,11 @@ describe('context tools', () => {
     expect(result.content[0]?.text).toContain('Alpha Grounding');
     expect(result.content[0]?.text).toContain('Beta Commitments');
     expect(result.details.mode).toBe('workspace_overview');
-    expect(result.details.snapshot.specs.map((spec) => spec.title)).toEqual([
+    expect(result.details.data.specs.map((spec) => spec.title)).toEqual([
       'Alpha Grounding',
       'Beta Commitments',
     ]);
-    expect(result.details.snapshot.sessions.map((session) => session.turnCount)).toEqual([1, 2]);
+    expect(result.details.data.sessions.map((session) => session.turnCount)).toEqual([1, 2]);
   });
 });
 

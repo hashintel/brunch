@@ -1,5 +1,5 @@
 /**
- * Graph snapshot readers — cursory overview and node neighborhood.
+ * Graph read helpers — cursory overview and node neighborhood.
  *
  * SPEC: I35-L (two detail levels), D52-L (graph/ reads db/)
  *
@@ -494,7 +494,7 @@ export function getRelatedNodes(
 // ---------------------------------------------------------------------------
 
 /**
- * Neighborhood snapshot around a given node, scoped to a single spec (D61-L).
+ * Neighborhood read around a given node, scoped to a single spec (D61-L).
  *
  * Returns `not_found` if the anchor does not exist or belongs to a different
  * spec. Returns the anchor node, all reachable same-spec neighbors within

@@ -6,7 +6,7 @@
  * This module translates Pi tool parameters (flat JSON from LLM tool calls)
  * into CommandExecutor input types and formats CommandExecutor results into
  * Pi tool result content. It does NOT import from db/ — all graph access
- * routes through CommandExecutor and snapshot readers.
+ * routes through CommandExecutor and graph query readers.
  */
 
 import type {
@@ -19,8 +19,8 @@ import type {
   Diagnostic,
   StructuralIllegal,
 } from '../../../graph/command-executor.js';
+import type { GraphOverview, NeighborhoodResult, RelatedNodesResult } from '../../../graph/queries.js';
 import { formatGraphNodeCode, parseGraphNodeCode } from '../../../graph/schema/nodes.js';
-import type { GraphOverview, NeighborhoodResult, RelatedNodesResult } from '../../../graph/snapshot.js';
 import type { ToolCommitGraphParams } from './tool-schemas.js';
 
 export type ResolveGraphNodeCode = (code: string) => number | undefined;

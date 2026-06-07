@@ -89,11 +89,7 @@ export {
   type BrunchSpecSessionPickerOptions,
 } from './extensions/workspace/index.js';
 
-export {
-  registerBrunchGraph,
-  type BrunchGraphDeps,
-  type GraphSnapshotReaders,
-} from './extensions/graph/index.js';
+export { registerBrunchGraph, type BrunchGraphDeps, type GraphReaders } from './extensions/graph/index.js';
 
 export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
   graphMentionSource?: GraphMentionSource;

@@ -1,6 +1,6 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
-import { projectRequestAnswer } from '../../../projections/structured-exchange/request-answer.js';
+import { projectRequestAnswer } from '../../../projections/exchanges/request-answer.js';
 import { formatRequestAnswer } from '../../../renderers/structured-exchange/request-answer.js';
 import { piSchema } from './pi-schema.js';
 import { zRequestAnswerParams, type RequestAnswerParams } from './schemas/index.js';

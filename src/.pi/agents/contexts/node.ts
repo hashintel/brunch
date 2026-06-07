@@ -1,4 +1,4 @@
-import type { NeighborhoodResult } from '../../../graph/snapshot.js';
+import type { NeighborhoodResult } from '../../../graph/queries.js';
 import { projectNeighborhood } from '../../../projections/graph/neighborhood.js';
 import { formatNeighborhood } from '../../../renderers/graph/neighborhood.js';
 

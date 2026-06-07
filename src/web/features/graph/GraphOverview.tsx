@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import type { GraphOverview } from '../../../graph/snapshot.js';
+import type { GraphOverview } from '../../../graph/queries.js';
 
 export function GraphOverviewPanel(options: { overview: GraphOverview }) {
   const { overview } = options;

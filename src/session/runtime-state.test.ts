@@ -113,7 +113,7 @@ describe('session runtime-state projection', () => {
             type: 'custom',
             parentId: 'runtime-1',
             customType: 'brunch.mention',
-            data: { entityId: 'node-1', handle: 'D12', title: 'Decision seam', snapshottedLsn: 7 },
+            data: { entityId: 'node-1', handle: 'D12', title: 'Decision seam', seenLsn: 7 },
           } as never,
           {
             id: 'file-mention-1',

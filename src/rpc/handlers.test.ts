@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 import { openWorkspaceGraphRuntime } from '../graph/workspace-store.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
-import { projectPresentReviewSet } from '../projections/structured-exchange/present-review-set.js';
+import { projectPresentReviewSet } from '../projections/exchanges/present-review-set.js';
 import { BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, type BrunchAgentState } from '../session/runtime-state.js';
 import { createSessionBindingData } from '../session/session-binding.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
@@ -298,7 +298,7 @@ describe('JSON-RPC handlers', () => {
       'session.triggerExchange',
       'workspace.activate',
       'workspace.selectionState',
-      'workspace.snapshot',
+      'workspace.state',
     ]);
 
     const discoveredNames = new Set(methods.map((entry) => entry.method));
@@ -577,14 +577,14 @@ describe('JSON-RPC handlers', () => {
     ).resolves.toMatchObject({ jsonrpc: '2.0', id: 35, result: { status: 'ready' } });
 
     expect(observed).toEqual([
-      { topic: 'workspace.snapshot', specId: 1, sessionId: 'session-1' },
+      { topic: 'workspace.state', specId: 1, sessionId: 'session-1' },
       { topic: 'session.pendingExchange', specId: 1, sessionId: 'session-1' },
       { topic: 'session.exchanges', specId: 1, sessionId: 'session-1' },
       { topic: 'session.runtimeState', specId: 1, sessionId: 'session-1' },
     ]);
   });
 
-  it('activates valid spec/session decisions and returns serializable product snapshots', async () => {
+  it('activates valid spec/session decisions and returns serializable product state', async () => {
     const decisions: SpecSessionActivationDecision[] = [];
     const handlers = createRpcHandlers({
       cwd: '/tmp/brunch-project',
@@ -668,7 +668,7 @@ describe('JSON-RPC handlers', () => {
     expect(source).not.toContain('pi --mode rpc');
   });
 
-  it('serves a named workspace snapshot method', async () => {
+  it('serves the named workspace.state method', async () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator(),
       cwd: '/tmp/brunch-project',
@@ -677,7 +677,7 @@ describe('JSON-RPC handlers', () => {
     const result = await handlers.handle({
       jsonrpc: '2.0',
       id: 1,
-      method: 'workspace.snapshot',
+      method: 'workspace.state',
     });
 
     expect(result).toMatchObject({
@@ -2307,7 +2307,7 @@ describe('JSON-RPC handlers', () => {
       handlers.handle({
         jsonrpc: '2.0',
         id: { bad: true },
-        method: 'workspace.snapshot',
+        method: 'workspace.state',
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
@@ -2725,7 +2725,7 @@ describe('JSON-RPC handlers', () => {
       },
     });
 
-    input.end(`${JSON.stringify({ jsonrpc: '2.0', id: 15, method: 'workspace.snapshot' })}\n`);
+    input.end(`${JSON.stringify({ jsonrpc: '2.0', id: 15, method: 'workspace.state' })}\n`);
     await done;
 
     expect(JSON.parse(chunks.join(''))).toEqual({
@@ -2750,7 +2750,7 @@ describe('JSON-RPC handlers', () => {
       }),
     });
 
-    input.end(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'workspace.snapshot' })}\n`);
+    input.end(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'workspace.state' })}\n`);
     await done;
 
     expect(JSON.parse(chunks.join(''))).toMatchObject({

@@ -21,7 +21,7 @@ The markdown resources the agent reads on demand live beside this layer but are 
 - Pi extension hook registration — `.pi/extensions/system-prompts/`.
 - Pi tool definitions and UI collection — `.pi/extensions/*`.
 - Reusable product DTO projection or markdown rendering — target `projections/` and `renderers/` seams.
-- Graph domain logic or snapshot PULL — `graph/`.
+- Graph domain logic or read/query PULL — `graph/`.
 - Session transcript/workspace semantics — `session/`.
 
 ## Layout
@@ -44,21 +44,21 @@ agents/
 
 ## Composition model
 
-`composeAgentPrompt(agentId, sessionState, spec, workspace, snapshots)` emits:
+`composeAgentPrompt(agentId, sessionState, spec, workspace, context)` emits:
 
 1. agent control header — identity, model/thinking expectation, role derived from `op_mode`, tool authority;
 2. runtime-state header — current pinned/AUTO `goal`/`strategy`/`lens`, readiness grade, posture;
 3. resource manifests — `<available_goals>`, `<available_strategies>`, `<available_lenses>`, `<available_methods>` entries, filtered by tuple/grade/`op_mode`/allow-list;
-4. compact pushed context — minimal snapshot summary/handles.
+4. compact pushed context — minimal context handles and rendered context blocks.
 
 Detailed goal/strategy/lens/method bodies are markdown resources under `.pi/skills/` and are loaded with `read` when detail matters. Manifest metadata is code-owned in `state.ts`, not filesystem-discovered.
 
-## Snapshot/context split
+## Context split
 
 ```pseudo
 PULL    -> graph/, session/                [typed, read-only]
 RENDER  -> reusable renderers eventually; .pi/agents/contexts chooses audience/detail
-SURFACE -> extensions/system-prompts/ or snapshot/read_graph tools
+SURFACE -> extensions/system-prompts/ or read_graph / context read tools
 ```
 
 `contexts/` is not a `<available_*>` manifest resource family. It chooses which typed pull to expose, how much detail to include, and how lens/grade/mode shape the prompt-facing string.

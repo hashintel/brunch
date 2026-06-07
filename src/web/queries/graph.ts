@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 
-import type { GraphOverview, NeighborhoodResult } from '../../graph/snapshot.js';
+import type { GraphOverview, NeighborhoodResult } from '../../graph/queries.js';
 import { queryKeys } from '../query-keys.js';
 import type { WebSocketRpcClient } from '../rpc-client.js';
 

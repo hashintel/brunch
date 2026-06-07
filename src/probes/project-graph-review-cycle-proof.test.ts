@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { GraphOverview } from '../graph/snapshot.js';
+import type { GraphOverview } from '../graph/queries.js';
 import type { JsonRpcResponse } from '../rpc/protocol.js';
 import {
   summarizeProjectGraphReviewCycleProof,
@@ -231,7 +231,7 @@ describe('project-graph review-cycle proof report', () => {
     );
   });
 
-  it('writes session, transcript, report, and graph snapshot artifacts', async () => {
+  it('writes session, transcript, report, and graph overview artifacts', async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), 'brunch-project-graph-review-artifacts-'));
     const report: ProjectGraphReviewCycleReport = summarizeProjectGraphReviewCycleProof({
       runId: 'artifact-run',
@@ -254,7 +254,7 @@ describe('project-graph review-cycle proof report', () => {
       runId: report.runId,
       sessionText: [presentReviewSetEntry(), requestReviewEntry()].join('\n'),
       report,
-      graphSnapshot: approvedOverview,
+      graphOverview: approvedOverview,
     });
 
     expect(artifacts.runDir).toBe('runs/project-graph-review-cycle/artifact-run');
@@ -267,7 +267,7 @@ describe('project-graph review-cycle proof report', () => {
     await expect(readFile(join(fixtureRoot, artifacts.reportJson), 'utf8')).resolves.toContain(
       'project-graph-review-cycle',
     );
-    await expect(readFile(join(fixtureRoot, artifacts.graphSnapshotJson), 'utf8')).resolves.toContain(
+    await expect(readFile(join(fixtureRoot, artifacts.graphOverviewJson), 'utf8')).resolves.toContain(
       'Macro view names impasse resolution state',
     );
   });
@@ -295,7 +295,7 @@ describe('project-graph review-cycle proof report', () => {
       runId: report.runId,
       sessionText: [presentReviewSetEntry(), requestReviewEntry()].join('\n'),
       report,
-      graphSnapshot: approvedOverview,
+      graphOverview: approvedOverview,
     });
 
     const expectedRefs = {
@@ -303,7 +303,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionJsonl: 'runs/project-graph-review-cycle/portable-run/session.jsonl',
       transcriptMarkdown: 'runs/project-graph-review-cycle/portable-run/transcript.md',
       reportJson: 'runs/project-graph-review-cycle/portable-run/report.json',
-      graphSnapshotJson: 'runs/project-graph-review-cycle/portable-run/graph-snapshot.json',
+      graphOverviewJson: 'runs/project-graph-review-cycle/portable-run/graph-overview.json',
     };
     expect(artifacts).toEqual(expectedRefs);
 

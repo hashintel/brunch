@@ -2,7 +2,7 @@
  * Graph tool integration tests.
  *
  * Tests the commit_graph and read_graph tools end-to-end through
- * the command adapter → CommandExecutor → snapshot reader chain.
+ * the command adapter → CommandExecutor → graph read chain.
  *
  * SPEC: D4-L, D20-L, D52-L, D53-L, I26-L, I34-L, A14-L
  */
@@ -22,7 +22,7 @@ import {
   getNodeNeighborhood,
   getRelatedNodes,
   resolveGraphNodeCode,
-} from '../../graph/snapshot.js';
+} from '../../graph/queries.js';
 import { createProductUpdatePublisher } from '../../rpc/product-updates.js';
 import {
   translateCommitGraph,
@@ -31,7 +31,7 @@ import {
   formatNeighborhoodResult,
   formatRelatedNodesResult,
 } from '../extensions/graph/command-adapter.js';
-import { registerBrunchGraph, type GraphSnapshotReaders } from '../extensions/graph/index.js';
+import { registerBrunchGraph, type GraphReaders } from '../extensions/graph/index.js';
 import { CommitGraphParams, ReadGraphParams } from '../extensions/graph/tool-schemas.js';
 
 // ---------------------------------------------------------------------------
@@ -51,7 +51,7 @@ function seedSpec(db: BrunchDb): number {
   return result.specId;
 }
 
-function createSnapshots(db: BrunchDb, specId: number): GraphSnapshotReaders {
+function createGraphReads(db: BrunchDb, specId: number): GraphReaders {
   return {
     getGraphOverview: (options) => getGraphOverview(db, specId, options),
     getGraphSliceByKinds: (options) => getGraphSliceByKinds(db, specId, options),
@@ -258,14 +258,14 @@ describe('formatGraphOverview', () => {
 describe('graph tools end-to-end', () => {
   let db: BrunchDb;
   let executor: CommandExecutor;
-  let snapshots: GraphSnapshotReaders;
+  let reads: GraphReaders;
   let specId: number;
 
   beforeEach(() => {
     db = createTestDb();
     executor = new CommandExecutor(db);
     specId = seedSpec(db);
-    snapshots = createSnapshots(db, specId);
+    reads = createGraphReads(db, specId);
   });
 
   it('commit_graph creates nodes and edges readable by read_graph', () => {
@@ -291,7 +291,7 @@ describe('graph tools end-to-end', () => {
     expect(result.status).toBe('success');
 
     // Read the graph
-    const overview = snapshots.getGraphOverview();
+    const overview = reads.getGraphOverview();
     const text = formatGraphOverview(overview);
 
     expect(overview.nodeCount).toBe(2);
@@ -312,7 +312,7 @@ describe('graph tools end-to-end', () => {
           tools.set(tool.name, tool);
         },
       } as never,
-      { specId, commandExecutor: executor, snapshots, productUpdates },
+      { specId, commandExecutor: executor, reads, productUpdates },
     );
 
     await tools.get('commit_graph')!.execute('call-1', {
@@ -338,7 +338,7 @@ describe('graph tools end-to-end', () => {
           tools.set(tool.name, tool);
         },
       } as never,
-      { specId, commandExecutor: executor, snapshots },
+      { specId, commandExecutor: executor, reads },
     );
 
     const result = (await tools.get('commit_graph')!.execute('commit-1', {
@@ -373,7 +373,7 @@ describe('graph tools end-to-end', () => {
           tools.set(tool.name, tool);
         },
       } as never,
-      { specId, commandExecutor: executor, snapshots },
+      { specId, commandExecutor: executor, reads },
     );
 
     const result = (await tools.get('commit_graph')!.execute('commit-1', {
@@ -400,7 +400,7 @@ describe('graph tools end-to-end', () => {
           registered.push(tool);
         },
       } as never,
-      { specId, commandExecutor: executor, snapshots },
+      { specId, commandExecutor: executor, reads },
     );
 
     const text = registered
@@ -450,7 +450,7 @@ describe('graph tools end-to-end', () => {
     expect(result.status).toBe('structural_illegal');
 
     // Node should NOT have been created (all-or-nothing)
-    const overview = snapshots.getGraphOverview();
+    const overview = reads.getGraphOverview();
     expect(overview.nodeCount).toBe(0);
   });
 
@@ -478,7 +478,7 @@ describe('graph tools end-to-end', () => {
 
     if (commitResult.status === 'success') {
       const nodeId = commitResult.createdNodes['n1']!.id;
-      const result = snapshots.getNodeNeighborhood(nodeId);
+      const result = reads.getNodeNeighborhood(nodeId);
       const text = formatNeighborhoodResult(result);
 
       expect(text).toContain('Main goal');
@@ -509,7 +509,7 @@ describe('graph tools end-to-end', () => {
           tools.set(tool.name, tool);
         },
       } as never,
-      { specId, commandExecutor: executor, snapshots },
+      { specId, commandExecutor: executor, reads },
     );
 
     const result = (await tools.get('read_graph')!.execute('read-1', {
@@ -564,7 +564,7 @@ describe('graph tools end-to-end', () => {
           tools.set(tool.name, tool);
         },
       } as never,
-      { specId, commandExecutor: executor, snapshots },
+      { specId, commandExecutor: executor, reads },
     );
 
     const kindResult = (await tools.get('read_graph')!.execute('read-kind', {
@@ -606,7 +606,7 @@ describe('graph tools end-to-end', () => {
           tools.set(tool.name, tool);
         },
       } as never,
-      { specId, commandExecutor: executor, snapshots },
+      { specId, commandExecutor: executor, reads },
     );
 
     const result = (await tools.get('read_graph')!.execute('read-empty', {
@@ -662,7 +662,7 @@ describe('graph tools end-to-end', () => {
           tools.set(tool.name, tool);
         },
       } as never,
-      { specId, commandExecutor: executor, snapshots },
+      { specId, commandExecutor: executor, reads },
     );
 
     const activeGaps = (await tools.get('read_graph')!.execute('read-gaps', {
@@ -744,7 +744,7 @@ describe('graph tools end-to-end', () => {
           tools.set(tool.name, tool);
         },
       } as never,
-      { specId, commandExecutor: executor, snapshots },
+      { specId, commandExecutor: executor, reads },
     );
 
     const related = (await tools.get('read_graph')!.execute('read-related', {
@@ -781,7 +781,7 @@ describe('graph tools end-to-end', () => {
   });
 
   it('read_graph neighborhood for missing node returns not_found', () => {
-    const result = snapshots.getNodeNeighborhood(999);
+    const result = reads.getNodeNeighborhood(999);
     const text = formatNeighborhoodResult(result);
 
     expect(text).toContain('not found');

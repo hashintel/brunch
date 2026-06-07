@@ -65,7 +65,7 @@ export {
   getRelatedNodes,
   getNodeNeighborhood,
   getOpenReconciliationNeeds,
-} from './snapshot.js';
+} from './queries.js';
 export type {
   GraphOverview,
   GraphOverviewOptions,
@@ -81,7 +81,7 @@ export type {
   RelatedNodesOptions,
   RelatedNodesResult,
   RelatedNodesSuccess,
-} from './snapshot.js';
+} from './queries.js';
 
 export { CommandExecutor } from './command-executor.js';
 export { openWorkspaceCommandExecutor, openWorkspaceGraphRuntime } from './workspace-store.js';

@@ -26,8 +26,8 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
   response translators that turn transcript-native answers into `commitGraph`
   command input. They do not write DB rows directly and do not own session
   projection.
-- **Readers / snapshot functions** (`snapshot.ts`) — graph projections at
-  multiple detail levels: active-context and graph-truth overview, node
+- **Readers / query functions** (`queries.ts`) — graph reads at multiple
+  detail levels: active-context and graph-truth overview, node
   neighborhood, selected-spec graph-code lookup, and open reconciliation needs.
   These return typed domain objects or internal ids, not Drizzle rows.
 
@@ -43,7 +43,7 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
   cascade behavior, reconciliation triggers, and projection effects.
 
 - **Workspace graph runtime** (`workspace-store.ts`) — opens `.brunch/data.db`
-  through `db/connection.ts` and returns a `CommandExecutor` plus bound snapshot
+  through `db/connection.ts` and returns a `CommandExecutor` plus bound query
   readers for adapters.
 
 ## Clock and audit posture
@@ -110,7 +110,7 @@ graph/
     structured-response.ts
       deterministic labeled-answer capture to explicit-basis commitGraph input
 
-  snapshot.ts
+  queries.ts
     getGraphOverview
     getNodeNeighborhood
     resolveGraphNodeCode
@@ -157,12 +157,12 @@ CommandExecutor
       │     session.submitExchangeResponse capture wiring
       │
       └─► .pi/agents/contexts future context orchestration
-            prompt context snapshots
+            prompt context reads and render inputs
 ```
 
 ## Fractal split points
 
-Keep `command-executor.ts` and `snapshot.ts` as public entry points. The first
+Keep `command-executor.ts` and `queries.ts` as public entry points. The first
 real split is now `command-executor/commit-graph-batch.ts`: private planner code
 for the commitGraph seam, imported only by the public `command-executor.ts`
 entrypoint. Future splits should follow the same pattern: split by semantic
@@ -179,7 +179,7 @@ graph/command-executor/
     supersession-cycle detection over existing ids + temporary batch keys
     created-node result formatter
 
-graph/snapshot/
+graph/queries/
   row-mappers.ts
   overview.ts
   neighborhood.ts

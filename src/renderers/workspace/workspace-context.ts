@@ -9,34 +9,34 @@ export function renderWorkspaceContext(context: WorkspaceContextProjection): str
 }
 
 function renderWorkspaceCwd(
-  context: Extract<WorkspaceContextProjection, { readonly mode: 'cwd_snapshot' }>,
+  context: Extract<WorkspaceContextProjection, { readonly mode: 'cwd_inventory' }>,
 ): string {
-  const { snapshot } = context;
+  const { data: inventory } = context;
   const lines = [
-    '[Workspace cwd snapshot]',
-    `- cwd: ${snapshot.cwd}`,
-    `- workspace: ${snapshot.hasBrunchDir ? 'existing .brunch state detected' : 'fresh workspace (no .brunch directory)'}`,
-    `- session files: ${snapshot.sessionFiles.length}`,
+    '[Workspace cwd inventory]',
+    `- cwd: ${inventory.cwd}`,
+    `- workspace: ${inventory.hasBrunchDir ? 'existing .brunch state detected' : 'fresh workspace (no .brunch directory)'}`,
+    `- session files: ${inventory.sessionFiles.length}`,
   ];
 
-  if (snapshot.sessionFiles.length > 0) {
+  if (inventory.sessionFiles.length > 0) {
     lines.push('- session lengths:');
-    for (const session of snapshot.sessionFiles) {
+    for (const session of inventory.sessionFiles) {
       lines.push(`  - ${session.file}: ${session.lineCount} lines, ${session.byteCount} bytes`);
     }
   }
 
   lines.push('- top-level tree:');
-  for (const entry of snapshot.topLevelEntries) {
+  for (const entry of inventory.topLevelEntries) {
     const suffix = entry.kind === 'directory' ? '/' : '';
     lines.push(`  - ${entry.name}${suffix}: ${entry.fileCount} file(s)`);
   }
 
-  if (snapshot.markdownFiles.length === 0) {
+  if (inventory.markdownFiles.length === 0) {
     lines.push('- markdown files: none');
   } else {
     lines.push('- markdown files:');
-    for (const file of snapshot.markdownFiles) {
+    for (const file of inventory.markdownFiles) {
       lines.push(`  - ${file.path}: ${file.lineCount} lines, ${file.byteCount} bytes`);
     }
   }
@@ -47,28 +47,28 @@ function renderWorkspaceCwd(
 function renderWorkspaceOverview(
   context: Extract<WorkspaceContextProjection, { readonly mode: 'workspace_overview' }>,
 ): string {
-  const { snapshot } = context;
+  const { data: overview } = context;
   const lines = [
     '[Workspace overview]',
-    `- cwd: ${snapshot.cwd}`,
-    `- specs: ${snapshot.specs.length}`,
-    `- sessions: ${snapshot.sessions.length}`,
+    `- cwd: ${overview.cwd}`,
+    `- specs: ${overview.specs.length}`,
+    `- sessions: ${overview.sessions.length}`,
   ];
 
-  if (snapshot.specs.length > 0) {
+  if (overview.specs.length > 0) {
     lines.push('- spec inventory:');
-    for (const spec of snapshot.specs) {
+    for (const spec of overview.specs) {
       lines.push(
         `  - ${spec.title} (#${spec.id}): ${spec.nodeCount} node(s), ${spec.sessionCount} session(s)`,
       );
     }
   }
 
-  if (snapshot.sessions.length === 0) {
+  if (overview.sessions.length === 0) {
     lines.push('- session inventory: none');
   } else {
     lines.push('- session inventory:');
-    for (const session of snapshot.sessions) {
+    for (const session of overview.sessions) {
       lines.push(
         `  - ${session.file} (${session.id}) → ${session.specTitle} (#${session.specId}), ${session.turnCount} turn(s), readiness_grade=${session.readinessGrade}`,
       );

@@ -4,31 +4,31 @@ import { basename, join, relative, resolve, sep } from 'node:path';
 import { openWorkspaceGraphRuntime, type ReadinessGrade } from '../graph/index.js';
 import { inspectCanonicalSessionFiles } from './workspace-session-coordinator/boot-session-store.js';
 
-export interface WorkspaceSessionFileSnapshot {
+export interface WorkspaceSessionFileInventory {
   readonly file: string;
   readonly lineCount: number;
   readonly byteCount: number;
 }
 
-export interface WorkspaceTreeEntrySnapshot {
+export interface WorkspaceTreeEntryInventory {
   readonly name: string;
   readonly kind: 'file' | 'directory';
   readonly fileCount: number;
 }
 
-export interface WorkspaceMarkdownFileSnapshot {
+export interface WorkspaceMarkdownFileInventory {
   readonly path: string;
   readonly lineCount: number;
   readonly byteCount: number;
 }
 
-export interface WorkspaceCwdSnapshot {
+export interface WorkspaceCwdInventory {
   readonly status: 'ready';
   readonly cwd: string;
   readonly hasBrunchDir: boolean;
-  readonly sessionFiles: readonly WorkspaceSessionFileSnapshot[];
-  readonly topLevelEntries: readonly WorkspaceTreeEntrySnapshot[];
-  readonly markdownFiles: readonly WorkspaceMarkdownFileSnapshot[];
+  readonly sessionFiles: readonly WorkspaceSessionFileInventory[];
+  readonly topLevelEntries: readonly WorkspaceTreeEntryInventory[];
+  readonly markdownFiles: readonly WorkspaceMarkdownFileInventory[];
 }
 
 export interface WorkspaceSpecOverview {
@@ -47,7 +47,7 @@ export interface WorkspaceSessionOverview {
   readonly readinessGrade: ReadinessGrade;
 }
 
-export interface WorkspaceOverviewSnapshot {
+export interface WorkspaceOverview {
   readonly status: 'ready';
   readonly cwd: string;
   readonly specs: readonly WorkspaceSpecOverview[];
@@ -64,7 +64,7 @@ interface GitignoreRule {
 const BRUNCH_DIR = '.brunch';
 const DEFAULT_IGNORED_TOP_LEVEL = new Set(['.git']);
 
-export async function inspectWorkspaceCwdSnapshot(cwd: string): Promise<WorkspaceCwdSnapshot> {
+export async function inspectWorkspaceCwdInventory(cwd: string): Promise<WorkspaceCwdInventory> {
   const resolvedCwd = resolve(cwd);
   const shouldIgnore = await createGitignoreMatcher(resolvedCwd);
   const topLevelEntries = await collectTopLevelEntries(resolvedCwd, shouldIgnore);
@@ -81,7 +81,7 @@ export async function inspectWorkspaceCwdSnapshot(cwd: string): Promise<Workspac
   };
 }
 
-export async function inspectWorkspaceOverviewSnapshot(cwd: string): Promise<WorkspaceOverviewSnapshot> {
+export async function inspectWorkspaceOverview(cwd: string): Promise<WorkspaceOverview> {
   const resolvedCwd = resolve(cwd);
   const graph = await openWorkspaceGraphRuntime(resolvedCwd);
   const specs = graph.commandExecutor
@@ -139,9 +139,9 @@ export async function inspectWorkspaceOverviewSnapshot(cwd: string): Promise<Wor
 async function collectTopLevelEntries(
   cwd: string,
   shouldIgnore: (relativePath: string, isDirectory: boolean) => boolean,
-): Promise<WorkspaceTreeEntrySnapshot[]> {
+): Promise<WorkspaceTreeEntryInventory[]> {
   const entries = await readdir(cwd, { withFileTypes: true });
-  const snapshots: WorkspaceTreeEntrySnapshot[] = [];
+  const inventories: WorkspaceTreeEntryInventory[] = [];
 
   for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
     if (DEFAULT_IGNORED_TOP_LEVEL.has(entry.name)) {
@@ -157,14 +157,14 @@ async function collectTopLevelEntries(
       ? await countVisibleFiles(join(cwd, entry.name), cwd, shouldIgnore)
       : 1;
 
-    snapshots.push({
+    inventories.push({
       name: entry.name,
       kind: entry.isDirectory() ? 'directory' : 'file',
       fileCount,
     });
   }
 
-  return snapshots;
+  return inventories;
 }
 
 async function countVisibleFiles(
@@ -190,20 +190,20 @@ async function countVisibleFiles(
 async function collectMarkdownFiles(
   cwd: string,
   shouldIgnore: (relativePath: string, isDirectory: boolean) => boolean,
-): Promise<WorkspaceMarkdownFileSnapshot[]> {
-  const files: WorkspaceMarkdownFileSnapshot[] = [];
+): Promise<WorkspaceMarkdownFileInventory[]> {
+  const inventories: WorkspaceMarkdownFileInventory[] = [];
   await walkVisibleFiles(cwd, cwd, shouldIgnore, async (filePath) => {
     if (!isMarkdownLike(filePath)) {
       return;
     }
     const content = await readFile(filePath, 'utf8');
-    files.push({
+    inventories.push({
       path: toRelativePath(cwd, filePath),
       lineCount: countLines(content),
       byteCount: Buffer.byteLength(content),
     });
   });
-  return files.sort((left, right) => left.path.localeCompare(right.path));
+  return inventories.sort((left, right) => left.path.localeCompare(right.path));
 }
 
 async function walkVisibleFiles(
@@ -230,18 +230,18 @@ async function walkVisibleFiles(
   }
 }
 
-async function collectSessionFiles(cwd: string): Promise<WorkspaceSessionFileSnapshot[]> {
+async function collectSessionFiles(cwd: string): Promise<WorkspaceSessionFileInventory[]> {
   const sessions = await inspectCanonicalSessionFiles(cwd);
-  const snapshots: WorkspaceSessionFileSnapshot[] = [];
+  const inventories: WorkspaceSessionFileInventory[] = [];
   for (const session of sessions) {
     const content = await readFile(session.file, 'utf8');
-    snapshots.push({
+    inventories.push({
       file: basename(session.file),
       lineCount: countLines(content),
       byteCount: Buffer.byteLength(content),
     });
   }
-  return snapshots.sort((left, right) => left.file.localeCompare(right.file));
+  return inventories.sort((left, right) => left.file.localeCompare(right.file));
 }
 
 async function readJsonl(file: string): Promise<unknown[]> {

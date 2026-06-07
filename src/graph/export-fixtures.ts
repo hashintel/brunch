@@ -13,8 +13,8 @@ import { eq } from 'drizzle-orm';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
+import { getGraphOverview, type GraphProjection } from './queries.js';
 import type { SeedFixture, SeedFixtureEdge, SeedFixtureNode } from './seed-fixtures.js';
-import { getGraphOverview, type GraphProjection } from './snapshot.js';
 
 export interface ExportSeedFixtureInput {
   readonly specId: number;

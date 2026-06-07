@@ -78,7 +78,7 @@ DoD: every ● row is `have` or `built`.
 | graph slice — list by readiness band(s) | built | ● | — | done — `read_graph` `list_by_band` (67e986b8) | D60-L, D64-L |
 | graph slice — find related-to-anchor (edge cat/dir/hops) | built | ● | — | done — `read_graph` `related` (62971be7) | D60-L, D51-L |
 | graph slice — IS_NOT / absence queries | built | ● | — | done — `read_graph` `gaps` mode (79f92bc5) | D60-L 4th shape; serves D65-L backlog |
-| workspace context — tree + file counts (gitignore-aware) | built | ● | — | done — `read_workspace_context` `cwd_snapshot` (54ae7f86) | D60-L `cwd`; stub replaced |
+| workspace context — tree + file counts (gitignore-aware) | built | ● | — | done — `read_workspace_context` `cwd_inventory` (54ae7f86) | D60-L `cwd`; stub replaced |
 | workspace context — specs overview (title, #sessions, #nodes) | built | ● | — | done — `read_workspace_context` `workspace_overview` (3642b777) | D60-L; fork resolved → agent-context read |
 | workspace context — sessions overview (turn count, grade) | built | ● | — | done — `workspace_overview` (3642b777) | D60-L |
 | session context read — binding + runtime frame | built | ● | — | done — `read_session_context` tool + `renderRuntimeFrame` (b2a89e04) | projection reused; R1 matcher remediation folded in |
@@ -117,7 +117,7 @@ DoD: every ● row is `have` or `built`.
 
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
-| 6 method resources scaffolding | have | ● | — | — | run-structured-exchange, infer-and-capture, commit-graph, read-snapshot, generate-proposal, review-for-gaps |
+| 6 method resources scaffolding | have | ● | — | — | run-structured-exchange, infer-and-capture, commit-graph, read-context, generate-proposal, review-for-gaps |
 | method **content depth** | partial | ● | earned | content pass | bodies thin |
 | generalized capture (free text, files, refs; iterative passes) | built | ● | — | done — labeled-text core on `session.submitMessage` (5f5e6ac8) | POC bar = directly-labeled facts; richer free-text/files/refs remain A22-L fitness evidence; D66-L |
 | exchange-tool `.description()` / `promptGuidelines` | built | ● | — | done — all 7 exchange tools carry both (drift correction 2026-06-07) | `src/.pi/extensions/exchanges/*` already match the `commit_graph` pattern |
@@ -126,7 +126,7 @@ DoD: every ● row is `have` or `built`.
 ### Renderer feedback-loop note
 
 Several ● rows above produce **LLM-facing rendered text** (graph slices, workspace/session
-context, snapshot strings, prompt composition output). Their quality is *eyeball-judged
+context, rendered workspace/session text, prompt composition output). Their quality is *eyeball-judged
 before it can be a test* — another thing the tracer DoD has no slot for. These rows depend
 on the **render preview→lock→formalize harness** (see §Renderer feedback loops below);
 treat that harness as a prerequisite oracle, not optional polish.
@@ -216,7 +216,7 @@ built. Ordered by leverage.
   positive list modes pure. Projection-aware: under `active_context` a node whose only
   qualifying edge is superseded counts as a gap (the elicitation-relevant reading); under
   `graph_truth` it does not. Bounded — single `absentEdgeCategory`, not a query language.
-  **SPEC touch (RATIFIED 2026-06-07):** D60-L + glossary Snapshot entry now enumerate the
+  **SPEC touch (RATIFIED 2026-06-07):** D60-L + glossary Agent context entry now enumerate the
   fourth observed read shape (gap query). Scoped: `memory/cards/crosscut-read--graph-gaps.md`.
   Directly serves the D65-L `elicitation_backlog` "what to ask next" driver (theses w/o
   proof, requirements w/o realization, claims w/o support).
@@ -247,7 +247,7 @@ order is coverage-driven: close ● ledger rows seam by seam.
    2. ~~session context~~ — **built** (`read_session_context` + `renderRuntimeFrame` in
       b2a89e04; R1 native `toMatchFileSnapshot` remediation folded in).
    3. ~~graph gaps~~ — **built** (read_graph `gaps` mode in 79f92bc5; D60-L 4th shape).
-   4. ~~workspace context~~ — **built** (`read_workspace_context`: `cwd_snapshot` in
+   4. ~~workspace context~~ — **built** (`read_workspace_context`: `cwd_inventory` in
       54ae7f86, `workspace_overview` in 3642b777; design fork resolved → agent-context read).
    - Deferred READ row (not POC-critical): auto-feed / pushed surface (○).
 3. **Seam 2 WRITE** ● rows — generalized capture (D66-L, one slice with `freestyle`).
@@ -273,8 +273,8 @@ own tracks and feed Seam 2. Each step closes specific ● rows; the seam is done
 ## Renderer feedback loops
 
 Some ● rows emit **LLM-facing rendered text** whose correctness is *aesthetic before it
-is assertable*: graph-slice renderings, workspace/session context blocks, snapshot
-strings, prompt-composition output. You cannot write the assertion until you have seen
+is assertable*: graph-slice renderings, workspace/session context blocks, rendered
+context strings, prompt-composition output. You cannot write the assertion until you have seen
 and approved the shape. The tracer DoD has no slot for "look at it first," so this is a
 named prerequisite oracle, not optional polish.
 
@@ -285,7 +285,7 @@ named prerequisite oracle, not optional polish.
 - Seed infra is real: `npm run seed` → `src/graph/seed-fixtures.ts` (`seedFixture(executor,
   fixture)`); `src/scripts/` exists as the executables home (D52-L) and may import domain.
 - **The lock stage is net-new.** Current render tests are *invariant-only* (`.toContain(...)`,
-  e.g. `workspace-snapshot.test.ts`) — there is **no `toMatchFileSnapshot` / golden pattern
+  e.g. `workspace-state.test.ts`) — there is **no `toMatchFileSnapshot` / golden pattern
   in the repo yet**. The eyeball-lock stage *is* the missing oracle, not an existing habit.
 
 **Three-stage loop — sketch → lock → formalize:**

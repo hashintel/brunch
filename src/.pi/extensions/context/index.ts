@@ -13,7 +13,7 @@ import {
   type BrunchSessionEnvelope,
 } from '../../../session/brunch-session-envelope.js';
 import { isSessionBindingEntry } from '../../../session/session-binding.js';
-import { readWorkspaceCwdContext } from './get-cwd.js';
+import { readWorkspaceContext } from './get-cwd.js';
 
 interface SessionManagerLike {
   getEntries(): readonly FileEntry[];
@@ -24,11 +24,11 @@ export function registerBrunchContext(pi: ExtensionAPI): void {
     name: 'read_workspace_context',
     label: 'Read Workspace Context',
     description:
-      'Read a deterministic kickoff snapshot of the current workspace cwd: .brunch presence, session-file sizes, visible top-level tree, and markdown sizes.',
-    promptSnippet: 'Read the current workspace cwd kickoff snapshot',
+      'Read a deterministic kickoff inventory of the current workspace cwd: .brunch presence, session-file sizes, visible top-level tree, and markdown sizes.',
+    promptSnippet: 'Read the current workspace cwd kickoff inventory',
     promptGuidelines: [
       'Use read_workspace_context when you need filesystem kickoff context rather than graph or session state.',
-      'This is a deterministic workspace snapshot: .brunch presence, session-file sizes, visible top-level tree, and markdown sizes.',
+      'This is a deterministic workspace inventory: .brunch presence, session-file sizes, visible top-level tree, and markdown sizes.',
       'The tree is gitignore-aware and read-only; ignored paths are excluded from counts and listings.',
     ],
     parameters: {
@@ -36,14 +36,14 @@ export function registerBrunchContext(pi: ExtensionAPI): void {
       properties: {
         mode: {
           type: 'string',
-          enum: ['cwd_snapshot', 'workspace_overview'],
+          enum: ['cwd_inventory', 'workspace_overview'],
         },
       },
       required: ['mode'],
       additionalProperties: false,
     },
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      if (params.mode !== 'cwd_snapshot' && params.mode !== 'workspace_overview') {
+      if (params.mode !== 'cwd_inventory' && params.mode !== 'workspace_overview') {
         const details = {
           status: 'structural_illegal' as const,
           diagnostics: [
@@ -58,7 +58,7 @@ export function registerBrunchContext(pi: ExtensionAPI): void {
         };
       }
 
-      const result = await readWorkspaceCwdContext(params.mode, ctx?.sessionManager);
+      const result = await readWorkspaceContext(params.mode, ctx?.sessionManager);
       return {
         content: [{ type: 'text' as const, text: result.text }],
         details: result.details,

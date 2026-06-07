@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { GraphOverview } from '../graph/snapshot.js';
+import type { GraphOverview } from '../graph/queries.js';
 import {
   summarizeFixtureCurationRun,
   writeFixtureCurationArtifacts,
@@ -156,7 +156,7 @@ describe('fixture curation loop report', () => {
     expect(report.friction).toContain('No implicit graph nodes were present in graph readback.');
   });
 
-  it('writes session, transcript, report, and graph snapshot artifacts', async () => {
+  it('writes session, transcript, report, and graph overview artifacts', async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), 'brunch-fixture-curation-artifacts-'));
     const report: FixtureCurationReport = summarizeFixtureCurationRun({
       runId: 'fixture-curation-test',
@@ -186,7 +186,7 @@ describe('fixture curation loop report', () => {
       runId: 'fixture-curation-test',
       sessionText: toolResultEntry('commit_graph', { status: 'success' }),
       report,
-      graphSnapshot: mixedBasisOverview,
+      graphOverview: mixedBasisOverview,
     });
 
     expect(artifacts.runDir).toBe('runs/fixture-curation/fixture-curation-test');
@@ -199,7 +199,7 @@ describe('fixture curation loop report', () => {
     await expect(readFile(join(fixtureRoot, artifacts.reportJson), 'utf8')).resolves.toContain(
       '"seedSlug": "macro-view-grounded-intent"',
     );
-    await expect(readFile(join(fixtureRoot, artifacts.graphSnapshotJson), 'utf8')).resolves.toContain(
+    await expect(readFile(join(fixtureRoot, artifacts.graphOverviewJson), 'utf8')).resolves.toContain(
       '"basis": "implicit"',
     );
   });
@@ -234,7 +234,7 @@ describe('fixture curation loop report', () => {
       runId: 'portable-run',
       sessionText: toolResultEntry('commit_graph', { status: 'success' }),
       report,
-      graphSnapshot: mixedBasisOverview,
+      graphOverview: mixedBasisOverview,
     });
 
     const expectedRefs = {
@@ -242,7 +242,7 @@ describe('fixture curation loop report', () => {
       sessionJsonl: 'runs/fixture-curation/portable-run/session.jsonl',
       transcriptMarkdown: 'runs/fixture-curation/portable-run/transcript.md',
       reportJson: 'runs/fixture-curation/portable-run/report.json',
-      graphSnapshotJson: 'runs/fixture-curation/portable-run/graph-snapshot.json',
+      graphOverviewJson: 'runs/fixture-curation/portable-run/graph-overview.json',
     };
     expect(artifacts).toEqual(expectedRefs);
 

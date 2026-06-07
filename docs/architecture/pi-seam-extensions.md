@@ -21,7 +21,7 @@ For each one this document records the pi seams it relies on, the Brunch-owned w
 
 ### Need
 
-The PRD already commits to treating turns as snapshot-oriented reasoning units and surfacing external graph divergence at the next turn boundary via `worldUpdate`. Brunch also needs to be able to dispatch non-blocking inference work *during* a primary-agent turn — for example, an oracle-side analysis or a candidate-proposal expansion — whose result must reach the primary agent on a later turn without disturbing the active turn.
+The PRD already commits to treating turns as stable-context reasoning units and surfacing external graph divergence at the next turn boundary via `worldUpdate`. Brunch also needs to be able to dispatch non-blocking inference work *during* a primary-agent turn — for example, an oracle-side analysis or a candidate-proposal expansion — whose result must reach the primary agent on a later turn without disturbing the active turn.
 
 ### Pi seams used
 
@@ -200,28 +200,28 @@ The observer treats `captureHint` as priors, not authority. The user retains esc
 
 ### Need
 
-The user (and the agent, on the user's behalf) should be able to refer to graph entities directly inside chat input using a `#` mention. Mentions must resolve to a stable graph identity, must persist in the transcript, and — crucially — must participate in Brunch's staleness-detection so that the agent does not silently reuse a now-stale snapshot of an entity that has been mutated since it was last read.
+The user (and the agent, on the user's behalf) should be able to refer to graph entities directly inside chat input using a `#` mention. Mentions must resolve to a stable graph identity, must persist in the transcript, and — crucially — must participate in Brunch's staleness-detection so that the agent does not silently reuse a now-stale context read of an entity that has been mutated since it was last read.
 
 ### Pi seams used
 
 - `ctx.ui.addAutocompleteProvider((current) => ...)` over Pi's prompt editor. The autocomplete item's `value` is inserted into the editor; Pi does not persist hidden autocomplete metadata.
 - `before_agent_start` system-prompt injection for teaching the active agent how to interpret Brunch `#` handles and when to call a lookup/re-read tool. The inserted handle is just transcript text unless Brunch adds a later parser/indexer.
-- Brunch custom transcript entries (`pi.appendEntry`, `pi.registerMessageRenderer`) for future mention ledger/staleness records and resolved entity snapshots; these are separate from the autocomplete insertion itself.
+- Brunch custom transcript entries (`pi.appendEntry`, `pi.registerMessageRenderer`) for future mention ledger/staleness records and resolved entity reads; these are separate from the autocomplete insertion itself.
 - `prepareNextTurn` for injecting mention-staleness hints into the agent's next-turn context, alongside the existing `worldUpdate` flow.
-- The reconciliation-need substrate and spec-local LSN (see §Reconciliation-need substrate and §Graph clock) for comparing the `{specId, lsn}` at which a mention was last *snapshotted into the model's working context* against the entity's current LSN.
+- The reconciliation-need substrate and spec-local LSN (see §Reconciliation-need substrate and §Graph clock) for comparing the `{specId, lsn}` at which a mention was last read into the model's working context against the entity's current LSN.
 
 ### Brunch-owned work
 
 - A `#` autocomplete provider sourced from `SpecRegistry` + current spec's graph index. It may search current titles and descriptions, but the inserted `value` must be a stable handle such as `#A12` or `#<node-id>`; popup `label`/`description` are UI-only and are not session metadata.
 - A Brunch mention indexer that parses user/assistant text for stable `#` handles after input and resolves them to `{ specId, id: NodeId, title_at_mention: string, lsn_at_mention: number }` for the session mention ledger. This parsing/indexing step, not Pi autocomplete, is what creates structured mention state.
 - A graph lookup/re-read tool (for example `brunch.entity_reread`) whose prompt guidance tells the agent to resolve `#A12` by passing the handle without the `#` when deeper entity detail matters.
-- A `SessionMentionLedger` in the session-scoped state: for each `{specId, id}` ever mentioned in this session, the highest `snapshotted_lsn` — i.e. the spec-local LSN at which the agent most recently received the full entity payload (either via initial context, a `worldUpdate` cascade, or an explicit re-read tool call). The ledger persists with the session and survives compaction.
+- A `SessionMentionLedger` in the session-scoped state: for each `{specId, id}` ever mentioned in this session, the highest `context_lsn` — i.e. the spec-local LSN at which the agent most recently received the full entity payload (either via initial context, a `worldUpdate` cascade, or an explicit re-read tool call). The ledger persists with the session and survives compaction.
 - A staleness check executed during `prepareNextTurn`:
   1. Walk the session's `SessionMentionLedger`.
-  2. For every entry where the entity's current `{specId, lsn}` is newer than `snapshotted_lsn` for that same spec, the entity is **stale-in-context** for this session.
-  3. Brunch synthesizes a `brunch.mention_staleness_hint` entry (custom message, `deliverAs: "nextTurn"`) summarising the stale set. The hint is **discretionary advice to the agent**, not a forced re-read: it tells the agent "if you intend to reason over `#foo` again, re-read it; the snapshot you have is from spec-local LSN 412, current is LSN 487."
-  4. The agent decides whether to invoke a re-read tool (which then updates `snapshotted_lsn`) or to proceed with the existing snapshot, accepting the staleness.
-- A `brunch.entity_reread` command/tool (through the shared command layer) that re-snapshots a named entity and updates `snapshotted_lsn` to the LSN observed at re-read.
+  2. For every entry where the entity's current `{specId, lsn}` is newer than `context_lsn` for that same spec, the entity is **stale-in-context** for this session.
+  3. Brunch synthesizes a `brunch.mention_staleness_hint` entry (custom message, `deliverAs: "nextTurn"`) summarising the stale set. The hint is **discretionary advice to the agent**, not a forced re-read: it tells the agent "if you intend to reason over `#foo` again, re-read it; the context you have is from spec-local LSN 412, current is LSN 487."
+  4. The agent decides whether to invoke a re-read tool (which then updates `context_lsn`) or to proceed with the existing context, accepting the staleness.
+- A `brunch.entity_reread` command/tool (through the shared command layer) that re-reads a named entity and updates `context_lsn` to the LSN observed at re-read.
 
 ### Posture
 

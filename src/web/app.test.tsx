@@ -3,7 +3,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { WorkspaceSnapshot } from '../projections/workspace/workspace-snapshot.js';
+import type { WorkspaceState } from '../projections/workspace/workspace-state.js';
 import { BrunchWebApp, createBrunchWebRuntime } from './app.js';
 import type { WebSocketRpcClient, WebSocketRpcNotificationListener } from './rpc-client.js';
 
@@ -12,7 +12,7 @@ interface RpcCall {
   params?: unknown;
 }
 
-const readySnapshot: WorkspaceSnapshot = {
+const readyState: WorkspaceState = {
   status: 'ready',
   cwd: '/tmp/brunch-project',
   spec: { id: 1, title: 'Web spec' },
@@ -23,7 +23,7 @@ const readySnapshot: WorkspaceSnapshot = {
   },
 };
 
-const selectSpecSnapshot: WorkspaceSnapshot = {
+const selectSpecState: WorkspaceState = {
   status: 'select_spec',
   cwd: '/tmp/brunch-project',
   spec: null,
@@ -32,7 +32,7 @@ const selectSpecSnapshot: WorkspaceSnapshot = {
     chatMode: 'select-spec',
   },
 };
-const selectedSpecWithoutSessionSnapshot: WorkspaceSnapshot = {
+const selectedSpecWithoutSessionState: WorkspaceState = {
   status: 'select_spec',
   cwd: '/tmp/brunch-project',
   spec: { id: 2, title: 'Spec without session' },
@@ -91,20 +91,20 @@ const populatedGraphOverview = {
   lsn: 1,
 };
 function rpcClient(options?: {
-  snapshot?: WorkspaceSnapshot;
+  state?: WorkspaceState;
   graphOverview?: typeof emptyGraphOverview | typeof populatedGraphOverview;
   calls?: RpcCall[];
   listeners?: Set<WebSocketRpcNotificationListener>;
   close?: ReturnType<typeof vi.fn>;
 }): WebSocketRpcClient {
-  const snapshot = options?.snapshot ?? readySnapshot;
+  const state = options?.state ?? readyState;
   const calls = options?.calls;
   const listeners = options?.listeners ?? new Set();
   return {
     async request<T>(method: string, params?: unknown): Promise<T> {
       calls?.push(params === undefined ? { method } : { method, params });
-      if (method === 'workspace.snapshot') {
-        return snapshot as T;
+      if (method === 'workspace.state') {
+        return state as T;
       }
       if (method === 'session.runtimeState') {
         throw new Error('session.runtimeState is not implemented in this test client');
@@ -128,7 +128,7 @@ afterEach(() => {
 });
 
 describe('Brunch React web app', () => {
-  it('renders workspace chrome from workspace.snapshot via the RPC client', async () => {
+  it('renders workspace chrome from workspace.state via the RPC client', async () => {
     const runtime = createBrunchWebRuntime({ rpcClient: rpcClient() });
 
     render(<BrunchWebApp runtime={runtime} />);
@@ -148,7 +148,7 @@ describe('Brunch React web app', () => {
 
     expect(await screen.findByText('Attached session: session-1')).toBeTruthy();
     expect(screen.getByText('Spec 1')).toBeTruthy();
-    expect(calls).toContainEqual({ method: 'workspace.snapshot' });
+    expect(calls).toContainEqual({ method: 'workspace.state' });
     expect(calls.some((call) => call.method.startsWith('session.'))).toBe(false);
   });
 
@@ -229,7 +229,7 @@ describe('Brunch React web app', () => {
     render(<BrunchWebApp runtime={runtime} />);
 
     expect(await screen.findByText('Invalid spec id.')).toBeTruthy();
-    expect(calls).toContainEqual({ method: 'workspace.snapshot' });
+    expect(calls).toContainEqual({ method: 'workspace.state' });
     expect(calls.some((call) => call.method === 'graph.overview')).toBe(false);
   });
 
@@ -257,7 +257,7 @@ describe('Brunch React web app', () => {
     const calls: RpcCall[] = [];
     const runtime = createBrunchWebRuntime({
       rpcClient: rpcClient({
-        snapshot: selectedSpecWithoutSessionSnapshot,
+        state: selectedSpecWithoutSessionState,
         calls,
         graphOverview: emptyGraphOverview,
       }),
@@ -267,7 +267,7 @@ describe('Brunch React web app', () => {
 
     expect(await screen.findByText('Spec without session')).toBeTruthy();
     expect(screen.getByText('No graph nodes yet. LSN 0; 0 nodes; 0 edges.')).toBeTruthy();
-    expect(calls).toContainEqual({ method: 'workspace.snapshot' });
+    expect(calls).toContainEqual({ method: 'workspace.state' });
     expect(calls).toContainEqual({ method: 'graph.overview', params: { specId: 2 } });
     expect(calls.some((call) => call.method.startsWith('session.'))).toBe(false);
   });
@@ -275,13 +275,13 @@ describe('Brunch React web app', () => {
   it('does not request session projection when no session is selected', async () => {
     const calls: RpcCall[] = [];
     const runtime = createBrunchWebRuntime({
-      rpcClient: rpcClient({ snapshot: selectSpecSnapshot, calls }),
+      rpcClient: rpcClient({ state: selectSpecState, calls }),
     });
 
     render(<BrunchWebApp runtime={runtime} />);
 
     expect(await screen.findByText('No Brunch session selected.')).toBeTruthy();
-    expect(calls).toEqual([{ method: 'workspace.snapshot' }]);
+    expect(calls).toEqual([{ method: 'workspace.state' }]);
   });
 
   it('keeps one router and QueryClient across BrunchWebApp re-renders', async () => {

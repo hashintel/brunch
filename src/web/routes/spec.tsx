@@ -3,7 +3,7 @@ import { createRoute } from '@tanstack/react-router';
 
 import { GraphOverviewPanel } from '../features/graph/GraphOverview.js';
 import { graphOverviewQueryOptions } from '../queries/graph.js';
-import { workspaceSnapshotQueryOptions } from '../queries/workspace.js';
+import { workspaceStateQueryOptions } from '../queries/workspace.js';
 import { rootRoute, SessionPanel, WorkspaceChrome } from './root.js';
 
 export const specRoute = createRoute({
@@ -12,10 +12,10 @@ export const specRoute = createRoute({
   loader: ({ context, params }) => {
     const specId = parseSpecRouteId(params.specId);
     if (specId === undefined) {
-      return context.queryClient.ensureQueryData(workspaceSnapshotQueryOptions(context.rpcClient));
+      return context.queryClient.ensureQueryData(workspaceStateQueryOptions(context.rpcClient));
     }
     return Promise.all([
-      context.queryClient.ensureQueryData(workspaceSnapshotQueryOptions(context.rpcClient)),
+      context.queryClient.ensureQueryData(workspaceStateQueryOptions(context.rpcClient)),
       context.queryClient.ensureQueryData(graphOverviewQueryOptions(context.rpcClient, specId)),
     ]);
   },
@@ -31,11 +31,11 @@ function SpecRoutePage() {
 
 function InvalidSpecRoutePage() {
   const { rpcClient } = specRoute.useRouteContext();
-  const { data: snapshot } = useSuspenseQuery(workspaceSnapshotQueryOptions(rpcClient));
+  const { data: state } = useSuspenseQuery(workspaceStateQueryOptions(rpcClient));
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-5 py-8 sm:px-8 lg:px-10">
       <p className="text-brunch-muted font-mono text-xs tracking-[0.35em] uppercase">Brunch workspace</p>
-      <WorkspaceChrome snapshot={snapshot} />
+      <WorkspaceChrome state={state} />
       <p className="border-brunch-accent/40 text-brunch-accent rounded-[1.5rem] border bg-white/60 p-5">
         Invalid spec id.
       </p>
@@ -45,15 +45,15 @@ function InvalidSpecRoutePage() {
 
 function ValidSpecRoutePage({ specId }: { specId: number }) {
   const { rpcClient } = specRoute.useRouteContext();
-  const { data: snapshot } = useSuspenseQuery(workspaceSnapshotQueryOptions(rpcClient));
+  const { data: state } = useSuspenseQuery(workspaceStateQueryOptions(rpcClient));
   const { data: overview } = useSuspenseQuery(graphOverviewQueryOptions(rpcClient, specId));
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-5 py-8 sm:px-8 lg:px-10">
       <p className="text-brunch-muted font-mono text-xs tracking-[0.35em] uppercase">Brunch workspace</p>
-      <WorkspaceChrome snapshot={snapshot} fallbackSpecId={specId} />
+      <WorkspaceChrome state={state} fallbackSpecId={specId} />
       <GraphOverviewPanel overview={overview} />
-      <SessionPanel snapshot={snapshot} viewedSpecId={specId} />
+      <SessionPanel state={state} viewedSpecId={specId} />
     </main>
   );
 }

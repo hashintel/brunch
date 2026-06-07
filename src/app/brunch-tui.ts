@@ -145,7 +145,7 @@ export function createBrunchAgentSessionRuntimeFactory({
         return currentWorkspace.spec.id;
       },
       commandExecutor: graph.commandExecutor,
-      snapshots: {
+      reads: {
         getGraphOverview: (options?: { projection?: 'active_context' | 'graph_truth' }) =>
           graph.forSpec(currentWorkspace.spec.id).getGraphOverview(options),
         getGraphSliceByKinds: (options: {
@@ -221,7 +221,7 @@ export function createBrunchAgentSessionRuntimeFactory({
                 id: currentWorkspace.session.id,
                 ...(currentWorkspace.session.name ? { label: currentWorkspace.session.name } : {}),
               },
-              graphSnapshots: graphDeps.snapshots,
+              graphReads: graphDeps.reads,
             };
           },
         }),

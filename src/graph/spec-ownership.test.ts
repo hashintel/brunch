@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { BrunchDb } from '../db/connection.js';
 import { createDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
-import { getGraphOverview, getNodeNeighborhood, getOpenReconciliationNeeds } from './snapshot.js';
+import { getGraphOverview, getNodeNeighborhood, getOpenReconciliationNeeds } from './queries.js';
 
 function freshDbWithTwoSpecs(): {
   db: BrunchDb;

@@ -1,7 +1,7 @@
 export {
   composeAgentPrompt,
   type AgentPromptSpecContext,
-  type AgentPromptSnapshotContext,
+  type AgentPromptContextBundle,
   type AgentPromptWorkspaceContext,
   type ComposeAgentPromptInput,
   type ComposeAgentPromptResult,

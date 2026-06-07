@@ -1,6 +1,6 @@
 export const queryKeys = {
   workspace: {
-    snapshot: () => ['workspace.snapshot'] as const,
+    state: () => ['workspace.state'] as const,
   },
   session: {
     runtimeState: (target: { specId: number; sessionId: string }) =>

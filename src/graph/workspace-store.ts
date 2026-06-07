@@ -11,7 +11,7 @@ import {
   getRelatedNodes,
   getNodeNeighborhood,
   resolveGraphNodeCode,
-} from './snapshot.js';
+} from './queries.js';
 import type {
   GraphOverview,
   GraphOverviewOptions,
@@ -22,13 +22,13 @@ import type {
   NeighborhoodResult,
   RelatedNodesOptions,
   RelatedNodesResult,
-} from './snapshot.js';
+} from './queries.js';
 
 const BRUNCH_DIR = '.brunch';
 const DATA_DB_FILE = 'data.db';
 
 /**
- * Spec-scoped snapshot readers. Returned by `WorkspaceGraphRuntime.forSpec`
+ * Spec-scoped graph reads. Returned by `WorkspaceGraphRuntime.forSpec`
  * so callers (Pi extensions, RPC handlers, probes) interact with a single
  * spec's graph without ever needing to thread `specId` through every call.
  */
@@ -44,7 +44,7 @@ export interface SpecScopedReaders {
 
 export interface WorkspaceGraphRuntime {
   readonly commandExecutor: CommandExecutor;
-  /** Bind snapshot readers to a single spec (D61-L). */
+  /** Bind graph reads to a single spec (D61-L). */
   readonly forSpec: (specId: number) => SpecScopedReaders;
 }
 

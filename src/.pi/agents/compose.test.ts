@@ -41,8 +41,8 @@ function workspacePosture(posture: WorkspacePostureState): WorkspacePostureState
   return posture;
 }
 
-const snapshots = {
-  contextHandles: ['graph-overview: compact selected-spec graph summary available via snapshot tools'],
+const context = {
+  contextHandles: ['graph-overview: compact selected-spec graph summary available via read tools'],
   renderedContexts: [
     '[Selected-spec graph context · intent lens]\n- selected-spec lsn: 7; nodes: 1; edges: 0',
   ],
@@ -55,7 +55,7 @@ describe('composeAgentPrompt', () => {
       sessionState: projectBrunchAgentState([]),
       spec: groundingSpec,
       workspace,
-      snapshots,
+      context,
       activeTools: ['read', 'grep', 'present_options'],
     });
 
@@ -78,7 +78,7 @@ describe('composeAgentPrompt', () => {
     expect(result.prompt).not.toContain('name="commit-converge"');
   });
 
-  it('surfaces rendered snapshot text and preserves manifest legality when lens changes', () => {
+  it('surfaces rendered context text and preserves manifest legality when lens changes', () => {
     const intent = composeAgentPrompt({
       agentId: 'elicitor',
       sessionState: projectBrunchAgentState([
@@ -98,7 +98,7 @@ describe('composeAgentPrompt', () => {
       ]),
       spec: elicitationSpec,
       workspace,
-      snapshots: {
+      context: {
         renderedContexts: ['[Selected-spec graph context · intent lens]\n- emphasis: intent claims'],
       },
       activeTools: ['read'],
@@ -122,7 +122,7 @@ describe('composeAgentPrompt', () => {
       ]),
       spec: elicitationSpec,
       workspace,
-      snapshots: {
+      context: {
         renderedContexts: ['[Selected-spec graph context · design lens]\n- emphasis: design modules'],
       },
       activeTools: ['read'],

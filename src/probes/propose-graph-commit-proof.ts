@@ -14,8 +14,8 @@ import {
   type Diagnostic,
   type StructuralIllegal,
 } from '../graph/index.js';
+import type { GraphOverview } from '../graph/queries.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
-import type { GraphOverview } from '../graph/snapshot.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { portableCwd } from './portable-report.js';
@@ -151,7 +151,7 @@ export async function runProposeGraphCommitProof(
     throw new Error('failed to advance probe spec to elicitation_ready');
   }
   const expectedExistingCode = seedScenarioGraph(graph, workspace.spec.id, scenarioId);
-  const specSnapshots = graph.forSpec(workspace.spec.id);
+  const specReads = graph.forSpec(workspace.spec.id);
   const agentDir = options.agentDir ?? getAgentDir();
   const createRuntime = createBrunchAgentSessionRuntimeFactory({ workspace, coordinator });
   const created = await createRuntime({
@@ -174,7 +174,7 @@ export async function runProposeGraphCommitProof(
       sessionId: workspace.session.id,
       maxAttempts,
       sessionFile: workspace.session.file,
-      overview: specSnapshots.getGraphOverview(),
+      overview: specReads.getGraphOverview(),
       prompt,
       scenarioId,
       ...(expectedExistingCode !== undefined ? { expectedExistingCode } : {}),
@@ -193,7 +193,7 @@ export async function runProposeGraphCommitProof(
         sessionId: workspace.session.id,
         maxAttempts,
         sessionFile: workspace.session.file,
-        overview: specSnapshots.getGraphOverview(),
+        overview: specReads.getGraphOverview(),
         prompt,
         scenarioId,
         ...(expectedExistingCode !== undefined ? { expectedExistingCode } : {}),

@@ -1,9 +1,9 @@
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import { workspaceSnapshotFromState } from '../../projections/workspace/workspace-snapshot.js';
+import { projectWorkspaceState } from '../../projections/workspace/workspace-state.js';
 import type { WorkspaceSessionState } from '../../session/workspace-session-coordinator.js';
-import { renderWorkspaceSnapshot } from './workspace-snapshot.js';
+import { renderWorkspaceState } from './workspace-state.js';
 
 const cwd = '/tmp/brunch-project';
 
@@ -26,11 +26,11 @@ function readyState(): WorkspaceSessionState {
   };
 }
 
-describe('print snapshot', () => {
+describe('print state', () => {
   it('projects and renders a ready workspace without exposing pi internals', () => {
-    const snapshot = workspaceSnapshotFromState(readyState());
+    const state = projectWorkspaceState(readyState());
 
-    expect(snapshot).toEqual({
+    expect(state).toEqual({
       status: 'ready',
       cwd,
       spec: { id: 1, title: 'Alpha spec' },
@@ -43,13 +43,14 @@ describe('print snapshot', () => {
         chatMode: 'responding-to-elicitation',
       },
     });
-    expect(renderWorkspaceSnapshot(snapshot)).toContain('status: ready');
-    expect(renderWorkspaceSnapshot(snapshot)).toContain('spec: Alpha spec (1)');
-    expect(renderWorkspaceSnapshot(snapshot)).toContain('session: session-1');
+    expect(renderWorkspaceState(state)).toContain('Brunch workspace state');
+    expect(renderWorkspaceState(state)).toContain('status: ready');
+    expect(renderWorkspaceState(state)).toContain('spec: Alpha spec (1)');
+    expect(renderWorkspaceState(state)).toContain('session: session-1');
   });
 
-  it('renders select-spec as a snapshot instead of prompting', () => {
-    const snapshot = workspaceSnapshotFromState({
+  it('renders select-spec as state instead of prompting', () => {
+    const state = projectWorkspaceState({
       status: 'select_spec',
       cwd,
       chrome: {
@@ -60,8 +61,8 @@ describe('print snapshot', () => {
       },
     });
 
-    expect(renderWorkspaceSnapshot(snapshot)).toContain('status: select_spec');
-    expect(renderWorkspaceSnapshot(snapshot)).toContain('spec: <none>');
-    expect(renderWorkspaceSnapshot(snapshot)).not.toContain('session:');
+    expect(renderWorkspaceState(state)).toContain('status: select_spec');
+    expect(renderWorkspaceState(state)).toContain('spec: <none>');
+    expect(renderWorkspaceState(state)).not.toContain('session:');
   });
 });

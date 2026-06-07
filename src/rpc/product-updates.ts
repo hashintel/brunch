@@ -1,7 +1,7 @@
 export const BRUNCH_UPDATED_METHOD = 'brunch.updated';
 
 export type ProductUpdateTopic =
-  | 'workspace.snapshot'
+  | 'workspace.state'
   | 'workspace.selectionState'
   | 'session.pendingExchange'
   | 'session.exchanges'
@@ -72,7 +72,7 @@ export function selectedSessionProductUpdates(target?: {
   readonly sessionId?: string;
 }): readonly ProductUpdate[] {
   return [
-    productUpdate('workspace.snapshot', target),
+    productUpdate('workspace.state', target),
     productUpdate('session.pendingExchange', target),
     productUpdate('session.exchanges', target),
     productUpdate('session.runtimeState', target),

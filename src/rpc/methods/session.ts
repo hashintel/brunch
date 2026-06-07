@@ -7,8 +7,8 @@ import {
 } from '../../graph/capture/structured-response.js';
 import type { StructuredResponseCaptureOutcome } from '../../graph/capture/structured-response.js';
 import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
+import { reviewSetProposalPayloadFromDetails } from '../../projections/exchanges/review-set-payload.js';
 import { projectSessionRuntimeState } from '../../projections/session/runtime-state.js';
-import { reviewSetProposalPayloadFromDetails } from '../../projections/structured-exchange/review-set-payload.js';
 import {
   readBrunchSessionEnvelope,
   NonLinearTranscriptError,

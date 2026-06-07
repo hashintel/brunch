@@ -9,23 +9,23 @@ import {
 } from '../../../projections/workspace/workspace-context.js';
 import { renderWorkspaceContext } from '../../../renderers/workspace/workspace-context.js';
 import {
-  inspectWorkspaceCwdSnapshot,
-  inspectWorkspaceOverviewSnapshot,
+  inspectWorkspaceCwdInventory,
+  inspectWorkspaceOverview,
 } from '../../../session/workspace-context.js';
 
 interface SessionManagerLike {
   getEntries(): readonly FileEntry[];
 }
 
-export async function readWorkspaceCwdContext(
-  mode: 'cwd_snapshot' | 'workspace_overview',
+export async function readWorkspaceContext(
+  mode: 'cwd_inventory' | 'workspace_overview',
   sessionManager?: SessionManagerLike,
 ): Promise<{ readonly text: string; readonly details: WorkspaceContextProjection }> {
   const cwd = resolveWorkspaceCwd(sessionManager);
   const details =
     mode === 'workspace_overview'
-      ? projectWorkspaceOverviewContext(await inspectWorkspaceOverviewSnapshot(cwd))
-      : projectWorkspaceCwdContext(await inspectWorkspaceCwdSnapshot(cwd));
+      ? projectWorkspaceOverviewContext(await inspectWorkspaceOverview(cwd))
+      : projectWorkspaceCwdContext(await inspectWorkspaceCwdInventory(cwd));
   return {
     text: renderWorkspaceContext(details),
     details,

@@ -2,8 +2,8 @@ import process from 'node:process';
 import type { Readable, Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
-import { workspaceSnapshotFromState } from '../projections/workspace/workspace-snapshot.js';
-import { renderWorkspaceSnapshot } from '../renderers/workspace/workspace-snapshot.js';
+import { projectWorkspaceState } from '../projections/workspace/workspace-state.js';
+import { renderWorkspaceState } from '../renderers/workspace/workspace-state.js';
 import { createRpcHandlers, runJsonRpcLineServer } from '../rpc/handlers.js';
 import { createProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost } from '../rpc/web-host.js';
@@ -36,8 +36,8 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
 
   if (mode === 'print') {
     const state = await coordinator.openDefaultWorkspace();
-    const snapshot = workspaceSnapshotFromState(state);
-    writeStdout(options.stdout, renderWorkspaceSnapshot(snapshot));
+    const workspaceState = projectWorkspaceState(state);
+    writeStdout(options.stdout, renderWorkspaceState(workspaceState));
     return 0;
   }
 

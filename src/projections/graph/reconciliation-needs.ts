@@ -1,8 +1,8 @@
 /**
- * Canonical projection for open reconciliation-need snapshots.
+ * Canonical projection for open reconciliation-need context.
  *
  * Input:
- * - ReconciliationNeed[] from graph/snapshot.ts
+ * - ReconciliationNeed[] from graph/queries.ts
  *
  * Output:
  * - compact typed shape grouped and ordered for LLM inspection
@@ -10,7 +10,7 @@
  *
  * Future users:
  * - renderers/graph/reconciliation-needs.ts
- * - pushed prompt snapshots and/or future read tools
+ * - pushed prompt context and/or future read tools
  */
 
 export {};

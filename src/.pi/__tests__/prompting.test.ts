@@ -73,7 +73,7 @@ const promptContext = {
     }),
   },
   session: { id: 'session-1', label: 'Session' },
-  graphSnapshots: {
+  graphReads: {
     getGraphOverview: () => ({
       lsn: 4,
       nodeCount: 2,
@@ -239,7 +239,7 @@ describe('Brunch prompt-pack topology', () => {
           spec: selected.spec,
           workspace: promptContext.workspace,
           session: selected.session,
-          graphSnapshots: {
+          graphReads: {
             getGraphOverview: () => ({
               lsn: 1,
               nodeCount: selected.nodeTitles.length,

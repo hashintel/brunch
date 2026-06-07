@@ -1,7 +1,7 @@
 import { Type, type Static } from 'typebox';
 import { Value } from 'typebox/value';
 
-import { workspaceSnapshotFromState } from '../../projections/workspace/workspace-snapshot.js';
+import { projectWorkspaceState } from '../../projections/workspace/workspace-state.js';
 import type {
   SpecSessionActivationDecision,
   WorkspaceActivationState,
@@ -56,7 +56,7 @@ const WorkspaceActivationParamsSchema = Type.Object(
 
 type WorkspaceActivationParams = Static<typeof WorkspaceActivationParamsSchema>;
 
-const WorkspaceSnapshotResultSchema = Type.Object(
+const WorkspaceStateResultSchema = Type.Object(
   {
     status: Type.String(),
     cwd: Type.String(),
@@ -98,20 +98,20 @@ const WorkspaceActivationResultSchema = Type.Union([
 
 export const workspaceRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[] = [
   {
-    method: 'workspace.snapshot',
+    method: 'workspace.state',
     access: 'read',
     description:
-      'Return the current Brunch workspace/spec/session snapshot for the invocation cwd without changing activation state.',
+      'Return the current Brunch workspace/spec/session state for the invocation cwd without changing activation state.',
     paramsSchema: NoParamsSchema,
-    resultSchema: WorkspaceSnapshotResultSchema,
-    examples: [{ jsonrpc: '2.0', id: 2, method: 'workspace.snapshot' }],
+    resultSchema: WorkspaceStateResultSchema,
+    examples: [{ jsonrpc: '2.0', id: 2, method: 'workspace.state' }],
     async handle(context, request) {
       const requestId = jsonRpcRequestId(request);
       if (request.params !== undefined) {
         return createJsonRpcFailure(requestId, -32602, 'Invalid params');
       }
       const state = await context.coordinator.openDefaultWorkspace();
-      return createJsonRpcSuccess(requestId, workspaceSnapshotFromState(state));
+      return createJsonRpcSuccess(requestId, projectWorkspaceState(state));
     },
   },
   {
@@ -168,7 +168,7 @@ export const workspaceRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>
         return createJsonRpcFailure(requestId, -32602, 'Invalid params');
       }
       const state = await context.coordinator.activateWorkspace(decision.value);
-      const response = workspaceActivationSnapshotFromState(state);
+      const response = workspaceActivationResultFromState(state);
       if (context.productUpdates && state.status === 'ready') {
         context.productUpdates.publish(
           selectedSessionProductUpdates({ specId: state.spec.id, sessionId: state.session.id }),
@@ -193,7 +193,7 @@ function workspaceSelectionStateFromInventory(
   };
 }
 
-function workspaceActivationSnapshotFromState(state: WorkspaceActivationState) {
+function workspaceActivationResultFromState(state: WorkspaceActivationState) {
   if (state.status === 'cancelled') {
     return {
       status: 'cancelled' as const,
@@ -206,7 +206,7 @@ function workspaceActivationSnapshotFromState(state: WorkspaceActivationState) {
     };
   }
 
-  return workspaceSnapshotFromState(state);
+  return projectWorkspaceState(state);
 }
 
 type WorkspaceActivationParamsParseResult =

@@ -118,7 +118,7 @@ function projectMentions(entries: readonly FileEntry[]): RuntimeStateProjection[
       if (id) {
         const handle = stringField(data.handle);
         const title = stringField(data.title);
-        const seenLsn = integerField(data.snapshottedLsn);
+        const seenLsn = integerField(data.seenLsn);
         graphNodes.push({
           id,
           ...(handle === undefined ? {} : { handle }),

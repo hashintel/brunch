@@ -6,7 +6,7 @@
  *       D53-L (commitGraph atomic batch), I26-L (no db/ imports here)
  *
  * This module does NOT import from db/. All graph access routes through
- * the CommandExecutor and snapshot reader functions passed as explicit
+ * the CommandExecutor and graph reads passed as explicit
  * dependencies from the extension shell.
  */
 
@@ -20,7 +20,7 @@ import type {
   RelatedDirection,
   GraphGapsOptions,
   RelatedNodesResult,
-} from '../../../graph/snapshot.js';
+} from '../../../graph/queries.js';
 import { projectNeighborhood } from '../../../projections/graph/neighborhood.js';
 import { formatNeighborhood } from '../../../renderers/graph/neighborhood.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
@@ -37,8 +37,8 @@ import { CommitGraphParams, ReadGraphParams } from './tool-schemas.js';
 // Dependencies injected by the extension shell
 // ---------------------------------------------------------------------------
 
-/** Pre-bound snapshot readers so the extension never touches db/ directly. */
-export interface GraphSnapshotReaders {
+/** Pre-bound graph reads so the extension never touches db/ directly. */
+export interface GraphReaders {
   readonly getGraphOverview: (options?: { projection?: GraphProjection }) => GraphOverview;
   readonly getGraphSliceByKinds: (options: {
     projection?: GraphProjection;
@@ -73,7 +73,7 @@ export interface GraphSnapshotReaders {
 export interface BrunchGraphDeps {
   readonly specId: number;
   readonly commandExecutor: CommandExecutor;
-  readonly snapshots: GraphSnapshotReaders;
+  readonly reads: GraphReaders;
   readonly productUpdates?: ProductUpdatePublisher;
 }
 
@@ -82,7 +82,7 @@ export interface BrunchGraphDeps {
 // ---------------------------------------------------------------------------
 
 export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): void {
-  const { commandExecutor, snapshots } = deps;
+  const { commandExecutor, reads } = deps;
 
   // ── commit_graph ────────────────────────────────────────────────────
   pi.registerTool({
@@ -105,7 +105,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
 
     async execute(_toolCallId, params) {
       const specId = deps.specId;
-      const input = translateCommitGraph(params, specId, snapshots.resolveNodeCode);
+      const input = translateCommitGraph(params, specId, reads.resolveNodeCode);
       const result = 'status' in input ? input : commandExecutor.commitGraph(input);
       const text = formatCommitGraphResult(result);
       if (result.status === 'success') {
@@ -150,20 +150,20 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
           };
 
       if (params.mode === 'overview') {
-        const overview = snapshots.getGraphOverview(
+        const overview = reads.getGraphOverview(
           params.projection != null ? { projection: params.projection } : undefined,
         );
         text = formatGraphOverview(overview);
         details = overview;
       } else if (params.mode === 'list_by_kind') {
-        const overview = snapshots.getGraphSliceByKinds({
+        const overview = reads.getGraphSliceByKinds({
           kinds: params.kinds ?? [],
           ...(params.projection != null ? { projection: params.projection } : {}),
         });
         text = formatGraphOverview(overview, 'Graph slice by kind');
         details = overview;
       } else if (params.mode === 'list_by_band') {
-        const overview = snapshots.getGraphSliceByReadinessBands({
+        const overview = reads.getGraphSliceByReadinessBands({
           readinessBands: params.readinessBands ?? [],
           ...(params.projection != null ? { projection: params.projection } : {}),
         });
@@ -194,7 +194,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
           };
           text = formatStructuralIllegal(details);
         } else {
-          const overview = snapshots.getGraphGaps({
+          const overview = reads.getGraphGaps({
             ...(params.kinds != null ? { kinds: params.kinds } : {}),
             ...(params.readinessBands != null ? { readinessBands: params.readinessBands } : {}),
             absentEdgeCategory: params.absentEdgeCategory,
@@ -207,13 +207,13 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
       } else if (params.mode === 'related') {
         const anchorCodes = params.anchorCodes ?? [];
         const anchorIds = anchorCodes
-          .map((code) => ({ code, nodeId: snapshots.resolveNodeCode(code) }))
+          .map((code) => ({ code, nodeId: reads.resolveNodeCode(code) }))
           .filter((candidate) => candidate.nodeId != null);
         if (anchorIds.length !== anchorCodes.length) {
           details = {
             status: 'structural_illegal',
             diagnostics: anchorCodes
-              .filter((code) => snapshots.resolveNodeCode(code) == null)
+              .filter((code) => reads.resolveNodeCode(code) == null)
               .map((code) => ({
                 field: 'anchorCodes',
                 message: `anchor code ${code} does not resolve in the selected spec`,
@@ -227,7 +227,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
           };
           text = formatStructuralIllegal(details);
         } else {
-          const related = snapshots.getRelatedNodes({
+          const related = reads.getRelatedNodes({
             anchorIds: anchorIds.map((candidate) => candidate.nodeId!),
             edgeCategory: params.edgeCategory,
             ...(params.direction != null ? { direction: params.direction } : {}),
@@ -244,7 +244,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
         };
         text = formatStructuralIllegal(details);
       } else {
-        const nodeId = snapshots.resolveNodeCode(params.nodeCode);
+        const nodeId = reads.resolveNodeCode(params.nodeCode);
         if (nodeId === undefined) {
           details = {
             status: 'structural_illegal',
@@ -257,7 +257,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
           };
           text = formatStructuralIllegal(details);
         } else {
-          const neighborhood = snapshots.getNodeNeighborhood(
+          const neighborhood = reads.getNodeNeighborhood(
             nodeId,
             params.hops != null || params.projection != null
               ? {

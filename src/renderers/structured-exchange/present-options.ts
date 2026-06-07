@@ -1,4 +1,4 @@
-import type { PresentOptionsProjection } from '../../projections/structured-exchange/present-options.js';
+import type { PresentOptionsProjection } from '../../projections/exchanges/present-options.js';
 
 function markdownEscape(text: string): string {
   return text.replace(/([\\`*_{}[\]()#+\-.!|>])/g, '\\$1');

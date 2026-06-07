@@ -1,5 +1,5 @@
 /**
- * Shared TOON formatting substrate for Brunch LLM-facing structured snapshots.
+ * Shared TOON formatting substrate for Brunch LLM-facing structured context data.
  *
  * Owns:
  * - thin wrapper helpers around @toon-format/toon
@@ -8,7 +8,7 @@
  *
  * Future callers:
  * - renderers/graph/*
- * - any later snapshot formatter that needs compact structured data
+ * - any later context formatter that needs compact structured data
  */
 
 export {};
