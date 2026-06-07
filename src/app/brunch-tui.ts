@@ -146,9 +146,20 @@ export function createBrunchAgentSessionRuntimeFactory({
       },
       commandExecutor: graph.commandExecutor,
       snapshots: {
-        getGraphOverview: () => graph.forSpec(currentWorkspace.spec.id).getGraphOverview(),
-        getNodeNeighborhood: (nodeId: number, options?: { hops?: number }) =>
-          graph.forSpec(currentWorkspace.spec.id).getNodeNeighborhood(nodeId, options),
+        getGraphOverview: (options?: { projection?: 'active_context' | 'graph_truth' }) =>
+          graph.forSpec(currentWorkspace.spec.id).getGraphOverview(options),
+        getGraphSliceByKinds: (options: {
+          projection?: 'active_context' | 'graph_truth';
+          kinds: readonly string[];
+        }) => graph.forSpec(currentWorkspace.spec.id).getGraphSliceByKinds(options),
+        getGraphSliceByReadinessBands: (options: {
+          projection?: 'active_context' | 'graph_truth';
+          readinessBands: readonly string[];
+        }) => graph.forSpec(currentWorkspace.spec.id).getGraphSliceByReadinessBands(options),
+        getNodeNeighborhood: (
+          nodeId: number,
+          options?: { hops?: number; projection?: 'active_context' | 'graph_truth' },
+        ) => graph.forSpec(currentWorkspace.spec.id).getNodeNeighborhood(nodeId, options),
         resolveNodeCode: (code: string) => graph.forSpec(currentWorkspace.spec.id).resolveNodeCode(code),
       },
       ...(productUpdates ? { productUpdates } : {}),

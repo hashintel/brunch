@@ -3,8 +3,21 @@ import { join } from 'node:path';
 
 import { createDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
-import { getGraphOverview, getNodeNeighborhood, resolveGraphNodeCode } from './snapshot.js';
-import type { GraphOverview, NeighborhoodOptions, NeighborhoodResult } from './snapshot.js';
+import {
+  getGraphOverview,
+  getGraphSliceByKinds,
+  getGraphSliceByReadinessBands,
+  getNodeNeighborhood,
+  resolveGraphNodeCode,
+} from './snapshot.js';
+import type {
+  GraphOverview,
+  GraphOverviewOptions,
+  GraphSliceByKindsOptions,
+  GraphSliceByReadinessBandsOptions,
+  NeighborhoodOptions,
+  NeighborhoodResult,
+} from './snapshot.js';
 
 const BRUNCH_DIR = '.brunch';
 const DATA_DB_FILE = 'data.db';
@@ -15,7 +28,9 @@ const DATA_DB_FILE = 'data.db';
  * spec's graph without ever needing to thread `specId` through every call.
  */
 export interface SpecScopedReaders {
-  readonly getGraphOverview: () => GraphOverview;
+  readonly getGraphOverview: (options?: GraphOverviewOptions) => GraphOverview;
+  readonly getGraphSliceByKinds: (options: GraphSliceByKindsOptions) => GraphOverview;
+  readonly getGraphSliceByReadinessBands: (options: GraphSliceByReadinessBandsOptions) => GraphOverview;
   readonly getNodeNeighborhood: (nodeId: number, options?: NeighborhoodOptions) => NeighborhoodResult;
   readonly resolveNodeCode: (code: string) => number | undefined;
 }
@@ -32,7 +47,9 @@ export async function openWorkspaceGraphRuntime(cwd: string): Promise<WorkspaceG
     commandExecutor: new CommandExecutor(db),
     forSpec(specId: number): SpecScopedReaders {
       return {
-        getGraphOverview: () => getGraphOverview(db, specId),
+        getGraphOverview: (options) => getGraphOverview(db, specId, options),
+        getGraphSliceByKinds: (options) => getGraphSliceByKinds(db, specId, options),
+        getGraphSliceByReadinessBands: (options) => getGraphSliceByReadinessBands(db, specId, options),
         getNodeNeighborhood: (nodeId, options) => getNodeNeighborhood(db, specId, nodeId, options),
         resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
       };

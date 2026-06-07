@@ -14,7 +14,13 @@ import { createDb } from '../../db/connection.js';
 import type { BrunchDb } from '../../db/connection.js';
 import { edges } from '../../db/schema.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
-import { getGraphOverview, getNodeNeighborhood, resolveGraphNodeCode } from '../../graph/snapshot.js';
+import {
+  getGraphOverview,
+  getGraphSliceByKinds,
+  getGraphSliceByReadinessBands,
+  getNodeNeighborhood,
+  resolveGraphNodeCode,
+} from '../../graph/snapshot.js';
 import { createProductUpdatePublisher } from '../../rpc/product-updates.js';
 import {
   translateCommitGraph,
@@ -44,7 +50,9 @@ function seedSpec(db: BrunchDb): number {
 
 function createSnapshots(db: BrunchDb, specId: number): GraphSnapshotReaders {
   return {
-    getGraphOverview: () => getGraphOverview(db, specId),
+    getGraphOverview: (options) => getGraphOverview(db, specId, options),
+    getGraphSliceByKinds: (options) => getGraphSliceByKinds(db, specId, options),
+    getGraphSliceByReadinessBands: (options) => getGraphSliceByReadinessBands(db, specId, options),
     getNodeNeighborhood: (nodeId, options) => getNodeNeighborhood(db, specId, nodeId, options),
     resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
   };
@@ -143,6 +151,22 @@ describe('graph tool schemas', () => {
   it('accepts projected node codes for read_graph neighborhood mode instead of node_id', () => {
     expect(Value.Check(ReadGraphParams, { mode: 'neighborhood', nodeCode: 'G1' })).toBe(true);
     expect(Value.Check(ReadGraphParams, { mode: 'neighborhood', node_id: 1 })).toBe(false);
+  });
+
+  it('accepts list read modes with projection-aware kind or readiness filters', () => {
+    expect(
+      Value.Check(ReadGraphParams, {
+        mode: 'list_by_kind',
+        kinds: ['goal', 'requirement'],
+        projection: 'graph_truth',
+      }),
+    ).toBe(true);
+    expect(
+      Value.Check(ReadGraphParams, {
+        mode: 'list_by_band',
+        readinessBands: ['grounding', 'elicitation'],
+      }),
+    ).toBe(true);
   });
 });
 
@@ -481,6 +505,92 @@ describe('graph tools end-to-end', () => {
       neighbors: [],
       edges: [],
     });
+  });
+
+  it('read_graph list modes return projection-aware slices with projected node codes', async () => {
+    const oldRequirement = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'requirement',
+      title: 'Legacy requirement',
+    });
+    expect(oldRequirement.status).toBe('success');
+    if (oldRequirement.status !== 'success') return;
+
+    const commitResult = executor.commitGraph({
+      specId,
+      basis: 'implicit',
+      nodes: [
+        { ref: 'g1', plane: 'intent', kind: 'goal', title: 'Grounding goal' },
+        { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'Current requirement' },
+      ],
+      edges: [{ category: 'supersession', source: 'r1', target: { existing: oldRequirement.nodeId } }],
+    });
+    expect(commitResult.status).toBe('success');
+    if (commitResult.status !== 'success') return;
+
+    const tools = new Map<string, { execute(toolCallId: string, params: unknown): Promise<unknown> }>();
+    registerBrunchGraph(
+      {
+        registerTool(tool: { name: string; execute(toolCallId: string, params: unknown): Promise<unknown> }) {
+          tools.set(tool.name, tool);
+        },
+      } as never,
+      { specId, commandExecutor: executor, snapshots },
+    );
+
+    const kindResult = (await tools.get('read_graph')!.execute('read-kind', {
+      mode: 'list_by_kind',
+      kinds: ['requirement'],
+      projection: 'graph_truth',
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(kindResult.content[0]?.text).toContain('Graph slice by kind');
+    expect(kindResult.content[0]?.text).toContain('[R1]');
+    expect(kindResult.content[0]?.text).toContain('[R2]');
+    expect(kindResult.details).toMatchObject({
+      nodeCount: 2,
+      nodes: [{ title: 'Legacy requirement' }, { title: 'Current requirement' }],
+    });
+
+    const bandResult = (await tools.get('read_graph')!.execute('read-band', {
+      mode: 'list_by_band',
+      readinessBands: ['grounding'],
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(bandResult.content[0]?.text).toContain('Graph slice by readiness band');
+    expect(bandResult.content[0]?.text).toContain('[G1]');
+    expect(bandResult.details).toMatchObject({
+      nodeCount: 1,
+      nodes: [{ title: 'Grounding goal' }],
+    });
+  });
+
+  it('read_graph list modes return an empty slice for unknown filters instead of diagnostics', async () => {
+    const tools = new Map<string, { execute(toolCallId: string, params: unknown): Promise<unknown> }>();
+    registerBrunchGraph(
+      {
+        registerTool(tool: { name: string; execute(toolCallId: string, params: unknown): Promise<unknown> }) {
+          tools.set(tool.name, tool);
+        },
+      } as never,
+      { specId, commandExecutor: executor, snapshots },
+    );
+
+    const result = (await tools.get('read_graph')!.execute('read-empty', {
+      mode: 'list_by_band',
+      readinessBands: ['unknown-band'],
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+
+    expect(result.content[0]?.text).toContain('empty');
+    expect(result.details).toMatchObject({ nodeCount: 0, edgeCount: 0, nodes: [], edges: [] });
   });
 
   it('read_graph neighborhood for missing node returns not_found', () => {

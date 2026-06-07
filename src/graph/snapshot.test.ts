@@ -13,7 +13,13 @@ import { createDb, type BrunchDb } from '../db/connection.js';
 import { graphClock, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
 import { NODE_KIND_METADATA, parseGraphNodeCode } from './schema/nodes.js';
-import { getGraphOverview, getNodeNeighborhood, getOpenReconciliationNeeds } from './snapshot.js';
+import {
+  getGraphOverview,
+  getGraphSliceByKinds,
+  getGraphSliceByReadinessBands,
+  getNodeNeighborhood,
+  getOpenReconciliationNeeds,
+} from './snapshot.js';
 
 function createTestDb(): BrunchDb {
   return createDb(':memory:');
@@ -166,6 +172,121 @@ describe('getGraphOverview', () => {
       expect.arrayContaining(['R_offline_v0', 'R_offline_v1']),
     );
     expect(truthOverview.edges).toHaveLength(1);
+  });
+});
+
+describe('graph slice readers', () => {
+  let db: BrunchDb;
+  let executor: CommandExecutor;
+  let specId: number;
+
+  beforeEach(() => {
+    db = createTestDb();
+    executor = new CommandExecutor(db);
+    db.insert(specs)
+      .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
+      .run();
+    specId = db.select({ id: specs.id }).from(specs).get()!.id;
+    db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
+  });
+
+  it('lists nodes by kind, projection-aware', () => {
+    const oldRequirement = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'requirement',
+      title: 'R_v0',
+    });
+    expect(oldRequirement.status).toBe('success');
+    if (oldRequirement.status !== 'success') throw new Error('unreachable');
+
+    const batch = executor.commitGraph({
+      specId,
+      nodes: [
+        { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R_v1' },
+        { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'A1' },
+        { ref: 'g1', plane: 'intent', kind: 'goal', title: 'G1' },
+      ],
+      edges: [
+        { category: 'supersession', source: 'r1', target: { existing: oldRequirement.nodeId } },
+        { category: 'dependency', source: 'r1', target: 'a1' },
+        { category: 'support', source: 'g1', target: 'r1', stance: 'for' },
+      ],
+    });
+    expect(batch.status).toBe('success');
+
+    const activeSlice = getGraphSliceByKinds(db, specId, {
+      kinds: ['requirement', 'assumption'],
+      projection: 'active_context',
+    });
+    expect(activeSlice.nodes.map((node) => node.title).sort()).toEqual(['A1', 'R_v1']);
+    expect(activeSlice.edges).toHaveLength(1);
+    expect(activeSlice.edges[0]!.category).toBe('dependency');
+
+    const truthSlice = getGraphSliceByKinds(db, specId, {
+      kinds: ['requirement'],
+      projection: 'graph_truth',
+    });
+    expect(truthSlice.nodes.map((node) => node.title).sort()).toEqual(['R_v0', 'R_v1']);
+    expect(truthSlice.edges.map((edge) => edge.category)).toEqual(['supersession']);
+  });
+
+  it('lists nodes by readiness band, projection-aware', () => {
+    const oldRequirement = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'requirement',
+      title: 'Legacy requirement',
+    });
+    expect(oldRequirement.status).toBe('success');
+    if (oldRequirement.status !== 'success') throw new Error('unreachable');
+
+    const batch = executor.commitGraph({
+      specId,
+      nodes: [
+        {
+          ref: 't1',
+          plane: 'intent',
+          kind: 'term',
+          title: 'Term node',
+          detail: { definition: 'Shared vocabulary entry' },
+        },
+        { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'Current requirement' },
+        {
+          ref: 'd1',
+          plane: 'intent',
+          kind: 'decision',
+          title: 'Decision node',
+          detail: { chosen_option: 'A', rejected: ['B'], rationale: 'Because' },
+        },
+      ],
+      edges: [{ category: 'supersession', source: 'r1', target: { existing: oldRequirement.nodeId } }],
+    });
+    expect(batch.status).toBe('success');
+
+    const activeSlice = getGraphSliceByReadinessBands(db, specId, {
+      readinessBands: ['grounding', 'elicitation'],
+      projection: 'active_context',
+    });
+    expect(activeSlice.nodes.map((node) => node.title).sort()).toEqual(['Current requirement', 'Term node']);
+
+    const truthSlice = getGraphSliceByReadinessBands(db, specId, {
+      readinessBands: ['commitment'],
+      projection: 'graph_truth',
+    });
+    expect(truthSlice.nodes.map((node) => node.title).sort()).toEqual([
+      'Current requirement',
+      'Decision node',
+      'Legacy requirement',
+    ]);
+  });
+
+  it('returns an empty slice for empty or unknown kind/band filters', () => {
+    const kindSlice = getGraphSliceByKinds(db, specId, { kinds: ['not_a_kind'] });
+    expect(kindSlice).toMatchObject({ nodes: [], edges: [], nodeCount: 0, edgeCount: 0, lsn: 0 });
+
+    const bandSlice = getGraphSliceByReadinessBands(db, specId, { readinessBands: ['not_a_band'] });
+    expect(bandSlice).toMatchObject({ nodes: [], edges: [], nodeCount: 0, edgeCount: 0, lsn: 0 });
   });
 });
 

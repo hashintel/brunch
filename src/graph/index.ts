@@ -57,11 +57,19 @@ export {
   type ReconNeedTrigger,
 } from './policy/category-policy.js';
 
-export { getGraphOverview, getNodeNeighborhood, getOpenReconciliationNeeds } from './snapshot.js';
+export {
+  getGraphOverview,
+  getGraphSliceByKinds,
+  getGraphSliceByReadinessBands,
+  getNodeNeighborhood,
+  getOpenReconciliationNeeds,
+} from './snapshot.js';
 export type {
   GraphOverview,
   GraphOverviewOptions,
   GraphProjection,
+  GraphSliceByKindsOptions,
+  GraphSliceByReadinessBandsOptions,
   NeighborhoodOptions,
   NeighborhoodNotFound,
   NeighborhoodResult,

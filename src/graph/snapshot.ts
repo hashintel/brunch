@@ -9,13 +9,20 @@
  * edge) are excluded per CATEGORY_POLICY projectionEffect.
  */
 
-import { and, eq, or, inArray } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
 import type { Lsn } from './atoms.js';
 import type { GraphEdge } from './schema/edges.js';
-import { parseGraphNodeCode, type GraphNode, type NodeDetail } from './schema/nodes.js';
+import {
+  NODE_KIND_METADATA,
+  parseGraphNodeCode,
+  type GraphNode,
+  type NodeDetail,
+  type NodeKind,
+  type ReadinessBand,
+} from './schema/nodes.js';
 import type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reconciliation-need.js';
 
 // ---------------------------------------------------------------------------
@@ -38,6 +45,14 @@ export interface GraphOverviewOptions {
   readonly projection?: GraphProjection;
 }
 
+export interface GraphSliceByKindsOptions extends GraphOverviewOptions {
+  readonly kinds: readonly string[];
+}
+
+export interface GraphSliceByReadinessBandsOptions extends GraphOverviewOptions {
+  readonly readinessBands: readonly string[];
+}
+
 /** Successful neighborhood result. */
 export interface NeighborhoodSuccess {
   readonly status: 'success';
@@ -56,6 +71,7 @@ export type NeighborhoodResult = NeighborhoodSuccess | NeighborhoodNotFound;
 export interface NeighborhoodOptions {
   /** Number of hops from the anchor node. Defaults to 1. */
   readonly hops?: number;
+  readonly projection?: GraphProjection;
 }
 
 // ---------------------------------------------------------------------------
@@ -117,6 +133,81 @@ function getSupersededIds(db: BrunchDb, specId: number): Set<number> {
   return new Set(rows.map((r) => r.targetId));
 }
 
+function getProjectionState(db: BrunchDb, specId: number, projection: GraphProjection) {
+  const supersededIds = projection === 'active_context' ? getSupersededIds(db, specId) : new Set<number>();
+  const allNodeRows = db.select().from(schema.nodes).where(eq(schema.nodes.spec_id, specId)).all();
+  const visibleNodeRows = allNodeRows.filter((row) => !supersededIds.has(row.id));
+  const visibleNodeIds = new Set(visibleNodeRows.map((row) => row.id));
+  const allEdgeRows = db.select().from(schema.edges).where(eq(schema.edges.spec_id, specId)).all();
+
+  return { supersededIds, allNodeRows, visibleNodeRows, visibleNodeIds, allEdgeRows };
+}
+
+function getProjectedEdges(
+  edgeRows: readonly (typeof schema.edges.$inferSelect)[],
+  projection: GraphProjection,
+  visibleNodeIds: ReadonlySet<number>,
+): GraphEdge[] {
+  return edgeRows
+    .filter(
+      (edge) =>
+        projection === 'graph_truth' ||
+        (visibleNodeIds.has(edge.source_id) && visibleNodeIds.has(edge.target_id)),
+    )
+    .map(rowToEdge);
+}
+
+function isNodeKind(value: string): value is NodeKind {
+  return value in NODE_KIND_METADATA;
+}
+
+function getKindsForReadinessBands(readinessBands: readonly string[]): Set<NodeKind> {
+  const requestedBands = new Set(
+    readinessBands.filter(
+      (band): band is ReadinessBand =>
+        band === 'grounding' || band === 'elicitation' || band === 'commitment',
+    ),
+  );
+
+  if (requestedBands.size === 0) {
+    return new Set();
+  }
+
+  return new Set(
+    Object.entries(NODE_KIND_METADATA)
+      .filter(([, metadata]) => metadata.readinessBands.some((band) => requestedBands.has(band)))
+      .map(([kind]) => kind as NodeKind),
+  );
+}
+
+function buildGraphSlice(
+  projectionState: ReturnType<typeof getProjectionState>,
+  projection: GraphProjection,
+  matchingNodeIds: ReadonlySet<number>,
+): GraphOverview {
+  const visibleNodeRows = projectionState.visibleNodeRows.filter((row) => matchingNodeIds.has(row.id));
+  const visibleNodeIds = new Set(visibleNodeRows.map((row) => row.id));
+  const edgeRows = projectionState.allEdgeRows.filter(
+    (edge) => visibleNodeIds.has(edge.source_id) && visibleNodeIds.has(edge.target_id),
+  );
+
+  return {
+    nodes: visibleNodeRows.map(rowToNode),
+    edges: getProjectedEdges(edgeRows, projection, visibleNodeIds),
+    nodeCount: visibleNodeRows.length,
+    edgeCount: edgeRows.length,
+    lsn: 0,
+  };
+}
+
+function withClock(db: BrunchDb, specId: number, overview: Omit<GraphOverview, 'lsn'>): GraphOverview {
+  const clockRow = db.select().from(schema.graphClock).where(eq(schema.graphClock.spec_id, specId)).get();
+  return {
+    ...overview,
+    lsn: clockRow?.lsn ?? 0,
+  };
+}
+
 // ---------------------------------------------------------------------------
 export function resolveGraphNodeCode(db: BrunchDb, specId: number, code: string): number | undefined {
   const parsed = parseGraphNodeCode(code);
@@ -150,33 +241,58 @@ export function getGraphOverview(
   options: GraphOverviewOptions = {},
 ): GraphOverview {
   const projection = options.projection ?? 'active_context';
-  const supersededIds = projection === 'active_context' ? getSupersededIds(db, specId) : new Set<number>();
+  const projectionState = getProjectionState(db, specId, projection);
+  const nodes = projectionState.visibleNodeRows.map(rowToNode);
+  const edges = getProjectedEdges(projectionState.allEdgeRows, projection, projectionState.visibleNodeIds);
 
-  const allNodeRows = db.select().from(schema.nodes).where(eq(schema.nodes.spec_id, specId)).all();
-  const visibleNodeRows = allNodeRows.filter((r) => !supersededIds.has(r.id));
-  const visibleNodeIds = new Set(visibleNodeRows.map((row) => row.id));
-  const allEdgeRows = db.select().from(schema.edges).where(eq(schema.edges.spec_id, specId)).all();
-
-  const nodes = visibleNodeRows.map(rowToNode);
-
-  const edges = allEdgeRows
-    .filter(
-      (edge) =>
-        projection === 'graph_truth' ||
-        (visibleNodeIds.has(edge.source_id) && visibleNodeIds.has(edge.target_id)),
-    )
-    .map(rowToEdge);
-
-  const clockRow = db.select().from(schema.graphClock).where(eq(schema.graphClock.spec_id, specId)).get();
-  const lsn = clockRow?.lsn ?? 0;
-
-  return {
+  return withClock(db, specId, {
     nodes,
     edges,
     nodeCount: nodes.length,
     edgeCount: edges.length,
-    lsn,
-  };
+  });
+}
+
+export function getGraphSliceByKinds(
+  db: BrunchDb,
+  specId: number,
+  options: GraphSliceByKindsOptions,
+): GraphOverview {
+  const projection = options.projection ?? 'active_context';
+  const requestedKinds = new Set(options.kinds.filter(isNodeKind));
+  if (requestedKinds.size === 0) {
+    return withClock(db, specId, { nodes: [], edges: [], nodeCount: 0, edgeCount: 0 });
+  }
+
+  const projectionState = getProjectionState(db, specId, projection);
+  const matchingNodeIds = new Set(
+    projectionState.visibleNodeRows
+      .filter((row) => requestedKinds.has(row.kind as NodeKind))
+      .map((row) => row.id),
+  );
+
+  return withClock(db, specId, buildGraphSlice(projectionState, projection, matchingNodeIds));
+}
+
+export function getGraphSliceByReadinessBands(
+  db: BrunchDb,
+  specId: number,
+  options: GraphSliceByReadinessBandsOptions,
+): GraphOverview {
+  const projection = options.projection ?? 'active_context';
+  const matchingKinds = getKindsForReadinessBands(options.readinessBands);
+  if (matchingKinds.size === 0) {
+    return withClock(db, specId, { nodes: [], edges: [], nodeCount: 0, edgeCount: 0 });
+  }
+
+  const projectionState = getProjectionState(db, specId, projection);
+  const matchingNodeIds = new Set(
+    projectionState.visibleNodeRows
+      .filter((row) => matchingKinds.has(row.kind as NodeKind))
+      .map((row) => row.id),
+  );
+
+  return withClock(db, specId, buildGraphSlice(projectionState, projection, matchingNodeIds));
 }
 
 // ---------------------------------------------------------------------------
@@ -199,6 +315,7 @@ export function getNodeNeighborhood(
   options?: NeighborhoodOptions,
 ): NeighborhoodResult {
   const hops = options?.hops ?? 1;
+  const projection = options?.projection ?? 'active_context';
 
   // Verify anchor exists in the requested spec
   const anchorRow = db
@@ -211,7 +328,7 @@ export function getNodeNeighborhood(
     return { status: 'not_found' };
   }
 
-  const supersededIds = getSupersededIds(db, specId);
+  const supersededIds = projection === 'active_context' ? getSupersededIds(db, specId) : new Set<number>();
   const anchor = rowToNode(anchorRow);
 
   // BFS traversal: collect reachable node ids within hop distance.
@@ -270,7 +387,12 @@ export function getNodeNeighborhood(
   if (edgeIdArr.length > 0) {
     const rows = db.select().from(schema.edges).where(inArray(schema.edges.id, edgeIdArr)).all();
     edgeNodes.push(
-      ...rows.filter((row) => visibleIds.has(row.source_id) && visibleIds.has(row.target_id)).map(rowToEdge),
+      ...rows
+        .filter(
+          (row) =>
+            projection === 'graph_truth' || (visibleIds.has(row.source_id) && visibleIds.has(row.target_id)),
+        )
+        .map(rowToEdge),
     );
   }
 

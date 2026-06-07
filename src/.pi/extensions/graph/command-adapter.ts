@@ -145,13 +145,13 @@ export function formatStructuralIllegal(result: StructuralIllegal): string {
 /**
  * Format a GraphOverview as readable text for the agent.
  */
-export function formatGraphOverview(overview: GraphOverview): string {
+export function formatGraphOverview(overview: GraphOverview, heading = 'Graph overview'): string {
   if (overview.nodeCount === 0) {
-    return 'The graph is empty (no nodes or edges).';
+    return `${heading}: empty (no nodes or edges).`;
   }
 
   const lines: string[] = [
-    `Graph overview (LSN ${overview.lsn}): ${overview.nodeCount} node(s), ${overview.edgeCount} edge(s).`,
+    `${heading} (LSN ${overview.lsn}): ${overview.nodeCount} node(s), ${overview.edgeCount} edge(s).`,
     '',
   ];
   const nodesById = new Map(overview.nodes.map((node) => [node.id, node]));

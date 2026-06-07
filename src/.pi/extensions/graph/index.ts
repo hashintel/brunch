@@ -13,7 +13,7 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import type { CommandExecutor } from '../../../graph/command-executor.js';
-import type { GraphOverview, NeighborhoodResult } from '../../../graph/snapshot.js';
+import type { GraphOverview, GraphProjection, NeighborhoodResult } from '../../../graph/snapshot.js';
 import { projectNeighborhood } from '../../../projections/graph/neighborhood.js';
 import { formatNeighborhood } from '../../../renderers/graph/neighborhood.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
@@ -31,8 +31,19 @@ import { CommitGraphParams, ReadGraphParams } from './tool-schemas.js';
 
 /** Pre-bound snapshot readers so the extension never touches db/ directly. */
 export interface GraphSnapshotReaders {
-  readonly getGraphOverview: () => GraphOverview;
-  readonly getNodeNeighborhood: (nodeId: number, options?: { hops?: number }) => NeighborhoodResult;
+  readonly getGraphOverview: (options?: { projection?: GraphProjection }) => GraphOverview;
+  readonly getGraphSliceByKinds: (options: {
+    projection?: GraphProjection;
+    kinds: readonly string[];
+  }) => GraphOverview;
+  readonly getGraphSliceByReadinessBands: (options: {
+    projection?: GraphProjection;
+    readinessBands: readonly string[];
+  }) => GraphOverview;
+  readonly getNodeNeighborhood: (
+    nodeId: number,
+    options?: { hops?: number; projection?: GraphProjection },
+  ) => NeighborhoodResult;
   readonly resolveNodeCode: (code: string) => number | undefined;
 }
 
@@ -104,6 +115,9 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
     promptGuidelines: [
       "Use read_graph with mode 'overview' to see all nodes and edges before committing new graph elements.",
       "Use read_graph with mode 'neighborhood' and a projected nodeCode such as G1 or CON2 to inspect a specific node and its connections.",
+      "Use read_graph with mode 'list_by_kind' and one or more kinds to inspect a bounded graph slice without drifting into a generic predicate API.",
+      "Use read_graph with mode 'list_by_band' and readiness bands (grounding, elicitation, commitment) to inspect spec evidence by D64-L band.",
+      "Set projection to 'graph_truth' when you need superseded nodes; otherwise the default 'active_context' hides superseded nodes and dangling edges.",
     ],
     parameters: ReadGraphParams,
 
@@ -118,8 +132,24 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
           };
 
       if (params.mode === 'overview') {
-        const overview = snapshots.getGraphOverview();
+        const overview = snapshots.getGraphOverview(
+          params.projection != null ? { projection: params.projection } : undefined,
+        );
         text = formatGraphOverview(overview);
+        details = overview;
+      } else if (params.mode === 'list_by_kind') {
+        const overview = snapshots.getGraphSliceByKinds({
+          kinds: params.kinds ?? [],
+          ...(params.projection != null ? { projection: params.projection } : {}),
+        });
+        text = formatGraphOverview(overview, 'Graph slice by kind');
+        details = overview;
+      } else if (params.mode === 'list_by_band') {
+        const overview = snapshots.getGraphSliceByReadinessBands({
+          readinessBands: params.readinessBands ?? [],
+          ...(params.projection != null ? { projection: params.projection } : {}),
+        });
+        text = formatGraphOverview(overview, 'Graph slice by readiness band');
         details = overview;
       } else if (params.nodeCode == null) {
         details = {
@@ -143,7 +173,12 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
         } else {
           const neighborhood = snapshots.getNodeNeighborhood(
             nodeId,
-            params.hops != null ? { hops: params.hops } : undefined,
+            params.hops != null || params.projection != null
+              ? {
+                  ...(params.hops != null ? { hops: params.hops } : {}),
+                  ...(params.projection != null ? { projection: params.projection } : {}),
+                }
+              : undefined,
           );
           text = formatNeighborhood(projectNeighborhood(neighborhood));
           details = neighborhood;

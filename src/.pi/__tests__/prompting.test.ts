@@ -19,6 +19,16 @@ import {
 } from '../extensions/runtime/index.js';
 import { registerBrunchPrompting } from '../extensions/system-prompts/index.js';
 
+function emptyGraphSlice() {
+  return {
+    lsn: 0,
+    nodeCount: 0,
+    edgeCount: 0,
+    nodes: [],
+    edges: [],
+  };
+}
+
 function runtimeEntry(state: BrunchAgentState) {
   return {
     type: 'custom',
@@ -105,6 +115,8 @@ const promptContext = {
         },
       ],
     }),
+    getGraphSliceByKinds: () => emptyGraphSlice(),
+    getGraphSliceByReadinessBands: () => emptyGraphSlice(),
     getNodeNeighborhood: () => ({ status: 'not_found' as const }),
     resolveNodeCode: () => undefined,
   },
@@ -243,6 +255,8 @@ describe('Brunch prompt-pack topology', () => {
               })),
               edges: [],
             }),
+            getGraphSliceByKinds: () => emptyGraphSlice(),
+            getGraphSliceByReadinessBands: () => emptyGraphSlice(),
             getNodeNeighborhood: () => ({ status: 'not_found' as const }),
             resolveNodeCode: () => undefined,
           },
