@@ -93,6 +93,55 @@ describe('captureStructuredResponseFacts', () => {
     ]);
   });
 
+  it('keeps every labeled line of the same kind with distinct refs', () => {
+    const executor = new RecordingExecutor({
+      status: 'success',
+      lsn: 3,
+      createdNodes: {
+        goal: { id: 21, code: 'G1' },
+        'goal-2': { id: 22, code: 'G2' },
+      },
+      edges: [],
+    });
+
+    const outcome = captureStructuredResponseFacts({
+      specId: 42,
+      exchangeId: 'grounding-text-3',
+      answer: {
+        text: ['Goal: Coordinate specs across teams.', 'Goal: Keep the graph legible to designers.'].join(
+          '\n',
+        ),
+      },
+      commandExecutor: executor as unknown as CommandExecutor,
+    });
+
+    expect(outcome).toEqual({
+      status: 'captured',
+      lsn: 3,
+      nodeCount: 2,
+      createdNodes: {
+        goal: { id: 21, code: 'G1' },
+        'goal-2': { id: 22, code: 'G2' },
+      },
+    });
+    expect(executor.calls[0]!.nodes).toEqual([
+      {
+        ref: 'goal',
+        plane: 'intent',
+        kind: 'goal',
+        title: 'Coordinate specs across teams.',
+        source: 'structured_exchange_response:grounding-text-3',
+      },
+      {
+        ref: 'goal-2',
+        plane: 'intent',
+        kind: 'goal',
+        title: 'Keep the graph legible to designers.',
+        source: 'structured_exchange_response:grounding-text-3',
+      },
+    ]);
+  });
+
   it('returns no_capture for ambiguous or implication-only prose without invoking CommandExecutor', () => {
     const executor = new RecordingExecutor({ status: 'success', lsn: 1, createdNodes: {}, edges: [] });
 

@@ -82,7 +82,7 @@ type CapturedNode = CommitGraphInput['nodes'][number];
 
 function extractLabeledIntentNodes(text: string, exchangeId: string): CapturedNode[] {
   const captured: CapturedNode[] = [];
-  const seenRefs = new Set<string>();
+  const refCounts = new Map<string, number>();
 
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim().replace(/^[-*]\s+/, '');
@@ -92,10 +92,17 @@ function extractLabeledIntentNodes(text: string, exchangeId: string): CapturedNo
     const label = match[1]!.toLowerCase();
     const title = match[2]!.trim();
     const fact = LABELED_FACTS[label];
-    if (!fact || title.length === 0 || seenRefs.has(fact.ref)) continue;
-    seenRefs.add(fact.ref);
+    if (!fact || title.length === 0) continue;
+
+    // Each labeled line is a distinct fact. Repeated same-kind labels get a
+    // suffixed ref (goal, goal-2, …) so none are silently dropped and every
+    // node maps to a distinct createdNodes entry.
+    const ordinal = (refCounts.get(fact.ref) ?? 0) + 1;
+    refCounts.set(fact.ref, ordinal);
+    const ref = ordinal === 1 ? fact.ref : `${fact.ref}-${ordinal}`;
+
     captured.push({
-      ref: fact.ref,
+      ref,
       plane: INTENT_PLANE,
       kind: fact.kind,
       title,
