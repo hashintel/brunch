@@ -15,6 +15,7 @@ import type { BrunchDb } from '../../db/connection.js';
 import { edges } from '../../db/schema.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
 import {
+  getGraphGaps,
   getGraphOverview,
   getGraphSliceByKinds,
   getGraphSliceByReadinessBands,
@@ -55,6 +56,7 @@ function createSnapshots(db: BrunchDb, specId: number): GraphSnapshotReaders {
     getGraphOverview: (options) => getGraphOverview(db, specId, options),
     getGraphSliceByKinds: (options) => getGraphSliceByKinds(db, specId, options),
     getGraphSliceByReadinessBands: (options) => getGraphSliceByReadinessBands(db, specId, options),
+    getGraphGaps: (options) => getGraphGaps(db, specId, options),
     getRelatedNodes: (options) => getRelatedNodes(db, specId, options),
     getNodeNeighborhood: (nodeId, options) => getNodeNeighborhood(db, specId, nodeId, options),
     resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
@@ -180,6 +182,17 @@ describe('graph tool schemas', () => {
         edgeCategory: 'dependency',
         direction: 'outgoing',
         hops: 2,
+      }),
+    ).toBe(true);
+  });
+
+  it('accepts gaps mode with a base filter and absent edge category', () => {
+    expect(
+      Value.Check(ReadGraphParams, {
+        mode: 'gaps',
+        kinds: ['thesis'],
+        absentEdgeCategory: 'proof',
+        direction: 'incoming',
       }),
     ).toBe(true);
   });
@@ -606,6 +619,109 @@ describe('graph tools end-to-end', () => {
 
     expect(result.content[0]?.text).toContain('empty');
     expect(result.details).toMatchObject({ nodeCount: 0, edgeCount: 0, nodes: [], edges: [] });
+  });
+
+  it('read_graph gaps mode returns projection-aware gaps and structural diagnostics', async () => {
+    const commitResult = executor.commitGraph({
+      specId,
+      basis: 'implicit',
+      nodes: [
+        { ref: 'thesis-gap', plane: 'intent', kind: 'thesis', title: 'Unproven thesis' },
+        { ref: 'thesis-supported', plane: 'intent', kind: 'thesis', title: 'Supported thesis' },
+        {
+          ref: 'term-gap',
+          plane: 'intent',
+          kind: 'term',
+          title: 'Unproved term',
+          detail: { definition: 'Gap' },
+        },
+        {
+          ref: 'term-target',
+          plane: 'intent',
+          kind: 'term',
+          title: 'Supported term',
+          detail: { definition: 'Covered' },
+        },
+        { ref: 'evidence-live', plane: 'oracle', kind: 'evidence', title: 'Active evidence' },
+        { ref: 'evidence-old', plane: 'oracle', kind: 'evidence', title: 'Superseded evidence' },
+        { ref: 'evidence-new', plane: 'oracle', kind: 'evidence', title: 'Replacement evidence' },
+      ],
+      edges: [
+        { category: 'proof', source: 'evidence-live', target: 'thesis-supported', stance: 'for' },
+        { category: 'proof', source: 'evidence-old', target: 'term-target', stance: 'for' },
+        { category: 'supersession', source: 'evidence-new', target: 'evidence-old' },
+      ],
+    });
+    expect(commitResult.status).toBe('success');
+    if (commitResult.status !== 'success') return;
+
+    const tools = new Map<string, { execute(toolCallId: string, params: unknown): Promise<unknown> }>();
+    registerBrunchGraph(
+      {
+        registerTool(tool: { name: string; execute(toolCallId: string, params: unknown): Promise<unknown> }) {
+          tools.set(tool.name, tool);
+        },
+      } as never,
+      { specId, commandExecutor: executor, snapshots },
+    );
+
+    const activeGaps = (await tools.get('read_graph')!.execute('read-gaps', {
+      mode: 'gaps',
+      kinds: ['term'],
+      absentEdgeCategory: 'proof',
+      direction: 'incoming',
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(activeGaps.content[0]?.text).toContain('Graph gaps');
+    expect(activeGaps.content[0]?.text).toContain('[T1]');
+    expect(activeGaps.content[0]?.text).toContain('[T2]');
+    expect(activeGaps.details).toMatchObject({
+      nodeCount: 2,
+      nodes: [{ title: 'Unproved term' }, { title: 'Supported term' }],
+    });
+
+    const truthGaps = (await tools.get('read_graph')!.execute('read-gaps-truth', {
+      mode: 'gaps',
+      kinds: ['term'],
+      absentEdgeCategory: 'proof',
+      direction: 'incoming',
+      projection: 'graph_truth',
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(truthGaps.details).toMatchObject({
+      nodeCount: 1,
+      nodes: [{ title: 'Unproved term' }],
+    });
+
+    const missingBase = (await tools.get('read_graph')!.execute('read-gaps-missing-base', {
+      mode: 'gaps',
+      absentEdgeCategory: 'proof',
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(missingBase.content[0]?.text).toContain('STRUCTURAL_ILLEGAL');
+    expect(missingBase.details).toMatchObject({
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'kinds|readinessBands' }],
+    });
+
+    const missingCategory = (await tools.get('read_graph')!.execute('read-gaps-missing-category', {
+      mode: 'gaps',
+      kinds: ['term'],
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(missingCategory.content[0]?.text).toContain('STRUCTURAL_ILLEGAL');
+    expect(missingCategory.details).toMatchObject({
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'absentEdgeCategory' }],
+    });
   });
 
   it('read_graph related mode returns related nodes and structural_illegal for unknown anchors', async () => {

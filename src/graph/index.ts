@@ -59,6 +59,7 @@ export {
 
 export {
   getGraphOverview,
+  getGraphGaps,
   getGraphSliceByKinds,
   getGraphSliceByReadinessBands,
   getRelatedNodes,
@@ -68,6 +69,7 @@ export {
 export type {
   GraphOverview,
   GraphOverviewOptions,
+  GraphGapsOptions,
   GraphProjection,
   GraphSliceByKindsOptions,
   GraphSliceByReadinessBandsOptions,

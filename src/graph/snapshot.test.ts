@@ -14,6 +14,7 @@ import { graphClock, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
 import { NODE_KIND_METADATA, parseGraphNodeCode } from './schema/nodes.js';
 import {
+  getGraphGaps,
   getGraphOverview,
   getGraphSliceByKinds,
   getGraphSliceByReadinessBands,
@@ -288,6 +289,83 @@ describe('graph slice readers', () => {
 
     const bandSlice = getGraphSliceByReadinessBands(db, specId, { readinessBands: ['not_a_band'] });
     expect(bandSlice).toMatchObject({ nodes: [], edges: [], nodeCount: 0, edgeCount: 0, lsn: 0 });
+  });
+
+  it('finds graph gaps with projection-aware edge absence', () => {
+    const batch = executor.commitGraph({
+      specId,
+      nodes: [
+        { ref: 'thesis-gap', plane: 'intent', kind: 'thesis', title: 'Unproven thesis' },
+        { ref: 'thesis-supported', plane: 'intent', kind: 'thesis', title: 'Supported thesis' },
+        {
+          ref: 'term-gap',
+          plane: 'intent',
+          kind: 'term',
+          title: 'Unproved term',
+          detail: { definition: 'Gap' },
+        },
+        {
+          ref: 'term-target',
+          plane: 'intent',
+          kind: 'term',
+          title: 'Supported term',
+          detail: { definition: 'Covered' },
+        },
+        { ref: 'evidence-live', plane: 'oracle', kind: 'evidence', title: 'Active evidence' },
+        { ref: 'evidence-old', plane: 'oracle', kind: 'evidence', title: 'Superseded evidence' },
+        { ref: 'evidence-new', plane: 'oracle', kind: 'evidence', title: 'Replacement evidence' },
+      ],
+      edges: [
+        { category: 'proof', source: 'evidence-live', target: 'thesis-supported', stance: 'for' },
+        { category: 'proof', source: 'evidence-old', target: 'term-target', stance: 'for' },
+        { category: 'supersession', source: 'evidence-new', target: 'evidence-old' },
+      ],
+    });
+    expect(batch.status).toBe('success');
+
+    const thesisGaps = getGraphGaps(db, specId, {
+      kinds: ['thesis'],
+      absentEdgeCategory: 'proof',
+      direction: 'incoming',
+      projection: 'active_context',
+    });
+    expect(thesisGaps.nodes.map((node) => node.title)).toEqual(['Unproven thesis']);
+
+    const outgoingEvidenceGaps = getGraphGaps(db, specId, {
+      kinds: ['evidence'],
+      absentEdgeCategory: 'proof',
+      direction: 'outgoing',
+      projection: 'active_context',
+    });
+    expect(outgoingEvidenceGaps.nodes.map((node) => node.title)).toEqual(['Replacement evidence']);
+
+    const activeTermGaps = getGraphGaps(db, specId, {
+      readinessBands: ['grounding'],
+      absentEdgeCategory: 'proof',
+      direction: 'incoming',
+      projection: 'active_context',
+    });
+    expect(activeTermGaps.nodes.map((node) => node.title).sort()).toEqual([
+      'Supported term',
+      'Unproved term',
+      'Unproven thesis',
+    ]);
+
+    const truthTermGaps = getGraphGaps(db, specId, {
+      kinds: ['term'],
+      absentEdgeCategory: 'proof',
+      direction: 'incoming',
+      projection: 'graph_truth',
+    });
+    expect(truthTermGaps.nodes.map((node) => node.title)).toEqual(['Unproved term']);
+  });
+
+  it('returns an empty slice for gaps when the base filter is unknown', () => {
+    const gaps = getGraphGaps(db, specId, {
+      kinds: ['not_a_kind'],
+      absentEdgeCategory: 'proof',
+    });
+    expect(gaps).toMatchObject({ nodes: [], edges: [], nodeCount: 0, edgeCount: 0, lsn: 0 });
   });
 });
 

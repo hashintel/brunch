@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { createDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
 import {
+  getGraphGaps,
   getGraphOverview,
   getGraphSliceByKinds,
   getGraphSliceByReadinessBands,
@@ -14,6 +15,7 @@ import {
 import type {
   GraphOverview,
   GraphOverviewOptions,
+  GraphGapsOptions,
   GraphSliceByKindsOptions,
   GraphSliceByReadinessBandsOptions,
   NeighborhoodOptions,
@@ -34,6 +36,7 @@ export interface SpecScopedReaders {
   readonly getGraphOverview: (options?: GraphOverviewOptions) => GraphOverview;
   readonly getGraphSliceByKinds: (options: GraphSliceByKindsOptions) => GraphOverview;
   readonly getGraphSliceByReadinessBands: (options: GraphSliceByReadinessBandsOptions) => GraphOverview;
+  readonly getGraphGaps: (options: GraphGapsOptions) => GraphOverview;
   readonly getRelatedNodes: (options: RelatedNodesOptions) => RelatedNodesResult;
   readonly getNodeNeighborhood: (nodeId: number, options?: NeighborhoodOptions) => NeighborhoodResult;
   readonly resolveNodeCode: (code: string) => number | undefined;
@@ -54,6 +57,7 @@ export async function openWorkspaceGraphRuntime(cwd: string): Promise<WorkspaceG
         getGraphOverview: (options) => getGraphOverview(db, specId, options),
         getGraphSliceByKinds: (options) => getGraphSliceByKinds(db, specId, options),
         getGraphSliceByReadinessBands: (options) => getGraphSliceByReadinessBands(db, specId, options),
+        getGraphGaps: (options) => getGraphGaps(db, specId, options),
         getRelatedNodes: (options) => getRelatedNodes(db, specId, options),
         getNodeNeighborhood: (nodeId, options) => getNodeNeighborhood(db, specId, nodeId, options),
         resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),

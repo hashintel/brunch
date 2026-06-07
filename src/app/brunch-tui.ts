@@ -156,6 +156,21 @@ export function createBrunchAgentSessionRuntimeFactory({
           projection?: 'active_context' | 'graph_truth';
           readinessBands: readonly string[];
         }) => graph.forSpec(currentWorkspace.spec.id).getGraphSliceByReadinessBands(options),
+        getGraphGaps: (options: {
+          projection?: 'active_context' | 'graph_truth';
+          kinds?: readonly string[];
+          readinessBands?: readonly string[];
+          absentEdgeCategory:
+            | 'dependency'
+            | 'proof'
+            | 'support'
+            | 'realization'
+            | 'boundary'
+            | 'composition'
+            | 'association'
+            | 'supersession';
+          direction?: 'outgoing' | 'incoming' | 'both';
+        }) => graph.forSpec(currentWorkspace.spec.id).getGraphGaps(options),
         getRelatedNodes: (options: {
           anchorIds: readonly number[];
           edgeCategory:

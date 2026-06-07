@@ -86,7 +86,7 @@ export const ReadGraphParams = {
   additionalProperties: false,
   required: ['mode'],
   properties: {
-    mode: { enum: ['overview', 'neighborhood', 'list_by_kind', 'list_by_band', 'related'] },
+    mode: { enum: ['overview', 'neighborhood', 'list_by_kind', 'list_by_band', 'related', 'gaps'] },
     projection: {
       enum: ['active_context', 'graph_truth'] satisfies readonly GraphProjection[],
       description: 'Graph projection to read (default: active_context)',
@@ -118,11 +118,15 @@ export const ReadGraphParams = {
     },
     direction: {
       enum: ['outgoing', 'incoming', 'both'] satisfies readonly RelatedDirection[],
-      description: 'Traversal direction for related mode (default: both)',
+      description: 'Traversal direction for related or gaps mode (default: both)',
+    },
+    absentEdgeCategory: {
+      enum: [...EDGE_CATEGORIES],
+      description: 'Edge category whose absence defines a gaps query',
     },
   },
   description:
-    'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, or nodes related to anchor codes. Neighborhood mode requires nodeCode. List modes accept kind or readiness-band filters and return an empty slice for empty or unknown filters.',
+    'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, related nodes, or graph gaps. Neighborhood mode requires nodeCode. List modes accept kind or readiness-band filters and return an empty slice for empty or unknown filters. Gaps mode requires a base filter (kinds and/or readinessBands) plus absentEdgeCategory.',
 } as const;
 
 export type ToolCommitNode = Static<typeof CommitNodeSchema>;
@@ -152,5 +156,13 @@ export type ToolReadGraphParams =
       readonly edgeCategory: (typeof EDGE_CATEGORIES)[number];
       readonly direction?: RelatedDirection;
       readonly hops?: number;
+      readonly projection?: GraphProjection;
+    }
+  | {
+      readonly mode: 'gaps';
+      readonly kinds?: readonly string[];
+      readonly readinessBands?: readonly string[];
+      readonly absentEdgeCategory: (typeof EDGE_CATEGORIES)[number];
+      readonly direction?: RelatedDirection;
       readonly projection?: GraphProjection;
     };

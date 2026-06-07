@@ -53,6 +53,13 @@ export interface GraphSliceByReadinessBandsOptions extends GraphOverviewOptions 
   readonly readinessBands: readonly string[];
 }
 
+export interface GraphGapsOptions extends GraphOverviewOptions {
+  readonly kinds?: readonly string[];
+  readonly readinessBands?: readonly string[];
+  readonly absentEdgeCategory: GraphEdge['category'];
+  readonly direction?: RelatedDirection;
+}
+
 export type RelatedDirection = 'outgoing' | 'incoming' | 'both';
 
 export interface RelatedNodesOptions extends GraphOverviewOptions {
@@ -201,6 +208,28 @@ function getKindsForReadinessBands(readinessBands: readonly string[]): Set<NodeK
   );
 }
 
+function getMatchingNodeIds(
+  projectionState: ReturnType<typeof getProjectionState>,
+  options: {
+    readonly kinds?: readonly string[];
+    readonly readinessBands?: readonly string[];
+  },
+): Set<number> {
+  const requestedKinds = new Set((options.kinds ?? []).filter(isNodeKind));
+  const bandKinds = getKindsForReadinessBands(options.readinessBands ?? []);
+  const matchingKinds = new Set<NodeKind>([...requestedKinds, ...bandKinds]);
+
+  if (matchingKinds.size === 0) {
+    return new Set();
+  }
+
+  return new Set(
+    projectionState.visibleNodeRows
+      .filter((row) => matchingKinds.has(row.kind as NodeKind))
+      .map((row) => row.id),
+  );
+}
+
 function buildGraphSlice(
   projectionState: ReturnType<typeof getProjectionState>,
   projection: GraphProjection,
@@ -280,17 +309,12 @@ export function getGraphSliceByKinds(
   options: GraphSliceByKindsOptions,
 ): GraphOverview {
   const projection = options.projection ?? 'active_context';
-  const requestedKinds = new Set(options.kinds.filter(isNodeKind));
-  if (requestedKinds.size === 0) {
+  const projectionState = getProjectionState(db, specId, projection);
+  const matchingNodeIds = getMatchingNodeIds(projectionState, { kinds: options.kinds });
+
+  if (matchingNodeIds.size === 0) {
     return withClock(db, specId, { nodes: [], edges: [], nodeCount: 0, edgeCount: 0 });
   }
-
-  const projectionState = getProjectionState(db, specId, projection);
-  const matchingNodeIds = new Set(
-    projectionState.visibleNodeRows
-      .filter((row) => requestedKinds.has(row.kind as NodeKind))
-      .map((row) => row.id),
-  );
 
   return withClock(db, specId, buildGraphSlice(projectionState, projection, matchingNodeIds));
 }
@@ -301,19 +325,55 @@ export function getGraphSliceByReadinessBands(
   options: GraphSliceByReadinessBandsOptions,
 ): GraphOverview {
   const projection = options.projection ?? 'active_context';
-  const matchingKinds = getKindsForReadinessBands(options.readinessBands);
-  if (matchingKinds.size === 0) {
+  const projectionState = getProjectionState(db, specId, projection);
+  const matchingNodeIds = getMatchingNodeIds(projectionState, {
+    readinessBands: options.readinessBands,
+  });
+
+  if (matchingNodeIds.size === 0) {
     return withClock(db, specId, { nodes: [], edges: [], nodeCount: 0, edgeCount: 0 });
   }
 
-  const projectionState = getProjectionState(db, specId, projection);
-  const matchingNodeIds = new Set(
-    projectionState.visibleNodeRows
-      .filter((row) => matchingKinds.has(row.kind as NodeKind))
-      .map((row) => row.id),
-  );
-
   return withClock(db, specId, buildGraphSlice(projectionState, projection, matchingNodeIds));
+}
+
+export function getGraphGaps(db: BrunchDb, specId: number, options: GraphGapsOptions): GraphOverview {
+  const projection = options.projection ?? 'active_context';
+  const direction = options.direction ?? 'both';
+  const projectionState = getProjectionState(db, specId, projection);
+  const baseNodeIds = getMatchingNodeIds(projectionState, {
+    ...(options.kinds != null ? { kinds: options.kinds } : {}),
+    ...(options.readinessBands != null ? { readinessBands: options.readinessBands } : {}),
+  });
+
+  if (baseNodeIds.size === 0) {
+    return withClock(db, specId, { nodes: [], edges: [], nodeCount: 0, edgeCount: 0 });
+  }
+
+  const nodesWithVisibleEdges = new Set<number>();
+  for (const edge of projectionState.allEdgeRows) {
+    const sourceVisible = projectionState.visibleNodeIds.has(edge.source_id);
+    const targetVisible = projectionState.visibleNodeIds.has(edge.target_id);
+    if (!sourceVisible || !targetVisible) {
+      continue;
+    }
+    if (edge.category !== options.absentEdgeCategory) {
+      continue;
+    }
+    if (direction === 'outgoing' || direction === 'both') {
+      if (baseNodeIds.has(edge.source_id)) {
+        nodesWithVisibleEdges.add(edge.source_id);
+      }
+    }
+    if (direction === 'incoming' || direction === 'both') {
+      if (baseNodeIds.has(edge.target_id)) {
+        nodesWithVisibleEdges.add(edge.target_id);
+      }
+    }
+  }
+
+  const gapNodeIds = new Set([...baseNodeIds].filter((nodeId) => !nodesWithVisibleEdges.has(nodeId)));
+  return withClock(db, specId, buildGraphSlice(projectionState, projection, gapNodeIds));
 }
 
 export function getRelatedNodes(

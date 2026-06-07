@@ -18,6 +18,7 @@ import type {
   GraphProjection,
   NeighborhoodResult,
   RelatedDirection,
+  GraphGapsOptions,
   RelatedNodesResult,
 } from '../../../graph/snapshot.js';
 import { projectNeighborhood } from '../../../projections/graph/neighborhood.js';
@@ -47,6 +48,7 @@ export interface GraphSnapshotReaders {
     projection?: GraphProjection;
     readinessBands: readonly string[];
   }) => GraphOverview;
+  readonly getGraphGaps: (options: GraphGapsOptions) => GraphOverview;
   readonly getRelatedNodes: (options: {
     anchorIds: readonly number[];
     edgeCategory: GraphOverview['edges'][number]['category'];
@@ -131,6 +133,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
       "Use read_graph with mode 'neighborhood' and a projected nodeCode such as G1 or CON2 to inspect a specific node and its connections.",
       "Use read_graph with mode 'list_by_kind' and one or more kinds to inspect a bounded graph slice without drifting into a generic predicate API.",
       "Use read_graph with mode 'list_by_band' and readiness bands (grounding, elicitation, commitment) to inspect spec evidence by D64-L band.",
+      "Use read_graph with mode 'gaps' to find nodes in a bounded base class that lack one edge category in the chosen direction.",
       "Set projection to 'graph_truth' when you need superseded nodes; otherwise the default 'active_context' hides superseded nodes and dangling edges.",
     ],
     parameters: ReadGraphParams,
@@ -166,6 +169,41 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
         });
         text = formatGraphOverview(overview, 'Graph slice by readiness band');
         details = overview;
+      } else if (params.mode === 'gaps') {
+        const hasBaseFilter = (params.kinds?.length ?? 0) > 0 || (params.readinessBands?.length ?? 0) > 0;
+        if (!hasBaseFilter) {
+          details = {
+            status: 'structural_illegal',
+            diagnostics: [
+              {
+                field: 'kinds|readinessBands',
+                message: 'gaps mode requires kinds and/or readinessBands as a base filter',
+              },
+            ],
+          };
+          text = formatStructuralIllegal(details);
+        } else if (params.absentEdgeCategory == null) {
+          details = {
+            status: 'structural_illegal',
+            diagnostics: [
+              {
+                field: 'absentEdgeCategory',
+                message: 'absentEdgeCategory is required for gaps mode',
+              },
+            ],
+          };
+          text = formatStructuralIllegal(details);
+        } else {
+          const overview = snapshots.getGraphGaps({
+            ...(params.kinds != null ? { kinds: params.kinds } : {}),
+            ...(params.readinessBands != null ? { readinessBands: params.readinessBands } : {}),
+            absentEdgeCategory: params.absentEdgeCategory,
+            ...(params.direction != null ? { direction: params.direction } : {}),
+            ...(params.projection != null ? { projection: params.projection } : {}),
+          });
+          text = formatGraphOverview(overview, 'Graph gaps');
+          details = overview;
+        }
       } else if (params.mode === 'related') {
         const anchorCodes = params.anchorCodes ?? [];
         const anchorIds = anchorCodes
