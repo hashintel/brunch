@@ -64,6 +64,7 @@ export const AGENT_ROLE_DEFINITIONS: Record<AgentRoleId, AgentRoleDefinition> = 
     operationalMode: 'elicit',
     defaultStrategy: 'auto',
     allowedStrategies: [
+      'freestyle',
       'step-wise-decision-tree',
       'step-wise-disambiguate',
       'propose-graph',

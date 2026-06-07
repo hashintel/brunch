@@ -10,6 +10,7 @@ the user experiences.
 
 | Strategy                  | Commitment path | Notes                              |
 |---------------------------|-----------------|------------------------------------|
+| `freestyle`               | ordinary-turn capture | user-pinned free chat; AUTO never selects it |
 | `step-wise-decision-tree` | single-exchange | Q&A one claim at a time            |
 | `step-wise-disambiguate`  | single-exchange | contrastive examples               |
 | `propose-graph`           | direct commit   | concept → user accepts → commitGraph |

@@ -167,7 +167,7 @@ memory/SPEC.md                    ?   (A22-L fitness note; D49-L submitMessage n
 
 ## Card 2 — `freestyle` strategy axis (pin-only, AUTO-excluded)
 
-Status: next after Card 1
+Status: done
 Weight: full
 
 ### Target Behavior
@@ -261,6 +261,10 @@ src/.pi/skills/strategies/freestyle.md   +
 src/.pi/skills/strategies/README.md      ~   (strategy table row)
 memory/SPEC.md                       ?   (D66-L: freestyle/capture landed; glossary unchanged)
 ```
+
+### Completion note
+
+- 2026-06-07 — Landed. `freestyle` is now a real strategy value across runtime state, RPC projection, agent manifests, and prompt resources. AUTO omits it, explicit pins resolve it, and `elicit` tool authority remains unchanged.
 
 ---
 

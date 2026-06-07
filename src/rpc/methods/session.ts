@@ -92,6 +92,7 @@ const RuntimeStateResultSchema = Type.Object(
         role: Type.Literal('elicitor'),
         strategy: Type.Union([
           Type.Literal('auto'),
+          Type.Literal('freestyle'),
           Type.Literal('step-wise-decision-tree'),
           Type.Literal('step-wise-disambiguate'),
           Type.Literal('propose-graph'),

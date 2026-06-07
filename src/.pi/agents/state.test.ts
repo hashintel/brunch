@@ -68,4 +68,48 @@ describe('agent posture policy', () => {
     expect(commitmentsTools).toEqual(expect.arrayContaining(['present_review_set', 'request_review']));
     expect(elicitationTools).not.toContain('present_review_set');
   });
+
+  it('keeps freestyle pin-only while leaving elicit tool authority unchanged', () => {
+    const autoState = projectBrunchAgentState([]);
+    const pinnedFreestyle = projectBrunchAgentState([
+      {
+        type: 'custom',
+        customType: 'brunch.agent_runtime_state',
+        data: {
+          schemaVersion: 1,
+          reason: 'switch',
+          source: 'user',
+          state: {
+            schemaVersion: 1,
+            operationalMode: 'elicit',
+            agentStrategy: 'freestyle',
+            agentLens: 'auto',
+            agentGoal: 'grounding-advance',
+          },
+        },
+      },
+    ]);
+
+    expect(manifestsForState(autoState, 'elicitation_ready').strategies.map((entry) => entry.name)).toEqual([
+      'step-wise-decision-tree',
+      'step-wise-disambiguate',
+      'propose-graph',
+    ]);
+    expect(
+      manifestsForState(pinnedFreestyle, 'grounding_onboarding').strategies.map((entry) => entry.name),
+    ).toEqual(['freestyle']);
+    expect(
+      activeToolNamesForPosture({
+        registeredToolNames,
+        state: pinnedFreestyle,
+        readinessGrade: 'elicitation_ready',
+      }),
+    ).toEqual(
+      activeToolNamesForPosture({
+        registeredToolNames,
+        state: autoState,
+        readinessGrade: 'elicitation_ready',
+      }),
+    );
+  });
 });

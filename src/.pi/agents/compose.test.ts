@@ -199,6 +199,32 @@ describe('composeAgentPrompt', () => {
     expect(pinned.manifests.goals.map((entry) => entry.name)).toEqual(['elicit-expand']);
     expect(pinned.manifests.strategies.map((entry) => entry.name)).toEqual(['step-wise-disambiguate']);
     expect(pinned.manifests.lenses.map((entry) => entry.name)).toEqual(['design']);
+
+    const pinnedFreestyle = composeAgentPrompt({
+      agentId: 'elicitor',
+      sessionState: projectBrunchAgentState([
+        {
+          type: 'custom',
+          customType: 'brunch.agent_runtime_state',
+          data: {
+            schemaVersion: 1,
+            reason: 'switch',
+            source: 'user',
+            state: {
+              ...DEFAULT_BRUNCH_AGENT_STATE,
+              agentStrategy: 'freestyle',
+            },
+          },
+        },
+      ]),
+      spec: groundingSpec,
+      workspace,
+      activeTools: ['read'],
+    });
+
+    expect(pinnedFreestyle.manifests.strategies.map((entry) => entry.name)).toEqual(['freestyle']);
+    expect(auto.prompt).not.toContain('name="freestyle"');
+    expect(pinnedFreestyle.prompt).toContain('name="freestyle"');
   });
 
   it('rejects illegal pinned grade-gated selections loudly', () => {

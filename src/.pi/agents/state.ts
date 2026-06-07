@@ -63,11 +63,14 @@ const GOAL_MIN_GRADE: Record<AgentGoalId, ReadinessGrade> = {
 };
 
 const STRATEGY_MIN_GRADE: Record<AgentStrategyId, ReadinessGrade> = {
+  freestyle: 'grounding_onboarding',
   'step-wise-decision-tree': 'grounding_onboarding',
   'step-wise-disambiguate': 'grounding_onboarding',
   'propose-graph': 'elicitation_ready',
   'project-graph': 'commitments_ready',
 };
+
+const AUTO_EXCLUDED_STRATEGIES = new Set<AgentStrategyId>(['freestyle']);
 
 const LENS_MIN_GRADE: Record<AgentLensId, ReadinessGrade> = {
   intent: 'grounding_onboarding',
@@ -108,6 +111,7 @@ export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition
       'elicit read-only; graph writes only through Brunch graph tools when a legal strategy allows them',
     allowedGoals: ['grounding-advance', 'elicit-expand', 'commit-converge', 'capture-posture'],
     allowedStrategies: [
+      'freestyle',
       'step-wise-decision-tree',
       'step-wise-disambiguate',
       'propose-graph',
@@ -149,6 +153,11 @@ export const GOAL_RESOURCES: Record<AgentGoalId, PromptResourceManifestEntry> = 
 };
 
 export const STRATEGY_RESOURCES: Record<AgentStrategyId, PromptResourceManifestEntry> = {
+  freestyle: resource(
+    'strategies',
+    'freestyle',
+    'Let the user drive with ordinary turns while keeping structured exchanges available as needed.',
+  ),
   'step-wise-decision-tree': resource(
     'strategies',
     'step-wise-decision-tree',
@@ -250,6 +259,7 @@ export function manifestsForState(
       minGrades: STRATEGY_MIN_GRADE,
       readinessGrade,
       state,
+      autoExcluded: AUTO_EXCLUDED_STRATEGIES,
     }),
     lenses: selectAxisResources({
       label: 'lens',
@@ -299,6 +309,7 @@ function selectAxisResources<TId extends string>({
   minGrades,
   readinessGrade,
   state,
+  autoExcluded,
 }: {
   label: 'goal' | 'strategy' | 'lens';
   selection: 'auto' | TId;
@@ -307,9 +318,12 @@ function selectAxisResources<TId extends string>({
   minGrades: Record<TId, ReadinessGrade>;
   readinessGrade: ReadinessGrade;
   state: ResolvedBrunchAgentState;
+  autoExcluded?: ReadonlySet<TId>;
 }): readonly PromptResourceManifestEntry[] {
   const legal = allowed.filter((id) => isGradeLegal(id, readinessGrade, minGrades));
-  if (selection === 'auto') return legal.map((id) => resources[id]);
+  if (selection === 'auto') {
+    return legal.filter((id) => !autoExcluded?.has(id)).map((id) => resources[id]);
+  }
   if (!legal.includes(selection)) {
     throw new Error(
       `Pinned ${label} "${selection}" is not legal for ${state.agentRole} in ${state.operationalMode} at readiness grade ${readinessGrade}.`,
