@@ -338,8 +338,16 @@ describe('propose-graph commit proof report', () => {
       report,
     });
 
-    expect(await readFile(artifacts.reportJson, 'utf8')).toContain('propose-graph-commit');
-    expect(await readFile(artifacts.sessionJsonl, 'utf8')).toContain('commit_graph');
-    expect(await readFile(artifacts.transcriptMarkdown, 'utf8')).toContain('Graph committed successfully');
+    expect(artifacts).toEqual({
+      runDir: 'runs/propose-graph-commit/artifact-run',
+      sessionJsonl: 'runs/propose-graph-commit/artifact-run/session.jsonl',
+      transcriptMarkdown: 'runs/propose-graph-commit/artifact-run/transcript.md',
+      reportJson: 'runs/propose-graph-commit/artifact-run/report.json',
+    });
+    expect(await readFile(join(fixtureRoot, artifacts.reportJson), 'utf8')).toContain('propose-graph-commit');
+    expect(await readFile(join(fixtureRoot, artifacts.sessionJsonl), 'utf8')).toContain('commit_graph');
+    expect(await readFile(join(fixtureRoot, artifacts.transcriptMarkdown), 'utf8')).toContain(
+      'Graph committed successfully',
+    );
   });
 });

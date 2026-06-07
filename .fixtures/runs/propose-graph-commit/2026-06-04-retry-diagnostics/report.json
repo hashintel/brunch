@@ -7,7 +7,7 @@
   "evaluationFocus": "A14-L retry behavior after structured commit_graph diagnostics.",
   "scenarioId": "retry-diagnostics",
   "success": true,
-  "cwd": "/var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-propose-graph-commit-3Q6x07",
+  "cwd": "<ephemeral-workspace>",
   "specId": 1,
   "sessionId": "019e9319-d4d7-7bfc-838b-b4b8d3734888",
   "prompt": "Brunch A14-L retry diagnostics probe.\n\nUse read_graph once in overview mode. Then intentionally make exactly one structurally illegal commit_graph attempt by creating two intent-plane nodes and a proof edge between them without the required stance field. Read the STRUCTURAL_ILLEGAL diagnostics. Then retry once with a corrected complete batch that creates the same two nodes and a legal proof edge with stance \"for\". Stop after the corrected commit_graph succeeds.",
@@ -72,9 +72,9 @@
   },
   "friction": [],
   "artifacts": {
-    "runDir": ".fixtures/runs/propose-graph-commit/2026-06-04-retry-diagnostics",
-    "sessionJsonl": ".fixtures/runs/propose-graph-commit/2026-06-04-retry-diagnostics/session.jsonl",
-    "transcriptMarkdown": ".fixtures/runs/propose-graph-commit/2026-06-04-retry-diagnostics/transcript.md",
-    "reportJson": ".fixtures/runs/propose-graph-commit/2026-06-04-retry-diagnostics/report.json"
+    "runDir": "runs/propose-graph-commit/2026-06-04-retry-diagnostics",
+    "sessionJsonl": "runs/propose-graph-commit/2026-06-04-retry-diagnostics/session.jsonl",
+    "transcriptMarkdown": "runs/propose-graph-commit/2026-06-04-retry-diagnostics/transcript.md",
+    "reportJson": "runs/propose-graph-commit/2026-06-04-retry-diagnostics/report.json"
   }
 }

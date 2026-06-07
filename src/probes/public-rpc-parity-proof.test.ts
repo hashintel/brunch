@@ -50,10 +50,10 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
 
     const artifacts = report.artifacts;
     expect(artifacts).toEqual({
-      runDir: join(fixtureRoot, 'runs', 'public-rpc-parity', report.runId),
-      sessionJsonl: join(fixtureRoot, 'runs', 'public-rpc-parity', report.runId, 'session.jsonl'),
-      transcriptMarkdown: join(fixtureRoot, 'runs', 'public-rpc-parity', report.runId, 'transcript.md'),
-      reportJson: join(fixtureRoot, 'runs', 'public-rpc-parity', report.runId, 'report.json'),
+      runDir: `runs/public-rpc-parity/${report.runId}`,
+      sessionJsonl: `runs/public-rpc-parity/${report.runId}/session.jsonl`,
+      transcriptMarkdown: `runs/public-rpc-parity/${report.runId}/transcript.md`,
+      reportJson: `runs/public-rpc-parity/${report.runId}/report.json`,
     });
     if (artifacts === undefined) throw new Error('Expected artifact paths');
 
@@ -61,9 +61,14 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
     expect(basename(artifacts.runDir)).toBe(report.runId);
     expect(basename(dirname(artifacts.runDir))).toBe(report.probeId);
 
-    const sessionJsonl = await readFile(artifacts.sessionJsonl, 'utf8');
-    const transcript = await readFile(artifacts.transcriptMarkdown, 'utf8');
-    const persistedReport = JSON.parse(await readFile(artifacts.reportJson, 'utf8')) as typeof report;
+    const sessionJsonl = await readFile(join(fixtureRoot, artifacts.sessionJsonl), 'utf8');
+    const transcript = await readFile(join(fixtureRoot, artifacts.transcriptMarkdown), 'utf8');
+    const persistedReport = JSON.parse(
+      await readFile(join(fixtureRoot, artifacts.reportJson), 'utf8'),
+    ) as typeof report;
+    // Persisted refs stay fixture-root-relative and the temp cwd is scrubbed.
+    expect(JSON.stringify(persistedReport.artifacts)).not.toContain(fixtureRoot);
+    expect(persistedReport.cwd).toBe('<ephemeral-workspace>');
 
     expect(sessionJsonl).toContain('"toolName":"present_options"');
     expect(transcript).toContain('# Transcript — session.jsonl');

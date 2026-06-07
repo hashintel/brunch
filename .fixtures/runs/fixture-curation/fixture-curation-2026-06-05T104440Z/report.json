@@ -6,7 +6,7 @@
   "seedSet": "bilal-port-variants",
   "seedSlug": "macro-view-grounded-intent",
   "selectedBaseProfile": "grounded-intent",
-  "cwd": "/var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-fixture-curation-vg9Eo2",
+  "cwd": "<ephemeral-workspace>",
   "specId": 1,
   "sessionId": "019e96f4-ae08-762d-9783-ddd94163e7b3",
   "prompt": "Brunch fixture-curation tracer: the selected spec is a Bilal-derived explicit base seed named \"macro-view-grounded-intent\".\n\nUse read_graph once in overview mode. Then use commit_graph exactly once to add a small intent-plane expansion that improves launch/usefulness of this existing spec without duplicating base nodes. Create one to three new intent-plane nodes, connect them legally to existing graph truth when possible, use basis implicit through the propose-graph tool path, and stop after a successful commit_graph result.",

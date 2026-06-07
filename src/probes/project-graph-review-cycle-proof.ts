@@ -16,6 +16,7 @@ import { createProductUpdatePublisher, type ProductUpdate } from '../rpc/product
 import type { JsonRpcResponse } from '../rpc/protocol.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
+import { portableCwd } from './portable-report.js';
 
 const PROBE_ID = 'project-graph-review-cycle' as const;
 const DEFAULT_SEED_SET = 'bilal-port-variants';
@@ -411,7 +412,7 @@ export async function writeProjectGraphReviewCycleArtifacts(options: {
     graphSnapshotJson: `${runDirRef}/graph-snapshot.json`,
   };
   const diskPath = (ref: string) => resolve(options.fixtureRoot, ref);
-  const report = { ...options.report, artifacts };
+  const report = { ...options.report, cwd: portableCwd(options.report.cwd), artifacts };
 
   await mkdir(diskPath(artifacts.runDir), { recursive: true });
   await writeFile(diskPath(artifacts.sessionJsonl), options.sessionText, 'utf8');

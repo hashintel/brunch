@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
@@ -18,6 +18,7 @@ import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import type { GraphOverview } from '../graph/snapshot.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
+import { portableCwd } from './portable-report.js';
 
 const PROBE_ID = 'propose-graph-commit' as const;
 const DEFAULT_MAX_ATTEMPTS = 2;
@@ -547,20 +548,24 @@ export async function writeProposeGraphCommitProofArtifacts(options: {
   sessionText: string;
   report: ProposeGraphCommitProofReport;
 }): Promise<ProposeGraphCommitProofArtifacts> {
-  const runDir = join(options.fixtureRoot, 'runs', PROBE_ID, options.runId);
+  // Persisted artifact references are fixture-root-relative so committed
+  // reports stay portable; disk paths are resolved against the fixture root.
+  const runDirRef = `runs/${PROBE_ID}/${options.runId}`;
   const artifacts: ProposeGraphCommitProofArtifacts = {
-    runDir,
-    sessionJsonl: join(runDir, 'session.jsonl'),
-    transcriptMarkdown: join(runDir, 'transcript.md'),
-    reportJson: join(runDir, 'report.json'),
+    runDir: runDirRef,
+    sessionJsonl: `${runDirRef}/session.jsonl`,
+    transcriptMarkdown: `${runDirRef}/transcript.md`,
+    reportJson: `${runDirRef}/report.json`,
   };
-  const report: ProposeGraphCommitProofReport = {
+  const diskPath = (ref: string) => resolve(options.fixtureRoot, ref);
+  const persistedReport: ProposeGraphCommitProofReport = {
     ...options.report,
+    cwd: portableCwd(options.report.cwd),
     artifacts,
   };
 
-  await mkdir(runDir, { recursive: true });
-  await writeFile(artifacts.sessionJsonl, options.sessionText, 'utf8');
+  await mkdir(diskPath(artifacts.runDir), { recursive: true });
+  await writeFile(diskPath(artifacts.sessionJsonl), options.sessionText, 'utf8');
   const transcriptMarkdown = [
     renderSessionTranscript(options.sessionText, { title: 'session.jsonl' }),
     '',
@@ -571,8 +576,8 @@ export async function writeProposeGraphCommitProofArtifacts(options: {
     '```',
     '',
   ].join('\n');
-  await writeFile(artifacts.transcriptMarkdown, transcriptMarkdown, 'utf8');
-  await writeFile(artifacts.reportJson, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  await writeFile(diskPath(artifacts.transcriptMarkdown), transcriptMarkdown, 'utf8');
+  await writeFile(diskPath(artifacts.reportJson), `${JSON.stringify(persistedReport, null, 2)}\n`, 'utf8');
 
   return artifacts;
 }
