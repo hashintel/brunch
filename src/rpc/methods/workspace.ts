@@ -1,7 +1,7 @@
 import { Type, type Static } from 'typebox';
 import { Value } from 'typebox/value';
 
-import { workspaceSnapshotFromState } from '../../print-snapshot.js';
+import { workspaceSnapshotFromState } from '../../projections/workspace/workspace-snapshot.js';
 import type {
   SpecSessionActivationDecision,
   WorkspaceActivationState,

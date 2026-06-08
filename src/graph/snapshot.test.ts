@@ -10,7 +10,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
-import { specs } from '../db/schema.js';
+import { graphClock, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
 import { NODE_KIND_METADATA, parseGraphNodeCode } from './schema/nodes.js';
 import { getGraphOverview, getNodeNeighborhood, getOpenReconciliationNeeds } from './snapshot.js';
@@ -44,6 +44,7 @@ describe('getGraphOverview', () => {
       .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
       .run();
     specId = db.select({ id: specs.id }).from(specs).get()!.id;
+    db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
   });
 
   it('returns empty arrays and zero counts on an empty graph', () => {
@@ -60,6 +61,19 @@ describe('getGraphOverview', () => {
     executor.createNode({ specId, plane: 'intent', kind: 'thesis', title: 'T1' });
     const overview = getGraphOverview(db, specId);
     expect(overview.lsn).toBe(2);
+  });
+
+  it('returns the selected spec LSN without sibling-spec mutations', () => {
+    const specA = executor.createSpec({ name: 'Spec A', slug: 'spec-a' });
+    const specB = executor.createSpec({ name: 'Spec B', slug: 'spec-b' });
+    if (specA.status !== 'success' || specB.status !== 'success') throw new Error('unreachable');
+
+    const before = getGraphOverview(db, specA.specId);
+    executor.createNode({ specId: specB.specId, plane: 'intent', kind: 'goal', title: 'Spec B goal' });
+    const after = getGraphOverview(db, specA.specId);
+
+    expect(before.lsn).toBe(1);
+    expect(after.lsn).toBe(1);
   });
 
   it('returns typed domain objects with parsed detail JSON', () => {
@@ -167,6 +181,7 @@ describe('getNodeNeighborhood', () => {
       .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
       .run();
     specId = db.select({ id: specs.id }).from(specs).get()!.id;
+    db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
   });
 
   it('returns error for non-existent nodeId', () => {
@@ -324,6 +339,7 @@ describe('getOpenReconciliationNeeds', () => {
       .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
       .run();
     specId = db.select({ id: specs.id }).from(specs).get()!.id;
+    db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
   });
 
   it('returns empty array when no needs exist', () => {

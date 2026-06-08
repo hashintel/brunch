@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { SessionManager, type SessionEntry } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import { openWorkspaceCommandExecutor } from '../graph/index.js';
 import { assistantMessage, userMessage, isCustomEntry } from '../probes/test-helpers.js';
 import { projectSessionExchanges } from './exchange-projection.js';
 import { SESSION_BINDING_TYPE } from './session-binding.js';
@@ -235,7 +236,7 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(oracle.sessions.every((session) => session.bindingCount === 1)).toBe(true);
   });
 
-  it('inspects current defaults, bound specs, and sessions without activation writes', async () => {
+  it('inspects workspace defaults, DB specs, and sessions without activation writes', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
 
@@ -250,6 +251,7 @@ describe('WorkspaceSessionCoordinator', () => {
     const beforeSecond = await readFile(second.session.file, 'utf8');
 
     const inventory = await coordinator.inspectWorkspace();
+    const oracle = await verifyWorkspaceSessionStores({ cwd, expectedSessionCount: 2 });
 
     expect(inventory.cwd).toBe(cwd);
     expect(inventory.needsNewSpec).toBe(false);
@@ -275,6 +277,12 @@ describe('WorkspaceSessionCoordinator', () => {
       }),
     ]);
     expect(inventory.unavailableSessions).toEqual([]);
+    expect(oracle.ok).toBe(true);
+    if (!oracle.ok) return;
+    expect(oracle.sessions.map((session) => session.binding.specId).sort((a, b) => a - b)).toEqual([
+      first.spec.id,
+      second.spec.id,
+    ]);
     await expect(readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8')).resolves.toBe(beforeState);
     await expect(readFile(first.session.file, 'utf8')).resolves.toBe(beforeFirst);
     await expect(readFile(second.session.file, 'utf8')).resolves.toBe(beforeSecond);
@@ -297,6 +305,37 @@ describe('WorkspaceSessionCoordinator', () => {
     await expect(readFile(join(cwd, '.brunch', 'sessions', 'missing.jsonl'), 'utf8')).rejects.toMatchObject({
       code: 'ENOENT',
     });
+  });
+
+  it('lists database specs even when no sessions are bound yet', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const executor = await openWorkspaceCommandExecutor(cwd);
+    const alpha = executor.createSpec({ name: 'Alpha', slug: 'alpha' });
+    const beta = executor.createSpec({ name: 'Beta', slug: 'beta' });
+    expect(alpha.status).toBe('success');
+    expect(beta.status).toBe('success');
+    if (alpha.status !== 'success' || beta.status !== 'success') return;
+
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const inventory = await coordinator.inspectWorkspace();
+
+    expect(inventory).toMatchObject({
+      cwd,
+      currentSpec: null,
+      currentSessionFile: null,
+      needsNewSpec: false,
+      unavailableSessions: [],
+    });
+    expect(inventory.specs).toEqual([
+      { spec: { id: alpha.specId, title: 'Alpha' }, sessions: [] },
+      { spec: { id: beta.specId, title: 'Beta' }, sessions: [] },
+    ]);
+
+    const activated = await coordinator.activateWorkspace({ action: 'newSession', specId: beta.specId });
+
+    expect(activated.status).toBe('ready');
+    if (activated.status !== 'ready') return;
+    expect(activated.spec).toEqual({ id: beta.specId, title: 'Beta' });
   });
 
   it('marks unbound or incompatible sessions unavailable during inventory', async () => {
@@ -378,7 +417,7 @@ describe('WorkspaceSessionCoordinator', () => {
     }
   });
 
-  it('activates explicit open and continue decisions as the current workspace', async () => {
+  it('activates explicit open and continue decisions as workspace defaults', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
     const first = await coordinator.createSetupSession({ specTitle: 'Alpha' });
@@ -415,7 +454,7 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(continued.spec).toEqual(second.spec);
     expect(continued.session.id).toBe(second.session.id);
     expect(JSON.parse(await readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8'))).toMatchObject({
-      current: { specId: second.spec.id, sessionId: second.session.id },
+      defaults: { specId: second.spec.id, sessionId: second.session.id },
     });
   });
 
@@ -448,7 +487,7 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(oracle.ok).toBe(true);
   });
 
-  it('activates a new spec decision by creating a bound current session', async () => {
+  it('activates a new spec decision by creating a bound default session', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
 
@@ -510,7 +549,7 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(mismatched.status).toBe('needs_human');
   });
 
-  it('scaffolds workspace.json and data.db when no current spec exists', async () => {
+  it('scaffolds workspace.json and data.db when no default spec exists', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
 
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
@@ -522,7 +561,7 @@ describe('WorkspaceSessionCoordinator', () => {
     await expect(stat(join(cwd, '.brunch', 'data.db'))).resolves.toMatchObject({});
     expect(JSON.parse(await readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8'))).toMatchObject({
       project: expect.objectContaining({ name: expect.any(String), slug: expect.any(String) }),
-      current: null,
+      defaults: null,
       posture: {
         certainty: '',
         stakes: '',

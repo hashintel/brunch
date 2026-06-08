@@ -92,11 +92,9 @@ interface ToolResultOptionDetails {
 }
 
 interface ToolResultDetails {
-  exchangeId?: string;
+  exchange_id?: string;
   schema?: string;
-  requestTool?: string;
-  presentTool?: string;
-  prompt?: string;
+  display?: { heading?: string };
   options?: ToolResultOptionDetails[];
 }
 
@@ -237,9 +235,6 @@ export async function runPublicRpcParityProof(
       if (!richOption) {
         throw new Error(`Turn ${turn + 1}: pending options dropped content/rationale`);
       }
-      if (richOption.content === richOption.label) {
-        throw new Error(`Turn ${turn + 1}: pending option content collapsed into label`);
-      }
     }
     exchangeIds.push(started.exchange.exchangeId);
     const response = responseFor(started.exchange);
@@ -295,7 +290,7 @@ export async function runPublicRpcParityProof(
 
   const presentPrompts = tools
     .filter((entry) => entry.details?.schema === 'brunch.structured_exchange.present')
-    .map((entry) => entry.details?.prompt)
+    .map((entry) => entry.details?.display?.heading)
     .filter((prompt): prompt is string => prompt !== undefined);
   if (new Set(presentPrompts).size !== presentPrompts.length) {
     throw new Error('Public RPC parity proof repeated deterministic prompts');
@@ -308,24 +303,24 @@ export async function runPublicRpcParityProof(
     );
     if (!richOption) {
       throw new Error(
-        `Exchange ${entry.details?.exchangeId ?? 'unknown'} JSONL option details dropped content/rationale`,
+        `Exchange ${entry.details?.exchange_id ?? 'unknown'} JSONL option details dropped content/rationale`,
       );
     }
     const optionContent = richOption.content;
     const optionRationale = richOption.rationale;
     if (optionContent === undefined || optionRationale === undefined) {
       throw new Error(
-        `Exchange ${entry.details?.exchangeId ?? 'unknown'} JSONL option details dropped content/rationale`,
+        `Exchange ${entry.details?.exchange_id ?? 'unknown'} JSONL option details dropped content/rationale`,
       );
     }
     if (optionContent === richOption.label) {
       throw new Error(
-        `Exchange ${entry.details?.exchangeId ?? 'unknown'} JSONL option content collapsed into label`,
+        `Exchange ${entry.details?.exchange_id ?? 'unknown'} JSONL option content collapsed into label`,
       );
     }
     if (!entry.content.includes(optionContent) || !entry.content.includes(optionRationale)) {
       throw new Error(
-        `Exchange ${entry.details?.exchangeId ?? 'unknown'} transcript markdown dropped option artifacts`,
+        `Exchange ${entry.details?.exchange_id ?? 'unknown'} transcript markdown dropped option artifacts`,
       );
     }
   }
@@ -333,12 +328,12 @@ export async function runPublicRpcParityProof(
   for (const exchangeId of exchangeIds) {
     const presentIndex = tools.findIndex(
       (entry) =>
-        entry.details?.exchangeId === exchangeId &&
+        entry.details?.exchange_id === exchangeId &&
         entry.details.schema === 'brunch.structured_exchange.present',
     );
     const requestIndex = tools.findIndex(
       (entry) =>
-        entry.details?.exchangeId === exchangeId &&
+        entry.details?.exchange_id === exchangeId &&
         entry.details.schema === 'brunch.structured_exchange.request',
     );
     if (presentIndex < 0 || requestIndex < 0 || presentIndex > requestIndex) {

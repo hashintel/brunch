@@ -4,7 +4,7 @@ import {
   buildStructuredExchangeEditorPrefill,
   parseStructuredExchangeEditorResponse,
   structuredExchangeResultFromEditor,
-} from '../extensions/structured-exchange/index.js';
+} from '../extensions/exchanges/index.js';
 
 describe('structured exchange JSON-editor fallback compatibility helpers', () => {
   it('builds schema-tagged editor prefill for the raw Pi RPC fallback proof', () => {
@@ -50,10 +50,11 @@ describe('structured exchange JSON-editor fallback compatibility helpers', () =>
     });
   });
 
-  it('returns legacy structured result details for the existing RPC proof', () => {
+  it('returns canonical request details for the existing RPC proof', () => {
     const prefill = JSON.parse(
       buildStructuredExchangeEditorPrefill({
         question: 'Pick paths',
+        exchangeId: 'paths-1',
         mode: 'single-select',
         options: [{ label: 'Alpha', value: 'a' }],
       }),
@@ -67,6 +68,7 @@ describe('structured exchange JSON-editor fallback compatibility helpers', () =>
     const result = structuredExchangeResultFromEditor(
       {
         question: 'Pick paths',
+        exchangeId: 'paths-1',
         mode: 'single-select',
         options: [{ label: 'Alpha', value: 'a' }],
       },
@@ -74,12 +76,14 @@ describe('structured exchange JSON-editor fallback compatibility helpers', () =>
     );
 
     expect(result.details).toMatchObject({
-      schema: 'brunch.structured_exchange.result',
-      status: 'answered',
-      mode: 'single-select',
-      answers: [{ type: 'option', label: 'Alpha', value: 'a', index: 1 }],
-      note: 'Add context',
-      transport: { surface: 'rpc-editor' },
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'paths-1',
+      tool_meta: { prev: 'present_options', curr: 'request_choice' },
+      answered: {
+        choice: { id: 'a', label: 'Alpha', kind: 'listed' },
+        comment: 'Add context',
+      },
     });
   });
 });

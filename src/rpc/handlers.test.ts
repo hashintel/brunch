@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 import { openWorkspaceGraphRuntime } from '../graph/workspace-store.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
+import { projectPresentReviewSet } from '../projections/structured-exchange/present-review-set.js';
 import { BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, type BrunchAgentState } from '../session/runtime-state.js';
 import { createSessionBindingData } from '../session/session-binding.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
@@ -163,7 +164,8 @@ async function createGraphRpcFixture(): Promise<{
   specBId: number;
   specANodeId: number;
   specBNodeId: number;
-  finalLsn: number;
+  specALsn: number;
+  specBLsn: number;
 }> {
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-graph-'));
   const graph = await openWorkspaceGraphRuntime(cwd);
@@ -196,7 +198,8 @@ async function createGraphRpcFixture(): Promise<{
     specBId: specB.specId,
     specANodeId: commitA.createdNodes.requirement!.id,
     specBNodeId: commitB.createdNodes.goal!.id,
-    finalLsn: commitB.lsn,
+    specALsn: commitA.lsn,
+    specBLsn: commitB.lsn,
   };
 }
 
@@ -212,13 +215,10 @@ function presentQuestionEntry() {
       content: [{ type: 'text', text: '## Domain?\n\nWhat are we specifying?' }],
       details: {
         schema: 'brunch.structured_exchange.present',
-        schemaVersion: 1,
-        exchangeId: 'domain',
-        presentTool: 'present_question',
-        kind: 'question',
-        status: 'presented',
-        expectedRequest: { tool: 'request_answer', required: true },
-        createdAtToolCallId: 'present-call-1',
+        v: 1,
+        exchange_id: 'domain',
+        tool_meta: { curr: 'present_question', next: 'request_answer' },
+        display: { heading: 'Domain?', body: 'What are we specifying?' },
       },
       isError: false,
     },
@@ -237,16 +237,10 @@ function requestAnswerEntry(parentId = 'present-question-1') {
       content: [{ type: 'text', text: '### Response\n\nDeveloper tooling' }],
       details: {
         schema: 'brunch.structured_exchange.request',
-        schemaVersion: 1,
-        exchangeId: 'domain',
-        requestTool: 'request_answer',
-        status: 'answered',
-        respondsTo: {
-          exchangeId: 'domain',
-          presentTool: 'present_question',
-        },
-        answer: 'Developer tooling',
-        createdAtToolCallId: 'request-call-1',
+        v: 1,
+        exchange_id: 'domain',
+        tool_meta: { prev: 'present_question', curr: 'request_answer' },
+        answered: { text: 'Developer tooling' },
       },
       isError: false,
     },
@@ -738,7 +732,7 @@ describe('JSON-RPC handlers', () => {
           options: expect.arrayContaining([
             expect.objectContaining({
               id: 'new-from-scratch',
-              label: 'Yes — this is new from scratch',
+              label: 'Start a new spec workspace from a blank slate.',
               content: 'Start a new spec workspace from a blank slate.',
               rationale: 'This keeps the parity run focused on initial grounding.',
             }),
@@ -768,7 +762,6 @@ describe('JSON-RPC handlers', () => {
     expect(sessionText).toContain('brunch.structured_exchange.present');
     expect(sessionText).toContain('present_options');
     expect(sessionText).toContain(exchangeId);
-    expect(sessionText).toContain('"lens":"intent"');
   });
 
   it('reads the selected pending structured exchange from transcript truth', async () => {
@@ -964,9 +957,11 @@ describe('JSON-RPC handlers', () => {
         message: {
           ...requestAnswerEntry().message,
           details: {
-            ...requestAnswerEntry().message.details,
-            status: 'unavailable',
-            message: 'Editor unavailable.',
+            schema: 'brunch.structured_exchange.request',
+            v: 1,
+            exchange_id: 'domain',
+            tool_meta: { prev: 'present_question', curr: 'request_answer' },
+            unavailable: { message: 'Editor unavailable.' },
           },
         },
       },
@@ -1009,10 +1004,12 @@ describe('JSON-RPC handlers', () => {
           ...presentQuestionEntry().message,
           toolName: 'present_options',
           details: {
-            ...presentQuestionEntry().message.details,
-            presentTool: 'present_options',
-            kind: 'options',
-            expectedRequest: { tool: 'request_choices', required: true },
+            schema: 'brunch.structured_exchange.present',
+            v: 1,
+            exchange_id: 'domain',
+            tool_meta: { curr: 'present_options', next: 'request_choices' },
+            display: { heading: 'Choose priorities' },
+            options: [{ id: 'speed', content: 'Move quickly' }],
           },
         },
       },
@@ -1027,16 +1024,10 @@ describe('JSON-RPC handlers', () => {
           content: [{ type: 'text', text: '### Response\n\nCancelled.' }],
           details: {
             schema: 'brunch.structured_exchange.request',
-            schemaVersion: 1,
-            exchangeId: 'domain',
-            requestTool: 'request_choices',
-            status: 'cancelled',
-            respondsTo: {
-              exchangeId: 'domain',
-              presentTool: 'present_options',
-            },
-            message: 'User cancelled the selection.',
-            createdAtToolCallId: 'request-call-choices-cancelled',
+            v: 1,
+            exchange_id: 'domain',
+            tool_meta: { prev: 'present_options', curr: 'request_choices' },
+            cancelled: { message: 'User cancelled the selection.' },
           },
           isError: false,
         },
@@ -1142,7 +1133,7 @@ describe('JSON-RPC handlers', () => {
         exchangeId,
         answer: {
           optionId: 'new-from-scratch',
-          label: 'Yes — this is new from scratch',
+          label: 'Start a new spec workspace from a blank slate.',
         },
         note: 'This is a greenfield product.',
       },
@@ -1288,6 +1279,109 @@ describe('JSON-RPC handlers', () => {
     expect(sessionText).toContain('request_choices');
     expect(sessionText).not.toContain('brunch.elicitation_prompt');
     expect(sessionText).not.toContain('brunch.elicitation_response');
+  });
+
+  it('approves a pending review exchange into the selected spec graph and publishes graph invalidations', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-review-approve-'));
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinatorInstance.createSetupSession({ specTitle: 'Review approval spec' });
+    const graph = await openWorkspaceGraphRuntime(cwd);
+    const existing = graph.commandExecutor.commitGraph({
+      specId: workspace.spec.id,
+      nodes: [{ ref: 'goal', plane: 'intent', kind: 'goal', title: 'Existing selected-spec goal' }],
+      edges: [],
+    });
+    if (existing.status !== 'success') throw new Error('failed to create existing graph node');
+    const payload = {
+      schemaVersion: 1,
+      lens: 'intent',
+      epistemicStatus: 'asserted',
+      grounding: { summary: 'User asked to approve requirement graph facts.', support: ['Transcript'] },
+      pitch: { title: 'Approve reviewed graph facts', narrative: 'Creates one reviewed requirement.' },
+      entityDrafts: [
+        {
+          draftId: 'requirement-draft',
+          plane: 'intent',
+          kind: 'requirement',
+          title: 'Reviewed requirement',
+          body: 'This exact reviewed node should be accepted.',
+        },
+      ],
+      edgeDrafts: [
+        {
+          category: 'support',
+          stance: 'for',
+          source: { draftId: 'requirement-draft' },
+          target: { existingCode: 'G1' },
+          rationale: 'The reviewed requirement supports the selected-spec goal.',
+        },
+      ],
+    } as const;
+    const projection = projectPresentReviewSet({ exchangeId: 'review-cycle', payload });
+    workspace.session.manager.appendMessage({
+      role: 'toolResult',
+      toolCallId: 'present-review-call-1',
+      toolName: 'present_review_set',
+      content: [{ type: 'text', text: '## Approve reviewed graph facts' }],
+      details: projection.details,
+      isError: false,
+      timestamp: 0,
+    });
+    (workspace.session.manager as unknown as { _rewriteFile(): void })._rewriteFile();
+    const productUpdates = createProductUpdatePublisher();
+    const updates: unknown[] = [];
+    productUpdates.subscribe((batch) => updates.push(...batch));
+    const handlers = createRpcHandlers({ coordinator: coordinatorInstance, cwd, productUpdates });
+
+    const response = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 276,
+      method: 'session.submitExchangeResponse',
+      params: {
+        exchangeId: 'review-cycle',
+        answer: { review: { decision: 'approve', comment: 'Looks correct.' } },
+      },
+    });
+
+    expect(response).toMatchObject({
+      jsonrpc: '2.0',
+      id: 276,
+      result: {
+        status: 'accepted',
+        exchangeId: 'review-cycle',
+        answer: { review: { decision: 'approve', comment: 'Looks correct.' } },
+        review: {
+          status: 'approved',
+          lsn: expect.any(Number),
+          createdNodes: { 'requirement-draft': { id: expect.any(Number), code: 'R1' } },
+        },
+        capture: { status: 'no_capture' },
+      },
+    });
+    if (!('result' in response)) throw new Error('expected review approval response');
+    const lsn = (response.result as { review: { lsn: number } }).review.lsn;
+    expect(updates).toContainEqual({ topic: 'graph.overview', specId: workspace.spec.id, lsn });
+    expect(updates).toContainEqual({ topic: 'graph.nodeNeighborhood', specId: workspace.spec.id, lsn });
+
+    const overview = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 277,
+      method: 'graph.overview',
+      params: { specId: workspace.spec.id },
+    });
+    expect(overview).toMatchObject({
+      result: {
+        nodeCount: 2,
+        nodes: expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'requirement',
+            title: 'Reviewed requirement',
+            basis: 'explicit',
+          }),
+        ]),
+      },
+    });
+    await expect(readFile(workspace.session.file, 'utf8')).resolves.toContain('request_review');
   });
 
   it('captures explicit labeled text answers into the transcript-bound spec graph and publishes graph invalidations', async () => {
@@ -2056,7 +2150,7 @@ describe('JSON-RPC handlers', () => {
       result: {
         nodeCount: 2,
         edgeCount: 1,
-        lsn: fixture.finalLsn,
+        lsn: fixture.specALsn,
       },
     });
     if (!('result' in overviewA)) throw new Error('expected graph overview');
@@ -2072,7 +2166,7 @@ describe('JSON-RPC handlers', () => {
     expect(overviewB).toMatchObject({
       jsonrpc: '2.0',
       id: 51,
-      result: { nodeCount: 1, edgeCount: 0, lsn: fixture.finalLsn },
+      result: { nodeCount: 1, edgeCount: 0, lsn: fixture.specBLsn },
     });
 
     const crossSpecNeighborhood = await handlers.handle({
@@ -2241,6 +2335,22 @@ describe('JSON-RPC handlers', () => {
         edges: expect.arrayContaining([expect.objectContaining({ category: 'support', stance: 'for' })]),
       },
     });
+
+    const siblingOverview = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 62,
+      method: 'graph.overview',
+      params: { specId: fixture.specBId },
+    });
+    expect(siblingOverview).toMatchObject({
+      jsonrpc: '2.0',
+      id: 62,
+      result: {
+        nodeCount: 1,
+        edgeCount: 0,
+        lsn: fixture.specBLsn,
+      },
+    });
   });
 
   it('rejects invalid dev graph commits without partial persistence', async () => {
@@ -2304,7 +2414,7 @@ describe('JSON-RPC handlers', () => {
       result: {
         nodeCount: 2,
         edgeCount: 1,
-        lsn: fixture.finalLsn,
+        lsn: fixture.specALsn,
       },
     });
     if (!('result' in overview)) throw new Error('expected overview success');

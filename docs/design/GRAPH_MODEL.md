@@ -920,12 +920,12 @@ because they evolve faster than the schema:
 
 - **Observer classification / translation tables** — phrase-pattern
   → kind mappings for post-exchange capture. Seeded in
-  [`src/agents/strategies/README.md`](../../src/agents/strategies/README.md);
+  [`src/.pi/skills/strategies/README.md`](../../src/.pi/skills/strategies/README.md);
   lands as prompt-pack content with M5 `agent-graph-integration`.
 - **Topology-driven question ranking** — graph-shape heuristics
   for what to ask next (e.g. "requirement with no incoming proof
   edge → suggest a criterion"). Seeded in
-  [`src/agents/lenses/README.md`](../../src/agents/lenses/README.md);
+  [`src/.pi/skills/lenses/README.md`](../../src/.pi/skills/lenses/README.md);
   lands as lens prompt-pack content with M5.
 
 Both draw on the archived

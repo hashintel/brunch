@@ -3,7 +3,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { WorkspaceSnapshot } from '../print-snapshot.js';
+import type { WorkspaceSnapshot } from '../projections/workspace/workspace-snapshot.js';
 import { BrunchWebApp, createBrunchWebRuntime } from './app.js';
 import type { WebSocketRpcClient, WebSocketRpcNotificationListener } from './rpc-client.js';
 

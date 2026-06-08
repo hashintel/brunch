@@ -44,7 +44,7 @@ canonical stores:
     worldUpdate entries
 ```
 
-RPC handlers must not become a generic records API, REST read model, or canonical view store. Reads are named projections over the store that owns the fact. Mutations route through the owning product seam: session transcript operations through `session.*`, synchronous high-confidence response capture through `session.submitExchangeResponse` → `graph/capture` → `CommandExecutor`, and other graph mutations through the agent/tool or `CommandExecutor` path that owns them. `dev.*` is the only exception family: methods in that namespace are explicitly gated local harnesses, absent from default discovery and absent from the read-only sidecar.
+RPC handlers must not become a generic records API, REST read model, or canonical view store. Reads are named projections over the store that owns the fact. Mutations route through the owning product seam: session transcript operations through `session.*`, synchronous high-confidence response capture through `session.submitExchangeResponse` → `graph/capture` → `CommandExecutor`, review-set approval through `session.submitExchangeResponse` → `CommandExecutor.acceptReviewSet`, and other graph mutations through the agent/tool or `CommandExecutor` path that owns them. `dev.*` is the only exception family: methods in that namespace are explicitly gated local harnesses, absent from default discovery and absent from the read-only sidecar.
 
 ## Method registry
 
@@ -169,14 +169,19 @@ session.submitExchangeResponse
   access: write
   params:
     exchangeId
-    answer: {text} | {optionId} | {optionIds}
+    answer: {text} | {optionId} | {optionIds} | {review:{decision, comment?}}
     note?
-  result: accepted terminal response plus capture outcome
+  result: accepted terminal response plus capture/review outcome
     capture:
       captured(lsn, nodeCount, createdNodes)
       | no_capture(reason)
       | structural_illegal(diagnostics)
-  effects: appends request_* toolResult response, publishes selected-session invalidations, and when captured publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
+    review:
+      approved(lsn, createdNodes)
+      | request_changes
+      | rejected
+      | structural_illegal(diagnostics)
+  effects: appends request_* toolResult response, publishes selected-session invalidations, and when captured or approved publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
 
 graph.overview
   access: read

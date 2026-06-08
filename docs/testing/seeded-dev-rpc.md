@@ -14,25 +14,25 @@ Prefer a workbench directory so seeded `.brunch/` state does not mix with whatev
 
 ```bash
 REPO="$(git rev-parse --show-toplevel)"
-WORKSPACE="$REPO/.fixtures/workbenches/seeded-dev-rpc"
-mkdir -p "$WORKSPACE"
+DEV_WORKSPACE="$REPO/.fixtures/workbenches/seeded-dev-rpc"
+mkdir -p "$DEV_WORKSPACE"
 ```
 
 To reset this scratch workspace only:
 
 ```bash
-rm -rf "$WORKSPACE/.brunch"
+rm -rf "$DEV_WORKSPACE/.brunch"
 ```
 
 Do not run that cleanup command against a workspace whose Brunch sessions or graph data you care about.
 
 ## 1. Seed all current fixtures
 
-Run the seed loader from the target workspace. It loads every `.fixtures/seeds/<set>/<slug>.json` through `CommandExecutor` into `$WORKSPACE/.brunch/data.db`.
+Run the seed loader from the target workspace. It loads every `.fixtures/seeds/<set>/<slug>.json` through `CommandExecutor` into `$DEV_WORKSPACE/.brunch/data.db`.
 
 ```bash
 (
-  cd "$WORKSPACE"
+  cd "$DEV_WORKSPACE"
   "$REPO/node_modules/.bin/tsx" "$REPO/src/graph/seed-fixtures.ts"
 )
 ```
@@ -52,9 +52,9 @@ The loader currently seeds all sets. Inspect the actual spec ids before issuing 
 brunch_rpc() {
   local payload="$1"
   (
-    cd "$WORKSPACE"
+    cd "$DEV_WORKSPACE"
     printf '%s\n' "$payload" | \
-      BRUNCH_DEV_RPC=1 "$REPO/node_modules/.bin/tsx" "$REPO/src/brunch.ts" --mode=rpc
+      BRUNCH_DEV_RPC=1 "$REPO/node_modules/.bin/tsx" "$REPO/src/app/brunch.ts" --mode=rpc
   )
 }
 ```
@@ -66,6 +66,14 @@ RPC output may include `brunch.updated` notifications as separate JSON lines. Fi
 ```bash
 brunch_rpc '{"jsonrpc":"2.0","id":1,"method":"rpc.discover"}' \
   | jq 'select(.id == 1).result.methods[].method'
+```
+
+For one-shot command-line work, prefer the dev helper. It sets `BRUNCH_DEV_RPC=1`, sends one request, filters notifications, and prints only the response result:
+
+```bash
+"$REPO/node_modules/.bin/tsx" "$REPO/src/dev/workspace-rpc.ts" \
+  --workspace "$DEV_WORKSPACE" \
+  graph.overview '{"specId":4}'
 ```
 
 ## 3. Inspect seeded specs
@@ -89,6 +97,10 @@ brunch_rpc "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"graph.overview\",\"params
 ```
 
 Projected node codes are not stored in the DB. They are rendered from `kind` + `kindOrdinal` using the graph labels (`G1`, `TH1`, `T1`, `CTX1`, `R1`, `CR1`, etc.). Use `graph.overview` to find the current `kindOrdinal` before referencing existing nodes by code.
+
+`lsn` is the selected spec's local graph-clock value. Compare freshness as
+`{specId, lsn}`; seeded spec ids and bare LSN values do not imply workspace-wide
+ordering.
 
 ## 4. Activate a session when session methods matter
 
@@ -115,8 +127,8 @@ cat > /tmp/brunch-dev-commit.json <<JSON
 JSON
 
 (
-  cd "$WORKSPACE"
-  BRUNCH_DEV_RPC=1 "$REPO/node_modules/.bin/tsx" "$REPO/src/brunch.ts" --mode=rpc < /tmp/brunch-dev-commit.json
+  cd "$DEV_WORKSPACE"
+  BRUNCH_DEV_RPC=1 "$REPO/node_modules/.bin/tsx" "$REPO/src/app/brunch.ts" --mode=rpc < /tmp/brunch-dev-commit.json
 ) | jq 'select(.id == 90)'
 ```
 
@@ -125,6 +137,34 @@ Read back the mutation:
 ```bash
 brunch_rpc "{\"jsonrpc\":\"2.0\",\"id\":91,\"method\":\"graph.overview\",\"params\":{\"specId\":$SPEC_ID}}" \
   | jq 'select(.id == 91).result.nodes[] | select(.source == "manual-dev-rpc")'
+```
+
+Sibling specs should keep their own overview LSN after this commit:
+
+```bash
+SIBLING_SPEC_ID=2
+brunch_rpc "{\"jsonrpc\":\"2.0\",\"id\":92,\"method\":\"graph.overview\",\"params\":{\"specId\":$SIBLING_SPEC_ID}}" \
+  | jq 'select(.id == 92).result | {nodeCount, edgeCount, lsn}'
+```
+
+### Capture a curated DB back to a seed fixture
+
+After manual refinement, export the persisted spec graph back into the consolidated seed contract. The exporter defaults to `graph_truth` projection so superseded predecessors that remain in accepted graph history are preserved.
+
+```bash
+"$REPO/node_modules/.bin/tsx" "$REPO/src/graph/export-fixtures.ts" \
+  --workspace "$DEV_WORKSPACE" \
+  --spec-id "$SPEC_ID" \
+  --out "$REPO/.fixtures/seeds/<set>/<slug>.json"
+```
+
+For inspection without writing:
+
+```bash
+"$REPO/node_modules/.bin/tsx" "$REPO/src/graph/export-fixtures.ts" \
+  --workspace "$DEV_WORKSPACE" \
+  --spec-id "$SPEC_ID" \
+  | jq '{spec, nodeCount:(.nodes|length), edgeCount:(.edges|length)}'
 ```
 
 ### Basis rule of thumb
@@ -167,5 +207,5 @@ For agent-addressable dev mutations, run a separate `BRUNCH_DEV_RPC=1 --mode=rpc
 
 - `Method not found` for `dev.graph.commitGraph`: check `BRUNCH_DEV_RPC=1` and ensure you are using `--mode=rpc`, not the TUI-started web sidecar.
 - `graph node code "G1" does not resolve`: inspect `graph.overview` for the selected `specId`; codes are spec-scoped.
-- Empty `workspace.selectionState`: check that you seeded from the same `$WORKSPACE` directory you are using for RPC.
-- Stale or surprising graph state: reset only the scratch workspace with `rm -rf "$WORKSPACE/.brunch"`, then reseed.
+- Empty `workspace.selectionState`: check that you seeded from the same `$DEV_WORKSPACE` directory you are using for RPC.
+- Stale or surprising graph state: reset only the scratch workspace with `rm -rf "$DEV_WORKSPACE/.brunch"`, then reseed.

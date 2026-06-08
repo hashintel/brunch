@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "probeId": "project-graph-review-cycle",
+  "runId": "2026-06-06-project-graph-review-cycle",
+  "generatedAt": "2026-06-06T14:02:59.202Z",
+  "mission": "Prove the project-graph strategy can present an exact review set and approve it through public RPC.",
+  "evaluationFocus": "FE-809 real agent proposal → present_review_set → session.submitExchangeResponse approval → explicit graph readback.",
+  "seedSet": "bilal-port-variants",
+  "seedSlug": "macro-view-grounded-intent",
+  "cwd": "/var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-project-graph-review-XEjX3W",
+  "specId": 1,
+  "sessionId": "019e9d3e-7f21-76ae-bbc2-2955f779cdac",
+  "prompt": "Brunch FE-809 project-graph proof. The selected spec is seeded from \"macro-view-grounded-intent\" and already has explicit intent-plane graph truth.\n\nUse read_graph in overview mode to inspect existing node codes. Then use present_review_set exactly once to propose a small exact review set derived from the existing macro-view intent graph.\n\nProposal constraints:\n- Create one or two new intent-plane requirement or criterion nodes.\n- Include at least one edge using category \"support\" with stance \"for\" or category \"realization\".\n- When referencing existing graph truth, use existingCode strings from read_graph output, never raw ids.\n- Use schemaVersion 1, lens \"intent\", epistemicStatus \"inferred\", non-empty grounding.summary, grounding.support, pitch.title, and pitch.narrative.\n- Do not call commit_graph.\n- Do not call request_review; stop after a successful present_review_set so the external Brunch RPC reviewer can approve it.",
+  "runtimeState": {
+    "operationalMode": "elicit",
+    "agentStrategy": "project-graph",
+    "agentLens": "intent",
+    "agentGoal": "commit-converge"
+  },
+  "model": "gpt-5.5",
+  "success": true,
+  "baseGraph": {
+    "nodeCount": 70,
+    "edgeCount": 6,
+    "lsn": 3
+  },
+  "finalGraph": {
+    "nodeCount": 72,
+    "edgeCount": 10,
+    "lsn": 4,
+    "explicitNodeCount": 72,
+    "explicitEdgeCount": 10,
+    "implicitNodeCount": 0,
+    "implicitEdgeCount": 0
+  },
+  "graphDelta": {
+    "lsnAdvanced": true,
+    "nodeDelta": 2,
+    "edgeDelta": 4
+  },
+  "toolEvidence": {
+    "presentReviewSetCount": 3,
+    "requestReviewCount": 1,
+    "successfulPresentReviewSetCount": 1,
+    "structuralIllegalPresentReviewSetCount": 2
+  },
+  "pendingReview": {
+    "observed": true,
+    "exchangeId": "fe-809-macro-view-intent-proof-1",
+    "nodeDraftCount": 2,
+    "edgeDraftCount": 4
+  },
+  "approval": {
+    "attempted": true,
+    "status": "approved",
+    "lsn": 4,
+    "createdNodeRefs": {
+      "n1": {
+        "id": 71,
+        "code": "CR1"
+      },
+      "n2": {
+        "id": 72,
+        "code": "R1"
+      }
+    }
+  },
+  "createdNodes": [
+    {
+      "id": 71,
+      "code": "CR1",
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "Macro node visuals are independently legible",
+      "basis": "explicit"
+    },
+    {
+      "id": 72,
+      "code": "R1",
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Macro node selection opens the reused read-only detail panel",
+      "basis": "explicit"
+    }
+  ],
+  "productUpdates": [
+    {
+      "topic": "workspace.snapshot",
+      "specId": 1,
+      "sessionId": "019e9d3e-7f21-76ae-bbc2-2955f779cdac"
+    },
+    {
+      "topic": "session.pendingExchange",
+      "specId": 1,
+      "sessionId": "019e9d3e-7f21-76ae-bbc2-2955f779cdac"
+    },
+    {
+      "topic": "session.exchanges",
+      "specId": 1,
+      "sessionId": "019e9d3e-7f21-76ae-bbc2-2955f779cdac"
+    },
+    {
+      "topic": "session.runtimeState",
+      "specId": 1,
+      "sessionId": "019e9d3e-7f21-76ae-bbc2-2955f779cdac"
+    },
+    {
+      "topic": "graph.overview",
+      "specId": 1,
+      "lsn": 4
+    },
+    {
+      "topic": "graph.nodeNeighborhood",
+      "specId": 1,
+      "lsn": 4
+    }
+  ],
+  "friction": [],
+  "artifacts": {
+    "runDir": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle",
+    "sessionJsonl": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/session.jsonl",
+    "transcriptMarkdown": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/transcript.md",
+    "reportJson": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/report.json",
+    "graphSnapshotJson": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/graph-snapshot.json"
+  }
+}
+

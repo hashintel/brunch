@@ -5,14 +5,11 @@ import {
   type SessionMessageEntry,
 } from '@earendil-works/pi-coding-agent';
 
-import type {
-  StructuredExchangePresentDetails,
-  StructuredExchangeRequestDetails,
-} from '../.pi/extensions/structured-exchange/shared/model.js';
+import type { PresentDetails, RequestDetails } from '../.pi/extensions/exchanges/schemas/index.js';
 import {
   isStructuredExchangePresentDetails,
   isStructuredExchangeRequestDetails,
-} from '../.pi/extensions/structured-exchange/shared/recovery.js';
+} from '../.pi/extensions/exchanges/shared/recovery.js';
 import {
   assertLinearBrunchSessionEnvelope,
   loadJsonlTranscriptEntries,
@@ -22,7 +19,6 @@ import {
   readBrunchSessionEnvelope,
   type BrunchSessionEnvelope,
 } from './brunch-session-envelope.js';
-import { isTerminalStructuredExchangeResultDetails } from './structured-exchange.js';
 
 const PROMPT_SIDE_CUSTOM_TYPES = new Set([
   'brunch.elicitation_prompt',
@@ -151,7 +147,7 @@ export function projectSessionExchanges(entries: readonly unknown[]): SessionExc
   const exchanges: SessionExchange[] = [];
   let promptIds: string[] = [];
   let responseIds: string[] = [];
-  let openStructuredExchange: StructuredExchangePresentDetails | undefined;
+  let openStructuredExchange: PresentDetails | undefined;
 
   for (const entry of entries) {
     if (!isTranscriptEntry(entry)) {
@@ -229,27 +225,22 @@ function rangeFor(ids: string[]): EntryRange {
   return { start: ids[0]!, end: ids[ids.length - 1]! };
 }
 
-function requestClosesPresent(
-  request: StructuredExchangeRequestDetails,
-  present: StructuredExchangePresentDetails,
-): boolean {
+function requestClosesPresent(request: RequestDetails, present: PresentDetails): boolean {
   return (
-    (request.status === 'answered' || request.status === 'cancelled' || request.status === 'unavailable') &&
-    request.exchangeId === present.exchangeId &&
-    request.respondsTo.exchangeId === present.exchangeId &&
-    request.respondsTo.presentTool === present.presentTool &&
-    (present.expectedRequest === undefined || present.expectedRequest.tool === request.requestTool)
+    request.exchange_id === present.exchange_id &&
+    request.tool_meta.prev === present.tool_meta.curr &&
+    request.tool_meta.curr === present.tool_meta.next
   );
 }
 
-function structuredExchangePresentDetails(entry: SessionEntry): StructuredExchangePresentDetails | undefined {
+function structuredExchangePresentDetails(entry: SessionEntry): PresentDetails | undefined {
   if (!isStructuredExchangePresentToolResult(entry)) return undefined;
-  return (entry.message as { details?: unknown }).details as StructuredExchangePresentDetails;
+  return (entry.message as { details?: unknown }).details as PresentDetails;
 }
 
-function structuredExchangeRequestDetails(entry: SessionEntry): StructuredExchangeRequestDetails | undefined {
+function structuredExchangeRequestDetails(entry: SessionEntry): RequestDetails | undefined {
   if (!isStructuredExchangeRequestToolResult(entry)) return undefined;
-  return (entry.message as { details?: unknown }).details as StructuredExchangeRequestDetails;
+  return (entry.message as { details?: unknown }).details as RequestDetails;
 }
 
 function isStructuredExchangePresentToolResult(entry: SessionEntry): entry is SessionMessageEntry & {
@@ -295,11 +286,7 @@ function isResponseSideEntry(entry: SessionEntry): boolean {
 }
 
 function isTerminalStructuredExchangeToolResult(entry: SessionEntry): boolean {
-  return (
-    isMessageEntry(entry) &&
-    entry.message.role === 'toolResult' &&
-    isTerminalStructuredExchangeResultDetails((entry.message as { details?: unknown }).details)
-  );
+  return isStructuredExchangeRequestToolResult(entry);
 }
 
 function isCustomTranscriptEntry(entry: SessionEntry): entry is CustomEntry | CustomMessageEntry {

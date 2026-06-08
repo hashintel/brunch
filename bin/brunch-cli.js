@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runBrunchCli } from "../dist/brunch.js"
+import { runBrunchCli } from "../dist/app/brunch.js"
 
 runBrunchCli()
   .then((code) => {

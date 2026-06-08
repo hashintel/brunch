@@ -1,20 +1,18 @@
 # src/ — Brunch source topology
 
-Decision D52-L in `memory/SPEC.md` locks this layout.
+Decision D52-L in `memory/SPEC.md` locks the target layout. Runtime-state projection remains a planned follow-up split under Cards 4–5 of the active topology chain.
 
-```
+```text
 src/
-├── .pi/                  Pi adapter layer (TUI)
-│   ├── components/         reusable TUI components
-│   └── extensions/         Pi registrars: agent tools, TUI commands, enhancements
+├── app/                  Product host entrypoints and wiring
+├── workspace/            Cwd/package/workspace identity helpers
+├── scripts/              Local executable utilities
 │
-├── agents/               Agent intelligence layer
-│   ├── definitions/        keyed agent prompt definitions
-│   ├── goals/              runtime goal resources
-│   ├── strategies/         interaction-shape resources (propose-graph, project-graph, etc.)
-│   ├── lenses/             topical-focus resources (intent, design, oracle, etc.)
-│   ├── methods/            tool-routing and sequencing resources
-│   └── contexts/           snapshot rendering over graph/session typed pulls
+├── .pi/                  Sealed Pi-harness runtime surface
+│   ├── agents/             Pi session-agent prompt assembly and definitions
+│   ├── skills/             goal/strategy/lens/method resources read on demand
+│   ├── components/         reusable Pi TUI/message components
+│   └── extensions/         Pi registrars: tools, hooks, commands, TUI affordances
 │
 ├── db/                   Persistence substrate
 │                           Drizzle schema, migrations, connection lifecycle
@@ -27,6 +25,9 @@ src/
 │                           transcript projection, exchange extraction,
 │                           workspace coordination, session binding, LSN staleness
 │
+├── projections/          Structured DTOs derived from domain/session/tool facts
+├── renderers/            Lossy text/markdown/toon/tool-content rendering
+│
 ├── rpc/                  Brunch JSON-RPC handlers
 │                           protocol, method handlers, WebSocket adapter
 │
@@ -36,33 +37,37 @@ src/
 
 ## Dependency direction
 
-```
-.pi/extensions/  ──┐
-                   ├──▶  graph/  ──▶  db/
-rpc/  ────────────┤
-                   ├──▶  session/
-agents/  ─────────┘
-                         (Pi JSONL — not Brunch-owned storage)
-
-web/  ── standalone build, imports from rpc/ types only
+```pseudo
+rules:
+  graph/          -> db/                         [allowed]
+  projections/*   -> graph/, session/, workspace/ [read/domain imports allowed]
+  renderers/*     -> projections/, graph/, session/ as needed for input types
+  .pi/            -> graph/, session/, projections/, renderers/ [Pi runtime adapters/resources]
+  rpc/           -> graph/, session/, projections/, renderers/
+  app/           -> graph/, session/, projections/, renderers/
+  graph/, session/ x> .pi/, rpc/, app/, web/
+  projections/    x> .pi/, rpc/, app/, web/
+  renderers/      x> .pi/, rpc/, app/, web/
+  web/            -> rpc/ types only
 ```
 
 Rules:
+
 - `graph/` imports from `db/`. No other layer imports `db/` directly.
-- `agents/` imports snapshot functions from `graph/` and `session/`.
-- `.pi/extensions/` and `rpc/` may import from `graph/`, `session/`, and `agents/`.
+- `.pi/` owns Pi-harness agents/resources/extensions/components. It is not just an adapter folder; it is the product's sealed Pi runtime surface.
+- `.pi/extensions/` registers Pi tools/hooks/UI affordances and delegates product semantics outward.
+- `.pi/agents/` owns runtime prompt assembly and legal resource manifests; `.pi/skills/` owns read-on-demand markdown resources.
+- `projections/` owns reusable structured output; `renderers/` owns reusable lossy text output.
 - `web/` is a separate Vite build target.
 
 ## Migration notes
 
-The session-domain files (workspace-session-coordinator, session-binding,
-session-projection-reader, brunch-session-envelope, session-transcript,
-exchange-projection, structured-exchange, project-identity) now live in
-`src/session/`; `brunch-pi-profile.ts` in `src/.pi/`; `web-host` in `src/rpc/`;
-the React client in `src/web/` (formerly `web-client/`); shared test helpers
-in `src/probes/`. The active workspace file is `.brunch/workspace.json`
-(`state.json` is retired).
+Product entrypoints now live in `app/`, package identity tests live in `workspace/`, reusable workspace snapshot DTOs live in `projections/workspace/`, and reusable print-mode snapshot text lives in `renderers/workspace/`. No compatibility root files remain for the old `src/brunch*`, `src/print-snapshot*`, or `src/package-identity*` paths.
 
-Prompt composition and prompt resources live in `src/agents/` per D52-L/D58-L.
-The old `src/.pi/context/` prompt-pack subtree is retired; `.pi/` remains an
-adapter layer only.
+The old domain-local `src/{graph,session,structured-exchange}/project/` folders now live under `projections/{graph,session,structured-exchange}/`.
+
+The old domain-local `src/{graph,session,structured-exchange}/format/` folders and `src/render/` now live under `renderers/{graph,session,structured-exchange}/` and `renderers/`.
+
+Runtime-state transcript entry facts live in `session/runtime-state.ts`; reusable flattened runtime-state projection/policy now lives in `projections/session/runtime-state.ts` and `projections/session/runtime-policy.ts`.
+
+The old `src/agents/` top-level prompt subtree has moved under `src/.pi/{agents,skills}/` because these agents/resources live only inside the Pi harness. The old `src/.pi/context/` prompt-pack subtree remains retired.

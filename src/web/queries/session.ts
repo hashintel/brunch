@@ -1,6 +1,6 @@
 import type { QueryObserverOptions } from '@tanstack/react-query';
 
-import type { RuntimeStateProjection } from '../../session/runtime-state.js';
+import type { RuntimeStateProjection } from '../../projections/session/runtime-state.js';
 import { queryKeys } from '../query-keys.js';
 import type { WebSocketRpcClient } from '../rpc-client.js';
 

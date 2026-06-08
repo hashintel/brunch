@@ -15,7 +15,6 @@ import {
   projectTranscriptDisplay,
 } from './exchange-projection.js';
 import { createSessionBindingData } from './session-binding.js';
-import { STRUCTURED_EXCHANGE_RESULT_SCHEMA } from './structured-exchange.js';
 
 const assistant = {
   id: 'a1',
@@ -50,13 +49,13 @@ const presentQuestionToolResult = {
     content: [{ type: 'text', text: '## Domain?\n\nWhat are we specifying?' }],
     details: {
       schema: 'brunch.structured_exchange.present',
-      schemaVersion: 1,
-      exchangeId: 'domain',
-      presentTool: 'present_question',
-      kind: 'question',
-      status: 'presented',
-      expectedRequest: { tool: 'request_answer', required: true },
-      createdAtToolCallId: 'present-call-1',
+      v: 1,
+      exchange_id: 'domain',
+      tool_meta: { curr: 'present_question', next: 'request_answer' },
+      display: {
+        heading: 'Domain?',
+        body: 'What are we specifying?',
+      },
     },
     isError: false,
   },
@@ -72,13 +71,10 @@ const requestAnswerToolResult = {
     content: [{ type: 'text', text: '### Response\n\nDeveloper tooling' }],
     details: {
       schema: 'brunch.structured_exchange.request',
-      schemaVersion: 1,
-      exchangeId: 'domain',
-      requestTool: 'request_answer',
-      status: 'answered',
-      respondsTo: { exchangeId: 'domain', presentTool: 'present_question' },
-      answer: 'Developer tooling',
-      createdAtToolCallId: 'request-call-1',
+      v: 1,
+      exchange_id: 'domain',
+      tool_meta: { prev: 'present_question', curr: 'request_answer' },
+      answered: { text: 'Developer tooling' },
     },
     isError: false,
   },
@@ -90,12 +86,53 @@ const mismatchedRequestAnswerToolResult = {
     ...requestAnswerToolResult.message,
     details: {
       ...requestAnswerToolResult.message.details,
-      exchangeId: 'other-domain',
-      respondsTo: {
-        exchangeId: 'other-domain',
-        presentTool: 'present_question',
+      exchange_id: 'other-domain',
+    },
+  },
+};
+const presentReviewSetToolResult = {
+  id: 'present-review-set-1',
+  type: 'message',
+  parentId: null,
+  message: {
+    role: 'toolResult',
+    toolCallId: 'present-review-call-1',
+    toolName: 'present_review_set',
+    content: [{ type: 'text', text: '## Review cycle wiring\n\nReview this graph proposal.' }],
+    details: {
+      schema: 'brunch.structured_exchange.present',
+      v: 1,
+      exchange_id: 'review-cycle',
+      tool_meta: { curr: 'present_review_set', next: 'request_review' },
+      display: {
+        heading: 'Review cycle wiring',
+        body: 'Review this graph proposal.',
+      },
+      review_set: {
+        nodes: [{ draft_id: 'goal-review', plane: 'intent', kind: 'goal', title: 'Review graph proposals' }],
+        edges: [],
       },
     },
+    isError: false,
+  },
+};
+const requestReviewToolResult = {
+  id: 'request-review-1',
+  type: 'message',
+  parentId: 'present-review-set-1',
+  message: {
+    role: 'toolResult',
+    toolCallId: 'request-review-call-1',
+    toolName: 'request_review',
+    content: [{ type: 'text', text: '### Review decision\n\nApproved.' }],
+    details: {
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'review-cycle',
+      tool_meta: { prev: 'present_review_set', curr: 'request_review' },
+      answered: { decision: 'approve' },
+    },
+    isError: false,
   },
 };
 const requestChoicesToolResult = {
@@ -114,17 +151,16 @@ const requestChoicesToolResult = {
     ],
     details: {
       schema: 'brunch.structured_exchange.request',
-      schemaVersion: 1,
-      exchangeId: 'domain',
-      requestTool: 'request_choices',
-      status: 'answered',
-      respondsTo: { exchangeId: 'domain', presentTool: 'present_options' },
-      choices: [
-        { id: 'speed', label: 'Move quickly' },
-        { id: 'other', label: 'Other' },
-      ],
-      comment: 'Keep it deterministic.',
-      createdAtToolCallId: 'request-call-choices-1',
+      v: 1,
+      exchange_id: 'domain',
+      tool_meta: { prev: 'present_options', curr: 'request_choices' },
+      answered: {
+        choices: [
+          { id: 'speed', label: 'Move quickly', kind: 'listed' },
+          { id: 'other', label: 'Other', kind: 'other' },
+        ],
+        comment: 'Keep it deterministic.',
+      },
     },
     isError: false,
   },
@@ -135,22 +171,14 @@ const structuredExchangeToolResult = {
   message: {
     role: 'toolResult',
     toolCallId: 'call-exchange-1',
-    toolName: 'structured_exchange',
+    toolName: 'request_answer',
     content: [{ type: 'text', text: 'User answered: Developer tooling' }],
     details: {
-      schema: STRUCTURED_EXCHANGE_RESULT_SCHEMA,
-      schemaVersion: 1,
-      status: 'answered',
-      question: 'Domain?',
-      mode: 'text',
-      answers: [
-        {
-          type: 'text',
-          label: 'Developer tooling',
-          value: 'Developer tooling',
-        },
-      ],
-      transport: { surface: 'rpc-editor' },
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'domain',
+      tool_meta: { prev: 'present_question', curr: 'request_answer', next: 'capture_answer' },
+      answered: { text: 'Developer tooling' },
     },
     isError: false,
   },
@@ -161,17 +189,14 @@ const unavailableStructuredExchangeToolResult = {
   message: {
     role: 'toolResult',
     toolCallId: 'call-exchange-2',
-    toolName: 'structured_exchange',
+    toolName: 'request_answer',
     content: [{ type: 'text', text: 'Structured exchange unavailable.' }],
     details: {
-      schema: STRUCTURED_EXCHANGE_RESULT_SCHEMA,
-      schemaVersion: 1,
-      status: 'unavailable',
-      question: 'Domain?',
-      mode: 'text',
-      answers: [],
-      transport: { surface: 'headless' },
-      message: 'Structured exchange UI is unavailable.',
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'domain',
+      tool_meta: { prev: 'present_question', curr: 'request_answer' },
+      unavailable: { message: 'Structured exchange UI is unavailable.' },
     },
     isError: false,
   },
@@ -319,6 +344,21 @@ describe('session exchange projection', () => {
     });
   });
 
+  it('closes present_review_set only with the matching terminal request_review result', () => {
+    const projection = projectSessionExchanges([presentReviewSetToolResult, requestReviewToolResult]);
+
+    expect(projection).toMatchObject({
+      status: 'ready',
+      exchanges: [
+        {
+          promptEntryIds: ['present-review-set-1'],
+          responseEntryIds: ['request-review-1'],
+        },
+      ],
+      openPrompt: null,
+    });
+  });
+
   it('does not close an open present with a mismatched request tuple', () => {
     const projection = projectSessionExchanges([
       presentQuestionToolResult,
@@ -339,10 +379,15 @@ describe('session exchange projection', () => {
           ...presentQuestionToolResult.message,
           toolName: 'present_options',
           details: {
-            ...presentQuestionToolResult.message.details,
-            presentTool: 'present_options',
-            kind: 'options',
-            expectedRequest: { tool: 'request_choices', required: true },
+            schema: 'brunch.structured_exchange.present',
+            v: 1,
+            exchange_id: 'domain',
+            tool_meta: { curr: 'present_options', next: 'request_choices' },
+            display: { heading: 'Choose priorities' },
+            options: [
+              { id: 'speed', content: 'Move quickly' },
+              { id: 'other', content: 'Other' },
+            ],
           },
         },
       };
@@ -351,10 +396,16 @@ describe('session exchange projection', () => {
         id: `request-choices-${status}`,
         message: {
           ...requestChoicesToolResult.message,
-          details: {
-            ...requestChoicesToolResult.message.details,
-            status,
-          },
+          details:
+            status === 'answered'
+              ? requestChoicesToolResult.message.details
+              : {
+                  schema: 'brunch.structured_exchange.request',
+                  v: 1,
+                  exchange_id: 'domain',
+                  tool_meta: { prev: 'present_options', curr: 'request_choices' },
+                  [status]: status === 'cancelled' ? {} : { message: 'request_choices unavailable' },
+                },
         },
       };
 
@@ -373,7 +424,7 @@ describe('session exchange projection', () => {
         ...requestAnswerToolResult.message,
         details: {
           ...requestAnswerToolResult.message.details,
-          respondsTo: { exchangeId: 'domain', presentTool: 'present_options' },
+          exchange_id: 'other-domain',
         },
       },
     };
@@ -382,14 +433,7 @@ describe('session exchange projection', () => {
       id: 'request-choices-unexpected-tool',
       message: {
         ...requestChoicesToolResult.message,
-        details: {
-          ...requestChoicesToolResult.message.details,
-          exchangeId: 'domain',
-          respondsTo: {
-            exchangeId: 'domain',
-            presentTool: 'present_question',
-          },
-        },
+        details: requestChoicesToolResult.message.details,
       },
     };
 
@@ -419,9 +463,9 @@ describe('session exchange projection', () => {
   });
 
   it('classifies terminal structured-exchange tool results as response-side entries', () => {
-    const projection = projectSessionExchanges([assistant, structuredExchangeToolResult]);
+    const projection = projectSessionExchanges([presentQuestionToolResult, structuredExchangeToolResult]);
 
-    expect(projection.exchanges[0]?.promptEntryIds).toEqual(['a1']);
+    expect(projection.exchanges[0]?.promptEntryIds).toEqual(['present-question-1']);
     expect(projection.exchanges[0]?.responseEntryIds).toEqual(['sq1']);
     expect(projection.exchanges[0]?.responseRange).toEqual({
       start: 'sq1',
@@ -430,11 +474,14 @@ describe('session exchange projection', () => {
     expect(projection.openPrompt).toBeNull();
   });
 
-  it('keeps non-terminal structured-exchange tool results on the prompt side', () => {
-    const projection = projectSessionExchanges([assistant, unavailableStructuredExchangeToolResult]);
+  it('classifies unavailable canonical request results as response-side entries', () => {
+    const projection = projectSessionExchanges([
+      presentQuestionToolResult,
+      unavailableStructuredExchangeToolResult,
+    ]);
 
-    expect(projection.exchanges).toEqual([]);
-    expect(projection.openPrompt?.promptEntryIds).toEqual(['a1', 'sq-unavailable']);
+    expect(projection.exchanges[0]?.promptEntryIds).toEqual(['present-question-1']);
+    expect(projection.exchanges[0]?.responseEntryIds).toEqual(['sq-unavailable']);
   });
 
   it('returns an explicit empty/open shape for incomplete transcripts', () => {
@@ -496,23 +543,30 @@ describe('session exchange projection', () => {
     manager.appendMessage(assistantMessage('Please answer the structured exchange.'));
     manager.appendMessage({
       role: 'toolResult',
+      toolCallId: 'present-jsonl',
+      toolName: 'present_question',
+      content: [{ type: 'text', text: '## Domain?' }],
+      details: {
+        schema: 'brunch.structured_exchange.present',
+        v: 1,
+        exchange_id: 'jsonl-text',
+        tool_meta: { curr: 'present_question', next: 'request_answer' },
+        display: { heading: 'Domain?' },
+      },
+      isError: false,
+      timestamp: 0,
+    });
+    manager.appendMessage({
+      role: 'toolResult',
       toolCallId: 'call-exchange-jsonl',
-      toolName: 'structured_exchange',
+      toolName: 'request_answer',
       content: [{ type: 'text', text: 'User answered: Developer tooling' }],
       details: {
-        schema: STRUCTURED_EXCHANGE_RESULT_SCHEMA,
-        schemaVersion: 1,
-        status: 'answered',
-        question: 'Domain?',
-        mode: 'text',
-        answers: [
-          {
-            type: 'text',
-            label: 'Developer tooling',
-            value: 'Developer tooling',
-          },
-        ],
-        transport: { surface: 'rpc-editor' },
+        schema: 'brunch.structured_exchange.request',
+        v: 1,
+        exchange_id: 'jsonl-text',
+        tool_meta: { prev: 'present_question', curr: 'request_answer', next: 'capture_answer' },
+        answered: { text: 'Developer tooling' },
       },
       isError: false,
       timestamp: 0,
@@ -522,7 +576,7 @@ describe('session exchange projection', () => {
 
     expect(projection.status).toBe('ready');
     expect(projection.exchanges).toHaveLength(1);
-    expect(projection.exchanges[0]?.promptEntryIds).toHaveLength(1);
+    expect(projection.exchanges[0]?.promptEntryIds).toHaveLength(2);
     expect(projection.exchanges[0]?.responseEntryIds).toHaveLength(1);
   });
 

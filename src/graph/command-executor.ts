@@ -8,7 +8,7 @@
  * Every graph mutation routes through this class. The executor owns:
  *  - structural validation
  *  - one SQLite transaction per command
- *  - monotonic LSN allocation from graph_clock
+ *  - monotonic spec-local LSN allocation from graph_clock
  *  - change_log append
  *  - structured result return
  *
@@ -25,6 +25,7 @@ import {
   formatCreatedGraphNode,
   planCommitGraphBatch,
   type PlannedBatchEndpoint,
+  type PlannedBatchEdge,
 } from './command-executor/commit-graph-batch.js';
 import type {
   CommitGraphDryRunResult,
@@ -34,6 +35,7 @@ import type {
   Diagnostic,
   StructuralIllegal,
 } from './command-executor/commit-graph-types.js';
+import { translateReviewSetPayloadToCommitGraph } from './review-set.js';
 import { type NodeBasis, type NodePlane } from './schema/nodes.js';
 
 export type ReadinessGrade = (typeof schema.READINESS_GRADES)[number];
@@ -116,6 +118,7 @@ export interface SpecRecord {
 export type CommandResult =
   | CommandSuccess
   | CommitGraphSuccess
+  | AcceptReviewSetSuccess
   | ReconNeedSuccess
   | ReconNeedResolveSuccess
   | CreateSpecSuccess
@@ -140,6 +143,15 @@ export type CreateSpecResult = CreateSpecSuccess | StructuralIllegal;
 /** Result of an updateReadinessGrade command. */
 export type UpdateReadinessGradeResult = UpdateReadinessGradeSuccess | StructuralIllegal;
 
+/** Successful accepted review-set graph batch execution. */
+export interface AcceptReviewSetSuccess extends CommitGraphSuccess {}
+
+/** Result of an acceptReviewSet command. */
+export type AcceptReviewSetResult = AcceptReviewSetSuccess | StructuralIllegal;
+
+/** Result of validating a review-set payload before user presentation. */
+export type AcceptReviewSetDryRunResult = { readonly status: 'success' } | StructuralIllegal;
+
 // ---------------------------------------------------------------------------
 // Input types
 // ---------------------------------------------------------------------------
@@ -155,6 +167,13 @@ export interface CreateSpecInput {
 export interface UpdateReadinessGradeInput {
   readonly specId: number;
   readonly readinessGrade: ReadinessGrade;
+}
+
+/** Input for accepting an exact user-reviewed graph batch. */
+export interface AcceptReviewSetInput {
+  readonly specId: number;
+  readonly proposalEntryId?: string | undefined;
+  readonly payload: unknown;
 }
 
 /** Input for creating a single graph node. */
@@ -353,12 +372,45 @@ function validateTermDetail(detail: unknown, diagnostics: Diagnostic[]): void {
   }
 }
 
+function specRecordFromRow(row: typeof schema.specs.$inferSelect): SpecRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    readinessGrade: row.readiness_grade,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // CommandExecutor
 // ---------------------------------------------------------------------------
 
+class GraphClockInvariantError extends Error {
+  constructor(specId: number) {
+    super(`graph_clock invariant failed: spec ${specId} has no clock row`);
+    this.name = 'GraphClockInvariantError';
+  }
+}
+
 export class CommandExecutor {
   constructor(private readonly db: BrunchDb) {}
+
+  private createInitialSpecClock(tx: Pick<BrunchDb, 'insert'>, specId: number): number {
+    tx.insert(schema.graphClock).values({ spec_id: specId, lsn: 1 }).run();
+    return 1;
+  }
+
+  private bumpExistingSpecLsn(tx: Pick<BrunchDb, 'update'>, specId: number): number {
+    const clock = tx
+      .update(schema.graphClock)
+      .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
+      .where(eq(schema.graphClock.spec_id, specId))
+      .returning({ lsn: schema.graphClock.lsn })
+      .get();
+
+    if (!clock) throw new GraphClockInvariantError(specId);
+    return clock.lsn;
+  }
 
   private allocateNodeKindOrdinal(
     tx: Pick<BrunchDb, 'select' | 'insert' | 'update'>,
@@ -411,22 +463,17 @@ export class CommandExecutor {
     if (diagnostics.length > 0) return { status: 'structural_illegal', diagnostics };
 
     return this.db.transaction((tx) => {
-      const clock = tx
-        .update(schema.graphClock)
-        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
-        .where(eq(schema.graphClock.id, 1))
-        .returning()
-        .get();
-      const lsn = clock!.lsn;
-
       const row = tx
         .insert(schema.specs)
         .values({ name, slug, readiness_grade: readinessGrade })
         .returning()
         .get();
 
+      const lsn = this.createInitialSpecClock(tx, row!.id);
+
       tx.insert(schema.changeLog)
         .values({
+          spec_id: row!.id,
           lsn,
           operation: 'create_spec',
           payload: JSON.stringify({ specId: row!.id, name, slug, readinessGrade }),
@@ -437,16 +484,15 @@ export class CommandExecutor {
     });
   }
 
+  /** Read all spec rows. */
+  listSpecs(): SpecRecord[] {
+    return this.db.select().from(schema.specs).all().map(specRecordFromRow);
+  }
+
   /** Read a spec row by id. */
   getSpec(specId: number): SpecRecord | undefined {
     const row = this.db.select().from(schema.specs).where(eq(schema.specs.id, specId)).get();
-    if (!row) return undefined;
-    return {
-      id: row.id,
-      name: row.name,
-      slug: row.slug,
-      readinessGrade: row.readiness_grade,
-    };
+    return row ? specRecordFromRow(row) : undefined;
   }
 
   /** Update a spec's readiness grade through the command boundary. */
@@ -476,14 +522,7 @@ export class CommandExecutor {
         };
       }
 
-      const clock = tx
-        .update(schema.graphClock)
-        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
-        .where(eq(schema.graphClock.id, 1))
-        .returning()
-        .get();
-      const lsn = clock!.lsn;
-
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
       tx.update(schema.specs)
         .set({ readiness_grade: input.readinessGrade })
         .where(eq(schema.specs.id, input.specId))
@@ -491,6 +530,7 @@ export class CommandExecutor {
 
       tx.insert(schema.changeLog)
         .values({
+          spec_id: input.specId,
           lsn,
           operation: 'update_spec_readiness_grade',
           payload: JSON.stringify({ specId: input.specId, readinessGrade: input.readinessGrade }),
@@ -529,14 +569,8 @@ export class CommandExecutor {
         };
       }
 
-      // 2. Allocate LSN (atomic increment)
-      const clock = tx
-        .update(schema.graphClock)
-        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
-        .where(eq(schema.graphClock.id, 1))
-        .returning()
-        .get();
-      const lsn = clock!.lsn;
+      // 2. Allocate spec-local LSN (atomic within this transaction)
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
       const kindOrdinal = this.allocateNodeKindOrdinal(tx, input.specId, input.plane, input.kind);
 
       // 3. Insert node
@@ -562,6 +596,7 @@ export class CommandExecutor {
       // 4. Append change_log
       tx.insert(schema.changeLog)
         .values({
+          spec_id: input.specId,
           lsn,
           operation: 'create_node',
           payload: JSON.stringify({
@@ -606,82 +641,133 @@ export class CommandExecutor {
         return { status: 'structural_illegal' as const, diagnostics: planned.diagnostics };
       }
 
-      const clock = tx
-        .update(schema.graphClock)
-        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
-        .where(eq(schema.graphClock.id, 1))
+      return this.writePlannedGraphBatch(tx, input, planned.plan.edges, 'commit_graph');
+    });
+  }
+
+  /**
+   * Validate a review-set payload before it becomes user-reviewable.
+   *
+   * This performs the same payload translation and graph batch structural
+   * checks as `acceptReviewSet`, but does not allocate an LSN or mutate graph
+   * truth.
+   */
+  dryRunAcceptReviewSet(input: AcceptReviewSetInput): AcceptReviewSetDryRunResult {
+    const translated = translateReviewSetPayloadToCommitGraph({
+      db: this.db,
+      specId: input.specId,
+      payload: input.payload,
+    });
+    if (translated.status === 'structural_illegal') return translated;
+    return this.dryRunCommitGraph(translated.command);
+  }
+
+  /**
+   * Atomic acceptance of an exact review-set payload (D27-L/I15-L).
+   *
+   * Review-set payloads use projected existing-node codes at the product
+   * boundary. This command resolves them for the selected spec, validates the
+   * resulting explicit-basis graph batch, and writes one transaction/change-log
+   * row with operation `accept_review_set`.
+   */
+  acceptReviewSet(input: AcceptReviewSetInput): AcceptReviewSetResult {
+    const translated = translateReviewSetPayloadToCommitGraph({
+      db: this.db,
+      specId: input.specId,
+      payload: input.payload,
+    });
+    if (translated.status === 'structural_illegal') return translated;
+
+    return this.db.transaction((tx) => {
+      const planned = this.planCommitGraph(translated.command, tx);
+      if (planned.status === 'structural_illegal') {
+        return { status: 'structural_illegal' as const, diagnostics: planned.diagnostics };
+      }
+
+      return this.writePlannedGraphBatch(tx, translated.command, planned.plan.edges, 'accept_review_set', {
+        proposalEntryId: input.proposalEntryId,
+      });
+    });
+  }
+
+  private writePlannedGraphBatch(
+    tx: Pick<BrunchDb, 'select' | 'insert' | 'update'>,
+    input: CommitGraphInput,
+    plannedEdges: readonly PlannedBatchEdge[],
+    operation: 'commit_graph' | 'accept_review_set',
+    payloadExtras: Record<string, unknown> = {},
+  ): CommitGraphSuccess {
+    const lsn = this.bumpExistingSpecLsn(tx, input.specId);
+
+    const createdNodes: Record<string, { id: number; code: string }> = {};
+    for (const bn of input.nodes) {
+      const kindOrdinal = this.allocateNodeKindOrdinal(tx, input.specId, bn.plane, bn.kind);
+      const row = tx
+        .insert(schema.nodes)
+        .values({
+          spec_id: input.specId,
+          plane: bn.plane,
+          kind: bn.kind,
+          kind_ordinal: kindOrdinal,
+          title: bn.title,
+          body: bn.body ?? null,
+          basis: input.basis ?? 'explicit',
+          source: bn.source ?? null,
+          detail: bn.detail != null ? JSON.stringify(bn.detail) : null,
+          created_at_lsn: lsn,
+          updated_at_lsn: lsn,
+        })
         .returning()
         .get();
-      const lsn = clock!.lsn;
+      createdNodes[bn.ref] = formatCreatedGraphNode(row!);
+    }
 
-      const createdNodes: Record<string, { id: number; code: string }> = {};
-      for (const bn of input.nodes) {
-        const kindOrdinal = this.allocateNodeKindOrdinal(tx, input.specId, bn.plane, bn.kind);
-        const row = tx
-          .insert(schema.nodes)
-          .values({
-            spec_id: input.specId,
-            plane: bn.plane,
-            kind: bn.kind,
-            kind_ordinal: kindOrdinal,
-            title: bn.title,
-            body: bn.body ?? null,
-            basis: input.basis ?? 'explicit',
-            source: bn.source ?? null,
-            detail: bn.detail != null ? JSON.stringify(bn.detail) : null,
-            created_at_lsn: lsn,
-            updated_at_lsn: lsn,
-          })
-          .returning()
-          .get();
-        createdNodes[bn.ref] = formatCreatedGraphNode(row!);
-      }
+    const resolvePlannedEndpoint = (endpoint: PlannedBatchEndpoint): number => {
+      if (endpoint.kind === 'existing') return endpoint.ref as number;
+      return createdNodes[endpoint.ref as string]!.id;
+    };
 
-      const resolvePlannedEndpoint = (endpoint: PlannedBatchEndpoint): number => {
-        if (endpoint.kind === 'existing') return endpoint.ref as number;
-        return createdNodes[endpoint.ref as string]!.id;
-      };
-
-      const edgeIds: number[] = [];
-      for (const edge of planned.plan.edges) {
-        const row = tx
-          .insert(schema.edges)
-          .values({
-            spec_id: input.specId,
-            category: edge.category,
-            source_id: resolvePlannedEndpoint(edge.source),
-            target_id: resolvePlannedEndpoint(edge.target),
-            stance: edge.stance,
-            basis: input.basis ?? 'explicit',
-            rationale: edge.rationale,
-            created_at_lsn: lsn,
-            updated_at_lsn: lsn,
-          })
-          .returning()
-          .get();
-        edgeIds.push(row!.id);
-      }
-
-      tx.insert(schema.changeLog)
+    const edgeIds: number[] = [];
+    for (const edge of plannedEdges) {
+      const row = tx
+        .insert(schema.edges)
         .values({
-          lsn,
-          operation: 'commit_graph',
-          payload: JSON.stringify({
-            basis: input.basis ?? 'explicit',
-            specId: input.specId,
-            nodes: Object.fromEntries(Object.entries(createdNodes).map(([ref, node]) => [ref, node.id])),
-            edges: edgeIds,
-          }),
+          spec_id: input.specId,
+          category: edge.category,
+          source_id: resolvePlannedEndpoint(edge.source),
+          target_id: resolvePlannedEndpoint(edge.target),
+          stance: edge.stance,
+          basis: input.basis ?? 'explicit',
+          rationale: edge.rationale,
+          created_at_lsn: lsn,
+          updated_at_lsn: lsn,
         })
-        .run();
+        .returning()
+        .get();
+      edgeIds.push(row!.id);
+    }
 
-      return {
-        status: 'success' as const,
+    tx.insert(schema.changeLog)
+      .values({
+        spec_id: input.specId,
         lsn,
-        createdNodes,
-        edges: edgeIds,
-      };
-    });
+        operation,
+        payload: JSON.stringify({
+          ...payloadExtras,
+          basis: input.basis ?? 'explicit',
+          specId: input.specId,
+          nodes: Object.fromEntries(Object.entries(createdNodes).map(([ref, node]) => [ref, node.id])),
+          edges: edgeIds,
+        }),
+      })
+      .run();
+
+    return {
+      status: 'success',
+      lsn,
+      createdNodes,
+      edges: edgeIds,
+    };
   }
 
   private planCommitGraph(input: CommitGraphInput, db: Pick<BrunchDb, 'select'>) {
@@ -756,14 +842,8 @@ export class CommandExecutor {
         return { status: 'structural_illegal' as const, diagnostics };
       }
 
-      // Allocate LSN
-      const clock = tx
-        .update(schema.graphClock)
-        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
-        .where(eq(schema.graphClock.id, 1))
-        .returning()
-        .get();
-      const lsn = clock!.lsn;
+      // Allocate spec-local LSN
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
 
       // Insert reconciliation need
       const row = tx
@@ -784,6 +864,7 @@ export class CommandExecutor {
       // Append change_log
       tx.insert(schema.changeLog)
         .values({
+          spec_id: input.specId,
           lsn,
           operation: 'create_reconciliation_need',
           payload: JSON.stringify({
@@ -842,14 +923,8 @@ export class CommandExecutor {
         };
       }
 
-      // Allocate LSN
-      const clock = tx
-        .update(schema.graphClock)
-        .set({ lsn: sql`${schema.graphClock.lsn} + 1` })
-        .where(eq(schema.graphClock.id, 1))
-        .returning()
-        .get();
-      const lsn = clock!.lsn;
+      // Allocate spec-local LSN
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
 
       // Update status
       tx.update(schema.reconciliationNeed)
@@ -865,6 +940,7 @@ export class CommandExecutor {
       // Append change_log
       tx.insert(schema.changeLog)
         .values({
+          spec_id: input.specId,
           lsn,
           operation: 'resolve_reconciliation_need',
           payload: JSON.stringify({ id: input.id, specId: input.specId }),

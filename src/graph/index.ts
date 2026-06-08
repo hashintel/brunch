@@ -72,6 +72,9 @@ export { CommandExecutor } from './command-executor.js';
 export { openWorkspaceCommandExecutor, openWorkspaceGraphRuntime } from './workspace-store.js';
 export type { WorkspaceGraphRuntime } from './workspace-store.js';
 export type {
+  AcceptReviewSetInput,
+  AcceptReviewSetResult,
+  AcceptReviewSetSuccess,
   BatchEdgeInput,
   BatchEdgeRef,
   BatchNodeInput,
@@ -105,3 +108,17 @@ export type {
   UpdateReadinessGradeSuccess,
   VersionConflict,
 } from './command-executor.js';
+
+export { translateReviewSetPayloadToCommitGraph } from './review-set.js';
+export type {
+  ReviewSetEdgeDraft,
+  ReviewSetEndpointRef,
+  ReviewSetEpistemicStatus,
+  ReviewSetEntityDraft,
+  ReviewSetLens,
+  ReviewSetProposalGrounding,
+  ReviewSetProposalPayload,
+  ReviewSetProposalPitch,
+  ReviewSetTranslationResult,
+  ReviewSetTranslationSuccess,
+} from './review-set.js';

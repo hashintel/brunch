@@ -147,9 +147,9 @@ Observed behavior:
 
 | Scenario | Result | Evidence |
 | --- | --- | --- |
-| Idle TUI mount | Header, footer, status, diagnostic widget, and title are called from one snapshot; tests assert the same formatter output used by the wrapper. | `src/brunch-tui.test.ts` |
+| Idle TUI mount | Header, footer, status, diagnostic widget, and title are called from one snapshot; tests assert the same formatter output used by the wrapper. | `src/app/brunch-tui.test.ts` |
 | `/reload` / extension reload | Chrome is not durable inside Pi UI; reload must rerun extension setup and call `renderBrunchChrome` with a fresh Brunch snapshot. | source/API behavior; wrapper is stateless by design |
-| Session replacement / selected-session reopen | Existing Brunch extension calls the session-lifecycle binding hook on `session_start`, `before_agent_start`, and assistant `message_start`; `session_start` then renders chrome for the supplied workspace snapshot. The `/brunch` settings-switcher action activates decisions through the coordinator, calls `ctx.switchSession()`, and renders fresh chrome/notification only through `withSession` replacement context. | `src/brunch-tui.test.ts` |
+| Session replacement / selected-session reopen | Existing Brunch extension calls the session-lifecycle binding hook on `session_start`, `before_agent_start`, and assistant `message_start`; `session_start` then renders chrome for the supplied workspace snapshot. The `/brunch` settings-switcher action activates decisions through the coordinator, calls `ctx.switchSession()`, and renders fresh chrome/notification only through `withSession` replacement context. | `src/app/brunch-tui.test.ts` |
 | RPC degradation | `setStatus`, string-array `setWidget`, `setTitle`, and `notify` emit RPC `extension_ui_request` events; `setHeader`, `setFooter`, and `setWorkingIndicator` are RPC no-ops. Brunch chrome currently uses TUI-only header/footer plus diagnostic widget/title; fixture drivers should not assert TUI-only header/footer or a chrome-owned status key. | Pi RPC source + temp RPC JSONL probe |
 
 ## Startup/splash logo asset decision

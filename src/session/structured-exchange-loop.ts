@@ -1,40 +1,44 @@
-import { Type, type Static } from 'typebox';
-import { Value } from 'typebox/value';
+import * as z from 'zod';
 
-import type { StructuredExchangePresentDetails } from '../.pi/extensions/structured-exchange/shared/model.js';
-import { isStructuredExchangePresentDetails } from '../.pi/extensions/structured-exchange/shared/recovery.js';
+import type { PresentDetails } from '../.pi/extensions/exchanges/schemas/index.js';
+import { isStructuredExchangePresentDetails } from '../.pi/extensions/exchanges/shared/recovery.js';
+import { projectPresentOptions } from '../projections/structured-exchange/present-options.js';
+import { projectPresentQuestion } from '../projections/structured-exchange/present-question.js';
+import { projectRequestAnswer } from '../projections/structured-exchange/request-answer.js';
+import { projectRequestChoice } from '../projections/structured-exchange/request-choice.js';
+import { projectRequestChoices } from '../projections/structured-exchange/request-choices.js';
+import { projectRequestReview } from '../projections/structured-exchange/request-review.js';
+import { formatPresentOptions } from '../renderers/structured-exchange/present-options.js';
+import { formatPresentQuestion } from '../renderers/structured-exchange/present-question.js';
 import type { BrunchSessionEnvelope } from './brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from './exchange-projection.js';
 
-const NonBlankStringSchema = Type.String({ minLength: 1 });
+const zNonBlankString = z.string().min(1);
 
-export const PendingStructuredExchangeSchema = Type.Object(
-  {
-    exchangeId: NonBlankStringSchema,
-    lens: Type.Literal('intent'),
-    mode: Type.Union([Type.Literal('text'), Type.Literal('single-select'), Type.Literal('multi-select')]),
-    prompt: NonBlankStringSchema,
-    details: Type.Optional(NonBlankStringSchema),
-    options: Type.Array(
-      Type.Object(
-        {
-          id: NonBlankStringSchema,
-          label: NonBlankStringSchema,
-          content: NonBlankStringSchema,
-          rationale: Type.Optional(NonBlankStringSchema),
-        },
-        { additionalProperties: false },
-      ),
+export const zPendingStructuredExchange = z
+  .object({
+    exchangeId: zNonBlankString,
+    lens: z.literal('intent'),
+    mode: z.enum(['text', 'single-select', 'multi-select', 'review']),
+    prompt: zNonBlankString,
+    details: zNonBlankString.optional(),
+    options: z.array(
+      z
+        .object({
+          id: zNonBlankString,
+          label: zNonBlankString,
+          content: zNonBlankString,
+          rationale: zNonBlankString.optional(),
+        })
+        .strict(),
     ),
-    note: Type.Object(
-      { allowed: Type.Boolean() },
-      {
-        additionalProperties: false,
-      },
-    ),
-  },
-  { additionalProperties: false },
-);
+    note: z.object({ allowed: z.boolean() }).strict(),
+    reviewSet: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict();
+export const PendingStructuredExchangeSchema = z.toJSONSchema(zPendingStructuredExchange, {
+  unrepresentable: 'throw',
+});
 
 export interface StructuredExchangeTextResponseInput {
   exchangeId: string;
@@ -54,10 +58,17 @@ export interface StructuredExchangeMultiChoiceResponseInput {
   note?: string | undefined;
 }
 
+export interface StructuredExchangeReviewResponseInput {
+  exchangeId: string;
+  answer: { review: { decision: 'approve' | 'request_changes' | 'reject'; comment?: string | undefined } };
+  note?: string | undefined;
+}
+
 export type StructuredExchangeResponseInput =
   | StructuredExchangeTextResponseInput
   | StructuredExchangeSingleChoiceResponseInput
-  | StructuredExchangeMultiChoiceResponseInput;
+  | StructuredExchangeMultiChoiceResponseInput
+  | StructuredExchangeReviewResponseInput;
 
 export interface AcceptedToolTextContent {
   type: 'text';
@@ -74,7 +85,7 @@ export interface AcceptedToolResultMessage {
   timestamp: 0;
 }
 
-export type PendingStructuredExchange = Static<typeof PendingStructuredExchangeSchema>;
+export type PendingStructuredExchange = z.infer<typeof zPendingStructuredExchange>;
 
 export type AcceptedStructuredExchangeResponse =
   | {
@@ -175,35 +186,47 @@ export function nextDeterministicStructuredExchange(completedCount: number): Pen
 }
 
 export function presentToolResultMessage(exchange: PendingStructuredExchange) {
-  const presentTool = exchange.mode === 'text' ? 'present_question' : 'present_options';
-  const requestTool =
-    exchange.mode === 'text'
-      ? 'request_answer'
-      : exchange.mode === 'multi-select'
-        ? 'request_choices'
-        : 'request_choice';
-  const toolCallId = `${exchange.exchangeId}:${presentTool}`;
+  const projection = presentProjection(exchange);
   return {
     role: 'toolResult' as const,
-    toolCallId,
-    toolName: presentTool,
-    content: [{ type: 'text' as const, text: presentMarkdown(exchange) }],
-    details: {
-      schema: 'brunch.structured_exchange.present',
-      schemaVersion: 1,
-      exchangeId: exchange.exchangeId,
-      presentTool,
-      kind: exchange.mode === 'text' ? 'question' : 'options',
-      status: 'presented',
-      expectedRequest: { tool: requestTool, required: true },
-      createdAtToolCallId: toolCallId,
-      prompt: exchange.prompt,
-      details: exchange.details,
-      lens: exchange.lens,
-      options: exchange.options,
-    },
+    toolCallId: `${exchange.exchangeId}:${projection.toolName}`,
+    toolName: projection.toolName,
+    content: [{ type: 'text' as const, text: projection.markdown }],
+    details: projection.details,
     isError: false as const,
     timestamp: 0 as const,
+  };
+}
+
+function presentProjection(exchange: PendingStructuredExchange): {
+  toolName: 'present_question' | 'present_options';
+  markdown: string;
+  details: PresentDetails;
+} {
+  if (exchange.mode === 'text') {
+    const projection = projectPresentQuestion({
+      exchangeId: exchange.exchangeId,
+      heading: exchange.prompt,
+      body: exchange.details,
+    });
+    return {
+      toolName: 'present_question',
+      markdown: formatPresentQuestion(projection),
+      details: projection.details,
+    };
+  }
+
+  const projection = projectPresentOptions({
+    exchangeId: exchange.exchangeId,
+    heading: exchange.prompt,
+    body: exchange.details,
+    options: exchange.options,
+    expectedRequestTool: exchange.mode === 'multi-select' ? 'request_choices' : 'request_choice',
+  });
+  return {
+    toolName: 'present_options',
+    markdown: formatPresentOptions(projection),
+    details: projection.details,
   };
 }
 
@@ -221,10 +244,10 @@ export function pendingExchangeFromEnvelope(
         candidate.type === 'custom_message' &&
         candidate.id === entryId &&
         candidate.customType === 'brunch.elicitation_prompt' &&
-        Value.Check(PendingStructuredExchangeSchema, candidate.details),
+        zPendingStructuredExchange.safeParse(candidate.details).success,
     );
     if (entry?.type === 'custom_message') {
-      return Value.Parse(PendingStructuredExchangeSchema, entry.details);
+      return zPendingStructuredExchange.parse(entry.details);
     }
   }
 
@@ -257,14 +280,17 @@ export function acceptedResponseFromParams(
 ): AcceptedStructuredExchangeResponse {
   if ('text' in params.answer) {
     if (pending.mode !== 'text') return invalidResponseMode();
-    const details = requestDetailsBase(pending, 'request_answer');
     return {
       ok: true,
       answer: { text: params.answer.text },
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_answer'),
         content: [{ type: 'text', text: `### Response\n\n${params.answer.text}` }],
-        details: { ...details, answer: params.answer.text },
+        details: projectRequestAnswer({
+          exchangeId: pending.exchangeId,
+          status: 'answered',
+          answer: params.answer.text,
+        }),
       },
     };
   }
@@ -274,17 +300,48 @@ export function acceptedResponseFromParams(
     const optionId = params.answer.optionId;
     const choice = pending.options.find((option) => option.id === optionId);
     if (!choice) return { ok: false, message: 'Invalid elicitation option' };
-    const details = requestDetailsBase(pending, 'request_choice');
-    if (params.note !== undefined && params.note.trim().length > 0) {
-      details.comment = params.note.trim();
-    }
+    const comment = params.note?.trim();
     return {
       ok: true,
       answer: { optionId: choice.id, label: choice.label },
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_choice'),
         content: [{ type: 'text', text: choiceResponseMarkdown([choice], params.note) }],
-        details: { ...details, choice },
+        details: projectRequestChoice({
+          exchangeId: pending.exchangeId,
+          respondsToPresentTool: 'present_options',
+          status: 'answered',
+          choice: { id: choice.id, label: choice.label, kind: choiceKind(choice.id) },
+          comment,
+        }),
+      },
+    };
+  }
+
+  if ('review' in params.answer) {
+    if (pending.mode !== 'review') return invalidResponseMode();
+    const review = params.answer.review;
+    const comment = review.comment?.trim();
+    if (review.decision === 'request_changes' && (comment === undefined || comment.length === 0)) {
+      return { ok: false, message: 'Review request_changes requires a comment' };
+    }
+    return {
+      ok: true,
+      answer: {
+        review: {
+          decision: review.decision,
+          ...(comment !== undefined ? { comment } : {}),
+        },
+      },
+      toolResultMessage: {
+        ...toolResultMessageBase(pending, 'request_review'),
+        content: [{ type: 'text', text: reviewResponseMarkdown(review.decision, comment) }],
+        details: projectRequestReview({
+          exchangeId: pending.exchangeId,
+          status: 'answered',
+          review: review.decision,
+          comment,
+        }),
       },
     };
   }
@@ -304,17 +361,23 @@ export function acceptedResponseFromParams(
       message: 'Elicitation response requires a comment for Other or None selections',
     };
   }
-  const details = requestDetailsBase(pending, 'request_choices');
-  if (params.note !== undefined && params.note.trim().length > 0) {
-    details.comment = params.note.trim();
-  }
+  const comment = params.note?.trim();
   return {
     ok: true,
     answer: { optionIds: choices.map((choice) => choice.id), choices },
     toolResultMessage: {
       ...toolResultMessageBase(pending, 'request_choices'),
       content: [{ type: 'text', text: choiceResponseMarkdown(choices, params.note) }],
-      details: { ...details, choices },
+      details: projectRequestChoices({
+        exchangeId: pending.exchangeId,
+        status: 'answered',
+        choices: choices.map((choice) => ({
+          id: choice.id,
+          label: choice.label,
+          kind: choiceKind(choice.id),
+        })),
+        comment,
+      }),
     },
   };
 }
@@ -326,27 +389,15 @@ function invalidResponseMode(): AcceptedStructuredExchangeResponse {
   };
 }
 
-function requestDetailsBase(
-  pending: PendingStructuredExchange,
-  requestTool: 'request_answer' | 'request_choice' | 'request_choices',
-): Record<string, unknown> {
-  return {
-    schema: 'brunch.structured_exchange.request',
-    schemaVersion: 1,
-    exchangeId: pending.exchangeId,
-    requestTool,
-    status: 'answered',
-    respondsTo: {
-      exchangeId: pending.exchangeId,
-      presentTool: pending.mode === 'text' ? 'present_question' : 'present_options',
-    },
-    createdAtToolCallId: `${pending.exchangeId}:${requestTool}`,
-  };
+function choiceKind(id: string): 'listed' | 'other' | 'none' {
+  if (id === 'other') return 'other';
+  if (id === 'none') return 'none';
+  return 'listed';
 }
 
 function toolResultMessageBase(
   pending: PendingStructuredExchange,
-  requestTool: 'request_answer' | 'request_choice' | 'request_choices',
+  requestTool: 'request_answer' | 'request_choice' | 'request_choices' | 'request_review',
 ) {
   return {
     role: 'toolResult' as const,
@@ -365,50 +416,63 @@ function choiceResponseMarkdown(choices: Array<{ label: string }>, comment: stri
   return lines.join('\n');
 }
 
-function presentMarkdown(exchange: PendingStructuredExchange): string {
-  if (exchange.mode === 'text') {
-    return [`## ${exchange.prompt}`, exchange.details].filter(Boolean).join('\n\n');
+function reviewResponseMarkdown(
+  decision: 'approve' | 'request_changes' | 'reject',
+  comment: string | undefined,
+): string {
+  const label =
+    decision === 'approve' ? 'Approved' : decision === 'request_changes' ? 'Requested changes' : 'Rejected';
+  const lines = ['### Review decision', '', label];
+  if (comment !== undefined && comment.length > 0) {
+    lines.push('', 'Comment:', '', `> ${comment}`);
   }
-  const lines = [`## ${exchange.prompt}`];
-  if (exchange.details) lines.push('', exchange.details);
-  exchange.options.forEach((option, index) => {
-    lines.push('', `### ${index + 1}. ${option.content}`);
-    if (option.rationale) {
-      lines.push('', `**Rationale:** ${option.rationale}`);
-    }
-    lines.push('', `<!-- option-id: ${option.id} -->`);
-  });
   return lines.join('\n');
 }
 
 function pendingExchangeFromStructuredPresent(
-  details: StructuredExchangePresentDetails,
+  details: PresentDetails,
   markdown: string,
 ): PendingStructuredExchange {
-  const richDetails = details as StructuredExchangePresentDetails & {
-    prompt?: unknown;
-    details?: unknown;
-    options?: unknown;
-  };
-  const prompt =
-    typeof richDetails.prompt === 'string'
-      ? richDetails.prompt
-      : (firstNonEmptyMarkdownLine(markdown) ?? markdown);
-  const detailsText = typeof richDetails.details === 'string' ? richDetails.details : markdown;
+  const prompt = details.display.heading;
+  const detailsText = presentDetailsText(details, markdown);
+  if ('review_set' in details) {
+    return {
+      exchangeId: details.exchange_id,
+      lens: 'intent',
+      mode: 'review',
+      prompt,
+      ...(detailsText.length > 0 ? { details: detailsText } : {}),
+      options: [],
+      note: { allowed: true },
+      reviewSet: details.review_set,
+    };
+  }
+
   return {
-    exchangeId: details.exchangeId,
+    exchangeId: details.exchange_id,
     lens: 'intent',
     mode:
-      details.expectedRequest?.tool === 'request_choices'
+      details.tool_meta.next === 'request_choices'
         ? 'multi-select'
-        : details.presentTool === 'present_question'
+        : details.tool_meta.curr === 'present_question'
           ? 'text'
           : 'single-select',
     prompt,
     ...(detailsText.length > 0 ? { details: detailsText } : {}),
-    options: parsePendingOptions(richDetails.options, markdown),
+    options:
+      'options' in details
+        ? parsePendingOptions(details.options, markdown)
+        : parsePendingOptions(undefined, markdown),
     note: { allowed: true },
   };
+}
+
+function presentDetailsText(details: PresentDetails, markdown: string): string {
+  if ('preface' in details.display && details.display.preface && details.display.body) {
+    return `${details.display.preface}\n\n${details.display.body}`;
+  }
+  if ('preface' in details.display && details.display.preface) return details.display.preface;
+  return details.display.body ?? markdown;
 }
 
 function parsePendingOptions(value: unknown, markdown: string = ''): PendingChoice[] {
@@ -473,7 +537,7 @@ function parseMarkdownPendingOptions(markdown: string): PendingChoice[] {
   return options;
 }
 
-function structuredExchangePresentDetails(entry: unknown): StructuredExchangePresentDetails | undefined {
+function structuredExchangePresentDetails(entry: unknown): PresentDetails | undefined {
   if (typeof entry !== 'object' || entry === null || (entry as { type?: unknown }).type !== 'message') {
     return undefined;
   }
@@ -486,16 +550,7 @@ function structuredExchangePresentDetails(entry: unknown): StructuredExchangePre
     return undefined;
   }
   const details = (message as { details?: unknown }).details;
-  return isStructuredExchangePresentDetails(details)
-    ? (details as StructuredExchangePresentDetails)
-    : undefined;
-}
-
-function firstNonEmptyMarkdownLine(markdown: string): string | undefined {
-  return markdown
-    .split('\n')
-    .map((line) => line.replace(/^#+\s*/, '').trim())
-    .find((line) => line.length > 0);
+  return isStructuredExchangePresentDetails(details) ? (details as PresentDetails) : undefined;
 }
 
 function textContent(content: unknown): string {

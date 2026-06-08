@@ -1,3 +1,6 @@
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 import * as z from 'zod';
 
@@ -26,7 +29,7 @@ import {
   zRequestDetailsHeader,
   zRequestReviewDetails,
   zRequestToolMeta,
-} from '../extensions/structured-exchange/schemas/index.js';
+} from '../extensions/exchanges/schemas/index.js';
 
 function expectJsonSchemaExport(schema: z.ZodType) {
   expect(() => z.toJSONSchema(schema, { unrepresentable: 'throw' })).not.toThrow();
@@ -180,10 +183,21 @@ describe('structured exchange present schemas', () => {
         exchange_id: 'review-set-17',
         tool_meta: { curr: 'present_review_set', next: 'request_review' },
         display: { heading: 'Review proposed requirements' },
-        review_set: { proposal_entry_id: 'entry-review-proposal-17' },
+        review_set: {
+          nodes: [
+            { draft_id: 'req-approval', plane: 'intent', kind: 'requirement', title: 'Approval is atomic' },
+          ],
+          edges: [
+            {
+              category: 'dependency',
+              source: { draft_id: 'req-approval' },
+              target: { existing_code: 'G1' },
+            },
+          ],
+        },
       }),
     ).toMatchObject({
-      review_set: { proposal_entry_id: 'entry-review-proposal-17' },
+      review_set: { nodes: [{ draft_id: 'req-approval' }] },
     });
 
     expect(zPresentCandidatesDetails.parse(candidateDetails)).toMatchObject({
@@ -192,6 +206,66 @@ describe('structured exchange present schemas', () => {
     expect(zPresentDetails.parse(candidateDetails)).toMatchObject({
       tool_meta: { curr: 'present_candidates' },
     });
+  });
+
+  it('keeps review-set details to nodes and edges only', () => {
+    const reviewSetDetails = {
+      schema: 'brunch.structured_exchange.present',
+      v: 1,
+      exchange_id: 'review-set-17',
+      tool_meta: { curr: 'present_review_set', next: 'request_review' },
+      display: { heading: 'Review proposed requirements' },
+      review_set: {
+        nodes: [
+          { draft_id: 'req-approval', plane: 'intent', kind: 'requirement', title: 'Approval is atomic' },
+        ],
+        edges: [
+          {
+            category: 'dependency',
+            source: { draft_id: 'req-approval' },
+            target: { existing_code: 'G1' },
+          },
+        ],
+      },
+    };
+
+    for (const field of [
+      'proposal_entry_id',
+      'pitch',
+      'user_rubric',
+      'meta_rubric',
+      'graph_drafts',
+      'entity_drafts',
+      'edge_drafts',
+      'command_payload',
+      'basis',
+    ] as const) {
+      expect(() =>
+        zPresentReviewSetDetails.parse({
+          ...reviewSetDetails,
+          review_set: { ...reviewSetDetails.review_set, [field]: field },
+        }),
+      ).toThrow();
+    }
+
+    expect(() =>
+      zPresentReviewSetDetails.parse({
+        ...reviewSetDetails,
+        review_set: {
+          ...reviewSetDetails.review_set,
+          nodes: [{ ...reviewSetDetails.review_set.nodes[0], basis: 'explicit' }],
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      zPresentReviewSetDetails.parse({
+        ...reviewSetDetails,
+        review_set: {
+          ...reviewSetDetails.review_set,
+          edges: [{ ...reviewSetDetails.review_set.edges[0], source: { existing: 1 } }],
+        },
+      }),
+    ).toThrow();
   });
 
   it('rejects candidate graph refs and rubric drift fields', () => {
@@ -544,3 +618,37 @@ describe('structured exchange capture schemas', () => {
     expectJsonSchemaExport(zCaptureDetails);
   });
 });
+
+describe('structured exchange schema source boundary', () => {
+  it('keeps semantic details contracts in the Zod schemas directory', () => {
+    const extensionRoot = join(process.cwd(), 'src/.pi/extensions/exchanges');
+    const legacyModel = join(extensionRoot, 'shared/model.ts');
+    expect(existsSync(legacyModel)).toBe(false);
+
+    const offenders: string[] = [];
+    for (const file of sourceFiles(extensionRoot)) {
+      if (file.includes('/schemas/')) continue;
+      const source = readFileSync(file, 'utf8');
+      if (/interface\s+StructuredExchange(?:Present|Request|Capture)?Details/.test(source)) {
+        offenders.push(file);
+        continue;
+      }
+      if (
+        /schemaVersion:\s*1/.test(source) &&
+        /brunch\\.structured_exchange\\.(?:present|request|capture)/.test(source)
+      ) {
+        offenders.push(file);
+      }
+    }
+    expect(offenders.map((file) => file.replace(`${process.cwd()}/`, ''))).toEqual([]);
+  });
+});
+
+function sourceFiles(dir: string): string[] {
+  const entries = readdirSync(dir, { withFileTypes: true });
+  return entries.flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return sourceFiles(path);
+    return entry.isFile() && path.endsWith('.ts') ? [path] : [];
+  });
+}

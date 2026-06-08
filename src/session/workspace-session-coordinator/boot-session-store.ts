@@ -36,7 +36,7 @@ export async function inspectCanonicalSessionFiles(cwd: string): Promise<Canonic
 export async function verifyCanonicalSessionStore(options: {
   cwd: string;
   expectedSessionCount?: number | undefined;
-  currentSpecId: number | null;
+  defaultSpecId: number | null;
 }): Promise<WorkspaceStoreOracleResult> {
   const classifiedSessions = await inspectCanonicalSessionFiles(options.cwd);
   const errors: string[] = [];
@@ -62,11 +62,6 @@ export async function verifyCanonicalSessionStore(options: {
       errors.push(formatUnavailableSessionError(session));
       continue;
     }
-    if (options.currentSpecId !== null && session.specId !== options.currentSpecId) {
-      errors.push(
-        `${session.file} binding spec ${session.specId} does not match state ${options.currentSpecId}`,
-      );
-    }
     sessions.push({
       file: session.file,
       sessionId: session.id,
@@ -75,7 +70,7 @@ export async function verifyCanonicalSessionStore(options: {
     });
   }
 
-  return errors.length === 0 ? { ok: true, specId: options.currentSpecId, sessions } : { ok: false, errors };
+  return errors.length === 0 ? { ok: true, specId: options.defaultSpecId, sessions } : { ok: false, errors };
 }
 
 async function inspectCanonicalSessionFile(file: string): Promise<CanonicalSessionFile> {

@@ -12,7 +12,7 @@ import { describe, beforeEach, it, expect } from 'vitest';
 
 import { createDb } from '../../db/connection.js';
 import type { BrunchDb } from '../../db/connection.js';
-import { edges, specs } from '../../db/schema.js';
+import { edges } from '../../db/schema.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
 import { getGraphOverview, getNodeNeighborhood, resolveGraphNodeCode } from '../../graph/snapshot.js';
 import { createProductUpdatePublisher } from '../../rpc/product-updates.js';
@@ -34,16 +34,12 @@ function createTestDb(): BrunchDb {
   return createDb(':memory:');
 }
 function seedSpec(db: BrunchDb): number {
-  const row = db
-    .insert(specs)
-    .values({
-      name: 'Test Spec',
-      slug: `test-${nextSpecSlug++}`,
-      readiness_grade: 'grounding_onboarding',
-    })
-    .returning({ id: specs.id })
-    .get();
-  return row!.id;
+  const result = new CommandExecutor(db).createSpec({
+    name: 'Test Spec',
+    slug: `test-${nextSpecSlug++}`,
+  });
+  if (result.status !== 'success') throw new Error('Unable to create test spec');
+  return result.specId;
 }
 
 function createSnapshots(db: BrunchDb, specId: number): GraphSnapshotReaders {
@@ -273,8 +269,8 @@ describe('graph tools end-to-end', () => {
     });
 
     expect(observed).toEqual([
-      { topic: 'graph.overview', specId, lsn: 1 },
-      { topic: 'graph.nodeNeighborhood', specId, lsn: 1 },
+      { topic: 'graph.overview', specId, lsn: 2 },
+      { topic: 'graph.nodeNeighborhood', specId, lsn: 2 },
     ]);
   });
 

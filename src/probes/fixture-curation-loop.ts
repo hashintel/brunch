@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 import { getAgentDir } from '@earendil-works/pi-coding-agent';
 
-import { appendBrunchAgentRuntimeSwitch, type BrunchAgentState } from '../.pi/extensions/operational-mode.js';
-import { createBrunchAgentSessionRuntimeFactory } from '../brunch-tui.js';
+import { appendBrunchAgentRuntimeSwitch, type BrunchAgentState } from '../.pi/extensions/runtime/index.js';
+import { createBrunchAgentSessionRuntimeFactory } from '../app/brunch-tui.js';
 import {
   formatGraphNodeCode,
   openWorkspaceGraphRuntime,

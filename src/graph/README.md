@@ -1,20 +1,26 @@
 # graph/ — Graph domain layer
 
 Canonical reference: `docs/design/GRAPH_MODEL.md`
-SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
+SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
 
 ## Owns
 
 - **CommandExecutor** (`command-executor.ts`) — the single mutation boundary for
-  graph/spec writes. It hides structural validation, transaction mechanics, LSN
-  allocation, per-kind node ordinal allocation, change-log append, and
-  structured command results.
+  graph/spec writes. It hides structural validation, transaction mechanics,
+  spec-local LSN allocation, per-kind node ordinal allocation, change-log append,
+  and structured command results.
 
 - **commitGraph** — atomic batch mutation for `propose-graph`: one tool call,
-  one transaction, one LSN, all-or-nothing. It accepts product command input
-  (`nodes[]` with batch refs, `edges[]` with batch/existing refs), not raw DB
-  rows. `command-executor/commit-graph-batch.ts` owns the private shared planner
-  used by both dry-run and commit before any batch writes occur.
+  one transaction, one selected-spec LSN, all-or-nothing. It accepts product
+  command input (`nodes[]` with batch refs, `edges[]` with batch/existing refs),
+  not raw DB rows. `command-executor/commit-graph-batch.ts` owns the private
+  shared planner used by both dry-run and commit before any batch writes occur.
+
+- **review-set payload translation** (`review-set.ts`) — validates exact
+  user-reviewable review-set payloads, resolves projected existing-node codes
+  inside the selected spec, and translates them to explicit-basis graph batches.
+  `CommandExecutor.acceptReviewSet` is the only graph mutation entrypoint for
+  accepted review sets and records `operation: "accept_review_set"`.
 
 - **Capture translators** (`capture/`) — narrow, high-confidence structured
   response translators that turn transcript-native answers into `commitGraph`
@@ -36,6 +42,17 @@ SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
   through `db/connection.ts` and returns a `CommandExecutor` plus bound snapshot
   readers for adapters.
 
+## Clock and audit posture
+
+`graph_clock` and `change_log` are spec-scoped. `CommandExecutor.createSpec`
+creates the spec's initial `graph_clock` row at LSN 1 with the `create_spec`
+audit entry. Later graph/spec mutations use an update-only bump on the target
+spec's existing clock row, append a `change_log` row keyed by `(spec_id, lsn)`,
+and write the same local LSN to that spec's graph rows or reconciliation needs.
+Missing clock rows for existing specs are invariant failures; runtime code does
+not repair them. Product updates therefore carry `{specId, lsn}`; callers must
+not compare bare LSN values across sibling specs.
+
 ## Imports from
 
 - `db/` — Drizzle table definitions, enum arrays, and connection handle.
@@ -45,7 +62,9 @@ SPEC decisions: D4-L, D20-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
 
 - `.pi/extensions/graph/` — Pi tool adapters for `commit_graph` and `read_graph`.
 - `rpc/` — graph projection handlers and synchronous response-capture wiring.
-- `agents/contexts/` — future prompt context renderers.
+- `projections/graph/` — reusable DTO projection over graph reader/command outputs.
+- `renderers/graph/` — reusable lossy markdown/text rendering over projected graph DTOs.
+- `.pi/agents/contexts/` — future prompt context renderers.
 - `probes/` — graph proof drivers.
 
 ## Current topology
@@ -67,6 +86,7 @@ graph/
     createNode
     per-kind node ordinal allocation
     commitGraph / dryRunCommitGraph
+    acceptReviewSet
     create/resolve reconciliation need
 
   command-executor/
@@ -76,6 +96,11 @@ graph/
       private commitGraph batch planner
       dry-run/commit structural parity
       temporary endpoint graph for supersession acyclicity
+
+  review-set.ts
+    review-set payload contract
+    selected-spec projected-code resolution
+    explicit-basis command translation
 
   capture/
     structured-response.ts
@@ -117,14 +142,14 @@ CommandExecutor
   writes rows transactionally
   appends change_log
       │
-      ├─► .pi/extensions/graph
+      ├─►.pi/extensions/graph
       │     agent tool adapter
       │
       ├─► rpc/
       │     public product projections
       │     session.submitExchangeResponse capture wiring
       │
-      └─► agents/contexts future renderers
+      └─► .pi/agents/contexts future context orchestration
             prompt context snapshots
 ```
 

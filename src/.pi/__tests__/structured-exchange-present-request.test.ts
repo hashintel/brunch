@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
+import { createDb } from '../../db/connection.js';
+import { CommandExecutor } from '../../graph/command-executor.js';
 import registerStructuredExchange, {
   PRESENT_OPTIONS_TOOL,
+  PRESENT_REVIEW_SET_TOOL,
   REQUEST_CHOICE_TOOL,
   REQUEST_CHOICES_TOOL,
-} from '../extensions/structured-exchange/index.js';
+  REQUEST_REVIEW_TOOL,
+} from '../extensions/exchanges/index.js';
 import {
   findIncompleteStructuredExchangePresents,
   isStructuredExchangePresentDetails,
   isStructuredExchangeRequestDetails,
-} from '../extensions/structured-exchange/shared/recovery.js';
+} from '../extensions/exchanges/shared/recovery.js';
 
 interface ToolTextContent {
   type: 'text';
@@ -49,14 +53,54 @@ const theme: FakeTheme = {
   bold: (text) => text,
 };
 
-function registeredTools(): Map<string, RegisteredTool> {
+function registeredTools(
+  options: Parameters<typeof registerStructuredExchange>[1] = {},
+): Map<string, RegisteredTool> {
   const tools = new Map<string, RegisteredTool>();
-  registerStructuredExchange({
-    registerTool(tool: RegisteredTool) {
-      tools.set(tool.name, tool);
-    },
-  } as never);
+  registerStructuredExchange(
+    {
+      registerTool(tool: RegisteredTool) {
+        tools.set(tool.name, tool);
+      },
+    } as never,
+    options,
+  );
   return tools;
+}
+
+function reviewDeps() {
+  const db = createDb(':memory:');
+  const commandExecutor = new CommandExecutor(db);
+  const spec = commandExecutor.createSpec({ name: 'Review Spec', slug: 'review-spec' });
+  if (spec.status !== 'success') throw new Error('Unable to create review spec');
+  return { specId: spec.specId, commandExecutor };
+}
+
+function validReviewPayload() {
+  return {
+    schemaVersion: 1,
+    lens: 'intent',
+    epistemicStatus: 'inferred',
+    grounding: {
+      summary: 'The user described a launch review flow.',
+      support: ['The transcript asks for exact approval before graph mutation.'],
+    },
+    pitch: {
+      title: 'Review cycle wiring',
+      narrative: 'Commit review-set approvals as explicit graph truth only after user review.',
+    },
+    entityDrafts: [
+      { draftId: 'goal-review', plane: 'intent', kind: 'goal', title: 'Review graph proposals' },
+      { draftId: 'req-approve', plane: 'intent', kind: 'requirement', title: 'Approval is atomic' },
+    ],
+    edgeDrafts: [
+      {
+        category: 'dependency',
+        source: { draftId: 'req-approve' },
+        target: { draftId: 'goal-review' },
+      },
+    ],
+  };
 }
 
 describe('structured exchange present/request tools', () => {
@@ -66,13 +110,17 @@ describe('structured exchange present/request tools', () => {
     expect([...tools.keys()]).toEqual([
       'present_question',
       PRESENT_OPTIONS_TOOL,
+      PRESENT_REVIEW_SET_TOOL,
       'request_answer',
       REQUEST_CHOICE_TOOL,
       REQUEST_CHOICES_TOOL,
+      REQUEST_REVIEW_TOOL,
     ]);
     expect(tools.get(PRESENT_OPTIONS_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(REQUEST_CHOICE_TOOL)?.executionMode).toBe('sequential');
+    expect(tools.get(PRESENT_REVIEW_SET_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(REQUEST_CHOICES_TOOL)?.executionMode).toBe('sequential');
+    expect(tools.get(REQUEST_REVIEW_TOOL)?.executionMode).toBe('sequential');
   });
 
   it('persists a present_question result through the shared project and format seam', async () => {
@@ -85,7 +133,6 @@ describe('structured exchange present/request tools', () => {
         exchangeId: 'problem-frame',
         heading: 'What problem are we solving?',
         body: 'Keep the answer grounded in current Brunch session behavior.',
-        expectedRequestTool: 'request_answer',
       },
       undefined,
       undefined,
@@ -99,12 +146,12 @@ describe('structured exchange present/request tools', () => {
     `);
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
-      exchangeId: 'problem-frame',
-      presentTool: 'present_question',
-      kind: 'question',
-      status: 'presented',
-      expectedRequest: { tool: 'request_answer', required: true },
-      createdAtToolCallId: 'present-question-call-1',
+      exchange_id: 'problem-frame',
+      tool_meta: { curr: 'present_question', next: 'request_answer' },
+      display: {
+        heading: 'What problem are we solving?',
+        body: 'Keep the answer grounded in current Brunch session behavior.',
+      },
     });
   });
 
@@ -141,12 +188,13 @@ describe('structured exchange present/request tools', () => {
     expect(result.content[0]?.text).toContain('Clearer ownership.');
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
-      exchangeId: 'shell-location',
-      presentTool: PRESENT_OPTIONS_TOOL,
-      kind: 'options',
-      status: 'presented',
-      expectedRequest: { tool: REQUEST_CHOICE_TOOL, required: true },
-      createdAtToolCallId: 'present-call-1',
+      exchange_id: 'shell-location',
+      tool_meta: { curr: PRESENT_OPTIONS_TOOL, next: REQUEST_CHOICE_TOOL },
+      display: {
+        heading: 'Where should the shell live?',
+        body: 'Choose the module boundary for Brunch Pi extensions.',
+      },
+      options: [{ id: 'root' }, { id: 'tui', rationale: 'Clearer ownership.' }],
     });
 
     const rendered = result.content[0] ? present.renderResult(result, {}, theme).render?.(80).join('\n') : '';
@@ -187,16 +235,132 @@ describe('structured exchange present/request tools', () => {
     expect(result.content[0]?.text).not.toContain('Clearer ownership');
     expect(isStructuredExchangeRequestDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
-      exchangeId: 'shell-location',
-      requestTool: REQUEST_CHOICE_TOOL,
-      status: 'answered',
-      respondsTo: {
-        exchangeId: 'shell-location',
-        presentTool: PRESENT_OPTIONS_TOOL,
+      exchange_id: 'shell-location',
+      tool_meta: { prev: PRESENT_OPTIONS_TOOL, curr: REQUEST_CHOICE_TOOL },
+      answered: {
+        choice: { id: 'tui', label: 'Move under src/tui-client', kind: 'listed' },
+        comment: 'Aligns ownership with /reload iteration.',
       },
-      choice: { id: 'tui', label: 'Move under src/tui-client' },
-      comment: 'Aligns ownership with /reload iteration.',
     });
+  });
+
+  it('presents a dry-run-valid review-set payload as durable markdown and recoverable details', async () => {
+    const present = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
+    if (!present) throw new Error('present_review_set was not registered');
+
+    const payload = validReviewPayload();
+    const result = await present.execute(
+      'present-review-call-1',
+      { exchangeId: 'review-cycle-1', proposalEntryId: 'proposal-entry-1', payload },
+      undefined,
+      undefined,
+      {} as never,
+    );
+
+    expect(result.content[0]?.text).toContain('## Review cycle wiring');
+    expect(result.content[0]?.text).toContain('Epistemic status: inferred');
+    expect(result.content[0]?.text).toContain('### Entity drafts');
+    expect(result.content[0]?.text).toContain('Approval is atomic');
+    expect(result.content[0]?.text).toContain('### Edge drafts');
+    expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
+    expect(result.details).toMatchObject({
+      exchange_id: 'review-cycle-1',
+      tool_meta: { curr: PRESENT_REVIEW_SET_TOOL, next: REQUEST_REVIEW_TOOL },
+      review_set: {
+        nodes: [{ draft_id: 'goal-review' }, { draft_id: 'req-approve' }],
+        edges: [{ source: { draft_id: 'req-approve' }, target: { draft_id: 'goal-review' } }],
+      },
+    });
+  });
+
+  it('keeps structurally illegal review-set proposals non-reviewable', async () => {
+    const present = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
+    if (!present) throw new Error('present_review_set was not registered');
+
+    const result = await present.execute(
+      'present-review-call-bad',
+      { exchangeId: 'review-cycle-bad', payload: { ...validReviewPayload(), epistemicStatus: undefined } },
+      undefined,
+      undefined,
+      {} as never,
+    );
+
+    expect(result.details).toMatchObject({ status: 'structural_illegal' });
+    expect(isStructuredExchangePresentDetails(result.details)).toBe(false);
+    expect(
+      findIncompleteStructuredExchangePresents([
+        { type: 'message', message: { role: 'toolResult', details: result.details } },
+      ]),
+    ).toEqual([]);
+  });
+
+  it('persists request_review approve, change-request, and reject responses', async () => {
+    const request = registeredTools().get(REQUEST_REVIEW_TOOL);
+    if (!request) throw new Error('request_review was not registered');
+
+    for (const [selected, review, comment] of [
+      ['Approve', 'approve', 'Looks right.'],
+      ['Request changes', 'request_changes', 'Tighten the grounding.'],
+      ['Reject', 'reject', 'Wrong direction.'],
+    ] as const) {
+      const result = await request.execute(
+        `request-review-${review}`,
+        { exchangeId: 'review-cycle-1', prompt: 'Review proposal' },
+        undefined,
+        undefined,
+        { hasUI: true, ui: { select: async () => selected, input: async () => comment } } as never,
+      );
+
+      expect(result.content[0]?.text).toContain('### Review decision');
+      expect(result.details).toMatchObject({
+        exchange_id: 'review-cycle-1',
+        tool_meta: { prev: PRESENT_REVIEW_SET_TOOL, curr: REQUEST_REVIEW_TOOL },
+        answered: { decision: review, comment },
+      });
+    }
+  });
+
+  it('requires request_review change requests to carry a non-empty comment', async () => {
+    const request = registeredTools().get(REQUEST_REVIEW_TOOL);
+    if (!request) throw new Error('request_review was not registered');
+
+    const result = await request.execute(
+      'request-review-empty-change',
+      { exchangeId: 'review-cycle-1', prompt: 'Review proposal' },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { select: async () => 'Request changes', input: async () => '   ' } } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      tool_meta: { curr: REQUEST_REVIEW_TOOL },
+      unavailable: { message: 'request_review request_changes requires a comment' },
+    });
+  });
+
+  it('records request_review cancellation and unavailable UI as terminal outcomes', async () => {
+    const request = registeredTools().get(REQUEST_REVIEW_TOOL);
+    if (!request) throw new Error('request_review was not registered');
+
+    const cancelled = await request.execute(
+      'request-review-cancelled',
+      { exchangeId: 'review-cycle-1', prompt: 'Review proposal' },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { select: async () => undefined } } as never,
+    );
+    const unavailable = await request.execute(
+      'request-review-unavailable',
+      { exchangeId: 'review-cycle-1', prompt: 'Review proposal' },
+      undefined,
+      undefined,
+      { hasUI: false, ui: {} } as never,
+    );
+
+    expect(cancelled.details).toMatchObject({ cancelled: {}, tool_meta: { curr: REQUEST_REVIEW_TOOL } });
+    expect(unavailable.details).toMatchObject({ unavailable: {}, tool_meta: { curr: REQUEST_REVIEW_TOOL } });
+    expect(isStructuredExchangeRequestDetails(cancelled.details)).toBe(true);
+    expect(isStructuredExchangeRequestDetails(unavailable.details)).toBe(true);
   });
 
   it('persists a request_choices response through the editor fallback', async () => {
@@ -244,19 +408,15 @@ describe('structured exchange present/request tools', () => {
     expect(isStructuredExchangeRequestDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       schema: 'brunch.structured_exchange.request',
-      exchangeId: 'priorities',
-      requestTool: REQUEST_CHOICES_TOOL,
-      status: 'answered',
-      respondsTo: {
-        exchangeId: 'priorities',
-        presentTool: PRESENT_OPTIONS_TOOL,
+      exchange_id: 'priorities',
+      tool_meta: { prev: PRESENT_OPTIONS_TOOL, curr: REQUEST_CHOICES_TOOL },
+      answered: {
+        choices: [
+          { id: 'speed', label: 'Move quickly', kind: 'listed' },
+          { id: 'other', label: 'Other', kind: 'other' },
+        ],
+        comment: 'Also keep the proof deterministic.',
       },
-      choices: [
-        { id: 'speed', label: 'Move quickly' },
-        { id: 'other', label: 'Other' },
-      ],
-      comment: 'Also keep the proof deterministic.',
-      createdAtToolCallId: 'request-choices-call-1',
     });
   });
 
@@ -293,9 +453,8 @@ describe('structured exchange present/request tools', () => {
     );
 
     expect(result.details).toMatchObject({
-      requestTool: REQUEST_CHOICES_TOOL,
-      status: 'unavailable',
-      message: 'request_choices requires a comment for Other or None selections',
+      tool_meta: { curr: REQUEST_CHOICES_TOOL },
+      unavailable: { message: 'request_choices requires a comment for Other or None selections' },
     });
     expect(result.content[0]?.text).toContain('request_choices requires a comment');
   });
@@ -308,19 +467,17 @@ describe('structured exchange present/request tools', () => {
           role: 'toolResult',
           details: {
             schema: 'brunch.structured_exchange.present',
-            schemaVersion: 1,
-            exchangeId: 'shell-location',
-            presentTool: PRESENT_OPTIONS_TOOL,
-            kind: 'options',
-            status: 'presented',
-            expectedRequest: { tool: REQUEST_CHOICE_TOOL, required: true },
-            createdAtToolCallId: 'present-call-1',
+            v: 1,
+            exchange_id: 'shell-location',
+            tool_meta: { curr: PRESENT_OPTIONS_TOOL, next: REQUEST_CHOICE_TOOL },
+            display: { heading: 'Where should the shell live?' },
+            options: [{ id: 'root', content: 'Keep src/pi-extensions.ts' }],
           },
         },
       },
     ]);
 
     expect(incomplete).toHaveLength(1);
-    expect(incomplete[0]?.details.exchangeId).toBe('shell-location');
+    expect(incomplete[0]?.details.exchange_id).toBe('shell-location');
   });
 });

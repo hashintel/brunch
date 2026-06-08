@@ -3,6 +3,13 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-06-06 Sync archive
+
+Archived from `memory/PLAN.md` during topology-chain sync so the live plan keeps only active/next/parallel definitions plus the last few completion summaries.
+
+- 2026-06-05 `dev-seed-fixtures` — Done: spec-scoped graph LSN and clock-row hardening. Replaced workspace-global graph-clock/change-log semantics with `(spec_id, lsn)` storage and selected-spec LSN allocation through `CommandExecutor`; `createSpec` creates exactly one clock row; later mutations use update-only clock bumps that fail loud on missing rows; and legacy migrations backfill one clock row per spec from graph/change-log/reconciliation history. Verified: command-executor, DB migration, graph snapshot, seed-fixture, RPC, prompt-context, and seeded-dev-rpc smoke tests.
+- 2026-06-04 `graph-tool-resilience` (FE-808) — Done: graph nodes persist per-kind ordinals and expose projected codes; `commitGraph` applies one explicit/implicit batch basis, returns one created-node identity shape, plans once inside the transaction before LSN allocation/writes, and shares dry-run/commit structural validation; adapters resolve selected-spec existing-node codes into structured diagnostics; single-node `createNode` rejects retired basis values; same-spec supersession cycles are rejected atomically; active-context graph reads omit hidden superseded nodes and dangling edges; product-path probes landed existing-code, retry-diagnostics, and ambiguity/no-overcommit evidence.
+
 ## 2026-06-05 Rolling completion archive
 
 Archived from `memory/PLAN.md` when FE-807 closed and the live frontier advanced to `project-graph-review-cycle`.

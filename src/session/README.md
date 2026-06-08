@@ -13,10 +13,10 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **Exchange extraction** — session exchange projection: prompt-side
   span + response-side span, per D13-L.
 
-- **Runtime-state projection** — flattened transcript-backed agent posture,
-  mention, world-watermark, and lifecycle slots from linear Brunch session
-  envelopes. `.pi` may append operational-mode entries, but the pure projection
-  lives here.
+- **Runtime-state transcript facts** — `brunch.agent_runtime_state` entry type,
+  parser, and append helpers. Reusable runtime-state projection/policy lives in
+  `projections/session/`; `.pi` may append operational-mode entries but does not
+  own hidden runtime memory.
 
 - **Structured-exchange loop helpers** — deterministic POC exchange generation,
   pending prompt reconstruction from structured transcript tuples, and response
@@ -42,14 +42,16 @@ plus the coordination logic for workspace/spec/session lifecycle.
 ## Does NOT own
 
 - Graph state, CommandExecutor, graph snapshots — those live in `graph/`.
-- Prompt composition, context building — those live in `agents/`.
+- Prompt composition, context building — those live in `.pi/agents/`.
 - Pi extension registration — those live in `.pi/extensions/`.
 
 ## Imported by
 
-- `agents/contexts/` — for session/transcript snapshots
-- `rpc/` — for session.* and workspace.* RPC handlers
-- `.pi/extensions/` — for session lifecycle hooks
+- `.pi/agents/contexts/` — for session/transcript snapshots.
+- `projections/session/` — for reusable transcript-context DTO projection.
+- `renderers/session/` — for reusable transcript markdown rendering.
+- `rpc/` — for session.* and workspace.* RPC handlers.
+- `.pi/extensions/` — for session lifecycle hooks.
 
 ## Moved from src/ root
 
@@ -63,7 +65,7 @@ These files migrated here on 2026-06-02:
 | `session-projection-reader.ts`    | JSONL projection target resolution |
 | `session-transcript.ts`           | transcript row projection          |
 | `exchange-projection.ts`          | exchange extraction                |
-| `runtime-state.ts`                | runtime state projection           |
+| `runtime-state.ts`                | runtime-state transcript entries   |
 | `structured-exchange.ts`          | structured exchange schemas/types  |
 | `structured-exchange-loop.ts`     | deterministic exchange loop helpers|
 | `project-identity.ts`             | workspace identity (cwd discovery) |

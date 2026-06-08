@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { StructuredExchangeToolResultDetails } from '../.pi/extensions/structured-exchange/index.js';
+import type { StructuredExchangeToolResultDetails } from '../.pi/extensions/exchanges/index.js';
 
 interface ProbeMetadata {
   name: string;
@@ -16,10 +16,10 @@ interface FrictionReport {
   frictions: string[];
 }
 
-interface TerminalDetails extends StructuredExchangeToolResultDetails {
+type TerminalDetails = StructuredExchangeToolResultDetails & {
   probe: ProbeMetadata;
   frictionReport: FrictionReport;
-}
+};
 
 interface ProofResultEntry {
   customType: string;
@@ -135,7 +135,7 @@ export async function runStructuredExchangeRpcProof(
 
 async function writeProofExtension(cwd: string): Promise<string> {
   const extensionPath = join(cwd, 'structured-exchange-rpc-proof-extension.ts');
-  const adapterPath = resolve('src/.pi/extensions/structured-exchange/index.ts');
+  const adapterPath = resolve('src/.pi/extensions/exchanges/index.ts');
   const content = `
     import type { ExtensionAPI } from "@earendil-works/pi-coding-agent"
     import {

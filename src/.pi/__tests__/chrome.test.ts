@@ -4,17 +4,15 @@ import { describe, expect, it } from 'vitest';
 import type { WorkspaceSessionReadyState } from '../../session/workspace-session-coordinator.js';
 import {
   chromeStateForWorkspace,
-  formatBrunchChromeHeaderLines,
-  formatChromeWidgetLines,
   projectBrunchChromeFooterLines,
   renderBrunchChrome,
-} from '../extensions/chrome.js';
+} from '../extensions/chrome/index.js';
 
 describe('Brunch chrome projection', () => {
   it('uses activated session state instead of fabricating unbound', async () => {
     const state = chromeStateForWorkspace(readyWorkspace('/tmp/project', 'session-real'));
 
-    expect(formatBrunchChromeHeaderLines(state).join('\n')).toContain('session-real');
+    expect(state.session.id).toBe('session-real');
   });
 
   it('populates session.label from workspace session name when available', () => {
@@ -22,31 +20,16 @@ describe('Brunch chrome projection', () => {
     const state = chromeStateForWorkspace(workspace);
 
     expect(state.session.label).toBe('My spec — session 1');
-    expect(formatBrunchChromeHeaderLines(state).join('\n')).toContain('My spec — session 1');
   });
 
-  it('formats chrome header as wordmark plus runtime-state summary', async () => {
-    const state = {
-      cwd: '/tmp/project',
-      spec: { id: 1, title: 'Spec One' },
-      session: { id: 'session-1', label: 'Interview #1' },
-      phase: 'elicitation' as const,
-      chatMode: 'responding-to-elicitation' as const,
-      runtime: {
-        bundle: 'elicit-default',
-        role: 'elicitor',
-        model: 'claude-sonnet',
-        thinking: 'medium',
-        lens: 'intent',
-      },
-    };
+  it('uses discovered workspace project identity when the coordinator supplies it', () => {
+    const workspace = readyWorkspace('/tmp/project', 'session-abc');
+    workspace.chrome.project = { name: 'Package App', slug: 'package-app' };
+    const state = chromeStateForWorkspace(workspace);
 
-    expect(formatBrunchChromeHeaderLines(state)).toEqual([
-      '█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █',
-      '█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█',
-      'runtime: elicit-default · role elicitor · claude-sonnet · thinking medium · lens intent',
-      'spec: Spec One · session: Interview #1 · phase: elicitation',
-    ]);
+    expect(projectBrunchChromeFooterLines(state)[2]).toBe(
+      'proj: Package App | spec: Spec One | mode: not reported | strategy: not reported | lens: not reported',
+    );
   });
 
   it('formats honest Brunch chrome from one product-state snapshot', async () => {
@@ -58,27 +41,11 @@ describe('Brunch chrome projection', () => {
       chatMode: 'responding-to-elicitation' as const,
     };
 
-    expect(formatBrunchChromeHeaderLines(state)).toEqual([
-      '█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █',
-      '█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█',
-      'runtime: not reported',
-      'spec: Spec One · session: Interview #1 · phase: elicitation',
-    ]);
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      'brunch · runtime: not reported · build: not reported',
-      'context: not reported',
-      'state: responding-to-elicitation · coherence: unknown · worker: not reported',
-      'spec: Spec One · session: Interview #1',
+      '/tmp/project  no model',
+      'no branch  ctx ──────────── ?% ?/0',
+      'proj: project | spec: Spec One | mode: not reported | strategy: not reported | lens: not reported',
       '',
-    ]);
-    expect(formatChromeWidgetLines(state)).toEqual([
-      'brunch: █▄▄ █▀█ █ █ █▄ █ █▀▀ █ █ / █▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█',
-      'cwd: /tmp/project',
-      'spec: Spec One',
-      'session: Interview #1',
-      'runtime: not reported',
-      'context: not reported',
-      'chat mode: responding-to-elicitation',
     ]);
   });
 
@@ -94,7 +61,7 @@ describe('Brunch chrome projection', () => {
         role: 'elicitor',
         model: 'claude-sonnet',
         thinking: 'medium',
-        lens: 'intent',
+        lens: 'intent' as const,
       },
       build: { version: 'v0.0.0', dev: 'dev abc123' },
       contextUsage: { usedTokens: 1024, maxTokens: 2048 },
@@ -103,13 +70,11 @@ describe('Brunch chrome projection', () => {
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      'brunch · runtime: elicit-default · role elicitor · claude-sonnet · thinking medium · lens intent · build: v0.0.0 dev abc123',
-      'context: [█████░░░░░] 1,024/2,048 tokens (50%)',
-      'state: responding-to-elicitation · coherence: needs_review · worker: observer-review/queued',
-      'spec: Spec One · session: Interview #1',
+      '/tmp/project  claude-sonnet • medium',
+      'no branch  ctx ━━━━━━────── 50% 1.0k/2.0k',
+      'proj: project | spec: Spec One | mode: not reported | strategy: not reported | lens: intent',
       '',
     ]);
-    expect(formatChromeWidgetLines(state)).toContain('context: [█████░░░░░] 1,024/2,048 tokens (50%)');
   });
 
   it('projects footer telemetry and foreign statuses without publishing a chrome status key', async () => {
@@ -139,11 +104,13 @@ describe('Brunch chrome projection', () => {
     ).join('\n');
 
     expect(footer).toContain('Spec One');
-    expect(footer).toContain('Interview #1');
     expect(footer).toContain('main');
     expect(footer).toContain('claude-sonnet');
-    expect(footer).toContain('thinking medium');
-    expect(footer).toContain('[█████░░░░░] 1,024/2,048 tokens (50%)');
+    expect(footer).toContain('medium');
+    expect(footer).toContain('ctx ━━━━━━────── 50% 1.0k/2.0k');
+    expect(footer).toContain(
+      'proj: project | spec: Spec One | mode: not reported | strategy: not reported | lens: not reported',
+    );
     expect(footer).toContain('reviewer queued');
     expect(footer).not.toContain('should not echo');
   });
@@ -168,23 +135,10 @@ describe('Brunch chrome projection', () => {
       chatMode: 'responding-to-elicitation',
     });
 
-    expect(calls.map((call) => call.method)).toEqual(['setHeader', 'setFooter', 'setWidget', 'setTitle']);
+    expect(calls.map((call) => call.method)).toEqual(['setFooter', 'setTitle']);
     expect(calls.find((call) => call.method === 'setFooter')?.args[0]).toEqual(expect.any(Function));
     expect(calls.some((call) => call.method === 'setStatus')).toBe(false);
-    expect(calls.find((call) => call.method === 'setWidget')?.args).toEqual([
-      'brunch.chrome',
-      [
-        'brunch: █▄▄ █▀█ █ █ █▄ █ █▀▀ █ █ / █▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█',
-        'cwd: /tmp/project',
-        'spec: Spec One',
-        'session: session-1',
-        'runtime: not reported',
-        'context: not reported',
-        'chat mode: responding-to-elicitation',
-      ],
-      { placement: 'aboveEditor' },
-    ]);
-    expect(calls.find((call) => call.method === 'setTitle')?.args).toEqual(['brunch — Spec One']);
+    expect(calls.find((call) => call.method === 'setTitle')?.args).toEqual(['brunch — project · Spec One']);
   });
 });
 

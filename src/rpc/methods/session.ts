@@ -4,13 +4,14 @@ import { Value } from 'typebox/value';
 import { captureStructuredResponseFacts } from '../../graph/capture/structured-response.js';
 import type { StructuredResponseCaptureOutcome } from '../../graph/capture/structured-response.js';
 import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
+import { projectSessionRuntimeState } from '../../projections/session/runtime-state.js';
+import { reviewSetProposalPayloadFromDetails } from '../../projections/structured-exchange/review-set-payload.js';
 import {
   readBrunchSessionEnvelope,
   NonLinearTranscriptError,
   type BrunchSessionEnvelope,
 } from '../../session/brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from '../../session/exchange-projection.js';
-import { projectSessionRuntimeState } from '../../session/runtime-state.js';
 import {
   resolveExplicitSessionProjectionTarget,
   type ExplicitSessionProjectionParams,
@@ -204,6 +205,22 @@ const ExchangeResponseParamsSchema = Type.Object(
         { optionIds: Type.Array(NonBlankStringSchema, { minItems: 1 }) },
         { additionalProperties: false },
       ),
+      Type.Object(
+        {
+          review: Type.Object(
+            {
+              decision: Type.Union([
+                Type.Literal('approve'),
+                Type.Literal('request_changes'),
+                Type.Literal('reject'),
+              ]),
+              comment: Type.Optional(Type.String()),
+            },
+            { additionalProperties: false },
+          ),
+        },
+        { additionalProperties: false },
+      ),
     ]),
     note: Type.Optional(Type.String()),
   },
@@ -236,12 +253,37 @@ const ExchangeResponseCaptureResultSchema = Type.Union([
   ),
 ]);
 
+const ExchangeResponseReviewResultSchema = Type.Union([
+  Type.Object(
+    {
+      status: Type.Literal('approved'),
+      lsn: PositiveIntegerSchema,
+      createdNodes: Type.Object({}, { additionalProperties: true }),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      status: Type.Union([Type.Literal('request_changes'), Type.Literal('rejected')]),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      status: Type.Literal('structural_illegal'),
+      diagnostics: Type.Array(Type.Object({}, { additionalProperties: true })),
+    },
+    { additionalProperties: false },
+  ),
+]);
+
 const ExchangeResponseResultSchema = Type.Object(
   {
     status: Type.Literal('accepted'),
     exchangeId: NonBlankStringSchema,
     answer: Type.Object({}, { additionalProperties: true }),
     capture: ExchangeResponseCaptureResultSchema,
+    review: Type.Optional(ExchangeResponseReviewResultSchema),
     note: Type.Optional(Type.String()),
   },
   { additionalProperties: false },
@@ -495,18 +537,41 @@ async function handleSubmitExchangeResponse(
   }
 
   const graph = await options.getGraphRuntime();
-  const capture = captureStructuredResponseFacts({
+  const review = reviewResultForAcceptedResponse({
+    pending,
+    acceptedAnswer: accepted.answer,
     specId: target.envelope.binding.specId,
-    exchangeId: pending.exchangeId,
-    answer: accepted.answer,
+    proposalEntryId: projectLinearSessionExchangeProjection(target.envelope).openPrompt?.promptEntryIds[0],
     commandExecutor: graph.commandExecutor,
   });
+  if (review?.status === 'structural_illegal') {
+    const result: ExchangeResponseResult = {
+      status: 'accepted',
+      exchangeId: pending.exchangeId,
+      answer: accepted.answer,
+      capture: { status: 'no_capture', reason: 'review responses do not run synchronous capture' },
+      review,
+      ...(params.note === undefined ? {} : { note: params.note }),
+    };
+    return createJsonRpcSuccess(requestId, result);
+  }
+
+  const capture =
+    review === undefined
+      ? captureStructuredResponseFacts({
+          specId: target.envelope.binding.specId,
+          exchangeId: pending.exchangeId,
+          answer: accepted.answer,
+          commandExecutor: graph.commandExecutor,
+        })
+      : { status: 'no_capture' as const, reason: 'review responses do not run synchronous capture' };
 
   const result: ExchangeResponseResult = {
     status: 'accepted',
     exchangeId: pending.exchangeId,
     answer: accepted.answer,
     capture,
+    ...(review === undefined ? {} : { review }),
     ...(params.note === undefined ? {} : { note: params.note }),
   };
 
@@ -514,9 +579,11 @@ async function handleSubmitExchangeResponse(
   flushSessionEntries(state.session.manager, state.session.file);
 
   publishSelectedSessionUpdates(options.productUpdates, state, target.envelope.binding.specId);
-  if (capture.status === 'captured') {
+  const mutationLsn =
+    review?.status === 'approved' ? review.lsn : capture.status === 'captured' ? capture.lsn : null;
+  if (mutationLsn !== null) {
     options.productUpdates?.publish(
-      graphMutationProductUpdates({ specId: target.envelope.binding.specId, lsn: capture.lsn }),
+      graphMutationProductUpdates({ specId: target.envelope.binding.specId, lsn: mutationLsn }),
     );
   }
   return createJsonRpcSuccess(requestId, result);
@@ -539,6 +606,63 @@ type SessionProjectionParamsParseResult =
       value: ExplicitSessionProjectionParams | null;
     }
   | { ok: false };
+
+function reviewResultForAcceptedResponse(options: {
+  readonly pending: PendingStructuredExchange;
+  readonly acceptedAnswer: Record<string, unknown>;
+  readonly specId: number;
+  readonly proposalEntryId?: string | undefined;
+  readonly commandExecutor: WorkspaceGraphRuntime['commandExecutor'];
+}):
+  | {
+      readonly status: 'approved';
+      readonly lsn: number;
+      readonly createdNodes: Record<string, unknown>;
+    }
+  | { readonly status: 'request_changes' | 'rejected' }
+  | { readonly status: 'structural_illegal'; readonly diagnostics: Record<string, unknown>[] }
+  | undefined {
+  const review = (options.acceptedAnswer as { review?: unknown }).review;
+  if (typeof review !== 'object' || review === null) return undefined;
+  if (options.pending.mode !== 'review' || options.pending.reviewSet === undefined) {
+    return {
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'review', message: 'no pending review set' }],
+    };
+  }
+
+  const decision = (review as { decision?: unknown }).decision;
+  if (decision === 'request_changes') return { status: 'request_changes' };
+  if (decision === 'reject') return { status: 'rejected' };
+  if (decision !== 'approve') {
+    return {
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'review.decision', message: 'invalid review decision' }],
+    };
+  }
+
+  const accepted = options.commandExecutor.acceptReviewSet({
+    specId: options.specId,
+    proposalEntryId: options.proposalEntryId,
+    payload: reviewSetProposalPayloadFromDetails({
+      exchangeId: options.pending.exchangeId,
+      heading: options.pending.prompt,
+      body: options.pending.details,
+      reviewSet: options.pending.reviewSet as never,
+    }),
+  });
+  if (accepted.status === 'structural_illegal') {
+    return {
+      status: 'structural_illegal',
+      diagnostics: accepted.diagnostics.map((diagnostic) => ({ ...diagnostic })),
+    };
+  }
+  return {
+    status: 'approved',
+    lsn: accepted.lsn,
+    createdNodes: accepted.createdNodes,
+  };
+}
 
 function parseSessionProjectionParams(value: unknown): SessionProjectionParamsParseResult {
   if (value === undefined) {

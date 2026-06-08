@@ -4,9 +4,10 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { composeAgentPrompt } from '../../agents/compose.js';
-import type { ReadinessGrade } from '../../agents/state.js';
 import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
+import { composeAgentPrompt } from '../agents/compose.js';
+import type { ReadinessGrade } from '../agents/state.js';
+import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -15,9 +16,8 @@ import {
   type BrunchAgentState,
   type BrunchAgentStateEntryData,
   registerBrunchOperationalModePolicy,
-} from '../extensions/operational-mode.js';
-import { registerBrunchPrompting } from '../extensions/prompting.js';
-import { createBrunchPiExtensionShell } from '../pi-extension-shell.js';
+} from '../extensions/runtime/index.js';
+import { registerBrunchPrompting } from '../extensions/system-prompts/index.js';
 
 function runtimeEntry(state: BrunchAgentState) {
   return {
@@ -203,7 +203,7 @@ describe('Brunch prompt-pack topology', () => {
       nodeTitles: ['Launch-only node'],
     };
 
-    await createBrunchPiExtensionShell(
+    await createBrunchPiExtensions(
       {
         cwd: '/tmp/brunch',
         chatMode: 'responding-to-elicitation',
@@ -302,6 +302,8 @@ describe('Brunch prompt-pack topology', () => {
           'request_answer',
           'request_choice',
           'request_choices',
+          'present_review_set',
+          'request_review',
           'read_graph',
           'commit_graph',
         ].map((name) => ({ name })),
@@ -374,6 +376,8 @@ describe('Brunch prompt-pack topology', () => {
         'request_answer',
         'request_choice',
         'request_choices',
+        'present_review_set',
+        'request_review',
         'read_graph',
         'commit_graph',
       ],
@@ -393,6 +397,8 @@ describe('Brunch prompt-pack topology', () => {
         'request_answer',
         'request_choice',
         'request_choices',
+        'present_review_set',
+        'request_review',
         'read_graph',
         'commit_graph',
       ],
@@ -405,7 +411,7 @@ describe('Brunch prompt-pack topology', () => {
     });
     expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining(
-        '- active tools: read, grep, present_options, request_answer, request_choice, request_choices, read_graph, commit_graph',
+        '- active tools: read, grep, present_options, request_answer, request_choice, request_choices, present_review_set, request_review, read_graph, commit_graph',
       ),
     });
     expect(defaultPrompt).toMatchObject({
@@ -425,7 +431,10 @@ describe('Brunch prompt-pack topology', () => {
           on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
             events[event] = handler;
           },
-          getAllTools: () => ['read', 'grep', 'read_graph', 'commit_graph'].map((name) => ({ name })),
+          getAllTools: () =>
+            ['read', 'grep', 'read_graph', 'commit_graph', 'present_review_set', 'request_review'].map(
+              (name) => ({ name }),
+            ),
           setActiveTools: (tools: string[]) => activeTools.push(tools),
         } as never,
         {
@@ -445,13 +454,15 @@ describe('Brunch prompt-pack topology', () => {
 
     await expect(activeToolsForGrade('grounding_onboarding')).resolves.not.toContain('commit_graph');
     await expect(activeToolsForGrade('elicitation_ready')).resolves.toContain('commit_graph');
+    await expect(activeToolsForGrade('elicitation_ready')).resolves.not.toContain('present_review_set');
+    await expect(activeToolsForGrade('commitments_ready')).resolves.toContain('present_review_set');
   });
 
   it('is registered by the explicit shell after operational-mode policy and appends composed manifests', async () => {
     const eventNames: string[] = [];
     const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
 
-    await createBrunchPiExtensionShell(
+    await createBrunchPiExtensions(
       {
         cwd: '/tmp/brunch',
         chatMode: 'responding-to-elicitation',
@@ -519,7 +530,7 @@ describe('Brunch prompt-pack topology', () => {
   it('proves transcript-backed strategy and lens switches change product prompt posture', async () => {
     const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
 
-    await createBrunchPiExtensionShell(
+    await createBrunchPiExtensions(
       {
         cwd: '/tmp/brunch',
         chatMode: 'responding-to-elicitation',
@@ -604,8 +615,8 @@ describe('Brunch prompt-pack topology', () => {
 
   it('does not expose prompt manifests through Pi resource discovery or legacy context imports', async () => {
     const [promptingSource, shellSource] = await Promise.all([
-      readFile(join(projectRoot(), 'src/.pi/extensions/prompting.ts'), 'utf8'),
-      readFile(join(projectRoot(), 'src/.pi/pi-extension-shell.ts'), 'utf8'),
+      readFile(join(projectRoot(), 'src/.pi/extensions/system-prompts/index.ts'), 'utf8'),
+      readFile(join(projectRoot(), 'src/.pi/brunch-pi-extensions.ts'), 'utf8'),
     ]);
 
     expect(promptingSource).not.toContain('resources_discover');

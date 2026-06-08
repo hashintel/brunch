@@ -1,0 +1,47 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'IBM Plex Sans', 'Aptos', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+  --color-brunch-ink: #17130d;
+  --color-brunch-paper: #f8f2e7;
+  --color-brunch-card: #fffaf0;
+  --color-brunch-rule: #d8c6a6;
+  --color-brunch-muted: #756852;
+  --color-brunch-accent: #d35c2f;
+  --color-brunch-graph: #246a73;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    font-family: var(--font-sans);
+    background: var(--color-brunch-paper);
+  }
+
+  body {
+    min-width: 320px;
+    margin: 0;
+    background:
+      radial-gradient(circle at top left, rgb(211 92 47 / 0.16), transparent 32rem),
+      linear-gradient(135deg, #fbf4e8 0%, #f3e6cf 48%, #eee0c8 100%);
+    color: var(--color-brunch-ink);
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid var(--color-brunch-graph);
+    outline-offset: 3px;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+}
