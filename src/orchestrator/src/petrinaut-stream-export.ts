@@ -184,7 +184,7 @@ export function eventToTransitionFiring(
     firing: {
       transitionId: event.transitionName,
       input: { ...preMarking },
-      output: nextMarking,
+      output: { ...nextMarking },
       ts: event.ts,
     },
     nextMarking,
@@ -309,7 +309,7 @@ export function synthesizeRunStatusFiring(
   const place = runStatusPlace(terminalKind);
   const nextMarking = applyMarkingDelta(preMarking, {}, { [place]: 1 });
   return {
-    firing: { transitionId: RUN_FINISH_TRANSITION, input: { ...preMarking }, output: nextMarking, ts },
+    firing: { transitionId: RUN_FINISH_TRANSITION, input: { ...preMarking }, output: { ...nextMarking }, ts },
     nextMarking,
   };
 }

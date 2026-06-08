@@ -152,6 +152,30 @@ describe('createPetrinautStreamBus — frame translation (pre-subscribed)', () =
     expect(firings[3]!.firing.output).toEqual({ middle: 1, dst: 1, 'run:halted': 1 });
   });
 
+  it('does not let delivered firing outputs mutate the bus marking', () => {
+    const bus = createPetrinautStreamBus({ runId: 'run-bus', sdcpnFile });
+    const frames: BrunchExecutionExportFrame[] = [];
+    bus.subscribe((f) => frames.push(f));
+
+    bus.publish(initialEvent);
+    bus.publish(consumeA);
+    const firstFiring = frames.find(
+      (f): f is Extract<BrunchExecutionExportFrame, { kind: 'transition_firing' }> =>
+        f.kind === 'transition_firing',
+    );
+    expect(firstFiring).toBeDefined();
+
+    firstFiring!.firing.output.src = 99;
+    firstFiring!.firing.output.middle = 99;
+
+    bus.publish(consumeB);
+    const firings = frames.filter(
+      (f): f is Extract<BrunchExecutionExportFrame, { kind: 'transition_firing' }> =>
+        f.kind === 'transition_firing',
+    );
+    expect(firings[1]!.firing.input).toEqual({ src: 1, middle: 1 });
+  });
+
   it('emits exactly one definition frame even if subscribe is called before any publish', () => {
     const bus = createPetrinautStreamBus({ runId: 'run-bus', sdcpnFile });
     const frames: BrunchExecutionExportFrame[] = [];
