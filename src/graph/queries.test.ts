@@ -19,6 +19,7 @@ import {
   getGraphSliceByKinds,
   getGraphSliceByReadinessBands,
   getNodeNeighborhood,
+  getNodes,
   getRelatedNodes,
   getOpenReconciliationNeeds,
 } from './queries.js';
@@ -170,7 +171,7 @@ describe('getGraphOverview', () => {
     expect(activeTitles).not.toContain('R_offline_v0');
     expect(activeOverview.edges).toHaveLength(0);
 
-    const truthOverview = getGraphOverview(db, specId, { projection: 'graph_truth' });
+    const truthOverview = getGraphOverview(db, specId, { show: 'all' });
     expect(truthOverview.nodes.map((n) => n.title)).toEqual(
       expect.arrayContaining(['R_offline_v0', 'R_offline_v1']),
     );
@@ -220,7 +221,7 @@ describe('graph slice readers', () => {
 
     const activeSlice = getGraphSliceByKinds(db, specId, {
       kinds: ['requirement', 'assumption'],
-      projection: 'active_context',
+      show: 'active',
     });
     expect(activeSlice.nodes.map((node) => node.title).sort()).toEqual(['A1', 'R_v1']);
     expect(activeSlice.edges).toHaveLength(1);
@@ -228,7 +229,7 @@ describe('graph slice readers', () => {
 
     const truthSlice = getGraphSliceByKinds(db, specId, {
       kinds: ['requirement'],
-      projection: 'graph_truth',
+      show: 'all',
     });
     expect(truthSlice.nodes.map((node) => node.title).sort()).toEqual(['R_v0', 'R_v1']);
     expect(truthSlice.edges.map((edge) => edge.category)).toEqual(['supersession']);
@@ -269,13 +270,13 @@ describe('graph slice readers', () => {
 
     const activeSlice = getGraphSliceByReadinessBands(db, specId, {
       readinessBands: ['grounding', 'elicitation'],
-      projection: 'active_context',
+      show: 'active',
     });
     expect(activeSlice.nodes.map((node) => node.title).sort()).toEqual(['Current requirement', 'Term node']);
 
     const truthSlice = getGraphSliceByReadinessBands(db, specId, {
       readinessBands: ['commitment'],
-      projection: 'graph_truth',
+      show: 'all',
     });
     expect(truthSlice.nodes.map((node) => node.title).sort()).toEqual([
       'Current requirement',
@@ -328,7 +329,7 @@ describe('graph slice readers', () => {
       kinds: ['thesis'],
       absentEdgeCategory: 'proof',
       direction: 'incoming',
-      projection: 'active_context',
+      show: 'active',
     });
     expect(thesisGaps.nodes.map((node) => node.title)).toEqual(['Unproven thesis']);
 
@@ -336,7 +337,7 @@ describe('graph slice readers', () => {
       kinds: ['evidence'],
       absentEdgeCategory: 'proof',
       direction: 'outgoing',
-      projection: 'active_context',
+      show: 'active',
     });
     expect(outgoingEvidenceGaps.nodes.map((node) => node.title)).toEqual(['Replacement evidence']);
 
@@ -344,7 +345,7 @@ describe('graph slice readers', () => {
       readinessBands: ['grounding'],
       absentEdgeCategory: 'proof',
       direction: 'incoming',
-      projection: 'active_context',
+      show: 'active',
     });
     expect(activeTermGaps.nodes.map((node) => node.title).sort()).toEqual([
       'Supported term',
@@ -356,7 +357,7 @@ describe('graph slice readers', () => {
       kinds: ['term'],
       absentEdgeCategory: 'proof',
       direction: 'incoming',
-      projection: 'graph_truth',
+      show: 'all',
     });
     expect(truthTermGaps.nodes.map((node) => node.title)).toEqual(['Unproved term']);
   });
@@ -367,6 +368,69 @@ describe('graph slice readers', () => {
       absentEdgeCategory: 'proof',
     });
     expect(gaps).toMatchObject({ nodes: [], edges: [], nodeCount: 0, edgeCount: 0, lsn: 0 });
+  });
+});
+
+describe('getNodes', () => {
+  let db: BrunchDb;
+  let executor: CommandExecutor;
+  let specId: number;
+
+  beforeEach(() => {
+    db = createTestDb();
+    executor = new CommandExecutor(db);
+    db.insert(specs)
+      .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
+      .run();
+    specId = db.select({ id: specs.id }).from(specs).get()!.id;
+    db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
+  });
+
+  it('resolves ids and codes in selector order with hops defaulting to node lookup only', () => {
+    const batch = executor.commitGraph({
+      specId,
+      nodes: [
+        { ref: 'g1', plane: 'intent', kind: 'goal', title: 'Goal' },
+        { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'Requirement' },
+      ],
+      edges: [{ category: 'dependency', source: 'g1', target: 'r1' }],
+    });
+    expect(batch.status).toBe('success');
+    if (batch.status !== 'success') throw new Error('unreachable');
+
+    const results = getNodes(db, specId, [{ code: 'G1' }, { id: batch.createdNodes['r1']!.id }]);
+
+    expect(results.map((result) => result.status)).toEqual(['found', 'found']);
+    expect(results[0]).toMatchObject({ selector: { code: 'G1' }, node: { title: 'Goal' } });
+    expect(results[1]).toMatchObject({
+      selector: { id: batch.createdNodes['r1']!.id },
+      node: { title: 'Requirement' },
+    });
+    expect(results[0]!.status === 'found' ? results[0]!.related : []).toEqual([]);
+    expect(results[0]!.status === 'found' ? results[0]!.edges : []).toEqual([]);
+  });
+
+  it('returns per-node related context when hops is requested', () => {
+    const batch = executor.commitGraph({
+      specId,
+      nodes: [
+        { ref: 'g1', plane: 'intent', kind: 'goal', title: 'Goal' },
+        { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'Requirement' },
+      ],
+      edges: [{ category: 'dependency', source: 'g1', target: 'r1' }],
+    });
+    expect(batch.status).toBe('success');
+    if (batch.status !== 'success') throw new Error('unreachable');
+
+    const [result] = getNodes(db, specId, [{ code: 'G1' }], { hops: 1 });
+
+    expect(result).toMatchObject({ status: 'found', node: { title: 'Goal' } });
+    expect(result?.status === 'found' ? result.related.map((node) => node.title) : []).toEqual([
+      'Requirement',
+    ]);
+    expect(result?.status === 'found' ? result.edges.map((edge) => edge.category) : []).toEqual([
+      'dependency',
+    ]);
   });
 });
 
@@ -594,7 +658,7 @@ describe('getRelatedNodes', () => {
     expect(incoming.relatedNodes.map((node) => node.title)).toEqual(['Direct assumption']);
   });
 
-  it('omits superseded related nodes in active_context but includes them in graph_truth', () => {
+  it('omits superseded related nodes in active reads but includes them in all reads', () => {
     const legacy = executor.createNode({
       specId,
       plane: 'intent',
@@ -623,7 +687,7 @@ describe('getRelatedNodes', () => {
       anchorIds: [batch.createdNodes['g1']!.id],
       edgeCategory: 'support',
       direction: 'outgoing',
-      projection: 'active_context',
+      show: 'active',
     });
     expect(active.status).toBe('success');
     if (active.status !== 'success') throw new Error('unreachable');
@@ -633,7 +697,7 @@ describe('getRelatedNodes', () => {
       anchorIds: [batch.createdNodes['g1']!.id],
       edgeCategory: 'support',
       direction: 'outgoing',
-      projection: 'graph_truth',
+      show: 'all',
     });
     expect(truth.status).toBe('success');
     if (truth.status !== 'success') throw new Error('unreachable');

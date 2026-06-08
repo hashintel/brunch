@@ -163,7 +163,7 @@ describe('graph tool schemas', () => {
       Value.Check(ReadGraphParams, {
         mode: 'list_by_kind',
         kinds: ['goal', 'requirement'],
-        projection: 'graph_truth',
+        show: 'all',
       }),
     ).toBe(true);
     expect(
@@ -528,9 +528,9 @@ describe('graph tools end-to-end', () => {
       - edges: none"
     `);
     expect(result.details).toMatchObject({
-      status: 'success',
-      anchor: { title: 'Tool-visible goal' },
-      neighbors: [],
+      status: 'found',
+      node: { title: 'Tool-visible goal' },
+      related: [],
       edges: [],
     });
   });
@@ -570,7 +570,7 @@ describe('graph tools end-to-end', () => {
     const kindResult = (await tools.get('read_graph')!.execute('read-kind', {
       mode: 'list_by_kind',
       kinds: ['requirement'],
-      projection: 'graph_truth',
+      show: 'all',
     })) as {
       content: Array<{ type: 'text'; text: string }>;
       details: unknown;
@@ -687,7 +687,7 @@ describe('graph tools end-to-end', () => {
       kinds: ['term'],
       absentEdgeCategory: 'proof',
       direction: 'incoming',
-      projection: 'graph_truth',
+      show: 'all',
     })) as {
       content: Array<{ type: 'text'; text: string }>;
       details: unknown;

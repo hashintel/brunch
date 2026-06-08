@@ -15,8 +15,10 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { CommandExecutor } from '../../../graph/command-executor.js';
 import type {
   GraphOverview,
-  GraphProjection,
+  GraphShow,
   NeighborhoodResult,
+  NodeReadResult,
+  NodeSelector,
   RelatedDirection,
   GraphGapsOptions,
   RelatedNodesResult,
@@ -39,13 +41,11 @@ import { CommitGraphParams, ReadGraphParams } from './tool-schemas.js';
 
 /** Pre-bound graph reads so the extension never touches db/ directly. */
 export interface GraphReaders {
-  readonly getGraphOverview: (options?: { projection?: GraphProjection }) => GraphOverview;
-  readonly getGraphSliceByKinds: (options: {
-    projection?: GraphProjection;
-    kinds: readonly string[];
-  }) => GraphOverview;
+  readonly getOverview?: (options?: { show?: GraphShow }) => GraphOverview;
+  readonly getGraphOverview: (options?: { show?: GraphShow }) => GraphOverview;
+  readonly getGraphSliceByKinds: (options: { show?: GraphShow; kinds: readonly string[] }) => GraphOverview;
   readonly getGraphSliceByReadinessBands: (options: {
-    projection?: GraphProjection;
+    show?: GraphShow;
     readinessBands: readonly string[];
   }) => GraphOverview;
   readonly getGraphGaps: (options: GraphGapsOptions) => GraphOverview;
@@ -54,11 +54,15 @@ export interface GraphReaders {
     edgeCategory: GraphOverview['edges'][number]['category'];
     direction?: RelatedDirection;
     hops?: number;
-    projection?: GraphProjection;
+    show?: GraphShow;
   }) => RelatedNodesResult;
+  readonly getNodes?: (
+    selectors: readonly NodeSelector[],
+    options?: { hops?: number; show?: GraphShow },
+  ) => readonly NodeReadResult[];
   readonly getNodeNeighborhood: (
     nodeId: number,
-    options?: { hops?: number; projection?: GraphProjection },
+    options?: { hops?: number; show?: GraphShow },
   ) => NeighborhoodResult;
   readonly resolveNodeCode: (code: string) => number | undefined;
 }
@@ -143,6 +147,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
       let details:
         | GraphOverview
         | NeighborhoodResult
+        | NodeReadResult
         | RelatedNodesResult
         | {
             readonly status: 'structural_illegal';
@@ -150,22 +155,20 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
           };
 
       if (params.mode === 'overview') {
-        const overview = reads.getGraphOverview(
-          params.projection != null ? { projection: params.projection } : undefined,
-        );
+        const overview = readOverview(reads, params.show != null ? { show: params.show } : undefined);
         text = formatGraphOverview(overview);
         details = overview;
       } else if (params.mode === 'list_by_kind') {
         const overview = reads.getGraphSliceByKinds({
           kinds: params.kinds ?? [],
-          ...(params.projection != null ? { projection: params.projection } : {}),
+          ...(params.show != null ? { show: params.show } : {}),
         });
         text = formatGraphOverview(overview, 'Graph slice by kind');
         details = overview;
       } else if (params.mode === 'list_by_band') {
         const overview = reads.getGraphSliceByReadinessBands({
           readinessBands: params.readinessBands ?? [],
-          ...(params.projection != null ? { projection: params.projection } : {}),
+          ...(params.show != null ? { show: params.show } : {}),
         });
         text = formatGraphOverview(overview, 'Graph slice by readiness band');
         details = overview;
@@ -199,7 +202,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
             ...(params.readinessBands != null ? { readinessBands: params.readinessBands } : {}),
             absentEdgeCategory: params.absentEdgeCategory,
             ...(params.direction != null ? { direction: params.direction } : {}),
-            ...(params.projection != null ? { projection: params.projection } : {}),
+            ...(params.show != null ? { show: params.show } : {}),
           });
           text = formatGraphOverview(overview, 'Graph gaps');
           details = overview;
@@ -232,7 +235,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
             edgeCategory: params.edgeCategory,
             ...(params.direction != null ? { direction: params.direction } : {}),
             ...(params.hops != null ? { hops: params.hops } : {}),
-            ...(params.projection != null ? { projection: params.projection } : {}),
+            ...(params.show != null ? { show: params.show } : {}),
           });
           text = formatRelatedNodesResult(related);
           details = related;
@@ -244,31 +247,16 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
         };
         text = formatStructuralIllegal(details);
       } else {
-        const nodeId = reads.resolveNodeCode(params.nodeCode);
-        if (nodeId === undefined) {
-          details = {
-            status: 'structural_illegal',
-            diagnostics: [
-              {
-                field: 'nodeCode',
-                message: `nodeCode ${params.nodeCode} does not resolve in the selected spec`,
-              },
-            ],
-          };
-          text = formatStructuralIllegal(details);
-        } else {
-          const neighborhood = reads.getNodeNeighborhood(
-            nodeId,
-            params.hops != null || params.projection != null
-              ? {
-                  ...(params.hops != null ? { hops: params.hops } : {}),
-                  ...(params.projection != null ? { projection: params.projection } : {}),
-                }
-              : undefined,
-          );
-          text = formatNeighborhood(projectNeighborhood(neighborhood));
-          details = neighborhood;
-        }
+        const nodeRead = readNodeContext(
+          reads,
+          { code: params.nodeCode },
+          {
+            hops: params.hops ?? 1,
+            ...(params.show != null ? { show: params.show } : {}),
+          },
+        );
+        text = formatNeighborhood(projectNeighborhood(nodeRead));
+        details = nodeRead;
       }
 
       return {
@@ -277,4 +265,35 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
       };
     },
   });
+}
+
+function readOverview(reads: GraphReaders, options?: { show?: GraphShow }): GraphOverview {
+  return (reads.getOverview ?? reads.getGraphOverview)(options);
+}
+
+function readNodeContext(
+  reads: GraphReaders,
+  selector: NodeSelector,
+  options: { hops?: number; show?: GraphShow },
+): NodeReadResult {
+  if (reads.getNodes) {
+    return (
+      reads.getNodes([selector], options)[0] ?? { selector, status: 'not_found', related: [], edges: [] }
+    );
+  }
+
+  const nodeId = 'id' in selector ? selector.id : reads.resolveNodeCode(selector.code);
+  if (nodeId === undefined) {
+    return { selector, status: 'not_found', related: [], edges: [] };
+  }
+  const neighborhood = reads.getNodeNeighborhood(nodeId, options);
+  return neighborhood.status === 'not_found'
+    ? { selector, status: 'not_found', related: [], edges: [] }
+    : {
+        selector,
+        status: 'found',
+        node: neighborhood.anchor,
+        related: neighborhood.neighbors,
+        edges: neighborhood.edges,
+      };
 }

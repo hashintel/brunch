@@ -16,7 +16,7 @@ import {
   INTENT_KINDS,
   ORACLE_KINDS,
   PLAN_KINDS,
-  type GraphProjection,
+  type GraphShow,
   type RelatedDirection,
 } from '../../../graph/index.js';
 
@@ -87,9 +87,9 @@ export const ReadGraphParams = {
   required: ['mode'],
   properties: {
     mode: { enum: ['overview', 'neighborhood', 'list_by_kind', 'list_by_band', 'related', 'gaps'] },
-    projection: {
-      enum: ['active_context', 'graph_truth'] satisfies readonly GraphProjection[],
-      description: 'Graph projection to read (default: active_context)',
+    show: {
+      enum: ['active', 'all'] satisfies readonly GraphShow[],
+      description: 'Graph visibility to read (default: active)',
     },
     nodeCode: {
       type: 'string',
@@ -133,22 +133,22 @@ export type ToolCommitNode = Static<typeof CommitNodeSchema>;
 export type ToolCommitEdge = Static<typeof CommitEdgeSchema>;
 export type ToolCommitGraphParams = Static<typeof CommitGraphParams>;
 export type ToolReadGraphParams =
-  | { readonly mode: 'overview'; readonly projection?: GraphProjection }
+  | { readonly mode: 'overview'; readonly show?: GraphShow }
   | {
       readonly mode: 'neighborhood';
       readonly nodeCode: string;
       readonly hops?: number;
-      readonly projection?: GraphProjection;
+      readonly show?: GraphShow;
     }
   | {
       readonly mode: 'list_by_kind';
       readonly kinds: readonly string[];
-      readonly projection?: GraphProjection;
+      readonly show?: GraphShow;
     }
   | {
       readonly mode: 'list_by_band';
       readonly readinessBands: readonly string[];
-      readonly projection?: GraphProjection;
+      readonly show?: GraphShow;
     }
   | {
       readonly mode: 'related';
@@ -156,7 +156,7 @@ export type ToolReadGraphParams =
       readonly edgeCategory: (typeof EDGE_CATEGORIES)[number];
       readonly direction?: RelatedDirection;
       readonly hops?: number;
-      readonly projection?: GraphProjection;
+      readonly show?: GraphShow;
     }
   | {
       readonly mode: 'gaps';
@@ -164,5 +164,5 @@ export type ToolReadGraphParams =
       readonly readinessBands?: readonly string[];
       readonly absentEdgeCategory: (typeof EDGE_CATEGORIES)[number];
       readonly direction?: RelatedDirection;
-      readonly projection?: GraphProjection;
+      readonly show?: GraphShow;
     };

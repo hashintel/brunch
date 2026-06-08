@@ -10,6 +10,7 @@ import {
   getGraphSliceByReadinessBands,
   getRelatedNodes,
   getNodeNeighborhood,
+  getNodes,
   resolveGraphNodeCode,
 } from './queries.js';
 import type {
@@ -18,8 +19,11 @@ import type {
   GraphGapsOptions,
   GraphSliceByKindsOptions,
   GraphSliceByReadinessBandsOptions,
+  GetNodesOptions,
   NeighborhoodOptions,
   NeighborhoodResult,
+  NodeReadResult,
+  NodeSelector,
   RelatedNodesOptions,
   RelatedNodesResult,
 } from './queries.js';
@@ -33,11 +37,16 @@ const DATA_DB_FILE = 'data.db';
  * spec's graph without ever needing to thread `specId` through every call.
  */
 export interface SpecScopedReaders {
+  readonly getOverview: (options?: GraphOverviewOptions) => GraphOverview;
   readonly getGraphOverview: (options?: GraphOverviewOptions) => GraphOverview;
   readonly getGraphSliceByKinds: (options: GraphSliceByKindsOptions) => GraphOverview;
   readonly getGraphSliceByReadinessBands: (options: GraphSliceByReadinessBandsOptions) => GraphOverview;
   readonly getGraphGaps: (options: GraphGapsOptions) => GraphOverview;
   readonly getRelatedNodes: (options: RelatedNodesOptions) => RelatedNodesResult;
+  readonly getNodes: (
+    selectors: readonly NodeSelector[],
+    options?: GetNodesOptions,
+  ) => readonly NodeReadResult[];
   readonly getNodeNeighborhood: (nodeId: number, options?: NeighborhoodOptions) => NeighborhoodResult;
   readonly resolveNodeCode: (code: string) => number | undefined;
 }
@@ -54,11 +63,13 @@ export async function openWorkspaceGraphRuntime(cwd: string): Promise<WorkspaceG
     commandExecutor: new CommandExecutor(db),
     forSpec(specId: number): SpecScopedReaders {
       return {
+        getOverview: (options) => getGraphOverview(db, specId, options),
         getGraphOverview: (options) => getGraphOverview(db, specId, options),
         getGraphSliceByKinds: (options) => getGraphSliceByKinds(db, specId, options),
         getGraphSliceByReadinessBands: (options) => getGraphSliceByReadinessBands(db, specId, options),
         getGraphGaps: (options) => getGraphGaps(db, specId, options),
         getRelatedNodes: (options) => getRelatedNodes(db, specId, options),
+        getNodes: (selectors, options) => getNodes(db, specId, selectors, options),
         getNodeNeighborhood: (nodeId, options) => getNodeNeighborhood(db, specId, nodeId, options),
         resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
       };

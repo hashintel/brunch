@@ -146,18 +146,18 @@ export function createBrunchAgentSessionRuntimeFactory({
       },
       commandExecutor: graph.commandExecutor,
       reads: {
-        getGraphOverview: (options?: { projection?: 'active_context' | 'graph_truth' }) =>
-          graph.forSpec(currentWorkspace.spec.id).getGraphOverview(options),
-        getGraphSliceByKinds: (options: {
-          projection?: 'active_context' | 'graph_truth';
-          kinds: readonly string[];
-        }) => graph.forSpec(currentWorkspace.spec.id).getGraphSliceByKinds(options),
+        getOverview: (options?: { show?: 'active' | 'all' }) =>
+          graph.forSpec(currentWorkspace.spec.id).getOverview(options),
+        getGraphOverview: (options?: { show?: 'active' | 'all' }) =>
+          graph.forSpec(currentWorkspace.spec.id).getOverview(options),
+        getGraphSliceByKinds: (options: { show?: 'active' | 'all'; kinds: readonly string[] }) =>
+          graph.forSpec(currentWorkspace.spec.id).getGraphSliceByKinds(options),
         getGraphSliceByReadinessBands: (options: {
-          projection?: 'active_context' | 'graph_truth';
+          show?: 'active' | 'all';
           readinessBands: readonly string[];
         }) => graph.forSpec(currentWorkspace.spec.id).getGraphSliceByReadinessBands(options),
         getGraphGaps: (options: {
-          projection?: 'active_context' | 'graph_truth';
+          show?: 'active' | 'all';
           kinds?: readonly string[];
           readinessBands?: readonly string[];
           absentEdgeCategory:
@@ -184,12 +184,14 @@ export function createBrunchAgentSessionRuntimeFactory({
             | 'supersession';
           direction?: 'outgoing' | 'incoming' | 'both';
           hops?: number;
-          projection?: 'active_context' | 'graph_truth';
+          show?: 'active' | 'all';
         }) => graph.forSpec(currentWorkspace.spec.id).getRelatedNodes(options),
-        getNodeNeighborhood: (
-          nodeId: number,
-          options?: { hops?: number; projection?: 'active_context' | 'graph_truth' },
-        ) => graph.forSpec(currentWorkspace.spec.id).getNodeNeighborhood(nodeId, options),
+        getNodes: (
+          selectors: readonly ({ id: number } | { code: string })[],
+          options?: { hops?: number; show?: 'active' | 'all' },
+        ) => graph.forSpec(currentWorkspace.spec.id).getNodes(selectors, options),
+        getNodeNeighborhood: (nodeId: number, options?: { hops?: number; show?: 'active' | 'all' }) =>
+          graph.forSpec(currentWorkspace.spec.id).getNodeNeighborhood(nodeId, options),
         resolveNodeCode: (code: string) => graph.forSpec(currentWorkspace.spec.id).resolveNodeCode(code),
       },
       ...(productUpdates ? { productUpdates } : {}),

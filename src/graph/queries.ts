@@ -30,8 +30,8 @@ import type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reco
 // Return types
 // ---------------------------------------------------------------------------
 
-/** Full-graph cursory overview. */
-export type GraphProjection = 'active_context' | 'graph_truth';
+/** Visibility policy for graph reads. */
+export type GraphShow = 'active' | 'all';
 
 /** Full-graph cursory overview. */
 export interface GraphOverview {
@@ -43,8 +43,31 @@ export interface GraphOverview {
 }
 
 export interface GraphOverviewOptions {
-  readonly projection?: GraphProjection;
+  readonly show?: GraphShow;
 }
+
+export type NodeSelector = { readonly id: number } | { readonly code: string };
+
+export interface GetNodesOptions {
+  /** Number of traversal hops from each found node. Defaults to 0. */
+  readonly hops?: number;
+  readonly show?: GraphShow;
+}
+
+export type NodeReadResult =
+  | {
+      readonly selector: NodeSelector;
+      readonly status: 'found';
+      readonly node: GraphNode;
+      readonly related: readonly GraphNode[];
+      readonly edges: readonly GraphEdge[];
+    }
+  | {
+      readonly selector: NodeSelector;
+      readonly status: 'not_found';
+      readonly related: readonly [];
+      readonly edges: readonly [];
+    };
 
 export interface GraphSliceByKindsOptions extends GraphOverviewOptions {
   readonly kinds: readonly string[];
@@ -97,7 +120,7 @@ export type RelatedNodesResult = RelatedNodesSuccess | NeighborhoodNotFound;
 export interface NeighborhoodOptions {
   /** Number of hops from the anchor node. Defaults to 1. */
   readonly hops?: number;
-  readonly projection?: GraphProjection;
+  readonly show?: GraphShow;
 }
 
 const DEFAULT_RELATED_HOPS = 1;
@@ -162,8 +185,8 @@ function getSupersededIds(db: BrunchDb, specId: number): Set<number> {
   return new Set(rows.map((r) => r.targetId));
 }
 
-function getProjectionState(db: BrunchDb, specId: number, projection: GraphProjection) {
-  const supersededIds = projection === 'active_context' ? getSupersededIds(db, specId) : new Set<number>();
+function getProjectionState(db: BrunchDb, specId: number, show: GraphShow) {
+  const supersededIds = show === 'active' ? getSupersededIds(db, specId) : new Set<number>();
   const allNodeRows = db.select().from(schema.nodes).where(eq(schema.nodes.spec_id, specId)).all();
   const visibleNodeRows = allNodeRows.filter((row) => !supersededIds.has(row.id));
   const visibleNodeIds = new Set(visibleNodeRows.map((row) => row.id));
@@ -174,14 +197,12 @@ function getProjectionState(db: BrunchDb, specId: number, projection: GraphProje
 
 function getProjectedEdges(
   edgeRows: readonly (typeof schema.edges.$inferSelect)[],
-  projection: GraphProjection,
+  show: GraphShow,
   visibleNodeIds: ReadonlySet<number>,
 ): GraphEdge[] {
   return edgeRows
     .filter(
-      (edge) =>
-        projection === 'graph_truth' ||
-        (visibleNodeIds.has(edge.source_id) && visibleNodeIds.has(edge.target_id)),
+      (edge) => show === 'all' || (visibleNodeIds.has(edge.source_id) && visibleNodeIds.has(edge.target_id)),
     )
     .map(rowToEdge);
 }
@@ -233,7 +254,7 @@ function getMatchingNodeIds(
 
 function buildGraphSlice(
   projectionState: ReturnType<typeof getProjectionState>,
-  projection: GraphProjection,
+  show: GraphShow,
   matchingNodeIds: ReadonlySet<number>,
 ): GraphOverview {
   const visibleNodeRows = projectionState.visibleNodeRows.filter((row) => matchingNodeIds.has(row.id));
@@ -242,11 +263,13 @@ function buildGraphSlice(
     (edge) => visibleNodeIds.has(edge.source_id) && visibleNodeIds.has(edge.target_id),
   );
 
+  const nodes = visibleNodeRows.map(rowToNode);
+  const edges = getProjectedEdges(edgeRows, show, visibleNodeIds);
   return {
-    nodes: visibleNodeRows.map(rowToNode),
-    edges: getProjectedEdges(edgeRows, projection, visibleNodeIds),
-    nodeCount: visibleNodeRows.length,
-    edgeCount: edgeRows.length,
+    nodes,
+    edges,
+    nodeCount: nodes.length,
+    edgeCount: edges.length,
     lsn: 0,
   };
 }
@@ -291,10 +314,10 @@ export function getGraphOverview(
   specId: number,
   options: GraphOverviewOptions = {},
 ): GraphOverview {
-  const projection = options.projection ?? 'active_context';
-  const projectionState = getProjectionState(db, specId, projection);
+  const show = options.show ?? 'active';
+  const projectionState = getProjectionState(db, specId, show);
   const nodes = projectionState.visibleNodeRows.map(rowToNode);
-  const edges = getProjectedEdges(projectionState.allEdgeRows, projection, projectionState.visibleNodeIds);
+  const edges = getProjectedEdges(projectionState.allEdgeRows, show, projectionState.visibleNodeIds);
 
   return withClock(db, specId, {
     nodes,
@@ -309,15 +332,15 @@ export function getGraphSliceByKinds(
   specId: number,
   options: GraphSliceByKindsOptions,
 ): GraphOverview {
-  const projection = options.projection ?? 'active_context';
-  const projectionState = getProjectionState(db, specId, projection);
+  const show = options.show ?? 'active';
+  const projectionState = getProjectionState(db, specId, show);
   const matchingNodeIds = getMatchingNodeIds(projectionState, { kinds: options.kinds });
 
   if (matchingNodeIds.size === 0) {
     return withClock(db, specId, { nodes: [], edges: [], nodeCount: 0, edgeCount: 0 });
   }
 
-  return withClock(db, specId, buildGraphSlice(projectionState, projection, matchingNodeIds));
+  return withClock(db, specId, buildGraphSlice(projectionState, show, matchingNodeIds));
 }
 
 export function getGraphSliceByReadinessBands(
@@ -325,8 +348,8 @@ export function getGraphSliceByReadinessBands(
   specId: number,
   options: GraphSliceByReadinessBandsOptions,
 ): GraphOverview {
-  const projection = options.projection ?? 'active_context';
-  const projectionState = getProjectionState(db, specId, projection);
+  const show = options.show ?? 'active';
+  const projectionState = getProjectionState(db, specId, show);
   const matchingNodeIds = getMatchingNodeIds(projectionState, {
     readinessBands: options.readinessBands,
   });
@@ -335,13 +358,13 @@ export function getGraphSliceByReadinessBands(
     return withClock(db, specId, { nodes: [], edges: [], nodeCount: 0, edgeCount: 0 });
   }
 
-  return withClock(db, specId, buildGraphSlice(projectionState, projection, matchingNodeIds));
+  return withClock(db, specId, buildGraphSlice(projectionState, show, matchingNodeIds));
 }
 
 export function getGraphGaps(db: BrunchDb, specId: number, options: GraphGapsOptions): GraphOverview {
-  const projection = options.projection ?? 'active_context';
+  const show = options.show ?? 'active';
   const direction = options.direction ?? 'both';
-  const projectionState = getProjectionState(db, specId, projection);
+  const projectionState = getProjectionState(db, specId, show);
   const baseNodeIds = getMatchingNodeIds(projectionState, {
     ...(options.kinds != null ? { kinds: options.kinds } : {}),
     ...(options.readinessBands != null ? { readinessBands: options.readinessBands } : {}),
@@ -374,7 +397,7 @@ export function getGraphGaps(db: BrunchDb, specId: number, options: GraphGapsOpt
   }
 
   const gapNodeIds = new Set([...baseNodeIds].filter((nodeId) => !nodesWithVisibleEdges.has(nodeId)));
-  return withClock(db, specId, buildGraphSlice(projectionState, projection, gapNodeIds));
+  return withClock(db, specId, buildGraphSlice(projectionState, show, gapNodeIds));
 }
 
 export function getRelatedNodes(
@@ -382,7 +405,7 @@ export function getRelatedNodes(
   specId: number,
   options: RelatedNodesOptions,
 ): RelatedNodesResult {
-  const projection = options.projection ?? 'active_context';
+  const show = options.show ?? 'active';
   const direction = options.direction ?? 'both';
   const hops = Math.max(
     DEFAULT_RELATED_HOPS,
@@ -399,7 +422,7 @@ export function getRelatedNodes(
     return { status: 'not_found' };
   }
 
-  const projectionState = getProjectionState(db, specId, projection);
+  const projectionState = getProjectionState(db, specId, show);
   const hiddenNodeIds = new Set(
     projectionState.allNodeRows
       .filter((row) => !projectionState.visibleNodeIds.has(row.id))
@@ -491,6 +514,100 @@ export function getRelatedNodes(
 }
 
 // ---------------------------------------------------------------------------
+// getNodes
+// ---------------------------------------------------------------------------
+
+export function getNodes(
+  db: BrunchDb,
+  specId: number,
+  selectors: readonly NodeSelector[],
+  options: GetNodesOptions = {},
+): readonly NodeReadResult[] {
+  return selectors.map((selector) => getOneNode(db, specId, selector, options));
+}
+
+function getOneNode(
+  db: BrunchDb,
+  specId: number,
+  selector: NodeSelector,
+  options: GetNodesOptions,
+): NodeReadResult {
+  const nodeId = 'id' in selector ? selector.id : resolveGraphNodeCode(db, specId, selector.code);
+  if (nodeId === undefined) {
+    return { selector, status: 'not_found', related: [], edges: [] };
+  }
+
+  const anchorRow = db
+    .select()
+    .from(schema.nodes)
+    .where(and(eq(schema.nodes.id, nodeId), eq(schema.nodes.spec_id, specId)))
+    .get();
+
+  if (!anchorRow) {
+    return { selector, status: 'not_found', related: [], edges: [] };
+  }
+
+  const show = options.show ?? 'active';
+  const hops = options.hops ?? 0;
+  const anchor = rowToNode(anchorRow);
+  const supersededIds = show === 'active' ? getSupersededIds(db, specId) : new Set<number>();
+  const visited = new Set<number>([nodeId]);
+  let frontier = new Set<number>([nodeId]);
+  const collectedEdgeIds = new Set<number>();
+
+  for (let hop = 0; hop < hops; hop++) {
+    if (frontier.size === 0) break;
+    const frontierArr = [...frontier];
+    const edgeRows = db
+      .select()
+      .from(schema.edges)
+      .where(
+        and(
+          eq(schema.edges.spec_id, specId),
+          or(inArray(schema.edges.source_id, frontierArr), inArray(schema.edges.target_id, frontierArr)),
+        ),
+      )
+      .all();
+
+    const nextFrontier = new Set<number>();
+    for (const edge of edgeRows) {
+      collectedEdgeIds.add(edge.id);
+      for (const peerId of [edge.source_id, edge.target_id]) {
+        if (!visited.has(peerId)) {
+          if (supersededIds.has(peerId) && peerId !== nodeId) continue;
+          visited.add(peerId);
+          nextFrontier.add(peerId);
+        }
+      }
+    }
+    frontier = nextFrontier;
+  }
+
+  const relatedIds = [...visited].filter((id) => id !== nodeId);
+  const visibleIds = new Set([nodeId, ...relatedIds]);
+  const related = relatedIds.length
+    ? db
+        .select()
+        .from(schema.nodes)
+        .where(and(inArray(schema.nodes.id, relatedIds), eq(schema.nodes.spec_id, specId)))
+        .all()
+        .map(rowToNode)
+    : [];
+  const edgeIds = [...collectedEdgeIds];
+  const edges = edgeIds.length
+    ? db
+        .select()
+        .from(schema.edges)
+        .where(and(eq(schema.edges.spec_id, specId), inArray(schema.edges.id, edgeIds)))
+        .all()
+        .filter((row) => show === 'all' || (visibleIds.has(row.source_id) && visibleIds.has(row.target_id)))
+        .map(rowToEdge)
+    : [];
+
+  return { selector, status: 'found', node: anchor, related, edges };
+}
+
+// ---------------------------------------------------------------------------
 // getNodeNeighborhood
 // ---------------------------------------------------------------------------
 
@@ -509,93 +626,18 @@ export function getNodeNeighborhood(
   nodeId: number,
   options?: NeighborhoodOptions,
 ): NeighborhoodResult {
-  const hops = options?.hops ?? 1;
-  const projection = options?.projection ?? 'active_context';
-
-  // Verify anchor exists in the requested spec
-  const anchorRow = db
-    .select()
-    .from(schema.nodes)
-    .where(and(eq(schema.nodes.id, nodeId), eq(schema.nodes.spec_id, specId)))
-    .get();
-
-  if (!anchorRow) {
+  const [result] = getNodes(db, specId, [{ id: nodeId }], {
+    hops: options?.hops ?? 1,
+    show: options?.show ?? 'active',
+  });
+  if (!result || result.status === 'not_found') {
     return { status: 'not_found' };
   }
-
-  const supersededIds = projection === 'active_context' ? getSupersededIds(db, specId) : new Set<number>();
-  const anchor = rowToNode(anchorRow);
-
-  // BFS traversal: collect reachable node ids within hop distance.
-  // Edges are spec-scoped, so endpoints discovered here are also spec-scoped.
-  const visited = new Set<number>([nodeId]);
-  let frontier = new Set<number>([nodeId]);
-  const collectedEdgeIds = new Set<number>();
-
-  for (let hop = 0; hop < hops; hop++) {
-    if (frontier.size === 0) break;
-
-    // Find all edges touching frontier nodes (within this spec)
-    const frontierArr = [...frontier];
-    const edgeRows = db
-      .select()
-      .from(schema.edges)
-      .where(
-        and(
-          eq(schema.edges.spec_id, specId),
-          or(inArray(schema.edges.source_id, frontierArr), inArray(schema.edges.target_id, frontierArr)),
-        ),
-      )
-      .all();
-
-    const nextFrontier = new Set<number>();
-    for (const edge of edgeRows) {
-      collectedEdgeIds.add(edge.id);
-      for (const peerId of [edge.source_id, edge.target_id]) {
-        if (!visited.has(peerId)) {
-          // Exclude superseded predecessors (unless it's the anchor)
-          if (supersededIds.has(peerId) && peerId !== nodeId) continue;
-          visited.add(peerId);
-          nextFrontier.add(peerId);
-        }
-      }
-    }
-    frontier = nextFrontier;
-  }
-
-  // Fetch neighbor nodes (exclude anchor) — restrict to same spec defensively
-  const neighborIds = [...visited].filter((id) => id !== nodeId);
-  const neighborNodes: GraphNode[] = [];
-  const visibleIds = new Set([nodeId, ...neighborIds]);
-  if (neighborIds.length > 0) {
-    const rows = db
-      .select()
-      .from(schema.nodes)
-      .where(and(inArray(schema.nodes.id, neighborIds), eq(schema.nodes.spec_id, specId)))
-      .all();
-    neighborNodes.push(...rows.map(rowToNode));
-  }
-
-  // Fetch collected edges
-  const edgeIdArr = [...collectedEdgeIds];
-  const edgeNodes: GraphEdge[] = [];
-  if (edgeIdArr.length > 0) {
-    const rows = db.select().from(schema.edges).where(inArray(schema.edges.id, edgeIdArr)).all();
-    edgeNodes.push(
-      ...rows
-        .filter(
-          (row) =>
-            projection === 'graph_truth' || (visibleIds.has(row.source_id) && visibleIds.has(row.target_id)),
-        )
-        .map(rowToEdge),
-    );
-  }
-
   return {
     status: 'success',
-    anchor,
-    neighbors: neighborNodes,
-    edges: edgeNodes,
+    anchor: result.node,
+    neighbors: result.related,
+    edges: result.edges,
   };
 }
 

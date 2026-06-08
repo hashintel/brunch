@@ -90,7 +90,7 @@ export async function inspectWorkspaceOverview(cwd: string): Promise<WorkspaceOv
       id: spec.id,
       title: spec.name,
       readinessGrade: spec.readinessGrade,
-      nodeCount: graph.forSpec(spec.id).getGraphOverview().nodeCount,
+      nodeCount: graph.forSpec(spec.id).getOverview().nodes.length,
     }))
     .sort((left, right) => left.title.localeCompare(right.title));
   const specsById = new Map(specs.map((spec) => [spec.id, spec]));

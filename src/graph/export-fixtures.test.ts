@@ -108,7 +108,7 @@ describe('exportSeedFixture', () => {
     expect(committed.status).toBe('success');
 
     const graphTruth = exportSeedFixture(db, { specId: created.specId });
-    const activeContext = exportSeedFixture(db, { specId: created.specId, projection: 'active_context' });
+    const activeContext = exportSeedFixture(db, { specId: created.specId, show: 'active' });
 
     expect(graphTruth.nodes.map((node) => node.title)).toEqual(['Old requirement', 'New requirement']);
     expect(graphTruth.edges).toHaveLength(1);

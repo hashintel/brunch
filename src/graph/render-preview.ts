@@ -6,7 +6,7 @@ import { createDb } from '../db/connection.js';
 import { projectNeighborhood } from '../projections/graph/neighborhood.js';
 import { formatNeighborhood } from '../renderers/graph/neighborhood.js';
 import { CommandExecutor } from './command-executor.js';
-import { getNodeNeighborhood, resolveGraphNodeCode } from './queries.js';
+import { getNodes } from './queries.js';
 import { seedFixture, type SeedFixture } from './seed-fixtures.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -24,15 +24,16 @@ export function renderNeighborhoodPreview(options: NeighborhoodPreviewOptions): 
   const db = createDb(':memory:');
   const executor = new CommandExecutor(db);
   const seeded = seedFixture(executor, fixture);
-  const anchorId = resolveGraphNodeCode(db, seeded.specId, options.anchorCode);
+  const neighborhood = getNodes(db, seeded.specId, [{ code: options.anchorCode }], {
+    hops: options.hops ?? 1,
+  })[0];
 
-  if (!anchorId) {
+  if (!neighborhood || neighborhood.status === 'not_found') {
     throw new Error(
       `renderNeighborhoodPreview: anchor code "${options.anchorCode}" not found in ${options.set}/${options.fixture}`,
     );
   }
 
-  const neighborhood = getNodeNeighborhood(db, seeded.specId, anchorId, { hops: options.hops ?? 1 });
   return formatNeighborhood(projectNeighborhood(neighborhood));
 }
 

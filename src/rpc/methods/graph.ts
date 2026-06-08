@@ -80,7 +80,7 @@ export const graphRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[] =
         return createJsonRpcFailure(requestId, -32602, 'Invalid params');
       }
       const graph = await context.getGraphRuntime();
-      return createJsonRpcSuccess(requestId, graph.forSpec(params.value.specId).getGraphOverview());
+      return createJsonRpcSuccess(requestId, graph.forSpec(params.value.specId).getOverview());
     },
   },
   {
