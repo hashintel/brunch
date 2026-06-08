@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "probeId": "capture-quality",
+  "runId": "2026-06-08-capture-quality-sample",
+  "generatedAt": "2026-06-08T09:44:38.831Z",
+  "cwd": "/Users/lunelson/Code/hashintel/brunch-next-chi",
+  "extractorName": "sample-llm-output",
+  "scenarioCount": 3,
+  "totals": {
+    "shouldCommitCount": 7,
+    "truePositiveCount": 7,
+    "missedShouldCommitCount": 0,
+    "falseCommitCount": 0,
+    "lowConfidenceImplicationCount": 3,
+    "precision": 1,
+    "recall": 1
+  },
+  "scenarioResults": [
+    {
+      "scenarioId": "free-prose-launch-goal",
+      "label": "Free prose with explicit acceptance facts",
+      "category": "free_prose",
+      "shouldCommitCount": 3,
+      "truePositiveCount": 3,
+      "missedShouldCommit": [],
+      "falseCommitCount": 0,
+      "falseCommits": [],
+      "lowConfidenceImplicationCount": 0,
+      "extractedFacts": [
+        {
+          "expectedId": "workspace-for-solo-developers",
+          "kind": "context",
+          "title": "The product is for solo developers working in a local spec workspace.",
+          "confidence": "high",
+          "evidence": "local spec workspace for solo developers"
+        },
+        {
+          "expectedId": "capture-goals-without-template",
+          "kind": "goal",
+          "title": "Capture project goals without forcing a rigid template.",
+          "confidence": "high",
+          "evidence": "should help capture project goals without forcing people into a rigid template"
+        },
+        {
+          "expectedId": "new-contributor-explains-problem",
+          "kind": "criterion",
+          "title": "A new contributor can read the graph and explain what problem the project solves.",
+          "confidence": "high",
+          "evidence": "Success means a new contributor can read the graph and explain what problem the project solves."
+        }
+      ]
+    },
+    {
+      "scenarioId": "file-ref-bearing-answer",
+      "label": "Answer grounded in a referenced file",
+      "category": "file_ref",
+      "shouldCommitCount": 3,
+      "truePositiveCount": 3,
+      "missedShouldCommit": [],
+      "falseCommitCount": 0,
+      "falseCommits": [],
+      "lowConfidenceImplicationCount": 1,
+      "extractedFacts": [
+        {
+          "expectedId": "prd-is-product-frame",
+          "kind": "context",
+          "title": "docs/architecture/prd.md is the product frame for this answer.",
+          "confidence": "high",
+          "evidence": "Use docs/architecture/prd.md as the product frame."
+        },
+        {
+          "expectedId": "graph-truth-sqlite-brunch",
+          "kind": "constraint",
+          "title": "Graph truth must stay in SQLite under .brunch.",
+          "confidence": "high",
+          "evidence": "The non-negotiable is that graph truth must stay in SQLite under .brunch"
+        },
+        {
+          "expectedId": "jsonl-ok-if-replay-recovers-exchanges",
+          "kind": "criterion",
+          "title": "JSONL transcript evidence is acceptable only if replay recovers structured exchange results.",
+          "confidence": "high",
+          "evidence": "transcript evidence can remain JSONL as long as replay can recover the structured exchange results"
+        },
+        {
+          "expectedId": "must-build-full-replay-engine-now",
+          "kind": "requirement",
+          "title": "Build a full replay engine immediately.",
+          "confidence": "low",
+          "evidence": "The answer names a replay condition, not an immediate build requirement."
+        }
+      ]
+    },
+    {
+      "scenarioId": "implication-heavy-no-overcommit",
+      "label": "Implication-heavy answer that should not over-commit",
+      "category": "implication_heavy",
+      "shouldCommitCount": 1,
+      "truePositiveCount": 1,
+      "missedShouldCommit": [],
+      "falseCommitCount": 0,
+      "falseCommits": [],
+      "lowConfidenceImplicationCount": 2,
+      "extractedFacts": [
+        {
+          "expectedId": "terminal-demo-preference-conditional",
+          "kind": "assumption",
+          "title": "The user may prefer the terminal view if the browser observer is confusing.",
+          "confidence": "low",
+          "evidence": "If the browser observer gets confusing, I might prefer the terminal view for the demo."
+        },
+        {
+          "expectedId": "web-helpful-if-fast",
+          "kind": "criterion",
+          "title": "The web graph is helpful only if it keeps up quickly enough.",
+          "confidence": "high",
+          "evidence": "The web graph is helpful, but only if it keeps up quickly enough."
+        },
+        {
+          "expectedId": "review-sets-in-poc",
+          "kind": "requirement",
+          "title": "Review sets belong in the POC story.",
+          "confidence": "low",
+          "evidence": "I have not decided whether review sets belong in the POC story."
+        }
+      ]
+    }
+  ],
+  "verdict": {
+    "a22ConfidenceShift": "positive: high-confidence capture separated commit-worthy facts from implications",
+    "recommendation": "graduate",
+    "summary": "A22-L is fit to graduate into a narrow generalized-capture frontier, preserving an explicit false-commit guard."
+  },
+  "artifacts": {
+    "runDir": "runs/capture-quality/2026-06-08-capture-quality-sample",
+    "scenariosJson": "runs/capture-quality/2026-06-08-capture-quality-sample/scenarios.json",
+    "extractionsJson": "runs/capture-quality/2026-06-08-capture-quality-sample/extractions.json",
+    "reportJson": "runs/capture-quality/2026-06-08-capture-quality-sample/report.json",
+    "verdictMarkdown": "runs/capture-quality/2026-06-08-capture-quality-sample/verdict.md"
+  }
+}
