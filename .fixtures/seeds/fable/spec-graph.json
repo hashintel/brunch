@@ -1,0 +1,140 @@
+{
+  "spec": {
+    "slug": "fable",
+    "name": "Fable (Vite-native component workbench)",
+    "readiness_grade": "planning_ready"
+  },
+  "nodes": [
+    { "local_id": 1, "plane": "intent", "kind": "goal", "title": "Build a Vite-native component workbench with a small deep core and explicit framework adapters", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 2, "plane": "intent", "kind": "goal", "title": "Let a user run the workbench against an unmodified Vite 8 config", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 3, "plane": "intent", "kind": "thesis", "title": "Delegating the hard parts to Vite 8 (Rolldown, Oxc, Environment API) beats wrapping it", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 4, "plane": "intent", "kind": "thesis", "title": "Thinness is measured by the Vite contact surface, not by LoC or feature count", "basis": "explicit", "source": "memory/SPEC.md" },
+
+    { "local_id": 5, "plane": "intent", "kind": "term", "title": "Ladle watermark", "basis": "explicit", "source": "memory/SPEC.md", "detail": { "definition": "The invariant bundle of Ladle behaviors the successor must preserve: canonical story identity, metadata coherence, URL-backed shell state, lazy story loading, preview/full-shell mode, provider/decorator/args semantics, metadata export, and optional capability gating." } },
+    { "local_id": 6, "plane": "intent", "kind": "term", "title": "Vite contact surface", "basis": "explicit", "source": "memory/SPEC.md", "detail": { "definition": "The enumerable set of Vite APIs, plugin hooks, config keys, and conventions the workbench depends on. The measurable dimension of 'thin'; tracked as a reviewable artifact in docs/vite-contact-surface.md.", "aliases": ["contact surface"] } },
+    { "local_id": 7, "plane": "intent", "kind": "term", "title": "Normalized story graph", "basis": "explicit", "source": "memory/SPEC.md", "detail": { "definition": "The canonical internal model of stories, identities, hierarchy, provenance, metadata, and lazy runtime handles, authoritative across dev runtime, build outputs, and metadata export." } },
+    { "local_id": 8, "plane": "intent", "kind": "term", "title": "Shell state", "basis": "explicit", "source": "memory/SPEC.md", "detail": { "definition": "URL-backed workbench UI state such as selected story, mode, theme, source visibility, width, and controls.", "aliases": ["shell"] } },
+    { "local_id": 9, "plane": "intent", "kind": "term", "title": "Capability plugin", "basis": "explicit", "source": "memory/SPEC.md", "detail": { "definition": "An optional shell feature layered over the story graph and shell state; disabled capabilities impose no bundle, startup, or conceptual cost.", "aliases": ["capability"] } },
+    { "local_id": 10, "plane": "intent", "kind": "term", "title": "False-thinness", "basis": "explicit", "source": "memory/SPEC.md", "detail": { "definition": "The anti-pattern of calling a tool a 'thin wrapper' while smuggling a full SPA, runtime, and shell through a plugin API. Thinness applies to the Vite contact surface, not to the workbench's own product scope." } },
+    { "local_id": 11, "plane": "intent", "kind": "term", "title": "No-React invariant", "basis": "explicit", "source": "memory/SPEC.md", "detail": { "definition": "The workbench depends on zero React packages; React is resolved at runtime from the user's node_modules, and static import of react/react-dom from product source is forbidden by ESLint and proven by a seed-check." } },
+
+    { "local_id": 12, "plane": "intent", "kind": "context", "title": "Vite 8 just shipped and Ladle does not integrate well with it", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 13, "plane": "intent", "kind": "context", "title": "The Vite framework-plugin ecosystem standardized on a thin-adapter-over-Vite pattern", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 14, "plane": "intent", "kind": "context", "title": "Ladle is treated as the characterization corpus and current-state recovery (companion liftout)", "basis": "explicit", "source": "memory/LIFTOUT.md" },
+
+    { "local_id": 15, "plane": "intent", "kind": "requirement", "title": "Workbench consumes user Vite config via Vite's own resolution primitives, with no hand-rolled merge", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 16, "plane": "intent", "kind": "requirement", "title": "Architecture is explicitly split into core, Vite host binding, and framework adapter responsibilities", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 17, "plane": "intent", "kind": "requirement", "title": "Story discovery produces stable canonical IDs, hierarchical navigation data, provenance, and metadata", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 18, "plane": "intent", "kind": "requirement", "title": "The shell is URL-backed and can reproduce selected story and shell state from the URL", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 19, "plane": "intent", "kind": "requirement", "title": "Provide a machine-readable manifest/metadata surface coherent with runtime story identity", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 20, "plane": "intent", "kind": "requirement", "title": "Optional capabilities can be enabled or disabled without becoming mandatory core cost", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 21, "plane": "intent", "kind": "requirement", "title": "Story transitions must not leak story-scoped controls or other transient story-local state", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 22, "plane": "intent", "kind": "requirement", "title": "Controls defaults come from the manifest, not from mod.args on the dynamically-imported story module", "basis": "explicit", "source": "memory/ROADMAP.md" },
+    { "local_id": 23, "plane": "intent", "kind": "requirement", "title": "Controls defaults are read client-side from the dynamically-imported story module's args export", "basis": "explicit", "source": "memory/ROADMAP.md" },
+
+    { "local_id": 24, "plane": "intent", "kind": "assumption", "title": "Vite 8's Rolldown, Oxc, and Environment API are sufficient to make a genuinely thin workbench possible", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 25, "plane": "intent", "kind": "assumption", "title": "Vite's single-environment composition primitives suffice to layer over arbitrary user configs (validated)", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 26, "plane": "intent", "kind": "assumption", "title": "Dev catalog reads can be memoized without making story metadata stale (validated)", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 27, "plane": "intent", "kind": "assumption", "title": "A normalized story graph can stay framework-agnostic even when authoring syntax is adapter-specific", "basis": "explicit", "source": "memory/SPEC.md" },
+
+    { "local_id": 28, "plane": "intent", "kind": "constraint", "title": "The workbench supports Vite 8.x only; Vite 5/6/7 are never supported", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 29, "plane": "intent", "kind": "constraint", "title": "No hand-rolled Vite config merging; insufficient primitives are filed upstream, not worked around", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 30, "plane": "intent", "kind": "constraint", "title": "The workbench depends on zero React packages, enforced at the import site", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 31, "plane": "intent", "kind": "constraint", "title": "Preserve the user's Vite root; do not relocate root into node_modules the way Ladle does", "basis": "explicit", "source": "memory/SPEC.md" },
+
+    { "local_id": 32, "plane": "intent", "kind": "invariant", "title": "core/ must not import host, adapter, or cli (Shape D internal boundary)", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 33, "plane": "intent", "kind": "invariant", "title": "Only the host mutates URL state; capabilities propose changes but cannot apply them", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 34, "plane": "intent", "kind": "invariant", "title": "Disabled capabilities are unreachable even by manual import", "basis": "explicit", "source": "memory/SPEC.md" },
+
+    { "local_id": 35, "plane": "intent", "kind": "decision", "title": "Adopt Shape D: single package with lint-enforced internal module split", "basis": "explicit", "source": "memory/SPEC.md", "detail": { "chosen_option": "One package (packages/fable/) with internal core/host/adapter/capabilities/cli directories whose import boundaries are ESLint-enforced", "rejected": ["Shape B monorepo of separate packages up front", "Flat single module with no enforced boundaries"], "rationale": "Single publish and one package.json keep shipping simple while lint boundaries keep the import graph already-correct for a future monorepo split." } },
+    { "local_id": 36, "plane": "intent", "kind": "decision", "title": "Compose user config through Vite's own primitives, not a merge layer", "basis": "explicit", "source": "memory/SPEC.md", "detail": { "chosen_option": "loadConfigFromFile to obtain the user config, spread into inline config passed to createServer with configFile:false, append workbench plugins, preserve user root", "rejected": ["Hand-rolled merge of user config and workbench config into a third object", "Relocating root into node_modules like Ladle"], "rationale": "Vite's resolver and plugin-composition rules keep the contact surface small and the workbench robust to Vite updates." } },
+    { "local_id": 37, "plane": "intent", "kind": "decision", "title": "Use a window-event protocol as the single host-capability seam", "basis": "explicit", "source": "memory/SPEC.md", "detail": { "chosen_option": "fable:story-change and fable:shell-mode-change (host to capability) plus fable:navigate-args (capability to host), with strict listen/dispatch asymmetry", "rejected": ["A shared shell-state module graph crossing the capability boundary", "Direct capability mutation of URL state"], "rationale": "Events are a single typed seam that keeps capabilities decoupled while only the host applies state changes." } },
+    { "local_id": 38, "plane": "intent", "kind": "decision", "title": "Map virtual ids to real on-disk files for static browser product code", "basis": "explicit", "source": "memory/SPEC.md", "detail": { "chosen_option": "Static browser modules (browser-entry, url-codec, each capability runtime) live as real .ts files whose virtual:fable/<id> resolves to the file path so Vite's TS transform runs", "rejected": ["Keep all browser code on the \\0virtual: escape hatch", "Inline everything as string templates"], "rationale": "Real files get type-checking and the default TS transform; only computed modules and the no-React adapter runtime stay string-template generators, a principled asymmetry." } },
+
+    { "local_id": 39, "plane": "intent", "kind": "criterion", "title": "A working Vite 8 React project runs the workbench with no config edits and sees its stories discovered, rendered, and navigable", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 40, "plane": "intent", "kind": "criterion", "title": "Dev, build, and preview manifests agree on identity, hierarchy, provenance, args defaults, and metadata", "basis": "explicit", "source": "memory/SPEC.md" },
+
+    { "local_id": 41, "plane": "intent", "kind": "example", "title": "A user with aliases, a CSS pipeline, a custom plugin, and define runs fable dev against their unmodified config", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 42, "plane": "intent", "kind": "example", "title": "A concurrent-render race where nav clicks outpace dynamic imports and two render() calls race on active", "basis": "explicit", "source": "memory/SPEC.md" },
+
+    { "local_id": 43, "plane": "oracle", "kind": "check", "title": "no-react-seed-check proves ESLint rejects a deliberate static import 'react' in product source", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 44, "plane": "oracle", "kind": "check", "title": "boundary-seed-check proves ESLint catches a deliberate core-imports-host violation", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 45, "plane": "oracle", "kind": "check", "title": "Static guard: manifest/catalog generation does not import or Vite-load story modules", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 46, "plane": "oracle", "kind": "check", "title": "Static guard: preview mode does not grow the documented Vite contact surface", "basis": "explicit", "source": "memory/SPEC.md" },
+
+    { "local_id": 47, "plane": "oracle", "kind": "validation_method", "title": "Playwright headless Chromium browser probes for end-to-end DOM behavior", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 48, "plane": "oracle", "kind": "validation_method", "title": "Mount-id marker convention: compare data-mount-id across URL changes to assert remount vs rerender", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 49, "plane": "oracle", "kind": "validation_method", "title": "Six-tier probe harness in tools/verify.ts: static, browser, dynamic, SSR, build, preview", "basis": "explicit", "source": "memory/SPEC.md" },
+
+    { "local_id": 50, "plane": "oracle", "kind": "evidence", "title": "vite-config-composition spike: 5 fixtures pass, no-merge audit passes, contact surface enumerated", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 51, "plane": "oracle", "kind": "evidence", "title": "Slice 5c probes: live preview-mode transition reconciliation and dev catalog freshness pass", "basis": "explicit", "source": "memory/ROADMAP.md" },
+
+    { "local_id": 52, "plane": "oracle", "kind": "obligation", "title": "docs/vite-contact-surface.md is reviewed at PR time; new Vite-internal dependencies require explicit justification", "basis": "explicit", "source": "memory/SPEC.md" },
+
+    { "local_id": 53, "plane": "design", "kind": "module", "title": "Workbench Core — normalized story graph, shell state, metadata contracts, capability orchestration", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 54, "plane": "design", "kind": "module", "title": "Vite Host Binding — integrates the core into Vite dev/build/preview", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 55, "plane": "design", "kind": "module", "title": "React Adapter — first concrete adapter; generator for the virtual:fable/adapter module", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 56, "plane": "design", "kind": "module", "title": "Controls capability plugin — capabilities/controls/runtime.ts", "basis": "explicit", "source": "memory/ROADMAP.md" },
+    { "local_id": 57, "plane": "design", "kind": "module", "title": "Source view capability plugin — renders #fable-source from manifest provenance", "basis": "explicit", "source": "memory/ROADMAP.md" },
+
+    { "local_id": 58, "plane": "design", "kind": "interface", "title": "Framework Adapter Contract (RenderProps, StoryMount, MountFn)", "basis": "explicit", "source": "memory/ROADMAP.md" },
+    { "local_id": 59, "plane": "design", "kind": "interface", "title": "Window-event capability protocol (fable:story-change / shell-mode-change / navigate-args)", "basis": "explicit", "source": "memory/SPEC.md" },
+
+    { "local_id": 60, "plane": "plan", "kind": "milestone", "title": "Walking skeleton: one React story rendered end-to-end against an unmodified config", "basis": "explicit", "source": "memory/ROADMAP.md" },
+    { "local_id": 61, "plane": "plan", "kind": "milestone", "title": "Manifest and metadata parity across dev, build, and preview", "basis": "explicit", "source": "memory/ROADMAP.md" },
+    { "local_id": 62, "plane": "plan", "kind": "milestone", "title": "Live shell mode and capability maturity", "basis": "explicit", "source": "memory/ROADMAP.md" },
+
+    { "local_id": 63, "plane": "plan", "kind": "frontier", "title": "Adapter contract plus capability-plugin model", "basis": "explicit", "source": "memory/ROADMAP.md" },
+    { "local_id": 64, "plane": "plan", "kind": "frontier", "title": "Ladle watermark gap audit", "basis": "explicit", "source": "memory/ROADMAP.md" },
+
+    { "local_id": 65, "plane": "plan", "kind": "slice", "title": "Vite config composition spike (5 fixtures, no-merge audit)", "basis": "explicit", "source": "memory/ROADMAP.md" },
+    { "local_id": 66, "plane": "plan", "kind": "slice", "title": "URL-backed preview mode", "basis": "explicit", "source": "memory/ROADMAP.md" },
+    { "local_id": 67, "plane": "plan", "kind": "slice", "title": "Source view capability", "basis": "explicit", "source": "memory/ROADMAP.md" }
+  ],
+  "edges": [
+    { "category": "dependency", "source_local_id": 2, "target_local_id": 15, "basis": "explicit", "rationale": "The unmodified-config goal depends on consuming user config through Vite's own primitives." },
+    { "category": "dependency", "source_local_id": 7, "target_local_id": 17, "basis": "explicit", "rationale": "Story discovery produces the normalized story graph, so the requirement depends on the graph definition." },
+    { "category": "dependency", "source_local_id": 54, "target_local_id": 53, "basis": "explicit", "rationale": "The Vite host binding consumes the core's normalized outputs." },
+    { "category": "dependency", "source_local_id": 55, "target_local_id": 58, "basis": "explicit", "rationale": "The React adapter depends on the framework adapter contract." },
+    { "category": "dependency", "source_local_id": 56, "target_local_id": 59, "basis": "explicit", "rationale": "The controls capability depends on the window-event protocol." },
+    { "category": "dependency", "source_local_id": 57, "target_local_id": 59, "basis": "explicit", "rationale": "The source-view capability depends on the window-event protocol." },
+
+    { "category": "realization", "source_local_id": 15, "target_local_id": 54, "basis": "explicit", "rationale": "The Vite host binding implements the no-merge config-consumption requirement." },
+    { "category": "realization", "source_local_id": 16, "target_local_id": 53, "basis": "explicit", "rationale": "The Workbench Core realizes the core/host/adapter split." },
+    { "category": "realization", "source_local_id": 17, "target_local_id": 53, "basis": "explicit", "rationale": "The core's story graph implements the canonical-discovery requirement." },
+    { "category": "realization", "source_local_id": 18, "target_local_id": 66, "basis": "explicit", "rationale": "The preview-mode slice establishes URL-backed shell state." },
+    { "category": "realization", "source_local_id": 19, "target_local_id": 61, "basis": "explicit", "rationale": "The manifest-parity milestone realizes the machine-readable manifest requirement." },
+    { "category": "realization", "source_local_id": 20, "target_local_id": 56, "basis": "explicit", "rationale": "The controls capability realizes the optional-capability requirement." },
+    { "category": "realization", "source_local_id": 21, "target_local_id": 55, "basis": "explicit", "rationale": "The React adapter implements no-leak story transitions via unmount/remount." },
+
+    { "category": "boundary", "source_local_id": 28, "target_local_id": 1, "basis": "explicit", "rationale": "The Vite-8-only constraint bounds how the workbench goal may be met." },
+    { "category": "boundary", "source_local_id": 29, "target_local_id": 15, "basis": "explicit", "rationale": "The no-merge constraint bounds the config-consumption requirement." },
+    { "category": "boundary", "source_local_id": 30, "target_local_id": 55, "basis": "explicit", "rationale": "The no-React constraint bounds how the React adapter may import React." },
+    { "category": "boundary", "source_local_id": 31, "target_local_id": 54, "basis": "explicit", "rationale": "The preserve-root constraint bounds how the host binding serves assets." },
+
+    { "category": "composition", "source_local_id": 60, "target_local_id": 65, "basis": "explicit", "rationale": "The walking-skeleton milestone contains the config-composition spike." },
+    { "category": "composition", "source_local_id": 62, "target_local_id": 66, "basis": "explicit", "rationale": "The live-shell milestone contains the preview-mode slice." },
+    { "category": "composition", "source_local_id": 62, "target_local_id": 67, "basis": "explicit", "rationale": "The live-shell milestone contains the source-view slice." },
+    { "category": "composition", "source_local_id": 63, "target_local_id": 56, "basis": "explicit", "rationale": "The adapter/capability frontier delivers the controls capability." },
+    { "category": "composition", "source_local_id": 63, "target_local_id": 58, "basis": "explicit", "rationale": "The adapter/capability frontier produces the adapter contract." },
+
+    { "category": "association", "source_local_id": 5, "target_local_id": 14, "basis": "explicit", "rationale": "The Ladle watermark term and the Ladle-as-corpus context are peer framings of the same prior art." },
+    { "category": "association", "source_local_id": 3, "target_local_id": 4, "basis": "explicit", "rationale": "The delegate-to-Vite thesis and the contact-surface thinness thesis are peer commitments." },
+    { "category": "association", "source_local_id": 10, "target_local_id": 4, "basis": "explicit", "rationale": "The false-thinness anti-pattern sharpens the contact-surface thinness thesis." },
+
+    { "category": "supersession", "source_local_id": 22, "target_local_id": 23, "basis": "explicit", "rationale": "Manifest-backed controls defaults supersede the earlier client-side mod.args reading." },
+
+    { "category": "proof", "source_local_id": 43, "target_local_id": 30, "stance": "for", "basis": "explicit", "rationale": "The no-React seed-check witnesses the zero-React-dependency constraint." },
+    { "category": "proof", "source_local_id": 44, "target_local_id": 32, "stance": "for", "basis": "explicit", "rationale": "The boundary seed-check witnesses the core-must-not-import-host invariant." },
+    { "category": "proof", "source_local_id": 45, "target_local_id": 19, "stance": "for", "basis": "explicit", "rationale": "The no-story-import guard witnesses manifest-generation independence." },
+    { "category": "proof", "source_local_id": 47, "target_local_id": 21, "stance": "for", "basis": "explicit", "rationale": "The Playwright probes witness no-leak story transitions." },
+    { "category": "proof", "source_local_id": 50, "target_local_id": 25, "stance": "for", "basis": "explicit", "rationale": "The config-composition spike witnesses the single-env composition assumption." },
+    { "category": "proof", "source_local_id": 51, "target_local_id": 26, "stance": "for", "basis": "explicit", "rationale": "The slice 5c probes witness the dev-catalog memoization-without-staleness assumption." },
+
+    { "category": "support", "source_local_id": 12, "target_local_id": 1, "stance": "for", "basis": "explicit", "rationale": "Vite 8's arrival and Ladle's poor fit motivate building the new workbench." },
+    { "category": "support", "source_local_id": 13, "target_local_id": 3, "stance": "for", "basis": "explicit", "rationale": "The ecosystem's thin-adapter pattern motivates the delegate-to-Vite thesis." },
+    { "category": "support", "source_local_id": 24, "target_local_id": 3, "stance": "for", "basis": "explicit", "rationale": "The Vite-8-is-sufficient assumption underwrites the delegate-to-Vite thesis." },
+    { "category": "support", "source_local_id": 2, "target_local_id": 15, "stance": "for", "basis": "explicit", "rationale": "The unmodified-config goal motivates the no-merge consumption requirement." },
+    { "category": "support", "source_local_id": 42, "target_local_id": 21, "stance": "against", "basis": "explicit", "rationale": "The latent concurrent-render race argues against the clean no-leak transition guarantee." }
+  ]
+}

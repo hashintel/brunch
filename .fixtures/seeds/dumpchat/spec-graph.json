@@ -1,0 +1,95 @@
+{
+  "spec": {
+    "slug": "dumpchat",
+    "name": "Dumpchat (chat-export browser extension spec graph)",
+    "readiness_grade": "commitments_ready"
+  },
+  "nodes": [
+    { "local_id": 1, "plane": "intent", "kind": "goal", "title": "Export AI chat conversations to a Markdown file from supported platforms", "basis": "explicit", "source": "README.md" },
+    { "local_id": 2, "plane": "intent", "kind": "goal", "title": "Keep new-platform support cheap: one primary selector plus text fallbacks per site", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 3, "plane": "intent", "kind": "thesis", "title": "Per-turn copy buttons are the only reliable, load-bearing selectors for extraction", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 4, "plane": "intent", "kind": "thesis", "title": "Index-based alternation from a user-first conversation reliably classifies turn roles", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 5, "plane": "intent", "kind": "term", "title": "copyButtonSelector", "basis": "explicit", "source": "docs/SPEC.md", "detail": { "definition": "The per-platform CSS selector matching each conversation turn's native copy button; the single required, load-bearing selector for extraction.", "aliases": ["copy button selector"] } },
+    { "local_id": 6, "plane": "intent", "kind": "term", "title": "SiteConfig", "basis": "explicit", "source": "docs/SPEC.md", "detail": { "definition": "The per-platform selector bundle (copy/message/title/edit selectors plus a conversation-path matcher) keyed by Site.", "aliases": ["site config"] } },
+    { "local_id": 7, "plane": "intent", "kind": "term", "title": "Diagnostic report", "basis": "explicit", "source": "README.md", "detail": { "definition": "The JSON health report produced by Verify Export, recording selector counts, extraction results, detected issues, and a health level.", "aliases": ["diagnostics report"] } },
+    { "local_id": 8, "plane": "intent", "kind": "context", "title": "Target platforms are ChatGPT, Claude, and Perplexity conversation pages", "basis": "explicit", "source": "README.md" },
+    { "local_id": 9, "plane": "intent", "kind": "context", "title": "Chat-platform DOMs change frequently and break structural selectors", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 10, "plane": "intent", "kind": "requirement", "title": "Extraction must succeed when copy buttons are present and fail clearly when they are absent", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 11, "plane": "intent", "kind": "requirement", "title": "Turn-level copy buttons must be separated from nested code-block copy buttons", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 12, "plane": "intent", "kind": "requirement", "title": "Each extracted turn must be classified as a user or assistant turn", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 13, "plane": "intent", "kind": "requirement", "title": "Clipboard capture must fall back to DOM text extraction when it fails", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 14, "plane": "intent", "kind": "requirement", "title": "Adding a platform must require only a working copyButtonSelector and text fallbacks", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 15, "plane": "intent", "kind": "requirement", "title": "Export must download Markdown with title, source URL, timestamp, and XML-style turn markers", "basis": "explicit", "source": "README.md" },
+    { "local_id": 16, "plane": "intent", "kind": "requirement", "title": "Verify Export must produce a downloadable JSON diagnostics report and an in-page health badge", "basis": "explicit", "source": "README.md" },
+    { "local_id": 17, "plane": "intent", "kind": "requirement", "title": "(Retired) Discard code-block copy buttons by testing button.closest(\"pre, code\")", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 18, "plane": "intent", "kind": "assumption", "title": "Conversations always start with a user turn", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 19, "plane": "intent", "kind": "assumption", "title": "Turn-level copy buttons sit at a consistent DOM depth across all matched buttons", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 20, "plane": "intent", "kind": "constraint", "title": "Prefer data-testid attributes; avoid Tailwind/utility classes as selectors", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 21, "plane": "intent", "kind": "constraint", "title": "Avoid deeply structural selectors that depend on nesting or sibling relationships", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 22, "plane": "intent", "kind": "invariant", "title": "Even-indexed copy buttons are user turns; odd-indexed are assistant turns", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 23, "plane": "intent", "kind": "invariant", "title": "The depth filter and alternation logic are platform-agnostic; only the copyButtonSelector and text fallbacks are platform-specific", "basis": "explicit", "source": "docs/SPEC.md" },
+    { "local_id": 24, "plane": "intent", "kind": "decision", "title": "Use native copy buttons as the primary extraction path", "basis": "explicit", "source": "docs/SPEC.md", "detail": { "chosen_option": "Extract turn text by clicking each turn's native copy button and reading the clipboard", "rejected": ["Scrape message DOM nodes as the primary path", "Call platform or private APIs"], "rationale": "Native copy actions are explicitly maintained by each platform and yield clean, canonical message text." } },
+    { "local_id": 25, "plane": "intent", "kind": "decision", "title": "Filter turn buttons by modal DOM depth instead of button.closest(\"pre, code\")", "basis": "explicit", "source": "docs/SPEC.md", "detail": { "chosen_option": "Keep copy buttons whose DOM depth is within a small tolerance of the modal depth across all matches", "rejected": ["Test each button with button.closest('pre, code')", "Maintain per-platform code-block exclusion selectors"], "rationale": "A platform-agnostic depth filter discards nested code-block copy buttons without brittle structural checks." } },
+    { "local_id": 26, "plane": "intent", "kind": "decision", "title": "Classify turn roles primarily by index alternation, with hints only confirming", "basis": "explicit", "source": "docs/SPEC.md", "detail": { "chosen_option": "Classify turns by button index parity (even=user, odd=assistant) and use platform hints only to confirm", "rejected": ["Rely on data-testid or aria role hints as the primary classifier"], "rationale": "Conversations always start with a user turn, so index parity is universal while hints are platform-specific and often absent." } },
+    { "local_id": 27, "plane": "intent", "kind": "criterion", "title": "On a supported page, every classified turn yields non-empty extracted text via clipboard or fallback", "basis": "explicit", "source": "projected" },
+    { "local_id": 28, "plane": "intent", "kind": "example", "title": "A code-block copy button nested deep inside an assistant response that must be discarded", "basis": "explicit", "source": "docs/SPEC.md" },
+
+    { "local_id": 29, "plane": "oracle", "kind": "check", "title": "extraction.test.ts: jsdom unit tests over filterByConsistentDepth and index alternation", "basis": "explicit", "source": "entrypoints/lib/dumpchat/extraction.test.ts" },
+    { "local_id": 30, "plane": "oracle", "kind": "validation_method", "title": "In-page Verify Export diagnostics run against a live conversation page", "basis": "explicit", "source": "README.md" },
+    { "local_id": 31, "plane": "oracle", "kind": "evidence", "title": "Downloaded diagnostics JSON (schema chat-export-diagnostics 1.0.0) with counts and health level", "basis": "explicit", "source": "README.md" },
+    { "local_id": 32, "plane": "oracle", "kind": "obligation", "title": "Selectors must be re-verified per platform after each frontend change", "basis": "explicit", "source": "projected" },
+
+    { "local_id": 33, "plane": "design", "kind": "module", "title": "dumpchat.content.ts — content script injecting UI and orchestrating export/verify", "basis": "explicit", "source": "entrypoints/dumpchat.content.ts" },
+    { "local_id": 34, "plane": "design", "kind": "module", "title": "lib/dumpchat/extraction.ts — four-step extraction and diagnostic report builder", "basis": "explicit", "source": "entrypoints/lib/dumpchat/extraction.ts" },
+    { "local_id": 35, "plane": "design", "kind": "module", "title": "lib/dumpchat/config.ts — SITE_CONFIG, detectSite, isConversationPage", "basis": "explicit", "source": "entrypoints/lib/dumpchat/config.ts" },
+    { "local_id": 36, "plane": "design", "kind": "module", "title": "lib/dumpchat/sites/* — per-platform site modules (chatgpt, claude, perplexity)", "basis": "explicit", "source": "entrypoints/lib/dumpchat/sites" },
+    { "local_id": 37, "plane": "design", "kind": "interface", "title": "SiteConfig — the per-platform selector-bundle type contract", "basis": "explicit", "source": "entrypoints/lib/dumpchat/types.ts" },
+
+    { "local_id": 38, "plane": "plan", "kind": "milestone", "title": "M1 — Core extraction loop across the three launch platforms", "basis": "explicit", "source": "projected" },
+    { "local_id": 39, "plane": "plan", "kind": "frontier", "title": "Platform-agnostic extraction core (depth filter + alternation + capture)", "basis": "explicit", "source": "projected" },
+    { "local_id": 40, "plane": "plan", "kind": "slice", "title": "filterByConsistentDepth modal-depth tolerance filter", "basis": "explicit", "source": "projected" },
+    { "local_id": 41, "plane": "plan", "kind": "slice", "title": "Clipboard capture with DOM-text fallback per turn", "basis": "explicit", "source": "projected" }
+  ],
+  "edges": [
+    { "category": "dependency", "source_local_id": 35, "target_local_id": 34, "basis": "explicit", "rationale": "extraction.ts depends on config.ts for detectSite and SITE_CONFIG." },
+    { "category": "dependency", "source_local_id": 34, "target_local_id": 33, "basis": "explicit", "rationale": "The content script depends on extraction.ts to collect export data." },
+    { "category": "dependency", "source_local_id": 37, "target_local_id": 36, "basis": "explicit", "rationale": "Per-platform site modules depend on the SiteConfig type contract." },
+    { "category": "dependency", "source_local_id": 5, "target_local_id": 10, "basis": "explicit", "rationale": "The extraction-works requirement depends on the copyButtonSelector concept." },
+    { "category": "dependency", "source_local_id": 19, "target_local_id": 25, "basis": "explicit", "rationale": "The modal-depth filter decision depends on the consistent-depth assumption." },
+    { "category": "dependency", "source_local_id": 18, "target_local_id": 26, "basis": "explicit", "rationale": "The index-alternation decision depends on the user-first assumption." },
+
+    { "category": "realization", "source_local_id": 10, "target_local_id": 34, "basis": "explicit", "rationale": "extraction.ts realizes the extraction-works requirement." },
+    { "category": "realization", "source_local_id": 16, "target_local_id": 34, "basis": "explicit", "rationale": "extraction.ts builds the diagnostic report, realizing the Verify Export requirement." },
+    { "category": "realization", "source_local_id": 23, "target_local_id": 34, "basis": "explicit", "rationale": "extraction.ts hosts the platform-agnostic depth/alternation logic stated by the invariant." },
+    { "category": "realization", "source_local_id": 14, "target_local_id": 36, "basis": "explicit", "rationale": "The per-platform site modules realize the cheap-platform-extension requirement." },
+    { "category": "realization", "source_local_id": 11, "target_local_id": 40, "basis": "explicit", "rationale": "The depth-filter slice realizes the separate-turn-buttons requirement." },
+    { "category": "realization", "source_local_id": 13, "target_local_id": 41, "basis": "explicit", "rationale": "The clipboard-fallback slice realizes the DOM-text-fallback requirement." },
+
+    { "category": "boundary", "source_local_id": 20, "target_local_id": 5, "basis": "explicit", "rationale": "The data-testid constraint bounds how copyButtonSelector may be chosen." },
+    { "category": "boundary", "source_local_id": 20, "target_local_id": 37, "basis": "explicit", "rationale": "The data-testid constraint bounds the selectors allowed in a SiteConfig." },
+    { "category": "boundary", "source_local_id": 21, "target_local_id": 37, "basis": "explicit", "rationale": "The anti-structural-selector constraint bounds the SiteConfig selector bundle." },
+
+    { "category": "composition", "source_local_id": 38, "target_local_id": 39, "basis": "explicit", "rationale": "M1 contains the platform-agnostic extraction-core frontier." },
+    { "category": "composition", "source_local_id": 39, "target_local_id": 40, "basis": "explicit", "rationale": "The extraction-core frontier contains the depth-filter slice." },
+    { "category": "composition", "source_local_id": 39, "target_local_id": 41, "basis": "explicit", "rationale": "The extraction-core frontier contains the clipboard-fallback slice." },
+
+    { "category": "association", "source_local_id": 5, "target_local_id": 6, "basis": "explicit", "rationale": "copyButtonSelector and SiteConfig are peer per-platform configuration concepts." },
+    { "category": "association", "source_local_id": 24, "target_local_id": 26, "basis": "explicit", "rationale": "Native-copy and index-alternation are peer extraction design choices." },
+    { "category": "association", "source_local_id": 29, "target_local_id": 30, "basis": "explicit", "rationale": "The jsdom unit check and the live diagnostics run are peer verification methods." },
+
+    { "category": "supersession", "source_local_id": 11, "target_local_id": 17, "basis": "explicit", "rationale": "Depth-based separation supersedes the brittle closest('pre, code') check." },
+    { "category": "supersession", "source_local_id": 25, "target_local_id": 17, "basis": "explicit", "rationale": "The modal-depth filter decision supersedes the closest('pre, code') approach." },
+
+    { "category": "proof", "source_local_id": 29, "target_local_id": 22, "stance": "for", "basis": "explicit", "rationale": "The alternation unit tests witness the even=user / odd=assistant invariant." },
+    { "category": "proof", "source_local_id": 29, "target_local_id": 11, "stance": "for", "basis": "explicit", "rationale": "The filterByConsistentDepth tests witness separation of turn-level and code-block buttons." },
+    { "category": "proof", "source_local_id": 31, "target_local_id": 16, "stance": "for", "basis": "explicit", "rationale": "The downloaded diagnostics JSON evidences the Verify Export requirement." },
+    { "category": "proof", "source_local_id": 31, "target_local_id": 10, "stance": "for", "basis": "explicit", "rationale": "The diagnostics counts evidence that extraction succeeds when copy buttons are present." },
+
+    { "category": "support", "source_local_id": 3, "target_local_id": 10, "stance": "for", "basis": "explicit", "rationale": "The copy-buttons-are-reliable thesis motivates the extraction-works requirement." },
+    { "category": "support", "source_local_id": 4, "target_local_id": 12, "stance": "for", "basis": "explicit", "rationale": "The alternation thesis motivates the classify-each-turn requirement." },
+    { "category": "support", "source_local_id": 18, "target_local_id": 4, "stance": "for", "basis": "explicit", "rationale": "The user-first assumption supports the alternation thesis." },
+    { "category": "support", "source_local_id": 9, "target_local_id": 20, "stance": "for", "basis": "explicit", "rationale": "Frequently-changing DOMs motivate preferring stable data-testid selectors." },
+    { "category": "support", "source_local_id": 28, "target_local_id": 11, "stance": "for", "basis": "explicit", "rationale": "The deep code-block example illustrates why turn buttons must be separated from code-block buttons." },
+    { "category": "support", "source_local_id": 32, "target_local_id": 3, "stance": "against", "basis": "explicit", "rationale": "The ongoing per-platform re-verification obligation tempers the claim that copy-button selectors are permanently reliable." }
+  ]
+}
