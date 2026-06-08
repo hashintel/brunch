@@ -132,7 +132,7 @@ The Brunch extension entrypoint is intentionally a registration map. `src/tui-cl
 - `operational-mode.ts` owns the current `elicit` read-only tool policy pending transcript-backed runtime state.
 - `mention-autocomplete.ts` owns fixture-backed `#` mention autocomplete.
 - `alternatives.ts` owns the transcript-persistent alternatives/card primitive, using reusable widgets from `src/tui-client/.pi/components/*`.
-- `structured-exchange/` owns the remodeled present/request structured-exchange tool family; the active registry currently exposes `present_question`, `present_options`, `request_answer`, `request_choice`, and `request_choices`, while review/candidate modules are stubs until their product flows land.
+- `exchanges/` owns the remodeled present/request structured-exchange tool family; the active registry currently exposes `present_question`, `present_options`, `request_answer`, `request_choice`, and `request_choices`, while review/candidate modules are stubs until their product flows land.
 
 `renderBrunchChrome(ctx.ui, state)` is the product-named wrapper downstream affordances should call instead of scattering raw Pi UI calls. The current code renders only facts present in `BrunchChromeState`:
 

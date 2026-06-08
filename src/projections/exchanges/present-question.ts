@@ -8,7 +8,7 @@
  * - normalized heading/body projection plus canonical Zod-authored details
  *
  * Used by:
- * - renderers/structured-exchange/present-question.ts
+ * - renderers/exchanges/present-question.ts
  * - session/structured-exchange-loop.ts
  * - .pi/extensions/exchanges/present-question.ts
  */

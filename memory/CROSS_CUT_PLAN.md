@@ -280,7 +280,7 @@ named prerequisite oracle, not optional polish.
 
 **Grounding (what already exists, so we extend not invent):**
 - Renderer home is real: `src/renderers/<domain>/` (`graph/`, `workspace/`, `session/`,
-  `structured-exchange/`), each with co-located `*.test.ts` (D52-L; see `renderers/README`).
+  `exchanges/`), each with co-located `*.test.ts` (D52-L; see `renderers/README`).
   New graph-slice renderers land in `src/renderers/graph/`.
 - Seed infra is real: `npm run seed` → `src/graph/seed-fixtures.ts` (`seedFixture(executor,
   fixture)`); `src/scripts/` exists as the executables home (D52-L) and may import domain.

@@ -8,7 +8,7 @@
  * - normalized candidate comparison projection, recommendation cues, and rubric traces
  *
  * Future users:
- * - renderers/structured-exchange/present-candidates.ts
+ * - renderers/exchanges/present-candidates.ts
  * - .pi/extensions/exchanges/present-candidates.ts
  */
 
