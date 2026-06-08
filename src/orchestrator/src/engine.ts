@@ -124,9 +124,9 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
             } else if (input.setupPetrinautStream) {
               ctx.warnings?.push('Petrinaut live stream disabled: SDCPN file was not available');
             }
+            eventSink = stream.sink;
             try {
               stream.emitInitialMarking(blueprint);
-              eventSink = stream.sink;
             } catch (err) {
               // Best-effort integration output — don't fail the cook run.
               ctx.warnings?.push(`Petrinaut event stream disabled: ${errorMessage(err)}`);
