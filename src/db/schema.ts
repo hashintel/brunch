@@ -9,7 +9,14 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  type AnySQLiteColumn,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
 // Shared enum arrays — the single source for text enum columns,
@@ -57,6 +64,12 @@ export const READINESS_GRADES = [
   'commitments_ready',
   'planning_ready',
 ] as const;
+
+export const READINESS_BANDS = ['grounding', 'elicitation', 'commitment'] as const;
+
+export const LENS_AFFINITIES = ['intent', 'design', 'oracle'] as const;
+
+export const ELICITATION_BACKLOG_STATUSES = ['open', 'closed'] as const;
 
 // ---------------------------------------------------------------------------
 // Tables
@@ -172,4 +185,23 @@ export const reconciliationNeed = sqliteTable('reconciliation_need', {
   reason: text(),
   created_at_lsn: integer().notNull(),
   resolved_at_lsn: integer(),
+});
+
+export const elicitationBacklog = sqliteTable('elicitation_backlog', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  spec_id: integer()
+    .notNull()
+    .references(() => specs.id),
+  kind: text().notNull(), // open taxonomy: grounding anchors today, richer agenda kinds later
+  question: text().notNull(),
+  status: text({ enum: ELICITATION_BACKLOG_STATUSES }).notNull().default('open'),
+  basis: text({ enum: NODE_BASES }).notNull().default('explicit'),
+  readiness_band: text({ enum: READINESS_BANDS }).notNull(),
+  plane_affinity: text({ enum: ['intent', 'oracle', 'design', 'plan'] }),
+  lens_affinity: text({ enum: LENS_AFFINITIES }),
+  arose_from_entry_id: integer().references((): AnySQLiteColumn => elicitationBacklog.id),
+  resolved_by_node_id: integer().references(() => nodes.id),
+  rationale: text(),
+  created_at_lsn: integer().notNull(),
+  closed_at_lsn: integer(),
 });

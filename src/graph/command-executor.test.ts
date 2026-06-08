@@ -9,7 +9,15 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it, beforeEach } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
-import { graphClock, changeLog, nodes, nodeKindCounters, reconciliationNeed, specs } from '../db/schema.js';
+import {
+  changeLog,
+  elicitationBacklog,
+  graphClock,
+  nodeKindCounters,
+  nodes,
+  reconciliationNeed,
+  specs,
+} from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
 
 function createTestDb(): BrunchDb {
@@ -397,6 +405,70 @@ describe('CommandExecutor', () => {
       ).toEqual([{ specId: result.specId, lsn: 1 }]);
     });
 
+    it('seeds explicit grounding backlog entries for the new spec at create-spec LSN', () => {
+      const result = executor.createSpec({ name: 'Grounded Spec', slug: 'grounded-spec' });
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+
+      expect(
+        db
+          .select({
+            kind: elicitationBacklog.kind,
+            question: elicitationBacklog.question,
+            status: elicitationBacklog.status,
+            basis: elicitationBacklog.basis,
+            readinessBand: elicitationBacklog.readiness_band,
+            planeAffinity: elicitationBacklog.plane_affinity,
+            lensAffinity: elicitationBacklog.lens_affinity,
+            createdAtLsn: elicitationBacklog.created_at_lsn,
+          })
+          .from(elicitationBacklog)
+          .where(eq(elicitationBacklog.spec_id, result.specId))
+          .all(),
+      ).toEqual([
+        {
+          kind: 'domain_anchor_question',
+          question: 'What is the thing or domain we are specifying?',
+          status: 'open',
+          basis: 'explicit',
+          readinessBand: 'grounding',
+          planeAffinity: 'intent',
+          lensAffinity: 'intent',
+          createdAtLsn: result.lsn,
+        },
+        {
+          kind: 'protagonist_anchor_question',
+          question: 'Who is this for, or who is most affected by it?',
+          status: 'open',
+          basis: 'explicit',
+          readinessBand: 'grounding',
+          planeAffinity: 'intent',
+          lensAffinity: 'intent',
+          createdAtLsn: result.lsn,
+        },
+        {
+          kind: 'pain_anchor_question',
+          question: 'What problem, pain, or pull is driving this work?',
+          status: 'open',
+          basis: 'explicit',
+          readinessBand: 'grounding',
+          planeAffinity: 'intent',
+          lensAffinity: 'intent',
+          createdAtLsn: result.lsn,
+        },
+        {
+          kind: 'constraint_anchor_question',
+          question: 'What constraints or non-negotiable boundaries already shape it?',
+          status: 'open',
+          basis: 'explicit',
+          readinessBand: 'grounding',
+          planeAffinity: 'intent',
+          lensAffinity: 'intent',
+          createdAtLsn: result.lsn,
+        },
+      ]);
+    });
+
     it('scopes create_spec audit LSNs to the newly created spec', () => {
       const specA = executor.createSpec({ name: 'Spec A', slug: 'spec-a' });
       const specB = executor.createSpec({ name: 'Spec B', slug: 'spec-b' });
@@ -603,6 +675,163 @@ describe('CommandExecutor', () => {
       if (r2.status !== 'success') throw new Error('unreachable');
 
       expect(r2.lsn).toBeGreaterThan(r1.lsn);
+    });
+  });
+
+  describe('createElicitationBacklogEntry', () => {
+    it('creates an open backlog entry and preserves the arose-from pointer', () => {
+      const parent = executor.createElicitationBacklogEntry({
+        specId,
+        kind: 'domain_anchor_question',
+        question: 'What is the thing or domain we are specifying?',
+        readinessBand: 'grounding',
+        planeAffinity: 'intent',
+        lensAffinity: 'intent',
+      });
+      expect(parent.status).toBe('success');
+      if (parent.status !== 'success') throw new Error('unreachable');
+
+      const child = executor.createElicitationBacklogEntry({
+        specId,
+        kind: 'follow_on_question',
+        question: 'Which user is blocked most by the current version?',
+        readinessBand: 'grounding',
+        planeAffinity: 'intent',
+        lensAffinity: 'intent',
+        aroseFromEntryId: parent.id,
+      });
+
+      expect(child.status).toBe('success');
+      if (child.status !== 'success') throw new Error('unreachable');
+
+      expect(
+        db.select().from(elicitationBacklog).where(eq(elicitationBacklog.id, child.id)).get(),
+      ).toMatchObject({
+        spec_id: specId,
+        kind: 'follow_on_question',
+        question: 'Which user is blocked most by the current version?',
+        status: 'open',
+        basis: 'explicit',
+        readiness_band: 'grounding',
+        plane_affinity: 'intent',
+        lens_affinity: 'intent',
+        arose_from_entry_id: parent.id,
+        created_at_lsn: child.lsn,
+        closed_at_lsn: null,
+      });
+    });
+
+    it('rejects malformed entries without writing rows or advancing the clock', () => {
+      const result = executor.createElicitationBacklogEntry({
+        specId,
+        kind: '   ',
+        question: '   ',
+        readinessBand: 'later' as never,
+      });
+
+      expect(result.status).toBe('structural_illegal');
+      if (result.status !== 'structural_illegal') throw new Error('unreachable');
+      expect(result.diagnostics.map((diagnostic) => diagnostic.field)).toEqual(
+        expect.arrayContaining(['kind', 'question', 'readinessBand']),
+      );
+      expect(db.select().from(elicitationBacklog).all()).toEqual([]);
+      expect(graphClockLsn(db, specId)).toBe(0);
+      expect(db.select().from(changeLog).all()).toEqual([]);
+    });
+  });
+
+  describe('closeElicitationBacklogEntry', () => {
+    it('closes an open entry and records resolvedByNodeId and closedAtLsn', () => {
+      const entry = executor.createElicitationBacklogEntry({
+        specId,
+        kind: 'domain_anchor_question',
+        question: 'What is the thing or domain we are specifying?',
+        readinessBand: 'grounding',
+      });
+      expect(entry.status).toBe('success');
+      if (entry.status !== 'success') throw new Error('unreachable');
+
+      const node = executor.createNode({
+        specId,
+        plane: 'intent',
+        kind: 'goal',
+        title: 'Clarified goal',
+      });
+      expect(node.status).toBe('success');
+      if (node.status !== 'success') throw new Error('unreachable');
+
+      const close = executor.closeElicitationBacklogEntry({
+        specId,
+        id: entry.id,
+        resolvedByNodeId: node.nodeId,
+      });
+
+      expect(close.status).toBe('success');
+      if (close.status !== 'success') throw new Error('unreachable');
+      expect(close.lsn).toBeGreaterThan(node.lsn);
+      expect(
+        db
+          .select({
+            status: elicitationBacklog.status,
+            resolvedByNodeId: elicitationBacklog.resolved_by_node_id,
+            closedAtLsn: elicitationBacklog.closed_at_lsn,
+          })
+          .from(elicitationBacklog)
+          .where(eq(elicitationBacklog.id, entry.id))
+          .get(),
+      ).toEqual({
+        status: 'closed',
+        resolvedByNodeId: node.nodeId,
+        closedAtLsn: close.lsn,
+      });
+    });
+
+    it('rejects a resolved-by node from another spec', () => {
+      const entry = executor.createElicitationBacklogEntry({
+        specId,
+        kind: 'domain_anchor_question',
+        question: 'What is the thing or domain we are specifying?',
+        readinessBand: 'grounding',
+      });
+      expect(entry.status).toBe('success');
+      if (entry.status !== 'success') throw new Error('unreachable');
+
+      const otherSpec = executor.createSpec({ name: 'Other Spec', slug: 'other-spec' });
+      expect(otherSpec.status).toBe('success');
+      if (otherSpec.status !== 'success') throw new Error('unreachable');
+      const otherNode = executor.createNode({
+        specId: otherSpec.specId,
+        plane: 'intent',
+        kind: 'goal',
+        title: 'Sibling goal',
+      });
+      expect(otherNode.status).toBe('success');
+      if (otherNode.status !== 'success') throw new Error('unreachable');
+
+      const close = executor.closeElicitationBacklogEntry({
+        specId,
+        id: entry.id,
+        resolvedByNodeId: otherNode.nodeId,
+      });
+
+      expect(close.status).toBe('structural_illegal');
+      if (close.status !== 'structural_illegal') throw new Error('unreachable');
+      expect(close.diagnostics[0]!.field).toBe('resolvedByNodeId');
+      expect(
+        db
+          .select({
+            status: elicitationBacklog.status,
+            resolvedByNodeId: elicitationBacklog.resolved_by_node_id,
+            closedAtLsn: elicitationBacklog.closed_at_lsn,
+          })
+          .from(elicitationBacklog)
+          .where(eq(elicitationBacklog.id, entry.id))
+          .get(),
+      ).toEqual({
+        status: 'open',
+        resolvedByNodeId: null,
+        closedAtLsn: null,
+      });
     });
   });
 

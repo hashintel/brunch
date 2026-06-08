@@ -117,7 +117,7 @@ DoD: every ● row is `have` or `built`.
 | goals / strategies / lenses scaffolding + legal-tuple gating | have | ● | — | — | `.pi/agents/state.ts` |
 | goal/strategy/lens **content depth** | partial | ● | earned | card `memory/cards/crosscut-know--resource-body-depth.md` | scaffolding present, bodies thin |
 | `freestyle` strategy | built | ● | — | done — pin-only strategy (8de7f166) | AUTO-excluded, no added authority; D66-L |
-| "what to ask next" driver | spec | ● | proving | PLAN frontier `elicitation-backlog` | substrate tracer promoted; per-turn driver remains a follow-on after the flat-table proof lands |
+| "what to ask next" driver | partial | ● | proving | unscoped follow-on | flat-table substrate landed via FE-823; live per-turn driver + capture-reflection remain follow-on work |
 
 ### Seam 3b — KNOW / mechanics (methods)
 
@@ -268,9 +268,9 @@ order is coverage-driven: close ● ledger rows seam by seam.
    `elicitation_backlog`-driven "what to ask next" (D65-L); goal/strategy/lens/method body
    depth; exchange-tool `.description()` / `promptGuidelines` fix (**built** — drift correction;
    all 7 exchange tools already carry both). Skill-commands (Q6) stay deferred. **Scoped:**
-   `memory/cards/elicitation-backlog--substrate.md` (D65-L substrate tracer; promoted to the active
-   PLAN frontier `elicitation-backlog`; the per-turn driver + capture-reflection stay an unscoped follow-on) and
-   `memory/cards/crosscut-know--resource-body-depth.md` (the goal/strategy/lens/method body pass).
+   FE-823 landed the D65-L substrate tracer (flat table, `createSpec` seed, command/query seam);
+   the live per-turn driver + capture-reflection remain an unscoped follow-on, and
+   `memory/cards/crosscut-know--resource-body-depth.md` still holds the goal/strategy/lens/method body pass.
 5. **Spec reconcile** — promote the D40-L/D59-L one-line refinements (on confirmation),
    land Q1 negative-query touch, fold D65-L/D66-L outcomes into SPEC/PLAN.
 

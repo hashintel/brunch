@@ -50,6 +50,12 @@ export type {
   ReconciliationNeedTarget,
 } from './schema/reconciliation-need.js';
 
+export type {
+  ElicitationBacklogEntry,
+  ElicitationBacklogLensAffinity,
+  ElicitationBacklogStatus,
+} from './schema/elicitation-backlog.js';
+
 export {
   CATEGORY_POLICY,
   type CategoryPolicy,
@@ -64,6 +70,7 @@ export {
   getGraphSliceByReadinessBands,
   getRelatedNodes,
   getNodeNeighborhood,
+  getOpenElicitationBacklogEntries,
   getOpenReconciliationNeeds,
 } from './queries.js';
 export type {
@@ -99,6 +106,10 @@ export type {
   CommitGraphDryRunResult,
   CommitGraphResult,
   CommitGraphSuccess,
+  CloseElicitationBacklogEntryInput,
+  CloseElicitationBacklogEntryResult,
+  CreateElicitationBacklogEntryInput,
+  CreateElicitationBacklogEntryResult,
   CreateNodeInput,
   CreateNodeResult,
   CreateReconNeedInput,
@@ -106,6 +117,8 @@ export type {
   CreateSpecResult,
   CreateSpecSuccess,
   DryRunSuccess,
+  ElicitationBacklogCloseSuccess,
+  ElicitationBacklogSuccess,
   CreateReconNeedResult,
   Diagnostic,
   NeedsHuman,

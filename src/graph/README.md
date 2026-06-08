@@ -8,7 +8,9 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
 - **CommandExecutor** (`command-executor.ts`) — the single mutation boundary for
   graph/spec writes. It hides structural validation, transaction mechanics,
   spec-local LSN allocation, per-kind node ordinal allocation, change-log append,
-  and structured command results.
+  and structured command results. It also owns prospective-register writes for
+  `elicitation_backlog` (`createSpec` seeding plus create/close entry commands),
+  because the backlog shares the same spec-local LSN and audit boundary.
 
 - **commitGraph** — atomic batch mutation for `propose-graph`: one tool call,
   one transaction, one selected-spec LSN, all-or-nothing. It accepts product
@@ -28,16 +30,17 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
   projection.
 - **Readers / query functions** (`queries.ts`) — graph reads at multiple
   detail levels: active-context and graph-truth overview, node
-  neighborhood, selected-spec graph-code lookup, and open reconciliation needs.
-  These return typed domain objects or internal ids, not Drizzle rows.
+  neighborhood, selected-spec graph-code lookup, open reconciliation needs, and
+  open elicitation-backlog entries. These return typed domain objects or
+  internal ids, not Drizzle rows.
 
 - **Preview harness helpers** (`render-preview.ts`) — deterministic fixture-seed
   + selected-spec read helpers for render-preview scripts/tests that need real
   graph data without bypassing the command/read seams.
 
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
-  `ReconciliationNeed`, kind/category types, per-kind node ordinals, and derived
-  intent-kind grouping.
+  `ReconciliationNeed`, `ElicitationBacklogEntry`, kind/category types,
+  per-kind node ordinals, and derived intent-kind grouping.
 
 - **Policy** (`policy/category-policy.ts`) — edge-category semantics such as
   cascade behavior, reconciliation triggers, and projection effects.
@@ -86,6 +89,7 @@ graph/
     CommandExecutor
     command input/result types
     createSpec
+    create/close elicitation-backlog entry
     updateReadinessGrade
     createNode
     per-kind node ordinal allocation
@@ -114,6 +118,7 @@ graph/
     getGraphOverview
     getNodeNeighborhood
     resolveGraphNodeCode
+    getOpenElicitationBacklogEntries
     getOpenReconciliationNeeds
     row -> domain mapping
 
@@ -125,6 +130,7 @@ graph/
     openWorkspaceCommandExecutor(cwd)
 
   schema/
+    elicitation-backlog.ts
     nodes.ts
     edges.ts
     reconciliation-need.ts

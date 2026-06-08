@@ -36,7 +36,8 @@ import type {
   StructuralIllegal,
 } from './command-executor/commit-graph-types.js';
 import { translateReviewSetPayloadToCommitGraph } from './review-set.js';
-import { type NodeBasis, type NodePlane } from './schema/nodes.js';
+import type { ElicitationBacklogLensAffinity } from './schema/elicitation-backlog.js';
+import { type NodeBasis, type NodePlane, type ReadinessBand } from './schema/nodes.js';
 
 export type ReadinessGrade = (typeof schema.READINESS_GRADES)[number];
 export type {
@@ -100,6 +101,19 @@ export interface CreateSpecSuccess {
   readonly lsn: number;
 }
 
+/** Successful elicitation-backlog creation. */
+export interface ElicitationBacklogSuccess {
+  readonly status: 'success';
+  readonly id: number;
+  readonly lsn: number;
+}
+
+/** Successful elicitation-backlog close. */
+export interface ElicitationBacklogCloseSuccess {
+  readonly status: 'success';
+  readonly lsn: number;
+}
+
 /** Successful spec readiness-grade update. */
 export interface UpdateReadinessGradeSuccess {
   readonly status: 'success';
@@ -122,6 +136,8 @@ export type CommandResult =
   | ReconNeedSuccess
   | ReconNeedResolveSuccess
   | CreateSpecSuccess
+  | ElicitationBacklogSuccess
+  | ElicitationBacklogCloseSuccess
   | UpdateReadinessGradeSuccess
   | StructuralIllegal
   | NeedsHuman
@@ -139,6 +155,12 @@ export type ResolveReconNeedResult = ReconNeedResolveSuccess | StructuralIllegal
 
 /** Result of a createSpec command. */
 export type CreateSpecResult = CreateSpecSuccess | StructuralIllegal;
+
+/** Result of a createElicitationBacklogEntry command. */
+export type CreateElicitationBacklogEntryResult = ElicitationBacklogSuccess | StructuralIllegal;
+
+/** Result of a closeElicitationBacklogEntry command. */
+export type CloseElicitationBacklogEntryResult = ElicitationBacklogCloseSuccess | StructuralIllegal;
 
 /** Result of an updateReadinessGrade command. */
 export type UpdateReadinessGradeResult = UpdateReadinessGradeSuccess | StructuralIllegal;
@@ -174,6 +196,26 @@ export interface AcceptReviewSetInput {
   readonly specId: number;
   readonly proposalEntryId?: string | undefined;
   readonly payload: unknown;
+}
+
+/** Input for creating an elicitation-backlog entry. */
+export interface CreateElicitationBacklogEntryInput {
+  readonly specId: number;
+  readonly kind: string;
+  readonly question: string;
+  readonly basis?: NodeBasis | undefined;
+  readonly readinessBand: ReadinessBand;
+  readonly planeAffinity?: NodePlane | undefined;
+  readonly lensAffinity?: ElicitationBacklogLensAffinity | undefined;
+  readonly aroseFromEntryId?: number | undefined;
+  readonly rationale?: string | undefined;
+}
+
+/** Input for closing an elicitation-backlog entry. */
+export interface CloseElicitationBacklogEntryInput {
+  readonly specId: number;
+  readonly id: number;
+  readonly resolvedByNodeId?: number | undefined;
 }
 
 /** Input for creating a single graph node. */
@@ -236,6 +278,50 @@ const VALID_KINDS_BY_PLANE: Record<string, readonly string[]> = {
 const KINDS_REQUIRING_DETAIL = new Set<string>(['decision', 'term']);
 const VALID_READINESS_GRADES = schema.READINESS_GRADES as unknown as string[];
 const VALID_NODE_BASES = schema.NODE_BASES as unknown as string[];
+const VALID_READINESS_BANDS = schema.READINESS_BANDS as unknown as string[];
+const VALID_LENS_AFFINITIES = schema.LENS_AFFINITIES as unknown as string[];
+
+const SEEDED_ELICITATION_BACKLOG: readonly {
+  readonly kind: string;
+  readonly question: string;
+  readonly basis: NodeBasis;
+  readonly readinessBand: ReadinessBand;
+  readonly planeAffinity: NodePlane;
+  readonly lensAffinity: ElicitationBacklogLensAffinity;
+}[] = [
+  {
+    kind: 'domain_anchor_question',
+    question: 'What is the thing or domain we are specifying?',
+    basis: 'explicit',
+    readinessBand: 'grounding',
+    planeAffinity: 'intent',
+    lensAffinity: 'intent',
+  },
+  {
+    kind: 'protagonist_anchor_question',
+    question: 'Who is this for, or who is most affected by it?',
+    basis: 'explicit',
+    readinessBand: 'grounding',
+    planeAffinity: 'intent',
+    lensAffinity: 'intent',
+  },
+  {
+    kind: 'pain_anchor_question',
+    question: 'What problem, pain, or pull is driving this work?',
+    basis: 'explicit',
+    readinessBand: 'grounding',
+    planeAffinity: 'intent',
+    lensAffinity: 'intent',
+  },
+  {
+    kind: 'constraint_anchor_question',
+    question: 'What constraints or non-negotiable boundaries already shape it?',
+    basis: 'explicit',
+    readinessBand: 'grounding',
+    planeAffinity: 'intent',
+    lensAffinity: 'intent',
+  },
+] as const;
 
 function isReadinessGrade(value: string): value is ReadinessGrade {
   return VALID_READINESS_GRADES.includes(value);
@@ -243,6 +329,18 @@ function isReadinessGrade(value: string): value is ReadinessGrade {
 
 function isNodeBasis(value: string): value is NodeBasis {
   return VALID_NODE_BASES.includes(value);
+}
+
+function isNodePlane(value: string): value is NodePlane {
+  return value === 'intent' || value === 'oracle' || value === 'design' || value === 'plan';
+}
+
+function isReadinessBand(value: string): value is ReadinessBand {
+  return VALID_READINESS_BANDS.includes(value);
+}
+
+function isElicitationBacklogLensAffinity(value: string): value is ElicitationBacklogLensAffinity {
+  return VALID_LENS_AFFINITIES.includes(value);
 }
 
 function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
@@ -294,6 +392,45 @@ function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
   }
   if (input.kind === 'term' && input.detail != null) {
     validateTermDetail(input.detail, diagnostics);
+  }
+
+  return diagnostics;
+}
+
+function validateCreateElicitationBacklogEntry(input: CreateElicitationBacklogEntryInput): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+
+  if (!input.kind.trim()) {
+    diagnostics.push({ field: 'kind', message: 'kind must be non-empty' });
+  }
+
+  if (!input.question.trim()) {
+    diagnostics.push({ field: 'question', message: 'question must be non-empty' });
+  }
+
+  if (input.basis !== undefined && !isNodeBasis(input.basis)) {
+    diagnostics.push({ field: 'basis', message: 'basis must be explicit or implicit' });
+  }
+
+  if (!isReadinessBand(input.readinessBand)) {
+    diagnostics.push({
+      field: 'readinessBand',
+      message: `"${String(input.readinessBand)}" is not a valid readiness band`,
+    });
+  }
+
+  if (input.planeAffinity !== undefined && !isNodePlane(input.planeAffinity)) {
+    diagnostics.push({
+      field: 'planeAffinity',
+      message: `"${String(input.planeAffinity)}" is not a valid plane affinity`,
+    });
+  }
+
+  if (input.lensAffinity !== undefined && !isElicitationBacklogLensAffinity(input.lensAffinity)) {
+    diagnostics.push({
+      field: 'lensAffinity',
+      message: `"${String(input.lensAffinity)}" is not a valid lens affinity`,
+    });
   }
 
   return diagnostics;
@@ -445,6 +582,23 @@ export class CommandExecutor {
     return existing.nextOrdinal;
   }
 
+  private seedElicitationBacklog(tx: Pick<BrunchDb, 'insert'>, specId: number, lsn: number): void {
+    tx.insert(schema.elicitationBacklog)
+      .values(
+        SEEDED_ELICITATION_BACKLOG.map((entry) => ({
+          spec_id: specId,
+          kind: entry.kind,
+          question: entry.question,
+          basis: entry.basis,
+          readiness_band: entry.readinessBand,
+          plane_affinity: entry.planeAffinity,
+          lens_affinity: entry.lensAffinity,
+          created_at_lsn: lsn,
+        })),
+      )
+      .run();
+  }
+
   /** Create a spec row through the command boundary. */
   createSpec(input: CreateSpecInput): CreateSpecResult {
     const diagnostics: Diagnostic[] = [];
@@ -471,6 +625,8 @@ export class CommandExecutor {
 
       const lsn = this.createInitialSpecClock(tx, row!.id);
 
+      this.seedElicitationBacklog(tx, row!.id, lsn);
+
       tx.insert(schema.changeLog)
         .values({
           spec_id: row!.id,
@@ -481,6 +637,202 @@ export class CommandExecutor {
         .run();
 
       return { status: 'success' as const, specId: row!.id, lsn };
+    });
+  }
+
+  /** Create an elicitation-backlog entry through the command boundary. */
+  createElicitationBacklogEntry(
+    input: CreateElicitationBacklogEntryInput,
+  ): CreateElicitationBacklogEntryResult {
+    const diagnostics = validateCreateElicitationBacklogEntry(input);
+    if (diagnostics.length > 0) {
+      return { status: 'structural_illegal', diagnostics };
+    }
+
+    return this.db.transaction((tx) => {
+      const specRow = tx
+        .select({ id: schema.specs.id })
+        .from(schema.specs)
+        .where(eq(schema.specs.id, input.specId))
+        .get();
+      if (!specRow) {
+        return {
+          status: 'structural_illegal' as const,
+          diagnostics: [{ field: 'specId', message: `spec ${input.specId} does not exist` }],
+        };
+      }
+
+      if (input.aroseFromEntryId != null) {
+        const parent = tx
+          .select({ id: schema.elicitationBacklog.id, specId: schema.elicitationBacklog.spec_id })
+          .from(schema.elicitationBacklog)
+          .where(eq(schema.elicitationBacklog.id, input.aroseFromEntryId))
+          .get();
+
+        if (!parent) {
+          return {
+            status: 'structural_illegal' as const,
+            diagnostics: [
+              {
+                field: 'aroseFromEntryId',
+                message: `elicitation backlog entry ${input.aroseFromEntryId} does not exist`,
+              },
+            ],
+          };
+        }
+
+        if (parent.specId !== input.specId) {
+          return {
+            status: 'structural_illegal' as const,
+            diagnostics: [
+              {
+                field: 'aroseFromEntryId',
+                message:
+                  `elicitation backlog entry ${input.aroseFromEntryId} belongs to a different spec ` +
+                  `(command spec ${input.specId})`,
+              },
+            ],
+          };
+        }
+      }
+
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
+
+      const entry = tx
+        .insert(schema.elicitationBacklog)
+        .values({
+          spec_id: input.specId,
+          kind: input.kind.trim(),
+          question: input.question.trim(),
+          basis: input.basis ?? 'explicit',
+          readiness_band: input.readinessBand,
+          plane_affinity: input.planeAffinity ?? null,
+          lens_affinity: input.lensAffinity ?? null,
+          arose_from_entry_id: input.aroseFromEntryId ?? null,
+          rationale: input.rationale ?? null,
+          created_at_lsn: lsn,
+        })
+        .returning({ id: schema.elicitationBacklog.id })
+        .get();
+
+      tx.insert(schema.changeLog)
+        .values({
+          spec_id: input.specId,
+          lsn,
+          operation: 'create_elicitation_backlog_entry',
+          payload: JSON.stringify({
+            id: entry!.id,
+            specId: input.specId,
+            kind: input.kind.trim(),
+            readinessBand: input.readinessBand,
+            planeAffinity: input.planeAffinity,
+            lensAffinity: input.lensAffinity,
+            ...(input.aroseFromEntryId != null ? { aroseFromEntryId: input.aroseFromEntryId } : {}),
+          }),
+        })
+        .run();
+
+      return { status: 'success' as const, id: entry!.id, lsn };
+    });
+  }
+
+  /** Close an elicitation-backlog entry through the command boundary. */
+  closeElicitationBacklogEntry(input: CloseElicitationBacklogEntryInput): CloseElicitationBacklogEntryResult {
+    return this.db.transaction((tx) => {
+      const entry = tx
+        .select()
+        .from(schema.elicitationBacklog)
+        .where(
+          and(
+            eq(schema.elicitationBacklog.id, input.id),
+            eq(schema.elicitationBacklog.spec_id, input.specId),
+          ),
+        )
+        .get();
+
+      if (!entry) {
+        return {
+          status: 'structural_illegal' as const,
+          diagnostics: [
+            {
+              field: 'id',
+              message: `elicitation backlog entry ${input.id} does not exist for spec ${input.specId}`,
+            },
+          ],
+        };
+      }
+
+      if (entry.status === 'closed') {
+        return {
+          status: 'structural_illegal' as const,
+          diagnostics: [{ field: 'id', message: `elicitation backlog entry ${input.id} is already closed` }],
+        };
+      }
+
+      if (input.resolvedByNodeId != null) {
+        const node = tx
+          .select({ id: schema.nodes.id, specId: schema.nodes.spec_id })
+          .from(schema.nodes)
+          .where(eq(schema.nodes.id, input.resolvedByNodeId))
+          .get();
+
+        if (!node) {
+          return {
+            status: 'structural_illegal' as const,
+            diagnostics: [
+              {
+                field: 'resolvedByNodeId',
+                message: `node ${input.resolvedByNodeId} does not exist`,
+              },
+            ],
+          };
+        }
+
+        if (node.specId !== input.specId) {
+          return {
+            status: 'structural_illegal' as const,
+            diagnostics: [
+              {
+                field: 'resolvedByNodeId',
+                message:
+                  `node ${input.resolvedByNodeId} belongs to a different spec ` +
+                  `(command spec ${input.specId})`,
+              },
+            ],
+          };
+        }
+      }
+
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
+
+      tx.update(schema.elicitationBacklog)
+        .set({
+          status: 'closed',
+          resolved_by_node_id: input.resolvedByNodeId ?? null,
+          closed_at_lsn: lsn,
+        })
+        .where(
+          and(
+            eq(schema.elicitationBacklog.id, input.id),
+            eq(schema.elicitationBacklog.spec_id, input.specId),
+          ),
+        )
+        .run();
+
+      tx.insert(schema.changeLog)
+        .values({
+          spec_id: input.specId,
+          lsn,
+          operation: 'close_elicitation_backlog_entry',
+          payload: JSON.stringify({
+            id: input.id,
+            specId: input.specId,
+            ...(input.resolvedByNodeId != null ? { resolvedByNodeId: input.resolvedByNodeId } : {}),
+          }),
+        })
+        .run();
+
+      return { status: 'success' as const, lsn };
     });
   }
 
