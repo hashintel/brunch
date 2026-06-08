@@ -1229,6 +1229,41 @@ describe('identity-fold engine wiring + frame-replay oracle', () => {
     }
   });
 
+  it('keeps the live-stream sink wired when initial_marking fan-out fails', async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-initial-warning-'));
+    try {
+      const receivedAfterInitialFailure: PetrinautEvent[] = [];
+
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: 'run-initial-warning',
+        runDir,
+        petrinautFold: 'identity',
+        setupPetrinautStream: async () => (event) => {
+          if (event.kind === 'initial_marking') {
+            throw new Error('initial fan-out failed');
+          }
+          receivedAfterInitialFailure.push(event);
+        },
+      });
+
+      expect(result.status).toBe('completed');
+      expect(result.warnings).toEqual([
+        expect.stringMatching(/^Petrinaut initial marking not delivered: .*initial fan-out failed/),
+      ]);
+      expect(receivedAfterInitialFailure.some((event) => event.kind === 'transition_fired')).toBe(true);
+      expect(receivedAfterInitialFailure.at(-1)?.kind).toBe('net_completed');
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
   it('does not start live-stream setup when the event stream cannot initialize', async () => {
     const fakes = createFakes();
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-stream-init-'));

@@ -1,8 +1,58 @@
 import { describe, expect, it } from 'vitest';
 
-import { enumerateCandidateOutputs } from './net-blueprint.js';
+import { enumerateCandidateOutputs, evalEnablingGuard, type EnablingGuard } from './net-blueprint.js';
 import { compileTopology } from './net-compiler.js';
-import type { Plan } from './types.js';
+import type { Plan, ReportLine } from './types.js';
+
+function makeReport(payload: Record<string, unknown>): ReportLine {
+  return {
+    id: 'rpt-x',
+    ts: '2026-05-26T00:00:00.000Z',
+    epicId: 'epic-1',
+    sliceId: 'slice-1',
+    actor: 'test',
+    event: 'test',
+    payload,
+  };
+}
+
+describe('evalEnablingGuard', () => {
+  it('always returns true regardless of report', () => {
+    expect(evalEnablingGuard({ kind: 'always' }, makeReport({ done: false }))).toBe(true);
+    expect(evalEnablingGuard({ kind: 'always' }, makeReport({}))).toBe(true);
+    expect(evalEnablingGuard({ kind: 'always' }, undefined)).toBe(true);
+  });
+
+  it('tokenReportFieldTruthy reads the named report field and coerces to boolean', () => {
+    const guard = { kind: 'tokenReportFieldTruthy', field: 'done' } as const;
+    expect(evalEnablingGuard(guard, makeReport({ done: true }))).toBe(true);
+    expect(evalEnablingGuard(guard, makeReport({ done: false }))).toBe(false);
+    expect(evalEnablingGuard(guard, makeReport({ done: 'yes' }))).toBe(true);
+    expect(evalEnablingGuard(guard, makeReport({ done: 0 }))).toBe(false);
+    expect(evalEnablingGuard(guard, makeReport({ other: true }))).toBe(false);
+  });
+
+  it('tokenReportFieldFalsy complements truthy and treats a missing report as falsy', () => {
+    const guard = { kind: 'tokenReportFieldFalsy', field: 'passed' } as const;
+    expect(evalEnablingGuard(guard, makeReport({ passed: true }))).toBe(false);
+    expect(evalEnablingGuard(guard, makeReport({ passed: false }))).toBe(true);
+    expect(evalEnablingGuard(guard, makeReport({ passed: 0 }))).toBe(true);
+    expect(evalEnablingGuard(guard, makeReport({ other: true }))).toBe(true);
+    expect(evalEnablingGuard(guard, undefined)).toBe(true);
+  });
+
+  it('tokenReportFieldTruthy returns false when the report is missing', () => {
+    const guard = { kind: 'tokenReportFieldTruthy', field: 'done' } as const;
+    expect(evalEnablingGuard(guard, undefined)).toBe(false);
+  });
+
+  it('throws on unsupported guard kinds', () => {
+    const guard = { kind: 'unknown' } as unknown as EnablingGuard;
+    expect(() => evalEnablingGuard(guard, makeReport({ done: true }))).toThrow(
+      'Unsupported EnablingGuard kind: unknown',
+    );
+  });
+});
 
 // ---------------------------------------------------------------------------
 // enumerateCandidateOutputs — pure topology consumer

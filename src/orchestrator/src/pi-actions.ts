@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 const execAsync = promisify(exec);
 
 import { createReport } from './report-helpers.js';
+import { sliceLabel } from './slice-label.js';
 import type { ActionContext, ActionHandlers } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -163,12 +164,13 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
 
   return {
     'evaluate-done': async (ctx: ActionContext) => {
-      log('?', `evaluate  ${ctx.slice.id}`);
+      const label = sliceLabel(ctx.slice);
+      log('?', `evaluate  ${label}`);
       const task = `Evaluate slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => v.target).join(', ')}\nDetermine if all verification targets are satisfied. Respond with a JSON object: { "done": true/false, "reasoning": "..." }`;
 
       try {
         const raw = await runPi({
-          label: `evaluate  ${ctx.slice.id}`,
+          label: `evaluate  ${label}`,
           model: 'claude-haiku-4-5',
           promptFile: join(promptsDir, 'evaluator.md'),
           task,
@@ -176,13 +178,13 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
         });
         const parsed = extractJson(raw) as { done?: boolean; reasoning?: string } | undefined;
         const done = !!parsed?.done;
-        log(done ? '●' : '○', `verdict   ${ctx.slice.id} → ${done ? 'DONE' : 'NEEDS WORK'}`);
+        log(done ? '●' : '○', `verdict   ${label} → ${done ? 'DONE' : 'NEEDS WORK'}`);
         return report(ctx, 'evaluator', 'eval-done', {
           done,
           reasoning: parsed?.reasoning ?? raw.slice(0, 200),
         });
       } catch (err) {
-        log('✗', `evaluate  ${ctx.slice.id} — ${err instanceof Error ? err.message : err}`);
+        log('✗', `evaluate  ${label} — ${err instanceof Error ? err.message : err}`);
         return report(ctx, 'evaluator', 'eval-done', {
           done: false,
           reasoning: `evaluation failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -191,11 +193,12 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
     },
 
     'write-tests': async (ctx: ActionContext) => {
-      log('▸', `tests     ${ctx.slice.id}`);
+      const label = sliceLabel(ctx.slice);
+      log('▸', `tests     ${label}`);
       const task = `Write failing tests for slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ')}\nWrite test files that will initially fail. Use bun test conventions.`;
 
       await runPi({
-        label: `tests     ${ctx.slice.id}`,
+        label: `tests     ${label}`,
         model: 'claude-sonnet-4-6',
         promptFile: join(promptsDir, 'test-writer.md'),
         task,
@@ -209,11 +212,12 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
     },
 
     'write-code': async (ctx: ActionContext) => {
-      log('▸', `code      ${ctx.slice.id}`);
+      const label = sliceLabel(ctx.slice);
+      log('▸', `code      ${label}`);
       const task = `Write code to make tests pass for slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ')}\nImplement the minimum code to make all tests pass.`;
 
       await runPi({
-        label: `code      ${ctx.slice.id}`,
+        label: `code      ${label}`,
         model: 'claude-sonnet-4-6',
         promptFile: join(promptsDir, 'code-writer.md'),
         task,
@@ -226,7 +230,8 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
     },
 
     'assess-semantic': async (ctx: ActionContext) => {
-      log('?', `semantic  ${ctx.slice.id}`);
+      const label = sliceLabel(ctx.slice);
+      log('?', `semantic  ${label}`);
       // POC: auto-satisfy — real semantic assessment requires graph-derived gates (Phase 3)
       return report(ctx, 'semantic-assessor', 'semantic-assessed', { satisfied: true });
     },

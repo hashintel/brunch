@@ -182,6 +182,31 @@ describe('published CLI entrypoint', () => {
     expect(result.stderr).toBe('');
     expect(result.stdout).toContain('Usage: brunch');
     expect(result.stdout).toContain('Launch the Brunch web UI in the current project directory.');
+    expect(result.stdout).toContain('plan <specId>');
+  });
+
+  it('rejects `brunch plan` invocations with no spec id', async () => {
+    const result = await runCli(['plan'], makeTempDir('brunch-plan-usage-'));
+
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain('Failed to run brunch plan');
+    expect(result.stderr.toLowerCase()).toContain('spec id');
+  });
+
+  it('rejects `brunch plan <non-numeric>` with a friendly usage error', async () => {
+    const result = await runCli(['plan', 'abc'], makeTempDir('brunch-plan-bad-id-'));
+
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain('Failed to run brunch plan');
+    expect(result.stderr.toLowerCase()).toContain('spec id');
+  });
+
+  it('reports `specification <id> not found` when the project DB is empty', async () => {
+    const result = await runCli(['plan', '999'], makeTempDir('brunch-plan-missing-'));
+
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain('Failed to run brunch plan');
+    expect(result.stderr).toContain('specification 999 not found');
   });
 
   it('executes through the package bin wrapper when launched outside the package root', async () => {
