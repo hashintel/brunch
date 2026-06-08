@@ -1,6 +1,6 @@
 # Elicitation-backlog substrate (Seam 3a — "what to ask next" driver)
 
-Frontier: n/a (cross-cut Seam 3a; D65-L) | tracker/branch = the active cross-cut push
+Frontier: elicitation-backlog
 Status:   active
 Mode:     single
 Created:  2026-06-07
@@ -11,8 +11,9 @@ Created:  2026-06-07
   Seam 3a's open ● *"what to ask next" driver* row points at D65-L `elicitation_backlog` —
   a **flat table** (prospective process-agenda), the prospective sibling of the retrospective
   `reconciliation_need` register (D8-L). Today the elicitor has no per-turn agenda store.
-- **Relevant frontier item:** none in `memory/PLAN.md`; D65-L is a cross-cut slice advancing
-  the POC's elicitation usefulness. Card lives under `crosscut-know--`. No new Linear/branch unless asked.
+- **Relevant frontier item:** `elicitation-backlog` in `memory/PLAN.md`. This tracer was
+  promoted out of the temporary elicitor cross-cut because the D65-L substrate now carries
+  real frontier weight; the row it closes remains tracked in `memory/CROSS_CUT_PLAN.md`.
 - **Volatile state:** the sibling `reconciliation_need` is currently **type-only** — see
   [src/graph/schema/reconciliation-need.ts](file:///Users/lunelson/Code/hashintel/brunch-next/src/graph/schema/reconciliation-need.ts)
   ("Phase 1 lock-and-materialize: type definitions only; Drizzle table + CommandExecutor write
@@ -29,9 +30,9 @@ Created:  2026-06-07
   — add a projection only if a later consumer (RPC/web) actually reuses the shape.
 - **Main open risk:** D65-L lists three open scope-design items. This card resolves two and
   defers one (below). The load-bearing assumption A24-L (a flat table suffices, no graph plane)
-  is exactly what landing this tracer tests.
+  is exactly what landing this frontier tracer tests.
 
-Posture: **proving** (inherited from D65-L / cross-cut Seam 3a — Fill=`proving`).
+Posture: **proving** (inherited from frontier `elicitation-backlog`; this is still the former cross-cut Seam 3a D65-L tracer).
 
 Slice-design decisions made here (resolving D65-L "open for scope/slice design"):
 

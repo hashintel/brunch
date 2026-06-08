@@ -1,8 +1,10 @@
 <!-- CROSS_CUT_PLAN.md — TEMPORARY working plan, NOT canonical.
      Authority: none. SPEC.md and PLAN.md remain the only canonical planning state.
-     This doc captures a horizontal "capability surface" cut across the vertical
-     PLAN frontiers, for a POC-completion push. Retire or fold into PLAN/SPEC once
-     the open questions resolve and the build-out lands.
+     This doc captures a temporary horizontal capability ledger across the vertical
+     PLAN frontiers for the current elicitor push. It does not mint frontier ids;
+     when a row grows frontier-scale, promote it back into PLAN and keep only the
+     row-level coverage inventory here. Retire or fold into PLAN/SPEC once the
+     remaining temporary rows close.
      Owner: lunelson. Drafted with Amp. -->
 
 # Cross-Cut Plan — Elicitor Capability Surface
@@ -29,6 +31,12 @@ which vertical frontier first touched it.
 
 The plan is **broadly locked**; the open items are design questions, not the cut
 itself.
+
+## Current authority split
+
+- `memory/PLAN.md` owns frontier ids, sequencing, dependency judgment, and which work is active next.
+- This file owns only the temporary elicitor READ / WRITE / KNOW row inventory and its aggregate coverage DoD.
+- When one row escapes row-sized work, it gets promoted back into PLAN. As of 2026-06-08, the D65-L row is now the active PLAN frontier `elicitation-backlog`; the remaining prompt-resource body-depth pass stays temporary cross-cut work.
 
 ## The seams (locked)
 
@@ -107,9 +115,9 @@ DoD: every ● row is `have` or `built`.
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
 | goals / strategies / lenses scaffolding + legal-tuple gating | have | ● | — | — | `.pi/agents/state.ts` |
-| goal/strategy/lens **content depth** | partial | ● | earned | content pass | scaffolding present, bodies thin |
+| goal/strategy/lens **content depth** | partial | ● | earned | card `memory/cards/crosscut-know--resource-body-depth.md` | scaffolding present, bodies thin |
 | `freestyle` strategy | built | ● | — | done — pin-only strategy (8de7f166) | AUTO-excluded, no added authority; D66-L |
-| "what to ask next" driver | spec | ● | proving | D65-L `elicitation_backlog` | resolves the homeless-driver gap |
+| "what to ask next" driver | spec | ● | proving | PLAN frontier `elicitation-backlog` | substrate tracer promoted; per-turn driver remains a follow-on after the flat-table proof lands |
 
 ### Seam 3b — KNOW / mechanics (methods)
 
@@ -260,8 +268,8 @@ order is coverage-driven: close ● ledger rows seam by seam.
    `elicitation_backlog`-driven "what to ask next" (D65-L); goal/strategy/lens/method body
    depth; exchange-tool `.description()` / `promptGuidelines` fix (**built** — drift correction;
    all 7 exchange tools already carry both). Skill-commands (Q6) stay deferred. **Scoped:**
-   `memory/cards/crosscut-know--elicitation-backlog.md` (D65-L substrate tracer; the per-turn
-   driver + capture-reflection stay an unscoped follow-on) and
+   `memory/cards/elicitation-backlog--substrate.md` (D65-L substrate tracer; promoted to the active
+   PLAN frontier `elicitation-backlog`; the per-turn driver + capture-reflection stay an unscoped follow-on) and
    `memory/cards/crosscut-know--resource-body-depth.md` (the goal/strategy/lens/method body pass).
 5. **Spec reconcile** — promote the D40-L/D59-L one-line refinements (on confirmation),
    land Q1 negative-query touch, fold D65-L/D66-L outcomes into SPEC/PLAN.

@@ -11,8 +11,9 @@ Created:  2026-06-07
   `src/.pi/skills/{goals,strategies,lenses,methods}` — the markdown bodies the agent loads with
   `read` when an axis is active (D58-L manifest mechanism). `CROSS_CUT_PLAN.md` Seam 3a/3b both
   carry a *content depth* ● row: "scaffolding present, bodies thin."
-- **Relevant frontier item:** none in `memory/PLAN.md`; this is the earned content half of
-  cross-cut working-order step 4. Card lives under `crosscut-know--`. No new Linear/branch.
+- **Relevant frontier item:** none in `memory/PLAN.md`; this stays the remaining temporary
+  cross-cut completion work after D65-L `elicitation_backlog` was promoted back into PLAN.
+  It is the earned content half of cross-cut working-order step 4.
 - **Volatile state:** the bodies are genuinely thin — every resource is ~5 lines
   (`goals/*`, `lenses/*`, `methods/{commit-graph,read-context,review-for-gaps}`, all four
   non-freestyle `strategies/*`); only `methods/{infer-and-capture,generate-proposal,run-structured-exchange}`

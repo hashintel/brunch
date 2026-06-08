@@ -1,7 +1,7 @@
 # Live selected-spec mention autocomplete
 
 Frontier: poc-live-ship-gate
-Status:   active
+Status:   next
 Mode:     single
 Created:  2026-06-05
 
@@ -9,6 +9,7 @@ Created:  2026-06-05
 
 - Containing seam: Brunch Pi product shell `#` autocomplete over the selected-spec graph; this is the adapter edge where Pi autocomplete inserts visible stable graph-code text, not hidden mention metadata.
 - Relevant frontier item: `poc-live-ship-gate` because this is a composed-product-path defect visible in a live seeded TUI session. It does **not** advance M7 mention ledger/staleness; it only fixes the current autocomplete source.
+- Planning note: the slice is prepared but intentionally parked while `elicitation-backlog` and the remaining temporary elicitor cross-cut work have priority. Return when FE-811 is back on the critical path.
 - Volatile handoff state: no `HANDOFF.md`; the projection/rendering topology work has since moved the Pi shell to `src/.pi/brunch-pi-extensions.ts` and mention code to `src/.pi/extensions/mentions/index.ts`. Diagnosis still proves the live TUI menu shows `#D12/#I9/#A10` from `FIXTURE_GRAPH_MENTION_SOURCE` while the selected spec has real graph nodes.
 - Main open risk: the build path must delete production fixture-backing without accidentally inventing a broader graph projection layer or coupling autocomplete to DB access.
 
