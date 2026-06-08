@@ -34,24 +34,34 @@ slices:
 
   - id: reverse
     epic_id: text-ops
-    definition: "Add `reverse` subcommand. Pure function reverses a string. CLI wires it to argv[2]."
-    depends_on: []
+    definition: "Add a pure text operation module for reverse, e.g. `reverse(input: string): string`, without editing the shared CLI dispatcher. The wire-text-commands join slice owns CLI wiring."
+    depends_on: [help-flag]
     verification:
       - kind: unit-test
         target: "tests/reverse.test.ts"
 
   - id: count
     epic_id: text-ops
-    definition: "Add `count` subcommand that counts whitespace-separated words. Empty input returns 0."
-    depends_on: []
+    definition: "Add a pure text operation module for count, e.g. `count(input: string): number`, counting whitespace-separated words with empty input returning 0. Do not edit the shared CLI dispatcher; wire-text-commands owns CLI wiring."
+    depends_on: [help-flag]
     verification:
       - kind: unit-test
         target: "tests/count.test.ts"
 
   - id: slugify
     epic_id: text-ops
-    definition: "Add `slugify` subcommand. Lowercase, replace non-alphanumerics with single dash, collapse multiple dashes, trim leading/trailing dashes. Handle unicode by removing diacritics."
-    depends_on: []
+    definition: "Add a pure text operation module for slugify: lowercase, replace non-alphanumerics with single dash, collapse multiple dashes, trim leading/trailing dashes, and handle unicode by removing diacritics. Do not edit the shared CLI dispatcher; wire-text-commands owns CLI wiring."
+    depends_on: [help-flag]
     verification:
       - kind: unit-test
         target: "tests/slugify.test.ts"
+
+  - id: wire-text-commands
+    epic_id: text-ops
+    definition: "Wire the shared CLI dispatcher to expose the reverse, count, and slugify text operations as subcommands while preserving the existing --version and --help behavior. This join slice is the only text-ops slice that edits the shared CLI entrypoint."
+    depends_on: [reverse, count, slugify]
+    verification:
+      - kind: integration-test
+        target: "tests/cli-scaffolding.integration.test.ts"
+      - kind: integration-test
+        target: "tests/text-ops-pipe.integration.test.ts"

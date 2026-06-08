@@ -23,7 +23,7 @@ epics:
 slices:
   - id: package-setup
     epic_id: scaffold
-    definition: "Set up package.json (type: module, bun test), tsconfig.json, and src/index.ts as a barrel that re-exports every util. The barrel starts empty and each util slice adds its own export."
+    definition: "Set up package.json (type: module, bun test), tsconfig.json, and src/index.ts as an initially empty public barrel. Do not export utilities here; the barrel-exports join slice owns the shared src/index.ts wiring after all util modules exist."
     depends_on: []
     verification:
       - kind: unit-test
@@ -31,7 +31,7 @@ slices:
 
   - id: chunk
     epic_id: utils
-    definition: "Add `chunk<T>(arr: T[], size: number): T[][]` in src/chunk.ts splitting an array into size-N groups (last group may be shorter). size <= 0 throws."
+    definition: "Add `chunk<T>(arr: T[], size: number): T[][]` in src/chunk.ts splitting an array into size-N groups (last group may be shorter). size <= 0 throws. Do not edit src/index.ts; barrel-exports owns the shared barrel."
     depends_on: [package-setup]
     verification:
       - kind: unit-test
@@ -39,7 +39,7 @@ slices:
 
   - id: unique
     epic_id: utils
-    definition: "Add `unique<T>(arr: T[]): T[]` in src/unique.ts returning elements in first-seen order with duplicates removed (SameValueZero equality)."
+    definition: "Add `unique<T>(arr: T[]): T[]` in src/unique.ts returning elements in first-seen order with duplicates removed (SameValueZero equality). Do not edit src/index.ts; barrel-exports owns the shared barrel."
     depends_on: [package-setup]
     verification:
       - kind: unit-test
@@ -47,7 +47,7 @@ slices:
 
   - id: group-by
     epic_id: utils
-    definition: "Add `groupBy<T>(arr: T[], key: (x: T) => string): Record<string, T[]>` in src/group-by.ts."
+    definition: "Add `groupBy<T>(arr: T[], key: (x: T) => string): Record<string, T[]>` in src/group-by.ts. Do not edit src/index.ts; barrel-exports owns the shared barrel."
     depends_on: [package-setup]
     verification:
       - kind: unit-test
@@ -55,7 +55,7 @@ slices:
 
   - id: debounce
     epic_id: utils
-    definition: "Add `debounce<F extends (...a: any[]) => void>(fn: F, ms: number): F` in src/debounce.ts that delays invocation until ms after the last call. Use fake timers in the test."
+    definition: "Add `debounce<F extends (...a: any[]) => void>(fn: F, ms: number): F` in src/debounce.ts that delays invocation until ms after the last call. Use fake timers in the test. Do not edit src/index.ts; barrel-exports owns the shared barrel."
     depends_on: [package-setup]
     verification:
       - kind: unit-test
@@ -63,7 +63,7 @@ slices:
 
   - id: retry
     epic_id: utils
-    definition: "Add `retry<T>(fn: () => Promise<T>, times: number): Promise<T>` in src/retry.ts that retries a rejecting promise up to `times` times before rejecting with the last error."
+    definition: "Add `retry<T>(fn: () => Promise<T>, times: number): Promise<T>` in src/retry.ts that retries a rejecting promise up to `times` times before rejecting with the last error. Do not edit src/index.ts; barrel-exports owns the shared barrel."
     depends_on: [package-setup]
     verification:
       - kind: unit-test
@@ -71,7 +71,7 @@ slices:
 
   - id: clamp
     epic_id: utils
-    definition: "Add `clamp(n: number, min: number, max: number): number` in src/clamp.ts. Throws if min > max."
+    definition: "Add `clamp(n: number, min: number, max: number): number` in src/clamp.ts. Throws if min > max. Do not edit src/index.ts; barrel-exports owns the shared barrel."
     depends_on: [package-setup]
     verification:
       - kind: unit-test
@@ -79,7 +79,7 @@ slices:
 
   - id: slugify
     epic_id: utils
-    definition: "Add `slugify(s: string): string` in src/slugify.ts: lowercase, non-alphanumerics → single dash, collapse repeats, trim leading/trailing dashes."
+    definition: "Add `slugify(s: string): string` in src/slugify.ts: lowercase, non-alphanumerics → single dash, collapse repeats, trim leading/trailing dashes. Do not edit src/index.ts; barrel-exports owns the shared barrel."
     depends_on: [package-setup]
     verification:
       - kind: unit-test
@@ -87,8 +87,16 @@ slices:
 
   - id: deep-equal
     epic_id: utils
-    definition: "Add `deepEqual(a: unknown, b: unknown): boolean` in src/deep-equal.ts doing structural equality for plain objects, arrays, and primitives."
+    definition: "Add `deepEqual(a: unknown, b: unknown): boolean` in src/deep-equal.ts doing structural equality for plain objects, arrays, and primitives. Do not edit src/index.ts; barrel-exports owns the shared barrel."
     depends_on: [package-setup]
     verification:
       - kind: unit-test
         target: "tests/deep-equal.test.ts"
+
+  - id: barrel-exports
+    epic_id: utils
+    definition: "Update the shared public barrel src/index.ts to re-export every completed util module: chunk, unique, group-by, debounce, retry, clamp, slugify, and deep-equal. This join slice is the only util slice that edits src/index.ts."
+    depends_on: [chunk, unique, group-by, debounce, retry, clamp, slugify, deep-equal]
+    verification:
+      - kind: integration-test
+        target: "tests/barrel.integration.test.ts"
