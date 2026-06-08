@@ -22,14 +22,14 @@ const PROBE_ID = 'project-graph-review-cycle' as const;
 const DEFAULT_SEED_SET = 'bilal-port-variants';
 const DEFAULT_SEED_SLUG = 'macro-view-grounded-intent';
 
- interface ProjectGraphReviewRuntimeStateReport {
+interface ProjectGraphReviewRuntimeStateReport {
   readonly operationalMode: 'elicit';
   readonly agentStrategy: 'project-graph';
   readonly agentLens: 'intent';
   readonly agentGoal: 'commit-converge';
 }
 
- interface ProjectGraphReviewCycleProofOptions {
+interface ProjectGraphReviewCycleProofOptions {
   readonly cwd?: string;
   readonly fixtureRoot?: string;
   readonly seedSet?: string;
@@ -47,14 +47,14 @@ export interface ProjectGraphReviewCycleArtifacts {
   readonly graphOverviewJson: string;
 }
 
- interface ReviewCycleToolEvidence {
+interface ReviewCycleToolEvidence {
   readonly presentReviewSetCount: number;
   readonly requestReviewCount: number;
   readonly successfulPresentReviewSetCount: number;
   readonly structuralIllegalPresentReviewSetCount: number;
 }
 
- interface ReviewCycleApprovalEvidence {
+interface ReviewCycleApprovalEvidence {
   readonly attempted: boolean;
   readonly status?:
     | 'approved'
@@ -69,7 +69,7 @@ export interface ProjectGraphReviewCycleArtifacts {
   readonly error?: string;
 }
 
- interface ProjectGraphReviewCycleCreatedNode {
+interface ProjectGraphReviewCycleCreatedNode {
   readonly id: number;
   readonly code: string;
   readonly plane: GraphNode['plane'];

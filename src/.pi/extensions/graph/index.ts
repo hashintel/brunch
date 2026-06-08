@@ -14,7 +14,7 @@ import type {
   NodeSelector,
   ReadinessBand,
 } from '../../../graph/index.js';
-import { formatNeighborhood } from '../../../renderers/graph/neighborhood.js';
+import { formatNeighborhood } from '../../../renderers/graph/node-neighborhood.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
 import {
   translateCommitGraph,

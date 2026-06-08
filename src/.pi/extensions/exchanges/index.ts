@@ -69,4 +69,3 @@ export function registerStructuredExchange(pi: ExtensionAPI, deps: StructuredExc
     pi.registerTool(tool);
   }
 }
-

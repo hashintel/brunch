@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import type { AutocompleteItem, AutocompleteSuggestions } from '@earendil-works/pi-tui';
 
- interface GraphMentionCandidate {
+interface GraphMentionCandidate {
   code: string;
   title: string;
   description?: string;
@@ -100,4 +100,3 @@ function candidateToAutocompleteItem(candidate: GraphMentionCandidate): Autocomp
     ...(candidate.description !== undefined ? { description: candidate.description } : {}),
   };
 }
-

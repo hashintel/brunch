@@ -129,40 +129,4 @@ export const ReadGraphParams = {
     'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, related nodes, or graph gaps. Neighborhood mode requires nodeCode. List modes accept kind or readiness-band filters and return an empty slice for empty or unknown filters. Gaps mode requires a base filter (kinds and/or readinessBands) plus absentEdgeCategory.',
 } as const;
 
- type ToolCommitNode = Static<typeof CommitNodeSchema>;
- type ToolCommitEdge = Static<typeof CommitEdgeSchema>;
 export type ToolCommitGraphParams = Static<typeof CommitGraphParams>;
- type ToolReadGraphParams =
-  | { readonly mode: 'overview'; readonly show?: GraphVisibility }
-  | {
-      readonly mode: 'neighborhood';
-      readonly nodeCode: string;
-      readonly hops?: number;
-      readonly show?: GraphVisibility;
-    }
-  | {
-      readonly mode: 'list_by_kind';
-      readonly kinds: readonly string[];
-      readonly show?: GraphVisibility;
-    }
-  | {
-      readonly mode: 'list_by_band';
-      readonly readinessBands: readonly string[];
-      readonly show?: GraphVisibility;
-    }
-  | {
-      readonly mode: 'related';
-      readonly anchorCodes: readonly string[];
-      readonly edgeCategory: (typeof EDGE_CATEGORIES)[number];
-      readonly direction?: EdgeDirection;
-      readonly hops?: number;
-      readonly show?: GraphVisibility;
-    }
-  | {
-      readonly mode: 'gaps';
-      readonly kinds?: readonly string[];
-      readonly readinessBands?: readonly string[];
-      readonly absentEdgeCategory: (typeof EDGE_CATEGORIES)[number];
-      readonly direction?: EdgeDirection;
-      readonly show?: GraphVisibility;
-    };

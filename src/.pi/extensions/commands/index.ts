@@ -95,4 +95,3 @@ export function registerBrunchCommands(pi: ExtensionAPI, { coordinator }: Brunch
     },
   });
 }
-

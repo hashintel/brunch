@@ -1,5 +1,5 @@
 import type { NodeNeighborhood } from '../../../graph/queries.js';
-import { formatNeighborhood } from '../../../renderers/graph/neighborhood.js';
+import { formatNeighborhood } from '../../../renderers/graph/node-neighborhood.js';
 
 export interface RenderNodeContextOptions {
   readonly maxNeighbors?: number;

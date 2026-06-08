@@ -49,16 +49,16 @@ export {
 } from '../.pi/brunch-pi-extensions.js';
 export { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
 
- type BrunchTuiCoordinator = SpecSessionActivationCoordinator & WorkspaceSessionBoundaryCoordinator;
+type BrunchTuiCoordinator = SpecSessionActivationCoordinator & WorkspaceSessionBoundaryCoordinator;
 
- interface BrunchWebSidecarRunnerOptions {
+interface BrunchWebSidecarRunnerOptions {
   cwd: string;
   coordinator: BrunchTuiCoordinator;
   productUpdates: ProductUpdatePublisher;
   routePath: string;
 }
 
- type BrunchWebSidecar = Pick<RunningWebHost, 'url' | 'close'>;
+type BrunchWebSidecar = Pick<RunningWebHost, 'url' | 'close'>;
 
 export interface BrunchTuiLaunchContext {
   workspace: WorkspaceSessionReadyState;

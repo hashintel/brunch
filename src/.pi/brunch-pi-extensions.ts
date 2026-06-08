@@ -21,9 +21,7 @@ import {
 
 export { registerBrunchAlternatives } from './components/alternatives.js';
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from './extensions/commands/policy.js';
-export {
-  registerBrunchMentionAutocomplete,
-} from './extensions/mentions/index.js';
+export { registerBrunchMentionAutocomplete } from './extensions/mentions/index.js';
 export {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -58,10 +56,7 @@ export {
   BRUNCH_SWITCH_SHORTCUT,
   registerBrunchCommands,
 } from './extensions/commands/index.js';
-export {
-  runBrunchWorkspaceAction,
-  runBrunchWorkspaceCommand,
-} from './extensions/workspace/index.js';
+export { runBrunchWorkspaceAction, runBrunchWorkspaceCommand } from './extensions/workspace/index.js';
 
 export { registerBrunchGraph } from './extensions/graph/index.js';
 

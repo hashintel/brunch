@@ -12,7 +12,7 @@ import * as schema from '../../db/schema.js';
 import type { Lsn, NodeId } from '../atoms.js';
 import type { NodeBasis, NodePlane, ReadinessBand } from './nodes.js';
 
- type ElicitationBacklogStatus = (typeof schema.ELICITATION_BACKLOG_STATUSES)[number];
+type ElicitationBacklogStatus = (typeof schema.ELICITATION_BACKLOG_STATUSES)[number];
 
 export type ElicitationBacklogLensAffinity = (typeof schema.LENS_AFFINITIES)[number];
 

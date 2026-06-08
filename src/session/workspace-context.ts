@@ -4,19 +4,19 @@ import { basename, join, relative, resolve, sep } from 'node:path';
 import { openWorkspaceGraphRuntime, type ReadinessGrade } from '../graph/index.js';
 import { inspectCanonicalSessionFiles } from './workspace-session-coordinator/boot-session-store.js';
 
- interface WorkspaceSessionFileInventory {
+interface WorkspaceSessionFileInventory {
   readonly file: string;
   readonly lineCount: number;
   readonly byteCount: number;
 }
 
- interface WorkspaceTreeEntryInventory {
+interface WorkspaceTreeEntryInventory {
   readonly name: string;
   readonly kind: 'file' | 'directory';
   readonly fileCount: number;
 }
 
- interface WorkspaceMarkdownFileInventory {
+interface WorkspaceMarkdownFileInventory {
   readonly path: string;
   readonly lineCount: number;
   readonly byteCount: number;
@@ -31,14 +31,14 @@ export interface WorkspaceCwdInventory {
   readonly markdownFiles: readonly WorkspaceMarkdownFileInventory[];
 }
 
- interface WorkspaceSpecOverview {
+interface WorkspaceSpecOverview {
   readonly id: number;
   readonly title: string;
   readonly nodeCount: number;
   readonly sessionCount: number;
 }
 
- interface WorkspaceSessionOverview {
+interface WorkspaceSessionOverview {
   readonly id: string;
   readonly file: string;
   readonly specId: number;

@@ -23,17 +23,11 @@ export {
 
 export type { EdgeCategory, GraphEdge } from './schema/edges.js';
 
-export type {
-  GraphNode,
-  NodeKind,
-  ReadinessBand,
-} from './schema/nodes.js';
+export type { GraphNode, NodeKind, ReadinessBand } from './schema/nodes.js';
 
 export { formatGraphNodeCode, intentKindCategory, parseGraphNodeCode } from './schema/nodes.js';
 
-export {
-  CATEGORY_POLICY,
-} from './policy/category-policy.js';
+export { CATEGORY_POLICY } from './policy/category-policy.js';
 
 export {
   queryGraph,
@@ -66,4 +60,3 @@ export type {
 } from './command-executor.js';
 
 export { translateReviewSetPayloadToCommitGraph } from './review-set.js';
-

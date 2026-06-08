@@ -57,62 +57,62 @@ export type {
 // ---------------------------------------------------------------------------
 
 /** Successful command execution. */
- interface CommandSuccess {
+interface CommandSuccess {
   readonly status: 'success';
   readonly nodeId: number;
   readonly lsn: number;
 }
 
 /** Action requires human confirmation (M6 placeholder). */
- interface NeedsHuman {
+interface NeedsHuman {
   readonly status: 'needs_human';
 }
 
 /** Action blocked by authority policy (M6 placeholder). */
- interface PolicyBlocked {
+interface PolicyBlocked {
   readonly status: 'policy_blocked';
 }
 
 /** Optimistic concurrency conflict (M6 placeholder). */
- interface VersionConflict {
+interface VersionConflict {
   readonly status: 'version_conflict';
 }
 
 /** Successful reconciliation-need creation. */
- interface ReconNeedSuccess {
+interface ReconNeedSuccess {
   readonly status: 'success';
   readonly id: number;
   readonly lsn: number;
 }
 
 /** Successful reconciliation-need resolution. */
- interface ReconNeedResolveSuccess {
+interface ReconNeedResolveSuccess {
   readonly status: 'success';
   readonly lsn: number;
 }
 
 /** Successful spec creation. */
- interface CreateSpecSuccess {
+interface CreateSpecSuccess {
   readonly status: 'success';
   readonly specId: number;
   readonly lsn: number;
 }
 
 /** Successful elicitation-backlog creation. */
- interface ElicitationBacklogSuccess {
+interface ElicitationBacklogSuccess {
   readonly status: 'success';
   readonly id: number;
   readonly lsn: number;
 }
 
 /** Successful elicitation-backlog close. */
- interface ElicitationBacklogCloseSuccess {
+interface ElicitationBacklogCloseSuccess {
   readonly status: 'success';
   readonly lsn: number;
 }
 
 /** Successful spec readiness-grade update. */
- interface UpdateReadinessGradeSuccess {
+interface UpdateReadinessGradeSuccess {
   readonly status: 'success';
   readonly lsn: number;
 }
@@ -163,7 +163,7 @@ export type CloseElicitationBacklogEntryResult = ElicitationBacklogCloseSuccess 
 export type UpdateReadinessGradeResult = UpdateReadinessGradeSuccess | StructuralIllegal;
 
 /** Successful accepted review-set graph batch execution. */
- interface AcceptReviewSetSuccess extends CommitGraphSuccess {}
+interface AcceptReviewSetSuccess extends CommitGraphSuccess {}
 
 /** Result of an acceptReviewSet command. */
 export type AcceptReviewSetResult = AcceptReviewSetSuccess | StructuralIllegal;
@@ -232,20 +232,20 @@ export interface CreateNodeInput {
 // ---------------------------------------------------------------------------
 
 /** Target for a reconciliation need — edge or node pair. */
- type ReconNeedTargetEdge = {
+type ReconNeedTargetEdge = {
   readonly kind: 'edge';
   readonly edgeId: number;
 };
 
 /** Target for a reconciliation need — node pair. */
- type ReconNeedTargetNodePair = {
+type ReconNeedTargetNodePair = {
   readonly kind: 'node_pair';
   readonly aId: number;
   readonly bId: number;
 };
 
 /** Target for a reconciliation need. */
- type ReconNeedTarget = ReconNeedTargetEdge | ReconNeedTargetNodePair;
+type ReconNeedTarget = ReconNeedTargetEdge | ReconNeedTargetNodePair;
 
 /** Input for creating a reconciliation need. */
 export interface CreateReconNeedInput {

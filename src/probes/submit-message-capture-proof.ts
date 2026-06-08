@@ -29,7 +29,7 @@ interface CaptureOutcome {
   readonly createdNodes: Record<string, { readonly id: number; readonly code: string }>;
 }
 
- interface SubmitMessageCaptureProofArtifacts {
+interface SubmitMessageCaptureProofArtifacts {
   readonly runDir: string;
   readonly sessionJsonl: string;
   readonly transcriptMarkdown: string;

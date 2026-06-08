@@ -59,7 +59,7 @@ export type NodeNeighborhood =
 
 export type EdgeDirection = 'outgoing' | 'incoming' | 'both';
 
- interface EdgePresenceFilter {
+interface EdgePresenceFilter {
   readonly categories?: readonly EdgeCategory[];
   readonly direction?: EdgeDirection;
 }

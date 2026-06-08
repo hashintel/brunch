@@ -12,7 +12,6 @@ import {
 } from './shared.js';
 
 export const zPresentDisplay = zDisplayBase.extend({ preface: zMarkdown.optional() }).strict();
- type PresentDisplay = z.infer<typeof zPresentDisplay>;
 export const PresentDisplaySchema = z.toJSONSchema(zPresentDisplay, {
   unrepresentable: 'throw',
 });
@@ -35,7 +34,6 @@ export const zPresentOption = z
     rationale: zMarkdown.optional(),
   })
   .strict();
- type PresentOption = z.infer<typeof zPresentOption>;
 export const PresentOptionSchema = z.toJSONSchema(zPresentOption, {
   unrepresentable: 'throw',
 });
@@ -56,7 +54,6 @@ export const zReviewSetEndpointRef = z.union([
   z.object({ draft_id: z.string().min(1) }).strict(),
   z.object({ existing_code: z.string().min(1) }).strict(),
 ]);
- type ReviewSetEndpointRef = z.infer<typeof zReviewSetEndpointRef>;
 export const ReviewSetEndpointRefSchema = z.toJSONSchema(zReviewSetEndpointRef, {
   unrepresentable: 'throw',
 });
@@ -71,7 +68,6 @@ export const zReviewSetNodeDraft = z
     detail: z.unknown().optional(),
   })
   .strict();
- type ReviewSetNodeDraft = z.infer<typeof zReviewSetNodeDraft>;
 export const ReviewSetNodeDraftSchema = z.toJSONSchema(zReviewSetNodeDraft, {
   unrepresentable: 'throw',
 });
@@ -85,7 +81,6 @@ export const zReviewSetEdgeDraft = z
     rationale: zMarkdown.optional(),
   })
   .strict();
- type ReviewSetEdgeDraft = z.infer<typeof zReviewSetEdgeDraft>;
 export const ReviewSetEdgeDraftSchema = z.toJSONSchema(zReviewSetEdgeDraft, {
   unrepresentable: 'throw',
 });
@@ -124,7 +119,6 @@ export const zCandidateUserRubric = z
     recommendation: zMarkdown.optional(),
   })
   .strict();
- type CandidateUserRubric = z.infer<typeof zCandidateUserRubric>;
 export const CandidateUserRubricSchema = z.toJSONSchema(zCandidateUserRubric, {
   unrepresentable: 'throw',
 });
@@ -137,7 +131,6 @@ export const zCandidateMetaRubric = z
     commitment: zMarkdown.optional(),
   })
   .strict();
- type CandidateMetaRubric = z.infer<typeof zCandidateMetaRubric>;
 export const CandidateMetaRubricSchema = z.toJSONSchema(zCandidateMetaRubric, {
   unrepresentable: 'throw',
 });
@@ -151,7 +144,6 @@ export const zPresentedCandidate = z
     graph_refs: z.array(zGraphNodeRef),
   })
   .strict();
- type PresentedCandidate = z.infer<typeof zPresentedCandidate>;
 export const PresentedCandidateSchema = z.toJSONSchema(zPresentedCandidate, {
   unrepresentable: 'throw',
 });
@@ -163,7 +155,6 @@ export const zPresentCandidatesDetails = zPresentDetailsHeader
     candidates: z.array(zPresentedCandidate).min(1),
   })
   .strict();
- type PresentCandidatesDetails = z.infer<typeof zPresentCandidatesDetails>;
 export const PresentCandidatesDetailsSchema = z.toJSONSchema(zPresentCandidatesDetails, {
   unrepresentable: 'throw',
 });

@@ -26,7 +26,7 @@ const PROBE_ID = 'fixture-curation' as const;
 const DEFAULT_SEED_SET = 'bilal-port-variants';
 const DEFAULT_SEED_SLUG = 'macro-view-grounded-intent';
 
- type FixtureCurationCommitStatus =
+type FixtureCurationCommitStatus =
   | CommitGraphSuccess['status']
   | StructuralIllegal['status']
   | 'needs_human'
@@ -34,14 +34,14 @@ const DEFAULT_SEED_SLUG = 'macro-view-grounded-intent';
   | 'version_conflict'
   | 'unknown';
 
- interface FixtureCurationRuntimeStateReport {
+interface FixtureCurationRuntimeStateReport {
   readonly operationalMode: 'elicit';
   readonly agentStrategy: 'propose-graph';
   readonly agentLens: 'intent';
   readonly agentGoal: 'commit-converge';
 }
 
- interface FixtureCurationRunOptions {
+interface FixtureCurationRunOptions {
   readonly cwd?: string;
   readonly fixtureRoot?: string;
   readonly seedSet?: string;
@@ -60,7 +60,7 @@ export interface FixtureCurationArtifacts {
   readonly graphOverviewJson: string;
 }
 
- interface FixtureCurationCommitAttempt {
+interface FixtureCurationCommitAttempt {
   readonly index: number;
   readonly status: FixtureCurationCommitStatus;
   readonly lsn?: number;
@@ -70,7 +70,7 @@ export interface FixtureCurationArtifacts {
   readonly content?: string;
 }
 
- interface FixtureCurationCreatedNode {
+interface FixtureCurationCreatedNode {
   readonly id: number;
   readonly code: string;
   readonly plane: GraphNode['plane'];

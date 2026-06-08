@@ -6,11 +6,9 @@ export const STRUCTURED_EXCHANGE_CAPTURE_DETAILS_SCHEMA = 'brunch.structured_exc
 export const STRUCTURED_EXCHANGE_DETAILS_VERSION = 1 as const;
 
 export const zMarkdown = z.string();
- type Markdown = z.infer<typeof zMarkdown>;
 export const MarkdownSchema = z.toJSONSchema(zMarkdown, { unrepresentable: 'throw' });
 
 export const zGraphNodeRef = z.object({ node_id: z.string().min(1) }).strict();
- type GraphNodeRef = z.infer<typeof zGraphNodeRef>;
 export const GraphNodeRefSchema = z.toJSONSchema(zGraphNodeRef, { unrepresentable: 'throw' });
 
 export const zPresentToolName = z.enum([
@@ -19,7 +17,6 @@ export const zPresentToolName = z.enum([
   'present_review_set',
   'present_candidates',
 ]);
- type PresentToolName = z.infer<typeof zPresentToolName>;
 export const PresentToolNameSchema = z.toJSONSchema(zPresentToolName, { unrepresentable: 'throw' });
 
 export const zRequestToolName = z.enum([
@@ -28,7 +25,6 @@ export const zRequestToolName = z.enum([
   'request_choices',
   'request_review',
 ]);
- type RequestToolName = z.infer<typeof zRequestToolName>;
 export const RequestToolNameSchema = z.toJSONSchema(zRequestToolName, { unrepresentable: 'throw' });
 
 export const zCaptureToolName = z.enum([
@@ -38,7 +34,6 @@ export const zCaptureToolName = z.enum([
   'capture_review',
   'capture_candidate',
 ]);
- type CaptureToolName = z.infer<typeof zCaptureToolName>;
 export const CaptureToolNameSchema = z.toJSONSchema(zCaptureToolName, { unrepresentable: 'throw' });
 
 const zDetailsHeaderFields = {
@@ -49,23 +44,19 @@ const zDetailsHeaderFields = {
 export const zPresentDetailsHeader = z
   .object({ schema: z.literal(STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA), ...zDetailsHeaderFields })
   .strict();
- type PresentDetailsHeader = z.infer<typeof zPresentDetailsHeader>;
 export const PresentDetailsHeaderSchema = z.toJSONSchema(zPresentDetailsHeader, { unrepresentable: 'throw' });
 
 export const zRequestDetailsHeader = z
   .object({ schema: z.literal(STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA), ...zDetailsHeaderFields })
   .strict();
- type RequestDetailsHeader = z.infer<typeof zRequestDetailsHeader>;
 export const RequestDetailsHeaderSchema = z.toJSONSchema(zRequestDetailsHeader, { unrepresentable: 'throw' });
 
 export const zCaptureDetailsHeader = z
   .object({ schema: z.literal(STRUCTURED_EXCHANGE_CAPTURE_DETAILS_SCHEMA), ...zDetailsHeaderFields })
   .strict();
- type CaptureDetailsHeader = z.infer<typeof zCaptureDetailsHeader>;
 export const CaptureDetailsHeaderSchema = z.toJSONSchema(zCaptureDetailsHeader, { unrepresentable: 'throw' });
 
 export const zDisplayBase = z.object({ heading: z.string().min(1), body: zMarkdown.optional() }).strict();
- type DisplayBase = z.infer<typeof zDisplayBase>;
 export const DisplayBaseSchema = z.toJSONSchema(zDisplayBase, { unrepresentable: 'throw' });
 
 export const zPresentQuestionToolMeta = z
@@ -87,7 +78,6 @@ export const zPresentToolMeta = z.discriminatedUnion('curr', [
   zPresentReviewSetToolMeta,
   zPresentCandidatesToolMeta,
 ]);
- type PresentToolMeta = z.infer<typeof zPresentToolMeta>;
 export const PresentToolMetaSchema = z.toJSONSchema(zPresentToolMeta, { unrepresentable: 'throw' });
 
 export const zRequestAnswerToolMeta = z
@@ -137,7 +127,6 @@ export const zRequestToolMeta = z.union([
   zRequestChoicesToolMeta,
   zRequestReviewToolMeta,
 ]);
- type RequestToolMeta = z.infer<typeof zRequestToolMeta>;
 export const RequestToolMetaSchema = z.toJSONSchema(zRequestToolMeta, { unrepresentable: 'throw' });
 
 export const zCaptureAnswerToolMeta = z
@@ -163,5 +152,4 @@ export const zCaptureToolMeta = z.union([
   zCaptureReviewToolMeta,
   zCaptureCandidateToolMeta,
 ]);
- type CaptureToolMeta = z.infer<typeof zCaptureToolMeta>;
 export const CaptureToolMetaSchema = z.toJSONSchema(zCaptureToolMeta, { unrepresentable: 'throw' });

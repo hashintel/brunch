@@ -4,9 +4,9 @@ import { formatRequestChoice } from '../../../../renderers/exchanges/request-cho
 import { formatRequestChoices } from '../../../../renderers/exchanges/request-choices.js';
 import type { SelectedChoice } from '../schemas/index.js';
 
- type StructuredExchangeMode = 'single-select' | 'multi-select';
+type StructuredExchangeMode = 'single-select' | 'multi-select';
 
- interface StructuredExchangeOption {
+interface StructuredExchangeOption {
   label: string;
   value: string;
   description?: string;

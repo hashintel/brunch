@@ -4,18 +4,21 @@ import { fileURLToPath } from 'node:url';
 
 import { expect, test } from 'vitest';
 
-import { renderNeighborhoodPreview } from '../../graph/render-preview.js';
+import { readNodeNeighborhoodFixture } from './fixture-reads.test-support.js';
+import { formatNeighborhood } from './node-neighborhood.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PREVIEWS_DIR = resolve(HERE, '__previews__');
 const GOLDEN_PATH = resolve(PREVIEWS_DIR, 'neighborhood-code-health-R1.md');
 
 test('locks graph neighborhood preview for code-health R1 and preserves projected invariants', async () => {
-  const rendered = renderNeighborhoodPreview({
-    set: 'bilal-port',
-    fixture: 'code-health',
-    anchorCode: 'R1',
-  });
+  const rendered = formatNeighborhood(
+    readNodeNeighborhoodFixture({
+      set: 'bilal-port',
+      fixture: 'code-health',
+      anchorCode: 'R1',
+    }),
+  );
   const locked = rendered.endsWith('\n') ? rendered : `${rendered}\n`;
 
   mkdirSync(PREVIEWS_DIR, { recursive: true });

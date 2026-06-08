@@ -1,6 +1,6 @@
 export const BRUNCH_UPDATED_METHOD = 'brunch.updated';
 
- type ProductUpdateTopic =
+type ProductUpdateTopic =
   | 'workspace.state'
   | 'workspace.selectionState'
   | 'session.pendingExchange'
@@ -26,7 +26,7 @@ export interface ProductUpdateNotification {
   };
 }
 
- type ProductUpdateListener = (updates: readonly ProductUpdate[]) => void;
+type ProductUpdateListener = (updates: readonly ProductUpdate[]) => void;
 
 export interface ProductUpdatePublisher {
   publish(update: ProductUpdate | readonly ProductUpdate[]): void;

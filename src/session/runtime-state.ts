@@ -2,7 +2,7 @@ export const BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE = 'brunch.agent_runtime_stat
 
 export type OperationalModeId = 'elicit';
 export type AgentRoleId = 'elicitor';
- type AutoAxisSelection = 'auto';
+type AutoAxisSelection = 'auto';
 export type AgentStrategyId =
   | 'freestyle'
   | 'step-wise-decision-tree'

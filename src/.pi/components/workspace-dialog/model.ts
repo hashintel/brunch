@@ -20,7 +20,7 @@ export type WorkspaceSelectionStage =
       specId: number;
     };
 
- interface WorkspaceSelectionOption {
+interface WorkspaceSelectionOption {
   id: string;
   label: string;
   description: string;

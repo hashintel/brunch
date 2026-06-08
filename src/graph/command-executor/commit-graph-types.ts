@@ -13,7 +13,7 @@ export interface StructuralIllegal {
 }
 
 /** Successful dry-run validation without mutation. */
- interface DryRunSuccess {
+interface DryRunSuccess {
   readonly status: 'success';
 }
 

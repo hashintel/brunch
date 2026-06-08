@@ -26,7 +26,7 @@ interface BeforeAgentStartContextLike {
   sessionManager?: SessionManagerLike;
 }
 
- interface BrunchPromptContext {
+interface BrunchPromptContext {
   spec: AgentPromptSpecContext;
   workspace: AgentPromptWorkspaceContext;
   session?: AgentPromptSessionContext;
@@ -105,4 +105,3 @@ async function resolvePromptContext(
 ): Promise<BrunchPromptContext> {
   return typeof promptContext === 'function' ? promptContext() : promptContext;
 }
-

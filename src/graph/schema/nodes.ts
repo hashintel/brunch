@@ -44,16 +44,16 @@ export type NodeBasis = (typeof NODE_BASES)[number];
  *  - structural: `requirement`, `assumption`, `constraint`, `invariant`
  *  - reasoning:  `decision`, `criterion`, `example`
  */
- type IntentKind = (typeof INTENT_KINDS)[number];
+type IntentKind = (typeof INTENT_KINDS)[number];
 
 /** Oracle-plane kinds. */
- type OracleKind = (typeof ORACLE_KINDS)[number];
+type OracleKind = (typeof ORACLE_KINDS)[number];
 
 /** Design-plane kinds. */
- type DesignKind = (typeof DESIGN_KINDS)[number];
+type DesignKind = (typeof DESIGN_KINDS)[number];
 
 /** Plan-plane kinds. */
- type PlanKind = (typeof PLAN_KINDS)[number];
+type PlanKind = (typeof PLAN_KINDS)[number];
 
 /** Union of every node kind across all planes. */
 export type NodeKind = IntentKind | OracleKind | DesignKind | PlanKind;
@@ -67,7 +67,7 @@ export type NodeKind = IntentKind | OracleKind | DesignKind | PlanKind;
  *
  * Never persisted — computed via {@link intentKindCategory}.
  */
- type IntentKindCategory = 'basic' | 'structural' | 'reasoning';
+type IntentKindCategory = 'basic' | 'structural' | 'reasoning';
 
 export type ReadinessBand = 'grounding' | 'elicitation' | 'commitment';
 
@@ -150,14 +150,14 @@ export function intentKindCategory(kind: IntentKind): IntentKindCategory {
 // ---------------------------------------------------------------------------
 
 /** Detail payload for `decision` nodes. */
- interface DecisionDetail {
+interface DecisionDetail {
   readonly chosen_option: string;
   readonly rejected: readonly string[];
   readonly rationale: string;
 }
 
 /** Detail payload for `term` nodes. */
- interface TermDetail {
+interface TermDetail {
   readonly definition: string;
   readonly aliases?: readonly string[];
 }

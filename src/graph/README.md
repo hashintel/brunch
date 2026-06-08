@@ -34,9 +34,6 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D6
   open elicitation-backlog entries. These return typed domain objects or
   internal ids, not Drizzle rows.
 
-- **Preview harness helpers** (`render-preview.ts`) — deterministic fixture-seed
-  + selected-spec read helpers for render-preview scripts/tests that need real
-  graph data without bypassing the command/read seams.
 
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
   `ReconciliationNeed`, `ElicitationBacklogEntry`, kind/category types,
@@ -139,8 +136,6 @@ graph/
     getOpenReconciliationNeeds
     row -> domain mapping
 
-  render-preview.ts
-    deterministic seeded-fixture render-preview helpers for scripts/tests
 
   workspace-store.ts
     openWorkspaceGraphRuntime(cwd)

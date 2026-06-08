@@ -23,15 +23,15 @@ import { portableCwd } from './portable-report.js';
 const PROBE_ID = 'propose-graph-commit' as const;
 const DEFAULT_MAX_ATTEMPTS = 2;
 
- type ProposeGraphCommitScenarioId =
+type ProposeGraphCommitScenarioId =
   | 'direct-commit'
   | 'existing-code-ref'
   | 'retry-diagnostics'
   | 'ambiguity-no-overcommit';
 
- type AmbiguityNoOvercommitOutcome = 'no_op_or_clarification' | 'overcommit' | 'unexpected_tool_use';
+type AmbiguityNoOvercommitOutcome = 'no_op_or_clarification' | 'overcommit' | 'unexpected_tool_use';
 
- interface ProposeGraphCommitProofOptions {
+interface ProposeGraphCommitProofOptions {
   cwd?: string;
   fixtureRoot?: string;
   runId?: string;
@@ -48,7 +48,7 @@ export interface ProposeGraphCommitProofArtifacts {
   reportJson: string;
 }
 
- type CommitGraphAttemptStatus =
+type CommitGraphAttemptStatus =
   | CommitGraphSuccess['status']
   | StructuralIllegal['status']
   | 'needs_human'
@@ -56,7 +56,7 @@ export interface ProposeGraphCommitProofArtifacts {
   | 'version_conflict'
   | 'unknown';
 
- interface CommitGraphAttemptReport {
+interface CommitGraphAttemptReport {
   index: number;
   status: CommitGraphAttemptStatus;
   lsn?: number;
