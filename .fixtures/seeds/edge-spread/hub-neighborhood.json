@@ -1,0 +1,39 @@
+{
+  "spec": {
+    "slug": "hub-neighborhood",
+    "name": "Hub Neighborhood",
+    "readiness_grade": "commitments_ready"
+  },
+  "nodes": [
+    { "local_id": 1, "plane": "intent", "kind": "requirement", "title": "Stage 2 configuration-space requirement (hub anchor)", "basis": "explicit", "source": "fixture" },
+    { "local_id": 2, "plane": "intent", "kind": "assumption", "title": "Local-only execution assumption", "basis": "explicit", "source": "fixture" },
+    { "local_id": 3, "plane": "intent", "kind": "invariant", "title": "No network call invariant", "basis": "explicit", "source": "fixture" },
+    { "local_id": 4, "plane": "intent", "kind": "constraint", "title": "No cloud dependencies constraint", "basis": "explicit", "source": "fixture" },
+    { "local_id": 5, "plane": "intent", "kind": "decision", "title": "Two-stage split decision", "basis": "explicit", "source": "fixture", "detail": { "chosen_option": "Split fan-in into Stage 1 extraction and Stage 2 solving", "rejected": ["Keep a single fan-in stage"], "rationale": "A hard schema boundary keeps solver outputs out of Stage 1." } },
+    { "local_id": 6, "plane": "design", "kind": "module", "title": "SQLite configuration store module", "basis": "explicit", "source": "fixture" },
+    { "local_id": 7, "plane": "plan", "kind": "slice", "title": "Persist configuration spaces slice", "basis": "explicit", "source": "fixture" },
+    { "local_id": 8, "plane": "intent", "kind": "criterion", "title": "Airplane-mode acceptance criterion", "basis": "explicit", "source": "fixture" },
+    { "local_id": 9, "plane": "intent", "kind": "example", "title": "Network-outage counterexample", "basis": "explicit", "source": "fixture" },
+    { "local_id": 10, "plane": "intent", "kind": "context", "title": "Stakeholder offline-first preference", "basis": "explicit", "source": "fixture" },
+    { "local_id": 11, "plane": "intent", "kind": "context", "title": "Conflicting always-connected note", "basis": "explicit", "source": "fixture" },
+    { "local_id": 12, "plane": "plan", "kind": "frontier", "title": "Configuration-space data frontier", "basis": "explicit", "source": "fixture" },
+    { "local_id": 13, "plane": "intent", "kind": "requirement", "title": "Revised configuration-space requirement (successor)", "basis": "explicit", "source": "fixture" },
+    { "local_id": 14, "plane": "intent", "kind": "goal", "title": "Offline-first product goal", "basis": "explicit", "source": "fixture" }
+  ],
+  "edges": [
+    { "category": "dependency", "source_local_id": 2, "target_local_id": 1, "basis": "explicit" },
+    { "category": "realization", "source_local_id": 3, "target_local_id": 1, "basis": "explicit" },
+    { "category": "boundary", "source_local_id": 4, "target_local_id": 1, "basis": "explicit" },
+    { "category": "dependency", "source_local_id": 1, "target_local_id": 5, "basis": "explicit" },
+    { "category": "realization", "source_local_id": 1, "target_local_id": 6, "basis": "explicit" },
+    { "category": "realization", "source_local_id": 1, "target_local_id": 7, "basis": "explicit" },
+    { "category": "proof", "source_local_id": 8, "target_local_id": 1, "stance": "for", "basis": "explicit" },
+    { "category": "proof", "source_local_id": 9, "target_local_id": 1, "stance": "against", "basis": "explicit" },
+    { "category": "support", "source_local_id": 10, "target_local_id": 1, "stance": "for", "basis": "explicit" },
+    { "category": "support", "source_local_id": 11, "target_local_id": 1, "stance": "against", "basis": "explicit" },
+    { "category": "composition", "source_local_id": 12, "target_local_id": 1, "basis": "explicit" },
+    { "category": "supersession", "source_local_id": 13, "target_local_id": 1, "basis": "explicit" },
+    { "category": "association", "source_local_id": 1, "target_local_id": 14, "basis": "explicit" },
+    { "category": "association", "source_local_id": 2, "target_local_id": 4, "basis": "explicit" }
+  ]
+}

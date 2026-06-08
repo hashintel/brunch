@@ -1,0 +1,19 @@
+[Selected-spec node context]
+- anchor: [REQ1] intent/requirement: Stage 2 configuration-space requirement (hub anchor)
+- upstream (review anchor if these change):
+  - depends on [A1] intent/assumption: Local-only execution assumption
+  - expresses [INV1] intent/invariant: No network call invariant
+  - bounded by [CON1] intent/constraint: No cloud dependencies constraint
+- downstream (reconcile if anchor changes):
+  - required by [D1] intent/decision: Two-stage split decision {hard}
+  - implemented by [MOD1] design/module: SQLite configuration store module {soft}
+  - established by [S1] plan/slice: Persist configuration spaces slice {soft}
+  - witnessed by [AC1] intent/criterion: Airplane-mode acceptance criterion {soft}
+  - challenged by [EX1] intent/example: Network-outage counterexample {soft}
+  - motivated by [CTX1] intent/context: Stakeholder offline-first preference {soft}
+  - opposed by [CTX2] intent/context: Conflicting always-connected note {soft}
+  - part of [F1] plan/frontier: Configuration-space data frontier {soft}
+  - superseded by [REQ2] intent/requirement: Revised configuration-space requirement (successor) {soft}
+- lateral (related):
+  - related to [G1] intent/goal: Offline-first product goal
+- (+1 edge(s) among neighbors, not incident on anchor)
