@@ -17,14 +17,24 @@ Created:  2026-06-07
 - **Volatile state:** the bodies are genuinely thin — every resource is ~5 lines
   (`goals/*`, `lenses/*`, `methods/{commit-graph,read-context,review-for-gaps}`, all four
   non-freestyle `strategies/*`); only `methods/{infer-and-capture,generate-proposal,run-structured-exchange}`
-  reach 12–15 lines. The contracts for what each body should contain already exist in the
-  family READMEs ([strategies/README.md](file:///Users/lunelson/Code/hashintel/brunch-next/src/.pi/skills/strategies/README.md)
-  lists the required facets; [lenses/README.md](file:///Users/lunelson/Code/hashintel/brunch-next/src/.pi/skills/lenses/README.md)).
+  reach 12–15 lines (use these three as the **shape exemplar** for body depth).
+- **Source-anchoring gotcha (new-thread-critical):** only **strategies/** and **lenses/** have a
+  README contract; **goals/** and **methods/** do **not**. Do not invent content — anchor every
+  body to the authoritative source named in §Content sources below. The one-line manifest
+  descriptions in [`.pi/agents/state.ts`](file:///Users/lunelson/Code/hashintel/brunch-next/src/.pi/agents/state.ts)
+  (`GOAL_RESOURCES`, `STRATEGY_RESOURCES`, `LENS_RESOURCES`, `METHOD_RESOURCES`) already encode
+  each resource's intended one-line intent; the body expands that intent, it must not contradict it.
+- **Concurrency note (new-thread-critical):** another agent is actively building the
+  `elicitation-backlog` frontier in `src/graph/` and `src/db/`. This card touches **only**
+  `src/.pi/skills/**/*.md` (plus optionally `state.ts` descriptions / `compose.test.ts`). Do **not**
+  edit `graph/`, `db/`, or the elicitation-backlog card — that is another tenant's blast radius.
 - **Drift note (handled in reconciliation, not here):** the Seam 3b *exchange-tool
   `.description()` / `promptGuidelines`* ● row is **already done** — all 7 exchange tools under
   `src/.pi/extensions/exchanges/` carry `description` + `promptGuidelines`. That row is reclassified
   `built` in the ledger; it is **out of scope** for this card.
-- **Main open risk:** prose quality is eyeball-judged — verification is review-based, not a test.
+- **Main open risk:** prose *quality* stays partly judgment-based, but acceptance does not depend on
+  it — a required structural test (§Verification Approach) gives every body an objective non-trivial-depth
+  floor and a self-checkable facet checklist (§Content sources) replaces "read it and decide."
 
 Posture: **earned** (inherited from cross-cut Seam 3a/3b — Fill=`earned`; settled scaffolding,
 just unbuilt bodies). This is content materialization into existing topology, not a new seam.
@@ -38,10 +48,40 @@ Frontier-level cross-cutting obligations:
 - Keep each body scoped to its own axis; do not duplicate cross-axis content (goal vs strategy vs
   lens vs method are orthogonal, D59-L/D25-L).
 
+### Content sources (per family — read these before writing any body)
+
+Every body expands its **manifest one-liner** in `.pi/agents/state.ts`; that one-liner is the
+binding intent the body may not contradict. Beyond that, each family has a distinct authoritative
+anchor and facet checklist:
+
+```pseudo tree
+goals/  (4: grounding-advance, elicit-expand, commit-converge, capture-posture)
+  authority   SPEC D59-L (defines all four goals + grade-derivation) + GOAL_RESOURCES one-liner
+  no README   — D59-L IS the contract
+  facets      what the agent pursues · what evidence advances it · what NOT to claim/do ·
+              how it relates to its grade band (D64-L) · capture-posture never writes spec/graph truth
+strategies/ (4 remaining: step-wise-decision-tree, step-wise-disambiguate, propose-graph, project-graph)
+  authority   strategies/README.md §"Prompt resource contents" + STRATEGY_RESOURCES one-liner + SPEC D25-L/D26-L
+  exemplar    strategies/freestyle.md (recently deepened — match this depth)
+  facets      what the agent does · turn structure · commitment mechanism (D26-L) ·
+              available graph ops · category-selection rubric for graph-writing strategies
+lenses/  (3: intent, design, oracle)
+  authority   lenses/README.md §"Topology-driven question ranking" + LENS_RESOURCES one-liner + SPEC D25-L/D56-L
+  facets      topical/plane focus · favored kinds/edges · how it shapes interpretation ·
+              topology-driven "what to ask next" heuristics from the README table
+methods/ (6: run-structured-exchange, infer-and-capture, commit-graph, read-context, generate-proposal, review-for-gaps)
+  authority   SPEC D58-L ("method resources are the prompt-level home for tool-routing/sequencing guidance") + METHOD_RESOURCES one-liner
+  no README   — D58-L IS the contract
+  exemplar    methods/{generate-proposal,run-structured-exchange,infer-and-capture}.md (already 12–15 lines)
+  facets      concrete tool-routing/sequencing (NOT a restatement of the tool description) ·
+              when to invoke · what to compose it with · what stays out of scope
+```
+
 ### Objective
 
 Deepen the thin `.pi/skills/{goals,strategies,lenses,methods}` resource bodies so each carries the
-real per-axis instruction its README contract requires, without changing the manifest registry.
+real per-axis instruction its authoritative source (§Content sources) requires, without changing the
+manifest registry.
 
 ### Acceptance Criteria
 
@@ -58,16 +98,26 @@ resource body depth
 │   └── ✓ each method body gives concrete tool-routing/sequencing guidance (the D58-L method role),
 │         not a restatement of the tool description
 └── consistency
-    ├── ✓ no body contradicts its README contract or another axis's responsibility
-    └── ✓ manifest descriptions in state.ts still match each deepened body's intent
+    ├── ✓ no body contradicts its §Content sources authority or another axis's responsibility
+    ├── ✓ each body expands (does not contradict) its state.ts manifest one-liner
+    └── ✓ no new capability/authority/tool invented beyond what the source already grants
 ```
 
 ### Verification Approach
 
+Builder-portable, no human-only step required to pass the card:
+
 ```
-- Inner: review-based — each body read against its family README contract; build/lint proves resources still load.
-- Inner (light, if cheap): a structural test asserting each resource exceeds a trivial threshold
-  and the manifest location resolves to a readable file (extends existing compose/readability tests).
+- Self-check (objective): for each body, walk its §Content sources facet checklist and confirm
+  every facet is addressed in prose; confirm the body still reads as an expansion of its
+  state.ts one-liner and invents no new authority/tool.
+- Structural test (REQUIRED): extend the existing compose/readability test (compose.test.ts) to assert,
+  for every manifest entry across all four families, that location resolves to a readable file whose
+  body exceeds a non-trivial line/char threshold (i.e. beyond the current ~5-line placeholders).
+  This converts "bodies are thin" into a failing assertion before the pass and a passing one after.
+- Gate: `npm run verify` (fix → test → build) — proves all resources still load and the manifest
+  location wiring is intact.
+- Human review is optional polish AFTER the gate is green; it is not required for acceptance.
 ```
 
 ### Cross-cutting obligations
@@ -92,8 +142,11 @@ src/.pi/skills/
 ├── lenses/{intent,design,oracle}.md                                             ~
 └── methods/{run-structured-exchange,infer-and-capture,commit-graph,read-context,generate-proposal,review-for-gaps}.md   ~
 src/.pi/agents/state.ts            ?   (only if a manifest description needs to match a deepened body)
-src/.pi/agents/compose.test.ts     ?   (only if a light structural/readability assertion is added)
+src/.pi/agents/compose.test.ts     ~   (REQUIRED: structural non-trivial-depth + location-resolves assertion)
 ```
+
+Stay inside this tree. Do **not** touch `src/graph/**`, `src/db/**`, or `memory/PLAN.md` /
+`memory/CROSS_CUT_PLAN.md` — the `elicitation-backlog` builder owns those concurrently.
 
 ### Promotion checklist
 
