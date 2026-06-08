@@ -72,6 +72,6 @@
     "sessionJsonl": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z/session.jsonl",
     "transcriptMarkdown": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z/transcript.md",
     "reportJson": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z/report.json",
-    "graphSnapshotJson": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z/graph-snapshot.json"
+    "graphOverviewJson": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z/graph-overview.json"
   }
 }
