@@ -36,7 +36,7 @@ itself.
 
 - `memory/PLAN.md` owns frontier ids, sequencing, dependency judgment, and which work is active next.
 - This file owns only the temporary elicitor READ / WRITE / KNOW row inventory and its aggregate coverage DoD.
-- When one row escapes row-sized work, it gets promoted back into PLAN. As of 2026-06-08, the D65-L row is now the active PLAN frontier `elicitation-backlog` (landed), and the prompt-resource body-depth pass landed in 1ca02e38. All ● rows are now `have`/`built`; the only remaining cross-cut residue is the live per-turn "what to ask next" driver, which is an unscoped PLAN follow-on, not row-sized work.
+- When one row escapes row-sized work, it gets promoted back into PLAN. As of 2026-06-08, the D65-L substrate row is the landed PLAN frontier `elicitation-backlog`, and the prompt-resource body-depth pass landed in 1ca02e38. **The cross-cut is not yet exhausted:** the Seam 3a `"what to ask next" driver` row is still `partial · ●`, so by the aggregate DoD below this seam stays open. That row has now escaped row-sized work and is disposed as the PLAN frontier `elicitation-driver` — when it lands, this row flips to `built` and the cross-cut closes.
 
 ## The seams (locked)
 
@@ -117,7 +117,7 @@ DoD: every ● row is `have` or `built`.
 | goals / strategies / lenses scaffolding + legal-tuple gating | have | ● | — | — | `.pi/agents/state.ts` |
 | goal/strategy/lens **content depth** | built | ● | — | done — deepened bodies + manifest-wide depth test (1ca02e38) | each body now carries its facet guidance; ≥700-char floor guarded in `compose.test.ts` |
 | `freestyle` strategy | built | ● | — | done — pin-only strategy (8de7f166) | AUTO-excluded, no added authority; D66-L |
-| "what to ask next" driver | partial | ● | proving | unscoped follow-on | flat-table substrate landed via FE-823; live per-turn driver + capture-reflection remain follow-on work |
+| "what to ask next" driver | partial | ● | proving | promoted → PLAN `elicitation-driver` | flat-table substrate landed via FE-823; live per-turn driver + capture-reflection now disposed as the `elicitation-driver` frontier (last open ● row) |
 
 ### Seam 3b — KNOW / mechanics (methods)
 
@@ -264,13 +264,14 @@ order is coverage-driven: close ● ledger rows seam by seam.
    This also closed the Seam 3a `freestyle` and Seam 3b generalized-capture ● rows.
    No posture-switch tool to build (Q4 dissolved); user/system posture surface is
    deferred to the Q-state affordance reducer.
-4. **Seam 3a/3b content pass** — **COMPLETE** (all ● rows built): `freestyle` strategy
-   (8de7f166), generalized-capture core (5f5e6ac8), exchange-tool `.description()` /
+4. **Seam 3a/3b content pass** — **NEARLY COMPLETE** (one ● row still `partial`): `freestyle`
+   strategy (8de7f166), generalized-capture core (5f5e6ac8), exchange-tool `.description()` /
    `promptGuidelines` (drift correction 2026-06-07), and goal/strategy/lens/method body depth
-   (1ca02e38 — deepened bodies + a manifest-wide ≥700-char depth test in `compose.test.ts`).
-   FE-823 landed the D65-L substrate tracer (flat table, `createSpec` seed, command/query seam).
-   Skill-commands (Q6) stay deferred; the live per-turn "what to ask next" driver +
-   capture-reflection remain an unscoped PLAN follow-on.
+   (1ca02e38 — deepened bodies + a manifest-wide ≥700-char depth test in `compose.test.ts`) are
+   all built. FE-823 landed the D65-L substrate tracer (flat table, `createSpec` seed,
+   command/query seam). Skill-commands (Q6) stay deferred. The remaining open ● row is the live
+   per-turn "what to ask next" driver + capture-reflection, now disposed as the PLAN frontier
+   `elicitation-driver`; the seam is not done until it lands.
 5. **Spec reconcile** — promote the D40-L/D59-L one-line refinements (on confirmation),
    land Q1 negative-query touch, fold D65-L/D66-L outcomes into SPEC/PLAN.
 

@@ -27,9 +27,11 @@ All delivery frontiers must also continue materializing the locked source topolo
 
 The multi-spec workspace model is now explicit: a workspace is the cwd; multiple specs may coexist under it; each session binds to exactly one spec; each POC spec owns its own intent graph; cross-spec claim sharing/adoption is deferred (D11-L, D21-L, D61-L). Delivery work must target an explicit selected/current spec and must not accidentally recreate a workspace-global graph.
 
-Planning is currently carrying two shapes at once: canonical frontier sequencing in this file, and a temporary elicitor capability ledger in `memory/CROSS_CUT_PLAN.md`. The authority split must stay hard: `PLAN.md` owns frontier ids, ordering, and dependency judgments; `CROSS_CUT_PLAN.md` only inventories the temporary READ/WRITE/KNOW row surface. The current planning move is therefore to promote any cross-cut row that has escaped row-sized work back into a real frontier. `elicitation-backlog` was the first such promotion and is now landed; the remaining prompt-resource body-depth pass stays temporary cross-cut completion work.
+Planning is currently carrying two shapes at once: canonical frontier sequencing in this file, and a temporary elicitor capability ledger in `memory/CROSS_CUT_PLAN.md`. The authority split must stay hard: `PLAN.md` owns frontier ids, ordering, and dependency judgments; `CROSS_CUT_PLAN.md` only inventories the temporary READ/WRITE/KNOW row surface. The current planning move is therefore to promote any cross-cut row that has escaped row-sized work back into a real frontier. `elicitation-backlog` (the D65-L *substrate*) was the first such promotion and is landed; the prompt-resource body-depth pass is also built (1ca02e38). **The cross-cut is not yet exhausted:** its Seam 3a `"what to ask next" driver` row is still `partial · ●`, and the seam DoD holds a seam open while any `●` row is `partial`. That row — the *live per-turn elicitation-backlog driver* (read open entries → rank → select next question; capture-reflection grows/closes entries) — is a required elicitor capability that has escaped row-sized work, so per the cross-cut's own rule it is promoted here as the `elicitation-driver` frontier. It is buildable now (the FE-823 read-back exists) and is **not** POC-ship-critical (the POC delivery cut de-scopes elicitation quality), so it sequences as a coverage frontier, not a ship-gate blocker.
 
-The `graph-observed-shapes` coverage frontier has now landed (the consumer-specific read-shape inventory is ratified in `src/graph/README.md` and guarded by a drift test). With `minimal-authority-shell` also done, the active delivery path is `poc-live-ship-gate` (now unblocked). `runtime-affordances-and-legality` remains the next likely coverage frontier but stays parked until a posture/UI pass forces its shape. Exchange/capture breadth is explicitly deferred until its surviving inventory is honest enough to enumerate without recreating the deleted stub surface.
+The `graph-observed-shapes` coverage frontier has now landed (the consumer-specific read-shape inventory is ratified in `src/graph/README.md` and guarded by a drift test). With `minimal-authority-shell` also done, the active delivery path is `poc-live-ship-gate` (now unblocked).
+
+The remaining coverage frontiers are being deliberately de-fogged rather than left parked, because "wait for a forcing function" can hide capability layers we simply never built. Each is reclassified: `runtime-affordances-and-legality` is mostly **buildable-now** — its core is one Brunch-owned `affordances(resolvedState)` derivation over legality/default tables that already exist, so it is being re-inventoried as a coverage ledger (only its `active-review-set` / `turn-mode` rows are genuinely product-state-gated and stay tripwired). `exchanges-and-generalized-capture` is **evidence-gated**: the exchange topology is enumerable now, but capture quality beyond directly-labeled facts (A22-L) needs a measurement, so it is being attacked with a capture-quality spike rather than awaited. The `elicitation-driver` frontier (promoted above) is likewise buildable now.
 
 ## Sequencing
 
@@ -40,7 +42,9 @@ The `graph-observed-shapes` coverage frontier has now landed (the consumer-speci
 ### Next
 
 1. `poc-live-ship-gate` — final fresh-cwd runbook remains the delivery gate, but its prepared live-mention-autocomplete slice is currently parked off the critical path.
-2. `runtime-affordances-and-legality` — follow-on coverage frontier for shared posture legality/default surfaces once graph observed shapes stop dominating.
+2. `runtime-affordances-and-legality` — coverage frontier for shared posture legality/default surfaces; **buildable-now** and being scoped as an inventory ledger (`memory/cards/runtime-affordances--coverage-ledger.md`), not parked.
+3. `elicitation-driver` — coverage frontier for the live per-turn "what to ask next" driver promoted out of the cross-cut; buildable-now on the FE-823 substrate, not POC-ship-critical.
+4. `capture-quality-spike` — evidence spike that measures generalized-capture fitness (A22-L) so `exchanges-and-generalized-capture` can graduate from horizon on real evidence rather than waiting (`memory/cards/capture-quality--fitness-spike.md`).
 
 ### Parallel / Low-conflict
 
@@ -50,7 +54,7 @@ The `graph-observed-shapes` coverage frontier has now landed (the consumer-speci
 
 ### Horizon
 
-- `exchanges-and-generalized-capture` — revisit only when the surviving exchange/capture inventory is honest enough to enumerate; not yet a coverage frontier.
+- `exchanges-and-generalized-capture` — exchange topology is enumerable now, but generalized-capture breadth is gated on the `capture-quality-spike` evidence (above), not on waiting; graduates to a coverage frontier once the spike closes the inventory honestly.
 - `turn-boundary-reconciliation` — M7; graph revisions, `worldUpdate`, mention staleness, side-task/reviewer drains.
 - `coherence-first-class` — M8; bounded coherence verdicts backed by reconciliation needs.
 - `compaction-and-conflict-widening` — M9; long-horizon continuity through compaction.
@@ -109,6 +113,28 @@ The `graph-observed-shapes` coverage frontier has now landed (the consumer-speci
 - **Traceability:** D4-L, D8-L, D16-L, D20-L, D52-L, D63-L, D64-L, D65-L / A24-L.
 - **Design docs:** `memory/SPEC.md` D65-L; `docs/design/GRAPH_MODEL.md`.
 - **Current execution pointer:** Done 2026-06-08 on FE-823. Materialized `elicitation_backlog` as a flat table plus generated migration, seeded grounding questions at `createSpec`, routed create/close mutations through `CommandExecutor` on the shared spec-local LSN/change-log seam, and added graph-owned per-spec read-back. The remaining prompt-resource body pass stays in `memory/CROSS_CUT_PLAN.md` as temporary coverage completion work; the live per-turn driver remains a follow-on, not frontier completion debt.
+
+### elicitation-driver
+
+- **Name:** Live per-turn "what to ask next" driver
+- **Linear:** unassigned
+- **Kind:** structural / bounded feature
+- **Status:** next
+- **Certainty:** proving
+- **Promoted from:** `memory/CROSS_CUT_PLAN.md` Seam 3a `"what to ask next" driver` row (D65-L), which remained `partial · ●` after the `elicitation-backlog` substrate landed. Per the cross-cut's own DoD a seam stays open while any `●` row is partial, so the row is disposed here as a real frontier rather than residue.
+- **Lights up:** open backlog entries → rank → select next question per turn; capture-reflection grows/closes entries.
+- **Stabilizes:** D65-L's live elicitation behavior on top of the flat `elicitation_backlog` substrate; closes the cross-cut Seam 3a row.
+- **Objective:** Add the per-turn driver that reads open backlog entries for the selected spec, ranks them (band/priority), selects the next question to surface, and reconciles entries from capture-reflection (open new, close answered) — all on the existing FE-823 read/write substrate.
+- **Why now / unlocks:** This is buildable now (the FE-823 substrate and per-spec read-back exist) and it closes the last required cross-cut row. It is **not** POC-ship-critical (the POC delivery cut de-scopes elicitation quality), so it sequences as a coverage frontier, not a ship-gate blocker.
+- **Acceptance:**
+  - A driver reads open entries for the selected spec and produces a deterministic ranked selection of the next question.
+  - Capture-reflection can open new entries and close answered ones through the existing `CommandExecutor` path; no second mutation clock.
+  - Selection is observable enough for a probe/transcript to prove the loop without inventing a planning plane or pointer.
+  - The cross-cut Seam 3a row flips from `partial · ●` to done when this lands.
+- **Verification:** Inner — ranking/selection and reconciliation tests over seeded backlog. Middle — per-turn driver read-back over a real graph boundary; sibling-spec isolation. Outer — probe showing rank → select → capture-reflection close across turns.
+- **Cross-cutting obligations:** Preserve the D4-L/D20-L command boundary and the D16-L/A4-L one-`{specId, lsn}` clock; keep the substrate flat (no graph plane, no unknown→unknown edges); no second planning system.
+- **Traceability:** D16-L, D20-L, D52-L, D63-L, D64-L, D65-L / A24-L.
+- **Design docs:** `memory/SPEC.md` D65-L; `docs/design/GRAPH_MODEL.md`.
 
 ### minimal-authority-shell
 
@@ -200,6 +226,7 @@ The `graph-observed-shapes` coverage frontier has now landed (the consumer-speci
 - **Cross-cutting obligations:** Keep truth append-only in `brunch.agent_runtime_state`; affordances are pure derivations over shared tables. Do not add xstate or a persisted machine without new evidence.
 - **Traceability:** D25-L, D40-L, D59-L, D66-L.
 - **Design docs:** `memory/SPEC.md` D40-L/D59-L; `src/projections/README.md`; `src/session/README.md`.
+- **Current execution pointer:** Being scoped as a coverage ledger in `memory/cards/runtime-affordances--coverage-ledger.md`. The classification is **buildable-now, not parked**: the core is one Brunch-owned `affordances(resolvedState)` derivation over legality/default tables that already exist in `src/projections/session/runtime-policy.ts` and `src/.pi/agents/state.ts`. Only the `active-review-set` and freestyle-vs-structured `turn-mode` rows are genuinely product-state-gated; they stay tripwired in the ledger, not built speculatively.
 
 ### exchanges-and-generalized-capture
 
@@ -208,7 +235,7 @@ The `graph-observed-shapes` coverage frontier has now landed (the consumer-speci
 - **Kind:** structural
 - **Status:** horizon
 - **Certainty:** proving
-- **Blocked by:** An honest, closeable exchange/capture inventory; do not start while the surface still depends on deleted-stub symmetry or speculative breadth.
+- **Blocked by:** An honest, closeable exchange/capture inventory. The forcing function is now named and active: `capture-quality-spike` (`memory/cards/capture-quality--fitness-spike.md`) must produce A22-L fitness evidence over free text/files/refs before this graduates. This is evidence-gated, not wait-gated; do not start the breadth frontier while it still depends on deleted-stub symmetry or speculative breadth.
 - **Stabilizes:** The ownership split between `.pi/extensions/exchanges`, `projections/exchanges`, `renderers/exchanges`, and `session/structured-exchange-loop.ts`.
 - **Objective:** Revisit richer exchange payload families and generalized capture breadth only after the surviving surface is clear enough to enumerate.
 - **Why now / unlocks:** Recording this frontier here prevents the deleted `capture-*` topology from silently regrowing while preserving the likely future concern once capture breadth becomes honest.
@@ -276,7 +303,7 @@ The `graph-observed-shapes` coverage frontier has now landed (the consumer-speci
 ## Recently Completed
 - 2026-06-08 `minimal-authority-shell` (FE-810) — Done: added the authority-matrix guard test over the current POC authority seam. The guard locks `CommandExecutor` mutation-result discriminants as the graph outcome vocabulary, proves `needs_human` is structured data rather than a TUI-only dialog, and asserts `elicit` tool authority comes from the shared projected runtime policy while blocking the identified side-effecting tools (`bash`, `edit`, `write`). No new authority service; `src/.pi/agents/state.ts` untouched; A18-L strict built-in suppression remains accepted Pi-upstream/API residue. Verified: `src/.pi/extensions/runtime/authority-matrix.test.ts` and `npm run verify`.
 
-- 2026-06-08 cross-cut prompt-resource body-depth pass (Seam 3a/3b) — Done (1ca02e38): deepened every thin `src/.pi/skills/{goals,strategies,lenses,methods}` body to carry its per-axis facet guidance (goals→D59-L, strategies/lenses→README+D25-L, methods→D58-L tool-routing role), and added a manifest-wide readability/depth test in `src/.pi/agents/compose.test.ts` asserting every `{GOAL,STRATEGY,LENS,METHOD}_RESOURCES` location resolves and clears a ≥700-char floor. `state.ts` untouched. This closed the last row-sized cross-cut completion work; `memory/CROSS_CUT_PLAN.md` ● rows are now all built. Verified: `npm run verify` (551 tests, build).
+- 2026-06-08 cross-cut prompt-resource body-depth pass (Seam 3a/3b) — Done (1ca02e38): deepened every thin `src/.pi/skills/{goals,strategies,lenses,methods}` body to carry its per-axis facet guidance (goals→D59-L, strategies/lenses→README+D25-L, methods→D58-L tool-routing role), and added a manifest-wide readability/depth test in `src/.pi/agents/compose.test.ts` asserting every `{GOAL,STRATEGY,LENS,METHOD}_RESOURCES` location resolves and clears a ≥700-char floor. `state.ts` untouched. This closed the prompt-resource body-depth row, but the cross-cut is **not** exhausted: its Seam 3a `"what to ask next" driver` row (`partial · ●`) remains the last required row, now promoted to the `elicitation-driver` frontier. Verified: `npm run verify` (551 tests, build).
 
 - 2026-06-08 `elicitation-backlog` (FE-823) — Done: materialized `elicitation_backlog` as a flat spec-scoped table with generated migration, seeded the grounding agenda at `createSpec`, routed create/close entry mutations through `CommandExecutor` on the shared `{specId, lsn}` / `change_log` boundary, and added graph-owned per-spec open-entry read-back. Reconciled D65-L/A24-L and updated graph/db topology docs. Verified: `src/graph/command-executor.test.ts`, `src/graph/queries.test.ts`, and `npm run verify`.
 
@@ -301,7 +328,9 @@ nodes:
   minimal-authority-shell        [done · P1]         thin safety posture for current POC paths
   poc-live-ship-gate             [next · P1]         final fresh-cwd composed product runbook
   graph-observed-shapes          [done · proving]    ratified consumer-specific observed-shape ledger + drift guard; no transport shape shipped
-  runtime-affordances-and-legality [next · proving]  keep posture legality/default surfaces shared across transports
+  runtime-affordances-and-legality [next · proving]  buildable-now affordance(resolvedState) coverage ledger; review-set/turn-mode rows tripwired
+  elicitation-driver             [next · proving]    live per-turn what-to-ask-next driver on FE-823 substrate; closes cross-cut Seam 3a
+  capture-quality-spike          [next · spike]      A22-L fitness evidence to graduate exchanges-and-generalized-capture
   probes-and-transcripts-evolution [parallel]        continuous evidence substrate
   topology-readmes-and-boundaries  [parallel]        attach-to-frontier topology hardening
   dev-seed-fixtures                [parallel]        rich seed data substrate for dev/observer testing
@@ -313,6 +342,8 @@ edges:
   graph-tool-resilience     -[hard]->         poc-live-ship-gate
   project-graph-review-cycle -[optional]->    poc-live-ship-gate
   minimal-authority-shell   -[hard]->         poc-live-ship-gate
+  elicitation-backlog       -[hard]->         elicitation-driver
+  capture-quality-spike     -[evidence]->     exchanges-and-generalized-capture
 
 parallel obligations:
   probes-and-transcripts-evolution -[evidence]-> every P0/P1 frontier
@@ -331,8 +362,8 @@ horizon:
   geolog-and-petri-execution
 
 notes:
-  - `elicitation-backlog` was the promoted D65-L row from `memory/CROSS_CUT_PLAN.md`; the prompt-resource body-depth pass (the last temporary cross-cut completion work) landed in 1ca02e38, so `memory/CROSS_CUT_PLAN.md` now has no row-sized work left — its only residue is the unscoped live "what to ask next" driver.
-  - Parallel worktree streams (2026-06-08): all three landed — (A) `crosscut-know--resource-body-depth` (1ca02e38), (B) `graph-observed-shapes--coverage-ledger` (85e73ba7), (C) `minimal-authority-shell--audit-and-guard` (68474e3f); each kept to its declared write paths and left `src/.pi/agents/state.ts` untouched, so the parallel run produced no collisions. `poc-live-ship-gate` is now unblocked (its hard dependency `minimal-authority-shell` is done); `runtime-affordances-and-legality` and `exchanges-and-generalized-capture` stay parked (shape not yet forced) and are not cold-startable worktree streams.
+  - `elicitation-backlog` was the promoted D65-L *substrate* row from `memory/CROSS_CUT_PLAN.md`; the prompt-resource body-depth pass landed in 1ca02e38. The cross-cut is **not** exhausted: its Seam 3a `"what to ask next" driver` row is still `partial · ●`, which by the seam DoD keeps the seam open. That row is now disposed as the `elicitation-driver` frontier (not residue), so the remaining cross-cut obligation has a named owner in `PLAN.md`.
+  - Parallel worktree streams (2026-06-08): all three landed — (A) `crosscut-know--resource-body-depth` (1ca02e38), (B) `graph-observed-shapes--coverage-ledger` (85e73ba7), (C) `minimal-authority-shell--audit-and-guard` (68474e3f); each kept to its declared write paths and left `src/.pi/agents/state.ts` untouched, so the parallel run produced no collisions. `poc-live-ship-gate` is now unblocked (its hard dependency `minimal-authority-shell` is done). The next coverage frontiers are de-fogged rather than parked: `runtime-affordances-and-legality` (buildable-now ledger) and `elicitation-driver` (buildable-now on the FE-823 substrate) are cold-startable worktree streams; `capture-quality-spike` is an evidence spike that gates `exchanges-and-generalized-capture`.
   - Completed prerequisites: `agents-composition-layer` supplies runtime prompt/resource posture, and `live-graph-observer` supplies the read-only web observer path expected by `capture-response-to-graph` and `poc-live-ship-gate`.
   - `graph-observed-shapes` is intentionally consumer-specific: do not assume every agent read shape belongs on the web observer.
   - `exchanges-and-generalized-capture` stays deferred until the surviving inventory is honest enough to close; do not regrow deleted `capture-*` symmetry in the meantime.
