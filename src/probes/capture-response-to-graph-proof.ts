@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import type { GraphOverview } from '../graph/queries.js';
+import type { GraphSlice } from '../graph/queries.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../rpc/product-updates.js';
@@ -37,7 +37,7 @@ interface CaptureOutcome {
   readonly createdNodes: Record<string, { readonly id: number; readonly code: string }>;
 }
 
-export interface CaptureResponseToGraphProofArtifacts {
+ interface CaptureResponseToGraphProofArtifacts {
   readonly runDir: string;
   readonly sessionJsonl: string;
   readonly transcriptMarkdown: string;
@@ -140,7 +140,7 @@ export async function runCaptureResponseToGraphProof(
     throw new Error(`Expected capture success, got ${JSON.stringify(submitted.capture)}`);
   }
 
-  const overview = success<GraphOverview>(
+  const overview = success<GraphSlice>(
     await handlers.handle({
       jsonrpc: '2.0',
       id: 6,
@@ -148,9 +148,9 @@ export async function runCaptureResponseToGraphProof(
       params: { specId: workspace.spec.id },
     }),
   );
-  if (overview.nodeCount !== submitted.capture.nodeCount) {
+  if (overview.nodes.length !== submitted.capture.nodeCount) {
     friction.push(
-      `Overview node count ${overview.nodeCount} did not match capture count ${submitted.capture.nodeCount}.`,
+      `Overview node count ${overview.nodes.length} did not match capture count ${submitted.capture.nodeCount}.`,
     );
   }
 
@@ -159,8 +159,8 @@ export async function runCaptureResponseToGraphProof(
   );
 
   const graph = {
-    nodeCount: overview.nodeCount,
-    edgeCount: overview.edgeCount,
+    nodeCount: overview.nodes.length,
+    edgeCount: overview.edges.length,
     lsn: overview.lsn,
     codes: orderedNodes.map((node) => formatGraphNodeCode(node.kind, node.kindOrdinal)),
     titles: orderedNodes.map((node) => node.title),

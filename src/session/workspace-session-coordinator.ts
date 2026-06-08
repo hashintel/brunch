@@ -21,7 +21,7 @@ const STATE_FILE = 'workspace.json';
 const SESSION_DIR = 'sessions';
 const STATE_SCHEMA_VERSION = 1;
 
-export interface WorkspaceSpecState {
+ interface WorkspaceSpecState {
   id: number;
   title: string;
 }
@@ -73,20 +73,20 @@ export interface WorkspaceSessionReadyState {
   chrome: WorkspaceSessionChromeState;
 }
 
-export interface WorkspaceSessionSelectSpecState {
+ interface WorkspaceSessionSelectSpecState {
   status: 'select_spec';
   cwd: string;
   chrome: WorkspaceSessionChromeState;
 }
 
-export interface WorkspaceSessionNeedsHumanState {
+ interface WorkspaceSessionNeedsHumanState {
   status: 'needs_human';
   cwd: string;
   reason: string;
   chrome: WorkspaceSessionChromeState;
 }
 
-export interface WorkspaceSessionCancelledState {
+ interface WorkspaceSessionCancelledState {
   status: 'cancelled';
   cwd: string;
   chrome: WorkspaceSessionChromeState;
@@ -97,29 +97,29 @@ export type WorkspaceSessionState =
   | WorkspaceSessionSelectSpecState
   | WorkspaceSessionNeedsHumanState;
 
-export interface WorkspaceContinueDecision {
+ interface WorkspaceContinueDecision {
   action: 'continue';
   specId: number;
   sessionFile: string;
 }
 
-export interface WorkspaceOpenSessionDecision {
+ interface WorkspaceOpenSessionDecision {
   action: 'openSession';
   specId: number;
   sessionFile: string;
 }
 
-export interface WorkspaceNewSessionDecision {
+ interface WorkspaceNewSessionDecision {
   action: 'newSession';
   specId: number;
 }
 
-export interface WorkspaceNewSpecDecision {
+ interface WorkspaceNewSpecDecision {
   action: 'newSpec';
   title: string;
 }
 
-export interface WorkspaceCancelDecision {
+ interface WorkspaceCancelDecision {
   action: 'cancel';
 }
 
@@ -144,12 +144,12 @@ export interface WorkspaceLaunchSession {
   available: true;
 }
 
-export interface WorkspaceLaunchSpec {
+ interface WorkspaceLaunchSpec {
   spec: WorkspaceSpecState;
   sessions: WorkspaceLaunchSession[];
 }
 
-export type WorkspaceUnavailableSessionReason =
+ type WorkspaceUnavailableSessionReason =
   | 'missing_header'
   | 'missing_binding'
   | 'incompatible_binding'
@@ -180,7 +180,7 @@ export interface DefaultWorkspaceCoordinator {
   openDefaultWorkspace(): Promise<WorkspaceSessionState>;
 }
 
-export interface WorkspaceSetupCoordinator {
+ interface WorkspaceSetupCoordinator {
   createSetupSession(options?: {
     specTitle?: string;
     createNewSpec?: boolean;
@@ -192,7 +192,7 @@ export interface WorkspaceSessionBoundaryCoordinator {
   bindCurrentSpecToReplacementSession(manager: SessionManager): Promise<WorkspaceSessionReadyState>;
 }
 
-export interface WorkspaceDefaultChromeCoordinator {
+ interface WorkspaceDefaultChromeCoordinator {
   deriveDefaultChromeState(): Promise<WorkspaceSessionChromeState>;
 }
 
@@ -698,7 +698,7 @@ export interface WorkspaceStoreOracleOptions {
   expectedSessionCount?: number;
 }
 
-export interface WorkspaceStoreOracleSuccess {
+ interface WorkspaceStoreOracleSuccess {
   ok: true;
   specId: number | null;
   sessions: Array<{
@@ -709,7 +709,7 @@ export interface WorkspaceStoreOracleSuccess {
   }>;
 }
 
-export interface WorkspaceStoreOracleFailure {
+ interface WorkspaceStoreOracleFailure {
   ok: false;
   errors: string[];
 }

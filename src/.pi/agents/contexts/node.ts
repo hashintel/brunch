@@ -1,5 +1,4 @@
-import type { NeighborhoodResult, NodeReadResult } from '../../../graph/queries.js';
-import { projectNeighborhood } from '../../../projections/graph/neighborhood.js';
+import type { NodeNeighborhood } from '../../../graph/queries.js';
 import { formatNeighborhood } from '../../../renderers/graph/neighborhood.js';
 
 export interface RenderNodeContextOptions {
@@ -7,17 +6,6 @@ export interface RenderNodeContextOptions {
   readonly maxEdges?: number;
 }
 
-const DEFAULT_MAX_NEIGHBORS = 6;
-const DEFAULT_MAX_EDGES = 8;
-
-export function renderNodeContext(
-  result: NeighborhoodResult | NodeReadResult,
-  options: RenderNodeContextOptions = {},
-): string {
-  return formatNeighborhood(
-    projectNeighborhood(result, {
-      maxNeighbors: options.maxNeighbors ?? DEFAULT_MAX_NEIGHBORS,
-      maxEdges: options.maxEdges ?? DEFAULT_MAX_EDGES,
-    }),
-  );
+export function renderNodeContext(result: NodeNeighborhood, options: RenderNodeContextOptions = {}): string {
+  return formatNeighborhood(result, options);
 }

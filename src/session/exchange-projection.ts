@@ -32,19 +32,19 @@ const STRUCTURED_RESPONSE_TYPES = new Set([
   'brunch.choice_response',
 ]);
 
-export interface EntryRange {
+ interface EntryRange {
   start: string;
   end: string;
 }
 
-export interface SessionExchange {
+ interface SessionExchange {
   promptRange: EntryRange;
   responseRange: EntryRange;
   promptEntryIds: string[];
   responseEntryIds: string[];
 }
 
-export interface OpenPromptProjection {
+ interface OpenPromptProjection {
   promptRange: EntryRange;
   promptEntryIds: string[];
 }
@@ -55,7 +55,7 @@ export interface SessionExchangeProjection {
   openPrompt: OpenPromptProjection | null;
 }
 
-export interface TranscriptDisplayRow {
+ interface TranscriptDisplayRow {
   id: string;
   role: 'prompt' | 'assistant' | 'user';
   text: string;

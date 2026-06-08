@@ -13,7 +13,14 @@ import {
 import { chromeStateForWorkspace, createBrunchPiExtensions } from '../.pi/brunch-pi-extensions.js';
 import { applyBrunchOfflineDefault, createBrunchPiSettings } from '../.pi/brunch-pi-settings.js';
 import { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
-import { openWorkspaceGraphRuntime } from '../graph/index.js';
+import {
+  openWorkspaceGraphRuntime,
+  type EdgeCategory,
+  type GraphSlice,
+  type NodeKind,
+  type ReadinessBand,
+  type WorkspaceGraphRuntime,
+} from '../graph/index.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
 import {
@@ -39,24 +46,19 @@ export {
   createBrunchPiExtensions,
   projectBrunchChromeFooterLines,
   renderBrunchChrome,
-  type BrunchChromeCoherenceVerdict,
-  type BrunchChromeFooterTelemetry,
-  type BrunchChromeStage,
-  type BrunchChromeState,
-  type BrunchChromeWorkerStatus,
 } from '../.pi/brunch-pi-extensions.js';
 export { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
 
-export type BrunchTuiCoordinator = SpecSessionActivationCoordinator & WorkspaceSessionBoundaryCoordinator;
+ type BrunchTuiCoordinator = SpecSessionActivationCoordinator & WorkspaceSessionBoundaryCoordinator;
 
-export interface BrunchWebSidecarRunnerOptions {
+ interface BrunchWebSidecarRunnerOptions {
   cwd: string;
   coordinator: BrunchTuiCoordinator;
   productUpdates: ProductUpdatePublisher;
   routePath: string;
 }
 
-export type BrunchWebSidecar = Pick<RunningWebHost, 'url' | 'close'>;
+ type BrunchWebSidecar = Pick<RunningWebHost, 'url' | 'close'>;
 
 export interface BrunchTuiLaunchContext {
   workspace: WorkspaceSessionReadyState;
@@ -133,6 +135,61 @@ async function chooseSpecSessionActivationDecision(
   return runWorkspaceDialogPreflight(inventory);
 }
 
+type EdgeCompatibleNodeKinds = readonly NodeKind[];
+type EdgeCompatibleReadinessBands = readonly ReadinessBand[];
+
+type LegacyGraphOptions = { readonly show?: 'active' | 'all' } | undefined;
+
+function toReadOptions(options: LegacyGraphOptions): { readonly visibility?: 'active' | 'all' } | undefined {
+  return options?.show === undefined ? undefined : { visibility: options.show };
+}
+
+function graphSliceWithCounts(slice: GraphSlice) {
+  return { ...slice, nodeCount: slice.nodes.length, edgeCount: slice.edges.length };
+}
+
+function isPresent<T>(value: T | undefined): value is T {
+  return value !== undefined;
+}
+
+function legacyRelatedNodes(
+  readers: ReturnType<WorkspaceGraphRuntime['forSpec']>,
+  options: {
+    readonly anchorIds: readonly number[];
+    readonly edgeCategory: EdgeCategory;
+    readonly direction?: 'outgoing' | 'incoming' | 'both';
+    readonly hops?: number;
+    readonly show?: 'active' | 'all';
+  },
+) {
+  const results = readers.getNodes(
+    options.anchorIds.map((id) => ({ id })),
+    { ...toReadOptions(options), hops: options.hops ?? 1 },
+  );
+  if (results.some((result) => result.status === 'not_found')) {
+    return { status: 'not_found' as const };
+  }
+  const anchors = results
+    .map((result) => (result.status === 'found' ? result.node : undefined))
+    .filter(isPresent);
+  const edges = results
+    .flatMap((result) => (result.status === 'found' ? result.edges : []))
+    .filter((edge) => edge.category === options.edgeCategory);
+  const relatedIds = new Set(edges.flatMap((edge) => [edge.sourceId, edge.targetId]));
+  for (const anchor of anchors) relatedIds.delete(anchor.id);
+  const relatedNodesById = new Map(
+    results.flatMap((result) =>
+      result.status === 'found' ? result.related.map((node) => [node.id, node] as const) : [],
+    ),
+  );
+  return {
+    status: 'success' as const,
+    anchors,
+    relatedNodes: [...relatedIds].map((id) => relatedNodesById.get(id)).filter(isPresent),
+    edges,
+  };
+}
+
 export function createBrunchAgentSessionRuntimeFactory({
   coordinator,
   productUpdates,
@@ -146,55 +203,85 @@ export function createBrunchAgentSessionRuntimeFactory({
       },
       commandExecutor: graph.commandExecutor,
       reads: {
+        queryGraph: (
+          filter?: Parameters<ReturnType<WorkspaceGraphRuntime['forSpec']>['queryGraph']>[0],
+          options?: Parameters<ReturnType<WorkspaceGraphRuntime['forSpec']>['queryGraph']>[1],
+        ) => graph.forSpec(currentWorkspace.spec.id).queryGraph(filter, options),
         getOverview: (options?: { show?: 'active' | 'all' }) =>
-          graph.forSpec(currentWorkspace.spec.id).getOverview(options),
+          graphSliceWithCounts(
+            graph.forSpec(currentWorkspace.spec.id).queryGraph(undefined, toReadOptions(options)),
+          ),
         getGraphOverview: (options?: { show?: 'active' | 'all' }) =>
-          graph.forSpec(currentWorkspace.spec.id).getOverview(options),
+          graphSliceWithCounts(
+            graph.forSpec(currentWorkspace.spec.id).queryGraph(undefined, toReadOptions(options)),
+          ),
         getGraphSliceByKinds: (options: { show?: 'active' | 'all'; kinds: readonly string[] }) =>
-          graph.forSpec(currentWorkspace.spec.id).getGraphSliceByKinds(options),
+          graphSliceWithCounts(
+            graph
+              .forSpec(currentWorkspace.spec.id)
+              .queryGraph({ kinds: options.kinds as EdgeCompatibleNodeKinds }, toReadOptions(options)),
+          ),
         getGraphSliceByReadinessBands: (options: {
           show?: 'active' | 'all';
           readinessBands: readonly string[];
-        }) => graph.forSpec(currentWorkspace.spec.id).getGraphSliceByReadinessBands(options),
+        }) =>
+          graphSliceWithCounts(
+            graph
+              .forSpec(currentWorkspace.spec.id)
+              .queryGraph(
+                { bands: options.readinessBands as EdgeCompatibleReadinessBands },
+                toReadOptions(options),
+              ),
+          ),
         getGraphGaps: (options: {
           show?: 'active' | 'all';
           kinds?: readonly string[];
           readinessBands?: readonly string[];
-          absentEdgeCategory:
-            | 'dependency'
-            | 'proof'
-            | 'support'
-            | 'realization'
-            | 'boundary'
-            | 'composition'
-            | 'association'
-            | 'supersession';
+          absentEdgeCategory: EdgeCategory;
           direction?: 'outgoing' | 'incoming' | 'both';
-        }) => graph.forSpec(currentWorkspace.spec.id).getGraphGaps(options),
+        }) =>
+          graphSliceWithCounts(
+            graph.forSpec(currentWorkspace.spec.id).queryGraph(
+              {
+                ...(options.kinds != null ? { kinds: options.kinds as EdgeCompatibleNodeKinds } : {}),
+                ...(options.readinessBands != null
+                  ? { bands: options.readinessBands as EdgeCompatibleReadinessBands }
+                  : {}),
+                lacksEdge: {
+                  categories: [options.absentEdgeCategory],
+                  ...(options.direction !== undefined ? { direction: options.direction } : {}),
+                },
+              },
+              toReadOptions(options),
+            ),
+          ),
         getRelatedNodes: (options: {
           anchorIds: readonly number[];
-          edgeCategory:
-            | 'dependency'
-            | 'proof'
-            | 'support'
-            | 'realization'
-            | 'boundary'
-            | 'composition'
-            | 'association'
-            | 'supersession';
+          edgeCategory: EdgeCategory;
           direction?: 'outgoing' | 'incoming' | 'both';
           hops?: number;
           show?: 'active' | 'all';
-        }) => graph.forSpec(currentWorkspace.spec.id).getRelatedNodes(options),
+        }) => legacyRelatedNodes(graph.forSpec(currentWorkspace.spec.id), options),
         getNodes: (
           selectors: readonly ({ id: number } | { code: string })[],
           options?: { hops?: number; show?: 'active' | 'all' },
-        ) => graph.forSpec(currentWorkspace.spec.id).getNodes(selectors, options),
-        getNodeNeighborhood: (nodeId: number, options?: { hops?: number; show?: 'active' | 'all' }) =>
-          graph.forSpec(currentWorkspace.spec.id).getNodeNeighborhood(nodeId, options),
+        ) => graph.forSpec(currentWorkspace.spec.id).getNodes(selectors, toReadOptions(options)),
+        getNodeNeighborhood: (nodeId: number, options?: { hops?: number; show?: 'active' | 'all' }) => {
+          const [result] = graph
+            .forSpec(currentWorkspace.spec.id)
+            .getNodes([{ id: nodeId }], { ...toReadOptions(options), hops: options?.hops ?? 1 });
+          return !result || result.status === 'not_found'
+            ? { status: 'not_found' as const }
+            : {
+                status: 'success' as const,
+                anchor: result.node,
+                neighbors: result.related,
+                edges: result.edges,
+              };
+        },
         resolveNodeCode: (code: string) => graph.forSpec(currentWorkspace.spec.id).resolveNodeCode(code),
       },
-      ...(productUpdates ? { productUpdates } : {}),
+      ...(productUpdates && { productUpdates }),
     };
     const bindCurrentWorkspace = async (replacementSessionManager: typeof sessionManager) => {
       currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(replacementSessionManager);

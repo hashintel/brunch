@@ -14,7 +14,7 @@ import {
   type Diagnostic,
   type StructuralIllegal,
 } from '../graph/index.js';
-import type { GraphOverview } from '../graph/queries.js';
+import type { GraphSlice } from '../graph/queries.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
@@ -23,15 +23,15 @@ import { portableCwd } from './portable-report.js';
 const PROBE_ID = 'propose-graph-commit' as const;
 const DEFAULT_MAX_ATTEMPTS = 2;
 
-export type ProposeGraphCommitScenarioId =
+ type ProposeGraphCommitScenarioId =
   | 'direct-commit'
   | 'existing-code-ref'
   | 'retry-diagnostics'
   | 'ambiguity-no-overcommit';
 
-export type AmbiguityNoOvercommitOutcome = 'no_op_or_clarification' | 'overcommit' | 'unexpected_tool_use';
+ type AmbiguityNoOvercommitOutcome = 'no_op_or_clarification' | 'overcommit' | 'unexpected_tool_use';
 
-export interface ProposeGraphCommitProofOptions {
+ interface ProposeGraphCommitProofOptions {
   cwd?: string;
   fixtureRoot?: string;
   runId?: string;
@@ -48,7 +48,7 @@ export interface ProposeGraphCommitProofArtifacts {
   reportJson: string;
 }
 
-export type CommitGraphAttemptStatus =
+ type CommitGraphAttemptStatus =
   | CommitGraphSuccess['status']
   | StructuralIllegal['status']
   | 'needs_human'
@@ -56,7 +56,7 @@ export type CommitGraphAttemptStatus =
   | 'version_conflict'
   | 'unknown';
 
-export interface CommitGraphAttemptReport {
+ interface CommitGraphAttemptReport {
   index: number;
   status: CommitGraphAttemptStatus;
   lsn?: number;
@@ -112,7 +112,7 @@ export interface ProposeGraphCommitProofSummaryInput {
   sessionId: string;
   maxAttempts: number;
   sessionText: string;
-  overview: GraphOverview;
+  overview: GraphSlice;
   prompt: string;
   model?: string;
   scenarioId?: ProposeGraphCommitScenarioId;
@@ -174,7 +174,7 @@ export async function runProposeGraphCommitProof(
       sessionId: workspace.session.id,
       maxAttempts,
       sessionFile: workspace.session.file,
-      overview: specReads.getGraphOverview(),
+      overview: specReads.queryGraph(),
       prompt,
       scenarioId,
       ...(expectedExistingCode !== undefined ? { expectedExistingCode } : {}),
@@ -193,7 +193,7 @@ export async function runProposeGraphCommitProof(
         sessionId: workspace.session.id,
         maxAttempts,
         sessionFile: workspace.session.file,
-        overview: specReads.getGraphOverview(),
+        overview: specReads.queryGraph(),
         prompt,
         scenarioId,
         ...(expectedExistingCode !== undefined ? { expectedExistingCode } : {}),
@@ -226,7 +226,7 @@ async function summarizeCurrentRun(options: {
   sessionId: string;
   maxAttempts: number;
   sessionFile: string;
-  overview: GraphOverview;
+  overview: GraphSlice;
   prompt: string;
   model?: string;
   scenarioId?: ProposeGraphCommitScenarioId;
@@ -267,8 +267,8 @@ export function summarizeProposeGraphCommitProof(
   const successfulAttempt = lastSuccessfulAttempt(attempts);
   const scenarioId = input.scenarioId ?? 'direct-commit';
   const finalGraph = {
-    nodeCount: input.overview.nodeCount,
-    edgeCount: input.overview.edgeCount,
+    nodeCount: input.overview.nodes.length,
+    edgeCount: input.overview.edges.length,
     lsn: input.overview.lsn,
   };
   const committedNodes = input.overview.nodes.map((node) => ({
@@ -278,7 +278,7 @@ export function summarizeProposeGraphCommitProof(
   const committedNodeTitles = committedNodes.map((node) => node.title);
   const projectedCodeEvidence = projectedCodeEvidenceFromSummaryInput(input);
   const friction = [...(input.friction ?? [])];
-  let success = successfulAttempt !== undefined && input.overview.nodeCount > 0;
+  let success = successfulAttempt !== undefined && input.overview.nodes.length > 0;
   if (scenarioId === 'existing-code-ref') {
     success =
       success &&
@@ -294,13 +294,13 @@ export function summarizeProposeGraphCommitProof(
     success =
       attempts.some((attempt) => attempt.status === 'structural_illegal') &&
       successfulAttempt !== undefined &&
-      input.overview.nodeCount > 0;
+      input.overview.nodes.length > 0;
   }
   if (scenarioId === 'ambiguity-no-overcommit') {
     success =
       ambiguityOutcome === 'no_op_or_clarification' &&
-      input.overview.nodeCount === 0 &&
-      input.overview.edgeCount === 0;
+      input.overview.nodes.length === 0 &&
+      input.overview.edges.length === 0;
   }
 
   if (attempts.length === 0 && scenarioId !== 'ambiguity-no-overcommit') {
@@ -312,7 +312,7 @@ export function summarizeProposeGraphCommitProof(
   if (successfulAttempt === undefined && attempts.length > 0) {
     friction.push(`No commit_graph attempt succeeded; final status was ${finalStatus}.`);
   }
-  if (successfulAttempt !== undefined && input.overview.nodeCount === 0) {
+  if (successfulAttempt !== undefined && input.overview.nodes.length === 0) {
     friction.push('commit_graph reported success but graph overview is empty.');
   }
   if (scenarioId === 'existing-code-ref') {
@@ -344,7 +344,7 @@ export function summarizeProposeGraphCommitProof(
     if (ambiguityOutcome !== 'no_op_or_clarification') {
       friction.push(`Ambiguity scenario outcome was ${ambiguityOutcome ?? 'unknown'}.`);
     }
-    if (input.overview.nodeCount > 0 || input.overview.edgeCount > 0) {
+    if (input.overview.nodes.length > 0 || input.overview.edges.length > 0) {
       friction.push('Ambiguity scenario wrote graph state despite underspecified prompt.');
     }
   }
@@ -391,12 +391,12 @@ export function summarizeProposeGraphCommitProof(
 function ambiguityNoOvercommitOutcome(
   sessionText: string,
   attempts: readonly CommitGraphAttemptReport[],
-  overview: GraphOverview,
+  overview: GraphSlice,
 ): AmbiguityNoOvercommitOutcome {
   if (
     attempts.some((attempt) => attempt.status === 'success') ||
-    overview.nodeCount > 0 ||
-    overview.edgeCount > 0
+    overview.nodes.length > 0 ||
+    overview.edges.length > 0
   ) {
     return 'overcommit';
   }

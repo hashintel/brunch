@@ -13,7 +13,7 @@ import { eq } from 'drizzle-orm';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
-import { getGraphOverview, type GraphShow } from './queries.js';
+import { queryGraph, type GraphVisibility } from './queries.js';
 import type { SeedFixture, SeedFixtureEdge, SeedFixtureNode } from './seed-fixtures.js';
 
 export interface ExportSeedFixtureInput {
@@ -22,14 +22,14 @@ export interface ExportSeedFixtureInput {
    * Defaults to all graph truth so captured fixtures preserve any superseded
    * predecessors that remain in accepted graph history.
    */
-  readonly show?: GraphShow;
+  readonly show?: GraphVisibility;
 }
 
 export function exportSeedFixture(db: BrunchDb, input: ExportSeedFixtureInput): SeedFixture {
   const spec = db.select().from(schema.specs).where(eq(schema.specs.id, input.specId)).get();
   if (!spec) throw new Error(`exportSeedFixture: spec ${input.specId} does not exist`);
 
-  const overview = getGraphOverview(db, input.specId, { show: input.show ?? 'all' });
+  const overview = queryGraph(db, input.specId, undefined, { visibility: input.show ?? 'all' });
   const orderedNodes = [...overview.nodes].sort((a, b) => a.id - b.id);
   const localIdByNodeId = new Map(orderedNodes.map((node, index) => [node.id, index + 1]));
 
@@ -83,14 +83,14 @@ interface CliArgs {
   readonly workspace: string;
   readonly specId: number;
   readonly out?: string;
-  readonly show?: GraphShow;
+  readonly show?: GraphVisibility;
 }
 
 function parseCliArgs(argv: readonly string[]): CliArgs {
   let workspace = process.cwd();
   let specId: number | undefined;
   let out: string | undefined;
-  let show: GraphShow | undefined;
+  let show: GraphVisibility | undefined;
 
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];

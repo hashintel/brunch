@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
-import { getGraphOverview } from './queries.js';
+import { queryGraph } from './queries.js';
 import { translateReviewSetPayloadToCommitGraph, type ReviewSetProposalPayload } from './review-set.js';
 
 function seedSpec(db: BrunchDb): number {
@@ -77,7 +77,7 @@ describe('review-set graph payload translation', () => {
     expect(result.command.nodes).toHaveLength(3);
     expect(result.command.edges).toHaveLength(2);
     expect(executor.dryRunCommitGraph(result.command)).toEqual({ status: 'success' });
-    expect(getGraphOverview(db, specId)).toMatchObject({ nodeCount: 0, edgeCount: 0, lsn: 1 });
+    expect(queryGraph(db, specId)).toMatchObject({ nodes: [], edges: [], lsn: 1 });
   });
 
   it('rejects retired relation fields, missing epistemic or grounding data, and invalid edge stance', () => {

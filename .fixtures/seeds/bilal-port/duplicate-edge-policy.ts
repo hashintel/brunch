@@ -14,7 +14,7 @@
  * counted so the porter can keep duplicate-drop stats visible.
  */
 
-export type SeedPortEdgeOrigin = 'source' | 'synthetic';
+ type SeedPortEdgeOrigin = 'source' | 'synthetic';
 
 /** The fields that identify an edge for duplicate detection. */
 export interface SeedEdgeIdentity {

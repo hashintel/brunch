@@ -1,7 +1,5 @@
 import type { JsonRpcFailure, JsonRpcId, JsonRpcRequest, JsonRpcResponse } from '../rpc/protocol.js';
 
-export type { JsonRpcRequest, JsonRpcResponse } from '../rpc/protocol.js';
-
 type WebSocketEventListener = (event: { data?: unknown }) => void;
 
 type WebSocketLike = Pick<WebSocket, 'send' | 'close'> & {

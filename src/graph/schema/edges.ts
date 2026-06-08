@@ -44,7 +44,7 @@ export type EdgeStance = (typeof EDGE_STANCES)[number];
  * `implicit` means an approved concept was materialized without per-item review.
  * The mutation path lives in `change_log.operation`, not in `basis` (D63-L).
  */
-export type EdgeBasis = (typeof NODE_BASES)[number];
+ type EdgeBasis = (typeof NODE_BASES)[number];
 
 // EdgeProvenance retired — change_log owns the full audit trail.
 

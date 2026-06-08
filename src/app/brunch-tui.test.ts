@@ -152,11 +152,11 @@ describe('Brunch TUI boot', () => {
       );
 
       const graph = await openWorkspaceGraphRuntime(cwd);
-      expect(graph.forSpec(first.spec.id).getGraphOverview().nodeCount).toBe(0);
+      expect(graph.forSpec(first.spec.id).queryGraph().nodes).toHaveLength(0);
       expect(
         graph
           .forSpec(second.spec.id)
-          .getGraphOverview()
+          .queryGraph()
           .nodes.map((node) => node.title),
       ).toEqual(['Second current goal']);
       expect(observedUpdates).toEqual([
@@ -889,7 +889,7 @@ describe('Brunch TUI boot', () => {
           specId: 1,
           commandExecutor: {} as never,
           reads: {
-            getGraphOverview: () => ({
+            queryGraph: () => ({
               nodes: [
                 {
                   id: 1,
@@ -905,21 +905,9 @@ describe('Brunch TUI boot', () => {
                 },
               ],
               edges: [],
-              nodeCount: 1,
-              edgeCount: 0,
               lsn: 1,
             }),
-            getGraphSliceByKinds: () => ({ nodes: [], edges: [], nodeCount: 0, edgeCount: 0, lsn: 0 }),
-            getGraphSliceByReadinessBands: () => ({
-              nodes: [],
-              edges: [],
-              nodeCount: 0,
-              edgeCount: 0,
-              lsn: 0,
-            }),
-            getGraphGaps: () => ({ nodes: [], edges: [], nodeCount: 0, edgeCount: 0, lsn: 0 }),
-            getRelatedNodes: () => ({ status: 'not_found' }),
-            getNodeNeighborhood: () => ({ status: 'not_found' }),
+            getNodes: () => [],
             resolveNodeCode: () => undefined,
           },
         },

@@ -13,8 +13,8 @@ const LOGO_240 = 'brunch-logo-quad-56x18-240.ansi';
 // Letterform copied from: cfonts "brunch" -f tiny -c candy.
 export const BRUNCH_COMPACT_WORDMARK = ['█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █', '█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█'] as const;
 
-export type BrunchIdentityColorMode = 'dark' | 'light' | 'plain';
-export type BrunchIdentityTheme = Pick<Theme, 'fg'>;
+ type BrunchIdentityColorMode = 'dark' | 'light' | 'plain';
+ type BrunchIdentityTheme = Pick<Theme, 'fg'>;
 
 export interface BrunchVersionInfo {
   version: string;

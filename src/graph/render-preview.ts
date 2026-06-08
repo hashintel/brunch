@@ -3,7 +3,6 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createDb } from '../db/connection.js';
-import { projectNeighborhood } from '../projections/graph/neighborhood.js';
 import { formatNeighborhood } from '../renderers/graph/neighborhood.js';
 import { CommandExecutor } from './command-executor.js';
 import { getNodes } from './queries.js';
@@ -34,7 +33,7 @@ export function renderNeighborhoodPreview(options: NeighborhoodPreviewOptions): 
     );
   }
 
-  return formatNeighborhood(projectNeighborhood(neighborhood));
+  return formatNeighborhood(neighborhood);
 }
 
 function loadFixture(set: string, fixture: string): SeedFixture {

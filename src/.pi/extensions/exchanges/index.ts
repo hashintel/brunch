@@ -17,7 +17,6 @@ export {
   buildStructuredExchangeEditorPrefill,
   parseStructuredExchangeEditorResponse,
   structuredExchangeResultFromEditor,
-  type StructuredExchangeEditorPrefillParams,
 } from './shared/editor-fallback.js';
 export {
   findIncompleteStructuredExchangePresents,
@@ -28,10 +27,8 @@ export {
   STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA as STRUCTURED_EXCHANGE_PRESENT_SCHEMA,
   STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA as STRUCTURED_EXCHANGE_REQUEST_SCHEMA,
   type PresentDetails as StructuredExchangePresentDetails,
-  type PresentToolName,
   type RequestDetails as StructuredExchangeRequestDetails,
   type RequestDetails as StructuredExchangeToolResultDetails,
-  type RequestToolName,
 } from './schemas/index.js';
 export {
   PRESENT_CANDIDATES_TOOL,
@@ -73,4 +70,3 @@ export function registerStructuredExchange(pi: ExtensionAPI, deps: StructuredExc
   }
 }
 
-export default registerStructuredExchange;

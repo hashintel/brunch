@@ -13,7 +13,7 @@ import {
 import type { AgentGoalId, AgentLensId, AgentRoleId, AgentStrategyId } from '../../session/runtime-state.js';
 
 export type { ReadinessGrade };
-export type PromptResourceFamily = 'goals' | 'strategies' | 'lenses' | 'methods' | 'definitions';
+ type PromptResourceFamily = 'goals' | 'strategies' | 'lenses' | 'methods' | 'definitions';
 export type MethodId =
   | 'run-structured-exchange'
   | 'infer-and-capture'

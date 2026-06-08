@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import registerStructuredExchange, {
+import {
   PRESENT_OPTIONS_TOOL,
   REQUEST_CHOICE_TOOL,
+  registerStructuredExchange,
 } from '../extensions/exchanges/index.js';
 
 const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g');

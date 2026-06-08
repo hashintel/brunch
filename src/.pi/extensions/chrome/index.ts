@@ -24,16 +24,16 @@ import type {
   WorkspaceSessionReadyState,
 } from '../../../session/workspace-session-coordinator.js';
 
-export type BrunchChromeStage = 'idle' | 'streaming' | 'observer-review';
-export type BrunchChromeWorkerStatus = 'idle' | 'queued' | 'running' | 'blocked';
-export type BrunchChromeCoherenceVerdict = 'unknown' | 'coherent' | 'needs_review' | 'incoherent';
+ type BrunchChromeStage = 'idle' | 'streaming' | 'observer-review';
+ type BrunchChromeWorkerStatus = 'idle' | 'queued' | 'running' | 'blocked';
+ type BrunchChromeCoherenceVerdict = 'unknown' | 'coherent' | 'needs_review' | 'incoherent';
 
-export interface BrunchChromeContextUsage {
+ interface BrunchChromeContextUsage {
   usedTokens: number;
   maxTokens: number;
 }
 
-export interface BrunchChromeRuntimeState {
+ interface BrunchChromeRuntimeState {
   bundle?: string;
   role?: string;
   model?: string;
@@ -43,18 +43,18 @@ export interface BrunchChromeRuntimeState {
   lens?: AgentLensSelection;
 }
 
-export interface BrunchChromeBuildState {
+ interface BrunchChromeBuildState {
   version?: string;
   dev?: string;
 }
 
-export interface BrunchChromeLiveContextUsage {
+ interface BrunchChromeLiveContextUsage {
   tokens?: number | null;
   contextWindow?: number | null;
   percent?: number | null;
 }
 
-export interface BrunchChromeModelTelemetry {
+ interface BrunchChromeModelTelemetry {
   id: string;
   provider?: string;
   reasoning?: boolean;

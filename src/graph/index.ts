@@ -8,8 +8,6 @@
  * M4 skeleton: CommandExecutor + result types.
  */
 
-export type { EdgeId, Lsn, NodeId } from './atoms.js';
-
 // Re-export shared enum const arrays so extensions can build
 // tool parameter schemas without importing db/ directly (I26-L).
 export {
@@ -23,134 +21,49 @@ export {
   READINESS_GRADES,
 } from '../db/schema.js';
 
-export type { EdgeBasis, EdgeCategory, EdgeStance, GraphEdge } from './schema/edges.js';
+export type { EdgeCategory, GraphEdge } from './schema/edges.js';
 
 export type {
-  DecisionDetail,
-  DesignKind,
   GraphNode,
-  IntentKind,
-  IntentKindCategory,
-  NodeBasis,
-  NodeKindMetadata,
-  NodeDetail,
   NodeKind,
-  NodePlane,
-  OracleKind,
-  PlanKind,
-  TermDetail,
   ReadinessBand,
 } from './schema/nodes.js';
 
 export { formatGraphNodeCode, intentKindCategory, parseGraphNodeCode } from './schema/nodes.js';
 
-export type {
-  ReconciliationNeed,
-  ReconciliationNeedKind,
-  ReconciliationNeedTarget,
-} from './schema/reconciliation-need.js';
-
-export type {
-  ElicitationBacklogEntry,
-  ElicitationBacklogLensAffinity,
-  ElicitationBacklogStatus,
-} from './schema/elicitation-backlog.js';
-
 export {
   CATEGORY_POLICY,
-  type CategoryPolicy,
-  type ProjectionEffect,
-  type ReconNeedTrigger,
 } from './policy/category-policy.js';
 
 export {
-  getGraphOverview,
-  getGraphGaps,
-  getGraphSliceByKinds,
-  getGraphSliceByReadinessBands,
-  getRelatedNodes,
-  getNodeNeighborhood,
+  queryGraph,
   getNodes,
   getOpenElicitationBacklogEntries,
   getOpenReconciliationNeeds,
 } from './queries.js';
 export type {
-  GraphOverview,
-  GraphOverviewOptions,
-  GraphGapsOptions,
-  GraphShow,
-  GetNodesOptions,
-  NodeReadResult,
+  EdgeDirection,
+  GraphSlice,
+  GraphVisibility,
+  GraphFilter,
+  NodeNeighborhood,
   NodeSelector,
-  GraphSliceByKindsOptions,
-  GraphSliceByReadinessBandsOptions,
-  NeighborhoodOptions,
-  NeighborhoodNotFound,
-  NeighborhoodResult,
-  NeighborhoodSuccess,
-  RelatedDirection,
-  RelatedNodesOptions,
-  RelatedNodesResult,
-  RelatedNodesSuccess,
 } from './queries.js';
 
 export { CommandExecutor } from './command-executor.js';
 export { openWorkspaceCommandExecutor, openWorkspaceGraphRuntime } from './workspace-store.js';
 export type { WorkspaceGraphRuntime } from './workspace-store.js';
 export type {
-  AcceptReviewSetInput,
-  AcceptReviewSetResult,
-  AcceptReviewSetSuccess,
   BatchEdgeInput,
   BatchEdgeRef,
   BatchNodeInput,
-  CommandResult,
-  CommandSuccess,
   CommitGraphInput,
-  CommitGraphDryRunResult,
-  CommitGraphResult,
   CommitGraphSuccess,
-  CloseElicitationBacklogEntryInput,
-  CloseElicitationBacklogEntryResult,
-  CreateElicitationBacklogEntryInput,
-  CreateElicitationBacklogEntryResult,
-  CreateNodeInput,
-  CreateNodeResult,
-  CreateReconNeedInput,
-  CreateSpecInput,
-  CreateSpecResult,
-  CreateSpecSuccess,
-  DryRunSuccess,
-  ElicitationBacklogCloseSuccess,
-  ElicitationBacklogSuccess,
-  CreateReconNeedResult,
   Diagnostic,
-  NeedsHuman,
-  PolicyBlocked,
   ReadinessGrade,
-  ReconNeedResolveSuccess,
-  ReconNeedSuccess,
-  ReconNeedTarget,
-  ResolveReconNeedInput,
-  ResolveReconNeedResult,
   SpecRecord,
   StructuralIllegal,
-  UpdateReadinessGradeInput,
-  UpdateReadinessGradeResult,
-  UpdateReadinessGradeSuccess,
-  VersionConflict,
 } from './command-executor.js';
 
 export { translateReviewSetPayloadToCommitGraph } from './review-set.js';
-export type {
-  ReviewSetEdgeDraft,
-  ReviewSetEndpointRef,
-  ReviewSetEpistemicStatus,
-  ReviewSetEntityDraft,
-  ReviewSetLens,
-  ReviewSetProposalGrounding,
-  ReviewSetProposalPayload,
-  ReviewSetProposalPitch,
-  ReviewSetTranslationResult,
-  ReviewSetTranslationSuccess,
-} from './review-set.js';
+

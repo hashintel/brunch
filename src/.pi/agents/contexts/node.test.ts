@@ -1,19 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
-import type { NeighborhoodResult } from '../../../graph/queries.js';
+import type { NodeNeighborhood } from '../../../graph/queries.js';
 import type { GraphNode } from '../../../graph/schema/nodes.js';
 import { renderNodeContext } from './node.js';
 
-const neighborhood: NeighborhoodResult = {
-  status: 'success',
-  anchor: node(
+const neighborhood: NodeNeighborhood = {
+  selector: { id: 1 },
+  status: 'found',
+  node: node(
     1,
     'intent',
     'requirement',
     'Selected spec has graph truth',
     'A long body explains the requirement.',
   ),
-  neighbors: [
+  related: [
     node(2, 'design', 'module', 'Graph snapshot reader'),
     node(3, 'oracle', 'check', 'Prompt path test'),
   ],
@@ -45,7 +46,7 @@ describe('renderNodeContext', () => {
   });
 
   it('renders a clear selected-spec missing-node result', () => {
-    expect(renderNodeContext({ status: 'not_found' })).toBe(
+    expect(renderNodeContext({ selector: { id: 404 }, status: 'not_found', related: [], edges: [] })).toBe(
       '[Selected-spec node context]\n- node: not found in selected spec',
     );
   });

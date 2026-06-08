@@ -19,7 +19,7 @@ import type {
   Diagnostic,
   StructuralIllegal,
 } from '../../../graph/command-executor.js';
-import type { GraphOverview, NeighborhoodResult, RelatedNodesResult } from '../../../graph/queries.js';
+import type { GraphSlice, NodeNeighborhood } from '../../../graph/queries.js';
 import { formatGraphNodeCode, parseGraphNodeCode } from '../../../graph/schema/nodes.js';
 import type { ToolCommitGraphParams } from './tool-schemas.js';
 
@@ -143,15 +143,15 @@ export function formatStructuralIllegal(result: StructuralIllegal): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Format a GraphOverview as readable text for the agent.
+ * Format a GraphSlice as readable text for the agent.
  */
-export function formatGraphOverview(overview: GraphOverview, heading = 'Graph overview'): string {
-  if (overview.nodeCount === 0) {
+export function formatGraphOverview(overview: GraphSlice, heading = 'Graph overview'): string {
+  if (overview.nodes.length === 0) {
     return `${heading}: empty (no nodes or edges).`;
   }
 
   const lines: string[] = [
-    `${heading} (LSN ${overview.lsn}): ${overview.nodeCount} node(s), ${overview.edgeCount} edge(s).`,
+    `${heading} (LSN ${overview.lsn}): ${overview.nodes.length} node(s), ${overview.edges.length} edge(s).`,
     '',
   ];
   const nodesById = new Map(overview.nodes.map((node) => [node.id, node]));
@@ -178,44 +178,9 @@ export function formatGraphOverview(overview: GraphOverview, heading = 'Graph ov
   return lines.join('\n');
 }
 
-/**
- * Format a NeighborhoodResult as readable text for the agent.
- */
-export function formatNeighborhoodResult(result: NeighborhoodResult): string {
-  if (result.status === 'not_found') {
-    return 'Node not found.';
-  }
-
-  const { anchor, neighbors, edges } = result;
-  const nodesById = new Map([[anchor.id, anchor], ...neighbors.map((node) => [node.id, node] as const)]);
-  const lines: string[] = [
-    `Neighborhood of [${formatGraphNodeCode(anchor.kind, anchor.kindOrdinal)}] ${anchor.plane}/${anchor.kind}: "${anchor.title}"`,
-  ];
-
-  if (anchor.body) {
-    lines.push(`Body: ${anchor.body}`);
-  }
-
-  if (neighbors.length > 0) {
-    lines.push('', 'Neighbors:');
-    for (const n of neighbors) {
-      lines.push(`  - [${formatGraphNodeCode(n.kind, n.kindOrdinal)}] ${n.plane}/${n.kind}: "${n.title}"`);
-    }
-  }
-
-  if (edges.length > 0) {
-    lines.push('', 'Edges:');
-    for (const e of edges) {
-      const stance = e.stance ? ` (${e.stance})` : '';
-      const source = nodesById.get(e.sourceId);
-      const target = nodesById.get(e.targetId);
-      const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${e.sourceId}`;
-      const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${e.targetId}`;
-      lines.push(`  - #${e.id}: ${sourceCode} —[${e.category}${stance}]→ ${targetCode}`);
-    }
-  }
-
-  return lines.join('\n');
+export interface RelatedNodesResult {
+  readonly status: 'success' | 'not_found';
+  readonly anchors?: readonly NodeNeighborhood[];
 }
 
 export function formatRelatedNodesResult(result: RelatedNodesResult): string {
@@ -223,38 +188,42 @@ export function formatRelatedNodesResult(result: RelatedNodesResult): string {
     return 'One or more anchor nodes were not found in the selected spec.';
   }
 
-  const nodesById = new Map([
-    ...result.anchors.map((node) => [node.id, node] as const),
-    ...result.relatedNodes.map((node) => [node.id, node] as const),
-  ]);
+  const anchors = result.anchors ?? [];
+  const found = anchors.filter(
+    (anchor): anchor is Extract<NodeNeighborhood, { status: 'found' }> => anchor.status === 'found',
+  );
+  const related = new Map(found.flatMap((anchor) => anchor.related.map((node) => [node.id, node] as const)));
+  const edges = found.flatMap((anchor) => anchor.edges);
+  const nodesById = new Map([...found.map((anchor) => [anchor.node.id, anchor.node] as const), ...related]);
   const lines = [
-    `Related nodes: ${result.relatedNodes.length} node(s), ${result.edges.length} edge(s).`,
-    `Anchors: ${result.anchors.map((anchor) => `[${formatGraphNodeCode(anchor.kind, anchor.kindOrdinal)}] ${anchor.title}`).join(', ')}`,
+    `Related nodes: ${related.size} node(s), ${edges.length} edge(s).`,
+    `Anchors: ${found.map((anchor) => `[${formatGraphNodeCode(anchor.node.kind, anchor.node.kindOrdinal)}] ${anchor.node.title}`).join(', ')}`,
   ];
 
-  if (result.relatedNodes.length === 0) {
+  if (related.size === 0) {
     lines.push('Related: none');
   } else {
     lines.push('Related:');
-    for (const node of result.relatedNodes) {
+    for (const node of related.values()) {
       lines.push(
         `  - [${formatGraphNodeCode(node.kind, node.kindOrdinal)}] ${node.plane}/${node.kind}: "${node.title}"`,
       );
     }
   }
 
-  if (result.edges.length === 0) {
+  if (edges.length === 0) {
     lines.push('Edges: none');
   } else {
     lines.push('Edges:');
-    for (const edge of result.edges) {
+    const anchorIds = new Set(found.map((anchor) => anchor.node.id));
+    for (const edge of edges) {
       const source = nodesById.get(edge.sourceId);
       const target = nodesById.get(edge.targetId);
       const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${edge.sourceId}`;
       const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${edge.targetId}`;
-      const direction = result.anchors.some((anchor) => anchor.id === edge.sourceId)
+      const direction = anchorIds.has(edge.sourceId)
         ? 'outgoing'
-        : result.anchors.some((anchor) => anchor.id === edge.targetId)
+        : anchorIds.has(edge.targetId)
           ? 'incoming'
           : 'lateral';
       lines.push(`  - ${sourceCode} -[${edge.category}/${direction}]-> ${targetCode}`);

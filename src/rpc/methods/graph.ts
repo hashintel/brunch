@@ -80,7 +80,12 @@ export const graphRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[] =
         return createJsonRpcFailure(requestId, -32602, 'Invalid params');
       }
       const graph = await context.getGraphRuntime();
-      return createJsonRpcSuccess(requestId, graph.forSpec(params.value.specId).getOverview());
+      const result = graph.forSpec(params.value.specId).queryGraph();
+      return createJsonRpcSuccess(requestId, {
+        ...result,
+        nodeCount: result.nodes.length,
+        edgeCount: result.edges.length,
+      });
     },
   },
   {
@@ -105,14 +110,15 @@ export const graphRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[] =
         return createJsonRpcFailure(requestId, -32602, 'Invalid params');
       }
       const graph = await context.getGraphRuntime();
+      const [result] = graph
+        .forSpec(params.value.specId)
+        .getNodes(
+          [{ id: params.value.nodeId }],
+          params.value.hops === undefined ? undefined : { hops: params.value.hops },
+        );
       return createJsonRpcSuccess(
         requestId,
-        graph
-          .forSpec(params.value.specId)
-          .getNodeNeighborhood(
-            params.value.nodeId,
-            params.value.hops === undefined ? undefined : { hops: params.value.hops },
-          ),
+        result ?? { selector: { id: params.value.nodeId }, status: 'not_found', related: [], edges: [] },
       );
     },
   },

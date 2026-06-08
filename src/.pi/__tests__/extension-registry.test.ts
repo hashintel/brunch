@@ -5,18 +5,19 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
-import alternatives from '../components/alternatives.js';
+import { registerBrunchAlternatives as alternatives } from '../components/alternatives.js';
 import chrome from '../extensions/chrome/index.js';
-import commands, {
+import {
   BRUNCH_CONTINUE_COMMAND,
   BRUNCH_LENS_COMMAND,
   BRUNCH_MODE_COMMAND,
   BRUNCH_STRATEGY_COMMAND,
   BRUNCH_SWITCH_COMMAND,
+  registerBrunchCommands as commands,
 } from '../extensions/commands/index.js';
-import commandPolicy from '../extensions/commands/policy.js';
-import context from '../extensions/context/index.js';
-import structuredExchange, {
+import { registerBrunchBranchPolicyHandlers as commandPolicy } from '../extensions/commands/policy.js';
+import { registerBrunchContext as context } from '../extensions/context/index.js';
+import {
   PRESENT_OPTIONS_TOOL,
   PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
@@ -24,11 +25,12 @@ import structuredExchange, {
   REQUEST_CHOICE_TOOL,
   REQUEST_CHOICES_TOOL,
   REQUEST_REVIEW_TOOL,
+  registerStructuredExchange as structuredExchange,
 } from '../extensions/exchanges/index.js';
-import mentionAutocomplete from '../extensions/mentions/index.js';
-import operationalMode from '../extensions/runtime/index.js';
-import sessionLifecycle from '../extensions/session/lifecycle.js';
-import prompting from '../extensions/system-prompts/index.js';
+import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../extensions/mentions/index.js';
+import { registerBrunchOperationalModePolicy as operationalMode } from '../extensions/runtime/index.js';
+import { registerBrunchSessionBoundary as sessionLifecycle } from '../extensions/session/lifecycle.js';
+import { registerBrunchPrompting as prompting } from '../extensions/system-prompts/index.js';
 
 const extensionDefaults = {
   'components/alternatives.ts': alternatives,
@@ -44,7 +46,7 @@ const extensionDefaults = {
 };
 
 describe('Brunch explicit Pi extension registry', () => {
-  it('keeps default factory exports for src/.pi iteration', () => {
+  it('keeps named factory exports for src/.pi iteration', () => {
     for (const [path, factory] of Object.entries(extensionDefaults)) {
       expect(factory, path).toEqual(expect.any(Function));
     }

@@ -23,8 +23,6 @@ export { registerBrunchAlternatives } from './components/alternatives.js';
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from './extensions/commands/policy.js';
 export {
   registerBrunchMentionAutocomplete,
-  type GraphMentionCandidate,
-  type GraphMentionSource,
 } from './extensions/mentions/index.js';
 export {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
@@ -34,21 +32,6 @@ export {
   appendBrunchAgentRuntimeSwitch,
   projectBrunchAgentState,
   registerBrunchOperationalModePolicy,
-  type AgentGoalSelection,
-  type AgentGoalId,
-  type AgentLensId,
-  type AgentLensSelection,
-  type AgentRoleDefinition,
-  type AgentRoleId,
-  type AgentStrategyId,
-  type AgentStrategySelection,
-  type AutoAxisSelection,
-  type BrunchAgentState,
-  type BrunchAgentStateEntryData,
-  type BrunchAgentStateEntrySessionManager,
-  type OperationalModeDefinition,
-  type OperationalModeId,
-  type ResolvedBrunchAgentState,
 } from './extensions/runtime/index.js';
 export { registerBrunchPrompting } from './extensions/system-prompts/index.js';
 export { registerBrunchContext } from './extensions/context/index.js';
@@ -57,12 +40,7 @@ export {
   projectBrunchChromeFooterLines,
   registerBrunchChrome,
   renderBrunchChrome,
-  type BrunchChromeCoherenceVerdict,
-  type BrunchChromeFooterTelemetry,
-  type BrunchChromeStage,
   type BrunchChromeState,
-  type BrunchChromeUi,
-  type BrunchChromeWorkerStatus,
 } from './extensions/chrome/index.js';
 export {
   bindBrunchSessionBoundary,
@@ -79,15 +57,13 @@ export {
   BRUNCH_SWITCH_COMMAND,
   BRUNCH_SWITCH_SHORTCUT,
   registerBrunchCommands,
-  type BrunchCommandsOptions,
 } from './extensions/commands/index.js';
 export {
   runBrunchWorkspaceAction,
   runBrunchWorkspaceCommand,
-  type BrunchSpecSessionPickerOptions,
 } from './extensions/workspace/index.js';
 
-export { registerBrunchGraph, type BrunchGraphDeps, type GraphReaders } from './extensions/graph/index.js';
+export { registerBrunchGraph } from './extensions/graph/index.js';
 
 export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
   graphMentionSource?: GraphMentionSource;
@@ -101,7 +77,7 @@ function graphMentionSourceFromDeps(graph: BrunchGraphDeps | undefined): GraphMe
   if (!graph) return { listMentionCandidates: () => [] };
   return {
     listMentionCandidates: () =>
-      graph.reads.getGraphOverview().nodes.map((node) => ({
+      graph.reads.queryGraph().nodes.map((node) => ({
         code: formatGraphNodeCode(node.kind, node.kindOrdinal),
         title: node.title,
         plane: node.plane,

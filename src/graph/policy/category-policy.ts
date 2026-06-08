@@ -29,11 +29,11 @@
 
 import type { EdgeCategory } from '../schema/edges.js';
 
-export type ReconNeedTrigger = false | 'advisory' | true;
+ type ReconNeedTrigger = false | 'advisory' | true;
 
-export type ProjectionEffect = 'none' | 'hide_predecessor_from_active_context';
+ type ProjectionEffect = 'none' | 'hide_predecessor_from_active_context';
 
-export interface CategoryPolicy {
+ interface CategoryPolicy {
   readonly cascadeOnSourceChange: boolean;
   readonly reconNeedOnSourceChange: ReconNeedTrigger;
   readonly criteriaHelpSignal: boolean;

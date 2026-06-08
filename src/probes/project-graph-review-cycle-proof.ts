@@ -8,7 +8,7 @@ import { getAgentDir } from '@earendil-works/pi-coding-agent';
 
 import { appendBrunchAgentRuntimeSwitch, type BrunchAgentState } from '../.pi/extensions/runtime/index.js';
 import { createBrunchAgentSessionRuntimeFactory } from '../app/brunch-tui.js';
-import { openWorkspaceGraphRuntime, type GraphNode, type GraphOverview } from '../graph/index.js';
+import { openWorkspaceGraphRuntime, type GraphNode, type GraphSlice } from '../graph/index.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import { seedFixture, type SeedFixture } from '../graph/seed-fixtures.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
@@ -22,14 +22,14 @@ const PROBE_ID = 'project-graph-review-cycle' as const;
 const DEFAULT_SEED_SET = 'bilal-port-variants';
 const DEFAULT_SEED_SLUG = 'macro-view-grounded-intent';
 
-export interface ProjectGraphReviewRuntimeStateReport {
+ interface ProjectGraphReviewRuntimeStateReport {
   readonly operationalMode: 'elicit';
   readonly agentStrategy: 'project-graph';
   readonly agentLens: 'intent';
   readonly agentGoal: 'commit-converge';
 }
 
-export interface ProjectGraphReviewCycleProofOptions {
+ interface ProjectGraphReviewCycleProofOptions {
   readonly cwd?: string;
   readonly fixtureRoot?: string;
   readonly seedSet?: string;
@@ -47,14 +47,14 @@ export interface ProjectGraphReviewCycleArtifacts {
   readonly graphOverviewJson: string;
 }
 
-export interface ReviewCycleToolEvidence {
+ interface ReviewCycleToolEvidence {
   readonly presentReviewSetCount: number;
   readonly requestReviewCount: number;
   readonly successfulPresentReviewSetCount: number;
   readonly structuralIllegalPresentReviewSetCount: number;
 }
 
-export interface ReviewCycleApprovalEvidence {
+ interface ReviewCycleApprovalEvidence {
   readonly attempted: boolean;
   readonly status?:
     | 'approved'
@@ -69,7 +69,7 @@ export interface ReviewCycleApprovalEvidence {
   readonly error?: string;
 }
 
-export interface ProjectGraphReviewCycleCreatedNode {
+ interface ProjectGraphReviewCycleCreatedNode {
   readonly id: number;
   readonly code: string;
   readonly plane: GraphNode['plane'];
@@ -139,8 +139,8 @@ export interface ProjectGraphReviewCycleSummaryInput {
   readonly runtimeState: ProjectGraphReviewRuntimeStateReport;
   readonly model?: string;
   readonly sessionText: string;
-  readonly baseOverview: GraphOverview;
-  readonly finalOverview: GraphOverview;
+  readonly baseOverview: GraphSlice;
+  readonly finalOverview: GraphSlice;
   readonly pendingResponse?: JsonRpcResponse;
   readonly approvalResponse?: JsonRpcResponse;
   readonly productUpdates?: readonly ProductUpdate[];
@@ -188,7 +188,7 @@ export async function runProjectGraphReviewCycleProof(
   if (gradeResult.status !== 'success') {
     throw new Error('failed to advance probe spec to commitments_ready');
   }
-  const baseOverview = graph.forSpec(seedResult.specId).getGraphOverview();
+  const baseOverview = graph.forSpec(seedResult.specId).queryGraph();
   const coordinator = createWorkspaceSessionCoordinator({ cwd });
   await coordinator.openDefaultWorkspace();
   await selectSpecForSetupSession(cwd, seedResult.specId);
@@ -251,7 +251,7 @@ export async function runProjectGraphReviewCycleProof(
       : undefined;
 
     const sessionText = await readFile(activated.session.file, 'utf8');
-    const finalOverview = graph.forSpec(seedResult.specId).getGraphOverview();
+    const finalOverview = graph.forSpec(seedResult.specId).queryGraph();
     let report = summarizeProjectGraphReviewCycleProof({
       runId,
       generatedAt,
@@ -314,8 +314,8 @@ export function summarizeProjectGraphReviewCycleProof(
   });
   const graphDelta = {
     lsnAdvanced: input.finalOverview.lsn > input.baseOverview.lsn,
-    nodeDelta: input.finalOverview.nodeCount - input.baseOverview.nodeCount,
-    edgeDelta: input.finalOverview.edgeCount - input.baseOverview.edgeCount,
+    nodeDelta: input.finalOverview.nodes.length - input.baseOverview.nodes.length,
+    edgeDelta: input.finalOverview.edges.length - input.baseOverview.edges.length,
   };
   const friction = [...(input.friction ?? [])];
 
@@ -370,13 +370,13 @@ export function summarizeProjectGraphReviewCycleProof(
     ...(input.model !== undefined ? { model: input.model } : {}),
     success,
     baseGraph: {
-      nodeCount: input.baseOverview.nodeCount,
-      edgeCount: input.baseOverview.edgeCount,
+      nodeCount: input.baseOverview.nodes.length,
+      edgeCount: input.baseOverview.edges.length,
       lsn: input.baseOverview.lsn,
     },
     finalGraph: {
-      nodeCount: input.finalOverview.nodeCount,
-      edgeCount: input.finalOverview.edgeCount,
+      nodeCount: input.finalOverview.nodes.length,
+      edgeCount: input.finalOverview.edges.length,
       lsn: input.finalOverview.lsn,
       explicitNodeCount,
       explicitEdgeCount,
@@ -398,7 +398,7 @@ export async function writeProjectGraphReviewCycleArtifacts(options: {
   readonly runId: string;
   readonly sessionText: string;
   readonly report: ProjectGraphReviewCycleReport;
-  readonly graphOverview: GraphOverview;
+  readonly graphOverview: GraphSlice;
 }): Promise<ProjectGraphReviewCycleArtifacts> {
   // Persisted artifact references are fixture-root-relative so committed
   // reports stay portable; the disk paths used for writing are resolved

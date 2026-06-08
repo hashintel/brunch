@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { GraphOverview } from '../graph/queries.js';
+import type { GraphSlice } from '../graph/queries.js';
 import type { JsonRpcResponse } from '../rpc/protocol.js';
 import {
   summarizeProjectGraphReviewCycleProof,
@@ -12,7 +12,7 @@ import {
   type ProjectGraphReviewCycleReport,
 } from './project-graph-review-cycle-proof.js';
 
-const baseOverview: GraphOverview = {
+const baseOverview: GraphSlice = {
   nodes: [
     {
       id: 1,
@@ -27,12 +27,11 @@ const baseOverview: GraphOverview = {
     },
   ],
   edges: [],
-  nodeCount: 1,
-  edgeCount: 0,
+
   lsn: 2,
 };
 
-const approvedOverview: GraphOverview = {
+const approvedOverview: GraphSlice = {
   nodes: [
     ...baseOverview.nodes,
     {
@@ -60,8 +59,7 @@ const approvedOverview: GraphOverview = {
       updatedAtLsn: 3,
     },
   ],
-  nodeCount: 2,
-  edgeCount: 1,
+
   lsn: 3,
 };
 

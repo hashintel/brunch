@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import type { GraphOverview } from '../../../graph/queries.js';
+import type { GraphSlice } from '../../../graph/queries.js';
 import { renderGraphContext } from './graph.js';
 
-const overview: GraphOverview = {
+const overview: GraphSlice = {
   lsn: 7,
-  nodeCount: 4,
-  edgeCount: 2,
   nodes: [
     node(1, 'intent', 'goal', 'Fast local specification'),
     node(2, 'design', 'module', 'Prompt composer'),
@@ -67,10 +65,10 @@ describe('renderGraphContext', () => {
 
 function node(
   id: number,
-  plane: GraphOverview['nodes'][number]['plane'],
-  kind: GraphOverview['nodes'][number]['kind'],
+  plane: GraphSlice['nodes'][number]['plane'],
+  kind: GraphSlice['nodes'][number]['kind'],
   title: string,
-): GraphOverview['nodes'][number] {
+): GraphSlice['nodes'][number] {
   return {
     id,
     specId: 1,

@@ -4,19 +4,19 @@ import { basename, join, relative, resolve, sep } from 'node:path';
 import { openWorkspaceGraphRuntime, type ReadinessGrade } from '../graph/index.js';
 import { inspectCanonicalSessionFiles } from './workspace-session-coordinator/boot-session-store.js';
 
-export interface WorkspaceSessionFileInventory {
+ interface WorkspaceSessionFileInventory {
   readonly file: string;
   readonly lineCount: number;
   readonly byteCount: number;
 }
 
-export interface WorkspaceTreeEntryInventory {
+ interface WorkspaceTreeEntryInventory {
   readonly name: string;
   readonly kind: 'file' | 'directory';
   readonly fileCount: number;
 }
 
-export interface WorkspaceMarkdownFileInventory {
+ interface WorkspaceMarkdownFileInventory {
   readonly path: string;
   readonly lineCount: number;
   readonly byteCount: number;
@@ -31,14 +31,14 @@ export interface WorkspaceCwdInventory {
   readonly markdownFiles: readonly WorkspaceMarkdownFileInventory[];
 }
 
-export interface WorkspaceSpecOverview {
+ interface WorkspaceSpecOverview {
   readonly id: number;
   readonly title: string;
   readonly nodeCount: number;
   readonly sessionCount: number;
 }
 
-export interface WorkspaceSessionOverview {
+ interface WorkspaceSessionOverview {
   readonly id: string;
   readonly file: string;
   readonly specId: number;
@@ -90,7 +90,7 @@ export async function inspectWorkspaceOverview(cwd: string): Promise<WorkspaceOv
       id: spec.id,
       title: spec.name,
       readinessGrade: spec.readinessGrade,
-      nodeCount: graph.forSpec(spec.id).getOverview().nodes.length,
+      nodeCount: graph.forSpec(spec.id).queryGraph().nodes.length,
     }))
     .sort((left, right) => left.title.localeCompare(right.title));
   const specsById = new Map(specs.map((spec) => [spec.id, spec]));

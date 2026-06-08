@@ -7,10 +7,10 @@ import { portableCwd } from './portable-report.js';
 
 const PROBE_ID = 'capture-quality' as const;
 
-export type CaptureFactKind = 'goal' | 'context' | 'constraint' | 'criterion' | 'requirement' | 'assumption';
-export type CaptureRecommendation = 'graduate' | 'narrow' | 'keep_parked';
+ type CaptureFactKind = 'goal' | 'context' | 'constraint' | 'criterion' | 'requirement' | 'assumption';
+ type CaptureRecommendation = 'graduate' | 'narrow' | 'keep_parked';
 
-export interface CaptureQualityExpectedFact {
+ interface CaptureQualityExpectedFact {
   readonly id: string;
   readonly kind: CaptureFactKind;
   readonly title: string;
@@ -26,7 +26,7 @@ export interface CaptureQualityScenario {
   readonly expectedFacts: readonly CaptureQualityExpectedFact[];
 }
 
-export interface CaptureQualityExtractedFact {
+ interface CaptureQualityExtractedFact {
   readonly expectedId?: string;
   readonly kind: CaptureFactKind;
   readonly title: string;
@@ -39,7 +39,7 @@ export interface CaptureQualityScenarioExtraction {
   readonly facts: readonly CaptureQualityExtractedFact[];
 }
 
-export interface CaptureQualityScenarioResult {
+ interface CaptureQualityScenarioResult {
   readonly scenarioId: string;
   readonly label: string;
   readonly category: CaptureQualityScenario['category'];
