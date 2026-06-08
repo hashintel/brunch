@@ -62,6 +62,8 @@ Concrete cues to look for:
 
 Collect findings as numbered items (category: `contract`). Frame each as: the assumed contract in one sentence, the failure mode when it breaks, and which of the three repairs applies. Most are concrete fixes (`ln-scope`/`ln-build`); clusters across a seam route to `ln-refactor`.
 
+This catalog is the stabilized lens library. `ln-induct` is the generator that induces fresh lenses from review-bot evidence and proposes graduating recurring ones into this list.
+
 ### Oracle coverage (category: `oracle-coverage`)
 
 If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, check whether recent work implemented the oracles declared by the relevant `memory/PLAN.md` frontier definition. If a full or light scope card is available in session context, use it as a higher-resolution slice supplement, not the primary source of truth. Look for:

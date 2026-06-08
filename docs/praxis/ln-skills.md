@@ -117,6 +117,7 @@ Posture ranks the next *vertical* slice; it has no completeness test, so vertica
 | `ln-scope` | A frontier item or next step needs a thin vertical slice with target behavior and acceptance criteria. | Scope card / slice definition. |
 | `ln-build` | A scoped slice is ready for TDD implementation. | Code, tests, inner-loop verification, and PLAN updates when appropriate. |
 | `ln-diagnose` | Something is broken, failing, flaky, slow, or nondeterministic. | Trusted repro loop, falsified hypotheses, regression oracle, route back to planning if needed. |
+| `ln-induct` | Review-bot comments or point observations may be symptomatic of a systemic-ish fault. | An induced diagnostic lens, an audit for unsampled instances, and a triaged report. |
 | `ln-review` | After implementation bursts, or when architecture/model hygiene needs an opinionated audit. | Quality findings and next-step recommendations. |
 | `ln-refactor` | Working code needs restructuring without behavior change. | Refactor plan as tiny safe commits. |
 
@@ -154,6 +155,7 @@ There is currently no project-local `ln-map` skill in `.agents/skills/`. If you 
 | “Can this technical approach work?” | `ln-spike` |
 | “Can we make the idea tangible before committing?” | `ln-prototype` |
 | “Why is this failing?” | `ln-diagnose` |
+| “Is this small finding a symptom of something systemic?” | `ln-induct` |
 | “Is this code still conceptually clean?” | `ln-review` |
 | “How do we restructure safely?” | `ln-refactor` |
 | “Are the docs still true?” | `ln-sync` |

@@ -109,6 +109,7 @@ Spikes are the escape hatch, not the default.
 | Module interface needs exploration | structural | `ln-design` |
 | Full or light scope card exists, ready to code | bounded, hardening, bugfix | `ln-build` |
 | Technical uncertainty blocks progress, or a cheap investigation could invalidate planned work | any | `ln-spike` |
+| Review-bot comments or point findings may be symptomatic of a systemic fault | any | `ln-induct` |
 | Code works but needs restructuring | refactor | `ln-refactor` |
 | Code works but quality / architecture needs audit | any | `ln-review` |
 | Docs are stale, overweight, or milestone context needs cleanup | structural / maintenance | `ln-sync` |
