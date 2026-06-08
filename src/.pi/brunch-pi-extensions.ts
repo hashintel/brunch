@@ -1,5 +1,6 @@
 import { type ExtensionAPI, type ExtensionFactory } from '@earendil-works/pi-coding-agent';
 
+import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import { registerBrunchAlternatives } from './components/alternatives.js';
 import { registerBrunchChrome } from './extensions/chrome/index.js';
 import { type BrunchChromeState } from './extensions/chrome/index.js';
@@ -9,10 +10,7 @@ import { registerBrunchContext } from './extensions/context/index.js';
 import { registerStructuredExchange } from './extensions/exchanges/index.js';
 import { registerBrunchGraph, type BrunchGraphDeps } from './extensions/graph/index.js';
 import { type GraphMentionSource } from './extensions/mentions/index.js';
-import {
-  FIXTURE_GRAPH_MENTION_SOURCE,
-  registerBrunchMentionAutocomplete,
-} from './extensions/mentions/index.js';
+import { registerBrunchMentionAutocomplete } from './extensions/mentions/index.js';
 import { registerBrunchOperationalModePolicy } from './extensions/runtime/index.js';
 import { registerBrunchSessionBoundary } from './extensions/session/lifecycle.js';
 import { type BrunchSessionBoundaryHandler } from './extensions/session/lifecycle.js';
@@ -99,13 +97,26 @@ export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
 
 type BrunchProductExtensionRegistrar = (pi: ExtensionAPI) => void | Promise<void>;
 
+function graphMentionSourceFromDeps(graph: BrunchGraphDeps | undefined): GraphMentionSource {
+  if (!graph) return { listMentionCandidates: () => [] };
+  return {
+    listMentionCandidates: () =>
+      graph.reads.getGraphOverview().nodes.map((node) => ({
+        code: formatGraphNodeCode(node.kind, node.kindOrdinal),
+        title: node.title,
+        plane: node.plane,
+        ...(node.body ? { description: node.body } : {}),
+      })),
+  };
+}
+
 export function createBrunchPiExtensions(
   chrome: BrunchChromeState,
   onSessionBoundary: BrunchSessionBoundaryHandler | undefined,
   options: BrunchPiExtensionsOptions,
 ): ExtensionFactory {
   return async (pi) => {
-    const graphMentionSource = options.graphMentionSource ?? FIXTURE_GRAPH_MENTION_SOURCE;
+    const graphMentionSource = options.graphMentionSource ?? graphMentionSourceFromDeps(options.graph);
     const promptContext = options.promptContext;
     const extensions: BrunchProductExtensionRegistrar[] = [
       (api) => registerBrunchSessionBoundary(api, onSessionBoundary),
