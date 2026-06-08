@@ -158,7 +158,7 @@ async function writeOrderingExtension(cwd: string): Promise<string> {
       fauxToolCall,
       registerFauxProvider,
     } from "@earendil-works/pi-ai"
-    import registerStructuredExchange from ${JSON.stringify(adapterPath)}
+    import { registerStructuredExchange } from ${JSON.stringify(adapterPath)}
 
     export default function(pi: ExtensionAPI): void {
       registerStructuredExchange(pi)
@@ -308,6 +308,7 @@ class RpcProbeClient {
   #waiters: Array<{
     predicate: (event: unknown) => boolean;
     resolve: (event: unknown) => void;
+    timeout: ReturnType<typeof setTimeout>;
   }> = [];
 
   constructor(child: ChildProcessWithoutNullStreams, timeoutMs: number) {
@@ -324,24 +325,30 @@ class RpcProbeClient {
     if (existing) return Promise.resolve(existing);
 
     return new Promise<T>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(
-          new Error(
-            `Timed out waiting for ordering proof event. Events:\n${JSON.stringify(this.events, null, 2)}\nStderr:\n${this.#stderr}`,
-          ),
-        );
-      }, this.#timeoutMs);
-      this.#waiters.push({
+      const waiter = {
         predicate,
-        resolve: (event) => {
-          clearTimeout(timeout);
+        resolve: (event: unknown) => {
+          clearTimeout(waiter.timeout);
           resolve(event as T);
         },
-      });
+        timeout: setTimeout(() => {
+          this.#waiters = this.#waiters.filter((candidate) => candidate !== waiter);
+          reject(
+            new Error(
+              `Timed out waiting for ordering proof event. Events:\n${JSON.stringify(this.events, null, 2)}\nStderr:\n${this.#stderr}`,
+            ),
+          );
+        }, this.#timeoutMs),
+      };
+      this.#waiters.push(waiter);
     });
   }
 
   dispose(): void {
+    for (const waiter of this.#waiters) {
+      clearTimeout(waiter.timeout);
+    }
+    this.#waiters = [];
     this.#child.kill('SIGTERM');
   }
 
