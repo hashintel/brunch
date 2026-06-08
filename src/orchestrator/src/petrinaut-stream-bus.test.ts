@@ -499,7 +499,6 @@ describe('BrunchExecutionExportFrame type exports', () => {
         title: 't',
         places: [],
         transitions: [],
-        types: [],
       },
     };
     const status: BrunchExecutionExportFrame = { kind: 'status', state: 'running' };

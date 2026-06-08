@@ -1,34 +1,18 @@
 // ---------------------------------------------------------------------------
 // Brunch → Petrinaut live stream contract + export reducer.
 //
-// Reduces an in-flight or finished cook run's brunch-emitted artifacts (an
-// SdcpnFile + the captured PetrinautEvent sequence) into the
-// `BrunchExecutionExport` payload that the SSE stream serves to Petrinaut's
-// read-only "actual/live" tab.
-//
-// Pure function: no filesystem side effects. The stream bus composes wire
-// frames from the same reducer output; tests consume it directly and validate
-// via the inverted frame-replay oracle.
+// Reduces a cook run's artifacts (an SdcpnFile + captured PetrinautEvent
+// sequence) into the `BrunchExecutionExport` payload the SSE stream serves to
+// Petrinaut's read-only "actual/live" tab. Pure — no filesystem. The stream
+// bus composes wire frames from the same reducer output.
 //
 // Marking semantics (FE-819 Card A): every firing carries the COMPLETE net
-// marking — `input` is the full pre-firing marking, `output` the full
-// post-firing marking — not just the places one transition touched. The
-// engine emits per-firing deltas (consumed in `input`, produced in `output`);
-// this module folds those deltas onto a running cumulative marking so
-// Petrinaut's actual-mode frame reader (which treats `firing.output` as the
-// whole frame marking) renders the true net state — pools, budgets, every
-// slice — at every frame.
-//
-// Marking semantics are count-only: every per-place marking is a token count
-// (`Record<PlaceId, number>`). Slice/colour identity rides the folded net's
-// `colorId` structure (see SPEC §Lexicon `token color` / `color fold`), not the
-// streamed marking, so both identity- and color-fold runs stream per-place
-// counts. Petrinaut's wire union (`number | Record<string, number>[]`) accepts
-// the count arm; a future colour-fold stream would need a colour-aware fold +
-// its own oracle, re-added deliberately rather than carried as dead type surface.
-//
-// Validated against real run 904d205d: 75 firings, no negative-marking
-// violations, sane final state.
+// marking — `input` the full pre-firing, `output` the full post-firing — not
+// just the touched places. The engine emits per-firing deltas; this module
+// folds them onto a running cumulative marking, count-only
+// (`Record<PlaceId, number>`), so Petrinaut's frame reader renders the true
+// net state at every frame. Slice/colour identity has no wire carrier on this
+// interface (see `NetDefinition`).
 // ---------------------------------------------------------------------------
 
 import type { PetrinautEvent, PetrinautTransitionFiredEvent, TerminalEventKind } from './petrinaut-events.js';
@@ -42,55 +26,65 @@ import type { SdcpnFile } from './petrinaut-sdcpn.js';
 export type PlaceId = string;
 
 /**
- * Per-place marking: a token count per place. Brunch streams counts only —
- * slice/colour identity is carried by the folded net's `colorId` structure,
- * not the marking. Wire-compatible with Petrinaut's
- * `InitialMarking = number | Record<string, number>[]` union via the count arm.
+ * Per-place marking: a token count per place. Brunch streams counts only;
+ * slice/colour identity has no wire carrier (see `NetDefinition`).
+ * Wire-compatible with Petrinaut's `number | Record<string, number>[]` union
+ * via the count arm.
  */
 export type Marking = Record<PlaceId, number>;
 
-export type SdcpnInputArc = {
+/**
+ * Arc type brunch emits. Petrinaut's route also accepts `read` (see
+ * `brunchNetDefinitionSchema`), but brunch's projection only ever produces
+ * these two, so the producer type stays narrow.
+ */
+export type ArcType = 'standard' | 'inhibitor';
+
+export type NetInputArc = {
   placeId: PlaceId;
   weight: number;
-  type: 'standard' | 'inhibitor';
+  type: ArcType;
 };
 
-export type SdcpnOutputArc = {
+export type NetOutputArc = {
   placeId: PlaceId;
   weight: number;
 };
 
-export type SdcpnPlace = {
+export type NetPlace = {
   id: PlaceId;
   name: string;
-  colorId: string | null;
-  dynamicsEnabled: boolean;
-  differentialEquationId: string | null;
 };
 
-export type SdcpnTransition = {
+export type NetTransition = {
   id: string;
   name: string;
-  inputArcs: SdcpnInputArc[];
-  outputArcs: SdcpnOutputArc[];
-  lambdaType: 'predicate' | 'stochastic';
-  lambdaCode: string;
-  transitionKernelCode: string;
+  inputArcs: NetInputArc[];
+  outputArcs: NetOutputArc[];
 };
 
 /**
- * Tight subset of SdcpnFile that the streamed export carries. Drops
- * `scenarios` (the initial marking is lifted to `initialState` instead),
- * `differentialEquations`, `parameters`, and `metrics` — none of which
- * Petrinaut's "actual" view reads.
+ * The plain-graph net definition Petrinaut's "actual/live" Brunch route reads
+ * (mirrored by `brunchNetDefinitionSchema` in
+ * `petrinaut-brunch-contract-schema.ts`). Deliberately NOT Petrinaut's full
+ * SDCPN document: places carry only `id`/`name`, transitions only
+ * `id`/`name`/arcs, and the root drops `types`. Petrinaut ingests this under a
+ * `.strict()` schema that REJECTS unrecognized keys, so the SDCPN extension
+ * fields (`colorId`, `dynamicsEnabled`, `differentialEquationId`,
+ * `lambdaType`, `lambdaCode`, `transitionKernelCode`) and the file-level
+ * `scenarios`/`differentialEquations`/`parameters`/`metrics`/`types` must not
+ * appear — Petrinaut supplies the SDCPN defaults itself
+ * (`normalizeBrunchDefinition`) with extensions disabled. One consequence:
+ * slice/colour identity has no carrier on this interface (see SPEC §Lexicon
+ * `color fold`), so identity fold is the only meaningful stream fold until the
+ * standardized Brunch/Petrinaut protocol lands in Petrinaut Core.
  */
 export type NetDefinition = {
   version: number;
   meta: { generator: string; generatorVersion?: string };
   title: string;
-  places: SdcpnPlace[];
-  transitions: SdcpnTransition[];
-  types: never[];
+  places: NetPlace[];
+  transitions: NetTransition[];
 };
 
 export type TransitionFiring = {
@@ -128,7 +122,7 @@ export type ReduceBrunchExecutionExportInput = {
  * `BrunchExecutionExport` payload Petrinaut consumes. Pure — no filesystem,
  * no globals, no process state.
  *
- * - `definition` is the tight 6-field NetDefinition projection of `sdcpnFile`,
+ * - `definition` is the plain-graph NetDefinition projection of `sdcpnFile`,
  *   augmented with the synthetic run-status nodes (FE-819 Card C).
  * - `initialState` comes from the single `initial_marking` event (throws if
  *   missing — every cook run must emit one).
@@ -234,68 +228,60 @@ function applyMarkingDelta(current: Marking, consumed: Marking, produced: Markin
 }
 
 /**
- * Project an SdcpnFile to NetDefinition by naming every kept field
- * explicitly. Not `Omit<SdcpnFile, 'scenarios'>` — that would still carry
- * `differentialEquations`, `parameters`, and `metrics`, none of which
- * Petrinaut's "actual" view reads.
+ * Project an SdcpnFile down to the plain-graph NetDefinition Petrinaut's
+ * actual view reads. Each place keeps only `id`/`name`; each transition only
+ * `id`/`name`/`inputArcs`/`outputArcs`. The SDCPN-only place/transition fields
+ * (`colorId`, `dynamicsEnabled`, `differentialEquationId`, `lambdaType`,
+ * `lambdaCode`, `transitionKernelCode`) and the file-level `types`/
+ * `scenarios`/`differentialEquations`/`parameters`/`metrics` are dropped —
+ * Petrinaut's `.strict()` schema rejects them, and its read-only handle
+ * disables those extensions anyway. Arcs pass through unchanged: brunch's
+ * `{placeId, weight, type}` / `{placeId, weight}` already match the wire shape.
  */
 export function projectNetDefinition(sdcpnFile: SdcpnFile): NetDefinition {
   return {
     version: sdcpnFile.version,
     meta: sdcpnFile.meta,
     title: sdcpnFile.title,
-    places: sdcpnFile.places,
-    transitions: sdcpnFile.transitions,
-    types: sdcpnFile.types,
+    places: sdcpnFile.places.map((p) => ({ id: p.id, name: p.name })),
+    transitions: sdcpnFile.transitions.map((t) => ({
+      id: t.id,
+      name: t.name,
+      inputArcs: t.inputArcs,
+      outputArcs: t.outputArcs,
+    })),
   };
 }
 
 // ---------------------------------------------------------------------------
 // Synthetic run-status projection (FE-819 Card C).
 //
-// Today's Petrinaut renders places and tokens but ignores `status`/`terminal`
-// SSE events (Card B). To make a halt *structurally* visible, the projected
-// definition gains two run-status places and a synthetic `run:finish`
-// transition, and run end fires one synthetic `transition_firing` depositing a
-// token in the matching place — composing with the Card A full marking.
-// Presentation-level only: the engine, contract schema, and real net are
-// untouched.
+// Petrinaut ignores `status`/`terminal` SSE events, so to make a halt
+// structurally visible the projected definition gains two run-status places +
+// a synthetic `run:finish` transition, and run end fires one synthetic firing
+// depositing a token in the matching place. Presentation-only: the engine and
+// real net are untouched.
 // ---------------------------------------------------------------------------
 
 export const RUN_COMPLETED_PLACE: PlaceId = 'run:completed';
 export const RUN_HALTED_PLACE: PlaceId = 'run:halted';
 export const RUN_FINISH_TRANSITION = 'run:finish';
 
-const RUN_STATUS_PLACES: SdcpnPlace[] = [
-  {
-    id: RUN_COMPLETED_PLACE,
-    name: 'Run completed',
-    colorId: null,
-    dynamicsEnabled: false,
-    differentialEquationId: null,
-  },
-  {
-    id: RUN_HALTED_PLACE,
-    name: 'Run halted',
-    colorId: null,
-    dynamicsEnabled: false,
-    differentialEquationId: null,
-  },
+const RUN_STATUS_PLACES: NetPlace[] = [
+  { id: RUN_COMPLETED_PLACE, name: 'Run completed' },
+  { id: RUN_HALTED_PLACE, name: 'Run halted' },
 ];
 
-const RUN_FINISH_TRANSITION_DEF: SdcpnTransition = {
+const RUN_FINISH_TRANSITION_DEF: NetTransition = {
   id: RUN_FINISH_TRANSITION,
   name: 'Run finish',
   inputArcs: [],
-  // Both status places are reachable outputs; the actual firing deposits into
-  // exactly one depending on the terminal outcome.
+  // Both status places are reachable outputs; the firing deposits into exactly
+  // one depending on the terminal outcome.
   outputArcs: [
     { placeId: RUN_COMPLETED_PLACE, weight: 1 },
     { placeId: RUN_HALTED_PLACE, weight: 1 },
   ],
-  lambdaType: 'predicate',
-  lambdaCode: '',
-  transitionKernelCode: '',
 };
 
 /**

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { compileTopology } from './net-compiler.js';
+import { type BrunchNetDefinition, brunchNetDefinitionSchema } from './petrinaut-brunch-contract-schema.js';
 import { type PetrinautEvent } from './petrinaut-events.js';
 import { PETRINAUT_NET_SCHEMA_VERSION, serializeBlueprint } from './petrinaut-export.js';
 import { createIdentityFolding } from './petrinaut-fold.js';
@@ -85,38 +86,54 @@ describe('reduceBrunchExecutionExport — schema', () => {
     expect(Object.keys(result).sort()).toEqual(['definition', 'initialState', 'transitionFirings'].sort());
   });
 
-  it('projects NetDefinition with exactly six fields — drops scenarios, differentialEquations, parameters, metrics', () => {
+  it('emits all five root fields (the strict-schema oracle below owns no-extra-keys)', () => {
     const sdcpnFile = buildSdcpnFile(simplePlan);
     const result = reduceBrunchExecutionExport({ sdcpnFile, events: syntheticEvents() });
 
     expect(Object.keys(result.definition).sort()).toEqual(
-      ['meta', 'places', 'title', 'transitions', 'types', 'version'].sort(),
+      ['meta', 'places', 'title', 'transitions', 'version'].sort(),
     );
-    expect(result.definition).not.toHaveProperty('scenarios');
-    expect(result.definition).not.toHaveProperty('differentialEquations');
-    expect(result.definition).not.toHaveProperty('parameters');
-    expect(result.definition).not.toHaveProperty('metrics');
   });
 
   it('preserves NetDefinition field values from the input SdcpnFile (synthetic run-status nodes appended)', () => {
     const sdcpnFile = buildSdcpnFile(simplePlan);
     const result = reduceBrunchExecutionExport({ sdcpnFile, events: syntheticEvents() });
 
-    // version / meta / title / types pass through untouched (same references).
     expect(result.definition.version).toBe(sdcpnFile.version);
     expect(result.definition.meta).toBe(sdcpnFile.meta);
     expect(result.definition.title).toBe(sdcpnFile.title);
-    expect(result.definition.types).toBe(sdcpnFile.types);
-    // places / transitions are augmented with the synthetic run-status nodes
-    // (FE-819 Card C); the original nodes are preserved as a prefix.
-    expect(result.definition.places.slice(0, sdcpnFile.places.length)).toEqual(sdcpnFile.places);
+    // Original nodes survive as a slimmed prefix; run-status nodes (Card C) follow.
+    expect(result.definition.places.slice(0, sdcpnFile.places.length)).toEqual(
+      sdcpnFile.places.map((p) => ({ id: p.id, name: p.name })),
+    );
     expect(result.definition.transitions.slice(0, sdcpnFile.transitions.length)).toEqual(
-      sdcpnFile.transitions,
+      sdcpnFile.transitions.map((t) => ({
+        id: t.id,
+        name: t.name,
+        inputArcs: t.inputArcs,
+        outputArcs: t.outputArcs,
+      })),
     );
     expect(result.definition.places.map((p) => p.id)).toEqual(
       expect.arrayContaining([RUN_COMPLETED_PLACE, RUN_HALTED_PLACE]),
     );
     expect(result.definition.transitions.map((t) => t.id)).toContain(RUN_FINISH_TRANSITION);
+  });
+
+  it('the projected definition validates against Petrinaut’s strict brunchNetDefinitionSchema', () => {
+    const sdcpnFile = buildSdcpnFile(simplePlan);
+    const { definition } = reduceBrunchExecutionExport({ sdcpnFile, events: syntheticEvents() });
+    expect(() => brunchNetDefinitionSchema.parse(definition)).not.toThrow();
+  });
+
+  it('a legacy SDCPN-laden place is rejected by the strict schema (guards against regression)', () => {
+    const legacy = {
+      version: 1,
+      title: 't',
+      places: [{ id: 'p', name: 'P', colorId: null, dynamicsEnabled: false, differentialEquationId: null }],
+      transitions: [],
+    };
+    expect(() => brunchNetDefinitionSchema.parse(legacy)).toThrow();
   });
 
   it('is pure — calling twice with the same input yields structurally equal results', () => {
@@ -613,9 +630,13 @@ describe('type exports', () => {
       title: 't',
       places: [],
       transitions: [],
-      types: [],
     };
+    // Compile-time bridge: a NetDefinition must remain assignable to the
+    // mirrored Petrinaut contract's inferred output, so a TS-type drift between
+    // the hand-written types and the schema fails to compile here.
+    const contractPin: BrunchNetDefinition = d;
     const e: BrunchExecutionExport = { definition: d, initialState: m, transitionFirings: [] };
+    expect(contractPin.places).toEqual([]);
     expect(e.definition.version).toBe(1);
     // PETRINAUT_NET_SCHEMA_VERSION sourced from the static export — confirms
     // the imports line up.
