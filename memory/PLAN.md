@@ -33,6 +33,8 @@ The `graph-observed-shapes` coverage frontier has now landed (the consumer-speci
 
 The remaining coverage frontiers are being deliberately de-fogged rather than left parked, because "wait for a forcing function" can hide capability layers we simply never built. Each is reclassified: `runtime-affordances-and-legality` is mostly **buildable-now** — its core is one Brunch-owned `affordances(resolvedState)` derivation over legality/default tables that already exist, so it is being re-inventoried as a coverage ledger (only its `active-review-set` / `turn-mode` rows are genuinely product-state-gated and stay tripwired). `exchanges-and-generalized-capture` is **evidence-gated**: the exchange topology is enumerable now, but capture quality beyond directly-labeled facts (A22-L) needs a measurement, so it is being attacked with a capture-quality spike rather than awaited. The `elicitation-driver` frontier (promoted above) is likewise buildable now.
 
+**Coverage-layer re-classification (2026-06-08 ln-plan, applying the hardened coverage protocol).** Re-asking "where are the *real* coverage frontiers" gives a tight answer: the coverage layer is mostly already closed. `graph-observed-shapes` and `runtime-affordances-and-legality` are both done genuine coverage. `exchanges-and-generalized-capture` **fails the coverage admission gate** — its inventory is already materialized symmetrically across the three exchange layers, so it is reclassified to a bounded feature (a vertical capture slice plus a delete-oriented symmetry audit). The **one genuinely-open coverage frontier is `renderer-golden-coverage`**: the preview→lock→formalize harness shipped only its sketch stage (`npm run render`), and no renderer carries a `toMatchFileSnapshot` golden — but renderer quality is fitness evidence, so it is parallel/discretionary and never a ship gate. No buildable-now, POC-critical coverage frontier remains to open; the near-term spine stays `poc-live-ship-gate` + `elicitation-driver`, and per the temporary-ledger precedence rule no new coverage breadth (including renderer goldens) preempts `elicitation-driver`.
+
 ## Sequencing
 
 ### Active
@@ -41,15 +43,16 @@ The remaining coverage frontiers are being deliberately de-fogged rather than le
 
 ### Next
 
-1. `poc-live-ship-gate` — final fresh-cwd runbook remains the delivery gate, but its prepared live-mention-autocomplete slice is currently parked off the critical path.
-2. `elicitation-driver` — **first coverage follow-on**: it closes the last open required cross-cut row (Seam 3a `"what to ask next" driver`) and retires the temporary dual-plan state, so it sequences ahead of any fresh coverage frontier. Buildable-now on the FE-823 substrate; not POC-ship-critical.
-3. `capture-quality-spike` — evidence spike that measures generalized-capture fitness (A22-L) so `exchanges-and-generalized-capture` can graduate from horizon on real evidence rather than waiting (`memory/cards/capture-quality--fitness-spike.md`).
+1. `poc-live-ship-gate` — the delivery gate; only the final fresh-cwd runbook remains (the live-mention-autocomplete slice and FE-811 ship-gate residue both landed 2026-06-08 on `ln/fe-811-ship-gate-residue-and-mentions`, PR #179).
+2. `elicitation-driver` — **first coverage follow-on**: it closes the last open required cross-cut row (Seam 3a `"what to ask next" driver`) and retires the temporary dual-plan state, so it sequences ahead of any fresh coverage breadth (temporary-ledger precedence rule). Buildable-now on the FE-823 substrate; not POC-ship-critical.
+3. `exchanges-and-generalized-capture` — **reclassified to a bounded feature** (not coverage; the exchange inventory is already closed in code). Build the narrow high-confidence extractive capture with a false-commit guard, plus an earned delete-oriented audit of the existing exchange three-layer symmetry.
 
 ### Parallel / Low-conflict
 
 - `probes-and-transcripts-evolution` — continuous probe/report/transcript hardening as each delivery frontier lands evidence.
 - `topology-readmes-and-boundaries` — small doc/test hardening when a frontier moves files or exposes a boundary; should remain attached to the frontier when possible rather than becoming an abstract cleanup project.
 - `dev-seed-fixtures` — rich, real seed data for local dev / manual / observer testing: the consolidated seed contract, the `npm run seed` loader, and growing/enhancing fixture sets (Bilal-port + legacy).
+- `renderer-golden-coverage` — **the one genuinely-open coverage frontier**; buildable-now (preview harness exists; lock/formalize stage never adopted) but discretionary fitness hardening. Never a ship gate; must not preempt `elicitation-driver`. Pick up opportunistically when a renderer-bearing surface is touched.
 
 ### Horizon
 
@@ -226,22 +229,45 @@ The remaining coverage frontiers are being deliberately de-fogged rather than le
 - **Design docs:** `memory/SPEC.md` D40-L/D59-L; `src/projections/README.md`; `src/session/README.md`.
 - **Current execution pointer:** Done 2026-06-08. `src/projections/session/affordances.ts` now owns the shared `(resolvedState, readinessGrade)` derivation for legal goal/strategy/lens options plus default-on-switch values, reusing the same grade/AUTO legality source consumed by `.pi/agents/state.ts`; `src/session/README.md` owns the closed coverage ledger and `src/session/runtime-affordances-coverage.test.ts` guards required agent/RPC rows while leaving `active-review-set` and `turn-mode` as explicit product-state-gated deferrals.
 
+### renderer-golden-coverage
+
+- **Name:** Renderer golden-lock + invariant coverage over the LLM-facing renderer family
+- **Linear:** unassigned
+- **Kind:** coverage (buildable-now) / hardening
+- **Status:** parallel / discretionary
+- **Certainty:** proving
+- **Coverage-gate verdict (2026-06-08 ln-plan):** **Passes the admission gate** — this is the one genuinely-open coverage frontier. Named load-bearing layer (`src/renderers/`), closeable inventory, honest ●/○ marking, owner+oracle per row, explicit ledger authority. Classified **buildable-now**: the preview harness already exists (`src/scripts/render-preview.ts`, `npm run render`, `348f1b85`); only the **lock** and **formalize** stages were never adopted (`toMatchFileSnapshot` appears nowhere; every renderer test is invariant-only `.toContain`).
+- **Boundary:** In — the LLM-facing renderers under `src/renderers/{graph,workspace,session,exchanges}` plus `markdown`/`toon` where they emit agent-facing text. Out — trivial JSON serializers (`○`), non-renderer projection DTOs, and any new renderer not already built (no symmetry regrowth).
+- **Aggregate DoD:** No required (`●`) LLM-facing renderer remains without a locked golden (`toMatchFileSnapshot`) plus targeted invariant asserts (e.g. "renders projected code, never raw id"; "active-context omits superseded nodes"; "no dangling edge endpoints").
+- **Inventory authority:** the closed ledger lives in `src/renderers/README.md`; golden artifacts co-locate with the renderer test (`src/renderers/<domain>/__previews__/<fixture>.txt`), not under `.fixtures/`.
+- **Why now / unlocks:** The cross-cut named the preview→lock→formalize loop a prerequisite oracle, but the lock/formalize half shipped nowhere, so renderer text can drift silently. Closing it makes every renderer-bearing surface (graph slices, workspace/session context, exchange payloads) drift-protected.
+- **Discretionary / sequencing:** renderer text quality is **fitness evidence** and the POC delivery cut de-scopes elicitation quality, so this is **never a ship gate** and must not preempt `elicitation-driver` (the cross-cut's promoted closing row holds precedence over new coverage breadth). Pick it up as parallel hardening when a renderer-bearing surface is being touched anyway.
+- **Acceptance:**
+  - Each `●` renderer has a golden lock that writes on first run and diffs after.
+  - Each `●` renderer carries at least one semantic invariant assert beyond the snapshot.
+  - `src/renderers/README.md` carries the closed ledger (renderer × required/deferred × golden-present).
+  - No new renderer is introduced merely to fill a symmetric cell.
+- **Verification:** `npm run render` for sketch; vitest `toMatchFileSnapshot` for lock; existing invariant-style asserts for formalize. All in the renderer's co-located test file.
+- **Cross-cutting obligations:** Goldens co-locate with renderer tests (not `.fixtures/`); keep `renderers/` free of adapter/transport imports (D52-L); do not promote a renderer shape to a new consumer just to fill the ledger (consumer bleed-through).
+- **Traceability:** D52-L, D60-L, D62-L.
+- **Design docs:** `src/renderers/README.md`; `memory/CROSS_CUT_PLAN.md` §Renderer feedback loops.
+
 ### exchanges-and-generalized-capture
 
-- **Name:** Exchange surface and generalized capture inventory
+- **Name:** Generalized capture (narrow extractive) + exchange-surface symmetry audit
 - **Linear:** unassigned
-- **Kind:** structural
+- **Kind:** bounded feature
 - **Status:** next
 - **Certainty:** proving
-- **Unblocked by:** `capture-quality-spike` (2026-06-08) measured fixed free-prose, file/ref-bearing, and implication-heavy scenarios, reached precision 1.0 / recall 1.0 with zero false commits in the sample extraction report, and recommended graduating a narrow generalized-capture frontier with an explicit false-commit guard.
-- **Stabilizes:** The ownership split between `.pi/extensions/exchanges`, `projections/exchanges`, `renderers/exchanges`, and `session/structured-exchange-loop.ts`.
-- **Objective:** Enumerate the surviving exchange/capture families and scope generalized capture narrowly around high-confidence extractive facts; keep implication-heavy material out of graph truth unless a later slice proves a safe commitment path.
-- **Why now / unlocks:** The capture-quality spike closed the evidence gate enough to scope the next inventory. The frontier should still start with enumeration and false-commit protection rather than regrowing deleted `capture-*` topology or broad LLM commitment behavior.
+- **Coverage-gate verdict (2026-06-08 ln-plan):** **Not a coverage frontier.** It was sitting in the coverage slot, but the exchange family inventory is *already closed in code* — the surface is materialized symmetrically across 8 families × {`.pi/extensions/exchanges`, `projections/exchanges`, `renderers/exchanges`}. The admission gate fails on "closeable inventory the vertical tracers keep leaving shallow": the inventory is not shallow, it is built. What genuinely remains is one vertical capture feature plus a small earned cleanup, so this is reclassified as a bounded feature.
+- **Unblocked by:** `capture-quality-spike` (2026-06-08) measured fixed free-prose, file/ref-bearing, and implication-heavy scenarios, reached precision 1.0 / recall 1.0 with zero false commits in the sample extraction report, and recommended graduating a narrow generalized-capture feature with an explicit false-commit guard.
+- **Objective:** (1) Build narrow generalized capture around high-confidence extractive facts with an explicit false-commit oracle for implication-heavy text — keep implication-heavy material out of graph truth unless a later slice proves a safe commitment path. (2) Run an **earned symmetry audit** of the already-built exchange three-layer split: confirm each `projections/exchanges` and `renderers/exchanges` file earns its place (genuine multi-consumer reuse or shared semantics), and delete symmetry regrowth where a single-owner read was mirrored into a shared layer "for symmetry."
+- **Why now / unlocks:** The capture-quality spike closed the evidence gate for the capture vertical. The audit rides along because the same symmetry the frontier would have "enumerated" is exactly where consumer-bleed-through/symmetry-regrowth hides. Start with the vertical + false-commit protection and treat the audit as deletion-oriented, not as breadth-building; do not regrow deleted `capture-*` topology or broad LLM commitment behavior.
 - **Acceptance:**
-  - The surviving exchange/capture families are enumerated with required vs deferred marking.
-  - Reusable exchange details justify `projections/exchanges`; single-owner reads or orchestration state stay in their owning domains.
   - Capture beyond directly labeled facts starts with high-confidence extractive facts and carries an explicit false-commit oracle for implication-heavy text.
-- **Verification:** Probe-backed transcript and capture read-back oracles; include the capture-quality false-commit scenario family as a regression guard.
+  - Each retained `projections/exchanges` / `renderers/exchanges` file has a named multi-consumer or shared-semantics justification; unjustified symmetric mirrors are deleted (delete-as-progress), not documented as "covered."
+  - Single-owner reads or orchestration state stay in their owning domains; `renderers/exchanges` stays durable markdown/text/toon only.
+- **Verification:** Probe-backed transcript and capture read-back oracles; include the capture-quality false-commit scenario family as a regression guard. For the audit, the oracle is the existing topology-boundary test plus a per-file justification check.
 - **Cross-cutting obligations:** Keep `renderers/exchanges` for durable markdown/text/toon only, keep TUI presenters local, and do not reintroduce `snapshot` as an architecture noun.
 - **Traceability:** D27-L, D65-L, D66-L.
 - **Design docs:** `memory/SPEC.md` D65-L/D66-L; `src/projections/README.md`; `src/renderers/README.md`.
@@ -324,10 +350,12 @@ nodes:
   graph-observed-shapes          [done · proving]    ratified consumer-specific observed-shape ledger + drift guard; no transport shape shipped
   runtime-affordances-and-legality [done · proving]  shared affordance(resolvedState, grade) derivation + coverage ledger; review-set/turn-mode rows tripwired
   elicitation-driver             [next · proving]    live per-turn what-to-ask-next driver on FE-823 substrate; closes cross-cut Seam 3a
-  capture-quality-spike          [done · spike]      A22-L fitness evidence graduated a narrow exchanges-and-generalized-capture scope
+  exchanges-and-generalized-capture [next · proving] bounded feature (NOT coverage): narrow extractive capture + false-commit guard + exchange symmetry audit
+  capture-quality-spike          [done · spike]      A22-L fitness evidence graduated the narrow exchanges-and-generalized-capture feature
   probes-and-transcripts-evolution [parallel]        continuous evidence substrate
   topology-readmes-and-boundaries  [parallel]        attach-to-frontier topology hardening
   dev-seed-fixtures                [parallel]        rich seed data substrate for dev/observer testing
+  renderer-golden-coverage       [parallel · coverage] the one open coverage frontier: golden-lock + invariant over LLM-facing renderers; buildable-now, discretionary, never a ship gate
 
 edges:
   graph-tool-resilience     -[hard]->         capture-response-to-graph
@@ -345,7 +373,6 @@ parallel obligations:
   dev-seed-fixtures                -[data]->     capture-response-to-graph, poc-live-ship-gate (real multi-spec graphs to exercise observer/capture)
 
 horizon:
-  exchanges-and-generalized-capture
   turn-boundary-reconciliation
   coherence-first-class
   compaction-and-conflict-widening
@@ -357,10 +384,11 @@ horizon:
 
 notes:
   - `elicitation-backlog` was the promoted D65-L *substrate* row from `memory/CROSS_CUT_PLAN.md`; the prompt-resource body-depth pass landed in 1ca02e38. The cross-cut is **not** exhausted: its Seam 3a `"what to ask next" driver` row is still `partial · ●`, which by the seam DoD keeps the seam open. That row is now disposed as the `elicitation-driver` frontier (not residue), so the remaining cross-cut obligation has a named owner in `PLAN.md`.
-  - Parallel worktree streams (2026-06-08): all three landed — (A) `crosscut-know--resource-body-depth` (1ca02e38), (B) `graph-observed-shapes--coverage-ledger` (85e73ba7), (C) `minimal-authority-shell--audit-and-guard` (68474e3f); each kept to its declared write paths and left `src/.pi/agents/state.ts` untouched, so the parallel run produced no collisions. `poc-live-ship-gate` is now unblocked (its hard dependency `minimal-authority-shell` is done). `runtime-affordances-and-legality` has since landed (00105108), so the remaining de-fogged coverage frontiers are `elicitation-driver` (buildable-now on the FE-823 substrate) and the now-graduated narrow `exchanges-and-generalized-capture` inventory — both cold-startable worktree streams.
+  - Parallel worktree streams (2026-06-08): all three landed — (A) `crosscut-know--resource-body-depth` (1ca02e38), (B) `graph-observed-shapes--coverage-ledger` (85e73ba7), (C) `minimal-authority-shell--audit-and-guard` (68474e3f); each kept to its declared write paths and left `src/.pi/agents/state.ts` untouched, so the parallel run produced no collisions. `poc-live-ship-gate` is now unblocked (its hard dependency `minimal-authority-shell` is done). `runtime-affordances-and-legality` has since landed (00105108). The 2026-06-08 ln-plan coverage re-classification then found the coverage layer mostly closed: `graph-observed-shapes` + `runtime-affordances` are done coverage, `exchanges-and-generalized-capture` is reclassified to a bounded feature (its inventory is already built), and `renderer-golden-coverage` is the only genuinely-open coverage frontier (buildable-now, discretionary). `elicitation-driver` is the cold-startable spine follow-on and holds precedence over new coverage breadth.
   - Completed prerequisites: `agents-composition-layer` supplies runtime prompt/resource posture, and `live-graph-observer` supplies the read-only web observer path expected by `capture-response-to-graph` and `poc-live-ship-gate`.
   - `graph-observed-shapes` is intentionally consumer-specific: do not assume every agent read shape belongs on the web observer.
-  - `exchanges-and-generalized-capture` is now graduated only narrowly: scope high-confidence extractive capture with a false-commit guard, and do not regrow deleted `capture-*` symmetry.
+  - `exchanges-and-generalized-capture` is a bounded feature, not coverage (its exchange inventory is already built symmetrically across the three layers). Scope high-confidence extractive capture with a false-commit guard, do not regrow deleted `capture-*` symmetry, and treat the exchange three-layer audit as delete-oriented (drop unjustified `projections/exchanges` / `renderers/exchanges` mirrors), not breadth-building.
+  - `renderer-golden-coverage` is the only open coverage frontier and it is discretionary fitness hardening: the preview harness (`npm run render`) exists but no `toMatchFileSnapshot` golden does. Never a ship gate; do not let it preempt `elicitation-driver`; pick it up when a renderer-bearing surface is already being touched.
   - `project-graph-review-cycle` is complete evidence for the optional batch proposal/review story; keep future review-quality work as follow-up, not FE-809 completion debt.
   - `topology-readmes-and-boundaries` is not a license for abstract cleanup; it rides with concrete delivery seams.
   - Multi-spec workspace discipline applies throughout: target the selected/current spec explicitly; no workspace-global graph truth in the POC.
