@@ -2,8 +2,8 @@ import { defineTool } from '@earendil-works/pi-coding-agent';
 
 import type { CommandExecutor, StructuralIllegal } from '../../../graph/command-executor.js';
 import type { ReviewSetProposalPayload } from '../../../graph/review-set.js';
-import { projectPresentReviewSet } from '../../../projections/structured-exchange/present-review-set.js';
-import { formatPresentReviewSet } from '../../../renderers/structured-exchange/present-review-set.js';
+import { projectPresentReviewSet } from '../../../projections/exchanges/present-review-set.js';
+import { formatPresentReviewSet } from '../../../renderers/exchanges/present-review-set.js';
 import { piSchema } from './pi-schema.js';
 import {
   zPresentReviewSetParams,

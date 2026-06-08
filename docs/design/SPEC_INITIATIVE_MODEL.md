@@ -463,11 +463,11 @@ These are the next questions that still need real design work.
 
 Plausible options:
 
-- full entity snapshots
+- full entity state replacements
 - patch operations
 - append-only events
 
-Recommendation: favor changesets or patch-like operations that can be materialized into current state rather than only whole-entity snapshots.
+Recommendation: favor changesets or patch-like operations that can be materialized into current state rather than only whole-entity state replacements.
 
 ### 2. Which claim kinds deserve first-class status?
 

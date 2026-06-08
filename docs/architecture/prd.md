@@ -371,7 +371,7 @@ The POC should plan for at least one Brunch-specific custom message role:
 
 - `worldUpdate` - injected between turns when relevant graph state changed outside the current session
 
-Later roles may include graph snapshot summaries, repair suggestions, or review artifacts, but `worldUpdate` is the essential proof point.
+Later roles may include graph context summaries, repair suggestions, or review artifacts, but `worldUpdate` is the essential proof point.
 
 ### Tool model
 
@@ -416,7 +416,7 @@ The React client should treat the WebSocket RPC channel as the primary data plan
 The web app needs three client primitives over one connection:
 
 1. Query - one-shot request/response for metadata and occasional reads.
-2. Subscription - initial snapshot plus pushed updates for graph views and session state.
+2. Subscription - initial state payload plus pushed updates for graph views and session state.
 3. Mutation - writes that update shared caches and surface structured conflicts.
 
 ### Recommended stack
@@ -479,11 +479,11 @@ Before each model call, Brunch should run a `prepareNextTurn`-style check that:
 3. reads the current coherence state
 4. appends a `worldUpdate` custom message when the session needs to know about divergence
 
-Brunch should treat a turn as a snapshot-oriented reasoning unit. Mid-turn external changes should normally surface on the next turn, not mutate the current turn's world under the agent.
+Brunch should treat a turn as a stable-context reasoning unit. Mid-turn external changes should normally surface on the next turn, not mutate the current turn's world under the agent.
 
 ### Within-turn consistency
 
-A turn should reason over a stable snapshot. If relevant external writes land during the turn, the default POC stance should be accept-and-flag at the boundary rather than live mid-turn interruption: surface the divergence on the next turn, and let coherence state reflect the disturbance.
+A turn should reason over a stable context. If relevant external writes land during the turn, the default POC stance should be accept-and-flag at the boundary rather than live mid-turn interruption: surface the divergence on the next turn, and let coherence state reflect the disturbance.
 
 ### Compaction must carry the coherence anchor
 

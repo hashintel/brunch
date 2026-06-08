@@ -1,10 +1,11 @@
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
+import { portableCwd } from './portable-report.js';
 
 const PUBLIC_RPC_PARITY_PERMUTATION_COUNT = 3;
 
@@ -377,26 +378,31 @@ async function writeProofArtifacts(options: {
   sessionText: string;
   report: PublicRpcParityProofReport;
 }): Promise<PublicRpcParityProofArtifacts> {
-  const runDir = join(options.fixtureRoot, 'runs', 'public-rpc-parity', options.runId);
+  // Persisted artifact references are fixture-root-relative so committed
+  // reports stay portable; the disk paths used for writing are resolved
+  // against the (possibly absolute) fixture root.
+  const runDirRef = `runs/public-rpc-parity/${options.runId}`;
   const artifacts: PublicRpcParityProofArtifacts = {
-    runDir,
-    sessionJsonl: join(runDir, 'session.jsonl'),
-    transcriptMarkdown: join(runDir, 'transcript.md'),
-    reportJson: join(runDir, 'report.json'),
+    runDir: runDirRef,
+    sessionJsonl: `${runDirRef}/session.jsonl`,
+    transcriptMarkdown: `${runDirRef}/transcript.md`,
+    reportJson: `${runDirRef}/report.json`,
   };
+  const diskPath = (ref: string) => resolve(options.fixtureRoot, ref);
   const persistedReport: PublicRpcParityProofReport = {
     ...options.report,
+    cwd: portableCwd(options.report.cwd),
     artifacts,
   };
 
-  await mkdir(runDir, { recursive: true });
-  await writeFile(artifacts.sessionJsonl, options.sessionText, 'utf8');
+  await mkdir(diskPath(artifacts.runDir), { recursive: true });
+  await writeFile(diskPath(artifacts.sessionJsonl), options.sessionText, 'utf8');
   await writeFile(
-    artifacts.transcriptMarkdown,
+    diskPath(artifacts.transcriptMarkdown),
     renderSessionTranscript(options.sessionText, { title: 'session.jsonl' }),
     'utf8',
   );
-  await writeFile(artifacts.reportJson, `${JSON.stringify(persistedReport, null, 2)}\n`, 'utf8');
+  await writeFile(diskPath(artifacts.reportJson), `${JSON.stringify(persistedReport, null, 2)}\n`, 'utf8');
 
   return artifacts;
 }

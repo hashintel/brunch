@@ -1,8 +1,8 @@
 /**
- * Canonical projection for selected-spec graph overview snapshots.
+ * Canonical projection for selected-spec graph overview context.
  *
  * Input:
- * - GraphOverview from graph/snapshot.ts
+ * - GraphOverview from graph/queries.ts
  *
  * Output:
  * - compact typed shape for LLM-facing formatting
@@ -11,7 +11,7 @@
  * Used by:
  * - renderers/graph/overview.ts
  * - .pi/extensions/graph/index.ts via graph overview tool results
- * - .pi/extensions/prompting.ts via pushed graph snapshot context
+ * - .pi/extensions/prompting.ts via pushed graph context
  */
 
 export {};

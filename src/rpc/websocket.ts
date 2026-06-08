@@ -1,6 +1,6 @@
 import type { Server as HttpServer } from 'node:http';
 
-import { WebSocketServer, type RawData, type WebSocket } from 'ws';
+import { WebSocket, WebSocketServer, type RawData } from 'ws';
 
 import type { RpcHandlers } from './handlers.js';
 import { createProductUpdateNotification, type ProductUpdatePublisher } from './product-updates.js';
@@ -101,7 +101,7 @@ export function attachWebRpcTransport(options: {
   }
 
   function sendIfOpen(client: WebSocket, message: string): void {
-    if (client.readyState !== client.OPEN) return;
+    if (!isWebSocketOpen(client)) return;
     try {
       client.send(message);
     } catch {
@@ -109,6 +109,16 @@ export function attachWebRpcTransport(options: {
       // accounting must continue.
     }
   }
+}
+
+/**
+ * A client can receive a frame only while its connection is OPEN. Read the
+ * readiness state against the runtime `WebSocket.OPEN` constant from `ws`
+ * rather than the per-instance `client.OPEN`, so the contract names the shared
+ * protocol constant instead of relying on each socket instance carrying it.
+ */
+function isWebSocketOpen(client: WebSocket): boolean {
+  return client.readyState === WebSocket.OPEN;
 }
 
 async function handleMessage(handlers: RpcHandlers, data: RawData) {

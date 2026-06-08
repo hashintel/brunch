@@ -547,6 +547,8 @@ describe('Brunch TUI boot', () => {
       'grep',
       'find',
       'ls',
+      'read_workspace_context',
+      'read_session_context',
       'present_alternatives',
       'present_question',
       'present_options',

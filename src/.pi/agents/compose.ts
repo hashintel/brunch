@@ -18,7 +18,7 @@ export interface AgentPromptWorkspaceContext {
   posture?: Partial<WorkspacePostureState>;
 }
 
-export interface AgentPromptSnapshotContext {
+export interface AgentPromptContextBundle {
   contextHandles?: readonly string[];
   renderedContexts?: readonly string[];
 }
@@ -28,7 +28,7 @@ export interface ComposeAgentPromptInput {
   sessionState: ResolvedBrunchAgentState;
   spec: AgentPromptSpecContext;
   workspace: AgentPromptWorkspaceContext;
-  snapshots?: AgentPromptSnapshotContext;
+  context?: AgentPromptContextBundle;
   activeTools?: readonly string[];
 }
 
@@ -49,7 +49,7 @@ export function composeAgentPrompt(input: ComposeAgentPromptInput): ComposeAgent
   const prompt = joinSections([
     renderAgentControl(input, definition),
     renderRuntimeState(input),
-    renderPushedContext(input.snapshots),
+    renderPushedContext(input.context),
     renderManifestFamily('available_goals', manifests.goals),
     renderManifestFamily('available_strategies', manifests.strategies),
     renderManifestFamily('available_lenses', manifests.lenses),
@@ -96,15 +96,15 @@ function renderPosture(posture: AgentPromptWorkspaceContext['posture']): string 
   return entries.length > 0 ? entries.map(([key, value]) => `${key}=${value}`).join('; ') : 'unrecorded';
 }
 
-function renderPushedContext(snapshots: AgentPromptSnapshotContext | undefined): string {
-  const handles = snapshots?.contextHandles ?? [];
-  const renderedContexts = snapshots?.renderedContexts ?? [];
+function renderPushedContext(context: AgentPromptContextBundle | undefined): string {
+  const handles = context?.contextHandles ?? [];
+  const renderedContexts = context?.renderedContexts ?? [];
   return [
     '[Brunch pushed context]',
     ...(handles.length ? handles.map((handle) => `- handle: ${handle}`) : ['- handles: none pushed']),
     ...(renderedContexts.length
-      ? ['- rendered snapshots:', ...renderedContexts.map(indentBlock)]
-      : ['- rendered snapshots: none pushed']),
+      ? ['- rendered context blocks:', ...renderedContexts.map(indentBlock)]
+      : ['- rendered context blocks: none pushed']),
   ].join('\n');
 }
 

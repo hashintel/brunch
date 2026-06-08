@@ -9,7 +9,7 @@ Created:  2026-06-05
 
 - Containing seam: `graph/CommandExecutor` as the single graph-truth mutation boundary. The current creation-only `commitGraph({nodes, edges})` shape is sufficient for `propose-graph` creation, but not for manual curation of persisted seed specs where humans must patch or remove existing graph items.
 - Relevant frontier item: `dev-seed-fixtures` because the immediate product need is curated Bilal/reference seed data that can be edited in a local DB and exported back to `.fixtures/seeds/**`. This slice also touches the cross-frontier graph mutation contract (`D4-L`, `D20-L`, `D53-L`), so it must reconcile SPEC/GRAPH_MODEL when built.
-- Volatile handoff state: a clean curation workspace exists at `.fixtures/workbenches/bilal-curation`; DB→fixture export and the one-shot RPC helper are already in place (`src/graph/export-fixtures.ts`, `src/dev/workspace-rpc.ts`). Active FE-809 review-cycle work currently touches `src/graph/command-executor.ts` and review-set graph code, so this scope is **not parallel-safe** on the same worktree until that work lands or the builder moves to an isolated worktree.
+- Volatile handoff state: a clean curation workspace exists at `.fixtures/workbenches/bilal-curation`; DB→fixture export and the one-shot RPC helper are already in place (`src/graph/export-fixtures.ts`, `src/dev/workspace-rpc.ts`). FE-809 review-cycle work has landed, but this scope still touches fresh `src/graph/command-executor.ts` and review-set graph code; coordinate before building it in a shared worktree.
 - Main open risk: edit/delete semantics can accidentally become a second mutation model. The implementation must preserve one transaction, one spec-local LSN, one change-log row, all-or-nothing structural validation, and no direct DB writes outside `CommandExecutor`.
 
 Posture: proving (inherited from `dev-seed-fixtures`).
@@ -40,7 +40,7 @@ Weight: full
 → semantic mutation planner / structural validation
 → CommandExecutor transaction boundary
 → SQLite graph rows + spec-local graph_clock/change_log
-→ graph snapshots / existing product callers
+→ graph readers / existing product callers
 → graph topology docs + SPEC/GRAPH_MODEL reconciliation
 ```
 
@@ -64,7 +64,7 @@ Weight: full
 This proving slice is a tracer bullet on two axes:
 
 - **Invariants:** it stabilizes the command-layer shape required to edit seed truth without bypassing `CommandExecutor`.
-- **Proof of life:** a mixed create/update/delete batch must be visible through normal graph snapshots and later exportable as seed JSON.
+- **Proof of life:** a mixed create/update/delete batch must be visible through normal graph readers and later exportable as seed JSON.
 
 It deliberately does not attempt a full UI curation workflow or write leases. Those are adjacent surfaces, not required to prove the mutation seam.
 
@@ -102,7 +102,7 @@ semantic graph mutation command
 ### Verification Approach
 
 - Inner: `CommandExecutor` unit/regression tests — prove validation, all-or-nothing writes, spec scoping, LSN/change-log behavior, and immutable-field rules.
-- Inner: snapshot/export cross-check — after a mixed mutation, `getGraphOverview(..., graph_truth)` and `exportSeedFixture` reflect the post-mutation graph.
+- Inner: graph-read/export cross-check — after a mixed mutation, `getGraphOverview(..., graph_truth)` and `exportSeedFixture` reflect the post-mutation graph.
 - Middle: compile/import repair over existing graph callers — proves the old creation path did not keep an unmaintained validation fork.
 
 ### Cross-cutting obligations

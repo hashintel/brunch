@@ -102,6 +102,7 @@ Spikes are the escape hatch, not the default.
 | Plausible interpretations diverge; examples would clarify faster than open-ended questioning | structural | `ln-disambiguate` |
 | Understanding exists, needs a written spec | structural | `ln-spec` |
 | Spec exists, needs work sequencing | structural | `ln-plan` |
+| A capability layer is load-bearing as a whole but vertical slices keep leaving it shallow | structural | `ln-plan` — author a coverage frontier (see `ln-plan` §Horizontal coverage frontiers) |
 | Verification strategy is the main uncertainty | structural | `ln-oracles` |
 | Next work item needs precise boundaries | structural or bounded | `ln-scope` |
 | One settled frontier item needs several small verified commits in sequence | bounded, hardening | `ln-scope` then serial `ln-build` loop, optionally via a `Mode: chain` scope file under `memory/cards/` |

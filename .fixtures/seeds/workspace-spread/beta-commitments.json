@@ -1,0 +1,19 @@
+{
+  "spec": {
+    "slug": "beta-commitments",
+    "name": "Beta Commitments",
+    "readiness_grade": "commitments_ready"
+  },
+  "nodes": [
+    { "local_id": 1, "plane": "intent", "kind": "requirement", "title": "Workspace overviews should report node counts per spec", "basis": "explicit", "source": "fixture" },
+    { "local_id": 2, "plane": "intent", "kind": "criterion", "title": "Specs overview should show grade contrast at a glance", "basis": "explicit", "source": "fixture" },
+    { "local_id": 3, "plane": "intent", "kind": "decision", "title": "Keep workspace context rendering separate from graph slices", "basis": "explicit", "source": "fixture", "detail": { "chosen_option": "Separate workspace renderers", "rejected": ["Fold workspace context into graph overview"], "rationale": "Workspace context mixes spec/session inventory with graph summaries." } },
+    { "local_id": 4, "plane": "design", "kind": "module", "title": "Workspace overview renderer", "basis": "explicit", "source": "fixture" },
+    { "local_id": 5, "plane": "oracle", "kind": "check", "title": "Workspace inventory witness", "basis": "explicit", "source": "fixture" }
+  ],
+  "edges": [
+    { "category": "dependency", "source_local_id": 1, "target_local_id": 2, "basis": "explicit" },
+    { "category": "realization", "source_local_id": 4, "target_local_id": 1, "basis": "explicit" },
+    { "category": "proof", "source_local_id": 5, "target_local_id": 2, "stance": "for", "basis": "explicit" }
+  ]
+}

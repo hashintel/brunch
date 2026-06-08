@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { projectSessionRuntimeState } from '../projections/session/runtime-state.js';
 import { NonLinearTranscriptError, type BrunchSessionEnvelope } from './brunch-session-envelope.js';
 import {
+  AGENT_STRATEGY_IDS,
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
   type BrunchAgentState,
@@ -43,6 +44,26 @@ function runtimeEntry(id: string, state: BrunchAgentState, parentId = 'binding-1
 }
 
 describe('session runtime-state projection', () => {
+  it('accepts freestyle as a real strategy id in runtime state parsing', () => {
+    expect(AGENT_STRATEGY_IDS).toContain('freestyle');
+
+    const freestyle: BrunchAgentState = {
+      schemaVersion: 1,
+      operationalMode: 'elicit',
+      agentStrategy: 'freestyle',
+      agentLens: 'intent',
+      agentGoal: 'grounding-advance',
+    };
+
+    expect(
+      projectSessionRuntimeState(envelope([runtimeEntry('runtime-freestyle', freestyle)])),
+    ).toMatchObject({
+      agent: {
+        strategy: 'freestyle',
+      },
+    });
+  });
+
   it('returns flattened defaults for an explicit linear session with no runtime entries', () => {
     expect(projectSessionRuntimeState(envelope())).toEqual({
       status: 'ready',
@@ -92,7 +113,7 @@ describe('session runtime-state projection', () => {
             type: 'custom',
             parentId: 'runtime-1',
             customType: 'brunch.mention',
-            data: { entityId: 'node-1', handle: 'D12', title: 'Decision seam', snapshottedLsn: 7 },
+            data: { entityId: 'node-1', handle: 'D12', title: 'Decision seam', seenLsn: 7 },
           } as never,
           {
             id: 'file-mention-1',

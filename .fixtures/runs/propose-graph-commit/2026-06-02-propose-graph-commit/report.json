@@ -6,7 +6,7 @@
   "mission": "Prove the propose-graph strategy can commit graph truth through commit_graph.",
   "evaluationFocus": "A14-L structural legality for direct commitGraph batches.",
   "success": true,
-  "cwd": "/var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-propose-graph-commit-28lS9B",
+  "cwd": "<ephemeral-workspace>",
   "specId": 1,
   "sessionId": "019e88ac-c864-7eb4-8ee0-85cd75c8dcc6",
   "prompt": "Brunch A14-L probe: the user has accepted the following concept-level proposal and asked you to persist it now.\n\nConcept: A Brunch specification workspace needs an explicit launch-readiness subgraph that records the launch goal, the rollback requirement, the operator visibility criterion, and the assumption that users can recover from a failed launch.\n\nUse the read_graph tool once in overview mode, then use commit_graph to persist a coherent intent-plane graph. Requirements for the commit_graph call:\n- create at least four intent-plane nodes\n- include at least one goal, one requirement, one criterion, and one assumption\n- create at least three edges connecting the nodes\n- use only legal edge categories from the tool guidance\n- include stance only on support or proof edges\n- avoid decision and term nodes for this proof so detail schemas are not needed\n\nIf commit_graph returns STRUCTURAL_ILLEGAL, read the diagnostics and retry once with a corrected complete batch. Stop after a successful commit_graph result.",
@@ -49,9 +49,9 @@
   ],
   "friction": [],
   "artifacts": {
-    "runDir": ".fixtures/runs/propose-graph-commit/2026-06-02-propose-graph-commit",
-    "sessionJsonl": ".fixtures/runs/propose-graph-commit/2026-06-02-propose-graph-commit/session.jsonl",
-    "transcriptMarkdown": ".fixtures/runs/propose-graph-commit/2026-06-02-propose-graph-commit/transcript.md",
-    "reportJson": ".fixtures/runs/propose-graph-commit/2026-06-02-propose-graph-commit/report.json"
+    "runDir": "runs/propose-graph-commit/2026-06-02-propose-graph-commit",
+    "sessionJsonl": "runs/propose-graph-commit/2026-06-02-propose-graph-commit/session.jsonl",
+    "transcriptMarkdown": "runs/propose-graph-commit/2026-06-02-propose-graph-commit/transcript.md",
+    "reportJson": "runs/propose-graph-commit/2026-06-02-propose-graph-commit/report.json"
   }
 }

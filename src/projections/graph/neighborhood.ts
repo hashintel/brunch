@@ -1,8 +1,8 @@
 /**
- * Canonical projection for selected-spec node neighborhood snapshots.
+ * Canonical projection for selected-spec node neighborhood context.
  *
  * Input:
- * - NeighborhoodResult from graph/snapshot.ts
+ * - NeighborhoodResult from graph/queries.ts
  *
  * Output:
  * - compact typed shape for anchor, neighbors, and connecting edges
@@ -13,9 +13,9 @@
  * - .pi/extensions/graph/index.ts via read_graph neighborhood results
  */
 
+import type { NeighborhoodResult } from '../../graph/queries.js';
 import { formatGraphNodeCode } from '../../graph/schema/nodes.js';
 import type { GraphNode } from '../../graph/schema/nodes.js';
-import type { NeighborhoodResult } from '../../graph/snapshot.js';
 
 export interface ProjectNeighborhoodOptions {
   readonly maxNeighbors?: number;
@@ -83,7 +83,7 @@ export function projectNeighborhood(
         const rationale = edge.rationale ? ` — ${truncate(edge.rationale, 100)}` : '';
         const source = nodesById.get(edge.sourceId);
         const target = nodesById.get(edge.targetId);
-        return `#${edge.id}: ${formatEdgeEndpoint(edge.sourceId, source)} -[${edge.category}${stance}]-> ${formatEdgeEndpoint(edge.targetId, target)}${rationale}`;
+        return `${formatEdgeEndpoint(edge.sourceId, source)} -[${edge.category}${stance}]-> ${formatEdgeEndpoint(edge.targetId, target)}${rationale}`;
       }),
       omittedCount: Math.max(0, result.edges.length - maxEdges),
     },

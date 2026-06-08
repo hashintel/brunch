@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { GraphOverview } from '../graph/snapshot.js';
+import type { GraphOverview } from '../graph/queries.js';
 import type { JsonRpcResponse } from '../rpc/protocol.js';
 import {
   summarizeProjectGraphReviewCycleProof,
@@ -231,7 +231,7 @@ describe('project-graph review-cycle proof report', () => {
     );
   });
 
-  it('writes session, transcript, report, and graph snapshot artifacts', async () => {
+  it('writes session, transcript, report, and graph overview artifacts', async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), 'brunch-project-graph-review-artifacts-'));
     const report: ProjectGraphReviewCycleReport = summarizeProjectGraphReviewCycleProof({
       runId: 'artifact-run',
@@ -254,15 +254,63 @@ describe('project-graph review-cycle proof report', () => {
       runId: report.runId,
       sessionText: [presentReviewSetEntry(), requestReviewEntry()].join('\n'),
       report,
-      graphSnapshot: approvedOverview,
+      graphOverview: approvedOverview,
     });
 
-    expect(artifacts.runDir).toBe(join(fixtureRoot, 'runs', 'project-graph-review-cycle', 'artifact-run'));
-    await expect(readFile(artifacts.sessionJsonl, 'utf8')).resolves.toContain('present_review_set');
-    await expect(readFile(artifacts.transcriptMarkdown, 'utf8')).resolves.toContain('## Raw session JSONL');
-    await expect(readFile(artifacts.reportJson, 'utf8')).resolves.toContain('project-graph-review-cycle');
-    await expect(readFile(artifacts.graphSnapshotJson, 'utf8')).resolves.toContain(
+    expect(artifacts.runDir).toBe('runs/project-graph-review-cycle/artifact-run');
+    await expect(readFile(join(fixtureRoot, artifacts.sessionJsonl), 'utf8')).resolves.toContain(
+      'present_review_set',
+    );
+    await expect(readFile(join(fixtureRoot, artifacts.transcriptMarkdown), 'utf8')).resolves.toContain(
+      '## Raw session JSONL',
+    );
+    await expect(readFile(join(fixtureRoot, artifacts.reportJson), 'utf8')).resolves.toContain(
+      'project-graph-review-cycle',
+    );
+    await expect(readFile(join(fixtureRoot, artifacts.graphOverviewJson), 'utf8')).resolves.toContain(
       'Macro view names impasse resolution state',
     );
+  });
+
+  it('persists portable, fixture-relative artifact references in report JSON', async () => {
+    const fixtureRoot = await mkdtemp(join(tmpdir(), 'brunch-project-graph-review-portable-'));
+    const report: ProjectGraphReviewCycleReport = summarizeProjectGraphReviewCycleProof({
+      runId: 'portable-run',
+      generatedAt: '2026-06-06T00:00:00.000Z',
+      cwd: fixtureRoot,
+      seedSlug: 'macro-view-grounded-intent',
+      specId: 7,
+      sessionId: 'session-1',
+      prompt: 'Present a review set.',
+      runtimeState,
+      sessionText: [presentReviewSetEntry(), requestReviewEntry()].join('\n'),
+      baseOverview,
+      finalOverview: approvedOverview,
+      pendingResponse: pendingReviewResponse(),
+      approvalResponse: approvedResponse(),
+    });
+
+    const artifacts = await writeProjectGraphReviewCycleArtifacts({
+      fixtureRoot,
+      runId: report.runId,
+      sessionText: [presentReviewSetEntry(), requestReviewEntry()].join('\n'),
+      report,
+      graphOverview: approvedOverview,
+    });
+
+    const expectedRefs = {
+      runDir: 'runs/project-graph-review-cycle/portable-run',
+      sessionJsonl: 'runs/project-graph-review-cycle/portable-run/session.jsonl',
+      transcriptMarkdown: 'runs/project-graph-review-cycle/portable-run/transcript.md',
+      reportJson: 'runs/project-graph-review-cycle/portable-run/report.json',
+      graphOverviewJson: 'runs/project-graph-review-cycle/portable-run/graph-overview.json',
+    };
+    expect(artifacts).toEqual(expectedRefs);
+
+    const persisted = JSON.parse(await readFile(join(fixtureRoot, expectedRefs.reportJson), 'utf8')) as {
+      artifacts: typeof expectedRefs;
+    };
+    expect(persisted.artifacts).toEqual(expectedRefs);
+    expect(JSON.stringify(persisted.artifacts)).not.toContain(fixtureRoot);
   });
 });

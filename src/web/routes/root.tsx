@@ -2,8 +2,8 @@ import { useSuspenseQuery, type QueryClient } from '@tanstack/react-query';
 import { Outlet, createRootRouteWithContext, createRoute } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
-import type { WorkspaceSnapshot } from '../../projections/workspace/workspace-snapshot.js';
-import { workspaceSnapshotQueryOptions } from '../queries/workspace.js';
+import type { WorkspaceState } from '../../projections/workspace/workspace-state.js';
+import { workspaceStateQueryOptions } from '../queries/workspace.js';
 import type { WebSocketRpcClient } from '../rpc-client.js';
 import { useBrunchUpdateSubscription } from '../subscriptions/brunch-updates.js';
 
@@ -23,22 +23,21 @@ export const rootRoute = createRootRouteWithContext<BrunchWebRouterContext>()({
 export const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  loader: ({ context }) =>
-    context.queryClient.ensureQueryData(workspaceSnapshotQueryOptions(context.rpcClient)),
-  component: WorkspaceSnapshotPage,
+  loader: ({ context }) => context.queryClient.ensureQueryData(workspaceStateQueryOptions(context.rpcClient)),
+  component: WorkspaceStatePage,
 });
 
-export function sessionProjectionTargetFromSnapshot(
-  snapshot: WorkspaceSnapshot,
+export function sessionProjectionTargetFromState(
+  state: WorkspaceState,
   viewedSpecId?: number,
 ): SessionProjectionTarget | null {
-  if (!snapshot.session || !snapshot.spec) {
+  if (!state.session || !state.spec) {
     return null;
   }
-  if (viewedSpecId !== undefined && snapshot.spec.id !== viewedSpecId) {
+  if (viewedSpecId !== undefined && state.spec.id !== viewedSpecId) {
     return null;
   }
-  return { sessionId: snapshot.session.id, specId: snapshot.spec.id };
+  return { sessionId: state.session.id, specId: state.spec.id };
 }
 
 function RootLayout() {
@@ -47,23 +46,23 @@ function RootLayout() {
   return <Outlet />;
 }
 
-function WorkspaceSnapshotPage() {
+function WorkspaceStatePage() {
   const { rpcClient } = indexRoute.useRouteContext();
-  const { data: snapshot } = useSuspenseQuery(workspaceSnapshotQueryOptions(rpcClient));
+  const { data: state } = useSuspenseQuery(workspaceStateQueryOptions(rpcClient));
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-5 py-8 sm:px-8 lg:px-10">
       <p className="text-brunch-muted font-mono text-xs tracking-[0.35em] uppercase">Brunch workspace</p>
-      <WorkspaceChrome snapshot={snapshot} />
-      <SessionPanel snapshot={snapshot} />
+      <WorkspaceChrome state={state} />
+      <SessionPanel state={state} />
     </main>
   );
 }
 
-export function WorkspaceChrome(options: { snapshot: WorkspaceSnapshot; fallbackSpecId?: number }) {
-  const { snapshot } = options;
+export function WorkspaceChrome(options: { state: WorkspaceState; fallbackSpecId?: number }) {
+  const { state } = options;
   const specLabel =
-    snapshot.spec?.title ??
+    state.spec?.title ??
     (options.fallbackSpecId === undefined ? 'No spec selected' : `Spec ${options.fallbackSpecId}`);
   return (
     <dl
@@ -72,7 +71,7 @@ export function WorkspaceChrome(options: { snapshot: WorkspaceSnapshot; fallback
     >
       <div className="rounded-2xl bg-white/45 p-4 lg:col-span-2">
         <dt className="text-brunch-muted font-mono text-[0.68rem] tracking-[0.22em] uppercase">cwd</dt>
-        <dd className="text-brunch-ink mt-2 font-mono text-sm break-all">{snapshot.cwd}</dd>
+        <dd className="text-brunch-ink mt-2 font-mono text-sm break-all">{state.cwd}</dd>
       </div>
       <div className="rounded-2xl bg-white/45 p-4">
         <dt className="text-brunch-muted font-mono text-[0.68rem] tracking-[0.22em] uppercase">spec</dt>
@@ -81,37 +80,37 @@ export function WorkspaceChrome(options: { snapshot: WorkspaceSnapshot; fallback
       <div className="rounded-2xl bg-white/45 p-4">
         <dt className="text-brunch-muted font-mono text-[0.68rem] tracking-[0.22em] uppercase">session</dt>
         <dd className="text-brunch-ink mt-2 font-mono text-sm break-all">
-          {snapshot.session?.id ?? 'No session selected'}
+          {state.session?.id ?? 'No session selected'}
         </dd>
       </div>
       <div className="rounded-2xl bg-white/45 p-4">
         <dt className="text-brunch-muted font-mono text-[0.68rem] tracking-[0.22em] uppercase">phase</dt>
-        <dd className="text-brunch-ink mt-2 text-sm font-medium">{snapshot.chrome.phase}</dd>
+        <dd className="text-brunch-ink mt-2 text-sm font-medium">{state.chrome.phase}</dd>
       </div>
       <div className="border-brunch-rule/70 rounded-2xl border bg-white/35 p-4 sm:col-span-2 lg:col-span-5">
         <dt className="text-brunch-muted font-mono text-[0.68rem] tracking-[0.22em] uppercase">chat mode</dt>
-        <dd className="text-brunch-accent mt-2 text-sm font-medium">{snapshot.chrome.chatMode}</dd>
+        <dd className="text-brunch-accent mt-2 text-sm font-medium">{state.chrome.chatMode}</dd>
       </div>
     </dl>
   );
 }
 
-export function SessionPanel(options: { snapshot: WorkspaceSnapshot; viewedSpecId?: number }) {
+export function SessionPanel(options: { state: WorkspaceState; viewedSpecId?: number }) {
   let content: ReactNode;
-  if (!options.snapshot.session || !options.snapshot.spec) {
+  if (!options.state.session || !options.state.spec) {
     content = <p>No Brunch session selected.</p>;
-  } else if (options.viewedSpecId !== undefined && options.snapshot.spec.id !== options.viewedSpecId) {
+  } else if (options.viewedSpecId !== undefined && options.state.spec.id !== options.viewedSpecId) {
     content = (
       <>
         <p>{`No session is attached for viewed Spec ${options.viewedSpecId}.`}</p>
-        <p>{`The TUI is active in Spec ${options.snapshot.spec.id}/${options.snapshot.session.id}.`}</p>
+        <p>{`The TUI is active in Spec ${options.state.spec.id}/${options.state.session.id}.`}</p>
       </>
     );
   } else {
     content = (
       <>
-        <p>{`Attached session: ${options.snapshot.session.id}`}</p>
-        <p>{`Spec ${options.snapshot.spec.id}`}</p>
+        <p>{`Attached session: ${options.state.session.id}`}</p>
+        <p>{`Spec ${options.state.spec.id}`}</p>
       </>
     );
   }

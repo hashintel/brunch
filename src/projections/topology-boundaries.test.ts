@@ -9,13 +9,13 @@ const PROJECTIONS_ROOT = 'src/projections';
 const RENDERERS_ROOT = 'src/renderers';
 const ADAPTER_IMPORT_SEGMENTS = ['/.pi/', '/rpc/', '/app/', '/web/'];
 const PROJECTION_ADAPTER_EXCEPTIONS: Record<string, true> = {
-  'src/projections/structured-exchange/present-options.ts': true,
-  'src/projections/structured-exchange/present-question.ts': true,
-  'src/projections/structured-exchange/present-review-set.ts': true,
-  'src/projections/structured-exchange/request-answer.ts': true,
-  'src/projections/structured-exchange/request-choice.ts': true,
-  'src/projections/structured-exchange/request-choices.ts': true,
-  'src/projections/structured-exchange/request-review.ts': true,
+  'src/projections/exchanges/present-options.ts': true,
+  'src/projections/exchanges/present-question.ts': true,
+  'src/projections/exchanges/present-review-set.ts': true,
+  'src/projections/exchanges/request-answer.ts': true,
+  'src/projections/exchanges/request-choice.ts': true,
+  'src/projections/exchanges/request-choices.ts': true,
+  'src/projections/exchanges/request-review.ts': true,
 };
 
 function sourceFilesUnder(path: string): string[] {

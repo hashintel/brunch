@@ -16,8 +16,8 @@ renderers/
   toon.ts                compact structured-data rendering stub
   graph/                 graph overview/neighborhood/command markdown
   session/               transcript markdown
-  structured-exchange/   durable structured-exchange markdown
-  workspace/             print-mode workspace snapshot text
+  exchanges/             durable exchange markdown
+  workspace/             print-mode workspace state text
 ```
 
 ## Dependency direction

@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
+import { getGraphOverview } from './queries.js';
 import { translateReviewSetPayloadToCommitGraph, type ReviewSetProposalPayload } from './review-set.js';
-import { getGraphOverview } from './snapshot.js';
 
 function seedSpec(db: BrunchDb): number {
   const result = new CommandExecutor(db).createSpec({ name: 'Test Spec', slug: 'test' });

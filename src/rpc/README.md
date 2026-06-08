@@ -72,7 +72,7 @@ rpc/
 full RPC host:
   reads:
     rpc.discover
-    workspace.snapshot
+    workspace.state
     workspace.selectionState
     session.pendingExchange
     session.exchanges
@@ -83,6 +83,7 @@ full RPC host:
     workspace.activate
     session.triggerExchange
     session.submitExchangeResponse
+    session.submitMessage
 
 dev-enabled full RPC host only:
   writes:
@@ -96,7 +97,7 @@ dev-enabled full RPC host only:
 TUI-started web sidecar:
   reads:
     rpc.discover
-    workspace.snapshot
+    workspace.state
     workspace.selectionState
     session.pendingExchange
     session.exchanges
@@ -107,6 +108,7 @@ TUI-started web sidecar:
     workspace.activate
     session.triggerExchange
     session.submitExchangeResponse
+    session.submitMessage
 ```
 
 ## Method overview
@@ -118,7 +120,7 @@ rpc.discover
   result: supported methods with descriptions, schemas, and examples
   source: active method registry
 
-workspace.snapshot
+workspace.state
   access: read
   params: none
   result: cwd-scoped workspace product state
@@ -138,7 +140,7 @@ workspace.activate
   access: write
   params: {decision}
     continue | openSession | newSession | newSpec | cancel
-  result: workspace snapshot or cancelled activation state
+  result: workspace state or cancelled activation state
   effects: creates/opens selected spec/session and publishes selected-session invalidations
 
 session.pendingExchange
@@ -183,6 +185,18 @@ session.submitExchangeResponse
       | structural_illegal(diagnostics)
   effects: appends request_* toolResult response, publishes selected-session invalidations, and when captured or approved publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
 
+session.submitMessage
+  access: write
+  params:
+    text
+    interruption?
+  result: accepted ordinary user message plus capture outcome
+    capture:
+      captured(lsn, nodeCount, createdNodes)
+      | no_capture(reason)
+      | structural_illegal(diagnostics)
+  effects: appends a user message to the selected session transcript, rejects ordinary text while a structured exchange is pending unless interruption=true, and when captured publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
+
 graph.overview
   access: read
   params: {specId}
@@ -222,7 +236,7 @@ dev.graph.commitGraph
 brunch.updated:
   params:
     topics:
-      - workspace.snapshot
+      - workspace.state
       - workspace.selectionState
       - session.pendingExchange
       - session.exchanges
@@ -241,7 +255,7 @@ Current web code only uses the read sidecar. Write hooks are named here as the e
 
 ```pseudo
 query key families:
-  workspace.snapshot       -> ['workspace.snapshot']
+  workspace.state       -> ['workspace.state']
   workspace.selectionState -> ['workspace.selectionState']        # target, not yet implemented in web queryKeys
   session.pendingExchange  -> ['session.pendingExchange', specId, sessionId]  # target
   session.exchanges        -> ['session.exchanges', specId, sessionId]        # target
@@ -253,7 +267,7 @@ query key families:
 | RPC method | Web Query/Mutation mapping | Current web status | Invalidation source |
 | --- | --- | --- | --- |
 | `rpc.discover` | `rpcDiscoveryQueryOptions(rpc)` | not implemented; optional debug/adaptive UI only | none |
-| `workspace.snapshot` | `workspaceSnapshotQueryOptions(rpc)` | implemented; root/spec loaders prime it | exact `workspace.snapshot` |
+| `workspace.state` | `workspaceStateQueryOptions(rpc)` | implemented; root/spec loaders prime it | exact `workspace.state` |
 | `workspace.selectionState` | `workspaceSelectionStateQueryOptions(rpc)` | target; picker route not built | `workspace.selectionState` or activation success |
 | `workspace.activate` | `activateWorkspaceMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates workspace + selected session resources |
 | `session.pendingExchange` | `pendingExchangeQueryOptions(rpc, target)` | target; no current web panel | `session.pendingExchange` |
@@ -328,10 +342,8 @@ if session.pendingExchange returns pending:
 
 if no exchange is pending:
   session.triggerExchange may ask the agent for the next exchange
-  future session.submitMessage may append ordinary user text or an explicit interruption
+  session.submitMessage may append ordinary user text or an explicit interruption
 ```
-
-`session.submitMessage` is reserved for a future real method. It is not exposed in current discovery. When implemented, it must not silently answer a pending exchange; interruptions should be explicit in the payload and transcript-visible.
 
 ## `propose-graph` flow
 
@@ -372,9 +384,6 @@ command.*                       -> internal authority seam, not a browser RPC pr
 Reserved future names:
 
 ```pseudo
-session.submitMessage
-  ordinary non-exchange user text or explicit interruption; absent until real behavior is scoped
-
 graph.changesSince / graph.recentChanges
   future graph update projection
 

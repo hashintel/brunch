@@ -2,7 +2,7 @@
  * Graph tool integration tests.
  *
  * Tests the commit_graph and read_graph tools end-to-end through
- * the command adapter → CommandExecutor → snapshot reader chain.
+ * the command adapter → CommandExecutor → graph read chain.
  *
  * SPEC: D4-L, D20-L, D52-L, D53-L, I26-L, I34-L, A14-L
  */
@@ -14,15 +14,24 @@ import { createDb } from '../../db/connection.js';
 import type { BrunchDb } from '../../db/connection.js';
 import { edges } from '../../db/schema.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
-import { getGraphOverview, getNodeNeighborhood, resolveGraphNodeCode } from '../../graph/snapshot.js';
+import {
+  getGraphGaps,
+  getGraphOverview,
+  getGraphSliceByKinds,
+  getGraphSliceByReadinessBands,
+  getNodeNeighborhood,
+  getRelatedNodes,
+  resolveGraphNodeCode,
+} from '../../graph/queries.js';
 import { createProductUpdatePublisher } from '../../rpc/product-updates.js';
 import {
   translateCommitGraph,
   formatCommitGraphResult,
   formatGraphOverview,
   formatNeighborhoodResult,
+  formatRelatedNodesResult,
 } from '../extensions/graph/command-adapter.js';
-import { registerBrunchGraph, type GraphSnapshotReaders } from '../extensions/graph/index.js';
+import { registerBrunchGraph, type GraphReaders } from '../extensions/graph/index.js';
 import { CommitGraphParams, ReadGraphParams } from '../extensions/graph/tool-schemas.js';
 
 // ---------------------------------------------------------------------------
@@ -42,9 +51,13 @@ function seedSpec(db: BrunchDb): number {
   return result.specId;
 }
 
-function createSnapshots(db: BrunchDb, specId: number): GraphSnapshotReaders {
+function createGraphReads(db: BrunchDb, specId: number): GraphReaders {
   return {
-    getGraphOverview: () => getGraphOverview(db, specId),
+    getGraphOverview: (options) => getGraphOverview(db, specId, options),
+    getGraphSliceByKinds: (options) => getGraphSliceByKinds(db, specId, options),
+    getGraphSliceByReadinessBands: (options) => getGraphSliceByReadinessBands(db, specId, options),
+    getGraphGaps: (options) => getGraphGaps(db, specId, options),
+    getRelatedNodes: (options) => getRelatedNodes(db, specId, options),
     getNodeNeighborhood: (nodeId, options) => getNodeNeighborhood(db, specId, nodeId, options),
     resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
   };
@@ -144,6 +157,45 @@ describe('graph tool schemas', () => {
     expect(Value.Check(ReadGraphParams, { mode: 'neighborhood', nodeCode: 'G1' })).toBe(true);
     expect(Value.Check(ReadGraphParams, { mode: 'neighborhood', node_id: 1 })).toBe(false);
   });
+
+  it('accepts list read modes with projection-aware kind or readiness filters', () => {
+    expect(
+      Value.Check(ReadGraphParams, {
+        mode: 'list_by_kind',
+        kinds: ['goal', 'requirement'],
+        projection: 'graph_truth',
+      }),
+    ).toBe(true);
+    expect(
+      Value.Check(ReadGraphParams, {
+        mode: 'list_by_band',
+        readinessBands: ['grounding', 'elicitation'],
+      }),
+    ).toBe(true);
+  });
+
+  it('accepts related mode with anchor codes, category, direction, and hops', () => {
+    expect(
+      Value.Check(ReadGraphParams, {
+        mode: 'related',
+        anchorCodes: ['R1'],
+        edgeCategory: 'dependency',
+        direction: 'outgoing',
+        hops: 2,
+      }),
+    ).toBe(true);
+  });
+
+  it('accepts gaps mode with a base filter and absent edge category', () => {
+    expect(
+      Value.Check(ReadGraphParams, {
+        mode: 'gaps',
+        kinds: ['thesis'],
+        absentEdgeCategory: 'proof',
+        direction: 'incoming',
+      }),
+    ).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -206,14 +258,14 @@ describe('formatGraphOverview', () => {
 describe('graph tools end-to-end', () => {
   let db: BrunchDb;
   let executor: CommandExecutor;
-  let snapshots: GraphSnapshotReaders;
+  let reads: GraphReaders;
   let specId: number;
 
   beforeEach(() => {
     db = createTestDb();
     executor = new CommandExecutor(db);
     specId = seedSpec(db);
-    snapshots = createSnapshots(db, specId);
+    reads = createGraphReads(db, specId);
   });
 
   it('commit_graph creates nodes and edges readable by read_graph', () => {
@@ -239,7 +291,7 @@ describe('graph tools end-to-end', () => {
     expect(result.status).toBe('success');
 
     // Read the graph
-    const overview = snapshots.getGraphOverview();
+    const overview = reads.getGraphOverview();
     const text = formatGraphOverview(overview);
 
     expect(overview.nodeCount).toBe(2);
@@ -260,7 +312,7 @@ describe('graph tools end-to-end', () => {
           tools.set(tool.name, tool);
         },
       } as never,
-      { specId, commandExecutor: executor, snapshots, productUpdates },
+      { specId, commandExecutor: executor, reads, productUpdates },
     );
 
     await tools.get('commit_graph')!.execute('call-1', {
@@ -286,7 +338,7 @@ describe('graph tools end-to-end', () => {
           tools.set(tool.name, tool);
         },
       } as never,
-      { specId, commandExecutor: executor, snapshots },
+      { specId, commandExecutor: executor, reads },
     );
 
     const result = (await tools.get('commit_graph')!.execute('commit-1', {
@@ -321,7 +373,7 @@ describe('graph tools end-to-end', () => {
           tools.set(tool.name, tool);
         },
       } as never,
-      { specId, commandExecutor: executor, snapshots },
+      { specId, commandExecutor: executor, reads },
     );
 
     const result = (await tools.get('commit_graph')!.execute('commit-1', {
@@ -348,7 +400,7 @@ describe('graph tools end-to-end', () => {
           registered.push(tool);
         },
       } as never,
-      { specId, commandExecutor: executor, snapshots },
+      { specId, commandExecutor: executor, reads },
     );
 
     const text = registered
@@ -398,7 +450,7 @@ describe('graph tools end-to-end', () => {
     expect(result.status).toBe('structural_illegal');
 
     // Node should NOT have been created (all-or-nothing)
-    const overview = snapshots.getGraphOverview();
+    const overview = reads.getGraphOverview();
     expect(overview.nodeCount).toBe(0);
   });
 
@@ -426,7 +478,7 @@ describe('graph tools end-to-end', () => {
 
     if (commitResult.status === 'success') {
       const nodeId = commitResult.createdNodes['n1']!.id;
-      const result = snapshots.getNodeNeighborhood(nodeId);
+      const result = reads.getNodeNeighborhood(nodeId);
       const text = formatNeighborhoodResult(result);
 
       expect(text).toContain('Main goal');
@@ -457,7 +509,7 @@ describe('graph tools end-to-end', () => {
           tools.set(tool.name, tool);
         },
       } as never,
-      { specId, commandExecutor: executor, snapshots },
+      { specId, commandExecutor: executor, reads },
     );
 
     const result = (await tools.get('read_graph')!.execute('read-1', {
@@ -483,10 +535,303 @@ describe('graph tools end-to-end', () => {
     });
   });
 
+  it('read_graph list modes return projection-aware slices with projected node codes', async () => {
+    const oldRequirement = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'requirement',
+      title: 'Legacy requirement',
+    });
+    expect(oldRequirement.status).toBe('success');
+    if (oldRequirement.status !== 'success') return;
+
+    const commitResult = executor.commitGraph({
+      specId,
+      basis: 'implicit',
+      nodes: [
+        { ref: 'g1', plane: 'intent', kind: 'goal', title: 'Grounding goal' },
+        { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'Current requirement' },
+      ],
+      edges: [{ category: 'supersession', source: 'r1', target: { existing: oldRequirement.nodeId } }],
+    });
+    expect(commitResult.status).toBe('success');
+    if (commitResult.status !== 'success') return;
+
+    const tools = new Map<string, { execute(toolCallId: string, params: unknown): Promise<unknown> }>();
+    registerBrunchGraph(
+      {
+        registerTool(tool: { name: string; execute(toolCallId: string, params: unknown): Promise<unknown> }) {
+          tools.set(tool.name, tool);
+        },
+      } as never,
+      { specId, commandExecutor: executor, reads },
+    );
+
+    const kindResult = (await tools.get('read_graph')!.execute('read-kind', {
+      mode: 'list_by_kind',
+      kinds: ['requirement'],
+      projection: 'graph_truth',
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(kindResult.content[0]?.text).toContain('Graph slice by kind');
+    expect(kindResult.content[0]?.text).toContain('[R1]');
+    expect(kindResult.content[0]?.text).toContain('[R2]');
+    expect(kindResult.details).toMatchObject({
+      nodeCount: 2,
+      nodes: [{ title: 'Legacy requirement' }, { title: 'Current requirement' }],
+    });
+
+    const bandResult = (await tools.get('read_graph')!.execute('read-band', {
+      mode: 'list_by_band',
+      readinessBands: ['grounding'],
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(bandResult.content[0]?.text).toContain('Graph slice by readiness band');
+    expect(bandResult.content[0]?.text).toContain('[G1]');
+    expect(bandResult.details).toMatchObject({
+      nodeCount: 1,
+      nodes: [{ title: 'Grounding goal' }],
+    });
+  });
+
+  it('read_graph list modes return an empty slice for unknown filters instead of diagnostics', async () => {
+    const tools = new Map<string, { execute(toolCallId: string, params: unknown): Promise<unknown> }>();
+    registerBrunchGraph(
+      {
+        registerTool(tool: { name: string; execute(toolCallId: string, params: unknown): Promise<unknown> }) {
+          tools.set(tool.name, tool);
+        },
+      } as never,
+      { specId, commandExecutor: executor, reads },
+    );
+
+    const result = (await tools.get('read_graph')!.execute('read-empty', {
+      mode: 'list_by_band',
+      readinessBands: ['unknown-band'],
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+
+    expect(result.content[0]?.text).toContain('empty');
+    expect(result.details).toMatchObject({ nodeCount: 0, edgeCount: 0, nodes: [], edges: [] });
+  });
+
+  it('read_graph gaps mode returns projection-aware gaps and structural diagnostics', async () => {
+    const commitResult = executor.commitGraph({
+      specId,
+      basis: 'implicit',
+      nodes: [
+        { ref: 'thesis-gap', plane: 'intent', kind: 'thesis', title: 'Unproven thesis' },
+        { ref: 'thesis-supported', plane: 'intent', kind: 'thesis', title: 'Supported thesis' },
+        {
+          ref: 'term-gap',
+          plane: 'intent',
+          kind: 'term',
+          title: 'Unproved term',
+          detail: { definition: 'Gap' },
+        },
+        {
+          ref: 'term-target',
+          plane: 'intent',
+          kind: 'term',
+          title: 'Supported term',
+          detail: { definition: 'Covered' },
+        },
+        { ref: 'evidence-live', plane: 'oracle', kind: 'evidence', title: 'Active evidence' },
+        { ref: 'evidence-old', plane: 'oracle', kind: 'evidence', title: 'Superseded evidence' },
+        { ref: 'evidence-new', plane: 'oracle', kind: 'evidence', title: 'Replacement evidence' },
+      ],
+      edges: [
+        { category: 'proof', source: 'evidence-live', target: 'thesis-supported', stance: 'for' },
+        { category: 'proof', source: 'evidence-old', target: 'term-target', stance: 'for' },
+        { category: 'supersession', source: 'evidence-new', target: 'evidence-old' },
+      ],
+    });
+    expect(commitResult.status).toBe('success');
+    if (commitResult.status !== 'success') return;
+
+    const tools = new Map<string, { execute(toolCallId: string, params: unknown): Promise<unknown> }>();
+    registerBrunchGraph(
+      {
+        registerTool(tool: { name: string; execute(toolCallId: string, params: unknown): Promise<unknown> }) {
+          tools.set(tool.name, tool);
+        },
+      } as never,
+      { specId, commandExecutor: executor, reads },
+    );
+
+    const activeGaps = (await tools.get('read_graph')!.execute('read-gaps', {
+      mode: 'gaps',
+      kinds: ['term'],
+      absentEdgeCategory: 'proof',
+      direction: 'incoming',
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(activeGaps.content[0]?.text).toContain('Graph gaps');
+    expect(activeGaps.content[0]?.text).toContain('[T1]');
+    expect(activeGaps.content[0]?.text).toContain('[T2]');
+    expect(activeGaps.details).toMatchObject({
+      nodeCount: 2,
+      nodes: [{ title: 'Unproved term' }, { title: 'Supported term' }],
+    });
+
+    const truthGaps = (await tools.get('read_graph')!.execute('read-gaps-truth', {
+      mode: 'gaps',
+      kinds: ['term'],
+      absentEdgeCategory: 'proof',
+      direction: 'incoming',
+      projection: 'graph_truth',
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(truthGaps.details).toMatchObject({
+      nodeCount: 1,
+      nodes: [{ title: 'Unproved term' }],
+    });
+
+    const missingBase = (await tools.get('read_graph')!.execute('read-gaps-missing-base', {
+      mode: 'gaps',
+      absentEdgeCategory: 'proof',
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(missingBase.content[0]?.text).toContain('STRUCTURAL_ILLEGAL');
+    expect(missingBase.details).toMatchObject({
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'kinds|readinessBands' }],
+    });
+
+    const missingCategory = (await tools.get('read_graph')!.execute('read-gaps-missing-category', {
+      mode: 'gaps',
+      kinds: ['term'],
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(missingCategory.content[0]?.text).toContain('STRUCTURAL_ILLEGAL');
+    expect(missingCategory.details).toMatchObject({
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'absentEdgeCategory' }],
+    });
+  });
+
+  it('read_graph related mode returns related nodes and structural_illegal for unknown anchors', async () => {
+    const commitResult = executor.commitGraph({
+      specId,
+      basis: 'implicit',
+      nodes: [
+        { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'Anchor requirement' },
+        { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'Direct assumption' },
+      ],
+      edges: [{ category: 'dependency', source: 'r1', target: 'a1' }],
+    });
+    expect(commitResult.status).toBe('success');
+    if (commitResult.status !== 'success') return;
+
+    const tools = new Map<string, { execute(toolCallId: string, params: unknown): Promise<unknown> }>();
+    registerBrunchGraph(
+      {
+        registerTool(tool: { name: string; execute(toolCallId: string, params: unknown): Promise<unknown> }) {
+          tools.set(tool.name, tool);
+        },
+      } as never,
+      { specId, commandExecutor: executor, reads },
+    );
+
+    const related = (await tools.get('read_graph')!.execute('read-related', {
+      mode: 'related',
+      anchorCodes: ['R1'],
+      edgeCategory: 'dependency',
+      direction: 'outgoing',
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(related.content[0]?.text).toContain('Related nodes');
+    expect(related.content[0]?.text).toContain('dependency/outgoing');
+    expect(related.content[0]?.text).toContain('[A1]');
+    expect(related.details).toMatchObject({
+      status: 'success',
+      anchors: [{ title: 'Anchor requirement' }],
+      relatedNodes: [{ title: 'Direct assumption' }],
+    });
+
+    const missingAnchor = (await tools.get('read_graph')!.execute('read-related-missing', {
+      mode: 'related',
+      anchorCodes: ['R99'],
+      edgeCategory: 'dependency',
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+    expect(missingAnchor.content[0]?.text).toContain('STRUCTURAL_ILLEGAL');
+    expect(missingAnchor.details).toMatchObject({
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'anchorCodes' }],
+    });
+  });
+
   it('read_graph neighborhood for missing node returns not_found', () => {
-    const result = snapshots.getNodeNeighborhood(999);
+    const result = reads.getNodeNeighborhood(999);
     const text = formatNeighborhoodResult(result);
 
     expect(text).toContain('not found');
+  });
+
+  it('formats related-node results with projected codes and directions', () => {
+    const text = formatRelatedNodesResult({
+      status: 'success',
+      anchors: [
+        {
+          id: 1,
+          specId: 1,
+          plane: 'intent',
+          kind: 'requirement',
+          kindOrdinal: 1,
+          title: 'Anchor requirement',
+          basis: 'explicit',
+          createdAtLsn: 1,
+          updatedAtLsn: 1,
+        },
+      ],
+      relatedNodes: [
+        {
+          id: 2,
+          specId: 1,
+          plane: 'intent',
+          kind: 'assumption',
+          kindOrdinal: 1,
+          title: 'Related assumption',
+          basis: 'explicit',
+          createdAtLsn: 1,
+          updatedAtLsn: 1,
+        },
+      ],
+      edges: [
+        {
+          id: 1,
+          specId: 1,
+          category: 'dependency',
+          sourceId: 1,
+          targetId: 2,
+          basis: 'explicit',
+          createdAtLsn: 1,
+          updatedAtLsn: 1,
+        },
+      ],
+    });
+
+    expect(text).toContain('Anchors: [R1] Anchor requirement');
+    expect(text).toContain('[A1] intent/assumption');
+    expect(text).toContain('R1 -[dependency/outgoing]-> A1');
   });
 });

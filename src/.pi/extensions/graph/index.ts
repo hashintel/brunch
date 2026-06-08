@@ -6,14 +6,21 @@
  *       D53-L (commitGraph atomic batch), I26-L (no db/ imports here)
  *
  * This module does NOT import from db/. All graph access routes through
- * the CommandExecutor and snapshot reader functions passed as explicit
+ * the CommandExecutor and graph reads passed as explicit
  * dependencies from the extension shell.
  */
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import type { CommandExecutor } from '../../../graph/command-executor.js';
-import type { GraphOverview, NeighborhoodResult } from '../../../graph/snapshot.js';
+import type {
+  GraphOverview,
+  GraphProjection,
+  NeighborhoodResult,
+  RelatedDirection,
+  GraphGapsOptions,
+  RelatedNodesResult,
+} from '../../../graph/queries.js';
 import { projectNeighborhood } from '../../../projections/graph/neighborhood.js';
 import { formatNeighborhood } from '../../../renderers/graph/neighborhood.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
@@ -21,6 +28,7 @@ import {
   translateCommitGraph,
   formatCommitGraphResult,
   formatGraphOverview,
+  formatRelatedNodesResult,
   formatStructuralIllegal,
 } from './command-adapter.js';
 import { CommitGraphParams, ReadGraphParams } from './tool-schemas.js';
@@ -29,10 +37,29 @@ import { CommitGraphParams, ReadGraphParams } from './tool-schemas.js';
 // Dependencies injected by the extension shell
 // ---------------------------------------------------------------------------
 
-/** Pre-bound snapshot readers so the extension never touches db/ directly. */
-export interface GraphSnapshotReaders {
-  readonly getGraphOverview: () => GraphOverview;
-  readonly getNodeNeighborhood: (nodeId: number, options?: { hops?: number }) => NeighborhoodResult;
+/** Pre-bound graph reads so the extension never touches db/ directly. */
+export interface GraphReaders {
+  readonly getGraphOverview: (options?: { projection?: GraphProjection }) => GraphOverview;
+  readonly getGraphSliceByKinds: (options: {
+    projection?: GraphProjection;
+    kinds: readonly string[];
+  }) => GraphOverview;
+  readonly getGraphSliceByReadinessBands: (options: {
+    projection?: GraphProjection;
+    readinessBands: readonly string[];
+  }) => GraphOverview;
+  readonly getGraphGaps: (options: GraphGapsOptions) => GraphOverview;
+  readonly getRelatedNodes: (options: {
+    anchorIds: readonly number[];
+    edgeCategory: GraphOverview['edges'][number]['category'];
+    direction?: RelatedDirection;
+    hops?: number;
+    projection?: GraphProjection;
+  }) => RelatedNodesResult;
+  readonly getNodeNeighborhood: (
+    nodeId: number,
+    options?: { hops?: number; projection?: GraphProjection },
+  ) => NeighborhoodResult;
   readonly resolveNodeCode: (code: string) => number | undefined;
 }
 
@@ -46,7 +73,7 @@ export interface GraphSnapshotReaders {
 export interface BrunchGraphDeps {
   readonly specId: number;
   readonly commandExecutor: CommandExecutor;
-  readonly snapshots: GraphSnapshotReaders;
+  readonly reads: GraphReaders;
   readonly productUpdates?: ProductUpdatePublisher;
 }
 
@@ -55,7 +82,7 @@ export interface BrunchGraphDeps {
 // ---------------------------------------------------------------------------
 
 export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): void {
-  const { commandExecutor, snapshots } = deps;
+  const { commandExecutor, reads } = deps;
 
   // ── commit_graph ────────────────────────────────────────────────────
   pi.registerTool({
@@ -78,7 +105,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
 
     async execute(_toolCallId, params) {
       const specId = deps.specId;
-      const input = translateCommitGraph(params, specId, snapshots.resolveNodeCode);
+      const input = translateCommitGraph(params, specId, reads.resolveNodeCode);
       const result = 'status' in input ? input : commandExecutor.commitGraph(input);
       const text = formatCommitGraphResult(result);
       if (result.status === 'success') {
@@ -104,6 +131,10 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
     promptGuidelines: [
       "Use read_graph with mode 'overview' to see all nodes and edges before committing new graph elements.",
       "Use read_graph with mode 'neighborhood' and a projected nodeCode such as G1 or CON2 to inspect a specific node and its connections.",
+      "Use read_graph with mode 'list_by_kind' and one or more kinds to inspect a bounded graph slice without drifting into a generic predicate API.",
+      "Use read_graph with mode 'list_by_band' and readiness bands (grounding, elicitation, commitment) to inspect spec evidence by D64-L band.",
+      "Use read_graph with mode 'gaps' to find nodes in a bounded base class that lack one edge category in the chosen direction.",
+      "Set projection to 'graph_truth' when you need superseded nodes; otherwise the default 'active_context' hides superseded nodes and dangling edges.",
     ],
     parameters: ReadGraphParams,
 
@@ -112,15 +143,100 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
       let details:
         | GraphOverview
         | NeighborhoodResult
+        | RelatedNodesResult
         | {
             readonly status: 'structural_illegal';
             readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
           };
 
       if (params.mode === 'overview') {
-        const overview = snapshots.getGraphOverview();
+        const overview = reads.getGraphOverview(
+          params.projection != null ? { projection: params.projection } : undefined,
+        );
         text = formatGraphOverview(overview);
         details = overview;
+      } else if (params.mode === 'list_by_kind') {
+        const overview = reads.getGraphSliceByKinds({
+          kinds: params.kinds ?? [],
+          ...(params.projection != null ? { projection: params.projection } : {}),
+        });
+        text = formatGraphOverview(overview, 'Graph slice by kind');
+        details = overview;
+      } else if (params.mode === 'list_by_band') {
+        const overview = reads.getGraphSliceByReadinessBands({
+          readinessBands: params.readinessBands ?? [],
+          ...(params.projection != null ? { projection: params.projection } : {}),
+        });
+        text = formatGraphOverview(overview, 'Graph slice by readiness band');
+        details = overview;
+      } else if (params.mode === 'gaps') {
+        const hasBaseFilter = (params.kinds?.length ?? 0) > 0 || (params.readinessBands?.length ?? 0) > 0;
+        if (!hasBaseFilter) {
+          details = {
+            status: 'structural_illegal',
+            diagnostics: [
+              {
+                field: 'kinds|readinessBands',
+                message: 'gaps mode requires kinds and/or readinessBands as a base filter',
+              },
+            ],
+          };
+          text = formatStructuralIllegal(details);
+        } else if (params.absentEdgeCategory == null) {
+          details = {
+            status: 'structural_illegal',
+            diagnostics: [
+              {
+                field: 'absentEdgeCategory',
+                message: 'absentEdgeCategory is required for gaps mode',
+              },
+            ],
+          };
+          text = formatStructuralIllegal(details);
+        } else {
+          const overview = reads.getGraphGaps({
+            ...(params.kinds != null ? { kinds: params.kinds } : {}),
+            ...(params.readinessBands != null ? { readinessBands: params.readinessBands } : {}),
+            absentEdgeCategory: params.absentEdgeCategory,
+            ...(params.direction != null ? { direction: params.direction } : {}),
+            ...(params.projection != null ? { projection: params.projection } : {}),
+          });
+          text = formatGraphOverview(overview, 'Graph gaps');
+          details = overview;
+        }
+      } else if (params.mode === 'related') {
+        const anchorCodes = params.anchorCodes ?? [];
+        const anchorIds = anchorCodes
+          .map((code) => ({ code, nodeId: reads.resolveNodeCode(code) }))
+          .filter((candidate) => candidate.nodeId != null);
+        if (anchorIds.length !== anchorCodes.length) {
+          details = {
+            status: 'structural_illegal',
+            diagnostics: anchorCodes
+              .filter((code) => reads.resolveNodeCode(code) == null)
+              .map((code) => ({
+                field: 'anchorCodes',
+                message: `anchor code ${code} does not resolve in the selected spec`,
+              })),
+          };
+          text = formatStructuralIllegal(details);
+        } else if (params.edgeCategory == null) {
+          details = {
+            status: 'structural_illegal',
+            diagnostics: [{ field: 'edgeCategory', message: 'edgeCategory is required for related mode' }],
+          };
+          text = formatStructuralIllegal(details);
+        } else {
+          const related = reads.getRelatedNodes({
+            anchorIds: anchorIds.map((candidate) => candidate.nodeId!),
+            edgeCategory: params.edgeCategory,
+            ...(params.direction != null ? { direction: params.direction } : {}),
+            ...(params.hops != null ? { hops: params.hops } : {}),
+            ...(params.projection != null ? { projection: params.projection } : {}),
+          });
+          text = formatRelatedNodesResult(related);
+          details = related;
+        }
       } else if (params.nodeCode == null) {
         details = {
           status: 'structural_illegal',
@@ -128,7 +244,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
         };
         text = formatStructuralIllegal(details);
       } else {
-        const nodeId = snapshots.resolveNodeCode(params.nodeCode);
+        const nodeId = reads.resolveNodeCode(params.nodeCode);
         if (nodeId === undefined) {
           details = {
             status: 'structural_illegal',
@@ -141,9 +257,14 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
           };
           text = formatStructuralIllegal(details);
         } else {
-          const neighborhood = snapshots.getNodeNeighborhood(
+          const neighborhood = reads.getNodeNeighborhood(
             nodeId,
-            params.hops != null ? { hops: params.hops } : undefined,
+            params.hops != null || params.projection != null
+              ? {
+                  ...(params.hops != null ? { hops: params.hops } : {}),
+                  ...(params.projection != null ? { projection: params.projection } : {}),
+                }
+              : undefined,
           );
           text = formatNeighborhood(projectNeighborhood(neighborhood));
           details = neighborhood;

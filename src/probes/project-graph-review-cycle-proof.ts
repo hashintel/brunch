@@ -16,6 +16,7 @@ import { createProductUpdatePublisher, type ProductUpdate } from '../rpc/product
 import type { JsonRpcResponse } from '../rpc/protocol.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
+import { portableCwd } from './portable-report.js';
 
 const PROBE_ID = 'project-graph-review-cycle' as const;
 const DEFAULT_SEED_SET = 'bilal-port-variants';
@@ -43,7 +44,7 @@ export interface ProjectGraphReviewCycleArtifacts {
   readonly sessionJsonl: string;
   readonly transcriptMarkdown: string;
   readonly reportJson: string;
-  readonly graphSnapshotJson: string;
+  readonly graphOverviewJson: string;
 }
 
 export interface ReviewCycleToolEvidence {
@@ -278,7 +279,7 @@ export async function runProjectGraphReviewCycleProof(
         runId,
         sessionText,
         report,
-        graphSnapshot: finalOverview,
+        graphOverview: finalOverview,
       }),
     };
     return report;
@@ -397,27 +398,35 @@ export async function writeProjectGraphReviewCycleArtifacts(options: {
   readonly runId: string;
   readonly sessionText: string;
   readonly report: ProjectGraphReviewCycleReport;
-  readonly graphSnapshot: GraphOverview;
+  readonly graphOverview: GraphOverview;
 }): Promise<ProjectGraphReviewCycleArtifacts> {
-  const runDir = join(options.fixtureRoot, 'runs', PROBE_ID, options.runId);
+  // Persisted artifact references are fixture-root-relative so committed
+  // reports stay portable; the disk paths used for writing are resolved
+  // against the (possibly absolute) fixture root.
+  const runDirRef = `runs/${PROBE_ID}/${options.runId}`;
   const artifacts: ProjectGraphReviewCycleArtifacts = {
-    runDir,
-    sessionJsonl: join(runDir, 'session.jsonl'),
-    transcriptMarkdown: join(runDir, 'transcript.md'),
-    reportJson: join(runDir, 'report.json'),
-    graphSnapshotJson: join(runDir, 'graph-snapshot.json'),
+    runDir: runDirRef,
+    sessionJsonl: `${runDirRef}/session.jsonl`,
+    transcriptMarkdown: `${runDirRef}/transcript.md`,
+    reportJson: `${runDirRef}/report.json`,
+    graphOverviewJson: `${runDirRef}/graph-overview.json`,
   };
-  const report = { ...options.report, artifacts };
+  const diskPath = (ref: string) => resolve(options.fixtureRoot, ref);
+  const report = { ...options.report, cwd: portableCwd(options.report.cwd), artifacts };
 
-  await mkdir(runDir, { recursive: true });
-  await writeFile(artifacts.sessionJsonl, options.sessionText, 'utf8');
+  await mkdir(diskPath(artifacts.runDir), { recursive: true });
+  await writeFile(diskPath(artifacts.sessionJsonl), options.sessionText, 'utf8');
   await writeFile(
-    artifacts.transcriptMarkdown,
+    diskPath(artifacts.transcriptMarkdown),
     `${renderSessionTranscript(options.sessionText, { title: 'session.jsonl' })}\n\n## Raw session JSONL\n\n\`\`\`jsonl\n${options.sessionText.trimEnd()}\n\`\`\`\n`,
     'utf8',
   );
-  await writeFile(artifacts.reportJson, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  await writeFile(artifacts.graphSnapshotJson, `${JSON.stringify(options.graphSnapshot, null, 2)}\n`, 'utf8');
+  await writeFile(diskPath(artifacts.reportJson), `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  await writeFile(
+    diskPath(artifacts.graphOverviewJson),
+    `${JSON.stringify(options.graphOverview, null, 2)}\n`,
+    'utf8',
+  );
 
   return artifacts;
 }

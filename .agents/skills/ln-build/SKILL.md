@@ -30,6 +30,8 @@ Never scan or pick by mtime, alphabetical order, or directory-listing heuristics
 
 Once a file is selected, work the next card marked `next` (or the first unfinished card in file order if status markers are absent). If that card is already satisfied on the current branch, do **not** manufacture a no-op build commit; verify the acceptance criteria, mark the card `done` or `dropped` as appropriate, reconcile, and either continue to the next ready card in the same file or route back to `ln-scope` if no build remains.
 
+If the selected file is `Mode: coverage`, it holds a row ledger rather than cards — follow the [Coverage execution mode](#coverage-execution-mode) loop below instead of card-based selection.
+
 Re-enter before red.
 
 If this is a fresh thread or an unfamiliar area, reload:
@@ -84,6 +86,22 @@ Even when `ln-scope` honored the hard anti-speculation gate (no card's scope was
 - if any answer is yes, mark this card and every remaining card in the file as `stale` and stop the serial loop. Route back to `ln-scope` for the rest of the chain.
 
 Never silently continue past a stale-downstream signal. Never silently delete a stale chain before a replacement exists.
+
+## Coverage execution mode
+
+When a scope file is `Mode: coverage` (see [`ln-scope`](../ln-scope/SKILL.md) §Coverage scope files), it holds a closed enumerated ledger of one capability layer rather than a sequence of full cards. The build loop is row-driven:
+
+1. take the next open required (`●`) row — one whose Status is `spec`, `new`, or `partial`
+2. build it under the **fill mode declared in that row** (`proving` → tracer that retires the row's unknown; `earned` → land and lock the settled capability). A `new` row needs its micro-decision resolved (`ln-disambiguate` / `ln-spec`) before it can be built
+3. run red → green → refactor and the verification harness for that row
+4. flip the row's Status to `built` in the ledger and reconcile canonical state
+5. commit the row-sized change
+6. continue until **no `●` row remains in `spec` / `new` / `partial`** — that aggregate DoD, not any single row, completes the coverage frontier
+
+The chain stop conditions and Stale-downstream re-orient apply per row. Two coverage-specific rules:
+
+- **Do not add rows as you go** except to record a genuinely-missing capability (Status `new`, one-line justification). The ledger is a closed list; filling it never means "do everything that rhymes" (global `AGENTS.md` §completionist sprawl).
+- **A row that grows past ledger-row size** spawns its own `single` scope file; replace the row's Owner / next cell with a pointer rather than fattening the ledger.
 
 ## Red
 

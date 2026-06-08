@@ -8,7 +8,7 @@
   "maxTurnBudget": 3,
   "completedTurns": 3,
   "friction": [],
-  "cwd": "/var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-public-rpc-parity-Y7G3Y6",
+  "cwd": "<ephemeral-workspace>",
   "specId": "spec-98433c35-3e61-4ab7-9c4f-72331e210aa2",
   "sessionId": "019e73ee-02c2-7d43-90e5-7de4cd6ed486",
   "toolCoverage": [
@@ -25,9 +25,9 @@
   ],
   "transcriptDisplayRows": 6,
   "artifacts": {
-    "runDir": ".fixtures/runs/public-rpc-parity/2026-05-29-public-rpc-parity",
-    "sessionJsonl": ".fixtures/runs/public-rpc-parity/2026-05-29-public-rpc-parity/session.jsonl",
-    "transcriptMarkdown": ".fixtures/runs/public-rpc-parity/2026-05-29-public-rpc-parity/transcript.md",
-    "reportJson": ".fixtures/runs/public-rpc-parity/2026-05-29-public-rpc-parity/report.json"
+    "runDir": "runs/public-rpc-parity/2026-05-29-public-rpc-parity",
+    "sessionJsonl": "runs/public-rpc-parity/2026-05-29-public-rpc-parity/session.jsonl",
+    "transcriptMarkdown": "runs/public-rpc-parity/2026-05-29-public-rpc-parity/transcript.md",
+    "reportJson": "runs/public-rpc-parity/2026-05-29-public-rpc-parity/report.json"
   }
 }

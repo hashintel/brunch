@@ -4,10 +4,10 @@
   "runId": "2026-06-06-project-graph-review-cycle",
   "generatedAt": "2026-06-06T14:02:59.202Z",
   "mission": "Prove the project-graph strategy can present an exact review set and approve it through public RPC.",
-  "evaluationFocus": "FE-809 real agent proposal → present_review_set → session.submitExchangeResponse approval → explicit graph readback.",
+  "evaluationFocus": "FE-809 real agent proposal \u2192 present_review_set \u2192 session.submitExchangeResponse approval \u2192 explicit graph readback.",
   "seedSet": "bilal-port-variants",
   "seedSlug": "macro-view-grounded-intent",
-  "cwd": "/var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-project-graph-review-XEjX3W",
+  "cwd": "<ephemeral-workspace>",
   "specId": 1,
   "sessionId": "019e9d3e-7f21-76ae-bbc2-2955f779cdac",
   "prompt": "Brunch FE-809 project-graph proof. The selected spec is seeded from \"macro-view-grounded-intent\" and already has explicit intent-plane graph truth.\n\nUse read_graph in overview mode to inspect existing node codes. Then use present_review_set exactly once to propose a small exact review set derived from the existing macro-view intent graph.\n\nProposal constraints:\n- Create one or two new intent-plane requirement or criterion nodes.\n- Include at least one edge using category \"support\" with stance \"for\" or category \"realization\".\n- When referencing existing graph truth, use existingCode strings from read_graph output, never raw ids.\n- Use schemaVersion 1, lens \"intent\", epistemicStatus \"inferred\", non-empty grounding.summary, grounding.support, pitch.title, and pitch.narrative.\n- Do not call commit_graph.\n- Do not call request_review; stop after a successful present_review_set so the external Brunch RPC reviewer can approve it.",
@@ -117,11 +117,10 @@
   ],
   "friction": [],
   "artifacts": {
-    "runDir": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle",
-    "sessionJsonl": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/session.jsonl",
-    "transcriptMarkdown": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/transcript.md",
-    "reportJson": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/report.json",
-    "graphSnapshotJson": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/graph-snapshot.json"
+    "runDir": "runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle",
+    "sessionJsonl": "runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/session.jsonl",
+    "transcriptMarkdown": "runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/transcript.md",
+    "reportJson": "runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/report.json",
+    "graphSnapshotJson": "runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/graph-snapshot.json"
   }
 }
-

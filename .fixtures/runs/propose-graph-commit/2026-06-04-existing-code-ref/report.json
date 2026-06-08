@@ -7,7 +7,7 @@
   "evaluationFocus": "A14-L selected-spec projected-code reference through the default runtime.",
   "scenarioId": "existing-code-ref",
   "success": true,
-  "cwd": "/var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-propose-graph-commit-7xu0IC",
+  "cwd": "<ephemeral-workspace>",
   "specId": 1,
   "sessionId": "019e9317-2252-7279-9f8c-37344e811041",
   "prompt": "Brunch A14-L probe: the selected specification graph already contains a launch-readiness goal.\n\nUse read_graph once in overview mode. Find the projected code for the existing launch-readiness goal, then use commit_graph to create one new requirement node titled \"Rollback path is documented\" and one legal edge connecting that new requirement to the existing goal by using the existing node's projected code as {existingCode: \"G1\"}. Do not recreate the existing goal. Stop after a successful commit_graph result.",
@@ -60,9 +60,9 @@
   },
   "friction": [],
   "artifacts": {
-    "runDir": ".fixtures/runs/propose-graph-commit/2026-06-04-existing-code-ref",
-    "sessionJsonl": ".fixtures/runs/propose-graph-commit/2026-06-04-existing-code-ref/session.jsonl",
-    "transcriptMarkdown": ".fixtures/runs/propose-graph-commit/2026-06-04-existing-code-ref/transcript.md",
-    "reportJson": ".fixtures/runs/propose-graph-commit/2026-06-04-existing-code-ref/report.json"
+    "runDir": "runs/propose-graph-commit/2026-06-04-existing-code-ref",
+    "sessionJsonl": "runs/propose-graph-commit/2026-06-04-existing-code-ref/session.jsonl",
+    "transcriptMarkdown": "runs/propose-graph-commit/2026-06-04-existing-code-ref/transcript.md",
+    "reportJson": "runs/propose-graph-commit/2026-06-04-existing-code-ref/report.json"
   }
 }

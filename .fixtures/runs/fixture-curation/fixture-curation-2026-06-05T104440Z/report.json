@@ -6,7 +6,7 @@
   "seedSet": "bilal-port-variants",
   "seedSlug": "macro-view-grounded-intent",
   "selectedBaseProfile": "grounded-intent",
-  "cwd": "/var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-fixture-curation-vg9Eo2",
+  "cwd": "<ephemeral-workspace>",
   "specId": 1,
   "sessionId": "019e96f4-ae08-762d-9783-ddd94163e7b3",
   "prompt": "Brunch fixture-curation tracer: the selected spec is a Bilal-derived explicit base seed named \"macro-view-grounded-intent\".\n\nUse read_graph once in overview mode. Then use commit_graph exactly once to add a small intent-plane expansion that improves launch/usefulness of this existing spec without duplicating base nodes. Create one to three new intent-plane nodes, connect them legally to existing graph truth when possible, use basis implicit through the propose-graph tool path, and stop after a successful commit_graph result.",
@@ -36,7 +36,7 @@
         11,
         12
       ],
-      "content": "Graph committed successfully (LSN 3).\nNodes created: n1 → R1, n2 → R2\nEdges created: #7, #8, #9, #10, #11, #12"
+      "content": "Graph committed successfully (LSN 3).\nNodes created: n1 \u2192 R1, n2 \u2192 R2\nEdges created: #7, #8, #9, #10, #11, #12"
     }
   ],
   "createdNodes": [
@@ -68,10 +68,10 @@
   },
   "friction": [],
   "artifacts": {
-    "runDir": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z",
-    "sessionJsonl": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/session.jsonl",
-    "transcriptMarkdown": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/transcript.md",
-    "reportJson": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/report.json",
-    "graphSnapshotJson": "/Users/lunelson/Code/hashintel/brunch-next/.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/graph-snapshot.json"
+    "runDir": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z",
+    "sessionJsonl": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z/session.jsonl",
+    "transcriptMarkdown": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z/transcript.md",
+    "reportJson": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z/report.json",
+    "graphSnapshotJson": "runs/fixture-curation/fixture-curation-2026-06-05T104440Z/graph-snapshot.json"
   }
 }

@@ -7,7 +7,7 @@
   "evaluationFocus": "A14-L ambiguity handling without unsupported graph overcommit.",
   "scenarioId": "ambiguity-no-overcommit",
   "success": true,
-  "cwd": "/var/folders/2c/ptn6jcrj61lck_yzfz_p3b5m0000gn/T/brunch-propose-graph-commit-qHP5ki",
+  "cwd": "<ephemeral-workspace>",
   "specId": 1,
   "sessionId": "019e931d-0757-7c85-874a-186bffe8dea6",
   "prompt": "Brunch A14-L ambiguity/no-overcommit probe.\n\nThe user says: \"Maybe our launch process has some risk somewhere; please update the spec graph if that seems useful.\"\n\nUse read_graph once in overview mode. Because the prompt does not provide a concrete accepted graph fact, do not call commit_graph. Instead, respond with a concise clarification request or explanation that there is not enough accepted graph truth to commit yet.",
@@ -33,9 +33,9 @@
   "ambiguityOutcome": "no_op_or_clarification",
   "friction": [],
   "artifacts": {
-    "runDir": ".fixtures/runs/propose-graph-commit/2026-06-04-ambiguity-no-overcommit",
-    "sessionJsonl": ".fixtures/runs/propose-graph-commit/2026-06-04-ambiguity-no-overcommit/session.jsonl",
-    "transcriptMarkdown": ".fixtures/runs/propose-graph-commit/2026-06-04-ambiguity-no-overcommit/transcript.md",
-    "reportJson": ".fixtures/runs/propose-graph-commit/2026-06-04-ambiguity-no-overcommit/report.json"
+    "runDir": "runs/propose-graph-commit/2026-06-04-ambiguity-no-overcommit",
+    "sessionJsonl": "runs/propose-graph-commit/2026-06-04-ambiguity-no-overcommit/session.jsonl",
+    "transcriptMarkdown": "runs/propose-graph-commit/2026-06-04-ambiguity-no-overcommit/transcript.md",
+    "reportJson": "runs/propose-graph-commit/2026-06-04-ambiguity-no-overcommit/report.json"
   }
 }

@@ -9,7 +9,7 @@
  * Future callers:
  * - renderers/graph/*
  * - renderers/session/*
- * - renderers/structured-exchange/*
+ * - renderers/exchanges/*
  */
 
 export function markdownHeading(level: number, text: string): string {

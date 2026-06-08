@@ -52,7 +52,7 @@ describe('Pi JSONL transcript viability', () => {
     const { file, manager } = createPersistedSession();
     const customEntries = [
       ['brunch.lens_switch', { lens: 'verification-design', reason: 'test' }],
-      ['brunch.mention', { entityId: 'node-1', snapshottedLsn: 7, title: 'Known node' }],
+      ['brunch.mention', { entityId: 'node-1', seenLsn: 7, title: 'Known node' }],
       ['brunch.mention_staleness_hint', { entityId: 'node-1', seenLsn: 7, currentLsn: 9 }],
       [
         'brunch.continuity',

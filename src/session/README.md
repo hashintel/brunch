@@ -37,17 +37,17 @@ plus the coordination logic for workspace/spec/session lifecycle.
 
 - **LSN staleness tracking** — Pi extension records current LSN at session
   start, checks at `prepareNextTurn`, injects `worldUpdate` with optional
-  re-snapshot when stale.
+  context refresh when stale.
 
 ## Does NOT own
 
-- Graph state, CommandExecutor, graph snapshots — those live in `graph/`.
+- Graph state, CommandExecutor, graph queries — those live in `graph/`.
 - Prompt composition, context building — those live in `.pi/agents/`.
 - Pi extension registration — those live in `.pi/extensions/`.
 
 ## Imported by
 
-- `.pi/agents/contexts/` — for session/transcript snapshots.
+- `.pi/agents/contexts/` — for session/transcript context reads.
 - `projections/session/` — for reusable transcript-context DTO projection.
 - `renderers/session/` — for reusable transcript markdown rendering.
 - `rpc/` — for session.* and workspace.* RPC handlers.

@@ -274,4 +274,82 @@ describe('structured exchange loop helpers', () => {
       ],
     });
   });
+
+  it('round-trips present_candidates provenance so answers capture as candidates', () => {
+    const envelope: BrunchSessionEnvelope = {
+      header: header as unknown as BrunchSessionEnvelope['header'],
+      binding,
+      entries: [
+        header,
+        bindingEntry,
+        {
+          id: 'present-candidates-1',
+          type: 'message',
+          parentId: 'binding-1',
+          timestamp: 0,
+          message: {
+            role: 'toolResult',
+            toolCallId: 'present-call-1',
+            toolName: 'present_candidates',
+            content: [
+              {
+                type: 'text',
+                text: [
+                  '## Pick a candidate',
+                  '',
+                  '### 1. Candidate A',
+                  '',
+                  '<!-- option-id: cand-a -->',
+                ].join('\n'),
+              },
+            ],
+            details: {
+              schema: 'brunch.structured_exchange.present',
+              v: 1,
+              exchange_id: 'cand',
+              tool_meta: { curr: 'present_candidates', next: 'request_choice' },
+              display: { heading: 'Pick a candidate' },
+              candidates: [
+                {
+                  id: 'cand-a',
+                  title: 'Candidate A',
+                  user_rubric: {
+                    core_bet: 'try A',
+                    best_fit: 'small teams',
+                    cost_complexity: 'low',
+                    covers_well: 'most cases',
+                    main_risks: 'few',
+                    lock_in_constraints: 'none',
+                  },
+                  meta_rubric: {},
+                  graph_refs: [],
+                },
+              ],
+            },
+            isError: false,
+          },
+        },
+      ] as unknown as BrunchSessionEnvelope['entries'],
+    };
+
+    const pending = pendingExchangeFromEnvelope(envelope);
+    expect(pending).toMatchObject({
+      exchangeId: 'cand',
+      mode: 'single-select',
+      respondsToPresentTool: 'present_candidates',
+    });
+
+    const accepted = acceptedResponseFromParams(pending!, {
+      exchangeId: 'cand',
+      answer: { optionId: 'cand-a' },
+    });
+    expect(accepted).toMatchObject({
+      ok: true,
+      toolResultMessage: {
+        details: {
+          tool_meta: { prev: 'present_candidates', curr: 'request_choice', next: 'capture_candidate' },
+        },
+      },
+    });
+  });
 });

@@ -1,5 +1,5 @@
 /**
- * Formats projected reconciliation-need snapshots into model-facing text.
+ * Formats projected reconciliation-need context into model-facing text.
  *
  * Input:
  * - projected output from projections/graph/reconciliation-needs.ts
@@ -8,7 +8,7 @@
  * - markdown-framed TOON or equivalent compact text for LLM consumption
  *
  * Future users:
- * - pushed prompt snapshots
+ * - pushed prompt context
  * - future graph read surfaces covering reconciliation work
  */
 

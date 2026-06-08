@@ -194,10 +194,10 @@ describe('web host', () => {
       coordinator: createWorkspaceSessionCoordinator({ cwd }),
     });
     try {
-      const snapshot = await websocketRpc(host.url, {
+      const state = await websocketRpc(host.url, {
         jsonrpc: '2.0',
         id: 1,
-        method: 'workspace.snapshot',
+        method: 'workspace.state',
       });
       const exchanges = await websocketRpc(host.url, {
         jsonrpc: '2.0',
@@ -205,7 +205,7 @@ describe('web host', () => {
         method: 'session.exchanges',
       });
 
-      expect(snapshot).toMatchObject({
+      expect(state).toMatchObject({
         jsonrpc: '2.0',
         id: 1,
         result: { status: 'ready', spec: { title: 'Web spec' } },
@@ -294,7 +294,7 @@ describe('web host', () => {
         id: 16,
         result: {
           methods: expect.arrayContaining([
-            expect.objectContaining({ method: 'workspace.snapshot' }),
+            expect.objectContaining({ method: 'workspace.state' }),
             expect.objectContaining({ method: 'workspace.selectionState' }),
             expect.objectContaining({ method: 'session.pendingExchange' }),
             expect.objectContaining({ method: 'session.exchanges' }),
@@ -444,8 +444,8 @@ describe('web host', () => {
     });
     try {
       const responses = await websocketRpcBatch(host.url, [
-        { jsonrpc: '2.0', id: 10, method: 'workspace.snapshot' },
-        { jsonrpc: '2.0', id: 11, method: 'workspace.snapshot' },
+        { jsonrpc: '2.0', id: 10, method: 'workspace.state' },
+        { jsonrpc: '2.0', id: 11, method: 'workspace.state' },
       ]);
 
       expect(responses).toHaveLength(2);
@@ -482,7 +482,7 @@ describe('web host', () => {
         websocketRpc(host.url, {
           jsonrpc: '2.0',
           id: 12,
-          method: 'workspace.snapshot',
+          method: 'workspace.state',
         }),
       ).resolves.toMatchObject({ jsonrpc: '2.0', id: 12 });
     } finally {
@@ -500,7 +500,7 @@ describe('web host', () => {
       const response = await websocketRpc(host.url, {
         jsonrpc: '2.0',
         id: 13,
-        method: 'workspace.snapshot',
+        method: 'workspace.state',
       });
 
       expect(response).toEqual({
@@ -528,7 +528,7 @@ describe('web host', () => {
         JSON.stringify({
           jsonrpc: '2.0',
           id: 14,
-          method: 'workspace.snapshot',
+          method: 'workspace.state',
         }),
       );
 
@@ -606,7 +606,7 @@ describe('web host', () => {
   it('does not expose product read endpoints over HTTP GET', async () => {
     const host = await startWebHost({ cwd: '/tmp/brunch-project', port: 0 });
     try {
-      const response = await fetch(`${host.url}/workspace.snapshot`);
+      const response = await fetch(`${host.url}/workspace.state`);
 
       expect(response.status).toBe(404);
     } finally {

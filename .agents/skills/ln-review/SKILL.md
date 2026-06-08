@@ -1,6 +1,6 @@
 ---
 name: ln-review
-description: "Audit code quality focusing on deep modules, naming, model hygiene, topographic legibility, and architectural clarity. Use after a burst of development, when codebase structure needs assessment, or to make code more agent-navigable."
+description: "Audit code quality focusing on deep modules, naming, model hygiene, ambient-contract reliance, topographic legibility, and architectural clarity. Use after a burst of development, when codebase structure needs assessment, or to make code more agent-navigable."
 argument-hint: "[area of codebase to review, or 'recent' for recently changed files]"
 ---
 
@@ -45,6 +45,22 @@ Check the functional core / imperative shell boundary (Gary Bernhardt, "Boundari
 ### Model integrity (category: `model`)
 
 Make invalid states unrepresentable (Yaron Minsky). Split optional fields into distinct types. Use branded types for domain-distinct values.
+
+### Contract integrity (category: `contract`)
+
+Find invariants the code *assumes* but never enforces, threads, or names — "ambient-contract reliance." The seam works today only because the assumption happens to hold; nothing makes the contract intentional, and a reviewer can't tell intended behavior from accident. Each finding routes to one of three repairs: **enforce it loudly** (fail on violation), **thread the real value** (carry provenance instead of hardcoding it), or **name the contract** (a predicate/type/comment that makes the assumption explicit).
+
+Concrete cues to look for:
+
+- A `Map`/object built from a list keyed by a field assumed unique → duplicates silently last-win. Repair: throw on collision.
+- A dedup or "first wins / last wins" that silently drops data the caller meant to keep. Repair: thread distinct keys, or fail loudly.
+- A hardcoded literal standing in for a value that should be carried from upstream (`respondsToPresentTool: 'present_options'` when the originating tool varies). Repair: thread the real provenance.
+- Persisted or serialized data that assumes an ambient environment (absolute paths, `cwd`, tempdirs, machine-local roots leaking into committed fixtures). Repair: name the portable contract and normalize at the boundary.
+- A magic check inferring readiness/state from an object's incidental shape instead of a named constant or predicate. Repair: name the predicate against the canonical constant.
+- Ordering or position encoded by a numeric index/splice rather than by structure. Repair: make the order declarative.
+- A type alias or name that implies a wider contract than it points at. Repair: point it at the real union, or rename.
+
+Collect findings as numbered items (category: `contract`). Frame each as: the assumed contract in one sentence, the failure mode when it breaks, and which of the three repairs applies. Most are concrete fixes (`ln-scope`/`ln-build`); clusters across a seam route to `ln-refactor`.
 
 ### Oracle coverage (category: `oracle-coverage`)
 
@@ -109,7 +125,7 @@ Present findings as numbered candidates. Use the compact form for ordinary findi
 ```md
 ## Review: [area]
 
-1. **[Description]** — [category: depth|naming|model|coupling|seam|oracle-coverage|topography] — [impact: low|medium|high]
+1. **[Description]** — [category: depth|naming|model|contract|coupling|seam|oracle-coverage|topography] — [impact: low|medium|high]
    [1-2 sentence explanation and suggested action]
 
 2. ...

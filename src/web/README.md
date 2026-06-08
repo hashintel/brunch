@@ -33,13 +33,13 @@ web/
 
   query-keys.ts
     method-shaped product query keys:
-      workspace.snapshot
+      workspace.state
       session.runtimeState
       graph.overview
       graph.nodeNeighborhood
 
   queries/
-    workspace.ts -> workspace.snapshot query options
+    workspace.ts -> workspace.state query options
     session.ts   -> session.runtimeState query options
     graph.ts     -> graph overview/neighborhood query options
 
@@ -51,7 +51,7 @@ web/
     root.tsx
       root subscription + `/` workspace/session proof route
     spec.tsx
-      `/spec/$specId` loader primes workspace.snapshot + graph.overview
+      `/spec/$specId` loader primes workspace.state + graph.overview
 
   features/graph/GraphOverview.tsx
     read-only selected-spec graph projection
@@ -155,7 +155,7 @@ web/
 
   queries/
     workspace.ts
-      workspaceSnapshotQueryOptions(rpc)
+      workspaceStateQueryOptions(rpc)
       workspaceSelectionStateQueryOptions(rpc)
 
     session.ts
@@ -222,7 +222,7 @@ Keys should mirror Brunch product resources, not database tables:
 ```pseudo
 queryKeys = {
   workspace: {
-    snapshot: ['workspace.snapshot'],
+    state: ['workspace.state'],
     selectionState: ['workspace.selectionState'],
   },
 
@@ -265,9 +265,9 @@ Method names follow `src/rpc/README.md`. The TUI-started web sidecar is read-onl
 
 ```pseudo
 current implemented hooks:
-  workspace.snapshot
-    workspaceSnapshotQueryOptions(rpc)
-    query key: ['workspace.snapshot']
+  workspace.state
+    workspaceStateQueryOptions(rpc)
+    query key: ['workspace.state']
     route loader: root and spec routes
 
   session.runtimeState
@@ -305,7 +305,7 @@ planned read hooks:
 planned mutation hooks (not sidecar-accepted today):
   workspace.activate
     activateWorkspaceMutationOptions(rpc)
-    On success: invalidate workspace.snapshot, workspace.selectionState, session/graph keys for selected resources.
+    On success: invalidate workspace.state, workspace.selectionState, session/graph keys for selected resources.
 
   session.triggerExchange
     triggerExchangeMutationOptions(rpc)
@@ -337,8 +337,8 @@ useBrunchUpdateInvalidation(rpc, queryClient)
   subscribe to server notifications once at app/root level
 
   for each notification:
-    if topic == workspace.snapshot:
-      invalidate queryKeys.workspace.snapshot
+    if topic == workspace.state:
+      invalidate queryKeys.workspace.state
 
     if topic == session.pendingExchange:
       invalidate exact pendingExchange key
@@ -382,7 +382,7 @@ feature component
 ```pseudo
 ProposeGraphExchange route/panel
   required:
-    workspace.snapshot
+    workspace.state
     session.pendingExchange(specId, sessionId)
 
   context panels:

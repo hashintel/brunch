@@ -47,7 +47,7 @@ function rpcClient() {
 describe('browser WebSocket RPC client', () => {
   it('opens one persistent socket and queues requests until open', async () => {
     const client = rpcClient();
-    const first = client.request('workspace.snapshot');
+    const first = client.request('workspace.state');
     const second = client.request('session.exchanges');
 
     expect(FakeWebSocket.instances).toHaveLength(1);
@@ -65,8 +65,8 @@ describe('browser WebSocket RPC client', () => {
 
   it('resolves concurrent requests by response id, not response order', async () => {
     const client = rpcClient();
-    const first = client.request('workspace.snapshot');
-    const second = client.request('workspace.snapshot');
+    const first = client.request('workspace.state');
+    const second = client.request('workspace.state');
     const socket = FakeWebSocket.instances[0]!;
 
     socket.emit('open');
@@ -81,7 +81,7 @@ describe('browser WebSocket RPC client', () => {
     const client = rpcClient();
     const notifications: unknown[] = [];
     client.subscribe((notification) => notifications.push(notification));
-    const request = client.request('workspace.snapshot');
+    const request = client.request('workspace.state');
     const socket = FakeWebSocket.instances[0]!;
 
     socket.emit('open');
@@ -93,9 +93,9 @@ describe('browser WebSocket RPC client', () => {
         params: { topics: ['session.runtimeState'] },
       }),
     );
-    socket.emit('message', JSON.stringify({ jsonrpc: '2.0', id: 1, result: 'snapshot' }));
+    socket.emit('message', JSON.stringify({ jsonrpc: '2.0', id: 1, result: 'state' }));
 
-    await expect(request).resolves.toBe('snapshot');
+    await expect(request).resolves.toBe('state');
     expect(notifications).toEqual([
       {
         jsonrpc: '2.0',
@@ -120,7 +120,7 @@ describe('browser WebSocket RPC client', () => {
 
   it('rejects JSON-RPC failures with code and message', async () => {
     const client = rpcClient();
-    const request = client.request('workspace.snapshot');
+    const request = client.request('workspace.state');
     const socket = FakeWebSocket.instances[0]!;
 
     socket.emit('open');
@@ -142,7 +142,7 @@ describe('browser WebSocket RPC client', () => {
 
   it('rejects all pending requests and later calls on malformed response frames', async () => {
     const client = rpcClient();
-    const first = client.request('workspace.snapshot');
+    const first = client.request('workspace.state');
     const second = client.request('session.exchanges');
     const socket = FakeWebSocket.instances[0]!;
 
@@ -151,14 +151,12 @@ describe('browser WebSocket RPC client', () => {
 
     await expect(first).rejects.toThrow('Brunch WebSocket RPC protocol failure');
     await expect(second).rejects.toThrow('Brunch WebSocket RPC protocol failure');
-    await expect(client.request('workspace.snapshot')).rejects.toThrow(
-      'Brunch WebSocket RPC protocol failure',
-    );
+    await expect(client.request('workspace.state')).rejects.toThrow('Brunch WebSocket RPC protocol failure');
   });
 
   it('rejects all pending requests and later calls on invalid response frames', async () => {
     const client = rpcClient();
-    const first = client.request('workspace.snapshot');
+    const first = client.request('workspace.state');
     const second = client.request('session.exchanges');
     const socket = FakeWebSocket.instances[0]!;
 
@@ -167,14 +165,12 @@ describe('browser WebSocket RPC client', () => {
 
     await expect(first).rejects.toThrow('Brunch WebSocket RPC protocol failure');
     await expect(second).rejects.toThrow('Brunch WebSocket RPC protocol failure');
-    await expect(client.request('workspace.snapshot')).rejects.toThrow(
-      'Brunch WebSocket RPC protocol failure',
-    );
+    await expect(client.request('workspace.state')).rejects.toThrow('Brunch WebSocket RPC protocol failure');
   });
 
   it('rejects all pending requests and later calls on unknown response IDs', async () => {
     const client = rpcClient();
-    const first = client.request('workspace.snapshot');
+    const first = client.request('workspace.state');
     const second = client.request('session.exchanges');
     const socket = FakeWebSocket.instances[0]!;
 
@@ -183,14 +179,12 @@ describe('browser WebSocket RPC client', () => {
 
     await expect(first).rejects.toThrow('Brunch WebSocket RPC protocol failure');
     await expect(second).rejects.toThrow('Brunch WebSocket RPC protocol failure');
-    await expect(client.request('workspace.snapshot')).rejects.toThrow(
-      'Brunch WebSocket RPC protocol failure',
-    );
+    await expect(client.request('workspace.state')).rejects.toThrow('Brunch WebSocket RPC protocol failure');
   });
 
   it('rejects all pending requests on socket close', async () => {
     const client = rpcClient();
-    const first = client.request('workspace.snapshot');
+    const first = client.request('workspace.state');
     const second = client.request('session.exchanges');
     const socket = FakeWebSocket.instances[0]!;
 
@@ -203,7 +197,7 @@ describe('browser WebSocket RPC client', () => {
 
   it('treats socket errors as terminal connection failures', async () => {
     const client = rpcClient();
-    const first = client.request('workspace.snapshot');
+    const first = client.request('workspace.state');
     const second = client.request('session.exchanges');
     const socket = FakeWebSocket.instances[0]!;
 
@@ -213,14 +207,12 @@ describe('browser WebSocket RPC client', () => {
 
     await expect(first).rejects.toThrow('Brunch WebSocket RPC connection failed');
     await expect(second).rejects.toThrow('Brunch WebSocket RPC connection failed');
-    await expect(client.request('workspace.snapshot')).rejects.toThrow(
-      'Brunch WebSocket RPC connection failed',
-    );
+    await expect(client.request('workspace.state')).rejects.toThrow('Brunch WebSocket RPC connection failed');
   });
 
   it('exposes close and rejects later requests', async () => {
     const client = rpcClient();
-    const pending = client.request('workspace.snapshot');
+    const pending = client.request('workspace.state');
     const socket = FakeWebSocket.instances[0]!;
     socket.emit('open');
 
@@ -228,6 +220,6 @@ describe('browser WebSocket RPC client', () => {
 
     expect(socket.closed).toBe(true);
     await expect(pending).rejects.toThrow('Brunch WebSocket RPC client closed');
-    await expect(client.request('workspace.snapshot')).rejects.toThrow('Brunch WebSocket RPC client closed');
+    await expect(client.request('workspace.state')).rejects.toThrow('Brunch WebSocket RPC client closed');
   });
 });

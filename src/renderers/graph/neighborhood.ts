@@ -1,5 +1,5 @@
 /**
- * Formats projected node neighborhood snapshots into model-facing text.
+ * Formats projected node neighborhood context into model-facing text.
  *
  * Input:
  * - projected output from projections/graph/neighborhood.ts

@@ -1,13 +1,14 @@
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
+import type { GraphOverview } from '../graph/queries.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
-import type { GraphOverview } from '../graph/snapshot.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../rpc/product-updates.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
+import { portableCwd } from './portable-report.js';
 
 interface JsonRpcSuccess<T> {
   readonly jsonrpc: '2.0';
@@ -188,19 +189,24 @@ export async function runCaptureResponseToGraphProof(
   };
 
   if (options.fixtureRoot === undefined) return reportWithoutArtifacts;
+  const fixtureRoot = options.fixtureRoot;
 
-  const runDir = join(options.fixtureRoot, 'runs', 'capture-response-to-graph', runId);
-  await mkdir(runDir, { recursive: true });
+  // Persisted artifact references are fixture-root-relative so committed
+  // reports stay portable; disk paths are resolved against the fixture root.
+  const runDirRef = `runs/capture-response-to-graph/${runId}`;
+  const diskPath = (ref: string) => resolve(fixtureRoot, ref);
   const artifacts = {
-    runDir,
-    sessionJsonl: join(runDir, 'session.jsonl'),
-    transcriptMarkdown: join(runDir, 'transcript.md'),
-    reportJson: join(runDir, 'report.json'),
+    runDir: runDirRef,
+    sessionJsonl: `${runDirRef}/session.jsonl`,
+    transcriptMarkdown: `${runDirRef}/transcript.md`,
+    reportJson: `${runDirRef}/report.json`,
   };
   const report = { ...reportWithoutArtifacts, artifacts };
-  await writeFile(artifacts.sessionJsonl, sessionJsonl);
-  await writeFile(artifacts.transcriptMarkdown, transcriptMarkdown);
-  await writeFile(artifacts.reportJson, `${JSON.stringify(report, null, 2)}\n`);
+  await mkdir(diskPath(artifacts.runDir), { recursive: true });
+  await writeFile(diskPath(artifacts.sessionJsonl), sessionJsonl);
+  await writeFile(diskPath(artifacts.transcriptMarkdown), transcriptMarkdown);
+  const persistedReport = { ...report, cwd: portableCwd(report.cwd) };
+  await writeFile(diskPath(artifacts.reportJson), `${JSON.stringify(persistedReport, null, 2)}\n`);
   return report;
 }
 

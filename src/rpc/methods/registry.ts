@@ -53,5 +53,12 @@ export function discoverRpcMethods<Context>(registry: RpcMethodRegistry<Context>
 export function registryByMethod<Context>(
   registry: RpcMethodRegistry<Context>,
 ): ReadonlyMap<string, RpcMethodDefinition<Context>> {
-  return new Map(registry.map((definition) => [definition.method, definition]));
+  const byMethod = new Map<string, RpcMethodDefinition<Context>>();
+  for (const definition of registry) {
+    if (byMethod.has(definition.method)) {
+      throw new Error(`Duplicate RPC method definition: ${definition.method}`);
+    }
+    byMethod.set(definition.method, definition);
+  }
+  return byMethod;
 }

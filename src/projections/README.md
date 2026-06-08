@@ -14,8 +14,8 @@ Projection modules preserve information; they do not render markdown, perform Pi
 projections/
   graph/                 graph read/command DTO projection
   session/               transcript-context and runtime-state DTO projection
-  structured-exchange/   canonical toolResult.details construction and transcript details → domain DTO adapters
-  workspace/             workspace/session snapshot DTO projection
+  exchanges/             canonical toolResult.details construction and transcript details → domain DTO adapters
+  workspace/             workspace/session state DTO projection
 ```
 
 ## Dependency direction
@@ -27,5 +27,5 @@ projections/  x> .pi/, rpc/, app/, web/
 
 Current migration notes:
 
-- `projections/structured-exchange/*` imports Zod schemas from `.pi/extensions/exchanges/schemas/` because D37-L/D41-L currently place the structured-exchange schema lock at that Pi transcript seam. That is an explicit temporary exception, not a general adapter dependency permission.
+- `projections/exchanges/*` imports Zod schemas from `.pi/extensions/exchanges/schemas/` because D37-L/D41-L currently place the structured-exchange schema lock at that Pi transcript seam. That is an explicit temporary exception, not a general adapter dependency permission.
 - `projections/session/runtime-state.ts` owns flattened runtime-state DTO projection while `session/runtime-state.ts` owns transcript entry facts and append helpers.

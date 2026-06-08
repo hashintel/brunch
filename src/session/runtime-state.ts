@@ -4,6 +4,7 @@ export type OperationalModeId = 'elicit';
 export type AgentRoleId = 'elicitor';
 export type AutoAxisSelection = 'auto';
 export type AgentStrategyId =
+  | 'freestyle'
   | 'step-wise-decision-tree'
   | 'step-wise-disambiguate'
   | 'propose-graph'
@@ -55,7 +56,8 @@ export const DEFAULT_BRUNCH_AGENT_STATE: BrunchAgentState = {
 };
 
 const OPERATIONAL_MODE_IDS: readonly OperationalModeId[] = ['elicit'];
-const AGENT_STRATEGY_IDS: readonly AgentStrategyId[] = [
+export const AGENT_STRATEGY_IDS: readonly AgentStrategyId[] = [
+  'freestyle',
   'step-wise-decision-tree',
   'step-wise-disambiguate',
   'propose-graph',

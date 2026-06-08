@@ -56,7 +56,7 @@ modes (same Node process for tui/print, separate processes for rpc/web sidecar):
     read-only JSON-RPC handlers
     serves the React+Vite SPA from dist-web
   print
-    snapshot render of workspace state, no agent loop
+    state render of workspace state, no agent loop
 
 stores:
   Pi JSONL transcript (.brunch/sessions/*.jsonl)

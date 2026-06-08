@@ -192,7 +192,7 @@ A successful run writes:
 ├── session.jsonl
 ├── transcript.md
 ├── report.json
-└── graph-snapshot.json
+└── graph-overview.json
 ```
 
 The existing reference run is `.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/`. Its report shows 70 explicit base nodes plus implicit product-created nodes/edges from one real `commit_graph` tool call.

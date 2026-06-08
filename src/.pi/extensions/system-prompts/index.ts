@@ -5,11 +5,11 @@ import {
   renderCwdContext,
   renderGraphContext,
   type AgentPromptSessionContext,
-  type AgentPromptSnapshotContext,
+  type AgentPromptContextBundle,
   type AgentPromptSpecContext,
   type AgentPromptWorkspaceContext,
 } from '../../agents/index.js';
-import type { GraphSnapshotReaders } from '../graph/index.js';
+import type { GraphReaders } from '../graph/index.js';
 import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
 
 type BrunchAgentStateEntries = Parameters<typeof projectBrunchAgentState>[0];
@@ -30,8 +30,8 @@ export interface BrunchPromptContext {
   spec: AgentPromptSpecContext;
   workspace: AgentPromptWorkspaceContext;
   session?: AgentPromptSessionContext;
-  snapshots?: AgentPromptSnapshotContext;
-  graphSnapshots?: GraphSnapshotReaders;
+  context?: AgentPromptContextBundle;
+  graphReads?: GraphReaders;
 }
 
 export type BrunchPromptContextProvider =
@@ -60,13 +60,13 @@ export function registerBrunchPrompting(pi: ExtensionAPI, promptContext: BrunchP
     if (typeof (pi as Partial<ExtensionAPI>).setActiveTools === 'function') {
       pi.setActiveTools(activeTools);
     }
-    const snapshots = snapshotsForPromptContext(resolvedPromptContext, state);
+    const context = contextForPrompt(resolvedPromptContext, state);
     const { prompt } = composeAgentPrompt({
       agentId: state.agentRole,
       sessionState: state,
       spec: resolvedPromptContext.spec,
       workspace: resolvedPromptContext.workspace,
-      snapshots,
+      context,
       activeTools,
     });
 
@@ -79,10 +79,10 @@ export function registerBrunchPrompting(pi: ExtensionAPI, promptContext: BrunchP
   });
 }
 
-function snapshotsForPromptContext(
+function contextForPrompt(
   context: BrunchPromptContext,
   state: ReturnType<typeof projectState>,
-): AgentPromptSnapshotContext {
+): AgentPromptContextBundle {
   const renderedContexts = [
     renderCwdContext({
       spec: context.spec,
@@ -90,15 +90,15 @@ function snapshotsForPromptContext(
       ...(context.session ? { session: context.session } : {}),
     }),
   ];
-  if (context.graphSnapshots) {
+  if (context.graphReads) {
     renderedContexts.push(
-      renderGraphContext(context.graphSnapshots.getGraphOverview(), { lens: state.agentLens }),
+      renderGraphContext(context.graphReads.getGraphOverview(), { lens: state.agentLens }),
     );
   }
 
   return {
-    ...(context.snapshots?.contextHandles ? { contextHandles: context.snapshots.contextHandles } : {}),
-    renderedContexts: [...(context.snapshots?.renderedContexts ?? []), ...renderedContexts],
+    ...(context.context?.contextHandles ? { contextHandles: context.context.contextHandles } : {}),
+    renderedContexts: [...(context.context?.renderedContexts ?? []), ...renderedContexts],
   };
 }
 

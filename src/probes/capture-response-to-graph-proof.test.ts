@@ -38,27 +38,26 @@ describe('capture response to graph proof', () => {
     const report = await runCaptureResponseToGraphProof({ fixtureRoot, runId: 'artifact-test' });
 
     expect(report.artifacts).toEqual({
-      runDir: join(fixtureRoot, 'runs', 'capture-response-to-graph', 'artifact-test'),
-      sessionJsonl: join(fixtureRoot, 'runs', 'capture-response-to-graph', 'artifact-test', 'session.jsonl'),
-      transcriptMarkdown: join(
-        fixtureRoot,
-        'runs',
-        'capture-response-to-graph',
-        'artifact-test',
-        'transcript.md',
-      ),
-      reportJson: join(fixtureRoot, 'runs', 'capture-response-to-graph', 'artifact-test', 'report.json'),
+      runDir: 'runs/capture-response-to-graph/artifact-test',
+      sessionJsonl: 'runs/capture-response-to-graph/artifact-test/session.jsonl',
+      transcriptMarkdown: 'runs/capture-response-to-graph/artifact-test/transcript.md',
+      reportJson: 'runs/capture-response-to-graph/artifact-test/report.json',
     });
     if (!report.artifacts) throw new Error('expected artifacts');
 
-    const sessionJsonl = await readFile(report.artifacts.sessionJsonl, 'utf8');
-    const transcript = await readFile(report.artifacts.transcriptMarkdown, 'utf8');
-    const persistedReport = JSON.parse(await readFile(report.artifacts.reportJson, 'utf8')) as typeof report;
+    const sessionJsonl = await readFile(join(fixtureRoot, report.artifacts.sessionJsonl), 'utf8');
+    const transcript = await readFile(join(fixtureRoot, report.artifacts.transcriptMarkdown), 'utf8');
+    const persistedReport = JSON.parse(
+      await readFile(join(fixtureRoot, report.artifacts.reportJson), 'utf8'),
+    ) as typeof report;
 
     expect(sessionJsonl).toContain('Goal: Help product teams turn elicitation answers into graph truth.');
     expect(transcript).toContain('Tool result: request_answer');
     expect(persistedReport.capture).toEqual(report.capture);
     expect(persistedReport.graph.codes).toEqual(['G1', 'CTX1', 'CON1', 'CR1']);
     expect(persistedReport.friction).toEqual([]);
+    // Persisted refs stay fixture-root-relative and the temp cwd is scrubbed.
+    expect(JSON.stringify(persistedReport.artifacts)).not.toContain(fixtureRoot);
+    expect(persistedReport.cwd).toBe('<ephemeral-workspace>');
   });
 });

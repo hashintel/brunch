@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import type { NeighborhoodResult } from '../../../graph/queries.js';
 import type { GraphNode } from '../../../graph/schema/nodes.js';
-import type { NeighborhoodResult } from '../../../graph/snapshot.js';
 import { renderNodeContext } from './node.js';
 
 const neighborhood: NeighborhoodResult = {
@@ -41,7 +41,7 @@ describe('renderNodeContext', () => {
     expect(rendered).toContain('- anchor body: A long body explains the requirement.');
     expect(rendered).toContain('[M2] design/module: Graph snapshot reader');
     expect(rendered).toContain('…1 more neighbor(s) omitted');
-    expect(rendered).toContain('#5: M2 -[realization]-> R1');
+    expect(rendered).toContain('M2 -[realization]-> R1');
   });
 
   it('renders a clear selected-spec missing-node result', () => {

@@ -19,6 +19,16 @@ import {
 } from '../extensions/runtime/index.js';
 import { registerBrunchPrompting } from '../extensions/system-prompts/index.js';
 
+function emptyGraphSlice() {
+  return {
+    lsn: 0,
+    nodeCount: 0,
+    edgeCount: 0,
+    nodes: [],
+    edges: [],
+  };
+}
+
 function runtimeEntry(state: BrunchAgentState) {
   return {
     type: 'custom',
@@ -63,7 +73,7 @@ const promptContext = {
     }),
   },
   session: { id: 'session-1', label: 'Session' },
-  graphSnapshots: {
+  graphReads: {
     getGraphOverview: () => ({
       lsn: 4,
       nodeCount: 2,
@@ -105,6 +115,10 @@ const promptContext = {
         },
       ],
     }),
+    getGraphSliceByKinds: () => emptyGraphSlice(),
+    getGraphSliceByReadinessBands: () => emptyGraphSlice(),
+    getGraphGaps: () => emptyGraphSlice(),
+    getRelatedNodes: () => ({ status: 'not_found' as const }),
     getNodeNeighborhood: () => ({ status: 'not_found' as const }),
     resolveNodeCode: () => undefined,
   },
@@ -225,7 +239,7 @@ describe('Brunch prompt-pack topology', () => {
           spec: selected.spec,
           workspace: promptContext.workspace,
           session: selected.session,
-          graphSnapshots: {
+          graphReads: {
             getGraphOverview: () => ({
               lsn: 1,
               nodeCount: selected.nodeTitles.length,
@@ -243,6 +257,10 @@ describe('Brunch prompt-pack topology', () => {
               })),
               edges: [],
             }),
+            getGraphSliceByKinds: () => emptyGraphSlice(),
+            getGraphSliceByReadinessBands: () => emptyGraphSlice(),
+            getGraphGaps: () => emptyGraphSlice(),
+            getRelatedNodes: () => ({ status: 'not_found' as const }),
             getNodeNeighborhood: () => ({ status: 'not_found' as const }),
             resolveNodeCode: () => undefined,
           },
@@ -305,6 +323,7 @@ describe('Brunch prompt-pack topology', () => {
           'present_review_set',
           'request_review',
           'read_graph',
+          'read_session_context',
           'commit_graph',
         ].map((name) => ({ name })),
       setActiveTools: (tools: string[]) => activeTools.push(tools),
@@ -359,6 +378,7 @@ describe('Brunch prompt-pack topology', () => {
         'request_choice',
         'request_choices',
         'read_graph',
+        'read_session_context',
       ],
       [
         'read',
@@ -368,6 +388,7 @@ describe('Brunch prompt-pack topology', () => {
         'request_choice',
         'request_choices',
         'read_graph',
+        'read_session_context',
       ],
       [
         'read',
@@ -379,6 +400,7 @@ describe('Brunch prompt-pack topology', () => {
         'present_review_set',
         'request_review',
         'read_graph',
+        'read_session_context',
         'commit_graph',
       ],
       [
@@ -389,6 +411,7 @@ describe('Brunch prompt-pack topology', () => {
         'request_choice',
         'request_choices',
         'read_graph',
+        'read_session_context',
       ],
       [
         'read',
@@ -400,6 +423,7 @@ describe('Brunch prompt-pack topology', () => {
         'present_review_set',
         'request_review',
         'read_graph',
+        'read_session_context',
         'commit_graph',
       ],
     ]);
@@ -411,7 +435,7 @@ describe('Brunch prompt-pack topology', () => {
     });
     expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining(
-        '- active tools: read, grep, present_options, request_answer, request_choice, request_choices, present_review_set, request_review, read_graph, commit_graph',
+        '- active tools: read, grep, present_options, request_answer, request_choice, request_choices, present_review_set, request_review, read_graph, read_session_context, commit_graph',
       ),
     });
     expect(defaultPrompt).toMatchObject({
@@ -432,9 +456,15 @@ describe('Brunch prompt-pack topology', () => {
             events[event] = handler;
           },
           getAllTools: () =>
-            ['read', 'grep', 'read_graph', 'commit_graph', 'present_review_set', 'request_review'].map(
-              (name) => ({ name }),
-            ),
+            [
+              'read',
+              'grep',
+              'read_graph',
+              'read_session_context',
+              'commit_graph',
+              'present_review_set',
+              'request_review',
+            ].map((name) => ({ name })),
           setActiveTools: (tools: string[]) => activeTools.push(tools),
         } as never,
         {

@@ -18,7 +18,7 @@
  *                               suggesting criteria for the target
  *                               node ("requirement with no `proof`
  *                               incoming → suggest criterion").
- *  - `projectionEffect`       — non-default effect on snapshot /
+ *  - `projectionEffect`       — non-default effect on active-context /
  *                               neighborhood builders. `"none"` means
  *                               the edge is rendered ordinarily.
  *

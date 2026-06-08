@@ -19,7 +19,7 @@ src/
 │
 ├── graph/                Graph domain layer
 │                           CommandExecutor, readers, policy, validators,
-│                           snapshot bucketing, change-log replay, recon-need substrate
+│                           query bucketing, change-log replay, recon-need substrate
 │
 ├── session/              Session domain layer
 │                           transcript projection, exchange extraction,
@@ -62,9 +62,9 @@ Rules:
 
 ## Migration notes
 
-Product entrypoints now live in `app/`, package identity tests live in `workspace/`, reusable workspace snapshot DTOs live in `projections/workspace/`, and reusable print-mode snapshot text lives in `renderers/workspace/`. No compatibility root files remain for the old `src/brunch*`, `src/print-snapshot*`, or `src/package-identity*` paths.
+Product entrypoints now live in `app/`, package identity tests live in `workspace/`, reusable workspace state DTOs live in `projections/workspace/`, and reusable print-mode workspace-state text lives in `renderers/workspace/`. No compatibility root files remain for the old root-level Brunch entrypoint, print helper, or package-identity paths.
 
-The old domain-local `src/{graph,session,structured-exchange}/project/` folders now live under `projections/{graph,session,structured-exchange}/`.
+The old domain-local `src/{graph,session,structured-exchange}/project/` folders now live under `projections/{graph,session,exchanges}/`.
 
 The old domain-local `src/{graph,session,structured-exchange}/format/` folders and `src/render/` now live under `renderers/{graph,session,structured-exchange}/` and `renderers/`.
 

@@ -57,16 +57,31 @@ export {
   type ReconNeedTrigger,
 } from './policy/category-policy.js';
 
-export { getGraphOverview, getNodeNeighborhood, getOpenReconciliationNeeds } from './snapshot.js';
+export {
+  getGraphOverview,
+  getGraphGaps,
+  getGraphSliceByKinds,
+  getGraphSliceByReadinessBands,
+  getRelatedNodes,
+  getNodeNeighborhood,
+  getOpenReconciliationNeeds,
+} from './queries.js';
 export type {
   GraphOverview,
   GraphOverviewOptions,
+  GraphGapsOptions,
   GraphProjection,
+  GraphSliceByKindsOptions,
+  GraphSliceByReadinessBandsOptions,
   NeighborhoodOptions,
   NeighborhoodNotFound,
   NeighborhoodResult,
   NeighborhoodSuccess,
-} from './snapshot.js';
+  RelatedDirection,
+  RelatedNodesOptions,
+  RelatedNodesResult,
+  RelatedNodesSuccess,
+} from './queries.js';
 
 export { CommandExecutor } from './command-executor.js';
 export { openWorkspaceCommandExecutor, openWorkspaceGraphRuntime } from './workspace-store.js';

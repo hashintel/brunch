@@ -1,11 +1,14 @@
 import { Type, type Static } from 'typebox';
 import { Value } from 'typebox/value';
 
-import { captureStructuredResponseFacts } from '../../graph/capture/structured-response.js';
+import {
+  captureExplicitTextFacts,
+  captureStructuredResponseFacts,
+} from '../../graph/capture/structured-response.js';
 import type { StructuredResponseCaptureOutcome } from '../../graph/capture/structured-response.js';
 import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
+import { reviewSetProposalPayloadFromDetails } from '../../projections/exchanges/review-set-payload.js';
 import { projectSessionRuntimeState } from '../../projections/session/runtime-state.js';
-import { reviewSetProposalPayloadFromDetails } from '../../projections/structured-exchange/review-set-payload.js';
 import {
   readBrunchSessionEnvelope,
   NonLinearTranscriptError,
@@ -89,6 +92,7 @@ const RuntimeStateResultSchema = Type.Object(
         role: Type.Literal('elicitor'),
         strategy: Type.Union([
           Type.Literal('auto'),
+          Type.Literal('freestyle'),
           Type.Literal('step-wise-decision-tree'),
           Type.Literal('step-wise-disambiguate'),
           Type.Literal('propose-graph'),
@@ -289,8 +293,31 @@ const ExchangeResponseResultSchema = Type.Object(
   { additionalProperties: false },
 );
 
+const SubmitMessageParamsSchema = Type.Object(
+  {
+    text: NonBlankStringSchema,
+    interruption: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false },
+);
+
+const SubmitMessageResultSchema = Type.Object(
+  {
+    status: Type.Literal('accepted'),
+    messageId: NonBlankStringSchema,
+    text: NonBlankStringSchema,
+    interruption: Type.Boolean(),
+    capture: ExchangeResponseCaptureResultSchema,
+  },
+  { additionalProperties: false },
+);
+
 type ExchangeResponseParams = StructuredExchangeResponseInput;
 type ExchangeResponseResult = Omit<Static<typeof ExchangeResponseResultSchema>, 'capture'> & {
+  readonly capture: StructuredResponseCaptureOutcome;
+};
+type SubmitMessageParams = Static<typeof SubmitMessageParamsSchema>;
+type SubmitMessageResult = Omit<Static<typeof SubmitMessageResultSchema>, 'capture'> & {
   readonly capture: StructuredResponseCaptureOutcome;
 };
 
@@ -408,7 +435,29 @@ export const sessionRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
       return handleSubmitExchangeResponse(jsonRpcRequestId(request), request.params, context);
     },
   },
+  {
+    method: 'session.submitMessage',
+    access: 'write',
+    description:
+      'Append an ordinary user message to the selected session and run synchronous explicit-text capture, or record an explicit interruption while a structured exchange is pending.',
+    paramsSchema: SubmitMessageParamsSchema,
+    resultSchema: SubmitMessageResultSchema,
+    examples: [
+      {
+        jsonrpc: '2.0',
+        id: 12,
+        method: 'session.submitMessage',
+        params: {
+          text: 'Goal: Keep ordinary messages on the same selected-spec capture path.',
+        },
+      },
+    ],
+    async handle(context, request) {
+      return handleSubmitMessage(jsonRpcRequestId(request), request.params, context);
+    },
+  },
 ];
+
 async function handleSessionProjection<T>(
   requestId: JsonRpcId,
   rawParams: unknown,
@@ -485,6 +534,87 @@ async function handleTriggerExchange(
     exchange: reloaded ?? exchange,
   };
   publishSelectedSessionUpdates(options.productUpdates, state);
+  return createJsonRpcSuccess(requestId, result);
+}
+
+async function handleSubmitMessage(
+  requestId: JsonRpcId,
+  rawParams: unknown,
+  options: {
+    coordinator: DefaultWorkspaceCoordinator;
+    cwd: string;
+    productUpdates?: ProductUpdatePublisher;
+    getGraphRuntime: () => Promise<WorkspaceGraphRuntime>;
+  },
+): Promise<JsonRpcResponse> {
+  if (!Value.Check(SubmitMessageParamsSchema, rawParams)) {
+    return createJsonRpcFailure(requestId, -32602, 'Invalid params');
+  }
+  const params = Value.Parse(SubmitMessageParamsSchema, rawParams) as SubmitMessageParams;
+
+  const state = await options.coordinator.openDefaultWorkspace();
+  if (state.status !== 'ready') {
+    return createJsonRpcFailure(requestId, -32001, 'No selected Brunch session');
+  }
+
+  const target = await selectedSessionFile(state);
+  if (!target.ok) {
+    return createJsonRpcFailure(requestId, target.code, target.message);
+  }
+
+  let pending: PendingStructuredExchange | null;
+  try {
+    pending = pendingExchangeFromEnvelope(target.envelope);
+  } catch (error) {
+    if (error instanceof NonLinearTranscriptError) {
+      return createJsonRpcFailure(requestId, -32002, target.nonLinearMessage);
+    }
+    throw error;
+  }
+
+  if (pending && params.interruption !== true) {
+    return createJsonRpcFailure(
+      requestId,
+      -32009,
+      'Pending structured exchange requires session.submitExchangeResponse unless this message is an explicit interruption',
+    );
+  }
+
+  const messageId =
+    params.interruption === true
+      ? state.session.manager.appendCustomMessageEntry('brunch.session_interruption', params.text, true, {
+          interruption: true,
+        })
+      : state.session.manager.appendMessage(ordinaryUserMessage(params.text));
+  flushSessionEntries(state.session.manager, state.session.file);
+
+  const capture =
+    params.interruption === true
+      ? ({
+          status: 'no_capture',
+          reason: 'explicit interruptions are transcript-visible only and do not run synchronous capture',
+        } as const)
+      : captureExplicitTextFacts({
+          specId: target.envelope.binding.specId,
+          text: params.text,
+          source: `session_message:${messageId}`,
+          commandExecutor: (await options.getGraphRuntime()).commandExecutor,
+        });
+
+  const result: SubmitMessageResult = {
+    status: 'accepted',
+    messageId,
+    text: params.text,
+    interruption: params.interruption === true,
+    capture,
+  };
+
+  publishSelectedSessionUpdates(options.productUpdates, state, target.envelope.binding.specId);
+  if (capture.status === 'captured') {
+    options.productUpdates?.publish(
+      graphMutationProductUpdates({ specId: target.envelope.binding.specId, lsn: capture.lsn }),
+    );
+  }
   return createJsonRpcSuccess(requestId, result);
 }
 
@@ -598,6 +728,14 @@ function flushSessionEntries(manager: unknown, sessionFile: string): void {
   const flushable = manager as FlushableSessionManager;
   flushable._rewriteFile();
   flushable.setSessionFile(sessionFile);
+}
+
+function ordinaryUserMessage(text: string) {
+  return {
+    role: 'user' as const,
+    content: text,
+    timestamp: 0 as const,
+  };
 }
 
 type SessionProjectionParamsParseResult =
