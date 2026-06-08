@@ -31,6 +31,7 @@ import {
   serializeFixturePhaseProposalAssistantParts,
   serializeFixtureQuestionAssistantParts,
 } from './helpers.js';
+import { seedAcceptedSpatialGraphLayoutSpec } from './scenarios/spatial-graph-layout.js';
 
 const code = createKnowledgeReferenceCode;
 
@@ -1111,6 +1112,11 @@ export const scenarios: Record<string, ScenarioFn> = {
   'knowledge-graph-permutations': (db, name = 'Brunch self-spec (knowledge graph permutations)') => {
     const project = createSpecification(db, name);
     seedKnowledgeGraphPermutations(db, project.id);
+    return project.id;
+  },
+  'spatial-graph-layout-all-phases-closed': (db, name = 'Spatial graph layout (all phases closed)') => {
+    const project = createSpecification(db, name, { mode: 'brownfield' });
+    seedAcceptedSpatialGraphLayoutSpec(db, project.id);
     return project.id;
   },
 };
