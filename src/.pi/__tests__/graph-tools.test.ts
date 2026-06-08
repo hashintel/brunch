@@ -815,6 +815,17 @@ describe('graph tools end-to-end', () => {
           createdAtLsn: 1,
           updatedAtLsn: 1,
         },
+        {
+          id: 3,
+          specId: 1,
+          plane: 'intent',
+          kind: 'criterion',
+          kindOrdinal: 1,
+          title: 'Second-hop criterion',
+          basis: 'explicit',
+          createdAtLsn: 1,
+          updatedAtLsn: 1,
+        },
       ],
       edges: [
         {
@@ -827,11 +838,23 @@ describe('graph tools end-to-end', () => {
           createdAtLsn: 1,
           updatedAtLsn: 1,
         },
+        {
+          id: 2,
+          specId: 1,
+          category: 'support',
+          sourceId: 2,
+          targetId: 3,
+          stance: 'for',
+          basis: 'explicit',
+          createdAtLsn: 1,
+          updatedAtLsn: 1,
+        },
       ],
     });
 
     expect(text).toContain('Anchors: [R1] Anchor requirement');
     expect(text).toContain('[A1] intent/assumption');
     expect(text).toContain('R1 -[dependency/outgoing]-> A1');
+    expect(text).toContain('A1 -[support/lateral]-> CR1');
   });
 });

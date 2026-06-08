@@ -254,7 +254,9 @@ export function formatRelatedNodesResult(result: RelatedNodesResult): string {
       const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${edge.targetId}`;
       const direction = result.anchors.some((anchor) => anchor.id === edge.sourceId)
         ? 'outgoing'
-        : 'incoming';
+        : result.anchors.some((anchor) => anchor.id === edge.targetId)
+          ? 'incoming'
+          : 'lateral';
       lines.push(`  - ${sourceCode} -[${edge.category}/${direction}]-> ${targetCode}`);
     }
   }
