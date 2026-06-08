@@ -29,7 +29,7 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 
 Planning is currently carrying two shapes at once: canonical frontier sequencing in this file, and a temporary elicitor capability ledger in `memory/CROSS_CUT_PLAN.md`. The authority split must stay hard: `PLAN.md` owns frontier ids, ordering, and dependency judgments; `CROSS_CUT_PLAN.md` only inventories the temporary READ/WRITE/KNOW row surface. The current planning move is therefore to promote any cross-cut row that has escaped row-sized work back into a real frontier. `elicitation-backlog` was the first such promotion and is now landed; the remaining prompt-resource body-depth pass stays temporary cross-cut completion work.
 
-After the current elicitor work, the strongest follow-on coverage frontier is `graph-observed-shapes`: decide the observed-shape inventory per consumer, then align graph/RPC/web to it. `runtime-affordances-and-legality` remains the next likely coverage frontier behind that. Exchange/capture breadth is explicitly deferred until its surviving inventory is honest enough to enumerate without recreating the deleted stub surface.
+The `graph-observed-shapes` coverage frontier has now landed (the consumer-specific read-shape inventory is ratified in `src/graph/README.md` and guarded by a drift test). With `minimal-authority-shell` also done, the active delivery path is `poc-live-ship-gate` (now unblocked). `runtime-affordances-and-legality` remains the next likely coverage frontier but stays parked until a posture/UI pass forces its shape. Exchange/capture breadth is explicitly deferred until its surviving inventory is honest enough to enumerate without recreating the deleted stub surface.
 
 ## Sequencing
 
@@ -300,7 +300,7 @@ nodes:
   elicitation-backlog            [done · proving]    materialized D65-L prospective agenda substrate and read-back
   minimal-authority-shell        [done · P1]         thin safety posture for current POC paths
   poc-live-ship-gate             [next · P1]         final fresh-cwd composed product runbook
-  graph-observed-shapes          [next · proving]    decide consumer-specific observed-shape inventory, then align graph/RPC/web
+  graph-observed-shapes          [done · proving]    ratified consumer-specific observed-shape ledger + drift guard; no transport shape shipped
   runtime-affordances-and-legality [next · proving]  keep posture legality/default surfaces shared across transports
   probes-and-transcripts-evolution [parallel]        continuous evidence substrate
   topology-readmes-and-boundaries  [parallel]        attach-to-frontier topology hardening
@@ -332,7 +332,7 @@ horizon:
 
 notes:
   - `elicitation-backlog` was the promoted D65-L row from `memory/CROSS_CUT_PLAN.md`; the prompt-resource body-depth pass (the last temporary cross-cut completion work) landed in 1ca02e38, so `memory/CROSS_CUT_PLAN.md` now has no row-sized work left — its only residue is the unscoped live "what to ask next" driver.
-  - Parallel worktree streams (2026-06-08): stream (A) `crosscut-know--resource-body-depth` → `src/.pi/skills/**` is **done** (1ca02e38), and stream (C) `minimal-authority-shell--audit-and-guard` → `src/.pi/extensions/runtime/` is **done**. One write-disjoint stream remains cold-startable from a clean committed base — (B) `graph-observed-shapes--coverage-ledger` → `src/graph/README.md` + `rpc`/`web` READMEs + one guard test. Invariant: **`src/.pi/agents/state.ts` is a single-writer file** — B must not edit it. `poc-live-ship-gate` is now unblocked by `minimal-authority-shell`; `runtime-affordances-and-legality` and `exchanges-and-generalized-capture` stay parked (shape not yet forced) and are not cold-startable worktree streams.
+  - Parallel worktree streams (2026-06-08): all three landed — (A) `crosscut-know--resource-body-depth` (1ca02e38), (B) `graph-observed-shapes--coverage-ledger` (85e73ba7), (C) `minimal-authority-shell--audit-and-guard` (68474e3f); each kept to its declared write paths and left `src/.pi/agents/state.ts` untouched, so the parallel run produced no collisions. `poc-live-ship-gate` is now unblocked (its hard dependency `minimal-authority-shell` is done); `runtime-affordances-and-legality` and `exchanges-and-generalized-capture` stay parked (shape not yet forced) and are not cold-startable worktree streams.
   - Completed prerequisites: `agents-composition-layer` supplies runtime prompt/resource posture, and `live-graph-observer` supplies the read-only web observer path expected by `capture-response-to-graph` and `poc-live-ship-gate`.
   - `graph-observed-shapes` is intentionally consumer-specific: do not assume every agent read shape belongs on the web observer.
   - `exchanges-and-generalized-capture` stays deferred until the surviving inventory is honest enough to close; do not regrow deleted `capture-*` symmetry in the meantime.
