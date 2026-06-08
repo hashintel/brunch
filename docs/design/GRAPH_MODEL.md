@@ -189,38 +189,53 @@ Notes on the categories most likely to be confused:
 
 ## Per-category policy
 
-The category drives all policy. The `CommandExecutor` enforces
-structural legality at write time; query/projection builders use
-this table to bucket edges; coherence triggers use the cascade
-column.
+The category drives all policy. This is the **single** per-category
+metadata table — materialized as `EDGE_CATEGORY_METADATA` in
+[`src/graph/policy/category-policy.ts`](../../src/graph/policy/category-policy.ts).
+It supersedes the earlier split where endpoint-role/reconciliation
+metadata briefly lived in `schema/edges.ts` while a drifted
+`CATEGORY_POLICY` lived alongside it (the two disagreed on impact
+direction for `proof`/`support`). The `CommandExecutor` enforces
+structural legality at write time; query/render builders use source
+and target roles to label edges semantically; coherence and the
+reconciliation flow use the impact columns. Mechanical `incoming` /
+`outgoing` direction is only endpoint geometry for filters and traversal.
 
-|                | cascade on src change | recon_need on src change | criteria-help signal | projection effect                              |
-| -------------- | :-------------------: | :----------------------: | :------------------: | ---------------------------------------------- |
-| `dependency`   |          ✓            |            ✓             |          —           | —                                              |
-| `proof`        |          —            |        advisory          |          ✓           | —                                              |
-| `support`      |          —            |        advisory          |          —           | —                                              |
-| `realization`  |          —            |        advisory          |          —           | —                                              |
-| `boundary`     |          —            |            ✓             |          —           | —                                              |
-| `composition`  |          —            |            —             |          —           | —                                              |
-| `association`  |          —            |            —             |          —           | —                                              |
-| `supersession` |          —            |            —             |          —           | hide predecessor from active context           |
+|                | Source role | Target role | Impact on source change | Impact on target change | criteria-help signal | projection effect                    |
+| -------------- | ----------- | ----------- | ----------------------- | ----------------------- | :------------------: | ------------------------------------ |
+| `dependency`   | dependency  | dependent   | cascade → target        | none                    |          —           | —                                    |
+| `proof`        | oracle      | claim       | none                    | advisory → source       |          ✓           | —                                    |
+| `support`      | support     | claim       | none                    | advisory → source       |          —           | —                                    |
+| `realization`  | abstract    | concrete    | advisory → target       | none                    |          —           | —                                    |
+| `boundary`     | boundary    | subject     | advisory → target       | none                    |          —           | —                                    |
+| `composition`  | whole       | part        | none                    | advisory → source       |          —           | —                                    |
+| `association`  | peer        | peer        | none                    | none                    |          —           | —                                    |
+| `supersession` | successor   | predecessor | none                    | advisory → source       |          —           | hide predecessor from active context |
 
 Legend:
 
-- **cascade** — automatic block / mark stale on the dependent
-  (e.g. assumption invalidation cascade).
-- **recon_need on src change** — generate a `ReconciliationNeed`
-  pointing at the edge. *Advisory* = generated only if a coherence
-  rule asks for it; the edge does not auto-cascade.
-- **criteria-help** — used by the interviewer to suggest criteria
-  for the target node ("requirement with no `proof` incoming →
-  suggest criterion").
-- **projection effect** — how query/neighborhood builders treat
-  the edge in active-context views.
+- **impact on source/target change** — if the named endpoint node
+  changes, how the *opposite* endpoint is affected: `cascade` (hard —
+  may auto block / mark-stale), `advisory` (soft — surface a
+  `ReconciliationNeed`), or `none`. The arrow names the impacted
+  (downstream) endpoint. A well-formed category drives impact in at
+  most one direction.
+- **criteria-help** — used by the interviewer to suggest criteria for
+  the claim ("requirement with no incoming `proof` edge → suggest
+  criterion").
+- **projection effect** — how query/neighborhood builders treat the
+  edge in active-context views.
 
-Only `dependency` triggers automatic cascades. Other categories
-surface as reconciliation needs at most; they do not auto-block
+Only `dependency` triggers a hard cascade. Other categories surface
+as advisory reconciliation needs at most; they do not auto-block
 downstream items.
+
+The impact columns are *not* aligned with source→target geometry:
+for `dependency`/`realization`/`boundary` the source is upstream, but
+for `proof`/`support`/`composition`/`supersession` the **target** is
+upstream. The directional projection (below) derives upstream /
+downstream / lateral from these columns so the reconciliation flow
+never has to guess direction from the arrow.
 
 ## Worked examples — same shape across planes
 
@@ -320,12 +335,20 @@ Examples:
 | `supersession(new req → old req)`          | "supersedes prior"      | "superseded by"            |
 | `association(A ↔ B)`                       | "related to B"          | "related to A"             |
 
-The lookup is a static table keyed on
-`(category, source.kind, target.kind, perspective[, stance])`. It is
-built by inverting the prior catalogue entries plus the `proof` rows
-above. It lives separately from this document — the canonical
-location for the table is TBD (likely
-`src/graph/projection/labels.ts` when projection builders land).
+The lookup is materialized as `edgeLabel()` in
+[`src/graph/projection/labels.ts`](../../src/graph/projection/labels.ts).
+It is a two-tier static table:
+
+- **Tier 1 (base)** keyed on `(category, anchorRole, stance)` — ~18
+  cells covering every edge from the anchor's perspective. The
+  neighbor's `kind` is rendered separately, so headings never embed it.
+- **Tier 2 (refine)** keyed on `(category, sourceKind, targetKind)` —
+  optional finer verbs where the neighbor's kind alone is too vague
+  (primarily the realization sub-types). Deliberately small; absence
+  falls back to the Tier-1 heading.
+
+The lookup cannot change category policy; it only renders the stored
+edge readably from one endpoint's perspective.
 
 ### Realization sub-types — tuple-implied, not edge-encoded
 
@@ -342,9 +365,29 @@ projection policy, split `realization` into siblings (see
 
 ## Context projections and bucketing
 
-Context buckets come from category and endpoint role, not from the
-derived label string. Callers must also choose which
-projection they want:
+Two projection axes are derived from the per-category metadata, never
+from the rendered label string. Both are anchor-relative — they read
+an edge from the perspective of one node:
+
+- **Semantic labels** ([`projection/labels.ts`](../../src/graph/projection/labels.ts))
+  — direction-aware phrasing (`depends on`, `realizes`, `motivated
+  by`) from `(category, anchorRole, stance)` plus optional kind
+  refinement. Drives readable per-edge text.
+- **Directional grouping** ([`projection/direction.ts`](../../src/graph/projection/direction.ts))
+  — `upstream` / `downstream` / `lateral` plus `hard` / `soft`
+  strength, derived from the impact columns. Drives the
+  reconciliation flow (log downstream impacts when a node changes) and
+  the neighborhood section grouping. `relationFromAnchor` returns
+  `downstream` when the anchor sits at the upstream end (changing the
+  anchor impacts the neighbor) and `upstream` when it sits at the
+  downstream end.
+
+The two compose: the neighborhood renderer groups incident edges by
+directional relation and labels each line semantically. A pure
+semantic-bucket grouping (by category role rather than direction) is
+an alternative view over the same two functions.
+
+Callers must also choose which projection they want:
 
 - **`graph_truth`** — accepted graph truth records. Superseded
   predecessors and their edges may still appear because they are
@@ -371,31 +414,25 @@ relatedNodes({
 overview({ projection: "graph_truth" | "active_context" })
 ```
 
-A rendered neighborhood context of an intent node:
+A rendered neighborhood context of an intent node, grouped by the
+directional axis and labelled semantically (exact layout is still
+being tuned; the projection contract is what is locked):
 
 ```text
-anchor: R1 : requirement
-
-hard dependencies:
-  A1                  depends on assumption
-
-support:
-  CTX2                motivated by context
-
-proof:
-  CR1                 witnessed by criterion
-  EX1                 witnessed by example
-
-realized by:
-  M1                  realized by design module
-  SL1                 established by plan slice
-
-boundaries:
-  CON1                bounded by constraint
-
-supersedes:
-  R0                  supersedes prior requirement
+[Selected-spec node context]
+- anchor: [REQ1] intent/requirement: Stage 2 must compute three configuration spaces…
+- upstream (review anchor if these change):
+  - depends on [A1] intent/assumption: Users run fully local…
+  - realizes [INV3] intent/invariant: No network call in the offline path…
+- downstream (reconcile if anchor changes):
+  - required by [D11] intent/decision: Adopt the two-stage split… {hard}
+  - witnessed by [CR1] intent/criterion: Airplane-mode test passes… {soft}
+- lateral (related):
+  - related to [CTX2] intent/context: Stakeholder preference…
 ```
+
+`{hard}` marks a `dependency` cascade; `{soft}` marks an advisory
+reconciliation need.
 
 ## Structural invariants
 

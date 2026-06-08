@@ -39,8 +39,15 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D6
   `ReconciliationNeed`, `ElicitationBacklogEntry`, kind/category types,
   per-kind node ordinals, and derived intent-kind grouping.
 
-- **Policy** (`policy/category-policy.ts`) — edge-category semantics such as
-  cascade behavior, reconciliation triggers, and projection effects.
+- **Policy** (`policy/category-policy.ts`) — the single per-category
+  metadata table (`EDGE_CATEGORY_METADATA`): endpoint roles, impact
+  direction/strength (cascade vs advisory), criteria-help signal, and
+  projection effects.
+
+- **Projection** (`projection/`) — anchor-relative derivations over the
+  policy table: `labels.ts` (direction-aware semantic phrasing) and
+  `direction.ts` (upstream/downstream/lateral for the reconciliation
+  flow). Pure functions; no DB access.
 
 - **Workspace graph runtime** (`workspace-store.ts`) — opens `.brunch/data.db`
   through `db/connection.ts` and returns a `CommandExecutor` plus bound query
@@ -149,6 +156,10 @@ graph/
 
   policy/
     category-policy.ts
+
+  projection/
+    labels.ts
+    direction.ts
 ```
 
 ## Boundary flow

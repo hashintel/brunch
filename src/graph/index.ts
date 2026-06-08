@@ -27,7 +27,19 @@ export type { GraphNode, NodeKind, ReadinessBand } from './schema/nodes.js';
 
 export { formatGraphNodeCode, intentKindCategory, parseGraphNodeCode } from './schema/nodes.js';
 
-export { CATEGORY_POLICY } from './policy/category-policy.js';
+export { EDGE_CATEGORY_METADATA, edgeEndpointRole } from './policy/category-policy.js';
+export type {
+  EdgeCategoryMetadata,
+  EdgeEndpoint,
+  EdgeEndpointRole,
+  EdgeImpactStrength,
+  ProjectionEffect,
+} from './policy/category-policy.js';
+
+export { edgeLabel } from './projection/labels.js';
+export type { AnchorRole, EdgeLabelInput } from './projection/labels.js';
+export { edgeImpact, relationFromAnchor } from './projection/direction.js';
+export type { AnchoredRelation, EdgeImpact, EdgeRelation } from './projection/direction.js';
 
 export {
   queryGraph,

@@ -1,92 +1,153 @@
 /**
- * Per-edge-category policy table.
+ * Per-edge-category metadata — the single source of edge-category semantics.
  *
  * Canonical reference: docs/design/GRAPH_MODEL.md §"Per-category policy"
  *
- * This table replaces the prior multi-axis per-relation policy
- * registry. Only the axes that have a present reader in M4 or M5
- * are encoded here:
+ * This table is the one place that maps a structural edge `category` to its
+ * derived semantics. Two projection families read from it:
  *
- *  - `cascadeOnSourceChange`  — automatic block / mark-stale on the
- *                               dependent (assumption-invalidation
- *                               cascade). Only `dependency` cascades.
- *  - `reconNeedOnSourceChange` — generate a ReconciliationNeed pointing
- *                               at the edge. `"advisory"` = generated
- *                               only if a coherence rule asks for it;
- *                               `true` = generated unconditionally.
- *  - `criteriaHelpSignal`     — the interviewer uses this edge when
- *                               suggesting criteria for the target
- *                               node ("requirement with no `proof`
- *                               incoming → suggest criterion").
- *  - `projectionEffect`       — non-default effect on active-context /
- *                               neighborhood builders. `"none"` means
- *                               the edge is rendered ordinarily.
+ *  - **endpoint roles** (`sourceRole` / `targetRole`) feed the semantic-label
+ *    projection (`projection/labels.ts`) — direction-aware phrasing like
+ *    "depends on" / "realizes" rendered from one endpoint's perspective.
+ *  - **impact direction** (`impactOnSourceChange` / `impactOnTargetChange`)
+ *    feeds the directional projection (`projection/direction.ts`) — the
+ *    upstream/downstream grouping the reconciliation flow logs against.
  *
- * Phase 1 lock-and-materialize: data only. The CommandExecutor,
- * coherence triggers, projection builders, and interviewer prompts
- * consume this table in subsequent M4/M5 slices.
+ * It supersedes the prior split between the role/reconciliation metadata that
+ * briefly lived in `schema/edges.ts` and the drifted `CATEGORY_POLICY` that
+ * lived here (the two disagreed on impact direction for `proof`/`support`).
+ *
+ * Axes:
+ *
+ *  - `sourceRole` / `targetRole` — the semantic role each endpoint plays.
+ *  - `impactOnSourceChange` — if the SOURCE node changes, how is the TARGET
+ *     affected: `cascade` (hard — auto block/mark-stale; dependency only),
+ *     `advisory` (soft — surface a ReconciliationNeed), or `none`.
+ *  - `impactOnTargetChange` — symmetric: if the TARGET node changes, how is
+ *     the SOURCE affected.
+ *  - `criteriaHelpSignal` — the interviewer uses this edge when suggesting
+ *     criteria for the claim ("requirement with no incoming `proof` → suggest
+ *     a criterion").
+ *  - `projectionEffect` — non-default effect on active-context builders.
+ *
+ * Phase 1 lock-and-materialize: data only. Coherence triggers, the
+ * interviewer, and active-context filters consume this in later M4/M5 slices.
  */
 
 import type { EdgeCategory } from '../schema/edges.js';
 
-type ReconNeedTrigger = false | 'advisory' | true;
+/** Which end of a stored edge an endpoint sits on. */
+export type EdgeEndpoint = 'source' | 'target';
 
-type ProjectionEffect = 'none' | 'hide_predecessor_from_active_context';
+/** The semantic role an endpoint plays within its category. */
+export type EdgeEndpointRole =
+  | 'dependency'
+  | 'dependent'
+  | 'oracle'
+  | 'claim'
+  | 'support'
+  | 'abstract'
+  | 'concrete'
+  | 'boundary'
+  | 'subject'
+  | 'whole'
+  | 'part'
+  | 'successor'
+  | 'predecessor'
+  | 'peer';
 
-interface CategoryPolicy {
-  readonly cascadeOnSourceChange: boolean;
-  readonly reconNeedOnSourceChange: ReconNeedTrigger;
+/**
+ * How strongly a change at one endpoint impacts the other.
+ *  - `none`     — no reconciliation flows in this direction.
+ *  - `advisory` — soft; surface a ReconciliationNeed for review.
+ *  - `cascade`  — hard; may auto block / mark-stale (dependency only).
+ */
+export type EdgeImpactStrength = 'none' | 'advisory' | 'cascade';
+
+export type ProjectionEffect = 'none' | 'hide_predecessor_from_active_context';
+
+export interface EdgeCategoryMetadata {
+  readonly sourceRole: EdgeEndpointRole;
+  readonly targetRole: EdgeEndpointRole;
+  readonly impactOnSourceChange: EdgeImpactStrength;
+  readonly impactOnTargetChange: EdgeImpactStrength;
   readonly criteriaHelpSignal: boolean;
   readonly projectionEffect: ProjectionEffect;
 }
 
-export const CATEGORY_POLICY: Readonly<Record<EdgeCategory, CategoryPolicy>> = {
+type EdgeCategoryMetadataByCategory = {
+  readonly [Category in EdgeCategory]: EdgeCategoryMetadata;
+};
+
+export const EDGE_CATEGORY_METADATA = {
   dependency: {
-    cascadeOnSourceChange: true,
-    reconNeedOnSourceChange: true,
+    sourceRole: 'dependency',
+    targetRole: 'dependent',
+    impactOnSourceChange: 'cascade',
+    impactOnTargetChange: 'none',
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
   proof: {
-    cascadeOnSourceChange: false,
-    reconNeedOnSourceChange: 'advisory',
+    sourceRole: 'oracle',
+    targetRole: 'claim',
+    impactOnSourceChange: 'none',
+    impactOnTargetChange: 'advisory',
     criteriaHelpSignal: true,
     projectionEffect: 'none',
   },
   support: {
-    cascadeOnSourceChange: false,
-    reconNeedOnSourceChange: 'advisory',
+    sourceRole: 'support',
+    targetRole: 'claim',
+    impactOnSourceChange: 'none',
+    impactOnTargetChange: 'advisory',
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
   realization: {
-    cascadeOnSourceChange: false,
-    reconNeedOnSourceChange: 'advisory',
+    sourceRole: 'abstract',
+    targetRole: 'concrete',
+    impactOnSourceChange: 'advisory',
+    impactOnTargetChange: 'none',
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
   boundary: {
-    cascadeOnSourceChange: false,
-    reconNeedOnSourceChange: true,
+    sourceRole: 'boundary',
+    targetRole: 'subject',
+    impactOnSourceChange: 'advisory',
+    impactOnTargetChange: 'none',
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
   composition: {
-    cascadeOnSourceChange: false,
-    reconNeedOnSourceChange: false,
+    sourceRole: 'whole',
+    targetRole: 'part',
+    impactOnSourceChange: 'none',
+    impactOnTargetChange: 'advisory',
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
   association: {
-    cascadeOnSourceChange: false,
-    reconNeedOnSourceChange: false,
+    sourceRole: 'peer',
+    targetRole: 'peer',
+    impactOnSourceChange: 'none',
+    impactOnTargetChange: 'none',
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
   supersession: {
-    cascadeOnSourceChange: false,
-    reconNeedOnSourceChange: false,
+    sourceRole: 'successor',
+    targetRole: 'predecessor',
+    impactOnSourceChange: 'none',
+    impactOnTargetChange: 'advisory',
     criteriaHelpSignal: false,
     projectionEffect: 'hide_predecessor_from_active_context',
   },
-};
+} as const satisfies EdgeCategoryMetadataByCategory;
+
+/** The semantic role the given endpoint plays for this category. */
+export function edgeEndpointRole(category: EdgeCategory, endpoint: EdgeEndpoint): EdgeEndpointRole {
+  const metadata = EDGE_CATEGORY_METADATA[category];
+  return endpoint === 'source' ? metadata.sourceRole : metadata.targetRole;
+}

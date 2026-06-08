@@ -25,5 +25,9 @@ test('locks graph neighborhood preview for code-health REQ1 and preserves projec
   await expect(locked).toMatchFileSnapshot(GOLDEN_PATH);
   expect(rendered).toContain('anchor: [REQ1] intent/requirement:');
   expect(rendered).not.toContain('#');
-  expect(rendered).toContain('REQ1 -[dependency]-> D11');
+  // REQ1 is the dependency (source) of dependency edges → neighbors are
+  // downstream and labelled from REQ1's perspective, no raw role tokens.
+  expect(rendered).toContain('downstream (reconcile if anchor changes):');
+  expect(rendered).toContain('required by [D11] intent/decision:');
+  expect(rendered).not.toContain('-[dependency]->');
 });
