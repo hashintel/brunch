@@ -79,7 +79,7 @@ describe('propose-graph commit proof report', () => {
         {
           status: 'success',
           lsn: 1,
-          createdNodes: { goal: { id: 1, code: 'G1' }, rollback: { id: 2, code: 'R1' } },
+          createdNodes: { goal: { id: 1, code: 'G1' }, rollback: { id: 2, code: 'REQ1' } },
           edges: [1],
         },
         'Graph committed successfully',
@@ -130,7 +130,7 @@ describe('propose-graph commit proof report', () => {
         {
           status: 'success',
           lsn: 2,
-          createdNodes: { r1: { id: 2, code: 'R1' } },
+          createdNodes: { r1: { id: 2, code: 'REQ1' } },
           edges: [1],
         },
         'Graph committed successfully',
@@ -161,7 +161,7 @@ describe('propose-graph commit proof report', () => {
     });
     expect(report.committedNodes).toEqual([
       { code: 'G1', title: 'Clarify launch readiness' },
-      { code: 'R1', title: 'Expose rollback criteria' },
+      { code: 'REQ1', title: 'Expose rollback criteria' },
     ]);
   });
 
@@ -180,7 +180,7 @@ describe('propose-graph commit proof report', () => {
         {
           status: 'success',
           lsn: 2,
-          createdNodes: { p1: { id: 1, code: 'CR1' }, p2: { id: 2, code: 'G1' } },
+          createdNodes: { p1: { id: 1, code: 'AC1' }, p2: { id: 2, code: 'G1' } },
           edges: [1],
         },
         'Graph committed successfully',

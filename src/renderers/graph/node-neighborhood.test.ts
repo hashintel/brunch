@@ -9,21 +9,21 @@ import { formatNeighborhood } from './node-neighborhood.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PREVIEWS_DIR = resolve(HERE, '__previews__');
-const GOLDEN_PATH = resolve(PREVIEWS_DIR, 'neighborhood-code-health-R1.md');
+const GOLDEN_PATH = resolve(PREVIEWS_DIR, 'neighborhood-code-health-REQ1.md');
 
-test('locks graph neighborhood preview for code-health R1 and preserves projected invariants', async () => {
+test('locks graph neighborhood preview for code-health REQ1 and preserves projected invariants', async () => {
   const rendered = formatNeighborhood(
     readNodeNeighborhoodFixture({
       set: 'bilal-port',
       fixture: 'code-health',
-      anchorCode: 'R1',
+      anchorCode: 'REQ1',
     }),
   );
   const locked = rendered.endsWith('\n') ? rendered : `${rendered}\n`;
 
   mkdirSync(PREVIEWS_DIR, { recursive: true });
   await expect(locked).toMatchFileSnapshot(GOLDEN_PATH);
-  expect(rendered).toContain('anchor: [R1] intent/requirement:');
+  expect(rendered).toContain('anchor: [REQ1] intent/requirement:');
   expect(rendered).not.toContain('#');
-  expect(rendered).toContain('R1 -[dependency]-> D11');
+  expect(rendered).toContain('REQ1 -[dependency]-> D11');
 });

@@ -38,11 +38,11 @@ describe('renderNodeContext', () => {
     const rendered = renderNodeContext(neighborhood, { maxNeighbors: 1, maxEdges: 1 });
 
     expect(rendered).toContain('[Selected-spec node context]');
-    expect(rendered).toContain('- anchor: [R1] intent/requirement: Selected spec has graph truth');
+    expect(rendered).toContain('- anchor: [REQ1] intent/requirement: Selected spec has graph truth');
     expect(rendered).toContain('- anchor body: A long body explains the requirement.');
-    expect(rendered).toContain('[M2] design/module: Graph snapshot reader');
+    expect(rendered).toContain('[MOD2] design/module: Graph snapshot reader');
     expect(rendered).toContain('…1 more neighbor(s) omitted');
-    expect(rendered).toContain('M2 -[realization]-> R1');
+    expect(rendered).toContain('MOD2 -[realization]-> REQ1');
   });
 
   it('renders a clear selected-spec missing-node result', () => {

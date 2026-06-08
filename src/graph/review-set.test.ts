@@ -160,7 +160,7 @@ describe('review-set graph payload translation', () => {
         edgeDrafts: [
           {
             category: 'realization',
-            source: { existingCode: 'R1' },
+            source: { existingCode: 'REQ1' },
             target: { draftId: 'req-rollback' },
           },
         ],

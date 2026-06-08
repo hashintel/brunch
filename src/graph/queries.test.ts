@@ -20,7 +20,8 @@ describe('graph node code metadata', () => {
     );
     expect(parseGraphNodeCode('A1')).toEqual({ kind: 'assumption', kindOrdinal: 1 });
     expect(parseGraphNodeCode('CON2')).toEqual({ kind: 'constraint', kindOrdinal: 2 });
-    expect(parseGraphNodeCode('CR3')).toEqual({ kind: 'criterion', kindOrdinal: 3 });
+    expect(parseGraphNodeCode('REQ3')).toEqual({ kind: 'requirement', kindOrdinal: 3 });
+    expect(parseGraphNodeCode('AC4')).toEqual({ kind: 'criterion', kindOrdinal: 4 });
   });
 });
 

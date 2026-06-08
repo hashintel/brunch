@@ -1375,7 +1375,7 @@ describe('JSON-RPC handlers', () => {
         review: {
           status: 'approved',
           lsn: expect.any(Number),
-          createdNodes: { 'requirement-draft': { id: expect.any(Number), code: 'R1' } },
+          createdNodes: { 'requirement-draft': { id: expect.any(Number), code: 'REQ1' } },
         },
         capture: { status: 'no_capture' },
       },
@@ -1478,7 +1478,7 @@ describe('JSON-RPC handlers', () => {
             goal: { code: 'G1' },
             context: { code: 'CTX1' },
             constraint: { code: 'CON1' },
-            criterion: { code: 'CR1' },
+            criterion: { code: 'AC1' },
           },
         },
       },
@@ -1581,7 +1581,7 @@ describe('JSON-RPC handlers', () => {
             goal: { code: 'G1' },
             context: { code: 'CTX1' },
             constraint: { code: 'CON1' },
-            criterion: { code: 'CR1' },
+            criterion: { code: 'AC1' },
           },
         },
       },
@@ -2519,7 +2519,7 @@ describe('JSON-RPC handlers', () => {
         specId: fixture.specAId,
         basis: 'explicit',
         nodes: [{ ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Dev RPC thesis' }],
-        edges: [{ category: 'support', source: { existingCode: 'R1' }, target: 'thesis', stance: 'for' }],
+        edges: [{ category: 'support', source: { existingCode: 'REQ1' }, target: 'thesis', stance: 'for' }],
       },
     });
 
@@ -2606,7 +2606,7 @@ describe('JSON-RPC handlers', () => {
         specId: fixture.specAId,
         basis: 'explicit',
         nodes: [{ ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Invalid dev RPC thesis' }],
-        edges: [{ category: 'proof', source: { existingCode: 'R1' }, target: 'thesis' }],
+        edges: [{ category: 'proof', source: { existingCode: 'REQ1' }, target: 'thesis' }],
       },
     });
 
@@ -2668,7 +2668,9 @@ describe('JSON-RPC handlers', () => {
             specId: fixture.specAId,
             basis: 'explicit',
             nodes: [{ ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Line RPC thesis' }],
-            edges: [{ category: 'support', source: { existingCode: 'R1' }, target: 'thesis', stance: 'for' }],
+            edges: [
+              { category: 'support', source: { existingCode: 'REQ1' }, target: 'thesis', stance: 'for' },
+            ],
           },
         },
         { jsonrpc: '2.0', id: 66, method: 'graph.overview', params: { specId: fixture.specAId } },

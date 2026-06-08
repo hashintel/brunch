@@ -189,7 +189,7 @@ describe('project-graph review-cycle proof report', () => {
     expect(report.createdNodes).toEqual([
       {
         id: 2,
-        code: 'R1',
+        code: 'REQ1',
         plane: 'intent',
         kind: 'requirement',
         title: 'Macro view names impasse resolution state',

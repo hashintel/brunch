@@ -76,36 +76,46 @@ export interface NodeKindMetadata {
   readonly readinessBands: readonly ReadinessBand[];
 }
 
-export const NODE_KIND_METADATA: Record<NodeKind, NodeKindMetadata> = {
+type NodeKindMetadataByKind = {
+  readonly [Kind in NodeKind]: NodeKindMetadata;
+};
+
+export const NODE_KIND_METADATA = {
   goal: { label: 'G', readinessBands: ['grounding'] },
   thesis: { label: 'TH', readinessBands: ['grounding'] },
   term: { label: 'T', readinessBands: ['grounding', 'elicitation'] },
   context: { label: 'CTX', readinessBands: ['grounding'] },
-  requirement: { label: 'R', readinessBands: ['elicitation', 'commitment'] },
+  requirement: { label: 'REQ', readinessBands: ['elicitation', 'commitment'] },
   assumption: { label: 'A', readinessBands: ['grounding', 'elicitation'] },
   constraint: { label: 'CON', readinessBands: ['grounding', 'elicitation'] },
   invariant: { label: 'INV', readinessBands: ['commitment'] },
   decision: { label: 'D', readinessBands: ['commitment'] },
-  criterion: { label: 'CR', readinessBands: ['elicitation', 'commitment'] },
+  criterion: { label: 'AC', readinessBands: ['elicitation', 'commitment'] },
   example: { label: 'EX', readinessBands: ['elicitation'] },
-  check: { label: 'CHK', readinessBands: ['commitment'] },
-  validation_method: { label: 'VM', readinessBands: ['commitment'] },
+  check: { label: 'CH', readinessBands: ['commitment'] },
+  validation_method: { label: 'VV', readinessBands: ['commitment'] },
   evidence: { label: 'E', readinessBands: ['commitment'] },
   obligation: { label: 'O', readinessBands: ['commitment'] },
-  module: { label: 'M', readinessBands: ['elicitation'] },
-  interface: { label: 'IF', readinessBands: ['elicitation'] },
-  milestone: { label: 'MS', readinessBands: ['commitment'] },
+  module: { label: 'MOD', readinessBands: ['elicitation'] },
+  interface: { label: 'API', readinessBands: ['elicitation'] },
+  milestone: { label: 'M', readinessBands: ['commitment'] },
   frontier: { label: 'F', readinessBands: ['commitment'] },
-  slice: { label: 'SL', readinessBands: ['commitment'] },
-};
+  slice: { label: 'S', readinessBands: ['commitment'] },
+} as const satisfies NodeKindMetadataByKind;
+
+export type GraphNodeKindCode = (typeof NODE_KIND_METADATA)[NodeKind]['label'];
 
 export interface ParsedGraphNodeCode {
   readonly kind: NodeKind;
   readonly kindOrdinal: number;
 }
 
-const NODE_KIND_BY_LABEL = new Map(
+const NODE_KIND_BY_LABEL: ReadonlyMap<GraphNodeKindCode, NodeKind> = new Map(
   Object.entries(NODE_KIND_METADATA).map(([kind, metadata]) => [metadata.label, kind as NodeKind]),
+);
+
+const MAX_NODE_KIND_CODE_LENGTH = Math.max(
+  ...Object.values(NODE_KIND_METADATA).map((metadata) => metadata.label.length),
 );
 
 export function formatGraphNodeCode(kind: NodeKind, kindOrdinal: number): string {
@@ -114,9 +124,13 @@ export function formatGraphNodeCode(kind: NodeKind, kindOrdinal: number): string
 
 export function parseGraphNodeCode(code: string): ParsedGraphNodeCode | undefined {
   const normalized = code.trim().toUpperCase();
-  for (let prefixLength = Math.min(3, normalized.length - 1); prefixLength > 0; prefixLength--) {
+  for (
+    let prefixLength = Math.min(MAX_NODE_KIND_CODE_LENGTH, normalized.length - 1);
+    prefixLength > 0;
+    prefixLength--
+  ) {
     const label = normalized.slice(0, prefixLength);
-    const kind = NODE_KIND_BY_LABEL.get(label);
+    const kind = NODE_KIND_BY_LABEL.get(label as GraphNodeKindCode);
     if (!kind) continue;
     const ordinalText = normalized.slice(prefixLength);
     if (!/^[1-9]\d*$/.test(ordinalText)) return undefined;
