@@ -43,8 +43,7 @@ The remaining coverage frontiers are being deliberately de-fogged rather than le
 
 1. `poc-live-ship-gate` — final fresh-cwd runbook remains the delivery gate, but its prepared live-mention-autocomplete slice is currently parked off the critical path.
 2. `elicitation-driver` — **first coverage follow-on**: it closes the last open required cross-cut row (Seam 3a `"what to ask next" driver`) and retires the temporary dual-plan state, so it sequences ahead of any fresh coverage frontier. Buildable-now on the FE-823 substrate; not POC-ship-critical.
-3. `runtime-affordances-and-legality` — coverage frontier for shared posture legality/default surfaces; **buildable-now** and scoped as an inventory ledger (`memory/cards/runtime-affordances--coverage-ledger.md`). It is **parallel-eligible but must not preempt closing the cross-cut**: do not let it pull planning back into a second open frontier before `elicitation-driver` lands. (It writes disjoint paths from `elicitation-driver`, so it may run as a concurrent worktree stream — just not *instead of* the cross-cut closer.)
-4. `capture-quality-spike` — evidence spike that measures generalized-capture fitness (A22-L) so `exchanges-and-generalized-capture` can graduate from horizon on real evidence rather than waiting (`memory/cards/capture-quality--fitness-spike.md`).
+3. `capture-quality-spike` — evidence spike that measures generalized-capture fitness (A22-L) so `exchanges-and-generalized-capture` can graduate from horizon on real evidence rather than waiting (`memory/cards/capture-quality--fitness-spike.md`).
 
 ### Parallel / Low-conflict
 
@@ -212,7 +211,7 @@ The remaining coverage frontiers are being deliberately de-fogged rather than le
 - **Name:** Runtime affordances and legality surface
 - **Linear:** unassigned
 - **Kind:** structural
-- **Status:** next
+- **Status:** done
 - **Certainty:** proving
 - **Lights up:** A shared affordance/default-on-switch projection across TUI, web, and RPC if runtime posture controls widen again.
 - **Stabilizes:** D40-L's projection-as-truth model and the shared legality/default semantics over goal/strategy/lens.
@@ -226,7 +225,7 @@ The remaining coverage frontiers are being deliberately de-fogged rather than le
 - **Cross-cutting obligations:** Keep truth append-only in `brunch.agent_runtime_state`; affordances are pure derivations over shared tables. Do not add xstate or a persisted machine without new evidence.
 - **Traceability:** D25-L, D40-L, D59-L, D66-L.
 - **Design docs:** `memory/SPEC.md` D40-L/D59-L; `src/projections/README.md`; `src/session/README.md`.
-- **Current execution pointer:** Being scoped as a coverage ledger in `memory/cards/runtime-affordances--coverage-ledger.md`. The classification is **buildable-now, not parked**: the core is one Brunch-owned `affordances(resolvedState)` derivation over legality/default tables that already exist in `src/projections/session/runtime-policy.ts` and `src/.pi/agents/state.ts`. Only the `active-review-set` and freestyle-vs-structured `turn-mode` rows are genuinely product-state-gated; they stay tripwired in the ledger, not built speculatively.
+- **Current execution pointer:** Done 2026-06-08. `src/projections/session/affordances.ts` now owns the shared `(resolvedState, readinessGrade)` derivation for legal goal/strategy/lens options plus default-on-switch values, reusing the same grade/AUTO legality source consumed by `.pi/agents/state.ts`; `src/session/README.md` owns the closed coverage ledger and `src/session/runtime-affordances-coverage.test.ts` guards required agent/RPC rows while leaving `active-review-set` and `turn-mode` as explicit product-state-gated deferrals.
 
 ### exchanges-and-generalized-capture
 

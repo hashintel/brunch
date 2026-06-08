@@ -2,6 +2,11 @@ import { fileURLToPath } from 'node:url';
 
 import type { ReadinessGrade } from '../../graph/index.js';
 import {
+  AUTO_EXCLUDED_STRATEGIES,
+  GOAL_MIN_GRADE,
+  LENS_MIN_GRADE,
+  STRATEGY_MIN_GRADE,
+  isGradeLegal,
   toolPolicyForRuntimeState,
   type ResolvedBrunchAgentState,
 } from '../../projections/session/runtime-policy.js';
@@ -47,36 +52,6 @@ export interface BrunchPostureToolPolicyInput {
   state: ResolvedBrunchAgentState;
   readinessGrade: ReadinessGrade;
 }
-
-const GRADE_RANK: Record<ReadinessGrade, number> = {
-  grounding_onboarding: 0,
-  elicitation_ready: 1,
-  commitments_ready: 2,
-  planning_ready: 3,
-};
-
-const GOAL_MIN_GRADE: Record<AgentGoalId, ReadinessGrade> = {
-  'grounding-advance': 'grounding_onboarding',
-  'elicit-expand': 'elicitation_ready',
-  'commit-converge': 'commitments_ready',
-  'capture-posture': 'grounding_onboarding',
-};
-
-const STRATEGY_MIN_GRADE: Record<AgentStrategyId, ReadinessGrade> = {
-  freestyle: 'grounding_onboarding',
-  'step-wise-decision-tree': 'grounding_onboarding',
-  'step-wise-disambiguate': 'grounding_onboarding',
-  'propose-graph': 'elicitation_ready',
-  'project-graph': 'commitments_ready',
-};
-
-const AUTO_EXCLUDED_STRATEGIES = new Set<AgentStrategyId>(['freestyle']);
-
-const LENS_MIN_GRADE: Record<AgentLensId, ReadinessGrade> = {
-  intent: 'grounding_onboarding',
-  design: 'elicitation_ready',
-  oracle: 'elicitation_ready',
-};
 
 const METHOD_MIN_GRADE: Record<MethodId, ReadinessGrade> = {
   'run-structured-exchange': 'grounding_onboarding',
@@ -330,14 +305,6 @@ function selectAxisResources<TId extends string>({
     );
   }
   return [resources[selection]];
-}
-
-function isGradeLegal<TId extends string>(
-  id: TId,
-  readinessGrade: ReadinessGrade,
-  minGrades: Record<TId, ReadinessGrade>,
-): boolean {
-  return GRADE_RANK[readinessGrade] >= GRADE_RANK[minGrades[id]];
 }
 
 function promptResourceLocation(family: PromptResourceFamily, id: string): string {
