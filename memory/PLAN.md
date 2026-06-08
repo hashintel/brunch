@@ -35,7 +35,7 @@ After the current elicitor work, the strongest follow-on coverage frontier is `g
 
 ### Active
 
-1. `minimal-authority-shell` — now the next delivery-safety frontier after the elicitation-backlog substrate landed; prompt-resource body depth remains temporary cross-cut completion work outside `PLAN.md`.
+- None.
 
 ### Next
 
@@ -116,7 +116,7 @@ After the current elicitor work, the strongest follow-on coverage frontier is `g
 - **Linear:** [FE-810](https://linear.app/hash/issue/FE-810/minimal-poc-authority-shell-over-graphsession-actions)
 - **Branch:** to create — `ln/fe-810-minimal-authority-shell`
 - **Kind:** hardening
-- **Status:** next
+- **Status:** done
 - **Certainty:** proving
 - **Stabilizes:** D20-L/D40-L command-result and elicit-mode authority seams for the current POC graph/session paths.
 - **Objective:** Fill only the authority behavior required for a credible POC: graph writes keep returning structured command results, `elicit` suppresses obvious side-effecting tools, and headless/RPC paths surface structured `needs_human` where the POC actually reaches human-only actions.
@@ -131,7 +131,7 @@ After the current elicitor work, the strongest follow-on coverage frontier is `g
 - **Cross-cutting obligations:** This is a minimal shell, not full M6. Do not widen into comprehensive RBAC/permissions unless a current POC path needs it.
 - **Traceability:** R5, R6, R10 / D20-L, D34-L, D40-L / A18-L, A3-L.
 - **Design docs:** `memory/SPEC.md` D20-L/D34-L/D40-L; `docs/reference/pi-extensions.md`.
-- **Current execution pointer:** Scoped 2026-06-08 — active scope file `memory/cards/minimal-authority-shell--audit-and-guard.md`. Pre-audit during scoping found most criteria already met (CommandResult discriminants exist; `needs_human` defined but never produced; elicit already blocks bash/edit/write; D34-L command policy already at `.pi/extensions/commands/policy.ts`), so the slice is an authority-matrix audit + guard test + A18-L residue naming, not a build-out. The card forbids touching `src/.pi/agents/state.ts` so it can run as an independent worktree stream alongside `resource-body-depth` and `graph-observed-shapes`.
+- **Current execution pointer:** Done 2026-06-08. Added `src/.pi/extensions/runtime/authority-matrix.test.ts` as the minimal authority guard: it locks the `CommandResult` discriminant vocabulary (including structured `needs_human` representability), proves `elicit-read-only` derives allowed/blocked tool authority from the shared projected runtime policy, and verifies the POC side-effecting tools (`bash`, `edit`, `write`) are not reachable in `elicit`. No standalone authority service was introduced, `src/.pi/agents/state.ts` stayed untouched, and A18-L strict built-in suppression remains named residue rather than closed.
 
 ### poc-live-ship-gate
 
@@ -274,6 +274,8 @@ After the current elicitor work, the strongest follow-on coverage frontier is `g
 - **Design docs:** `.fixtures/seeds/bilal-port/README.md`; `docs/design/GRAPH_MODEL.md`; `docs/praxis/manual-testing.md`.
 
 ## Recently Completed
+- 2026-06-08 `minimal-authority-shell` (FE-810) — Done: added the authority-matrix guard test over the current POC authority seam. The guard locks `CommandExecutor` mutation-result discriminants as the graph outcome vocabulary, proves `needs_human` is structured data rather than a TUI-only dialog, and asserts `elicit` tool authority comes from the shared projected runtime policy while blocking the identified side-effecting tools (`bash`, `edit`, `write`). No new authority service; `src/.pi/agents/state.ts` untouched; A18-L strict built-in suppression remains accepted Pi-upstream/API residue. Verified: `src/.pi/extensions/runtime/authority-matrix.test.ts` and `npm run verify`.
+
 - 2026-06-08 cross-cut prompt-resource body-depth pass (Seam 3a/3b) — Done (1ca02e38): deepened every thin `src/.pi/skills/{goals,strategies,lenses,methods}` body to carry its per-axis facet guidance (goals→D59-L, strategies/lenses→README+D25-L, methods→D58-L tool-routing role), and added a manifest-wide readability/depth test in `src/.pi/agents/compose.test.ts` asserting every `{GOAL,STRATEGY,LENS,METHOD}_RESOURCES` location resolves and clears a ≥700-char floor. `state.ts` untouched. This closed the last row-sized cross-cut completion work; `memory/CROSS_CUT_PLAN.md` ● rows are now all built. Verified: `npm run verify` (551 tests, build).
 
 - 2026-06-08 `elicitation-backlog` (FE-823) — Done: materialized `elicitation_backlog` as a flat spec-scoped table with generated migration, seeded the grounding agenda at `createSpec`, routed create/close entry mutations through `CommandExecutor` on the shared `{specId, lsn}` / `change_log` boundary, and added graph-owned per-spec open-entry read-back. Reconciled D65-L/A24-L and updated graph/db topology docs. Verified: `src/graph/command-executor.test.ts`, `src/graph/queries.test.ts`, and `npm run verify`.
@@ -296,7 +298,7 @@ nodes:
   capture-response-to-graph      [done · P0]         structured answer -> graph truth -> observer update
   project-graph-review-cycle     [done · P1]         real project-graph review-set approval loop
   elicitation-backlog            [done · proving]    materialized D65-L prospective agenda substrate and read-back
-  minimal-authority-shell        [active · P1]       thin safety posture for current POC paths
+  minimal-authority-shell        [done · P1]         thin safety posture for current POC paths
   poc-live-ship-gate             [next · P1]         final fresh-cwd composed product runbook
   graph-observed-shapes          [next · proving]    decide consumer-specific observed-shape inventory, then align graph/RPC/web
   runtime-affordances-and-legality [next · proving]  keep posture legality/default surfaces shared across transports
@@ -330,7 +332,7 @@ horizon:
 
 notes:
   - `elicitation-backlog` was the promoted D65-L row from `memory/CROSS_CUT_PLAN.md`; the prompt-resource body-depth pass (the last temporary cross-cut completion work) landed in 1ca02e38, so `memory/CROSS_CUT_PLAN.md` now has no row-sized work left — its only residue is the unscoped live "what to ask next" driver.
-  - Parallel worktree streams (2026-06-08): stream (A) `crosscut-know--resource-body-depth` → `src/.pi/skills/**` is **done** (1ca02e38). Two write-disjoint streams remain cold-startable from a clean committed base — (B) `graph-observed-shapes--coverage-ledger` → `src/graph/README.md` + `rpc`/`web` READMEs + one guard test; (C) `minimal-authority-shell--audit-and-guard` → `src/.pi/extensions/runtime/` + guard test. Invariant: **`src/.pi/agents/state.ts` is a single-writer file** — B and C must not edit it. `poc-live-ship-gate` stays gated behind `minimal-authority-shell` (hard edge); `runtime-affordances-and-legality` and `exchanges-and-generalized-capture` stay parked (shape not yet forced) and are not cold-startable worktree streams.
+  - Parallel worktree streams (2026-06-08): stream (A) `crosscut-know--resource-body-depth` → `src/.pi/skills/**` is **done** (1ca02e38), and stream (C) `minimal-authority-shell--audit-and-guard` → `src/.pi/extensions/runtime/` is **done**. One write-disjoint stream remains cold-startable from a clean committed base — (B) `graph-observed-shapes--coverage-ledger` → `src/graph/README.md` + `rpc`/`web` READMEs + one guard test. Invariant: **`src/.pi/agents/state.ts` is a single-writer file** — B must not edit it. `poc-live-ship-gate` is now unblocked by `minimal-authority-shell`; `runtime-affordances-and-legality` and `exchanges-and-generalized-capture` stay parked (shape not yet forced) and are not cold-startable worktree streams.
   - Completed prerequisites: `agents-composition-layer` supplies runtime prompt/resource posture, and `live-graph-observer` supplies the read-only web observer path expected by `capture-response-to-graph` and `poc-live-ship-gate`.
   - `graph-observed-shapes` is intentionally consumer-specific: do not assume every agent read shape belongs on the web observer.
   - `exchanges-and-generalized-capture` stays deferred until the surviving inventory is honest enough to close; do not regrow deleted `capture-*` symmetry in the meantime.
