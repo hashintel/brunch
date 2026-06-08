@@ -73,34 +73,34 @@ describe('parseCookArgs', () => {
   it('defaults --petrinaut-stream to false and petrinautOpen to true', () => {
     const opts = parseCookArgs(['./f']);
     expect(opts.petrinautStream).toBe(false);
-    expect(opts.petrinautBaseUrl).toBeUndefined();
+    expect(opts.petrinautUrl).toBeUndefined();
     expect(opts.petrinautOpen).toBe(true);
   });
 
-  it('parses --petrinaut-stream and --petrinaut-base-url=<url>', () => {
+  it('parses --petrinaut-stream and --petrinaut-url=<url>', () => {
     const opts = parseCookArgs([
       './f',
       '--petrinaut-stream',
-      '--petrinaut-base-url=https://petrinaut.example/import',
+      '--petrinaut-url=https://petrinaut.example/import',
     ]);
     expect(opts.petrinautStream).toBe(true);
-    expect(opts.petrinautBaseUrl).toBe('https://petrinaut.example/import');
+    expect(opts.petrinautUrl).toBe('https://petrinaut.example/import');
   });
 
   it('parses --no-petrinaut-open under --petrinaut-stream', () => {
     const opts = parseCookArgs([
       './f',
       '--petrinaut-stream',
-      '--petrinaut-base-url=https://x/',
+      '--petrinaut-url=https://x/',
       '--no-petrinaut-open',
     ]);
     expect(opts.petrinautStream).toBe(true);
     expect(opts.petrinautOpen).toBe(false);
   });
 
-  it('rejects --petrinaut-base-url without --petrinaut-stream', () => {
-    expect(() => parseCookArgs(['./f', '--petrinaut-base-url=https://x/'])).toThrow(
-      /--petrinaut-base-url requires --petrinaut-stream/i,
+  it('rejects --petrinaut-url without --petrinaut-stream', () => {
+    expect(() => parseCookArgs(['./f', '--petrinaut-url=https://x/'])).toThrow(
+      /--petrinaut-url requires --petrinaut-stream/i,
     );
   });
 
@@ -129,7 +129,7 @@ describe('parseCookArgs', () => {
     const opts = parseCookArgs([
       './f',
       '--petrinaut-stream',
-      '--petrinaut-base-url=https://x/',
+      '--petrinaut-url=https://x/',
       '--petrinaut-fold=color',
     ]);
     expect(opts.petrinautStream).toBe(true);
@@ -222,7 +222,7 @@ describe('createPetrinautStreamSetup', () => {
     const logged: string[] = [];
 
     const setup = createPetrinautStreamSetup({
-      baseUrl: 'https://petrinaut.example/import',
+      petrinautUrl: 'https://petrinaut.example/import',
       shouldOpen: true,
       openUrl: (url) => {
         openedUrls.push(url);
@@ -237,7 +237,7 @@ describe('createPetrinautStreamSetup', () => {
     const launcherUrl = new URL(openedUrls[0]!);
     expect(launcherUrl.origin).toBe('https://petrinaut.example');
     expect(launcherUrl.searchParams.get('runId')).toBe('run-test');
-    expect(launcherUrl.searchParams.get('mode')).toBe('actual');
+    expect(launcherUrl.searchParams.has('mode')).toBe(false);
     expect(launcherUrl.searchParams.get('sse')).toBe('http://127.0.0.1:9999/stream');
     // Launcher URL is also printed.
     expect(logged.some((l) => l.includes(openedUrls[0]!))).toBe(true);
@@ -254,7 +254,7 @@ describe('createPetrinautStreamSetup', () => {
     const logged: string[] = [];
 
     const setup = createPetrinautStreamSetup({
-      baseUrl: 'https://petrinaut.example/import',
+      petrinautUrl: 'https://petrinaut.example/import',
       shouldOpen: false,
       openUrl: (url) => {
         openedUrls.push(url);
@@ -275,7 +275,7 @@ describe('createPetrinautStreamSetup', () => {
     const logged: string[] = [];
 
     const setup = createPetrinautStreamSetup({
-      baseUrl: 'https://petrinaut.example/import',
+      petrinautUrl: 'https://petrinaut.example/import',
       shouldOpen: true,
       openUrl: () => {
         throw new Error('xdg-open not found');
@@ -301,7 +301,7 @@ describe('createPetrinautStreamSetup', () => {
     };
 
     const setup = createPetrinautStreamSetup({
-      baseUrl: 'https://petrinaut.example/import',
+      petrinautUrl: 'https://petrinaut.example/import',
       shouldOpen: false,
       openUrl: () => {
         throw new Error('should not be called');
@@ -320,7 +320,7 @@ describe('createPetrinautStreamSetup', () => {
     const capturedBus: PetrinautStreamBus[] = [];
 
     const setup = createPetrinautStreamSetup({
-      baseUrl: 'https://x/',
+      petrinautUrl: 'https://x/',
       shouldOpen: false,
       openUrl: () => {},
       log: () => {},
@@ -333,12 +333,14 @@ describe('createPetrinautStreamSetup', () => {
     const onEvent = await setup.setupHook({ runId: 'r', sdcpnFile });
     expect(capturedBus).toHaveLength(1);
 
-    // Subscriber attached after setup but before publish sees the initial
-    // `definition` frame from the bus's eager materialization. After
-    // publishing a terminal event we expect a terminal frame too.
+    // Subscriber attached after setup but before publish leads with a
+    // `status` frame (FE-819 Card B), then the `definition` frame from the
+    // bus's eager materialization. After publishing a terminal event we
+    // expect a terminal frame too.
     const seenKinds: string[] = [];
     capturedBus[0]!.subscribe((f) => seenKinds.push(f.kind));
-    expect(seenKinds[0]).toBe('definition');
+    expect(seenKinds[0]).toBe('status');
+    expect(seenKinds[1]).toBe('definition');
 
     const terminal: PetrinautEvent = {
       kind: 'net_halted',

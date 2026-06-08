@@ -137,19 +137,44 @@ describe('createPetrinautStreamServer — GET /stream wire conformance', () => {
 
     const frames = await readEntireStream(ctx.streamUrl!);
     expect(frames.map((f) => f.event)).toEqual([
+      'status',
       'definition',
       'initial_state',
       'transition_firing',
+      'transition_firing', // synthetic run:finish (Card C)
       'terminal',
     ]);
 
     // Each data payload parses as JSON whose shape matches the variant.
-    expect(frames[0]!.data).toHaveProperty('version');
-    expect(frames[0]!.data).toHaveProperty('places');
-    expect(frames[0]!.data).toHaveProperty('transitions');
-    expect(frames[1]!.data).toEqual({ src: 1 });
-    expect(frames[2]!.data).toMatchObject({ transitionId: 't-move', ts: '2026-06-02T00:00:00.100Z' });
-    expect(frames[3]!.data).toBeUndefined();
+    expect(frames[0]!.data).toEqual({ state: 'halted' });
+    expect(frames[1]!.data).toHaveProperty('version');
+    expect(frames[1]!.data).toHaveProperty('places');
+    expect(frames[1]!.data).toHaveProperty('transitions');
+    expect(frames[2]!.data).toEqual({ src: 1 });
+    expect(frames[3]!.data).toMatchObject({ transitionId: 't-move', ts: '2026-06-02T00:00:00.100Z' });
+    // Synthetic run:finish deposits a token into run:halted at the terminal ts.
+    expect(frames[4]!.data).toMatchObject({
+      transitionId: 'run:finish',
+      ts: '2026-06-02T00:00:00.200Z',
+      output: { 'run:halted': 1 },
+    });
+    expect(frames[5]!.data).toEqual({ state: 'halted' });
+  });
+
+  it('serializes the terminal + leading status payloads with state and verbatim reason (Card B)', async () => {
+    ctx.bus!.publish(initialMarking);
+    ctx.bus!.publish({
+      kind: 'net_halted',
+      ts: '2026-06-02T00:00:00.200Z',
+      runId: 'run-srv',
+      reason: 'unique retry exhaustion',
+    });
+
+    const frames = await readEntireStream(ctx.streamUrl!);
+    const status = frames.find((f) => f.event === 'status');
+    const terminal = frames.find((f) => f.event === 'terminal');
+    expect(status!.data).toEqual({ state: 'halted', reason: 'unique retry exhaustion' });
+    expect(terminal!.data).toEqual({ state: 'halted', reason: 'unique retry exhaustion' });
   });
 });
 
@@ -163,9 +188,11 @@ describe('createPetrinautStreamServer — replay on connect', () => {
 
     const frames = await readEntireStream(ctx.streamUrl!);
     expect(frames.map((f) => f.event)).toEqual([
+      'status',
       'definition',
       'initial_state',
       'transition_firing',
+      'transition_firing', // synthetic run:finish (Card C)
       'terminal',
     ]);
   });
@@ -190,10 +217,12 @@ describe('createPetrinautStreamServer — replay on connect', () => {
 
     const frames = parseSse(await responsePromise);
     expect(frames.map((f) => f.event)).toEqual([
+      'status',
       'definition',
       'initial_state',
       'transition_firing',
       'transition_firing',
+      'transition_firing', // synthetic run:finish (Card C)
       'terminal',
     ]);
   });
@@ -208,7 +237,15 @@ describe('createPetrinautStreamServer — concurrent connections', () => {
     for (const e of [initialMarking, firing, terminal]) ctx.bus!.publish(e);
 
     const [a, b] = await Promise.all([readEntireStream(ctx.streamUrl!), readEntireStream(ctx.streamUrl!)]);
-    const expected = ['definition', 'initial_state', 'transition_firing', 'terminal'];
+    // One real firing + synthetic run:finish (Card C) before terminal.
+    const expected = [
+      'status',
+      'definition',
+      'initial_state',
+      'transition_firing',
+      'transition_firing',
+      'terminal',
+    ];
     expect(a.map((f) => f.event)).toEqual(expected);
     expect(b.map((f) => f.event)).toEqual(expected);
   });

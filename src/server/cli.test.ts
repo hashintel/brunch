@@ -191,13 +191,13 @@ describe('published CLI entrypoint', () => {
       '--max-retries=',
       '--petrinaut-fold=',
       '--petrinaut-stream',
-      '--petrinaut-base-url=',
+      '--petrinaut-url=',
       '--no-petrinaut-open',
       '--verbose, -v',
     ]) {
       expect(result.stdout).toContain(flag);
     }
-    expect(result.stdout).toContain('PETRINAUT_BASE_URL');
+    expect(result.stdout).toContain('PETRINAUT_URL');
   });
 
   it('rejects `brunch plan` invocations with no spec id', async () => {

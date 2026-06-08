@@ -1,88 +1,89 @@
 // ---------------------------------------------------------------------------
-// Pure base-URL resolution + launcher URL composition.
+// Pure URL resolution + launcher URL composition.
 //
 // Two pure functions; no fs, no env reads (env is passed in), no process exits.
-// Covers (a) multi-tier base URL resolution (CLI > env > hard fail) and
+// Covers (a) multi-tier Petrinaut URL resolution (CLI > env > hard fail) and
 // (b) launcher URL composition that handles trailing slashes, pre-existing
 // query params, and correct encoding of the SSE endpoint.
 // ---------------------------------------------------------------------------
 
 import { describe, expect, it } from 'vitest';
 
-import { composeLauncherUrl, resolvePetrinautBaseUrl } from './petrinaut-launcher-url.js';
+import { composeLauncherUrl, resolvePetrinautUrl } from './petrinaut-launcher-url.js';
 
-describe('resolvePetrinautBaseUrl', () => {
+describe('resolvePetrinautUrl', () => {
   it('returns the CLI flag value when both CLI and env are set (CLI wins)', () => {
-    const result = resolvePetrinautBaseUrl({
-      cliFlag: 'https://cli.example/petrinaut',
-      env: { PETRINAUT_BASE_URL: 'https://env.example/petrinaut' },
+    const result = resolvePetrinautUrl({
+      cliFlag: 'https://cli.example/brunch',
+      env: { PETRINAUT_URL: 'https://env.example/brunch' },
     });
-    expect(result).toEqual({ baseUrl: 'https://cli.example/petrinaut' });
+    expect(result).toEqual({ url: 'https://cli.example/brunch' });
   });
 
   it('returns the env value when no CLI flag is set', () => {
-    const result = resolvePetrinautBaseUrl({
+    const result = resolvePetrinautUrl({
       cliFlag: undefined,
-      env: { PETRINAUT_BASE_URL: 'https://env.example/petrinaut' },
+      env: { PETRINAUT_URL: 'https://env.example/brunch' },
     });
-    expect(result).toEqual({ baseUrl: 'https://env.example/petrinaut' });
+    expect(result).toEqual({ url: 'https://env.example/brunch' });
   });
 
   it('returns the locked error message when neither CLI nor env is set', () => {
-    const result = resolvePetrinautBaseUrl({ cliFlag: undefined, env: {} });
+    const result = resolvePetrinautUrl({ cliFlag: undefined, env: {} });
     expect(result).toEqual({
-      error: 'Petrinaut base URL required: set PETRINAUT_BASE_URL in .env or pass --petrinaut-base-url=<url>',
+      error: 'Petrinaut URL required: set PETRINAUT_URL in .env or pass --petrinaut-url=<url>',
     });
   });
 
   it('treats empty-string CLI flag and empty-string env as unset', () => {
-    const result = resolvePetrinautBaseUrl({ cliFlag: '', env: { PETRINAUT_BASE_URL: '' } });
-    expect(result).toMatchObject({ error: expect.stringContaining('PETRINAUT_BASE_URL') });
+    const result = resolvePetrinautUrl({ cliFlag: '', env: { PETRINAUT_URL: '' } });
+    expect(result).toMatchObject({ error: expect.stringContaining('PETRINAUT_URL') });
   });
 
-  it('rejects relative or non-http base URLs before launcher composition', () => {
-    expect(resolvePetrinautBaseUrl({ cliFlag: 'localhost:3000', env: {} })).toEqual({
-      error:
-        'Petrinaut base URL must be an absolute http(s) URL: set PETRINAUT_BASE_URL or pass --petrinaut-base-url=<url>',
+  it('rejects relative or non-http URLs before launcher composition', () => {
+    expect(resolvePetrinautUrl({ cliFlag: 'localhost:3000', env: {} })).toEqual({
+      error: 'Petrinaut URL must be an absolute http(s) URL: set PETRINAUT_URL or pass --petrinaut-url=<url>',
     });
     expect(
-      resolvePetrinautBaseUrl({
+      resolvePetrinautUrl({
         cliFlag: undefined,
-        env: { PETRINAUT_BASE_URL: 'file:///tmp/petrinaut.html' },
+        env: { PETRINAUT_URL: 'file:///tmp/petrinaut.html' },
       }),
     ).toMatchObject({ error: expect.stringContaining('absolute http(s) URL') });
   });
 });
 
 describe('composeLauncherUrl', () => {
-  it('composes runId + mode=actual + sse query params on a bare base URL', () => {
+  it('composes runId + sse query params on a bare Petrinaut URL (no mode param)', () => {
     const url = composeLauncherUrl({
-      baseUrl: 'https://petrinaut.example/',
+      petrinautUrl: 'https://petrinaut.example/',
       runId: 'run_abc',
       streamUrl: 'http://127.0.0.1:51234/stream',
     });
     const parsed = new URL(url);
     expect(parsed.searchParams.get('runId')).toBe('run_abc');
-    expect(parsed.searchParams.get('mode')).toBe('actual');
     expect(parsed.searchParams.get('sse')).toBe('http://127.0.0.1:51234/stream');
+    // `mode` is dropped — the shipped Petrinaut consumer ignores it.
+    expect(parsed.searchParams.has('mode')).toBe(false);
   });
 
-  it('preserves pre-existing query params on the base URL', () => {
+  it('preserves pre-existing query params and the path on the Petrinaut URL', () => {
     const url = composeLauncherUrl({
-      baseUrl: 'https://petrinaut.example/import?theme=dark',
+      petrinautUrl: 'https://petrinaut.example/brunch?theme=dark',
       runId: 'run_abc',
       streamUrl: 'http://127.0.0.1:51234/stream',
     });
     const parsed = new URL(url);
+    expect(parsed.pathname).toBe('/brunch');
     expect(parsed.searchParams.get('theme')).toBe('dark');
     expect(parsed.searchParams.get('runId')).toBe('run_abc');
-    expect(parsed.searchParams.get('mode')).toBe('actual');
+    expect(parsed.searchParams.has('mode')).toBe(false);
   });
 
   it('URL-encodes the sse parameter so a URL value round-trips cleanly', () => {
     const streamUrl = 'http://127.0.0.1:51234/stream?x=1&y=2';
     const url = composeLauncherUrl({
-      baseUrl: 'https://petrinaut.example/',
+      petrinautUrl: 'https://petrinaut.example/',
       runId: 'run_abc',
       streamUrl,
     });
@@ -92,14 +93,14 @@ describe('composeLauncherUrl', () => {
     expect(new URL(url).searchParams.get('sse')).toBe(streamUrl);
   });
 
-  it('handles baseUrl with and without trailing slash identically (composition is path-preserving)', () => {
+  it('handles a URL with and without trailing slash identically (composition is path-preserving)', () => {
     const a = composeLauncherUrl({
-      baseUrl: 'https://petrinaut.example/import',
+      petrinautUrl: 'https://petrinaut.example/brunch',
       runId: 'r',
       streamUrl: 'http://127.0.0.1:9/stream',
     });
     const b = composeLauncherUrl({
-      baseUrl: 'https://petrinaut.example/import/',
+      petrinautUrl: 'https://petrinaut.example/brunch/',
       runId: 'r',
       streamUrl: 'http://127.0.0.1:9/stream',
     });

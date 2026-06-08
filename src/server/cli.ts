@@ -50,7 +50,7 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
     '  --petrinaut-stream               Stream the live run to Petrinaut over SSE (opt-in; default off)',
   );
   console.log(
-    '  --petrinaut-base-url=<url>       Petrinaut /brunch base URL (requires --petrinaut-stream; else PETRINAUT_BASE_URL env)',
+    '  --petrinaut-url=<url>            Petrinaut route URL incl. path, e.g. https://…/brunch (requires --petrinaut-stream; else PETRINAUT_URL env)',
   );
   console.log(
     "  --no-petrinaut-open              Don't auto-open the browser (requires --petrinaut-stream; URL still prints)",
@@ -59,7 +59,7 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log('');
   console.log('Cook env:');
   console.log(
-    '  PETRINAUT_BASE_URL               Petrinaut /brunch base URL for --petrinaut-stream (overridden by --petrinaut-base-url)',
+    '  PETRINAUT_URL                    Petrinaut route URL incl. path for --petrinaut-stream (overridden by --petrinaut-url; shell-wins over .env)',
   );
   console.log(
     '  PORT                             Pin the SSE server port (default: ephemeral); avoid browser-blocked ports (e.g. 6000)',

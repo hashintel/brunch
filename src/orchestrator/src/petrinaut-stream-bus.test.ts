@@ -107,11 +107,13 @@ describe('createPetrinautStreamBus — frame translation (pre-subscribed)', () =
     for (const e of allEvents) bus.publish(e);
 
     expect(frames.map((f) => f.kind)).toEqual([
+      'status',
       'definition',
       'initial_state',
       'transition_firing',
       'transition_firing',
       'transition_firing',
+      'transition_firing', // synthetic run:finish (Card C)
       'terminal',
     ]);
   });
@@ -126,10 +128,28 @@ describe('createPetrinautStreamBus — frame translation (pre-subscribed)', () =
       (f): f is Extract<BrunchExecutionExportFrame, { kind: 'transition_firing' }> =>
         f.kind === 'transition_firing',
     );
-    expect(firings.map((f) => f.firing.transitionId)).toEqual(['t-consume', 't-consume', 't-emit']);
-    expect(firings[0]!.firing.input).toEqual({ src: 1 });
-    expect(firings[0]!.firing.output).toEqual({ middle: 1 });
+    // Three real firings, then the synthetic run:finish (Card C).
+    expect(firings.map((f) => f.firing.transitionId)).toEqual([
+      't-consume',
+      't-consume',
+      't-emit',
+      'run:finish',
+    ]);
+    // Full markings (FE-819 Card A): `input` is the complete pre-firing
+    // marking, `output` the complete post-firing marking — not the touched-
+    // place delta. The fixture starts with src: 2.
+    expect(firings[0]!.firing.input).toEqual({ src: 2 });
+    expect(firings[0]!.firing.output).toEqual({ src: 1, middle: 1 });
     expect(firings[0]!.firing.ts).toBe('2026-06-02T00:00:00.100Z');
+    // Firings chain: each input equals the previous output.
+    expect(firings[1]!.firing.input).toEqual({ src: 1, middle: 1 });
+    expect(firings[1]!.firing.output).toEqual({ middle: 2 });
+    expect(firings[2]!.firing.input).toEqual({ middle: 2 });
+    expect(firings[2]!.firing.output).toEqual({ middle: 1, dst: 1 });
+    // The synthetic run:finish deposits the status token into the full marking
+    // (the `halted` fixture carries no reason → run:halted).
+    expect(firings[3]!.firing.input).toEqual({ middle: 1, dst: 1 });
+    expect(firings[3]!.firing.output).toEqual({ middle: 1, dst: 1, 'run:halted': 1 });
   });
 
   it('emits exactly one definition frame even if subscribe is called before any publish', () => {
@@ -160,7 +180,13 @@ describe('createPetrinautStreamBus — frame translation (pre-subscribed)', () =
     bus.publish(initialEvent);
     bus.publish(completed);
 
-    expect(frames.map((f) => f.kind)).toEqual(['definition', 'initial_state', 'terminal']);
+    expect(frames.map((f) => f.kind)).toEqual([
+      'status',
+      'definition',
+      'initial_state',
+      'transition_firing', // synthetic run:finish (Card C)
+      'terminal',
+    ]);
   });
 
   it('does not deliver further frames to a subscriber after the terminal frame', () => {
@@ -197,11 +223,13 @@ describe('createPetrinautStreamBus — replay-on-subscribe', () => {
     bus.subscribe((f) => frames.push(f));
 
     expect(frames.map((f) => f.kind)).toEqual([
+      'status',
       'definition',
       'initial_state',
       'transition_firing',
       'transition_firing',
       'transition_firing',
+      'transition_firing', // synthetic run:finish (Card C)
       'terminal',
     ]);
   });
@@ -213,20 +241,22 @@ describe('createPetrinautStreamBus — replay-on-subscribe', () => {
 
     const frames: BrunchExecutionExportFrame[] = [];
     bus.subscribe((f) => frames.push(f));
-    // synchronous replay of definition + initial_state + 1 firing
+    // synchronous replay of status + definition + initial_state + 1 firing
     const replayLength = frames.length;
-    expect(replayLength).toBe(3);
+    expect(replayLength).toBe(4);
 
     bus.publish(consumeB);
     bus.publish(emitC);
     bus.publish(halted);
 
     expect(frames.map((f) => f.kind)).toEqual([
+      'status',
       'definition',
       'initial_state',
       'transition_firing',
       'transition_firing',
       'transition_firing',
+      'transition_firing', // synthetic run:finish (Card C)
       'terminal',
     ]);
   });
@@ -266,7 +296,14 @@ describe('createPetrinautStreamBus — unsubscribe', () => {
 
     // a froze at the unsub moment; b received everything.
     expect(a.length).toBe(aBeforeUnsub);
-    expect(b.map((f) => f.kind)).toEqual(['definition', 'initial_state', 'transition_firing', 'terminal']);
+    expect(b.map((f) => f.kind)).toEqual([
+      'status',
+      'definition',
+      'initial_state',
+      'transition_firing',
+      'transition_firing', // synthetic run:finish (Card C)
+      'terminal',
+    ]);
   });
 });
 
@@ -299,6 +336,132 @@ describe('createPetrinautStreamBus — replay-equivalence with the static reduce
 });
 
 // ---------------------------------------------------------------------------
+// FE-819 Card B — terminal status fidelity + leading status frame.
+//
+// The wire must let any consumer observe the run's terminal state
+// (completed | halted | deadlocked) and halt reason both at connect time
+// (leading `status` frame) and at run end (enriched `terminal` frame), and a
+// halted run's definition title must reflect the halt — without breaking the
+// current consumer (terminal still closes the stream; `status` is additive).
+// ---------------------------------------------------------------------------
+
+const haltedWithReason: PetrinautEvent = {
+  kind: 'net_halted',
+  ts: '2026-06-02T00:00:00.500Z',
+  runId: 'run-bus',
+  reason: 'unique retry exhaustion on 2 slices',
+};
+
+describe('createPetrinautStreamBus — terminal status fidelity (Card B)', () => {
+  it('terminal frame carries state=halted + the verbatim halt reason', () => {
+    const bus = createPetrinautStreamBus({ runId: 'run-bus', sdcpnFile });
+    const frames: BrunchExecutionExportFrame[] = [];
+    bus.subscribe((f) => frames.push(f));
+    bus.publish(initialEvent);
+    bus.publish(haltedWithReason);
+
+    const terminal = frames.find((f) => f.kind === 'terminal');
+    expect(terminal).toMatchObject({
+      kind: 'terminal',
+      state: 'halted',
+      reason: 'unique retry exhaustion on 2 slices',
+    });
+  });
+
+  it('terminal frame carries state=completed with no reason for a clean run', () => {
+    const bus = createPetrinautStreamBus({ runId: 'run-bus', sdcpnFile });
+    const frames: BrunchExecutionExportFrame[] = [];
+    bus.subscribe((f) => frames.push(f));
+    bus.publish(initialEvent);
+    bus.publish(completed);
+
+    const terminal = frames.find((f) => f.kind === 'terminal');
+    expect(terminal).toEqual({ kind: 'terminal', state: 'completed' });
+  });
+
+  it('terminal frame carries state=deadlocked', () => {
+    const bus = createPetrinautStreamBus({ runId: 'run-bus', sdcpnFile });
+    const frames: BrunchExecutionExportFrame[] = [];
+    bus.subscribe((f) => frames.push(f));
+    bus.publish(initialEvent);
+    bus.publish({ kind: 'net_deadlocked', ts: '2026-06-02T00:00:00.600Z', runId: 'run-bus' });
+
+    const terminal = frames.find((f) => f.kind === 'terminal');
+    expect(terminal).toEqual({ kind: 'terminal', state: 'deadlocked' });
+  });
+
+  it('every connection leads with a status frame — running mid-run', () => {
+    const bus = createPetrinautStreamBus({ runId: 'run-bus', sdcpnFile });
+    const frames: BrunchExecutionExportFrame[] = [];
+    bus.subscribe((f) => frames.push(f));
+    bus.publish(initialEvent);
+
+    expect(frames[0]).toEqual({ kind: 'status', state: 'running' });
+  });
+
+  it('a late joiner to a halted run leads with a status frame carrying the terminal state + reason', () => {
+    const bus = createPetrinautStreamBus({ runId: 'run-bus', sdcpnFile });
+    bus.publish(initialEvent);
+    bus.publish(haltedWithReason);
+
+    const frames: BrunchExecutionExportFrame[] = [];
+    bus.subscribe((f) => frames.push(f));
+
+    expect(frames[0]).toEqual({
+      kind: 'status',
+      state: 'halted',
+      reason: 'unique retry exhaustion on 2 slices',
+    });
+  });
+
+  it('at a halt, the definition re-emits with the title suffixed "— halted: <reason>"', () => {
+    const bus = createPetrinautStreamBus({ runId: 'run-bus', sdcpnFile });
+    const frames: BrunchExecutionExportFrame[] = [];
+    bus.subscribe((f) => frames.push(f));
+    bus.publish(initialEvent);
+    bus.publish(haltedWithReason);
+
+    const definitions = frames.filter(
+      (f): f is Extract<BrunchExecutionExportFrame, { kind: 'definition' }> => f.kind === 'definition',
+    );
+    // Original definition on subscribe, then a re-emit with the halt-suffixed title before terminal.
+    expect(definitions.at(-1)!.definition.title).toBe(
+      'stream-bus-fixture — halted: unique retry exhaustion on 2 slices',
+    );
+  });
+
+  it('a late joiner to a halted run replays a single definition with the halt-suffixed title', () => {
+    const bus = createPetrinautStreamBus({ runId: 'run-bus', sdcpnFile });
+    bus.publish(initialEvent);
+    bus.publish(haltedWithReason);
+
+    const frames: BrunchExecutionExportFrame[] = [];
+    bus.subscribe((f) => frames.push(f));
+
+    const definitions = frames.filter(
+      (f): f is Extract<BrunchExecutionExportFrame, { kind: 'definition' }> => f.kind === 'definition',
+    );
+    expect(definitions).toHaveLength(1);
+    expect(definitions[0]!.definition.title).toBe(
+      'stream-bus-fixture — halted: unique retry exhaustion on 2 slices',
+    );
+  });
+
+  it('a completed run keeps the original definition title', () => {
+    const bus = createPetrinautStreamBus({ runId: 'run-bus', sdcpnFile });
+    const frames: BrunchExecutionExportFrame[] = [];
+    bus.subscribe((f) => frames.push(f));
+    bus.publish(initialEvent);
+    bus.publish(completed);
+
+    const definitions = frames.filter(
+      (f): f is Extract<BrunchExecutionExportFrame, { kind: 'definition' }> => f.kind === 'definition',
+    );
+    for (const d of definitions) expect(d.definition.title).toBe('stream-bus-fixture');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Type-level pin — frame discriminated union shape is locked.
 // ---------------------------------------------------------------------------
 
@@ -315,14 +478,16 @@ describe('BrunchExecutionExportFrame type exports', () => {
         types: [],
       },
     };
+    const status: BrunchExecutionExportFrame = { kind: 'status', state: 'running' };
     const init: BrunchExecutionExportFrame = { kind: 'initial_state', initialState: { p: 1 } };
     const firing: BrunchExecutionExportFrame = {
       kind: 'transition_firing',
       firing: { transitionId: 't', input: { p: 1 }, output: { q: 1 }, ts: '2026' },
     };
-    const term: BrunchExecutionExportFrame = { kind: 'terminal' };
-    expect([def.kind, init.kind, firing.kind, term.kind]).toEqual([
+    const term: BrunchExecutionExportFrame = { kind: 'terminal', state: 'halted', reason: 'boom' };
+    expect([def.kind, status.kind, init.kind, firing.kind, term.kind]).toEqual([
       'definition',
+      'status',
       'initial_state',
       'transition_firing',
       'terminal',

@@ -162,6 +162,28 @@ describe('createPetrinautEventStream — transition_fired adapter', () => {
     expect(events.map((e) => e.kind)).toEqual(['net_completed', 'net_halted', 'net_deadlocked']);
     expect(events.every((e) => 'runId' in e && e.runId === 'run-1')).toBe(true);
   });
+
+  it('forwards the halt reason onto the net_halted terminal event (FE-819 Card B)', () => {
+    const events: PetrinautEvent[] = [];
+    const stream = createPetrinautEventStream({
+      runId: 'run-1',
+      folding,
+      tokenIdFn: deterministicTokenId(),
+      onEvent: (e) => events.push(e),
+    });
+    stream.sink.emit({
+      kind: 'net_halted',
+      ts: '2026-05-27T00:00:00.000Z',
+      reason: 'unique retry exhaustion',
+    });
+    stream.sink.emit({ kind: 'net_completed', ts: '2026-05-27T00:00:01.000Z' });
+
+    const halted = events.find((e) => e.kind === 'net_halted');
+    const completed = events.find((e) => e.kind === 'net_completed');
+    expect(halted).toMatchObject({ kind: 'net_halted', reason: 'unique retry exhaustion' });
+    // A reasonless terminal carries no `reason` key at all.
+    expect(completed).not.toHaveProperty('reason');
+  });
 });
 
 // ---------------------------------------------------------------------------

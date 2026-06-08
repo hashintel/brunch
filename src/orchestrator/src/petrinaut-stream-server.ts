@@ -159,18 +159,29 @@ export function createPetrinautStreamServer(opts: CreatePetrinautStreamServerOpt
 
 /**
  * Render one frame as a wire-format SSE event. Event name is the frame's
- * `kind`; data is JSON-encoded for every variant except `terminal`, which
- * has no payload beyond the kind itself.
+ * `kind`; data is JSON-encoded for every variant. The `terminal` payload
+ * carries the run's terminal `state` (+ `reason` for halts) and the leading
+ * `status` frame carries the current state (FE-819 Card B).
  */
 function serializeFrame(frame: BrunchExecutionExportFrame): string {
   switch (frame.kind) {
     case 'definition':
       return `event: definition\ndata: ${JSON.stringify(frame.definition)}\n\n`;
+    case 'status':
+      return `event: status\ndata: ${JSON.stringify(statePayload(frame))}\n\n`;
     case 'initial_state':
       return `event: initial_state\ndata: ${JSON.stringify(frame.initialState)}\n\n`;
     case 'transition_firing':
       return `event: transition_firing\ndata: ${JSON.stringify(frame.firing)}\n\n`;
     case 'terminal':
-      return `event: terminal\ndata: \n\n`;
+      return `event: terminal\ndata: ${JSON.stringify(statePayload(frame))}\n\n`;
   }
+}
+
+/** Serialize the shared `{ state, reason? }` payload of the `status` and `terminal` frames. */
+function statePayload(frame: Extract<BrunchExecutionExportFrame, { kind: 'status' | 'terminal' }>): {
+  state: string;
+  reason?: string;
+} {
+  return { state: frame.state, ...(frame.reason !== undefined ? { reason: frame.reason } : {}) };
 }

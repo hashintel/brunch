@@ -147,7 +147,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
           }
         }
       } catch (err) {
-        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
+        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: errorMessage(err) });
         return {
           status: 'halted',
           reason: errorMessage(err),

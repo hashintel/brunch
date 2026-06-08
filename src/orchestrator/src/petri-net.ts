@@ -83,6 +83,8 @@ export type NetEvent = {
   consumedTokens?: Token[];
   produced?: string[];
   producedTokens?: Token[];
+  /** Halt reason, set on `net_halted` from the halt token (FE-819 Card B). */
+  reason?: string;
 };
 
 /** Sink for structured net events. Optional — defaults to no-op. */
@@ -258,6 +260,18 @@ export class PetriNet {
   }
 
   /**
+   * First halt reason carried by any halt token, for enriching the
+   * `net_halted` terminal event (FE-819 Card B). Undefined when no halt token
+   * carries a reason.
+   */
+  private firstHaltReason(): string | undefined {
+    for (const { token } of this.getHaltTokens()) {
+      if (token.haltReason) return token.haltReason;
+    }
+    return undefined;
+  }
+
+  /**
    * True when every input place of `t` has at least one token AND, if `t`
    * defines a peek-time enabling guard, that guard returns true for the
    * first token at each input place.
@@ -332,7 +346,7 @@ export class PetriNet {
     while (true) {
       if (this.deferredError) throw this.deferredError;
       if (shouldHalt?.()) {
-        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
+        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
         break;
       }
 
@@ -386,7 +400,7 @@ export class PetriNet {
     while (true) {
       if (this.deferredError) throw this.deferredError;
       if (shouldHalt?.()) {
-        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
+        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
         break;
       }
 
@@ -457,7 +471,7 @@ export class PetriNet {
         this.depositClaim(claim, outputs, eventSink);
       }
       if (shouldHalt?.()) {
-        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString() });
+        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
         break;
       }
     }

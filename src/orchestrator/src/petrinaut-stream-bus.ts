@@ -17,30 +17,54 @@
 // Frame translation re-uses the same `eventToTransitionFiring` /
 // `reduceMarking` / `projectNetDefinition` helpers as the static reducer
 // (`reduceBrunchExecutionExport`) so the live stream and the static export
-// produce structurally identical content. Replay-equivalence is enforced by
+// produce structurally identical content. The bus threads a running
+// cumulative marking through `eventToTransitionFiring` so each
+// `transition_firing` frame carries the full pre/post net marking (FE-819
+// Card A), not just the touched places. Replay-equivalence is enforced by
 // the oracle in `petrinaut-stream-bus.test.ts`.
 // ---------------------------------------------------------------------------
 
-import type { PetrinautEvent } from './petrinaut-events.js';
+import type { PetrinautEvent, TerminalEventKind } from './petrinaut-events.js';
 import type { SdcpnFile } from './petrinaut-sdcpn.js';
 import {
+  augmentDefinitionWithRunStatus,
   eventToTransitionFiring,
   type Marking,
   type NetDefinition,
   projectNetDefinition,
   reduceMarking,
+  synthesizeRunStatusFiring,
   type TransitionFiring,
 } from './petrinaut-stream-export.js';
+
+/** Terminal run states a stream consumer can observe (FE-819 Card B). */
+export type TerminalRunState = 'completed' | 'halted' | 'deadlocked';
+
+/** Run state carried by the leading `status` frame — `running` until terminal. */
+export type RunState = 'running' | TerminalRunState;
+
+/** Map a terminal PetrinautEvent kind onto its observable run state. */
+const TERMINAL_STATE: Record<TerminalEventKind, TerminalRunState> = {
+  net_completed: 'completed',
+  net_halted: 'halted',
+  net_deadlocked: 'deadlocked',
+};
 
 /**
  * One logical frame of the SSE wire stream. Disjoint from PetrinautEvent
  * kinds so the wire and the engine's internal event union don't collide.
+ *
+ * `status` (FE-819 Card B) leads every connection so a consumer learns the
+ * run state at connect time — `running` mid-run, or the terminal state +
+ * reason for a late joiner. `terminal` carries the same state + reason at run
+ * end and still closes the stream.
  */
 export type BrunchExecutionExportFrame =
   | { kind: 'definition'; definition: NetDefinition }
+  | { kind: 'status'; state: RunState; reason?: string }
   | { kind: 'initial_state'; initialState: Marking }
   | { kind: 'transition_firing'; firing: TransitionFiring }
-  | { kind: 'terminal' };
+  | { kind: 'terminal'; state: TerminalRunState; reason?: string };
 
 export type CreatePetrinautStreamBusOpts = {
   /** Carried for symmetry with PetrinautEvent.runId; not currently embedded in frames. */
@@ -69,21 +93,36 @@ export type PetrinautStreamBus = {
  * before any publish still receive it on subscribe.
  */
 export function createPetrinautStreamBus(opts: CreatePetrinautStreamBusOpts): PetrinautStreamBus {
-  // Materialised once — every subscriber sees the same definition object.
-  const definitionFrame: BrunchExecutionExportFrame = {
+  const baseDefinition = augmentDefinitionWithRunStatus(projectNetDefinition(opts.sdcpnFile));
+  // Materialised once; replaced in-place at a halt with a title-suffixed copy
+  // so late joiners replay a single, updated definition (FE-819 Card B).
+  let definitionFrame: Extract<BrunchExecutionExportFrame, { kind: 'definition' }> = {
     kind: 'definition',
-    definition: projectNetDefinition(opts.sdcpnFile),
+    definition: baseDefinition,
   };
 
   // Append-only timeline; bus is the source of truth for replay order.
+  // `buffer[0]` is always the definition frame.
   const buffer: BrunchExecutionExportFrame[] = [definitionFrame];
   let terminalEmitted = false;
+  // Current run state + halt reason, surfaced to every new connection via the
+  // leading `status` frame (FE-819 Card B).
+  let runState: RunState = 'running';
+  let runReason: string | undefined;
+  // Running cumulative marking, folded forward across firings so each frame
+  // carries the full net state (FE-819 Card A). Empty until initial_marking.
+  let currentMarking: Marking = {};
   const subscribers = new Set<PetrinautStreamSubscriber>();
+
+  // Deliver to live subscribers only — no buffering. Snapshot to tolerate
+  // handler-side unsubscribe during iteration.
+  function notify(frame: BrunchExecutionExportFrame): void {
+    for (const handler of [...subscribers]) handler(frame);
+  }
 
   function broadcast(frame: BrunchExecutionExportFrame): void {
     buffer.push(frame);
-    // Snapshot to tolerate handler-side unsubscribe during iteration.
-    for (const handler of [...subscribers]) handler(frame);
+    notify(frame);
   }
 
   return {
@@ -91,22 +130,52 @@ export function createPetrinautStreamBus(opts: CreatePetrinautStreamBusOpts): Pe
       if (terminalEmitted) return;
       switch (event.kind) {
         case 'initial_marking':
-          broadcast({ kind: 'initial_state', initialState: reduceMarking(event.marking) });
+          currentMarking = reduceMarking(event.marking);
+          broadcast({ kind: 'initial_state', initialState: currentMarking });
           return;
-        case 'transition_fired':
-          broadcast({ kind: 'transition_firing', firing: eventToTransitionFiring(event) });
+        case 'transition_fired': {
+          const { firing, nextMarking } = eventToTransitionFiring(event, currentMarking);
+          currentMarking = nextMarking;
+          broadcast({ kind: 'transition_firing', firing });
           return;
+        }
         case 'net_completed':
         case 'net_halted':
-        case 'net_deadlocked':
+        case 'net_deadlocked': {
           terminalEmitted = true;
-          broadcast({ kind: 'terminal' });
+          runState = TERMINAL_STATE[event.kind];
+          runReason = event.reason;
+          // A halt with a reason re-emits the definition with a title that
+          // reflects the halt: in-place so late joiners replay one updated
+          // definition, plus a live re-send so already-connected subscribers
+          // re-parse (the current Petrinaut consumer's onDefinition is
+          // idempotent and preserves received firings).
+          if (runState === 'halted' && event.reason) {
+            definitionFrame = {
+              kind: 'definition',
+              definition: { ...baseDefinition, title: `${baseDefinition.title} — halted: ${event.reason}` },
+            };
+            buffer[0] = definitionFrame;
+            notify(definitionFrame);
+          }
+          // Run end fires one synthetic run-status firing (FE-819 Card C) so
+          // the halt/completion is structurally visible — the final frame
+          // deposits the status token into run:halted / run:completed.
+          {
+            const { firing, nextMarking } = synthesizeRunStatusFiring(currentMarking, event.kind, event.ts);
+            currentMarking = nextMarking;
+            broadcast({ kind: 'transition_firing', firing });
+          }
+          broadcast({ kind: 'terminal', state: runState, ...(event.reason ? { reason: event.reason } : {}) });
           return;
+        }
       }
     },
     subscribe(handler: PetrinautStreamSubscriber): () => void {
-      // Synchronous replay of the buffered timeline so late subscribers
-      // observe the same ordered sequence as pre-subscribed ones.
+      // Lead with the current run state (FE-819 Card B), then synchronously
+      // replay the buffered timeline so every connection — pre-subscribed or
+      // late — observes the same ordered sequence.
+      handler({ kind: 'status', state: runState, ...(runReason ? { reason: runReason } : {}) });
       for (const frame of buffer) handler(frame);
       subscribers.add(handler);
       return () => subscribers.delete(handler);

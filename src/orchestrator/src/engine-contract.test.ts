@@ -914,6 +914,9 @@ describe('Adapter: §7 event vocabulary', () => {
     // lands on slice:slice-1:halted and the next loop iteration observes it.
     const halted = events.filter((e) => e.kind === 'net_halted');
     expect(halted.length).toBe(1);
+    // FE-819 Card B: the terminal event carries the halt reason verbatim from
+    // the halt token deposited on the `:halted` place.
+    expect(halted[0]!.reason).toMatch(/retry exhaustion/);
   });
 });
 

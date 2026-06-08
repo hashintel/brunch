@@ -1,12 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { parseEnv } from 'node:util';
 
 import { createOrchestrator } from './engine.js';
 import { FileReportSink } from './file-report-sink.js';
+import { loadLocalEnvFile } from './local-env.js';
 import type { FiringPolicy } from './petri-net.js';
-import { composeLauncherUrl, resolvePetrinautBaseUrl } from './petrinaut-launcher-url.js';
+import { composeLauncherUrl, resolvePetrinautUrl } from './petrinaut-launcher-url.js';
 import { createPetrinautStreamBus, type PetrinautStreamBus } from './petrinaut-stream-bus.js';
 import { createPetrinautStreamServer, type PetrinautStreamServer } from './petrinaut-stream-server.js';
 import { createPiActions } from './pi-actions.js';
@@ -32,8 +32,8 @@ export type CookOptions = {
   petrinautFold: PetrinautFoldMode;
   /** When true, runCook boots the ephemeral SSE server and composes the launcher URL. */
   petrinautStream: boolean;
-  /** Optional CLI override for the Petrinaut SPA base URL. */
-  petrinautBaseUrl?: string;
+  /** Optional CLI override for the Petrinaut route URL (full path included). */
+  petrinautUrl?: string;
   /** Whether to auto-launch the system browser; CI=true also suppresses at runtime. */
   petrinautOpen: boolean;
   /**
@@ -52,11 +52,11 @@ export function parseCookArgs(args: string[]): CookOptions {
   let verbose = false;
   let petrinautFold: PetrinautFoldMode = 'identity';
   let petrinautStream = false;
-  let petrinautBaseUrl: string | undefined;
+  let petrinautUrl: string | undefined;
   let petrinautOpen = true;
   let specId: number | undefined;
   let sawNoOpen = false;
-  let sawBaseUrl = false;
+  let sawUrl = false;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
@@ -82,9 +82,9 @@ export function parseCookArgs(args: string[]): CookOptions {
       petrinautFold = val;
     } else if (arg === '--petrinaut-stream') {
       petrinautStream = true;
-    } else if (arg.startsWith('--petrinaut-base-url=')) {
-      petrinautBaseUrl = arg.split('=').slice(1).join('=');
-      sawBaseUrl = true;
+    } else if (arg.startsWith('--petrinaut-url=')) {
+      petrinautUrl = arg.split('=').slice(1).join('=');
+      sawUrl = true;
     } else if (arg === '--no-petrinaut-open') {
       petrinautOpen = false;
       sawNoOpen = true;
@@ -97,13 +97,13 @@ export function parseCookArgs(args: string[]): CookOptions {
 
   if (!dir) {
     throw new Error(
-      'Usage: brunch cook <dir> [--spec=<id>] [--policy=serial|parallel] [--max-retries=N] [--petrinaut-fold=color|identity] [--petrinaut-stream [--petrinaut-base-url=<url>] [--no-petrinaut-open]] [--verbose]',
+      'Usage: brunch cook <dir> [--spec=<id>] [--policy=serial|parallel] [--max-retries=N] [--petrinaut-fold=color|identity] [--petrinaut-stream [--petrinaut-url=<url>] [--no-petrinaut-open]] [--verbose]',
     );
   }
 
   // Companion-flag validation: stream-only flags require --petrinaut-stream.
-  if (sawBaseUrl && !petrinautStream) {
-    throw new Error('--petrinaut-base-url requires --petrinaut-stream');
+  if (sawUrl && !petrinautStream) {
+    throw new Error('--petrinaut-url requires --petrinaut-stream');
   }
   if (sawNoOpen && !petrinautStream) {
     throw new Error('--no-petrinaut-open requires --petrinaut-stream');
@@ -116,28 +116,10 @@ export function parseCookArgs(args: string[]): CookOptions {
     verbose,
     petrinautFold,
     petrinautStream,
-    petrinautBaseUrl,
+    petrinautUrl,
     petrinautOpen,
     ...(specId !== undefined ? { specId } : {}),
   };
-}
-
-/**
- * Load `<launchCwd>/.env` into `process.env` with **shell-wins** precedence
- * (only sets keys that are not already defined). Tolerates a missing `.env`.
- *
- * Local copy rather than reusing `src/server/runtime-config.ts` so the
- * orchestrator package stays self-contained.
- */
-export function loadLocalEnvShellWins(launchCwd: string): void {
-  const envPath = join(launchCwd, '.env');
-  if (!existsSync(envPath)) return;
-  const parsed = parseEnv(readFileSync(envPath, 'utf8'));
-  for (const [key, value] of Object.entries(parsed)) {
-    if (value === '' || value === undefined) continue;
-    if (process.env[key] !== undefined && process.env[key] !== '') continue;
-    process.env[key] = value;
-  }
 }
 
 /**
@@ -175,7 +157,7 @@ export async function defaultOpenUrl(url: string): Promise<void> {
 }
 
 export type CreatePetrinautStreamSetupOpts = {
-  baseUrl: string;
+  petrinautUrl: string;
   /** Suppress auto-open when false (matches `--no-petrinaut-open` / CI). URL still prints. */
   shouldOpen: boolean;
   openUrl: (url: string) => void | Promise<void>;
@@ -222,7 +204,11 @@ export function createPetrinautStreamSetup(opts: CreatePetrinautStreamSetupOpts)
     const bus = createPetrinautStreamBus({ runId, sdcpnFile });
     server = createServer(bus);
     const endpoint = await server.start();
-    const launcherUrl = composeLauncherUrl({ baseUrl: opts.baseUrl, runId, streamUrl: endpoint.streamUrl });
+    const launcherUrl = composeLauncherUrl({
+      petrinautUrl: opts.petrinautUrl,
+      runId,
+      streamUrl: endpoint.streamUrl,
+    });
     log('');
     log(`  Petrinaut live stream`);
     log(`  ──────────────────────────────────────`);
@@ -342,20 +328,20 @@ export async function runCook(opts: CookOptions): Promise<void> {
 
   // Streaming pre-flight happens before any cook side effect (banner, plan
   // load, sandbox creation). Without --petrinaut-stream there is no .env read
-  // and no Petrinaut base-url check.
-  let petrinautBaseUrl: string | undefined;
+  // and no Petrinaut-URL check.
+  let petrinautUrl: string | undefined;
   let streamPort: number | undefined;
   if (opts.petrinautStream) {
-    loadLocalEnvShellWins(launchCwd);
-    const resolvedBaseUrl = resolvePetrinautBaseUrl({
-      cliFlag: opts.petrinautBaseUrl,
-      env: { PETRINAUT_BASE_URL: process.env.PETRINAUT_BASE_URL },
+    loadLocalEnvFile(launchCwd);
+    const resolvedUrl = resolvePetrinautUrl({
+      cliFlag: opts.petrinautUrl,
+      env: { PETRINAUT_URL: process.env.PETRINAUT_URL },
     });
-    if ('error' in resolvedBaseUrl) {
-      console.error(resolvedBaseUrl.error);
+    if ('error' in resolvedUrl) {
+      console.error(resolvedUrl.error);
       process.exit(1);
     }
-    petrinautBaseUrl = resolvedBaseUrl.baseUrl;
+    petrinautUrl = resolvedUrl.url;
     streamPort = resolvePetrinautStreamPort({ PORT: process.env.PORT });
   }
 
@@ -396,9 +382,9 @@ export async function runCook(opts: CookOptions): Promise<void> {
   // Stand up the live-stream setup handle when streaming is enabled.
   // Auto-open is suppressed by `--no-petrinaut-open` or CI.
   const streamSetup =
-    opts.petrinautStream && petrinautBaseUrl
+    opts.petrinautStream && petrinautUrl
       ? createPetrinautStreamSetup({
-          baseUrl: petrinautBaseUrl,
+          petrinautUrl,
           shouldOpen: opts.petrinautOpen && !process.env.CI,
           openUrl: defaultOpenUrl,
           ...(streamPort !== undefined ? { port: streamPort } : {}),
