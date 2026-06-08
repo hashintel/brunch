@@ -1,5 +1,9 @@
-# Goal: grounding-advance
+# grounding-advance
 
-Establish the selected spec's basic frame: what it is, who it is for, what problem it answers, and what value would make it worth continuing.
+Pursue this goal when the selected spec still needs its basic initiative frame. Your job is to establish enough grounding-band evidence for the user and agent to know what problem the spec answers, who it is for, what value it seeks, and what constraints or context make the effort real.
 
-Stay elicitation-first. Prefer one structured question or contrast at a time. Do not claim the grade is ready to advance without concrete grounding evidence.
+Evidence advances this goal when it produces explicit graph-worthy material such as goals, thesis/context statements, canonical terms, or constraint anchors. Later-band facts may still be captured when the user clearly states them, but they do not by themselves prove grounding readiness. Prefer questions that turn vague project talk into named actors, pains, success signals, boundaries, and vocabulary.
+
+Do not claim the spec is ready merely because the user has supplied requirements or implementation ideas. Do not refuse useful later-band content; capture it honestly while continuing to name the missing frame. Do not invent a posture, audience, or problem statement to fill the gap.
+
+This goal maps to the lower readiness bands in D64-L: it is about gathering grounding evidence and judging whether the spec can move beyond onboarding. When in doubt, ask for the smallest missing anchor rather than proposing a whole plan.

@@ -1,4 +1,4 @@
-import { access } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -10,6 +10,7 @@ import {
 } from '../../projections/session/runtime-state.js';
 import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
 import { composeAgentPrompt } from './compose.js';
+import { GOAL_RESOURCES, LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from './state.js';
 
 const projectRoot = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 
@@ -267,6 +268,24 @@ describe('composeAgentPrompt', () => {
     for (const entry of Object.values(result.manifests).flat()) {
       expect(relative(projectRoot, entry.location).startsWith('src/.pi/')).toBe(true);
       await expect(access(entry.location)).resolves.toBeUndefined();
+    }
+  });
+
+  it('keeps every manifest prompt resource readable and non-trivial', async () => {
+    const entries = [
+      ...Object.values(GOAL_RESOURCES),
+      ...Object.values(STRATEGY_RESOURCES),
+      ...Object.values(LENS_RESOURCES),
+      ...Object.values(METHOD_RESOURCES),
+    ];
+
+    for (const entry of entries) {
+      expect(relative(projectRoot, entry.location).startsWith('src/.pi/skills/')).toBe(true);
+      const body = await readFile(entry.location, 'utf8');
+      expect(
+        body.length,
+        `${entry.name} should carry prompt-resource guidance beyond a placeholder`,
+      ).toBeGreaterThanOrEqual(700);
     }
   });
 });
