@@ -1,7 +1,7 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
 import { projectRequestChoices } from '../../../projections/exchanges/request-choices.js';
-import { formatRequestChoices } from '../../../renderers/structured-exchange/request-choices.js';
+import { formatRequestChoices } from '../../../renderers/exchanges/request-choices.js';
 import { piSchema } from './pi-schema.js';
 import {
   zRequestChoicesParams,

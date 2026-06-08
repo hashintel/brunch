@@ -8,8 +8,8 @@ import { projectRequestAnswer } from '../projections/exchanges/request-answer.js
 import { projectRequestChoice } from '../projections/exchanges/request-choice.js';
 import { projectRequestChoices } from '../projections/exchanges/request-choices.js';
 import { projectRequestReview } from '../projections/exchanges/request-review.js';
-import { formatPresentOptions } from '../renderers/structured-exchange/present-options.js';
-import { formatPresentQuestion } from '../renderers/structured-exchange/present-question.js';
+import { formatPresentOptions } from '../renderers/exchanges/present-options.js';
+import { formatPresentQuestion } from '../renderers/exchanges/present-question.js';
 import type { BrunchSessionEnvelope } from './brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from './exchange-projection.js';
 

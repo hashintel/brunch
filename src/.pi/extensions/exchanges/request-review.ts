@@ -1,7 +1,7 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
 import { projectRequestReview, type ReviewDecision } from '../../../projections/exchanges/request-review.js';
-import { formatRequestReview } from '../../../renderers/structured-exchange/request-review.js';
+import { formatRequestReview } from '../../../renderers/exchanges/request-review.js';
 import { piSchema } from './pi-schema.js';
 import { zRequestReviewParams, type RequestReviewParams } from './schemas/index.js';
 import { normalizeOptionalText, renderMarkdownResult } from './shared/markdown.js';
