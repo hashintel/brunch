@@ -23,7 +23,7 @@ Frontier-level cross-cutting obligations:
 
 ## Card 1 — RPC graph reads relay graph-owned shapes
 
-Status: next  
+Status: done  
 Weight: full scope card
 
 ### Target Behavior

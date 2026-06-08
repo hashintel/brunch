@@ -3,7 +3,7 @@ import { Value } from 'typebox/value';
 
 import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
-import { NonNegativeIntegerSchema, PositiveIntegerSchema } from './schemas.js';
+import { PositiveIntegerSchema } from './schemas.js';
 
 const GraphOverviewParamsSchema = Type.Object(
   {
@@ -32,9 +32,7 @@ const GraphOverviewResultSchema = Type.Object(
   {
     nodes: Type.Array(GraphNodeResultSchema),
     edges: Type.Array(GraphEdgeResultSchema),
-    nodeCount: NonNegativeIntegerSchema,
-    edgeCount: NonNegativeIntegerSchema,
-    lsn: NonNegativeIntegerSchema,
+    lsn: Type.Integer({ minimum: 0 }),
   },
   { additionalProperties: false },
 );
@@ -42,16 +40,20 @@ const GraphOverviewResultSchema = Type.Object(
 const GraphNodeNeighborhoodResultSchema = Type.Union([
   Type.Object(
     {
-      status: Type.Literal('success'),
-      anchor: GraphNodeResultSchema,
-      neighbors: Type.Array(GraphNodeResultSchema),
+      selector: Type.Object({}, { additionalProperties: true }),
+      status: Type.Literal('found'),
+      node: GraphNodeResultSchema,
+      related: Type.Array(GraphNodeResultSchema),
       edges: Type.Array(GraphEdgeResultSchema),
     },
     { additionalProperties: false },
   ),
   Type.Object(
     {
+      selector: Type.Object({}, { additionalProperties: true }),
       status: Type.Literal('not_found'),
+      related: Type.Array(GraphNodeResultSchema),
+      edges: Type.Array(GraphEdgeResultSchema),
     },
     { additionalProperties: false },
   ),
@@ -61,8 +63,7 @@ export const graphRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[] =
   {
     method: 'graph.overview',
     access: 'read',
-    description:
-      'Return the canonical selected-spec graph overview with nodes, edges, counts, and current graph LSN.',
+    description: 'Return the canonical selected-spec graph slice with nodes, edges, and current graph LSN.',
     paramsSchema: GraphOverviewParamsSchema,
     resultSchema: GraphOverviewResultSchema,
     examples: [
@@ -81,11 +82,7 @@ export const graphRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[] =
       }
       const graph = await context.getGraphRuntime();
       const result = graph.forSpec(params.value.specId).queryGraph();
-      return createJsonRpcSuccess(requestId, {
-        ...result,
-        nodeCount: result.nodes.length,
-        edgeCount: result.edges.length,
-      });
+      return createJsonRpcSuccess(requestId, result);
     },
   },
   {
