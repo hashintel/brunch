@@ -127,6 +127,38 @@ test('neighborhood: maxEdges bounds output and notes omissions (hub REQ1)', asyn
   expectNoStructuralLeak(rendered);
 });
 
+// ── Faithful spec graph derived from this repo's own prose ────────────────────
+// `brunch-self/spec-graph` is hand-derived from memory/SPEC.md + memory/PLAN.md.
+// Seeding it here also proves structural legality: readGraphSliceFixture commits
+// through the real CommandExecutor and throws on any illegal node/edge.
+
+const SELF = { set: 'brunch-self', fixture: 'spec-graph' } as const;
+
+test('brunch-self: whole-spec grouped list across all four planes', async () => {
+  const rendered = formatGraphSlice(readGraphSliceFixture(SELF), {
+    heading: 'Selected-spec graph: brunch-self (self-described)',
+    variant: 'grouped-list',
+    maxNodes: 60,
+  });
+  await lockPreview('graph-slice-brunch-self-grouped-list.md', rendered);
+});
+
+test('brunch-self: requirement anchor neighborhood (REQ1 one-authority)', async () => {
+  const rendered = formatNeighborhood(readNodeNeighborhoodFixture({ ...SELF, anchorCode: 'REQ1' }), {
+    maxEdges: 20,
+  });
+  await lockPreview('neighborhood-brunch-self-REQ1.md', rendered);
+  expectNoStructuralLeak(rendered);
+});
+
+test('brunch-self: module anchor neighborhood (MOD1 CommandExecutor)', async () => {
+  const rendered = formatNeighborhood(readNodeNeighborhoodFixture({ ...SELF, anchorCode: 'MOD1', hops: 2 }), {
+    maxEdges: 20,
+  });
+  await lockPreview('neighborhood-brunch-self-MOD1-hops2.md', rendered);
+  expectNoStructuralLeak(rendered);
+});
+
 test('neighborhood: missing anchor renders a clear miss', () => {
   expect(formatNeighborhood({ selector: { id: 404 }, status: 'not_found', related: [], edges: [] })).toBe(
     '[Selected-spec node context]\n- node: not found in selected spec',

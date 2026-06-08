@@ -1,0 +1,75 @@
+[Selected-spec graph: brunch-self (self-described)]
+- lsn: 2
+- totals: 54 node(s), 30 edge(s)
+- design/interface (2):
+  - [API1] design/interface: Public Brunch JSON-RPC session.* methods
+  - [API2] design/interface: commit_graph agent-facing tool schema
+- design/module (4):
+  - [MOD1] design/module: CommandExecutor — the graph mutation authority
+  - [MOD2] design/module: .pi/agents/compose — runtime header plus gated prompt-resource manifest
+  - [MOD3] design/module: graph/queries — typed read layer (overview and neighborhood)
+  - …1 more node(s) omitted
+- intent/assumption (2):
+  - [A1] intent/assumption: Pi linear JSONL sessions suffice as transcript truth for the POC
+  - [A2] intent/assumption: Local POC graph and session sizes stay small enough to defer performance budgets
+- intent/constraint (3):
+  - [CON1] intent/constraint: Brunch must not fork Pi
+  - [CON2] intent/constraint: A Brunch-launched Pi runtime must not load ambient user/project .pi resources
+  - [CON3] intent/constraint: The browser must not require a second primary data plane
+- intent/context (3):
+  - [CTX1] intent/context: Pi supplies the TUI harness, JSONL sessions, and extension hooks Brunch builds on
+  - [CTX2] intent/context: Stakeholders want the TUI and web to share one data plane, not two
+  - [CTX3] intent/context: A minority view wants Brunch to fork Pi for deeper control
+- intent/criterion (2):
+  - [AC1] intent/criterion: After TUI interaction, .brunch/ exists with exactly one session_binding per session
+  - [AC2] intent/criterion: Dry-run validation at proposal time matches real-run validation at acceptance
+- intent/decision (4):
+  - [D1] intent/decision: Adopt a single CommandExecutor mutation authority
+  - [D2] intent/decision: Split the session agent into orthogonal Strategy and Lens axes
+  - [D3] intent/decision: Compose prompts as a thin runtime header plus a gated resource manifest
+  - …1 more node(s) omitted
+- intent/example (2):
+  - [EX1] intent/example: An offline / network-outage scenario the offline-first stance must withstand
+  - [EX2] intent/example: A proposal that fails dry-run never surfaces as a reviewable review set
+- intent/goal (2):
+  - [G1] intent/goal: Build Brunch as a local spec-elicitation product layered on Pi without forking it
+  - [G2] intent/goal: Surface cross-session graph changes to the agent coherently at turn boundaries
+- intent/invariant (4):
+  - [INV1] intent/invariant: One spec-local LSN per commit; exactly one graph_clock row per spec
+  - [INV2] intent/invariant: commitGraph batch validation is all-or-nothing
+  - [INV3] intent/invariant: Same-spec supersession edges form an acyclic directed graph
+  - …1 more node(s) omitted
+- intent/requirement (5):
+  - [REQ1] intent/requirement: All durable graph mutations route through one CommandExecutor authority
+  - [REQ2] intent/requirement: A public RPC agent-as-user can drive structured exchanges without speaking raw Pi RPC
+  - [REQ3] intent/requirement: Graph context reads support a compact overview and a node-neighborhood detail view
+  - …2 more node(s) omitted
+- intent/term (5):
+  - [T1] intent/term: Spec
+  - [T2] intent/term: Session exchange
+  - [T3] intent/term: Lens
+  - …2 more node(s) omitted
+- intent/thesis (2):
+  - [TH1] intent/thesis: Offer-first structured exchange elicits better spec truth than free-form chat
+  - [TH2] intent/thesis: Pi's linear JSONL transcript can be the single canonical session substrate
+- oracle/check (2):
+  - [CH1] oracle/check: Architectural boundary test: no db/ imports outside graph/
+  - [CH2] oracle/check: commit-graph-batch structural tests: kind, stance, self-loop, acyclic supersession
+- oracle/evidence (2):
+  - [E1] oracle/evidence: FE-744 public-RPC parity run: session.jsonl + transcript.md + report.json
+  - [E2] oracle/evidence: FE-809 project-graph review-cycle approval run with explicit-basis readback
+- oracle/obligation (1):
+  - [O1] oracle/obligation: Structural invariants stay hard gates; behavioral metrics are tracked as fitness, not gated
+- oracle/validation_method (2):
+  - [VV1] oracle/validation_method: Deterministic public-RPC parity probe (scripted agent-as-user)
+  - [VV2] oracle/validation_method: Transcript-backed probe runs with executable postcondition checkers
+- plan/frontier (2):
+  - [F1] plan/frontier: Graph read/render projection context layer
+  - [F2] plan/frontier: Structured-exchange public-RPC parity
+- plan/milestone (3):
+  - [M1] plan/milestone: M0 — Workspace and session bootstrap with the first probe oracle
+  - [M2] plan/milestone: M3 — Public RPC and structured-exchange parity
+  - [M3] plan/milestone: M5 — Graph context read and render projection
+- plan/slice (2):
+  - [S1] plan/slice: node-neighborhood renderer with anchor-relative projection
+  - [S2] plan/slice: consolidate edge-category policy; add label and direction projections
