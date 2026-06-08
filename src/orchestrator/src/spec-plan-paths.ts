@@ -35,7 +35,7 @@ export function resolveLatestSpecPlanPath(dir: string): string | undefined {
   const root = specsRootDir(dir);
   if (!existsSync(root)) return undefined;
 
-  let newest: { path: string; mtimeMs: number } | undefined;
+  let newest: { path: string; mtimeMs: number; specId: number } | undefined;
   for (const entry of readdirSync(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const parsed = Number(entry.name);
@@ -43,8 +43,8 @@ export function resolveLatestSpecPlanPath(dir: string): string | undefined {
     const planPath = join(root, entry.name, 'plan.yaml');
     if (!existsSync(planPath)) continue;
     const mtimeMs = statSync(planPath).mtimeMs;
-    if (!newest || mtimeMs > newest.mtimeMs) {
-      newest = { path: planPath, mtimeMs };
+    if (!newest || mtimeMs > newest.mtimeMs || (mtimeMs === newest.mtimeMs && parsed > newest.specId)) {
+      newest = { path: planPath, mtimeMs, specId: parsed };
     }
   }
   return newest?.path;

@@ -67,6 +67,22 @@ describe('resolveLatestSpecPlanPath', () => {
     expect(resolveLatestSpecPlanPath(d)).toBe(join(newer, 'plan.yaml'));
   });
 
+  it('breaks equal-mtime ties by highest spec id', () => {
+    const d = makeTmpDir();
+    const lower = join(d, '.brunch', 'cook', 'specs', '11');
+    const higher = join(d, '.brunch', 'cook', 'specs', '12');
+    mkdirSync(lower, { recursive: true });
+    mkdirSync(higher, { recursive: true });
+    writeFileSync(join(lower, 'plan.yaml'), 'epics: []\nslices: []\n');
+    writeFileSync(join(higher, 'plan.yaml'), 'epics: []\nslices: []\n');
+
+    const sameTime = new Date('2026-06-01T00:00:00.000Z');
+    utimesSync(join(lower, 'plan.yaml'), sameTime, sameTime);
+    utimesSync(join(higher, 'plan.yaml'), sameTime, sameTime);
+
+    expect(resolveLatestSpecPlanPath(d)).toBe(join(higher, 'plan.yaml'));
+  });
+
   it('ignores spec subdirs whose names are not positive integers', () => {
     const d = makeTmpDir();
     const valid = join(d, '.brunch', 'cook', 'specs', '5');
