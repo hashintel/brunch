@@ -40,8 +40,7 @@ After the current elicitor work, the strongest follow-on coverage frontier is `g
 ### Next
 
 1. `poc-live-ship-gate` — final fresh-cwd runbook remains the delivery gate, but its prepared live-mention-autocomplete slice is currently parked off the critical path.
-2. `graph-observed-shapes` — next coverage frontier candidate: decide the observed-shape inventory per consumer, then align graph/RPC/web to it.
-3. `runtime-affordances-and-legality` — follow-on coverage frontier for shared posture legality/default surfaces once graph observed shapes stop dominating.
+2. `runtime-affordances-and-legality` — follow-on coverage frontier for shared posture legality/default surfaces once graph observed shapes stop dominating.
 
 ### Parallel / Low-conflict
 
@@ -165,7 +164,7 @@ After the current elicitor work, the strongest follow-on coverage frontier is `g
 - **Name:** Graph observed-shape inventory by consumer
 - **Linear:** unassigned
 - **Kind:** structural
-- **Status:** next
+- **Status:** done
 - **Certainty:** proving
 - **Lights up:** One canonical observed-shape matrix across graph readers, RPC methods, and web observer surfaces.
 - **Stabilizes:** D60-L read-shape ownership, D33-L web read-only observer scope, and the rule that `src/projections/` exists only for reusable multi-consumer DTOs.
@@ -180,7 +179,7 @@ After the current elicitor work, the strongest follow-on coverage frontier is `g
 - **Cross-cutting obligations:** Do not promote all read shapes everywhere. `list_by_kind` / `list_by_band` are plausible web shapes; `related` / `gaps` may remain agent/RPC-only. Keep graph-owned read logic out of `db/`, and keep `src/renderers/` limited to durable LLM/session text rather than arbitrary observer DTOs.
 - **Traceability:** D33-L, D51-L, D52-L, D60-L, D64-L.
 - **Design docs:** `src/graph/README.md`; `src/rpc/README.md`; `src/web/README.md`.
-- **Current execution pointer:** Scoped 2026-06-08 — active scope file `memory/cards/graph-observed-shapes--coverage-ledger.md` (the coverage-ledger slice: ratify the consumer-specific read-shape inventory + install a coverage-guard test; no transport shape ships in this slice). Any "required but missing" row spawns a separate follow-on alignment card scoped after the ledger is accepted.
+- **Current execution pointer:** Done 2026-06-08. `src/graph/README.md` now owns the closed observed-shape ledger: `read_graph` requires the six agent shapes, RPC and web require only `overview` + `neighborhood`, `list_by_kind` / `list_by_band` remain web-eligible deferred, and register reads remain deferred until a per-turn driver/consumer needs them. `src/graph/observed-shapes-coverage.test.ts` guards the tool/RPC/web required subsets; no transport shape shipped in this frontier.
 
 ### runtime-affordances-and-legality
 

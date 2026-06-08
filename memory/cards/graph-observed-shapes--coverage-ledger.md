@@ -1,7 +1,7 @@
 # Graph observed-shape coverage ledger
 
 Frontier: graph-observed-shapes
-Status:   active
+Status:   done
 Mode:     single
 Created:  2026-06-08
 
