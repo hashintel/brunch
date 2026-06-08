@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -13,6 +13,9 @@ import {
   type PetrinautTransitionFiredEvent,
 } from './petrinaut-events.js';
 import { createNetFolding } from './petrinaut-fold.js';
+import type { SdcpnFile } from './petrinaut-sdcpn.js';
+import { type BrunchExecutionExportFrame, createPetrinautStreamBus } from './petrinaut-stream-bus.js';
+import { reduceBrunchExecutionExport } from './petrinaut-stream-export.js';
 import { InMemoryReportSink } from './report-sink.js';
 import type { ActionContext, ActionHandlers, OrchestratorInput, Plan, RunCtx, TestRunner } from './types.js';
 
@@ -740,15 +743,15 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // Mechanical places: spec-ready, failing-tests, untested-code,
     //                    needs-more, done-spec, completed, eligible,
     //                    retry-budget, evaluate:reported, run-tests:reported,
-    //                    halted (FE-761 Slice 2a),
+    //                    halted,
     //                    evaluate:running, write-tests:running,
     //                    write-code:running, run-tests:running,
-    //                    assess-semantic:running (FE-761 Slice 4) = 16
+    //                    assess-semantic:running = 16
     // Semantic places: semantic-budget, semantic-satisfied, assess-semantic:reported = 3
     // Total places: 22
     expect(blueprint.places.length).toBe(22);
 
-    // Transitions (FE-761 Slice 4: every producer split into dispatch + complete):
+    // Transitions (every producer splits into dispatch + complete):
     //   slice-ready:slice-1,
     //   slice-1:evaluate:dispatch, slice-1:evaluate:complete,
     //   slice-1:evaluate:done, slice-1:evaluate:more,
@@ -779,7 +782,7 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // Semantic-lane transitions
     const semantic = transitions.filter((t) => t.contract.lane === 'semantic');
     expect(semantic.length).toBeGreaterThanOrEqual(1); // assess-semantic, return-done
-    // FE-761 Slice 4: the semantic-lane handler descriptor lives on :complete.
+    // The semantic-lane handler descriptor lives on :complete.
     const assessSemantic = transitions.find((t) => t.id.endsWith(':assess-semantic:complete'));
     expect(assessSemantic?.contract.kind).toBe('semantic');
     expect(assessSemantic?.contract.actor).toBe('semantic-assessor');
@@ -793,15 +796,15 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     // Epic places: epic:epic-1:done = 1
     // Slice-a places: 19 (6 mechanical + eligible + retry-budget + semantic-budget + semantic-satisfied
     //                     + evaluate:reported + run-tests:reported + assess-semantic:reported
-    //                     + halted (FE-761 Slice 2a)
+    //                     + halted
     //                     + evaluate:running + write-tests:running + write-code:running
-    //                     + run-tests:running + assess-semantic:running (FE-761 Slice 4))
+    //                     + run-tests:running + assess-semantic:running)
     // Slice-b places: 19 (same)
     // Dep-signal places: slice:slice-a:dep-signal:slice-b = 1
     // Total: 42
     expect(blueprint.places.length).toBe(42);
 
-    // Transitions (FE-761 Slice 4: each producer split into dispatch + complete):
+    // Transitions (each producer splits into dispatch + complete):
     //   slice-a: slice-ready,
     //            evaluate:dispatch, evaluate:complete, evaluate:done, evaluate:more,
     //            write-tests:dispatch, write-tests:complete,
@@ -820,7 +823,7 @@ describe('Adapter: compiled net shape (topology-only — no runtime bindings)', 
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
     const kinds = new Set(blueprint.transitions.map((t) => t.handler.kind));
     expect(kinds).toContain('passthrough');
-    // FE-761 Slice 4: explicit dispatch/complete topology split adds dispatch descriptors.
+    // The explicit dispatch/complete topology split adds dispatch descriptors.
     expect(kinds).toContain('dispatch');
     expect(kinds).toContain('action');
     expect(kinds).toContain('sibling-passthrough');
@@ -856,14 +859,14 @@ describe('Adapter: §7 event vocabulary', () => {
     const events: NetEvent[] = [];
     await net.run('serial', () => net.hasHaltToken(), { emit: (e) => events.push(e) });
 
-    // All events should be transition_fired (happy path, no deadlock/halt)
+    // Happy path fires transitions and then emits explicit completion.
     const fired = events.filter((e) => e.kind === 'transition_fired');
     expect(fired.length).toBeGreaterThan(0);
 
     // Check transition IDs appear in order
     const ids = fired.map((e) => e.transitionId);
     expect(ids).toContain('slice-ready:slice-1');
-    // FE-761 Slice 4: producers split into dispatch + complete — both fire.
+    // Producers split into dispatch + complete, and both fire.
     expect(ids).toContain('slice-1:evaluate:dispatch');
     expect(ids).toContain('slice-1:evaluate:complete');
     expect(ids).toContain('slice-1:assess-semantic:dispatch');
@@ -878,6 +881,8 @@ describe('Adapter: §7 event vocabulary', () => {
       expect(e.produced).toBeDefined();
     }
 
+    expect(events.at(-1)?.kind).toBe('net_completed');
+    expect(events.filter((e) => e.kind === 'net_completed')).toHaveLength(1);
     // No halt or false-deadlock events (happy path)
     expect(events.filter((e) => e.kind === 'net_halted').length).toBe(0);
     expect(events.filter((e) => e.kind === 'net_deadlocked').length).toBe(0);
@@ -901,8 +906,8 @@ describe('Adapter: §7 event vocabulary', () => {
 
     const net = compilePlan(input, ctx);
     const events: NetEvent[] = [];
-    // FE-761 Slice 2b: halt is observed via net.hasHaltToken() reading
-    // tokens on `:halted` places, not via the retired ctx.halted mutation.
+    // Halt is observed via net.hasHaltToken() reading tokens on `:halted`
+    // places, not via the retired ctx.halted mutation.
     await net.run('serial', () => net.hasHaltToken(), { emit: (e) => events.push(e) });
 
     // Should have a net_halted event once the retry-exhaustion halt token
@@ -913,10 +918,10 @@ describe('Adapter: §7 event vocabulary', () => {
 });
 
 // ---------------------------------------------------------------------------
-// FE-763 — Petrinaut event stream end-to-end on the orchestrator
+// Petrinaut event stream end-to-end on the orchestrator
 // ---------------------------------------------------------------------------
 
-describe('FE-763: Petrinaut event stream on a real run', () => {
+describe('Petrinaut event stream on a real run', () => {
   it('emits initial_marking + transition_fired (with token payload) for simplePlan happy path', async () => {
     const fakes = createFakes();
     const ctx: RunCtx = {
@@ -951,10 +956,10 @@ describe('FE-763: Petrinaut event stream on a real run', () => {
     // 2. every event carries the runId.
     expect(events.every((e) => 'runId' in e && e.runId === 'run-e2e')).toBe(true);
 
-    // 3. transition_fired events expose the FE-761 Slice 4 dispatch/complete
-    //    topology directly in Petrinaut's wire format.
-    //    FE-784: names are color-folded to slice-independent roles (the
-    //    firing slice lives on the token color, not the transition name).
+    // 3. transition_fired events expose the dispatch/complete topology
+    //    directly in Petrinaut's wire format. Names are color-folded to
+    //    slice-independent roles (the firing slice lives on the token color,
+    //    not the transition name).
     const fired = events.filter((e): e is PetrinautTransitionFiredEvent => e.kind === 'transition_fired');
     const names = fired.map((e) => e.transitionName);
     expect(names).toContain('evaluate:dispatch');
@@ -973,11 +978,12 @@ describe('FE-763: Petrinaut event stream on a real run', () => {
       }
     }
 
-    // 5. happy path: no net_halted / net_deadlocked emitted (engine exits
-    //    the loop cleanly when nothing remains enabled). When the cook
-    //    fails — retry exhaustion etc. — Petrinaut sees the halt token
-    //    travel through the topology as a transition_fired event landing
+    // 5. happy path: explicit completion, no net_halted / net_deadlocked.
+    //    When the cook fails — retry exhaustion etc. — Petrinaut sees the halt
+    //    token travel through the topology as a transition_fired event landing
     //    in `slice:<sid>:halted`, plus the engine emits net_halted.
+    expect(events.at(-1)?.kind).toBe('net_completed');
+    expect(events.filter((e) => e.kind === 'net_completed')).toHaveLength(1);
     expect(events.filter((e) => e.kind === 'net_halted')).toHaveLength(0);
     expect(events.filter((e) => e.kind === 'net_deadlocked')).toHaveLength(0);
   });
@@ -1002,6 +1008,286 @@ describe('FE-763: Petrinaut event stream on a real run', () => {
         expect.stringContaining('Petrinaut event stream disabled:'),
       ]),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Engine wires `petrinautFold` into both the static export and the live event
+// stream; identity fold preserves concrete per-slice place ids.
+// Engine-driven frame-replay oracle: drives a real cook run with
+// petrinautFold='identity', reads the SDCPN + JSONL events from disk, reduces
+// them via reduceBrunchExecutionExport, and asserts replay invariants.
+// ---------------------------------------------------------------------------
+
+describe('identity-fold engine wiring + frame-replay oracle', () => {
+  it("emits transition_fired events under concrete per-slice ids when petrinautFold='identity'", async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-identity-'));
+    try {
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: 'run-id-fold',
+        runDir,
+        petrinautFold: 'identity',
+      });
+      expect(result.status).toBe('completed');
+
+      const sdcpnFile = JSON.parse(readFileSync(join(runDir, 'net.sdcpn.json'), 'utf8'));
+      const events: PetrinautEvent[] = readFileSync(join(runDir, 'petrinaut-events.jsonl'), 'utf8')
+        .split('\n')
+        .filter((l) => l.length > 0)
+        .map((l) => JSON.parse(l));
+
+      // Identity-fold marker: at least one slice place is exported under its
+      // concrete `slice:<sid>:…` id (color fold would strip the prefix).
+      const sliceColoredPlaces = (sdcpnFile.places as { id: string }[])
+        .map((p) => p.id)
+        .filter((id) => id.startsWith('slice:'));
+      expect(sliceColoredPlaces.length).toBeGreaterThan(0);
+
+      // The reducer round-trips every event into a referentially-clean export.
+      const exportPayload = reduceBrunchExecutionExport({ sdcpnFile, events });
+      const placeIds = new Set(exportPayload.definition.places.map((p) => p.id));
+      const transitionIds = new Set(exportPayload.definition.transitions.map((t) => t.id));
+      for (const p of Object.keys(exportPayload.initialState)) expect(placeIds.has(p)).toBe(true);
+      for (const f of exportPayload.transitionFirings) {
+        expect(transitionIds.has(f.transitionId)).toBe(true);
+        for (const p of Object.keys(f.input)) expect(placeIds.has(p)).toBe(true);
+        for (const p of Object.keys(f.output)) expect(placeIds.has(p)).toBe(true);
+      }
+
+      // Frame-replay: starting from initialState, apply each firing's deltas;
+      // no place count may go negative at any frame.
+      const marking: Record<string, number> = {};
+      for (const [p, v] of Object.entries(exportPayload.initialState)) {
+        if (typeof v === 'number') marking[p] = v;
+      }
+      for (const firing of exportPayload.transitionFirings) {
+        for (const [p, n] of Object.entries(firing.input)) {
+          if (typeof n !== 'number') continue;
+          marking[p] = (marking[p] ?? 0) - n;
+          expect(marking[p], `place ${p} negative after ${firing.transitionId}`).toBeGreaterThanOrEqual(0);
+        }
+        for (const [p, n] of Object.entries(firing.output)) {
+          if (typeof n !== 'number') continue;
+          marking[p] = (marking[p] ?? 0) + n;
+        }
+      }
+      // Sanity: the run completed with at least one firing landing somewhere
+      // non-empty (the engine reaches `slice-1:done`).
+      const finalNonEmpty = Object.entries(marking).filter(([, n]) => n > 0);
+      expect(finalNonEmpty.length).toBeGreaterThan(0);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('streams BrunchExecutionExportFrames through the bus when onPetrinautEvent is wired', async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-bus-'));
+    try {
+      // Bus reads its definition from the SDCPN file the engine writes; we
+      // load it post-hoc. For the streaming case we attach a deferred-init
+      // bus + subscriber via a closure: the engine emits into this collector,
+      // and after the run we feed the collected events through a real bus to
+      // assert the replay-equivalence invariant end-to-end.
+      const collectedEvents: PetrinautEvent[] = [];
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: 'run-bus-e2e',
+        runDir,
+        petrinautFold: 'identity',
+        onPetrinautEvent: (event) => collectedEvents.push(event),
+      });
+      expect(result.status).toBe('completed');
+      expect(collectedEvents.length).toBeGreaterThan(0);
+      expect(collectedEvents[0]!.kind).toBe('initial_marking');
+
+      const sdcpnFile = JSON.parse(readFileSync(join(runDir, 'net.sdcpn.json'), 'utf8'));
+
+      // Pre-subscribed bus: every PetrinautEvent the engine emitted produces
+      // exactly one BrunchExecutionExportFrame; the resulting frame sequence
+      // folds back to the same export as the static reducer.
+      const bus = createPetrinautStreamBus({ runId: 'run-bus-e2e', sdcpnFile });
+      const frames: BrunchExecutionExportFrame[] = [];
+      bus.subscribe((f) => frames.push(f));
+      for (const e of collectedEvents) bus.publish(e);
+
+      // Replay-equivalence oracle.
+      const reduced = reduceBrunchExecutionExport({ sdcpnFile, events: collectedEvents });
+      const folded = (() => {
+        let definition = undefined as typeof reduced.definition | undefined;
+        let initialState = undefined as typeof reduced.initialState | undefined;
+        const transitionFirings: typeof reduced.transitionFirings = [];
+        for (const f of frames) {
+          if (f.kind === 'definition') definition = f.definition;
+          else if (f.kind === 'initial_state') initialState = f.initialState;
+          else if (f.kind === 'transition_firing') transitionFirings.push(f.firing);
+        }
+        return { definition: definition!, initialState: initialState!, transitionFirings };
+      })();
+      expect(folded).toEqual(reduced);
+
+      // Late subscriber receives the full timeline synchronously.
+      const lateFrames: BrunchExecutionExportFrame[] = [];
+      bus.subscribe((f) => lateFrames.push(f));
+      expect(lateFrames.length).toBe(frames.length);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('awaits setupPetrinautStream before emitting initial_marking; returned callback receives full event sequence', async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-setup-'));
+    try {
+      // Two-phase ordering witness:
+      //  1. Setup hook does async work (microtask) and only resolves after
+      //     flipping `setupResolved = true`.
+      //  2. Engine MUST `await` that resolution before emitting any event.
+      //     If it doesn't, `receivedBeforeSetupResolved` will be > 0 and the
+      //     assertion at the bottom catches the race.
+      let setupResolved = false;
+      let receivedBeforeSetupResolved = 0;
+      const receivedEvents: PetrinautEvent[] = [];
+      let hookSdcpnSeen: SdcpnFile | undefined;
+      let hookRunIdSeen: string | undefined;
+
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: 'run-setup-hook',
+        runDir,
+        petrinautFold: 'identity',
+        setupPetrinautStream: async ({ runId, sdcpnFile }) => {
+          hookRunIdSeen = runId;
+          hookSdcpnSeen = sdcpnFile;
+          // Force a real await turn so a non-awaited engine call-site would
+          // already have emitted initial_marking by the time we return.
+          await new Promise<void>((r) => setTimeout(r, 1));
+          setupResolved = true;
+          return (event) => {
+            if (!setupResolved) receivedBeforeSetupResolved++;
+            receivedEvents.push(event);
+          };
+        },
+      });
+
+      expect(result.status).toBe('completed');
+      expect(hookRunIdSeen).toBe('run-setup-hook');
+      expect(hookSdcpnSeen).toBeDefined();
+      // Full sequence delivered through the returned callback.
+      expect(receivedEvents.length).toBeGreaterThan(0);
+      expect(receivedEvents[0]!.kind).toBe('initial_marking');
+      expect(receivedEvents.at(-1)?.kind).toBe('net_completed');
+      // Await-ordering invariant: nothing slipped through before setup resolved.
+      expect(receivedBeforeSetupResolved).toBe(0);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('emits a terminal live-stream event when net execution throws', async () => {
+    const fakes = createFakes({ throwOnAction: 'write-tests' });
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-throw-terminal-'));
+    try {
+      const receivedEvents: PetrinautEvent[] = [];
+
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: 'run-throw-terminal',
+        runDir,
+        petrinautFold: 'identity',
+        setupPetrinautStream: async () => (event) => receivedEvents.push(event),
+      });
+
+      expect(result.status).toBe('halted');
+      expect(result.reason).toContain('write-tests failed');
+      expect(receivedEvents.length).toBeGreaterThan(0);
+      expect(receivedEvents.at(-1)?.kind).toBe('net_halted');
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not start live-stream setup when the event stream cannot initialize', async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-stream-init-'));
+    try {
+      // Make the JSONL event stream path unwritable while leaving runDir valid
+      // for net.json and net.sdcpn.json.
+      mkdirSync(join(runDir, 'petrinaut-events.jsonl'));
+      let setupCalls = 0;
+
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: 'run-stream-init-failure',
+        runDir,
+        petrinautFold: 'identity',
+        setupPetrinautStream: async () => {
+          setupCalls++;
+          return () => undefined;
+        },
+      });
+
+      expect(result.status).toBe('completed');
+      expect(result.warnings).toEqual([expect.stringMatching(/^Petrinaut event stream disabled:/)]);
+      expect(setupCalls).toBe(0);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it("collapses slice place ids when petrinautFold='color'", async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-color-'));
+    try {
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: 'run-color-fold',
+        runDir,
+        petrinautFold: 'color',
+      });
+      expect(result.status).toBe('completed');
+
+      const sdcpnFile = JSON.parse(readFileSync(join(runDir, 'net.sdcpn.json'), 'utf8'));
+      // Color fold strips the `slice:<sid>:` prefix from every slice place.
+      const sliceColoredPlaces = (sdcpnFile.places as { id: string }[])
+        .map((p) => p.id)
+        .filter((id) => id.startsWith('slice:'));
+      expect(sliceColoredPlaces).toHaveLength(0);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -1057,11 +1343,10 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
   });
 
   it('serial: transitions fire one at a time, handlers run concurrently within agent-pool bounds', async () => {
-    // FE-761 Slice 3: under async dispatch, "serial" means *transition
-    // firing* is serial — but handlers run asynchronously after dispatch,
-    // so multiple handlers can be in flight concurrently as long as the
-    // agent pool has enough tokens. The agent pool (default = slices count
-    // = 3 here) bounds handler concurrency.
+    // Under async dispatch, "serial" means *transition firing* is serial, but
+    // handlers run asynchronously after dispatch, so multiple handlers can be
+    // in flight concurrently as long as the agent pool has enough tokens. The
+    // agent pool (default = slices count = 3 here) bounds handler concurrency.
     const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
     const { tracked, tracker } = withConcurrencyTracking(fakes.actions);
 
@@ -1076,17 +1361,17 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
     });
 
     expect(result.status).toBe('completed');
-    // Pre-Slice 3 this was hardcoded to 1 because fire() awaited the handler
-    // inline. Now handlers complete asynchronously after dispatch.
+    // This used to be hardcoded to 1 because fire() awaited the handler inline.
+    // Now handlers complete asynchronously after dispatch.
     expect(tracker.maxConcurrent).toBeGreaterThan(1);
     expect(tracker.maxConcurrent).toBeLessThanOrEqual(threeSlicePlan.slices.length);
   });
 
   it('serial and parallel have comparable wall-clock for handler-bound work (async dispatch)', async () => {
-    // FE-761 Slice 3: with async dispatch, both serial and parallel
-    // policies let handlers run concurrently — the difference is only in
-    // *transition* firing batching. For handler-bound work, both policies
-    // complete in roughly the same wall-clock time.
+    // With async dispatch, both serial and parallel policies let handlers run
+    // concurrently. The difference is only in *transition* firing batching.
+    // For handler-bound work, both policies complete in roughly the same
+    // wall-clock time.
     const DELAY_MS = 20;
 
     function createDelayedFakes() {

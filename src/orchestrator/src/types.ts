@@ -112,10 +112,41 @@ export type OrchestratorInput = {
   /**
    * Optional run directory (e.g. `<baseDir>/.cook/runs/<runId>/`). When set,
    * the orchestrator writes the Petrinaut-format compiled net to
-   * `<runDir>/net.json` after `compileTopology` returns (FE-762). Tests and
-   * library callers that do not need on-disk export can omit it.
+   * `<runDir>/net.json` after `compileTopology` returns. Tests and library
+   * callers that do not need on-disk export can omit it.
    */
   runDir?: string;
+  /**
+   * Which `NetFolding` constructor to use for Petrinaut export and the live
+   * event stream. `'identity'` (default) keeps the unfolded per-slice net;
+   * `'color'` collapses N structurally-identical slice subnets and carries
+   * slice identity on the token color. Ignored when `runDir` is absent.
+   */
+  petrinautFold?: 'color' | 'identity';
+  /**
+   * In-process fan-out for the Petrinaut event stream. When set, every event
+   * the engine emits is forwarded to this callback so an out-of-band consumer
+   * (e.g. `createPetrinautStreamBus` feeding the cook's `/stream` SSE
+   * endpoint) can subscribe without the engine knowing the consumer exists.
+   * Ignored when `runDir` is absent. File output to `petrinaut-events.jsonl`
+   * is unaffected.
+   */
+  onPetrinautEvent?: (event: import('./petrinaut-events.js').PetrinautEvent) => void;
+  /**
+   * Awaited setup hook for the Petrinaut live-stream surface. Called once per
+   * run after `compileTopology` builds the `SdcpnFile` and **before** the
+   * engine emits the first `initial_marking` event, so the caller can stand up
+   * an SSE server (or any other async sink) bound to the run's net. The
+   * returned callback (if any) is fanned out alongside `onPetrinautEvent`.
+   * Ignored when `runDir` is absent.
+   *
+   * Lifecycle contract: the hook is `await`ed; an error rejects `engine.run`
+   * before any firing happens.
+   */
+  setupPetrinautStream?: (input: {
+    runId: string;
+    sdcpnFile: import('./petrinaut-sdcpn.js').SdcpnFile;
+  }) => Promise<((event: import('./petrinaut-events.js').PetrinautEvent) => void) | undefined>;
 };
 
 export type EpicOutcome = {
@@ -146,11 +177,11 @@ export interface Orchestrator {
 // ---------------------------------------------------------------------------
 
 /**
- * FE-761 Slice 2b: `halted` / `haltReason` retired. Halt is now observable
- * via the petri-net's `:halted` place tokens (see `PetriNet.hasHaltToken()`),
- * and the halt reason is carried on the halt token itself
- * (`Token.haltReason`). The engine derives both from the net rather than
- * mutating ctx in a fire closure.
+ * `halted` / `haltReason` retired from the mutable context. Halt is now
+ * observable via the petri-net's `:halted` place tokens (see
+ * `PetriNet.hasHaltToken()`), and the halt reason is carried on the halt
+ * token itself (`Token.haltReason`). The engine derives both from the net
+ * rather than mutating ctx in a fire closure.
  */
 export type RunCtx = {
   reportIds: string[];

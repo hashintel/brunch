@@ -147,7 +147,7 @@ describe('createPetrinautEventStream — transition_fired adapter', () => {
     expect(ev.output['evaluate:running']).toEqual([]);
   });
 
-  it('forwards net_halted and net_deadlocked as terminal events', () => {
+  it('forwards net_completed, net_halted, and net_deadlocked as terminal events', () => {
     const events: PetrinautEvent[] = [];
     const stream = createPetrinautEventStream({
       runId: 'run-1',
@@ -155,10 +155,11 @@ describe('createPetrinautEventStream — transition_fired adapter', () => {
       tokenIdFn: deterministicTokenId(),
       onEvent: (e) => events.push(e),
     });
+    stream.sink.emit({ kind: 'net_completed', ts: '2026-05-27T00:00:00.000Z' });
     stream.sink.emit({ kind: 'net_halted', ts: '2026-05-27T00:00:00.000Z' });
     stream.sink.emit({ kind: 'net_deadlocked', ts: '2026-05-27T00:00:01.000Z' });
 
-    expect(events.map((e) => e.kind)).toEqual(['net_halted', 'net_deadlocked']);
+    expect(events.map((e) => e.kind)).toEqual(['net_completed', 'net_halted', 'net_deadlocked']);
     expect(events.every((e) => 'runId' in e && e.runId === 'run-1')).toBe(true);
   });
 });

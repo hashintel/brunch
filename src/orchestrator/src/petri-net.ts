@@ -63,7 +63,7 @@ export type FiringPolicy = 'serial' | 'parallel';
 // ---------------------------------------------------------------------------
 
 /** Event kinds aligned with spec doc §7. */
-export type NetEventKind = 'transition_fired' | 'net_deadlocked' | 'net_halted';
+export type NetEventKind = 'transition_fired' | 'net_deadlocked' | 'net_halted' | 'net_completed';
 
 /**
  * Structured event emitted during net execution.
@@ -348,6 +348,8 @@ export class PetriNet {
         }
         if (this.hasWorkBearingTokens()) {
           eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
+        } else {
+          eventSink?.emit({ kind: 'net_completed', ts: new Date().toISOString() });
         }
         break;
       }
@@ -399,6 +401,8 @@ export class PetriNet {
         }
         if (this.hasWorkBearingTokens()) {
           eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
+        } else {
+          eventSink?.emit({ kind: 'net_completed', ts: new Date().toISOString() });
         }
         break;
       }
@@ -414,7 +418,13 @@ export class PetriNet {
         claims.push({ transition: t, consumed });
       }
 
-      if (claims.length === 0) break;
+      if (claims.length === 0) {
+        eventSink?.emit({
+          kind: this.hasWorkBearingTokens() ? 'net_deadlocked' : 'net_completed',
+          ts: new Date().toISOString(),
+        });
+        break;
+      }
 
       const results = await Promise.allSettled(
         claims.map(async (claim) => ({

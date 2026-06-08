@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { compileTopology } from './net-compiler.js';
 import { serializeBlueprint, type PetrinautNet } from './petrinaut-export.js';
+import { createNetFolding } from './petrinaut-fold.js';
 import { SDCPN_FILE_FORMAT_VERSION, toSdcpnFile } from './petrinaut-sdcpn.js';
 import type { Plan } from './types.js';
 
@@ -113,7 +114,8 @@ const depPlan: Plan = {
 
 /** Build a real PetrinautNet from a plan (the actual `net.json` shape). */
 function realNet(plan: Plan): PetrinautNet {
-  return serializeBlueprint(compileTopology(plan, { maxRetries: 3 }), { runId: 'run-1' });
+  const blueprint = compileTopology(plan, { maxRetries: 3 });
+  return serializeBlueprint(blueprint, { runId: 'run-1', folding: createNetFolding(blueprint) });
 }
 
 describe('toSdcpnFile — envelope', () => {

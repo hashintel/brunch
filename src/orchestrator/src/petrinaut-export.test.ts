@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
+import type { NetBlueprint } from './net-blueprint.js';
 import { compileTopology } from './net-compiler.js';
 import { PETRINAUT_NET_SCHEMA_VERSION, serializeBlueprint, type PetrinautNet } from './petrinaut-export.js';
-import { SLICE_COLOR_TYPE_ID } from './petrinaut-fold.js';
+import { createNetFolding, SLICE_COLOR_TYPE_ID } from './petrinaut-fold.js';
 import type { Plan } from './types.js';
+
+/**
+ * These tests pin the color-fold export shape. The identity fold is exercised
+ * by petrinaut-stream-export.test.ts's engine-driven oracle.
+ */
+function colorFold(blueprint: NetBlueprint) {
+  return createNetFolding(blueprint);
+}
 
 const simplePlan: Plan = {
   epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
@@ -47,21 +56,33 @@ function deterministicTokenId(): () => string {
 describe('serializeBlueprint — envelope', () => {
   it('emits schemaVersion and runId at the top level', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
+    const net = serializeBlueprint(blueprint, {
+      runId: 'run-1',
+      folding: colorFold(blueprint),
+      tokenIdFn: deterministicTokenId(),
+    });
     expect(net.schemaVersion).toBe(PETRINAUT_NET_SCHEMA_VERSION);
     expect(net.runId).toBe('run-1');
   });
 
   it('round-trips through JSON.parse(JSON.stringify)', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
+    const net = serializeBlueprint(blueprint, {
+      runId: 'run-1',
+      folding: colorFold(blueprint),
+      tokenIdFn: deterministicTokenId(),
+    });
     const roundTripped = JSON.parse(JSON.stringify(net)) as PetrinautNet;
     expect(roundTripped).toEqual(net);
   });
 
   it('declares the SliceColor token type when slice places are present', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
+    const net = serializeBlueprint(blueprint, {
+      runId: 'run-1',
+      folding: colorFold(blueprint),
+      tokenIdFn: deterministicTokenId(),
+    });
     const type = net.tokenTypes.find((t) => t.id === SLICE_COLOR_TYPE_ID)!;
     expect(type).toBeDefined();
     expect(type.dimensions.map((d) => d.name)).toEqual(['sliceId', 'epicId', 'retryCount', 'reworkCount']);
@@ -71,7 +92,11 @@ describe('serializeBlueprint — envelope', () => {
 describe('serializeBlueprint — color fold', () => {
   it('strips the slice:<id>: prefix from every folded place id', () => {
     const blueprint = compileTopology(depPlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
+    const net = serializeBlueprint(blueprint, {
+      runId: 'run-2',
+      folding: colorFold(blueprint),
+      tokenIdFn: deterministicTokenId(),
+    });
     for (const p of net.places) expect(p.id.startsWith('slice:')).toBe(false);
     expect(net.places.some((p) => p.id === 'spec-ready')).toBe(true);
     expect(net.places.some((p) => p.id === 'evaluate:running')).toBe(true);
@@ -79,7 +104,11 @@ describe('serializeBlueprint — color fold', () => {
 
   it('collapses the uniform per-slice lifecycle to one node for a 2-slice plan', () => {
     const blueprint = compileTopology(depPlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
+    const net = serializeBlueprint(blueprint, {
+      runId: 'run-2',
+      folding: colorFold(blueprint),
+      tokenIdFn: deterministicTokenId(),
+    });
     // Two slices, but the shared lifecycle place/transition appears once.
     expect(net.places.filter((p) => p.id === 'spec-ready')).toHaveLength(1);
     expect(net.transitions.filter((t) => t.id === 'evaluate:dispatch')).toHaveLength(1);
@@ -88,7 +117,11 @@ describe('serializeBlueprint — color fold', () => {
 
   it('keeps divergent dependency gates at their concrete per-slice ids', () => {
     const blueprint = compileTopology(depPlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
+    const net = serializeBlueprint(blueprint, {
+      runId: 'run-2',
+      folding: colorFold(blueprint),
+      tokenIdFn: deterministicTokenId(),
+    });
     const ids = new Set(net.transitions.map((t) => t.id));
     // slice-b's readiness gate has dep inputs slice-a's lacks → not folded.
     expect(ids.has('slice-ready:slice-a')).toBe(true);
@@ -103,7 +136,11 @@ describe('serializeBlueprint — color fold', () => {
 
   it('folds transition arcs to folded place ids that all exist as declared places', () => {
     const blueprint = compileTopology(depPlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
+    const net = serializeBlueprint(blueprint, {
+      runId: 'run-2',
+      folding: colorFold(blueprint),
+      tokenIdFn: deterministicTokenId(),
+    });
     const placeIds = new Set(net.places.map((p) => p.id));
     for (const t of net.transitions) {
       for (const arc of [...t.inputs, ...t.outputs]) {
@@ -114,7 +151,11 @@ describe('serializeBlueprint — color fold', () => {
 
   it('tags folded slice places with the slice color type and leaves pools untyped', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
+    const net = serializeBlueprint(blueprint, {
+      runId: 'run-1',
+      folding: colorFold(blueprint),
+      tokenIdFn: deterministicTokenId(),
+    });
     expect(net.places.find((p) => p.id === 'spec-ready')!.typeId).toBe(SLICE_COLOR_TYPE_ID);
     expect(net.places.find((p) => p.id === 'pool:test-agent')!.typeId).toBeUndefined();
   });
@@ -123,7 +164,11 @@ describe('serializeBlueprint — color fold', () => {
 describe('serializeBlueprint — transitions', () => {
   it('emits the folded evaluate dispatch/complete pair with arcs and metadata', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
+    const net = serializeBlueprint(blueprint, {
+      runId: 'run-1',
+      folding: colorFold(blueprint),
+      tokenIdFn: deterministicTokenId(),
+    });
 
     const evalDispatch = net.transitions.find((t) => t.id === 'evaluate:dispatch')!;
     expect(evalDispatch).toBeDefined();
@@ -144,7 +189,11 @@ describe('serializeBlueprint — transitions', () => {
 describe('serializeBlueprint — initial marking', () => {
   it('groups initial tokens into folded places, one colored token per slice', () => {
     const blueprint = compileTopology(depPlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
+    const net = serializeBlueprint(blueprint, {
+      runId: 'run-2',
+      folding: colorFold(blueprint),
+      tokenIdFn: deterministicTokenId(),
+    });
 
     const places = net.initialMarking.map((m) => m.place).sort();
     expect(places).toEqual([
@@ -172,14 +221,22 @@ describe('serializeBlueprint — initial marking', () => {
 
   it('carries budget counters on the folded budget places', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
+    const net = serializeBlueprint(blueprint, {
+      runId: 'run-1',
+      folding: colorFold(blueprint),
+      tokenIdFn: deterministicTokenId(),
+    });
     expect(net.initialMarking.find((m) => m.place === 'semantic-budget')!.tokens[0]!.reworkCount).toBe(0);
     expect(net.initialMarking.find((m) => m.place === 'retry-budget')!.tokens[0]!.retryCount).toBe(0);
   });
 
   it('emits distinct token ids for every initial token', () => {
     const blueprint = compileTopology(depPlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
+    const net = serializeBlueprint(blueprint, {
+      runId: 'run-2',
+      folding: colorFold(blueprint),
+      tokenIdFn: deterministicTokenId(),
+    });
     const ids = net.initialMarking.flatMap((m) => m.tokens.map((t) => t.id));
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -188,7 +245,11 @@ describe('serializeBlueprint — initial marking', () => {
 describe('serializeBlueprint — golden fold counts pinned per fixture', () => {
   it('simplePlan (1 slice): fold is a relabel — 22 places, 19 transitions, 5 marked', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-1', tokenIdFn: deterministicTokenId() });
+    const net = serializeBlueprint(blueprint, {
+      runId: 'run-1',
+      folding: colorFold(blueprint),
+      tokenIdFn: deterministicTokenId(),
+    });
     expect(net.places.length).toBe(22);
     expect(net.transitions.length).toBe(19);
     expect(net.initialMarking.length).toBe(5);
@@ -196,7 +257,11 @@ describe('serializeBlueprint — golden fold counts pinned per fixture', () => {
 
   it('depPlan (2 slices): lifecycle collapses — 23 places, 21 transitions, 5 marked', () => {
     const blueprint = compileTopology(depPlan, { maxRetries: 3 });
-    const net = serializeBlueprint(blueprint, { runId: 'run-2', tokenIdFn: deterministicTokenId() });
+    const net = serializeBlueprint(blueprint, {
+      runId: 'run-2',
+      folding: colorFold(blueprint),
+      tokenIdFn: deterministicTokenId(),
+    });
     expect(net.places.length).toBe(23);
     expect(net.transitions.length).toBe(21);
     expect(net.initialMarking.length).toBe(5);

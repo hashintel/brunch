@@ -27,7 +27,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 1. `agent-fixture-substrate` — branch-complete off main, reconciling — FE-705 integration substrate for JSONL agent capability CLI and LLM-as-user probes.
 2. `chat-runtime-secondary-chats` — FE-716; V1 done — PR #141 merged to main.
-3. **Petrinaut integration sub-track (2026-05-26)** — umbrella **FE-760** (Orchestrator <> Petrinaut Integration); four sequenced sub-issues committed after cross-team alignment with the Petrinaut team: `petri-petrinaut-semantics` (FE-761) → `petri-blueprint-export` (FE-762) + `petri-event-stream` (FE-763) (parallel) → `petri-sync-server` (FE-764). Replaces the POC interpreter's visualization role with Petrinaut as canonical surface.
+3. **Petrinaut integration sub-track** — umbrella **FE-760** (Orchestrator ⇄ Petrinaut). FE-761 (semantics), FE-762 (`net.json` + SDCPN export), FE-763 (event stream), and FE-784 (colour fold) have **landed**. **`petri-sync-server` (FE-764)** is the active piece, reshaped (2026-06-01 meeting) into an **ephemeral cook-hosted SSE live stream** for the Bristol demo — no-colour, replay-on-connect, brunch-initiated session, supersedes the dropped static-bundle idea. Replaces the POC interpreter's visualization role with Petrinaut as canonical surface.
 
 ### Recently Completed
 
@@ -173,7 +173,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Name:** Petri-net semantic alignment for Petrinaut visualization
 - **Linear:** FE-761 (parent: FE-760)
 - **Kind:** structural
-- **Status:** not-started (blocker for the Petrinaut integration sub-track)
+- **Status:** done
 - **Objective:** Refactor the substrate so compiled nets satisfy the Petri-net semantics Petrinaut requires. Two refactors: **(a) sibling transitions for conditional branching** — the four conditional-output transitions per slice (`evaluate`, `run-tests`, `assess-semantic`, `verify-epic`) split into multiple sibling transitions with complementary enabling guards; each transition emits to a fixed output set rather than selecting via `onTrue`/`onFalse`/`onPass`/`onFail`/`onSatisfied`/`onRejected` from FE-747. **(b) start/end pairs for agent dispatch** — every long-running agent-dispatching transition (≈5 per slice) splits into a `dispatch:*` start (instantaneous; parks the token in a new `running:*` place; kicks off the agent task async) and one or more `complete:*:<outcome>` ends (instantaneous; fires when the agent task signals completion). Multi-output fan-out transitions (`complete-slice`, `complete-epic`, passthroughs) stay single — already compliant with "all declared outputs fire" semantics. Token enrichment in the transition kernel is explicitly retained.
 - **Why now / unlocks:** Petrinaut requires (1) every transition emits to *all* declared output places (multi-output is fan-out, not selection), and (2) transitions are instantaneous events. Today's FE-747 `HandlerDescriptor` selects between output sets, and the `action`/`run-tests`/`assess-semantic`/`verify-epic` handlers block during fire. Both violate Petri-net semantics. Without this refactor, any blueprint or event stream shipped to Petrinaut is structurally unrenderable. **Blocker for FE-762 and FE-763.**
 - **Acceptance:** (1) `ActionDescriptor` / `RunTestsDescriptor` / `AssessSemanticDescriptor` / `VerifyEpicDescriptor` no longer select between output sets; each `TransitionSkeleton` has one fixed output set. (2) Conditional branching expressed as sibling transitions; choice between siblings decided by enabling guards over input markings + token-attached report data, not by output selection. (3) Every long-running transition decomposes into `dispatch:*` + `complete:*:<outcome>` siblings around a `running:*:<sliceId>` place. (4) Engine contract suite (≈120 tests) green — runtime equivalence preserved. (5) `enumerateCandidateOutputs(transition)` returns one set per transition. (6) Halt outcomes decided — proposed: explicit `halted:*:<sliceId>` place (proposal, not cross-team-required).
@@ -187,7 +187,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Name:** Petrinaut-format JSON export of the compiled net
 - **Linear:** FE-762 (parent: FE-760)
 - **Kind:** structural
-- **Status:** not-started (depends on `petri-petrinaut-semantics`)
+- **Status:** done — `net.json` export landed (and the SDCPN transform → `net.sdcpn.json`).
 - **Objective:** Serialize the refactored `NetBlueprint` into Petrinaut's expected JSON format and write to `<runDir>/net.json` per cook run. Tokens encoded as `{ id: UUID, ...payload }` per the agreed payload shape: `id` is a per-instance UUID, semantic fields (`sliceId`, `epicId`, `reportId`, `retryCount`, `reworkCount`) live as payload. Discrete-type system follows Petrinaut's H-6519 (uuid/boolean/int) plus any string type the Petrinaut team adds.
 - **Why now / unlocks:** First half of what Petrinaut needs from brunch alongside FE-763. The Petrinaut team is waiting on a sample `net.json` for `fixtures/txt/` to begin their work.
 - **Acceptance:** (1) `<runDir>/net.json` written at compile time; round-trips through Petrinaut's loader. (2) Token payload shape matches cross-team-agreed shape. (3) `schemaVersion` field for forward-compatibility (proposal, not cross-team-required). (4) Representation of `sliceId`/`epicId` decided. (5) Place naming convention agreed.
@@ -200,7 +200,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Name:** Petrinaut event stream — initial markings + transition firings
 - **Linear:** FE-763 (parent: FE-760)
 - **Kind:** structural
-- **Status:** not-started (depends on `petri-petrinaut-semantics`)
+- **Status:** done — `petrinaut-events.jsonl` stream landed (initial marking + transition firings + terminal).
 - **Objective:** Emit the runtime events Petrinaut needs to visualize a live cook run: (a) initial markings at run start; (b) transition-firing events in the cross-team-agreed shape — `{ transitionName, input: { place: [{ id, ... }] }, output: { place: [{ id, ... }] } }`. Token UUIDs generated at emission; semantic IDs live as payload fields. `runId` namespaces every event.
 - **Why now / unlocks:** Second half of the Petrinaut integration alongside FE-762. Decouples visualization from `reports.jsonl`.
 - **Acceptance:** (1) Initial markings emitted at run start. (2) Every transition firing emits an event in agreed shape. (3) Token UUID lifecycle decided — persist across consume→emit (proposed) or refresh per emission. (4) `runId` on every event. (5) Halt outcomes emit structured event matching `halted:*` topology decision.
@@ -210,21 +210,86 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ### petri-sync-server
 
-- **Name:** Brunch → Petrinaut sync server (transport for blueprint + event stream)
+- **Name:** Brunch → Petrinaut live stream — ephemeral SSE server for an executing cook run
 - **Linear:** FE-764 (parent: FE-760)
 - **Kind:** structural
-- **Status:** not-started (depends on FE-762 + FE-763)
-- **Objective:** Transport layer that exposes `net.json` and streams firing events. **One-way for v1.** Transport (HTTP/SSE/WebSocket/file watch) pending Petrinaut team's preference. Scaffolding can default to JSONL on disk + simple HTTP endpoint tailing it. Brunch's Petri interpreter stays execution authority; Petrinaut renders only.
-- **Acceptance:** (1) Petrinaut can fetch `net.json` for `runId`. (2) Firing events stream live. (3) Transport choice agreed + implemented. (4) Connection lifecycle defined. (5) Local-only auth model for v1.
-- **Scope limits (v1):** Read-only from Petrinaut's perspective. Bidirectional comm, edit-back affordances, multi-user sessions all out of scope. **Graph editing during live ("actual") run explicitly rejected.** Non-actual-mode edit affordances would flow through a future brunch-owned plan-modification API; that API is out of scope for v1 and captured here as known follow-up only. Decision deferred until cross-team consensus on edit-affordance shape exists and a user-facing case justifies the work.
-- **Open / pending coordination:** Transport choice; auth model.
+- **Status:** active — slices 1 + 2 + 3a + 3b + 4 of 5 done (export reducer + identity-fold engine wiring + `--petrinaut-fold` cook CLI flag + in-process stream bus with replay buffer + ephemeral HTTP/SSE server on localhost + `--petrinaut-stream` cook wiring with multi-tier base-URL + auto-open). `brunch cook <dir> --petrinaut-stream` now boots an ephemeral SSE server bound to the run, composes `{baseUrl}?runId=…&mode=actual&sse=…` and auto-opens (unless `--no-petrinaut-open` or `CI`). Next: slice 5 — brunch web-UI button + endpoint discovery (needs decision on `<runDir>/petrinaut-stream.json` advertisement). Bristol-demo integration path; supersedes the earlier static single-file bundle idea.
+- **Objective:** Stream an executing cook run into Petrinaut's read-only "actual/live" tab over a single SSE connection. The **cook process hosts its own ephemeral HTTP/SSE server** on a free port; it dies with the run and persists nothing. One stream, **replay-on-connect**: `definition` (once) → `initial_state` (once) → every firing-so-far → then live `transition_firing` events → terminal. Payload is the `BrunchExecutionExport` contract — see locked schema below. Brunch mints the session id (**reuse `runId`**) and hands Petrinaut a URL (`endpoint + runId + mode=actual`); **no discovery/list endpoint** — Brunch initiates the session. Two trigger surfaces: (a) a **cook CLI flag** emits/auto-opens the "Open in Petrinaut" URL, and (b) a **brunch web-UI button** (must discover the live run's ephemeral endpoint — open detail).
+- **Contract — `BrunchExecutionExport` (locked 2026-06-02):**
+  ```ts
+  type PlaceId = string;
+  type TokenColour = Record<string, number>;
+  // Per-place marking — either a count (uncoloured/identity-fold) or a list of
+  // coloured token instances (colour-fold). Matches Petrinaut's runtime
+  // InitialMarking = number | Record<string, number>[] in @hashintel/petrinaut-core.
+  type Marking = Record<PlaceId, number | TokenColour[]>;
+
+  type SdcpnInputArc  = { placeId: PlaceId; weight: number; type: 'standard' | 'inhibitor' };
+  type SdcpnOutputArc = { placeId: PlaceId; weight: number };
+
+  type SdcpnPlace = {
+    id: PlaceId;
+    name: string;
+    colorId: string | null;
+    dynamicsEnabled: boolean;
+    differentialEquationId: string | null;
+  };
+
+  type SdcpnTransition = {
+    id: string;
+    name: string;
+    inputArcs: SdcpnInputArc[];
+    outputArcs: SdcpnOutputArc[];
+    lambdaType: 'predicate' | 'stochastic';
+    lambdaCode: string;
+    transitionKernelCode: string;
+  };
+
+  // Tight subset of SdcpnFile — drops scenarios, differentialEquations,
+  // parameters, metrics (Petrinaut's "actual" view doesn't read them).
+  type NetDefinition = {
+    version: number;
+    meta: { generator: string; generatorVersion?: string };
+    title: string;
+    places: SdcpnPlace[];
+    transitions: SdcpnTransition[];
+    types: never[];
+  };
+
+  type TransitionFiring = {
+    transitionId: string;
+    input: Marking;
+    output: Marking;
+    ts: string; // preserved verbatim from PetrinautTransitionFiredEvent.ts
+  };
+
+  type BrunchExecutionExport = {
+    definition: NetDefinition;
+    initialState: Marking;
+    transitionFirings: TransitionFiring[];
+  };
+  ```
+- **Why now / unlocks:** Bristol demo. The static bundle was dropped for live streaming (simpler end-to-end; the file is just a full stream replay). FE-761/762/763 + the SDCPN transform have landed, so the net + firing data already exist in memory per run — this frontier adds only the transport + trigger.
+- **Demo posture — fold mode selectable per run, identity is the default:** a new `--petrinaut-fold=color|identity` flag on `brunch cook` picks the projection. `identity` is the **default** (inverts FE-784's prior default; demo-pragmatic for Bristol and for any small-N plan where the unfolded per-slice lifecycle reads better); `color` opts back into FE-784's colour fold for larger plans. Mechanism: a sibling `createIdentityFolding(blueprint)` constructor next to `createNetFolding`, both returning the same `NetFolding` interface — `serializeBlueprint` and the event stream stay branch-free, the CLI picks the constructor at the entry point. Lexicon: extends FE-784's `color fold` / `folded net` with `identity fold`.
+- **Cook CLI trigger surface (locked 2026-06-02):** four orthogonal knobs.
+  - `--petrinaut-stream` — opt-in. Boots the ephemeral SSE server on a free port; presents the Petrinaut URL. Without it, cook continues to write the existing on-disk artifacts (`net.json`, `net.sdcpn.json`, `petrinaut-events.jsonl`) but doesn't host a live stream. Default: off.
+  - `--petrinaut-fold=color|identity` — projection mode for **all** Petrinaut artifacts (on-disk + streamed). Default: `identity` (see prior bullet). Independent of `--petrinaut-stream`.
+  - `--petrinaut-base-url=<url>` — Petrinaut SPA base URL for composing the "Open in Petrinaut" URL. Only meaningful with `--petrinaut-stream`.
+  - `--no-petrinaut-open` — suppress auto-launching the browser; the URL still prints. Implicit when `process.env.CI` is set. Only meaningful with `--petrinaut-stream`.
+- **Base-URL resolution (multi-tier, no fallback default):** CLI `--petrinaut-base-url` > env `PETRINAUT_BASE_URL` (read via brunch's existing env loader; `.env` is the practical home) > **hard fail** with `Petrinaut base URL required: set PETRINAUT_BASE_URL in .env or pass --petrinaut-base-url=<url>`. No baked-in `http://localhost:3001` fallback — a wrong default silently opens the wrong tab. `.env.example` carries the single line.
+- **Acceptance:** (1) `brunch cook --petrinaut-stream` boots an ephemeral SSE server on a free port; composes the Petrinaut URL = `{baseUrl}?runId={runId}&mode=actual&sse={localEndpoint}` (exact param names pending Chris) and prints it; auto-opens via `open`/`xdg-open` unless `--no-petrinaut-open` or `CI=true`. (2) A client connecting at any time receives `definition` → `initial_state` → all firings-so-far → live firings → terminal, over one SSE connection. (3) Payload validates against the `BrunchExecutionExport` contract. (4) `--petrinaut-fold=identity` (default) emits the unfolded per-slice net; `--petrinaut-fold=color` reuses `createNetFolding`; both modes flow through the same SSE seam and the same on-disk artifacts. (5) Missing base URL hard-fails before the cook run starts (not mid-run). (6) Killing the cook process ends the stream cleanly; nothing is persisted. (7) Concurrent cook runs on different folders pick distinct free ports without collision. (8) A brunch web-UI button can open the same URL for a live run. (9) Read-only / one-way — no write-back.
+- **Scope limits (v1):** Petrinaut's importer + "actual" view are Chris's (separate repo). Out: write-back/editing, persistent runs DB / session store, auth, non-localhost transport, colours, discovery endpoint. Graph editing during a live ("actual") run explicitly rejected.
+- **Verification:** reducer/export unit tests (SDCPN-minus-scenario + count-reduced markings) with a **frame-replay oracle** (reconstruct every frame from `initialState` + deltas; assert no negative markings — already passing on run `904d205d`); SSE replay-on-connect integration test (late joiner gets the full timeline); ephemeral-port + process-death lifecycle test; cross-team validation of a real export with the Petrinaut team.
+- **Open / pending coordination:** exact URL param names + `mode` value (joint with Chris/Petrinaut — no scheme exists yet); how the web-UI button discovers the ephemeral endpoint (e.g. cook advertises `{ sessionId, url, port }` to a known location the SPA reads); whether to emit a `net_completed` terminal (today only `net_halted` / `net_deadlocked`); `meta.generatorVersion` semantics (export-schema vs tool version).
+- **Artifacts:** contract `src/orchestrator/src/petrinaut-stream-contract.ts` + `docs/petrinaut-stream-contract.md`; validated sample export from run `904d205d`.
+- **Traceability:** §Lexicon `folded net` (export reuse; demo deviates via identity fold); I122-K (tokens are pointers → per-place counts suffice for marking deltas); execution-authority posture (Petrinaut renders; brunch's interpreter runs the net).
 
 ### petrinaut-colour-fold
 
 - **Name:** Petrinaut export — colour-fold per-slice subnet
 - **Linear:** FE-784 (parent: FE-760)
 - **Kind:** structural
-- **Status:** in-progress (follow-up to FE-762 / FE-763)
+- **Status:** done — implementation complete on branch (PR #160), pending `gt submit`. **No longer the default Petrinaut export path** — FE-764's `--petrinaut-fold=color|identity` flag makes identity the default; `color` (this frontier) is now opt-in for larger plans.
 - **Objective:** Fold the per-slice concrete subnet (`slice:<sid>:*`) N→1 in the Petrinaut export projection, using token colour for slice identity, so the imported net stays legible on Petrinaut's flat (no-hierarchy/grouping) canvas. Faithful-mirror only: runtime (`petri-net.ts` / `net-compiler.ts`) untouched; the fold lives in `petrinaut-export.ts` + `petrinaut-events.ts`. Places strip the `slice:<sid>:` prefix and dedupe; transitions collapse groups with identical folded shape but keep divergent ones (dep-gated `slice-ready`, dep-signalling `return-done`) at concrete ids. net.json gains `tokenTypes` (SliceColour: sliceId/epicId discrete, retry/rework number) + optional place `typeId` (additive, schema 0.1.0→0.2.0). SDCPN stays count-fold (`colorId: null`) until Petrinaut discrete string token types land (H-6518/H-6519).
 - **Why now / unlocks:** FE-762/763 emit N duplicated lifecycles onto a flat canvas — illegible at scale and discarding coloured-Petri-net power. Folding is the only graph-simplification lever Petrinaut offers and also dissolves most of the per-slice naming problem (instance identity moves into the token colour, not the node name).
 - **Acceptance:** uniform lifecycle places/transitions appear once for a 2-slice plan; divergent dep gates stay distinct; no `slice:` prefix survives in folded ids; folded slice places carry `typeId`; tokens preserve slice colour; SDCPN round-trip still validates; event stream folds concrete→folded consistently with the static export.
@@ -615,10 +680,11 @@ orchestrator-poc (Phase 0: compiler extraction — done)
         └──→ petri-parallel-execution (Phase 2: concurrent firing + resource pools — done)
               ├──→ petri-epic-verification-merge (hardening: merge slice worktrees for verify-epic — done)
               └──→ petri-declarative-routing (Phase-3-prep: topology-level Guard predicates; FE-700-independent — done)
-                    ├──→ petri-petrinaut-semantics (FE-761: Petri-net-faithful refactor of FE-747 conditional outputs + start/end pairs for agent dispatch; per cross-team alignment 2026-05-26)
-                    │     ├──→ petri-blueprint-export (FE-762: Petrinaut-format JSON of NetBlueprint per run)
-                    │     └──→ petri-event-stream (FE-763: initial markings + transition firings in the cross-team-agreed payload shape)
-                    │           └──→ petri-sync-server (FE-764: transport — brunch → Petrinaut, one-way v1)
+                    ├──→ petri-petrinaut-semantics (FE-761: Petri-net-faithful refactor — done)
+                    │     ├──→ petri-blueprint-export (FE-762: net.json + SDCPN export per run — done)
+                    │     └──→ petri-event-stream (FE-763: initial markings + transition firings — done)
+                    │           ├──→ petrinaut-colour-fold (FE-784: colour-fold export projection — done; set aside for the no-colour demo)
+                    │           └──→ petri-sync-server (FE-764: ACTIVE — ephemeral cook-hosted SSE live stream; replay-on-connect; brunch-initiated session; Bristol demo)
                     ├──→ petri-graph-compilation (Phase 3: compile from plan-graph + relation policy; needs FE-700)
                     └──→ petri-simulation-oracle (Phase 4: reachability, deadlock, resume; declarative-routing structural prerequisite now satisfied; Phase 3 still needed for graph-derived gates)
 
