@@ -114,11 +114,8 @@ export function parseCookArgs(args: string[]): CookOptions {
  * Load `<launchCwd>/.env` into `process.env` with **shell-wins** precedence
  * (only sets keys that are not already defined). Tolerates a missing `.env`.
  *
- * Local copy rather than reusing `src/server/runtime-config.ts` so that
- * (a) the orchestrator stays self-contained, and (b) precedence matches
- * standard dotenv tooling — the server helper currently lets `.env`
- * override the shell, which would let a stale `.env` clobber an explicit
- * `PETRINAUT_BASE_URL=…` shell prefix.
+ * Local copy rather than reusing `src/server/runtime-config.ts` so the
+ * orchestrator package stays self-contained.
  */
 export function loadLocalEnvShellWins(launchCwd: string): void {
   const envPath = join(launchCwd, '.env');

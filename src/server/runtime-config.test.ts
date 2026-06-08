@@ -105,17 +105,17 @@ describe('runtime config', () => {
     }
   });
 
-  it('overrides stale shell env values with non-empty values from a local .env file', () => {
+  it('preserves shell env values over non-empty values from a local .env file', () => {
     const cwd = makeTempDir();
     writeFileSync(join(cwd, '.env'), 'ANTHROPIC_API_KEY=file-value\n');
 
     const previousApiKey = process.env.ANTHROPIC_API_KEY;
-    process.env.ANTHROPIC_API_KEY = 'stale-shell-value';
+    process.env.ANTHROPIC_API_KEY = 'shell-value';
 
     try {
       loadLocalEnvFile(cwd);
 
-      expect(process.env.ANTHROPIC_API_KEY).toBe('file-value');
+      expect(process.env.ANTHROPIC_API_KEY).toBe('shell-value');
     } finally {
       if (previousApiKey === undefined) {
         delete process.env.ANTHROPIC_API_KEY;

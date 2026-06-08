@@ -25,6 +25,9 @@ export function loadLocalEnvFile(cwd: string): void {
     if (value === '') {
       continue;
     }
+    if (process.env[key] !== undefined && process.env[key] !== '') {
+      continue;
+    }
 
     process.env[key] = value;
   }
