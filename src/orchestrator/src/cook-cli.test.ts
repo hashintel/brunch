@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   createPetrinautStreamSetup,
   parseCookArgs,
+  recordCookExitStatus,
   resolveCookMode,
   resolvePetrinautStreamPort,
 } from './cook-cli.js';
@@ -137,6 +138,22 @@ describe('resolvePetrinautStreamPort', () => {
     expect(() => resolvePetrinautStreamPort({ PORT: 'abc' })).toThrow('Invalid PORT value: abc');
     expect(() => resolvePetrinautStreamPort({ PORT: '70000' })).toThrow('Invalid PORT value: 70000');
     expect(() => resolvePetrinautStreamPort({ PORT: '3.5' })).toThrow('Invalid PORT value: 3.5');
+  });
+});
+
+describe('recordCookExitStatus', () => {
+  const originalExitCode = process.exitCode;
+
+  afterEach(() => {
+    process.exitCode = originalExitCode;
+  });
+
+  it('records the intended process status without exiting synchronously', () => {
+    recordCookExitStatus(true);
+    expect(process.exitCode).toBe(0);
+
+    recordCookExitStatus(false);
+    expect(process.exitCode).toBe(1);
   });
 });
 

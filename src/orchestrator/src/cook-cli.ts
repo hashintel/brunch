@@ -152,6 +152,10 @@ export function resolvePetrinautStreamPort(env: { PORT?: string }): number | und
   return port;
 }
 
+export function recordCookExitStatus(ok: boolean): void {
+  process.exitCode = ok ? 0 : 1;
+}
+
 /**
  * Default browser-open seam — small wrapper around the `open` npm package
  * so tests (and `runCook` callers that want a no-op) can inject their own.
@@ -416,7 +420,8 @@ export async function runCook(opts: CookOptions): Promise<void> {
     console.error(`  ${result.reports.length} events → ${reportsPath}`);
     console.error('');
 
-    process.exit(ok ? 0 : 1);
+    recordCookExitStatus(ok);
+    return;
   } finally {
     // Always tear down the SSE server, on success or failure.
     if (streamSetup) await streamSetup.stop();
