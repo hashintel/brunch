@@ -132,6 +132,7 @@ After the current elicitor work, the strongest follow-on coverage frontier is `g
 - **Cross-cutting obligations:** This is a minimal shell, not full M6. Do not widen into comprehensive RBAC/permissions unless a current POC path needs it.
 - **Traceability:** R5, R6, R10 / D20-L, D34-L, D40-L / A18-L, A3-L.
 - **Design docs:** `memory/SPEC.md` D20-L/D34-L/D40-L; `docs/reference/pi-extensions.md`.
+- **Current execution pointer:** Scoped 2026-06-08 — active scope file `memory/cards/minimal-authority-shell--audit-and-guard.md`. Pre-audit during scoping found most criteria already met (CommandResult discriminants exist; `needs_human` defined but never produced; elicit already blocks bash/edit/write; D34-L command policy already at `.pi/extensions/commands/policy.ts`), so the slice is an authority-matrix audit + guard test + A18-L residue naming, not a build-out. The card forbids touching `src/.pi/agents/state.ts` so it can run as an independent worktree stream alongside `resource-body-depth` and `graph-observed-shapes`.
 
 ### poc-live-ship-gate
 
@@ -179,7 +180,7 @@ After the current elicitor work, the strongest follow-on coverage frontier is `g
 - **Cross-cutting obligations:** Do not promote all read shapes everywhere. `list_by_kind` / `list_by_band` are plausible web shapes; `related` / `gaps` may remain agent/RPC-only. Keep graph-owned read logic out of `db/`, and keep `src/renderers/` limited to durable LLM/session text rather than arbitrary observer DTOs.
 - **Traceability:** D33-L, D51-L, D52-L, D60-L, D64-L.
 - **Design docs:** `src/graph/README.md`; `src/rpc/README.md`; `src/web/README.md`.
-- **Current execution pointer:** To author via `ln-scope` as a `Mode: coverage` ledger once the active frontier closes.
+- **Current execution pointer:** Scoped 2026-06-08 — active scope file `memory/cards/graph-observed-shapes--coverage-ledger.md` (the coverage-ledger slice: ratify the consumer-specific read-shape inventory + install a coverage-guard test; no transport shape ships in this slice). Any "required but missing" row spawns a separate follow-on alignment card scoped after the ledger is accepted.
 
 ### runtime-affordances-and-legality
 
@@ -328,6 +329,7 @@ horizon:
 
 notes:
   - `elicitation-backlog` was the promoted D65-L row from `memory/CROSS_CUT_PLAN.md`; the remaining temporary cross-cut work is `memory/cards/crosscut-know--resource-body-depth.md`.
+  - Parallel worktree streams (2026-06-08): three mutually write-disjoint streams may run concurrently from a clean committed base — (A) `crosscut-know--resource-body-depth` → `src/.pi/skills/**`; (B) `graph-observed-shapes--coverage-ledger` → `src/graph/README.md` + `rpc`/`web` READMEs + one guard test; (C) `minimal-authority-shell--audit-and-guard` → `src/.pi/extensions/runtime/` + guard test. Invariant: **`src/.pi/agents/state.ts` is a single-writer file** — only one stream may edit it at a time (A may touch manifest descriptions; B and C must not). `poc-live-ship-gate` stays gated behind `minimal-authority-shell` (hard edge); `runtime-affordances-and-legality` and `exchanges-and-generalized-capture` stay parked (shape not yet forced) and are not cold-startable worktree streams.
   - Completed prerequisites: `agents-composition-layer` supplies runtime prompt/resource posture, and `live-graph-observer` supplies the read-only web observer path expected by `capture-response-to-graph` and `poc-live-ship-gate`.
   - `graph-observed-shapes` is intentionally consumer-specific: do not assume every agent read shape belongs on the web observer.
   - `exchanges-and-generalized-capture` stays deferred until the surviving inventory is honest enough to close; do not regrow deleted `capture-*` symmetry in the meantime.
