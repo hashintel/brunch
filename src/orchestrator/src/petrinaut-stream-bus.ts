@@ -25,6 +25,7 @@
 // ---------------------------------------------------------------------------
 
 import type { PetrinautEvent, TerminalEventKind } from './petrinaut-events.js';
+import { projectFiring, projectMarking, survivingNodes } from './petrinaut-lane-projection.js';
 import type { SdcpnFile } from './petrinaut-sdcpn.js';
 import {
   augmentDefinitionWithRunStatus,
@@ -94,6 +95,11 @@ export type PetrinautStreamBus = {
  */
 export function createPetrinautStreamBus(opts: CreatePetrinautStreamBusOpts): PetrinautStreamBus {
   const baseDefinition = augmentDefinitionWithRunStatus(projectNetDefinition(opts.sdcpnFile));
+  // Surviving nodes drive frame projection (FE-819 Card E). With a both-mode
+  // (full) definition every node survives, so projection is a no-op; with a
+  // lane-projected (mechanical) definition the suppressed semantic nodes are
+  // absent, so their firings drop and their place tokens fall out of frames.
+  const surviving = survivingNodes(baseDefinition);
   // Materialised once; replaced in-place at a halt with a title-suffixed copy
   // so late joiners replay a single, updated definition (FE-819 Card B).
   let definitionFrame: Extract<BrunchExecutionExportFrame, { kind: 'definition' }> = {
@@ -131,12 +137,19 @@ export function createPetrinautStreamBus(opts: CreatePetrinautStreamBusOpts): Pe
       switch (event.kind) {
         case 'initial_marking':
           currentMarking = reduceMarking(event.marking);
-          broadcast({ kind: 'initial_state', initialState: currentMarking });
+          broadcast({
+            kind: 'initial_state',
+            initialState: projectMarking(currentMarking, surviving.places),
+          });
           return;
         case 'transition_fired': {
           const { firing, nextMarking } = eventToTransitionFiring(event, currentMarking);
           currentMarking = nextMarking;
-          broadcast({ kind: 'transition_firing', firing });
+          // Fold stays full; the frame is projected onto surviving nodes. A
+          // suppressed-transition firing (mechanical mode) drops here, having
+          // already advanced the full marking (FE-819 Card E).
+          const projected = projectFiring(firing, surviving);
+          if (projected) broadcast({ kind: 'transition_firing', firing: projected });
           return;
         }
         case 'net_completed':
@@ -164,7 +177,8 @@ export function createPetrinautStreamBus(opts: CreatePetrinautStreamBusOpts): Pe
           {
             const { firing, nextMarking } = synthesizeRunStatusFiring(currentMarking, event.kind, event.ts);
             currentMarking = nextMarking;
-            broadcast({ kind: 'transition_firing', firing });
+            const projected = projectFiring(firing, surviving);
+            if (projected) broadcast({ kind: 'transition_firing', firing: projected });
           }
           broadcast({ kind: 'terminal', state: runState, ...(event.reason ? { reason: event.reason } : {}) });
           return;

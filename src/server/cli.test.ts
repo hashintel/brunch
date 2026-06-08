@@ -190,6 +190,7 @@ describe('published CLI entrypoint', () => {
       '--policy=',
       '--max-retries=',
       '--petrinaut-fold=',
+      '--petrinaut-lanes=',
       '--petrinaut-stream',
       '--petrinaut-url=',
       '--no-petrinaut-open',

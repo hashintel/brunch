@@ -6,6 +6,7 @@ import type { FiringPolicy, NetEventSink } from './petri-net.js';
 import { createPetrinautEventStream } from './petrinaut-events.js';
 import { serializeBlueprint } from './petrinaut-export.js';
 import { createIdentityFolding, createNetFolding, type NetFolding } from './petrinaut-fold.js';
+import { projectBlueprintLanes } from './petrinaut-lane-projection.js';
 import { toSdcpnFile } from './petrinaut-sdcpn.js';
 import type { Orchestrator, OrchestratorInput, OrchestratorResult, RunCtx } from './types.js';
 
@@ -59,12 +60,21 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
       try {
         const blueprint = compileTopology(input.plan, input.policy);
 
+        // Petrinaut projection (FE-819 Card E): the static net + live stream
+        // render this projected blueprint. Execution (`wireHandlers` / `net.run`
+        // / `emitInitialMarking`) always uses the full `blueprint`, so only what
+        // Petrinaut sees is filtered — `--petrinaut-lanes=mechanical` drops the
+        // semantic lane; `both` (default) is the identity projection.
+        const petrinautBlueprint = projectBlueprintLanes(blueprint, input.petrinautLanes ?? 'both');
+
         // One folding per cook run, shared by the static export and the live
         // event stream so they fold identically. Default is the identity fold
         // (unfolded per-slice net) — the demo / small-N case;
         // `--petrinaut-fold=color` selects the color fold for large-N runs.
         const folding: NetFolding =
-          input.petrinautFold === 'color' ? createNetFolding(blueprint) : createIdentityFolding(blueprint);
+          input.petrinautFold === 'color'
+            ? createNetFolding(petrinautBlueprint)
+            : createIdentityFolding(petrinautBlueprint);
 
         // Compute the Petrinaut SDCPN file once in memory. File output is
         // best-effort (failure must not fail the run), but the live stream can
@@ -73,7 +83,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
         let sdcpnFile: ReturnType<typeof toSdcpnFile> | undefined;
         if (input.runDir) {
           try {
-            const serialized = serializeBlueprint(blueprint, { runId, folding });
+            const serialized = serializeBlueprint(petrinautBlueprint, { runId, folding });
             sdcpnFile = toSdcpnFile(serialized, {});
             try {
               writeFileSync(join(input.runDir, 'net.json'), `${JSON.stringify(serialized, null, 2)}\n`);

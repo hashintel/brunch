@@ -124,6 +124,14 @@ export type OrchestratorInput = {
    */
   petrinautFold?: 'color' | 'identity';
   /**
+   * Lane projection for Petrinaut export + the live stream (FE-819 Card E).
+   * `'both'` (default) renders the full net; `'mechanical'` suppresses the
+   * semantic lane (drops `assess-semantic:*` / `semantic-*`, bridges
+   * `done-spec → completed`) for a smaller demo graph. Projection only —
+   * execution always runs the full net. Ignored when `runDir` is absent.
+   */
+  petrinautLanes?: 'both' | 'mechanical';
+  /**
    * In-process fan-out for the Petrinaut event stream. When set, every event
    * the engine emits is forwarded to this callback so an out-of-band consumer
    * (e.g. `createPetrinautStreamBus` feeding the cook's `/stream` SSE

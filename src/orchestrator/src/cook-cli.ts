@@ -23,6 +23,7 @@ import { createSandbox } from './worktree.js';
  * subnets into one and carries slice identity on the token color.
  */
 export type PetrinautFoldMode = 'color' | 'identity';
+export type PetrinautLanesMode = 'both' | 'mechanical';
 
 export type CookOptions = {
   dir: string;
@@ -30,6 +31,8 @@ export type CookOptions = {
   maxRetries: number;
   verbose: boolean;
   petrinautFold: PetrinautFoldMode;
+  /** Lane projection for Petrinaut export/stream; `mechanical` hides the semantic lane. */
+  petrinautLanes: PetrinautLanesMode;
   /** When true, runCook boots the ephemeral SSE server and composes the launcher URL. */
   petrinautStream: boolean;
   /** Optional CLI override for the Petrinaut route URL (full path included). */
@@ -51,6 +54,7 @@ export function parseCookArgs(args: string[]): CookOptions {
   let maxRetries = 3;
   let verbose = false;
   let petrinautFold: PetrinautFoldMode = 'identity';
+  let petrinautLanes: PetrinautLanesMode = 'both';
   let petrinautStream = false;
   let petrinautUrl: string | undefined;
   let petrinautOpen = true;
@@ -80,6 +84,12 @@ export function parseCookArgs(args: string[]): CookOptions {
         throw new Error(`Unknown --petrinaut-fold value: ${val}. Use color or identity.`);
       }
       petrinautFold = val;
+    } else if (arg.startsWith('--petrinaut-lanes=')) {
+      const val = arg.split('=')[1]!;
+      if (val !== 'both' && val !== 'mechanical') {
+        throw new Error(`Unknown --petrinaut-lanes value: ${val}. Use both or mechanical.`);
+      }
+      petrinautLanes = val;
     } else if (arg === '--petrinaut-stream') {
       petrinautStream = true;
     } else if (arg.startsWith('--petrinaut-url=')) {
@@ -97,7 +107,7 @@ export function parseCookArgs(args: string[]): CookOptions {
 
   if (!dir) {
     throw new Error(
-      'Usage: brunch cook <dir> [--spec=<id>] [--policy=serial|parallel] [--max-retries=N] [--petrinaut-fold=color|identity] [--petrinaut-stream [--petrinaut-url=<url>] [--no-petrinaut-open]] [--verbose]',
+      'Usage: brunch cook <dir> [--spec=<id>] [--policy=serial|parallel] [--max-retries=N] [--petrinaut-fold=color|identity] [--petrinaut-lanes=both|mechanical] [--petrinaut-stream [--petrinaut-url=<url>] [--no-petrinaut-open]] [--verbose]',
     );
   }
 
@@ -115,6 +125,7 @@ export function parseCookArgs(args: string[]): CookOptions {
     maxRetries,
     verbose,
     petrinautFold,
+    petrinautLanes,
     petrinautStream,
     petrinautUrl,
     petrinautOpen,
@@ -404,6 +415,8 @@ export async function runCook(opts: CookOptions): Promise<void> {
       runDir,
       // Pick the shared NetFolding (identity by default; color collapses subnets).
       petrinautFold: opts.petrinautFold,
+      // Lane projection for Petrinaut export/stream (both by default).
+      petrinautLanes: opts.petrinautLanes,
       ...(streamSetup ? { setupPetrinautStream: streamSetup.setupHook } : {}),
     });
 

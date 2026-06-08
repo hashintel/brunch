@@ -70,6 +70,18 @@ describe('parseCookArgs', () => {
     expect(() => parseCookArgs(['./f', '--petrinaut-fold=banana'])).toThrow(/petrinaut-fold/i);
   });
 
+  it("defaults --petrinaut-lanes to 'both'", () => {
+    expect(parseCookArgs(['./f']).petrinautLanes).toBe('both');
+  });
+
+  it('parses --petrinaut-lanes=mechanical', () => {
+    expect(parseCookArgs(['./f', '--petrinaut-lanes=mechanical']).petrinautLanes).toBe('mechanical');
+  });
+
+  it('throws on unknown --petrinaut-lanes value', () => {
+    expect(() => parseCookArgs(['./f', '--petrinaut-lanes=banana'])).toThrow(/petrinaut-lanes/i);
+  });
+
   it('defaults --petrinaut-stream to false and petrinautOpen to true', () => {
     const opts = parseCookArgs(['./f']);
     expect(opts.petrinautStream).toBe(false);

@@ -47,6 +47,9 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log('  --max-retries=N                  Retry budget per slice (default: 3)');
   console.log('  --petrinaut-fold=color|identity  Petri-net projection mode (default: identity)');
   console.log(
+    '  --petrinaut-lanes=both|mechanical  Lane projection; mechanical hides the semantic lane (default: both)',
+  );
+  console.log(
     '  --petrinaut-stream               Stream the live run to Petrinaut over SSE (opt-in; default off)',
   );
   console.log(

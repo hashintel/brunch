@@ -32,6 +32,7 @@
 // ---------------------------------------------------------------------------
 
 import type { PetrinautEvent, PetrinautTransitionFiredEvent, TerminalEventKind } from './petrinaut-events.js';
+import { projectFiring, projectMarking, survivingNodes } from './petrinaut-lane-projection.js';
 import type { SdcpnFile } from './petrinaut-sdcpn.js';
 
 // ---------------------------------------------------------------------------
@@ -113,6 +114,13 @@ export type BrunchExecutionExport = {
 export type ReduceBrunchExecutionExportInput = {
   sdcpnFile: SdcpnFile;
   events: readonly PetrinautEvent[];
+  /**
+   * Lane projection (FE-819 Card E). `'mechanical'` restricts every frame to
+   * the (lane-projected) definition's surviving nodes and drops suppressed-
+   * transition firings. Defaults to `'both'` — a true identity (no projection),
+   * so existing callers and the static export are unchanged.
+   */
+  lanes?: 'both' | 'mechanical';
 };
 
 /**
@@ -137,15 +145,29 @@ export function reduceBrunchExecutionExport(input: ReduceBrunchExecutionExportIn
   if (!initial || initial.kind !== 'initial_marking') {
     throw new Error('reduceBrunchExecutionExport: missing initial_marking event');
   }
-  const initialState = reduceMarking(initial.marking);
+  // The fold runs on the FULL real marking; frames are projected onto the
+  // definition's surviving nodes (FE-819 Card E). In `both` mode the definition
+  // retains every node, so projection is a no-op; in `mechanical` mode the
+  // (already lane-projected) definition lacks semantic nodes, so suppressed-
+  // transition firings drop and semantic-place tokens fall out of every frame.
+  // The fold runs on the FULL real marking; in `mechanical` mode each frame is
+  // projected onto the (lane-projected) definition's surviving nodes — suppressed-
+  // transition firings drop and semantic-place tokens fall out. `both` is identity.
+  const surviving = input.lanes === 'mechanical' ? survivingNodes(definition) : undefined;
+  const project = (firing: TransitionFiring): TransitionFiring | null =>
+    surviving ? projectFiring(firing, surviving) : firing;
+
+  const fullInitial = reduceMarking(initial.marking);
+  const initialState = surviving ? projectMarking(fullInitial, surviving.places) : fullInitial;
 
   const transitionFirings: TransitionFiring[] = [];
-  let current = initialState;
+  let current = fullInitial;
   let terminalFired = false;
   for (const event of input.events) {
     if (event.kind === 'transition_fired') {
       const { firing, nextMarking } = eventToTransitionFiring(event, current);
-      transitionFirings.push(firing);
+      const projected = project(firing);
+      if (projected) transitionFirings.push(projected);
       current = nextMarking;
     } else if (
       !terminalFired &&
@@ -154,7 +176,8 @@ export function reduceBrunchExecutionExport(input: ReduceBrunchExecutionExportIn
       // Run end fires one synthetic run-status firing (FE-819 Card C).
       terminalFired = true;
       const { firing, nextMarking } = synthesizeRunStatusFiring(current, event.kind, event.ts);
-      transitionFirings.push(firing);
+      const projected = project(firing);
+      if (projected) transitionFirings.push(projected);
       current = nextMarking;
     }
   }
