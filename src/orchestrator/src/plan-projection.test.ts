@@ -40,7 +40,7 @@ describe('projectPlanFromSpec', () => {
     const plan = projectPlanFromSpec(snapshot);
 
     expect(plan.slices).toHaveLength(3);
-    expect(plan.slices.map((slice) => slice.id)).toEqual(['req-1', 'req-2', 'req-3']);
+    expect(plan.slices.map((slice) => slice.id)).toEqual(['req-10', 'req-11', 'req-12']);
     expect(plan.slices.map((slice) => slice.definition)).toEqual([
       'First requirement',
       'Second requirement',
@@ -51,6 +51,25 @@ describe('projectPlanFromSpec', () => {
       expect(slice.depends_on).toEqual([]);
       expect(slice.verification).toEqual([]);
     }
+  });
+
+  it('uses requirement identity rather than ordinal so duplicate ordinals remain unique', () => {
+    const snapshot: CompletedSpecSnapshot = {
+      requirements: [
+        { id: 12, content: 'Second duplicate ordinal', kindOrdinal: 1 },
+        { id: 10, content: 'First duplicate ordinal', kindOrdinal: 1 },
+      ],
+      criteria: [],
+      edges: [],
+    };
+
+    const plan = projectPlanFromSpec(snapshot);
+
+    expect(plan.slices.map((slice) => slice.id)).toEqual(['req-10', 'req-12']);
+    expect(plan.slices.map((slice) => slice.definition)).toEqual([
+      'First duplicate ordinal',
+      'Second duplicate ordinal',
+    ]);
   });
 
   it('populates a slice verification from `criterion --verifies--> requirement` edges', () => {

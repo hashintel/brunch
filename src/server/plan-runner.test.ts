@@ -90,13 +90,13 @@ describe('runPlan', () => {
     };
     const dir = mkdtempSync(join(tmpdir(), 'plan-runner-'));
 
-    // 2-cycle req-1 ↔ req-2: reconciliation drops req-1's incoming edge.
+    // 2-cycle req-10 ↔ req-11: reconciliation drops one incoming edge.
     const enrichment: PlanningEnrichment = {
       sliceDependencies: [
-        { sliceId: 'req-1', dependsOn: ['req-2'] },
-        { sliceId: 'req-2', dependsOn: ['req-1'] },
+        { sliceId: 'req-10', dependsOn: ['req-11'] },
+        { sliceId: 'req-11', dependsOn: ['req-10'] },
       ],
-      epics: [{ id: 'core', summary: 'Core', sliceIds: ['req-1', 'req-2'] }],
+      epics: [{ id: 'core', summary: 'Core', sliceIds: ['req-10', 'req-11'] }],
       nonBuildableSliceIds: [],
     };
     const runModel: RunModel = async () => enrichment;
@@ -119,7 +119,7 @@ describe('runPlan', () => {
 
     const planPath = join(dir, '.brunch', 'cook', 'specs', '2', 'plan.yaml');
     const reloaded = parseYaml(readFileSync(planPath, 'utf8')) as Plan;
-    expect(reloaded.slices.map((slice) => slice.id)).toEqual(['req-1', 'req-2']);
+    expect(reloaded.slices.map((slice) => slice.id)).toEqual(['req-10', 'req-11']);
 
     // Transformation warning (cycle break) is always printed.
     expect(stderrLines.some((line) => line.includes('cycle-break-dropped-edge'))).toBe(true);
@@ -171,7 +171,7 @@ describe('runPlan', () => {
 
     const planPath = join(dir, '.brunch', 'cook', 'specs', '2', 'plan.yaml');
     const reloaded = parseYaml(readFileSync(planPath, 'utf8')) as Plan;
-    expect(reloaded.slices.map((slice) => slice.id)).toEqual(['req-1']);
+    expect(reloaded.slices.map((slice) => slice.id)).toEqual(['req-10']);
 
     expect(stderrLines.some((line) => line.startsWith('  !  ') && line.includes('planning-failed'))).toBe(
       true,

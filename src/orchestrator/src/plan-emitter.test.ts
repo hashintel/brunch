@@ -22,8 +22,8 @@ const snapshot: CompletedSpecSnapshot = {
 describe('emitPlanFromSnapshot', () => {
   it('composes projection + planning + reconciliation with an injected runModel', async () => {
     const enrichment: PlanningEnrichment = {
-      sliceDependencies: [{ sliceId: 'req-2', dependsOn: ['req-1'] }],
-      epics: [{ id: 'core', summary: 'Core', sliceIds: ['req-1', 'req-2'] }],
+      sliceDependencies: [{ sliceId: 'req-11', dependsOn: ['req-10'] }],
+      epics: [{ id: 'core', summary: 'Core', sliceIds: ['req-10', 'req-11'] }],
       nonBuildableSliceIds: [],
     };
     const runModel: RunModel = async () => enrichment;
@@ -31,7 +31,7 @@ describe('emitPlanFromSnapshot', () => {
     const result = await emitPlanFromSnapshot(snapshot, { runModel });
 
     expect(result.planningResult.status).toBe('succeeded');
-    expect(result.plan.slices.map((s) => s.id)).toEqual(['req-1', 'req-2']);
+    expect(result.plan.slices.map((s) => s.id)).toEqual(['req-10', 'req-11']);
     expect(result.plan.epics.map((e) => e.id)).toEqual(['core']);
     for (const slice of result.plan.slices) {
       expect(slice.verification).toEqual([{ kind: 'unit-test', target: `tests/${slice.id}.test.ts` }]);
@@ -52,7 +52,7 @@ describe('emitPlanFromSnapshot', () => {
       expect(result.planningResult.reason).toContain('boom');
     }
     // Plan still usable — slices present, synthesized verification, no deps.
-    expect(result.plan.slices.map((s) => s.id)).toEqual(['req-1', 'req-2']);
+    expect(result.plan.slices.map((s) => s.id)).toEqual(['req-10', 'req-11']);
     for (const slice of result.plan.slices) {
       expect(slice.depends_on).toEqual([]);
       expect(slice.verification).toEqual([{ kind: 'unit-test', target: `tests/${slice.id}.test.ts` }]);
