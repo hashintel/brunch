@@ -39,6 +39,19 @@ describe('resolvePetrinautBaseUrl', () => {
     const result = resolvePetrinautBaseUrl({ cliFlag: '', env: { PETRINAUT_BASE_URL: '' } });
     expect(result).toMatchObject({ error: expect.stringContaining('PETRINAUT_BASE_URL') });
   });
+
+  it('rejects relative or non-http base URLs before launcher composition', () => {
+    expect(resolvePetrinautBaseUrl({ cliFlag: 'localhost:3000', env: {} })).toEqual({
+      error:
+        'Petrinaut base URL must be an absolute http(s) URL: set PETRINAUT_BASE_URL or pass --petrinaut-base-url=<url>',
+    });
+    expect(
+      resolvePetrinautBaseUrl({
+        cliFlag: undefined,
+        env: { PETRINAUT_BASE_URL: 'file:///tmp/petrinaut.html' },
+      }),
+    ).toMatchObject({ error: expect.stringContaining('absolute http(s) URL') });
+  });
 });
 
 describe('composeLauncherUrl', () => {

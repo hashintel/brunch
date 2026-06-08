@@ -310,6 +310,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
   // load, sandbox creation). Without --petrinaut-stream there is no .env read
   // and no Petrinaut base-url check.
   let petrinautBaseUrl: string | undefined;
+  let streamPort: number | undefined;
   if (opts.petrinautStream) {
     loadLocalEnvShellWins(launchCwd);
     const resolvedBaseUrl = resolvePetrinautBaseUrl({
@@ -321,6 +322,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
       process.exit(1);
     }
     petrinautBaseUrl = resolvedBaseUrl.baseUrl;
+    streamPort = resolvePetrinautStreamPort({ PORT: process.env.PORT });
   }
 
   const resolved = resolveCookMode(opts.dir);
@@ -359,9 +361,6 @@ export async function runCook(opts: CookOptions): Promise<void> {
 
   // Stand up the live-stream setup handle when streaming is enabled.
   // Auto-open is suppressed by `--no-petrinaut-open` or CI.
-  const streamPort = opts.petrinautStream
-    ? resolvePetrinautStreamPort({ PORT: process.env.PORT })
-    : undefined;
   const streamSetup =
     opts.petrinautStream && petrinautBaseUrl
       ? createPetrinautStreamSetup({

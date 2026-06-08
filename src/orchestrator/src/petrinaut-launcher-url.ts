@@ -24,15 +24,29 @@ export type ResolvePetrinautBaseUrlResult = { baseUrl: string } | { error: strin
 /** Locked error message — tests assert exact wording. */
 export const PETRINAUT_BASE_URL_MISSING_MESSAGE =
   'Petrinaut base URL required: set PETRINAUT_BASE_URL in .env or pass --petrinaut-base-url=<url>';
+export const PETRINAUT_BASE_URL_INVALID_MESSAGE =
+  'Petrinaut base URL must be an absolute http(s) URL: set PETRINAUT_BASE_URL or pass --petrinaut-base-url=<url>';
 
 export function resolvePetrinautBaseUrl(input: ResolvePetrinautBaseUrlInput): ResolvePetrinautBaseUrlResult {
   const fromCli = input.cliFlag?.trim();
-  if (fromCli) return { baseUrl: fromCli };
+  if (fromCli) return resolveAbsoluteHttpUrl(fromCli);
 
   const fromEnv = input.env.PETRINAUT_BASE_URL?.trim();
-  if (fromEnv) return { baseUrl: fromEnv };
+  if (fromEnv) return resolveAbsoluteHttpUrl(fromEnv);
 
   return { error: PETRINAUT_BASE_URL_MISSING_MESSAGE };
+}
+
+function resolveAbsoluteHttpUrl(value: string): ResolvePetrinautBaseUrlResult {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return { baseUrl: value };
+    }
+  } catch {
+    // Fall through to the locked invalid-url message.
+  }
+  return { error: PETRINAUT_BASE_URL_INVALID_MESSAGE };
 }
 
 export type ComposeLauncherUrlInput = {
