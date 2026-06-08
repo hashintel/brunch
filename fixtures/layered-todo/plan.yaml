@@ -57,7 +57,7 @@ slices:
   - id: cmd-add
     epic_id: cli
     definition: "Add src/commands/add.ts: `add(service, title)` creating a todo via the service and returning its id."
-    depends_on: []
+    depends_on: [service]
     verification:
       - kind: unit-test
         target: "tests/cmd-add.test.ts"
@@ -65,7 +65,7 @@ slices:
   - id: cmd-list
     epic_id: cli
     definition: "Add src/commands/list.ts: `list(service)` returning formatted lines for each todo (`[ ]`/`[x]` + title)."
-    depends_on: []
+    depends_on: [service]
     verification:
       - kind: unit-test
         target: "tests/cmd-list.test.ts"
@@ -73,7 +73,7 @@ slices:
   - id: cmd-done
     epic_id: cli
     definition: "Add src/commands/done.ts: `done(service, id)` marking a todo complete via the service; throws if the id is unknown."
-    depends_on: []
+    depends_on: [service]
     verification:
       - kind: unit-test
         target: "tests/cmd-done.test.ts"
