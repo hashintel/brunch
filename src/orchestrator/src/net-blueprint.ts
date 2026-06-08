@@ -142,7 +142,7 @@ type RunTestsDescriptor = {
   kind: 'run-tests';
   sliceId: string;
   epicId: string;
-  target: string;
+  targets: string[];
   /** Single intermediate output place; siblings route from here. */
   intermediatePlace: string;
   /** Place to emit the (decremented or reset) retry-budget token to. */

@@ -138,5 +138,7 @@ describe('client build boundary', () => {
 
     const minifiedBuild = await buildClient({ minify: true });
     expect(statSync(minifiedBuild.entryPath).size).toBeLessThan(1_050_000);
-  }, 60_000);
+    // Two real `vite build`s (~50s) run inside the default-parallel vitest pool;
+    // 120s gives headroom so parallel contention doesn't surface as a timeout flake.
+  }, 120_000);
 });
