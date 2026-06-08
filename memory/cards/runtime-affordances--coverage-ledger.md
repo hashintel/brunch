@@ -8,6 +8,7 @@ Created:  2026-06-08
 ## Orientation
 
 - **Containing seam:** the runtime posture legality/default surface. Truth is the append-only `brunch.agent_runtime_state` projection; the legality/default rules already live in `src/projections/session/runtime-policy.ts` (allowed lists + `defaultStrategy`/`defaultLens`/`defaultGoal`) and `src/.pi/agents/state.ts` (`AUTO_EXCLUDED_STRATEGIES`, `isGradeLegal`/grade gating, `selectAxisResources`). The current RPC projection in `src/rpc/methods/session.ts` exposes only the *current* selection per axis (`agent.strategy`/`lens`/`goal`), **not** the available options or the default-on-switch value.
+- **Input-surface note (load-bearing):** legality is **not** derivable from `ResolvedBrunchAgentState` alone. That type (`runtime-policy.ts`) carries only mode/role/axis selections + definitions; the grade gate is a *separate* input — see `BrunchPostureToolPolicyInput` in `src/.pi/agents/state.ts` (`{ state: ResolvedBrunchAgentState; readinessGrade: ReadinessGrade }`) and the grade-sensitive filter in `selectAxisResources` / `isGradeLegal`. The shared derivation must therefore take **both** resolved state and readiness grade: `affordances(resolvedState, readinessGrade)`. Do not certify a grade-independent function as the legality seam.
 - **Relevant frontier item:** `runtime-affordances-and-legality` (PLAN.md §Frontier Definitions). This is a **coverage** frontier in the same mold as the landed `graph-observed-shapes` — a closed enumerated ledger of which affordance shapes are canonical per consumer, guarded by a drift test, plus one shared derivation so no client re-implements legality. It is buildable now; the legality/default tables already exist.
 - **Volatile handoff state:** no `HANDOFF.md`. The `snapshot`→`reads/projections/renderers` migration (35eff395) is landed; use current paths. `graph-observed-shapes` (85e73ba7) is the precedent: `src/graph/README.md` owns its ledger and `src/graph/observed-shapes-coverage.test.ts` guards required-subset coverage **without shipping any transport shape it does not need**. Mirror that discipline exactly.
 - **Main open risk:** scope creep into building TUI/web posture-switch UI, or into an xstate/persisted state machine. This card is a **coverage ledger + one pure derivation**, not a control surface. The genuinely product-state-gated rows (`active-review-set` affordances, freestyle-vs-structured `turn-mode`) must stay tripwired in the ledger, not built.
@@ -25,13 +26,14 @@ Frontier-level cross-cutting obligations this slice carries:
 
 ### Target Behavior
 
-A single Brunch-owned `affordances(resolvedState)` derivation reports, per posture axis (goal / strategy / lens), the legal options and the default-on-switch value from the existing shared legality/default tables, and a closed coverage ledger in `src/session/README.md` records which affordance rows each consumer (agent, RPC, web) requires versus defers, guarded by a drift test.
+A single Brunch-owned `affordances(resolvedState, readinessGrade)` derivation reports, per posture axis (goal / strategy / lens), the legal options and the default-on-switch value from the existing shared legality/default tables (including the grade gate), and a closed coverage ledger in `src/session/README.md` records which affordance rows each consumer (agent, RPC, web) requires versus defers, guarded by a drift test.
 
 ### Boundary Crossings
 
 ```
 → resolved runtime state (ResolvedBrunchAgentState from src/projections/session/runtime-policy.ts)
-→ shared affordance derivation (new pure function over allowed lists + defaults + AUTO/grade rules)
+  + readiness grade (ReadinessGrade — the separate grade input, cf. BrunchPostureToolPolicyInput)
+→ shared affordance derivation (new pure function over allowed lists + defaults + AUTO + grade rules)
 → coverage ledger (src/session/README.md): required vs deferred affordance rows per consumer
 → drift guard test (asserts the ledger's required subset against the real derivation + RPC schema)
 ```
@@ -57,16 +59,17 @@ A single Brunch-owned `affordances(resolvedState)` derivation reports, per postu
 
 ### Posture check
 
-Proving slice. It scores on **invariants** (locates and stabilizes the affordance-derivation seam as the single owner of legality/default truth across transports) and **proof of life** (a shared `affordances(resolvedState)` derivation exists and is consumed where legality was previously implicit). It retires the fog that runtime affordances are unbuildable until a UI pass: the ledger proves how much is derivable now. No high-impact assumption is left unretired — rows that cannot be derived become explicit tripwired deferrals.
+Proving slice. It scores on **invariants** (locates and stabilizes the affordance-derivation seam as the single owner of legality/default truth across transports) and **proof of life** (a shared `affordances(resolvedState, readinessGrade)` derivation exists and is consumed where legality was previously implicit). It retires the fog that runtime affordances are unbuildable until a UI pass: the ledger proves how much is derivable now. No high-impact assumption is left unretired — rows that cannot be derived become explicit tripwired deferrals.
 
 ### Acceptance Criteria
 
 ```
-✓ affordances-derivation.test.ts — affordances(resolvedState) returns, per axis (goal/strategy/lens),
-  the legal option set and the default-on-switch value, matching runtime-policy.ts defaults.
+✓ affordances-derivation.test.ts — affordances(resolvedState, readinessGrade) returns, per axis
+  (goal/strategy/lens), the legal option set and the default-on-switch value, matching runtime-policy.ts defaults.
 ✓ affordances-derivation.test.ts — under AUTO the strategy options exclude `freestyle`
   (parity with AUTO_EXCLUDED_STRATEGIES); under an explicit pin the pinned legal value is reported.
-✓ affordances-derivation.test.ts — grade-illegal options are excluded, matching isGradeLegal.
+✓ affordances-derivation.test.ts — varying readinessGrade changes the legal option set exactly as
+  isGradeLegal dictates (grade-illegal options excluded); proves the grade input is load-bearing, not ignored.
 ✓ runtime-affordances-coverage.test.ts — the ledger's required affordance rows per consumer
   (agent/RPC/web) are covered by the derivation and the RPC session schema; deferred rows are not forced.
 ✓ runtime-affordances-coverage.test.ts — `active-review-set` and `turn-mode` rows are present as
@@ -98,7 +101,7 @@ Proving slice. It scores on **invariants** (locates and stabilizes the affordanc
 
 ```pseudo
 src/projections/session/
-├── affordances.ts                       +   # affordances(resolvedState): legal options + default-on-switch
+├── affordances.ts                       +   # affordances(resolvedState, readinessGrade): legal options + default-on-switch
 ├── affordances.test.ts                  +
 ├── runtime-policy.ts                    ?   # may export shared legality/default helpers if lifted here
 └── runtime-state.ts                     ?   # if RuntimeStateProjection gains a required affordance row

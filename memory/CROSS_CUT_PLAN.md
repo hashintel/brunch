@@ -127,7 +127,7 @@ DoD: every ● row is `have` or `built`.
 | --- | --- | --- | --- | --- | --- |
 | 6 method resources scaffolding | have | ● | — | — | run-structured-exchange, infer-and-capture, commit-graph, read-context, generate-proposal, review-for-gaps |
 | method **content depth** | built | ● | — | done — deepened bodies + manifest-wide depth test (1ca02e38) | each method gives tool-routing/sequencing guidance, not tool-description restatement |
-| generalized capture (free text, files, refs; iterative passes) | built | ● | — | done — labeled-text core on `session.submitMessage` (5f5e6ac8) | POC bar = directly-labeled facts; richer free-text/files/refs remain A22-L fitness evidence; D66-L |
+| generalized capture (free text, files, refs; iterative passes) | built | ● | — | done — labeled-text core on `session.submitMessage` (5f5e6ac8) | `built` = the **POC bar only** (directly-labeled facts). Richer free-text/files/refs capture is **out of this row's scope by design**, not unfinished here: it is gated on the `capture-quality-spike` (A22-L) and owned by the PLAN frontier `exchanges-and-generalized-capture`. D66-L |
 | exchange-tool `.description()` / `promptGuidelines` | built | ● | — | done — all 7 exchange tools carry both (drift correction 2026-06-07) | `src/.pi/extensions/exchanges/*` already match the `commit_graph` pattern |
 | skill-commands (`gap-review`, `arbitrary-enhance`) | new | ○ | proving | Q6 (deferred) | off critical path |
 

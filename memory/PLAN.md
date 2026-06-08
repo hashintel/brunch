@@ -42,8 +42,8 @@ The remaining coverage frontiers are being deliberately de-fogged rather than le
 ### Next
 
 1. `poc-live-ship-gate` — final fresh-cwd runbook remains the delivery gate, but its prepared live-mention-autocomplete slice is currently parked off the critical path.
-2. `runtime-affordances-and-legality` — coverage frontier for shared posture legality/default surfaces; **buildable-now** and being scoped as an inventory ledger (`memory/cards/runtime-affordances--coverage-ledger.md`), not parked.
-3. `elicitation-driver` — coverage frontier for the live per-turn "what to ask next" driver promoted out of the cross-cut; buildable-now on the FE-823 substrate, not POC-ship-critical.
+2. `elicitation-driver` — **first coverage follow-on**: it closes the last open required cross-cut row (Seam 3a `"what to ask next" driver`) and retires the temporary dual-plan state, so it sequences ahead of any fresh coverage frontier. Buildable-now on the FE-823 substrate; not POC-ship-critical.
+3. `runtime-affordances-and-legality` — coverage frontier for shared posture legality/default surfaces; **buildable-now** and scoped as an inventory ledger (`memory/cards/runtime-affordances--coverage-ledger.md`). It is **parallel-eligible but must not preempt closing the cross-cut**: do not let it pull planning back into a second open frontier before `elicitation-driver` lands. (It writes disjoint paths from `elicitation-driver`, so it may run as a concurrent worktree stream — just not *instead of* the cross-cut closer.)
 4. `capture-quality-spike` — evidence spike that measures generalized-capture fitness (A22-L) so `exchanges-and-generalized-capture` can graduate from horizon on real evidence rather than waiting (`memory/cards/capture-quality--fitness-spike.md`).
 
 ### Parallel / Low-conflict
