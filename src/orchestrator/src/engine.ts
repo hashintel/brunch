@@ -129,7 +129,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
               stream.emitInitialMarking(blueprint);
             } catch (err) {
               // Best-effort integration output — don't fail the cook run.
-              ctx.warnings?.push(`Petrinaut event stream disabled: ${errorMessage(err)}`);
+              ctx.warnings?.push(`Petrinaut initial marking not delivered: ${errorMessage(err)}`);
             }
           }
         }

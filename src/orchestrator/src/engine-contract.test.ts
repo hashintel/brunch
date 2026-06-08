@@ -1254,7 +1254,9 @@ describe('identity-fold engine wiring + frame-replay oracle', () => {
       });
 
       expect(result.status).toBe('completed');
-      expect(result.warnings).toEqual([expect.stringContaining('initial fan-out failed')]);
+      expect(result.warnings).toEqual([
+        expect.stringMatching(/^Petrinaut initial marking not delivered: .*initial fan-out failed/),
+      ]);
       expect(receivedAfterInitialFailure.some((event) => event.kind === 'transition_fired')).toBe(true);
       expect(receivedAfterInitialFailure.at(-1)?.kind).toBe('net_completed');
     } finally {
