@@ -64,7 +64,7 @@ if (rawArgs[0] === 'cook') {
   const { parsePlanArgs, runPlan } = await import('./plan-runner.js');
   let db: ReturnType<typeof createDb> | undefined;
   try {
-    const opts = parsePlanArgs(rawArgs.slice(1));
+    const opts = parsePlanArgs(rawArgs.slice(1), launchCwd);
     const project = resolveBrunchProject(launchCwd);
     db = createDb(project.dbPath);
     if (!getSpecification(db, opts.specificationId)) {

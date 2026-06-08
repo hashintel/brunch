@@ -34,6 +34,23 @@ describe('parsePlanArgs', () => {
     expect(opts.verbose).toBe(false);
   });
 
+  it('defaults outDir to the caller-provided launch directory', () => {
+    const launchDir = join(tmpdir(), 'brunch-plan-launch-dir');
+
+    const opts = parsePlanArgs(['2'], launchDir);
+
+    expect(opts.outDir).toBe(launchDir);
+  });
+
+  it('lets --out override the caller-provided launch directory', () => {
+    const launchDir = join(tmpdir(), 'brunch-plan-launch-dir');
+    const explicitOut = join(tmpdir(), 'brunch-plan-explicit-out');
+
+    const opts = parsePlanArgs(['2', `--out=${explicitOut}`], launchDir);
+
+    expect(opts.outDir).toBe(explicitOut);
+  });
+
   it('supports short -v alias for verbose', () => {
     const opts = parsePlanArgs(['2', '-v']);
     expect(opts.verbose).toBe(true);

@@ -32,9 +32,9 @@ export type PlanOptions = {
 
 const USAGE = 'Usage: brunch plan <specId> [--out=<dir>] [--verbose]';
 
-export function parsePlanArgs(args: string[]): PlanOptions {
+export function parsePlanArgs(args: string[], defaultOutDir: string = process.cwd()): PlanOptions {
   let specIdRaw: string | undefined;
-  let outDir = process.cwd();
+  let outDir = resolve(defaultOutDir);
   let verbose = false;
 
   for (const arg of args) {
