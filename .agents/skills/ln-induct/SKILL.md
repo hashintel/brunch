@@ -6,15 +6,16 @@ argument-hint: "[pasted comments/observations, or empty to fetch the current bra
 
 # Ln Induct
 
-A bot comment is a *sample*, not a fix. Each point finding is one draw from a latent defect distribution the author can't see. The move: infer the distribution from the samples, then go fishing for the instances nobody sampled.
+A bot comment is a *sample*, not a fix. Defects cluster: one finding is a single draw from a latent fault-type the author can't see.
 
-This skill **generates** lenses. `ln-review`'s `contract` category is the **library** of lenses that have already stabilized. `ln-induct` induces a fresh lens from this batch of evidence; when a lens recurs across PRs, step 6 proposes graduating it into `ln-review`.
+- **Engine:** infer the type from the sample, then fish for the instances nobody sampled.
+- **Governor:** a generative audit wants to manufacture work, so a triage gate (step 3) decides what's worth fishing for. Without it the skill drifts into completionist sprawl and topical caricature (user-global `AGENTS.md` §Local necessity over category default).
 
-Read `memory/SPEC.md` first when it exists (lexicon, live architecture register, §Acknowledged Blind Spots). Read `memory/PLAN.md` for active frontier context when the touched area is in-flight.
+This skill **generates** lenses; `ln-review`'s `contract` category is the **library** of stabilized ones. Induce a fresh lens from this batch; when one recurs across PRs, propose graduating it (step 6).
 
-## Anti-sprawl is the point of the skill
+**Find and fix stay separate — including the bot's own fix.** Report and route; never auto-implement. A bot finding can be a true diagnosis carrying a wrong prescription, so validate its suggested repair against project posture, not just its claim. Routing to `ln-build`/`ln-refactor` is a separate, human-gated step.
 
-A generative audit *wants* to manufacture work — it goes looking for more. Left ungated it becomes completionist sprawl and topical caricature (`AGENTS.md`, user-global §Local necessity over category default). The triage gate (step 3) is what keeps this a diagnostic instrument and not a make-work generator. **Find and fix are separate**: this skill produces a triaged report and names adjacent work; it does not auto-implement. Routing to `ln-build`/`ln-refactor` is a separate, human-gated step.
+Read `memory/SPEC.md` first when it exists (lexicon, live architecture register, §Acknowledged Blind Spots); read `memory/PLAN.md` for active frontier context.
 
 ## Input
 
@@ -31,7 +32,7 @@ Normalize each item to `(location, claim, suggested fix)`. Drop nothing yet.
 
 ## 2. Abstract each item to a fault type (the lens)
 
-For each item, climb the abstraction ladder from the concrete comment toward the fault *type* behind it. The stopping rule is the whole craft here:
+For each item, climb the ladder of abstraction (Hayakawa; Bret Victor) from the concrete comment toward the fault *type* behind it. The stopping rule is the whole craft:
 
 > **Stop at the lowest rung that is both mechanically searchable AND names a repair.**
 
@@ -57,10 +58,10 @@ Fail any one → fix in place (or route the single finding), record nothing furt
 
 For each promoted lens, fish along **both** axes — not just the easy one:
 
-- **Family axis** (syntactic / structural): find every site sharing the pattern's shape. Grep-shaped, fast.
-- **Ownership axis** (responsibility / seam): audit everything a seam *owns*, to catch same-responsibility faults that share no syntax. This is the higher-value, harder sweep. **Force at least one ownership-seam question per promoted lens** — otherwise the skill quietly degenerates into "grep for the pattern."
+- **Family axis** (syntactic / structural): every site sharing the pattern's shape. Grep-shaped, fast.
+- **Ownership axis** (blast radius): everything a seam *owns* — same-responsibility faults that share no syntax (Parnas: a module's secret, not its shape). Higher-value, harder. **Force at least one ownership-seam question per promoted lens**, or the skill degenerates into "grep for the pattern."
 
-Collect each hit as a candidate finding. Verify it is a real instance, not a false positive that merely matches the shape.
+Mind the data plane: it is often gitignored, so `rg` silently reports it clean — enumerate committed artifacts with `git ls-files`, not an ignore-respecting glob. Verify each hit is a real instance, not a shape-only false positive.
 
 ## 5. Report
 
