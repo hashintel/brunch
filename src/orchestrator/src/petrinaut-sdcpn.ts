@@ -12,12 +12,12 @@
 // validate it against a mirror of Petrinaut's loader schema.
 //
 // Fidelity notes (v1):
-//   - All places are uncoloured (`colorId: null`); tokens carry no attributes,
+//   - All places are uncolored (`colorId: null`); tokens carry no attributes,
 //     so the marking collapses to per-place counts.
 //   - Guards live only as human-readable strings in net.json and cannot be
-//     expressed structurally without inhibitor arcs / coloured tokens, so every
+//     expressed structurally without inhibitor arcs / colored tokens, so every
 //     transition gets a permissive `predicate` lambda (always enabled) and an
-//     empty kernel (uncoloured output places are auto-populated by Petrinaut).
+//     empty kernel (uncolored output places are auto-populated by Petrinaut).
 //   - Initial marking maps to a single `per_place` scenario keyed by place ID
 //     (Petrinaut's per_place content is keyed by ID, not name).
 //   - This is therefore a visualization/import projection, not a lossless
@@ -35,7 +35,7 @@ export const SDCPN_FILE_FORMAT_VERSION = 1;
 
 /** Predicate lambda that always enables the transition (presence-gated firing). */
 const ALWAYS_ENABLED_LAMBDA = 'export default Lambda(() => true)';
-/** Empty kernel — every output place is uncoloured, so none are listed. */
+/** Empty kernel — every output place is uncolored, so none are listed. */
 const EMPTY_KERNEL = 'export default TransitionKernel(() => ({}))';
 
 export type SdcpnPlace = {

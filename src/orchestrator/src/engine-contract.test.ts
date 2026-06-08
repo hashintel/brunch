@@ -12,6 +12,7 @@ import {
   type PetrinautEvent,
   type PetrinautTransitionFiredEvent,
 } from './petrinaut-events.js';
+import { createNetFolding } from './petrinaut-fold.js';
 import { InMemoryReportSink } from './report-sink.js';
 import type { ActionContext, ActionHandlers, OrchestratorInput, Plan, RunCtx, TestRunner } from './types.js';
 
@@ -938,6 +939,7 @@ describe('FE-763: Petrinaut event stream on a real run', () => {
     const events: PetrinautEvent[] = [];
     const stream = createPetrinautEventStream({
       runId: 'run-e2e',
+      folding: createNetFolding(blueprint),
       onEvent: (e) => events.push(e),
     });
     stream.emitInitialMarking(blueprint);
@@ -951,12 +953,14 @@ describe('FE-763: Petrinaut event stream on a real run', () => {
 
     // 3. transition_fired events expose the FE-761 Slice 4 dispatch/complete
     //    topology directly in Petrinaut's wire format.
+    //    FE-784: names are color-folded to slice-independent roles (the
+    //    firing slice lives on the token color, not the transition name).
     const fired = events.filter((e): e is PetrinautTransitionFiredEvent => e.kind === 'transition_fired');
     const names = fired.map((e) => e.transitionName);
-    expect(names).toContain('slice-1:evaluate:dispatch');
-    expect(names).toContain('slice-1:evaluate:complete');
-    expect(names).toContain('slice-1:assess-semantic:dispatch');
-    expect(names).toContain('slice-1:assess-semantic:complete');
+    expect(names).toContain('evaluate:dispatch');
+    expect(names).toContain('evaluate:complete');
+    expect(names).toContain('assess-semantic:dispatch');
+    expect(names).toContain('assess-semantic:complete');
 
     // 4. each transition_fired carries per-place token data with a UUID
     //    (cross-team-agreed shape: { id: <UUID>, ...payload }).

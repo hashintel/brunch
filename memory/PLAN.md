@@ -219,6 +219,19 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Scope limits (v1):** Read-only from Petrinaut's perspective. Bidirectional comm, edit-back affordances, multi-user sessions all out of scope. **Graph editing during live ("actual") run explicitly rejected.** Non-actual-mode edit affordances would flow through a future brunch-owned plan-modification API; that API is out of scope for v1 and captured here as known follow-up only. Decision deferred until cross-team consensus on edit-affordance shape exists and a user-facing case justifies the work.
 - **Open / pending coordination:** Transport choice; auth model.
 
+### petrinaut-colour-fold
+
+- **Name:** Petrinaut export — colour-fold per-slice subnet
+- **Linear:** FE-784 (parent: FE-760)
+- **Kind:** structural
+- **Status:** in-progress (follow-up to FE-762 / FE-763)
+- **Objective:** Fold the per-slice concrete subnet (`slice:<sid>:*`) N→1 in the Petrinaut export projection, using token colour for slice identity, so the imported net stays legible on Petrinaut's flat (no-hierarchy/grouping) canvas. Faithful-mirror only: runtime (`petri-net.ts` / `net-compiler.ts`) untouched; the fold lives in `petrinaut-export.ts` + `petrinaut-events.ts`. Places strip the `slice:<sid>:` prefix and dedupe; transitions collapse groups with identical folded shape but keep divergent ones (dep-gated `slice-ready`, dep-signalling `return-done`) at concrete ids. net.json gains `tokenTypes` (SliceColour: sliceId/epicId discrete, retry/rework number) + optional place `typeId` (additive, schema 0.1.0→0.2.0). SDCPN stays count-fold (`colorId: null`) until Petrinaut discrete string token types land (H-6518/H-6519).
+- **Why now / unlocks:** FE-762/763 emit N duplicated lifecycles onto a flat canvas — illegible at scale and discarding coloured-Petri-net power. Folding is the only graph-simplification lever Petrinaut offers and also dissolves most of the per-slice naming problem (instance identity moves into the token colour, not the node name).
+- **Acceptance:** uniform lifecycle places/transitions appear once for a 2-slice plan; divergent dep gates stay distinct; no `slice:` prefix survives in folded ids; folded slice places carry `typeId`; tokens preserve slice colour; SDCPN round-trip still validates; event stream folds concrete→folded consistently with the static export.
+- **Verification:** `serializeBlueprint` fold tests (uniform collapse, divergence preservation, arc/place conservation), event-adapter fold tests, SDCPN round-trip, `npm run verify`.
+- **Design docs:** follow-up to FE-762/FE-763; Petrinaut docs `libs/@hashintel/petrinaut/docs/{petri-net-extensions,useful-patterns}.md`.
+- **Current execution pointer:** fold landed; `NetFolding` extraction landed (`createNetFolding(blueprint)` owns the concrete→folded projection; `serializeBlueprint` and `createPetrinautEventStream` both consume it; the stream takes the folding at construction — temporal-coupling footgun removed; fold primitives are private). Seam-level invariant: static `net.json` export and the live event stream fold identically because both derive from one `NetFolding` (covered by the engine-contract e2e). All planned slices landed on branch: fold projection, `NetFolding` extraction, divergence-bound oracle, SDCPN folded-naming oracle, and colour→`color` naming alignment (brunch-owned identifiers now match Petrinaut's `colorId` wire field; SPEC §Lexicon carries `color fold` / `token color` / `folded net`). Implementation complete; pending `gt submit`. Remaining external dependency (not this frontier): SDCPN colour fidelity awaits Petrinaut discrete string token dimensions (H-6518/H-6519).
+
 ### continuous-workspace
 
 - **Name:** Continuous workspace / phase-addressable interview surface (Conversational Workspace Runtime — Track 1)

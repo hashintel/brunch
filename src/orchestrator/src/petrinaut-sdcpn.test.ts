@@ -91,6 +91,26 @@ const simplePlan: Plan = {
   ],
 };
 
+const depPlan: Plan = {
+  epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
+  slices: [
+    {
+      id: 'slice-a',
+      epic_id: 'epic-1',
+      definition: 'A',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'ta' }],
+    },
+    {
+      id: 'slice-b',
+      epic_id: 'epic-1',
+      definition: 'B',
+      depends_on: ['slice-a'],
+      verification: [{ kind: 'unit-test', target: 'tb' }],
+    },
+  ],
+};
+
 /** Build a real PetrinautNet from a plan (the actual `net.json` shape). */
 function realNet(plan: Plan): PetrinautNet {
   return serializeBlueprint(compileTopology(plan, { maxRetries: 3 }), { runId: 'run-1' });
@@ -101,7 +121,7 @@ describe('toSdcpnFile — envelope', () => {
     const file = toSdcpnFile(realNet(simplePlan), {});
     expect(file.version).toBe(SDCPN_FILE_FORMAT_VERSION);
     expect(file.meta.generator).toBe('brunch');
-    expect(file.meta.generatorVersion).toBe('0.1.0');
+    expect(file.meta.generatorVersion).toBe('0.2.0');
   });
 
   it('defaults the title to the runId and honours an override', () => {
@@ -109,7 +129,7 @@ describe('toSdcpnFile — envelope', () => {
     expect(toSdcpnFile(realNet(simplePlan), { title: 'My Net' }).title).toBe('My Net');
   });
 
-  it('includes all SDCPN collections (empty for an uncoloured net)', () => {
+  it('includes all SDCPN collections (empty for an uncolored net)', () => {
     const file = toSdcpnFile(realNet(simplePlan), {});
     expect(file.types).toEqual([]);
     expect(file.differentialEquations).toEqual([]);
@@ -119,7 +139,7 @@ describe('toSdcpnFile — envelope', () => {
 });
 
 describe('toSdcpnFile — places', () => {
-  it('preserves every place id as an uncoloured place', () => {
+  it('preserves every place id as an uncolored place', () => {
     const net = realNet(simplePlan);
     const file = toSdcpnFile(net, {});
     expect(file.places.map((p) => p.id).sort()).toEqual(net.places.map((p) => p.id).sort());
@@ -134,6 +154,7 @@ describe('toSdcpnFile — places', () => {
     const net: PetrinautNet = {
       schemaVersion: '0.1.0',
       runId: 'r',
+      tokenTypes: [],
       places: [
         { id: 'slice:version-flag:spec-ready', label: 'spec-ready' },
         { id: 'pool:test-agent', label: 'pool:test-agent' },
@@ -150,6 +171,7 @@ describe('toSdcpnFile — places', () => {
     const net: PetrinautNet = {
       schemaVersion: '0.1.0',
       runId: 'r',
+      tokenTypes: [],
       places: [
         { id: 'slice-1:done', label: 'done' },
         { id: 'slice-2:done', label: 'done' },
@@ -168,6 +190,7 @@ describe('toSdcpnFile — transitions', () => {
     const net: PetrinautNet = {
       schemaVersion: '0.1.0',
       runId: 'r',
+      tokenTypes: [],
       places: [
         { id: 'a', label: 'a' },
         { id: 'b', label: 'b' },
@@ -193,6 +216,7 @@ describe('toSdcpnFile — initial marking', () => {
     const net: PetrinautNet = {
       schemaVersion: '0.1.0',
       runId: 'r',
+      tokenTypes: [],
       places: [
         { id: 'pool:test-agent', label: 'pool:test-agent' },
         { id: 'slice:s:eligible', label: 'eligible' },
@@ -215,6 +239,7 @@ describe('toSdcpnFile — initial marking', () => {
     const net: PetrinautNet = {
       schemaVersion: '0.1.0',
       runId: 'r',
+      tokenTypes: [],
       places: [{ id: 'a', label: 'a' }],
       transitions: [],
       initialMarking: [],
@@ -237,5 +262,36 @@ describe('toSdcpnFile — round-trips through the Petrinaut loader', () => {
         expect(placeIds.has(placeId)).toBe(true);
       }
     }
+  });
+});
+
+describe('toSdcpnFile — folded multi-slice net (FE-784)', () => {
+  // The color fold's original motivation: clean SDCPN names. Before folding,
+  // every slice produced a `slice:slice-N:spec-ready` place that PascalCased to
+  // the same base, so the name allocator appended collision counters
+  // (SliceSliceSpecReady, SliceSliceSpecReady2, …). After folding, the slice
+  // lifecycle collapses to one copy, so no allocator suffix is needed.
+
+  it('produces collision-free PascalCase names with no allocator digit suffixes', () => {
+    const file = toSdcpnFile(realNet(depPlan), {});
+    // pascalCaseLetters strips digits from the source, so any digit in a final
+    // name can only be an allocator collision counter — there should be none.
+    for (const p of file.places) {
+      expect(p.name, `place ${p.id} got a collision-suffixed name ${p.name}`).not.toMatch(/\d/);
+    }
+    expect(new Set(file.places.map((p) => p.name)).size).toBe(file.places.length);
+  });
+
+  it('collapses the slice lifecycle: one shared place, far fewer than an unfolded 2-slice net', () => {
+    const single = toSdcpnFile(realNet(simplePlan), {}).places.length;
+    const file = toSdcpnFile(realNet(depPlan), {});
+    // Unfolded, two slices would roughly double the single-slice lifecycle.
+    // Folded, the shared lifecycle appears once, so dep stays well under 2×.
+    expect(file.places.length).toBeLessThan(single * 2);
+    expect(file.places.filter((p) => p.id === 'spec-ready')).toHaveLength(1);
+  });
+
+  it('still satisfies the Petrinaut loader schema', () => {
+    expect(sdcpnFileSchema.safeParse(toSdcpnFile(realNet(depPlan), {})).success).toBe(true);
   });
 });

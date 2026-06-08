@@ -36,6 +36,7 @@ import { appendFileSync, writeFileSync } from 'node:fs';
 
 import type { NetBlueprint, TokenSeed } from './net-blueprint.js';
 import type { NetEvent, NetEventSink, Token } from './petri-net.js';
+import type { NetFolding } from './petrinaut-fold.js';
 
 export type PetrinautToken = {
   id: string;
@@ -76,6 +77,8 @@ export type PetrinautEvent =
 
 export type CreatePetrinautEventStreamOpts = {
   runId: string;
+  /** The color fold of the net being run — folds concrete firings onto the folded net (FE-784). */
+  folding: NetFolding;
   /** When set, every event is appended as one JSON object per line. */
   filePath?: string;
   /** Override the per-token UUID generator (tests). */
@@ -101,7 +104,7 @@ export type PetrinautEventStream = {
  * without re-reading the file.
  */
 export function createPetrinautEventStream(opts: CreatePetrinautEventStreamOpts): PetrinautEventStream {
-  const { runId, filePath, onEvent, onError } = opts;
+  const { runId, folding, filePath, onEvent, onError } = opts;
   const tokenId = opts.tokenIdFn ?? randomUUID;
   let fileOutputDisabled = false;
 
@@ -120,22 +123,20 @@ export function createPetrinautEventStream(opts: CreatePetrinautEventStreamOpts)
     onEvent?.(event);
   }
 
-  function groupTokens(
+  /** Fold an event's parallel place/token arrays onto folded places and shape the tokens. */
+  function foldedTokensByPlace(
     places: string[] | undefined,
     tokens: Token[] | undefined,
   ): Record<string, PetrinautToken[]> {
+    if (!places) return {};
+    const entries = places.map((place, i) => {
+      const token = tokens?.[i];
+      return [place, token ? [token] : []] as const;
+    });
+    const byPlace = folding.foldedMarking(entries);
     const out: Record<string, PetrinautToken[]> = {};
-    if (!places) return out;
-    if (!tokens) {
-      for (const place of places) out[place] = [];
-      return out;
-    }
-    for (let i = 0; i < places.length; i++) {
-      const place = places[i]!;
-      const list = out[place] ?? [];
-      const token = tokens[i];
-      if (token) list.push(tokenToPetrinaut(token, tokenId));
-      out[place] = list;
+    for (const [place, placeTokens] of byPlace) {
+      out[place] = placeTokens.map((t) => tokenToPetrinaut(t, tokenId));
     }
     return out;
   }
@@ -151,9 +152,9 @@ export function createPetrinautEventStream(opts: CreatePetrinautEventStreamOpts)
             kind: 'transition_fired',
             ts: event.ts,
             runId,
-            transitionName: event.transitionId,
-            input: groupTokens(event.consumed, event.consumedTokens),
-            output: groupTokens(event.produced, event.producedTokens),
+            transitionName: folding.foldTransition(event.transitionId),
+            input: foldedTokensByPlace(event.consumed, event.consumedTokens),
+            output: foldedTokensByPlace(event.produced, event.producedTokens),
           });
           return;
         }
@@ -167,11 +168,12 @@ export function createPetrinautEventStream(opts: CreatePetrinautEventStreamOpts)
   };
 
   function emitInitialMarking(blueprint: NetBlueprint): void {
+    const byPlace = folding.foldedMarking(
+      blueprint.initialTokens.map(({ place, token }) => [place, [token]] as const),
+    );
     const marking: Record<string, PetrinautToken[]> = {};
-    for (const { place, token } of blueprint.initialTokens) {
-      const list = marking[place] ?? [];
-      list.push(seedToPetrinaut(token, tokenId()));
-      marking[place] = list;
+    for (const [place, seeds] of byPlace) {
+      marking[place] = seeds.map((seed) => seedToPetrinaut(seed, tokenId()));
     }
     publish({
       kind: 'initial_marking',
