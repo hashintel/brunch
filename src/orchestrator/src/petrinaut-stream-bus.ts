@@ -17,11 +17,11 @@
 // Frame translation re-uses the same `eventToTransitionFiring` /
 // `reduceMarking` / `projectNetDefinition` helpers as the static reducer
 // (`reduceBrunchExecutionExport`) so the live stream and the static export
-// produce structurally identical content. The bus threads a running
-// cumulative marking through `eventToTransitionFiring` so each
-// `transition_firing` frame carries the full pre/post net marking (FE-819
-// Card A), not just the touched places. Replay-equivalence is enforced by
-// the oracle in `petrinaut-stream-bus.test.ts`.
+// produce structurally identical content. Each `transition_firing` frame
+// carries only the arc-scoped consume/produce delta (FE-819, A99); the single
+// `initial_state` frame carries the full marking, and the consumer
+// reconstructs the running net state from it. Replay-equivalence is enforced
+// by the oracle in `petrinaut-stream-bus.test.ts`.
 // ---------------------------------------------------------------------------
 
 import type { PetrinautEvent, TerminalEventKind } from './petrinaut-events.js';
@@ -115,9 +115,6 @@ export function createPetrinautStreamBus(opts: CreatePetrinautStreamBusOpts): Pe
   // leading `status` frame (FE-819 Card B).
   let runState: RunState = 'running';
   let runReason: string | undefined;
-  // Running cumulative marking, folded forward across firings so each frame
-  // carries the full net state (FE-819 Card A). Empty until initial_marking.
-  let currentMarking: Marking = {};
   const subscribers = new Set<PetrinautStreamSubscriber>();
 
   // Deliver to live subscribers only — no buffering. Snapshot to tolerate
@@ -136,19 +133,16 @@ export function createPetrinautStreamBus(opts: CreatePetrinautStreamBusOpts): Pe
       if (terminalEmitted) return;
       switch (event.kind) {
         case 'initial_marking':
-          currentMarking = reduceMarking(event.marking);
           broadcast({
             kind: 'initial_state',
-            initialState: projectMarking(currentMarking, surviving.places),
+            initialState: projectMarking(reduceMarking(event.marking), surviving.places),
           });
           return;
         case 'transition_fired': {
-          const { firing, nextMarking } = eventToTransitionFiring(event, currentMarking);
-          currentMarking = nextMarking;
-          // Fold stays full; the frame is projected onto surviving nodes. A
-          // suppressed-transition firing (mechanical mode) drops here, having
-          // already advanced the full marking (FE-819 Card E).
-          const projected = projectFiring(firing, surviving);
+          // Each firing is an arc-scoped delta; the frame is projected onto
+          // surviving nodes. A suppressed-transition firing (mechanical mode)
+          // drops here (FE-819 Card E).
+          const projected = projectFiring(eventToTransitionFiring(event), surviving);
           if (projected) broadcast({ kind: 'transition_firing', firing: projected });
           return;
         }
@@ -175,9 +169,7 @@ export function createPetrinautStreamBus(opts: CreatePetrinautStreamBusOpts): Pe
           // the halt/completion is structurally visible — the final frame
           // deposits the status token into run:halted / run:completed.
           {
-            const { firing, nextMarking } = synthesizeRunStatusFiring(currentMarking, event.kind, event.ts);
-            currentMarking = nextMarking;
-            const projected = projectFiring(firing, surviving);
+            const projected = projectFiring(synthesizeRunStatusFiring(event.kind, event.ts), surviving);
             if (projected) broadcast({ kind: 'transition_firing', firing: projected });
           }
           broadcast({ kind: 'terminal', state: runState, ...(event.reason ? { reason: event.reason } : {}) });

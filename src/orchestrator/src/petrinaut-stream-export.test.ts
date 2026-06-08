@@ -274,36 +274,35 @@ describe('reduceBrunchExecutionExport — markings + firings', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Inverted frame-replay oracle — the load-bearing test for the contract.
+// Arc-scoped delta oracle — the load-bearing test for the contract.
 //
-// Card A (FE-819) flips the marking semantics: every firing's `input` carries
-// the COMPLETE pre-firing net marking and `output` the COMPLETE post-firing
-// marking, so Petrinaut's actual-mode frame reader (which treats `firing.output`
-// as the whole frame marking) renders the true net state — pools, budgets, all
-// slices — at every frame, not just the one place a transition touched.
+// FE-819 (reversing Card A per A99): every firing carries only the arc-scoped
+// delta — `input` the tokens consumed from the transition's input-arc places,
+// `output` the new tokens produced into its output-arc places — never places
+// the transition isn't connected to. `initialState` is the single full
+// marking; the consumer (Petrinaut) reconstructs the running net state by
+// applying each delta on top of it.
 //
-// The old delta-based oracle folded per-firing deltas onto a running marking.
-// That is now inverted: the firings ARE the full markings, so the oracle
-// reconstructs the per-firing delta from consecutive full markings and asserts
-// non-negativity + token conservation against the known event deltas.
+// The oracle asserts (1) each firing equals exactly its event's consume/produce
+// delta, (2) untouched places never appear in any firing, and (3) replaying the
+// deltas onto `initialState` is non-negative throughout and conserves tokens to
+// the expected final marking.
 //
 // Fixture: a 4-place / 2-transition net with an untouched `pool:budget` place
-// holding 5 tokens that NO transition ever consumes or produces. Under the old
-// delta semantics that place is invisible in every firing (the field symptom:
-// "pools/budgets invisible, one token moving at a time"). Under full markings
-// it must appear — unchanged at 5 — in every frame.
+// holding 5 tokens that NO transition ever consumes or produces. It must appear
+// in `initialState` but in NO firing — Petrinaut carries it forward itself.
 //
 // Hand-crafted rather than engine-driven because the reducer is the unit under
 // test here. Engine-driven oracles elsewhere exercise the identity-fold
 // default end to end.
 // ---------------------------------------------------------------------------
 
-describe('reduceBrunchExecutionExport — inverted frame-replay oracle (full markings)', () => {
+describe('reduceBrunchExecutionExport — arc-scoped delta oracle', () => {
   // Three-flow places + one untouched pool: src -- t-consume --> middle -- t-emit --> dst
   const sdcpnFile: SdcpnFile = {
     version: 1,
     meta: { generator: 'brunch', generatorVersion: '0.2.0' },
-    title: 'frame-replay-fixture',
+    title: 'arc-delta-fixture',
     places: [
       {
         id: 'pool:budget',
@@ -391,76 +390,43 @@ describe('reduceBrunchExecutionExport — inverted frame-replay oracle (full mar
     // its own describe block.
   ];
 
-  /** Independent reference fold of event deltas → full marking, never absent/zero places. */
+  /** Independent count-reduce of a per-place token map, never absent/zero places. */
   function countsOf(byPlace: Record<string, readonly unknown[]>): Record<string, number> {
     const out: Record<string, number> = {};
     for (const [p, toks] of Object.entries(byPlace)) if (toks.length > 0) out[p] = toks.length;
     return out;
   }
-  function applyDelta(
-    current: Record<string, number>,
-    consumed: Record<string, number>,
-    produced: Record<string, number>,
-  ): Record<string, number> {
-    const next = { ...current };
-    for (const [p, n] of Object.entries(consumed)) next[p] = (next[p] ?? 0) - n;
-    for (const [p, n] of Object.entries(produced)) next[p] = (next[p] ?? 0) + n;
-    for (const [p, n] of Object.entries(next)) if (n === 0) delete next[p];
-    return next;
-  }
 
-  // Reference full markings folded from the raw event deltas, independent of
-  // the reducer under test.
-  const referenceMarkings = (() => {
-    const firingEvents = events.filter((e) => e.kind === 'transition_fired');
-    const initialEvent = events.find((e) => e.kind === 'initial_marking')!;
-    let current = countsOf(initialEvent.kind === 'initial_marking' ? initialEvent.marking : {});
-    const frames: { pre: Record<string, number>; post: Record<string, number> }[] = [];
-    for (const e of firingEvents) {
-      if (e.kind !== 'transition_fired') continue;
-      const pre = { ...current };
-      current = applyDelta(current, countsOf(e.input), countsOf(e.output));
-      frames.push({ pre, post: { ...current } });
-    }
-    return { initial: countsOf(initialEvent.kind === 'initial_marking' ? initialEvent.marking : {}), frames };
-  })();
+  const firingEvents = events.filter((e) => e.kind === 'transition_fired');
 
-  it('first-frame-input — firing 0 `input` equals initialState', () => {
+  it('initialState is the single full marking — including the untouched pool:budget', () => {
     const result = reduceBrunchExecutionExport({ sdcpnFile, events });
-    expect(result.transitionFirings[0]!.input).toEqual(result.initialState);
     expect(result.initialState).toEqual({ 'pool:budget': 5, src: 2 });
   });
 
-  it('cumulative-fold — frame i `output` equals fold(initialState, deltas 0..i)', () => {
+  it('arc-scoped — each firing carries exactly its event’s consume/produce delta', () => {
     const result = reduceBrunchExecutionExport({ sdcpnFile, events });
+    expect(result.transitionFirings).toHaveLength(firingEvents.length);
     result.transitionFirings.forEach((firing, i) => {
-      expect(firing.input, `frame ${i} input`).toEqual(referenceMarkings.frames[i]!.pre);
-      expect(firing.output, `frame ${i} output`).toEqual(referenceMarkings.frames[i]!.post);
+      const ev = firingEvents[i]!;
+      if (ev.kind !== 'transition_fired') return;
+      expect(firing.input, `frame ${i} input`).toEqual(countsOf(ev.input));
+      expect(firing.output, `frame ${i} output`).toEqual(countsOf(ev.output));
     });
   });
 
-  it('frame chaining — firing i `input` equals firing (i-1) `output`', () => {
+  it('untouched places never appear — pool:budget is in no firing’s input or output', () => {
     const result = reduceBrunchExecutionExport({ sdcpnFile, events });
-    for (let i = 1; i < result.transitionFirings.length; i++) {
-      expect(result.transitionFirings[i]!.input, `frame ${i} input vs prev output`).toEqual(
-        result.transitionFirings[i - 1]!.output,
-      );
-    }
-  });
-
-  it('pools/budgets visible — the untouched pool:budget place shows 5 in every frame', () => {
-    const result = reduceBrunchExecutionExport({ sdcpnFile, events });
-    expect(result.initialState['pool:budget']).toBe(5);
     for (const firing of result.transitionFirings) {
-      expect(firing.input['pool:budget'], `${firing.transitionId} input pool`).toBe(5);
-      expect(firing.output['pool:budget'], `${firing.transitionId} output pool`).toBe(5);
+      expect(firing.input, `${firing.transitionId} input`).not.toHaveProperty('pool:budget');
+      expect(firing.output, `${firing.transitionId} output`).not.toHaveProperty('pool:budget');
     }
   });
 
-  it('inverted oracle — per-firing delta from consecutive full markings is non-negative + token-conserving', () => {
+  it('delta replay — accumulating firings onto initialState is non-negative and conserves tokens', () => {
     const result = reduceBrunchExecutionExport({ sdcpnFile, events });
 
-    // referential integrity
+    // referential integrity: every firing references ids present in the definition.
     const placeIds = new Set(result.definition.places.map((p) => p.id));
     const transitionIds = new Set(result.definition.transitions.map((t) => t.id));
     for (const f of result.transitionFirings) {
@@ -469,36 +435,17 @@ describe('reduceBrunchExecutionExport — inverted frame-replay oracle (full mar
       for (const p of Object.keys(f.output)) expect(placeIds.has(p)).toBe(true);
     }
 
-    // no negative markings anywhere
-    for (const f of result.transitionFirings) {
-      for (const v of Object.values(f.input)) if (typeof v === 'number') expect(v).toBeGreaterThanOrEqual(0);
-      for (const v of Object.values(f.output)) if (typeof v === 'number') expect(v).toBeGreaterThanOrEqual(0);
+    // Replay the way the consumer must: subtract input, add output, step by step.
+    let marking: Record<string, number> = { ...result.initialState };
+    for (const firing of result.transitionFirings) {
+      for (const [p, n] of Object.entries(firing.input)) marking[p] = (marking[p] ?? 0) - n;
+      for (const [p, n] of Object.entries(firing.output)) marking[p] = (marking[p] ?? 0) + n;
+      for (const v of Object.values(marking)) expect(v).toBeGreaterThanOrEqual(0);
     }
+    marking = Object.fromEntries(Object.entries(marking).filter(([, n]) => n !== 0));
 
-    // invert each frame: reconstructed delta (output - input) must match the
-    // known event delta (produced - consumed), and conserve tokens on the
-    // untouched pool.
-    const firingEvents = events.filter((e) => e.kind === 'transition_fired');
-    result.transitionFirings.forEach((firing, i) => {
-      const ev = firingEvents[i]!;
-      if (ev.kind !== 'transition_fired') return;
-      const consumed = countsOf(ev.input);
-      const produced = countsOf(ev.output);
-      const touched = new Set([...Object.keys(consumed), ...Object.keys(produced)]);
-      for (const p of touched) {
-        const before = (firing.input[p] as number | undefined) ?? 0;
-        const after = (firing.output[p] as number | undefined) ?? 0;
-        const reconstructed = after - before;
-        const expectedDelta = (produced[p] ?? 0) - (consumed[p] ?? 0);
-        expect(reconstructed, `frame ${i} place ${p} delta`).toBe(expectedDelta);
-      }
-      // untouched places are unchanged across the firing
-      expect(firing.input['pool:budget']).toBe(firing.output['pool:budget']);
-    });
-
-    // final marking: budget intact, source + middle drained, all flow tokens on dst
-    const final = result.transitionFirings.at(-1)!.output;
-    expect(final).toEqual({ 'pool:budget': 5, dst: 2 });
+    // final marking: budget intact (never touched), source + middle drained, all flow tokens on dst.
+    expect(marking).toEqual({ 'pool:budget': 5, dst: 2 });
   });
 });
 
@@ -508,7 +455,8 @@ describe('reduceBrunchExecutionExport — inverted frame-replay oracle (full mar
 // The projected definition gains `run:completed` / `run:halted` places and a
 // `run:finish` transition; run end fires one synthetic `transition_firing`
 // depositing a token in the matching place, so a halt is structurally visible
-// in today's Petrinaut. The synthetic firing carries full markings (Card A).
+// in today's Petrinaut. The synthetic firing is an arc-scoped delta (A99):
+// it consumes nothing and produces one status token.
 // ---------------------------------------------------------------------------
 
 describe('reduceBrunchExecutionExport — synthetic run-status (Card C)', () => {
@@ -593,14 +541,12 @@ describe('reduceBrunchExecutionExport — synthetic run-status (Card C)', () => 
     expect(last.output[RUN_HALTED_PLACE]).toBe(1);
   });
 
-  it('the synthetic firing composes with Card A full markings — output keeps the prior marking plus the status token', () => {
+  it('the synthetic firing is an arc-scoped delta — consumes nothing, produces one status token', () => {
     const result = reduceBrunchExecutionExport({ sdcpnFile, events: eventsEndingIn('net_halted') });
-    const realFiring = result.transitionFirings.at(-2)!;
     const synthetic = result.transitionFirings.at(-1)!;
-    // run:finish's input is the full marking after the real firing.
-    expect(synthetic.input).toEqual(realFiring.output);
-    // its output is that marking plus exactly the status token.
-    expect(synthetic.output).toEqual({ ...realFiring.output, [RUN_HALTED_PLACE]: 1 });
+    expect(synthetic.transitionId).toBe(RUN_FINISH_TRANSITION);
+    expect(synthetic.input).toEqual({});
+    expect(synthetic.output).toEqual({ [RUN_HALTED_PLACE]: 1 });
   });
 
   it('the synthetic run:finish references only ids present in the definition (no unknown-id firings)', () => {

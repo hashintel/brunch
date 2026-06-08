@@ -7,7 +7,7 @@ import { type BrunchExecutionExport, reduceBrunchExecutionExport } from './petri
 
 // ---------------------------------------------------------------------------
 // Minimal SdcpnFile fixture — three-place / two-transition net mirroring the
-// frame-replay oracle in petrinaut-stream-export.test.ts. The bus is
+// arc-scoped delta oracle in petrinaut-stream-export.test.ts. The bus is
 // fold-agnostic; the SDCPN content only matters to the `definition` frame.
 // ---------------------------------------------------------------------------
 
@@ -135,24 +135,23 @@ describe('createPetrinautStreamBus — frame translation (pre-subscribed)', () =
       't-emit',
       'run:finish',
     ]);
-    // Full markings (FE-819 Card A): `input` is the complete pre-firing
-    // marking, `output` the complete post-firing marking — not the touched-
-    // place delta. The fixture starts with src: 2.
-    expect(firings[0]!.firing.input).toEqual({ src: 2 });
-    expect(firings[0]!.firing.output).toEqual({ src: 1, middle: 1 });
+    // Arc-scoped deltas (FE-819, A99): `input` is only the tokens consumed
+    // from the transition's input-arc places, `output` only the new tokens
+    // produced into its output-arc places — never untouched places.
+    expect(firings[0]!.firing.input).toEqual({ src: 1 });
+    expect(firings[0]!.firing.output).toEqual({ middle: 1 });
     expect(firings[0]!.firing.ts).toBe('2026-06-02T00:00:00.100Z');
-    // Firings chain: each input equals the previous output.
-    expect(firings[1]!.firing.input).toEqual({ src: 1, middle: 1 });
-    expect(firings[1]!.firing.output).toEqual({ middle: 2 });
-    expect(firings[2]!.firing.input).toEqual({ middle: 2 });
-    expect(firings[2]!.firing.output).toEqual({ middle: 1, dst: 1 });
-    // The synthetic run:finish deposits the status token into the full marking
+    expect(firings[1]!.firing.input).toEqual({ src: 1 });
+    expect(firings[1]!.firing.output).toEqual({ middle: 1 });
+    expect(firings[2]!.firing.input).toEqual({ middle: 1 });
+    expect(firings[2]!.firing.output).toEqual({ dst: 1 });
+    // The synthetic run:finish consumes nothing and produces one status token
     // (the `halted` fixture carries no reason → run:halted).
-    expect(firings[3]!.firing.input).toEqual({ middle: 1, dst: 1 });
-    expect(firings[3]!.firing.output).toEqual({ middle: 1, dst: 1, 'run:halted': 1 });
+    expect(firings[3]!.firing.input).toEqual({});
+    expect(firings[3]!.firing.output).toEqual({ 'run:halted': 1 });
   });
 
-  it('does not let delivered firing outputs mutate the bus marking', () => {
+  it('delivers independent firing objects — mutating one frame does not affect another', () => {
     const bus = createPetrinautStreamBus({ runId: 'run-bus', sdcpnFile });
     const frames: BrunchExecutionExportFrame[] = [];
     bus.subscribe((f) => frames.push(f));
@@ -173,7 +172,7 @@ describe('createPetrinautStreamBus — frame translation (pre-subscribed)', () =
       (f): f is Extract<BrunchExecutionExportFrame, { kind: 'transition_firing' }> =>
         f.kind === 'transition_firing',
     );
-    expect(firings[1]!.firing.input).toEqual({ src: 1, middle: 1 });
+    expect(firings[1]!.firing.input).toEqual({ src: 1 });
   });
 
   it('emits exactly one definition frame even if subscribe is called before any publish', () => {

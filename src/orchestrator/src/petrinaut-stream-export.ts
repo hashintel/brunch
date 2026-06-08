@@ -6,13 +6,14 @@
 // Petrinaut's read-only "actual/live" tab. Pure — no filesystem. The stream
 // bus composes wire frames from the same reducer output.
 //
-// Marking semantics (FE-819 Card A): every firing carries the COMPLETE net
-// marking — `input` the full pre-firing, `output` the full post-firing — not
-// just the touched places. The engine emits per-firing deltas; this module
-// folds them onto a running cumulative marking, count-only
-// (`Record<PlaceId, number>`), so Petrinaut's frame reader renders the true
-// net state at every frame. Slice/colour identity has no wire carrier on this
-// interface (see `NetDefinition`).
+// Marking semantics (FE-819, reverses Card A per A99): every firing carries
+// only the ARC-SCOPED delta — `input` the tokens consumed from the
+// transition's input-arc places, `output` the new tokens produced into its
+// output-arc places — never places the transition isn't connected to. Counts
+// only (`Record<PlaceId, number>`). `initialState` is the single full marking;
+// the consumer (Petrinaut) reconstructs the running net state by applying each
+// firing's delta on top of it. Slice/colour identity has no wire carrier on
+// this interface (see `NetDefinition`).
 // ---------------------------------------------------------------------------
 
 import type { PetrinautEvent, PetrinautTransitionFiredEvent, TerminalEventKind } from './petrinaut-events.js';
@@ -129,8 +130,8 @@ export type ReduceBrunchExecutionExportInput = {
  * - `transitionFirings` are the `transition_fired` events in arrival order,
  *   with `transitionName` mapped to `transitionId` and `ts` preserved
  *   verbatim, then one synthetic `run:finish` firing at the first terminal
- *   event (Card C). Each firing carries the full pre/post net marking (Card
- *   A); per-place keys with zero tokens are not synthesized.
+ *   event (Card C). Each firing carries only the arc-scoped consume/produce
+ *   delta (A99); per-place keys with zero tokens are not synthesized.
  */
 export function reduceBrunchExecutionExport(input: ReduceBrunchExecutionExportInput): BrunchExecutionExport {
   const definition = augmentDefinitionWithRunStatus(projectNetDefinition(input.sdcpnFile));
@@ -139,14 +140,9 @@ export function reduceBrunchExecutionExport(input: ReduceBrunchExecutionExportIn
   if (!initial || initial.kind !== 'initial_marking') {
     throw new Error('reduceBrunchExecutionExport: missing initial_marking event');
   }
-  // The fold runs on the FULL real marking; frames are projected onto the
-  // definition's surviving nodes (FE-819 Card E). In `both` mode the definition
-  // retains every node, so projection is a no-op; in `mechanical` mode the
-  // (already lane-projected) definition lacks semantic nodes, so suppressed-
-  // transition firings drop and semantic-place tokens fall out of every frame.
-  // The fold runs on the FULL real marking; in `mechanical` mode each frame is
-  // projected onto the (lane-projected) definition's surviving nodes — suppressed-
-  // transition firings drop and semantic-place tokens fall out. `both` is identity.
+  // Each firing is an arc-scoped delta. `mechanical` mode restricts it to the
+  // (lane-projected) definition's surviving nodes and drops suppressed-
+  // transition firings (FE-819 Card E); `both` retains every node (identity).
   const surviving = input.lanes === 'mechanical' ? survivingNodes(definition) : undefined;
   const project = (firing: TransitionFiring): TransitionFiring | null =>
     surviving ? projectFiring(firing, surviving) : firing;
@@ -155,24 +151,19 @@ export function reduceBrunchExecutionExport(input: ReduceBrunchExecutionExportIn
   const initialState = surviving ? projectMarking(fullInitial, surviving.places) : fullInitial;
 
   const transitionFirings: TransitionFiring[] = [];
-  let current = fullInitial;
   let terminalFired = false;
   for (const event of input.events) {
     if (event.kind === 'transition_fired') {
-      const { firing, nextMarking } = eventToTransitionFiring(event, current);
-      const projected = project(firing);
+      const projected = project(eventToTransitionFiring(event));
       if (projected) transitionFirings.push(projected);
-      current = nextMarking;
     } else if (
       !terminalFired &&
       (event.kind === 'net_completed' || event.kind === 'net_halted' || event.kind === 'net_deadlocked')
     ) {
       // Run end fires one synthetic run-status firing (FE-819 Card C).
       terminalFired = true;
-      const { firing, nextMarking } = synthesizeRunStatusFiring(current, event.kind, event.ts);
-      const projected = project(firing);
+      const projected = project(synthesizeRunStatusFiring(event.kind, event.ts));
       if (projected) transitionFirings.push(projected);
-      current = nextMarking;
     }
   }
 
@@ -181,50 +172,22 @@ export function reduceBrunchExecutionExport(input: ReduceBrunchExecutionExportIn
 
 /**
  * Project a single `transition_fired` PetrinautEvent into its contract-side
- * `TransitionFiring`, given the full marking that holds *before* the firing.
- * Returns the firing — `input` is `preMarking`, `output` is the full marking
- * *after* folding the event's consume/produce deltas — and `nextMarking` so the
- * caller can thread cumulative state into the following firing.
+ * `TransitionFiring`. `input` is the arc-scoped consume delta (tokens removed
+ * from the transition's input-arc places), `output` the arc-scoped produce
+ * delta (new tokens added to its output-arc places) — never places the
+ * transition isn't connected to (A99). The consumer reconstructs the running
+ * marking from `initialState`.
  *
  * Shared by the static reducer above and the live stream bus
- * (`createPetrinautStreamBus`) so both paths produce identical full-marking
- * firings.
+ * (`createPetrinautStreamBus`) so both paths produce identical firings.
  */
-export function eventToTransitionFiring(
-  event: PetrinautTransitionFiredEvent,
-  preMarking: Marking,
-): { firing: TransitionFiring; nextMarking: Marking } {
-  const consumed = reduceMarking(event.input);
-  const produced = reduceMarking(event.output);
-  const nextMarking = applyMarkingDelta(preMarking, consumed, produced);
+export function eventToTransitionFiring(event: PetrinautTransitionFiredEvent): TransitionFiring {
   return {
-    firing: {
-      transitionId: event.transitionName,
-      input: { ...preMarking },
-      output: { ...nextMarking },
-      ts: event.ts,
-    },
-    nextMarking,
+    transitionId: event.transitionName,
+    input: reduceMarking(event.input),
+    output: reduceMarking(event.output),
+    ts: event.ts,
   };
-}
-
-/**
- * Fold consume/produce deltas onto a full marking, returning a new marking.
- * Places that drain to zero are removed so "absent" and "zero" coincide,
- * matching `reduceMarking`'s no-empty-place invariant.
- */
-function applyMarkingDelta(current: Marking, consumed: Marking, produced: Marking): Marking {
-  const next: Marking = { ...current };
-  for (const [place, n] of Object.entries(consumed)) {
-    next[place] = (next[place] ?? 0) - n;
-  }
-  for (const [place, n] of Object.entries(produced)) {
-    next[place] = (next[place] ?? 0) + n;
-  }
-  for (const [place, count] of Object.entries(next)) {
-    if (count === 0) delete next[place];
-  }
-  return next;
 }
 
 /**
@@ -304,29 +267,24 @@ export function runStatusPlace(terminalKind: TerminalEventKind): PlaceId {
 }
 
 /**
- * Build the synthetic `run:finish` firing for run end, given the full marking
- * that holds before it. Deposits one token in the outcome's status place and
- * threads the resulting marking forward (Card A semantics). Shared by the
- * static reducer and the live stream bus so both paths produce the same final
- * frame.
+ * Build the synthetic `run:finish` firing for run end (FE-819 Card C). As an
+ * arc-scoped delta it consumes nothing and produces exactly one token into the
+ * outcome's status place. Shared by the static reducer and the live stream bus
+ * so both paths produce the same final frame.
  */
-export function synthesizeRunStatusFiring(
-  preMarking: Marking,
-  terminalKind: TerminalEventKind,
-  ts: string,
-): { firing: TransitionFiring; nextMarking: Marking } {
-  const place = runStatusPlace(terminalKind);
-  const nextMarking = applyMarkingDelta(preMarking, {}, { [place]: 1 });
+export function synthesizeRunStatusFiring(terminalKind: TerminalEventKind, ts: string): TransitionFiring {
   return {
-    firing: { transitionId: RUN_FINISH_TRANSITION, input: { ...preMarking }, output: { ...nextMarking }, ts },
-    nextMarking,
+    transitionId: RUN_FINISH_TRANSITION,
+    input: {},
+    output: { [runStatusPlace(terminalKind)]: 1 },
+    ts,
   };
 }
 
 /**
  * Count-reduce a per-place token map onto the count arm of Marking. Empty
- * places (zero tokens) are not synthesized into the result so frame-replay
- * doesn't need to distinguish "absent" from "zero".
+ * places (zero tokens) are not synthesized into the result, so "absent" and
+ * "zero" coincide on the wire.
  *
  * Exported so the live stream bus (`createPetrinautStreamBus`) reduces the
  * `initial_marking` event identically to the static reducer.

@@ -97,10 +97,10 @@ export function survivingNodes(definition: NetDefinition): SurvivingNodes {
 
 /**
  * Project one firing onto the surviving node sets. Returns `null` when the
- * firing's transition was suppressed (so the caller drops the frame but keeps
- * folding its full marking) — e.g. `assess-semantic:dispatch`. Surviving
- * firings (mechanical + the rewritten `return-done` bridge) get their markings
- * restricted to surviving places.
+ * firing's transition was suppressed (so the caller drops the frame) — e.g.
+ * `assess-semantic:dispatch`. Surviving firings (mechanical + the rewritten
+ * `return-done` bridge) get their consume/produce delta restricted to surviving
+ * places.
  */
 export function projectFiring(firing: TransitionFiring, surviving: SurvivingNodes): TransitionFiring | null {
   if (!surviving.transitions.has(firing.transitionId)) return null;

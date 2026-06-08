@@ -1017,12 +1017,12 @@ describe('Petrinaut event stream on a real run', () => {
 // ---------------------------------------------------------------------------
 // Engine wires `petrinautFold` into both the static export and the live event
 // stream; identity fold preserves concrete per-slice place ids.
-// Engine-driven frame-replay oracle: drives a real cook run with
+// Engine-driven delta-replay oracle: drives a real cook run with
 // petrinautFold='identity', reads the SDCPN + JSONL events from disk, reduces
 // them via reduceBrunchExecutionExport, and asserts replay invariants.
 // ---------------------------------------------------------------------------
 
-describe('identity-fold engine wiring + frame-replay oracle', () => {
+describe('identity-fold engine wiring + delta-replay oracle', () => {
   it("emits transition_fired events under concrete per-slice ids when petrinautFold='identity'", async () => {
     const fakes = createFakes();
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-identity-'));
